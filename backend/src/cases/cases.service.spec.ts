@@ -157,6 +157,33 @@ describe('CasesService', () => {
   // ── getList ────────────────────────────────────────────────────────────────
 
   describe('getList', () => {
+    // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
+    // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
+    // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ
+    // truyền mệnh đề sắp xếp mới xuống Prisma.
+    it('mặc định sắp theo NGÀY TIẾP NHẬN giảm dần, hồ sơ trống xuống cuối', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { orderBy } = mockPrisma.case.findMany.mock.calls[0][0];
+      // NULLS LAST: Postgres mặc định NULLS FIRST ở chiều DESC, nên thiếu bước này
+      // thì hồ sơ KHÔNG có ngày sẽ nổi lên đầu — đúng thứ cần tránh.
+      expect(orderBy[0]).toEqual({ ngayDeXuat: { sort: 'desc', nulls: 'last' } });
+      expect(orderBy[orderBy.length - 1]).toEqual({ id: 'desc' });
+    });
+
+    it('tên cột tuỳ tiện KHÔNG đi vào truy vấn', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ sortBy: 'passwordHash' });
+
+      const { orderBy } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(JSON.stringify(orderBy)).not.toContain('passwordHash');
+    });
+
     it('should return paginated results', async () => {
       mockPrisma.case.findMany.mockResolvedValue([mockCase]);
       mockPrisma.case.count.mockResolvedValue(1);

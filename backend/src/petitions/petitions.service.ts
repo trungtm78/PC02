@@ -30,6 +30,7 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
+import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 
@@ -72,7 +73,7 @@ export class PetitionsService {
       wardTeamId,
       limit = 20,
       offset = 0,
-      sortBy = 'createdAt',
+      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
       sortOrder = 'desc',
     } = query;
 
@@ -152,17 +153,29 @@ export class PetitionsService {
       ];
     }
 
-    const allowedSortFields = [
-      'createdAt',
-      'updatedAt',
-      'receivedDate',
-      'deadline',
-      'status',
-      'senderName',
-    ];
-    const orderByField = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'createdAt';
+    // Mặc định sắp theo NGÀY NHẬN, không phải ngày tạo. Lý do đo được trên dữ liệu
+    // thật: toàn bộ 45.459 đơn thư có CÙNG một `createdAt` (ngày di trú), nên sắp theo
+    // nó cho ra thứ tự ngẫu nhiên. `receivedDate` phủ 100% và là NOT NULL.
+    // Kèm lợi ích: `receivedDate` CÓ chỉ mục còn `createdAt` thì không.
+    const orderBy = buildListOrderBy({
+      sortBy,
+      sortOrder: sortOrder as ListSortOrder,
+      allowed: [
+        'createdAt',
+        'updatedAt',
+        'receivedDate',
+        'deadline',
+        'status',
+        'senderName',
+      ],
+      defaultField: 'receivedDate',
+      nullableFields: ['deadline', 'sortReceivedDate'],
+      // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
+      // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,
+      // 0225...). Kèm NULLS LAST thì rác chìm xuống cuối thay vì chiếm màn hình đầu.
+      // Cột HIỂN THỊ vẫn là `receivedDate` gốc — không giấu dữ liệu, chỉ đổi thứ tự.
+      fieldAliases: { receivedDate: 'sortReceivedDate' },
+    });
 
     const [data, total] = await Promise.all([
       this.prisma.petition.findMany({
@@ -203,7 +216,7 @@ export class PetitionsService {
             select: { ward: { select: { name: true } } },
           },
         },
-        orderBy: { [orderByField]: sortOrder },
+        orderBy,
         take: limit,
         skip: offset,
       }),
@@ -1166,7 +1179,10 @@ export class PetitionsService {
     const records = await this.prisma.petition.findMany({
       where,
       take: 500,
-      orderBy: { receivedDate: 'desc' },
+      // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
+      // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
+      // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
+      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
       select: {
         id: true,
         stt: true,
@@ -1294,7 +1310,10 @@ export class PetitionsService {
     const records = await this.prisma.petition.findMany({
       where,
       take: 500,
-      orderBy: { receivedDate: 'desc' },
+      // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
+      // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
+      // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
+      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
       select: {
         id: true,
         stt: true,

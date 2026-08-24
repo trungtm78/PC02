@@ -22,6 +22,8 @@ import { api } from '@/lib/api';
 import {
   ListPageShell,
   useListPageUrlState,
+  useListSort,
+  DateCell,
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
@@ -98,6 +100,7 @@ interface IncidentRow {
   deadline?: string | null;
   investigator?: { firstName?: string; lastName?: string; username: string } | null;
   donViGiaiQuyet?: string | null;
+  ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -147,6 +150,7 @@ function isOverdue(deadline?: string | null): boolean {
 export function IncidentListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('incidents');
+  const sort = useListSort('incidents');
 
   const rawStatus = url.getParam('status');
   const statusFilter = isValidIncidentStatus(rawStatus) ? rawStatus : null;
@@ -270,6 +274,7 @@ export function IncidentListPageShell() {
       ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
       ...(phaseFilter && { phase: phaseFilter }),
+      ...sort.params,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -295,7 +300,7 @@ export function IncidentListPageShell() {
     return () => ctrl.abort();
     // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
@@ -443,6 +448,7 @@ export function IncidentListPageShell() {
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
           const overdue = isOverdue(r.deadline);
@@ -454,8 +460,15 @@ export function IncidentListPageShell() {
         },
       },
       {
+        key: 'ngayDeXuat',
+        header: 'Ngày tiếp nhận',
+        sortKey: 'ngayDeXuat',
+        render: (r) => <DateCell value={r.ngayDeXuat} />,
+      },
+      {
         key: 'createdAt',
         header: 'Ngày tạo',
+        sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
     ],
@@ -618,6 +631,9 @@ export function IncidentListPageShell() {
         </div>
       )}
       <ListPageShell.Table<IncidentRow>
+        sortBy={sort.sortBy}
+        sortOrder={sort.sortOrder}
+        onSort={sort.onSort}
         state={tableState}
         columns={columns}
         data={rows}

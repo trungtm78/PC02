@@ -22,6 +22,8 @@ import { api } from '@/lib/api';
 import {
   ListPageShell,
   useListPageUrlState,
+  useListSort,
+  DateCell,
   type ColumnDef,
   type TableState,
 } from '@/components/shared/ListPageShell';
@@ -80,6 +82,7 @@ interface CaseRow {
   status: CaseStatus;
   unit: string | null;
   investigator: { firstName?: string; lastName?: string; username: string } | null;
+  ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,6 +126,7 @@ function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
 export function CaseListPageShell() {
   const navigate = useNavigate();
   const url = useListPageUrlState('cases');
+  const sort = useListSort('cases');
 
   // AUTO-FIX #5: validate URL status param immediately at trust boundary.
   const rawStatus = url.getParam('status');
@@ -238,6 +242,7 @@ export function CaseListPageShell() {
       ...baseQueryParams,
       ...(statusFilter && { status: statusFilter }),
       ...(groupFilter && { statusGroup: groupFilter }),
+      ...sort.params,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -265,7 +270,7 @@ export function CaseListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
 
   // Stats dùng CHUNG baseQueryParams với danh sách (backend strip status/statusGroup).
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
@@ -417,8 +422,15 @@ export function CaseListPageShell() {
         render: (r) => r.unit ?? '—',
       },
       {
+        key: 'ngayDeXuat',
+        header: 'Ngày tiếp nhận',
+        sortKey: 'ngayDeXuat',
+        render: (r) => <DateCell value={r.ngayDeXuat} />,
+      },
+      {
         key: 'createdAt',
         header: 'Ngày tạo',
+        sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
     ],
@@ -533,6 +545,9 @@ export function CaseListPageShell() {
         </div>
       )}
       <ListPageShell.Table<CaseRow>
+        sortBy={sort.sortBy}
+        sortOrder={sort.sortOrder}
+        onSort={sort.onSort}
         state={tableState}
         columns={columns}
         data={rows}

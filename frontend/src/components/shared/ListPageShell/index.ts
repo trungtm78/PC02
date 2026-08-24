@@ -50,6 +50,13 @@ export type { TableProps, ColumnDef, TableState } from './Table';
 export type { PaginationProps } from './Pagination';
 export type { BannersProps } from './Banners';
 export { useListPageUrlState } from './useListPageUrlState';
+export { useListSort } from './useListSort';
+export type { ListSort } from './useListSort';
+export { resolveNextSort } from './sortState';
+export type { SortState, SortDirection } from './sortState';
+export { DateCell } from './DateCell';
+export { isImplausibleDate } from './implausibleDate';
+export { SortableHeader } from './SortableHeader';
 export type { ListPageUrlState } from './useListPageUrlState';
 // F3 shared utilities (post-PR5 cleanup) — see listPageUtils.ts
 export {

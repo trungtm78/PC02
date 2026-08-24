@@ -64,10 +64,12 @@ export class QueryPetitionsDto {
 
   @IsOptional()
   @IsString()
-  sortBy?: string = 'createdAt';
+  // KHONG dat mac dinh o day: moi module co truong mac dinh rieng, quyet dinh o
+  // service qua buildListOrderBy. Dat mac dinh o DAY se de len mac dinh do.
+  sortBy?: string;
 
   @IsOptional()
-  @IsString()
+  @Transform(({ value }) => (value === 'asc' ? 'asc' : 'desc'))
   sortOrder?: 'asc' | 'desc' = 'desc';
 
   @IsOptional()

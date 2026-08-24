@@ -20,7 +20,6 @@ import {
   TABLE_WRAPPER,
   TABLE_BASE,
   TABLE_HEADER,
-  TABLE_HEADER_CELL,
   TABLE_BODY,
   TABLE_CELL,
   TABLE_SECTION_CARD,
@@ -35,6 +34,7 @@ import {
   BTN_OUTLINE_SLATE,
   A11Y_FOCUS_RING,
 } from '@/constants/styles';
+import { SortableHeader } from './SortableHeader';
 import { useListPageShellContext } from './ListPageShell';
 
 export type TableState = 'loading' | 'error' | 'empty' | 'empty-filtered' | 'offline' | 'ready';
@@ -49,6 +49,12 @@ export interface ColumnDef<TRow> {
   headerClassName?: string;
   /** Cell className override. */
   cellClassName?: string;
+  /**
+   * Tên trường gửi lên máy chủ khi bấm tiêu đề cột này để sắp xếp.
+   * Không khai thì tiêu đề là chữ trơn, không bấm được (vd cột "Thao tác").
+   * Phải nằm trong danh sách trắng của module ở backend, nếu không máy chủ bỏ qua.
+   */
+  sortKey?: string;
 }
 
 export interface TableProps<TRow, TId extends string | number = string> {
@@ -64,6 +70,12 @@ export interface TableProps<TRow, TId extends string | number = string> {
   sectionTitle?: string;
   /** Error message (state=error). */
   error?: string;
+  /** Trường đang sắp (tên gửi lên máy chủ). Bỏ trống = dùng mặc định của máy chủ. */
+  sortBy?: string;
+  /** Chiều đang sắp. Mặc định 'desc'. */
+  sortOrder?: 'asc' | 'desc';
+  /** Bấm tiêu đề cột. KHÔNG truyền thì mọi tiêu đề đều là chữ trơn (giữ nguyên như cũ). */
+  onSort?: (key: string) => void;
   /** Empty state CTA (state=empty). */
   emptyState?: {
     title: string;
@@ -242,6 +254,9 @@ export function Table<TRow, TId extends string | number = string>({
   bulkRowsLabel,
   bulkRowLabel,
   bulkRowEligible,
+  sortBy,
+  sortOrder,
+  onSort,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
@@ -294,14 +309,16 @@ export function Table<TRow, TId extends string | number = string>({
                 />
               )}
               {columns.map((col) => (
-                <th
+                <SortableHeader
                   key={col.key}
-                  scope="col"
-                  style={col.width ? { width: col.width } : undefined}
-                  className={col.headerClassName ?? TABLE_HEADER_CELL}
-                >
-                  {col.header}
-                </th>
+                  label={col.header}
+                  // Chỉ cột nào khai sortKey VÀ trang có truyền onSort mới bấm được.
+                  sortKey={onSort ? col.sortKey : undefined}
+                  sort={{ sortBy, sortOrder: sortOrder ?? 'desc' }}
+                  onSort={onSort ?? (() => {})}
+                  width={col.width}
+                  className={col.headerClassName}
+                />
               ))}
             </tr>
           </thead>

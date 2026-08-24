@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.72.0.0] - 2026-08-24
+
+### Changed
+- **Danh sách hiện hồ sơ mới nhất lên đầu.** Trước đây các danh sách sắp theo "ngày tạo", nhưng toàn bộ hồ sơ chuyển từ hệ thống cũ đều mang **cùng một ngày tạo** (ngày chuyển dữ liệu), nên thứ tự của hơn 53.000 hồ sơ về cơ bản là ngẫu nhiên. Nay mỗi loại hồ sơ sắp theo **ngày tiếp nhận thật** của nó: Đơn thư theo "Ngày nhận", Vụ việc và Vụ án theo "Ngày tiếp nhận".
+- **Thứ tự khi xuất Excel nay khớp với thứ tự trên màn hình.** Trước đây xuất file ra một thứ tự khác, đối chiếu hai bên dễ tưởng dữ liệu sai.
+
+### Added
+- **Bấm tiêu đề cột để tự sắp xếp.** Bấm lần đầu: mới→cũ. Bấm lại: cũ→mới. Bấm lần nữa: trở về mặc định. Thứ tự được ghi vào địa chỉ trang nên tải lại trang hoặc gửi đường dẫn cho đồng nghiệp đều giữ nguyên.
+- **Bổ sung cột ngày còn thiếu ở cả ba màn hình.** Trước đây mỗi màn chỉ hiện một trong hai: Đơn thư có "Ngày nhận" mà thiếu "Ngày tạo", Vụ việc và Vụ án thì ngược lại. Nay đủ cả hai và đều bấm sắp được.
+- **Đánh dấu ngày không hợp lệ.** Đợt chuyển dữ liệu để lọt 9 đơn thư có ngày nhận phi thực tế (năm 3023, 2925, 2205, năm 0225...). Chúng nay được đẩy xuống cuối danh sách thay vì chiếm màn hình đầu tiên, và hiện dấu cảnh báo kèm chú thích để cán bộ biết mà rà lại hồ sơ gốc.
+
 ## [0.71.1.0] - 2026-08-24
 
 ### Fixed

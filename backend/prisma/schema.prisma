@@ -893,6 +893,13 @@ model Petition {
   stt              String         @unique
   // Ngày tiếp nhận
   receivedDate     DateTime
+  /// CHỈ ĐỌC — cột SINH TỰ ĐỘNG trong CSDL, KHÔNG BAO GIỜ ghi vào trường này.
+  /// Bằng `receivedDate` khi ngày nằm trong khoảng 1900–2100, ngược lại là NULL.
+  /// Mục đích: 9 hồ sơ có ngày phi lý (năm 3023, 2925, 0225...) chìm xuống cuối khi
+  /// sắp giảm dần, thay vì chiếm trọn màn hình đầu của danh sách 45.459 đơn thư.
+  /// Prisma không có cú pháp cho cột sinh — định nghĩa thật nằm ở migration
+  /// 20260824120000_list_sort_by_receipt_date. Khai ở đây chỉ để dùng được trong orderBy.
+  sortReceivedDate DateTime?
   // Đơn vị tiếp nhận
   unit             String?
   // Người nhập
