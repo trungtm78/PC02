@@ -1,0 +1,43 @@
+{
+  "detectedAt": "2026-08-24",
+  "feature": "v0.72.0.0 — sắp xếp danh sách mới→cũ theo ngày tiếp nhận",
+  "platforms": ["WEB", "API", "FLUTTER"],
+  "packages": [
+    {
+      "label": "WEB",
+      "path": "frontend/",
+      "evidence": "frontend/vite.config.ts + package.json (react, vite)",
+      "affected": true,
+      "why": "3 trang danh sách đổi cột + thêm khả năng bấm sắp"
+    },
+    {
+      "label": "API",
+      "path": "backend/",
+      "evidence": "backend/nest-cli.json + src/main.ts (NestJS)",
+      "affected": true,
+      "why": "đổi thứ tự mặc định + danh sách trắng + cột sinh + chỉ mục"
+    },
+    {
+      "label": "FLUTTER",
+      "path": "mobile/",
+      "evidence": "mobile/pubspec.yaml + mobile/.maestro/",
+      "affected": true,
+      "why": "mobile/lib/core/api/petitions_api.dart gọi GET /petitions KHÔNG gửi sortBy → THỪA HƯỞNG mặc định mới. Thứ tự trên điện thoại đã đổi."
+    }
+  ],
+  "apiBaseUrl": "https://new.pc02hcm.com/api/v1",
+  "webBaseUrl": "https://new.pc02hcm.com",
+  "blockers": [
+    {
+      "platform": "FLUTTER",
+      "status": "NOT_EXECUTED",
+      "reason": "Workflow 'Mobile E2E' hỏng sẵn từ 2026-08-14: ghim action subosito/flutter-action@e938fdf5... không còn tồn tại, chết ở bước dựng máy trước khi chạy bất kỳ kiểm thử nào. Đỏ y hệt trên mọi nhánh, không liên quan bản vá này.",
+      "remediation": "Cập nhật hoặc bỏ ghim SHA của subosito/flutter-action trong .github/workflows, rồi chạy lại Maestro cho màn hình danh sách đơn thư trên điện thoại.",
+      "riskIfUnverified": "Thứ tự danh sách đơn thư trên ứng dụng di động đã đổi theo máy chủ nhưng CHƯA được xác nhận trên thiết bị. Rủi ro thấp (cùng dữ liệu, cùng endpoint) nhưng chưa có bằng chứng."
+    }
+  ],
+  "deviceMatrix": {
+    "web": ["Chromium desktop 1280x720"],
+    "rationale": "Tính năng là thứ tự dữ liệu + tương tác tiêu đề bảng — không phụ thuộc kích thước màn hình. Bảng đã có khung cuộn ngang sẵn. Không mở rộng ma trận thiết bị vì không tăng khả năng bắt lỗi."
+  }
+}
