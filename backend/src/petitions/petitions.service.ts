@@ -1179,7 +1179,10 @@ export class PetitionsService {
     const records = await this.prisma.petition.findMany({
       where,
       take: 500,
-      orderBy: { receivedDate: 'desc' },
+      // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
+      // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
+      // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
+      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
       select: {
         id: true,
         stt: true,
@@ -1307,7 +1310,10 @@ export class PetitionsService {
     const records = await this.prisma.petition.findMany({
       where,
       take: 500,
-      orderBy: { receivedDate: 'desc' },
+      // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
+      // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
+      // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
+      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
       select: {
         id: true,
         stt: true,

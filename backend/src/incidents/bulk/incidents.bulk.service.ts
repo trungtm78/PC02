@@ -218,7 +218,10 @@ export class IncidentsBulkService {
 
     const records = await this.prisma.incident.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      // Cùng thứ tự với DANH SÁCH trên màn hình (ngày tiếp nhận, mới→cũ). Trước đây
+      // dùng `createdAt` — cột mà toàn bộ hồ sơ di trú đều mang cùng một giá trị, nên
+      // thứ tự file xuất ra là ngẫu nhiên và không khớp thứ tự cán bộ vừa nhìn thấy.
+      orderBy: [{ ngayDeXuat: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
       select: {
         id: true,
         code: true,

@@ -39,19 +39,37 @@ ALTER TABLE "petitions"
 -- (migration 20260530000001): mọi truy vấn danh sách đều lọc điều kiện này, nên chỉ mục
 -- một phần vừa nhỏ hơn vừa phục vụ đúng truy vấn.
 
+-- ⚠️ PHẢI ghi rõ `NULLS LAST` trong chỉ mục.
+-- Truy vấn danh sách phát ra `ORDER BY ... DESC NULLS LAST` (để hồ sơ không có ngày chìm
+-- xuống cuối). PostgreSQL KHÔNG dùng được chỉ mục NULLS FIRST — mặc định của `DESC` —
+-- cho một truy vấn NULLS LAST. Đã đo trên PG18, bảng 200.000 hàng:
+--     chỉ mục "d" DESC            + ORDER BY d DESC NULLS LAST → Sort (quét toàn bảng)
+--     chỉ mục "d" DESC NULLS LAST + cùng truy vấn              → Index Only Scan
+-- Viết thiếu hai chữ này thì chỉ mục vô dụng, và còn vô hiệu hoá luôn chỉ mục sẵn có.
+
 -- Đơn thư: trường sắp mặc định mới.
 CREATE INDEX IF NOT EXISTS "petitions_sortReceivedDate_idx"
-  ON "petitions" ("sortReceivedDate" DESC, "id" DESC)
+  ON "petitions" ("sortReceivedDate" DESC NULLS LAST, "id" DESC)
   WHERE "deletedAt" IS NULL;
 
 -- Vụ án: `ngayDeXuat` thành trường sắp mặc định nhưng CHƯA có chỉ mục nào.
--- (Vụ việc đã có `incidents_ngayDeXuat_idx` từ trước.)
-CREATE INDEX IF NOT EXISTS "cases_ngayDeXuat_idx"
-  ON "cases" ("ngayDeXuat" DESC, "id" DESC)
+-- Cột `case_type` đứng ĐẦU vì mọi truy vấn danh sách vụ án đều lọc bằng nó
+-- (`caseType: caseType ?? CaseType.REGULAR` — Vụ án thường và UTDT dùng chung bảng này),
+-- theo đúng mẫu của chỉ mục một phần sẵn có ở migration 20260530000001.
+CREATE INDEX IF NOT EXISTS "cases_caseType_ngayDeXuat_idx"
+  ON "cases" ("case_type", "ngayDeXuat" DESC NULLS LAST, "id" DESC)
   WHERE "deletedAt" IS NULL;
 
--- Vụ việc: bổ sung dạng ghép + một phần, phục vụ đúng truy vấn danh sách hơn chỉ mục
--- đơn cột sẵn có.
+-- Vụ việc: bổ sung dạng ghép + một phần. Chỉ mục đơn cột sẵn có
+-- (`incidents_ngayDeXuat_idx`) là NULLS FIRST nên không phục vụ được truy vấn mới.
 CREATE INDEX IF NOT EXISTS "incidents_ngayDeXuat_id_idx"
-  ON "incidents" ("ngayDeXuat" DESC, "id" DESC)
+  ON "incidents" ("ngayDeXuat" DESC NULLS LAST, "id" DESC)
   WHERE "deletedAt" IS NULL;
+
+-- ── Ghi chú: vì sao CHỈ Đơn thư có cột sinh ──────────────────────────────────
+-- Đã đo trên dữ liệu thật ngày 2026-08-24:
+--   petitions.receivedDate : 9 hồ sơ ngoài khoảng 1900–2100  → cần cột sinh
+--   cases.ngayDeXuat       : 0 hồ sơ ngoài khoảng, 0 ngày tương lai
+--   incidents.ngayDeXuat   : 0 hồ sơ ngoài khoảng, 0 ngày tương lai
+-- Bất đối xứng này là CÓ CHỦ Ý theo số liệu, không phải bỏ sót. Nếu về sau Vụ án hoặc
+-- Vụ việc xuất hiện ngày phi lý thì áp cùng khuôn: cột sinh + `fieldAliases`.

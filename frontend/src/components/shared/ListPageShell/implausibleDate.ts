@@ -18,6 +18,11 @@ export function isImplausibleDate(value?: string | null): boolean {
   if (!value) return false;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return false;
-  const y = d.getFullYear();
+  // getUTCFullYear, KHÔNG phải getFullYear: cột sinh ở CSDL so sánh
+  // `timestamp without time zone` với mốc 1900/2100, còn trình duyệt ở Việt Nam là
+  // UTC+7. Dùng giờ địa phương thì một hồ sơ lưu 2099-12-31T18:00 sẽ hợp lệ với CSDL
+  // (sắp bình thường) nhưng bị trình duyệt đọc thành năm 2100 và gắn cờ cảnh báo —
+  // đúng kiểu lệch mà chú thích trên cảnh báo phải tránh.
+  const y = d.getUTCFullYear();
   return y < PLAUSIBLE_MIN_YEAR || y >= PLAUSIBLE_MAX_YEAR;
 }
