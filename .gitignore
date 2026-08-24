@@ -50,3 +50,24 @@ temp_failed.json
 legacy-dumps/
 docs/legacy/*.ejsonl
 **/*.ejsonl
+node_modules
+
+# ─── Bí mật: KHÔNG BAO GIỜ commit (git giữ vĩnh viễn, đẩy lên là lộ) ─────────
+# Hồ sơ cấp tài khoản: chứa mật khẩu tài khoản production dạng chữ rõ.
+docs/Requirements/
+# Công cụ cấp tài khoản một lần: ghi cứng số điện thoại dùng làm mật khẩu.
+backend/src/legacy-migration/cli/provision-doi2-accounts.ts
+
+# ─── Bản kết xuất hệ cũ (~258 MB, phình repo vĩnh viễn) ──────────────────────
+docs/pc02hcm.com-*.zip
+docs/pc02hcm.com-new/
+
+# ─── Rác cục bộ ──────────────────────────────────────────────────────────────
+# 'nul' sinh do lỡ chuyển hướng kiểu Windows trong shell POSIX.
+nul
+**/nul
+*.full-jest.log
+backend/.full-jest.log
+setup-claude-autonomous.bat
+test-claude-hook.bat
+.claude/
