@@ -66,12 +66,37 @@ async function main(): Promise<void> {
     });
     console.log(`Đơn thư còn mã tạm: ${canCap.length.toLocaleString('vi-VN')}`);
 
+    // Một số đơn thư di trú là VỎ LIÊN KẾT: bản thô hệ cũ được định tuyến sang vụ án hoặc
+    // vụ việc cùng khoá nguồn, nên `petitions.legacyRaw` để trống (đo 25/08: 161 hồ sơ).
+    // Dữ kiện cấp mã vẫn có — chỉ nằm ở thực thể anh em. Lấy từ đó thay vì bỏ cuộc.
+    const thieuRaw = canCap.filter((p) => !p.legacyRaw && p.legacySourceId).map((p) => p.legacySourceId!);
+    const rawAnhEm = new Map<string, Record<string, unknown>>();
+    if (thieuRaw.length) {
+      for (const c of await prisma.case.findMany({
+        where: { legacySourceId: { in: thieuRaw } },
+        select: { legacySourceId: true, legacyRaw: true },
+      })) {
+        if (c.legacySourceId && c.legacyRaw) rawAnhEm.set(c.legacySourceId, c.legacyRaw as Record<string, unknown>);
+      }
+      for (const i of await prisma.incident.findMany({
+        where: { legacySourceId: { in: thieuRaw } },
+        select: { legacySourceId: true, legacyRaw: true },
+      })) {
+        if (i.legacySourceId && i.legacyRaw && !rawAnhEm.has(i.legacySourceId)) {
+          rawAnhEm.set(i.legacySourceId, i.legacyRaw as Record<string, unknown>);
+        }
+      }
+      console.log(`  (${thieuRaw.length} đơn thư không có bản thô — tìm được ${rawAnhEm.size} ở vụ án/vụ việc cùng khoá)`);
+    }
+
     let daCap = 0;
     let thieuDuKien = 0;
     const viDu: string[] = [];
 
     for (const p of canCap) {
-      const raw = (p.legacyRaw ?? {}) as Record<string, unknown>;
+      const raw = (p.legacyRaw ??
+        (p.legacySourceId ? rawAnhEm.get(p.legacySourceId) : undefined) ??
+        {}) as Record<string, unknown>;
       const base = maCoSo(raw['nam'], raw['stt']);
       if (!base) {
         thieuDuKien++;
