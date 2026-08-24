@@ -73,7 +73,11 @@ export class LegacyMigrationService {
     // Cả Đơn thư LẪN Vụ án nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
     if (lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
-    if (crime) data.crimeChinhId = crime.id;
+    // Nối bằng QUAN HỆ, không phải khoá ngoại vô hướng. Payload vụ án dùng `connect` cho
+    // createdBy/investigator/linkedPetition → Prisma chốt kiểu "checked" và từ chối
+    // `crimeChinhId` trong cùng payload. Dạng `connect` đúng ở CẢ hai kiểu, nên dùng chung
+    // cho đơn thư lẫn vụ án thay vì rẽ nhánh theo `target`.
+    if (crime) data.crimeChinh = { connect: { id: crime.id } };
   }
 
   // Commit: upsert theo legacySourceId (idempotent re-run). Mỗi record 1 transaction nhỏ; lỗi 1 record không chặn record khác.
