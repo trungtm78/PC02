@@ -1,11 +1,9 @@
-import { lazy, Suspense, type ReactElement } from 'react';
+import { lazy, type ReactElement } from 'react';
 import { Route, Navigate, useParams } from 'react-router-dom';
+import { wrapRoute } from '@/lib/features/wrapRoute';
 
 const UyThacDieuTraListPage = lazy(() => import('./UyThacDieuTraListPage'));
 
-const wrap = (node: ReactElement): ReactElement => (
-  <Suspense fallback={null}>{node}</Suspense>
-);
 
 function RedirectToEdit(): ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +17,7 @@ export function renderUyThacDieuTraRoutes(): ReactElement[] {
     <Route
       key="utdt-list"
       path="/uy-thac-dieu-tra"
-      element={wrap(<UyThacDieuTraListPage />)}
+      element={wrapRoute(<UyThacDieuTraListPage />)}
     />,
     <Route
       key="utdt-new"

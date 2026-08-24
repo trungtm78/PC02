@@ -1,5 +1,6 @@
-import { lazy, Suspense, type ReactElement } from 'react';
+import { lazy, type ReactElement } from 'react';
 import { Route } from 'react-router-dom';
+import { wrapRoute } from '@/lib/features/wrapRoute';
 
 const UserManagementPage = lazy(() => import('@/pages/users/UserManagementPage'));
 const AdminSettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
@@ -12,47 +13,44 @@ const DeadlineRuleHistoryPage = lazy(() => import('@/pages/admin/deadline-rules/
 const MigrationCleanupPage = lazy(() => import('@/pages/admin/deadline-rules/MigrationCleanupPage'));
 const LegacyMigrationPage = lazy(() => import('@/pages/admin/LegacyMigrationPage'));
 
-const wrap = (node: ReactElement): ReactElement => (
-  <Suspense fallback={null}>{node}</Suspense>
-);
 
 export function renderAdminRoutes(): ReactElement[] {
   return [
-    <Route key="users" path="/nguoi-dung" element={wrap(<UserManagementPage />)} />,
-    <Route key="legacy-migration" path="/admin/di-tru-du-lieu" element={wrap(<LegacyMigrationPage />)} />,
-    <Route key="admin-settings" path="/admin/settings" element={wrap(<AdminSettingsPage />)} />,
-    <Route key="admin-restore" path="/admin/khoi-phuc" element={wrap(<RestorePage />)} />,
+    <Route key="users" path="/nguoi-dung" element={wrapRoute(<UserManagementPage />)} />,
+    <Route key="legacy-migration" path="/admin/di-tru-du-lieu" element={wrapRoute(<LegacyMigrationPage />)} />,
+    <Route key="admin-settings" path="/admin/settings" element={wrapRoute(<AdminSettingsPage />)} />,
+    <Route key="admin-restore" path="/admin/khoi-phuc" element={wrapRoute(<RestorePage />)} />,
     // Deadline Rule Versioning workflow
-    <Route key="deadline-rules-list" path="/admin/deadline-rules" element={wrap(<DeadlineRulesListPage />)} />,
+    <Route key="deadline-rules-list" path="/admin/deadline-rules" element={wrapRoute(<DeadlineRulesListPage />)} />,
     <Route
       key="deadline-rules-queue"
       path="/admin/deadline-rules/approval-queue"
-      element={wrap(<ApprovalQueuePage />)}
+      element={wrapRoute(<ApprovalQueuePage />)}
     />,
     <Route
       key="deadline-rules-cleanup"
       path="/admin/deadline-rules/migration-cleanup"
-      element={wrap(<MigrationCleanupPage />)}
+      element={wrapRoute(<MigrationCleanupPage />)}
     />,
     <Route
       key="deadline-rules-history"
       path="/admin/deadline-rules/:key/history"
-      element={wrap(<DeadlineRuleHistoryPage />)}
+      element={wrapRoute(<DeadlineRuleHistoryPage />)}
     />,
     <Route
       key="deadline-rules-propose"
       path="/admin/deadline-rules/:key/propose"
-      element={wrap(<ProposeDeadlineRulePage />)}
+      element={wrapRoute(<ProposeDeadlineRulePage />)}
     />,
     <Route
       key="deadline-rules-edit"
       path="/admin/deadline-rules/edit/:id"
-      element={wrap(<ProposeDeadlineRulePage />)}
+      element={wrapRoute(<ProposeDeadlineRulePage />)}
     />,
     <Route
       key="deadline-rules-version"
       path="/admin/deadline-rules/version/:id"
-      element={wrap(<VersionDecisionPage />)}
+      element={wrapRoute(<VersionDecisionPage />)}
     />,
   ];
 }

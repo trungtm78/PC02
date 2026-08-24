@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Mail, Shield, KeyRound } from 'lucide-react';
@@ -20,19 +20,21 @@ export default function TwoFaPage() {
   const [method, setMethod] = useState<Method>(TWO_FA_METHOD.TOTP);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Redirect if arrived without a twoFaToken
-  if (!twoFaToken) {
-    navigate('/login', { replace: true });
-    return null;
-  }
+  // Redirect if arrived without a twoFaToken. Phải nằm trong useEffect: gọi
+  // navigate() giữa lúc dựng giao diện là cập nhật component khác giữa chừng,
+  // và đặt `return` trước các hook làm số hook đổi giữa hai lần dựng
+  // (react-hooks/rules-of-hooks).
+  useEffect(() => {
+    if (!twoFaToken) navigate('/login', { replace: true });
+  }, [twoFaToken, navigate]);
 
   const sendOtpMutation = useMutation({
-    mutationFn: () => authApi.sendEmailOtp(twoFaToken),
+    mutationFn: () => authApi.sendEmailOtp(twoFaToken!),
     onSuccess: () => setEmailSent(true),
   });
 
   const verifyMutation = useMutation({
-    mutationFn: () => authApi.verifyTwoFa(twoFaToken, code.trim(), method),
+    mutationFn: () => authApi.verifyTwoFa(twoFaToken!, code.trim(), method),
     onSuccess: (response) => {
       const data = response.data as
         | { accessToken: string; refreshToken: string; expiresIn: string }
@@ -71,6 +73,9 @@ export default function TwoFaPage() {
     setCode('');
     verifyMutation.reset();
   };
+
+  // Không có token thì useEffect ở trên đang đưa về trang đăng nhập — không dựng gì.
+  if (!twoFaToken) return null;
 
   const maxLen = method === TWO_FA_METHOD.BACKUP ? 10 : 6;
   const placeholder = method === TWO_FA_METHOD.BACKUP ? 'Nhập mã dự phòng' : 'Nhập 6 chữ số';

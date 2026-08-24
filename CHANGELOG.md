@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.71.1.0] - 2026-08-24
+
+### Fixed
+- **Màn hình trắng khi mở một trang bất kỳ.** Cán bộ đăng nhập, bấm vào menu, và vùng nội dung trắng hoàn toàn — không tiêu đề, không bảng, không thông báo lỗi. Thanh bên vẫn hiện nên trông như hệ thống vẫn chạy, chỉ là không có gì để làm. Nguyên nhân: khi gói dữ liệu của trang chưa tải xong hoặc tải hỏng, hệ thống **không hiển thị gì cả** thay vì báo cho người dùng biết. Nay mọi trang đều có khung "Đang tải...", và khi lỗi thì hiện thông báo đọc được kèm nút **Tải lại trang**.
+- **Lỗi sau khi hệ thống được cập nhật.** Nếu cán bộ đang mở dở một tab từ trước lúc cập nhật, tab đó trỏ tới các tệp đã bị thay tên và sẽ hỏng. Nay hệ thống nhận ra đúng tình huống này và hiện **"Đã có phiên bản mới, vui lòng tải lại trang"** thay vì màn hình trắng.
+- **Toàn hệ thống chưa từng có lưới an toàn khi lỗi hiển thị.** Bất kỳ trục trặc nào cũng làm trắng cả màn hình, không để lại dấu vết để chẩn đoán. Nay có lớp bảo vệ ở cả từng trang lẫn ngoài cùng, kèm mã lỗi để cán bộ đọc qua điện thoại cho quản trị.
+- **Xác thực 2 lớp lần đầu không hoàn tất được — 238 tài khoản chưa từng đăng nhập nổi.** Máy chủ yêu cầu thiết lập xác thực 2 lớp cho tài khoản mới, nhưng màn hình để làm việc đó chưa bao giờ được xây, nên bấm Đăng nhập là không có gì xảy ra. Nay có màn hình thiết lập đầy đủ: quét mã QR, lưu mã dự phòng, nhập mã xác nhận.
+- **Tải lại trang giữa chừng khi đang thiết lập xác thực 2 lớp làm khoá tài khoản 24 giờ.** Nay cấp lại mã QR mới thay vì báo lỗi không lối thoát.
+- **Tài khoản do quản trị tạo có thể bỏ qua bước bắt buộc đổi mật khẩu** nếu đi qua đường thiết lập xác thực 2 lớp. Nay chặn đúng như đường đăng nhập thường.
+- Mã dự phòng không sao chép được trên máy dùng giao thức không bảo mật; nay có ô văn bản để chọn và chép tay.
+- Phiên thiết lập hết hạn nay báo đúng "Phiên thiết lập đã hết hạn" thay vì đổ lỗi "Mã xác thực không đúng".
+
+### Changed
+- Khâu cập nhật hệ thống nay **dọn các tệp cũ** thay vì chồng thêm mỗi lần (thư mục giao diện đã phình tới 412 MB với 18.206 tệp thừa).
+
 ## [0.70.4.0] - 2026-07-21
 
 ### Added
