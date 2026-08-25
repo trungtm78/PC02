@@ -263,14 +263,32 @@ export function IncidentListPageShell() {
    *  - `reporter` nay tra theo CCCD/SĐT (schema không có cột TÊN người tố giác)
    *  - `unit` → `donViGiaiQuyet` (cột text đơn vị thụ lý)
    */
+  const legacyFilterValues = useMemo(
+    () => ({
+      canBoNhapId: url.getParam('canBoNhapId') ?? '',
+      stt: url.getParam('stt') ?? '',
+      sttCu: url.getParam('sttCu') ?? '',
+      fromDateRange: url.getParam('fromDateRange') ?? '',
+      toDateRange: url.getParam('toDateRange') ?? '',
+    }),
+    [url],
+  );
+
   const baseQueryParams = useMemo(
     () => ({
       ...(debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
       ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
       ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
+      // Bộ lọc theo kiểu hệ cũ. Thiếu phần này thì thẻ lọc chỉ ghi vào địa chỉ trang
+      // mà KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
+      ...(legacyFilterValues.stt && { stt: legacyFilterValues.stt }),
+      ...(legacyFilterValues.sttCu && { sttCu: legacyFilterValues.sttCu }),
+      ...(legacyFilterValues.canBoNhapId && { canBoNhapId: legacyFilterValues.canBoNhapId }),
+      ...(legacyFilterValues.fromDateRange && { fromDateRange: legacyFilterValues.fromDateRange }),
+      ...(legacyFilterValues.toDateRange && { toDateRange: legacyFilterValues.toDateRange }),
     }),
-    [debouncedSearch, appliedFilters],
+    [debouncedSearch, appliedFilters, legacyFilterValues],
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
@@ -565,16 +583,6 @@ export function IncidentListPageShell() {
     [officerOptions],
   );
 
-  const legacyFilterValues = useMemo(
-    () => ({
-      canBoNhapId: url.getParam('canBoNhapId') ?? '',
-      stt: url.getParam('stt') ?? '',
-      sttCu: url.getParam('sttCu') ?? '',
-      fromDateRange: url.getParam('fromDateRange') ?? '',
-      toDateRange: url.getParam('toDateRange') ?? '',
-    }),
-    [url],
-  );
 
   const handleLegacyFilterChange = useCallback(
     (updates: Record<string, string>) => {

@@ -463,4 +463,23 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
     expect(screen.getByTestId('legacy-filter-stt')).toBeInTheDocument();
     expect(screen.getByTestId('legacy-filter-sttCu')).toBeInTheDocument();
   });
+
+  it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API, không chỉ ghi vào địa chỉ trang', async () => {
+    // Ca kiểm ĐẶT ĐÚNG TẦNG: thẻ lọc có ca kiểm riêng và vẫn xanh kể cả khi trang quên nối
+    // tham số xuống API — người dùng thấy ô lọc đổi mà danh sách đứng yên.
+    renderWithRouter([
+      '/petitions?petitions_stt=26-11171&petitions_sttCu=1964&petitions_enteredById=u1',
+    ]);
+
+    await waitFor(() => {
+      const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) => c[0] === '/petitions',
+      );
+      expect(goi).toBeDefined();
+      const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
+      expect(params.stt).toBe('26-11171');
+      expect(params.sttCu).toBe('1964');
+      expect(params.enteredById).toBe('u1');
+    });
+  });
 });

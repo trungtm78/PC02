@@ -217,6 +217,17 @@ export function PetitionListPageShell() {
    * Tên param phải KHỚP `QueryPetitionsDto`: `senderName` (không phải `sender`). Backend
    * bật `forbidNonWhitelisted` nên gửi sai tên là 400 — đây chính là lỗi đang tồn tại.
    */
+  const legacyFilterValues = useMemo(
+    () => ({
+      enteredById: url.getParam('enteredById') ?? '',
+      stt: url.getParam('stt') ?? '',
+      sttCu: url.getParam('sttCu') ?? '',
+      fromDate: url.getParam('fromDate') ?? '',
+      toDate: url.getParam('toDate') ?? '',
+    }),
+    [url],
+  );
+
   const baseQueryParams = useMemo(
     () => ({
       ...(debouncedSearch && { search: debouncedSearch }),
@@ -224,8 +235,15 @@ export function PetitionListPageShell() {
       ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
       ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
       ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+      // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
+      // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
+      ...(legacyFilterValues.stt && { stt: legacyFilterValues.stt }),
+      ...(legacyFilterValues.sttCu && { sttCu: legacyFilterValues.sttCu }),
+      ...(legacyFilterValues.enteredById && { enteredById: legacyFilterValues.enteredById }),
+      ...(legacyFilterValues.fromDate && { fromDate: legacyFilterValues.fromDate }),
+      ...(legacyFilterValues.toDate && { toDate: legacyFilterValues.toDate }),
     }),
-    [debouncedSearch, appliedFilters],
+    [debouncedSearch, appliedFilters, legacyFilterValues],
   );
 
   /**
@@ -537,16 +555,6 @@ export function PetitionListPageShell() {
     [officerOptions],
   );
 
-  const legacyFilterValues = useMemo(
-    () => ({
-      enteredById: url.getParam('enteredById') ?? '',
-      stt: url.getParam('stt') ?? '',
-      sttCu: url.getParam('sttCu') ?? '',
-      fromDate: url.getParam('fromDate') ?? '',
-      toDate: url.getParam('toDate') ?? '',
-    }),
-    [url],
-  );
 
   const handleLegacyFilterChange = useCallback(
     (updates: Record<string, string>) => {

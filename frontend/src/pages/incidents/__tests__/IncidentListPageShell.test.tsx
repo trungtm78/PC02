@@ -332,3 +332,52 @@ describe('IncidentListPageShell — URL state load from query params', () => {
     expect(listCall?.[1]?.params.offset).toBe(40);
   });
 });
+
+/**
+ * Bố cục danh sách theo hệ cũ (25/08/2026) — xem `PetitionListPageShell.test.tsx` cho lý do
+ * đầy đủ. Vụ việc có `description` phủ 99,98% nhưng danh sách không hiện.
+ */
+describe('IncidentListPageShell — bố cục theo hệ cũ', () => {
+  const rowHeCu = {
+    ...sampleRow,
+    code: '2026-9706',
+    description:
+      'Chị Phạm Thị Phương Linh tố giác đối tượng Cao Thị Dự nhận môi giới ghép nội tạng (thận) cho chị Linh với số tiền 1.432.000.000 đồng, sau đó chiếm đoạt và cắt liên lạc hoàn toàn.',
+    ketQuaXuLy: 'Đã chuyển Tổ 7',
+    canBoNhap: { id: 'u1', firstName: 'Tuấn', lastName: 'Dương Trọng', username: 'trongtuan' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/incidents') return Promise.resolve({ data: { data: [rowHeCu], total: 1 } });
+      if (url === '/incidents/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+  });
+
+  it('Thao tác là cột CUỐI và có cột Tóm tắt nội dung', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim() ?? '');
+    expect(headers.findIndex((h) => h.includes('Tóm tắt nội dung'))).toBeGreaterThanOrEqual(0);
+    expect(headers.findIndex((h) => h.includes('Thao tác'))).toBe(headers.length - 1);
+  });
+
+  it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('26-9706')).toBeInTheDocument());
+  });
+
+  it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API', async () => {
+    renderWithRouter(['/incidents?incidents_stt=26-9706&incidents_sttCu=679']);
+    await waitFor(() => {
+      const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) => c[0] === '/incidents',
+      );
+      const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
+      expect(params.stt).toBe('26-9706');
+      expect(params.sttCu).toBe('679');
+    });
+  });
+});

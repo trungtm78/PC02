@@ -285,3 +285,51 @@ describe('CaseListPageShell — URL state load from query params', () => {
     expect(listCall?.[1]?.params.offset).toBe(20);
   });
 });
+
+/**
+ * Bố cục danh sách theo hệ cũ (25/08/2026) — xem `PetitionListPageShell.test.tsx` cho lý do
+ * đầy đủ. Vụ án có `moTaChiTiet` phủ 98% hồ sơ di trú mà API danh sách trước nay không trả.
+ */
+describe('CaseListPageShell — bố cục theo hệ cũ', () => {
+  const rowHeCu = {
+    ...sampleRow,
+    caseCode: '2026-9893',
+    moTaChiTiet:
+      'Qua công tác nghiệp vụ, ngày 10/4/2026, Cơ quan CSĐT Bộ Công an tiếp nhận đơn trình báo của bà Vũ Thị Thanh Hương về việc bị chiếm đoạt tài sản khi đầu tư mua bán qua sàn giao dịch điện tử.',
+    createdBy: { id: 'u1', firstName: 'Trà', lastName: 'Bùi Thanh', username: 'mrtea' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases') return Promise.resolve({ data: { data: [rowHeCu], total: 1 } });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+  });
+
+  it('Thao tác là cột CUỐI và có cột Tóm tắt nội dung', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim() ?? '');
+    expect(headers.findIndex((h) => h.includes('Tóm tắt nội dung'))).toBeGreaterThanOrEqual(0);
+    expect(headers.findIndex((h) => h.includes('Thao tác'))).toBe(headers.length - 1);
+  });
+
+  it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('26-9893')).toBeInTheDocument());
+  });
+
+  it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API', async () => {
+    renderWithRouter(['/cases?cases_stt=26-9893&cases_createdById=u1']);
+    await waitFor(() => {
+      const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) => c[0] === '/cases',
+      );
+      const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
+      expect(params.stt).toBe('26-9893');
+      expect(params.createdById).toBe('u1');
+    });
+  });
+});
