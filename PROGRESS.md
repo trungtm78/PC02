@@ -1,7 +1,7 @@
 # PROGRESS
 
 STATUS: ALL_MILESTONES_DONE
-Cập nhật: 2026-08-26T05:45:00+07:00 | Milestone: 5/5 | Task: 5/5
+Cập nhật: 2026-08-26T06:40:00+07:00 | Milestone: 5/5 | Task: 5/5 + 2 việc ngoài phạm vi
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -63,15 +63,24 @@ Nhánh: `feat/legacy-form-parity-vu-an`
     (đường của hồ sơ di trú MỚI) nhưng thiếu ở `parityColumns` (đường công cụ bù dùng cho
     hồ sơ ĐÃ di trú). Đã khai vào `PARITY.case` và kiểm chứng lại trên bản chạy thật.
   - `UAT-COVERAGE.md`: **44 dòng, 44 ĐẠT, 0 KHÔNG ĐẠT**
+- [x] M6 — Đẩy nhánh, mở **PR #243**, CI xanh 3/3
+- [x] M7 — Hai việc ngoài phạm vi ban đầu, phát hiện khi chuẩn bị áp lên máy thật:
+  - **Sao lưu trước deploy: 243/246 tệp là 0 byte.** `sudo -u postgres` đòi mật khẩu khi
+    chạy qua SSH nên hỏng mọi lần; `2>/dev/null` nuốt lỗi; `>` tạo tệp rỗng trước khi
+    `pg_dump` chạy nên `[ -f ]` vẫn đúng và nhật ký vẫn báo thành công. Lộ thêm lỗi thứ tư:
+    kịch bản chỉ TẠO LIÊN KẾT tới `.env` chứ không đọc, nên `DATABASE_URL` rỗng.
+    Đã vá + kiểm chứng trên máy thật: **123 MB, exit 0**. Dưới 1 MB nay DỪNG deploy.
+  - **Không dựng được CSDL cho máy chủ mới** (`P3018`). Thêm `bootstrap-fresh-db.ts`,
+    kiểm chứng trên CSDL trống thật: 68 bảng, `migrate deploy` báo sạch.
 - [x] M5c — Dựng bảng "Danh sách điều tra bổ sung" (hạng mục cuối của bố cục hệ cũ):
   đúng 5 cột dữ liệu + Thao tác, ba mốc ngày qua được DTO, đã kiểm trên bản chạy thật
 
 ## Đang làm dở
-KHÔNG CÒN VIỆC DỞ. Toàn bộ 5 milestone hoàn tất, 15 commit trên nhánh
-`feat/legacy-form-parity-vu-an`, CHƯA đẩy và CHƯA mở PR (chờ anh quyết).
+Toàn bộ 5 milestone hoàn tất, cộng 2 việc ngoài phạm vi. Nhánh đã đẩy, PR #243 đã mở.
 
-BƯỚC TIẾP THEO khi anh đồng ý: đẩy nhánh + mở PR, rồi chạy công cụ bù trên bản thật
-(`backfill-parity.ts --entity case --dry` trước, đọc báo cáo, sao lưu `pg_dump`, rồi chạy thật).
+BƯỚC TIẾP THEO: chờ CI của lần đẩy cuối, gộp PR #243, deploy tự chạy, rồi chạy công cụ bù
+trên máy thật (`backfill-parity.ts --entity case --dry` trước, đọc báo cáo, rồi chạy thật).
+Máy thật hiện có **3.671 vụ án, 3.359 có bản gốc hệ cũ, mới 106 dòng thống kê**.
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
@@ -109,10 +118,10 @@ ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý
 - Bộ ca kiểm máy chủ thỉnh thoảng đỏ 32 ca ở `two-fa.service.spec.ts` với lỗi `invariant`
   của jest khi giả lập `otplib`. Chạy riêng `src/auth` thì 252/252 xanh, và chạy lại toàn bộ
   cũng xanh. Không liên quan diff của epic (không chạm `src/auth`). Nợ có sẵn, chưa đụng.
-- **PHÁT HIỆN CẦN BÁO ANH:** dựng cơ sở dữ liệu từ đầu bằng `prisma migrate deploy` THẤT BẠI
-  ở `20260227000000_add_case_metadata` (`relation "cases" does not exist`). Chuỗi 91 migration
-  không tự dựng lại được từ số không — máy đang chạy vẫn ổn vì nó lớn lên dần. Vá nằm ngoài
-  phạm vi epic, nhưng là rủi ro thật cho lần dựng máy chủ mới.
+- ~~Dựng CSDL từ đầu thất bại~~ **ĐÃ VÁ** (`bootstrap-fresh-db.ts`, có kiểm chứng).
+- ~~Sao lưu trước deploy 0 byte~~ **ĐÃ VÁ** (`scripts/deploy/deploy.sh`, có kiểm chứng trên
+  máy thật). Lưu ý: 243 tệp rỗng cũ vẫn nằm ở `/var/backups/pc02` — chúng vô giá trị, anh
+  quyết có dọn không.
 - Môi trường: PG16 @5432 đang TẮT và phiên làm việc không có quyền khởi động dịch vụ. Theo
   chỉ thị chung (mọi dự án dùng PG18 @5433), đã tạo `pc02_db` + vai `pc02_admin` trên PG18 và
   trỏ `backend/.env` sang 5433. **Dữ liệu trên PG16 KHÔNG bị đụng tới.** Cơ sở dữ liệu PG18
