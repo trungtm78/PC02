@@ -56,8 +56,12 @@ describe('tinhKhoangThoiGian', () => {
   });
 
   it('tháng có 30 ngày và tháng 2 năm nhuận đều tính đúng ngày cuối', () => {
-    expect(tinhKhoangThoiGian('thang-nay', new Date(2026, 8, 10)).toDate).toBe('2026-09-30');
-    expect(tinhKhoangThoiGian('thang-nay', new Date(2028, 1, 10)).toDate).toBe('2028-02-29');
+    expect(tinhKhoangThoiGian('thang-nay', new Date(2026, 8, 10))).toMatchObject({
+      toDate: '2026-09-30',
+    });
+    expect(tinhKhoangThoiGian('thang-nay', new Date(2028, 1, 10))).toMatchObject({
+      toDate: '2028-02-29',
+    });
   });
 
   it('quý này: 25/08 thuộc quý III', () => {

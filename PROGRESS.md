@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M2/6 | Task: 0/1 của M2
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M3/6 | Task: 0/3 của M3
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -11,13 +11,15 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M1-T2 `SummaryCell.tsx` — cột Tóm tắt nội dung + Xem thêm — commit `b2839f3` — 5 ca kiểm
 - [x] M1-T3 `dateRangePresets.ts` — Chọn khoảng thời gian, 5 mốc — 10 ca kiểm
 - [x] **M1 HOÀN TẤT** — 3/3 task, 24 ca kiểm
+- [x] M2-T1 `LegacyFilterPanel.tsx` — thẻ lọc hai vế, 9 ca kiểm
+- [x] **M2 HOÀN TẤT** — xuất mảnh mới qua `index.ts`, `tsc -b` sạch
 
 ## Đang làm dở
 
-Task: M2 — `LegacyFilterPanel.tsx`
+Task: M3 — Máy chủ: bổ sung trường trả về + 3 bộ lọc mới
 Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: đọc `useListPageUrlState.ts` để nối đúng cơ chế lưu bộ lọc vào địa chỉ trang, rồi viết `__tests__/LegacyFilterPanel.test.tsx` (RED)
-File liên quan: `frontend/src/components/shared/ListPageShell/`
+BƯỚC TIẾP THEO: thêm ca kiểm cho bộ lọc `stt` (nhận cả hai dạng mã) vào `backend/src/petitions/petitions.service.spec.ts` (RED), rồi sửa `query-petitions.dto.ts` + `petitions.service.ts`
+File liên quan: `backend/src/petitions/`, `backend/src/incidents/`, `backend/src/cases/`
 
 ## Hàng đợi task kế tiếp
 
@@ -46,9 +48,10 @@ File liên quan: `frontend/src/components/shared/ListPageShell/`
 
 ## Trạng thái test
 
-Full suite: chưa chạy ở trạng thái hiện tại | Patch coverage M1: 100% dòng (hàm thuần + component nhỏ, mọi nhánh có ca kiểm) | Test fail: không
+Full suite: chưa chạy ở trạng thái hiện tại | Patch coverage M1+M2: 100% dòng | Test fail: không (xem nợ kỹ thuật về ca chập chờn)
 
 ## Nợ kỹ thuật / rủi ro
 
 - Trang **Tổng hợp** và **UTĐT** dùng chung shell nên hưởng phần dùng chung, nhưng cột riêng của chúng chưa rà — để đợt sau, đã ghi trong spec §Cố ý KHÔNG làm.
+- `sortableHeader.test.tsx` **chập chờn khi chạy cả thư mục** (5.565ms → quá hạn), nhưng xanh khi chạy riêng (458ms). Nghẽn CPU, KHÔNG phải hồi quy — em không đụng `SortableHeader`. Đã ghi nhận trong trí nhớ dự án từ trước; sẽ đối chiếu lại bằng lượt chạy CI ở M5.
 - 4 đơn thư sai tháng ngày tiếp nhận (`2026-10206/10207/8810/10224`) vẫn chờ hồ sơ giấy — không liên quan phần này.
