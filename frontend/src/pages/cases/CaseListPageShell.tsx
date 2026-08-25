@@ -24,9 +24,14 @@ import {
   useListPageUrlState,
   useListSort,
   DateCell,
+  SummaryCell,
+  LegacyFilterPanel,
+  formatHoSoCode,
   type ColumnDef,
   type TableState,
+  type LegacyFilterField,
 } from '@/components/shared/ListPageShell';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import {
   CASE_STATUS_CHIPS,
   CASE_STATUS_LABEL,
@@ -85,6 +90,10 @@ interface CaseRow {
   ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt: string;
+  // Các cột hệ cũ hiển thị trên danh sách (25/08/2026). `moTaChiTiet` phủ 98% vụ án di trú.
+  moTaChiTiet?: string | null;
+  sttCu?: string | null;
+  createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
 interface CasesStatsResponse {
@@ -195,6 +204,17 @@ export function CaseListPageShell() {
    * Tên param phải KHỚP `QueryCasesDto`: `investigatorName` (không phải `investigator`).
    * Backend bật `forbidNonWhitelisted` nên gửi sai tên là 400 — lỗi đang tồn tại.
    */
+  const legacyFilterValues = useMemo(
+    () => ({
+      createdById: url.getParam('createdById') ?? '',
+      stt: url.getParam('stt') ?? '',
+      sttCu: url.getParam('sttCu') ?? '',
+      fromDate: url.getParam('fromDate') ?? '',
+      toDate: url.getParam('toDate') ?? '',
+    }),
+    [url],
+  );
+
   const baseQueryParams = useMemo(
     () => ({
       ...(debouncedSearch && { search: debouncedSearch }),
@@ -203,8 +223,15 @@ export function CaseListPageShell() {
       ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       ...(appliedFilters.investigator && { investigatorName: appliedFilters.investigator }),
       ...(appliedFilters.charges && { charges: appliedFilters.charges }),
+      // Bộ lọc theo kiểu hệ cũ. Thiếu phần này thì thẻ lọc chỉ ghi vào địa chỉ trang
+      // mà KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
+      ...(legacyFilterValues.stt && { stt: legacyFilterValues.stt }),
+      ...(legacyFilterValues.sttCu && { sttCu: legacyFilterValues.sttCu }),
+      ...(legacyFilterValues.createdById && { createdById: legacyFilterValues.createdById }),
+      ...(legacyFilterValues.fromDate && { fromDate: legacyFilterValues.fromDate }),
+      ...(legacyFilterValues.toDate && { toDate: legacyFilterValues.toDate }),
     }),
-    [debouncedSearch, appliedFilters],
+    [debouncedSearch, appliedFilters, legacyFilterValues],
   );
 
   /**
@@ -367,33 +394,24 @@ export function CaseListPageShell() {
 
   const columns: ColumnDef<CaseRow>[] = useMemo(
     () => [
+      // Thứ tự cột theo hệ cũ; Thao tác chuyển về CUỐI (hệ mới trước đây để ở ĐẦU).
       {
-        key: 'actions',
-        header: 'Thao tác',
-        width: '8rem',
+        key: 'caseCode',
+        header: 'STT',
         render: (r) => (
-          <RowActions
-            registry={casesRowActions}
-            row={{
-              id: r.id,
-              status: r.status as unknown as string,
-              caseCode: r.caseCode,
-              name: r.name,
-              updatedAt: r.updatedAt,
-            }}
-            ctx={actionCtx}
-          />
+          // Hệ cũ hiện `26-9893`; dữ liệu trong CSDL vẫn là `2026-9893`, không đổi.
+          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.caseCode)}</span>
         ),
       },
       {
-        key: 'caseCode',
-        header: 'Mã vụ án',
-        render: (r) => r.caseCode ?? '—',
+        key: 'name',
+        header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
       },
       {
-        key: 'name',
-        header: 'Tên vụ',
-        render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
+        key: 'moTaChiTiet',
+        header: 'Tóm tắt nội dung',
+        render: (r) => <SummaryCell value={r.moTaChiTiet} />,
       },
       {
         key: 'status',
@@ -433,6 +451,34 @@ export function CaseListPageShell() {
         sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
+      {
+        key: 'createdBy',
+        header: 'Người nhập',
+        render: (r) =>
+          r.createdBy
+            ? `${r.createdBy.lastName ?? ''} ${r.createdBy.firstName ?? ''}`.trim() ||
+              (r.createdBy.username ?? '—')
+            : '—',
+      },
+      // Thao tác ở CUỐI như hệ cũ — cán bộ quen quét mắt từ trái sang rồi mới bấm.
+      {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={casesRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              caseCode: r.caseCode,
+              name: r.name,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
     ],
     [actionCtx],
   );
@@ -457,6 +503,36 @@ export function CaseListPageShell() {
   const handlePageChange = useCallback(
     (newPage: number) => {
       url.setParam('page', String(newPage));
+    },
+    [url],
+  );
+
+  // ── Thẻ lọc theo kiểu hệ cũ ───────────────────────────────────────────────
+  // "Cán bộ nhập" ở Vụ án là người TẠO hồ sơ (`createdById`, đã có chỉ mục).
+  const { data: officerOptions } = useOfficerOptions();
+
+  const legacyFilterFields: LegacyFilterField[] = useMemo(
+    () => [
+      {
+        key: 'createdById',
+        label: 'Cán bộ nhập',
+        type: 'select',
+        side: 'left',
+        options: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+      },
+      { key: 'stt', label: 'STT', type: 'text', placeholder: 'vd 26-9893', side: 'right' },
+      { key: 'sttCu', label: 'STT cũ', type: 'text', side: 'right' },
+      { key: 'fromDate', label: 'Từ ngày', type: 'date', side: 'right' },
+      { key: 'toDate', label: 'Đến ngày', type: 'date', side: 'right' },
+    ],
+    [officerOptions],
+  );
+
+
+  const handleLegacyFilterChange = useCallback(
+    (updates: Record<string, string>) => {
+      // Đổi bộ lọc thì về trang 1 — giữ trang cũ sẽ ra bảng trống mà không rõ vì sao.
+      url.setParams({ ...updates, page: '1' });
     },
     [url],
   );
@@ -519,6 +595,14 @@ export function CaseListPageShell() {
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
         />
       </ListPageShell.Toolbar>
+      {/* Thẻ lọc theo kiểu hệ cũ — ô "Từ khóa" nằm ở thanh công cụ ngay trên. */}
+      <LegacyFilterPanel
+        fields={legacyFilterFields}
+        values={legacyFilterValues}
+        onChange={handleLegacyFilterChange}
+        onApply={() => url.setParam('page', '1')}
+        onReset={handleResetFilters}
+      />
       {transientBanner && (
         <div
           data-testid="cases-bulk-banner"

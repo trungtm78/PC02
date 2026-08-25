@@ -157,6 +157,54 @@ describe('CasesService', () => {
   // ── getList ────────────────────────────────────────────────────────────────
 
   describe('getList', () => {
+    // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ───────────────────────────────
+    it('lọc theo mã vụ án nhận CẢ HAI dạng', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '26-9893' });
+
+      const { where } = mockPrisma.case.findMany.mock.calls[0][0];
+      // Vụ án lưu mã ở `caseCode`, không phải `stt`.
+      expect(where.caseCode).toEqual({ in: ['26-9893', '2026-9893'] });
+    });
+
+    it('lọc theo STT cũ và cán bộ nhập', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ sttCu: '1253', createdById: 'user-9' });
+
+      const { where } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(where.sttCu).toEqual({ contains: '1253', mode: 'insensitive' });
+      // "Cán bộ nhập" ở Vụ án là người tạo — cột `createdById`, đã có chỉ mục.
+      expect(where.createdById).toBe('user-9');
+    });
+
+    it('ô lọc để trống thì KHÔNG thêm điều kiện', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '  ', sttCu: '', createdById: '' });
+
+      const { where } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(where.caseCode).toBeUndefined();
+      expect(where.sttCu).toBeUndefined();
+      expect(where.createdById).toBeUndefined();
+    });
+
+    it('trả về tóm tắt nội dung — cột hệ cũ mà danh sách Vụ án đang thiếu', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { select } = mockPrisma.case.findMany.mock.calls[0][0];
+      // `moTaChiTiet` phủ 98% vụ án di trú nhưng API danh sách chưa hề trả về.
+      expect(select.moTaChiTiet).toBe(true);
+      expect(select.sttCu).toBe(true);
+    });
+
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ

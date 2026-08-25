@@ -8,6 +8,7 @@ import {
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
@@ -123,6 +124,9 @@ export class CasesService {
       ngayTiepNhanFrom,
       ngayTiepNhanTo,
       investigatorName,
+      stt,
+      sttCu,
+      createdById,
       limit = 20,
       offset = 0,
       sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
@@ -171,6 +175,22 @@ export class CasesService {
 
     if (investigatorId) {
       where.investigatorId = investigatorId;
+    }
+
+    // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-9893`, hệ mới lưu `2026-9893`. Khớp
+    // CHÍNH XÁC theo danh sách biến thể — `contains` sẽ quét trúng hàng nghìn mã khác.
+    const bienTheMa = hoSoCodeVariants(stt);
+    if (bienTheMa.length) {
+      where.caseCode = { in: bienTheMa };
+    }
+
+    if (sttCu?.trim()) {
+      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    }
+
+    // "Cán bộ nhập" ở Vụ án là người tạo hồ sơ.
+    if (createdById?.trim()) {
+      where.createdById = createdById.trim();
     }
 
     if (unit) {
@@ -303,6 +323,10 @@ export class CasesService {
           id: true,
           caseCode: true,
           name: true,
+          // Tóm tắt nội dung — cột hệ cũ hiển thị trên danh sách, phủ 98% vụ án di trú
+          // nhưng API danh sách chưa hề trả về, nên cán bộ phải mở từng hồ sơ mới biết.
+          moTaChiTiet: true,
+          sttCu: true,
           crime: true,
           crimeChinhId: true,
           crimeChinh: { select: { id: true, code: true, name: true } },

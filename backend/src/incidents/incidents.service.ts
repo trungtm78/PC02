@@ -8,6 +8,7 @@ import {
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -68,6 +69,8 @@ export class IncidentsService {
       canBoNhapId,
       fromDateRange,
       toDateRange,
+      stt,
+      sttCu,
       limit = 20,
       offset = 0,
       sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
@@ -134,6 +137,17 @@ export class IncidentsService {
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
+
+    // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-9706`, hệ mới lưu `2026-9706`. Khớp
+    // CHÍNH XÁC theo danh sách biến thể — `contains` sẽ quét trúng hàng nghìn mã khác.
+    const bienTheMa = hoSoCodeVariants(stt);
+    if (bienTheMa.length) {
+      where.code = { in: bienTheMa };
+    }
+
+    if (sttCu?.trim()) {
+      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    }
 
     // Date range filter on ngayDeXuat
     if (fromDateRange || toDateRange) {

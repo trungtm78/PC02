@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-08-24 after v0.72.0.0 (sắp xếp danh sách). Trước đó: 2026-05-30 (v0.66).
+**Updated**: 2026-08-25 after v0.73.0.0 (danh sách theo bố cục hệ cũ). Trước đó: 2026-08-24 (v0.72), 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -36,6 +36,46 @@ cột và khả năng sắp xếp.
 Cơ sở chọn trường sắp (đo trên dữ liệu thật 2026-08-24): `createdAt` giống hệt nhau ở toàn
 bộ hồ sơ di trú (45.459 đơn thư và 4.713 vụ việc cùng MỘT ngày), nên không dùng được.
 `cases.receiveDate` chỉ có 2/3.304 hồ sơ → phải dùng `ngayDeXuat` (98,8%).
+
+## v0.73.0.0 — Danh sách theo bố cục hệ cũ (feat/danh-sach-giong-he-cu)
+
+Cán bộ vừa chuyển sang hệ mới yêu cầu ba trang danh sách **giống hệ cũ**. Đối chiếu ảnh
+chụp hệ cũ cho thấy khoảng cách nằm ở GIAO DIỆN, không ở dữ liệu: mọi cột hệ cũ đều đã có
+sẵn trong cơ sở dữ liệu, chỉ là không được hiện.
+
+### Cột bổ sung
+
+| Cột hệ cũ | Cases | Incidents | Petitions | Nguồn dữ liệu · độ phủ thật (25/08) |
+|---|---|---|---|---|
+| **Tóm tắt nội dung** | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | `moTaChiTiet` 98% · `description` 99,98% · `summary` 99,99% |
+| Nguồn đơn/Đơn vị giao | — | — | ✅ THÊM MỚI | `nguonDon` 99,9% |
+| Kết quả xử lý, giải quyết khác | — | ✅ THÊM MỚI | ✅ THÊM MỚI | `ketQuaXuLy` 54% · `ketQuaXuLyKhac` 24% |
+| Người nhập | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | `createdBy` · `canBoNhap` · `enteredBy` |
+| Thao tác chuyển về CUỐI bảng | ✅ | ✅ | ✅ | trước đây ở ĐẦU; hệ cũ để cuối |
+| Mã hồ sơ hiện dạng ngắn `26-11171` | ✅ | ✅ | ✅ | `formatHoSoCode` — chỉ đổi HIỂN THỊ, dữ liệu giữ nguyên |
+
+### Bộ lọc bổ sung — `LegacyFilterPanel` (thẻ hai vế theo hệ cũ)
+
+| Ô lọc | Cases | Incidents | Petitions | Cột máy chủ |
+|---|---|---|---|---|
+| STT (nhận cả `26-…` lẫn `2026-…`) | ✅ | ✅ | ✅ | `caseCode` · `code` · `stt` |
+| STT cũ | ✅ | ✅ | ✅ | `sttCu` (đã có chỉ mục) |
+| Cán bộ nhập | ✅ `createdById` | ✅ `canBoNhapId` (ĐÃ CÓ SẴN) | ✅ `enteredById` | cột thật của từng module |
+| Từ ngày · Đến ngày | ✅ | ✅ | ✅ | dùng lại bộ lọc ngày sẵn có |
+| Chọn khoảng thời gian (5 mốc) | ✅ | ✅ | ✅ | thuần frontend, ghi vào hai ô ngày |
+
+### KHÔNG xoá năng lực nào
+
+Chip trạng thái, thẻ thống kê bấm-để-lọc, sắp xếp theo cột, chọn nhiều dòng — **giữ nguyên
+toàn bộ**. Anh chốt rõ: giống hệ cũ về nội dung và bảng lọc, nhưng không đánh đổi năng lực
+mới lấy giao diện cũ. Có ca kiểm hồi quy chốt điều này ở cả ba shell.
+
+### Cố ý KHÔNG dựng
+
+- **Ô "Từ khóa" trong thẻ lọc** — thanh công cụ ngay trên đã có ô tìm kiếm; hai ô tìm trên
+  một màn hình gây nhầm chứ không tiện.
+- **"Đã chuyển đội khác"** và **"Tìm trường bỏ trống"** — hệ mới chưa có khái niệm tương
+  đương; dựng theo phỏng đoán sẽ cho kết quả lọc sai mà cán bộ không biết.
 
 ## Summary (original audit, retained for reference)
 

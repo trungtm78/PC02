@@ -386,3 +386,100 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
     });
   });
 });
+
+/**
+ * Bố cục danh sách theo hệ cũ (25/08/2026).
+ *
+ * Cán bộ vừa chuyển sang hệ mới và nói danh sách "cần giống hệ cũ". Khoảng cách không nằm
+ * ở dữ liệu mà ở giao diện: cột Tóm tắt nội dung phủ 99,99% đơn thư nhưng KHÔNG được hiện,
+ * nên muốn biết hồ sơ nói gì phải mở từng cái.
+ *
+ * Anh chốt: giống nội dung và bảng lọc, nhưng GIỮ năng lực mới (chip trạng thái, thẻ thống
+ * kê, sắp xếp). Nhóm ca kiểm này chốt cả hai vế.
+ */
+describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
+  const rowDaiDong = {
+    ...sampleRow,
+    stt: '2026-11171',
+    summary:
+      'Tố giác bà Phạm Thị Thuỳ Oanh (Sinh năm: 1992; Địa chỉ: 93 Đặng Thuỳ Trâm, phường Bình Lợi Trung, TP. HCM) chiếm đoạt số tiền 769.325.000 đồng thông qua việc vay mượn và tạo các dây hụi ảo để thu tiền của bà Tâm.',
+    nguonDon: 'Bưu điện',
+    ketQuaXuLyKhac: 'Đã chuyển Tổ 5',
+    enteredBy: { id: 'u1', firstName: 'Duy', lastName: 'Trần Hoàng', username: 'duyth' },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions') {
+        return Promise.resolve({ data: { data: [rowDaiDong], total: 1 } });
+      }
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  it('hiện đủ các cột hệ cũ, đúng thứ tự, Thao tác ở CUỐI', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('Bưu điện')).toBeInTheDocument());
+
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim() ?? '');
+    const viTri = (nhan: string) => headers.findIndex((h) => h.includes(nhan));
+
+    expect(viTri('STT')).toBeGreaterThanOrEqual(0);
+    expect(viTri('Nguồn đơn')).toBeGreaterThan(viTri('STT'));
+    expect(viTri('Tóm tắt nội dung')).toBeGreaterThan(viTri('Nguồn đơn'));
+    expect(viTri('Người nhập')).toBeGreaterThan(viTri('Tóm tắt nội dung'));
+
+    // Hệ mới đang để Thao tác ở ĐẦU; hệ cũ để ở CUỐI.
+    expect(viTri('Thao tác')).toBe(headers.length - 1);
+  });
+
+  it('hiện tóm tắt nội dung — cột cán bộ đọc nhiều nhất mà hệ mới đang thiếu', async () => {
+    renderWithRouter();
+    await waitFor(() =>
+      expect(screen.getByTestId('summary-text')).toHaveTextContent('Tố giác bà Phạm Thị Thuỳ Oanh'),
+    );
+    expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
+  });
+
+  it('mã hồ sơ hiện dạng ngắn như hệ cũ, KHÔNG đổi dữ liệu', async () => {
+    renderWithRouter();
+    // Máy chủ trả `2026-11171`; màn hình phải hiện `26-11171`.
+    await waitFor(() => expect(screen.getByText('26-11171')).toBeInTheDocument());
+    expect(screen.queryByText('2026-11171')).not.toBeInTheDocument();
+  });
+
+  it('GIỮ chip trạng thái và thẻ thống kê — không đánh đổi năng lực mới lấy giao diện cũ', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText('Bưu điện')).toBeInTheDocument());
+    // Chip trạng thái render bằng role="tab" — hệ cũ không có thứ này, và anh chốt GIỮ.
+    expect(screen.getAllByRole('tab').length).toBeGreaterThan(0);
+  });
+
+  it('có thẻ lọc kiểu hệ cũ với ô STT và STT cũ', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('legacy-filter-left')).toBeInTheDocument());
+    expect(screen.getByTestId('legacy-filter-stt')).toBeInTheDocument();
+    expect(screen.getByTestId('legacy-filter-sttCu')).toBeInTheDocument();
+  });
+
+  it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API, không chỉ ghi vào địa chỉ trang', async () => {
+    // Ca kiểm ĐẶT ĐÚNG TẦNG: thẻ lọc có ca kiểm riêng và vẫn xanh kể cả khi trang quên nối
+    // tham số xuống API — người dùng thấy ô lọc đổi mà danh sách đứng yên.
+    renderWithRouter([
+      '/petitions?petitions_stt=26-11171&petitions_sttCu=1964&petitions_enteredById=u1',
+    ]);
+
+    await waitFor(() => {
+      const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) => c[0] === '/petitions',
+      );
+      expect(goi).toBeDefined();
+      const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
+      expect(params.stt).toBe('26-11171');
+      expect(params.sttCu).toBe('1964');
+      expect(params.enteredById).toBe('u1');
+    });
+  });
+});

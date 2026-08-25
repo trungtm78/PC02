@@ -24,9 +24,14 @@ import {
   useListPageUrlState,
   useListSort,
   DateCell,
+  SummaryCell,
+  LegacyFilterPanel,
+  formatHoSoCode,
   type ColumnDef,
   type TableState,
+  type LegacyFilterField,
 } from '@/components/shared/ListPageShell';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildIncidentsAdapter } from '@/features/_shared/bulk/adapters/incidents';
@@ -103,6 +108,12 @@ interface IncidentRow {
   ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt?: string;
+  // Các cột hệ cũ hiển thị trên danh sách (25/08/2026). `description` phủ 99,98% vụ việc.
+  description?: string | null;
+  ketQuaXuLy?: string | null;
+  sttCu?: string | null;
+  doiTuongCaNhan?: string | null;
+  canBoNhap?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
 interface IncidentsStatsResponse {
@@ -252,14 +263,32 @@ export function IncidentListPageShell() {
    *  - `reporter` nay tra theo CCCD/SĐT (schema không có cột TÊN người tố giác)
    *  - `unit` → `donViGiaiQuyet` (cột text đơn vị thụ lý)
    */
+  const legacyFilterValues = useMemo(
+    () => ({
+      canBoNhapId: url.getParam('canBoNhapId') ?? '',
+      stt: url.getParam('stt') ?? '',
+      sttCu: url.getParam('sttCu') ?? '',
+      fromDateRange: url.getParam('fromDateRange') ?? '',
+      toDateRange: url.getParam('toDateRange') ?? '',
+    }),
+    [url],
+  );
+
   const baseQueryParams = useMemo(
     () => ({
       ...(debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
       ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
       ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
+      // Bộ lọc theo kiểu hệ cũ. Thiếu phần này thì thẻ lọc chỉ ghi vào địa chỉ trang
+      // mà KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
+      ...(legacyFilterValues.stt && { stt: legacyFilterValues.stt }),
+      ...(legacyFilterValues.sttCu && { sttCu: legacyFilterValues.sttCu }),
+      ...(legacyFilterValues.canBoNhapId && { canBoNhapId: legacyFilterValues.canBoNhapId }),
+      ...(legacyFilterValues.fromDateRange && { fromDateRange: legacyFilterValues.fromDateRange }),
+      ...(legacyFilterValues.toDateRange && { toDateRange: legacyFilterValues.toDateRange }),
     }),
-    [debouncedSearch, appliedFilters],
+    [debouncedSearch, appliedFilters, legacyFilterValues],
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
@@ -392,32 +421,24 @@ export function IncidentListPageShell() {
 
   const columns: ColumnDef<IncidentRow>[] = useMemo(
     () => [
+      // Thứ tự cột theo hệ cũ; Thao tác chuyển về CUỐI (hệ mới trước đây để ở ĐẦU).
       {
-        key: 'actions',
-        header: 'Thao tác',
-        width: '8rem',
+        key: 'code',
+        header: 'STT',
         render: (r) => (
-          <RowActions
-            registry={incidentsRowActions}
-            row={{
-              id: r.id,
-              status: r.status as unknown as string,
-              name: r.name,
-              updatedAt: r.updatedAt,
-            }}
-            ctx={actionCtx}
-          />
+          // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
+          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
         ),
       },
       {
-        key: 'code',
-        header: 'Mã vụ việc',
-        render: (r) => <span className="font-mono text-xs text-slate-700">{r.code}</span>,
+        key: 'name',
+        header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        render: (r) => <span className="font-medium text-slate-800">{r.doiTuongCaNhan || r.name}</span>,
       },
       {
-        key: 'name',
-        header: 'Tên vụ việc',
-        render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
+        key: 'description',
+        header: 'Tóm tắt nội dung',
+        render: (r) => <SummaryCell value={r.description} />,
       },
       {
         key: 'status',
@@ -442,8 +463,22 @@ export function IncidentListPageShell() {
       },
       {
         key: 'donViGiaiQuyet',
-        header: 'Đơn vị thụ lý',
+        header: 'Đơn vị giải quyết',
         render: (r) => r.donViGiaiQuyet ?? '—',
+      },
+      {
+        key: 'ketQuaXuLy',
+        header: 'Kết quả xử lý, giải quyết khác',
+        render: (r) => r.ketQuaXuLy ?? '—',
+      },
+      {
+        key: 'canBoNhap',
+        header: 'Người nhập',
+        render: (r) =>
+          r.canBoNhap
+            ? `${r.canBoNhap.lastName ?? ''} ${r.canBoNhap.firstName ?? ''}`.trim() ||
+              (r.canBoNhap.username ?? '—')
+            : '—',
       },
       {
         key: 'deadline',
@@ -470,6 +505,24 @@ export function IncidentListPageShell() {
         header: 'Ngày tạo',
         sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
+      },
+      // Thao tác ở CUỐI như hệ cũ — cán bộ quen quét mắt từ trái sang rồi mới bấm.
+      {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={incidentsRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              name: r.name,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
       },
     ],
     [actionCtx],
@@ -504,6 +557,37 @@ export function IncidentListPageShell() {
   const handlePageChange = useCallback(
     (newPage: number) => {
       url.setParam('page', String(newPage));
+    },
+    [url],
+  );
+
+  // ── Thẻ lọc theo kiểu hệ cũ ───────────────────────────────────────────────
+  // Vụ việc ĐÃ CÓ sẵn bộ lọc `canBoNhapId` ở máy chủ — dùng lại, không dựng ô thứ hai
+  // cùng nghĩa.
+  const { data: officerOptions } = useOfficerOptions();
+
+  const legacyFilterFields: LegacyFilterField[] = useMemo(
+    () => [
+      {
+        key: 'canBoNhapId',
+        label: 'Cán bộ nhập',
+        type: 'select',
+        side: 'left',
+        options: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+      },
+      { key: 'stt', label: 'STT', type: 'text', placeholder: 'vd 26-9706', side: 'right' },
+      { key: 'sttCu', label: 'STT cũ', type: 'text', side: 'right' },
+      { key: 'fromDateRange', label: 'Từ ngày', type: 'date', side: 'right' },
+      { key: 'toDateRange', label: 'Đến ngày', type: 'date', side: 'right' },
+    ],
+    [officerOptions],
+  );
+
+
+  const handleLegacyFilterChange = useCallback(
+    (updates: Record<string, string>) => {
+      // Đổi bộ lọc thì về trang 1 — giữ trang cũ sẽ ra bảng trống mà không rõ vì sao.
+      url.setParams({ ...updates, page: '1' });
     },
     [url],
   );
@@ -605,6 +689,14 @@ export function IncidentListPageShell() {
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
         />
       </ListPageShell.Toolbar>
+      {/* Thẻ lọc theo kiểu hệ cũ — ô "Từ khóa" nằm ở thanh công cụ ngay trên. */}
+      <LegacyFilterPanel
+        fields={legacyFilterFields}
+        values={legacyFilterValues}
+        onChange={handleLegacyFilterChange}
+        onApply={() => url.setParam('page', '1')}
+        onReset={handleResetFilters}
+      />
       {transientBanner && (
         <div
           data-testid="incidents-bulk-banner"
