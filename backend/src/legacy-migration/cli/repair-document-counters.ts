@@ -67,7 +67,7 @@ async function maxDangDung(
 
 /**
  * Nâng bộ đếm cho khớp mã đã dùng thật. Dùng chung cho CLI này và cho mọi công cụ ghi mã
- * trực tiếp (`backfill-petition-code.ts`…) — một nguồn sự thật, không chép logic đi nơi khác.
+ * trực tiếp (`backfill-ma-ho-so.ts`) — một nguồn sự thật, không chép logic đi nơi khác.
  *
  * CHỈ NÂNG. Trả về danh sách bộ đếm đã đụng tới.
  */

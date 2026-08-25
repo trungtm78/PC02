@@ -34,10 +34,15 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M6-T3 Chạy UAT trên bản chạy thật sau deploy: **26/26 PASS**
 - [x] M6-T4 Đối chiếu ngược ma trận với plan gốc: **24/24 dòng PASS**, không sót màn hình/chức năng nào
 - [x] **M6 HOÀN TẤT**
+- [x] M7-T1 Suy quy tắc mã vụ án TỪ DỮ LIỆU (8/8 mẫu: `<nam>-<stt>`, dùng `stt` không phải `stt_cu`)
+- [x] M7-T2 `backfill-ma-ho-so.ts` theo TDD — 7 ca kiểm, đỏ trước xanh sau
+- [x] M7-T3 Áp prod: **76/76 vụ án** có mã · 4 vụ việc · **29 đơn thư** (sinh từ lượt nhập trưa nay); công cụ tự nâng 2 bộ đếm
+- [x] M7-T4 **Gộp hai công cụ thành một** và xoá `backfill-petition-code.ts` — hai bản riêng thì chạy cái này quên cái kia
+- [x] **M7 HOÀN TẤT** — máy chủ 2976/2976; prod: vụ án 0, đơn thư 0 hồ sơ thiếu mã
 
 ## Đang làm dở
 
-KHÔNG CÒN. Toàn bộ 6 milestone và UAT đã hoàn tất.
+KHÔNG CÒN. Toàn bộ 7 milestone, UAT và phần bù mã đã hoàn tất.
 
 ## Đã deploy
 
