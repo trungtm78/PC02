@@ -12,7 +12,8 @@ export interface SubjectPayload {
   occupationId?: string;
   nationalityId?: string;
   wardId?: string;
-  crimeId: string;
+  /** Tuỳ chọn: nhân chứng và bị hại không cần tội danh (đúng theo `create-case.dto.ts`). */
+  crimeId?: string;
   type?: string;
   notes?: string;
 }
@@ -201,6 +202,13 @@ export function buildCreateCasePayload(
     evidences?: Evidence[];
     documentIds?: string[];
     legacyMetadata?: Record<string, unknown>;
+    /**
+     * Gọi lại khi một mục trong danh sách đối tượng KHÔNG gửi lên được.
+     *
+     * Loại bỏ im lặng là cách chắc chắn nhất để dữ liệu biến mất mà không ai biết. Nơi gọi
+     * dùng gọi lại này để báo cho cán bộ ngay tại màn hình.
+     */
+    onSubjectBiLoai?: (ten: string, lyDo: string) => void;
   },
 ): CreateCasePayload {
   const payload: CreateCasePayload = {
@@ -414,33 +422,44 @@ export function buildCreateCasePayload(
   if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
-  // HOTFIX (codex P1 post-merge): chỉ include subjects với crimeId hợp lệ +
-  // skip "Luật sư" (LAWYER không tồn tại trong Prisma SubjectType enum).
-  // Lawyers nên submit qua separate Lawyer model API trong future PR.
-  // Regression tested: buildCreateCasePayload.test.ts hotfix #112 describe block.
+  //
+  // 26/08/2026 — GỠ bộ lọc `crimeId`. Hộp thoại thêm đối tượng KHÔNG có ô tội danh, nên
+  // không đối tượng nào từng mang `crimeId`; bộ lọc ấy loại sạch mọi đối tượng cán bộ vừa
+  // nhập, mà màn hình vẫn báo lưu thành công. Máy chủ vốn khai `crimeId` là tuỳ chọn —
+  // nhân chứng và bị hại không cần tội danh — nên bộ lọc chặn nhầm ngay từ đầu.
+  //
+  // "Luật sư" vẫn phải loại: bảng Subject của máy chủ chỉ có ba loại (bị can, bị hại, nhân
+  // chứng), gửi lên là 400 và hỏng cả lần lưu. Nhưng loại thì phải BÁO LẠI, vì hộp thoại
+  // vẫn cho chọn "Luật sư".
   if (options?.subjects && options.subjects.length > 0) {
-    const validSubjects = options.subjects
-      .filter((s) => s.type !== 'Luật sư') // LAWYER không có trong SubjectType
-      .map((s) => {
-        const crimeId = (s as Subject & { crimeId?: string }).crimeId;
-        return { s, crimeId };
-      })
-      .filter(({ crimeId }) => crimeId && crimeId.length > 0); // Skip nếu thiếu crimeId
+    const duocGiu = options.subjects.filter((s) => {
+      if (s.type === 'Luật sư') {
+        options.onSubjectBiLoai?.(
+          s.name,
+          'Luật sư lưu ở danh sách luật sư, không thuộc danh sách đối tượng',
+        );
+        return false;
+      }
+      return true;
+    });
 
-    if (validSubjects.length > 0) {
-      payload.subjects = validSubjects.map(({ s, crimeId }) => ({
-        fullName: s.name,
-        dateOfBirth: s.dateOfBirth,
-        gender: s.gender,
-        idNumber: s.idNumber,
-        address: s.address,
-        phone: s.phone ? parsePhone(s.phone) : undefined,
-        occupationId: s.occupation,
-        nationalityId: s.nationality,
-        crimeId: crimeId as string,
-        type: subjectTypeToEnum(s.type),
-        notes: s.criminalRecord,
-      }));
+    if (duocGiu.length > 0) {
+      payload.subjects = duocGiu.map((s) => {
+        const crimeId = (s as Subject & { crimeId?: string }).crimeId;
+        return {
+          fullName: s.name,
+          dateOfBirth: s.dateOfBirth,
+          gender: s.gender,
+          idNumber: s.idNumber,
+          address: s.address,
+          phone: s.phone ? parsePhone(s.phone) : undefined,
+          occupationId: s.occupation,
+          nationalityId: s.nationality,
+          ...(crimeId ? { crimeId } : {}),
+          type: subjectTypeToEnum(s.type),
+          notes: s.criminalRecord,
+        };
+      });
     }
   }
 

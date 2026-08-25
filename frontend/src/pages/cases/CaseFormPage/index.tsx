@@ -297,6 +297,8 @@ function CaseFormPage() {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
     savingRef.current = true;
     setIsSaving(true);
+    // Thu thập mục bị loại khỏi danh sách đối tượng để báo lại sau khi lưu xong.
+    const subjectBiLoai: string[] = [];
     try {
       // v0.37.2.3: payload helper extracted + tested.
       // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
@@ -305,6 +307,9 @@ function CaseFormPage() {
         ...buildCreateCasePayload(formData, {
           subjects,
           evidences,
+          // Mục nào không gửi lên được thì phải nói ra. Loại im lặng là cách chắc chắn nhất
+          // để dữ liệu biến mất mà cán bộ vẫn tưởng đã lưu.
+          onSubjectBiLoai: (ten, lyDo) => subjectBiLoai.push(`${ten} — ${lyDo}`),
           legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
           // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
           // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
@@ -338,7 +343,14 @@ function CaseFormPage() {
         setExportForId(savedId);
         return;
       }
-      alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
+      // Xuống dòng dựng bằng mảng + join để chuỗi không phải mang ký tự thoát khó đọc.
+      const canhBaoSubject =
+        subjectBiLoai.length > 0
+          ? ["", "", "Các mục sau KHÔNG được lưu vào danh sách đối tượng:", ...subjectBiLoai].join("\n")
+          : "";
+      alert(
+        (isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!") + canhBaoSubject,
+      );
       navigate(safeReturn);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

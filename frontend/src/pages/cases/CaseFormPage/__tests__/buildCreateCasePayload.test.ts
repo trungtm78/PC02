@@ -117,7 +117,19 @@ describe('buildCreateCasePayload (hotfix #112 regressions)', () => {
     expect(payload.subjects?.find((s) => s.fullName === 'Luật sư B')).toBeUndefined();
   });
 
-  it('skips subjects without crimeId (backend @IsNotEmpty rejects empty string)', () => {
+  /**
+   * MỐC ĐÚNG ĐÃ ĐỔI, KHÔNG PHẢI CA KIỂM BỊ SỬA CHO KHỚP MÃ.
+   *
+   * Bản cũ chốt "bỏ đối tượng thiếu crimeId", lý do ghi là "backend @IsNotEmpty rejects
+   * empty string". Lý do ấy sai với mã đang chạy: `create-case.dto.ts` khai
+   * `@IsOptional() @IsString() crimeId?: string` kèm chú thích "nhân chứng/bị hại không bắt
+   * buộc tội danh".
+   *
+   * Hệ quả của bản cũ: hộp thoại thêm đối tượng KHÔNG có ô tội danh, nên không đối tượng
+   * nào từng mang crimeId — mọi đối tượng cán bộ nhập đều bị loại, mà màn hình vẫn báo lưu
+   * thành công. Từ 26/08/2026 giữ lại tất cả; chỉ đính kèm crimeId khi thật sự có.
+   */
+  it('giữ đối tượng chưa có crimeId — máy chủ khai crimeId là tuỳ chọn', () => {
     const payload = buildCreateCasePayload(baseValid, {
       subjects: [
         { ...subjectBase, id: 's1', type: 'Bị can', name: 'Có crimeId', crimeId: 'crime-1' } as never,
@@ -125,9 +137,17 @@ describe('buildCreateCasePayload (hotfix #112 regressions)', () => {
         { ...subjectBase, id: 's3', type: 'Bị can', name: 'crimeId empty', crimeId: '' } as never,
       ],
     });
-    // Chỉ subject có crimeId non-empty được pass to backend
-    expect(payload.subjects).toHaveLength(1);
-    expect(payload.subjects?.[0].fullName).toBe('Có crimeId');
+    expect(payload.subjects).toHaveLength(3);
+    expect(payload.subjects?.map((s) => s.fullName)).toEqual([
+      'Có crimeId',
+      'Không có crimeId',
+      'crimeId empty',
+    ]);
+    // Chỉ đính kèm crimeId khi có giá trị — gửi chuỗi rỗng lên là ép máy chủ tra một khoá
+    // ngoại không tồn tại.
+    expect(payload.subjects?.[0].crimeId).toBe('crime-1');
+    expect(payload.subjects?.[1].crimeId).toBeUndefined();
+    expect(payload.subjects?.[2].crimeId).toBeUndefined();
   });
 
   it('does NOT include documentIds even when options.documentIds present (MediaFile upload disabled)', () => {
