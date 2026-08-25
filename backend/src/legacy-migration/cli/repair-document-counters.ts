@@ -43,6 +43,11 @@ export interface DongKetQua {
  *   • `2026-9895`      — định dạng hiện hành (năm-stt)
  *   • `DT-2026-00001`  — định dạng cũ còn sót trong dữ liệu
  * Bỏ sót một trong hai là bỏ sót đúng chỗ sinh ra sự cố.
+ *
+ * AN TOÀN: `bang`/`cot` phải nối vào chuỗi vì SQL không cho tham số hoá tên bảng/cột. Chúng
+ * CHỈ đến từ hằng số `NGUON_MA` ngay trên đầu tệp này — không có đường nào cho dữ liệu người
+ * dùng chạm tới. `periodKey` thì tham số hoá bình thường ($1/$2). ĐỪNG sao chép mẫu này cho
+ * tên bảng/cột đến từ đầu vào bên ngoài.
  */
 async function maxDangDung(
   prisma: PrismaClient,
