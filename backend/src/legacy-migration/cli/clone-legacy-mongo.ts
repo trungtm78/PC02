@@ -64,6 +64,11 @@ async function main(): Promise<void> {
     const to = D.collection(name);
     const nguon = await from.countDocuments();
 
+    // MongoDB chỉ sinh collection ở lần GHI đầu tiên, nên collection RỖNG ở nguồn sẽ không
+    // bao giờ xuất hiện ở đích. Số tài liệu vẫn khớp, nhưng bản sao thiếu 12 collection và
+    // không còn giống hệt về cấu trúc. Tạo tường minh để bản sao là bản sao thật.
+    await D.createCollection(name).catch(() => undefined);
+
     if (!giuDich) await to.deleteMany({});
 
     let daChep = 0;
