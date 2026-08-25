@@ -19,6 +19,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { napLaiBoDem } from './repair-document-counters';
 
 const TAM = 'DT-LEGACY-';
 
@@ -126,6 +127,23 @@ async function main(): Promise<void> {
       console.log(`  ${hong.slice(0, 5).join('\n  ')}`);
     }
     if (viDu.length) console.log(`\nVí dụ:\n  ${viDu.join('\n  ')}`);
+
+    // BẮT BUỘC: công cụ này ghi thẳng vào cột mã, đi vòng qua bộ sinh số, nên bộ đếm bị bỏ
+    // lại phía sau. Không nhích nó thì lần cấp số kế tiếp rơi trúng mã vừa gán → @unique →
+    // người dùng không lưu được hồ sơ. Đã xảy ra thật ngày 25/08/2026 và chặn cả ngày đầu
+    // vận hành thử. Nâng ngay tại đây để lỗi ấy không thể lặp lại.
+    console.log(`\n--- Nạp lại bộ đếm số ---`);
+    const boDem = await napLaiBoDem(prisma, apply);
+    const daNang = boDem.filter((b) => b.canSua);
+    if (!daNang.length) {
+      console.log('Không bộ đếm nào tụt lại.');
+    } else {
+      for (const b of daNang) {
+        console.log(`  ${b.ten} kỳ ${b.periodKey}: ${b.boDemCu} → ${b.boDemMoi}`);
+      }
+      console.log(`${apply ? 'Đã nâng' : 'Sẽ nâng'} ${daNang.length} bộ đếm.`);
+    }
+
     if (!apply) console.log(`\n(CHỈ ĐỌC — chưa ghi gì. Thêm --apply để thực thi.)`);
   } finally {
     await prisma.$disconnect();

@@ -126,7 +126,9 @@ describe('DocumentNumbersService', () => {
 
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1); // cold-start upsert
-      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);   // FOR UPDATE
+      // 2 lần = khoá FOR UPDATE + dò lệch max(code). Trước 25/08/2026 chỗ này là 1 vì
+      // `commit()` không có lưới chống lệch nào — chính khoảng trống đó là lỗi.
+      expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(2);
       expect(result.number).toMatch(/^VV-\d{4}-\d{5}$/);
       expect(result.logId).toBe('log-001');
     });
@@ -434,6 +436,85 @@ describe('DocumentNumbersService', () => {
         expect.objectContaining({ data: expect.objectContaining({ currentValue: 200 }) }),
       );
       expect(result.number).toMatch(/^DT-\d{4}-00200$/);
+    });
+
+    /**
+     * Sự cố 25/08/2026 — ngày đầu vận hành thử, không ai lưu được đơn thư mới.
+     *
+     * Lưới chống lệch ở trên ĐÃ TỒN TẠI và các ca kiểm ĐÃ XANH, nhưng nó không hề bảo vệ
+     * được gì: chúng chỉ giả lập `$queryRaw` rồi khẳng định giá trị trả về được dùng đúng.
+     * Chúng chứng minh ĐƯỜNG ỐNG, không chứng minh CÂU TRUY VẤN tìm được cái gì.
+     *
+     * Mẫu tìm thật là `%-2026-%`, viết cho định dạng mã cũ `DT-2026-00001`. Từ khi mã đổi
+     * sang `năm-stt` (`2026-9895`) nó không khớp bản ghi nào, lưới lặng lẽ trả 0, và bộ đếm
+     * tụt 1.247 số vẫn được coi là bình thường.
+     *
+     * Nhóm ca kiểm này kiểm ĐÚNG thứ đã hỏng: mẫu tìm có thật sự tìm ra mã hiện hành không.
+     */
+    describe('mẫu tìm của lưới chống lệch', () => {
+      /** So khớp LIKE của SQL, đủ dùng cho `%`: đây là thứ Postgres sẽ làm với mẫu ấy. */
+      function likeMatches(pattern: string, value: string): boolean {
+        const rx = new RegExp(
+          '^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*') + '$',
+        );
+        return rx.test(value);
+      }
+
+      /** Lấy đúng các tham số LIKE mà service truyền vào truy vấn dò lệch. */
+      async function layMauTim(documentType: string): Promise<string[]> {
+        const template = {
+          ...mockTemplate,
+          documentType,
+          segments: [{ type: 'COUNTER' }],
+        };
+        mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(template);
+        const queryRaw = jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 'counter-001' }])
+          .mockResolvedValueOnce([{ max_suffix: 0 }]);
+        const mockTx = {
+          $executeRaw: jest.fn().mockResolvedValue(1),
+          $queryRaw: queryRaw,
+          documentNumberCounter: {
+            findUnique: jest.fn().mockResolvedValue({ currentValue: 0 }),
+            update: jest.fn().mockResolvedValue({ currentValue: 1 }),
+          },
+          documentNumberLog: { create: jest.fn().mockResolvedValue({ id: 'log-1' }) },
+        };
+        await service.commitWithTx(documentType, ctx, mockTx);
+        // Lần gọi thứ 2 là truy vấn dò lệch; bỏ phần tử đầu (mảng chuỗi của tagged template).
+        const [, ...params] = queryRaw.mock.calls[1] as unknown[];
+        return params.filter((p): p is string => typeof p === 'string');
+      }
+
+      const nam = new Date().getFullYear().toString();
+
+      it.each(['PETITION', 'CASE', 'INCIDENT'])(
+        '%s: mẫu tìm PHẢI khớp mã định dạng hiện hành `năm-stt`',
+        async (documentType) => {
+          const mauTim = await layMauTim(documentType);
+          const maHienHanh = `${nam}-9895`;
+          expect(mauTim.length).toBeGreaterThan(0);
+          expect(
+            mauTim.some((m) => likeMatches(m, maHienHanh)),
+          ).toBe(true);
+        },
+      );
+
+      it.each(['PETITION', 'CASE', 'INCIDENT'])(
+        '%s: vẫn khớp mã định dạng cũ còn sót trong dữ liệu',
+        async (documentType) => {
+          const mauTim = await layMauTim(documentType);
+          const maCu = `DT-${nam}-00001`;
+          expect(mauTim.some((m) => likeMatches(m, maCu))).toBe(true);
+        },
+      );
+
+      it('KHÔNG khớp mã của kỳ khác — lưới không được lấy max của năm khác', async () => {
+        const mauTim = await layMauTim('PETITION');
+        const namKhac = (Number(nam) - 1).toString();
+        expect(mauTim.some((m) => likeMatches(m, `${namKhac}-9999`))).toBe(false);
+      });
     });
   });
 
