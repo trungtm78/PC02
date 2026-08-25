@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Settings, Edit, Save, X, Loader2, AlertCircle, ArrowRight, ShieldAlert, RotateCcw } from 'lucide-react';
-import { LUA_CHON_THEO_KHOA, MAC_DINH_THEO_KHOA } from '@/constants/thongKeSettings';
+import {
+  LUA_CHON_THEO_KHOA,
+  MAC_DINH_THEO_KHOA,
+  KHOA_KIEU_NGAY,
+  sapXepCaiDat,
+  oNgayDangVoHieu,
+} from '@/constants/thongKeSettings';
 
 interface SettingItem {
   key: string;
@@ -34,7 +40,9 @@ export function SettingsPage() {
     setError('');
     try {
       const res = await api.get<{ success: boolean; data: SettingItem[] }>('/settings');
-      setSettings(res.data.data ?? []);
+      // Máy chủ sắp theo TÊN KHOÁ nên bốn khoá kỳ thống kê nằm rải rác: "đến ngày" đứng
+      // trước "kỳ thống kê", "từ ngày" rơi xuống cuối. Sắp lại theo thứ tự đọc hợp lý.
+      setSettings(sapXepCaiDat(res.data.data ?? []));
     } catch {
       setError('Không thể tải cấu hình');
     } finally {
@@ -45,6 +53,9 @@ export function SettingsPage() {
   useEffect(() => {
     void fetchSettings();
   }, []);
+
+  // Kỳ đang chọn quyết định hai mốc ngày có tác dụng hay không.
+  const kyHienTai = settings.find((x) => x.key === 'THONG_KE_KY')?.value;
 
   const startEdit = (item: SettingItem) => {
     setEditingKey(item.key);
@@ -170,7 +181,16 @@ export function SettingsPage() {
                         // gõ chữ: gõ sai một ký tự thì máy chủ coi là giá trị lạ và lặng lẽ
                         // rơi về mặc định — lưu vẫn báo thành công, cấu hình vẫn không có
                         // tác dụng, và không ai thấy lỗi ở đâu.
-                        LUA_CHON_THEO_KHOA[item.key] ? (
+                        KHOA_KIEU_NGAY.includes(item.key) ? (
+                          <input
+                            type="date"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="px-3 py-1.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            autoFocus
+                            data-testid={`edit-date-${item.key}`}
+                          />
+                        ) : LUA_CHON_THEO_KHOA[item.key] ? (
                           <select
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
@@ -197,7 +217,18 @@ export function SettingsPage() {
                       ) : (
                         <span className="text-slate-700 font-mono">
                           {LUA_CHON_THEO_KHOA[item.key]?.find((o) => o.value === item.value)
-                            ?.label ?? item.value}
+                            ?.label ?? (item.value || '—')}
+                          {/* Nói rõ khi ô chưa có tác dụng. Để nó trông như bình thường thì
+                              admin nhập ngày, lưu thành công, không có gì đổi — rồi kết luận
+                              hệ thống hỏng. */}
+                          {oNgayDangVoHieu(item.key, kyHienTai) && (
+                            <span
+                              data-testid={`inactive-${item.key}`}
+                              className="ml-2 font-sans text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded"
+                            >
+                              chưa có tác dụng — kỳ đang không phải "khoảng tuỳ chọn"
+                            </span>
+                          )}
                         </span>
                       )}
                     </td>

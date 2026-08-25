@@ -16,10 +16,25 @@ vi.mock('@/lib/api', () => ({
  *  - nút "Về mặc định" phải trả đúng giá trị máy chủ dùng khi cài mới
  */
 const CAI_DAT = [
+  // Đúng thứ tự máy chủ trả về: sắp theo TÊN KHOÁ. Chính là thứ tự sai mà anh chỉ ra.
+  {
+    key: 'THONG_KE_DEN_NGAY',
+    label: 'Kỳ thống kê — đến ngày',
+    value: '',
+    unit: null,
+    legalBasis: null,
+  },
   {
     key: 'THONG_KE_KY',
     label: 'Kỳ thống kê mặc định',
     value: 'QUY_HIEN_TAI',
+    unit: null,
+    legalBasis: null,
+  },
+  {
+    key: 'THONG_KE_TU_NGAY',
+    label: 'Kỳ thống kê — từ ngày',
+    value: '',
     unit: null,
     legalBasis: null,
   },
@@ -101,8 +116,11 @@ describe('SettingsPage — kỳ thống kê', () => {
   it('đang ở đúng mặc định thì KHÔNG hiện nút "Về mặc định"', async () => {
     // Nút luôn hiện là nút vô nghĩa: bấm vào không có gì đổi, và người dùng mất niềm tin vào
     // các nút khác trên cùng hàng.
+    // Bám theo KHOÁ, không theo chỉ số mảng: thêm một dòng vào đầu CAI_DAT là ca kiểm này
+    // lặng lẽ đi kiểm nhầm khoá khác.
+    const khoaKy = CAI_DAT.find((x) => x.key === 'THONG_KE_KY')!;
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { data: [{ ...CAI_DAT[0], value: 'THANG_HIEN_TAI' }] },
+      data: { data: [{ ...khoaKy, value: 'THANG_HIEN_TAI' }] },
     });
     renderPage();
     await waitFor(() => expect(screen.getByTestId('btn-edit-THONG_KE_KY')).toBeInTheDocument());
@@ -115,5 +133,64 @@ describe('SettingsPage — kỳ thống kê', () => {
     await waitFor(() => expect(screen.getByTestId('btn-edit-CANH_BAO_SAP_HAN')).toBeInTheDocument());
 
     expect(screen.queryByTestId('btn-reset-CANH_BAO_SAP_HAN')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Thứ tự và kiểu ô nhập — anh chỉ ra 25/08/2026.
+ *
+ * Máy chủ trả danh sách sắp theo tên khoá, nên "đến ngày" xuất hiện TRƯỚC "kỳ thống kê" còn
+ * "từ ngày" rơi xuống cuối. Người đọc gặp mốc kết thúc trước cả khi biết đang cấu hình kỳ gì,
+ * và quan hệ giữa ba khoá biến mất khỏi màn hình.
+ */
+describe('SettingsPage — thứ tự và ô chọn ngày', () => {
+  it('hai mốc ngày nằm KỀ NHAU và NGAY DƯỚI khoá kỳ', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('setting-row-THONG_KE_KY')).toBeInTheDocument());
+
+    const thuTu = screen
+      .getAllByTestId(/^setting-row-/)
+      .map((r) => r.getAttribute('data-testid')!.replace('setting-row-', ''));
+
+    expect(thuTu.slice(0, 3)).toEqual(['THONG_KE_KY', 'THONG_KE_TU_NGAY', 'THONG_KE_DEN_NGAY']);
+  });
+
+  it('sửa mốc ngày thì ra Ô CHỌN NGÀY, không phải ô gõ chữ', async () => {
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-edit-THONG_KE_TU_NGAY')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('btn-edit-THONG_KE_TU_NGAY'));
+
+    // Gõ tay dễ sai định dạng, mà máy chủ chỉ nhận YYYY-MM-DD — sai thì lặng lẽ rơi về mặc
+    // định, lưu vẫn báo thành công.
+    expect(screen.getByTestId('edit-date-THONG_KE_TU_NGAY')).toHaveAttribute('type', 'date');
+    expect(screen.queryByTestId('edit-input-THONG_KE_TU_NGAY')).not.toBeInTheDocument();
+  });
+
+  it('kỳ KHÔNG phải "khoảng tuỳ chọn" → hai mốc ngày báo rõ là chưa có tác dụng', async () => {
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByTestId('inactive-THONG_KE_TU_NGAY')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('inactive-THONG_KE_DEN_NGAY')).toBeInTheDocument();
+  });
+
+  it('kỳ LÀ "khoảng tuỳ chọn" → không còn báo vô hiệu', async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        data: CAI_DAT.map((x) =>
+          x.key === 'THONG_KE_KY' ? { ...x, value: 'KHOANG_TUY_CHON' } : x,
+        ),
+      },
+    });
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByTestId('setting-row-THONG_KE_TU_NGAY')).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByTestId('inactive-THONG_KE_TU_NGAY')).not.toBeInTheDocument();
   });
 });

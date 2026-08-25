@@ -3,7 +3,10 @@ import {
   KY_THONG_KE_OPTIONS,
   TRUONG_NGAY_OPTIONS,
   MAC_DINH_THEO_KHOA,
+  KHOA_KIEU_NGAY,
   nhanKyThongKe,
+  sapXepCaiDat,
+  oNgayDangVoHieu,
 } from '../thongKeSettings';
 
 /**
@@ -70,5 +73,67 @@ describe('nhanKyThongKe', () => {
 
   it('thiếu mốc ngày → vẫn ra nhãn đọc được, không vỡ', () => {
     expect(nhanKyThongKe('THANG_HIEN_TAI', null, null)).toBe('Tất cả thời gian');
+  });
+});
+
+/**
+ * Thứ tự đọc trên trang Cài đặt hệ thống.
+ *
+ * Máy chủ sắp theo tên khoá, nên bốn khoá kỳ thống kê nằm rải rác và sai logic: "đến ngày"
+ * đứng TRƯỚC "kỳ thống kê", "từ ngày" rơi xuống cuối. Người đọc gặp mốc kết thúc trước cả khi
+ * biết đang cấu hình kỳ gì.
+ */
+describe('sapXepCaiDat', () => {
+  it('hai mốc ngày nằm KỀ NHAU và NGAY DƯỚI khoá kỳ', () => {
+    // Đây đúng là thứ tự máy chủ trả về (sắp theo tên khoá) — chính là thứ sai.
+    const tuMayChu = [
+      { key: 'THONG_KE_DEN_NGAY' },
+      { key: 'THONG_KE_KY' },
+      { key: 'THONG_KE_TRUONG_NGAY' },
+      { key: 'THONG_KE_TU_NGAY' },
+    ];
+
+    expect(sapXepCaiDat(tuMayChu).map((x) => x.key)).toEqual([
+      'THONG_KE_KY',
+      'THONG_KE_TU_NGAY',
+      'THONG_KE_DEN_NGAY',
+      'THONG_KE_TRUONG_NGAY',
+    ]);
+  });
+
+  it('khoá lạ giữ nguyên thứ tự máy chủ và xếp SAU, không bị vứt đi', () => {
+    const ds = [
+      { key: 'CANH_BAO_SAP_HAN' },
+      { key: 'THONG_KE_KY' },
+      { key: 'TWO_FA_ENABLED' },
+    ];
+
+    expect(sapXepCaiDat(ds).map((x) => x.key)).toEqual([
+      'THONG_KE_KY',
+      'CANH_BAO_SAP_HAN',
+      'TWO_FA_ENABLED',
+    ]);
+  });
+
+  it('không sửa mảng gốc', () => {
+    const ds = [{ key: 'THONG_KE_TU_NGAY' }, { key: 'THONG_KE_KY' }];
+    sapXepCaiDat(ds);
+    expect(ds[0].key).toBe('THONG_KE_TU_NGAY');
+  });
+});
+
+describe('oNgayDangVoHieu', () => {
+  it('hai mốc ngày vô hiệu khi kỳ KHÔNG phải khoảng tuỳ chọn', () => {
+    // Để chúng trông như bình thường thì admin nhập ngày, lưu thành công, và không có gì
+    // đổi — rồi kết luận hệ thống hỏng.
+    for (const k of KHOA_KIEU_NGAY) {
+      expect(oNgayDangVoHieu(k, 'THANG_HIEN_TAI')).toBe(true);
+      expect(oNgayDangVoHieu(k, 'KHOANG_TUY_CHON')).toBe(false);
+    }
+  });
+
+  it('khoá khác không bao giờ bị coi là vô hiệu', () => {
+    expect(oNgayDangVoHieu('THONG_KE_KY', 'THANG_HIEN_TAI')).toBe(false);
+    expect(oNgayDangVoHieu('CANH_BAO_SAP_HAN', 'THANG_HIEN_TAI')).toBe(false);
   });
 });
