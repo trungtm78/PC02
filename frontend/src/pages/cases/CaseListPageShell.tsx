@@ -383,7 +383,28 @@ export function CaseListPageShell() {
 
   const columns: ColumnDef<CaseRow>[] = useMemo(
     () => [
-      // Thứ tự cột theo hệ cũ; Thao tác chuyển về CUỐI (hệ mới trước đây để ở ĐẦU).
+      // Thao tác là cột ĐẦU, ngay sau ô tick — CỐ Ý KHÁC hệ cũ (hệ cũ để cuối).
+      // Bảng này rộng nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là cuộn
+      // sang phải rồi cuộn ngược về. Anh quyết định 25/08/2026, ưu tiên thao tác nhanh.
+      {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={casesRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              caseCode: r.caseCode,
+              name: r.name,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
+      // Các cột nội dung giữ NGUYÊN thứ tự hệ cũ — chỉ riêng Thao tác đứng trước chúng.
       {
         key: 'caseCode',
         header: 'STT',
@@ -448,25 +469,6 @@ export function CaseListPageShell() {
             ? `${r.createdBy.lastName ?? ''} ${r.createdBy.firstName ?? ''}`.trim() ||
               (r.createdBy.username ?? '—')
             : '—',
-      },
-      // Thao tác ở CUỐI như hệ cũ — cán bộ quen quét mắt từ trái sang rồi mới bấm.
-      {
-        key: 'actions',
-        header: 'Thao tác',
-        width: '8rem',
-        render: (r) => (
-          <RowActions
-            registry={casesRowActions}
-            row={{
-              id: r.id,
-              status: r.status as unknown as string,
-              caseCode: r.caseCode,
-              name: r.name,
-              updatedAt: r.updatedAt,
-            }}
-            ctx={actionCtx}
-          />
-        ),
       },
     ],
     [actionCtx],

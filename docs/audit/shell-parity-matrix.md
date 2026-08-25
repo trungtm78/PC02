@@ -51,8 +51,30 @@ sẵn trong cơ sở dữ liệu, chỉ là không được hiện.
 | Nguồn đơn/Đơn vị giao | — | — | ✅ THÊM MỚI | `nguonDon` 99,9% |
 | Kết quả xử lý, giải quyết khác | — | ✅ THÊM MỚI | ✅ THÊM MỚI | `ketQuaXuLy` 54% · `ketQuaXuLyKhac` 24% |
 | Người nhập | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | `createdBy` · `canBoNhap` · `enteredBy` |
-| Thao tác chuyển về CUỐI bảng | ✅ | ✅ | ✅ | trước đây ở ĐẦU; hệ cũ để cuối |
+| Thao tác ở ĐẦU, ngay sau ô tick | ✅ | ✅ | ✅ | **CỐ Ý KHÁC hệ cũ** — xem ghi chú dưới |
 | Mã hồ sơ hiện dạng ngắn `26-11171` | ✅ | ✅ | ✅ | `formatHoSoCode` — chỉ đổi HIỂN THỊ, dữ liệu giữ nguyên |
+
+#### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
+
+24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu
+ngược lại: đưa lên **đầu**, ngay sau ô tick, lý do là thao tác.
+
+Lý do ấy đo được. Ba bảng rộng 10-13 cột nên phải cuộn ngang. Thao tác ở cuối thì mỗi lần
+muốn bấm sửa/xoá một hồ sơ là phải cuộn sang phải, bấm xong cuộn ngược về để đọc hồ sơ kế
+tiếp. Ở đầu thì nút nằm sẵn trong tầm nhìn ngay khi mở trang.
+
+Hệ quả phụ tốt: cả hàng bấm được để mở hồ sơ, trừ ô tick và nút thao tác — xếp hai thứ ấy
+cạnh nhau ở mép trái tạo một vùng điều khiển gọn, phần còn lại của hàng thuần tuý là "bấm
+để mở".
+
+Sau thay đổi này **cả năm bảng danh sách thống nhất** — Tra cứu tổng hợp và Ủy thác điều tra
+vốn đã để Thao tác ở đầu từ trước, chỉ ba bảng này lệch.
+
+**Chưa làm, cần anh quyết:** ô tick có `sticky left-0` nên vẫn ghim khi cuộn ngang, còn cột
+Thao tác thì không. Nghĩa là cuộn sang phải một đoạn thì nút thao tác trôi khỏi màn hình.
+Ghim luôn cột Thao tác sẽ trọn vẹn hơn, nhưng vướng một lỗi sẵn có: ô tick đang đặt cứng
+`bg-white`, nên trên hàng đang chọn (`bg-blue-50`) hay hàng quá hạn, ô ghim vẫn trắng trong
+khi phần còn lại của hàng đổi màu. Ghim thêm một cột nữa là nhân đôi lỗi ấy.
 
 ### Bộ lọc bổ sung — khai vào registry `list-filters` sẵn có
 
