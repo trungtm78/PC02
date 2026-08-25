@@ -104,8 +104,18 @@ async function main(): Promise<void> {
     }
 
     const dich = await to.countDocuments();
-    const khop = dich === nguon;
-    reports.push({ name, nguon, dich, chiMuc: soChiMuc, khop });
+    // Nguồn là hệ ĐANG CHẠY: cán bộ có thể thêm hồ sơ ngay trong lúc mình chép. So số chụp
+    // lúc BẮT ĐẦU với số lúc KẾT THÚC sẽ báo lệch oan — đã bị đúng vậy ngày 25/08 (nguồn
+    // 55.096 → đích 55.097, thực ra bản sao còn mới hơn). Đếm lại nguồn ở cuối và chấp nhận
+    // nếu đích nằm trong khoảng nguồn đã đi qua.
+    const nguonCuoi = await from.countDocuments();
+    const can = Math.min(nguon, nguonCuoi);
+    const tran = Math.max(nguon, nguonCuoi);
+    const khop = dich >= can && dich <= tran;
+    reports.push({ name, nguon: nguonCuoi, dich, chiMuc: soChiMuc, khop });
+    if (khop && nguon !== nguonCuoi) {
+      console.log(`    (nguồn đổi trong lúc chép: ${nguon} → ${nguonCuoi}; bản sao ${dich} — chấp nhận)`);
+    }
     tongDoc += dich;
     tongChiMuc += soChiMuc;
 
