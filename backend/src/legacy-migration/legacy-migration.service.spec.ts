@@ -167,16 +167,24 @@ describe('LegacyMigrationService', () => {
       expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
       const createArgs = mockTx.petition.create.mock.calls[0][0].data;
+      // Đơn thư dùng khoá ngoại vô hướng khắp payload → kiểu "unchecked", chỉ nhận
+      // `crimeChinhId`. Đưa quan hệ `crimeChinh` vào đây làm hỏng 4.915 đơn thư (đo 25/08).
       expect(createArgs.crimeChinhId).toBe('crime-95');
+      expect(createArgs.crimeChinh).toBeUndefined();
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
     });
 
-    it('VỤ ÁN: GÁN crimeChinhId — Case nay có cột FK master Crime (chuẩn như Petition)', async () => {
-      // Case.crimeChinhId đã thêm (migration case_crime_chinh_fk) → resolve tội danh chung.
+    it('VỤ ÁN: nối tội danh bằng QUAN HỆ, không phải khoá ngoại vô hướng', async () => {
+      // Payload vụ án dùng cú pháp `connect` cho createdBy/investigator/linkedPetition, nên
+      // Prisma chốt kiểu "checked" và TỪ CHỐI khoá ngoại vô hướng `crimeChinhId` trong cùng
+      // payload ("Unknown argument `crimeChinhId`. Did you mean `crimeChinh`?"). Đúng loại
+      // lỗi đã vá cho `linkedPetition`. Đo trên dữ liệu thật 25/08: 42 hồ sơ hỏng vì nó, và
+      // vì đây là lượt CẬP NHẬT nên hỏng nghĩa là sửa đổi ở hệ cũ KHÔNG sang được hệ mới.
       mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
       await service.commit([caseRec], 'actor-1');
       const createArgs = mockTx.case.create.mock.calls[0][0].data;
-      expect(createArgs.crimeChinhId).toBe('crime-95');
+      expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-95' } });
+      expect(createArgs.crimeChinhId).toBeUndefined();
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
       expect(createArgs.legacyRaw).toBeDefined();
     });
