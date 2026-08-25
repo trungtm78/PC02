@@ -1851,7 +1851,7 @@ export class PetitionsService {
 
     // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
     // Nhờ vậy frontend không cần biết nhóm gồm những trạng thái nào (chống trùng lặp).
-    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus) };
+    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus), ky: kyThongKe };
   }
 
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
