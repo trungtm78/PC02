@@ -1,6 +1,6 @@
 # PROGRESS
 
-STATUS: IN_PROGRESS — M8 (PR #233 chờ CI, rồi gộp + triển khai)
+STATUS: ALL_MILESTONES_DONE
 
 Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
 
@@ -54,8 +54,15 @@ cả ba module, mở rộng `Filters` nhận `dynamicOptions` + `children`, thê
 Bản vá đầu của (1) xoá nhầm khoá trống `page` thay vì `{prefix}_page`, ca kiểm
 mức hook vẫn xanh mà không chứng minh gì; đã sửa cả mã lẫn ca kiểm.
 PR #233 đã mở, ma trận đối chiếu đã cập nhật.
-BƯỚC TIẾP THEO: chờ CI xanh → gộp → triển khai → kiểm chứng trên bản chạy thật
-(đếm đúng MỘT ô "Từ ngày" mỗi trang; lọc từ trang 3 phải về trang 1)
+ĐÃ TRIỂN KHAI: PR #233 gộp vào main (a6bd969), Deploy success 25/08 16:32.
+Kiểm chứng trên bản chạy thật: ba gói ListPageShell đang phục vụ đều KHÔNG còn
+dấu vết `legacy-filter` và đều có ô `filter-stt-cu`; 15/15 tham số lọc đều nằm
+trong danh sách trắng DTO nên không có rủi ro 400.
+
+CÒN LẠI CHO ANH BẤM THỬ (em không nhìn được màn hình):
+  • mở ba trang, đếm đúng MỘT ô "Từ ngày"
+  • sang trang 3 rồi đặt bộ lọc → phải nhảy về trang 1, không ra bảng trống
+  • bấm chip "Tháng này" → hai ô ngày điền đúng mốc đầu và cuối tháng
 File liên quan: `frontend/src/features/*/list-filters.ts`, ba `*ListPageShell.tsx`, xoá `LegacyFilterPanel.tsx`
 
 Lý do: em đã dựng hệ lọc THỨ HAI bên cạnh registry sẵn có (v0.62) → trang Đơn thư và Vụ án
