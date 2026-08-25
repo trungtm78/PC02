@@ -160,3 +160,60 @@ describe('Filters', () => {
     expect(onReset).toHaveBeenCalled();
   });
 });
+
+describe('Filters — lựa chọn nạp động', () => {
+  /**
+   * Ô "Cán bộ nhập" lấy danh sách từ máy chủ, không khai cứng được trong registry.
+   * Trước đây em giải quyết bằng cách dựng một thẻ lọc RIÊNG — sai, vì trang có hai mặt
+   * lọc. Cách đúng là mở rộng chính primitive này.
+   */
+  it('lựa chọn truyền lúc render được dùng cho ô enumSelect', () => {
+    const registry = createListFilterRegistry<{ officer?: string }>();
+    registry.register({
+      key: 'officer',
+      label: 'Cán bộ nhập',
+      type: 'enumSelect',
+      urlKey: 'officer',
+      testid: 'filter-officer',
+    });
+
+    render(
+      <Filters
+        registry={registry}
+        value={{}}
+        onChange={vi.fn()}
+        onApply={vi.fn()}
+        onReset={vi.fn()}
+        hasUnappliedChanges={false}
+        dynamicOptions={{ officer: [{ value: 'u1', label: 'Trần Hoàng Duy' }] }}
+      />,
+    );
+
+    expect(screen.getByRole('option', { name: 'Trần Hoàng Duy' })).toBeInTheDocument();
+  });
+
+  it('không truyền gì thì vẫn dùng lựa chọn khai sẵn trong registry', () => {
+    const registry = createListFilterRegistry<{ loai?: string }>();
+    registry.register({
+      key: 'loai',
+      label: 'Loại',
+      type: 'enumSelect',
+      urlKey: 'loai',
+      testid: 'filter-loai',
+      options: [{ value: 'a', label: 'Tố giác' }],
+    });
+
+    render(
+      <Filters
+        registry={registry}
+        value={{}}
+        onChange={vi.fn()}
+        onApply={vi.fn()}
+        onReset={vi.fn()}
+        hasUnappliedChanges={false}
+      />,
+    );
+
+    expect(screen.getByRole('option', { name: 'Tố giác' })).toBeInTheDocument();
+  });
+});

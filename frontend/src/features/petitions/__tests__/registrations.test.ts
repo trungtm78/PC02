@@ -57,13 +57,27 @@ describe('petitionsRowActions', () => {
 });
 
 describe('petitionsListFilters', () => {
-  it('registers 4 fields in legacy order', () => {
+  it('registers 7 fields — 4 gốc + 3 ô theo bảng lọc hệ cũ', () => {
+    // 3 ô mới khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì
+    // không có cách nào đúng để trả lời "ô nào đang có hiệu lực" (đã mắc và phải gỡ).
     expect(petitionsListFilters.all().map((f) => f.key)).toEqual([
       'fromDate',
       'toDate',
       'sender',
       'unit',
+      'stt',
+      'sttCu',
+      'enteredById',
     ]);
+  });
+
+  it('khoá địa chỉ trang của ô mới KHÔNG đụng khoá sẵn có', () => {
+    // `petitions_status` từng bị hai control cùng ghi và làm gãy bộ lọc nâng cao — xem chú
+    // thích bên dưới. Ca này chốt để chuyện đó không tái diễn.
+    const keys = petitionsListFilters.all().map((f) => f.urlKey);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys).toContain('stt_cu');
+    expect(keys).toContain('entered_by');
   });
 
   /**
@@ -90,6 +104,9 @@ describe('petitionsListFilters', () => {
       'filter-to-date',
       'filter-sender',
       'filter-unit',
+      'filter-stt',
+      'filter-stt-cu',
+      'filter-can-bo-nhap',
     ]);
   });
 });

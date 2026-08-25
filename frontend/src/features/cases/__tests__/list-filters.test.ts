@@ -2,9 +2,23 @@ import { describe, it, expect } from 'vitest';
 import { casesListFilters } from '../list-filters';
 
 describe('casesListFilters registry', () => {
-  it('registers 5 fields in order', () => {
+  it('registers 8 fields — 5 gốc + 3 ô theo bảng lọc hệ cũ', () => {
     const keys = casesListFilters.all().map((f) => f.key);
-    expect(keys).toEqual(['fromDate', 'toDate', 'unit', 'investigator', 'charges']);
+    expect(keys).toEqual([
+      'fromDate',
+      'toDate',
+      'unit',
+      'investigator',
+      'charges',
+      'stt',
+      'sttCu',
+      'createdById',
+    ]);
+  });
+
+  it('khoá địa chỉ trang không trùng nhau', () => {
+    const keys = casesListFilters.all().map((f) => f.urlKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('matches legacy testid pattern', () => {
@@ -15,6 +29,9 @@ describe('casesListFilters registry', () => {
       'filter-unit',
       'filter-investigator',
       'filter-charges',
+      'filter-stt',
+      'filter-stt-cu',
+      'filter-can-bo-nhap',
     ]);
   });
 

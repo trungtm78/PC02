@@ -370,7 +370,7 @@ describe('IncidentListPageShell — bố cục theo hệ cũ', () => {
   });
 
   it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API', async () => {
-    renderWithRouter(['/incidents?incidents_stt=26-9706&incidents_sttCu=679']);
+    renderWithRouter(['/incidents?incidents_stt=26-9706&incidents_stt_cu=679']);
     await waitFor(() => {
       const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
         (c: unknown[]) => c[0] === '/incidents',

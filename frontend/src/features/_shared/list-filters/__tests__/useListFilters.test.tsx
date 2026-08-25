@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useSearchParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useListFilters } from '../useListFilters';
 import { createListFilterRegistry } from '../registry';
@@ -61,6 +61,42 @@ describe('useListFilters', () => {
     act(() => result.current.reset());
     expect(result.current.draft).toEqual({});
     expect(result.current.applied).toEqual({});
+  });
+
+  /**
+   * Đổi bộ lọc phải đưa danh sách về TRANG 1.
+   *
+   * Ô tìm kiếm và chip trạng thái đã làm đúng điều này từ trước. Riêng nút "Áp dụng" thì
+   * không, nên cán bộ đang xem trang 5 mà đặt thêm bộ lọc sẽ thấy một BẢNG TRỐNG: kết quả
+   * mới chỉ có 2 trang, còn địa chỉ trang vẫn giữ `page=5`. Bảng trống không nói gì cả —
+   * người dùng kết luận "lọc xong không còn hồ sơ nào", trong khi hồ sơ nằm ở trang 1.
+   *
+   * Sửa ở ĐÂY (một chỗ) thay vì ở từng trang danh sách: sáu trang dùng chung hook này, và
+   * việc bỏ sót một trang là chuyện chắc chắn xảy ra.
+   *
+   * Ca kiểm dùng khoá CÓ TIỀN TỐ `cases_page` vì đó là khoá thật mà trang danh sách ghi ra
+   * (`useListPageUrlState` gắn tiền tố cho mọi khoá). Bản vá đầu tiên xoá khoá trống `page`,
+   * và ca kiểm khi ấy cũng đặt `?page=5` nên vẫn xanh — xanh mà không chứng minh gì, vì
+   * trên bản chạy thật không có khoá nào tên `page` để mà xoá.
+   */
+  it('apply() đưa về trang 1 — nếu không, lọc từ trang 5 ra bảng trống', () => {
+    const { result } = renderHook(
+      () => ({ loc: useListFilters({ prefix: 'cases', registry }), sp: useSearchParams() }),
+      { wrapper: ({ children }) => wrapper({ children, initial: '/?cases_page=5' }) },
+    );
+    act(() => result.current.loc.setField('unit', 'PC02'));
+    act(() => result.current.loc.apply());
+    expect(result.current.sp[0].get('cases_page')).toBeNull();
+    expect(result.current.sp[0].get('cases_unit')).toBe('PC02');
+  });
+
+  it('reset() cũng đưa về trang 1 — xoá lọc thì tập kết quả nở ra, trang cũ vô nghĩa', () => {
+    const { result } = renderHook(
+      () => ({ loc: useListFilters({ prefix: 'cases', registry }), sp: useSearchParams() }),
+      { wrapper: ({ children }) => wrapper({ children, initial: '/?cases_unit=PC02&cases_page=3' }) },
+    );
+    act(() => result.current.loc.reset());
+    expect(result.current.sp[0].get('cases_page')).toBeNull();
   });
 
   it('hydrates applied from URL on mount', () => {

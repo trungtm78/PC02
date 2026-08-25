@@ -15,6 +15,9 @@ export interface CaseFilterValue {
   unit?: string;
   investigator?: string;
   charges?: string;
+  stt?: string;
+  sttCu?: string;
+  createdById?: string;
 }
 
 const cases = createListFilterRegistry<CaseFilterValue>();
@@ -57,6 +60,31 @@ cases.registerMany([
     urlKey: 'charges',
     testid: 'filter-charges',
     placeholder: 'Trộm cắp, Cướp giật, ...',
+  },
+  // ── Bổ sung theo bảng lọc hệ cũ (25/08/2026) ─────────────────────────────
+  // Khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì không có
+  // cách nào đúng để trả lời "ô nào đang có hiệu lực" — đúng lỗi đã mắc và phải gỡ.
+  {
+    key: 'stt',
+    label: 'STT',
+    type: 'text',
+    urlKey: 'stt',
+    testid: 'filter-stt',
+    placeholder: 'vd 26-9893',
+  },
+  {
+    key: 'sttCu',
+    label: 'STT cũ',
+    type: 'text',
+    urlKey: 'stt_cu',
+    testid: 'filter-stt-cu',
+  },
+  {
+    key: 'createdById',
+    label: 'Cán bộ nhập',
+    type: 'enumSelect',
+    urlKey: 'created_by',
+    testid: 'filter-can-bo-nhap',
   },
 ]);
 

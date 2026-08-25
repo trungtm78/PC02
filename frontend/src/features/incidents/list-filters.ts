@@ -17,6 +17,11 @@ export interface IncidentFilterValue {
   loaiDonVu?: string;
   reporter?: string;
   unit?: string;
+  stt?: string;
+  sttCu?: string;
+  canBoNhapId?: string;
+  fromDateRange?: string;
+  toDateRange?: string;
 }
 
 const incidents = createListFilterRegistry<IncidentFilterValue>();
@@ -53,6 +58,45 @@ incidents.registerMany([
     urlKey: 'unit',
     testid: 'filter-unit',
     placeholder: 'PC02, PC03, ...',
+  },
+  {
+    key: 'fromDateRange',
+    label: 'Từ ngày',
+    type: 'date',
+    urlKey: 'from_date',
+    testid: 'filter-from-date',
+  },
+  {
+    key: 'toDateRange',
+    label: 'Đến ngày',
+    type: 'date',
+    urlKey: 'to_date',
+    testid: 'filter-to-date',
+  },
+  // ── Bổ sung theo bảng lọc hệ cũ (25/08/2026) ─────────────────────────────
+  // Khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì không có
+  // cách nào đúng để trả lời "ô nào đang có hiệu lực" — đúng lỗi đã mắc và phải gỡ.
+  {
+    key: 'stt',
+    label: 'STT',
+    type: 'text',
+    urlKey: 'stt',
+    testid: 'filter-stt',
+    placeholder: 'vd 26-9706',
+  },
+  {
+    key: 'sttCu',
+    label: 'STT cũ',
+    type: 'text',
+    urlKey: 'stt_cu',
+    testid: 'filter-stt-cu',
+  },
+  {
+    key: 'canBoNhapId',
+    label: 'Cán bộ nhập',
+    type: 'enumSelect',
+    urlKey: 'can_bo_nhap',
+    testid: 'filter-can-bo-nhap',
   },
 ]);
 

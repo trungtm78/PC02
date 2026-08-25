@@ -1,11 +1,14 @@
+import type { ReactNode } from 'react';
 import {
   FILTER_PANEL,
   FILTER_GRID,
   BTN_PRIMARY,
   BTN_OUTLINE_SLATE,
   A11Y_FOCUS_RING,
+  INPUT_BASE,
+  LABEL_BASE,
 } from '@/constants/styles';
-import type { ListFilterRegistry, FilterField } from './registry';
+import type { ListFilterRegistry, FilterField, EnumOption } from './registry';
 
 interface FiltersProps<TValue extends object> {
   registry: ListFilterRegistry<TValue>;
@@ -14,11 +17,17 @@ interface FiltersProps<TValue extends object> {
   onApply: () => void;
   onReset: () => void;
   hasUnappliedChanges: boolean;
+  /**
+   * Lựa chọn nạp lúc chạy cho ô `enumSelect`, khoá theo `field.key`.
+   *
+   * Ô như "Cán bộ nhập" lấy danh sách từ máy chủ nên không khai cứng trong registry được.
+   * Mở rộng chính primitive này thay vì dựng một mặt lọc thứ hai — hai mặt lọc trên một
+   * màn hình thì không có cách nào đúng để trả lời "ô nào đang có hiệu lực".
+   */
+  dynamicOptions?: Record<string, EnumOption[]>;
+  /** Nội dung phụ chèn dưới lưới ô lọc (vd chip khoảng thời gian). */
+  children?: ReactNode;
 }
-
-const INPUT_BASE =
-  'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100';
-const LABEL_BASE = 'block text-sm font-medium text-slate-700 mb-1';
 
 /**
  * v0.62 PR1a — Smart filter panel.
@@ -36,6 +45,8 @@ export function Filters<TValue extends object>({
   onApply,
   onReset,
   hasUnappliedChanges,
+  dynamicOptions,
+  children,
 }: FiltersProps<TValue>) {
   const fields = registry.all();
   const v = value as Record<string, string | undefined>;
@@ -48,9 +59,11 @@ export function Filters<TValue extends object>({
             field={field}
             value={v[field.key] ?? ''}
             onChange={(val) => onChange(field.key, val)}
+            options={dynamicOptions?.[field.key] ?? field.options}
           />
         ))}
       </div>
+      {children}
       <div className="mt-4 flex items-center justify-end gap-2">
         <button
           type="button"
@@ -78,9 +91,10 @@ interface FieldInputProps<TValue> {
   field: FilterField<TValue>;
   value: string;
   onChange: (value: string) => void;
+  options?: EnumOption[];
 }
 
-function FieldInput<TValue>({ field, value, onChange }: FieldInputProps<TValue>) {
+function FieldInput<TValue>({ field, value, onChange, options }: FieldInputProps<TValue>) {
   if (field.type === 'enumSelect') {
     return (
       <div>
@@ -95,7 +109,7 @@ function FieldInput<TValue>({ field, value, onChange }: FieldInputProps<TValue>)
           className={INPUT_BASE}
         >
           <option value="">— Tất cả —</option>
-          {(field.options ?? []).map((opt) => (
+          {(options ?? []).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

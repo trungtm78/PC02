@@ -1,6 +1,6 @@
 # PROGRESS
 
-STATUS: ALL_MILESTONES_DONE
+STATUS: IN_PROGRESS — M8 (PR #233 chờ CI, rồi gộp + triển khai)
 
 Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
 
@@ -42,7 +42,25 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 
 ## Đang làm dở
 
-KHÔNG CÒN. Toàn bộ 7 milestone, UAT và phần bù mã đã hoàn tất.
+Task: M8 — gộp hai bộ lọc thành một
+Đã làm: xong toàn bộ code. Xoá `LegacyFilterPanel`, khai 3 ô mới vào registry sẵn có của
+cả ba module, mở rộng `Filters` nhận `dynamicOptions` + `children`, thêm chip
+`DateRangePresets`. Frontend 1543 ca kiểm, `tsc -b` sạch.
+Đã làm thêm: `/review` bắt được HAI lỗi thật mà bộ ca kiểm chưa chốt —
+(1) bấm "Áp dụng" không đưa danh sách về trang 1, nên lọc từ trang 3 ra bảng
+    trống; vá tại `useListFilters` cho cả sáu trang, có ca kiểm ở tầng trang;
+(2) `fromDate`/`toDate` khai hai lần trong cùng một `baseQueryParams` ở Vụ án và
+    Đơn thư — tàn dư lúc còn hai mặt lọc.
+Bản vá đầu của (1) xoá nhầm khoá trống `page` thay vì `{prefix}_page`, ca kiểm
+mức hook vẫn xanh mà không chứng minh gì; đã sửa cả mã lẫn ca kiểm.
+PR #233 đã mở, ma trận đối chiếu đã cập nhật.
+BƯỚC TIẾP THEO: chờ CI xanh → gộp → triển khai → kiểm chứng trên bản chạy thật
+(đếm đúng MỘT ô "Từ ngày" mỗi trang; lọc từ trang 3 phải về trang 1)
+File liên quan: `frontend/src/features/*/list-filters.ts`, ba `*ListPageShell.tsx`, xoá `LegacyFilterPanel.tsx`
+
+Lý do: em đã dựng hệ lọc THỨ HAI bên cạnh registry sẵn có (v0.62) → trang Đơn thư và Vụ án
+có HAI ô "Từ ngày" với hai khoá khác nhau (`petitions_from_date` vs `petitions_fromDate`),
+không đồng bộ; và bố cục của em cao ~400px so với ~180px của lưới sẵn có.
 
 ## Đã deploy
 

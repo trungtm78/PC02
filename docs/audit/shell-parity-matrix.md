@@ -54,15 +54,27 @@ sẵn trong cơ sở dữ liệu, chỉ là không được hiện.
 | Thao tác chuyển về CUỐI bảng | ✅ | ✅ | ✅ | trước đây ở ĐẦU; hệ cũ để cuối |
 | Mã hồ sơ hiện dạng ngắn `26-11171` | ✅ | ✅ | ✅ | `formatHoSoCode` — chỉ đổi HIỂN THỊ, dữ liệu giữ nguyên |
 
-### Bộ lọc bổ sung — `LegacyFilterPanel` (thẻ hai vế theo hệ cũ)
+### Bộ lọc bổ sung — khai vào registry `list-filters` sẵn có
 
-| Ô lọc | Cases | Incidents | Petitions | Cột máy chủ |
+Bản đầu (24/08) dựng một thẻ lọc RIÊNG tên `LegacyFilterPanel` đặt cạnh bộ lọc nâng cao có
+sẵn từ v0.62. Đó là một mặt lọc THỨ HAI trên cùng màn hình, và nó sinh lỗi thật: trang Đơn
+thư và Vụ án có hai ô "Từ ngày" dùng hai khoá địa chỉ trang khác nhau
+(`petitions_from_date` với `petitions_fromDate`), không đồng bộ với nhau, nên đặt ngày ở ô
+này thì ô kia vẫn trống và người dùng không có cách nào biết ô nào đang có hiệu lực.
+
+25/08 gỡ hẳn thẻ ấy và khai các ô mới vào registry sẵn có. Mỗi trang giờ có **đúng một**
+mặt lọc, nên câu hỏi "ô nào đang có hiệu lực" không còn tồn tại.
+
+| Ô lọc | Cases | Incidents | Petitions | Khoá địa chỉ trang · cột máy chủ |
 |---|---|---|---|---|
-| STT (nhận cả `26-…` lẫn `2026-…`) | ✅ | ✅ | ✅ | `caseCode` · `code` · `stt` |
-| STT cũ | ✅ | ✅ | ✅ | `sttCu` (đã có chỉ mục) |
-| Cán bộ nhập | ✅ `createdById` | ✅ `canBoNhapId` (ĐÃ CÓ SẴN) | ✅ `enteredById` | cột thật của từng module |
-| Từ ngày · Đến ngày | ✅ | ✅ | ✅ | dùng lại bộ lọc ngày sẵn có |
-| Chọn khoảng thời gian (5 mốc) | ✅ | ✅ | ✅ | thuần frontend, ghi vào hai ô ngày |
+| STT (nhận cả `26-…` lẫn `2026-…`) | ✅ | ✅ | ✅ | `stt` → `caseCode` · `code` · `stt` |
+| STT cũ | ✅ | ✅ | ✅ | `stt_cu` → `sttCu` (đã có chỉ mục) |
+| Cán bộ nhập | ✅ `created_by` | ✅ `can_bo_nhap` | ✅ `entered_by` | cột thật của từng module |
+| Từ ngày · Đến ngày | ✅ ĐÃ CÓ | ✅ THÊM MỚI | ✅ ĐÃ CÓ | `from_date` · `to_date` |
+| Khoảng thời gian (5 mốc) | ✅ | ✅ | ✅ | chip `DateRangePresets`, ghi vào hai ô ngày trên |
+
+Ca kiểm chốt hồi quy: mỗi trang chỉ có ĐÚNG MỘT ô "Từ ngày", và mọi khoá địa chỉ trang
+trong một registry phải khác nhau — trùng khoá là đúng cơ chế đã sinh ra lỗi này.
 
 ### KHÔNG xoá năng lực nào
 
