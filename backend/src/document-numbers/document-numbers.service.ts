@@ -59,6 +59,55 @@ export class DocumentNumbersService {
     return { previewNumber, isDraft: true, templateId: template.id };
   }
 
+  /**
+   * Số lớn nhất ĐANG DÙNG THẬT trong kỳ, đọc thẳng từ bảng nghiệp vụ.
+   *
+   * Bộ đếm không phải nguồn sự thật duy nhất: di trú, cấp mã hàng loạt và seed đều ghi
+   * thẳng vào cột mã, để bộ đếm tụt lại phía sau. Không dò lại thì lần cấp số kế tiếp rơi
+   * trúng mã đã có → cột mã là @unique → P2002 → người dùng thấy "Internal server error".
+   *
+   * HAI mẫu tìm, vì dữ liệu đang mang HAI định dạng:
+   *   • `2026-9895`     — định dạng hiện hành (năm-stt)
+   *   • `DT-2026-00001` — định dạng cũ còn sót lại
+   *
+   * Trước 25/08/2026 chỗ này chỉ có mẫu `%-2026-%` (viết cho định dạng cũ) và nằm riêng
+   * trong `commitWithTx`, còn `commit` thì không có gì. Hệ quả: lưới lặng lẽ trả 0 với mọi
+   * đơn thư, bỏ sót 770/853 vụ án và 710/838 vụ việc; bộ đếm đơn thư kỳ 2026 tụt 1.247 số
+   * mà không ai thấy, tới khi cán bộ không lưu được đơn thư nào trong ngày đầu vận hành
+   * thử. Nay dùng CHUNG một hàm cho cả hai đường — hai bản sao là cách lỗi đó sống sót.
+   */
+  private async dbMaxTrongKy(
+    tx: { $queryRaw: <T>(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T> },
+    documentType: string,
+    periodKey: string,
+  ): Promise<number | null> {
+    const prefixLike = `${periodKey}-%`;
+    const middleLike = `%-${periodKey}-%`;
+    if (documentType === 'INCIDENT') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
+        FROM incidents
+        WHERE code LIKE ${prefixLike} OR code LIKE ${middleLike}`;
+      return Number(r?.[0]?.max_suffix ?? 0);
+    }
+    if (documentType === 'CASE') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING("caseCode" FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
+        FROM cases
+        WHERE "caseCode" LIKE ${prefixLike} OR "caseCode" LIKE ${middleLike}`;
+      return Number(r?.[0]?.max_suffix ?? 0);
+    }
+    if (documentType === 'PETITION') {
+      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
+        SELECT COALESCE(MAX(CAST(SUBSTRING(stt FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
+        FROM petitions
+        WHERE stt LIKE ${prefixLike} OR stt LIKE ${middleLike}`;
+      return Number(r?.[0]?.max_suffix ?? 0);
+    }
+    // Loại hồ sơ không có bảng mã đối chiếu → bộ đếm là nguồn sự thật duy nhất.
+    return null;
+  }
+
   async commit(
     documentType: string,
     ctx: ResolutionContext,
@@ -95,6 +144,13 @@ export class DocumentNumbersService {
       });
 
       let nextValue = (counter?.currentValue ?? 0) + 1;
+
+      // Cùng lưới chống lệch với `commitWithTx` — endpoint POST /document-numbers/commit đi
+      // qua đây, và trước 25/08/2026 nó không có lớp bảo vệ nào.
+      const dbMax = await this.dbMaxTrongKy(tx, template.documentType, periodKey);
+      if (dbMax != null && dbMax >= nextValue) {
+        nextValue = dbMax + 1;
+      }
 
       if (nextValue > config.maxValue) {
         if (config.resetPeriod === 'MAX_NUMBER') {
@@ -180,27 +236,7 @@ export class DocumentNumbersService {
     // leaving counter behind → P2002 unique constraint on save.
     // Re-sync once per commit. Hard-coded for the 2 high-traffic types
     // (INCIDENT, CASE); add new branches as new types adopt this counter.
-    const periodLike = `%-${periodKey}-%`;
-    let dbMax: number | null = null;
-    if (template.documentType === 'INCIDENT') {
-      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
-        FROM incidents
-        WHERE code LIKE ${periodLike}`;
-      dbMax = Number(r?.[0]?.max_suffix ?? 0);
-    } else if (template.documentType === 'CASE') {
-      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING("caseCode" FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
-        FROM cases
-        WHERE "caseCode" LIKE ${periodLike}`;
-      dbMax = Number(r?.[0]?.max_suffix ?? 0);
-    } else if (template.documentType === 'PETITION') {
-      const r = await tx.$queryRaw<Array<{ max_suffix: number | null }>>`
-        SELECT COALESCE(MAX(CAST(SUBSTRING(stt FROM '[0-9]+$') AS INTEGER)), 0) AS max_suffix
-        FROM petitions
-        WHERE stt LIKE ${periodLike}`;
-      dbMax = Number(r?.[0]?.max_suffix ?? 0);
-    }
+    const dbMax = await this.dbMaxTrongKy(tx, template.documentType, periodKey);
     if (dbMax != null && dbMax >= nextValue) {
       nextValue = dbMax + 1;
     }
