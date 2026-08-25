@@ -28,6 +28,8 @@ import {
   formatHoSoCode,
   type ColumnDef,
   type TableState,
+  ColumnPicker,
+  useColumnVisibility,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -432,7 +434,7 @@ export function IncidentListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '8rem',
+        width: '7rem',
         sticky: true,
         render: (r) => (
           <RowActions
@@ -448,32 +450,78 @@ export function IncidentListPageShell() {
         ),
       },
       // Các cột nội dung giữ NGUYÊN thứ tự hệ cũ — chỉ riêng Thao tác đứng trước chúng.
+
       {
         key: 'code',
         header: 'STT',
-        width: '7rem',
+        width: '6rem',
         render: (r) => (
           // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
         ),
       },
+
+      {
+        key: 'ngayDeXuat',
+        header: 'Ngày đề xuất',
+        width: '7rem',
+        optional: 'show',
+        sortKey: 'ngayDeXuat',
+        render: (r) => <DateCell value={r.ngayDeXuat} />,
+      },
+
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
-        width: '14rem',
+        width: '11rem',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.doiTuongCaNhan || r.name}</span>,
       },
+
       {
         key: 'description',
         header: 'Tóm tắt nội dung',
-        width: '30rem',
+        width: '22rem',
+        optional: 'show',
         render: (r) => <SummaryCell value={r.description} />,
       },
+
+      {
+        key: 'donViGiaiQuyet',
+        header: 'Đơn vị giải quyết',
+        width: '10rem',
+        optional: 'show',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => r.donViGiaiQuyet ?? '—',
+      },
+
+      {
+        key: 'ketQuaXuLy',
+        header: 'Kết quả xử lý, giải quyết khác',
+        width: '11rem',
+        optional: 'show',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => r.ketQuaXuLy ?? '—',
+      },
+
+      {
+        key: 'canBoNhap',
+        header: 'Người nhập',
+        width: '8rem',
+        optional: 'show',
+        render: (r) =>
+          r.canBoNhap
+            ? `${r.canBoNhap.lastName ?? ''} ${r.canBoNhap.firstName ?? ''}`.trim() ||
+              (r.canBoNhap.username ?? '—')
+            : '—',
+      },
+
       {
         key: 'status',
         header: 'Trạng thái',
-        width: '10rem',
+        width: '9rem',
+        optional: 'show',
         render: (r) => (
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${INCIDENT_STATUS_BADGE[r.status]}`}>
             {getIncidentStatusIcon(r.status)}
@@ -481,10 +529,12 @@ export function IncidentListPageShell() {
           </span>
         ),
       },
+
       {
         key: 'investigator',
         header: 'Điều tra viên',
-        width: '11rem',
+        width: '10rem',
+        optional: 'hide',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
@@ -494,34 +544,12 @@ export function IncidentListPageShell() {
           return name || r.investigator.username;
         },
       },
-      {
-        key: 'donViGiaiQuyet',
-        header: 'Đơn vị giải quyết',
-        width: '14rem',
-        cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.donViGiaiQuyet ?? '—',
-      },
-      {
-        key: 'ketQuaXuLy',
-        header: 'Kết quả xử lý, giải quyết khác',
-        width: '16rem',
-        cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.ketQuaXuLy ?? '—',
-      },
-      {
-        key: 'canBoNhap',
-        header: 'Người nhập',
-        width: '10rem',
-        render: (r) =>
-          r.canBoNhap
-            ? `${r.canBoNhap.lastName ?? ''} ${r.canBoNhap.firstName ?? ''}`.trim() ||
-              (r.canBoNhap.username ?? '—')
-            : '—',
-      },
+
       {
         key: 'deadline',
         header: 'Hạn xử lý',
         width: '8rem',
+        optional: 'hide',
         sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
@@ -533,23 +561,23 @@ export function IncidentListPageShell() {
           );
         },
       },
-      {
-        key: 'ngayDeXuat',
-        header: 'Ngày tiếp nhận',
-        width: '7rem',
-        sortKey: 'ngayDeXuat',
-        render: (r) => <DateCell value={r.ngayDeXuat} />,
-      },
+
       {
         key: 'createdAt',
         header: 'Ngày tạo',
         width: '7rem',
+        optional: 'hide',
         sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
     ],
     [actionCtx],
   );
+
+  // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do
+  // `optional` khai ngay trên từng cột ở khối trên, không phải một danh sách riêng ở đây.
+  const { visibleColumns, toggleableColumns, isVisible, toggle, reset: resetColumns } =
+    useColumnVisibility('incidents', columns);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -676,6 +704,14 @@ export function IncidentListPageShell() {
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
         cardStyle
+        columnPicker={
+          <ColumnPicker
+            columns={toggleableColumns}
+            isVisible={isVisible}
+            onToggle={toggle}
+            onReset={resetColumns}
+          />
+        }
       >
         <Filters<IncidentFilterValue>
           registry={incidentsListFilters}
@@ -730,7 +766,7 @@ export function IncidentListPageShell() {
         sortOrder={sort.sortOrder}
         onSort={sort.onSort}
         state={tableState}
-        columns={columns}
+        columns={visibleColumns}
         data={rows}
         rowKey={(r) => r.id}
         title="Danh sách vụ việc"

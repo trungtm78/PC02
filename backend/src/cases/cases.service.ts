@@ -327,6 +327,11 @@ export class CasesService {
           // nhưng API danh sách chưa hề trả về, nên cán bộ phải mở từng hồ sơ mới biết.
           moTaChiTiet: true,
           sttCu: true,
+          // Hai cột hệ cũ còn lại trên bảng Vụ án (đối chiếu ảnh 25/08/2026). Độ phủ thật:
+          // `nguonDon` 89,9% (3.038/3.380); `ketQuaXuLyKhac` chỉ 6,6% (222/3.380) — hiện vì
+          // hệ cũ có, và ảnh hệ cũ cũng đang trống ở cột ấy.
+          nguonDon: true,
+          ketQuaXuLyKhac: true,
           crime: true,
           crimeChinhId: true,
           crimeChinh: { select: { id: true, code: true, name: true } },

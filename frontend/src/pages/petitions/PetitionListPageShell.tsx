@@ -28,6 +28,8 @@ import {
   formatHoSoCode,
   type ColumnDef,
   type TableState,
+  ColumnPicker,
+  useColumnVisibility,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -407,7 +409,7 @@ export function PetitionListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '8rem',
+        width: '7rem',
         sticky: true,
         render: (r) => (
           <RowActions
@@ -424,70 +426,87 @@ export function PetitionListPageShell() {
       },
       // Các cột nội dung giữ NGUYÊN thứ tự hệ cũ: STT → Ngày → Nguồn đơn → Tên người →
       // Tóm tắt → Đơn vị → Kết quả → Người nhập. Chỉ riêng Thao tác đứng trước chúng.
+
       {
         key: 'stt',
         header: 'STT',
-        width: '7rem',
+        width: '6rem',
         render: (r) => (
           // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>
         ),
       },
+
+      {
+        key: 'receivedDate',
+        header: 'Ngày đề xuất',
+        width: '7rem',
+        optional: 'show',
+        sortKey: 'receivedDate',
+        render: (r) => <DateCell value={r.receivedDate} />,
+      },
+
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
-        width: '12rem',
+        width: '8rem',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon ?? '—',
       },
+
       {
         key: 'senderName',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
-        width: '14rem',
+        width: '10rem',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.senderName}</span>,
       },
+
       {
         key: 'summary',
         header: 'Tóm tắt nội dung',
-        width: '30rem',
+        width: '20rem',
+        optional: 'show',
         render: (r) => <SummaryCell value={r.summary} />,
       },
-      {
-        key: 'suspectedPerson',
-        header: 'Đối tượng bị tố',
-        width: '12rem',
-        cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.suspectedPerson ?? '—',
-      },
+
       {
         key: 'unit',
         header: 'Đơn vị giải quyết',
-        width: '14rem',
+        width: '9rem',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.unit ?? '—',
       },
+
       {
         key: 'ketQuaXuLyKhac',
         header: 'Kết quả xử lý, giải quyết khác',
-        width: '16rem',
+        width: '10rem',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLyKhac ?? '—',
       },
+
       {
         key: 'enteredBy',
         header: 'Người nhập',
-        width: '10rem',
+        width: '8rem',
+        optional: 'show',
         render: (r) =>
           r.enteredBy
             ? `${r.enteredBy.lastName ?? ''} ${r.enteredBy.firstName ?? ''}`.trim() ||
               (r.enteredBy.username ?? '—')
             : '—',
       },
+
       {
         key: 'status',
         header: 'Trạng thái',
-        width: '10rem',
+        width: '9rem',
+        optional: 'show',
         render: (r) => (
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${PETITION_STATUS_BADGE[r.status]}`}>
             {getPetitionStatusIcon(r.status)}
@@ -495,17 +514,21 @@ export function PetitionListPageShell() {
           </span>
         ),
       },
+
       {
-        key: 'receivedDate',
-        header: 'Ngày nhận',
-        width: '7rem',
-        sortKey: 'receivedDate',
-        render: (r) => <DateCell value={r.receivedDate} />,
+        key: 'suspectedPerson',
+        header: 'Đối tượng bị tố',
+        width: '11rem',
+        optional: 'hide',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => r.suspectedPerson ?? '—',
       },
+
       {
         key: 'deadline',
         header: 'Hạn xử lý',
         width: '8rem',
+        optional: 'hide',
         sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
@@ -517,10 +540,12 @@ export function PetitionListPageShell() {
           );
         },
       },
+
       {
         key: 'createdAt',
         header: 'Ngày tạo',
         width: '7rem',
+        optional: 'hide',
         sortKey: 'createdAt',
         // Hồ sơ di trú đều mang cùng một ngày tạo (ngày chuyển dữ liệu) — chú giải để
         // cán bộ không tưởng là lỗi hiển thị.
@@ -533,6 +558,11 @@ export function PetitionListPageShell() {
     ],
     [actionCtx],
   );
+
+  // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do
+  // `optional` khai ngay trên từng cột ở khối trên, không phải một danh sách riêng ở đây.
+  const { visibleColumns, toggleableColumns, isVisible, toggle, reset: resetColumns } =
+    useColumnVisibility('petitions', columns);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -683,6 +713,14 @@ export function PetitionListPageShell() {
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
         cardStyle
+        columnPicker={
+          <ColumnPicker
+            columns={toggleableColumns}
+            isVisible={isVisible}
+            onToggle={toggle}
+            onReset={resetColumns}
+          />
+        }
       >
         <Filters<PetitionFilterValue>
           registry={petitionsListFilters}
@@ -734,7 +772,7 @@ export function PetitionListPageShell() {
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
         state={tableState}
-        columns={columns}
+        columns={visibleColumns}
         data={rows}
         sortBy={sort.sortBy}
         sortOrder={sort.sortOrder}
