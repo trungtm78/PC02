@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 3/4 của M5
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M6/6 | Task: 2/3 của M6
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -24,13 +24,18 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M5-T1 Tự soát mã — **bắt lỗi thật**: thẻ lọc ghi vào địa chỉ trang nhưng `baseQueryParams` không chứa → API bỏ qua, bộ lọc không làm gì. Đã vá cả 3 trang + ca kiểm đặt đúng tầng
 - [x] M5-T2 Bổ sung ca kiểm bố cục cho Vụ việc và Vụ án (trước đó chỉ Đơn thư có)
 - [x] M5-T3 Đẩy nhánh + mở **PR #230**
+- [x] M5-T4 Cổng `parity-check` bắt thiếu ma trận đối chiếu → cập nhật thật (PR thêm tính năng nên `[parity-skip]` là sai)
+- [x] M5-T5 CI **3/3 xanh** → gộp PR #230 (`2dfdeab`), deploy đang chạy
+- [x] **M5 HOÀN TẤT**
+- [x] M6-T1 Dựng `UAT-COVERAGE.md` — ma trận 24 dòng + phần ngoài phạm vi có lý do
+- [x] M6-T2 Viết `tests/api/danh-sach-he-cu-uat.api.spec.ts` — chạy trên bản thật, chỉ đọc
 
 ## Đang làm dở
 
-Task: M5-T4 — chờ CI xanh → gộp PR #230 → deploy → kiểm chứng trên bản chạy thật
-Đã làm: PR #230 đã mở, CI đang chạy
-BƯỚC TIẾP THEO: `gh pr checks 230`; xanh thì `gh pr merge 230 --squash --admin --delete-branch`, chờ deploy, rồi mở 3 trang trên `https://new.pc02hcm.com` đối chiếu với ảnh hệ cũ
-File liên quan: PR #230
+Task: M6-T3 — chạy UAT trên bản chạy thật sau khi deploy xong
+Đã làm: ma trận + bộ ca kiểm API đã viết và commit trên nhánh `test/uat-danh-sach-he-cu`
+BƯỚC TIẾP THEO: chờ deploy `32819302200` xong → `ADMIN_PASSWORD='68@Love2love68' npx playwright test tests/api/danh-sach-he-cu-uat.api.spec.ts --project=api` → cập nhật ma trận → FAIL thì quay lại §4 sửa tận gốc
+File liên quan: `tests/api/danh-sach-he-cu-uat.api.spec.ts`, `UAT-COVERAGE.md`
 
 ## Hàng đợi task kế tiếp
 
