@@ -91,11 +91,11 @@ Mốc đúng của nhóm A lấy từ `frontend/src/features/cases/__tests__/fix
 
 ## E. Đối chiếu trên bản chạy thật
 
-| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
-|---|---|---|---|---|
 Chạy 2026-08-26 trên bản dựng thật: máy chủ `localhost:3000` (PG18), giao diện
 `localhost:5173`, đăng nhập `admin`.
 
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
 | E1 | `/cases` — cột khớp ảnh `old-vuan-list.png` | Đối chiếu tay | ✅ | **ĐẠT** |
 | E2 | `/cases/new` — 10 tab đúng thứ tự, tab Thông tin đúng 32 ô | Đối chiếu tay | ✅ | **ĐẠT** |
 | E2b | Tab Vụ việc TĐC đúng 34 ô, nhãn kèm hậu tố `(Tab: …)` | Đối chiếu tay | ✅ | **ĐẠT** |
