@@ -1,6 +1,8 @@
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
+import { LEGACY_FORM_OWNED_COLUMNS } from "@/features/cases/legacy-form-layout.def";
+import { inMainForm } from "@/shared/legacy/shownFieldKeys";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -216,8 +218,15 @@ function CaseFormPage() {
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
         setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        // CHỈ giữ cột mà form KHÔNG có ô. `parityState` được spread SAU payload khi lưu, nên
+        // cột nào tab đã có ô mà vẫn nằm ở đây thì giá trị cán bộ vừa gõ bị hoàn nguyên về
+        // giá trị lúc mở hồ sơ — màn hình vẫn báo lưu thành công. Ẩn ô ở panel là CHƯA ĐỦ:
+        // ô ẩn nhưng giá trị vẫn nằm trong `parityState` và vẫn ghi đè.
         const ps: Record<string, unknown> = {};
-        for (const f of LEGACY_PARITY_FIELDS.case) if ((d as Record<string, unknown>)[f.col] != null) ps[f.col] = (d as Record<string, unknown>)[f.col];
+        for (const f of LEGACY_PARITY_FIELDS.case) {
+          if (LEGACY_FORM_OWNED_COLUMNS.has(f.col) || inMainForm('case', f.col)) continue;
+          if ((d as Record<string, unknown>)[f.col] != null) ps[f.col] = (d as Record<string, unknown>)[f.col];
+        }
         setParityState(ps);
       })
       .catch((err) => {
@@ -297,6 +306,8 @@ function CaseFormPage() {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
     savingRef.current = true;
     setIsSaving(true);
+    // Thu thập mục bị loại khỏi danh sách đối tượng để báo lại sau khi lưu xong.
+    const subjectBiLoai: string[] = [];
     try {
       // v0.37.2.3: payload helper extracted + tested.
       // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
@@ -305,6 +316,9 @@ function CaseFormPage() {
         ...buildCreateCasePayload(formData, {
           subjects,
           evidences,
+          // Mục nào không gửi lên được thì phải nói ra. Loại im lặng là cách chắc chắn nhất
+          // để dữ liệu biến mất mà cán bộ vẫn tưởng đã lưu.
+          onSubjectBiLoai: (ten, lyDo) => subjectBiLoai.push(`${ten} — ${lyDo}`),
           legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
           // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
           // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
@@ -332,6 +346,11 @@ function CaseFormPage() {
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
+      // Cảnh báo mục bị loại phải hiện ở CẢ HAI nhánh. Nhánh "Lưu và xuất file" thoát sớm
+      // nên trước đây nuốt luôn cảnh báo — đúng thứ mà `onSubjectBiLoai` sinh ra để chặn.
+      if (subjectBiLoai.length > 0) {
+        alert(["Các mục sau KHÔNG được lưu vào danh sách đối tượng:", ...subjectBiLoai].join("\n"));
+      }
       // "Lưu và xuất file" → mở popup xuất chứng từ động (không alert/điều hướng ngay).
       if (exportAfterSaveRef.current && savedId) {
         setExportNavigateOnClose(true);
@@ -561,6 +580,8 @@ function CaseFormPage() {
           {activeTab === "case" && <TabCase {...tabProps} />}
           {activeTab === "subjects" && (
             <TabSubjects
+              {...tabProps}
+              caseId={isEditMode ? id : undefined}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
               onEdit={(s) => { setEditingSubject(s); setShowSubjectModal(true); }}
@@ -575,6 +596,7 @@ function CaseFormPage() {
           {activeTab === "case-tdc" && <TabCaseTDC {...tabProps} />}
           {activeTab === "evidence" && (
             <TabEvidence
+              {...tabProps}
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
               onEdit={(e) => { setEditingEvidence(e); setShowEvidenceModal(true); }}
@@ -589,6 +611,7 @@ function CaseFormPage() {
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
           {activeTab === "media" && (
             <TabMedia
+              {...tabProps}
               mediaFiles={mediaFiles}
               onUpload={handleUploadMedia}
               onDelete={(id) => {

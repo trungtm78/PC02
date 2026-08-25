@@ -24,29 +24,41 @@ export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
 // PR 1 v0.38.0.0 — Atomic transaction sub-entity DTOs
 // Fix bug data-loss wizard "Khởi tố vụ án mới" (subjects/evidences/documents bị mất khi save)
+/**
+ * Đối tượng nhập KÈM hồ sơ vụ án (khác `create-subject.dto.ts` — thêm rời từ màn quản lý).
+ *
+ * 26/08/2026: hạ ba ràng buộc `dateOfBirth`/`idNumber`/`address` xuống tuỳ chọn, khớp đúng
+ * lược đồ (`Subject.dateOfBirth`, `idNumber`, `address` đều nullable, kèm ghi chú "dữ liệu
+ * cũ nhiều nghi can/bị hại CHỈ có tên — có gì điền đó").
+ *
+ * Lý do: hộp thoại thêm đối tượng chỉ bắt buộc họ tên. Giữ ba ràng buộc này ở đây nghĩa là
+ * thêm một nhân chứng chưa rõ ngày sinh sẽ làm CẢ lần lưu hồ sơ trả 400 — hỏng nặng hơn hẳn
+ * so với việc thiếu vài ô của một đối tượng.
+ */
 export class CreateSubjectInlineDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
   fullName: string;
 
+  @IsOptional()
   @IsDateString()
-  dateOfBirth: string;
+  dateOfBirth?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(10)
   gender?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(20)
-  idNumber: string;
+  idNumber?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(500)
-  address: string;
+  address?: string;
 
   @IsOptional()
   @IsString()
@@ -370,6 +382,43 @@ export class CreateCaseDto {
   @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
   @IsOptional() @IsString() deXuat?: string;
   @IsOptional() @IsString() yeuCauBoSung?: string;
+
+  // ── Ô hệ cũ đưa về đúng vị trí trên form (epic 26/08/2026) ──────────────────────────
+  // Máy chủ bật `forbidNonWhitelisted`: thiếu một dòng ở đây thì cả lời gọi lưu bị từ chối
+  // 400 chứ không phải bỏ qua field ấy — nghĩa là cán bộ không lưu được hồ sơ.
+  @IsOptional() @IsString() phanLoaiNguonTinBanDau?: string;
+  @IsOptional() @IsDateString() ngayXayRa?: string;
+  @IsOptional() @IsString() noiXayRaPhuongXa?: string;
+  @IsOptional() @IsString() baoCaoBanGiamDocText?: string;
+  @IsOptional() @IsString() soQDPhanCongNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDPhanCongNguonTin?: string;
+  @IsOptional() @IsString() soQDKhongKhoiTo?: string;
+  @IsOptional() @IsDateString() ngayQDKhongKhoiTo?: string;
+  @IsOptional() @IsString() canCuKhongKhoiTo?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) lyDoKhongKhoiTo?: string[];
+  @IsOptional() @IsString() chuyenVuViecDonViKhac?: string;
+  @IsOptional() @IsString() nhapVaoVuViecSo?: string;
+  @IsOptional() @IsString() phanLoaiDanSu?: string;
+  @IsOptional() @IsBoolean() vuViecTamDungTruoc2015?: boolean;
+  @IsOptional() @IsString() soQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsString() canCuTamDinhChiNguonTin?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) lyDoTamDinhChiNguonTin?: string[];
+  @IsOptional() @IsDateString() ngayHetThoiHieuVuViec?: string;
+  @IsOptional() @IsString() khacPhucLyDoTDCVuViec?: string;
+  @IsOptional() @IsString() tienDoKhacPhucTDCVuViec?: string;
+  @IsOptional() @IsString() soPhucHoiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
+  @IsOptional() @IsString() vatChungMoTa?: string;
+  @IsOptional() @IsString() lenhNhapKho?: string;
+  @IsOptional() @IsString() noiLuuTruBaoQuan?: string;
+  @IsOptional() @IsString() toiDanhChinhKhoiToId?: string;
+  // `caseCode` KHÔNG khai ở đây: ô trên form là số hiệu tự sinh, cán bộ không nhập tay.
+  // Mở nó ra chỉ tạo đường cho mã trùng mà không đổi được gì trên màn hình.
+  @IsOptional() @IsString() @MaxLength(50) soHoSoCu?: string;
+  // Cờ tội phạm công nghệ cao: hệ cũ là công tắc ở tab Thông tin, cột đã có sẵn nhưng DTO
+  // chưa khai nên bật lên rồi lưu là mất.
+  @IsOptional() @IsBoolean() laCongNgheCao?: boolean;
 
   // ── Consolidate epic: native metadata field → cột typed chính thức (plan A0 loại N) ──
   @IsOptional() @IsDateString() reporterDateOfBirth?: string;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Database } from "lucide-react";
 import { LEGACY_PARITY_FIELDS, type ParityFieldDef } from "@/shared/legacy/legacyParityFields.generated";
 import { inMainForm } from "@/shared/legacy/shownFieldKeys";
+import { LEGACY_FORM_OWNED_COLUMNS } from "@/features/cases/legacy-form-layout.def";
 
 /**
  * LegacyParityFields — ô nhập CHÍNH THỨC cho các CỘT typed field-parity (di trú hệ cũ).
@@ -29,9 +30,26 @@ export function LegacyParityFields({
   onChange: (col: string, value: unknown) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // Bỏ cột đã có ô ở FORM CHÍNH (vd Vụ án: nguonDon/nhanXet… render ở tab) → không hiện 2 ô.
-  // Incident/Petition: cột parity không ở form chính nên giữ nguyên (ô duy nhất).
-  const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter((d) => !inMainForm(entity, d.col));
+  // Bỏ cột đã có ô ở FORM CHÍNH → không hiện 2 ô.
+  //
+  // Với Vụ án, nguồn đối chiếu là ĐẶC TẢ BỐ CỤC (`LEGACY_FORM_OWNED_COLUMNS`) chứ không phải
+  // `shownFieldKeys.ts` — tệp ấy gắn nhãn sinh tự động nhưng không còn công cụ sinh, nên nó
+  // đứng yên trong khi form đổi. Từ 26/08/2026 form Vụ án dựng theo đặc tả, và đặc tả tự
+  // biết mình đang sở hữu cột nào.
+  //
+  // Vì sao không phải chuyện thẩm mỹ: giá trị panel này được gộp vào payload SAU giá trị
+  // form, nên hai ô cùng ghi một cột thì panel THẮNG — cán bộ gõ trong tab, bấm Lưu, giá
+  // trị bị thay bằng thứ panel đang giữ.
+  //
+  // Đơn thư và Vụ việc chưa dựng theo đặc tả nên vẫn dùng đường cũ.
+  // Với Vụ án phải loại theo CẢ HAI nguồn: cột do đặc tả bố cục sở hữu, VÀ cột form chính
+  // vốn đã có ô từ trước (`phanLoaiToiPhamLinhVuc`, `yeuCauBoSung`, `baoCaoBanGiamDoc`…).
+  // Bỏ vế thứ hai là ba ô ấy hiện lại, và panel ghi sau nên nó thắng.
+  const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter((d) =>
+    entity === "case"
+      ? !LEGACY_FORM_OWNED_COLUMNS.has(d.col) && !inMainForm(entity, d.col)
+      : !inMainForm(entity, d.col),
+  );
   if (!defs.length) return null;
 
   const renderInput = (d: ParityFieldDef) => {

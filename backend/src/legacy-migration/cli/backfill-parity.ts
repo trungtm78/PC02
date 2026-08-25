@@ -11,10 +11,11 @@
  * Dùng:  set -a && source .env && set +a
  *        ./node_modules/.bin/ts-node src/legacy-migration/cli/backfill-parity.ts [--entity petition|incident|case] [--dry]
  */
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { parityColumns } from '../legacy-mapper';
 import { PARITY, type Entity } from '../field-parity.def';
+import { statisticBackfillPatch } from '../backfill-statistic.util';
 
 const MODEL: Record<Entity, string> = { petition: 'petition', incident: 'incident', case: 'case' };
 
@@ -59,6 +60,59 @@ async function backfillEntity(prisma: PrismaClient, entity: Entity, dry: boolean
   return { scanned, updated, cellsSet };
 }
 
+/**
+ * Bù bảng `case_statistics` — bảy mốc thời gian của tab "TK 48 trường" và các chỉ tiêu
+ * đếm nằm ở đây chứ không ở bảng `cases`, nên vòng lặp trên không chạm tới.
+ *
+ * Idempotent như nhánh chính: chỉ điền ô đang trống, tạo dòng mới khi hồ sơ chưa có.
+ */
+async function backfillCaseStatistic(
+  prisma: PrismaClient,
+  dry: boolean,
+): Promise<{ scanned: number; created: number; updated: number; cellsSet: number }> {
+  let cursor: string | undefined;
+  let scanned = 0;
+  let created = 0;
+  let updated = 0;
+  let cellsSet = 0;
+  const BATCH = 1000;
+  for (;;) {
+    const rows: any[] = await prisma.case.findMany({
+      // Prisma đòi `JsonNull` (không phải `null`) khi lọc cột Json — nhánh phía trên đi qua
+      // delegate động nên không bị kiểm kiểu, nhánh này thì có.
+      where: { NOT: { legacyRaw: { equals: Prisma.JsonNull } } },
+      select: { id: true, legacyRaw: true, statistic: true },
+      orderBy: { id: 'asc' },
+      take: BATCH,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      scanned++;
+      const { data, canTaoMoi } = statisticBackfillPatch(
+        row.statistic as Record<string, unknown> | null,
+        row.legacyRaw as Record<string, unknown>,
+      );
+      const keys = Object.keys(data);
+      if (keys.length === 0) continue;
+      cellsSet += keys.length;
+      if (canTaoMoi) {
+        created++;
+        if (!dry) await prisma.caseStatistic.create({ data: { caseId: row.id, ...data } as any });
+      } else {
+        updated++;
+        if (!dry) await prisma.caseStatistic.update({ where: { caseId: row.id }, data: data as any });
+      }
+    }
+    cursor = rows[rows.length - 1].id;
+    if (scanned % 5000 < BATCH) {
+      console.log(`  [case_statistics] scanned ${scanned}, created ${created}, updated ${updated}, cells ${cellsSet}${dry ? ' (DRY)' : ''}`);
+    }
+    if (rows.length < BATCH) break;
+  }
+  return { scanned, created, updated, cellsSet };
+}
+
 async function main(): Promise<void> {
   const dry = process.argv.includes('--dry');
   const eArg = process.argv.indexOf('--entity');
@@ -70,6 +124,12 @@ async function main(): Promise<void> {
       console.log(`\n=== backfill-parity: ${e}${dry ? ' (DRY-RUN)' : ''} ===`);
       const r = await backfillEntity(prisma, e, dry);
       console.log(`[${e}] DONE — scanned ${r.scanned}, updated ${r.updated}, cells set ${r.cellsSet}`);
+    }
+    if (!only || only === 'case') {
+      console.log(`
+=== backfill-parity: case_statistics${dry ? ' (DRY-RUN)' : ''} ===`);
+      const rs = await backfillCaseStatistic(prisma, dry);
+      console.log(`[case_statistics] DONE — scanned ${rs.scanned}, created ${rs.created}, updated ${rs.updated}, cells set ${rs.cellsSet}`);
     }
   } finally {
     await prisma.$disconnect();

@@ -31,7 +31,8 @@ import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
-import { CASE_STATUS_GROUPS } from './cases.constants';
+import { CASE_STATUS_GROUPS, LIST_SUSPECT_NAMES_LIMIT } from './cases.constants';
+import { legacyFormParityData } from './legacy-form-parity.mapper';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
 
@@ -336,6 +337,25 @@ export class CasesService {
           deadline: true,
           unit: true,
           subjectsCount: true,
+          // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
+          // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban
+          // đầu, còn cột hệ cũ in danh sách bị can. Cắt ở LIST_SUSPECT_NAMES_LIMIT và
+          // hiển thị phần dư bằng `subjectsCount` ở tầng giao diện.
+          subjects: {
+            select: { id: true, fullName: true },
+            where: { type: SubjectType.SUSPECT, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+            take: LIST_SUSPECT_NAMES_LIMIT,
+          },
+          // TỔNG số bị can, đếm đúng cùng điều kiện với danh sách tên ở trên.
+          // Không dùng cột `subjectsCount`: cột ấy do cán bộ tự nhập và đếm MỌI loại đối
+          // tượng (cả bị hại, nhân chứng), nên lấy nó trừ đi số tên sẽ ra "+N" sai — vừa
+          // hiện "+N" khi danh sách chưa hề bị cắt, vừa thiếu "+N" khi đã cắt.
+          _count: {
+            select: {
+              subjects: { where: { type: SubjectType.SUSPECT, deletedAt: null } },
+            },
+          },
           ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
           createdAt: true,
           updatedAt: true,
@@ -803,11 +823,15 @@ export class CasesService {
     let evidencesCreated = 0;
     let documentsLinked = 0;
 
-    // Subjects (Bị can / Bị hại / Nhân chứng / Luật sư) — required FK crimeId
+    // Subjects (Bị can / Bị hại / Nhân chứng)
+    //
+    // Ba ô ngày sinh / CCCD / địa chỉ là TUỲ CHỌN: lược đồ cho phép trống, hộp thoại thêm
+    // đối tượng chỉ bắt buộc họ tên, và dữ liệu cũ nhiều nghi can chỉ có mỗi tên. Ép
+    // `new Date(undefined)` ra `Invalid Date` và Prisma từ chối cả lần lưu.
     if (dto.subjects && dto.subjects.length > 0) {
       const subjectsData = dto.subjects.map((s) => ({
         fullName: s.fullName,
-        dateOfBirth: new Date(s.dateOfBirth),
+        dateOfBirth: s.dateOfBirth ? new Date(s.dateOfBirth) : null,
         gender: s.gender ?? 'MALE',
         idNumber: s.idNumber,
         address: s.address,
@@ -1010,6 +1034,9 @@ export class CasesService {
       ...(dto.caseClassification !== undefined && { caseClassification: dto.caseClassification }),
       ...(dto.tinhTrang !== undefined && { tinhTrang: dto.tinhTrang }),
       ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
+      // Ô hệ cũ đưa về đúng vị trí trên form (26/08/2026) — dùng chung hàm ánh xạ với
+      // nhánh chỉnh sửa để hai đường không thể lệch nhau.
+      ...legacyFormParityData(dto as unknown as Record<string, unknown>),
     };
 
     const caseInclude = {
@@ -1372,9 +1399,6 @@ export class CasesService {
           ? new Date((dto as Record<string, unknown>).ngayTamDinhChi as string)
           : null,
       }),
-      ...((dto as Record<string, unknown>).laCongNgheCao !== undefined && {
-        laCongNgheCao: (dto as Record<string, unknown>).laCongNgheCao as boolean,
-      }),
       ...((dto as Record<string, unknown>).soLanGiaHan !== undefined && {
         soLanGiaHan: (dto as Record<string, unknown>).soLanGiaHan as number,
       }),
@@ -1480,6 +1504,9 @@ export class CasesService {
       ...((dto as Record<string, unknown>).toiDanhBanDau !== undefined && {
         toiDanhBanDau: (dto as Record<string, unknown>).toiDanhBanDau as string | null,
       }),
+      // Ô hệ cũ đưa về đúng vị trí trên form (26/08/2026) — cùng hàm ánh xạ với nhánh tạo
+      // mới, nên tạo được thì sửa cũng được.
+      ...legacyFormParityData(dto as unknown as Record<string, unknown>),
     };
 
     // Auto-set ngayTamDinhChi and increment soLanTamDinhChi when transitioning TO TAM_DINH_CHI

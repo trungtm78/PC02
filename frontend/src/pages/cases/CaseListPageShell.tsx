@@ -102,6 +102,10 @@ interface CaseRow {
   sttCu?: string | null;
   nguonDon?: string | null;
   ketQuaXuLyKhac?: string | null;
+  /** Bị can đã khởi tố — server cắt sẵn ở LIST_SUSPECT_NAMES_LIMIT tên. */
+  subjects?: { id: string; fullName: string }[] | null;
+  /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
+  _count?: { subjects?: number } | null;
   createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
@@ -122,6 +126,23 @@ interface CasesStatsResponse {
 }
 
 const PAGE_SIZE = 20;
+
+/**
+ * Chuỗi hiển thị cột "Đối tượng bị can".
+ *
+ * Server chỉ trả tối đa 5 tên (`LIST_SUSPECT_NAMES_LIMIT`) để bảng bố cục cố định không bị
+ * một hồ sơ nhiều bị can kéo cao bất thường, kèm `_count.subjects` đếm ĐÚNG cùng điều kiện.
+ *
+ * KHÔNG dùng cột `subjectsCount`: cột ấy do cán bộ tự nhập và đếm mọi loại đối tượng (cả bị
+ * hại, nhân chứng), nên lấy nó trừ số tên sẽ ra "+N" sai theo cả hai chiều.
+ */
+function formatDoiTuongBiCan(r: Pick<CaseRow, 'subjects' | '_count'>): string {
+  const ten = (r.subjects ?? []).map((s) => s.fullName).filter(Boolean);
+  if (ten.length === 0) return '—';
+  const tong = r._count?.subjects ?? ten.length;
+  const du = Math.max(0, tong - ten.length);
+  return du > 0 ? `${ten.join(', ')} +${du}` : ten.join(', ');
+}
 
 /**
  * Giá trị "đang lọc bằng thứ khác" cho `activeValue` của thanh thẻ.
@@ -456,11 +477,26 @@ export function CaseListPageShell() {
         render: (r) => <DateCell value={r.ngayDeXuat} />,
       },
 
+      // Cột thứ ba của bảng Vụ án hệ cũ (/VuAn). Màn chuẩn anh chốt 26/08/2026 là /VuAn
+      // chứ không phải /doi-1 — hai màn khác nhau đúng ở cột này.
+      {
+        key: 'doiTuongBiCan',
+        header: 'Đối tượng bị can',
+        width: '11rem',
+        optional: 'show',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => (
+          <span data-testid="cell-doi-tuong-bi-can">{formatDoiTuongBiCan(r)}</span>
+        ),
+      },
+
+      // /doi-1 có cột này, /VuAn thì không. Giữ lại ở dạng ẩn sẵn để ai quen màn /doi-1
+      // vẫn bật lên được từ menu chọn cột — không mất chức năng nào.
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
         width: '9rem',
-        optional: 'show',
+        optional: 'hide',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon || '—',
       },

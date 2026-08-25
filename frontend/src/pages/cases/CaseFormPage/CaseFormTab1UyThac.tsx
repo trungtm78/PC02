@@ -58,11 +58,18 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             options={[...LOAI_UY_THAC_OPTIONS]}
             placeholder="-- Chọn loại --"
           />
+          {/*
+            Hai ô dưới đây là TRƯỜNG GƯƠNG của tab Thông tin — cùng trỏ một ô lưu, đúng cách
+            hệ cũ hiện lại một trường ở nhiều tab.
+            Cột `ngayTiepNhan` và `loaiThongTin` chỉ có MỘT chỗ cho mỗi hồ sơ; trước đây tab
+            này giữ ô riêng (`utdt_ngayTiepNhan`, `utdt_loaiThongTin`) nên hai ô cùng ghi một
+            cột và ô nào lưu sau thì thắng.
+          */}
           <FormInput
-            label="Ngày tiếp nhận"
+            label="Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)"
             type="date"
-            value={formData.utdt_ngayTiepNhan}
-            onChange={(v) => update('utdt_ngayTiepNhan', v)}
+            value={formData.ngayTiepNhanNguonTin}
+            onChange={(v) => update('ngayTiepNhanNguonTin', v)}
           />
           <FormInput
             label="Đơn vị giao"
@@ -84,9 +91,9 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
           />
           <FormInput
             label="Loại thông tin"
-            value={formData.utdt_loaiThongTin}
-            onChange={(v) => update('utdt_loaiThongTin', v)}
-            placeholder="Tố giác, Trình báo, Đề nghị..."
+            value={formData.loaiThongTin}
+            onChange={(v) => update('loaiThongTin', v)}
+            placeholder="Tố giác, trình báo, đề nghị, kiến nghị, phản ánh, khiếu nại (hành vi tố tụng), ..."
           />
         </div>
       </Card>

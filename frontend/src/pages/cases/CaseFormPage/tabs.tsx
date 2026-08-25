@@ -48,6 +48,8 @@ import {
   CASE_PROVENANCE_OPTIONS,
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
+import { LegacyTabBody } from "./LegacyTabBody";
+import { DTBSTable } from "./DTBSTable";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseProvenance } from "../../../shared/enums/generated";
 
@@ -78,42 +80,17 @@ function useFieldUpdater(
 // Tab 1: Thông tin (50+ trường nghiệp vụ)
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
-  const update = useFieldUpdater(formData, setFormData, errors, setErrors);
-
-  // ── Administrative reform: 2-tier address (Province → Ward) ──
-  // Records loaded from DB that already have a district are "existing legacy" — show read-only badge
-  const isExistingLegacy = !!formData.district;
-  const [legacyMode, setLegacyMode] = useState(!!formData.district);
-
-  const handleLegacyToggle = () => {
-    if (legacyMode && !isExistingLegacy) {
-      // Only clear district if user set it in this session — never clear DB-loaded values
-      update("district", "");
-    }
-    setLegacyMode((prev) => !prev);
-  };
-
-  // Migrated to centralized shortcut registry (Ctrl+Shift+L default).
-  useShortcut('toggleLegacyMode', handleLegacyToggle);
-
-  // Abolished districts — lazy-loaded only when legacy toggle is open
-  // Note: ward selection (post-reform) handled by ProvinceWardSelect below. The
-  // dead `wardOptions` + `legacyWardOptions` queries were removed in v0.34.0.2
-  // — they pulled 10k entries from /directories on every form mount.
-  const { data: districtOptions } = useQuery({
-    queryKey: ["directories", "DISTRICT", "legacy"],
-    queryFn: () =>
-      api.get("/directories?type=DISTRICT&isActive=false").then((r) =>
-        (r.data.data ?? []).map((d: any) => ({
-          value: d.code,
-          label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }) : "07/2025"})`,
-        }))
-      ),
-    enabled: legacyMode && !isExistingLegacy,
-  });
-
-  // Decision 6A 10/10 (a11y): aria-live region announces conditional field appearance for screen readers.
+/**
+ * Khối "Nguồn vụ án" (BLTTHS Đ.143) — hệ cũ không có, hệ mới bắt buộc.
+ *
+ * Tách riêng để `LegacyTabBody` ghim nó lên trên bố cục hệ cũ. Gập khối này lại thì cán bộ
+ * không lưu được hồ sơ mà không hiểu vì sao — máy chủ từ chối khi thiếu `caseProvenance`.
+ */
+export function CardNguonVuAn({ formData, errors, update }: {
+  formData: TabProps["formData"];
+  errors: TabProps["errors"];
+  update: (field: string, value: string | string[] | boolean) => void;
+}) {
   const provenanceAnnouncement = formData.caseProvenance === 'FROM_PETITION'
     ? 'Đã hiển thị thêm trường: Chọn Đơn thư gốc'
     : formData.caseProvenance === 'FROM_INCIDENT'
@@ -123,7 +100,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
     : '';
 
   return (
-    <div className="space-y-6" data-testid="tab-info">
+    <>
       {/* Decision 6A 10/10 — aria-live region (visually hidden, screen-reader only) */}
       <div aria-live="polite" className="sr-only" data-testid="provenance-announce">
         {provenanceAnnouncement}
@@ -175,6 +152,48 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
         </div>
       </Card>
 
+    </>
+  );
+}
+
+function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+  const update = useFieldUpdater(formData, setFormData, errors, setErrors);
+
+  // ── Administrative reform: 2-tier address (Province → Ward) ──
+  // Records loaded from DB that already have a district are "existing legacy" — show read-only badge
+  const isExistingLegacy = !!formData.district;
+  const [legacyMode, setLegacyMode] = useState(!!formData.district);
+
+  const handleLegacyToggle = () => {
+    if (legacyMode && !isExistingLegacy) {
+      // Only clear district if user set it in this session — never clear DB-loaded values
+      update("district", "");
+    }
+    setLegacyMode((prev) => !prev);
+  };
+
+  // Migrated to centralized shortcut registry (Ctrl+Shift+L default).
+  useShortcut('toggleLegacyMode', handleLegacyToggle);
+
+  // Abolished districts — lazy-loaded only when legacy toggle is open
+  // Note: ward selection (post-reform) handled by ProvinceWardSelect below. The
+  // dead `wardOptions` + `legacyWardOptions` queries were removed in v0.34.0.2
+  // — they pulled 10k entries from /directories on every form mount.
+  const { data: districtOptions } = useQuery({
+    queryKey: ["directories", "DISTRICT", "legacy"],
+    queryFn: () =>
+      api.get("/directories?type=DISTRICT&isActive=false").then((r) =>
+        (r.data.data ?? []).map((d: any) => ({
+          value: d.code,
+          label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }) : "07/2025"})`,
+        }))
+      ),
+    enabled: legacyMode && !isExistingLegacy,
+  });
+
+
+  return (
+    <div className="space-y-6" data-testid="tab-info-bo-sung">
       {/* ── Nhóm 1: Thông tin hồ sơ ── */}
       <Card>
         <CardHeader title="Thông tin hồ sơ" />
@@ -541,14 +560,12 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
             onChange={(v) => update("reporterOccupation", v)}
             placeholder="Nghề nghiệp"
           />
-          <FormInput
-            label="Địa chỉ thường trú"
-            icon={<MapPin className="w-4 h-4" />}
-            value={formData.reporterAddress}
-            onChange={(v) => update("reporterAddress", v)}
-            placeholder="Địa chỉ liên hệ"
-            colSpan={2}
-          />
+          {/*
+            Ô "Địa chỉ thường trú" đã GỠ 26/08/2026 — MỘT CỘT, MỘT Ô.
+            Nó ghi cùng cột `diaChiCungCap` với ô "Địa chỉ cá nhân, cơ quan, tổ chức cung
+            cấp, bị hại" ở tab Thông tin (đúng chữ hệ cũ). Khi còn cả hai, ô hệ cũ luôn
+            thắng lúc lưu, nên ô này là ô gõ vào không có tác dụng — tệ hơn là không có ô.
+          */}
           <FormSelect
             label="Quan hệ với vụ án"
             value={formData.reporterRelationToCase}
@@ -638,7 +655,7 @@ export function TabInfo({ formData, setFormData, errors, setErrors, handlerOptio
 // Tab 2: Vụ việc
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabIncident({ formData, setFormData, errors, setErrors }: TabProps) {
+function TabIncidentBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   const fromIncidentId = formData.linkedIncidentId;
@@ -649,7 +666,7 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
 
   if (hasLinkedIncident) {
     return (
-      <Card data-testid="tab-incident">
+      <Card data-testid="tab-incident-bo-sung">
         <CardHeader title="Thông tin vụ việc (đã liên kết)" />
         <LinkedIncidentCard
           incidentId={(fromIncidentId || autoLinkedId) as string}
@@ -670,7 +687,7 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
   }
 
   return (
-    <Card data-testid="tab-incident">
+    <Card data-testid="tab-incident-bo-sung">
       <CardHeader title="Thông tin vụ việc" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormInput
@@ -751,11 +768,11 @@ export function TabIncident({ formData, setFormData, errors, setErrors }: TabPro
 // Tab 3: Vụ án
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) {
+function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   return (
-    <Card data-testid="tab-case">
+    <Card data-testid="tab-case-bo-sung">
       <CardHeader title="Thông tin vụ án" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormInput
@@ -999,7 +1016,7 @@ export function TabCase({ formData, setFormData, errors, setErrors }: TabProps) 
 // Tab 4: ĐTBS
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabSubjects({
+function TabSubjectsBoSung({
   subjects,
   onAdd,
   onEdit,
@@ -1040,7 +1057,7 @@ export function TabSubjects({
   ];
 
   return (
-    <Card data-testid="tab-subjects">
+    <Card data-testid="tab-subjects-bo-sung">
       <CardHeader
         title="Đối tượng, Bị can, Bị hại, Luật sư"
         actions={
@@ -1074,11 +1091,11 @@ export function TabSubjects({
 // Tab 5: Vụ việc TĐC
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabIncidentTDC({ formData, setFormData, errors, setErrors }: TabProps) {
+function TabIncidentTDCBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   return (
-    <Card data-testid="tab-incident-tdc">
+    <Card data-testid="tab-incident-tdc-bo-sung">
       <CardHeader title="Vụ việc – Tố giác, Tin báo tội phạm" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormInput
@@ -1135,11 +1152,11 @@ export function TabIncidentTDC({ formData, setFormData, errors, setErrors }: Tab
 // Tab 6: Vụ án TĐC
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProps) {
+function TabCaseTDCBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   return (
-    <Card data-testid="tab-case-tdc">
+    <Card data-testid="tab-case-tdc-bo-sung">
       <CardHeader title="Vụ án từ Tố giác, Tin báo tội phạm" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormInput
@@ -1249,7 +1266,7 @@ export function TabCaseTDC({ formData, setFormData, errors, setErrors }: TabProp
 // Tab 7: Vật chứng
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabEvidence({
+function TabEvidenceBoSung({
   evidences,
   onAdd,
   onEdit,
@@ -1289,7 +1306,7 @@ export function TabEvidence({
   ];
 
   return (
-    <Card data-testid="tab-evidence">
+    <Card data-testid="tab-evidence-bo-sung">
       <CardHeader
         title="Danh sách vật chứng"
         actions={
@@ -1350,7 +1367,7 @@ function CSBool({ label, v, on, t }: { label: string; v: boolean; on: (x: boolea
   return (<label className="flex items-center gap-2 text-sm text-slate-700 mt-5"><input type="checkbox" checked={v} onChange={(e) => on(e.target.checked)} className="w-4 h-4" data-testid={t} />{label}</label>);
 }
 
-export function TabStatistics({ formData, setFormData }: TabProps) {
+function TabStatisticsBoSung({ formData, setFormData }: TabProps) {
   const update = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -1382,7 +1399,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
   const inp = (className = "") =>
     `w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${className}`;
   return (
-    <div className="space-y-6" data-testid="tab-statistics">
+    <div className="space-y-6" data-testid="tab-statistics-bo-sung">
       {/* Warning */}
       <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1796,7 +1813,7 @@ export function TabStatistics({ formData, setFormData }: TabProps) {
 // Tab 10: Ghi âm, ghi hình – upgraded với drag-drop từ Refs
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function TabMedia({
+function TabMediaBoSung({
   mediaFiles,
   onUpload,
   onDelete,
@@ -1826,7 +1843,7 @@ export function TabMedia({
   };
 
   return (
-    <Card data-testid="tab-media">
+    <Card data-testid="tab-media-bo-sung">
       <CardHeader title="Tài liệu ghi âm, ghi hình" />
 
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 mb-4">
@@ -1899,3 +1916,118 @@ export function TabMedia({
 }
 
 export { CaseFormTab1UyThac as TabUyThac } from './CaseFormTab1UyThac';
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Tab công khai = BỐ CỤC HỆ CŨ + khối "Bổ sung hệ mới" gập lại
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Mọi tab đi qua `LegacyTabBody` nên bộ ô, thứ tự và chữ nhãn đều lấy từ
+// `legacy-form-layout.def.ts` — một nguồn sự thật, dùng chung cho cả màn Tạo mới lẫn màn
+// Chỉnh sửa. Giao diện hệ mới trước đây của từng tab giữ nguyên, chỉ chuyển xuống khối gập.
+
+export function TabInfo(props: TabProps) {
+  const update = (field: string, value: string | string[] | boolean) => {
+    props.setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
+    if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
+  return (
+    <LegacyTabBody
+      tabId="info"
+      formData={props.formData}
+      setFormData={props.setFormData}
+      errors={props.errors}
+      setErrors={props.setErrors}
+      pinnedTop={<CardNguonVuAn formData={props.formData} errors={props.errors} update={update} />}
+    >
+      <TabInfoBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabIncident(props: TabProps) {
+  return (
+    <LegacyTabBody tabId="incident" {...props}>
+      <TabIncidentBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabCase(props: TabProps) {
+  return (
+    <LegacyTabBody tabId="case" {...props}>
+      <TabCaseBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabSubjects(
+  props: Parameters<typeof TabSubjectsBoSung>[0] & TabProps & { caseId?: string },
+) {
+  return (
+    <LegacyTabBody
+      tabId="subjects"
+      formData={props.formData}
+      setFormData={props.setFormData}
+      errors={props.errors}
+      setErrors={props.setErrors}
+      // Bảng "Danh sách điều tra bổ sung" là phần CHÍNH của tab ĐTBS ở hệ cũ, đứng dưới bốn
+      // ô gương. Bảng đối tượng của hệ mới nằm trong khối gập.
+      afterLegacy={<DTBSTable caseId={props.caseId} />}
+    >
+      <TabSubjectsBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabIncidentTDC(props: TabProps) {
+  return (
+    <LegacyTabBody tabId="incident-tdc" {...props}>
+      <TabIncidentTDCBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabCaseTDC(props: TabProps) {
+  return (
+    <LegacyTabBody tabId="case-tdc" {...props}>
+      <TabCaseTDCBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabEvidence(props: Parameters<typeof TabEvidenceBoSung>[0] & TabProps) {
+  return (
+    <LegacyTabBody
+      tabId="evidence"
+      formData={props.formData}
+      setFormData={props.setFormData}
+      errors={props.errors}
+      setErrors={props.setErrors}
+    >
+      <TabEvidenceBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabStatistics(props: TabProps) {
+  return (
+    <LegacyTabBody tabId="statistics" {...props}>
+      <TabStatisticsBoSung {...props} />
+    </LegacyTabBody>
+  );
+}
+
+export function TabMedia(props: Parameters<typeof TabMediaBoSung>[0] & TabProps) {
+  return (
+    <LegacyTabBody
+      tabId="media"
+      formData={props.formData}
+      setFormData={props.setFormData}
+      errors={props.errors}
+      setErrors={props.setErrors}
+    >
+      <TabMediaBoSung {...props} />
+    </LegacyTabBody>
+  );
+}

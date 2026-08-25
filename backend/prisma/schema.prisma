@@ -290,6 +290,7 @@ model Crime {
   subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
   petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính
   casesChinh     Case[]     @relation("CaseCrimeChinh") // vụ án gắn tội danh chính
+  casesKhoiTo    Case[]     @relation("CaseCrimeKhoiTo") // vụ án gắn tội danh chính khi khởi tố
 
   @@index([pc02Relevant])
   @@index([chapter])
@@ -676,6 +677,48 @@ model Case {
   tinhTrang                    String?   // Tình trạng hồ sơ (native)
   toiDanhBanDau                String?   // Tội danh ban đầu (native, cạnh cụm tội danh)
 
+  // ── Ô hệ cũ còn thiếu cột, bổ sung để form khớp bố cục /doi-1/Them (26/08/2026) ──
+  // Trước đây chúng nằm trong `metadata` hoặc chỉ còn trong `legacy_raw`, nên form hệ mới
+  // không có chỗ nhập và cán bộ mất luôn thông tin khi sửa hồ sơ.
+  phanLoaiNguonTinBanDau String?   // Phân loại ban đầu (phan_loai_nguon_tin_ban_dau)
+  ngayXayRa              DateTime? // Ngày tội phạm xảy ra — 17.388 hồ sơ có dữ liệu
+  noiXayRaPhuongXa       String?   // Nơi xảy ra (cấp phường/xã)
+  baoCaoBanGiamDocText   String?   // Nội dung chỉ đạo Ban Giám đốc — cột Boolean cạnh bên chỉ ghi CÓ/KHÔNG
+
+  // Tab "Vụ việc" hệ cũ
+  soQDPhanCongNguonTin   String?
+  ngayQDPhanCongNguonTin DateTime?
+  soQDKhongKhoiTo        String?
+  ngayQDKhongKhoiTo      DateTime?
+  canCuKhongKhoiTo       String?
+  lyDoKhongKhoiTo        String[]  // BLTTHS Đ.157, chọn nhiều
+  chuyenVuViecDonViKhac  String?
+  nhapVaoVuViecSo        String?
+  phanLoaiDanSu          String?
+
+  // Tab "Vụ việc TĐC" hệ cũ
+  vuViecTamDungTruoc2015   Boolean?
+  soQDTamDinhChiNguonTin   String?
+  ngayQDTamDinhChiNguonTin DateTime?
+  canCuTamDinhChiNguonTin  String?
+  lyDoTamDinhChiNguonTin   String[]  // BLTTHS Đ.148, chọn nhiều
+  ngayHetThoiHieuVuViec    DateTime?
+  khacPhucLyDoTDCVuViec    String?
+  tienDoKhacPhucTDCVuViec  String?
+  soPhucHoiNguonTin        String?
+  ngayPhucHoiNguonTin      DateTime?
+
+  // Tab "Vật chứng" hệ cũ — ba ô chữ, khác bảng vật chứng chuẩn hoá của hệ mới.
+  // Giữ song song: hệ cũ nhập tự do, hệ mới có bảng Evidence từng món.
+  vatChungMoTa     String?
+  lenhNhapKho      String?
+  noiLuuTruBaoQuan String?
+
+  // Tội danh chính KHI KHỞI TỐ — khác tội danh nhận định ban đầu (`crimeChinhId`).
+  // Hệ cũ có hai ô riêng; bản di trú trước gộp làm một nên mất phân biệt.
+  toiDanhChinhKhoiToId String?
+  toiDanhChinhKhoiTo   Crime?  @relation("CaseCrimeKhoiTo", fields: [toiDanhChinhKhoiToId], references: [id], onDelete: SetNull)
+
   legacyRaw      Json?    @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
 
   // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
@@ -698,7 +741,8 @@ model Case {
   @@index([caseType]) // v0.44
   @@index([thoiHanUyThac]) // v0.44
   @@index([donViGiao]) // v0.44
-  @@index([soHoSoCu]) // truy nguyên hệ cũ
+  @@index([soHoSoCu])
+  @@index([toiDanhChinhKhoiToId]) // truy nguyên hệ cũ
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@map("cases")
@@ -1611,6 +1655,11 @@ model InvestigationSupplement {
   decisionDate   DateTime?
   reason         String
   deadline       DateTime?
+  // Ba mốc ngày của bảng "Danh sách điều tra bổ sung" hệ cũ. Không có chúng thì bảng ĐTBS
+  // của hệ mới thiếu đúng ba cột mà cán bộ đang nhập.
+  ngayTiepNhanDTBS DateTime?
+  ngayTraHoSoVKS   DateTime?
+  ngayTraHoSoToaAn DateTime?
   createdById    String?
   createdAt      DateTime  @default(now())
 

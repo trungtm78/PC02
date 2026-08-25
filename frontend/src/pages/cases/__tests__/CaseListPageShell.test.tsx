@@ -408,14 +408,16 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
       .map((h) => (h.textContent ?? '').trim())
       .filter((t) => t.length > 0);
 
-    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
+    // Màn chuẩn là /VuAn của hệ cũ (anh chốt 26/08/2026), KHÔNG phải /doi-1. Khác nhau đúng
+    // một cột thứ ba: /VuAn in "Đối tượng bị can", /doi-1 in "Nguồn đơn/Đơn vị giao".
+    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Đối tượng bị can', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
   });
 
   it('cột hệ cũ KHÔNG có thì ẩn sẵn, bật lại được từ menu chọn cột', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
 
-    for (const an of ['Điều tra viên', 'Ngày tạo']) {
+    for (const an of ['Điều tra viên', 'Ngày tạo', 'Nguồn đơn/Đơn vị giao']) {
       expect(screen.queryByRole('columnheader', { name: an })).not.toBeInTheDocument();
     }
 
@@ -423,9 +425,64 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     // Tìm TRONG menu chứ không tìm cả trang: nhãn "Điều tra viên" còn xuất hiện ở ô lọc,
     // nên tìm cả trang là trúng hai chỗ và ca kiểm đỏ vì lý do không liên quan.
     const menu = within(screen.getByTestId('column-picker-menu'));
-    for (const an of ['Điều tra viên', 'Ngày tạo']) {
+    for (const an of ['Điều tra viên', 'Ngày tạo', 'Nguồn đơn/Đơn vị giao']) {
       expect(menu.getByText(an)).toBeInTheDocument();
     }
+  });
+
+  /**
+   * Cột "Đối tượng bị can" — cột thứ ba của bảng Vụ án hệ cũ.
+   *
+   * Lấy tên bị can đã khởi tố (`subjects`, type SUSPECT) chứ không dùng ô văn bản
+   * `nghiVanDoiTuong`: ô ấy là nghi vấn ban đầu ở tab Thông tin, còn cột hệ cũ in danh sách
+   * bị can. Anh chốt nguồn dữ liệu này ngày 26/08/2026.
+   */
+  it('cột Đối tượng bị can in tên bị can, dư thì gộp thành "+N"', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases')
+        return Promise.resolve({
+          data: {
+            data: [
+              {
+                ...rowHeCu,
+                _count: { subjects: 7 },
+                subjects: [
+                  { id: 's1', fullName: 'Nguyễn Văn A' },
+                  { id: 's2', fullName: 'Trần Thị B' },
+                ],
+              },
+            ],
+            total: 1,
+          },
+        });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const o = screen.getByTestId('cell-doi-tuong-bi-can');
+    expect(o.textContent).toContain('Nguyễn Văn A');
+    expect(o.textContent).toContain('Trần Thị B');
+    // 7 bị can, mới in 2 tên ⇒ còn 5.
+    expect(o.textContent).toContain('+5');
+  });
+
+  it('cột Đối tượng bị can hiện gạch ngang khi hồ sơ chưa có bị can', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases')
+        return Promise.resolve({
+          data: { data: [{ ...rowHeCu, _count: { subjects: 0 }, subjects: [] }], total: 1 },
+        });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    expect(screen.getByTestId('cell-doi-tuong-bi-can').textContent).toBe('—');
   });
 
   it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {

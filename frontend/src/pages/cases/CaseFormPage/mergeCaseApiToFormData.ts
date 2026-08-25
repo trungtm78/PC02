@@ -289,5 +289,51 @@ export function mergeCaseApiToFormData(
     // PR-M2: ghi chú tự do + tội danh khác (multi)
     ghiChuKhac:     (apiData.ghiChuKhac as string) ?? prev.ghiChuKhac,
     toiDanhKhacIds: Array.isArray(apiData.toiDanhKhacIds) ? (apiData.toiDanhKhacIds as string[]) : prev.toiDanhKhacIds,
+
+    // ── Ô hệ cũ đưa về đúng vị trí trên form (26/08/2026) ─────────────────────────────
+    // Đọc CỘT trước, `metadata` sau — đúng quy ước sẵn có của tệp này. Không đọc được thì
+    // cán bộ mở hồ sơ cũ ra thấy ô trắng dù dữ liệu vẫn nằm trong cơ sở dữ liệu.
+    ngayDeXuat:               cd('ngayDeXuat')               ?? prev.ngayDeXuat,
+    phanLoaiNguonTinBanDau:   cs('phanLoaiNguonTinBanDau')   ?? meta.phanLoaiNguonTinBanDau ?? prev.phanLoaiNguonTinBanDau,
+    loaiThongTin:             cs('loaiThongTin')             ?? meta.loaiThongTin ?? prev.loaiThongTin,
+    ngayPhieuChuyen:          cd('ngayPhieuChuyen')          ?? prev.ngayPhieuChuyen,
+    ngayTiepNhanNguonTin:     cd('ngayTiepNhan')             ?? prev.ngayTiepNhanNguonTin,
+    diaChiCungCap:            cs('diaChiCungCap')            ?? meta.diaChiCungCap ?? prev.diaChiCungCap,
+    doVatTaiLieuKemTheo:      cs('doVatTaiLieuKemTheo')      ?? meta.doVatTaiLieuKemTheo ?? prev.doVatTaiLieuKemTheo,
+    ngayVietDon:              cd('ngayVietDon')              ?? prev.ngayVietDon,
+    ghiChuTrungDon:           cs('ghiChuTrungDon')           ?? meta.ghiChuTrungDon ?? prev.ghiChuTrungDon,
+    // Cột `baoCaoBanGiamDoc` chỉ là CÓ/KHÔNG; nội dung chỉ đạo nằm ở cột chữ cạnh bên.
+    baoCaoBanGiamDoc:         cs('baoCaoBanGiamDocText')     ?? meta.baoCaoBanGiamDoc ?? prev.baoCaoBanGiamDoc,
+    ngayGiaoDonViGiaiQuyet:   cd('ngayGiaoDonViGiaiQuyet')   ?? prev.ngayGiaoDonViGiaiQuyet,
+    laCongNgheCao:            col.laCongNgheCao === true,
+    lanhDaoToTung:            cs('lanhDaoToTung')            ?? meta.lanhDaoToTung ?? prev.lanhDaoToTung,
+    ngayXayRa:                cd('ngayXayRa')                ?? prev.ngayXayRa,
+    noiXayRaPhuongXa:         cs('noiXayRaPhuongXa')         ?? meta.noiXayRaPhuongXa ?? prev.noiXayRaPhuongXa,
+
+    soQDPhanCongNguonTin:     cs('soQDPhanCongNguonTin')     ?? meta.soQDPhanCongNguonTin ?? prev.soQDPhanCongNguonTin,
+    ngayQDPhanCongNguonTin:   cd('ngayQDPhanCongNguonTin')   ?? prev.ngayQDPhanCongNguonTin,
+    soQDKhongKhoiTo:          cs('soQDKhongKhoiTo')          ?? meta.soQDKhongKhoiTo ?? prev.soQDKhongKhoiTo,
+    ngayQDKhongKhoiTo:        cd('ngayQDKhongKhoiTo')        ?? prev.ngayQDKhongKhoiTo,
+    canCuKhongKhoiTo:         cs('canCuKhongKhoiTo')         ?? meta.canCuKhongKhoiTo ?? prev.canCuKhongKhoiTo,
+    lyDoKhongKhoiTo:          Array.isArray(col.lyDoKhongKhoiTo) ? (col.lyDoKhongKhoiTo as string[]) : prev.lyDoKhongKhoiTo,
+    chuyenVuViecDonViKhac:    cs('chuyenVuViecDonViKhac')    ?? meta.chuyenVuViecDonViKhac ?? prev.chuyenVuViecDonViKhac,
+    nhapVaoVuViecSo:          cs('nhapVaoVuViecSo')          ?? meta.nhapVaoVuViecSo ?? prev.nhapVaoVuViecSo,
+    phanLoaiDanSu:            cs('phanLoaiDanSu')            ?? meta.phanLoaiDanSu ?? prev.phanLoaiDanSu,
+
+    vuViecTamDungTruoc2015:   col.vuViecTamDungTruoc2015 === true,
+    soQDTamDinhChiNguonTin:   cs('soQDTamDinhChiNguonTin')   ?? meta.soQDTamDinhChiNguonTin ?? prev.soQDTamDinhChiNguonTin,
+    ngayQDTamDinhChiNguonTin: cd('ngayQDTamDinhChiNguonTin') ?? prev.ngayQDTamDinhChiNguonTin,
+    canCuTamDinhChiNguonTin:  cs('canCuTamDinhChiNguonTin')  ?? meta.canCuTamDinhChiNguonTin ?? prev.canCuTamDinhChiNguonTin,
+    lyDoTamDinhChiNguonTin:   Array.isArray(col.lyDoTamDinhChiNguonTin) ? (col.lyDoTamDinhChiNguonTin as string[]) : prev.lyDoTamDinhChiNguonTin,
+    ngayHetThoiHieuVuViec:    cd('ngayHetThoiHieuVuViec')    ?? prev.ngayHetThoiHieuVuViec,
+    khacPhucLyDoTDCVuViec:    cs('khacPhucLyDoTDCVuViec')    ?? meta.khacPhucLyDoTDCVuViec ?? prev.khacPhucLyDoTDCVuViec,
+    tienDoKhacPhucTDCVuViec:  cs('tienDoKhacPhucTDCVuViec')  ?? meta.tienDoKhacPhucTDCVuViec ?? prev.tienDoKhacPhucTDCVuViec,
+    soPhucHoiNguonTin:        cs('soPhucHoiNguonTin')        ?? meta.soPhucHoiNguonTin ?? prev.soPhucHoiNguonTin,
+    ngayPhucHoiNguonTin:      cd('ngayPhucHoiNguonTin')      ?? prev.ngayPhucHoiNguonTin,
+
+    vatChungMoTa:             cs('vatChungMoTa')             ?? meta.vatChungMoTa ?? prev.vatChungMoTa,
+    lenhNhapKho:              cs('lenhNhapKho')              ?? meta.lenhNhapKho ?? prev.lenhNhapKho,
+    noiLuuTruBaoQuan:         cs('noiLuuTruBaoQuan')         ?? meta.noiLuuTruBaoQuan ?? prev.noiLuuTruBaoQuan,
+    toiDanhChinhKhoiToId:     cs('toiDanhChinhKhoiToId')     ?? meta.toiDanhChinhKhoiToId ?? prev.toiDanhChinhKhoiToId,
   };
 }
