@@ -1,47 +1,85 @@
-# 12 đơn thư có ngày nhận trong tương lai — cần đối chiếu hồ sơ giấy
+# Đơn thư có ngày tiếp nhận sai — trạng thái 25/08/2026
 
-Rà ngày 25/08/2026. Đây là **lỗi nhập liệu mang từ hệ cũ sang**, không phải lỗi di trú:
-chính hệ mới có luật *"Ngày tiếp nhận không được là ngày tương lai"* nên các hồ sơ này
-không thể tạo mới được nữa — chúng chỉ tồn tại vì đã có sẵn ở hệ cũ.
+Đây là **lỗi nhập liệu mang từ hệ cũ sang**, không phải lỗi di trú: `legacyRaw` giữ y hệt
+giá trị của hệ cũ. Chính hệ mới có luật *"Ngày tiếp nhận không được là ngày tương lai"* nên
+các hồ sơ này không thể tạo mới được nữa — chúng chỉ tồn tại vì đã có sẵn ở hệ cũ.
 
-**Không tự sửa** vì đoán ngày là bịa dữ liệu hồ sơ vụ việc. Cần cán bộ mở hồ sơ giấy.
+## ĐÃ SỬA — 16 hồ sơ tự mâu thuẫn về năm
 
-## Nhóm A — sai rõ rệt, đã tự chìm xuống cuối danh sách (5)
+Năm của ngày tiếp nhận **lớn hơn năm phát sinh hồ sơ**. Một hồ sơ mở năm 2023 không thể
+tiếp nhận năm 3023 — bản ghi tự mâu thuẫn, nên không cần hồ sơ giấy vẫn kết luận được.
 
-Ngoài khoảng 1900–2100 nên bộ sắp xếp đã đẩy xuống cuối, không chiếm màn hình đầu.
+Cách sửa: **thay năm bằng năm hồ sơ, giữ nguyên ngày và tháng**. Bằng chứng trực tiếp:
+**5/16 hồ sơ có `ngay_viet_don` trùng đúng ngày/tháng, chỉ khác năm** (nhận `17/9/2925`,
+đơn viết `17/9/2025`).
 
-| Mã hồ sơ | Ngày nhận đang lưu | Người gửi | Khoá hệ cũ |
-|---|---|---|---|
-| 2023-5325 | 30/11/**3023** | Mai Phi | `ho_so_doi_1:60283` |
-| 2025-7057 | 17/09/**2925** | Trịnh Hoàng Duy Phong | `ho_so_doi_1:71403` |
-| 2025-10964 | 11/12/**2205** | Nguyễn Thanh Tùng | `ho_so_doi_1:75310` |
-| 2025-10450 | 05/12/**2205** | Đinh Thị Lan | `ho_so_doi_1:74796` |
-| 2023-2728 | 22/06/**2203** | Công ty Cổ phần Kinh doanh | `ho_so_doi_1:57686` |
+| Mã hồ sơ | Trước | Sau |
+|---|---|---|
+| 2023-5325 | 30/11/**3023** | 30/11/2023 |
+| 2025-7057 | 17/09/**2925** | 17/09/2025 |
+| 2025-10964 | 11/12/**2205** | 11/12/2025 |
+| 2025-10450 | 05/12/**2205** | 05/12/2025 |
+| 2023-2728 | 22/06/**2203** | 22/06/2023 |
+| 2026-3696 | 19/03/**2029** | 19/03/2026 |
+| 2026-10141 | 28/07/**2027** | 28/07/2026 |
+| 2026-10045 | 27/07/**2027** | 27/07/2026 |
+| 2025-6234 | 25/08/**2026** | 25/08/2025 |
+| 2025-5667 | 11/08/**2026** | 11/08/2025 |
+| 2025-3767 | 23/06/**2026** | 23/06/2025 |
+| 2025-3323 | 16/06/**2026** | 16/06/2025 |
+| 2025-2675 | 01/06/**2026** | 01/06/2025 |
+| 2025-2676 | 01/06/**2026** | 01/06/2025 |
+| 2024-2231 | 25/04/**2026** | 25/04/2024 |
+| 2023-1262 | 13/03/**2026** | 13/03/2023 |
 
-## Nhóm B — ƯU TIÊN: vẫn nổi lên đầu danh sách (7)
+Công cụ: `sua-nam-ngay-tiep-nhan.ts`. Ba chốt an toàn — chỉ đụng hồ sơ năm mâu thuẫn; kết
+quả không được ở tương lai; kết quả không được trước ngày viết đơn. 16/16 qua đủ, 0 bỏ qua.
 
-Các năm này nằm **trong** khoảng 1900–2100 nên bộ lọc ngày phi lý không bắt được. Đây
-chính là những hồ sơ cán bộ nhìn thấy đầu tiên khi mở màn hình Đơn thư.
+**Không mất dữ liệu:** giá trị gốc vẫn nằm nguyên trong `legacyRaw` và hiện đầy đủ trên
+bảng "Dữ liệu gốc hệ cũ".
 
-| Mã hồ sơ | Ngày nhận đang lưu | Người gửi | Khoá hệ cũ |
-|---|---|---|---|
-| 2026-3696 | 19/03/**2029** | Nguyễn Hồng Lĩnh | `ho_so_doi_1:79489` |
-| 2026-10141 | 28/07/**2027** | Đoàn Khắc Tiến | `ho_so_doi_1:85950` |
-| 2026-10045 | 27/07/**2027** | Tống Ngọc Toàn, Mã Ánh Tuyết | `ho_so_doi_1:85854` |
-| 2026-10206 | **30/09**/2026 | Phạm Thị Nhung | `ho_so_doi_1:86015` |
-| 2026-10207 | **29/09**/2026 | Nguyễn Thị Hoa | `ho_so_doi_1:86016` |
-| 2026-8810 | **29/09**/2026 | Công ty luật TNHH XTVN | `ho_so_doi_1:84619` |
-| 2026-10224 | **27/09**/2026 | Lý Cẩm Tuyền | `ho_so_doi_1:86033` |
+## CÒN LẠI — 4 hồ sơ cần đối chiếu hồ sơ giấy
 
-## Cách xử
+Bốn hồ sơ này **sai tháng**, không sai năm, nên không tự mâu thuẫn về năm và không suy ra
+được giá trị đúng. Chúng đang chiếm đầu danh sách Đơn thư.
 
-1. Cán bộ mở từng hồ sơ, đối chiếu ngày trên văn bản giấy.
-2. Sửa trực tiếp trên màn hình Đơn thư — hệ mới sẽ chặn nếu lại nhập ngày tương lai.
-3. Sửa xong nhóm B là danh sách hết bị chiếm đầu.
+| Mã hồ sơ | Ngày nhận đang lưu | Bản ghi tạo ở hệ cũ | Ngày viết đơn | Người gửi |
+|---|---|---|---|---|
+| 2026-10206 | **30/09/2026** | 29/07/2026 | 26/07/2026 | Phạm Thị Nhung |
+| 2026-10207 | **29/09/2026** | 29/07/2026 | 27/07/2026 | Nguyễn Thị Hoa |
+| 2026-8810 | **29/09/2026** | 30/06/2026 | 25/06/2026 | Công ty luật TNHH XTVN |
+| 2026-10224 | **27/09/2026** | 29/07/2026 | 23/07/2026 | Lý Cẩm Tuyền |
 
-## Vì sao bộ lọc hiện tại không bắt được nhóm B
+**Chắc chắn sai** vì hai lẽ: ngày nhận nằm ở **tương lai** (hôm nay 25/08/2026), và bản ghi
+đã được **tạo ở hệ cũ trước đó hai tháng** — không thể ghi nhận một việc chưa xảy ra.
+
+**Nhưng giá trị đúng thì không suy ra được.** Đổi tháng 9 → 7 cho hồ sơ 2026-10206 ra
+30/07/2026, vẫn sau ngày tạo bản ghi 29/07 — tức phép đoán tự nhiên nhất cũng không qua nổi
+phép kiểm của chính nó. Vì vậy để nguyên, chờ hồ sơ giấy.
+
+Cán bộ sửa trực tiếp trên màn hình Đơn thư; hệ thống sẽ chặn nếu lại nhập ngày tương lai.
+
+## Ghi chú — 13 hồ sơ có dấu hiệu nhẹ, KHÔNG kết luận là sai
+
+Ngoài 4 hồ sơ trên còn 13 hồ sơ có ngày tiếp nhận **sau ngày tạo bản ghi** vài ngày tới vài
+tuần (vd `2026-9647` nhận 19/07, tạo 17/07). Đây **chỉ là dấu hiệu, không phải bằng chứng**:
+cán bộ hoàn toàn có thể mở bản ghi trước rồi ghi nhận tiếp nhận sau. Ngày của chúng đều ở
+quá khứ và không mâu thuẫn với năm hồ sơ. Liệt kê để anh biết, không đề nghị sửa.
+
+Truy vấn tìm lại nhóm này:
+
+```sql
+SELECT stt, "receivedDate"::date,
+       to_timestamp(("legacyRaw"->>'_add_time')::bigint)::date AS ngay_tao
+  FROM petitions
+ WHERE "legacyRaw"->>'_add_time' ~ '^[0-9]+$' AND "deletedAt" IS NULL
+   AND "receivedDate" > to_timestamp(("legacyRaw"->>'_add_time')::bigint) + interval '1 day'
+ ORDER BY "receivedDate" DESC;
+```
+
+## Vì sao không nới bộ lọc thay cho sửa dữ liệu
 
 Cột sắp xếp là **cột sinh tự động** của PostgreSQL, mà cột sinh **bắt buộc dùng biểu thức
 bất biến** — không được gọi `now()`. Nên khoảng hợp lệ phải là hằng số `1900–2100`, không
 thể là "không quá hôm nay". Đổi sang so với ngày hiện tại sẽ mất chỉ mục và làm chậm truy
-vấn trên 46.631 hồ sơ. Sửa dữ liệu là cách đúng, không phải nới bộ lọc.
+vấn trên 46.631 hồ sơ. Sửa dữ liệu là cách đúng.
