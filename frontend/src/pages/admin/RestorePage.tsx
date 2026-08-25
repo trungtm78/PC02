@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import { RotateCcw, X, AlertTriangle, FileText, ShieldAlert, Search } from 'lucide-react';
 import { formatVNDateTime } from '../../lib/dates';
+import { hoTen } from '@/lib/hoTen';
 
 type TabKey = 'cases' | 'incidents' | 'petitions';
 
@@ -65,7 +66,7 @@ const TAB_META: Record<TabKey, {
 function actorDisplay(row: DeletedRow): string {
   const u = row.createdBy ?? row.enteredBy;
   if (!u) return '—';
-  return [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username;
+  return hoTen(u) || u.username;
 }
 
 function deleteReasonDisplay(row: DeletedRow): string {

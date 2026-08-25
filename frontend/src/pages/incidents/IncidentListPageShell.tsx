@@ -65,6 +65,7 @@ import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
 import { incidentsListFilters, type IncidentFilterValue } from '@/features/incidents/list-filters';
+import { hoTen } from '@/lib/hoTen';
 
 // Trust boundary — URL `?incidents_status=__proto__` must not land in lookups.
 const INCIDENT_STATUS_VALUES = new Set<string>(Object.values(IncidentStatus));
@@ -552,9 +553,7 @@ export function IncidentListPageShell() {
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
-          const name = [r.investigator.firstName, r.investigator.lastName]
-            .filter(Boolean)
-            .join(' ');
+          const name = hoTen(r.investigator);
           return name || r.investigator.username;
         },
       },

@@ -130,8 +130,9 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
   });
 
   describe('Tên cán bộ = NGƯỜI IN (không phải người tạo hồ sơ)', () => {
-    const nguoiTao = { firstName: 'Văn', lastName: 'Tạo', rank: 'Đại úy' };
-    const nguoiIn = { firstName: 'Văn', lastName: 'In', rank: 'Trung tá' };
+    // Dữ liệu mẫu đặt đúng như CSDL thật: `lastName` = họ và tên đệm, `firstName` = tên gọi.
+  const nguoiTao = { firstName: 'Tạo', lastName: 'Văn', rank: 'Đại úy' };
+    const nguoiIn = { firstName: 'In', lastName: 'Văn', rank: 'Trung tá' };
     const resolve = (key: string, record: any, ctx?: any) =>
       FIELD_CATALOG.DON_THU.find((f) => f.key === key)!.resolve(record, ctx);
 
@@ -160,7 +161,7 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
 
     // Ô "Cán bộ đề xuất" chọn trên form THẮNG cả người in — đây là điểm mấu chốt:
     // cán bộ A in hộ cho B thì văn bản vẫn phải ghi B.
-    const canBoChon = { firstName: 'Văn', lastName: 'Chọn', rank: 'Thiếu tá' };
+    const canBoChon = { firstName: 'Chọn', lastName: 'Văn', rank: 'Thiếu tá' };
 
     it('có cán bộ ĐƯỢC CHỌN → thắng cả người in lẫn người tạo', () => {
       const record = { canBoDeXuat: canBoChon, enteredBy: nguoiTao };

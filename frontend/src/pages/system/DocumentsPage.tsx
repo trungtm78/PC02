@@ -35,6 +35,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { FKSelection } from "@/components/FKSelection";
+import { hoTen } from '@/lib/hoTen';
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -715,7 +716,7 @@ export default function DocumentsPage() {
                           {doc.incident?.name ?? <span className="text-xs text-slate-400">—</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
-                          {doc.uploadedBy ? `${doc.uploadedBy.firstName} ${doc.uploadedBy.lastName}`.trim() || doc.uploadedBy.username : <span className="text-xs text-slate-400">—</span>}
+                          {doc.uploadedBy ? hoTen(doc.uploadedBy).trim() || doc.uploadedBy.username : <span className="text-xs text-slate-400">—</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-700">
                           {formatVNDate(doc.createdAt)}

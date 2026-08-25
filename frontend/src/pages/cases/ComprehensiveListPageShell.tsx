@@ -55,6 +55,7 @@ import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { comprehensiveRowActions } from '@/features/comprehensive/row-actions';
 import { comprehensiveListFilters, type ComprehensiveFilterValue } from '@/features/comprehensive/list-filters';
+import { hoTen } from '@/lib/hoTen';
 
 const RECORD_TYPE = {
   CASE: 'CASE',
@@ -119,7 +120,7 @@ function caseToUnified(c: {
     statusLabel: CASE_STATUS_LABEL[c.status] ?? c.status,
     statusBadge: CASE_STATUS_BADGE[c.status] ?? BADGE_DEFAULT,
     createdBy: c.investigator
-      ? [c.investigator.firstName, c.investigator.lastName].filter(Boolean).join(' ') ||
+      ? hoTen(c.investigator) ||
         c.investigator.username
       : '—',
     receivedDate: c.createdAt,
@@ -146,7 +147,7 @@ function incidentToUnified(i: {
     statusLabel: INCIDENT_STATUS_LABEL[i.status] ?? i.status,
     statusBadge: INCIDENT_STATUS_BADGE[i.status] ?? BADGE_DEFAULT,
     createdBy: i.investigator
-      ? [i.investigator.firstName, i.investigator.lastName].filter(Boolean).join(' ') ||
+      ? hoTen(i.investigator) ||
         i.investigator.username
       : '—',
     receivedDate: i.createdAt,

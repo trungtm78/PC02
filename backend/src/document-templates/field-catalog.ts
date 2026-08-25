@@ -41,16 +41,25 @@ function fmtDate(d: unknown): string {
   return `ngày ${String(date.getDate()).padStart(2, '0')} tháng ${String(date.getMonth() + 1).padStart(2, '0')} năm ${date.getFullYear()}`;
 }
 
-/** Họ tên đầy đủ từ User (firstName+lastName) — User KHÔNG có fullName. */
-function personName(u: any): string {
+/**
+ * Họ tên đầy đủ từ User — HỌ TRƯỚC, TÊN SAU. User KHÔNG có `fullName`.
+ *
+ * Cơ sở dữ liệu lưu theo quy ước tiếng Anh: `lastName` là họ và tên đệm, `firstName` là tên
+ * gọi. Đo trên bản chạy thật 25/08/2026: lastName="Phường An Hội", firstName="Đông".
+ *
+ * Ghép `[firstName, lastName]` như trước cho ra "Đông Phường An Hội" — người Việt đọc ra một
+ * cái tên khác hẳn. Ở tệp này hậu quả nặng hơn màn hình: đây là nguồn dữ liệu cho MẪU WORD,
+ * nên tên cán bộ in ra văn bản gửi đi cũng sai.
+ */
+export function personName(u: any): string {
   if (!u) return '';
-  return [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return [u.lastName, u.firstName].filter(Boolean).join(' ').trim();
 }
 
-/** Họ tên kèm cấp bậc (rank firstName lastName) — dùng cho cán bộ trong chứng từ đơn thư. */
-function rankName(u: any): string {
+/** Họ tên kèm cấp bậc (cấp bậc + họ + tên) — dùng cho cán bộ trong chứng từ đơn thư. */
+export function rankName(u: any): string {
   if (!u) return '';
-  return [u.rank, u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return [u.rank, personName(u)].filter(Boolean).join(' ').trim();
 }
 
 /** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. */
@@ -84,7 +93,7 @@ function fmtGioPhut(d: unknown): string {
  * Viết tắt tên cán bộ cho dòng "Lưu:" của văn bản — lấy chữ cái đầu của tên
  * đệm + tên gọi. VD "Phạm Văn Huy" → "V.Huy".
  */
-function abbrevName(u: any): string {
+export function abbrevName(u: any): string {
   const full = personName(u);
   if (!full) return '';
   const parts = full.split(/\s+/).filter(Boolean);

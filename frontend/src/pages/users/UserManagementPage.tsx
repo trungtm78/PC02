@@ -27,6 +27,7 @@ import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModa
 import { EnrollmentLinkModal, type EnrollmentHandover } from '@/components/EnrollmentLinkModal';
 import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
+import { hoTen } from '@/lib/hoTen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,7 +174,7 @@ export default function UserManagementPage() {
       // Normalize: merge firstName/lastName into fullName for display
       const rawUsers: User[] = (res.data.data ?? []).map((u: User) => ({
         ...u,
-        fullName: (u.fullName ?? [u.firstName, u.lastName].filter(Boolean).join(' ')) || u.username,
+        fullName: (u.fullName ?? hoTen(u)) || u.username,
       }));
       setUsers(rawUsers);
       setUsersTotal(res.data.total ?? 0);

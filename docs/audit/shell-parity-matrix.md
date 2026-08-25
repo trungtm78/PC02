@@ -177,6 +177,18 @@ tự đoán. Ô "Tính theo" khai vào registry lọc sẵn có, **không** dự
 thấy con số toàn đơn vị); và badge đếm khác thẻ số (badge: vụ án REGULAR, vụ việc/đơn thư chưa
 giải quyết — thẻ: tất cả). Giữ nguyên ngữ nghĩa cũ, có ca kiểm ghi rõ.
 
+#### Cột Điều tra viên: sửa thứ tự họ tên — 25/08/2026
+
+Anh báo ô "Điều tra viên chính" hiện "Thành Phường Tân". Gốc bệnh không nằm ở danh mục
+phường/xã mà ở phép ghép họ tên: cơ sở dữ liệu lưu `lastName` = họ và tên đệm, `firstName` =
+tên gọi, còn mã ghép `[firstName, lastName]` theo quy ước tiếng Anh.
+
+Cột "Điều tra viên" trên cả ba shell dùng chung phép ghép ấy nên cũng sai. Nay dùng hàm chung
+`lib/hoTen.ts` (họ trước, tên sau) — một nơi duy nhất quyết định thứ tự, thay cho 19 chỗ chép
+tay. 256/257 tài khoản có cả hai trường nên lỗi chạm gần như mọi cán bộ.
+
+Không đổi cột nào, không đổi thứ tự cột — chỉ đổi cách hiển thị tên trong ô.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu

@@ -43,7 +43,7 @@ describe('buildEntityPlaceholders', () => {
   it('[codex P2] dieuTraVien = firstName + lastName (User không có fullName)', () => {
     const p = buildEntityPlaceholders(
       'VU_AN',
-      { caseCode: 'C1', investigator: { firstName: 'Nguyễn Văn', lastName: 'A' } },
+      { caseCode: 'C1', investigator: { firstName: 'A', lastName: 'Nguyễn Văn' } },
       {},
     );
     expect(p.dieuTraVien).toBe('Nguyễn Văn A');

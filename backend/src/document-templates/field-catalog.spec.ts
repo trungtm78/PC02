@@ -12,10 +12,15 @@ describe('field-catalog', () => {
     it('soVuAn ← caseCode', () => {
       expect(resolveField('VU_AN', 'soVuAn', { caseCode: 'VA-01' })).toBe('VA-01');
     });
-    it('dieuTraVien ← investigator (firstName+lastName)', () => {
+    it('dieuTraVien ← investigator, ghép HỌ TRƯỚC TÊN SAU', () => {
+      // Dữ liệu mẫu cũ đặt "Nguyễn" (một HỌ) vào `firstName` và mong đợi "Nguyễn An" — nó mã
+      // hoá đúng cái quy ước sai đã sinh ra lỗi anh báo 25/08/2026. Nay dùng dữ liệu đúng
+      // như cơ sở dữ liệu thật lưu: `lastName` = họ và tên đệm, `firstName` = tên gọi.
       expect(
-        resolveField('VU_AN', 'dieuTraVien', { investigator: { firstName: 'Nguyễn', lastName: 'An' } }),
-      ).toBe('Nguyễn An');
+        resolveField('VU_AN', 'dieuTraVien', {
+          investigator: { firstName: 'An', lastName: 'Nguyễn Văn' },
+        }),
+      ).toBe('Nguyễn Văn An');
     });
     it('donVi ← unitRef.name', () => {
       expect(resolveField('VU_AN', 'donVi', { unitRef: { name: 'PC02' } })).toBe('PC02');

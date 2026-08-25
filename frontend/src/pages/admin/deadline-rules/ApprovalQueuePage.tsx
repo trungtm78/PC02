@@ -4,6 +4,7 @@ import { ClipboardCheck, ArrowLeft, Clock, AlertTriangle, Loader2, Inbox } from 
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
 import type { DeadlineRuleVersion } from '@/features/deadline-rules/types';
+import { hoTen } from '@/lib/hoTen';
 
 function ageBucket(proposedAt: string): 'new' | 'pending' | 'overdue' {
   const hours = (Date.now() - new Date(proposedAt).getTime()) / 3_600_000;
@@ -23,7 +24,7 @@ function fmtAge(proposedAt: string): string {
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return 'Hệ thống';
-  return [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.username;
+  return hoTen(u).trim() || u.username;
 }
 
 /**

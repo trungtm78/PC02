@@ -34,6 +34,7 @@ import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "./ConvertPetitionModal";
+import { hoTen } from '@/lib/hoTen';
 
 const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
 
@@ -109,7 +110,7 @@ const INITIAL_FORM: FormData = {
 };
 
 function displayName(u: UserOption): string {
-  const full = [u.firstName, u.lastName].filter(Boolean).join(" ");
+  const full = hoTen(u);
   return full || u.username;
 }
 

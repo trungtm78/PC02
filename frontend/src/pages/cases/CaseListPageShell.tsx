@@ -63,6 +63,7 @@ import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
 import { casesListFilters, type CaseFilterValue } from '@/features/cases/list-filters';
+import { hoTen } from '@/lib/hoTen';
 
 // AUTO-FIX #5 (security): validate URL status param against CaseStatus enum.
 // Trust boundary — attacker URL `?cases_status=__proto__` cannot land in lookups.
@@ -530,9 +531,7 @@ export function CaseListPageShell() {
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
-          const name = [r.investigator.firstName, r.investigator.lastName]
-            .filter(Boolean)
-            .join(' ');
+          const name = hoTen(r.investigator);
           return name || r.investigator.username;
         },
       },
