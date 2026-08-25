@@ -24,9 +24,14 @@ import {
   useListPageUrlState,
   useListSort,
   DateCell,
+  SummaryCell,
+  LegacyFilterPanel,
+  formatHoSoCode,
   type ColumnDef,
   type TableState,
+  type LegacyFilterField,
 } from '@/components/shared/ListPageShell';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
@@ -85,6 +90,12 @@ interface PetitionRow {
   deadline?: string | null;
   createdAt: string;
   updatedAt?: string; // optimistic-lock cho assign action
+  // Các cột hệ cũ hiển thị trên danh sách (25/08/2026). `summary` phủ 99,99% đơn thư.
+  summary?: string | null;
+  nguonDon?: string | null;
+  ketQuaXuLyKhac?: string | null;
+  sttCu?: string | null;
+  enteredBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
 interface PetitionsStatsResponse {
@@ -367,32 +378,30 @@ export function PetitionListPageShell() {
 
   const columns: ColumnDef<PetitionRow>[] = useMemo(
     () => [
-      {
-        key: 'actions',
-        header: 'Thao tác',
-        width: '8rem',
-        render: (r) => (
-          <RowActions
-            registry={petitionsRowActions}
-            row={{
-              id: r.id,
-              status: r.status as unknown as string,
-              stt: r.stt,
-              updatedAt: r.updatedAt,
-            }}
-            ctx={actionCtx}
-          />
-        ),
-      },
+      // Thứ tự cột theo hệ cũ: STT → Ngày → Nguồn đơn → Tên người → Tóm tắt → Đơn vị →
+      // Kết quả → Người nhập → Thao tác (CUỐI). Hệ mới trước đây để Thao tác ở ĐẦU.
       {
         key: 'stt',
         header: 'STT',
-        render: (r) => <span className="font-mono text-xs text-slate-700">{r.stt}</span>,
+        render: (r) => (
+          // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
+          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>
+        ),
+      },
+      {
+        key: 'nguonDon',
+        header: 'Nguồn đơn/Đơn vị giao',
+        render: (r) => r.nguonDon ?? '—',
       },
       {
         key: 'senderName',
-        header: 'Người gửi',
+        header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
         render: (r) => <span className="font-medium text-slate-800">{r.senderName}</span>,
+      },
+      {
+        key: 'summary',
+        header: 'Tóm tắt nội dung',
+        render: (r) => <SummaryCell value={r.summary} />,
       },
       {
         key: 'suspectedPerson',
@@ -401,8 +410,22 @@ export function PetitionListPageShell() {
       },
       {
         key: 'unit',
-        header: 'Đơn vị',
+        header: 'Đơn vị giải quyết',
         render: (r) => r.unit ?? '—',
+      },
+      {
+        key: 'ketQuaXuLyKhac',
+        header: 'Kết quả xử lý, giải quyết khác',
+        render: (r) => r.ketQuaXuLyKhac ?? '—',
+      },
+      {
+        key: 'enteredBy',
+        header: 'Người nhập',
+        render: (r) =>
+          r.enteredBy
+            ? `${r.enteredBy.lastName ?? ''} ${r.enteredBy.firstName ?? ''}`.trim() ||
+              (r.enteredBy.username ?? '—')
+            : '—',
       },
       {
         key: 'status',
@@ -446,6 +469,24 @@ export function PetitionListPageShell() {
           </span>
         ),
       },
+      // Thao tác ở CUỐI như hệ cũ — cán bộ quen quét mắt từ trái sang rồi mới bấm.
+      {
+        key: 'actions',
+        header: 'Thao tác',
+        width: '8rem',
+        render: (r) => (
+          <RowActions
+            registry={petitionsRowActions}
+            row={{
+              id: r.id,
+              status: r.status as unknown as string,
+              stt: r.stt,
+              updatedAt: r.updatedAt,
+            }}
+            ctx={actionCtx}
+          />
+        ),
+      },
     ],
     [actionCtx],
   );
@@ -470,6 +511,47 @@ export function PetitionListPageShell() {
   const handlePageChange = useCallback(
     (newPage: number) => {
       url.setParam('page', String(newPage));
+    },
+    [url],
+  );
+
+  // ── Thẻ lọc theo kiểu hệ cũ ───────────────────────────────────────────────
+  // Giá trị đọc/ghi thẳng vào địa chỉ trang như mọi bộ lọc khác, nên tải lại trang hay gửi
+  // đường dẫn cho đồng nghiệp đều giữ nguyên bộ lọc.
+  const { data: officerOptions } = useOfficerOptions();
+
+  const legacyFilterFields: LegacyFilterField[] = useMemo(
+    () => [
+      {
+        key: 'enteredById',
+        label: 'Cán bộ nhập',
+        type: 'select',
+        side: 'left',
+        options: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+      },
+      { key: 'stt', label: 'STT', type: 'text', placeholder: 'vd 26-11171', side: 'right' },
+      { key: 'sttCu', label: 'STT cũ', type: 'text', side: 'right' },
+      { key: 'fromDate', label: 'Từ ngày', type: 'date', side: 'right' },
+      { key: 'toDate', label: 'Đến ngày', type: 'date', side: 'right' },
+    ],
+    [officerOptions],
+  );
+
+  const legacyFilterValues = useMemo(
+    () => ({
+      enteredById: url.getParam('enteredById') ?? '',
+      stt: url.getParam('stt') ?? '',
+      sttCu: url.getParam('sttCu') ?? '',
+      fromDate: url.getParam('fromDate') ?? '',
+      toDate: url.getParam('toDate') ?? '',
+    }),
+    [url],
+  );
+
+  const handleLegacyFilterChange = useCallback(
+    (updates: Record<string, string>) => {
+      // Đổi bộ lọc thì về trang 1 — giữ nguyên trang cũ sẽ ra bảng trống mà không rõ vì sao.
+      url.setParams({ ...updates, page: '1' });
     },
     [url],
   );
@@ -604,6 +686,15 @@ export function PetitionListPageShell() {
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
         />
       </ListPageShell.Toolbar>
+      {/* Thẻ lọc theo kiểu hệ cũ — bổ sung các ô hệ mới còn thiếu. Ô "Từ khóa" nằm ở
+          thanh công cụ ngay trên, nên không dựng hai ô tìm kiếm cùng màn hình. */}
+      <LegacyFilterPanel
+        fields={legacyFilterFields}
+        values={legacyFilterValues}
+        onChange={handleLegacyFilterChange}
+        onApply={() => url.setParam('page', '1')}
+        onReset={handleResetFilters}
+      />
       {transientBanner && (
         <div
           data-testid="petitions-bulk-banner"
