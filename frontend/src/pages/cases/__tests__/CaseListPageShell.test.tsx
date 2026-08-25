@@ -308,12 +308,40 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     });
   });
 
-  it('Thao tác là cột CUỐI và có cột Tóm tắt nội dung', async () => {
+  /**
+   * Thao tác là cột ĐẦU TIÊN, ngay sau ô tick.
+   *
+   * MỐC ĐÚNG ĐÃ ĐỔI, KHÔNG PHẢI CA KIỂM BỊ SỬA CHO KHỚP MÃ: PR #231 đưa cột này về CUỐI để
+   * giống hệ cũ. Ngày 25/08/2026 anh yêu cầu ngược lại, lý do là thao tác. Ba bảng này rộng
+   * 10-13 cột nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là phải cuộn sang
+   * phải rồi cuộn ngược về. Đây là chỗ hệ mới CỐ Ý khác hệ cũ.
+   */
+  it('Thao tác là cột ĐẦU và có cột Tóm tắt nội dung', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim() ?? '');
     expect(headers.findIndex((h) => h.includes('Tóm tắt nội dung'))).toBeGreaterThanOrEqual(0);
-    expect(headers.findIndex((h) => h.includes('Thao tác'))).toBe(headers.length - 1);
+    // Ô tick là tiêu đề cột thứ nhất (không có chữ), nên Thao tác là cột thứ hai.
+    expect(headers.findIndex((h) => h.includes('Thao tác'))).toBe(1);
+  });
+
+
+  /**
+   * Chốt đúng cái người dùng NHÌN THẤY, không chỉ chốt thứ tự trong mảng cột.
+   *
+   * "Ở vị trí 0 của mảng" là mệnh đề về cấu trúc dữ liệu; "ô thứ hai của hàng, ngay sau ô
+   * tick" mới là mệnh đề về màn hình. Hai thứ chỉ trùng nhau chừng nào `Table` còn dựng ô
+   * tick trước rồi mới đổ mảng cột — mà đó là thứ có thể đổi.
+   */
+  it('trong mỗi hàng, ô thứ nhất là ô tick và ô thứ hai là nút thao tác', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const hang = screen.getAllByRole('row').slice(1)[0]; // bỏ hàng tiêu đề
+    const o = within(hang).getAllByRole('cell');
+
+    expect(within(o[0]).getByRole('checkbox')).toBeInTheDocument();
+    expect(within(o[1]).getAllByRole('button').length).toBeGreaterThan(0);
   });
 
   it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
