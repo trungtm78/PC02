@@ -23,10 +23,11 @@ import { ReasonRequiredModal } from '@/features/deadline-rules/components/Reason
 import { authStore } from '@/stores/auth.store';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
 import { formatVNDateTime, formatVNDate } from '../../../lib/dates';
+import { hoTen } from '@/lib/hoTen';
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return 'Hệ thống';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  const name = hoTen(u).trim();
   return name || u.username;
 }
 

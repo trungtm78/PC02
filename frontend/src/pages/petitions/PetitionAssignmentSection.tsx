@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { UserPlus, Trash2 } from "lucide-react";
+import { hoTen } from '@/lib/hoTen';
 
 interface UserOption {
   id: string;
@@ -25,7 +26,7 @@ interface Assignment {
 }
 
 function displayName(u: UserOption): string {
-  const full = [u.firstName, u.lastName].filter(Boolean).join(" ");
+  const full = hoTen(u);
   return full || u.username;
 }
 

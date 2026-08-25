@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { Modal } from '@/components/shared/Modal';
 import { BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
+import { hoTen } from '@/lib/hoTen';
 
 export type AssignResourceType = 'cases' | 'incidents' | 'petitions';
 
@@ -153,7 +154,7 @@ export function AssignModal({
             <option value="">-- Chọn cán bộ --</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {[u.firstName, u.lastName].filter(Boolean).join(' ') || u.username}
+                {hoTen(u) || u.username}
               </option>
             ))}
           </select>

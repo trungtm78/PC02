@@ -32,12 +32,13 @@ import {
 import { ListPageShell } from '@/components/shared/ListPageShell';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { formatVNDate } from '../../../lib/dates';
+import { hoTen } from '@/lib/hoTen';
 
 function fmtUser(
   u: { firstName: string | null; lastName: string | null; username: string } | null | undefined,
 ): string {
   if (!u) return '—';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  const name = hoTen(u).trim();
   return name || u.username;
 }
 

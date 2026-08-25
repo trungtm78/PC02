@@ -50,6 +50,7 @@ import {
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
 import { formatVNDateTime, today } from "@/lib/dates";
+import { hoTen } from '@/lib/hoTen';
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -191,7 +192,7 @@ function CaseFormPage() {
         setHandlerOptions(
           users.map((u) => ({
             value: u.id,
-            label: [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username,
+            label: hoTen(u) || u.username,
           }))
         );
       })

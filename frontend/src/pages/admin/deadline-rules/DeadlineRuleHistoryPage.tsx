@@ -5,10 +5,11 @@ import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
 import { DEADLINE_RULE_KEY_LABEL } from '@/shared/enums/status-labels';
 import { formatVNDateTime, formatVNDate } from '../../../lib/dates';
+import { hoTen } from '@/lib/hoTen';
 
 function fmtUser(u: { firstName: string | null; lastName: string | null; username: string } | null | undefined): string {
   if (!u) return 'Hệ thống';
-  return [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.username;
+  return hoTen(u).trim() || u.username;
 }
 
 /**

@@ -26,7 +26,7 @@ describe('seed mẫu chứng từ — docx builder + registry', () => {
     const buf = await buildTemplateDocx(spec.body);
     const record = {
       caseCode: 'HS-2026-00007', name: 'Vụ trộm cắp tài sản', crime: 'Trộm cắp tài sản',
-      investigator: { firstName: 'Nguyễn Văn', lastName: 'An' }, unit: 'Phòng Cảnh sát điều tra',
+      investigator: { firstName: 'An', lastName: 'Nguyễn Văn' }, unit: 'Phòng Cảnh sát điều tra',
     };
     const auto = buildEntityPlaceholders('VU_AN', record);
     const manual = { diaDanh: 'TP. Hồ Chí Minh', canCu: 'kết quả xác minh', noiXayRa: 'Quận 1' };
