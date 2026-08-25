@@ -57,3 +57,48 @@ export function nhanKyThongKe(ky: string, tuNgay: string | null, denNgay: string
     `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
   return `${dd(tu)} – ${dd(den)}`;
 }
+
+/**
+ * Thứ tự hiển thị trên trang Cài đặt hệ thống.
+ *
+ * Máy chủ trả danh sách sắp theo TÊN KHOÁ, nên bốn khoá kỳ thống kê nằm rải rác và sai logic
+ * đọc: "đến ngày" xuất hiện TRƯỚC "kỳ thống kê", còn "từ ngày" rơi xuống tận cuối. Người đọc
+ * gặp mốc kết thúc trước cả khi biết đang cấu hình kỳ gì.
+ *
+ * Hai mốc ngày phải nằm KỀ NHAU và NGAY DƯỚI khoá kỳ, vì chúng chỉ có nghĩa khi kỳ là
+ * "khoảng tuỳ chọn" — đặt xa nhau thì quan hệ ấy biến mất khỏi màn hình.
+ *
+ * Khoá không có trong bảng này giữ nguyên thứ tự máy chủ trả, xếp sau.
+ */
+export const THU_TU_HIEN_THI: readonly string[] = [
+  'THONG_KE_KY',
+  'THONG_KE_TU_NGAY',
+  'THONG_KE_DEN_NGAY',
+  'THONG_KE_TRUONG_NGAY',
+] as const;
+
+/** Khoá nào dùng ô CHỌN NGÀY thay vì ô gõ chữ. */
+export const KHOA_KIEU_NGAY: readonly string[] = [
+  'THONG_KE_TU_NGAY',
+  'THONG_KE_DEN_NGAY',
+] as const;
+
+/**
+ * Hai mốc ngày CHỈ có tác dụng khi kỳ là "khoảng tuỳ chọn".
+ *
+ * Trả về true khi ô đang không có tác dụng, để giao diện nói rõ điều đó. Để chúng trông như
+ * bình thường thì admin nhập ngày, lưu thành công, và không có gì đổi — rồi kết luận hệ
+ * thống hỏng.
+ */
+export function oNgayDangVoHieu(key: string, kyHienTai: string | undefined): boolean {
+  return KHOA_KIEU_NGAY.includes(key) && kyHienTai !== 'KHOANG_TUY_CHON';
+}
+
+/** Sắp danh sách cài đặt theo thứ tự đọc hợp lý. */
+export function sapXepCaiDat<T extends { key: string }>(ds: readonly T[]): T[] {
+  const viTri = (k: string) => {
+    const i = THU_TU_HIEN_THI.indexOf(k);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return [...ds].sort((a, b) => viTri(a.key) - viTri(b.key));
+}
