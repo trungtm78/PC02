@@ -111,7 +111,7 @@ describe('incidentsRowActions', () => {
 });
 
 describe('incidentsListFilters', () => {
-  it('registers 8 fields — 3 gốc + 5 ô theo bảng lọc hệ cũ', () => {
+  it('registers 9 fields — 3 gốc + 5 ô theo bảng lọc hệ cũ', () => {
     // Vụ việc trước đây KHÔNG có ô ngày nào trong registry, nên Từ/Đến ngày ở đây là ô
     // mới thật, không phải trùng với ô sẵn có như ở Đơn thư và Vụ án.
     expect(incidentsListFilters.all().map((f) => f.key)).toEqual([
@@ -123,6 +123,9 @@ describe('incidentsListFilters', () => {
       'stt',
       'sttCu',
       'canBoNhapId',
+      // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
+      // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
+      'thongKeTruongNgay',
     ]);
   });
 
@@ -159,6 +162,7 @@ describe('incidentsListFilters', () => {
       'filter-stt',
       'filter-stt-cu',
       'filter-can-bo-nhap',
+      'filter-tinh-theo',
     ]);
   });
 });

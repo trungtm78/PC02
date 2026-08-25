@@ -57,7 +57,7 @@ describe('petitionsRowActions', () => {
 });
 
 describe('petitionsListFilters', () => {
-  it('registers 7 fields — 4 gốc + 3 ô theo bảng lọc hệ cũ', () => {
+  it('registers 9 fields — 4 gốc + 3 ô theo bảng lọc hệ cũ', () => {
     // 3 ô mới khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì
     // không có cách nào đúng để trả lời "ô nào đang có hiệu lực" (đã mắc và phải gỡ).
     expect(petitionsListFilters.all().map((f) => f.key)).toEqual([
@@ -68,6 +68,9 @@ describe('petitionsListFilters', () => {
       'stt',
       'sttCu',
       'enteredById',
+      // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
+      // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
+      'thongKeTruongNgay',
     ]);
   });
 
@@ -107,6 +110,7 @@ describe('petitionsListFilters', () => {
       'filter-stt',
       'filter-stt-cu',
       'filter-can-bo-nhap',
+      'filter-tinh-theo',
     ]);
   });
 });
