@@ -194,3 +194,30 @@ ssh pc02@171.244.40.245 "ls -1dt /home/pc02/releases/*/ | tail -n +3 | xargs rm 
 - `webfactory/ssh-agent` chạy key in-memory chỉ trong job duration
 - VM authorized_keys giới hạn theo IP của GitHub Actions runners (Microsoft Azure) — không cần thêm restriction
 - Sau khi key compromise: generate keypair mới, paste vào VM, update GitHub Secret, revoke old key
+
+## Dựng máy chủ MỚI — cơ sở dữ liệu trống
+
+`prisma migrate deploy` **KHÔNG dựng được cơ sở dữ liệu từ số không.** Migration đầu tiên
+của kho mã (`20260227000000_add_case_metadata`) chạy `ALTER TABLE "cases"` trong khi không
+có migration nào TẠO bảng ấy — lịch sử migration bắt đầu từ giữa chừng, vì máy đang chạy
+lớn lên dần chứ chưa bao giờ được dựng lại từ đầu. Chạy thẳng `migrate deploy` trên cơ sở
+dữ liệu trống sẽ hỏng với `P3018` / `relation "cases" does not exist`.
+
+Máy MỚI dùng đường bootstrap: dựng lược đồ thẳng từ `schema.prisma`, rồi đánh dấu toàn bộ
+migration là đã áp. Sau bước này `migrate deploy` hoạt động bình thường cho mọi migration
+về sau.
+
+```bash
+cd /home/pc02/current/backend
+set -a && source .env && set +a
+./node_modules/.bin/ts-node src/legacy-migration/cli/bootstrap-fresh-db.ts
+./node_modules/.bin/prisma migrate status      # phải báo "Database schema is up to date!"
+npm run db:seed
+npm run db:seed:features
+npm run db:seed:doc-templates                  # THIẾU bước này là POST /cases trả 404
+```
+
+Script từ chối chạy nếu cơ sở dữ liệu đã có bảng — máy đang chạy không thể bị đụng nhầm.
+
+Đã kiểm chứng 26/08/2026 trên một cơ sở dữ liệu trống thật: `migrate deploy` hỏng đúng như
+mô tả, sau bootstrap thì 68 bảng dựng đủ và `migrate deploy` báo "No pending migrations".
