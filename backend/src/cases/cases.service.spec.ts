@@ -466,8 +466,19 @@ describe('CasesService', () => {
       );
     });
 
-    // v0.68 — UY_THAC_DIEU_TRA caseProvenance dùng 'UTDT' docType thay vì 'CASE'
-    it('uses UTDT docType when caseProvenance is UY_THAC_DIEU_TRA', async () => {
+    /**
+     * ĐẢO quyết định v0.68 (UY_THAC_DIEU_TRA dùng docType 'UTDT' riêng).
+     *
+     * Lý do: `cases.caseCode` là @unique trên TOÀN bảng — vụ án và ủy thác dùng chung MỘT
+     * không gian mã. Cấp số từ hai bộ đếm độc lập vào một không gian duy nhất là sai về cấu
+     * trúc; nó chỉ chưa vỡ vì tiền tố `VA-` và `UTDT-` làm hai chuỗi khác nhau. Bỏ tiền tố
+     * để thống nhất `năm-stt` là gỡ đúng thứ đang che lỗi ấy.
+     *
+     * Dữ liệu thật ủng hộ: 1.611/1.632 hồ sơ ủy thác đã mang mã `năm-stt`, chỉ 21 hồ sơ còn
+     * tiền tố. Bộ đếm UTDT kỳ 2026 đang là 0 — nếu đổi định dạng mà vẫn để nó cấp số riêng
+     * thì hồ sơ ủy thác đầu tiên sẽ đòi `2026-1`, đâm thẳng vào mã đã có.
+     */
+    it('dùng docType CASE cho ủy thác — một không gian mã thì một bộ đếm', async () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'UY_THAC_DIEU_TRA' }) },
         incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
@@ -481,6 +492,11 @@ describe('CasesService', () => {
       );
 
       expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+        'CASE',
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith(
         'UTDT',
         expect.anything(),
         expect.anything(),

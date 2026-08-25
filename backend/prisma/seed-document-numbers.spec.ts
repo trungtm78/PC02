@@ -38,6 +38,45 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
     expect(new Set(types).size).toBe(types.length);
   });
 
+  /**
+   * Mã hồ sơ theo hệ cũ là `năm-stt` (vd `2026-9895`) — không tiền tố, không đệm số 0.
+   * Bản gieo từng giữ `DT-`/`VV-`/`VA-` đệm 5 trong khi production đã bị sửa tay sang
+   * `năm-stt`; hai bên lệch nhau mà không ai thấy. Riêng CASE nằm trong FORCE_REFRESH_TYPES
+   * nên MỘT lần gieo lại là đủ để ghi đè production trở về `VA-2026-00082`.
+   *
+   * Nhóm ca kiểm này chốt bản gieo khớp thứ đang chạy thật.
+   */
+  describe('mã hồ sơ dùng dạng năm-stt, không tiền tố', () => {
+    const buildSegments = (seedModule as any).buildSegmentsForTest as (s: unknown) => Array<{
+      type: string;
+      value?: string;
+    }>;
+
+    it.each(['PETITION', 'INCIDENT', 'CASE'])('%s: không có tiền tố', (documentType) => {
+      expect(TEMPLATES.find((t) => t.documentType === documentType)?.prefix).toBe('');
+    });
+
+    it.each(['PETITION', 'INCIDENT', 'CASE'])('%s: đệm 1 — không thêm số 0', (documentType) => {
+      expect(TEMPLATES.find((t) => t.documentType === documentType)?.padding).toBe(1);
+    });
+
+    it.each(['PETITION', 'INCIDENT', 'CASE'])(
+      '%s: đoạn mã là [năm, số thứ tự] — không có đoạn LITERAL',
+      (documentType) => {
+        const spec = TEMPLATES.find((t) => t.documentType === documentType);
+        const segments = buildSegments(spec);
+        expect(segments.some((s) => s.type === 'LITERAL')).toBe(false);
+        expect(segments.map((s) => s.type)).toEqual(['FORMULA', 'COUNTER']);
+      },
+    );
+
+    it('loại hồ sơ KHÁC vẫn giữ tiền tố — không nới quá phạm vi', () => {
+      const dx = TEMPLATES.find((t) => t.documentType === 'PROPOSAL');
+      expect(dx?.prefix).toBe('DX');
+      expect(buildSegments(dx).some((s) => s.type === 'LITERAL')).toBe(true);
+    });
+  });
+
   describe('PHIEU_DE_XUAT (ĐX)', () => {
     const spec = () => TEMPLATES.find((t) => t.documentType === 'PHIEU_DE_XUAT');
 
@@ -100,7 +139,10 @@ describe('v0.47 seed-document-numbers — 4 new series for Document Template Eng
       ]);
     });
 
-    it.each(['INCIDENT', 'PETITION', 'CASE', 'PROPOSAL', 'DELEGATION', 'EVIDENCE'])(
+    // INCIDENT / PETITION / CASE đã chuyển sang `năm-stt` (không tiền tố) — hình dạng của
+    // chúng được chốt riêng ở nhóm "mã hồ sơ dùng dạng năm-stt". Ở đây chỉ còn các loại
+    // CHỨNG TỪ vẫn giữ tiền tố.
+    it.each(['PROPOSAL', 'DELEGATION', 'EVIDENCE'])(
       'legacy series %s uses [LITERAL, FORMULA, COUNTER]',
       (documentType) => {
         const spec = TEMPLATES.find((t) => t.documentType === documentType)!;
