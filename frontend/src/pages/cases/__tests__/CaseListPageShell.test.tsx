@@ -387,6 +387,47 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     expect(beRong('Tóm tắt nội dung')).toBeGreaterThan(beRong('Tên cá nhân'));
   });
 
+
+  /**
+   * BỘ CỘT MẶC ĐỊNH = ĐÚNG BỘ HỆ CŨ + Trạng thái.
+   *
+   * Anh gửi ba ảnh hệ cũ ngày 25/08/2026 và yêu cầu cột hiện mặc định đúng như ảnh; Trạng
+   * thái giữ hiện thêm vì hệ cũ không có khái niệm ấy còn hệ mới có 15 trạng thái và có chip
+   * lọc theo chúng.
+   *
+   * Ca kiểm liệt kê THẲNG danh sách nhãn chứ không đếm số cột: thiếu nó thì lần sau ai thêm
+   * một cột "cho tiện" là bộ mặc định phình ra mà không ai biết, và ta quay lại đúng cảnh
+   * bảng chật mà anh đã phải báo.
+   */
+  it('bộ cột mặc định đúng bằng bộ hệ cũ, không thừa không thiếu', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const nhan = screen
+      .getAllByRole('columnheader')
+      .map((h) => (h.textContent ?? '').trim())
+      .filter((t) => t.length > 0);
+
+    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
+  });
+
+  it('cột hệ cũ KHÔNG có thì ẩn sẵn, bật lại được từ menu chọn cột', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    for (const an of ['Điều tra viên', 'Ngày tạo']) {
+      expect(screen.queryByRole('columnheader', { name: an })).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    // Tìm TRONG menu chứ không tìm cả trang: nhãn "Điều tra viên" còn xuất hiện ở ô lọc,
+    // nên tìm cả trang là trúng hai chỗ và ca kiểm đỏ vì lý do không liên quan.
+    const menu = within(screen.getByTestId('column-picker-menu'));
+    for (const an of ['Điều tra viên', 'Ngày tạo']) {
+      expect(menu.getByText(an)).toBeInTheDocument();
+    }
+  });
+
   it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByText('26-9893')).toBeInTheDocument());

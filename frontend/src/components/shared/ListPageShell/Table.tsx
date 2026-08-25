@@ -64,6 +64,17 @@ export interface ColumnDef<TRow> {
    * tác) — ghim thừa một cột dữ liệu là che mất chính dữ liệu đang cuộn.
    */
   sticky?: boolean;
+  /**
+   * Cột có cho người dùng bật/tắt không — mượn đúng ngữ nghĩa `optional` của treeview Odoo.
+   *
+   *   không khai → luôn hiện, KHÔNG vào menu chọn cột (cột định danh: Thao tác, STT)
+   *   `show`     → vào menu, tích sẵn
+   *   `hide`     → vào menu, chưa tích
+   *
+   * Khai ngay cạnh cột thay vì một danh sách riêng ở chỗ khác: danh sách riêng sẽ lệch khỏi
+   * cột ngay lần đầu ai đó thêm cột mà quên cập nhật, và không có gì báo.
+   */
+  optional?: 'show' | 'hide';
 }
 
 export interface TableProps<TRow, TId extends string | number = string> {

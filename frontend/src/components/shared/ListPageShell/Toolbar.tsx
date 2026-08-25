@@ -33,6 +33,13 @@ export interface ToolbarProps {
   children?: ReactNode;
   /** Khi true: render như card với shadow thay vì border-bottom strip. */
   cardStyle?: boolean;
+  /**
+   * Nút chọn cột hiển thị, đặt cạnh nút "Bộ lọc".
+   *
+   * Ở thanh công cụ chứ không ở góc phải hàng tiêu đề như Odoo: bảng cuộn ngang, nút ở hàng
+   * tiêu đề sẽ trôi khỏi màn hình đúng lúc người dùng cần nó nhất.
+   */
+  columnPicker?: ReactNode;
 }
 
 export function Toolbar({
@@ -43,6 +50,7 @@ export function Toolbar({
   onResetFilters,
   children,
   cardStyle,
+  columnPicker,
 }: ToolbarProps) {
   const [expanded, setExpanded] = useState(false);
   const filterPanelId = useId();
@@ -52,7 +60,7 @@ export function Toolbar({
   const showReset = activeFilterCount > 0 && onResetFilters != null;
   // Row 1 is only rendered when there's at least one button to show.
   // Without this guard, an empty Row 1 creates ~16px dead space above search.
-  const hasRow1 = hasAdvancedFilters || showReset;
+  const hasRow1 = hasAdvancedFilters || showReset || columnPicker != null;
 
   return (
     <div
@@ -84,6 +92,7 @@ export function Toolbar({
               )}
             </button>
           )}
+          {columnPicker}
         </div>
 
         {showReset && (

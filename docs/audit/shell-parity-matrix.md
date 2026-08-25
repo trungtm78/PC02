@@ -116,6 +116,41 @@ Ghi chú còn lại: 121 vụ việc mang mã tạm `VV-LEGACY-…` nay hiện d
 Cắt cụt đúng hơn là đè chữ, nhưng mã ấy vẫn vô nghĩa với cán bộ — gốc rễ là những hồ sơ chưa
 suy được mã từ nguồn `TamDinhChi_vu_viec_21` (không có `nam`/`stt`), chưa xử lý.
 
+#### Bộ cột mặc định = bộ hệ cũ, phần còn lại bật/tắt kiểu Odoo — 25/08/2026
+
+Anh gửi ba ảnh hệ cũ và yêu cầu cột hiện mặc định **đúng như ảnh**, phần còn lại ẩn đi và cho
+tích để hiện lại như treeview Odoo. Đối chiếu ba ảnh: **cả ba màn hình hệ cũ dùng chung MỘT
+bộ 9 cột** — STT · Ngày đề xuất · Nguồn đơn/Đơn vị giao · Tên cá nhân… · Tóm tắt nội dung ·
+Đơn vị giải quyết · Kết quả xử lý, giải quyết khác · Người nhập · Thao tác.
+
+Anh chốt ba điểm: Thao tác **giữ ở đầu** (yêu cầu 25/08 thắng ảnh hệ cũ); Trạng thái **giữ
+hiện sẵn** (hệ cũ không có khái niệm này, hệ mới có 15 trạng thái và có chip lọc theo chúng);
+lựa chọn lưu ở **trình duyệt**, đúng cách Odoo làm.
+
+| | Đơn thư | Vụ việc | Vụ án |
+|---|---|---|---|
+| Luôn hiện, không vào menu | Thao tác · STT | Thao tác · STT | Thao tác · STT |
+| Tích sẵn | 8 cột hệ cũ + Trạng thái | 7 cột + Trạng thái | 8 cột hệ cũ + Trạng thái |
+| Chưa tích | Đối tượng bị tố · Hạn xử lý · Ngày tạo | Điều tra viên · Hạn xử lý · Ngày tạo | Điều tra viên · Ngày tạo |
+| Bề rộng bộ mặc định | ~96rem (1.544px) | ~94rem (1.496px) | ~99rem (1.584px) |
+
+Bộ mặc định vừa một màn hình; bật thêm cột thì tổng vượt bề ngang và thanh cuộn ngang xuất
+hiện — đúng điều anh nêu.
+
+**Cột thêm mới cho Vụ án** (hệ cũ có, hệ mới thiếu): `nguonDon` phủ **89,9%** (3.038/3.380) và
+`ketQuaXuLyKhac` phủ **6,6%** (222/3.380). Cột thứ hai sẽ gần như trống — thêm vì hệ cũ có, và
+ảnh hệ cũ anh gửi cũng đang trống ở cột ấy. API danh sách vụ án dùng `select` tường minh nên
+đã mở thêm hai trường ở máy chủ, có ca kiểm chốt.
+
+**Nhãn đổi theo chữ hệ cũ:** "Ngày nhận" / "Ngày tiếp nhận" → **"Ngày đề xuất"**; "Đơn vị"
+(vụ án) → **"Đơn vị giải quyết"**.
+
+**Vụ việc KHÔNG THỂ có cột "Nguồn đơn/Đơn vị giao"** — bảng `incidents` không có trường
+`nguonDon`. Không bịa cột rỗng; cần quyết có bổ sung trường hay không.
+
+Nút chọn cột đặt ở **thanh công cụ** cạnh nút "Bộ lọc", không ở góc phải hàng tiêu đề như
+Odoo: bảng của ta cuộn ngang, nút ở hàng tiêu đề sẽ trôi khỏi màn hình đúng lúc cần nó nhất.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu

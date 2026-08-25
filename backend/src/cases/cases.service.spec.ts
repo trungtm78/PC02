@@ -205,6 +205,20 @@ describe('CasesService', () => {
       expect(select.sttCu).toBe(true);
     });
 
+    it('trả về Nguồn đơn và Kết quả xử lý — hai cột hệ cũ còn thiếu ở Vụ án', async () => {
+      // Đối chiếu ba ảnh hệ cũ anh gửi 25/08/2026: bảng Vụ án có hai cột này. Độ phủ dữ liệu
+      // thật: `nguonDon` 89,9% (3.038/3.380) — đáng hiện; `ketQuaXuLyKhac` chỉ 6,6%
+      // (222/3.380) — hiện vì hệ cũ có, và ảnh anh gửi cũng đang trống ở cột ấy.
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { select } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(select.nguonDon).toBe(true);
+      expect(select.ketQuaXuLyKhac).toBe(true);
+    });
+
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ
