@@ -30,6 +30,7 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
+import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
@@ -71,6 +72,9 @@ export class PetitionsService {
       toDate,
       overdue,
       wardTeamId,
+      stt,
+      sttCu,
+      enteredById,
       limit = 20,
       offset = 0,
       sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
@@ -100,6 +104,22 @@ export class PetitionsService {
       where.status = { in: [...groupStatuses] };
     } else if (status) {
       where.status = status;
+    }
+
+    // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-11171`, hệ mới lưu `2026-11171`. Cán bộ
+    // đọc quen dạng ngắn nên sẽ gõ dạng ngắn. Khớp CHÍNH XÁC theo danh sách biến thể, không
+    // dùng `contains` — `contains: '26-1'` sẽ quét trúng hàng nghìn mã khác.
+    const bienTheStt = hoSoCodeVariants(stt);
+    if (bienTheStt.length) {
+      where.stt = { in: bienTheStt };
+    }
+
+    if (sttCu?.trim()) {
+      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    }
+
+    if (enteredById?.trim()) {
+      where.enteredById = enteredById.trim();
     }
 
     if (unit) {
@@ -190,6 +210,11 @@ export class PetitionsService {
           status: true,
           deadline: true,
           summary: true,
+          // Ba cột hệ cũ hiển thị trên danh sách mà hệ mới chưa trả về. `summary` phủ
+          // 99,99% đơn thư — thiếu nó thì cán bộ phải mở từng hồ sơ mới biết nội dung.
+          nguonDon: true,
+          ketQuaXuLyKhac: true,
+          sttCu: true,
           priority: true,
           petitionType: true,
           linkedCaseId: true,

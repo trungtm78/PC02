@@ -206,6 +206,77 @@ describe('PetitionsService', () => {
       expect(result.total).toBe(1);
     });
 
+    // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ───────────────────────────────
+    // Cán bộ đọc quen mã dạng `26-11171` nên sẽ gõ dạng đó, trong khi cơ sở dữ liệu lưu
+    // `2026-11171`. Việc nhận cả hai do MÁY CHỦ làm — ứng dụng di động và lệnh gọi API
+    // trực tiếp cũng phải tìm ra hồ sơ, không chỉ trình duyệt đã cập nhật.
+    it('lọc theo STT nhận CẢ HAI dạng mã', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '26-11171' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.stt).toEqual({ in: ['26-11171', '2026-11171'] });
+    });
+
+    it('gõ dạng đầy đủ cũng ra cùng hồ sơ', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '2026-11171' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.stt).toEqual({ in: ['2026-11171', '26-11171'] });
+    });
+
+    it('lọc theo STT cũ — cột đã có chỉ mục', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ sttCu: '1964' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.sttCu).toEqual({ contains: '1964', mode: 'insensitive' });
+    });
+
+    it('lọc theo cán bộ nhập', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ enteredById: 'user-1' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.enteredById).toBe('user-1');
+    });
+
+    it('ô lọc để trống thì KHÔNG thêm điều kiện — tránh lọc rỗng ra 0 hồ sơ', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '   ', sttCu: '', enteredById: '' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.stt).toBeUndefined();
+      expect(where.sttCu).toBeUndefined();
+      expect(where.enteredById).toBeUndefined();
+    });
+
+    it('trả về các trường hệ cũ hiển thị trên danh sách', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const select = mockPrisma.petition.findMany.mock.calls[0][0].select;
+      // Ba cột hệ cũ có mà hệ mới không hiện. `summary` phủ 99,99% đơn thư — không trả
+      // về thì cán bộ phải mở từng hồ sơ mới biết nội dung.
+      expect(select.summary).toBe(true);
+      expect(select.nguonDon).toBe(true);
+      expect(select.ketQuaXuLyKhac).toBe(true);
+      expect(select.sttCu).toBe(true);
+    });
+
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ

@@ -139,4 +139,22 @@ export class QueryCasesDto {
   @IsOptional()
   @Transform(({ value }) => value === 'asc' ? 'asc' : 'desc')
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ─────────────────────────────────────
+  // Cán bộ quen bảng lọc của hệ cũ; ba ô dưới đây là phần hệ mới còn thiếu.
+
+  /** Mã hồ sơ. Nhận CẢ HAI dạng: `26-11171` (hệ cũ hiện) và `2026-11171` (hệ mới lưu). */
+  @IsOptional()
+  @IsString()
+  stt?: string;
+
+  /** STT cũ hơn (`stt_cu` của hệ cũ) — cột đã có chỉ mục. */
+  @IsOptional()
+  @IsString()
+  sttCu?: string;
+
+  /** Cán bộ nhập hồ sơ — ở Vụ án là người tạo (`createdById`, đã có chỉ mục). */
+  @IsOptional()
+  @IsString()
+  createdById?: string;
 }

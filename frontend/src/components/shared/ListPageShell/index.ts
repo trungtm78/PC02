@@ -69,7 +69,7 @@ export {
 } from './listPageUtils';
 
 // Danh sách giống hệ cũ (25/08/2026) — xem docs/legacy + spec danh-sach-giong-he-cu.
-export { formatHoSoCode, hoSoCodeVariants } from './hoSoCode';
+export { formatHoSoCode } from './hoSoCode';
 export { SummaryCell, catTheoTu } from './SummaryCell';
 export { DATE_RANGE_PRESETS, tinhKhoangThoiGian } from './dateRangePresets';
 export type { DateRangePresetKey, DateRangePreset, KhoangThoiGian } from './dateRangePresets';

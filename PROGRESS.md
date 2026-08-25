@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M3/6 | Task: 0/3 của M3
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M4/6 | Task: 0/3 của M4
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -13,13 +13,17 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] **M1 HOÀN TẤT** — 3/3 task, 24 ca kiểm
 - [x] M2-T1 `LegacyFilterPanel.tsx` — thẻ lọc hai vế, 9 ca kiểm
 - [x] **M2 HOÀN TẤT** — xuất mảnh mới qua `index.ts`, `tsc -b` sạch
+- [x] M3-T1 `ho-so-code.util.ts` (máy chủ) — suy biến thể mã, 7 ca kiểm; **gỡ bản trùng ở frontend** để không để code chết
+- [x] M3-T2 Đơn thư — 3 bộ lọc + 4 trường trả về, 100/100 ca kiểm
+- [x] M3-T3 Vụ án + Vụ việc — bộ lọc theo cột THẬT của từng module, 96/96 và 107/107
+- [x] **M3 HOÀN TẤT** — full suite máy chủ **2975/2975**, `tsc --noEmit` sạch
 
 ## Đang làm dở
 
-Task: M3 — Máy chủ: bổ sung trường trả về + 3 bộ lọc mới
+Task: M4 — Nối vào 3 trang danh sách
 Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: thêm ca kiểm cho bộ lọc `stt` (nhận cả hai dạng mã) vào `backend/src/petitions/petitions.service.spec.ts` (RED), rồi sửa `query-petitions.dto.ts` + `petitions.service.ts`
-File liên quan: `backend/src/petitions/`, `backend/src/incidents/`, `backend/src/cases/`
+BƯỚC TIẾP THEO: sửa `frontend/src/pages/petitions/PetitionListPageShell.tsx` — thêm ca kiểm khẳng định cột Tóm tắt nội dung có mặt và Thao tác là cột CUỐI (RED), rồi đổi mảng `columns`
+File liên quan: `frontend/src/pages/petitions/PetitionListPageShell.tsx`, `.../incidents/IncidentListPageShell.tsx`, `.../cases/CaseListPageShell.tsx`
 
 ## Hàng đợi task kế tiếp
 
@@ -36,6 +40,9 @@ File liên quan: `backend/src/petitions/`, `backend/src/incidents/`, `backend/sr
 | 25/08 | Mở rộng `ListPageShell` dùng chung thay vì chép vào 3 trang | Ba bản sao rời nhau là cách lỗi sống sót — vừa gặp đúng vậy ở bộ sinh số (`commit()` và `commitWithTx()` lệch nhau, gây sự cố P0 sáng nay) | Mọi mảnh mới nằm ở `components/shared/ListPageShell/` |
 | 25/08 | Rút gọn mã hồ sơ ở tầng HIỂN THỊ, không đổi dữ liệu | Đổi 46.660 giá trị `stt` trong ngày vận hành thử là rủi ro không cần thiết; mã đã in ra giấy sẽ khác | `formatHoSoCode` + `hoSoCodeVariants` |
 | 25/08 | `formatHoSoCode` trả nguyên văn với mã không đúng dạng `năm-stt` | Cắt bừa tạo ra mã sai mà nhìn vẫn hợp lệ — loại lỗi khó phát hiện nhất | `DT-LEGACY-…`, `VA-2026-…` giữ nguyên |
+| 25/08 | Suy biến thể mã khi TÌM đặt ở **máy chủ**, không ở frontend | Tìm đúng không được phụ thuộc việc trình duyệt liệt kê đủ dạng — ứng dụng di động và lệnh gọi API trực tiếp cũng phải ra hồ sơ. Đã **gỡ** bản frontend để không để code chết (§3.5) | `backend/src/common/utils/ho-so-code.util.ts` |
+| 25/08 | Bộ lọc "Cán bộ nhập" dùng cột THẬT của từng module | Đơn thư `enteredById`, Vụ việc `canBoNhapId` (đã có sẵn — không dựng ô thứ hai cùng nghĩa), Vụ án `createdById`. Đặt một tên chung sẽ phải ánh xạ ngầm và dễ nối nhầm cột | 3 DTO khác tên nhau, có chủ đích |
+| 25/08 | Lọc mã dùng `in: [biến thể]` chứ không `contains` | `contains: '26-1'` quét trúng hàng nghìn mã khác — cán bộ lọc ra kết quả sai mà không biết | 3 service |
 
 ## Assumption đã tự quyết
 
@@ -48,7 +55,7 @@ File liên quan: `backend/src/petitions/`, `backend/src/incidents/`, `backend/sr
 
 ## Trạng thái test
 
-Full suite: chưa chạy ở trạng thái hiện tại | Patch coverage M1+M2: 100% dòng | Test fail: không (xem nợ kỹ thuật về ca chập chờn)
+**Máy chủ: 2975/2975 PASS** (225 bộ), `tsc --noEmit` sạch | Frontend: `tsc -b` sạch, các bộ ca kiểm mới đều xanh | Patch coverage M1–M3: 100% dòng | Test fail: không
 
 ## Nợ kỹ thuật / rủi ro
 
