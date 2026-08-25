@@ -283,6 +283,28 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
     expect(within(cardButton('Đã giải quyết')).getByText('8')).toBeInTheDocument();
   });
 
+  /**
+   * Đặt bộ lọc khi đang ở trang 3 phải kéo danh sách về trang 1.
+   *
+   * Không làm vậy thì cán bộ thấy một BẢNG TRỐNG: tập kết quả sau khi lọc chỉ còn 1 trang,
+   * còn địa chỉ trang vẫn giữ `petitions_page=3`. Bảng trống không nói gì cả, nên người ta
+   * kết luận "lọc xong không còn hồ sơ nào" trong khi hồ sơ nằm ở trang 1.
+   *
+   * Ca kiểm này nằm ở TẦNG TRANG chứ không chỉ ở hook, vì bản vá đầu tiên xoá khoá trống
+   * `page` trong khi khoá thật là `petitions_page` — ca kiểm mức hook khi ấy vẫn xanh mà
+   * không chứng minh được gì trên màn hình thật.
+   */
+  it('đặt bộ lọc rồi Áp dụng → về trang 1, không để lại bảng trống', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_page=3']);
+    await waitFor(() => expect(screen.getByTestId('filter-stt')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('filter-stt'), { target: { value: '26-9706' } });
+    fireEvent.click(screen.getByTestId('btn-apply-filters'));
+
+    await waitFor(() => expect(getLocation()).toContain('petitions_stt=26-9706'));
+    expect(getLocation()).not.toContain('petitions_page=3');
+  });
+
   it('bấm thẻ → URL có statusGroup, page về 1, request gửi statusGroup KHÔNG gửi status', async () => {
     const { getLocation } = renderWithRouter(['/petitions?petitions_page=3']);
     await waitFor(() => expect(screen.getAllByText('Đang xử lý').length).toBeGreaterThan(0));

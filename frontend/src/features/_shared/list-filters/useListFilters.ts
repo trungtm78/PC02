@@ -11,6 +11,14 @@ import type { ListFilterRegistry } from './registry';
  *
  * apply() flushes draft → URL → applied. reset() clears both.
  *
+ * Cả hai đều XOÁ `{prefix}_page` khỏi địa chỉ trang, tức đưa danh sách về trang 1. Khoá
+ * trang CÓ TIỀN TỐ như mọi khoá khác của trang danh sách (`petitions_page`), nên xoá khoá
+ * trống `page` là xoá một thứ không tồn tại. Không làm
+ * vậy thì cán bộ đang ở trang 5 mà đặt thêm bộ lọc sẽ thấy BẢNG TRỐNG — kết quả mới
+ * chỉ còn 2 trang. Bảng trống không giải thích gì, nên người dùng kết luận sai rằng
+ * không còn hồ sơ nào. Ô tìm kiếm và chip trạng thái đã về trang 1 từ trước; đây là
+ * chỗ duy nhất còn lệch.
+ *
  * URL prefix isolates multiple filters on same route (e.g. Comprehensive).
  * Uses stable `searchParams` reference from react-router to avoid
  * useEffect infinite loops (early v0.62 bug).
@@ -68,6 +76,7 @@ export function useListFilters<TValue extends object>({
           if (value && value !== '') next.set(k, value);
           else next.delete(k);
         }
+        next.delete(`${prefix}_page`);
         return next;
       },
       { replace: true },
@@ -82,6 +91,7 @@ export function useListFilters<TValue extends object>({
         for (const field of registry.all()) {
           next.delete(`${prefix}_${field.urlKey}`);
         }
+        next.delete(`${prefix}_page`);
         return next;
       },
       { replace: true },

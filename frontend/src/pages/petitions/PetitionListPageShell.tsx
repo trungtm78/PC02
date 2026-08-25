@@ -229,8 +229,8 @@ export function PetitionListPageShell() {
       ...(appliedFilters.stt && { stt: appliedFilters.stt }),
       ...(appliedFilters.sttCu && { sttCu: appliedFilters.sttCu }),
       ...(appliedFilters.enteredById && { enteredById: appliedFilters.enteredById }),
-      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
-      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      // `fromDate`/`toDate` đã khai ở trên — hai ô ngày là MỘT, dùng chung khoá. Khai lại
+      // lần nữa ở đây là tàn dư của lúc màn hình còn hai mặt lọc.
     }),
     [debouncedSearch, appliedFilters],
   );
