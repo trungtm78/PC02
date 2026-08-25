@@ -185,17 +185,6 @@ export interface CreateCasePayload {
 }
 
 /**
- * v0.37.2.3 — Build POST /cases payload from form state.
- * PR 1 v0.38.0.0 — Wire subjects[]/evidences[]/documentIds[] arrays
- *
- * Top-level provenance fields are REQUIRED by backend DTO. Conditional FK +
- * optimistic-lock fields included only when source type matches.
- *
- * Sub-entity arrays passed thẳng từ component local state. Backend create
- * tất cả trong cùng prisma.$transaction để fix bug mất dữ liệu wizard
- * "Khởi tố vụ án mới".
- */
-/**
  * Giá trị cho ô hệ cũ: chuỗi đã cắt khoảng trắng, hoặc `null` khi cán bộ XOÁ TRẮNG ô.
  *
  * Máy chủ chỉ ghi những khoá CÓ MẶT trong lời gọi, nên bỏ ô rỗng khỏi payload biến thao tác
@@ -210,6 +199,17 @@ export const oHeCu = (v: unknown): string | null => {
   return t === '' ? null : t;
 };
 
+/**
+ * v0.37.2.3 — Build POST /cases payload from form state.
+ * PR 1 v0.38.0.0 — Wire subjects[]/evidences[]/documentIds[] arrays
+ *
+ * Top-level provenance fields are REQUIRED by backend DTO. Conditional FK +
+ * optimistic-lock fields included only when source type matches.
+ *
+ * Sub-entity arrays passed thẳng từ component local state. Backend create
+ * tất cả trong cùng prisma.$transaction để fix bug mất dữ liệu wizard
+ * "Khởi tố vụ án mới".
+ */
 export function buildCreateCasePayload(
   formData: CaseFormData,
   options?: {
