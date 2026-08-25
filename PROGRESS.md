@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 0/3 của M5
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 3/4 của M5
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -21,13 +21,16 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M4-T2 Trang Vụ việc — cùng khuôn, dùng lại `canBoNhapId` sẵn có — 19/19
 - [x] M4-T3 Trang Vụ án — cùng khuôn, `createdById` cho Cán bộ nhập
 - [x] **M4 HOÀN TẤT** — frontend **1534/1534** (158 bộ), `tsc -b` sạch
+- [x] M5-T1 Tự soát mã — **bắt lỗi thật**: thẻ lọc ghi vào địa chỉ trang nhưng `baseQueryParams` không chứa → API bỏ qua, bộ lọc không làm gì. Đã vá cả 3 trang + ca kiểm đặt đúng tầng
+- [x] M5-T2 Bổ sung ca kiểm bố cục cho Vụ việc và Vụ án (trước đó chỉ Đơn thư có)
+- [x] M5-T3 Đẩy nhánh + mở **PR #230**
 
 ## Đang làm dở
 
-Task: M5 — `/review` + PR + deploy
-Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: chạy `/review` trên diff của nhánh, xử lý mọi finding, rồi đẩy nhánh và mở PR
-File liên quan: toàn bộ nhánh `feat/danh-sach-giong-he-cu`
+Task: M5-T4 — chờ CI xanh → gộp PR #230 → deploy → kiểm chứng trên bản chạy thật
+Đã làm: PR #230 đã mở, CI đang chạy
+BƯỚC TIẾP THEO: `gh pr checks 230`; xanh thì `gh pr merge 230 --squash --admin --delete-branch`, chờ deploy, rồi mở 3 trang trên `https://new.pc02hcm.com` đối chiếu với ảnh hệ cũ
+File liên quan: PR #230
 
 ## Hàng đợi task kế tiếp
 
@@ -47,6 +50,7 @@ File liên quan: toàn bộ nhánh `feat/danh-sach-giong-he-cu`
 | 25/08 | Suy biến thể mã khi TÌM đặt ở **máy chủ**, không ở frontend | Tìm đúng không được phụ thuộc việc trình duyệt liệt kê đủ dạng — ứng dụng di động và lệnh gọi API trực tiếp cũng phải ra hồ sơ. Đã **gỡ** bản frontend để không để code chết (§3.5) | `backend/src/common/utils/ho-so-code.util.ts` |
 | 25/08 | Bộ lọc "Cán bộ nhập" dùng cột THẬT của từng module | Đơn thư `enteredById`, Vụ việc `canBoNhapId` (đã có sẵn — không dựng ô thứ hai cùng nghĩa), Vụ án `createdById`. Đặt một tên chung sẽ phải ánh xạ ngầm và dễ nối nhầm cột | 3 DTO khác tên nhau, có chủ đích |
 | 25/08 | Lọc mã dùng `in: [biến thể]` chứ không `contains` | `contains: '26-1'` quét trúng hàng nghìn mã khác — cán bộ lọc ra kết quả sai mà không biết | 3 service |
+| 25/08 | `useOfficerOptions` gọi `GET /admin/users` | Tên nghe như chỉ dành quản trị nhưng quyền thật là `read:User` và **OFFICER cũng có** — đã kiểm trên CSDL đang chạy. Dùng nhầm endpoint chỉ ADMIN gọi được thì ô lọc rỗng với đúng người cần nó | `hooks/useOfficerOptions.ts` |
 
 ## Assumption đã tự quyết
 
@@ -59,7 +63,7 @@ File liên quan: toàn bộ nhánh `feat/danh-sach-giong-he-cu`
 
 ## Trạng thái test
 
-**Máy chủ 2975/2975** (225 bộ) · **Frontend 1534/1534** (158 bộ) = **4509 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage M1–M4: 100% dòng | Test fail: không
+**Máy chủ 2975/2975** (225 bộ) · **Frontend 1541/1541** (158 bộ) = **4516 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage M1–M5: 100% dòng | Test fail: không
 
 ## Nợ kỹ thuật / rủi ro
 
