@@ -1,7 +1,7 @@
 # Đối soát export legacy Mongo
 
-- DB: `pc02` | Export: 2026-08-24T17:12:25.785Z
-- Thư mục dump (NGOÀI git): `C:\PC02\legacy-dumps\2026-08-24T17-11-54-005Z`
+- DB: `pc02` | Export: 2026-08-25T01:16:34.250Z
+- Thư mục dump (NGOÀI git): `C:\PC02\legacy-dumps\2026-08-25T01-16-02-245Z`
 - `bi_can`: 0 doc ⚠️
 
 | Collection | count đầu | count cuối | ghi ra | OK |
