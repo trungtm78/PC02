@@ -1,6 +1,8 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6 | **STATUS: ALL_MILESTONES_DONE**
+STATUS: ALL_MILESTONES_DONE
+
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
