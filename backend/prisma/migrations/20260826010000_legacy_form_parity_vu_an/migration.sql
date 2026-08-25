@@ -38,3 +38,17 @@ CREATE INDEX "cases_toiDanhChinhKhoiToId_idx" ON "cases"("toiDanhChinhKhoiToId")
 -- AddForeignKey
 ALTER TABLE "cases" ADD CONSTRAINT "cases_toiDanhChinhKhoiToId_fkey" FOREIGN KEY ("toiDanhChinhKhoiToId") REFERENCES "crimes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- GHI CHÚ: hai cột mảng `lyDoKhongKhoiTo` và `lyDoTamDinhChiNguonTin` để NULL được.
+--
+-- Nhìn qua thì có vẻ sai — Prisma khai `String[]` là kiểu không nhận null, và migration
+-- 20260626000005 từng phải chuẩn hoá NULL→'{}' rồi SET NOT NULL cho `lyDoTamDinhChiVuAn`.
+-- Nhưng ĐO TRÊN BẢN CHẠY THẬT (Prisma 7.8 + @prisma/adapter-pg, 26/08/2026): đọc một hàng
+-- có hai cột này bằng NULL trả về `[]`, không lỗi.
+--
+-- Ngược lại, thêm NOT NULL thì `prisma.case.create()` hỏng ngay với P2011
+-- (NullConstraintViolation) vì trình sinh không gửi mặc định cho danh sách vô hướng.
+-- Nghĩa là "sửa cho chặt" ở đây làm hỏng đúng thứ nó định bảo vệ: tạo hồ sơ mới.
+--
+-- Đừng thêm NOT NULL nếu chưa đo lại trên phiên bản Prisma đang dùng.

@@ -148,6 +148,56 @@ describe("Gửi ô hệ cũ lên máy chủ", () => {
   });
 });
 
+describe("Xoá trắng một ô rồi lưu — giá trị cũ phải mất theo", () => {
+  /**
+   * Máy chủ chỉ ghi những khoá CÓ MẶT trong lời gọi. Nếu ô rỗng được bỏ khỏi payload thì
+   * xoá trắng rồi bấm Lưu sẽ báo thành công trong khi giá trị cũ vẫn nằm nguyên dưới cơ sở
+   * dữ liệu — cán bộ mở lại thấy thứ mình vừa xoá.
+   */
+  it.each([
+    "phanLoaiNguonTinBanDau",
+    "soQDPhanCongNguonTin",
+    "vatChungMoTa",
+    "toiDanhChinhKhoiToId",
+    "khacPhucLyDoTDCVuViec",
+    "ngayXayRa",
+    "soHoSoCu",
+  ])('ô "%s" xoá trắng thì gửi null, không bỏ khoá', (key) => {
+    const p = payload({ [key]: "" } as Partial<CaseFormData>);
+    expect(p).toHaveProperty(key);
+    expect(p[key]).toBeNull();
+  });
+
+  it("ô ngày tiếp nhận nguồn tin xoá trắng cũng gửi null", () => {
+    const p = payload({ ngayTiepNhanNguonTin: "" });
+    expect(p).toHaveProperty("ngayTiepNhan");
+    expect(p.ngayTiepNhan).toBeNull();
+  });
+});
+
+describe("Ủy thác điều tra dùng CHUNG ô với tab Thông tin", () => {
+  /**
+   * Cột `ngayTiepNhan` và `loaiThongTin` chỉ có MỘT chỗ cho mỗi hồ sơ. Trước đây tab Ủy
+   * thác giữ ô riêng (`utdt_ngayTiepNhan`, `utdt_loaiThongTin`) nên hai ô cùng ghi một cột
+   * và ô nào lưu sau thì thắng.
+   */
+  it("ô riêng của tab Ủy thác không còn ghi đè ô chủ", () => {
+    const p = buildCreateCasePayload({
+      ...INITIAL_FORM_DATA,
+      caseTitle: "Vụ án thử",
+      caseProvenance: "UY_THAC_DIEU_TRA",
+      utdt_donViGiao: "PC01",
+      ngayTiepNhanNguonTin: "2026-08-01",
+      loaiThongTin: "Tố giác",
+      utdt_ngayTiepNhan: "2020-01-01",
+      utdt_loaiThongTin: "Giá trị cũ",
+    }) as Record<string, unknown>;
+
+    expect(p.ngayTiepNhan).toBe("2026-08-01");
+    expect(p.loaiThongTin).toBe("Tố giác");
+  });
+});
+
 describe("Đọc ô hệ cũ về form khi sửa hồ sơ", () => {
   it("đọc cột typed, không phải mò trong metadata", () => {
     const api = {
