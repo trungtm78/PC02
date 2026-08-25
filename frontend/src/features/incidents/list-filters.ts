@@ -22,6 +22,8 @@ export interface IncidentFilterValue {
   canBoNhapId?: string;
   fromDateRange?: string;
   toDateRange?: string;
+  /** Tạm đổi kỳ thống kê tính theo ngày nào; rỗng = theo cấu hình hệ thống. */
+  thongKeTruongNgay?: string;
 }
 
 const incidents = createListFilterRegistry<IncidentFilterValue>();
@@ -97,6 +99,18 @@ incidents.registerMany([
     type: 'enumSelect',
     urlKey: 'can_bo_nhap',
     testid: 'filter-can-bo-nhap',
+  },
+  {
+    key: 'thongKeTruongNgay',
+    label: 'Tính theo',
+    type: 'enumSelect',
+    urlKey: 'tinh_theo',
+    testid: 'filter-tinh-theo',
+    options: [
+      { value: '', label: 'Theo cấu hình hệ thống' },
+      { value: 'NGAY_TIEP_NHAN', label: 'Ngày tiếp nhận' },
+      { value: 'NGAY_TAO', label: 'Ngày tạo' },
+    ],
   },
 ]);
 

@@ -58,6 +58,7 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
@@ -103,11 +104,20 @@ interface CaseRow {
   createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
+interface KyDaGiaiFE {
+  ky: string;
+  truong: string;
+  tuNgay: string | null;
+  denNgay: string | null;
+}
+
 interface CasesStatsResponse {
   total: number;
   byStatus: Record<CaseStatus, number>;
   /** Số theo NHÓM trạng thái, do server đếm (CASE_STATUS_GROUPS). */
   byGroup: Record<string, number>;
+  /** Kỳ MÁY CHỦ thật sự đã áp — nhãn hiện trên thanh thẻ lấy từ đây, không tự đoán. */
+  ky?: KyDaGiaiFE;
 }
 
 const PAGE_SIZE = 20;
@@ -227,6 +237,10 @@ export function CaseListPageShell() {
       ...(appliedFilters.createdById && { createdById: appliedFilters.createdById }),
       // `fromDate`/`toDate` đã khai ở trên — hai ô ngày là MỘT, dùng chung khoá. Khai lại
       // lần nữa ở đây là tàn dư của lúc màn hình còn hai mặt lọc.
+      // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
+      ...(appliedFilters.thongKeTruongNgay && {
+        thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
+      }),
     }),
     [debouncedSearch, appliedFilters],
   );
@@ -599,6 +613,7 @@ export function CaseListPageShell() {
       <StatsCardsStrip
         cards={buildCasesCards(stats)}
         loading={stats == null}
+        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
         activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />

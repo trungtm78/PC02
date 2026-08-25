@@ -26,6 +26,13 @@ export interface StatsCardsStripProps {
   activeValue?: string | null;
   /** Truyền vào để bật drill-down. Không truyền = thẻ chỉ để xem như cũ. */
   onCardSelect?: (filterValue: string | null) => void;
+  /**
+   * Nhãn kỳ thống kê đang áp, vd "Tháng 8/2026".
+   *
+   * Bắt buộc phải hiện khi con số bị giới hạn theo kỳ: không có nhãn thì cán bộ thấy 128 mà
+   * không biết vì sao không phải 4.717, và kết luận hệ thống đếm sai.
+   */
+  periodLabel?: string | null;
 }
 
 function CardValue({ value, valueColorClass, loading }: { value: number | null; valueColorClass: string; loading: boolean }): ReactNode {
@@ -55,9 +62,19 @@ export function StatsCardsStrip({
   className,
   activeValue,
   onCardSelect,
+  periodLabel,
 }: StatsCardsStripProps) {
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 px-6 py-4 ${className ?? ''}`}>
+    <div className={className ?? ''}>
+      {periodLabel && (
+        <p
+          data-testid="stats-period-label"
+          className="px-6 pt-4 text-xs font-medium text-slate-500"
+        >
+          Thống kê: <span className="text-slate-700">{periodLabel}</span>
+        </p>
+      )}
+      <div className={`grid grid-cols-2 md:grid-cols-5 gap-4 px-6 py-4`}>
       {cards.map((card, i) => {
         const interactive = onCardSelect != null && 'filterValue' in card;
         if (!interactive) {
@@ -100,6 +117,7 @@ export function StatsCardsStrip({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }
