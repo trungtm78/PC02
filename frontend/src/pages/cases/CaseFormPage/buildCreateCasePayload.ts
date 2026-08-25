@@ -4,10 +4,11 @@ import { parseVND, parsePhone } from '../../../shared/utils/formatters';
 // PR 1 v0.38.0.0 — Sub-entity inline DTOs (match backend CreateSubjectInlineDto/CreateEvidenceInlineDto)
 export interface SubjectPayload {
   fullName: string;
-  dateOfBirth: string;
+  /** Tuỳ chọn: lược đồ cho phép trống — dữ liệu cũ nhiều đối tượng chỉ có tên. */
+  dateOfBirth?: string;
   gender?: string;
-  idNumber: string;
-  address: string;
+  idNumber?: string;
+  address?: string;
   phone?: string;
   occupationId?: string;
   nationalityId?: string;
@@ -96,7 +97,6 @@ export interface CreateCasePayload {
   noiLuuTruBaoQuan?: string;
   toiDanhChinhKhoiToId?: string;
   laCongNgheCao?: boolean;
-  caseCode?: string;
   soHoSoCu?: string;
   ngayDeXuat?: string;
   ngayPhieuChuyen?: string;
@@ -444,20 +444,27 @@ export function buildCreateCasePayload(
     });
 
     if (duocGiu.length > 0) {
+      // Ô để trống phải BỎ HẲN khỏi payload, không gửi chuỗi rỗng: máy chủ dùng
+      // `@IsOptional()`, mà `@IsOptional()` coi chuỗi rỗng là CÓ giá trị nên vẫn chạy tiếp
+      // `@IsDateString()` và trả 400 — hỏng cả lần lưu vì một ô trống.
+      const boRong = (v: string | undefined): string | undefined => {
+        const t = (v ?? '').trim();
+        return t === '' ? undefined : t;
+      };
       payload.subjects = duocGiu.map((s) => {
         const crimeId = (s as Subject & { crimeId?: string }).crimeId;
         return {
           fullName: s.name,
-          dateOfBirth: s.dateOfBirth,
-          gender: s.gender,
-          idNumber: s.idNumber,
-          address: s.address,
+          dateOfBirth: boRong(s.dateOfBirth),
+          gender: boRong(s.gender),
+          idNumber: boRong(s.idNumber),
+          address: boRong(s.address),
           phone: s.phone ? parsePhone(s.phone) : undefined,
-          occupationId: s.occupation,
-          nationalityId: s.nationality,
+          occupationId: boRong(s.occupation),
+          nationalityId: boRong(s.nationality),
           ...(crimeId ? { crimeId } : {}),
           type: subjectTypeToEnum(s.type),
-          notes: s.criminalRecord,
+          notes: boRong(s.criminalRecord),
         };
       });
     }
@@ -501,9 +508,11 @@ export function buildCreateCasePayload(
   payload.tenCungCap = firstStr(formData.reporter, formData.tenCungCap);
   payload.cccdCungCap = firstStr(formData.reporterIdNumber, formData.cccdCungCap);
   payload.sdtCungCap = firstStr(parsePhone(formData.reporterPhone), formData.sdtCungCap);
-  // Ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" của hệ cũ đứng trước ô địa chỉ
-  // thường trú của khối Người báo tin — cùng một cột, ưu tiên ô hệ cũ vì đó là ô cán bộ gõ.
-  payload.diaChiCungCap = firstStr(formData.diaChiCungCap, formData.reporterAddress);
+  // MỘT CỘT — MỘT Ô. Ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab Thông tin
+  // là chủ cột `diaChiCungCap`; ô "Địa chỉ thường trú" trong khối Bổ sung hệ mới đã gỡ đi
+  // (xem tabs.tsx). Trước đây hai ô cùng ghi cột này và ô hệ cũ luôn thắng, nên ô kia trở
+  // thành ô gõ vào không có tác dụng — tệ hơn là không có ô.
+  payload.diaChiCungCap = firstStr(formData.diaChiCungCap);
   payload.moTaChiTiet = firstStr(formData.description);
   payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress);
   payload.nguonDon = firstStr(formData.nguonDon);
@@ -578,17 +587,22 @@ export function buildCreateCasePayload(
   payload.lyDoKhongKhoiTo = formData.lyDoKhongKhoiTo ?? [];
   payload.lyDoTamDinhChiNguonTin = formData.lyDoTamDinhChiNguonTin ?? [];
   payload.vuViecTamDungTruoc2015 = formData.vuViecTamDungTruoc2015 === true;
-  // Hai ô trước nay hiện trên form nhưng KHÔNG có đường lên máy chủ: sửa xong là mất.
-  payload.caseCode = firstStr(formData.caseCode);
+  // `soHoSoCu` trước nay hiện trên form nhưng KHÔNG có đường lên máy chủ: sửa xong là mất.
+  //
+  // `caseCode` thì KHÔNG gửi: ô ấy là số hiệu tự sinh (DocNumberPreviewField ở chế độ AUTO),
+  // cán bộ không nhập tay. Gửi lên chỉ mở đường cho xung đột mã trùng mà không đổi lại điều
+  // gì trên màn hình.
   payload.soHoSoCu = firstStr(formData.soHoSoCu);
   // "Trường hợp báo cáo Ban Giám đốc": hệ cũ là ô CHỮ, cột hệ mới là ĐÚNG/SAI (di trú suy từ
   // chữ). Gửi cả hai — mất chữ là mất chỉ đạo của Ban Giám đốc, 34.931 hồ sơ đang có nội dung.
   // Nhóm ô trước nay chỉ hiện ở panel "Thông tin nghiệp vụ bổ sung" cuối trang (và ghi qua
   // `parityState`), nay đã về đúng vị trí trong tab nên phải tự đi lên máy chủ.
   payload.ngayDeXuat = firstStr(formData.ngayDeXuat);
-  payload.loaiThongTin = firstStr(formData.loaiThongTin, formData.utdt_loaiThongTin);
+  // Hai ô này cũng theo luật MỘT CỘT — MỘT Ô: tab Thông tin là chủ, tab Ủy thác đã gỡ ô
+  // trùng (xem CaseFormTab1UyThac.tsx).
+  payload.loaiThongTin = firstStr(formData.loaiThongTin);
   payload.ngayPhieuChuyen = firstStr(formData.ngayPhieuChuyen);
-  payload.ngayTiepNhan = firstStr(formData.ngayTiepNhanNguonTin, formData.utdt_ngayTiepNhan);
+  payload.ngayTiepNhan = firstStr(formData.ngayTiepNhanNguonTin);
   payload.thoiHanUyThac = firstStr(formData.utdt_thoiHanUyThac);
   payload.doVatTaiLieuKemTheo = firstStr(formData.doVatTaiLieuKemTheo);
   payload.ngayVietDon = firstStr(formData.ngayVietDon);
@@ -597,9 +611,14 @@ export function buildCreateCasePayload(
   payload.lanhDaoToTung = firstStr(formData.lanhDaoToTung);
   payload.laCongNgheCao = formData.laCongNgheCao === true;
 
+  // CHỈ gửi khi ô có nội dung. Gửi `false` mỗi lần lưu sẽ biến cột `Boolean?` từ NULL
+  // ("chưa xác định") thành `false` cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông
+  // tin mà không ai yêu cầu.
   const baoCao = firstStr(formData.baoCaoBanGiamDoc);
-  payload.baoCaoBanGiamDocText = baoCao;
-  payload.baoCaoBanGiamDoc = baoCao != null;
+  if (baoCao != null) {
+    payload.baoCaoBanGiamDocText = baoCao;
+    payload.baoCaoBanGiamDoc = true;
+  }
 
   // Gộp trường hệ cũ động (editable): field form/utdt THẮNG (ghi sau); giữ phần còn lại của legacy.
   // Backend còn MERGE lần nữa với metadata trong DB → không mất field nào.

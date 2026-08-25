@@ -74,6 +74,22 @@ describe("Đối tượng nhập trên form không bị mất khi lưu", () => {
     expect(bienNhan).toEqual(["LS Phạm D: Luật sư lưu ở danh sách luật sư, không thuộc danh sách đối tượng"]);
   });
 
+  /**
+   * Máy chủ dùng `@IsOptional()`, mà `@IsOptional()` coi CHUỖI RỖNG là có giá trị nên vẫn
+   * chạy tiếp `@IsDateString()`. Gửi `dateOfBirth: ""` là 400 và hỏng CẢ lần lưu hồ sơ chỉ
+   * vì một ô trống của một đối tượng.
+   */
+  it("ô để trống bị bỏ hẳn khỏi payload, không gửi chuỗi rỗng", () => {
+    const p = payload([
+      { ...biCan, dateOfBirth: "", address: "", idNumber: "", gender: "", criminalRecord: "" } as Subject,
+    ]);
+    const s0 = (p.subjects as Record<string, unknown>[])[0];
+    expect(s0.fullName).toBe("Nguyễn Văn A");
+    for (const k of ["dateOfBirth", "address", "idNumber", "gender", "notes"]) {
+      expect(s0[k], `ô "${k}" rỗng phải bỏ hẳn, không gửi chuỗi rỗng`).toBeUndefined();
+    }
+  });
+
   it("không có đối tượng nào thì không gửi khoá subjects", () => {
     expect(payload([]).subjects).toBeUndefined();
   });

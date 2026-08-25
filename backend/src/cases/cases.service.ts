@@ -347,6 +347,15 @@ export class CasesService {
             orderBy: { createdAt: 'asc' },
             take: LIST_SUSPECT_NAMES_LIMIT,
           },
+          // TỔNG số bị can, đếm đúng cùng điều kiện với danh sách tên ở trên.
+          // Không dùng cột `subjectsCount`: cột ấy do cán bộ tự nhập và đếm MỌI loại đối
+          // tượng (cả bị hại, nhân chứng), nên lấy nó trừ đi số tên sẽ ra "+N" sai — vừa
+          // hiện "+N" khi danh sách chưa hề bị cắt, vừa thiếu "+N" khi đã cắt.
+          _count: {
+            select: {
+              subjects: { where: { type: SubjectType.SUSPECT, deletedAt: null } },
+            },
+          },
           ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
           createdAt: true,
           updatedAt: true,
@@ -814,11 +823,15 @@ export class CasesService {
     let evidencesCreated = 0;
     let documentsLinked = 0;
 
-    // Subjects (Bị can / Bị hại / Nhân chứng / Luật sư) — required FK crimeId
+    // Subjects (Bị can / Bị hại / Nhân chứng)
+    //
+    // Ba ô ngày sinh / CCCD / địa chỉ là TUỲ CHỌN: lược đồ cho phép trống, hộp thoại thêm
+    // đối tượng chỉ bắt buộc họ tên, và dữ liệu cũ nhiều nghi can chỉ có mỗi tên. Ép
+    // `new Date(undefined)` ra `Invalid Date` và Prisma từ chối cả lần lưu.
     if (dto.subjects && dto.subjects.length > 0) {
       const subjectsData = dto.subjects.map((s) => ({
         fullName: s.fullName,
-        dateOfBirth: new Date(s.dateOfBirth),
+        dateOfBirth: s.dateOfBirth ? new Date(s.dateOfBirth) : null,
         gender: s.gender ?? 'MALE',
         idNumber: s.idNumber,
         address: s.address,

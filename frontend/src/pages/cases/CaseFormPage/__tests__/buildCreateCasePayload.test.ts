@@ -326,15 +326,24 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
       expect(payload.tenCungCap).toBe('Nguyễn Văn A');
     });
 
-    it('reporterIdNumber/reporterAddress/description → cột cccdCungCap/diaChiCungCap/moTaChiTiet', () => {
+    /**
+     * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — MỘT CỘT, MỘT Ô.
+     *
+     * Ô "Địa chỉ thường trú" trong khối Người báo tin đã gỡ khỏi giao diện: nó ghi cùng cột
+     * `diaChiCungCap` với ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab
+     * Thông tin (đúng chữ hệ cũ). Khi còn cả hai, ô hệ cũ luôn thắng lúc lưu nên ô kia là ô
+     * gõ vào không có tác dụng. Nay chủ cột là `formData.diaChiCungCap`.
+     */
+    it('cccdCungCap/moTaChiTiet vẫn nhận từ khối Người báo tin; diaChiCungCap do ô hệ cũ làm chủ', () => {
       const payload = buildCreateCasePayload({
         ...baseValid,
         reporterIdNumber: '079123456789',
         reporterAddress: '12 Lê Lợi',
+        diaChiCungCap: '34 Nguyễn Huệ',
         description: 'Nội dung',
       });
       expect(payload.cccdCungCap).toBe('079123456789');
-      expect(payload.diaChiCungCap).toBe('12 Lê Lợi');
+      expect(payload.diaChiCungCap).toBe('34 Nguyễn Huệ');
       expect(payload.moTaChiTiet).toBe('Nội dung');
     });
 

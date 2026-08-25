@@ -49,6 +49,36 @@ function dto(extra: Record<string, unknown> = {}) {
   });
 }
 
+describe('CreateSubjectInlineDto — thêm đối tượng không làm hỏng cả lần lưu', () => {
+  /**
+   * Hộp thoại thêm đối tượng chỉ bắt buộc họ tên, còn lược đồ cho phép mọi ô khác trống.
+   * Nếu DTO khắt khe hơn cả hai thì thêm một nhân chứng chưa rõ ngày sinh sẽ trả 400 và
+   * KHÔNG lưu được hồ sơ — hỏng nặng hơn hẳn việc thiếu vài ô của một đối tượng.
+   */
+  it('nhận đối tượng chỉ có họ tên', async () => {
+    const errors = await validate(
+      plainToInstance(CreateCaseDto, {
+        name: 'Vụ án thử',
+        caseProvenance: 'DIRECT_DISCOVERY',
+        subjects: [{ fullName: 'Nguyễn Văn A', type: 'WITNESS' }],
+      }),
+      { whitelist: true, forbidNonWhitelisted: true },
+    );
+    expect(errors.map((e) => e.property)).toEqual([]);
+  });
+
+  it('vẫn bắt buộc họ tên — không có tên thì không phải một đối tượng', async () => {
+    const errors = await validate(
+      plainToInstance(CreateCaseDto, {
+        name: 'Vụ án thử',
+        caseProvenance: 'DIRECT_DISCOVERY',
+        subjects: [{ idNumber: '079123456789' }],
+      }),
+    );
+    expect(errors.map((e) => e.property)).toContain('subjects');
+  });
+});
+
 describe('CreateCaseDto — ô hệ cũ đưa về đúng vị trí trên form', () => {
   it('nhận đủ mọi ô hệ cũ mới, không báo lỗi hợp lệ', async () => {
     const errors = await validate(dto(O_HE_CU_MOI), { whitelist: true, forbidNonWhitelisted: true });
@@ -61,6 +91,14 @@ describe('CreateCaseDto — ô hệ cũ đưa về đúng vị trí trên form',
     // thuộc thứ tự thuộc tính.
     const instance = dto({ [key]: O_HE_CU_MOI[key] }) as unknown as Record<string, unknown>;
     expect(instance[key]).toBeDefined();
+  });
+
+  it('KHÔNG nhận caseCode — ô đó là số hiệu tự sinh, không phải ô nhập tay', async () => {
+    const errors = await validate(dto({ caseCode: '2026-9999' }), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    expect(errors.map((e) => e.property)).toContain('caseCode');
   });
 
   it('từ chối ngày sai định dạng thay vì nuốt lặng', async () => {

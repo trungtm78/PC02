@@ -559,14 +559,12 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
             onChange={(v) => update("reporterOccupation", v)}
             placeholder="Nghề nghiệp"
           />
-          <FormInput
-            label="Địa chỉ thường trú"
-            icon={<MapPin className="w-4 h-4" />}
-            value={formData.reporterAddress}
-            onChange={(v) => update("reporterAddress", v)}
-            placeholder="Địa chỉ liên hệ"
-            colSpan={2}
-          />
+          {/*
+            Ô "Địa chỉ thường trú" đã GỠ 26/08/2026 — MỘT CỘT, MỘT Ô.
+            Nó ghi cùng cột `diaChiCungCap` với ô "Địa chỉ cá nhân, cơ quan, tổ chức cung
+            cấp, bị hại" ở tab Thông tin (đúng chữ hệ cũ). Khi còn cả hai, ô hệ cũ luôn
+            thắng lúc lưu, nên ô này là ô gõ vào không có tác dụng — tệ hơn là không có ô.
+          */}
           <FormSelect
             label="Quan hệ với vụ án"
             value={formData.reporterRelationToCase}

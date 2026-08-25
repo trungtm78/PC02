@@ -445,7 +445,7 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
             data: [
               {
                 ...rowHeCu,
-                subjectsCount: 7,
+                _count: { subjects: 7 },
                 subjects: [
                   { id: 's1', fullName: 'Nguyễn Văn A' },
                   { id: 's2', fullName: 'Trần Thị B' },
@@ -473,7 +473,7 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/cases')
         return Promise.resolve({
-          data: { data: [{ ...rowHeCu, subjectsCount: 0, subjects: [] }], total: 1 },
+          data: { data: [{ ...rowHeCu, _count: { subjects: 0 }, subjects: [] }], total: 1 },
         });
       if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
       return Promise.resolve({ data: { data: [], total: 0 } });

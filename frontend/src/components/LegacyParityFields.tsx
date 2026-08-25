@@ -42,8 +42,13 @@ export function LegacyParityFields({
   // trị bị thay bằng thứ panel đang giữ.
   //
   // Đơn thư và Vụ việc chưa dựng theo đặc tả nên vẫn dùng đường cũ.
+  // Với Vụ án phải loại theo CẢ HAI nguồn: cột do đặc tả bố cục sở hữu, VÀ cột form chính
+  // vốn đã có ô từ trước (`phanLoaiToiPhamLinhVuc`, `yeuCauBoSung`, `baoCaoBanGiamDoc`…).
+  // Bỏ vế thứ hai là ba ô ấy hiện lại, và panel ghi sau nên nó thắng.
   const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter((d) =>
-    entity === "case" ? !LEGACY_FORM_OWNED_COLUMNS.has(d.col) : !inMainForm(entity, d.col),
+    entity === "case"
+      ? !LEGACY_FORM_OWNED_COLUMNS.has(d.col) && !inMainForm(entity, d.col)
+      : !inMainForm(entity, d.col),
   );
   if (!defs.length) return null;
 

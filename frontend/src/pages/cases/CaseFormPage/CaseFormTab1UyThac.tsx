@@ -58,12 +58,11 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             options={[...LOAI_UY_THAC_OPTIONS]}
             placeholder="-- Chọn loại --"
           />
-          <FormInput
-            label="Ngày tiếp nhận"
-            type="date"
-            value={formData.utdt_ngayTiepNhan}
-            onChange={(v) => update('utdt_ngayTiepNhan', v)}
-          />
+          {/*
+            Hai ô "Ngày tiếp nhận" và "Loại thông tin" đã GỠ 26/08/2026 — MỘT CỘT, MỘT Ô.
+            Chúng ghi cùng cột `ngayTiepNhan` / `loaiThongTin` với hai ô cùng tên ở tab
+            Thông tin (đúng chữ hệ cũ), và tab Thông tin là chủ.
+          */}
           <FormInput
             label="Đơn vị giao"
             value={formData.utdt_donViGiao}
@@ -81,12 +80,6 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             type="date"
             value={formData.utdt_thoiHanUyThac}
             onChange={(v) => update('utdt_thoiHanUyThac', v)}
-          />
-          <FormInput
-            label="Loại thông tin"
-            value={formData.utdt_loaiThongTin}
-            onChange={(v) => update('utdt_loaiThongTin', v)}
-            placeholder="Tố giác, Trình báo, Đề nghị..."
           />
         </div>
       </Card>

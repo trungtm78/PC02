@@ -40,6 +40,7 @@ const DAY_DU: Partial<CaseFormData> = {
   noiLuuTruBaoQuan: "Kho vật chứng PC02",
   toiDanhChinhKhoiToId: "crime-174",
   soHoSoCu: "1234",
+  diaChiCungCap: "34 Nguyễn Huệ",
 };
 
 function payload(extra: Partial<CaseFormData> = {}) {
@@ -62,15 +63,26 @@ describe("Gửi ô hệ cũ lên máy chủ", () => {
     expect(p.baoCaoBanGiamDoc).toBe(true);
   });
 
-  it("ô báo cáo để trống thì gửi false, không gửi true rỗng nghĩa", () => {
+  /**
+   * Ô để trống thì KHÔNG gửi gì cả.
+   *
+   * Gửi `false` mỗi lần lưu sẽ biến cột `Boolean?` từ NULL ("chưa xác định") thành `false`
+   * cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông tin mà không ai yêu cầu.
+   */
+  it("ô báo cáo để trống thì KHÔNG gửi gì, giữ nguyên trạng thái chưa xác định", () => {
     const p = payload({ baoCaoBanGiamDoc: "" });
-    expect(p.baoCaoBanGiamDoc).toBe(false);
+    expect(p.baoCaoBanGiamDoc).toBeUndefined();
     expect(p.baoCaoBanGiamDocText).toBeUndefined();
   });
 
-  it("mã hồ sơ gửi ở cấp trên cùng để ghi được vào cột", () => {
+  /**
+   * Mã hồ sơ KHÔNG gửi lên: ô ấy là số hiệu tự sinh (DocNumberPreviewField chế độ AUTO),
+   * cán bộ không nhập tay. Gửi lên chỉ mở đường cho xung đột mã trùng mà không đổi được gì
+   * trên màn hình. DTO cũng cố ý không khai `caseCode` — xem legacy-form-parity.dto.spec.ts.
+   */
+  it("mã hồ sơ KHÔNG gửi lên — đó là số hiệu tự sinh, không phải ô nhập tay", () => {
     const p = payload({ caseCode: "2026-9999" });
-    expect(p.caseCode).toBe("2026-9999");
+    expect(p.caseCode).toBeUndefined();
   });
 
   it("số thứ tự thụ lý hệ cũ không còn bị bỏ rơi khi lưu", () => {

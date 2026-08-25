@@ -249,8 +249,11 @@ describe('CasesService', () => {
         orderBy: { createdAt: 'asc' },
         take: LIST_SUSPECT_NAMES_LIMIT,
       });
-      // Số bị can tổng vẫn lấy từ cột đã có, không đếm lại.
-      expect(select.subjectsCount).toBe(true);
+      // Tổng số bị can phải ĐẾM ĐÚNG cùng điều kiện, không mượn cột `subjectsCount` — cột ấy
+      // do cán bộ tự nhập và đếm cả bị hại lẫn nhân chứng.
+      expect(select._count).toEqual({
+        select: { subjects: { where: { type: SubjectType.SUSPECT, deletedAt: null } } },
+      });
     });
 
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────

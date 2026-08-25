@@ -1,6 +1,8 @@
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
+import { LEGACY_FORM_OWNED_COLUMNS } from "@/features/cases/legacy-form-layout.def";
+import { inMainForm } from "@/shared/legacy/shownFieldKeys";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -216,8 +218,15 @@ function CaseFormPage() {
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
         setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        // CHỈ giữ cột mà form KHÔNG có ô. `parityState` được spread SAU payload khi lưu, nên
+        // cột nào tab đã có ô mà vẫn nằm ở đây thì giá trị cán bộ vừa gõ bị hoàn nguyên về
+        // giá trị lúc mở hồ sơ — màn hình vẫn báo lưu thành công. Ẩn ô ở panel là CHƯA ĐỦ:
+        // ô ẩn nhưng giá trị vẫn nằm trong `parityState` và vẫn ghi đè.
         const ps: Record<string, unknown> = {};
-        for (const f of LEGACY_PARITY_FIELDS.case) if ((d as Record<string, unknown>)[f.col] != null) ps[f.col] = (d as Record<string, unknown>)[f.col];
+        for (const f of LEGACY_PARITY_FIELDS.case) {
+          if (LEGACY_FORM_OWNED_COLUMNS.has(f.col) || inMainForm('case', f.col)) continue;
+          if ((d as Record<string, unknown>)[f.col] != null) ps[f.col] = (d as Record<string, unknown>)[f.col];
+        }
         setParityState(ps);
       })
       .catch((err) => {
@@ -337,20 +346,18 @@ function CaseFormPage() {
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
+      // Cảnh báo mục bị loại phải hiện ở CẢ HAI nhánh. Nhánh "Lưu và xuất file" thoát sớm
+      // nên trước đây nuốt luôn cảnh báo — đúng thứ mà `onSubjectBiLoai` sinh ra để chặn.
+      if (subjectBiLoai.length > 0) {
+        alert(["Các mục sau KHÔNG được lưu vào danh sách đối tượng:", ...subjectBiLoai].join("\n"));
+      }
       // "Lưu và xuất file" → mở popup xuất chứng từ động (không alert/điều hướng ngay).
       if (exportAfterSaveRef.current && savedId) {
         setExportNavigateOnClose(true);
         setExportForId(savedId);
         return;
       }
-      // Xuống dòng dựng bằng mảng + join để chuỗi không phải mang ký tự thoát khó đọc.
-      const canhBaoSubject =
-        subjectBiLoai.length > 0
-          ? ["", "", "Các mục sau KHÔNG được lưu vào danh sách đối tượng:", ...subjectBiLoai].join("\n")
-          : "";
-      alert(
-        (isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!") + canhBaoSubject,
-      );
+      alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate(safeReturn);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

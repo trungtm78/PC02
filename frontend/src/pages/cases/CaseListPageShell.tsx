@@ -104,8 +104,8 @@ interface CaseRow {
   ketQuaXuLyKhac?: string | null;
   /** Bị can đã khởi tố — server cắt sẵn ở LIST_SUSPECT_NAMES_LIMIT tên. */
   subjects?: { id: string; fullName: string }[] | null;
-  /** Tổng số bị can của hồ sơ, dùng để tính phần dư "+N". */
-  subjectsCount?: number | null;
+  /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
+  _count?: { subjects?: number } | null;
   createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
@@ -131,13 +131,16 @@ const PAGE_SIZE = 20;
  * Chuỗi hiển thị cột "Đối tượng bị can".
  *
  * Server chỉ trả tối đa 5 tên (`LIST_SUSPECT_NAMES_LIMIT`) để bảng bố cục cố định không bị
- * một hồ sơ nhiều bị can kéo cao bất thường. Phần dư suy từ `subjectsCount` — số tổng đã
- * có sẵn trên cột, không phải đếm lại.
+ * một hồ sơ nhiều bị can kéo cao bất thường, kèm `_count.subjects` đếm ĐÚNG cùng điều kiện.
+ *
+ * KHÔNG dùng cột `subjectsCount`: cột ấy do cán bộ tự nhập và đếm mọi loại đối tượng (cả bị
+ * hại, nhân chứng), nên lấy nó trừ số tên sẽ ra "+N" sai theo cả hai chiều.
  */
-function formatDoiTuongBiCan(r: Pick<CaseRow, 'subjects' | 'subjectsCount'>): string {
+function formatDoiTuongBiCan(r: Pick<CaseRow, 'subjects' | '_count'>): string {
   const ten = (r.subjects ?? []).map((s) => s.fullName).filter(Boolean);
   if (ten.length === 0) return '—';
-  const du = Math.max(0, (r.subjectsCount ?? ten.length) - ten.length);
+  const tong = r._count?.subjects ?? ten.length;
+  const du = Math.max(0, tong - ten.length);
   return du > 0 ? `${ten.join(', ')} +${du}` : ten.join(', ');
 }
 
