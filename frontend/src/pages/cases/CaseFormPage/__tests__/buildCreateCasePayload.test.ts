@@ -321,20 +321,32 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
 
   // ── Consolidate epic: field promoted → cột typed TOP-LEVEL ──
   describe('consolidate: promote → cột typed top-level', () => {
-    it('reporter (native) → cột tenCungCap top-level', () => {
-      const payload = buildCreateCasePayload({ ...baseValid, reporter: 'Nguyễn Văn A' });
-      expect(payload.tenCungCap).toBe('Nguyễn Văn A');
+    /**
+     * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — MỘT CỘT, MỘT Ô (cùng lý do với `diaChiCungCap` bên dưới).
+     *
+     * Ô "Họ và tên" trong khối Người báo tin đã gỡ khỏi giao diện: nó ghi cùng cột
+     * `tenCungCap` với ô "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab Thông tin.
+     * Màn Sửa nạp cùng một cột vào cả hai ô, nên khi còn cả hai thì xoá trắng ô hệ cũ xong ô
+     * kia gửi lại giá trị cũ — cán bộ xoá mà không xoá được.
+     */
+    it('cột tenCungCap do ô hệ cũ làm chủ, ô Họ và tên đã gỡ không còn ghi', () => {
+      const payload = buildCreateCasePayload({
+        ...baseValid,
+        reporter: 'Nguyễn Văn A',
+        tenCungCap: 'Trần Thị B',
+      });
+      expect(payload.tenCungCap).toBe('Trần Thị B');
     });
 
     /**
      * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — MỘT CỘT, MỘT Ô.
      *
-     * Ô "Địa chỉ thường trú" trong khối Người báo tin đã gỡ khỏi giao diện: nó ghi cùng cột
+     * Ô "Địa chỉ thường trú" và ô "Số CCCD/CMND" trong khối Người báo tin đã gỡ: chúng ghi cùng cột
      * `diaChiCungCap` với ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab
      * Thông tin (đúng chữ hệ cũ). Khi còn cả hai, ô hệ cũ luôn thắng lúc lưu nên ô kia là ô
      * gõ vào không có tác dụng. Nay chủ cột là `formData.diaChiCungCap`.
      */
-    it('cccdCungCap/moTaChiTiet vẫn nhận từ khối Người báo tin; diaChiCungCap do ô hệ cũ làm chủ', () => {
+    it('cccdCungCap và diaChiCungCap đều do ô hệ cũ làm chủ; moTaChiTiet vẫn từ description', () => {
       const payload = buildCreateCasePayload({
         ...baseValid,
         reporterIdNumber: '079123456789',
@@ -342,7 +354,7 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
         diaChiCungCap: '34 Nguyễn Huệ',
         description: 'Nội dung',
       });
-      expect(payload.cccdCungCap).toBe('079123456789');
+      expect(payload.cccdCungCap).toBeNull();
       expect(payload.diaChiCungCap).toBe('34 Nguyễn Huệ');
       expect(payload.moTaChiTiet).toBe('Nội dung');
     });

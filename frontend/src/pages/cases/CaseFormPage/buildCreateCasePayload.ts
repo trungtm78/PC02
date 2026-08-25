@@ -522,9 +522,13 @@ export function buildCreateCasePayload(
     return undefined;
   };
 
-  payload.tenCungCap = firstStr(formData.reporter, formData.tenCungCap) ?? null;
-  payload.cccdCungCap = firstStr(formData.reporterIdNumber, formData.cccdCungCap) ?? null;
-  payload.sdtCungCap = firstStr(parsePhone(formData.reporterPhone), formData.sdtCungCap) ?? null;
+  // MỘT CỘT — MỘT Ô. Ba cột dưới đây trước nay có HAI ô cùng ghi: ô hệ cũ trong tab Thông
+  // tin và ô "Người tố cáo / Báo tin" trong khối Bổ sung hệ mới. Vì màn Sửa nạp cùng một
+  // cột vào cả hai ô, xoá trắng ô hệ cũ thì ô kia vẫn giữ giá trị cũ và gửi lại nó — thao
+  // tác xoá không có tác dụng. Đã gỡ ba ô trùng khỏi khối Bổ sung hệ mới (xem tabs.tsx).
+  payload.tenCungCap = oHeCu(formData.tenCungCap);
+  payload.cccdCungCap = oHeCu(formData.cccdCungCap);
+  payload.sdtCungCap = oHeCu(parsePhone(formData.sdtCungCap) || formData.sdtCungCap);
   // MỘT CỘT — MỘT Ô. Ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab Thông tin
   // là chủ cột `diaChiCungCap`; ô "Địa chỉ thường trú" trong khối Bổ sung hệ mới đã gỡ đi
   // (xem tabs.tsx). Trước đây hai ô cùng ghi cột này và ô hệ cũ luôn thắng, nên ô kia trở
