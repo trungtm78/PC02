@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-26T04:10:00+07:00 | Milestone: M5/5 | Task: 4.5/5
+Cập nhật: 2026-08-26T05:10:00+07:00 | Milestone: M5/5 HOÀN TẤT | Task: 5/5
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -45,13 +45,24 @@ Nhánh: `feat/legacy-form-parity-vu-an`
     (`parityState` vẫn nạp cột tab đã có ô rồi spread SAU payload → hoàn nguyên mọi sửa đổi)
   - `codex exec` (rà soát chéo mô hình) → 4 phát hiện; 2 đã vá, 2 ĐO LẠI và bác bỏ có bằng chứng
     (Prisma 7.8 đọc mảng NULL trả `[]`; thêm NOT NULL làm `case.create` hỏng P2011)
+- [x] M5b — Đối chiếu trên bản chạy thật + UAT:
+  - Dựng CSDL PG18, nạp seed, chạy máy chủ + giao diện, đăng nhập `admin`
+  - `/cases`: đúng 9 cột hệ cũ + Trạng thái, `Đối tượng bị can` ở vị trí 3
+  - `/cases/new`: 10 tab đúng thứ tự · tab Thông tin 32 ô · tab Vụ việc TĐC 34 ô, nhãn kèm
+    hậu tố `(Tab: …)`
+  - Nhập → Lưu (201) → mở lại: **7/7 ô giữ nguyên**, trong đó 4 ô trước epic này không hề
+    có đường lên máy chủ
+  - Chế độ Sửa có bố cục y hệt chế độ Tạo mới; panel bổ sung dựng 0 ô trùng
+  - `UAT-COVERAGE.md`: 42 dòng, 41 ĐẠT, 1 CHƯA CHẠY (E5 — cần dữ liệu di trú thật)
+- [x] M5c — Dựng bảng "Danh sách điều tra bổ sung" (hạng mục cuối của bố cục hệ cũ):
+  đúng 5 cột dữ liệu + Thao tác, ba mốc ngày qua được DTO, đã kiểm trên bản chạy thật
 
 ## Đang làm dở
-Task: M5b — Đối soát trên bản chạy thật + UAT phủ 100%
-Đã làm: hai vòng rà soát xong, 13 phát hiện đã xử
-BƯỚC TIẾP THEO: nạp dữ liệu mẫu vào PG18, chạy backend + frontend, chụp `/cases` và
-`/cases/new` rồi đối chiếu với ảnh hệ cũ đã lưu ở scratchpad; sau đó dựng `UAT-COVERAGE.md`
-File liên quan: `backend/prisma/seed.ts`, ảnh hệ cũ ở thư mục scratchpad của phiên
+KHÔNG CÒN VIỆC DỞ. Toàn bộ 5 milestone hoàn tất, 15 commit trên nhánh
+`feat/legacy-form-parity-vu-an`, CHƯA đẩy và CHƯA mở PR (chờ anh quyết).
+
+BƯỚC TIẾP THEO khi anh đồng ý: đẩy nhánh + mở PR, rồi chạy công cụ bù trên bản thật
+(`backfill-parity.ts --entity case --dry` trước, đọc báo cáo, sao lưu `pg_dump`, rồi chạy thật).
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
@@ -76,8 +87,8 @@ File liên quan: `backend/prisma/seed.ts`, ảnh hệ cũ ở thư mục scratch
 | Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-Backend: **3115/3115 PASS (232 bộ)** · `tsc --noEmit` sạch
-Frontend: **1744/1744 PASS (169 bộ)** · `tsc -b` sạch
+Backend: **3120/3120 PASS (233 bộ)** · `tsc --noEmit` sạch
+Frontend: **1750/1750 PASS (170 bộ)** · `tsc -b` sạch
 Kiểm chứng đầu-cuối công cụ bù trên CSDL thật: **ĐẠT** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
 nâng `testTimeout` lên 20s (nguyên nhân gốc: hạn 5s không đủ khi 166 tệp chạy song song;
 ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý do không liên quan).
