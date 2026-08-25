@@ -44,7 +44,7 @@ interface RowProps {
   ineligibleReason?: string | null;
   rowLabel?: string; // "vụ án {caseCode}" — dùng cho aria-label
   /**
-   * Lớp nền THẬT của hàng chứa ô này.
+   * Lớp nền cho ô ghim này.
    *
    * Ô ghim buộc phải có nền đục, nếu không nội dung cuộn ngang hiện xuyên qua. Nhưng đặt
    * cứng `bg-white` như trước thì trên hàng đang chọn (nền xanh) hay hàng quá hạn (nền cảnh
@@ -59,7 +59,7 @@ export function BulkSelectionRowCell({
   selection,
   ineligibleReason,
   rowLabel,
-  bgClass = 'bg-white',
+  bgClass = 'bg-inherit',
 }: RowProps) {
   const disabled = ineligibleReason != null;
   return (

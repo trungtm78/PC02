@@ -261,7 +261,7 @@ describe('<ListPageShell.Table> — ghim cột khi cuộn ngang', () => {
    * ô ghim thành một vệt trắng lệch màu ngay mép trái. Lỗi có sẵn từ trước ở ô tick, chỉ
    * chưa ai để ý vì cột tick mỏng; ghim thêm cột Thao tác 8rem là nó thành mảng trắng to.
    */
-  it('hàng đang chọn: ô ghim mang ĐÚNG nền của hàng, không phải bg-white', () => {
+  it('hàng đang chọn: ô ghim bám nền hàng, KHÔNG khai màu trắng riêng', () => {
     render(
       <ListPageShell>
         <Table
@@ -278,9 +278,36 @@ describe('<ListPageShell.Table> — ghim cột khi cuộn ngang', () => {
     expect(hang.className).toContain('bg-blue-50');
 
     for (const o of within(hang).getAllByRole('cell').slice(0, 2)) {
-      expect(o.className).toContain('bg-blue-50');
+      expect(o.className).toContain('bg-inherit');
       expect(o.className).not.toContain('bg-white');
     }
+  });
+
+  /**
+   * ĐIỀU KIỆN CẦN của `bg-inherit`, và là chỗ ca kiểm cũ của em bỏ sót.
+   *
+   * `inherit` lấy nền TÍNH ĐƯỢC của hàng. Hàng để trong suốt thì ô ghim cũng trong suốt, và
+   * nội dung cuộn ngang hiện xuyên qua nó. Nên hàng thường — không chọn, không quá hạn —
+   * vẫn BẮT BUỘC khai nền đục.
+   *
+   * Cách này thay cho việc chép lớp nền sang ô: `hover:` đặt trên ô chỉ ăn khi trỏ đúng ô
+   * ấy, nên rê chuột ở ô khác là hàng đổi màu mà ô ghim vẫn trắng — vệt trắng quay lại,
+   * chỉ lúc rê. `inherit` không có vấn đề đó vì nó bám giá trị tính được của hàng.
+   */
+  it('hàng thường vẫn khai nền đục — bg-inherit trên hàng trong suốt là vô nghĩa', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS_GHIM}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          bulkSelection={bulkGia()}
+        />
+      </ListPageShell>,
+    );
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    expect(hang.className).toContain('bg-white');
   });
 
   it('hàng có nền riêng (vd quá hạn): ô ghim mang nền ấy, không đè trắng lên', () => {
@@ -298,8 +325,9 @@ describe('<ListPageShell.Table> — ghim cột khi cuộn ngang', () => {
     );
 
     const hang = screen.getAllByRole('row').slice(1)[0];
+    expect(hang.className).toContain('bg-red-50');
     for (const o of within(hang).getAllByRole('cell').slice(0, 2)) {
-      expect(o.className).toContain('bg-red-50');
+      expect(o.className).toContain('bg-inherit');
       expect(o.className).not.toContain('bg-white');
     }
   });
