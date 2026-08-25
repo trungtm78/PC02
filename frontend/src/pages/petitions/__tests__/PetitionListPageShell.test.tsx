@@ -457,18 +457,15 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
     expect(screen.getAllByRole('tab').length).toBeGreaterThan(0);
   });
 
-  it('có thẻ lọc kiểu hệ cũ với ô STT và STT cũ', async () => {
-    renderWithRouter();
-    await waitFor(() => expect(screen.getByTestId('legacy-filter-left')).toBeInTheDocument());
-    expect(screen.getByTestId('legacy-filter-stt')).toBeInTheDocument();
-    expect(screen.getByTestId('legacy-filter-sttCu')).toBeInTheDocument();
-  });
 
   it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API, không chỉ ghi vào địa chỉ trang', async () => {
-    // Ca kiểm ĐẶT ĐÚNG TẦNG: thẻ lọc có ca kiểm riêng và vẫn xanh kể cả khi trang quên nối
+    // Ca kiểm ĐẶT ĐÚNG TẦNG: mặt lọc có ca kiểm riêng và vẫn xanh kể cả khi trang quên nối
     // tham số xuống API — người dùng thấy ô lọc đổi mà danh sách đứng yên.
+    // Khoá địa chỉ trang là khoá của registry (`stt_cu`, `entered_by`), KHÔNG phải tên
+    // tham số API (`sttCu`, `enteredById`) — hai thứ khác nhau, và lẫn lộn chúng chính là
+    // nguồn gốc của hai ô "Từ ngày" không đồng bộ trước đây.
     renderWithRouter([
-      '/petitions?petitions_stt=26-11171&petitions_sttCu=1964&petitions_enteredById=u1',
+      '/petitions?petitions_stt=26-11171&petitions_stt_cu=1964&petitions_entered_by=u1',
     ]);
 
     await waitFor(() => {
@@ -481,5 +478,54 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
       expect(params.sttCu).toBe('1964');
       expect(params.enteredById).toBe('u1');
     });
+  });
+});
+
+/**
+ * MỘT mặt lọc duy nhất cho mỗi trang (25/08/2026).
+ *
+ * Trước đó trang có HAI bộ lọc: accordion sẵn có (registry v0.62) và thẻ lọc riêng em
+ * thêm. Cả hai đều có ô "Từ ngày" nhưng dùng hai khoá khác nhau (`petitions_from_date` và
+ * `petitions_fromDate`) nên không đồng bộ: cán bộ đặt ngày ở ô này thì ô kia vẫn trống, đặt cả
+ * hai thì một cái ghi đè âm thầm. Không có cách nào cho người dùng biết ô nào đang có hiệu lực.
+ */
+describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+  });
+
+  it('chỉ có ĐÚNG MỘT ô "Từ ngày" trên toàn trang', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Văn A'));
+
+    // Mở bộ lọc nâng cao để mọi ô đều được dựng.
+    const nutLoc = screen.queryByRole('button', { name: /bộ lọc/i });
+    if (nutLoc) fireEvent.click(nutLoc);
+
+    expect(screen.getAllByLabelText(/Từ ngày/i)).toHaveLength(1);
+    expect(screen.getAllByLabelText(/Đến ngày/i)).toHaveLength(1);
+  });
+
+  it('không còn thẻ lọc riêng bên ngoài thanh công cụ', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Văn A'));
+    expect(screen.queryByTestId('legacy-filter-left')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('legacy-filter-right')).not.toBeInTheDocument();
+  });
+
+  it('ô STT / STT cũ / Cán bộ nhập nằm trong cùng mặt lọc ấy', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Văn A'));
+    const nutLoc = screen.queryByRole('button', { name: /bộ lọc/i });
+    if (nutLoc) fireEvent.click(nutLoc);
+
+    expect(screen.getByLabelText(/^STT$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/STT cũ/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Cán bộ nhập/i)).toBeInTheDocument();
   });
 });

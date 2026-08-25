@@ -1,6 +1,6 @@
 # PROGRESS
 
-STATUS: ALL_MILESTONES_DONE
+STATUS: IN_PROGRESS — M8 (đã code xong, đang chờ review + deploy)
 
 Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
 
@@ -42,7 +42,16 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 
 ## Đang làm dở
 
-KHÔNG CÒN. Toàn bộ 7 milestone, UAT và phần bù mã đã hoàn tất.
+Task: M8 — gộp hai bộ lọc thành một
+Đã làm: xong toàn bộ code. Xoá `LegacyFilterPanel`, khai 3 ô mới vào registry sẵn có của
+cả ba module, mở rộng `Filters` nhận `dynamicOptions` + `children`, thêm chip
+`DateRangePresets`. Frontend 1543 ca kiểm, `tsc -b` sạch.
+BƯỚC TIẾP THEO: chạy `/review`, mở PR, deploy, rồi kiểm chứng trên bản chạy thật
+File liên quan: `frontend/src/features/*/list-filters.ts`, ba `*ListPageShell.tsx`, xoá `LegacyFilterPanel.tsx`
+
+Lý do: em đã dựng hệ lọc THỨ HAI bên cạnh registry sẵn có (v0.62) → trang Đơn thư và Vụ án
+có HAI ô "Từ ngày" với hai khoá khác nhau (`petitions_from_date` vs `petitions_fromDate`),
+không đồng bộ; và bố cục của em cao ~400px so với ~180px của lưới sẵn có.
 
 ## Đã deploy
 

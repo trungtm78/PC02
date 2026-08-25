@@ -25,13 +25,12 @@ import {
   useListSort,
   DateCell,
   SummaryCell,
-  LegacyFilterPanel,
   formatHoSoCode,
   type ColumnDef,
   type TableState,
-  type LegacyFilterField,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
+import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
@@ -217,16 +216,6 @@ export function PetitionListPageShell() {
    * Tên param phải KHỚP `QueryPetitionsDto`: `senderName` (không phải `sender`). Backend
    * bật `forbidNonWhitelisted` nên gửi sai tên là 400 — đây chính là lỗi đang tồn tại.
    */
-  const legacyFilterValues = useMemo(
-    () => ({
-      enteredById: url.getParam('enteredById') ?? '',
-      stt: url.getParam('stt') ?? '',
-      sttCu: url.getParam('sttCu') ?? '',
-      fromDate: url.getParam('fromDate') ?? '',
-      toDate: url.getParam('toDate') ?? '',
-    }),
-    [url],
-  );
 
   const baseQueryParams = useMemo(
     () => ({
@@ -237,13 +226,13 @@ export function PetitionListPageShell() {
       ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
       // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
-      ...(legacyFilterValues.stt && { stt: legacyFilterValues.stt }),
-      ...(legacyFilterValues.sttCu && { sttCu: legacyFilterValues.sttCu }),
-      ...(legacyFilterValues.enteredById && { enteredById: legacyFilterValues.enteredById }),
-      ...(legacyFilterValues.fromDate && { fromDate: legacyFilterValues.fromDate }),
-      ...(legacyFilterValues.toDate && { toDate: legacyFilterValues.toDate }),
+      ...(appliedFilters.stt && { stt: appliedFilters.stt }),
+      ...(appliedFilters.sttCu && { sttCu: appliedFilters.sttCu }),
+      ...(appliedFilters.enteredById && { enteredById: appliedFilters.enteredById }),
+      ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
+      ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
     }),
-    [debouncedSearch, appliedFilters, legacyFilterValues],
+    [debouncedSearch, appliedFilters],
   );
 
   /**
@@ -533,36 +522,10 @@ export function PetitionListPageShell() {
     [url],
   );
 
-  // ── Thẻ lọc theo kiểu hệ cũ ───────────────────────────────────────────────
-  // Giá trị đọc/ghi thẳng vào địa chỉ trang như mọi bộ lọc khác, nên tải lại trang hay gửi
-  // đường dẫn cho đồng nghiệp đều giữ nguyên bộ lọc.
+
+  // Danh sách cán bộ cho ô "Cán bộ nhập" — nạp lúc chạy nên truyền qua `dynamicOptions`
+  // của mặt lọc chung, không khai cứng được trong registry.
   const { data: officerOptions } = useOfficerOptions();
-
-  const legacyFilterFields: LegacyFilterField[] = useMemo(
-    () => [
-      {
-        key: 'enteredById',
-        label: 'Cán bộ nhập',
-        type: 'select',
-        side: 'left',
-        options: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
-      },
-      { key: 'stt', label: 'STT', type: 'text', placeholder: 'vd 26-11171', side: 'right' },
-      { key: 'sttCu', label: 'STT cũ', type: 'text', side: 'right' },
-      { key: 'fromDate', label: 'Từ ngày', type: 'date', side: 'right' },
-      { key: 'toDate', label: 'Đến ngày', type: 'date', side: 'right' },
-    ],
-    [officerOptions],
-  );
-
-
-  const handleLegacyFilterChange = useCallback(
-    (updates: Record<string, string>) => {
-      // Đổi bộ lọc thì về trang 1 — giữ nguyên trang cũ sẽ ra bảng trống mà không rõ vì sao.
-      url.setParams({ ...updates, page: '1' });
-    },
-    [url],
-  );
 
   const handleResetFilters = useCallback(() => {
     url.clearAll();
@@ -692,17 +655,19 @@ export function PetitionListPageShell() {
           onApply={listFilters.apply}
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
-        />
+          dynamicOptions={{
+            enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+          }}
+        >
+          <DateRangePresets
+            onPick={(khoang) => {
+              // Ghi vào ĐÚNG hai ô ngày của mặt lọc này — không tạo trạng thái thứ hai.
+              listFilters.setField('fromDate', khoang.fromDate);
+              listFilters.setField('toDate', khoang.toDate);
+            }}
+          />
+        </Filters>
       </ListPageShell.Toolbar>
-      {/* Thẻ lọc theo kiểu hệ cũ — bổ sung các ô hệ mới còn thiếu. Ô "Từ khóa" nằm ở
-          thanh công cụ ngay trên, nên không dựng hai ô tìm kiếm cùng màn hình. */}
-      <LegacyFilterPanel
-        fields={legacyFilterFields}
-        values={legacyFilterValues}
-        onChange={handleLegacyFilterChange}
-        onApply={() => url.setParam('page', '1')}
-        onReset={handleResetFilters}
-      />
       {transientBanner && (
         <div
           data-testid="petitions-bulk-banner"

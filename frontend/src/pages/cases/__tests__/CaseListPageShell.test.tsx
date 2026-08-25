@@ -322,7 +322,7 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
   });
 
   it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API', async () => {
-    renderWithRouter(['/cases?cases_stt=26-9893&cases_createdById=u1']);
+    renderWithRouter(['/cases?cases_stt=26-9893&cases_created_by=u1']);
     await waitFor(() => {
       const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
         (c: unknown[]) => c[0] === '/cases',

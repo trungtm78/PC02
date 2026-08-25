@@ -111,12 +111,24 @@ describe('incidentsRowActions', () => {
 });
 
 describe('incidentsListFilters', () => {
-  it('registers 3 fields', () => {
+  it('registers 8 fields — 3 gốc + 5 ô theo bảng lọc hệ cũ', () => {
+    // Vụ việc trước đây KHÔNG có ô ngày nào trong registry, nên Từ/Đến ngày ở đây là ô
+    // mới thật, không phải trùng với ô sẵn có như ở Đơn thư và Vụ án.
     expect(incidentsListFilters.all().map((f) => f.key)).toEqual([
       'loaiDonVu',
       'reporter',
       'unit',
+      'fromDateRange',
+      'toDateRange',
+      'stt',
+      'sttCu',
+      'canBoNhapId',
     ]);
+  });
+
+  it('khoá địa chỉ trang không trùng nhau', () => {
+    const keys = incidentsListFilters.all().map((f) => f.urlKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   /**
@@ -142,6 +154,11 @@ describe('incidentsListFilters', () => {
       'filter-loai-don-vu',
       'filter-reporter',
       'filter-unit',
+      'filter-from-date',
+      'filter-to-date',
+      'filter-stt',
+      'filter-stt-cu',
+      'filter-can-bo-nhap',
     ]);
   });
 });

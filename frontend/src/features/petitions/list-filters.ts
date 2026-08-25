@@ -15,6 +15,9 @@ export interface PetitionFilterValue {
   sender?: string;
   status?: string;
   unit?: string;
+  stt?: string;
+  sttCu?: string;
+  enteredById?: string;
 }
 
 const petitions = createListFilterRegistry<PetitionFilterValue>();
@@ -54,6 +57,31 @@ petitions.registerMany([
     urlKey: 'unit',
     testid: 'filter-unit',
     placeholder: 'PC02, PC03, ...',
+  },
+  // ── Bổ sung theo bảng lọc hệ cũ (25/08/2026) ─────────────────────────────
+  // Khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì không có
+  // cách nào đúng để trả lời "ô nào đang có hiệu lực" — đúng lỗi đã mắc và phải gỡ.
+  {
+    key: 'stt',
+    label: 'STT',
+    type: 'text',
+    urlKey: 'stt',
+    testid: 'filter-stt',
+    placeholder: 'vd 26-11171',
+  },
+  {
+    key: 'sttCu',
+    label: 'STT cũ',
+    type: 'text',
+    urlKey: 'stt_cu',
+    testid: 'filter-stt-cu',
+  },
+  {
+    key: 'enteredById',
+    label: 'Cán bộ nhập',
+    type: 'enumSelect',
+    urlKey: 'entered_by',
+    testid: 'filter-can-bo-nhap',
   },
 ]);
 
