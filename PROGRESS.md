@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-26T01:30:00+07:00 | Milestone: M2/5 | Task: 2/5
+Cập nhật: 2026-08-26T02:40:00+07:00 | Milestone: M3/5 | Task: 3/5
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -21,15 +21,25 @@ Nhánh: `feat/legacy-form-parity-vu-an`
   - `tabs.tsx` — cả 10 tab đi qua khung mới; `CardNguonVuAn` tách ra và ghim trên cùng
   - 69 ca kiểm mới. Ba lỗi gốc vá kèm: nhãn không nối với ô nhập (`FormField`),
     `testTimeout` 5s gây đỏ giả, `CrimeSelect` nổ khi danh sách là `null`.
+- [x] M3 — Ô hệ cũ lưu được xuống cơ sở dữ liệu:
+  - 27 cột mới cho `Case` + 3 mốc ngày cho `InvestigationSupplement`; migration
+    `20260826010000_legacy_form_parity_vu_an` (CREATE INDEX thường), đã áp thật trên PG18
+  - `legacy-form-parity.mapper.ts` dùng chung cho tạo mới và chỉnh sửa (29 ô)
+  - DTO + `buildCreateCasePayload` + `mergeCaseApiToFormData` nối trọn hai chiều
+  - Vá 4 lỗi mất dữ liệu: `caseCode` không vào cột · `soHoSoCu` không gửi ·
+    "Báo cáo Ban Giám đốc" mất nội dung chữ · **đối tượng nhập tay bị loại sạch**
+  - Ca kiểm neo: điền kín mọi ô của 10 tab rồi kiểm không ô nào rơi; một vòng
+    lưu-rồi-mở-lại giữ nguyên giá trị
 
 ## Đang làm dở
-Task: M3 — Bổ sung cột còn thiếu (schema · DTO · payload · merge) + vá 4 lỗi mất dữ liệu
-Đã làm: chưa bắt đầu. Các ô mới đã có trong `CaseFormData` và đã hiện trên form, nhưng
-CHƯA gửi lên máy chủ và CHƯA có cột — nhập vào rồi lưu là mất.
-BƯỚC TIẾP THEO: thêm cột vào `backend/prisma/schema.prisma` cho 28 khoá hệ cũ đang thiếu
-(danh sách ở Phần C · PR-3 của spec), tạo migration bằng `CREATE INDEX` thường
-File liên quan: `backend/prisma/schema.prisma`, `backend/src/cases/dto/create-case.dto.ts`,
-`frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts`, `.../mergeCaseApiToFormData.ts`
+Task: M4 — Chuyển TOÀN BỘ dữ liệu hệ cũ vào field mới (anh nhấn hai lần: phải đủ)
+Đã làm: chưa bắt đầu
+BƯỚC TIẾP THEO: bổ sung 8 mốc ngày còn sót vào `buildCaseStatistic()`
+(`backend/src/legacy-migration/legacy-mapper.ts:585-613`) — cột đã có sẵn, 16.9k–17.8k hồ sơ
+mỗi khoá đang chỉ nằm trong `legacyRaw`
+File liên quan: `backend/src/legacy-migration/legacy-mapper.ts`,
+`backend/src/legacy-migration/field-parity.def.ts`,
+`backend/src/legacy-migration/cli/backfill-parity.ts`
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
@@ -54,8 +64,8 @@ File liên quan: `backend/prisma/schema.prisma`, `backend/src/cases/dto/create-c
 | Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-Backend: 3011/3011 PASS (228 bộ) · `tsc --noEmit` sạch
-Frontend: **1693/1693 PASS (166 bộ)** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
+Backend: **3050/3050 PASS (230 bộ)** · `tsc --noEmit` sạch
+Frontend: **1731/1731 PASS (168 bộ)** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
 nâng `testTimeout` lên 20s (nguyên nhân gốc: hạn 5s không đủ khi 166 tệp chạy song song;
 ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý do không liên quan).
 
@@ -63,7 +73,14 @@ ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý
 - `shownFieldKeys.ts` và `legacyParityFields.generated.ts` gắn nhãn auto-generated nhưng generator
   không còn trong repo → phải viết lại ở M4.
 - **ĐÃ VÁ** nợ `testTimeout` (nâng lên 20s trong `vite.config.ts`).
-- Các ô mới trên form CHƯA lưu được — chờ M3. Đây là trạng thái dở dang có chủ ý giữa hai
-  milestone, không được deploy ở mốc này.
+- **PHÁT HIỆN CẦN BÁO ANH:** dựng cơ sở dữ liệu từ đầu bằng `prisma migrate deploy` THẤT BẠI
+  ở `20260227000000_add_case_metadata` (`relation "cases" does not exist`). Chuỗi 91 migration
+  không tự dựng lại được từ số không — máy đang chạy vẫn ổn vì nó lớn lên dần. Vá nằm ngoài
+  phạm vi epic, nhưng là rủi ro thật cho lần dựng máy chủ mới.
+- Môi trường: PG16 @5432 đang TẮT và phiên làm việc không có quyền khởi động dịch vụ. Theo
+  chỉ thị chung (mọi dự án dùng PG18 @5433), đã tạo `pc02_db` + vai `pc02_admin` trên PG18 và
+  trỏ `backend/.env` sang 5433. **Dữ liệu trên PG16 KHÔNG bị đụng tới.** Cơ sở dữ liệu PG18
+  hiện TRỐNG (dựng bằng `prisma db push`) — cần anh quyết có chuyển dữ liệu dev từ PG16 sang
+  không, việc đó cần quyền khởi động dịch vụ PG16.
 - 4 lỗi mất dữ liệu đã phát hiện (ghi đè `parityState`, `caseCode` không vào cột, lọc bỏ bị can
   thiếu `crimeId`, `soHoSoCu` không gửi) → xử ở M3.
