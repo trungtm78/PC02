@@ -80,6 +80,17 @@ export interface TableProps<TRow, TId extends string | number = string> {
   /** Error message (state=error). */
   error?: string;
   /** Trường đang sắp (tên gửi lên máy chủ). Bỏ trống = dùng mặc định của máy chủ. */
+  /**
+   * Bố cục cột CỐ ĐỊNH: `width` khai trên mỗi cột trở thành LỆNH thay vì gợi ý.
+   *
+   * Bố cục `auto` mặc định lấy bề rộng nội dung tối thiểu của ô làm mốc. Ô đang
+   * `whitespace-nowrap` nên chuỗi dài nhất kéo cột rộng bao nhiêu tuỳ nó, `width` bị bỏ
+   * qua, và `truncate` không bao giờ cắt vì ô cứ nở ra vừa nội dung. Bật cờ này thì bề rộng
+   * do NGƯỜI THIẾT KẾ quyết theo dữ liệu thật, không do chuỗi dài nhất quyết.
+   *
+   * Chỉ bật cho bảng đã khai width cho MỌI cột — cột thiếu width sẽ bị chia đều phần dư.
+   */
+  fixedLayout?: boolean;
   sortBy?: string;
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
@@ -266,6 +277,7 @@ export function Table<TRow, TId extends string | number = string>({
   sortBy,
   sortOrder,
   onSort,
+  fixedLayout,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
@@ -303,7 +315,7 @@ export function Table<TRow, TId extends string | number = string>({
       <div className={TABLE_WRAPPER}>
         <table
           id={tableId}
-          className={TABLE_BASE}
+          className={`${TABLE_BASE}${fixedLayout ? ' table-fixed' : ''}`}
           aria-labelledby={headingId}
         >
           {/* sr-only caption only when no visible h2 (sectionTitle) exists to label the table.

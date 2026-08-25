@@ -415,6 +415,15 @@ export function IncidentListPageShell() {
 
   const columns: ColumnDef<IncidentRow>[] = useMemo(
     () => [
+      // BỀ RỘNG CỘT LẤY TỪ SỐ ĐO DỮ LIỆU THẬT (bản chạy thật, 25/08/2026) — không đoán.
+      //   Tóm tắt nội dung  855 / 1776  → 30rem, cột rộng nhất
+      //   Kết quả xử lý                 → 16rem
+      //   Tên cá nhân…      855 / 1776  → 14rem  ← xem cảnh báo dưới
+      //
+      // CẢNH BÁO DỮ LIỆU: 4.598/4.716 vụ việc (97,5%) có ô "Tên" TRÙNG Y HỆT ô "Tóm tắt" —
+      // di trú hệ cũ đổ mô tả vào cả hai cột. Vì vậy bề rộng cột Tên đặt theo NGHĨA của nó
+      // (tên người / cơ quan) chứ không theo độ dài đang có; đặt theo độ dài đang có là hợp
+      // thức hoá một lỗi dữ liệu và tốn thêm 30rem để hiện lại đúng thứ cột bên cạnh đã hiện.
       // Thao tác là cột ĐẦU, ngay sau ô tick — CỐ Ý KHÁC hệ cũ (hệ cũ để cuối).
       // Bảng này rộng nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là cuộn
       // sang phải rồi cuộn ngược về. Anh quyết định 25/08/2026, ưu tiên thao tác nhanh.
@@ -442,6 +451,7 @@ export function IncidentListPageShell() {
       {
         key: 'code',
         header: 'STT',
+        width: '7rem',
         render: (r) => (
           // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
@@ -450,17 +460,20 @@ export function IncidentListPageShell() {
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        width: '14rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.doiTuongCaNhan || r.name}</span>,
       },
       {
         key: 'description',
         header: 'Tóm tắt nội dung',
+        width: '30rem',
         render: (r) => <SummaryCell value={r.description} />,
       },
       {
         key: 'status',
         header: 'Trạng thái',
+        width: '10rem',
         render: (r) => (
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${INCIDENT_STATUS_BADGE[r.status]}`}>
             {getIncidentStatusIcon(r.status)}
@@ -471,6 +484,7 @@ export function IncidentListPageShell() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        width: '11rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
@@ -483,18 +497,21 @@ export function IncidentListPageShell() {
       {
         key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
+        width: '14rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.donViGiaiQuyet ?? '—',
       },
       {
         key: 'ketQuaXuLy',
         header: 'Kết quả xử lý, giải quyết khác',
+        width: '16rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLy ?? '—',
       },
       {
         key: 'canBoNhap',
         header: 'Người nhập',
+        width: '10rem',
         render: (r) =>
           r.canBoNhap
             ? `${r.canBoNhap.lastName ?? ''} ${r.canBoNhap.firstName ?? ''}`.trim() ||
@@ -504,6 +521,7 @@ export function IncidentListPageShell() {
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        width: '8rem',
         sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
@@ -518,12 +536,14 @@ export function IncidentListPageShell() {
       {
         key: 'ngayDeXuat',
         header: 'Ngày tiếp nhận',
+        width: '7rem',
         sortKey: 'ngayDeXuat',
         render: (r) => <DateCell value={r.ngayDeXuat} />,
       },
       {
         key: 'createdAt',
         header: 'Ngày tạo',
+        width: '7rem',
         sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
@@ -703,6 +723,9 @@ export function IncidentListPageShell() {
         </div>
       )}
       <ListPageShell.Table<IncidentRow>
+        // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
+        // nhất trong cột quyết. Xem chú thích ở khối `columns`.
+        fixedLayout
         sortBy={sort.sortBy}
         sortOrder={sort.sortOrder}
         onSort={sort.onSort}

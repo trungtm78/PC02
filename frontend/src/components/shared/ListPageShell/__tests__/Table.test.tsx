@@ -332,3 +332,42 @@ describe('<ListPageShell.Table> — ghim cột khi cuộn ngang', () => {
     }
   });
 });
+
+// ── Bề rộng cột do DỮ LIỆU quyết, không do nhãn tiêu đề ─────────────────────
+// Anh chốt 25/08/2026: "width của data sẽ là chuẩn để có thể điều chỉnh theo width của
+// header". Bố cục `auto` mặc định làm ngược lại — nó lấy bề rộng NỘI DUNG TỐI THIỂU của ô
+// làm mốc, mà ô đang `whitespace-nowrap` nên chuỗi dài nhất kéo cột rộng ra bao nhiêu tuỳ
+// nó, và `width` khai trên cột bị bỏ qua. Đo trên bản chạy thật: ô Tóm tắt của vụ việc dài
+// trung vị 855 ký tự — ở bố cục `auto` nó tự chiếm gần hết bảng.
+//
+// `table-fixed` làm `width` thành LỆNH chứ không phải gợi ý, và `truncate` mới thật sự cắt.
+describe('<ListPageShell.Table> — bề rộng cột', () => {
+  it('fixedLayout làm width khai trên cột trở thành LỆNH, không phải gợi ý', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={[
+            { key: 'a', header: 'Hẹp', width: '7rem', render: () => 'x' },
+            { key: 'b', header: 'Rộng', width: '28rem', render: () => 'y' },
+          ]}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          fixedLayout
+        />
+      </ListPageShell>,
+    );
+    expect(screen.getByRole('table').className).toContain('table-fixed');
+    expect(screen.getByRole('columnheader', { name: 'Hẹp' })).toHaveStyle({ width: '7rem' });
+    expect(screen.getByRole('columnheader', { name: 'Rộng' })).toHaveStyle({ width: '28rem' });
+  });
+
+  it('không bật fixedLayout thì giữ bố cục cũ — sáu bảng khác không khai width', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COLS} data={ROWS} rowKey={(r) => r.id} />
+      </ListPageShell>,
+    );
+    expect(screen.getByRole('table').className).not.toContain('table-fixed');
+  });
+});

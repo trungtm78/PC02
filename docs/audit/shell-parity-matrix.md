@@ -77,6 +77,30 @@ Vá kèm hai lỗi có sẵn: ô ghim đặt cứng nền trắng nên hàng đa
 vệt trắng lệch màu ở mép trái; và ô tick hàng tiêu đề dùng `bg-slate-50` lệch tông với hàng
 tiêu đề `#003973/5`.
 
+#### Bề rộng cột lấy từ số đo dữ liệu thật — 25/08/2026
+
+Có thanh cuộn rồi nhưng bề rộng cột vẫn do **chuỗi dài nhất trong cột** quyết, không do người
+thiết kế quyết: bố cục bảng `auto` lấy bề rộng nội dung tối thiểu làm mốc, mà ô đang
+`whitespace-nowrap` nên `width` khai trên cột bị bỏ qua và `truncate` không bao giờ cắt.
+
+Bật `table-fixed` cho ba bảng này để `width` thành lệnh, rồi đặt bề rộng theo **số đo trên
+bản chạy thật** (độ dài nội dung, trung vị / phân vị 90):
+
+| Cột | Đơn thư | Vụ việc | Vụ án | Bề rộng |
+|---|---|---|---|---|
+| Tóm tắt nội dung | 350 / 973 | 855 / 1776 | 309 / 1332 | **30rem** — rộng nhất |
+| Kết quả xử lý | 39 / 85 | — | — | 16rem |
+| Tên cá nhân… | 16 / 38 | *(xem dưới)* | 40 / 117 | 14-16rem |
+| Nguồn đơn | 9 / 33 | — | — | 12rem |
+| STT / mã hồ sơ | 9 / 9 | — | — | 7rem |
+
+Anh nêu đích danh: Tóm tắt phải rộng hơn Tên cá nhân. Có ca kiểm chốt điều đó ở cả ba trang.
+
+**Cảnh báo dữ liệu (chưa xử lý):** 4.598/4.716 vụ việc — **97,5%** — có ô "Tên" trùng y hệt ô
+"Tóm tắt"; di trú hệ cũ đổ mô tả vào cả hai cột. Bề rộng cột Tên của Vụ việc vì vậy đặt theo
+NGHĨA của cột (tên người / cơ quan) chứ không theo độ dài đang có — đặt theo độ dài đang có là
+hợp thức hoá lỗi dữ liệu và tốn thêm 30rem để hiện lại đúng thứ cột bên cạnh đã hiện.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu
