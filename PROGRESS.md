@@ -78,8 +78,13 @@ Nhánh: `feat/legacy-form-parity-vu-an`
 ## Đang làm dở
 Toàn bộ 5 milestone hoàn tất, cộng 2 việc ngoài phạm vi. Nhánh đã đẩy, PR #243 đã mở.
 
-BƯỚC TIẾP THEO: chờ CI của lần đẩy cuối, gộp PR #243, deploy tự chạy, rồi chạy công cụ bù
-trên máy thật (`backfill-parity.ts --entity case --dry` trước, đọc báo cáo, rồi chạy thật).
+BƯỚC TIẾP THEO — **CẦN ANH DUYỆT PR #243**, em không tự duyệt được:
+`main` bắt buộc 1 lượt duyệt (`required_approving_review_count: 1`) và GitHub không cho tác
+giả tự duyệt PR của mình. Kho mã cũng tắt tính năng gộp tự động nên không hẹn trước được.
+CI đã xanh 3/3 (`mergeState=BLOCKED` chỉ vì thiếu duyệt, `mergeable=MERGEABLE`).
+
+Anh duyệt xong, em chạy tiếp: gộp → deploy tự chạy → `backfill-parity.ts --entity case`
+→ đối soát lại bằng `doi-soat-backfill.ts` và so với `/home/pc02/truoc-bu-20260826.json`.
 ### Mốc đối soát TRƯỚC khi bù (đo trên máy thật 26/08/2026)
 
 - **3.671 vụ án**, trong đó **3.359 có bản gốc hệ cũ**, mới **106 dòng thống kê**
