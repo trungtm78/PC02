@@ -390,6 +390,15 @@ export function PetitionListPageShell() {
 
   const columns: ColumnDef<PetitionRow>[] = useMemo(
     () => [
+      // BỀ RỘNG CỘT LẤY TỪ SỐ ĐO DỮ LIỆU THẬT (bản chạy thật, 25/08/2026) — không đoán.
+      // Độ dài nội dung, trung vị / phân vị 90:
+      //   Tóm tắt nội dung  350 / 973   → 30rem, cột rộng nhất
+      //   Kết quả xử lý      39 /  85   → 16rem
+      //   Tên cá nhân…       16 /  38   → 14rem
+      //   Nguồn đơn           9 /  33   → 12rem
+      //   STT                 9 /   9   →  7rem
+      // Anh nêu đích danh: Tóm tắt phải rộng hơn Tên cá nhân. Có ca kiểm chốt điều đó ở cả
+      // ba trang, vì đây là thứ dễ bị đảo ngược lặng lẽ khi ai đó chỉnh cho vừa mắt.
       // Thao tác là cột ĐẦU, ngay sau ô tick — CỐ Ý KHÁC hệ cũ (hệ cũ để cuối).
       // Bảng này rộng nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là cuộn
       // sang phải rồi cuộn ngược về. Anh quyết định 25/08/2026, ưu tiên thao tác nhanh.
@@ -418,6 +427,7 @@ export function PetitionListPageShell() {
       {
         key: 'stt',
         header: 'STT',
+        width: '7rem',
         render: (r) => (
           // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>
@@ -426,41 +436,48 @@ export function PetitionListPageShell() {
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
+        width: '12rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon ?? '—',
       },
       {
         key: 'senderName',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        width: '14rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.senderName}</span>,
       },
       {
         key: 'summary',
         header: 'Tóm tắt nội dung',
+        width: '30rem',
         render: (r) => <SummaryCell value={r.summary} />,
       },
       {
         key: 'suspectedPerson',
         header: 'Đối tượng bị tố',
+        width: '12rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.suspectedPerson ?? '—',
       },
       {
         key: 'unit',
         header: 'Đơn vị giải quyết',
+        width: '14rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.unit ?? '—',
       },
       {
         key: 'ketQuaXuLyKhac',
         header: 'Kết quả xử lý, giải quyết khác',
+        width: '16rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLyKhac ?? '—',
       },
       {
         key: 'enteredBy',
         header: 'Người nhập',
+        width: '10rem',
         render: (r) =>
           r.enteredBy
             ? `${r.enteredBy.lastName ?? ''} ${r.enteredBy.firstName ?? ''}`.trim() ||
@@ -470,6 +487,7 @@ export function PetitionListPageShell() {
       {
         key: 'status',
         header: 'Trạng thái',
+        width: '10rem',
         render: (r) => (
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${PETITION_STATUS_BADGE[r.status]}`}>
             {getPetitionStatusIcon(r.status)}
@@ -480,12 +498,14 @@ export function PetitionListPageShell() {
       {
         key: 'receivedDate',
         header: 'Ngày nhận',
+        width: '7rem',
         sortKey: 'receivedDate',
         render: (r) => <DateCell value={r.receivedDate} />,
       },
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        width: '8rem',
         sortKey: 'deadline',
         render: (r) => {
           if (!r.deadline) return '—';
@@ -500,6 +520,7 @@ export function PetitionListPageShell() {
       {
         key: 'createdAt',
         header: 'Ngày tạo',
+        width: '7rem',
         sortKey: 'createdAt',
         // Hồ sơ di trú đều mang cùng một ngày tạo (ngày chuyển dữ liệu) — chú giải để
         // cán bộ không tưởng là lỗi hiển thị.
@@ -709,6 +730,9 @@ export function PetitionListPageShell() {
         </div>
       )}
       <ListPageShell.Table<PetitionRow>
+        // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
+        // nhất trong cột quyết. Xem chú thích ở khối `columns`.
+        fixedLayout
         state={tableState}
         columns={columns}
         data={rows}

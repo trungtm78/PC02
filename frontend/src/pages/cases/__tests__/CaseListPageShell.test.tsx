@@ -364,6 +364,29 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     expect(oThaoTac.className).toContain('sticky');
   });
 
+
+  /**
+   * Anh nêu đích danh 25/08/2026: cột "Tóm tắt nội dung" phải RỘNG HƠN cột "Tên cá nhân,
+   * cơ quan, tổ chức cung cấp, bị hại".
+   *
+   * Số đo trên bản chạy thật hậu thuẫn: tóm tắt dài trung vị 350 ký tự (đơn thư) / 309 (vụ
+   * án), còn tên người 16 / 40. Chốt bằng ca kiểm vì đây là loại thứ dễ bị đảo ngược lặng
+   * lẽ khi ai đó chỉnh bề rộng cho vừa mắt trên một màn hình cụ thể.
+   */
+  it('cột Tóm tắt nội dung rộng hơn cột Tên cá nhân', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const beRong = (nhan: string) => {
+      const th = screen
+        .getAllByRole('columnheader')
+        .find((h) => (h.textContent ?? '').includes(nhan))!;
+      return parseFloat((th as HTMLElement).style.width);
+    };
+
+    expect(beRong('Tóm tắt nội dung')).toBeGreaterThan(beRong('Tên cá nhân'));
+  });
+
   it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByText('26-9893')).toBeInTheDocument());

@@ -38,7 +38,10 @@ export function SummaryCell({ value }: { value?: string | null }) {
   const hienThi = !canCat || moRong ? text : `${catTheoTu(text, NGUONG)}…`;
 
   return (
-    <div className="max-w-md">
+    // `w-full` chứ không phải trần riêng: bề rộng do CỘT quyết (khai ở `columns` của từng
+    // trang, lấy từ số đo dữ liệu thật). Đặt thêm một trần ở đây là hai nguồn sự thật cho
+    // cùng một con số, và cái nhỏ hơn sẽ âm thầm thắng.
+    <div className="w-full">
       <span data-testid="summary-text" className="text-slate-700 whitespace-pre-wrap">
         {hienThi}
       </span>

@@ -387,6 +387,11 @@ export function CaseListPageShell() {
 
   const columns: ColumnDef<CaseRow>[] = useMemo(
     () => [
+      // BỀ RỘNG CỘT LẤY TỪ SỐ ĐO DỮ LIỆU THẬT (bản chạy thật, 25/08/2026) — không đoán.
+      // Độ dài nội dung, trung vị / phân vị 90:
+      //   Tóm tắt nội dung  309 / 1332  → 30rem, cột rộng nhất
+      //   Tên cá nhân…       40 /  117  → 16rem
+      // Anh nêu đích danh: Tóm tắt phải rộng hơn Tên cá nhân. Có ca kiểm chốt.
       // Thao tác là cột ĐẦU, ngay sau ô tick — CỐ Ý KHÁC hệ cũ (hệ cũ để cuối).
       // Bảng này rộng nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là cuộn
       // sang phải rồi cuộn ngược về. Anh quyết định 25/08/2026, ưu tiên thao tác nhanh.
@@ -415,6 +420,7 @@ export function CaseListPageShell() {
       {
         key: 'caseCode',
         header: 'STT',
+        width: '7rem',
         render: (r) => (
           // Hệ cũ hiện `26-9893`; dữ liệu trong CSDL vẫn là `2026-9893`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.caseCode)}</span>
@@ -423,17 +429,20 @@ export function CaseListPageShell() {
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        width: '16rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
       },
       {
         key: 'moTaChiTiet',
         header: 'Tóm tắt nội dung',
+        width: '30rem',
         render: (r) => <SummaryCell value={r.moTaChiTiet} />,
       },
       {
         key: 'status',
         header: 'Trạng thái',
+        width: '10rem',
         render: (r) => (
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${CASE_STATUS_BADGE[r.status]}`}>
             {getCaseStatusIcon(r.status)}
@@ -444,6 +453,7 @@ export function CaseListPageShell() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        width: '11rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
@@ -456,24 +466,28 @@ export function CaseListPageShell() {
       {
         key: 'unit',
         header: 'Đơn vị',
+        width: '14rem',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.unit ?? '—',
       },
       {
         key: 'ngayDeXuat',
         header: 'Ngày tiếp nhận',
+        width: '7rem',
         sortKey: 'ngayDeXuat',
         render: (r) => <DateCell value={r.ngayDeXuat} />,
       },
       {
         key: 'createdAt',
         header: 'Ngày tạo',
+        width: '7rem',
         sortKey: 'createdAt',
         render: (r) => formatVNDate(r.createdAt),
       },
       {
         key: 'createdBy',
         header: 'Người nhập',
+        width: '10rem',
         render: (r) =>
           r.createdBy
             ? `${r.createdBy.lastName ?? ''} ${r.createdBy.firstName ?? ''}`.trim() ||
@@ -608,6 +622,9 @@ export function CaseListPageShell() {
         </div>
       )}
       <ListPageShell.Table<CaseRow>
+        // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
+        // nhất trong cột quyết. Xem chú thích ở khối `columns`.
+        fixedLayout
         sortBy={sort.sortBy}
         sortOrder={sort.sortOrder}
         onSort={sort.onSort}
