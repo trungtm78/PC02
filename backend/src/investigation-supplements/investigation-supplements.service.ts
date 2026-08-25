@@ -72,6 +72,10 @@ export class InvestigationSupplementsService {
         decisionDate: dto.decisionDate ? new Date(dto.decisionDate) : null,
         reason: dto.reason,
         deadline: dto.deadline ? new Date(dto.deadline) : null,
+        // Ba mốc ngày của bảng ĐTBS hệ cũ.
+        ngayTiepNhanDTBS: dto.ngayTiepNhanDTBS ? new Date(dto.ngayTiepNhanDTBS) : null,
+        ngayTraHoSoVKS: dto.ngayTraHoSoVKS ? new Date(dto.ngayTraHoSoVKS) : null,
+        ngayTraHoSoToaAn: dto.ngayTraHoSoToaAn ? new Date(dto.ngayTraHoSoToaAn) : null,
         createdById: actorId,
       },
       include: {

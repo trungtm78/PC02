@@ -33,7 +33,11 @@ Mốc đúng của nhóm A lấy từ `frontend/src/features/cases/__tests__/fix
 | A1 | Tab **Thông tin** — 32 ô, đúng nhãn, đúng thứ tự, đúng nửa dòng/tràn dòng | ✅ `legacy-form-layout.test.ts` + `LegacyTabBody.test.tsx` | ✅ | ĐẠT |
 | A2 | Tab **Vụ việc** — 23 ô (13 gương) | ✅ | ✅ | ĐẠT |
 | A3 | Tab **Vụ án** — 34 ô (14 gương) | ✅ | ✅ | ĐẠT |
-| A4 | Tab **ĐTBS** — 4 ô gương + bảng con 5 cột | ✅ (ô) · ⚠️ bảng con chưa dựng | ✅ | ĐẠT một phần — xem §Còn tồn |
+| A4 | Tab **ĐTBS** — 4 ô gương + bảng con 5 cột | ✅ `legacy-form-layout.test.ts` + `DTBSTable.test.tsx` | ✅ | **ĐẠT** |
+| A4b | Bảng ĐTBS: 5 cột dữ liệu + Thao tác, đúng thứ tự hệ cũ | ✅ | ✅ | ĐẠT |
+| A4c | Chế độ Tạo mới: nói rõ phải lưu hồ sơ trước | ✅ | ✅ | ĐẠT |
+| A4d | Ô ngày để trống bỏ hẳn khỏi lời gọi, không gửi chuỗi rỗng | ✅ | ✅ | ĐẠT |
+| A4e | Ba mốc ngày ĐTBS qua được DTO máy chủ | ✅ `dtbs-moc-ngay.spec.ts` | ✅ | ĐẠT |
 | A5 | Tab **Vụ việc TĐC** — 34 ô | ✅ | ✅ | ĐẠT |
 | A6 | Tab **Vụ án TĐC** — 26 ô | ✅ | ✅ | ĐẠT |
 | A7 | Tab **Vật chứng** — 3 ô | ✅ | ✅ | ĐẠT |
@@ -133,15 +137,11 @@ Bốn ô `ngayDeXuat`, `ghiChuTrungDon`, `lanhDaoToTung`, `doVatTaiLieuKemTheo` 
 
 ## Còn tồn
 
-1. **Bảng con "Danh sách điều tra bổ sung" (A4)** — cột đã có ở lược đồ
-   (`ngayTiepNhanDTBS`, `ngayTraHoSoVKS`, `ngayTraHoSoToaAn`) và nhãn cột đã khai
-   (`DTBS_TABLE_COLUMNS`), nhưng bảng chưa dựng trên giao diện. Bốn ô gương của tab thì đã
-   đủ. Đây là phần duy nhất của bố cục hệ cũ chưa dựng xong.
-2. **E5 — hồ sơ đã di trú** chưa đối chiếu được: cơ sở dữ liệu dựng lại từ đầu trên PG18
+1. **E5 — hồ sơ đã di trú** chưa đối chiếu được: cơ sở dữ liệu dựng lại từ đầu trên PG18
    nên chưa có hồ sơ di trú thật; 21 hồ sơ mẫu nằm ngoài phạm vi dữ liệu của tài khoản
    `admin`. Đường ống đã được chứng minh gián tiếp bằng `verify-backfill-parity.ts` (D9)
    chạy trên cơ sở dữ liệu thật. Cần chạy lại E5 sau khi nạp dữ liệu di trú.
-3. **Nạp dữ liệu môi trường**: bảng `document_number_templates` rỗng làm `POST /cases` trả
+2. **Nạp dữ liệu môi trường**: bảng `document_number_templates` rỗng làm `POST /cases` trả
    404 — không phải lỗi của epic, nhưng ai dựng máy mới phải chạy
    `ts-node prisma/seed-document-numbers.ts`, nếu không sẽ không lưu được hồ sơ nào.
 

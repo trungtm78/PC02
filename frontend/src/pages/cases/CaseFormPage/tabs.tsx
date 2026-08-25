@@ -49,6 +49,7 @@ import {
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LegacyTabBody } from "./LegacyTabBody";
+import { DTBSTable } from "./DTBSTable";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseProvenance } from "../../../shared/enums/generated";
 
@@ -1960,7 +1961,9 @@ export function TabCase(props: TabProps) {
   );
 }
 
-export function TabSubjects(props: Parameters<typeof TabSubjectsBoSung>[0] & TabProps) {
+export function TabSubjects(
+  props: Parameters<typeof TabSubjectsBoSung>[0] & TabProps & { caseId?: string },
+) {
   return (
     <LegacyTabBody
       tabId="subjects"
@@ -1968,6 +1971,9 @@ export function TabSubjects(props: Parameters<typeof TabSubjectsBoSung>[0] & Tab
       setFormData={props.setFormData}
       errors={props.errors}
       setErrors={props.setErrors}
+      // Bảng "Danh sách điều tra bổ sung" là phần CHÍNH của tab ĐTBS ở hệ cũ, đứng dưới bốn
+      // ô gương. Bảng đối tượng của hệ mới nằm trong khối gập.
+      afterLegacy={<DTBSTable caseId={props.caseId} />}
     >
       <TabSubjectsBoSung {...props} />
     </LegacyTabBody>

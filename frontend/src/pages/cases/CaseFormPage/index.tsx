@@ -581,6 +581,7 @@ function CaseFormPage() {
           {activeTab === "subjects" && (
             <TabSubjects
               {...tabProps}
+              caseId={isEditMode ? id : undefined}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
               onEdit={(s) => { setEditingSubject(s); setShowSubjectModal(true); }}
