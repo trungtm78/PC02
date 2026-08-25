@@ -14,12 +14,11 @@
  *
  * Dùng: set -a && source .env && set +a
  *       ts-node src/legacy-migration/cli/stage-from-ejsonl.ts \
- *         --file <duong-dan>.ejsonl [--only-missing] [--apply]
+ *         --file <duong-dan>.ejsonl [--refresh-changed] [--apply]
  *
- *   --only-missing     chỉ nạp hồ sơ CHƯA có trong bảng chờ (dùng cho lượt bù)
  *   --refresh-changed  CẬP NHẬT hồ sơ đã có nhưng nội dung hệ cũ đã đổi
  *
- * VÌ SAO CÓ `--refresh-changed`: `--only-missing` chỉ nhìn hồ sơ MỚI. Hồ sơ cũ được cán bộ
+ * Không có cờ này thì công cụ chỉ THÊM MỚI: hồ sơ cũ được cán bộ
  * SỬA ở hệ cũ sau lượt nạp trước thì vẫn "đã có" nên bị bỏ qua, và bản trong bảng chờ đứng
  * yên ở nội dung cũ — số lượng khớp mà nội dung sai. Rà ngày 25/08 tìm thấy đúng 166 hồ sơ
  * và 13 cán bộ ở tình trạng ấy. Cờ này so `rowHash` rồi ghi đè bản đã lệch.
@@ -85,7 +84,6 @@ function arg(name: string): string | undefined {
 async function main(): Promise<void> {
   const file = arg('--file');
   const apply = process.argv.includes('--apply');
-  const onlyMissing = process.argv.includes('--only-missing');
   const refreshChanged = process.argv.includes('--refresh-changed');
 
   if (!file || !fs.existsSync(file)) {
@@ -102,7 +100,7 @@ async function main(): Promise<void> {
   console.log(`\n=== Nạp bảng chờ từ .ejsonl — chế độ: ${apply ? 'GHI THẬT' : 'CHỈ ĐỌC'} ===`);
   console.log(`Tệp        : ${file}`);
   console.log(`Collection : ${collection}`);
-  console.log(`Chỉ bù thiếu: ${onlyMissing ? 'có' : 'không'}\n`);
+  console.log(`Nạp lại bản đã sửa: ${refreshChanged ? 'có' : 'KHÔNG (chỉ thêm mới)'}\n`);
 
   try {
     if (apply) {

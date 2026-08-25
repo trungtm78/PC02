@@ -92,6 +92,7 @@ async function main(): Promise<void> {
     let daCap = 0;
     let thieuDuKien = 0;
     const viDu: string[] = [];
+    const hong: string[] = [];
 
     for (const p of canCap) {
       const raw = (p.legacyRaw ??
@@ -105,13 +106,25 @@ async function main(): Promise<void> {
       const ma = capMaDuyNhat(base, daDung);
       if (viDu.length < 5) viDu.push(`${p.stt} → ${ma}`);
       if (apply) {
-        await prisma.petition.update({ where: { id: p.id }, data: { stt: ma } });
+        try {
+          await prisma.petition.update({ where: { id: p.id }, data: { stt: ma } });
+        } catch (e) {
+          // `stt` là @unique và cán bộ vẫn đang tạo hồ sơ trong lúc lượt này chạy. Một va
+          // chạm không được phép làm hỏng 1.332 hồ sơ còn lại — ghi nhận rồi đi tiếp, chạy
+          // lại sẽ nhặt nốt vì công cụ chỉ đụng hồ sơ còn mã tạm.
+          hong.push(`${p.stt} → ${ma}: ${(e as Error).message.split('\n')[0]}`);
+          continue;
+        }
       }
       daCap++;
     }
 
     console.log(`${apply ? 'Đã cấp' : 'Sẽ cấp'}      : ${daCap.toLocaleString('vi-VN')}`);
     console.log(`Thiếu dữ kiện : ${thieuDuKien.toLocaleString('vi-VN')} (giữ nguyên mã tạm)`);
+    if (hong.length) {
+      console.log(`Không cấp được: ${hong.length} (chạy lại sẽ nhặt nốt)`);
+      console.log(`  ${hong.slice(0, 5).join('\n  ')}`);
+    }
     if (viDu.length) console.log(`\nVí dụ:\n  ${viDu.join('\n  ')}`);
     if (!apply) console.log(`\n(CHỈ ĐỌC — chưa ghi gì. Thêm --apply để thực thi.)`);
   } finally {
