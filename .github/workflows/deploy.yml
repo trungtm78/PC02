@@ -172,6 +172,16 @@ jobs:
             /tmp/pc02-${{ github.sha }}.tar.gz \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/
 
+      # Kich ban deploy phai di TU KHO MA len may chu.
+      #
+      # Truoc 26/08/2026 workflow chi chay /home/pc02/bin/deploy.sh — ban nam san tren may
+      # chu — nen scripts/deploy/deploy.sh trong kho ma chi la ban chep de doc. Hai ban troi
+      # xa nhau luc nao khong biet, va do la cach mot loi song sot nhieu thang: buoc sao luu
+      # truoc deploy hong, 243/246 tep la 0 byte, ma sua trong kho ma thi khong co hieu luc.
+      - name: rsync deploy.sh to VM
+        run: |
+          rsync -avz             -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes"             scripts/deploy/deploy.sh             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/pc02/bin/deploy.sh
+
       - name: Execute deploy.sh on VM
         run: |
           ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
