@@ -90,6 +90,56 @@ export interface CaseFormData {
   phanLoaiToiPhamLinhVuc: string;    // Phân loại tội phạm theo lĩnh vực
   deXuatXuLy: string;                // Đề xuất xử lý
   yeuCauBoSung: string;              // Yêu cầu bổ sung
+
+  // ── Ô hệ cũ bổ sung để form khớp bố cục `/doi-1/Them` (epic 26/08/2026) ──
+  // Trước đây các ô này chỉ hiện ở panel "Thông tin nghiệp vụ bổ sung" cuối trang
+  // (LegacyParityFields) hoặc không hiện ở đâu. Nay chúng nằm đúng vị trí hệ cũ.
+  ngayDeXuat: string;                // Ngày/Tháng/Năm đề xuất
+  phanLoaiNguonTinBanDau: string;    // Phân loại ban đầu
+  loaiThongTin: string;              // Loại thông tin
+  ngayPhieuChuyen: string;           // Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra
+  ngayTiepNhanNguonTin: string;      // Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)
+  diaChiCungCap: string;             // Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại
+  doVatTaiLieuKemTheo: string;       // Đồ vật, tài liệu kèm theo
+  ngayVietDon: string;               // Ngày viết đơn
+  ghiChuTrungDon: string;            // Ghi chú trùng đơn
+  baoCaoBanGiamDoc: string;          // Trường hợp báo cáo Ban Giám đốc (hệ cũ là ô chữ)
+  ngayGiaoDonViGiaiQuyet: string;    // Ngày giao đơn vị giải quyết
+  laCongNgheCao: boolean;            // Bấm chọn nếu xác định đây là tội phạm công nghệ cao
+  lanhDaoToTung: string;             // Lãnh đạo phụ trách tố tụng
+  ngayXayRa: string;                 // Ngày tội phạm xảy ra
+  noiXayRaPhuongXa: string;          // Nơi xảy ra (cấp phường/xã)
+
+  // ── Tab Vụ việc hệ cũ ────────────────────────────────────────────────────
+  soQDPhanCongNguonTin: string;      // Quyết định phân công giải quyết nguồn tin tội phạm
+  ngayQDPhanCongNguonTin: string;
+  soQDKhongKhoiTo: string;           // Quyết định Không khởi tố
+  ngayQDKhongKhoiTo: string;
+  canCuKhongKhoiTo: string;          // Căn cứ để ra Quyết định Không khởi tố
+  lyDoKhongKhoiTo: string[];         // Lý do ra QĐ không khởi tố vụ án (BLTTHS Đ.157)
+  chuyenVuViecDonViKhac: string;     // Chuyển vụ việc cho đơn vị khác
+  nhapVaoVuViecSo: string;           // Nhập vào vụ việc hồ sơ khác
+  phanLoaiDanSu: string;             // Phân loại dân sự
+
+  // ── Tab Vụ việc TĐC hệ cũ ────────────────────────────────────────────────
+  vuViecTamDungTruoc2015: boolean;   // Vụ việc tạm dừng giải quyết (trước năm 2015)
+  soQDTamDinhChiNguonTin: string;    // Quyết định Tạm đình chỉ nguồn tin
+  ngayQDTamDinhChiNguonTin: string;
+  canCuTamDinhChiNguonTin: string;
+  lyDoTamDinhChiNguonTin: string[];  // Lý do tạm đình chỉ nguồn tin (BLTTHS Đ.148)
+  ngayHetThoiHieuVuViec: string;     // Ngày tháng năm hết thời hiệu truy cứu TNHS
+  khacPhucLyDoTDCVuViec: string;     // Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ việc
+  tienDoKhacPhucTDCVuViec: string;   // Tiến độ khắc phục TĐC vụ việc
+  soPhucHoiNguonTin: string;         // Số Phục hồi nguồn tin tội phạm
+  ngayPhucHoiNguonTin: string;
+
+  // ── Tab Vật chứng hệ cũ (ba ô chữ, khác bảng vật chứng của hệ mới) ───────
+  vatChungMoTa: string;              // Loại, đặc điểm đồ vật, tài liệu, vật chứng
+  lenhNhapKho: string;               // Lệnh nhập, phiếu nhập kho
+  noiLuuTruBaoQuan: string;          // Nơi lưu trữ, bảo quản, kê biên, phong tỏa
+
+  // ── Tab Vụ án hệ cũ ──────────────────────────────────────────────────────
+  toiDanhChinhKhoiToId: string;      // Tội danh chính KHI KHỞI TỐ (khác tội danh nhận định ban đầu)
   caseTitle: string;          // Tiêu đề hồ sơ (bắt buộc)
   description: string;        // Mô tả chi tiết
   status: string;             // Trạng thái
@@ -358,6 +408,44 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   phanLoaiToiPhamLinhVuc: "",
   deXuatXuLy: "",
   yeuCauBoSung: "",
+  ngayDeXuat: "",
+  phanLoaiNguonTinBanDau: "",
+  loaiThongTin: "",
+  ngayPhieuChuyen: "",
+  ngayTiepNhanNguonTin: "",
+  diaChiCungCap: "",
+  doVatTaiLieuKemTheo: "",
+  ngayVietDon: "",
+  ghiChuTrungDon: "",
+  baoCaoBanGiamDoc: "",
+  ngayGiaoDonViGiaiQuyet: "",
+  laCongNgheCao: false,
+  lanhDaoToTung: "",
+  ngayXayRa: "",
+  noiXayRaPhuongXa: "",
+  soQDPhanCongNguonTin: "",
+  ngayQDPhanCongNguonTin: "",
+  soQDKhongKhoiTo: "",
+  ngayQDKhongKhoiTo: "",
+  canCuKhongKhoiTo: "",
+  lyDoKhongKhoiTo: [],
+  chuyenVuViecDonViKhac: "",
+  nhapVaoVuViecSo: "",
+  phanLoaiDanSu: "",
+  vuViecTamDungTruoc2015: false,
+  soQDTamDinhChiNguonTin: "",
+  ngayQDTamDinhChiNguonTin: "",
+  canCuTamDinhChiNguonTin: "",
+  lyDoTamDinhChiNguonTin: [],
+  ngayHetThoiHieuVuViec: "",
+  khacPhucLyDoTDCVuViec: "",
+  tienDoKhacPhucTDCVuViec: "",
+  soPhucHoiNguonTin: "",
+  ngayPhucHoiNguonTin: "",
+  vatChungMoTa: "",
+  lenhNhapKho: "",
+  noiLuuTruBaoQuan: "",
+  toiDanhChinhKhoiToId: "",
 
   status: "",
   priority: "",
