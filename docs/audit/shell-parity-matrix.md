@@ -101,6 +101,21 @@ Anh nêu đích danh: Tóm tắt phải rộng hơn Tên cá nhân. Có ca kiể
 NGHĨA của cột (tên người / cơ quan) chứ không theo độ dài đang có — đặt theo độ dài đang có là
 hợp thức hoá lỗi dữ liệu và tốn thêm 30rem để hiện lại đúng thứ cột bên cạnh đã hiện.
 
+##### Vá tiếp: chữ đè sang cột bên (anh chụp màn hình 25/08/2026)
+
+Đặt bề rộng cố định xong thì lộ ra vế còn thiếu: ô `whitespace-nowrap` mà **không**
+`overflow-hidden` thì bản ghi dài hơn cột sẽ tràn ra và **vẽ đè** lên cột bên cạnh. Trên Vụ
+việc, mã `VV-LEGACY-TamDinhChi_vu_viec_21_…` (~35 ký tự) trong cột STT rộng 7rem đè lên cột
+"Tên cá nhân" — hai dòng chữ chồng nhau, không đọc được cột nào.
+
+`whitespace-nowrap` và `overflow-hidden` là một **cặp**, không phải hai lựa chọn độc lập. Đã
+thêm `overflow-hidden text-ellipsis` vào `TABLE_CELL`. Menu "Thao tác khác" không bị cắt vì
+nó render qua portal ra `document.body`.
+
+Ghi chú còn lại: 121 vụ việc mang mã tạm `VV-LEGACY-…` nay hiện dạng cắt cụt (`VV-LEGACY-T…`).
+Cắt cụt đúng hơn là đè chữ, nhưng mã ấy vẫn vô nghĩa với cán bộ — gốc rễ là những hồ sơ chưa
+suy được mã từ nguồn `TamDinhChi_vu_viec_21` (không có `nam`/`stt`), chưa xử lý.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu

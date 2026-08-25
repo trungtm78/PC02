@@ -435,6 +435,24 @@ describe('IncidentListPageShell — bố cục theo hệ cũ', () => {
     expect(beRong('Tóm tắt nội dung')).toBeGreaterThan(beRong('Tên cá nhân'));
   });
 
+
+  /**
+   * Chốt ở TẦNG TRANG rằng ô không thể vẽ đè sang cột bên.
+   *
+   * Anh chụp màn hình 25/08/2026: mã "VV-LEGACY-TamDinhChi_vu_viec_21_…" trong cột STT rộng
+   * 7rem tràn ra đè lên cột "Tên cá nhân", hai dòng chữ chồng nhau. Chốt ở token là chốt
+   * design token; chốt ở đây là chốt đúng cái ô mà anh nhìn thấy.
+   */
+  it('ô dữ liệu cắt phần thừa, không vẽ đè sang cột bên', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    const oStt = within(hang).getAllByRole('cell')[2]; // [0] ô tick, [1] Thao tác, [2] STT
+    expect(oStt.className).toContain('overflow-hidden');
+    expect(oStt.className).toContain('whitespace-nowrap');
+  });
+
   it('mã hồ sơ hiện dạng ngắn như hệ cũ', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByText('26-9706')).toBeInTheDocument());

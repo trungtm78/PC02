@@ -209,6 +209,18 @@ describe('Bảng danh sách phải cuộn ngang được', () => {
     expect(styles.TABLE_CELL).toContain('whitespace-nowrap');
   });
 
+  it('TABLE_CELL CẮT phần thừa — cấm xuống dòng mà không cắt là chữ ĐÈ sang cột bên', () => {
+    // Lỗi anh chụp màn hình 25/08/2026: mã "VV-LEGACY-TamDinhChi_vu_viec_21_…" dài ~35 ký
+    // tự nằm trong cột STT rộng 7rem. Ô cấm xuống dòng nên chữ không gãy dòng, mà KHÔNG có
+    // `overflow-hidden` nên nó không bị cắt — nó tràn ra và VẼ ĐÈ lên cột "Tên cá nhân" bên
+    // cạnh, hai dòng chữ chồng lên nhau không đọc được cột nào.
+    //
+    // `whitespace-nowrap` và `overflow-hidden` là một CẶP: có vế đầu mà thiếu vế sau thì
+    // bảng bố cục cố định luôn luôn đè chữ ngay khi một bản ghi dài hơn cột.
+    expect(styles.TABLE_CELL).toContain('overflow-hidden');
+    expect(styles.TABLE_CELL).toContain('text-ellipsis');
+  });
+
   it('TABLE_HEADER_CELL vẫn CHO xuống dòng — nhãn dài không được quyết bề rộng cột', () => {
     // Nhãn "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" dài 45 ký tự. Cấm xuống dòng ở
     // tiêu đề thì một mình nó kéo cột rộng ra, đẩy bảng dài vô ích. Để tiêu đề xuống dòng

@@ -123,7 +123,16 @@ export const TABLE_ROW = "hover:bg-blue-50";
 // tụt rất thấp, bảng luôn vừa khít khung, và không thanh cuộn ngang nào xuất hiện: 13 cột
 // bị ép vào bề ngang khung, chữ vỡ vụn ba bốn dòng. Đó là lỗi anh báo ngày 25/08/2026.
 // Cột chữ tự do dùng TABLE_CELL_TRUNCATE bên dưới để không kéo bảng rộng vô tận.
-export const TABLE_CELL = "px-4 py-3 text-sm text-slate-700 whitespace-nowrap";
+// `whitespace-nowrap` và `overflow-hidden` là một CẶP, không phải hai lựa chọn độc lập.
+//
+// Cấm xuống dòng mà không cắt phần thừa thì ở bảng bố cục CỐ ĐỊNH, một bản ghi dài hơn cột
+// sẽ tràn ra và VẼ ĐÈ lên cột bên cạnh — hai dòng chữ chồng lên nhau, không đọc được cột
+// nào. Anh chụp đúng cảnh ấy ngày 25/08/2026: mã "VV-LEGACY-TamDinhChi_vu_viec_21_…" dài
+// ~35 ký tự trong cột STT rộng 7rem, đè lên cột "Tên cá nhân".
+//
+// Menu "Thao tác khác" KHÔNG bị cắt vì nó render qua portal ra ngoài bảng.
+export const TABLE_CELL =
+  "px-4 py-3 text-sm text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis";
 
 export const TABLE_CELL_BOLD = "px-4 py-3 text-sm text-slate-800 font-medium";
 
