@@ -1,78 +1,153 @@
-# UAT-COVERAGE — Danh sách theo bố cục hệ cũ (v0.73.0.0)
+# UAT-COVERAGE — Epic "Form Vụ án khớp bố cục hệ cũ"
 
-Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md` · PR #230 (đã gộp `2dfdeab`, **đã deploy**)
+Nhánh: `feat/legacy-form-parity-vu-an` · Lập 2026-08-26
 
-Chạy ngày **25/08/2026** trên **bản chạy thật** `https://new.pc02hcm.com` với **dữ liệu thật**
-(46.660 đơn thư · 4.717 vụ việc · 3.380 vụ án). Toàn bộ ca kiểm API **chỉ đọc** — không
-tạo/sửa/xoá hồ sơ nào.
+Yêu cầu gốc của anh, chép nguyên văn để đối chiếu ngược:
 
-## Kết quả
+> Toàn bộ item trên màn hình nhập liệu phải giống hệ thống cũ, cả về tên và vị trí trong màn
+> hình tạo mới và chỉnh sửa. Đồng thời làm sao chuyển được toàn bộ data hệ thống cũ vào hệ
+> thống mới.
 
-| Lớp | Số ca | Đạt | Không đạt |
-|---|---|---|---|
-| Ca kiểm đơn vị máy chủ (jest) | 2.975 | **2.975** | 0 |
-| Ca kiểm đơn vị giao diện (vitest) | 1.541 | **1.541** | 0 |
-| **UAT API trên bản chạy thật (playwright)** | **26** | **26** | **0** |
-| **Tổng** | **4.542** | **4.542** | **0** |
+Kèm bốn quyết định đã chốt: caption giữ nguyên (sửa 3 lỗi đánh máy) · action/lọc/xuất/in
+giữ của hệ mới · màn chuẩn là `/VuAn` · ô hệ mới hệ cũ không có thì gập xuống cuối tab.
 
-## Ma trận phủ
+---
 
-| ID | Màn hình / Chức năng | Bằng chứng | Kết quả |
-|---|---|---|---|
-| U-01 | Đơn thư — đủ cột đúng thứ tự hệ cũ | `PetitionListPageShell.test.tsx` — so vị trí tiêu đề cột | ✅ PASS |
-| U-02 | Đơn thư — Tóm tắt nội dung có chữ, "Xem thêm" mở rộng | unit + UAT `AC-1` trên bản thật | ✅ PASS |
-| U-03 | Đơn thư — Thao tác là cột CUỐI | unit — `viTri('Thao tác') === headers.length - 1` | ✅ PASS |
-| U-04 | Đơn thư — mã hiện `26-…`, dữ liệu vẫn `2026-…` | unit + `formatHoSoCode` (4 ca) | ✅ PASS |
-| U-05 | Đơn thư — lọc STT **cả hai dạng** ra cùng hồ sơ | UAT `AC-3` — so danh sách id, không chỉ so số lượng | ✅ PASS |
-| U-06 | Đơn thư — lọc STT cũ | UAT `AC-4` | ✅ PASS |
-| U-07 | Đơn thư — lọc Cán bộ nhập | UAT `AC-5` + `AC-7` (dropdown lấy được danh sách) | ✅ PASS |
-| U-08 | Đơn thư — Từ ngày / Đến ngày | `LegacyFilterPanel.test.tsx` + bộ lọc ngày sẵn có | ✅ PASS |
-| U-09 | Đơn thư — Chọn khoảng thời gian (5 mốc) | `dateRangePresets.test.ts` (10 ca) | ✅ PASS |
-| U-10 | Đơn thư — Xóa bộ lọc | unit — `onReset` + `url.clearAll()` | ✅ PASS |
-| U-11 | Đơn thư — **GIỮ** chip trạng thái, thẻ thống kê | unit `getAllByRole('tab')` + UAT `/stats` | ✅ PASS |
-| U-12 | Đơn thư — **GIỮ** sắp xếp theo cột | UAT — `sortOrder=asc` vẫn 200 | ✅ PASS |
-| U-13 | Vụ việc — đủ cột, Thao tác cuối, Tóm tắt có chữ | `IncidentListPageShell.test.tsx` + UAT `AC-1` | ✅ PASS |
-| U-14 | Vụ việc — mã hiện dạng ngắn | unit — hiện `26-9706` | ✅ PASS |
-| U-15 | Vụ việc — lọc STT / STT cũ / Cán bộ nhập | UAT `AC-3/4/5` | ✅ PASS |
-| U-16 | Vụ việc — GIỮ chip, thẻ, sắp xếp | unit + UAT | ✅ PASS |
-| U-17 | Vụ án — đủ cột, Thao tác cuối, Tóm tắt có chữ | `CaseListPageShell.test.tsx` + UAT `AC-1` | ✅ PASS |
-| U-18 | Vụ án — mã hiện dạng ngắn | unit — hiện `26-9893` | ✅ PASS |
-| U-19 | Vụ án — lọc STT / STT cũ / Cán bộ nhập | UAT `AC-3/4/5` | ✅ PASS |
-| U-20 | Vụ án — GIỮ chip, thẻ, sắp xếp | unit + UAT | ✅ PASS |
-| U-21 | Cả ba — bộ lọc lưu trong địa chỉ trang | unit — đọc `url.getParam`, ca kiểm nạp từ URL | ✅ PASS |
-| U-22 | Cả ba — đổi bộ lọc thì về trang 1 | unit — `setParams({..., page: '1'})` | ✅ PASS |
-| U-23 | Xuất Excel | **Đơn thư**: HTTP 200, file Excel thật 101.636 byte. **Vụ việc/Vụ án**: N/A — máy chủ KHÔNG có endpoint xuất; nút không được dựng nên không có nút chết | ✅ PASS |
-| U-24 | Máy chủ — lọc `stt` hai dạng (API thật) | UAT `AC-3` × 3 màn hình | ✅ PASS |
+## Cách đọc bảng
 
-**24/24 dòng PASS.**
-
-## Hai ca kiểm cố ý bắt thứ ca kiểm đơn vị không thấy
-
-1. **Mã không tồn tại phải ra 0 hồ sơ.** Nếu lọc dùng `contains` thay vì khớp chính xác,
-   một chuỗi như `26-1` sẽ quét trúng hàng nghìn mã khác mà vẫn "chạy được".
-2. **Ô lọc RỖNG không được thu hẹp kết quả.** Chuỗi rỗng lọt vào mệnh đề `where` rồi lọc ra
-   0 hồ sơ là bẫy kinh điển — người dùng chỉ thấy "danh sách trống", không thấy lỗi.
-
-Cả hai đều PASS trên cả ba màn hình.
-
-## Ngoài phạm vi — có lý do
-
-| Không kiểm | Lý do |
+| Cột | Nghĩa |
 |---|---|
-| "Đã chuyển đội khác", "Tìm trường bỏ trống" | **Không dựng** — hệ mới chưa có khái niệm tương đương (anh chốt qua AskUserQuestion) |
-| Ô "Từ khóa" trong thẻ lọc | **Không dựng** — thanh công cụ ngay trên đã có; hai ô tìm trên một màn hình gây nhầm |
-| Trang Tổng hợp, UTĐT | Ngoài phạm vi đợt này (spec §Cố ý KHÔNG làm) |
-| Ứng dụng di động | Quy trình dựng hỏng sẵn từ 14/08 (`subosito/flutter-action` ghim SHA không còn tồn tại) |
+| Viết test | Đã có ca kiểm tự động phủ dòng này |
+| Chạy test | Đã chạy và có kết quả |
+| Kết quả | ĐẠT / KHÔNG ĐẠT / CHỜ |
 
-## Phát hiện trong lúc UAT — KHÔNG do thay đổi này gây ra
+Mốc đúng của nhóm A lấy từ `frontend/src/features/cases/__tests__/fixtures/old-system-captions.ts`
+— bản kết xuất DOM chụp thẳng từ `pc02hcm.com/doi-1/Them` ngày 26/08/2026 (chỉ đọc).
 
-Cột mã hồ sơ nay hiện rõ trên danh sách nên lộ ra hai khoảng trống dữ liệu có sẵn từ trước:
+---
 
-| Vấn đề | Số lượng | Suy được mã đúng? |
+## A. Bố cục màn hình nhập liệu — 10 tab
+
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+| A1 | Tab **Thông tin** — 32 ô, đúng nhãn, đúng thứ tự, đúng nửa dòng/tràn dòng | ✅ `legacy-form-layout.test.ts` + `LegacyTabBody.test.tsx` | ✅ | ĐẠT |
+| A2 | Tab **Vụ việc** — 23 ô (13 gương) | ✅ | ✅ | ĐẠT |
+| A3 | Tab **Vụ án** — 34 ô (14 gương) | ✅ | ✅ | ĐẠT |
+| A4 | Tab **ĐTBS** — 4 ô gương + bảng con 5 cột | ✅ (ô) · ⚠️ bảng con chưa dựng | ✅ | ĐẠT một phần — xem §Còn tồn |
+| A5 | Tab **Vụ việc TĐC** — 34 ô | ✅ | ✅ | ĐẠT |
+| A6 | Tab **Vụ án TĐC** — 26 ô | ✅ | ✅ | ĐẠT |
+| A7 | Tab **Vật chứng** — 3 ô | ✅ | ✅ | ĐẠT |
+| A8 | Tab **HS nghiệp vụ** — 5 ô | ✅ | ✅ | ĐẠT |
+| A9 | Tab **TK 48 trường** — 43 ô | ✅ | ✅ | ĐẠT |
+| A10 | Tab **Ghi âm, ghi hình** — 13 ô | ✅ | ✅ | ĐẠT |
+| A11 | Tổng số ô khớp bản chụp, không thừa không thiếu | ✅ | ✅ | ĐẠT |
+| A12 | Sửa đúng 3 lỗi đánh máy, mọi chữ khác giữ nguyên | ✅ | ✅ | ĐẠT |
+| A13 | Trường gương: sửa một chỗ, mọi tab đổi theo | ✅ `LegacyLayoutSection.test.tsx` | ✅ | ĐẠT |
+| A14 | Màn **Tạo mới** và **Chỉnh sửa** dùng chung một đặc tả | ✅ (cấu trúc: cùng `LegacyTabBody`) | ✅ | ĐẠT |
+| A15 | Khối "Bổ sung hệ mới" gập sẵn, không xoá tính năng nào | ✅ `LegacyTabBody.test.tsx` | ✅ | ĐẠT |
+| A16 | Khối "Nguồn vụ án" ghim trên cùng (máy chủ bắt buộc) | ✅ | ✅ | ĐẠT |
+
+## B. Màn Danh sách vụ án
+
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+| B1 | 9 cột hệ cũ + Trạng thái, đúng thứ tự | ✅ `CaseListPageShell.test.tsx` | ✅ | ĐẠT |
+| B2 | Cột **Đối tượng bị can** ở vị trí 3, in tên bị can | ✅ | ✅ | ĐẠT |
+| B3 | Dư thì gộp "+N", đếm đúng số bị can | ✅ (FE) + ✅ `cases.service.spec.ts` (BE `_count`) | ✅ | ĐẠT |
+| B4 | Hồ sơ chưa có bị can hiện gạch ngang | ✅ | ✅ | ĐẠT |
+| B5 | `Nguồn đơn/Đơn vị giao` ẩn sẵn, bật lại được | ✅ | ✅ | ĐẠT |
+| B6 | Thao tác giữ đầu + ghim mép trái | ✅ | ✅ | ĐẠT |
+| B7 | Bộ lọc, xuất Excel, phân trang, sắp xếp giữ nguyên | ✅ (bộ ca kiểm sẵn có) | ✅ | ĐẠT |
+
+## C. Lưu và đọc lại dữ liệu
+
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+| C1 | Điền kín mọi ô của 10 tab → không ô nào rơi giữa đường | ✅ `legacyFormPayload.test.ts` | ✅ | ĐẠT |
+| C2 | Một vòng lưu → mở lại: giá trị giữ nguyên | ✅ | ✅ | ĐẠT |
+| C3 | Xoá trắng một ô → giá trị cũ mất theo | ✅ | ✅ | ĐẠT |
+| C4 | DTO nhận đủ ô mới (thiếu là 400, không lưu được) | ✅ `legacy-form-parity.dto.spec.ts` | ✅ | ĐẠT |
+| C5 | Ô hệ cũ đi xuống Prisma ở CẢ tạo mới lẫn chỉnh sửa | ✅ `cases.service.spec.ts` + `legacy-form-parity.mapper.spec.ts` | ✅ | ĐẠT |
+| C6 | Đối tượng nhập tay không bị loại thầm lặng | ✅ `subjectsKhongMatDuLieu.test.ts` | ✅ | ĐẠT |
+| C7 | Ô rỗng của đối tượng bỏ hẳn, không gửi chuỗi rỗng | ✅ | ✅ | ĐẠT |
+| C8 | Panel bổ sung không đè giá trị gõ trong tab | ✅ `LegacyParityFields.khongTrungO.test.tsx` | ✅ | ĐẠT |
+| C9 | Tab Ủy thác dùng chung ô với tab Thông tin | ✅ | ✅ | ĐẠT |
+| C10 | Mã hồ sơ không gửi lên (số hiệu tự sinh) | ✅ | ✅ | ĐẠT |
+
+## D. Chuyển dữ liệu hệ cũ
+
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+| D1 | 7 mốc ngày thống kê vào `case_statistics` | ✅ `legacy-form-parity.migration.spec.ts` | ✅ | ĐẠT |
+| D2 | 12 chỉ tiêu VPHC / ghi âm ghi hình vào cột | ✅ | ✅ | ĐẠT |
+| D3 | 24 khoá hệ cũ mới có cột vào `cases` | ✅ | ✅ | ĐẠT |
+| D4 | Bản gốc `legacyRaw` giữ nguyên, lưới an toàn không mỏng đi | ✅ | ✅ | ĐẠT |
+| D5 | Sổ đăng ký khoá đã ánh xạ phản ánh đúng thực tế | ✅ | ✅ | ĐẠT |
+| D6 | Cổng "không sót dữ liệu" xanh | ✅ `field-parity.gate.spec.ts` | ✅ | ĐẠT |
+| D7 | Cờ `formOnly` không thành cửa sau khai cột bừa | ✅ | ✅ | ĐẠT |
+| D8 | Công cụ bù chỉ điền ô trống, chạy lại không đổi gì | ✅ `backfill-statistic.util.spec.ts` | ✅ | ĐẠT |
+| D9 | **Bù dữ liệu trên CSDL THẬT, đọc lại từng cột** | ✅ `verify-backfill-parity.ts` | ✅ | ĐẠT |
+| D10 | Công cụ sinh `legacyParityFields.generated.ts` khớp đặc tả | ✅ (`--check`) | ✅ | ĐẠT |
+
+## E. Đối chiếu trên bản chạy thật
+
+| ID | Màn hình/Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+Chạy 2026-08-26 trên bản dựng thật: máy chủ `localhost:3000` (PG18), giao diện
+`localhost:5173`, đăng nhập `admin`.
+
+| E1 | `/cases` — cột khớp ảnh `old-vuan-list.png` | Đối chiếu tay | ✅ | **ĐẠT** |
+| E2 | `/cases/new` — 10 tab đúng thứ tự, tab Thông tin đúng 32 ô | Đối chiếu tay | ✅ | **ĐẠT** |
+| E2b | Tab Vụ việc TĐC đúng 34 ô, nhãn kèm hậu tố `(Tab: …)` | Đối chiếu tay | ✅ | **ĐẠT** |
+| E3 | `/cases/:id/edit` — bố cục y hệt màn Tạo mới (32 ô) | Đối chiếu tay | ✅ | **ĐẠT** |
+| E3b | Panel bổ sung KHÔNG dựng ô trùng (0 ô parity) | Đối chiếu tay | ✅ | **ĐẠT** |
+| E4 | Nhập → Lưu (201) → mở lại: **7/7 ô giữ nguyên giá trị** | Đối chiếu tay | ✅ | **ĐẠT** |
+| E5 | Hồ sơ ĐÃ DI TRÚ mở ra có dữ liệu ở ô hệ cũ | Đối chiếu tay | ⚠️ CHƯA | Chưa chạy — xem §Còn tồn |
+
+### Chi tiết E1 — cột thật đọc từ màn hình
+
+```
+Thao tác | STT | Ngày đề xuất | Đối tượng bị can | Tên cá nhân, cơ quan, tổ chức cung cấp,
+bị hại | Tóm tắt nội dung | Đơn vị giải quyết | Kết quả xử lý, giải quyết khác | Người nhập |
+Trạng thái
+```
+
+Đúng 9 cột hệ cũ (`/VuAn`) + Trạng thái, `Đối tượng bị can` ở vị trí thứ ba.
+
+### Chi tiết E4 — bảy ô đọc lại sau khi lưu
+
+| Ô | Giá trị gõ vào | Giá trị đọc lại |
 |---|---|---|
-| Vụ án **không có mã** (`caseCode` rỗng) | **76 / 3.380** (2,2%) | **Có — 76/76** đều có `nam`+`stt` trong bản thô |
-| Vụ việc mang **mã tạm** `VV-LEGACY-…` | **125 / 4.717** (2,6%) | **Chỉ 7/125.** 118 hồ sơ còn lại đến từ collection `TamDinhChi_vu_viec_21` của hệ cũ, vốn **không có** `nam`/`stt` — chúng chỉ có `tiep_nhan_so`, và các trường ngày còn **bị đảo tên** (`tiep_nhan_ngay: 2020`, `tiep_nhan_nam: 30`) |
+| `ngayDeXuat` | 2026-08-20 | `2026-08-20` |
+| `nguonDon` | Bưu điện | `Bưu điện` |
+| `soPhieuChuyen` | PC-777 | `PC-777` |
+| `ghiChuTrungDon` | Ghi chú trùng đơn thử | `Ghi chú trùng đơn thử` |
+| `lanhDaoToTung` | Nguyễn Văn Lãnh | `Nguyễn Văn Lãnh` |
+| `doVatTaiLieuKemTheo` | USB, CCCD photo | `USB, CCCD photo` |
+| `description` | Nội dung kiểm chứng… | `Nội dung kiểm chứng…` |
 
-Đã tra tận nguồn trên bản sao MongoDB hệ cũ để kết luận, không suy đoán. 76 vụ án và 7 vụ
-việc sửa được bằng đúng công cụ đã dùng cho 1.333 đơn thư (`backfill-petition-code.ts`);
-118 hồ sơ tạm đình chỉ thì **không đoán** vì dữ liệu gốc không có mã.
+Bốn ô `ngayDeXuat`, `ghiChuTrungDon`, `lanhDaoToTung`, `doVatTaiLieuKemTheo` trước epic này
+**không có đường lên máy chủ** — gõ xong lưu là mất.
+
+---
+
+## Còn tồn
+
+1. **Bảng con "Danh sách điều tra bổ sung" (A4)** — cột đã có ở lược đồ
+   (`ngayTiepNhanDTBS`, `ngayTraHoSoVKS`, `ngayTraHoSoToaAn`) và nhãn cột đã khai
+   (`DTBS_TABLE_COLUMNS`), nhưng bảng chưa dựng trên giao diện. Bốn ô gương của tab thì đã
+   đủ. Đây là phần duy nhất của bố cục hệ cũ chưa dựng xong.
+2. **E5 — hồ sơ đã di trú** chưa đối chiếu được: cơ sở dữ liệu dựng lại từ đầu trên PG18
+   nên chưa có hồ sơ di trú thật; 21 hồ sơ mẫu nằm ngoài phạm vi dữ liệu của tài khoản
+   `admin`. Đường ống đã được chứng minh gián tiếp bằng `verify-backfill-parity.ts` (D9)
+   chạy trên cơ sở dữ liệu thật. Cần chạy lại E5 sau khi nạp dữ liệu di trú.
+3. **Nạp dữ liệu môi trường**: bảng `document_number_templates` rỗng làm `POST /cases` trả
+   404 — không phải lỗi của epic, nhưng ai dựng máy mới phải chạy
+   `ts-node prisma/seed-document-numbers.ts`, nếu không sẽ không lưu được hồ sơ nào.
+
+## Ngoài phạm vi (có lý do)
+
+- **Đơn thư và Vụ việc**: epic này chỉ nhận màn Vụ án. Hai màn kia vẫn dùng đường dedup cũ.
+- **Dựng cơ sở dữ liệu từ số không**: `prisma migrate deploy` hỏng ở
+  `20260227000000_add_case_metadata` — nợ có sẵn, không do epic này, nhưng là rủi ro thật cho
+  lần dựng máy chủ mới. Đã ghi ở `PROGRESS.md`.
