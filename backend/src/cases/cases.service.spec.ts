@@ -23,9 +23,10 @@ import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
-import { CaseStatus, PetitionStatus, CapDoToiPham, Prisma } from '@prisma/client';
+import { CaseStatus, PetitionStatus, CapDoToiPham, Prisma, SubjectType } from '@prisma/client';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
+import { LIST_SUSPECT_NAMES_LIMIT } from './cases.constants';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -225,6 +226,26 @@ describe('CasesService', () => {
       const { select } = mockPrisma.case.findMany.mock.calls[0][0];
       expect(select.nguonDon).toBe(true);
       expect(select.ketQuaXuLyKhac).toBe(true);
+    });
+
+    it('trả về danh sách bị can — cột "Đối tượng bị can" của bảng Vụ án hệ cũ', async () => {
+      // Hệ cũ (/VuAn) có cột "Đối tượng bị can" ở vị trí thứ 3. Hệ mới chưa trả dữ liệu
+      // này ở API danh sách nên cột không dựng được. Lấy từ bảng Subject (type SUSPECT),
+      // giới hạn 5 tên để không phình payload; số dư hiển thị bằng `subjectsCount`.
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { select } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(select.subjects).toEqual({
+        select: { id: true, fullName: true },
+        where: { type: SubjectType.SUSPECT, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        take: LIST_SUSPECT_NAMES_LIMIT,
+      });
+      // Số bị can tổng vẫn lấy từ cột đã có, không đếm lại.
+      expect(select.subjectsCount).toBe(true);
     });
 
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────

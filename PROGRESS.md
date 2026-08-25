@@ -1,119 +1,56 @@
 # PROGRESS
+Cập nhật: 2026-08-26T00:50:00+07:00 | Milestone: M1/5 | Task: 1/5
 
-STATUS: ALL_MILESTONES_DONE
-
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
-
-Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
-Nhánh: `feat/danh-sach-giong-he-cu`
+Epic: **Đồng bộ trường dữ liệu Vụ án với hệ cũ pc02hcm.com**
+Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-b-ng-glistening-puffin.md`
+Nhánh: `feat/legacy-form-parity-vu-an`
 
 ## Đã hoàn thành
-
-- [x] M1-T1 `hoSoCode.ts` — hiện mã `26-11171`, tìm được cả hai dạng — commit `b2839f3` — 9 ca kiểm
-- [x] M1-T2 `SummaryCell.tsx` — cột Tóm tắt nội dung + Xem thêm — commit `b2839f3` — 5 ca kiểm
-- [x] M1-T3 `dateRangePresets.ts` — Chọn khoảng thời gian, 5 mốc — 10 ca kiểm
-- [x] **M1 HOÀN TẤT** — 3/3 task, 24 ca kiểm
-- [x] M2-T1 `LegacyFilterPanel.tsx` — thẻ lọc hai vế, 9 ca kiểm
-- [x] **M2 HOÀN TẤT** — xuất mảnh mới qua `index.ts`, `tsc -b` sạch
-- [x] M3-T1 `ho-so-code.util.ts` (máy chủ) — suy biến thể mã, 7 ca kiểm; **gỡ bản trùng ở frontend** để không để code chết
-- [x] M3-T2 Đơn thư — 3 bộ lọc + 4 trường trả về, 100/100 ca kiểm
-- [x] M3-T3 Vụ án + Vụ việc — bộ lọc theo cột THẬT của từng module, 96/96 và 107/107
-- [x] **M3 HOÀN TẤT** — full suite máy chủ **2975/2975**, `tsc --noEmit` sạch
-- [x] M4-T1 Trang Đơn thư — 9 cột đúng thứ tự, Thao tác về CUỐI, thẻ lọc hệ cũ — 27/27
-- [x] M4-T2 Trang Vụ việc — cùng khuôn, dùng lại `canBoNhapId` sẵn có — 19/19
-- [x] M4-T3 Trang Vụ án — cùng khuôn, `createdById` cho Cán bộ nhập
-- [x] **M4 HOÀN TẤT** — frontend **1534/1534** (158 bộ), `tsc -b` sạch
-- [x] M5-T1 Tự soát mã — **bắt lỗi thật**: thẻ lọc ghi vào địa chỉ trang nhưng `baseQueryParams` không chứa → API bỏ qua, bộ lọc không làm gì. Đã vá cả 3 trang + ca kiểm đặt đúng tầng
-- [x] M5-T2 Bổ sung ca kiểm bố cục cho Vụ việc và Vụ án (trước đó chỉ Đơn thư có)
-- [x] M5-T3 Đẩy nhánh + mở **PR #230**
-- [x] M5-T4 Cổng `parity-check` bắt thiếu ma trận đối chiếu → cập nhật thật (PR thêm tính năng nên `[parity-skip]` là sai)
-- [x] M5-T5 CI **3/3 xanh** → gộp PR #230 (`2dfdeab`), deploy đang chạy
-- [x] **M5 HOÀN TẤT**
-- [x] M6-T1 Dựng `UAT-COVERAGE.md` — ma trận 24 dòng + phần ngoài phạm vi có lý do
-- [x] M6-T2 Viết `tests/api/danh-sach-he-cu-uat.api.spec.ts` — chạy trên bản thật, chỉ đọc
-- [x] M6-T3 Chạy UAT trên bản chạy thật sau deploy: **26/26 PASS**
-- [x] M6-T4 Đối chiếu ngược ma trận với plan gốc: **24/24 dòng PASS**, không sót màn hình/chức năng nào
-- [x] **M6 HOÀN TẤT**
-- [x] M7-T1 Suy quy tắc mã vụ án TỪ DỮ LIỆU (8/8 mẫu: `<nam>-<stt>`, dùng `stt` không phải `stt_cu`)
-- [x] M7-T2 `backfill-ma-ho-so.ts` theo TDD — 7 ca kiểm, đỏ trước xanh sau
-- [x] M7-T3 Áp prod: **76/76 vụ án** có mã · 4 vụ việc · **29 đơn thư** (sinh từ lượt nhập trưa nay); công cụ tự nâng 2 bộ đếm
-- [x] M7-T4 **Gộp hai công cụ thành một** và xoá `backfill-petition-code.ts` — hai bản riêng thì chạy cái này quên cái kia
-- [x] **M7 HOÀN TẤT** — máy chủ 2976/2976; prod: vụ án 0, đơn thư 0 hồ sơ thiếu mã
+- [x] M1 — Màn Danh sách vụ án khớp `/VuAn`: thêm cột `Đối tượng bị can` (vị trí 3, nguồn
+  `Subject` type SUSPECT, cắt 5 tên + `+N`), `Nguồn đơn/Đơn vị giao` chuyển sang ẩn sẵn,
+  API `GET /cases` mở thêm `subjects`. 4 ca kiểm mới (2 BE… thực tế 1 BE + 2 FE), ma trận
+  parity đã cập nhật.
 
 ## Đang làm dở
+Task: M2 — Hạ tầng bố cục theo hệ cũ
+Đã làm: chưa bắt đầu
+BƯỚC TIẾP THEO: tạo `frontend/src/features/cases/legacy-form-layout.def.ts` khai 10 tab
+theo Phần A2 của spec, kèm ca kiểm chốt caption + thứ tự
+File liên quan: `frontend/src/pages/cases/CaseFormPage/tabs.tsx`, `.../index.tsx`
 
-Task: M8 — gộp hai bộ lọc thành một
-Đã làm: xong toàn bộ code. Xoá `LegacyFilterPanel`, khai 3 ô mới vào registry sẵn có của
-cả ba module, mở rộng `Filters` nhận `dynamicOptions` + `children`, thêm chip
-`DateRangePresets`. Frontend 1543 ca kiểm, `tsc -b` sạch.
-Đã làm thêm: `/review` bắt được HAI lỗi thật mà bộ ca kiểm chưa chốt —
-(1) bấm "Áp dụng" không đưa danh sách về trang 1, nên lọc từ trang 3 ra bảng
-    trống; vá tại `useListFilters` cho cả sáu trang, có ca kiểm ở tầng trang;
-(2) `fromDate`/`toDate` khai hai lần trong cùng một `baseQueryParams` ở Vụ án và
-    Đơn thư — tàn dư lúc còn hai mặt lọc.
-Bản vá đầu của (1) xoá nhầm khoá trống `page` thay vì `{prefix}_page`, ca kiểm
-mức hook vẫn xanh mà không chứng minh gì; đã sửa cả mã lẫn ca kiểm.
-PR #233 đã mở, ma trận đối chiếu đã cập nhật.
-ĐÃ TRIỂN KHAI: PR #233 gộp vào main (a6bd969), Deploy success 25/08 16:32.
-Kiểm chứng trên bản chạy thật: ba gói ListPageShell đang phục vụ đều KHÔNG còn
-dấu vết `legacy-filter` và đều có ô `filter-stt-cu`; 15/15 tham số lọc đều nằm
-trong danh sách trắng DTO nên không có rủi ro 400.
-
-CÒN LẠI CHO ANH BẤM THỬ (em không nhìn được màn hình):
-  • mở ba trang, đếm đúng MỘT ô "Từ ngày"
-  • sang trang 3 rồi đặt bộ lọc → phải nhảy về trang 1, không ra bảng trống
-  • bấm chip "Tháng này" → hai ô ngày điền đúng mốc đầu và cuối tháng
-File liên quan: `frontend/src/features/*/list-filters.ts`, ba `*ListPageShell.tsx`, xoá `LegacyFilterPanel.tsx`
-
-Lý do: em đã dựng hệ lọc THỨ HAI bên cạnh registry sẵn có (v0.62) → trang Đơn thư và Vụ án
-có HAI ô "Từ ngày" với hai khoá khác nhau (`petitions_from_date` vs `petitions_fromDate`),
-không đồng bộ; và bố cục của em cao ~400px so với ~180px của lưới sẵn có.
-
-## Đã deploy
-
-PR #230 gộp (`2dfdeab`), deploy `32819302200` **thành công**, health 200, UAT 26/26 trên bản chạy thật.
-
-## Hàng đợi task kế tiếp — ĐÃ XONG HẾT
-
-1. ~~**M2**~~ — `LegacyFilterPanel.tsx`: thẻ lọc hai vế, 7 ô (Từ khóa · STT · STT cũ · Từ ngày · Đến ngày · Cán bộ nhập · Chọn khoảng thời gian) + Xóa bộ lọc + Xuất Excel
-2. **M3** — Máy chủ: thêm `nguonDon`/`ketQuaXuLyKhac` (petitions), `moTaChiTiet` (cases) vào `select`; thêm bộ lọc `stt`, `sttCu`, `enteredById` cho cả ba
-3. **M4** — Nối vào 3 trang: đủ 9 cột đúng thứ tự, Thao tác về CUỐI, giữ chip trạng thái + thẻ thống kê + sắp xếp
-4. **M5** — Full suite + `/review` + `/codex` + PR + deploy
-5. **M6** — UAT phủ 100% theo `UAT-COVERAGE.md`
+## Hàng đợi task kế tiếp
+1. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
+2. M3 — PR-3 Bổ sung cột còn thiếu (schema · DTO · payload · merge) + vá 4 lỗi mất dữ liệu
+3. M4 — PR-4 Chuyển toàn bộ dữ liệu hệ cũ vào field mới (mapper + backfill + GATE)
+4. M5 — PR-5 Đối soát, tài liệu, UAT phủ 100%
 
 ## Quyết định kiến trúc
-
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
-| 25/08 | Mở rộng `ListPageShell` dùng chung thay vì chép vào 3 trang | Ba bản sao rời nhau là cách lỗi sống sót — vừa gặp đúng vậy ở bộ sinh số (`commit()` và `commitWithTx()` lệch nhau, gây sự cố P0 sáng nay) | Mọi mảnh mới nằm ở `components/shared/ListPageShell/` |
-| 25/08 | Rút gọn mã hồ sơ ở tầng HIỂN THỊ, không đổi dữ liệu | Đổi 46.660 giá trị `stt` trong ngày vận hành thử là rủi ro không cần thiết; mã đã in ra giấy sẽ khác | `formatHoSoCode` + `hoSoCodeVariants` |
-| 25/08 | `formatHoSoCode` trả nguyên văn với mã không đúng dạng `năm-stt` | Cắt bừa tạo ra mã sai mà nhìn vẫn hợp lệ — loại lỗi khó phát hiện nhất | `DT-LEGACY-…`, `VA-2026-…` giữ nguyên |
-| 25/08 | Suy biến thể mã khi TÌM đặt ở **máy chủ**, không ở frontend | Tìm đúng không được phụ thuộc việc trình duyệt liệt kê đủ dạng — ứng dụng di động và lệnh gọi API trực tiếp cũng phải ra hồ sơ. Đã **gỡ** bản frontend để không để code chết (§3.5) | `backend/src/common/utils/ho-so-code.util.ts` |
-| 25/08 | Bộ lọc "Cán bộ nhập" dùng cột THẬT của từng module | Đơn thư `enteredById`, Vụ việc `canBoNhapId` (đã có sẵn — không dựng ô thứ hai cùng nghĩa), Vụ án `createdById`. Đặt một tên chung sẽ phải ánh xạ ngầm và dễ nối nhầm cột | 3 DTO khác tên nhau, có chủ đích |
-| 25/08 | Lọc mã dùng `in: [biến thể]` chứ không `contains` | `contains: '26-1'` quét trúng hàng nghìn mã khác — cán bộ lọc ra kết quả sai mà không biết | 3 service |
-| 25/08 | `useOfficerOptions` gọi `GET /admin/users` | Tên nghe như chỉ dành quản trị nhưng quyền thật là `read:User` và **OFFICER cũng có** — đã kiểm trên CSDL đang chạy. Dùng nhầm endpoint chỉ ADMIN gọi được thì ô lọc rỗng với đúng người cần nó | `hooks/useOfficerOptions.ts` |
+| 2026-08-26 | Bố cục form khai bằng dữ liệu (`legacy-form-layout.def.ts`), `tabs.tsx` chỉ render | Một nguồn sự thật cho caption + thứ tự; màn Tạo mới và Sửa dùng chung nên không thể lệch | Toàn bộ `CaseFormPage` |
+| 2026-08-26 | Cột `Thao tác` giữ ở đầu + ghim trái | Anh chốt lại 26/08; không đảo quyết định 25/08/2026 | `CaseListPageShell` |
+| 2026-08-26 | `Đối tượng bị can` lấy từ `Subject` (`type = SUSPECT`) | Anh chốt; đúng nghiệp vụ hơn ô văn bản `nghiVanDoiTuong` | `cases.service.getList` |
+| 2026-08-26 | Ô hệ mới hệ cũ không có → khối `Bổ sung hệ mới` cuối tab, thu gọn sẵn | Không xoá tính năng, không mất dữ liệu đã nhập | `tabs.tsx` |
+| 2026-08-26 | Sửa 3 lỗi đánh máy caption hệ cũ (`nễu`→`nếu`, `vụ khí`→`vũ khí`, `toàn án`→`toà án`) | Anh chốt | `legacy-form-layout.def.ts` |
 
 ## Assumption đã tự quyết
-
-| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ trong spec |
 |---|---|---|
-| Protocol §4 yêu cầu code + comment tiếng Anh và i18n cho chuỗi hiển thị | **Giữ convention repo**: chú thích và tên ca kiểm tiếng Việt, chuỗi hiển thị viết trực tiếp | **Anh đã XÁC NHẬN 25/08**: "nội dung code và comment buộc tiếng Anh thì không cần thiết". Trước đó em tự quyết theo Protocol §4 "convention hiện có của repo thắng sở thích cá nhân" — repo có 2.955 ca kiểm tiếng Việt, không có hạ tầng i18n |
-| "Chuyển đội" của hệ cũ | Ánh xạ sang **Phân công** (`assign`) đã có | Cùng nghĩa: đổi tổ phụ trách hồ sơ |
-| "Phân loại hồ sơ ▾" của hệ cũ | Ánh xạ sang luồng chuyển đổi (`ConvertPetitionModal`) đã có | Cùng nghĩa: đổi loại hồ sơ giữa đơn thư / vụ việc / vụ án |
-| "Đã chuyển đội khác", "Tìm trường bỏ trống" | **Không dựng** | Anh đã chốt qua AskUserQuestion: để lại vì hệ mới chưa có khái niệm tương đương; dựng theo phỏng đoán sẽ cho kết quả lọc sai mà cán bộ không biết |
+| Ngôn ngữ comment/nhãn | Giữ tiếng Việt như toàn repo | `§4` — convention repo thắng; `CLAUDE.md` toàn cục giới hạn luật tiếng Anh cho `Lumina_Approve` |
+| Không có hệ i18n trong repo | Nhãn tiếng Việt đặt trong file đặc tả/constant, không rải rác trong JSX | `§4` tinh thần "không hardcode chuỗi hiển thị" |
+| Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-
-**Máy chủ 2975/2975** (225 bộ) · **Frontend 1541/1541** (158 bộ) · **UAT trên bản chạy thật 26/26** = **4542 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage: 100% dòng | Test fail: **không** | UAT: **24/24 dòng ma trận PASS**
+Backend: 3011/3011 PASS (228 suite) · `tsc --noEmit` sạch
+Frontend: 1621/1623 PASS · `tsc -b` sạch · 2 ca đỏ do HẾT GIỜ 5s khi chạy song song, KHÔNG
+phải sai khẳng định — chạy riêng thì xanh, và `main` cũng đỏ 3 ca khác cùng kiểu (bằng chứng:
+`/tmp/vitest-main.log`). Đây là nợ có sẵn, không do thay đổi của epic này.
 
 ## Nợ kỹ thuật / rủi ro
-
-- Trang **Tổng hợp** và **UTĐT** dùng chung shell nên hưởng phần dùng chung, nhưng cột riêng của chúng chưa rà — để đợt sau, đã ghi trong spec §Cố ý KHÔNG làm.
-- `sortableHeader.test.tsx` từng chập chờn khi chạy cả thư mục (5.565ms → quá hạn) nhưng xanh khi chạy riêng. **Lượt chạy full suite 1534/1534 KHÔNG tái diễn** → xác nhận là nghẽn CPU nhất thời, không phải hồi quy.
-- Ô "Từ khóa" của hệ cũ KHÔNG dựng lại trong thẻ lọc: thanh công cụ ngay trên đã có ô tìm kiếm. Hai ô tìm trên một màn hình gây nhầm chứ không tiện.
-- 4 đơn thư sai tháng ngày tiếp nhận (`2026-10206/10207/8810/10224`) vẫn chờ hồ sơ giấy — không liên quan phần này.
-- **Phát hiện trong lúc UAT, KHÔNG do thay đổi này gây ra** (cột mã nay hiện rõ nên lộ ra):
-  **76/3.380 vụ án không có mã** (suy được 76/76 từ `nam`+`stt`) và **125/4.717 vụ việc mang
-  mã tạm `VV-LEGACY-…`** (chỉ suy được 7; 118 hồ sơ còn lại đến từ `TamDinhChi_vu_viec_21`
-  vốn KHÔNG có `nam`/`stt` ở hệ cũ, các trường ngày còn bị đảo tên). Đã tra tận nguồn trên
-  bản sao MongoDB để kết luận. Sửa được bằng đúng công cụ đã dùng cho 1.333 đơn thư.
+- `shownFieldKeys.ts` và `legacyParityFields.generated.ts` gắn nhãn auto-generated nhưng generator
+  không còn trong repo → phải viết lại ở M4.
+- Bộ ca kiểm FE có ~2-3 ca đỏ ngẫu nhiên do `testTimeout` mặc định 5s không đủ khi 162 tệp
+  chạy song song trên máy này. Ca đỏ đổi chỗ mỗi lần chạy, `main` cũng dính. Cách sửa đúng là
+  nâng `testTimeout` cho nhóm ca render nặng — nằm ngoài phạm vi epic, chưa đụng.
+- 4 lỗi mất dữ liệu đã phát hiện (ghi đè `parityState`, `caseCode` không vào cột, lọc bỏ bị can
+  thiếu `crimeId`, `soHoSoCu` không gửi) → xử ở M3.

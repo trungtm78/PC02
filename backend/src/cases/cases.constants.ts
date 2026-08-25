@@ -24,3 +24,12 @@ export const CASE_STATUS_GROUPS: StatusGroups<CaseStatus> = {
 };
 
 export const CASE_STATUS_GROUP_KEYS = Object.keys(CASE_STATUS_GROUPS);
+
+/**
+ * Số tên bị can hiển thị trên cột "Đối tượng bị can" của bảng danh sách Vụ án.
+ *
+ * Hệ cũ (/VuAn) in thẳng toàn bộ tên. Hệ mới cắt ở 5 vì bảng dùng bố cục cố định:
+ * một hồ sơ nhiều bị can sẽ kéo dòng cao bất thường và đẩy các cột khác lệch nhau.
+ * Phần dư hiển thị dạng "+N" — số tổng lấy từ cột `subjectsCount` đã có, không đếm lại.
+ */
+export const LIST_SUSPECT_NAMES_LIMIT = 5;

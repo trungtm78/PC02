@@ -31,7 +31,7 @@ import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
-import { CASE_STATUS_GROUPS } from './cases.constants';
+import { CASE_STATUS_GROUPS, LIST_SUSPECT_NAMES_LIMIT } from './cases.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
 
@@ -336,6 +336,16 @@ export class CasesService {
           deadline: true,
           unit: true,
           subjectsCount: true,
+          // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
+          // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban
+          // đầu, còn cột hệ cũ in danh sách bị can. Cắt ở LIST_SUSPECT_NAMES_LIMIT và
+          // hiển thị phần dư bằng `subjectsCount` ở tầng giao diện.
+          subjects: {
+            select: { id: true, fullName: true },
+            where: { type: SubjectType.SUSPECT, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+            take: LIST_SUSPECT_NAMES_LIMIT,
+          },
           ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
           createdAt: true,
           updatedAt: true,

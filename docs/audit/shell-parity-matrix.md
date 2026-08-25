@@ -131,8 +131,8 @@ lựa chọn lưu ở **trình duyệt**, đúng cách Odoo làm.
 |---|---|---|---|
 | Luôn hiện, không vào menu | Thao tác · STT | Thao tác · STT | Thao tác · STT |
 | Tích sẵn | 8 cột hệ cũ + Trạng thái | 7 cột + Trạng thái | 8 cột hệ cũ + Trạng thái |
-| Chưa tích | Đối tượng bị tố · Hạn xử lý · Ngày tạo | Điều tra viên · Hạn xử lý · Ngày tạo | Điều tra viên · Ngày tạo |
-| Bề rộng bộ mặc định | ~96rem (1.544px) | ~94rem (1.496px) | ~99rem (1.584px) |
+| Chưa tích | Đối tượng bị tố · Hạn xử lý · Ngày tạo | Điều tra viên · Hạn xử lý · Ngày tạo | Nguồn đơn/Đơn vị giao · Điều tra viên · Ngày tạo |
+| Bề rộng bộ mặc định | ~96rem (1.544px) | ~94rem (1.496px) | ~101rem (1.616px) |
 
 Bộ mặc định vừa một màn hình; bật thêm cột thì tổng vượt bề ngang và thanh cuộn ngang xuất
 hiện — đúng điều anh nêu.
@@ -147,6 +147,31 @@ hiện — đúng điều anh nêu.
 
 **Vụ việc KHÔNG THỂ có cột "Nguồn đơn/Đơn vị giao"** — bảng `incidents` không có trường
 `nguonDon`. Không bịa cột rỗng; cần quyết có bổ sung trường hay không.
+
+#### Vụ án lấy `/VuAn` làm màn chuẩn, không phải `/doi-1` — 26/08/2026
+
+Lần chốt 25/08 gộp ba ảnh hệ cũ thành "một bộ 9 cột chung". Đối chiếu lại trực tiếp trên hệ cũ
+ngày 26/08 cho thấy điều đó **sai với riêng màn Vụ án**: `/doi-1` (DS đơn, vụ việc, vụ án) và
+`/VuAn` (Danh sách vụ án) khác nhau đúng **một cột — cột thứ ba**:
+
+| | `/doi-1` | `/VuAn` |
+|---|---|---|
+| Cột 3 | Nguồn đơn/Đơn vị giao | **Đối tượng bị can** |
+
+Anh chốt màn chuẩn cho `/cases` là **`/VuAn`**. Vì vậy:
+
+- Thêm cột **`Đối tượng bị can`** ở vị trí thứ ba, tích sẵn. Nguồn dữ liệu là bảng `subjects`
+  (`type = SUSPECT`) — **không** dùng ô văn bản `nghiVanDoiTuong`: ô ấy là nghi vấn ban đầu ở
+  tab Thông tin, còn cột hệ cũ in danh sách bị can đã khởi tố.
+- `Nguồn đơn/Đơn vị giao` chuyển sang **chưa tích** (vẫn bật lại được từ menu chọn cột), vì
+  `/VuAn` không có cột ấy. Không xoá — ai quen màn `/doi-1` vẫn dùng được.
+- Máy chủ cắt sẵn ở **5 tên** (`LIST_SUSPECT_NAMES_LIMIT`); phần dư hiển thị `+N` suy từ
+  `subjectsCount` đã có. Bảng dùng bố cục cố định nên một hồ sơ nhiều bị can mà in hết sẽ kéo
+  dòng cao bất thường.
+
+Bộ cột mặc định của Vụ án nay là: Thao tác · STT · Ngày đề xuất · **Đối tượng bị can** ·
+Tên cá nhân… · Tóm tắt nội dung · Đơn vị giải quyết · Kết quả xử lý, giải quyết khác ·
+Người nhập · Trạng thái.
 
 Nút chọn cột đặt ở **thanh công cụ** cạnh nút "Bộ lọc", không ở góc phải hàng tiêu đề như
 Odoo: bảng của ta cuộn ngang, nút ở hàng tiêu đề sẽ trôi khỏi màn hình đúng lúc cần nó nhất.
