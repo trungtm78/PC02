@@ -64,15 +64,19 @@ describe("Gửi ô hệ cũ lên máy chủ", () => {
   });
 
   /**
-   * Ô để trống thì KHÔNG gửi gì cả.
+   * Ô để trống chạm vào HAI cột khác nhau, và hai cột ấy có hai yêu cầu ngược chiều.
    *
-   * Gửi `false` mỗi lần lưu sẽ biến cột `Boolean?` từ NULL ("chưa xác định") thành `false`
-   * cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông tin mà không ai yêu cầu.
+   * Cột `baoCaoBanGiamDoc` là `Boolean?`: gửi `false` mỗi lần lưu sẽ biến NULL ("chưa xác
+   * định") thành `false` cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông tin mà không
+   * ai yêu cầu. Nên ô trống thì KHÔNG nhắc tới cột này.
+   *
+   * Cột `baoCaoBanGiamDocText` là ô CHỮ cán bộ gõ. Ô chữ mà xoá không được thì thao tác xoá
+   * báo thành công rồi mở lại vẫn thấy nội dung cũ. Nên ô trống phải gửi `null`.
    */
-  it("ô báo cáo để trống thì KHÔNG gửi gì, giữ nguyên trạng thái chưa xác định", () => {
+  it("ô báo cáo để trống: cột đúng/sai giữ nguyên, cột chữ được xoá", () => {
     const p = payload({ baoCaoBanGiamDoc: "" });
     expect(p.baoCaoBanGiamDoc).toBeUndefined();
-    expect(p.baoCaoBanGiamDocText).toBeUndefined();
+    expect(p.baoCaoBanGiamDocText).toBeNull();
   });
 
   /**
