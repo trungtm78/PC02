@@ -27,35 +27,40 @@ interface TemplateSpec {
 
 const TEMPLATES: TemplateSpec[] = [
   {
+    // Mã hồ sơ theo hệ cũ: `năm-stt` (vd 2026-9705). Không tiền tố, không đệm số 0.
     name: 'Mã vụ việc',
     documentType: 'INCIDENT',
-    prefix: 'VV',
+    prefix: '',
     separator: '-',
     inputMode: 'AUTO',
     resetPeriod: 'YEARLY',
-    padding: 5,
+    padding: 1,
     yearPattern: 'YYYY',
   },
   {
+    // Mã hồ sơ theo hệ cũ: `năm-stt` (vd 2026-11142). Không tiền tố, không đệm số 0.
     name: 'Số tiếp nhận đơn thư',
     documentType: 'PETITION',
-    prefix: 'DT',
+    prefix: '',
     separator: '-',
     inputMode: 'AUTO',
     resetPeriod: 'YEARLY',
-    padding: 5,
+    padding: 1,
     yearPattern: 'YYYY',
   },
   {
-    // Chuẩn mã vụ án: VA-<năm phát sinh>-<STT>. Vụ án di trú giữ STT cũ (VA-2017-9);
-    // vụ án mới dùng counter YEARLY (VA-2026-00082). Xem backfill-case-code.ts.
+    // Mã hồ sơ theo hệ cũ: `năm-stt` (vd 2026-9893). Không tiền tố, không đệm số 0.
+    // Trước đây là `VA-<năm>-<STT đệm 5>`; đổi để thống nhất với đơn thư và vụ việc, và để
+    // khớp 1.652/1.672 vụ án di trú vốn đã mang dạng `năm-stt`.
+    // LƯU Ý: CASE nằm trong FORCE_REFRESH_TYPES nên bản gieo GHI ĐÈ mẫu đang chạy — sửa ở
+    // đây là bắt buộc, sửa mỗi cơ sở dữ liệu sẽ bị hoàn tác ở lần gieo kế tiếp.
     name: 'Mã vụ án',
     documentType: 'CASE',
-    prefix: 'VA',
+    prefix: '',
     separator: '-',
     inputMode: 'AUTO',
     resetPeriod: 'YEARLY',
-    padding: 5,
+    padding: 1,
     yearPattern: 'YYYY',
   },
   {
@@ -184,8 +189,10 @@ function buildSegments(spec: TemplateSpec) {
       { type: 'LITERAL', value: spec.prefix },
     ];
   }
+  // Mã hồ sơ (đơn thư / vụ việc / vụ án) theo hệ cũ là `năm-stt`, KHÔNG tiền tố — khai
+  // `prefix: ''` thì bỏ hẳn đoạn LITERAL thay vì sinh ra một gạch nối mồ côi ở đầu mã.
   return [
-    { type: 'LITERAL', value: spec.prefix },
+    ...(spec.prefix ? [{ type: 'LITERAL', value: spec.prefix }] : []),
     { type: 'FORMULA', fn: 'FORMAT', source: 'NOW', pattern: spec.yearPattern },
     { type: 'COUNTER' },
   ];
@@ -205,12 +212,17 @@ async function getMaxSeqForYear(prisma: PrismaClient, documentType: string, year
   // start counter at 0 so first render yields ...001.
   if (NEW_V047_SERIES.has(documentType)) return 0;
 
-  const prefix = `${getPrefix(documentType)}-${year}-`;
+  // Dữ liệu mang HAI định dạng mã: `2026-9895` (hiện hành) và `DT-2026-00001` (cũ, còn
+  // sót). Chỉ tìm theo một dạng là bỏ sót phần lớn bản ghi và khởi tạo bộ đếm quá thấp —
+  // đúng cái đã gây sự cố không lưu được đơn thư ngày 25/08/2026.
+  const dangCu = `${getPrefix(documentType)}-${year}-`;
+  const dangMoi = `${year}-`;
+  const haiDang = [{ startsWith: dangMoi }, { startsWith: dangCu }];
 
   try {
     if (documentType === 'INCIDENT') {
       const rows = await prisma.incident.findMany({
-        where: { code: { startsWith: prefix } },
+        where: { OR: haiDang.map((c) => ({ code: c })) },
         select: { code: true },
       });
       return extractMax(rows.map((r: { code: string }) => r.code));
@@ -218,17 +230,15 @@ async function getMaxSeqForYear(prisma: PrismaClient, documentType: string, year
 
     if (documentType === 'PETITION') {
       const rows = await prisma.petition.findMany({
-        where: { stt: { startsWith: prefix } },
+        where: { OR: haiDang.map((c) => ({ stt: c })) },
         select: { stt: true },
       });
       return extractMax(rows.map((r: { stt: string }) => r.stt));
     }
 
     if (documentType === 'CASE') {
-      // Chuẩn mới VA-<năm>-<STT>; counter tiếp tục trên STT lớn nhất năm đó.
-      const casePrefix = `VA-${year}-`;
       const rows = await (prisma as any).case.findMany({
-        where: { caseCode: { startsWith: casePrefix } },
+        where: { OR: haiDang.map((c) => ({ caseCode: c })) },
         select: { caseCode: true },
       });
       return extractMax(rows.filter((r: { caseCode: string | null }) => r.caseCode).map((r: { caseCode: string }) => r.caseCode));

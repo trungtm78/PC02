@@ -1170,8 +1170,12 @@ export class CasesService {
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx: any) => {
-        const caseDocType = effectiveProvenance === CaseProvenance.UY_THAC_DIEU_TRA ? 'UTDT' : 'CASE';
-        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx(caseDocType, { userId: actorId }, tx);
+        // MỘT bộ đếm cho MỘT không gian mã. `cases.caseCode` là @unique trên toàn bảng, nên
+        // vụ án và ủy thác dùng chung không gian mã; cấp số từ hai bộ đếm độc lập vào đó là
+        // sai về cấu trúc — trước đây chỉ chưa vỡ vì tiền tố `VA-`/`UTDT-` làm hai chuỗi
+        // khác nhau. Nay mã thống nhất `năm-stt` (khớp hệ cũ, và 1.611/1.632 hồ sơ ủy thác
+        // đã mang dạng ấy) nên tiền tố không còn che được nữa. Đây là ĐẢO quyết định v0.68.
+        const { number: caseCode, logId: caseCodeLogId } = await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
 
         let incidentLogId: string | null = null;
         if (needsAutoIncident) {
