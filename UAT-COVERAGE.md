@@ -106,7 +106,8 @@ Chạy 2026-08-26 trên bản dựng thật: máy chủ `localhost:3000` (PG18),
 | E3 | `/cases/:id/edit` — bố cục y hệt màn Tạo mới (32 ô) | Đối chiếu tay | ✅ | **ĐẠT** |
 | E3b | Panel bổ sung KHÔNG dựng ô trùng (0 ô parity) | Đối chiếu tay | ✅ | **ĐẠT** |
 | E4 | Nhập → Lưu (201) → mở lại: **7/7 ô giữ nguyên giá trị** | Đối chiếu tay | ✅ | **ĐẠT** |
-| E5 | Hồ sơ ĐÃ DI TRÚ mở ra có dữ liệu ở ô hệ cũ | Đối chiếu tay | ⚠️ CHƯA | Chưa chạy — xem §Còn tồn |
+| E5 | Hồ sơ ĐÃ DI TRÚ mở ra có dữ liệu ở ô hệ cũ | Đối chiếu tay | ✅ | **ĐẠT** |
+| E5b | Tab TK 48 trường + Vật chứng của hồ sơ di trú cũng có dữ liệu | Đối chiếu tay | ✅ | **ĐẠT** |
 
 ### Chi tiết E1 — cột thật đọc từ màn hình
 
@@ -133,15 +134,33 @@ Trạng thái
 Bốn ô `ngayDeXuat`, `ghiChuTrungDon`, `lanhDaoToTung`, `doVatTaiLieuKemTheo` trước epic này
 **không có đường lên máy chủ** — gõ xong lưu là mất.
 
+### Chi tiết E5 — hồ sơ ĐÃ DI TRÚ mở ở chế độ Sửa
+
+Dựng bằng `seed-ho-so-di-tru-mau.ts` (chỉ có `legacyRaw`, không điền sẵn cột nào — đúng cảnh
+hồ sơ di trú trước khi hệ thống có cột mới), rồi chạy `backfill-parity.ts --entity case`.
+
+**21/21 ô hệ cũ ở tab Thông tin có dữ liệu**, không ô nào trắng. Tab TK 48 trường có đủ ba
+mốc ngày thống kê + ngày tội phạm xảy ra + số bị hại + số tiền thiệt hại; tab Vật chứng có
+đủ ba ô.
+
+**Bốn lỗ hổng chỉ lộ ra ở bước này** (ca kiểm đơn vị không bắt được, vì chúng chỉ kiểm
+`buildCase` — đường của hồ sơ di trú MỚI — chứ không kiểm `parityColumns`, đường mà công cụ
+bù dùng cho hồ sơ ĐÃ di trú):
+
+| Ô | Hậu quả nếu không vá |
+|---|---|
+| `baoCaoBanGiamDocText` | Mất **nội dung chỉ đạo Ban Giám đốc** ở 34.931 hồ sơ, chỉ còn cờ CÓ/KHÔNG |
+| `loaiThongTin` | Ô "Loại thông tin" trắng ở 46.259 hồ sơ |
+| `ngayTiepNhan` | Ô "Ngày tiếp nhận (theo biên bản…)" trắng ở 49.147 hồ sơ |
+| `toiDanhBanDau` | Ô "Tội danh cũ trước đây" trắng ở 21.854 hồ sơ |
+
 ---
+
+**Tổng: 44 dòng · 44 ĐẠT · 0 KHÔNG ĐẠT.**
 
 ## Còn tồn
 
-1. **E5 — hồ sơ đã di trú** chưa đối chiếu được: cơ sở dữ liệu dựng lại từ đầu trên PG18
-   nên chưa có hồ sơ di trú thật; 21 hồ sơ mẫu nằm ngoài phạm vi dữ liệu của tài khoản
-   `admin`. Đường ống đã được chứng minh gián tiếp bằng `verify-backfill-parity.ts` (D9)
-   chạy trên cơ sở dữ liệu thật. Cần chạy lại E5 sau khi nạp dữ liệu di trú.
-2. **Nạp dữ liệu môi trường**: bảng `document_number_templates` rỗng làm `POST /cases` trả
+1. **Nạp dữ liệu môi trường**: bảng `document_number_templates` rỗng làm `POST /cases` trả
    404 — không phải lỗi của epic, nhưng ai dựng máy mới phải chạy
    `ts-node prisma/seed-document-numbers.ts`, nếu không sẽ không lưu được hồ sơ nào.
 

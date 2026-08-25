@@ -285,6 +285,11 @@ export const LEGACY_PARITY_FIELDS: Record<"petition"|"incident"|"case", ParityFi
       "label": "yeu_cau_bo_sung"
     },
     {
+      "col": "baoCaoBanGiamDocText",
+      "kind": "text",
+      "label": "truong_hop_bao_cao_ban_giam_doc"
+    },
+    {
       "col": "phanLoaiNguonTinBanDau",
       "kind": "text",
       "label": "phan_loai_nguon_tin_ban_dau"

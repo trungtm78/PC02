@@ -1,5 +1,7 @@
 # PROGRESS
-Cập nhật: 2026-08-26T05:10:00+07:00 | Milestone: M5/5 HOÀN TẤT | Task: 5/5
+
+STATUS: ALL_MILESTONES_DONE
+Cập nhật: 2026-08-26T05:45:00+07:00 | Milestone: 5/5 | Task: 5/5
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -53,7 +55,14 @@ Nhánh: `feat/legacy-form-parity-vu-an`
   - Nhập → Lưu (201) → mở lại: **7/7 ô giữ nguyên**, trong đó 4 ô trước epic này không hề
     có đường lên máy chủ
   - Chế độ Sửa có bố cục y hệt chế độ Tạo mới; panel bổ sung dựng 0 ô trùng
-  - `UAT-COVERAGE.md`: 42 dòng, 41 ĐẠT, 1 CHƯA CHẠY (E5 — cần dữ liệu di trú thật)
+  - **E5 — hồ sơ ĐÃ DI TRÚ**: dựng hồ sơ chỉ có `legacyRaw`, chạy công cụ bù, mở ở chế độ
+    Sửa → **21/21 ô hệ cũ có dữ liệu**, tab TK 48 trường và Vật chứng cũng đủ
+  - Bước này bắt **4 lỗ hổng mà ca kiểm đơn vị không thấy**: `baoCaoBanGiamDocText`
+    (34.931 hồ sơ mất nội dung chỉ đạo Ban Giám đốc), `loaiThongTin` (46.259),
+    `ngayTiepNhan` (49.147), `toiDanhBanDau` (21.854). Nguyên nhân chung: có ở `buildCase`
+    (đường của hồ sơ di trú MỚI) nhưng thiếu ở `parityColumns` (đường công cụ bù dùng cho
+    hồ sơ ĐÃ di trú). Đã khai vào `PARITY.case` và kiểm chứng lại trên bản chạy thật.
+  - `UAT-COVERAGE.md`: **44 dòng, 44 ĐẠT, 0 KHÔNG ĐẠT**
 - [x] M5c — Dựng bảng "Danh sách điều tra bổ sung" (hạng mục cuối của bố cục hệ cũ):
   đúng 5 cột dữ liệu + Thao tác, ba mốc ngày qua được DTO, đã kiểm trên bản chạy thật
 
@@ -87,7 +96,7 @@ BƯỚC TIẾP THEO khi anh đồng ý: đẩy nhánh + mở PR, rồi chạy c�
 | Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-Backend: **3120/3120 PASS (233 bộ)** · `tsc --noEmit` sạch
+Backend: **3125/3125 PASS (233 bộ)** · `tsc --noEmit` sạch
 Frontend: **1750/1750 PASS (170 bộ)** · `tsc -b` sạch
 Kiểm chứng đầu-cuối công cụ bù trên CSDL thật: **ĐẠT** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
 nâng `testTimeout` lên 20s (nguyên nhân gốc: hạn 5s không đủ khi 166 tệp chạy song song;

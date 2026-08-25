@@ -1,4 +1,4 @@
-import { buildCase, buildCaseStatistic, MAPPED_LEGACY_KEYS } from './legacy-mapper';
+import { buildCase, buildCaseStatistic, parityColumns, MAPPED_LEGACY_KEYS } from './legacy-mapper';
 
 /**
  * "Toàn bộ dữ liệu cũ phải được chuyển qua đầy đủ" — yêu cầu anh nêu 26/08/2026.
@@ -67,6 +67,10 @@ const HO_SO_HE_CU: Record<string, unknown> = {
   bien_phap_khac_phuc_tdc_vu_an: 'Tiến độ khắc phục vụ án',
   quyet_dinh_phuc_hoi_vu_an: '09/QD-PHVA',
   ngay_phuc_hoi_dieu_tra_vu_an: T('2026-08-22T00:00:00Z'),
+  truong_hop_bao_cao_ban_giam_doc: 'Đã báo cáo Ban Giám đốc ngày 13/3',
+  loai_thong_tin: 'Tố giác',
+  ngay_tiep_nhan_nguon_tin: T('2026-08-01T00:00:00Z'),
+  'toi-danh-ban-dau': 'Lừa đảo chiếm đoạt tài sản',
 };
 
 describe('Di trú: mốc thời gian thống kê không còn kẹt trong legacy_raw', () => {
@@ -151,6 +155,47 @@ describe('Di trú: ô hệ cũ mới có cột đều được đổ dữ liệu
 
   it('bản gốc vẫn giữ nguyên trong legacyRaw — lưới an toàn không được mỏng đi', () => {
     expect(c.legacyRaw).toMatchObject(HO_SO_HE_CU);
+  });
+});
+
+describe('Chỉ đạo Ban Giám đốc giữ được NỘI DUNG, không chỉ giữ CÓ/KHÔNG', () => {
+  /**
+   * Hệ cũ nhập ô này bằng CHỮ (34.931 hồ sơ có nội dung), còn cột cũ của hệ mới chỉ là
+   * ĐÚNG/SAI suy từ chữ. Nếu chỉ ánh xạ sang cột đúng-sai thì nội dung chỉ đạo mất hẳn khi
+   * cán bộ mở hồ sơ ra — mà đó là chỉ đạo của Ban Giám đốc.
+   *
+   * Phải đi qua `parityColumns` chứ không chỉ `buildCase`: công cụ bù cho hồ sơ ĐÃ di trú
+   * chạy trên `parityColumns`, nên thiếu ở đó là 34.931 hồ sơ cũ vẫn trắng ô.
+   */
+  it('buildCase giữ cả nội dung lẫn cờ', () => {
+    const c = buildCase(HO_SO_HE_CU) as unknown as Record<string, unknown>;
+    expect(c.baoCaoBanGiamDocText).toBe('Đã báo cáo Ban Giám đốc ngày 13/3');
+    expect(c.baoCaoBanGiamDoc).toBe(true);
+  });
+
+  /**
+   * Cùng một lớp lỗ hổng: có ở `buildCase` nên hồ sơ di trú MỚI thì đủ, nhưng không có
+   * trong đặc tả parity nên công cụ bù bỏ qua — hồ sơ ĐÃ di trú từ trước vẫn trắng ô.
+   * Phát hiện khi mở một hồ sơ di trú thật trên giao diện (dòng E5 của UAT).
+   */
+  it.each([
+    ['loaiThongTin', 'Tố giác'],
+    ['toiDanhBanDau', 'Lừa đảo chiếm đoạt tài sản'],
+  ])('parityColumns đổ được cột %s cho hồ sơ đã di trú', (cot, mong) => {
+    const cols = parityColumns(HO_SO_HE_CU, 'case') as Record<string, unknown>;
+    expect(cols[cot]).toBe(mong);
+  });
+
+  it('parityColumns đổ được ngày tiếp nhận nguồn tin', () => {
+    const cols = parityColumns(HO_SO_HE_CU, 'case') as Record<string, unknown>;
+    expect(cols.ngayTiepNhan).toBeInstanceOf(Date);
+    expect((cols.ngayTiepNhan as Date).toISOString().slice(0, 10)).toBe('2026-08-01');
+  });
+
+  it('parityColumns — đường mà công cụ bù dùng — cũng giữ nội dung', () => {
+    const cols = parityColumns(HO_SO_HE_CU, 'case') as Record<string, unknown>;
+    expect(cols.baoCaoBanGiamDocText).toBe('Đã báo cáo Ban Giám đốc ngày 13/3');
+    expect(cols.baoCaoBanGiamDoc).toBe(true);
   });
 });
 

@@ -121,6 +121,19 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     // Form mới đã có ô cho từng khoá dưới đây ở đúng vị trí hệ cũ. Khai ở đây để
     // `backfill-parity.ts` đổ được cho 3.380 vụ án ĐÃ di trú — nếu không, hồ sơ cũ mở ra
     // vẫn trắng ô dù dữ liệu nằm sẵn trong `legacy_raw`.
+    // Ô "Trường hợp báo cáo Ban Giám đốc" của hệ cũ là ô CHỮ, 34.931 hồ sơ có nội dung.
+    // Cột `baoCaoBanGiamDoc` (khai ở cuối danh sách) chỉ giữ CÓ/KHÔNG suy từ chữ ấy, nên
+    // phải có thêm một đích cho chính nội dung — nếu không, cán bộ mở hồ sơ cũ ra sẽ thấy
+    // ô trắng, mà đó là chỉ đạo của Ban Giám đốc.
+    // Cùng một khoá hệ cũ đi vào HAI cột là cố ý; `parityColumns` duyệt cả danh sách.
+    { field: 'truong_hop_bao_cao_ban_giam_doc', col: 'baoCaoBanGiamDocText', type: 'String' },
+    // Ba cột dưới đây đã có từ lâu và `buildCase` vẫn đổ, nhưng chúng KHÔNG nằm trong đặc
+    // tả parity — mà công cụ bù cho hồ sơ ĐÃ di trú chỉ chạy trên đặc tả này. Hệ quả: hồ sơ
+    // di trú MỚI thì đủ, hồ sơ di trú từ trước vẫn trắng ba ô. Phát hiện khi mở một hồ sơ
+    // di trú thật trên giao diện.
+    { field: 'loai_thong_tin', col: 'loaiThongTin', type: 'String', exists: true },
+    { field: 'ngay_tiep_nhan_nguon_tin', col: 'ngayTiepNhan', type: 'DateTime', exists: true },
+    { field: 'toi-danh-ban-dau', col: 'toiDanhBanDau', type: 'String', exists: true },
     { field: 'phan_loai_nguon_tin_ban_dau', col: 'phanLoaiNguonTinBanDau', type: 'String' , formOnly: true },
     { field: 'ngay_xay_ra', col: 'ngayXayRa', type: 'DateTime' , formOnly: true },
     { field: 'noi_xay_ra_phuong_xa', col: 'noiXayRaPhuongXa', type: 'String' , formOnly: true },
