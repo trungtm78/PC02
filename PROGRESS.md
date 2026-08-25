@@ -1,6 +1,9 @@
 # PROGRESS
 Cập nhật: 2026-08-26T00:50:00+07:00 | Milestone: M1/5 | Task: 1/5
 
+> Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
+> [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
+
 Epic: **Đồng bộ trường dữ liệu Vụ án với hệ cũ pc02hcm.com**
 Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-b-ng-glistening-puffin.md`
 Nhánh: `feat/legacy-form-parity-vu-an`
