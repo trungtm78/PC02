@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   LABEL_BASE,
   ICON_INPUT_WRAPPER,
@@ -56,9 +56,16 @@ function getColSpanClass(colSpan?: 1 | 2 | 3): string {
 
 // ─── Label ──────────────────────────────────────────────────────────────────
 
-function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+/**
+ * Nhãn NỐI với ô nhập bằng `htmlFor`.
+ *
+ * Trước đây nhãn và ô chỉ là hai thẻ cạnh nhau: bấm vào nhãn không đưa con trỏ vào ô, và
+ * trình đọc màn hình không biết nhãn ấy thuộc ô nào. Với form vụ án dài hơn 200 ô thì đó
+ * không phải chi tiết nhỏ.
+ */
+function FieldLabel({ label, required, htmlFor }: { label: string; required?: boolean; htmlFor: string }) {
   return (
-    <label className={LABEL_BASE}>
+    <label className={LABEL_BASE} htmlFor={htmlFor}>
       {label} {required && <span className="text-red-500">*</span>}
     </label>
   );
@@ -88,9 +95,11 @@ export function FormInput({
 }: InputFieldProps) {
   const hasIcon = !!icon;
   const inputClass = getInputClass(!!error, hasIcon);
+  const id = useId();
 
   const input = (
     <input
+      id={id}
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -103,7 +112,7 @@ export function FormInput({
 
   return (
     <div className={getColSpanClass(colSpan)}>
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
           <span className={ICON_INPUT_POSITION}>{icon}</span>
@@ -134,9 +143,11 @@ export function FormSelect({
 }: SelectFieldProps) {
   const hasIcon = !!icon;
   const selectClass = getSelectClass(!!error, hasIcon);
+  const id = useId();
 
   const select = (
     <select
+      id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={selectClass}
@@ -154,7 +165,7 @@ export function FormSelect({
 
   return (
     <div className={getColSpanClass(colSpan)}>
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
           <span className={ICON_INPUT_POSITION}>{icon}</span>
@@ -183,14 +194,16 @@ export function FormTextarea({
   "data-testid": dataTestId,
 }: TextareaFieldProps) {
   const hasIcon = !!icon;
+  const id = useId();
 
   return (
     <div className={getColSpanClass(colSpan)}>
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
           <span className="absolute left-3 top-3 w-4 h-4 text-slate-400">{icon}</span>
           <textarea
+            id={id}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             rows={rows}
@@ -201,6 +214,7 @@ export function FormTextarea({
         </div>
       ) : (
         <textarea
+          id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={rows}

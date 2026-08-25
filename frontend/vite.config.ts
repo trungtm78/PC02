@@ -119,6 +119,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
+    // Hạn 5s mặc định của vitest không đủ khi 164 tệp ca kiểm chạy song song: vài ca dựng
+    // trang nặng bị cắt giữa chừng, và ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp
+    // báo "Found multiple elements" — một lỗi hoàn toàn không liên quan đến điều nó kiểm.
+    // Ca đỏ đổi chỗ mỗi lần chạy, nên đây là nhiễu chứ không phải hồi quy.
+    // Nới hạn KHÔNG làm nhẹ bất kỳ khẳng định nào: không ca nào kiểm tốc độ.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
