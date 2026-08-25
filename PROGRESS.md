@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M4/6 | Task: 0/3 của M4
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 0/3 của M5
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -17,13 +17,17 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M3-T2 Đơn thư — 3 bộ lọc + 4 trường trả về, 100/100 ca kiểm
 - [x] M3-T3 Vụ án + Vụ việc — bộ lọc theo cột THẬT của từng module, 96/96 và 107/107
 - [x] **M3 HOÀN TẤT** — full suite máy chủ **2975/2975**, `tsc --noEmit` sạch
+- [x] M4-T1 Trang Đơn thư — 9 cột đúng thứ tự, Thao tác về CUỐI, thẻ lọc hệ cũ — 27/27
+- [x] M4-T2 Trang Vụ việc — cùng khuôn, dùng lại `canBoNhapId` sẵn có — 19/19
+- [x] M4-T3 Trang Vụ án — cùng khuôn, `createdById` cho Cán bộ nhập
+- [x] **M4 HOÀN TẤT** — frontend **1534/1534** (158 bộ), `tsc -b` sạch
 
 ## Đang làm dở
 
-Task: M4 — Nối vào 3 trang danh sách
+Task: M5 — `/review` + PR + deploy
 Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: sửa `frontend/src/pages/petitions/PetitionListPageShell.tsx` — thêm ca kiểm khẳng định cột Tóm tắt nội dung có mặt và Thao tác là cột CUỐI (RED), rồi đổi mảng `columns`
-File liên quan: `frontend/src/pages/petitions/PetitionListPageShell.tsx`, `.../incidents/IncidentListPageShell.tsx`, `.../cases/CaseListPageShell.tsx`
+BƯỚC TIẾP THEO: chạy `/review` trên diff của nhánh, xử lý mọi finding, rồi đẩy nhánh và mở PR
+File liên quan: toàn bộ nhánh `feat/danh-sach-giong-he-cu`
 
 ## Hàng đợi task kế tiếp
 
@@ -55,10 +59,11 @@ File liên quan: `frontend/src/pages/petitions/PetitionListPageShell.tsx`, `.../
 
 ## Trạng thái test
 
-**Máy chủ: 2975/2975 PASS** (225 bộ), `tsc --noEmit` sạch | Frontend: `tsc -b` sạch, các bộ ca kiểm mới đều xanh | Patch coverage M1–M3: 100% dòng | Test fail: không
+**Máy chủ 2975/2975** (225 bộ) · **Frontend 1534/1534** (158 bộ) = **4509 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage M1–M4: 100% dòng | Test fail: không
 
 ## Nợ kỹ thuật / rủi ro
 
 - Trang **Tổng hợp** và **UTĐT** dùng chung shell nên hưởng phần dùng chung, nhưng cột riêng của chúng chưa rà — để đợt sau, đã ghi trong spec §Cố ý KHÔNG làm.
-- `sortableHeader.test.tsx` **chập chờn khi chạy cả thư mục** (5.565ms → quá hạn), nhưng xanh khi chạy riêng (458ms). Nghẽn CPU, KHÔNG phải hồi quy — em không đụng `SortableHeader`. Đã ghi nhận trong trí nhớ dự án từ trước; sẽ đối chiếu lại bằng lượt chạy CI ở M5.
+- `sortableHeader.test.tsx` từng chập chờn khi chạy cả thư mục (5.565ms → quá hạn) nhưng xanh khi chạy riêng. **Lượt chạy full suite 1534/1534 KHÔNG tái diễn** → xác nhận là nghẽn CPU nhất thời, không phải hồi quy.
+- Ô "Từ khóa" của hệ cũ KHÔNG dựng lại trong thẻ lọc: thanh công cụ ngay trên đã có ô tìm kiếm. Hai ô tìm trên một màn hình gây nhầm chứ không tiện.
 - 4 đơn thư sai tháng ngày tiếp nhận (`2026-10206/10207/8810/10224`) vẫn chờ hồ sơ giấy — không liên quan phần này.
