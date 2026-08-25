@@ -136,6 +136,14 @@ const mockAudit = {
 
 const mockSettings = {
   getNumericValue: jest.fn().mockResolvedValue(20),
+  // Kỳ thống kê: mặc định TAT_CA trong ca kiểm để các ca sẵn có vẫn chốt đúng thứ chúng
+  // chốt (không có điều kiện ngày nào chen vào). Việc kỳ ĐƯỢC áp có ca kiểm riêng bên dưới.
+  getKyThongKe: jest.fn().mockResolvedValue({
+    ky: 'TAT_CA',
+    truong: 'NGAY_TIEP_NHAN',
+    tuNgay: null,
+    denNgay: null,
+  }),
 };
 
 // DocumentNumbersService mock — replaces legacy generateIncidentCode util

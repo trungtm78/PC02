@@ -23,6 +23,7 @@ import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -130,19 +131,10 @@ export class PetitionsService {
       where.senderName = { contains: senderName, mode: 'insensitive' };
     }
 
-    if (fromDate) {
-      where.receivedDate = {
-        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
-        gte: new Date(fromDate),
-      };
-    }
-
-    if (toDate) {
-      where.receivedDate = {
-        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
-        lte: new Date(toDate + 'T23:59:59.999Z'),
-      };
-    }
+    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
+    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -1811,18 +1803,10 @@ export class PetitionsService {
     if (unit) where.unit = { contains: unit, mode: 'insensitive' };
     if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
 
-    if (fromDate) {
-      where.receivedDate = {
-        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
-        gte: new Date(fromDate),
-      };
-    }
-    if (toDate) {
-      where.receivedDate = {
-        ...(where.receivedDate as Prisma.DateTimeFilter | undefined),
-        lte: new Date(toDate + 'T23:59:59.999Z'),
-      };
-    }
+    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
+    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
 
     if (overdue) {
       where.deadline = { lt: new Date() };

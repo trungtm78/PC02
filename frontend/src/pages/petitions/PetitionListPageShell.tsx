@@ -58,6 +58,7 @@ import { formatVNDate } from '@/lib/dates';
 // v0.65 PR3 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
@@ -104,11 +105,20 @@ interface PetitionRow {
   enteredBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
+interface KyDaGiaiFE {
+  ky: string;
+  truong: string;
+  tuNgay: string | null;
+  denNgay: string | null;
+}
+
 interface PetitionsStatsResponse {
   total: number;
   byStatus: Record<PetitionStatus, number>;
   /** Số theo NHÓM trạng thái, do server đếm (PETITION_STATUS_GROUPS). */
   byGroup: Record<string, number>;
+  /** Kỳ MÁY CHỦ thật sự đã áp — nhãn hiện trên thanh thẻ lấy từ đây, không tự đoán. */
+  ky?: KyDaGiaiFE;
 }
 
 const PAGE_SIZE = 20;
@@ -229,6 +239,10 @@ export function PetitionListPageShell() {
       ...(debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
       ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
+      // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
+      ...(appliedFilters.thongKeTruongNgay && {
+        thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
+      }),
       ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
       ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
@@ -695,6 +709,7 @@ export function PetitionListPageShell() {
       <StatsCardsStrip
         cards={buildPetitionsCards(stats)}
         loading={stats == null}
+        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
         activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { Settings, Edit, Save, X, Loader2, AlertCircle, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Settings, Edit, Save, X, Loader2, AlertCircle, ArrowRight, ShieldAlert, RotateCcw } from 'lucide-react';
+import { LUA_CHON_THEO_KHOA, MAC_DINH_THEO_KHOA } from '@/constants/thongKeSettings';
 
 interface SettingItem {
   key: string;
@@ -53,6 +54,29 @@ export function SettingsPage() {
     setEditingKey(null);
     setEditValue('');
   };
+  /**
+   * Trả một khoá về giá trị mặc định.
+   *
+   * Mặc định nằm ở mã (`MAC_DINH_THEO_KHOA`) vì bảng `system_settings` không có cột mặc
+   * định. Phải khớp phần seed ở máy chủ — lệch nhau thì nút này trả ra một giá trị khác với
+   * giá trị hệ thống dùng khi cài mới, và không ai đối chiếu được.
+   */
+  const resetVeMacDinh = async (key: string) => {
+    const macDinh = MAC_DINH_THEO_KHOA[key];
+    if (macDinh === undefined) return;
+    setIsSaving(true);
+    try {
+      await api.put(`/settings/${key}`, { value: macDinh });
+      setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value: macDinh } : s)));
+      setEditingKey(null);
+      setEditValue('');
+    } catch {
+      setError('Không thể trả về mặc định');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const saveEdit = async (key: string) => {
     setIsSaving(true);
     try {
@@ -142,16 +166,39 @@ export function SettingsPage() {
                     <td className="px-6 py-4 text-sm text-slate-800 font-medium">{item.label}</td>
                     <td className="px-6 py-4 text-sm">
                       {editingKey === item.key ? (
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          className="px-3 py-1.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-32"
-                          autoFocus
-                          data-testid={`edit-input-${item.key}`}
-                        />
+                        // Khoá có danh sách giá trị cho sẵn thì phải là Ô CHỌN, không phải ô
+                        // gõ chữ: gõ sai một ký tự thì máy chủ coi là giá trị lạ và lặng lẽ
+                        // rơi về mặc định — lưu vẫn báo thành công, cấu hình vẫn không có
+                        // tác dụng, và không ai thấy lỗi ở đâu.
+                        LUA_CHON_THEO_KHOA[item.key] ? (
+                          <select
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="px-3 py-1.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            autoFocus
+                            data-testid={`edit-select-${item.key}`}
+                          >
+                            {LUA_CHON_THEO_KHOA[item.key].map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="px-3 py-1.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-32"
+                            autoFocus
+                            data-testid={`edit-input-${item.key}`}
+                          />
+                        )
                       ) : (
-                        <span className="text-slate-700 font-mono">{item.value}</span>
+                        <span className="text-slate-700 font-mono">
+                          {LUA_CHON_THEO_KHOA[item.key]?.find((o) => o.value === item.value)
+                            ?.label ?? item.value}
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{item.unit ?? '—'}</td>
@@ -179,14 +226,29 @@ export function SettingsPage() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => startEdit(item)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          data-testid={`btn-edit-${item.key}`}
-                        >
-                          <Edit className="w-3.5 h-3.5" />Sửa
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(item)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            data-testid={`btn-edit-${item.key}`}
+                          >
+                            <Edit className="w-3.5 h-3.5" />Sửa
+                          </button>
+                          {MAC_DINH_THEO_KHOA[item.key] !== undefined &&
+                            MAC_DINH_THEO_KHOA[item.key] !== item.value && (
+                              <button
+                                type="button"
+                                onClick={() => void resetVeMacDinh(item.key)}
+                                disabled={isSaving}
+                                title="Trả về giá trị mặc định"
+                                className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                                data-testid={`btn-reset-${item.key}`}
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />Về mặc định
+                              </button>
+                            )}
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -151,6 +151,32 @@ hiện — đúng điều anh nêu.
 Nút chọn cột đặt ở **thanh công cụ** cạnh nút "Bộ lọc", không ở góc phải hàng tiêu đề như
 Odoo: bảng của ta cuộn ngang, nút ở hàng tiêu đề sẽ trôi khỏi màn hình đúng lúc cần nó nhất.
 
+#### Kỳ thống kê áp cho thẻ số · danh sách · badge menu — 25/08/2026
+
+Anh yêu cầu mọi con số đếm tính theo một **kỳ cấu hình được** trong Cài đặt hệ thống. Anh
+chốt: kỳ áp cho **cả thẻ lẫn danh sách** (hai bên không được nói hai con số); **admin đặt mặc
+định, cán bộ đổi tạm** trên trang.
+
+| Khoá cấu hình | Giá trị | Mặc định |
+|---|---|---|
+| `THONG_KE_KY` | tháng · quý · năm hiện tại · khoảng tuỳ chọn · tất cả | **tháng hiện tại** |
+| `THONG_KE_TRUONG_NGAY` | ngày tiếp nhận · ngày tạo | **ngày tiếp nhận** |
+
+Một hàm duy nhất tính kỳ (`giaiKyThongKe` + `apDungKyVaoWhere`) cho **bảy** chỗ đếm: danh sách
+và thống kê của ba module, cộng badge menu. Ca kiểm so **thẳng điều kiện truy vấn** của
+`getStats` với `getList` — so hai con số thì chúng có thể tình cờ bằng nhau.
+
+Giao diện: nhãn kỳ trên thanh thẻ lấy từ kỳ **máy chủ thật sự đã áp**, không phải kỳ giao diện
+tự đoán. Ô "Tính theo" khai vào registry lọc sẵn có, **không** dựng bộ chọn ngày thứ hai.
+
+**ĐỔI HÀNH VI:** hai ô ngày của **Vụ án** trước đây lọc theo `createdAt`, khác hẳn Đơn thư
+(`receivedDate`) và Vụ việc (`ngayDeXuat`) — mà hồ sơ di trú dồn chung MỘT ngày tạo nên bộ lọc
+ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia.
+
+**Hai điều chưa xử lý, cần quyết riêng:** badge menu không lọc theo phạm vi dữ liệu (cán bộ
+thấy con số toàn đơn vị); và badge đếm khác thẻ số (badge: vụ án REGULAR, vụ việc/đơn thư chưa
+giải quyết — thẻ: tất cả). Giữ nguyên ngữ nghĩa cũ, có ca kiểm ghi rõ.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu

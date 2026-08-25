@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { casesListFilters } from '../list-filters';
 
 describe('casesListFilters registry', () => {
-  it('registers 8 fields — 5 gốc + 3 ô theo bảng lọc hệ cũ', () => {
+  it('registers 9 fields — 5 gốc + 3 ô theo bảng lọc hệ cũ', () => {
     const keys = casesListFilters.all().map((f) => f.key);
     expect(keys).toEqual([
       'fromDate',
@@ -13,6 +13,9 @@ describe('casesListFilters registry', () => {
       'stt',
       'sttCu',
       'createdById',
+      // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận
+      // hay ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
+      'thongKeTruongNgay',
     ]);
   });
 
@@ -32,6 +35,7 @@ describe('casesListFilters registry', () => {
       'filter-stt',
       'filter-stt-cu',
       'filter-can-bo-nhap',
+      'filter-tinh-theo',
     ]);
   });
 

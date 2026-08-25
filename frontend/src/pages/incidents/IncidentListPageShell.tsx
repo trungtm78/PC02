@@ -58,6 +58,7 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
 import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalProvider';
 import { usePermission } from '@/hooks/usePermission';
@@ -122,11 +123,20 @@ interface IncidentRow {
   canBoNhap?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
+interface KyDaGiaiFE {
+  ky: string;
+  truong: string;
+  tuNgay: string | null;
+  denNgay: string | null;
+}
+
 interface IncidentsStatsResponse {
   total: number;
   byStatus: Record<IncidentStatus, number>;
   /** Số theo 4 giai đoạn BCA, do server đếm (PHASE_STATUSES). */
   byGroup: Record<string, number>;
+  /** Kỳ MÁY CHỦ thật sự đã áp — nhãn hiện trên thanh thẻ lấy từ đây, không tự đoán. */
+  ky?: KyDaGiaiFE;
 }
 
 const PAGE_SIZE = 20;
@@ -283,6 +293,10 @@ export function IncidentListPageShell() {
       ...(appliedFilters.canBoNhapId && { canBoNhapId: appliedFilters.canBoNhapId }),
       ...(appliedFilters.fromDateRange && { fromDateRange: appliedFilters.fromDateRange }),
       ...(appliedFilters.toDateRange && { toDateRange: appliedFilters.toDateRange }),
+      // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
+      ...(appliedFilters.thongKeTruongNgay && {
+        thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
+      }),
     }),
     [debouncedSearch, appliedFilters],
   );
@@ -650,6 +664,7 @@ export function IncidentListPageShell() {
       <StatsCardsStrip
         cards={buildIncidentsCards(stats)}
         loading={stats == null}
+        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
         activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />

@@ -18,6 +18,8 @@ export interface CaseFilterValue {
   stt?: string;
   sttCu?: string;
   createdById?: string;
+  /** Tạm đổi kỳ thống kê tính theo ngày nào; rỗng = theo cấu hình hệ thống. */
+  thongKeTruongNgay?: string;
 }
 
 const cases = createListFilterRegistry<CaseFilterValue>();
@@ -85,6 +87,18 @@ cases.registerMany([
     type: 'enumSelect',
     urlKey: 'created_by',
     testid: 'filter-can-bo-nhap',
+  },
+  {
+    key: 'thongKeTruongNgay',
+    label: 'Tính theo',
+    type: 'enumSelect',
+    urlKey: 'tinh_theo',
+    testid: 'filter-tinh-theo',
+    options: [
+      { value: '', label: 'Theo cấu hình hệ thống' },
+      { value: 'NGAY_TIEP_NHAN', label: 'Ngày tiếp nhận' },
+      { value: 'NGAY_TAO', label: 'Ngày tạo' },
+    ],
   },
 ]);
 

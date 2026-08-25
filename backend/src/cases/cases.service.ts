@@ -23,6 +23,7 @@ import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhC
 import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
+import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
@@ -197,19 +198,15 @@ export class CasesService {
       where.unit = unit;
     }
 
-    if (fromDate) {
-      where.createdAt = {
-        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
-        gte: new Date(fromDate),
-      };
-    }
-
-    if (toDate) {
-      where.createdAt = {
-        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
-        lte: new Date(toDate + 'T23:59:59.999Z'),
-      };
-    }
+    // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
+    // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.
+    //
+    // ĐỔI CỘT LỌC: trước đây hai ô ngày của Vụ án lọc theo `createdAt`, khác hẳn Đơn thư
+    // (`receivedDate`) và Vụ việc (`ngayDeXuat`). Hồ sơ di trú dồn chung MỘT ngày tạo nên
+    // bộ lọc ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia; muốn
+    // lọc theo ngày tạo thì chọn "Tính theo: Ngày tạo".
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     // Filter quá hạn
     if (overdue) {
@@ -450,18 +447,15 @@ export class CasesService {
     if (investigatorId) where.investigatorId = investigatorId;
     if (unit) where.unit = unit;
 
-    if (fromDate) {
-      where.createdAt = {
-        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
-        gte: new Date(fromDate),
-      };
-    }
-    if (toDate) {
-      where.createdAt = {
-        ...(where.createdAt as Prisma.DateTimeFilter | undefined),
-        lte: new Date(toDate + 'T23:59:59.999Z'),
-      };
-    }
+    // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
+    // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.
+    //
+    // ĐỔI CỘT LỌC: trước đây hai ô ngày của Vụ án lọc theo `createdAt`, khác hẳn Đơn thư
+    // (`receivedDate`) và Vụ việc (`ngayDeXuat`). Hồ sơ di trú dồn chung MỘT ngày tạo nên
+    // bộ lọc ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia; muốn
+    // lọc theo ngày tạo thì chọn "Tính theo: Ngày tạo".
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };

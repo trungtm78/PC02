@@ -24,6 +24,7 @@ import { Prisma, IncidentStatus, LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/c
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
+import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { SettingsService } from '../settings/settings.service';
@@ -150,11 +151,10 @@ export class IncidentsService {
     }
 
     // Date range filter on ngayDeXuat
-    if (fromDateRange || toDateRange) {
-      where.ngayDeXuat = {};
-      if (fromDateRange) where.ngayDeXuat.gte = new Date(fromDateRange);
-      if (toDateRange) where.ngayDeXuat.lte = new Date(toDateRange);
-    }
+    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
+    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDateRange, toDateRange, 'ngayDeXuat');
 
     // Filter quá hạn — use TERMINAL_STATUSES constant
     if (overdue) {
@@ -1098,11 +1098,10 @@ export class IncidentsService {
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
 
-    if (fromDateRange || toDateRange) {
-      where.ngayDeXuat = {};
-      if (fromDateRange) where.ngayDeXuat.gte = new Date(fromDateRange);
-      if (toDateRange) where.ngayDeXuat.lte = new Date(toDateRange);
-    }
+    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
+    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
+    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDateRange, toDateRange, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };

@@ -3,6 +3,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import {
+  MAC_DINH_KY,
+  MAC_DINH_TRUONG,
+  giaiKyThongKe,
+  type CauHinhKyThongKe,
+  type KyDaGiai,
+} from '../common/utils/thong-ke-ky.util';
+import {
   DEADLINE_RULE_KEY_SET,
   DEADLINE_RULE_KEYS,
 } from '../deadline-rules/constants/deadline-rule-keys.constants';
@@ -39,6 +46,27 @@ export class SettingsService {
       orderBy: { key: 'asc' },
     });
     return { success: true, data: settings };
+  }
+
+  /**
+   * Kỳ thống kê đang áp — dùng cho thẻ số, danh sách và badge trên thanh menu.
+   *
+   * `override` là lựa chọn TẠM THỜI của cán bộ trên trang; không truyền thì lấy mặc định
+   * admin đặt trong Cài đặt hệ thống. Một nguồn sự thật duy nhất cho cả ba chỗ đếm.
+   */
+  async getKyThongKe(override?: CauHinhKyThongKe, now: Date = new Date()): Promise<KyDaGiai> {
+    if (override?.ky) return giaiKyThongKe(override, now);
+
+    return giaiKyThongKe(
+      {
+        ky: await this.getValue(SETTINGS_KEY.THONG_KE_KY),
+        truong:
+          override?.truong ?? (await this.getValue(SETTINGS_KEY.THONG_KE_TRUONG_NGAY)),
+        tuNgay: await this.getValue(SETTINGS_KEY.THONG_KE_TU_NGAY),
+        denNgay: await this.getValue(SETTINGS_KEY.THONG_KE_DEN_NGAY),
+      },
+      now,
+    );
   }
 
   async getValue(key: string): Promise<string | null> {
@@ -144,6 +172,13 @@ export class SettingsService {
       // v0.36.0.0: bump default 24h → 168h (7 ngày) per /autoplan UC1 — BLTTHS Đ.147
       // cho 20 ngày verify tin báo, 24h là quá ngắn cho điều tra thực tế.
       { key: SETTINGS_KEY.THOI_HAN_EDIT_VU_VAN, value: '168', label: 'Số giờ cán bộ phường khuyến nghị sửa dữ liệu (warning-only, override per-Team). Default 168h = 7 ngày (BLTTHS Đ.147 verify 20 ngày).', unit: 'giờ', legalBasis: 'BLTTHS Đ.147 + Quy chế nội bộ' },
+      // v0.75 — Kỳ thống kê. Mặc định THÁNG HIỆN TẠI theo NGÀY TIẾP NHẬN; admin đổi được
+      // trong Cài đặt hệ thống hoặc bấm "Về mặc định". Hai khoá ngày chỉ dùng khi kỳ là
+      // KHOANG_TUY_CHON; để rỗng thì `giaiKyThongKe` rơi về mặc định chứ không ném lỗi.
+      { key: SETTINGS_KEY.THONG_KE_KY, value: MAC_DINH_KY, label: 'Kỳ thống kê mặc định (thẻ số, danh sách, badge menu)', unit: null, legalBasis: null },
+      { key: SETTINGS_KEY.THONG_KE_TRUONG_NGAY, value: MAC_DINH_TRUONG, label: 'Thống kê tính theo ngày nào', unit: null, legalBasis: null },
+      { key: SETTINGS_KEY.THONG_KE_TU_NGAY, value: '', label: 'Kỳ thống kê — từ ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
+      { key: SETTINGS_KEY.THONG_KE_DEN_NGAY, value: '', label: 'Kỳ thống kê — đến ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
     ];
 
     for (const d of defaults) {
