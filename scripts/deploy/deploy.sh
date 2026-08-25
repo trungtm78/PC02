@@ -48,13 +48,50 @@ log "Shared resources symlinked"
 BACKUP_FILE="/var/backups/pc02/pre-deploy-${RELEASE_SHA}-$(date +%Y%m%d_%H%M%S).sql.gz"
 mkdir -p /var/backups/pc02
 chmod 700 /var/backups/pc02 2>/dev/null || true
-sudo -u postgres pg_dump -Fc -Z9 pc02_case_mgmt > "$BACKUP_FILE" 2>/dev/null || {
-    log "WARNING: pre-deploy backup failed (non-fatal, continuing)"
-}
-if [ -f "$BACKUP_FILE" ]; then
-    # SEC: backups chứa PII + TOTP secrets — chỉ root đọc.
+# Nạp .env để lấy DATABASE_URL. Kịch bản này trước nay chỉ TẠO LIÊN KẾT tới .env chứ không
+# đọc nó, nên mọi biến trong đó đều rỗng ở tầng shell.
+set -a
+# shellcheck disable=SC1091
+. "$SHARED_DIR/.env"
+set +a
+[ -n "${DATABASE_URL:-}" ] || { log "ERROR: DATABASE_URL rỗng sau khi nạp .env"; exit 1; }
+
+# 26/08/2026 — BẢN VÁ: 243/246 bản sao lưu trên máy thật là 0 byte.
+#
+# Ba lỗi chồng nhau ở bản cũ:
+#   1. `sudo -u postgres` đòi mật khẩu khi chạy không có màn hình (deploy qua SSH) → hỏng
+#      MỌI lần.
+#   2. `2>/dev/null` nuốt sạch thông báo lỗi.
+#   3. Chuyển hướng `>` tạo tệp rỗng TRƯỚC khi pg_dump chạy, nên `[ -f ]` vẫn đúng và nhật
+#      ký vẫn in "Pre-deploy backup: ..." như thể thành công.
+#
+# Kết quả: cả năm trời tin rằng có bản sao lưu để quay lui, mà thực tế không có bản nào.
+#
+# Nay dùng thông tin đăng nhập của chính ứng dụng (không cần sudo), giữ lại thông báo lỗi,
+# và KIỂM KÍCH THƯỚC — tệp rỗng bị coi là thất bại.
+BACKUP_DB_USER=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://([^:]+):.*||')
+BACKUP_DB_PASS=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*||')
+BACKUP_DB_NAME=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*/([^?]+)(\?.*)?$||')
+BACKUP_ERR="${BACKUP_FILE}.err"
+
+if PGPASSWORD="$BACKUP_DB_PASS" pg_dump -h localhost -U "$BACKUP_DB_USER" -Fc -Z9         "$BACKUP_DB_NAME" > "$BACKUP_FILE" 2>"$BACKUP_ERR"; then
+    BACKUP_SIZE=$(stat -c %s "$BACKUP_FILE" 2>/dev/null || echo 0)
+    # Một bản kết xuất thật của cơ sở dữ liệu này khoảng 120 MB. Ngưỡng 1 MB đủ rộng cho
+    # mọi biến động hợp lý mà vẫn bắt được tệp rỗng hoặc cụt.
+    if [ "$BACKUP_SIZE" -lt 1048576 ]; then
+        log "ERROR: pre-deploy backup chỉ có ${BACKUP_SIZE} byte — coi như THẤT BẠI."
+        log "$(head -3 "$BACKUP_ERR" 2>/dev/null)"
+        rm -f "$BACKUP_FILE"
+        exit 1
+    fi
     chmod 600 "$BACKUP_FILE" || log "WARNING: chmod 600 backup failed"
+    rm -f "$BACKUP_ERR"
     log "Pre-deploy backup: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+else
+    log "ERROR: pre-deploy backup THẤT BẠI — dừng deploy, không migrate khi chưa có bản lui."
+    log "$(head -3 "$BACKUP_ERR" 2>/dev/null)"
+    rm -f "$BACKUP_FILE"
+    exit 1
 fi
 
 # 5. Run prisma migrate deploy (BEFORE switching symlink — rollback path stays clean if fail)
