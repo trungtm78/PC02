@@ -186,6 +186,39 @@ describe('IncidentsService', () => {
   // ── getList ───────────────────────────────────────────────────────────────
 
   describe('getList', () => {
+    // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ───────────────────────────────
+    it('lọc theo mã vụ việc nhận CẢ HAI dạng', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '26-9706' });
+
+      const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
+      // Vụ việc lưu mã ở `code`, không phải `stt`.
+      expect(where.code).toEqual({ in: ['26-9706', '2026-9706'] });
+    });
+
+    it('lọc theo STT cũ', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ sttCu: '679' });
+
+      const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
+      expect(where.sttCu).toEqual({ contains: '679', mode: 'insensitive' });
+    });
+
+    it('ô lọc để trống thì KHÔNG thêm điều kiện', async () => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ stt: '   ', sttCu: '' });
+
+      const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
+      expect(where.code).toBeUndefined();
+      expect(where.sttCu).toBeUndefined();
+    });
+
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ

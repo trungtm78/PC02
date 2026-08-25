@@ -1,48 +1,73 @@
-STATUS: ALL_MILESTONES_DONE
+# PROGRESS
 
-# PROGRESS — Di trú lại data hệ cũ pc02hcm.com (data-driven)
-Cập nhật: 2026-08-02 | Nhánh: feat/legacy-remigration-datadriven | PR: 1/5 xong
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 3/4 của M5
 
-## Bối cảnh
-Migration cũ dùng mapping HARDCODE ~90 key → sai FIELD (không mất bản ghi: coverage 98,5%).
-Làm lại data-driven từ TruongTuyChinh(176)+NgonNgu(746), đối chiếu source PHP.
-Quyền PROD: test local xong → tự áp prod, KHÔNG hỏi lại (prod chưa vận hành). pg_dump trước.
+Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
+Nhánh: `feat/danh-sach-giong-he-cu`
 
 ## Đã hoàn thành
-- [x] PR-0 export live Mongo (EJSON ngoài git) + đối soát — commit. 7 test.
-  - bi_can=0 CẢ LIVE (nghi can chỉ ở text); coverage 98,5%; vấn đề = field-level.
-- [x] PR-1 catalog 132 field + ma trận map (MAPPED 80/RESOLVE 5/UNMAPPED 47) — commit. 12 test.
-  - `docs/legacy/{field-catalog.generated,field-mapping}.{md,json}`. field-mapping.json = config builder.
-- [x] PR-2 schema truy nguyên — commit. tsc sạch. migration 20260803000000_legacy_traceability.
-  - +soHoSoCu/legacyId/legacyCollection (cases/petitions/incidents) + Subject/InvestigationSupplement khóa gốc + index.
 
-- [x] PR-3a+b TRUY NGUYÊN end-to-end (vụ án) — commit. Full BE 2850 test xanh, BE+FE tsc sạch.
-  - traceFields → builders; backfill-trace điền 53.455 bản ghi (cases 3283+petitions 45459+incidents 4713);
-    CaseDetailPage hiện "Mã hồ sơ gốc"; cases search theo soHoSoCu/caseCode. YÊU CẦU CỐT LÕI CỦA ANH: XONG.
+- [x] M1-T1 `hoSoCode.ts` — hiện mã `26-11171`, tìm được cả hai dạng — commit `b2839f3` — 9 ca kiểm
+- [x] M1-T2 `SummaryCell.tsx` — cột Tóm tắt nội dung + Xem thêm — commit `b2839f3` — 5 ca kiểm
+- [x] M1-T3 `dateRangePresets.ts` — Chọn khoảng thời gian, 5 mốc — 10 ca kiểm
+- [x] **M1 HOÀN TẤT** — 3/3 task, 24 ca kiểm
+- [x] M2-T1 `LegacyFilterPanel.tsx` — thẻ lọc hai vế, 9 ca kiểm
+- [x] **M2 HOÀN TẤT** — xuất mảnh mới qua `index.ts`, `tsc -b` sạch
+- [x] M3-T1 `ho-so-code.util.ts` (máy chủ) — suy biến thể mã, 7 ca kiểm; **gỡ bản trùng ở frontend** để không để code chết
+- [x] M3-T2 Đơn thư — 3 bộ lọc + 4 trường trả về, 100/100 ca kiểm
+- [x] M3-T3 Vụ án + Vụ việc — bộ lọc theo cột THẬT của từng module, 96/96 và 107/107
+- [x] **M3 HOÀN TẤT** — full suite máy chủ **2975/2975**, `tsc --noEmit` sạch
+- [x] M4-T1 Trang Đơn thư — 9 cột đúng thứ tự, Thao tác về CUỐI, thẻ lọc hệ cũ — 27/27
+- [x] M4-T2 Trang Vụ việc — cùng khuôn, dùng lại `canBoNhapId` sẵn có — 19/19
+- [x] M4-T3 Trang Vụ án — cùng khuôn, `createdById` cho Cán bộ nhập
+- [x] **M4 HOÀN TẤT** — frontend **1534/1534** (158 bộ), `tsc -b` sạch
+- [x] M5-T1 Tự soát mã — **bắt lỗi thật**: thẻ lọc ghi vào địa chỉ trang nhưng `baseQueryParams` không chứa → API bỏ qua, bộ lọc không làm gì. Đã vá cả 3 trang + ca kiểm đặt đúng tầng
+- [x] M5-T2 Bổ sung ca kiểm bố cục cho Vụ việc và Vụ án (trước đó chỉ Đơn thư có)
+- [x] M5-T3 Đẩy nhánh + mở **PR #230**
 
-- [x] PR-3c parity Petition/Incident (search soHoSoCu + IncidentDetail display) — commit. 192 test.
-- [x] ÁP PROD (PR #206 merged, deploy #206 success) + BACKFILL PROD idempotent:
-  cases 3283 + petitions 45298 + incidents 4592 có soHoSoCu (petitions 161 nguồn không có stt).
-  Verify prod: detail trả soHoSoCu (VA-2026-09891→20); SEARCH theo STT chạy (search=20 → 3 vụ). Health OK.
-  (search=8358 ra 0 chỉ do DataScope admin test, không phải bug — DB+code khớp.)
+## Đang làm dở
 
-## HOÀN TẤT
-Traceability hệ cũ end-to-end, LOCAL + PROD, 3 module. Yêu cầu cốt lõi của anh (lưu số truy nguyên) XONG.
+Task: M5-T4 — chờ CI xanh → gộp PR #230 → deploy → kiểm chứng trên bản chạy thật
+Đã làm: PR #230 đã mở, CI đang chạy
+BƯỚC TIẾP THEO: `gh pr checks 230`; xanh thì `gh pr merge 230 --squash --admin --delete-branch`, chờ deploy, rồi mở 3 trang trên `https://new.pc02hcm.com` đối chiếu với ảnh hệ cũ
+File liên quan: PR #230
 
-## PR-4 (full re-map field) — DEFER theo khuyến nghị
-Data coverage 98,5% + 80 field builder hiện map đúng → re-migrate 53k rủi ro cao, lợi ích thấp.
-Đề xuất: chỉ VÁ field cụ thể anh chỉ ra sai (dùng docs/legacy/field-mapping.md để soi), KHÔNG re-migrate toàn bộ.
-Công cụ sẵn sàng nếu cần: cli/mongo-export.ts, build-field-catalog.ts, build-field-mapping.ts, field-mapping.json.
+## Hàng đợi task kế tiếp
+
+1. **M2** — `LegacyFilterPanel.tsx`: thẻ lọc hai vế, 7 ô (Từ khóa · STT · STT cũ · Từ ngày · Đến ngày · Cán bộ nhập · Chọn khoảng thời gian) + Xóa bộ lọc + Xuất Excel
+2. **M3** — Máy chủ: thêm `nguonDon`/`ketQuaXuLyKhac` (petitions), `moTaChiTiet` (cases) vào `select`; thêm bộ lọc `stt`, `sttCu`, `enteredById` cho cả ba
+3. **M4** — Nối vào 3 trang: đủ 9 cột đúng thứ tự, Thao tác về CUỐI, giữ chip trạng thái + thẻ thống kê + sắp xếp
+4. **M5** — Full suite + `/review` + `/codex` + PR + deploy
+5. **M6** — UAT phủ 100% theo `UAT-COVERAGE.md`
 
 ## Quyết định kiến trúc
-| Ngày | Quyết định | Lý do |
-| 2026-08-02 | Mapping = bảng DATA (field-mapping.json) builder đọc, KHÔNG imperative | data-driven, dễ review/sửa |
-| 2026-08-02 | Bỏ bi_can→Subject | bi_can rỗng cả live; nghi can chỉ ở text nghi_van_doi_tuong |
-| 2026-08-02 | Dump EJSON ngoài git (gitignore) | tránh lộ PII; repo chỉ giữ catalog/report metadata |
+
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 25/08 | Mở rộng `ListPageShell` dùng chung thay vì chép vào 3 trang | Ba bản sao rời nhau là cách lỗi sống sót — vừa gặp đúng vậy ở bộ sinh số (`commit()` và `commitWithTx()` lệch nhau, gây sự cố P0 sáng nay) | Mọi mảnh mới nằm ở `components/shared/ListPageShell/` |
+| 25/08 | Rút gọn mã hồ sơ ở tầng HIỂN THỊ, không đổi dữ liệu | Đổi 46.660 giá trị `stt` trong ngày vận hành thử là rủi ro không cần thiết; mã đã in ra giấy sẽ khác | `formatHoSoCode` + `hoSoCodeVariants` |
+| 25/08 | `formatHoSoCode` trả nguyên văn với mã không đúng dạng `năm-stt` | Cắt bừa tạo ra mã sai mà nhìn vẫn hợp lệ — loại lỗi khó phát hiện nhất | `DT-LEGACY-…`, `VA-2026-…` giữ nguyên |
+| 25/08 | Suy biến thể mã khi TÌM đặt ở **máy chủ**, không ở frontend | Tìm đúng không được phụ thuộc việc trình duyệt liệt kê đủ dạng — ứng dụng di động và lệnh gọi API trực tiếp cũng phải ra hồ sơ. Đã **gỡ** bản frontend để không để code chết (§3.5) | `backend/src/common/utils/ho-so-code.util.ts` |
+| 25/08 | Bộ lọc "Cán bộ nhập" dùng cột THẬT của từng module | Đơn thư `enteredById`, Vụ việc `canBoNhapId` (đã có sẵn — không dựng ô thứ hai cùng nghĩa), Vụ án `createdById`. Đặt một tên chung sẽ phải ánh xạ ngầm và dễ nối nhầm cột | 3 DTO khác tên nhau, có chủ đích |
+| 25/08 | Lọc mã dùng `in: [biến thể]` chứ không `contains` | `contains: '26-1'` quét trúng hàng nghìn mã khác — cán bộ lọc ra kết quả sai mà không biết | 3 service |
+| 25/08 | `useOfficerOptions` gọi `GET /admin/users` | Tên nghe như chỉ dành quản trị nhưng quyền thật là `read:User` và **OFFICER cũng có** — đã kiểm trên CSDL đang chạy. Dùng nhầm endpoint chỉ ADMIN gọi được thì ô lọc rỗng với đúng người cần nó | `hooks/useOfficerOptions.ts` |
+
+## Assumption đã tự quyết
+
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+|---|---|---|
+| Protocol §4 yêu cầu code + comment tiếng Anh và i18n cho chuỗi hiển thị | **Giữ convention repo**: chú thích và tên ca kiểm tiếng Việt, chuỗi hiển thị viết trực tiếp | **Anh đã XÁC NHẬN 25/08**: "nội dung code và comment buộc tiếng Anh thì không cần thiết". Trước đó em tự quyết theo Protocol §4 "convention hiện có của repo thắng sở thích cá nhân" — repo có 2.955 ca kiểm tiếng Việt, không có hạ tầng i18n |
+| "Chuyển đội" của hệ cũ | Ánh xạ sang **Phân công** (`assign`) đã có | Cùng nghĩa: đổi tổ phụ trách hồ sơ |
+| "Phân loại hồ sơ ▾" của hệ cũ | Ánh xạ sang luồng chuyển đổi (`ConvertPetitionModal`) đã có | Cùng nghĩa: đổi loại hồ sơ giữa đơn thư / vụ việc / vụ án |
+| "Đã chuyển đội khác", "Tìm trường bỏ trống" | **Không dựng** | Anh đã chốt qua AskUserQuestion: để lại vì hệ mới chưa có khái niệm tương đương; dựng theo phỏng đoán sẽ cho kết quả lọc sai mà cán bộ không biết |
 
 ## Trạng thái test
-Full suite: chưa chạy lại toàn bộ (mới thêm 12 test unit, đều PASS) | tsc: sạch
+
+**Máy chủ 2975/2975** (225 bộ) · **Frontend 1541/1541** (158 bộ) = **4516 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage M1–M5: 100% dòng | Test fail: không
 
 ## Nợ kỹ thuật / rủi ro
-- Ma trận map 132 field cần đối chiếu PHP + review — làm ở PR-1.b.
-- Epoch +14h: xác minh lại từ dữ liệu ở PR-3.
+
+- Trang **Tổng hợp** và **UTĐT** dùng chung shell nên hưởng phần dùng chung, nhưng cột riêng của chúng chưa rà — để đợt sau, đã ghi trong spec §Cố ý KHÔNG làm.
+- `sortableHeader.test.tsx` từng chập chờn khi chạy cả thư mục (5.565ms → quá hạn) nhưng xanh khi chạy riêng. **Lượt chạy full suite 1534/1534 KHÔNG tái diễn** → xác nhận là nghẽn CPU nhất thời, không phải hồi quy.
+- Ô "Từ khóa" của hệ cũ KHÔNG dựng lại trong thẻ lọc: thanh công cụ ngay trên đã có ô tìm kiếm. Hai ô tìm trên một màn hình gây nhầm chứ không tiện.
+- 4 đơn thư sai tháng ngày tiếp nhận (`2026-10206/10207/8810/10224`) vẫn chờ hồ sơ giấy — không liên quan phần này.
