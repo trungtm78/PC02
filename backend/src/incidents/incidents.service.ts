@@ -1148,7 +1148,7 @@ export class IncidentsService {
 
     // byGroup dùng chính PHASE_STATUSES — 4 thẻ thống kê Vụ việc trùng khít 4 giai đoạn BCA,
     // nên không cần bộ nhóm riêng.
-    return { total, byStatus, byGroup: countByGroup(PHASE_STATUSES, byStatus) };
+    return { total, byStatus, byGroup: countByGroup(PHASE_STATUSES, byStatus), ky: kyThongKe };
   }
 
   // ─────────────────────────────────────────────

@@ -552,7 +552,7 @@ export class CasesService {
     }
 
     // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
-    return { total, byStatus, byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus) };
+    return { total, byStatus, byGroup: countByGroup(CASE_STATUS_GROUPS, byStatus), ky: kyThongKe };
   }
 
   // ─────────────────────────────────────────────
