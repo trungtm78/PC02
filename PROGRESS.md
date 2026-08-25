@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-26T02:40:00+07:00 | Milestone: M3/5 | Task: 3/5
+Cập nhật: 2026-08-26T03:20:00+07:00 | Milestone: M4/5 | Task: 4/5
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -30,16 +30,23 @@ Nhánh: `feat/legacy-form-parity-vu-an`
     "Báo cáo Ban Giám đốc" mất nội dung chữ · **đối tượng nhập tay bị loại sạch**
   - Ca kiểm neo: điền kín mọi ô của 10 tab rồi kiểm không ô nào rơi; một vòng
     lưu-rồi-mở-lại giữ nguyên giá trị
+- [x] M4 — Chuyển toàn bộ dữ liệu hệ cũ vào field mới:
+  - `buildCaseStatistic` đọc thêm 7 mốc ngày (16.9k–17.8k hồ sơ MỖI khoá) + 12 chỉ tiêu
+  - `buildCase` đọc thêm 24 khoá hệ cũ vừa có cột
+  - `PARITY.case` khai thêm 27 cặp → `backfill-parity.ts` tự phủ hồ sơ ĐÃ di trú
+  - Thêm nhánh `case_statistics` cho công cụ bù (`backfill-statistic.util.ts`)
+  - `verify-backfill-parity.ts` kiểm chứng ĐẦU-CUỐI trên CSDL thật: **ĐẠT** (9 ô bảng vụ án
+    + 4 ô bảng thống kê, ngày tháng đúng)
+  - Cổng kiểm thêm cờ `formOnly` (khai rõ cột dựng cho form) + ca kiểm chặn dùng cờ làm cửa sau
+  - Viết lại công cụ sinh đã mất: `gen-legacy-parity-fields.ts` (có `--check` cho CI)
+  - Vá lỗi panel bổ sung ĐÈ giá trị cán bộ gõ trong tab (11 cột trùng)
 
 ## Đang làm dở
-Task: M4 — Chuyển TOÀN BỘ dữ liệu hệ cũ vào field mới (anh nhấn hai lần: phải đủ)
+Task: M5 — Đối soát, tài liệu, UAT phủ 100%
 Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: bổ sung 8 mốc ngày còn sót vào `buildCaseStatistic()`
-(`backend/src/legacy-migration/legacy-mapper.ts:585-613`) — cột đã có sẵn, 16.9k–17.8k hồ sơ
-mỗi khoá đang chỉ nằm trong `legacyRaw`
-File liên quan: `backend/src/legacy-migration/legacy-mapper.ts`,
-`backend/src/legacy-migration/field-parity.def.ts`,
-`backend/src/legacy-migration/cli/backfill-parity.ts`
+BƯỚC TIẾP THEO: chạy `/review` rồi `/codex review` trên toàn bộ diff của nhánh (kỷ luật §4),
+xử hết finding, sau đó dựng `UAT-COVERAGE.md`
+File liên quan: toàn bộ diff nhánh `feat/legacy-form-parity-vu-an`
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
@@ -64,8 +71,8 @@ File liên quan: `backend/src/legacy-migration/legacy-mapper.ts`,
 | Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-Backend: **3050/3050 PASS (230 bộ)** · `tsc --noEmit` sạch
-Frontend: **1731/1731 PASS (168 bộ)** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
+Backend: **3112/3112 PASS (232 bộ)** · `tsc --noEmit` sạch
+Frontend: **1733/1733 PASS (169 bộ)** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
 nâng `testTimeout` lên 20s (nguyên nhân gốc: hạn 5s không đủ khi 166 tệp chạy song song;
 ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý do không liên quan).
 
