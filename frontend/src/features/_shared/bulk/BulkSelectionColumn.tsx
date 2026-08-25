@@ -1,4 +1,5 @@
 import type { UseBulkSelectionResult } from './useBulkSelection';
+import { TABLE_HEADER_STICKY_BG } from '@/constants/styles';
 
 /**
  * v0.48 PR1 F2 — Checkbox column helper cho list pages.
@@ -21,7 +22,7 @@ interface HeaderProps {
 
 export function BulkSelectionHeaderCell({ selection, totalRowsLabel }: HeaderProps) {
   return (
-    <th className="w-10 px-2 py-2 text-left sticky left-0 bg-slate-50 z-[1]">
+    <th className={`w-10 px-2 py-2 text-left sticky left-0 z-[1] ${TABLE_HEADER_STICKY_BG}`}>
       <input
         type="checkbox"
         aria-label={`Chọn tất cả ${totalRowsLabel ?? 'bản ghi'} trong trang`}
@@ -42,6 +43,15 @@ interface RowProps {
   /** Optional eligibility check — disable + tooltip lý do (vd "Chỉ xóa được khi giai đoạn Tiếp nhận"). */
   ineligibleReason?: string | null;
   rowLabel?: string; // "vụ án {caseCode}" — dùng cho aria-label
+  /**
+   * Lớp nền cho ô ghim này.
+   *
+   * Ô ghim buộc phải có nền đục, nếu không nội dung cuộn ngang hiện xuyên qua. Nhưng đặt
+   * cứng `bg-white` như trước thì trên hàng đang chọn (nền xanh) hay hàng quá hạn (nền cảnh
+   * báo), ô ghim thành một vệt trắng lệch màu ngay mép trái. `Table` đã tính sẵn nền của
+   * từng hàng nên truyền xuống đây thay vì đoán.
+   */
+  bgClass?: string;
 }
 
 export function BulkSelectionRowCell({
@@ -49,11 +59,12 @@ export function BulkSelectionRowCell({
   selection,
   ineligibleReason,
   rowLabel,
+  bgClass = 'bg-inherit',
 }: RowProps) {
   const disabled = ineligibleReason != null;
   return (
     <td
-      className="w-10 px-2 py-2 sticky left-0 bg-white z-[1]"
+      className={`w-10 px-2 py-2 sticky left-0 z-[1] ${bgClass}`}
       onClick={(e) => e.stopPropagation()} // tránh trigger row onClick
     >
       <input

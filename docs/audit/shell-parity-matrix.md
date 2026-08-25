@@ -54,6 +54,29 @@ sẵn trong cơ sở dữ liệu, chỉ là không được hiện.
 | Thao tác ở ĐẦU, ngay sau ô tick | ✅ | ✅ | ✅ | **CỐ Ý KHÁC hệ cũ** — xem ghi chú dưới |
 | Mã hồ sơ hiện dạng ngắn `26-11171` | ✅ | ✅ | ✅ | `formatHoSoCode` — chỉ đổi HIỂN THỊ, dữ liệu giữ nguyên |
 
+#### Bảng cuộn ngang — vá 25/08/2026
+
+Anh báo "thiếu scroll ngang". Vùng cuộn không hề thiếu: `TABLE_WRAPPER` là `overflow-x-auto`
+từ lâu. Thứ thiếu là **cái để tràn ra** — ô không cấm chữ xuống dòng nên bề rộng tối thiểu
+của bảng tụt rất thấp, bảng luôn vừa khít khung chứa, và 13 cột bị ép vào bề ngang khung với
+chữ vỡ vụn ba bốn dòng.
+
+| Hạng mục | Trước | Sau |
+|---|---|---|
+| Ô dữ liệu | xuống dòng tự do | **một dòng** (`whitespace-nowrap`) |
+| Tiêu đề cột | xuống dòng | **giữ nguyên** — nhãn 45 ký tự không được quyết bề rộng cột |
+| Cột chữ tự do | không trần | `TABLE_CELL_TRUNCATE` (trần 20rem + cắt đuôi) |
+| Cột Tóm tắt | tự cắt 150 ký tự | **giữ nguyên** — `SummaryCell` tự lo |
+| Ô tick + Thao tác khi cuộn | trôi mất | **ghim mép trái** |
+| Nền ô ghim | đặt cứng `bg-white` | **nền thật của hàng** |
+
+Ghi chú: cần ghim cột Thao tác vì bảng nay cuộn thật — không ghim thì cột vừa đưa lên đầu sẽ
+trôi khỏi màn hình ngay khi cuộn, mất đúng cái lợi vừa làm.
+
+Vá kèm hai lỗi có sẵn: ô ghim đặt cứng nền trắng nên hàng đang chọn / hàng quá hạn hiện một
+vệt trắng lệch màu ở mép trái; và ô tick hàng tiêu đề dùng `bg-slate-50` lệch tông với hàng
+tiêu đề `#003973/5`.
+
 #### Vị trí cột Thao tác — một chỗ cố ý khác hệ cũ
 
 24/08/2026 bản đầu chuyển Thao tác về **cuối** bảng cho giống hệ cũ. 25/08/2026 anh yêu cầu

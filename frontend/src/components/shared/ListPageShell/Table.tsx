@@ -20,6 +20,8 @@ import {
   TABLE_WRAPPER,
   TABLE_BASE,
   TABLE_HEADER,
+  TABLE_HEADER_CELL,
+  TABLE_HEADER_STICKY_BG,
   TABLE_BODY,
   TABLE_CELL,
   TABLE_SECTION_CARD,
@@ -55,6 +57,13 @@ export interface ColumnDef<TRow> {
    * Phải nằm trong danh sách trắng của module ở backend, nếu không máy chủ bỏ qua.
    */
   sortKey?: string;
+  /**
+   * Ghim cột này ở mép trái khi bảng cuộn ngang.
+   *
+   * Neo ở `left-10` vì ô tick đứng trước và rộng `w-10`. Chỉ dùng cho cột điều khiển (Thao
+   * tác) — ghim thừa một cột dữ liệu là che mất chính dữ liệu đang cuộn.
+   */
+  sticky?: boolean;
 }
 
 export interface TableProps<TRow, TId extends string | number = string> {
@@ -259,6 +268,11 @@ export function Table<TRow, TId extends string | number = string>({
   onSort,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
+  // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
+  // là nền THẬT của hàng chứ không phải màu cứng — xem chú thích ở `nenHang` bên dưới.
+  const LOP_GHIM = 'sticky left-10 z-[1]';
+  // Nền ô ghim: bám theo nền hàng thay vì khai màu riêng. Xem chú thích ở `nenHang`.
+  const NEN_O_GHIM = 'bg-inherit';
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
   // Only show count when table is ready — during loading data holds stale rows
   // from the previous fetch (parents don't reset rows to [] before refetch).
@@ -317,7 +331,9 @@ export function Table<TRow, TId extends string | number = string>({
                   sort={{ sortBy, sortOrder: sortOrder ?? 'desc' }}
                   onSort={onSort ?? (() => {})}
                   width={col.width}
-                  className={col.headerClassName}
+                  className={`${col.headerClassName ?? TABLE_HEADER_CELL} ${
+                    col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
+                  }`.trim()}
                 />
               ))}
             </tr>
@@ -335,12 +351,25 @@ export function Table<TRow, TId extends string | number = string>({
               // Contract: if getRowClassName returns a non-empty string containing
               // a background override, it should include its own hover:* variant.
               const rowHover = customClass.length > 0 ? '' : 'hover:bg-blue-50';
+              // Hàng LUÔN phải có nền đục khai rõ, không được để trong suốt.
+              //
+              // Ô ghim dùng `bg-inherit` để bám theo nền hàng (xem NEN_O_GHIM). `inherit`
+              // lấy giá trị TÍNH ĐƯỢC của hàng, nên nó tự đúng cả khi rê chuột — chép lớp
+              // nền sang ô thì `hover:` chỉ ăn khi trỏ đúng ô ấy, rê ở ô khác là hàng đổi
+              // màu mà ô ghim vẫn trắng. Nhưng `inherit` trên một hàng TRONG SUỐT thì cho
+              // ra trong suốt, và nội dung cuộn ngang hiện xuyên qua ô ghim. Vì vậy nền mặc
+              // định `bg-white` dưới đây là điều kiện CẦN, không phải trang trí.
+              const nenHang = customClass.length > 0
+                ? ''
+                : isSelected
+                  ? 'bg-blue-50'
+                  : 'bg-white';
               return (
                 <tr
                   key={key}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={`${rowHover} ${onRowClick ? 'cursor-pointer' : ''} ${
-                    isSelected ? 'bg-blue-50' : ''
+                    nenHang
                   } ${customClass}`.trim()}
                 >
                   {bulkSelection && (
@@ -349,10 +378,16 @@ export function Table<TRow, TId extends string | number = string>({
                       selection={bulkSelection}
                       rowLabel={bulkRowLabel?.(row)}
                       ineligibleReason={bulkRowEligible?.(row) ?? null}
+                      bgClass={NEN_O_GHIM}
                     />
                   )}
                   {columns.map((col) => (
-                    <td key={col.key} className={col.cellClassName ?? TABLE_CELL}>
+                    <td
+                      key={col.key}
+                      className={`${col.cellClassName ?? TABLE_CELL} ${
+                        col.sticky ? `${LOP_GHIM} ${NEN_O_GHIM}` : ''
+                      }`.trim()}
+                    >
                       {col.render(row)}
                     </td>
                   ))}
