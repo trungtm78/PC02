@@ -20,6 +20,8 @@ import {
   TABLE_WRAPPER,
   TABLE_BASE,
   TABLE_HEADER,
+  TABLE_HEADER_CELL,
+  TABLE_HEADER_STICKY_BG,
   TABLE_BODY,
   TABLE_CELL,
   TABLE_SECTION_CARD,
@@ -55,6 +57,13 @@ export interface ColumnDef<TRow> {
    * Phải nằm trong danh sách trắng của module ở backend, nếu không máy chủ bỏ qua.
    */
   sortKey?: string;
+  /**
+   * Ghim cột này ở mép trái khi bảng cuộn ngang.
+   *
+   * Neo ở `left-10` vì ô tick đứng trước và rộng `w-10`. Chỉ dùng cho cột điều khiển (Thao
+   * tác) — ghim thừa một cột dữ liệu là che mất chính dữ liệu đang cuộn.
+   */
+  sticky?: boolean;
 }
 
 export interface TableProps<TRow, TId extends string | number = string> {
@@ -259,6 +268,9 @@ export function Table<TRow, TId extends string | number = string>({
   onSort,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
+  // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
+  // là nền THẬT của hàng chứ không phải màu cứng — xem chú thích ở `nenHang` bên dưới.
+  const LOP_GHIM = 'sticky left-10 z-[1]';
   const colSpan = columns.length + (bulkSelection ? 1 : 0);
   // Only show count when table is ready — during loading data holds stale rows
   // from the previous fetch (parents don't reset rows to [] before refetch).
@@ -317,7 +329,9 @@ export function Table<TRow, TId extends string | number = string>({
                   sort={{ sortBy, sortOrder: sortOrder ?? 'desc' }}
                   onSort={onSort ?? (() => {})}
                   width={col.width}
-                  className={col.headerClassName}
+                  className={`${col.headerClassName ?? TABLE_HEADER_CELL} ${
+                    col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
+                  }`.trim()}
                 />
               ))}
             </tr>
@@ -335,6 +349,15 @@ export function Table<TRow, TId extends string | number = string>({
               // Contract: if getRowClassName returns a non-empty string containing
               // a background override, it should include its own hover:* variant.
               const rowHover = customClass.length > 0 ? '' : 'hover:bg-blue-50';
+              // Nền THẬT của hàng, dùng cho các ô ghim. Đặt cứng `bg-white` như trước thì
+              // trên hàng đang chọn (nền xanh) hay hàng quá hạn (nền cảnh báo), ô ghim
+              // thành một vệt trắng lệch màu ngay mép trái — lỗi có sẵn ở ô tick, chỉ chưa
+              // ai để ý vì cột tick mỏng.
+              const nenHang = customClass.length > 0
+                ? customClass
+                : isSelected
+                  ? 'bg-blue-50'
+                  : 'bg-white';
               return (
                 <tr
                   key={key}
@@ -349,10 +372,16 @@ export function Table<TRow, TId extends string | number = string>({
                       selection={bulkSelection}
                       rowLabel={bulkRowLabel?.(row)}
                       ineligibleReason={bulkRowEligible?.(row) ?? null}
+                      bgClass={nenHang}
                     />
                   )}
                   {columns.map((col) => (
-                    <td key={col.key} className={col.cellClassName ?? TABLE_CELL}>
+                    <td
+                      key={col.key}
+                      className={`${col.cellClassName ?? TABLE_CELL} ${
+                        col.sticky ? `${LOP_GHIM} ${nenHang}` : ''
+                      }`.trim()}
+                    >
                       {col.render(row)}
                     </td>
                   ))}

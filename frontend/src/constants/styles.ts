@@ -90,13 +90,23 @@ export const SECTION_TITLE = "font-medium text-slate-700 mb-4";
 
 // ─── Table Styles ───────────────────────────────────────────────────────────
 
-// Mobile-responsive: scroll horizontally, extend to viewport edges on xs.
-// Tables on list pages should wrap in this to handle narrow viewports.
-export const TABLE_WRAPPER = "overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0";
+// Vùng cuộn ngang cho bảng danh sách.
+//
+// Bỏ `-mx-4 px-4` ngày 25/08/2026: nó mang ý "tràn ra sát mép màn hình trên điện thoại",
+// nhưng thẻ cha TABLE_SECTION_CARD là `overflow-clip` nên phần tràn ấy BỊ CẮT — ý định
+// không bao giờ thực hiện được. Đổi lại nó làm vùng cuộn rộng hơn thẻ cha 2rem, và mép
+// trái của cột ghim có thể bị thẻ cha cắt mất.
+export const TABLE_WRAPPER = "overflow-x-auto";
 
 export const TABLE_BASE = "w-full";
 
 export const TABLE_HEADER = "bg-[#003973]/5 border-b border-slate-200";
+
+// Nền cho ô GHIM ở hàng tiêu đề. Không dùng lại TABLE_HEADER được: `/5` là nền TRONG SUỐT
+// 5%, mà ô ghim thì nội dung cuộn ngang chui bên dưới nên bắt buộc phải ĐỤC. Đây là màu đục
+// tương đương #003973 phủ 5% trên nền trắng — rgb(242,244,248) ≈ slate-100, mắt không phân
+// biệt được. (Trước đây ô tick dùng slate-50, sáng hơn thấy rõ, lệch tông ở góc trái bảng.)
+export const TABLE_HEADER_STICKY_BG = "bg-slate-100";
 
 // Note: dropped `uppercase` in PR1 — Vietnamese diacritics on uppercase letters
 // (e.g. "Đ", "Â" với dấu mũ) become visually cramped. text-xs + font-semibold
@@ -108,7 +118,12 @@ export const TABLE_BODY = "divide-y divide-slate-200";
 
 export const TABLE_ROW = "hover:bg-blue-50";
 
-export const TABLE_CELL = "px-4 py-3 text-sm text-slate-700";
+// `whitespace-nowrap` KHÔNG phải chuyện thẩm mỹ — nó là thứ làm bảng TRÀN ra khỏi khung
+// chứa để TABLE_WRAPPER có cái mà cuộn. Cho chữ xuống dòng thì bề rộng tối thiểu của bảng
+// tụt rất thấp, bảng luôn vừa khít khung, và không thanh cuộn ngang nào xuất hiện: 13 cột
+// bị ép vào bề ngang khung, chữ vỡ vụn ba bốn dòng. Đó là lỗi anh báo ngày 25/08/2026.
+// Cột chữ tự do dùng TABLE_CELL_TRUNCATE bên dưới để không kéo bảng rộng vô tận.
+export const TABLE_CELL = "px-4 py-3 text-sm text-slate-700 whitespace-nowrap";
 
 export const TABLE_CELL_BOLD = "px-4 py-3 text-sm text-slate-800 font-medium";
 

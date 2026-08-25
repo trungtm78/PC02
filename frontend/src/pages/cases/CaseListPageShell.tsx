@@ -37,7 +37,11 @@ import {
   CASE_STATUS_BADGE,
 } from '@/shared/enums/status-labels';
 import { CaseStatus } from '@/shared/enums/generated';
-import { BTN_PRIMARY, A11Y_FOCUS_RING } from '@/constants/styles';
+import {
+  BTN_PRIMARY,
+  A11Y_FOCUS_RING,
+  TABLE_CELL_TRUNCATE,
+} from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getCaseStatusIcon } from '@/shared/enums/status-icons';
 import { formatVNDate } from '@/lib/dates';
@@ -386,10 +390,13 @@ export function CaseListPageShell() {
       // Thao tác là cột ĐẦU, ngay sau ô tick — CỐ Ý KHÁC hệ cũ (hệ cũ để cuối).
       // Bảng này rộng nên phải cuộn ngang; để Thao tác ở cuối thì mỗi lần muốn bấm là cuộn
       // sang phải rồi cuộn ngược về. Anh quyết định 25/08/2026, ưu tiên thao tác nhanh.
+      // Ghim ở mép trái khi cuộn ngang. Không ghim thì cột này trôi mất ngay khi cuộn, và
+      // việc đưa nó lên đầu hôm qua thành vô nghĩa.
       {
         key: 'actions',
         header: 'Thao tác',
         width: '8rem',
+        sticky: true,
         render: (r) => (
           <RowActions
             registry={casesRowActions}
@@ -416,6 +423,7 @@ export function CaseListPageShell() {
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
       },
       {
@@ -436,6 +444,7 @@ export function CaseListPageShell() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
           const name = [r.investigator.firstName, r.investigator.lastName]
@@ -447,6 +456,7 @@ export function CaseListPageShell() {
       {
         key: 'unit',
         header: 'Đơn vị',
+        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.unit ?? '—',
       },
       {

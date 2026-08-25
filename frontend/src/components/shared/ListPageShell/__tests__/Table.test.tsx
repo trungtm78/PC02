@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ListPageShell } from '../ListPageShell';
 import { Table, type ColumnDef } from '../Table';
+import type { UseBulkSelectionResult } from '@/features/_shared/bulk/useBulkSelection';
 
 interface Row { id: string; name: string; status: string; }
 
@@ -187,5 +188,119 @@ describe('<ListPageShell.Table> — state machine', () => {
     expect(rows[1].className).not.toContain('hover:bg-blue-50');
     // rows[2] là DANG_DIEU_TRA — không có customClass, phải có hover:bg-blue-50
     expect(rows[2].className).toContain('hover:bg-blue-50');
+  });
+});
+
+// ── Ghim cột khi cuộn ngang ─────────────────────────────────────────────────
+// Bảng cuộn ngang được rồi thì cột Thao tác (vừa đưa lên đầu 25/08) sẽ TRÔI khỏi màn hình
+// ngay khi cuộn — mất đúng cái lợi vừa làm. Ô tick đã ghim sẵn `left-0` và rộng `w-10`, nên
+// cột ghim kế tiếp neo ở `left-10`.
+function bulkGia(daChon: string[] = []): UseBulkSelectionResult {
+  const tap = new Set(daChon);
+  return {
+    selectedIds: tap,
+    mode: 'page',
+    count: tap.size,
+    pageState: tap.size === 0 ? 'none' : 'some',
+    isSelected: (id) => tap.has(id),
+    toggleOne: vi.fn(),
+    togglePage: vi.fn(),
+    selectAllMatchingFilter: vi.fn(),
+    clear: vi.fn(),
+  };
+}
+
+const COLS_GHIM: ColumnDef<Row>[] = [
+  { key: 'actions', header: 'Thao tác', sticky: true, render: () => <button>Sửa</button> },
+  { key: 'name', header: 'Tên vụ', render: (r) => r.name },
+];
+
+describe('<ListPageShell.Table> — ghim cột khi cuộn ngang', () => {
+  it('cột khai sticky thì CẢ tiêu đề lẫn ô dữ liệu neo ở left-10, sau ô tick', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS_GHIM}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          bulkSelection={bulkGia()}
+        />
+      </ListPageShell>,
+    );
+
+    const th = screen.getByRole('columnheader', { name: 'Thao tác' });
+    expect(th.className).toContain('sticky');
+    expect(th.className).toContain('left-10');
+
+    const o = screen.getAllByRole('cell').find((c) => c.textContent === 'Sửa')!;
+    expect(o.className).toContain('sticky');
+    expect(o.className).toContain('left-10');
+  });
+
+  it('cột KHÔNG khai sticky thì không neo — ghim thừa che mất dữ liệu khi cuộn', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS_GHIM}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          bulkSelection={bulkGia()}
+        />
+      </ListPageShell>,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Tên vụ' }).className).not.toContain('sticky');
+  });
+
+  /**
+   * LỖI VỆT TRẮNG — ca kiểm này chốt đúng cái mắt nhìn thấy.
+   *
+   * Ô ghim buộc phải có nền đục, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nhưng nền
+   * đặt CỨNG màu trắng thì trên hàng đang chọn (nền xanh) hay hàng quá hạn (nền cảnh báo),
+   * ô ghim thành một vệt trắng lệch màu ngay mép trái. Lỗi có sẵn từ trước ở ô tick, chỉ
+   * chưa ai để ý vì cột tick mỏng; ghim thêm cột Thao tác 8rem là nó thành mảng trắng to.
+   */
+  it('hàng đang chọn: ô ghim mang ĐÚNG nền của hàng, không phải bg-white', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS_GHIM}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          bulkSelection={bulkGia(['1'])}
+        />
+      </ListPageShell>,
+    );
+
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    expect(hang.className).toContain('bg-blue-50');
+
+    for (const o of within(hang).getAllByRole('cell').slice(0, 2)) {
+      expect(o.className).toContain('bg-blue-50');
+      expect(o.className).not.toContain('bg-white');
+    }
+  });
+
+  it('hàng có nền riêng (vd quá hạn): ô ghim mang nền ấy, không đè trắng lên', () => {
+    render(
+      <ListPageShell>
+        <Table
+          state="ready"
+          columns={COLS_GHIM}
+          data={ROWS}
+          rowKey={(r) => r.id}
+          bulkSelection={bulkGia()}
+          getRowClassName={(r) => (r.id === '1' ? 'bg-red-50' : '')}
+        />
+      </ListPageShell>,
+    );
+
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    for (const o of within(hang).getAllByRole('cell').slice(0, 2)) {
+      expect(o.className).toContain('bg-red-50');
+      expect(o.className).not.toContain('bg-white');
+    }
   });
 });

@@ -192,6 +192,38 @@ describe('CASE_STATUS_COLORS.DA_LUU_TRU migrated to STATUS_ARCHIVED', () => {
   });
 });
 
+// ── Bảng cuộn ngang — HAI điều kiện, thiếu một là hỏng lặng lẽ ──────────────
+// 25/08/2026 anh báo "thiếu scroll ngang". Vùng cuộn (`overflow-x-auto`) đã có từ lâu và
+// đúng; thứ thiếu là CÁI ĐỂ TRÀN RA. Ô cho chữ xuống dòng thì bề rộng tối thiểu của bảng
+// tụt rất thấp, bảng luôn vừa khít khung chứa, nên không có gì tràn để mà cuộn — 13 cột bị
+// ép vào bề ngang khung, chữ vỡ vụn, và không thanh cuộn nào xuất hiện.
+//
+// Hai token dưới đây là hai VẾ của cùng một hành vi. Gỡ vế nào thì bảng cũng thôi cuộn mà
+// không có gì báo lỗi, nên chốt cả hai.
+describe('Bảng danh sách phải cuộn ngang được', () => {
+  it('TABLE_WRAPPER là vùng cuộn ngang', () => {
+    expect(styles.TABLE_WRAPPER).toContain('overflow-x-auto');
+  });
+
+  it('TABLE_CELL cấm xuống dòng — đây là thứ làm bảng TRÀN ra để có cái mà cuộn', () => {
+    expect(styles.TABLE_CELL).toContain('whitespace-nowrap');
+  });
+
+  it('TABLE_HEADER_CELL vẫn CHO xuống dòng — nhãn dài không được quyết bề rộng cột', () => {
+    // Nhãn "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" dài 45 ký tự. Cấm xuống dòng ở
+    // tiêu đề thì một mình nó kéo cột rộng ra, đẩy bảng dài vô ích. Để tiêu đề xuống dòng
+    // thì DỮ LIỆU mới quyết bề rộng — đúng thứ cán bộ cần đọc.
+    expect(styles.TABLE_HEADER_CELL).not.toContain('whitespace-nowrap');
+  });
+
+  it('TABLE_WRAPPER không kéo lề âm — thẻ cha overflow-clip sẽ cắt mất phần tràn ấy', () => {
+    // `-mx-4 px-4` mang ý "tràn ra sát mép màn hình trên điện thoại", nhưng
+    // TABLE_SECTION_CARD là overflow-clip nên phần tràn bị cắt: ý định không bao giờ thực
+    // hiện được, mà lại làm vùng cuộn rộng hơn thẻ cha 2rem và có thể cắt mép cột ghim.
+    expect(styles.TABLE_WRAPPER).not.toContain('-mx-');
+  });
+});
+
 // ── TABLE_SECTION_CARD — overflow-clip không phải overflow-hidden ────────────
 // overflow-clip clips visual content nhưng KHÔNG tạo scroll container mới
 // → sticky positioning của BulkSelectionHeaderCell/RowCell vẫn hoạt động đúng.

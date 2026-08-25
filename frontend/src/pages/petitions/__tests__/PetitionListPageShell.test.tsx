@@ -484,6 +484,26 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
     expect(within(o[1]).getAllByRole('button').length).toBeGreaterThan(0);
   });
 
+
+  /**
+   * Cột Thao tác phải GHIM khi cuộn ngang.
+   *
+   * Bảng này cuộn ngang được từ 25/08/2026. Không ghim thì cột Thao tác vừa đưa lên đầu sẽ
+   * trôi khỏi màn hình ngay khi cán bộ cuộn sang phải đọc các cột sau — mất đúng cái lợi
+   * vừa làm, và phải cuộn ngược về mới bấm được.
+   */
+  it('cột Thao tác ghim ở mép trái khi cuộn ngang', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
+
+    const th = screen.getByRole('columnheader', { name: 'Thao tác' });
+    expect(th.className).toContain('sticky');
+
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    const oThaoTac = within(hang).getAllByRole('cell')[1];
+    expect(oThaoTac.className).toContain('sticky');
+  });
+
   it('hiện tóm tắt nội dung — cột cán bộ đọc nhiều nhất mà hệ mới đang thiếu', async () => {
     renderWithRouter();
     await waitFor(() =>
