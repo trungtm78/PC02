@@ -30,7 +30,11 @@ export function CrimeSelect({
   disabled = false,
   testId = 'crime-select',
 }: CrimeSelectProps) {
-  const { data: all = [], isLoading } = useCrimeOptions();
+  const { data: crimesRaw, isLoading } = useCrimeOptions();
+  // Giá trị mặc định của tham số CHỈ chạy khi dữ liệu là `undefined`. Máy chủ (và bản giả
+  // trong ca kiểm) có thể trả `null` hoặc một hình dạng khác — khi ấy `all` là null và
+  // `all.find` làm trắng nguyên trang. Ép về mảng ngay tại đây, không dựa vào mặc định.
+  const all = Array.isArray(crimesRaw) ? crimesRaw : [];
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);

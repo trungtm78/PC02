@@ -561,6 +561,7 @@ function CaseFormPage() {
           {activeTab === "case" && <TabCase {...tabProps} />}
           {activeTab === "subjects" && (
             <TabSubjects
+              {...tabProps}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
               onEdit={(s) => { setEditingSubject(s); setShowSubjectModal(true); }}
@@ -575,6 +576,7 @@ function CaseFormPage() {
           {activeTab === "case-tdc" && <TabCaseTDC {...tabProps} />}
           {activeTab === "evidence" && (
             <TabEvidence
+              {...tabProps}
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
               onEdit={(e) => { setEditingEvidence(e); setShowEvidenceModal(true); }}
@@ -589,6 +591,7 @@ function CaseFormPage() {
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
           {activeTab === "media" && (
             <TabMedia
+              {...tabProps}
               mediaFiles={mediaFiles}
               onUpload={handleUploadMedia}
               onDelete={(id) => {
