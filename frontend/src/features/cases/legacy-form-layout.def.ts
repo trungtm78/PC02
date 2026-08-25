@@ -438,3 +438,34 @@ export const LEGACY_FORM_LAYOUT: Record<LegacyTabId, readonly LegacyLayoutItem[]
 export function legacyCaption(item: LegacyLayoutItem): string {
   return item.mirrorOf ? `${item.caption} (Tab: ${LEGACY_TAB_LABEL[item.mirrorOf]})` : item.caption;
 }
+
+/**
+ * Tên cột ở lớp máy chủ khi khác tên ô trong `CaseFormData`.
+ *
+ * Vài ô mang tên khác vì cột đã tồn tại từ trước epic này. Khai tường minh ở một chỗ để
+ * mọi nơi cần đối chiếu ô-với-cột đều nhìn cùng một bảng.
+ */
+export const LEGACY_FIELD_TO_COLUMN: Readonly<Record<string, string>> = {
+  description: "moTaChiTiet",
+  supervisingUnit: "unit",
+  dieuTraVienText: "dieuTraVien",
+  deXuatXuLy: "deXuat",
+  ngayTiepNhanNguonTin: "ngayTiepNhan",
+  utdt_thoiHanUyThac: "thoiHanUyThac",
+  baoCaoBanGiamDoc: "baoCaoBanGiamDocText",
+};
+
+/**
+ * Tập CỘT mà form Vụ án đã có ô nhập ở đúng vị trí hệ cũ.
+ *
+ * Panel "Thông tin nghiệp vụ bổ sung" cuối trang dùng tập này để KHÔNG dựng ô thứ hai cho
+ * cùng một cột. Không lọc thì mỗi cột có hai ô cùng ghi một chỗ, và vì panel ghi sau nên nó
+ * ĐÈ giá trị cán bộ vừa gõ trong tab — mất dữ liệu ngay trong một lần lưu.
+ */
+export const LEGACY_FORM_OWNED_COLUMNS: ReadonlySet<string> = new Set(
+  Object.values(LEGACY_FORM_LAYOUT)
+    .flat()
+    .map((it) => it.field)
+    .filter((f) => !f.startsWith("statistic."))
+    .map((f) => LEGACY_FIELD_TO_COLUMN[f] ?? f),
+);
