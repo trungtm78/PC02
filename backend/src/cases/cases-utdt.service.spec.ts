@@ -50,7 +50,16 @@ const mockPrisma = {
 };
 
 const mockAudit = { log: jest.fn() };
-const mockSettings = { getValue: jest.fn().mockResolvedValue(null) };
+const mockSettings = {
+  getValue: jest.fn().mockResolvedValue(null),
+  // Kỳ TAT_CA để ca kiểm sẵn có chốt đúng thứ chúng chốt, không có điều kiện ngày chen vào.
+  getKyThongKe: jest.fn().mockResolvedValue({
+    ky: 'TAT_CA',
+    truong: 'NGAY_TIEP_NHAN',
+    tuNgay: null,
+    denNgay: null,
+  }),
+};
 const mockDocNumbers = {
   generate: jest.fn().mockResolvedValue('PC02-UTDT-2026-00001'),
   commitWithTx: jest.fn().mockResolvedValue({ number: 'PC02-UTDT-2026-00001', logId: 'log-001' }),

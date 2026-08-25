@@ -1,10 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
+import { TRUONG_NGAY_THONG_KE, type KyDaGiai } from '../common/utils/thong-ke-ky.util';
 import { CaseStatus, CaseType, IncidentStatus, PetitionStatus, SubjectType } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
+
+  /**
+   * Điều kiện ngày của kỳ thống kê, cho một cột cụ thể.
+   *
+   * Trả `{}` khi kỳ là TAT_CA — KHÔNG dựng `{ gte: new Date(null) }`, vì `Invalid Date` đi
+   * vào Prisma cho ra truy vấn rỗng và mọi badge về 0 mà không lỗi nào được ném ra.
+   */
+  private dieuKienKy(ky: KyDaGiai, cotTiepNhan: string): Record<string, unknown> {
+    if (!ky.tuNgay || !ky.denNgay) return {};
+    const cot = ky.truong === TRUONG_NGAY_THONG_KE.NGAY_TAO ? 'createdAt' : cotTiepNhan;
+    return { [cot]: { gte: new Date(ky.tuNgay), lte: new Date(ky.denNgay) } };
+  }
 
   // GET /api/v1/dashboard/stats
   async getStats() {
@@ -151,6 +168,12 @@ export class DashboardService {
   // GET /api/v1/dashboard/badge-counts
   async getBadgeCounts() {
     const now = new Date();
+    // Kỳ thống kê áp cho CẢ badge menu, đúng như thẻ số và danh sách — nếu không thì menu
+    // nói 46.660 trong khi trang danh sách nói vài trăm, hai con số cho cùng một thứ.
+    const ky = await this.settings.getKyThongKe();
+    const kyCase = this.dieuKienKy(ky, 'ngayDeXuat');
+    const kyIncident = this.dieuKienKy(ky, 'ngayDeXuat');
+    const kyPetition = this.dieuKienKy(ky, 'receivedDate');
 
     const [
       totalCases,
@@ -160,7 +183,7 @@ export class DashboardService {
       overdueCasesCount,
     ] = await Promise.all([
       // Danh sách vụ án: tổng vụ án đang active (REGULAR only — v0.44: exclude UTDT)
-      this.prisma.case.count({ where: { deletedAt: null, caseType: CaseType.REGULAR } }),
+      this.prisma.case.count({ where: { deletedAt: null, caseType: CaseType.REGULAR, ...kyCase } }),
       // Bị can / Bị cáo: đang điều tra
       this.prisma.subject.count({
         where: {
@@ -175,6 +198,7 @@ export class DashboardService {
           status: {
             notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_LUU_DON],
           },
+          ...kyPetition,
         },
       }),
       // Quản lý vụ việc: chưa giải quyết
@@ -184,6 +208,7 @@ export class DashboardService {
           status: {
             notIn: [IncidentStatus.DA_GIAI_QUYET],
           },
+          ...kyIncident,
         },
       }),
       // Hồ sơ trễ hạn (REGULAR only — v0.44: exclude UTDT)

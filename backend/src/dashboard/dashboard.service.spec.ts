@@ -18,6 +18,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
+import { KY_THONG_KE, TRUONG_NGAY_THONG_KE } from '../common/utils/thong-ke-ky.util';
+
+// Kỳ thống kê: badge trên thanh menu phải đếm theo cùng kỳ với thẻ số và danh sách.
+const mockSettings = {
+  getKyThongKe: jest.fn(),
+};
 
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
@@ -47,6 +54,7 @@ describe('DashboardService', () => {
       providers: [
         DashboardService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: mockSettings },
       ],
     }).compile();
 
@@ -57,6 +65,12 @@ describe('DashboardService', () => {
     mockPrisma.petition.count.mockResolvedValue(0);
     mockPrisma.subject.count.mockResolvedValue(0);
     mockPrisma.case.groupBy.mockResolvedValue([]);
+    mockSettings.getKyThongKe.mockResolvedValue({
+      ky: KY_THONG_KE.THANG_HIEN_TAI,
+      truong: TRUONG_NGAY_THONG_KE.NGAY_TIEP_NHAN,
+      tuNgay: '2026-08-01',
+      denNgay: '2026-08-31',
+    });
   });
 
   // ── getStats ───────────────────────────────────────────────────────────────
@@ -157,5 +171,97 @@ describe('DashboardService', () => {
       expect(result.data).toHaveProperty('incidents');
       expect(result.data).toHaveProperty('overdueRecords');
     });
+  });
+});
+
+// ── Kỳ thống kê ─────────────────────────────────────────────────────────────
+// Anh yêu cầu 25/08/2026: con số trên thanh menu cũng phải theo kỳ thống kê như thẻ số và
+// danh sách. Trước đây badge đếm toàn bộ, nên menu nói 46.660 trong khi trang danh sách
+// (đã theo kỳ) nói vài trăm — hai con số cho cùng một thứ.
+describe('DashboardService — badge theo kỳ thống kê', () => {
+  let service: DashboardService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DashboardService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: mockSettings },
+      ],
+    }).compile();
+    service = module.get<DashboardService>(DashboardService);
+    jest.clearAllMocks();
+    mockPrisma.case.count.mockResolvedValue(0);
+    mockPrisma.incident.count.mockResolvedValue(0);
+    mockPrisma.petition.count.mockResolvedValue(0);
+    mockPrisma.subject.count.mockResolvedValue(0);
+  });
+
+  it('đếm trong khoảng của kỳ, theo NGÀY TIẾP NHẬN', async () => {
+    mockSettings.getKyThongKe.mockResolvedValue({
+      ky: KY_THONG_KE.THANG_HIEN_TAI,
+      truong: TRUONG_NGAY_THONG_KE.NGAY_TIEP_NHAN,
+      tuNgay: '2026-08-01',
+      denNgay: '2026-08-31',
+    });
+
+    await service.getBadgeCounts();
+
+    const wherePetition = mockPrisma.petition.count.mock.calls[0][0].where;
+    expect(wherePetition.receivedDate).toEqual({
+      gte: new Date('2026-08-01'),
+      lte: new Date('2026-08-31'),
+    });
+
+    const whereIncident = mockPrisma.incident.count.mock.calls[0][0].where;
+    expect(whereIncident.ngayDeXuat).toBeDefined();
+  });
+
+  it('chọn NGÀY TẠO thì lọc theo createdAt, KHÔNG theo cột tiếp nhận', async () => {
+    mockSettings.getKyThongKe.mockResolvedValue({
+      ky: KY_THONG_KE.NAM_HIEN_TAI,
+      truong: TRUONG_NGAY_THONG_KE.NGAY_TAO,
+      tuNgay: '2026-01-01',
+      denNgay: '2026-12-31',
+    });
+
+    await service.getBadgeCounts();
+
+    const wherePetition = mockPrisma.petition.count.mock.calls[0][0].where;
+    expect(wherePetition.createdAt).toBeDefined();
+    expect(wherePetition.receivedDate).toBeUndefined();
+  });
+
+  /**
+   * TAT_CA phải đếm TOÀN BỘ, không được lặng lẽ thành một khoảng.
+   *
+   * `tuNgay`/`denNgay` là `null`; nếu tầng này dựng `{ gte: new Date(null) }` thì ra
+   * `Invalid Date` và mọi badge về 0 mà không lỗi nào được ném.
+   */
+  it('kỳ TAT_CA → không thêm điều kiện ngày nào', async () => {
+    mockSettings.getKyThongKe.mockResolvedValue({
+      ky: KY_THONG_KE.TAT_CA,
+      truong: TRUONG_NGAY_THONG_KE.NGAY_TIEP_NHAN,
+      tuNgay: null,
+      denNgay: null,
+    });
+
+    await service.getBadgeCounts();
+
+    const wherePetition = mockPrisma.petition.count.mock.calls[0][0].where;
+    expect(wherePetition.receivedDate).toBeUndefined();
+    expect(wherePetition.createdAt).toBeUndefined();
+  });
+
+  /**
+   * GIỮ NGUYÊN NGỮ NGHĨA CŨ của badge — ghi rõ để lần sau không ai "dọn cho đồng nhất".
+   * Vụ án đếm REGULAR (loại trừ uỷ thác); vụ việc và đơn thư đếm hồ sơ CHƯA GIẢI QUYẾT.
+   */
+  it('giữ nguyên ngữ nghĩa: vụ án REGULAR, vụ việc/đơn thư chưa giải quyết', async () => {
+    await service.getBadgeCounts();
+
+    expect(mockPrisma.case.count.mock.calls[0][0].where.caseType).toBe('REGULAR');
+    expect(mockPrisma.petition.count.mock.calls[0][0].where.status.notIn).toBeDefined();
+    expect(mockPrisma.incident.count.mock.calls[0][0].where.status.notIn).toBeDefined();
   });
 });

@@ -33,7 +33,20 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
         CasesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
-        { provide: SettingsService, useValue: { getValue: jest.fn().mockResolvedValue(null) } },
+        {
+          provide: SettingsService,
+          useValue: {
+            getValue: jest.fn().mockResolvedValue(null),
+            // Kỳ TAT_CA để các ca sẵn có chốt đúng thứ chúng chốt, không có điều kiện ngày
+            // chen vào. Việc kỳ được áp có ca kiểm riêng.
+            getKyThongKe: jest.fn().mockResolvedValue({
+              ky: 'TAT_CA',
+              truong: 'NGAY_TIEP_NHAN',
+              tuNgay: null,
+              denNgay: null,
+            }),
+          },
+        },
         {
           provide: DocumentNumbersService,
           useValue: { generate: jest.fn(), commitWithTx: jest.fn() },

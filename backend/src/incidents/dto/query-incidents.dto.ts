@@ -145,4 +145,14 @@ export class QueryIncidentsDto {
   sttCu?: string;
 
   // "Cán bộ nhập" đã có sẵn ở `canBoNhapId` phía trên — không thêm ô thứ hai cùng nghĩa.
+  /**
+   * Kỳ thống kê tính theo ngày nào — `NGAY_TIEP_NHAN` hoặc `NGAY_TAO`.
+   *
+   * Không gửi thì lấy mặc định admin đặt trong Cài đặt hệ thống. Đây là lựa chọn TẠM THỜI
+   * của cán bộ trên trang, không ghi đè cấu hình chung.
+   */
+  @IsOptional()
+  @IsString()
+  thongKeTruongNgay?: string;
+
 }

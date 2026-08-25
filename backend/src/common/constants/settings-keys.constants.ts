@@ -36,6 +36,13 @@ export const SETTINGS_KEY = {
   THOI_HAN_XOA_VU_AN: 'THOI_HAN_XOA_VU_AN',
   // v0.33.0.0 Phase 5-lite: edit window cho ward officer (giờ, override per-Team)
   THOI_HAN_EDIT_VU_VAN: 'THOI_HAN_EDIT_VU_VAN',
+
+  // v0.75 — Kỳ thống kê: áp cho thẻ số, danh sách VÀ badge trên thanh menu.
+  // Giá trị hợp lệ khai ở `common/utils/thong-ke-ky.util.ts` (KY_THONG_KE, TRUONG_NGAY_THONG_KE).
+  THONG_KE_KY: 'THONG_KE_KY',
+  THONG_KE_TRUONG_NGAY: 'THONG_KE_TRUONG_NGAY',
+  THONG_KE_TU_NGAY: 'THONG_KE_TU_NGAY',
+  THONG_KE_DEN_NGAY: 'THONG_KE_DEN_NGAY',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];
