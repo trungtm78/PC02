@@ -80,7 +80,15 @@ Toàn bộ 5 milestone hoàn tất, cộng 2 việc ngoài phạm vi. Nhánh đ�
 
 BƯỚC TIẾP THEO: chờ CI của lần đẩy cuối, gộp PR #243, deploy tự chạy, rồi chạy công cụ bù
 trên máy thật (`backfill-parity.ts --entity case --dry` trước, đọc báo cáo, rồi chạy thật).
-Máy thật hiện có **3.671 vụ án, 3.359 có bản gốc hệ cũ, mới 106 dòng thống kê**.
+### Mốc đối soát TRƯỚC khi bù (đo trên máy thật 26/08/2026)
+
+- **3.671 vụ án**, trong đó **3.359 có bản gốc hệ cũ**, mới **106 dòng thống kê**
+- **23 cột đang TRỐNG HOÀN TOÀN** dù cột đã tồn tại: toàn bộ 7 mốc ngày thống kê,
+  `toiDanhBanDau`, 4 cột TĐC vụ án, 11 chỉ tiêu VPHC/ghi âm ghi hình
+- **24 cột chưa tồn tại** — sẽ có sau khi migration của PR #243 chạy
+- Bản gốc lưu ở máy chủ: `/home/pc02/truoc-bu-20260826.json` (dùng để so sau khi bù)
+
+Công cụ: `doi-soat-backfill.ts` (chỉ đọc, đếm từng cột).
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
