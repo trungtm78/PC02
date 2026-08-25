@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PARITY, PARITY_METADATA_ONLY, type Entity } from './field-parity.def';
+import { O_HE_CU_TREN_FORM } from '../cases/legacy-form-parity.mapper';
 
 /**
  * GATE "KHÔNG SÓT DỮ LIỆU" (pháp lý). Đọc ma trận field-parity (sinh từ data thật,
@@ -45,13 +46,38 @@ describe('GATE field-parity — không sót dữ liệu', () => {
     expect(uncovered.length).toBe(0);
   });
 
-  it('spec KHÔNG khai cột thừa (mọi cột mới đều có ô data trong ma trận)', () => {
+  /**
+   * Cột khai trong spec phải có lý do: hoặc dữ liệu cũ cần chỗ ở, hoặc form cần chỗ lưu.
+   *
+   * `formOnly` là lý do thứ hai, khai tường minh trên từng dòng: hệ cũ VẪN đang nhận nhập
+   * liệu, nên ô cán bộ gõ được phải có cột — kể cả khi ma trận sinh từ dữ liệu hôm nay chưa
+   * thấy bản ghi nào. Không có cờ này thì cách duy nhất để cổng kiểm xanh là bỏ cột đi, và
+   * ô trên màn hình lại thành ô không lưu được.
+   */
+  it('spec KHÔNG khai cột thừa (cột mới phải có dữ liệu, hoặc khai rõ là để form nhập được)', () => {
     if (!matrix) return;
     const needSet = new Set(matrix.needColumn.map((c) => `${c.entity}/${c.field}`));
     const extra: string[] = [];
     for (const e of ['petition', 'incident', 'case'] as Entity[]) {
-      for (const c of PARITY[e]) if (!c.exists && !needSet.has(`${e}/${c.field}`)) extra.push(`${e}/${c.field}`);
+      for (const c of PARITY[e]) {
+        if (c.exists || c.formOnly) continue;
+        if (!needSet.has(`${e}/${c.field}`)) extra.push(`${e}/${c.field}`);
+      }
     }
     expect(extra).toEqual([]);
+  });
+
+  /**
+   * Cờ `formOnly` phải kèm ô thật trên form, không được dùng làm cửa sau để khai cột bừa.
+   */
+  it('mọi cột formOnly đều ứng với một ô có thật trên form Vụ án', () => {
+    // Nguồn đối chiếu là danh sách ô mà tầng lưu của form Vụ án phụ trách. Ô nào không nằm
+    // trong đó thì `formOnly` là lời khai suông.
+    const coTrenForm = new Set(O_HE_CU_TREN_FORM);
+    const khongCoO = PARITY.case
+      .filter((c) => c.formOnly)
+      .map((c) => c.col)
+      .filter((col) => !coTrenForm.has(col));
+    expect(khongCoO).toEqual([]);
   });
 });

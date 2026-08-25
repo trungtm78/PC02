@@ -28,6 +28,16 @@ export interface ParityCol {
   exists?: boolean;
   /** type=Boolean: true → boolFromText (text mô tả tự do ⇒ true); mặc định parseLegacyBool (checkbox). */
   textBool?: boolean;
+  /**
+   * true = cột dựng để FORM NHẬP ĐƯỢC, không phải vì dữ liệu cũ ở thực thể này.
+   *
+   * Cổng kiểm "spec không khai cột thừa" so spec với ma trận sinh từ dữ liệu thật, nên một
+   * cột dựng cho ô mới trên màn hình sẽ bị coi là thừa dù nó hoàn toàn chính đáng: hệ cũ
+   * VẪN đang nhận nhập liệu, và ô nào cán bộ gõ được thì phải có chỗ lưu.
+   *
+   * Cờ này KHÔNG nới lỏng phép kiểm "không sót dữ liệu" — chiều ấy vẫn nguyên vẹn.
+   */
+  formOnly?: boolean;
 }
 
 /**
@@ -106,6 +116,42 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
     { field: 'phan_loai_toi_pham_cong_nghe_cao', col: 'laCongNgheCao', type: 'Boolean', exists: true },
     { field: 'thoi_han_thuc_hien_uy_thac_dieu_tra', col: 'thoiHanUyThac', type: 'DateTime', exists: true },
+
+    // ── Bổ sung 26/08/2026 — epic "form Vụ án khớp bố cục hệ cũ" ─────────────────────
+    // Form mới đã có ô cho từng khoá dưới đây ở đúng vị trí hệ cũ. Khai ở đây để
+    // `backfill-parity.ts` đổ được cho 3.380 vụ án ĐÃ di trú — nếu không, hồ sơ cũ mở ra
+    // vẫn trắng ô dù dữ liệu nằm sẵn trong `legacy_raw`.
+    { field: 'phan_loai_nguon_tin_ban_dau', col: 'phanLoaiNguonTinBanDau', type: 'String' , formOnly: true },
+    { field: 'ngay_xay_ra', col: 'ngayXayRa', type: 'DateTime' , formOnly: true },
+    { field: 'noi_xay_ra_phuong_xa', col: 'noiXayRaPhuongXa', type: 'String' , formOnly: true },
+    // Tab "Vụ việc"
+    { field: 'quyet_dinh_phan_cong_giai_quyet_nguon_tin', col: 'soQDPhanCongNguonTin', type: 'String' },
+    { field: 'ngay_ra_quyet_dinh_phan_cong_tin_bao', col: 'ngayQDPhanCongNguonTin', type: 'DateTime' },
+    { field: 'quyet_dinh_khong_khoi_to', col: 'soQDKhongKhoiTo', type: 'String' , formOnly: true },
+    { field: 'ngay_ra_quyet_dinh_khong_khoi_to', col: 'ngayQDKhongKhoiTo', type: 'DateTime' },
+    { field: 'can_cu_ra_quyet_dinh_khong_khoi_to', col: 'canCuKhongKhoiTo', type: 'String' , formOnly: true },
+    { field: 'vu_viec_chuyen_don_vi_khac', col: 'chuyenVuViecDonViKhac', type: 'String' , formOnly: true },
+    { field: 'nhap_vao_vu_viec_so', col: 'nhapVaoVuViecSo', type: 'String' , formOnly: true },
+    { field: 'phan_loai_dan_su', col: 'phanLoaiDanSu', type: 'String' , formOnly: true },
+    // Tab "Vụ việc TĐC"
+    { field: 'xac_dinh_vu_viec_tam_dung_giai_quyet', col: 'vuViecTamDungTruoc2015', type: 'Boolean' , formOnly: true },
+    { field: 'quyet_dinh_tam_dinh_chi_nguon_tin', col: 'soQDTamDinhChiNguonTin', type: 'String' },
+    { field: 'ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin', col: 'ngayQDTamDinhChiNguonTin', type: 'DateTime' },
+    { field: 'can_cu_tam_dinh_chi_nguon_tin', col: 'canCuTamDinhChiNguonTin', type: 'String' },
+    { field: 'ngay_thang_nam_het_thoi_hieu_vu_viec', col: 'ngayHetThoiHieuVuViec', type: 'DateTime' },
+    { field: 'khac_phuc_ly_do_tdc', col: 'khacPhucLyDoTDCVuViec', type: 'String' , formOnly: true },
+    { field: 'tien_do_khac_phuc_tdc', col: 'tienDoKhacPhucTDCVuViec', type: 'String' , formOnly: true },
+    { field: 'phuc_hoi_nguon_tin_toi_pham', col: 'soPhucHoiNguonTin', type: 'String' },
+    { field: 'ngay_phuc_hoi_nguon_tin_toi_pham', col: 'ngayPhucHoiNguonTin', type: 'DateTime' },
+    // Tab "Vụ án TĐC" — bốn cột đã có sẵn, chỉ thiếu dòng đọc
+    { field: 'khac_phuc_tdc_vu_an', col: 'tdcKhacPhucBienBan', type: 'String', exists: true },
+    { field: 'bien_phap_khac_phuc_tdc_vu_an', col: 'tdcKhacPhucLyDoBienPhap', type: 'String', exists: true },
+    { field: 'quyet_dinh_phuc_hoi_vu_an', col: 'soQuyetDinhPhucHoi', type: 'String', exists: true },
+    { field: 'ngay_phuc_hoi_dieu_tra_vu_an', col: 'ngayPhucHoi', type: 'DateTime', exists: true },
+    // Tab "Vật chứng" — ba ô chữ hệ cũ, khác bảng vật chứng chuẩn hoá
+    { field: 'vat_chung', col: 'vatChungMoTa', type: 'String' , formOnly: true },
+    { field: 'lenh_nhap_kho', col: 'lenhNhapKho', type: 'String' , formOnly: true },
+    { field: 'Noi_luu_tru_bao_quan_ke_bien_phong_toa', col: 'noiLuuTruBaoQuan', type: 'String' , formOnly: true },
   ],
 };
 
@@ -113,13 +159,17 @@ export const PARITY: Record<Entity, ParityCol[]> = {
  * Gate coi các field này "có nhà" ở metadata/legacyRaw (không tính là sót). */
 export const PARITY_METADATA_ONLY: ReadonlySet<string> = new Set([
   // Thủ tục nguồn-tin/vụ-án rơi lên đơn thư/vụ án (đã có cột đúng ở Incident/Case-của-nó)
+  // Danh sách này là "nhà dự phòng" cho MỌI thực thể. Case nay đã có cột thật cho phần lớn
+  // khoá dưới đây (xem PARITY.case), nhưng Đơn thư và Vụ việc thì chưa — bỏ khoá khỏi đây là
+  // cổng kiểm báo sót ngay ở hai thực thể ấy.
   'ngay_ra_quyet_dinh_phan_cong_tin_bao', 'quyet_dinh_phan_cong_giai_quyet_nguon_tin',
   'ngay_phuc_hoi_nguon_tin_toi_pham', 'phuc_hoi_nguon_tin_toi_pham',
   'ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin', 'quyet_dinh_tam_dinh_chi_nguon_tin', 'can_cu_tam_dinh_chi_nguon_tin',
   'ngay_ra_quyet_dinh_khoi_to', 'ngay_ra_quyet_dinh_khong_khoi_to', 'quyet_dinh_khong_khoi_to', 'can_cu_ra_quyet_dinh_khong_khoi_to',
+  'phan_loai_dan_su',
   'ngay_tam_dinh_chi_vu_an', 'quyet_dinh_tam_dinh_chi_vu_an',
   'het_thoi_hieu_tnhs', 'ngay_het_han_vu_an', 'thoi_gian_het_thoi_hieu_truy_cuu_tnhs',
-  'phan_loai_dan_su', 'loai_toi_pham',
+  'loai_toi_pham',
   // Số liệu thiệt hại vụ án — nhà thật là case_statistics (buildCaseStatistic đã đổ), không cột trên cases.
   'so_tien_bi_thiet_hai', 'so_luong_bi_hai',
   // Mốc thời hiệu / thống kê rơi lên đơn thư (đã có cột đúng ở Case/CaseStatistic)

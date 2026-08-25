@@ -407,7 +407,7 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
   });
 }
 
-function buildCase(rec: LegacyRecord): Record<string, unknown> {
+export function buildCase(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   return clean({
     ...parityColumns(rec, 'case'),
@@ -490,6 +490,48 @@ function buildCase(rec: LegacyRecord): Record<string, unknown> {
     canCuTamDinhChiVuAn: s(rec.can_cu_tam_dinh_chi_vu_an),
     canCuPhucHoiVuAn: s(rec.can_cu_phuc_hoi_dieu_tra_vu_an),
     ghiChuKhac: s(rec.ghi_chu_khac),
+
+    // ── Ô hệ cũ có cột từ 26/08/2026 ────────────────────────────────────────────────
+    // Trước đây chúng chỉ nằm ở `metadata` hoặc `legacy_raw`. Nay form Vụ án có ô đúng vị
+    // trí hệ cũ, nên phải đổ vào cột — không thì mở hồ sơ di trú ra ô nào cũng trắng.
+    phanLoaiNguonTinBanDau: s(rec.phan_loai_nguon_tin_ban_dau),
+    ngayXayRa: parseLegacyDate(rec.ngay_xay_ra),
+    noiXayRaPhuongXa: s(rec.noi_xay_ra_phuong_xa),
+    // Cột `baoCaoBanGiamDoc` là ĐÚNG/SAI suy từ chữ; nội dung chỉ đạo giữ ở cột chữ riêng.
+    baoCaoBanGiamDocText: s(rec.truong_hop_bao_cao_ban_giam_doc),
+
+    // Tab "Vụ việc"
+    soQDPhanCongNguonTin: s(rec.quyet_dinh_phan_cong_giai_quyet_nguon_tin),
+    ngayQDPhanCongNguonTin: parseLegacyDate(rec.ngay_ra_quyet_dinh_phan_cong_tin_bao),
+    soQDKhongKhoiTo: s(rec.quyet_dinh_khong_khoi_to),
+    ngayQDKhongKhoiTo: parseLegacyDate(rec.ngay_ra_quyet_dinh_khong_khoi_to),
+    canCuKhongKhoiTo: s(rec.can_cu_ra_quyet_dinh_khong_khoi_to),
+    chuyenVuViecDonViKhac: s(rec.vu_viec_chuyen_don_vi_khac),
+    nhapVaoVuViecSo: s(rec.nhap_vao_vu_viec_so),
+    phanLoaiDanSu: s(rec.phan_loai_dan_su),
+
+    // Tab "Vụ việc TĐC"
+    vuViecTamDungTruoc2015: parseLegacyBool(rec.xac_dinh_vu_viec_tam_dung_giai_quyet),
+    soQDTamDinhChiNguonTin: s(rec.quyet_dinh_tam_dinh_chi_nguon_tin),
+    ngayQDTamDinhChiNguonTin: parseLegacyDate(rec.ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin),
+    canCuTamDinhChiNguonTin: s(rec.can_cu_tam_dinh_chi_nguon_tin),
+    ngayHetThoiHieuVuViec: parseLegacyDate(rec.ngay_thang_nam_het_thoi_hieu_vu_viec),
+    khacPhucLyDoTDCVuViec: s(rec.khac_phuc_ly_do_tdc),
+    tienDoKhacPhucTDCVuViec: s(rec.tien_do_khac_phuc_tdc),
+    soPhucHoiNguonTin: s(rec.phuc_hoi_nguon_tin_toi_pham),
+    ngayPhucHoiNguonTin: parseLegacyDate(rec.ngay_phuc_hoi_nguon_tin_toi_pham),
+
+    // Tab "Vụ án TĐC" — hai ô khắc phục và cặp phục hồi trước nay chưa builder nào đọc
+    tdcKhacPhucBienBan: s(rec.khac_phuc_tdc_vu_an),
+    tdcKhacPhucLyDoBienPhap: s(rec.bien_phap_khac_phuc_tdc_vu_an),
+    soQuyetDinhPhucHoi: s(rec.quyet_dinh_phuc_hoi_vu_an),
+    ngayPhucHoi: parseLegacyDate(rec.ngay_phuc_hoi_dieu_tra_vu_an),
+
+    // Tab "Vật chứng" — ba ô chữ của hệ cũ, khác bảng vật chứng chuẩn hoá
+    vatChungMoTa: s(rec.vat_chung),
+    lenhNhapKho: s(rec.lenh_nhap_kho),
+    noiLuuTruBaoQuan: s(rec.Noi_luu_tru_bao_quan_ke_bien_phong_toa),
+
     legacyRaw: { ...rec },
   });
 }
@@ -610,6 +652,34 @@ export function buildCaseStatistic(rec: LegacyRecord): Record<string, unknown> |
     hoSoLuu: s(rec.ho_so_luu),
     ngayNopLuuHoSo: parseLegacyDate(rec.ngay_nop_luu_ho_so),
     donViBaoQuanHoSo: s(rec.don_vi_bao_quan_ho_so),
+
+    // ── Bổ sung 26/08/2026: khoá hệ cũ có cột sẵn nhưng builder chưa bao giờ đọc ──
+    //
+    // Bảy mốc thời gian dưới đây phủ 16.9k–17.8k hồ sơ MỖI KHOÁ trên dữ liệu thật, mà tới
+    // giờ chỉ nằm trong `legacy_raw`. Hệ quả nhìn thấy được: tab "TK 48 trường" của form
+    // mới có đủ ô nhưng ô nào cũng trắng khi mở hồ sơ di trú.
+    ngayThongKe: parseLegacyDate(rec.ngay_thong_ke),
+    ngayPhanCongGiaiQuyetToGiac: parseLegacyDate(rec.ngay_thoi_diem_phan_cong_giai_quyet_to_giac),
+    ngayTiepNhanTin: parseLegacyDate(rec.ngay_tiep_nhan_tin),
+    ngayDauThu: parseLegacyDate(rec.ngay_nguoi_pham_toi_dau_thu),
+    ngayPhamToiQuaTang: parseLegacyDate(rec.ngay_pham_toi_qua_tang),
+    ngayBatKhanCap: parseLegacyDate(rec.ngay_nguoi_pham_toi_bi_bat_khan_cap),
+    ngayPhatHienDauHieu: parseLegacyDate(rec.ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi),
+
+    // Cột đã có từ lâu, chỉ thiếu đúng dòng đọc. Trên dữ liệu hiện tại các khoá này rỗng,
+    // nhưng hệ cũ VẪN đang nhận nhập liệu — thiếu dòng đọc là hẹn ngày mất dữ liệu.
+    suDungVuKhiNong: s(rec.su_dung_vu_khi_nong),
+    soDoiTuongVPHC: int(rec.so_doi_tuong_vi_pham_hanh_chinh),
+    soNguoiBiPhatTien: int(rec.so_luong_nguoi_bi_phat_tien),
+    tongTienPhatHanhChinh: parseLegacyNumber(rec.tong_so_tien_phat_hanh_chinh),
+    soDoiTuongSuuTraHiemNghi: int(rec.so_doi_tuong_suu_tra_hiem_nghi),
+    tongSoBienBanGhiLoiKhai: int(rec.tong_so_bien_ban_ghi_loi_khai),
+    soBienBanGhiLoiKhaiCoGhiAm: int(rec.so_bien_ban_ghi_loi_khai_co_ghi_am_ghi_hinh),
+    tongSoBienBanHoiCung: int(rec.tong_so_bien_ban_hoi_cung_bi_can),
+    tongSoBienBanHoiCungCoGhiAm: int(rec.tong_so_bien_ban_hoi_cung_co_ghi_am_ghi_hinh),
+    soBiCanCoGhiAm: int(rec.so_bi_can_co_ghi_am_ghi_hinh),
+    vksYeuCauGhiAm: parseLegacyBool(rec.xac_nhan_vks_yeu_cau_ghi_am_ghi_hinh),
+    soBiCanVksYeuCauGhiAm: int(rec.so_luong_bi_can_vks_yeu_cau_ghi_am_ghi_hinh),
   });
   return Object.keys(stat).length > 0 ? stat : undefined;
 }
@@ -649,6 +719,19 @@ export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
   'dieu_tra_mo_rong', 'bat_duoc_bao_nhieu_bang_nhom', 'xac_nhan_ghi_am_ghi_hinh', 'xac_nhan_neu_la_vu_an_ghi_am_ghi_hinh', 'xac_nhan_vu_viec_vphc',
   'co_bao_nhieu_bang_nhom', 'xac_nhan_vu_an_da_duoc_xet_xu', 'ghi_am_ghi_hinh_da_duoc_xet_xu',
   'vu_an_co_su_dung_ket_quả_ghi_am_ghi_hinh_trong_xet_xu', 'vu_an_khong_gagh_nhung_toa_an_yeu_cau_cung_cap_gagh', 'so_dang_ky_ho_so',
+  // ── Bổ sung 26/08/2026 ──
+  'ngay_thong_ke', 'ngay_thoi_diem_phan_cong_giai_quyet_to_giac', 'ngay_tiep_nhan_tin',
+  'ngay_nguoi_pham_toi_dau_thu', 'ngay_pham_toi_qua_tang', 'ngay_nguoi_pham_toi_bi_bat_khan_cap',
+  'ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi', 'su_dung_vu_khi_nong',
+  'so_doi_tuong_vi_pham_hanh_chinh', 'so_luong_nguoi_bi_phat_tien', 'tong_so_tien_phat_hanh_chinh',
+  'so_doi_tuong_suu_tra_hiem_nghi', 'tong_so_bien_ban_ghi_loi_khai',
+  'so_bien_ban_ghi_loi_khai_co_ghi_am_ghi_hinh', 'tong_so_bien_ban_hoi_cung_bi_can',
+  'tong_so_bien_ban_hoi_cung_co_ghi_am_ghi_hinh', 'so_bi_can_co_ghi_am_ghi_hinh',
+  'xac_nhan_vks_yeu_cau_ghi_am_ghi_hinh', 'so_luong_bi_can_vks_yeu_cau_ghi_am_ghi_hinh',
+  'vat_chung', 'lenh_nhap_kho', 'Noi_luu_tru_bao_quan_ke_bien_phong_toa',
+  'nhap_vao_vu_viec_so', 'xac_dinh_vu_viec_tam_dung_giai_quyet', 'khac_phuc_ly_do_tdc',
+  'khac_phuc_tdc_vu_an', 'bien_phap_khac_phuc_tdc_vu_an', 'quyet_dinh_phuc_hoi_vu_an',
+  'ngay_phuc_hoi_dieu_tra_vu_an', 'quyet_dinh_khong_khoi_to', 'ngay_ra_quyet_dinh_khong_khoi_to',
   'ngay_dang_ky_ho_so', 'ho_so_luu', 'ngay_nop_luu_ho_so', 'don_vi_bao_quan_ho_so',
   // Ủy thác điều tra
   'don_vi_uy_thac', 'so_quyet_dinh_uy_thac', 'ngay_tiep_nhan_uy_thac', 'ket_qua_uy_thac',

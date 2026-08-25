@@ -419,6 +419,22 @@ describe('EXPERT mutation-killer — MAPPED_LEGACY_KEYS registry (chốt từng 
     'ngay_dang_ky_ho_so', 'ho_so_luu', 'ngay_nop_luu_ho_so', 'don_vi_bao_quan_ho_so',
     'don_vi_uy_thac', 'so_quyet_dinh_uy_thac', 'ngay_tiep_nhan_uy_thac', 'ket_qua_uy_thac',
     'ngay_tra_ket_qua_uy_thac',
+    // ── Bổ sung 26/08/2026: khoá hệ cũ nay đã đổ vào cột (epic bố cục form Vụ án) ──
+    // Bảy mốc ngày dưới đây phủ 16.9k–17.8k hồ sơ MỖI KHOÁ trên dữ liệu thật mà trước đó
+    // chỉ nằm trong legacy_raw.
+    'ngay_thong_ke', 'ngay_thoi_diem_phan_cong_giai_quyet_to_giac', 'ngay_tiep_nhan_tin',
+    'ngay_nguoi_pham_toi_dau_thu', 'ngay_pham_toi_qua_tang', 'ngay_nguoi_pham_toi_bi_bat_khan_cap',
+    'ngay_cqcsdt_phat_hien_co_dau_hieu_pham_toi',
+    'su_dung_vu_khi_nong', 'so_doi_tuong_vi_pham_hanh_chinh', 'so_luong_nguoi_bi_phat_tien',
+    'tong_so_tien_phat_hanh_chinh', 'so_doi_tuong_suu_tra_hiem_nghi',
+    'tong_so_bien_ban_ghi_loi_khai', 'so_bien_ban_ghi_loi_khai_co_ghi_am_ghi_hinh',
+    'tong_so_bien_ban_hoi_cung_bi_can', 'tong_so_bien_ban_hoi_cung_co_ghi_am_ghi_hinh',
+    'so_bi_can_co_ghi_am_ghi_hinh', 'xac_nhan_vks_yeu_cau_ghi_am_ghi_hinh',
+    'so_luong_bi_can_vks_yeu_cau_ghi_am_ghi_hinh',
+    'vat_chung', 'lenh_nhap_kho', 'Noi_luu_tru_bao_quan_ke_bien_phong_toa',
+    'nhap_vao_vu_viec_so', 'xac_dinh_vu_viec_tam_dung_giai_quyet', 'khac_phuc_ly_do_tdc',
+    'khac_phuc_tdc_vu_an', 'bien_phap_khac_phuc_tdc_vu_an', 'quyet_dinh_phuc_hoi_vu_an',
+    'ngay_phuc_hoi_dieu_tra_vu_an', 'quyet_dinh_khong_khoi_to', 'ngay_ra_quyet_dinh_khong_khoi_to',
   ];
   it('mọi key kỳ vọng đều có trong registry (giết literal mutation)', () => {
     EXPECTED_MAPPED_KEYS.forEach((k) => expect(MAPPED_LEGACY_KEYS.has(k)).toBe(true));
