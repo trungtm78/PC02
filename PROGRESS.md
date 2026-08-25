@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-08-26T03:20:00+07:00 | Milestone: M4/5 | Task: 4/5
+Cập nhật: 2026-08-26T04:10:00+07:00 | Milestone: M5/5 | Task: 4.5/5
 
 > Epic trước (`Danh sách giống hệ cũ`, 6/6 milestone, đã xong 25/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -40,13 +40,18 @@ Nhánh: `feat/legacy-form-parity-vu-an`
   - Cổng kiểm thêm cờ `formOnly` (khai rõ cột dựng cho form) + ca kiểm chặn dùng cờ làm cửa sau
   - Viết lại công cụ sinh đã mất: `gen-legacy-parity-fields.ts` (có `--check` cho CI)
   - Vá lỗi panel bổ sung ĐÈ giá trị cán bộ gõ trong tab (11 cột trùng)
+- [x] M5a — Hai vòng rà soát độc lập, 13 phát hiện đã xử:
+  - `/code-review high` → 9 phát hiện, trong đó **#1 vô hiệu hoá gần hết PR**
+    (`parityState` vẫn nạp cột tab đã có ô rồi spread SAU payload → hoàn nguyên mọi sửa đổi)
+  - `codex exec` (rà soát chéo mô hình) → 4 phát hiện; 2 đã vá, 2 ĐO LẠI và bác bỏ có bằng chứng
+    (Prisma 7.8 đọc mảng NULL trả `[]`; thêm NOT NULL làm `case.create` hỏng P2011)
 
 ## Đang làm dở
-Task: M5 — Đối soát, tài liệu, UAT phủ 100%
-Đã làm: chưa bắt đầu
-BƯỚC TIẾP THEO: chạy `/review` rồi `/codex review` trên toàn bộ diff của nhánh (kỷ luật §4),
-xử hết finding, sau đó dựng `UAT-COVERAGE.md`
-File liên quan: toàn bộ diff nhánh `feat/legacy-form-parity-vu-an`
+Task: M5b — Đối soát trên bản chạy thật + UAT phủ 100%
+Đã làm: hai vòng rà soát xong, 13 phát hiện đã xử
+BƯỚC TIẾP THEO: nạp dữ liệu mẫu vào PG18, chạy backend + frontend, chụp `/cases` và
+`/cases/new` rồi đối chiếu với ảnh hệ cũ đã lưu ở scratchpad; sau đó dựng `UAT-COVERAGE.md`
+File liên quan: `backend/prisma/seed.ts`, ảnh hệ cũ ở thư mục scratchpad của phiên
 
 ## Hàng đợi task kế tiếp
 0. M2 — PR-2 Hạ tầng bố cục theo hệ cũ (`legacy-form-layout.def.ts` + `LegacyLayoutSection`)
@@ -71,8 +76,9 @@ File liên quan: toàn bộ diff nhánh `feat/legacy-form-parity-vu-an`
 | Form nhập chuẩn của hệ cũ | `/doi-1/Them` (vì `/VuAn/Them` bị chặn với Đội 1) | Phần A2 của spec |
 
 ## Trạng thái test
-Backend: **3112/3112 PASS (232 bộ)** · `tsc --noEmit` sạch
-Frontend: **1733/1733 PASS (169 bộ)** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
+Backend: **3115/3115 PASS (232 bộ)** · `tsc --noEmit` sạch
+Frontend: **1744/1744 PASS (169 bộ)** · `tsc -b` sạch
+Kiểm chứng đầu-cuối công cụ bù trên CSDL thật: **ĐẠT** · `tsc -b` sạch — hết hẳn ca đỏ ngẫu nhiên sau khi
 nâng `testTimeout` lên 20s (nguyên nhân gốc: hạn 5s không đủ khi 166 tệp chạy song song;
 ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý do không liên quan).
 
@@ -80,6 +86,9 @@ ca bị cắt còn để lại DOM chưa dọn nên ca kế tiếp đỏ vì lý
 - `shownFieldKeys.ts` và `legacyParityFields.generated.ts` gắn nhãn auto-generated nhưng generator
   không còn trong repo → phải viết lại ở M4.
 - **ĐÃ VÁ** nợ `testTimeout` (nâng lên 20s trong `vite.config.ts`).
+- Bộ ca kiểm máy chủ thỉnh thoảng đỏ 32 ca ở `two-fa.service.spec.ts` với lỗi `invariant`
+  của jest khi giả lập `otplib`. Chạy riêng `src/auth` thì 252/252 xanh, và chạy lại toàn bộ
+  cũng xanh. Không liên quan diff của epic (không chạm `src/auth`). Nợ có sẵn, chưa đụng.
 - **PHÁT HIỆN CẦN BÁO ANH:** dựng cơ sở dữ liệu từ đầu bằng `prisma migrate deploy` THẤT BẠI
   ở `20260227000000_add_case_metadata` (`relation "cases" does not exist`). Chuỗi 91 migration
   không tự dựng lại được từ số không — máy đang chạy vẫn ổn vì nó lớn lên dần. Vá nằm ngoài
