@@ -46,6 +46,10 @@ export interface EvidencePayload {
 }
 
 export interface CreateCasePayload {
+  // Chỉ mục chuỗi: payload này còn được đọc theo tên ô trong ca kiểm "điền kín mọi ô rồi
+  // lưu". Không có nó thì ca kiểm ấy phải ép kiểu qua `unknown`, và ép kiểu là đúng thứ
+  // che mất lỗi mà nó sinh ra để bắt.
+  [key: string]: unknown;
   name: string;
   crime: string | null;
   crimeChinhId?: string | null;
@@ -61,6 +65,45 @@ export interface CreateCasePayload {
   linkedIncidentId?: string;
   expectedIncidentUpdatedAt?: string;
   sourceDocumentNote?: string;
+  // ── Ô hệ cũ đưa về đúng vị trí trên form (26/08/2026) ──
+  phanLoaiNguonTinBanDau?: string;
+  ngayXayRa?: string;
+  noiXayRaPhuongXa?: string;
+  baoCaoBanGiamDocText?: string;
+  baoCaoBanGiamDoc?: boolean;
+  soQDPhanCongNguonTin?: string;
+  ngayQDPhanCongNguonTin?: string;
+  soQDKhongKhoiTo?: string;
+  ngayQDKhongKhoiTo?: string;
+  canCuKhongKhoiTo?: string;
+  lyDoKhongKhoiTo?: string[];
+  chuyenVuViecDonViKhac?: string;
+  nhapVaoVuViecSo?: string;
+  phanLoaiDanSu?: string;
+  vuViecTamDungTruoc2015?: boolean;
+  soQDTamDinhChiNguonTin?: string;
+  ngayQDTamDinhChiNguonTin?: string;
+  canCuTamDinhChiNguonTin?: string;
+  lyDoTamDinhChiNguonTin?: string[];
+  ngayHetThoiHieuVuViec?: string;
+  khacPhucLyDoTDCVuViec?: string;
+  tienDoKhacPhucTDCVuViec?: string;
+  soPhucHoiNguonTin?: string;
+  ngayPhucHoiNguonTin?: string;
+  vatChungMoTa?: string;
+  lenhNhapKho?: string;
+  noiLuuTruBaoQuan?: string;
+  toiDanhChinhKhoiToId?: string;
+  laCongNgheCao?: boolean;
+  caseCode?: string;
+  soHoSoCu?: string;
+  ngayDeXuat?: string;
+  ngayPhieuChuyen?: string;
+  doVatTaiLieuKemTheo?: string;
+  ngayVietDon?: string;
+  ghiChuTrungDon?: string;
+  ngayGiaoDonViGiaiQuyet?: string;
+  lanhDaoToTung?: string;
   // v0.44 UTDT fields (top-level columns)
   caseType?: string;
   donViGiao?: string;
@@ -439,7 +482,9 @@ export function buildCreateCasePayload(
   payload.tenCungCap = firstStr(formData.reporter, formData.tenCungCap);
   payload.cccdCungCap = firstStr(formData.reporterIdNumber, formData.cccdCungCap);
   payload.sdtCungCap = firstStr(parsePhone(formData.reporterPhone), formData.sdtCungCap);
-  payload.diaChiCungCap = firstStr(formData.reporterAddress);
+  // Ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" của hệ cũ đứng trước ô địa chỉ
+  // thường trú của khối Người báo tin — cùng một cột, ưu tiên ô hệ cũ vì đó là ô cán bộ gõ.
+  payload.diaChiCungCap = firstStr(formData.diaChiCungCap, formData.reporterAddress);
   payload.moTaChiTiet = firstStr(formData.description);
   payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress);
   payload.nguonDon = firstStr(formData.nguonDon);
@@ -482,6 +527,60 @@ export function buildCreateCasePayload(
   if (damage != null && stat['soTienBiThietHai'] == null) {
     payload.statistic = { ...(payload.statistic ?? {}), soTienBiThietHai: damage };
   }
+
+  // ── Ô hệ cũ đưa về đúng vị trí trên form (26/08/2026) → cột typed, cấp trên cùng ──
+  //
+  // Chôn trong `metadata` thì bộ lọc, xuất Excel và ma trận đối chiếu di trú đều không thấy.
+  // `firstStr` bỏ chuỗi rỗng, nên ô để trống không gửi lên và không đè giá trị đang có.
+  payload.phanLoaiNguonTinBanDau = firstStr(formData.phanLoaiNguonTinBanDau);
+  payload.ngayXayRa = firstStr(formData.ngayXayRa);
+  payload.noiXayRaPhuongXa = firstStr(formData.noiXayRaPhuongXa);
+  payload.soQDPhanCongNguonTin = firstStr(formData.soQDPhanCongNguonTin);
+  payload.ngayQDPhanCongNguonTin = firstStr(formData.ngayQDPhanCongNguonTin);
+  payload.soQDKhongKhoiTo = firstStr(formData.soQDKhongKhoiTo);
+  payload.ngayQDKhongKhoiTo = firstStr(formData.ngayQDKhongKhoiTo);
+  payload.canCuKhongKhoiTo = firstStr(formData.canCuKhongKhoiTo);
+  payload.chuyenVuViecDonViKhac = firstStr(formData.chuyenVuViecDonViKhac);
+  payload.nhapVaoVuViecSo = firstStr(formData.nhapVaoVuViecSo);
+  payload.phanLoaiDanSu = firstStr(formData.phanLoaiDanSu);
+  payload.soQDTamDinhChiNguonTin = firstStr(formData.soQDTamDinhChiNguonTin);
+  payload.ngayQDTamDinhChiNguonTin = firstStr(formData.ngayQDTamDinhChiNguonTin);
+  payload.canCuTamDinhChiNguonTin = firstStr(formData.canCuTamDinhChiNguonTin);
+  payload.ngayHetThoiHieuVuViec = firstStr(formData.ngayHetThoiHieuVuViec);
+  payload.khacPhucLyDoTDCVuViec = firstStr(formData.khacPhucLyDoTDCVuViec);
+  payload.tienDoKhacPhucTDCVuViec = firstStr(formData.tienDoKhacPhucTDCVuViec);
+  payload.soPhucHoiNguonTin = firstStr(formData.soPhucHoiNguonTin);
+  payload.ngayPhucHoiNguonTin = firstStr(formData.ngayPhucHoiNguonTin);
+  payload.vatChungMoTa = firstStr(formData.vatChungMoTa);
+  payload.lenhNhapKho = firstStr(formData.lenhNhapKho);
+  payload.noiLuuTruBaoQuan = firstStr(formData.noiLuuTruBaoQuan);
+  payload.toiDanhChinhKhoiToId = firstStr(formData.toiDanhChinhKhoiToId);
+  // Ô chọn nhiều: mảng rỗng là "đã bỏ chọn hết", khác `undefined` là "không nhắc tới".
+  payload.lyDoKhongKhoiTo = formData.lyDoKhongKhoiTo ?? [];
+  payload.lyDoTamDinhChiNguonTin = formData.lyDoTamDinhChiNguonTin ?? [];
+  payload.vuViecTamDungTruoc2015 = formData.vuViecTamDungTruoc2015 === true;
+  // Hai ô trước nay hiện trên form nhưng KHÔNG có đường lên máy chủ: sửa xong là mất.
+  payload.caseCode = firstStr(formData.caseCode);
+  payload.soHoSoCu = firstStr(formData.soHoSoCu);
+  // "Trường hợp báo cáo Ban Giám đốc": hệ cũ là ô CHỮ, cột hệ mới là ĐÚNG/SAI (di trú suy từ
+  // chữ). Gửi cả hai — mất chữ là mất chỉ đạo của Ban Giám đốc, 34.931 hồ sơ đang có nội dung.
+  // Nhóm ô trước nay chỉ hiện ở panel "Thông tin nghiệp vụ bổ sung" cuối trang (và ghi qua
+  // `parityState`), nay đã về đúng vị trí trong tab nên phải tự đi lên máy chủ.
+  payload.ngayDeXuat = firstStr(formData.ngayDeXuat);
+  payload.loaiThongTin = firstStr(formData.loaiThongTin, formData.utdt_loaiThongTin);
+  payload.ngayPhieuChuyen = firstStr(formData.ngayPhieuChuyen);
+  payload.ngayTiepNhan = firstStr(formData.ngayTiepNhanNguonTin, formData.utdt_ngayTiepNhan);
+  payload.thoiHanUyThac = firstStr(formData.utdt_thoiHanUyThac);
+  payload.doVatTaiLieuKemTheo = firstStr(formData.doVatTaiLieuKemTheo);
+  payload.ngayVietDon = firstStr(formData.ngayVietDon);
+  payload.ghiChuTrungDon = firstStr(formData.ghiChuTrungDon);
+  payload.ngayGiaoDonViGiaiQuyet = firstStr(formData.ngayGiaoDonViGiaiQuyet);
+  payload.lanhDaoToTung = firstStr(formData.lanhDaoToTung);
+  payload.laCongNgheCao = formData.laCongNgheCao === true;
+
+  const baoCao = firstStr(formData.baoCaoBanGiamDoc);
+  payload.baoCaoBanGiamDocText = baoCao;
+  payload.baoCaoBanGiamDoc = baoCao != null;
 
   // Gộp trường hệ cũ động (editable): field form/utdt THẮNG (ghi sau); giữ phần còn lại của legacy.
   // Backend còn MERGE lần nữa với metadata trong DB → không mất field nào.

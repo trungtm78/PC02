@@ -371,6 +371,44 @@ export class CreateCaseDto {
   @IsOptional() @IsString() deXuat?: string;
   @IsOptional() @IsString() yeuCauBoSung?: string;
 
+  // ── Ô hệ cũ đưa về đúng vị trí trên form (epic 26/08/2026) ──────────────────────────
+  // Máy chủ bật `forbidNonWhitelisted`: thiếu một dòng ở đây thì cả lời gọi lưu bị từ chối
+  // 400 chứ không phải bỏ qua field ấy — nghĩa là cán bộ không lưu được hồ sơ.
+  @IsOptional() @IsString() phanLoaiNguonTinBanDau?: string;
+  @IsOptional() @IsDateString() ngayXayRa?: string;
+  @IsOptional() @IsString() noiXayRaPhuongXa?: string;
+  @IsOptional() @IsString() baoCaoBanGiamDocText?: string;
+  @IsOptional() @IsString() soQDPhanCongNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDPhanCongNguonTin?: string;
+  @IsOptional() @IsString() soQDKhongKhoiTo?: string;
+  @IsOptional() @IsDateString() ngayQDKhongKhoiTo?: string;
+  @IsOptional() @IsString() canCuKhongKhoiTo?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) lyDoKhongKhoiTo?: string[];
+  @IsOptional() @IsString() chuyenVuViecDonViKhac?: string;
+  @IsOptional() @IsString() nhapVaoVuViecSo?: string;
+  @IsOptional() @IsString() phanLoaiDanSu?: string;
+  @IsOptional() @IsBoolean() vuViecTamDungTruoc2015?: boolean;
+  @IsOptional() @IsString() soQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsString() canCuTamDinhChiNguonTin?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) lyDoTamDinhChiNguonTin?: string[];
+  @IsOptional() @IsDateString() ngayHetThoiHieuVuViec?: string;
+  @IsOptional() @IsString() khacPhucLyDoTDCVuViec?: string;
+  @IsOptional() @IsString() tienDoKhacPhucTDCVuViec?: string;
+  @IsOptional() @IsString() soPhucHoiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
+  @IsOptional() @IsString() vatChungMoTa?: string;
+  @IsOptional() @IsString() lenhNhapKho?: string;
+  @IsOptional() @IsString() noiLuuTruBaoQuan?: string;
+  @IsOptional() @IsString() toiDanhChinhKhoiToId?: string;
+  // Mã hồ sơ trước nay chỉ đi trong `metadata` dù đã là cột @unique, nên sửa mã trên form
+  // không ghi được vào cột.
+  @IsOptional() @IsString() @MaxLength(50) caseCode?: string;
+  @IsOptional() @IsString() @MaxLength(50) soHoSoCu?: string;
+  // Cờ tội phạm công nghệ cao: hệ cũ là công tắc ở tab Thông tin, cột đã có sẵn nhưng DTO
+  // chưa khai nên bật lên rồi lưu là mất.
+  @IsOptional() @IsBoolean() laCongNgheCao?: boolean;
+
   // ── Consolidate epic: native metadata field → cột typed chính thức (plan A0 loại N) ──
   @IsOptional() @IsDateString() reporterDateOfBirth?: string;
   @IsOptional() @IsString() reporterDateOfBirthPrecision?: string;

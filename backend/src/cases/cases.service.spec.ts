@@ -228,6 +228,11 @@ describe('CasesService', () => {
       expect(select.ketQuaXuLyKhac).toBe(true);
     });
 
+    // ── Ô hệ cũ trên form phải THẬT SỰ đi xuống cơ sở dữ liệu ─────────────────
+    //
+    // Bộ ca kiểm của `legacyFormParityData` là hàm thuần: nó vẫn xanh kể cả khi service
+    // quên nối vào. Hai ca dưới đây đặt đúng tầng — khẳng định service truyền dữ liệu ấy
+    // xuống Prisma ở CẢ nhánh tạo mới lẫn nhánh chỉnh sửa.
     it('trả về danh sách bị can — cột "Đối tượng bị can" của bảng Vụ án hệ cũ', async () => {
       // Hệ cũ (/VuAn) có cột "Đối tượng bị can" ở vị trí thứ 3. Hệ mới chưa trả dữ liệu
       // này ở API danh sách nên cột không dựng được. Lấy từ bảng Subject (type SUSPECT),
@@ -477,6 +482,40 @@ describe('CasesService', () => {
           }),
         }),
       );
+    });
+
+    /**
+     * Ô hệ cũ trên form phải đi xuống cơ sở dữ liệu khi SỬA hồ sơ.
+     *
+     * Đây là nửa dễ quên: hồ sơ di trú từ hệ cũ hầu như chỉ được SỬA, không tạo mới. Nối
+     * thiếu ở nhánh này thì cán bộ gõ vào ô rồi bấm Lưu, màn hình báo thành công, mà dữ
+     * liệu không đi đâu cả.
+     */
+    it('ô hệ cũ trên form đi xuống Prisma khi sửa hồ sơ', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue(mockCase);
+      mockPrisma.case.update.mockResolvedValue(mockCase);
+
+      await service.update(
+        'case-001',
+        {
+          soQDKhongKhoiTo: '05/QĐ-KKT',
+          ngayQDKhongKhoiTo: '2026-08-03T00:00:00.000Z',
+          lyDoKhongKhoiTo: ['khong_co_su_viec'],
+          vuViecTamDungTruoc2015: true,
+          vatChungMoTa: '01 điện thoại iPhone 13',
+        } as never,
+        'actor-001',
+      );
+
+      const updateFn = mockAudit.wrapUpdate.mock.calls.at(-1)![0].updateFn;
+      await updateFn();
+      const { data } = mockPrisma.case.update.mock.calls.at(-1)![0];
+
+      expect(data.soQDKhongKhoiTo).toBe('05/QĐ-KKT');
+      expect(data.ngayQDKhongKhoiTo).toEqual(new Date('2026-08-03T00:00:00.000Z'));
+      expect(data.lyDoKhongKhoiTo).toEqual(['khong_co_su_viec']);
+      expect(data.vuViecTamDungTruoc2015).toBe(true);
+      expect(data.vatChungMoTa).toBe('01 điện thoại iPhone 13');
     });
 
     it('should throw NotFoundException when case not found', async () => {
