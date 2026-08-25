@@ -1,6 +1,8 @@
 # PROGRESS
 
-Cập nhật: 2026-08-25T13:05+07:00 | Milestone: M5/6 | Task: 3/4 của M5
+STATUS: ALL_MILESTONES_DONE
+
+Cập nhật: 2026-08-25T13:05+07:00 | Milestone: 6/6
 
 Spec gốc: `~/.claude/plans/gleaming-pondering-thacker.md`
 Nhánh: `feat/danh-sach-giong-he-cu`
@@ -24,17 +26,26 @@ Nhánh: `feat/danh-sach-giong-he-cu`
 - [x] M5-T1 Tự soát mã — **bắt lỗi thật**: thẻ lọc ghi vào địa chỉ trang nhưng `baseQueryParams` không chứa → API bỏ qua, bộ lọc không làm gì. Đã vá cả 3 trang + ca kiểm đặt đúng tầng
 - [x] M5-T2 Bổ sung ca kiểm bố cục cho Vụ việc và Vụ án (trước đó chỉ Đơn thư có)
 - [x] M5-T3 Đẩy nhánh + mở **PR #230**
+- [x] M5-T4 Cổng `parity-check` bắt thiếu ma trận đối chiếu → cập nhật thật (PR thêm tính năng nên `[parity-skip]` là sai)
+- [x] M5-T5 CI **3/3 xanh** → gộp PR #230 (`2dfdeab`), deploy đang chạy
+- [x] **M5 HOÀN TẤT**
+- [x] M6-T1 Dựng `UAT-COVERAGE.md` — ma trận 24 dòng + phần ngoài phạm vi có lý do
+- [x] M6-T2 Viết `tests/api/danh-sach-he-cu-uat.api.spec.ts` — chạy trên bản thật, chỉ đọc
+- [x] M6-T3 Chạy UAT trên bản chạy thật sau deploy: **26/26 PASS**
+- [x] M6-T4 Đối chiếu ngược ma trận với plan gốc: **24/24 dòng PASS**, không sót màn hình/chức năng nào
+- [x] **M6 HOÀN TẤT**
 
 ## Đang làm dở
 
-Task: M5-T4 — chờ CI xanh → gộp PR #230 → deploy → kiểm chứng trên bản chạy thật
-Đã làm: PR #230 đã mở, CI đang chạy
-BƯỚC TIẾP THEO: `gh pr checks 230`; xanh thì `gh pr merge 230 --squash --admin --delete-branch`, chờ deploy, rồi mở 3 trang trên `https://new.pc02hcm.com` đối chiếu với ảnh hệ cũ
-File liên quan: PR #230
+KHÔNG CÒN. Toàn bộ 6 milestone và UAT đã hoàn tất.
 
-## Hàng đợi task kế tiếp
+## Đã deploy
 
-1. **M2** — `LegacyFilterPanel.tsx`: thẻ lọc hai vế, 7 ô (Từ khóa · STT · STT cũ · Từ ngày · Đến ngày · Cán bộ nhập · Chọn khoảng thời gian) + Xóa bộ lọc + Xuất Excel
+PR #230 gộp (`2dfdeab`), deploy `32819302200` **thành công**, health 200, UAT 26/26 trên bản chạy thật.
+
+## Hàng đợi task kế tiếp — ĐÃ XONG HẾT
+
+1. ~~**M2**~~ — `LegacyFilterPanel.tsx`: thẻ lọc hai vế, 7 ô (Từ khóa · STT · STT cũ · Từ ngày · Đến ngày · Cán bộ nhập · Chọn khoảng thời gian) + Xóa bộ lọc + Xuất Excel
 2. **M3** — Máy chủ: thêm `nguonDon`/`ketQuaXuLyKhac` (petitions), `moTaChiTiet` (cases) vào `select`; thêm bộ lọc `stt`, `sttCu`, `enteredById` cho cả ba
 3. **M4** — Nối vào 3 trang: đủ 9 cột đúng thứ tự, Thao tác về CUỐI, giữ chip trạng thái + thẻ thống kê + sắp xếp
 4. **M5** — Full suite + `/review` + `/codex` + PR + deploy
@@ -63,7 +74,7 @@ File liên quan: PR #230
 
 ## Trạng thái test
 
-**Máy chủ 2975/2975** (225 bộ) · **Frontend 1541/1541** (158 bộ) = **4516 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage M1–M5: 100% dòng | Test fail: không
+**Máy chủ 2975/2975** (225 bộ) · **Frontend 1541/1541** (158 bộ) · **UAT trên bản chạy thật 26/26** = **4542 ca kiểm PASS**. `tsc --noEmit` và `tsc -b` đều sạch | Patch coverage: 100% dòng | Test fail: **không** | UAT: **24/24 dòng ma trận PASS**
 
 ## Nợ kỹ thuật / rủi ro
 
@@ -71,3 +82,8 @@ File liên quan: PR #230
 - `sortableHeader.test.tsx` từng chập chờn khi chạy cả thư mục (5.565ms → quá hạn) nhưng xanh khi chạy riêng. **Lượt chạy full suite 1534/1534 KHÔNG tái diễn** → xác nhận là nghẽn CPU nhất thời, không phải hồi quy.
 - Ô "Từ khóa" của hệ cũ KHÔNG dựng lại trong thẻ lọc: thanh công cụ ngay trên đã có ô tìm kiếm. Hai ô tìm trên một màn hình gây nhầm chứ không tiện.
 - 4 đơn thư sai tháng ngày tiếp nhận (`2026-10206/10207/8810/10224`) vẫn chờ hồ sơ giấy — không liên quan phần này.
+- **Phát hiện trong lúc UAT, KHÔNG do thay đổi này gây ra** (cột mã nay hiện rõ nên lộ ra):
+  **76/3.380 vụ án không có mã** (suy được 76/76 từ `nam`+`stt`) và **125/4.717 vụ việc mang
+  mã tạm `VV-LEGACY-…`** (chỉ suy được 7; 118 hồ sơ còn lại đến từ `TamDinhChi_vu_viec_21`
+  vốn KHÔNG có `nam`/`stt` ở hệ cũ, các trường ngày còn bị đảo tên). Đã tra tận nguồn trên
+  bản sao MongoDB để kết luận. Sửa được bằng đúng công cụ đã dùng cho 1.333 đơn thư.
