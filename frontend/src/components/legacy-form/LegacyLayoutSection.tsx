@@ -165,6 +165,7 @@ function LegacyField({
           onChange={(v: string) => onChange(v)}
           error={error}
           required={item.required}
+          testId={oTestId}
         />,
       );
 
@@ -177,6 +178,7 @@ function LegacyField({
           onChange={(v: string) => onChange(v)}
           error={error}
           required={item.required}
+          testId={oTestId}
         />,
       );
 

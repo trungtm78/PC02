@@ -29,7 +29,6 @@ import {
   FileText, MapPin, Phone, Mail, ChevronDown,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
-import { CrimeSelect } from "@/components/CrimeSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
@@ -309,8 +308,14 @@ export function PetitionFormPage() {
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
     if (!validateForm()) {
-      // Focus ô lỗi đầu tiên (thay vì chỉ scroll top) — YC3.
-      if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
+      // Mọi ô có thể báo lỗi đều nằm ở tab Thông tin. Đang đứng ở tab khác mà bấm Lưu thì ô
+      // lỗi nằm trong khối ẩn — cán bộ thấy thông báo mà không thấy ô nào để sửa. Nhảy về
+      // trước, rồi mới đưa con trỏ vào ô.
+      setTabDangMo("info");
+      // Focus ô lỗi đầu tiên (thay vì chỉ scroll top) — YC3. Chờ một nhịp để tab kịp hiện.
+      setTimeout(() => {
+        if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 0);
       return { ok: false, id: null };
     }
     savingRef.current = true;
@@ -719,17 +724,6 @@ export function PetitionFormPage() {
                   placeholder="DT-2026-00001"
                 />
               </div>
-              <div>
-                <FKSelect
-                  label="Đơn vị tiếp nhận"
-                  directoryType="DON_VI"
-                  value={formData.unit}
-                  onChange={(v) => update("unit", v)}
-                  placeholder="Chọn đơn vị (bỏ trống = PC02)"
-                  testId="field-unit"
-                />
-                <p className="mt-1 text-xs text-slate-500">Bỏ trống nghĩa là PC02 trực tiếp tiếp nhận.</p>
-              </div>
             </div>
           </div>
         </div>
@@ -834,16 +828,6 @@ export function PetitionFormPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <CrimeSelect
-                  label="Tội danh chính (BLHS 2015)"
-                  required={!isEditMode && !formData.senderIsAnonymous}
-                  value={formData.crimeChinhId}
-                  onChange={(v) => update("crimeChinhId", v)}
-                  placeholder="Chọn tội danh chính"
-                  testId="field-crimeChinhId"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
                 <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Đơn vị giải quyết (khác đơn vị tiếp nhận)" data-testid="field-donViGiaiQuyet" />
