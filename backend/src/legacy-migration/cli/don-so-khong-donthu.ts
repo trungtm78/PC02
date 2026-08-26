@@ -14,7 +14,9 @@
  *
  * AN TOÀN:
  *   - Chỉ đụng hai cột `soTienBiThietHai` và `soLuongBiHai` của bảng `petitions`.
- *   - Chỉ đụng hồ sơ CÓ `legacyRaw` — hồ sơ nhập tay không nằm trong phạm vi.
+ *   - Chỉ đụng hồ sơ CÓ `legacyRaw` — hồ sơ nhập tay không nằm trong phạm vi. 95 hồ sơ di
+ *     trú không giữ `legacyRaw` riêng (bản gốc nằm ở vụ việc/vụ án anh em) cũng nằm ngoài:
+ *     không đối chiếu được bản gốc thì không có căn cứ để dọn.
  *   - `--dry` (bắt buộc chạy trước) chỉ đếm, không ghi.
  *   - Đếm riêng số ô DỌN và số ô GIỮ, để đối chiếu với số đo trước khi chạy — lệch nhiều
  *     nghĩa là phép chọn sai, dừng lại thay vì chạy tiếp.
@@ -41,12 +43,35 @@ const BATCH = 1000;
 interface KetQua {
   quet: number;
   hoSoSua: number;
+  /** Hồ sơ bỏ qua vì cán bộ đã từng sửa tay chính hai ô số này. */
+  boQuaVieDaSuaTay: number;
   oDon: Record<string, number>;
   oGiuVicoDonVi: Record<string, number>;
 }
 
+/**
+ * Hồ sơ mà CÁN BỘ đã từng sửa chính hai ô số này — tuyệt đối không đụng tới.
+ *
+ * Bản gốc trong `legacyRaw` chỉ nói lên ô ấy vốn trống ở HỆ CŨ. Nếu sau khi di trú cán bộ
+ * chủ ý gõ số 0 thật vào, thì con số ấy là một khẳng định nghiệp vụ — dọn mất là thay nó
+ * bằng "chưa biết". `updatedAt` không dùng được làm dấu hiệu: mọi bản ghi di trú đều đã bị
+ * chạm bởi chính các lần bù dữ liệu (đo trên máy thật: 31.021/31.021).
+ *
+ * Nhật ký thay đổi mới là dấu hiệu đúng.
+ */
+async function hoSoDaSuaTay(prisma: PrismaClient): Promise<Set<string>> {
+  const rows = await prisma.$queryRaw<{ subjectId: string }[]>`
+    select distinct "subjectId" from audit_logs
+    where action = 'PETITION_UPDATED'
+      and (metadata::text ilike '%soTienBiThietHai%' or metadata::text ilike '%soLuongBiHai%')
+      and "subjectId" is not null`;
+  return new Set(rows.map((r) => r.subjectId));
+}
+
 export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<KetQua> {
-  const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {} };
+  const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {}, boQuaVieDaSuaTay: 0 };
+  const daSuaTay = await hoSoDaSuaTay(prisma);
+  console.log(`Bỏ qua ${daSuaTay.size} hồ sơ cán bộ đã từng sửa chính hai ô số này.`);
   for (const { col } of CAP_COT_KHOA) {
     kq.oDon[col] = 0;
     kq.oGiuVicoDonVi[col] = 0;
@@ -69,6 +94,10 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
 
     for (const row of rows) {
       kq.quet++;
+      if (daSuaTay.has(row.id)) {
+        kq.boQuaVieDaSuaTay++;
+        continue;
+      }
       const goc = (row.legacyRaw ?? {}) as Record<string, unknown>;
       const data: Record<string, null> = {};
 
@@ -113,6 +142,7 @@ async function main(): Promise<void> {
     console.log('');
     console.log(`Quét:            ${kq.quet} hồ sơ có ô số bằng 0`);
     console.log(`Hồ sơ sẽ sửa:    ${kq.hoSoSua}`);
+    console.log(`Bỏ qua (đã sửa tay): ${kq.boQuaVieDaSuaTay}`);
     for (const { col } of CAP_COT_KHOA) {
       console.log(`  ${col}: dọn ${kq.oDon[col]}, giữ ${kq.oGiuVicoDonVi[col]} (bản gốc ghi số thật)`);
     }
