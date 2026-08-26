@@ -94,8 +94,17 @@ export function phanLoaiO(v: DauVaoPhanLoai): KetQuaPhanLoai {
   const cotThuc = v.targets.filter((t) => !t.inMetadata && v.cotThat.has(t.column));
   const vua = cotThuc.find((t) => cotChuaNoi(v.cotThat.get(t.column) as string, v.kieuHeCu));
 
-  // Lời khai RESOLVE chỉ có giá trị ở thực thể mà builder thật sự đọc field.
-  if (v.laResolve && v.targets.length > 0) {
+  // Lời khai RESOLVE chỉ có giá trị ở thực thể mà builder thật sự CHUYỂN field đi đâu đó.
+  //
+  // Phân biệt KHOÁ TRUNG GIAN với CHỖ TRÚ TẠM. `crimeChinhLegacyValue` không phải cột nào cả —
+  // nó là khoá bộ nạp nhận rồi phân giải thành `crimeChinhId`, và số đo xác nhận: 14.594 đơn
+  // thư có `crimeChinhId` so với 14.511 đơn có mã tội danh cũ. Đó là phân giải thật.
+  //
+  // `metadata.*` thì ngược lại — không ai phân giải gì, giá trị nằm đó chờ. Tính nó là "đã
+  // phân giải" thì ô rơi khỏi danh sách cần cột và không ai bù nữa: `case/tinh_trang` đúng
+  // cảnh ấy, builder chỉ đặt `metadata.tinhTrang` trong khi bảng `cases` có sẵn cột bỏ trống.
+  const khongPhaiMeta = v.targets.filter((t) => !t.inMetadata);
+  if (v.laResolve && khongPhaiMeta.length > 0) {
     return { status: 'RESOLVE', column: vua ? vua.column : null };
   }
 

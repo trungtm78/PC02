@@ -1,5 +1,5 @@
 {
-  "generatedAtIso": "2026-08-26T18:01:25.367Z",
+  "generatedAtIso": "2026-08-26T18:21:28.381Z",
   "rows": [
     {
       "field": "id",
@@ -793,7 +793,7 @@
           "entity": "case",
           "count": 1872,
           "status": "RESOLVE",
-          "column": null
+          "column": "tinhTrang"
         }
       ]
     },

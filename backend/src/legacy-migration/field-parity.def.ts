@@ -192,6 +192,9 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     // đã có). `assignedTeamId` là id tổ bộ nạp PHÂN GIẢI ra từ chính chuỗi này; giữ cả chuỗi
     // gốc vì phân giải có thể sai và 144 vụ không ra tổ nào.
     { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String' },
+    // Chữ tình trạng hệ cũ — 1.872 vụ án có, cột `tinhTrang` đã sẵn trong lược đồ nhưng builder
+    // chỉ đặt `metadata.tinhTrang`, nên 75 vụ còn trống. `status` là enum, giữ không nổi chữ.
+    { field: 'tinh_trang', col: 'tinhTrang', type: 'String', exists: true },
     // Tab "Vật chứng" — ba ô chữ hệ cũ, khác bảng vật chứng chuẩn hoá
     { field: 'vat_chung', col: 'vatChungMoTa', type: 'String' , formOnly: true },
     { field: 'lenh_nhap_kho', col: 'lenhNhapKho', type: 'String' , formOnly: true },

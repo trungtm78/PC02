@@ -38,6 +38,20 @@ describe('builderTargets — thấy MỌI đích của một field, không chỉ
     },
   );
 
+  /**
+   * Điểm mù thứ ba: hàm phụ trợ. `ownership(rec)` là nơi duy nhất gán tổ phụ trách và người
+   * nhập — không đi theo lời gọi thì bốn cột ấy không có ai đọc theo ma trận.
+   *
+   * Ca kiểm này từng xanh giả: nhánh đi theo lời gọi viết hỏng dấu biên từ (`` thành ký tự
+   * lùi) nên không khớp lời gọi nào, và `ownership` lại khai bằng hàm mũi tên nên phép tìm
+   * `function <tên>(` cũng không thấy. Hai lỗi cùng che nhau.
+   */
+  it('đi theo lời gọi vào hàm phụ trợ, kể cả hàm khai bằng mũi tên', () => {
+    const dich = (t.petition.get('__assignedTeamId') ?? []).map((d) => d.column);
+    expect(dich).toContain('assignedTeamId');
+    expect((t.case.get('__investigatorId') ?? []).map((d) => d.column)).toContain('investigatorId');
+  });
+
   it('không bịa đích cho field không ai đọc', () => {
     expect(t.petition.get('khong_co_field_nay')).toBeUndefined();
   });

@@ -76,7 +76,7 @@ Tổng ô cần fix builder: **0**.
 | `phuong_thuc_thu_doan` | Phương thức thủ đoạn | 31565 | OK (phuongThucThuDoan) · 31459 | — | OK (phuongThucThuDoan) · 106 |
 | `ngay_giao_don_vi_giai_quyet` | Ngày giao đơn vị giải quyết | 26209 | OK (ngayGiaoDonViGiaiQuyet) · 25350 | OK (ngayGiaoDonViGiaiQuyet) · 666 | OK (ngayGiaoDonViGiaiQuyet) · 193 |
 | `toi-danh-ban-dau` | Tội danh cũ trước đây | 21278 | OK (toiDanhBanDau) · 15185 | OK (toiDanhBanDau) · 3446 | OK (toiDanhBanDau) · 2647 |
-| `tinh_trang` |  | 18176 | RESOLVE (tinhTrang) · 15035 | RESOLVE (tinhTrangHoSo) · 1269 | RESOLVE · 1872 |
+| `tinh_trang` |  | 18176 | RESOLVE (tinhTrang) · 15035 | RESOLVE (tinhTrangHoSo) · 1269 | RESOLVE (tinhTrang) · 1872 |
 | `toi_danh_chinh_blhs2015` | Tội danh chính - BLHS 2015 (nhận định ban đầu) | 17314 | RESOLVE · 14507 | NEEDS_COLUMN · 1114 | RESOLVE · 1693 |
 | `ket_qua_xu_ly_giai_quyet_khac` | Kết quả xử lý, giải quyết khác | 13906 | OK (ketQuaXuLyKhac) · 11142 | OK (ketQuaXuLy) · 2542 | OK (ketQuaXuLyKhac) · 222 |
 | `so_phieu_chuyen` | Số phiếu chuyển/ Công văn/ Ủy thác điều tra | 12110 | OK (soPhieuChuyen) · 10279 | OK (soPhieuChuyen) · 80 | OK (soPhieuChuyen) · 1751 |

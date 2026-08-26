@@ -40,15 +40,41 @@ export function builderTargets(): Record<Entity, Map<string, Target[]>> {
    *
    * Đi theo lời gọi thay vì kể tên từng hàm: hàm phụ trợ mới sau này cũng tự được tính.
    */
-  const daDoc = new Set<string>();
+  /**
+   * Nhận cả hai lối khai hàm. `ownership` viết bằng hàm mũi tên (`const ownership = (rec…`),
+   * nên tìm mỗi chữ `function` là bỏ sót đúng cái hàm giữ tổ phụ trách và người nhập.
+   */
+  const laDinhNghia = (dong: string, ten: string): boolean => {
+    if (dong.includes(`function ${ten}(`)) return true;
+    const t = dong.trimStart().replace(/^export /, '');
+    return t.startsWith(`const ${ten} `) && t.slice(`const ${ten} `.length).trimStart().startsWith('= (');
+  };
+
+  /**
+   * NHỚ kết quả, không đánh dấu "đã đọc".
+   *
+   * Đánh dấu đã đọc thì hàm phụ trợ chỉ được ghi công cho thực thể gọi nó ĐẦU TIÊN:
+   * `ownership(rec)` có mặt trong cả ba builder, nhưng Đơn thư đọc trước nên Vụ việc và Vụ án
+   * mất sạch bốn cột chủ sở hữu. `dangDoc` giữ vai trò chống đệ quy vòng, còn `daDoc` trả lại
+   * đúng kết quả cũ cho lần gọi sau.
+   */
+  const daDoc = new Map<string, Map<string, Target[]>>();
+  const dangDoc = new Set<string>();
   const parseFn = (fn: string): Map<string, Target[]> => {
+    const cu = daDoc.get(fn);
+    if (cu) return cu;
     const map = new Map<string, Target[]>();
-    if (daDoc.has(fn)) return map;
-    daDoc.add(fn);
-    const start = src.findIndex((l) => l.includes(`function ${fn}(`));
-    if (start < 0) return map;
+    if (dangDoc.has(fn)) return map;
+    dangDoc.add(fn);
+    const start = src.findIndex((l) => laDinhNghia(l, fn));
+    if (start < 0) {
+      dangDoc.delete(fn);
+      daDoc.set(fn, map);
+      return map;
+    }
     let end = src.length;
-    for (let i = start + 1; i < src.length; i++) if (/^(export )?function \w+\(/.test(src[i])) { end = i; break; }
+    for (let i = start + 1; i < src.length; i++)
+      if (/^(export )?(function \w+\(|const \w+ = \()/.test(src[i])) { end = i; break; }
     let curColumn = ''; // LHS key gần nhất (áp cho các dòng RHS xuống hàng)
     let metaDepth = -1; // độ sâu ngoặc khi vào metadata block; -1 = ngoài
     let depth = 0;
@@ -78,10 +104,10 @@ export function builderTargets(): Record<Entity, Map<string, Target[]>> {
     }
     // Đi tiếp vào hàm phụ trợ được gọi với chính bản ghi ấy.
     for (let i = start; i < end; i++) {
-      for (const m of src[i].matchAll(/([a-zA-Z][a-zA-Z0-9_]*)\s*\(\s*rec/g)) {
+      for (const m of src[i].matchAll(/\b([a-zA-Z][a-zA-Z0-9_]*)\s*\(\s*rec\b/g)) {
         const goi = m[1];
-        if (goi === fn || daDoc.has(goi)) continue;
-        if (!src.some((l) => l.includes(`function ${goi}(`))) continue;
+        if (goi === fn || dangDoc.has(goi)) continue;
+        if (!src.some((l) => laDinhNghia(l, goi))) continue;
         for (const [k, v] of parseFn(goi)) {
           const da = map.get(k);
           if (!da) map.set(k, [...v]);
@@ -89,6 +115,8 @@ export function builderTargets(): Record<Entity, Map<string, Target[]>> {
         }
       }
     }
+    dangDoc.delete(fn);
+    daDoc.set(fn, map);
     return map;
   };
   const merge = (...ms: Map<string, Target[]>[]): Map<string, Target[]> => {

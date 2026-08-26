@@ -53,6 +53,41 @@ describe('phanLoaiO — đích phải chứa nổi, lời khai phải có ngư�
       expect(STATUS_CAN_COT.has(kq.status)).toBe(true);
     });
 
+    /**
+     * Đổ vào `metadata` KHÔNG phải là đã phân giải xong. `case/tinh_trang` đúng cảnh ấy: builder
+     * chỉ đặt `metadata.tinhTrang` trong khi bảng `cases` đã có cột `tinhTrang` bỏ trống. Nhận
+     * lời khai RESOLVE ở đây là ô rơi khỏi danh sách "cần cột" và không ai bù nữa.
+     */
+    it('chỉ đổ vào metadata thì chưa phải có nhà — phải báo METADATA_ONLY', () => {
+      const kq = phanLoaiO(
+        nen({
+          field: 'tinh_trang',
+          laResolve: true,
+          targets: [{ column: 'metadata.tinhTrang', inMetadata: true }],
+          cotThat: new Map([['tinhTrang', 'String']]),
+        }),
+      );
+      expect(kq.status).toBe('METADATA_ONLY');
+      expect(STATUS_CAN_COT.has(kq.status)).toBe(true);
+    });
+
+    /**
+     * Khoá TRUNG GIAN vẫn tính là đã phân giải: `crimeChinhLegacyValue` không phải cột nào,
+     * nó là thứ bộ nạp nhận rồi đổi thành `crimeChinhId`. Đo trên máy chạy 27/08/2026: 14.594
+     * đơn thư có `crimeChinhId` so với 14.511 đơn có mã tội danh cũ.
+     */
+    it('đổ vào khoá trung gian (không phải cột) vẫn là RESOLVE', () => {
+      const kq = phanLoaiO(
+        nen({
+          field: 'toi_danh_chinh_blhs2015',
+          laResolve: true,
+          targets: [{ column: 'crimeChinhLegacyValue', inMetadata: false }],
+          cotThat: new Map([['crimeChinhId', 'String']]),
+        }),
+      );
+      expect(kq.status).toBe('RESOLVE');
+    });
+
     it('builder có đọc và đổ vào cột thật → giữ nguyên RESOLVE, kèm tên cột', () => {
       const kq = phanLoaiO(
         nen({
