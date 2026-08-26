@@ -23,6 +23,8 @@ interface Props<TForm, TTab extends string, TField extends string> {
   setFormData: React.Dispatch<React.SetStateAction<TForm>>;
   errorFor?: (field: string) => string | undefined;
   onFieldTouched?: (field: string) => void;
+  /** Thay ô mặc định bằng ô riêng cho vài trường cần hơn một ô chữ. */
+  renderOverride?: Partial<Record<string, (label: string) => React.ReactNode>>;
   /** Khối luôn hiện, đặt trên bố cục hệ cũ. Dùng cho ô bắt buộc của hệ mới. */
   pinnedTop?: ReactNode;
   /** Chèn giữa bố cục hệ cũ và khối gập — dùng cho bảng con của hệ cũ (vd ĐTBS). */
@@ -38,6 +40,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
   setFormData,
   errorFor,
   onFieldTouched,
+  renderOverride,
   pinnedTop,
   afterLegacy,
   children,
@@ -59,6 +62,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
           setFormData={setFormData}
           errorFor={errorFor}
           onFieldTouched={onFieldTouched}
+          renderOverride={renderOverride}
         />
       </div>
 
