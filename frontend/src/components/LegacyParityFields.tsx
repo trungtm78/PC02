@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Database } from "lucide-react";
 import { LEGACY_PARITY_FIELDS, type ParityFieldDef } from "@/shared/legacy/legacyParityFields.generated";
 import { inMainForm } from "@/shared/legacy/shownFieldKeys";
-import { LEGACY_FORM_OWNED_COLUMNS } from "@/features/cases/legacy-form-layout.def";
+import { ownedColumnsFor } from "@/features/legacy-form/registry";
 
 /**
  * LegacyParityFields — ô nhập CHÍNH THỨC cho các CỘT typed field-parity (di trú hệ cũ).
@@ -41,14 +41,16 @@ export function LegacyParityFields({
   // form, nên hai ô cùng ghi một cột thì panel THẮNG — cán bộ gõ trong tab, bấm Lưu, giá
   // trị bị thay bằng thứ panel đang giữ.
   //
-  // Đơn thư và Vụ việc chưa dựng theo đặc tả nên vẫn dùng đường cũ.
-  // Với Vụ án phải loại theo CẢ HAI nguồn: cột do đặc tả bố cục sở hữu, VÀ cột form chính
-  // vốn đã có ô từ trước (`phanLoaiToiPhamLinhVuc`, `yeuCauBoSung`, `baoCaoBanGiamDoc`…).
-  // Bỏ vế thứ hai là ba ô ấy hiện lại, và panel ghi sau nên nó thắng.
-  const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter((d) =>
-    entity === "case"
-      ? !LEGACY_FORM_OWNED_COLUMNS.has(d.col) && !inMainForm(entity, d.col)
-      : !inMainForm(entity, d.col),
+  // Tra bảng theo thực thể thay cho rẽ nhánh `entity === "case"` viết cứng: thực thể nào
+  // chưa dựng theo đặc tả thì `ownedColumnsFor` trả tập rỗng, tức giữ nguyên đường cũ. Thêm
+  // Đơn thư vào bảng ấy là chỗ này tự đúng theo, không phải nhớ sửa.
+  //
+  // Phải loại theo CẢ HAI nguồn: cột do đặc tả bố cục sở hữu, VÀ cột form chính vốn đã có ô
+  // từ trước (`phanLoaiToiPhamLinhVuc`, `yeuCauBoSung`, `baoCaoBanGiamDoc`…). Bỏ vế thứ hai
+  // là ba ô ấy hiện lại, và panel ghi sau nên nó thắng.
+  const coSanTrenForm = ownedColumnsFor(entity);
+  const defs: ParityFieldDef[] = (LEGACY_PARITY_FIELDS[entity] ?? []).filter(
+    (d) => !coSanTrenForm.has(d.col) && !inMainForm(entity, d.col),
   );
   if (!defs.length) return null;
 

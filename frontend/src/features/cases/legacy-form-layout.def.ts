@@ -26,6 +26,13 @@
  */
 
 import type { CaseFormData, CaseStatisticForm } from "@/pages/cases/CaseFormPage/types";
+import {
+  legacyCaptionOf,
+  ownedColumns,
+  type LegacyFormSpec,
+  type LegacyLayoutItem as LegacyLayoutItemChung,
+} from "@/features/legacy-form/types";
+import { nestedAccessor } from "@/features/legacy-form/accessors";
 
 /** Khoá tab, trùng `TabId` của form. */
 export type LegacyTabId =
@@ -62,38 +69,12 @@ export type CaseFieldPath =
   | keyof CaseFormData
   | `statistic.${keyof CaseStatisticForm}`;
 
-export type LegacyFieldKind =
-  | "text"
-  | "date"
-  | "textarea"
-  | "number"
-  | "select"
-  | "multiselect"
-  | "toggle"
-  | "crime"
-  | "fk";
-
-export interface LegacyLayoutItem {
-  /** Nhãn nguyên văn hệ cũ. */
-  caption: string;
-  /** Ô lưu giá trị trong `CaseFormData`. */
-  field: CaseFieldPath;
-  kind: LegacyFieldKind;
-  /** `half` = col-sm-6 hệ cũ, `full` = col-xs-12 tràn dòng. */
-  span: "half" | "full";
-  /** Có dấu sao đỏ ở hệ cũ. */
-  required?: boolean;
-  /** Tab gốc của ô, khi mục này chỉ là bản hiện lại. */
-  mirrorOf?: LegacyTabId;
-  /** Gợi ý trong ô, nguyên văn hệ cũ. */
-  placeholder?: string;
-  /** Lựa chọn cho `select` / `multiselect` khai thẳng. */
-  options?: readonly { value: string; label: string }[];
-  /** Loại danh mục cho `fk`, hoặc khoá catalog cho `multiselect` lấy từ registry. */
-  source?: string;
-  /** Số dòng cho `textarea`. */
-  rows?: number;
-}
+/**
+ * Kieu chung o tang `features/legacy-form` — he cu dung DUNG MOT form cho Don thu, Vu viec
+ * va Vu an, nen bo cuc la mot. Xuat lai o day de moi noi dang nhap khau khong phai sua.
+ */
+export type { LegacyFieldKind, LegacyFieldValue } from "@/features/legacy-form/types";
+export type LegacyLayoutItem = LegacyLayoutItemChung<CaseFieldPath, LegacyTabId>;
 
 // ─── Bộ lựa chọn khai thẳng theo hệ cũ ──────────────────────────────────────
 
@@ -436,7 +417,7 @@ export const LEGACY_FORM_LAYOUT: Record<LegacyTabId, readonly LegacyLayoutItem[]
 
 /** Nhãn hiển thị thật: gắn hậu tố "(Tab: X)" cho trường gương, đúng cách hệ cũ làm. */
 export function legacyCaption(item: LegacyLayoutItem): string {
-  return item.mirrorOf ? `${item.caption} (Tab: ${LEGACY_TAB_LABEL[item.mirrorOf]})` : item.caption;
+  return legacyCaptionOf(item, LEGACY_TAB_LABEL);
 }
 
 /**
@@ -462,10 +443,21 @@ export const LEGACY_FIELD_TO_COLUMN: Readonly<Record<string, string>> = {
  * cùng một cột. Không lọc thì mỗi cột có hai ô cùng ghi một chỗ, và vì panel ghi sau nên nó
  * ĐÈ giá trị cán bộ vừa gõ trong tab — mất dữ liệu ngay trong một lần lưu.
  */
-export const LEGACY_FORM_OWNED_COLUMNS: ReadonlySet<string> = new Set(
-  Object.values(LEGACY_FORM_LAYOUT)
-    .flat()
-    .map((it) => it.field)
-    .filter((f) => !f.startsWith("statistic."))
-    .map((f) => LEGACY_FIELD_TO_COLUMN[f] ?? f),
-);
+const O_LONG = nestedAccessor<CaseFormData, "statistic">("statistic");
+
+/**
+ * Dac ta bo cuc Vu an: bo cuc + noi luu + bang doi o-voi-cot, gom lai mot cho.
+ *
+ * Vu an co mot nhanh long (`statistic.…`) vi 48 chi tieu thong ke nam o bang rieng; Don thu
+ * va Vu viec thi phang. Khac biet ay chi ton tai o day, khong ro trong ma dung giao dien.
+ */
+export const CASE_LEGACY_SPEC: LegacyFormSpec<CaseFormData, LegacyTabId, CaseFieldPath> = {
+  entity: "case",
+  tabLabel: LEGACY_TAB_LABEL,
+  layout: LEGACY_FORM_LAYOUT,
+  read: (form, field) => O_LONG.read(form, field),
+  write: (form, field, value) => O_LONG.write(form, field, value),
+  fieldToColumn: LEGACY_FIELD_TO_COLUMN,
+};
+
+export const LEGACY_FORM_OWNED_COLUMNS: ReadonlySet<string> = ownedColumns(CASE_LEGACY_SPEC);
