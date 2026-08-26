@@ -291,15 +291,6 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
         <div className="space-y-6">
           {/* ── Sự việc & mô tả ── */}
           <div className="space-y-4">
-            <FormInput
-              label="Tiêu đề hồ sơ"
-              required
-              value={formData.caseTitle}
-              onChange={(v) => update("caseTitle", v)}
-              error={errors.caseTitle}
-              placeholder="Nhập tiêu đề ngắn gọn về vụ án/vụ việc"
-              data-testid="input-case-title"
-            />
             <FormTextarea
               label="Mô tả chi tiết"
               value={formData.description}
@@ -1907,7 +1898,27 @@ export function TabInfo(props: TabProps) {
       setFormData={props.setFormData}
       errors={props.errors}
       setErrors={props.setErrors}
-      pinnedTop={<CardNguonVuAn formData={props.formData} errors={props.errors} update={update} />}
+      pinnedTop={
+        <>
+          <CardNguonVuAn formData={props.formData} errors={props.errors} update={update} />
+          {/*
+            Ô BẮT BUỘC không được nằm trong khối gập. Ô này trước đây đi theo khối "Bổ sung hệ
+            mới" đóng sẵn, nên cán bộ điền xong tab, bấm Lưu, và nhận "Vui lòng nhập tiêu đề hồ
+            sơ" cho một ô không nhìn thấy được. Cùng lý do đã ghim Nguồn vụ án lên trên.
+          */}
+          <Card>
+            <FormInput
+              label="Tiêu đề hồ sơ"
+              required
+              value={props.formData.caseTitle}
+              onChange={(v) => update("caseTitle", v)}
+              error={props.errors.caseTitle}
+              placeholder="Nhập tiêu đề ngắn gọn về vụ án/vụ việc"
+              data-testid="input-case-title"
+            />
+          </Card>
+        </>
+      }
     >
       <TabInfoBoSung {...props} />
     </LegacyTabBody>
