@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-26T17:40+07:00 | Milestone: 6/7 | Task: còn đúng MỘT việc
+Cập nhật: 2026-08-26T21:10+07:00 | STATUS: ALL_MILESTONES_DONE | Milestone: 7/7
 
 > Epic trước (**Vụ án**, deploy máy thật 26/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -8,7 +8,7 @@ Cập nhật: 2026-08-26T17:40+07:00 | Milestone: 6/7 | Task: còn đúng MỘT 
 
 Epic hiện tại: **Đồng bộ form Đơn thư với hệ cũ pc02hcm.com**
 Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-b-ng-glistening-puffin.md`
-Nhánh: `main` — 8 PR đã gộp và deploy.
+Nhánh: `main` — 11 PR đã gộp và deploy (#249–#259). Đã bấm thử trên máy thật.
 
 ## Đã hoàn thành và ĐÃ LÊN MÁY THẬT
 
@@ -34,32 +34,25 @@ Nhánh: `main` — 8 PR đã gộp và deploy.
 Sao lưu riêng trước khi đổi dữ liệu:
 `/var/backups/pc02/truoc-bu-donthu-20260826_151540.sql.gz` (118 MB).
 
-## VIỆC CÒN LẠI — đúng một việc
+## Đã bấm thử trên máy thật — XONG
 
-**Dựng 10 tab lên form Đơn thư** (`frontend/src/pages/petitions/PetitionFormPage/index.tsx`).
+Bản `a8604bbc` chạy ở `171.244.40.245`, health `ok`. Bấm tay bằng trình duyệt thật, tài khoản
+quản trị, ngày 26/08/2026:
 
-Mọi hạ tầng đã sẵn: `PETITION_LEGACY_SPEC`, `LegacyTabBody`, `renderOverride`, `KHOA_NHANH_PHU`.
+| Bước | Kết quả đo được |
+|---|---|
+| Mở `/petitions/new` | Đúng **10 tab**, đúng tên và đúng thứ tự hệ cũ: Thông tin · Vụ việc · Vụ án · ĐTBS · Vụ việc TĐC · Vụ án TĐC · Vật chứng · HS nghiệp vụ · TK 48 trường · Ghi âm, ghi hình |
+| Tab Thông tin | **32 ô** theo đúng thứ tự `/doi-1/Them`, mở đầu "Ngày/Tháng/Năm đề xuất", "Phân loại ban đầu", "Nguồn đơn/Đơn vị giao" |
+| Hai ô máy chủ bắt buộc | `Ngày tiếp nhận *` và `Loại đơn thư *` nằm NGOÀI khối gập — không lặp lỗi #248 |
+| Tạo đơn `KIEMTHU` | `POST /api/v1/petitions` → **201**. Xác nhận bản vá `sttCu` (#259) đã thông đường tạo đơn |
+| Mở lại chế độ Sửa | Sáu ô kiểm nạp đúng giá trị qua bố cục hệ cũ: `senderName`, `senderPhone`, `nguonDon`, `loaiThongTin`, `noiXayRa`, `detailContent` |
+| Xoá trắng `nguonDon` + `loaiThongTin` + `noiXayRa`, Lưu | `PUT /api/v1/petitions/{id}` → **200** |
+| Mở lại lần hai | Ba ô ấy **trống hẳn**; `senderName` và `detailContent` **giữ nguyên** — xoá đúng ô cần xoá, không đụng ô khác |
+| Xoá đơn thử | `DELETE` → **200** |
+| Đếm lại toàn bảng | `46.660` đơn thư, `0` bản ghi còn tiền tố `KIEMTHU` — bằng đúng số trước khi thử |
 
-**BƯỚC TIẾP THEO, theo đúng thứ tự:**
-
-1. Thêm trạng thái `tabDangMo` + thanh 10 tab đọc từ `LEGACY_TAB_LABEL`.
-2. Bọc phần thẻ hiện có vào `<LegacyTabBody spec={PETITION_LEGACY_SPEC} tabId="info">` làm
-   khối "Bổ sung hệ mới"; 9 tab còn lại render `LegacyTabBody` trần.
-3. `pinnedTop` = hai ô máy chủ BẮT BUỘC mà bố cục hệ cũ không có: **`receivedDate`** và
-   **`petitionType`**. Gập chúng đi là lặp lại lỗi #248 — cán bộ bấm Lưu, bị chặn bởi một ô
-   không nhìn thấy được.
-4. **Gỡ 29 ô trùng** khỏi các thẻ cũ — bố cục hệ cũ đã có ô cho chúng, để cả hai thì hai ô
-   cùng ghi một cột. Script đã viết sẵn ở `scratchpad/godup.py` (biết cắt cả `<div>` lẫn
-   `<label>`, tự dừng nếu hai khối lồng nhau). Danh sách 29 ô nằm trong script.
-5. **BA Ô KHÔNG ĐƯỢC GỠ THẲNG** — phải chuyển thành `renderOverride`, nếu không là hạ cấp
-   năng lực (đã thử một lần và thấy `dupQuery` / `PhoneInput` thành mã chết):
-   `senderPhone` (PhoneInput) · `raSoatTrung` (tra đơn trùng) · `toiDanhBanDau` (tra tiền án).
-6. Đăng ký Đơn thư vào `features/legacy-form/registry.ts` — **cùng lúc** với bước 2, không
-   sớm hơn: đăng ký trước khi có tab thì panel parity ẩn ô mà tab chưa dựng.
-7. Sửa hai ca kiểm chốt hợp đồng cũ trong `PetitionFormPage.payload.test.tsx`: nhãn
-   "Tóm tắt nội dung" nay CÓ (bố cục hệ cũ có ô ấy), và "Ghi chú trùng đơn" nay chỉ còn MỘT.
-8. Deploy rồi **bấm thử trên máy thật** — tạo đơn `KIEMTHU`, đủ 10 tab, xoá trắng vài ô, lưu,
-   mở lại; xoá đơn thử; đếm số bản ghi trước sau phải bằng nhau.
+Đây là bằng chứng cho ba thứ ca kiểm không tự chứng được: bố cục thật khớp hệ cũ, đường lưu
+thông, và **xoá trắng thật sự xoá** (lớp lỗi `|| undefined` đã tắt hẳn ở Đơn thư).
 
 ## Quyết định kiến trúc
 
@@ -88,8 +81,6 @@ Full suite: **PASS** — 1917/1917 giao diện, 3230/3230 máy chủ.
 
 ## Nợ kỹ thuật / rủi ro
 
-- **Chưa bấm thử form Đơn thư 10 tab trên máy thật** — chỉ làm được sau khi dựng tab. Bài học
-  #248: ca kiểm xanh ba vòng vẫn sót 4 lỗi chặn.
 - Ma trận `docs/legacy/field-parity-matrix.md` phân loại SAI hai chỗ cho petition (coi cột
   Boolean là đủ cho `truong_hop_bao_cao_ban_giam_doc`; gán `tinh_trang` là "RESOLVE" trong khi
   bảng không có cột ấy). Đã khai `PARITY_BANG_CHUNG_DO_TAY` kèm lý do; bộ sinh ma trận vẫn
