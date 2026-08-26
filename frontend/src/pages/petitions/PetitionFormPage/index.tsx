@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
+import { KHOA_NHANH_PHU } from "@/features/petitions/legacy-form-binding";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -182,7 +183,17 @@ export function PetitionFormPage() {
       .then((res) => {
         const d = res.data.data;
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
-        setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        // Tách đôi metadata đọc về: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`,
+        // còn lại để `metaState` cho panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại
+        // vùng ghi sau đè vùng kia — cán bộ sửa ở panel động, bấm Lưu, không đổi gì.
+        const metaDoc = (d.metadata as Record<string, unknown>) ?? {};
+        const metaConLai: Record<string, unknown> = {};
+        const metaTheoBoCuc: Record<string, string | string[] | boolean> = {};
+        for (const [k, v] of Object.entries(metaDoc)) {
+          if (KHOA_NHANH_PHU.has(k)) metaTheoBoCuc[k] = v as string | string[] | boolean;
+          else metaConLai[k] = v;
+        }
+        setMetaState(metaConLai);
         const ps: Record<string, unknown> = {};
         for (const f of LEGACY_PARITY_FIELDS.petition) if (d[f.col] != null) ps[f.col] = d[f.col];
         setParityState(ps);
@@ -242,6 +253,24 @@ export function PetitionFormPage() {
           donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
           thuocThamQuyen: (d.thuocThamQuyen as boolean) ?? true,
           donViXuLy: (d.donViXuLy as string) ?? "",
+          // ── Cột hệ cũ thêm 26/08/2026 ──
+          baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",
+          tinhTrang: (d.tinhTrang as string) ?? "",
+          soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
+          ngayQDPhanCongNguonTin: toDateInput(d.ngayQDPhanCongNguonTin as string | null | undefined),
+          soQDTamDinhChiNguonTin: (d.soQDTamDinhChiNguonTin as string) ?? "",
+          ngayQDTamDinhChiNguonTin: toDateInput(d.ngayQDTamDinhChiNguonTin as string | null | undefined),
+          canCuTamDinhChiNguonTin: (d.canCuTamDinhChiNguonTin as string) ?? "",
+          soPhucHoiNguonTin: (d.soPhucHoiNguonTin as string) ?? "",
+          ngayPhucHoiNguonTin: toDateInput(d.ngayPhucHoiNguonTin as string | null | undefined),
+          ghiChuKhac: (d.ghiChuKhac as string) ?? "",
+          phanLoaiToiPhamLinhVuc: (d.phanLoaiToiPhamLinhVuc as string) ?? "",
+          yeuCauBoSung: (d.yeuCauBoSung as string) ?? "",
+          soTienBiThietHai: d.soTienBiThietHai != null ? String(d.soTienBiThietHai) : "",
+          soLuongBiHai: d.soLuongBiHai != null ? String(d.soLuongBiHai) : "",
+          sttCu: (d.sttCu as string) ?? "",
+          // Ô hệ cũ chưa có cột riêng — nằm trong metadata của máy chủ.
+          legacyExtra: metaTheoBoCuc,
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button

@@ -14,6 +14,19 @@
 import { oHeCu } from '@/pages/cases/CaseFormPage/buildCreateCasePayload';
 import type { PetitionFormData } from './types';
 
+/**
+ * Ô số trên form là chuỗi. Rỗng phải thành `null`, KHÔNG thành 0.
+ *
+ * "Thiệt hại 0 đồng" là một khẳng định, "chưa có số liệu" là chưa biết. Gộp hai thứ ấy đúng là
+ * lỗi vừa phải dọn trên 60.985 ô của máy thật.
+ */
+function soHoacTrong(v: string): number | null {
+  const t = (v ?? '').trim();
+  if (t === '') return null;
+  const n = Number(t.replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
 export interface BuildPetitionPayloadOptions {
   /** Đang SỬA hồ sơ đã có (khác với TẠO mới). */
   effectiveEdit: boolean;
@@ -45,7 +58,12 @@ export function buildPetitionPayload(
     // Gửi `stt` CHỈ khi SỬA. Khi TẠO mới "Số tiếp nhận" là số tự cấp, chỉ hiện xem trước; gửi
     // số xem trước lên sẽ khiến bộ đếm không tăng và lần tạo sau trùng mã.
     ...(effectiveEdit ? { stt: formData.stt } : {}),
-    ...(effectiveEdit && metaState ? { metadata: metaState } : {}),
+    // `metadata` phải gửi ở CẢ hai đường tạo và sửa: ô hệ cũ chưa có cột riêng nằm ở đây, và
+    // không gửi lúc TẠO thì cán bộ điền xong, bấm Lưu, và mất sạch phần ấy ngay lần đầu.
+    //
+    // Máy chủ GỘP metadata nên thứ tự này quan trọng: giá trị cán bộ vừa gõ (`legacyExtra`)
+    // phải nằm SAU phần cũ đọc từ máy chủ, nếu không nó bị chính bản cũ đè lại.
+    metadata: { ...(metaState ?? {}), ...formData.legacyExtra },
     ...(parityState ?? {}),
 
     receivedDate: formData.receivedDate,
@@ -103,6 +121,25 @@ export function buildPetitionPayload(
     thoiHanUTDT: oHeCu(formData.thoiHanUTDT),
 
     nguonDon: oHeCu(formData.nguonDon),
+
+    // ── Cột hệ cũ thêm 26/08/2026 ──
+    baoCaoBanGiamDocText: oHeCu(formData.baoCaoBanGiamDocText),
+    tinhTrang: oHeCu(formData.tinhTrang),
+    soQDPhanCongNguonTin: oHeCu(formData.soQDPhanCongNguonTin),
+    ngayQDPhanCongNguonTin: oHeCu(formData.ngayQDPhanCongNguonTin),
+    soQDTamDinhChiNguonTin: oHeCu(formData.soQDTamDinhChiNguonTin),
+    ngayQDTamDinhChiNguonTin: oHeCu(formData.ngayQDTamDinhChiNguonTin),
+    canCuTamDinhChiNguonTin: oHeCu(formData.canCuTamDinhChiNguonTin),
+    soPhucHoiNguonTin: oHeCu(formData.soPhucHoiNguonTin),
+    ngayPhucHoiNguonTin: oHeCu(formData.ngayPhucHoiNguonTin),
+    ghiChuKhac: oHeCu(formData.ghiChuKhac),
+    phanLoaiToiPhamLinhVuc: oHeCu(formData.phanLoaiToiPhamLinhVuc),
+    yeuCauBoSung: oHeCu(formData.yeuCauBoSung),
+    sttCu: oHeCu(formData.sttCu),
+    // Hai ô SỐ: chuỗi rỗng phải thành `null`, không thành 0 — đó đúng là lỗi vừa dọn xong
+    // trên 60.985 ô của máy thật.
+    soTienBiThietHai: soHoacTrong(formData.soTienBiThietHai),
+    soLuongBiHai: soHoacTrong(formData.soLuongBiHai),
     petitionDate: oHeCu(formData.petitionDate),
     ngayDeXuat: oHeCu(formData.ngayDeXuat),
     phanLoaiNguonTin: oHeCu(formData.phanLoaiNguonTin),
