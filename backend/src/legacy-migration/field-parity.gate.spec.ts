@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   PARITY,
-  PARITY_BANG_CHUNG_DO_TAY,
+  PARITY_HOAN_THEO_THUC_THE,
   PARITY_METADATA_ONLY,
   type Entity,
 } from './field-parity.def';
@@ -39,13 +39,16 @@ describe('GATE field-parity — không sót dữ liệu', () => {
       case: new Set(PARITY.case.map((c) => c.field)),
     };
     const uncovered = matrix.needColumn.filter(
-      (c) => !specByEntity[c.entity].has(c.field) && !PARITY_METADATA_ONLY.has(c.field),
+      (c) =>
+        !specByEntity[c.entity].has(c.field) &&
+        !PARITY_METADATA_ONLY.has(c.field) &&
+        !PARITY_HOAN_THEO_THUC_THE.has(`${c.entity}/${c.field}`),
     );
     if (uncovered.length) {
       const detail = uncovered.map((c) => `${c.entity}/${c.field}=${c.count}`).join(', ');
       throw new Error(
-        `${uncovered.length} field CÓ DATA nhưng CHƯA có đích (sót!). Thêm vào PARITY[entity] ` +
-          `hoặc PARITY_METADATA_ONLY trong field-parity.def.ts: ${detail}`,
+        `${uncovered.length} field CÓ DATA nhưng CHƯA có đích (sót!). Thêm vào PARITY[entity], ` +
+          `PARITY_METADATA_ONLY hoặc PARITY_HOAN_THEO_THUC_THE trong field-parity.def.ts: ${detail}`,
       );
     }
     expect(uncovered.length).toBe(0);
@@ -54,22 +57,29 @@ describe('GATE field-parity — không sót dữ liệu', () => {
   /**
    * Cột khai trong spec phải có lý do: hoặc dữ liệu cũ cần chỗ ở, hoặc form cần chỗ lưu.
    *
-   * `formOnly` là lý do thứ hai, khai tường minh trên từng dòng: hệ cũ VẪN đang nhận nhập
-   * liệu, nên ô cán bộ gõ được phải có cột — kể cả khi ma trận sinh từ dữ liệu hôm nay chưa
-   * thấy bản ghi nào. Không có cờ này thì cách duy nhất để cổng kiểm xanh là bỏ cột đi, và
-   * ô trên màn hình lại thành ô không lưu được.
+   * Bản trước hỏi sai câu: nó đòi mỗi cột của spec phải nằm trong danh sách "CẦN THÊM CỘT"
+   * của ma trận. Danh sách ấy là danh sách VIỆC CHƯA LÀM — nên một cột đã dựng xong và đang
+   * đổ dữ liệu đầy đủ thì biến mất khỏi đó, và cổng kiểm kết luận nó thừa. Ca kiểm ấy chỉ
+   * xanh được chừng nào bộ sinh ma trận còn mù với bảng khai `PARITY`; vá bộ sinh xong là nó
+   * đỏ với 73 cột hoàn toàn chính đáng.
+   *
+   * Câu hỏi thật là "field này có dữ liệu ở thực thể ấy không", và ma trận trả lời được bằng
+   * SỐ ĐẾM, độc lập với trạng thái. `formOnly` vẫn là lý do thứ hai, khai tường minh: hệ cũ
+   * VẪN đang nhận nhập liệu, nên ô cán bộ gõ được phải có cột kể cả khi dữ liệu hôm nay chưa
+   * có bản ghi nào.
    */
   it('spec KHÔNG khai cột thừa (cột mới phải có dữ liệu, hoặc khai rõ là để form nhập được)', () => {
     if (!matrix) return;
-    const needSet = new Set(matrix.needColumn.map((c) => `${c.entity}/${c.field}`));
+    const coData = new Set<string>();
+    for (const r of matrix.rows)
+      for (const c of r.cells) if (c.count > 0) coData.add(`${c.entity}/${r.field}`);
     const extra: string[] = [];
     for (const e of ['petition', 'incident', 'case'] as Entity[]) {
       for (const c of PARITY[e]) {
+        // `exists: true` = cột KHÔNG mới, đã có sẵn cho tính năng hệ mới; dòng spec chỉ dạy
+        // bộ di trú đọc nốt khoá cũ tương ứng. Luật "cột mới phải có dữ liệu" không áp cho nó.
         if (c.exists || c.formOnly) continue;
-        // Ma trận sinh tự động có hai chỗ phân loại sai (xem PARITY_BANG_CHUNG_DO_TAY).
-        // Bằng chứng đo tay trên máy chạy cũng được tính — cột mới VẪN phải có bằng chứng.
-        const khoa = `${e}/${c.field}`;
-        if (!needSet.has(khoa) && !(khoa in PARITY_BANG_CHUNG_DO_TAY)) extra.push(khoa);
+        if (!coData.has(`${e}/${c.field}`)) extra.push(`${e}/${c.field}`);
       }
     }
     expect(extra).toEqual([]);

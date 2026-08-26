@@ -71,6 +71,18 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'can_cu_tam_dinh_chi_nguon_tin', col: 'canCuTamDinhChiNguonTin', type: 'String' }, // 54
     { field: 'phuc_hoi_nguon_tin_toi_pham', col: 'soPhucHoiNguonTin', type: 'String' }, // 48
     { field: 'ngay_phuc_hoi_nguon_tin_toi_pham', col: 'ngayPhucHoiNguonTin', type: 'DateTime' }, // 48
+
+    // ── Bổ sung 27/08/2026: hai cột ĐÃ CÓ SẴN mà builder chưa bao giờ đọc ──
+    // Bộ sinh ma trận sửa xong mới thấy: cả hai cột tồn tại trong lược đồ, đo trên máy chạy
+    // thì ĐỀU BẰNG 0 hồ sơ, trong khi dữ liệu cũ có gần như đủ 46.660 đơn.
+    //
+    // `phanLoaiNguonTin` là ô "Phân loại ban đầu" — ô thứ hai của tab Thông tin, và là ô
+    // quyết định hồ sơ nằm ở danh sách nào bên hệ cũ. Cán bộ mở một đơn di trú ra thì ô ấy
+    // trắng, đúng thứ epic này sinh ra để chấm dứt.
+    { field: 'phan_loai_nguon_tin_ban_dau', col: 'phanLoaiNguonTin', type: 'String', exists: true }, // 46.445
+    // `assignedTeamId` đã có 35.958 hồ sơ nhờ bộ nạp phân giải tên đơn vị thành id tổ, nhưng
+    // CHỮ gốc cán bộ nhìn thấy bên hệ cũ thì chưa ở đâu ngoài `legacyRaw`.
+    { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String', exists: true }, // 46.476
   ],
 
   // Incident — LỖ HỔNG LỚN NHẤT: thiếu hầu hết field intake mà Petition đã có cột.
@@ -176,6 +188,10 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'bien_phap_khac_phuc_tdc_vu_an', col: 'tdcKhacPhucLyDoBienPhap', type: 'String', exists: true },
     { field: 'quyet_dinh_phuc_hoi_vu_an', col: 'soQuyetDinhPhucHoi', type: 'String', exists: true },
     { field: 'ngay_phuc_hoi_dieu_tra_vu_an', col: 'ngayPhucHoi', type: 'DateTime', exists: true },
+    // Chữ đơn vị giải quyết — 3.286 vụ án có, bảng `cases` chưa có cột (Đơn thư và Vụ việc
+    // đã có). `assignedTeamId` là id tổ bộ nạp PHÂN GIẢI ra từ chính chuỗi này; giữ cả chuỗi
+    // gốc vì phân giải có thể sai và 144 vụ không ra tổ nào.
+    { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String' },
     // Tab "Vật chứng" — ba ô chữ hệ cũ, khác bảng vật chứng chuẩn hoá
     { field: 'vat_chung', col: 'vatChungMoTa', type: 'String' , formOnly: true },
     { field: 'lenh_nhap_kho', col: 'lenhNhapKho', type: 'String' , formOnly: true },
@@ -184,25 +200,34 @@ export const PARITY: Record<Entity, ParityCol[]> = {
 };
 
 /**
- * BẰNG CHỨNG ĐO TAY trên máy chạy — dùng khi ma trận sinh tự động phân loại SAI.
+ * Ma trận sinh tự động ĐÃ TỰ ĐO ĐƯỢC hai chỗ từng phải khai tay.
  *
- * `docs/legacy/field-parity-matrix.md` sinh từ bản kết xuất hệ cũ và tự suy ra khoá nào "đã
- * có nhà". Hai chỗ nó suy sai, đo lại trực tiếp trên 46.499 đơn thư ngày 26/08/2026:
+ * Bảng `PARITY_BANG_CHUNG_DO_TAY` từng giữ hai khoá mà bộ sinh xếp nhầm — `truong_hop_bao_
+ * cao_ban_giam_doc` (báo "OK" vào một cột ĐÚNG/SAI trong khi hệ cũ khai kiểu `text`) và
+ * `tinh_trang` (báo "RESOLVE" trong khi không thực thể nào có người nhận). Ngày 27/08/2026 bộ
+ * sinh được vá ba điểm mù: nhìn MỌI đích thay vì đích đầu tiên, hỏi cột có CHỨA NỔI không
+ * thay vì chỉ có tồn tại không, và đọc cả nhánh đổ dữ liệu theo bảng khai lẫn hàm phụ trợ.
  *
- *  - `truong_hop_bao_cao_ban_giam_doc` cho petition: ma trận ghi "OK (baoCaoBanGiamDoc)".
- *    Nhưng cột ấy là Boolean, còn hệ cũ nhập TỰ DO — 35.261 hồ sơ có CHỮ. Cột đúng/sai không
- *    giữ được chữ. Vụ án đã nhận ra điều này và có `baoCaoBanGiamDocText`; Đơn thư thì chưa.
- *
- *  - `tinh_trang` cho petition: ma trận ghi "RESOLVE", nhưng bảng `petitions` KHÔNG hề có cột
- *    `tinhTrang`. 15.039 hồ sơ có dữ liệu đang nằm kẹt trong `legacyRaw`.
- *
- * Khai ở đây thay vì nới lỏng cổng kiểm: cột mới VẪN phải có bằng chứng, chỉ là bằng chứng
- * đến từ phép đếm trên máy chạy chứ không từ ma trận.
+ * Khai tay giờ là thừa: giữ lại một cửa miễn trừ không ai cần chỉ để đó cho lần sau dùng bừa.
  */
-export const PARITY_BANG_CHUNG_DO_TAY: Readonly<Record<string, number>> = {
-  'petition/truong_hop_bao_cao_ban_giam_doc': 35261,
-  'petition/tinh_trang': 15039,
-};
+
+/**
+ * Hoãn CÓ KỲ HẠN theo TỪNG THỰC THỂ — khác `PARITY_METADATA_ONLY` ở chỗ không miễn cho cả ba.
+ *
+ * Miễn toàn cục là cách rẻ nhất để làm cổng kiểm xanh, và cũng là cách chắc nhất để một lỗ
+ * thật ở thực thể khác không bao giờ bị phát hiện: `phan_loai_nguon_tin_ban_dau` miễn cho
+ * Vụ việc thì cũng miễn luôn cho Đơn thư, trong khi Đơn thư vừa mới vá đúng khoá ấy.
+ *
+ * Mỗi dòng phải ghi SỐ ĐO và LÝ DO hoãn. Đây là nợ đã khai, không phải chỗ giấu việc.
+ */
+export const PARITY_HOAN_THEO_THUC_THE: ReadonlySet<string> = new Set([
+  // Epic 26–27/08/2026 chốt phạm vi là Đơn thư; Vụ việc để epic sau (spec Phần C, mục 7).
+  // Dữ liệu vẫn đọc và sửa được qua bảng `legacyRaw` trên màn hồ sơ, chỉ chưa có cột typed.
+  'incident/phan_loai_nguon_tin_ban_dau', // 4.568 hồ sơ
+  // Vụ việc chưa có cột tội danh nào (không `crimeChinhId`, không `crimeChinhLegacyValue`),
+  // nên đây là việc của epic Vụ việc chứ không phải một cột lẻ.
+  'incident/toi_danh_chinh_blhs2015', // 1.114 hồ sơ
+]);
 
 /** Field thủ tục leak chéo-giai-đoạn (count nhỏ) — CỐ Ý giữ ở metadata động, KHÔNG tạo cột.
  * Gate coi các field này "có nhà" ở metadata/legacyRaw (không tính là sót). */

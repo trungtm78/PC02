@@ -12,6 +12,8 @@
  *   OK            — có cột typed đúng + builder đã đổ.
  *   FIX_BUILDER   — cột đã tồn tại nhưng builder KHÔNG đọc field → chỉ cần đọc nốt.
  *   METADATA_ONLY — builder đọc vào metadata JSON, CHƯA có cột typed riêng → theo chỉ thị: THÊM CỘT.
+ *   MAT_KIEU      — có cột nhận nhưng cột CHỨA KHÔNG NỔI kiểu của field (vd chữ đổ vào cột
+ *                   đúng/sai) → phần không vừa bốc hơi → THÊM CỘT đúng kiểu.
  *   NEEDS_COLUMN  — không cột, không builder đọc → THÊM CỘT + đổ builder + backfill.
  *   DROP          — field kỹ thuật, cố ý bỏ.
  *
@@ -26,6 +28,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { builderTargets } from './builder-targets';
+import { phanLoaiO, STATUS_CAN_COT, type Entity, type Status } from './parity-classify';
 import {
   PETITION_MAP,
   INCIDENT_MAP,
@@ -35,79 +39,32 @@ import {
   DROP_PATTERNS,
 } from './field-mapping.seed';
 
-type Entity = 'petition' | 'incident' | 'case';
-type Status = 'RESOLVE' | 'OK' | 'FIX_BUILDER' | 'METADATA_ONLY' | 'NEEDS_COLUMN' | 'DROP';
-
 const ENTITY_MAP: Record<Entity, Record<string, string>> = {
   petition: PETITION_MAP,
   incident: INCIDENT_MAP,
   case: { ...CASE_MAP, ...CASE_STATISTIC_MAP },
 };
 
-/** Cột thật của mỗi thực thể (gộp Case+CaseStatistic cho 'case'), lấy từ DMMF. */
-function dmmfColumns(): Record<Entity, Set<string>> {
-  const cols = (name: string): string[] => {
-    const m = Prisma.dmmf.datamodel.models.find((x) => x.name === name);
-    return m ? m.fields.filter((f) => f.kind === 'scalar' || f.kind === 'enum').map((f) => f.name) : [];
-  };
-  return {
-    petition: new Set(cols('Petition')),
-    incident: new Set(cols('Incident')),
-    case: new Set([...cols('Case'), ...cols('CaseStatistic')]),
-  };
-}
-
-interface Target { column: string; inMetadata: boolean }
-
 /**
- * NGUỒN SỰ THẬT: parse ASSIGNMENT trong builder — `<column>: fn(rec.<field> ...)`.
- * Cho ra field cũ → cột THẬT được đổ (kể cả cột không khai trong hand-map, vd do_vat→attachmentsNote).
- * Trong block `metadata: clean({...})` (buildCase) → inMetadata=true, cột = `metadata.<key>`.
+ * Cột thật của mỗi thực thể (gộp Case+CaseStatistic cho 'case') KÈM KIỂU, lấy từ DMMF.
+ *
+ * Kiểu là phần bộ sinh cũ không đọc, nên nó chỉ trả lời được "cột có tồn tại không" chứ
+ * không trả lời được "cột có chứa nổi không" — xem `parity-classify.ts`.
  */
-function builderTargets(): Record<Entity, Map<string, Target>> {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'legacy-mapper.ts'), 'utf8').split('\n');
-  const parseFn = (fn: string): Map<string, Target> => {
-    const map = new Map<string, Target>();
-    const start = src.findIndex((l) => l.includes(`function ${fn}(`));
-    if (start < 0) return map;
-    let end = src.length;
-    for (let i = start + 1; i < src.length; i++) if (/^(export )?function \w+\(/.test(src[i])) { end = i; break; }
-    let curColumn = ''; // LHS key gần nhất (áp cho các dòng RHS xuống hàng)
-    let metaDepth = -1; // độ sâu ngoặc khi vào metadata block; -1 = ngoài
-    let depth = 0;
-    for (let i = start; i < end; i++) {
-      const line = src[i];
-      // Bắt LHS key: `  key: ...`
-      const lhs = line.match(/^\s*([a-zA-Z][a-zA-Z0-9]*)\s*:/);
-      if (lhs) {
-        curColumn = lhs[1];
-        if (curColumn === 'metadata' && line.includes('clean(')) metaDepth = depth; // vào block metadata
-      }
-      // Mọi rec.<field> / rec['<field>'] trên dòng → map vào curColumn hiện hành
-      const fields = [
-        ...[...line.matchAll(/rec\.([a-zA-Z0-9_]+)/g)].map((m) => m[1]),
-        ...[...line.matchAll(/rec\['([^']+)'\]/g)].map((m) => m[1]),
-      ];
-      const inMeta = metaDepth >= 0 && curColumn !== 'metadata';
-      for (const f of fields) {
-        if (!map.has(f)) map.set(f, { column: inMeta ? `metadata.${curColumn}` : curColumn, inMetadata: inMeta });
-      }
-      // Cập nhật độ sâu ngoặc; thoát metadata khi đóng về metaDepth
-      for (const ch of line) { if (ch === '{' || ch === '(') depth++; else if (ch === '}' || ch === ')') depth--; }
-      if (metaDepth >= 0 && depth <= metaDepth) metaDepth = -1;
-    }
-    return map;
+function dmmfColumns(): Record<Entity, Map<string, string>> {
+  const cols = (name: string): [string, string][] => {
+    const m = Prisma.dmmf.datamodel.models.find((x) => x.name === name);
+    return m
+      ? m.fields
+          .filter((f) => f.kind === 'scalar' || f.kind === 'enum')
+          // Cột enum chứa được một tập giá trị đóng; coi như chữ để không báo động giả.
+          .map((f) => [f.name, f.kind === 'enum' ? 'String' : String(f.type)] as [string, string])
+      : [];
   };
-  const merge = (...ms: Map<string, Target>[]): Map<string, Target> => {
-    const out = new Map<string, Target>();
-    for (const m of ms) for (const [k, v] of m) if (!out.has(k)) out.set(k, v);
-    return out;
-  };
-  const trace = parseFn('traceFields');
   return {
-    petition: merge(parseFn('buildPetition'), trace),
-    incident: merge(parseFn('buildIncident'), trace),
-    case: merge(parseFn('buildCase'), parseFn('buildCaseStatistic'), trace),
+    petition: new Map(cols('Petition')),
+    incident: new Map(cols('Incident')),
+    case: new Map([...cols('Case'), ...cols('CaseStatistic')]),
   };
 }
 
@@ -180,22 +137,19 @@ async function main(): Promise<void> {
         const count = per[entity];
         if (count === 0) continue;
         if (DROP(field) || HANDLED.has(field)) { cells.push({ entity, count, status: 'DROP', column: null }); continue; }
-        if (RESOLVE[field]) { cells.push({ entity, count, status: 'RESOLVE', column: null }); continue; }
         // Cột THẬT do builder đổ (nguồn sự thật), fallback hand-map nếu builder chưa đọc.
-        const tgt = targets[entity].get(field);
         const mapCol = ENTITY_MAP[entity][field] ?? null;
-        let status: Status;
-        let column: string | null;
-        let newColumn: { name: string; type: string } | undefined;
-        if (tgt && !tgt.inMetadata && dmmf[entity].has(tgt.column)) {
-          status = 'OK'; column = tgt.column; // builder đổ vào cột typed thật
-        } else if (tgt && tgt.inMetadata) {
-          status = 'METADATA_ONLY'; column = tgt.column; newColumn = { name: '?', type: prismaType(lb?.kieu ?? '') };
-        } else if (mapCol && dmmf[entity].has(mapCol)) {
-          status = 'FIX_BUILDER'; column = mapCol; // cột có sẵn, builder chưa đọc field
-        } else {
-          status = 'NEEDS_COLUMN'; column = mapCol; newColumn = { name: '?', type: prismaType(lb?.kieu ?? '') };
-        }
+        const { status, column } = phanLoaiO({
+          field,
+          targets: targets[entity].get(field) ?? [],
+          cotThat: dmmf[entity],
+          mapCol,
+          laResolve: Boolean(RESOLVE[field]),
+          kieuHeCu: lb?.kieu ?? '',
+        });
+        const newColumn = STATUS_CAN_COT.has(status)
+          ? { name: '?', type: prismaType(lb?.kieu ?? '') }
+          : undefined;
         cells.push({ entity, count, status, column, newColumn });
       }
       if (cells.length) out.push({ field, label: lb?.ten ?? '', kieu: lb?.kieu ?? '', total, cells });
@@ -203,7 +157,7 @@ async function main(): Promise<void> {
     out.sort((a, b) => b.total - a.total);
 
     // Tổng hợp: field×thực thể cần THÊM CỘT.
-    const needCol = out.flatMap((r) => r.cells.filter((c) => c.status === 'METADATA_ONLY' || c.status === 'NEEDS_COLUMN').map((c) => ({ field: r.field, label: r.label, kieu: r.kieu, ...c })));
+    const needCol = out.flatMap((r) => r.cells.filter((c) => STATUS_CAN_COT.has(c.status)).map((c) => ({ field: r.field, label: r.label, kieu: r.kieu, ...c })));
     const needFix = out.flatMap((r) => r.cells.filter((c) => c.status === 'FIX_BUILDER').map((c) => ({ field: r.field, label: r.label, ...c })));
 
     fs.writeFileSync(path.join(docs, 'field-parity-matrix.json'), JSON.stringify({ generatedAtIso: new Date().toISOString(), rows: out, needColumn: needCol, needFix }, null, 2));

@@ -681,6 +681,10 @@ model Case {
   // Trước đây chúng nằm trong `metadata` hoặc chỉ còn trong `legacy_raw`, nên form hệ mới
   // không có chỗ nhập và cán bộ mất luôn thông tin khi sửa hồ sơ.
   phanLoaiNguonTinBanDau String? // Phân loại ban đầu (phan_loai_nguon_tin_ban_dau)
+  // Chữ ĐƠN VỊ GIẢI QUYẾT y như cán bộ nhìn thấy bên hệ cũ. `assignedTeamId` giữ id tổ do
+  // bộ nạp phân giải ra, nhưng phân giải là suy đoán còn chữ gốc là chứng cứ — 3.286 vụ án
+  // có chữ ấy, và Đơn thư lẫn Vụ việc đều đã có cột này từ trước.
+  donViGiaiQuyet         String?
   ngayXayRa              DateTime? // Ngày tội phạm xảy ra — 17.388 hồ sơ có dữ liệu
   noiXayRaPhuongXa       String? // Nơi xảy ra (cấp phường/xã)
   baoCaoBanGiamDocText   String? // Nội dung chỉ đạo Ban Giám đốc — cột Boolean cạnh bên chỉ ghi CÓ/KHÔNG
