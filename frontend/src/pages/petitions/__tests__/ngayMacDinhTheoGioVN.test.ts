@@ -29,7 +29,7 @@ describe('Ngày mặc định trên form Đơn thư', () => {
       vi.setSystemTime(RANG_SANG_VN);
       vi.resetModules();
 
-      const { INITIAL_PETITION_FORM } = await import('../petition-form-types');
+      const { INITIAL_PETITION_FORM } = await import('../PetitionFormPage/types');
       expect(INITIAL_PETITION_FORM[khoa]).toBe(NGAY_VN);
     },
   );
