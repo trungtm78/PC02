@@ -355,7 +355,10 @@ export class CreatePetitionDto {
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @MaxLength(255)
+  // 500 chứ không phải 255: đo dữ liệu cũ ngày 27/08/2026, giá trị dài nhất là 329 ký tự.
+  // Giới hạn ngắn hơn dữ liệu thật không chặn được gì — nó chỉ khiến hồ sơ di trú mở ra sửa
+  // được nhưng lưu lại không được, và cán bộ không có cách nào biết vì sao.
+  @MaxLength(500)
   donViGiaiQuyet?: string;
 
   // Thẩm quyền: true → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
