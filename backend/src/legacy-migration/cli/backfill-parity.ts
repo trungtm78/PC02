@@ -16,6 +16,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { parityColumns } from '../legacy-mapper';
 import { PARITY, type Entity } from '../field-parity.def';
 import { statisticBackfillPatch } from '../backfill-statistic.util';
+import { banGocTuAnhEm, type KhoBang } from './ban-goc-anh-em';
 
 const MODEL: Record<Entity, string> = { petition: 'petition', incident: 'incident', case: 'case' };
 
@@ -25,6 +26,16 @@ async function backfillEntity(prisma: PrismaClient, entity: Entity, dry: boolean
   const select: Record<string, boolean> = { id: true, legacyRaw: true };
   for (const c of cols) select[c] = true;
 
+  select['legacySourceId'] = true;
+
+  // Hồ sơ là VỎ LIÊN KẾT — bản thô nằm ở thực thể anh em cùng khoá nguồn. Lọc theo
+  // `legacyRaw: { not: null }` như bản cũ thì bỏ rơi đúng nhóm này (95 đơn thư, đo 26/08/2026):
+  // chúng có dữ liệu cũ đầy đủ mà không được bù một cột nào.
+  const rawAnhEm = await banGocTuAnhEm(prisma as unknown as KhoBang, entity);
+  if (rawAnhEm.size > 0) {
+    console.log(`  [${entity}] ${rawAnhEm.size} hồ sơ lấy bản gốc từ thực thể anh em.`);
+  }
+
   let cursor: string | undefined;
   let scanned = 0;
   let updated = 0;
@@ -32,7 +43,7 @@ async function backfillEntity(prisma: PrismaClient, entity: Entity, dry: boolean
   const BATCH = 1000;
   for (;;) {
     const rows: any[] = await delegate.findMany({
-      where: { legacyRaw: { not: null } },
+      where: { OR: [{ legacyRaw: { not: null } }, { legacySourceId: { not: null } }] },
       select,
       orderBy: { id: 'asc' },
       take: BATCH,
@@ -41,7 +52,13 @@ async function backfillEntity(prisma: PrismaClient, entity: Entity, dry: boolean
     if (rows.length === 0) break;
     for (const row of rows) {
       scanned++;
-      const parsed = parityColumns(row.legacyRaw as Record<string, unknown>, entity);
+      const goc = (row.legacyRaw ??
+        (row.legacySourceId ? rawAnhEm.get(row.legacySourceId) : null)) as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      if (!goc) continue;
+      const parsed = parityColumns(goc, entity);
       // CHỈ set cột đang NULL trong DB (idempotent, không đè sửa tay).
       const data: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(parsed)) {

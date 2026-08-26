@@ -81,10 +81,24 @@ Full suite: **PASS** — 1917/1917 giao diện, 3230/3230 máy chủ.
 
 ## Nợ kỹ thuật / rủi ro
 
-- Ma trận `docs/legacy/field-parity-matrix.md` phân loại SAI hai chỗ cho petition (coi cột
-  Boolean là đủ cho `truong_hop_bao_cao_ban_giam_doc`; gán `tinh_trang` là "RESOLVE" trong khi
-  bảng không có cột ấy). Đã khai `PARITY_BANG_CHUNG_DO_TAY` kèm lý do; bộ sinh ma trận vẫn
-  cần sửa.
-- 95 hồ sơ di trú không giữ `legacyRaw` riêng đã xử được qua thực thể anh em, nhưng cách ấy
-  mới áp cho bộ dọn số 0 — `backfill-parity.ts` vẫn bỏ qua nhóm này.
+- ~~Ma trận `docs/legacy/field-parity-matrix.md` phân loại SAI hai chỗ cho petition~~ — **đã
+  trả** (PR #261). Sửa gốc thay vì khai tay: bộ sinh mù ba chỗ, vá xong nó tự đo được cả hai
+  khoá nên `PARITY_BANG_CHUNG_DO_TAY` bị gỡ hẳn. Lộ thêm ba lỗ dữ liệu thật.
+- ~~`backfill-parity.ts` bỏ qua 95 hồ sơ giữ `legacyRaw` ở thực thể anh em~~ — **đã trả**
+  (PR #261). `banGocTuAnhEm` tách thành primitive dùng chung cho cả bộ bù lẫn bộ dọn số 0.
+- Vụ việc còn hai khoá chưa có cột typed (`phan_loai_nguon_tin_ban_dau` 4.568 hồ sơ,
+  `toi_danh_chinh_blhs2015` 1.114). Khai ở `PARITY_HOAN_THEO_THUC_THE` kèm số đo — hoãn theo
+  ĐÚNG thực thể, không miễn toàn cục. Việc của epic Vụ việc.
 - Em đẩy thẳng một commit tài liệu lên `main` (bỏ qua PR), sai quy ước kho mã. Không lặp lại.
+
+## Sau PR #261 — việc phải làm trên máy chạy
+
+Bù ba cột vừa nối dây, sau khi bản mới lên máy thật (đã dry-run):
+
+| Lệnh | Kết quả dry-run |
+|---|---|
+| `backfill-parity.ts --entity petition` | 93.644 ô / 46.660 hồ sơ |
+| `backfill-parity.ts --entity case` | chờ migration `cases.donViGiaiQuyet` |
+| `backfill-parity.ts --entity incident` | 0 ô (đã đủ) |
+
+Sao lưu riêng trước khi chạy, như lần bù trước.

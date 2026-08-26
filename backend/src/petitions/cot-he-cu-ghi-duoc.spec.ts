@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
-import { CreatePetitionDto } from './dto/create-petition.dto';
+import { CreatePetitionDto, PHAN_LOAI_NGUON_TIN_VALUES } from './dto/create-petition.dto';
 import { buildPetitionCreateData } from './petition-data.builder';
 import { PARITY } from '../legacy-migration/field-parity.def';
 
@@ -23,8 +23,20 @@ const COT_PARITY = PARITY.petition
   .map((c) => c.col)
   .filter((col) => !KHONG_QUA_FORM.has(col));
 
+/**
+ * Cột chỉ nhận một BỘ TỪ VỰNG ĐÓNG — mẫu thử phải lấy từ chính bộ ấy.
+ *
+ * Một chuỗi bất kỳ sẽ bị `@IsIn` loại, và ca kiểm đỏ vì lý do sai: cột vẫn ghi được, chỉ là
+ * mẫu thử không hợp lệ. Lấy mẫu từ hằng số dùng chung với DTO nên bộ từ vựng đổi thì mẫu
+ * đổi theo — không phải chuỗi chép tay đứng chờ mục ruỗng.
+ */
+const MAU_TU_VUNG_DONG: Readonly<Record<string, unknown>> = {
+  phanLoaiNguonTin: PHAN_LOAI_NGUON_TIN_VALUES[0],
+};
+
 /** Giá trị mẫu đúng kiểu để `class-validator` không loại vì sai kiểu. */
 function mau(col: string): unknown {
+  if (col in MAU_TU_VUNG_DONG) return MAU_TU_VUNG_DONG[col];
   const kieu = PARITY.petition.find((c) => c.col === col)?.type;
   if (kieu === 'DateTime') return '2026-08-26T00:00:00.000Z';
   if (kieu === 'Int' || kieu === 'Float') return 7;

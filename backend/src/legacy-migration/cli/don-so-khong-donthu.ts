@@ -32,6 +32,7 @@
  *       ts-node src/legacy-migration/cli/don-so-khong-donthu.ts
  */
 import { Prisma, PrismaClient } from '@prisma/client';
+import { banGocTuAnhEm, type KhoBang } from './ban-goc-anh-em';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { laSoKhongDoChuyenNham } from '../don-so-khong.util';
 
@@ -74,44 +75,18 @@ async function hoSoDaSuaTay(prisma: PrismaClient): Promise<Set<string>> {
 }
 
 /**
- * Bản gốc hệ cũ của những đơn thư KHÔNG giữ `legacyRaw` riêng.
- *
- * Một số đơn thư di trú là VỎ LIÊN KẾT: bản thô được định tuyến sang vụ án hoặc vụ việc cùng
- * khoá nguồn, nên `legacyRaw` của chính nó để trống. Dữ kiện vẫn còn — chỉ nằm ở thực thể anh
- * em. Lấy từ đó thay vì bỏ cuộc: đo trên máy thật có 95 hồ sơ như vậy đang mang ô số bằng 0.
+ * Bản gốc lấy từ thực thể anh em — dùng chung `banGocTuAnhEm`, thu hẹp về đúng nhóm hồ sơ
+ * bộ dọn này quan tâm (hai ô số đang bằng 0).
  */
-async function banGocTuAnhEm(
-  prisma: PrismaClient,
-): Promise<Map<string, Record<string, unknown>>> {
-  const thieu = await prisma.petition.findMany({
-    where: {
-      legacyRaw: { equals: Prisma.DbNull },
-      legacySourceId: { not: null },
-      OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }],
-    },
-    select: { legacySourceId: true },
+function banGocChoBoDon(prisma: PrismaClient): Promise<Map<string, Record<string, unknown>>> {
+  return banGocTuAnhEm(prisma as unknown as KhoBang, 'petition', {
+    OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }],
   });
-  const khoa = thieu.map((p) => p.legacySourceId!).filter(Boolean);
-  const map = new Map<string, Record<string, unknown>>();
-  if (khoa.length === 0) return map;
-
-  for (const bang of [prisma.case, prisma.incident] as const) {
-    const rows = await (bang as { findMany: (a: unknown) => Promise<unknown[]> }).findMany({
-      where: { legacySourceId: { in: khoa } },
-      select: { legacySourceId: true, legacyRaw: true },
-    });
-    for (const r of rows as { legacySourceId: string | null; legacyRaw: unknown }[]) {
-      if (r.legacySourceId && r.legacyRaw && !map.has(r.legacySourceId)) {
-        map.set(r.legacySourceId, r.legacyRaw as Record<string, unknown>);
-      }
-    }
-  }
-  return map;
 }
 export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<KetQua> {
   const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {}, boQuaVieDaSuaTay: 0, boQuaViKhongCoBanGoc: 0 };
   const daSuaTay = await hoSoDaSuaTay(prisma);
-  const rawAnhEm = await banGocTuAnhEm(prisma);
+  const rawAnhEm = await banGocChoBoDon(prisma);
   console.log(`Bỏ qua ${daSuaTay.size} hồ sơ cán bộ đã từng sửa chính hai ô số này.`);
   for (const { col } of CAP_COT_KHOA) {
     kq.oDon[col] = 0;
