@@ -30,6 +30,15 @@ interface Props<TForm, TTab extends string, TField extends string> {
   errorFor?: (field: string) => string | undefined;
   /** Gọi khi cán bộ sửa một ô — dùng để xoá thông báo lỗi của chính ô ấy. */
   onFieldTouched?: (field: string) => void;
+  /**
+   * Thay ô mặc định bằng ô riêng cho vài trường cần hơn một ô chữ.
+   *
+   * Bố cục hệ cũ quyết NHÃN, THỨ TỰ và CHỖ ĐỨNG — ba thứ anh yêu cầu giống hệ cũ. Nhưng vài
+   * ô của hệ mới mạnh hơn hẳn ô chữ trần: số điện thoại có định dạng, "Ghi chú trùng đơn" tra
+   * được đơn trùng, "Tội danh cũ" tra được tiền án. Xoá chúng đi để giống hệ cũ là hạ cấp năng
+   * lực — giữ đúng chỗ, đúng nhãn, chỉ đổi ruột.
+   */
+  renderOverride?: Partial<Record<string, (label: string) => React.ReactNode>>;
 }
 
 export function LegacyLayoutSection<TForm, TTab extends string, TField extends string>({
@@ -39,6 +48,7 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
   setFormData,
   errorFor,
   onFieldTouched,
+  renderOverride,
 }: Props<TForm, TTab, TField>) {
   const ghi = (field: TField, value: LegacyFieldValue) => {
     setFormData((prev) => spec.write(prev, field, value));
@@ -47,7 +57,20 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {items.map((item, i) => (
+      {items.map((item, i) => {
+        const rieng = renderOverride?.[item.field];
+        if (rieng) {
+          return (
+            <div
+              key={`${item.field}-${i}`}
+              className={item.span === "full" ? "md:col-span-2" : ""}
+              data-testid={`legacy-field-${item.field}`}
+            >
+              {rieng(legacyCaptionOf(item, spec.tabLabel))}
+            </div>
+          );
+        }
+        return (
         <LegacyField
           // Cùng một ô lưu có thể xuất hiện hai lần trong một tab (bản gốc và bản gương),
           // nên khoá phải kèm vị trí, không thể chỉ dùng tên ô.
@@ -58,7 +81,8 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
           error={errorFor?.(item.field)}
           onChange={(v) => ghi(item.field, v)}
         />
-      ))}
+        );
+      })}
     </div>
   );
 }
