@@ -580,6 +580,28 @@ describe('PetitionsService', () => {
   // ── update ─────────────────────────────────────────────────────────────────
 
   describe('update', () => {
+    /**
+     * CỘT KHÔNG CHO RỖNG: `stt`, `receivedDate`, `senderName` là cột NOT NULL trong lược đồ.
+     *
+     * Từ 26/08/2026 lớp làm sạch dữ liệu giữ nguyên `null` (để thao tác xoá trắng đi được tới
+     * nơi). Nhưng `UpdatePetitionDto` kế thừa `PartialType` nên mọi trường đều có
+     * `@IsOptional()`, mà `@IsOptional()` bỏ qua MỌI kiểm tra khi giá trị là `null`. Hậu quả:
+     * một lời gọi sai gửi `null` vào ba cột ấy sẽ đi thẳng tới Prisma và nổ 500.
+     *
+     * Lời gọi sai phải trả 400 kèm tên trường, không phải 500 kèm vết lỗi của Prisma.
+     */
+    it.each(['stt', 'receivedDate', 'senderName'])(
+      'gui null vao cot khong cho rong "%s" thi tra 400, khong de Prisma no',
+      async (khoa) => {
+        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+
+        await expect(
+          service.update('petition-001', { [khoa]: null } as never, 'user-001'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(mockPrisma.petition.update).not.toHaveBeenCalled();
+      },
+    );
     it('should update petition successfully', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
       mockPrisma.petition.update.mockResolvedValue({
