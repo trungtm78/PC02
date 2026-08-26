@@ -1,6 +1,6 @@
 # PROGRESS
 
-Cập nhật: 2026-08-26T13:05+07:00 | Milestone: PR0/7 | Task: 1/1 của PR0
+Cập nhật: 2026-08-26T14:35+07:00 | Milestone: PR4/7 | Task: 3/3 đã lên máy thật
 
 > Epic trước (**Vụ án**, 5/5 milestone, deploy máy thật 26/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
@@ -8,7 +8,7 @@ Cập nhật: 2026-08-26T13:05+07:00 | Milestone: PR0/7 | Task: 1/1 của PR0
 
 Epic hiện tại: **Đồng bộ form Đơn thư với hệ cũ pc02hcm.com**
 Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-b-ng-glistening-puffin.md`
-Nhánh: `fix/donthu-xoa-trang` → PR #249
+Nhánh: đang ở `main`; PR #249 · #250 · #251 đã gộp và deploy
 
 ## Đã hoàn thành
 
@@ -22,20 +22,29 @@ Nhánh: `fix/donthu-xoa-trang` → PR #249
   - `67d9c43a` chặn `null` vào ba cột NOT NULL (`stt`, `receivedDate`, `senderName`) → 400
     thay vì để Prisma nổ 500.
 
+- [x] **PR1 — Rút hạ tầng bố cục ra tầng chung** — PR #250, deploy `2cd11da7`
+  - `features/legacy-form/{types,accessors,registry}.ts` + `components/legacy-form/*`.
+  - Hai tệp cũ của Vụ án thành lớp bọc mỏng → **401 ca kiểm Vụ án xanh không sửa dòng nào**.
+  - Gỡ rẽ nhánh `entity === "case"` ở `LegacyParityFields` → `ownedColumnsFor(entity)`.
+  - Cổng `khongDungHaiOChoMotCot` chạy cho cả ba thực thể. Codex sạch vòng đầu.
+
+- [x] **PR4 — Chín cột Đơn thư + vá bộ chuyển số** — PR #251, deploy `6a8467ea`, đã kiểm cột trên máy thật
+  - 9 cột: `baoCaoBanGiamDocText` (35.261) · `tinhTrang` (15.039) · 4 cặp QĐ/ngày (411/412, 58/62, 54, 48/48).
+  - Cải chính ma trận: `ngay_thong_ke` thật 1 hồ sơ (ma trận báo 126), `ngay_thang_nam_het_thoi_hieu_vu_viec` thật 0 (báo 104) → KHÔNG dựng cột.
+  - `PARITY_BANG_CHUNG_DO_TAY` cho hai chỗ ma trận phân loại sai, kèm lý do — không nới cổng.
+  - `parseLegacySoLieu`: `"0"` trần là ô trống. `"0 người"` kèm đơn vị thì giữ.
+  - Cổng `donthu-khong-thieu-field`: 45 khoá có ≥20 hồ sơ, mỗi khoá phải chỉ ra chỗ ở.
+  - Codex bắt: cột không khai DTO thì `forbidNonWhitelisted` đá cả lời gọi 400 → mở đủ ba cửa.
+
 ## Hàng đợi task kế tiếp
 
-1. **PR1** — rút hạ tầng bố cục ra `features/legacy-form/` + `components/legacy-form/`,
-   generic hoá `LegacyFormSpec`, thay nhánh `entity === "case"` ở `LegacyParityFields.tsx`
-   bằng `ownedColumns(spec)`. *Không phụ thuộc gì.*
+1. **PR6** — bù dữ liệu 9 cột mới + dọn 30.089/30.956 ô `= 0` + siết cổng. *Phụ thuộc PR4 (xong).*
 2. **PR2** — tách `PetitionFormPage.tsx` thành thư mục cùng tên. *Phụ thuộc PR0 (xong).*
-3. **PR3** — chuyển Vụ án sang `DOI1_FORM_SHAPE` + `CASE_BINDING`. *Phụ thuộc PR1.*
-4. **PR4** — 9 cột Đơn thư + migration + `PARITY.petition` 9→18 cặp + vá bộ chuyển dữ liệu
-   coi `"0"` là rỗng. *Không phụ thuộc gì.*
-5. **PR5** — form Đơn thư 10 tab theo bố cục hệ cũ. *Phụ thuộc PR2 + PR3 + PR4.*
-6. **PR6** — backfill + dọn 30.089/30.956 ô `= 0` + siết cổng. *Phụ thuộc PR4.*
+3. **PR3** — chuyển Vụ án sang `DOI1_FORM_SHAPE` + `CASE_BINDING`. *Phụ thuộc PR1 (xong).*
+4. **PR5** — form Đơn thư 10 tab theo bố cục hệ cũ. *Phụ thuộc PR2 + PR3 + PR4.*
 
-**BƯỚC TIẾP THEO:** chờ CI PR #249 xanh → gộp → deploy → bấm thử trên máy thật (tạo đơn
-`KIEMTHU`, xoá trắng vài ô, lưu, mở lại phải trống) → bắt đầu PR1.
+**BƯỚC TIẾP THEO:** PR6 — sao lưu `pg_dump`, chạy `backfill-parity.ts --entity petition --dry`
+đọc báo cáo, rồi chạy thật; sau đó dọn số 0 bằng script riêng có bản lui riêng.
 
 ## Quyết định kiến trúc
 
