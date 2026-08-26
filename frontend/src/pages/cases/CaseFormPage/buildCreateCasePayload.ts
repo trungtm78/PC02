@@ -23,14 +23,14 @@ export interface EvidencePayload {
   code: string;
   name: string;
   description?: string;
-  nguonDon?: string | null;
-  nhanXet?: string | null;
+  nguonDon?: string;
+  nhanXet?: string;
   biHai?: string;
-  noiXayRa?: string | null;
-  nghiVanDoiTuong?: string | null;
-  phuongThucThuDoan?: string | null;
-  ketQuaXuLyKhac?: string | null;
-  soPhieuChuyen?: string | null;
+  noiXayRa?: string;
+  nghiVanDoiTuong?: string;
+  phuongThucThuDoan?: string;
+  ketQuaXuLyKhac?: string;
+  soPhieuChuyen?: string;
   dieuTraVienText?: string;
   sttCu?: string;
   tinhTrang?: string;
@@ -107,13 +107,13 @@ export interface CreateCasePayload {
   lanhDaoToTung?: string | null;
   // v0.44 UTDT fields (top-level columns)
   caseType?: string;
-  donViGiao?: string;
-  soQuyetDinhUyThac?: string;
+  donViGiao?: string | null;
+  soQuyetDinhUyThac?: string | null;
   ngayTiepNhan?: string | null;
   thoiHanUyThac?: string | null;
-  loaiUyThac?: string;
-  ketQuaUyThac?: string;
-  ngayTraKetQua?: string;
+  loaiUyThac?: string | null;
+  ketQuaUyThac?: string | null;
+  ngayTraKetQua?: string | null;
   loaiThongTin?: string | null;
   metadata: Record<string, unknown>;
   // PR 1 v0.38.0.0 — Atomic sub-entity arrays (fix bug data-loss)
@@ -159,6 +159,7 @@ export interface CreateCasePayload {
   // ── Consolidate epic: field promoted → cột typed (top-level, backend map→cột) ──
   tenCungCap?: string | null;
   cccdCungCap?: string | null;
+  sinhNamCungCap?: string | null;
   sdtCungCap?: string | null;
   diaChiCungCap?: string | null;
   moTaChiTiet?: string | null;
@@ -385,19 +386,19 @@ export function buildCreateCasePayload(
       throw new Error('Đơn vị giao ủy thác là bắt buộc');
     }
     payload.caseType = 'UY_THAC_DIEU_TRA';
-    if (formData.utdt_donViGiao)         payload.donViGiao = formData.utdt_donViGiao;
-    if (formData.utdt_soQuyetDinhUyThac) payload.soQuyetDinhUyThac = formData.utdt_soQuyetDinhUyThac;
+    payload.donViGiao =         oHeCu(formData.utdt_donViGiao);
+    payload.soQuyetDinhUyThac = oHeCu(formData.utdt_soQuyetDinhUyThac);
     // `ngayTiepNhan` và `loaiThongTin` nay do ô ở tab Thông tin làm chủ (tab Ủy thác chỉ
     // hiện lại cùng ô ấy). Ghi đè ở đây sẽ dựng lại đúng cảnh hai chỗ cùng ghi một cột.
 
     payload.thoiHanUyThac =     oHeCu(formData.utdt_thoiHanUyThac);
-    if (formData.utdt_loaiUyThac)        payload.loaiUyThac = formData.utdt_loaiUyThac;
-    if (formData.utdt_ketQuaUyThac)      payload.ketQuaUyThac = formData.utdt_ketQuaUyThac;
-    if (formData.utdt_ngayTraKetQua)     payload.ngayTraKetQua = formData.utdt_ngayTraKetQua;
+    payload.loaiUyThac =        oHeCu(formData.utdt_loaiUyThac);
+    payload.ketQuaUyThac =      oHeCu(formData.utdt_ketQuaUyThac);
+    payload.ngayTraKetQua =     oHeCu(formData.utdt_ngayTraKetQua);
     // Store additional UTDT metadata fields
-    if (formData.utdt_nghiVanDoiTuong)               payload.metadata.nghiVanDoiTuong = formData.utdt_nghiVanDoiTuong;
-    if (formData.utdt_lyDoKhongThucHienDuoc)         payload.metadata.lyDoKhongThucHienDuoc = formData.utdt_lyDoKhongThucHienDuoc;
-    if (formData.utdt_ngayThongBaoKhongThucHien)     payload.metadata.ngayThongBaoKhongThucHien = formData.utdt_ngayThongBaoKhongThucHien;
+    payload.metadata.nghiVanDoiTuong =               oHeCu(formData.utdt_nghiVanDoiTuong);
+    payload.metadata.lyDoKhongThucHienDuoc =         oHeCu(formData.utdt_lyDoKhongThucHienDuoc);
+    payload.metadata.ngayThongBaoKhongThucHien =     oHeCu(formData.utdt_ngayThongBaoKhongThucHien);
   } else if (formData.sourceDocumentNote) {
     payload.sourceDocumentNote = formData.sourceDocumentNote;
   }
@@ -557,6 +558,12 @@ export function buildCreateCasePayload(
   // GIỮ ngữ nghĩa "năm-only": input là date (YYYY-MM-DD) không diễn đạt được năm-only, nên khi
   // load năm-only ta hiện YYYY-01-01 + precision='year'. Round-trip: nếu value vẫn là YYYY-01-01
   // và precision đã load = 'year' → giữ 'year' (không tự nâng thành 'date' làm sai nghĩa pháp lý).
+  // Cột `sinhNamCungCap` có thật trong lược đồ nhưng form trước nay chỉ ghi vào metadata, nên
+  // giá trị di trú nằm trong cột luôn thắng lúc nạp lại: cán bộ sửa ô Sinh năm, lưu, mở lại
+  // vẫn thấy con số cũ. Ghi thẳng vào cột.
+  payload.sinhNamCungCap = oHeCu(formData.sinhNamCungCap);
+  // `reporterDateOfBirth` là cột riêng của ô "Ngày sinh". Ô Sinh năm chỉ NÂNG năm-only lên
+  // thành ngày khi ô kia còn trống — không phải hai ô cùng ghi một cột.
   const dobRaw = firstStr(formData.reporterDateOfBirth, formData.sinhNamCungCap);
   // Xoá trắng ô Sinh năm phải xoá được: bỏ khoá khỏi lời gọi thì máy chủ giữ nguyên ngày cũ.
   if (!dobRaw) payload.reporterDateOfBirth = null;

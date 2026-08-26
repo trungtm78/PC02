@@ -24,19 +24,12 @@ const MUC: LegacyLayoutItem[] = Object.values(LEGACY_FORM_LAYOUT)
 
 const KHOA_DUY_NHAT = Array.from(new Map(MUC.map((it) => [it.field, it])).values());
 
-/**
- * Ngoại lệ có lý do: ô hệ cũ KHÔNG có cột riêng, giá trị gộp vào một cột khác.
- *
- * "Sinh năm" của hệ cũ và "Ngày sinh" của hệ mới là cùng một dữ kiện. Hệ mới giữ một cột
- * `reporterDateOfBirth` kèm cột độ chính xác, nên xoá trắng ô Sinh năm phải xoá cột ấy.
- */
-const NGOAI_LE: Readonly<Record<string, string>> = { sinhNamCungCap: "reporterDateOfBirth" };
 
 describe("Xoá trắng bất kỳ ô hệ cũ nào thì giá trị cũ phải mất theo", () => {
   it.each(
     KHOA_DUY_NHAT.map((it) => [
       it.field,
-      NGOAI_LE[it.field] ?? LEGACY_FIELD_TO_COLUMN[it.field] ?? it.field,
+      LEGACY_FIELD_TO_COLUMN[it.field] ?? it.field,
       it.caption,
     ]),
   )(
