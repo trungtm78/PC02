@@ -118,7 +118,13 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
     kq.oGiuVicoDonVi[col] = 0;
   }
 
-  let cursor: string | undefined;
+  // KHÔNG dùng con trỏ: điều kiện lọc chính là thứ vòng lặp đang thay đổi. Bản ghi vừa dọn
+  // thôi khớp `where`, nên vị trí con trỏ trôi và một số hàng bị nhảy qua — lần chạy đầu trên
+  // máy thật bỏ sót đúng 60 ô vì lẽ đó.
+  //
+  // Lấy lại từ đầu mỗi vòng là đúng: hàng đã xử lý tự rơi khỏi tập kết quả, nên vòng lặp vẫn
+  // tiến và dừng khi không còn hàng nào khớp.
+  let choBoQua = new Set<string>();
   for (;;) {
     const rows = await prisma.petition.findMany({
       where: { OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }] },
@@ -129,16 +135,19 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
         soTienBiThietHai: true,
         soLuongBiHai: true,
       },
-      orderBy: { id: 'asc' },
+      orderBy: { id: "asc" },
       take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
-    if (rows.length === 0) break;
+    // Hàng còn khớp nhưng đã quyết định BỎ QUA thì không bao giờ rơi khỏi tập kết quả — không
+    // nhận ra điều đó là vòng lặp chạy mãi.
+    const canXuLy = rows.filter((r) => !choBoQua.has(r.id));
+    if (canXuLy.length === 0) break;
 
-    for (const row of rows) {
+    for (const row of canXuLy) {
       kq.quet++;
       if (daSuaTay.has(row.id)) {
         kq.boQuaVieDaSuaTay++;
+        choBoQua.add(row.id);
         continue;
       }
       const goc = ((row.legacyRaw ?? (row.legacySourceId ? rawAnhEm.get(row.legacySourceId) : null)) ??
@@ -146,10 +155,11 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
       // Không có bản gốc thì không có căn cứ để dọn — bỏ qua, đếm riêng, nói ra.
       if (!goc) {
         kq.boQuaViKhongCoBanGoc++;
+        choBoQua.add(row.id);
         continue;
       }
-      const data: Record<string, null> = {};
 
+      const data: Record<string, null> = {};
       for (const { col, field } of CAP_COT_KHOA) {
         const giaTriCot = (row as unknown as Record<string, unknown>)[col];
         if (giaTriCot === null || Number(giaTriCot) !== 0) continue;
@@ -161,16 +171,18 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
         }
       }
 
-      if (Object.keys(data).length === 0) continue;
+      if (Object.keys(data).length === 0) {
+        choBoQua.add(row.id);
+        continue;
+      }
       kq.hoSoSua++;
-      if (!dry) await prisma.petition.update({ where: { id: row.id }, data });
+      if (dry) choBoQua.add(row.id);
+      else await prisma.petition.update({ where: { id: row.id }, data });
     }
 
-    cursor = rows[rows.length - 1].id;
     if (kq.quet % 5000 < BATCH) {
-      console.log(`  quét ${kq.quet}, hồ sơ sửa ${kq.hoSoSua}${dry ? ' (THỬ)' : ''}`);
+      console.log(`  quét ${kq.quet}, hồ sơ sửa ${kq.hoSoSua}${dry ? " (THỬ)" : ""}`);
     }
-    if (rows.length < BATCH) break;
   }
   return kq;
 }
