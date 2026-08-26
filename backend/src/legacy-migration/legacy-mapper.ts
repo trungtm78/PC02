@@ -275,6 +275,24 @@ const ownership = (rec: LegacyRecord) => ({
  * tường minh phía sau (nếu có) vẫn thắng. Field thủ tục leak chéo-giai-đoạn count nhỏ
  * KHÔNG ở đây (giữ metadata/legacyRaw). legacyRaw luôn giữ bản gốc = không mất data.
  */
+/**
+ * Đọc một ô SỐ của hệ cũ, hiểu "0" trần là Ô TRỐNG.
+ *
+ * Hệ cũ tự điền "0" vào ô số để trống. Đo trên máy thật 26/08/2026: 30.089 đơn thư có
+ * `soTienBiThietHai = 0` và 30.956 đơn có `soLuongBiHai = 0`, trong khi chỉ 1.447 và 599 hồ sơ
+ * mang số thật khác 0. Trong hồ sơ pháp lý, "thiệt hại 0 đồng" là một KHẲNG ĐỊNH còn "chưa
+ * có số liệu" là chưa biết — báo cáo thống kê cộng nhầm hai nhóm ấy vào nhau.
+ *
+ * Cùng một lớp với hai mốc rỗng `"0"` và `"-25200"` mà `parseLegacyDate` đã xử cho ô ngày.
+ *
+ * "0 người" hay "0 đồng" viết kèm đơn vị thì giữ lại: đó là cán bộ CHỦ Ý ghi số không.
+ */
+export function parseLegacySoLieu(v: unknown): number | undefined {
+  const raw = s(v);
+  if (raw === undefined) return undefined;
+  if (raw.trim() === "0") return undefined;
+  return parseLegacyNumber(v);
+}
 export function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const { field, col, type, textBool } of PARITY[entity]) {
@@ -282,8 +300,8 @@ export function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<s
     switch (type) {
       case 'String': v = s(rec[field]); break;
       case 'DateTime': v = parseLegacyDate(rec[field]); break;
-      case 'Int': { const n = parseLegacyNumber(rec[field]); v = n === undefined ? undefined : Math.round(n); break; }
-      case 'Float': v = parseLegacyNumber(rec[field]); break; // tiền — không round, không giới hạn Int
+      case 'Int': { const n = parseLegacySoLieu(rec[field]); v = n === undefined ? undefined : Math.round(n); break; }
+      case 'Float': v = parseLegacySoLieu(rec[field]); break; // tiền — không round, không giới hạn Int
       case 'Boolean': v = textBool ? boolFromText(rec[field]) : parseLegacyBool(rec[field]); break;
     }
     if (v !== undefined) out[col] = v;

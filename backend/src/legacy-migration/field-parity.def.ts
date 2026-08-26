@@ -56,6 +56,21 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
     { field: 'so_tien_bi_thiet_hai', col: 'soTienBiThietHai', type: 'Float' }, // tiền VND có thể > 2 tỷ (tràn Int)
     { field: 'so_luong_bi_hai', col: 'soLuongBiHai', type: 'Int' },
+
+    // ── Bổ sung 26/08/2026 cho epic "form Đơn thư khớp bố cục hệ cũ" ──
+    // Số hồ sơ THẬT có dữ liệu, đo trên máy chạy (đã loại rỗng và hai mốc rỗng "0"/"-25200").
+    // Ma trận tài liệu đếm theo SỰ CÓ MẶT của khoá nên cao hơn thực tế — bám số đo, không bám
+    // ma trận: vd `ngay_thong_ke` ma trận báo 126, thực tế 1 hồ sơ; `ngay_thang_nam_het_thoi_
+    // hieu_vu_viec` ma trận báo 104, thực tế 0.
+    { field: 'truong_hop_bao_cao_ban_giam_doc', col: 'baoCaoBanGiamDocText', type: 'String' }, // 35.261
+    { field: 'tinh_trang', col: 'tinhTrang', type: 'String' }, // 15.039
+    { field: 'quyet_dinh_phan_cong_giai_quyet_nguon_tin', col: 'soQDPhanCongNguonTin', type: 'String' }, // 411
+    { field: 'ngay_ra_quyet_dinh_phan_cong_tin_bao', col: 'ngayQDPhanCongNguonTin', type: 'DateTime' }, // 412
+    { field: 'quyet_dinh_tam_dinh_chi_nguon_tin', col: 'soQDTamDinhChiNguonTin', type: 'String' }, // 58
+    { field: 'ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin', col: 'ngayQDTamDinhChiNguonTin', type: 'DateTime' }, // 62
+    { field: 'can_cu_tam_dinh_chi_nguon_tin', col: 'canCuTamDinhChiNguonTin', type: 'String' }, // 54
+    { field: 'phuc_hoi_nguon_tin_toi_pham', col: 'soPhucHoiNguonTin', type: 'String' }, // 48
+    { field: 'ngay_phuc_hoi_nguon_tin_toi_pham', col: 'ngayPhucHoiNguonTin', type: 'DateTime' }, // 48
   ],
 
   // Incident — LỖ HỔNG LỚN NHẤT: thiếu hầu hết field intake mà Petition đã có cột.
@@ -166,6 +181,27 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'lenh_nhap_kho', col: 'lenhNhapKho', type: 'String' , formOnly: true },
     { field: 'Noi_luu_tru_bao_quan_ke_bien_phong_toa', col: 'noiLuuTruBaoQuan', type: 'String' , formOnly: true },
   ],
+};
+
+/**
+ * BẰNG CHỨNG ĐO TAY trên máy chạy — dùng khi ma trận sinh tự động phân loại SAI.
+ *
+ * `docs/legacy/field-parity-matrix.md` sinh từ bản kết xuất hệ cũ và tự suy ra khoá nào "đã
+ * có nhà". Hai chỗ nó suy sai, đo lại trực tiếp trên 46.499 đơn thư ngày 26/08/2026:
+ *
+ *  - `truong_hop_bao_cao_ban_giam_doc` cho petition: ma trận ghi "OK (baoCaoBanGiamDoc)".
+ *    Nhưng cột ấy là Boolean, còn hệ cũ nhập TỰ DO — 35.261 hồ sơ có CHỮ. Cột đúng/sai không
+ *    giữ được chữ. Vụ án đã nhận ra điều này và có `baoCaoBanGiamDocText`; Đơn thư thì chưa.
+ *
+ *  - `tinh_trang` cho petition: ma trận ghi "RESOLVE", nhưng bảng `petitions` KHÔNG hề có cột
+ *    `tinhTrang`. 15.039 hồ sơ có dữ liệu đang nằm kẹt trong `legacyRaw`.
+ *
+ * Khai ở đây thay vì nới lỏng cổng kiểm: cột mới VẪN phải có bằng chứng, chỉ là bằng chứng
+ * đến từ phép đếm trên máy chạy chứ không từ ma trận.
+ */
+export const PARITY_BANG_CHUNG_DO_TAY: Readonly<Record<string, number>> = {
+  'petition/truong_hop_bao_cao_ban_giam_doc': 35261,
+  'petition/tinh_trang': 15039,
 };
 
 /** Field thủ tục leak chéo-giai-đoạn (count nhỏ) — CỐ Ý giữ ở metadata động, KHÔNG tạo cột.

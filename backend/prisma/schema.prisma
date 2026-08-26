@@ -671,19 +671,19 @@ model Case {
   // Trước đây các field này chỉ nằm trong Case.metadata JSON (không query được). Thăng thành
   // cột chính thức: canonical store 1 nơi, queryable. Xem plan A0 (loại N).
   reporterDateOfBirth          DateTime? // Ngày sinh người tố cáo/báo tin (gộp từ sinhNamCungCap year-only)
-  reporterDateOfBirthPrecision String?   // 'year' | 'date' — sinhNamCungCap cũ chỉ có năm → YYYY-01-01 + precision='year'
+  reporterDateOfBirthPrecision String? // 'year' | 'date' — sinhNamCungCap cũ chỉ có năm → YYYY-01-01 + precision='year'
   receiveDate                  DateTime? // Ngày tiếp nhận vụ án (nghiệp vụ; KHÁC ngayTiepNhan của UTDT)
-  caseClassification           String?   // Phân loại vụ án (native)
-  tinhTrang                    String?   // Tình trạng hồ sơ (native)
-  toiDanhBanDau                String?   // Tội danh ban đầu (native, cạnh cụm tội danh)
+  caseClassification           String? // Phân loại vụ án (native)
+  tinhTrang                    String? // Tình trạng hồ sơ (native)
+  toiDanhBanDau                String? // Tội danh ban đầu (native, cạnh cụm tội danh)
 
   // ── Ô hệ cũ còn thiếu cột, bổ sung để form khớp bố cục /doi-1/Them (26/08/2026) ──
   // Trước đây chúng nằm trong `metadata` hoặc chỉ còn trong `legacy_raw`, nên form hệ mới
   // không có chỗ nhập và cán bộ mất luôn thông tin khi sửa hồ sơ.
-  phanLoaiNguonTinBanDau String?   // Phân loại ban đầu (phan_loai_nguon_tin_ban_dau)
+  phanLoaiNguonTinBanDau String? // Phân loại ban đầu (phan_loai_nguon_tin_ban_dau)
   ngayXayRa              DateTime? // Ngày tội phạm xảy ra — 17.388 hồ sơ có dữ liệu
-  noiXayRaPhuongXa       String?   // Nơi xảy ra (cấp phường/xã)
-  baoCaoBanGiamDocText   String?   // Nội dung chỉ đạo Ban Giám đốc — cột Boolean cạnh bên chỉ ghi CÓ/KHÔNG
+  noiXayRaPhuongXa       String? // Nơi xảy ra (cấp phường/xã)
+  baoCaoBanGiamDocText   String? // Nội dung chỉ đạo Ban Giám đốc — cột Boolean cạnh bên chỉ ghi CÓ/KHÔNG
 
   // Tab "Vụ việc" hệ cũ
   soQDPhanCongNguonTin   String?
@@ -691,7 +691,7 @@ model Case {
   soQDKhongKhoiTo        String?
   ngayQDKhongKhoiTo      DateTime?
   canCuKhongKhoiTo       String?
-  lyDoKhongKhoiTo        String[]  // BLTTHS Đ.157, chọn nhiều
+  lyDoKhongKhoiTo        String[] // BLTTHS Đ.157, chọn nhiều
   chuyenVuViecDonViKhac  String?
   nhapVaoVuViecSo        String?
   phanLoaiDanSu          String?
@@ -701,7 +701,7 @@ model Case {
   soQDTamDinhChiNguonTin   String?
   ngayQDTamDinhChiNguonTin DateTime?
   canCuTamDinhChiNguonTin  String?
-  lyDoTamDinhChiNguonTin   String[]  // BLTTHS Đ.148, chọn nhiều
+  lyDoTamDinhChiNguonTin   String[] // BLTTHS Đ.148, chọn nhiều
   ngayHetThoiHieuVuViec    DateTime?
   khacPhucLyDoTDCVuViec    String?
   tienDoKhacPhucTDCVuViec  String?
@@ -719,7 +719,7 @@ model Case {
   toiDanhChinhKhoiToId String?
   toiDanhChinhKhoiTo   Crime?  @relation("CaseCrimeKhoiTo", fields: [toiDanhChinhKhoiToId], references: [id], onDelete: SetNull)
 
-  legacyRaw      Json?    @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
+  legacyRaw Json? @map("legacy_raw") // Toàn bộ field raw hệ cũ — không bao giờ mất data (Codex P1)
 
   // PR1 ListPageShell — composite cho /cases/stats hot path (groupBy status,
   // base predicate deletedAt + caseType). Migration 20260530000001 tạo
@@ -1039,18 +1039,32 @@ model Petition {
   phanLoaiNguonTin       String? // Phân loại nguồn tin ban đầu (old: phan_loai_nguon_tin_ban_dau — discriminator)
   dieuTraVien            String? // Điều tra viên thụ lý (old: dieu_tra_vien — free text, pattern như lanhDaoToTung)
   donViGiaiQuyet         String? // Đơn vị giải quyết (old: don_vi_giai_quyet — khác unit="Đơn vị tiếp nhận")
-  legacySourceId         String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
-  soHoSoCu               String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
-  sttCu                  String? // STT cũ hơn (trường `stt_cu`)
-  legacyId               Int? // id số gốc hệ cũ (kèm legacyCollection)
-  legacyCollection       String? // collection gốc: ho_so | ho_so_doi_1
-  legacyRaw              Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
-  metadata               Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
+
+  // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
+  // Số hồ sơ THẬT có dữ liệu, đo trên máy chạy (đã loại rỗng và hai mốc rỗng "0"/"-25200").
+  // Ma trận tài liệu đếm theo SỰ CÓ MẶT của khoá nên cao hơn thực tế — bám số đo, không bám
+  // ma trận (vd ngay_thong_ke: ma trận báo 126, thực tế 1 hồ sơ).
+  baoCaoBanGiamDocText     String? // 35.261 — chữ tự do; cột Boolean cạnh bên chỉ giữ CÓ/KHÔNG
+  tinhTrang                String? // 15.039 — old: tinh_trang
+  soQDPhanCongNguonTin     String? // 411 — old: quyet_dinh_phan_cong_giai_quyet_nguon_tin
+  ngayQDPhanCongNguonTin   DateTime? // 412 — old: ngay_ra_quyet_dinh_phan_cong_tin_bao
+  soQDTamDinhChiNguonTin   String? // 58 — old: quyet_dinh_tam_dinh_chi_nguon_tin
+  ngayQDTamDinhChiNguonTin DateTime? // 62 — old: ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin
+  canCuTamDinhChiNguonTin  String? // 54 — old: can_cu_tam_dinh_chi_nguon_tin
+  soPhucHoiNguonTin        String? // 48 — old: phuc_hoi_nguon_tin_toi_pham
+  ngayPhucHoiNguonTin      DateTime? // 48 — old: ngay_phuc_hoi_nguon_tin_toi_pham
+  legacySourceId           String? // Khóa gốc hệ thống cũ pc02hcm.com — idempotent di trú
+  soHoSoCu                 String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
+  sttCu                    String? // STT cũ hơn (trường `stt_cu`)
+  legacyId                 Int? // id số gốc hệ cũ (kèm legacyCollection)
+  legacyCollection         String? // collection gốc: ho_so | ho_so_doi_1
+  legacyRaw                Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
+  metadata                 Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
-  thoiHanUTDT            DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
+  thoiHanUTDT              DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
-  thuocThamQuyen         Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
-  donViXuLy              String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  thuocThamQuyen           Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  donViXuLy                String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
 
   // Field-parity đầy đủ (feat/legacy-field-parity): field hệ cũ chưa có cột typed trên Đơn thư.
   phanLoaiToiPhamLinhVuc String? // old: phan_loai_toi_pham_theo_linh_vuc
@@ -1278,21 +1292,21 @@ model Incident {
   tienDoKhacPhucTDC       String? // Tiến độ khắc phục TĐC (old: tien_do_khac_phuc_tdc)
 
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
-  importedFrom   String?
-  legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
-  soHoSoCu       String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
-  sttCu          String? // STT cũ hơn (trường `stt_cu`)
-  legacyId       Int? // id số gốc hệ cũ (kèm legacyCollection)
+  importedFrom     String?
+  legacySourceId   String? // Khóa gốc hệ thống cũ — idempotent di trú
+  soHoSoCu         String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
+  sttCu            String? // STT cũ hơn (trường `stt_cu`)
+  legacyId         Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
-  legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
-  metadata       Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
-  importedAt     DateTime?
-  importedById   String?
-  importedBy     User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
-  sourceFile     String?
-  importLogId    String?
-  importLog      XlsxImportLog?      @relation("XlsxImportLogIncidents", fields: [importLogId], references: [id], onDelete: SetNull)
-  renderLogs     DocumentRenderLog[]
+  legacyRaw        Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)
+  metadata         Json? // Field hệ cũ dạng cấu trúc (mọi field tương ứng) — surface + editable
+  importedAt       DateTime?
+  importedById     String?
+  importedBy       User?               @relation("IncidentImportedBy", fields: [importedById], references: [id], onDelete: SetNull)
+  sourceFile       String?
+  importLogId      String?
+  importLog        XlsxImportLog?      @relation("XlsxImportLogIncidents", fields: [importLogId], references: [id], onDelete: SetNull)
+  renderLogs       DocumentRenderLog[]
 
   @@unique([legacySourceId]) // Codex P1#2: unique để upsert thật theo khóa gốc
   @@index([status])
@@ -1648,20 +1662,20 @@ model CaseStatusHistory {
 // ─────────────────────────────────────────────
 
 model InvestigationSupplement {
-  id             String    @id @default(cuid())
-  caseId         String
-  type           String // "Điều tra bổ sung" | "Điều tra lại"
-  decisionNumber String
-  decisionDate   DateTime?
-  reason         String
-  deadline       DateTime?
+  id               String    @id @default(cuid())
+  caseId           String
+  type             String // "Điều tra bổ sung" | "Điều tra lại"
+  decisionNumber   String
+  decisionDate     DateTime?
+  reason           String
+  deadline         DateTime?
   // Ba mốc ngày của bảng "Danh sách điều tra bổ sung" hệ cũ. Không có chúng thì bảng ĐTBS
   // của hệ mới thiếu đúng ba cột mà cán bộ đang nhập.
   ngayTiepNhanDTBS DateTime?
   ngayTraHoSoVKS   DateTime?
   ngayTraHoSoToaAn DateTime?
-  createdById    String?
-  createdAt      DateTime  @default(now())
+  createdById      String?
+  createdAt        DateTime  @default(now())
 
   // Truy nguyên di trú (dieu_tra_bo_sung hệ cũ)
   legacySourceId   String? @unique // Khóa gốc hệ cũ (idempotent)

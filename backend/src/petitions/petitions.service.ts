@@ -710,6 +710,16 @@ export class PetitionsService {
       ...(dto.yeuCauBoSung !== undefined && { yeuCauBoSung: dto.yeuCauBoSung }),
       ...(dto.soTienBiThietHai !== undefined && { soTienBiThietHai: dto.soTienBiThietHai }),
       ...(dto.soLuongBiHai !== undefined && { soLuongBiHai: dto.soLuongBiHai }),
+      // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
+      ...(dto.baoCaoBanGiamDocText !== undefined && { baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText }),
+      ...(dto.tinhTrang !== undefined && { tinhTrang: dto.tinhTrang }),
+      ...(dto.soQDPhanCongNguonTin !== undefined && { soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin }),
+      ...(dto.ngayQDPhanCongNguonTin !== undefined && { ngayQDPhanCongNguonTin: dto.ngayQDPhanCongNguonTin ? new Date(dto.ngayQDPhanCongNguonTin) : null }),
+      ...(dto.soQDTamDinhChiNguonTin !== undefined && { soQDTamDinhChiNguonTin: dto.soQDTamDinhChiNguonTin }),
+      ...(dto.ngayQDTamDinhChiNguonTin !== undefined && { ngayQDTamDinhChiNguonTin: dto.ngayQDTamDinhChiNguonTin ? new Date(dto.ngayQDTamDinhChiNguonTin) : null }),
+      ...(dto.canCuTamDinhChiNguonTin !== undefined && { canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin }),
+      ...(dto.soPhucHoiNguonTin !== undefined && { soPhucHoiNguonTin: dto.soPhucHoiNguonTin }),
+      ...(dto.ngayPhucHoiNguonTin !== undefined && { ngayPhucHoiNguonTin: dto.ngayPhucHoiNguonTin ? new Date(dto.ngayPhucHoiNguonTin) : null }),
     };
     const petitionInclude = {
       enteredBy: {
