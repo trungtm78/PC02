@@ -720,6 +720,7 @@ export class PetitionsService {
       ...(dto.canCuTamDinhChiNguonTin !== undefined && { canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin }),
       ...(dto.soPhucHoiNguonTin !== undefined && { soPhucHoiNguonTin: dto.soPhucHoiNguonTin }),
       ...(dto.ngayPhucHoiNguonTin !== undefined && { ngayPhucHoiNguonTin: dto.ngayPhucHoiNguonTin ? new Date(dto.ngayPhucHoiNguonTin) : null }),
+      ...(dto.sttCu !== undefined && { sttCu: dto.sttCu }),
     };
     const petitionInclude = {
       enteredBy: {

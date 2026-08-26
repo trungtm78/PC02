@@ -112,6 +112,7 @@ export function buildPetitionCreateData(
     ngayPhucHoiNguonTin: toDate(dto.ngayPhucHoiNguonTin),
     // Ô hệ cũ chưa có cột riêng. Không ghi ở đường TẠO thì cán bộ điền xong, bấm Lưu, và
     // mất sạch phần ấy ngay lần đầu.
+    sttCu: dto.sttCu,
     ...(dto.metadata !== undefined && { metadata: dto.metadata as never }),
   };
 }

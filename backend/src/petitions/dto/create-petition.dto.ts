@@ -398,5 +398,14 @@ export class CreatePetitionDto {
    * `forbidNonWhitelisted` đang bật, gửi `metadata` lúc tạo sẽ bị đá CẢ lời gọi bằng 400 —
    * tức không tạo được đơn thư nào.
    */
+  /**
+   * Số thứ tự ở hệ cũ — 31.460 đơn thư có dữ liệu, và form nay có ô sửa được.
+   *
+   * Thiếu khai ở đây thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400, tức không tạo được
+   * đơn thư nào. Bấm thử trên máy thật 26/08/2026 mới lộ — ca kiểm không bắt được vì không
+   * ca nào đối chiếu thân lời gọi với DTO.
+   */
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() @MaxLength(50) sttCu?: string;
+
   @IsOptional() @IsObject() metadata?: Record<string, unknown>;
 }
