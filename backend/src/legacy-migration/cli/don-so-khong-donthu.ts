@@ -14,9 +14,12 @@
  *
  * AN TOÀN:
  *   - Chỉ đụng hai cột `soTienBiThietHai` và `soLuongBiHai` của bảng `petitions`.
- *   - Chỉ đụng hồ sơ CÓ `legacyRaw` — hồ sơ nhập tay không nằm trong phạm vi. 95 hồ sơ di
- *     trú không giữ `legacyRaw` riêng (bản gốc nằm ở vụ việc/vụ án anh em) cũng nằm ngoài:
- *     không đối chiếu được bản gốc thì không có căn cứ để dọn.
+ *   - Chỉ đụng hồ sơ ĐỐI CHIẾU ĐƯỢC bản gốc hệ cũ. Hồ sơ nhập tay (không có bản gốc) nằm
+ *     ngoài phạm vi. Đơn thư di trú không giữ `legacyRaw` riêng thì tra sang vụ án / vụ việc
+ *     cùng khoá nguồn — 95 hồ sơ như vậy trên máy thật.
+ *   - Bỏ qua hồ sơ cán bộ ĐÃ TỪNG sửa chính hai ô số này (theo nhật ký thay đổi). Phép lọc
+ *     này cố ý THÔ: nó chỉ có thể dọn THIẾU chứ không thể dọn NHẦM. Đo trên máy thật, cả hệ
+ *     chỉ có 37 đơn thư từng được sửa, nên cái giá của sự thô ấy tối đa là 37/31.021.
  *   - `--dry` (bắt buộc chạy trước) chỉ đếm, không ghi.
  *   - Đếm riêng số ô DỌN và số ô GIỮ, để đối chiếu với số đo trước khi chạy — lệch nhiều
  *     nghĩa là phép chọn sai, dừng lại thay vì chạy tiếp.
@@ -43,6 +46,8 @@ const BATCH = 1000;
 interface KetQua {
   quet: number;
   hoSoSua: number;
+  /** Hồ sơ bỏ qua vì không tìm được bản gốc hệ cũ ở đâu cả. */
+  boQuaViKhongCoBanGoc: number;
   /** Hồ sơ bỏ qua vì cán bộ đã từng sửa tay chính hai ô số này. */
   boQuaVieDaSuaTay: number;
   oDon: Record<string, number>;
@@ -68,9 +73,45 @@ async function hoSoDaSuaTay(prisma: PrismaClient): Promise<Set<string>> {
   return new Set(rows.map((r) => r.subjectId));
 }
 
+/**
+ * Bản gốc hệ cũ của những đơn thư KHÔNG giữ `legacyRaw` riêng.
+ *
+ * Một số đơn thư di trú là VỎ LIÊN KẾT: bản thô được định tuyến sang vụ án hoặc vụ việc cùng
+ * khoá nguồn, nên `legacyRaw` của chính nó để trống. Dữ kiện vẫn còn — chỉ nằm ở thực thể anh
+ * em. Lấy từ đó thay vì bỏ cuộc: đo trên máy thật có 95 hồ sơ như vậy đang mang ô số bằng 0.
+ */
+async function banGocTuAnhEm(
+  prisma: PrismaClient,
+): Promise<Map<string, Record<string, unknown>>> {
+  const thieu = await prisma.petition.findMany({
+    where: {
+      legacyRaw: { equals: Prisma.DbNull },
+      legacySourceId: { not: null },
+      OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }],
+    },
+    select: { legacySourceId: true },
+  });
+  const khoa = thieu.map((p) => p.legacySourceId!).filter(Boolean);
+  const map = new Map<string, Record<string, unknown>>();
+  if (khoa.length === 0) return map;
+
+  for (const bang of [prisma.case, prisma.incident] as const) {
+    const rows = await (bang as { findMany: (a: unknown) => Promise<unknown[]> }).findMany({
+      where: { legacySourceId: { in: khoa } },
+      select: { legacySourceId: true, legacyRaw: true },
+    });
+    for (const r of rows as { legacySourceId: string | null; legacyRaw: unknown }[]) {
+      if (r.legacySourceId && r.legacyRaw && !map.has(r.legacySourceId)) {
+        map.set(r.legacySourceId, r.legacyRaw as Record<string, unknown>);
+      }
+    }
+  }
+  return map;
+}
 export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<KetQua> {
-  const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {}, boQuaVieDaSuaTay: 0 };
+  const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {}, boQuaVieDaSuaTay: 0, boQuaViKhongCoBanGoc: 0 };
   const daSuaTay = await hoSoDaSuaTay(prisma);
+  const rawAnhEm = await banGocTuAnhEm(prisma);
   console.log(`Bỏ qua ${daSuaTay.size} hồ sơ cán bộ đã từng sửa chính hai ô số này.`);
   for (const { col } of CAP_COT_KHOA) {
     kq.oDon[col] = 0;
@@ -80,12 +121,14 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
   let cursor: string | undefined;
   for (;;) {
     const rows = await prisma.petition.findMany({
-      where: {
-        // Prisma đòi `Prisma.DbNull` cho cột JSON, không nhận `null` trần.
-        NOT: { legacyRaw: { equals: Prisma.DbNull } },
-        OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }],
+      where: { OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }] },
+      select: {
+        id: true,
+        legacyRaw: true,
+        legacySourceId: true,
+        soTienBiThietHai: true,
+        soLuongBiHai: true,
       },
-      select: { id: true, legacyRaw: true, soTienBiThietHai: true, soLuongBiHai: true },
       orderBy: { id: 'asc' },
       take: BATCH,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
@@ -98,7 +141,13 @@ export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<Ke
         kq.boQuaVieDaSuaTay++;
         continue;
       }
-      const goc = (row.legacyRaw ?? {}) as Record<string, unknown>;
+      const goc = ((row.legacyRaw ?? (row.legacySourceId ? rawAnhEm.get(row.legacySourceId) : null)) ??
+        null) as Record<string, unknown> | null;
+      // Không có bản gốc thì không có căn cứ để dọn — bỏ qua, đếm riêng, nói ra.
+      if (!goc) {
+        kq.boQuaViKhongCoBanGoc++;
+        continue;
+      }
       const data: Record<string, null> = {};
 
       for (const { col, field } of CAP_COT_KHOA) {
@@ -143,6 +192,7 @@ async function main(): Promise<void> {
     console.log(`Quét:            ${kq.quet} hồ sơ có ô số bằng 0`);
     console.log(`Hồ sơ sẽ sửa:    ${kq.hoSoSua}`);
     console.log(`Bỏ qua (đã sửa tay): ${kq.boQuaVieDaSuaTay}`);
+    console.log(`Bỏ qua (không có bản gốc): ${kq.boQuaViKhongCoBanGoc}`);
     for (const { col } of CAP_COT_KHOA) {
       console.log(`  ${col}: dọn ${kq.oDon[col]}, giữ ${kq.oGiuVicoDonVi[col]} (bản gốc ghi số thật)`);
     }
