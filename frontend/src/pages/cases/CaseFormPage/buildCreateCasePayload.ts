@@ -60,7 +60,7 @@ export interface CreateCasePayload {
   unit: string | null;
   assignedTeamId: string | null;
   investigatorId: string | null;
-  capDoToiPham?: string;
+  capDoToiPham?: string | null;
   caseProvenance: string;
   linkedPetitionId?: string;
   expectedPetitionUpdatedAt?: string;
@@ -107,13 +107,13 @@ export interface CreateCasePayload {
   lanhDaoToTung?: string | null;
   // v0.44 UTDT fields (top-level columns)
   caseType?: string;
-  donViGiao?: string;
-  soQuyetDinhUyThac?: string;
+  donViGiao?: string | null;
+  soQuyetDinhUyThac?: string | null;
   ngayTiepNhan?: string | null;
-  thoiHanUyThac?: string;
-  loaiUyThac?: string;
-  ketQuaUyThac?: string;
-  ngayTraKetQua?: string;
+  thoiHanUyThac?: string | null;
+  loaiUyThac?: string | null;
+  ketQuaUyThac?: string | null;
+  ngayTraKetQua?: string | null;
   loaiThongTin?: string | null;
   metadata: Record<string, unknown>;
   // PR 1 v0.38.0.0 — Atomic sub-entity arrays (fix bug data-loss)
@@ -122,67 +122,83 @@ export interface CreateCasePayload {
   documentIds?: string[];
   statistic?: Record<string, unknown>; // case_statistics (hybrid)
   // Field-parity: ghi chú khác + tội danh khác (donthu-parity)
-  ghiChuKhac?: string;
+  ghiChuKhac?: string | null;
   toiDanhKhacIds?: string[];
   // Field-parity: KLĐT + QĐ điều tra lại
-  soKLDT?: string;
-  ngayKLDT?: string;
-  soQDDieuTraLai?: string;
-  ngayQDDieuTraLai?: string;
+  soKLDT?: string | null;
+  ngayKLDT?: string | null;
+  soQDDieuTraLai?: string | null;
+  ngayQDDieuTraLai?: string | null;
   // Field-parity: số QĐ giai đoạn vụ án
-  soQuyetDinhKhoiTo?: string;
-  ngayKhoiTo?: string;
-  soQDNhapVuAn?: string;
-  ngayNhapVuAn?: string;
-  ghiChuNhapHoSo?: string;
-  soQDTachVuAn?: string;
-  ngayTachVuAn?: string;
-  soQDTachHanhVi?: string;
-  ngayTachHanhVi?: string;
-  soQDDinhChiVuAn?: string;
-  ngayDinhChiVuAn?: string;
-  chuyenVuAnChoCQK?: string;
-  soBanAnCoHieuLuc?: string;
-  ngayBanAnCoHieuLuc?: string;
-  canCuTamDinhChiVuAn?: string;
-  canCuPhucHoiVuAn?: string;
+  soQuyetDinhKhoiTo?: string | null;
+  ngayKhoiTo?: string | null;
+  soQDNhapVuAn?: string | null;
+  ngayNhapVuAn?: string | null;
+  ghiChuNhapHoSo?: string | null;
+  soQDTachVuAn?: string | null;
+  ngayTachVuAn?: string | null;
+  soQDTachHanhVi?: string | null;
+  ngayTachHanhVi?: string | null;
+  soQDDinhChiVuAn?: string | null;
+  ngayDinhChiVuAn?: string | null;
+  chuyenVuAnChoCQK?: string | null;
+  soBanAnCoHieuLuc?: string | null;
+  ngayBanAnCoHieuLuc?: string | null;
+  canCuTamDinhChiVuAn?: string | null;
+  canCuPhucHoiVuAn?: string | null;
   // PR-3 — tab "Vụ án TĐC"
-  soQuyetDinhTamDinhChi?: string;
-  ngayTamDinhChi?: string;
+  soQuyetDinhTamDinhChi?: string | null;
+  ngayTamDinhChi?: string | null;
   lyDoTamDinhChiVuAn?: string[];
-  ngayHetThoiHieu?: string;
-  soQuyetDinhPhucHoi?: string;
-  ngayPhucHoi?: string;
-  tdcKhacPhucLyDoBienPhap?: string;
-  tdcKhacPhucBienBan?: string;
+  ngayHetThoiHieu?: string | null;
+  soQuyetDinhPhucHoi?: string | null;
+  ngayPhucHoi?: string | null;
+  tdcKhacPhucLyDoBienPhap?: string | null;
+  tdcKhacPhucBienBan?: string | null;
 
   // ── Consolidate epic: field promoted → cột typed (top-level, backend map→cột) ──
-  tenCungCap?: string;
-  cccdCungCap?: string;
-  sdtCungCap?: string;
+  tenCungCap?: string | null;
+  cccdCungCap?: string | null;
+  sinhNamCungCap?: string | null;
+  sdtCungCap?: string | null;
   diaChiCungCap?: string | null;
-  moTaChiTiet?: string;
-  nguonDon?: string;
-  noiXayRa?: string;
-  nghiVanDoiTuong?: string;
-  nhanXet?: string;
-  phuongThucThuDoan?: string;
-  ketQuaXuLyKhac?: string;
-  soPhieuChuyen?: string;
-  ngayCapCccd?: string;
-  noiCapCccd?: string;
+  moTaChiTiet?: string | null;
+  nguonDon?: string | null;
+  noiXayRa?: string | null;
+  nghiVanDoiTuong?: string | null;
+  nhanXet?: string | null;
+  phuongThucThuDoan?: string | null;
+  ketQuaXuLyKhac?: string | null;
+  soPhieuChuyen?: string | null;
+  ngayCapCccd?: string | null;
+  noiCapCccd?: string | null;
   phanLoaiToiPhamLinhVuc?: string;
   yeuCauBoSung?: string;
   sttCu?: string;
   deXuat?: string;
-  dieuTraVien?: string;
-  reporterDateOfBirth?: string;
+  dieuTraVien?: string | null;
+  reporterDateOfBirth?: string | null;
   reporterDateOfBirthPrecision?: string;
   receiveDate?: string;
   caseClassification?: string;
   tinhTrang?: string;
-  toiDanhBanDau?: string;
+  toiDanhBanDau?: string | null;
 }
+
+/**
+ * Giá trị cho ô hệ cũ: chuỗi đã cắt khoảng trắng, hoặc `null` khi cán bộ XOÁ TRẮNG ô.
+ *
+ * Máy chủ chỉ ghi những khoá CÓ MẶT trong lời gọi, nên bỏ ô rỗng khỏi payload biến thao tác
+ * xoá thành thao tác không có tác dụng: báo thành công, mở lại vẫn thấy giá trị cũ. `null` đi
+ * qua `@IsOptional()` (nó bỏ qua cả null lẫn undefined) và được ghi thành NULL.
+ *
+ * Khai ở tầng mô-đun vì nhiều câu lệnh gán nằm TRƯỚC chỗ khai cũ trong thân hàm — hằng `const`
+ * chưa khởi tạo thì gọi là lỗi lúc chạy, không phải lúc dịch.
+ */
+export const oHeCu = (v: unknown): string | null => {
+  const t = v == null ? '' : String(v).trim();
+  return t === '' ? null : t;
+};
 
 /**
  * v0.37.2.3 — Build POST /cases payload from form state.
@@ -220,7 +236,7 @@ export function buildCreateCasePayload(
     unit: formData.supervisingUnit || null,
     assignedTeamId: formData.assignedTeamId || null,
     investigatorId: formData.handler || null,
-    capDoToiPham: formData.capDoToiPham || undefined,
+    capDoToiPham: formData.capDoToiPham || null,
     caseProvenance: formData.caseProvenance,
     metadata: {
       caseCode: formData.caseCode,
@@ -229,22 +245,22 @@ export function buildCreateCasePayload(
       caseClassification: formData.caseClassification,
       priority: formData.priority,
       description: formData.description,
-      nguonDon: formData.nguonDon || undefined,
-      nhanXet: formData.nhanXet || undefined,
+      nguonDon: formData.nguonDon || null,
+      nhanXet: formData.nhanXet || null,
       biHai: formData.biHai || undefined,
-      noiXayRa: formData.noiXayRa || undefined,
-      nghiVanDoiTuong: formData.nghiVanDoiTuong || undefined,
-      phuongThucThuDoan: formData.phuongThucThuDoan || undefined,
-      ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
-      soPhieuChuyen: formData.soPhieuChuyen || undefined,
-      dieuTraVienText: formData.dieuTraVienText || undefined,
+      noiXayRa: formData.noiXayRa || null,
+      nghiVanDoiTuong: formData.nghiVanDoiTuong || null,
+      phuongThucThuDoan: formData.phuongThucThuDoan || null,
+      ketQuaXuLyKhac: formData.ketQuaXuLyKhac || null,
+      soPhieuChuyen: formData.soPhieuChuyen || null,
+      dieuTraVienText: formData.dieuTraVienText || null,
       sttCu: formData.sttCu || undefined,
-      tenCungCap: formData.tenCungCap || undefined,
-      sinhNamCungCap: formData.sinhNamCungCap || undefined,
-      cccdCungCap: formData.cccdCungCap || undefined,
-      ngayCapCccd: formData.ngayCapCccd || undefined,
-      noiCapCccd: formData.noiCapCccd || undefined,
-      sdtCungCap: formData.sdtCungCap || undefined,
+      tenCungCap: formData.tenCungCap || null,
+      sinhNamCungCap: formData.sinhNamCungCap || null,
+      cccdCungCap: formData.cccdCungCap || null,
+      ngayCapCccd: formData.ngayCapCccd || null,
+      noiCapCccd: formData.noiCapCccd || null,
+      sdtCungCap: formData.sdtCungCap || null,
       tinhTrang: formData.tinhTrang || undefined,
       phanLoaiToiPhamLinhVuc: formData.phanLoaiToiPhamLinhVuc || undefined,
       deXuatXuLy: formData.deXuatXuLy || undefined,
@@ -370,56 +386,56 @@ export function buildCreateCasePayload(
       throw new Error('Đơn vị giao ủy thác là bắt buộc');
     }
     payload.caseType = 'UY_THAC_DIEU_TRA';
-    if (formData.utdt_donViGiao)         payload.donViGiao = formData.utdt_donViGiao;
-    if (formData.utdt_soQuyetDinhUyThac) payload.soQuyetDinhUyThac = formData.utdt_soQuyetDinhUyThac;
+    payload.donViGiao =         oHeCu(formData.utdt_donViGiao);
+    payload.soQuyetDinhUyThac = oHeCu(formData.utdt_soQuyetDinhUyThac);
     // `ngayTiepNhan` và `loaiThongTin` nay do ô ở tab Thông tin làm chủ (tab Ủy thác chỉ
     // hiện lại cùng ô ấy). Ghi đè ở đây sẽ dựng lại đúng cảnh hai chỗ cùng ghi một cột.
 
-    if (formData.utdt_thoiHanUyThac)     payload.thoiHanUyThac = formData.utdt_thoiHanUyThac;
-    if (formData.utdt_loaiUyThac)        payload.loaiUyThac = formData.utdt_loaiUyThac;
-    if (formData.utdt_ketQuaUyThac)      payload.ketQuaUyThac = formData.utdt_ketQuaUyThac;
-    if (formData.utdt_ngayTraKetQua)     payload.ngayTraKetQua = formData.utdt_ngayTraKetQua;
+    payload.thoiHanUyThac =     oHeCu(formData.utdt_thoiHanUyThac);
+    payload.loaiUyThac =        oHeCu(formData.utdt_loaiUyThac);
+    payload.ketQuaUyThac =      oHeCu(formData.utdt_ketQuaUyThac);
+    payload.ngayTraKetQua =     oHeCu(formData.utdt_ngayTraKetQua);
     // Store additional UTDT metadata fields
-    if (formData.utdt_nghiVanDoiTuong)               payload.metadata.nghiVanDoiTuong = formData.utdt_nghiVanDoiTuong;
-    if (formData.utdt_lyDoKhongThucHienDuoc)         payload.metadata.lyDoKhongThucHienDuoc = formData.utdt_lyDoKhongThucHienDuoc;
-    if (formData.utdt_ngayThongBaoKhongThucHien)     payload.metadata.ngayThongBaoKhongThucHien = formData.utdt_ngayThongBaoKhongThucHien;
+    payload.metadata.nghiVanDoiTuong =               oHeCu(formData.utdt_nghiVanDoiTuong);
+    payload.metadata.lyDoKhongThucHienDuoc =         oHeCu(formData.utdt_lyDoKhongThucHienDuoc);
+    payload.metadata.ngayThongBaoKhongThucHien =     oHeCu(formData.utdt_ngayThongBaoKhongThucHien);
   } else if (formData.sourceDocumentNote) {
     payload.sourceDocumentNote = formData.sourceDocumentNote;
   }
 
   // Field-parity: KLĐT + QĐ điều tra lại
-  if (formData.soKLDT)           payload.soKLDT = formData.soKLDT;
-  if (formData.ngayKLDT)         payload.ngayKLDT = formData.ngayKLDT;
-  if (formData.soQDDieuTraLai)   payload.soQDDieuTraLai = formData.soQDDieuTraLai;
-  if (formData.ngayQDDieuTraLai) payload.ngayQDDieuTraLai = formData.ngayQDDieuTraLai;
+  payload.soKLDT =           oHeCu(formData.soKLDT);
+  payload.ngayKLDT =         oHeCu(formData.ngayKLDT);
+  payload.soQDDieuTraLai =   oHeCu(formData.soQDDieuTraLai);
+  payload.ngayQDDieuTraLai = oHeCu(formData.ngayQDDieuTraLai);
   // Field-parity: số QĐ giai đoạn vụ án
-  if (formData.soQuyetDinhKhoiTo)   payload.soQuyetDinhKhoiTo = formData.soQuyetDinhKhoiTo;
-  if (formData.ngayKhoiTo)          payload.ngayKhoiTo = formData.ngayKhoiTo;
-  if (formData.soQDNhapVuAn)        payload.soQDNhapVuAn = formData.soQDNhapVuAn;
-  if (formData.ngayNhapVuAn)        payload.ngayNhapVuAn = formData.ngayNhapVuAn;
-  if (formData.ghiChuNhapHoSo)      payload.ghiChuNhapHoSo = formData.ghiChuNhapHoSo;
-  if (formData.soQDTachVuAn)        payload.soQDTachVuAn = formData.soQDTachVuAn;
-  if (formData.ngayTachVuAn)        payload.ngayTachVuAn = formData.ngayTachVuAn;
-  if (formData.soQDTachHanhVi)      payload.soQDTachHanhVi = formData.soQDTachHanhVi;
-  if (formData.ngayTachHanhVi)      payload.ngayTachHanhVi = formData.ngayTachHanhVi;
-  if (formData.soQDDinhChiVuAn)     payload.soQDDinhChiVuAn = formData.soQDDinhChiVuAn;
-  if (formData.ngayDinhChiVuAn)     payload.ngayDinhChiVuAn = formData.ngayDinhChiVuAn;
-  if (formData.chuyenVuAnChoCQK)    payload.chuyenVuAnChoCQK = formData.chuyenVuAnChoCQK;
-  if (formData.soBanAnCoHieuLuc)    payload.soBanAnCoHieuLuc = formData.soBanAnCoHieuLuc;
-  if (formData.ngayBanAnCoHieuLuc)  payload.ngayBanAnCoHieuLuc = formData.ngayBanAnCoHieuLuc;
-  if (formData.canCuTamDinhChiVuAn) payload.canCuTamDinhChiVuAn = formData.canCuTamDinhChiVuAn;
-  if (formData.canCuPhucHoiVuAn)    payload.canCuPhucHoiVuAn = formData.canCuPhucHoiVuAn;
+  payload.soQuyetDinhKhoiTo =   oHeCu(formData.soQuyetDinhKhoiTo);
+  payload.ngayKhoiTo =          oHeCu(formData.ngayKhoiTo);
+  payload.soQDNhapVuAn =        oHeCu(formData.soQDNhapVuAn);
+  payload.ngayNhapVuAn =        oHeCu(formData.ngayNhapVuAn);
+  payload.ghiChuNhapHoSo =      oHeCu(formData.ghiChuNhapHoSo);
+  payload.soQDTachVuAn =        oHeCu(formData.soQDTachVuAn);
+  payload.ngayTachVuAn =        oHeCu(formData.ngayTachVuAn);
+  payload.soQDTachHanhVi =      oHeCu(formData.soQDTachHanhVi);
+  payload.ngayTachHanhVi =      oHeCu(formData.ngayTachHanhVi);
+  payload.soQDDinhChiVuAn =     oHeCu(formData.soQDDinhChiVuAn);
+  payload.ngayDinhChiVuAn =     oHeCu(formData.ngayDinhChiVuAn);
+  payload.chuyenVuAnChoCQK =    oHeCu(formData.chuyenVuAnChoCQK);
+  payload.soBanAnCoHieuLuc =    oHeCu(formData.soBanAnCoHieuLuc);
+  payload.ngayBanAnCoHieuLuc =  oHeCu(formData.ngayBanAnCoHieuLuc);
+  payload.canCuTamDinhChiVuAn = oHeCu(formData.canCuTamDinhChiVuAn);
+  payload.canCuPhucHoiVuAn =    oHeCu(formData.canCuPhucHoiVuAn);
   // PR-3 — tab "Vụ án TĐC" (chỉ gửi khi có giá trị; tránh ghi đè workflow auto-set)
-  if (formData.soQuyetDinhTamDinhChi)   payload.soQuyetDinhTamDinhChi = formData.soQuyetDinhTamDinhChi;
-  if (formData.ngayTamDinhChi)          payload.ngayTamDinhChi = formData.ngayTamDinhChi;
+  payload.soQuyetDinhTamDinhChi =   oHeCu(formData.soQuyetDinhTamDinhChi);
+  payload.ngayTamDinhChi =          oHeCu(formData.ngayTamDinhChi);
   if (formData.lyDoTamDinhChiVuAn && formData.lyDoTamDinhChiVuAn.length > 0) payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
-  if (formData.ngayHetThoiHieu)         payload.ngayHetThoiHieu = formData.ngayHetThoiHieu;
-  if (formData.soQuyetDinhPhucHoi)      payload.soQuyetDinhPhucHoi = formData.soQuyetDinhPhucHoi;
-  if (formData.ngayPhucHoi)             payload.ngayPhucHoi = formData.ngayPhucHoi;
-  if (formData.tdcKhacPhucLyDoBienPhap) payload.tdcKhacPhucLyDoBienPhap = formData.tdcKhacPhucLyDoBienPhap;
-  if (formData.tdcKhacPhucBienBan)      payload.tdcKhacPhucBienBan = formData.tdcKhacPhucBienBan;
+  payload.ngayHetThoiHieu =         oHeCu(formData.ngayHetThoiHieu);
+  payload.soQuyetDinhPhucHoi =      oHeCu(formData.soQuyetDinhPhucHoi);
+  payload.ngayPhucHoi =             oHeCu(formData.ngayPhucHoi);
+  payload.tdcKhacPhucLyDoBienPhap = oHeCu(formData.tdcKhacPhucLyDoBienPhap);
+  payload.tdcKhacPhucBienBan =      oHeCu(formData.tdcKhacPhucBienBan);
   // PR-M2: ghi chú tự do + tội danh khác (multi)
-  if (formData.ghiChuKhac)                       payload.ghiChuKhac = formData.ghiChuKhac;
+  payload.ghiChuKhac =                       oHeCu(formData.ghiChuKhac);
   if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
@@ -507,50 +523,50 @@ export function buildCreateCasePayload(
     return undefined;
   };
 
-  /**
-   * Giá trị cho ô hệ cũ: chuỗi đã cắt khoảng trắng, hoặc `null` khi cán bộ XOÁ TRẮNG ô.
-   *
-   * KHÔNG dùng `firstStr` ở đây: nó trả `undefined` cho ô rỗng, mà máy chủ chỉ ghi những
-   * khoá CÓ MẶT trong lời gọi — nên xoá trắng một ô rồi bấm Lưu sẽ báo thành công trong khi
-   * giá trị cũ vẫn nằm nguyên dưới cơ sở dữ liệu. `null` đi qua `@IsOptional()` (nó bỏ qua
-   * cả null lẫn undefined) và được hàm ánh xạ ghi thành NULL.
-   */
-  const oHeCu = (v: unknown): string | null => {
-    const t = v == null ? '' : String(v).trim();
-    return t === '' ? null : t;
-  };
-  payload.tenCungCap = firstStr(formData.reporter, formData.tenCungCap);
-  payload.cccdCungCap = firstStr(formData.reporterIdNumber, formData.cccdCungCap);
-  payload.sdtCungCap = firstStr(parsePhone(formData.reporterPhone), formData.sdtCungCap);
+  // MỘT CỘT — MỘT Ô. Ba cột dưới đây trước nay có HAI ô cùng ghi: ô hệ cũ trong tab Thông
+  // tin và ô "Người tố cáo / Báo tin" trong khối Bổ sung hệ mới. Vì màn Sửa nạp cùng một
+  // cột vào cả hai ô, xoá trắng ô hệ cũ thì ô kia vẫn giữ giá trị cũ và gửi lại nó — thao
+  // tác xoá không có tác dụng. Đã gỡ ba ô trùng khỏi khối Bổ sung hệ mới (xem tabs.tsx).
+  payload.tenCungCap = oHeCu(formData.tenCungCap);
+  payload.cccdCungCap = oHeCu(formData.cccdCungCap);
+  payload.sdtCungCap = oHeCu(parsePhone(formData.sdtCungCap) || formData.sdtCungCap);
   // MỘT CỘT — MỘT Ô. Ô "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại" ở tab Thông tin
   // là chủ cột `diaChiCungCap`; ô "Địa chỉ thường trú" trong khối Bổ sung hệ mới đã gỡ đi
   // (xem tabs.tsx). Trước đây hai ô cùng ghi cột này và ô hệ cũ luôn thắng, nên ô kia trở
   // thành ô gõ vào không có tác dụng — tệ hơn là không có ô.
   payload.diaChiCungCap = oHeCu(formData.diaChiCungCap);
-  payload.moTaChiTiet = firstStr(formData.description);
-  payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress);
-  payload.nguonDon = firstStr(formData.nguonDon);
-  payload.nghiVanDoiTuong = firstStr(formData.nghiVanDoiTuong);
-  payload.nhanXet = firstStr(formData.nhanXet);
-  payload.phuongThucThuDoan = firstStr(formData.phuongThucThuDoan);
-  payload.ketQuaXuLyKhac = firstStr(formData.ketQuaXuLyKhac);
-  payload.soPhieuChuyen = firstStr(formData.soPhieuChuyen);
-  payload.ngayCapCccd = firstStr(formData.ngayCapCccd);
-  payload.noiCapCccd = firstStr(formData.noiCapCccd);
+  payload.moTaChiTiet = firstStr(formData.description) ?? null;
+  payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress) ?? null;
+  payload.nguonDon = firstStr(formData.nguonDon) ?? null;
+  payload.nghiVanDoiTuong = firstStr(formData.nghiVanDoiTuong) ?? null;
+  payload.nhanXet = firstStr(formData.nhanXet) ?? null;
+  payload.phuongThucThuDoan = firstStr(formData.phuongThucThuDoan) ?? null;
+  payload.ketQuaXuLyKhac = firstStr(formData.ketQuaXuLyKhac) ?? null;
+  payload.soPhieuChuyen = firstStr(formData.soPhieuChuyen) ?? null;
+  payload.ngayCapCccd = firstStr(formData.ngayCapCccd) ?? null;
+  payload.noiCapCccd = firstStr(formData.noiCapCccd) ?? null;
   payload.phanLoaiToiPhamLinhVuc = firstStr(formData.phanLoaiToiPhamLinhVuc);
   payload.yeuCauBoSung = firstStr(formData.yeuCauBoSung);
   payload.sttCu = firstStr(formData.sttCu);
   payload.deXuat = firstStr(formData.deXuatXuLy);
-  payload.dieuTraVien = firstStr(formData.dieuTraVienText); // R7: text hệ cũ; handler(FK) riêng
+  payload.dieuTraVien = firstStr(formData.dieuTraVienText) ?? null; // R7: text hệ cũ; handler(FK) riêng
   payload.receiveDate = firstStr(formData.receiveDate);
   payload.caseClassification = firstStr(formData.caseClassification);
   payload.tinhTrang = firstStr(formData.tinhTrang);
-  payload.toiDanhBanDau = firstStr(formData.toiDanhBanDau);
+  payload.toiDanhBanDau = firstStr(formData.toiDanhBanDau) ?? null;
   // reporterDateOfBirth: merge native date + sinhNamCungCap year-only → kiểu native (Date).
   // GIỮ ngữ nghĩa "năm-only": input là date (YYYY-MM-DD) không diễn đạt được năm-only, nên khi
   // load năm-only ta hiện YYYY-01-01 + precision='year'. Round-trip: nếu value vẫn là YYYY-01-01
   // và precision đã load = 'year' → giữ 'year' (không tự nâng thành 'date' làm sai nghĩa pháp lý).
+  // Cột `sinhNamCungCap` có thật trong lược đồ nhưng form trước nay chỉ ghi vào metadata, nên
+  // giá trị di trú nằm trong cột luôn thắng lúc nạp lại: cán bộ sửa ô Sinh năm, lưu, mở lại
+  // vẫn thấy con số cũ. Ghi thẳng vào cột.
+  payload.sinhNamCungCap = oHeCu(formData.sinhNamCungCap);
+  // `reporterDateOfBirth` là cột riêng của ô "Ngày sinh". Ô Sinh năm chỉ NÂNG năm-only lên
+  // thành ngày khi ô kia còn trống — không phải hai ô cùng ghi một cột.
   const dobRaw = firstStr(formData.reporterDateOfBirth, formData.sinhNamCungCap);
+  // Xoá trắng ô Sinh năm phải xoá được: bỏ khoá khỏi lời gọi thì máy chủ giữ nguyên ngày cũ.
+  if (!dobRaw) payload.reporterDateOfBirth = null;
   if (dobRaw) {
     if (/^\d{4}$/.test(dobRaw)) {
       payload.reporterDateOfBirth = `${dobRaw}-01-01`;
@@ -618,7 +634,7 @@ export function buildCreateCasePayload(
   payload.loaiThongTin = oHeCu(formData.loaiThongTin);
   payload.ngayPhieuChuyen = oHeCu(formData.ngayPhieuChuyen);
   payload.ngayTiepNhan = oHeCu(formData.ngayTiepNhanNguonTin);
-  payload.thoiHanUyThac = firstStr(formData.utdt_thoiHanUyThac);
+  payload.thoiHanUyThac = firstStr(formData.utdt_thoiHanUyThac) ?? null;
   payload.doVatTaiLieuKemTheo = oHeCu(formData.doVatTaiLieuKemTheo);
   payload.ngayVietDon = oHeCu(formData.ngayVietDon);
   payload.ghiChuTrungDon = oHeCu(formData.ghiChuTrungDon);
@@ -626,14 +642,16 @@ export function buildCreateCasePayload(
   payload.lanhDaoToTung = oHeCu(formData.lanhDaoToTung);
   payload.laCongNgheCao = formData.laCongNgheCao === true;
 
-  // CHỈ gửi khi ô có nội dung. Gửi `false` mỗi lần lưu sẽ biến cột `Boolean?` từ NULL
-  // ("chưa xác định") thành `false` cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông
-  // tin mà không ai yêu cầu.
+  // Một ô, hai cột, hai yêu cầu ngược chiều.
+  //
+  // `baoCaoBanGiamDoc` là `Boolean?`: gửi `false` mỗi lần lưu sẽ biến NULL ("chưa xác định")
+  // thành `false` cho mọi hồ sơ chưa kịp bù cột chữ — tự tay xoá thông tin mà không ai yêu
+  // cầu. Nên ô trống thì KHÔNG nhắc tới cột ấy.
+  //
+  // `baoCaoBanGiamDocText` là ô chữ cán bộ gõ, nên phải xoá được: ô trống gửi `null`.
   const baoCao = firstStr(formData.baoCaoBanGiamDoc);
-  if (baoCao != null) {
-    payload.baoCaoBanGiamDocText = baoCao;
-    payload.baoCaoBanGiamDoc = true;
-  }
+  payload.baoCaoBanGiamDocText = baoCao ?? null;
+  if (baoCao != null) payload.baoCaoBanGiamDoc = true;
 
   // Gộp trường hệ cũ động (editable): field form/utdt THẮNG (ghi sau); giữ phần còn lại của legacy.
   // Backend còn MERGE lần nữa với metadata trong DB → không mất field nào.

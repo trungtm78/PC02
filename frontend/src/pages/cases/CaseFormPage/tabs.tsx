@@ -2,8 +2,6 @@ import {
   Hash,
   Calendar,
   Clock,
-  User,
-  Phone,
   MapPin,
   Users,
   Package,
@@ -24,7 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
-import { FormInput, FormSelect, FormTextarea, FormCurrency, FormPhone } from "@/components/form";
+import { FormInput, FormSelect, FormTextarea, FormCurrency } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { CatalogSelect } from "@/components/CatalogSelect";
 import { CATALOG_LEGAL } from "@/shared/catalog/catalog.generated";
@@ -484,37 +482,15 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
       </Card>
 
       {/* ── Nhóm 4: Người tố cáo/báo tin ── */}
+      {/*
+        MỘT CỘT — MỘT Ô. Năm ô đã gỡ khỏi khối này vì tab Thông tin (bố cục hệ cũ) đã có ô
+        chủ cho đúng cột ấy: Họ và tên · Số CCCD/CMND · Ngày cấp CCCD · Nơi cấp CCCD · Số
+        điện thoại. Màn Sửa nạp cùng một cột vào cả hai ô, nên để cả hai thì xoá trắng ô hệ
+        cũ xong ô kia gửi lại giá trị cũ — cán bộ xoá mà không xoá được.
+      */}
       <Card>
         <CardHeader title="Người tố cáo / Báo tin" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormInput
-            label="Họ và tên"
-            icon={<User className="w-4 h-4" />}
-            value={formData.reporter}
-            onChange={(v) => update("reporter", v)}
-            placeholder="Họ và tên người báo tin"
-            data-testid="input-reporter-name"
-          />
-          <FormInput
-            label="Số CCCD/CMND"
-            icon={<Hash className="w-4 h-4" />}
-            value={formData.reporterIdNumber}
-            onChange={(v) => update("reporterIdNumber", v)}
-            placeholder="Số CCCD/CMND"
-          />
-          <FormInput
-            label="Ngày cấp CCCD"
-            type="date"
-            icon={<Calendar className="w-4 h-4" />}
-            value={formData.ngayCapCccd}
-            onChange={(v) => update("ngayCapCccd", v)}
-          />
-          <FormInput
-            label="Nơi cấp CCCD"
-            value={formData.noiCapCccd}
-            onChange={(v) => update("noiCapCccd", v)}
-            placeholder="Nơi cấp CCCD"
-          />
           <FormInput
             label="Ngày sinh"
             type="date"
@@ -532,13 +508,6 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
               { value: "khac", label: "Khác" },
             ]}
             placeholder="-- Chọn giới tính --"
-          />
-          <FormPhone
-            label="Số điện thoại"
-            icon={<Phone className="w-4 h-4" />}
-            value={formData.reporterPhone}
-            onChange={(v) => update("reporterPhone", v)}
-            placeholder="09xx xxx xxx"
           />
           <FormInput
             label="Email"

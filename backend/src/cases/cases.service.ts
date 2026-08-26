@@ -951,7 +951,7 @@ export class CasesService {
       ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
-      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: new Date(dto.ngayKhoiTo) }),
+      ...(dto.ngayKhoiTo !== undefined && { ngayKhoiTo: dto.ngayKhoiTo ? new Date(dto.ngayKhoiTo) : null }),
       // ── Field-parity: số QĐ giai đoạn vụ án ──
       ...(dto.soQuyetDinhKhoiTo !== undefined && { soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo }),
       ...(dto.soQDNhapVuAn !== undefined && { soQDNhapVuAn: dto.soQDNhapVuAn }),
@@ -992,11 +992,11 @@ export class CasesService {
       ...(dto.caseType !== undefined && { caseType: dto.caseType }),
       ...(dto.donViGiao !== undefined && { donViGiao: dto.donViGiao }),
       ...(dto.soQuyetDinhUyThac !== undefined && { soQuyetDinhUyThac: dto.soQuyetDinhUyThac }),
-      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: new Date(dto.ngayTiepNhan) }),
-      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: new Date(dto.thoiHanUyThac) }),
+      ...(dto.ngayTiepNhan !== undefined && { ngayTiepNhan: dto.ngayTiepNhan ? new Date(dto.ngayTiepNhan) : null }),
+      ...(dto.thoiHanUyThac !== undefined && { thoiHanUyThac: dto.thoiHanUyThac ? new Date(dto.thoiHanUyThac) : null }),
       ...(dto.loaiUyThac !== undefined && { loaiUyThac: dto.loaiUyThac }),
       ...(dto.ketQuaUyThac !== undefined && { ketQuaUyThac: dto.ketQuaUyThac }),
-      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: new Date(dto.ngayTraKetQua) }),
+      ...(dto.ngayTraKetQua !== undefined && { ngayTraKetQua: dto.ngayTraKetQua ? new Date(dto.ngayTraKetQua) : null }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
       // ── Field-parity intake hệ cũ → cột typed (P1: trước đây RỚT ở CREATE — chỉ UPDATE có) ──
       ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
