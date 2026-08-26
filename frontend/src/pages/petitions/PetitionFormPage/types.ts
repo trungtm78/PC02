@@ -51,6 +51,35 @@ export interface PetitionFormData {
   // Thẩm quyền & đơn vị xử lý
   thuocThamQuyen: boolean;
   donViXuLy: string;
+
+  // ── Cột hệ cũ thêm 26/08/2026 (xem PARITY.petition) ──
+  baoCaoBanGiamDocText: string;
+  tinhTrang: string;
+  soQDPhanCongNguonTin: string;
+  ngayQDPhanCongNguonTin: string;
+  soQDTamDinhChiNguonTin: string;
+  ngayQDTamDinhChiNguonTin: string;
+  canCuTamDinhChiNguonTin: string;
+  soPhucHoiNguonTin: string;
+  ngayPhucHoiNguonTin: string;
+  // ── Cột parity vốn chỉ hiện ở panel cuối trang, nay có ô trong tab ──
+  ghiChuKhac: string;
+  phanLoaiToiPhamLinhVuc: string;
+  yeuCauBoSung: string;
+  soTienBiThietHai: string;
+  soLuongBiHai: string;
+  sttCu: string;
+
+  /**
+   * Ô hệ cũ CHƯA có cột riêng trên Đơn thư — giữ trong `metadata` của máy chủ.
+   *
+   * Hệ cũ dùng chung một form cho Đơn thư, Vụ việc và Vụ án, nên bố cục có cả ô của giai đoạn
+   * khởi tố / tạm đình chỉ vụ án. Đơn thư không có cột cho chúng, nhưng cán bộ vẫn nhìn thấy ô
+   * đúng chỗ như hệ cũ và giá trị vẫn được lưu — chỉ là lưu ở `metadata`.
+   *
+   * Dùng nhánh lồng để `nestedAccessor` đọc/ghi được, y như `statistic.` của Vụ án.
+   */
+  legacyExtra: Record<string, string | string[] | boolean>;
 }
 
 export const INITIAL_PETITION_FORM: PetitionFormData = {
@@ -70,4 +99,11 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
   thuocThamQuyen: true, donViXuLy: "",
+  baoCaoBanGiamDocText: "", tinhTrang: "",
+  soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "",
+  soQDTamDinhChiNguonTin: "", ngayQDTamDinhChiNguonTin: "",
+  canCuTamDinhChiNguonTin: "", soPhucHoiNguonTin: "", ngayPhucHoiNguonTin: "",
+  ghiChuKhac: "", phanLoaiToiPhamLinhVuc: "", yeuCauBoSung: "",
+  soTienBiThietHai: "", soLuongBiHai: "", sttCu: "",
+  legacyExtra: {},
 };

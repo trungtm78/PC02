@@ -242,6 +242,24 @@ export function PetitionFormPage() {
           donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
           thuocThamQuyen: (d.thuocThamQuyen as boolean) ?? true,
           donViXuLy: (d.donViXuLy as string) ?? "",
+          // ── Cột hệ cũ thêm 26/08/2026 ──
+          baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",
+          tinhTrang: (d.tinhTrang as string) ?? "",
+          soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
+          ngayQDPhanCongNguonTin: toDateInput(d.ngayQDPhanCongNguonTin as string | null | undefined),
+          soQDTamDinhChiNguonTin: (d.soQDTamDinhChiNguonTin as string) ?? "",
+          ngayQDTamDinhChiNguonTin: toDateInput(d.ngayQDTamDinhChiNguonTin as string | null | undefined),
+          canCuTamDinhChiNguonTin: (d.canCuTamDinhChiNguonTin as string) ?? "",
+          soPhucHoiNguonTin: (d.soPhucHoiNguonTin as string) ?? "",
+          ngayPhucHoiNguonTin: toDateInput(d.ngayPhucHoiNguonTin as string | null | undefined),
+          ghiChuKhac: (d.ghiChuKhac as string) ?? "",
+          phanLoaiToiPhamLinhVuc: (d.phanLoaiToiPhamLinhVuc as string) ?? "",
+          yeuCauBoSung: (d.yeuCauBoSung as string) ?? "",
+          soTienBiThietHai: d.soTienBiThietHai != null ? String(d.soTienBiThietHai) : "",
+          soLuongBiHai: d.soLuongBiHai != null ? String(d.soLuongBiHai) : "",
+          sttCu: (d.sttCu as string) ?? "",
+          // Ô hệ cũ chưa có cột riêng — nằm trong metadata của máy chủ.
+          legacyExtra: ((d.metadata ?? {}) as Record<string, string | string[] | boolean>),
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button
