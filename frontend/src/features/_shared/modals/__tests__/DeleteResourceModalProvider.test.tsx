@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
 import {
   DeleteResourceModalProvider,
   useDeleteResourceModal,
@@ -67,11 +67,20 @@ describe('DeleteResourceModalProvider', () => {
       </DeleteResourceModalProvider>,
     );
     act(() => screen.getByTestId('open-delete').click());
+    // Máy chủ đòi lý do 10-500 ký tự cho vụ án (`DeleteCaseDto`). Ca kiểm này trước đây chốt
+    // lời gọi KHÔNG kèm thân — đúng cái hợp đồng khiến mọi lần xóa trả 400 trên máy thật.
+    act(() => {
+      fireEvent.change(screen.getByTestId('input-ly-do-xoa'), {
+        target: { value: 'Hồ sơ nhập trùng, đã có bản chính thức' },
+      });
+    });
     await act(async () => {
       screen.getByTestId('btn-confirm-delete').click();
     });
     await waitFor(() => {
-      expect(deleteMock).toHaveBeenCalledWith('/cases/C8');
+      expect(deleteMock).toHaveBeenCalledWith('/cases/C8', {
+        data: { reason: 'Hồ sơ nhập trùng, đã có bản chính thức' },
+      });
       expect(onSuccess).toHaveBeenCalled();
     });
   });

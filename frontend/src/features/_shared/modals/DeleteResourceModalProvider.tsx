@@ -48,27 +48,52 @@ export interface DeleteResourceModalApi {
 
 const DeleteResourceContext = createContext<DeleteResourceModalApi | null>(null);
 
+/**
+ * Tài nguyên mà máy chủ BẮT BUỘC kèm lý do khi xóa.
+ *
+ * `DeleteCaseDto` và `DeleteIncidentDto` đòi `reason` dài 10–500 ký tự. Hộp thoại trước nay
+ * gửi lệnh xóa không kèm thân nên mọi lần xóa vụ án đều trả 400: cán bộ bấm Xóa, hộp thoại
+ * đóng lại như đã xong, hồ sơ vẫn còn nguyên trong danh sách.
+ */
+const CAN_LY_DO: ReadonlySet<DeleteResourceType> = new Set(['cases', 'incidents']);
+
+/** Cùng ngưỡng với DTO máy chủ — chặn tại chỗ thay vì để máy chủ trả 400. */
+const LY_DO_TOI_THIEU = 10;
+const LY_DO_TOI_DA = 500;
+
 export function DeleteResourceModalProvider({ children }: { children: ReactNode }) {
   const [args, setArgs] = useState<DeleteResourceArgs | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lyDo, setLyDo] = useState('');
+
+  const canLyDo = args ? CAN_LY_DO.has(args.resourceType) : false;
+  const lyDoHopLe =
+    lyDo.trim().length >= LY_DO_TOI_THIEU && lyDo.trim().length <= LY_DO_TOI_DA;
 
   const open = useCallback((next: DeleteResourceArgs) => {
     setArgs(next);
     setError(null);
+    setLyDo('');
   }, []);
 
   const close = useCallback(() => {
     setArgs(null);
     setError(null);
+    setLyDo('');
   }, []);
 
   const confirm = useCallback(async () => {
     if (!args) return;
+    const duong = `/${args.resourceType}/${args.recordId}`;
     setLoading(true);
     setError(null);
     try {
-      await api.delete(`/${args.resourceType}/${args.recordId}`);
+      if (CAN_LY_DO.has(args.resourceType)) {
+        await api.delete(duong, { data: { reason: lyDo.trim() } });
+      } else {
+        await api.delete(duong);
+      }
       args.onSuccess?.();
       close();
     } catch (e) {
@@ -79,7 +104,7 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
     } finally {
       setLoading(false);
     }
-  }, [args, close]);
+  }, [args, close, lyDo]);
 
   const apiObj = useMemo<DeleteResourceModalApi>(() => ({ open }), [open]);
 
@@ -103,8 +128,33 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
                   <strong>{args.recordLabel ?? args.recordId}</strong>?
                 </p>
                 <p className="mt-2 text-xs text-red-600">
-                  Hành động này không thể hoàn tác.
+                  {canLyDo
+                    ? 'Hồ sơ sẽ bị gỡ khỏi danh sách. Lý do được ghi vào nhật ký.'
+                    : 'Hành động này không thể hoàn tác.'}
                 </p>
+                {canLyDo && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="ly-do-xoa"
+                      className="block text-sm font-medium text-slate-700"
+                    >
+                      Lý do xóa <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="ly-do-xoa"
+                      data-testid="input-ly-do-xoa"
+                      rows={3}
+                      value={lyDo}
+                      maxLength={LY_DO_TOI_DA}
+                      onChange={(e) => setLyDo(e.target.value)}
+                      placeholder="Vì sao gỡ hồ sơ này? (ít nhất 10 ký tự)"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {lyDo.trim().length}/{LY_DO_TOI_DA} ký tự — tối thiểu {LY_DO_TOI_THIEU}.
+                    </p>
+                  </div>
+                )}
                 {error && (
                   <p
                     role="alert"
@@ -130,7 +180,7 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
                 data-testid="btn-confirm-delete"
                 className={`${BTN_DANGER} ${A11Y_FOCUS_RING} inline-flex items-center gap-1.5`}
                 onClick={confirm}
-                disabled={loading}
+                disabled={loading || (canLyDo && !lyDoHopLe)}
               >
                 <Trash2 className="w-4 h-4" />
                 {loading ? 'Đang xóa...' : 'Xóa'}

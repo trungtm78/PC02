@@ -16,6 +16,20 @@ interface CommonOptions<TRow extends { id: string }> {
  *
  * Per Claude eng review #4: -150 LOC per resource registration.
  */
+/**
+ * Nhãn hiện trong hộp thoại xác nhận xóa: thứ cán bộ nhìn thấy trên màn hình, không phải mã
+ * nội bộ. Mọi danh sách đều có ít nhất một trong ba khoá này; không có khoá nào thì để trống
+ * và hộp thoại tự lùi về mã nội bộ.
+ */
+function nhanBanGhi(row: { id: string }): string | undefined {
+  const r = row as Record<string, unknown>;
+  for (const k of ['caseCode', 'code', 'stt', 'name', 'fullName', 'title'] as const) {
+    const v = r[k];
+    if (typeof v === 'string' && v.trim() !== '') return v.trim();
+  }
+  return undefined;
+}
+
 export function commonResourceActions<TRow extends { id: string }>(
   opts: CommonOptions<TRow>,
 ): RowAction<TRow>[] {
@@ -56,6 +70,9 @@ export function commonResourceActions<TRow extends { id: string }>(
         ctx.deleteModal.open({
           resourceType,
           recordId: row.id,
+          // Không có nhãn thì hộp thoại hỏi "Bạn có chắc muốn xóa cmt9e76mg0000xtn8dtf62gqt?"
+          // — mã nội bộ, cán bộ không đối chiếu được với hồ sơ nào. Ưu tiên mã hồ sơ, rồi tên.
+          recordLabel: nhanBanGhi(row),
         }),
       testid: 'btn-delete',
     });
