@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { PARITY, PARITY_METADATA_ONLY, type Entity } from './field-parity.def';
+import {
+  PARITY,
+  PARITY_BANG_CHUNG_DO_TAY,
+  PARITY_METADATA_ONLY,
+  type Entity,
+} from './field-parity.def';
 import { O_HE_CU_TREN_FORM } from '../cases/legacy-form-parity.mapper';
 
 /**
@@ -61,7 +66,10 @@ describe('GATE field-parity — không sót dữ liệu', () => {
     for (const e of ['petition', 'incident', 'case'] as Entity[]) {
       for (const c of PARITY[e]) {
         if (c.exists || c.formOnly) continue;
-        if (!needSet.has(`${e}/${c.field}`)) extra.push(`${e}/${c.field}`);
+        // Ma trận sinh tự động có hai chỗ phân loại sai (xem PARITY_BANG_CHUNG_DO_TAY).
+        // Bằng chứng đo tay trên máy chạy cũng được tính — cột mới VẪN phải có bằng chứng.
+        const khoa = `${e}/${c.field}`;
+        if (!needSet.has(khoa) && !(khoa in PARITY_BANG_CHUNG_DO_TAY)) extra.push(khoa);
       }
     }
     expect(extra).toEqual([]);
