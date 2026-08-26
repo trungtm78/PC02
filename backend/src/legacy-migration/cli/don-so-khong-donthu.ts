@@ -1,0 +1,130 @@
+/**
+ * don-so-khong-donthu.ts — trả ô số bị chuyển nhầm thành 0 về TRỐNG.
+ *
+ * VÌ SAO: hệ cũ tự điền `"0"` vào ô số để trống, và bộ chuyển dữ liệu trước 26/08/2026 đọc nó
+ * thành con số. Đo trên máy chạy: 30.089 đơn thư ghi `soTienBiThietHai = 0` và 30.956 đơn ghi
+ * `soLuongBiHai = 0`, trong khi hệ cũ chỉ 1.447 và 599 hồ sơ mang số thật khác 0.
+ *
+ * Trong hồ sơ pháp lý, "thiệt hại 0 đồng" là một KHẲNG ĐỊNH còn "chưa có số liệu" là chưa
+ * biết — báo cáo thống kê đang cộng nhầm hai nhóm ấy. Anh chốt ngày 26/08/2026: coi là chưa
+ * có số liệu.
+ *
+ * KHÔNG dọn theo kiểu "hễ bằng 0 thì xoá": mỗi hồ sơ đều soi lại bản gốc trong `legacyRaw`.
+ * Cán bộ gõ "0 người" là chủ ý ghi số không — giá trị ấy giữ nguyên.
+ *
+ * AN TOÀN:
+ *   - Chỉ đụng hai cột `soTienBiThietHai` và `soLuongBiHai` của bảng `petitions`.
+ *   - Chỉ đụng hồ sơ CÓ `legacyRaw` — hồ sơ nhập tay không nằm trong phạm vi.
+ *   - `--dry` (bắt buộc chạy trước) chỉ đếm, không ghi.
+ *   - Đếm riêng số ô DỌN và số ô GIỮ, để đối chiếu với số đo trước khi chạy — lệch nhiều
+ *     nghĩa là phép chọn sai, dừng lại thay vì chạy tiếp.
+ *
+ * LÙI LẠI: bằng bản `pg_dump` chụp ngay trước khi chạy. Thao tác này đổi dữ liệu trên 30
+ * nghìn hồ sơ nên phải có bản sao RIÊNG cho nó, không dùng chung bản sao trước lúc deploy.
+ *
+ * Dùng: set -a && source .env && set +a
+ *       ts-node src/legacy-migration/cli/don-so-khong-donthu.ts --dry
+ *       ts-node src/legacy-migration/cli/don-so-khong-donthu.ts
+ */
+import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { laSoKhongDoChuyenNham } from '../don-so-khong.util';
+
+/** Cột số của Đơn thư và khoá gốc tương ứng ở hệ cũ. */
+const CAP_COT_KHOA = [
+  { col: 'soTienBiThietHai', field: 'so_tien_bi_thiet_hai' },
+  { col: 'soLuongBiHai', field: 'so_luong_bi_hai' },
+] as const;
+
+const BATCH = 1000;
+
+interface KetQua {
+  quet: number;
+  hoSoSua: number;
+  oDon: Record<string, number>;
+  oGiuVicoDonVi: Record<string, number>;
+}
+
+export async function donSoKhong(prisma: PrismaClient, dry: boolean): Promise<KetQua> {
+  const kq: KetQua = { quet: 0, hoSoSua: 0, oDon: {}, oGiuVicoDonVi: {} };
+  for (const { col } of CAP_COT_KHOA) {
+    kq.oDon[col] = 0;
+    kq.oGiuVicoDonVi[col] = 0;
+  }
+
+  let cursor: string | undefined;
+  for (;;) {
+    const rows = await prisma.petition.findMany({
+      where: {
+        // Prisma đòi `Prisma.DbNull` cho cột JSON, không nhận `null` trần.
+        NOT: { legacyRaw: { equals: Prisma.DbNull } },
+        OR: [{ soTienBiThietHai: 0 }, { soLuongBiHai: 0 }],
+      },
+      select: { id: true, legacyRaw: true, soTienBiThietHai: true, soLuongBiHai: true },
+      orderBy: { id: 'asc' },
+      take: BATCH,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      kq.quet++;
+      const goc = (row.legacyRaw ?? {}) as Record<string, unknown>;
+      const data: Record<string, null> = {};
+
+      for (const { col, field } of CAP_COT_KHOA) {
+        const giaTriCot = (row as unknown as Record<string, unknown>)[col];
+        if (giaTriCot === null || Number(giaTriCot) !== 0) continue;
+        if (laSoKhongDoChuyenNham(giaTriCot, goc[field])) {
+          data[col] = null;
+          kq.oDon[col]++;
+        } else {
+          kq.oGiuVicoDonVi[col]++;
+        }
+      }
+
+      if (Object.keys(data).length === 0) continue;
+      kq.hoSoSua++;
+      if (!dry) await prisma.petition.update({ where: { id: row.id }, data });
+    }
+
+    cursor = rows[rows.length - 1].id;
+    if (kq.quet % 5000 < BATCH) {
+      console.log(`  quét ${kq.quet}, hồ sơ sửa ${kq.hoSoSua}${dry ? ' (THỬ)' : ''}`);
+    }
+    if (rows.length < BATCH) break;
+  }
+  return kq;
+}
+
+async function main(): Promise<void> {
+  const dry = process.argv.includes('--dry');
+  if (!process.env['DATABASE_URL']) {
+    console.error('Thiếu DATABASE_URL. Chạy: set -a && source .env && set +a');
+    process.exit(1);
+  }
+
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+  });
+  try {
+    console.log(dry ? '── CHẠY THỬ, không ghi gì ──' : '── CHẠY THẬT ──');
+    const kq = await donSoKhong(prisma, dry);
+    console.log('');
+    console.log(`Quét:            ${kq.quet} hồ sơ có ô số bằng 0`);
+    console.log(`Hồ sơ sẽ sửa:    ${kq.hoSoSua}`);
+    for (const { col } of CAP_COT_KHOA) {
+      console.log(`  ${col}: dọn ${kq.oDon[col]}, giữ ${kq.oGiuVicoDonVi[col]} (bản gốc ghi số thật)`);
+    }
+    if (dry) console.log('\nChạy lại KHÔNG kèm --dry để ghi thật.');
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
