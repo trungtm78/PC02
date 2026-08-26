@@ -172,6 +172,19 @@ jobs:
             /tmp/pc02-${{ github.sha }}.tar.gz \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/
 
+      # Kịch bản deploy phải đi TỪ KHO MÃ lên máy chủ.
+      #
+      # Trước 26/08/2026 workflow chỉ chạy /home/pc02/bin/deploy.sh — bản nằm sẵn trên máy
+      # chủ — nên scripts/deploy/deploy.sh trong kho mã chỉ là bản chép để đọc. Hai bản trôi
+      # xa nhau lúc nào không biết, và đó là cách một lỗi sống sót nhiều tháng: bước sao lưu
+      # trước deploy hỏng, 243/246 tệp là 0 byte, mà sửa trong kho mã thì không có hiệu lực.
+      - name: rsync deploy.sh to VM
+        run: |
+          rsync -avz \
+            -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes" \
+            scripts/deploy/deploy.sh \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/pc02/bin/deploy.sh
+
       - name: Execute deploy.sh on VM
         run: |
           ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes \
