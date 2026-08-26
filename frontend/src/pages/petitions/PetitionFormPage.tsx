@@ -135,10 +135,10 @@ export function PetitionFormPage() {
   type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
   type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
 
-  const [suspectQuery, setSuspectQuery] = useState("");
+  const [suspectQuery, setSuspectQuery] = useState<string | null>(null);
   const [suspectResults, setSuspectResults] = useState<SuspectResult[]>([]);
   const [showSuspectDropdown, setShowSuspectDropdown] = useState(false);
-  const [dupQuery, setDupQuery] = useState("");
+  const [dupQuery, setDupQuery] = useState<string | null>(null);
   const [dupResults, setDupResults] = useState<DupResult[]>([]);
   const [showDupDropdown, setShowDupDropdown] = useState(false);
   const suspectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -719,7 +719,7 @@ export function PetitionFormPage() {
               <div className="relative">
                 <input
                   type="text"
-                  value={suspectQuery !== "" ? suspectQuery : formData.toiDanhBanDau}
+                  value={suspectQuery ?? formData.toiDanhBanDau}
                   onChange={(e) => {
                     const v = e.target.value;
                     handleSuspectInput(v);
@@ -727,9 +727,9 @@ export function PetitionFormPage() {
                   onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
                   onBlur={() => setTimeout(() => {
                     setShowSuspectDropdown(false);
-                    if (suspectQuery !== "") {
+                    if (suspectQuery !== null) {
                       update("toiDanhBanDau", suspectQuery);
-                      setSuspectQuery("");
+                      setSuspectQuery(null);
                     }
                   }, 200)}
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -746,7 +746,7 @@ export function PetitionFormPage() {
                         onMouseDown={() => {
                           const crimes = r.crimes.join(", ");
                           update("toiDanhBanDau", crimes);
-                          setSuspectQuery("");
+                          setSuspectQuery(null);
                           setShowSuspectDropdown(false);
                         }}
                       >
@@ -1016,7 +1016,7 @@ export function PetitionFormPage() {
                 <div className="relative">
                   <input
                     type="text"
-                    value={dupQuery !== "" ? dupQuery : formData.raSoatTrung}
+                    value={dupQuery ?? formData.raSoatTrung}
                     onChange={(e) => {
                       const v = e.target.value;
                       handleDupInput(v);
@@ -1024,9 +1024,9 @@ export function PetitionFormPage() {
                     onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
                     onBlur={() => setTimeout(() => {
                       setShowDupDropdown(false);
-                      if (dupQuery !== "") {
+                      if (dupQuery !== null) {
                         update("raSoatTrung", dupQuery);
-                        setDupQuery("");
+                        setDupQuery(null);
                       }
                     }, 200)}
                     className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1043,7 +1043,7 @@ export function PetitionFormPage() {
                           onMouseDown={() => {
                             const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
                             update("raSoatTrung", label);
-                            setDupQuery("");
+                            setDupQuery(null);
                             setShowDupDropdown(false);
                           }}
                         >

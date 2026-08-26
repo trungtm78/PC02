@@ -5,10 +5,7 @@
  * phải nạp cả trang 1.287 dòng. Nội dung giữ nguyên từ `interface FormData` cũ — chỉ đổi chỗ.
  */
 
-/** Hôm nay theo dạng ô ngày (`YYYY-MM-DD`). */
-function homNay(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { today } from '@/lib/dates';
 
 export interface PetitionFormData {
   stt: string; receivedDate: string; unit: string; assignedTeamId: string;
@@ -57,7 +54,7 @@ export interface PetitionFormData {
 }
 
 export const INITIAL_PETITION_FORM: PetitionFormData = {
-  stt: "", receivedDate: homNay(), unit: "", assignedTeamId: "",
+  stt: "", receivedDate: today(), unit: "", assignedTeamId: "",
   senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
   senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
@@ -66,11 +63,11 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
   senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
   // Mặc định = ngày tiếp nhận (hôm nay) để khi chấp nhận ngày mặc định vẫn có giá trị.
-  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: homNay(), toiDanhBanDau: "",
+  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: today(), toiDanhBanDau: "",
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: homNay(), phanLoaiNguonTin: "",
+  nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
   thuocThamQuyen: true, donViXuLy: "",
 };
