@@ -34,6 +34,51 @@ export const LEGACY_PARITY_FIELDS: Record<"petition"|"incident"|"case", ParityFi
       "col": "soLuongBiHai",
       "kind": "number",
       "label": "so_luong_bi_hai"
+    },
+    {
+      "col": "baoCaoBanGiamDocText",
+      "kind": "text",
+      "label": "truong_hop_bao_cao_ban_giam_doc"
+    },
+    {
+      "col": "tinhTrang",
+      "kind": "text",
+      "label": "tinh_trang"
+    },
+    {
+      "col": "soQDPhanCongNguonTin",
+      "kind": "text",
+      "label": "quyet_dinh_phan_cong_giai_quyet_nguon_tin"
+    },
+    {
+      "col": "ngayQDPhanCongNguonTin",
+      "kind": "date",
+      "label": "ngay_ra_quyet_dinh_phan_cong_tin_bao"
+    },
+    {
+      "col": "soQDTamDinhChiNguonTin",
+      "kind": "text",
+      "label": "quyet_dinh_tam_dinh_chi_nguon_tin"
+    },
+    {
+      "col": "ngayQDTamDinhChiNguonTin",
+      "kind": "date",
+      "label": "ngay_ra_quyet_dinh_tam_dinh_chi_nguon_tin"
+    },
+    {
+      "col": "canCuTamDinhChiNguonTin",
+      "kind": "text",
+      "label": "can_cu_tam_dinh_chi_nguon_tin"
+    },
+    {
+      "col": "soPhucHoiNguonTin",
+      "kind": "text",
+      "label": "phuc_hoi_nguon_tin_toi_pham"
+    },
+    {
+      "col": "ngayPhucHoiNguonTin",
+      "kind": "date",
+      "label": "ngay_phuc_hoi_nguon_tin_toi_pham"
     }
   ],
   "incident": [

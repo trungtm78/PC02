@@ -100,5 +100,15 @@ export function buildPetitionCreateData(
     yeuCauBoSung: dto.yeuCauBoSung,
     soTienBiThietHai: dto.soTienBiThietHai,
     soLuongBiHai: dto.soLuongBiHai,
+    // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
+    baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText,
+    tinhTrang: dto.tinhTrang,
+    soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin,
+    ngayQDPhanCongNguonTin: toDate(dto.ngayQDPhanCongNguonTin),
+    soQDTamDinhChiNguonTin: dto.soQDTamDinhChiNguonTin,
+    ngayQDTamDinhChiNguonTin: toDate(dto.ngayQDTamDinhChiNguonTin),
+    canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin,
+    soPhucHoiNguonTin: dto.soPhucHoiNguonTin,
+    ngayPhucHoiNguonTin: toDate(dto.ngayPhucHoiNguonTin),
   };
 }

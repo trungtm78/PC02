@@ -376,4 +376,17 @@ export class CreatePetitionDto {
   @IsOptional() @IsString() yeuCauBoSung?: string;
   @IsOptional() @IsNumber() soTienBiThietHai?: number;
   @IsOptional() @IsNumber() soLuongBiHai?: number;
+
+  // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
+  // Cột có trong lược đồ mà DTO không khai thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400,
+  // chứ không bỏ qua lặng lẽ — cán bộ bấm Lưu và không lưu được gì, kể cả ô chẳng liên quan.
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() baoCaoBanGiamDocText?: string;
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() tinhTrang?: string;
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDPhanCongNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDPhanCongNguonTin?: string;
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayQDTamDinhChiNguonTin?: string;
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() canCuTamDinhChiNguonTin?: string;
+  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soPhucHoiNguonTin?: string;
+  @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
 }
