@@ -101,10 +101,41 @@ export function dichLuu(field: CaseFieldPath): PetitionFieldPath {
   return `${NHANH_PHU}.${field.replace('statistic.', '')}`;
 }
 
+/**
+ * Bộ lựa chọn riêng của Đơn thư cho ô "Phân loại ban đầu".
+ *
+ * Ba bộ từ vựng đang cùng tồn tại cho một khái niệm: hệ cũ lưu chữ tự do ("Đơn, Công văn"),
+ * đặc tả bố cục dùng `don_cong_van`, còn `CreatePetitionDto` chỉ nhận `don-cong-van-ban-dau`
+ * (`@IsIn`). Lấy nguyên bộ của Vụ án thì ô chọn phát ra giá trị máy chủ từ chối — cán bộ bấm
+ * Lưu và nhận 400.
+ *
+ * Giữ NHÃN nguyên văn hệ cũ, đổi GIÁ TRỊ sang đúng thứ máy chủ nhận.
+ */
+const LUA_CHON_PHAN_LOAI = [
+  { value: 'don-cong-van-ban-dau', label: 'Đơn, Công văn' },
+  { value: 'vu-viec-ban-dau', label: 'Vụ việc' },
+  { value: 'vu-viec-nguon-tin', label: 'Vụ việc (nguồn tin)' },
+  { value: 'vu-an-ban-dau', label: 'Vụ án' },
+  { value: 'tra-ho-so-ban-dau', label: 'Trả hồ sơ cho đơn vị chuyển' },
+  { value: 'huong-dan-ban-dau', label: 'Hướng dẫn nghiệp vụ' },
+  { value: 'trao-doi-chuyen-an', label: 'Trao đổi chuyển án' },
+] as const;
+
+/** Ô nào Đơn thư dùng bộ lựa chọn khác Vụ án. */
+const DOI_LUA_CHON: Readonly<
+  Partial<Record<CaseFieldPath, readonly { value: string; label: string }[]>>
+> = {
+  phanLoaiNguonTinBanDau: LUA_CHON_PHAN_LOAI,
+};
+
 function doiTab(
   items: readonly LegacyLayoutItem<CaseFieldPath, LegacyTabId>[],
 ): readonly LegacyLayoutItem<PetitionFieldPath, LegacyTabId>[] {
-  return items.map((it) => ({ ...it, field: dichLuu(it.field) }));
+  return items.map((it) => ({
+    ...it,
+    field: dichLuu(it.field),
+    ...(DOI_LUA_CHON[it.field] ? { options: DOI_LUA_CHON[it.field] } : {}),
+  }));
 }
 
 export const PETITION_LEGACY_LAYOUT: LegacyLayout<LegacyTabId, PetitionFieldPath> =

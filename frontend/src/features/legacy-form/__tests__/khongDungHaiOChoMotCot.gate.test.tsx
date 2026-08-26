@@ -47,8 +47,14 @@ describe('Một cột chỉ được có một ô nhập', () => {
     expect(cot.has('nguonDon')).toBe(true);
   });
 
+  it('Đơn thư đã dựng theo đặc tả nên bảng tra trả về tập cột của nó', () => {
+    const cot = ownedColumnsFor('petition');
+    expect(cot.has('senderName')).toBe(true);
+    expect(cot.has('detailContent')).toBe(true);
+  });
+
   it('thực thể chưa dựng theo đặc tả trả tập rỗng, không ném lỗi', () => {
-    expect(ownedColumnsFor('petition').size).toBe(0);
+    expect(ownedColumnsFor('incident').size).toBe(0);
     expect(ownedColumnsFor('khong-co-that').size).toBe(0);
   });
 });

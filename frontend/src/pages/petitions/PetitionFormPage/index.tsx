@@ -12,7 +12,12 @@ import {
 } from "./types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
-import { KHOA_NHANH_PHU } from "@/features/petitions/legacy-form-binding";
+import {
+  KHOA_NHANH_PHU,
+  PETITION_LEGACY_SPEC,
+} from "@/features/petitions/legacy-form-binding";
+import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
+import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -64,6 +69,8 @@ export function PetitionFormPage() {
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<string[]>([]);
+  // Tab đang mở. Hệ cũ dùng đúng bộ 10 tab này cho cả Đơn thư, Vụ việc và Vụ án.
+  const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
   // Options Tổ/Nhóm cho "Đơn vị xử lý" khi thuộc thẩm quyền (YC6).
   const { data: teamOptions = [] } = useTeamOptions();
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
@@ -130,7 +137,8 @@ export function PetitionFormPage() {
   }, [id]);
 
   useEffect(() => {
-    return () => {
+
+  return () => {
       if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
       if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
     };
@@ -428,6 +436,119 @@ export function PetitionFormPage() {
     );
   }
 
+  /**
+   * Ô riêng cho vài trường mà hệ mới mạnh hơn hẳn ô chữ của hệ cũ.
+   *
+   * Bố cục hệ cũ quyết nhãn, thứ tự và chỗ đứng; ba ô này giữ nguyên chỗ nhưng đổi ruột —
+   * số điện thoại có định dạng, "Ghi chú trùng đơn" tra được đơn trùng, "Tội danh cũ trước
+   * đây" tra được tiền án. Bỏ chúng đi để giống hệ cũ là hạ cấp năng lực.
+   */
+  const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    senderPhone: (label) => (
+      <>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+        <div className="relative">
+          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <PhoneInput value={formData.senderPhone} onValueChange={(v) => update("senderPhone", v)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="09xx xxx xxx" data-testid="field-senderPhone" />
+        </div>
+      </>
+    ),
+    toiDanhBanDau: (label) => (
+      <>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+                      <div className="relative">
+        <input
+          type="text"
+          value={suspectQuery ?? formData.toiDanhBanDau}
+          onChange={(e) => {
+            const v = e.target.value;
+            handleSuspectInput(v);
+          }}
+          onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
+          onBlur={() => setTimeout(() => {
+            setShowSuspectDropdown(false);
+            if (suspectQuery !== null) {
+              update("toiDanhBanDau", suspectQuery);
+              setSuspectQuery(null);
+            }
+          }, 200)}
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Gõ tên/CCCD để tìm tiền án, hoặc nhập tự do"
+          data-testid="suspect-search-input"
+        />
+        {showSuspectDropdown && suspectResults.length > 0 && (
+          <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+            {suspectResults.map((r, i) => (
+              <button
+                key={`${r.idNumber}-${i}`}
+                type="button"
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                onMouseDown={() => {
+                  const crimes = r.crimes.join(", ");
+                  update("toiDanhBanDau", crimes);
+                  setSuspectQuery(null);
+                  setShowSuspectDropdown(false);
+                }}
+              >
+                <span className="font-medium">{r.name}</span>
+                {r.idNumber && <span className="text-slate-500 ml-2 text-xs">CCCD: {r.idNumber}</span>}
+                {r.crimes.length > 0 && <div className="text-slate-600 text-xs truncate">{r.crimes.join(", ")}</div>}
+              </button>
+            ))}
+          </div>
+        )}
+                      </div>
+      </>
+    ),
+    raSoatTrung: (label) => (
+      <>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+        <div className="relative">
+          <input
+            type="text"
+            value={dupQuery ?? formData.raSoatTrung}
+            onChange={(e) => {
+              const v = e.target.value;
+              handleDupInput(v);
+            }}
+            onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
+            onBlur={() => setTimeout(() => {
+              setShowDupDropdown(false);
+              if (dupQuery !== null) {
+                update("raSoatTrung", dupQuery);
+                setDupQuery(null);
+              }
+            }, 200)}
+            className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
+            data-testid="duplicate-search-input"
+          />
+          {showDupDropdown && dupResults.length > 0 && (
+            <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+              {dupResults.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
+                  onMouseDown={() => {
+                    const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
+                    update("raSoatTrung", label);
+                    setDupQuery(null);
+                    setShowDupDropdown(false);
+                  }}
+                >
+                  <span className="font-medium">{r.stt}</span>
+                  <span className="text-slate-600 ml-2">{r.senderName}</span>
+                  {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    ),
+  };
+
   return (
     <div className="p-6 space-y-6" data-testid="petition-form-page">
       <div className="flex items-center justify-between">
@@ -494,6 +615,93 @@ export function PetitionFormPage() {
             <span className="text-amber-600"> — để tra lại dữ liệu hệ thống cũ</span>
           </div>
         )}
+        {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự. */}
+        <div className="flex flex-wrap gap-1 border-b border-slate-200" data-testid="thanh-tab-don-thu">
+          {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTabDangMo(t)}
+              data-testid={`tab-nut-${t}`}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tabDangMo === t
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {LEGACY_TAB_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        {tabDangMo !== "info" && (
+          <LegacyTabBody
+            spec={PETITION_LEGACY_SPEC}
+            tabId={tabDangMo}
+            formData={formData}
+            setFormData={setFormData}
+            renderOverride={oRieng}
+          />
+        )}
+
+        {/* Tab Thông tin luôn ở trong cây — ẩn bằng CSS chứ không tháo, để trạng thái ô nhập
+            và ô tải tệp không bị dựng lại mỗi lần đổi tab. */}
+        <div className={tabDangMo === "info" ? "space-y-6" : "hidden"}>
+          <LegacyTabBody
+            spec={PETITION_LEGACY_SPEC}
+            tabId="info"
+            formData={formData}
+            setFormData={setFormData}
+            renderOverride={oRieng}
+            pinnedTop={
+              <div className="rounded-xl border border-slate-200 bg-white p-5">
+                {/*
+                  Ô BẮT BUỘC không được nằm trong khối gập. Hai ô này máy chủ đòi mà bố cục hệ
+                  cũ không có, nên chúng phải ở ngoài — gập đi thì cán bộ bấm Lưu, bị chặn bởi
+                  một ô không nhìn thấy được và không hiểu vì sao. Đúng lỗi đã bấm trúng trên
+                  máy thật ở epic Vụ án (PR #248).
+                */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận <span className="text-red-500">*</span></label>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input type="date" value={formData.receivedDate} onChange={(e) => {
+              const v = e.target.value;
+              // YC1: "Ngày tiếp nhận nguồn tin" & "Ngày đề xuất" mirror theo Ngày tiếp nhận — cập nhật khi
+              // đang trống HOẶC còn khớp giá trị cũ (chưa bị sửa tay); nếu đã sửa tay khác đi thì GIỮ nguyên.
+              setFormData((prev) => {
+                const mirror = (cur: string) => !cur || cur === prev.receivedDate;
+                return {
+                  ...prev,
+                  receivedDate: v,
+                  ngayTiepNhanNguonTin: mirror(prev.ngayTiepNhanNguonTin) ? v : prev.ngayTiepNhanNguonTin,
+                  ngayDeXuat: mirror(prev.ngayDeXuat) ? v : prev.ngayDeXuat,
+                };
+              });
+            }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Loại đơn thư <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={formData.petitionType}
+            onChange={(e) => update("petitionType", e.target.value)}
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            data-testid="field-petitionType"
+          >
+            <option value="">-- Chọn loại đơn thư --</option>
+            {LOAI_DON_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+                </div>
+              </div>
+            }
+          >
         {/* Section 1: Thông tin tiếp nhận */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
           <div className="border-b border-slate-200 px-6 py-4">
@@ -501,26 +709,6 @@ export function PetitionFormPage() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={formData.receivedDate} onChange={(e) => {
-                    const v = e.target.value;
-                    // YC1: "Ngày tiếp nhận nguồn tin" & "Ngày đề xuất" mirror theo Ngày tiếp nhận — cập nhật khi
-                    // đang trống HOẶC còn khớp giá trị cũ (chưa bị sửa tay); nếu đã sửa tay khác đi thì GIỮ nguyên.
-                    setFormData((prev) => {
-                      const mirror = (cur: string) => !cur || cur === prev.receivedDate;
-                      return {
-                        ...prev,
-                        receivedDate: v,
-                        ngayTiepNhanNguonTin: mirror(prev.ngayTiepNhanNguonTin) ? v : prev.ngayTiepNhanNguonTin,
-                        ngayDeXuat: mirror(prev.ngayDeXuat) ? v : prev.ngayDeXuat,
-                      };
-                    });
-                  }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
-                </div>
-              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Số tiếp nhận</label>
                 <DocNumberPreviewField
@@ -572,28 +760,9 @@ export function PetitionFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Họ và tên <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="text" value={formData.senderName} onChange={(e) => update("senderName", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập họ và tên" data-testid="field-senderName" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Năm sinh</label>
-                <input type="text" value={formData.senderBirthYear} onChange={(e) => update("senderBirthYear", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Năm sinh (VD: 1985)" maxLength={4} data-testid="field-senderBirthYear" />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                  <textarea value={formData.senderAddress} onChange={(e) => update("senderAddress", e.target.value)} rows={2} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập địa chỉ đầy đủ" data-testid="field-senderAddress" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Số điện thoại</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <PhoneInput value={formData.senderPhone} onValueChange={(v) => update("senderPhone", v)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="09xx xxx xxx" data-testid="field-senderPhone" />
-                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
@@ -603,18 +772,6 @@ export function PetitionFormPage() {
                 </div>
               </div>
               {/* Giấy tờ tùy thân (CCCD) — field-parity */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Số CCCD nguyên đơn</label>
-                <input type="text" value={formData.senderIdNumber} onChange={(e) => update("senderIdNumber", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Số CCCD/CMND" maxLength={20} data-testid="field-senderIdNumber" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày cấp CCCD</label>
-                <input type="date" value={formData.senderIdIssueDate} onChange={(e) => update("senderIdIssueDate", e.target.value)} max={today()} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" data-testid="field-senderIdIssueDate" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nơi cấp CCCD</label>
-                <input type="text" value={formData.senderIdIssuePlace} onChange={(e) => update("senderIdIssuePlace", e.target.value)} disabled={formData.senderIsAnonymous} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100" placeholder="Nơi cấp CCCD" data-testid="field-senderIdIssuePlace" />
-              </div>
             </div>
           </div>
         </div>
@@ -626,63 +783,6 @@ export function PetitionFormPage() {
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Phân loại nguồn tin ban đầu</label>
-              <select value={formData.phanLoaiNguonTin} onChange={(e) => update("phanLoaiNguonTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-phanLoaiNguonTin">
-                <option value="">-- Chọn phân loại --</option>
-                <option value="don-cong-van-ban-dau">Đơn, Công văn</option>
-                <option value="vu-viec-ban-dau">Vụ việc</option>
-                <option value="vu-viec-nguon-tin">Vụ việc (nguồn tin)</option>
-                <option value="vu-an-ban-dau">Vụ án</option>
-                <option value="tra-ho-so-ban-dau">Trả hồ sơ cho đơn vị chuyển</option>
-                <option value="huong-dan-ban-dau">Hướng dẫn nghiệp vụ</option>
-                <option value="trao-doi-chuyen-an">Trao đổi chuyển án</option>
-                <option value="luat-su">Luật sư</option>
-                <option value="uy-thac-dieu-tra">Ủy thác điều tra</option>
-                <option value="kien-nghi-vks">Kiến nghị VKS</option>
-                <option value="cong-van-don-doc-phuc-hoi-tdc">Công văn đôn đốc phục hồi TĐC</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Nguồn đơn</label>
-              <input type="text" value={formData.nguonDon} onChange={(e) => update("nguonDon", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Bưu điện, Trực tiếp, PC01 Công an TPHCM,..." data-testid="field-nguonDon" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày viết đơn</label>
-              <input type="date" value={formData.petitionDate} onChange={(e) => update("petitionDate", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-petitionDate" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất</label>
-              <input type="date" value={formData.ngayDeXuat} onChange={(e) => update("ngayDeXuat", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Loại thông tin</label>
-              <input type="text" value={formData.loaiThongTin} onChange={(e) => update("loaiThongTin", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tố giác, trình báo, kiến nghị, phản ánh, khiếu nại..." data-testid="field-loaiThongTin" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Số phiếu chuyển / công văn / UTĐT</label>
-              <input type="text" value={formData.soPhieuChuyen} onChange={(e) => update("soPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Số phiếu chuyển từ đơn vị khác" data-testid="field-soPhieuChuyen" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày phiếu chuyển</label>
-              <input type="date" value={formData.ngayPhieuChuyen} onChange={(e) => update("ngayPhieuChuyen", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayPhieuChuyen" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày tiếp nhận nguồn tin</label>
-              <input type="date" value={formData.ngayTiepNhanNguonTin} onChange={(e) => update("ngayTiepNhanNguonTin", e.target.value)} max={today()} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayTiepNhanNguonTin" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra</label>
-              <input type="text" value={formData.noiXayRa} onChange={(e) => update("noiXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Địa điểm nơi xảy ra" data-testid="field-noiXayRa" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Nơi xảy ra (phường/xã)</label>
-              <input type="text" value={formData.noiXayRaPhuongXa} onChange={(e) => update("noiXayRaPhuongXa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Phường/xã nơi xảy ra" data-testid="field-noiXayRaPhuongXa" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày xảy ra</label>
-              <input type="date" value={formData.ngayXayRa} onChange={(e) => update("ngayXayRa", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayXayRa" />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Loại tội phạm</label>
               <select value={formData.loaiToiPham} onChange={(e) => update("loaiToiPham", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-loaiToiPham">
                 <option value="">-- Chọn loại tội phạm --</option>
@@ -690,59 +790,6 @@ export function PetitionFormPage() {
                 <option value="Kinh tế-Ma túy">Kinh tế-Ma túy</option>
                 <option value="Khác">Khác</option>
               </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Phương thức, thủ đoạn</label>
-              <textarea value={formData.phuongThucThuDoan} onChange={(e) => update("phuongThucThuDoan", e.target.value)} rows={3} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Nhập phương thức thủ đoạn" data-testid="field-phuongThucThuDoan" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ngày giao đơn vị giải quyết</label>
-              <input type="date" value={formData.ngayGiaoDonViGiaiQuyet} onChange={(e) => update("ngayGiaoDonViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayGiaoDonViGiaiQuyet" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Tội danh cũ trước đây</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={suspectQuery ?? formData.toiDanhBanDau}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    handleSuspectInput(v);
-                  }}
-                  onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
-                  onBlur={() => setTimeout(() => {
-                    setShowSuspectDropdown(false);
-                    if (suspectQuery !== null) {
-                      update("toiDanhBanDau", suspectQuery);
-                      setSuspectQuery(null);
-                    }
-                  }, 200)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Gõ tên/CCCD để tìm tiền án, hoặc nhập tự do"
-                  data-testid="suspect-search-input"
-                />
-                {showSuspectDropdown && suspectResults.length > 0 && (
-                  <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-                    {suspectResults.map((r, i) => (
-                      <button
-                        key={`${r.idNumber}-${i}`}
-                        type="button"
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
-                        onMouseDown={() => {
-                          const crimes = r.crimes.join(", ");
-                          update("toiDanhBanDau", crimes);
-                          setSuspectQuery(null);
-                          setShowSuspectDropdown(false);
-                        }}
-                      >
-                        <span className="font-medium">{r.name}</span>
-                        {r.idNumber && <span className="text-slate-500 ml-2 text-xs">CCCD: {r.idNumber}</span>}
-                        {r.crimes.length > 0 && <div className="text-slate-600 text-xs truncate">{r.crimes.join(", ")}</div>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -756,10 +803,6 @@ export function PetitionFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Tên đối tượng nghi vấn</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="text" value={formData.suspectedPerson} onChange={(e) => update("suspectedPerson", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập tên đối tượng (nếu có)" data-testid="field-suspectedPerson" />
-                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ đối tượng</label>
@@ -779,22 +822,6 @@ export function PetitionFormPage() {
           </div>
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Loại đơn thư <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.petitionType}
-                  onChange={(e) => update("petitionType", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  data-testid="field-petitionType"
-                >
-                  <option value="">-- Chọn loại đơn thư --</option>
-                  {LOAI_DON_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
               <div>
                 <FKSelect
                   label="Mức độ ưu tiên"
@@ -818,44 +845,11 @@ export function PetitionFormPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Lãnh đạo phụ trách tố tụng</label>
-                <input type="text" value={formData.lanhDaoToTung} onChange={(e) => update("lanhDaoToTung", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên lãnh đạo phụ trách ký tố tụng" data-testid="field-lanhDaoToTung" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Điều tra viên</label>
-                <input type="text" value={formData.dieuTraVien} onChange={(e) => update("dieuTraVien", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Tên điều tra viên thụ lý" data-testid="field-dieuTraVien" />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
                 <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Đơn vị giải quyết (khác đơn vị tiếp nhận)" data-testid="field-donViGiaiQuyet" />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input type="checkbox" checked={formData.laCongNgheCao} onChange={(e) => update("laCongNgheCao", e.target.checked)} className="w-4 h-4" data-testid="field-laCongNgheCao" />
-              Tội phạm công nghệ cao
-            </label>
             {/* YC2: ẩn ô "Tóm tắt nội dung" — khi lưu tự lấy tóm tắt từ Nội dung. */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Nội dung <span className="text-red-500">*</span></label>
-              <textarea value={formData.detailContent} onChange={(e) => update("detailContent", e.target.value)} rows={6} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Mô tả đầy đủ nội dung đơn thư" data-testid="field-detailContent" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <FileText className="inline w-4 h-4 mr-1 text-slate-400" />
-                Ghi chú tài liệu đính kèm
-              </label>
-              <input type="text" value={formData.attachmentsNote} onChange={(e) => update("attachmentsNote", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Liệt kê tài liệu đính kèm dạng ghi chú" data-testid="field-attachmentsNote" />
-              <p className="text-xs text-slate-500 mt-1">File thực tế tải lên ở mục "Tài liệu đính kèm thực tế" bên dưới.</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Kết quả xử lý, giải quyết khác</label>
-              <textarea value={formData.ketQuaXuLyKhac} onChange={(e) => update("ketQuaXuLyKhac", e.target.value)} rows={2} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các trường hợp xử lý, giải quyết khác" data-testid="field-ketQuaXuLyKhac" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Thời hạn ủy thác điều tra</label>
-              <input type="date" value={formData.thoiHanUTDT} onChange={(e) => update("thoiHanUTDT", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-thoiHanUTDT" />
-              <p className="text-xs text-slate-500 mt-1">Thời hạn thực hiện ủy thác điều tra (nếu có)</p>
-            </div>
           </div>
         </div>
 
@@ -975,86 +969,12 @@ export function PetitionFormPage() {
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nhận thấy</label>
-                <textarea
-                  value={formData.nhanThay}
-                  onChange={(e) => update("nhanThay", e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Đánh giá của cán bộ về đơn thư (ví dụ: 'Đơn có dấu hiệu tội phạm theo Đ.123 BLHS...')"
-                  data-testid="field-nhanThay"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đề xuất xử lý</label>
-                <textarea
-                  value={formData.deXuat}
-                  onChange={(e) => update("deXuat", e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Đề xuất hướng giải quyết (ví dụ: 'Đề xuất chuyển PC01 thụ lý theo thẩm quyền...')"
-                  data-testid="field-deXuat"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú trùng đơn</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={dupQuery ?? formData.raSoatTrung}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      handleDupInput(v);
-                    }}
-                    onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
-                    onBlur={() => setTimeout(() => {
-                      setShowDupDropdown(false);
-                      if (dupQuery !== null) {
-                        update("raSoatTrung", dupQuery);
-                        setDupQuery(null);
-                      }
-                    }, 200)}
-                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
-                    data-testid="duplicate-search-input"
-                  />
-                  {showDupDropdown && dupResults.length > 0 && (
-                    <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-                      {dupResults.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
-                          onMouseDown={() => {
-                            const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
-                            update("raSoatTrung", label);
-                            setDupQuery(null);
-                            setShowDupDropdown(false);
-                          }}
-                        >
-                          <span className="font-medium">{r.stt}</span>
-                          <span className="text-slate-600 ml-2">{r.senderName}</span>
-                          {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="inline-flex items-center gap-2 cursor-pointer" data-testid="field-baoCaoBanGiamDoc-wrap">
-                  <input
-                    type="checkbox"
-                    checked={formData.baoCaoBanGiamDoc}
-                    onChange={(e) => update("baoCaoBanGiamDoc", e.target.checked)}
-                    className="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                    data-testid="field-baoCaoBanGiamDoc"
-                  />
-                  <span className="text-sm text-slate-700">Thuộc trường hợp báo cáo Ban Giám đốc</span>
-                </label>
               </div>
             </div>
           </div>
+
+          </LegacyTabBody>
+        </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
         {isEditMode && id && (
