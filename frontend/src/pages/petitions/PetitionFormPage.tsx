@@ -3,6 +3,13 @@
  * TASK-ID: TASK-2026-260202
  */
 
+import { buildPetitionPayload } from "./buildPetitionPayload";
+// Kiểu và giá trị khởi tạo tách sang tệp riêng để hàm dựng payload và ca kiểm dùng được
+// mà không phải nạp cả trang. Giữ tên cục bộ `FormData`/`INITIAL_FORM` cho phần còn lại.
+import {
+  INITIAL_PETITION_FORM as INITIAL_FORM,
+  type PetitionFormData as FormData,
+} from "./petition-form-types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
@@ -45,69 +52,6 @@ interface UserOption {
   username: string;
 }
 
-interface FormData {
-  stt: string; receivedDate: string; unit: string; assignedTeamId: string;
-  senderName: string;
-  senderBirthYear: string; senderAddress: string; senderPhone: string;
-  senderEmail: string; suspectedPerson: string; suspectedAddress: string;
-  petitionType: string; priority: string; summary: string;
-  detailContent: string; attachmentsNote: string; deadline: string;
-  assignedToId: string; canBoDeXuatId: string; notes: string;
-  // v0.47 PR3.1 — Nội dung phiếu đề xuất (T11)
-  nhanThay: string;
-  deXuat: string;
-  raSoatTrung: string;
-  baoCaoBanGiamDoc: boolean;
-  // Field-parity hệ thống cũ (giai đoạn tiếp nhận)
-  senderIdNumber: string;
-  senderIdIssueDate: string;
-  senderIdIssuePlace: string;
-  senderIsAnonymous: boolean;
-  loaiThongTin: string;
-  soPhieuChuyen: string;
-  ngayPhieuChuyen: string;
-  ngayTiepNhanNguonTin: string;
-  toiDanhBanDau: string;
-  crimeChinhId: string;
-  noiXayRa: string;
-  noiXayRaPhuongXa: string;
-  ngayXayRa: string;
-  loaiToiPham: string;
-  phuongThucThuDoan: string;
-  ngayGiaoDonViGiaiQuyet: string;
-  laCongNgheCao: boolean;
-  lanhDaoToTung: string;
-  ketQuaXuLyKhac: string;
-  thoiHanUTDT: string;
-  // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
-  nguonDon: string;
-  petitionDate: string;
-  ngayDeXuat: string;
-  phanLoaiNguonTin: string;
-  dieuTraVien: string;
-  donViGiaiQuyet: string;
-  // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
-  thuocThamQuyen: boolean;
-  donViXuLy: string;
-}
-
-const INITIAL_FORM: FormData = {
-  stt: "", receivedDate: today(), unit: "", assignedTeamId: "",
-  senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
-  senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
-  priority: "", summary: "", detailContent: "", attachmentsNote: "",
-  deadline: "", assignedToId: "", canBoDeXuatId: "", notes: "",
-  nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,
-  senderIdNumber: "", senderIdIssueDate: "", senderIdIssuePlace: "",
-  senderIsAnonymous: false, loaiThongTin: "", soPhieuChuyen: "",
-  // YC1: mặc định = ngày tiếp nhận (today) để khi chấp nhận ngày mặc định vẫn có giá trị.
-  ngayPhieuChuyen: "", ngayTiepNhanNguonTin: today(), toiDanhBanDau: "",
-  crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
-  loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
-  laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "", dieuTraVien: "", donViGiaiQuyet: "",
-  thuocThamQuyen: true, donViXuLy: "",
-};
 
 function displayName(u: UserOption): string {
   const full = hoTen(u);
@@ -191,10 +135,10 @@ export function PetitionFormPage() {
   type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
   type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
 
-  const [suspectQuery, setSuspectQuery] = useState("");
+  const [suspectQuery, setSuspectQuery] = useState<string | null>(null);
   const [suspectResults, setSuspectResults] = useState<SuspectResult[]>([]);
   const [showSuspectDropdown, setShowSuspectDropdown] = useState(false);
-  const [dupQuery, setDupQuery] = useState("");
+  const [dupQuery, setDupQuery] = useState<string | null>(null);
   const [dupResults, setDupResults] = useState<DupResult[]>([]);
   const [showDupDropdown, setShowDupDropdown] = useState(false);
   const suspectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -379,75 +323,11 @@ export function PetitionFormPage() {
     savingRef.current = true;
     setIsSubmitting(true);
     try {
-      const payload = {
-        // Gửi stt CHỈ khi SỬA (edit field stt = MANUAL, cho phép sửa). Khi TẠO mới: KHÔNG gửi —
-        // "Số tiếp nhận" tạo mới là số TỰ ĐỘNG (khoá), chỉ là PREVIEW từ draft(). Gửi số preview →
-        // backend vào nhánh dto.stt (bỏ qua commitWithTx, counter không tăng) → số kế tiếp TRÙNG →
-        // 409 cho create sau. Bỏ → backend tự cấp atomic (commitWithTx re-sync dbMax, không trùng).
-        ...(effectiveEdit ? { stt: formData.stt } : {}),
-        // Trường hệ cũ động (editable) → backend MERGE vào metadata (giữ field cũ + sửa)
-        ...(effectiveEdit ? { metadata: metaState } : {}),
-        // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
-        ...parityState,
-        receivedDate: formData.receivedDate,
-        unit: formData.unit || undefined,
-        assignedTeamId: formData.assignedTeamId || undefined,
-        senderName: formData.senderName,
-        senderBirthYear: formData.senderBirthYear || undefined,
-        senderAddress: formData.senderAddress || undefined,
-        senderPhone: formData.senderPhone || undefined,
-        senderEmail: formData.senderEmail || undefined,
-        suspectedPerson: formData.suspectedPerson || undefined,
-        suspectedAddress: formData.suspectedAddress || undefined,
-        petitionType: formData.petitionType || undefined,
-        priority: formData.priority || undefined,
-        // YC2: ẩn ô Tóm tắt → tự lấy từ Nội dung (cắt 300) để danh sách vẫn có tóm tắt.
-        summary: (formData.detailContent || "").slice(0, 300) || undefined,
-        detailContent: formData.detailContent || undefined,
-        // YC6: cả 2 nhánh ghi vào donViXuLy (thuộc TQ = tên Tổ/Nhóm; không TQ = tên đơn vị). Gửi null để xoá khi trống.
-        thuocThamQuyen: formData.thuocThamQuyen,
-        donViXuLy: formData.donViXuLy || null,
-        attachmentsNote: formData.attachmentsNote || undefined,
-        deadline: formData.deadline || undefined,
-        assignedToId: formData.assignedToId || undefined,
-        canBoDeXuatId: formData.canBoDeXuatId || undefined,
-        notes: formData.notes || undefined,
-        // v0.47 PR3.1 review fix: send empty strings explicitly so backend can
-        // clear previously-saved nội dung phiếu đề xuất when officer wipes a field.
-        // (Backend service spreads conditionally on `!== undefined`.)
-        nhanThay: formData.nhanThay,
-        deXuat: formData.deXuat,
-        raSoatTrung: formData.raSoatTrung,
-        baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
-        // Field-parity hệ thống cũ
-        senderIdNumber: formData.senderIdNumber || undefined,
-        senderIdIssueDate: formData.senderIdIssueDate || undefined,
-        senderIdIssuePlace: formData.senderIdIssuePlace || undefined,
-        senderIsAnonymous: formData.senderIsAnonymous,
-        loaiThongTin: formData.loaiThongTin || undefined,
-        soPhieuChuyen: formData.soPhieuChuyen || undefined,
-        ngayPhieuChuyen: formData.ngayPhieuChuyen || undefined,
-        ngayTiepNhanNguonTin: formData.ngayTiepNhanNguonTin || undefined,
-        toiDanhBanDau: formData.toiDanhBanDau || undefined,
-        crimeChinhId: formData.crimeChinhId || undefined,
-        noiXayRa: formData.noiXayRa || undefined,
-        noiXayRaPhuongXa: formData.noiXayRaPhuongXa || undefined,
-        ngayXayRa: formData.ngayXayRa || undefined,
-        loaiToiPham: formData.loaiToiPham || undefined,
-        phuongThucThuDoan: formData.phuongThucThuDoan || undefined,
-        ngayGiaoDonViGiaiQuyet: formData.ngayGiaoDonViGiaiQuyet || undefined,
-        laCongNgheCao: formData.laCongNgheCao,
-        lanhDaoToTung: formData.lanhDaoToTung || undefined,
-        ketQuaXuLyKhac: formData.ketQuaXuLyKhac || undefined,
-        thoiHanUTDT: formData.thoiHanUTDT || undefined,
-        // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
-        nguonDon: formData.nguonDon || undefined,
-        petitionDate: formData.petitionDate || undefined,
-        ngayDeXuat: formData.ngayDeXuat || undefined,
-        phanLoaiNguonTin: formData.phanLoaiNguonTin || undefined,
-        dieuTraVien: formData.dieuTraVien || undefined,
-        donViGiaiQuyet: formData.donViGiaiQuyet || undefined,
-      };
+      const payload = buildPetitionPayload(formData, {
+        effectiveEdit,
+        parityState,
+        metaState,
+      });
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
       if (effectiveEdit) {
@@ -839,7 +719,7 @@ export function PetitionFormPage() {
               <div className="relative">
                 <input
                   type="text"
-                  value={suspectQuery !== "" ? suspectQuery : formData.toiDanhBanDau}
+                  value={suspectQuery ?? formData.toiDanhBanDau}
                   onChange={(e) => {
                     const v = e.target.value;
                     handleSuspectInput(v);
@@ -847,9 +727,9 @@ export function PetitionFormPage() {
                   onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
                   onBlur={() => setTimeout(() => {
                     setShowSuspectDropdown(false);
-                    if (suspectQuery !== "") {
+                    if (suspectQuery !== null) {
                       update("toiDanhBanDau", suspectQuery);
-                      setSuspectQuery("");
+                      setSuspectQuery(null);
                     }
                   }, 200)}
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -866,7 +746,7 @@ export function PetitionFormPage() {
                         onMouseDown={() => {
                           const crimes = r.crimes.join(", ");
                           update("toiDanhBanDau", crimes);
-                          setSuspectQuery("");
+                          setSuspectQuery(null);
                           setShowSuspectDropdown(false);
                         }}
                       >
@@ -1136,7 +1016,7 @@ export function PetitionFormPage() {
                 <div className="relative">
                   <input
                     type="text"
-                    value={dupQuery !== "" ? dupQuery : formData.raSoatTrung}
+                    value={dupQuery ?? formData.raSoatTrung}
                     onChange={(e) => {
                       const v = e.target.value;
                       handleDupInput(v);
@@ -1144,9 +1024,9 @@ export function PetitionFormPage() {
                     onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
                     onBlur={() => setTimeout(() => {
                       setShowDupDropdown(false);
-                      if (dupQuery !== "") {
+                      if (dupQuery !== null) {
                         update("raSoatTrung", dupQuery);
-                        setDupQuery("");
+                        setDupQuery(null);
                       }
                     }, 200)}
                     className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1163,7 +1043,7 @@ export function PetitionFormPage() {
                           onMouseDown={() => {
                             const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
                             update("raSoatTrung", label);
-                            setDupQuery("");
+                            setDupQuery(null);
                             setShowDupDropdown(false);
                           }}
                         >

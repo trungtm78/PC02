@@ -21,8 +21,18 @@ describe('stripHtmlTags', () => {
     expect(stripHtmlTags('  hello  ')).toBe('hello');
   });
 
-  it('returns undefined for null and undefined input', () => {
-    expect(stripHtmlTags(null)).toBeUndefined();
+  /**
+   * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — `null` và `undefined` mang HAI ý nghĩa khác hẳn nhau ở lớp
+   * DTO, không được gộp làm một:
+   *   - `undefined` = lời gọi KHÔNG NHẮC TỚI ô này → lớp dịch vụ giữ nguyên giá trị cũ.
+   *   - `null`      = cán bộ đã XOÁ TRẮNG ô này    → lớp dịch vụ phải ghi NULL.
+   *
+   * Ca kiểm cũ chốt `null → undefined`, tức chốt đúng cái hợp đồng khiến thao tác xoá bị nuốt
+   * ngay tại cổng vào: giao diện gửi đúng, máy chủ trả thành công, cột vẫn giữ giá trị cũ.
+   * 30 trường của DTO Đơn thư đi qua hàm này.
+   */
+  it('giữ nguyên null, chỉ undefined mới ra undefined', () => {
+    expect(stripHtmlTags(null)).toBeNull();
     expect(stripHtmlTags(undefined)).toBeUndefined();
   });
 

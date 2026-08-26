@@ -536,6 +536,25 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // UPDATE
   // ─────────────────────────────────────────────
+  /**
+   * Ba cột NOT NULL trong lược đồ: `stt`, `receivedDate`, `senderName`.
+   *
+   * Từ 26/08/2026 lớp làm sạch dữ liệu giữ nguyên `null` để thao tác xoá trắng đi được tới
+   * nơi. Nhưng `UpdatePetitionDto` kế thừa `PartialType` nên mọi trường đều mang
+   * `@IsOptional()`, mà `@IsOptional()` bỏ qua MỌI kiểm tra khi giá trị là `null`. Không chặn
+   * ở đây thì một lời gọi sai đi thẳng tới Prisma và nổ 500 kèm vết lỗi của thư viện.
+   *
+   * Lời gọi sai phải trả 400 kèm tên trường.
+   */
+  private chanNullOCotKhongChoRong(dto: UpdatePetitionDto): void {
+    const COT_KHONG_CHO_RONG = ['stt', 'receivedDate', 'senderName'] as const;
+    const ban = dto as unknown as Record<string, unknown>;
+    for (const cot of COT_KHONG_CHO_RONG) {
+      if (ban[cot] === null) {
+        throw new BadRequestException(`Truong "${cot}" khong duoc de trong`);
+      }
+    }
+  }
   async update(
     id: string,
     dto: UpdatePetitionDto,
@@ -543,6 +562,8 @@ export class PetitionsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    this.chanNullOCotKhongChoRong(dto);
+
     const existing = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
     });
