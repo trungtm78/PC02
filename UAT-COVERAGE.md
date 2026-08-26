@@ -149,14 +149,47 @@ bù dùng cho hồ sơ ĐÃ di trú):
 
 | Ô | Hậu quả nếu không vá |
 |---|---|
-| `baoCaoBanGiamDocText` | Mất **nội dung chỉ đạo Ban Giám đốc** ở 34.931 hồ sơ, chỉ còn cờ CÓ/KHÔNG |
-| `loaiThongTin` | Ô "Loại thông tin" trắng ở 46.259 hồ sơ |
-| `ngayTiepNhan` | Ô "Ngày tiếp nhận (theo biên bản…)" trắng ở 49.147 hồ sơ |
-| `toiDanhBanDau` | Ô "Tội danh cũ trước đây" trắng ở 21.854 hồ sơ |
+| `baoCaoBanGiamDocText` | Mất nội dung chỉ đạo Ban Giám đốc — **đo thật: 350 vụ án** |
+| `loaiThongTin` | Ô "Loại thông tin" trắng |
+| `ngayTiepNhan` | Ô "Ngày tiếp nhận (theo biên bản…)" trắng — **đo thật: 1.505 vụ án** |
+| `toiDanhBanDau` | Ô "Tội danh cũ trước đây" trắng — **đo thật: 2.647 vụ án** |
+
+> **Đính chính:** các con số 34.931 / 46.259 / 49.147 / 21.854 nêu trong bản đầu lấy từ
+> `field-catalog.generated.json`, mà tệp đó đếm KHOÁ CÓ MẶT trên toàn bộ 54.257 bản ghi hệ
+> cũ — không phải số vụ án, và không phân biệt giá trị thật với mốc rỗng. Số đo thật trên
+> máy chủ sau khi bù nằm ở bảng dưới.
 
 ---
 
 **Tổng: 44 dòng · 44 ĐẠT · 0 KHÔNG ĐẠT.**
+
+---
+
+## F. Áp lên máy thật — 26/08/2026
+
+PR #243 gộp (`ad17e37a`), deploy thành công, máy chủ khoẻ.
+
+`backfill-parity.ts --entity case`: quét **3.359** hồ sơ, cập nhật **3.334**, điền **8.010 ô**.
+
+| Cột | Trước | Sau | Phủ |
+|---|---|---|---|
+| `phanLoaiNguonTinBanDau` | 0 | 3.334 | 99,3% |
+| `toiDanhBanDau` | 0 | 2.647 | 78,8% |
+| `ngayTiepNhan` | 417 | 1.922 | 57,2% |
+| `baoCaoBanGiamDocText` | 0 | 350 | 10,4% |
+| `soQDPhanCongNguonTin` | 0 | 64 | 1,9% |
+| `ngayQDPhanCongNguonTin` | 0 | 65 | 1,9% |
+| 5 cột TĐC nguồn tin | 0 | 9 mỗi cột | 0,3% |
+
+### 37 cột còn trống — đã kiểm và ĐÚNG
+
+- **27 khoá** không hề có trong `legacy_raw` của vụ án
+- **10 khoá** có mặt nhưng chỉ chứa **mốc rỗng của hệ cũ** (`"0"`, `"-25200"`). Đếm giá trị
+  ngày thật trong dải mapper nhận: **0 hồ sơ** cho cả chín khoá mốc ngày.
+  `parseLegacyDate` cố ý loại chúng (`legacy-mapper.ts:152`). Điền vào sẽ tạo ~1.800 ngày
+  giả 01/01/1970 — tệ hơn hẳn để trống.
+
+**Không mất dữ liệu nào.**
 
 ## Còn tồn
 
