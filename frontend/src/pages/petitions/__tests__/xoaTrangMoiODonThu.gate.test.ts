@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import nguonBuilder from '../buildPetitionPayload.ts?raw';
-import nguonTrang from '../PetitionFormPage.tsx?raw';
-import { buildPetitionPayload } from '../buildPetitionPayload';
-import { INITIAL_PETITION_FORM, type PetitionFormData } from '../petition-form-types';
+import nguonBuilder from '../PetitionFormPage/buildPetitionPayload.ts?raw';
+import nguonTrang from '../PetitionFormPage/index.tsx?raw';
+import { buildPetitionPayload } from '../PetitionFormPage/buildPetitionPayload';
+import { INITIAL_PETITION_FORM, type PetitionFormData } from '../PetitionFormPage/types';
 
 /**
  * CỔNG: mọi ô cán bộ nhìn thấy trên form Đơn thư, khi xoá trắng rồi bấm Lưu, phải gửi `null`.

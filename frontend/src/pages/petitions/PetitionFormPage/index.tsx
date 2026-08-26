@@ -9,7 +9,7 @@ import { buildPetitionPayload } from "./buildPetitionPayload";
 import {
   INITIAL_PETITION_FORM as INITIAL_FORM,
   type PetitionFormData as FormData,
-} from "./petition-form-types";
+} from "./types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
@@ -36,57 +36,13 @@ import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
-import { LoaiDon } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
-import { PetitionAssignmentSection } from "./PetitionAssignmentSection";
-import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "./ConvertPetitionModal";
-import { hoTen } from '@/lib/hoTen';
+import { PetitionAssignmentSection } from "../PetitionAssignmentSection";
+import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "../ConvertPetitionModal";
 
-const VALID_PETITION_TYPES = Object.values(LoaiDon) as string[];
-
-interface UserOption {
-  id: string;
-  firstName?: string;
-  lastName?: string;
-  username: string;
-}
-
-
-function displayName(u: UserOption): string {
-  const full = hoTen(u);
-  return full || u.username;
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^0\d{9}$/;
-
-/**
- * Tính danh sách lỗi theo THỨ TỰ HIỂN THỊ trên form (trên → dưới) để:
- * (1) focus field lỗi đầu tiên khi lưu, (2) Shift+Enter nhảy field lỗi kế tiếp.
- * Lỗi gồm: trống bắt buộc VÀ sai định dạng (email/SĐT). summary KHÔNG còn bắt buộc (đã ẩn).
- */
-function computeFormErrors(fd: FormData, effectiveEdit: boolean): { msgs: string[]; fields: string[] } {
-  const items: { msg: string; testid: string }[] = [];
-  const anon = fd.senderIsAnonymous;
-  if (!fd.receivedDate) items.push({ msg: "Ngày tiếp nhận là bắt buộc", testid: "field-receivedDate" });
-  else if (fd.receivedDate > today())
-    items.push({ msg: "Ngày tiếp nhận không được là ngày tương lai", testid: "field-receivedDate" });
-  if (!anon && !fd.senderName.trim()) items.push({ msg: "Tên người gửi là bắt buộc", testid: "field-senderName" });
-  if (!anon && !fd.senderAddress.trim()) items.push({ msg: "Địa chỉ người gửi là bắt buộc", testid: "field-senderAddress" });
-  if (!effectiveEdit && !anon && !fd.senderPhone.trim())
-    items.push({ msg: "Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)", testid: "field-senderPhone" });
-  else if (fd.senderPhone && !PHONE_RE.test(fd.senderPhone))
-    items.push({ msg: "Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)", testid: "field-senderPhone" });
-  if (fd.senderEmail && !EMAIL_RE.test(fd.senderEmail)) items.push({ msg: "Email không đúng định dạng", testid: "field-senderEmail" });
-  if (!fd.petitionType || !VALID_PETITION_TYPES.includes(fd.petitionType))
-    items.push({ msg: "Loại đơn thư là bắt buộc", testid: "field-petitionType" });
-  if (!effectiveEdit && !anon && !fd.crimeChinhId)
-    items.push({ msg: "Tội danh chính là bắt buộc (trừ đơn nặc danh)", testid: "field-crimeChinhId" });
-  if (!fd.detailContent.trim()) items.push({ msg: "Nội dung là bắt buộc", testid: "field-detailContent" });
-  return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };
-}
-
+import { computeFormErrors } from "./validate";
+import { displayName, type UserOption } from "./userOption";
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();

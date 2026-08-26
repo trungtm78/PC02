@@ -12,7 +12,7 @@
  * Cùng lớp lỗi đã vá cho Vụ án (PR #245). Máy chủ Đơn thư vốn đã đúng — lỗi hoàn toàn ở đây.
  */
 import { oHeCu } from '@/pages/cases/CaseFormPage/buildCreateCasePayload';
-import type { PetitionFormData } from './petition-form-types';
+import type { PetitionFormData } from './types';
 
 export interface BuildPetitionPayloadOptions {
   /** Đang SỬA hồ sơ đã có (khác với TẠO mới). */
