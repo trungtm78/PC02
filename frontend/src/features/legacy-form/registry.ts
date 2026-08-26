@@ -9,6 +9,7 @@
  * Tra bảng thay cho rẽ nhánh: thêm một thực thể vào đây là mọi nơi tự đúng theo.
  */
 import { CASE_LEGACY_SPEC } from '@/features/cases/legacy-form-layout.def';
+import { PETITION_LEGACY_SPEC } from '@/features/petitions/legacy-form-binding';
 import { ownedColumns, type LegacyEntity } from './types';
 
 const KHONG_CO: ReadonlySet<string> = new Set();
@@ -16,6 +17,7 @@ const KHONG_CO: ReadonlySet<string> = new Set();
 /** Thực thể đã dựng form theo đặc tả bố cục hệ cũ. */
 const DAC_TA_THEO_THUC_THE = {
   case: CASE_LEGACY_SPEC,
+  petition: PETITION_LEGACY_SPEC,
 } as const;
 
 /**

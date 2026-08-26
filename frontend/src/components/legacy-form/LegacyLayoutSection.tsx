@@ -102,6 +102,9 @@ function LegacyField({
   const colSpan = item.span === "full" ? (2 as const) : (1 as const);
   const wrapClass = item.span === "full" ? "md:col-span-2" : "";
   const testId = `legacy-field-${item.field}`;
+  // Ô nhập bên trong mang `field-<tên ô>` — cùng quy ước với phần còn lại của ứng dụng, nên
+  // ca kiểm và kịch bản kiểm thử bám được vào ô mà không phải biết nó nằm ở tab nào.
+  const oTestId = `field-${item.field}`;
 
   // Bọc thêm một lớp để ca kiểm bám vào được chỗ đứng của ô mà không phải suy từ lớp CSS
   // của thành phần con — chỗ đứng là thứ anh yêu cầu giống hệ cũ, nên phải chốt được.
@@ -122,6 +125,7 @@ function LegacyField({
           onChange={onChange}
           placeholder={item.placeholder}
           rows={item.rows ?? 3}
+          data-testid={oTestId}
         />,
       );
 
@@ -135,6 +139,7 @@ function LegacyField({
           onChange={onChange}
           options={[...(item.options ?? [])]}
           placeholder={item.placeholder ?? "Chọn"}
+          data-testid={oTestId}
         />,
       );
 
@@ -160,6 +165,7 @@ function LegacyField({
           onChange={(v: string) => onChange(v)}
           error={error}
           required={item.required}
+          testId={oTestId}
         />,
       );
 
@@ -172,6 +178,7 @@ function LegacyField({
           onChange={(v: string) => onChange(v)}
           error={error}
           required={item.required}
+          testId={oTestId}
         />,
       );
 
@@ -189,6 +196,7 @@ function LegacyField({
           onChange={onChange}
           placeholder={item.placeholder}
           colSpan={colSpan === 2 ? undefined : undefined}
+          data-testid={oTestId}
         />,
       );
   }

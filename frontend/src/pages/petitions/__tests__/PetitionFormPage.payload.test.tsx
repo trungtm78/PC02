@@ -283,11 +283,18 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     expect((screen.getByTestId('field-ngayTiepNhanNguonTin') as HTMLInputElement).value).toBe('2026-03-15');
   });
 
-  it('YC2: ẩn ô Tóm tắt; nhãn là "Nội dung"; vẫn có ô Nội dung', async () => {
+  /**
+   * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — form Đơn thư nay dựng theo bố cục hệ cũ, và hệ cũ gọi ô này
+   * là "Tóm tắt nội dung". Nhãn ấy PHẢI có, đó đúng là điều anh yêu cầu: cán bộ đang dùng hệ
+   * cũ mở tab ra là thấy đúng chữ họ quen.
+   *
+   * Phần vẫn giữ nguyên: KHÔNG có ô `summary` riêng — tóm tắt suy ra từ Nội dung lúc lưu.
+   */
+  it('bố cục hệ cũ: có ô "Tóm tắt nội dung", không có ô summary riêng', async () => {
     await renderForm();
     await screen.findByTestId('field-detailContent');
     expect(screen.queryByTestId('field-summary')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Tóm tắt nội dung/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Tóm tắt nội dung/i).length).toBeGreaterThan(0);
   });
 
   it('YC2: summary payload tự lấy từ Nội dung (cắt 300)', async () => {

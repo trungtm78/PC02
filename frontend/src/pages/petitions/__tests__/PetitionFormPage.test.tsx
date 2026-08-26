@@ -147,11 +147,15 @@ describe('PetitionFormPage — create-mode defaults', () => {
     expect(screen.queryByTestId('entity-documents-petition')).toBeNull();
   });
 
-  it('Cycle 9: renames attachmentsNote label to "Ghi chú tài liệu đính kèm"', async () => {
+  /**
+   * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — form Đơn thư nay dựng theo bố cục hệ cũ, và hệ cũ gọi ô này
+   * là "Đồ vật, tài liệu kèm theo". Nhãn "Ghi chú tài liệu đính kèm" của hệ mới nhường chỗ:
+   * cán bộ đang dùng hệ cũ mở tab ra phải thấy đúng chữ họ quen.
+   */
+  it('bố cục hệ cũ: ô đính kèm mang nhãn "Đồ vật, tài liệu kèm theo"', async () => {
     await renderForm();
-    // T3 quyết định gate: giữ field, đổi label để báo "file thực ở tab Tài liệu".
-    const label = await screen.findByText(/Ghi chú tài liệu đính kèm/i);
-    expect(label).toBeTruthy();
+    expect(await screen.findByTestId('field-attachmentsNote')).toBeInTheDocument();
+    expect(screen.getAllByText(/Đồ vật, tài liệu kèm theo/i).length).toBeGreaterThan(0);
   });
 });
 

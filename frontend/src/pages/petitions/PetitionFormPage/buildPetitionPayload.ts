@@ -97,7 +97,11 @@ export function buildPetitionPayload(
     nhanThay: oHeCu(formData.nhanThay),
     deXuat: oHeCu(formData.deXuat),
     raSoatTrung: oHeCu(formData.raSoatTrung),
-    baoCaoBanGiamDoc: formData.baoCaoBanGiamDoc,
+    // Cột `baoCaoBanGiamDoc` là ĐÚNG/SAI, nhưng bố cục hệ cũ chỉ có ô CHỮ. Từ khi form dựng
+    // theo hệ cũ, cán bộ không còn ô nào để bật/tắt nó — nên suy từ chữ, và KHÔNG BAO GIỜ gửi
+    // `false`: gửi `false` mỗi lần lưu sẽ biến NULL ("chưa xác định") thành `false` cho mọi hồ
+    // sơ chưa kịp bù cột chữ. Cùng cách đã làm cho Vụ án.
+    ...(oHeCu(formData.baoCaoBanGiamDocText) !== null ? { baoCaoBanGiamDoc: true } : {}),
 
     senderIdNumber: oHeCu(formData.senderIdNumber),
     senderIdIssueDate: oHeCu(formData.senderIdIssueDate),
