@@ -69,12 +69,27 @@ set +a
 #
 # Nay dùng thông tin đăng nhập của chính ứng dụng (không cần sudo), giữ lại thông báo lỗi,
 # và KIỂM KÍCH THƯỚC — tệp rỗng bị coi là thất bại.
-BACKUP_DB_USER=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://([^:]+):.*||')
-BACKUP_DB_PASS=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*||')
-BACKUP_DB_NAME=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*/([^?]+)(\?.*)?$||')
+BACKUP_DB_USER=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://([^:]+):.*|\1|')
+BACKUP_DB_PASS=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*|\1|')
+BACKUP_DB_HOST=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*@([^:/]+).*|\1|')
+BACKUP_DB_PORT=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*@[^:/]+:([0-9]+)/.*|\1|')
+BACKUP_DB_NAME=$(printf '%s' "$DATABASE_URL" | sed -E 's|.*/([^?]+)(\?.*)?$|\1|')
 BACKUP_ERR="${BACKUP_FILE}.err"
 
-if PGPASSWORD="$BACKUP_DB_PASS" pg_dump -h localhost -U "$BACKUP_DB_USER" -Fc -Z9         "$BACKUP_DB_NAME" > "$BACKUP_FILE" 2>"$BACKUP_ERR"; then
+# Bóc sai một mảnh thì pg_dump vẫn chạy — với người dùng rỗng — rồi hỏng bằng thông báo
+# nói về xác thực chứ không nói về chỗ hỏng thật. Đó đúng là điều đã xảy ra 26/08/2026:
+# cả ba biểu thức thay bằng chuỗi RỖNG thay vì phần bắt được. Kiểm ngay đây, nói thẳng.
+for BACKUP_PART in USER PASS HOST PORT NAME; do
+    eval "BACKUP_VAL=\${BACKUP_DB_${BACKUP_PART}}"
+    if [ -z "$BACKUP_VAL" ] || [ "$BACKUP_VAL" = "$DATABASE_URL" ]; then
+        log "ERROR: không bóc được ${BACKUP_PART} từ DATABASE_URL — dừng deploy."
+        exit 1
+    fi
+done
+
+if PGPASSWORD="$BACKUP_DB_PASS" pg_dump \
+        -h "$BACKUP_DB_HOST" -p "$BACKUP_DB_PORT" -U "$BACKUP_DB_USER" \
+        -Fc -Z9 "$BACKUP_DB_NAME" > "$BACKUP_FILE" 2>"$BACKUP_ERR"; then
     BACKUP_SIZE=$(stat -c %s "$BACKUP_FILE" 2>/dev/null || echo 0)
     # Một bản kết xuất thật của cơ sở dữ liệu này khoảng 120 MB. Ngưỡng 1 MB đủ rộng cho
     # mọi biến động hợp lý mà vẫn bắt được tệp rỗng hoặc cụt.
