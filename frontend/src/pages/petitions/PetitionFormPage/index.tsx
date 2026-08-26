@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
+import { KHOA_NHANH_PHU } from "@/features/petitions/legacy-form-binding";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -182,7 +183,17 @@ export function PetitionFormPage() {
       .then((res) => {
         const d = res.data.data;
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
-        setMetaState((d.metadata as Record<string, unknown>) ?? {});
+        // Tách đôi metadata đọc về: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`,
+        // còn lại để `metaState` cho panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại
+        // vùng ghi sau đè vùng kia — cán bộ sửa ở panel động, bấm Lưu, không đổi gì.
+        const metaDoc = (d.metadata as Record<string, unknown>) ?? {};
+        const metaConLai: Record<string, unknown> = {};
+        const metaTheoBoCuc: Record<string, string | string[] | boolean> = {};
+        for (const [k, v] of Object.entries(metaDoc)) {
+          if (KHOA_NHANH_PHU.has(k)) metaTheoBoCuc[k] = v as string | string[] | boolean;
+          else metaConLai[k] = v;
+        }
+        setMetaState(metaConLai);
         const ps: Record<string, unknown> = {};
         for (const f of LEGACY_PARITY_FIELDS.petition) if (d[f.col] != null) ps[f.col] = d[f.col];
         setParityState(ps);
@@ -259,7 +270,7 @@ export function PetitionFormPage() {
           soLuongBiHai: d.soLuongBiHai != null ? String(d.soLuongBiHai) : "",
           sttCu: (d.sttCu as string) ?? "",
           // Ô hệ cũ chưa có cột riêng — nằm trong metadata của máy chủ.
-          legacyExtra: ((d.metadata ?? {}) as Record<string, string | string[] | boolean>),
+          legacyExtra: metaTheoBoCuc,
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button

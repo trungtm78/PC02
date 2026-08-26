@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsObject,
   IsOptional,
   IsEnum,
   IsDateString,
@@ -389,4 +390,13 @@ export class CreatePetitionDto {
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() canCuTamDinhChiNguonTin?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soPhucHoiNguonTin?: string;
   @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
+
+  /**
+   * Ô hệ cũ CHƯA có cột riêng trên Đơn thư — máy chủ GỘP vào `metadata`.
+   *
+   * Đường SỬA nhận `metadata` từ `UpdatePetitionDto`, nhưng đường TẠO thì chưa khai. Vì
+   * `forbidNonWhitelisted` đang bật, gửi `metadata` lúc tạo sẽ bị đá CẢ lời gọi bằng 400 —
+   * tức không tạo được đơn thư nào.
+   */
+  @IsOptional() @IsObject() metadata?: Record<string, unknown>;
 }

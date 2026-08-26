@@ -127,6 +127,21 @@ const O_VOI_COT: Readonly<Record<string, string>> = Object.fromEntries(
   Object.values(CO_COT_RIENG).map((cot) => [cot, cot]),
 );
 
+/**
+ * Khoá metadata mà BỐ CỤC HỆ CŨ đã có ô nhập.
+ *
+ * Dùng để tách đôi phần metadata đọc về: khoá nào có ô trong tab thì thuộc `legacyExtra`,
+ * còn lại để `metaState` cho panel động. Không tách thì hai vùng cùng giữ một khoá, và lúc
+ * gộp lại vùng nào ghi sau sẽ đè vùng kia — cán bộ sửa ở panel động, bấm Lưu, không đổi gì.
+ */
+export const KHOA_NHANH_PHU: ReadonlySet<string> = new Set(
+  Object.values(PETITION_LEGACY_LAYOUT)
+    .flat()
+    .map((it) => it.field)
+    .filter((f) => f.startsWith(`${NHANH_PHU}.`))
+    .map((f) => f.slice(NHANH_PHU.length + 1)),
+);
+
 export const PETITION_LEGACY_SPEC: LegacyFormSpec<
   PetitionFormData,
   LegacyTabId,

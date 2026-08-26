@@ -110,5 +110,8 @@ export function buildPetitionCreateData(
     canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin,
     soPhucHoiNguonTin: dto.soPhucHoiNguonTin,
     ngayPhucHoiNguonTin: toDate(dto.ngayPhucHoiNguonTin),
+    // Ô hệ cũ chưa có cột riêng. Không ghi ở đường TẠO thì cán bộ điền xong, bấm Lưu, và
+    // mất sạch phần ấy ngay lần đầu.
+    ...(dto.metadata !== undefined && { metadata: dto.metadata as never }),
   };
 }

@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
+import { CreatePetitionDto } from './dto/create-petition.dto';
 import { buildPetitionCreateData } from './petition-data.builder';
 import { PARITY } from '../legacy-migration/field-parity.def';
 
@@ -30,6 +31,40 @@ function mau(col: string): unknown {
   if (kieu === 'Boolean') return true;
   return 'giá trị thử';
 }
+
+/**
+ * `metadata` phải đi được qua đường TẠO, không chỉ đường SỬA.
+ *
+ * Ô hệ cũ chưa có cột riêng nằm trong `metadata`. `forbidNonWhitelisted` đang bật, nên một
+ * trường không khai trong DTO không bị bỏ qua lặng lẽ mà đá CẢ lời gọi bằng 400 — tức không
+ * tạo được đơn thư nào, kể cả đơn không đụng gì tới ô hệ cũ.
+ */
+describe('metadata đi được qua đường tạo mới', () => {
+  it('DTO nhận metadata, không bị forbidNonWhitelisted đá', async () => {
+    const dto = plainToInstance(CreatePetitionDto, {
+      receivedDate: '2026-08-26',
+      senderName: 'A',
+      senderPhone: '0901234567',
+      crimeChinhId: 'crime-1',
+      petitionType: 'TO_CAO',
+      metadata: { soQuyetDinhKhoiTo: '12/QĐ' },
+    });
+    const loi = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
+    expect(loi.map((e) => e.property)).toEqual([]);
+  });
+
+  it('đường TẠO ghi metadata vào cơ sở dữ liệu', () => {
+    const data = buildPetitionCreateData(
+      {
+        receivedDate: '2026-08-26',
+        senderName: 'A',
+        metadata: { soQuyetDinhKhoiTo: '12/QĐ' },
+      } as never,
+      { stt: '2026-1', actorId: 'user-001' },
+    ) as Record<string, unknown>;
+    expect(data.metadata).toEqual({ soQuyetDinhKhoiTo: '12/QĐ' });
+  });
+});
 
 describe('Cột hệ cũ của Đơn thư phải ghi được qua API', () => {
   it.each(COT_PARITY)('cột "%s": DTO nhận, không bị forbidNonWhitelisted đá', async (col) => {
