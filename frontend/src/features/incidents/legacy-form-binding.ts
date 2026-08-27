@@ -115,10 +115,45 @@ export function dichLuu(field: CaseFieldPath): IncidentFieldPath {
   return `${NHANH_PHU}.${field.replace('statistic.', '')}`;
 }
 
+/**
+ * Bộ lựa chọn riêng của Vụ việc cho ô "Phân loại ban đầu".
+ *
+ * Ba bộ từ vựng đang cùng tồn tại cho một khái niệm: hệ cũ lưu chữ tự do ("vụ việc"), đặc tả
+ * bố cục dùng `vu_viec`, còn cột `phanLoaiNguonTinBanDau` trên máy chạy giữ `vu-viec-ban-dau`.
+ * Lấy nguyên bộ của Vụ án thì ô chọn hiện TRỐNG cho 4.594/4.717 hồ sơ — bấm thử trên máy thật
+ * 27/08/2026 mới lộ, vì ca kiểm chỉ đối chiếu tên ô chứ không đối chiếu giá trị.
+ *
+ * Số đo giá trị đang lưu: `vu-viec-ban-dau` 3.607 · `vu-viec-nguon-tin` 987 · `vụ việc` 96 ·
+ * `cong-van-don-doc-phuc-hoi-tdc` 3.
+ *
+ * Giữ NHÃN nguyên văn hệ cũ, đổi GIÁ TRỊ sang đúng thứ đang nằm dưới cơ sở dữ liệu.
+ */
+const LUA_CHON_PHAN_LOAI = [
+  { value: 'don-cong-van-ban-dau', label: 'Đơn, Công văn' },
+  { value: 'vu-viec-ban-dau', label: 'Vụ việc' },
+  { value: 'vu-viec-nguon-tin', label: 'Vụ việc (nguồn tin)' },
+  { value: 'vu-an-ban-dau', label: 'Vụ án' },
+  { value: 'tra-ho-so-ban-dau', label: 'Trả hồ sơ cho đơn vị chuyển' },
+  { value: 'huong-dan-ban-dau', label: 'Hướng dẫn nghiệp vụ' },
+  { value: 'trao-doi-chuyen-an', label: 'Trao đổi chuyển án' },
+  { value: 'cong-van-don-doc-phuc-hoi-tdc', label: 'Công văn đôn đốc phục hồi TĐC' },
+] as const;
+
+/** Ô nào Vụ việc dùng bộ lựa chọn khác Vụ án. */
+const DOI_LUA_CHON: Readonly<
+  Partial<Record<CaseFieldPath, readonly { value: string; label: string }[]>>
+> = {
+  phanLoaiNguonTinBanDau: LUA_CHON_PHAN_LOAI,
+};
+
 function doiTab(
   items: readonly LegacyLayoutItem<CaseFieldPath, LegacyTabId>[],
 ): readonly LegacyLayoutItem<IncidentFieldPath, LegacyTabId>[] {
-  return items.map((it) => ({ ...it, field: dichLuu(it.field) }));
+  return items.map((it) => ({
+    ...it,
+    field: dichLuu(it.field),
+    ...(DOI_LUA_CHON[it.field] ? { options: DOI_LUA_CHON[it.field] } : {}),
+  }));
 }
 
 export const INCIDENT_LEGACY_LAYOUT: LegacyLayout<LegacyTabId, IncidentFieldPath> =
