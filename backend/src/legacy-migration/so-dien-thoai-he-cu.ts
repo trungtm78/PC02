@@ -22,8 +22,17 @@ const DUNG_DANG = /^0[0-9]{9}$/;
 /** Chuỗi chỉ gồm chữ số và dấu phân cách — bỏ dấu đi không mất thông tin nào. */
 const CHI_DAU_PHAN_CACH = /^[0-9\s.\-()]+$/;
 
-/** Chữ số ít nhất mà một số điện thoại Việt Nam có thể có (máy bàn rút gọn). */
-const IT_NHAT_CHU_SO = 9;
+/**
+ * Chữ số ít nhất mà một số điện thoại còn CÓ THỂ là số điện thoại.
+ *
+ * Bản đầu đặt 9 và như thế là tự mâu thuẫn: máy bàn nội hạt bảy tám chữ số vẫn là số thật, và
+ * xoá nó đi là mất dữ liệu. Đo phân bố trên máy chạy 27/08/2026 thì nhóm 1–4 chữ số toàn là
+ * `0`, `00`, `000` và một chuỗi địa chỉ; nhóm 5–9 chữ số toàn số 0; số thật bắt đầu từ 10 chữ
+ * số. Nên ngưỡng 7 không xoá của ai thứ gì, mà vẫn đúng nguyên tắc.
+ *
+ * Chuỗi 7–8 chữ số rơi vào nhóm "không đoán được": giữ nguyên, đếm riêng, để cán bộ tự xử.
+ */
+const IT_NHAT_CHU_SO = 7;
 
 export type KetQuaDoc =
   | { loai: 'giu-nguyen' }

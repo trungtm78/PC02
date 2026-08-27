@@ -10,7 +10,10 @@ function khoGia(dong: Dong[]) {
       take: number;
       cursor?: { id: string };
     };
-    let ds = dong.filter((d) => d.senderPhone !== null);
+    // Áp ĐÚNG điều kiện được truyền vào. Tự lọc sẵn `senderPhone !== null` thì ca kiểm xanh
+    // cả khi câu truy vấn thật bỏ mất điều kiện ấy — bản giả kiểm hộ đúng chỗ cần kiểm.
+    let ds = [...dong];
+    if (arg.where.senderPhone) ds = ds.filter((d) => d.senderPhone !== null);
     if (arg.where.legacySourceId) ds = ds.filter((d) => d.legacySourceId !== null);
     ds = [...ds].sort((x, y) => (x.id < y.id ? -1 : 1));
     if (arg.cursor) ds = ds.slice(ds.findIndex((d) => d.id === arg.cursor?.id) + 1);
@@ -33,6 +36,13 @@ function khoGia(dong: Dong[]) {
 }
 
 describe('donSoDienThoai — xoá ký hiệu "không có", giữ mọi thứ còn có thể là số', () => {
+  it('không quét hồ sơ vốn đã trống số điện thoại', async () => {
+    const g = khoGia([{ id: 'a', senderPhone: null, legacySourceId: 'k' }]);
+    const kq = await donSoDienThoai(g.kho, false);
+    expect(kq.quet).toBe(0);
+    expect(g.updateMany).not.toHaveBeenCalled();
+  });
+
   it('ký hiệu "không có" thì xoá về trống', async () => {
     const g = khoGia([{ id: 'a', senderPhone: '...', legacySourceId: 'k' }]);
     const kq = await donSoDienThoai(g.kho, false);

@@ -28,8 +28,8 @@ describe('docSoDienThoaiHeCu — phân biệt "không có" với "sai"', () => {
     ['Không', 28],
     ['SDT', 0],
     ['00000000', 5],
-    [',', 4],
     ['000000000', 4],
+    [',', 4],
     ['', 0],
     ['   ', 0],
   ])('ký hiệu "không có" của hệ cũ: %s (%i hồ sơ)', (v) => {
@@ -52,6 +52,14 @@ describe('docSoDienThoaiHeCu — phân biệt "không có" với "sai"', () => {
    * Bóc dấu phân cách thì không mất gì; bóc cả chữ thì mất. "0912345678 (nhà riêng)" cũng ra
    * đúng mười chữ số, nhưng vứt luôn chữ "nhà riêng" là lặng lẽ mất một mẩu cán bộ đã gõ.
    */
+  /**
+   * Máy bàn nội hạt bảy tám chữ số vẫn là số thật. Ngưỡng cũ đặt ở 9 nên xoá cả chúng — tự
+   * mâu thuẫn với nguyên tắc "chỉ kết luận không có khi KHÔNG THỂ là số".
+   */
+  it.each([['38291234'], ['8291234']])('máy bàn %s chữ số thì KHÔNG xoá', (v) => {
+    expect(docSoDienThoaiHeCu(v).loai).toBe('khong-doan-duoc');
+  });
+
   it('có chữ kèm theo thì không tự bóc, dù chữ số ra đúng dạng', () => {
     expect(docSoDienThoaiHeCu('0912345678 (nhà riêng)').loai).toBe('khong-doan-duoc');
   });
