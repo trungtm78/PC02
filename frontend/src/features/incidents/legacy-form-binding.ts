@@ -165,6 +165,20 @@ export const INCIDENT_LEGACY_SPEC: LegacyFormSpec<
   tabLabel: LEGACY_TAB_LABEL,
   layout: INCIDENT_LEGACY_LAYOUT,
   read: (form, field) => O_PHU.read(form, field),
-  write: (form, field, value) => O_PHU.write(form, field, value),
+  write: (form, field, value) => {
+    const sau = O_PHU.write(form, field, value);
+    // Ô "Tóm tắt nội dung" là ô nội dung DUY NHẤT cán bộ nhìn thấy, nhưng máy chủ giữ hai cột:
+    // `description` và `name` (bắt buộc, ≥5 ký tự). Đo trên máy chạy 27/08/2026: 4.598/4.717
+    // hồ sơ (97,5%) đã có hai cột trùng y hệt nhau.
+    //
+    // Đồng bộ theo lối SOI GƯƠNG, không đè: chỉ cập nhật `name` khi nó đang trống hoặc còn
+    // khớp giá trị cũ của `description`. 119 hồ sơ có tên riêng khác tóm tắt — đè lên nghĩa là
+    // cán bộ mở hồ sơ ra, không sửa gì, bấm Lưu, và hồ sơ bị đổi tên mà không ai biết.
+    if (field === 'description') {
+      const soiGuong = !form.name || form.name === form.description;
+      if (soiGuong) return { ...sau, name: String(value ?? '') };
+    }
+    return sau;
+  },
   fieldToColumn: O_VOI_COT,
 };

@@ -34,7 +34,7 @@ import { mergeIncidentApiToFormData } from './mergeIncidentApiToFormData';
 import { computeIncidentErrors } from './validate-incident';
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
-import { INCIDENT_LEGACY_SPEC } from "@/features/incidents/legacy-form-binding";
+import { INCIDENT_LEGACY_SPEC, KHOA_NHANH_PHU } from "@/features/incidents/legacy-form-binding";
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
 
 
@@ -190,7 +190,16 @@ export function IncidentFormPage() {
         const d = res.data.data;
         if (d) {
           setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
-          setMetaState((d.metadata as Record<string, unknown>) ?? {});
+          // Tach doi metadata: khoa nao bo cuc he cu da co o trong tab thi thuoc `legacyExtra`,
+          // con lai de panel dong. Cung giu mot khoa o hai vung thi luc gop lai vung ghi sau de
+          // vung kia - can bo sua o panel dong, bam Luu, khong doi gi.
+          setMetaState(
+            Object.fromEntries(
+              Object.entries((d.metadata as Record<string, unknown>) ?? {}).filter(
+                ([k]) => !KHOA_NHANH_PHU.has(k),
+              ),
+            ),
+          );
           const ps: Record<string, unknown> = {};
           for (const f of LEGACY_PARITY_FIELDS.incident) if (d[f.col] != null) ps[f.col] = d[f.col];
           setParityState(ps);

@@ -1,4 +1,5 @@
 import {
+  IsObject,
   IsString,
   IsOptional,
   IsDateString,
@@ -288,4 +289,12 @@ export class CreateIncidentDto {
   @IsOptional() @IsString() chuyenTuDonVi?: string;
   @IsOptional() @IsString() chuyenDenDonVi?: string;
   @IsOptional() @IsString() sinhNamNguoiToGiac?: string;
+
+  /**
+   * Field hệ cũ dạng cấu trúc — ô của bố cục 10 tab mà Vụ việc chưa có cột riêng.
+   *
+   * Form gửi ngay ở màn TẠO MỚI. Thiếu khai ở đây thì `forbidNonWhitelisted` đá cả lời gọi
+   * bằng 400, tức không tạo được vụ việc nào.
+   */
+  @IsOptional() @IsObject() metadata?: Record<string, unknown>;
 }
