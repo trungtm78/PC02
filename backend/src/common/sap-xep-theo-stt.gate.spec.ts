@@ -142,6 +142,17 @@ describe('Bẫy đã trả giá một lần', () => {
    * Hậu tố quá dài làm `bigint` TRÀN, và Postgres không trả NULL — nó ném lỗi, tức CHẶN cả
    * lệnh ghi. Một mã méo nhập vào từ Excel sẽ làm hỏng nguyên lần nhập.
    */
+  /**
+   * Năm phi lý phải thành NULL, không thành số.
+   *
+   * Một mã gõ nhầm "3026-15" vẫn đúng hình dạng, và nếu tính ra số thì hồ sơ ấy chiếm ĐẦU
+   * danh sách sắp giảm dần — chen lên trước mọi hồ sơ thật. Cột sắp ngày `sortReceivedDate`
+   * đã chặn đúng lớp ấy bằng khoảng 1900–2100 từ 24/08/2026.
+   */
+  it('công thức chặn năm phi lý', () => {
+    expect(sql).toMatch(/BETWEEN\s+1900\s+AND\s+2100/i);
+  });
+
   it('công thức chặn hậu tố quá dài thay vì để số nguyên tràn', () => {
     expect(sql).toMatch(/\[0-9\]\{1,5\}/);
     expect(sql).not.toMatch(/\[0-9\]\+\$/);

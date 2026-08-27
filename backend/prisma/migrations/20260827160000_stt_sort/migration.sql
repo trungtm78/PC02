@@ -25,7 +25,11 @@ AS $$
     --
     -- Kiểu `integer` chứ không `bigint`: `BigInt` của Prisma ra `bigint` của JavaScript, mà
     -- `JSON.stringify` ném lỗi với kiểu ấy — mở một hồ sơ là lỗi 500.
+    -- Năm phải nằm trong khoảng hợp lý. Một mã gõ nhầm "3026-15" vẫn đúng hình dạng, và nếu
+    -- tính ra số thì hồ sơ ấy chiếm ĐẦU danh sách sắp giảm dần — đúng thứ mà cột sắp ngày
+    -- `sortReceivedDate` đã chặn bằng khoảng 1900–2100 từ 24/08/2026.
     WHEN ma ~ '^[0-9]{4}-[0-9]{1,5}$'
+     AND split_part(ma, '-', 1)::integer BETWEEN 1900 AND 2100
       THEN split_part(ma, '-', 1)::integer * 100000 + split_part(ma, '-', 2)::integer
     ELSE NULL
   END
