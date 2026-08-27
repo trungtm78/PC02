@@ -55,8 +55,10 @@ async function renderForm() {
 describe('IncidentFormPage — lý do không khởi tố qua CatalogSelect (PR-1)', () => {
   it('render checkbox danh mục testid cat-{code} + nhãn pháp lý "đại xá"', async () => {
     await renderForm();
-    // Field nằm trong section "Kết quả xử lý vụ việc" (mặc định đóng) → mở ra.
-    fireEvent.click(screen.getByText('Kết quả xử lý vụ việc'));
+    // Từ 27/08/2026 ô này nằm ĐÚNG CHỖ HỆ CŨ — tab "Vụ việc", không còn ở thẻ "Kết quả xử lý
+    // vụ việc" của hệ mới. Đó là mục tiêu của epic, không phải hồi quy: cán bộ dùng hệ cũ mở
+    // tab ra là thấy đúng bộ ô họ quen. Ô vẫn là `CatalogSelect` (danh mục động), chỉ đổi chỗ.
+    fireEvent.click(screen.getByTestId('tab-nut-incident'));
     expect(await screen.findByTestId('cat-KHONG_CO_SU_VIEC')).toBeInTheDocument();
     expect(screen.getByTestId('cat-TOI_PHAM_DA_DUOC_XOA_AN_TICH')).toBeInTheDocument();
     expect(screen.getByText(/đại xá/)).toBeInTheDocument();
@@ -64,7 +66,8 @@ describe('IncidentFormPage — lý do không khởi tố qua CatalogSelect (PR-1
 
   it('PR-2: lyDoTamDinhChiVuViec render qua CatalogSelect (cat-{code}) trong section TĐC', async () => {
     await renderForm();
-    fireEvent.click(screen.getByText('Tạm đình chỉ & Phục hồi'));
+    // Ô căn cứ tạm đình chỉ nay ở tab "Vụ việc TĐC" theo đúng bố cục hệ cũ.
+    fireEvent.click(screen.getByTestId('tab-nut-incident-tdc'));
     expect(await screen.findByTestId('cat-CHUA_CO_KET_QUA_GIAM_DINH')).toBeInTheDocument();
     expect(screen.getByTestId('cat-BAT_KHA_KHANG')).toBeInTheDocument();
   });

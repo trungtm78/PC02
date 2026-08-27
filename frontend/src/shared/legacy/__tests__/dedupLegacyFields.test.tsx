@@ -58,7 +58,7 @@ describe("DynamicLegacyFields — chỉ hiện long-tail (dedup, không sót)", 
   });
 });
 
-describe("LegacyParityFields — Case ẩn cột form-chính, Incident giữ", () => {
+describe("LegacyParityFields — panel im khi bố cục hệ cũ đã có ô", () => {
   /**
    * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026, KHÔNG PHẢI CA KIỂM BỊ SỬA CHO KHỚP MÃ.
    *
@@ -75,9 +75,31 @@ describe("LegacyParityFields — Case ẩn cột form-chính, Incident giữ", (
     expect(screen.queryByTestId("parity-field-nguonDon")).not.toBeInTheDocument();
     expect(screen.queryByTestId("parity-field-ngayDeXuat")).not.toBeInTheDocument();
   });
-  it("Incident: giữ cột parity (form chính không có)", () => {
+  /**
+   * MỐC ĐÚNG LẠI ĐỔI 27/08/2026, CŨNG KHÔNG PHẢI CA KIỂM BỊ SỬA CHO KHỚP MÃ.
+   *
+   * Bản cũ chốt "Vụ việc giữ cột parity vì form chính không có ô". Từ epic dựng form Vụ việc
+   * theo bố cục hệ cũ, tab Thông tin ĐÃ CÓ ô "Nhận xét" ở đúng vị trí hệ cũ — nên panel phải
+   * im, đúng như Vụ án và Đơn thư.
+   *
+   * Giữ mốc cũ nghĩa là mỗi cột có hai ô cùng ghi một chỗ, và vì panel gộp vào payload SAU
+   * form nên nó đè giá trị cán bộ vừa gõ trong tab.
+   */
+  it("Incident: ẩn nhanXet — tab đã có ô cho cột này", () => {
     render(<LegacyParityFields entity="incident" values={{ nhanXet: "x" }} onChange={() => {}} />);
     fireEvent.click(screen.getByTestId("parity-fields-toggle"));
-    expect(screen.getByTestId("parity-field-nhanXet")).toBeInTheDocument();
+    expect(screen.queryByTestId("parity-field-nhanXet")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Panel vẫn phải giữ ô cho cột mà bố cục hệ cũ KHÔNG có — nếu không thì dữ liệu di trú ở
+   * những cột ấy không còn chỗ sửa nào.
+   */
+  it("Incident: vẫn giữ cột mà bố cục hệ cũ không có ô", () => {
+    render(
+      <LegacyParityFields entity="incident" values={{ phanLoaiHoSoNoiBo: "x" }} onChange={() => {}} />,
+    );
+    fireEvent.click(screen.getByTestId("parity-fields-toggle"));
+    expect(screen.getByTestId("parity-field-phanLoaiHoSoNoiBo")).toBeInTheDocument();
   });
 });
