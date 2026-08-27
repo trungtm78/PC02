@@ -148,18 +148,29 @@ describe('IncidentFormPage — loaiDonVu enum dropdown (v0.30.0.3 regression)', 
     expect(payload.loaiDonVu).not.toMatch(/khoản/);
   });
 
-  it('omits loaiDonVu when user does not select an option (empty → undefined)', async () => {
+  /**
+   * Ô trống gửi `null`, KHÔNG bỏ khoá.
+   *
+   * Bản trước của ca kiểm này đòi `payload.loaiDonVu` phải `undefined`, tức nó CHỐT ĐÚNG
+   * HỢP ĐỒNG HỎNG: máy chủ chỉ ghi những khoá có mặt trong lời gọi, nên bỏ khoá nghĩa là
+   * cán bộ xoá trắng một ô rồi bấm Lưu thì giá trị cũ vẫn nằm nguyên dưới cơ sở dữ liệu. Ca
+   * kiểm ấy bảo vệ lỗi thay vì bắt lỗi — cùng kiểu đã gặp ở Vụ án (#245) và Đơn thư.
+   *
+   * Chọn `null` chứ không phải chuỗi rỗng: DTO dùng `@IsOptional()`, và `""` sẽ trượt qua
+   * phép kiểm enum rồi rơi xuống cột như một giá trị hợp lệ.
+   */
+  it('gửi null cho ô không chọn, không bỏ khoá khỏi lời gọi', async () => {
     await renderForm();
 
     fireEvent.change(screen.getByTestId('field-name'), {
-      target: { value: 'Vụ test omit loaiDonVu' },
+      target: { value: 'Vụ test ô trống gửi null' },
     });
     fireEvent.click(screen.getByTestId('btn-save-top'));
 
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, payload] = (api.post as any).mock.calls[0];
-    // s() helper turns "" into undefined → field omitted from payload.
-    expect(payload.loaiDonVu).toBeUndefined();
+    expect(payload).toHaveProperty('loaiDonVu');
+    expect(payload.loaiDonVu).toBeNull();
   });
 });
 

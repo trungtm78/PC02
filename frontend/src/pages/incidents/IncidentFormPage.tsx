@@ -29,102 +29,9 @@ import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteReso
 import { IncidentStatus } from "@/shared/enums/generated";
 import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { buildIncidentPayload } from './buildIncidentPayload';
+import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
 
-interface FormData {
-  name: string;
-  incidentType: string;
-  description: string;
-  fromDate: string;
-  toDate: string;
-  deadline: string;
-  doiTuongCaNhan: string;
-  doiTuongToChuc: string;
-  loaiDonVu: string;
-  nguonPhatTin: string;
-  phuongThucTiepNhan: string;
-  benVu: string;
-  donViGiaiQuyet: string;     // Text label
-  assignedTeamId: string;     // FK Team for DataScope
-  ngayDeXuat: string;
-  sdtNguoiToGiac: string;
-  diaChiNguoiToGiac: string;
-  cmndNguoiToGiac: string;
-  diaChiXayRa: string;
-  canBoNhapId: string;
-  investigatorId: string;
-  ketQuaXuLy: string;
-  // PR 5 v0.38.4.0 — Loại kết quả chuẩn hóa + Căn cứ khởi tố Đ.143 (Wireframe 5)
-  loaiKetQua: string;
-  canCuKhoiToCode: string;
-  soQuyetDinh: string;
-  ngayQuyetDinh: string;
-  nguoiQuyetDinh: string;
-  lyDoKhongKhoiTo: string[];
-  lyDoTamDinhChiVuViec: string[];
-  lyDoTamDinhChi: string;
-  tinhTrangThoiHieu: string;
-  tinhTrangHoSo: string;
-  // Field-parity hệ thống cũ (giai đoạn nguồn tin)
-  soQDPhanCongNguonTin: string;
-  ngayQDPhanCongNguonTin: string;
-  canCuKhongKhoiTo: string;
-  canCuTamDinhChi: string;
-  phanLoaiDanSuText: string;
-  // Field-parity: TĐC + QĐ tạm đình chỉ/phục hồi + công nghệ cao
-  tienDoKhacPhucTDC: string;
-  tdcKhacPhucLyDoBienPhap: string;
-  tdcKhacPhucBienBan: string;
-  soQuyetDinhTamDinhChiVV: string;
-  ngayTamDinhChiVV: string;
-  soQuyetDinhPhucHoiVV: string;
-  ngayPhucHoiVV: string;
-  ngayHetThoiHieuVV: string;
-  soQDKhongKhoiTo: string;
-  ngayQDKhongKhoiTo: string;
-  xacDinhVuViecTamDung: boolean;
-  laCongNgheCaoVV: boolean;
-}
-
-const INITIAL_FORM: FormData = {
-  name: "",
-  incidentType: "",
-  description: "",
-  fromDate: "",
-  toDate: "",
-  deadline: "",
-  doiTuongCaNhan: "",
-  doiTuongToChuc: "",
-  loaiDonVu: "",
-  nguonPhatTin: "",
-  phuongThucTiepNhan: "",
-  benVu: "",
-  donViGiaiQuyet: "",
-  assignedTeamId: "",
-  ngayDeXuat: "",
-  sdtNguoiToGiac: "",
-  diaChiNguoiToGiac: "",
-  cmndNguoiToGiac: "",
-  diaChiXayRa: "",
-  canBoNhapId: "",
-  investigatorId: "",
-  ketQuaXuLy: "",
-  loaiKetQua: "",
-  canCuKhoiToCode: "",
-  soQuyetDinh: "",
-  ngayQuyetDinh: "",
-  nguoiQuyetDinh: "",
-  lyDoKhongKhoiTo: [],
-  lyDoTamDinhChiVuViec: [],
-  lyDoTamDinhChi: "",
-  tinhTrangThoiHieu: "",
-  tinhTrangHoSo: "",
-  soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "", canCuKhongKhoiTo: "",
-  canCuTamDinhChi: "", phanLoaiDanSuText: "",
-  tienDoKhacPhucTDC: "", tdcKhacPhucLyDoBienPhap: "", tdcKhacPhucBienBan: "",
-  soQuyetDinhTamDinhChiVV: "", ngayTamDinhChiVV: "", soQuyetDinhPhucHoiVV: "",
-  ngayPhucHoiVV: "", ngayHetThoiHieuVV: "", laCongNgheCaoVV: false,
-  soQDKhongKhoiTo: "", ngayQDKhongKhoiTo: "", xacDinhVuViecTamDung: false,
-};
 
 function CollapsibleSection({
   title,
@@ -166,7 +73,7 @@ export function IncidentFormPage() {
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   // Cột typed field-parity (di trú hệ cũ) — đọc/ghi cột thật, khác metaState (metadata JSON).
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
-  const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
+  const [formData, setFormData] = useState<IncidentFormData>(INITIAL_INCIDENT_FORM);
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Trạng thái bản ghi (edit) — để gate phím tắt Xóa (F3) theo rule danh sách (chỉ TIEP_NHAN).
@@ -283,7 +190,11 @@ export function IncidentFormPage() {
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
             lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
             lyDoTamDinhChiVuViec: Array.isArray(d.lyDoTamDinhChiVuViec) ? (d.lyDoTamDinhChiVuViec as string[]) : [],
-            lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
+            // Cột thật là `lyDoTamDinhChiText`; `lyDoTamDinhChi` chỉ là tên ô trên form,
+            // máy chủ nhận rồi đổi tên khi ghi. Đọc theo tên ô thì ô LUÔN rỗng, và từ lúc ô
+            // rỗng gửi `null` thì chỉ cần bấm Lưu là xoá mất ghi chú tạm đình chỉ.
+            lyDoTamDinhChi:
+              (d.lyDoTamDinhChiText as string) ?? (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
             soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
@@ -344,65 +255,11 @@ export function IncidentFormPage() {
     savingRef.current = true;
     setIsSubmitting(true);
     try {
-      // Build payload explicitly — only fields that exist in CreateIncidentDto
-      // / UpdateIncidentDto. Empty strings → undefined so optional fields
-      // are omitted rather than sent as "".
-      const s = (v: string) => v || undefined;
-      const payload = {
-        // Trường hệ cũ động (editable) → backend MERGE vào metadata
-        ...(isEditMode ? { metadata: metaState } : {}),
-        // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
-        ...parityState,
-        name: formData.name,
-        incidentType: s(formData.incidentType),
-        description: s(formData.description),
-        fromDate: s(formData.fromDate),
-        toDate: s(formData.toDate),
-        deadline: s(formData.deadline),
-        investigatorId: s(formData.investigatorId),
-        canBoNhapId: s(formData.canBoNhapId),
-        doiTuongCaNhan: s(formData.doiTuongCaNhan),
-        doiTuongToChuc: s(formData.doiTuongToChuc),
-        loaiDonVu: s(formData.loaiDonVu),
-        nguonPhatTin: s(formData.nguonPhatTin),
-        phuongThucTiepNhan: s(formData.phuongThucTiepNhan),
-        benVu: s(formData.benVu),
-        donViGiaiQuyet: s(formData.donViGiaiQuyet),
-        assignedTeamId: s(formData.assignedTeamId),
-        ngayDeXuat: s(formData.ngayDeXuat),
-        sdtNguoiToGiac: s(formData.sdtNguoiToGiac),
-        diaChiNguoiToGiac: s(formData.diaChiNguoiToGiac),
-        cmndNguoiToGiac: s(formData.cmndNguoiToGiac),
-        diaChiXayRa: s(formData.diaChiXayRa),
-        soQuyetDinh: s(formData.soQuyetDinh),
-        ngayQuyetDinh: s(formData.ngayQuyetDinh),
-        soQDPhanCongNguonTin: s(formData.soQDPhanCongNguonTin),
-        ngayQDPhanCongNguonTin: s(formData.ngayQDPhanCongNguonTin),
-        canCuKhongKhoiTo: s(formData.canCuKhongKhoiTo),
-        canCuTamDinhChi: s(formData.canCuTamDinhChi),
-        phanLoaiDanSuText: s(formData.phanLoaiDanSuText),
-        ketQuaXuLy: s(formData.ketQuaXuLy),
-        loaiKetQua: s(formData.loaiKetQua),
-        canCuKhoiToCode: s(formData.canCuKhoiToCode),
-        nguoiQuyetDinh: s(formData.nguoiQuyetDinh),
-        lyDoKhongKhoiTo: formData.lyDoKhongKhoiTo.length > 0 ? formData.lyDoKhongKhoiTo : undefined,
-        lyDoTamDinhChiVuViec: formData.lyDoTamDinhChiVuViec.length > 0 ? formData.lyDoTamDinhChiVuViec : undefined,
-        lyDoTamDinhChi: s(formData.lyDoTamDinhChi),
-        tinhTrangHoSo: s(formData.tinhTrangHoSo),
-        tinhTrangThoiHieu: s(formData.tinhTrangThoiHieu),
-        tienDoKhacPhucTDC: s(formData.tienDoKhacPhucTDC),
-        tdcKhacPhucLyDoBienPhap: s(formData.tdcKhacPhucLyDoBienPhap),
-        tdcKhacPhucBienBan: s(formData.tdcKhacPhucBienBan),
-        soQuyetDinhTamDinhChiVV: s(formData.soQuyetDinhTamDinhChiVV),
-        ngayTamDinhChiVV: s(formData.ngayTamDinhChiVV),
-        soQuyetDinhPhucHoiVV: s(formData.soQuyetDinhPhucHoiVV),
-        ngayPhucHoiVV: s(formData.ngayPhucHoiVV),
-        ngayHetThoiHieuVV: s(formData.ngayHetThoiHieuVV),
-        soQDKhongKhoiTo: s(formData.soQDKhongKhoiTo),
-        ngayQDKhongKhoiTo: s(formData.ngayQDKhongKhoiTo),
-        xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
-        laCongNgheCaoVV: formData.laCongNgheCaoVV || undefined,
-      };
+      const payload = buildIncidentPayload(formData, {
+        isEditMode,
+        metaState,
+        parityState,
+      });
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
       if (isEditMode) {
@@ -476,7 +333,7 @@ export function IncidentFormPage() {
       else window.location.reload();
     },
   });
-  const update = <K extends keyof FormData>(field: K, value: FormData[K]) =>
+  const update = <K extends keyof IncidentFormData>(field: K, value: IncidentFormData[K]) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
 
   const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500";
