@@ -174,6 +174,34 @@ describe('LegacyMigrationService', () => {
       expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
     });
 
+    /**
+     * Vụ việc đi qua `toRelationConnect` như Vụ án, nên tội danh phải ra dạng QUAN HỆ.
+     *
+     * Ca kiểm trước của em chỉ chứng minh builder PHÁT ra khoá trung gian — không chứng minh
+     * ai NHẬN nó. Nếu `commit` quên gọi `resolveCrime` cho nhánh Vụ việc thì
+     * `crimeChinhLegacyValue` còn nguyên trong lệnh ghi và Prisma từ chối CẢ bản ghi, tức
+     * 1.114 hồ sơ có tội danh cũ hỏng hết chứ không phải thiếu một ô.
+     */
+    it('VỤ VIỆC: resolve tội danh và nối bằng quan hệ, không để lọt khoá trung gian', async () => {
+      mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-173' });
+      await service.commit([{ ...incidentRec, toi_danh_chinh_blhs2015: '173' }], 'actor-1');
+
+      expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 173 } });
+      const createArgs = mockTx.incident.create.mock.calls[0][0].data;
+      expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-173' } });
+      expect(createArgs.crimeChinhId).toBeUndefined();
+      // Khoá trung gian lọt vào lệnh ghi là Prisma từ chối cả bản ghi.
+      expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+    });
+
+    it('VỤ VIỆC: hệ cũ không ghi tội danh thì không tra bảng tội danh', async () => {
+      await service.commit([incidentRec], 'actor-1');
+      expect(mockTx.crime.findFirst).not.toHaveBeenCalled();
+      const createArgs = mockTx.incident.create.mock.calls[0][0].data;
+      expect(createArgs.crimeChinh).toBeUndefined();
+      expect(createArgs.crimeChinhLegacyValue).toBeUndefined();
+    });
+
     it('VỤ ÁN: nối tội danh bằng QUAN HỆ, không phải khoá ngoại vô hướng', async () => {
       // Payload vụ án dùng cú pháp `connect` cho createdBy/investigator/linkedPetition, nên
       // Prisma chốt kiểu "checked" và TỪ CHỐI khoá ngoại vô hướng `crimeChinhId` trong cùng

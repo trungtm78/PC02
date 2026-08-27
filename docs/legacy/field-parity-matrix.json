@@ -1,5 +1,5 @@
 {
-  "generatedAtIso": "2026-08-26T18:21:28.381Z",
+  "generatedAtIso": "2026-08-27T06:16:48.628Z",
   "rows": [
     {
       "field": "id",
@@ -328,12 +328,8 @@
         {
           "entity": "incident",
           "count": 4568,
-          "status": "NEEDS_COLUMN",
-          "column": null,
-          "newColumn": {
-            "name": "?",
-            "type": "String"
-          }
+          "status": "RESOLVE",
+          "column": "phanLoaiNguonTinBanDau"
         },
         {
           "entity": "case",
@@ -644,12 +640,8 @@
         {
           "entity": "incident",
           "count": 93,
-          "status": "MAT_KIEU",
-          "column": "baoCaoBanGiamDoc",
-          "newColumn": {
-            "name": "?",
-            "type": "String"
-          }
+          "status": "OK",
+          "column": "baoCaoBanGiamDocText"
         },
         {
           "entity": "case",
@@ -812,12 +804,8 @@
         {
           "entity": "incident",
           "count": 1114,
-          "status": "NEEDS_COLUMN",
-          "column": null,
-          "newColumn": {
-            "name": "?",
-            "type": "String"
-          }
+          "status": "RESOLVE",
+          "column": null
         },
         {
           "entity": "case",
@@ -1949,45 +1937,6 @@
     }
   ],
   "needColumn": [
-    {
-      "field": "phan_loai_nguon_tin_ban_dau",
-      "label": "Phân loại ban đầu",
-      "kieu": "select",
-      "entity": "incident",
-      "count": 4568,
-      "status": "NEEDS_COLUMN",
-      "column": null,
-      "newColumn": {
-        "name": "?",
-        "type": "String"
-      }
-    },
-    {
-      "field": "truong_hop_bao_cao_ban_giam_doc",
-      "label": "Trường hợp báo cáo Ban Giám đốc",
-      "kieu": "text",
-      "entity": "incident",
-      "count": 93,
-      "status": "MAT_KIEU",
-      "column": "baoCaoBanGiamDoc",
-      "newColumn": {
-        "name": "?",
-        "type": "String"
-      }
-    },
-    {
-      "field": "toi_danh_chinh_blhs2015",
-      "label": "Tội danh chính - BLHS 2015 (nhận định ban đầu)",
-      "kieu": "chon_toi_danh",
-      "entity": "incident",
-      "count": 1114,
-      "status": "NEEDS_COLUMN",
-      "column": null,
-      "newColumn": {
-        "name": "?",
-        "type": "String"
-      }
-    },
     {
       "field": "lich_su",
       "label": "",

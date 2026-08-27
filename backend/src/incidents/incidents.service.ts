@@ -524,6 +524,9 @@ export class IncidentsService {
           deXuat: dto.deXuat,
           yeuCauBoSung: dto.yeuCauBoSung,
           ghiChuKhac: dto.ghiChuKhac,
+          crimeChinhId: dto.crimeChinhId,
+          phanLoaiNguonTinBanDau: dto.phanLoaiNguonTinBanDau,
+          baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText,
           status: IncidentStatus.TIEP_NHAN,
         },
         include: {
@@ -603,6 +606,8 @@ export class IncidentsService {
       'soPhieuChuyen', 'doVatTaiLieuKemTheo', 'phanLoaiToiPhamLinhVuc', 'phanLoaiHoSoNoiBo',
       'lanhDaoToTung', 'dieuTraVien', 'dieuTraVienPhuongXa', 'noiCapCccd', 'deXuat',
       'yeuCauBoSung', 'ghiChuKhac',
+      // Ba cột hệ cũ thêm 27/08/2026 — thiếu ở đây thì DTO nhận nhưng service bỏ THẦM.
+      'crimeChinhId', 'phanLoaiNguonTinBanDau', 'baoCaoBanGiamDocText',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {

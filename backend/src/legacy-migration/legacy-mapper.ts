@@ -414,6 +414,9 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
     // vào đó là Prisma từ chối cả bản ghi. Nguồn đơn thực chất là đơn vị chuyển đến.
     chuyenTuDonVi: s(rec.nguon_don),
     tinhTrangHoSo: s(rec.tinh_trang),
+    // Mã tội danh cũ — bộ nạp đổi thành `crimeChinhId` (xem `resolveCrime`). Trước 27/08/2026
+    // nhánh Vụ việc không phát khoá này, nên 1.114 hồ sơ mang mã tội danh mà không ai nhận.
+    crimeChinhLegacyValue: num(rec.toi_danh_chinh_blhs2015),
     diaChiNguoiToGiac: s(rec['dia-chi-bi-hai']),
     ngayDeXuat: parseLegacyDate(rec.ngay_de_xuat),
     ketQuaXuLy: s(rec.ket_qua_xu_ly_giai_quyet_khac),

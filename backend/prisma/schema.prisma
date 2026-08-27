@@ -290,6 +290,7 @@ model Crime {
   subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
   petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính
   casesChinh     Case[]     @relation("CaseCrimeChinh") // vụ án gắn tội danh chính
+  incidentsChinh Incident[] @relation("IncidentCrimeChinh") // vụ việc gắn tội danh chính
   casesKhoiTo    Case[]     @relation("CaseCrimeKhoiTo") // vụ án gắn tội danh chính khi khởi tố
 
   @@index([pc02Relevant])
@@ -1227,6 +1228,24 @@ model Incident {
   baoCaoBanGiamDoc       Boolean? // old: truong_hop_bao_cao_ban_giam_doc
   ngayGiaoDonViGiaiQuyet DateTime? // old: ngay_giao_don_vi_giai_quyet
   toiDanhBanDau          String? // old: toi-danh-ban-dau
+
+  // ── Bổ sung 27/08/2026 cho epic "form Vụ việc khớp bố cục hệ cũ" ──────────────────
+  // Số hồ sơ THẬT có dữ liệu, đo trên máy chạy (đã loại rỗng và hai mốc rỗng "0"/"-25200").
+
+  // Tội danh chính — Đơn thư và Vụ án đều có cột này từ lâu, riêng Vụ việc thì chưa, nên
+  // 1.114 hồ sơ mang mã tội danh cũ không có chỗ ở và tra cứu theo tội danh sót hẳn một
+  // giai đoạn tố tụng.
+  crimeChinhId           String? // 1.114
+  crimeChinh             Crime?    @relation("IncidentCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
+
+  // Phân loại ban đầu — ô thứ hai của tab Thông tin bên hệ cũ, và là ô quyết định hồ sơ nằm
+  // ở danh sách nào. Không có cột thì mở hồ sơ di trú ra ô ấy trắng.
+  phanLoaiNguonTinBanDau String? // 4.568 — old: phan_loai_nguon_tin_ban_dau
+
+  // Nội dung chỉ đạo của Ban Giám đốc. Cột `baoCaoBanGiamDoc` ở trên là ĐÚNG/SAI suy từ chữ;
+  // một cột một bit giữ không nổi chữ, nên phần chữ bốc hơi — cùng cách Đơn thư và Vụ án đã
+  // xử bằng một cột chữ riêng.
+  baoCaoBanGiamDocText   String? // 93 — old: truong_hop_bao_cao_ban_giam_doc
   soPhieuChuyen          String? // old: so_phieu_chuyen
   ngayPhieuChuyen        DateTime? // old: ngay_phieu_chuyen
   doVatTaiLieuKemTheo    String? // old: do_vat_tai_lieu_kem_theo
@@ -1325,6 +1344,7 @@ model Incident {
   @@index([soHoSoCu]) // truy nguyên hệ cũ
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
+  @@index([crimeChinhId])
   @@map("incidents")
 }
 

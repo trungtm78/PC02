@@ -15,20 +15,21 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 ## Đã hoàn thành
 
-- [x] **M1-T1 · PR0 — vá xoá-trắng ở Vụ việc** — `oHeCu()` thay `v || undefined` cho 45 ô
+- [x] **M1-T1 · PR0 — vá xoá-trắng ở Vụ việc** — `oHeCu()` thay `v || undefined` cho 45 ô —
+      PR #268, đã deploy `bf18132f`
+- [x] **M2-T1 · PR1 — ba cột còn thiếu ở máy chủ** — `crimeChinhId` (quan hệ) ·
+      `phanLoaiNguonTinBanDau` · `baoCaoBanGiamDocText`
 
 ## Đang làm dở
 
-Task: M2-T1 — PR1: ba cột còn thiếu ở máy chủ + bù dữ liệu
-Đã làm: chưa bắt đầu.
-BƯỚC TIẾP THEO: thêm `crimeChinhId` (quan hệ `IncidentCrimeChinh`) + `phanLoaiNguonTinBanDau`
-+ `baoCaoBanGiamDocText` vào `model Incident` trong `backend/prisma/schema.prisma`, kèm
-migration additive dùng plain `CREATE INDEX`.
-File liên quan: `backend/prisma/schema.prisma`,
-`backend/src/legacy-migration/legacy-mapper.ts` (buildIncident phát `crimeChinhLegacyValue`),
-`backend/src/legacy-migration/legacy-migration.service.ts` (`resolveCrime` nới `target`),
-`backend/src/legacy-migration/field-parity.def.ts` (`PARITY.incident`,
-`PARITY_HOAN_THEO_THUC_THE`).
+Task: M2-T1 — PR1 đã xong phần mã, CHƯA bù dữ liệu trên máy chạy.
+Đã làm: 3 cột + migration + quan hệ `IncidentCrimeChinh` + `crimeChinhId` khai vào
+`FK_RELATIONS` + `resolveCrime` nhận nhánh incident + `PARITY.incident` + gỡ hai dòng hoãn +
+sinh lại ma trận (Vụ việc còn 3 ô vụn, đều đã khai metadata).
+BƯỚC TIẾP THEO: gộp PR1 → chờ deploy → `pg_dump` sao lưu → chạy `backfill-parity.ts
+--entity incident --dry` đọc báo cáo → chạy thật. Tội danh cần chạy lại di trú hoặc một bộ bù
+riêng vì `crimeChinhId` đi qua `resolveCrime` chứ không qua `parityColumns`.
+File liên quan: `backend/src/legacy-migration/cli/backfill-parity.ts`.
 
 ## Hàng đợi task kế tiếp
 
@@ -56,9 +57,13 @@ File liên quan: `backend/prisma/schema.prisma`,
 
 ## Trạng thái test
 
-Full suite giao diện: **PASS 2.068/2.068** (`--maxWorkers=2`; chạy full song song trên máy này
+Full suite máy chủ: **PASS 3.344/3.344**. Full suite giao diện: **PASS 2.079/2.079** (`--maxWorkers=2`; chạy full song song trên máy này
 bị chập chờn do tài nguyên, không phải lỗi thật — đã kiểm từng tệp fail chạy riêng đều xanh).
-`tsc -b`: sạch. Backend chưa đụng ở PR0.
+`tsc --noEmit` + `tsc -b`: sạch.
+
+Ca `EXPERT performance (PF-01)` chập chờn TRÊN MÁY NÀY khi tải nặng (ngân sách 5s, đo được
+5.2–8.0s) — **fail cả trên `main` chưa đụng gì**, nên là nhiễu môi trường chứ không phải hồi
+quy. CI là trọng tài; không đụng ngân sách.
 
 ## Nợ kỹ thuật / rủi ro
 

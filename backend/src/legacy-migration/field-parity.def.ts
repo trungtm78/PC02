@@ -109,6 +109,11 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
     { field: 'ghi_chu_khac', col: 'ghiChuKhac', type: 'String' },
     { field: 'phan_loai_toi_pham_cong_nghe_cao', col: 'laCongNgheCaoVV', type: 'Boolean', exists: true },
+    // ── Bổ sung 27/08/2026 cho epic "form Vụ việc khớp bố cục hệ cũ" ──
+    // Ô thứ hai của tab Thông tin bên hệ cũ, và là ô quyết định hồ sơ nằm ở danh sách nào.
+    { field: 'phan_loai_nguon_tin_ban_dau', col: 'phanLoaiNguonTinBanDau', type: 'String' }, // 4.568
+    // Cột `baoCaoBanGiamDoc` ở trên là ĐÚNG/SAI suy từ chữ; nội dung chỉ đạo giữ ở cột chữ riêng.
+    { field: 'truong_hop_bao_cao_ban_giam_doc', col: 'baoCaoBanGiamDocText', type: 'String' }, // 93
   ],
 
   // Case — promote field intake (đang ở metadata) thành cột typed; vá vài cột đã có.
@@ -224,12 +229,10 @@ export const PARITY: Record<Entity, ParityCol[]> = {
  * Mỗi dòng phải ghi SỐ ĐO và LÝ DO hoãn. Đây là nợ đã khai, không phải chỗ giấu việc.
  */
 export const PARITY_HOAN_THEO_THUC_THE: ReadonlySet<string> = new Set([
-  // Epic 26–27/08/2026 chốt phạm vi là Đơn thư; Vụ việc để epic sau (spec Phần C, mục 7).
-  // Dữ liệu vẫn đọc và sửa được qua bảng `legacyRaw` trên màn hồ sơ, chỉ chưa có cột typed.
-  'incident/phan_loai_nguon_tin_ban_dau', // 4.568 hồ sơ
-  // Vụ việc chưa có cột tội danh nào (không `crimeChinhId`, không `crimeChinhLegacyValue`),
-  // nên đây là việc của epic Vụ việc chứ không phải một cột lẻ.
-  'incident/toi_danh_chinh_blhs2015', // 1.114 hồ sơ
+  // Trống — epic Vụ việc (27/08/2026) đã dựng cột cho cả hai khoá từng hoãn ở đây
+  // (`phan_loai_nguon_tin_ban_dau` → `phanLoaiNguonTinBanDau`, `toi_danh_chinh_blhs2015` →
+  // `crimeChinhId`). Giữ lại cơ chế vì nó là chỗ khai nợ TỬ TẾ: hoãn theo ĐÚNG thực thể, kèm
+  // số đo và lý do, thay vì miễn toàn cục cho cả ba.
 ]);
 
 /** Field thủ tục leak chéo-giai-đoạn (count nhỏ) — CỐ Ý giữ ở metadata động, KHÔNG tạo cột.

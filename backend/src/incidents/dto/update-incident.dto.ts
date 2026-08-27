@@ -263,6 +263,13 @@ export class UpdateIncidentDto {
   @IsOptional() @IsString() yeuCauBoSung?: string;
   @IsOptional() @IsString() ghiChuKhac?: string;
 
+  // ── Ba cột hệ cũ thêm 27/08/2026 ────────────────────────────────────────────────────
+  // Thiếu khai ở đây thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400, tức không tạo/sửa
+  // được vụ việc nào — kể cả vụ không đụng gì tới ba ô này. Đúng sự cố `sttCu` (#259).
+  @IsOptional() @IsString() crimeChinhId?: string;
+  @IsOptional() @IsString() phanLoaiNguonTinBanDau?: string;
+  @IsOptional() @IsString() baoCaoBanGiamDocText?: string;
+
   // Field hệ cũ dạng cấu trúc (dynamic legacy fields) — MERGE ở service, không REPLACE.
   @IsOptional()
   @IsObject()

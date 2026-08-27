@@ -7,9 +7,6 @@
 
 | Field | Nhãn | Thực thể | Số HS | Trạng thái | Kiểu đề xuất |
 |---|---|---|---|---|---|
-| `phan_loai_nguon_tin_ban_dau` | Phân loại ban đầu | **incident** | 4568 | NEEDS_COLUMN | String? |
-| `truong_hop_bao_cao_ban_giam_doc` | Trường hợp báo cáo Ban Giám đốc | **incident** | 93 | MAT_KIEU | String? |
-| `toi_danh_chinh_blhs2015` | Tội danh chính - BLHS 2015 (nhận định ban đầu) | **incident** | 1114 | NEEDS_COLUMN | String? |
 | `lich_su` |  | **petition** | 2244 | NEEDS_COLUMN | String? |
 | `lich_su` |  | **incident** | 15 | NEEDS_COLUMN | String? |
 | `lich_su` |  | **case** | 100 | METADATA_ONLY | String? |
@@ -33,7 +30,7 @@
 | `ngay_tam_dinh_chi_vu_an` | Ngày Quyết định tạm đình chỉ vụ án | **petition** | 1 | NEEDS_COLUMN | String? |
 | `quyet_dinh_tam_dinh_chi_vu_an` | Số Quyết định Tạm đình chỉ vụ án | **petition** | 1 | NEEDS_COLUMN | String? |
 
-Tổng ô cần thêm cột: **25** (theo thực thể: petition 14, incident 6, case 5).
+Tổng ô cần thêm cột: **22** (theo thực thể: petition 14, incident 3, case 5).
 
 ## 🔧 CẦN FIX BUILDER (cột đã có, builder chưa đọc)
 
@@ -58,7 +55,7 @@ Tổng ô cần fix builder: **0**.
 | `thang` |  | 54429 | DROP · 46494 | DROP · 4596 | DROP · 3339 |
 | `ngay` |  | 54426 | DROP · 46492 | DROP · 4596 | DROP · 3338 |
 | `tom_tat_noi_dung` | Tóm tắt nội dung | 54399 | OK (summary) · 46492 | OK (name) · 4595 | OK (moTaChiTiet) · 3312 |
-| `phan_loai_nguon_tin_ban_dau` | Phân loại ban đầu | 54347 | RESOLVE (phanLoaiNguonTin) · 46445 | NEEDS_COLUMN · 4568 | RESOLVE (phanLoaiNguonTinBanDau) · 3334 |
+| `phan_loai_nguon_tin_ban_dau` | Phân loại ban đầu | 54347 | RESOLVE (phanLoaiNguonTin) · 46445 | RESOLVE (phanLoaiNguonTinBanDau) · 4568 | RESOLVE (phanLoaiNguonTinBanDau) · 3334 |
 | `loai` |  | 54296 | DROP · 46372 | DROP · 4576 | DROP · 3348 |
 | `don_vi_giai_quyet` | Đơn vị giải quyết | 53962 | RESOLVE (donViGiaiQuyet) · 46476 | RESOLVE (donViGiaiQuyet) · 4200 | RESOLVE (donViGiaiQuyet) · 3286 |
 | `nguon_don` | Nguồn đơn/Đơn vị giao | 52956 | OK (nguonDon) · 46467 | OK (chuyenTuDonVi) · 3451 | OK (nguonDon) · 3038 |
@@ -70,14 +67,14 @@ Tổng ô cần fix builder: **0**.
 | `ngay_viet_don` | Ngày viết đơn | 46698 | OK (petitionDate) · 46042 | OK (ngayVietDon) · 303 | OK (ngayVietDon) · 353 |
 | `ghi_chu_trung_don` | Ghi chú trùng đơn | 37036 | OK (raSoatTrung) · 36593 | OK (ghiChuTrungDon) · 94 | OK (ghiChuTrungDon) · 349 |
 | `stt_cu` |  | 36269 | DROP · 31459 | DROP · 3323 | DROP · 1487 |
-| `truong_hop_bao_cao_ban_giam_doc` | Trường hợp báo cáo Ban Giám đốc | 35700 | OK (baoCaoBanGiamDocText) · 35257 | MAT_KIEU (baoCaoBanGiamDoc) · 93 | OK (baoCaoBanGiamDocText) · 350 |
+| `truong_hop_bao_cao_ban_giam_doc` | Trường hợp báo cáo Ban Giám đốc | 35700 | OK (baoCaoBanGiamDocText) · 35257 | OK (baoCaoBanGiamDocText) · 93 | OK (baoCaoBanGiamDocText) · 350 |
 | `so_tien_bi_thiet_hai` | Số tiền bị thiệt hại (triệu Việt nam Đồng) | 31566 | OK (soTienBiThietHai) · 31460 | — | OK (soTienBiThietHai) · 106 |
 | `so_luong_bi_hai` | Số lượng người bị hại | 31565 | OK (soLuongBiHai) · 31459 | — | OK (soLuongBiHai) · 106 |
 | `phuong_thuc_thu_doan` | Phương thức thủ đoạn | 31565 | OK (phuongThucThuDoan) · 31459 | — | OK (phuongThucThuDoan) · 106 |
 | `ngay_giao_don_vi_giai_quyet` | Ngày giao đơn vị giải quyết | 26209 | OK (ngayGiaoDonViGiaiQuyet) · 25350 | OK (ngayGiaoDonViGiaiQuyet) · 666 | OK (ngayGiaoDonViGiaiQuyet) · 193 |
 | `toi-danh-ban-dau` | Tội danh cũ trước đây | 21278 | OK (toiDanhBanDau) · 15185 | OK (toiDanhBanDau) · 3446 | OK (toiDanhBanDau) · 2647 |
 | `tinh_trang` |  | 18176 | RESOLVE (tinhTrang) · 15035 | RESOLVE (tinhTrangHoSo) · 1269 | RESOLVE (tinhTrang) · 1872 |
-| `toi_danh_chinh_blhs2015` | Tội danh chính - BLHS 2015 (nhận định ban đầu) | 17314 | RESOLVE · 14507 | NEEDS_COLUMN · 1114 | RESOLVE · 1693 |
+| `toi_danh_chinh_blhs2015` | Tội danh chính - BLHS 2015 (nhận định ban đầu) | 17314 | RESOLVE · 14507 | RESOLVE · 1114 | RESOLVE · 1693 |
 | `ket_qua_xu_ly_giai_quyet_khac` | Kết quả xử lý, giải quyết khác | 13906 | OK (ketQuaXuLyKhac) · 11142 | OK (ketQuaXuLy) · 2542 | OK (ketQuaXuLyKhac) · 222 |
 | `so_phieu_chuyen` | Số phiếu chuyển/ Công văn/ Ủy thác điều tra | 12110 | OK (soPhieuChuyen) · 10279 | OK (soPhieuChuyen) · 80 | OK (soPhieuChuyen) · 1751 |
 | `do_vat_tai_lieu_kem_theo` | Đồ vật, tài liệu kèm theo | 11788 | OK (attachmentsNote) · 11468 | OK (doVatTaiLieuKemTheo) · 50 | OK (doVatTaiLieuKemTheo) · 270 |
