@@ -145,6 +145,43 @@ hiện — đúng điều anh nêu.
 **Nhãn đổi theo chữ hệ cũ:** "Ngày nhận" / "Ngày tiếp nhận" → **"Ngày đề xuất"**; "Đơn vị"
 (vụ án) → **"Đơn vị giải quyết"**.
 
+#### Rà soát TỪNG CỘT ba màn so bản gốc hệ cũ — 27/08/2026 (chiều)
+
+Anh yêu cầu kiểm từng cột, và thêm yêu cầu sắp xếp theo STT. Em so từng ô, từng hồ sơ, trên
+54.736 hồ sơ di trú — mỗi hồ sơ mang nguyên bản ghi gốc trong `legacyRaw`.
+
+Không cột nào **hụt** dữ liệu, và bộ cột mặc định đã khớp hệ cũ. Nhưng **bốn cột đầy dữ liệu
+mà nội dung không phải thứ hệ cũ hiển thị**:
+
+| Màn | Cột | Đang đọc | Phải đọc | Số đo |
+|---|---|---|---|---|
+| Đơn thư | Ngày đề xuất | `receivedDate` = ngày **tiếp nhận** | `ngayDeXuat` | lệch **29.026**/46.499 |
+| Đơn thư | Tóm tắt nội dung | `summary` (bản rút gọn) | `detailContent` | lệch 58, hụt 1 |
+| Vụ việc | Tên cá nhân… | `doiTuongCaNhan` = **đối tượng bị tố** | `benVu` | khớp gốc **0%** |
+| Vụ án | Tên cá nhân… | `name` = **tên vụ án** | `tenCungCap` | khớp gốc **0%** |
+
+Form đã trỏ đúng cả bốn từ trước — chỉ danh sách lệch. Bỏ luôn dự phòng `|| r.name` của Vụ
+việc: rơi về tên vụ việc là bịa dữ liệu vào ô mà hệ cũ để trống.
+
+**Hệ quả nhìn thấy được:** cột "Tên cá nhân…" của Vụ án trống ở **2.613/3.359** dòng, vì hệ
+cũ chỉ có 746 hồ sơ điền ô ấy. Đó là đúng.
+
+Các cột còn lại khớp bản gốc **100%**, và "Người nhập" cũng đúng: 25 mã cán bộ hệ cũ, mỗi mã
+ánh xạ đúng một tài khoản hệ mới, 0 mã lệch.
+
+Cổng `cotDanhSachPhaiTroDungCotForm.gate.test.ts` nay duyệt **mọi nhãn** của cả ba màn thay
+vì chốt từng nhãn một — nhãn nào có trong bố cục hệ cũ thì cột danh sách phải trỏ đúng cột
+form ghi.
+
+#### Sắp xếp mặc định theo STT giảm dần, bấm tiêu đề đổi chiều — 27/08/2026
+
+Anh yêu cầu. Mã hồ sơ là chuỗi `"2026-11171"` nên sắp thẳng trên nó ra sai thứ tự
+(`2026-9395` đứng sau `2026-11171`). Thêm cột số `sttSort` do **trigger của CSDL** giữ — mã
+được sinh ở nhiều đường nên tính trong mã ứng dụng kiểu gì cũng sót một đường.
+
+Mã không đúng dạng `năm-số` cho ra NULL và chìm xuống cuối: đơn thư 426 · vụ việc 250 · vụ
+án 330 (trong đó 218 mã rỗng).
+
 #### Cột "Đơn vị giải quyết" đọc `donViGiaiQuyet`, không đọc `unit` — 27/08/2026
 
 Anh chỉ ra trên ảnh chụp hệ cũ: cột ấy không có dữ liệu. Đo lại thì hỏng thật, và hỏng hoàn
