@@ -195,8 +195,15 @@ export class CasesService {
       where.createdById = createdById.trim();
     }
 
+    // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN
+    // và rỗng ở toàn bộ 3.286 vụ án, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
+    // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
+    // vẫn dùng được.
     if (unit) {
-      where.unit = unit;
+      // Khớp CHỨA, không khớp bằng: ô lọc là ô gõ chữ tự do, còn giá trị lưu là nhãn đầy đủ
+      // ("Đội 1 PC02"). Gõ "PC02" mà khớp bằng thì không ra hồ sơ nào — Đơn thư và Vụ việc
+      // vốn đã khớp chứa.
+      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
     }
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
@@ -336,6 +343,9 @@ export class CasesService {
           status: true,
           deadline: true,
           unit: true,
+        // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
+        // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
+        donViGiaiQuyet: true,
           subjectsCount: true,
           // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
           // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban
@@ -465,7 +475,11 @@ export class CasesService {
     }
 
     if (investigatorId) where.investigatorId = investigatorId;
-    if (unit) where.unit = unit;
+    // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN
+    // và rỗng ở toàn bộ 3.286 vụ án, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
+    // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
+    // vẫn dùng được.
+    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
     // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.
@@ -948,6 +962,7 @@ export class CasesService {
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
       unit: dto.unit,
+      donViGiaiQuyet: dto.donViGiaiQuyet,
       ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
@@ -1350,6 +1365,9 @@ export class CasesService {
         deadline: dto.deadline ? new Date(dto.deadline) : null,
       }),
       ...(dto.unit !== undefined && { unit: dto.unit }),
+      // Sửa hồ sơ cũng phải ghi được ô "Đơn vị giải quyết". Thiếu dòng này thì cán bộ sửa,
+      // bấm Lưu, thấy báo thành công — và giá trị cũ vẫn nguyên.
+      ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
       ...(dto.subjectsCount !== undefined && { subjectsCount: dto.subjectsCount }),
       // MERGE (không REPLACE): giữ mọi field metadata cũ (di trú) + ghi đè field được sửa
       // → sửa 1 field KHÔNG bao giờ xóa field khác (an toàn data pháp lý).
@@ -2191,7 +2209,8 @@ export class CasesService {
     filename: string,
   ): Promise<void> {
     const where: Prisma.CaseWhereInput = { deletedAt: null };
-    if (query.unitId) where.unit = query.unitId;
+    // Cùng lý do: cột `unit` rỗng ở mọi vụ án nên lọc trên nó trả về danh sách trắng.
+    if (query.unitId) where.donViGiaiQuyet = query.unitId;
     if (query.category) where.crime = { contains: query.category, mode: 'insensitive' };
     if (query.fromDate) {
       where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };

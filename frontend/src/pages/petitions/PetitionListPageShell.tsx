@@ -90,7 +90,8 @@ interface PetitionRow {
   id: string;
   stt: string;
   receivedDate: string;
-  unit?: string | null;
+  /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
+  donViGiaiQuyet?: string | null;
   senderName: string;
   suspectedPerson?: string | null;
   status: PetitionStatus;
@@ -244,6 +245,9 @@ export function PetitionListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
       ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
+      // Giữ TÊN THAM SỐ `unit` — máy chủ chỉ nhận đúng bộ khoá đã khai (`forbidNonWhitelisted`),
+      // gửi khoá lạ là hỏng cả yêu cầu. Việc lọc trên cột nào là chuyện của máy chủ, và từ
+      // 27/08/2026 nó lọc `donViGiaiQuyet` — cột thật sự có dữ liệu.
       ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
       // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
@@ -487,12 +491,12 @@ export function PetitionListPageShell() {
       },
 
       {
-        key: 'unit',
+        key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
         width: '9rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.unit ?? '—',
+        render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
       {

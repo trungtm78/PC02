@@ -117,6 +117,7 @@ export class CreateEvidenceInlineDto {
   @MaxLength(50)
   unit?: string;
 
+
   @IsOptional()
   @IsString()
   @MaxLength(255)
@@ -424,6 +425,17 @@ export class CreateCaseDto {
    * này ở Vụ án và không ca kiểm nào bắt được vì cổng đối chiếu DTO chỉ phủ Đơn thư.
    */
   @IsOptional() @IsString() @MaxLength(50) sttCu?: string;
+  /**
+   * Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` của hệ cũ) — khác `unit` = đơn vị TIẾP NHẬN.
+   *
+   * Ô "Đơn vị giải quyết" trên form ghi vào đây. Trước 27/08/2026 nó ghi nhầm sang `unit`,
+   * trong khi bộ di trú đổ vào `donViGiaiQuyet` — nên cột trên danh sách rỗng hoàn toàn.
+   * Giá trị là tên tổ ("Đội 8", "BCH Đội 8") nên hạn 100 chứ không phải 50.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  donViGiaiQuyet?: string;
   // Cờ tội phạm công nghệ cao: hệ cũ là công tắc ở tab Thông tin, cột đã có sẵn nhưng DTO
   // chưa khai nên bật lên rồi lưu là mất.
   @IsOptional() @IsBoolean() laCongNgheCao?: boolean;

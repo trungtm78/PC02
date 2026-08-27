@@ -37,11 +37,20 @@ vi.mock('@/features/document-numbers/api', () => ({
 // Mock FKSelect (custom button-based combobox) as plain native <select> so that
 // fireEvent.change works in tests. petitionType is now a native <select> in
 // production code, but priority + unit still use FKSelect — mocking unifies them.
+// Lựa chọn theo TỪNG loại danh mục. Trước 27/08/2026 giả lập trả đúng ba mức ưu tiên cho
+// mọi loại, nên ô "Đơn vị giải quyết" (loại UNIT) không chọn nổi tên tổ nào — `fireEvent.change`
+// với giá trị không có trong danh sách thì `<select>` giữ nguyên rỗng, và ca kiểm đọc ra null.
+const LUA_CHON_THEO_DANH_MUC: Record<string, string[]> = {
+  UNIT: ['Đội 1 PC02', 'Đội 4', 'Đội 8'],
+};
+const LUA_CHON_MAC_DINH = ['Cao', 'Trung bình', 'Thấp'];
+
 vi.mock('@/components/FKSelect', () => ({
-  FKSelect: ({ value, onChange, testId }: {
+  FKSelect: ({ value, onChange, testId, directoryType }: {
     value: string;
     onChange: (v: string) => void;
     testId?: string;
+    directoryType?: string;
   }) => (
     <select
       data-testid={testId}
@@ -49,9 +58,11 @@ vi.mock('@/components/FKSelect', () => ({
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">--</option>
-      <option value="Cao">Cao</option>
-      <option value="Trung bình">Trung bình</option>
-      <option value="Thấp">Thấp</option>
+      {(LUA_CHON_THEO_DANH_MUC[directoryType ?? ''] ?? LUA_CHON_MAC_DINH).map((v) => (
+        <option key={v} value={v}>
+          {v}
+        </option>
+      ))}
     </select>
   ),
 }));

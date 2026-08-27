@@ -83,7 +83,11 @@ export function mergeCaseApiToFormData(
     investigationDeadline: apiData.deadline
                              ? toDateInput(apiData.deadline)
                              : prev.investigationDeadline,
-    supervisingUnit:       apiData.unit                  ?? prev.supervisingUnit,
+    // Đọc từ CỘT THẬT. Ô này ghi `donViGiaiQuyet` từ 27/08/2026; đọc lại `unit` (rỗng ở
+    // cả 3.286 vụ án) thì mở một hồ sơ di trú ra, sửa việc khác, bấm Lưu là XOÁ TRẮNG
+    // đơn vị giải quyết — vì payload luôn gửi ô này và máy chủ ghi đè.
+    supervisingUnit:       (apiData.donViGiaiQuyet as string | undefined)
+                             ?? apiData.unit ?? prev.supervisingUnit,
     assignedTeamId:        apiData.assignedTeamId        ?? apiData.assignedTeam?.id ?? prev.assignedTeamId,
     handler:               apiData.investigatorId        ?? apiData.investigator?.id ?? prev.handler,
     capDoToiPham:          apiData.capDoToiPham          ?? prev.capDoToiPham,

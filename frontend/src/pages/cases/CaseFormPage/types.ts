@@ -145,7 +145,7 @@ export interface CaseFormData {
   status: string;             // Trạng thái
   priority: string;           // Mức độ ưu tiên
   handler: string;            // Điều tra viên chính (bắt buộc)
-  supervisingUnit: string;    // Đơn vị thụ lý (text label, lưu vào Case.unit)
+  supervisingUnit: string;    // Đơn vị giải quyết (nhãn chữ, lưu vào Case.donViGiaiQuyet)
   assignedTeamId: string;     // FK Team đơn vị thụ lý (Case.assignedTeamId) — DataScope hoạt động dựa trên field này
   // v0.37.1: 'petitionType' (LoaiDon) removed — now a property of linked Petition, not Case.
   caseClassification: string; // Phân loại vụ án

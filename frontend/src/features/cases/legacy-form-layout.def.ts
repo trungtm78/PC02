@@ -428,7 +428,10 @@ export function legacyCaption(item: LegacyLayoutItem): string {
  */
 export const LEGACY_FIELD_TO_COLUMN: Readonly<Record<string, string>> = {
   description: "moTaChiTiet",
-  supervisingUnit: "unit",
+  // 27/08/2026: ô này ghi `donViGiaiQuyet`, không còn ghi `unit`. `unit` là ĐƠN VỊ TIẾP
+  // NHẬN — khái niệm khác — và có 0 bản ghi ở cả hai bảng, trong khi bộ di trú đổ dữ liệu
+  // thật vào `donViGiaiQuyet` (46.642 đơn thư, 3.286 vụ án).
+  supervisingUnit: "donViGiaiQuyet",
   dieuTraVienText: "dieuTraVien",
   deXuatXuLy: "deXuat",
   ngayTiepNhanNguonTin: "ngayTiepNhan",

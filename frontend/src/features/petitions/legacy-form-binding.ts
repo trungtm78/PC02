@@ -67,7 +67,13 @@ const CO_COT_RIENG: Readonly<Partial<Record<CaseFieldPath, keyof PetitionFormDat
   nhanXet: 'nhanThay',
   ghiChuTrungDon: 'raSoatTrung',
   baoCaoBanGiamDoc: 'baoCaoBanGiamDocText',
-  supervisingUnit: 'unit',
+  // Ô "Đơn vị giải quyết" ghi vào `donViGiaiQuyet`, KHÔNG phải `unit`.
+  //
+  // Lược đồ tách hai khái niệm: `unit` là ĐƠN VỊ TIẾP NHẬN, `donViGiaiQuyet` là ĐƠN VỊ
+  // GIẢI QUYẾT (`don_vi_giai_quyet` của hệ cũ). Trước 27/08/2026 ô này ghi nhầm sang
+  // `unit`, mà bộ di trú lại đổ vào `donViGiaiQuyet` — nên cột trên danh sách rỗng ở cả
+  // 46.660 đơn thư, và bộ lọc theo đơn vị không bao giờ ra kết quả.
+  supervisingUnit: 'donViGiaiQuyet',
   ngayGiaoDonViGiaiQuyet: 'ngayGiaoDonViGiaiQuyet',
   laCongNgheCao: 'laCongNgheCao',
   dieuTraVienText: 'dieuTraVien',

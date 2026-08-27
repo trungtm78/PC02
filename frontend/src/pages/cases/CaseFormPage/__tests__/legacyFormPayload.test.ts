@@ -133,7 +133,10 @@ describe("Gửi ô hệ cũ lên máy chủ", () => {
     // Vài ô mang tên khác ở lớp máy chủ vì cột đã có sẵn từ trước. Khai tường minh ở đây
     // thay vì nới lỏng phép kiểm — nới lỏng thì ô mất thật cũng lọt.
     const TEN_O_MAY_CHU: Record<string, string> = {
-      supervisingUnit: "unit",
+      // 27/08/2026: ô này nay ghi `donViGiaiQuyet`, không còn ghi `unit`. `unit` là ĐƠN VỊ
+      // TIẾP NHẬN — một khái niệm khác — và nó có 0 bản ghi ở cả hai bảng, trong khi bộ
+      // di trú đổ dữ liệu thật vào `donViGiaiQuyet` (46.642 đơn thư, 3.286 vụ án).
+      supervisingUnit: "donViGiaiQuyet",
       description: "moTaChiTiet",
       ngayTiepNhanNguonTin: "ngayTiepNhan",
       utdt_thoiHanUyThac: "thoiHanUyThac",
