@@ -25,6 +25,10 @@ const FK_RELATIONS: Record<string, string> = {
   investigatorId: 'investigator',
   assignedTeamId: 'assignedTeam',
   importedById: 'importedBy',
+  // Tội danh chính của Vụ việc (thêm 27/08/2026). `resolveCrime` đặt khoá ngoại vô hướng, còn
+  // lệnh ghi Vụ việc là kiểu nghiêm ngặt — thiếu dòng này là Prisma ném "Unknown argument
+  // `crimeChinhId`" và HỎNG CẢ bản ghi, đúng cái bẫy đã làm hỏng 4.915 đơn thư hôm 25/08.
+  crimeChinhId: 'crimeChinh',
 };
 
 function toRelationConnect(data: Record<string, unknown>): Record<string, unknown> {
@@ -91,10 +95,10 @@ export class LegacyMigrationService {
 
   // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
   // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
-  private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' = 'petition'): Promise<void> {
+  private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' | 'incident' = 'petition'): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
-    // Cả Đơn thư LẪN Vụ án nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
+    // Cả ba thực thể nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
     if (lv === undefined) return;
     const crime = await tx.crime.findFirst({ where: { legacyValue: lv } });
     if (!crime) return;
