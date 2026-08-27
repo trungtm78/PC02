@@ -14,6 +14,7 @@
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { FKSelect } from "@/components/FKSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
+import { CatalogSelect } from "@/components/CatalogSelect";
 import {
   legacyCaptionOf,
   type LegacyFieldValue,
@@ -144,6 +145,46 @@ function LegacyField({
       );
 
     case "multiselect":
+      // Ô chọn-nhiều KHÔNG khai sẵn bộ lựa chọn thì có hai đường, và cả hai đều tốt hơn việc
+      // dựng một nhóm ô tích RỖNG — nhóm rỗng nghĩa là cán bộ nhìn thấy một ô mà không nhập
+      // được gì, còn dữ liệu di trú ở đó thì không sửa được và cũng không hiện ra.
+      if (!item.options?.length) {
+        // Có khai danh mục thì tra danh mục — nhãn và lựa chọn theo registry, thêm mục mới là
+        // ô tự có.
+        if (item.source) {
+          return wrap(
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+              <CatalogSelect
+                catalogKey={item.source}
+                value={Array.isArray(value) ? value : []}
+                onChange={(v) => onChange(v as string[])}
+              />
+              {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+            </div>,
+          );
+        }
+        // Không có cả hai thì cho gõ chữ, ngăn cách bằng dấu phẩy: giữ được dữ liệu và sửa
+        // được, thay vì một ô chết.
+        return wrap(
+          <FormInput
+            label={label}
+            error={error}
+            type="text"
+            value={Array.isArray(value) ? value.join(", ") : String(value)}
+            onChange={(v) =>
+              onChange(
+                String(v)
+                  .split(",")
+                  .map((x) => x.trim())
+                  .filter(Boolean),
+              )
+            }
+            placeholder={item.placeholder ?? "Ngăn cách bằng dấu phẩy"}
+            data-testid={oTestId}
+          />,
+        );
+      }
       return wrap(
         <MultiSelectField
           label={label}
