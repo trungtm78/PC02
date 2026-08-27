@@ -86,19 +86,56 @@ describe('Trang Vụ việc phải dùng hàm dựng payload đã vá', () => {
  * trống (vì không nạp), bấm Lưu, và giá trị thật dưới cơ sở dữ liệu bị xoá sạch. Mỗi lần lưu
  * là một lần mất thêm dữ liệu, không thông báo gì.
  *
- * Nên mọi khoá gửi lên đều phải có một dòng đọc tương ứng trong khối nạp chi tiết.
+ * Bản đầu của cổng này chỉ hỏi "trong khối nạp có dòng nào mang tên ô không" — và nó ĐỂ LỌT
+ * đúng ca nguy hiểm nhất: `lyDoTamDinhChi` có dòng nạp, nhưng dòng ấy đọc `d.lyDoTamDinhChi`
+ * trong khi cột thật máy chủ trả về là `lyDoTamDinhChiText`. Ô luôn rỗng, nên chỉ cần bấm Lưu
+ * là xoá mất ghi chú tạm đình chỉ.
+ *
+ * Nay cổng hỏi đúng câu: dòng nạp ấy đọc KHOÁ NÀO của máy chủ, và khoá đó có phải khoá đúng
+ * không. Tên ô khác tên cột thì phải KHAI ra ở `O_DOI_TEN` — khai sai hoặc quên khai đều đỏ.
  */
-describe('Mọi khoá gửi lên đều nạp lại được từ chi tiết máy chủ', () => {
+
+/**
+ * Ô mà tên trên form khác tên cột máy chủ trả về.
+ *
+ * Mỗi dòng là một cái bẫy đã được tháo. Thêm ô đổi tên mà không khai ở đây thì cổng đỏ ngay,
+ * và đó là chủ đích: đổi tên im lặng chính là cách `lyDoTamDinhChi` lọt qua.
+ */
+const O_DOI_TEN: Readonly<Record<string, string>> = {
+  lyDoTamDinhChi: 'lyDoTamDinhChiText',
+};
+
+describe('Mọi khoá gửi lên đều nạp lại được từ ĐÚNG khoá của máy chủ', () => {
   const khoiNap = nguonTrang.slice(
     nguonTrang.indexOf('setFormData({'),
     nguonTrang.indexOf('setRecordUpdatedAt('),
   );
+
+  /** Khoá máy chủ mà dòng nạp của một ô thật sự đọc (`d.<khoá>`), hoặc `null` nếu không có dòng. */
+  const khoaMayChuCua = (o: string): string | null => {
+    const dong = new RegExp(`\\n\\s*${o}:((?:[^\\n]|\\n(?!\\s*\\w+:))*)`).exec(khoiNap);
+    if (!dong) return null;
+    const doc = /d\.(\w+)/.exec(dong[1]);
+    return doc ? doc[1] : null;
+  };
 
   it('tìm được khối nạp trong mã nguồn', () => {
     expect(khoiNap.length).toBeGreaterThan(500);
   });
 
   it.each(O_GUI_NULL)('ô "%s" có dòng nạp lại trong khối nạp chi tiết', (khoa) => {
-    expect(khoiNap).toContain(`${khoa}:`);
+    expect(khoaMayChuCua(khoa)).not.toBeNull();
+  });
+
+  it.each(O_GUI_NULL)('ô "%s" nạp từ ĐÚNG khoá máy chủ', (khoa) => {
+    expect(khoaMayChuCua(khoa)).toBe(O_DOI_TEN[khoa] ?? khoa);
+  });
+
+  /**
+   * Bảng khai đổi tên phải THẬT. Khai một ô không đổi tên là mở sẵn cửa cho lần sau khai bừa.
+   */
+  it.each(Object.entries(O_DOI_TEN))('ô đổi tên "%s" thật sự đọc "%s"', (o, cot) => {
+    expect(o).not.toBe(cot);
+    expect(khoiNap).toContain(`d.${cot}`);
   });
 });

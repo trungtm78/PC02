@@ -56,12 +56,17 @@ File liên quan: `backend/prisma/schema.prisma`,
 
 ## Trạng thái test
 
-Full suite giao diện: **PASS 2.023/2.023** (`--maxWorkers=2`; chạy full song song trên máy này
+Full suite giao diện: **PASS 2.068/2.068** (`--maxWorkers=2`; chạy full song song trên máy này
 bị chập chờn do tài nguyên, không phải lỗi thật — đã kiểm từng tệp fail chạy riêng đều xanh).
 `tsc -b`: sạch. Backend chưa đụng ở PR0.
 
 ## Nợ kỹ thuật / rủi ro
 
+- **Bẫy đã tháo (codex bắt):** ô `lyDoTamDinhChi` trên form đọc `d.lyDoTamDinhChi` trong khi
+  cột thật máy chủ trả về là `lyDoTamDinhChiText` → ô LUÔN rỗng. Trước PR0 nó gửi `undefined`
+  nên vô hại; sau PR0 nó gửi `null`, tức chỉ cần mở hồ sơ rồi bấm Lưu là xoá mất ghi chú tạm
+  đình chỉ. Đã vá, và siết cổng để bắt cả LỚP lỗi: mỗi ô phải nạp từ ĐÚNG khoá máy chủ, ô đổi
+  tên phải khai ở `O_DOI_TEN`.
 - `sdtNguoiToGiac` của Vụ việc có **761 hồ sơ** sai định dạng — cùng lớp ký hiệu "không có" của
   hệ cũ đã dọn cho Đơn thư (`so-dien-thoai-he-cu.ts`). Chưa dọn cho Vụ việc; form Vụ việc hiện
   KHÔNG kiểm định dạng số nên chưa chặn Lưu, nhưng dữ liệu vẫn bẩn.

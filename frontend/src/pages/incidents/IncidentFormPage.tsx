@@ -190,7 +190,11 @@ export function IncidentFormPage() {
             nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
             lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
             lyDoTamDinhChiVuViec: Array.isArray(d.lyDoTamDinhChiVuViec) ? (d.lyDoTamDinhChiVuViec as string[]) : [],
-            lyDoTamDinhChi: (d.lyDoTamDinhChi as string) ?? "",
+            // Cột thật là `lyDoTamDinhChiText`; `lyDoTamDinhChi` chỉ là tên ô trên form,
+            // máy chủ nhận rồi đổi tên khi ghi. Đọc theo tên ô thì ô LUÔN rỗng, và từ lúc ô
+            // rỗng gửi `null` thì chỉ cần bấm Lưu là xoá mất ghi chú tạm đình chỉ.
+            lyDoTamDinhChi:
+              (d.lyDoTamDinhChiText as string) ?? (d.lyDoTamDinhChi as string) ?? "",
             tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
             tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
             soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
