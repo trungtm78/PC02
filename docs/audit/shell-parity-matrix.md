@@ -145,6 +145,25 @@ hiện — đúng điều anh nêu.
 **Nhãn đổi theo chữ hệ cũ:** "Ngày nhận" / "Ngày tiếp nhận" → **"Ngày đề xuất"**; "Đơn vị"
 (vụ án) → **"Đơn vị giải quyết"**.
 
+#### Cột "Đơn vị giải quyết" đọc `donViGiaiQuyet`, không đọc `unit` — 27/08/2026
+
+Anh chỉ ra trên ảnh chụp hệ cũ: cột ấy không có dữ liệu. Đo lại thì hỏng thật, và hỏng hoàn
+toàn — ba lớp (ô form · cột danh sách · bộ lọc) của Đơn thư và Vụ án đều trỏ `unit`, trong khi
+bộ di trú đổ vào `donViGiaiQuyet`.
+
+| Cột | Đơn thư | Vụ án | Vụ việc |
+|---|---|---|---|
+| `unit` (đang đọc trước 27/08) | 0 | 0 | — |
+| `donViGiaiQuyet` (dữ liệu thật) | 46.642 | 3.286 | 4.203 |
+
+Lược đồ tách hai khái niệm: `unit` là đơn vị **tiếp nhận**, `donViGiaiQuyet` là đơn vị **giải
+quyết**. Hệ quả kép — danh sách hiện dấu gạch mọi dòng, và bộ lọc theo đơn vị không bao giờ ra
+kết quả. Quy cả ba màn về `donViGiaiQuyet` (Vụ việc vốn đã đúng). `unit` giữ trong lược đồ cho
+"đơn vị tiếp nhận" — hiện chưa có ô nhập nào, khai vào nợ kỹ thuật.
+
+Cổng `o-form-va-cot-danh-sach-phai-trung-cot.gate.spec.ts` chốt sáu nhánh của cùng một cột: ô
+form · cột danh sách · bộ lọc `getList`/`getStats` · đường đọc · đường tạo · đường sửa.
+
 **Vụ việc KHÔNG THỂ có cột "Nguồn đơn/Đơn vị giao"** — bảng `incidents` không có trường
 `nguonDon`. Không bịa cột rỗng; cần quyết có bổ sung trường hay không.
 
