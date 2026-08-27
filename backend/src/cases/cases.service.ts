@@ -200,7 +200,10 @@ export class CasesService {
     // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
     // vẫn dùng được.
     if (unit) {
-      where.donViGiaiQuyet = unit;
+      // Khớp CHỨA, không khớp bằng: ô lọc là ô gõ chữ tự do, còn giá trị lưu là nhãn đầy đủ
+      // ("Đội 1 PC02"). Gõ "PC02" mà khớp bằng thì không ra hồ sơ nào — Đơn thư và Vụ việc
+      // vốn đã khớp chứa.
+      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
     }
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
@@ -476,7 +479,7 @@ export class CasesService {
     // và rỗng ở toàn bộ 3.286 vụ án, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
     // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
     // vẫn dùng được.
-    if (unit) where.donViGiaiQuyet = unit;
+    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
     // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.

@@ -134,6 +134,20 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
     expect(src).toContain('donViGiaiQuyet: dto.donViGiaiQuyet');
   });
 
+  /**
+   * Và đường ĐỌC phải lấy từ đúng cột ấy. Đọc lệch cột thì mở một hồ sơ di trú ra, sửa việc
+   * khác, bấm Lưu là XOÁ TRẮNG đơn vị giải quyết: ô nạp rỗng, payload luôn gửi ô ấy, máy chủ
+   * ghi đè. Mất dữ liệu mà không một thông báo nào.
+   */
+  it.each([
+    ['Đơn thư', 'frontend/src/pages/petitions/PetitionFormPage/index.tsx'],
+    ['Vụ việc', 'frontend/src/pages/incidents/mergeIncidentApiToFormData.ts'],
+    ['Vụ án', 'frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts'],
+  ])('%s: đường ĐỌC nạp ô từ `donViGiaiQuyet`', (_ten, duong) => {
+    const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
+    expect(src).toMatch(/donViGiaiQuyet(\s+)?(as string[^)]*)?\)?\s*(\?\?|\|\|)/);
+  });
+
   it('Vụ án: đường SỬA ghi `donViGiaiQuyet`', () => {
     const than = THAN('backend/src/cases/cases.service.ts', 'update');
     expect(than).toContain('donViGiaiQuyet: dto.donViGiaiQuyet');
