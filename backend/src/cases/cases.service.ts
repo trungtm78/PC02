@@ -346,6 +346,9 @@ export class CasesService {
         // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
         // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
         donViGiaiQuyet: true,
+        // Cột "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" đọc trường này. Trước
+        // 27/08/2026 nó đọc `name` — TÊN VỤ ÁN — nên cột đầy dữ liệu mà khớp bản gốc 0%.
+        tenCungCap: true,
           subjectsCount: true,
           // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
           // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban

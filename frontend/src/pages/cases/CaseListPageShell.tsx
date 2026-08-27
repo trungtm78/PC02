@@ -91,6 +91,9 @@ interface CaseRow {
   id: string;
   caseCode: string | null;
   name: string;
+  /** Người cung cấp tin (`ten_ca_nhan_co_quan_to_chuc_cung_cap` hệ cũ) — KHÁC `name` là tên
+   *  vụ án. Cột "Tên cá nhân…" trên danh sách đọc trường này. */
+  tenCungCap?: string | null;
   status: CaseStatus;
   /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
   donViGiaiQuyet: string | null;
@@ -507,7 +510,11 @@ export function CaseListPageShell() {
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
+        // Đọc `tenCungCap` — cột giữ `ten_ca_nhan_co_quan_to_chuc_cung_cap`, cũng là cột ô
+        // cùng nhãn trên form ghi vào. `name` là TÊN VỤ ÁN: cột đầy dữ liệu nên nhìn qua
+        // tưởng đúng, nhưng khớp bản gốc 0%. Hệ cũ chỉ có 746/3.359 hồ sơ điền ô này — 2.613
+        // dòng trống là ĐÚNG, không phải mất dữ liệu.
+        render: (r) => <span className="font-medium text-slate-800">{r.tenCungCap || '—'}</span>,
       },
 
       {

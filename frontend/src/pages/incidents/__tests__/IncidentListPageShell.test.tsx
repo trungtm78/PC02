@@ -56,6 +56,10 @@ const sampleRow = {
   id: 'incident-1',
   code: 'VV-2026-00001',
   name: 'Vụ việc mẫu',
+  // 27/08/2026: cột "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" đọc `benVu` — người cung
+  // cấp tin. Trước đó đọc `doiTuongCaNhan` (đối tượng BỊ TỐ) rồi rơi về `name` (tên vụ việc):
+  // hai thứ khác hẳn người cần hiện, và khớp bản gốc hệ cũ 0%.
+  benVu: 'Lê Văn Báo Tin',
   status: 'TIEP_NHAN' as IncidentStatus,
   deadline: '2026-06-30T00:00:00Z',
   investigator: { firstName: 'Trần', lastName: 'B', username: 'tranb' },
@@ -113,7 +117,7 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('list-page-shell-table-loading')).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('Vụ việc mẫu')).toBeInTheDocument();
+    expect(screen.getByText('Lê Văn Báo Tin')).toBeInTheDocument();
     expect(screen.getByText('VV-2026-00001')).toBeInTheDocument();
   });
 
@@ -137,7 +141,7 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
 
   it('StatusChips render 15 IncidentStatus + "Tất cả" = 16 chips', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     // Multiple tablists: phase tabs (5) + status chips (16) = 21 role=tab elements.
     const allTabs = screen.getAllByRole('tab');
     expect(allTabs.length).toBeGreaterThanOrEqual(16); // status chips alone
@@ -145,7 +149,7 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
 
   it('StatusChips hiển thị server counts', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const chipBar = screen.getByRole('tablist', { name: /lọc theo trạng thái/i });
     expect(within(chipBar).getByText('35')).toBeInTheDocument(); // total
     expect(within(chipBar).getByText('12')).toBeInTheDocument(); // DANG_XAC_MINH count
@@ -164,7 +168,7 @@ describe('IncidentListPageShell — interactions', () => {
 
   it('click status chip → URL state cập nhật với prefix incidents_', async () => {
     const { getLocation } = renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const tabs = screen.getAllByRole('tab');
     const tiepNhanChip = tabs.find(
       (t) =>
@@ -181,7 +185,7 @@ describe('IncidentListPageShell — interactions', () => {
 
   it('click phase tab → URL state cập nhật với incidents_phase', async () => {
     const { getLocation } = renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const phaseTablist = screen.getByRole('tablist', { name: 'Giai đoạn xử lý' });
     const xacMinhTab = Array.from(phaseTablist.querySelectorAll('[role="tab"]')).find(
       (t) => t.textContent === 'Xác minh',
@@ -196,14 +200,14 @@ describe('IncidentListPageShell — interactions', () => {
 
   it('row click → navigate detail', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
-    fireEvent.click(screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
+    fireEvent.click(screen.getByText('Lê Văn Báo Tin'));
     await waitFor(() => expect(screen.getByText('IncidentDetailPage')).toBeInTheDocument());
   });
 
   it('"Tạo mới" → /incidents/new', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     fireEvent.click(screen.getByRole('button', { name: /Tạo mới/i }));
     await waitFor(() => expect(screen.getByText('NewIncidentPage')).toBeInTheDocument());
   });
@@ -307,7 +311,7 @@ describe('IncidentListPageShell — URL state load from query params', () => {
 
   it('load với incidents_status filter → fetch caller với status param', async () => {
     renderWithRouter(['/incidents?incidents_status=DANG_XAC_MINH']);
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/incidents',
     );
@@ -316,7 +320,7 @@ describe('IncidentListPageShell — URL state load from query params', () => {
 
   it('load với incidents_phase=ket-qua → fetch caller với phase=ket-qua (backend kebab-case slug)', async () => {
     renderWithRouter(['/incidents?incidents_phase=ket-qua']);
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/incidents',
     );
@@ -325,7 +329,7 @@ describe('IncidentListPageShell — URL state load from query params', () => {
 
   it('load với incidents_page=3 → fetch offset=40', async () => {
     renderWithRouter(['/incidents?incidents_page=3']);
-    await waitFor(() => screen.getByText('Vụ việc mẫu'));
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/incidents',
     );

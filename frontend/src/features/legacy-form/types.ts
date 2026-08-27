@@ -84,6 +84,33 @@ export function legacyCaptionOf<TField extends string, TTab extends string>(
 }
 
 /**
+ * Cột mà ô mang NHÃN ấy ghi vào — hoặc `null` nếu bố cục hệ cũ không có nhãn ấy.
+ *
+ * Cột trên danh sách và ô trên form là hai lớp riêng, viết ở hai tệp riêng, nên chúng lệch
+ * nhau mà không ai thấy: form ghi cột A, danh sách đọc cột B, và vì mỗi lớp tự nhất quán nên
+ * mọi ca kiểm khứ hồi vẫn xanh. Đo ngày 27/08/2026 thì ba nhãn đang lệch — "Ngày đề xuất"
+ * của Đơn thư, "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" của cả Vụ việc lẫn Vụ án.
+ *
+ * Hàm này cho cổng kiểm tra tra ngược từ nhãn ra cột, nên cổng gác được MỌI nhãn thay vì
+ * từng nhãn một.
+ *
+ * Ô lồng (`statistic.…`) không tính: chúng nằm ở bảng khác, không phải cột của bảng chính.
+ */
+export function columnForCaption<TForm, TTab extends string, TField extends string>(
+  spec: LegacyFormSpec<TForm, TTab, TField>,
+  caption: string,
+): string | null {
+  for (const items of Object.values(spec.layout)) {
+    for (const it of items as readonly LegacyLayoutItem<TField, TTab>[]) {
+      const field = it.field as string;
+      if (it.caption !== caption || field.includes(".")) continue;
+      return spec.fieldToColumn[field] ?? field;
+    }
+  }
+  return null;
+}
+
+/**
  * Tập CỘT mà form đã có ô nhập ở đúng vị trí hệ cũ.
  *
  * Panel "Thông tin nghiệp vụ bổ sung" cuối trang dùng tập này để KHÔNG dựng ô thứ hai cho

@@ -180,12 +180,15 @@ export class PetitionsService {
         'createdAt',
         'updatedAt',
         'receivedDate',
+        // Cột "Ngày đề xuất" trên danh sách sắp theo trường này. Thiếu tên ở đây thì bấm tiêu
+        // đề cột không có tác dụng gì — máy chủ lặng lẽ bỏ qua khoá sắp lạ.
+        'ngayDeXuat',
         'deadline',
         'status',
         'senderName',
       ],
       defaultField: 'receivedDate',
-      nullableFields: ['deadline', 'sortReceivedDate'],
+      nullableFields: ['deadline', 'sortReceivedDate', 'ngayDeXuat'],
       // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
       // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,
       // 0225...). Kèm NULLS LAST thì rác chìm xuống cuối thay vì chiếm màn hình đầu.
@@ -200,6 +203,12 @@ export class PetitionsService {
           id: true,
           stt: true,
           receivedDate: true,
+          // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
+          // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
+          ngayDeXuat: true,
+          // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
+          // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
+          detailContent: true,
           unit: true,
           // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
           // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.

@@ -90,6 +90,10 @@ interface PetitionRow {
   id: string;
   stt: string;
   receivedDate: string;
+  /** Ngày ĐỀ XUẤT (`ngay_de_xuat` hệ cũ) — khác `receivedDate` = ngày tiếp nhận nguồn tin. */
+  ngayDeXuat?: string | null;
+  /** Nội dung đầy đủ — cột ô "Tóm tắt nội dung" trên form ghi vào, khớp bản gốc hệ cũ. */
+  detailContent?: string | null;
   /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
   donViGiaiQuyet?: string | null;
   senderName: string;
@@ -456,12 +460,19 @@ export function PetitionListPageShell() {
       },
 
       {
-        key: 'receivedDate',
+        // 27/08/2026: đọc `ngayDeXuat`, không đọc `receivedDate`.
+        //
+        // Nhãn nói "Ngày đề xuất" nhưng cột lấy `receivedDate` — mà `receivedDate` của hồ sơ
+        // di trú là NGÀY TIẾP NHẬN NGUỒN TIN (`ngay_tiep_nhan_nguon_tin`), chỉ rơi về ngày đề
+        // xuất khi không có ngày tiếp nhận. Đo trên máy thật: 29.026/46.499 hồ sơ hiện sai
+        // ngày. Ô "Ngày/Tháng/Năm đề xuất" trên form vẫn luôn ghi `ngayDeXuat`, và Vụ việc
+        // lẫn Vụ án cũng đọc `ngayDeXuat` — chỉ màn này lệch.
+        key: 'ngayDeXuat',
         header: 'Ngày đề xuất',
         width: '7rem',
         optional: 'show',
-        sortKey: 'receivedDate',
-        render: (r) => <DateCell value={r.receivedDate} />,
+        sortKey: 'ngayDeXuat',
+        render: (r) => <DateCell value={r.ngayDeXuat} />,
       },
 
       {
@@ -483,11 +494,14 @@ export function PetitionListPageShell() {
       },
 
       {
-        key: 'summary',
+        // Đọc `detailContent` — cột mà ô "Tóm tắt nội dung" trên form ghi vào, và là cột khớp
+        // bản gốc hệ cũ 46.497/46.497. `summary` là bản rút gọn suy lại lúc lưu: nó lệch ở 58
+        // hồ sơ và hụt 1, nên danh sách đọc nó thì cán bộ sửa nội dung xong vẫn thấy chữ cũ.
+        key: 'detailContent',
         header: 'Tóm tắt nội dung',
         width: '20rem',
         optional: 'show',
-        render: (r) => <SummaryCell value={r.summary} />,
+        render: (r) => <SummaryCell value={r.detailContent} />,
       },
 
       {
