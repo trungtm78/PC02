@@ -2,7 +2,7 @@
 
 STATUS: ALL_MILESTONES_DONE
 
-Cập nhật: 2026-08-27T17:40+07:00 | Milestone: 5/5 + UAT | Task: xong
+Cập nhật: 2026-08-27T21:10+07:00 | Milestone: 5/5 + UAT + đợt "Đơn vị giải quyết" | Task: xong
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
@@ -12,6 +12,52 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
+
+## Đợt 27/08 chiều — cột "Đơn vị giải quyết" rỗng toàn bộ
+
+Anh chỉ ra trên ảnh chụp hệ cũ. Đo lại: hỏng thật, và hỏng hoàn toàn.
+
+- [x] **PR #280** — quy Đơn thư · Vụ việc · Vụ án về một cột `donViGiaiQuyet`.
+      `unit` có **0** bản ghi, `donViGiaiQuyet` có 46.642 đơn thư + 3.286 vụ án. Ba lớp (ô
+      form · cột danh sách · bộ lọc) nhất quán với NHAU ở cột sai nên mọi ca kiểm khứ hồi
+      đều xanh. Kèm ba cổng mới, và dedup **31 ô trùng** của Vụ án mà cổng thứ ba bắt được.
+      Codex hai vòng bắt 5 lỗi em đã miss — nặng nhất: mở vụ án di trú rồi Lưu sẽ **xoá
+      trắng** đơn vị giải quyết. Đã deploy, bấm thử máy thật xanh.
+- [x] **PR #281** — bộ dọn số điện thoại chạy cho cả ba bảng (trước chỉ Đơn thư).
+      Vụ việc 293 ô, Vụ án 7 ô mang ký hiệu "không có". Kèm ca kiểm khứ hồi "mở hồ sơ di
+      trú rồi Lưu thì không mất gì" dựng theo hình dạng dữ liệu MÁY THẬT.
+
+### Bấm thử trên máy thật sau deploy #280
+
+| Việc | Kết quả |
+|---|---|
+| Đơn thư — cột "Đơn vị giải quyết" | 99/100 dòng có dữ liệu: "Tổ công tác Số 1", "BCH Đội 4", "PC01 Công an TP. HCM" |
+| Lọc Đơn thư "Đội 8" | ra đúng, mọi dòng đều "Đội 8" |
+| Vụ án — cột ấy | **100/100** dòng có dữ liệu |
+| Lọc Vụ án "Đội 8" | ra đúng |
+| Vụ việc (hồi quy) | không đổi |
+
+### Dọn số điện thoại đã chạy trên máy thật — 27/08 21:30
+
+Sao lưu trước: `/home/pc02/backups/pre-don-sdt-20260827-213021.sql.gz` (71 MB, ba bảng).
+
+| Màn | Quét | Xoá ký hiệu "không có" | Chuẩn hoá | Giữ lại vì không đoán được |
+|---|---|---|---|---|
+| Đơn thư | 2.881 | 3 | 0 | 114 |
+| Vụ việc | 781 | **756** | 5 | 0 |
+| Vụ án | 597 | **518** | 8 | 1 |
+
+Trước khi cho chạy, em soi đủ danh sách sẽ xoá: **không có một số thật nào** — toàn `0`
+(431 + 466 lần), `"không có"`, `0000`, `000`, `00`, `...`, `.`. Con số 293 đo lúc đầu chỉ
+đếm ô không chứa chữ số nào; họ `0`/`0000` cũng là ký hiệu để trống của hệ cũ.
+
+Chạy lại lần hai: **0 thay đổi** — đúng tính bình ổn. Máy thật khoẻ.
+
+### Đã đo, KHÔNG phải lỗi
+
+**514/4.717 vụ việc trống ô "Đơn vị giải quyết"** — bản gốc hệ cũ (`don_vi_giai_quyet`) cũng
+rỗng ở đúng những hồ sơ ấy. Có `don_vi_id` nhưng mã ấy ánh xạ ra NHIỀU tên khác nhau (mã "9"
+ra cả "Đội 8", "Đội 7", "Đội 9") nên không suy được tên. Hệ cũ cũng hiện trống.
 
 ## Đã hoàn thành
 
