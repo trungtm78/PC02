@@ -20,6 +20,19 @@ const O_GUI_NULL: string[] = Array.from(
   nguonBuilder.matchAll(/(\w+): oHeCu\(formData\.(\w+)\)/g),
 ).map((m) => m[1]);
 
+/**
+ * MỌI ô lấy giá trị từ `formData`, không chỉ nhóm đi qua `oHeCu`.
+ *
+ * Phép kiểm "nạp lại từ đúng khoá" phải phủ cả ô chọn-nhiều và ô tích. Lọc theo `oHeCu` thì
+ * bốn ô `lyDoKhongKhoiTo`, `lyDoTamDinhChiVuViec`, `xacDinhVuViecTamDung`, `laCongNgheCaoVV`
+ * rơi ra ngoài — mà đó cũng là những ô, nếu nạp sai khoá, sẽ bị ghi đè ngay lần lưu đầu.
+ */
+const MOI_O_TU_FORM: string[] = Array.from(
+  new Set(
+    Array.from(nguonBuilder.matchAll(/(\w+):[^,\n]*formData\.(\w+)/g)).map((m) => m[1]),
+  ),
+);
+
 function payload(sua: Partial<IncidentFormData>): Record<string, unknown> {
   return buildIncidentPayload({ ...INITIAL_INCIDENT_FORM, ...sua } as IncidentFormData, {
     isEditMode: true,
@@ -123,11 +136,18 @@ describe('Mọi khoá gửi lên đều nạp lại được từ ĐÚNG khoá c
     expect(khoiNap.length).toBeGreaterThan(500);
   });
 
-  it.each(O_GUI_NULL)('ô "%s" có dòng nạp lại trong khối nạp chi tiết', (khoa) => {
+  it('phủ được cả ô chọn-nhiều và ô tích, không chỉ nhóm oHeCu', () => {
+    expect(MOI_O_TU_FORM.length).toBeGreaterThan(O_GUI_NULL.length);
+    for (const o of ['lyDoKhongKhoiTo', 'lyDoTamDinhChiVuViec', 'xacDinhVuViecTamDung', 'laCongNgheCaoVV']) {
+      expect(MOI_O_TU_FORM).toContain(o);
+    }
+  });
+
+  it.each(MOI_O_TU_FORM)('ô "%s" có dòng nạp lại trong khối nạp chi tiết', (khoa) => {
     expect(khoaMayChuCua(khoa)).not.toBeNull();
   });
 
-  it.each(O_GUI_NULL)('ô "%s" nạp từ ĐÚNG khoá máy chủ', (khoa) => {
+  it.each(MOI_O_TU_FORM)('ô "%s" nạp từ ĐÚNG khoá máy chủ', (khoa) => {
     expect(khoaMayChuCua(khoa)).toBe(O_DOI_TEN[khoa] ?? khoa);
   });
 
