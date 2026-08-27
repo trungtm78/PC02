@@ -69,15 +69,21 @@ export interface CommitResult {
  * NO KY THUAT da khai: nhanh cap nhat van de len ~50 cot khac theo dung kieu nay. Sua tron ven
  * la viec cua mot dot rieng — o day chi chan dung cho o vua duoc noi day.
  */
-const O_KHONG_DE_KHI_DA_CO_CHU = ['detailContent', 'summary'] as const;
+const O_KHONG_DE_KHI_DA_CO = ['detailContent', 'summary', 'receiveDate'] as const;
+
+/** Ô đã có giá trị thật chưa — chữ có nội dung, hoặc một mốc ngày hợp lệ. */
+function daCoGiaTri(v: unknown): boolean {
+  if (typeof v === 'string') return v.trim() !== '';
+  if (v instanceof Date) return !Number.isNaN(v.getTime());
+  return false;
+}
 
 export function giuChuCanBoDaGo(
   data: Record<string, unknown>,
   danCo: Record<string, unknown>,
 ): void {
-  for (const o of O_KHONG_DE_KHI_DA_CO_CHU) {
-    const cu = danCo[o];
-    if (typeof cu === 'string' && cu.trim() !== '') delete data[o];
+  for (const o of O_KHONG_DE_KHI_DA_CO) {
+    if (daCoGiaTri(danCo[o])) delete data[o];
   }
 }
 
@@ -251,6 +257,9 @@ export class LegacyMigrationService {
               if (oldMeta.trichTuDong && !newMeta.trichTuDong) {
                 cu.metadata = { ...newMeta, trichTuDong: oldMeta.trichTuDong };
               }
+              // Chạy lại di trú không được đè lên thứ cán bộ đã sửa (codex bắt 27/08/2026).
+              // `receiveDate` là ô form ĐÒI, nên nó là ô cán bộ chắc chắn có động vào.
+              giuChuCanBoDaGo(cu, existing as unknown as Record<string, unknown>);
               caseRow = await tx.case.update({
                 where: { id: existing.id },
                 data: { caseProvenance, ...link, ...cu },
