@@ -2,7 +2,7 @@
 
 STATUS: ALL_MILESTONES_DONE
 
-Cập nhật: 2026-08-28T00:15+07:00 | Milestone: 5/5 + UAT + đợt rà soát từng cột | Task: xong
+Cập nhật: 2026-08-28T01:40+07:00 | Milestone: 5/5 + UAT + cập nhật dữ liệu hệ cũ | Task: xong
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
@@ -12,6 +12,43 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
+
+## Đợt 28/08 — chuyển dữ liệu mới nhất của hệ cũ sang hệ mới
+
+Anh yêu cầu chuyển dữ liệu mới nhất đến hôm nay, và cấp repo hệ cũ
+(`github.com/phuongdeptrai2512/pc02hcm.com`) — trong đó có chuỗi kết nối MongoDB live. Đã lưu
+vào bộ nhớ riêng để khỏi lấy lại.
+
+- [x] **PR #286** — bộ cập nhật đọc THẲNG MongoDB hệ cũ, không cần dump.
+      Dump trong kho là 22/07/2026, cũ hơn hôm nay hơn một tháng. Bộ mới dùng lại nguyên
+      đường nạp cũ (bảng chờ · bảng tra cứu · `commit`), chỉ đụng hồ sơ CHƯA CÓ hoặc ĐÃ SỬA
+      — chạy lại toàn bộ là ghi đè lên thứ cán bộ vừa sửa trên hệ mới.
+- [x] **PR #287** — đường nạp tự bù mã. Chạy thật xong mới lộ: 83 hồ sơ mới mang mã
+      `DT-LEGACY-…` thay vì `2026-11253`, và bộ đếm tụt lại nên hồ sơ tạo mới sau đó sẽ
+      TRÙNG mã. Cổng mới chốt cả hai đường nạp phải gọi bù mã.
+
+### Kết quả trên máy thật
+
+| | |
+|---|---|
+| Hệ cũ (còn sống) | 55.173 hồ sơ |
+| Hệ mới đã có | 55.300 khoá |
+| **Còn thiếu** | **0** |
+| Đã nạp đợt này | 83 hồ sơ mới + 10 hồ sơ đã sửa |
+| Mã mới nhất | `2026-11253` — 27/08/2026 |
+| Bộ đếm đã nâng | đơn thư 11172→11253 · vụ việc 10966→11219 · vụ án 11140→11185 |
+
+Sao lưu trước khi chạy: `/home/pc02/backups/pre-capnhat-hecu-20260828-011032.sql.gz` (131 MB,
+toàn bộ CSDL). Chạy lại lần hai: "không có gì phải cập nhật" — đúng tính bình ổn.
+
+### Đã đo, KHÔNG phải lỗi
+
+**121 vụ việc còn mã tạm** `VV-LEGACY-…`: 118 đến từ bảng `TamDinhChi_vu_viec_21` của hệ cũ —
+bảng ấy không có trường `nam`/`stt`, nên chính hệ cũ cũng không cấp mã cho chúng; 3 hồ sơ còn
+lại từ `ho_so_doi_1` cũng thiếu cả hai trường. Không suy được mã, và bịa một mã là sai.
+
+**5 hồ sơ hệ cũ đánh dấu đã xoá**: không xoá theo ở hệ mới. Hệ cũ xoá mềm, hồ sơ đã sang đây
+có thể đang được xử lý, và xoá dữ liệu vụ án theo một cờ ở hệ khác là việc không hoàn lại được.
 
 ## Đợt 27/08 tối — rà soát TỪNG CỘT ba màn so hệ cũ
 
