@@ -120,3 +120,76 @@ describe('donSoDienThoai — xoá ký hiệu "không có", giữ mọi thứ cò
     expect(g.dong.every((d) => d.senderPhone === null)).toBe(true);
   });
 });
+
+import { donSoDienThoaiTatCa, BANG_SO_DIEN_THOAI } from './don-so-dien-thoai-donthu';
+
+/**
+ * Cùng ký hiệu "không có" ấy còn nằm ở Vụ việc (`sdtNguoiToGiac`) và Vụ án (`sdtCungCap`).
+ *
+ * Bộ dọn ra đời cho Đơn thư và chạy xong 4.691 hồ sơ hôm 26/08/2026, nhưng hai bảng kia thì
+ * chưa ai đụng — cùng một lỗi, cùng một cách sửa, chỉ khác tên bảng và tên cột.
+ */
+type DongChung = { id: string; sdt: string | null; legacySourceId: string | null };
+
+function khoBaBang(theoBang: Record<string, DongChung[]>) {
+  const kho: Record<string, unknown> = {};
+  for (const b of BANG_SO_DIEN_THOAI) {
+    const dong = theoBang[b.model] ?? [];
+    kho[b.model] = {
+      findMany: jest.fn(async (a: unknown) => {
+        const arg = a as { where: Record<string, unknown>; take: number; cursor?: { id: string } };
+        let ds = dong.filter((d) => d.legacySourceId !== null && d.sdt !== null);
+        ds = [...ds].sort((x, y) => (x.id < y.id ? -1 : 1));
+        if (arg.cursor) ds = ds.slice(ds.findIndex((d) => d.id === arg.cursor?.id) + 1);
+        return ds.slice(0, arg.take).map((d) => ({ id: d.id, [b.cot]: d.sdt }));
+      }),
+      updateMany: jest.fn(async (a: unknown) => {
+        const arg = a as { where: { id: string }; data: Record<string, string | null> };
+        const d = dong.find((x) => x.id === arg.where.id);
+        if (!d) return { count: 0 };
+        d.sdt = arg.data[b.cot] ?? null;
+        return { count: 1 };
+      }),
+    };
+  }
+  return { kho: kho as never, theoBang };
+}
+
+describe('donSoDienThoaiTatCa — cùng bộ dọn ấy chạy cho cả ba bảng', () => {
+  it('khai đủ ba bảng, mỗi bảng một cột số điện thoại', () => {
+    expect(BANG_SO_DIEN_THOAI.map((b) => `${b.model}.${b.cot}`).sort()).toEqual([
+      'case.sdtCungCap',
+      'incident.sdtNguoiToGiac',
+      'petition.senderPhone',
+    ]);
+  });
+
+  it('xoá ký hiệu "không có" ở CẢ Vụ việc và Vụ án, không riêng Đơn thư', async () => {
+    const g = khoBaBang({
+      petition: [{ id: 'p', sdt: '...', legacySourceId: 'k' }],
+      incident: [{ id: 'i', sdt: 'Không', legacySourceId: 'k' }],
+      case: [{ id: 'c', sdt: '0000', legacySourceId: 'k' }],
+    });
+    const kq = await donSoDienThoaiTatCa(g.kho, false);
+    expect(kq.map((r) => [r.ten, r.xoaVeTrong])).toEqual([
+      ['Đơn thư', 1],
+      ['Vụ việc', 1],
+      ['Vụ án', 1],
+    ]);
+    expect(g.theoBang['petition'][0].sdt).toBeNull();
+    expect(g.theoBang['incident'][0].sdt).toBeNull();
+    expect(g.theoBang['case'][0].sdt).toBeNull();
+  });
+
+  it('vẫn giữ nguyên số có thể là thật ở bảng khác Đơn thư', async () => {
+    const g = khoBaBang({
+      incident: [{ id: 'i', sdt: '+84912345678', legacySourceId: 'k' }],
+      case: [{ id: 'c', sdt: '0912 345 678', legacySourceId: 'k' }],
+    });
+    const kq = await donSoDienThoaiTatCa(g.kho, false);
+    expect(g.theoBang['incident'][0].sdt).toBe('+84912345678');
+    expect(g.theoBang['case'][0].sdt).toBe('0912345678');
+    expect(kq.find((r) => r.ten === 'Vụ việc')?.giuLaiVìKhongDoanDuoc).toBe(1);
+    expect(kq.find((r) => r.ten === 'Vụ án')?.chuanHoa).toBe(1);
+  });
+});
