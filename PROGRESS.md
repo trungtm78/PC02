@@ -2,7 +2,7 @@
 
 STATUS: ALL_MILESTONES_DONE
 
-Cập nhật: 2026-08-27T21:10+07:00 | Milestone: 5/5 + UAT + đợt "Đơn vị giải quyết" | Task: xong
+Cập nhật: 2026-08-28T00:15+07:00 | Milestone: 5/5 + UAT + đợt rà soát từng cột | Task: xong
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
@@ -12,6 +12,54 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
+
+## Đợt 27/08 tối — rà soát TỪNG CỘT ba màn so hệ cũ
+
+Anh yêu cầu kiểm từng cột của ba danh sách so với hệ cũ, và thêm: mặc định sắp theo STT
+giảm dần, bấm tiêu đề đổi chiều.
+
+- [x] **PR #283** — bốn cột đang hiện dữ liệu của cột khác, và sắp xếp theo STT.
+      Em so từng ô, từng hồ sơ, trên 54.736 hồ sơ di trú (bản gốc hệ cũ nằm trong
+      `legacyRaw`). Không cột nào HỤT, nhưng bốn cột lấy dữ liệu sai chỗ:
+
+      | Màn | Cột | Đang hiện | Phải hiện | Sai |
+      |---|---|---|---|---|
+      | Đơn thư | Ngày đề xuất | ngày tiếp nhận | ngày đề xuất | 29.026 hồ sơ |
+      | Đơn thư | Tóm tắt nội dung | bản rút gọn | nội dung thật | 58 hồ sơ |
+      | Vụ việc | Tên cá nhân… | đối tượng bị tố | người cung cấp | khớp gốc 0% |
+      | Vụ án | Tên cá nhân… | tên vụ án | người cung cấp | khớp gốc 0% |
+
+      Codex bắt 5 lỗi ca kiểm không thấy, nặng nhất: `BigInt` làm `JSON.stringify` ném lỗi
+      → mở BẤT KỲ hồ sơ nào là 500, cả ba màn. Đã vá, mỗi lỗi một nhánh cổng.
+
+- [x] **PR #284** — đăng nhập hệ cũ (CHỈ ĐỌC) đọc thẳng mã nguồn ba màn anh chỉ
+      (`/doi-1/don-thu`, `/doi-1/vu-viec-da-phan-loai`, `/doi-1/vu-an-da-phan-loai`).
+      Xác nhận trực tiếp cả bốn bản vá trên, và bắt thêm một lệch: Vụ án ẩn nhầm cột
+      "Nguồn đơn/Đơn vị giao" vì bản trước đo màn `/VuAn` — một màn KHÁC.
+
+### Bấm thử trên máy thật sau deploy #283
+
+| Việc | Kết quả |
+|---|---|
+| Thứ tự mặc định STT giảm dần | đúng ở cả ba màn |
+| Bấm tiêu đề đổi chiều | đúng ở cả ba màn |
+| Sắp theo SỐ, không theo chuỗi | `2026-10000 → 2026-9999` đúng; 1.500 mã liên tiếp không sai chỗ nào |
+| Bốn cột đã vá | hiện đúng dữ liệu |
+| Mở chi tiết (chỗ BigInt từng gây 500) | mở được cả ba màn |
+| Bù ngày đề xuất | 426 hồ sơ, nay không còn hồ sơ nào thiếu |
+
+### Khác hệ cũ CÓ CHỦ Ý
+
+Sắp mặc định của hệ cũ là `stt` **tăng dần**; anh yêu cầu **giảm dần** nên hệ mới để giảm dần.
+
+### Đã đo, KHÔNG dựng được
+
+| Cột | Lý do |
+|---|---|
+| "Đơn vị" (`don_vi_ten`) | hệ cũ suy tên lúc chạy; bản gốc 0 bản ghi, mã đơn vị ánh xạ ra nhiều tên |
+| "Đối tượng bị can" của Vụ việc | `bi_can_info` rỗng ở cả 5.000 hồ sơ mẫu, hệ mới không có quan hệ ấy |
+
+Dựng cột rỗng cho khớp danh sách là bịa dữ liệu.
 
 ## Đợt 27/08 chiều — cột "Đơn vị giải quyết" rỗng toàn bộ
 
