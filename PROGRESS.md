@@ -1,6 +1,11 @@
 # PROGRESS
 
-Cập nhật: 2026-08-27T10:55+07:00 | STATUS: ALL_MILESTONES_DONE | Milestone: 7/7
+STATUS: ALL_MILESTONES_DONE
+
+Cập nhật: 2026-08-27T11:05+07:00 | Milestone: 7/7
+
+<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
+     Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
 
 > Epic trước (**Vụ án**, deploy máy thật 26/08/2026) lưu ở
 > [docs/progress/2026-08-25-danh-sach-giong-he-cu.md](docs/progress/2026-08-25-danh-sach-giong-he-cu.md).
