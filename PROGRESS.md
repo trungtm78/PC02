@@ -17,28 +17,27 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 - [x] **M1-T1 · PR0 — vá xoá-trắng ở Vụ việc** — `oHeCu()` thay `v || undefined` cho 45 ô —
       PR #268, đã deploy `bf18132f`
-- [x] **M2-T1 · PR1 — ba cột còn thiếu ở máy chủ** — `crimeChinhId` (quan hệ) ·
-      `phanLoaiNguonTinBanDau` · `baoCaoBanGiamDocText`
+- [x] **M2-T1 · PR1 — ba cột còn thiếu ở máy chủ** — PR #269, deploy `75ba807f`. Codex bắt 3
+      lỗi P1 (DTO thiếu khai · service không ghi · `resolveCrime` chưa được gọi), đã vá. Cổng
+      DTO mở rộng cho ba thực thể bắt luôn lỗi thật ở Vụ án: `sttCu` gửi lên mà không ai nhận.
+- [x] **M2-T2 · PR1b — bù dữ liệu trên máy chạy** — PR #270, deploy `9613f522`.
+      `crimeChinhId` 1.117 · `phanLoaiNguonTinBanDau` 4.693 · `baoCaoBanGiamDocText` 96 ·
+      Vụ án thêm 71 tội danh còn sót. Sao lưu `truoc-bu-vuviec-20260827_134927.sql.gz`.
 
 ## Đang làm dở
 
-Task: M2-T1 — PR1 đã xong phần mã, CHƯA bù dữ liệu trên máy chạy.
-Đã làm: 3 cột + migration + quan hệ `IncidentCrimeChinh` + `crimeChinhId` khai vào
-`FK_RELATIONS` + `resolveCrime` nhận nhánh incident + `PARITY.incident` + gỡ hai dòng hoãn +
-sinh lại ma trận (Vụ việc còn 3 ô vụn, đều đã khai metadata).
-BƯỚC TIẾP THEO: gộp PR1 → chờ deploy → `pg_dump` sao lưu → chạy `backfill-parity.ts
---entity incident --dry` đọc báo cáo → chạy thật. Tội danh cần chạy lại di trú hoặc một bộ bù
-riêng vì `crimeChinhId` đi qua `resolveCrime` chứ không qua `parityColumns`.
-File liên quan: `backend/src/legacy-migration/cli/backfill-parity.ts`.
+Task: M3-T1 — PR2: tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển).
+Đã làm: PR0 đã tách sẵn `buildIncidentPayload.ts` + `incident-form.types.ts` (tập con).
+BƯỚC TIẾP THEO: đổi `IncidentFormPage.tsx` thành thư mục `IncidentFormPage/` gồm `index.tsx`,
+`validate.ts`, `mergeIncidentApiToFormData.ts` và hai tệp đã tách; router không đổi một chữ.
+File liên quan: `frontend/src/pages/incidents/`.
 
 ## Hàng đợi task kế tiếp
 
-1. **PR1** — 3 cột máy chủ + bù dữ liệu (crimeChinhId 1.114 · phanLoaiNguonTinBanDau 4.568 ·
-   baoCaoBanGiamDocText 93)
-2. **PR2** — tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển)
-3. **PR3** — form Vụ việc theo bố cục hệ cũ, 10 tab (PR chính)
-4. **PR4** — cột "Nguồn đơn/Đơn vị giao" trên danh sách
-5. **UAT** theo §9
+1. **PR2** — tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển)
+2. **PR3** — form Vụ việc theo bố cục hệ cũ, 10 tab (PR chính)
+3. **PR4** — cột "Nguồn đơn/Đơn vị giao" trên danh sách
+4. **UAT** theo §9
 
 ## Quyết định kiến trúc
 
@@ -57,7 +56,7 @@ File liên quan: `backend/src/legacy-migration/cli/backfill-parity.ts`.
 
 ## Trạng thái test
 
-Full suite máy chủ: **PASS 3.344/3.344**. Full suite giao diện: **PASS 2.079/2.079** (`--maxWorkers=2`; chạy full song song trên máy này
+Full suite máy chủ: **PASS 3.368/3.368**. Full suite giao diện: **PASS 2.079/2.079** (`--maxWorkers=2`; chạy full song song trên máy này
 bị chập chờn do tài nguyên, không phải lỗi thật — đã kiểm từng tệp fail chạy riêng đều xanh).
 `tsc --noEmit` + `tsc -b`: sạch.
 
