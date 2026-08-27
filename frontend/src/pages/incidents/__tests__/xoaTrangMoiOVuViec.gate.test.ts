@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import nguonBuilder from '../buildIncidentPayload.ts?raw';
 import nguonTrang from '../IncidentFormPage.tsx?raw';
+import nguonNap from '../mergeIncidentApiToFormData.ts?raw';
 import { buildIncidentPayload } from '../buildIncidentPayload';
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from '../incident-form.types';
 
@@ -119,10 +120,9 @@ const O_DOI_TEN: Readonly<Record<string, string>> = {
 };
 
 describe('Mọi khoá gửi lên đều nạp lại được từ ĐÚNG khoá của máy chủ', () => {
-  const khoiNap = nguonTrang.slice(
-    nguonTrang.indexOf('setFormData({'),
-    nguonTrang.indexOf('setRecordUpdatedAt('),
-  );
+  // Đọc TỆP NẠP, không đọc thân trang: sau khi tách module, biểu thức cũ cắt một khối không
+  // còn tồn tại và trả chuỗi rỗng — cổng xanh vì không có gì để kiểm.
+  const khoiNap = nguonNap.slice(nguonNap.indexOf('return {'));
 
   /** Khoá máy chủ mà dòng nạp của một ô thật sự đọc (`d.<khoá>`), hoặc `null` nếu không có dòng. */
   const khoaMayChuCua = (o: string): string | null => {
