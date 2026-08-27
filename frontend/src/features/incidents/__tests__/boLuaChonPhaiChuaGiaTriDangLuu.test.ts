@@ -23,10 +23,10 @@ const DANG_LUU: Readonly<Record<string, { giaTri: string; hoSo: number }[]>> = {
 };
 
 /** Bộ lựa chọn của một ô, tìm trong mọi tab của bố cục Vụ việc. */
-function boLuaChon(field: string): readonly { value: string }[] | undefined {
+function boLuaChon(field: string): readonly { value: string; label: string }[] | undefined {
   for (const items of Object.values(INCIDENT_LEGACY_LAYOUT)) {
     const o = items.find((x) => x.field === field);
-    if (o?.options) return o.options;
+    if (o?.options) return o.options as readonly { value: string; label: string }[];
   }
   return undefined;
 }
@@ -51,7 +51,7 @@ describe('Bộ lựa chọn phải chứa giá trị đang lưu', () => {
    */
   it('nhãn giữ nguyên văn hệ cũ', () => {
     const bo = boLuaChon('phanLoaiNguonTinBanDau');
-    const nhan = bo?.map((o) => (o as { label: string }).label) ?? [];
+    const nhan = bo?.map((o) => o.label) ?? [];
     expect(nhan).toContain('Đơn, Công văn');
     expect(nhan).toContain('Vụ việc');
     expect(nhan).toContain('Vụ án');
