@@ -20,24 +20,26 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 - [x] **M2-T1 · PR1 — ba cột còn thiếu ở máy chủ** — PR #269, deploy `75ba807f`. Codex bắt 3
       lỗi P1 (DTO thiếu khai · service không ghi · `resolveCrime` chưa được gọi), đã vá. Cổng
       DTO mở rộng cho ba thực thể bắt luôn lỗi thật ở Vụ án: `sttCu` gửi lên mà không ai nhận.
+- [x] **M3-T1 · PR2 — tách phần nạp dữ liệu và phép kiểm** — PR #271, deploy
+- [x] **M4-T1 · PR3 — form Vụ việc theo bố cục 10 tab** — PR #272 + #273 + #274, deploy `730d3937`
+- [x] **M5-T1 · PR4 — cột "Nguồn đơn/Đơn vị giao"** — PR #275 + #276, deploy `e1820224`
 - [x] **M2-T2 · PR1b — bù dữ liệu trên máy chạy** — PR #270, deploy `9613f522`.
       `crimeChinhId` 1.117 · `phanLoaiNguonTinBanDau` 4.693 · `baoCaoBanGiamDocText` 96 ·
       Vụ án thêm 71 tội danh còn sót. Sao lưu `truoc-bu-vuviec-20260827_134927.sql.gz`.
 
 ## Đang làm dở
 
-Task: M3-T1 — PR2: tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển).
-Đã làm: PR0 đã tách sẵn `buildIncidentPayload.ts` + `incident-form.types.ts` (tập con).
-BƯỚC TIẾP THEO: đổi `IncidentFormPage.tsx` thành thư mục `IncidentFormPage/` gồm `index.tsx`,
-`validate.ts`, `mergeIncidentApiToFormData.ts` và hai tệp đã tách; router không đổi một chữ.
-File liên quan: `frontend/src/pages/incidents/`.
+Task: UAT theo §9 — lập `UAT-COVERAGE.md` cho form và danh sách Vụ việc.
+Đã làm: toàn bộ 5 PR của epic đã lên máy thật và đã bấm thử tay trên hồ sơ DI TRÚ.
+BƯỚC TIẾP THEO: lập ma trận phủ (mọi màn hình + chức năng của epic), rồi chạy
+`/uat-test-writer` → `/uat-test-runner` từng dòng.
+File liên quan: `UAT-COVERAGE.md` (chưa có).
 
 ## Hàng đợi task kế tiếp
 
-1. **PR2** — tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển)
-2. **PR3** — form Vụ việc theo bố cục hệ cũ, 10 tab (PR chính)
-3. **PR4** — cột "Nguồn đơn/Đơn vị giao" trên danh sách
-4. **UAT** theo §9
+1. **UAT** theo §9
+2. ~~PR2 — tách `IncidentFormPage.tsx` thành thư mục (thuần di chuyển)
+~~PR3~~ · ~~PR4~~ — đã xong
 
 ## Quyết định kiến trúc
 
@@ -55,9 +57,23 @@ File liên quan: `frontend/src/pages/incidents/`.
 | Anh viết "màn hình Danh sách vụ án" nhưng bối cảnh là Vụ việc | Đối tượng là **Vụ việc**; xử cả form lẫn màn danh sách của nó | Cùng lỗi chép lại ở hai yêu cầu trước; đo trên máy: `/doi-1/vu-viec-da-phan-loai` |
 | Ô chọn-nhiều và ô tích khi "rỗng" | Gửi mảng rỗng / `false`, KHÔNG bỏ khoá | Bỏ hết lựa chọn là một hành động; bỏ khoá thì gỡ không được |
 
+## Bấm thử trên máy thật — hồ sơ DI TRÚ
+
+Vụ việc 100% (4.717/4.717) là hồ sơ di trú, nên bước này là bắt buộc chứ không phải cho đủ lệ.
+Mỗi lần bấm lộ thêm một lỗi chặn mà ca kiểm không thấy:
+
+| Lần | Kết quả | Vá ở |
+|---|---|---|
+| 1 | 10 tab đúng tên/thứ tự; nhưng ô "Phân loại ban đầu" TRỐNG ở 4.594/4.717 hồ sơ — bộ lựa chọn lệch từ vựng | #273 |
+| 2 | `PUT → 400` "Tên vụ việc không được vượt quá 255 ký tự" — 4.530/4.717 hồ sơ (96%) không lưu được | #274 |
+| 3 | `PUT → 200`; mở lại: tên cắt còn 252, **nội dung đầy đủ 294**, phân loại/tội danh/nguồn đơn/tên người báo đều nguyên vẹn | — |
+
+Danh sách: 10 cột đúng bộ hệ cũ + Trạng thái; cột "Nguồn đơn/Đơn vị giao" hiện đúng dữ liệu
+(các dấu `—` ở đầu danh sách là 118 hồ sơ tạm đình chỉ vốn không có nguồn đơn).
+
 ## Trạng thái test
 
-Full suite máy chủ: **PASS 3.368/3.368**. Full suite giao diện: **PASS 2.079/2.079** (`--maxWorkers=2`; chạy full song song trên máy này
+Full suite máy chủ: **PASS 3.372/3.372**. Full suite giao diện: **PASS 2.313/2.313** (`--maxWorkers=2`; chạy full song song trên máy này
 bị chập chờn do tài nguyên, không phải lỗi thật — đã kiểm từng tệp fail chạy riêng đều xanh).
 `tsc --noEmit` + `tsc -b`: sạch.
 
@@ -66,6 +82,12 @@ Ca `EXPERT performance (PF-01)` chập chờn TRÊN MÁY NÀY khi tải nặng (
 quy. CI là trọng tài; không đụng ngân sách.
 
 ## Nợ kỹ thuật / rủi ro
+
+- **Em đã gộp PR #275 khi CI ĐANG ĐỎ.** Script chờ CI chỉ chờ "hết PENDING" rồi in kết quả,
+  không kiểm pass/fail. Đã sửa script để thoát lỗi nếu bất kỳ check nào không xanh, và đã
+  kiểm lại prod bằng tay (không hỏng gì). Không lặp lại.
+- **Lỗ hổng chèn mã ở `shell-parity-gate.yml`** (đã vá, PR #276): tiêu đề PR do người gửi tự
+  đặt được nội suy thẳng vào thân script shell.
 
 - **Bẫy đã tháo (codex bắt):** ô `lyDoTamDinhChi` trên form đọc `d.lyDoTamDinhChi` trong khi
   cột thật máy chủ trả về là `lyDoTamDinhChiText` → ô LUÔN rỗng. Trước PR0 nó gửi `undefined`
