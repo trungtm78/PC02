@@ -46,12 +46,16 @@ export async function mocDaCoTrongHeMoi(prisma: PrismaClient): Promise<Map<strin
     { findMany: (a: unknown) => Promise<{ legacySourceId: string | null; legacyRaw: unknown }[]> }
   >;
   for (const bang of BANG_DICH) {
-    const rows = await kho[bang]
-      .findMany({
-        where: { legacySourceId: { not: null } },
-        select: { legacySourceId: true, legacyRaw: true },
-      })
-      .catch(() => []);
+    // Bảng chưa có trong lược đồ thì bỏ qua — lược đồ đổi theo thời gian, và một bảng thiếu
+    // không nên chặn cả lần cập nhật. Nhưng MỌI lỗi khác thì NÉM: nuốt một lỗi đọc thật (mất
+    // kết nối, thiếu quyền, lệch lược đồ) là coi cả bảng ấy rỗng, và mọi hồ sơ chỉ nằm ở đó
+    // bị coi là chưa có rồi nạp đè lên bản cán bộ đang dùng.
+    const model = kho[bang];
+    if (!model || typeof model.findMany !== 'function') continue;
+    const rows = await model.findMany({
+      where: { legacySourceId: { not: null } },
+      select: { legacySourceId: true, legacyRaw: true },
+    });
     for (const r of rows) {
       if (!r.legacySourceId) continue;
       const raw = (r.legacyRaw ?? {}) as Record<string, unknown>;
@@ -68,6 +72,22 @@ export async function mocDaCoTrongHeMoi(prisma: PrismaClient): Promise<Map<strin
     }
   }
   return moc;
+}
+
+/**
+ * Kích thước lô phải là số nguyên dương.
+ *
+ * `--batch 0` làm vòng lặp đứng im mãi mãi, `--batch -1` chạy lùi — cả hai đều treo lần cập
+ * nhật SAU KHI đã mở kết nối và đã ghi được một phần, tức dừng giữa chừng ở trạng thái khó
+ * đoán. Chặn ngay từ đầu rẻ hơn nhiều.
+ */
+export function kichThuocLo(v: string | undefined): number {
+  if (v === undefined) return 100;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(`Kích thước lô phải là số nguyên dương, nhận được: ${v}`);
+  }
+  return n;
 }
 
 interface TuyChon {
@@ -94,7 +114,7 @@ async function main(): Promise<void> {
   };
   const opts: TuyChon = {
     dry: process.argv.includes('--dry'),
-    batchSize: Number(arg('batch') ?? 100),
+    batchSize: kichThuocLo(arg('batch')),
     actorId: arg('actor') ?? '',
     gioiHan: arg('gioi-han') ? Number(arg('gioi-han')) : undefined,
   };

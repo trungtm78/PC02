@@ -1,4 +1,4 @@
-import { mocDaCoTrongHeMoi } from './cap-nhat-tu-he-cu';
+import { mocDaCoTrongHeMoi, kichThuocLo } from './cap-nhat-tu-he-cu';
 
 /**
  * `mocDaCoTrongHeMoi` quyết định hồ sơ nào được coi là "đã có" và mốc thời gian của nó. Lấy
@@ -10,17 +10,8 @@ function khoGia(theoBang: Record<string, { legacySourceId: string | null; legacy
   for (const [bang, rows] of Object.entries(theoBang)) {
     kho[bang] = { findMany: jest.fn(async () => rows) };
   }
-  // Bảng không khai thì ném — đúng như Prisma khi gọi model không tồn tại.
-  return new Proxy(kho, {
-    get: (t, k: string) =>
-      k in t
-        ? (t as Record<string, unknown>)[k]
-        : {
-            findMany: async () => {
-              throw new Error('không có model ' + k);
-            },
-          },
-  }) as never;
+  // Bảng không khai trả `undefined` — đúng như Prisma khi lược đồ chưa có model ấy.
+  return kho as never;
 }
 
 describe('mocDaCoTrongHeMoi — gom mốc thời gian của hồ sơ đã di trú', () => {
@@ -79,5 +70,35 @@ describe('mocDaCoTrongHeMoi — gom mốc thời gian của hồ sơ đã di tr�
       khoGia({ petition: [{ legacySourceId: 'ho_so_doi_1:1', legacyRaw: { _update_time: 1 } }] }),
     );
     expect(moc.size).toBe(1);
+  });
+
+  /**
+   * Nuốt một lỗi đọc THẬT là coi cả bảng ấy rỗng — và mọi hồ sơ chỉ nằm ở đó bị coi là chưa
+   * có rồi nạp đè lên bản cán bộ đang dùng. Thà dừng cả lần cập nhật.
+   */
+  it('lỗi đọc thật thì NÉM, không coi là bảng rỗng', async () => {
+    const kho = {
+      petition: {
+        findMany: async () => {
+          throw new Error('mất kết nối cơ sở dữ liệu');
+        },
+      },
+    } as never;
+    await expect(mocDaCoTrongHeMoi(kho)).rejects.toThrow('mất kết nối');
+  });
+});
+
+describe('kichThuocLo — chặn giá trị làm treo lần cập nhật', () => {
+  it('không truyền thì dùng mặc định', () => {
+    expect(kichThuocLo(undefined)).toBe(100);
+  });
+
+  it('số nguyên dương thì nhận', () => {
+    expect(kichThuocLo('250')).toBe(250);
+  });
+
+  /** `--batch 0` làm vòng lặp đứng im mãi mãi, số âm thì chạy lùi — cả hai treo giữa chừng. */
+  it.each(['0', '-1', '1.5', 'abc', ''])('từ chối %p', (v) => {
+    expect(() => kichThuocLo(v)).toThrow('số nguyên dương');
   });
 });
