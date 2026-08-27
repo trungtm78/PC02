@@ -494,9 +494,11 @@ export function IncidentListPageShell() {
       },
 
       {
-        // Cột thứ ba của danh sách hệ cũ. Dữ liệu đã có sẵn ở `chuyenTuDonVi` (3.454 hồ sơ,
-        // đo 27/08/2026) nhưng danh sách chưa bao giờ hiện — cán bộ quen nhìn cột này để biết
-        // hồ sơ từ đâu tới, mất nó là phải mở từng hồ sơ ra mới biết.
+        // Cột thứ ba của danh sách hệ cũ, HIỆN MẶC ĐỊNH. Đọc mã nguồn màn
+        // `/doi-1/vu-viec-da-phan-loai` ngày 27/08/2026 — đúng màn "Vụ việc" trong menu "Phân
+        // loại đơn, vụ việc, vụ án": cả ba màn của menu ấy đều khai cột này. (Màn `/VuViec`
+        // riêng thì không có, nhưng đó là màn khác.) Dữ liệu nằm sẵn ở `chuyenTuDonVi` —
+        // 3.454 hồ sơ; mất cột là cán bộ phải mở từng hồ sơ mới biết hồ sơ từ đâu tới.
         key: 'chuyenTuDonVi',
         header: 'Nguồn đơn/Đơn vị giao',
         width: '10rem',

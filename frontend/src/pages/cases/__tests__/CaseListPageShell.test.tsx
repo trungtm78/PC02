@@ -411,16 +411,18 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
       .map((h) => (h.textContent ?? '').trim())
       .filter((t) => t.length > 0);
 
-    // Màn chuẩn là /VuAn của hệ cũ (anh chốt 26/08/2026), KHÔNG phải /doi-1. Khác nhau đúng
-    // một cột thứ ba: /VuAn in "Đối tượng bị can", /doi-1 in "Nguồn đơn/Đơn vị giao".
-    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Đối tượng bị can', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
+    // Hai màn hệ cũ khác nhau đúng ở hai cột, và anh chốt hai lần khác nhau: 26/08/2026 lấy
+    // `/VuAn` làm chuẩn (có "Đối tượng bị can", không có "Nguồn đơn"), 27/08/2026 chỉ sang
+    // `/doi-1/vu-an-da-phan-loai` (ngược lại). Giữ CẢ HAI cùng hiện — bỏ cột nào cũng là lấy
+    // đi một thứ cán bộ đang nhìn thấy, mà cả hai đều có dữ liệu thật.
+    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Đối tượng bị can', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
   });
 
   it('cột hệ cũ KHÔNG có thì ẩn sẵn, bật lại được từ menu chọn cột', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
 
-    for (const an of ['Điều tra viên', 'Ngày tạo', 'Nguồn đơn/Đơn vị giao']) {
+    for (const an of ['Điều tra viên', 'Ngày tạo']) {
       expect(screen.queryByRole('columnheader', { name: an })).not.toBeInTheDocument();
     }
 

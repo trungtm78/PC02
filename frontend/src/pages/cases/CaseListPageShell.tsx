@@ -484,8 +484,14 @@ export function CaseListPageShell() {
         render: (r) => <DateCell value={r.ngayDeXuat} />,
       },
 
-      // Cột thứ ba của bảng Vụ án hệ cũ (/VuAn). Màn chuẩn anh chốt 26/08/2026 là /VuAn
-      // chứ không phải /doi-1 — hai màn khác nhau đúng ở cột này.
+      // Cột thứ ba của bảng Vụ án ở màn `/VuAn` — màn chuẩn anh chốt 26/08/2026.
+      //
+      // 27/08/2026 anh lại chỉ sang màn `/doi-1/vu-an-da-phan-loai` (menu "Phân loại đơn, vụ
+      // việc, vụ án"), và màn ấy TẮT cột này còn BẬT "Nguồn đơn/Đơn vị giao". Hai màn hệ cũ
+      // khác nhau đúng ở hai cột ấy, nên hai lần anh chốt cũng khác nhau.
+      //
+      // Giữ CẢ HAI cùng hiện: bỏ cột nào cũng là lấy đi một thứ cán bộ đang nhìn thấy, mà cả
+      // hai đều có dữ liệu thật. Ai không cần thì tắt từ menu chọn cột.
       {
         key: 'doiTuongBiCan',
         header: 'Đối tượng bị can',
@@ -497,13 +503,14 @@ export function CaseListPageShell() {
         ),
       },
 
-      // /doi-1 có cột này, /VuAn thì không. Giữ lại ở dạng ẩn sẵn để ai quen màn /doi-1
-      // vẫn bật lên được từ menu chọn cột — không mất chức năng nào.
+      // HIỆN MẶC ĐỊNH. Đọc mã nguồn màn `/doi-1/vu-an-da-phan-loai` ngày 27/08/2026 — đúng
+      // màn "Vụ án" trong menu "Phân loại đơn, vụ việc, vụ án" mà cán bộ dùng: nó khai cột
+      // này. Bản trước đo màn `/VuAn` (một màn KHÁC) nên ẩn nhầm đi.
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
         width: '9rem',
-        optional: 'hide',
+        optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon || '—',
       },

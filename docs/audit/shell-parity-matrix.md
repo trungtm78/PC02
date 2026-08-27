@@ -145,6 +145,48 @@ hiện — đúng điều anh nêu.
 **Nhãn đổi theo chữ hệ cũ:** "Ngày nhận" / "Ngày tiếp nhận" → **"Ngày đề xuất"**; "Đơn vị"
 (vụ án) → **"Đơn vị giải quyết"**.
 
+#### Đọc thẳng mã nguồn ba màn hệ cũ — 27/08/2026 (tối)
+
+Anh chỉ đúng đường: menu **"Phân loại đơn, vụ việc, vụ án"** → `/doi-1/don-thu`,
+`/doi-1/vu-viec-da-phan-loai`, `/doi-1/vu-an-da-phan-loai`. Em đăng nhập (CHỈ ĐỌC) và lấy
+phần khai cột trong mã nguồn từng màn. **Cả ba màn khai cùng một bộ cột:**
+
+```
+STT · Ngày đề xuất · Nguồn đơn/Đơn vị giao · Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại
+· Tóm tắt nội dung · Đơn vị giải quyết · Kết quả xử lý, giải quyết khác · Người nhập · Thao tác
+```
+
+Hệ cũ **tắt cột bằng cách chú thích dòng khai** chứ không xoá. Ba cột đang tắt ở cả ba màn:
+`bi_can_info` (Đối tượng bị can) · `don_vi_ten` (Đơn vị) · `stt_cu` (STT cũ).
+
+Trường mà mỗi cột đọc — xác nhận trực tiếp bốn bản vá cùng ngày:
+
+| Cột hệ cũ | Trường hệ cũ |
+|---|---|
+| Ngày đề xuất | `ngay_de_xuat` |
+| Tên cá nhân, cơ quan… | `ten_ca_nhan_co_quan_to_chuc_cung_cap` |
+| Tóm tắt nội dung | `tom_tat_noi_dung` |
+| Đơn vị giải quyết | `don_vi_giai_quyet` |
+| Người nhập | `nguoi_them_ten` |
+
+**Sắp mặc định của hệ cũ là `stt` TĂNG dần.** Anh yêu cầu giảm dần, nên hệ mới để giảm dần —
+khác hệ cũ, có chủ ý.
+
+Hai chỗ phải sửa sau khi đọc đúng màn:
+
+- **Vụ án** thiếu cột "Nguồn đơn/Đơn vị giao" — trước đó ẩn đi vì đo màn `/VuAn`, một màn
+  KHÁC. Nay hiện.
+- **Vụ án** giữ cả "Đối tượng bị can": màn `/VuAn` có cột ấy và anh chốt 26/08/2026 lấy
+  `/VuAn` làm chuẩn, còn màn 27/08 anh chỉ thì tắt nó. Hai lần chốt khác nhau vì hai màn khác
+  nhau — giữ cả hai vì cả hai đều có dữ liệu thật, bỏ cột nào cũng là lấy đi một thứ cán bộ
+  đang nhìn thấy.
+
+Hai cột hệ cũ **không dựng được**, đã đo: "Đơn vị" (`don_vi_ten` — hệ cũ suy tên lúc chạy,
+bản gốc 0 bản ghi, mã đơn vị ánh xạ ra nhiều tên) và "Đối tượng bị can" của Vụ việc
+(`bi_can_info` rỗng ở cả 5.000 hồ sơ mẫu). Dựng cột rỗng cho khớp danh sách là bịa.
+
+Cổng `boCotMacDinhKhopHeCu.gate.test.ts` chốt bộ cột mặc định của ba màn.
+
 #### Rà soát TỪNG CỘT ba màn so bản gốc hệ cũ — 27/08/2026 (chiều)
 
 Anh yêu cầu kiểm từng cột, và thêm yêu cầu sắp xếp theo STT. Em so từng ô, từng hồ sơ, trên
