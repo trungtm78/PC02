@@ -623,6 +623,9 @@ model Case {
   legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
   soHoSoCu          String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên (hiển thị + tìm kiếm)
   sttCu             String? // STT cũ hơn (trường `stt_cu`) — hiển thị + tìm kiếm
+  /// Số suy từ mã hồ sơ để SẮP danh sách — do trigger của cơ sở dữ liệu giữ, mã ứng dụng
+  /// không bao giờ ghi. Mã là chuỗi "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
+  sttSort          BigInt?
   legacyId          Int? // id số gốc hệ cũ (kèm legacyCollection vì id trùng giữa collection)
   legacyCollection  String? // collection gốc: ho_so | ho_so_doi_1
   donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
@@ -948,6 +951,9 @@ model Petition {
   /// sắp giảm dần, thay vì chiếm trọn màn hình đầu của danh sách 45.459 đơn thư.
   /// Prisma không có cú pháp cho cột sinh — định nghĩa thật nằm ở migration
   /// 20260824120000_list_sort_by_receipt_date. Khai ở đây chỉ để dùng được trong orderBy.
+  /// Số suy từ mã hồ sơ để SẮP danh sách — do trigger của cơ sở dữ liệu giữ, mã ứng dụng
+  /// không bao giờ ghi. Mã là chuỗi "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
+  sttSort          BigInt?
   sortReceivedDate DateTime?
   // Đơn vị tiếp nhận
   unit             String?
@@ -1319,6 +1325,9 @@ model Incident {
   legacySourceId   String? // Khóa gốc hệ thống cũ — idempotent di trú
   soHoSoCu         String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
   sttCu            String? // STT cũ hơn (trường `stt_cu`)
+  /// Số suy từ mã hồ sơ để SẮP danh sách — do trigger của cơ sở dữ liệu giữ, mã ứng dụng
+  /// không bao giờ ghi. Mã là chuỗi "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
+  sttSort          BigInt?
   legacyId         Int? // id số gốc hệ cũ (kèm legacyCollection)
   legacyCollection String? // collection gốc: ho_so | ho_so_doi_1
   legacyRaw        Json? // Toàn bộ field raw hệ cũ — không mất data (Codex P1#1)

@@ -315,10 +315,14 @@ export class CasesService {
       sortOrder: sortOrder as ListSortOrder,
       allowed: [
         'createdAt', 'updatedAt', 'name', 'deadline', 'status',
-        'ngayDeXuat', 'receiveDate', 'ngayTiepNhan',
+        'ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'stt',
       ],
-      defaultField: 'ngayDeXuat',
-      nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline'],
+      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
+      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
+      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
+      defaultField: 'stt',
+      nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline', 'sttSort'],
+      fieldAliases: { stt: 'sttSort' },
     });
 
     const [data, total] = await Promise.all([

@@ -453,6 +453,9 @@ export function PetitionListPageShell() {
         key: 'stt',
         header: 'STT',
         width: '6rem',
+        // Anh yêu cầu 27/08/2026: bấm tiêu đề cột STT để đổi chiều sắp xếp, như cột ngày.
+        // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
+        sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>

@@ -186,14 +186,18 @@ export class PetitionsService {
         'deadline',
         'status',
         'senderName',
+        'stt',
       ],
-      defaultField: 'receivedDate',
-      nullableFields: ['deadline', 'sortReceivedDate', 'ngayDeXuat'],
+      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
+      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
+      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
+      defaultField: 'stt',
+      nullableFields: ['deadline', 'sortReceivedDate', 'ngayDeXuat', 'sttSort'],
       // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
       // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,
       // 0225...). Kèm NULLS LAST thì rác chìm xuống cuối thay vì chiếm màn hình đầu.
       // Cột HIỂN THỊ vẫn là `receivedDate` gốc — không giấu dữ liệu, chỉ đổi thứ tự.
-      fieldAliases: { receivedDate: 'sortReceivedDate' },
+      fieldAliases: { receivedDate: 'sortReceivedDate', stt: 'sttSort' },
     });
 
     const [data, total] = await Promise.all([
