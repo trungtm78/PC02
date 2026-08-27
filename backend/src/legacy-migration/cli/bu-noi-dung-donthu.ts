@@ -32,7 +32,9 @@ export async function buNoiDung(prisma: PrismaClient, dry: boolean): Promise<Ket
   let cursor: string | undefined;
   for (;;) {
     const rows = await prisma.petition.findMany({
-      where: { summary: { not: null } },
+      // Chi ho so DI TRU. Don thu tao tren he moi suy `summary` ra TU `detailContent`, nen cap
+      // "co tom tat ma trong noi dung" khong the xay ra - quet chung chi mo them duong ghi nham.
+      where: { summary: { not: null }, legacySourceId: { not: null } },
       select: { id: true, summary: true, detailContent: true },
       orderBy: { id: 'asc' },
       take: BATCH,
@@ -48,10 +50,17 @@ export async function buNoiDung(prisma: PrismaClient, dry: boolean): Promise<Ket
       if (dangTrong(r.summary)) continue;
       kq.dienVao++;
       if (!dry) {
-        await prisma.petition.update({
-          where: { id: r.id },
+        // Kiem "dang trong" LAI ngay trong cau ghi. Ban doc la anh chup: can bo co the go noi
+        // dung vao dung ho so ay giua luc doc va luc ghi, va khi ay `update` theo id se de mat
+        // chu vua go. `updateMany` kem dieu kien thi cau ghi tu bo qua.
+        const r2 = await prisma.petition.updateMany({
+          where: { id: r.id, OR: [{ detailContent: null }, { detailContent: '' }] },
           data: { detailContent: r.summary as string },
         });
+        if (r2.count === 0) {
+          kq.dienVao--;
+          kq.boQuaViDaCoChu++;
+        }
       }
     }
     cursor = rows[rows.length - 1].id;

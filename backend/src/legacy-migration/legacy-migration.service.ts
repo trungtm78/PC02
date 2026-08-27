@@ -53,6 +53,30 @@ export interface CommitResult {
   report: MigrationReport;
 }
 
+/**
+ * Chay lai di tru khong duoc de len chu can bo da go.
+ *
+ * Nhanh cap nhat ghi de toan bo cot da anh xa. Voi phan lon cot thi day la chu dinh: chay lai
+ * de sua mot lan nap sai. Nhung O NOI DUNG thi khac — do la o can bo sua nhieu nhat, va sua
+ * xong ma chay lai di tru thi chu bien mat, khong dau vet.
+ *
+ * Chi giu khi o dich DA CO CHU. O trong van duoc dien binh thuong.
+ *
+ * NO KY THUAT da khai: nhanh cap nhat van de len ~50 cot khac theo dung kieu nay. Sua tron ven
+ * la viec cua mot dot rieng — o day chi chan dung cho o vua duoc noi day.
+ */
+const O_KHONG_DE_KHI_DA_CO_CHU = ['detailContent', 'summary'] as const;
+
+export function giuChuCanBoDaGo(
+  data: Record<string, unknown>,
+  danCo: Record<string, unknown>,
+): void {
+  for (const o of O_KHONG_DE_KHI_DA_CO_CHU) {
+    const cu = danCo[o];
+    if (typeof cu === 'string' && cu.trim() !== '') delete data[o];
+  }
+}
+
 @Injectable()
 export class LegacyMigrationService {
   constructor(
@@ -144,6 +168,7 @@ export class LegacyMigrationService {
             await this.resolveCrime(tx, data);
             const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
+              giuChuCanBoDaGo(data, existing);
               await tx.petition.update({ where: { id: existing.id }, data });
               linkedPetitionId = existing.id;
             } else {
