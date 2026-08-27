@@ -91,14 +91,54 @@ Full suite: **PASS** — 1917/1917 giao diện, 3230/3230 máy chủ.
   ĐÚNG thực thể, không miễn toàn cục. Việc của epic Vụ việc.
 - Em đẩy thẳng một commit tài liệu lên `main` (bỏ qua PR), sai quy ước kho mã. Không lặp lại.
 
-## Sau PR #261 — việc phải làm trên máy chạy
+## 27/08 — bấm thử hồ sơ DI TRÚ (không phải đơn tự tạo) lộ ba lỗi chặn
 
-Bù ba cột vừa nối dây, sau khi bản mới lên máy thật (đã dry-run):
+Lần bấm thử 26/08 dùng đơn `KIEMTHU` tự tạo nên mọi thứ xanh. Mở một đơn **di trú** ra thì bấm
+Lưu bị chặn ba chỗ — tức 46.499 hồ sơ cũ không sửa và lưu lại được.
 
-| Lệnh | Kết quả dry-run |
+| # | Lỗi | Quy mô | Đã xử |
+|---|---|---|---|
+| 1 | ô "Phân loại ban đầu" trống | 46.445 | PR #261 — cột có sẵn, builder chưa bao giờ đọc |
+| 2 | ô nội dung TRẮNG | 46.499 | PR #262 — di trú đổ vào `summary`, form đọc `detailContent` |
+| 3 | số điện thoại "không đúng định dạng" | 4.691 | PR #263 — không phải số sai, là ký hiệu `...`/`0000`/`Không` của hệ cũ |
+
+Đã bù trên máy chạy, sao lưu riêng từng lần:
+
+| Việc | Kết quả |
 |---|---|
-| `backfill-parity.ts --entity petition` | 93.644 ô / 46.660 hồ sơ |
-| `backfill-parity.ts --entity case` | chờ migration `cases.donViGiaiQuyet` |
-| `backfill-parity.ts --entity incident` | 0 ô (đã đủ) |
+| `backfill-parity` đơn thư | 93.644 ô / 46.660 hồ sơ |
+| `backfill-parity` vụ án | 3.361 ô |
+| `bu-noi-dung-donthu` | 46.658 hồ sơ (2 hồ sơ hệ cũ vốn không có chữ) |
+| `don-so-dien-thoai-donthu` | xoá 4.691 · chuẩn hoá 83 · giữ lại 114 vì không đoán được |
 
-Sao lưu riêng trước khi chạy, như lần bù trước.
+Bấm lại sau khi bù: ô nội dung hiện chữ thật, "Phân loại ban đầu" hiện "Đơn, Công văn", đơn vị
+giải quyết hiện "PC01 Công an TP. HCM". Còn đúng **một** thứ chặn Lưu.
+
+## CHỜ ANH QUYẾT — `petitionType` trống ở cả 46.499 hồ sơ
+
+Ô "Loại đơn thư" là bắt buộc trên form hệ mới, hệ cũ **không có khái niệm này**.
+
+`LoaiDon` chỉ có 4 giá trị: `TO_CAO` · `KHIEU_NAI` · `KIEN_NGHI` · `PHAN_ANH`.
+`loai_thong_tin` của hệ cũ là chữ tự do, đuôi rất dài:
+
+| Giá trị hệ cũ | Hồ sơ |
+|---|---|
+| Tố giác (gộp cả viết hoa/thường) | ~21.662 |
+| Đề nghị | ~9.056 |
+| Trình báo | ~5.742 |
+| Khiếu nại | 1.206 |
+| Xin nhận lại tài sản | 863 |
+| Xin bảo lãnh | 578 |
+| Kiến nghị | 452 |
+
+Em **không tự đặt** vì đây là phán đoán pháp lý, không phải phép ánh xạ: *tố giác tội phạm*
+(BLTTHS) và *tố cáo* (Luật Tố cáo 2018) là hai khái niệm khác nhau, nên ngay cả dòng đông nhất
+cũng không hiển nhiên.
+
+Ba hướng, anh chọn:
+
+1. **Anh cho bảng quy đổi** — em áp và bù một lần, hồ sơ cũ lưu được ngay.
+2. **Bỏ bắt buộc khi sửa hồ sơ di trú**, giữ bắt buộc cho đơn tạo mới — cán bộ tự phân loại
+   dần khi đụng tới từng hồ sơ.
+3. **Giữ nguyên** — mỗi lần sửa một hồ sơ cũ, cán bộ phải chọn loại đơn trước khi lưu được.
+
