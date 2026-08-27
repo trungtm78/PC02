@@ -65,6 +65,14 @@ export function PetitionFormPage() {
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
+  /**
+   * Ho so nay den TU HE CU hay khong.
+   *
+   * Cu the la `legacySourceId`, KHONG phai `legacyRaw`: 161 ho so di tru la vo lien ket - ban
+   * tho nam o thuc the anh em cung khoa nguon nen `legacyRaw` cua chinh no de trong. Lay theo
+   * `legacyRaw` thi dung nhom ay khong duoc mien va van bi chan Luu.
+   */
+  const [laHoSoDiTru, setLaHoSoDiTru] = useState(false);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<string[]>([]);
@@ -74,7 +82,7 @@ export function PetitionFormPage() {
   const { data: teamOptions = [] } = useTeamOptions();
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
   const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(
-    () => computeFormErrors(formData, effectiveEdit).fields,
+    () => computeFormErrors(formData, effectiveEdit, laHoSoDiTru).fields,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
@@ -190,6 +198,7 @@ export function PetitionFormPage() {
       .then((res) => {
         const d = res.data.data;
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
+        setLaHoSoDiTru(d.legacySourceId != null || d.legacyRaw != null);
         // Tách đôi metadata đọc về: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`,
         // còn lại để `metaState` cho panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại
         // vùng ghi sau đè vùng kia — cán bộ sửa ở panel động, bấm Lưu, không đổi gì.
@@ -298,7 +307,7 @@ export function PetitionFormPage() {
 
   const validateForm = (): boolean => {
     // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
-    const { msgs } = computeFormErrors(formData, effectiveEdit);
+    const { msgs } = computeFormErrors(formData, effectiveEdit, laHoSoDiTru);
     setErrors(msgs);
     return msgs.length === 0;
   };
