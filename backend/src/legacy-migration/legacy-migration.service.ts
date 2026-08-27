@@ -191,6 +191,9 @@ export class LegacyMigrationService {
           }
           if (d.incident) {
             const data = { ...d.incident };
+            // Doi ma toi danh cu -> khoa ngoai. Khong goi thi khoa trung gian
+            // `crimeChinhLegacyValue` con nguyen trong lenh ghi va Prisma tu choi CA ban ghi.
+            await this.resolveCrime(tx, data, 'incident');
             const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
               await tx.incident.update({ where: { id: existing.id }, data: toRelationConnect(data) });

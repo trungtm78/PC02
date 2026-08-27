@@ -41,6 +41,9 @@ const O_CHU = [
   'noiLuuTruBaoQuan',
   'toiDanhChinhKhoiToId',
   'soHoSoCu',
+  // Form Vụ án CÓ ô "STT cũ" và vẫn gửi `sttCu` lên, nhưng không nơi nào ghi nó xuống cột —
+  // cán bộ gõ vào, bấm Lưu, mở lại thì trống. Cột `sttCu` đã có sẵn trong lược đồ.
+  'sttCu',
 ] as const;
 
 /** Ô chọn nhiều — mảng chuỗi. */

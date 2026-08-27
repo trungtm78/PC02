@@ -37,8 +37,11 @@ describe('legacyFormParityData — ô hệ cũ trên form → cột Vụ án', (
    * đây thì cán bộ nhập được trên màn hình nhưng lưu xong mất trắng — kiểu hỏng im lặng
    * khó lần ra nhất.
    */
-  it('phụ trách đủ 29 ô hệ cũ, không sót', () => {
-    expect(O_HE_CU_TREN_FORM).toHaveLength(29);
+  // 30 kể từ 27/08/2026: thêm `sttCu` — form Vụ án vẫn gửi ô ấy lên mà không nơi nào ghi nó
+  // xuống cột, nên cán bộ gõ vào, bấm Lưu, mở lại thì trống. Cổng đối chiếu DTO bắt được khi
+  // được mở rộng cho cả ba thực thể.
+  it('phụ trách đủ 30 ô hệ cũ, không sót', () => {
+    expect(O_HE_CU_TREN_FORM).toHaveLength(30);
     const day: Record<string, unknown> = {};
     for (const k of O_HE_CU_TREN_FORM) day[k] = k.startsWith('ngay') ? '2026-08-01' : 'x';
     expect(Object.keys(legacyFormParityData(day)).sort()).toEqual([...O_HE_CU_TREN_FORM].sort());

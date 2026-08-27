@@ -416,6 +416,14 @@ export class CreateCaseDto {
   // `caseCode` KHÔNG khai ở đây: ô trên form là số hiệu tự sinh, cán bộ không nhập tay.
   // Mở nó ra chỉ tạo đường cho mã trùng mà không đổi được gì trên màn hình.
   @IsOptional() @IsString() @MaxLength(50) soHoSoCu?: string;
+  /**
+   * STT cũ hơn (trường `stt_cu` của hệ cũ) — form Vụ án CÓ ô này và vẫn gửi lên.
+   *
+   * Thiếu khai ở đây thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400: cán bộ điền "STT cũ"
+   * là không lưu được vụ án, kể cả những ô chẳng liên quan. Đúng sự cố #259 của Đơn thư, lần
+   * này ở Vụ án và không ca kiểm nào bắt được vì cổng đối chiếu DTO chỉ phủ Đơn thư.
+   */
+  @IsOptional() @IsString() @MaxLength(50) sttCu?: string;
   // Cờ tội phạm công nghệ cao: hệ cũ là công tắc ở tab Thông tin, cột đã có sẵn nhưng DTO
   // chưa khai nên bật lên rồi lưu là mất.
   @IsOptional() @IsBoolean() laCongNgheCao?: boolean;
