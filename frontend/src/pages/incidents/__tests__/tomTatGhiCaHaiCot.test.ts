@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildIncidentPayload } from '../buildIncidentPayload';
+import { buildIncidentPayload, tenNganGon } from '../buildIncidentPayload';
 import { computeIncidentErrors } from '../validate-incident';
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from '../incident-form.types';
 import { INCIDENT_LEGACY_SPEC } from '@/features/incidents/legacy-form-binding';
@@ -79,6 +79,38 @@ describe('Ô hệ cũ chưa có cột phải lưu được ngay từ màn TẠO 
       parityState: {},
     });
     expect(p.metadata).toEqual({ b: '2', a: '1' });
+  });
+});
+
+describe('Tên vụ việc phải vừa hạn của máy chủ', () => {
+  /**
+   * Hệ cũ có MỘT ô nội dung, và bộ di trú đổ nguyên chữ ấy vào cả `name` lẫn `description`.
+   * Đo trên máy chạy 27/08/2026: 4.530/4.717 hồ sơ (96%) mang tên dài quá 255 ký tự, cá biệt
+   * tới 30.691. Gửi nguyên lên là 400 — tức gần như KHÔNG vụ việc di trú nào lưu được. Bấm
+   * thử trên máy thật mới lộ; ca kiểm cũ dùng chuỗi ngắn nên không bao giờ chạm tới.
+   */
+  it('nội dung dài hơn hạn thì tên bị cắt, KHÔNG gửi nguyên', () => {
+    const dai = 'Tố giác hành vi lừa đảo chiếm đoạt tài sản '.repeat(30).trim();
+    const p = payload({ description: dai, name: dai });
+    expect(String(p.name).length).toBeLessThanOrEqual(255);
+    // Toàn văn KHÔNG mất: nó nằm nguyên ở `description`.
+    expect(p.description).toBe(dai);
+  });
+
+  it('cắt ở ranh giới từ, không đứt giữa chữ', () => {
+    const dai = 'Trộm cắp tài sản '.repeat(40);
+    expect(tenNganGon(dai).endsWith(' ')).toBe(false);
+    expect(tenNganGon(dai).split(' ').pop()).not.toBe('Trộ');
+  });
+
+  it('nội dung ngắn thì giữ nguyên, không đụng tới', () => {
+    expect(tenNganGon('Vụ trộm xe máy')).toBe('Vụ trộm xe máy');
+  });
+
+  /** Chuỗi dài KHÔNG có khoảng trắng vẫn phải cắt được, không rơi về chuỗi rỗng. */
+  it('chuỗi dài liền một mạch vẫn cắt đúng hạn', () => {
+    const lien = 'x'.repeat(600);
+    expect(tenNganGon(lien).length).toBe(255);
   });
 });
 
