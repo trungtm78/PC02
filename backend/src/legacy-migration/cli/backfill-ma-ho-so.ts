@@ -63,15 +63,18 @@ function laMaTam(ma: string | null): boolean {
   return ma == null || ma === '' || ma.includes('-LEGACY-');
 }
 
-async function main(): Promise<void> {
-  const apply = process.argv.includes('--apply');
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
-  });
-
+/**
+ * Bù mã cho hồ sơ đang mang mã tạm, rồi nâng bộ đếm số cho khớp.
+ *
+ * Tách khỏi `main()` để BỘ CẬP NHẬT gọi lại được ngay sau khi nạp. Đường nhập đặt mã tạm
+ * `DT-LEGACY-…` lúc tạo và chờ bước này cấp mã thật — quên gọi thì hồ sơ vừa nạp mang mã
+ * vô nghĩa, cán bộ tra theo mã hệ cũ không thấy. Đúng chuyện đã xảy ra ngày 28/08/2026 với
+ * 83 đơn thư mới.
+ */
+export async function buMaHoSo(prisma: PrismaClient, apply: boolean): Promise<void> {
   console.log(`\n=== Bù mã hồ sơ — chế độ: ${apply ? 'GHI THẬT' : 'CHỈ ĐỌC'} ===\n`);
 
-  try {
+  {
     // ── Vụ án ───────────────────────────────────────────────────────────────
     const maVuAnDaDung = new Set(
       (await prisma.case.findMany({ select: { caseCode: true } }))
@@ -223,6 +226,15 @@ async function main(): Promise<void> {
     }
 
     if (!apply) console.log(`\n(CHỈ ĐỌC — chưa ghi gì. Thêm --apply để thực thi.)`);
+  }
+}
+
+async function main(): Promise<void> {
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+  });
+  try {
+    await buMaHoSo(prisma, process.argv.includes('--apply'));
   } finally {
     await prisma.$disconnect();
   }

@@ -23,6 +23,7 @@ import { LegacyMigrationService } from '../legacy-migration.service';
 import type { LegacyRecord } from '../legacy-mapper';
 import { loadLookups, attachOwnership, attachInferredClass } from './import';
 import { chonHoSoCanCapNhat, type TaiLieuHeCu } from './chon-ho-so-can-cap-nhat';
+import { buMaHoSo } from './backfill-ma-ho-so';
 
 /** Bảng hệ cũ giữ hồ sơ chính. Các bảng tra cứu khác không đổi hằng ngày nên không đụng. */
 const BANG_HO_SO = 'ho_so_doi_1';
@@ -234,7 +235,15 @@ async function main(): Promise<void> {
       console.log(`  ...đã xử lý ${Math.min(i + opts.batchSize, can.length)}/${can.length}`);
     }
 
-    console.log(`[cap-nhat] XONG — nạp ${kq.daNap} bản ghi | bỏ qua ${kq.boQua} | lỗi ${kq.loi}`);
+    console.log(`[cap-nhat] nạp ${kq.daNap} bản ghi | bỏ qua ${kq.boQua} | lỗi ${kq.loi}`);
+
+    // Đường nhập đặt mã TẠM (`DT-LEGACY-…`) lúc tạo và chờ bước này cấp mã thật, rồi nâng bộ
+    // đếm số cho khớp. Bỏ bước này thì hồ sơ vừa nạp mang mã vô nghĩa — cán bộ tra theo mã hệ
+    // cũ không thấy — và bộ đếm tụt lại phía sau, nên hồ sơ tạo mới sau đó TRÙNG mã với hồ sơ
+    // vừa nạp. Cả hai đã xảy ra thật ngày 28/08/2026 với 83 đơn thư.
+    await buMaHoSo(prisma, true);
+
+    console.log('[cap-nhat] XONG.');
   } finally {
     await mongo.close();
     await prisma.$disconnect();

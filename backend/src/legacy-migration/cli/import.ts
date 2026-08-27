@@ -19,6 +19,7 @@ import { LegacyMigrationService } from '../legacy-migration.service';
 import type { LegacyRecord } from '../legacy-mapper';
 import { normalizeVi } from './org-mapper';
 import { inferClass, needsInference } from './infer-class';
+import { buMaHoSo } from './backfill-ma-ho-so';
 
 const DEFAULT_BATCH = 500;
 
@@ -185,6 +186,12 @@ async function main(): Promise<void> {
     console.log(`\n\nXong trong ${((Date.now() - t0) / 1000).toFixed(1)} giây.`);
     console.log('Đã tạo:', JSON.stringify(total));
     console.log(`Bỏ qua ${skipped} · lỗi ${errors} (xem bảng legacy_import_errors)`);
+
+    // Đường nạp đặt mã TẠM (`DT-LEGACY-…`) lúc tạo và chờ bước này cấp mã thật, rồi nâng bộ
+    // đếm số cho khớp. Trước 28/08/2026 phải nhớ chạy tay `backfill-ma-ho-so` sau mỗi lượt
+    // nhập — và quên một lần là 83 đơn thư mang mã vô nghĩa, cán bộ tra theo mã hệ cũ không
+    // thấy, còn bộ đếm tụt lại nên hồ sơ tạo mới sau đó trùng mã với hồ sơ vừa nạp.
+    await buMaHoSo(prisma, true);
   } finally {
     await prisma.$disconnect();
   }
