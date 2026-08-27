@@ -27,9 +27,10 @@ import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { IncidentStatus } from "@/shared/enums/generated";
-import { toDateInput } from "@/lib/dates";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { buildIncidentPayload } from './buildIncidentPayload';
+import { mergeIncidentApiToFormData } from './mergeIncidentApiToFormData';
+import { computeIncidentErrors } from './validate-incident';
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
 
 
@@ -160,61 +161,7 @@ export function IncidentFormPage() {
           const ps: Record<string, unknown> = {};
           for (const f of LEGACY_PARITY_FIELDS.incident) if (d[f.col] != null) ps[f.col] = d[f.col];
           setParityState(ps);
-          setFormData({
-            name: (d.name as string) ?? "",
-            incidentType: (d.incidentType as string) ?? "",
-            description: (d.description as string) ?? "",
-            fromDate: toDateInput(d.fromDate as string | null | undefined),
-            toDate: toDateInput(d.toDate as string | null | undefined),
-            deadline: toDateInput(d.deadline as string | null | undefined),
-            doiTuongCaNhan: (d.doiTuongCaNhan as string) ?? "",
-            doiTuongToChuc: (d.doiTuongToChuc as string) ?? "",
-            loaiDonVu: (d.loaiDonVu as string) ?? "",
-            nguonPhatTin: (d.nguonPhatTin as string) ?? "",
-            phuongThucTiepNhan: (d.phuongThucTiepNhan as string) ?? "",
-            benVu: (d.benVu as string) ?? "",
-            donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
-            assignedTeamId: (d.assignedTeamId as string) ?? "",
-            ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
-            sdtNguoiToGiac: (d.sdtNguoiToGiac as string) ?? "",
-            diaChiNguoiToGiac: (d.diaChiNguoiToGiac as string) ?? "",
-            cmndNguoiToGiac: (d.cmndNguoiToGiac as string) ?? "",
-            diaChiXayRa: (d.diaChiXayRa as string) ?? "",
-            canBoNhapId: (d.canBoNhapId as string) ?? "",
-            investigatorId: (d.investigatorId as string) ?? "",
-            ketQuaXuLy: (d.ketQuaXuLy as string) ?? "",
-            loaiKetQua: (d.loaiKetQua as string) ?? "",
-            canCuKhoiToCode: (d.canCuKhoiToCode as string) ?? "",
-            soQuyetDinh: (d.soQuyetDinh as string) ?? "",
-            ngayQuyetDinh: toDateInput(d.ngayQuyetDinh as string | null | undefined),
-            nguoiQuyetDinh: (d.nguoiQuyetDinh as string) ?? "",
-            lyDoKhongKhoiTo: Array.isArray(d.lyDoKhongKhoiTo) ? (d.lyDoKhongKhoiTo as string[]) : [],
-            lyDoTamDinhChiVuViec: Array.isArray(d.lyDoTamDinhChiVuViec) ? (d.lyDoTamDinhChiVuViec as string[]) : [],
-            // Cột thật là `lyDoTamDinhChiText`; `lyDoTamDinhChi` chỉ là tên ô trên form,
-            // máy chủ nhận rồi đổi tên khi ghi. Đọc theo tên ô thì ô LUÔN rỗng, và từ lúc ô
-            // rỗng gửi `null` thì chỉ cần bấm Lưu là xoá mất ghi chú tạm đình chỉ.
-            lyDoTamDinhChi:
-              (d.lyDoTamDinhChiText as string) ?? (d.lyDoTamDinhChi as string) ?? "",
-            tinhTrangThoiHieu: (d.tinhTrangThoiHieu as string) ?? "",
-            tinhTrangHoSo: (d.tinhTrangHoSo as string) ?? "",
-            soQDPhanCongNguonTin: (d.soQDPhanCongNguonTin as string) ?? "",
-            ngayQDPhanCongNguonTin: toDateInput(d.ngayQDPhanCongNguonTin as string | null | undefined),
-            canCuKhongKhoiTo: (d.canCuKhongKhoiTo as string) ?? "",
-            canCuTamDinhChi: (d.canCuTamDinhChi as string) ?? "",
-            phanLoaiDanSuText: (d.phanLoaiDanSuText as string) ?? "",
-            tienDoKhacPhucTDC: (d.tienDoKhacPhucTDC as string) ?? "",
-            tdcKhacPhucLyDoBienPhap: (d.tdcKhacPhucLyDoBienPhap as string) ?? "",
-            tdcKhacPhucBienBan: (d.tdcKhacPhucBienBan as string) ?? "",
-            soQuyetDinhTamDinhChiVV: (d.soQuyetDinhTamDinhChiVV as string) ?? "",
-            ngayTamDinhChiVV: toDateInput(d.ngayTamDinhChiVV as string | null | undefined),
-            soQuyetDinhPhucHoiVV: (d.soQuyetDinhPhucHoiVV as string) ?? "",
-            ngayPhucHoiVV: toDateInput(d.ngayPhucHoiVV as string | null | undefined),
-            ngayHetThoiHieuVV: toDateInput(d.ngayHetThoiHieuVV as string | null | undefined),
-            soQDKhongKhoiTo: (d.soQDKhongKhoiTo as string) ?? "",
-            ngayQDKhongKhoiTo: toDateInput(d.ngayQDKhongKhoiTo as string | null | undefined),
-            xacDinhVuViecTamDung: Boolean(d.xacDinhVuViecTamDung),
-            laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
-          });
+          setFormData(mergeIncidentApiToFormData(d));
           setRecordUpdatedAt((d.updatedAt as string) ?? null);
           setRecordStatus((d.status as string) ?? "");
           // Auto-expand sections based on phase (fix: dùng status của record vừa tải, không phải biến ngoài rỗng)
@@ -231,14 +178,7 @@ export function IncidentFormPage() {
   }, [id, isEditMode]);
 
   // Lỗi kèm testid theo THỨ TỰ hiển thị → dùng chung cho msgs + điều hướng ô lỗi.
-  const buildErrors = (): { msgs: string[]; fields: string[] } => {
-    const items: { msg: string; testid: string }[] = [];
-    if (!formData.name.trim() || formData.name.length < 5)
-      items.push({ msg: "Tên vụ việc phải có ít nhất 5 ký tự", testid: "field-name" });
-    if (formData.fromDate && formData.toDate && new Date(formData.fromDate) > new Date(formData.toDate))
-      items.push({ msg: "Từ ngày không được lớn hơn Đến ngày (EC-05)", testid: "field-fromDate" });
-    return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };
-  };
+  const buildErrors = () => computeIncidentErrors(formData);
   const validateForm = (): boolean => {
     const { msgs } = buildErrors();
     setErrors(msgs);

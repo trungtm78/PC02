@@ -46,6 +46,7 @@ File liên quan: `frontend/src/pages/incidents/`.
 | 27/08 | Ô "Tóm tắt nội dung" ghi CẢ HAI cột `name` + `description` | Anh chốt. Hệ cũ có đúng một ô; 97,5% hồ sơ đã trùng sẵn | PR3 |
 | 27/08 | Thêm `crimeChinhId` đầy đủ cho Vụ việc | Anh chốt. Đồng bộ với Đơn thư và Vụ án, tra cứu/thống kê theo tội danh dùng được cho cả ba | PR1 |
 | 27/08 | Tách `buildIncidentPayload` + `incident-form.types` ngay ở PR0 | Không tách thì bản vá xoá-trắng không kiểm chứng được; đây là tập con của PR2 | PR0, PR2 |
+| 27/08 | PR2 KHÔNG đổi `IncidentFormPage.tsx` thành thư mục; chỉ tách `mergeIncidentApiToFormData` + `validate-incident` | Hai mảnh ấy là chỗ dễ mất dữ liệu nhất và là thứ PR3 cần; đổi tên tệp chỉ thêm nhiễu vào diff mà không giảm rủi ro nào. Router, nhập khẩu, ca kiểm đều không phải sửa | PR2 |
 
 ## Assumption đã tự quyết
 
