@@ -1,8 +1,8 @@
 # PROGRESS
 
-STATUS: IN_PROGRESS
+STATUS: ALL_MILESTONES_DONE
 
-Cập nhật: 2026-08-27T12:30+07:00 | Milestone: M1/5 | Task: 1/1 của M1
+Cập nhật: 2026-08-27T17:40+07:00 | Milestone: 5/5 + UAT | Task: xong
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
@@ -27,13 +27,20 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
       `crimeChinhId` 1.117 · `phanLoaiNguonTinBanDau` 4.693 · `baoCaoBanGiamDocText` 96 ·
       Vụ án thêm 71 tội danh còn sót. Sao lưu `truoc-bu-vuviec-20260827_134927.sql.gz`.
 
-## Đang làm dở
+## UAT — 29/29 dòng PASS
 
-Task: UAT theo §9 — lập `UAT-COVERAGE.md` cho form và danh sách Vụ việc.
-Đã làm: toàn bộ 5 PR của epic đã lên máy thật và đã bấm thử tay trên hồ sơ DI TRÚ.
-BƯỚC TIẾP THEO: lập ma trận phủ (mọi màn hình + chức năng của epic), rồi chạy
-`/uat-test-writer` → `/uat-test-runner` từng dòng.
-File liên quan: `UAT-COVERAGE.md` (chưa có).
+Ma trận phủ ở `UAT-COVERAGE.md`. Năm ca bấm tay còn lại đã chạy hết:
+
+- **VV-07** xoá trắng → Lưu → mở lại: ô trống hẳn, ô khác giữ nguyên.
+- **VV-08** tạo mới qua 10 tab: `POST 201`, ô `legacyExtra` lưu được TỪ MÀN TẠO MỚI, xoá hồ sơ
+  thử xong đếm lại đúng 4.717.
+- **VV-16** nút "Khởi tố thành vụ án" còn nguyên.
+- **HQ-01** Đơn thư: `PUT 200`.
+- **HQ-02** Vụ án: `PUT 200`, liên kết nguồn nguyên vẹn.
+
+Bước hồi quy bắt được HAI lỗi chặn ở Vụ án, cả hai CÓ TRƯỚC epic này: `receiveDate` chưa bao
+giờ được di trú ghi (3.359/3.359 hồ sơ, vá ở #277) và mở vụ án có nguồn gốc là XOÁ liên kết
+nguồn ngay rồi chặn Lưu bằng chính ô vừa xoá (169 hồ sơ, vá ở #278).
 
 ## Hàng đợi task kế tiếp
 

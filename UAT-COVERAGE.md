@@ -18,8 +18,8 @@ lần bấm ra ba lỗi chặn mà 2.313 ca giao diện đều xanh.
 | **VV-04** | Hồ sơ di trú: mở ra nạp đúng dữ liệu | bấm prod | ✔ | ✔ | **PASS** — nội dung, người báo, nguồn đơn, tội danh, phân loại |
 | **VV-05** | Hồ sơ di trú: bấm Lưu → 200, không lỗi chặn | bấm prod | ✔ | ✔ | **PASS** (sau #273, #274) |
 | **VV-06** | Lưu xong dữ liệu không hụt | bấm prod + truy vấn | ✔ | ✔ | **PASS** — nội dung đủ 294 ký tự |
-| **VV-07** | Xoá trắng một ô → Lưu → mở lại phải trống | bấm prod | ✔ | ⏳ | — |
-| **VV-08** | Tạo vụ việc mới qua 10 tab → lưu → mở lại → xoá | bấm prod | ✔ | ⏳ | — |
+| **VV-07** | Xoá trắng một ô → Lưu → mở lại phải trống | bấm prod | ✔ | ✔ | **PASS** — `nhanXet` trống hẳn, nội dung giữ nguyên |
+| **VV-08** | Tạo vụ việc mới qua 10 tab → lưu → mở lại → xoá | bấm prod | ✔ | ✔ | **PASS** — `POST 201`, `legacyExtra` lưu được từ màn tạo mới, xoá xong đếm lại đúng 4.717 |
 | **VV-09** | Ô "Tóm tắt nội dung" ghi cả `name` lẫn `description` | tự động `tomTatGhiCaHaiCot` | ✔ | ✔ | **PASS** |
 | **VV-10** | Hồ sơ có tên riêng khác tóm tắt KHÔNG bị đổi tên | tự động | ✔ | ✔ | **PASS** |
 | **VV-11** | Tên dài quá hạn bị cắt, nội dung giữ đủ | tự động + bấm prod | ✔ | ✔ | **PASS** |
@@ -27,7 +27,7 @@ lần bấm ra ba lỗi chặn mà 2.313 ca giao diện đều xanh.
 | **VV-13** | Ô tội danh tra được bảng BLHS | bấm prod | ✔ | ✔ | **PASS** — "Điều 174 · Tội…" |
 | **VV-14** | Ô chọn-nhiều không có bộ lựa chọn vẫn nhập được | tự động `oChonNhieuKhongDuocChet` | ✔ | ✔ | **PASS** |
 | **VV-15** | Khối "Bổ sung hệ mới" không còn ô trùng | tự động `khongCoOTrungTrongKhoiBoSung` | ✔ | ✔ | **PASS** |
-| **VV-16** | Nút "Khởi tố thành vụ án" còn nguyên | tự động + bấm prod | ✔ | ⏳ | — |
+| **VV-16** | Nút "Khởi tố thành vụ án" còn nguyên | tự động + bấm prod | ✔ | ✔ | **PASS** |
 | **VV-17** | Ô hệ cũ chưa có cột lưu được ngay ở màn tạo mới | tự động | ✔ | ✔ | **PASS** |
 | **DS-01** | Danh sách Vụ việc: 9 cột hệ cũ + Trạng thái | tự động + bấm prod | ✔ | ✔ | **PASS** |
 | **DS-02** | Cột "Nguồn đơn/Đơn vị giao" hiện đúng dữ liệu | bấm prod | ✔ | ✔ | **PASS** — trang 8 hiện "Công an P.Phú Thọ" |
@@ -36,12 +36,38 @@ lần bấm ra ba lỗi chặn mà 2.313 ca giao diện đều xanh.
 | **DL-02** | Bù `phanLoaiNguonTinBanDau` 4.693 · `baoCaoBanGiamDocText` 96 | truy vấn prod | ✔ | ✔ | **PASS** |
 | **DL-03** | Bù không đè giá trị cán bộ đã sửa, chạy hai lần như một | tự động | ✔ | ✔ | **PASS** |
 | **DL-04** | Không sót field hệ cũ có dữ liệu | tự động `field-parity.gate` | ✔ | ✔ | **PASS** |
-| **HQ-01** | **Hồi quy Đơn thư**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ⏳ | — |
-| **HQ-02** | **Hồi quy Vụ án**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ⏳ | — |
+| **HQ-01** | **Hồi quy Đơn thư**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ✔ | **PASS** — `PUT 200` |
+| **HQ-02** | **Hồi quy Vụ án**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ✔ | **PASS** (sau #277, #278) — `PUT 200`, liên kết nguồn nguyên vẹn |
 | **HQ-03** | **Hồi quy panel parity**: xoá trắng gửi `null` ở cả ba màn | tự động `panelParityXoaTrangGuiNull` | ✔ | ✔ | **PASS** |
 | **HQ-04** | Cả hai bộ ca kiểm đầy đủ xanh | `jest` + `vitest` | ✔ | ✔ | **PASS** — 3.372 + 2.313 |
 | **CI-01** | Lỗ hổng chèn mã ở workflow đã vá | đọc mã + CI xanh | ✔ | ✔ | **PASS** |
 
-## Còn phải chạy
+## Kết quả
 
-`VV-07` · `VV-08` · `VV-16` · `HQ-01` · `HQ-02` — đều là bấm tay trên máy thật.
+**29/29 dòng PASS.** Không dòng nào bỏ trống.
+
+## Hồi quy bắt được hai lỗi chặn ở Vụ án — cả hai CÓ TRƯỚC epic này
+
+Đây là lý do bước hồi quy đáng giá hơn nó nghe:
+
+| Lỗi | Quy mô | Vá ở |
+|---|---|---|
+| `Case.receiveDate` chưa bao giờ được di trú ghi → form chặn Lưu | **3.359/3.359 (100%)** | #277 |
+| Mở vụ án có nguồn gốc là XOÁ liên kết nguồn ngay, rồi chặn Lưu bằng chính ô vừa xoá | **169** | #278 |
+
+Lỗi thứ hai nguy hơn: nó không chỉ chặn mà còn xoá dữ liệu khỏi màn hình trước khi cán bộ kịp
+thấy. Ô liên kết được dọn khi cán bộ ĐỔI nguồn — nhưng ở màn Sửa, nguồn nạp từ máy chủ SAU lần
+dựng đầu, nên hiệu ứng dọn tưởng nhầm là cán bộ vừa đổi.
+
+## Đối chiếu ngược với spec gốc
+
+| Spec Phần C | Trạng thái |
+|---|---|
+| PR0 vá xoá-trắng | ✔ #268 |
+| PR1 cột máy chủ + bù dữ liệu | ✔ #269, #270 |
+| PR2 tách tệp form | ✔ #271 (thu hẹp phạm vi, đã ghi lý do) |
+| PR3 form 10 tab | ✔ #272, #273, #274 |
+| PR4 cột danh sách | ✔ #275, #276 |
+| Tab "Bị can" | **không dựng** — Vụ việc chưa khởi tố thì chưa có bị can; spec đã lường trước |
+
+Ngoài spec: #277 và #278 — hai lỗi Vụ án do bước hồi quy phát hiện.
