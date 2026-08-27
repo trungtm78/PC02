@@ -12,23 +12,28 @@
 -- đầu danh sách.
 
 CREATE OR REPLACE FUNCTION pc02_stt_sort(ma text)
-RETURNS bigint
+RETURNS integer
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    -- Giới hạn 7 chữ số: hậu tố dài hơn thì phép nhân dưới đây tràn sang phần NĂM và cho
-    -- ra thứ tự sai, còn hậu tố quá lớn làm `bigint` tràn và CHẶN cả lệnh ghi. Mã thật
-    -- lớn nhất là 5 chữ số (2026-11171), nên ngưỡng này không cắt của ai thứ gì.
-    WHEN ma ~ '^[0-9]{4}-[0-9]{1,7}$'
-      THEN split_part(ma, '-', 1)::bigint * 10000000 + split_part(ma, '-', 2)::bigint
+    -- Giới hạn 5 chữ số: hậu tố dài hơn thì phép nhân tràn sang phần NĂM và cho ra thứ tự
+    -- sai, còn hậu tố quá lớn làm số nguyên tràn và CHẶN cả lệnh ghi — Postgres ném lỗi chứ
+    -- không trả NULL, nên một mã méo nhập từ Excel đủ hỏng nguyên lần nhập. Mã thật lớn nhất
+    -- có 5 chữ số (2026-11171) và hệ cũ chỉ ~11.000 hồ sơ mỗi năm, nên ngưỡng này rộng gấp
+    -- chín lần thực tế mà vẫn nằm gọn trong `integer`.
+    --
+    -- Kiểu `integer` chứ không `bigint`: `BigInt` của Prisma ra `bigint` của JavaScript, mà
+    -- `JSON.stringify` ném lỗi với kiểu ấy — mở một hồ sơ là lỗi 500.
+    WHEN ma ~ '^[0-9]{4}-[0-9]{1,5}$'
+      THEN split_part(ma, '-', 1)::integer * 100000 + split_part(ma, '-', 2)::integer
     ELSE NULL
   END
 $$;
 
-ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "sttSort" BIGINT;
-ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "sttSort" BIGINT;
-ALTER TABLE "cases"     ADD COLUMN IF NOT EXISTS "sttSort" BIGINT;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "sttSort" INTEGER;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "sttSort" INTEGER;
+ALTER TABLE "cases"     ADD COLUMN IF NOT EXISTS "sttSort" INTEGER;
 
 CREATE OR REPLACE FUNCTION pc02_dat_stt_sort_petitions() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -73,9 +78,15 @@ UPDATE "cases"     SET "sttSort" = pc02_stt_sort("caseCode")    WHERE "sttSort" 
 
 -- Chỉ mục thường, KHÔNG dùng CONCURRENTLY: Prisma chạy mỗi bản di trú trong một giao dịch,
 -- mà CONCURRENTLY không chạy được trong giao dịch — đã làm hỏng deploy hai lần ở v0.40.
-CREATE INDEX IF NOT EXISTS "petitions_sttSort_idx" ON "petitions" ("sttSort");
-CREATE INDEX IF NOT EXISTS "incidents_sttSort_idx" ON "incidents" ("sttSort");
-CREATE INDEX IF NOT EXISTS "cases_sttSort_idx"     ON "cases"     ("sttSort");
+-- Chỉ mục khai ĐÚNG chiều mà danh sách sắp (`DESC NULLS LAST`, phụ theo `id DESC`). Chỉ mục
+-- tăng dần thường không phục vụ được thứ tự ấy: quét ngược một btree cho ra NULLS FIRST, nên
+-- Postgres vẫn phải sắp lại toàn bộ bảng cho mỗi lần mở danh sách.
+CREATE INDEX IF NOT EXISTS "petitions_sttSort_idx"
+  ON "petitions" ("sttSort" DESC NULLS LAST, "id" DESC);
+CREATE INDEX IF NOT EXISTS "incidents_sttSort_idx"
+  ON "incidents" ("sttSort" DESC NULLS LAST, "id" DESC);
+CREATE INDEX IF NOT EXISTS "cases_sttSort_idx"
+  ON "cases"     ("sttSort" DESC NULLS LAST, "id" DESC);
 
 -- Bù "Ngày đề xuất" cho hồ sơ tạo trên hệ mới trước 27/08/2026 (426 đơn thư).
 --

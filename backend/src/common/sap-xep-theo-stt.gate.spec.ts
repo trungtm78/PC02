@@ -142,9 +142,39 @@ describe('Bẫy đã trả giá một lần', () => {
    * Hậu tố quá dài làm `bigint` TRÀN, và Postgres không trả NULL — nó ném lỗi, tức CHẶN cả
    * lệnh ghi. Một mã méo nhập vào từ Excel sẽ làm hỏng nguyên lần nhập.
    */
-  it('công thức chặn hậu tố quá dài thay vì để bigint tràn', () => {
-    expect(sql).toMatch(/\[0-9\]\{1,7\}/);
+  it('công thức chặn hậu tố quá dài thay vì để số nguyên tràn', () => {
+    expect(sql).toMatch(/\[0-9\]\{1,5\}/);
     expect(sql).not.toMatch(/\[0-9\]\+\$/);
+  });
+
+  /**
+   * `BigInt` của Prisma ra `bigint` của JavaScript, mà `JSON.stringify` NÉM LỖI với kiểu ấy.
+   * Các endpoint chi tiết dùng `include` nên mọi cột vô hạng đều lọt vào phản hồi — mở một hồ
+   * sơ có mã hợp lệ là lỗi 500, ở cả ba màn cùng lúc.
+   */
+  it('cột sắp khai kiểu `Int`, không phải `BigInt`', () => {
+    const schema = fs.readFileSync(path.join(GOC, 'backend/prisma/schema.prisma'), 'utf8');
+    const dong = schema.split('\n').filter((l) => l.includes('sttSort'));
+    expect(dong.length).toBe(3);
+    for (const l of dong) {
+      expect(l).toContain('Int?');
+      expect(l).not.toContain('BigInt');
+    }
+    expect(sql).not.toMatch(/"sttSort"\s+BIGINT/i);
+  });
+
+  /**
+   * Chỉ mục phải khai ĐÚNG chiều mà danh sách sắp. Quét ngược một btree tăng dần cho ra
+   * NULLS FIRST, nên chỉ mục thường không phục vụ được `DESC NULLS LAST` — Postgres vẫn sắp
+   * lại toàn bộ bảng cho mỗi lần mở danh sách.
+   */
+  it('chỉ mục khai đúng chiều sắp và kèm khoá phụ', () => {
+    const idx = sql.match(/CREATE INDEX[^;]*"sttSort"[^;]*;/g) ?? [];
+    expect(idx.length).toBe(3);
+    for (const i of idx) {
+      expect(i).toContain('DESC NULLS LAST');
+      expect(i).toContain('"id" DESC');
+    }
   });
 
   /**
