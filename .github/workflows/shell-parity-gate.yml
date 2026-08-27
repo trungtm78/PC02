@@ -24,9 +24,19 @@ jobs:
           fetch-depth: 0
 
       - name: Check parity matrix sync
+        # Tiêu đề PR đi qua BIẾN MÔI TRƯỜNG, không nội suy thẳng vào thân script.
+        #
+        # `${{ github.event.pull_request.title }}` được thay vào văn bản script TRƯỚC khi shell
+        # đọc, nên một tiêu đề chứa dấu nháy, `$`, backtick hay dấu gạch chéo là chạy lệnh
+        # ngoài ý muốn — và tiêu đề do người gửi PR tự đặt. Đây là lỗ hổng chèn mã của GitHub
+        # Actions, không phải chuyện thẩm mỹ.
+        #
+        # Vỡ thật ngày 27/08/2026 với tiêu đề chứa "Nguồn đơn/Đơn vị giao": job chết ở
+        # `line 2: đơn/Đơn: No such file or directory`.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
-          PR_TITLE="${{ github.event.pull_request.title }}"
           if echo "$PR_TITLE" | grep -iE '\[parity-skip\]' >/dev/null; then
             echo "::notice::Parity check skipped via [parity-skip] in PR title."
             exit 0
