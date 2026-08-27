@@ -16,7 +16,12 @@ import { oHeCu } from '@/pages/cases/CaseFormPage/buildCreateCasePayload';
 import type { IncidentFormData } from './incident-form.types';
 
 export interface BuildIncidentPayloadOptions {
-  /** Che do Sua: gui kem `metadata` de may chu GOP vao ban dang co. */
+  /**
+   * Che do Sua.
+   *
+   * Giu lai vi noi goi van phan biet hai luong, nhung `metadata` nay GUI CA HAI: form 10 tab
+   * hien day du o ngay o man tao moi, nen chi gui luc Sua la can bo go vao luc tao roi mat.
+   */
   isEditMode: boolean;
   /** Truong he cu dong. May chu GOP metadata, nen khoa da xoa phai gui `null` tuong minh. */
   metaState: Record<string, unknown>;
@@ -28,14 +33,30 @@ export function buildIncidentPayload(
   formData: IncidentFormData,
   opts: BuildIncidentPayloadOptions,
 ): Record<string, unknown> {
-  const { isEditMode, metaState, parityState } = opts;
+  const { metaState, parityState } = opts;
   return {
 
-    // Trường hệ cũ động (editable) → backend MERGE vào metadata
-    ...(isEditMode ? { metadata: metaState } : {}),
+    // Trường hệ cũ động (editable) → backend MERGE vào metadata.
+    //
+    // GỘP hai vùng: `metaState` là panel động, `legacyExtra` là ô hệ cũ có mặt trong 10 tab.
+    // Tách đôi lúc nạp rồi gộp lại lúc lưu, nếu không thì hai vùng cùng giữ một khoá và vùng
+    // ghi sau đè vùng kia — cán bộ sửa một chỗ, bấm Lưu, không đổi gì.
+    // Gui CA KHI TAO MOI. Form 10 tab hien day du o ngay o man tao moi, nen o nao roi ve
+    // `legacyExtra` ma chi gui luc Sua thi can bo go vao luc tao, bam Luu, va mat trang.
+    metadata: { ...metaState, ...formData.legacyExtra },
     // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
     ...parityState,
-    name: formData.name,
+    // Hệ cũ có ĐÚNG MỘT ô nội dung ("Tóm tắt nội dung"). Hệ mới tách đôi thành `name` (bắt
+    // buộc, ≥5 ký tự) và `description`, và bộ di trú đổ cùng một chữ vào cả hai — đo trên máy
+    // chạy 27/08/2026: 4.598/4.717 hồ sơ (97,5%) có `name` trùng y hệt `description`.
+    //
+    // Anh chốt giữ MỘT ô như hệ cũ, nên ô ấy ghi cả hai cột — nhưng việc đồng bộ làm Ở TẦNG
+    // FORM (`INCIDENT_LEGACY_SPEC.write`), chỉ khi `name` đang soi gương `description`.
+    //
+    // Ở đây KHÔNG được lấy `description` đè lên `name`: 119 hồ sơ (2,5%) có tên riêng khác
+    // tóm tắt, và làm thế nghĩa là cán bộ mở hồ sơ ra, không sửa gì, bấm Lưu — và hồ sơ bị
+    // đổi tên. Đổi dữ liệu im lặng, không ai biết để phục hồi.
+    name: formData.name || formData.description,
     incidentType: oHeCu(formData.incidentType),
     description: oHeCu(formData.description),
     fromDate: oHeCu(formData.fromDate),
@@ -86,5 +107,26 @@ export function buildIncidentPayload(
     xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
     // O tich: `false` la mot lua chon, khong phai "khong nhac toi".
     laCongNgheCaoVV: formData.laCongNgheCaoVV,
+    lanhDaoToTung: oHeCu(formData.lanhDaoToTung),
+    phanLoaiNguonTinBanDau: oHeCu(formData.phanLoaiNguonTinBanDau),
+    loaiThongTin: oHeCu(formData.loaiThongTin),
+    soPhieuChuyen: oHeCu(formData.soPhieuChuyen),
+    ngayPhieuChuyen: oHeCu(formData.ngayPhieuChuyen),
+    ngayTiepNhanNguonTin: oHeCu(formData.ngayTiepNhanNguonTin),
+    ngayCapCccd: oHeCu(formData.ngayCapCccd),
+    noiCapCccd: oHeCu(formData.noiCapCccd),
+    toiDanhBanDau: oHeCu(formData.toiDanhBanDau),
+    crimeChinhId: oHeCu(formData.crimeChinhId),
+    doVatTaiLieuKemTheo: oHeCu(formData.doVatTaiLieuKemTheo),
+    ngayVietDon: oHeCu(formData.ngayVietDon),
+    nhanXet: oHeCu(formData.nhanXet),
+    ghiChuTrungDon: oHeCu(formData.ghiChuTrungDon),
+    baoCaoBanGiamDocText: oHeCu(formData.baoCaoBanGiamDocText),
+    ngayGiaoDonViGiaiQuyet: oHeCu(formData.ngayGiaoDonViGiaiQuyet),
+    ghiChuKhac: oHeCu(formData.ghiChuKhac),
+    chuyenTuDonVi: oHeCu(formData.chuyenTuDonVi),
+    chuyenDenDonVi: oHeCu(formData.chuyenDenDonVi),
+    sinhNamNguoiToGiac: oHeCu(formData.sinhNamNguoiToGiac),
+    dieuTraVien: oHeCu(formData.dieuTraVien),
   };
 }

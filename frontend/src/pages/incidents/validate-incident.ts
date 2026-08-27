@@ -13,8 +13,12 @@ export function computeIncidentErrors(formData: IncidentFormData): {
   fields: string[];
 } {
   const items: { msg: string; testid: string }[] = [];
-  if (!formData.name.trim() || formData.name.length < 5)
-    items.push({ msg: "Tên vụ việc phải có ít nhất 5 ký tự", testid: "field-name" });
+  // Phép kiểm trỏ vào ô "Tóm tắt nội dung" — ô DUY NHẤT cán bộ nhìn thấy. Máy chủ đòi `name`
+  // ≥5 ký tự, nhưng `name` nay được suy từ chính ô ấy (xem `buildIncidentPayload`), nên báo
+  // lỗi về "Tên vụ việc" là chỉ vào một ô không tồn tại trên màn hình.
+  const noiDung = formData.description.trim() || formData.name.trim();
+  if (noiDung.length < 5)
+    items.push({ msg: "Tóm tắt nội dung phải có ít nhất 5 ký tự", testid: "field-description" });
   if (formData.fromDate && formData.toDate && new Date(formData.fromDate) > new Date(formData.toDate))
     items.push({ msg: "Từ ngày không được lớn hơn Đến ngày (EC-05)", testid: "field-fromDate" });
   return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };

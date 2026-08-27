@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { LegacyTabBody } from "../LegacyTabBody";
@@ -17,13 +18,21 @@ vi.mock("@/components/FKSelect", () => ({
   FKSelect: ({ label }: { label: string }) => <div>{label}</div>,
 }));
 
+/**
+ * Bọc `QueryClientProvider`: từ 27/08/2026 ô chọn-nhiều có khai danh mục (`source`) dựng bằng
+ * `CatalogSelect` thay vì một nhóm ô tích RỖNG — nhóm rỗng nghĩa là cán bộ nhìn thấy ô mà
+ * không nhập được gì. `CatalogSelect` tra danh mục nên cần bộ truy vấn.
+ */
 function Host({ tabId, extra }: { tabId: LegacyTabId; extra?: React.ReactNode }) {
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
   return (
-    <LegacyTabBody tabId={tabId} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors}>
-      {extra}
-    </LegacyTabBody>
+    <QueryClientProvider client={qc}>
+      <LegacyTabBody tabId={tabId} formData={formData} setFormData={setFormData} errors={errors} setErrors={setErrors}>
+        {extra}
+      </LegacyTabBody>
+    </QueryClientProvider>
   );
 }
 

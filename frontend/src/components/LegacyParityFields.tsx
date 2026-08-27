@@ -10,6 +10,11 @@ import { ownedColumnsFor } from "@/features/legacy-form/registry";
  * của thực thể (queryable, đúng kiểu). Mỗi field cũ có data → 1 ô nhập đúng kiểu.
  *
  * values = giá trị cột hiện tại; onChange(col, value) → form gộp vào payload top-level.
+ *
+ * Ô TRỐNG GỬI `null`, KHÔNG gửi `undefined`. `undefined` bị loại khỏi thân lời gọi JSON, nên
+ * máy chủ không thấy khoá và giữ nguyên giá trị cũ: cán bộ xoá trắng một ô ở đây, bấm Lưu, mở
+ * lại thấy y nguyên thứ vừa xoá. Cùng lớp lỗi đã vá ở form Vụ án (#245), Đơn thư và Vụ việc —
+ * panel này là chỗ cuối cùng còn sót, và nó dùng chung cho cả ba màn.
  */
 
 function dateInputValue(v: unknown): string {
@@ -75,7 +80,7 @@ export function LegacyParityFields({
           type="date"
           className={base}
           value={dateInputValue(v)}
-          onChange={(e) => onChange(d.col, e.target.value || undefined)}
+          onChange={(e) => onChange(d.col, e.target.value || null)}
           data-testid={`parity-field-${d.col}`}
         />
       );
@@ -86,7 +91,7 @@ export function LegacyParityFields({
           type="number"
           className={base}
           value={v == null ? "" : String(v)}
-          onChange={(e) => onChange(d.col, e.target.value === "" ? undefined : Number(e.target.value))}
+          onChange={(e) => onChange(d.col, e.target.value === "" ? null : Number(e.target.value))}
           data-testid={`parity-field-${d.col}`}
         />
       );
@@ -96,7 +101,7 @@ export function LegacyParityFields({
         type="text"
         className={base}
         value={v == null ? "" : String(v)}
-        onChange={(e) => onChange(d.col, e.target.value || undefined)}
+        onChange={(e) => onChange(d.col, e.target.value || null)}
         data-testid={`parity-field-${d.col}`}
       />
     );

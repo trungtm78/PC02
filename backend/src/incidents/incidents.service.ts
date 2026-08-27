@@ -527,6 +527,12 @@ export class IncidentsService {
           crimeChinhId: dto.crimeChinhId,
           phanLoaiNguonTinBanDau: dto.phanLoaiNguonTinBanDau,
           baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText,
+          chuyenTuDonVi: dto.chuyenTuDonVi,
+          chuyenDenDonVi: dto.chuyenDenDonVi,
+          sinhNamNguoiToGiac: dto.sinhNamNguoiToGiac,
+          // Ô hệ cũ chưa có cột riêng — form 10 tab gửi ngay ở màn TẠO MỚI. Bỏ ở đây thì DTO
+          // nhận rồi vứt: cán bộ gõ vào lúc tạo, bấm Lưu, và mất trắng.
+          ...(dto.metadata !== undefined ? { metadata: dto.metadata as object } : {}),
           status: IncidentStatus.TIEP_NHAN,
         },
         include: {
@@ -608,6 +614,8 @@ export class IncidentsService {
       'yeuCauBoSung', 'ghiChuKhac',
       // Ba cột hệ cũ thêm 27/08/2026 — thiếu ở đây thì DTO nhận nhưng service bỏ THẦM.
       'crimeChinhId', 'phanLoaiNguonTinBanDau', 'baoCaoBanGiamDocText',
+      // Ba ô hệ cũ mà form 10 tab bắt đầu gửi lên — cột đã có sẵn, chỉ form chưa từng hiện.
+      'chuyenTuDonVi', 'chuyenDenDonVi', 'sinhNamNguoiToGiac',
     ];
     for (const f of fields) {
       if ((dto as Record<string, unknown>)[f] !== undefined) {
