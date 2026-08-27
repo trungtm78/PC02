@@ -530,6 +530,9 @@ export class IncidentsService {
           chuyenTuDonVi: dto.chuyenTuDonVi,
           chuyenDenDonVi: dto.chuyenDenDonVi,
           sinhNamNguoiToGiac: dto.sinhNamNguoiToGiac,
+          // Ô hệ cũ chưa có cột riêng — form 10 tab gửi ngay ở màn TẠO MỚI. Bỏ ở đây thì DTO
+          // nhận rồi vứt: cán bộ gõ vào lúc tạo, bấm Lưu, và mất trắng.
+          ...(dto.metadata !== undefined ? { metadata: dto.metadata as object } : {}),
           status: IncidentStatus.TIEP_NHAN,
         },
         include: {

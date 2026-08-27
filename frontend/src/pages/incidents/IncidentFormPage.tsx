@@ -13,8 +13,8 @@ import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
-import { CrimeSelect } from "@/components/CrimeSelect";
 import { CatalogSelect } from "@/components/CatalogSelect";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
   LOAI_NGUON_TIN_OPTIONS,
@@ -97,6 +97,32 @@ export function IncidentFormPage() {
         onChange={(v) => update("crimeChinhId", v)}
         testId="field-crimeChinhId"
       />
+    ),
+    /**
+     * Hai ô chọn-nhiều đi theo DANH MỤC ĐỘNG (`CatalogSelect`), không phải danh sách viết
+     * cứng: nhãn pháp lý lấy từ registry, thêm căn cứ mới thì ô tự có. Ô chọn-nhiều mặc định
+     * của bố cục chỉ dựng được danh sách tĩnh, nên gỡ chúng đi là hạ cấp năng lực — giữ đúng
+     * chỗ, đúng nhãn hệ cũ, chỉ đổi ruột.
+     */
+    lyDoKhongKhoiTo: (label) => (
+      <div data-testid="field-lyDoKhongKhoiTo">
+        <label className={labelClass}>{label}</label>
+        <CatalogSelect
+          catalogKey="LY_DO_KHONG_KHOI_TO"
+          value={formData.lyDoKhongKhoiTo}
+          onChange={(v) => update("lyDoKhongKhoiTo", v as string[])}
+        />
+      </div>
+    ),
+    lyDoTamDinhChiVuViec: (label) => (
+      <div data-testid="field-lyDoTamDinhChiVuViec">
+        <label className={labelClass}>{label}</label>
+        <CatalogSelect
+          catalogKey="LY_DO_TAM_DINH_CHI_VU_VIEC"
+          value={formData.lyDoTamDinhChiVuViec}
+          onChange={(v) => update("lyDoTamDinhChiVuViec", v as string[])}
+        />
+      </div>
     ),
     sdtNguoiToGiac: (label) => (
       <div>
@@ -504,50 +530,15 @@ export function IncidentFormPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Người tố giác/báo tin</label>
-              <input type="text" value={formData.benVu} onChange={(e) => update("benVu", e.target.value)}
-                className={inputClass} placeholder="Họ tên người tố giác hoặc đại diện cơ quan báo tin" data-testid="field-benVu" />
-            </div>
-            <div>
-              <label className={labelClass}>SĐT người tố giác</label>
-              <PhoneInput value={formData.sdtNguoiToGiac} onValueChange={(v) => update("sdtNguoiToGiac", v)}
-                className={inputClass} placeholder="09xx xxx xxx" data-testid="field-sdtNguoiToGiac" />
-            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Địa chỉ người tố giác</label>
-              <input type="text" value={formData.diaChiNguoiToGiac} onChange={(e) => update("diaChiNguoiToGiac", e.target.value)}
-                className={inputClass} placeholder="Địa chỉ thường trú" data-testid="field-diaChiNguoiToGiac" />
-            </div>
-            <div>
-              <label className={labelClass}>CCCD người tố giác</label>
-              <input type="text" value={formData.cmndNguoiToGiac} onChange={(e) => update("cmndNguoiToGiac", e.target.value)}
-                className={inputClass} placeholder="Số CCCD/CMND" data-testid="field-cmndNguoiToGiac" />
-            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Đối tượng bị tố giác</label>
-              <input type="text" value={formData.doiTuongCaNhan} onChange={(e) => update("doiTuongCaNhan", e.target.value)}
-                className={inputClass} placeholder="Họ tên, đặc điểm nhận dạng đối tượng" data-testid="field-doiTuongCaNhan" />
-            </div>
             <div>
               <label className={labelClass}>Tổ chức liên quan</label>
               <input type="text" value={formData.doiTuongToChuc} onChange={(e) => update("doiTuongToChuc", e.target.value)}
                 className={inputClass} placeholder="Tên tổ chức liên quan (nếu có)" data-testid="field-doiTuongToChuc" />
             </div>
-          </div>
-          <div>
-            <label className={labelClass}>Tóm tắt nội dung vụ việc</label>
-            <textarea value={formData.description} onChange={(e) => update("description", e.target.value)} rows={4}
-              className={inputClass} placeholder="Tóm tắt nội dung, diễn biến vụ việc" data-testid="field-description" />
-          </div>
-          <div>
-            <label className={labelClass}>Địa điểm xảy ra</label>
-            <input type="text" value={formData.diaChiXayRa} onChange={(e) => update("diaChiXayRa", e.target.value)}
-              className={inputClass} placeholder="Địa điểm xảy ra vụ việc" data-testid="field-diaChiXayRa" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -568,18 +559,7 @@ export function IncidentFormPage() {
             </div>
             <div>
               <label className={labelClass}>Ngày tiếp nhận</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="date" value={formData.ngayDeXuat} onChange={(e) => update("ngayDeXuat", e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-ngayDeXuat" />
-              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="laCongNgheCaoVV" checked={formData.laCongNgheCaoVV}
-              onChange={(e) => setFormData((prev) => ({ ...prev, laCongNgheCaoVV: e.target.checked }))}
-              className="w-4 h-4 text-blue-600 border-slate-300 rounded" data-testid="field-laCongNgheCaoVV" />
-            <label htmlFor="laCongNgheCaoVV" className="text-sm font-medium text-slate-700">Vụ việc công nghệ cao (CNC)</label>
           </div>
         </CollapsibleSection>
 
@@ -591,11 +571,6 @@ export function IncidentFormPage() {
           testId="section-phan-cong"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Đơn vị thụ lý</label>
-              <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)}
-                className={inputClass} placeholder="Nhập đơn vị thụ lý" data-testid="field-donViGiaiQuyet" />
-            </div>
             <div>
               <FKSelect
                 label="Điều tra viên"
@@ -664,58 +639,9 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="VD: QD-2026-042" data-testid="field-soQuyetDinh" />
             </div>
             {/* Field-parity hệ thống cũ (giai đoạn nguồn tin) */}
-            <div>
-              <label className={labelClass}>Số QĐ phân công giải quyết nguồn tin</label>
-              <input type="text" value={formData.soQDPhanCongNguonTin} onChange={(e) => update("soQDPhanCongNguonTin", e.target.value)}
-                className={inputClass} placeholder="Số QĐ phân công giải quyết nguồn tin" data-testid="field-soQDPhanCongNguonTin" />
-            </div>
-            <div>
-              <label className={labelClass}>Ngày QĐ phân công giải quyết nguồn tin</label>
-              <input type="date" value={formData.ngayQDPhanCongNguonTin} onChange={(e) => update("ngayQDPhanCongNguonTin", e.target.value)}
-                className={inputClass} data-testid="field-ngayQDPhanCongNguonTin" />
-            </div>
-            <div>
-              <label className={labelClass}>Căn cứ không khởi tố</label>
-              <input type="text" value={formData.canCuKhongKhoiTo} onChange={(e) => update("canCuKhongKhoiTo", e.target.value)}
-                className={inputClass} placeholder="Căn cứ pháp lý ra QĐ không khởi tố" data-testid="field-canCuKhongKhoiTo" />
-            </div>
-            <div>
-              <label className={labelClass}>Số QĐ không khởi tố</label>
-              <input type="text" value={formData.soQDKhongKhoiTo} onChange={(e) => update("soQDKhongKhoiTo", e.target.value)}
-                className={inputClass} placeholder="Số quyết định không khởi tố" data-testid="field-soQDKhongKhoiTo" />
-            </div>
-            <div>
-              <label className={labelClass}>Ngày QĐ không khởi tố</label>
-              <input type="date" value={formData.ngayQDKhongKhoiTo} onChange={(e) => update("ngayQDKhongKhoiTo", e.target.value)}
-                className={inputClass} data-testid="field-ngayQDKhongKhoiTo" />
-            </div>
-            <div>
-              <label className={labelClass}>Căn cứ tạm đình chỉ nguồn tin</label>
-              <input type="text" value={formData.canCuTamDinhChi} onChange={(e) => update("canCuTamDinhChi", e.target.value)}
-                className={inputClass} placeholder="Căn cứ tạm đình chỉ nguồn tin" data-testid="field-canCuTamDinhChi" />
-            </div>
-            <div>
-              <label className={labelClass}>Phân loại dân sự (thông báo)</label>
-              <input type="text" value={formData.phanLoaiDanSuText} onChange={(e) => update("phanLoaiDanSuText", e.target.value)}
-                className={inputClass} placeholder="Số, ngày thông báo phân loại dân sự" data-testid="field-phanLoaiDanSuText" />
-            </div>
           </div>
 
           {/* Mô tả chi tiết (free-form text — giữ field ketQuaXuLy cũ, đổi caption) */}
-          <div>
-            <label className={labelClass}>Mô tả chi tiết kết quả (tùy chọn)</label>
-            <textarea
-              value={formData.ketQuaXuLy}
-              onChange={(e) => update("ketQuaXuLy", e.target.value)}
-              className={inputClass}
-              rows={3}
-              placeholder="VD: Đã đủ căn cứ khởi tố vụ án theo tin báo từ cá nhân Nguyễn Văn X..."
-              data-testid="field-ketQuaXuLy"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              Bổ sung mô tả chi tiết, ngữ cảnh, ghi chú nội bộ.
-            </p>
-          </div>
 
           {/* Ngày + Người ra quyết định */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -753,15 +679,6 @@ export function IncidentFormPage() {
             </p>
 
             {/* Lý do không khởi tố Đ.157 — PR-8 MULTI: chọn nhiều căn cứ */}
-            <div data-testid="field-lyDoKhongKhoiTo">
-              <label className={labelClass}>Lý do không khởi tố (Điều 157 BLTTHS) — chọn nhiều, nếu không khởi tố</label>
-              {/* PR-1 catalog: 1 component dùng chung; multi tự theo registry META; nhãn pháp lý từ registry. */}
-              <CatalogSelect
-                catalogKey="LY_DO_KHONG_KHOI_TO"
-                value={formData.lyDoKhongKhoiTo}
-                onChange={(v) => update("lyDoKhongKhoiTo", v as string[])}
-              />
-            </div>
             <p className="mt-1 text-xs text-slate-500">
               7 căn cứ chuẩn theo BLTTHS Đ.157. Luôn hiển thị (pháp lý quan trọng).
             </p>
@@ -803,22 +720,6 @@ export function IncidentFormPage() {
           onToggle={() => setSection4Open(!section4Open)}
           testId="section-tam-dinh-chi"
         >
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3 cursor-pointer">
-            <input type="checkbox" checked={formData.xacDinhVuViecTamDung} onChange={(e) => update("xacDinhVuViecTamDung", e.target.checked)}
-              className="w-4 h-4" data-testid="field-xacDinhVuViecTamDung" />
-            Xác định vụ việc tạm dừng giải quyết
-          </label>
-          <div data-testid="field-lyDoTamDinhChiVuViec">
-            <label className={labelClass}>Căn cứ tạm đình chỉ (Đ.148 BLTTHS) — chọn nhiều</label>
-            {/* PR-2 catalog: 1 component dùng chung; multi tự theo registry META. */}
-            <div className="mb-3">
-              <CatalogSelect
-                catalogKey="LY_DO_TAM_DINH_CHI_VU_VIEC"
-                value={formData.lyDoTamDinhChiVuViec}
-                onChange={(v) => update("lyDoTamDinhChiVuViec", v as string[])}
-              />
-            </div>
-          </div>
           <div>
             <label className={labelClass}>Lý do tạm đình chỉ (ghi chú thêm)</label>
             <textarea value={formData.lyDoTamDinhChi} onChange={(e) => update("lyDoTamDinhChi", e.target.value)} rows={3}
@@ -837,50 +738,10 @@ export function IncidentFormPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Số QĐ tạm đình chỉ vụ việc</label>
-              <input type="text" value={formData.soQuyetDinhTamDinhChiVV} onChange={(e) => update("soQuyetDinhTamDinhChiVV", e.target.value)}
-                className={inputClass} placeholder="Số quyết định tạm đình chỉ" data-testid="field-soQuyetDinhTamDinhChiVV" />
-            </div>
-            <div>
-              <label className={labelClass}>Ngày QĐ tạm đình chỉ</label>
-              <input type="date" value={formData.ngayTamDinhChiVV} onChange={(e) => update("ngayTamDinhChiVV", e.target.value)}
-                className={inputClass} data-testid="field-ngayTamDinhChiVV" />
-            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Số QĐ phục hồi vụ việc</label>
-              <input type="text" value={formData.soQuyetDinhPhucHoiVV} onChange={(e) => update("soQuyetDinhPhucHoiVV", e.target.value)}
-                className={inputClass} placeholder="Số quyết định phục hồi điều tra" data-testid="field-soQuyetDinhPhucHoiVV" />
-            </div>
-            <div>
-              <label className={labelClass}>Ngày QĐ phục hồi</label>
-              <input type="date" value={formData.ngayPhucHoiVV} onChange={(e) => update("ngayPhucHoiVV", e.target.value)}
-                className={inputClass} data-testid="field-ngayPhucHoiVV" />
-            </div>
-            <div>
-              <label className={labelClass}>Ngày hết thời hiệu vụ việc</label>
-              <input type="date" value={formData.ngayHetThoiHieuVV} onChange={(e) => update("ngayHetThoiHieuVV", e.target.value)}
-                className={inputClass} data-testid="field-ngayHetThoiHieuVV" />
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Tiến độ khắc phục TĐC</label>
-            <textarea value={formData.tienDoKhacPhucTDC} onChange={(e) => update("tienDoKhacPhucTDC", e.target.value)} rows={3}
-              className={inputClass} placeholder="Mô tả tiến độ khắc phục tạm đình chỉ" data-testid="field-tienDoKhacPhucTDC" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Lý do/biện pháp khắc phục TĐC</label>
-              <input type="text" value={formData.tdcKhacPhucLyDoBienPhap} onChange={(e) => update("tdcKhacPhucLyDoBienPhap", e.target.value)}
-                className={inputClass} placeholder="Biện pháp khắc phục" data-testid="field-tdcKhacPhucLyDoBienPhap" />
-            </div>
-            <div>
-              <label className={labelClass}>Biên bản khắc phục TĐC</label>
-              <input type="text" value={formData.tdcKhacPhucBienBan} onChange={(e) => update("tdcKhacPhucBienBan", e.target.value)}
-                className={inputClass} placeholder="Số/ngày biên bản xác nhận khắc phục" data-testid="field-tdcKhacPhucBienBan" />
-            </div>
           </div>
         </CollapsibleSection>
 
