@@ -539,6 +539,10 @@ export function buildCase(rec: LegacyRecord): Record<string, unknown> {
     // ── Ô hệ cũ có cột từ 26/08/2026 ────────────────────────────────────────────────
     // Trước đây chúng chỉ nằm ở `metadata` hoặc `legacy_raw`. Nay form Vụ án có ô đúng vị
     // trí hệ cũ, nên phải đổ vào cột — không thì mở hồ sơ di trú ra ô nào cũng trắng.
+    // Ngày tiếp nhận — cột `receiveDate` có từ lâu nhưng bộ di trú CHƯA BAO GIỜ ghi, nên cả
+    // 3.359 vụ án di trú đều trống và form Vụ án chặn Lưu bằng "Vui lòng chọn ngày tiếp nhận".
+    // Cùng thứ tự ưu tiên như Đơn thư: biên bản tiếp nhận trước, ngày đề xuất là đường lùi.
+    receiveDate: parseLegacyDate(rec.ngay_tiep_nhan_nguon_tin) ?? parseLegacyDate(rec.ngay_de_xuat),
     phanLoaiNguonTinBanDau: s(rec.phan_loai_nguon_tin_ban_dau),
     ngayXayRa: parseLegacyDate(rec.ngay_xay_ra),
     noiXayRaPhuongXa: s(rec.noi_xay_ra_phuong_xa),
