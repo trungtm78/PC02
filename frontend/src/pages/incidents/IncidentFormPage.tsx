@@ -13,6 +13,7 @@ import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { FKSelect, type FKOption } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { CrimeSelect } from "@/components/CrimeSelect";
 import { CatalogSelect } from "@/components/CatalogSelect";
 import { getPhaseForStatus } from "@/constants/incident-phases";
 import {
@@ -31,6 +32,9 @@ import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { buildIncidentPayload } from './buildIncidentPayload';
 import { mergeIncidentApiToFormData } from './mergeIncidentApiToFormData';
 import { computeIncidentErrors } from './validate-incident';
+import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
+import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
+import { INCIDENT_LEGACY_SPEC } from "@/features/incidents/legacy-form-binding";
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
 
 
@@ -76,6 +80,35 @@ export function IncidentFormPage() {
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [formData, setFormData] = useState<IncidentFormData>(INITIAL_INCIDENT_FORM);
   const [errors, setErrors] = useState<string[]>([]);
+  const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
+
+  /**
+   * Thay ô chữ trần bằng ô riêng cho hai chỗ hệ mới mạnh hơn hẳn.
+   *
+   * Bố cục hệ cũ quyết NHÃN, THỨ TỰ và CHỖ ĐỨNG — ba thứ anh yêu cầu giống hệ cũ. Nhưng tội
+   * danh của hệ mới tra được bảng 316 điều BLHS, và số điện thoại có kiểm định dạng. Xoá
+   * chúng đi để giống hệ cũ là hạ cấp năng lực; giữ đúng chỗ, đúng nhãn, chỉ đổi ruột.
+   */
+  const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    crimeChinhId: (label) => (
+      <CrimeSelect
+        label={label}
+        value={formData.crimeChinhId}
+        onChange={(v) => update("crimeChinhId", v)}
+        testId="field-crimeChinhId"
+      />
+    ),
+    sdtNguoiToGiac: (label) => (
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+        <PhoneInput
+          value={formData.sdtNguoiToGiac}
+          onValueChange={(v: string) => update("sdtNguoiToGiac", v)}
+          data-testid="field-sdtNguoiToGiac"
+        />
+      </div>
+    ),
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Trạng thái bản ghi (edit) — để gate phím tắt Xóa (F3) theo rule danh sách (chỉ TIEP_NHAN).
   const [recordStatus, setRecordStatus] = useState("");
@@ -345,6 +378,48 @@ export function IncidentFormPage() {
         {/* Submit ẩn: giữ hành vi Enter-to-submit của <form> sau khi nút Lưu chuyển sang
             SaveSplitButton (type=button). Không hiển thị, không phá layout. */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} disabled={isSubmitting} />
+
+        {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự.
+            Hệ cũ dùng chung form `/doi-1/Them` cho Đơn thư, Vụ việc và Vụ án; đo lại
+            27/08/2026 thì nút "Thêm mới" trên màn vụ việc trỏ thẳng tới đó. */}
+        <div className="flex flex-wrap gap-1 border-b border-slate-200" data-testid="thanh-tab-vu-viec">
+          {(Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTabDangMo(t)}
+              data-testid={`tab-nut-${t}`}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tabDangMo === t
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {LEGACY_TAB_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        {tabDangMo !== "info" && (
+          <LegacyTabBody
+            spec={INCIDENT_LEGACY_SPEC}
+            tabId={tabDangMo}
+            formData={formData}
+            setFormData={setFormData}
+            renderOverride={oRieng}
+          />
+        )}
+
+        {/* Tab Thông tin luôn ở trong cây — ẩn bằng CSS chứ không tháo, để trạng thái ô nhập
+            và ô tải tệp không bị dựng lại mỗi lần đổi tab. */}
+        <div className={tabDangMo === "info" ? "space-y-6" : "hidden"}>
+          <LegacyTabBody
+            spec={INCIDENT_LEGACY_SPEC}
+            tabId="info"
+            formData={formData}
+            setFormData={setFormData}
+            renderOverride={oRieng}
+          >
         {/* Section 1: Tiep nhan nguon tin */}
         <CollapsibleSection
           title="Tiếp nhận nguồn tin"
@@ -800,6 +875,9 @@ export function IncidentFormPage() {
           </div>
         </CollapsibleSection>
 
+
+          </LegacyTabBody>
+        </div>
         {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
           <EntityDocumentsTab entityKind="incident" entityId={id} />

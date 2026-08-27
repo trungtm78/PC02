@@ -270,6 +270,13 @@ export class UpdateIncidentDto {
   @IsOptional() @IsString() phanLoaiNguonTinBanDau?: string;
   @IsOptional() @IsString() baoCaoBanGiamDocText?: string;
 
+  // ── Ba ô hệ cũ mà form 10 tab (27/08/2026) bắt đầu gửi lên ────────────────────────────
+  // Cột đã có sẵn trong lược đồ và bộ di trú vẫn đổ vào, chỉ là form chưa từng hiện chúng.
+  // Thiếu khai ở đây thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400.
+  @IsOptional() @IsString() chuyenTuDonVi?: string;
+  @IsOptional() @IsString() chuyenDenDonVi?: string;
+  @IsOptional() @IsString() sinhNamNguoiToGiac?: string;
+
   // Field hệ cũ dạng cấu trúc (dynamic legacy fields) — MERGE ở service, không REPLACE.
   @IsOptional()
   @IsObject()

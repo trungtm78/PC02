@@ -6,6 +6,7 @@
  * `xoaTrangMoiOVuViec.gate.test.ts` - cong doi chieu tung khoa gui len voi tung dong nap o day.
  */
 import { toDateInput } from '@/lib/dates';
+import { KHOA_NHANH_PHU } from '@/features/incidents/legacy-form-binding';
 import type { IncidentFormData } from './incident-form.types';
 
 export function mergeIncidentApiToFormData(d: Record<string, unknown>): IncidentFormData {
@@ -63,5 +64,33 @@ export function mergeIncidentApiToFormData(d: Record<string, unknown>): Incident
     ngayQDKhongKhoiTo: toDateInput(d.ngayQDKhongKhoiTo as string | null | undefined),
     xacDinhVuViecTamDung: Boolean(d.xacDinhVuViecTamDung),
     laCongNgheCaoVV: Boolean(d.laCongNgheCaoVV),
+    lanhDaoToTung: (d.lanhDaoToTung as string) ?? "",
+    phanLoaiNguonTinBanDau: (d.phanLoaiNguonTinBanDau as string) ?? "",
+    loaiThongTin: (d.loaiThongTin as string) ?? "",
+    soPhieuChuyen: (d.soPhieuChuyen as string) ?? "",
+    ngayPhieuChuyen: toDateInput(d.ngayPhieuChuyen as string | null | undefined),
+    ngayTiepNhanNguonTin: toDateInput(d.ngayTiepNhanNguonTin as string | null | undefined),
+    ngayCapCccd: toDateInput(d.ngayCapCccd as string | null | undefined),
+    noiCapCccd: (d.noiCapCccd as string) ?? "",
+    toiDanhBanDau: (d.toiDanhBanDau as string) ?? "",
+    crimeChinhId: (d.crimeChinhId as string) ?? "",
+    doVatTaiLieuKemTheo: (d.doVatTaiLieuKemTheo as string) ?? "",
+    ngayVietDon: toDateInput(d.ngayVietDon as string | null | undefined),
+    nhanXet: (d.nhanXet as string) ?? "",
+    ghiChuTrungDon: (d.ghiChuTrungDon as string) ?? "",
+    baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",
+    ngayGiaoDonViGiaiQuyet: toDateInput(d.ngayGiaoDonViGiaiQuyet as string | null | undefined),
+    ghiChuKhac: (d.ghiChuKhac as string) ?? "",
+    chuyenTuDonVi: (d.chuyenTuDonVi as string) ?? "",
+    chuyenDenDonVi: (d.chuyenDenDonVi as string) ?? "",
+    sinhNamNguoiToGiac: (d.sinhNamNguoiToGiac as string) ?? "",
+    dieuTraVien: (d.dieuTraVien as string) ?? "",
+    // Tách đôi metadata: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`, còn lại để
+    // panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại vùng ghi sau đè vùng kia.
+    legacyExtra: Object.fromEntries(
+      Object.entries((d.metadata as Record<string, unknown>) ?? {}).filter(([k]) =>
+        KHOA_NHANH_PHU.has(k),
+      ),
+    ),
     };
 }

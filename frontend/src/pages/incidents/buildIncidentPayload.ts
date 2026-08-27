@@ -31,11 +31,21 @@ export function buildIncidentPayload(
   const { isEditMode, metaState, parityState } = opts;
   return {
 
-    // Trường hệ cũ động (editable) → backend MERGE vào metadata
-    ...(isEditMode ? { metadata: metaState } : {}),
+    // Trường hệ cũ động (editable) → backend MERGE vào metadata.
+    //
+    // GỘP hai vùng: `metaState` là panel động, `legacyExtra` là ô hệ cũ có mặt trong 10 tab.
+    // Tách đôi lúc nạp rồi gộp lại lúc lưu, nếu không thì hai vùng cùng giữ một khoá và vùng
+    // ghi sau đè vùng kia — cán bộ sửa một chỗ, bấm Lưu, không đổi gì.
+    ...(isEditMode ? { metadata: { ...metaState, ...formData.legacyExtra } } : {}),
     // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
     ...parityState,
-    name: formData.name,
+    // Hệ cũ có ĐÚNG MỘT ô nội dung ("Tóm tắt nội dung"). Hệ mới tách đôi thành `name` (bắt
+    // buộc, ≥5 ký tự) và `description`, và bộ di trú đổ cùng một chữ vào cả hai — đo trên máy
+    // chạy 27/08/2026: 4.598/4.717 hồ sơ (97,5%) có `name` trùng y hệt `description`.
+    //
+    // Anh chốt giữ MỘT ô như hệ cũ, nên ô ấy ghi cả hai cột. Ghi một cột thôi thì hai cột trôi
+    // khỏi nhau và danh sách hiện một đằng, form hiện một nẻo.
+    name: formData.description || formData.name,
     incidentType: oHeCu(formData.incidentType),
     description: oHeCu(formData.description),
     fromDate: oHeCu(formData.fromDate),
@@ -86,5 +96,26 @@ export function buildIncidentPayload(
     xacDinhVuViecTamDung: formData.xacDinhVuViecTamDung,
     // O tich: `false` la mot lua chon, khong phai "khong nhac toi".
     laCongNgheCaoVV: formData.laCongNgheCaoVV,
+    lanhDaoToTung: oHeCu(formData.lanhDaoToTung),
+    phanLoaiNguonTinBanDau: oHeCu(formData.phanLoaiNguonTinBanDau),
+    loaiThongTin: oHeCu(formData.loaiThongTin),
+    soPhieuChuyen: oHeCu(formData.soPhieuChuyen),
+    ngayPhieuChuyen: oHeCu(formData.ngayPhieuChuyen),
+    ngayTiepNhanNguonTin: oHeCu(formData.ngayTiepNhanNguonTin),
+    ngayCapCccd: oHeCu(formData.ngayCapCccd),
+    noiCapCccd: oHeCu(formData.noiCapCccd),
+    toiDanhBanDau: oHeCu(formData.toiDanhBanDau),
+    crimeChinhId: oHeCu(formData.crimeChinhId),
+    doVatTaiLieuKemTheo: oHeCu(formData.doVatTaiLieuKemTheo),
+    ngayVietDon: oHeCu(formData.ngayVietDon),
+    nhanXet: oHeCu(formData.nhanXet),
+    ghiChuTrungDon: oHeCu(formData.ghiChuTrungDon),
+    baoCaoBanGiamDocText: oHeCu(formData.baoCaoBanGiamDocText),
+    ngayGiaoDonViGiaiQuyet: oHeCu(formData.ngayGiaoDonViGiaiQuyet),
+    ghiChuKhac: oHeCu(formData.ghiChuKhac),
+    chuyenTuDonVi: oHeCu(formData.chuyenTuDonVi),
+    chuyenDenDonVi: oHeCu(formData.chuyenDenDonVi),
+    sinhNamNguoiToGiac: oHeCu(formData.sinhNamNguoiToGiac),
+    dieuTraVien: oHeCu(formData.dieuTraVien),
   };
 }
