@@ -90,7 +90,8 @@ interface PetitionRow {
   id: string;
   stt: string;
   receivedDate: string;
-  unit?: string | null;
+  /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
+  donViGiaiQuyet?: string | null;
   senderName: string;
   suspectedPerson?: string | null;
   status: PetitionStatus;
@@ -244,7 +245,10 @@ export function PetitionListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
       ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
+      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. Trước 27/08/2026 nó lọc
+      // `unit` — cột rỗng hoàn toàn — nên bộ lọc không bao giờ ra kết quả, và cán bộ
+      // tưởng đơn vị ấy không có hồ sơ nào.
+      ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
       // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
       // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
       ...(appliedFilters.stt && { stt: appliedFilters.stt }),
@@ -487,12 +491,12 @@ export function PetitionListPageShell() {
       },
 
       {
-        key: 'unit',
+        key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
         width: '9rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.unit ?? '—',
+        render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
       {

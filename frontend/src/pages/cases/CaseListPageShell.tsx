@@ -92,7 +92,8 @@ interface CaseRow {
   caseCode: string | null;
   name: string;
   status: CaseStatus;
-  unit: string | null;
+  /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
+  donViGiaiQuyet: string | null;
   investigator: { firstName?: string; lastName?: string; username: string } | null;
   ngayDeXuat?: string | null;
   createdAt: string;
@@ -518,12 +519,12 @@ export function CaseListPageShell() {
       },
 
       {
-        key: 'unit',
+        key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => r.unit ?? '—',
+        render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
       {

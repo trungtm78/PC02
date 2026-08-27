@@ -836,12 +836,10 @@ export function PetitionFormPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị giải quyết</label>
-                <input type="text" value={formData.donViGiaiQuyet} onChange={(e) => update("donViGiaiQuyet", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Đơn vị giải quyết (khác đơn vị tiếp nhận)" data-testid="field-donViGiaiQuyet" />
-              </div>
-            </div>
+            {/* Ô "Đơn vị giải quyết" đã nằm ở ĐÚNG VỊ TRÍ HỆ CŨ trong tab Thông tin từ
+                27/08/2026, nên bản viết tay ở đây gỡ đi. Hai ô cùng ghi một cột thì cán bộ
+                phải đoán nên gõ ở ô nào, và ca kiểm bám `field-donViGiaiQuyet` gặp hai phần
+                tử là hỏng. */}
             {/* YC2: ẩn ô "Tóm tắt nội dung" — khi lưu tự lấy tóm tắt từ Nội dung. */}
           </div>
         </div>

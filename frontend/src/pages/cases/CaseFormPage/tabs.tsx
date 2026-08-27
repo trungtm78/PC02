@@ -24,19 +24,12 @@ import { today } from "@/lib/dates";
 import { useShortcut } from "@/hooks/useShortcut";
 import { FormInput, FormSelect, FormTextarea, FormCurrency } from "@/components/form";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
-import { CatalogSelect } from "@/components/CatalogSelect";
-import { CATALOG_LEGAL } from "@/shared/catalog/catalog.generated";
 
-// PR-8 catalog: options derive từ registry (nguồn duy nhất) thay hardcode inline.
-const CAP_DO_TOI_PHAM_OPTIONS = (CATALOG_LEGAL.CAP_DO_TOI_PHAM as readonly { code: string; label: string }[]).map(
-  (o) => ({ value: o.code, label: o.label }),
-);
 import { CurrencyInput } from "@/components/inputs/CurrencyInput";
 import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
-import { CrimeSelect } from "@/components/CrimeSelect";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -252,13 +245,6 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
             placeholder="-- Chọn mức độ --"
             canCreate={false}
           />
-          <FormSelect
-            label="Mức độ tội phạm (BLHS 2015 Điều 9)"
-            value={formData.capDoToiPham ?? ""}
-            onChange={(v) => update("capDoToiPham", v)}
-            options={CAP_DO_TOI_PHAM_OPTIONS}
-            placeholder="-- Chọn mức độ tội phạm --"
-          />
           <FKSelect
             label="Điều tra viên chính"
             required
@@ -298,27 +284,11 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
               placeholder="Mô tả tóm tắt diễn biến và nội dung hồ sơ..."
               rows={4}
             />
-            <FormTextarea
-              label="Phương thức, thủ đoạn"
-              value={formData.phuongThucThuDoan}
-              onChange={(v) => update("phuongThucThuDoan", v)}
-              rows={3}
-            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormInput
-                label="Nơi xảy ra"
-                value={formData.noiXayRa}
-                onChange={(v) => update("noiXayRa", v)}
-              />
               <FormInput
                 label="Bị hại"
                 value={formData.biHai}
                 onChange={(v) => update("biHai", v)}
-              />
-              <FormInput
-                label="Nghi can"
-                value={formData.nghiVanDoiTuong}
-                onChange={(v) => update("nghiVanDoiTuong", v)}
               />
             </div>
           </div>
@@ -327,16 +297,6 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
           <div>
             <p className="text-sm font-semibold text-slate-600 mb-2">Tiếp nhận & truy nguyên</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormInput
-                label="Nguồn đơn / nơi chuyển đến"
-                value={formData.nguonDon}
-                onChange={(v) => update("nguonDon", v)}
-              />
-              <FormInput
-                label="Số phiếu chuyển"
-                value={formData.soPhieuChuyen}
-                onChange={(v) => update("soPhieuChuyen", v)}
-              />
               <FormInput
                 label="Điều tra viên (hệ cũ, tham chiếu)"
                 value={formData.dieuTraVienText}
@@ -363,11 +323,6 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
                 label="Tình trạng hồ sơ"
                 value={formData.tinhTrang}
                 onChange={(v) => update("tinhTrang", v)}
-              />
-              <FormInput
-                label="Tội danh ban đầu"
-                value={formData.toiDanhBanDau}
-                onChange={(v) => update("toiDanhBanDau", v)}
               />
               <FormInput
                 label="Phân loại tội phạm theo lĩnh vực"
@@ -397,21 +352,9 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
               />
             </div>
             <FormTextarea
-              label="Nhận xét"
-              value={formData.nhanXet}
-              onChange={(v) => update("nhanXet", v)}
-              rows={3}
-            />
-            <FormTextarea
               label="Đề xuất xử lý"
               value={formData.deXuatXuLy}
               onChange={(v) => update("deXuatXuLy", v)}
-              rows={3}
-            />
-            <FormTextarea
-              label="Kết quả xử lý khác"
-              value={formData.ketQuaXuLyKhac}
-              onChange={(v) => update("ketQuaXuLyKhac", v)}
               rows={3}
             />
             <FormTextarea
@@ -749,13 +692,9 @@ function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
           value={formData.criminalDate}
           onChange={(v) => update("criminalDate", v)}
         />
-        <CrimeSelect
-          label="Tội danh chính"
-          value={formData.crimeChinhId}
-          onChange={(v) => update("crimeChinhId", v)}
-          placeholder="Tìm kiếm tội danh (BLHS 2015)..."
-          testId="fk-criminal-type"
-        />
+        {/* 27/08/2026: gỡ ô "Tội danh chính" viết tay. Bố cục hệ cũ đã có ô ấy ở 5 tab với
+            đúng nhãn "Tội danh BLHS 2015 (nhận định ban đầu)" và cùng bộ chọn tra 316 điều —
+            `kind: "crime"`. Hai ô cho một cột chỉ làm cán bộ phải đoán nên chọn ở ô nào. */}
         <FKSelect
           label="Tội danh phụ"
           value={formData.criminalSecondaryType}
@@ -816,136 +755,6 @@ function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
           onChange={(v) => update("sentence", v)}
           placeholder="VD: 5 năm tù giam"
         />
-        <FormInput
-          label="Số kết luận điều tra"
-          value={formData.soKLDT}
-          onChange={(v) => update("soKLDT", v)}
-          placeholder="Số KLĐT"
-        />
-        <FormInput
-          label="Ngày kết luận điều tra"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayKLDT}
-          onChange={(v) => update("ngayKLDT", v)}
-        />
-        <FormInput
-          label="Số QĐ điều tra lại"
-          value={formData.soQDDieuTraLai}
-          onChange={(v) => update("soQDDieuTraLai", v)}
-          placeholder="Số QĐ điều tra lại"
-        />
-        <FormInput
-          label="Ngày QĐ điều tra lại"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayQDDieuTraLai}
-          onChange={(v) => update("ngayQDDieuTraLai", v)}
-        />
-        {/* Số QĐ giai đoạn vụ án (field-parity) */}
-        <FormInput
-          label="Số QĐ khởi tố vụ án"
-          value={formData.soQuyetDinhKhoiTo}
-          onChange={(v) => update("soQuyetDinhKhoiTo", v)}
-          placeholder="Số QĐ khởi tố"
-        />
-        <FormInput
-          label="Ngày QĐ khởi tố vụ án"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayKhoiTo}
-          onChange={(v) => update("ngayKhoiTo", v)}
-          data-testid="field-ngayKhoiTo"
-        />
-        <FormInput
-          label="Số QĐ nhập vụ án"
-          value={formData.soQDNhapVuAn}
-          onChange={(v) => update("soQDNhapVuAn", v)}
-          placeholder="Số QĐ nhập vụ án"
-        />
-        <FormInput
-          label="Ngày nhập vụ án"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayNhapVuAn}
-          onChange={(v) => update("ngayNhapVuAn", v)}
-        />
-        <FormInput
-          label="Ghi chú nhập hồ sơ"
-          value={formData.ghiChuNhapHoSo}
-          onChange={(v) => update("ghiChuNhapHoSo", v)}
-          placeholder="Ghi chú nhập vào hồ sơ nào"
-        />
-        <FormInput
-          label="Số QĐ tách vụ án"
-          value={formData.soQDTachVuAn}
-          onChange={(v) => update("soQDTachVuAn", v)}
-          placeholder="Số QĐ tách vụ án"
-        />
-        <FormInput
-          label="Ngày tách vụ án"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayTachVuAn}
-          onChange={(v) => update("ngayTachVuAn", v)}
-        />
-        <FormInput
-          label="Số QĐ tách hành vi"
-          value={formData.soQDTachHanhVi}
-          onChange={(v) => update("soQDTachHanhVi", v)}
-          placeholder="Số QĐ tách hành vi"
-        />
-        <FormInput
-          label="Ngày tách hành vi"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayTachHanhVi}
-          onChange={(v) => update("ngayTachHanhVi", v)}
-        />
-        <FormInput
-          label="Số QĐ đình chỉ vụ án"
-          value={formData.soQDDinhChiVuAn}
-          onChange={(v) => update("soQDDinhChiVuAn", v)}
-          placeholder="Số QĐ đình chỉ vụ án"
-        />
-        <FormInput
-          label="Ngày đình chỉ vụ án"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayDinhChiVuAn}
-          onChange={(v) => update("ngayDinhChiVuAn", v)}
-        />
-        <FormInput
-          label="Chuyển vụ án cho CQĐT khác"
-          value={formData.chuyenVuAnChoCQK}
-          onChange={(v) => update("chuyenVuAnChoCQK", v)}
-          placeholder="Số/ngày/đơn vị nhận"
-        />
-        <FormInput
-          label="Số bản án có hiệu lực"
-          value={formData.soBanAnCoHieuLuc}
-          onChange={(v) => update("soBanAnCoHieuLuc", v)}
-          placeholder="Số bản án"
-        />
-        <FormInput
-          label="Ngày bản án có hiệu lực"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayBanAnCoHieuLuc}
-          onChange={(v) => update("ngayBanAnCoHieuLuc", v)}
-        />
-        <FormInput
-          label="Căn cứ tạm đình chỉ vụ án"
-          value={formData.canCuTamDinhChiVuAn}
-          onChange={(v) => update("canCuTamDinhChiVuAn", v)}
-          placeholder="Căn cứ pháp lý tạm đình chỉ"
-        />
-        <FormInput
-          label="Căn cứ phục hồi điều tra"
-          value={formData.canCuPhucHoiVuAn}
-          onChange={(v) => update("canCuPhucHoiVuAn", v)}
-          placeholder="Căn cứ pháp lý phục hồi điều tra"
-        />
         {/* PR-M2 — field-parity: tội danh khác (multi) + ghi chú tự do */}
         <FormInput
           label="Tội danh khác (mã, cách nhau dấu phẩy)"
@@ -960,12 +769,6 @@ function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
             }))
           }
           placeholder="VD: D173, D174"
-        />
-        <FormInput
-          label="Ghi chú khác"
-          value={formData.ghiChuKhac}
-          onChange={(v) => update("ghiChuKhac", v)}
-          placeholder="Ghi chú tự do (di trú từ hệ thống cũ)"
         />
       </div>
     </Card>
@@ -1151,73 +954,11 @@ function TabCaseTDCBoSung({ formData, setFormData, errors, setErrors }: TabProps
         />
       </div>
 
-      {/* PR-3 — Quyết định Tạm đình chỉ & Phục hồi điều tra vụ án (field-parity /doi-1/Them) */}
-      <CardHeader title="Tạm đình chỉ & phục hồi điều tra vụ án" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormInput
-          label="Số QĐ tạm đình chỉ vụ án"
-          value={formData.soQuyetDinhTamDinhChi}
-          onChange={(v) => update("soQuyetDinhTamDinhChi", v)}
-          placeholder="Số quyết định tạm đình chỉ điều tra"
-          data-testid="field-soQuyetDinhTamDinhChi"
-        />
-        <FormInput
-          label="Ngày QĐ tạm đình chỉ"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayTamDinhChi}
-          onChange={(v) => update("ngayTamDinhChi", v)}
-          data-testid="field-ngayTamDinhChi"
-        />
-        <div className="md:col-span-2" data-testid="field-lyDoTamDinhChiVuAn">
-          <label className="block text-sm font-medium text-slate-700 mb-2">Lý do tạm đình chỉ (BLTTHS Đ.229) — chọn nhiều</label>
-          {/* PR-3 catalog: 1 component dùng chung; multi tự theo registry META. */}
-          <CatalogSelect
-            catalogKey="LY_DO_TAM_DINH_CHI_VU_AN"
-            value={formData.lyDoTamDinhChiVuAn}
-            onChange={(v) => update("lyDoTamDinhChiVuAn", v as string[])}
-          />
-        </div>
-        <FormInput
-          label="Ngày hết thời hiệu truy cứu TNHS"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayHetThoiHieu}
-          onChange={(v) => update("ngayHetThoiHieu", v)}
-          data-testid="field-ngayHetThoiHieu"
-        />
-        <FormInput
-          label="Số QĐ phục hồi điều tra"
-          value={formData.soQuyetDinhPhucHoi}
-          onChange={(v) => update("soQuyetDinhPhucHoi", v)}
-          placeholder="Số quyết định phục hồi điều tra"
-          data-testid="field-soQuyetDinhPhucHoi"
-        />
-        <FormInput
-          label="Ngày QĐ phục hồi"
-          type="date"
-          icon={<Calendar className="w-4 h-4" />}
-          value={formData.ngayPhucHoi}
-          onChange={(v) => update("ngayPhucHoi", v)}
-          data-testid="field-ngayPhucHoi"
-        />
-        <FormTextarea
-          label="Lý do / biện pháp khắc phục TĐC"
-          value={formData.tdcKhacPhucLyDoBienPhap}
-          onChange={(v) => update("tdcKhacPhucLyDoBienPhap", v)}
-          placeholder="Lý do và biện pháp khắc phục để phục hồi điều tra..."
-          rows={3}
-          colSpan={2}
-        />
-        <FormTextarea
-          label="Biên bản khắc phục TĐC"
-          value={formData.tdcKhacPhucBienBan}
-          onChange={(v) => update("tdcKhacPhucBienBan", v)}
-          placeholder="Số/ngày biên bản khắc phục..."
-          rows={2}
-          colSpan={2}
-        />
-      </div>
+      {/* 27/08/2026: gỡ khối "Tạm đình chỉ & phục hồi điều tra vụ án" viết tay.
+          Cả 8 ô của nó — số/ngày QĐ tạm đình chỉ, lý do, ngày hết thời hiệu, số/ngày QĐ phục
+          hồi, hai ô khắc phục — đều đã nằm trong bố cục hệ cũ, ĐÚNG nhãn và ĐÚNG chỗ, và ô
+          "Lý do tạm đình chỉ" ở đó cũng là chọn-nhiều theo danh mục động. Hai ô cho một cột
+          chỉ làm cán bộ phải đoán nên gõ ở ô nào. */}
     </Card>
   );
 }

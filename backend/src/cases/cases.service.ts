@@ -336,6 +336,9 @@ export class CasesService {
           status: true,
           deadline: true,
           unit: true,
+        // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
+        // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
+        donViGiaiQuyet: true,
           subjectsCount: true,
           // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
           // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban
@@ -948,6 +951,7 @@ export class CasesService {
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
       unit: dto.unit,
+      donViGiaiQuyet: dto.donViGiaiQuyet,
       ...(effectiveAssignedTeamId !== undefined && { assignedTeamId: effectiveAssignedTeamId }),
       subjectsCount: dto.subjectsCount ?? 0,
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),

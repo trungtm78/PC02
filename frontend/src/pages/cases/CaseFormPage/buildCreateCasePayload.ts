@@ -57,7 +57,8 @@ export interface CreateCasePayload {
   crimeChinhId?: string | null;
   status?: string;
   deadline: string | null;
-  unit: string | null;
+  /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
+  donViGiaiQuyet: string | null;
   assignedTeamId: string | null;
   investigatorId: string | null;
   capDoToiPham?: string | null;
@@ -233,7 +234,9 @@ export function buildCreateCasePayload(
     crimeChinhId: formData.crimeChinhId || null, // FK master Crime — tội danh chính
     status: formData.status || undefined,
     deadline: formData.investigationDeadline || null,
-    unit: formData.supervisingUnit || null,
+    // Ô "Đơn vị giải quyết" ghi vào `donViGiaiQuyet`, KHÔNG phải `unit` — `unit` là
+    // ĐƠN VỊ TIẾP NHẬN, một khái niệm khác. Xem chú thích ở binding Đơn thư.
+    donViGiaiQuyet: formData.supervisingUnit || null,
     assignedTeamId: formData.assignedTeamId || null,
     investigatorId: formData.handler || null,
     capDoToiPham: formData.capDoToiPham || null,

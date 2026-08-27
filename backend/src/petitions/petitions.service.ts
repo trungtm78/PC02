@@ -197,6 +197,9 @@ export class PetitionsService {
           stt: true,
           receivedDate: true,
           unit: true,
+          // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
+          // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
+          donViGiaiQuyet: true,
           senderName: true,
           suspectedPerson: true,
           status: true,
@@ -1210,7 +1213,10 @@ export class PetitionsService {
       };
     }
     if (query.unit) {
-      where.unit = { contains: query.unit, mode: 'insensitive' };
+      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. Trước 27/08/2026 nó lọc `unit`
+      // — cột rỗng hoàn toàn — nên bộ lọc không bao giờ ra kết quả, và cán bộ tưởng đơn vị ấy
+      // không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ vẫn dùng được.
+      where.donViGiaiQuyet = { contains: query.unit, mode: 'insensitive' };
     }
     if (query.status) {
       where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
