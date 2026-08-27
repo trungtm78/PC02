@@ -35,12 +35,12 @@ function khoGia(dong: Dong[]) {
   // TOCTOU xanh cả khi câu ghi thật bỏ mất điều kiện — đúng kiểu xanh giả cần tránh.
   const updateMany = jest.fn(async (a: unknown) => {
     const arg = a as {
-      where: { id: string; OR?: { detailContent: string | null }[] };
+      where: { id: string; detailContent?: string | null };
       data: { detailContent: string };
     };
     const d = dong.find((x) => x.id === arg.where.id);
     if (!d) return { count: 0 };
-    if (arg.where.OR && !arg.where.OR.some((k) => k.detailContent === d.detailContent)) {
+    if ('detailContent' in arg.where && arg.where.detailContent !== d.detailContent) {
       return { count: 0 };
     }
     d.detailContent = arg.data.detailContent;
@@ -103,6 +103,20 @@ describe('buNoiDung — điền ô nội dung mà không đè chữ cán bộ đ
     expect(g.dong[0].detailContent).toBe('cán bộ vừa gõ');
     expect(kq.dienVao).toBe(0);
     expect(kq.boQuaViDaCoChu).toBe(1);
+  });
+
+  /**
+   * Ô chỉ chứa khoảng trắng là TRỐNG với người dùng. Bản trước liệt kê điều kiện "null hoặc
+   * rỗng" nên hồ sơ như vậy trượt khỏi câu ghi và bị đếm nhầm là "đã có chữ" — ô vẫn trắng
+   * trên màn hình mà báo cáo nói đã xong.
+   */
+  it('ô chỉ có khoảng trắng vẫn được điền', async () => {
+    const g = khoGia([
+      { id: 'w', summary: 'nội dung cũ', detailContent: '   ', legacySourceId: 'k' },
+    ]);
+    const kq = await buNoiDung(g.kho, false);
+    expect(kq.dienVao).toBe(1);
+    expect(g.dong[0].detailContent).toBe('nội dung cũ');
   });
 
   it('chế độ thử thì đếm nhưng không ghi', async () => {

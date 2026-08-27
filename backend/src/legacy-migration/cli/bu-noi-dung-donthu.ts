@@ -50,11 +50,15 @@ export async function buNoiDung(prisma: PrismaClient, dry: boolean): Promise<Ket
       if (dangTrong(r.summary)) continue;
       kq.dienVao++;
       if (!dry) {
-        // Kiem "dang trong" LAI ngay trong cau ghi. Ban doc la anh chup: can bo co the go noi
-        // dung vao dung ho so ay giua luc doc va luc ghi, va khi ay `update` theo id se de mat
-        // chu vua go. `updateMany` kem dieu kien thi cau ghi tu bo qua.
+        // Cau ghi chi an neu o VAN DUNG NHU LUC DOC. Ban doc la anh chup: can bo co the go
+        // noi dung vao dung ho so ay giua luc doc va luc ghi, va khi ay ghi theo id se de mat
+        // chu vua go.
+        //
+        // So sanh bang chinh gia tri vua doc, khong liet ke "null hoac rong": o chua dung
+        // khoang trang ("   ") la trong theo `dangTrong` nhung khong khop danh sach ay, nen
+        // cau ghi khong an va ho so bi dem nham la "da co chu" — o van trang tren man hinh.
         const r2 = await prisma.petition.updateMany({
-          where: { id: r.id, OR: [{ detailContent: null }, { detailContent: '' }] },
+          where: { id: r.id, detailContent: r.detailContent },
           data: { detailContent: r.summary as string },
         });
         if (r2.count === 0) {
