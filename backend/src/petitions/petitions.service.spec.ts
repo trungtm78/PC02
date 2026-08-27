@@ -289,7 +289,7 @@ describe('PetitionsService', () => {
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ
     // truyền mệnh đề sắp xếp mới xuống Prisma.
-    it('mặc định sắp theo NGÀY NHẬN giảm dần, không phải ngày tạo', async () => {
+    it('mặc định sắp theo STT giảm dần, không phải ngày tạo', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
       mockPrisma.petition.count.mockResolvedValue(0);
 
@@ -302,8 +302,11 @@ describe('PetitionsService', () => {
       // Sắp theo `sortReceivedDate` (cột SINH) chứ không phải `receivedDate` trực tiếp:
       // 9 hồ sơ có ngày phi lý (năm 3023, 2925, 0225...) nhận NULL ở cột sinh nên chìm
       // xuống cuối thay vì chiếm trọn màn hình đầu. Cột hiển thị vẫn là receivedDate.
+      // 27/08/2026: anh yêu cầu ba màn mặc định sắp theo STT giảm dần. Sắp trên cột SỐ
+      // `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì `2026-9395` đứng sau
+      // `2026-11171` dù số nhỏ hơn.
       expect(callArgs.orderBy[0]).toEqual({
-        sortReceivedDate: { sort: 'desc', nulls: 'last' },
+        sttSort: { sort: 'desc', nulls: 'last' },
       });
       expect(JSON.stringify(callArgs.orderBy)).not.toContain('createdAt');
     });
@@ -340,9 +343,9 @@ describe('PetitionsService', () => {
 
       const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
       expect(JSON.stringify(orderBy)).not.toContain('passwordHash');
-      // Rơi về mặc định, và mặc định vẫn được nắn sang cột sinh.
+      // Rơi về mặc định, và mặc định vẫn được nắn sang cột sắp.
       expect(orderBy[0]).toEqual({
-        sortReceivedDate: { sort: 'desc', nulls: 'last' },
+        sttSort: { sort: 'desc', nulls: 'last' },
       });
     });
 

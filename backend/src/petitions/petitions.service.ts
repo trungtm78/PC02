@@ -138,7 +138,10 @@ export class PetitionsService {
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
     const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
+    // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
+    // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
+    // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -180,17 +183,24 @@ export class PetitionsService {
         'createdAt',
         'updatedAt',
         'receivedDate',
+        // Cột "Ngày đề xuất" trên danh sách sắp theo trường này. Thiếu tên ở đây thì bấm tiêu
+        // đề cột không có tác dụng gì — máy chủ lặng lẽ bỏ qua khoá sắp lạ.
+        'ngayDeXuat',
         'deadline',
         'status',
         'senderName',
+        'stt',
       ],
-      defaultField: 'receivedDate',
-      nullableFields: ['deadline', 'sortReceivedDate'],
+      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
+      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
+      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
+      defaultField: 'stt',
+      nullableFields: ['deadline', 'sortReceivedDate', 'ngayDeXuat', 'sttSort'],
       // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
       // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,
       // 0225...). Kèm NULLS LAST thì rác chìm xuống cuối thay vì chiếm màn hình đầu.
       // Cột HIỂN THỊ vẫn là `receivedDate` gốc — không giấu dữ liệu, chỉ đổi thứ tự.
-      fieldAliases: { receivedDate: 'sortReceivedDate' },
+      fieldAliases: { receivedDate: 'sortReceivedDate', stt: 'sttSort' },
     });
 
     const [data, total] = await Promise.all([
@@ -200,6 +210,12 @@ export class PetitionsService {
           id: true,
           stt: true,
           receivedDate: true,
+          // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
+          // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
+          ngayDeXuat: true,
+          // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
+          // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
+          detailContent: true,
           unit: true,
           // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
           // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
@@ -1851,7 +1867,7 @@ export class PetitionsService {
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
     const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };

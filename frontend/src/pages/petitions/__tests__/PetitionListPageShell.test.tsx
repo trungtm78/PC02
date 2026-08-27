@@ -423,7 +423,10 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
   const rowDaiDong = {
     ...sampleRow,
     stt: '2026-11171',
-    summary:
+    // 27/08/2026: cột "Tóm tắt nội dung" đọc `detailContent` — cột mà ô cùng nhãn trên form
+    // ghi vào và khớp bản gốc hệ cũ 46.497/46.497. `summary` là bản rút gọn suy lại lúc lưu,
+    // lệch ở 58 hồ sơ nên cán bộ sửa nội dung xong vẫn thấy chữ cũ trên danh sách.
+    detailContent:
       'Tố giác bà Phạm Thị Thuỳ Oanh (Sinh năm: 1992; Địa chỉ: 93 Đặng Thuỳ Trâm, phường Bình Lợi Trung, TP. HCM) chiếm đoạt số tiền 769.325.000 đồng thông qua việc vay mượn và tạo các dây hụi ảo để thu tiền của bà Tâm.',
     nguonDon: 'Bưu điện',
     ketQuaXuLyKhac: 'Đã chuyển Tổ 5',

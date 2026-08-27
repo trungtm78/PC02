@@ -55,6 +55,9 @@ const sampleRow = {
   id: 'case-1',
   caseCode: 'PC02-001',
   name: 'Vụ án mẫu',
+  // 27/08/2026: cột "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" đọc `tenCungCap`, không
+  // đọc `name`. Hai thứ khác hẳn nhau — `name` là TÊN VỤ ÁN, và cột ấy khớp bản gốc hệ cũ 0%.
+  tenCungCap: 'Nguyễn Thị Cung Cấp',
   status: 'TIEP_NHAN',
   unit: 'PA',
   investigator: { firstName: 'Nguyễn', lastName: 'A', username: 'nva' },
@@ -102,7 +105,7 @@ describe('CaseListPageShell — initial mount + ready state', () => {
     renderWithRouter();
     expect(screen.getByTestId('list-page-shell-table-loading')).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByTestId('list-page-shell-table-loading')).not.toBeInTheDocument());
-    expect(screen.getByText('Vụ án mẫu')).toBeInTheDocument();
+    expect(screen.getByText('Nguyễn Thị Cung Cấp')).toBeInTheDocument();
     expect(screen.getByText('PC02-001')).toBeInTheDocument();
   });
 
@@ -113,14 +116,14 @@ describe('CaseListPageShell — initial mount + ready state', () => {
 
   it('StatusChips render với 10 status options + "Tất cả"', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     // "Tất cả" + 10 statuses = 11 tabs
     expect(screen.getAllByRole('tab')).toHaveLength(11);
   });
 
   it('StatusChips hiển thị server counts khi stats về', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     // Query within StatusChips tablist to avoid ambiguity with StatsCardsStrip
     const chipBar = screen.getByRole('tablist');
     expect(within(chipBar).getByText('100')).toBeInTheDocument();
@@ -141,7 +144,7 @@ describe('CaseListPageShell — interactions', () => {
 
   it('click status chip → URL state cập nhật + re-fetch với status param', async () => {
     const { getLocation } = renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     const tiepNhanChip = screen.getAllByRole('tab').find((t) => t.textContent?.includes('Tiếp nhận'));
     expect(tiepNhanChip).toBeDefined();
     fireEvent.click(tiepNhanChip!);
@@ -153,21 +156,21 @@ describe('CaseListPageShell — interactions', () => {
 
   it('search input change → URL state cập nhật', async () => {
     const { getLocation } = renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'abc' } });
     await waitFor(() => expect(getLocation()).toContain('cases_q=abc'));
   });
 
   it('row click → navigate to detail page', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
-    fireEvent.click(screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
+    fireEvent.click(screen.getByText('Nguyễn Thị Cung Cấp'));
     await waitFor(() => expect(screen.getByText('DetailPage')).toBeInTheDocument());
   });
 
   it('"Tạo mới" button → navigate /cases/new', async () => {
     renderWithRouter();
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     fireEvent.click(screen.getByRole('button', { name: /Tạo mới/i }));
     await waitFor(() => expect(screen.getByText('NewPage')).toBeInTheDocument());
   });
@@ -260,7 +263,7 @@ describe('CaseListPageShell — URL state load from query params', () => {
 
   it('load from URL với status filter → fetch caller với status param', async () => {
     renderWithRouter(['/cases?cases_status=DANG_DIEU_TRA']);
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/cases',
     );
@@ -269,7 +272,7 @@ describe('CaseListPageShell — URL state load from query params', () => {
 
   it('load from URL với search query → fetch caller với search param', async () => {
     renderWithRouter(['/cases?cases_q=abc']);
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/cases',
     );
@@ -278,7 +281,7 @@ describe('CaseListPageShell — URL state load from query params', () => {
 
   it('load from URL với page=2 → fetch offset=20', async () => {
     renderWithRouter(['/cases?cases_page=2']);
-    await waitFor(() => screen.getByText('Vụ án mẫu'));
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/cases',
     );

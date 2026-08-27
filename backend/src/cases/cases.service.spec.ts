@@ -260,7 +260,7 @@ describe('CasesService', () => {
     // Ca kiểm ĐẶT ĐÚNG TẦNG: bộ ca kiểm của buildListOrderBy là hàm thuần, nó vẫn
     // xanh kể cả khi service quên nối vào. Ca dưới đây khẳng định service THẬT SỰ
     // truyền mệnh đề sắp xếp mới xuống Prisma.
-    it('mặc định sắp theo NGÀY TIẾP NHẬN giảm dần, hồ sơ trống xuống cuối', async () => {
+    it('mặc định sắp theo STT giảm dần, hồ sơ không có mã xuống cuối', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
@@ -269,7 +269,10 @@ describe('CasesService', () => {
       const { orderBy } = mockPrisma.case.findMany.mock.calls[0][0];
       // NULLS LAST: Postgres mặc định NULLS FIRST ở chiều DESC, nên thiếu bước này
       // thì hồ sơ KHÔNG có ngày sẽ nổi lên đầu — đúng thứ cần tránh.
-      expect(orderBy[0]).toEqual({ ngayDeXuat: { sort: 'desc', nulls: 'last' } });
+      // 27/08/2026: anh yêu cầu ba màn mặc định sắp theo STT giảm dần. Sắp trên cột SỐ
+      // `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì `2026-9395` đứng sau
+      // `2026-11171` dù số nhỏ hơn.
+      expect(orderBy[0]).toEqual({ sttSort: { sort: 'desc', nulls: 'last' } });
       expect(orderBy[orderBy.length - 1]).toEqual({ id: 'desc' });
     });
 

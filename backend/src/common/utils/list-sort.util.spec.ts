@@ -163,3 +163,50 @@ describe('buildListOrderBy', () => {
     expect(result).toEqual([{ id: 'desc' }]);
   });
 });
+
+/**
+ * Sắp theo STT — anh yêu cầu 27/08/2026: mặc định giảm dần ở cả ba màn, bấm tiêu đề đổi chiều.
+ *
+ * Mã hồ sơ là CHUỖI `"2026-11171"`, nên sắp thẳng trên nó ra sai thứ tự: `"2026-9395"` đứng
+ * sau `"2026-11171"` vì so từng ký tự, dù 9395 < 11171. Cột sắp thật là `sttSort` — số do
+ * cơ sở dữ liệu tự tính từ mã — còn tên người dùng gửi vẫn là `stt`.
+ */
+describe('buildListOrderBy — sắp theo STT', () => {
+  const CHO_PHEP = ['createdAt', 'stt', 'ngayDeXuat'];
+
+  it('mặc định sắp theo `sttSort` giảm dần, hồ sơ không có mã chìm xuống cuối', () => {
+    expect(
+      buildListOrderBy({
+        allowed: CHO_PHEP,
+        defaultField: 'stt',
+        nullableFields: ['sttSort'],
+        fieldAliases: { stt: 'sttSort' },
+      }),
+    ).toEqual([{ sttSort: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]);
+  });
+
+  it('bấm tiêu đề đổi chiều — `sortOrder: asc` cho ra tăng dần', () => {
+    expect(
+      buildListOrderBy({
+        sortBy: 'stt',
+        sortOrder: 'asc',
+        allowed: CHO_PHEP,
+        defaultField: 'stt',
+        nullableFields: ['sttSort'],
+        fieldAliases: { stt: 'sttSort' },
+      }),
+    ).toEqual([{ sttSort: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }]);
+  });
+
+  it('cột sắp thật KHÔNG lộ ra giao diện: gửi thẳng `sttSort` bị bỏ, rơi về mặc định', () => {
+    expect(
+      buildListOrderBy({
+        sortBy: 'sttSort',
+        allowed: CHO_PHEP,
+        defaultField: 'stt',
+        nullableFields: ['sttSort'],
+        fieldAliases: { stt: 'sttSort' },
+      }),
+    ).toEqual([{ sttSort: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]);
+  });
+});

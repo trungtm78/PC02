@@ -109,6 +109,9 @@ interface IncidentRow {
   id: string;
   code: string;
   name: string;
+  /** Người cung cấp tin (`ten_ca_nhan_co_quan_to_chuc_cung_cap` hệ cũ) — KHÁC `doiTuongCaNhan`
+   *  là đối tượng bị tố giác. Cột "Tên cá nhân…" trên danh sách đọc trường này. */
+  benVu?: string | null;
   status: IncidentStatus;
   deadline?: string | null;
   investigator?: { firstName?: string; lastName?: string; username: string } | null;
@@ -472,6 +475,9 @@ export function IncidentListPageShell() {
         key: 'code',
         header: 'STT',
         width: '6rem',
+        // Anh yêu cầu 27/08/2026: bấm tiêu đề cột STT để đổi chiều sắp xếp, như cột ngày.
+        // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
+        sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
           <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
@@ -505,7 +511,12 @@ export function IncidentListPageShell() {
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
-        render: (r) => <span className="font-medium text-slate-800">{r.doiTuongCaNhan || r.name}</span>,
+        // Đọc `benVu` — cột giữ `ten_ca_nhan_co_quan_to_chuc_cung_cap` của hệ cũ, và là cột
+        // mà ô cùng nhãn trên form ghi vào. `doiTuongCaNhan` là ĐỐI TƯỢNG BỊ TỐ GIÁC
+        // (`nghi_van_doi_tuong`) — người khác hẳn: khớp bản gốc 0%, trong khi `benVu` khớp
+        // 4.265/4.265. Bỏ luôn dự phòng `|| r.name`: rơi về tên vụ việc là bịa dữ liệu vào
+        // một ô mà hệ cũ để trống.
+        render: (r) => <span className="font-medium text-slate-800">{r.benVu || '—'}</span>,
       },
 
       {

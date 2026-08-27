@@ -11,7 +11,7 @@
 import { CASE_LEGACY_SPEC } from '@/features/cases/legacy-form-layout.def';
 import { INCIDENT_LEGACY_SPEC } from '@/features/incidents/legacy-form-binding';
 import { PETITION_LEGACY_SPEC } from '@/features/petitions/legacy-form-binding';
-import { ownedColumns, type LegacyEntity } from './types';
+import { columnForCaption, ownedColumns, type LegacyEntity } from './types';
 
 const KHONG_CO: ReadonlySet<string> = new Set();
 
@@ -30,4 +30,15 @@ const DAC_TA_THEO_THUC_THE = {
 export function ownedColumnsFor(entity: LegacyEntity | string): ReadonlySet<string> {
   const spec = (DAC_TA_THEO_THUC_THE as Record<string, unknown>)[entity];
   return spec ? ownedColumns(spec as never) : KHONG_CO;
+}
+
+/**
+ * Cột mà ô mang nhãn ấy của thực thể ghi vào — `null` nếu bố cục hệ cũ không có nhãn ấy.
+ *
+ * Cổng "cột danh sách phải trỏ đúng cột form" tra bảng này cho MỌI nhãn, thay vì chốt từng
+ * nhãn một như bản đầu (chỉ gác được "Đơn vị giải quyết", nên ba nhãn khác lệch mà vẫn lọt).
+ */
+export function cotTheoNhan(entity: LegacyEntity | string, nhan: string): string | null {
+  const spec = (DAC_TA_THEO_THUC_THE as Record<string, unknown>)[entity];
+  return spec ? columnForCaption(spec as never, nhan) : null;
 }

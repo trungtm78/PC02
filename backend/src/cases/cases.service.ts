@@ -315,10 +315,14 @@ export class CasesService {
       sortOrder: sortOrder as ListSortOrder,
       allowed: [
         'createdAt', 'updatedAt', 'name', 'deadline', 'status',
-        'ngayDeXuat', 'receiveDate', 'ngayTiepNhan',
+        'ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'stt',
       ],
-      defaultField: 'ngayDeXuat',
-      nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline'],
+      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
+      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
+      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
+      defaultField: 'stt',
+      nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline', 'sttSort'],
+      fieldAliases: { stt: 'sttSort' },
     });
 
     const [data, total] = await Promise.all([
@@ -346,6 +350,9 @@ export class CasesService {
         // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
         // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
         donViGiaiQuyet: true,
+        // Cột "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" đọc trường này. Trước
+        // 27/08/2026 nó đọc `name` — TÊN VỤ ÁN — nên cột đầy dữ liệu mà khớp bản gốc 0%.
+        tenCungCap: true,
           subjectsCount: true,
           // Cột "Đối tượng bị can" của bảng Vụ án hệ cũ. Lấy tên bị can đã khởi tố
           // (SUSPECT) chứ không dùng ô văn bản `nghiVanDoiTuong` — ô ấy là nghi vấn ban
