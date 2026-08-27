@@ -85,6 +85,20 @@ export function CaseProvenancePicker(props: CaseProvenancePickerProps) {
   useEffect(() => {
     if (lastProvenance.current === provenance) return;
 
+    // LẦN ĐẦU NHÌN THẤY một nguồn gốc thì chỉ GHI NHỚ, không đụng gì.
+    //
+    // Ở màn Sửa, `provenance` được nạp từ máy chủ sau lần dựng đầu, nên hiệu ứng này chạy với
+    // `lastProvenance.current === ''` và rơi vào nhánh "đổi nguồn" — nó ghi đè ô liên kết bằng
+    // bộ nhớ RỖNG, tức xoá trắng đơn thư gốc ngay khi mở hồ sơ ra. Đo trên máy chạy
+    // 27/08/2026: 169 vụ án có nguồn gốc (166 từ đơn thư, 3 từ vụ việc) đều dính, và form
+    // chặn Lưu bằng "Vui lòng chọn Đơn thư gốc" — một ô vừa bị chính nó xoá.
+    //
+    // Chỉ khi cán bộ THẬT SỰ đổi nguồn thì mới có chuyện dọn ô của nguồn cũ.
+    if (lastProvenance.current === '') {
+      lastProvenance.current = provenance;
+      return;
+    }
+
     // Save current values into memory before switching away
     if (lastProvenance.current === CaseProvenance.FROM_PETITION) {
       memory.current.linkedPetitionId = linkedPetitionId;
@@ -119,18 +133,22 @@ export function CaseProvenancePicker(props: CaseProvenancePickerProps) {
       update('expectedIncidentUpdatedAt', '');
     }
 
+    // Ghi nhớ nguồn hiện tại TRƯỚC nhánh thông báo: nhánh ấy trả về hàm dọn dẹp, nên nếu để
+    // phép gán ở cuối thì mỗi lần có thông báo là `lastProvenance` không được cập nhật, và
+    // lần đổi nguồn kế tiếp lại chạy nhánh dọn ô một lần nữa.
+    const nguonTruoc = lastProvenance.current;
+    lastProvenance.current = provenance;
+
     // Toast notify ONLY if there was a prior selection that got cleared
-    if (hadPriorSelection && lastProvenance.current !== '') {
+    if (hadPriorSelection && nguonTruoc !== '') {
       const source =
-        lastProvenance.current === CaseProvenance.FROM_PETITION
+        nguonTruoc === CaseProvenance.FROM_PETITION
           ? 'Đơn thư gốc'
           : 'Vụ việc gốc';
       setToast(`Đã bỏ lựa chọn ${source}. Có thể chọn lại nếu đổi nguồn về cũ.`);
       const t = setTimeout(() => setToast(null), 4000);
       return () => clearTimeout(t);
     }
-
-    lastProvenance.current = provenance;
   }, [provenance]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!provenance) {
