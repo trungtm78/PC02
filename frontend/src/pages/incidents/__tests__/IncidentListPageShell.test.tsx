@@ -474,7 +474,11 @@ describe('IncidentListPageShell — bố cục theo hệ cũ', () => {
       .map((h) => (h.textContent ?? '').trim())
       .filter((t) => t.length > 0);
 
-    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
+    // Cập nhật 27/08/2026: bộ cột trên KHÔNG đủ. Đo thẳng màn `/doi-1/vu-viec-da-phan-loai`
+    // của hệ cũ hôm nay thì nó có 9 cột, và cột thứ ba là "Nguồn đơn/Đơn vị giao" — cột mà
+    // bản trước bỏ sót. Dữ liệu đã nằm sẵn ở `chuyenTuDonVi` (3.454 hồ sơ) nhưng danh sách
+    // chưa bao giờ hiện, nên cán bộ phải mở từng hồ sơ ra mới biết hồ sơ từ đâu tới.
+    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
   });
 
   it('cột hệ cũ KHÔNG có thì ẩn sẵn, bật lại được từ menu chọn cột', async () => {
