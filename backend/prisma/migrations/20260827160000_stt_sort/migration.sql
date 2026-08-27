@@ -17,7 +17,10 @@ LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE
-    WHEN ma ~ '^[0-9]{4}-[0-9]+$'
+    -- Giới hạn 7 chữ số: hậu tố dài hơn thì phép nhân dưới đây tràn sang phần NĂM và cho
+    -- ra thứ tự sai, còn hậu tố quá lớn làm `bigint` tràn và CHẶN cả lệnh ghi. Mã thật
+    -- lớn nhất là 5 chữ số (2026-11171), nên ngưỡng này không cắt của ai thứ gì.
+    WHEN ma ~ '^[0-9]{4}-[0-9]{1,7}$'
       THEN split_part(ma, '-', 1)::bigint * 10000000 + split_part(ma, '-', 2)::bigint
     ELSE NULL
   END
@@ -73,3 +76,10 @@ UPDATE "cases"     SET "sttSort" = pc02_stt_sort("caseCode")    WHERE "sttSort" 
 CREATE INDEX IF NOT EXISTS "petitions_sttSort_idx" ON "petitions" ("sttSort");
 CREATE INDEX IF NOT EXISTS "incidents_sttSort_idx" ON "incidents" ("sttSort");
 CREATE INDEX IF NOT EXISTS "cases_sttSort_idx"     ON "cases"     ("sttSort");
+
+-- Bù "Ngày đề xuất" cho hồ sơ tạo trên hệ mới trước 27/08/2026 (426 đơn thư).
+--
+-- Cột ấy nay vừa là cột HIỂN THỊ vừa là cột LỌC theo kỳ. Bỏ trống thì hồ sơ biến mất khỏi
+-- mọi bộ lọc theo ngày — cán bộ lọc một khoảng và không thấy hồ sơ mình vừa nhập.
+UPDATE "petitions" SET "ngayDeXuat" = "receivedDate"
+  WHERE "ngayDeXuat" IS NULL AND "receivedDate" IS NOT NULL;

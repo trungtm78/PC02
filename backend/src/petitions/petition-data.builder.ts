@@ -84,7 +84,10 @@ export function buildPetitionCreateData(
     lanhDaoToTung: dto.lanhDaoToTung,
     ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
     // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
-    ngayDeXuat: toDate(dto.ngayDeXuat),
+    // Cột "Ngày đề xuất" trên danh sách hiện trường này, và bộ lọc theo kỳ cũng lọc nó.
+    // Cán bộ không điền thì rơi về ngày tiếp nhận — bỏ trống là hồ sơ biến mất khỏi mọi
+    // bộ lọc theo ngày, đúng cách 426 đơn thư tạo trên hệ mới đã rơi ra ngoài.
+    ngayDeXuat: toDate(dto.ngayDeXuat) ?? new Date(dto.receivedDate),
     phanLoaiNguonTin: dto.phanLoaiNguonTin,
     dieuTraVien: dto.dieuTraVien,
     donViGiaiQuyet: dto.donViGiaiQuyet,

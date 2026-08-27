@@ -126,3 +126,49 @@ describe('Cột sắp `sttSort` tính ở tầng cơ sở dữ liệu', () => {
     expect(noiDungDiTru()).toMatch(/UPDATE\s+"(petitions|incidents|cases)"/i);
   });
 });
+
+/**
+ * Hai bẫy codex bắt được sau khi bản vá đầu đã xanh hết ca kiểm — chốt lại để không quay lại.
+ */
+describe('Bẫy đã trả giá một lần', () => {
+  const thuMuc = path.join(GOC, 'backend/prisma/migrations');
+  const sql = fs
+    .readdirSync(thuMuc)
+    .filter((d) => d.includes('stt_sort'))
+    .map((d) => fs.readFileSync(path.join(thuMuc, d, 'migration.sql'), 'utf8'))
+    .join('\n');
+
+  /**
+   * Hậu tố quá dài làm `bigint` TRÀN, và Postgres không trả NULL — nó ném lỗi, tức CHẶN cả
+   * lệnh ghi. Một mã méo nhập vào từ Excel sẽ làm hỏng nguyên lần nhập.
+   */
+  it('công thức chặn hậu tố quá dài thay vì để bigint tràn', () => {
+    expect(sql).toMatch(/\[0-9\]\{1,7\}/);
+    expect(sql).not.toMatch(/\[0-9\]\+\$/);
+  });
+
+  /**
+   * Bộ lọc theo kỳ phải lọc ĐÚNG cột mà bảng đang hiện. Lọc cột khác thì hồ sơ có ngày hiện
+   * nằm trong khoảng vẫn bị loại — với Đơn thư là 29.026 hồ sơ có hai ngày lệch nhau.
+   */
+  it.each([
+    ['Đơn thư', 'backend/src/petitions/petitions.service.ts'],
+    ['Vụ việc', 'backend/src/incidents/incidents.service.ts'],
+    ['Vụ án', 'backend/src/cases/cases.service.ts'],
+  ])('%s: bộ lọc theo kỳ lọc `ngayDeXuat`, cùng cột với bảng đang hiện', (_ten, duong) => {
+    const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
+    const goi = src.match(/apDungKyVaoWhere\([^;]*;/g) ?? [];
+    expect(goi.length).toBeGreaterThan(0);
+    for (const g of goi) expect(g).toContain("'ngayDeXuat'");
+  });
+
+  /** Hồ sơ tạo trên hệ mới cũng phải có ngày ấy, nếu không nó rơi khỏi mọi bộ lọc theo ngày. */
+  it('Đơn thư: đường TẠO luôn điền `ngayDeXuat`', () => {
+    const src = fs.readFileSync(path.join(GOC, 'backend/src/petitions/petition-data.builder.ts'), 'utf8');
+    expect(src).toMatch(/ngayDeXuat:[^,]*\?\?/);
+  });
+
+  it('có lệnh bù `ngayDeXuat` cho hồ sơ cũ', () => {
+    expect(sql).toMatch(/UPDATE\s+"petitions"\s+SET\s+"ngayDeXuat"/i);
+  });
+});

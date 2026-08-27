@@ -138,7 +138,10 @@ export class PetitionsService {
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
     const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
+    // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
+    // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
+    // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -1864,7 +1867,7 @@ export class PetitionsService {
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
     const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'receivedDate');
+    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };
