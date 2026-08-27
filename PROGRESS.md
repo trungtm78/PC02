@@ -37,6 +37,22 @@ Anh chỉ ra trên ảnh chụp hệ cũ. Đo lại: hỏng thật, và hỏng h
 | Lọc Vụ án "Đội 8" | ra đúng |
 | Vụ việc (hồi quy) | không đổi |
 
+### Dọn số điện thoại đã chạy trên máy thật — 27/08 21:30
+
+Sao lưu trước: `/home/pc02/backups/pre-don-sdt-20260827-213021.sql.gz` (71 MB, ba bảng).
+
+| Màn | Quét | Xoá ký hiệu "không có" | Chuẩn hoá | Giữ lại vì không đoán được |
+|---|---|---|---|---|
+| Đơn thư | 2.881 | 3 | 0 | 114 |
+| Vụ việc | 781 | **756** | 5 | 0 |
+| Vụ án | 597 | **518** | 8 | 1 |
+
+Trước khi cho chạy, em soi đủ danh sách sẽ xoá: **không có một số thật nào** — toàn `0`
+(431 + 466 lần), `"không có"`, `0000`, `000`, `00`, `...`, `.`. Con số 293 đo lúc đầu chỉ
+đếm ô không chứa chữ số nào; họ `0`/`0000` cũng là ký hiệu để trống của hệ cũ.
+
+Chạy lại lần hai: **0 thay đổi** — đúng tính bình ổn. Máy thật khoẻ.
+
 ### Đã đo, KHÔNG phải lỗi
 
 **514/4.717 vụ việc trống ô "Đơn vị giải quyết"** — bản gốc hệ cũ (`don_vi_giai_quyet`) cũng
