@@ -74,7 +74,7 @@ export function PetitionFormPage() {
   const { data: teamOptions = [] } = useTeamOptions();
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
   const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(
-    () => computeFormErrors(formData, effectiveEdit).fields,
+    () => computeFormErrors(formData, effectiveEdit, legacyRaw !== null).fields,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
@@ -298,7 +298,7 @@ export function PetitionFormPage() {
 
   const validateForm = (): boolean => {
     // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
-    const { msgs } = computeFormErrors(formData, effectiveEdit);
+    const { msgs } = computeFormErrors(formData, effectiveEdit, legacyRaw !== null);
     setErrors(msgs);
     return msgs.length === 0;
   };
