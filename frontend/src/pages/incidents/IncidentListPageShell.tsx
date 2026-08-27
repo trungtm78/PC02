@@ -113,6 +113,8 @@ interface IncidentRow {
   deadline?: string | null;
   investigator?: { firstName?: string; lastName?: string; username: string } | null;
   donViGiaiQuyet?: string | null;
+  /** Nguồn đơn / đơn vị giao — cột thứ ba của danh sách hệ cũ. */
+  chuyenTuDonVi?: string | null;
   ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt?: string;
@@ -483,6 +485,18 @@ export function IncidentListPageShell() {
         optional: 'show',
         sortKey: 'ngayDeXuat',
         render: (r) => <DateCell value={r.ngayDeXuat} />,
+      },
+
+      {
+        // Cột thứ ba của danh sách hệ cũ. Dữ liệu đã có sẵn ở `chuyenTuDonVi` (3.454 hồ sơ,
+        // đo 27/08/2026) nhưng danh sách chưa bao giờ hiện — cán bộ quen nhìn cột này để biết
+        // hồ sơ từ đâu tới, mất nó là phải mở từng hồ sơ ra mới biết.
+        key: 'chuyenTuDonVi',
+        header: 'Nguồn đơn/Đơn vị giao',
+        width: '10rem',
+        optional: 'show',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => <span className="text-slate-700">{r.chuyenTuDonVi || '—'}</span>,
       },
 
       {

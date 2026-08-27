@@ -221,6 +221,9 @@ export class IncidentsService {
           loaiDonVu: true,
           benVu: true,
           donViGiaiQuyet: true,
+          // Cột "Nguồn đơn/Đơn vị giao" của danh sách hệ cũ. Không khai ở đây thì cột trên
+          // màn hình luôn rỗng dù dữ liệu có đủ — truy vấn dùng `select` tường minh.
+          chuyenTuDonVi: true,
           ngayDeXuat: true,
           ketQuaXuLy: true,
           tinhTrangHoSo: true,
