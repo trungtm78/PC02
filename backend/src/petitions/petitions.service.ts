@@ -124,7 +124,11 @@ export class PetitionsService {
     }
 
     if (unit) {
-      where.unit = { contains: unit, mode: 'insensitive' };
+      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN và
+      // rỗng ở toàn bộ 46.660 đơn thư, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
+      // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
+      // vẫn dùng được.
+      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
     }
 
     if (senderName) {
@@ -1347,7 +1351,8 @@ export class PetitionsService {
     }
 
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    if (query.unitId) where.unit = query.unitId;
+    // Cùng lý do: cột `unit` rỗng ở mọi đơn thư nên lọc trên nó trả về danh sách trắng.
+    if (query.unitId) where.donViGiaiQuyet = query.unitId;
     if (query.fromDate || query.toDate) {
       where.createdAt = {};
       if (query.fromDate) (where.createdAt as Prisma.DateTimeFilter).gte = new Date(query.fromDate);
@@ -1838,7 +1843,9 @@ export class PetitionsService {
       ];
     }
 
-    if (unit) where.unit = { contains: unit, mode: 'insensitive' };
+    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — lọc lệch cột thì số trên thẻ
+    // và số dòng dưới bảng không khớp nhau.
+    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
     if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng

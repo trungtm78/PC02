@@ -245,10 +245,10 @@ export function PetitionListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
       ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
-      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. Trước 27/08/2026 nó lọc
-      // `unit` — cột rỗng hoàn toàn — nên bộ lọc không bao giờ ra kết quả, và cán bộ
-      // tưởng đơn vị ấy không có hồ sơ nào.
-      ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
+      // Giữ TÊN THAM SỐ `unit` — máy chủ chỉ nhận đúng bộ khoá đã khai (`forbidNonWhitelisted`),
+      // gửi khoá lạ là hỏng cả yêu cầu. Việc lọc trên cột nào là chuyện của máy chủ, và từ
+      // 27/08/2026 nó lọc `donViGiaiQuyet` — cột thật sự có dữ liệu.
+      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
       // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
       // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
       ...(appliedFilters.stt && { stt: appliedFilters.stt }),

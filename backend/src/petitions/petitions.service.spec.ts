@@ -1415,7 +1415,10 @@ describe('PetitionsService', () => {
       await service.exportWardPetitions({ unitId: 'unit-q1' }, null, mockRes);
 
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
-      expect(callArgs.where.unit).toBe('unit-q1');
+      // 27/08/2026: lọc trên `donViGiaiQuyet` chứ không phải `unit`. `unit` là đơn vị TIẾP
+      // NHẬN và rỗng ở toàn bộ 46.660 đơn thư, nên hợp đồng cũ chốt một bộ lọc không bao giờ
+      // ra kết quả.
+      expect(callArgs.where.donViGiaiQuyet).toBe('unit-q1');
     });
 
     it('B3: filters by fromDate/toDate on createdAt (mirror Incidents ward export semantics)', async () => {

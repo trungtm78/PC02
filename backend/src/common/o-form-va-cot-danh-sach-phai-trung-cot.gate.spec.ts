@@ -94,13 +94,48 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
     },
   );
 
-  /** Bộ lọc phải lọc trên đúng cột danh sách đang hiện, nếu không nó không bao giờ ra kết quả. */
-  it('bộ lọc Đơn thư lọc `donViGiaiQuyet`, không lọc `unit`', () => {
-    const src = fs.readFileSync(path.join(GOC, 'backend/src/petitions/petitions.service.ts'), 'utf8');
-    const i = src.indexOf('if (query.unit)');
+  /**
+   * Bộ lọc phải lọc trên ĐÚNG cột mà danh sách đang hiện — và phải đúng ở CẢ hàm dựng danh
+   * sách lẫn hàm đếm thẻ thống kê.
+   *
+   * Bản đầu của cổng này chỉ dò chuỗi `if (query.unit)` trên cả tệp, và chuỗi ấy trúng
+   * `exportToExcel` chứ không trúng `getList` — nên nó xanh trong khi bộ lọc của danh sách
+   * vẫn hỏng. Nay cắt đúng thân hàm rồi mới soi.
+   */
+  const THAN = (duong: string, ten: string): string => {
+    const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
+    const i = src.indexOf(`async ${ten}(`);
     expect(i).toBeGreaterThan(0);
-    const khoi = src.slice(i, src.indexOf('}', i));
-    expect(khoi).toContain('where.donViGiaiQuyet');
-    expect(khoi).not.toContain('where.unit =');
+    const j = src.indexOf('\n  async ', i + 10);
+    return src.slice(i, j > 0 ? j : undefined);
+  };
+
+  it.each([
+    ['Đơn thư', 'backend/src/petitions/petitions.service.ts', 'getList'],
+    ['Đơn thư', 'backend/src/petitions/petitions.service.ts', 'getStats'],
+    ['Vụ án', 'backend/src/cases/cases.service.ts', 'getList'],
+    ['Vụ án', 'backend/src/cases/cases.service.ts', 'getStats'],
+  ])('%s · %s lọc `donViGiaiQuyet`, không lọc `unit`', (_ten, duong, ham) => {
+    const than = THAN(duong, ham as string);
+    expect(than).toContain('where.donViGiaiQuyet');
+    expect(than).not.toMatch(/where\.unit\s*=/);
+  });
+
+  /**
+   * SỬA hồ sơ cũng phải ghi được cột ấy. Thiếu nhánh trong `update` thì cán bộ sửa, bấm Lưu,
+   * nhận báo thành công — và giá trị cũ vẫn nguyên. Máy chủ không báo lỗi gì vì DTO nhận
+   * trường, chỉ là không ai đem nó đi ghi.
+   */
+  it.each([
+    ['Đơn thư', 'backend/src/petitions/petition-data.builder.ts'],
+    ['Vụ án', 'backend/src/cases/cases.service.ts'],
+  ])('%s: đường TẠO ghi `donViGiaiQuyet`', (_ten, duong) => {
+    const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
+    expect(src).toContain('donViGiaiQuyet: dto.donViGiaiQuyet');
+  });
+
+  it('Vụ án: đường SỬA ghi `donViGiaiQuyet`', () => {
+    const than = THAN('backend/src/cases/cases.service.ts', 'update');
+    expect(than).toContain('donViGiaiQuyet: dto.donViGiaiQuyet');
   });
 });
