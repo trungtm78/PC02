@@ -29,6 +29,27 @@ export interface BuildIncidentPayloadOptions {
   parityState: Record<string, unknown>;
 }
 
+/** Hạn độ dài của cột `name` ở lớp DTO (`@MaxLength`). */
+const HAN_DO_DAI_TEN = 255;
+
+/**
+ * Cắt tên vụ việc cho vừa hạn của máy chủ.
+ *
+ * Hệ cũ có MỘT ô nội dung, và bộ di trú đổ nguyên chữ ấy vào cả `name` lẫn `description`: đo
+ * trên máy chạy 27/08/2026 có 4.530/4.717 hồ sơ (96%) mang tên dài quá 255 ký tự, cá biệt tới
+ * 30.691. Gửi nguyên lên là máy chủ trả 400 — tức gần như KHÔNG vụ việc di trú nào lưu được.
+ *
+ * Cắt ở đây KHÔNG mất dữ liệu: toàn văn vẫn nằm ở `description`, và `name` vốn chỉ là tiêu đề
+ * hiện trên danh sách. Cắt ở ranh giới từ để tiêu đề không đứt giữa chữ.
+ */
+export function tenNganGon(v: string): string {
+  const t = v.trim();
+  if (t.length <= HAN_DO_DAI_TEN) return t;
+  const cat = t.slice(0, HAN_DO_DAI_TEN);
+  const khoangTrang = cat.lastIndexOf(' ');
+  return (khoangTrang > HAN_DO_DAI_TEN * 0.6 ? cat.slice(0, khoangTrang) : cat).trim();
+}
+
 export function buildIncidentPayload(
   formData: IncidentFormData,
   opts: BuildIncidentPayloadOptions,
@@ -56,7 +77,7 @@ export function buildIncidentPayload(
     // Ở đây KHÔNG được lấy `description` đè lên `name`: 119 hồ sơ (2,5%) có tên riêng khác
     // tóm tắt, và làm thế nghĩa là cán bộ mở hồ sơ ra, không sửa gì, bấm Lưu — và hồ sơ bị
     // đổi tên. Đổi dữ liệu im lặng, không ai biết để phục hồi.
-    name: formData.name || formData.description,
+    name: tenNganGon(formData.name || formData.description),
     incidentType: oHeCu(formData.incidentType),
     description: oHeCu(formData.description),
     fromDate: oHeCu(formData.fromDate),
