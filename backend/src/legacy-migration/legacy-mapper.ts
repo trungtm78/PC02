@@ -327,6 +327,12 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
     senderAddress: s(rec['dia-chi-bi-hai']),
     suspectedPerson: s(rec.nghi_van_doi_tuong),
     summary: s(rec.tom_tat_noi_dung),
+    // Hệ cũ có ĐÚNG MỘT ô nội dung (`tom_tat_noi_dung`), form hệ mới hiện nó ở ô
+    // "Tóm tắt nội dung" — ô ấy đọc `detailContent`, còn `summary` bị ẩn và được suy lại từ
+    // `detailContent` mỗi lần lưu. Chỉ đổ vào `summary` thì cán bộ mở hồ sơ di trú ra thấy ô
+    // nội dung TRẮNG dù chữ vẫn nằm trong bảng, và bấm Lưu thì bị chặn vì "Nội dung là bắt
+    // buộc". Đo trên máy chạy 27/08/2026: cả 46.499 hồ sơ di trú đều vướng.
+    detailContent: s(rec.tom_tat_noi_dung),
     attachmentsNote: s(rec.do_vat_tai_lieu_kem_theo),
     nguonDon: s(rec.nguon_don),
     loaiThongTin: s(rec.loai_thong_tin),
