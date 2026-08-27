@@ -15,7 +15,9 @@ import {
 const REC: LegacyRecord = {
   id: 'GM-1',
   ten_ca_nhan_co_quan_to_chuc_cung_cap: 'NGUOI_GUI',
-  so_dien_thoai_nguyen_don: 'SDT',
+  // Số thật, không phải chuỗi nhận diện: ô này nay ĐI QUA bộ đọc số điện thoại hệ cũ, và một
+  // chuỗi không có chữ số nào bị coi là ký hiệu "không có" — đúng như 4.693 hồ sơ trên máy chạy.
+  so_dien_thoai_nguyen_don: '0912345678',
   sinh_nam_nguoi_to_giac: '1990',
   so_cccd_nguyen_don: 'CCCD',
   ngay_cap_cccd_nguyen_don: '01/01/2020',
@@ -87,7 +89,7 @@ describe('EXPERT golden-master — Petition builder (ánh xạ từng cột)', (
   const p = decomposeLegacyRecord({ ...REC, phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' }).petition!;
   it('map đúng các cột Petition', () => {
     expect(p.senderName).toBe('NGUOI_GUI');
-    expect(p.senderPhone).toBe('SDT');
+    expect(p.senderPhone).toBe('0912345678');
     expect(p.senderBirthYear).toBe('1990');
     expect(p.senderIdNumber).toBe('CCCD');
     expect(p.senderIdIssueDate).toEqual(parseLegacyDate('01/01/2020'));
@@ -125,7 +127,7 @@ describe('EXPERT golden-master — Incident builder (ánh xạ từng cột)', (
   it('map đúng các cột Incident', () => {
     expect(i.description).toBe('TOM_TAT');
     expect(i.diaChiXayRa).toBe('NOI_XAY_RA');
-    expect(i.sdtNguoiToGiac).toBe('SDT');
+    expect(i.sdtNguoiToGiac).toBe('0912345678');
     expect(i.cmndNguoiToGiac).toBe('CCCD');
     expect(i.benVu).toBe('NGUOI_GUI');
     expect(i.doiTuongCaNhan).toBe('NGHI_VAN');
@@ -234,7 +236,7 @@ describe('EXPERT golden-master — tier③ builders + UTDT', () => {
   it('Guidance map đúng', () => {
     const g = decomposeLegacyRecord({ ...REC, phan_loai_nguon_tin_ban_dau: 'huong-dan-ban-dau' }).guidance!;
     expect(g.guidedPerson).toBe('NGUOI_GUI');
-    expect(g.guidedPersonPhone).toBe('SDT');
+    expect(g.guidedPersonPhone).toBe('0912345678');
     expect(g.subject).toBe('LOAI_TT');
     expect(g.guidanceContent).toBe('TOM_TAT');
     expect(g.unit).toBe('DON_VI_GQ');
@@ -257,7 +259,7 @@ describe('EXPERT golden-master — tier③ builders + UTDT', () => {
   it('Lawyer map đúng', () => {
     const lw = decomposeLegacyRecord({ ...REC, phan_loai_nguon_tin_ban_dau: 'luat-su' }).lawyer!;
     expect(lw.fullName).toBe('NGUOI_GUI');
-    expect(lw.phone).toBe('SDT');
+    expect(lw.phone).toBe('0912345678');
   });
   it('UTDT Case map đúng cột ủy thác + caseType', () => {
     const c = decomposeLegacyRecord({

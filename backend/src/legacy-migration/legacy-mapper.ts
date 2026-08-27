@@ -1,6 +1,7 @@
 // Lõi di trú: map 1 record hệ thống cũ (132 field flat, tên cột cũ) → các entity mới CÓ LIÊN KẾT.
 // Thuần (testable). Tội danh trả về crimeChinhLegacyValue (số) — commit resolve sang crimeChinhId qua master Crime.
 import { PARITY, type Entity as ParityEntity } from './field-parity.def';
+import { docSoDienThoaiHeCu } from './so-dien-thoai-he-cu';
 
 export type LegacyRecord = Record<string, unknown>;
 
@@ -287,6 +288,20 @@ const ownership = (rec: LegacyRecord) => ({
  *
  * "0 người" hay "0 đồng" viết kèm đơn vị thì giữ lại: đó là cán bộ CHỦ Ý ghi số không.
  */
+/**
+ * Số điện thoại hệ cũ sau khi đã bỏ ký hiệu "không có" và dấu phân cách.
+ *
+ * Trả `undefined` khi ô ấy không phải số — `clean()` sẽ bỏ khoá, nên cột để trống thay vì
+ * mang một chuỗi mà chính hệ mới từ chối.
+ */
+export function soDienThoaiSachHeCu(v: unknown): string | undefined {
+  const raw = s(v);
+  const doc = docSoDienThoaiHeCu(raw ?? null);
+  if (doc.loai === 'khong-co') return undefined;
+  if (doc.loai === 'chuan-hoa') return doc.giaTri;
+  return raw;
+}
+
 export function parseLegacySoLieu(v: unknown): number | undefined {
   const raw = s(v);
   if (raw === undefined) return undefined;
@@ -319,7 +334,10 @@ function buildPetition(rec: LegacyRecord): Record<string, unknown> {
     enteredById: own.enteredById,
     assignedTeamId: own.assignedTeamId,
     senderName: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
-    senderPhone: s(rec.so_dien_thoai_nguyen_don),
+    // Hệ cũ để gõ tự do: 4.693 hồ sơ mang KÝ HIỆU "không có" (`...`, `0000`, `Không`) thay vì
+    // số. Đổ thẳng vào thì hồ sơ mở ra bị chặn Lưu bởi một ô cán bộ không có gì để sửa cho
+    // đúng. Xem `so-dien-thoai-he-cu.ts`.
+    senderPhone: soDienThoaiSachHeCu(rec.so_dien_thoai_nguyen_don),
     senderBirthYear: s(rec.sinh_nam_nguoi_to_giac),
     senderIdNumber: s(rec.so_cccd_nguyen_don),
     senderIdIssueDate: parseLegacyDate(rec.ngay_cap_cccd_nguyen_don),
