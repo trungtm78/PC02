@@ -62,30 +62,42 @@ export function sapXepCot<TRow>(
   // Bộ so sánh trộn hai loại (có vị trí / không có vị trí) không có thứ tự toàn phần, nên kết
   // quả phụ thuộc cặp nào được so trước — đúng chỗ bản đầu sai. Đặt chỗ thì luật đọc thẳng ra
   // được, và cột MỚI thêm vào mã lấp vào khe trống theo chỗ khai chứ không nhảy xuống cuối.
+  // ── Đặt chỗ ──
+  //
+  // Cột có `position` chiếm đúng khe ấy. Cột KHÔNG có `position` lấp vào chỗ NGAY SAU người
+  // hàng xóm liền trước nó trong mã — chứ không dồn xuống cuối.
+  //
+  // Vì sao không dồn xuống cuối: `ganViTri` gán `position` cho MỌI cột sau một lần đổi chỗ,
+  // nên cột lập trình viên thêm vào mã SAU đó luôn là cột duy nhất không có `position`. Dồn
+  // xuống cuối nghĩa là mọi cột mới đều rơi ra rìa phải — chỗ phải cuộn ngang mới thấy — với
+  // tất cả cán bộ đã từng đổi chỗ một lần. Codex bắt 28/08/2026.
+  //
+  // Vị trí hiệu lực = vị trí của cột có `position` gần nhất đứng TRƯỚC nó trong mã, cộng thêm
+  // một nửa bậc. Nhờ vậy cột mới nằm đúng khu vực lập trình viên khai nó.
   const n = nhomDoiCho.length;
-  const daSap: Array<ColumnDef<TRow> | undefined> = new Array(n);
-  const coViTri = nhomDoiCho
-    .map((c, i) => ({ c, i, p: boCuc[c.key]?.position }))
-    .filter((x) => x.p !== undefined)
-    .sort((x, y) => (x.p as number) - (y.p as number));
-  const khongViTri = nhomDoiCho.filter((c) => boCuc[c.key]?.position === undefined);
-
-  for (const x of coViTri) {
-    let k = Math.min(Math.max(x.p as number, 0), n - 1);
-    // Hai cột cùng một vị trí (bố cục cũ, hoặc sửa tay) — đẩy xuống khe trống kế tiếp thay vì
-    // ghi đè và làm mất một cột.
-    while (k < n && daSap[k] !== undefined) k++;
-    if (k >= n) {
-      k = daSap.findIndex((v) => v === undefined);
-      if (k < 0) continue;
+  let truoc = -0.5;
+  const hieuLuc = nhomDoiCho.map((c, i) => {
+    const p = boCuc[c.key]?.position;
+    if (p !== undefined) {
+      truoc = p;
+      // `suy: 0` = người dùng đặt tường minh.
+      return { c, i, p, suy: 0 };
     }
-    daSap[k] = x.c;
-  }
-  let j = 0;
-  for (const c of khongViTri) {
-    while (j < n && daSap[j] !== undefined) j++;
-    if (j >= n) break;
-    daSap[j] = c;
+    truoc += 0.5;
+    return { c, i, p: truoc, suy: 1 };
+  });
+
+  const daSap: Array<ColumnDef<TRow> | undefined> = new Array(n);
+  // Hoà điểm thì vị trí NGƯỜI DÙNG ĐẶT thắng vị trí suy ra: cột suy ra chỉ nên chen vào SAU
+  // người hàng xóm của nó, không được đẩy chính người hàng xóm ấy đi.
+  const theoThuTu = [...hieuLuc].sort(
+    (x, y) => x.p - y.p || x.suy - y.suy || x.i - y.i,
+  );
+  let khe2 = 0;
+  for (const x of theoThuTu) {
+    while (khe2 < n && daSap[khe2] !== undefined) khe2++;
+    if (khe2 >= n) break;
+    daSap[khe2] = x.c;
   }
 
   const ra = [...columns];

@@ -139,10 +139,12 @@ export function useBoCucCot<TRow>(
           // nhánh "máy chủ đã có" ở trên sẽ chặn.
         }
       },
-      onError: () => {
-        // Hỏng thì cho phép thử lại ở lần mở trang sau.
-        daDay.current = false;
-      },
+      // KHÔNG mở lại `daDay` ở nhánh lỗi. Mở lại thì: hỏng → `onSettled` làm tải lại → dữ liệu
+      // mới → hiệu ứng chạy lại → thử lại → hỏng… vòng vô tận nện máy chủ. CI bắt được
+      // 28/08/2026 (ca kiểm quá hạn 20 giây).
+      //
+      // "Lần sau còn thử lại" nghĩa là LẦN MỞ TRANG SAU: `daDay` chỉ sống trong một lần gắn,
+      // còn cờ bền trong trình duyệt vẫn chưa đặt, nên lần vào sau tự khắc thử lại.
     });
   }, [tatCa, tableKey, luu]);
 

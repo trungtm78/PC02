@@ -214,3 +214,51 @@ describe('Đọc lựa chọn cũ trong trình duyệt để chuyển lên máy 
     localStorage.removeItem(khoaDaChuyen('petitions'));
   });
 });
+
+/**
+ * CỔNG (Codex vòng 2, 28/08/2026): ca "cột mới không nhảy xuống cuối" trước đây kiểm ở trạng
+ * thái KHÔNG THỰC TẾ — chỉ một cột có `position`.
+ *
+ * Thực tế: `ganViTri` gán `position` cho MỌI cột ngay lần đổi chỗ đầu tiên. Nên cột lập trình
+ * viên thêm vào mã sau đó luôn là cột DUY NHẤT không có `position`. Nếu luật là "cột không có
+ * vị trí dồn xuống cuối" thì mọi cột mới đều rơi ra rìa phải — chỗ phải cuộn ngang mới thấy —
+ * với tất cả cán bộ đã từng đổi chỗ một lần.
+ */
+describe('Cột mới thêm vào mã, SAU khi người dùng đã đổi chỗ', () => {
+  const cot = (key: string, o: Partial<ColumnDef<Row>> = {}): ColumnDef<Row> => ({
+    key,
+    header: key,
+    render: () => key,
+    optional: 'show',
+    ...o,
+  });
+
+  /** Trạng thái thật sau một lần kéo thả: mọi cột đổi-chỗ-được đều mang `position`. */
+  const SAU_KHI_DOI_CHO = { c: { position: 0 }, a: { position: 1 }, b: { position: 2 } };
+
+  it('cột mới khai GIỮA hai cột nằm đúng khu vực ấy, không rơi xuống cuối', () => {
+    const cotMoi = [cot('a'), cot('moi'), cot('b'), cot('c')];
+    const ra = apDungBoCuc(cotMoi, SAU_KHI_DOI_CHO).map((x) => x.key);
+    // Thứ tự người dùng đặt: c, a, b. `moi` khai ngay sau `a` trong mã → nằm ngay sau `a`.
+    expect(ra).toEqual(['c', 'a', 'moi', 'b']);
+  });
+
+  it('cột mới khai ĐẦU danh sách vẫn ra trước, không rơi xuống cuối', () => {
+    const cotMoi = [cot('moi'), cot('a'), cot('b'), cot('c')];
+    const ra = apDungBoCuc(cotMoi, SAU_KHI_DOI_CHO).map((x) => x.key);
+    expect(ra.indexOf('moi')).toBeLessThan(ra.indexOf('b'));
+  });
+
+  it('không cột nào bị mất khi thêm cột mới', () => {
+    const cotMoi = [cot('a'), cot('moi'), cot('b'), cot('c')];
+    expect(apDungBoCuc(cotMoi, SAU_KHI_DOI_CHO)).toHaveLength(4);
+  });
+
+  /** Thêm cột mới KHÔNG được làm xáo thứ tự người dùng đã đặt cho các cột cũ. */
+  it('thứ tự người dùng đặt cho cột cũ giữ nguyên', () => {
+    const cotMoi = [cot('a'), cot('moi'), cot('b'), cot('c')];
+    const ra = apDungBoCuc(cotMoi, SAU_KHI_DOI_CHO).map((x) => x.key);
+    const chiCotCu = ra.filter((k) => k !== 'moi');
+    expect(chiCotCu).toEqual(['c', 'a', 'b']);
+  });
+});

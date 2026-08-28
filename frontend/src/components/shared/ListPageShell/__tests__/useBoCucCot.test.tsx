@@ -222,9 +222,13 @@ describe('useBoCucCot — lỗi Codex bắt được', () => {
 
     renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
     await waitFor(() => expect(api.luu).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 60));
     // Đặt cờ trước khi lưu xong thì lựa chọn cũ của cán bộ mất hẳn, không lần nào thử lại.
     expect(localStorage.getItem(khoaDaChuyen('petitions'))).toBeNull();
+    // ...NHƯNG chỉ thử ĐÚNG MỘT LẦN trong lần mở trang này. Mở lại cờ ở nhánh lỗi thì hỏng →
+    // tải lại → chạy lại hiệu ứng → thử lại → hỏng, vòng vô tận nện máy chủ. CI bắt được bằng
+    // ca kiểm quá hạn 20 giây, trong khi máy cục bộ chạy nhanh nên xanh.
+    expect(api.luu).toHaveBeenCalledTimes(1);
   });
 
   /** Menu lấy thứ tự khai trong mã thì sau một lần dời, nút dời kế tiếp trỏ sai chỗ. */
