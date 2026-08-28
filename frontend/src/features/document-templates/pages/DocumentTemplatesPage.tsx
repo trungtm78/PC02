@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Pencil, Trash2, MoreVertical, Plus } from 'lucide-react';
-import { listTemplates, downloadTemplateFile, updateTemplate } from '../api';
+import { listTemplates, downloadTemplateFile, updateTemplate, doiTrangThaiTemplate } from '../api';
 import type { DocumentTemplate } from '../types';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { DropdownMenu, DropdownItem } from '@/components/shared/DropdownMenu';
 import { Button } from '@/components/ui/button';
 import { BTN_ICON_BLUE, BTN_ICON_SLATE } from '@/constants/styles';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+
+/**
+ * Nhãn vòng đời. Nháp và Đã thu hồi KHÔNG hiện trong popup In chứng từ của cán bộ — chỉ `active`
+ * mới tới tay họ.
+ */
+const NHAN_TRANG_THAI: Record<string, { chu: string; lop: string }> = {
+  draft: { chu: 'Nháp', lop: 'bg-slate-100 text-slate-700' },
+  active: { chu: 'Đang dùng', lop: 'bg-emerald-100 text-emerald-800' },
+  archived: { chu: 'Đã thu hồi', lop: 'bg-amber-100 text-amber-800' },
+};
 
 const ENTITY_LABEL: Record<string, string> = {
   VU_AN: 'Vụ án',
@@ -27,7 +37,9 @@ export default function DocumentTemplatesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listTemplates({ entityType: entityFilter || undefined, status: 'active' }));
+      // Lấy ĐỦ mọi trạng thái: màn quản trị phải thấy cả bản nháp và bản đã thu hồi, nếu không
+      // thì ban hành một bản nháp là việc không ai làm được từ giao diện.
+      setItems(await listTemplates({ entityType: entityFilter || undefined }));
     } finally {
       setLoading(false);
     }
@@ -56,6 +68,32 @@ export default function DocumentTemplatesPage() {
       );
     } finally {
       // Chỉ nhả khoá nếu chính dòng này đang giữ — dòng khác gửi sau thì để nó tự nhả.
+      setBusyId((dang) => (dang === t.id ? null : dang));
+    }
+  }
+
+  /**
+   * Ban hành / thu hồi mẫu.
+   *
+   * Đây là công tắc DUY NHẤT quyết định mẫu có hiện trong popup In chứng từ của cán bộ hay
+   * không, nên hỏi lại trước khi đổi — ban hành nhầm là cả cơ quan nhìn thấy ngay.
+   */
+  async function doiTrangThai(t: DocumentTemplate, sang: 'draft' | 'active' | 'archived') {
+    if (busyId === t.id) return;
+    const loi =
+      sang === 'active'
+        ? `Ban hành "${t.name}"? Mọi cán bộ sẽ thấy mẫu này khi in chứng từ.`
+        : sang === 'archived'
+          ? `Thu hồi "${t.name}"? Cán bộ sẽ không còn thấy mẫu này. Lịch sử in vẫn giữ nguyên.`
+          : `Đưa "${t.name}" về nháp? Cán bộ sẽ không còn thấy mẫu này.`;
+    if (!window.confirm(loi)) return;
+    setBusyId(t.id);
+    try {
+      await doiTrangThaiTemplate(t.id, sang);
+      setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, status: sang } : x)));
+    } catch {
+      alert('Không đổi được trạng thái. Vui lòng thử lại.');
+    } finally {
       setBusyId((dang) => (dang === t.id ? null : dang));
     }
   }
@@ -120,6 +158,7 @@ export default function DocumentTemplatesPage() {
               <th className="px-3 py-2.5 text-left font-medium">Loại</th>
               <th className="px-3 py-2.5 text-left font-medium">Danh mục</th>
               <th className="px-3 py-2.5 text-left font-medium">Cấp số</th>
+              <th className="px-3 py-2.5 text-left font-medium">Trạng thái</th>
               <th className="px-3 py-2.5 text-left font-medium">Tích sẵn khi in</th>
               <th className="px-3 py-2.5 text-left font-medium">Biến</th>
               <th className="px-3 py-2.5 text-right font-medium">Thao tác</th>
@@ -133,6 +172,37 @@ export default function DocumentTemplatesPage() {
                 <td className="px-3 py-2.5">{ENTITY_LABEL[t.entityType] ?? t.entityType}</td>
                 <td className="px-3 py-2.5">{t.category}</td>
                 <td className="px-3 py-2.5">{t.needsNumber ? 'Có' : '—'}</td>
+                <td className="px-3 py-2.5">
+                  <span className="flex items-center gap-2">
+                    <span
+                      data-testid={`trang-thai-${t.id}`}
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${NHAN_TRANG_THAI[t.status]?.lop ?? 'bg-slate-100 text-slate-700'}`}
+                    >
+                      {NHAN_TRANG_THAI[t.status]?.chu ?? t.status}
+                    </span>
+                    {t.status !== 'active' ? (
+                      <button
+                        type="button"
+                        data-testid={`btn-ban-hanh-${t.id}`}
+                        disabled={busyId === t.id}
+                        onClick={() => void doiTrangThai(t, 'active')}
+                        className="text-xs font-medium text-emerald-700 underline underline-offset-2 hover:text-emerald-900 disabled:opacity-50"
+                      >
+                        Ban hành
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid={`btn-thu-hoi-${t.id}`}
+                        disabled={busyId === t.id}
+                        onClick={() => void doiTrangThai(t, 'archived')}
+                        className="text-xs font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900 disabled:opacity-50"
+                      >
+                        Thu hồi
+                      </button>
+                    )}
+                  </span>
+                </td>
                 <td className="px-3 py-2.5">
                   <button
                     type="button"
@@ -214,7 +284,7 @@ export default function DocumentTemplatesPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-400">
                   Chưa có mẫu chứng từ
                 </td>
               </tr>

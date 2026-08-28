@@ -77,3 +77,17 @@ export async function downloadTemplateFile(id: string): Promise<Blob> {
   const res = await api.get(`/document-templates/${id}/file`, { responseType: 'blob' });
   return res.data as Blob;
 }
+
+/**
+ * Đổi trạng thái vòng đời mẫu: ban hành (`active`), thu hồi (`archived`), đưa về nháp (`draft`).
+ *
+ * Popup In chứng từ chỉ hiện mẫu `active`, nên đây là công tắc duy nhất quyết định một mẫu có
+ * tới tay cán bộ hay không.
+ */
+export async function doiTrangThaiTemplate(
+  id: string,
+  status: 'draft' | 'active' | 'archived',
+): Promise<DocumentTemplate> {
+  const res = await api.patch<DocumentTemplate>(`/document-templates/${id}/trang-thai`, { status });
+  return res.data;
+}
