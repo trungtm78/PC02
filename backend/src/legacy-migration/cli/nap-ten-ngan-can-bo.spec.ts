@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { lenKeHoach, hoTenDayDu, type CanBoHeCu, type CanBoHeMoi } from './nap-ten-ngan-can-bo';
 
 const u = (id: string, lastName: string, firstName: string, shortName: string | null = null): CanBoHeMoi => ({
@@ -127,6 +129,26 @@ describe('Nạp chữ viết tắt cán bộ', () => {
       [{ id: '9', firstName: null, lastName: null, shortName: null }, u('1', 'Bùi Thanh', 'Trà')],
     );
     expect(kh.ghi).toHaveLength(1);
+  });
+
+  /**
+   * Bộ đọc phải LẤY đủ trường mà bộ lập kế hoạch ĐỌC.
+   *
+   * Lần chạy đầu trên máy thật: phép ghép theo dấu vết dựng xong, in ra "dấu vết 25" trông như
+   * đang hoạt động, mà 11 cán bộ trùng tên vẫn bị bỏ qua y nguyên — vì phép chiếu Mongo quên
+   * lấy `id`, nên `c.id` luôn `undefined` và nhánh dấu vết không bao giờ chạy.
+   *
+   * Không ca kiểm nào bắt được: `lenKeHoach` là hàm thuần và ca kiểm truyền thẳng `id` vào. Khe
+   * hở nằm giữa "bộ đọc lấy trường gì" và "bộ lập kế hoạch đọc trường gì" — đúng lớp lỗi mà cổng
+   * `chon-can-bo-in.gate.spec.ts` canh ở phía chứng từ.
+   */
+  it('phép chiếu Mongo lấy đủ trường mà kế hoạch cần', () => {
+    const ma = fs.readFileSync(path.join(__dirname, 'nap-ten-ngan-can-bo.ts'), 'utf-8');
+    const m = /projection:\s*\{([^}]*)\}/.exec(ma);
+    expect(m).not.toBeNull();
+    for (const truong of ['id', 'ten', 'ten_ngan']) {
+      expect(m![1]).toContain(`${truong}: 1`);
+    }
   });
 
   it('bản ghi hệ cũ không có họ tên thì bỏ qua', () => {

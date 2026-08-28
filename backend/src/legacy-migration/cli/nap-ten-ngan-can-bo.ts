@@ -135,7 +135,10 @@ async function main(): Promise<void> {
     heCu = (await mongo
       .db()
       .collection('thanh_vien')
-      .find({}, { projection: { ten: 1, ten_ngan: 1, _id: 0 } })
+      // `id` là khoá nối sang bảng dấu vết (`nguoi_them` trên mỗi hồ sơ). Quên nó thì dấu vết
+      // dựng xong mà KHÔNG BAO GIỜ được dùng, và 11 cán bộ trùng tên vẫn bị bỏ qua — hỏng im
+      // lặng, vì báo cáo vẫn in ra một con số "dấu vết 25" trông như đang hoạt động.
+      .find({}, { projection: { id: 1, ten: 1, ten_ngan: 1, _id: 0 } })
       .toArray()) as unknown as CanBoHeCu[];
   } finally {
     await mongo.close();
@@ -158,10 +161,18 @@ async function main(): Promise<void> {
      * bộ di trú đã gắn không nhất quán — lúc ấy dấu vết không còn là bằng chứng, lùi về họ tên.
      */
     const dauVet = await prisma.$queryRawUnsafe<Array<{ nguoi_them: string; ids: string[] }>>(
-      `select "legacyRaw"->>'nguoi_them' as nguoi_them, array_agg(distinct "enteredById") as ids
-         from petitions
-        where "enteredById" is not null and "legacyRaw"->>'nguoi_them' is not null
-        group by 1`,
+      // Gộp cả ba thực thể: chỉ 25 cán bộ từng nhập Đơn thư, nên đọc mỗi bảng ấy là bỏ sót
+      // phần lớn người. Vụ việc và Vụ án dùng `createdById`.
+      `select nguoi_them, array_agg(distinct uid) as ids from (
+         select "legacyRaw"->>'nguoi_them' as nguoi_them, "enteredById" as uid
+           from petitions where "enteredById" is not null
+         union all
+         select "legacyRaw"->>'nguoi_them', "createdById"
+           from incidents where "createdById" is not null
+         union all
+         select legacy_raw->>'nguoi_them', "createdById"
+           from cases where "createdById" is not null
+       ) t where nguoi_them is not null group by 1`,
     );
     const theoDauVet = new Map<number, string>();
     for (const d of dauVet) {
