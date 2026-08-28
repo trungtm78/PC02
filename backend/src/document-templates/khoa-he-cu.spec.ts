@@ -115,3 +115,41 @@ describe('Khoá riêng của Vụ án mà mẫu hệ cũ dùng', () => {
     expect(k.resolve({ unit: 'Đội 4' })).toBe('Đội 4');
   });
 });
+
+/**
+ * Ba bẫy codex bắt được sau khi bản vá đầu đã xanh — cả ba đều in ra SAI trên văn bản gửi đi,
+ * chứ không phải chỉ để trống.
+ */
+describe('Bẫy đã trả giá một lần', () => {
+  /**
+   * Bộ di trú đo trên 53.796 hồ sơ: đọc mốc epoch của hệ cũ theo UTC hay theo giờ VN đều khớp
+   * 0%, chỉ `+50400s` khớp 100%. Tự đổi bằng `new Date(n * 1000)` là in ra SỚM MỘT NGÀY.
+   */
+  it('mốc epoch hệ cũ in đúng ngày, không sớm một ngày', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_viet_don')!;
+    // Mốc 1787824800 là chỗ hai cách đọc cho ra NGÀY KHÁC NHAU: nhân 1000 thô ra 27/08,
+    // cộng 50400s ra 28/08. Chọn đúng mốc ấy thì ca kiểm mới bắt được lỗi.
+    expect(k.resolve({ legacyRaw: { ngay_viet_don: 1787824800 } })).toBe('28/08/2026');
+  });
+
+  /**
+   * Vụ án di trú có `caseCode` rỗng thì mã hồ sơ nằm ở bản thô. Mọi mẫu hệ cũ đều in `${stt}`,
+   * nên trả rỗng là văn bản mất số hồ sơ.
+   */
+  it('`stt` rơi về bản thô khi mã hồ sơ chưa có', () => {
+    const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'stt')!;
+    expect(k.resolve({ caseCode: null, legacyRaw: { stt: '9705', nam: 2026 } })).toBe('26-9705');
+    expect(k.resolve({ caseCode: null, soHoSoCu: '2019-80' })).toBe('19-80');
+  });
+
+  /** `${ten_ngan}` đứng ở dòng "Lưu:" — hệ cũ in dạng viết tắt, không in tên đầy đủ. */
+  it('`ten_ngan` in dạng viết tắt', () => {
+    const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ten_ngan')!;
+    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe('H.Duy');
+  });
+
+  it('`nguoi_nhan` vẫn in tên đầy đủ', () => {
+    const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'nguoi_nhan')!;
+    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe('Trần Hoàng Duy');
+  });
+});

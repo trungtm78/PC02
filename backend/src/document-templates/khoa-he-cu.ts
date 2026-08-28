@@ -17,7 +17,9 @@
  * hồ sơ di trú thì có đủ, nên bản thô là lưới an toàn cho trường chưa kịp thành cột.
  */
 import { PARITY, type Entity, type ParityCol } from '../legacy-migration/field-parity.def';
+import { parseLegacyDate } from '../legacy-migration/legacy-mapper';
 import type { FieldDef } from './field-catalog';
+import { abbrevName, personName } from './ten-nguoi.util';
 
 /** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
 const MOC_RONG = new Set([0, -25200]);
@@ -34,7 +36,12 @@ function ngayViet(v: unknown): string {
   else if (typeof v === 'number' || /^-?\d+$/.test(String(v))) {
     const n = Number(v);
     if (MOC_RONG.has(n)) return '';
-    d = new Date(n * 1000);
+    // Dùng LẠI bộ đọc mốc của di trú, không tự đổi. Bộ ấy đo trên 53.796 hồ sơ: đọc theo UTC
+    // hay theo giờ VN đều khớp 0%, chỉ `+50400s` khớp 100% — hệ cũ trừ offset +7 hai lần.
+    // Tự nhân 1000 là in ra SỚM MỘT NGÀY trên mọi mốc lấy từ bản thô.
+    const dd = parseLegacyDate(n);
+    if (!dd) return '';
+    d = dd;
   } else {
     const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v).trim());
     if (m) return `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[3]}`;
@@ -144,11 +151,16 @@ export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
   return ra;
 }
 
-/** Họ tên người dùng — HỌ trước, TÊN sau, đúng cách người Việt đọc. */
-function tenNguoi(u: unknown): string {
-  const p = (u ?? {}) as Record<string, unknown>;
-  const ten = [chuoi(p['lastName']), chuoi(p['firstName'])].filter(Boolean).join(' ').trim();
-  return ten || chuoi(p['username']);
+/** Mã hồ sơ, dò lần lượt các nơi có thể giữ nó. */
+function maHoSo(record: unknown): string {
+  const r = (record ?? {}) as Record<string, unknown>;
+  const raw = (r['legacyRaw'] ?? {}) as Record<string, unknown>;
+  const truc = chuoi(r['stt'] ?? r['code'] ?? r['caseCode'] ?? r['soHoSoCu']);
+  if (truc) return truc;
+  const stt = chuoi(raw['stt']);
+  const nam = chuoi(raw['nam']);
+  if (stt && nam) return `${nam}-${stt}`;
+  return stt;
 }
 
 /** Mã hồ sơ rút gọn đúng cách hệ cũ hiện: `2026-11253` → `26-11253`. */
@@ -183,7 +195,9 @@ export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
     key: 'stt',
     label: 'Mã hồ sơ',
     group: 'Trường hệ cũ',
-    resolve: (r) => maNgan(r?.stt ?? r?.code ?? r?.caseCode ?? ''),
+    // Vụ án di trú có thể chưa được cấp `caseCode`; khi ấy mã nằm ở `soHoSoCu` hoặc bản thô.
+    // Mọi mẫu hệ cũ đều in `${stt}`, nên trả rỗng là văn bản mất số hồ sơ.
+    resolve: (r) => maNgan(maHoSo(r)),
   },
   {
     key: 'ngay',
@@ -209,12 +223,13 @@ export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
     key: 'nguoi_nhan',
     label: 'Cán bộ nhập',
     group: 'Trường hệ cũ',
-    resolve: (r) => tenNguoi(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+    resolve: (r) => personName(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
   },
   {
+    // Đứng ở dòng "Lưu:" cuối văn bản — hệ cũ in dạng VIẾT TẮT (`H.Duy`), không in tên đầy đủ.
     key: 'ten_ngan',
     label: 'Tên viết tắt cán bộ nhập',
     group: 'Trường hệ cũ',
-    resolve: (r) => tenNguoi(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+    resolve: (r) => abbrevName(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
   },
 ];

@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+export { personName, rankName, abbrevName } from './ten-nguoi.util';
+import { personName, rankName, abbrevName } from './ten-nguoi.util';
 
 /**
  * Field Catalog — danh mục trường khả dụng (WHITELIST) cho template động, per loại hồ sơ.
@@ -53,16 +55,8 @@ function fmtDate(d: unknown): string {
  * cái tên khác hẳn. Ở tệp này hậu quả nặng hơn màn hình: đây là nguồn dữ liệu cho MẪU WORD,
  * nên tên cán bộ in ra văn bản gửi đi cũng sai.
  */
-export function personName(u: any): string {
-  if (!u) return '';
-  return [u.lastName, u.firstName].filter(Boolean).join(' ').trim();
-}
 
 /** Họ tên kèm cấp bậc (cấp bậc + họ + tên) — dùng cho cán bộ trong chứng từ đơn thư. */
-export function rankName(u: any): string {
-  if (!u) return '';
-  return [u.rank, personName(u)].filter(Boolean).join(' ').trim();
-}
 
 /** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. */
 function fmtDateShort(d: unknown): string {
@@ -95,15 +89,6 @@ function fmtGioPhut(d: unknown): string {
  * Viết tắt tên cán bộ cho dòng "Lưu:" của văn bản — lấy chữ cái đầu của tên
  * đệm + tên gọi. VD "Phạm Văn Huy" → "V.Huy".
  */
-export function abbrevName(u: any): string {
-  const full = personName(u);
-  if (!full) return '';
-  const parts = full.split(/\s+/).filter(Boolean);
-  const last = parts[parts.length - 1];
-  if (parts.length < 2) return last;
-  const middle = parts[parts.length - 2];
-  return `${middle.charAt(0).toUpperCase()}.${last}`;
-}
 
 /** Nhãn tiếng Việt cho enum NguonPhatTin (Đ.144 BLTTHS) — render nhãn thay vì mã enum. */
 const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
