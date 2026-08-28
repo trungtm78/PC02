@@ -47,6 +47,16 @@ export class CreateDocumentTemplateDto {
   @IsBoolean()
   needsNumber?: boolean;
 
+  // Mẫu này có được TÍCH SẴN ở popup In chứng từ không. Cùng bẫy multipart như `needsNumber`.
+  //
+  // Mặc định TẮT: popup vốn tích sẵn mọi mẫu đủ điều kiện, mà Đơn thư có 14 mẫu đang bật (đo
+  // 28/08/2026) nên mỗi lần bấm xuất là ra 14 tệp Word. Nay cán bộ tích đúng thứ cần, còn admin
+  // bật sẵn nhóm hay dùng.
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  selectedByDefault?: boolean;
+
   @IsOptional()
   @IsString()
   numberSeriesId?: string;

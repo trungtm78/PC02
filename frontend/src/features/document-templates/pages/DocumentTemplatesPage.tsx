@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Pencil, Trash2, MoreVertical, Plus } from 'lucide-react';
-import { listTemplates, downloadTemplateFile } from '../api';
+import { listTemplates, downloadTemplateFile, updateTemplate } from '../api';
 import type { DocumentTemplate } from '../types';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { DropdownMenu, DropdownItem } from '@/components/shared/DropdownMenu';
@@ -36,6 +36,29 @@ export default function DocumentTemplatesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Bật/tắt "tích sẵn khi in" ngay trên danh sách.
+   *
+   * Chỉnh 28 mẫu qua form sửa là 28 lần mở/lưu; công tắc tại chỗ cắt xuống còn 28 cú bấm.
+   * Cập nhật `items` tại chỗ thay vì nạp lại cả bảng — nạp lại làm bảng nháy và cuộn về đầu.
+   */
+  async function toggleTichSan(t: DocumentTemplate) {
+    // Chỉ chặn ĐÚNG dòng đang gửi. Chặn cả bảng thì cú bấm ở dòng khác rơi mất im lặng, mà admin
+    // đang bật lần lượt 28 mẫu — mỗi cú rơi là một mẫu tưởng đã bật mà chưa.
+    if (busyId === t.id) return;
+    const giaTriMoi = !t.selectedByDefault;
+    setBusyId(t.id);
+    try {
+      await updateTemplate(t.id, { selectedByDefault: giaTriMoi });
+      setItems((prev) =>
+        prev.map((x) => (x.id === t.id ? { ...x, selectedByDefault: giaTriMoi } : x)),
+      );
+    } finally {
+      // Chỉ nhả khoá nếu chính dòng này đang giữ — dòng khác gửi sau thì để nó tự nhả.
+      setBusyId((dang) => (dang === t.id ? null : dang));
+    }
+  }
 
   /** Mở modal xác nhận xóa chuẩn của app (confirm trước khi DELETE). */
   function confirmDelete(t: DocumentTemplate) {
@@ -97,6 +120,7 @@ export default function DocumentTemplatesPage() {
               <th className="px-3 py-2.5 text-left font-medium">Loại</th>
               <th className="px-3 py-2.5 text-left font-medium">Danh mục</th>
               <th className="px-3 py-2.5 text-left font-medium">Cấp số</th>
+              <th className="px-3 py-2.5 text-left font-medium">Tích sẵn khi in</th>
               <th className="px-3 py-2.5 text-left font-medium">Biến</th>
               <th className="px-3 py-2.5 text-right font-medium">Thao tác</th>
             </tr>
@@ -109,6 +133,26 @@ export default function DocumentTemplatesPage() {
                 <td className="px-3 py-2.5">{ENTITY_LABEL[t.entityType] ?? t.entityType}</td>
                 <td className="px-3 py-2.5">{t.category}</td>
                 <td className="px-3 py-2.5">{t.needsNumber ? 'Có' : '—'}</td>
+                <td className="px-3 py-2.5">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={t.selectedByDefault}
+                    aria-label={`Tích sẵn khi in: ${t.name}`}
+                    data-testid={`btn-tich-san-${t.id}`}
+                    disabled={busyId === t.id}
+                    onClick={() => void toggleTichSan(t)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+                      t.selectedByDefault ? 'bg-emerald-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        t.selectedByDefault ? 'translate-x-[1.15rem]' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </td>
                 <td className="px-3 py-2.5">
                   <span className="flex flex-wrap gap-1">
                     {t.variables.map((v) => (
@@ -170,7 +214,7 @@ export default function DocumentTemplatesPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   Chưa có mẫu chứng từ
                 </td>
               </tr>

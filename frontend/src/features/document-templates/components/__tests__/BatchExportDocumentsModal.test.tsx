@@ -15,7 +15,8 @@ function tpl(over: Partial<DocumentTemplate>): DocumentTemplate {
   return {
     id: 't1', code: 'BIEN_NHAN', name: 'Giấy biên nhận', entityType: 'DON_THU',
     category: 'Biên nhận', fileName: 'bn.docx', fileSha: 'sha', variables: [],
-    needsNumber: true, numberSeriesId: 'BIEN_NHAN', status: 'active', sortOrder: 0, ...over,
+    needsNumber: true, numberSeriesId: 'BIEN_NHAN', status: 'active', sortOrder: 0,
+    selectedByDefault: false, ...over,
   };
 }
 

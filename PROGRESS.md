@@ -13,6 +13,53 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
 
+## Đợt 28/08 (tối) — mẫu tự đặt tích sẵn hay không + chọn hàng loạt khi in
+
+Anh báo: popup In chứng từ tích sẵn hết, muốn đặt được từng mẫu có tích sẵn không, và muốn có
+Chọn tất cả / Bỏ chọn tất cả.
+
+**Đo trước khi làm** (máy thật): Đơn thư **14 mẫu** đang bật, Vụ án 8, Vụ việc 6. Nên mỗi lần
+cán bộ Đơn thư bấm xuất là ra 14 tệp Word — trong đó có `Sổ đăng ký bào chữa (mẫu hệ cũ)` vốn
+in ra tờ TRẮNG (đợt đối chiếu bản in đã đo: cả 12 chỗ điền của nó đều là ô không hồ sơ nào có
+dữ liệu). Muốn lấy đúng một phiếu thì phải bỏ tích 13 lần.
+
+### Đã làm
+
+Cột `document_templates.selectedByDefault` (`DEFAULT false` — anh chốt tắt hết, popup mở ra
+trống). Chỉnh được ở **cả hai chỗ**: công tắc bật nhanh trên danh sách mẫu và ô tích trong form
+sửa. Popup thêm **Chọn tất cả / Bỏ chọn tất cả**, chỉ chọn mẫu đủ điều kiện.
+
+### Ba chỗ đáng nói
+
+1. **`select` của bộ nạp popup là danh sách viết tay.** Quên khai cột ở đó thì popup KHÔNG BAO
+   GIỜ thấy cờ — admin bật công tắc mà chẳng có gì đổi, và mọi ca kiểm khác vẫn xanh. Đúng lớp
+   lỗi đã trả giá sáng cùng ngày. Có cổng canh riêng; **gieo lỗi** xác minh cổng đỏ thật.
+2. **Gieo lựa chọn đặt trong `.then` của `Promise.all`, không dùng `useEffect`.** Effect chạy
+   sau một nhịp render → có khoảnh khắc danh sách đã hiện mà chưa ô nào tích; ca kiểm bấm Xuất
+   ngay lúc ấy thấy nút khoá, người dùng nhanh tay cũng gặp. Chạy 3 lần liên tiếp đều xanh.
+3. **Hai nút chọn hàng loạt đặt trong `ExportReadinessChecklist`, không ở modal** — `effReady()`
+   nằm ở đó; đặt ở modal là chép nó lần thứ hai và hai bản sẽ lệch nhau ngay lần sửa đầu.
+
+Giữ nguyên có chủ ý: mẫu vừa đủ điều kiện sau "Lưu bổ sung" vẫn tự tích; modal xuất Word hàng
+loạt không đụng tới (nó vốn mở ra trống).
+
+### Codex bắt 5 lỗi sau khi ca kiểm đã xanh — vá 4, giữ 1 có lý do
+
+1. Nhánh sau "Lưu bổ sung" tự tích MỌI mẫu vừa mở khoá, không xét cờ. Một ô nhập mở khoá được
+   nhiều mẫu (chúng dùng chung field thiếu) → mẫu admin cố ý tắt vẫn nhảy vào bản xuất.
+2. `fetchReadiness` không chặn kết quả lượt cũ về muộn — đổi hồ sơ giữa chừng thì lựa chọn gieo
+   theo hồ sơ đã rời màn hình. Thêm bộ đếm lượt nạp.
+3. Công tắc chặn CẢ BẢNG trong lúc gửi, mà giao diện chỉ khoá đúng dòng ấy → cú bấm ở dòng khác
+   rơi mất im lặng. Nay chỉ chặn đúng dòng đang gửi.
+4. Thêm cột thứ 8 mà dòng "chưa có mẫu" vẫn `colSpan={7}`.
+5. **KHÔNG sửa**: `effReady` coi "không có mục readiness" là đủ điều kiện, nên "Chọn tất cả" sẽ
+   chọn cả chúng. Lúc ấy ô tích vẫn ĐANG bật và bấm tay chọn được từng cái — "Chọn tất cả" phải
+   chọn đúng thứ bấm tay chọn được. Lệch khỏi ô tích là dựng hai định nghĩa "đủ điều kiện". Đã
+   ghi lý do ngay trong mã.
+
+**Cảnh báo khi lên máy thật:** 28 mẫu sẽ TẮT hết, cán bộ mở popup thấy trống cho tới khi anh bật
+mẫu hay dùng. Đây là hành vi anh đã chốt.
+
 ## Đợt 28/08 (chiều) — in chứng từ: hệ cũ in được, hệ mới thì không
 
 Anh báo dữ liệu chuyển sang không in được. Đo bằng API sẵn sàng-in: **Đơn thư 3/7 · Vụ việc

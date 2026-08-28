@@ -116,6 +116,52 @@ describe('TemplateFormModal', () => {
     expect(screen.getByTestId('btn-save-template')).toBeDisabled();
   });
 
+  /**
+   * Ô "Tích sẵn khi in" — quyết định mẫu có được tích sẵn ở popup In chứng từ không.
+   * Thiếu một trong hai đường gửi (tạo / sửa) thì admin bấm lưu mà cột không đổi.
+   */
+  describe('ô "Tích sẵn khi in"', () => {
+    it('tạo mới: mặc định TẮT và gửi kèm lên API', async () => {
+      render(<TemplateFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('template-code-input'), { target: { value: 'C' } });
+      fireEvent.change(screen.getByTestId('template-name-input'), { target: { value: 'N' } });
+      uploadFile();
+      await waitFor(() => screen.getByTestId('var-row-Họ tên'));
+      expect((screen.getByTestId('template-selected-by-default') as HTMLInputElement).checked).toBe(false);
+      fireEvent.click(screen.getByTestId('btn-save-template'));
+      await waitFor(() => expect(mApi.createTemplate).toHaveBeenCalled());
+      const form = mApi.createTemplate.mock.calls[0][0] as FormData;
+      expect(form.get('selectedByDefault')).toBe('false');
+    });
+
+    it('tạo mới: bật ô thì gửi `true`', async () => {
+      render(<TemplateFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+      fireEvent.change(screen.getByTestId('template-code-input'), { target: { value: 'C' } });
+      fireEvent.change(screen.getByTestId('template-name-input'), { target: { value: 'N' } });
+      uploadFile();
+      await waitFor(() => screen.getByTestId('var-row-Họ tên'));
+      fireEvent.click(screen.getByTestId('template-selected-by-default'));
+      fireEvent.click(screen.getByTestId('btn-save-template'));
+      await waitFor(() => expect(mApi.createTemplate).toHaveBeenCalled());
+      expect((mApi.createTemplate.mock.calls[0][0] as FormData).get('selectedByDefault')).toBe('true');
+    });
+
+    it('sửa: đọc đúng giá trị đang có rồi gửi giá trị mới', async () => {
+      render(
+        <TemplateFormModal
+          template={{ ...EDIT_TPL, selectedByDefault: true } as never}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />,
+      );
+      expect((screen.getByTestId('template-selected-by-default') as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(screen.getByTestId('template-selected-by-default'));
+      fireEvent.click(screen.getByTestId('btn-save-template'));
+      await waitFor(() => expect(mApi.updateTemplate).toHaveBeenCalled());
+      expect(mApi.updateTemplate.mock.calls[0][1]).toMatchObject({ selectedByDefault: false });
+    });
+  });
+
   describe('chế độ Sửa', () => {
     it('pre-fill + tiêu đề "Sửa"; mã + loại read-only; hiện mapping sẵn (không cần file)', () => {
       render(<TemplateFormModal template={EDIT_TPL as never} onClose={vi.fn()} onSaved={vi.fn()} />);

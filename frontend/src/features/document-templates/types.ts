@@ -23,6 +23,8 @@ export interface DocumentTemplate {
   delimStart?: string;
   delimEnd?: string;
   needsNumber: boolean;
+  /** Mẫu có được tích sẵn ở popup In chứng từ không. Mặc định tắt — cán bộ tự tích. */
+  selectedByDefault: boolean;
   numberSeriesId: string | null;
   status: string;
   sortOrder: number;

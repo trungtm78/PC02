@@ -17,7 +17,7 @@ const mExport = vi.mocked(exportEntityDocuments);
 const mDownload = vi.mocked(triggerDownload);
 
 function tpl(over: Partial<DocumentTemplate>): DocumentTemplate {
-  return { id: 't1', code: 'QD01', name: 'Quyết định khởi tố', entityType: 'VU_AN', category: 'Quyết định', fileName: 'qd.docx', fileSha: 'sha', variables: [], needsNumber: false, numberSeriesId: null, status: 'active', sortOrder: 0, ...over };
+  return { id: 't1', code: 'QD01', name: 'Quyết định khởi tố', entityType: 'VU_AN', category: 'Quyết định', fileName: 'qd.docx', fileSha: 'sha', variables: [], needsNumber: false, selectedByDefault: false, numberSeriesId: null, status: 'active', sortOrder: 0, ...over };
 }
 // readiness GET → mặc định mọi mẫu đủ; override missing per templateId.
 function readiness(list: DocumentTemplate[], missingById: Record<string, Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean }>> = {}) {
@@ -27,8 +27,16 @@ function readiness(list: DocumentTemplate[], missingById: Record<string, Array<{
 beforeEach(() => { mGet.mockReset(); mList.mockReset(); mExport.mockReset(); mDownload.mockReset(); });
 
 describe('DynamicExportDocumentsModal', () => {
-  it('mọi mẫu đủ → load + tick sẵn tất cả', async () => {
-    const list = [tpl({ id: 't1', name: 'QĐ khởi tố' }), tpl({ id: 't2', name: 'Biên bản A', category: 'Biên bản' })];
+  /**
+   * Hợp đồng ĐÃ ĐỔI 28/08/2026: popup không còn tích sẵn mọi mẫu đủ điều kiện, mà chỉ tích mẫu
+   * admin đã bật cờ `selectedByDefault`. Đơn thư có 14 mẫu đang bật nên cách cũ ra 14 tệp Word
+   * mỗi lần bấm xuất. Ca kiểm đầy đủ cho cờ này ở `tichSanVaChonHangLoat.test.tsx`.
+   */
+  it('mẫu bật cờ tích sẵn → load + tick sẵn', async () => {
+    const list = [
+      tpl({ id: 't1', name: 'QĐ khởi tố', selectedByDefault: true }),
+      tpl({ id: 't2', name: 'Biên bản A', category: 'Biên bản', selectedByDefault: true }),
+    ];
     mList.mockResolvedValue(list);
     mGet.mockResolvedValue(readiness(list) as never);
     render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
@@ -76,7 +84,11 @@ describe('DynamicExportDocumentsModal', () => {
   // phải gộp) — mỗi mẫu 1 request → 1 file .docx tải về.
   describe('chế độ xuất', () => {
     async function renderVoi2Mau(onClose = vi.fn()) {
-      const list = [tpl({ id: 't1', name: 'QĐ khởi tố' }), tpl({ id: 't2', name: 'Biên bản A' })];
+      // Bật cờ tích sẵn để nhóm ca này tập trung vào CHẾ ĐỘ XUẤT, không phải vào việc chọn mẫu.
+      const list = [
+        tpl({ id: 't1', name: 'QĐ khởi tố', selectedByDefault: true }),
+        tpl({ id: 't2', name: 'Biên bản A', selectedByDefault: true }),
+      ];
       mList.mockResolvedValue(list);
       mGet.mockResolvedValue(readiness(list) as never);
       render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />);

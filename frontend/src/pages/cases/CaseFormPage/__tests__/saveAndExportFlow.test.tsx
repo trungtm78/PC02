@@ -52,7 +52,7 @@ beforeEach(() => {
   vi.mocked(api.get).mockClear();
   vi.mocked(api.put).mockClear();
   mList.mockResolvedValue([
-    { id: 't1', code: 'QD01', name: 'Quyết định khởi tố', entityType: 'VU_AN', category: 'Quyết định', fileName: 'a.docx', fileSha: 's', variables: [], needsNumber: false, numberSeriesId: null, status: 'active', sortOrder: 0 },
+    { id: 't1', code: 'QD01', name: 'Quyết định khởi tố', entityType: 'VU_AN', category: 'Quyết định', fileName: 'a.docx', fileSha: 's', variables: [], needsNumber: false, selectedByDefault: true, numberSeriesId: null, status: 'active', sortOrder: 0 },
   ]);
   mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
   mDownload.mockImplementation(() => {});

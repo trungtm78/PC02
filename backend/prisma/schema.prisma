@@ -2710,6 +2710,12 @@ model DocumentTemplate {
   delimStart     String    @default("{") // ký tự mở placeholder (admin chọn lúc upload)
   delimEnd       String    @default("}") // ký tự đóng placeholder
   needsNumber    Boolean   @default(false)
+  // Mẫu có được TÍCH SẴN ở popup In chứng từ không.
+  //
+  // Mặc định TẮT. Popup vốn tích sẵn MỌI mẫu đủ điều kiện, mà Đơn thư có 14 mẫu đang bật (đo
+  // 28/08/2026) — mỗi lần bấm xuất ra 14 tệp Word, trong đó có mẫu in ra tờ trắng. Nay cán bộ
+  // tích đúng thứ cần; admin bật sẵn nhóm hay dùng ở màn Quản lý mẫu chứng từ.
+  selectedByDefault Boolean @default(false)
   numberSeriesId String? // FK lỏng tới DocumentNumberTemplate (cấp số khi needsNumber)
   status         String    @default("active")
   sortOrder      Int       @default(0)
