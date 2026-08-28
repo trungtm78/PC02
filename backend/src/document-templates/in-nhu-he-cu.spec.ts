@@ -190,6 +190,51 @@ describe('In như hệ cũ — mốc đúng là bản in thật, không phải m
 });
 
 /**
+ * `${ten_ngan}` đứng ở dòng "Lưu:" cuối MỌI văn bản.
+ *
+ * Hệ cũ KHÔNG suy ra chữ viết tắt: mỗi cán bộ tự đặt một chuỗi ở cột `ten_ngan` bảng
+ * `thanh_vien`, và mã in đổ thẳng chuỗi ấy (`$admin_info['ten_ngan'] ?? $nguoi_nhan`).
+ *
+ * Đo trên dữ liệu sống 28/08/2026 (238 cán bộ, 55.207 hồ sơ):
+ *
+ * | | số cán bộ | số hồ sơ |
+ * |---|---:|---:|
+ * | tên viết tắt tự đặt KHỚP với chữ hệ mới suy ra | 11 | 38.493 |
+ * | tự đặt KHÁC chữ hệ mới suy ra | 210 | **16.713** |
+ * | để rỗng (hệ cũ in TRỐNG) | 16 | — |
+ * | không có cột (hệ cũ in HỌ TÊN ĐẦY ĐỦ) | 1 | — |
+ *
+ * Quy tắc suy ra "chữ đệm cuối + tên gọi" đúng cho phần lớn tên người, nhưng sai hẳn với
+ * `Bùi Thanh Trà → Trà`, `Đội 5 → Đ5`, `Tổ Truy Nã → TRUYNA`. 30,3% bản in ghi sai dòng "Lưu:".
+ */
+describe('`ten_ngan` — hệ cũ dùng chữ cán bộ TỰ ĐẶT, không suy ra', () => {
+  const k = () => KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ten_ngan')!;
+
+  it('dùng đúng chuỗi cán bộ đã đặt, kể cả khi nó không theo quy tắc nào', () => {
+    expect(k().resolve({ enteredBy: { lastName: 'Bùi Thanh', firstName: 'Trà', shortName: 'Trà' } })).toBe('Trà');
+    expect(k().resolve({ enteredBy: { lastName: 'Tổ Truy', firstName: 'Nã', shortName: 'TRUYNA' } })).toBe('TRUYNA');
+  });
+
+  /**
+   * 16 cán bộ để rỗng có chủ ý — hệ cũ in ra trống. Suy ra một chữ viết tắt ở đây là hệ mới tự
+   * thêm chữ vào văn bản chính thức mà hệ cũ không có.
+   */
+  it('cán bộ để rỗng thì in TRỐNG, không tự suy ra', () => {
+    expect(k().resolve({ enteredBy: { lastName: 'Mai Vũ', firstName: 'Hoàng', shortName: '' } })).toBe('');
+  });
+
+  /**
+   * Cán bộ chưa từng có cột ấy: hệ cũ rơi về HỌ TÊN ĐẦY ĐỦ (`?? $nguoi_nhan`), không phải chữ
+   * viết tắt. Tài khoản tạo mới trên hệ mới cũng đi nhánh này.
+   */
+  it('không có chữ viết tắt thì in họ tên đầy đủ, đúng nhánh dự phòng của hệ cũ', () => {
+    expect(k().resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe(
+      'Trần Hoàng Duy',
+    );
+  });
+});
+
+/**
  * Bộ tra giá trị phải quyết định theo KIỂU CỦA HỆ CŨ, không theo kiểu cột của hệ mới.
  *
  * Hai bảng phục vụ hai việc khác nhau: `field-parity.def.ts` nói lưu vào cột kiểu gì (di trú),

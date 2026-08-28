@@ -166,10 +166,20 @@ describe('Bẫy đã trả giá một lần', () => {
     expect(k.resolve({ caseCode: null, soHoSoCu: '2019-80' })).toBe('80');
   });
 
-  /** `${ten_ngan}` đứng ở dòng "Lưu:" — hệ cũ in dạng viết tắt, không in tên đầy đủ. */
-  it('`ten_ngan` in dạng viết tắt', () => {
+  /**
+   * `${ten_ngan}` đứng ở dòng "Lưu:" — hệ cũ đọc chuỗi cán bộ TỰ ĐẶT ở `thanh_vien.ten_ngan`,
+   * không suy ra từ họ tên. Kỳ vọng cũ (`H.Duy` suy từ tên) sai với 210/238 cán bộ; chi tiết và
+   * số đo ở `in-nhu-he-cu.spec.ts`.
+   */
+  it('`ten_ngan` in đúng chuỗi cán bộ tự đặt', () => {
     const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ten_ngan')!;
-    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe('H.Duy');
+    expect(
+      k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy', shortName: 'H.Duy' } }),
+    ).toBe('H.Duy');
+    // Chưa có chuỗi ấy thì rơi về họ tên đầy đủ, đúng nhánh `?? $nguoi_nhan` của hệ cũ.
+    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe(
+      'Trần Hoàng Duy',
+    );
   });
 
   it('`nguoi_nhan` vẫn in tên đầy đủ', () => {

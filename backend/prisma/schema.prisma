@@ -87,6 +87,18 @@ model User {
   // v0.47 — quân hàm để render trên Phiếu đề xuất + 5 doc khác (Nghị định 30/2020)
   // Single source of truth for officer rank; previously denormalized on Team (superseded F4).
   rank                String? // "Trung tá" | "Thượng tá" | "Đại úy" | ...
+  // Chữ viết tắt cán bộ TỰ ĐẶT, in ở dòng "Lưu:" cuối mọi chứng từ (hệ cũ: `thanh_vien.ten_ngan`).
+  //
+  // KHÔNG suy ra được từ họ tên. Đo 28/08/2026 trên 238 cán bộ: quy tắc "chữ đệm cuối + tên gọi"
+  // chỉ đúng 11 người, sai 210 người — `Bùi Thanh Trà → Trà`, `Đội 5 → Đ5`, `Tổ Truy Nã → TRUYNA`.
+  // Quy ra 16.713/55.207 hồ sơ (30,3%) in sai dòng "Lưu:".
+  //
+  // Ba trạng thái KHÁC nhau, đúng theo `$admin_info['ten_ngan'] ?? $nguoi_nhan` của hệ cũ:
+  //   • có chuỗi  → in chuỗi ấy
+  //   • chuỗi rỗng → in TRỐNG (16 cán bộ cố ý để trống)
+  //   • NULL      → in HỌ TÊN ĐẦY ĐỦ
+  // Nên cột này nullable, và chuỗi rỗng KHÁC null — đừng gộp hai cái làm một.
+  shortName           String?
   // 2FA fields
   totpSecret          String? // AES-256-GCM encrypted base32 secret
   totpEnabled         Boolean   @default(false)

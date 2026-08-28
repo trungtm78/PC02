@@ -20,7 +20,7 @@ import { PARITY, type Entity, type ParityCol } from '../legacy-migration/field-p
 import { parseLegacyDate } from '../legacy-migration/legacy-mapper';
 import type { FieldDef } from './field-catalog';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
-import { abbrevName, personName } from './ten-nguoi.util';
+import { personName, tenNganNhuHeCu } from './ten-nguoi.util';
 
 /** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
 const MOC_RONG = new Set([0, -25200]);
@@ -307,6 +307,6 @@ export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
     key: 'ten_ngan',
     label: 'Tên viết tắt cán bộ nhập',
     group: 'Trường hệ cũ',
-    resolve: (r) => abbrevName(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+    resolve: (r) => tenNganNhuHeCu(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
   },
 ];
