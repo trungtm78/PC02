@@ -29,6 +29,7 @@ import {
 import { buildTemplateDocx } from './seed-assets/document-templates/docx-builder';
 import { TEMPLATE_SPECS } from './seed-assets/document-templates/registry';
 import { seedLegacyTemplates } from './seed-legacy-templates';
+import { timThuMucMau } from './duong-dan-mau';
 
 /**
  * PR2 — biến BẮT BUỘC mặc định per mẫu (readiness báo "Thiếu" + bổ sung khi in). Admin tinh chỉnh
@@ -129,7 +130,7 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
  * (Trước PR4 đọc từ backend/templates/docx + dist asset của engine tĩnh; engine tĩnh đã gỡ.)
  */
 function resolvePetitionDocxDir(): string {
-  return path.resolve(__dirname, 'seed-assets', 'petition-docx');
+  return timThuMucMau(__dirname, 'petition-docx');
 }
 
 /**
