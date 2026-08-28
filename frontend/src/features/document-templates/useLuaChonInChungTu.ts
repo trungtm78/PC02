@@ -33,7 +33,11 @@ type BanDoLuaChon = Record<string, LuaChonInApi>;
 export interface KetQuaLuaChonIn {
   /** Đọc lựa chọn đã lưu. `undefined` = CHƯA từng đặt. Không bao giờ ném. */
   tai: () => Promise<LuaChonInApi | undefined>;
-  luu: (luaChon: LuaChonInApi) => void;
+  /**
+   * Ghi lựa chọn. Trả Promise và KHÔNG BAO GIỜ ném — nơi gọi phải `await` được để lệnh ghi đi
+   * xong trước khi popup đóng.
+   */
+  luu: (luaChon: LuaChonInApi) => Promise<void>;
   datLai: () => Promise<void>;
 }
 
@@ -90,10 +94,28 @@ export function useLuaChonInChungTu(entityType: EntityType): KetQuaLuaChonIn {
 
   // `mutate`/`mutateAsync` của react-query ỔN ĐỊNH qua các lượt render; đối tượng mutation thì
   // KHÔNG. Bám vào đối tượng là mỗi lượt render sinh một hàm mới.
-  const { mutate: goiLuu } = luuMut;
+  const { mutateAsync: goiLuu } = luuMut;
   const { mutateAsync: goiDatLai } = datLaiMut;
 
-  const luu = useCallback((luaChon: LuaChonInApi) => goiLuu(luaChon), [goiLuu]);
+  /**
+   * Dùng `mutateAsync` chứ KHÔNG `mutate`.
+   *
+   * `mutate` là bắn-rồi-quên và gắn với vòng đời component. Popup ĐÓNG ngay sau khi xuất xong,
+   * nên quan sát viên bị huỷ trước khi lệnh ghi kịp đi — lựa chọn không bao giờ tới máy chủ, và
+   * hỏng hoàn toàn im lặng: cán bộ thấy tệp tải về bình thường, mở lại popup mới biết chẳng nhớ
+   * gì. Bắt được ở UAT trên máy thật 29/08/2026; ca kiểm thành phần không thấy.
+   */
+  const luu = useCallback(
+    async (luaChon: LuaChonInApi) => {
+      try {
+        await goiLuu(luaChon);
+      } catch {
+        // CỐ Ý nuốt: mất trí nhớ còn hơn mất đường in. `onError` của mutation đã hoàn nguyên kho
+        // đệm; ném tiếp ở đây là chặn việc xuất vì một thứ phụ.
+      }
+    },
+    [goiLuu],
+  );
   const datLai = useCallback(async () => {
     await goiDatLai();
   }, [goiDatLai]);

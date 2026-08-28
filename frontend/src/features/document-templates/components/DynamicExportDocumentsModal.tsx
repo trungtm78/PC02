@@ -276,8 +276,12 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       const picked = templates.filter((t) => selected.has(t.id));
       // Nhớ lựa chọn cho lần sau — lưu Ở ĐÂY chứ không theo từng cú tích: bấm Xuất là lúc lựa
       // chọn thành thứ thật sự dùng, còn ghi theo từng cú tích là nện máy chủ cho một thứ cán
-      // bộ có thể còn đang lưỡng lự. Ghi lạc quan nên không chặn việc xuất.
-      luaChonDaLuu.luu({ templateIds: picked.map((t) => t.id), mode });
+      // bộ có thể còn đang lưỡng lự.
+      //
+      // PHẢI `await`: popup đóng ngay sau khi xuất xong, nên bắn-rồi-quên là lệnh ghi bị huỷ
+      // cùng component và lựa chọn không bao giờ tới máy chủ. `luu` không bao giờ ném, nên chờ
+      // nó cũng không chặn được việc xuất.
+      await luaChonDaLuu.luu({ templateIds: picked.map((t) => t.id), mode });
       if (mode === 'separate') {
         await exportSeparateFiles(picked);
       } else {
