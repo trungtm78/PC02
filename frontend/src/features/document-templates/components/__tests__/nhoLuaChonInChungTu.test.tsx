@@ -217,6 +217,43 @@ describe('Nhớ lựa chọn in chứng từ', () => {
       expect(luaChon.mode).toBe('zip');
     });
 
+    /**
+     * Lệnh ghi phải ĐI XONG trước khi bắt đầu xuất.
+     *
+     * `mutate` của react-query là bắn-rồi-quên và gắn với vòng đời component. Popup ĐÓNG ngay
+     * sau khi xuất xong, nên quan sát viên bị huỷ trước khi lệnh ghi kịp đi — lựa chọn không bao
+     * giờ tới máy chủ. Hỏng hoàn toàn im lặng: cán bộ thấy tệp tải về bình thường, mở lại popup
+     * mới biết chẳng nhớ gì. Đã bắt được ở UAT trên máy thật, ca kiểm thành phần không thấy.
+     */
+    it('lưu XONG rồi mới xuất, không bắn-rồi-quên', async () => {
+      const thuTu: string[] = [];
+      mPrefLuu.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        thuTu.push('luu');
+        return {} as never;
+      });
+      mExport.mockImplementation(async () => {
+        thuTu.push('xuat');
+        return { data: new Blob(), headers: {} } as never;
+      });
+      await moPopup([tpl({ id: 't1', selectedByDefault: true })]);
+      await waitFor(() => expect(o('t1').checked).toBe(true));
+      fireEvent.click(che('zip'));
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(thuTu).toEqual(['luu', 'xuat']));
+    });
+
+    /** Ghi hỏng thì vẫn phải xuất được — mất trí nhớ còn hơn mất đường in. */
+    it('lưu hỏng thì vẫn xuất bình thường', async () => {
+      mPrefLuu.mockRejectedValue(new Error('mất mạng'));
+      mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
+      await moPopup([tpl({ id: 't1', selectedByDefault: true })]);
+      await waitFor(() => expect(o('t1').checked).toBe(true));
+      fireEvent.click(che('zip'));
+      fireEvent.click(screen.getByTestId('dyn-export-confirm'));
+      await waitFor(() => expect(mExport).toHaveBeenCalled());
+    });
+
     /** Chưa bấm Xuất thì chưa lưu — tích qua tích lại không được nện máy chủ. */
     it('chỉ tích mà chưa Xuất thì KHÔNG lưu', async () => {
       await moPopup([tpl({ id: 't1' })]);
