@@ -13,6 +13,11 @@ import { TemplateVariable, isAutoPlaceholder } from './entity-placeholders';
 import { isCatalogField, assertFieldInCatalog, listCatalog, EntityType } from './field-catalog';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
+import {
+  TRANG_THAI_MAC_DINH_KHI_TAO,
+  chuyenDuocSang,
+  type TrangThaiMau,
+} from './document-template.constants';
 
 type UploadFile = { buffer: Buffer; originalname: string };
 
@@ -162,6 +167,10 @@ export class DocumentTemplatesService {
           selectedByDefault: dto.selectedByDefault ?? false,
           numberSeriesId: dto.numberSeriesId ?? null,
           sortOrder: dto.sortOrder ?? 0,
+          // NHÁP, không phải phát hành. Trước đây cột này nhận mặc định `active` của CSDL nên
+          // mẫu vừa tải lên đã hiện ngay cho mọi cán bộ — chính là đường mà ba mẫu kiểm bảo mật
+          // lọt ra máy thật ngày 28/08/2026.
+          status: TRANG_THAI_MAC_DINH_KHI_TAO,
           createdById: userId,
         },
       });
@@ -268,6 +277,26 @@ export class DocumentTemplatesService {
         variables: variables as unknown as object[],
       },
     });
+  }
+
+  /**
+   * Đổi trạng thái vòng đời: ban hành (`active`), thu hồi (`archived`), hoặc đưa về nháp.
+   *
+   * Popup In chứng từ lọc `status: 'active'`, nên đây là CÔNG TẮC duy nhất quyết định một mẫu có
+   * tới tay cán bộ hay không. Vì thế nó phải tường minh, có kiểm chuyển đổi, và để lại dấu vết.
+   *
+   * Không xoá khi nghỉ hưu: lịch sử in đã phát hành vẫn phải tra được, và mẫu có thể cần ban
+   * hành lại sau.
+   */
+  async doiTrangThai(id: string, trangThai: TrangThaiMau) {
+    const mau = await this.prisma.documentTemplate.findFirst({ where: { id, deletedAt: null } });
+    if (!mau) throw new NotFoundException('Không tìm thấy mẫu chứng từ');
+    if (!chuyenDuocSang(mau.status, trangThai)) {
+      throw new BadRequestException(
+        `Không chuyển được mẫu từ "${mau.status}" sang "${trangThai}"`,
+      );
+    }
+    return this.prisma.documentTemplate.update({ where: { id }, data: { status: trangThai } });
   }
 
   async softDelete(id: string) {

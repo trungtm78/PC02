@@ -26,7 +26,11 @@ export interface DocumentTemplate {
   /** Mẫu có được tích sẵn ở popup In chứng từ không. Mặc định tắt — cán bộ tự tích. */
   selectedByDefault: boolean;
   numberSeriesId: string | null;
-  status: string;
+  /**
+   * Vòng đời: `draft` (nháp, chỉ quản trị thấy) · `active` (đã ban hành, cán bộ in được) ·
+   * `archived` (đã thu hồi, giữ lại để tra lịch sử và ban hành lại).
+   */
+  status: 'draft' | 'active' | 'archived' | string;
   sortOrder: number;
 }
 

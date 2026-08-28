@@ -24,6 +24,7 @@ import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { DocumentTemplatesService } from './document-templates.service';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
+import { DoiTrangThaiDto } from './dto/doi-trang-thai.dto';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -127,6 +128,18 @@ export class DocumentTemplatesController {
   ) {
     if (!file) throw new BadRequestException('Thiếu file .docx');
     return this.svc.replaceFile(id, file, user.id);
+  }
+
+  /**
+   * Ban hành / thu hồi mẫu — công tắc DUY NHẤT quyết định mẫu có tới tay cán bộ hay không.
+   *
+   * Popup In chứng từ lọc `status: 'active'`. Trước bản này mẫu vừa tải lên đã là `active` ngay,
+   * nên ba mẫu kiểm bảo mật lọt thẳng ra máy thật ngày 28/08/2026.
+   */
+  @Patch(':id/trang-thai')
+  @RequirePermissions({ action: 'write', subject: 'Setting' })
+  doiTrangThai(@Param('id') id: string, @Body() dto: DoiTrangThaiDto) {
+    return this.svc.doiTrangThai(id, dto.status);
   }
 
   @Delete(':id')
