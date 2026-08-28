@@ -18,14 +18,14 @@ interface BanGhi {
 function khoGia(rows: BanGhi[], col: string) {
   const daGhi: Array<{ id: string; gia: unknown }> = [];
   const delegate = {
-    findMany: jest.fn(
-      ({ take, cursor, skip }: { take: number; cursor?: { id: string }; skip?: number }) => {
-        const batDau = cursor ? rows.findIndex((r) => r.id === cursor.id) + (skip ?? 0) : 0;
-        return Promise.resolve(
-          rows.slice(batDau, batDau + take).map((r) => ({ id: r.id, [col]: r[col] })),
-        );
-      },
-    ),
+    // Kho giả phải mô phỏng ĐÚNG truy vấn thật: đi bằng `id > mốc`, không phải con trỏ.
+    // Kho giả sai hợp đồng thì ca kiểm xanh trong khi bộ dọn bỏ sót hồ sơ trên máy thật —
+    // đúng chuyện đã xảy ra ngày 28/08/2026.
+    findMany: jest.fn(({ take, where }: { take: number; where?: any }) => {
+      const gt = where?.id?.gt as string | undefined;
+      const con = gt ? rows.filter((r) => r.id > gt) : rows;
+      return Promise.resolve(con.slice(0, take).map((r) => ({ id: r.id, [col]: r[col] })));
+    }),
     update: jest.fn(({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
       daGhi.push({ id: where.id, gia: data[col] });
       const r = rows.find((x) => x.id === where.id);
@@ -123,7 +123,13 @@ describe('Dọn mã ô chọn còn sót', () => {
   });
 
   it('duyệt hết nhiều trang, không dừng ở trang đầu', async () => {
-    const rows = Array.from({ length: 2500 }, (_, i) => ({ id: `r${i}`, tinhTrangHoSo: '-1' }));
+    // Mã đệm đủ chữ số: bộ dọn đi bằng `id > mốc`, so theo CHUỖI đúng như Postgres. Mã thật là
+    // cuid dài cố định nên thứ tự chuỗi trùng thứ tự sinh; mã `r999`/`r1000` không đệm thì
+    // `r1000 < r999`, và ca kiểm dừng ở trang đầu vì dữ liệu sai chứ không phải mã sai.
+    const rows = Array.from({ length: 2500 }, (_, i) => ({
+      id: `r${String(i).padStart(5, '0')}`,
+      tinhTrangHoSo: '-1',
+    }));
     const { prisma } = khoGia(rows, 'tinhTrangHoSo');
     const kq = await donMotCot(prisma, COT_VU_VIEC, true);
     expect(kq.quet).toBe(2500);
@@ -142,9 +148,10 @@ describe('Dọn mã ô chọn trong khối metadata', () => {
   function khoMeta(rows: Array<{ id: string; metadata: unknown }>) {
     const daGhi: Array<{ id: string; meta: unknown }> = [];
     const delegate = {
-      findMany: jest.fn(({ take, cursor, skip }: { take: number; cursor?: { id: string }; skip?: number }) => {
-        const batDau = cursor ? rows.findIndex((r) => r.id === cursor.id) + (skip ?? 0) : 0;
-        return Promise.resolve(rows.slice(batDau, batDau + take));
+      findMany: jest.fn(({ take, where }: { take: number; where?: any }) => {
+        const gt = where?.id?.gt as string | undefined;
+        const con = gt ? rows.filter((r) => r.id > gt) : rows;
+        return Promise.resolve(con.slice(0, take));
       }),
       update: jest.fn(({ where, data }: { where: { id: string }; data: { metadata: unknown } }) => {
         daGhi.push({ id: where.id, meta: data.metadata });
@@ -207,5 +214,78 @@ describe('Dọn mã ô chọn trong khối metadata', () => {
     const { prisma } = khoMeta(rows);
     await donMetadata(prisma, COT, false);
     expect((await donMetadata(prisma, COT, false)).doi).toBe(0);
+  });
+});
+
+/**
+ * CỔNG: hàng vừa cập nhật RỜI KHỎI bộ lọc — bộ dọn không được bỏ sót hàng nào.
+ *
+ * Kho giả ban đầu trả về mọi hàng bất kể đã cập nhật hay chưa, nên nó không mô phỏng đúng
+ * chuyện xảy ra thật: bộ lọc là `col != null`, mà dọn xong thì cột thành null và hàng biến
+ * khỏi kết quả. Lúc ấy con trỏ Prisma trỏ vào một hàng KHÔNG CÒN trong tập lọc, `skip: 1`
+ * nhảy qua một hàng chưa xử lý, và mỗi lần sang trang mất đúng một hồ sơ.
+ *
+ * Đo trên máy thật 28/08/2026: chạy thử báo 15.176 đơn thư, chạy thật chỉ đổi 15.161 — sót
+ * 15, đúng bằng số lần sang trang. Tổng 22 hồ sơ trên cả ba bảng.
+ */
+describe('GATE — không bỏ sót hàng khi sang trang', () => {
+  /** Kho giả TRUNG THỰC: chỉ trả hàng còn khớp bộ lọc, đúng như cơ sở dữ liệu thật. */
+  function khoLoc(rows: Array<{ id: string; tinhTrangHoSo: string | null }>) {
+    const delegate = {
+      findMany: jest.fn(
+        (a: { take: number; where?: any }) => {
+          let con = rows.filter((r) => r.tinhTrangHoSo !== null);
+          const gt = a.where?.id?.gt as string | undefined;
+          if (gt) con = con.filter((r) => r.id > gt);
+          return Promise.resolve(con.slice(0, a.take).map((r) => ({ ...r })));
+        },
+      ),
+      update: jest.fn(({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        const r = rows.find((x) => x.id === where.id);
+        if (r) r.tinhTrangHoSo = data['tinhTrangHoSo'] as string | null;
+        return Promise.resolve(r);
+      }),
+    };
+    return { prisma: { incident: delegate } as never, delegate };
+  }
+
+  it('2.500 hồ sơ `-1` được dọn HẾT, không sót hàng nào ở ranh giới trang', async () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => ({
+      // Mã chạy đủ chữ số để thứ tự chuỗi trùng thứ tự số — id thật là cuid, cũng so bằng chuỗi.
+      id: `r${String(i).padStart(5, '0')}`,
+      tinhTrangHoSo: '-1' as string | null,
+    }));
+    await donMotCot(prisma_(rows), COT_VU_VIEC, false);
+    expect(rows.filter((r) => r.tinhTrangHoSo === '-1')).toEqual([]);
+  });
+
+  let luuKho: ReturnType<typeof khoLoc>;
+  function prisma_(rows: Array<{ id: string; tinhTrangHoSo: string | null }>) {
+    luuKho = khoLoc(rows);
+    return luuKho.prisma;
+  }
+
+  /** Hàng KHÔNG đổi (mã lạ) vẫn ở lại bộ lọc — vòng lặp phải tiến, không quay vòng vô tận. */
+  it('hàng không đổi không làm vòng lặp quay vô tận', async () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => ({
+      id: `r${String(i).padStart(5, '0')}`,
+      tinhTrangHoSo: '99' as string | null,
+    }));
+    const kq = await donMotCot(prisma_(rows), COT_VU_VIEC, false);
+    expect(kq.quet).toBe(2500);
+    expect(kq.doi).toBe(0);
+    expect(kq.maLa.get('99')).toBe(2500);
+  });
+
+  it('lẫn lộn: dọn hết hàng cần dọn, giữ nguyên hàng không cần', async () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => ({
+      id: `r${String(i).padStart(5, '0')}`,
+      tinhTrangHoSo: (i % 3 === 0 ? '-1' : 'Tạm đình chỉ theo Điều 134') as string | null,
+    }));
+    await donMotCot(prisma_(rows), COT_VU_VIEC, false);
+    expect(rows.filter((r) => r.tinhTrangHoSo === '-1')).toEqual([]);
+    expect(rows.filter((r) => r.tinhTrangHoSo === 'Tạm đình chỉ theo Điều 134')).toHaveLength(
+      2500 - Math.ceil(2500 / 3),
+    );
   });
 });
