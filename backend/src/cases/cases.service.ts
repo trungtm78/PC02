@@ -35,6 +35,7 @@ import { CASE_STATUS_GROUPS, LIST_SUSPECT_NAMES_LIMIT } from './cases.constants'
 import { legacyFormParityData } from './legacy-form-parity.mapper';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseAssignedEvent, CaseCreatedEvent } from '../notifications/events/notification.events';
+import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 
 type JsonInput = Prisma.InputJsonValue;
 type PrismaTx = Prisma.TransactionClient;
@@ -755,15 +756,8 @@ export class CasesService {
           select: { id: true, fullName: true, dateOfBirth: true, type: true },
           orderBy: { createdAt: 'asc' },
         },
-        investigator: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            email: true,
-          },
-        },
+        investigator: { select: CHON_CAN_BO_IN },
+        createdBy: { select: CHON_CAN_BO_IN },
         petitions: {
           where: { deletedAt: null },
           orderBy: { createdAt: 'desc' },

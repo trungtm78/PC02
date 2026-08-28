@@ -95,11 +95,23 @@ export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
    *
    * Chỉ ở đây thôi. Trường nào hai hệ cùng khai là chữ thì cột typed vẫn đứng trước — nếu
    * không, hồ sơ di trú mà cán bộ đã sửa trên hệ mới sẽ in ra bản gốc chưa sửa.
+   *
+   * Và ngay trong nhóm lệch vai cũng phải chừa chỗ cho việc SỬA: cán bộ đổi ngày trên hệ mới
+   * thì chỉ cột typed đổi, bản thô đứng yên. Lấy bản thô vô điều kiện là in ra ngày CŨ — hỏng
+   * im lặng nhất trong cả bản vá, vì văn bản vẫn "có ngày", chỉ là ngày sai. Phân biệt bằng
+   * chính giá trị: hai bên cùng chỉ MỘT ngày thì giữ chữ cán bộ gõ; khác ngày nghĩa là vừa có
+   * người sửa, lấy cột typed.
    */
+  const coTho = tho !== null && tho !== undefined && tho !== '';
+  const coTyped = typed !== null && typed !== undefined && typed !== '';
   const lechVai = !!kieuHeCu && kieuHeCu !== 'date' && cot.type !== 'String';
-  const v = lechVai
-    ? (tho !== null && tho !== undefined && tho !== '' ? tho : typed)
-    : (typed !== null && typed !== undefined && typed !== '' ? typed : tho);
+  const giuBanTho =
+    lechVai &&
+    coTho &&
+    // Ô đánh dấu: bản thô giữ nguyên câu cán bộ ghi, cột typed chỉ còn đúng/sai — bản thô luôn
+    // nhiều thông tin hơn nên không có gì để cân nhắc.
+    (cot.type !== 'DateTime' || !coTyped || ngayViet(typed) === ngayViet(tho));
+  const v = giuBanTho ? tho : coTyped ? typed : tho;
 
   // Trường hệ cũ khai là `date` thật — vẫn đi qua bộ đọc mốc như trước.
   if (kieuHeCu === 'date') return ngayViet(v);
@@ -176,14 +188,41 @@ const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
  * mẫu không dùng — nhưng `don_thu_mau.docx` in địa chỉ bị hại bằng đúng `{dia-chi-bi-hai}`,
  * nên bỏ là mẫu ấy in ra nguyên chữ `{dia-chi-bi-hai}` giữa văn bản gửi đi.
  */
+/**
+ * Cột mà bản in dùng cho mỗi trường hệ cũ của một thực thể.
+ *
+ * Tách ra khỏi `khoaTheoTenHeCu` để cổng kiểm soi được LỰA CHỌN CỘT, chứ không chỉ soi giá trị
+ * trả về. Cổng đầu tiên chỉ gọi `resolve` rồi đoán kiểu cột qua chuỗi `Có`/`Không` — nó không
+ * bắt được lỗi gieo vào, vì `resolve` đọc tên CỘT còn ca kiểm lại truyền tên TRƯỜNG. Một cổng
+ * không bắt được lỗi còn tệ hơn không có cổng.
+ *
+ * Một trường hệ cũ có thể đổ vào HAI cột — cố ý, để vừa lọc được vừa giữ được chữ.
+ * `truong_hop_bao_cao_ban_giam_doc` đi vào `baoCaoBanGiamDoc` (đúng/sai) VÀ
+ * `baoCaoBanGiamDocText` (chữ). Bản in phải lấy cột CHỮ: hệ cũ in nguyên câu cán bộ ghi. Lấy
+ * mục đầu tiên gặp thì ở Vụ việc và Vụ án cột đúng/sai đứng trước, nên hồ sơ tạo trên hệ mới in
+ * ra `Có` thay vì câu ấy — cán bộ đọc bản in không biết nội dung báo cáo là gì.
+ */
+export function cotInTheoTruongHeCu(entity: Entity): Map<string, ParityCol> {
+  // Bảng "đã có cột" đứng TRƯỚC: nó ánh xạ đúng cột mà bộ di trú dùng, còn `PARITY` có thể
+  // khai một cột khác cho cùng tên trường ở thực thể khác.
+  const ra = new Map<string, ParityCol>();
+  for (const cot of [...CO_SAN_THEO_THUC_THE[entity], ...PARITY[entity]]) {
+    const dang = ra.get(cot.field);
+    if (!dang || (dang.type !== 'String' && cot.type === 'String')) ra.set(cot.field, cot);
+  }
+  return ra;
+}
+
 export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
   const ra: FieldDef[] = [];
   const daCo = new Set<string>();
-  // Bảng "đã có cột" đứng TRƯỚC: nó ánh xạ đúng cột mà bộ di trú dùng, còn `PARITY` có thể
-  // khai một cột khác cho cùng tên trường ở thực thể khác.
-  for (const cot of [...CO_SAN_THEO_THUC_THE[entity], ...PARITY[entity]]) {
-    if (daCo.has(cot.field)) continue;
-    daCo.add(cot.field);
+  const nguon = [...CO_SAN_THEO_THUC_THE[entity], ...PARITY[entity]];
+  const uuTienChu = cotInTheoTruongHeCu(entity);
+
+  for (const goc of nguon) {
+    if (daCo.has(goc.field)) continue;
+    daCo.add(goc.field);
+    const cot = uuTienChu.get(goc.field) ?? goc;
     ra.push({
       key: cot.field,
       label: cot.field,
@@ -234,13 +273,27 @@ function soHoSoNhuHeCu(record: unknown): string {
 function oDauVanBan(record: unknown, khoa: 'ngay' | 'thang' | 'nam'): string {
   const r = (record ?? {}) as Record<string, unknown>;
   const raw = (r['legacyRaw'] ?? {}) as Record<string, unknown>;
-  const tho = raw && typeof raw === 'object' ? raw[khoa] : undefined;
-  if (tho !== null && tho !== undefined && tho !== '') {
+  const coRaw = raw && typeof raw === 'object';
+
+  /**
+   * Quyết định MỘT LẦN cho cả ba ô, không quyết từng ô.
+   *
+   * Hồ sơ di trú thiếu riêng một ô (vd `thang` rỗng) mà quyết từng ô thì `ngay` lấy từ hồ sơ còn
+   * `thang` tự lấy từ ngày ký — ra một ngày tháng KHÔNG tồn tại ở đâu cả, và không ai nhận ra vì
+   * dòng ấy vẫn đọc trôi chảy. Hệ cũ đổ thẳng `$info[...]`: rỗng thì in rỗng.
+   */
+  const laHoSoDiTru =
+    coRaw && (['ngay', 'thang', 'nam'] as const).some((k) => raw[k] !== null && raw[k] !== undefined && raw[k] !== '');
+
+  if (laHoSoDiTru) {
+    const tho = raw[khoa];
+    if (tho === null || tho === undefined || tho === '') return '';
     const s = chuoi(tho).trim();
     // Chỉ `ngay` được đệm, và chỉ khi nó là số nhỏ hơn 10 — đúng điều kiện `$value < 10`.
     if (khoa === 'ngay' && /^\d$/.test(s)) return `0${s}`;
     return s;
   }
+
   const d = ngayKy(record);
   if (khoa === 'nam') return String(d.getFullYear());
   if (khoa === 'thang') return String(d.getMonth() + 1);

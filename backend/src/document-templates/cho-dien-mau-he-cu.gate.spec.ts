@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import PizZip from 'pizzip';
-import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY, cotInTheoTruongHeCu } from './khoa-he-cu';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
 import { thuMucMauHeCu } from '../../prisma/seed-legacy-templates';
 
@@ -94,6 +94,11 @@ describe('Cổng: mọi chỗ điền của mẫu hệ cũ đều đã được 
     ...KHOA_HE_CU_CUNG_BO_TRONG,
   ]);
 
+  /** Tập chỗ điền THẬT SỰ có trên 11 mẫu — dùng để không canh những khoá mẫu không dùng. */
+  const choDienDaDung = new Set<string>(
+    mau.flatMap((ten) => choDienCuaMau(path.join(dir, ten))),
+  );
+
   it('kho có đủ 11 mẫu hệ cũ', () => {
     expect(mau).toHaveLength(11);
   });
@@ -111,6 +116,27 @@ describe('Cổng: mọi chỗ điền của mẫu hệ cũ đều đã được 
   it('danh sách khoá hệ cũ bỏ trống không phình thêm', () => {
     expect(KHOA_HE_CU_CUNG_BO_TRONG).toHaveLength(18);
   });
+
+  /**
+   * KHÔNG chỗ điền nào được tra qua cột đúng/sai.
+   *
+   * Cột `Boolean` chỉ còn hai giá trị, nên in ra `Có`/`Không` thay cho câu cán bộ đã ghi. Với ô
+   * lệch vai (hệ cũ khai chữ) thì bộ tra lấy bản thô trước, nhưng hồ sơ TẠO TRÊN HỆ MỚI không
+   * có bản thô — lúc ấy chỉ còn cột, và nếu cột ấy là đúng/sai thì nội dung mất hẳn.
+   *
+   * Đã xảy ra với `truong_hop_bao_cao_ban_giam_doc`: nó đổ vào hai cột, và ở Vụ việc lẫn Vụ án
+   * thì cột đúng/sai đứng trước nên bảng khoá lấy nhầm. Cổng này canh cho cả các trường sau.
+   */
+  it.each(['petition', 'incident', 'case'] as const)(
+    '%s — không chỗ điền nào tra qua cột đúng/sai',
+    (thucThe) => {
+      const dungSai = [...cotInTheoTruongHeCu(thucThe).entries()]
+        .filter(([truong]) => choDienDaDung.has(truong))
+        .filter(([, cot]) => cot.type === 'Boolean')
+        .map(([truong, cot]) => `${truong} → ${cot.col}`);
+      expect(dungSai).toEqual([]);
+    },
+  );
 
   /**
    * Bốn trường `ngay_*` mà hệ cũ khai là CHỮ. Cổng ghim chúng lại vì đây là chỗ đã sai một lần:

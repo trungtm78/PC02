@@ -159,21 +159,93 @@ describe('In như hệ cũ — mốc đúng là bản in thật, không phải m
   });
 
   /**
-   * Ô lệch vai còn một dạng nữa: hệ cũ khai chữ, hệ mới lưu thành ô đánh dấu.
-   * `truong_hop_bao_cao_ban_giam_doc` ở Vụ việc và Vụ án đổ vào cột `Boolean`, nên bản in cũ
-   * ra `Có` thay vì câu cán bộ đã ghi. Mẫu `don_thu_mau.docx` in thẳng ô này giữa văn bản.
+   * Một trường hệ cũ có thể đổ vào HAI cột hệ mới — cố ý, để vừa lọc được vừa giữ được chữ.
+   * `truong_hop_bao_cao_ban_giam_doc` đi vào `baoCaoBanGiamDoc` (đúng/sai) VÀ
+   * `baoCaoBanGiamDocText` (chữ). Bản in phải lấy cột CHỮ: hệ cũ in nguyên câu cán bộ ghi, và
+   * mẫu `don_thu_mau.docx` in thẳng ô này giữa văn bản.
+   *
+   * Bảng khoá vốn lấy mục ĐẦU TIÊN gặp, mà ở Vụ việc và Vụ án mục đúng/sai lại đứng trước —
+   * nên hồ sơ không có bản thô in ra `Có` thay vì câu cán bộ đã ghi.
    */
-  it('ô lệch vai kiểu đánh dấu vẫn in đúng câu cán bộ ghi', () => {
+  it('trường đi vào hai cột thì bản in lấy cột CHỮ, không lấy cột đúng/sai', () => {
+    for (const tt of ['incident', 'case'] as const) {
+      const k = khoaTheoTenHeCu(tt).find((x) => x.key === 'truong_hop_bao_cao_ban_giam_doc')!;
+      expect(k).toBeDefined();
+      // Hồ sơ tạo trên hệ mới: KHÔNG có bản thô, chỉ có hai cột.
+      expect(
+        k.resolve({
+          baoCaoBanGiamDoc: true,
+          baoCaoBanGiamDocText: 'Báo cáo theo chỉ đạo ngày 12/8',
+        }),
+      ).toBe('Báo cáo theo chỉ đạo ngày 12/8');
+    }
+  });
+
+  it('hồ sơ di trú vẫn in đúng câu trong bản thô', () => {
     const k = khoaTheoTenHeCu('incident').find(
       (x) => x.key === 'truong_hop_bao_cao_ban_giam_doc',
     )!;
-    expect(k).toBeDefined();
     expect(
       k.resolve({
         baoCaoBanGiamDoc: true,
         legacyRaw: { truong_hop_bao_cao_ban_giam_doc: 'Báo cáo theo chỉ đạo ngày 12/8' },
       }),
     ).toBe('Báo cáo theo chỉ đạo ngày 12/8');
+  });
+
+  /**
+   * Ba ô đầu văn bản phải quyết định MỘT LẦN chứ không quyết từng ô.
+   *
+   * Hồ sơ di trú thiếu riêng một ô (vd `thang` rỗng) mà quyết từng ô thì `ngay` lấy từ hồ sơ
+   * còn `thang` tự lấy từ ngày ký — ra một ngày tháng KHÔNG tồn tại ở đâu cả. Hệ cũ đổ thẳng
+   * `$info[...]`, rỗng thì in rỗng.
+   */
+  it('hồ sơ có bản thô nhưng thiếu một ô thì ô ấy in TRỐNG, không lấy từ ngày ký', () => {
+    const hs = {
+      ngayDeXuat: new Date('2026-08-27T03:00:00Z'),
+      legacyRaw: { ngay: 21, thang: '', nam: 2026 },
+    };
+    expect(KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ngay')!.resolve(hs)).toBe('21');
+    expect(KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'thang')!.resolve(hs)).toBe('');
+    expect(KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'nam')!.resolve(hs)).toBe('2026');
+  });
+
+  /**
+   * BẪY NẶNG NHẤT của luật "lệch vai".
+   *
+   * Ô lệch vai lấy bản thô TRƯỚC cột typed để giữ nguyên chữ cán bộ gõ. Nhưng nếu cán bộ SỬA ô
+   * ấy trên hệ mới thì chỉ cột typed đổi, bản thô đứng yên — và bản in sẽ ra ngày CŨ. Hỏng kiểu
+   * này im lặng nhất trong cả bản vá: văn bản vẫn "có ngày", chỉ là ngày sai.
+   *
+   * Phân biệt bằng chính giá trị: hai bên cùng chỉ một ngày thì giữ chữ cán bộ gõ (`09/8/2026`
+   * đẹp hơn `09/08/2026` và đúng hệ cũ hơn); khác ngày nghĩa là có người vừa sửa, lấy cột typed.
+   */
+  it('cán bộ SỬA ngày trên hệ mới thì bản in ra ngày MỚI, không ra bản thô cũ', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_phieu_chuyen')!;
+    expect(
+      k.resolve({
+        ngayPhieuChuyen: new Date('2026-08-10T00:00:00Z'),
+        legacyRaw: { ngay_phieu_chuyen: '09/8/2026' },
+      }),
+    ).toBe('10/08/2026');
+  });
+
+  it('chưa ai sửa thì vẫn giữ nguyên chữ cán bộ gõ', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_phieu_chuyen')!;
+    expect(
+      k.resolve({
+        ngayPhieuChuyen: new Date('2026-08-09T00:00:00Z'),
+        legacyRaw: { ngay_phieu_chuyen: '09/8/2026' },
+      }),
+    ).toBe('09/8/2026');
+  });
+
+  /** Bản thô là chữ không đọc ra ngày, cột typed rỗng → vẫn phải giữ nguyên chữ ấy. */
+  it('bản thô không phải ngày mà cột typed rỗng thì giữ nguyên chữ', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_phieu_chuyen')!;
+    expect(
+      k.resolve({ ngayPhieuChuyen: null, legacyRaw: { ngay_phieu_chuyen: 'chưa rõ' } }),
+    ).toBe('chưa rõ');
   });
 
   /**

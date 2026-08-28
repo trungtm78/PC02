@@ -35,6 +35,7 @@ import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
+import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -1694,9 +1695,9 @@ export class PetitionsService {
     const petition = await this.prisma.petition.findFirst({
       where: { id, deletedAt: null },
       include: {
-        enteredBy: { select: { firstName: true, lastName: true, rank: true } },
+        enteredBy: { select: CHON_CAN_BO_IN },
         // Cán bộ đề xuất được CHỌN trên form — ưu tiên hơn người in khi render.
-        canBoDeXuat: { select: { firstName: true, lastName: true, rank: true } },
+        canBoDeXuat: { select: CHON_CAN_BO_IN },
         assignedTeam: {
           select: {
             id: true,

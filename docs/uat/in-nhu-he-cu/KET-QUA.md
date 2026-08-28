@@ -221,16 +221,35 @@ không sai người, nhưng chưa giống hệ cũ.
 
 ---
 
+## Soát độc lập bắt thêm 5 lỗi
+
+Chạy soát bằng công cụ ngoài (`codex`) sau khi mọi ca kiểm đã xanh. Nó tìm ra **5 lỗi thật mà
+ca kiểm không bắt được** — cả 5 đều thuộc lớp "xanh ở phòng thí nghiệm, hỏng trên máy thật":
+
+| # | Lỗi | Vì sao ca kiểm không bắt được |
+|---|---|---|
+| 1 | **Ba bộ nạp không lấy cột `shortName`** — bản vá tên viết tắt KHÔNG có tác dụng trên máy thật | Ca kiểm truyền thẳng đối tượng cán bộ có sẵn cột ấy; khoảng hở nằm giữa "bộ nạp khai cột gì" và "bộ in đọc cột gì", hai bên chưa từng gặp nhau |
+| 2 | **Vụ án không nạp `createdBy`** → `${nguoi_nhan}`/`${ten_ngan}` in TRỐNG trên mọi chứng từ Vụ án | Như trên |
+| 3 | **`truong_hop_bao_cao_ban_giam_doc` lấy nhầm cột đúng/sai** → in `Có` thay vì câu cán bộ ghi | Ca kiểm chỉ thử hồ sơ di trú (có bản thô); hồ sơ tạo trên hệ mới mới lộ |
+| 4 | **Cán bộ SỬA ngày trên hệ mới thì bản in ra ngày CŨ** | Luật "lệch vai" lấy bản thô trước; ca kiểm không có ca "đã sửa" |
+| 5 | **Ba ô đầu văn bản quyết định từng ô** → hồ sơ thiếu riêng một ô ra ngày tháng không tồn tại ở đâu | Ca kiểm chỉ dùng hồ sơ đủ ba ô |
+
+Đã vá cả 5, mỗi lỗi kèm ca kiểm chốt. Cổng đầu tiên viết cho lỗi #3 **không bắt được lỗi gieo
+vào** (nó gọi `resolve` rồi đoán kiểu cột qua chuỗi trả về, trong khi `resolve` đọc tên CỘT còn
+ca kiểm truyền tên TRƯỜNG) — đã viết lại để soi thẳng lựa chọn cột. Một cổng không bắt được lỗi
+còn tệ hơn không có cổng.
+
 ## Cổng chặn tái diễn
 
-| Cổng | Canh gì |
-|---|---|
-| `in-nhu-he-cu.spec.ts` | Từng luật điền, neo bằng bản in thật (25 ca) |
-| `cho-dien-mau-he-cu.gate.spec.ts` | Mọi chỗ điền của 11 mẫu phải được phân loại (17 ca) |
-| `so-ban-in.spec.ts` | Công cụ đối chiếu tự đúng: giải mã XML, căn dòng, chọn mẫu (21 ca) |
-| `nap-ten-ngan-can-bo.spec.ts` | Bộ nạp không gán nhầm khi trùng tên (11 ca) |
+| Cổng | Canh gì | Ca |
+|---|---|---:|
+| `in-nhu-he-cu.spec.ts` | Từng luật điền, neo bằng bản in thật | 33 |
+| `cho-dien-mau-he-cu.gate.spec.ts` | Mọi chỗ điền của 11 mẫu phải được phân loại; không ô nào tra qua cột đúng/sai | 20 |
+| `chon-can-bo-in.gate.spec.ts` | Bộ nạp xuất chứng từ lấy đủ cột cán bộ (đọc thẳng mã nguồn) | 14 |
+| `so-ban-in.spec.ts` | Công cụ đối chiếu tự đúng: giải mã XML, căn dòng, chọn mẫu | 21 |
+| `nap-ten-ngan-can-bo.spec.ts` | Bộ nạp không gán nhầm khi trùng tên | 11 |
 
-Toàn bộ kho: **3.757 ca kiểm xanh**, `tsc --noEmit` sạch.
+Toàn bộ kho: **3.779 ca kiểm xanh**, `tsc --noEmit` sạch.
 
 ---
 
