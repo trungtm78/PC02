@@ -278,6 +278,25 @@ export const userTableLayoutsApi = {
     api.delete<{ deleted: number }>(`/user-table-layouts/${encodeURIComponent(tableKey)}`),
 };
 
+/**
+ * Lựa chọn in chứng từ (mẫu đã tích + định dạng xuất), riêng từng tài khoản.
+ *
+ * `list()` trả bản đồ theo loại hồ sơ nên một lượt gọi đủ cho cả ba màn — popup In chứng từ dùng
+ * chung cho Đơn thư / Vụ việc / Vụ án.
+ */
+export type CheDoXuatApi = 'separate' | 'merged' | 'zip';
+export interface LuaChonInApi {
+  templateIds: string[];
+  mode: CheDoXuatApi;
+}
+export const userExportPreferencesApi = {
+  list: () => api.get<Record<string, LuaChonInApi>>('/user-export-preferences'),
+  luu: (entityType: string, luaChon: LuaChonInApi) =>
+    api.put(`/user-export-preferences/${encodeURIComponent(entityType)}`, { luaChon }),
+  datLai: (entityType: string) =>
+    api.delete<{ deleted: number }>(`/user-export-preferences/${encodeURIComponent(entityType)}`),
+};
+
 export const userShortcutsApi = {
   list: () => api.get<UserShortcut[]>('/user-shortcuts'),
   upsert: (action: string, binding: string) =>

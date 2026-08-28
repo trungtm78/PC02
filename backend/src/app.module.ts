@@ -38,6 +38,7 @@ import { KpiModule } from './kpi/kpi.module';
 import { AbbreviationsModule } from './abbreviations/abbreviations.module';
 import { UserShortcutsModule } from './user-shortcuts/user-shortcuts.module';
 import { UserTableLayoutsModule } from './user-table-layouts/user-table-layouts.module';
+import { UserExportPreferencesModule } from './user-export-preferences/user-export-preferences.module';
 import { TdacModule } from './reports/tdac/tdac.module';
 import { EventCategoriesModule } from './event-categories/event-categories.module';
 import { CalendarEventsModule } from './calendar-events/calendar-events.module';
@@ -107,6 +108,7 @@ import { CatalogModule } from './catalog/catalog.module';
     AbbreviationsModule,
     UserShortcutsModule,
     UserTableLayoutsModule,
+    UserExportPreferencesModule,
     PushModule,
     SchedulerModule,
     VksMeetingsModule,

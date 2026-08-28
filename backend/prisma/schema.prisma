@@ -151,6 +151,7 @@ model User {
   abbreviations                   UserAbbreviation[]
   shortcuts                       UserShortcut[]
   tableLayouts                    UserTableLayout[]
+  exportPreferences               UserExportPreference[]
   devices                         UserDevice[]
   overdueNotifications            OverdueNotification[]
   vksMeetingsCreated              VksMeetingRecord[]        @relation("VksMeetingCreatedBy")
@@ -2213,6 +2214,41 @@ model UserTableLayout {
   @@unique([userId, tableKey])
   @@index([userId])
   @@map("user_table_layouts")
+}
+
+/// Lựa chọn in chứng từ của từng cán bộ: mẫu đã tích + định dạng xuất.
+///
+/// Popup In chứng từ bị gỡ khỏi màn hình khi đóng nên KHÔNG nhớ gì giữa các lần mở — Đơn thư có
+/// 14 mẫu (đo 28/08/2026) nên cán bộ phải tích lại từ đầu mỗi ngày.
+///
+/// Thứ tự ưu tiên khi popup mở: lựa chọn CÁ NHÂN ở bảng này thắng; ai chưa từng đặt thì dùng cờ
+/// `DocumentTemplate.selectedByDefault` admin bật ở màn Quản lý mẫu chứng từ. Đây là cá nhân
+/// hoá, không phải thiết lập chung.
+///
+/// Hàng VẮNG MẶT khác khối RỖNG: vắng mặt = "theo cờ admin", rỗng = "cán bộ cố ý không chọn mẫu
+/// nào". Gộp hai cái là mất đường quay về mặc định.
+///
+/// Bảng riêng chứ không nhét vào `UserTableLayout`: bảng ấy khoá cứng 7 tên bảng ở `BANG_HOP_LE`
+/// và bộ chuẩn hoá của nó lọc sạch mọi thứ không phải `{width, hidden, position}`. Kho này vốn
+/// theo lối mỗi tính năng một bảng nhỏ cùng khuôn (`UserShortcut`, `UserAbbreviation`,
+/// `UserTableLayout`) — đây là cái thứ tư, không phải hệ thứ hai.
+model UserExportPreference {
+  id          String   @id @default(cuid())
+  userId      String
+  /// 'DON_THU' | 'VU_VIEC' | 'VU_AN' — allowlist ở `THUC_THE_HOP_LE`.
+  entityType  String
+  /// Mã mẫu đã tích. Mảng rỗng là lựa chọn CÓ THẬT (cán bộ bỏ tích hết rồi vẫn xuất).
+  templateIds String[]
+  /// 'separate' | 'merged' | 'zip'.
+  mode        String   @default("separate")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType])
+  @@index([userId])
+  @@map("user_export_preferences")
 }
 
 model UserShortcut {

@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { DynamicExportDocumentsModal } from '../DynamicExportDocumentsModal';
 import { listExportTemplates, exportEntityDocuments, triggerDownload } from '../../export.api';
 import { api } from '@/lib/api';
 import type { DocumentTemplate } from '../../types';
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }));
+vi.mock('@/lib/api', () => ({
+  api: { get: vi.fn(), put: vi.fn() },
+  userExportPreferencesApi: { list: vi.fn(), luu: vi.fn(), datLai: vi.fn() },
+}));
 vi.mock('../../export.api', async () => {
   const actual = await vi.importActual<typeof import('../../export.api')>('../../export.api');
   return { ...actual, listExportTemplates: vi.fn(), exportEntityDocuments: vi.fn(), triggerDownload: vi.fn() };
@@ -26,6 +31,16 @@ function readiness(list: DocumentTemplate[], missingById: Record<string, Array<{
 
 beforeEach(() => { mGet.mockReset(); mList.mockReset(); mExport.mockReset(); mDownload.mockReset(); });
 
+
+/**
+ * Popup đọc lựa chọn đã lưu qua react-query, nên phải có `QueryClientProvider`. Mỗi lần render
+ * một client MỚI để kho đệm của ca này không rò sang ca kia.
+ */
+function boc({ children }: { children: ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+}
+
 describe('DynamicExportDocumentsModal', () => {
   /**
    * Hợp đồng ĐÃ ĐỔI 28/08/2026: popup không còn tích sẵn mọi mẫu đủ điều kiện, mà chỉ tích mẫu
@@ -39,7 +54,7 @@ describe('DynamicExportDocumentsModal', () => {
     ];
     mList.mockResolvedValue(list);
     mGet.mockResolvedValue(readiness(list) as never);
-    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />, { wrapper: boc });
     await waitFor(() => expect(mList).toHaveBeenCalledWith('cases'));
     const cb1 = await screen.findByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
     const cb2 = screen.getByTestId('dyn-export-checkbox-t2') as HTMLInputElement;
@@ -52,7 +67,7 @@ describe('DynamicExportDocumentsModal', () => {
     const list = [tpl({ id: 't1' })];
     mList.mockResolvedValue(list);
     mGet.mockResolvedValue(readiness(list, { t1: [{ field: 'soVanBan', label: 'Số văn bản', type: 'text', savable: false }] }) as never);
-    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />, { wrapper: boc });
     const cb = await screen.findByTestId('dyn-export-checkbox-t1') as HTMLInputElement;
     expect(cb).toBeDisabled();
     expect(screen.getByTestId('dyn-export-missing-t1')).toHaveTextContent('Thiếu: Số văn bản');
@@ -67,7 +82,7 @@ describe('DynamicExportDocumentsModal', () => {
     mGet.mockResolvedValue(readiness(list, { t1: [{ field: 'soVanBan', label: 'Số văn bản', type: 'text', savable: false }] }) as never);
     mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);
     const onClose = vi.fn();
-    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />, { wrapper: boc });
     const input = await screen.findByTestId('dyn-export-fill-soVanBan');
     fireEvent.change(input, { target: { value: '42/QD' } });
     // nhập xong → mẫu effective-ready → enabled → tích
@@ -91,7 +106,7 @@ describe('DynamicExportDocumentsModal', () => {
       ];
       mList.mockResolvedValue(list);
       mGet.mockResolvedValue(readiness(list) as never);
-      render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />);
+      render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={onClose} />, { wrapper: boc });
       await screen.findByTestId('dyn-export-checkbox-t1');
       return onClose;
     }
@@ -148,7 +163,7 @@ describe('DynamicExportDocumentsModal', () => {
   it('không có mẫu → thông báo trống', async () => {
     mList.mockResolvedValue([]);
     mGet.mockResolvedValue(readiness([]) as never);
-    render(<DynamicExportDocumentsModal entity="incidents" entityId="i1" onClose={vi.fn()} />);
+    render(<DynamicExportDocumentsModal entity="incidents" entityId="i1" onClose={vi.fn()} />, { wrapper: boc });
     expect(await screen.findByText(/Chưa có mẫu chứng từ/i)).toBeInTheDocument();
   });
 });
