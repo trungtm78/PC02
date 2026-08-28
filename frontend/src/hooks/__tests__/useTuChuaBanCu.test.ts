@@ -65,3 +65,120 @@ describe('Tự chữa khi đang chạy bản cũ', () => {
     expect(canTuChua('0.75.0.0', ' 0.75.0.0 ')).toBe(false);
   });
 });
+
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { useTuChuaBanCu } from '../useTuChuaBanCu';
+import { api } from '@/lib/api';
+
+vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
+const apiGet = api.get as unknown as ReturnType<typeof vi.fn>;
+
+/**
+ * CỔNG (Codex 28/08/2026): ca kiểm cũ chỉ gọi hàm thuần `canTuChua`, không hề chạm phần nguy
+ * hiểm nhất — gỡ service worker, xoá kho nội dung, và tải lại trang. Đó là ca kiểm xanh giả.
+ *
+ * Dưới đây kiểm CẢ HOOK, và đặc biệt kiểm điều quan trọng nhất: nó KHÔNG được tự tải lại.
+ */
+describe('useTuChuaBanCu — hành vi thật của hook', () => {
+  let soLanTaiLai = 0;
+  const goRegs = vi.fn(async () => []);
+  const xoaCache = vi.fn(async () => true);
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    soLanTaiLai = 0;
+    apiGet.mockReset();
+    goRegs.mockClear();
+    xoaCache.mockClear();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload: () => { soLanTaiLai += 1; } },
+    });
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { getRegistrations: goRegs },
+    });
+    Object.defineProperty(window, 'caches', {
+      configurable: true,
+      value: { keys: async () => ['a', 'b'], delete: xoaCache },
+    });
+  });
+
+  it('cùng phiên bản thì KHÔNG báo gì', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/health'));
+    expect(result.current.banCu).toBe(false);
+  });
+
+  it('lệch phiên bản thì bật cờ báo', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(result.current.banCu).toBe(true));
+  });
+
+  /**
+   * ĐIỀU QUAN TRỌNG NHẤT. Hook gắn ở khung ứng dụng, bọc MỌI màn nhập liệu, và dự án không có
+   * lớp chặn nào cho form dở dang. Tự tải lại giữa lúc cán bộ đang gõ hồ sơ là cuốn mất công
+   * của họ — đổi một lỗi im lặng lấy một lỗi ồn ào hơn thì không phải là chữa.
+   */
+  it('KHÔNG tự tải lại trang, dù phát hiện bản cũ', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(result.current.banCu).toBe(true));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(soLanTaiLai).toBe(0);
+  });
+
+  it('chỉ khi cán bộ BẤM mới gỡ service worker, xoá kho, rồi tải lại', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(result.current.banCu).toBe(true));
+    act(() => result.current.capNhat());
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
+    expect(goRegs).toHaveBeenCalled();
+    // Chỉ gỡ service worker là chưa đủ: kho nội dung vẫn giữ gói cũ và bản mới sẽ dùng lại.
+    expect(xoaCache).toHaveBeenCalledTimes(2);
+  });
+
+  /** Chốt phải ghi TRƯỚC khi tải lại, nếu không lần tải sau lại thấy lệch và báo tiếp mãi. */
+  it('đánh dấu đã tự chữa trước khi tải lại', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(result.current.banCu).toBe(true));
+    act(() => result.current.capNhat());
+    await waitFor(() => expect(sessionStorage.getItem(KHOA_DA_TU_CHUA)).toBe('1'));
+  });
+
+  it('máy chủ lỗi thì im lặng, không báo nhầm', async () => {
+    apiGet.mockRejectedValue(new Error('mat mang'));
+    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 30));
+    expect(result.current.banCu).toBe(false);
+    expect(soLanTaiLai).toBe(0);
+  });
+
+  /** Quay lại tab thì hỏi lại — cán bộ để tab mở cả ngày, chỉ hỏi lúc vào là bỏ lỡ mọi lần deploy. */
+  it('quay lại tab thì hỏi lại máy chủ', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
+    renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(2));
+  });
+
+  it('gỡ khỏi màn hình thì dừng hỏi, không rò rỉ bộ đếm', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
+    const { unmount } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
+    unmount();
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(apiGet).toHaveBeenCalledTimes(1);
+  });
+});

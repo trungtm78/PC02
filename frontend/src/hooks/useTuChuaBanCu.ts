@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 
 /**
@@ -16,11 +16,16 @@ import { api } from '@/lib/api';
  * một nguồn KHÔNG BAO GIỜ bị cache — `/api/v1/health`, đi thẳng xuống máy chủ, không qua
  * service worker (đường `/api/` khai NetworkOnly) và không qua cache của CDN.
  *
- * ── Vì sao phần lớn mã ở đây là chốt chặn ──
+ * ── Vì sao BÁO chứ KHÔNG tự tải lại ──
  *
- * Rủi ro của chính tính năng này lớn hơn lỗi nó chữa: tự tải lại trang giữa giờ làm việc sẽ
- * cuốn mất dữ liệu cán bộ đang nhập dở. Nên nó chỉ được làm ĐÚNG MỘT LẦN mỗi phiên, và chỉ
- * khi cả hai bên đều nói rõ số hiệu của mình.
+ * Bản đầu tự gọi `location.reload()` ngay khi thấy lệch. Codex chỉ ra 28/08/2026: hook này
+ * gắn ở khung ứng dụng, bọc MỌI màn nhập liệu, và dự án không có lớp chặn nào cho form dở
+ * dang — nhiều form chỉ lưu nháp khi cán bộ tự bấm. Tự tải lại giữa lúc người ta đang gõ một
+ * hồ sơ là cuốn mất công của họ.
+ *
+ * Đổi một lỗi im lặng lấy một lỗi ồn ào hơn thì không phải là chữa. Việc cần làm chỉ là để
+ * cán bộ BIẾT mình đang dùng bản cũ — một dải báo ở góc màn hình làm được điều đó, và họ bấm
+ * khi nào tiện. Chốt chặn vẫn giữ, vì sau khi bấm thì mới thật sự tải lại.
  */
 
 /** Chốt chặn vòng lặp. Dùng `sessionStorage`: hết phiên là quên, không kẹt vĩnh viễn. */
@@ -87,14 +92,24 @@ async function thoatBanCu(): Promise<void> {
   window.location.reload();
 }
 
+export interface TinhTrangBanCu {
+  /** App đang chạy bản cũ hơn bản trên máy chủ. */
+  banCu: boolean;
+  /** Cán bộ bấm "Cập nhật" — LÚC NÀY mới gỡ service worker, xoá kho và tải lại. */
+  capNhat: () => void;
+}
+
 /**
  * Gắn một lần ở khung ứng dụng.
  *
  * Hỏi ngay khi vào, rồi hỏi lại theo nhịp và mỗi lần quay lại tab — cán bộ thường để tab mở
  * cả ngày, nên chỉ hỏi lúc vào là bỏ lỡ mọi lần deploy trong ngày.
+ *
+ * KHÔNG tự tải lại. Chỉ bật cờ để khung ứng dụng hiện dải báo; cán bộ bấm khi nào tiện.
  */
-export function useTuChuaBanCu(phienBanGiaoDien: string): void {
+export function useTuChuaBanCu(phienBanGiaoDien: string): TinhTrangBanCu {
   const dangChay = useRef(false);
+  const [banCu, setBanCu] = useState(false);
 
   useEffect(() => {
     let huy = false;
@@ -104,9 +119,7 @@ export function useTuChuaBanCu(phienBanGiaoDien: string): void {
       dangChay.current = true;
       try {
         const r = await api.get<{ version?: string }>('/health');
-        if (!huy && canTuChua(phienBanGiaoDien, r.data?.version)) {
-          await thoatBanCu();
-        }
+        if (!huy && canTuChua(phienBanGiaoDien, r.data?.version)) setBanCu(true);
       } catch {
         // Mất mạng hoặc máy chủ lỗi — im lặng, nhịp sau hỏi lại.
       } finally {
@@ -127,4 +140,8 @@ export function useTuChuaBanCu(phienBanGiaoDien: string): void {
       document.removeEventListener('visibilitychange', khiQuayLai);
     };
   }, [phienBanGiaoDien]);
+
+  const capNhat = useCallback(() => void thoatBanCu(), []);
+
+  return { banCu, capNhat };
 }

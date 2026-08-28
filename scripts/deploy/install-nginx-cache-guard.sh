@@ -57,11 +57,29 @@ DA_LUU=""
 # đúng thế hai lần liên tiếp ngày 28/08/2026.
 for L in $DS; do
     C=$(readlink -f "$L")
-    grep -q "location = /sw.js" "$C" && continue
-    grep -q "location ~\* .*js|css" "$C" || continue
+    # ĐẾM theo KHỐI, không hỏi "tệp này đã có chưa".
+    #
+    # Một tệp cấu hình có NHIỀU khối `server` (tên miền + khối bắt-tất-cả phục vụ địa chỉ IP).
+    # Hỏi "tệp đã có /sw.js chưa" rồi bỏ qua thì khi một khối đã vá còn khối kia chưa, script
+    # báo "đã đúng" và để nguyên khối hỏng — đúng kịch bản mà chính script này sinh ra để
+    # chống. Codex chỉ ra 28/08/2026.
+    SO_TINH=$(grep -c "location ~\* .*js|css" "$C" || true)
+    SO_DA_VA=$(grep -c "location = /sw.js" "$C" || true)
+    [ "${SO_TINH:-0}" -eq 0 ] && continue
+    [ "${SO_DA_VA:-0}" -ge "${SO_TINH:-0}" ] && continue
+
     B="${C}.bak.$(date +%Y%m%d_%H%M%S)"
     cp -p "$C" "$B"
     DA_LUU="$DA_LUU $C:$B"
+    # Gỡ hết khối cũ rồi chèn lại trước MỌI khối tĩnh. Gỡ-rồi-chèn xử lý được cả trạng thái
+    # vá nửa vời, và chạy lại bao nhiêu lần cũng ra cùng một kết quả.
+    python3 - "$C" <<'GO'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'    # pc02-ensure-nginx-cache.*?location ~\* \^/\(workbox\|registerSW\).*?\n    \}\n\n', '', s, flags=re.S)
+open(p, 'w', encoding='utf-8').write(s)
+GO
     sed -i "/location ~\* .*js|css/i\\${KHOI}" "$C"
     DA_SUA=$((DA_SUA + 1))
 done
