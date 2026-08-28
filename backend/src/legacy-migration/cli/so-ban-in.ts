@@ -19,6 +19,7 @@
  *
  *   npx ts-node src/legacy-migration/cli/so-ban-in.ts 85651 86950 86374
  *   npx ts-node src/legacy-migration/cli/so-ban-in.ts --loai        # mỗi loại một hồ sơ
+ *   npx ts-node src/legacy-migration/cli/so-ban-in.ts --bien-nhan 86950   # nút "Xuất biên nhận"
  *   npx ts-node src/legacy-migration/cli/so-ban-in.ts --json bao-cao.json
  *
  * Biến môi trường: `LEGACY_BASE_URL`, `LEGACY_USER`, `LEGACY_PASS`, `BACKUP_PG_URL`.
@@ -64,13 +65,25 @@ const MAU_THEO_LOAI: Readonly<Record<string, string>> = {
 };
 const MAU_MAC_DINH = 'vu_an_mau.docx';
 
-export function mauChoLoai(loai: unknown): string {
+/**
+ * Mẫu BIÊN NHẬN — hệ cũ có nút riêng, không đi theo `loai`.
+ *
+ * `doi_1_list.tpl` dựng hai nút cạnh nhau: "Xuất Word" (`/doi-1/XuatFile/<id>`) và "Xuất biên
+ * nhận" (`/doi-1/XuatFile/<id>?xuat_bien_nhan=1`). Nhánh thứ hai bỏ qua toàn bộ bảng ánh xạ và
+ * dùng thẳng `bien_nhan_don_thu_mau.docx` — nên nó là mẫu DUY NHẤT không lộ ra khi chỉ so theo
+ * `loai`, và vòng đối chiếu đầu đã bỏ sót đúng nó.
+ */
+export const MAU_BIEN_NHAN = 'bien_nhan_don_thu_mau.docx';
+
+export function mauChoLoai(loai: unknown, bienNhan = false): string {
+  if (bienNhan) return MAU_BIEN_NHAN;
   return MAU_THEO_LOAI[String(loai ?? '')] ?? MAU_MAC_DINH;
 }
 
 /** Thực thể hệ mới ứng với tệp mẫu — dùng để chọn đúng catalog khoá khi tra giá trị. */
 export function thucTheChoMau(mau: string): 'DON_THU' | 'VU_VIEC' | 'VU_AN' {
   if (mau === 'vu_an_mau.docx' || mau === 'an_tra_bo_sung_mau.docx') return 'VU_AN';
+  if (mau === MAU_BIEN_NHAN) return 'DON_THU';
   if (mau === 'vu_viec_mau.docx') return 'VU_VIEC';
   if (mau === 'uy_thac_dieu_tra_mau.docx') return 'VU_AN';
   return 'DON_THU';
@@ -188,8 +201,9 @@ async function dangNhapHeCu(): Promise<string> {
 }
 
 /** Tải bản in của hệ cũ. CHỈ ĐỌC — `GET`, đúng đường nút "Xuất Word" trên màn danh sách. */
-async function taiBanInHeCu(cookie: string, id: string): Promise<Buffer> {
-  const res = await fetch(`${CO_SO}/doi-1/XuatFile/${id}`, { headers: { cookie } });
+async function taiBanInHeCu(cookie: string, id: string, bienNhan = false): Promise<Buffer> {
+  const duong = `${CO_SO}/doi-1/XuatFile/${id}${bienNhan ? '?xuat_bien_nhan=1' : ''}`;
+  const res = await fetch(duong, { headers: { cookie } });
   const kieu = res.headers.get('content-type') ?? '';
   if (!kieu.includes('wordprocessingml')) {
     throw new Error(`Hồ sơ ${id}: hệ cũ không trả tệp Word (${kieu}).`);
@@ -350,6 +364,8 @@ async function main(): Promise<void> {
   const url =
     process.env['BACKUP_PG_URL'] ??
     'postgresql://postgres:postgres@127.0.0.1:5433/pc02_legacy_backup';
+  // Nút "Xuất biên nhận" của hệ cũ — nhánh riêng, không đi theo `loai`.
+  const bienNhan = process.argv.includes('--bien-nhan');
   const dauRaJson = process.argv.includes('--json')
     ? process.argv[process.argv.indexOf('--json') + 1]
     : undefined;
@@ -374,10 +390,10 @@ async function main(): Promise<void> {
       console.log(`\n─── ${id}: KHÔNG có trong bản sao CSDL, bỏ qua.`);
       continue;
     }
-    const mau = mauChoLoai(rec['loai']);
+    const mau = mauChoLoai(rec['loai'], bienNhan);
     let lech: DongLech[];
     try {
-      const cu = chuTrongDocx(await taiBanInHeCu(cookie, id));
+      const cu = chuTrongDocx(await taiBanInHeCu(cookie, id, bienNhan));
       const moi = chuTrongDocx(inBangHeMoi(rec, mau, tenCanBo.get(Number(rec['nguoi_them']))));
       lech = soDong(cu, moi);
     } catch (e) {
