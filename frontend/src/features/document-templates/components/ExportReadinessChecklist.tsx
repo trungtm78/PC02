@@ -81,6 +81,11 @@ export function ExportReadinessChecklist({
 
   // Mẫu tích được = mẫu đủ điều kiện. Mẫu thiếu thông tin đang `disabled` nên "Chọn tất cả"
   // phải bỏ qua chúng, không thì nút Xuất mở khoá cho một mẫu chưa đủ dữ liệu.
+  //
+  // Dùng ĐÚNG `effReady` mà ô tích đang dùng, kể cả nhánh "không có mục readiness ⇒ coi là đủ".
+  // Nhánh ấy trông như mở-cửa-khi-lỗi, nhưng sửa riêng ở đây là sai: lúc ấy ô tích vẫn ĐANG bật
+  // và cán bộ bấm tay được từng cái. "Chọn tất cả" phải chọn đúng thứ bấm tay chọn được — lệch
+  // khỏi ô tích là dựng hai định nghĩa "đủ điều kiện", và chúng sẽ lệch nhau ngay lần sửa đầu.
   const khoaDuDieuKien = templates.filter((t) => effReady(readiness[t.key])).map((t) => t.key);
 
   return (

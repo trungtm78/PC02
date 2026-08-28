@@ -51,6 +51,10 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
+  // Tập mẫu được admin bật tích sẵn — nhánh `preserve` cần nó, mà nó nằm ở `templates`.
+  const coBatSanRef = useRef<Set<string>>(new Set());
+  // Đếm lượt nạp: kết quả của lượt CŨ về sau lượt mới thì bỏ, không ghi đè.
+  const luotNapRef = useRef(0);
   // Bản đồ readiness dạng ref: cần đọc nó NGAY khi danh sách mẫu về, trước lượt render kế.
   const readinessRef = useRef<Record<string, ReadinessItem>>({});
   // Đóng modal giữa lúc đang tải nhiều file → DỪNG vòng lặp và không setState nữa
@@ -61,7 +65,11 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const fieldMetaRef = useRef<Record<string, ReadinessMissing>>({});
 
   const fetchReadiness = useCallback(async (preserve = false) => {
+    const luot = (luotNapRef.current += 1);
     const res = await api.get(readinessPath(entity, entityId));
+    // Hồ sơ đổi giữa chừng: kết quả lượt cũ về muộn sẽ ghi đè ref rồi gieo lựa chọn theo hồ sơ
+    // đã rời màn hình. Bỏ luôn, đừng đụng vào state nào.
+    if (luot !== luotNapRef.current) return;
     const data = (res?.data as { data?: { items?: Array<{ templateId: string; ready: boolean; missing: ReadinessMissing[] }>; updatedAt?: string } } | undefined)?.data
       ?? (res?.data as { items?: Array<{ templateId: string; ready: boolean; missing: ReadinessMissing[] }>; updatedAt?: string } | undefined);
     const map: Record<string, ReadinessItem> = {};
@@ -82,7 +90,11 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       if (!preserve) return prev;
       // Giữ nguyên hành vi cũ cho lần nạp SAU "Lưu bổ sung": mẫu vừa đủ điều kiện thì tự tích
       // thêm. Cán bộ vừa chủ động gõ thông tin để mở khoá đúng mẫu ấy — bắt họ tích lại là thừa.
-      const newlyReady = readyKeys.filter((k) => !prevReady.has(k));
+      // CHỈ mẫu admin đã bật cờ mới được tự tích. Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc
+      // (chúng dùng chung field thiếu) — tự tích tất cả là lách qua đúng cấu hình vừa dựng.
+      const newlyReady = readyKeys.filter(
+        (k) => !prevReady.has(k) && coBatSanRef.current.has(k),
+      );
       const next = new Set([...prev].filter((k) => readyKeys.includes(k)));
       newlyReady.forEach((k) => next.add(k));
       return next;
@@ -97,6 +109,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       .then(([list]) => {
         if (!alive) return;
         setTemplates(list);
+        coBatSanRef.current = new Set(list.filter((t) => t.selectedByDefault).map((t) => t.id));
         // Gieo lựa chọn ban đầu NGAY tại đây, cùng lượt render với danh sách mẫu.
         //
         // Trước đây popup tích sẵn mọi mẫu đủ điều kiện — Đơn thư có 14 mẫu đang bật (đo

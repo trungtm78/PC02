@@ -99,6 +99,39 @@ describe('Tích sẵn theo cấu hình mẫu', () => {
   });
 });
 
+/**
+ * Sau khi bổ sung thông tin, mẫu vừa mở khoá được tự tích — nhưng CHỈ mẫu admin đã bật cờ.
+ *
+ * Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc (các mẫu dùng chung field thiếu). Tự tích tất cả
+ * là lách qua đúng cấu hình vừa dựng: mẫu admin cố ý tắt lại nhảy vào bản xuất.
+ */
+describe('Tự tích sau khi bổ sung thông tin', () => {
+  beforeEach(() => {
+    mGet.mockReset();
+    mList.mockReset();
+  });
+
+  it('mẫu vừa đủ điều kiện mà KHÔNG bật cờ thì không tự tích', async () => {
+    const list = [tpl({ id: 't1' }), tpl({ id: 't2', selectedByDefault: true })];
+    // Field SAVABLE: phải bấm "Lưu bổ sung" → PUT → nạp lại readiness. Đúng nhánh `preserve`.
+    // Một ô nhập mở khoá CẢ HAI mẫu (chúng dùng chung field thiếu).
+    const thieu = { field: 'lyDo', label: 'Lý do', type: 'text' as const, savable: true, column: 'lyDo' };
+    mList.mockResolvedValue(list);
+    mGet
+      .mockResolvedValueOnce(readiness(list, { t1: [thieu], t2: [thieu] }) as never)
+      .mockResolvedValue(readiness(list) as never);
+    vi.mocked(api.put).mockResolvedValue({ data: { data: { updatedAt: 'x' } } } as never);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+    await screen.findByTestId('dyn-export-checkbox-t1');
+    fireEvent.change(screen.getByTestId('dyn-export-fill-lyDo'), { target: { value: 'X' } });
+    fireEvent.click(screen.getByTestId('dyn-export-save-fill'));
+    await waitFor(() => expect(o('t1').disabled).toBe(false));
+    // Mẫu bật cờ được tích; mẫu tắt cờ thì KHÔNG, dù cùng vừa mở khoá.
+    await waitFor(() => expect(o('t2').checked).toBe(true));
+    expect(o('t1').checked).toBe(false);
+  });
+});
+
 describe('Chọn tất cả / Bỏ chọn tất cả', () => {
   beforeEach(() => {
     mGet.mockReset();

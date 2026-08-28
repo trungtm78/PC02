@@ -44,7 +44,9 @@ export default function DocumentTemplatesPage() {
    * Cập nhật `items` tại chỗ thay vì nạp lại cả bảng — nạp lại làm bảng nháy và cuộn về đầu.
    */
   async function toggleTichSan(t: DocumentTemplate) {
-    if (busyId) return;
+    // Chỉ chặn ĐÚNG dòng đang gửi. Chặn cả bảng thì cú bấm ở dòng khác rơi mất im lặng, mà admin
+    // đang bật lần lượt 28 mẫu — mỗi cú rơi là một mẫu tưởng đã bật mà chưa.
+    if (busyId === t.id) return;
     const giaTriMoi = !t.selectedByDefault;
     setBusyId(t.id);
     try {
@@ -53,7 +55,8 @@ export default function DocumentTemplatesPage() {
         prev.map((x) => (x.id === t.id ? { ...x, selectedByDefault: giaTriMoi } : x)),
       );
     } finally {
-      setBusyId(null);
+      // Chỉ nhả khoá nếu chính dòng này đang giữ — dòng khác gửi sau thì để nó tự nhả.
+      setBusyId((dang) => (dang === t.id ? null : dang));
     }
   }
 
@@ -211,7 +214,7 @@ export default function DocumentTemplatesPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                   Chưa có mẫu chứng từ
                 </td>
               </tr>

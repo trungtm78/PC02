@@ -80,6 +80,24 @@ describe('Công tắc tích sẵn khi in', () => {
   });
 
   /**
+   * Bấm công tắc dòng KHÁC trong lúc một dòng đang gửi thì không được nuốt im lặng — admin đang
+   * bật lần lượt 28 mẫu, mỗi cú bấm rơi mất là một mẫu tưởng đã bật mà chưa.
+   */
+  it('bấm dòng khác trong lúc một dòng đang gửi vẫn ăn', async () => {
+    mApi.listTemplates.mockResolvedValue([mau(), mau({ id: 'd2', code: 'PHIEU' })] as never);
+    let moKhoa: () => void = () => {};
+    mApi.updateTemplate.mockImplementation(
+      () => new Promise((res) => { moKhoa = () => res({} as never); }) as never,
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('btn-tich-san-d1')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('btn-tich-san-d1'));
+    fireEvent.click(screen.getByTestId('btn-tich-san-d2'));
+    await waitFor(() => expect(mApi.updateTemplate).toHaveBeenCalledTimes(2));
+    moKhoa();
+  });
+
+  /**
    * Cập nhật TẠI CHỖ chứ không nạp lại cả bảng: nạp lại làm bảng nháy và cuộn về đầu, mà admin
    * đang bật lần lượt 28 mẫu thì mỗi lần nhảy về đầu là mất chỗ.
    */
