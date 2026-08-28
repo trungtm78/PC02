@@ -64,3 +64,93 @@ describe('normalizeDocxTags', () => {
     expect(normalizeDocxTags(bad)).toBe(bad);
   });
 });
+
+/**
+ * Mẫu in của hệ cũ tách placeholder qua nhiều run CÓ ĐỊNH DẠNG KHÁC NHAU — Word làm vậy khi
+ * người soạn bôi đậm nửa chữ, hoặc khi bộ kiểm chính tả chen vào. Bản chuẩn hoá đầu chỉ gộp
+ * được run không có `<w:rPr>`, nên cả 11 mẫu hệ cũ đều dò ra tên biến rác (dài hàng trăm ký
+ * tự, lẫn nguyên thẻ XML) — nghĩa là không mẫu nào dùng được.
+ */
+describe('normalizeDocxTags — placeholder vỡ qua run KHÁC định dạng', () => {
+  it('gộp được placeholder bị cắt giữa hai run có `rPr` khác nhau', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>tom_tat_noi_dung</w:t></w:r>' +
+        '<w:r><w:rPr><w:b/></w:rPr><w:t>}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['tom_tat_noi_dung']);
+  });
+
+  it('gộp được khi tên biến bị cắt làm đôi', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{nguon</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>_don}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['nguon_don']);
+  });
+
+  it('hai placeholder trong một đoạn vẫn tách đúng, không dính vào nhau', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{a}</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t> và {b}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf)).sort()).toEqual(['a', 'b']);
+  });
+
+  /** Đoạn KHÔNG chứa placeholder thì không đụng — giữ nguyên định dạng người soạn đã đặt. */
+  it('đoạn không có placeholder thì giữ nguyên từng run', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Chữ đậm</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t> chữ nghiêng</w:t></w:r></w:p>';
+    const ra = bodyXmlOf(normalizeDocxTags(makeRawDocx(body)));
+    expect(ra).toContain('<w:b/>');
+    expect(ra).toContain('<w:i/>');
+  });
+
+  it('placeholder nằm gọn trong một run thì không đụng gì', () => {
+    const buf = makeRawDocx('<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{stt}</w:t></w:r></w:p>');
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['stt']);
+  });
+});
+
+/**
+ * Ba bẫy codex bắt được sau khi bản vá đầu đã xanh — đều làm hỏng chính văn bản gửi đi.
+ */
+describe('normalizeDocxTags — giữ nguyên thứ không phải chữ, và hiểu cặp `${`', () => {
+  /**
+   * Mẫu Word canh dòng ký, dòng địa chỉ bằng `<w:tab/>` và `<w:br/>`. Gộp run mà chỉ giữ chữ
+   * là xoá luôn chúng — bố cục vỡ vĩnh viễn ngay khi nạp mẫu, không cách nào lấy lại.
+   */
+  it('không nuốt `<w:tab/>` và `<w:br/>` khi gộp', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t>stt</w:t></w:r>' +
+      '<w:r><w:rPr><w:b/></w:rPr><w:t>}</w:t></w:r>' +
+      '<w:r><w:tab/></w:r>' +
+      '<w:r><w:br/><w:t>Ký tên</w:t></w:r></w:p>';
+    const ra = bodyXmlOf(normalizeDocxTags(makeRawDocx(body)));
+    expect(ra).toContain('<w:tab/>');
+    expect(ra).toContain('<w:br/>');
+    expect(detectDocxVariables(normalizeDocxTags(makeRawDocx(body)))).toEqual(['stt']);
+  });
+
+  it('không nuốt hình ảnh trong đoạn có placeholder vỡ', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t>stt}</w:t></w:r>' +
+      '<w:r><w:drawing>ảnh</w:drawing></w:r></w:p>';
+    expect(bodyXmlOf(normalizeDocxTags(makeRawDocx(body)))).toContain('<w:drawing>');
+  });
+
+  /**
+   * Mẫu hệ cũ dùng cặp `${` … `}`. Word hay cắt đúng giữa `$` và `{` — khi ấy run sau chứa
+   * `{stt}` trông đã trọn vẹn, nên bước gộp bỏ qua, và dò theo `${` trượt mất biến.
+   */
+  it('gộp được khi Word cắt giữa `$` và `{`', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>$</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>{stt}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf), { start: '${', end: '}' })).toEqual(['stt']);
+  });
+});

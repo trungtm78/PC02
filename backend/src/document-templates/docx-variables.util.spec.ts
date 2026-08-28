@@ -70,3 +70,21 @@ describe('detectDocxVariables', () => {
     expect(names).toEqual(expect.arrayContaining(['trongThan', 'tieuDe', 'chanTrang']));
   });
 });
+
+/**
+ * Word ghi mã định danh tài liệu vào THUỘC TÍNH XML dưới dạng `{909E8E84-…}` — đúng cú pháp
+ * placeholder. Quét cả thuộc tính là mỗi mẫu lại sinh thêm một "biến" rác, hiện lên popup In
+ * như một ô cán bộ phải điền. Placeholder thật luôn nằm trong text `<w:t>`.
+ */
+describe('detectDocxVariables — chỉ dò trong TEXT, không dò thuộc tính XML', () => {
+  it('bỏ qua mã GUID Word chèn vào thuộc tính', () => {
+    const zip = new PizZip();
+    zip.file(
+      'word/document.xml',
+      '<?xml version="1.0"?><w:document xmlns:w="x" xmlns:w15="y">' +
+        '<w15:docId w15:val="{909E8E84-426E-40DD-AFC4-6F175D3DCCD1}"/>' +
+        '<w:body><w:p><w:r><w:t>{stt}</w:t></w:r></w:p></w:body></w:document>',
+    );
+    expect(detectDocxVariables(zip.generate({ type: 'nodebuffer' }))).toEqual(['stt']);
+  });
+});

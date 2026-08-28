@@ -1,0 +1,235 @@
+/**
+ * Khoá catalog mang TÊN TRƯỜNG HỆ CŨ — để in được nguyên bộ mẫu Word của hệ cũ.
+ *
+ * Hệ cũ có 11 mẫu (`/doi_1/file_mau`), mỗi loại hồ sơ một mẫu, và placeholder trong đó chính
+ * là tên trường hệ cũ: `{tom_tat_noi_dung}`, `{don_vi_giai_quyet}`, `{nguon_don}`… Mẫu chỉ
+ * điền thứ ĐÃ CÓ, trường nào trống thì in ra chỗ trống — nên bấm vào hồ sơ nào cũng ra file.
+ *
+ * Đó là lý do hệ cũ in được mọi hồ sơ còn hệ mới thì không: mẫu của hệ mới là các quyết định
+ * tố tụng, đòi những trường mà CẢ HAI hệ đều chưa từng có (đo 28/08/2026: `so_ket_luan_dieu_tra`
+ * 0 bản ghi, `nguoi_quyet_dinh` 0, `don_vi_xu_ly` 0).
+ *
+ * Bảng ánh xạ `trường cũ → cột typed` KHÔNG viết lại ở đây: dùng `PARITY` của epic field-parity,
+ * vốn là nguồn sự thật và đã được cổng kiểm canh. Viết tay lần thứ hai là dựng hệ song song,
+ * và hai bảng sẽ lệch nhau ngay lần sửa đầu.
+ *
+ * Thứ tự đọc: **cột typed trước, bản thô sau**. Hồ sơ tạo mới trên hệ mới không có `legacyRaw`;
+ * hồ sơ di trú thì có đủ, nên bản thô là lưới an toàn cho trường chưa kịp thành cột.
+ */
+import { PARITY, type Entity, type ParityCol } from '../legacy-migration/field-parity.def';
+import { parseLegacyDate } from '../legacy-migration/legacy-mapper';
+import type { FieldDef } from './field-catalog';
+import { abbrevName, personName } from './ten-nguoi.util';
+
+/** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
+const MOC_RONG = new Set([0, -25200]);
+
+function chuoi(v: unknown): string {
+  return v === null || v === undefined ? '' : String(v);
+}
+
+/** Ngày kiểu Việt như mẫu hệ cũ in: `27/08/2026`. */
+function ngayViet(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '';
+  let d: Date;
+  if (v instanceof Date) d = v;
+  else if (typeof v === 'number' || /^-?\d+$/.test(String(v))) {
+    const n = Number(v);
+    if (MOC_RONG.has(n)) return '';
+    // Dùng LẠI bộ đọc mốc của di trú, không tự đổi. Bộ ấy đo trên 53.796 hồ sơ: đọc theo UTC
+    // hay theo giờ VN đều khớp 0%, chỉ `+50400s` khớp 100% — hệ cũ trừ offset +7 hai lần.
+    // Tự nhân 1000 là in ra SỚM MỘT NGÀY trên mọi mốc lấy từ bản thô.
+    const dd = parseLegacyDate(n);
+    if (!dd) return '';
+    d = dd;
+  } else {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(v).trim());
+    if (m) return `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}/${m[3]}`;
+    d = new Date(String(v));
+  }
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+function dungSai(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'boolean') return v ? 'Có' : 'Không';
+  const s = String(v).trim().toLowerCase();
+  if (['0', 'false', 'không', 'khong'].includes(s)) return 'Không';
+  return 'Có';
+}
+
+/** Giá trị của một trường hệ cũ trên bản ghi hệ mới: cột typed trước, bản thô sau. */
+export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
+  const r = (record ?? {}) as Record<string, unknown>;
+  const raw = (r['legacyRaw'] ?? {}) as Record<string, unknown>;
+  const tho = raw && typeof raw === 'object' ? raw[cot.field] : undefined;
+  const typed = r[cot.col];
+  const v = typed !== null && typed !== undefined && typed !== '' ? typed : tho;
+  if (cot.type === 'DateTime') return ngayViet(v);
+  if (cot.type === 'Boolean') return dungSai(v);
+  if (Array.isArray(v)) return v.map(chuoi).filter(Boolean).join(', ');
+  return chuoi(v);
+}
+
+/**
+ * Trường hệ cũ mà thực thể ĐÃ CÓ cột từ trước epic field-parity.
+ *
+ * `PARITY` chỉ khai những cột epic ấy THÊM MỚI, nên các trường tiếp nhận cơ bản — tên người
+ * cung cấp, nội dung, nguồn đơn — không nằm trong đó. Mà đúng chúng mới là thứ mẫu in hệ cũ
+ * dùng nhiều nhất (đo 28/08/2026: `tom_tat_noi_dung` 7.990/8.000 hồ sơ, `nguon_don` 7.983).
+ *
+ * Ánh xạ lấy từ chính bộ di trú (`legacy-mapper.ts`) — nơi quyết định trường cũ đổ vào cột nào.
+ */
+const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
+  petition: [
+    { field: 'tom_tat_noi_dung', col: 'detailContent', type: 'String' },
+    { field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap', col: 'senderName', type: 'String' },
+    { field: 'so_dien_thoai_nguyen_don', col: 'senderPhone', type: 'String' },
+    { field: 'sinh_nam_nguoi_to_giac', col: 'senderBirthYear', type: 'String' },
+    { field: 'so_cccd_nguyen_don', col: 'senderIdNumber', type: 'String' },
+    { field: 'ngay_cap_cccd_nguyen_don', col: 'senderIdIssueDate', type: 'DateTime' },
+    { field: 'noi_cap_cccd_nguyen_don', col: 'senderIdIssuePlace', type: 'String' },
+    { field: 'nghi_van_doi_tuong', col: 'suspectedPerson', type: 'String' },
+    { field: 'dia-chi-bi-hai', col: 'senderAddress', type: 'String' },
+    { field: 'do_vat_tai_lieu_kem_theo', col: 'attachmentsNote', type: 'String' },
+    { field: 'nguon_don', col: 'nguonDon', type: 'String' },
+    { field: 'loai_thong_tin', col: 'loaiThongTin', type: 'String' },
+    { field: 'so_phieu_chuyen', col: 'soPhieuChuyen', type: 'String' },
+    { field: 'ngay_phieu_chuyen', col: 'ngayPhieuChuyen', type: 'DateTime' },
+    { field: 'ngay_tiep_nhan_nguon_tin', col: 'ngayTiepNhanNguonTin', type: 'DateTime' },
+    { field: 'ngay_viet_don', col: 'petitionDate', type: 'DateTime' },
+    { field: 'nhan_xet', col: 'nhanThay', type: 'String' },
+    { field: 'ghi_chu_trung_don', col: 'raSoatTrung', type: 'String' },
+    { field: 'noi_xay_ra', col: 'noiXayRa', type: 'String' },
+    { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLyKhac', type: 'String' },
+    { field: 'lanh_dao_to_tung', col: 'lanhDaoToTung', type: 'String' },
+    { field: 'thoi_han_thuc_hien_uy_thac_dieu_tra', col: 'thoiHanUTDT', type: 'DateTime' },
+  ],
+  incident: [
+    { field: 'tom_tat_noi_dung', col: 'description', type: 'String' },
+    { field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap', col: 'benVu', type: 'String' },
+    { field: 'nguon_don', col: 'chuyenTuDonVi', type: 'String' },
+    { field: 'nghi_van_doi_tuong', col: 'doiTuongCaNhan', type: 'String' },
+    { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String' },
+    { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLy', type: 'String' },
+    { field: 'so_dien_thoai_nguyen_don', col: 'sdtNguoiToGiac', type: 'String' },
+    { field: 'ngay_de_xuat', col: 'ngayDeXuat', type: 'DateTime' },
+  ],
+  case: [
+    { field: 'so_dien_thoai_nguyen_don', col: 'sdtCungCap', type: 'String' },
+    // Mẫu `an_tra_bo_sung_mau.docx` in `${toi_danh}` và `${don_vi}`. Không khai thì hai ô ấy
+    // in ra trống dù Vụ án đã có sẵn `crime` và `unit` — đúng thứ mẫu cần.
+    { field: 'toi_danh', col: 'crime', type: 'String' },
+    { field: 'don_vi', col: 'unit', type: 'String' },
+    { field: 'dieu_tra_vien_ten', col: 'dieuTraVien', type: 'String' },
+  ],
+};
+
+/**
+ * Khoá catalog cho mọi trường hệ cũ của một thực thể.
+ *
+ * GIỮ CẢ tên có gạch nối (`dia-chi-bi-hai`, `toi-danh-ban-dau`). Bản đầu bỏ chúng đi vì tưởng
+ * mẫu không dùng — nhưng `don_thu_mau.docx` in địa chỉ bị hại bằng đúng `{dia-chi-bi-hai}`,
+ * nên bỏ là mẫu ấy in ra nguyên chữ `{dia-chi-bi-hai}` giữa văn bản gửi đi.
+ */
+export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
+  const ra: FieldDef[] = [];
+  const daCo = new Set<string>();
+  // Bảng "đã có cột" đứng TRƯỚC: nó ánh xạ đúng cột mà bộ di trú dùng, còn `PARITY` có thể
+  // khai một cột khác cho cùng tên trường ở thực thể khác.
+  for (const cot of [...CO_SAN_THEO_THUC_THE[entity], ...PARITY[entity]]) {
+    if (daCo.has(cot.field)) continue;
+    daCo.add(cot.field);
+    ra.push({
+      key: cot.field,
+      label: cot.field,
+      group: 'Trường hệ cũ',
+      resolve: (record: unknown) => giaTriTheoTenHeCu(record, cot),
+    });
+  }
+  return ra;
+}
+
+/** Mã hồ sơ, dò lần lượt các nơi có thể giữ nó. */
+function maHoSo(record: unknown): string {
+  const r = (record ?? {}) as Record<string, unknown>;
+  const raw = (r['legacyRaw'] ?? {}) as Record<string, unknown>;
+  const truc = chuoi(r['stt'] ?? r['code'] ?? r['caseCode'] ?? r['soHoSoCu']);
+  if (truc) return truc;
+  const stt = chuoi(raw['stt']);
+  const nam = chuoi(raw['nam']);
+  if (stt && nam) return `${nam}-${stt}`;
+  return stt;
+}
+
+/** Mã hồ sơ rút gọn đúng cách hệ cũ hiện: `2026-11253` → `26-11253`. */
+function maNgan(v: unknown): string {
+  const s = chuoi(v);
+  const m = /^(\d{4})-(.+)$/.exec(s);
+  return m ? `${m[1].slice(2)}-${m[2]}` : s;
+}
+
+/** Ngày dùng cho dòng "ngày … tháng … năm …" ở cuối văn bản. */
+function ngayKy(record: unknown): Date {
+  const r = (record ?? {}) as Record<string, unknown>;
+  for (const k of ['ngayDeXuat', 'receivedDate', 'ngayTiepNhanNguonTin']) {
+    const v = r[k];
+    if (v) {
+      const d = v instanceof Date ? v : new Date(String(v));
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
+  return new Date();
+}
+
+/**
+ * Biến mẫu hệ cũ dùng mà KHÔNG nằm trong bảng parity.
+ *
+ * Khai riêng kèm lý do thay vì im lặng bỏ qua: một placeholder không tra được sẽ in ra
+ * nguyên `{ten_bien}` trên văn bản gửi đi.
+ */
+export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
+  {
+    // Mã hồ sơ. Ba thực thể ba tên cột khác nhau nên dò lần lượt.
+    key: 'stt',
+    label: 'Mã hồ sơ',
+    group: 'Trường hệ cũ',
+    // Vụ án di trú có thể chưa được cấp `caseCode`; khi ấy mã nằm ở `soHoSoCu` hoặc bản thô.
+    // Mọi mẫu hệ cũ đều in `${stt}`, nên trả rỗng là văn bản mất số hồ sơ.
+    resolve: (r) => maNgan(maHoSo(r)),
+  },
+  {
+    key: 'ngay',
+    label: 'Ngày (dòng ký)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => String(ngayKy(r).getDate()).padStart(2, '0'),
+  },
+  {
+    key: 'thang',
+    label: 'Tháng (dòng ký)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => String(ngayKy(r).getMonth() + 1).padStart(2, '0'),
+  },
+  {
+    key: 'nam',
+    label: 'Năm (dòng ký)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => String(ngayKy(r).getFullYear()),
+  },
+  {
+    // Hệ cũ tra `nguoi_them` sang bảng `thanh_vien` rồi in tên — nên hai biến này KHÔNG có
+    // trong bản thô, mà mẫu vẫn in ra được. Hệ mới lấy từ quan hệ người dùng.
+    key: 'nguoi_nhan',
+    label: 'Cán bộ nhập',
+    group: 'Trường hệ cũ',
+    resolve: (r) => personName(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+  },
+  {
+    // Đứng ở dòng "Lưu:" cuối văn bản — hệ cũ in dạng VIẾT TẮT (`H.Duy`), không in tên đầy đủ.
+    key: 'ten_ngan',
+    label: 'Tên viết tắt cán bộ nhập',
+    group: 'Trường hệ cũ',
+    resolve: (r) => abbrevName(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+  },
+];

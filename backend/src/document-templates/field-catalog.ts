@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+export { personName, rankName, abbrevName } from './ten-nguoi.util';
+import { personName, rankName, abbrevName } from './ten-nguoi.util';
+
 /**
  * Field Catalog — danh mục trường khả dụng (WHITELIST) cho template động, per loại hồ sơ.
  * Là ranh giới bảo mật: admin chỉ map placeholder → field trong catalog; engine chỉ
@@ -51,16 +55,8 @@ function fmtDate(d: unknown): string {
  * cái tên khác hẳn. Ở tệp này hậu quả nặng hơn màn hình: đây là nguồn dữ liệu cho MẪU WORD,
  * nên tên cán bộ in ra văn bản gửi đi cũng sai.
  */
-export function personName(u: any): string {
-  if (!u) return '';
-  return [u.lastName, u.firstName].filter(Boolean).join(' ').trim();
-}
 
 /** Họ tên kèm cấp bậc (cấp bậc + họ + tên) — dùng cho cán bộ trong chứng từ đơn thư. */
-export function rankName(u: any): string {
-  if (!u) return '';
-  return [u.rank, personName(u)].filter(Boolean).join(' ').trim();
-}
 
 /** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. */
 function fmtDateShort(d: unknown): string {
@@ -93,15 +89,6 @@ function fmtGioPhut(d: unknown): string {
  * Viết tắt tên cán bộ cho dòng "Lưu:" của văn bản — lấy chữ cái đầu của tên
  * đệm + tên gọi. VD "Phạm Văn Huy" → "V.Huy".
  */
-export function abbrevName(u: any): string {
-  const full = personName(u);
-  if (!full) return '';
-  const parts = full.split(/\s+/).filter(Boolean);
-  const last = parts[parts.length - 1];
-  if (parts.length < 2) return last;
-  const middle = parts[parts.length - 2];
-  return `${middle.charAt(0).toUpperCase()}.${last}`;
-}
 
 /** Nhãn tiếng Việt cho enum NguonPhatTin (Đ.144 BLTTHS) — render nhãn thay vì mã enum. */
 const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
@@ -248,10 +235,19 @@ const DON_THU_FIELDS: FieldDef[] = [
   SO_VAN_BAN,
 ];
 
+/**
+ * Catalog = khoá đặt tên theo hệ MỚI + khoá mang tên trường HỆ CŨ.
+ *
+ * Nhóm thứ hai để in được nguyên bộ 11 mẫu Word của hệ cũ, vốn dùng placeholder là chính tên
+ * trường hệ cũ (`{tom_tat_noi_dung}`, `{nguon_don}`…). Không có nhóm ấy thì mọi mẫu hệ cũ mang
+ * sang đều in ra nguyên chữ `{ten_bien}` — xem `khoa-he-cu.ts`.
+ *
+ * Khoá hệ mới đứng TRƯỚC nên tên trùng thì bản cũ thắng: giữ nguyên hành vi đang chạy.
+ */
 export const FIELD_CATALOG: Record<EntityType, FieldDef[]> = {
-  VU_AN: VU_AN_FIELDS,
-  VU_VIEC: VU_VIEC_FIELDS,
-  DON_THU: DON_THU_FIELDS,
+  VU_AN: [...VU_AN_FIELDS, ...khoaTheoTenHeCu('case'), ...KHOA_HE_CU_NGOAI_PARITY],
+  VU_VIEC: [...VU_VIEC_FIELDS, ...khoaTheoTenHeCu('incident'), ...KHOA_HE_CU_NGOAI_PARITY],
+  DON_THU: [...DON_THU_FIELDS, ...khoaTheoTenHeCu('petition'), ...KHOA_HE_CU_NGOAI_PARITY],
 };
 
 /** Tra FieldDef theo key (null nếu không thuộc catalog). Dùng Map nội bộ tránh prototype-lookup. */
