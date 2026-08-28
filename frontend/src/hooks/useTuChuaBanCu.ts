@@ -118,8 +118,10 @@ export function useTuChuaBanCu(phienBanGiaoDien: string): TinhTrangBanCu {
       if (huy || dangChay.current) return;
       dangChay.current = true;
       try {
-        const r = await api.get<{ version?: string }>('/health');
-        if (!huy && canTuChua(phienBanGiaoDien, r.data?.version)) setBanCu(true);
+        const r = await api.get<{ version?: string; buildId?: string }>('/health');
+        // So `buildId` chứ KHÔNG so `version`: `version` chỉ tăng khi phát hành nên nó đứng
+        // yên qua hàng chục lần deploy, và so nó là so một thứ không bao giờ đổi.
+        if (!huy && canTuChua(phienBanGiaoDien, r.data?.buildId)) setBanCu(true);
       } catch {
         // Mất mạng hoặc máy chủ lỗi — im lặng, nhịp sau hỏi lại.
       } finally {

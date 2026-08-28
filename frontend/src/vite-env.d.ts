@@ -20,3 +20,6 @@ declare module '*.png' {
   const src: string;
   export default src;
 }
+
+/** Mã bản dựng, đổi mỗi lần deploy (CI truyền mã commit). */
+declare const __BUILD_ID__: string;

@@ -105,15 +105,15 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
   });
 
   it('cùng phiên bản thì KHÔNG báo gì', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'abc123' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/health'));
     expect(result.current.banCu).toBe(false);
   });
 
   it('lệch phiên bản thì bật cờ báo', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'def456' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(result.current.banCu).toBe(true));
   });
 
@@ -123,16 +123,16 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
    * của họ — đổi một lỗi im lặng lấy một lỗi ồn ào hơn thì không phải là chữa.
    */
   it('KHÔNG tự tải lại trang, dù phát hiện bản cũ', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'def456' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(result.current.banCu).toBe(true));
     await new Promise((r) => setTimeout(r, 30));
     expect(soLanTaiLai).toBe(0);
   });
 
   it('chỉ khi cán bộ BẤM mới gỡ service worker, xoá kho, rồi tải lại', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'def456' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(result.current.banCu).toBe(true));
     act(() => result.current.capNhat());
     await waitFor(() => expect(soLanTaiLai).toBe(1));
@@ -143,8 +143,8 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
 
   /** Chốt phải ghi TRƯỚC khi tải lại, nếu không lần tải sau lại thấy lệch và báo tiếp mãi. */
   it('đánh dấu đã tự chữa trước khi tải lại', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.76.0.0' } });
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'def456' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(result.current.banCu).toBe(true));
     act(() => result.current.capNhat());
     await waitFor(() => expect(sessionStorage.getItem(KHOA_DA_TU_CHUA)).toBe('1'));
@@ -152,7 +152,7 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
 
   it('máy chủ lỗi thì im lặng, không báo nhầm', async () => {
     apiGet.mockRejectedValue(new Error('mat mang'));
-    const { result } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(apiGet).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 30));
     expect(result.current.banCu).toBe(false);
@@ -161,8 +161,8 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
 
   /** Quay lại tab thì hỏi lại — cán bộ để tab mở cả ngày, chỉ hỏi lúc vào là bỏ lỡ mọi lần deploy. */
   it('quay lại tab thì hỏi lại máy chủ', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
-    renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'abc123' } });
+    renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
     act(() => {
       document.dispatchEvent(new Event('visibilitychange'));
@@ -171,8 +171,8 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
   });
 
   it('gỡ khỏi màn hình thì dừng hỏi, không rò rỉ bộ đếm', async () => {
-    apiGet.mockResolvedValue({ data: { version: '0.75.0.0' } });
-    const { unmount } = renderHook(() => useTuChuaBanCu('0.75.0.0'));
+    apiGet.mockResolvedValue({ data: { buildId: 'abc123' } });
+    const { unmount } = renderHook(() => useTuChuaBanCu('abc123'));
     await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1));
     unmount();
     act(() => {
@@ -180,5 +180,30 @@ describe('useTuChuaBanCu — hành vi thật của hook', () => {
     });
     await new Promise((r) => setTimeout(r, 30));
     expect(apiGet).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Máy chủ bản CŨ chỉ trả `version`, chưa có `buildId`. Lúc ấy KHÔNG được báo: không có cơ sở
+   * nào để nói app đang cũ, và báo nhầm thì cán bộ mất niềm tin vào dải báo.
+   */
+  it('máy chủ chưa có `buildId` (bản cũ) thì KHÔNG báo', async () => {
+    apiGet.mockResolvedValue({ data: { version: '0.99.0.0' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 30));
+    expect(result.current.banCu).toBe(false);
+  });
+
+  /**
+   * CỔNG: so `buildId`, KHÔNG so `version`. `version` chỉ tăng khi phát hành nên nó đứng yên
+   * qua hàng chục lần deploy — so nó là so một thứ không bao giờ đổi, và cả cơ chế thành trang
+   * trí. Suýt lọt lên máy thật 28/08/2026.
+   */
+  it('KHÔNG dùng `version` để dò, dù nó lệch hẳn', async () => {
+    apiGet.mockResolvedValue({ data: { version: '9.9.9.9', buildId: 'abc123' } });
+    const { result } = renderHook(() => useTuChuaBanCu('abc123'));
+    await waitFor(() => expect(apiGet).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 30));
+    expect(result.current.banCu).toBe(false);
   });
 });
