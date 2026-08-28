@@ -102,6 +102,75 @@ export async function donMotCot(
   return kq;
 }
 
+/**
+ * Khối `metadata` là bản sao hiển thị của dữ liệu cũ, và màn Chi tiết vụ án đọc THẲNG nó
+ * (`CaseDetailPage.tsx`). Dọn cột mà bỏ metadata thì cùng một ô hiện đúng ở form và sai ở màn
+ * Chi tiết — người ta mất tin vào cả hai chỗ.
+ */
+export interface KhoaMetadataCanDon {
+  model: 'petition' | 'incident' | 'case';
+  thucThe: ThucTheHoSo;
+  /** Tên khoá TRONG metadata (khác tên cột: vụ việc là `tinhTrangHoSo`, metadata là `tinhTrang`). */
+  khoa: string;
+  loai: LoaiOChon;
+}
+
+export const METADATA_CAN_DON: KhoaMetadataCanDon[] = [
+  { model: 'case', thucThe: 'VU_AN', khoa: 'tinhTrang', loai: 'tinhTrang' },
+  { model: 'case', thucThe: 'VU_AN', khoa: 'phanLoaiHoSoNoiBo', loai: 'phanLoaiHoSo' },
+  { model: 'incident', thucThe: 'VU_VIEC', khoa: 'tinhTrangHoSo', loai: 'tinhTrang' },
+  { model: 'petition', thucThe: 'DON_THU', khoa: 'tinhTrang', loai: 'tinhTrang' },
+];
+
+export async function donMetadata(
+  prisma: PrismaClient,
+  c: KhoaMetadataCanDon,
+  dry: boolean,
+): Promise<KetQuaDon> {
+  const delegate = (prisma as unknown as Record<string, any>)[c.model];
+  const kq: KetQuaDon = { quet: 0, doi: 0, maLa: new Map() };
+  let cursor: string | undefined;
+
+  for (;;) {
+    const rows: Array<{ id: string; metadata: unknown }> = await delegate.findMany({
+      where: { metadata: { not: null }, deletedAt: null },
+      select: { id: true, metadata: true },
+      orderBy: { id: 'asc' },
+      take: BATCH,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+    if (rows.length === 0) break;
+
+    for (const r of rows) {
+      kq.quet++;
+      const meta = r.metadata;
+      // `metadata` là cột JSON tuỳ ý: có hồ sơ để null, có hồ sơ lưu chuỗi. Không chặn ở đây
+      // thì bộ dọn nổ giữa chừng và bỏ dở nửa bảng.
+      if (!meta || typeof meta !== 'object' || Array.isArray(meta)) continue;
+      const khoi = meta as Record<string, unknown>;
+      if (!(c.khoa in khoi)) continue;
+
+      const truoc = String(khoi[c.khoa] ?? '');
+      const sau = giaiMaOChon(c.loai, c.thucThe, truoc);
+      if (sau === truoc && /^-?\d+$/.test(truoc) && !MA_CHUA_CHON.has(truoc)) {
+        kq.maLa.set(truoc, (kq.maLa.get(truoc) ?? 0) + 1);
+      }
+      if (sau === truoc) continue;
+      kq.doi++;
+      if (!dry) {
+        const moi = { ...khoi };
+        // Rỗng thì GỠ HẲN khoá. Để lại khoá với chuỗi rỗng nghĩa là "đã nhập rồi để trống",
+        // khác hẳn "chưa từng nhập" — và màn Chi tiết lọc theo `.filter((r) => r.value)`.
+        if (sau === '') delete moi[c.khoa];
+        else moi[c.khoa] = sau;
+        await delegate.update({ where: { id: r.id }, data: { metadata: moi } });
+      }
+    }
+    cursor = rows[rows.length - 1].id;
+  }
+  return kq;
+}
+
 async function main(): Promise<void> {
   const dry = process.argv.includes('--dry');
   const url = process.env['DATABASE_URL'];
@@ -114,6 +183,14 @@ async function main(): Promise<void> {
     const kq = await donMotCot(prisma, c, dry);
     tongDoi += kq.doi;
     console.log(`${c.model}.${c.col}: quét ${kq.quet}, đổi ${kq.doi}`);
+    for (const [ma, n] of kq.maLa) {
+      console.log(`   ! mã lạ giữ nguyên: ${ma} (${n} hồ sơ) — không có trong bảng chữ hệ cũ`);
+    }
+  }
+  for (const c of METADATA_CAN_DON) {
+    const kq = await donMetadata(prisma, c, dry);
+    tongDoi += kq.doi;
+    console.log(`${c.model}.metadata.${c.khoa}: quét ${kq.quet}, đổi ${kq.doi}`);
     for (const [ma, n] of kq.maLa) {
       console.log(`   ! mã lạ giữ nguyên: ${ma} (${n} hồ sơ) — không có trong bảng chữ hệ cũ`);
     }

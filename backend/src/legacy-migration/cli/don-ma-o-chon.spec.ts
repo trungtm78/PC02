@@ -130,3 +130,82 @@ describe('Dọn mã ô chọn còn sót', () => {
     expect(kq.doi).toBe(2500);
   });
 });
+
+import { donMetadata } from './don-ma-o-chon';
+
+/**
+ * Cột đã dọn mà khối `metadata` vẫn giữ mã thô thì màn Chi tiết vẫn hiện `-1`: nó đọc
+ * `caseData.metadata` (`CaseDetailPage.tsx:1159`). Dọn nửa vời còn khó chịu hơn không dọn —
+ * người ta thấy chỗ này đúng chỗ kia sai rồi mất tin vào cả hai.
+ */
+describe('Dọn mã ô chọn trong khối metadata', () => {
+  function khoMeta(rows: Array<{ id: string; metadata: unknown }>) {
+    const daGhi: Array<{ id: string; meta: unknown }> = [];
+    const delegate = {
+      findMany: jest.fn(({ take, cursor, skip }: { take: number; cursor?: { id: string }; skip?: number }) => {
+        const batDau = cursor ? rows.findIndex((r) => r.id === cursor.id) + (skip ?? 0) : 0;
+        return Promise.resolve(rows.slice(batDau, batDau + take));
+      }),
+      update: jest.fn(({ where, data }: { where: { id: string }; data: { metadata: unknown } }) => {
+        daGhi.push({ id: where.id, meta: data.metadata });
+        const r = rows.find((x) => x.id === where.id);
+        if (r) r.metadata = data.metadata;
+        return Promise.resolve(r);
+      }),
+    };
+    return { prisma: { case: delegate } as never, daGhi, delegate };
+  }
+
+  const COT = { model: 'case' as const, thucThe: 'VU_AN' as const, khoa: 'tinhTrang', loai: 'tinhTrang' as const };
+
+  it('`-1` trong metadata bị gỡ khỏi khối', async () => {
+    const { prisma, daGhi } = khoMeta([{ id: 'a', metadata: { tinhTrang: '-1', khac: 'giu' } }]);
+    const kq = await donMetadata(prisma, COT, false);
+    expect(kq.doi).toBe(1);
+    // Gỡ HẲN khoá, không đặt chuỗi rỗng: khoá còn đó với giá trị rỗng vẫn là "đã nhập rồi để
+    // trống", khác hẳn "chưa từng nhập".
+    expect(daGhi[0].meta).toEqual({ khac: 'giu' });
+  });
+
+  it('mã thật trong metadata thành chữ, các khoá khác giữ nguyên', async () => {
+    const { prisma, daGhi } = khoMeta([{ id: 'a', metadata: { tinhTrang: '5', khac: 'giu' } }]);
+    await donMetadata(prisma, COT, false);
+    expect(daGhi[0].meta).toEqual({ tinhTrang: 'Vụ án Tạm đình chỉ', khac: 'giu' });
+  });
+
+  it('chữ thật trong metadata KHÔNG bị đụng', async () => {
+    const { prisma, delegate } = khoMeta([{ id: 'a', metadata: { tinhTrang: 'Đình chỉ vụ án' } }]);
+    const kq = await donMetadata(prisma, COT, false);
+    expect(kq.doi).toBe(0);
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  it('metadata không có khoá ấy thì bỏ qua', async () => {
+    const { prisma, delegate } = khoMeta([{ id: 'a', metadata: { khac: 'x' } }]);
+    await donMetadata(prisma, COT, false);
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  it('metadata null/không phải object thì bỏ qua, không nổ', async () => {
+    const { prisma, delegate } = khoMeta([
+      { id: 'a', metadata: null },
+      { id: 'b', metadata: 'chuoi' },
+    ]);
+    await expect(donMetadata(prisma, COT, false)).resolves.toBeDefined();
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  it('chạy thử không ghi gì', async () => {
+    const { prisma, delegate } = khoMeta([{ id: 'a', metadata: { tinhTrang: '-1' } }]);
+    const kq = await donMetadata(prisma, COT, true);
+    expect(kq.doi).toBe(1);
+    expect(delegate.update).not.toHaveBeenCalled();
+  });
+
+  it('chạy lần hai không đổi gì nữa', async () => {
+    const rows = [{ id: 'a', metadata: { tinhTrang: '-1' } }];
+    const { prisma } = khoMeta(rows);
+    await donMetadata(prisma, COT, false);
+    expect((await donMetadata(prisma, COT, false)).doi).toBe(0);
+  });
+});

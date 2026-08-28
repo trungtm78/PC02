@@ -1156,7 +1156,9 @@ export default function CaseDetailPage() {
             { label: "Số phiếu chuyển", value: str(meta.soPhieuChuyen) },
             { label: "Điều tra viên (hệ cũ)", value: str(meta.dieuTraVienText) },
             { label: "Số thứ tự hồ sơ cũ", value: str(meta.sttCu) },
-            { label: "Tình trạng hồ sơ", value: str(meta.tinhTrang) },
+            // Đọc CỘT trước, `metadata` chỉ là lưới an toàn. Cột là bản chuẩn từ đợt hợp
+            // nhất field; `metadata` là bản sao cũ và có thể còn mã thô `-1` ở hồ sơ chưa dọn.
+            { label: "Tình trạng hồ sơ", value: str(caseData?.tinhTrang ?? meta.tinhTrang) },
             { label: "Phân loại tội phạm theo lĩnh vực", value: str(meta.phanLoaiToiPhamLinhVuc) },
             { label: "Đề xuất xử lý", value: str(meta.deXuatXuLy) },
             { label: "Yêu cầu bổ sung", value: str(meta.yeuCauBoSung) },

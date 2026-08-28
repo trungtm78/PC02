@@ -249,3 +249,64 @@ describe('GATE — bảng mã giao diện khớp máy chủ', () => {
     }
   });
 });
+
+/**
+ * CỔNG: kiểm CẢ LUỒNG dựng hồ sơ, không kiểm hàm con.
+ *
+ * Bản vá đầu chỉ kiểm `parityColumns` nên trượt một lỗi chặn: `buildCase` trải
+ * `...parityColumns(rec,'case')` rồi NGAY SAU ĐÓ khai lại `tinhTrang: s(rec.tinh_trang)`
+ * (legacy-mapper.ts:504). Khai sau thắng, nên giá trị đã giải mã bị đè bằng mã thô — đúng
+ * màn hình Vụ án mà anh báo (2026-11139), tức bản vá vô hiệu hoàn toàn ở đó mà 19 ca kiểm
+ * vẫn xanh.
+ *
+ * Bài học đã ghi: một trường có thể có nhiều đường ghi, và ca kiểm ở tầng hàm con không nhìn
+ * thấy đường nào đè lên đường nào. Phải kiểm ở tầng bản ghi hoàn chỉnh.
+ */
+describe('GATE — kiểm cả luồng dựng hồ sơ, không kiểm hàm con', () => {
+  const HO_SO_VU_AN = {
+    id: 2,
+    phan_loai_nguon_tin_ban_dau: 'vu-an-ban-dau',
+    tom_tat_noi_dung: 'x',
+  };
+
+  it('vụ án: `-1` KHÔNG lọt vào cột qua cả luồng dựng', () => {
+    const r = decomposeLegacyRecord({ ...HO_SO_VU_AN, tinh_trang: '-1' } as never);
+    expect(r.case?.['tinhTrang']).toBe('');
+  });
+
+  it('vụ án: mã thật ra chữ qua cả luồng dựng', () => {
+    const r = decomposeLegacyRecord({ ...HO_SO_VU_AN, tinh_trang: '5' } as never);
+    expect(r.case?.['tinhTrang']).toBe('Vụ án Tạm đình chỉ');
+  });
+
+  it('vụ án: phân loại hồ sơ nội bộ `-1` không lọt vào cột', () => {
+    const r = decomposeLegacyRecord({
+      ...HO_SO_VU_AN,
+      phan_loai_ho_so_doi_1: '-1',
+    } as never);
+    expect(r.case?.['phanLoaiHoSoNoiBo']).toBe('');
+  });
+
+  /**
+   * Cổng cấu trúc: không cột nào khai `oChon` được phép bị khai LẠI trong bộ dựng bằng `s(...)`
+   * sau khi đã trải `parityColumns`. Đây chính là hình dạng của lỗi trên, và nó sẽ tái diễn
+   * với cột kế tiếp nếu chỉ vá bằng tay.
+   */
+  it('không bộ dựng nào khai lại cột `oChon` bằng `s(rec…)`', () => {
+    const nguon = fs.readFileSync(path.resolve(__dirname, 'legacy-mapper.ts'), 'utf-8');
+    const cotOChon = new Set(
+      Object.values(PARITY)
+        .flat()
+        .filter((c) => c.oChon)
+        .map((c) => c.col),
+    );
+    const pham: string[] = [];
+    for (const dong of nguon.split('\n')) {
+      const cat = dong.trim();
+      for (const col of cotOChon) {
+        if (cat.startsWith(col + ': s(')) pham.push(cat);
+      }
+    }
+    expect(pham).toEqual([]);
+  });
+});

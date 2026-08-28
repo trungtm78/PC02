@@ -501,7 +501,10 @@ export function buildCase(rec: LegacyRecord): Record<string, unknown> {
       soLuongBiHai: parseLegacyNumber(rec.so_luong_bi_hai),
       dieuTraVienText: s(rec.dieu_tra_vien),
       sttCu: s(rec.stt_cu),
-      tinhTrang: s(rec.tinh_trang),
+      // Khối `metadata` là bản sao hiển thị của dữ liệu cũ, và màn Chi tiết vụ án đọc THẲNG
+      // nó (`CaseDetailPage.tsx:1159`). Để nguyên mã thô ở đây thì cột đã giải mã mà màn hình
+      // vẫn hiện `-1` — đúng chỗ anh nhìn thấy ở vụ án 2026-11139.
+      tinhTrang: giaiMaOChon('tinhTrang', 'VU_AN', rec.tinh_trang),
       phanLoaiToiPhamLinhVuc: s(rec.phan_loai_toi_pham_theo_linh_vuc),
       phanLoaiHoSoNoiBo: giaiMaPhanLoaiHoSo(rec.phan_loai_ho_so_doi_1),
       deXuatXuLy: s(rec.de_xuat),
