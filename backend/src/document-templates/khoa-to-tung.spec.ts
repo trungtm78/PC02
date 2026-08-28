@@ -102,7 +102,7 @@ describe('Khoá tự điền cho mẫu quyết định tố tụng', () => {
   });
 });
 
-import { REQUIRED_VARS_CHO_KIEM, dongBoNguonBien } from '../../prisma/seed-document-templates';
+import { REQUIRED_VARS_CHO_KIEM, dongBoNguonBien, dongBoCoBatBuoc } from '../../prisma/seed-document-templates';
 import { TEMPLATE_SPECS } from '../../prisma/seed-assets/document-templates/registry';
 
 /**
@@ -324,5 +324,42 @@ describe('GATE — seed cập nhật lại nguồn biến theo danh mục', () =
       { name: 'hoTenBiCan', label: 'x', source: 'manual', required: true },
     ]);
     expect(ra[0]['required']).toBe(true);
+  });
+});
+
+/**
+ * Đồng bộ cờ bắt buộc theo bảng khai — chạy có chủ đích, không mặc định.
+ *
+ * Sau khi rút gọn danh sách bắt buộc, cơ sở dữ liệu vẫn giữ cờ cũ do seed lần trước đặt
+ * (`lyDo`, `noiXayRa`, `hoTenBiCan`, `ketQua`…). Chúng CÓ nguồn dữ liệu nên không thuộc diện
+ * "gỡ vì không có nguồn", mà hồ sơ chưa nhập thì vẫn chặn in — đo trên máy thật: 8/28 mẫu.
+ *
+ * Không ghi đè mặc định vì admin có quyền tự bật cờ cho mẫu của họ. Bật bằng cờ môi trường
+ * `SEED_TEMPLATES_SYNC_REQUIRED=1` khi cần kéo cấu hình về đúng bảng khai.
+ */
+describe('dongBoCoBatBuoc — kéo cờ bắt buộc về đúng bảng khai', () => {
+  it('gỡ cờ mà bảng khai không còn liệt kê', () => {
+    const ra = dongBoCoBatBuoc(['tenVuAn'], [
+      { name: 'tenVuAn', label: 'x', required: true },
+      { name: 'noiXayRa', label: 'x', required: true },
+    ]);
+    expect(ra.find((v) => v['name'] === 'noiXayRa')?.['required']).toBe(false);
+  });
+
+  it('giữ cờ mà bảng khai vẫn liệt kê', () => {
+    const ra = dongBoCoBatBuoc(['tenVuAn'], [{ name: 'tenVuAn', label: 'x', required: true }]);
+    expect(ra[0]['required']).toBe(true);
+  });
+
+  it('bật cờ cho biến bảng khai liệt kê mà cơ sở dữ liệu chưa bật', () => {
+    const ra = dongBoCoBatBuoc(['tenVuAn'], [{ name: 'tenVuAn', label: 'x', required: false }]);
+    expect(ra[0]['required']).toBe(true);
+  });
+
+  it('không đụng những khoá khác của biến', () => {
+    const ra = dongBoCoBatBuoc([], [
+      { name: 'x', label: 'nhãn', source: 'auto', field: 'x', required: true },
+    ]);
+    expect(ra[0]).toMatchObject({ label: 'nhãn', source: 'auto', field: 'x', required: false });
   });
 });

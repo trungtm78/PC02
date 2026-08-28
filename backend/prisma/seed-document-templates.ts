@@ -73,6 +73,25 @@ import { timThuMucMau } from './duong-dan-mau';
  *
  * `field` phải gán kèm: thiếu nó thì engine không biết lấy dữ liệu ở đâu và in ra ô trống.
  */
+/**
+ * Kéo cờ bắt buộc về đúng bảng khai — chạy có chủ đích, KHÔNG mặc định.
+ *
+ * Sau khi rút gọn danh sách bắt buộc, cơ sở dữ liệu vẫn giữ cờ cũ do seed lần trước đặt
+ * (`lyDo`, `noiXayRa`, `hoTenBiCan`, `ketQua`…). Những trường ấy CÓ nguồn dữ liệu nên không
+ * thuộc diện "gỡ vì không có nguồn", nhưng hồ sơ chưa nhập thì vẫn chặn in — đo trên máy thật
+ * 28/08/2026: 8/28 mẫu còn khoá vì đúng lý do này.
+ *
+ * Không ghi đè mặc định: admin có quyền tự bật cờ cho mẫu của họ. Bật bằng cờ môi trường
+ * `SEED_TEMPLATES_SYNC_REQUIRED=1` khi cần kéo cấu hình về đúng bảng khai.
+ */
+export function dongBoCoBatBuoc(
+  batBuoc: readonly string[],
+  vars: Array<{ name: string; [k: string]: unknown }>,
+): Array<Record<string, unknown>> {
+  const req = new Set(batBuoc);
+  return vars.map((v) => ({ ...v, required: req.has(v.name) }));
+}
+
 export function dongBoNguonBien(
   entityType: string,
   vars: Array<{ name: string; label?: string; source?: string; field?: string; required?: boolean }>,
@@ -166,16 +185,19 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
       const chuaCauHinh = !curVars.some((v) => v.required === true);
 
       // Đồng bộ nguồn LUÔN chạy, kể cả khi không có cờ nào phải gỡ.
+      const dongBoBatBuoc = process.env['SEED_TEMPLATES_SYNC_REQUIRED'] === '1';
       const daDongBo = dongBoNguonBien(spec.entityType, curVars);
       const nguonDoi = daDongBo.some((v, i) => v['source'] !== curVars[i]?.source);
 
-      if (chuaCauHinh || daGoBo.length > 0 || nguonDoi) {
-        const vars = daDongBo.map((v) => ({
-          ...v,
-          required: chuaCauHinh
-            ? req.has(String(v['name']))
-            : v['required'] === true && !KHONG_CO_NGUON.has(String(v['name'])),
-        }));
+      if (chuaCauHinh || daGoBo.length > 0 || nguonDoi || dongBoBatBuoc) {
+        const vars = dongBoBatBuoc
+          ? dongBoCoBatBuoc(REQUIRED_VARS_CHO_KIEM[spec.code] ?? [], daDongBo as never)
+          : daDongBo.map((v) => ({
+              ...v,
+              required: chuaCauHinh
+                ? req.has(String(v['name']))
+                : v['required'] === true && !KHONG_CO_NGUON.has(String(v['name'])),
+            }));
         await (prisma as any).documentTemplate.update({ where: { id: existing.id }, data: { variables: vars } });
         console.log(
           `  ↻ ${spec.entityType}/${spec.code} ${chuaCauHinh ? 'đặt' : 'cập nhật'} biến` +
