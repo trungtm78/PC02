@@ -3,7 +3,7 @@ import {
   apDungBoCuc,
   ganViTri,
   boCucTuLocalStorage,
-  KHOA_DA_CHUYEN,
+  khoaDaChuyen,
 } from '../boCucCot';
 import type { ColumnDef } from '../Table';
 
@@ -209,8 +209,8 @@ describe('Đọc lựa chọn cũ trong trình duyệt để chuyển lên máy 
 
   it('có cờ đã chuyển thì KHÔNG đọc lại — chuyển một lần, không đè bố cục mới', () => {
     localStorage.setItem('petitions_columns', JSON.stringify({ tomTat: false }));
-    localStorage.setItem(KHOA_DA_CHUYEN, '1');
+    localStorage.setItem(khoaDaChuyen('petitions'), '1');
     expect(boCucTuLocalStorage('petitions')).toBeNull();
-    localStorage.removeItem(KHOA_DA_CHUYEN);
+    localStorage.removeItem(khoaDaChuyen('petitions'));
   });
 });

@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useBoCucCot } from '../useBoCucCot';
-import { KHOA_DA_CHUYEN } from '../boCucCot';
+import { khoaDaChuyen } from '../boCucCot';
 import { userTableLayoutsApi } from '@/lib/api';
 import type { ColumnDef } from '../Table';
 
@@ -166,7 +166,7 @@ describe('useBoCucCot', () => {
       const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
       await waitFor(() => expect(api.luu).toHaveBeenCalled());
       expect(api.luu.mock.calls[0][1]).toEqual({ tomTat: { hidden: true } });
-      expect(localStorage.getItem(KHOA_DA_CHUYEN)).toBeTruthy();
+      await waitFor(() => expect(localStorage.getItem(khoaDaChuyen('petitions'))).toBeTruthy());
       // Lựa chọn cũ phải có hiệu lực ngay trong lần mở này, không đợi vòng tải sau — nếu
       // không, cán bộ vẫn thấy cột hiện lại đúng một lần rồi mới biến mất.
       await waitFor(() =>
@@ -190,5 +190,84 @@ describe('useBoCucCot', () => {
       await new Promise((r) => setTimeout(r, 20));
       expect(api.luu).not.toHaveBeenCalled();
     });
+  });
+});
+
+/**
+ * CỔNG (Codex 28/08/2026): bốn lỗi bộ ca kiểm cũ để lọt.
+ *
+ * Ca kiểm cũ chỉ chuyển MỘT bảng và luôn giả định máy chủ nhận thành công, nên cả hai lỗi
+ * dưới đây đều xanh: khoá "đã chuyển" dùng chung cho mọi bảng, và cờ đặt trước khi lưu xong.
+ */
+describe('useBoCucCot — lỗi Codex bắt được', () => {
+  it('chuyển được NHIỀU bảng trên cùng một trình duyệt', async () => {
+    localStorage.setItem('petitions_columns', JSON.stringify({ tomTat: false }));
+    localStorage.setItem('cases_columns', JSON.stringify({ nguon: false }));
+    ganKhoGia();
+
+    const { unmount } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.luu).toHaveBeenCalledWith('petitions', expect.anything()));
+    unmount();
+
+    // Khoá "đã chuyển" dùng chung thì màn thứ hai KHÔNG BAO GIỜ được chuyển, và lựa chọn cũ
+    // của nó mất hẳn. Dữ liệu cũ vốn nằm theo TỪNG bảng (`cases_columns`, `petitions_columns`).
+    renderHook(() => useBoCucCot('cases', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.luu).toHaveBeenCalledWith('cases', expect.anything()));
+  });
+
+  it('máy chủ lưu HỎNG thì KHÔNG đánh dấu đã chuyển — lần sau còn thử lại', async () => {
+    localStorage.setItem('petitions_columns', JSON.stringify({ tomTat: false }));
+    api.list.mockResolvedValue({ data: {} });
+    api.luu.mockRejectedValue(new Error('500'));
+
+    renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.luu).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 30));
+    // Đặt cờ trước khi lưu xong thì lựa chọn cũ của cán bộ mất hẳn, không lần nào thử lại.
+    expect(localStorage.getItem(khoaDaChuyen('petitions'))).toBeNull();
+  });
+
+  /** Menu lấy thứ tự khai trong mã thì sau một lần dời, nút dời kế tiếp trỏ sai chỗ. */
+  it('danh sách cho menu theo THỨ TỰ HIỆN HÀNH, không phải thứ tự khai trong mã', async () => {
+    ganKhoGia({ petitions: { tomTat: { position: 0 } } });
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(result.current.toggleableColumns[0]?.key).toBe('tomTat'));
+  });
+
+  /** Menu hiện cả cột đang ẩn (để bật lại) — bỏ chúng đi là bỏ mất việc chính của menu. */
+  it('danh sách cho menu GIỮ cả cột đang ẩn', async () => {
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.list).toHaveBeenCalled());
+    expect(result.current.toggleableColumns.map((c) => c.key)).toContain('nguon');
+    expect(result.current.visibleColumns.map((c) => c.key)).not.toContain('nguon');
+  });
+
+  /** Nút dời của cột đang ẩn vẫn hiện trong menu, nên dời nó phải có tác dụng thật. */
+  it('dời được cả cột đang ẩn', async () => {
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.list).toHaveBeenCalled());
+    act(() => result.current.doiCho('nguon', 0));
+    await waitFor(() => expect(api.luu).toHaveBeenCalled());
+    expect(api.luu.mock.calls[0][1]).toMatchObject({ nguon: { position: 0 } });
+  });
+
+  it('chưa ai kéo thì báo KHÔNG có ghi đè bề rộng', async () => {
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.list).toHaveBeenCalled());
+    expect(result.current.coGhiDeBeRong).toBe(false);
+  });
+
+  it('đã kéo một cột thì báo CÓ ghi đè bề rộng', async () => {
+    ganKhoGia({ petitions: { tomTat: { width: 400 } } });
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(result.current.coGhiDeBeRong).toBe(true));
+  });
+
+  /** Ẩn cột KHÔNG phải kéo giãn — không được làm bảng đổi sang cuộn ngang. */
+  it('chỉ ẩn cột thôi thì vẫn báo KHÔNG có ghi đè bề rộng', async () => {
+    ganKhoGia({ petitions: { tomTat: { hidden: true } } });
+    const { result } = renderHook(() => useBoCucCot('petitions', COT), { wrapper: boc() });
+    await waitFor(() => expect(api.list).toHaveBeenCalled());
+    expect(result.current.coGhiDeBeRong).toBe(false);
   });
 });

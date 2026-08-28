@@ -47,6 +47,8 @@ import { useListPageShellContext } from './ListPageShell';
  * mọi lần sau đọc thẳng số ấy.
  */
 const PX_MOI_REM = 16;
+/** Bề rộng ô tick chọn nhiều dòng — khớp `w-10` ở `BulkSelectionColumn`. */
+const BE_RONG_O_TICK = '2.5rem';
 function doBeRong(w?: string): number {
   if (!w) return 150;
   const n = parseFloat(w);
@@ -128,6 +130,13 @@ export interface TableProps<TRow, TId extends string | number = string> {
   onKeoGian?: (key: string, px: number) => void;
   /** Bấm đúp tay nắm — trả riêng cột ấy về bề rộng khai trong mã. */
   onVeMacDinhCot?: (key: string) => void;
+  /**
+   * Người dùng đã tự đặt bề rộng cột nào chưa.
+   *
+   * Chỉ khi có thì bảng mới chuyển sang tổng-bề-rộng-tường-minh và cuộn ngang. Chưa có thì giữ
+   * `w-full` y như trước — người không yêu cầu gì không được thấy bảng đổi hình.
+   */
+  datTongBeRong?: boolean;
   sortBy?: string;
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
@@ -317,6 +326,7 @@ export function Table<TRow, TId extends string | number = string>({
   fixedLayout,
   onKeoGian,
   onVeMacDinhCot,
+  datTongBeRong,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
@@ -348,12 +358,23 @@ export function Table<TRow, TId extends string | number = string>({
     <StateCard {...cardProps}><OfflineState /></StateCard>
   );
 
-  // Tổng bề rộng bảng, cộng bằng `calc()` để KHỎI quy đổi `rem` sang px — quy đổi bằng tay là
-  // đoán cỡ chữ gốc và sai lặng lẽ trên máy đặt cỡ chữ khác. Chỉ đặt khi bật kéo giãn: bảng
-  // chưa nối vào bố cục người dùng phải giữ nguyên `w-full` như trước.
-  const tongBeRong = onKeoGian
-    ? `calc(${columns.map((c) => c.width ?? '150px').join(' + ')})`
-    : undefined;
+  // ── Tổng bề rộng bảng ──
+  //
+  // CHỈ đặt khi người dùng ĐÃ tự kéo một cột nào đó (`datTongBeRong`). Người chưa hề kéo phải
+  // thấy bảng y hệt hôm qua: với `w-full` thì `table-fixed` chia lại cột theo tỷ lệ cho vừa
+  // màn hình; đặt tổng tường minh làm bảng cuộn ngang thay vì co lại. Bật cho tất cả là đổi
+  // bố cục đã cân chỉnh từ dữ liệu thật, cho 46.000 hồ sơ của những người không yêu cầu gì —
+  // Codex bắt 28/08/2026.
+  //
+  // Cộng bằng `calc()` để KHỎI quy đổi `rem` sang px: quy đổi bằng tay là đoán cỡ chữ gốc và
+  // sai lặng lẽ trên máy đặt cỡ chữ khác.
+  //
+  // Ô tick chọn nhiều dòng là một CỘT THẬT chèn trước mọi cột (`BulkSelectionColumn`, `w-10`).
+  // Bỏ nó ra khỏi tổng thì bảng hụt đúng 2.5rem và cột cuối bị cắt.
+  const tongBeRong =
+    onKeoGian && datTongBeRong
+      ? `calc(${[...(bulkSelection ? [BE_RONG_O_TICK] : []), ...columns.map((c) => c.width ?? '150px')].join(' + ')})`
+      : undefined;
 
   // state === 'ready'
   return (

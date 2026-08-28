@@ -458,6 +458,7 @@ export function ComprehensiveListPageShell() {
         key: 'typeLabel',
         header: 'Loại',
         width: '7rem',
+        optional: 'show',
         render: (r) => (
           <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
             {r.typeLabel}
@@ -468,18 +469,21 @@ export function ComprehensiveListPageShell() {
         key: 'caseNumber',
         header: 'Mã hồ sơ',
         width: '8rem',
+        optional: 'show',
         render: (r) => <span className="font-mono text-xs text-slate-700">{r.caseNumber}</span>,
       },
       {
         key: 'name',
         header: 'Tên / Người gửi',
         width: '22rem',
+        optional: 'show',
         render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
       },
       {
         key: 'status',
         header: 'Trạng thái',
         width: '12rem',
+        optional: 'show',
         render: (r) => (
           <span className={`inline-block px-2 py-0.5 rounded text-xs ${r.statusBadge}`}>
             {r.statusLabel}
@@ -490,18 +494,21 @@ export function ComprehensiveListPageShell() {
         key: 'createdBy',
         header: 'Người phụ trách',
         width: '12rem',
+        optional: 'show',
         render: (r) => r.createdBy,
       },
       {
         key: 'district',
         header: 'Đơn vị',
         width: '14rem',
+        optional: 'show',
         render: (r) => r.district ?? '—',
       },
       {
         key: 'receivedDate',
         header: 'Ngày tiếp nhận',
         width: '9rem',
+        optional: 'show',
         render: (r) => formatVNDate(r.receivedDate),
       },
     ],
@@ -511,6 +518,7 @@ export function ComprehensiveListPageShell() {
   // hầu như không khai bề rộng — bật `fixedLayout` mà thiếu width thì phần dư bị chia đều và
   // bảng đổi hình. Bề rộng vừa khai ở khối trên đo từ dữ liệu thật 28/08/2026.
   const {
+    coGhiDeBeRong,
     visibleColumns,
     toggleableColumns,
     isVisible,
@@ -616,6 +624,7 @@ export function ComprehensiveListPageShell() {
         state={tableState}
         fixedLayout
         onKeoGian={datBeRong}
+        datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}
         columns={visibleColumns}
         data={rows}

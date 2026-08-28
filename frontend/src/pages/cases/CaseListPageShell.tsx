@@ -607,6 +607,7 @@ export function CaseListPageShell() {
   // Bố cục cột lưu trên MÁY CHỦ theo tài khoản: bề rộng, ẩn/hiện và thứ tự cùng một chỗ.
   // Trước đây ẩn/hiện lưu ở trình duyệt từng máy nên đổi máy là mất.
   const {
+    coGhiDeBeRong,
     visibleColumns,
     toggleableColumns,
     isVisible,
@@ -755,6 +756,7 @@ export function CaseListPageShell() {
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
         onKeoGian={datBeRong}
+        datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}
         sortBy={sort.sortBy}
         sortOrder={sort.sortOrder}

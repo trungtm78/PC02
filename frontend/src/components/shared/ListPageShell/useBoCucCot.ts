@@ -5,8 +5,10 @@ import type { ColumnDef } from './Table';
 import {
   apDungBoCuc,
   boCucTuLocalStorage,
+  cotDangHien,
   ganViTri,
-  KHOA_DA_CHUYEN,
+  khoaDaChuyen,
+  sapXepCot,
   type BoCucCot,
 } from './boCucCot';
 
@@ -25,6 +27,8 @@ const KHOA_TRUY_VAN = ['user-table-layouts'];
 const CU_SAU_MS = 30 * 1000;
 
 export interface BoCucCotHook<TRow> {
+  /** Người dùng đã tự đặt bề rộng cột nào chưa — bảng chỉ đổi cách tính bề rộng khi có. */
+  coGhiDeBeRong: boolean;
   /** Cột đang hiện, đã áp bề rộng và thứ tự người dùng đặt. */
   visibleColumns: ColumnDef<TRow>[];
   /** Cột được phép bật/tắt — chỉ cột khai `optional`. */
@@ -122,25 +126,43 @@ export function useBoCucCot<TRow>(
     if (Object.keys(tatCa[tableKey] ?? {}).length > 0) return;
     const cu = boCucTuLocalStorage(tableKey);
     if (!cu || Object.keys(cu).length === 0) return;
+    // Chặn gọi lại trong CÙNG phiên (React strict-mode chạy effect hai lần), nhưng cờ bền
+    // trong trình duyệt chỉ đặt SAU KHI máy chủ nhận. Đặt trước mà PUT hỏng thì lựa chọn cũ
+    // của cán bộ mất hẳn, không lần nào thử lại — Codex bắt 28/08/2026.
     daDay.current = true;
-    try {
-      localStorage.setItem(KHOA_DA_CHUYEN, '1');
-    } catch {
-      // Ghi cờ hỏng thì lần sau chuyển lại — vô hại vì máy chủ lúc ấy đã có bố cục.
-    }
-    luu.mutate(cu);
+    luu.mutate(cu, {
+      onSuccess: () => {
+        try {
+          localStorage.setItem(khoaDaChuyen(tableKey), '1');
+        } catch {
+          // Ghi cờ hỏng thì lần sau chuyển lại — vô hại, vì máy chủ lúc ấy đã có bố cục và
+          // nhánh "máy chủ đã có" ở trên sẽ chặn.
+        }
+      },
+      onError: () => {
+        // Hỏng thì cho phép thử lại ở lần mở trang sau.
+        daDay.current = false;
+      },
+    });
   }, [tatCa, tableKey, luu]);
 
   const visibleColumns = useMemo(() => apDungBoCuc(columns, boCuc), [columns, boCuc]);
-  const toggleableColumns = useMemo(() => columns.filter((c) => c.optional != null), [columns]);
+
+  /**
+   * Cột cho menu chọn cột — theo THỨ TỰ HIỆN HÀNH và GIỮ cả cột đang ẩn.
+   *
+   * Lấy thứ tự khai trong mã thì sau một lần dời, menu vẫn hiện thứ tự cũ và nút dời kế tiếp
+   * trỏ sai chỗ. Bỏ cột ẩn thì không bật lại được — mà bật lại chính là việc chính của menu.
+   */
+  const toggleableColumns = useMemo(
+    () => sapXepCot(columns, boCuc).filter((c) => c.optional != null),
+    [columns, boCuc],
+  );
 
   const isVisible = useCallback(
     (key: string) => {
       const c = columns.find((x) => x.key === key);
-      if (!c) return false;
-      if (c.optional == null) return true;
-      const g = boCuc[key]?.hidden;
-      return g !== undefined ? !g : c.optional === 'show';
+      return c ? cotDangHien(c, boCuc) : false;
     },
     [columns, boCuc],
   );
@@ -171,16 +193,34 @@ export function useBoCucCot<TRow>(
   /** Đổi chỗ sinh vị trí mới cho NHIỀU cột cùng lúc — gửi một lần, không vá từng cột. */
   const doiCho = useCallback(
     (key: string, toiViTri: number) => {
-      const thuTu = visibleColumns.filter((c) => c.optional != null && !c.sticky).map((c) => c.key);
+      // Dựng thứ tự từ TOÀN BỘ cột đổi-chỗ-được, kể cả cột đang ẩn. Lấy `visibleColumns` thì
+      // dời một cột đang ẩn im lặng không làm gì, trong khi nút dời của nó vẫn hiện trong menu.
+      const thuTu = sapXepCot(columns, boCuc)
+        .filter((c) => c.optional != null && !c.sticky)
+        .map((c) => c.key);
       if (!thuTu.includes(key)) return;
       gop(ganViTri(thuTu, key, toiViTri));
     },
-    [visibleColumns, gop],
+    [columns, boCuc, gop],
   );
 
   const datLai = useCallback(() => datLaiMut.mutate(), [datLaiMut]);
 
+  /**
+   * Người dùng ĐÃ tự đặt bề rộng cột nào chưa.
+   *
+   * Bảng chỉ chuyển sang tổng-bề-rộng-tường-minh (và cuộn ngang) khi có ghi đè. Người chưa hề
+   * kéo phải thấy bảng y hệt hôm qua — với `w-full` thì `table-fixed` chia lại cột theo tỷ lệ
+   * cho vừa màn hình, còn tổng tường minh thì không. Đổi âm thầm là làm hỏng bố cục đã cân
+   * chỉnh từ dữ liệu thật, cho tất cả mọi người. Codex bắt 28/08/2026.
+   */
+  const coGhiDeBeRong = useMemo(
+    () => Object.values(boCuc).some((g) => g.width !== undefined),
+    [boCuc],
+  );
+
   return {
+    coGhiDeBeRong,
     visibleColumns,
     toggleableColumns,
     isVisible,

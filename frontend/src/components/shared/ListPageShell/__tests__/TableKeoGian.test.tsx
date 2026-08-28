@@ -70,8 +70,8 @@ describe('<Table> — kéo giãn cột', () => {
    * Dùng `calc()` để KHỎI quy đổi `rem` sang px — quy đổi bằng tay là đoán cỡ chữ gốc và sai
    * lặng lẽ trên máy đặt cỡ chữ khác.
    */
-  it('bật kéo giãn thì bảng có tổng bề rộng tường minh, tính bằng calc()', () => {
-    ve({ onKeoGian: vi.fn() });
+  it('người ĐÃ kéo thì bảng có tổng bề rộng tường minh, tính bằng calc()', () => {
+    ve({ onKeoGian: vi.fn(), datTongBeRong: true });
     const w = screen.getByRole('table').style.width;
     expect(w).toContain('calc(');
     expect(w).toContain('7rem');
@@ -80,7 +80,7 @@ describe('<Table> — kéo giãn cột', () => {
   });
 
   it('bảng vẫn phủ hết bề ngang khi tổng cột hẹp hơn màn hình', () => {
-    ve({ onKeoGian: vi.fn() });
+    ve({ onKeoGian: vi.fn(), datTongBeRong: true });
     expect(screen.getByRole('table').style.minWidth).toBe('100%');
   });
 
@@ -156,5 +156,53 @@ describe('<Table> — tên ô tiêu đề không lẫn nhãn tay nắm', () => {
   it('tay nắm vẫn giữ nhãn riêng cho người dùng bàn phím', () => {
     ve({ onKeoGian: vi.fn() });
     expect(screen.getByRole('separator', { name: /Kéo giãn cột Tóm tắt/ })).toBeInTheDocument();
+  });
+});
+
+/**
+ * CỔNG P0 (Codex 28/08/2026): người CHƯA HỀ kéo phải thấy bảng y hệt hôm qua.
+ *
+ * Với `w-full`, `table-fixed` chia lại cột theo tỷ lệ cho vừa màn hình. Đặt tổng bề rộng
+ * tường minh làm bảng cuộn ngang thay vì co lại — khác hẳn. Bật cho tất cả là đổi bố cục đã
+ * cân chỉnh từ dữ liệu thật của 46.000 hồ sơ, cho những người không yêu cầu gì.
+ */
+describe('<Table> — không đổi bố cục của người chưa kéo', () => {
+  it('bật kéo giãn nhưng CHƯA ai kéo → KHÔNG đặt tổng bề rộng', () => {
+    ve({ onKeoGian: vi.fn() });
+    expect(screen.getByRole('table').style.width).toBe('');
+  });
+
+  it('chỉ khi đã có bề rộng người dùng đặt thì mới đặt tổng', () => {
+    ve({ onKeoGian: vi.fn(), datTongBeRong: true });
+    expect(screen.getByRole('table').style.width).toContain('calc(');
+  });
+});
+
+/**
+ * CỔNG P0 (Codex): ô tick chọn nhiều dòng là một CỘT THẬT chèn trước mọi cột
+ * (`BulkSelectionColumn`, `w-10`). Bỏ nó khỏi tổng thì bảng hụt đúng 2.5rem và cột cuối bị cắt.
+ *
+ * Ca kiểm cũ về tổng bề rộng KHÔNG truyền `bulkSelection` nên không chạm tới lỗi này — đó là
+ * một ca XANH GIẢ, Codex chỉ đúng.
+ */
+describe('<Table> — tổng bề rộng tính cả ô tick', () => {
+  const bulk = {
+    isSelected: () => false,
+    toggle: () => {},
+    toggleAll: () => {},
+    allSelected: false,
+    someSelected: false,
+    selectedCount: 0,
+    clear: () => {},
+  };
+
+  it('có ô tick thì tổng cộng thêm 2.5rem', () => {
+    ve({ onKeoGian: vi.fn(), datTongBeRong: true, bulkSelection: bulk });
+    expect(screen.getByRole('table').style.width).toContain('2.5rem');
+  });
+
+  it('không có ô tick thì KHÔNG cộng thừa', () => {
+    ve({ onKeoGian: vi.fn(), datTongBeRong: true });
+    expect(screen.getByRole('table').style.width).not.toContain('2.5rem');
   });
 });

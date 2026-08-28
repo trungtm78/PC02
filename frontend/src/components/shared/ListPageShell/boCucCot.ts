@@ -36,29 +36,20 @@ function doiChoDuoc<TRow>(c: ColumnDef<TRow>): boolean {
   return c.optional != null && !c.sticky;
 }
 
-export function apDungBoCuc<TRow>(
+/**
+ * Sắp xếp cột theo thứ tự người dùng đặt, GIỮ NGUYÊN cả cột đang ẩn.
+ *
+ * Menu chọn cột cần danh sách này: nó phải hiện cả cột đang ẩn (để bật lại) VÀ phải theo đúng
+ * thứ tự hiện hành. Lấy thứ tự khai trong mã thì sau một lần dời, menu vẫn hiện thứ tự cũ và
+ * nút dời kế tiếp trỏ sai chỗ — Codex bắt được 28/08/2026.
+ */
+export function sapXepCot<TRow>(
   columns: ColumnDef<TRow>[],
   boCuc: BoCucCot,
 ): ColumnDef<TRow>[] {
-  const hien = columns.filter((c) => {
-    if (!anDuoc(c)) return true;
-    // Có tên trong bố cục = người dùng đã đổi; không có = lấy theo mặc định trong mã.
-    const g = boCuc[c.key]?.hidden;
-    return g !== undefined ? !g : c.optional === 'show';
-  });
-
-  // ── Mô hình thứ tự ──
-  //
-  // `position` áp CHỈ TRONG NHÓM cột được phép đổi chỗ. Cột định danh (Thao tác, STT) và cột
-  // ghim giữ nguyên CHỖ KHAI trong mã, rồi nhóm đổi-chỗ-được lấp vào những khe còn lại theo
-  // thứ tự người dùng đặt.
-  //
-  // Cách này giữ được hai thứ cùng lúc: cột ghim luôn ở mép trái để cơ chế cuộn ngang không
-  // hỏng, và người dùng vẫn sắp được những cột họ thật sự quan tâm. Nếu cho `position` áp lên
-  // toàn bảng thì một lần kéo có thể đẩy cột Thao tác ra giữa bảng.
   const khe: number[] = [];
   const nhomDoiCho: ColumnDef<TRow>[] = [];
-  hien.forEach((c, i) => {
+  columns.forEach((c, i) => {
     if (doiChoDuoc(c)) {
       khe.push(i);
       nhomDoiCho.push(c);
@@ -97,16 +88,31 @@ export function apDungBoCuc<TRow>(
     daSap[j] = c;
   }
 
-  const ra = [...hien];
+  const ra = [...columns];
   khe.forEach((viTri, k) => {
     const c = daSap[k];
     if (c) ra[viTri] = c;
   });
+  return ra;
+}
 
-  return ra.map((c) => {
-    const w = boCuc[c.key]?.width;
-    return w === undefined ? c : { ...c, width: `${w}px` };
-  });
+/** Cột có đang hiện không — cột vắng mặt trong bố cục lấy theo `optional` khai trong mã. */
+export function cotDangHien<TRow>(c: ColumnDef<TRow>, boCuc: BoCucCot): boolean {
+  if (!anDuoc(c)) return true;
+  const g = boCuc[c.key]?.hidden;
+  return g !== undefined ? !g : c.optional === 'show';
+}
+
+export function apDungBoCuc<TRow>(
+  columns: ColumnDef<TRow>[],
+  boCuc: BoCucCot,
+): ColumnDef<TRow>[] {
+  return sapXepCot(columns, boCuc)
+    .filter((c) => cotDangHien(c, boCuc))
+    .map((c) => {
+      const w = boCuc[c.key]?.width;
+      return w === undefined ? c : { ...c, width: `${w}px` };
+    });
 }
 
 /**
@@ -136,7 +142,12 @@ export function ganViTri(
  * Không có cờ thì mỗi lần mở trang lại đọc khoá cũ và đè lên bố cục người dùng vừa chỉnh —
  * họ sẽ thấy thay đổi của mình bị nuốt mất sau mỗi lần tải lại.
  */
-export const KHOA_DA_CHUYEN = 'pc02-bo-cuc-cot-da-chuyen';
+export function khoaDaChuyen(prefix: string): string {
+  // THEO TỪNG BẢNG, không dùng một khoá chung: dữ liệu cũ nằm ở `cases_columns`,
+  // `petitions_columns`… nên một khoá chung nghĩa là mở màn Đơn thư xong thì Vụ việc và Vụ án
+  // KHÔNG BAO GIỜ được chuyển, và lựa chọn cũ của hai màn ấy mất hẳn. Codex bắt 28/08/2026.
+  return `pc02-bo-cuc-cot-da-chuyen:${prefix}`;
+}
 
 /**
  * Đọc lựa chọn ẩn/hiện cũ trong trình duyệt, để chuyển lên máy chủ MỘT LẦN.
@@ -153,7 +164,7 @@ export const KHOA_DA_CHUYEN = 'pc02-bo-cuc-cot-da-chuyen';
  */
 export function boCucTuLocalStorage(prefix: string): BoCucCot | null {
   try {
-    if (localStorage.getItem(KHOA_DA_CHUYEN)) return null;
+    if (localStorage.getItem(khoaDaChuyen(prefix))) return null;
     const tho = localStorage.getItem(`${prefix}_columns`);
     if (!tho) return null;
     const parsed: unknown = JSON.parse(tho);
