@@ -28,16 +28,15 @@ import {
 import { api } from '@/lib/api';
 import {
   ListPageShell,
+  ColumnPicker,
+  useBoCucCot,
   useListPageUrlState,
+  type ColumnDef,
   type TableState,
   getVietnameseErrorMessage,
   sanitizeStringParam,
 } from '@/components/shared/ListPageShell';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
-import {
-  BulkSelectionHeaderCell,
-  BulkSelectionRowCell,
-} from '@/features/_shared/bulk/BulkSelectionColumn';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildSubjectsAdapter } from '@/features/_shared/bulk/adapters/subjects';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
@@ -237,6 +236,53 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
     [],
   );
 
+  /**
+   * Cột bảng Đối tượng — chuyển từ `<table>` tự dựng sang `ListPageShell.Table`.
+   *
+   * Trang này trước đây tự viết thẻ bảng nên không được hưởng kéo giãn / ẩn hiện / đổi thứ tự
+   * cột. Chuyển sang bảng chung là để cán bộ thấy MỘT cách làm việc trên mọi màn danh sách,
+   * chứ không phải màn này kéo được màn kia thì không.
+   *
+   * Bề rộng đo từ dữ liệu thật (28/08/2026): họ tên và tên vụ án là hai cột dài nhất.
+   */
+  const columns: ColumnDef<Subject>[] = useMemo(
+    () => [
+      { key: 'fullName', header: 'Họ tên', width: '16rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm font-medium text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.fullName },
+      { key: 'idNumber', header: 'CCCD', width: '10rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-xs font-mono text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.idNumber ?? '—' },
+      // Cột này hiện `case.name` chứ KHÔNG phải `caseCode` — Codex đã sửa ở PR4, giữ nguyên.
+      { key: 'case', header: 'Vụ án', width: '20rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.case?.name ?? '—' },
+      { key: 'status', header: 'Trạng thái', width: '11rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-xs whitespace-nowrap overflow-hidden',
+        render: (r) => (
+          <span className="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
+            {SUBJECT_STATUS_LABEL[r.status] ?? r.status}
+          </span>
+        ) },
+      { key: 'createdAt', header: 'Ngày tạo', width: '9rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => formatVNDate(r.createdAt) },
+    ],
+    [],
+  );
+
+  const {
+    coGhiDeBeRong,
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat,
+    datBeRong,
+    xoaBeRong,
+    doiCho,
+    datLai,
+  } = useBoCucCot('objects', columns);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const handleStatusChange = useCallback(
@@ -323,6 +369,15 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
           searchPlaceholder={`Tìm theo họ tên, CCCD, địa chỉ...`}
           activeFilterCount={activeFilterCount}
           onResetFilters={handleResetFilters}
+          columnPicker={
+            <ColumnPicker
+              columns={toggleableColumns}
+              isVisible={isVisible}
+              onToggle={batTat}
+              onReset={datLai}
+              onDoiCho={doiCho}
+            />
+          }
         />
 
         {transientBanner && (
@@ -351,115 +406,30 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
           </div>
         )}
 
-        <div className="px-4 py-3" data-testid="subjects-shell-table-wrap">
-          {tableState === 'loading' && (
-            <div
-              data-testid="list-page-shell-table-loading"
-              className="bg-white border border-slate-200 rounded-lg p-8 text-center text-slate-500"
-            >
-              Đang tải...
-            </div>
-          )}
-          {tableState === 'error' && (
-            <div
-              data-testid="list-page-shell-table-error"
-              className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 flex items-center gap-2"
-            >
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error ?? 'Lỗi không xác định'}
-            </div>
-          )}
-          {tableState === 'empty' && (
-            <div
-              data-testid="list-page-shell-table-empty"
-              className="bg-white border border-slate-200 rounded-lg p-12 text-center"
-            >
-              <p className="text-slate-700 font-medium">Chưa có {cfg.resourceLabel} nào</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Thêm {cfg.resourceLabel} qua màn hình vụ án.
-              </p>
-            </div>
-          )}
-          {tableState === 'empty-filtered' && (
-            <div
-              data-testid="list-page-shell-table-empty-filtered"
-              className="bg-white border border-slate-200 rounded-lg p-12 text-center"
-            >
-              <p className="text-slate-700 font-medium">Không có {cfg.resourceLabel} phù hợp</p>
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className={`mt-3 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
-              >
-                Xóa bộ lọc
-              </button>
-            </div>
-          )}
-          {tableState === 'ready' && (
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-sm" data-testid="subjects-shell-table">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <BulkSelectionHeaderCell
-                      selection={selection}
-                      totalRowsLabel={cfg.resourceLabel}
-                    />
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Họ tên
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      CCCD
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Vụ án
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Trạng thái
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Ngày tạo
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.map((r) => (
-                    <tr
-                      key={r.id}
-                      data-testid={`subject-row-${r.id}`}
-                      className={
-                        selection.isSelected(r.id) ? 'bg-blue-50' : 'hover:bg-slate-50'
-                      }
-                    >
-                      <BulkSelectionRowCell
-                        id={r.id}
-                        selection={selection}
-                        rowLabel={`${cfg.resourceLabel} ${r.fullName}`}
-                      />
-                      <td className="px-3 py-2 text-sm font-medium text-slate-800">
-                        {r.fullName}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-mono text-slate-600">
-                        {r.idNumber ?? '—'}
-                      </td>
-                      {/* Codex P2 (from PR4): case.name (not caseCode) */}
-                      <td className="px-3 py-2 text-sm text-blue-700">
-                        {r.case?.name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        <span className="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
-                          {SUBJECT_STATUS_LABEL[r.status] ?? r.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-500">
-                        {formatVNDate(r.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ListPageShell.Table<Subject>
+          state={tableState}
+          fixedLayout
+          onKeoGian={datBeRong}
+          onVeMacDinhCot={xoaBeRong}
+          datTongBeRong={coGhiDeBeRong}
+          columns={visibleColumns}
+          data={rows}
+          rowKey={(r) => r.id}
+          title={cfg.resourceLabel}
+          totalCount={totalCount}
+          error={error}
+          bulkSelection={selection}
+          bulkRowsLabel={cfg.resourceLabel}
+          // Giữ NGUYÊN nhãn cũ của ô tick ("Chọn bị can Nguyễn Văn A"): đây là thứ trình đọc
+          // màn hình đọc lên, đổi nó là đổi trải nghiệm của người dùng bàn phím mà không ai
+          // yêu cầu.
+          bulkRowLabel={(r) => `${cfg.resourceLabel} ${r.fullName}`}
+          emptyState={{
+            title: `Chưa có ${cfg.resourceLabel} nào`,
+            description: `Thêm ${cfg.resourceLabel} qua màn hình vụ án.`,
+          }}
+          emptyFilteredState={{ onClearFilters: handleResetFilters }}
+        />
 
         <ListPageShell.Pagination
           page={page}

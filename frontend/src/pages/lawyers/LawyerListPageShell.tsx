@@ -24,6 +24,9 @@ import { Scale, AlertCircle, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
   ListPageShell,
+  ColumnPicker,
+  useBoCucCot,
+  type ColumnDef,
   useListPageUrlState,
   type TableState,
   getVietnameseErrorMessage,
@@ -31,10 +34,6 @@ import {
   LIST_PAGE_SIZE,
 } from '@/components/shared/ListPageShell';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
-import {
-  BulkSelectionHeaderCell,
-  BulkSelectionRowCell,
-} from '@/features/_shared/bulk/BulkSelectionColumn';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildLawyersAdapter } from '@/features/_shared/bulk/adapters/lawyers';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
@@ -148,6 +147,50 @@ export function LawyerListPageShell() {
     [],
   );
 
+  /**
+   * Cột bảng Luật sư — chuyển từ `<table>` tự dựng sang `ListPageShell.Table`, để màn này
+   * cũng kéo giãn / ẩn hiện / đổi thứ tự cột được như ba màn chính.
+   */
+  const columns: ColumnDef<Lawyer>[] = useMemo(
+    () => [
+      { key: 'fullName', header: 'Họ tên', width: '14rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm font-medium text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.fullName },
+      { key: 'barNumber', header: 'Số thẻ', width: '9rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-xs font-mono text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.barNumber },
+      { key: 'lawFirm', header: 'Văn phòng', width: '14rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.lawFirm ?? '—' },
+      // API luật sư trả `case.{id,name,status}` — KHÔNG có `caseCode`. Codex đã sửa ở PR4.
+      { key: 'case', header: 'Vụ án', width: '18rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.case?.name ?? '—' },
+      { key: 'subject', header: 'Bị can / Thân chủ', width: '13rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.subject?.fullName ?? '—' },
+      { key: 'phone', header: 'SĐT', width: '9rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-sm text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.phone ?? '—' },
+      { key: 'createdAt', header: 'Ngày tạo', width: '9rem', optional: 'show',
+        cellClassName: 'px-3 py-2 text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => formatVNDate(r.createdAt) },
+    ],
+    [],
+  );
+
+  const {
+    coGhiDeBeRong,
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat,
+    datBeRong,
+    xoaBeRong,
+    doiCho,
+    datLai,
+  } = useBoCucCot('lawyers', columns);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const handleSearchChange = useCallback(
@@ -219,6 +262,15 @@ export function LawyerListPageShell() {
           searchPlaceholder="Tìm theo họ tên, số thẻ luật sư, văn phòng..."
           activeFilterCount={activeFilterCount}
           onResetFilters={handleResetFilters}
+          columnPicker={
+            <ColumnPicker
+              columns={toggleableColumns}
+              isVisible={isVisible}
+              onToggle={batTat}
+              onReset={datLai}
+              onDoiCho={doiCho}
+            />
+          }
         />
 
         {/* Transient banner — success/error after bulk action.
@@ -249,121 +301,28 @@ export function LawyerListPageShell() {
           </div>
         )}
 
-        {/* Custom table — list pages PC02 KHÔNG dùng shared DataTable
-            (memory + BulkSelectionColumn comment). Inline rendering với
-            sticky-left checkbox columns from BulkSelectionColumn helpers. */}
-        <div className="px-4 py-3" data-testid="lawyers-shell-table-wrap">
-          {tableState === 'loading' && (
-            <div
-              data-testid="list-page-shell-table-loading"
-              className="bg-white border border-slate-200 rounded-lg p-8 text-center text-slate-500"
-            >
-              Đang tải...
-            </div>
-          )}
-          {tableState === 'error' && (
-            <div
-              data-testid="list-page-shell-table-error"
-              className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 flex items-center gap-2"
-            >
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error ?? 'Lỗi không xác định'}
-            </div>
-          )}
-          {tableState === 'empty' && (
-            <div
-              data-testid="list-page-shell-table-empty"
-              className="bg-white border border-slate-200 rounded-lg p-12 text-center"
-            >
-              <p className="text-slate-700 font-medium">Chưa có luật sư nào</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Thêm luật sư qua màn hình vụ án.
-              </p>
-            </div>
-          )}
-          {tableState === 'empty-filtered' && (
-            <div
-              data-testid="list-page-shell-table-empty-filtered"
-              className="bg-white border border-slate-200 rounded-lg p-12 text-center"
-            >
-              <p className="text-slate-700 font-medium">Không có luật sư phù hợp</p>
-              <p className="text-sm text-slate-500 mt-1">Thử xóa bộ lọc.</p>
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className={`mt-3 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
-              >
-                Xóa bộ lọc
-              </button>
-            </div>
-          )}
-          {tableState === 'ready' && (
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-sm" data-testid="lawyers-shell-table">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <BulkSelectionHeaderCell selection={selection} totalRowsLabel="luật sư" />
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Họ tên
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Số thẻ
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Văn phòng
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Vụ án
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Bị can / Thân chủ
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      SĐT
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">
-                      Ngày tạo
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {rows.map((r) => (
-                    <tr
-                      key={r.id}
-                      data-testid={`lawyer-row-${r.id}`}
-                      className={selection.isSelected(r.id) ? 'bg-blue-50' : 'hover:bg-slate-50'}
-                    >
-                      <BulkSelectionRowCell
-                        id={r.id}
-                        selection={selection}
-                        rowLabel={`luật sư ${r.fullName}`}
-                      />
-                      <td className="px-3 py-2 text-sm font-medium text-slate-800">
-                        {r.fullName}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-mono text-slate-600">
-                        {r.barNumber}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-slate-700">{r.lawFirm ?? '—'}</td>
-                      {/* Codex P2 fix: lawyers API returns case.{id,name,status} —
-                          NOT caseCode. Use name for display. */}
-                      <td className="px-3 py-2 text-sm text-blue-700">
-                        {r.case?.name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-slate-700">
-                        {r.subject?.fullName ?? '—'}
-                      </td>
-                      <td className="px-3 py-2 text-sm text-slate-600">{r.phone ?? '—'}</td>
-                      <td className="px-3 py-2 text-xs text-slate-500">
-                        {formatVNDate(r.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <ListPageShell.Table<Lawyer>
+          state={tableState}
+          fixedLayout
+          onKeoGian={datBeRong}
+          onVeMacDinhCot={xoaBeRong}
+          datTongBeRong={coGhiDeBeRong}
+          columns={visibleColumns}
+          data={rows}
+          rowKey={(r) => r.id}
+          title="Luật sư"
+          totalCount={totalCount}
+          error={error}
+          bulkSelection={selection}
+          bulkRowsLabel="luật sư"
+          // Giữ NGUYÊN nhãn cũ của ô tick — đây là thứ trình đọc màn hình đọc lên.
+          bulkRowLabel={(r) => `luật sư ${r.fullName}`}
+          emptyState={{
+            title: 'Chưa có luật sư nào',
+            description: 'Thêm luật sư qua màn hình vụ án.',
+          }}
+          emptyFilteredState={{ onClearFilters: handleResetFilters }}
+        />
 
         <ListPageShell.Pagination
           page={page}

@@ -8,6 +8,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+
+/**
+ * Trang này nay dùng `useBoCucCot` (bố cục cột lưu theo tài khoản), vốn chạy trên react-query —
+ * giống mọi trang danh sách khác. `retry: false` để lỗi mạng giả lập không kéo dài ca kiểm.
+ */
+function Bao({ children }: { children: ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+}
 import { ObjectListPageShell } from '../ObjectListPageShell';
 import { SubjectType } from '@/shared/enums/subject-status';
 
@@ -83,14 +94,16 @@ function renderShell(
   const cfgPrefix = subjectType === 'SUSPECT' ? 'objects' : subjectType === 'VICTIM' ? 'victims' : 'witnesses';
   const entry = initialEntry ?? `/${cfgPrefix}`;
   return render(
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route
-          path={`/${cfgPrefix}`}
-          element={<ObjectListPageShell subjectType={subjectType} />}
-        />
-      </Routes>
-    </MemoryRouter>,
+    <Bao>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route
+            path={`/${cfgPrefix}`}
+            element={<ObjectListPageShell subjectType={subjectType} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </Bao>,
   );
 }
 
@@ -383,9 +396,11 @@ describe('ObjectListPageShell — polymorphic subjectType clears selection (Code
   it('changing subjectType prop → selection cleared (no stale SUSPECT IDs in VICTIM context)', async () => {
     // Mount with SUSPECT
     const { rerender } = render(
-      <MemoryRouter initialEntries={['/objects']}>
-        <ObjectListPageShell subjectType={'SUSPECT' as SubjectType} />
-      </MemoryRouter>,
+      <Bao>
+        <MemoryRouter initialEntries={['/objects']}>
+          <ObjectListPageShell subjectType={'SUSPECT' as SubjectType} />
+        </MemoryRouter>
+      </Bao>,
     );
     await screen.findByText('Nguyễn Văn Suspect');
 
@@ -397,9 +412,11 @@ describe('ObjectListPageShell — polymorphic subjectType clears selection (Code
 
     // Switch subjectType to VICTIM (same URL state otherwise)
     rerender(
-      <MemoryRouter initialEntries={['/objects']}>
-        <ObjectListPageShell subjectType={'VICTIM' as SubjectType} />
-      </MemoryRouter>,
+      <Bao>
+        <MemoryRouter initialEntries={['/objects']}>
+          <ObjectListPageShell subjectType={'VICTIM' as SubjectType} />
+        </MemoryRouter>
+      </Bao>,
     );
 
     // Selection must clear → bar with "bị can" gone, bar with "bị hại" not yet
