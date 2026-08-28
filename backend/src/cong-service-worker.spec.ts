@@ -60,11 +60,18 @@ describe('Cổng service worker', () => {
    * mỗi nó thì đúng cảnh cần bắt (biên còn phục vụ bản cũ ở `/sw.js`) lại lọt qua trong im
    * lặng. `/sw.js` mới là địa chỉ duy nhất máy đang kẹt còn dò tới.
    */
-  it('bộ kiểm bản công khai soi CẢ bia mộ lẫn bản đang chạy', () => {
-    const dong = /for TEP in .*/.exec(kiemBanCongKhai)?.[0] ?? '';
-    expect(dong).not.toBe('');
-    expect(dong).toContain('/sw.js');
-    expect(dong).toContain('/sw-v2.js');
+  it.each([
+    ['bộ kiểm bản công khai', kiemBanCongKhai],
+    ['kịch bản cài bộ canh', kichBanCai],
+  ])('%s soi CẢ bia mộ lẫn bản đang chạy', (_ten, kichBan) => {
+    // MỌI vòng kiểm trong kịch bản, không chỉ vòng đầu: lỗi này vừa lặp lại y hệt ở vòng thứ
+    // hai của kịch bản cài, nên cổng phải quét hết chứ đừng bắt mẫu đầu tiên rồi thôi.
+    const vong = kichBan.match(/^[ 	]*for +[A-Za-z_]+ +in +\/.*$/gm) ?? [];
+    expect(vong.length).toBeGreaterThan(0);
+    for (const d of vong) {
+      expect(d).toContain('/sw.js');
+      expect(d).toContain('/sw-v2.js');
+    }
   });
 
   describe('bia mộ ở /sw.js', () => {
