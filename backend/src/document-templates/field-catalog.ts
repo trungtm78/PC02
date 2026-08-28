@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+
 /**
  * Field Catalog — danh mục trường khả dụng (WHITELIST) cho template động, per loại hồ sơ.
  * Là ranh giới bảo mật: admin chỉ map placeholder → field trong catalog; engine chỉ
@@ -248,10 +250,19 @@ const DON_THU_FIELDS: FieldDef[] = [
   SO_VAN_BAN,
 ];
 
+/**
+ * Catalog = khoá đặt tên theo hệ MỚI + khoá mang tên trường HỆ CŨ.
+ *
+ * Nhóm thứ hai để in được nguyên bộ 11 mẫu Word của hệ cũ, vốn dùng placeholder là chính tên
+ * trường hệ cũ (`{tom_tat_noi_dung}`, `{nguon_don}`…). Không có nhóm ấy thì mọi mẫu hệ cũ mang
+ * sang đều in ra nguyên chữ `{ten_bien}` — xem `khoa-he-cu.ts`.
+ *
+ * Khoá hệ mới đứng TRƯỚC nên tên trùng thì bản cũ thắng: giữ nguyên hành vi đang chạy.
+ */
 export const FIELD_CATALOG: Record<EntityType, FieldDef[]> = {
-  VU_AN: VU_AN_FIELDS,
-  VU_VIEC: VU_VIEC_FIELDS,
-  DON_THU: DON_THU_FIELDS,
+  VU_AN: [...VU_AN_FIELDS, ...khoaTheoTenHeCu('case'), ...KHOA_HE_CU_NGOAI_PARITY],
+  VU_VIEC: [...VU_VIEC_FIELDS, ...khoaTheoTenHeCu('incident'), ...KHOA_HE_CU_NGOAI_PARITY],
+  DON_THU: [...DON_THU_FIELDS, ...khoaTheoTenHeCu('petition'), ...KHOA_HE_CU_NGOAI_PARITY],
 };
 
 /** Tra FieldDef theo key (null nếu không thuộc catalog). Dùng Map nội bộ tránh prototype-lookup. */

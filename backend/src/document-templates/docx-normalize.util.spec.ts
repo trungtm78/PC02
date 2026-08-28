@@ -64,3 +64,51 @@ describe('normalizeDocxTags', () => {
     expect(normalizeDocxTags(bad)).toBe(bad);
   });
 });
+
+/**
+ * Mẫu in của hệ cũ tách placeholder qua nhiều run CÓ ĐỊNH DẠNG KHÁC NHAU — Word làm vậy khi
+ * người soạn bôi đậm nửa chữ, hoặc khi bộ kiểm chính tả chen vào. Bản chuẩn hoá đầu chỉ gộp
+ * được run không có `<w:rPr>`, nên cả 11 mẫu hệ cũ đều dò ra tên biến rác (dài hàng trăm ký
+ * tự, lẫn nguyên thẻ XML) — nghĩa là không mẫu nào dùng được.
+ */
+describe('normalizeDocxTags — placeholder vỡ qua run KHÁC định dạng', () => {
+  it('gộp được placeholder bị cắt giữa hai run có `rPr` khác nhau', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>tom_tat_noi_dung</w:t></w:r>' +
+        '<w:r><w:rPr><w:b/></w:rPr><w:t>}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['tom_tat_noi_dung']);
+  });
+
+  it('gộp được khi tên biến bị cắt làm đôi', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{nguon</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>_don}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['nguon_don']);
+  });
+
+  it('hai placeholder trong một đoạn vẫn tách đúng, không dính vào nhau', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{a}</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t> và {b}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf)).sort()).toEqual(['a', 'b']);
+  });
+
+  /** Đoạn KHÔNG chứa placeholder thì không đụng — giữ nguyên định dạng người soạn đã đặt. */
+  it('đoạn không có placeholder thì giữ nguyên từng run', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Chữ đậm</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t> chữ nghiêng</w:t></w:r></w:p>';
+    const ra = bodyXmlOf(normalizeDocxTags(makeRawDocx(body)));
+    expect(ra).toContain('<w:b/>');
+    expect(ra).toContain('<w:i/>');
+  });
+
+  it('placeholder nằm gọn trong một run thì không đụng gì', () => {
+    const buf = makeRawDocx('<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{stt}</w:t></w:r></w:p>');
+    expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['stt']);
+  });
+});

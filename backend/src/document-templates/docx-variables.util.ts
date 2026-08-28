@@ -37,7 +37,13 @@ export function detectDocxVariables(
       /^word\/(document\.xml|header\d*\.xml|footer\d*\.xml)$/.test(n),
     );
     if (parts.length === 0 && zip.file('word/document.xml')) parts.push('word/document.xml');
-    xml = parts.map((n) => zip.file(n)?.asText() ?? '').join('\n');
+    // Chỉ giữ phần TEXT: Word ghi mã định danh tài liệu vào thuộc tính XML dưới dạng
+    // `{909E8E84-…}` — đúng cú pháp placeholder, nên quét cả thuộc tính là mỗi mẫu sinh thêm
+    // một "biến" rác hiện lên popup In như một ô cán bộ phải điền.
+    const noiDung = parts.map((n) => zip.file(n)?.asText() ?? "").join("\n");
+    xml = (noiDung.match(/<w:t[^>]*>[\s\S]*?<\/w:t>/g) ?? [])
+      .map((t) => t.replace(/<[^>]+>/g, ""))
+      .join("\n");
   } catch {
     return [];
   }

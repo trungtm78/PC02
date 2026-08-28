@@ -28,6 +28,7 @@ import {
 } from '../src/document-templates/petition-seed';
 import { buildTemplateDocx } from './seed-assets/document-templates/docx-builder';
 import { TEMPLATE_SPECS } from './seed-assets/document-templates/registry';
+import { seedLegacyTemplates } from './seed-legacy-templates';
 
 /**
  * PR2 — biến BẮT BUỘC mặc định per mẫu (readiness báo "Thiếu" + bổ sung khi in). Admin tinh chỉnh
@@ -248,7 +249,12 @@ if (require.main === module) {
   (async () => {
     const a = await seedDocumentTemplates(prisma);
     const b = await seedPetitionTemplates(prisma);
-    console.log(`\nDone: vu-an/vu-viec ${JSON.stringify(a)} | don-thu ${JSON.stringify(b)}`);
+    // Bộ mẫu HỆ CŨ — thứ khiến hệ mới in được mọi hồ sơ như hệ cũ. Bộ trên là mẫu quyết
+    // định tố tụng, đòi trường mà phần lớn hồ sơ chưa có nên không thay thế được nó.
+    const c = await seedLegacyTemplates(prisma);
+    console.log(
+      `\nDone: vu-an/vu-viec ${JSON.stringify(a)} | don-thu ${JSON.stringify(b)} | he-cu ${JSON.stringify(c)}`,
+    );
   })()
     .catch((e: unknown) => {
       console.error(e);
