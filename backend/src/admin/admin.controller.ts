@@ -178,4 +178,16 @@ export class AdminController {
   resetUserTwoFa(@Param('id') id: string, @CurrentUser() admin: AuthUser) {
     return this.adminService.adminResetTwoFa(id, admin.id);
   }
+
+  // ── Mở khoá tài khoản bị khoá vì đăng nhập sai nhiều lần ────────────────
+  //
+  // Thông báo đăng nhập cố ý không nói "đang bị khoá" (chống dò tên đăng nhập), nên người bị
+  // khoá không tự biết. Trước bản này không có đường mở khoá nào ngoài chờ 15 phút hoặc vào
+  // tận CSDL.
+  @Post('users/:id/unlock')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'write', subject: 'User' })
+  moKhoaTaiKhoan(@Param('id') id: string, @CurrentUser() admin: AuthUser) {
+    return this.adminService.moKhoaTaiKhoan(id, admin.id);
+  }
 }
