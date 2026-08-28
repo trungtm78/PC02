@@ -360,6 +360,10 @@ export class IncidentsService {
     const record = await this.prisma.incident.findFirst({
       where: { id, deletedAt: null },
       include: {
+        // Tội danh chính: mẫu in "Quyết định khởi tố vụ án hình sự (từ nguồn tin)" điền
+        // `toiDanh`/`dieuLuat` từ quan hệ này. Thiếu nó thì hai ô ấy in ra TRỐNG dù vụ việc
+        // đã gắn tội danh — cán bộ nhìn bản in tưởng hồ sơ chưa nhập.
+        crimeChinh: { select: { id: true, code: true, name: true, articleNo: true } },
         investigator: {
           select: { id: true, firstName: true, lastName: true, username: true, email: true },
         },

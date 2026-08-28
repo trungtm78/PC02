@@ -135,10 +135,15 @@ function toiDanhCuaHoSo(r: any): string {
   return s(r?.crimeChinh?.name ?? r?.crime ?? '');
 }
 
-/** Điều luật suy từ số điều của tội danh — mẫu in ghi "Điều 173 BLHS". */
+/**
+ * Điều luật suy từ số điều của tội danh — CHỈ cụm "Điều 173".
+ *
+ * Mẫu đã viết sẵn chữ "Bộ luật Hình sự" ngay sau chỗ trống (`{dieuLuat} Bộ luật Hình sự`),
+ * nên trả kèm hậu tố là in ra "Điều 173 Bộ luật Hình sự Bộ luật Hình sự".
+ */
 function dieuLuatCuaHoSo(r: any): string {
   const so = r?.crimeChinh?.articleNo;
-  return so ? `Điều ${so} Bộ luật Hình sự` : '';
+  return so ? `Điều ${so}` : '';
 }
 
 /** Bị can/đối tượng của vụ án — liệt kê hết, không chỉ in người đầu tiên. */

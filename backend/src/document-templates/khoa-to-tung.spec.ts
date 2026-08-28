@@ -23,8 +23,15 @@ describe('Khoá tự điền cho mẫu quyết định tố tụng', () => {
     expect(resolveField('VU_VIEC', 'toiDanh', { crimeChinh: { name: 'Lừa đảo' } })).toBe('Lừa đảo');
   });
 
-  it.each(['VU_AN', 'VU_VIEC'] as const)('%s: `dieuLuat` suy từ số điều của tội danh', (e) => {
-    expect(resolveField(e, 'dieuLuat', { crimeChinh: { articleNo: 173 } })).toContain('173');
+  /**
+   * Mẫu đã viết sẵn chữ "Bộ luật Hình sự" ngay sau chỗ trống (`{dieuLuat} Bộ luật Hình sự`),
+   * nên khoá này chỉ trả cụm "Điều 173". Trả kèm hậu tố là văn bản in ra
+   * "Điều 173 Bộ luật Hình sự Bộ luật Hình sự".
+   */
+  it.each(['VU_AN', 'VU_VIEC'] as const)('%s: `dieuLuat` chỉ trả cụm điều, không kèm hậu tố', (e) => {
+    const ra = resolveField(e, 'dieuLuat', { crimeChinh: { articleNo: 173 } });
+    expect(ra).toBe('Điều 173');
+    expect(ra).not.toContain('Bộ luật');
   });
 
   it('VU_AN: `hoTenBiCan` lấy bị can đầu tiên của vụ án', () => {
@@ -120,5 +127,29 @@ describe('GATE — biến bắt buộc phải có nguồn dữ liệu thật', (
       const khoa = new Set(catalogKeys(spec!.entityType as never));
       for (const b of ds as string[]) expect({ ma, b, co: khoa.has(b) }).toEqual({ ma, b, co: true });
     }
+  });
+});
+
+/**
+ * CỔNG: đường nạp hồ sơ để in phải kèm quan hệ mà khoá tự điền cần.
+ *
+ * Khoá `toiDanh`/`dieuLuat` đọc `crimeChinh`. Đường nạp không `include` quan hệ ấy thì khoá
+ * trả rỗng — mẫu vẫn "in được" nhưng ô tội danh và điều luật TRỐNG, và cán bộ nhìn bản in
+ * tưởng hồ sơ chưa nhập tội danh. Hỏng im lặng, tệ hơn báo thiếu.
+ */
+describe('GATE — đường nạp hồ sơ kèm quan hệ tội danh', () => {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+
+  it.each([
+    ['Vụ việc', '../incidents/incidents.service.ts'],
+    ['Vụ án', '../cases/cases.service.ts'],
+  ])('%s: `getById` include `crimeChinh`', (_ten, duong) => {
+    const src = fs.readFileSync(path.join(__dirname, duong), 'utf8');
+    const i = src.indexOf('async getById(');
+    expect(i).toBeGreaterThan(0);
+    const than = src.slice(i, src.indexOf('\n  async ', i + 10));
+    expect(than).toContain('crimeChinh');
+    expect(than).toContain('articleNo');
   });
 });
