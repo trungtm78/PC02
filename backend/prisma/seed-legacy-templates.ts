@@ -22,6 +22,7 @@ import * as path from 'path';
 import { detectDocxVariables } from '../src/document-templates/docx-variables.util';
 import { normalizeDocxTags } from '../src/document-templates/docx-normalize.util';
 import { isAutoPlaceholder } from '../src/document-templates/entity-placeholders';
+import { timThuMucMau } from './duong-dan-mau';
 
 export interface MauHeCu {
   /** Tên file .docx gốc của hệ cũ. */
@@ -55,7 +56,7 @@ export const MAU_HE_CU: MauHeCu[] = [
 ];
 
 export function thuMucMauHeCu(): string {
-  return path.resolve(__dirname, 'seed-assets', 'legacy-docx');
+  return timThuMucMau(__dirname, 'legacy-docx');
 }
 
 /**
