@@ -94,9 +94,19 @@ export function dongBoCoBatBuoc(
 
 export function dongBoNguonBien(
   entityType: string,
-  vars: Array<{ name: string; label?: string; source?: string; field?: string; required?: boolean }>,
+  vars: Array<{
+    name: string;
+    label?: string;
+    source?: string;
+    field?: string;
+    required?: boolean;
+    nguonDoAdminDat?: boolean;
+  }>,
 ): Array<Record<string, unknown>> {
   return vars.map((v) => {
+    // Admin đã cố ý đặt nguồn cho biến này thì để yên. Đồng bộ sinh ra để chữa bản ghi CŨ,
+    // không phải để lật lựa chọn của người dùng — xem `nguonDoAdminDat` ở entity-placeholders.ts.
+    if (v.nguonDoAdminDat) return { ...v };
     const tuDien = isAutoPlaceholder(entityType, v.name);
     return {
       ...v,
@@ -106,7 +116,7 @@ export function dongBoNguonBien(
   });
 }
 
-const KHONG_CO_NGUON = new Set([
+export const KHONG_CO_NGUON = new Set([
   'soKLDT',
   'nguonTin',
   'nguoiQuyetDinh',
