@@ -1,73 +1,80 @@
-# UAT-COVERAGE — epic "Đồng bộ form Vụ việc với hệ cũ"
+# UAT-COVERAGE — mẫu tự đặt tích sẵn + chọn/bỏ chọn hàng loạt khi in
 
-Phạm vi lấy từ spec gốc (Phần C, PR0–PR4) và từ những gì đã thay đổi thật trong 9 PR
-#268–#276. Bản chạy: prod `e1820224`.
+Chạy trên **máy thật** `http://171.244.40.245` ngày 28/08/2026, bản dựng `f9ac8c67`.
 
-**Nguyên tắc chọn cách kiểm.** Ca nào ca kiểm tự động chứng minh được thì để tự động — nó chạy
-lại mỗi lần. Ca nào chỉ lộ khi bấm tay trên **hồ sơ di trú thật** thì phải bấm: epic này đã ba
-lần bấm ra ba lỗi chặn mà 2.313 ca giao diện đều xanh.
+| ID | Màn hình / Chức năng | Viết test | Chạy test | Kết quả |
+|---|---|---|---|---|
+| **API — cờ đi trọn đường** ||||
+| A-01 | Đường của popup trả về trường `selectedByDefault` | ✔ | ✔ | **PASS** |
+| A-02 | Bật cờ ở màn quản lý → popup thấy đã bật | ✔ | ✔ | **PASS** |
+| A-03 | Tắt cờ ở màn quản lý → popup thấy đã tắt | ✔ | ✔ | **PASS** |
+| A-04 | Đổi cờ không làm mất cấu hình khác của mẫu | ✔ | ✔ | **PASS** |
+| A-05a | Đường Đơn thư trả về cờ | ✔ | ✔ | **PASS** |
+| A-05b | Đường Vụ việc trả về cờ | ✔ | ✔ | **PASS** |
+| A-05c | Đường Vụ án trả về cờ | ✔ | ✔ | **PASS** |
+| **Giao diện — bấm đúng thứ cán bộ bấm** ||||
+| E-01 | Màn Quản lý mẫu: công tắc bật/tắt, tải lại trang vẫn giữ | ✔ | ✔ | **PASS** |
+| E-02 | Popup In chứng từ: mở ra không tích sẵn + nút Xuất khoá | ✔ | ✔ | **PASS** |
+| E-03 | Popup: **Chọn tất cả** tích được, không tích mẫu bị khoá | ✔ | ✔ | **PASS** |
+| E-04 | Popup: **Bỏ chọn tất cả** về rỗng + nút Xuất khoá lại | ✔ | ✔ | **PASS** |
+| **Thành phần — nhánh khó dựng trên máy thật** ||||
+| C-01 | Mẫu bật cờ → tích sẵn | ✔ | ✔ | **PASS** |
+| C-02 | Mẫu tắt cờ → không tích sẵn | ✔ | ✔ | **PASS** |
+| C-03 | Mẫu bật cờ nhưng **thiếu thông tin** → không tích | ✔ | ✔ | **PASS** |
+| C-04 | Sau "Lưu bổ sung": chỉ mẫu bật cờ mới tự tích | ✔ | ✔ | **PASS** |
+| C-05 | Form sửa mẫu: ô tích đọc đúng giá trị đang có | ✔ | ✔ | **PASS** |
+| C-06 | Form tạo mẫu: mặc định TẮT và gửi kèm lên API | ✔ | ✔ | **PASS** |
+| C-07 | Form tạo mẫu: bật ô thì gửi `true` | ✔ | ✔ | **PASS** |
+| C-08 | Công tắc: đang bật thì bấm là TẮT (không một chiều) | ✔ | ✔ | **PASS** |
+| C-09 | Công tắc: bấm dòng khác lúc một dòng đang gửi vẫn ăn | ✔ | ✔ | **PASS** |
+| C-10 | Công tắc: không nạp lại cả bảng sau khi bấm | ✔ | ✔ | **PASS** |
+| **Backend — chỗ dễ nuốt giá trị** ||||
+| B-01 | DTO parse boolean multipart (`'true'`/`'false'`/bool) | ✔ | ✔ | **PASS** |
+| B-02 | Không gửi cờ thì để trống, không tự thành `false` | ✔ | ✔ | **PASS** |
+| B-03 | DTO sửa kế thừa được cờ | ✔ | ✔ | **PASS** |
+| B-04 | `create` ghi đúng cờ admin gửi | ✔ | ✔ | **PASS** |
+| B-05 | `create` không gửi cờ → mặc định TẮT | ✔ | ✔ | **PASS** |
+| B-06 | `update` đổi được cờ | ✔ | ✔ | **PASS** |
+| B-07 | **CỔNG**: `select` của bộ nạp popup có khai cờ | ✔ | ✔ | **PASS** |
 
-**Hồi quy sang hai màn kia là bắt buộc.** PR #272 và #276 sửa `LegacyLayoutSection`,
-`LegacyParityFields` và `registry` — ba thứ Đơn thư và Vụ án cùng dùng.
+**28/28 dòng PASS.**
 
-| ID | Màn hình / Chức năng | Cách kiểm | Viết | Chạy | Kết quả |
-|---|---|---|---|---|---|
-| **VV-01** | Form Vụ việc: dựng đủ 10 tab, đúng tên và thứ tự hệ cũ | bấm prod | ✔ | ✔ | **PASS** — đo được 10 tab đúng dãy |
-| **VV-02** | Mọi ô bố cục hệ cũ đều có chỗ lưu (132 ô) | tự động `moiOCoChoLuu` | ✔ | ✔ | **PASS** |
-| **VV-03** | Nhãn và thứ tự từng ô khớp đặc tả gốc | tự động `moiOCoChoLuu` | ✔ | ✔ | **PASS** |
-| **VV-04** | Hồ sơ di trú: mở ra nạp đúng dữ liệu | bấm prod | ✔ | ✔ | **PASS** — nội dung, người báo, nguồn đơn, tội danh, phân loại |
-| **VV-05** | Hồ sơ di trú: bấm Lưu → 200, không lỗi chặn | bấm prod | ✔ | ✔ | **PASS** (sau #273, #274) |
-| **VV-06** | Lưu xong dữ liệu không hụt | bấm prod + truy vấn | ✔ | ✔ | **PASS** — nội dung đủ 294 ký tự |
-| **VV-07** | Xoá trắng một ô → Lưu → mở lại phải trống | bấm prod | ✔ | ✔ | **PASS** — `nhanXet` trống hẳn, nội dung giữ nguyên |
-| **VV-08** | Tạo vụ việc mới qua 10 tab → lưu → mở lại → xoá | bấm prod | ✔ | ✔ | **PASS** — `POST 201`, `legacyExtra` lưu được từ màn tạo mới, xoá xong đếm lại đúng 4.717 |
-| **VV-09** | Ô "Tóm tắt nội dung" ghi cả `name` lẫn `description` | tự động `tomTatGhiCaHaiCot` | ✔ | ✔ | **PASS** |
-| **VV-10** | Hồ sơ có tên riêng khác tóm tắt KHÔNG bị đổi tên | tự động | ✔ | ✔ | **PASS** |
-| **VV-11** | Tên dài quá hạn bị cắt, nội dung giữ đủ | tự động + bấm prod | ✔ | ✔ | **PASS** |
-| **VV-12** | Ô "Phân loại ban đầu" nhận giá trị đang lưu | tự động `boLuaChonPhaiChuaGiaTriDangLuu` + prod | ✔ | ✔ | **PASS** |
-| **VV-13** | Ô tội danh tra được bảng BLHS | bấm prod | ✔ | ✔ | **PASS** — "Điều 174 · Tội…" |
-| **VV-14** | Ô chọn-nhiều không có bộ lựa chọn vẫn nhập được | tự động `oChonNhieuKhongDuocChet` | ✔ | ✔ | **PASS** |
-| **VV-15** | Khối "Bổ sung hệ mới" không còn ô trùng | tự động `khongCoOTrungTrongKhoiBoSung` | ✔ | ✔ | **PASS** |
-| **VV-16** | Nút "Khởi tố thành vụ án" còn nguyên | tự động + bấm prod | ✔ | ✔ | **PASS** |
-| **VV-17** | Ô hệ cũ chưa có cột lưu được ngay ở màn tạo mới | tự động | ✔ | ✔ | **PASS** |
-| **DS-01** | Danh sách Vụ việc: 9 cột hệ cũ + Trạng thái | tự động + bấm prod | ✔ | ✔ | **PASS** |
-| **DS-02** | Cột "Nguồn đơn/Đơn vị giao" hiện đúng dữ liệu | bấm prod | ✔ | ✔ | **PASS** — trang 8 hiện "Công an P.Phú Thọ" |
-| **DS-03** | Cột đọc trường nào thì truy vấn trả về trường ấy | tự động `cot-danh-sach-phai-duoc-tra-ve` | ✔ | ✔ | **PASS** |
-| **DL-01** | Bù `crimeChinhId` 1.117 hồ sơ | truy vấn prod | ✔ | ✔ | **PASS** |
-| **DL-02** | Bù `phanLoaiNguonTinBanDau` 4.693 · `baoCaoBanGiamDocText` 96 | truy vấn prod | ✔ | ✔ | **PASS** |
-| **DL-03** | Bù không đè giá trị cán bộ đã sửa, chạy hai lần như một | tự động | ✔ | ✔ | **PASS** |
-| **DL-04** | Không sót field hệ cũ có dữ liệu | tự động `field-parity.gate` | ✔ | ✔ | **PASS** |
-| **HQ-01** | **Hồi quy Đơn thư**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ✔ | **PASS** — `PUT 200` |
-| **HQ-02** | **Hồi quy Vụ án**: form 10 tab vẫn mở, nạp, lưu được | bấm prod | ✔ | ✔ | **PASS** (sau #277, #278) — `PUT 200`, liên kết nguồn nguyên vẹn |
-| **HQ-03** | **Hồi quy panel parity**: xoá trắng gửi `null` ở cả ba màn | tự động `panelParityXoaTrangGuiNull` | ✔ | ✔ | **PASS** |
-| **HQ-04** | Cả hai bộ ca kiểm đầy đủ xanh | `jest` + `vitest` | ✔ | ✔ | **PASS** — 3.372 + 2.313 |
-| **CI-01** | Lỗ hổng chèn mã ở workflow đã vá | đọc mã + CI xanh | ✔ | ✔ | **PASS** |
+## Tệp
 
-## Kết quả
-
-**29/29 dòng PASS.** Không dòng nào bỏ trống.
-
-## Hồi quy bắt được hai lỗi chặn ở Vụ án — cả hai CÓ TRƯỚC epic này
-
-Đây là lý do bước hồi quy đáng giá hơn nó nghe:
-
-| Lỗi | Quy mô | Vá ở |
-|---|---|---|
-| `Case.receiveDate` chưa bao giờ được di trú ghi → form chặn Lưu | **3.359/3.359 (100%)** | #277 |
-| Mở vụ án có nguồn gốc là XOÁ liên kết nguồn ngay, rồi chặn Lưu bằng chính ô vừa xoá | **169** | #278 |
-
-Lỗi thứ hai nguy hơn: nó không chỉ chặn mà còn xoá dữ liệu khỏi màn hình trước khi cán bộ kịp
-thấy. Ô liên kết được dọn khi cán bộ ĐỔI nguồn — nhưng ở màn Sửa, nguồn nạp từ máy chủ SAU lần
-dựng đầu, nên hiệu ứng dọn tưởng nhầm là cán bộ vừa đổi.
-
-## Đối chiếu ngược với spec gốc
-
-| Spec Phần C | Trạng thái |
+| Loại | Tệp |
 |---|---|
-| PR0 vá xoá-trắng | ✔ #268 |
-| PR1 cột máy chủ + bù dữ liệu | ✔ #269, #270 |
-| PR2 tách tệp form | ✔ #271 (thu hẹp phạm vi, đã ghi lý do) |
-| PR3 form 10 tab | ✔ #272, #273, #274 |
-| PR4 cột danh sách | ✔ #275, #276 |
-| Tab "Bị can" | **không dựng** — Vụ việc chưa khởi tố thì chưa có bị can; spec đã lường trước |
+| API (máy thật) | `tests/api/tich-san-va-chon-hang-loat-uat.api.spec.ts` — 7/7 |
+| Giao diện (máy thật) | `tests/e2e/tich-san-va-chon-hang-loat-uat.e2e.spec.ts` — 2/2 |
+| Thành phần | `frontend/src/features/document-templates/components/__tests__/tichSanVaChonHangLoat.test.tsx` (8) · `pages/__tests__/congTacTichSan.test.tsx` (6) · `components/__tests__/TemplateFormModal.test.tsx` (+3) |
+| Backend | `backend/src/document-templates/tich-san-khi-in.spec.ts` — 10/10 |
 
-Ngoài spec: #277 và #278 — hai lỗi Vụ án do bước hồi quy phát hiện.
+## Hiệu lực — gieo lỗi
+
+Cổng B-07 là chốt chặn quan trọng nhất: quên khai cột trong `select` thì popup không bao giờ
+thấy cờ, admin bật công tắc mà chẳng có gì đổi, **và mọi ca kiểm khác vẫn xanh**.
+
+Đã gieo lỗi: bỏ dòng `selectedByDefault: true` khỏi `select` → **1 ca đỏ**; khôi phục → xanh lại.
+
+## Đối chiếu ngược với yêu cầu gốc
+
+| Anh yêu cầu | Dòng phủ |
+|---|---|
+| "cho phép setting mặc định được chọn hay không tại màn hình Quản lý mẫu chứng từ" | E-01 · C-05..C-10 · B-01..B-07 · A-02, A-03 |
+| "tại màn hình In chứng từ thêm select all và unselect all" | E-03 · E-04 · C-01..C-04 |
+| Áp cho cả ba màn (popup dùng chung) | A-05a/b/c |
+
+Không sót màn hình hay chức năng nào trong phạm vi.
+
+## Bài kiểm tự dẫm hai bẫy — ghi lại
+
+1. **Bóc thân phản hồi hai kiểu ở hai chỗ** trong cùng một tệp → 3 ca báo đỏ giả. Đã gom về một
+   hàm duy nhất.
+2. **Đặt tên tệp E2E không khớp mẫu của bộ chạy** (`*-uat.e2e.spec.ts`) → "No tests found", nhìn
+   như đã chạy xong mà thật ra không chạy ca nào. Đây là kiểu xanh giả nguy hiểm nhất: báo cáo
+   sạch vì **không có gì được kiểm**.
+
+## Còn lại
+
+Sau deploy, **28 mẫu đều TẮT** — cán bộ mở popup thấy trống cho tới khi anh bật mẫu hay dùng ở
+màn Quản lý mẫu chứng từ. Đây là hành vi anh đã chốt; bài kiểm luôn trả cấu hình về nguyên trạng
+nên không mẫu nào bị để lại ở trạng thái lạ.
