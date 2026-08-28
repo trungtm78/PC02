@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
 import { AppService } from './app.service';
-import { phienBanDangChay } from './phien-ban-dang-chay';
+import { phienBanDangChay, maBanDung } from './phien-ban-dang-chay';
 
 @Controller()
 export class AppController {
@@ -25,8 +25,15 @@ export class AppController {
    * ok, hỏng hoàn toàn im lặng. Trường này là để lần sau app tự nhận ra.
    */
   @Get('health')
-  health(): { status: string; timestamp: string; version: string } {
-    return { status: 'ok', timestamp: new Date().toISOString(), version: phienBanDangChay() };
+  health(): { status: string; timestamp: string; version: string; buildId: string } {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: phienBanDangChay(),
+      // `version` chỉ tăng khi phát hành nên KHÔNG dò được "app có đang chạy bản cũ không".
+      // `buildId` đổi mỗi lần deploy — đó mới là thứ giao diện so.
+      buildId: maBanDung(),
+    };
   }
 
   // Sprint 3 / S3.4 — CSP violation report endpoint.

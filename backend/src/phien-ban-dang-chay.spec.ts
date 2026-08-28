@@ -56,3 +56,61 @@ describe('GATE — /health trả số hiệu bản đang chạy', () => {
     expect(ctrl.health().version).toBe(phienBanDangChay());
   });
 });
+
+import * as fsMod from 'fs';
+import { maBanDung } from './phien-ban-dang-chay';
+
+/**
+ * CỔNG: thứ giao diện dùng để dò "mình có đang chạy bản cũ không" phải ĐỔI MỖI LẦN DEPLOY.
+ *
+ * Bản đầu so `version` — đọc tệp `VERSION`, mà tệp ấy chỉ tăng khi PHÁT HÀNH: lần cuối
+ * v0.72.0.0, còn từ đó tới 28/08/2026 đã ship hơn 40 PR mà số không đổi. So nó là so một thứ
+ * đứng yên, và cả cơ chế tự báo thành ra trang trí. Suýt lọt lên máy thật.
+ */
+describe('GATE — mã bản dựng đổi mỗi lần deploy', () => {
+  it('/health trả cả `version` lẫn `buildId`', () => {
+    const r = new AppController(new AppService()).health();
+    expect(typeof r.version).toBe('string');
+    expect(typeof r.buildId).toBe('string');
+    expect(r.buildId.length).toBeGreaterThan(0);
+  });
+
+  it('`buildId` khớp hàm đọc mã bản dựng, không phải chuỗi cứng', () => {
+    expect(new AppController(new AppService()).health().buildId).toBe(maBanDung());
+  });
+
+  /**
+   * Không có tệp `BUILD_ID` (chạy ở máy lập trình viên, hoặc bản deploy cũ) thì rơi về số phát
+   * hành — lúc ấy hai bên trùng nhau nên KHÔNG báo nhầm cho cán bộ.
+   */
+  it('thiếu tệp BUILD_ID thì rơi về số phát hành, không rỗng', () => {
+    expect(maBanDung()).toMatch(/\S/);
+  });
+
+  /** Đọc một lần rồi nhớ: đọc mỗi lượt gọi thì một lần lỗi đọc làm giao diện tưởng vừa deploy. */
+  it('gọi nhiều lần ra cùng kết quả', () => {
+    expect(maBanDung()).toBe(maBanDung());
+  });
+
+  /**
+   * Cổng chống tái diễn: `deploy.sh` PHẢI ghi tệp `BUILD_ID`. Thiếu dòng ấy thì máy chủ mãi
+   * trả số phát hành, hai bên luôn trùng, và dải báo không bao giờ hiện — hỏng im lặng y như
+   * lỗi gốc.
+   */
+  it('deploy.sh có ghi tệp BUILD_ID', () => {
+    const sh = fsMod.readFileSync(
+      require('path').resolve(__dirname, '..', '..', 'scripts', 'deploy', 'deploy.sh'),
+      'utf-8',
+    );
+    expect(sh.includes('> "$NEW_DIR/BUILD_ID"')).toBe(true);
+  });
+
+  /** Và CI phải truyền mã commit vào bản dựng giao diện, nếu không gói mang số đứng yên. */
+  it('CI truyền BUILD_ID vào bản dựng giao diện', () => {
+    const yml = fsMod.readFileSync(
+      require('path').resolve(__dirname, '..', '..', '.github', 'workflows', 'deploy.yml'),
+      'utf-8',
+    );
+    expect(yml.includes('BUILD_ID: ${{ github.sha }}')).toBe(true);
+  });
+});

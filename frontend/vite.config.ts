@@ -36,6 +36,17 @@ function versionWatcher(): Plugin {
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(readVersion()),
+    /**
+     * Mã bản dựng — ĐỔI MỖI LẦN DEPLOY.
+     *
+     * `__APP_VERSION__` đọc tệp `VERSION`, mà tệp ấy chỉ tăng khi PHÁT HÀNH: lần cuối là
+     * v0.72.0.0, còn từ đó tới 28/08/2026 đã ship hơn 40 PR mà số không đổi. Dùng nó để dò
+     * "app có đang chạy bản cũ không" là dò một thứ đứng yên — cơ chế thành ra vô dụng.
+     *
+     * CI truyền mã commit qua `BUILD_ID`. Chạy ở máy lập trình viên thì rơi về số phát hành,
+     * và lúc ấy hai bên trùng nhau nên không báo nhầm.
+     */
+    __BUILD_ID__: JSON.stringify(process.env.BUILD_ID ?? readVersion()),
   },
   plugins: [
     react(),

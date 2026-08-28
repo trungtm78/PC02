@@ -95,6 +95,13 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Build frontend (tsc -b type-check + vite build)
+        # `BUILD_ID` = mã commit, đổi mỗi lần deploy. Giao diện nướng nó vào gói và so với
+        # `buildId` máy chủ trả ở /health để tự biết mình có đang chạy bản cũ không.
+        #
+        # KHÔNG dùng tệp VERSION cho việc này: nó chỉ tăng khi PHÁT HÀNH (lần cuối v0.72.0.0,
+        # sau đó hơn 40 PR mà số không đổi), nên so nó là so một thứ đứng yên.
+        env:
+          BUILD_ID: ${{ github.sha }}
         run: cd frontend && npm run build
 
       - name: Package release tarball

@@ -52,3 +52,41 @@ export function phienBanDangChay(): string {
   if (daDoc === undefined) daDoc = docTuDia();
   return daDoc;
 }
+
+let daDocMa: string | undefined;
+
+/**
+ * Mã bản dựng — ĐỔI MỖI LẦN DEPLOY.
+ *
+ * `VERSION` chỉ tăng khi PHÁT HÀNH: lần cuối v0.72.0.0, còn từ đó tới 28/08/2026 đã ship hơn
+ * 40 PR mà số không đổi. Giao diện so số ấy để biết mình có cũ không là so một thứ đứng yên —
+ * cơ chế tự báo thành ra vô dụng, đúng lỗi em vừa suýt để lọt.
+ *
+ * `deploy.sh` ghi mã commit vào tệp `BUILD_ID` ở gốc bản phát hành. Không có tệp ấy (chạy ở
+ * máy lập trình viên, hoặc bản deploy cũ) thì rơi về số phát hành — lúc ấy hai bên trùng nhau
+ * nên không báo nhầm.
+ */
+export function maBanDung(): string {
+  if (daDocMa === undefined) {
+    const ungVien = [
+      path.resolve(__dirname, '..', '..', 'BUILD_ID'),
+      path.resolve(__dirname, '..', '..', '..', 'BUILD_ID'),
+      path.resolve(process.cwd(), '..', 'BUILD_ID'),
+      path.resolve(process.cwd(), 'BUILD_ID'),
+    ];
+    let ra = '';
+    for (const d of ungVien) {
+      try {
+        const v = fs.readFileSync(d, 'utf-8').trim();
+        if (v) {
+          ra = v;
+          break;
+        }
+      } catch {
+        // Thử đường kế tiếp.
+      }
+    }
+    daDocMa = ra || phienBanDangChay();
+  }
+  return daDocMa;
+}

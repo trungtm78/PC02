@@ -141,6 +141,16 @@ sudo cp -rT "$NEW_DIR/frontend/dist" /var/www/pc02
 sudo chown -R www-data:www-data /var/www/pc02
 log "Frontend deployed to /var/www/pc02"
 
+# 7. Ghi mã bản dựng để máy chủ tự khai báo mình đang chạy bản nào.
+#
+# Giao diện nướng mã commit vào gói lúc dựng; máy chủ đọc tệp này và trả ở /health. Hai bên
+# lệch nghĩa là cán bộ đang chạy bản cũ, và giao diện hiện dải báo.
+#
+# KHÔNG dùng tệp VERSION: nó chỉ tăng khi PHÁT HÀNH, nên qua hàng chục lần deploy nó đứng yên
+# và cơ chế dò thành vô dụng — đúng lỗi suýt lọt ngày 28/08/2026.
+echo "$RELEASE_SHA" > "$NEW_DIR/BUILD_ID"
+log "Đã ghi mã bản dựng: $RELEASE_SHA"
+
 # 7a. Bảo đảm luật cache của nginx còn đúng.
 #
 # Luật tài nguyên tĩnh bắt theo đuôi `.js` nên nó bắt LUÔN `sw.js`. Service worker bị giữ 30
