@@ -259,6 +259,25 @@ export const adminBulkApi = {
   templateUrl: '/api/v1/admin/users/bulk-import/template.xlsx',
 };
 
+/**
+ * Bố cục cột bảng danh sách, riêng từng tài khoản.
+ *
+ * `list()` trả bản đồ theo khoá bảng nên chỉ cần gọi MỘT LẦN lúc vào ứng dụng là đủ cho mọi
+ * màn danh sách — không phải mỗi trang một lượt gọi.
+ */
+export interface GhiDeCotApi {
+  width?: number;
+  hidden?: boolean;
+  position?: number;
+}
+export const userTableLayoutsApi = {
+  list: () => api.get<Record<string, Record<string, GhiDeCotApi>>>('/user-table-layouts'),
+  luu: (tableKey: string, columns: Record<string, GhiDeCotApi>) =>
+    api.put(`/user-table-layouts/${encodeURIComponent(tableKey)}`, { columns }),
+  datLai: (tableKey: string) =>
+    api.delete<{ deleted: number }>(`/user-table-layouts/${encodeURIComponent(tableKey)}`),
+};
+
 export const userShortcutsApi = {
   list: () => api.get<UserShortcut[]>('/user-shortcuts'),
   upsert: (action: string, binding: string) =>
