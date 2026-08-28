@@ -1,80 +1,86 @@
-# UAT-COVERAGE — mẫu tự đặt tích sẵn + chọn/bỏ chọn hàng loạt khi in
+# UAT-COVERAGE — popup In chứng từ nhớ lựa chọn của từng cán bộ
 
-Chạy trên **máy thật** `http://171.244.40.245` ngày 28/08/2026, bản dựng `f9ac8c67`.
+Chạy trên **máy thật** `http://171.244.40.245` ngày 29/08/2026, bản dựng `e862b6a6`.
 
 | ID | Màn hình / Chức năng | Viết test | Chạy test | Kết quả |
 |---|---|---|---|---|
-| **API — cờ đi trọn đường** ||||
-| A-01 | Đường của popup trả về trường `selectedByDefault` | ✔ | ✔ | **PASS** |
-| A-02 | Bật cờ ở màn quản lý → popup thấy đã bật | ✔ | ✔ | **PASS** |
-| A-03 | Tắt cờ ở màn quản lý → popup thấy đã tắt | ✔ | ✔ | **PASS** |
-| A-04 | Đổi cờ không làm mất cấu hình khác của mẫu | ✔ | ✔ | **PASS** |
-| A-05a | Đường Đơn thư trả về cờ | ✔ | ✔ | **PASS** |
-| A-05b | Đường Vụ việc trả về cờ | ✔ | ✔ | **PASS** |
-| A-05c | Đường Vụ án trả về cờ | ✔ | ✔ | **PASS** |
+| **API — lựa chọn đi trọn đường xuống CSDL** ||||
+| A-01 | Chưa lưu gì thì trả bản đồ rỗng, không lỗi | ✔ | ✔ | **PASS** |
+| A-02 | Ghi rồi đọc lại đúng tập mẫu và định dạng | ✔ | ✔ | **PASS** |
+| A-03 | Ghi lại thì ĐÈ, không cộng dồn | ✔ | ✔ | **PASS** |
+| A-04 | Lưu được lựa chọn KHÔNG mẫu nào | ✔ | ✔ | **PASS** |
+| A-05 | Xoá thì bản ghi biến MẤT hẳn, không thành khối rỗng | ✔ | ✔ | **PASS** |
+| A-06 | Payload méo được chuẩn hoá, không hỏng bản ghi | ✔ | ✔ | **PASS** |
+| A-07 | Loại hồ sơ lạ bị từ chối (400) | ✔ | ✔ | **PASS** |
+| A-08 | Ba loại hồ sơ tách bạch, không lẫn sang nhau | ✔ | ✔ | **PASS** |
+| A-09 | **KHÔNG rò sang tài khoản khác** | ✔ | ✔ | **PASS** |
+| A-10 | Không có token thì bị từ chối (401) | ✔ | ✔ | **PASS** |
 | **Giao diện — bấm đúng thứ cán bộ bấm** ||||
-| E-01 | Màn Quản lý mẫu: công tắc bật/tắt, tải lại trang vẫn giữ | ✔ | ✔ | **PASS** |
-| E-02 | Popup In chứng từ: mở ra không tích sẵn + nút Xuất khoá | ✔ | ✔ | **PASS** |
-| E-03 | Popup: **Chọn tất cả** tích được, không tích mẫu bị khoá | ✔ | ✔ | **PASS** |
-| E-04 | Popup: **Bỏ chọn tất cả** về rỗng + nút Xuất khoá lại | ✔ | ✔ | **PASS** |
+| E-01 | Tích → Xuất → mở lại: đúng tập mẫu và đúng định dạng | ✔ | ✔ | **PASS** |
+| E-02 | Lựa chọn xuống tới máy chủ (không chỉ nhớ trong màn hình) | ✔ | ✔ | **PASS** |
+| E-03 | "Dùng lại mặc định" quay về cờ admin | ✔ | ✔ | **PASS** |
+| E-04 | "Dùng lại mặc định" xoá hẳn bản ghi trên máy chủ | ✔ | ✔ | **PASS** |
 | **Thành phần — nhánh khó dựng trên máy thật** ||||
-| C-01 | Mẫu bật cờ → tích sẵn | ✔ | ✔ | **PASS** |
-| C-02 | Mẫu tắt cờ → không tích sẵn | ✔ | ✔ | **PASS** |
-| C-03 | Mẫu bật cờ nhưng **thiếu thông tin** → không tích | ✔ | ✔ | **PASS** |
-| C-04 | Sau "Lưu bổ sung": chỉ mẫu bật cờ mới tự tích | ✔ | ✔ | **PASS** |
-| C-05 | Form sửa mẫu: ô tích đọc đúng giá trị đang có | ✔ | ✔ | **PASS** |
-| C-06 | Form tạo mẫu: mặc định TẮT và gửi kèm lên API | ✔ | ✔ | **PASS** |
-| C-07 | Form tạo mẫu: bật ô thì gửi `true` | ✔ | ✔ | **PASS** |
-| C-08 | Công tắc: đang bật thì bấm là TẮT (không một chiều) | ✔ | ✔ | **PASS** |
-| C-09 | Công tắc: bấm dòng khác lúc một dòng đang gửi vẫn ăn | ✔ | ✔ | **PASS** |
-| C-10 | Công tắc: không nạp lại cả bảng sau khi bấm | ✔ | ✔ | **PASS** |
-| **Backend — chỗ dễ nuốt giá trị** ||||
-| B-01 | DTO parse boolean multipart (`'true'`/`'false'`/bool) | ✔ | ✔ | **PASS** |
-| B-02 | Không gửi cờ thì để trống, không tự thành `false` | ✔ | ✔ | **PASS** |
-| B-03 | DTO sửa kế thừa được cờ | ✔ | ✔ | **PASS** |
-| B-04 | `create` ghi đúng cờ admin gửi | ✔ | ✔ | **PASS** |
-| B-05 | `create` không gửi cờ → mặc định TẮT | ✔ | ✔ | **PASS** |
-| B-06 | `update` đổi được cờ | ✔ | ✔ | **PASS** |
-| B-07 | **CỔNG**: `select` của bộ nạp popup có khai cờ | ✔ | ✔ | **PASS** |
+| C-01 | Chưa từng đặt → theo cờ admin | ✔ | ✔ | **PASS** |
+| C-02 | Đã lưu → lựa chọn cá nhân THẮNG cờ admin | ✔ | ✔ | **PASS** |
+| C-03 | Nhớ cả định dạng xuất | ✔ | ✔ | **PASS** |
+| C-04 | Bỏ mã mẫu không còn tồn tại | ✔ | ✔ | **PASS** |
+| C-05 | Không tích mẫu đã lưu nhưng nay thiếu thông tin | ✔ | ✔ | **PASS** |
+| C-06 | Bản ghi rỗng KHÁC chưa từng đặt | ✔ | ✔ | **PASS** |
+| C-07 | Lựa chọn loại hồ sơ khác không lẫn sang | ✔ | ✔ | **PASS** |
+| C-08 | Đã có lựa chọn riêng thì không tự tích sau "Lưu bổ sung" | ✔ | ✔ | **PASS** |
+| C-09 | Đang Đặt lại thì nút Xuất bị khoá | ✔ | ✔ | **PASS** |
+| C-10 | Lưu XONG rồi mới xuất, không bắn-rồi-quên | ✔ | ✔ | **PASS** |
+| C-11 | Lưu hỏng thì vẫn xuất bình thường | ✔ | ✔ | **PASS** |
+| C-12 | Chỉ tích mà chưa Xuất thì KHÔNG lưu | ✔ | ✔ | **PASS** |
+| C-13 | Máy chủ lỗi thì rơi về cờ admin, không chặn popup | ✔ | ✔ | **PASS** |
+| **Kho đệm — rò dữ liệu giữa hai tài khoản** ||||
+| K-01 | Token biến mất → xoá sạch kho đệm | ✔ | ✔ | **PASS** |
+| K-02 | Vẫn còn token → KHÔNG xoá (không tải lại vô cớ) | ✔ | ✔ | **PASS** |
+| K-03 | Gỡ khỏi màn hình thì thôi nghe, không rò trình nghe | ✔ | ✔ | **PASS** |
+| **Backend — chuẩn hoá và cách ly** ||||
+| B-01…B-25 | `chuanHoaLuaChon`: kiểu sai bỏ, quá tay cắt, khử trùng, chặn khoá nguyên mẫu, bình ổn | ✔ | ✔ | **PASS** (25) |
+| B-26…B-37 | Service: cách ly theo `userId`, chuẩn hoá KHI ĐỌC, allowlist, xoá đúng hàng | ✔ | ✔ | **PASS** (12) |
 
-**28/28 dòng PASS.**
+**37 + 27 = 64 dòng, tất cả PASS.**
 
 ## Tệp
 
-| Loại | Tệp |
-|---|---|
-| API (máy thật) | `tests/api/tich-san-va-chon-hang-loat-uat.api.spec.ts` — 7/7 |
-| Giao diện (máy thật) | `tests/e2e/tich-san-va-chon-hang-loat-uat.e2e.spec.ts` — 2/2 |
-| Thành phần | `frontend/src/features/document-templates/components/__tests__/tichSanVaChonHangLoat.test.tsx` (8) · `pages/__tests__/congTacTichSan.test.tsx` (6) · `components/__tests__/TemplateFormModal.test.tsx` (+3) |
-| Backend | `backend/src/document-templates/tich-san-khi-in.spec.ts` — 10/10 |
+| Loại | Tệp | Số ca |
+|---|---|---:|
+| API (máy thật) | `tests/api/nho-lua-chon-in-uat.api.spec.ts` | 10 |
+| Giao diện (máy thật) | `tests/e2e/nho-lua-chon-in-uat.e2e.spec.ts` | 2 |
+| Thành phần | `features/document-templates/components/__tests__/nhoLuaChonInChungTu.test.tsx` | 15 |
+| Kho đệm | `hooks/__tests__/useXoaKhoDemKhiDoiTaiKhoan.test.tsx` | 3 |
+| Backend | `user-export-preferences/chuan-hoa-lua-chon.util.spec.ts` · `.service.spec.ts` | 37 |
 
-## Hiệu lực — gieo lỗi
+Bài API và E2E đều **trả máy thật về nguyên trạng** ở cuối; kiểm lại sau khi chạy: **0 bản ghi**.
 
-Cổng B-07 là chốt chặn quan trọng nhất: quên khai cột trong `select` thì popup không bao giờ
-thấy cờ, admin bật công tắc mà chẳng có gì đổi, **và mọi ca kiểm khác vẫn xanh**.
+## ĐÍNH CHÍNH — một kết luận em nói vội
 
-Đã gieo lỗi: bỏ dòng `selectedByDefault: true` khỏi `select` → **1 ca đỏ**; khôi phục → xanh lại.
+PR #311 ghi rằng UAT trên máy thật chứng minh `mutate` (bắn-rồi-quên) **không** gửi được lệnh
+ghi. **Điều đó chưa được chứng minh.**
+
+Lần chạy E2E hỏng ấy được giải thích TRỌN VẸN bằng một lỗi của chính bài kiểm: endpoint này trả
+thân **trần** (`{DON_THU: {...}}`) chứ không bọc `{success, data}` như danh sách hồ sơ, mà bài
+kiểm lại bóc `?.data ?? {}` — nên luôn ra rỗng. Soi CSDL máy thật lúc ấy cho thấy bản ghi **đã
+được ghi đúng**.
+
+Đổi sang `mutateAsync` + `await` vẫn là thay đổi **đúng** — nó bảo đảm thứ tự và bảo đảm lệnh ghi
+đi xong trước khi popup bị gỡ — nhưng lý do em nêu trong PR ấy là **nói quá**. Ghi lại đây để bản
+ghi đúng sự thật.
+
+Đây là lần thứ HAI trong hai ngày em dẫm đúng bẫy "bóc thân phản hồi hai kiểu", dù đã ghi nó vào
+bộ nhớ chiều hôm trước.
 
 ## Đối chiếu ngược với yêu cầu gốc
 
 | Anh yêu cầu | Dòng phủ |
 |---|---|
-| "cho phép setting mặc định được chọn hay không tại màn hình Quản lý mẫu chứng từ" | E-01 · C-05..C-10 · B-01..B-07 · A-02, A-03 |
-| "tại màn hình In chứng từ thêm select all và unselect all" | E-03 · E-04 · C-01..C-04 |
-| Áp cho cả ba màn (popup dùng chung) | A-05a/b/c |
+| "lưu trữ các setting để lần tới dùng lại, không cần phải setup lại" | E-01 · E-02 · C-01…C-03 · A-01…A-05 |
+| "tất cả việc select chọn đến việc Định dạng xuất" | C-02 (chọn mẫu) · C-03 (định dạng) · E-01 (cả hai) |
+| Cá nhân hoá, không phải thiết lập chung | A-09 · K-01…K-03 · C-02 |
+| Chưa đặt thì dùng mặc định ở màn Mẫu chứng từ | C-01 · E-03 · E-04 |
+| Lưu ở máy chủ theo tài khoản | A-01…A-10 · E-02 |
 
 Không sót màn hình hay chức năng nào trong phạm vi.
-
-## Bài kiểm tự dẫm hai bẫy — ghi lại
-
-1. **Bóc thân phản hồi hai kiểu ở hai chỗ** trong cùng một tệp → 3 ca báo đỏ giả. Đã gom về một
-   hàm duy nhất.
-2. **Đặt tên tệp E2E không khớp mẫu của bộ chạy** (`*-uat.e2e.spec.ts`) → "No tests found", nhìn
-   như đã chạy xong mà thật ra không chạy ca nào. Đây là kiểu xanh giả nguy hiểm nhất: báo cáo
-   sạch vì **không có gì được kiểm**.
-
-## Còn lại
-
-Sau deploy, **28 mẫu đều TẮT** — cán bộ mở popup thấy trống cho tới khi anh bật mẫu hay dùng ở
-màn Quản lý mẫu chứng từ. Đây là hành vi anh đã chốt; bài kiểm luôn trả cấu hình về nguyên trạng
-nên không mẫu nào bị để lại ở trạng thái lạ.
