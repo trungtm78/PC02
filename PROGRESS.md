@@ -2,7 +2,7 @@
 
 STATUS: ALL_MILESTONES_DONE
 
-Cập nhật: 2026-08-28T01:40+07:00 | Milestone: 5/5 + UAT + cập nhật dữ liệu hệ cũ | Task: xong
+Cập nhật: 2026-08-28T12:00+07:00 | Milestone: 5/5 + UAT + in chứng từ như hệ cũ | Task: xong
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi. -->
@@ -12,6 +12,52 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
+
+## Đợt 28/08 (chiều) — in chứng từ: hệ cũ in được, hệ mới thì không
+
+Anh báo dữ liệu chuyển sang không in được. Đo bằng API sẵn sàng-in: **Đơn thư 3/7 · Vụ việc
+0/5 · Vụ án 0/5**.
+
+### Nguyên nhân
+
+Đọc mã in hệ cũ (`_PC02/Modules/doi_1/act/xuatfile.php` — có sẵn trong kho mã): nó tra `loai`
+ra **một trong 11 mẫu Word**, rồi đổ **toàn bộ trường hồ sơ** vào chỗ trống. Không đòi trường
+nào; ô chưa nhập thì in ra trống. Nên bấm hồ sơ nào cũng ra file.
+
+13 mẫu của hệ mới là **quyết định tố tụng**, đòi trường mà **cả hai hệ đều chưa từng có**:
+`so_ket_luan_dieu_tra` 0 · `nguoi_quyet_dinh` 0 · `don_vi_xu_ly` 0 · `de_xuat` 1/8.000.
+
+### Năm PR
+
+- [x] **#289** — mang nguyên 11 mẫu hệ cũ sang, không sửa file .docx
+- [x] **#290** — bộ seed tìm được file .docx khi chạy từ bản biên dịch
+- [x] **#291** — 13 mẫu tố tụng in được: bổ sung khoá tự điền, bỏ đòi trường không hệ nào có
+- [x] **#292** — seed cập nhật lại NGUỒN của biến theo danh mục
+- [x] **#293** — đường kéo cờ bắt buộc về đúng bảng khai (`SEED_TEMPLATES_SYNC_REQUIRED=1`)
+
+### Kết quả trên máy thật
+
+| | |
+|---|---|
+| Sẵn sàng in | **84/84 mẫu** trên 9 hồ sơ (3 mỗi màn) |
+| In thật ra file | 24/28 lượt xanh, 4 lượt vướng giới hạn tốc độ máy chủ (5 lần/phút) — không phải lỗi mẫu |
+| Nội dung | không sót chỗ trống nào; số hồ sơ, người gửi, nguồn đơn, đơn vị, nội dung đều đúng |
+
+### Codex bắt 12 lỗi qua 6 vòng — trong đó 1 lỗi CÓ SẴN
+
+Đáng nhớ nhất:
+
+- mẫu hệ cũ dùng cặp `${…}` (PhpWord), khai mặc định `{…}` sẽ để dấu `$` trước **mọi** giá trị;
+- `<w:t[^>]*>` khớp cả `<w:tab/>` — **lỗi có sẵn**, âm thầm nuốt tab của mọi mẫu lúc nạp;
+- `{hoTenBiCan}` in cả bị hại và nhân chứng → quyết định khởi tố có thể ghi tên **người bị hại** vào chỗ bị can;
+- căn cứ tạm đình chỉ in ra **mã enum** (`CHUA_XAC_DINH_BI_CAN`) trên văn bản chính thức;
+- mốc thời gian lấy từ bản thô in **sớm một ngày** (hệ cũ trừ offset +7 hai lần);
+- seed bỏ qua mẫu "đã có cấu hình" → bản vá **không bao giờ tới được máy thật**.
+
+### Cổng em tự viết mà vô dụng — ghi lại để không lặp
+
+Cổng "seed phải đồng bộ nguồn" ban đầu chỉ **dò chuỗi trong mã**. Kiểm ngược bằng cách **đổi
+tên hàm** vẫn xanh. Đã thay bằng ca kiểm hành vi thật trên chính hàm ấy.
 
 ## Đợt 28/08 — chuyển dữ liệu mới nhất của hệ cũ sang hệ mới
 
