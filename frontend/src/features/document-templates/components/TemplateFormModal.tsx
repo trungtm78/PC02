@@ -50,6 +50,7 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
   const [entityType, setEntityType] = useState<string>(template?.entityType ?? 'VU_AN');
   const [category, setCategory] = useState(template?.category ?? 'Quyết định');
   const [needsNumber, setNeedsNumber] = useState(template?.needsNumber ?? false);
+  const [selectedByDefault, setSelectedByDefault] = useState(template?.selectedByDefault ?? false);
   const [numberSeriesId, setNumberSeriesId] = useState(template?.numberSeriesId ?? '');
   const [seriesOptions, setSeriesOptions] = useState<DocumentNumberTemplate[]>([]);
   const [sortOrder, setSortOrder] = useState(template?.sortOrder ?? 0);
@@ -163,6 +164,7 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
           name: name.trim(),
           category,
           needsNumber,
+          selectedByDefault,
           numberSeriesId: needsNumber ? numberSeriesId : null,
           sortOrder,
           delimStart,
@@ -177,6 +179,7 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
         form.append('entityType', entityType);
         form.append('category', category);
         form.append('needsNumber', String(needsNumber));
+        form.append('selectedByDefault', String(selectedByDefault));
         if (needsNumber && numberSeriesId) form.append('numberSeriesId', numberSeriesId);
         form.append('sortOrder', String(sortOrder));
         form.append('delimStart', delimStart);
@@ -416,6 +419,17 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
               onChange={(e) => setNeedsNumber(e.target.checked)}
             />
             Cấp số văn bản
+          </label>
+          {/* Mẫu này có được tích sẵn ở popup In chứng từ không. Tắt hết là popup mở ra trống,
+              cán bộ tích đúng thứ cần — thay vì nhận 14 tệp Word mỗi lần bấm xuất. */}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              data-testid="template-selected-by-default"
+              type="checkbox"
+              checked={selectedByDefault}
+              onChange={(e) => setSelectedByDefault(e.target.checked)}
+            />
+            Tích sẵn khi in
           </label>
           <label className="flex items-center gap-2 text-sm">
             Thứ tự

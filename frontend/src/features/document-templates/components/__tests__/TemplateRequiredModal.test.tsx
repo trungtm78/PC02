@@ -12,7 +12,7 @@ const mPatch = vi.mocked(api.patch);
 function tpl(): DocumentTemplate {
   return {
     id: 't1', code: 'QD', name: 'Quyết định', entityType: 'VU_AN', category: 'Quyết định',
-    fileName: 'a.docx', fileSha: 'sha', needsNumber: false, numberSeriesId: null, status: 'active', sortOrder: 0,
+    fileName: 'a.docx', fileSha: 'sha', needsNumber: false, selectedByDefault: false, numberSeriesId: null, status: 'active', sortOrder: 0,
     variables: [
       { name: 'tenVuAn', source: 'auto', label: 'Tên vụ án', required: true },
       { name: 'toiDanh', source: 'auto', label: 'Tội danh', required: false },

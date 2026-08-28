@@ -98,6 +98,10 @@ export class DynamicExportService {
         delimStart: true,
         delimEnd: true,
         needsNumber: true,
+        // Popup đọc cờ này để biết tích sẵn mẫu nào. Quên khai ở đây là popup KHÔNG BAO GIỜ
+        // thấy nó — admin bật công tắc mà chẳng có gì đổi, và mọi ca kiểm khác vẫn xanh.
+        // Cổng `tich-san-khi-in.spec.ts` canh đúng dòng này.
+        selectedByDefault: true,
         numberSeriesId: true,
         status: true,
         sortOrder: true,

@@ -34,10 +34,21 @@ interface Props {
   saving: boolean;
   /** testid prefix để 2 modal không trùng (vd "export-doc", "dyn-export"). */
   idPrefix: string;
+  /**
+   * Chọn hàng loạt. Nhận DANH SÁCH mẫu đủ điều kiện do chính component này tính.
+   *
+   * Nút đặt ở đây chứ không ở modal, vì `effReady()` bên dưới — thứ quyết định mẫu nào tích được
+   * — nằm ở đây. Đặt ở modal là phải chép `effReady` lần thứ hai, và hai bản sẽ lệch nhau ngay
+   * lần sửa đầu. Không truyền hai hàm này thì component không hiện nút, nên modal xuất hàng loạt
+   * giữ nguyên như cũ.
+   */
+  onSelectAll?: (keys: string[]) => void;
+  onClearAll?: () => void;
 }
 
 export function ExportReadinessChecklist({
   templates, readiness, loading, selected, onToggle, fillValues, onFillChange, onSaveFill, saving, idPrefix,
+  onSelectAll, onClearAll,
 }: Props) {
   // Một field còn thiếu được coi là CHƯA thoả nếu: savable (phải lưu vào hồ sơ qua "Lưu bổ sung")
   // HOẶC non-savable nhưng chưa nhập giá trị (non-savable = manualValues, chỉ cần nhập tại popup).
@@ -68,8 +79,34 @@ export function ExportReadinessChecklist({
     );
   }
 
+  // Mẫu tích được = mẫu đủ điều kiện. Mẫu thiếu thông tin đang `disabled` nên "Chọn tất cả"
+  // phải bỏ qua chúng, không thì nút Xuất mở khoá cho một mẫu chưa đủ dữ liệu.
+  const khoaDuDieuKien = templates.filter((t) => effReady(readiness[t.key])).map((t) => t.key);
+
   return (
     <div>
+      {onSelectAll && onClearAll && (
+        <div className="mb-2 flex items-center gap-2">
+          <button
+            type="button"
+            data-testid={`${idPrefix}-select-all`}
+            onClick={() => onSelectAll(khoaDuDieuKien)}
+            disabled={!khoaDuDieuKien.length}
+            className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Chọn tất cả
+          </button>
+          <button
+            type="button"
+            data-testid={`${idPrefix}-clear-all`}
+            onClick={onClearAll}
+            disabled={!selected.size}
+            className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Bỏ chọn tất cả
+          </button>
+        </div>
+      )}
       <ul className="border border-slate-200 rounded-lg divide-y divide-slate-100">
         {templates.map((t) => {
           const item = readiness[t.key];

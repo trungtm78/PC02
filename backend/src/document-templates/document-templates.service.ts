@@ -159,6 +159,7 @@ export class DocumentTemplatesService {
           delimStart: delimiters.start,
           delimEnd: delimiters.end,
           needsNumber: dto.needsNumber ?? false,
+          selectedByDefault: dto.selectedByDefault ?? false,
           numberSeriesId: dto.numberSeriesId ?? null,
           sortOrder: dto.sortOrder ?? 0,
           createdById: userId,

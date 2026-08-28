@@ -51,6 +51,8 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
+  // Bản đồ readiness dạng ref: cần đọc nó NGAY khi danh sách mẫu về, trước lượt render kế.
+  const readinessRef = useRef<Record<string, ReadinessItem>>({});
   // Đóng modal giữa lúc đang tải nhiều file → DỪNG vòng lặp và không setState nữa
   // (tránh tải tiếp file user đã huỷ + cảnh báo update sau unmount).
   const cancelledRef = useRef(false);
@@ -70,10 +72,16 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       for (const m of it.missing) fieldMetaRef.current[m.field] = m;
     }
     setReadiness(map);
+    readinessRef.current = map;
     if (data?.updatedAt) setRecordUpdatedAt(data.updatedAt);
     const prevReady = prevReadyRef.current;
     setSelected((prev) => {
-      if (!preserve) return new Set(readyKeys);
+      // Lần nạp đầu KHÔNG tự tích ở đây nữa: hàm này chạy SONG SONG với `listExportTemplates`
+      // nên chưa biết mẫu nào được admin bật cờ. Việc gieo lựa chọn ban đầu nằm ở nhánh `.then`
+      // của `Promise.all` bên dưới, nơi đã có cả hai nguồn.
+      if (!preserve) return prev;
+      // Giữ nguyên hành vi cũ cho lần nạp SAU "Lưu bổ sung": mẫu vừa đủ điều kiện thì tự tích
+      // thêm. Cán bộ vừa chủ động gõ thông tin để mở khoá đúng mẫu ấy — bắt họ tích lại là thừa.
       const newlyReady = readyKeys.filter((k) => !prevReady.has(k));
       const next = new Set([...prev].filter((k) => readyKeys.includes(k)));
       newlyReady.forEach((k) => next.add(k));
@@ -86,7 +94,25 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
     let alive = true;
     setIsLoading(true);
     Promise.all([listExportTemplates(entity), fetchReadiness(false)])
-      .then(([list]) => { if (alive) setTemplates(list); })
+      .then(([list]) => {
+        if (!alive) return;
+        setTemplates(list);
+        // Gieo lựa chọn ban đầu NGAY tại đây, cùng lượt render với danh sách mẫu.
+        //
+        // Trước đây popup tích sẵn mọi mẫu đủ điều kiện — Đơn thư có 14 mẫu đang bật (đo
+        // 28/08/2026) nên mỗi lần bấm xuất là ra 14 tệp Word. Nay chỉ tích mẫu admin đã bật cờ.
+        //
+        // Không dùng `useEffect` cho việc này: effect chạy SAU một nhịp render, nên có một
+        // khoảnh khắc danh sách đã hiện mà chưa ô nào được tích. Ca kiểm bấm Xuất ngay lúc ấy
+        // thấy nút bị khoá — và người dùng nhanh tay cũng gặp đúng thứ ấy.
+        setSelected(
+          new Set(
+            list
+              .filter((t) => t.selectedByDefault && readinessRef.current[t.id]?.ready !== false)
+              .map((t) => t.id),
+          ),
+        );
+      })
       .catch(() => { if (alive) setLoadError('Không tải được danh sách mẫu chứng từ'); })
       .finally(() => { if (alive) setIsLoading(false); });
     return () => { alive = false; };
@@ -94,6 +120,10 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
 
   const toggle = (id: string) =>
     setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+  /** Chọn hàng loạt — danh sách mẫu đủ điều kiện do `ExportReadinessChecklist` tính và truyền lên. */
+  const chonTatCa = (keys: string[]) => setSelected(new Set(keys));
+  const boChonTatCa = () => setSelected(new Set());
 
   // Lưu bổ sung: savable → PUT cột vào hồ sơ; non-savable → giữ trong fillValues (manualValues khi xuất).
   async function handleSaveFill() {
@@ -240,6 +270,8 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
                 onSaveFill={() => void handleSaveFill()}
                 saving={savingFill}
                 idPrefix="dyn-export"
+                onSelectAll={chonTatCa}
+                onClearAll={boChonTatCa}
               />
             </div>
 

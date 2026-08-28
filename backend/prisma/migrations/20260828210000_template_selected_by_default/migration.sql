@@ -1,0 +1,11 @@
+-- Mẫu chứng từ có được TÍCH SẴN ở popup In chứng từ không.
+--
+-- Popup vốn tích sẵn MỌI mẫu đủ điều kiện. Đo trên máy thật 28/08/2026: Đơn thư 14 mẫu đang bật,
+-- Vụ án 8, Vụ việc 6 — nên mỗi lần cán bộ Đơn thư bấm xuất là ra 14 tệp Word, trong đó có
+-- `Sổ đăng ký bào chữa (mẫu hệ cũ)` vốn in ra tờ TRẮNG (cả 12 chỗ điền của nó đều là ô không hồ
+-- sơ nào có dữ liệu). Muốn lấy đúng một phiếu thì phải bỏ tích 13 lần.
+--
+-- DEFAULT false: 28 mẫu đang có đều TẮT, popup mở ra trống và cán bộ tích đúng thứ cần. Admin
+-- bật sẵn nhóm hay dùng ở màn Quản lý mẫu chứng từ. Đây là lựa chọn có chủ ý, không phải giá trị
+-- cho tiện — chọn `true` là giữ nguyên nỗi phiền đang có.
+ALTER TABLE "document_templates" ADD COLUMN "selectedByDefault" BOOLEAN NOT NULL DEFAULT false;
