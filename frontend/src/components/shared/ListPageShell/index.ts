@@ -74,4 +74,9 @@ export { SummaryCell, catTheoTu } from './SummaryCell';
 export { DATE_RANGE_PRESETS, tinhKhoangThoiGian } from './dateRangePresets';
 export type { DateRangePresetKey, DateRangePreset, KhoangThoiGian } from './dateRangePresets';
 export { ColumnPicker } from './ColumnPicker';
+// `useColumnVisibility` (lưu localStorage từng máy) được thay bằng `useBoCucCot` (lưu trên máy
+// chủ theo tài khoản, gồm cả bề rộng và thứ tự cột). Giữ export cũ cho những bảng chưa chuyển.
 export { useColumnVisibility } from './useColumnVisibility';
+export { useBoCucCot } from './useBoCucCot';
+export { apDungBoCuc, ganViTri, type BoCucCot } from './boCucCot';
+export { TayNamKeo } from './TayNamKeo';

@@ -25,6 +25,8 @@ import axios from 'axios';
 import { api } from '@/lib/api';
 import {
   ListPageShell,
+  ColumnPicker,
+  useBoCucCot,
   useListPageUrlState,
   type ColumnDef,
   type TableState,
@@ -455,6 +457,7 @@ export function ComprehensiveListPageShell() {
       {
         key: 'typeLabel',
         header: 'Loại',
+        width: '7rem',
         render: (r) => (
           <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
             {r.typeLabel}
@@ -464,16 +467,19 @@ export function ComprehensiveListPageShell() {
       {
         key: 'caseNumber',
         header: 'Mã hồ sơ',
+        width: '8rem',
         render: (r) => <span className="font-mono text-xs text-slate-700">{r.caseNumber}</span>,
       },
       {
         key: 'name',
         header: 'Tên / Người gửi',
+        width: '22rem',
         render: (r) => <span className="font-medium text-slate-800">{r.name}</span>,
       },
       {
         key: 'status',
         header: 'Trạng thái',
+        width: '12rem',
         render: (r) => (
           <span className={`inline-block px-2 py-0.5 rounded text-xs ${r.statusBadge}`}>
             {r.statusLabel}
@@ -483,21 +489,38 @@ export function ComprehensiveListPageShell() {
       {
         key: 'createdBy',
         header: 'Người phụ trách',
+        width: '12rem',
         render: (r) => r.createdBy,
       },
       {
         key: 'district',
         header: 'Đơn vị',
+        width: '14rem',
         render: (r) => r.district ?? '—',
       },
       {
         key: 'receivedDate',
         header: 'Ngày tiếp nhận',
+        width: '9rem',
         render: (r) => formatVNDate(r.receivedDate),
       },
     ],
     [actionCtx],
   );
+  // Bố cục cột lưu trên máy chủ theo tài khoản. Trang này trước đây chạy bố cục TỰ ĐỘNG và
+  // hầu như không khai bề rộng — bật `fixedLayout` mà thiếu width thì phần dư bị chia đều và
+  // bảng đổi hình. Bề rộng vừa khai ở khối trên đo từ dữ liệu thật 28/08/2026.
+  const {
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat,
+    datBeRong,
+    xoaBeRong,
+    doiCho,
+    datLai,
+  } = useBoCucCot('comprehensive', columns);
+
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -570,6 +593,15 @@ export function ComprehensiveListPageShell() {
         searchPlaceholder="Tìm kiếm theo mã, tên, người gửi..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
+        columnPicker={
+          <ColumnPicker
+            columns={toggleableColumns}
+            isVisible={isVisible}
+            onToggle={batTat}
+            onReset={datLai}
+            onDoiCho={doiCho}
+          />
+        }
       >
         <Filters<ComprehensiveFilterValue>
           registry={comprehensiveListFilters}
@@ -582,7 +614,10 @@ export function ComprehensiveListPageShell() {
       </ListPageShell.Toolbar>
       <ListPageShell.Table<UnifiedRow>
         state={tableState}
-        columns={columns}
+        fixedLayout
+        onKeoGian={datBeRong}
+        onVeMacDinhCot={xoaBeRong}
+        columns={visibleColumns}
         data={rows}
         rowKey={(r) => `${r.recordType}-${r.id}`}
         title="Tra cứu tổng hợp"
