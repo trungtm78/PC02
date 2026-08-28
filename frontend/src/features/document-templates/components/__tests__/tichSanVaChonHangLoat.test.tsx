@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { DynamicExportDocumentsModal } from '../DynamicExportDocumentsModal';
 import { listExportTemplates } from '../../export.api';
 import { api } from '@/lib/api';
 import type { DocumentTemplate } from '../../types';
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn() } }));
+vi.mock('@/lib/api', () => ({
+  api: { get: vi.fn(), put: vi.fn() },
+  userExportPreferencesApi: { list: vi.fn(), luu: vi.fn(), datLai: vi.fn() },
+}));
 vi.mock('../../export.api', async () => {
   const actual = await vi.importActual<typeof import('../../export.api')>('../../export.api');
   return { ...actual, listExportTemplates: vi.fn(), exportEntityDocuments: vi.fn(), triggerDownload: vi.fn() };
@@ -41,7 +46,7 @@ function readiness(list: DocumentTemplate[], missingById: Record<string, Missing
 async function moPopup(list: DocumentTemplate[], missingById: Record<string, Missing[]> = {}) {
   mList.mockResolvedValue(list);
   mGet.mockResolvedValue(readiness(list, missingById) as never);
-  render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+  render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />, { wrapper: boc });
   await waitFor(() => expect(mList).toHaveBeenCalledWith('cases'));
   await screen.findByTestId(`dyn-export-checkbox-${list[0].id}`);
 }
@@ -59,6 +64,16 @@ const o = (id: string) => screen.getByTestId(`dyn-export-checkbox-${id}`) as HTM
  *
  * Nay chỉ mẫu được admin bật `selectedByDefault` mới tích sẵn; mặc định cả 28 mẫu đều tắt.
  */
+
+/**
+ * Popup đọc lựa chọn đã lưu qua react-query, nên phải có `QueryClientProvider`. Mỗi lần render
+ * một client MỚI để kho đệm của ca này không rò sang ca kia.
+ */
+function boc({ children }: { children: ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+}
+
 describe('Tích sẵn theo cấu hình mẫu', () => {
   beforeEach(() => {
     mGet.mockReset();
@@ -121,7 +136,7 @@ describe('Tự tích sau khi bổ sung thông tin', () => {
       .mockResolvedValueOnce(readiness(list, { t1: [thieu], t2: [thieu] }) as never)
       .mockResolvedValue(readiness(list) as never);
     vi.mocked(api.put).mockResolvedValue({ data: { data: { updatedAt: 'x' } } } as never);
-    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />);
+    render(<DynamicExportDocumentsModal entity="cases" entityId="c1" onClose={vi.fn()} />, { wrapper: boc });
     await screen.findByTestId('dyn-export-checkbox-t1');
     fireEvent.change(screen.getByTestId('dyn-export-fill-lyDo'), { target: { value: 'X' } });
     fireEvent.click(screen.getByTestId('dyn-export-save-fill'));

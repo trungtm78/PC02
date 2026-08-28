@@ -13,6 +13,50 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
 
+## Đợt 29/08 — popup In chứng từ NHỚ lựa chọn của từng cán bộ
+
+Anh yêu cầu: "lưu trữ các setting để lần tới dùng lại, không cần phải setup lại", phạm vi "tất
+cả việc select chọn đến việc Định dạng xuất".
+
+**Đo trước khi làm:** popup không nhớ gì — cả thư mục `features/document-templates` không có một
+dòng `localStorage` nào, không biến sống ngoài component, và popup bị GỠ khỏi màn hình khi đóng
+nên mọi lựa chọn tan hết. Đơn thư 14 mẫu → tích lại từ đầu mỗi lần in.
+
+### Anh chốt
+
+- Cá nhân hoá, **không** phải thiết lập chung. Hiện lên thì ưu tiên lựa chọn của chính người ấy;
+  ai chưa từng đặt thì dùng cờ "Tích sẵn khi in" admin bật ở màn Quản lý mẫu chứng từ.
+- Lưu ở **máy chủ theo tài khoản** — đổi máy vẫn nhớ.
+
+### Đã làm
+
+Bảng `user_export_preferences` (userId, entityType) → `templateIds[]` + `mode`, theo đúng khuôn
+ba bảng thiết lập-theo-người-dùng đã có. Module backend sao khuôn `user-table-layouts`. Popup
+gieo lựa chọn theo thứ tự cá-nhân-trước-admin-sau, thêm nút "Dùng lại mặc định".
+
+**CỐ Ý không nhớ** `fillValues` (bổ sung thông tin thiếu): nó gắn chặt vào MỘT hồ sơ — dùng lại
+cho hồ sơ khác là in sai dữ liệu.
+
+### Ba bẫy đã dẫm, ghi lại
+
+1. **Vòng lặp render vô tận** — đưa cả đối tượng hook vào mảng phụ thuộc `useEffect` mà nó được
+   dựng mới mỗi lượt render. React báo "Maximum update depth exceeded" ngay ca kiểm đầu. Nay hook
+   gói `useMemo` và popup bám vào đúng hàm ổn định.
+2. **17 ca kiểm cũ vỡ** vì popup nay dùng react-query mà chúng chưa bọc `QueryClientProvider`.
+3. **Lấy lựa chọn qua `useQuery` là sai** — dữ liệu về ở lượt render sau nên có khoảnh khắc danh
+   sách đã hiện mà chưa ô nào tích. Đổi sang `fetchQuery` trong `Promise.all`.
+
+### Codex bắt 3 lỗi — nặng nhất là RÒ DỮ LIỆU GIỮA HAI TÀI KHOẢN
+
+`queryClient` là một thể duy nhất, `clearTokens()` không đụng kho đệm, khoá truy vấn không kẹp
+danh tính → hai cán bộ chung máy, người sau đọc trúng dữ liệu người trước trong khoảng
+`staleTime`. **Lỗi CÓ SẴN**: `useBoCucCot` dựng hôm trước dính y hệt. Sửa ở gốc bằng
+`useXoaKhoDemKhiDoiTaiKhoan` — xoá kho đệm khi token biến mất, chặn cả lớp lỗi kể cả cho tính
+năng chưa viết.
+
+Hai lỗi còn lại: nhánh sau "Lưu bổ sung" tự tích theo cờ admin kể cả khi đã có lựa chọn riêng;
+và Đặt lại đua với Xuất (lệnh GHI đua lệnh XOÁ).
+
 ## Đợt 28/08 (tối) — mẫu tự đặt tích sẵn hay không + chọn hàng loạt khi in
 
 Anh báo: popup In chứng từ tích sẵn hết, muốn đặt được từng mẫu có tích sẵn không, và muốn có

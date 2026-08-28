@@ -12,6 +12,18 @@ import {
 } from '../export.api';
 import type { DocumentTemplate } from '../types';
 import { ExportReadinessChecklist, type ReadinessItem } from './ExportReadinessChecklist';
+import { useLuaChonInChungTu } from '../useLuaChonInChungTu';
+import type { LuaChonInApi } from '@/lib/api';
+
+/**
+ * Đường API dùng số nhiều (`petitions`), còn thiết lập lưu theo loại hồ sơ (`DON_THU`) — cùng
+ * cách gọi với `entityType` của mẫu chứng từ. Khai một chỗ để hai bên không lệch tên.
+ */
+const THUC_THE_THEO_DUONG = {
+  petitions: 'DON_THU',
+  incidents: 'VU_VIEC',
+  cases: 'VU_AN',
+} as const;
 
 /**
  * Popup "Xuất chứng từ" ĐỘNG cho Vụ án/Vụ việc — ĐỒNG BỘ với Đơn thư (PR2):
@@ -48,6 +60,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   // mẫu 1 .docx; KHÔNG phải .zip nên không cần giải nén.
   const [mode, setMode] = useState<ExportMode>('separate');
   const [isExporting, setIsExporting] = useState(false);
+  const [dangDatLai, setDangDatLai] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
@@ -55,6 +68,9 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const coBatSanRef = useRef<Set<string>>(new Set());
   // Đếm lượt nạp: kết quả của lượt CŨ về sau lượt mới thì bỏ, không ghi đè.
   const luotNapRef = useRef(0);
+  // Cán bộ đã từng đặt lựa chọn riêng chưa. Nhánh tự-tích sau "Lưu bổ sung" cần biết: đã có
+  // lựa chọn riêng thì cờ admin không được chen vào nữa.
+  const coLuaChonRiengRef = useRef(false);
   // Bản đồ readiness dạng ref: cần đọc nó NGAY khi danh sách mẫu về, trước lượt render kế.
   const readinessRef = useRef<Record<string, ReadinessItem>>({});
   // Đóng modal giữa lúc đang tải nhiều file → DỪNG vòng lặp và không setState nữa
@@ -63,6 +79,36 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   useEffect(() => () => { cancelledRef.current = true; }, []);
   // map field → {savable, column} để onSaveFill tách PUT vs manualValues.
   const fieldMetaRef = useRef<Record<string, ReadinessMissing>>({});
+
+  const thucThe = THUC_THE_THEO_DUONG[entity];
+  const luaChonDaLuu = useLuaChonInChungTu(thucThe);
+
+  /**
+   * Gieo lựa chọn ban đầu: lựa chọn CÁ NHÂN đã lưu thắng, chưa từng đặt thì theo cờ admin.
+   *
+   * Hai phép lọc bắt buộc khi áp bản đã lưu:
+   *  • mẫu KHÔNG CÒN TỒN TẠI phải rơi — admin xoá mẫu thì mã cũ là rác, gửi lên máy chủ lúc xuất
+   *    là một mã không có thật;
+   *  • mẫu đang THIẾU THÔNG TIN phải rơi — ô của nó đang bị khoá, tích vào là dựng một trạng
+   *    thái mà bấm tay không tạo ra nổi, rồi nút Xuất mở khoá cho mẫu chưa đủ dữ liệu.
+   */
+  const gieoLuaChon = useCallback(
+    (danhSach: DocumentTemplate[], daLuu: LuaChonInApi | undefined) => {
+      const duDieuKien = (id: string) => readinessRef.current[id]?.ready !== false;
+      coLuaChonRiengRef.current = !!daLuu;
+      if (daLuu) {
+        const coThat = new Set(danhSach.map((t) => t.id));
+        setSelected(new Set(daLuu.templateIds.filter((id) => coThat.has(id) && duDieuKien(id))));
+        setMode(daLuu.mode);
+        return;
+      }
+      setSelected(
+        new Set(danhSach.filter((t) => t.selectedByDefault && duDieuKien(t.id)).map((t) => t.id)),
+      );
+      setMode('separate');
+    },
+    [],
+  );
 
   const fetchReadiness = useCallback(async (preserve = false) => {
     const luot = (luotNapRef.current += 1);
@@ -90,11 +136,13 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       if (!preserve) return prev;
       // Giữ nguyên hành vi cũ cho lần nạp SAU "Lưu bổ sung": mẫu vừa đủ điều kiện thì tự tích
       // thêm. Cán bộ vừa chủ động gõ thông tin để mở khoá đúng mẫu ấy — bắt họ tích lại là thừa.
-      // CHỈ mẫu admin đã bật cờ mới được tự tích. Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc
-      // (chúng dùng chung field thiếu) — tự tích tất cả là lách qua đúng cấu hình vừa dựng.
-      const newlyReady = readyKeys.filter(
-        (k) => !prevReady.has(k) && coBatSanRef.current.has(k),
-      );
+      // CHỈ mẫu admin đã bật cờ mới được tự tích, và CHỈ khi cán bộ chưa từng đặt lựa chọn
+      // riêng. Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc (chúng dùng chung field thiếu) —
+      // tự tích tất cả là lách qua đúng lựa chọn vừa dựng: mẫu cán bộ cố ý bỏ lại nhảy vào bản
+      // xuất, và cờ admin chen vào chỗ đáng lẽ lựa chọn cá nhân thắng.
+      const newlyReady = coLuaChonRiengRef.current
+        ? []
+        : readyKeys.filter((k) => !prevReady.has(k) && coBatSanRef.current.has(k));
       const next = new Set([...prev].filter((k) => readyKeys.includes(k)));
       newlyReady.forEach((k) => next.add(k));
       return next;
@@ -105,31 +153,23 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   useEffect(() => {
     let alive = true;
     setIsLoading(true);
-    Promise.all([listExportTemplates(entity), fetchReadiness(false)])
-      .then(([list]) => {
+    Promise.all([listExportTemplates(entity), fetchReadiness(false), luaChonDaLuu.tai()])
+      .then(([list, , daLuu]) => {
         if (!alive) return;
         setTemplates(list);
         coBatSanRef.current = new Set(list.filter((t) => t.selectedByDefault).map((t) => t.id));
-        // Gieo lựa chọn ban đầu NGAY tại đây, cùng lượt render với danh sách mẫu.
-        //
-        // Trước đây popup tích sẵn mọi mẫu đủ điều kiện — Đơn thư có 14 mẫu đang bật (đo
-        // 28/08/2026) nên mỗi lần bấm xuất là ra 14 tệp Word. Nay chỉ tích mẫu admin đã bật cờ.
-        //
-        // Không dùng `useEffect` cho việc này: effect chạy SAU một nhịp render, nên có một
-        // khoảnh khắc danh sách đã hiện mà chưa ô nào được tích. Ca kiểm bấm Xuất ngay lúc ấy
-        // thấy nút bị khoá — và người dùng nhanh tay cũng gặp đúng thứ ấy.
-        setSelected(
-          new Set(
-            list
-              .filter((t) => t.selectedByDefault && readinessRef.current[t.id]?.ready !== false)
-              .map((t) => t.id),
-          ),
-        );
+        // Gieo NGAY tại đây, cùng lượt render với danh sách mẫu — không dùng `useEffect`: effect
+        // chạy SAU một nhịp, nên có một khoảnh khắc danh sách đã hiện mà chưa ô nào được tích.
+        // Người dùng nhanh tay bấm Xuất lúc ấy thấy nút bị khoá. Vì thế lựa chọn đã lưu cũng
+        // được lấy TRONG `Promise.all` chứ không qua một hook trả dữ liệu ở lượt sau.
+        gieoLuaChon(list, daLuu);
       })
       .catch(() => { if (alive) setLoadError('Không tải được danh sách mẫu chứng từ'); })
       .finally(() => { if (alive) setIsLoading(false); });
     return () => { alive = false; };
-  }, [entity, fetchReadiness]);
+    // Bám vào ĐÚNG hàm `tai` (ổn định qua `useCallback`) chứ không cả đối tượng hook — bám cả
+    // đối tượng là vòng lặp render vô tận, kể cả khi hook đã gói `useMemo`.
+  }, [entity, fetchReadiness, gieoLuaChon, luaChonDaLuu.tai]);
 
   const toggle = (id: string) =>
     setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -212,6 +252,21 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
     }
   }
 
+  /** Xoá lựa chọn riêng rồi gieo lại theo cờ admin — cùng đường mã với lúc mở popup. */
+  async function handleResetPref() {
+    if (dangDatLai || isExporting) return;
+    // Khoá nút Xuất trong lúc xoá: bấm Xuất giữa chừng là một lệnh GHI đua với một lệnh XOÁ, và
+    // lựa chọn còn lại trong CSDL không ai đoán được.
+    setDangDatLai(true);
+    try {
+      await luaChonDaLuu.datLai();
+      if (cancelledRef.current) return;
+      gieoLuaChon(templates, undefined);
+    } finally {
+      setDangDatLai(false);
+    }
+  }
+
   async function handleExport() {
     if (selected.size === 0 || isExporting) return;
     setIsExporting(true);
@@ -219,6 +274,10 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
     setProgress(null);
     try {
       const picked = templates.filter((t) => selected.has(t.id));
+      // Nhớ lựa chọn cho lần sau — lưu Ở ĐÂY chứ không theo từng cú tích: bấm Xuất là lúc lựa
+      // chọn thành thứ thật sự dùng, còn ghi theo từng cú tích là nện máy chủ cho một thứ cán
+      // bộ có thể còn đang lưỡng lự. Ghi lạc quan nên không chặn việc xuất.
+      luaChonDaLuu.luu({ templateIds: picked.map((t) => t.id), mode });
       if (mode === 'separate') {
         await exportSeparateFiles(picked);
       } else {
@@ -321,10 +380,21 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
         )}
 
         <div className="mt-5 flex justify-end gap-2">
+          {/* Không có đường quay lại thì một lần chọn nhầm là mắc kẹt vĩnh viễn — vì lựa chọn
+              cá nhân luôn thắng cờ admin. */}
+          <button
+            type="button"
+            data-testid="dyn-export-reset-pref"
+            onClick={() => void handleResetPref()}
+            disabled={isExporting || isLoading || dangDatLai}
+            className="mr-auto px-3 py-2 text-sm text-slate-600 underline underline-offset-2 hover:text-slate-800 disabled:opacity-50"
+          >
+            Dùng lại mặc định
+          </button>
           <button type="button" data-testid="dyn-export-close" onClick={onClose} disabled={isExporting} className="px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             Đóng
           </button>
-          <button type="button" data-testid="dyn-export-confirm" onClick={() => void handleExport()} disabled={selected.size === 0 || isExporting || isLoading} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
+          <button type="button" data-testid="dyn-export-confirm" onClick={() => void handleExport()} disabled={selected.size === 0 || isExporting || isLoading || dangDatLai} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {isExporting ? 'Đang xuất...' : 'Xuất file'}
           </button>

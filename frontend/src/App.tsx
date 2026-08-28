@@ -11,6 +11,7 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { FeatureFlagsProvider, FEATURE_MODULES } from '@/lib/features';
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { useAuthHydration } from '@/hooks/useAuthHydration';
+import { useXoaKhoDemKhiDoiTaiKhoan } from '@/hooks/useXoaKhoDemKhiDoiTaiKhoan';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,12 +25,22 @@ const queryClient = new QueryClient({
 // React Router unmounts the active page → user sees blank flash → remount.
 const featureRouteElements = FEATURE_MODULES.flatMap((f) => f.renderRoutes());
 
+/**
+ * Phải nằm BÊN TRONG `QueryClientProvider` để đọc được kho đệm — đặt ở `App()` thì
+ * `useQueryClient` không thấy provider nào.
+ */
+function DonKhoDemKhiDoiTaiKhoan() {
+  useXoaKhoDemKhiDoiTaiKhoan();
+  return null;
+}
+
 function App() {
   // Hydrates user profile from /auth/me whenever a token exists without a cached profile.
   // Single source of truth — Login/2FA/refresh only manage tokens.
   useAuthHydration();
   return (
     <QueryClientProvider client={queryClient}>
+      <DonKhoDemKhiDoiTaiKhoan />
       <BrowserRouter>
         <Routes>
           {/* Public routes */}

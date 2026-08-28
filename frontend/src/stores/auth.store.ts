@@ -7,7 +7,8 @@
  */
 
 const PROFILE_KEY = 'authProfile';
-const TOKEN_EVENT = 'pc02:auth-token-changed';
+/** Sự kiện token đổi (đăng nhập, đăng xuất, làm mới). Xuất ra để nơi khác cùng nghe. */
+export const TOKEN_EVENT = 'pc02:auth-token-changed';
 
 export interface AuthTeam {
   teamId: string;
