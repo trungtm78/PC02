@@ -142,7 +142,17 @@ describe('DocumentTemplatesService', () => {
     expect(data.delimStart).toBe('[[');
     expect(data.delimEnd).toBe(']]');
     expect(data.variables).toEqual([
-      { name: 'Họ tên', label: 'Họ tên', source: 'auto', field: 'ghiTen', required: false },
+      // `nguonDoAdminDat`: tên biến `Họ tên` KHÔNG phải khoá danh mục, nên để tự điền được là
+      // một ánh xạ admin cố ý đặt. Đóng dấu để bộ nạp mẫu không hạ nó xuống nhập tay — hạ rồi
+      // thì engine đọc `manualValues['Họ tên']` chứ không đọc `ghiTen`, và ô in ra trống.
+      {
+        name: 'Họ tên',
+        label: 'Họ tên',
+        source: 'auto',
+        field: 'ghiTen',
+        nguonDoAdminDat: true,
+        required: false,
+      },
     ]);
   });
 
@@ -215,5 +225,68 @@ describe('DocumentTemplatesService', () => {
     const arg = mockPrisma.documentTemplate.update.mock.calls[0][0];
     expect(arg.where).toEqual({ id: 't1' });
     expect(arg.data.deletedAt).toBeInstanceOf(Date);
+  });
+});
+
+/**
+ * Đóng dấu lựa chọn admin để lần nạp mẫu sau không lật ngược.
+ *
+ * Bộ nạp cập nhật lại nguồn của biến theo danh mục (`dongBoNguonBien`) để chữa bản ghi cũ.
+ * Nếu lựa chọn cố ý của admin không được đánh dấu, lần nạp kế tiếp bật lại tự động và cấu
+ * hình mất lặng lẽ. Dấu chỉ đóng khi lựa chọn LỆCH khỏi danh mục, nên mẫu chưa ai đụng vẫn
+ * tự chữa được như trước.
+ */
+describe('DocumentTemplatesService — dấu nguồn admin đặt tay', () => {
+  let svc: DocumentTemplatesService;
+
+  beforeEach(async () => {
+    const mod = await Test.createTestingModule({
+      providers: [DocumentTemplatesService, { provide: PrismaService, useValue: mockPrisma }],
+    }).compile();
+    svc = mod.get(DocumentTemplatesService);
+    jest.clearAllMocks();
+  });
+
+  function mauSan(buf: Buffer) {
+    mockPrisma.documentTemplate.findFirst.mockResolvedValue({
+      id: 't1',
+      entityType: 'VU_AN',
+      fileBytes: buf,
+      delimStart: '{',
+      delimEnd: '}',
+      variables: [],
+      deletedAt: null,
+    });
+  }
+
+  it('hạ một biến tự-điền-được xuống nhập tay thì đóng dấu', async () => {
+    const buf = docx('{soVuAn}');
+    mauSan(buf);
+    await svc.update('t1', {
+      variables: [{ name: 'soVuAn', source: 'manual', label: 'Số vụ án' }],
+    } as never);
+    const vars = mockPrisma.documentTemplate.update.mock.calls[0][0].data.variables;
+    expect(vars[0]).toMatchObject({ source: 'manual', nguonDoAdminDat: true });
+  });
+
+  it('gửi lại đúng thứ danh mục vốn chọn thì KHÔNG đóng dấu — mẫu vẫn tự chữa được', async () => {
+    const buf = docx('{soVuAn}');
+    mauSan(buf);
+    await svc.update('t1', {
+      variables: [{ name: 'soVuAn', source: 'auto', label: 'Số vụ án' }],
+    } as never);
+    const vars = mockPrisma.documentTemplate.update.mock.calls[0][0].data.variables;
+    expect(vars[0]['nguonDoAdminDat']).toBeUndefined();
+  });
+
+  /** Biến ngoài danh mục vốn LUÔN là nhập tay — đó không phải lựa chọn, đừng khoá nó lại. */
+  it('biến ngoài danh mục không bị đóng dấu', async () => {
+    const buf = docx('{khongCoTrongDanhMuc}');
+    mauSan(buf);
+    await svc.update('t1', {
+      variables: [{ name: 'khongCoTrongDanhMuc', source: 'manual', label: 'x' }],
+    } as never);
+    const vars = mockPrisma.documentTemplate.update.mock.calls[0][0].data.variables;
+    expect(vars[0]['nguonDoAdminDat']).toBeUndefined();
   });
 });

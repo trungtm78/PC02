@@ -66,6 +66,17 @@ export interface TemplateVariable {
   source: 'auto' | 'manual';
   field?: string;
   required?: boolean;
+  /**
+   * Admin đã cố ý đặt nguồn cho biến này, khác với thứ danh mục sẽ chọn.
+   *
+   * Bộ nạp mẫu (`dongBoNguonBien`) cập nhật lại nguồn theo danh mục để chữa bản ghi cũ do
+   * lần nạp trước để lại. Không có dấu này thì nó không phân biệt được "bản ghi cũ chưa cập
+   * nhật" với "admin cố ý hạ xuống tự điền", và lần nạp sau sẽ lẳng lặng bật lại tự động —
+   * cấu hình mất không báo, chỉ lộ ra khi bản in sai.
+   *
+   * Chỉ đóng dấu khi lựa chọn LỆCH khỏi danh mục, nên mẫu admin chưa đụng tới vẫn tự chữa.
+   */
+  nguonDoAdminDat?: boolean;
 }
 
 /**

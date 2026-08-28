@@ -9,7 +9,7 @@ import PizZip from 'pizzip';
 import { PrismaService } from '../prisma/prisma.service';
 import { detectDocxVariables, Delimiters } from './docx-variables.util';
 import { normalizeDocxTags } from './docx-normalize.util';
-import { TemplateVariable } from './entity-placeholders';
+import { TemplateVariable, isAutoPlaceholder } from './entity-placeholders';
 import { isCatalogField, assertFieldInCatalog, listCatalog, EntityType } from './field-catalog';
 import { CreateDocumentTemplateDto } from './dto/create-document-template.dto';
 import { UpdateDocumentTemplateDto } from './dto/update-document-template.dto';
@@ -77,11 +77,17 @@ export class DocumentTemplatesService {
         field = v.field ?? v.name;
         assertFieldInCatalog(entityType as EntityType, field); // 400 nếu ngoài whitelist
       }
+      // Lựa chọn LỆCH khỏi danh mục là lựa chọn cố ý — đóng dấu để bộ nạp mẫu không lật lại.
+      // Không đóng dấu khi admin gửi đúng thứ danh mục vốn chọn: mẫu chưa ai đụng tới phải
+      // còn tự chữa được khi danh mục bổ sung khoá mới.
+      const theoDanhMuc = isAutoPlaceholder(entityType, v.name) ? 'auto' : 'manual';
+      const nguonDoAdminDat = source !== theoDanhMuc;
       normalized.push({
         name: v.name,
         label: v.label ?? v.name,
         source,
         ...(field ? { field } : {}),
+        ...(nguonDoAdminDat ? { nguonDoAdminDat: true } : {}),
         required: v.required === true,
       });
     }

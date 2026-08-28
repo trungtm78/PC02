@@ -102,7 +102,12 @@ describe('Khoá tự điền cho mẫu quyết định tố tụng', () => {
   });
 });
 
-import { REQUIRED_VARS_CHO_KIEM, dongBoNguonBien, dongBoCoBatBuoc } from '../../prisma/seed-document-templates';
+import {
+  REQUIRED_VARS_CHO_KIEM,
+  KHONG_CO_NGUON,
+  dongBoNguonBien,
+  dongBoCoBatBuoc,
+} from '../../prisma/seed-document-templates';
 import { TEMPLATE_SPECS } from '../../prisma/seed-assets/document-templates/registry';
 
 /**
@@ -113,10 +118,15 @@ import { TEMPLATE_SPECS } from '../../prisma/seed-assets/document-templates/regi
  * `nguoiQuyetDinh` 0/4.848 vụ việc — cả ba đều 0 trong bản gốc hệ cũ.
  */
 describe('GATE — biến bắt buộc phải có nguồn dữ liệu thật', () => {
-  const KHONG_CO_NGUON = ['soKLDT', 'nguonTin', 'nguoiQuyetDinh', 'gioBatDau', 'diaDiem'];
-
+  /**
+   * Lấy thẳng danh sách của bộ nạp, KHÔNG chép tay sang đây.
+   *
+   * Bản chép tay trước đó đã lệch thật: nó thiếu `deXuat` và `donViNhan` mà bộ nạp có, nên
+   * cổng vẫn xanh dù hai tên ấy được đưa vào diện bắt buộc. Một cổng chép tay chỉ canh được
+   * cái danh sách của chính nó — đúng lớp lỗi đã bắt ở cổng `dongBoNguonBien` đợt này.
+   */
   it.each(Object.entries(REQUIRED_VARS_CHO_KIEM))('%s không bắt buộc trường rỗng', (_ma, ds) => {
-    expect((ds as string[]).filter((x) => KHONG_CO_NGUON.includes(x))).toEqual([]);
+    expect((ds as string[]).filter((x) => KHONG_CO_NGUON.has(x))).toEqual([]);
   });
 
   /** Thực thể lấy từ chính bảng khai mẫu, không đoán từ tên mã — đoán là sai ngay mẫu đầu. */
@@ -361,5 +371,47 @@ describe('dongBoCoBatBuoc — kéo cờ bắt buộc về đúng bảng khai', (
       { name: 'x', label: 'nhãn', source: 'auto', field: 'x', required: true },
     ]);
     expect(ra[0]).toMatchObject({ label: 'nhãn', source: 'auto', field: 'x', required: false });
+  });
+});
+
+/**
+ * CỔNG: đồng bộ nguồn KHÔNG được lật ngược lựa chọn admin đã đặt tay.
+ *
+ * `dongBoNguonBien` sinh ra để chữa bản ghi `manual` CŨ do seed đời trước để lại. Nhưng nó
+ * đọc danh mục rồi ghi đè vô điều kiện, nên nó không phân biệt được hai thứ khác hẳn nhau:
+ * một bản ghi cũ chưa kịp cập nhật, và một lựa chọn admin cố ý đặt.
+ *
+ * Đường sửa của admin CÓ THẬT: `UpdateDocumentTemplateDto` kế thừa `variables` từ DTO tạo,
+ * và `validateVariableMapping` (document-templates.service.ts:74) giữ nguyên `source: 'manual'`
+ * admin gửi lên. Nghĩa là admin hạ một biến xuống tự điền được — rồi lần nạp sau seed lẳng
+ * lặng bật lại tự động. Cấu hình mất mà không báo, không nhật ký, chỉ lộ khi bản in sai.
+ *
+ * Chỗ này đúng lớp lỗi đã bắt hai lần trong đợt in: cùng một tệp hứa "KHÔNG ghi đè bản admin
+ * đã sửa" cho cờ bắt buộc, mà lại lấy mất quyền ấy ở trường nguồn.
+ */
+describe('GATE — đồng bộ nguồn giữ lựa chọn admin đặt tay', () => {
+  it('admin cố ý hạ xuống tự điền thì seed KHÔNG bật lại tự động', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'hoTenBiCan', label: 'x', source: 'manual', required: false, nguonDoAdminDat: true },
+    ] as never);
+    expect(ra[0]).toMatchObject({ source: 'manual' });
+  });
+
+  /** Chỉ khoá đúng biến admin đụng tới — biến còn lại vẫn được chữa như cũ. */
+  it('biến khác trong cùng mẫu vẫn được chuyển sang tự điền', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'hoTenBiCan', label: 'x', source: 'manual', required: false, nguonDoAdminDat: true },
+      { name: 'toiDanh', label: 'x', source: 'manual', required: false },
+    ] as never);
+    expect(ra[0]['source']).toBe('manual');
+    expect(ra[1]).toMatchObject({ source: 'auto', field: 'toiDanh' });
+  });
+
+  /** Dấu khoá phải theo bản ghi sang lần nạp sau, không bị đồng bộ xoá mất. */
+  it('giữ nguyên dấu khoá sau khi đồng bộ', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'hoTenBiCan', label: 'x', source: 'manual', required: false, nguonDoAdminDat: true },
+    ] as never);
+    expect(ra[0]['nguonDoAdminDat']).toBe(true);
   });
 });
