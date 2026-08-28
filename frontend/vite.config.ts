@@ -81,6 +81,9 @@ export default defineConfig({
         // are not precached so map tiles, embedded SVGs, and large images don't
         // bloat client storage on slow networks.
         globPatterns: ['**/*.{js,css,html,ico,woff2}', 'icons/*.png'],
+        // `sw.js` la BIA MO tu go (xem public/sw.js) — no phai LUON di thang ra mang. Nap
+        // truoc no la de ban moi ghim lai chinh bia mo, tuc lap lai su co dang go.
+        globIgnores: ['**/sw.js'],
         runtimeCaching: [
           {
             // Health check — cache for offline degraded-mode detection.
