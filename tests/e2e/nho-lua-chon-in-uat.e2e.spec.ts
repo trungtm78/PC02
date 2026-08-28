@@ -11,6 +11,21 @@ import { loginToPage, getAuthToken } from '../helpers/auth';
  */
 const API = process.env.API_BASE ?? 'http://171.244.40.245/api/v1';
 
+/**
+ * Bóc thân phản hồi ở ĐÚNG MỘT chỗ.
+ *
+ * Máy chủ trả endpoint này dạng TRẦN (`{DON_THU: {...}}`), không bọc `{success, data}` như
+ * danh sách hồ sơ. Viết `?.data ?? {}` là luôn ra rỗng — bài kiểm báo đỏ trong khi tính năng
+ * chạy đúng, và suýt đi sửa sản phẩm cho vừa một lỗi của chính bài kiểm.
+ */
+async function docLuaChon(request: import('@playwright/test').APIRequestContext, token: string) {
+  const r = await request.get(`${API}/user-export-preferences`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await r.json();
+  return (body?.data ?? body) as Record<string, { templateIds: string[]; mode: string }>;
+}
+
 test.describe('UAT giao diện · nhớ lựa chọn in chứng từ', () => {
   test.afterEach(async ({ request }) => {
     const token = getAuthToken();
@@ -54,16 +69,9 @@ test.describe('UAT giao diện · nhớ lựa chọn in chứng từ', () => {
 
     // Lựa chọn phải xuống tới máy chủ — đây là chỗ ca kiểm thành phần không với tới.
     await expect
-      .poll(
-        async () => {
-          const r = await request.get(`${API}/user-export-preferences`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const ban = (await r.json())?.data ?? {};
-          return ban?.DON_THU?.mode ?? null;
-        },
-        { timeout: 30_000 },
-      )
+      .poll(async () => (await docLuaChon(request, token))?.DON_THU?.mode ?? null, {
+        timeout: 30_000,
+      })
       .toBe('zip');
 
     // Mở LẠI popup: phải thấy đúng lựa chọn ấy, không phải tích lại.
@@ -95,15 +103,7 @@ test.describe('UAT giao diện · nhớ lựa chọn in chứng từ', () => {
     // Về mặc định: định dạng trở lại "tách từng file", và bản ghi riêng biến mất khỏi máy chủ.
     await expect(page.getByTestId('dyn-export-mode-separate')).toBeChecked({ timeout: 15_000 });
     await expect
-      .poll(
-        async () => {
-          const r = await request.get(`${API}/user-export-preferences`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          return ((await r.json())?.data ?? {})?.DON_THU ?? null;
-        },
-        { timeout: 30_000 },
-      )
+      .poll(async () => (await docLuaChon(request, token))?.DON_THU ?? null, { timeout: 30_000 })
       .toBeNull();
   });
 });

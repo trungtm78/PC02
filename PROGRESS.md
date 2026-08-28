@@ -57,6 +57,19 @@ năng chưa viết.
 Hai lỗi còn lại: nhánh sau "Lưu bổ sung" tự tích theo cờ admin kể cả khi đã có lựa chọn riêng;
 và Đặt lại đua với Xuất (lệnh GHI đua lệnh XOÁ).
 
+### UAT 64/64 PASS + một đính chính
+
+Ma trận ở [UAT-COVERAGE.md](UAT-COVERAGE.md): API 10 · giao diện 4 · thành phần 13 · kho đệm 3 ·
+backend 37. Bài kiểm trả máy thật về nguyên trạng (kiểm lại: 0 bản ghi).
+
+**ĐÍNH CHÍNH:** PR #311 ghi rằng UAT chứng minh `mutate` bắn-rồi-quên không gửi được lệnh ghi.
+Điều đó CHƯA được chứng minh — lần chạy hỏng ấy giải thích trọn vẹn bằng lỗi của chính bài kiểm
+(endpoint trả thân TRẦN, bài kiểm lại bóc `?.data`), và soi CSDL lúc ấy thấy bản ghi ĐÃ ghi đúng.
+Đổi sang `mutateAsync` + `await` vẫn đúng về mặt thiết kế, nhưng lý do nêu trong PR là nói quá.
+
+Đây là lần THỨ HAI trong hai ngày dẫm đúng bẫy "bóc thân phản hồi hai kiểu", dù đã ghi vào bộ nhớ
+từ hôm trước.
+
 ## Đợt 28/08 (tối) — mẫu tự đặt tích sẵn hay không + chọn hàng loạt khi in
 
 Anh báo: popup In chứng từ tích sẵn hết, muốn đặt được từng mẫu có tích sẵn không, và muốn có
