@@ -160,6 +160,48 @@ describe('Nhớ lựa chọn in chứng từ', () => {
     expect(o('t1').checked).toBe(false);
   });
 
+  /**
+   * Sau "Lưu bổ sung", mẫu vừa mở khoá chỉ tự tích khi cán bộ CHƯA từng đặt lựa chọn riêng.
+   *
+   * Đã có lựa chọn riêng mà vẫn tự tích là lách qua chính lựa chọn ấy: một ô nhập có thể mở khoá
+   * nhiều mẫu, và mẫu cán bộ cố ý bỏ lại nhảy vào bản xuất.
+   */
+  it('đã có lựa chọn riêng thì KHÔNG tự tích mẫu vừa mở khoá', async () => {
+    mPrefList.mockResolvedValue({
+      data: { DON_THU: { templateIds: [], mode: 'separate' } },
+    } as never);
+    const list = [tpl({ id: 't1', selectedByDefault: true })];
+    const thieu = { field: 'lyDo', label: 'Lý do', type: 'text' as const, savable: true, column: 'lyDo' };
+    mList.mockResolvedValue(list);
+    mGet
+      .mockResolvedValueOnce(readiness(list, { t1: [thieu] }) as never)
+      .mockResolvedValue(readiness(list) as never);
+    vi.mocked(api.put).mockResolvedValue({ data: { data: { updatedAt: 'x' } } } as never);
+    render(<DynamicExportDocumentsModal entity="petitions" entityId="p1" onClose={vi.fn()} />, {
+      wrapper: boc,
+    });
+    await screen.findByTestId('dyn-export-checkbox-t1');
+    fireEvent.change(screen.getByTestId('dyn-export-fill-lyDo'), { target: { value: 'X' } });
+    fireEvent.click(screen.getByTestId('dyn-export-save-fill'));
+    await waitFor(() => expect(o('t1').disabled).toBe(false));
+    expect(o('t1').checked).toBe(false);
+  });
+
+  /** Đang đặt lại mà bấm Xuất là một lệnh ghi đua với một lệnh xoá — kết quả không ai đoán được. */
+  it('đang Đặt lại thì nút Xuất bị khoá', async () => {
+    let moKhoa: () => void = () => {};
+    mPrefDatLai.mockImplementation(
+      () => new Promise((res) => { moKhoa = () => res({ data: { deleted: 1 } } as never); }) as never,
+    );
+    await moPopup([tpl({ id: 't1', selectedByDefault: true })]);
+    await waitFor(() => expect(o('t1').checked).toBe(true));
+    fireEvent.click(screen.getByTestId('dyn-export-reset-pref'));
+    await waitFor(() =>
+      expect((screen.getByTestId('dyn-export-confirm') as HTMLButtonElement).disabled).toBe(true),
+    );
+    moKhoa();
+  });
+
   describe('lưu lại', () => {
     it('bấm Xuất thì lưu đúng tập mẫu và định dạng đang chọn', async () => {
       mExport.mockResolvedValue({ data: new Blob(), headers: {} } as never);

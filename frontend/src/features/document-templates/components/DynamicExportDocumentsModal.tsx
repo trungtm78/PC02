@@ -60,6 +60,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   // mẫu 1 .docx; KHÔNG phải .zip nên không cần giải nén.
   const [mode, setMode] = useState<ExportMode>('separate');
   const [isExporting, setIsExporting] = useState(false);
+  const [dangDatLai, setDangDatLai] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevReadyRef = useRef<Set<string>>(new Set());
@@ -67,6 +68,9 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const coBatSanRef = useRef<Set<string>>(new Set());
   // Đếm lượt nạp: kết quả của lượt CŨ về sau lượt mới thì bỏ, không ghi đè.
   const luotNapRef = useRef(0);
+  // Cán bộ đã từng đặt lựa chọn riêng chưa. Nhánh tự-tích sau "Lưu bổ sung" cần biết: đã có
+  // lựa chọn riêng thì cờ admin không được chen vào nữa.
+  const coLuaChonRiengRef = useRef(false);
   // Bản đồ readiness dạng ref: cần đọc nó NGAY khi danh sách mẫu về, trước lượt render kế.
   const readinessRef = useRef<Record<string, ReadinessItem>>({});
   // Đóng modal giữa lúc đang tải nhiều file → DỪNG vòng lặp và không setState nữa
@@ -91,6 +95,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
   const gieoLuaChon = useCallback(
     (danhSach: DocumentTemplate[], daLuu: LuaChonInApi | undefined) => {
       const duDieuKien = (id: string) => readinessRef.current[id]?.ready !== false;
+      coLuaChonRiengRef.current = !!daLuu;
       if (daLuu) {
         const coThat = new Set(danhSach.map((t) => t.id));
         setSelected(new Set(daLuu.templateIds.filter((id) => coThat.has(id) && duDieuKien(id))));
@@ -131,11 +136,13 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
       if (!preserve) return prev;
       // Giữ nguyên hành vi cũ cho lần nạp SAU "Lưu bổ sung": mẫu vừa đủ điều kiện thì tự tích
       // thêm. Cán bộ vừa chủ động gõ thông tin để mở khoá đúng mẫu ấy — bắt họ tích lại là thừa.
-      // CHỈ mẫu admin đã bật cờ mới được tự tích. Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc
-      // (chúng dùng chung field thiếu) — tự tích tất cả là lách qua đúng cấu hình vừa dựng.
-      const newlyReady = readyKeys.filter(
-        (k) => !prevReady.has(k) && coBatSanRef.current.has(k),
-      );
+      // CHỈ mẫu admin đã bật cờ mới được tự tích, và CHỈ khi cán bộ chưa từng đặt lựa chọn
+      // riêng. Một ô nhập có thể mở khoá NHIỀU mẫu cùng lúc (chúng dùng chung field thiếu) —
+      // tự tích tất cả là lách qua đúng lựa chọn vừa dựng: mẫu cán bộ cố ý bỏ lại nhảy vào bản
+      // xuất, và cờ admin chen vào chỗ đáng lẽ lựa chọn cá nhân thắng.
+      const newlyReady = coLuaChonRiengRef.current
+        ? []
+        : readyKeys.filter((k) => !prevReady.has(k) && coBatSanRef.current.has(k));
       const next = new Set([...prev].filter((k) => readyKeys.includes(k)));
       newlyReady.forEach((k) => next.add(k));
       return next;
@@ -247,9 +254,17 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
 
   /** Xoá lựa chọn riêng rồi gieo lại theo cờ admin — cùng đường mã với lúc mở popup. */
   async function handleResetPref() {
-    await luaChonDaLuu.datLai();
-    if (cancelledRef.current) return;
-    gieoLuaChon(templates, undefined);
+    if (dangDatLai || isExporting) return;
+    // Khoá nút Xuất trong lúc xoá: bấm Xuất giữa chừng là một lệnh GHI đua với một lệnh XOÁ, và
+    // lựa chọn còn lại trong CSDL không ai đoán được.
+    setDangDatLai(true);
+    try {
+      await luaChonDaLuu.datLai();
+      if (cancelledRef.current) return;
+      gieoLuaChon(templates, undefined);
+    } finally {
+      setDangDatLai(false);
+    }
   }
 
   async function handleExport() {
@@ -371,7 +386,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
             type="button"
             data-testid="dyn-export-reset-pref"
             onClick={() => void handleResetPref()}
-            disabled={isExporting || isLoading}
+            disabled={isExporting || isLoading || dangDatLai}
             className="mr-auto px-3 py-2 text-sm text-slate-600 underline underline-offset-2 hover:text-slate-800 disabled:opacity-50"
           >
             Dùng lại mặc định
@@ -379,7 +394,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
           <button type="button" data-testid="dyn-export-close" onClick={onClose} disabled={isExporting} className="px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             Đóng
           </button>
-          <button type="button" data-testid="dyn-export-confirm" onClick={() => void handleExport()} disabled={selected.size === 0 || isExporting || isLoading} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
+          <button type="button" data-testid="dyn-export-confirm" onClick={() => void handleExport()} disabled={selected.size === 0 || isExporting || isLoading || dangDatLai} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
             {isExporting ? 'Đang xuất...' : 'Xuất file'}
           </button>
