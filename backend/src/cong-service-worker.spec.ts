@@ -55,8 +55,16 @@ describe('Cổng service worker', () => {
     expect(noiDung).toContain('no-cache, must-revalidate');
   });
 
-  it('bộ kiểm bản công khai soi đúng tên mới', () => {
-    expect(kiemBanCongKhai).toContain('/sw-v2.js');
+  /**
+   * Phải soi CẢ HAI. `/sw-v2.js` là tên mới nên bao giờ cũng khớp — chưa ai kịp ghim nó; soi
+   * mỗi nó thì đúng cảnh cần bắt (biên còn phục vụ bản cũ ở `/sw.js`) lại lọt qua trong im
+   * lặng. `/sw.js` mới là địa chỉ duy nhất máy đang kẹt còn dò tới.
+   */
+  it('bộ kiểm bản công khai soi CẢ bia mộ lẫn bản đang chạy', () => {
+    const dong = /for TEP in .*/.exec(kiemBanCongKhai)?.[0] ?? '';
+    expect(dong).not.toBe('');
+    expect(dong).toContain('/sw.js');
+    expect(dong).toContain('/sw-v2.js');
   });
 
   describe('bia mộ ở /sw.js', () => {

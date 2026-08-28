@@ -37,7 +37,11 @@ bam() {
 }
 
 LECH=0
-for TEP in /sw-v2.js /index.html; do
+# `/sw.js` phải nằm trong danh sách này. Nó là BIA MỘ tự gỡ, và là địa chỉ DUY NHẤT mà máy
+# đang bị bản cũ điều khiển còn dò tới — cũng đúng là địa chỉ Cloudflare ghim bản 23/08. Soi
+# mỗi `/sw-v2.js` thì đúng cái cảnh "cán bộ kẹt ở bản cũ" lại lọt qua trong im lặng, vì tên
+# mới thì bao giờ cũng khớp: chưa ai kịp ghim nó.
+for TEP in /sw.js /sw-v2.js /index.html; do
     A=$(bam "${GOC}${TEP}")
     B=$(bam "${CONG_KHAI}${TEP}")
     if [ -z "$B" ] || [ "$B" = "d41d8cd98f00b204e9800998ecf8427e" ]; then
