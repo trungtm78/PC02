@@ -31,7 +31,7 @@ describe('DocumentTemplatesService', () => {
   });
 
   it('create: tính sha + phân loại biến (catalog=auto, ngoài catalog=manual) + lưu bytes + createdById', async () => {
-    const buf = docx('Số {soVuAn} {hoTenBiCan}');
+    const buf = docx('Số {soVuAn} {khongCoTrongDanhMuc}');
     await svc.create(
       { code: 'QD-KTVA', name: 'QĐ khởi tố', entityType: 'VU_AN', category: 'Quyết định' } as any,
       { buffer: buf, originalname: 'a.docx' },
@@ -40,10 +40,13 @@ describe('DocumentTemplatesService', () => {
     const data = mockPrisma.documentTemplate.create.mock.calls[0][0].data;
     expect(data.fileSha).toBe(createHash('sha256').update(buf).digest('hex'));
     expect(data.variables).toEqual([
-      // soVuAn thuộc catalog VU_AN → auto-điền (field=name auto-suy); hoTenBiCan ngoài catalog → nhập tay.
+      // soVuAn thuộc danh mục VU_AN → tự điền (field=name suy ra); tên ngoài danh mục → nhập tay.
       // required:false mặc định (admin bật sau qua update.requiredVariables) — PR2.
+      //
+      // Ví dụ trước đây dùng `hoTenBiCan` làm biến "ngoài danh mục", nhưng 28/08/2026 nó đã
+      // thành khoá TỰ ĐIỀN (vụ án có bảng bị can), nên đổi sang một tên chắc chắn không có.
       { name: 'soVuAn', source: 'auto', label: 'soVuAn', field: 'soVuAn', required: false },
-      { name: 'hoTenBiCan', source: 'manual', label: 'hoTenBiCan', required: false },
+      { name: 'khongCoTrongDanhMuc', source: 'manual', label: 'khongCoTrongDanhMuc', required: false },
     ]);
     expect(data.createdById).toBe('u1');
     expect(data.fileBytes).toBe(buf);

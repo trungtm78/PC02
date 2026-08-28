@@ -69,7 +69,9 @@ describe('seed mẫu chứng từ — docx builder + registry', () => {
   it('variables phân loại auto/manual đúng', () => {
     expect(isAutoPlaceholder('VU_AN', 'soVuAn')).toBe(true);
     expect(isAutoPlaceholder('VU_AN', 'dieuTraVien')).toBe(true);
-    expect(isAutoPlaceholder('VU_AN', 'hoTenBiCan')).toBe(false);
+    // 28/08/2026: `hoTenBiCan` chuyển sang TỰ ĐIỀN — vụ án đã có bảng bị can, mà khai "cán bộ
+    // tự điền" thì luật sẵn sàng-in coi là thiếu và khoá luôn ba mẫu quyết định.
+    expect(isAutoPlaceholder('VU_AN', 'hoTenBiCan')).toBe(true);
     expect(isAutoPlaceholder('VU_VIEC', 'soVuViec')).toBe(true);
     expect(isAutoPlaceholder('VU_VIEC', 'diaDanh')).toBe(false);
   });

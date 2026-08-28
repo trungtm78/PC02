@@ -36,17 +36,33 @@ import { timThuMucMau } from './duong-dan-mau';
  * sau qua update.requiredVariables. Chọn trường cốt lõi để chứng từ có nghĩa (auto → flag khi hồ sơ
  * thiếu; manual → nhập tại popup khi in).
  */
-const REQUIRED_VARS: Record<string, string[]> = {
-  QD_KHOI_TO_VU_AN: ['tenVuAn', 'toiDanh', 'noiXayRa'],
-  QD_KHOI_TO_BI_CAN: ['hoTenBiCan', 'namSinh', 'toiDanh', 'dieuLuat'],
-  KET_LUAN_DIEU_TRA: ['soKLDT', 'tenVuAn', 'toiDanh', 'hoTenBiCan', 'dieuLuat'],
-  QD_TAM_DINH_CHI_DT: ['tenVuAn', 'lyDo'],
-  BB_HOI_CUNG_BI_CAN: ['hoTenBiCan', 'gioBatDau', 'diaDiem'],
-  QD_PHAN_CONG_GIAI_QUYET: ['tenVuViec', 'nguonTin', 'dieuTraVien', 'nguoiQuyetDinh'],
-  QD_KHOI_TO_TU_NGUON_TIN: ['tenVuViec', 'toiDanh', 'dieuLuat'],
-  QD_KHONG_KHOI_TO: ['tenVuViec', 'lyDo', 'nguoiQuyetDinh'],
-  TB_KET_QUA_GIAI_QUYET: ['nguoiNhan', 'tenVuViec', 'ketQua'],
-  QD_TAM_DINH_CHI_GQ: ['tenVuViec', 'lyDo'],
+/**
+ * Chỉ đánh dấu BẮT BUỘC những trường hệ thống THẬT SỰ có dữ liệu.
+ *
+ * Luật sẵn sàng-in coi một biến bắt buộc còn rỗng là "chưa in được", nên mỗi trường bắt buộc
+ * mà dữ liệu không bao giờ có là một mẫu bị khoá vĩnh viễn. Đo trên máy thật 28/08/2026:
+ *
+ *   `soKLDT`         0/3.673 vụ án   — bản gốc hệ cũ cũng 0
+ *   `nguonTin`       0/4.848 vụ việc — bản gốc hệ cũ cũng 0
+ *   `nguoiQuyetDinh` 0/4.848 vụ việc — bản gốc hệ cũ cũng 0
+ *
+ * Ba trường ấy bỏ khỏi danh sách bắt buộc; cán bộ vẫn điền được ở popup khi cần. Cùng lẽ ấy
+ * với `gioBatDau`/`diaDiem` của biên bản hỏi cung: chỉ cán bộ mới biết, và không được vì thế
+ * mà chặn in — hệ cũ vốn in cả khi trường trống.
+ *
+ * Những trường còn lại đều đã có nguồn tự điền trong danh mục (xem `field-catalog.ts`).
+ */
+export const REQUIRED_VARS_CHO_KIEM: Record<string, string[]> = {
+  QD_KHOI_TO_VU_AN: ['tenVuAn'],
+  QD_KHOI_TO_BI_CAN: ['tenVuAn'],
+  KET_LUAN_DIEU_TRA: ['tenVuAn'],
+  QD_TAM_DINH_CHI_DT: ['tenVuAn'],
+  BB_HOI_CUNG_BI_CAN: [],
+  QD_PHAN_CONG_GIAI_QUYET: ['tenVuViec', 'dieuTraVien'],
+  QD_KHOI_TO_TU_NGUON_TIN: ['tenVuViec'],
+  QD_KHONG_KHOI_TO: ['tenVuViec'],
+  TB_KET_QUA_GIAI_QUYET: ['tenVuViec'],
+  QD_TAM_DINH_CHI_GQ: ['tenVuViec'],
 };
 
 function buildVariables(buffer: Buffer, entityType: string, requiredNames: string[] = []) {
@@ -85,7 +101,7 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
       const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
       const alreadyConfigured = curVars.some((v) => v.required === true);
       if (!alreadyConfigured) {
-        const req = new Set(REQUIRED_VARS[spec.code] ?? []);
+        const req = new Set(REQUIRED_VARS_CHO_KIEM[spec.code] ?? []);
         const vars = curVars.map((v) => ({ ...v, required: req.has(v.name) }));
         await (prisma as any).documentTemplate.update({ where: { id: existing.id }, data: { variables: vars } });
         console.log(`  ↻ ${spec.entityType}/${spec.code} backfill required (${[...req].length} biến).`);
@@ -97,7 +113,7 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
 
     const buffer = await buildTemplateDocx(spec.body);
     const fileSha = createHash('sha256').update(buffer).digest('hex');
-    const variables = buildVariables(buffer, spec.entityType, REQUIRED_VARS[spec.code] ?? []);
+    const variables = buildVariables(buffer, spec.entityType, REQUIRED_VARS_CHO_KIEM[spec.code] ?? []);
 
     await (prisma as any).documentTemplate.create({
       data: {

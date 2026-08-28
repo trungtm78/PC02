@@ -124,11 +124,55 @@ const SO_VAN_BAN: FieldDef = {
   resolve: () => '',
 };
 
+
+/**
+ * Tội danh của hồ sơ — quan hệ `crimeChinh` TRƯỚC, cột chữ tự do sau.
+ *
+ * Cột `crime` là chữ cán bộ gõ, có từ trước; hồ sơ di trú gắn tội danh qua quan hệ. Chỉ đọc
+ * cột chữ thì 2.953 vụ án có `crimeChinh` mà cột kia rỗng sẽ in ra trống.
+ */
+function toiDanhCuaHoSo(r: any): string {
+  return s(r?.crimeChinh?.name ?? r?.crime ?? '');
+}
+
+/** Điều luật suy từ số điều của tội danh — mẫu in ghi "Điều 173 BLHS". */
+function dieuLuatCuaHoSo(r: any): string {
+  const so = r?.crimeChinh?.articleNo;
+  return so ? `Điều ${so} Bộ luật Hình sự` : '';
+}
+
+/** Bị can/đối tượng của vụ án — liệt kê hết, không chỉ in người đầu tiên. */
+function hoTenBiCan(r: any): string {
+  const ds = Array.isArray(r?.subjects) ? r.subjects : [];
+  return ds.map((x: any) => s(x?.fullName)).filter(Boolean).join(', ');
+}
+
+/** Năm sinh bị can đầu tiên — mẫu in để một dòng cho một người. */
+function namSinhBiCan(r: any): string {
+  const ds = Array.isArray(r?.subjects) ? r.subjects : [];
+  const d = ds.find((x: any) => x?.dateOfBirth)?.dateOfBirth;
+  if (!d) return '';
+  const date = d instanceof Date ? d : new Date(d as string);
+  return Number.isNaN(date.getTime()) ? '' : String(date.getUTCFullYear());
+}
+
+/** Danh sách căn cứ (cột chọn-nhiều) gộp thành một dòng. */
+function gopDanhSach(v: unknown): string {
+  if (Array.isArray(v)) return v.map((x) => s(x)).filter(Boolean).join('; ');
+  return s(v);
+}
+
 // ── VU_AN (Case) — mirror caseMap cũ ─────────────────────────────────────────
 const VU_AN_FIELDS: FieldDef[] = [
   { key: 'soVuAn', label: 'Số vụ án', group: 'Hồ sơ', resolve: (r) => s(r.caseCode) },
   { key: 'tenVuAn', label: 'Tên vụ án', group: 'Hồ sơ', resolve: (r) => s(r.name) },
-  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => s(r.crime) },
+  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => toiDanhCuaHoSo(r) },
+  { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
+  { key: 'hoTenBiCan', label: 'Họ tên bị can', group: 'Bị can', resolve: (r) => hoTenBiCan(r) },
+  { key: 'namSinh', label: 'Năm sinh bị can', group: 'Bị can', resolve: (r) => namSinhBiCan(r) },
+  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuAn ?? r.lyDoTamDinhChiText) },
+  { key: 'noiXayRa', label: 'Nơi xảy ra', group: 'Hồ sơ', resolve: (r) => s(r.noiXayRa) },
+  { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
   { key: 'trangThai', label: 'Trạng thái', group: 'Hồ sơ', resolve: (r) => s(r.status) },
   { key: 'ngayKhoiTo', label: 'Ngày khởi tố', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayKhoiTo) },
   { key: 'soQuyetDinhKhoiTo', label: 'Số QĐ khởi tố', group: 'Văn bản', resolve: (r) => s(r.soQuyetDinhKhoiTo) },
@@ -151,6 +195,11 @@ const VU_VIEC_FIELDS: FieldDef[] = [
   { key: 'ngayTiepNhan', label: 'Ngày tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayDeXuat) },
   { key: 'donViGiaiQuyet', label: 'Đơn vị giải quyết', group: 'Cán bộ', resolve: (r) => s(r.donViGiaiQuyet) },
   { key: 'nguoiQuyetDinh', label: 'Người quyết định', group: 'Cán bộ', resolve: (r) => s(r.nguoiQuyetDinh) },
+  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => toiDanhCuaHoSo(r) },
+  { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
+  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuViec ?? r.lyDoTamDinhChiText) },
+  { key: 'ketQua', label: 'Kết quả giải quyết', group: 'Nghiệp vụ', resolve: (r) => s(r.ketQuaXuLy) },
+  { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
   { key: 'soQuyetDinh', label: 'Số quyết định', group: 'Văn bản', resolve: (r) => s(r.soQuyetDinh) },
   { key: 'ngayQuyetDinh', label: 'Ngày quyết định', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayQuyetDinh) },
   { key: 'dieuTraVien', label: 'Điều tra viên', group: 'Cán bộ', resolve: (r) => personName(r.investigator) },
