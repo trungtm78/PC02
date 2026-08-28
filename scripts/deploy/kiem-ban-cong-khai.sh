@@ -37,7 +37,7 @@ bam() {
 }
 
 LECH=0
-for TEP in /sw.js /index.html; do
+for TEP in /sw-v2.js /index.html; do
     A=$(bam "${GOC}${TEP}")
     B=$(bam "${CONG_KHAI}${TEP}")
     if [ -z "$B" ] || [ "$B" = "d41d8cd98f00b204e9800998ecf8427e" ]; then
