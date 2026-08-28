@@ -57,4 +57,16 @@ describe('Cổng: bộ nạp xuất chứng từ lấy đủ cột cán bộ', (
   it.each(['firstName', 'lastName', 'rank', 'shortName'])('khai cột `%s`', (cot) => {
     expect(CHON_CAN_BO_IN[cot as keyof typeof CHON_CAN_BO_IN]).toBe(true);
   });
+
+  /**
+   * Hằng số này THAY THẾ vài danh sách cột đang có, nên nó phải là TẬP BAO của chúng.
+   *
+   * Bản đầu bỏ mất `username` và `email`. `CaseDetailPage` dùng `investigator.username` làm tên
+   * dự phòng khi cán bộ chưa có họ tên, nên bỏ nó là ô tên điều tra viên trên màn chi tiết Vụ
+   * án thành TRỐNG — một hồi quy do chính bản vá gây ra, ở màn hình chẳng liên quan gì tới in
+   * chứng từ.
+   */
+  it.each(['username', 'email'])('giữ cột `%s` mà giao diện đang dùng', (cot) => {
+    expect(CHON_CAN_BO_IN[cot as keyof typeof CHON_CAN_BO_IN]).toBe(true);
+  });
 });

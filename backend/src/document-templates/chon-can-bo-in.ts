@@ -18,6 +18,14 @@ export const CHON_CAN_BO_IN = {
   id: true,
   firstName: true,
   lastName: true,
+  /**
+   * Giao diện dùng làm TÊN DỰ PHÒNG khi cán bộ chưa có họ tên — `CaseDetailPage` hiện
+   * `investigator.username` ở đúng chỗ tên điều tra viên. Hằng số này thay thế vài danh sách
+   * cột đang có, nên nó phải là TẬP BAO của chúng; bỏ bớt một cột là ô tên trên màn hình đó
+   * thành trống.
+   */
+  username: true,
+  email: true,
   /** Quân hàm — dòng ký của cán bộ (`rankName`). */
   rank: true,
   /**
