@@ -102,7 +102,7 @@ describe('Khoá tự điền cho mẫu quyết định tố tụng', () => {
   });
 });
 
-import { REQUIRED_VARS_CHO_KIEM } from '../../prisma/seed-document-templates';
+import { REQUIRED_VARS_CHO_KIEM, dongBoNguonBien } from '../../prisma/seed-document-templates';
 import { TEMPLATE_SPECS } from '../../prisma/seed-assets/document-templates/registry';
 
 /**
@@ -282,5 +282,47 @@ describe('GATE — mẫu Đơn thư không bắt buộc trường rỗng', () =>
 
   it('khai tường minh danh sách trường không có nguồn', () => {
     expect(ma).toContain('KHONG_CO_NGUON_DON_THU');
+  });
+});
+
+/**
+ * CỔNG: seed phải cập nhật lại NGUỒN của biến theo danh mục hiện tại, không chỉ cờ bắt buộc.
+ *
+ * Biến lưu trong cơ sở dữ liệu ghi sẵn `source: 'manual'` từ lần seed trước. Khi danh mục
+ * được bổ sung khoá tự điền, bản ghi cũ vẫn là `manual` — mà `manual` + `required` thì luật
+ * sẵn sàng-in coi LUÔN là thiếu. Kết quả: chữa danh mục xong mà máy thật vẫn khoá 9/28 mẫu.
+ *
+ * Đo trên máy thật sau khi nạp lần đầu: Đơn thư 14/14 nhưng Vụ việc 2/6, Vụ án 3/8 — đúng
+ * những mẫu có biến vừa chuyển sang tự điền.
+ */
+describe('GATE — seed cập nhật lại nguồn biến theo danh mục', () => {
+  it('biến đã lưu là `manual` được chuyển sang tự điền khi danh mục có khoá ấy', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'hoTenBiCan', label: 'hoTenBiCan', source: 'manual', required: true },
+    ]);
+    expect(ra[0]).toMatchObject({ source: 'auto', field: 'hoTenBiCan' });
+  });
+
+  it('biến KHÔNG có trong danh mục vẫn là cán bộ tự điền', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'khongCoTrongDanhMuc', label: 'x', source: 'auto', required: false },
+    ]);
+    expect(ra[0]).toMatchObject({ source: 'manual' });
+    expect(ra[0]['field']).toBeUndefined();
+  });
+
+  /** `field` là chỗ engine tra dữ liệu — thiếu nó thì ô in ra trống dù nguồn đã đúng. */
+  it('giữ `field` admin đã ánh xạ, không ghi đè bằng tên biến', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'tenVuAnRieng', label: 'x', source: 'auto', field: 'tenVuAn', required: false },
+    ]);
+    expect(ra[0]['field']).toBe('tenVuAn');
+  });
+
+  it('không đụng cờ bắt buộc — việc ấy do nhánh khác lo', () => {
+    const ra = dongBoNguonBien('VU_AN', [
+      { name: 'hoTenBiCan', label: 'x', source: 'manual', required: true },
+    ]);
+    expect(ra[0]['required']).toBe(true);
   });
 });
