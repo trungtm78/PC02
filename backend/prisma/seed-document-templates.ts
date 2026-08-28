@@ -61,6 +61,32 @@ import { timThuMucMau } from './duong-dan-mau';
  * Seed GỠ cờ bắt buộc khỏi đúng những tên này kể cả khi admin đã cấu hình — vì không cấu hình
  * nào làm chúng có dữ liệu được.
  */
+/**
+ * Đồng bộ NGUỒN của biến theo danh mục hiện tại.
+ *
+ * Biến lưu trong cơ sở dữ liệu ghi sẵn `source` từ lần seed trước. Khi danh mục được bổ sung
+ * khoá tự điền — như `toiDanh`, `hoTenBiCan`, `lyDo`, `ketQua`, `noiXayRa` ngày 28/08/2026 —
+ * bản ghi cũ vẫn là `manual`, mà `manual` + `required` thì luật sẵn sàng-in coi LUÔN là thiếu.
+ *
+ * Không đồng bộ thì chữa danh mục xong máy thật vẫn khoá: đo sau lần nạp đầu, Đơn thư 14/14
+ * nhưng Vụ việc 2/6 và Vụ án 3/8 — đúng những mẫu có biến vừa chuyển sang tự điền.
+ *
+ * `field` phải gán kèm: thiếu nó thì engine không biết lấy dữ liệu ở đâu và in ra ô trống.
+ */
+export function dongBoNguonBien(
+  entityType: string,
+  vars: Array<{ name: string; label?: string; source?: string; field?: string; required?: boolean }>,
+): Array<Record<string, unknown>> {
+  return vars.map((v) => {
+    const tuDien = isAutoPlaceholder(entityType, v.name);
+    return {
+      ...v,
+      source: tuDien ? 'auto' : 'manual',
+      ...(tuDien ? { field: v.field ?? v.name } : {}),
+    };
+  });
+}
+
 const KHONG_CO_NGUON = new Set([
   'soKLDT',
   'nguonTin',
@@ -119,7 +145,14 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
       // PR2: BACKFILL cờ `required` mặc định CHỈ KHI mẫu CHƯA từng cấu hình required (mọi biến
       // required falsy). Nếu admin/API đã set required (có ≥1 biến required:true) → GIỮ NGUYÊN,
       // không ghi đè (tôn trọng contract "không ghi đè bản admin đã sửa" — codex PR2).
-      const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
+      const curVars =
+        (existing.variables as Array<{
+          name: string;
+          label?: string;
+          source?: string;
+          field?: string;
+          required?: boolean;
+        }>) ?? [];
       const req = new Set(REQUIRED_VARS_CHO_KIEM[spec.code] ?? []);
 
       // Chỉ GỠ cờ bắt buộc khỏi những trường mà hệ thống không có nguồn dữ liệu, KHÔNG đụng
@@ -132,15 +165,22 @@ export async function seedDocumentTemplates(prisma: PrismaClient): Promise<{ cre
       const thieuBatBuoc = curVars.filter((v) => v.required !== true && req.has(v.name));
       const chuaCauHinh = !curVars.some((v) => v.required === true);
 
-      if (chuaCauHinh || daGoBo.length > 0) {
-        const vars = curVars.map((v) => ({
+      // Đồng bộ nguồn LUÔN chạy, kể cả khi không có cờ nào phải gỡ.
+      const daDongBo = dongBoNguonBien(spec.entityType, curVars);
+      const nguonDoi = daDongBo.some((v, i) => v['source'] !== curVars[i]?.source);
+
+      if (chuaCauHinh || daGoBo.length > 0 || nguonDoi) {
+        const vars = daDongBo.map((v) => ({
           ...v,
-          required: chuaCauHinh ? req.has(v.name) : v.required === true && !KHONG_CO_NGUON.has(v.name),
+          required: chuaCauHinh
+            ? req.has(String(v['name']))
+            : v['required'] === true && !KHONG_CO_NGUON.has(String(v['name'])),
         }));
         await (prisma as any).documentTemplate.update({ where: { id: existing.id }, data: { variables: vars } });
         console.log(
-          `  ↻ ${spec.entityType}/${spec.code} ${chuaCauHinh ? 'đặt' : 'gỡ'} cờ bắt buộc` +
-            (daGoBo.length ? ` (bỏ ${daGoBo.map((v) => v.name).join(', ')})` : ''),
+          `  ↻ ${spec.entityType}/${spec.code} ${chuaCauHinh ? 'đặt' : 'cập nhật'} biến` +
+            (daGoBo.length ? ` · bỏ bắt buộc ${daGoBo.map((v) => v.name).join(', ')}` : '') +
+            (nguonDoi ? ' · đồng bộ nguồn' : ''),
         );
       } else if (thieuBatBuoc.length) {
         console.log(`  → ${spec.entityType}/${spec.code} giữ nguyên cấu hình của admin.`);
@@ -242,24 +282,37 @@ export async function seedPetitionTemplates(
     }
     if (existing) {
       skipped++;
-      const curVars = (existing.variables as Array<{ name: string; required?: boolean }>) ?? [];
+      const curVars =
+        (existing.variables as Array<{
+          name: string;
+          label?: string;
+          source?: string;
+          field?: string;
+          required?: boolean;
+        }>) ?? [];
       const chuaCauHinh = !curVars.some((v) => v.required === true);
       const canGoBo = curVars.filter((v) => v.required === true && KHONG_CO_NGUON.has(v.name));
+
+      const daDongBoDT = dongBoNguonBien('DON_THU', curVars);
+      const nguonDoiDT = daDongBoDT.some((v, i) => v['source'] !== curVars[i]?.source);
 
       if (chuaCauHinh) {
         // codex P1: backfill required TRÊN variables DB hiện có (KHÔNG re-detect file đĩa →
         // không ghi đè mapping/fileBytes admin đã sửa).
-        const vars = markRequiredByDocType(docType, curVars as any);
+        const vars = markRequiredByDocType(docType, daDongBoDT as any);
         await (prisma as any).documentTemplate.update({
           where: { id: existing.id },
           data: { variables: vars },
         });
         console.log(`  ↻ DON_THU/${docType} backfill required.`);
-      } else if (canGoBo.length) {
+      } else if (canGoBo.length || nguonDoiDT) {
         // GỠ cờ bắt buộc khỏi trường không có nguồn dữ liệu — không cấu hình nào làm chúng có
         // dữ liệu được, nên giữ lại chỉ là khoá mẫu vĩnh viễn. Cờ admin đặt cho trường KHÁC
         // giữ nguyên.
-        const vars = curVars.map((v) => ({ ...v, required: v.required === true && !KHONG_CO_NGUON.has(v.name) }));
+        const vars = daDongBoDT.map((v) => ({
+          ...v,
+          required: v['required'] === true && !KHONG_CO_NGUON.has(String(v['name'])),
+        }));
         await (prisma as any).documentTemplate.update({
           where: { id: existing.id },
           data: { variables: vars },
