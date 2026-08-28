@@ -36,6 +36,7 @@ import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { INCIDENT_LEGACY_SPEC, KHOA_NHANH_PHU } from "@/features/incidents/legacy-form-binding";
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
+import { TINH_TRANG_OPTIONS, optionsGiuGiaTriLa } from '@/shared/legacy/tinhTrangOptions';
 
 
 function CollapsibleSection({
@@ -732,9 +733,19 @@ export function IncidentFormPage() {
                 className={inputClass} placeholder="Tình trạng thời hiệu" data-testid="field-tinhTrangThoiHieu" />
             </div>
             <div>
-              <label className={labelClass}>Tình trạng hồ sơ</label>
-              <input type="text" value={formData.tinhTrangHoSo} onChange={(e) => update("tinhTrangHoSo", e.target.value)}
-                className={inputClass} placeholder="Tình trạng hồ sơ" data-testid="field-tinhTrangHoSo" />
+              {/* Ô CHỌN, không phải ô gõ: hệ cũ vốn là `<select>` lưu bằng mã. Để ô gõ thì cán
+                  bộ nhập chữ tự do và cột lại lẫn số với chữ như trước 28/08/2026.
+                  `optionsGiuGiaTriLa` giữ 118 hồ sơ đang mang chữ ngoài danh sách — thiếu nó là
+                  lần lưu kế tiếp xoá mất chữ ấy mà không ai biết. */}
+              <label className={labelClass} htmlFor="field-tinhTrangHoSo">Tình trạng hồ sơ</label>
+              <select id="field-tinhTrangHoSo" value={formData.tinhTrangHoSo}
+                onChange={(e) => update("tinhTrangHoSo", e.target.value)}
+                className={inputClass} data-testid="field-tinhTrangHoSo">
+                <option value="">-- Chưa chọn --</option>
+                {optionsGiuGiaTriLa(TINH_TRANG_OPTIONS.VU_VIEC, formData.tinhTrangHoSo).map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

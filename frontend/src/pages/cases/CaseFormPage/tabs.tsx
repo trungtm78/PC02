@@ -43,6 +43,7 @@ import { LegacyTabBody } from "./LegacyTabBody";
 import { DTBSTable } from "./DTBSTable";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseProvenance } from "../../../shared/enums/generated";
+import { TINH_TRANG_OPTIONS, optionsGiuGiaTriLa } from '@/shared/legacy/tinhTrangOptions';
 
 // Branch-3 provenances that trigger Incident auto-create (module-level, not inside render)
 const DIRECT_PROVENANCES = new Set([
@@ -319,10 +320,15 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
           <div>
             <p className="text-sm font-semibold text-slate-600 mb-2">Phân loại</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormInput
+              {/* Ô CHỌN, không phải ô gõ — xem chú thích ở IncidentFormPage. Vụ án 2026-11139
+                  hiện `-1` vì ô này từng là ô gõ nhận thẳng mã hệ cũ. */}
+              <FormSelect
                 label="Tình trạng hồ sơ"
                 value={formData.tinhTrang}
                 onChange={(v) => update("tinhTrang", v)}
+                options={optionsGiuGiaTriLa(TINH_TRANG_OPTIONS.VU_AN, formData.tinhTrang)}
+                placeholder="-- Chưa chọn --"
+                data-testid="field-tinhTrang"
               />
               <FormInput
                 label="Phân loại tội phạm theo lĩnh vực"

@@ -188,3 +188,64 @@ describe('GATE — bộ nạp giải mã ô chọn ngay lúc nhập', () => {
     }
   });
 });
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * CỔNG CHỐNG LỆCH: bảng mã ở giao diện phải khớp từng dòng với bảng ở máy chủ.
+ *
+ * Giao diện cần bảng ấy để dựng ô chọn, máy chủ cần nó để giải mã lúc nhập. Hai bản chép tay
+ * sẽ lệch nhau ngay lần đầu ai đó sửa một bên, và lệch kiểu này không lộ ra: ô chọn vẫn hiện,
+ * chỉ là hiện sai chữ cho đúng cái mã ấy.
+ *
+ * Cổng đặt ở phía máy chủ vì chỉ ở đây mới đọc được cả hai tệp — Vite chặn nhập ngoài thư mục
+ * gốc của giao diện, và tsconfig giao diện không khai kiểu của Node.
+ *
+ * Đã kiểm ngược 28/08/2026: sửa lệch một nhãn ở giao diện thì cổng đỏ.
+ */
+describe('GATE — bảng mã giao diện khớp máy chủ', () => {
+  const giaoDien = fs.readFileSync(
+    path.resolve(__dirname, '../../../frontend/src/shared/legacy/tinhTrangOptions.ts'),
+    'utf-8',
+  );
+
+  /**
+   * Cắt chuỗi thay vì dò bằng biểu thức: mẫu dựng từ chuỗi ghép rất dễ mất dấu thoát khi đi
+   * qua trình soạn/vỏ lệnh, và lúc ấy cổng ném lỗi cú pháp thay vì so bảng — đã bị đúng thế
+   * lần đầu viết cổng này (28/08/2026).
+   */
+  function docBangGiaoDien(ten: string): Array<{ value: string; label: string }> {
+    const moc = 'const ' + ten + ': TuyChon[] = [';
+    const dau = giaoDien.indexOf(moc);
+    expect({ ten, timThay: dau >= 0 }).toEqual({ ten, timThay: true });
+    const than = giaoDien.slice(dau + moc.length, giaoDien.indexOf('];', dau));
+    const ds: Array<{ value: string; label: string }> = [];
+    for (const dong of than.split('\n')) {
+      const v = dong.split("value: '")[1];
+      const l = dong.split("label: '")[1];
+      if (v === undefined || l === undefined) continue;
+      ds.push({ value: v.slice(0, v.indexOf("'")), label: l.slice(0, l.indexOf("'")) });
+    }
+    return ds;
+  }
+
+  it.each([
+    ['VU_AN', 'VU_AN'],
+    ['VU_VIEC', 'VU_VIEC'],
+  ] as const)('bảng tình trạng %s khớp hai bên', (tenFe, tenBe) => {
+    // So theo CẶP mã→chữ, không theo thứ tự: `Object.entries` xếp khoá dạng số lên trước nên
+    // `-2` rơi xuống cuối, trong khi thứ tự trên ô chọn là lựa chọn của giao diện và không
+    // phải thứ cần canh. Thứ cần canh là: đủ mã, và mỗi mã đúng một chữ.
+    const cuaMayChu = BANG_TINH_TRANG[tenBe];
+    const cuaGiaoDien = Object.fromEntries(docBangGiaoDien(tenFe).map((o) => [o.value, o.label]));
+    expect(cuaGiaoDien).toEqual({ ...cuaMayChu });
+  });
+
+  /** Danh sách ô chọn KHÔNG được chứa `-1`: nó là mã canh "chưa chọn", không phải lựa chọn. */
+  it('giao diện không khai `-1` thành một lựa chọn bấm được', () => {
+    for (const ten of ['VU_AN', 'VU_VIEC']) {
+      expect(docBangGiaoDien(ten).some((o) => o.value === '-1')).toBe(false);
+    }
+  });
+});
