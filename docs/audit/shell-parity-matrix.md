@@ -683,3 +683,44 @@ Trang này trước chạy bố cục `auto` và chỉ cột `actions` có `widt
 width thì phần dư bị chia đều và bảng đổi hình, nên đã khai đủ 7 cột, **bề rộng đo từ dữ liệu
 thật trên máy chạy** (trung vị / phân vị 90, 28/08/2026): mã hồ sơ 9/9 → `8rem`; tên & người
 gửi 16/42 → `22rem`; đơn vị 9/38 → `14rem`.
+
+## v0.74.1.0 — Ba màn còn lại dùng bảng chung (feat/3-man-dung-bang-chung)
+
+**Anh chốt 28/08/2026**: "làm nốt 3 màn còn lại". Trước đó bảy màn danh sách dùng HAI cách
+khác nhau — bốn màn dùng `ListPageShell.Table`, ba màn tự viết thẻ `<table>`. Hệ quả: cán bộ
+kéo giãn được cột ở màn này nhưng không ở màn kia, không lý do nào giải thích được.
+
+### Ba shell chuyển sang bảng chung
+
+| Shell | Khoá bảng | Trước | Sau |
+|---|---|---|---|
+| Đối tượng (`ObjectListPageShell`) | `objects` | `<table>` tự viết | `ListPageShell.Table` |
+| Luật sư (`LawyerListPageShell`) | `lawyers` | `<table>` tự viết | `ListPageShell.Table` |
+| Quy tắc thời hạn (`DeadlineRulesListPage`) | `deadline-rules` | `<table>` tự viết | `ListPageShell.Table` |
+
+Cả ba nay có đủ: kéo giãn bề rộng · ẩn/hiện cột · đổi thứ tự cột · Về mặc định — lưu theo tài
+khoản như bốn màn chính.
+
+### Giữ nguyên parity đã có
+
+- **Nhãn ô tick không đổi**: `bulkRowLabel` giữ nguyên chuỗi cũ ("Chọn bị can Nguyễn Văn A").
+  Đó là thứ trình đọc màn hình đọc lên; đổi nó là đổi trải nghiệm người dùng bàn phím.
+- **Bộ cột, thứ tự cột, nội dung ô**: KHÔNG đổi. Cột "Vụ án" vẫn đọc `case.name` (không phải
+  `caseCode`) đúng như bản vá Codex ở PR4.
+- **Trạng thái bảng** (đang tải / lỗi / rỗng / rỗng-sau-lọc) chuyển sang testid chuẩn của
+  `ListPageShell.Table`; ba testid riêng cho từng HÀNG (`lawyer-row-…`, `rule-row-…`) không
+  còn — ca kiểm đổi sang bám nội dung, vốn đúng hơn.
+
+### Chú thích cũ đã hết đúng
+
+`DeadlineRulesListPage` từng ghi giữ bảng nội tuyến vì "kiểu cột lệch khỏi `ColumnDef<TRow>`".
+Lý do ấy không còn: `ColumnDef.render` trả `ReactNode` nên huy hiệu trạng thái, liên kết Lịch
+sử / Đề xuất sửa, và ô canh phải đều dựng được. Giữ riêng chỉ có nghĩa là màn ấy mãi không
+được hưởng cá nhân hoá cột.
+
+### Cổng mới
+
+`frontend/src/pages/__tests__/moiManDanhSachDungBangChung.gate.test.ts` đọc mã nguồn bảy shell:
+phải dùng `ListPageShell.Table`, không tự dựng `<table>`, bật `onKeoGian`, có `datTongBeRong`
+(thiếu là bảng đổi bố cục cho cả người chưa hề kéo), có `<ColumnPicker>` + `onDoiCho`, và
+**mỗi màn một khoá bảng riêng** — trùng khoá là bố cục hai màn đè lên nhau.
