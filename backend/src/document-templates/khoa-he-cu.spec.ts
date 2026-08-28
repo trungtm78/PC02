@@ -47,11 +47,22 @@ describe('khoaTheoTenHeCu — khoá catalog mang tên trường hệ cũ', () =>
     expect(k!.resolve({ petitionDate: new Date('2026-08-27T00:00:00Z') })).toMatch(/27.*08.*2026/);
   });
 
-  /** Mốc rỗng của hệ cũ (`0`, `-25200`) không được in ra thành ngày 1970. */
+  /**
+   * Mốc rỗng của hệ cũ (`0`, `-25200`) không được in ra thành ngày 1970.
+   *
+   * Ca kiểm này trước đây dùng `ngay_viet_don`, nhưng hệ cũ khai trường ấy là kiểu CHỮ nên nó
+   * không bao giờ giữ mốc số — đo 28/08/2026 trên 55.067 hồ sơ: 0 bản ghi có `0` hay `-25200`,
+   * còn 8.389 bản ghi để rỗng. Bẫy là thật, chỉ là đặt nhầm nhà nên nó không canh gì cả.
+   *
+   * `thoi_han_thuc_hien_uy_thac_dieu_tra` mới là trường `date` thật và có mặt trên mẫu in
+   * (`uy_thac_dieu_tra_mau.docx`): 18.212 bản ghi, tất cả đều là mốc số.
+   */
   it('mốc rỗng của hệ cũ không in ra ngày 1970', () => {
-    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_viet_don');
-    expect(k!.resolve({ legacyRaw: { ngay_viet_don: 0 } })).toBe('');
-    expect(k!.resolve({ legacyRaw: { ngay_viet_don: -25200 } })).toBe('');
+    const k = khoaTheoTenHeCu('petition').find(
+      (x) => x.key === 'thoi_han_thuc_hien_uy_thac_dieu_tra',
+    );
+    expect(k!.resolve({ legacyRaw: { thoi_han_thuc_hien_uy_thac_dieu_tra: 0 } })).toBe('');
+    expect(k!.resolve({ legacyRaw: { thoi_han_thuc_hien_uy_thac_dieu_tra: -25200 } })).toBe('');
   });
 
   /** Vụ việc khai `phan_loai_toi_pham_cong_nghe_cao` là cột đúng/sai — in ra chữ, không in `true`. */
@@ -77,20 +88,29 @@ describe('khoaTheoTenHeCu — khoá catalog mang tên trường hệ cũ', () =>
     expect(KHOA_HE_CU_NGOAI_PARITY.some((k) => k.key === ten)).toBe(true);
   });
 
-  it('`stt` in ra mã hồ sơ theo đúng cách hệ cũ hiện — hai chữ số năm', () => {
+  /**
+   * Hệ cũ in `${stt}` bằng số TRẦN, không ghép năm — xem `in-nhu-he-cu.spec.ts` cho bằng chứng
+   * từ ba bản in thật. Kỳ vọng cũ (`26-11253`) đúng với thứ hệ cũ hiện trên màn hình danh sách,
+   * nhưng bản in là bề mặt khác.
+   */
+  it('`stt` in số hồ sơ trần, cắt phần năm khỏi mã', () => {
     const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'stt')!;
-    expect(k.resolve({ stt: '2026-11253' })).toBe('26-11253');
-    expect(k.resolve({ code: '2026-9705' })).toBe('26-9705');
-    expect(k.resolve({ caseCode: '2019-80' })).toBe('19-80');
+    expect(k.resolve({ stt: '2026-11253' })).toBe('11253');
+    expect(k.resolve({ code: '2026-9705' })).toBe('9705');
+    expect(k.resolve({ caseCode: '2019-80' })).toBe('80');
   });
 
-  it('`ngay`/`thang`/`nam` lấy từ ngày ký, mặc định là hôm nay', () => {
+  /**
+   * Không có bản thô (hồ sơ tạo mới trên hệ mới) thì ba ô đầu văn bản rơi về ngày ký. Tháng
+   * KHÔNG đệm số 0, đúng luật của hệ cũ — xem `in-nhu-he-cu.spec.ts`.
+   */
+  it('`ngay`/`thang`/`nam` rơi về ngày ký khi hồ sơ không có bản thô', () => {
     const ngay = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ngay')!;
     const thang = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'thang')!;
     const nam = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'nam')!;
     const hs = { ngayDeXuat: new Date('2026-08-27T03:00:00Z') };
     expect(ngay.resolve(hs)).toBe('27');
-    expect(thang.resolve(hs)).toBe('08');
+    expect(thang.resolve(hs)).toBe('8');
     expect(nam.resolve(hs)).toBe('2026');
   });
 });
@@ -126,10 +146,14 @@ describe('Bẫy đã trả giá một lần', () => {
    * 0%, chỉ `+50400s` khớp 100%. Tự đổi bằng `new Date(n * 1000)` là in ra SỚM MỘT NGÀY.
    */
   it('mốc epoch hệ cũ in đúng ngày, không sớm một ngày', () => {
-    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'ngay_viet_don')!;
+    const k = khoaTheoTenHeCu('petition').find(
+      (x) => x.key === 'thoi_han_thuc_hien_uy_thac_dieu_tra',
+    )!;
     // Mốc 1787824800 là chỗ hai cách đọc cho ra NGÀY KHÁC NHAU: nhân 1000 thô ra 27/08,
     // cộng 50400s ra 28/08. Chọn đúng mốc ấy thì ca kiểm mới bắt được lỗi.
-    expect(k.resolve({ legacyRaw: { ngay_viet_don: 1787824800 } })).toBe('28/08/2026');
+    expect(k.resolve({ legacyRaw: { thoi_han_thuc_hien_uy_thac_dieu_tra: 1787824800 } })).toBe(
+      '28/08/2026',
+    );
   });
 
   /**
@@ -138,14 +162,24 @@ describe('Bẫy đã trả giá một lần', () => {
    */
   it('`stt` rơi về bản thô khi mã hồ sơ chưa có', () => {
     const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'stt')!;
-    expect(k.resolve({ caseCode: null, legacyRaw: { stt: '9705', nam: 2026 } })).toBe('26-9705');
-    expect(k.resolve({ caseCode: null, soHoSoCu: '2019-80' })).toBe('19-80');
+    expect(k.resolve({ caseCode: null, legacyRaw: { stt: '9705', nam: 2026 } })).toBe('9705');
+    expect(k.resolve({ caseCode: null, soHoSoCu: '2019-80' })).toBe('80');
   });
 
-  /** `${ten_ngan}` đứng ở dòng "Lưu:" — hệ cũ in dạng viết tắt, không in tên đầy đủ. */
-  it('`ten_ngan` in dạng viết tắt', () => {
+  /**
+   * `${ten_ngan}` đứng ở dòng "Lưu:" — hệ cũ đọc chuỗi cán bộ TỰ ĐẶT ở `thanh_vien.ten_ngan`,
+   * không suy ra từ họ tên. Kỳ vọng cũ (`H.Duy` suy từ tên) sai với 210/238 cán bộ; chi tiết và
+   * số đo ở `in-nhu-he-cu.spec.ts`.
+   */
+  it('`ten_ngan` in đúng chuỗi cán bộ tự đặt', () => {
     const k = KHOA_HE_CU_NGOAI_PARITY.find((x) => x.key === 'ten_ngan')!;
-    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe('H.Duy');
+    expect(
+      k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy', shortName: 'H.Duy' } }),
+    ).toBe('H.Duy');
+    // Chưa có chuỗi ấy thì rơi về họ tên đầy đủ, đúng nhánh `?? $nguoi_nhan` của hệ cũ.
+    expect(k.resolve({ enteredBy: { lastName: 'Trần Hoàng', firstName: 'Duy' } })).toBe(
+      'Trần Hoàng Duy',
+    );
   });
 
   it('`nguoi_nhan` vẫn in tên đầy đủ', () => {

@@ -35,6 +35,7 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { INCIDENT_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentAssignedEvent } from '../notifications/events/notification.events';
+import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 
 @Injectable()
 export class IncidentsService {
@@ -364,15 +365,9 @@ export class IncidentsService {
         // `toiDanh`/`dieuLuat` từ quan hệ này. Thiếu nó thì hai ô ấy in ra TRỐNG dù vụ việc
         // đã gắn tội danh — cán bộ nhìn bản in tưởng hồ sơ chưa nhập.
         crimeChinh: { select: { id: true, code: true, name: true, articleNo: true } },
-        investigator: {
-          select: { id: true, firstName: true, lastName: true, username: true, email: true },
-        },
-        canBoNhap: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-        createdBy: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
+        investigator: { select: CHON_CAN_BO_IN },
+        canBoNhap: { select: CHON_CAN_BO_IN },
+        createdBy: { select: CHON_CAN_BO_IN },
         linkedCase: {
           select: { id: true, name: true, status: true },
         },
