@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LawyerListPageShell } from '../LawyerListPageShell';
 
 // BulkActionBar wraps "Đã chọn N luật sư" in role="status" + aria-live="polite".
@@ -90,12 +91,17 @@ function setupHappyFetch(lawyers = SAMPLE_LAWYERS) {
 }
 
 function renderShell(initialEntry = '/lawyers') {
+  // Trang nay dung `useBoCucCot` (bo cuc cot luu theo tai khoan) nen can react-query, giong
+  // moi trang danh sach khac. `retry: false` de loi mang gia lap khong keo dai ca kiem.
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path="/lawyers" element={<LawyerListPageShell />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/lawyers" element={<LawyerListPageShell />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -200,8 +206,11 @@ describe('LawyerListPageShell — bulk selection (plan PR4 mandatory)', () => {
     const rowCheckbox = screen.getByRole('checkbox', { name: /Chọn luật sư Nguyễn Văn A/i });
     fireEvent.click(rowCheckbox);
     await findBulkBarWithCount(1);
-    const row = screen.getByTestId('lawyer-row-lawyer-1');
-    expect(row.className).toContain('bg-blue-50');
+    // Tìm hàng theo NỘI DUNG chứ không theo testid riêng: trang nay dung bang chung
+    // `ListPageShell.Table`, vốn không phát testid cho từng hàng. Bám nội dung cũng đúng hơn —
+    // thứ cần kiểm là "hàng đang chọn có nền xanh", không phải "có thẻ tên ấy".
+    const row = screen.getByText('Nguyễn Văn A').closest('tr');
+    expect(row?.className).toContain('bg-blue-50');
   });
 });
 

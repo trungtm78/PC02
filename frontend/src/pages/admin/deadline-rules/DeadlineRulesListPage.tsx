@@ -12,24 +12,30 @@
  *
  * Uses react-query (deadlineRulesApi.listActive + getSummary).
  */
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Plus,
   ClipboardList,
   AlertCircle,
-  Loader2,
   History,
   FileText,
   ShieldAlert,
 } from 'lucide-react';
 import { deadlineRulesApi, DEADLINE_RULES_QUERY_KEYS } from '@/features/deadline-rules/api';
 import { StatusBadge } from '@/features/deadline-rules/components/StatusBadge';
+import type { DeadlineRuleVersion } from '@/features/deadline-rules/types';
 import {
   DEADLINE_RULE_KEY_LABEL,
   DEADLINE_RULE_KEY_UNIT,
 } from '@/shared/enums/status-labels';
-import { ListPageShell } from '@/components/shared/ListPageShell';
+import {
+  ListPageShell,
+  ColumnPicker,
+  useBoCucCot,
+  type ColumnDef,
+} from '@/components/shared/ListPageShell';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { formatVNDate } from '../../../lib/dates';
 import { hoTen } from '@/lib/hoTen';
@@ -59,6 +65,92 @@ export default function DeadlineRulesListPage() {
   const rules = activeQ.data?.data ?? [];
   const summary = summaryQ.data?.data;
 
+  /**
+   * Cột bảng Quy tắc thời hạn — chuyển từ `<table>` tự dựng sang `ListPageShell.Table`.
+   *
+   * Chú thích cũ ở đây nói giữ bảng nội tuyến vì "kiểu cột lệch khỏi ColumnDef" — lý do ấy
+   * không còn đúng: `ColumnDef.render` trả `ReactNode`, nên huy hiệu, liên kết và ô canh phải
+   * đều dựng được. Giữ riêng nghĩa là màn này mãi không kéo giãn cột được như các màn khác.
+   */
+  const columns: ColumnDef<DeadlineRuleVersion>[] = useMemo(
+    () => [
+      { key: 'ruleKey', header: 'Mã', width: '14rem',
+        cellClassName: 'px-3 py-3 font-mono text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => r.ruleKey },
+      { key: 'label', header: 'Tên hiển thị', width: '18rem', optional: 'show',
+        cellClassName: 'px-3 py-3 font-medium text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => DEADLINE_RULE_KEY_LABEL[r.ruleKey] ?? r.label },
+      { key: 'value', header: 'Giá trị', width: '7rem', optional: 'show',
+        headerClassName: 'px-3 py-3 text-right text-xs font-semibold tracking-wide text-slate-600',
+        cellClassName: 'px-3 py-3 text-right whitespace-nowrap overflow-hidden',
+        render: (r) => (
+          <span className="font-mono text-lg font-bold text-slate-800">{r.value}</span>
+        ) },
+      { key: 'unit', header: 'Đơn vị', width: '7rem', optional: 'show',
+        cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => DEADLINE_RULE_KEY_UNIT[r.ruleKey] ?? '—' },
+      { key: 'effectiveFrom', header: 'Hiệu lực từ', width: '9rem', optional: 'show',
+        cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => formatVNDate(r.effectiveFrom) },
+      { key: 'status', header: 'Trạng thái', width: '11rem', optional: 'show',
+        cellClassName: 'px-3 py-3 whitespace-nowrap overflow-hidden',
+        render: (r) => (
+          <StatusBadge
+            status={r.status}
+            needsDocumentation={r.migrationConfidence === 'legacy-default'}
+          />
+        ) },
+      { key: 'legalBasis', header: 'Căn cứ', width: '15rem', optional: 'show',
+        cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => <span title={r.legalBasis}>{r.legalBasis}</span> },
+      { key: 'document', header: 'Văn bản', width: '12rem', optional: 'show',
+        cellClassName: 'px-3 py-3 text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => (
+          <span title={`${r.documentType} ${r.documentNumber}`}>
+            {r.documentType} {r.documentNumber}
+          </span>
+        ) },
+      { key: 'reviewedBy', header: 'Người duyệt', width: '11rem', optional: 'show',
+        cellClassName: 'px-3 py-3 text-slate-600 text-xs whitespace-nowrap overflow-hidden text-ellipsis',
+        render: (r) => fmtUser(r.reviewedBy ?? null) },
+      { key: 'actions', header: 'Thao tác', width: '12rem',
+        cellClassName: 'px-3 py-3 whitespace-nowrap overflow-hidden',
+        render: (r) => (
+          <div className="flex items-center gap-1">
+            <Link
+              to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/history`}
+              className={`flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded ${A11Y_FOCUS_RING}`}
+              data-testid={`btn-history-${r.ruleKey}`}
+            >
+              <History className="w-3.5 h-3.5" />
+              Lịch sử
+            </Link>
+            <Link
+              to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/propose`}
+              className={`flex items-center gap-1 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
+              data-testid={`btn-propose-${r.ruleKey}`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Đề xuất sửa
+            </Link>
+          </div>
+        ) },
+    ],
+    [],
+  );
+
+  const {
+    coGhiDeBeRong,
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat,
+    datBeRong,
+    xoaBeRong,
+    doiCho,
+    datLai,
+  } = useBoCucCot('deadline-rules', columns);
+
   return (
     <div data-testid="deadline-rules-list-page">
       <ListPageShell>
@@ -68,6 +160,15 @@ export default function DeadlineRulesListPage() {
           subtitle="Phiên bản hóa cấu hình thời hạn xử lý theo BLTTHS 2015 + TT28/2020/TT-BCA"
           actions={
             <div className="flex items-center gap-2">
+              {/* Trang này không có thanh công cụ, nên nút chọn cột đặt cạnh các thao tác ở
+                  tiêu đề — vẫn ở trên bảng và không trôi khi cuộn ngang. */}
+              <ColumnPicker
+                columns={toggleableColumns}
+                isVisible={isVisible}
+                onToggle={batTat}
+                onReset={datLai}
+                onDoiCho={doiCho}
+              />
               <Link
                 to="/admin/deadline-rules/approval-queue"
                 className={`flex items-center gap-1 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg border border-blue-200 ${A11Y_FOCUS_RING}`}
@@ -123,121 +224,22 @@ export default function DeadlineRulesListPage() {
           </div>
         )}
 
-        {/* Dense 9-column rules table — kept inline rather than ListPageShell.Table
-            because column types diverge from the typed ColumnDef<TRow> API
-            (mix of dates, mono codes, badges with conditional rendering, Link
-            buttons). Plan permits inline body when type discriminator is
-            complex — same pattern as DeleteRulesListPage's pre-existing dense
-            table approach. */}
-        <div className="px-4 py-3">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" data-testid="deadline-rules-table">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr className="text-left text-xs font-semibold text-slate-600 tracking-wide">
-                    <th className="px-3 py-3">Mã</th>
-                    <th className="px-3 py-3">Tên hiển thị</th>
-                    <th className="px-3 py-3 text-right">Giá trị</th>
-                    <th className="px-3 py-3">Đơn vị</th>
-                    <th className="px-3 py-3">Hiệu lực từ</th>
-                    <th className="px-3 py-3">Trạng thái</th>
-                    <th className="px-3 py-3">Căn cứ</th>
-                    <th className="px-3 py-3">Văn bản</th>
-                    <th className="px-3 py-3">Người duyệt</th>
-                    <th className="px-3 py-3 w-40">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={10} className="px-6 py-16 text-center">
-                        <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-3 animate-spin" />
-                        <p className="text-slate-500">Đang tải...</p>
-                      </td>
-                    </tr>
-                  ) : rules.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="px-6 py-16 text-center">
-                        <ClipboardList className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                        <p className="text-slate-600 font-medium">Chưa có quy tắc nào</p>
-                        <p className="text-slate-500 text-xs mt-1">
-                          Chạy seed/migration để khởi tạo 12 quy tắc ban đầu
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    rules.map((r) => {
-                      const needsDoc = r.migrationConfidence === 'legacy-default';
-                      return (
-                        <tr
-                          key={r.id}
-                          className="hover:bg-slate-50"
-                          data-testid={`rule-row-${r.ruleKey}`}
-                        >
-                          <td className="px-3 py-3 font-mono text-xs text-slate-500">
-                            {r.ruleKey}
-                          </td>
-                          <td className="px-3 py-3 font-medium text-slate-800">
-                            {DEADLINE_RULE_KEY_LABEL[r.ruleKey] ?? r.label}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            <span className="font-mono text-lg font-bold text-slate-800">
-                              {r.value}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-slate-600">
-                            {DEADLINE_RULE_KEY_UNIT[r.ruleKey] ?? '—'}
-                          </td>
-                          <td className="px-3 py-3 text-slate-600">
-                            {formatVNDate(r.effectiveFrom)}
-                          </td>
-                          <td className="px-3 py-3">
-                            <StatusBadge status={r.status} needsDocumentation={needsDoc} />
-                          </td>
-                          <td
-                            className="px-3 py-3 text-slate-600 max-w-[240px] truncate"
-                            title={r.legalBasis}
-                          >
-                            {r.legalBasis}
-                          </td>
-                          <td
-                            className="px-3 py-3 text-slate-600 max-w-[180px] truncate"
-                            title={`${r.documentType} ${r.documentNumber}`}
-                          >
-                            {r.documentType} {r.documentNumber}
-                          </td>
-                          <td className="px-3 py-3 text-slate-600 text-xs">
-                            {fmtUser(r.reviewedBy ?? null)}
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-1">
-                              <Link
-                                to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/history`}
-                                className={`flex items-center gap-1 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded ${A11Y_FOCUS_RING}`}
-                                data-testid={`btn-history-${r.ruleKey}`}
-                              >
-                                <History className="w-3.5 h-3.5" />
-                                Lịch sử
-                              </Link>
-                              <Link
-                                to={`/admin/deadline-rules/${encodeURIComponent(r.ruleKey)}/propose`}
-                                className={`flex items-center gap-1 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 rounded ${A11Y_FOCUS_RING}`}
-                                data-testid={`btn-propose-${r.ruleKey}`}
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                Đề xuất sửa
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <ListPageShell.Table<DeadlineRuleVersion>
+          state={isLoading ? 'loading' : rules.length === 0 ? 'empty' : 'ready'}
+          fixedLayout
+          onKeoGian={datBeRong}
+          onVeMacDinhCot={xoaBeRong}
+          datTongBeRong={coGhiDeBeRong}
+          columns={visibleColumns}
+          data={rules}
+          rowKey={(r) => r.ruleKey}
+          title="Quy tắc thời hạn"
+          totalCount={rules.length}
+          emptyState={{
+            title: 'Chưa có quy tắc nào',
+            description: 'Chạy seed/migration để khởi tạo 12 quy tắc ban đầu',
+          }}
+        />
       </ListPageShell>
     </div>
   );

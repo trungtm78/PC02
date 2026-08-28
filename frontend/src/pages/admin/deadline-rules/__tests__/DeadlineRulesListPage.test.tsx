@@ -109,8 +109,11 @@ describe('DeadlineRulesListPage', () => {
 
     renderPage();
 
+    // Bám NỘI DUNG chứ không testid riêng: trang nay dung bang chung `ListPageShell.Table`,
+    // vốn không phát testid cho từng hàng. Mã quy tắc vẫn hiện nguyên ở cột đầu, nên phép kiểm
+    // vẫn nói đúng thứ nó muốn nói: hàng của quy tắc ấy đã vẽ ra.
     await waitFor(() => {
-      expect(screen.getByTestId('rule-row-THOI_HAN_XAC_MINH')).toBeInTheDocument();
+      expect(screen.getByText('THOI_HAN_XAC_MINH')).toBeInTheDocument();
     });
     expect(screen.getByText('Thời hạn xác minh ban đầu')).toBeInTheDocument();
     expect(screen.getByText('20')).toBeInTheDocument();
