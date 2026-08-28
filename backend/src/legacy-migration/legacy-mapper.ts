@@ -1,5 +1,10 @@
 // Lõi di trú: map 1 record hệ thống cũ (132 field flat, tên cột cũ) → các entity mới CÓ LIÊN KẾT.
 // Thuần (testable). Tội danh trả về crimeChinhLegacyValue (số) — commit resolve sang crimeChinhId qua master Crime.
+import {
+  giaiMaOChon,
+  giaiMaPhanLoaiHoSo,
+  THUC_THE_THEO_PARITY,
+} from './ma-o-chon-he-cu';
 import { PARITY, type Entity as ParityEntity } from './field-parity.def';
 import { docSoDienThoaiHeCu } from './so-dien-thoai-he-cu';
 
@@ -310,10 +315,12 @@ export function parseLegacySoLieu(v: unknown): number | undefined {
 }
 export function parityColumns(rec: LegacyRecord, entity: ParityEntity): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const { field, col, type, textBool } of PARITY[entity]) {
+  for (const { field, col, type, textBool, oChon } of PARITY[entity]) {
     let v: unknown;
     switch (type) {
-      case 'String': v = s(rec[field]); break;
+      // `oChon`: trường hệ cũ là ô chọn lưu bằng mã — giải ra chữ NGAY TẠI CỬA VÀO. Đây là chỗ
+      // duy nhất mọi đường nhập đi qua, nên vá ở đây thì đồng bộ định kỳ không đổ mã thô trở lại.
+      case 'String': v = oChon ? giaiMaOChon(oChon, THUC_THE_THEO_PARITY[entity], rec[field]) : s(rec[field]); break;
       case 'DateTime': v = parseLegacyDate(rec[field]); break;
       case 'Int': { const n = parseLegacySoLieu(rec[field]); v = n === undefined ? undefined : Math.round(n); break; }
       case 'Float': v = parseLegacySoLieu(rec[field]); break; // tiền — không round, không giới hạn Int
@@ -413,7 +420,9 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
     // `nguonPhatTin` là ENUM (NguonPhatTin) chứ không phải chữ tự do — đổ tên đơn vị
     // vào đó là Prisma từ chối cả bản ghi. Nguồn đơn thực chất là đơn vị chuyển đến.
     chuyenTuDonVi: s(rec.nguon_don),
-    tinhTrangHoSo: s(rec.tinh_trang),
+    // Bộ dựng thực thể ghi THẲNG, không đi qua `parityColumns` — quên chỗ này thì vụ việc vẫn
+    // nhận `-1` dù spec đã khai `oChon`. Đúng loại lỗi "vá một trong hai đường ghi".
+    tinhTrangHoSo: giaiMaOChon('tinhTrang', 'VU_VIEC', rec.tinh_trang),
     // Mã tội danh cũ — bộ nạp đổi thành `crimeChinhId` (xem `resolveCrime`). Trước 27/08/2026
     // nhánh Vụ việc không phát khoá này, nên 1.114 hồ sơ mang mã tội danh mà không ai nhận.
     crimeChinhLegacyValue: num(rec.toi_danh_chinh_blhs2015),
@@ -494,7 +503,7 @@ export function buildCase(rec: LegacyRecord): Record<string, unknown> {
       sttCu: s(rec.stt_cu),
       tinhTrang: s(rec.tinh_trang),
       phanLoaiToiPhamLinhVuc: s(rec.phan_loai_toi_pham_theo_linh_vuc),
-      phanLoaiHoSoNoiBo: s(rec.phan_loai_ho_so_doi_1),
+      phanLoaiHoSoNoiBo: giaiMaPhanLoaiHoSo(rec.phan_loai_ho_so_doi_1),
       deXuatXuLy: s(rec.de_xuat),
       yeuCauBoSung: s(rec.yeu_cau_bo_sung),
       // Bổ sung sau rà từng key: các mốc thống kê / thời hiệu / không khởi tố / lịch sử chuyển đơn vị.

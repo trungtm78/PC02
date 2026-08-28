@@ -16,6 +16,8 @@
  */
 
 export type ParityType = 'String' | 'DateTime' | 'Int' | 'Float' | 'Boolean';
+import type { LoaiOChon } from './ma-o-chon-he-cu';
+
 export type Entity = 'petition' | 'incident' | 'case';
 
 export interface ParityCol {
@@ -28,6 +30,15 @@ export interface ParityCol {
   exists?: boolean;
   /** type=Boolean: true → boolFromText (text mô tả tự do ⇒ true); mặc định parseLegacyBool (checkbox). */
   textBool?: boolean;
+  /**
+   * Trường này ở hệ cũ là ô `<select>` lưu bằng MÃ, chữ chỉ tra ra lúc hiện.
+   *
+   * Khai ở đây thì `parityColumns` tự giải mã tại cửa vào, nên không đường nhập nào — di trú
+   * mới, bù cột, đồng bộ định kỳ — có thể lọt mã thô vào cột chữ. Không khai thì cột nhận
+   * nguyên con số và form in nó ra màn hình: vụ án `2026-11139` hiện `-1` ở ô "Tình trạng hồ
+   * sơ", anh phát hiện 28/08/2026. Bảng mã ở `ma-o-chon-he-cu.ts`.
+   */
+  oChon?: LoaiOChon;
   /**
    * true = cột dựng để FORM NHẬP ĐƯỢC, không phải vì dữ liệu cũ ở thực thể này.
    *
@@ -51,7 +62,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'ngay_de_xuat', col: 'ngayDeXuat', type: 'DateTime', exists: true },
     { field: 'de_xuat', col: 'deXuat', type: 'String', exists: true },
     { field: 'phan_loai_toi_pham_theo_linh_vuc', col: 'phanLoaiToiPhamLinhVuc', type: 'String' },
-    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String' },
+    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String', oChon: 'phanLoaiHoSo' },
     { field: 'ghi_chu_khac', col: 'ghiChuKhac', type: 'String' },
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
     { field: 'so_tien_bi_thiet_hai', col: 'soTienBiThietHai', type: 'Float' }, // tiền VND có thể > 2 tỷ (tràn Int)
@@ -63,7 +74,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     // ma trận: vd `ngay_thong_ke` ma trận báo 126, thực tế 1 hồ sơ; `ngay_thang_nam_het_thoi_
     // hieu_vu_viec` ma trận báo 104, thực tế 0.
     { field: 'truong_hop_bao_cao_ban_giam_doc', col: 'baoCaoBanGiamDocText', type: 'String' }, // 35.261
-    { field: 'tinh_trang', col: 'tinhTrang', type: 'String' }, // 15.039
+    { field: 'tinh_trang', col: 'tinhTrang', type: 'String', oChon: 'tinhTrang' }, // 15.039
     { field: 'quyet_dinh_phan_cong_giai_quyet_nguon_tin', col: 'soQDPhanCongNguonTin', type: 'String' }, // 411
     { field: 'ngay_ra_quyet_dinh_phan_cong_tin_bao', col: 'ngayQDPhanCongNguonTin', type: 'DateTime' }, // 412
     { field: 'quyet_dinh_tam_dinh_chi_nguon_tin', col: 'soQDTamDinhChiNguonTin', type: 'String' }, // 58
@@ -99,7 +110,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'ngay_phieu_chuyen', col: 'ngayPhieuChuyen', type: 'DateTime' },
     { field: 'do_vat_tai_lieu_kem_theo', col: 'doVatTaiLieuKemTheo', type: 'String' },
     { field: 'phan_loai_toi_pham_theo_linh_vuc', col: 'phanLoaiToiPhamLinhVuc', type: 'String' },
-    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String' },
+    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String', oChon: 'phanLoaiHoSo' },
     { field: 'lanh_dao_to_tung', col: 'lanhDaoToTung', type: 'String' },
     { field: 'dieu_tra_vien', col: 'dieuTraVien', type: 'String' },
     { field: 'dieu_tra_vien_phuong_xa', col: 'dieuTraVienPhuongXa', type: 'String' },
@@ -143,7 +154,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'lanh_dao_to_tung', col: 'lanhDaoToTung', type: 'String' },
     { field: 'dieu_tra_vien', col: 'dieuTraVien', type: 'String' },
     { field: 'phan_loai_toi_pham_theo_linh_vuc', col: 'phanLoaiToiPhamLinhVuc', type: 'String' },
-    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String' },
+    { field: 'phan_loai_ho_so_doi_1', col: 'phanLoaiHoSoNoiBo', type: 'String', oChon: 'phanLoaiHoSo' },
     { field: 'de_xuat', col: 'deXuat', type: 'String' },
     { field: 'yeu_cau_bo_sung', col: 'yeuCauBoSung', type: 'String' },
     { field: 'phan_loai_toi_pham_cong_nghe_cao', col: 'laCongNgheCao', type: 'Boolean', exists: true },
@@ -199,7 +210,7 @@ export const PARITY: Record<Entity, ParityCol[]> = {
     { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String' },
     // Chữ tình trạng hệ cũ — 1.872 vụ án có, cột `tinhTrang` đã sẵn trong lược đồ nhưng builder
     // chỉ đặt `metadata.tinhTrang`, nên 75 vụ còn trống. `status` là enum, giữ không nổi chữ.
-    { field: 'tinh_trang', col: 'tinhTrang', type: 'String', exists: true },
+    { field: 'tinh_trang', col: 'tinhTrang', type: 'String', exists: true, oChon: 'tinhTrang' },
     // Tab "Vật chứng" — ba ô chữ hệ cũ, khác bảng vật chứng chuẩn hoá
     { field: 'vat_chung', col: 'vatChungMoTa', type: 'String' , formOnly: true },
     { field: 'lenh_nhap_kho', col: 'lenhNhapKho', type: 'String' , formOnly: true },
