@@ -141,6 +141,29 @@ sudo cp -rT "$NEW_DIR/frontend/dist" /var/www/pc02
 sudo chown -R www-data:www-data /var/www/pc02
 log "Frontend deployed to /var/www/pc02"
 
+# 7a. Bảo đảm luật cache của nginx còn đúng.
+#
+# Luật tài nguyên tĩnh bắt theo đuôi `.js` nên nó bắt LUÔN `sw.js`. Service worker bị giữ 30
+# ngày thì trình duyệt không bao giờ tải lại nó, không bao giờ biết có bản mới, và hộp báo
+# "có cập nhật" vĩnh viễn im lặng — cán bộ phải Ctrl+Shift+R mới thấy bản vừa deploy.
+#
+# Đó chính là chuyện đã xảy ra suốt cho tới 28/08/2026, và nó âm thầm: deploy vẫn xanh, health
+# vẫn ok, chỉ là không ai thấy bản mới. Chạy ở ĐÂY để mỗi lần deploy tự chữa, kể cả khi có
+# người sửa tay cấu hình hoặc dựng lại máy.
+#
+# Script idempotent và CHỈ THÊM khối còn thiếu — không bao giờ thay cả tệp, để không đụng vào
+# phần TLS do certbot quản.
+if [ -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
+    log "Kiểm luật cache nginx..."
+    if sudo /usr/local/sbin/pc02-ensure-nginx-cache; then
+        log "Luật cache nginx OK"
+    else
+        log "WARN: không đặt được luật cache nginx — bản mới có thể không tự hiện cho cán bộ"
+    fi
+else
+    log "WARN: thiếu /usr/local/sbin/pc02-ensure-nginx-cache — chạy scripts/deploy/install-nginx-cache-guard.sh một lần bằng root"
+fi
+
 # 7b. v0.42: seed DocumentNumberTemplates BEFORE restart (counters must exist before engine starts)
 # Idempotent — skip nếu active template đã tồn tại cho documentType.
 # Per CEO review: seed TRƯỚC restart để engine có counter rows ngay lần khởi động đầu tiên.
