@@ -28,6 +28,8 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 export interface CanBoHeCu {
+  /** `id` số của hệ cũ — chính là `nguoi_them` trên mỗi hồ sơ. */
+  id?: number;
   ten: string;
   ten_ngan?: string | null;
 }
@@ -57,10 +59,21 @@ export function hoTenDayDu(u: CanBoHeMoi): string {
  * Chỉ nạp cán bộ hệ cũ CÓ cột `ten_ngan` (kể cả chuỗi rỗng: rỗng là một lựa chọn có chủ ý, hệ
  * cũ in ra trống). Không có cột thì để `shortName` là NULL, và bộ in rơi về họ tên đầy đủ —
  * đúng nhánh `?? $nguoi_nhan` của hệ cũ.
+ *
+ * `theoDauVet` ánh xạ `id cán bộ hệ cũ → id tài khoản hệ mới`, dựng từ chính hồ sơ đã di trú.
+ * Nó đứng TRƯỚC phép ghép theo họ tên vì nó là bằng chứng trực tiếp: bộ di trú đã gắn hồ sơ ấy
+ * cho đúng tài khoản. Không có nó thì 11 cán bộ trùng họ tên bị bỏ qua, ứng với 18.617 hồ sơ
+ * (33,7%) — lớn hơn cả vấn đề đang sửa (đo 28/08/2026).
  */
-export function lenKeHoach(heCu: CanBoHeCu[], heMoi: CanBoHeMoi[]): KeHoachNap {
+export function lenKeHoach(
+  heCu: CanBoHeCu[],
+  heMoi: CanBoHeMoi[],
+  theoDauVet?: Map<number, string>,
+): KeHoachNap {
   const theoTen = new Map<string, CanBoHeMoi[]>();
+  const theoId = new Map<string, CanBoHeMoi>();
   for (const u of heMoi) {
+    theoId.set(u.id, u);
     const ten = hoTenDayDu(u);
     if (!ten) continue;
     const cu = theoTen.get(ten);
@@ -73,16 +86,29 @@ export function lenKeHoach(heCu: CanBoHeCu[], heMoi: CanBoHeMoi[]): KeHoachNap {
     if (c.ten_ngan === undefined || c.ten_ngan === null) continue;
     const ten = String(c.ten ?? '').trim();
     if (!ten) continue;
-    const ung = theoTen.get(ten);
-    if (!ung || !ung.length) {
-      kh.khongTimThay.push(ten);
-      continue;
+
+    let u: CanBoHeMoi | undefined;
+    const idMoi = c.id === undefined ? undefined : theoDauVet?.get(Number(c.id));
+    if (idMoi !== undefined) {
+      u = theoId.get(idMoi);
+      if (!u) {
+        // Dấu vết trỏ tới tài khoản không còn tồn tại — báo ra chứ không lặng lẽ lùi về họ tên,
+        // vì lùi ở đây là gán cho một người KHÁC.
+        kh.khongTimThay.push(ten);
+        continue;
+      }
+    } else {
+      const ung = theoTen.get(ten);
+      if (!ung || !ung.length) {
+        kh.khongTimThay.push(ten);
+        continue;
+      }
+      if (ung.length > 1) {
+        kh.boQuaTrungTen.push(ten);
+        continue;
+      }
+      u = ung[0];
     }
-    if (ung.length > 1) {
-      kh.boQuaTrungTen.push(ten);
-      continue;
-    }
-    const u = ung[0];
     const moi = String(c.ten_ngan);
     if (u.shortName === moi) {
       kh.daDung += 1;
@@ -125,13 +151,33 @@ async function main(): Promise<void> {
       select: { id: true, firstName: true, lastName: true, shortName: true },
     })) as CanBoHeMoi[];
 
-    const kh = lenKeHoach(heCu, heMoi);
+    /**
+     * Bảng dấu vết: `nguoi_them` của hệ cũ → tài khoản hệ mới, đọc từ chính hồ sơ đã di trú.
+     *
+     * Chỉ nhận khi MỘT `nguoi_them` ứng với ĐÚNG MỘT tài khoản. Ứng với nhiều tài khoản nghĩa là
+     * bộ di trú đã gắn không nhất quán — lúc ấy dấu vết không còn là bằng chứng, lùi về họ tên.
+     */
+    const dauVet = await prisma.$queryRawUnsafe<Array<{ nguoi_them: string; ids: string[] }>>(
+      `select "legacyRaw"->>'nguoi_them' as nguoi_them, array_agg(distinct "enteredById") as ids
+         from petitions
+        where "enteredById" is not null and "legacyRaw"->>'nguoi_them' is not null
+        group by 1`,
+    );
+    const theoDauVet = new Map<number, string>();
+    for (const d of dauVet) {
+      if (d.ids.length === 1 && /^\d+$/.test(d.nguoi_them)) {
+        theoDauVet.set(Number(d.nguoi_them), d.ids[0]);
+      }
+    }
+
+    const kh = lenKeHoach(heCu, heMoi, theoDauVet);
+    const soRong = kh.ghi.filter((g) => g.sang === '').length;
     console.log(
-      `Hệ cũ ${heCu.length} cán bộ · hệ mới ${heMoi.length} tài khoản\n` +
-        `  cần ghi        : ${kh.ghi.length}\n` +
+      `Hệ cũ ${heCu.length} cán bộ · hệ mới ${heMoi.length} tài khoản · dấu vết ${theoDauVet.size}\n` +
+        `  cần ghi        : ${kh.ghi.length}  (chuỗi có chữ ${kh.ghi.length - soRong} · để trống ${soRong})\n` +
         `  đã đúng sẵn    : ${kh.daDung}\n` +
         `  bỏ qua trùng tên: ${kh.boQuaTrungTen.length}${kh.boQuaTrungTen.length ? ` — ${kh.boQuaTrungTen.join(', ')}` : ''}\n` +
-        `  không có tài khoản: ${kh.khongTimThay.length}`,
+        `  không có tài khoản: ${kh.khongTimThay.length}${kh.khongTimThay.length ? ` — ${kh.khongTimThay.slice(0, 10).join(', ')}` : ''}`,
     );
     for (const g of kh.ghi.slice(0, 15)) {
       console.log(`  ${g.hoTen}: ${g.tu ?? '(chưa có)'} → ${JSON.stringify(g.sang)}`);
