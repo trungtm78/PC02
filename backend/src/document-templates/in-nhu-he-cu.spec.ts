@@ -130,6 +130,51 @@ describe('In như hệ cũ — mốc đúng là bản in thật, không phải m
   });
 
   /**
+   * Số điện thoại: hệ cũ in ĐÚNG thứ cán bộ gõ, kể cả dấu cách và dấu chấm.
+   *
+   * Bộ di trú đã dọn `0903 958 104` thành `0903958104` — đúng cho cột CSDL (tra cứu, so trùng),
+   * nhưng bản in thì phải ra thứ hệ cũ in. Đo trên máy thật 28/08/2026: **82 hồ sơ** có số đã
+   * dọn khác bản gốc; chỗ ấy nằm ngay dòng "Kính gửi" đầu văn bản nên nhìn là thấy.
+   *
+   * Cùng một lớp với bốn ô `ngay_*`: cột hệ mới là bản CHUẨN HOÁ, bản thô là thứ cán bộ gõ.
+   * Hệ cũ khai trường này kiểu `phone`, và đó chính là dấu hiệu để nhận ra.
+   */
+  it('số điện thoại in nguyên văn, giữ cả dấu cách và dấu chấm', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'so_dien_thoai_nguyen_don')!;
+    expect(
+      k.resolve({
+        senderPhone: '0903958104',
+        legacyRaw: { so_dien_thoai_nguyen_don: '0903 958 104' },
+      }),
+    ).toBe('0903 958 104');
+    expect(
+      k.resolve({
+        senderPhone: '0925999913',
+        legacyRaw: { so_dien_thoai_nguyen_don: '0925.999.913' },
+      }),
+    ).toBe('0925.999.913');
+  });
+
+  /**
+   * Nhưng cán bộ SỬA số trên hệ mới thì phải in số MỚI. Phân biệt bằng chính chữ số: cùng dãy
+   * số thì giữ cách gõ cũ, khác dãy số nghĩa là vừa có người sửa.
+   */
+  it('cán bộ sửa số điện thoại trên hệ mới thì in số MỚI', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'so_dien_thoai_nguyen_don')!;
+    expect(
+      k.resolve({
+        senderPhone: '0912345678',
+        legacyRaw: { so_dien_thoai_nguyen_don: '0903 958 104' },
+      }),
+    ).toBe('0912345678');
+  });
+
+  it('hồ sơ tạo mới trên hệ mới vẫn in số ở cột', () => {
+    const k = khoaTheoTenHeCu('petition').find((x) => x.key === 'so_dien_thoai_nguyen_don')!;
+    expect(k.resolve({ senderPhone: '0903958104' })).toBe('0903958104');
+  });
+
+  /**
    * Hệ cũ `trim()` MỌI giá trị trước khi điền. Đo 28/08/2026: 791 hồ sơ có khoảng trắng thừa ở
    * riêng trường `nguon_don`, và chỗ ấy nằm giữa câu nên thừa một dấu cách là thấy ngay.
    */

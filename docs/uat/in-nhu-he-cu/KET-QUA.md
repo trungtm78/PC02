@@ -9,17 +9,30 @@ bản in Word, không đụng giao diện hay chức năng khác.
 
 | | Trước khi sửa | Sau khi sửa |
 |---|---|---|
-| Hồ sơ đối chiếu (chọn theo rủi ro) | 42 | 42 |
-| So được | 40 | 40 |
-| **Khớp từng dòng** | 0 | **21** |
-| Còn lệch | 40 | 19 |
-| **Chỗ lệch về DỮ LIỆU** | 7 nhóm | **0** |
+| Hồ sơ đối chiếu (chọn theo rủi ro) | 191 | 191 |
+| So được | 163 | 163 |
+| **Khớp từng dòng** | 0 | **97** |
+| Còn lệch | 163 | 66 |
+| **Chỗ lệch về DỮ LIỆU** | 8 nhóm | **0** |
 
-19 hồ sơ còn lệch đều lệch **cùng một chỗ duy nhất**: hệ cũ in ra chính tên biến của nó
-(`${yeu_cau_bo_sung}`, `${de_xuat}`, `${ nguon_don}`) vì hồ sơ không có khoá ấy. Đó là lỗi của
-hệ cũ, không phải đặc tả cần chép lại — xem mục "Khác có chủ đích".
+66 hồ sơ còn lệch đều lệch **cùng một chỗ duy nhất**: hệ cũ in ra chính tên biến của nó
+(`${yeu_cau_bo_sung}` 48 · `${ nguon_don}` 12 · `${de_xuat}` 8) vì hồ sơ không có khoá ấy. Đó là
+lỗi của hệ cũ, không phải đặc tả cần chép lại — xem mục "Khác có chủ đích".
 
 **Không còn chỗ nào lệch về giá trị dữ liệu.**
+
+28 hồ sơ trong mẫu không so được: chúng thuộc nhóm tier-3 (kiến nghị VKS 12 · hướng dẫn 11 ·
+trao đổi chuyển án 5) mà hệ mới chưa có màn in — đúng việc số 2 đang chờ anh quyết.
+
+### Độ phủ theo mẫu
+
+**8/11 mẫu** đã đối chiếu bằng bản in thật. Ba mẫu còn lại **hệ cũ chưa từng in ra lần nào** nên
+không có bản gốc để so: `vu_viec_mau.docx`, `an_tra_bo_sung_mau.docx` (không `loai` nào trỏ tới)
+và `so_dang_ky_bao_chua.docx` (mồ côi).
+
+Mẫu **biên nhận** suýt bị bỏ sót: hệ cũ có nút "Xuất biên nhận" RIÊNG
+(`?xuat_bien_nhan=1`) không đi theo `loai`, nên nó không lộ ra khi chỉ duyệt theo loại hồ sơ.
+Đã bổ sung và đối chiếu: **6/6 khớp hoàn toàn**.
 
 ---
 
@@ -56,7 +69,7 @@ số — chỉ nó mới phân biệt được luật đệm số 0 không đố
 
 ---
 
-## Bảy nhóm lệch đã sửa
+## Tám nhóm lệch đã sửa
 
 Số hồ sơ đo trên dữ liệu sống ngày 28/08/2026 (55.207 hồ sơ · 238 cán bộ).
 
@@ -69,8 +82,13 @@ Số hồ sơ đo trên dữ liệu sống ngày 28/08/2026 (55.207 hồ sơ · 
 | 5 | `ngay_phieu_chuyen` | nguyên văn | chuẩn hoá | 7.144 |
 | 6 | 3 trường ngày là **chữ tự do** | nguyên văn | **TRỐNG** | 8.436 |
 | 7 | khoảng trắng thừa | đã cắt | giữ nguyên | 791 |
+| 8 | **số điện thoại** | `0903 958 104` | `0903958104` | 82 |
 
-### Gốc chung của nhóm 3–7
+Nhóm 8 cùng một lớp với nhóm 4–6: bộ di trú dọn dấu cách và dấu chấm khỏi số điện thoại — đúng
+cho cột CSDL, nhưng bản in phải ra thứ cán bộ gõ. Hệ cũ khai trường ấy kiểu `phone`, và đó chính
+là dấu hiệu nhận ra. Chỗ ấy nằm ngay dòng "Kính gửi" đầu văn bản.
+
+### Gốc chung của nhóm 3–8
 
 Bản in đang quyết định định dạng theo **kiểu CỘT của hệ mới**, trong khi nó phải theo
 `TruongTuyChinh` — bảng nói **hệ cũ IN ra sao**. Hai bảng, hai vai khác nhau:

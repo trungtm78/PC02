@@ -104,13 +104,29 @@ export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
    */
   const coTho = tho !== null && tho !== undefined && tho !== '';
   const coTyped = typed !== null && typed !== undefined && typed !== '';
-  const lechVai = !!kieuHeCu && kieuHeCu !== 'date' && cot.type !== 'String';
+  /**
+   * Số điện thoại cũng là một ô lệch vai, chỉ là lệch theo kiểu khác: hai bên cùng khai chữ,
+   * nhưng bộ di trú đã DỌN dấu cách và dấu chấm. Cột thành bản chuẩn hoá, bản thô mới là thứ
+   * cán bộ gõ — và hệ cũ in đúng thứ cán bộ gõ.
+   *
+   * Đo trên máy thật 28/08/2026: 82 hồ sơ có số đã dọn khác bản gốc (`0903 958 104` →
+   * `0903958104`), và chỗ ấy nằm ngay dòng "Kính gửi" đầu văn bản.
+   */
+  const soDienThoai = kieuHeCu === 'phone';
+  const chiSo = (v: unknown): string => chuoi(v).replace(/\D/g, '');
+
+  const lechVai = !!kieuHeCu && kieuHeCu !== 'date' && (cot.type !== 'String' || soDienThoai);
   const giuBanTho =
     lechVai &&
     coTho &&
     // Ô đánh dấu: bản thô giữ nguyên câu cán bộ ghi, cột typed chỉ còn đúng/sai — bản thô luôn
     // nhiều thông tin hơn nên không có gì để cân nhắc.
-    (cot.type !== 'DateTime' || !coTyped || ngayViet(typed) === ngayViet(tho));
+    //
+    // Ngày và số điện thoại thì phải cân nhắc: cán bộ SỬA trên hệ mới thì chỉ cột đổi, bản thô
+    // đứng yên. Cùng một giá trị thì giữ cách gõ cũ; khác giá trị nghĩa là vừa có người sửa.
+    (soDienThoai
+      ? !coTyped || chiSo(typed) === chiSo(tho)
+      : cot.type !== 'DateTime' || !coTyped || ngayViet(typed) === ngayViet(tho));
   const v = giuBanTho ? tho : coTyped ? typed : tho;
 
   // Trường hệ cũ khai là `date` thật — vẫn đi qua bộ đọc mốc như trước.
