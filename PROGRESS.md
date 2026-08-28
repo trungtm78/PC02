@@ -57,6 +57,17 @@ loạt không đụng tới (nó vốn mở ra trống).
    chọn đúng thứ bấm tay chọn được. Lệch khỏi ô tích là dựng hai định nghĩa "đủ điều kiện". Đã
    ghi lý do ngay trong mã.
 
+### Đã lên máy thật + UAT 28/28 PASS
+
+Bản dựng `f9ac8c67`, cột đã tạo, 28 mẫu đều TẮT đúng như anh chốt. Ma trận phủ ở
+[UAT-COVERAGE.md](UAT-COVERAGE.md): API 7/7 · giao diện 2/2 · thành phần 17 · backend 10 — tổng
+**28/28 dòng PASS**. Bài kiểm trả cấu hình về nguyên trạng (kiểm lại: 0/28 bật).
+
+Bài kiểm tự dẫm hai bẫy, ghi lại vì cả hai đều là **xanh giả**:
+- bóc thân phản hồi hai kiểu ở hai chỗ trong cùng tệp → 3 ca báo đỏ giả;
+- đặt tên tệp E2E không khớp mẫu bộ chạy (`*-uat.e2e.spec.ts`) → "No tests found", báo cáo sạch
+  vì **không có gì được kiểm**.
+
 **Cảnh báo khi lên máy thật:** 28 mẫu sẽ TẮT hết, cán bộ mở popup thấy trống cho tới khi anh bật
 mẫu hay dùng. Đây là hành vi anh đã chốt.
 
