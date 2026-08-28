@@ -24,14 +24,56 @@ lỗi của hệ cũ, không phải đặc tả cần chép lại — xem mục 
 28 hồ sơ trong mẫu không so được: chúng thuộc nhóm tier-3 (kiến nghị VKS 12 · hướng dẫn 11 ·
 trao đổi chuyển án 5) mà hệ mới chưa có màn in — đúng việc số 2 đang chờ anh quyết.
 
-### Độ phủ theo mẫu
+### Độ phủ: đo theo CHỖ ĐIỀN, không theo số mẫu
 
-**8/11 mẫu** đã đối chiếu bằng bản in thật. Ba mẫu còn lại **hệ cũ chưa từng in ra lần nào** nên
-không có bản gốc để so: `vu_viec_mau.docx`, `an_tra_bo_sung_mau.docx` (không `loai` nào trỏ tới)
-và `so_dang_ky_bao_chua.docx` (mồ côi).
+"8/11 mẫu" là con số dễ gây hiểu lầm. Hai hệ dùng **chung một tệp mẫu** (11 tệp `.docx` bê nguyên
+sang), nên mẫu không phải thứ có thể lệch — thứ lệch được là **giá trị điền vào từng chỗ trống**.
+Đo theo chỗ điền mới đúng việc:
 
-Mẫu **biên nhận** suýt bị bỏ sót: hệ cũ có nút "Xuất biên nhận" RIÊNG
-(`?xuat_bien_nhan=1`) không đi theo `loai`, nên nó không lộ ra khi chỉ duyệt theo loại hồ sơ.
+| | Số chỗ điền |
+|---|---:|
+| Tổng trên 11 mẫu | **50** |
+| Đã đối chiếu bằng bản in thật | **32** |
+| Chỉ có ở 3 mẫu chưa so | 18 |
+
+Trong 18 ô ấy, đo trên toàn bộ 55.207 hồ sơ hệ cũ:
+
+- **17 ô KHÔNG có dữ liệu ở bất kỳ hồ sơ nào** (`bi_can`, `vks_tra`, `ho_ten_ls`, `the_ls`,
+  `thong_bao_dang_ky`…). Hệ cũ in ra nguyên mã biến — chúng thuộc nhóm "khác có chủ đích" bên dưới.
+- **1 ô có dữ liệu thật**: `dieu_tra_vien`, 2.580 hồ sơ. Đây là khe hở độ phủ DUY NHẤT.
+
+`vu_viec_mau.docx` **không đóng góp chỗ điền riêng nào** — cả 13 ô của nó đều đã được đối chiếu
+qua `vu_an_mau.docx`.
+
+### Vì sao 3 mẫu ấy không so được
+
+Hệ cũ chọn mẫu theo `loai`. Đo trên **dữ liệu sống** 28/08/2026:
+
+| `loai` trong bảng ánh xạ | Số hồ sơ thật |
+|---|---:|
+| `vu_viec` → `vu_viec_mau.docx` | **0** |
+| `an_tra_bo_sung` → `an_tra_bo_sung_mau.docx` | **0** |
+| `so_dang_ky_bao_chua.docx` | mồ côi — không `loai` nào trỏ tới |
+
+Không hồ sơ nào khiến hệ cũ in ba mẫu ấy, nên **không tồn tại bản gốc để đối chiếu**. Bắt hệ cũ
+in chúng đòi phải SỬA dữ liệu hệ cũ — điều bị cấm tuyệt đối.
+
+Thay vào đó đã dựng thử cả ba bằng hệ mới trên hồ sơ thật (`id 438`, có `dieu_tra_vien`):
+
+| Mẫu | Chỗ điền | Điền được | Sót `${…}` |
+|---|---:|---:|---|
+| `vu_viec_mau.docx` | 13 | 8 | không |
+| `an_tra_bo_sung_mau.docx` | 11 | 6 (gồm **`dieu_tra_vien`** và `toi_danh`) | không |
+| `so_dang_ky_bao_chua.docx` | 12 | **0** | không |
+
+Khe hở duy nhất — `dieu_tra_vien` — nay đã chứng minh điền đúng. `so_dang_ky_bao_chua.docx` in ra
+một văn bản **trống hoàn toàn**: cả 12 ô của nó đều là ô không hồ sơ nào có dữ liệu. Càng thêm lý
+do bỏ nó khỏi danh sách chọn.
+
+### Mẫu biên nhận suýt bị bỏ sót
+
+Hệ cũ có nút "Xuất biên nhận" **RIÊNG** (`?xuat_bien_nhan=1`) không đi theo `loai`, nên nó không
+lộ ra khi rà theo loại hồ sơ. Rà theo một bảng ánh xạ thì mọi nhánh NGOÀI bảng đều vô hình.
 Đã bổ sung và đối chiếu: **6/6 khớp hoàn toàn**.
 
 ---
