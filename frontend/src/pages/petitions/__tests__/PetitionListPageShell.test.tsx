@@ -660,8 +660,12 @@ describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
     const nutLoc = screen.queryByRole('button', { name: /bộ lọc/i });
     if (nutLoc) fireEvent.click(nutLoc);
 
-    expect(screen.getByLabelText(/^STT$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/STT cũ/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Cán bộ nhập/i)).toBeInTheDocument();
+    // Thu hẹp về ĐÚNG thanh công cụ: từ 28/08/2026 ô tiêu đề cột mang `aria-label` riêng (để
+    // nhãn tay nắm kéo giãn không lẫn vào tên cột), nên tìm theo nhãn trên cả trang sẽ vớ luôn
+    // tiêu đề cột "STT". Phép kiểm này nói về Ô LỌC, nên phải hỏi đúng chỗ có ô lọc.
+    const thanhCongCu = within(screen.getByTestId('list-page-shell-toolbar'));
+    expect(thanhCongCu.getByLabelText(/^STT$/i)).toBeInTheDocument();
+    expect(thanhCongCu.getByLabelText(/STT cũ/i)).toBeInTheDocument();
+    expect(thanhCongCu.getByLabelText(/Cán bộ nhập/i)).toBeInTheDocument();
   });
 });

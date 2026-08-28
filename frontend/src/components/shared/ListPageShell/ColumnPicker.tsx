@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Columns3 } from 'lucide-react';
+import { Columns3, ChevronUp, ChevronDown } from 'lucide-react';
 import { ActionMenuPortal } from '@/components/ActionMenuPortal';
 import { BTN_OUTLINE_SLATE, A11Y_FOCUS_RING } from '@/constants/styles';
 import type { ColumnDef } from './Table';
@@ -21,12 +21,21 @@ export function ColumnPicker<TRow>({
   isVisible,
   onToggle,
   onReset,
+  onDoiCho,
 }: {
   /** Chỉ những cột được phép bật/tắt (cột khai `optional`). */
   columns: ColumnDef<TRow>[];
   isVisible(key: string): boolean;
   onToggle(key: string): void;
   onReset(): void;
+  /**
+   * Đổi thứ tự cột. Không truyền = menu giữ nguyên như cũ.
+   *
+   * Đặt ở ĐÂY chứ không kéo tiêu đề trên bảng: bảng cuộn ngang, và tay nắm kéo giãn đã nằm ở
+   * mép phải mỗi ô tiêu đề — kéo tiêu đề sang trái phải sẽ đánh nhau với cả hai. Menu cũng là
+   * chỗ duy nhất thấy được cột đang ẩn.
+   */
+  onDoiCho?: (key: string, toiViTri: number) => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
@@ -67,21 +76,55 @@ export function ColumnPicker<TRow>({
         minWidth={260}
       >
         <div role="menu" data-testid="column-picker-menu" className="py-1">
-          {columns.map((cot) => {
+          {columns.map((cot, i) => {
             const hien = isVisible(cot.key);
             return (
               <label
                 key={cot.key}
                 data-testid={`column-toggle-${cot.key}`}
-                className="flex items-start gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 <input
                   type="checkbox"
                   checked={hien}
                   onChange={() => onToggle(cot.key)}
-                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span>{cot.header}</span>
+                <span className="flex-1">{cot.header}</span>
+                {onDoiCho && (
+                  // Nút dời nằm TRONG `<label>`, nên phải chặn lan: không chặn thì mỗi lần dời
+                  // cột là một lần bật/tắt cột ấy, và người dùng bấm "dời lên" thì cột biến mất.
+                  <span className="flex shrink-0 gap-0.5">
+                    <button
+                      type="button"
+                      data-testid={`doi-cho-len-${cot.key}`}
+                      aria-label={`Dời ${cot.header} lên trước`}
+                      disabled={i === 0}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDoiCho(cot.key, i - 1);
+                      }}
+                      className={`${A11Y_FOCUS_RING} rounded p-1 text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent`}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`doi-cho-xuong-${cot.key}`}
+                      aria-label={`Dời ${cot.header} xuống sau`}
+                      disabled={i === columns.length - 1}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDoiCho(cot.key, i + 1);
+                      }}
+                      className={`${A11Y_FOCUS_RING} rounded p-1 text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent`}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                )}
               </label>
             );
           })}

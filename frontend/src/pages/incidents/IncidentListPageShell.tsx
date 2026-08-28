@@ -29,7 +29,7 @@ import {
   type ColumnDef,
   type TableState,
   ColumnPicker,
-  useColumnVisibility,
+  useBoCucCot,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -616,8 +616,19 @@ export function IncidentListPageShell() {
 
   // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do
   // `optional` khai ngay trên từng cột ở khối trên, không phải một danh sách riêng ở đây.
-  const { visibleColumns, toggleableColumns, isVisible, toggle, reset: resetColumns } =
-    useColumnVisibility('incidents', columns);
+  // Bố cục cột lưu trên MÁY CHỦ theo tài khoản: bề rộng, ẩn/hiện và thứ tự cùng một chỗ.
+  // Trước đây ẩn/hiện lưu ở trình duyệt từng máy nên đổi máy là mất.
+  const {
+    coGhiDeBeRong,
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat: toggle,
+    datBeRong,
+    xoaBeRong,
+    doiCho,
+    datLai: resetColumns,
+  } = useBoCucCot('incidents', columns);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -751,6 +762,7 @@ export function IncidentListPageShell() {
             isVisible={isVisible}
             onToggle={toggle}
             onReset={resetColumns}
+            onDoiCho={doiCho}
           />
         }
       >
@@ -803,6 +815,9 @@ export function IncidentListPageShell() {
         // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
+        onKeoGian={datBeRong}
+        datTongBeRong={coGhiDeBeRong}
+        onVeMacDinhCot={xoaBeRong}
         sortBy={sort.sortBy}
         sortOrder={sort.sortOrder}
         onSort={sort.onSort}

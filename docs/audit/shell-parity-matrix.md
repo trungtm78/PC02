@@ -638,3 +638,48 @@ thẻ "Tổng" bấm để bỏ lọc. Nút Back của trình duyệt quay lại
 `onCardSelect`, nên 16+ trang khác đang dùng component này giữ nguyên DOM.
 `StatusChips` thêm prop optional `groupActive` (chip "Tất cả" không sáng khi đang lọc
 theo nhóm) — optional nên không đổi parity của shell nào khác.
+
+## v0.74.0.0 — Cá nhân hoá cột bảng (feat/ca-nhan-hoa-cot-bang)
+
+**Anh yêu cầu 28/08/2026**: cán bộ tự kéo giãn bề rộng cột và đổi thứ tự cột, lưu theo TỪNG
+TÀI KHOẢN — *"giống như việc cá nhân hoá ẩn hiện column vậy"*.
+
+**Không phải parity với hệ cũ.** Quét 182 chỗ khởi tạo Kendo Grid trong bản sao mã nguồn hệ
+cũ: **0** chỗ khai `resizable`/`reorderable`/`columnMenu`, bề rộng là hằng số cứng
+(`VuAn_list.tpl:30-64` — `width: 80/100/120/200/300`), thêm `scrollable: false`, và không lưu
+bố cục ở đâu (không localStorage/cookie/`getOptions`). Đây là năng lực hệ mới ĐI XA HƠN hệ cũ,
+nên không có bản gốc để đối chiếu — mọi luật phải tự chốt bằng ca kiểm.
+
+### Thêm cho cả 4 shell
+
+| Shell | Khoá bảng | Kéo giãn | Ẩn/hiện | Đổi thứ tự | Về mặc định |
+|---|---|---|---|---|---|
+| Đơn thư | `petitions` | ✅ | ✅ (đã có, nay lưu máy chủ) | ✅ | ✅ |
+| Vụ việc | `incidents` | ✅ | ✅ (đã có, nay lưu máy chủ) | ✅ | ✅ |
+| Vụ án | `cases` | ✅ | ✅ (đã có, nay lưu máy chủ) | ✅ | ✅ |
+| Tra cứu tổng hợp | `comprehensive` | ✅ | ✅ (**mới** — trước không có) | ✅ | ✅ |
+
+### Đổi chỗ lưu, không thêm hệ thứ hai
+
+Ẩn/hiện trước đây lưu `localStorage` khoá `<trang>_columns` — **từng máy**, nên đổi máy là mất
+và cùng một người ngồi hai máy thấy hai kiểu. Nay cả ba loại tuỳ chỉnh dùng CHUNG một chỗ lưu
+`user_table_layouts` (một hàng mỗi cặp người-dùng × bảng) và CHUNG nút "Về mặc định".
+
+Lựa chọn cũ trong trình duyệt được **chuyển lên máy chủ một lần** lúc mở trang, và chỉ khi máy
+chủ chưa có bố cục cho bảng ấy — không thì cán bộ mở bản mới thấy mọi cột đã tắt hiện lại hết.
+
+### Ràng buộc giữ nguyên parity
+
+- **Người chưa chỉnh gì thấy bảng y hệt trước** — bề rộng khai trong mã không đổi; `onKeoGian`
+  không truyền thì `Table` giữ nguyên hoàn toàn (16+ trang khác dùng component này không đổi DOM).
+- **Cột Thao tác vẫn ghim mép trái** khi cuộn ngang, và **không đổi chỗ được** — `position`
+  chỉ áp trong nhóm cột khai `optional` và không `sticky`.
+- **Cột định danh không ẩn được** (Thao tác, STT) — giữ nguyên luật `optional` của v0.73.
+- Bộ cột mặc định, chip trạng thái, bulk action: **KHÔNG đổi**.
+
+### Tra cứu tổng hợp — khai thêm bề rộng
+
+Trang này trước chạy bố cục `auto` và chỉ cột `actions` có `width`. Bật `fixedLayout` mà thiếu
+width thì phần dư bị chia đều và bảng đổi hình, nên đã khai đủ 7 cột, **bề rộng đo từ dữ liệu
+thật trên máy chạy** (trung vị / phân vị 90, 28/08/2026): mã hồ sơ 9/9 → `8rem`; tên & người
+gửi 16/42 → `22rem`; đơn vị 9/38 → `14rem`.

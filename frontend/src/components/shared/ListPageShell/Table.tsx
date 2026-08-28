@@ -39,6 +39,23 @@ import {
 import { SortableHeader } from './SortableHeader';
 import { useListPageShellContext } from './ListPageShell';
 
+/**
+ * Đổi bề rộng khai trong mã sang số điểm ảnh, để tay nắm biết bắt đầu kéo từ đâu.
+ *
+ * `rem` quy ra 16px — cỡ gốc mặc định của trình duyệt và của dự án. Sai một chút cũng không
+ * hại: đây chỉ là MỐC bắt đầu; ngay lần kéo đầu tiên người dùng đặt bề rộng thật bằng px và
+ * mọi lần sau đọc thẳng số ấy.
+ */
+const PX_MOI_REM = 16;
+/** Bề rộng ô tick chọn nhiều dòng — khớp `w-10` ở `BulkSelectionColumn`. */
+const BE_RONG_O_TICK = '2.5rem';
+function doBeRong(w?: string): number {
+  if (!w) return 150;
+  const n = parseFloat(w);
+  if (!Number.isFinite(n)) return 150;
+  return w.trim().endsWith('rem') ? Math.round(n * PX_MOI_REM) : Math.round(n);
+}
+
 export type TableState = 'loading' | 'error' | 'empty' | 'empty-filtered' | 'offline' | 'ready';
 
 export interface ColumnDef<TRow> {
@@ -102,6 +119,24 @@ export interface TableProps<TRow, TId extends string | number = string> {
    * Chỉ bật cho bảng đã khai width cho MỌI cột — cột thiếu width sẽ bị chia đều phần dư.
    */
   fixedLayout?: boolean;
+  /**
+   * Bật kéo giãn bề rộng cột. KHÔNG truyền = bảng giữ nguyên y như trước, nên bảng nào chưa
+   * nối vào bố cục người dùng không đổi một chút nào.
+   *
+   * Bật thì bảng có TỔNG bề rộng tường minh và cuộn ngang: kéo rộng một cột làm bảng dài ra,
+   * cột bên cạnh giữ nguyên. Để `w-full` thì các cột bị chia lại theo tỷ lệ, và kéo cột này
+   * co cột kia — anh chốt 28/08/2026 là bảng phải dài thêm.
+   */
+  onKeoGian?: (key: string, px: number) => void;
+  /** Bấm đúp tay nắm — trả riêng cột ấy về bề rộng khai trong mã. */
+  onVeMacDinhCot?: (key: string) => void;
+  /**
+   * Người dùng đã tự đặt bề rộng cột nào chưa.
+   *
+   * Chỉ khi có thì bảng mới chuyển sang tổng-bề-rộng-tường-minh và cuộn ngang. Chưa có thì giữ
+   * `w-full` y như trước — người không yêu cầu gì không được thấy bảng đổi hình.
+   */
+  datTongBeRong?: boolean;
   sortBy?: string;
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
@@ -289,6 +324,9 @@ export function Table<TRow, TId extends string | number = string>({
   sortOrder,
   onSort,
   fixedLayout,
+  onKeoGian,
+  onVeMacDinhCot,
+  datTongBeRong,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
@@ -320,6 +358,24 @@ export function Table<TRow, TId extends string | number = string>({
     <StateCard {...cardProps}><OfflineState /></StateCard>
   );
 
+  // ── Tổng bề rộng bảng ──
+  //
+  // CHỈ đặt khi người dùng ĐÃ tự kéo một cột nào đó (`datTongBeRong`). Người chưa hề kéo phải
+  // thấy bảng y hệt hôm qua: với `w-full` thì `table-fixed` chia lại cột theo tỷ lệ cho vừa
+  // màn hình; đặt tổng tường minh làm bảng cuộn ngang thay vì co lại. Bật cho tất cả là đổi
+  // bố cục đã cân chỉnh từ dữ liệu thật, cho 46.000 hồ sơ của những người không yêu cầu gì —
+  // Codex bắt 28/08/2026.
+  //
+  // Cộng bằng `calc()` để KHỎI quy đổi `rem` sang px: quy đổi bằng tay là đoán cỡ chữ gốc và
+  // sai lặng lẽ trên máy đặt cỡ chữ khác.
+  //
+  // Ô tick chọn nhiều dòng là một CỘT THẬT chèn trước mọi cột (`BulkSelectionColumn`, `w-10`).
+  // Bỏ nó ra khỏi tổng thì bảng hụt đúng 2.5rem và cột cuối bị cắt.
+  const tongBeRong =
+    onKeoGian && datTongBeRong
+      ? `calc(${[...(bulkSelection ? [BE_RONG_O_TICK] : []), ...columns.map((c) => c.width ?? '150px')].join(' + ')})`
+      : undefined;
+
   // state === 'ready'
   return (
     <StateCard {...cardProps}>
@@ -327,6 +383,7 @@ export function Table<TRow, TId extends string | number = string>({
         <table
           id={tableId}
           className={`${TABLE_BASE}${fixedLayout ? ' table-fixed' : ''}`}
+          style={tongBeRong ? { width: tongBeRong, minWidth: '100%' } : undefined}
           aria-labelledby={headingId}
         >
           {/* sr-only caption only when no visible h2 (sectionTitle) exists to label the table.
@@ -357,6 +414,18 @@ export function Table<TRow, TId extends string | number = string>({
                   className={`${col.headerClassName ?? TABLE_HEADER_CELL} ${
                     col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
                   }`.trim()}
+                  keoGian={
+                    onKeoGian
+                      ? {
+                          tenCot: col.key,
+                          beRongHienTai: doBeRong(col.width),
+                          onXong: (px: number) => onKeoGian(col.key, px),
+                          onVeMacDinh: onVeMacDinhCot
+                            ? () => onVeMacDinhCot(col.key)
+                            : undefined,
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </tr>

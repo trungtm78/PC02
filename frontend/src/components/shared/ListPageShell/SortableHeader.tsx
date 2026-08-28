@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import { TABLE_HEADER_CELL } from '@/constants/styles';
 import type { SortState } from './sortState';
+import { TayNamKeo } from './TayNamKeo';
 
 /**
  * Ô tiêu đề cột. Cột nào khai `sortKey` thì bấm được để đổi thứ tự; cột không khai
@@ -16,6 +17,7 @@ export function SortableHeader({
   onSort,
   width,
   className,
+  keoGian,
 }: {
   label: string;
   sortKey?: string;
@@ -23,14 +25,48 @@ export function SortableHeader({
   onSort: (key: string) => void;
   width?: string;
   className?: string;
+  /**
+   * Bật tay nắm kéo giãn cho cột này. Không truyền = giữ nguyên ô tiêu đề như cũ, nên bảng nào
+   * chưa nối vào bố cục người dùng không đổi một chút nào.
+   */
+  keoGian?: {
+    tenCot: string;
+    beRongHienTai: number;
+    onXong: (px: number) => void;
+    onVeMacDinh?: () => void;
+  };
 }) {
   const style = width ? { width } : undefined;
-  const cellClass = className ?? TABLE_HEADER_CELL;
+  // Tay nắm cần một gốc toạ độ. `relative` cho ô thường — NHƯNG KHÔNG cho ô ghim: `relative`
+  // và `sticky` cùng là thuộc tính `position`, thêm `relative` vào ô ghim là ĐÈ MẤT `sticky`
+  // và cột Thao tác trôi đi ngay khi cuộn ngang.
+  //
+  // Ô ghim không cần thêm gì: `position: sticky` tự nó đã là phần tử được định vị, nên con
+  // tuyệt đối bên trong neo đúng vào nó.
+  const daCoGocToaDo = (className ?? '').includes('sticky');
+  const cellClass = `${className ?? TABLE_HEADER_CELL}${
+    keoGian && !daCoGocToaDo ? ' relative' : ''
+  }`;
+  const nam = keoGian ? (
+    <TayNamKeo
+      tenCot={keoGian.tenCot}
+      nhanCot={label}
+      beRongHienTai={keoGian.beRongHienTai}
+      onXong={keoGian.onXong}
+      onVeMacDinh={keoGian.onVeMacDinh}
+    />
+  ) : null;
+
+  // Tay nắm mang `aria-label` riêng, mà thuật toán tính tên của `<th>` gộp cả nhãn của con —
+  // để nguyên thì trình đọc màn hình đọc "Thao tác Kéo giãn cột Thao tác" ở MỌI cột. Khai tên
+  // tường minh cho ô thì thuật toán bỏ qua nội dung con, và tay nắm vẫn có nhãn riêng của nó.
+  const tenO = nam ? { 'aria-label': label } : {};
 
   if (!sortKey) {
     return (
-      <th scope="col" style={style} className={cellClass}>
+      <th scope="col" style={style} className={cellClass} {...tenO}>
         {label}
+        {nam}
       </th>
     );
   }
@@ -43,7 +79,7 @@ export function SortableHeader({
     : 'none';
 
   return (
-    <th scope="col" style={style} className={cellClass} aria-sort={ariaSort}>
+    <th scope="col" style={style} className={cellClass} aria-sort={ariaSort} {...tenO}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -60,6 +96,7 @@ export function SortableHeader({
           <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
         )}
       </button>
+      {nam}
     </th>
   );
 }
