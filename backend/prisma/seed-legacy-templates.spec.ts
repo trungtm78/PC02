@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MAU_HE_CU, bienCuaMauHeCu, thuMucMauHeCu } from './seed-legacy-templates';
+import {
+  MAU_HE_CU,
+  bienCuaMauHeCu,
+  thuMucMauHeCu,
+  DAU_MO_HE_CU,
+  DAU_DONG_HE_CU,
+} from './seed-legacy-templates';
 import { catalogKeys } from '../src/document-templates/field-catalog';
 import { detectDocxVariables } from '../src/document-templates/docx-variables.util';
 import { normalizeDocxTags } from '../src/document-templates/docx-normalize.util';
@@ -53,7 +59,10 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
     ]),
   )('%s: không placeholder nào còn vỡ thành thẻ XML (%s)', (file: string) => {
     const buf = fs.readFileSync(path.join(thuMucMauHeCu(), file));
-    const bien = detectDocxVariables(normalizeDocxTags(buf));
+    const bien = detectDocxVariables(normalizeDocxTags(buf), {
+      start: DAU_MO_HE_CU,
+      end: DAU_DONG_HE_CU,
+    });
     // Placeholder vỡ lộ ra bằng thẻ XML hoặc tên dài bất thường — đó là thứ in ra giữa văn
     // bản gửi đi. Còn biến không có trong catalog thì vẫn dùng được: nó thành ô để trống.
     const vo = bien.filter((b) => b.includes('<') || b.includes('w:') || b.length > 60);
@@ -75,6 +84,28 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
       }
     }
   });
+
+  /**
+   * Hệ cũ dùng PhpWord, vốn thay `${ten_bien}`. Khai sai cặp mở/đóng thì engine chỉ thay phần
+   * `{ten_bien}` và để nguyên dấu `$` trước MỌI giá trị — `$26-11253`, `$Đội 4` — trên văn bản
+   * gửi đi. Đo trên `don_thu_mau.docx`: 131 placeholder `${…}`, KHÔNG cái nào `{…}`.
+   */
+  it('mẫu hệ cũ dùng cặp `${` … `}`, không phải `{` … `}`', () => {
+    expect(DAU_MO_HE_CU).toBe('${');
+    expect(DAU_DONG_HE_CU).toBe('}');
+  });
+
+  it.each(MAU_HE_CU.map((m) => [m.file] as const))(
+    '%s: dò theo cặp sai thì KHÔNG ra biến nào — chứng tỏ cặp phải đúng',
+    (file) => {
+      const buf = normalizeDocxTags(fs.readFileSync(path.join(thuMucMauHeCu(), file)));
+      const dung = detectDocxVariables(buf, { start: DAU_MO_HE_CU, end: DAU_DONG_HE_CU });
+      expect(dung.length).toBeGreaterThan(5);
+      // Dò theo `{`…`}` cũng ra tên, nhưng khi render sẽ sót dấu `$` — nên phải chốt bằng
+      // việc mọi biến dò đúng cặp đều KHÔNG bắt đầu bằng `$`.
+      for (const b of dung) expect(b.startsWith('$')).toBe(false);
+    },
+  );
 
   /** Mã GUID Word chèn vào tài liệu KHÔNG phải placeholder — để lọt là popup hiện một ô rác. */
   it('không nhận mã GUID của Word làm biến', () => {

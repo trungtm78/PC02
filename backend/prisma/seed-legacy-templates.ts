@@ -58,6 +58,16 @@ export function thuMucMauHeCu(): string {
   return path.resolve(__dirname, 'seed-assets', 'legacy-docx');
 }
 
+/**
+ * Cặp ký tự mở/đóng placeholder của mẫu hệ cũ.
+ *
+ * Hệ cũ dùng PhpWord `TemplateProcessor`, vốn thay `${ten_bien}` — đo trên `don_thu_mau.docx`:
+ * 131 placeholder dạng `${…}`, KHÔNG cái nào dạng `{…}`. Khai sai cặp này thì engine chỉ thay
+ * phần `{ten_bien}` và để nguyên dấu `$` trước MỌI giá trị: `$26-11253`, `$Đội 4`…
+ */
+export const DAU_MO_HE_CU = '${';
+export const DAU_DONG_HE_CU = '}';
+
 export interface BienMau {
   name: string;
   label: string;
@@ -75,7 +85,10 @@ export interface BienMau {
 export function bienCuaMauHeCu(buffer: Buffer, entityType: string): BienMau[] {
   // Chuẩn hoá TRƯỚC khi dò: Word cắt placeholder qua nhiều run có định dạng khác nhau, và cả
   // 11 mẫu hệ cũ đều vỡ kiểu ấy — dò thẳng ra tên rác lẫn nguyên thẻ XML.
-  return detectDocxVariables(normalizeDocxTags(buffer)).map((name) => ({
+  return detectDocxVariables(normalizeDocxTags(buffer), {
+    start: DAU_MO_HE_CU,
+    end: DAU_DONG_HE_CU,
+  }).map((name) => ({
     name,
     label: name,
     source: isAutoPlaceholder(entityType, name) ? ('auto' as const) : ('manual' as const),
@@ -126,7 +139,14 @@ export async function seedLegacyTemplates(
       }
       await (prisma as any).documentTemplate.update({
         where: { id: existing.id },
-        data: { fileBytes: buffer, fileSha, fileName: m.file, variables: variables as never },
+        data: {
+          fileBytes: buffer,
+          fileSha,
+          fileName: m.file,
+          variables: variables as never,
+          delimStart: DAU_MO_HE_CU,
+          delimEnd: DAU_DONG_HE_CU,
+        },
       });
       updated++;
       continue;
@@ -143,6 +163,8 @@ export async function seedLegacyTemplates(
         fileName: m.file,
         variables: variables as never,
         format: 'DOCX',
+        delimStart: DAU_MO_HE_CU,
+        delimEnd: DAU_DONG_HE_CU,
         needsNumber: false,
         status: 'active',
         sortOrder: 100,
