@@ -747,6 +747,14 @@ export class CasesService {
       include: {
         statistic: true, // Thống kê mở rộng (case_statistics) — form load round-trip
         crimeChinh: { select: { id: true, code: true, name: true, articleNo: true } }, // tội danh chính FK
+        // Bị can: mẫu "QĐ khởi tố bị can", "Kết luận điều tra", "Biên bản hỏi cung" điền
+        // `hoTenBiCan`/`namSinh` từ đây. Thiếu thì ba mẫu ấy in ra ô trống dù vụ án đã có bị
+        // can — hỏng im lặng, tệ hơn báo thiếu.
+        subjects: {
+          where: { deletedAt: null },
+          select: { id: true, fullName: true, dateOfBirth: true, type: true },
+          orderBy: { createdAt: 'asc' },
+        },
         investigator: {
           select: {
             id: true,

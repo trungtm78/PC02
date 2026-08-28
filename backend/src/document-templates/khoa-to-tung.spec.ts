@@ -141,15 +141,62 @@ describe('GATE — đường nạp hồ sơ kèm quan hệ tội danh', () => {
   const fs = require('fs') as typeof import('fs');
   const path = require('path') as typeof import('path');
 
-  it.each([
-    ['Vụ việc', '../incidents/incidents.service.ts'],
-    ['Vụ án', '../cases/cases.service.ts'],
-  ])('%s: `getById` include `crimeChinh`', (_ten, duong) => {
-    const src = fs.readFileSync(path.join(__dirname, duong), 'utf8');
-    const i = src.indexOf('async getById(');
+  const thanGetById = (duong: string): string => {
+    const src = fs.readFileSync(path.join(__dirname, duong), "utf8");
+    const i = src.indexOf("async getById(");
     expect(i).toBeGreaterThan(0);
-    const than = src.slice(i, src.indexOf('\n  async ', i + 10));
-    expect(than).toContain('crimeChinh');
-    expect(than).toContain('articleNo');
+    return src.slice(i, src.indexOf("\n  async ", i + 10));
+  };
+
+  it.each([
+    ["Vụ việc", "../incidents/incidents.service.ts"],
+    ["Vụ án", "../cases/cases.service.ts"],
+  ])("%s: `getById` include `crimeChinh`", (_ten, duong) => {
+    const than = thanGetById(duong);
+    expect(than).toContain("crimeChinh");
+    expect(than).toContain("articleNo");
+  });
+
+  /**
+   * `hoTenBiCan`/`namSinh` đọc `record.subjects`. Đường nạp không kèm bị can thì ba mẫu
+   * "QĐ khởi tố bị can", "Kết luận điều tra", "Biên bản hỏi cung" in ra ô trống dù vụ án đã
+   * có bị can — hỏng im lặng, tệ hơn báo thiếu.
+   */
+  it("Vụ án: `getById` include `subjects` kèm họ tên và ngày sinh", () => {
+    const than = thanGetById("../cases/cases.service.ts");
+    expect(than).toMatch(/subjects:\s*\{/);
+    expect(than).toContain("fullName");
+    expect(than).toContain("dateOfBirth");
+  });
+});
+
+/**
+ * CỔNG: seed phải GỠ được cờ bắt buộc đã nằm sẵn trong cơ sở dữ liệu.
+ *
+ * Bản trước bỏ qua toàn bộ khi mẫu "đã có cấu hình required" — mà mọi môi trường đã chạy seed
+ * đều rơi vào đó. Nghĩa là danh sách bắt buộc thu hẹp KHÔNG BAO GIỜ tới được máy thật, và mẫu
+ * vẫn bị khoá y như cũ. Bản vá suýt thành vô nghĩa.
+ */
+describe('GATE — seed gỡ được cờ bắt buộc cũ trên máy đã chạy', () => {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const ma = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'prisma', 'seed-document-templates.ts'),
+    'utf8',
+  );
+
+  it('không bỏ qua mẫu chỉ vì "đã có cấu hình"', () => {
+    // Đường cũ: `if (!alreadyConfigured) { … } else { giữ nguyên }` — không còn được phép.
+    expect(ma).not.toMatch(/if\s*\(!alreadyConfigured\)/);
+  });
+
+  it('khai tường minh danh sách trường không có nguồn dữ liệu', () => {
+    expect(ma).toContain('KHONG_CO_NGUON');
+    for (const t of ['soKLDT', 'nguonTin', 'nguoiQuyetDinh']) expect(ma).toContain(t);
+  });
+
+  it('có nhánh cập nhật khi phát hiện cờ bắt buộc cần gỡ', () => {
+    expect(ma).toMatch(/daGoBo/);
+    expect(ma).toMatch(/documentTemplate\.update/);
   });
 });
