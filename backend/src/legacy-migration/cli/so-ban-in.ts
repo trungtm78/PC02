@@ -209,17 +209,27 @@ async function taiBanInHeCu(cookie: string, id: string): Promise<Buffer> {
  * Hệ mới lưu họ tên tách đôi theo quy ước tiếng Anh: chữ cuối là tên gọi, phần còn lại là họ
  * và tên đệm.
  */
-export function ganCanBoNhap(banGhi: Record<string, unknown>, ten: string): void {
+export function ganCanBoNhap(
+  banGhi: Record<string, unknown>,
+  ten: string,
+  tenNgan?: string | null,
+): void {
   const phan = ten.trim().split(/\s+/).filter(Boolean);
   if (!phan.length) return;
   banGhi['enteredBy'] = {
     firstName: phan[phan.length - 1],
     lastName: phan.slice(0, -1).join(' '),
+    // `undefined` khác `''`: không có cột thì hệ cũ in họ tên đầy đủ, còn rỗng thì in trống.
+    ...(tenNgan === undefined || tenNgan === null ? {} : { shortName: tenNgan }),
   };
 }
 
 /** Dựng bản ghi hệ mới đúng như bộ di trú dựng, rồi in bằng đúng đường mã của máy chủ. */
-export function inBangHeMoi(rec: LegacyRecord, mau: string, tenCanBo?: string): Buffer {
+export function inBangHeMoi(
+  rec: LegacyRecord,
+  mau: string,
+  canBo?: { ten: string; tenNgan?: string | null },
+): Buffer {
   const duong = path.join(thuMucMauHeCu(), mau);
   const bytes = fs.readFileSync(duong);
   const thucThe = thucTheChoMau(mau);
@@ -232,7 +242,7 @@ export function inBangHeMoi(rec: LegacyRecord, mau: string, tenCanBo?: string): 
         ? (tach.incident ?? tach.petition ?? tach.case)
         : (tach.petition ?? tach.incident ?? tach.case);
   if (!banGhi) throw new Error('Bộ di trú không dựng được bản ghi nào từ hồ sơ này.');
-  if (tenCanBo) ganCanBoNhap(banGhi, tenCanBo);
+  if (canBo) ganCanBoNhap(banGhi, canBo.ten, canBo.tenNgan);
 
   const bien = detectDocxVariables(normalizeDocxTags(bytes), DELIM).map((name) => ({
     name,
@@ -292,8 +302,10 @@ async function docHoSo(url: string, ids: string[]): Promise<LegacyRecord[]> {
 }
 
 /** Tên cán bộ theo `nguoi_them`, tra bảng `thanh_vien` của hệ cũ — CHỈ ĐỌC. */
-async function tenCanBoTheoId(ids: number[]): Promise<Map<number, string>> {
-  const ra = new Map<number, string>();
+async function tenCanBoTheoId(
+  ids: number[],
+): Promise<Map<number, { ten: string; tenNgan?: string | null }>> {
+  const ra = new Map<number, { ten: string; tenNgan?: string | null }>();
   const mongoUri = process.env['LEGACY_MONGO_URI'];
   if (!mongoUri || !ids.length) return ra;
   const { MongoClient } = await import('mongodb');
@@ -305,7 +317,13 @@ async function tenCanBoTheoId(ids: number[]): Promise<Map<number, string>> {
       .collection('thanh_vien')
       .find({ id: { $in: ids } })
       .toArray();
-    for (const r of rows) ra.set(Number(r['id']), String(r['ten'] ?? ''));
+    for (const r of rows) {
+      ra.set(Number(r['id']), {
+        ten: String(r['ten'] ?? ''),
+        // `undefined` khác `null`/`''`: không có cột thì hệ cũ in họ tên đầy đủ.
+        tenNgan: 'ten_ngan' in r ? (r['ten_ngan'] as string | null) : undefined,
+      });
+    }
   } finally {
     await mongo.close();
   }
