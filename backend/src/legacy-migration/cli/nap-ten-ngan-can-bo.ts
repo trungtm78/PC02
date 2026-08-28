@@ -25,6 +25,7 @@
  * Mặc định là chạy thử, `--apply` mới ghi. Idempotent: chạy lại chỉ ghi những chỗ còn khác.
  */
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 export interface CanBoHeCu {
   ten: string;
@@ -114,7 +115,11 @@ async function main(): Promise<void> {
     await mongo.close();
   }
 
-  const prisma = new PrismaClient();
+  // Prisma 7 bắt buộc khai bộ nối; `new PrismaClient()` trần ném ngay lúc dựng.
+  // Prisma 7 bắt buộc khai bộ nối; `new PrismaClient()` trần ném ngay lúc dựng.
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+  });
   try {
     const heMoi = (await prisma.user.findMany({
       select: { id: true, firstName: true, lastName: true, shortName: true },
