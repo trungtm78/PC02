@@ -66,15 +66,27 @@ export async function donMotCot(
 ): Promise<KetQuaDon> {
   const delegate = (prisma as unknown as Record<string, any>)[c.model];
   const kq: KetQuaDon = { quet: 0, doi: 0, maLa: new Map() };
-  let cursor: string | undefined;
+  let moc: string | undefined;
 
   for (;;) {
+    // Đi bằng `id > mốc` chứ KHÔNG dùng con trỏ Prisma kèm `skip: 1`.
+    //
+    // Bộ lọc ở đây là "cột còn giá trị", mà dọn xong thì cột thành null và hàng RỜI KHỎI bộ
+    // lọc. Con trỏ lúc ấy trỏ vào một hàng không còn trong tập kết quả, Prisma không định vị
+    // được nó, và `skip: 1` nhảy qua một hàng CHƯA xử lý — mất đúng một hồ sơ mỗi lần sang
+    // trang. Đo trên máy thật 28/08/2026: chạy thử 15.176, chạy thật 15.161, sót 22 hồ sơ
+    // trên cả ba bảng đúng bằng số lần sang trang.
+    //
+    // `id > mốc` không phụ thuộc việc hàng mốc còn khớp bộ lọc hay không, nên miễn nhiễm.
     const rows: Array<Record<string, unknown>> = await delegate.findMany({
-      where: { [c.col]: { not: null }, deletedAt: null },
+      where: {
+        [c.col]: { not: null },
+        deletedAt: null,
+        ...(moc ? { id: { gt: moc } } : {}),
+      },
       select: { id: true, [c.col]: true },
       orderBy: { id: 'asc' },
       take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
     if (rows.length === 0) break;
 
@@ -97,7 +109,7 @@ export async function donMotCot(
         });
       }
     }
-    cursor = rows[rows.length - 1]['id'] as string;
+    moc = rows[rows.length - 1]['id'] as string;
   }
   return kq;
 }
@@ -129,15 +141,19 @@ export async function donMetadata(
 ): Promise<KetQuaDon> {
   const delegate = (prisma as unknown as Record<string, any>)[c.model];
   const kq: KetQuaDon = { quet: 0, doi: 0, maLa: new Map() };
-  let cursor: string | undefined;
+  let moc: string | undefined;
 
   for (;;) {
+    // Cùng lý do như `donMotCot`: đi bằng `id > mốc`, không dùng con trỏ Prisma.
     const rows: Array<{ id: string; metadata: unknown }> = await delegate.findMany({
-      where: { metadata: { not: null }, deletedAt: null },
+      where: {
+        metadata: { not: null },
+        deletedAt: null,
+        ...(moc ? { id: { gt: moc } } : {}),
+      },
       select: { id: true, metadata: true },
       orderBy: { id: 'asc' },
       take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
     if (rows.length === 0) break;
 
@@ -166,7 +182,7 @@ export async function donMetadata(
         await delegate.update({ where: { id: r.id }, data: { metadata: moi } });
       }
     }
-    cursor = rows[rows.length - 1].id;
+    moc = rows[rows.length - 1].id;
   }
   return kq;
 }
