@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
 import { AppService } from './app.service';
+import { phienBanDangChay } from './phien-ban-dang-chay';
 
 @Controller()
 export class AppController {
@@ -12,9 +13,20 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  /**
+   * Trạng thái máy chủ + SỐ HIỆU BẢN ĐANG CHẠY.
+   *
+   * `version` để giao diện tự phát hiện mình đã cũ. Giao diện chỉ mang bản số nướng sẵn lúc
+   * dựng, nên nó không tự biết; phải hỏi một nguồn KHÔNG BAO GIỜ bị cache, và `/api/` là
+   * nguồn ấy (nginx chuyển tiếp thẳng, CDN không cache đường động).
+   *
+   * Ngày 28/08/2026 cán bộ dùng app của bản 23/08 suốt 5 ngày mà không ai biết — CDN giữ
+   * `sw.js` cũ ở biên và service worker cũ phục vụ gói cũ từ kho nội bộ. Deploy xanh, health
+   * ok, hỏng hoàn toàn im lặng. Trường này là để lần sau app tự nhận ra.
+   */
   @Get('health')
-  health(): { status: string; timestamp: string } {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+  health(): { status: string; timestamp: string; version: string } {
+    return { status: 'ok', timestamp: new Date().toISOString(), version: phienBanDangChay() };
   }
 
   // Sprint 3 / S3.4 — CSP violation report endpoint.

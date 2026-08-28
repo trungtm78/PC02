@@ -11,6 +11,7 @@ import { useAddressConverter } from '@/hooks/useAddressConverter';
 import { AddressConversionDialog } from '@/components/AddressConversionDialog';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
+import { useTuChuaBanCu } from '@/hooks/useTuChuaBanCu';
 import { ShortcutCheatSheet, CheatSheetButton } from '@/components/ShortcutCheatSheet';
 import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { authStore } from '@/stores/auth.store';
@@ -35,7 +36,11 @@ function getUserInitials(email: string | undefined): string {
 
 export function MainLayout() {
   useAbbreviationExpander();
-  useUserShortcutBroadcast(); // cross-tab sync for shortcut bindings
+  useUserShortcutBroadcast();
+  // App tự nhận ra mình đang chạy bản cũ và tự thoát. Ngày 28/08/2026 cán bộ dùng bản của 5
+  // ngày trước mà không ai biết: CDN giữ service worker cũ, và service worker ấy phục vụ gói
+  // cũ từ kho nội bộ nên app chạy trơn tru, không lỗi, không cảnh báo.
+  useTuChuaBanCu(__APP_VERSION__); // cross-tab sync for shortcut bindings
   const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter();
   const navigate = useNavigate();
   const location = useLocation();
