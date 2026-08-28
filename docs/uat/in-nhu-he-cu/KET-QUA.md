@@ -203,21 +203,38 @@ sơ có nội dung nhiều đoạn — nhưng thụt đầu dòng thì khác.
 
 ---
 
-## Việc phải làm trên máy thật
+## Đã lên máy thật — ĐÃ KIỂM TẬN NƠI
 
-Hai bước, theo đúng thứ tự:
+Cột `shortName` đã tạo, và đã nạp **235 tài khoản** từ hệ cũ (219 chuỗi có chữ · 16 để trống).
+Chạy lại lần hai ghi 0 — idempotent. Còn 2 cán bộ (`Hoàng Công Việt`, `Võ Đại Sang`) không
+phân biệt được vì trùng tên VÀ chưa từng nhập hồ sơ nào; bỏ qua có báo, không gán bừa.
 
-```bash
-# 1. Thêm cột shortName
-cd /home/pc02/current/backend && npx prisma migrate deploy
+Bấm thử thật: dựng bản in từ **chính CSDL máy thật** trên hồ sơ `ho_so_doi_1:86374`, bằng đúng
+bytes mẫu trong CSDL và đúng đường mã máy chủ dùng:
 
-# 2. Nạp chữ viết tắt cán bộ từ hệ cũ (chạy thử trước, xem rồi mới --apply)
-LEGACY_MONGO_URI="mongodb://…" npx ts-node src/legacy-migration/cli/nap-ten-ngan-can-bo.ts
-LEGACY_MONGO_URI="mongodb://…" npx ts-node src/legacy-migration/cli/nap-ten-ngan-can-bo.ts --apply
+```
+Số: 10565/TB-PC02-Đ1
+Thành phố Hồ Chí Minh, ngày 09 tháng 8 năm 2026
+… nhận được đơn Trình báo ghi ngày 15/7/2026, ghi tên ông/bà Nguyễn Thị Hồng…
+- Lưu: PC02-Đ1 (Tổ 2), T.Thanh.
 ```
 
-Không chạy bước 2 thì dòng "Lưu:" in **họ tên đầy đủ** thay vì chữ viết tắt — vẫn đọc được,
-không sai người, nhưng chưa giống hệ cũ.
+Đối chiếu với bản in hệ cũ của cùng hồ sơ (`ban-in-he-cu/hecu_86374.docx`): số hồ sơ **10565**
+số trần ✓ · **ngày 09** đệm 0 ✓ · **tháng 8** không đệm ✓ · **ghi ngày 15/7/2026** nguyên văn ✓ ·
+**T.Thanh** đúng chữ cán bộ tự đặt ✓. Cả bốn nhóm lệch đã tắt trên máy thật.
+
+### Ba lỗi CHỈ lộ khi chạy trên máy thật
+
+Cả ba đều qua trọn ca kiểm và hai vòng soát độc lập rồi mới ngã ở lần chạy đầu:
+
+| Lỗi | Vì sao ca kiểm không bắt |
+|---|---|
+| `new PrismaClient()` trần — ném ngay lúc dựng ở Prisma 7 | CLI di trú không có ca kiểm chạy thật, chúng cần CSDL |
+| Ghép cán bộ chỉ theo họ tên → **11 người trùng tên bị bỏ, ứng 18.617 hồ sơ (33,7%)** | Ca kiểm dùng dữ liệu bịa, không có cặp trùng tên thật |
+| Phép chiếu Mongo quên lấy `id` → phép ghép theo dấu vết **không bao giờ chạy** | Hàm lập kế hoạch là hàm thuần, ca kiểm truyền thẳng `id` vào |
+
+Lỗi thứ ba nguy hiểm nhất vì nó **hỏng mà vẫn in ra số đẹp**: báo cáo ghi "dấu vết 28" trông
+như đang hoạt động. Cả ba nay đều có cổng đọc thẳng mã nguồn.
 
 ---
 
@@ -247,9 +264,10 @@ còn tệ hơn không có cổng.
 | `cho-dien-mau-he-cu.gate.spec.ts` | Mọi chỗ điền của 11 mẫu phải được phân loại; không ô nào tra qua cột đúng/sai | 20 |
 | `chon-can-bo-in.gate.spec.ts` | Bộ nạp xuất chứng từ lấy đủ cột cán bộ (đọc thẳng mã nguồn) | 14 |
 | `so-ban-in.spec.ts` | Công cụ đối chiếu tự đúng: giải mã XML, căn dòng, chọn mẫu | 21 |
-| `nap-ten-ngan-can-bo.spec.ts` | Bộ nạp không gán nhầm khi trùng tên | 11 |
+| `nap-ten-ngan-can-bo.spec.ts` | Bộ nạp không gán nhầm khi trùng tên; phép chiếu lấy đủ trường | 15 |
+| `prisma-phai-co-adapter.gate.spec.ts` | Mọi CLI khai bộ nối Prisma (đọc mã nguồn) | 44 |
 
-Toàn bộ kho: **3.779 ca kiểm xanh**, `tsc --noEmit` sạch.
+Toàn bộ kho: **3.829 ca kiểm xanh**, `tsc --noEmit` sạch, frontend `tsc -b` sạch.
 
 ---
 
