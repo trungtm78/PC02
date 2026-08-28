@@ -94,3 +94,24 @@ describe('khoaTheoTenHeCu — khoá catalog mang tên trường hệ cũ', () =>
     expect(nam.resolve(hs)).toBe('2026');
   });
 });
+
+/**
+ * Mẫu `an_tra_bo_sung_mau.docx` của hệ cũ in `${toi_danh}` và `${don_vi}`. Không khai hai
+ * khoá ấy thì chúng rơi xuống dạng "cán bộ tự điền" và in ra TRỐNG, dù Vụ án đã có sẵn đúng
+ * dữ liệu — cán bộ nhìn bản in tưởng hồ sơ chưa nhập tội danh.
+ */
+describe('Khoá riêng của Vụ án mà mẫu hệ cũ dùng', () => {
+  it.each(['toi_danh', 'don_vi'])('có khoá %s', (ten) => {
+    expect(khoaTheoTenHeCu('case').some((k) => k.key === ten)).toBe(true);
+  });
+
+  it('`toi_danh` đọc tội danh của vụ án', () => {
+    const k = khoaTheoTenHeCu('case').find((x) => x.key === 'toi_danh')!;
+    expect(k.resolve({ crime: 'Lừa đảo chiếm đoạt tài sản' })).toBe('Lừa đảo chiếm đoạt tài sản');
+  });
+
+  it('`don_vi` đọc đơn vị tiếp nhận', () => {
+    const k = khoaTheoTenHeCu('case').find((x) => x.key === 'don_vi')!;
+    expect(k.resolve({ unit: 'Đội 4' })).toBe('Đội 4');
+  });
+});

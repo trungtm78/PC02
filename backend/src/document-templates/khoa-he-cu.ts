@@ -111,6 +111,11 @@ const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
   ],
   case: [
     { field: 'so_dien_thoai_nguyen_don', col: 'sdtCungCap', type: 'String' },
+    // Mẫu `an_tra_bo_sung_mau.docx` in `${toi_danh}` và `${don_vi}`. Không khai thì hai ô ấy
+    // in ra trống dù Vụ án đã có sẵn `crime` và `unit` — đúng thứ mẫu cần.
+    { field: 'toi_danh', col: 'crime', type: 'String' },
+    { field: 'don_vi', col: 'unit', type: 'String' },
+    { field: 'dieu_tra_vien_ten', col: 'dieuTraVien', type: 'String' },
   ],
 };
 

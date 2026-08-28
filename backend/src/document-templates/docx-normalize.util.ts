@@ -14,27 +14,70 @@ import PizZip from 'pizzip';
  * Chỉ đụng đoạn CÓ placeholder vỡ, giữ `rPr` của run đầu — đoạn văn xuôi bình thường giữ
  * nguyên từng run, không mất định dạng người soạn đã đặt.
  */
+/** Run chỉ chứa chữ — không tab, không xuống dòng, không hình, không trường động. */
+function runThuanChu(run: string): boolean {
+  return !/<w:(tab|br|drawing|object|pict|fldChar|instrText|sym|noBreakHyphen)\b/.test(run);
+}
+
+/** Chữ của một run. */
+function chuCuaRun(run: string): string {
+  return (run.match(/<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/g) ?? [])
+    .map((t) => t.replace(/<[^>]+>/g, ""))
+    .join("");
+}
+
+/**
+ * Placeholder trong một chuỗi, theo CẢ HAI cặp đang dùng: `{…}` của mẫu hệ mới và `${…}` của
+ * mẫu hệ cũ (PhpWord). Chỉ xét `{…}` thì Word cắt đúng giữa `$` và `{` sẽ lọt: run sau chứa
+ * `{stt}` trông đã trọn vẹn nên bước gộp bỏ qua, mà dò theo `${` thì trượt mất biến.
+ */
+function cacPlaceholder(s: string): string[] {
+  return (s.match(/\$?\{[^{}]*\}/g) ?? []);
+}
+
+/**
+ * Gộp các run LIỀN NHAU và THUẦN CHỮ khi placeholder bị cắt ngang chúng.
+ *
+ * Word cắt một chuỗi thành nhiều run mỗi khi định dạng đổi — bôi đậm nửa chữ, hay bộ kiểm
+ * chính tả chen vào. Placeholder khi ấy nằm rải ở ba bốn run với `rPr` khác nhau, và bước gộp
+ * đơn giản (chỉ gộp run KHÔNG có `rPr`) không đụng tới được. Cả 11 mẫu in của hệ cũ đều vỡ
+ * kiểu này — dò biến ra tên rác lẫn nguyên thẻ XML, tức không mẫu nào dùng được.
+ *
+ * Chỉ gộp trong DÃY run thuần chữ: run mang `<w:tab/>`, `<w:br/>`, hình vẽ hay trường động
+ * đứng ngoài dãy và giữ nguyên. Gộp cả chúng là xoá mất tab và ngắt dòng — thứ mẫu Word dùng
+ * để canh dòng ký, dòng địa chỉ — và bố cục vỡ vĩnh viễn ngay khi nạp mẫu.
+ */
 function gopRunTrongDoanVo(xml: string): string {
   return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (doan) => {
     const runs = doan.match(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g);
     if (!runs || runs.length < 2) return doan;
 
-    const chu = runs.map((r) =>
-      (r.match(/<w:t[^>]*>[\s\S]*?<\/w:t>/g) ?? [])
-        .map((t) => t.replace(/<[^>]+>/g, ""))
-        .join(""),
-    );
-    const toanBo = chu.join("");
-    // Không có placeholder, hoặc mọi placeholder đã nằm gọn trong một run → không đụng.
-    if (!/\{[^{}]*\}/.test(toanBo)) return doan;
-    if (runs.every((_r, i) => !/[{}]/.test(chu[i]) || /\{[^{}]*\}/.test(chu[i]))) return doan;
-
-    const rPr = runs[0].match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? "";
-    const dauDoan = doan.slice(0, doan.indexOf(runs[0]));
-    const cuoi = runs[runs.length - 1];
-    const cuoiDoan = doan.slice(doan.lastIndexOf(cuoi) + cuoi.length);
-    const esc = toanBo.replace(/&(?!(amp|lt|gt|quot|apos);)/g, "&amp;");
-    return `${dauDoan}<w:r>${rPr}<w:t xml:space="preserve">${esc}</w:t></w:r>${cuoiDoan}`;
+    let ra = doan;
+    let i = 0;
+    while (i < runs.length) {
+      if (!runThuanChu(runs[i])) {
+        i++;
+        continue;
+      }
+      let j = i;
+      while (j + 1 < runs.length && runThuanChu(runs[j + 1])) j++;
+      if (j > i) {
+        const day = runs.slice(i, j + 1);
+        const chu = day.map(chuCuaRun);
+        const toanBo = chu.join("");
+        const ph = cacPlaceholder(toanBo);
+        // Có placeholder, và ít nhất một cái KHÔNG nằm trọn trong một run → phải gộp dãy.
+        const voi = ph.filter((x) => !chu.some((c) => c.includes(x)));
+        if (ph.length > 0 && voi.length > 0) {
+          const rPr = day[0].match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? "";
+          const esc = toanBo.replace(/&(?!(amp|lt|gt|quot|apos);)/g, "&amp;");
+          const gop = `<w:r>${rPr}<w:t xml:space="preserve">${esc}</w:t></w:r>`;
+          ra = ra.replace(day.join(""), gop);
+        }
+      }
+      i = j + 1;
+    }
+    return ra;
   });
 }
 
@@ -44,7 +87,7 @@ function normalizeXml(xml: string): string {
     .replace(/<w:noProof\b[^>]*\/>/g, '')
     // Gộp run text liền nhau khi run thứ hai KHÔNG có rPr: bỏ ranh giới
     // `</w:t></w:r> <w:r> <w:t…>` → 2 đoạn text nối liền trong 1 run.
-    .replace(/<\/w:t><\/w:r>\s*<w:r>\s*<w:t[^>]*>/g, '');
+    .replace(/<\/w:t><\/w:r>\s*<w:r>\s*<w:t(?:\s[^>]*)?>/g, '');
   return gopRunTrongDoanVo(b1);
 }
 

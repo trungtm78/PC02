@@ -112,3 +112,45 @@ describe('normalizeDocxTags — placeholder vỡ qua run KHÁC định dạng', 
     expect(detectDocxVariables(normalizeDocxTags(buf))).toEqual(['stt']);
   });
 });
+
+/**
+ * Ba bẫy codex bắt được sau khi bản vá đầu đã xanh — đều làm hỏng chính văn bản gửi đi.
+ */
+describe('normalizeDocxTags — giữ nguyên thứ không phải chữ, và hiểu cặp `${`', () => {
+  /**
+   * Mẫu Word canh dòng ký, dòng địa chỉ bằng `<w:tab/>` và `<w:br/>`. Gộp run mà chỉ giữ chữ
+   * là xoá luôn chúng — bố cục vỡ vĩnh viễn ngay khi nạp mẫu, không cách nào lấy lại.
+   */
+  it('không nuốt `<w:tab/>` và `<w:br/>` khi gộp', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t>stt</w:t></w:r>' +
+      '<w:r><w:rPr><w:b/></w:rPr><w:t>}</w:t></w:r>' +
+      '<w:r><w:tab/></w:r>' +
+      '<w:r><w:br/><w:t>Ký tên</w:t></w:r></w:p>';
+    const ra = bodyXmlOf(normalizeDocxTags(makeRawDocx(body)));
+    expect(ra).toContain('<w:tab/>');
+    expect(ra).toContain('<w:br/>');
+    expect(detectDocxVariables(normalizeDocxTags(makeRawDocx(body)))).toEqual(['stt']);
+  });
+
+  it('không nuốt hình ảnh trong đoạn có placeholder vỡ', () => {
+    const body =
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{</w:t></w:r>' +
+      '<w:r><w:rPr><w:i/></w:rPr><w:t>stt}</w:t></w:r>' +
+      '<w:r><w:drawing>ảnh</w:drawing></w:r></w:p>';
+    expect(bodyXmlOf(normalizeDocxTags(makeRawDocx(body)))).toContain('<w:drawing>');
+  });
+
+  /**
+   * Mẫu hệ cũ dùng cặp `${` … `}`. Word hay cắt đúng giữa `$` và `{` — khi ấy run sau chứa
+   * `{stt}` trông đã trọn vẹn, nên bước gộp bỏ qua, và dò theo `${` trượt mất biến.
+   */
+  it('gộp được khi Word cắt giữa `$` và `{`', () => {
+    const buf = makeRawDocx(
+      '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>$</w:t></w:r>' +
+        '<w:r><w:rPr><w:i/></w:rPr><w:t>{stt}</w:t></w:r></w:p>',
+    );
+    expect(detectDocxVariables(normalizeDocxTags(buf), { start: '${', end: '}' })).toEqual(['stt']);
+  });
+});
