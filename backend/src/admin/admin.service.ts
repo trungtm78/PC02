@@ -80,6 +80,11 @@ export class AdminService {
           isActive: true,
           canDispatch: true,
           lastLoginAt: true,
+          // Trạng thái khoá — thiếu nó thì màn quản lý KHÔNG hiện được ai đang bị khoá, và nút
+          // mở khoá thành ra bấm mù. Thông báo đăng nhập cố ý không nói "đang bị khoá" (chống
+          // dò tên đăng nhập), nên đây là chỗ DUY NHẤT nhìn thấy được.
+          lockedUntil: true,
+          failedLoginAttempts: true,
           createdAt: true,
           updatedAt: true,
           role: { select: { id: true, name: true } },
@@ -713,5 +718,39 @@ export class AdminService {
     });
 
     return { success: true, message: 'Đã reset 2FA cho user thành công' };
+  }
+
+  /**
+   * Mở khoá tài khoản bị khoá vì đăng nhập sai nhiều lần.
+   *
+   * ── Vì sao cần ──
+   *
+   * Sai 5 lần liên tiếp là khoá 15 phút. Thông báo trả về CỐ Ý giữ nguyên "Invalid credentials"
+   * để không lộ rằng tài khoản có tồn tại (chống dò tên đăng nhập) — nên người bị khoá KHÔNG
+   * biết mình bị khoá; họ tưởng gõ sai mật khẩu và thử mãi.
+   *
+   * Trước bản này cả hệ thống KHÔNG có đường mở khoá nào: chờ đủ 15 phút, hoặc vào tận CSDL.
+   * Ngày 29/08/2026 chính tài khoản quản trị bị khoá và phải mở bằng SQL trên máy thật.
+   *
+   * Xoá CẢ HAI: chỉ gỡ mốc khoá mà để bộ đếm ở 5 thì lần gõ sai kế tiếp khoá lại ngay.
+   */
+  async moKhoaTaiKhoan(targetUserId: string, adminUserId: string) {
+    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) throw new NotFoundException('User không tồn tại');
+
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { failedLoginAttempts: 0, lockedUntil: null, lastFailedLoginAt: null },
+    });
+
+    await this.audit.log({
+      userId: adminUserId,
+      action: 'ADMIN_UNLOCK_ACCOUNT',
+      subject: 'User',
+      subjectId: targetUserId,
+      metadata: { targetUserId, username: target.username },
+    });
+
+    return { success: true, message: 'Đã mở khoá tài khoản' };
   }
 }

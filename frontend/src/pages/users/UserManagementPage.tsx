@@ -17,6 +17,7 @@ import {
   Lock,
   KeyRound,
   Upload,
+  ShieldAlert,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
@@ -30,6 +31,19 @@ import { getRoleLabel } from '@/shared/enums/role-labels';
 import { hoTen } from '@/lib/hoTen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+/**
+ * Tài khoản có đang bị khoá không.
+ *
+ * `lockedUntil` ở QUÁ KHỨ nghĩa là khoá đã hết hạn — coi nó là "đang khoá" thì nút mở khoá hiện
+ * mãi cho tài khoản vốn dùng bình thường. Ngày 29/08/2026 chính phép so mốc này đánh lừa: so
+ * bằng đồng hồ CSDL (lệch múi giờ) cho ra "hết khoá" trong khi ứng dụng vẫn thấy đang khoá.
+ */
+export function dangBiKhoa(u: { lockedUntil?: string | null }): boolean {
+  if (!u.lockedUntil) return false;
+  const moc = new Date(u.lockedUntil).getTime();
+  return Number.isFinite(moc) && moc > Date.now();
+}
 
 type User = {
   id: string;
@@ -46,6 +60,9 @@ type User = {
   canDispatch?: boolean;
   lastLoginAt: string | null;
   totpEnabled?: boolean;
+  /** Mốc hết khoá. Có và còn ở tương lai = đang bị khoá vì đăng nhập sai nhiều lần. */
+  lockedUntil?: string | null;
+  failedLoginAttempts?: number;
 };
 
 type Role = {
@@ -370,6 +387,23 @@ export default function UserManagementPage() {
     }
   };
 
+  /**
+   * Mở khoá tài khoản bị khoá vì đăng nhập sai nhiều lần.
+   *
+   * Thông báo đăng nhập cố ý KHÔNG nói "đang bị khoá" (chống dò tên đăng nhập), nên người bị
+   * khoá tưởng mình gõ sai mật khẩu và thử mãi. Trước đây không có đường mở khoá nào ngoài chờ
+   * đủ 15 phút hoặc vào tận CSDL.
+   */
+  const handleMoKhoa = async (user: User) => {
+    if (!window.confirm(`Mở khoá tài khoản ${user.fullName ?? user.username}?`)) return;
+    try {
+      await api.post(`/admin/users/${user.id}/unlock`);
+      void loadUsers();
+    } catch {
+      alert('Không mở khoá được. Vui lòng thử lại.');
+    }
+  };
+
   const handleTogglePerm = (subject: string, action: string) => {
     setPermMatrix((prev) => ({
       ...prev,
@@ -566,6 +600,16 @@ export default function UserManagementPage() {
                           >
                             <Edit2 className="w-4 h-4 text-slate-600" />
                           </button>
+                          {dangBiKhoa(user) && (
+                            <button
+                              onClick={() => void handleMoKhoa(user)}
+                              data-testid={`btn-mo-khoa-${user.id}`}
+                              className="p-1.5 hover:bg-red-50 rounded transition-colors"
+                              title={`Đang bị khoá do đăng nhập sai ${user.failedLoginAttempts ?? 0} lần — bấm để mở khoá`}
+                            >
+                              <ShieldAlert className="w-4 h-4 text-red-600" />
+                            </button>
+                          )}
                           {user.totpEnabled && (
                             <button
                               onClick={() => handleReset2Fa(user)}
