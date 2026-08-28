@@ -13,6 +13,47 @@ Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\v-o-https-pc02hcm-com-login-
 > Hai epic trước đã xong và lên máy thật, ghi ở
 > [docs/progress/](docs/progress/): **Vụ án** (26/08) và **Đơn thư** (27/08, PR #249–#267).
 
+## Đợt 29/08 (sáng) — mở khoá tài khoản + vòng đời mẫu chứng từ
+
+Anh báo hai việc, đào ra hai lỗ hổng quản trị khác nhau.
+
+### 1. Không đăng nhập được (PR #313)
+
+Tài khoản `admin` bị khoá 15 phút do 5 lần sai liên tiếp. Hệ thống **cố ý** báo
+"Invalid credentials" thay vì "đang bị khoá" — chống dò tên đăng nhập, quyết định đúng từ v0.27.
+Cái giá: người bị khoá không tự biết.
+
+**Lỗ hổng thật:** cả hệ thống KHÔNG có đường mở khoá nào. Chờ đủ 15 phút, hoặc chạy SQL trên máy
+thật. Với 238 cán bộ, đó là việc lặp hằng tuần.
+
+Đã thêm `POST /admin/users/:id/unlock` + dấu đỏ trên màn quản lý người dùng. KHÔNG đụng thông báo
+đăng nhập — lời giải là cho quản trị thấy và mở được, không phải gỡ lớp phòng thủ.
+
+Một chi tiết đánh lừa chính em lúc chẩn đoán: so `lockedUntil` bằng đồng hồ CSDL cho ra "hết
+khoá", trong khi ứng dụng vẫn thấy đang khoá — cột lưu không kèm múi giờ.
+
+### 2. "Mẫu chứng từ lạ" ở Vụ việc (PR #314)
+
+Ba mẫu `TPL_MALICIOUS` / `TPL_XXE_baseline` / `TPL_NORMAL_baseline` do đợt kiểm bảo mật 28/08 để
+lại, ở `active` nên hiện thẳng trong popup In chứng từ của MỌI cán bộ.
+
+**Gốc rễ không phải ba hàng rác**, mà là mẫu vừa tải lên đã thành `active` NGAY — không có bước
+nào giữa "một người tải tệp lên" và "toàn bộ cơ quan nhìn thấy nó".
+
+Đã dựng vòng đời `draft` → `active` → `archived`. Mẫu tải tay vào `draft`; phải Ban hành tường
+minh mới tới cán bộ; Thu hồi thay vì xoá để lịch sử in vẫn tra được. Popup in VỐN đã lọc
+`status:'active'` nên không phải sửa dòng nào ở đường in. Hai bộ seed khai `active` tường minh
+nên 31 mẫu chính thức không ảnh hưởng.
+
+Đã dọn 3 mẫu rác trên máy thật (xoá mềm, giữ hàng để 1 bản ghi lịch sử in không mồ côi). Còn lại
+đúng: Đơn thư 14 · Vụ án 8 · Vụ việc 6.
+
+### Đã kiểm trên máy thật, KHÔNG phải lỗi
+
+Anh nghi "Vụ việc và Đơn thư chưa lưu setting" và "không thấy chức năng tích sẵn". Chạy chẩn
+đoán thẳng trên máy thật: màn quản lý có đủ **31 công tắc "Tích sẵn khi in"**, và Đơn thư lưu
+được (`DON_THU ... mode: zip`). Cả hai chức năng đều đang chạy đúng.
+
 ## Đợt 29/08 — popup In chứng từ NHỚ lựa chọn của từng cán bộ
 
 Anh yêu cầu: "lưu trữ các setting để lần tới dùng lại, không cần phải setup lại", phạm vi "tất
