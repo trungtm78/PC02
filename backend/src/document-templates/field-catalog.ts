@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+import { getCatalogEntry } from '../catalog/catalog.registry';
 export { personName, rankName, abbrevName } from './ten-nguoi.util';
 import { personName, rankName, abbrevName } from './ten-nguoi.util';
 
@@ -146,25 +147,57 @@ function dieuLuatCuaHoSo(r: any): string {
   return so ? `Điều ${so}` : '';
 }
 
-/** Bị can/đối tượng của vụ án — liệt kê hết, không chỉ in người đầu tiên. */
-function hoTenBiCan(r: any): string {
+/**
+ * Chỉ BỊ CAN, bỏ bị hại và nhân chứng.
+ *
+ * `subjects` của vụ án gồm cả ba loại. In tất cả vào `{hoTenBiCan}` là ghi tên người bị hại
+ * vào chỗ bị can trên một quyết định khởi tố — sai nghiêm trọng, và không ai đọc bản in mà
+ * đoán ra vì sao. Bản ghi không ghi loại thì coi là bị can: dữ liệu cũ nhiều chỗ để trống.
+ */
+function chiBiCan(r: any): any[] {
   const ds = Array.isArray(r?.subjects) ? r.subjects : [];
-  return ds.map((x: any) => s(x?.fullName)).filter(Boolean).join(', ');
+  return ds.filter((x: any) => !x?.type || x.type === 'SUSPECT');
 }
 
-/** Năm sinh bị can đầu tiên — mẫu in để một dòng cho một người. */
+/** Bị can của vụ án — liệt kê hết, không chỉ in người đầu tiên. */
+function hoTenBiCan(r: any): string {
+  return chiBiCan(r)
+    .map((x: any) => s(x?.fullName))
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** Năm sinh bị can đầu tiên CÓ ngày sinh — mẫu in để một dòng cho một người. */
 function namSinhBiCan(r: any): string {
-  const ds = Array.isArray(r?.subjects) ? r.subjects : [];
-  const d = ds.find((x: any) => x?.dateOfBirth)?.dateOfBirth;
+  const d = chiBiCan(r).find((x: any) => x?.dateOfBirth)?.dateOfBirth;
   if (!d) return '';
   const date = d instanceof Date ? d : new Date(d as string);
   return Number.isNaN(date.getTime()) ? '' : String(date.getUTCFullYear());
 }
 
-/** Danh sách căn cứ (cột chọn-nhiều) gộp thành một dòng. */
-function gopDanhSach(v: unknown): string {
-  if (Array.isArray(v)) return v.map((x) => s(x)).filter(Boolean).join('; ');
-  return s(v);
+/**
+ * Nhãn tiếng Việt của một mã trong danh mục pháp lý.
+ *
+ * Căn cứ tạm đình chỉ lưu dưới dạng mã (`CHUA_XAC_DINH_BI_CAN`). In thẳng mã ấy vào quyết
+ * định là đưa ký hiệu nội bộ của phần mềm vào văn bản gửi đi. Mã lạ (dữ liệu cũ ghi chữ tự
+ * do) thì giữ nguyên — thà in chữ gốc còn hơn nuốt mất.
+ */
+function nhanDanhMuc(khoa: string, ma: unknown): string {
+  const m = s(ma);
+  if (!m) return '';
+  try {
+    const e = getCatalogEntry(khoa) as { values?: Array<{ code: string; label: string }> };
+    return e.values?.find((v) => v.code === m)?.label ?? m;
+  } catch {
+    return m;
+  }
+}
+
+/** Danh sách căn cứ (cột chọn-nhiều) gộp thành một dòng, đã đổi mã sang nhãn. */
+function gopDanhSach(v: unknown, khoaDanhMuc?: string): string {
+  const doi = (x: unknown) => (khoaDanhMuc ? nhanDanhMuc(khoaDanhMuc, x) : s(x));
+  if (Array.isArray(v)) return v.map(doi).filter(Boolean).join('; ');
+  return doi(v);
 }
 
 // ── VU_AN (Case) — mirror caseMap cũ ─────────────────────────────────────────
@@ -175,7 +208,7 @@ const VU_AN_FIELDS: FieldDef[] = [
   { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
   { key: 'hoTenBiCan', label: 'Họ tên bị can', group: 'Bị can', resolve: (r) => hoTenBiCan(r) },
   { key: 'namSinh', label: 'Năm sinh bị can', group: 'Bị can', resolve: (r) => namSinhBiCan(r) },
-  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuAn ?? r.lyDoTamDinhChiText) },
+  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuAn ?? r.lyDoTamDinhChiText, 'LY_DO_TAM_DINH_CHI_VU_AN') },
   { key: 'noiXayRa', label: 'Nơi xảy ra', group: 'Hồ sơ', resolve: (r) => s(r.noiXayRa) },
   { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
   { key: 'trangThai', label: 'Trạng thái', group: 'Hồ sơ', resolve: (r) => s(r.status) },
@@ -202,7 +235,7 @@ const VU_VIEC_FIELDS: FieldDef[] = [
   { key: 'nguoiQuyetDinh', label: 'Người quyết định', group: 'Cán bộ', resolve: (r) => s(r.nguoiQuyetDinh) },
   { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => toiDanhCuaHoSo(r) },
   { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
-  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuViec ?? r.lyDoTamDinhChiText) },
+  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuViec ?? r.lyDoTamDinhChiText, 'LY_DO_TAM_DINH_CHI_VU_VIEC') },
   { key: 'ketQua', label: 'Kết quả giải quyết', group: 'Nghiệp vụ', resolve: (r) => s(r.ketQuaXuLy) },
   { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
   { key: 'soQuyetDinh', label: 'Số quyết định', group: 'Văn bản', resolve: (r) => s(r.soQuyetDinh) },

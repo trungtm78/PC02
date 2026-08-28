@@ -22,13 +22,18 @@ describe('petition-seed', () => {
     ]);
   });
 
-  it('required theo docType: PHIEU_DE_XUAT cần nhanThay + deXuat', () => {
+  /**
+   * 28/08/2026: `deXuat` KHÔNG còn bắt buộc — chỉ 90/47.169 hồ sơ có (bản gốc hệ cũ 1/8.000),
+   * nên bắt buộc nó là khoá mẫu này với 99,8% hồ sơ. Cán bộ vẫn điền được ở popup khi cần.
+   */
+  it('required theo docType: PHIEU_DE_XUAT cần nhanThay, KHÔNG cần deXuat', () => {
     const vars = buildPetitionSeedVariables(
       'PHIEU_DE_XUAT',
       docx('{ghiTen} {noiDung} {nhanThay} {deXuat} {dinhKem}'),
     );
     const req = vars.filter((v) => v.required).map((v) => v.name);
-    expect(req).toEqual(expect.arrayContaining(['ghiTen', 'nhanThay', 'deXuat']));
+    expect(req).toEqual(expect.arrayContaining(['ghiTen', 'nhanThay']));
+    expect(req).not.toContain('deXuat');
     expect(vars.find((v) => v.name === 'dinhKem')?.required).toBe(false);
   });
 

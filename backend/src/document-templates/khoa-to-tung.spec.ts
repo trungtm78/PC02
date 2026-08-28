@@ -200,3 +200,87 @@ describe('GATE — seed gỡ được cờ bắt buộc cũ trên máy đã ch�
     expect(ma).toMatch(/documentTemplate\.update/);
   });
 });
+
+/**
+ * Ba bẫy codex bắt ở vòng ba — đều in ra SAI trên văn bản tố tụng chính thức.
+ */
+describe('Bẫy vòng ba', () => {
+  /**
+   * `subjects` gồm cả bị hại và nhân chứng. In tất cả vào `{hoTenBiCan}` là ghi tên người bị
+   * hại vào chỗ bị can trên một quyết định khởi tố — sai nghiêm trọng, và không ai đọc bản in
+   * mà đoán ra được vì sao.
+   */
+  it('`hoTenBiCan` chỉ lấy bị can, bỏ bị hại và nhân chứng', () => {
+    const hs = {
+      subjects: [
+        { fullName: 'Người Bị Hại', type: 'VICTIM' },
+        { fullName: 'Nguyễn Văn A', type: 'SUSPECT' },
+        { fullName: 'Nhân Chứng B', type: 'WITNESS' },
+      ],
+    };
+    const ra = resolveField('VU_AN', 'hoTenBiCan', hs);
+    expect(ra).toBe('Nguyễn Văn A');
+    expect(ra).not.toContain('Bị Hại');
+  });
+
+  it('`namSinh` lấy năm sinh của BỊ CAN, không phải người đầu danh sách', () => {
+    const hs = {
+      subjects: [
+        { fullName: 'Người Bị Hại', type: 'VICTIM', dateOfBirth: new Date('1970-01-01T00:00:00Z') },
+        { fullName: 'Nguyễn Văn A', type: 'SUSPECT', dateOfBirth: new Date('1990-05-06T00:00:00Z') },
+      ],
+    };
+    expect(resolveField('VU_AN', 'namSinh', hs)).toBe('1990');
+  });
+
+  /** Không ghi loại thì coi là bị can — dữ liệu cũ nhiều bản ghi để trống. */
+  it('bản ghi không ghi loại vẫn được coi là bị can', () => {
+    expect(resolveField('VU_AN', 'hoTenBiCan', { subjects: [{ fullName: 'Trần Văn C' }] })).toBe(
+      'Trần Văn C',
+    );
+  });
+
+  /**
+   * Căn cứ tạm đình chỉ lưu dưới dạng mã (`CHUA_XAC_DINH_BI_CAN`). In thẳng mã ấy vào quyết
+   * định là đưa ký hiệu nội bộ của phần mềm vào văn bản gửi đi.
+   */
+  it('`lyDo` in nhãn tiếng Việt, không in mã', () => {
+    const ra = resolveField('VU_AN', 'lyDo', { lyDoTamDinhChiVuAn: ['CHUA_XAC_DINH_BI_CAN'] });
+    expect(ra).toContain('Chưa xác định');
+    expect(ra).not.toContain('CHUA_XAC_DINH_BI_CAN');
+  });
+
+  it('VU_VIEC: `lyDo` cũng in nhãn tiếng Việt', () => {
+    const ra = resolveField('VU_VIEC', 'lyDo', { lyDoTamDinhChiVuViec: ['CHUA_CO_KET_QUA_GIAM_DINH'] });
+    expect(ra).not.toContain('_');
+  });
+
+  /** Mã lạ (dữ liệu cũ) thì in nguyên — thà giữ chữ gốc còn hơn nuốt mất. */
+  it('mã không có trong danh mục thì giữ nguyên', () => {
+    expect(resolveField('VU_AN', 'lyDo', { lyDoTamDinhChiVuAn: ['Chưa xác định bị can'] })).toBe(
+      'Chưa xác định bị can',
+    );
+  });
+});
+
+/**
+ * CỔNG: bộ mẫu Đơn thư cũng không được bắt buộc trường không có nguồn dữ liệu.
+ *
+ * Bốn mẫu đơn thư khoá vì `deXuat` (90/47.169 hồ sơ) và `donViNhan` (0/47.169) — đúng 99,8%
+ * hồ sơ không in được. Chặn ở CHÍNH bảng khai, không chỉ ở bước dọn dẹp: cơ sở dữ liệu mới
+ * seed lần đầu sẽ đặt lại y như cũ nếu chỉ chữa một đầu.
+ */
+describe('GATE — mẫu Đơn thư không bắt buộc trường rỗng', () => {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const ma = fs.readFileSync(path.join(__dirname, 'petition-seed.ts'), 'utf8');
+  const bang = ma.slice(ma.indexOf('const REQUIRED_BY_DOCTYPE'), ma.indexOf('};', ma.indexOf('const REQUIRED_BY_DOCTYPE')));
+
+  it.each(['deXuat', 'donViNhan'])('bảng khai không còn bắt buộc %s', (t) => {
+    expect(bang).not.toContain(`'${t}'`);
+  });
+
+  it('khai tường minh danh sách trường không có nguồn', () => {
+    expect(ma).toContain('KHONG_CO_NGUON_DON_THU');
+  });
+});

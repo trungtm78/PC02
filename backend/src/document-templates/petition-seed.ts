@@ -55,16 +55,25 @@ export const PETITION_SEED_META: Record<
  * tĩnh `getMissingFieldsForDocType` (document-export.service): mọi mẫu cần ghiTen + noiDung,
  * cộng per-docType. Chỉ mark required cho placeholder THỰC SỰ có trong file.
  */
+/**
+ * Trường KHÔNG có nguồn dữ liệu — bắt buộc chúng là khoá mẫu vĩnh viễn.
+ *
+ * Đo trên máy thật 28/08/2026: `deXuat` chỉ 90/47.169 hồ sơ có (bản gốc hệ cũ 1/8.000),
+ * `donViNhan` đọc cột `donViXuLy` — 0/47.169. Bốn mẫu đơn thư vì thế khoá với 99,8% hồ sơ.
+ * Cán bộ vẫn điền được ở popup khi cần; chỉ là không chặn in nữa.
+ */
+export const KHONG_CO_NGUON_DON_THU: ReadonlySet<string> = new Set(['deXuat', 'donViNhan']);
+
 const REQUIRED_BY_DOCTYPE: Record<DocumentType, readonly string[]> = {
-  PHIEU_DE_XUAT: ['ghiTen', 'noiDung', 'nhanThay', 'deXuat'],
+  PHIEU_DE_XUAT: ['ghiTen', 'noiDung', 'nhanThay'],
   // Bộ mẫu PC01 (TT 128/2025/TT-BCA) chuẩn hoá lý do chuyển + căn cứ pháp lý thành
   // VĂN CỐ ĐỊNH trên biểu mẫu ("Xét thấy … không thuộc thẩm quyền giải quyết";
   // "Căn cứ Điều 36, Điều 145 và Điều 146 BLTTHS"), nên không còn placeholder
   // lyDoChuyen/canCuPhapLy/huongDanKhoiKien/lyDoTraDon. Thay vào đó, đơn vị nhận
   // chuyển (donViNhan) và nhận định (nhanThay) mới là phần bắt buộc cán bộ điền.
-  PHIEU_CHUYEN_NGUON_TIN: ['ghiTen', 'noiDung', 'donViNhan'],
-  PHIEU_CHUYEN_DON: ['ghiTen', 'noiDung', 'donViNhan'],
-  THONG_BAO_CHUYEN: ['ghiTen', 'noiDung', 'donViNhan'],
+  PHIEU_CHUYEN_NGUON_TIN: ['ghiTen', 'noiDung'],
+  PHIEU_CHUYEN_DON: ['ghiTen', 'noiDung'],
+  THONG_BAO_CHUYEN: ['ghiTen', 'noiDung'],
   THONG_BAO_HUONG_DAN: ['ghiTen', 'noiDung', 'nhanThay'],
   THONG_BAO_TRA_LAI: ['ghiTen', 'noiDung', 'nhanThay'],
   BIEN_NHAN: ['ghiTen', 'noiDung'],
