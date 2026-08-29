@@ -123,3 +123,36 @@ describe('Kết luận điều tra — lưu thất bại', () => {
     );
   });
 });
+
+/**
+ * Lỗi của lần lưu trước KHÔNG được bám lại sang lần mở sau.
+ *
+ * Codex bắt: `supplementError` chỉ được xoá lúc bắt đầu lưu, nên đóng popup bằng Hủy/X rồi mở
+ * lại là thấy ngay một thông báo đỏ về một lần lưu đã qua — trước cả khi người dùng bấm gì.
+ * Trạng thái lỗi dính vào TRANG chứ không dính vào lần mở popup; gom việc dọn vào một hàm đóng
+ * dùng chung thay vì bắt từng nơi tự nhớ.
+ */
+describe('Bổ sung điều tra — lỗi cũ không bám lại', () => {
+  /**
+   * Ghim bằng CẤU TRÚC chứ không bằng hành vi: nút mở popup bổ sung điều tra chỉ hiện với một
+   * số trạng thái vụ án, nên dựng được nó trong bài kiểm đòi giả lập cả vòng đời hồ sơ — đắt
+   * hơn giá trị nó mang lại, và giòn hơn.
+   *
+   * Thứ cần giữ là một BẤT BIẾN VỀ MÃ: mọi đường đóng popup phải đi qua `closeSupplementModal`,
+   * vì đó là chỗ duy nhất dọn lỗi cũ. Ai thêm một nút đóng mới bằng `setShowSupplementModal(false)`
+   * trực tiếp sẽ làm ca này đỏ — đúng lúc cần đỏ.
+   */
+  it('mọi đường ĐÓNG popup đều đi qua closeSupplementModal', async () => {
+    const ma = (await import('../CaseDetailPage.tsx?raw')).default as string;
+    expect(ma).toContain('const closeSupplementModal');
+    // Không còn nút nào đóng thẳng bằng setState
+    expect(ma).not.toMatch(/onClick=\{\(\) => setShowSupplementModal\(false\)\}/);
+    expect(ma).not.toMatch(/onClick=\{closeSupplementModal\}[\s\S]{0,0}setShowSupplementModal\(false\)/);
+  });
+
+  /** Mở popup cũng phải dọn — lỗi cũ không được chờ sẵn ở đó trước khi người dùng bấm gì. */
+  it('đường MỞ popup có dọn lỗi cũ', async () => {
+    const ma = (await import('../CaseDetailPage.tsx?raw')).default as string;
+    expect(ma).toMatch(/setSupplementError\(""\);\s*setShowSupplementModal\(true\)/);
+  });
+});

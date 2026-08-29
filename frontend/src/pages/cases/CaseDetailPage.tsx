@@ -785,6 +785,17 @@ export default function CaseDetailPage() {
   // Supplementary Investigation state
   const [showSupplementModal, setShowSupplementModal] = useState(false);
   const [supplementError, setSupplementError] = useState("");
+  /**
+   * Đóng popup bổ sung điều tra: xoá luôn lỗi cũ.
+   *
+   * Không có chỗ này thì lỗi của lần trước bám lại, và lần mở sau người dùng thấy ngay một
+   * thông báo đỏ về một lần lưu đã qua — trước cả khi họ bấm gì. Gom vào MỘT hàm để mọi nơi
+   * đóng đều sạch, thay vì bắt từng chỗ tự nhớ.
+   */
+  const closeSupplementModal = () => {
+    setShowSupplementModal(false);
+    setSupplementError("");
+  };
   const [supplementSaving, setSupplementSaving] = useState(false);
   const [supplementForm, setSupplementForm] = useState({
     type: "",
@@ -1571,7 +1582,7 @@ export default function CaseDetailPage() {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-slate-800">Timeline tiến trình điều tra</h3>
           <button
-            onClick={() => setShowSupplementModal(true)}
+            onClick={() => { setSupplementError(""); setShowSupplementModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
             data-testid="btn-supplement-investigation"
           >
@@ -1950,7 +1961,7 @@ export default function CaseDetailPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
             <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <h2 className="font-bold text-slate-800">Điều tra bổ sung / Điều tra lại</h2>
-              <button onClick={() => setShowSupplementModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <button onClick={closeSupplementModal} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-slate-600" />
               </button>
             </div>
@@ -2035,7 +2046,7 @@ export default function CaseDetailPage() {
             )}
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
               <button
-                onClick={() => setShowSupplementModal(false)}
+                onClick={closeSupplementModal}
                 className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 Hủy
