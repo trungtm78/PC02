@@ -119,7 +119,7 @@ export default function ExportReportsPage() {
       setPetitions([]);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (conMoiNhat()) setLoading(false);
     }
   }, [currentPage, searchQuery]);
 

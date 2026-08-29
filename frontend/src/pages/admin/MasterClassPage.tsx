@@ -55,8 +55,8 @@ export default function MasterClassPage() {
       setEntries([]);
       setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     }
-    setLoading(false);
-  }, [selectedType]);
+    if (conMoiNhat()) setLoading(false);
+  }, [selectedType, batDau]);
 
   const fetchCounts = useCallback(async () => {
     // Hỏi KHÔNG ĐƯỢC thì để `null`, KHÔNG đặt 0.

@@ -125,3 +125,32 @@ describe('Cổng: câu "chưa có gì" phải im khi đang lỗi', () => {
     },
   );
 });
+
+/**
+ * CỔNG LỚP thứ tư — trang đã chặn đua thì phải chặn CẢ việc tắt "đang tải".
+ *
+ * Codex bắt ở hai trang liền: `conMoiNhat()` chặn được lượt cũ ghi dữ liệu và ghi lỗi, nhưng
+ * `finally { setLoading(false) }` vẫn chạy — nên lượt cũ tắt trạng thái "đang tải" của lượt MỚI
+ * còn đang chạy, và màn hình hiện nội dung rỗng như thể đã tải xong.
+ *
+ * Chặn nửa vời còn khó thấy hơn không chặn: dữ liệu đúng nhưng trạng thái sai.
+ */
+describe('Cổng: chặn đua thì phải chặn cả việc tắt "đang tải"', () => {
+  const coChanDua = Object.entries(TRANG).filter(([, ma]) => ma.includes('conMoiNhat'));
+
+  it('có ít nhất một trang chặn đua (cổng này không rỗng)', () => {
+    expect(coChanDua.length).toBeGreaterThan(0);
+  });
+
+  it.each(coChanDua.map(([d]) => [d.split('/').pop() ?? d, d]))(
+    '%s — không tắt "đang tải" vô điều kiện',
+    (_ten, duong) => {
+      const ma = TRANG[duong];
+      const dong = ma.split('\n');
+      const sot = dong.filter(
+        (l) => /setLoading\(false\)/.test(l) && !/conMoiNhat\(\)/.test(l),
+      );
+      expect(sot.map((l) => l.trim())).toEqual([]);
+    },
+  );
+});

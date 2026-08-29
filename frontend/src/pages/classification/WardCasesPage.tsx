@@ -189,7 +189,7 @@ export default function WardCasesPage() {
       setAllData([]);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (conMoiNhat()) setLoading(false);
     }
   }, [filters.districtId, filters.wardId]);
 
