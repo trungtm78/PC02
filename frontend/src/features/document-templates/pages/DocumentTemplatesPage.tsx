@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { Download, Pencil, Trash2, MoreVertical, Plus } from 'lucide-react';
 import { listTemplates, downloadTemplateFile, updateTemplate, doiTrangThaiTemplate } from '../api';
 import type { DocumentTemplate } from '../types';
@@ -29,6 +31,7 @@ export default function DocumentTemplatesPage() {
   const [items, setItems] = useState<DocumentTemplate[]>([]);
   const [entityFilter, setEntityFilter] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editFor, setEditFor] = useState<DocumentTemplate | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -40,6 +43,12 @@ export default function DocumentTemplatesPage() {
       // Lấy ĐỦ mọi trạng thái: màn quản trị phải thấy cả bản nháp và bản đã thu hồi, nếu không
       // thì ban hành một bản nháp là việc không ai làm được từ giao diện.
       setItems(await listTemplates({ entityType: entityFilter || undefined }));
+      setLoadError('');
+    } catch (e) {
+      // Trước đây KHÔNG có `catch` nào: hỏng thì lỗi văng ra ngoài, danh sách ở lại rỗng, và
+      // màn quản trị nhìn hệt một hệ thống chưa có mẫu chứng từ nào.
+      setItems([]);
+      setLoadError(extractApiError(e, 'Không tải được danh sách mẫu chứng từ.').messages.join(', '));
     } finally {
       setLoading(false);
     }
@@ -133,6 +142,8 @@ export default function DocumentTemplatesPage() {
           Thêm mẫu
         </Button>
       </div>
+
+      <LoadErrorBanner error={loadError} what="danh sách mẫu chứng từ" data-testid="templates-load-error" />
 
       <div className="mb-3">
         <select

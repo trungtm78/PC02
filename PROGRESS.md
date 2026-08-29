@@ -547,3 +547,8 @@ M5: `UAT-COVERAGE.md` + đo lại lần cuối trên máy thật.
   truy ra vì sao — nghi cách `it.each` + vòng lặp `expect` bên trong không nổi lỗi. Đã GỠ hẳn
   luật ấy: một cổng không chứng minh được là lời hứa suông. Bản vá vẫn còn; luật hiện chỉ được
   giữ bằng lượt soi Codex.
+- **Bộ kiểm frontend chập chờn khi chạy ĐẦY ĐỦ trên máy local.** `PetitionFormPage.payload` và
+  `hoSoDiTruLuuDuocKhongCanLoaiDon` hết giờ chờ (~27-30 giây/ca) trong vòng đầy đủ nhưng xanh khi
+  chạy riêng (16/16, 8 giây). Kiểm bằng cách CẤT thay đổi rồi chạy lại: bản gốc còn 3 đỏ, bản có
+  thay đổi 2 đỏ — tức chập chờn CÓ SẴN, không do đợt này. CI xanh vì máy chạy rảnh hơn. Nên
+  tăng `testTimeout` cho hai tệp ấy hoặc tách chúng ra khỏi vòng song song.
