@@ -55,3 +55,26 @@ describe('Cổng: trang có khối báo tải hỏng thì mọi ô số liệu p
     },
   );
 });
+
+/**
+ * CỔNG LỚP thứ hai — trang có `LoadErrorBanner` thì phải XOÁ lỗi cũ mỗi lần nạp lại.
+ *
+ * Codex bắt ở màn KPI: `loadError` được đặt khi hỏng nhưng không ai xoá, nên đổi năm/quý/tháng
+ * rồi nạp lại THÀNH CÔNG vẫn còn khối đỏ đứng đó — mâu thuẫn với chính số liệu bên dưới, và
+ * người dùng không biết tin cái nào.
+ *
+ * Cùng lớp với lỗi `supplementError` bám lại ở tab Bổ sung điều tra: trạng thái lỗi dính vào
+ * TRANG chứ không dính vào lần hỏi. Sửa từng chỗ thì lần sau lại lọt, nên quét theo lớp.
+ */
+describe('Cổng: trang có khối báo tải hỏng thì phải dọn lỗi cũ mỗi lần nạp', () => {
+  const coBanner = Object.entries(TRANG).filter(([, ma]) => ma.includes('LoadErrorBanner'));
+
+  it.each(coBanner.map(([d]) => [d.split('/').pop() ?? d, d]))(
+    '%s — có dọn setLoadError("")',
+    (_ten, duong) => {
+      const ma = TRANG[duong];
+      // Đặt lỗi thì phải có ít nhất một chỗ DỌN lỗi — nếu không, lỗi bám vĩnh viễn.
+      expect(ma).toMatch(/setLoadError\(["']{2}\)/);
+    },
+  );
+});

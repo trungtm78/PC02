@@ -129,6 +129,9 @@ export default function KpiDashboardPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    // Xoá lỗi của lần trước NGAY ĐẦU mỗi lần nạp: không có dòng này thì đổi năm/quý/tháng rồi
+    // nạp lại thành công vẫn còn khối đỏ đứng đó, mâu thuẫn với chính số liệu bên dưới.
+    setLoadError("");
     try {
       const qs = buildParams();
       const [summaryRes, teamRes, trendRes] = await Promise.all([
