@@ -247,3 +247,136 @@ describe('KPI — quan hệ (metamorphic)', () => {
     }
   });
 });
+
+/**
+ * Sinh ra TỪ phân tích mutant sống sót của vòng đột biến (76,22% — 33 mutant sống).
+ *
+ * Nhóm nặng nhất: MỌI phép lọc phạm vi đều sống sót.
+ *
+ *     ...(query.unitId ? { unitId: query.unitId } : {})        →  {}          [Survived]
+ *     ...(query.teamId ? { assignedTeamId: query.teamId } : {}) →  {}          [Survived]
+ *     getKpiSummary({ ...query, teamId: team.id })              →  getKpiSummary({})  [Survived]
+ *     if (allowedTeamIds !== null && allowedTeamIds !== undefined)             [Survived]
+ *
+ * Nghĩa là: nếu phép lọc theo tổ hỏng, KHÔNG ca kiểm nào biết. Hệ quả nghiệp vụ là mọi tổ đều
+ * nhìn thấy số liệu của cả đơn vị — một màn hình trông hoàn toàn hợp lý, không ai nghi ngờ, và
+ * chỉ tiêu của từng tổ trở nên vô nghĩa. Đây đúng lớp bất biến "cô lập" (roll-up không được
+ * trộn giữa các đơn vị).
+ */
+describe('KPI — cô lập theo tổ/đơn vị (từ mutant sống sót)', () => {
+  function batTruyVan() {
+    const where: any[] = [];
+    const ghi = (args: any) => {
+      where.push(args?.where ?? {});
+      return Promise.resolve(1);
+    };
+    mockPrisma.incident.count.mockReset();
+    mockPrisma.case.count.mockReset();
+    mockPrisma.incident.count.mockImplementation(ghi);
+    mockPrisma.case.count.mockImplementation(ghi);
+    return where;
+  }
+
+  /** Tách riêng truy vấn trên bảng vụ việc và bảng vụ án — hai bảng không cùng khả năng lọc. */
+  function batRieng() {
+    const vuViec: any[] = [];
+    const vuAn: any[] = [];
+    mockPrisma.incident.count.mockReset();
+    mockPrisma.case.count.mockReset();
+    mockPrisma.incident.count.mockImplementation((a: any) => {
+      vuViec.push(a?.where ?? {});
+      return Promise.resolve(1);
+    });
+    mockPrisma.case.count.mockImplementation((a: any) => {
+      vuAn.push(a?.where ?? {});
+      return Promise.resolve(1);
+    });
+    return { vuViec, vuAn };
+  }
+
+  it('SC-KPI-1 · lọc theo đơn vị đi xuống mọi truy vấn VỤ VIỆC (KPI-1, KPI-2)', async () => {
+    const svc = await dung();
+    const { vuViec } = batRieng();
+    await svc.getKpiSummary({ year: 2026, unitId: 'donvi-9' } as never);
+    expect(vuViec.length).toBeGreaterThan(0);
+    for (const x of vuViec) expect(x.unitId).toBe('donvi-9');
+  });
+
+  /**
+   * GHIM MỘT KHE HỞ ĐANG TỒN TẠI, không phải khẳng định nó đúng.
+   *
+   * Bảng `Case` KHÔNG có cột `unitId` (chỉ `Incident` có), nên KPI-3 và KPI-4 — hai chỉ tiêu về
+   * VỤ ÁN — bỏ qua bộ lọc đơn vị trong im lặng. Cán bộ chọn một đơn vị ở màn KPI thì hai chỉ
+   * tiêu đầu co lại theo đơn vị, còn hai chỉ tiêu sau vẫn là số của TOÀN BỘ đơn vị — bốn con số
+   * đứng cạnh nhau nhưng không cùng một phạm vi, và không có gì trên màn nói điều đó.
+   *
+   * Ca này cố tình khẳng định hành vi HIỆN TẠI để nó thôi vô hình: ngày nào `Case` có `unitId`
+   * và phép lọc được nối, ca này sẽ ĐỎ và người sửa buộc phải đọc ghi chú này.
+   */
+  it('SC-KPI-1b · [khe hở đã biết] lọc đơn vị KHÔNG áp được cho vụ án — Case không có cột unitId', async () => {
+    const svc = await dung();
+    const { vuAn } = batRieng();
+    await svc.getKpiSummary({ year: 2026, unitId: 'donvi-9' } as never);
+    expect(vuAn.length).toBeGreaterThan(0);
+    for (const x of vuAn) expect(x.unitId).toBeUndefined();
+  });
+
+  it('SC-KPI-2 · lọc theo tổ đi xuống MỌI truy vấn đếm', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.getKpiSummary({ year: 2026, teamId: 'to-7' } as never);
+    expect(w.length).toBeGreaterThan(0);
+    for (const x of w) expect(x.assignedTeamId).toBe('to-7');
+  });
+
+  /** Không khai phạm vi thì KHÔNG được tự chèn phạm vi nào — chiều ngược lại cũng phải đúng. */
+  it('SC-KPI-3 · không khai phạm vi thì không tự chèn phạm vi', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.getKpiSummary({ year: 2026 } as never);
+    for (const x of w) {
+      expect(x.unitId).toBeUndefined();
+      expect(x.assignedTeamId).toBeUndefined();
+    }
+  });
+
+  it('SC-KPI-4 · drill-down theo tổ truyền ĐÚNG tổ ấy xuống, không phải tổ khác', async () => {
+    const svc = await dung();
+    mockPrisma.team.findMany.mockResolvedValue([
+      { id: 'to-1', name: 'Đội 1', code: 'D1', level: 1, parentId: null },
+      { id: 'to-2', name: 'Đội 2', code: 'D2', level: 1, parentId: null },
+    ]);
+    const w = batTruyVan();
+    await svc.getKpiByTeam({ year: 2026 } as never);
+    const to = new Set(w.map((x) => x.assignedTeamId));
+    expect(to.has('to-1')).toBe(true);
+    expect(to.has('to-2')).toBe(true);
+    expect(to.has(undefined)).toBe(false); // không truy vấn nào bỏ trống phạm vi
+  });
+
+  it('SC-KPI-5 · drill-down giữ nguyên kỳ báo cáo đã chọn', async () => {
+    const svc = await dung();
+    mockPrisma.team.findMany.mockResolvedValue([
+      { id: 'to-1', name: 'Đội 1', code: 'D1', level: 1, parentId: null },
+    ]);
+    const w = batTruyVan();
+    await svc.getKpiByTeam({ year: 2026, month: 5 } as never);
+    for (const x of w) {
+      const r = x.createdAt ?? x.ngayTiepNhan ?? x.ngayKhoiTo;
+      expect(r?.gte.getMonth()).toBe(4); // tháng 5 → chỉ số 4
+      expect(r?.gte.getFullYear()).toBe(2026);
+    }
+  });
+
+  /** Mutant sống ở `query.year ?? new Date().getFullYear()` — nhánh "không khai năm" chưa ai đi. */
+  it('SC-KPI-6 · không khai năm thì dùng năm hiện tại', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.getKpiSummary({} as never);
+    const nam = new Date().getFullYear();
+    for (const x of w) {
+      const r = x.createdAt ?? x.ngayTiepNhan ?? x.ngayKhoiTo;
+      expect(r?.gte.getFullYear()).toBe(nam);
+    }
+  });
+});
