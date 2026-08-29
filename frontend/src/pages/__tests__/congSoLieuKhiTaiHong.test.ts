@@ -125,6 +125,9 @@ describe('Cổng: câu "chưa có gì" phải im khi đang lỗi', () => {
         if (t.startsWith('//') || t.startsWith('*') || t.startsWith('{/*')) continue;
         if (/<option/.test(l)) continue;
         if (/^\w+:\s*['"]/.test(t)) continue;
+        // Nhãn của MỘT lựa chọn trong danh mục (`{ value: 'X', label: 'Chưa có kết quả…' }`)
+        // là tên một trạng thái nghiệp vụ, không phải câu trả lời về danh sách.
+        if (/label:\s*['"]/.test(t) || /value:\s*['"]/.test(t)) continue;
         if (/quyền truy cập|SĐT|danh mục cha|danh mục loại/.test(l)) continue;
         // "tin nhắn" nằm trong bảng trao đổi của MỘT hồ sơ, dựng bởi component con không thấy
         // `loadError` của trang — khác lớp với câu trả lời của danh sách chính.
@@ -140,7 +143,7 @@ describe('Cổng: câu "chưa có gì" phải im khi đang lỗi', () => {
         if (/alert\(/.test(l)) continue;
         // Nhìn quanh 12 dòng: điều kiện dựng câu ấy thường nằm ngay phía trên.
         const quanh = dong.slice(Math.max(0, i - 12), i + 3).join(' ');
-        if (!/loadError|loiTai/.test(quanh)) sot.push(dong[i].trim().slice(0, 70));
+        if (!/loadError|loiTai|isError/.test(quanh)) sot.push(dong[i].trim().slice(0, 70));
       }
       expect(sot).toEqual([]);
     },

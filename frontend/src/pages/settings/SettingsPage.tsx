@@ -100,48 +100,15 @@ function UserManagementModule() {
         </Button>
       </div>
       
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tên</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vai trò</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {[
-              { name: 'Nguyễn Văn A', email: 'nguyenvana@pc02.gov.vn', role: 'Admin', status: 'Hoạt động' },
-              { name: 'Trần Thị B', email: 'tranthib@pc02.gov.vn', role: 'Điều tra viên', status: 'Hoạt động' },
-              { name: 'Lê Văn C', email: 'levanc@pc02.gov.vn', role: 'Thư ký', status: 'Tạm khóa' },
-            ].map((user, index) => (
-              <tr key={index} className="hover:bg-slate-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{user.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    user.status === 'Hoạt động' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                  <button onClick={goToUserAdmin} className="text-blue-600 hover:text-blue-900 mr-3">Sửa</button>
-                  <button onClick={goToUserAdmin} className="text-red-600 hover:text-red-900">Xóa</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Không dựng bảng nhân sự ở đây. Trang này KHÔNG hỏi máy chủ; mọi dòng viết sẵn
+          đều là người không có thật, mà một bảng có cột Vai trò/Trạng thái và nút Xóa thì
+          đọc như bản ghi thật. Danh sách thật nằm ở /nguoi-dung. */}
+      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center" data-testid="user-module-hint">
+        <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+        <p className="text-slate-700 font-medium">Danh sách tài khoản nằm ở trang Quản lý người dùng</p>
+        <p className="text-slate-500 text-sm mt-1">
+          Ở đó xem được tài khoản thật, phân vai trò, khóa và mở khóa.
+        </p>
       </div>
     </div>
   );

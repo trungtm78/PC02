@@ -4,6 +4,8 @@ import { ArrowLeft, AlertTriangle, Save, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { formatVNDate } from "../../lib/dates";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
+import { useLuotNap } from "@/hooks/useLuotNap";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,22 +34,30 @@ export default function CaseTdcBackfillPage() {
   const navigate = useNavigate();
   const [cases, setCases] = useState<BackfillCase[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [pendingEdits, setPendingEdits] = useState<Record<string, string>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
+  const { batDau } = useLuotNap();
+
   const fetchCases = useCallback(async () => {
+    const conMoiNhat = batDau();
     setLoading(true);
     try {
       const res = await api.get("/cases", { params: { status: "TAM_DINH_CHI" } });
+      if (!conMoiNhat()) return;
       setCases(res.data.data ?? []);
-    } catch {
-      setCases([]);
+      setLoadError("");
+    } catch (err: unknown) {
+      if (!conMoiNhat()) return;
+      // Giữ nguyên danh sách cũ: xóa trắng rồi báo lỗi là nói hai điều trái nhau cùng lúc.
+      setLoadError(extractApiError(err).message);
     } finally {
-      setLoading(false);
+      if (conMoiNhat()) setLoading(false);
     }
-  }, []);
+  }, [batDau]);
 
   useEffect(() => {
     fetchCases();
@@ -153,6 +163,14 @@ export default function CaseTdcBackfillPage() {
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
           </div>
+        ) : loadError ? (
+          <LoadErrorBanner
+            error={loadError}
+            onRetry={() => void fetchCases()}
+            loading={loading}
+            what="danh sách vụ án tạm đình chỉ"
+            data-testid="tdc-backfill-load-error"
+          />
         ) : cases.length === 0 ? (
           <div className="py-16 text-center">
             <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-3" />

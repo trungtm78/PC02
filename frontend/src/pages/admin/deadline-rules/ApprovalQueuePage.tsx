@@ -1,3 +1,4 @@
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ClipboardCheck, ArrowLeft, Clock, AlertTriangle, Loader2, Inbox } from 'lucide-react';
@@ -71,7 +72,17 @@ export default function ApprovalQueuePage() {
         </div>
       )}
 
-      {!queueQ.isLoading && versions.length === 0 && (
+      {queueQ.isError && (
+        <LoadErrorBanner
+          error={(queueQ.error as Error)?.message}
+          onRetry={() => void queueQ.refetch()}
+          loading={queueQ.isFetching}
+          what="hàng đợi duyệt"
+          data-testid="queue-load-error"
+        />
+      )}
+
+      {!queueQ.isLoading && !queueQ.isError && versions.length === 0 && (
         <div className="bg-white border border-slate-200 rounded-lg p-12 text-center" data-testid="queue-empty">
           <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-700 font-medium">Không có đề xuất nào chờ duyệt</p>

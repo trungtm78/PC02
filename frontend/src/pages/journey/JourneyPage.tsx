@@ -31,15 +31,16 @@ export default function JourneyPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: searchResults = [] } = useCaseSearch(searchQuery);
+  const { data: searchResults = [], isError: searchError } = useCaseSearch(searchQuery);
 
   useEffect(() => {
-    if (searchResults.length > 0 && searchQuery.trim()) {
+    // Hỏng cũng phải mở khay xuống: im lặng ở đây đọc hệt như "không tìm thấy hồ sơ nào".
+    if ((searchResults.length > 0 || searchError) && searchQuery.trim()) {
       setShowDropdown(true);
     } else {
       setShowDropdown(false);
     }
-  }, [searchResults, searchQuery]);
+  }, [searchResults, searchQuery, searchError]);
 
   function handleSelect(c: CaseOption) {
     setSelectedCase(c);
@@ -70,14 +71,27 @@ export default function JourneyPage() {
               setSelectedCase(null);
             }}
             onFocus={() => {
-              if (searchResults.length > 0) setShowDropdown(true);
+              if (searchResults.length > 0 || searchError) setShowDropdown(true);
             }}
             className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         {/* Dropdown results */}
-        {showDropdown && searchResults.length > 0 && (
+        {showDropdown && searchError && (
+          <div
+            className="absolute z-20 w-full mt-1 bg-red-50 border border-red-200 rounded-lg px-4 py-3"
+            role="alert"
+            data-testid="journey-search-error"
+          >
+            <p className="text-sm text-red-800 font-medium">Không hỏi được máy chủ khi tìm vụ việc</p>
+            <p className="text-xs text-red-700 mt-0.5">
+              Danh sách trống bên dưới KHÔNG có nghĩa là không tìm thấy hồ sơ. Thử lại sau ít phút.
+            </p>
+          </div>
+        )}
+
+        {showDropdown && !searchError && searchResults.length > 0 && (
           <div className="absolute z-20 w-full mt-1 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden">
             {searchResults.map((c) => (
               <button
