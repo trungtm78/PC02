@@ -28,8 +28,25 @@ import {
   PROPOSAL_STATUS_LABEL,
 } from "@/shared/enums/proposal-status";
 import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
+import { loiTuMayChu } from "./loiTuMayChu";
 
 type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
+
+/** Hình dạng THÔ máy chủ trả về cho một kiến nghị — mọi trường đều có thể vắng. */
+interface ProposalTho {
+  id: string;
+  proposalNumber?: string;
+  relatedCase?: { name?: string } | null;
+  caseType?: string;
+  content?: string;
+  createdAt?: string;
+  sentDate?: string | null;
+  unit?: string | null;
+  createdBy?: { firstName?: string; lastName?: string } | null;
+  status?: string;
+  response?: string;
+  responseDate?: string | null;
+}
 
 interface Proposal {
   id: string;
@@ -78,7 +95,9 @@ export default function ProsecutorProposalPage() {
         [PROPOSAL_STATUS_LABEL.CO_PHAN_HOI]: "bg-blue-600 text-white",
         [PROPOSAL_STATUS_LABEL.DA_XU_LY]: "bg-green-600 text-white",
       };
-      const mapped: Proposal[] = (res.data.data ?? []).map((p: any, i: number) => {
+      // Bản ghi THÔ từ máy chủ: mọi trường đều có thể vắng, nên khai `?` hết và để phần dựng
+      // bên dưới tự đặt giá trị thay thế. Thay cho `any` — cổng lint của kho coi `any` là LỖI.
+      const mapped: Proposal[] = (res.data.data ?? []).map((p: ProposalTho, i: number) => {
         const apiStatus = p.status as ProposalStatus | undefined;
         const status: ProposalStatusLabel =
           apiStatus && apiStatus in PROPOSAL_STATUS_LABEL
@@ -617,24 +636,6 @@ export default function ProsecutorProposalPage() {
         />
       )}
     </div>
-  );
-}
-
-/**
- * Bóc lý do máy chủ từ chối, theo đúng bao bì lỗi của kho: `{ success, error: { code, message } }`.
- *
- * Không có thân phản hồi nghĩa là yêu cầu chưa tới được máy chủ (mất mạng, máy chủ ngã). Lúc ấy
- * KHÔNG dựng lại thông báo kỹ thuật tiếng Anh của trình duyệt cho cán bộ đọc — nói bằng thứ họ
- * làm được gì với nó.
- */
-export function loiTuMayChu(e: unknown): string {
-  const than = (
-    e as { response?: { data?: { error?: { message?: string }; message?: string } } }
-  )?.response?.data;
-  return (
-    than?.error?.message ??
-    than?.message ??
-    'Không lưu được kiến nghị — máy chủ không phản hồi. Kiểm tra kết nối mạng rồi thử lại.'
   );
 }
 
