@@ -30,6 +30,9 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
 import { today, formatVNDate } from '@/lib/dates';
 
@@ -112,9 +115,11 @@ export default function PetitionGuidancePage() {
   // ── Real data state ────────────────────────────────────────────────────────
   const [allGuidances, setAllGuidances] = useState<GuidanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const fetchGuidances = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await api.get('/guidance?limit=100');
       const statusMap: Record<string, string> = { PENDING: 'pending', COMPLETED: 'completed', CANCELLED: 'cancelled' };
@@ -133,8 +138,11 @@ export default function PetitionGuidancePage() {
         notes: g.notes ?? '',
       }));
       setAllGuidances(mapped);
-    } catch {
+    } catch (e) {
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllGuidances([]);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -292,12 +300,14 @@ export default function PetitionGuidancePage() {
       </div>
 
       {/* Thẻ thống kê */}
+      <LoadErrorBanner error={loadError} what="danh sách hướng dẫn" data-testid="guidance-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div data-testid="stat-total" className="bg-white rounded-lg border-2 border-blue-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Tổng số hướng dẫn</p>
-              <p className="text-3xl font-bold text-blue-600">{totalCount}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <HelpCircle className="w-6 h-6 text-blue-600" />
@@ -309,7 +319,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 font-medium mb-1">Đã hoàn thành</p>
-              <p className="text-3xl font-bold text-green-600">{completedCount}</p>
+              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(completedCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -321,7 +331,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ hoàn thành</p>
-              <p className="text-3xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -333,7 +343,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
-              <p className="text-3xl font-bold text-slate-800">{todayCount}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(todayCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-purple-600" />
