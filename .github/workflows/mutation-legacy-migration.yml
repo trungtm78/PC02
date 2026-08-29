@@ -41,6 +41,10 @@ jobs:
         if: always()
         run: cd backend && npx stryker run stryker.docnum.conf.json
 
+      - name: Run Stryker mutation — KPI (chỉ tiêu TT28)
+        if: always()
+        run: cd backend && npx stryker run stryker.kpi.conf.json
+
       - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@v4
