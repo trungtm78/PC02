@@ -49,6 +49,35 @@ const SECTION_META: readonly { id: SectionId; label: string; icon: string }[] =
     { id: 'admin', label: 'Quản trị', icon: 'Shield' },
   ];
 
+const NHAN_MUC = new Map(SECTION_META.map((s) => [s.id, s.label]));
+
+/**
+ * Mục con này có mang đúng tên của mục cha chứa nó không — và có con để đẩy lên không.
+ *
+ * ── Vì sao cần ──
+ *
+ * Đo trên máy thật 29/08/2026: mở mục "Báo cáo & Thống kê" trong thanh bên thì thấy
+ * `["Chỉ tiêu KPI", "Báo cáo & Thống kê"]`. Phải bấm tiếp vào cái trùng tên y hệt cái vừa bấm
+ * mới ra 9 màn báo cáo. Đường đi thật là "Báo cáo & Thống kê › Báo cáo & Thống kê › Báo cáo
+ * tháng". "Quy trình xử lý" y hệt, che 4 màn nữa.
+ *
+ * 13 màn dựng xong, có dữ liệu thật, nằm sau một lớp mà người dùng đọc thấy đúng cái tên mình
+ * vừa bấm — phần lớn sẽ dừng lại ở đó. Nó cũng làm hỏng chính bộ dò tự động của phiên soát:
+ * bộ dò bấm theo tên nên cứ trúng lớp cha, và suýt kết luận nhầm 13 màn ấy không có đường tới.
+ *
+ * ── Vì sao sửa ở ĐÂY chứ không đổi nhãn trong từng module ──
+ *
+ * Nhóm ấy không có tên nào tốt hơn: nó gom đúng những thứ mà mục cha đã gom. Đổi tên là bịa ra
+ * một tầng phân loại không có thật. Gỡ hẳn tầng thừa mới đúng — và làm ở bộ dựng thì module nào
+ * sau này bọc nhầm cũng tự phẳng, không ai phải nhớ luật.
+ *
+ * Chỉ gỡ khi nhóm CÓ CON: một mục lá trùng tên (như "Tổng quan") vẫn là đường đi duy nhất tới
+ * màn ấy, gỡ đi là mất màn.
+ */
+export function trungTenMuc(entry: FeatureMenuEntry): boolean {
+  return entry.label === NHAN_MUC.get(entry.section) && (entry.children?.length ?? 0) > 0;
+}
+
 function resolve(entry: FeatureMenuEntry): ResolvedMenuItem {
   return {
     id: entry.id,
@@ -86,7 +115,9 @@ export function useMenuSections(): ResolvedMenuSection[] {
       }
       for (const entry of feature.menu ?? []) {
         const list = bySection.get(entry.section) ?? [];
-        list.push(resolve(entry));
+        // Nhóm trùng tên mục cha là một TẦNG THỪA — gỡ nó, đẩy con lên thẳng mục.
+        if (trungTenMuc(entry)) list.push(...entry.children!.map(resolve));
+        else list.push(resolve(entry));
         bySection.set(entry.section, list);
       }
     }
