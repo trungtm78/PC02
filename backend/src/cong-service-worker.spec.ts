@@ -125,6 +125,32 @@ describe('Cổng service worker', () => {
     expect(lan).toBe(3);
   });
 
+  /**
+   * Phép so bản CÔNG KHAI với bản vừa triển khai — thứ dựng ra để bắt đúng sự cố 23/08 — CHƯA
+   * TỪNG CHẠY LẦN NÀO kể từ hôm viết. Đo trên máy thật ngày 29/08:
+   *
+   *   -rw-r--r--  kiem-ban-cong-khai.sh      ← không có quyền chạy
+   *   if [ -n "$PUBLIC_URL" ] && [ -x "…/kiem-ban-cong-khai.sh" ]; then
+   *       bash "…/kiem-ban-cong-khai.sh" …   ← gọi bằng `bash`, KHÔNG cần quyền chạy
+   *
+   * Canh bằng `-x` nhưng gọi bằng `bash`: hai bên nói về hai điều kiện khác nhau. Tệp chạy
+   * được hoàn hảo qua `bash`, chỉ là phép canh không bao giờ cho nó tới đó. Và vì đây là nhánh
+   * `if` im lặng nên không có dòng nhật ký nào, không cảnh báo nào — y hệt kiểu hỏng nó sinh
+   * ra để bắt.
+   *
+   * Cùng họ với [[feedback_khe_ho_giua_bo_nap_va_bo_doc]]: bộ nạp và bộ đọc khai hai hợp đồng
+   * lệch nhau, mỗi bên tự nó đúng.
+   */
+  it('phép canh phải khớp với cách gọi — gọi bằng bash thì canh bằng -f', () => {
+    const goiBangBash = /bash "\$NEW_DIR\/scripts\/deploy\/([\w-]+\.sh)"/g;
+    const ten = [...deploySh.matchAll(goiBangBash)].map((m) => m[1]);
+    expect(ten.length).toBeGreaterThan(0);
+    for (const t of ten) {
+      expect(deploySh).not.toContain(`-x "$NEW_DIR/scripts/deploy/${t}"`);
+      expect(deploySh).toContain(`-f "$NEW_DIR/scripts/deploy/${t}"`);
+    }
+  });
+
   describe('bia mộ ở /sw.js', () => {
     // Tệp không tồn tại thì chính phép đọc ở đầu tệp này ném — đó là phép kiểm sự tồn tại.
     it('chiếm quyền ngay, không chờ tab đóng hết', () => {
