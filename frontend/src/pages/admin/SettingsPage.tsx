@@ -31,6 +31,10 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<SettingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  // Tách riêng khỏi `error`: `error` gánh cả lưu hỏng lẫn trả-về-mặc-định hỏng, mà hai việc ấy
+  // xảy ra KHI dữ liệu đã có sẵn trong tay — lấy nó để ẩn bảng là làm mất dòng người dùng đang
+  // nhìn. Chỉ đường TẢI mới được quyền nói 'chưa biết có gì'.
+  const [loadError, setLoadError] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +42,7 @@ export function SettingsPage() {
   const fetchSettings = async () => {
     setIsLoading(true);
     setError('');
+    setLoadError('');
     try {
       const res = await api.get<{ success: boolean; data: SettingItem[] }>('/settings');
       // Máy chủ sắp theo TÊN KHOÁ nên bốn khoá kỳ thống kê nằm rải rác: "đến ngày" đứng
@@ -45,6 +50,7 @@ export function SettingsPage() {
       setSettings(sapXepCaiDat(res.data.data ?? []));
     } catch {
       setError('Không thể tải cấu hình');
+      setLoadError('Không thể tải cấu hình');
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +170,7 @@ export function SettingsPage() {
                     <p className="text-slate-500 font-medium">Đang tải cấu hình...</p>
                   </td>
                 </tr>
-              ) : error ? null : settings.length === 0 ? (
+              ) : loadError ? null : settings.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />
