@@ -255,7 +255,14 @@ export class DocumentTemplatesService {
       // Trừ khi ĐỔI CẶP DẤU: đổi `{ }` sang `[[ ]]` là đổi cách đọc chính tệp ấy, nên mọi kết
       // quả dò cũ mất hiệu lực y như khi thay tệp. Miễn tiếp lúc này là để lọt một khai báo
       // không còn tồn tại dưới cú pháp mới.
-      const daCo = delimChanged
+      //
+      // So GIÁ TRỊ, không so sự có mặt trong DTO: giao diện LUÔN gửi kèm cặp dấu kể cả khi
+      // không đổi (payload thật: `"delimStart":"{","delimEnd":"}"`). Lấy `delimChanged` — vốn
+      // chỉ có nghĩa "DTO có khai" — làm điều kiện thì phép miễn không bao giờ có hiệu lực, và
+      // bản vá thành vô dụng đúng ở ca nó sinh ra để chữa.
+      const doiCapDauThat =
+        delimiters.start !== existing.delimStart || delimiters.end !== existing.delimEnd;
+      const daCo = doiCapDauThat
         ? new Set<string>()
         : new Set(((existing.variables as TemplateVariable[] | null) ?? []).map((v) => v.name));
       data.variables =

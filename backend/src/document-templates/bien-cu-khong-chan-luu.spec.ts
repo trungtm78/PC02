@@ -107,6 +107,29 @@ describe('Biến cũ không còn dò thấy thì không được chặn việc l
   });
 
   /**
+   * Giao diện LUÔN gửi kèm cặp dấu, kể cả khi không đổi — payload thật trên máy thật:
+   *
+   *   {"name":"Phiếu đề xuất", …, "delimStart":"{","delimEnd":"}","variables":[…]}
+   *
+   * Nên "có gửi cặp dấu" KHÔNG có nghĩa là "đã đổi cặp dấu". Coi hai thứ ấy là một thì phép
+   * miễn không bao giờ có hiệu lực, và bản vá thành vô dụng đúng ở ca nó sinh ra để chữa —
+   * bản nháp đầu của chính commit này đã mắc y như vậy, và ca kiểm cũ xanh vì nó tự dựng DTO
+   * không có cặp dấu, tức dựng một tình huống giao diện không bao giờ tạo ra.
+   */
+  it('gửi kèm ĐÚNG cặp dấu đang dùng thì vẫn miễn, vẫn lưu được', async () => {
+    const { prisma, svc } = dung(BIEN_CU);
+    await expect(
+      svc.update('t1', {
+        selectedByDefault: true,
+        delimStart: '{',
+        delimEnd: '}',
+        variables: BIEN_CU,
+      } as never),
+    ).resolves.toBeDefined();
+    expect(prisma.documentTemplate.update).toHaveBeenCalled();
+  });
+
+  /**
    * ĐỔI CẶP DẤU là đổi cách đọc chính tệp ấy — mọi kết quả dò cũ mất hiệu lực y như khi thay
    * tệp. Miễn tiếp lúc này là để lọt một khai báo không còn tồn tại dưới cú pháp mới.
    */
@@ -115,6 +138,20 @@ describe('Biến cũ không còn dò thấy thì không được chặn việc l
     await expect(
       svc.update('t1', { delimStart: '[[', delimEnd: ']]', variables: BIEN_CU } as never),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  /**
+   * Đổi MỘT nửa cũng là đổi. Ca kiểm trên đổi cả hai dấu nên nửa nào hỏng vẫn có nửa kia bắt —
+   * gieo lỗi vào riêng vế đầu vẫn xanh. Hai ca dưới ghim từng vế một.
+   */
+  it.each([
+    ['chỉ đổi dấu mở', { delimStart: '[[', delimEnd: '}' }],
+    ['chỉ đổi dấu đóng', { delimStart: '{', delimEnd: ']]' }],
+  ])('%s cũng hết miễn', async (_ten, dau) => {
+    const { svc } = dung(BIEN_CU);
+    await expect(svc.update('t1', { ...dau, variables: BIEN_CU } as never)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   /** Mẫu chưa từng có biến cũ thì không được nới gì thêm. */
