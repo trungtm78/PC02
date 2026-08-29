@@ -986,6 +986,7 @@ export default function CaseDetailPage() {
     if (conclusionSaving) return;
     setConclusionError("");
     setConclusionSaving(true);
+    let daLuu = false;
     try {
       const STATUS_API_MAP: Record<string, string> = {
         [CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO]]: ConclusionStatus.DU_THAO,
@@ -1007,9 +1008,10 @@ export default function CaseDetailPage() {
           status: STATUS_API_MAP[c.status] ?? ConclusionStatus.DU_THAO,
         });
       }
-      await fetchConclusions();
-      setShowConclusionModal(false);
-      setEditingConclusion(null);
+      // Máy chủ đã nhận. Từ đây trở đi mọi lỗi là lỗi LÀM MỚI DANH SÁCH, không phải lỗi lưu —
+      // gộp chung thì làm mới hỏng bị báo là lưu hỏng, popup mở lại, và bấm Lưu lần nữa sẽ tạo
+      // bản ghi TRÙNG vì lần đầu đã tới máy chủ rồi. Codex bắt đúng lớp này.
+      daLuu = true;
     } catch (e) {
       // KHÔNG chèn bản ghi vào danh sách và KHÔNG đóng popup.
       //
@@ -1022,6 +1024,11 @@ export default function CaseDetailPage() {
       setConclusionError(extractApiError(e, "Lưu kết luận thất bại. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setConclusionSaving(false);
+    }
+    if (daLuu) {
+      setShowConclusionModal(false);
+      setEditingConclusion(null);
+      void fetchConclusions();
     }
   };
 

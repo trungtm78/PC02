@@ -112,3 +112,40 @@ describe('VksMeetingsTab — xoá thất bại', () => {
     expect(await screen.findByTestId('vks-meetings-error')).toHaveTextContent(/Không xoá được/);
   });
 });
+
+/**
+ * Xoá THÀNH CÔNG nhưng LÀM MỚI danh sách hỏng — không được báo là xoá hỏng.
+ *
+ * Codex bắt lớp này ngay sau bản vá đầu: gộp `api.delete` và `fetchPlans()` vào cùng một `try`
+ * nên lỗi của phép làm mới rơi vào `catch` của phép xoá. Hậu quả: bản ghi đã mất thật trên máy
+ * chủ, nhưng giao diện nói "chưa xoá được" và giữ dòng lại — người dùng bấm xoá lại một thứ
+ * không còn tồn tại.
+ *
+ * Ranh giới đúng: hễ lời gọi ghi đã trả về, thao tác coi như xong. Mọi lỗi sau đó thuộc về việc
+ * hiển thị, không thuộc về kết quả nghiệp vụ.
+ */
+describe('Xoá xong nhưng làm mới hỏng', () => {
+  it('ActionPlanTab — dòng vẫn biến mất và KHÔNG báo lỗi', async () => {
+    m.get
+      .mockResolvedValueOnce({ data: { data: KE_HOACH } })
+      .mockRejectedValue(new Error('mat mang'));
+    m.delete.mockResolvedValue({ data: {} });
+    render(<ActionPlanTab entityId="c1" entityType="case" />);
+    await screen.findByTestId('plan-row-p1');
+    fireEvent.click(screen.getByTestId('btn-delete-plan-p1'));
+    await waitFor(() => expect(screen.queryByTestId('plan-row-p1')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('action-plan-error')).not.toBeInTheDocument();
+  });
+
+  it('VksMeetingsTab — dòng vẫn biến mất và KHÔNG báo lỗi', async () => {
+    m.get
+      .mockResolvedValueOnce({ data: { data: BIEN_BAN } })
+      .mockRejectedValue(new Error('mat mang'));
+    m.delete.mockResolvedValue({ data: {} });
+    render(<VksMeetingsTab entityId="c1" entityType="case" />);
+    await screen.findByTestId('meeting-row-m1');
+    fireEvent.click(screen.getByTestId('btn-delete-meeting-m1'));
+    await waitFor(() => expect(screen.queryByTestId('meeting-row-m1')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('vks-meetings-error')).not.toBeInTheDocument();
+  });
+});

@@ -114,7 +114,6 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
     if (!confirm("Xóa kế hoạch này?")) return;
     try {
       await api.delete(`/action-plans/${id}`);
-      await fetchPlans();
     } catch (e) {
       // KHÔNG gỡ dòng khỏi danh sách khi máy chủ TỪ CHỐI xoá.
       //
@@ -123,7 +122,13 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
       // ở tab Kết luận điều tra, chỉ khác chiều — một bên bịa ra thứ chưa tồn tại, một bên bịa
       // ra việc đã xoá.
       setDeleteError(extractApiError(e, "Xoá thất bại. Vui lòng thử lại.").messages.join(", "));
+      return;
     }
+    // Máy chủ đã xoá xong — gỡ dòng ở đây KHÔNG phải bịa, mà là phản ánh trạng thái đã xác nhận.
+    // Làm mới danh sách là việc phụ: nó hỏng thì cũng không được báo thành "xoá hỏng", vì bản
+    // ghi đã mất thật và người dùng sẽ bấm xoá lại một thứ không còn tồn tại.
+    setPlans((prev) => prev.filter((p) => p.id !== id));
+    void fetchPlans();
   };
 
   const handleOpenModal = () => {

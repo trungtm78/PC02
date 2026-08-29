@@ -111,6 +111,27 @@ describe('Kết luận điều tra — lưu thất bại', () => {
     expect(await screen.findByTestId('conclusion-error')).toHaveTextContent(/Máy chủ từ chối/);
   });
 
+  /**
+   * Lưu XONG nhưng làm mới danh sách hỏng — không được báo là lưu hỏng.
+   *
+   * Codex bắt: gộp `api.post` và `fetchConclusions()` vào cùng một `try` thì lỗi làm mới rơi
+   * vào `catch` của phép lưu. Popup mở lại, nút Lưu mở khoá, và bấm lần nữa tạo bản ghi TRÙNG
+   * vì lần đầu đã tới máy chủ rồi. Trên Kết luận điều tra, hai bản trùng là hai văn bản tố tụng.
+   */
+  it('lưu xong nhưng làm mới hỏng thì vẫn coi là thành công', async () => {
+    m.post.mockResolvedValue({ data: {} });
+    await moTabKetLuan();
+    screen.getAllByRole('textbox').forEach((e) =>
+      fireEvent.change(e, { target: { value: 'abc' } }),
+    );
+    m.get.mockRejectedValue(new Error('mat mang'));
+    fireEvent.click(screen.getByTestId('btn-save-conclusion'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('btn-save-conclusion')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('conclusion-error')).not.toBeInTheDocument();
+  });
+
   it('lưu thành công thì vẫn đóng popup như cũ', async () => {
     m.post.mockResolvedValue({ data: {} });
     await moTabKetLuan();

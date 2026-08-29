@@ -102,7 +102,6 @@ export function VksMeetingsTab({ entityId, entityType, isReadOnly = false }: Pro
     if (!confirm("Xóa biên bản này?")) return;
     try {
       await api.delete(`/vks-meetings/${id}`);
-      await fetchMeetings();
     } catch (e) {
       // KHÔNG gỡ dòng khỏi danh sách khi máy chủ TỪ CHỐI xoá.
       //
@@ -111,7 +110,13 @@ export function VksMeetingsTab({ entityId, entityType, isReadOnly = false }: Pro
       // ở tab Kết luận điều tra, chỉ khác chiều — một bên bịa ra thứ chưa tồn tại, một bên bịa
       // ra việc đã xoá.
       setDeleteError(extractApiError(e, "Xoá thất bại. Vui lòng thử lại.").messages.join(", "));
+      return;
     }
+    // Máy chủ đã xoá xong — gỡ dòng ở đây KHÔNG phải bịa, mà là phản ánh trạng thái đã xác nhận.
+    // Làm mới danh sách là việc phụ: nó hỏng thì cũng không được báo thành "xoá hỏng", vì bản
+    // ghi đã mất thật và người dùng sẽ bấm xoá lại một thứ không còn tồn tại.
+    setMeetings((prev) => prev.filter((m) => m.id !== id));
+    void fetchMeetings();
   };
 
   const handleOpenModal = () => {
