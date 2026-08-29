@@ -106,7 +106,10 @@ describe('Cổng service worker', () => {
     expect(thoat).toBeGreaterThan(dat);
     // Phép thoát phải nằm SAU health check — nếu không thì nó vẫn là dừng giữa chừng.
     expect(thoat).toBeGreaterThan(deploySh.indexOf('Health check'));
-    expect(deploySh.slice(thoat, thoat + 900)).toContain('exit 1');
+    expect(deploySh.slice(thoat, thoat + 1200)).toContain('exit 1');
+    // ...và phải nằm TRƯỚC bước dọn gói: thoát sau khi đã xoá gói thì lần chạy lại chính bản
+    // ấy chết ngay vì "không thấy gói", tức phép báo đỏ tự chặn mất đường sửa của chính nó.
+    expect(thoat).toBeLessThan(deploySh.indexOf('rm -f "$TARBALL"'));
   });
 
   describe('bia mộ ở /sw.js', () => {

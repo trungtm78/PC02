@@ -269,19 +269,7 @@ if ! npx ts-node prisma/seed-admin-units-runner.ts; then
     exit 1
 fi
 
-# 10. Prune old releases (keep latest 5)
-KEEP=5
-TOTAL=$(ls -1d "$RELEASES_DIR"/*/ 2>/dev/null | wc -l)
-if [ "$TOTAL" -gt "$KEEP" ]; then
-    PRUNE=$((TOTAL - KEEP))
-    log "Pruning $PRUNE old releases (keeping $KEEP)"
-    ls -1dt "$RELEASES_DIR"/*/ | tail -n "$PRUNE" | xargs -r rm -rf
-fi
-
-# 11. Cleanup tarball
-rm -f "$TARBALL"
-
-# 12. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
+# 9d. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
 #
 # Báo cảnh báo suông giữ nguyên đúng kiểu hỏng cần chặn: triển khai xanh trong khi cán bộ không
 # nhận được bản mới — đúng chuyện đã sống 5 ngày mà không ai biết.
@@ -299,7 +287,19 @@ if [ "${CANH_LECH:-0}" = "1" ]; then
     exit 1
 fi
 
-# 13. Final summary
+# 10. Prune old releases (keep latest 5)
+KEEP=5
+TOTAL=$(ls -1d "$RELEASES_DIR"/*/ 2>/dev/null | wc -l)
+if [ "$TOTAL" -gt "$KEEP" ]; then
+    PRUNE=$((TOTAL - KEEP))
+    log "Pruning $PRUNE old releases (keeping $KEEP)"
+    ls -1dt "$RELEASES_DIR"/*/ | tail -n "$PRUNE" | xargs -r rm -rf
+fi
+
+# 11. Cleanup tarball
+rm -f "$TARBALL"
+
+# 12. Final summary
 log "=========================================="
 log "Deploy OK: $RELEASE_SHA"
 log "Current: $(readlink "$CURRENT_SYMLINK")"
