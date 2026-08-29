@@ -516,3 +516,26 @@ Full suite: PASS — backend 287 tệp / 4.215 ca · frontend 221 tệp | tsc ha
 ## BƯỚC TIẾP THEO
 Mở PR cho nhánh `fix/tai-hong-khac-rong-toan-he`, chờ CI xanh, gộp, triển khai. Sau đó M4
 (khe hở phạm vi KPI — Case thiếu cột unitId) rồi M5 (UAT + đo lại 54 màn trên máy thật).
+
+## M4 — khe hở phạm vi KPI — 2026-08-29T18:45+07:00
+
+- [x] M4-T15 KPI-3/KPI-4 khai `ngoaiPhamVi` khi có lọc đơn vị
+
+### Đo lại sau khi triển khai cụm A+B (bằng chứng cho quyết định M2)
+26 → 18 màn chưa báo lỗi; trong 18 màn chỉ **4** còn hiện số 0 (`/phan-loai` 10, `/reports/quarterly`
+7, `/reports/monthly` 6, `/investigation-delegation` 5). Đã xử đúng 4 màn ấy ở PR #328.
+
+14 màn còn lại khi hỏng chỉ ra danh sách rỗng, **không con số nào** tự nhận là sự thật — mức hại
+thấp hơn hẳn, và mỗi màn một hình dạng riêng. Ghi vào nợ kỹ thuật thay vì sửa mù.
+
+## Trạng thái test
+Full suite: PASS — backend 288 tệp / 4.219 ca · frontend 221 tệp | tsc hai phía sạch
+
+## BƯỚC TIẾP THEO
+M5: `UAT-COVERAGE.md` + đo lại lần cuối trên máy thật.
+
+## Nợ kỹ thuật (bổ sung 2026-08-29T19:00)
+- `two-fa.service.spec.ts` CHẬP CHỜN: 3 ca TOTP đỏ một lần trong vòng chạy đầy đủ rồi xanh khi
+  chạy lại (32/32) và xanh ở vòng đầy đủ kế tiếp (4.221/4.221). Nguyên nhân gần như chắc chắn là
+  mã TOTP rơi đúng ranh giới cửa sổ 30 giây. Nên đóng băng đồng hồ trong ca kiểm ấy thay vì để
+  nó phụ thuộc thời điểm chạy — chưa làm trong đợt này vì nằm ngoài phạm vi.

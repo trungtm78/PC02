@@ -303,22 +303,22 @@ describe('KPI — cô lập theo tổ/đơn vị (từ mutant sống sót)', () 
   });
 
   /**
-   * GHIM MỘT KHE HỞ ĐANG TỒN TẠI, không phải khẳng định nó đúng.
+   * Hợp đồng ĐÃ ĐỔI, và đổi theo hướng chặt hơn — ghi lại để người đọc sau không tưởng là lùi.
    *
-   * Bảng `Case` KHÔNG có cột `unitId` (chỉ `Incident` có), nên KPI-3 và KPI-4 — hai chỉ tiêu về
-   * VỤ ÁN — bỏ qua bộ lọc đơn vị trong im lặng. Cán bộ chọn một đơn vị ở màn KPI thì hai chỉ
-   * tiêu đầu co lại theo đơn vị, còn hai chỉ tiêu sau vẫn là số của TOÀN BỘ đơn vị — bốn con số
-   * đứng cạnh nhau nhưng không cùng một phạm vi, và không có gì trên màn nói điều đó.
+   * Bản đầu ca này ghim hành vi tạm: truy vấn vụ án VẪN chạy nhưng không mang `unitId`, tức trả
+   * về số của toàn bộ trong khi người hỏi muốn một đơn vị. Ghim để khe hở thôi vô hình.
    *
-   * Ca này cố tình khẳng định hành vi HIỆN TẠI để nó thôi vô hình: ngày nào `Case` có `unitId`
-   * và phép lọc được nối, ca này sẽ ĐỎ và người sửa buộc phải đọc ghi chú này.
+   * Codex chỉ ra rằng treo cờ `ngoaiPhamVi` mà vẫn để lại `value`/`numerator`/`denominator` tính
+   * từ truy vấn không lọc thì chưa bịt được gì: bất kỳ nơi nào đọc mấy trường ấy mà bỏ qua cờ —
+   * một bản xuất, một màn hình sau này — vẫn thấy số của toàn bộ.
+   *
+   * Nay cắt ngắn mạch: có lọc đơn vị thì KHÔNG truy vấn bảng vụ án, KHÔNG trả con số nào.
    */
-  it('SC-KPI-1b · [khe hở đã biết] lọc đơn vị KHÔNG áp được cho vụ án — Case không có cột unitId', async () => {
+  it('SC-KPI-1b · có lọc đơn vị thì KHÔNG truy vấn bảng vụ án chút nào', async () => {
     const svc = await dung();
     const { vuAn } = batRieng();
     await svc.getKpiSummary({ year: 2026, unitId: 'donvi-9' } as never);
-    expect(vuAn.length).toBeGreaterThan(0);
-    for (const x of vuAn) expect(x.unitId).toBeUndefined();
+    expect(vuAn.length).toBe(0);
   });
 
   it('SC-KPI-2 · lọc theo tổ đi xuống MỌI truy vấn đếm', async () => {
