@@ -32,6 +32,9 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { downloadCsv } from '@/lib/csv';
 import { today, toDateInput, formatVNDate } from '@/lib/dates';
 
@@ -115,9 +118,11 @@ export default function InvestigationDelegationPage() {
   // ── Real data state ────────────────────────────────────────────────────────
   const [allDelegations, setAllDelegations] = useState<Delegation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const fetchDelegations = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await api.get('/delegations?limit=100');
       const statusMap: Record<string, string> = { PENDING: 'pending', RECEIVED: 'received', COMPLETED: 'completed' };
@@ -135,8 +140,11 @@ export default function InvestigationDelegationPage() {
         relatedCase: d.relatedCase?.name,
       }));
       setAllDelegations(mapped);
-    } catch {
+    } catch (e) {
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllDelegations([]);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -313,12 +321,14 @@ export default function InvestigationDelegationPage() {
       </div>
 
       {/* Thống kê */}
+      <LoadErrorBanner error={loadError} what="danh sách ủy thác điều tra" data-testid="delegation-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div data-testid="stat-total" className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng ủy thác</p>
-              <p className="text-3xl font-bold text-slate-800">{totalCount}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-slate-600" />
@@ -330,7 +340,7 @@ export default function InvestigationDelegationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ nhận</p>
-              <p className="text-3xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -342,7 +352,7 @@ export default function InvestigationDelegationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Đã nhận</p>
-              <p className="text-3xl font-bold text-blue-600">{receivedCount}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(receivedCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Send className="w-6 h-6 text-blue-600" />
@@ -354,7 +364,7 @@ export default function InvestigationDelegationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 font-medium mb-1">Đã hoàn thành</p>
-              <p className="text-3xl font-bold text-green-600">{completedCount}</p>
+              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(completedCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
