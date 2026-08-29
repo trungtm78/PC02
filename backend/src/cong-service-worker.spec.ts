@@ -14,6 +14,7 @@ const nginxVang = doc('scripts/deploy/nginx-pc02.conf');
 const kichBanCai = doc('scripts/deploy/install-nginx-cache-guard.sh');
 const kiemBanCongKhai = doc('scripts/deploy/kiem-ban-cong-khai.sh');
 const biaMo = doc('frontend/public/sw.js');
+const deploySh = doc('scripts/deploy/deploy.sh');
 
 /**
  * Cổng chặn cho service worker: tên tệp, luật đệm, và bia mộ tự gỡ.
@@ -72,6 +73,56 @@ describe('Cổng service worker', () => {
       expect(d).toContain('/sw.js');
       expect(d).toContain('/sw-v2.js');
     }
+  });
+
+  /**
+   * Bộ canh trên máy thật là một BẢN CHỤP: `install-nginx-cache-guard.sh` ghi ra
+   * `/usr/local/sbin/pc02-ensure-nginx-cache` một lần, còn `deploy.sh` thì chạy bản đã ghi ấy.
+   * Nên bản vá trong kho KHÔNG bao giờ tự tới máy — đo ngày 29/08 sau khi PR đã gộp và triển
+   * khai xanh: nginx trên máy thật vẫn còn `location = /sw.js` của bản cũ.
+   *
+   * Deploy phải tự phát hiện chuyện lệch ấy: so mẫu mà bộ canh ĐÃ CÀI đang dùng với mẫu kho
+   * đang khai. Không so thì lệch nằm im, và triển khai vẫn báo xanh y như 5 ngày vừa rồi.
+   */
+  it('deploy so bộ canh đã cài với bản trong kho', () => {
+    expect(deploySh).toContain('/usr/local/sbin/pc02-ensure-nginx-cache');
+    expect(deploySh).toContain('sw(-v[0-9]+)?');
+    // So bằng chuỗi CỐ ĐỊNH: mẫu chứa `+`, `?`, `[` — so kiểu biểu thức thì grep hiểu chúng
+    // là toán tử, không bao giờ khớp, và cổng thành vô dụng trong khi vẫn trông như có canh.
+    expect(deploySh).toContain('grep -qF');
+  });
+
+  /**
+   * Báo cảnh báo suông thì giữ nguyên đúng kiểu hỏng cần chặn: triển khai XANH trong khi cán
+   * bộ không nhận được bản mới. Lệch bộ canh phải làm lần triển khai ấy ĐỎ.
+   *
+   * Đỏ ở CUỐI chứ không dừng giữa chừng: mã đã lên, đã đổi liên kết, đã qua health — bỏ dở là
+   * để máy nửa vời vì một lệch cấu hình, trong khi bản vá khẩn có thể nằm ngay trong lần ấy.
+   */
+  it('lệch bộ canh làm lần triển khai ĐỎ, và đỏ ở cuối chứ không dừng giữa chừng', () => {
+    expect(deploySh).toContain('CANH_LECH=1');
+    const dat = deploySh.indexOf('CANH_LECH=1');
+    const thoat = deploySh.indexOf('CANH_LECH:-0');
+    expect(thoat).toBeGreaterThan(dat);
+    // Phép thoát phải nằm SAU health check — nếu không thì nó vẫn là dừng giữa chừng.
+    expect(thoat).toBeGreaterThan(deploySh.indexOf('Health check'));
+    expect(deploySh.slice(thoat, thoat + 1200)).toContain('exit 1');
+    // ...và phải nằm TRƯỚC bước dọn gói: thoát sau khi đã xoá gói thì lần chạy lại chính bản
+    // ấy chết ngay vì "không thấy gói", tức phép báo đỏ tự chặn mất đường sửa của chính nó.
+    expect(thoat).toBeLessThan(deploySh.indexOf('rm -f "$TARBALL"'));
+  });
+
+  /**
+   * Ba cách hỏng, MỘT hậu quả: nginx phục vụ `sw-v2.js` qua luật tĩnh giữ một năm, cán bộ
+   * không nhận được bản mới, triển khai vẫn xanh. Thiếu bộ canh (máy dựng mới hoặc ai đó gỡ
+   * đi), bộ canh cũ hơn kho, bộ canh chạy hỏng — không nhánh nào được rơi xuống cảnh báo suông.
+   *
+   * Đếm số lần đặt cờ: ba nhánh thì phải ba lần. Chỉ kiểm "có đặt cờ" thì bỏ sót đúng kiểu lỗi
+   * vừa mắc — một nhánh có, hai nhánh kia lặng lẽ đi tiếp.
+   */
+  it('cả ba trạng thái bộ canh không an toàn đều đặt cờ đỏ', () => {
+    const lan = deploySh.split('CANH_LECH=1').length - 1;
+    expect(lan).toBe(3);
   });
 
   describe('bia mộ ở /sw.js', () => {

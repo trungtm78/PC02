@@ -163,15 +163,45 @@ log "Đã ghi mã bản dựng: $RELEASE_SHA"
 #
 # Script idempotent và CHỈ THÊM khối còn thiếu — không bao giờ thay cả tệp, để không đụng vào
 # phần TLS do certbot quản.
-if [ -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
+# Bộ canh trên máy là một BẢN CHỤP: `install-nginx-cache-guard.sh` ghi nó ra MỘT LẦN bằng
+# root, còn deploy chỉ chạy bản đã ghi. Nên mọi bản vá bộ canh trong kho KHÔNG tự tới máy.
+#
+# Đo ngày 29/08/2026, sau khi bản vá đã gộp và triển khai xanh: nginx trên máy thật vẫn còn
+# `location = /sw.js` của bản cũ, nên `sw-v2.js` rơi xuống luật tĩnh và lại bị ghim một năm.
+# Lệch nằm im vì chẳng ai so hai bản với nhau.
+#
+# So mẫu mà bộ canh ĐÃ CÀI đang dùng với mẫu kho đang khai. Lệch thì báo to kèm đúng lệnh phải
+# chạy — deploy không tự chữa được, vì ghi vào /usr/local/sbin đòi quyền root mà tài khoản
+# deploy cố ý KHÔNG có (nó chỉ được chạy đúng một tệp sbin, không được ghi đè tệp ấy).
+# Chuỗi CỐ ĐỊNH, so bằng `grep -F`: mẫu này chứa `+`, `?`, `[` — trong biểu thức chính quy của
+# grep chúng là toán tử, nên so kiểu biểu thức sẽ không bao giờ khớp và cổng thành vô dụng.
+MAU_CANH='sw(-v[0-9]+)?'
+# BA cách hỏng, MỘT hậu quả: nginx phục vụ `sw-v2.js` qua luật tĩnh giữ một năm, cán bộ không
+# nhận được bản mới, mà triển khai vẫn xanh. Thiếu bộ canh (máy dựng mới, hoặc ai đó gỡ đi),
+# bộ canh cũ hơn kho, bộ canh chạy hỏng — cả ba đều phải làm lần triển khai ĐỎ, không nhánh
+# nào được rơi xuống cảnh báo suông.
+if [ ! -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
+    log "══════════════════════════════════════════════════════════════"
+    log "THIẾU bộ canh cache — máy này chưa từng cài, hoặc nó đã bị gỡ."
+    log "Chạy MỘT LẦN bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "══════════════════════════════════════════════════════════════"
+    CANH_LECH=1
+elif ! grep -qF "$MAU_CANH" /usr/local/sbin/pc02-ensure-nginx-cache; then
+    log "══════════════════════════════════════════════════════════════"
+    log "BỘ CANH CACHE TRÊN MÁY ĐÃ CŨ so với kho — bản vá không tới nơi."
+    log "Chạy MỘT LẦN bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "══════════════════════════════════════════════════════════════"
+    CANH_LECH=1
+else
     log "Kiểm luật cache nginx..."
     if sudo /usr/local/sbin/pc02-ensure-nginx-cache; then
         log "Luật cache nginx OK"
     else
-        log "WARN: không đặt được luật cache nginx — bản mới có thể không tự hiện cho cán bộ"
+        log "BỘ CANH CHẠY HỎNG — luật cache có thể chưa được đặt."
+        CANH_LECH=1
     fi
-else
-    log "WARN: thiếu /usr/local/sbin/pc02-ensure-nginx-cache — chạy scripts/deploy/install-nginx-cache-guard.sh một lần bằng root"
 fi
 
 # 7a-bis. So bản CÔNG KHAI với bản vừa deploy.
@@ -244,6 +274,24 @@ fi
 log "Checking admin-units seed state..."
 if ! npx ts-node prisma/seed-admin-units-runner.ts; then
     log "ERROR: admin-units seed failed — aborting deploy (deploy considered unhealthy)"
+    exit 1
+fi
+
+# 9d. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
+#
+# Báo cảnh báo suông giữ nguyên đúng kiểu hỏng cần chặn: triển khai xanh trong khi cán bộ không
+# nhận được bản mới — đúng chuyện đã sống 5 ngày mà không ai biết.
+#
+# Nhưng cũng KHÔNG dừng giữa chừng: mã mới đã lên, đã đổi liên kết, đã khởi động lại và qua
+# health. Bỏ dở ở giữa là để máy ở trạng thái nửa vời vì một lệch CẤU HÌNH, trong khi bản vá
+# khẩn có thể đang nằm trong chính lần triển khai ấy. Nên: ship xong, rồi báo đỏ.
+if [ "${CANH_LECH:-0}" = "1" ]; then
+    log "=========================================="
+    log "Mã ĐÃ lên máy và qua health, NHƯNG bộ canh cache đã cũ."
+    log "Cán bộ có thể không nhận được bản mới cho tới khi chạy bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "Đánh dấu ĐỎ để không ai nhầm đây là lần triển khai sạch."
+    log "=========================================="
     exit 1
 fi
 
