@@ -73,8 +73,20 @@ describe('Cổng: trang có khối báo tải hỏng thì phải dọn lỗi cũ
     '%s — có dọn setLoadError("")',
     (_ten, duong) => {
       const ma = TRANG[duong];
+      // Trang lấy `loadError` TỪ react-query (không có `setLoadError` nào) thì không có gì để
+      // dọn — mỗi lần truy vấn lại, thư viện tự đặt lại `isError`. Luật này chỉ áp cho trang
+      // GIỮ lỗi bằng state của chính nó.
+      if (!/setLoadError\(/.test(ma)) return;
       // Đặt lỗi thì phải có ít nhất một chỗ DỌN lỗi — nếu không, lỗi bám vĩnh viễn.
       expect(ma).toMatch(/setLoadError\(["']{2}\)/);
+      // GHI CHÚ: đã thử thêm một luật nữa — "mọi đường đặt lại / xoá bộ lọc cũng phải dọn
+      // lỗi" — nhưng KHÔNG chứng minh được nó có răng: gieo lỗi bằng cách xoá phép dọn ở
+      // `DistrictStatisticsPage.handleReset` mà cổng vẫn xanh, trong khi một ca dò riêng đọc
+      // cùng nội dung ấy lại thấy đúng. Chưa truy ra vì sao.
+      //
+      // Một cổng không chứng minh được là một lời hứa suông — nó tạo cảm giác an toàn mà
+      // không đỡ được gì. Nên gỡ hẳn thay vì để lại. Luật ấy hiện chỉ được giữ bằng bản vá và
+      // lượt soi Codex; xem PROGRESS.md mục nợ kỹ thuật.
     },
   );
 });
@@ -117,6 +129,15 @@ describe('Cổng: câu "chưa có gì" phải im khi đang lỗi', () => {
         // "tin nhắn" nằm trong bảng trao đổi của MỘT hồ sơ, dựng bởi component con không thấy
         // `loadError` của trang — khác lớp với câu trả lời của danh sách chính.
         if (/tin nhắn/.test(l)) continue;
+        // Lời nhắc trong `alert` là phản hồi cho một THAO TÁC (bấm Xuất), không phải câu trả
+        // lời của danh sách — nó nói "chưa tải dữ liệu" chứ không khẳng định "không có dữ liệu".
+        if (l.includes('alert(')) continue;
+        // Hai ô phụ của màn Tổ/Nhóm: danh sách THÀNH VIÊN của một tổ và ô TÌM người dùng —
+        // mỗi cái một truy vấn riêng, không phải câu trả lời của danh sách tổ.
+        if (/thành viên|tìm thấy người dùng/.test(l)) continue;
+        //  là phản hồi cho một THAO TÁC (bấm Xuất), không phải câu trả lời của
+        // danh sách — nó nói "chưa tải dữ liệu" chứ không khẳng định "không có dữ liệu".
+        if (/alert\(/.test(l)) continue;
         // Nhìn quanh 12 dòng: điều kiện dựng câu ấy thường nằm ngay phía trên.
         const quanh = dong.slice(Math.max(0, i - 12), i + 3).join(' ');
         if (!/loadError|loiTai/.test(quanh)) sot.push(dong[i].trim().slice(0, 70));

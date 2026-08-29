@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import {
   Plus,
   Edit2,
@@ -101,10 +103,17 @@ export default function TeamsPage() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: teams = [], isLoading } = useQuery<Team[]>({
+  const { data: teams = [], isLoading, isError: loiTaiTo, error: loiTo } = useQuery<Team[]>({
     queryKey: ['teams'],
     queryFn: () => api.get('/teams').then((r) => r.data),
   });
+
+  // Truy vấn hỏng thì `teams` là mảng rỗng mặc định — màn hình nói "{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}",
+  // một khẳng định về thứ chưa hề hỏi được. Quy về cùng một tên `loadError` như các trang khác
+  // để cổng lớp soi được.
+  const loadError = loiTaiTo
+    ? extractApiError(loiTo, "Không tải được danh sách tổ/nhóm.").messages.join(", ")
+    : "";
 
   const createMutation = useMutation({
     mutationFn: (data: TeamFormData) => api.post('/teams', data),
@@ -588,6 +597,8 @@ export default function TeamsPage() {
         </button>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách tổ/nhóm" data-testid="teams-load-error" />
+
       {/* Form Modal */}
       {showForm && (
         <div className="mb-6 bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
@@ -719,7 +730,7 @@ export default function TeamsPage() {
           <div className="p-8 text-center text-slate-400">Đang tải...</div>
         ) : rootTeams.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
-            Chưa có dữ liệu tổ/nhóm
+            {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu tổ/nhóm'}
           </div>
         ) : (
           rootTeams

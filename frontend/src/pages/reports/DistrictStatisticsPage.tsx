@@ -2,6 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { extractApiError } from "@/lib/api-errors";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -55,6 +58,7 @@ interface StatusData {
 export default function DistrictStatisticsPage() {
   const navigate = useNavigate();
   const [hasData, setHasData] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [selectedPoint, setSelectedPoint] = useState<DailyData | null>(null);
 
   const [filter, setFilter] = useState<FilterData>({
@@ -95,7 +99,7 @@ export default function DistrictStatisticsPage() {
   const [loadingChart, setLoadingChart] = useState(false);
 
   const fetchStats = useCallback(async () => {
-    setLoadingChart(true);
+    setLoadingChart(true);    setLoadError("");
     try {
       const params = new URLSearchParams();
       if (filter.fromDate) params.set("fromDate", filter.fromDate);
@@ -104,9 +108,12 @@ export default function DistrictStatisticsPage() {
       const res = await api.get(`/reports/district-stats?${params}`);
       setChartData(res.data.data);
       setHasData(true);
-    } catch {
+    } catch (e) {
+      // `hasData=false` dựng ra câu "{loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có dữ liệu thống kê'}" — một khẳng định về thứ chưa hề
+      // hỏi được máy chủ. Giữ lỗi lại để giao diện nói đúng chuyện đã xảy ra.
       setChartData(null);
       setHasData(false);
+      setLoadError(extractApiError(e, "Không tải được số liệu thống kê.").messages.join(", "));
     } finally {
       setLoadingChart(false);
     }
@@ -176,6 +183,9 @@ export default function DistrictStatisticsPage() {
     setSelectedPoint(null);
     setChartData(null);
     setHasData(false);
+    // Đặt lại là người dùng CỐ Ý về trạng thái trắng — giữ lại khối lỗi của lần hỏi trước là
+    // bày một thông báo không còn liên quan tới thứ đang hiển thị.
+    setLoadError("");
   };
 
   const handleExport = () => {
@@ -219,6 +229,8 @@ export default function DistrictStatisticsPage() {
           Báo cáo chi tiết theo đơn vị hành chính cấp phường/xã (theo cải cách hành chính 2025)
         </p>
       </div>
+
+      <LoadErrorBanner error={loadError} what="số liệu thống kê" data-testid="district-load-error" />
 
       {/* Bộ lọc */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
@@ -375,7 +387,7 @@ export default function DistrictStatisticsPage() {
               <div>
                 <p className="text-sm text-slate-600">Tổng hồ sơ</p>
                 <p className="text-3xl font-bold text-slate-800 mt-2">
-                  {totalDocs}
+                  {soLieuHienThi(totalDocs, !!loadError)}
                 </p>
               </div>
               <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -388,7 +400,7 @@ export default function DistrictStatisticsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">Tổng vụ việc</p>
-                <p className="text-3xl font-bold text-slate-800 mt-2">{totalIncidents}</p>
+                <p className="text-3xl font-bold text-slate-800 mt-2">{soLieuHienThi(totalIncidents, !!loadError)}</p>
               </div>
               <div className="w-14 h-14 bg-purple-100 rounded-lg flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6 text-purple-600" />
@@ -400,7 +412,7 @@ export default function DistrictStatisticsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">Tổng vụ án</p>
-                <p className="text-3xl font-bold text-slate-800 mt-2">{totalCases}</p>
+                <p className="text-3xl font-bold text-slate-800 mt-2">{soLieuHienThi(totalCases, !!loadError)}</p>
               </div>
               <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center">
                 <BarChart3 className="w-6 h-6 text-red-600" />
@@ -531,7 +543,7 @@ export default function DistrictStatisticsPage() {
         ) : (
           <div className="text-center py-16">
             <BarChart3 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-lg text-slate-500 font-medium">Chưa có dữ liệu thống kê</p>
+            <p className="text-lg text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có dữ liệu thống kê'}</p>
             <p className="text-sm text-slate-400 mt-2">
               Vui lòng chọn bộ lọc và nhấn "Tìm kiếm" để xem thống kê
             </p>
@@ -592,7 +604,7 @@ export default function DistrictStatisticsPage() {
             ) : (
               <div className="text-center py-16">
                 <PieChartIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">Chưa có dữ liệu</p>
+                <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có dữ liệu'}</p>
               </div>
             )}
           </div>
@@ -647,7 +659,7 @@ export default function DistrictStatisticsPage() {
             ) : (
               <div className="text-center py-16">
                 <PieChartIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">Chưa có dữ liệu</p>
+                <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có dữ liệu'}</p>
               </div>
             )}
           </div>
@@ -664,7 +676,7 @@ export default function DistrictStatisticsPage() {
             </h2>
             <div className="text-center py-16">
               <PieChartIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">Chưa có dữ liệu</p>
+              <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có dữ liệu'}</p>
             </div>
           </div>
 
@@ -675,7 +687,7 @@ export default function DistrictStatisticsPage() {
             </h2>
             <div className="text-center py-16">
               <PieChartIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">Chưa có dữ liệu</p>
+              <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có dữ liệu'}</p>
             </div>
           </div>
         </div>
