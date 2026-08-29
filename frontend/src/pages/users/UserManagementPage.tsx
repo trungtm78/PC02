@@ -200,6 +200,10 @@ export default function UserManagementPage() {
     } catch (e) {
       // "show empty table" nghĩa là màn hình bày một bảng rỗng — nhìn hệt cơ quan
       // chưa có tài khoản nào. Nói ra thay vì để người đọc tự suy.
+      // Dọn luôn hàng cũ: giữ lại kết quả của truy vấn TRƯỚC trong khi báo lỗi cho truy vấn
+      // SAU là bày dữ liệu thuộc một câu hỏi khác — và cán bộ thao tác ngay trên đó được.
+      setUsers([]);
+      setUsersTotal(0);
       setLoadError(extractApiError(e, "Không tải được danh sách người dùng.").messages.join(", "));
     } finally {
       setUsersLoading(false);
