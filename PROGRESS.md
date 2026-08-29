@@ -552,3 +552,26 @@ M5: `UAT-COVERAGE.md` + đo lại lần cuối trên máy thật.
   chạy riêng (16/16, 8 giây). Kiểm bằng cách CẤT thay đổi rồi chạy lại: bản gốc còn 3 đỏ, bản có
   thay đổi 2 đỏ — tức chập chờn CÓ SẴN, không do đợt này. CI xanh vì máy chạy rảnh hơn. Nên
   tăng `testTimeout` cho hai tệp ấy hoặc tách chúng ra khỏi vòng song song.
+
+### Vòng đo lại sau triển khai #333 — bắt thêm 6 màn
+
+Đo trên máy thật, chặn `**/api/**` bằng `route().abort()`. Bộ dò tổng hợp báo 12 màn "im lặng";
+đọc từng màn thì **2 báo cáo sai** (`/don-vi-hanh-chinh` và `/initial-cases` CÓ báo lỗi — regex
+của bộ dò hẹp hơn câu chữ thật), **4 màn im lặng thật**, và lộ thêm **2 lớp khác hẳn**:
+
+| Màn | Hiện gì khi máy chủ chết | Hạng |
+|---|---|---|
+| `/admin/deadline-rules/approval-queue` | "Không có đề xuất nào chờ duyệt · Tốt rồi — inbox-zero!" | khẳng định sai |
+| `/admin/deadline-rules/migration-cleanup` | "Tất cả **12** quy tắc đã có tài liệu pháp lý đầy đủ" | khẳng định sai + số viết cứng |
+| `/cases/tdac-backfill` | "Không có vụ án nào cần cập nhật" | khẳng định sai |
+| `/admin/deadline-rules` | "Network Error" **và** "Chưa có quy tắc nào" cùng lúc | hai câu trái nhau |
+| `/journey` | khay tìm kiếm không hiện gì — hệt "không tìm thấy hồ sơ" | im lặng |
+| `/admin/khoi-phuc` | "Chỉ quản trị viên truy cập được" trong khi đang là ADMIN | sai lý do từ chối |
+| `/settings` | bảng 3 cán bộ **không có thật**, kèm nút Sửa/Xóa | dữ liệu bịa |
+
+Ghi lại vì đáng nhớ hơn danh sách: **con số 0 còn mơ hồ, câu "inbox-zero" thì quả quyết.**
+Hạng lỗi này tệ hơn hạng đã vá ở #333.
+
+Cổng lớp `congSoLieuKhiTaiHong` phải **nới từ vựng** (`isError` cũng là phép xét lỗi, các trang
+react-query dùng nó) và **im bớt** (`label:`/`value:` là nhãn danh mục, không phải câu trả lời).
+Cả hai lần nới đều gieo lỗi lại để chứng minh cổng còn răng.

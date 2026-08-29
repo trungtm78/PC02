@@ -135,13 +135,22 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('should render user management table with correct headers', () => {
+  /**
+   * Ca cũ ở đây đòi bảng có đủ cột Tên · Email · Vai trò · Trạng thái · Thao tác. Bảng ấy KHÔNG
+   * gọi máy chủ lần nào — ba dòng "Nguyễn Văn A / Trần Thị B / Lê Văn C" nằm thẳng trong mã
+   * nguồn, kèm nút Sửa và Xóa, và đang chạy trên máy thật. Ca kiểm ấy khoá chặt một khiếm
+   * khuyết: nó bắt màn hình phải tiếp tục dựng hồ sơ nhân sự không có thật.
+   *
+   * Nên đổi hướng ca kiểm về đúng thứ cần đúng: trang này KHÔNG dựng danh sách người, mà chỉ
+   * đưa người dùng sang nơi có danh sách thật.
+   */
+  it('không dựng bảng nhân sự — chỉ đưa sang trang có danh sách thật', () => {
     renderWithRouter(<SettingsPage />);
-    
-    const headers = ['Tên', 'Email', 'Vai trò', 'Trạng thái', 'Thao tác'];
-    headers.forEach(header => {
-      expect(screen.getByText(header)).toBeInTheDocument();
-    });
+
+    expect(screen.getByTestId('user-module-hint')).toBeInTheDocument();
+    expect(screen.queryByText('nguyenvana@pc02.gov.vn')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nguyễn Văn A')).not.toBeInTheDocument();
+    expect(screen.getByText('Đến trang Quản lý người dùng')).toBeInTheDocument();
   });
 
   it('should render navigate-to-users button in user management', () => {

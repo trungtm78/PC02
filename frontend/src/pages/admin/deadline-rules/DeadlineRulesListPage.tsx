@@ -225,7 +225,7 @@ export default function DeadlineRulesListPage() {
         )}
 
         <ListPageShell.Table<DeadlineRuleVersion>
-          state={isLoading ? 'loading' : rules.length === 0 ? 'empty' : 'ready'}
+          state={isLoading ? 'loading' : error ? 'error' : rules.length === 0 ? 'empty' : 'ready'}
           fixedLayout
           onKeoGian={datBeRong}
           onVeMacDinhCot={xoaBeRong}

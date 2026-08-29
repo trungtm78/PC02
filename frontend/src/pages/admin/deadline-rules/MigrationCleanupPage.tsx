@@ -1,3 +1,4 @@
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
@@ -63,10 +64,22 @@ export default function MigrationCleanupPage() {
         </div>
       )}
 
-      {!activeQ.isLoading && needsDoc.length === 0 && (
+      {activeQ.isError && (
+        <LoadErrorBanner
+          error={(activeQ.error as Error)?.message}
+          onRetry={() => void activeQ.refetch()}
+          loading={activeQ.isFetching}
+          what="danh sách quy tắc"
+          data-testid="cleanup-load-error"
+        />
+      )}
+
+      {!activeQ.isLoading && !activeQ.isError && needsDoc.length === 0 && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center" data-testid="cleanup-empty">
           <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
-          <p className="text-green-900 font-medium">Tất cả 12 quy tắc đã có tài liệu pháp lý đầy đủ</p>
+          <p className="text-green-900 font-medium">
+            Mọi quy tắc đang áp dụng đều đã có tài liệu pháp lý đầy đủ
+          </p>
         </div>
       )}
 

@@ -79,6 +79,8 @@ function deleteReasonDisplay(row: DeletedRow): string {
 
 export default function RestorePage() {
   const profile = authStore.getProfile();
+  // "Chưa biết" và "biết, không phải admin" là hai chuyện khác nhau — xem `chuaBietTaiKhoan`.
+  const chuaBietTaiKhoan = !profile;
   const isAdmin = profile?.role === 'ADMIN';
 
   const [tab, setTab] = useState<TabKey>('cases');
@@ -175,6 +177,25 @@ export default function RestorePage() {
       setRestoring(false);
     }
   };
+
+  if (chuaBietTaiKhoan) {
+    return (
+      <div className="p-6" data-testid="restore-unknown-profile">
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-start gap-3">
+          <ShieldAlert className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-base font-semibold text-amber-900">
+              Chưa đọc được tài khoản đang đăng nhập
+            </h2>
+            <p className="text-sm text-amber-800 mt-1">
+              Đây KHÔNG phải là từ chối quyền — hệ thống chưa hỏi được máy chủ về tài khoản của
+              anh/chị. Tải lại trang; nếu vẫn vậy thì máy chủ đang không trả lời.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
