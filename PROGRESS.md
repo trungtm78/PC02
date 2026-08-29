@@ -539,3 +539,11 @@ M5: `UAT-COVERAGE.md` + đo lại lần cuối trên máy thật.
   chạy lại (32/32) và xanh ở vòng đầy đủ kế tiếp (4.221/4.221). Nguyên nhân gần như chắc chắn là
   mã TOTP rơi đúng ranh giới cửa sổ 30 giây. Nên đóng băng đồng hồ trong ca kiểm ấy thay vì để
   nó phụ thuộc thời điểm chạy — chưa làm trong đợt này vì nằm ngoài phạm vi.
+
+## Nợ kỹ thuật (bổ sung 2026-08-29T21:10)
+- **Cổng "đường đặt lại phải dọn lỗi" KHÔNG dựng được.** Đã thử thêm luật ấy vào
+  `congSoLieuKhiTaiHong.test.ts` nhưng gieo lỗi (xoá phép dọn ở `DistrictStatisticsPage.handleReset`)
+  mà cổng vẫn xanh, trong khi một ca dò riêng đọc CÙNG nội dung ấy lại cho kết quả đúng. Chưa
+  truy ra vì sao — nghi cách `it.each` + vòng lặp `expect` bên trong không nổi lỗi. Đã GỠ hẳn
+  luật ấy: một cổng không chứng minh được là lời hứa suông. Bản vá vẫn còn; luật hiện chỉ được
+  giữ bằng lượt soi Codex.

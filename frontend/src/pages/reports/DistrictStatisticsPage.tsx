@@ -183,6 +183,9 @@ export default function DistrictStatisticsPage() {
     setSelectedPoint(null);
     setChartData(null);
     setHasData(false);
+    // Đặt lại là người dùng CỐ Ý về trạng thái trắng — giữ lại khối lỗi của lần hỏi trước là
+    // bày một thông báo không còn liên quan tới thứ đang hiển thị.
+    setLoadError("");
   };
 
   const handleExport = () => {
