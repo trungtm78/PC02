@@ -195,6 +195,27 @@ export class KpiService {
     // lặng bỏ qua — khai ra, để con số không bị đọc như thuộc phạm vi đã hỏi.
     const ngoaiPhamVi = !!query.unitId;
 
+    // KHÔNG truy vấn và KHÔNG trả về con số nào khi ngoài phạm vi.
+    //
+    // Bản trước chỉ treo cờ `ngoaiPhamVi` nhưng vẫn để `value`/`numerator`/`denominator` tính
+    // từ truy vấn KHÔNG lọc đơn vị. Bất kỳ nơi nào đọc mấy trường ấy mà bỏ qua cờ — một bản
+    // xuất, một màn hình sau này — sẽ thấy số của TOÀN BỘ cho một câu hỏi về MỘT đơn vị, tức
+    // đúng thứ khe hở đang muốn bịt. Cắt ngắn mạch ở đây là cách duy nhất bịt kín.
+    if (ngoaiPhamVi) {
+      return {
+        kpi: 3,
+        label: 'Tỷ lệ điều tra khám phá án các loại',
+        target: 80,
+        warningThreshold: 70,
+        value: 0,
+        status: 'N_A',
+        numerator: 0,
+        denominator: 0,
+        noData: true,
+        ngoaiPhamVi: true,
+      };
+    }
+
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
       caseType: CaseType.REGULAR, // v0.44: exclude UTDT records from KPI
@@ -238,6 +259,27 @@ export class KpiService {
     // Lọc theo ĐƠN VỊ không áp được cho vụ án: bảng `Case` không có cột `unitId`. Không im
     // lặng bỏ qua — khai ra, để con số không bị đọc như thuộc phạm vi đã hỏi.
     const ngoaiPhamVi = !!query.unitId;
+
+    // KHÔNG truy vấn và KHÔNG trả về con số nào khi ngoài phạm vi.
+    //
+    // Bản trước chỉ treo cờ `ngoaiPhamVi` nhưng vẫn để `value`/`numerator`/`denominator` tính
+    // từ truy vấn KHÔNG lọc đơn vị. Bất kỳ nơi nào đọc mấy trường ấy mà bỏ qua cờ — một bản
+    // xuất, một màn hình sau này — sẽ thấy số của TOÀN BỘ cho một câu hỏi về MỘT đơn vị, tức
+    // đúng thứ khe hở đang muốn bịt. Cắt ngắn mạch ở đây là cách duy nhất bịt kín.
+    if (ngoaiPhamVi) {
+      return {
+        kpi: 4,
+        label: 'Tỷ lệ khám phá án rất nghiêm trọng và đặc biệt nghiêm trọng',
+        target: 95,
+        warningThreshold: 90,
+        value: 0,
+        status: 'N_A',
+        numerator: 0,
+        denominator: 0,
+        noData: true,
+        ngoaiPhamVi: true,
+      };
+    }
 
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
