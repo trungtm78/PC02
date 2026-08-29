@@ -95,3 +95,35 @@ describe('KPI — lọc theo đơn vị khai rõ phạm vi áp được', () => 
     }
   });
 });
+
+/**
+ * SIÊU DỮ LIỆU của chỉ tiêu phải GIỐNG NHAU dù có lọc phạm vi hay không.
+ *
+ * Codex bắt: đường ngắn mạch chép tay `warningThreshold: 70` trong khi đường thường là 75 — nên
+ * một bản xuất đọc ngưỡng từ API sẽ thấy ĐỊNH NGHĨA CHỈ TIÊU khác nhau chỉ vì câu hỏi có lọc
+ * đơn vị. Con số bị đánh dấu ngoài phạm vi, nhưng định nghĩa thì không được đổi.
+ *
+ * Chép tay là chỗ sinh ra sai lệch; ca này so hai đường với nhau nên không ai chép sai được nữa.
+ */
+describe('KPI — siêu dữ liệu không đổi theo phạm vi', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    ['kpi3', 3],
+    ['kpi4', 4],
+  ])('%s giữ nguyên target/warningThreshold/label khi ngoài phạm vi', async (khoa) => {
+    const svc = await dung();
+    datDem(5, 10);
+    const thuong = (await svc.getKpiSummary({ year: 2026 } as never)) as unknown as Record<
+      string,
+      { target: number; warningThreshold: number; label: string }
+    >;
+    const loc = (await svc.getKpiSummary({ year: 2026, unitId: 'donvi-9' } as never)) as unknown as Record<
+      string,
+      { target: number; warningThreshold: number; label: string }
+    >;
+    expect(loc[khoa].target).toBe(thuong[khoa].target);
+    expect(loc[khoa].warningThreshold).toBe(thuong[khoa].warningThreshold);
+    expect(loc[khoa].label).toBe(thuong[khoa].label);
+  });
+});

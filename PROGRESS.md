@@ -533,3 +533,9 @@ Full suite: PASS — backend 288 tệp / 4.219 ca · frontend 221 tệp | tsc ha
 
 ## BƯỚC TIẾP THEO
 M5: `UAT-COVERAGE.md` + đo lại lần cuối trên máy thật.
+
+## Nợ kỹ thuật (bổ sung 2026-08-29T19:00)
+- `two-fa.service.spec.ts` CHẬP CHỜN: 3 ca TOTP đỏ một lần trong vòng chạy đầy đủ rồi xanh khi
+  chạy lại (32/32) và xanh ở vòng đầy đủ kế tiếp (4.221/4.221). Nguyên nhân gần như chắc chắn là
+  mã TOTP rơi đúng ranh giới cửa sổ 30 giây. Nên đóng băng đồng hồ trong ca kiểm ấy thay vì để
+  nó phụ thuộc thời điểm chạy — chưa làm trong đợt này vì nằm ngoài phạm vi.

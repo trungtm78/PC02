@@ -206,7 +206,7 @@ export class KpiService {
         kpi: 3,
         label: 'Tỷ lệ điều tra khám phá án các loại',
         target: 80,
-        warningThreshold: 70,
+        warningThreshold: 75,
         value: 0,
         status: 'N_A',
         numerator: 0,
