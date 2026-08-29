@@ -18,6 +18,7 @@ import {
   Bell,
   X,
 } from "lucide-react";
+import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
 import { formatVNDate } from "../../lib/dates";
 import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
@@ -114,6 +115,7 @@ function InitialCasesPage() {
 
   // ── Dialog xóa ──────────────────────────────────────
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [caseToDelete, setCaseToDelete] = useState<InitialCase | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -155,17 +157,23 @@ function InitialCasesPage() {
   };
 
   const openDeleteDialog = (caseItem: InitialCase) => { setCaseToDelete(caseItem); setDeleteDialogOpen(true); };
-  const closeDeleteDialog = () => { setDeleteDialogOpen(false); setCaseToDelete(null); };
+  const closeDeleteDialog = () => { setDeleteDialogOpen(false); setCaseToDelete(null); setDeleteError(""); };
 
   const confirmDelete = async () => {
     if (!caseToDelete) return;
+    setDeleteError("");
     setDeleteLoading(true);
     try {
       await api.delete(`/cases/${caseToDelete.id}`);
       setCases((prev) => prev.filter((c) => c.id !== caseToDelete.id));
       closeDeleteDialog();
-    } catch {
-      closeDeleteDialog();
+    } catch (e) {
+      // KHÔNG đóng hộp xác nhận khi máy chủ TỪ CHỐI xoá.
+      //
+      // Bản trước đóng hộp ở cả hai nhánh, nên xoá hỏng nhìn y hệt xoá xong: hộp biến mất,
+      // không thông báo nào. Hồ sơ vẫn còn trong danh sách nhưng cán bộ đã tin là đã xoá và
+      // không nhìn lại. Giữ hộp mở kèm lý do là cách duy nhất nói ra chuyện đã xảy ra.
+      setDeleteError(extractApiError(e, "Xoá hồ sơ thất bại. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setDeleteLoading(false);
     }
@@ -412,6 +420,16 @@ function InitialCasesPage() {
                 <p className="text-sm text-red-800 mt-1 line-clamp-2">{caseToDelete.subject}</p>
               </div>
             </div>
+            {deleteError && (
+              <div
+                data-testid="initial-delete-error"
+                role="alert"
+                className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                <strong className="font-medium">Chưa xoá được. </strong>
+                {deleteError}
+              </div>
+            )}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
               <button onClick={closeDeleteDialog} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium" data-testid="btn-cancel-delete">Hủy bỏ</button>
               <button onClick={() => void confirmDelete()} disabled={deleteLoading} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-confirm-delete">

@@ -578,10 +578,15 @@ function ConclusionModal({
   conclusion,
   onClose,
   onSave,
+  error = "",
+  saving = false,
 }: {
   conclusion: Conclusion | null;
   onClose: () => void;
   onSave: (c: Conclusion) => void;
+  /** Lý do máy chủ từ chối, do trang cha giữ — modal chỉ hiển thị. */
+  error?: string;
+  saving?: boolean;
 }) {
   const [form, setForm] = useState<Conclusion>(
     conclusion ?? {
@@ -676,16 +681,38 @@ function ConclusionModal({
             />
           </div>
         </div>
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy</button>
-          <button
-            onClick={() => onSave({ ...form, id: form.id || `KL-${Date.now()}` })}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-            data-testid="btn-save-conclusion"
-          >
-            <Save className="w-4 h-4" />
-            {conclusion ? "Cập nhật" : "Lưu kết luận"}
-          </button>
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4">
+          {error && (
+            <div
+              data-testid="conclusion-error"
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>
+                <strong className="font-medium">Chưa lưu được. </strong>
+                {error}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={() => onSave({ ...form, id: form.id || `KL-${Date.now()}` })}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-60"
+              data-testid="btn-save-conclusion"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "Đang lưu…" : conclusion ? "Cập nhật" : "Lưu kết luận"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -751,6 +778,8 @@ export default function CaseDetailPage() {
   const [conclusions, setConclusions] = useState<Conclusion[]>([]);
   const [loadingConclusions, setLoadingConclusions] = useState(false);
   const [showConclusionModal, setShowConclusionModal] = useState(false);
+  const [conclusionError, setConclusionError] = useState("");
+  const [conclusionSaving, setConclusionSaving] = useState(false);
   const [editingConclusion, setEditingConclusion] = useState<Conclusion | null>(null);
 
   // Supplementary Investigation state
@@ -942,6 +971,9 @@ export default function CaseDetailPage() {
   };
 
   const handleSaveConclusion = async (c: Conclusion) => {
+    if (conclusionSaving) return;
+    setConclusionError("");
+    setConclusionSaving(true);
     try {
       const STATUS_API_MAP: Record<string, string> = {
         [CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO]]: ConclusionStatus.DU_THAO,
@@ -964,14 +996,21 @@ export default function CaseDetailPage() {
         });
       }
       await fetchConclusions();
-    } catch {
-      // silently fail — keep UI state
-      setConclusions((prev) =>
-        editingConclusion ? prev.map((x) => (x.id === c.id ? c : x)) : [...prev, c]
-      );
+      setShowConclusionModal(false);
+      setEditingConclusion(null);
+    } catch (e) {
+      // KHÔNG chèn bản ghi vào danh sách và KHÔNG đóng popup.
+      //
+      // Bản trước làm đúng hai việc ấy: `catch` chèn kết luận vào `conclusions` rồi popup đóng
+      // vô điều kiện. Đo trên máy thật 29/08/2026 (chặn ghi trước khi tới máy chủ): nội dung
+      // vừa gõ HIỆN RA trên màn, không hộp thoại nào, không báo lỗi nào. Cán bộ tin rằng Kết
+      // luận điều tra đã lưu; tải lại trang thì mất.
+      //
+      // Tệ hơn lớp "báo thành công giả": chỗ kia chỉ NÓI thành công, chỗ này DỰNG RA kết quả.
+      setConclusionError(extractApiError(e, "Lưu kết luận thất bại. Vui lòng thử lại.").messages.join(", "));
+    } finally {
+      setConclusionSaving(false);
     }
-    setShowConclusionModal(false);
-    setEditingConclusion(null);
   };
 
   // Mở modal cập nhật tiến độ — khởi tạo từ caseData hiện tại
@@ -1824,7 +1863,9 @@ export default function CaseDetailPage() {
       {showConclusionModal && (
         <ConclusionModal
           conclusion={editingConclusion}
-          onClose={() => { setShowConclusionModal(false); setEditingConclusion(null); }}
+          error={conclusionError}
+          saving={conclusionSaving}
+          onClose={() => { setShowConclusionModal(false); setEditingConclusion(null); setConclusionError(""); }}
           onSave={handleSaveConclusion}
         />
       )}

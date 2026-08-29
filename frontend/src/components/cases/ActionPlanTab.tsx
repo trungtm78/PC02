@@ -55,6 +55,7 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
   const [form, setForm] = useState<PlanForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const apiBase =
@@ -109,12 +110,19 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
   };
 
   const handleDelete = async (id: string) => {
+    setDeleteError("");
     if (!confirm("Xóa kế hoạch này?")) return;
     try {
       await api.delete(`/action-plans/${id}`);
       await fetchPlans();
-    } catch {
-      setPlans((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      // KHÔNG gỡ dòng khỏi danh sách khi máy chủ TỪ CHỐI xoá.
+      //
+      // Bản trước làm đúng thế: `catch` lọc bản ghi ra khỏi state. Cán bộ thấy kế hoạch biến mất và
+      // tin là đã xoá; tải lại trang thì nó trở lại. Cùng lớp với "bịa ra kết quả thành công"
+      // ở tab Kết luận điều tra, chỉ khác chiều — một bên bịa ra thứ chưa tồn tại, một bên bịa
+      // ra việc đã xoá.
+      setDeleteError(extractApiError(e, "Xoá thất bại. Vui lòng thử lại.").messages.join(", "));
     }
   };
 
@@ -158,6 +166,19 @@ export function ActionPlanTab({ entityId, entityType, isReadOnly = false }: Prop
           </button>
         )}
       </div>
+
+      {deleteError && (
+        <div
+          data-testid="action-plan-error"
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
+          <span>
+            <strong className="font-medium">Chưa xoá được. </strong>
+            {deleteError}
+          </span>
+        </div>
+      )}
 
       {/* Table */}
       {plans.length === 0 ? (
