@@ -62,12 +62,28 @@ export default defineConfig({
     //   offline degraded-mode detection without exposing user data.
     VitePWA({
       registerType: 'prompt',
+      // Ten tep service worker - CO Y khong dung `sw.js` mac dinh.
+      //
+      // Ngay 23/08/2026 `sw.js` duoc phuc vu kem `Cache-Control: immutable, max-age=30d`, nen
+      // Cloudflare ghim dung ban ay o bien. Do ngay 29/08: duong ten mien van tra service worker
+      // cua 23/08 (`Last-Modified: Sun, 23 Aug 2026`), trong khi may chu goc da la ban moi.
+      //
+      // Hong o day KHONG tu thoat duoc: service worker cu chan moi dieu huong va tra `index.html`
+      // tu kho rieng cua no, nen trinh duyet khong bao gio nap ma moi de dang ky lai. Trinh duyet
+      // co do ban moi, nhung no do dung `/sw.js` - va lai nhan ban Cloudflare dang ghim.
+      //
+      // Doi TEN la cach duy nhat thoat ra tu phia may chu: URL moi thi ban ghim cu khong con dinh
+      // dang gi, va bo canh nginx da dat `no-cache` nen ten moi se khong bi ghim lan nua.
+      filename: 'sw-v2.js',
       includeAssets: ['favicon.ico', 'logo-cong-an.png', 'icons/apple-touch-icon.png'],
       workbox: {
         // Narrow precache: shell (js/css/html) + own icons only. Other PNGs/SVGs
         // are not precached so map tiles, embedded SVGs, and large images don't
         // bloat client storage on slow networks.
         globPatterns: ['**/*.{js,css,html,ico,woff2}', 'icons/*.png'],
+        // `sw.js` la BIA MO tu go (xem public/sw.js) — no phai LUON di thang ra mang. Nap
+        // truoc no la de ban moi ghim lai chinh bia mo, tuc lap lai su co dang go.
+        globIgnores: ['**/sw.js'],
         runtimeCaching: [
           {
             // Health check — cache for offline degraded-mode detection.

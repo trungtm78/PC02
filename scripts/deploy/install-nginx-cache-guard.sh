@@ -48,7 +48,7 @@ if [ -z "$DS" ]; then
     exit 0
 fi
 
-KHOI='    # pc02-ensure-nginx-cache: service worker + index.html KHÔNG được cache lâu.\n    # Luật tĩnh bắt theo đuôi .js nên nó bắt cả sw.js; giữ 30 ngày là trình duyệt không\n    # bao giờ thấy bản mới, và hộp báo "có cập nhật" không bao giờ hiện.\n    location = /sw.js {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n    location = /index.html {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n    location = /manifest.webmanifest {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n    }\n\n    location ~* ^/(workbox|registerSW)-?.*\\.js$ {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n'
+KHOI='    # pc02-ensure-nginx-cache: service worker + index.html KHÔNG được cache lâu.\n    # Luật tĩnh bắt theo đuôi .js nên nó bắt cả sw.js; giữ 30 ngày là trình duyệt không\n    # bao giờ thấy bản mới, và hộp báo "có cập nhật" không bao giờ hiện.\n    location ~* ^/sw(-v[0-9]+)?\.js$ {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n    location = /index.html {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n    location = /manifest.webmanifest {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n    }\n\n    location ~* ^/(workbox|registerSW)-?.*\\.js$ {\n        add_header Cache-Control "no-cache, must-revalidate" always;\n        add_header X-Content-Type-Options "nosniff" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n\n'
 
 DA_SUA=0
 DA_LUU=""
@@ -64,7 +64,7 @@ for L in $DS; do
     # báo "đã đúng" và để nguyên khối hỏng — đúng kịch bản mà chính script này sinh ra để
     # chống. Codex chỉ ra 28/08/2026.
     SO_TINH=$(grep -c "location ~\* .*js|css" "$C" || true)
-    SO_DA_VA=$(grep -c "location = /sw.js" "$C" || true)
+    SO_DA_VA=$(grep -c "sw(-v\[0-9\]" "$C" || true)
     [ "${SO_TINH:-0}" -eq 0 ] && continue
     [ "${SO_DA_VA:-0}" -ge "${SO_TINH:-0}" ] && continue
 
@@ -102,7 +102,11 @@ systemctl reload nginx
 # vẫn ra đầu HTTP cũ. Chờ rồi mới kiểm — và kiểm THẬT, để deploy hỏng ồn ào thay vì im lặng
 # báo thành công trong khi cán bộ vẫn không thấy bản mới.
 sleep 2
-for U in /sw.js /index.html; do
+# `/sw.js` phải nằm trong danh sách kiểm. Nó là BIA MỘ tự gỡ, và là địa chỉ DUY NHẤT mà máy
+# đang bị bản service worker cũ điều khiển còn dò tới. Máy chủ nào còn luật `= /sw.js` cũ, hoặc
+# để nó rơi xuống luật tĩnh `immutable`, thì đường cứu ấy đứt — mà bỏ nó khỏi vòng kiểm thì
+# script vẫn báo xanh, tức đúng sự cố cần bắt lại lọt qua trong im lặng.
+for U in /sw.js /sw-v2.js /index.html; do
     CC=$(curl -sI "http://127.0.0.1$U" | grep -i '^cache-control' || true)
     case "$CC" in
         *no-cache*) ;;
@@ -129,7 +133,7 @@ echo
 echo "── Chạy thử ngay ──"
 "$DICH"
 echo
-for u in /sw.js /index.html; do
+for u in /sw.js /sw-v2.js /index.html; do
     echo "== $u"
     curl -sI "http://127.0.0.1$u" | grep -iE '^HTTP|cache-control' || true
 done

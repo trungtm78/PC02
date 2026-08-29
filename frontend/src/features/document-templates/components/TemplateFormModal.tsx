@@ -341,6 +341,64 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
           )}
         </div>
 
+        {/* Thuộc tính của MẪU đặt trước danh sách biến: danh sách biến dài không giới hạn
+            (có mẫu 40 dòng), nên bất cứ ô nào đặt sau nó đều bị đẩy khỏi tầm nhìn lúc Sửa —
+            đúng lỗi 29/08: "tạo mới có ô tích sẵn, bấm Sửa thì không thấy đâu". */}
+        <div className="mb-3 flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              data-testid="template-needs-number"
+              type="checkbox"
+              checked={needsNumber}
+              onChange={(e) => setNeedsNumber(e.target.checked)}
+            />
+            Cấp số văn bản
+          </label>
+          {/* Mẫu này có được tích sẵn ở popup In chứng từ không. Tắt hết là popup mở ra trống,
+              cán bộ tích đúng thứ cần — thay vì nhận 14 tệp Word mỗi lần bấm xuất. */}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              data-testid="template-selected-by-default"
+              type="checkbox"
+              checked={selectedByDefault}
+              onChange={(e) => setSelectedByDefault(e.target.checked)}
+            />
+            Tích sẵn khi in
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            Thứ tự
+            <input
+              data-testid="template-sort-order"
+              type="number"
+              className="w-20 rounded border px-2 py-1"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+            />
+          </label>
+        </div>
+
+        {needsNumber && (
+          <div className="mb-3">
+            <label className="mb-1 block text-sm font-medium">Chuỗi số văn bản *</label>
+            <select
+              data-testid="template-number-series"
+              className="w-full rounded border px-3 py-2"
+              value={numberSeriesId ?? ''}
+              onChange={(e) => setNumberSeriesId(e.target.value)}
+            >
+              <option value="">-- Chọn chuỗi số --</option>
+              {seriesOptions.map((o) => (
+                <option key={o.id} value={o.documentType}>
+                  {o.name} ({o.documentType})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Bắt buộc khi bật cấp số — mỗi lần in sẽ cấp 1 số từ chuỗi này.
+            </p>
+          </div>
+        )}
+
         {/* Map biến → field (no-code) */}
         {(file || (isEdit && variables.length > 0)) && (
           <div className="mb-3 rounded border border-slate-200 p-3">
@@ -410,68 +468,13 @@ export function TemplateFormModal({ onClose, onSaved, template }: Props) {
           </div>
         )}
 
-        <div className="mb-3 flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              data-testid="template-needs-number"
-              type="checkbox"
-              checked={needsNumber}
-              onChange={(e) => setNeedsNumber(e.target.checked)}
-            />
-            Cấp số văn bản
-          </label>
-          {/* Mẫu này có được tích sẵn ở popup In chứng từ không. Tắt hết là popup mở ra trống,
-              cán bộ tích đúng thứ cần — thay vì nhận 14 tệp Word mỗi lần bấm xuất. */}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              data-testid="template-selected-by-default"
-              type="checkbox"
-              checked={selectedByDefault}
-              onChange={(e) => setSelectedByDefault(e.target.checked)}
-            />
-            Tích sẵn khi in
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            Thứ tự
-            <input
-              data-testid="template-sort-order"
-              type="number"
-              className="w-20 rounded border px-2 py-1"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-            />
-          </label>
-        </div>
-
-        {needsNumber && (
-          <div className="mb-3">
-            <label className="mb-1 block text-sm font-medium">Chuỗi số văn bản *</label>
-            <select
-              data-testid="template-number-series"
-              className="w-full rounded border px-3 py-2"
-              value={numberSeriesId ?? ''}
-              onChange={(e) => setNumberSeriesId(e.target.value)}
-            >
-              <option value="">-- Chọn chuỗi số --</option>
-              {seriesOptions.map((o) => (
-                <option key={o.id} value={o.documentType}>
-                  {o.name} ({o.documentType})
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-slate-500">
-              Bắt buộc khi bật cấp số — mỗi lần in sẽ cấp 1 số từ chuỗi này.
-            </p>
-          </div>
-        )}
-
         {error && (
           <p data-testid="template-form-error" className="mb-3 text-sm text-red-600">
             {error}
           </p>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-2 rounded-b-lg border-t border-slate-200 bg-white px-5 py-3">
           <button
             data-testid="btn-cancel-template"
             type="button"
