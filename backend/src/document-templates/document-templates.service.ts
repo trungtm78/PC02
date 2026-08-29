@@ -251,9 +251,13 @@ export class DocumentTemplatesService {
       const detected = detectDocxVariables(Buffer.from(existing.fileBytes), delimiters);
       // Tệp KHÔNG đổi ở nhánh này (đổi tệp đi đường `replaceTemplateFile`), nên miễn phép kiểm
       // cho những tên đã nằm sẵn trong bản ghi — xem ghi chú ở `validateVariableMapping`.
-      const daCo = new Set(
-        ((existing.variables as TemplateVariable[] | null) ?? []).map((v) => v.name),
-      );
+      //
+      // Trừ khi ĐỔI CẶP DẤU: đổi `{ }` sang `[[ ]]` là đổi cách đọc chính tệp ấy, nên mọi kết
+      // quả dò cũ mất hiệu lực y như khi thay tệp. Miễn tiếp lúc này là để lọt một khai báo
+      // không còn tồn tại dưới cú pháp mới.
+      const daCo = delimChanged
+        ? new Set<string>()
+        : new Set(((existing.variables as TemplateVariable[] | null) ?? []).map((v) => v.name));
       data.variables =
         dtoVariables && dtoVariables.length
           ? this.validateVariableMapping(existing.entityType, dtoVariables, detected, daCo)

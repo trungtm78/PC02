@@ -106,6 +106,17 @@ describe('Biến cũ không còn dò thấy thì không được chặn việc l
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  /**
+   * ĐỔI CẶP DẤU là đổi cách đọc chính tệp ấy — mọi kết quả dò cũ mất hiệu lực y như khi thay
+   * tệp. Miễn tiếp lúc này là để lọt một khai báo không còn tồn tại dưới cú pháp mới.
+   */
+  it('đổi cặp dấu thì KHÔNG miễn nữa, biến cũ bị chặn lại', async () => {
+    const { svc } = dung(BIEN_CU);
+    await expect(
+      svc.update('t1', { delimStart: '[[', delimEnd: ']]', variables: BIEN_CU } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   /** Mẫu chưa từng có biến cũ thì không được nới gì thêm. */
   it('mẫu sạch vẫn chặn biến lạ như trước', async () => {
     const { svc } = dung([{ name: 'tenDoi', label: 'tenDoi', source: 'manual' }]);
