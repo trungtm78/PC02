@@ -784,6 +784,7 @@ export default function CaseDetailPage() {
 
   // Supplementary Investigation state
   const [showSupplementModal, setShowSupplementModal] = useState(false);
+  const [supplementError, setSupplementError] = useState("");
   const [supplementSaving, setSupplementSaving] = useState(false);
   const [supplementForm, setSupplementForm] = useState({
     type: "",
@@ -1045,6 +1046,7 @@ export default function CaseDetailPage() {
     if (!supplementForm.type || !supplementForm.decisionNumber || !supplementForm.reason) {
       return;
     }
+    setSupplementError("");
     setSupplementSaving(true);
     try {
       await api.post("/investigation-supplements", {
@@ -1058,7 +1060,11 @@ export default function CaseDetailPage() {
       setShowSupplementModal(false);
       setSupplementForm({ type: "", decisionNumber: "", decisionDate: "", reason: "", deadline: "" });
       fetchTimeline();
-    } catch {
+    } catch (e) {
+      // `catch` rỗng ở đây nghĩa là ghi hỏng mà không ai biết: popup đã đóng ở nhánh thành công
+      // nên nó ở lại, nhưng cán bộ không có manh mối nào vì sao bấm Lưu mà không có gì xảy ra —
+      // và sẽ bấm lại nhiều lần. Nói ra lý do máy chủ đưa.
+      setSupplementError(extractApiError(e, "Lưu quyết định thất bại. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setSupplementSaving(false);
     }
@@ -2017,6 +2023,16 @@ export default function CaseDetailPage() {
               </div>
             </div>
 
+            {supplementError && (
+              <div
+                data-testid="supplement-error"
+                role="alert"
+                className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                <strong className="font-medium">Chưa lưu được. </strong>
+                {supplementError}
+              </div>
+            )}
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowSupplementModal(false)}
