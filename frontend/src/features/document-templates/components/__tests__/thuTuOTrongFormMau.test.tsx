@@ -58,10 +58,18 @@ const TPL_NHIEU_BIEN = {
   selectedByDefault: false,
 } as const;
 
-/** Vị trí trong thứ tự duyệt tài liệu — số nhỏ hơn là đứng trước. */
+/**
+ * Vị trí trong thứ tự duyệt tài liệu — số nhỏ hơn là đứng trước.
+ *
+ * NÉM khi không tìm thấy, không trả `-1`. Trả `-1` thì ô BIẾN MẤT cũng qua cổng, vì `-1` nhỏ
+ * hơn mọi vị trí — tức cổng dựng ra để giữ ô lại sẽ xanh chính lúc ô bị xoá. Đây đúng kiểu
+ * xanh giả nguy hiểm nhất: không ca nào đỏ, không cảnh báo nào hiện.
+ */
 function viTri(id: string): number {
   const moi = Array.from(document.querySelectorAll('[data-testid]'));
-  return moi.findIndex((e) => e.getAttribute('data-testid') === id);
+  const i = moi.findIndex((e) => e.getAttribute('data-testid') === id);
+  if (i < 0) throw new Error(`không có ô "${id}" trong form — cổng thứ tự không so được`);
+  return i;
 }
 
 beforeEach(() => {
@@ -116,7 +124,10 @@ describe('Chỗ đứng của thuộc tính mẫu trong form', () => {
     await waitFor(() => expect(screen.getByTestId('var-row-bien0')).toBeInTheDocument());
     const moc = viTri('var-row-bien0');
     for (const id of [
-      'template-entity-select',
+      // Sửa thì Loại hồ sơ khoá lại (CỐ Ý — đổi loại của mẫu đã dùng là đổi ý nghĩa hồ sơ đã
+      // in), nên ô ở chế độ này là `template-entity-readonly`. Cổng nghiêm vừa bắt đúng chỗ
+      // em khai nhầm ô chỉ tồn tại lúc tạo mới.
+      'template-entity-readonly',
       'template-delim-preset',
       'template-file-input',
       'template-needs-number',
