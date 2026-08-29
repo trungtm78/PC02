@@ -438,3 +438,31 @@ quy. CI là trọng tài; không đụng ngân sách.
   hệ cũ đã dọn cho Đơn thư (`so-dien-thoai-he-cu.ts`). Chưa dọn cho Vụ việc; form Vụ việc hiện
   KHÔNG kiểm định dạng số nên chưa chặn Lưu, nhưng dữ liệu vẫn bẩn.
 - `name` trùng `description` ở 4.598/4.717 hồ sơ (97,5%) — PR3 xử theo quyết định #1.
+
+## M1 — HOÀN TẤT (2026-08-29T16:36+07:00)
+
+- [x] M1-T1 Kết luận điều tra không còn bịa bản ghi — commit 52873656
+- [x] M1-T2 ActionPlanTab + VksMeetingsTab không gỡ dòng khi xoá hỏng — commit 52873656
+- [x] M1-T3 InitialCasesPage giữ hộp xác nhận khi xoá hỏng — commit 52873656
+- [x] M1-T4 KHÔNG đụng NotificationDropdown (xem Quyết định) + vá `catch {}` rỗng ở bổ sung điều tra — 0800eb4e
+- [x] M1-T5 Ghim chống bấm hai lần (phát hiện gốc là DƯƠNG TÍNH GIẢ — xem Đính chính) — 0800eb4e
+- [x] M1-T6 aria-required / aria-invalid / aria-describedby ở `FormField` — 0800eb4e
+
+## Đính chính phát hiện của lượt soát
+| Phát hiện gốc | Sự thật đo lại | Căn cứ |
+|---|---|---|
+| "3 form không chặn bấm hai lần" | SAI — cơ chế chạy đúng qua `SaveSplitButton`. Em đo nhầm phần tử. | `/vu-viec/new` khoa=true guiDi=1; hai form kia guiDi=0 (validation chặn, chưa có gì để khoá) |
+| "NotificationDropdown nuốt lỗi 6 chỗ" | KHÔNG cùng lớp — mọi cập nhật state nằm TRONG `try`, hỏng thì không bịa gì | đọc mã + đối chiếu bất biến R16 |
+| "`/vu-viec/new` 32 ô chỉ 1 dấu sao" | ĐÚNG nhưng vô hại — form ấy chỉ có 1 luật bắt buộc | đếm luật `Vui lòng nhập/chọn` = 1 |
+
+## Quyết định kiến trúc (bổ sung)
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+| 29/08 | Không đụng 6 `catch` của NotificationDropdown | Đo theo BẤT BIẾN (không được thể hiện như đã lưu) chứ không đếm số dòng `catch`; luồng nền tự chữa ở lần tải sau | 0 tệp |
+| 29/08 | Sửa aria ở `FormField` thay vì từng form | Điểm nghẽn dùng chung của cả ba form; sửa một chỗ là phủ mọi ô | 1 tệp |
+
+## Trạng thái test
+Full suite: PASS (frontend 217 tệp / backend 285 tệp) | tsc: sạch | Test fail: không
+
+## BƯỚC TIẾP THEO
+M2-T7: tải hỏng phải khác rỗng trên 26 màn. Bắt đầu bằng cụm `/ward/*` (4 màn, nội dung tụt từ
+133.874 xuống 324 ký tự mà không báo lỗi). Dùng lại `soLieuHienThi` ở `frontend/src/lib/`.
