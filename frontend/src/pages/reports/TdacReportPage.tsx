@@ -95,10 +95,19 @@ export default function TdacReportPage() {
 
   // ── Fetch teams on mount
   useEffect(() => {
-    api.get<{ data: Team[] }>("/teams").then((res) => {
-      const list = res.data?.data ?? (res.data as unknown as Team[]) ?? [];
-      setTeams(list);
-    }).catch(() => {});
+    api
+      .get<{ data: Team[] }>("/teams")
+      .then((res) => {
+        const list = res.data?.data ?? (res.data as unknown as Team[]) ?? [];
+        setTeams(list);
+      })
+      // `.catch(() => {})` im lặng làm ô chọn Tổ rỗng mà không ai biết — cán bộ tưởng cơ quan
+      // chưa lập tổ nào, rồi không hiểu vì sao lọc theo tổ ra kết quả trống.
+      .catch((e) => {
+        setTeams([]);
+        setError("Không tải được danh sách tổ. Bộ lọc theo tổ tạm thời không dùng được.");
+        void e;
+      });
   }, []);
 
   // ── Mark stale when params change after a fetch

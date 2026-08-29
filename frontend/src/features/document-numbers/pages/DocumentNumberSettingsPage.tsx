@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { Plus, RotateCcw, BarChart2, List, Edit2, Trash2 } from 'lucide-react';
 import { documentNumbersApi, DOC_NUM_QUERY_KEYS } from '../api';
 import { TemplateFormModal } from '../components/TemplateFormModal';
@@ -89,10 +91,16 @@ export default function DocumentNumberSettingsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: templates = [], isLoading } = useQuery({
+  const { data: templates = [], isLoading, isError: loiTai, error: loiChiTiet } = useQuery({
     queryKey: DOC_NUM_QUERY_KEYS.templates,
     queryFn: documentNumbersApi.listTemplates,
   });
+
+  // Truy vấn hỏng thì `templates` là mảng rỗng mặc định — màn hình nhìn hệt cơ quan chưa khai
+  // chuỗi số nào. Quy về cùng tên `loadError` như các trang khác để cổng lớp soi được.
+  const loadError = loiTai
+    ? extractApiError(loiChiTiet, 'Không tải được cấu hình mã số chứng từ.').messages.join(', ')
+    : '';
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => documentNumbersApi.deleteTemplate(id),
@@ -163,6 +171,8 @@ export default function DocumentNumberSettingsPage() {
           Thêm mới
         </button>
       </div>
+
+      <LoadErrorBanner error={loadError} what="cấu hình mã số chứng từ" data-testid="docnum-load-error" />
 
       {/* Tab bar */}
       <div className="flex gap-1 border-b mb-4">
