@@ -125,6 +125,10 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
   };
 
   const toggleFavorite = (itemId: string, e: React.MouseEvent) => {
+    // Ngôi sao nằm BÊN TRONG thẻ neo của mục. `stopPropagation` chặn được sự kiện của React,
+    // nhưng KHÔNG chặn hành vi mặc định của trình duyệt trên thẻ neo — thiếu dòng dưới thì bấm
+    // sao là vừa đổi yêu thích vừa điều hướng.
+    e.preventDefault();
     e.stopPropagation();
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -420,12 +424,17 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
           </div>
           {searchResults.map((result) => {
             const Icon = result.item.icon;
+            const KetQua = (result.item.path ? Link : 'button') as ElementType;
             return (
-              <Link
+              // Tìm kiếm khớp cả NHÓM, mà nhóm không có đường dẫn. Dựng nó thành liên kết
+              // `#` là bịa ra một liên kết giả: bấm thì đổi mỗi dấu thăng, còn "sao chép địa
+              // chỉ" ra một thứ vô nghĩa. Không có đích thì đúng bản chất nó là cái nút.
+              <KetQua
                 key={result.item.id}
                 data-testid={`sidebar-search-${result.item.id}`}
-                to={result.item.path ?? '#'}
-                onClick={() => setSearchQuery('')}
+                {...(result.item.path
+                  ? { to: result.item.path, onClick: () => setSearchQuery('') }
+                  : { onClick: () => { toggleMenu(result.item.id); setSearchQuery(''); } })}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/10 rounded transition-colors mb-1 text-white/90"
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
@@ -433,7 +442,7 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
                   <span className="text-sm truncate block">{result.item.label}</span>
                   <span className="text-xs text-white/40 truncate block">{result.section}</span>
                 </div>
-              </Link>
+              </KetQua>
             );
           })}
         </div>

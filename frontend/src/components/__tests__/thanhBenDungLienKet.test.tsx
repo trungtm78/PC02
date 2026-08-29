@@ -131,3 +131,50 @@ describe('Thanh bên: nhóm phải khai trạng thái đóng/mở', () => {
     expect(screen.getByTestId('sidebar-item-kpi')).not.toHaveAttribute('aria-expanded');
   });
 });
+
+/**
+ * Điều khiển lồng BÊN TRONG một liên kết phải chặn hành vi mặc định của liên kết.
+ *
+ * Codex bắt: ngôi sao yêu thích nằm trong thẻ `<a>`. `stopPropagation()` chặn được sự kiện của
+ * React, nhưng KHÔNG chặn hành vi mặc định của trình duyệt trên thẻ neo — bấm sao là vừa đổi
+ * yêu thích vừa điều hướng. Lỗi này chỉ sinh ra KHI mục lá thành liên kết, tức do chính bản vá
+ * này tạo ra.
+ */
+describe('Điều khiển lồng trong liên kết', () => {
+  it('bấm ngôi sao yêu thích KHÔNG điều hướng', () => {
+    dung();
+    const sao = screen
+      .getByTestId('sidebar-item-kpi')
+      .querySelector('[role="button"]') as HTMLElement;
+    expect(sao).toBeTruthy();
+    const su = new MouseEvent('click', { bubbles: true, cancelable: true });
+    sao.dispatchEvent(su);
+    expect(su.defaultPrevented).toBe(true);
+  });
+});
+
+/**
+ * Kết quả tìm kiếm khớp cả NHÓM, mà nhóm không có đường dẫn. Dựng nó thành liên kết `#` là bịa
+ * ra một liên kết giả: bấm thì đổi mỗi dấu thăng trên thanh địa chỉ, còn "sao chép địa chỉ" ra
+ * một thứ vô nghĩa.
+ */
+describe('Kết quả tìm kiếm', () => {
+  function tim(chu: string) {
+    dung();
+    fireEvent.change(screen.getByTestId('sidebar-search'), { target: { value: chu } });
+  }
+
+  it('kết quả CÓ đường dẫn là liên kết thật', () => {
+    tim('Chỉ tiêu');
+    const o = screen.getByTestId('sidebar-search-kpi');
+    expect(o.tagName).toBe('A');
+    expect(o).toHaveAttribute('href', '/kpi');
+  });
+
+  it('kết quả là NHÓM (không có đường dẫn) phải là nút, không phải liên kết giả', () => {
+    tim('Quản lý vụ án');
+    const o = screen.getByTestId('sidebar-search-cases-group');
+    expect(o.tagName).toBe('BUTTON');
+    expect(o).not.toHaveAttribute('href');
+  });
+});
