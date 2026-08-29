@@ -37,6 +37,15 @@ export interface KpiResult {
   denominator: number;
   /** True when there was no data in the period — value/status should be ignored for reporting. */
   noData: boolean;
+  /**
+   * True khi chỉ tiêu này KHÔNG áp được phạm vi mà người gọi đã hỏi.
+   *
+   * Hiện chỉ xảy ra với lọc theo ĐƠN VỊ trên KPI-3/KPI-4: bảng `Case` không có cột `unitId`
+   * (chỉ `Incident` có; `Case` chỉ có `unit` là TÊN đơn vị dạng chữ, không phải khoá). Trả về
+   * một con số của TOÀN BỘ trong khi người hỏi muốn một đơn vị là đưa ra con số thuộc phạm vi
+   * khác — nên thà không đưa ra con số nào.
+   */
+  ngoaiPhamVi?: boolean;
 }
 
 export interface KpiSummary {
@@ -182,6 +191,10 @@ export class KpiService {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
+    // Lọc theo ĐƠN VỊ không áp được cho vụ án: bảng `Case` không có cột `unitId`. Không im
+    // lặng bỏ qua — khai ra, để con số không bị đọc như thuộc phạm vi đã hỏi.
+    const ngoaiPhamVi = !!query.unitId;
+
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
       caseType: CaseType.REGULAR, // v0.44: exclude UTDT records from KPI
@@ -207,10 +220,11 @@ export class KpiService {
       target,
       warningThreshold,
       value,
-      status: noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
+      status: ngoaiPhamVi || noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
       numerator: khamPha,
       denominator: total,
-      noData,
+      noData: ngoaiPhamVi ? true : noData,
+      ...(ngoaiPhamVi ? { ngoaiPhamVi: true } : {}),
     };
   }
 
@@ -220,6 +234,10 @@ export class KpiService {
   ): Promise<KpiResult> {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
+
+    // Lọc theo ĐƠN VỊ không áp được cho vụ án: bảng `Case` không có cột `unitId`. Không im
+    // lặng bỏ qua — khai ra, để con số không bị đọc như thuộc phạm vi đã hỏi.
+    const ngoaiPhamVi = !!query.unitId;
 
     const baseWhere: Prisma.CaseWhereInput = {
       deletedAt: null,
@@ -247,10 +265,11 @@ export class KpiService {
       target,
       warningThreshold,
       value,
-      status: noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
+      status: ngoaiPhamVi || noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
       numerator: khamPha,
       denominator: total,
-      noData,
+      noData: ngoaiPhamVi ? true : noData,
+      ...(ngoaiPhamVi ? { ngoaiPhamVi: true } : {}),
     };
   }
 
