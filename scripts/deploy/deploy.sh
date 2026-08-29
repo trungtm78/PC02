@@ -214,7 +214,12 @@ fi
 # Không kiểm thì không ai biết, cho tới khi có người tình cờ Ctrl+Shift+R.
 #
 # Đặt `PUBLIC_URL` trong .env để bật (vd https://new.pc02hcm.com). Không đặt thì bỏ qua.
-if [ -n "${PUBLIC_URL:-}" ] && [ -x "$NEW_DIR/scripts/deploy/kiem-ban-cong-khai.sh" ]; then
+# Canh bằng `-f`, KHÔNG phải `-x`: dòng dưới gọi bằng `bash`, mà `bash tep.sh` không cần quyền
+# chạy. Canh bằng `-x` là đòi một điều kiện mà cách gọi không hề dùng tới — và tệp này nằm
+# trong kho ở chế độ 644, nên phép so bản công khai CHƯA TỪNG CHẠY lần nào kể từ hôm viết ra.
+# Nhánh `if` im lặng nên không dòng nhật ký nào, không cảnh báo nào: đúng kiểu hỏng mà chính
+# nó sinh ra để bắt.
+if [ -n "${PUBLIC_URL:-}" ] && [ -f "$NEW_DIR/scripts/deploy/kiem-ban-cong-khai.sh" ]; then
     log "So bản công khai với bản vừa deploy..."
     if ! bash "$NEW_DIR/scripts/deploy/kiem-ban-cong-khai.sh" "$PUBLIC_URL" "http://127.0.0.1"; then
         log "WARN: bản công khai LỆCH — cần xoá cache CDN, xem hướng dẫn ở trên"
