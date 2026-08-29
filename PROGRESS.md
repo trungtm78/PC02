@@ -495,3 +495,24 @@ chỉ sửa những màn thật sự còn hỏng. Việc này nằm ở M5.
 ## BƯỚC TIẾP THEO
 M3-T10: tách phép tính thời hạn (`incidents.service.ts:441`, `d.setDate(d.getDate() + n)`) ra
 hàm thuần rồi phủ property test. Đây là vùng rủi ro CAO duy nhất chưa có bất biến nào.
+
+## M3 — vùng rủi ro Cao còn thiếu — 2026-08-29T18:05+07:00
+
+- [x] M3-T10 Tách phép tính thời hạn ra hàm thuần + 24 ca property — 53edde21
+- [x] M3-T11 Fuzz tệp .docx (10 ca) — 8554a4c4
+- [x] M3-T12 Ghim định nghĩa tử số KPI (4 ca, từ mutant sống) — 8554a4c4
+- [x] M2 bù: bọc ô số liệu tính bằng biểu thức + cổng quét theo LỚP (11 trang)
+
+## Nợ kỹ thuật (bổ sung)
+- Hộp cát Stryker `backend/.stryker-tmp/sandbox-cEJS9Z` chứa một tệp tên `nul` (tên thiết bị
+  dành riêng của Windows) do vòng di trú trước để lại — không xoá được bằng lệnh thường, khiến
+  Stryker dùng lại hộp cũ và báo điểm cũ. Đã .gitignore. Cách xoá: `rd /s /q \?\<đường dẫn>`
+  từ cmd có quyền, hoặc xoá thủ công.
+- M3-T13 (round-trip biểu mẫu) và M3-T14 (khoa-he-cu) chưa làm — xem hàng đợi.
+
+## Trạng thái test
+Full suite: PASS — backend 287 tệp / 4.215 ca · frontend 221 tệp | tsc hai phía sạch
+
+## BƯỚC TIẾP THEO
+Mở PR cho nhánh `fix/tai-hong-khac-rong-toan-he`, chờ CI xanh, gộp, triển khai. Sau đó M4
+(khe hở phạm vi KPI — Case thiếu cột unitId) rồi M5 (UAT + đo lại 54 màn trên máy thật).
