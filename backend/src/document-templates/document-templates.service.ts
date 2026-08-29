@@ -61,6 +61,24 @@ export class DocumentTemplatesService {
     entityType: string,
     variables: TemplateVariable[],
     detected: string[],
+    /**
+     * Tên biến ĐÃ NẰM SẴN trong bản ghi — được miễn phép kiểm "phải có trong tệp".
+     *
+     * Ngày 29/08/2026: mẫu `PHIEU_DE_XUAT` dùng cặp dấu `{` `}`, nên hồi tải lên bộ dò bắt
+     * nhầm một GUID nội bộ của Word (`{909E8E84-…}`) thành biến và cất vào CSDL. Bộ dò về sau
+     * siết lại, GUID không còn được coi là biến — và bản ghi ấy thành **vĩnh viễn không lưu
+     * được**: giao diện luôn gửi cả danh sách biến, máy chủ dò lại tệp rồi từ chối, nên đổi
+     * tên mẫu, đổi thứ tự hay chỉ tích một ô đều 400 như nhau.
+     *
+     * Phép kiểm giữ nguyên ý định — không cho KHAI THÊM một placeholder không có trong tệp —
+     * nhưng chỉ chặn thứ admin đang thêm vào. Tên đã có sẵn thì hệ thống trước đây đã nhận;
+     * chặn bây giờ không sửa được gì mà làm hỏng mọi thao tác khác. Biến không có trong tệp
+     * vốn vô hại khi in (chẳng có chỗ nào để thay); cái hại duy nhất nó gây ra là thế bí này.
+     *
+     * Đổi TỆP thì không truyền tham số này: lúc ấy admin chủ động thay nguồn, mọi giả định cũ
+     * mất hiệu lực, phép kiểm phải chặt lại như cũ.
+     */
+    mienVi: ReadonlySet<string> = new Set(),
   ): TemplateVariable[] {
     const detectedSet = new Set(detected);
     const seen = new Set<string>();
@@ -73,7 +91,7 @@ export class DocumentTemplatesService {
         throw new BadRequestException(`Biến trùng tên: "${v.name}"`);
       }
       seen.add(v.name);
-      if (!detectedSet.has(v.name)) {
+      if (!detectedSet.has(v.name) && !mienVi.has(v.name)) {
         throw new BadRequestException(`Biến "${v.name}" không có trong file mẫu`);
       }
       const source = v.source === 'manual' ? 'manual' : 'auto';
@@ -231,9 +249,18 @@ export class DocumentTemplatesService {
     // Mapping mới do admin gửi HOẶC delimiter đổi → re-validate/re-detect theo file hiện tại.
     if (dtoVariables !== undefined || delimChanged) {
       const detected = detectDocxVariables(Buffer.from(existing.fileBytes), delimiters);
+      // Tệp KHÔNG đổi ở nhánh này (đổi tệp đi đường `replaceTemplateFile`), nên miễn phép kiểm
+      // cho những tên đã nằm sẵn trong bản ghi — xem ghi chú ở `validateVariableMapping`.
+      //
+      // Trừ khi ĐỔI CẶP DẤU: đổi `{ }` sang `[[ ]]` là đổi cách đọc chính tệp ấy, nên mọi kết
+      // quả dò cũ mất hiệu lực y như khi thay tệp. Miễn tiếp lúc này là để lọt một khai báo
+      // không còn tồn tại dưới cú pháp mới.
+      const daCo = delimChanged
+        ? new Set<string>()
+        : new Set(((existing.variables as TemplateVariable[] | null) ?? []).map((v) => v.name));
       data.variables =
         dtoVariables && dtoVariables.length
-          ? this.validateVariableMapping(existing.entityType, dtoVariables, detected)
+          ? this.validateVariableMapping(existing.entityType, dtoVariables, detected, daCo)
           : this.autoVariablesFromDetected(detected, existing.entityType);
     }
 
