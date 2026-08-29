@@ -323,7 +323,10 @@ export default function ActivityLogPage() {
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
               <p className="text-3xl font-bold text-blue-600">
-                {allData.filter((log) => toDateInput(log.timestamp) === today()).length}
+                {soLieuHienThi(
+                  allData.filter((log) => toDateInput(log.timestamp) === today()).length,
+                  !!loadError,
+                )}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">

@@ -352,7 +352,7 @@ export default function ExportReportsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng hồ sơ</p>
-              <p className="text-3xl font-bold text-slate-800">{loading ? "—" : totalCount}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(loading ? null : totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-slate-600" />
@@ -377,7 +377,10 @@ export default function ExportReportsPage() {
             <div>
               <p className="text-sm text-slate-600 mb-1">Sẵn sàng xuất</p>
               <p className="text-3xl font-bold text-green-600">
-                {selectedIds.length > 0 ? selectedIds.length : filteredData.length}
+                {soLieuHienThi(
+                  selectedIds.length > 0 ? selectedIds.length : filteredData.length,
+                  !!loadError,
+                )}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
