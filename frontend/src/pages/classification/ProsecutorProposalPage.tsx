@@ -130,7 +130,9 @@ export default function ProsecutorProposalPage() {
       // KHÔNG đặt danh sách về rỗng rồi im: mảng rỗng làm mọi thẻ thống kê ra số 0, và số 0
       // đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllProposals([]);
-      setLoiTai(loiTuMayChu(e));
+      setLoiTai(
+        loiTuMayChu(e, 'Máy chủ không phản hồi. Kiểm tra kết nối mạng rồi bấm Thử lại.'),
+      );
     } finally {
       setLoading(false);
     }
@@ -777,7 +779,9 @@ export function ProposalFormModal({
       onSaved();
       onClose();
     } catch (e) {
-      setLoiLuu(loiTuMayChu(e));
+      setLoiLuu(
+        loiTuMayChu(e, 'Không lưu được kiến nghị — máy chủ không phản hồi. Kiểm tra kết nối mạng rồi thử lại.'),
+      );
     } finally {
       setDangLuu(false);
     }
