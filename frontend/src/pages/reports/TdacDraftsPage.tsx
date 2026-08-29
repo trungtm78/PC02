@@ -177,7 +177,7 @@ export default function TdacDraftsPage() {
                     ))}
                   </tr>
                 ))
-              ) : drafts.length === 0 ? (
+              ) : error ? null : drafts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-400">
                     <FilePlus className="w-10 h-10 mx-auto mb-2 opacity-40" />

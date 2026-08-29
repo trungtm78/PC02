@@ -1,4 +1,5 @@
 import { useState, useMemo, useDeferredValue } from 'react';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatVNDate, formatVNDateTime } from '../../lib/dates';
@@ -184,7 +185,11 @@ export default function AdminUnitsPage() {
             <div className="text-xs text-slate-500 flex items-center gap-1">
               <Loader2 className="w-3 h-3 animate-spin" /> Đang tải dataset...
             </div>
-          ) : datasetQ.error || !datasetQ.data ? (
+          ) : datasetQ.error ? (
+            <div className="text-xs text-red-600 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> Chưa hỏi được máy chủ về dataset
+            </div>
+          ) : !datasetQ.data ? (
             <div className="text-xs text-red-600 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" /> Chưa có dataset hoạt động
             </div>
@@ -269,7 +274,7 @@ export default function AdminUnitsPage() {
         {/* Left: Province tree */}
         <div className="w-1/3 border-r border-slate-200 bg-white overflow-y-auto p-3">
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 px-2">
-            Tỉnh / Thành phố ({provincesQ.data?.length ?? 0})
+            Tỉnh / Thành phố ({soLieuHienThi(provincesQ.data?.length ?? null, !!provincesQ.error)})
           </h2>
           {provincesQ.isLoading ? (
             <div className="p-3 text-sm text-slate-500 flex items-center gap-2">

@@ -164,7 +164,7 @@ export function SettingsPage() {
                     <p className="text-slate-500 font-medium">Đang tải cấu hình...</p>
                   </td>
                 </tr>
-              ) : settings.length === 0 ? (
+              ) : error ? null : settings.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <Settings className="w-12 h-12 text-slate-300 mx-auto mb-3" />

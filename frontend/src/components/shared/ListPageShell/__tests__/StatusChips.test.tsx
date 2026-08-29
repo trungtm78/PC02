@@ -118,6 +118,38 @@ describe('<ListPageShell.StatusChips>', () => {
     expect(screen.getAllByTestId('status-chip-count-skeleton').length).toBeGreaterThan(0);
   });
 
+  /**
+   * "Đã hỏi và hỏng" là câu trả lời THỨ BA, cạnh "đang hỏi" và "đã hỏi, không có gì".
+   *
+   * Đo trên máy thật 29/08/2026: chặn máy chủ rồi mở /objects · /people/* · /lawyers ·
+   * /uy-thac-dieu-tra thì chip "Tất cả" hiện số 0 — trong khi kho có hàng nghìn bản ghi. Số 0
+   * ấy đọc như một câu trả lời, chứ không đọc như một sự cố.
+   */
+  it('countsUnknown=true hiện dấu gạch, không hiện số 0', () => {
+    render(
+      <ListPageShell>
+        <StatusChips
+          options={OPTIONS}
+          activeValue={null}
+          onChange={() => {}}
+          totalCount={0}
+          countsUnknown
+        />
+      </ListPageShell>,
+    );
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  it('countsUnknown=false vẫn hiện số thật, kể cả số 0', () => {
+    render(
+      <ListPageShell>
+        <StatusChips options={OPTIONS} activeValue={null} onChange={() => {}} totalCount={0} />
+      </ListPageShell>,
+    );
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
   it('throw nếu render ngoài <ListPageShell>', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() =>

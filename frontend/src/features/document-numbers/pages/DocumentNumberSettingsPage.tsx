@@ -206,7 +206,7 @@ export default function DocumentNumberSettingsPage() {
         <>
           {isLoading ? (
             <div className="text-center py-10 text-gray-400">Đang tải…</div>
-          ) : templates.length === 0 ? (
+          ) : loadError ? null : templates.length === 0 ? (
             <div
               data-testid="docnum-empty-state"
               className="text-center py-16 text-gray-400"

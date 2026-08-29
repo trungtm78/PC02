@@ -58,10 +58,10 @@ export default function QuarterlyReportPage() {
   ];
 
   const stats = [
-    { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), change: "+18%", color: "blue" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, change: "+17%", color: "green" },
-    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, change: "+5%", color: "amber" },
-    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, change: "-12%", color: "red" },
+    { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), color: "blue" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, color: "green" },
+    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, color: "amber" },
+    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, color: "red" },
   ];
 
   return (
@@ -145,11 +145,12 @@ export default function QuarterlyReportPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {stats.map((stat, index) => (
               <div key={index} className="bg-white border border-slate-200 rounded-lg p-6">
+                {/* Huy hiệu "+12%" ở đây từng là chuỗi viết cứng: nó hiện y hệt ở mọi tháng,
+                    mọi năm, mọi đơn vị, kể cả khi số liệu tải về bình thường. Máy chủ không trả
+                    số kỳ trước (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại) nên
+                    không tính được tỷ lệ thật — và một con số không tính được thì không hiện. */}
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-slate-600">{stat.label}</span>
-                  <span className={`text-xs font-medium px-2 py-1 bg-${stat.color}-100 text-${stat.color}-700 rounded`}>
-                    {stat.change}
-                  </span>
                 </div>
                 <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>
