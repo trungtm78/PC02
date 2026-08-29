@@ -163,6 +163,27 @@ log "Đã ghi mã bản dựng: $RELEASE_SHA"
 #
 # Script idempotent và CHỈ THÊM khối còn thiếu — không bao giờ thay cả tệp, để không đụng vào
 # phần TLS do certbot quản.
+# Bộ canh trên máy là một BẢN CHỤP: `install-nginx-cache-guard.sh` ghi nó ra MỘT LẦN bằng
+# root, còn deploy chỉ chạy bản đã ghi. Nên mọi bản vá bộ canh trong kho KHÔNG tự tới máy.
+#
+# Đo ngày 29/08/2026, sau khi bản vá đã gộp và triển khai xanh: nginx trên máy thật vẫn còn
+# `location = /sw.js` của bản cũ, nên `sw-v2.js` rơi xuống luật tĩnh và lại bị ghim một năm.
+# Lệch nằm im vì chẳng ai so hai bản với nhau.
+#
+# So mẫu mà bộ canh ĐÃ CÀI đang dùng với mẫu kho đang khai. Lệch thì báo to kèm đúng lệnh phải
+# chạy — deploy không tự chữa được, vì ghi vào /usr/local/sbin đòi quyền root mà tài khoản
+# deploy cố ý KHÔNG có (nó chỉ được chạy đúng một tệp sbin, không được ghi đè tệp ấy).
+# Chuỗi CỐ ĐỊNH, so bằng `grep -F`: mẫu này chứa `+`, `?`, `[` — trong biểu thức chính quy của
+# grep chúng là toán tử, nên so kiểu biểu thức sẽ không bao giờ khớp và cổng thành vô dụng.
+MAU_CANH='sw(-v[0-9]+)?'
+if [ -f /usr/local/sbin/pc02-ensure-nginx-cache ]    && ! grep -qF "$MAU_CANH" /usr/local/sbin/pc02-ensure-nginx-cache; then
+    log "══════════════════════════════════════════════════════════════"
+    log "BỘ CANH CACHE TRÊN MÁY ĐÃ CŨ so với kho — bản vá không tới nơi."
+    log "Chạy MỘT LẦN bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "══════════════════════════════════════════════════════════════"
+fi
+
 if [ -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
     log "Kiểm luật cache nginx..."
     if sudo /usr/local/sbin/pc02-ensure-nginx-cache; then

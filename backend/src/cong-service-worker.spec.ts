@@ -14,6 +14,7 @@ const nginxVang = doc('scripts/deploy/nginx-pc02.conf');
 const kichBanCai = doc('scripts/deploy/install-nginx-cache-guard.sh');
 const kiemBanCongKhai = doc('scripts/deploy/kiem-ban-cong-khai.sh');
 const biaMo = doc('frontend/public/sw.js');
+const deploySh = doc('scripts/deploy/deploy.sh');
 
 /**
  * Cổng chặn cho service worker: tên tệp, luật đệm, và bia mộ tự gỡ.
@@ -72,6 +73,23 @@ describe('Cổng service worker', () => {
       expect(d).toContain('/sw.js');
       expect(d).toContain('/sw-v2.js');
     }
+  });
+
+  /**
+   * Bộ canh trên máy thật là một BẢN CHỤP: `install-nginx-cache-guard.sh` ghi ra
+   * `/usr/local/sbin/pc02-ensure-nginx-cache` một lần, còn `deploy.sh` thì chạy bản đã ghi ấy.
+   * Nên bản vá trong kho KHÔNG bao giờ tự tới máy — đo ngày 29/08 sau khi PR đã gộp và triển
+   * khai xanh: nginx trên máy thật vẫn còn `location = /sw.js` của bản cũ.
+   *
+   * Deploy phải tự phát hiện chuyện lệch ấy: so mẫu mà bộ canh ĐÃ CÀI đang dùng với mẫu kho
+   * đang khai. Không so thì lệch nằm im, và triển khai vẫn báo xanh y như 5 ngày vừa rồi.
+   */
+  it('deploy so bộ canh đã cài với bản trong kho', () => {
+    expect(deploySh).toContain('/usr/local/sbin/pc02-ensure-nginx-cache');
+    expect(deploySh).toContain('sw(-v[0-9]+)?');
+    // So bằng chuỗi CỐ ĐỊNH: mẫu chứa `+`, `?`, `[` — so kiểu biểu thức thì grep hiểu chúng
+    // là toán tử, không bao giờ khớp, và cổng thành vô dụng trong khi vẫn trông như có canh.
+    expect(deploySh).toContain('grep -qF');
   });
 
   describe('bia mộ ở /sw.js', () => {
