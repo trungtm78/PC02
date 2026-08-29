@@ -176,24 +176,32 @@ log "Đã ghi mã bản dựng: $RELEASE_SHA"
 # Chuỗi CỐ ĐỊNH, so bằng `grep -F`: mẫu này chứa `+`, `?`, `[` — trong biểu thức chính quy của
 # grep chúng là toán tử, nên so kiểu biểu thức sẽ không bao giờ khớp và cổng thành vô dụng.
 MAU_CANH='sw(-v[0-9]+)?'
-if [ -f /usr/local/sbin/pc02-ensure-nginx-cache ]    && ! grep -qF "$MAU_CANH" /usr/local/sbin/pc02-ensure-nginx-cache; then
+# BA cách hỏng, MỘT hậu quả: nginx phục vụ `sw-v2.js` qua luật tĩnh giữ một năm, cán bộ không
+# nhận được bản mới, mà triển khai vẫn xanh. Thiếu bộ canh (máy dựng mới, hoặc ai đó gỡ đi),
+# bộ canh cũ hơn kho, bộ canh chạy hỏng — cả ba đều phải làm lần triển khai ĐỎ, không nhánh
+# nào được rơi xuống cảnh báo suông.
+if [ ! -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
+    log "══════════════════════════════════════════════════════════════"
+    log "THIẾU bộ canh cache — máy này chưa từng cài, hoặc nó đã bị gỡ."
+    log "Chạy MỘT LẦN bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "══════════════════════════════════════════════════════════════"
+    CANH_LECH=1
+elif ! grep -qF "$MAU_CANH" /usr/local/sbin/pc02-ensure-nginx-cache; then
     log "══════════════════════════════════════════════════════════════"
     log "BỘ CANH CACHE TRÊN MÁY ĐÃ CŨ so với kho — bản vá không tới nơi."
     log "Chạy MỘT LẦN bằng root:"
     log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
     log "══════════════════════════════════════════════════════════════"
     CANH_LECH=1
-fi
-
-if [ -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
+else
     log "Kiểm luật cache nginx..."
     if sudo /usr/local/sbin/pc02-ensure-nginx-cache; then
         log "Luật cache nginx OK"
     else
-        log "WARN: không đặt được luật cache nginx — bản mới có thể không tự hiện cho cán bộ"
+        log "BỘ CANH CHẠY HỎNG — luật cache có thể chưa được đặt."
+        CANH_LECH=1
     fi
-else
-    log "WARN: thiếu /usr/local/sbin/pc02-ensure-nginx-cache — chạy scripts/deploy/install-nginx-cache-guard.sh một lần bằng root"
 fi
 
 # 7a-bis. So bản CÔNG KHAI với bản vừa deploy.

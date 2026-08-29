@@ -112,6 +112,19 @@ describe('Cổng service worker', () => {
     expect(thoat).toBeLessThan(deploySh.indexOf('rm -f "$TARBALL"'));
   });
 
+  /**
+   * Ba cách hỏng, MỘT hậu quả: nginx phục vụ `sw-v2.js` qua luật tĩnh giữ một năm, cán bộ
+   * không nhận được bản mới, triển khai vẫn xanh. Thiếu bộ canh (máy dựng mới hoặc ai đó gỡ
+   * đi), bộ canh cũ hơn kho, bộ canh chạy hỏng — không nhánh nào được rơi xuống cảnh báo suông.
+   *
+   * Đếm số lần đặt cờ: ba nhánh thì phải ba lần. Chỉ kiểm "có đặt cờ" thì bỏ sót đúng kiểu lỗi
+   * vừa mắc — một nhánh có, hai nhánh kia lặng lẽ đi tiếp.
+   */
+  it('cả ba trạng thái bộ canh không an toàn đều đặt cờ đỏ', () => {
+    const lan = deploySh.split('CANH_LECH=1').length - 1;
+    expect(lan).toBe(3);
+  });
+
   describe('bia mộ ở /sw.js', () => {
     // Tệp không tồn tại thì chính phép đọc ở đầu tệp này ném — đó là phép kiểm sự tồn tại.
     it('chiếm quyền ngay, không chờ tab đóng hết', () => {
