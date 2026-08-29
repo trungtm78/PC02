@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import fc from 'fast-check';
-import { KpiService } from './kpi.service';
+import { KpiService, KPI2_RESOLVED_STATUSES, KPI3_SOLVED_CASE_STATUSES } from './kpi.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -378,5 +378,69 @@ describe('KPI — cô lập theo tổ/đơn vị (từ mutant sống sót)', () 
       const r = x.createdAt ?? x.ngayTiepNhan ?? x.ngayKhoiTo;
       expect(r?.gte.getFullYear()).toBe(nam);
     }
+  });
+});
+
+/**
+ * Sinh ra TỪ 18 mutant còn sống sau vòng đột biến thứ hai (87,41%).
+ *
+ * Nhóm còn lại đáng sửa nhất: ĐỊNH NGHĨA TỬ SỐ không được ghim ở tầng truy vấn.
+ *
+ *     where: { ...baseWhere, status: { not: IncidentStatus.TIEP_NHAN } }      [Survived]
+ *     where: { ...baseWhere, status: { in: KPI3_SOLVED_CASE_STATUSES } }      [Survived]
+ *
+ * Bộ kiểm cũ có ca cho HẰNG SỐ (`KPI2_RESOLVED_STATUSES` gồm những trạng thái nào), nhưng không
+ * ca nào chứng minh truy vấn THẬT SỰ dùng đúng hằng số ấy. Hai thứ tự nó đúng, chỗ hỏng nằm ở
+ * khoảng giữa — cùng lớp "khe hở giữa bộ nạp và bộ đọc".
+ *
+ * Nghiệp vụ: đổi định nghĩa "đã giải quyết" là đổi con số báo cáo cấp trên, mà không màn hình
+ * nào lộ ra điều đó.
+ */
+describe('KPI — tử số phải dùng ĐÚNG tập trạng thái đã khai (từ mutant sống sót)', () => {
+  function batTruyVan() {
+    const w: any[] = [];
+    const ghi = (a: any) => {
+      w.push(a?.where ?? {});
+      return Promise.resolve(1);
+    };
+    mockPrisma.incident.count.mockReset();
+    mockPrisma.case.count.mockReset();
+    mockPrisma.incident.count.mockImplementation(ghi);
+    mockPrisma.case.count.mockImplementation(ghi);
+    return w;
+  }
+
+  it('KPI-1 · tử số loại đúng trạng thái TIEP_NHAN, không phải trạng thái khác', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.calculateKpi1({ year: 2026 } as never);
+    const tu = w.find((x) => x.status);
+    expect(tu?.status?.not).toBe('TIEP_NHAN');
+  });
+
+  it('KPI-2 · tử số dùng đúng tập KPI2_RESOLVED_STATUSES đã khai', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.calculateKpi2({ year: 2026 } as never);
+    const tu = w.filter((x) => Array.isArray(x.status?.in)).pop();
+    expect(tu).toBeDefined();
+    expect([...(tu!.status.in as string[])].sort()).toEqual([...KPI2_RESOLVED_STATUSES].sort());
+  });
+
+  it('KPI-3 · tử số dùng đúng tập KPI3_SOLVED_CASE_STATUSES đã khai', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.calculateKpi3({ year: 2026 } as never);
+    const tu = w.filter((x) => Array.isArray(x.status?.in)).pop();
+    expect(tu).toBeDefined();
+    expect([...(tu!.status.in as string[])].sort()).toEqual([...KPI3_SOLVED_CASE_STATUSES].sort());
+  });
+
+  /** Mẫu số của KPI-3/KPI-4 phải loại hồ sơ ủy thác — nếu không, tỷ lệ khám phá bị pha loãng. */
+  it('KPI-3 · mẫu số chỉ tính vụ án thường, loại ủy thác điều tra', async () => {
+    const svc = await dung();
+    const w = batTruyVan();
+    await svc.calculateKpi3({ year: 2026 } as never);
+    for (const x of w) expect(x.caseType).toBe('REGULAR');
   });
 });

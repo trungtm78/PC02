@@ -25,6 +25,7 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import { tinhThoiHan, tinhHanSauGiaHan } from './tinh-thoi-han';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { SettingsService } from '../settings/settings.service';
@@ -437,9 +438,7 @@ export class IncidentsService {
           'Không có quy tắc THOI_HAN_XAC_MINH đang hiệu lực. Liên hệ admin chạy seed/migration.',
         );
       }
-      const d = new Date(dto.ngayDeXuat);
-      d.setDate(d.getDate() + xacMinhRule.value);
-      computedDeadline = d;
+      computedDeadline = tinhThoiHan(new Date(dto.ngayDeXuat), xacMinhRule.value);
       deadlineRuleVersionId = xacMinhRule.id;
     }
 
@@ -989,9 +988,7 @@ export class IncidentsService {
     if (!incident.deadline) {
       throw new BadRequestException('Vụ việc chưa có thời hạn — không thể gia hạn');
     }
-    const currentDeadline = incident.deadline;
-    const newDeadline = new Date(currentDeadline);
-    newDeadline.setDate(newDeadline.getDate() + extensionDays);
+    const newDeadline = tinhHanSauGiaHan(incident.deadline, extensionDays);
 
     // Atomic: only update if soLanGiaHan hasn't changed since we read it (prevents double-extension race)
     const snapshotField = incident.soLanGiaHan === 0 ? 'giaHan1RuleVersionId' : 'giaHan2RuleVersionId';

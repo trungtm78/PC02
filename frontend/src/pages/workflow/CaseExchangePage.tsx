@@ -28,6 +28,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { formatVNDate, formatVNTime, formatVNDateTime } from '../../lib/dates';
 import { authStore } from '@/stores/auth.store';
 import { downloadCsv } from '@/lib/csv';
@@ -100,10 +102,11 @@ export default function CaseExchangePage() {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const fetchExchanges = useCallback(async () => {
-    setLoading(true);
+    setLoading(true);    setLoadError("");
     try {
       const res = await api.get('/exchanges?limit=100');
       const mapped: Exchange[] = (res.data.data ?? []).map((e: any, i: number) => ({
@@ -123,8 +126,11 @@ export default function CaseExchangePage() {
         hasUnread: false,
       }));
       setExchanges(mapped);
-    } catch {
+    } catch (e) {
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setExchanges([]);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -192,6 +198,8 @@ export default function CaseExchangePage() {
           Quản lý trao đổi thông tin và chuyển giao hồ sơ giữa các đơn vị
         </p>
       </div>
+
+      <LoadErrorBanner error={loadError} what="danh sách trao đổi chuyên án" data-testid="exchange-load-error" />
 
       {/* Thanh hành động */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
@@ -263,6 +271,7 @@ export default function CaseExchangePage() {
                 <X className="w-4 h-4 text-slate-600" />
               </button>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Mã hồ sơ</label>

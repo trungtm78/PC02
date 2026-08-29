@@ -23,6 +23,8 @@ import {
   Info,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { formatVNDate } from '../../lib/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -142,10 +144,11 @@ export default function TransferAndReturnPage() {
   // ── Real data state ────────────────────────────────────────────────────────
   const [allData, setAllData] = useState<CaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const fetchAll = async () => {
-      setLoading(true);
+      setLoading(true);      setLoadError("");
       try {
         const [casesRes, incidentsRes, petitionsRes] = await Promise.all([
           api.get('/cases?limit=50'),
@@ -192,8 +195,11 @@ export default function TransferAndReturnPage() {
           isClosed: ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'DA_CHUYEN_VU_VIEC'].includes(p.status),
         }));
         setAllData([...cases, ...incidents, ...petitions]);
-      } catch {
+      } catch (e) {
+        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
         setAllData([]);
+        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
       } finally {
         setLoading(false);
       }
@@ -331,6 +337,8 @@ export default function TransferAndReturnPage() {
         </p>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách chuyển đội / trả hồ sơ" data-testid="transfer-load-error" />
+
       {/* Context Banner — hiển thị khi navigate từ màn hình khác */}
       {showContextBanner && contextInfo && (
         <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4 shadow-sm" data-testid="context-banner">
@@ -445,6 +453,7 @@ export default function TransferAndReturnPage() {
                 <X className="w-4 h-4 text-slate-600" />
               </button>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>

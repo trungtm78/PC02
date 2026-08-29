@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
 import { getFieldLabel } from "@/shared/enums/audit-field-labels";
@@ -138,6 +141,7 @@ export default function ActivityLogPage() {
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [allData, setAllData] = useState<LogEntry[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [page] = useState(1);
   const PAGE_SIZE = 50;
 
@@ -162,11 +166,15 @@ export default function ActivityLogPage() {
       if (filters.actionType) params.set("action", filters.actionType.toUpperCase());
       // v0.29: free-text search via backend (escapes %/_)
       if (filters.quickSearch) params.set("search", filters.quickSearch);
+      setLoadError("");
       const res = await api.get(`/audit-logs?${params}`);
       const data = res.data.data ?? res.data ?? [];
       setAllData(Array.isArray(data) ? data.map(auditLogToEntry) : []);
-    } catch {
+    } catch (e) {
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ thống
+      // kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllData([]);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     }
   }, [page, filters.fromDate, filters.toDate, filters.actionType, filters.quickSearch]);
 
@@ -295,12 +303,14 @@ export default function ActivityLogPage() {
       </div>
 
       {/* Thống kê */}
+      <LoadErrorBanner error={loadError} what="nhật ký hoạt động" data-testid="activity-log-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng bản ghi</p>
-              <p className="text-3xl font-bold text-slate-800">{filteredData.length}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(filteredData.length, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
               <Activity className="w-6 h-6 text-slate-600" />
@@ -313,7 +323,10 @@ export default function ActivityLogPage() {
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
               <p className="text-3xl font-bold text-blue-600">
-                {allData.filter((log) => toDateInput(log.timestamp) === today()).length}
+                {soLieuHienThi(
+                  allData.filter((log) => toDateInput(log.timestamp) === today()).length,
+                  !!loadError,
+                )}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -326,7 +339,7 @@ export default function ActivityLogPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Người dùng</p>
-              <p className="text-3xl font-bold text-slate-800">{uniqueUsers.length}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(uniqueUsers.length, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <User className="w-6 h-6 text-green-600" />

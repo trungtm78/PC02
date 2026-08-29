@@ -71,3 +71,8 @@ backend/.full-jest.log
 setup-claude-autonomous.bat
 test-claude-hook.bat
 .claude/
+
+# Hộp cát của Stryker — tệp tạm, không bao giờ commit.
+.stryker-tmp/
+backend/.stryker-tmp/
+backend/reports/mutation/

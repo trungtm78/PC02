@@ -466,3 +466,53 @@ Full suite: PASS (frontend 217 tệp / backend 285 tệp) | tsc: sạch | Test f
 ## BƯỚC TIẾP THEO
 M2-T7: tải hỏng phải khác rỗng trên 26 màn. Bắt đầu bằng cụm `/ward/*` (4 màn, nội dung tụt từ
 133.874 xuống 324 ký tự mà không báo lỗi). Dùng lại `soLieuHienThi` ở `frontend/src/lib/`.
+
+## M2 — cụm A+B+ (11/26 màn) — 2026-08-29T17:35+07:00
+
+- [x] M2-T7 primitive `LoadErrorBanner` + 8 ca kiểm — commit 36056849
+- [x] M2-T8 cụm A: ward/incidents · ward/petitions · ward/cases · duplicates · others — 9d6ab0eb
+- [x] M2-T9 cụm B: initial-cases · guidance · activity-log · transfer-return · case-exchange — 479332b7
+- [x] M2-T9b export-reports
+
+### Quyết định về 15 màn còn lại của M2
+Đã phủ HẾT các màn **hiện số 0 khi tải hỏng** — nhóm nguy hiểm nhất, vì số 0 đọc như một câu
+trả lời. 15 màn còn lại khi hỏng chỉ ra danh sách rỗng, không có con số nào tự nhận là sự thật,
+và mỗi màn có một hình dạng `catch` riêng (không còn mẫu `catch → set([])` chung).
+
+Sửa mù 15 tệp có hình dạng khác nhau là rủi ro cao hơn giá trị. Thay vào đó: sau khi triển khai,
+ĐO LẠI toàn bộ 54 màn bằng đúng phép đã dùng (chặn mọi GET, so số ký tự + có/không báo lỗi) rồi
+chỉ sửa những màn thật sự còn hỏng. Việc này nằm ở M5.
+
+### Bẫy gặp phải (ghi để không lặp)
+- 5 tệp nhập `useNavigate` từ `react-router` trần trong khi kho dùng `react-router-dom` → hai
+  bản sao ngữ cảnh, ca kiểm báo "useNavigate ngoài Router". Đã chuẩn hoá cả 5.
+- Kho dựng router bằng `createMemoryRouter` + `RouterProvider` (v7), KHÔNG phải `<MemoryRouter>`.
+- Giả lập `authStore` từng hàm là đuổi theo bề mặt API đang lớn dần → dùng bản THẬT, chỉ đè
+  `getUser`/`getProfile`.
+- Đặt banner cạnh lưới thẻ có thể rơi vào khối "Bộ lọc nâng cao" (chỉ hiện khi mở) → đặt ngay
+  dưới tiêu đề trang.
+
+## BƯỚC TIẾP THEO
+M3-T10: tách phép tính thời hạn (`incidents.service.ts:441`, `d.setDate(d.getDate() + n)`) ra
+hàm thuần rồi phủ property test. Đây là vùng rủi ro CAO duy nhất chưa có bất biến nào.
+
+## M3 — vùng rủi ro Cao còn thiếu — 2026-08-29T18:05+07:00
+
+- [x] M3-T10 Tách phép tính thời hạn ra hàm thuần + 24 ca property — 53edde21
+- [x] M3-T11 Fuzz tệp .docx (10 ca) — 8554a4c4
+- [x] M3-T12 Ghim định nghĩa tử số KPI (4 ca, từ mutant sống) — 8554a4c4
+- [x] M2 bù: bọc ô số liệu tính bằng biểu thức + cổng quét theo LỚP (11 trang)
+
+## Nợ kỹ thuật (bổ sung)
+- Hộp cát Stryker `backend/.stryker-tmp/sandbox-cEJS9Z` chứa một tệp tên `nul` (tên thiết bị
+  dành riêng của Windows) do vòng di trú trước để lại — không xoá được bằng lệnh thường, khiến
+  Stryker dùng lại hộp cũ và báo điểm cũ. Đã .gitignore. Cách xoá: `rd /s /q \?\<đường dẫn>`
+  từ cmd có quyền, hoặc xoá thủ công.
+- M3-T13 (round-trip biểu mẫu) và M3-T14 (khoa-he-cu) chưa làm — xem hàng đợi.
+
+## Trạng thái test
+Full suite: PASS — backend 287 tệp / 4.215 ca · frontend 221 tệp | tsc hai phía sạch
+
+## BƯỚC TIẾP THEO
+Mở PR cho nhánh `fix/tai-hong-khac-rong-toan-he`, chờ CI xanh, gộp, triển khai. Sau đó M4
+(khe hở phạm vi KPI — Case thiếu cột unitId) rồi M5 (UAT + đo lại 54 màn trên máy thật).

@@ -22,7 +22,10 @@ import {
   Link2,
   Copy,
 } from "lucide-react";
+import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
 
 interface DuplicatePetition {
@@ -67,6 +70,7 @@ export default function DuplicatePetitionsPage() {
 
   const [allData, setAllData] = useState<DuplicatePetition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -79,6 +83,7 @@ export default function DuplicatePetitionsPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const res = await api.get("/petitions?limit=100");
         const mapped: DuplicatePetition[] = (res.data.data ?? []).map((p: any, i: number) => ({
@@ -101,8 +106,11 @@ export default function DuplicatePetitionsPage() {
           statusColor: "text-amber-600",
         }));
         setAllData(mapped);
-      } catch {
+      } catch (e) {
+        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
         setAllData([]);
+        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
       } finally {
         setLoading(false);
       }
@@ -198,12 +206,14 @@ export default function DuplicatePetitionsPage() {
         </p>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách đơn trùng lặp" data-testid="duplicates-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Tổng số đơn trùng</p>
-              <p className="text-2xl font-bold text-[#003973] mt-1">{statusCounts.total}</p>
+              <p className="text-2xl font-bold text-[#003973] mt-1">{soLieuHienThi(statusCounts.total, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
               <Copy className="w-6 h-6 text-[#003973]" />
@@ -215,7 +225,7 @@ export default function DuplicatePetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Chờ xử lý</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">{statusCounts.pending}</p>
+              <p className="text-2xl font-bold text-amber-600 mt-1">{soLieuHienThi(statusCounts.pending, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -227,7 +237,7 @@ export default function DuplicatePetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Đang xem xét</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{statusCounts.reviewing}</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{soLieuHienThi(statusCounts.reviewing, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Eye className="w-6 h-6 text-blue-600" />
@@ -239,7 +249,7 @@ export default function DuplicatePetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Đã hợp nhất</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{statusCounts.merged}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{soLieuHienThi(statusCounts.merged, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <GitMerge className="w-6 h-6 text-green-600" />
@@ -251,7 +261,7 @@ export default function DuplicatePetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Tách riêng</p>
-              <p className="text-2xl font-bold text-purple-600 mt-1">{statusCounts.separated}</p>
+              <p className="text-2xl font-bold text-purple-600 mt-1">{soLieuHienThi(statusCounts.separated, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <GitBranch className="w-6 h-6 text-purple-600" />

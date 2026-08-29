@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
 import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
 
@@ -57,10 +59,12 @@ function InitialCasesPage() {
   // ── Real data state ────────────────────────────────────────────────────────
   const [cases, setCases] = useState<InitialCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const fetchCases = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const res = await api.get("/cases?status=TIEP_NHAN&limit=50");
         const raw: any[] = res.data.data ?? [];
@@ -104,8 +108,11 @@ function InitialCasesPage() {
           };
         });
         setCases(mapped);
-      } catch {
+      } catch (e) {
+        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
         setCases([]);
+        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
       } finally {
         setLoading(false);
       }
@@ -214,28 +221,30 @@ function InitialCasesPage() {
       </div>
 
       {/* ── Thẻ thống kê ────────────────────────────────── */}
+      <LoadErrorBanner error={loadError} what="danh sách hồ sơ mới tiếp nhận" data-testid="initial-cases-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm text-amber-700 font-medium mb-1">Chờ nhận</p><p className="text-3xl font-bold text-amber-600">{pendingCount}</p></div>
+            <div><p className="text-sm text-amber-700 font-medium mb-1">Chờ nhận</p><p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p></div>
             <div className="w-14 h-14 bg-amber-100 rounded-lg flex items-center justify-center"><Clock className="w-7 h-7 text-amber-600" /></div>
           </div>
         </div>
         <div className="bg-white rounded-lg border-2 border-red-300 shadow-sm p-5">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm text-red-700 font-medium mb-1">Quá hạn</p><p className="text-3xl font-bold text-red-600">{overdueCount}</p></div>
+            <div><p className="text-sm text-red-700 font-medium mb-1">Quá hạn</p><p className="text-3xl font-bold text-red-600">{soLieuHienThi(overdueCount, !!loadError)}</p></div>
             <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center"><AlertTriangle className="w-7 h-7 text-red-600" /></div>
           </div>
         </div>
         <div className="bg-white rounded-lg border-2 border-orange-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm text-orange-700 font-medium mb-1">Khẩn cấp</p><p className="text-3xl font-bold text-orange-600">{urgentCount}</p></div>
+            <div><p className="text-sm text-orange-700 font-medium mb-1">Khẩn cấp</p><p className="text-3xl font-bold text-orange-600">{soLieuHienThi(urgentCount, !!loadError)}</p></div>
             <div className="w-14 h-14 bg-orange-100 rounded-lg flex items-center justify-center"><Bell className="w-7 h-7 text-orange-600" /></div>
           </div>
         </div>
         <div className="bg-white rounded-lg border-2 border-blue-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm text-blue-700 font-medium mb-1">Tổng hồ sơ</p><p className="text-3xl font-bold text-blue-600">{filteredData.length}</p></div>
+            <div><p className="text-sm text-blue-700 font-medium mb-1">Tổng hồ sơ</p><p className="text-3xl font-bold text-blue-600">{soLieuHienThi(filteredData.length, !!loadError)}</p></div>
             <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center"><FileText className="w-7 h-7 text-blue-600" /></div>
           </div>
         </div>
