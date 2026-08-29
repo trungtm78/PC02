@@ -268,7 +268,7 @@ export default function QuarterlyReportPage() {
                     </>
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-10 text-center text-slate-400">Không có dữ liệu chi tiết</td>
+                      <td colSpan={7} className="py-10 text-center text-slate-400">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có dữ liệu chi tiết'}</td>
                     </tr>
                   )}
                   <tr className="bg-slate-50 font-semibold">

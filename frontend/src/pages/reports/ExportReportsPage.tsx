@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { useLuotNap } from "@/hooks/useLuotNap";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate, toDateInput } from "@/lib/dates";
@@ -85,7 +86,9 @@ export default function ExportReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { batDau } = useLuotNap();
   const fetchPetitions = useCallback(async () => {
+    const conMoiNhat = batDau();
     setLoading(true);
     setLoadError("");
     try {
@@ -95,6 +98,7 @@ export default function ExportReportsPage() {
       });
       if (searchQuery) params.set("search", searchQuery);
       const res = await api.get(`/petitions?${params}`);
+      if (!conMoiNhat()) return;
       const data = (res.data.data ?? []).map((p: any) => ({
         id: p.id,
         documentNumber: p.stt ?? "",
@@ -109,12 +113,13 @@ export default function ExportReportsPage() {
       setPetitions(data);
       setTotalCount(res.data.total ?? data.length);
     } catch (e) {
+      if (!conMoiNhat()) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
       // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setPetitions([]);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (conMoiNhat()) setLoading(false);
     }
   }, [currentPage, searchQuery]);
 
@@ -646,7 +651,7 @@ export default function ExportReportsPage() {
                 <tr>
                   <td colSpan={10} className="px-4 py-16 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">Không tìm thấy hồ sơ nào</p>
+                    <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hồ sơ nào'}</p>
                     <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc</p>
                   </td>
                 </tr>

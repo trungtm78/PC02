@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { useLuotNap } from "@/hooks/useLuotNap";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { extractApiError } from "@/lib/api-errors";
@@ -40,18 +41,22 @@ export default function MasterClassPage() {
 
   const selectedTypeName = MASTER_CLASS_TYPE_LIST.find(t => t.code === selectedType)?.name ?? "";
 
+  const { batDau } = useLuotNap();
   const fetchEntries = useCallback(async () => {
+    const conMoiNhat = batDau();
     setLoading(true);
     setLoadError("");
     try {
       const res = await api.get(`/master-classes?type=${selectedType}&limit=500`);
+      if (!conMoiNhat()) return;
       setEntries(res.data?.data ?? []);
     } catch (e) {
+      if (!conMoiNhat()) return;
       setEntries([]);
       setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     }
-    setLoading(false);
-  }, [selectedType]);
+    if (conMoiNhat()) setLoading(false);
+  }, [selectedType, batDau]);
 
   const fetchCounts = useCallback(async () => {
     // Hỏi KHÔNG ĐƯỢC thì để `null`, KHÔNG đặt 0.
@@ -189,7 +194,7 @@ export default function MasterClassPage() {
           {loading ? (
             <div className="text-center py-12 text-slate-500">Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">Không có dữ liệu</div>
+            <div className="text-center py-12 text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có dữ liệu'}</div>
           ) : (
             <table className="w-full">
               <thead>
