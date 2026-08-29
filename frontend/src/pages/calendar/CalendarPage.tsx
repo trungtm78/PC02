@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/shared/Modal';
 import { usePermission } from '@/hooks/usePermission';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { formatVNDate } from '../../lib/dates';
 import { CreateEventModal } from './components/CreateEventModal';
 import { RecurringDeleteDialog } from './components/RecurringDeleteDialog';
@@ -364,9 +366,11 @@ function EventModal({
 interface UpcomingEventsProps {
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
+  /** Lỗi tải của TRANG — truyền xuống để ô này thôi khẳng định "không có sự kiện" khi chưa hỏi được. */
+  loadError?: string;
 }
 
-function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
+function UpcomingEvents({ events, onEventClick, loadError = "" }: UpcomingEventsProps) {
   const sortedEvents = useMemo(() => {
     return [...events]
       .filter(e => new Date(e.date) >= new Date())
@@ -383,7 +387,9 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
       
       <div className="space-y-3">
         {sortedEvents.length === 0 ? (
-          <p className="text-slate-500 text-center py-4">Không có sự kiện sắp tới</p>
+          <p className="text-slate-500 text-center py-4">
+            {loadError ? 'Chưa hỏi được máy chủ' : 'Không có sự kiện sắp tới'}
+          </p>
         ) : (
           sortedEvents.map((event) => (
             <div
@@ -451,6 +457,7 @@ function UpcomingEvents({ events, onEventClick }: UpcomingEventsProps) {
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -487,6 +494,7 @@ export default function CalendarPage() {
   } | null>(null);
 
   const fetchEvents = useCallback(async () => {
+    setLoadError("");
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
@@ -494,8 +502,9 @@ export default function CalendarPage() {
         `/calendar/events?year=${year}&month=${month}`,
       );
       setEvents(res.data.data ?? []);
-    } catch {
+    } catch (e) {
       setEvents([]);
+      setLoadError(extractApiError(e, "Không tải được lịch công tác.").messages.join(", "));
     }
   }, [currentDate]);
 
@@ -644,6 +653,7 @@ export default function CalendarPage() {
 
   return (
     <div className="h-full bg-slate-50 p-6">
+      <LoadErrorBanner error={loadError} what="lịch công tác" data-testid="calendar-load-error" />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -825,7 +835,7 @@ export default function CalendarPage() {
 
           {/* Upcoming Events Sidebar */}
           <div className="lg:col-span-1">
-            <UpcomingEvents 
+            <UpcomingEvents loadError={loadError} 
               events={events} 
               onEventClick={handleEventClick}
             />

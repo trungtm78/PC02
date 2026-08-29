@@ -20,6 +20,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '../../lib/dates';
 import { downloadCsv } from '@/lib/csv';
@@ -137,6 +138,7 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [usersTotal, setUsersTotal] = useState(0);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -181,7 +183,7 @@ export default function UserManagementPage() {
   // ─── Data loading ──────────────────────────────────────────────────────────
 
   const loadUsers = useCallback(async () => {
-    setUsersLoading(true);
+    setUsersLoading(true);    setLoadError("");
     try {
       const params: Record<string, string> = {};
       if (searchQuery) params.search = searchQuery;
@@ -195,8 +197,10 @@ export default function UserManagementPage() {
       }));
       setUsers(rawUsers);
       setUsersTotal(res.data.total ?? 0);
-    } catch {
-      // silently fail — show empty table
+    } catch (e) {
+      // "show empty table" nghĩa là màn hình bày một bảng rỗng — nhìn hệt cơ quan
+      // chưa có tài khoản nào. Nói ra thay vì để người đọc tự suy.
+      setLoadError(extractApiError(e, "Không tải được danh sách người dùng.").messages.join(", "));
     } finally {
       setUsersLoading(false);
     }
@@ -498,6 +502,8 @@ export default function UserManagementPage() {
         </div>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách người dùng" data-testid="users-load-error" />
+
       {/* ── Tab: Users List ── */}
       {activeTab === 'users-list' && (
         <div>
@@ -566,7 +572,9 @@ export default function UserManagementPage() {
                   <tr>
                     <td colSpan={8} className="py-12 text-center">
                       <Users className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                      <p className="text-slate-600 font-medium mb-1">Chưa có người dùng nào</p>
+                      <p className="text-slate-600 font-medium mb-1">
+                        {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có người dùng nào'}
+                      </p>
                       <p className="text-sm text-slate-500">
                         Nhấn "Thêm người dùng" để tạo tài khoản mới
                       </p>
