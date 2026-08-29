@@ -13,23 +13,31 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { extractApiError } from "@/lib/api-errors";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 
 export default function MonthlyReportPage() {
   const [selectedMonth, setSelectedMonth] = useState("2026-02");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [isExportingMonthly, setIsExportingMonthly] = useState(false);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await api.get(`/reports/monthly?year=${selectedYear}`);
       // Backend /reports/monthly returns raw `{data, totals}` — no envelope wrap.
       // Do NOT add `.data.data` here. See reports.controller.ts:104.
       setReportData(res.data);
-    } catch {
+    } catch (e) {
+      // Bốn thẻ tổng đọc `reportData?.x ?? 0`, nên đặt null rồi im là cho ra bốn số 0 — cán bộ
+      // đọc thấy "kỳ này không có hồ sơ nào", trong khi chỉ là chưa hỏi được máy chủ.
       setReportData(null);
+      setLoadError(extractApiError(e, "Không tải được số liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -40,10 +48,10 @@ export default function MonthlyReportPage() {
   const chartData = reportData?.data ?? [];
 
   const stats = [
-    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? 0, change: "+12%", color: "blue" },
-    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? 0, change: "+8%", color: "purple" },
-    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? 0, change: "+15%", color: "red" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, change: "+10%", color: "green" },
+    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? null, change: "+12%", color: "blue" },
+    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? null, change: "+8%", color: "purple" },
+    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? null, change: "+15%", color: "red" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, change: "+10%", color: "green" },
   ];
 
   return (
@@ -111,6 +119,8 @@ export default function MonthlyReportPage() {
         </div>
       </div>
 
+      <LoadErrorBanner error={loadError} what="báo cáo tháng" data-testid="monthly-report-load-error" />
+
       {/* Loading spinner */}
       {loading && (
         <div className="flex items-center justify-center py-16">
@@ -131,7 +141,7 @@ export default function MonthlyReportPage() {
                     {stat.change}
                   </span>
                 </div>
-                <div className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</div>
+                <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>
             ))}
           </div>

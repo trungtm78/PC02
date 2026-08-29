@@ -16,23 +16,31 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { extractApiError } from "@/lib/api-errors";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 
 export default function QuarterlyReportPage() {
   const [selectedQuarter, setSelectedQuarter] = useState("Q1-2026");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [isExportingQuarterly, setIsExportingQuarterly] = useState(false);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await api.get(`/reports/quarterly?year=${selectedYear}`);
       // Backend /reports/quarterly returns raw `{data, totals}` — no envelope wrap.
       // Do NOT add `.data.data` here. See reports.controller.ts:112.
       setReportData(res.data);
-    } catch {
+    } catch (e) {
+      // Bốn thẻ tổng đọc `reportData?.x ?? 0`, nên đặt null rồi im là cho ra bốn số 0 — cán bộ
+      // đọc thấy "kỳ này không có hồ sơ nào", trong khi chỉ là chưa hỏi được máy chủ.
       setReportData(null);
+      setLoadError(extractApiError(e, "Không tải được số liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -44,16 +52,16 @@ export default function QuarterlyReportPage() {
 
   // Build pie data from totals
   const comparisonData = [
-    { name: "Đơn thư", value: reportData?.totals?.donThu ?? 0, color: "#3b82f6" },
-    { name: "Vụ việc", value: reportData?.totals?.vuViec ?? 0, color: "#8b5cf6" },
-    { name: "Vụ án", value: reportData?.totals?.vuAn ?? 0, color: "#ef4444" },
+    { name: "Đơn thư", value: reportData?.totals?.donThu ?? null, color: "#3b82f6" },
+    { name: "Vụ việc", value: reportData?.totals?.vuViec ?? null, color: "#8b5cf6" },
+    { name: "Vụ án", value: reportData?.totals?.vuAn ?? null, color: "#ef4444" },
   ];
 
   const stats = [
     { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), change: "+18%", color: "blue" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? 0, change: "+17%", color: "green" },
-    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? 0, change: "+5%", color: "amber" },
-    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? 0, change: "-12%", color: "red" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, change: "+17%", color: "green" },
+    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, change: "+5%", color: "amber" },
+    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, change: "-12%", color: "red" },
   ];
 
   return (
@@ -121,6 +129,8 @@ export default function QuarterlyReportPage() {
         </div>
       </div>
 
+      <LoadErrorBanner error={loadError} what="báo cáo quý" data-testid="quarterly-report-load-error" />
+
       {/* Loading spinner */}
       {loading && (
         <div className="flex items-center justify-center py-16">
@@ -141,7 +151,7 @@ export default function QuarterlyReportPage() {
                     {stat.change}
                   </span>
                 </div>
-                <div className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</div>
+                <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>
             ))}
           </div>

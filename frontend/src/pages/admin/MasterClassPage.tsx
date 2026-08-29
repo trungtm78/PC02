@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { extractApiError } from "@/lib/api-errors";
 import { MASTER_CLASS_TYPE_LIST } from "@/constants/master-class-types";
 import { Search, Plus, Pencil, Trash2, FolderTree, Save, X } from "lucide-react";
@@ -29,30 +31,42 @@ export default function MasterClassPage() {
   const [entries, setEntries] = useState<MasterClassEntry[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, number | null>>({});
 
   const selectedTypeName = MASTER_CLASS_TYPE_LIST.find(t => t.code === selectedType)?.name ?? "";
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await api.get(`/master-classes?type=${selectedType}&limit=500`);
       setEntries(res.data?.data ?? []);
-    } catch { setEntries([]); }
+    } catch (e) {
+      setEntries([]);
+      setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
+    }
     setLoading(false);
   }, [selectedType]);
 
   const fetchCounts = useCallback(async () => {
-    const c: Record<string, number> = {};
+    // Hỏi KHÔNG ĐƯỢC thì để `null`, KHÔNG đặt 0.
+    //
+    // Đo trên máy thật 29/08/2026: chặn mọi GET thì màn này hiện MƯỜI số 0 — nhiều nhất hệ —
+    // vì mỗi loại danh mục hỏng đều bị gán 0. Cán bộ đọc thấy "danh mục này chưa có mục nào",
+    // trong khi thật ra chỉ là chưa hỏi được máy chủ.
+    const c: Record<string, number | null> = {};
     for (const t of MASTER_CLASS_TYPE_LIST) {
       try {
         const res = await api.get(`/master-classes?type=${t.code}&limit=1`);
         c[t.code] = res.data?.total ?? 0;
-      } catch { c[t.code] = 0; }
+      } catch {
+        c[t.code] = null;
+      }
     }
     setCounts(c);
   }, []);
@@ -132,12 +146,14 @@ export default function MasterClassPage() {
                 <span className="text-sm font-medium">{t.name}</span>
               </div>
               <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                {counts[t.code] ?? 0}
+                {soLieuHienThi(counts[t.code], false)}
               </span>
             </button>
           ))}
         </div>
       </div>
+
+      <LoadErrorBanner error={loadError} what="danh mục" data-testid="master-class-load-error" />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
