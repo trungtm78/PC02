@@ -29,6 +29,7 @@ import {
 } from "@/shared/enums/proposal-status";
 import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
 import { loiTuMayChu } from "./loiTuMayChu";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
 
 type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
 
@@ -76,6 +77,9 @@ export default function ProsecutorProposalPage() {
 
   const [allProposals, setAllProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  // Lần hỏi máy chủ gần nhất có hỏng không. Trước đây `catch` chỉ đặt danh sách về rỗng, nên
+  // "không hỏi được" và "không có gì" cho ra CÙNG một màn hình.
+  const [loiTai, setLoiTai] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -121,8 +125,14 @@ export default function ProsecutorProposalPage() {
         };
       });
       setAllProposals(mapped);
-    } catch {
+      setLoiTai('');
+    } catch (e) {
+      // KHÔNG đặt danh sách về rỗng rồi im: mảng rỗng làm mọi thẻ thống kê ra số 0, và số 0
+      // đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllProposals([]);
+      setLoiTai(
+        loiTuMayChu(e, 'Máy chủ không phản hồi. Kiểm tra kết nối mạng rồi bấm Thử lại.'),
+      );
     } finally {
       setLoading(false);
     }
@@ -244,12 +254,43 @@ export default function ProsecutorProposalPage() {
         </p>
       </div>
 
+      {/*
+        Khối này đứng TRƯỚC dãy thẻ thống kê, vì nó là thứ quyết định cách đọc mấy con số bên
+        dưới. Có nó thì dấu gạch ở các thẻ có nghĩa; không có nó thì cán bộ tự diễn giải.
+      */}
+      {loiTai && (
+        <div
+          data-testid="proposal-load-error"
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+          <div className="flex-1 text-sm text-red-800">
+            <p className="font-medium">Không tải được danh sách kiến nghị.</p>
+            <p className="mt-0.5">{loiTai}</p>
+            <p className="mt-1 text-red-700">
+              Số liệu bên dưới đang để trống vì chưa hỏi được máy chủ — đây không phải là “không
+              có kiến nghị nào”.
+            </p>
+          </div>
+          <button
+            data-testid="proposal-retry"
+            onClick={fetchProposals}
+            disabled={loading}
+            className="flex-shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+          >
+            <RotateCcw className="mr-1 inline h-4 w-4" />
+            Thử lại
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Tổng số kiến nghị</p>
-              <p className="text-2xl font-bold text-[#003973] mt-1">{statusCounts.total}</p>
+              <p className="text-2xl font-bold text-[#003973] mt-1" data-testid="proposal-stat">{soLieuHienThi(statusCounts.total, !!loiTai)}</p>
             </div>
             <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-[#003973]" />
@@ -261,7 +302,7 @@ export default function ProsecutorProposalPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Chờ gửi</p>
-              <p className="text-2xl font-bold text-slate-600 mt-1">{statusCounts.pending}</p>
+              <p className="text-2xl font-bold text-slate-600 mt-1" data-testid="proposal-stat">{soLieuHienThi(statusCounts.pending, !!loiTai)}</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-slate-600" />
@@ -273,7 +314,7 @@ export default function ProsecutorProposalPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Đã gửi</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">{statusCounts.sent}</p>
+              <p className="text-2xl font-bold text-amber-600 mt-1" data-testid="proposal-stat">{soLieuHienThi(statusCounts.sent, !!loiTai)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Send className="w-6 h-6 text-amber-600" />
@@ -285,7 +326,7 @@ export default function ProsecutorProposalPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Đã có phản hồi</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{statusCounts.responded}</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1" data-testid="proposal-stat">{soLieuHienThi(statusCounts.responded, !!loiTai)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <FileCheck className="w-6 h-6 text-blue-600" />
@@ -297,7 +338,7 @@ export default function ProsecutorProposalPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600">Đã xử lý</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{statusCounts.completed}</p>
+              <p className="text-2xl font-bold text-green-600 mt-1" data-testid="proposal-stat">{soLieuHienThi(statusCounts.completed, !!loiTai)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -578,7 +619,7 @@ export default function ProsecutorProposalPage() {
           </table>
         </div>
 
-        {!loading && filteredProposals.length === 0 && (
+        {!loading && !loiTai && filteredProposals.length === 0 && (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500">Không tìm thấy kiến nghị nào</p>
@@ -738,7 +779,9 @@ export function ProposalFormModal({
       onSaved();
       onClose();
     } catch (e) {
-      setLoiLuu(loiTuMayChu(e));
+      setLoiLuu(
+        loiTuMayChu(e, 'Không lưu được kiến nghị — máy chủ không phản hồi. Kiểm tra kết nối mạng rồi thử lại.'),
+      );
     } finally {
       setDangLuu(false);
     }
