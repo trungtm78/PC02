@@ -24,7 +24,10 @@ import {
   BadgeAlert,
 } from "lucide-react";
 import { authStore } from "@/stores/auth.store";
+import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
 
 interface WardCase {
@@ -105,6 +108,7 @@ export default function WardCasesPage() {
 
   const [allData, setAllData] = useState<WardCase[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState<FilterData>({
@@ -140,6 +144,7 @@ export default function WardCasesPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (filters.districtId) params.set("districtId", filters.districtId);
@@ -173,8 +178,11 @@ export default function WardCasesPage() {
         severityLabel: "Trung bình",
       }));
       setAllData(mapped);
-    } catch {
+    } catch (e) {
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllData([]);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -404,12 +412,14 @@ export default function WardCasesPage() {
         </div>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách vụ án phường/xã" data-testid="ward-cases-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng vụ án</p>
-              <p className="text-3xl font-bold text-[#003973]">{totalCount}</p>
+              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
               <Scale className="w-6 h-6 text-[#003973]" />
@@ -421,7 +431,7 @@ export default function WardCasesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ xử lý</p>
-              <p className="text-3xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-6 h-6 text-amber-600" />
@@ -433,7 +443,7 @@ export default function WardCasesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Đang điều tra</p>
-              <p className="text-3xl font-bold text-blue-600">{investigatingCount}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(investigatingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Search className="w-6 h-6 text-blue-600" />
@@ -445,7 +455,7 @@ export default function WardCasesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-red-700 font-medium mb-1">Nghiêm trọng</p>
-              <p className="text-3xl font-bold text-red-600">{criticalCount}</p>
+              <p className="text-3xl font-bold text-red-600">{soLieuHienThi(criticalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
               <BadgeAlert className="w-6 h-6 text-red-600" />

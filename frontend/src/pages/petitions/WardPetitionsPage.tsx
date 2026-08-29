@@ -26,6 +26,9 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { formatVNDate } from '../../lib/dates';
 import { PetitionStatus, LoaiDon } from '@/shared/enums/generated';
 import {
@@ -71,6 +74,7 @@ export default function WardPetitionsPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<PetitionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [wardTeamId, setWardTeamId] = useState<string>('');
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
@@ -85,14 +89,18 @@ export default function WardPetitionsPage() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const params: Record<string, string> = { limit: '100' };
         if (wardTeamId) params.wardTeamId = wardTeamId;
         const resp = await api.get('/petitions', { params });
         const data = resp.data?.data ?? resp.data ?? [];
         setRows(Array.isArray(data) ? data : []);
-      } catch {
+      } catch (e) {
+        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
         setRows([]);
+        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
       } finally {
         setLoading(false);
       }
@@ -211,12 +219,14 @@ export default function WardPetitionsPage() {
       </div>
 
       {/* KPI cards */}
+      <LoadErrorBanner error={loadError} what="danh sách đơn thư phường/xã" data-testid="ward-petitions-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div data-testid="kpi-card-total" className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng đơn thư</p>
-              <p className="text-3xl font-bold text-[#003973]">{totalCount}</p>
+              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-[#003973]" />
@@ -228,7 +238,7 @@ export default function WardPetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ xử lý</p>
-              <p className="text-3xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -240,7 +250,7 @@ export default function WardPetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Đang xử lý</p>
-              <p className="text-3xl font-bold text-blue-600">{processingCount}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(processingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Search className="w-6 h-6 text-blue-600" />
@@ -252,7 +262,7 @@ export default function WardPetitionsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 font-medium mb-1">Đã giải quyết</p>
-              <p className="text-3xl font-bold text-green-600">{resolvedCount}</p>
+              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(resolvedCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />

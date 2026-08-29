@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { IncidentStatus } from "@/shared/enums/generated";
 import { INCIDENT_STATUS_LABEL } from "@/shared/enums/status-labels";
 import { CASE_PHASE } from "@/shared/enums/case-phase";
@@ -19,7 +19,10 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
+import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
 
 interface WardIncident {
@@ -55,6 +58,7 @@ export default function WardIncidentsPage() {
 
   const [allData, setAllData] = useState<WardIncident[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState<FilterData>({
@@ -70,6 +74,7 @@ export default function WardIncidentsPage() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         const res = await api.get("/incidents?limit=100");
         const mapped: WardIncident[] = (res.data.data ?? []).map((item: any, i: number) => ({
@@ -98,8 +103,11 @@ export default function WardIncidentsPage() {
           description: item.description ?? "",
         }));
         setAllData(mapped);
-      } catch {
+      } catch (e) {
+        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
         setAllData([]);
+        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
       } finally {
         setLoading(false);
       }
@@ -229,12 +237,14 @@ export default function WardIncidentsPage() {
         </p>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách vụ việc phường/xã" data-testid="ward-incidents-load-error" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Tổng vụ việc</p>
-              <p className="text-3xl font-bold text-[#003973]">{totalCount}</p>
+              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(totalCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-[#003973]" />
@@ -246,7 +256,7 @@ export default function WardIncidentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ xử lý</p>
-              <p className="text-3xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -258,7 +268,7 @@ export default function WardIncidentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Đang xác minh</p>
-              <p className="text-3xl font-bold text-blue-600">{investigatingCount}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(investigatingCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <Search className="w-6 h-6 text-blue-600" />
@@ -270,7 +280,7 @@ export default function WardIncidentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 font-medium mb-1">Đã giải quyết</p>
-              <p className="text-3xl font-bold text-green-600">{resolvedCount}</p>
+              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(resolvedCount, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
