@@ -149,10 +149,19 @@ describe('KPI — độ chính xác', () => {
         async (tu, mau) => {
           datDem(tu, mau);
           const s = await svc.getKpiSummary({ year: 2026 } as never);
-          const chinhXac = (tu / mau) * 100;
+          // So với giá trị ĐÃ LÀM TRÒN, không so KHOẢNG CÁCH tới giá trị chính xác.
+          //
+          // Bản đầu viết `Math.abs(k.value - chinhXac) <= 0.005` — tức so đúng NGAY BIÊN nửa
+          // đơn vị bằng số thực. Số thực IEEE754 không biểu diễn được 0,005, nên thỉnh thoảng
+          // một cặp tử/mẫu cho ra 0.005000000000000782 và ca đỏ ngẫu nhiên. Nó đã làm ĐỎ CI
+          // một lần sau khi gộp — một ca kiểm chập chờn còn tệ hơn không có ca, vì nó dạy
+          // người ta bỏ qua màu đỏ.
+          //
+          // Hợp đồng thật là "làm tròn tới 2 chữ số thập phân", nên so thẳng với phép làm tròn
+          // ấy: chính xác, không biên, không ngẫu nhiên.
+          const mongDoi = Math.round((tu / mau) * 10000) / 100;
           for (const k of bonChiTieu(s)) {
-            // lệch tối đa nửa đơn vị của chữ số thập phân thứ hai
-            expect(Math.abs(k.value - chinhXac)).toBeLessThanOrEqual(0.005);
+            expect(k.value).toBe(mongDoi);
           }
         },
       ),
