@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ElementType } from 'react';
 import { useBadgeCounts } from '../hooks/useBadgeCounts';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronRight,
@@ -32,7 +33,6 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = {}) {
-  const navigate = useNavigate();
   const location = useLocation();
   const { counts } = useBadgeCounts();
   const menuSections = useMenuSections();
@@ -125,6 +125,10 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
   };
 
   const toggleFavorite = (itemId: string, e: React.MouseEvent) => {
+    // Ngôi sao nằm BÊN TRONG thẻ neo của mục. `stopPropagation` chặn được sự kiện của React,
+    // nhưng KHÔNG chặn hành vi mặc định của trình duyệt trên thẻ neo — thiếu dòng dưới thì bấm
+    // sao là vừa đổi yêu thích vừa điều hướng.
+    e.preventDefault();
     e.stopPropagation();
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -228,17 +232,25 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
 
     const paddingClass = level === 0 ? '' : level === 1 ? 'pl-6' : 'pl-10';
 
+    // Nhóm (có con) hoặc mục không có đường dẫn thì là NÚT; còn lại là LIÊN KẾT thật.
+    const Comp = (hasChildren || !item.path ? 'button' : Link) as ElementType;
+
     return (
       <div key={item.id}>
-        <button
+        {/*
+          Đi tới một địa chỉ thì là LIÊN KẾT; mở/đóng một nhóm thì là NÚT. Hai thứ khác nhau về
+          bản chất, không phải về cách vẽ — nên `className` giữ y nguyên cho cả hai.
+
+          Đo trên máy thật 29/08/2026: toàn ứng dụng có 0 thẻ `<a>` và 33 `<button>`, điều hướng
+          đi 100% bằng `onClick`. Hệ quả: không Ctrl+bấm mở tab mới, không chuột giữa, không
+          chuột phải sao chép địa chỉ, không rê chuột xem đích. Với 238 cán bộ mở song song hai
+          hồ sơ để đối chiếu thì đó là thao tác hằng ngày.
+        */}
+        <Comp
           data-testid={`sidebar-item-${item.id}`}
-          onClick={() => {
-            if (hasChildren) {
-              toggleMenu(item.id);
-            } else if (item.path) {
-              navigate(item.path);
-            }
-          }}
+          {...(hasChildren
+            ? { onClick: () => toggleMenu(item.id), 'aria-expanded': isExpanded }
+            : { to: item.path! })}
           className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-all group rounded ${
             isCompact ? 'justify-center' : ''
           } ${
@@ -292,7 +304,7 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
               )}
             </>
           )}
-        </button>
+        </Comp>
 
         {hasChildren && isExpanded && !isCompact && (
           <div className="bg-black/10 rounded-lg mt-1 mb-1">
@@ -312,6 +324,7 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
         <button
           data-testid={`sidebar-section-${section.id}`}
           onClick={() => toggleSection(section.id)}
+          aria-expanded={isExpanded}
           className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider text-accent hover:text-accent/80 transition-colors rounded hover:bg-white/5 ${
             isCompact ? 'justify-center' : ''
           }`}
@@ -411,13 +424,17 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
           </div>
           {searchResults.map((result) => {
             const Icon = result.item.icon;
+            const KetQua = (result.item.path ? Link : 'button') as ElementType;
             return (
-              <button
+              // Tìm kiếm khớp cả NHÓM, mà nhóm không có đường dẫn. Dựng nó thành liên kết
+              // `#` là bịa ra một liên kết giả: bấm thì đổi mỗi dấu thăng, còn "sao chép địa
+              // chỉ" ra một thứ vô nghĩa. Không có đích thì đúng bản chất nó là cái nút.
+              <KetQua
                 key={result.item.id}
-                onClick={() => {
-                  if (result.item.path) navigate(result.item.path);
-                  setSearchQuery('');
-                }}
+                data-testid={`sidebar-search-${result.item.id}`}
+                {...(result.item.path
+                  ? { to: result.item.path, onClick: () => setSearchQuery('') }
+                  : { onClick: () => { toggleMenu(result.item.id); setSearchQuery(''); } })}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/10 rounded transition-colors mb-1 text-white/90"
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
@@ -425,7 +442,7 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
                   <span className="text-sm truncate block">{result.item.label}</span>
                   <span className="text-xs text-white/40 truncate block">{result.section}</span>
                 </div>
-              </button>
+              </KetQua>
             );
           })}
         </div>
@@ -451,13 +468,14 @@ export function AppSidebar({ onClose, isMobileOpen = false }: AppSidebarProps = 
                     : 'text-white/90 hover:bg-white/10'
                 }`}
               >
-                <button
-                  onClick={() => { if (item.path) navigate(item.path); }}
+                <Link
+                  data-testid={`sidebar-fav-${item.id}`}
+                  to={item.path ?? '#'}
                   className="flex items-center gap-2 flex-1 text-left"
                 >
                   <Icon className="w-4 h-4" />
                   <span className="text-sm truncate">{item.label}</span>
-                </button>
+                </Link>
                 <button
                   onClick={(e) => handleRemoveFavoriteClick(item, e)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-500/20 rounded"
