@@ -620,7 +620,25 @@ export default function ProsecutorProposalPage() {
   );
 }
 
-function ProposalFormModal({
+/**
+ * Bóc lý do máy chủ từ chối, theo đúng bao bì lỗi của kho: `{ success, error: { code, message } }`.
+ *
+ * Không có thân phản hồi nghĩa là yêu cầu chưa tới được máy chủ (mất mạng, máy chủ ngã). Lúc ấy
+ * KHÔNG dựng lại thông báo kỹ thuật tiếng Anh của trình duyệt cho cán bộ đọc — nói bằng thứ họ
+ * làm được gì với nó.
+ */
+export function loiTuMayChu(e: unknown): string {
+  const than = (
+    e as { response?: { data?: { error?: { message?: string }; message?: string } } }
+  )?.response?.data;
+  return (
+    than?.error?.message ??
+    than?.message ??
+    'Không lưu được kiến nghị — máy chủ không phản hồi. Kiểm tra kết nối mạng rồi thử lại.'
+  );
+}
+
+export function ProposalFormModal({
   proposal,
   onClose,
   onSaved,
@@ -647,6 +665,10 @@ function ProposalFormModal({
   }));
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Khoá nút trong lúc đang gửi: bấm hai lần là HAI bản kiến nghị gửi Viện Kiểm sát, mà mạng
+  // cơ quan chậm nên bấm lại là phản xạ tự nhiên.
+  const [dangLuu, setDangLuu] = useState(false);
+  const [loiLuu, setLoiLuu] = useState('');
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -675,20 +697,36 @@ function ProposalFormModal({
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Lưu kiến nghị.
+   *
+   * Bản trước báo THÀNH CÔNG ngay trong khối `catch`, và gọi `onClose()` ở ngoài `try` nên nó
+   * chạy vô điều kiện. Đo trên máy thật 29/08/2026 (chặn yêu cầu trước khi tới máy chủ, nên
+   * không có gì được lưu): giao diện hiện "Đã tạo kiến nghị mới thành công!" rồi đóng popup.
+   * Cán bộ mất trắng nội dung vừa soạn và tin rằng kiến nghị đã gửi Viện Kiểm sát.
+   *
+   * Ba thứ phải đi cùng nhau, thiếu một là lỗ hổng còn nguyên:
+   *   1. `catch` nói THẤT BẠI, kèm lý do máy chủ đưa ra
+   *   2. `onClose()` chỉ chạy trên đường THÀNH CÔNG — giữ lại nội dung để cán bộ sửa và gửi lại
+   *   3. `onSaved()` cũng chỉ trên đường thành công — không làm mới danh sách như thể đã lưu
+   */
   const handleSubmit = async () => {
+    if (dangLuu) return;
+    setLoiLuu('');
     if (!validate()) {
       return;
     }
 
-    try {
-      const payload = {
-        proposalNumber: formData.proposalNumber,
-        content: formData.content,
-        unit: formData.unit,
-        caseType: formData.caseType,
-        relatedCaseId: formData.relatedCase,
-      };
+    const payload = {
+      proposalNumber: formData.proposalNumber,
+      content: formData.content,
+      unit: formData.unit,
+      caseType: formData.caseType,
+      relatedCaseId: formData.relatedCase,
+    };
 
+    setDangLuu(true);
+    try {
       if (proposal) {
         await api.put(`/proposals/${proposal.id}`, payload);
         alert("Đã cập nhật kiến nghị thành công!");
@@ -697,14 +735,12 @@ function ProposalFormModal({
         alert("Đã tạo kiến nghị mới thành công!");
       }
       onSaved();
-    } catch {
-      if (proposal) {
-        alert("Đã cập nhật kiến nghị thành công!");
-      } else {
-        alert("Đã tạo kiến nghị mới thành công!");
-      }
+      onClose();
+    } catch (e) {
+      setLoiLuu(loiTuMayChu(e));
+    } finally {
+      setDangLuu(false);
     }
-    onClose();
   };
 
   return (
@@ -905,19 +941,38 @@ function ProposalFormModal({
           </div>
         </div>
 
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium"
-          >
-            {proposal ? "Cập nhật" : "Lưu"}
-          </button>
+        <div className="border-t border-slate-200 px-6 py-4">
+          {/* Lý do máy chủ từ chối, đặt ngay trên hàng nút — chỗ mắt đang nhìn lúc bấm Lưu. */}
+          {loiLuu && (
+            <div
+              data-testid="proposal-form-error"
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>
+                <strong className="font-medium">Chưa lưu được. </strong>
+                {loiLuu}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={dangLuu}
+              className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={dangLuu}
+              data-testid="proposal-save"
+              className="px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium disabled:opacity-60"
+            >
+              {dangLuu ? "Đang lưu…" : proposal ? "Cập nhật" : "Lưu"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
