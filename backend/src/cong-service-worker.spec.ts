@@ -92,6 +92,23 @@ describe('Cổng service worker', () => {
     expect(deploySh).toContain('grep -qF');
   });
 
+  /**
+   * Báo cảnh báo suông thì giữ nguyên đúng kiểu hỏng cần chặn: triển khai XANH trong khi cán
+   * bộ không nhận được bản mới. Lệch bộ canh phải làm lần triển khai ấy ĐỎ.
+   *
+   * Đỏ ở CUỐI chứ không dừng giữa chừng: mã đã lên, đã đổi liên kết, đã qua health — bỏ dở là
+   * để máy nửa vời vì một lệch cấu hình, trong khi bản vá khẩn có thể nằm ngay trong lần ấy.
+   */
+  it('lệch bộ canh làm lần triển khai ĐỎ, và đỏ ở cuối chứ không dừng giữa chừng', () => {
+    expect(deploySh).toContain('CANH_LECH=1');
+    const dat = deploySh.indexOf('CANH_LECH=1');
+    const thoat = deploySh.indexOf('CANH_LECH:-0');
+    expect(thoat).toBeGreaterThan(dat);
+    // Phép thoát phải nằm SAU health check — nếu không thì nó vẫn là dừng giữa chừng.
+    expect(thoat).toBeGreaterThan(deploySh.indexOf('Health check'));
+    expect(deploySh.slice(thoat, thoat + 900)).toContain('exit 1');
+  });
+
   describe('bia mộ ở /sw.js', () => {
     // Tệp không tồn tại thì chính phép đọc ở đầu tệp này ném — đó là phép kiểm sự tồn tại.
     it('chiếm quyền ngay, không chờ tab đóng hết', () => {

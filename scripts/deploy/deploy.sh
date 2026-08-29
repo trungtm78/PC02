@@ -182,6 +182,7 @@ if [ -f /usr/local/sbin/pc02-ensure-nginx-cache ]    && ! grep -qF "$MAU_CANH" /
     log "Chạy MỘT LẦN bằng root:"
     log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
     log "══════════════════════════════════════════════════════════════"
+    CANH_LECH=1
 fi
 
 if [ -x /usr/local/sbin/pc02-ensure-nginx-cache ]; then
@@ -280,7 +281,25 @@ fi
 # 11. Cleanup tarball
 rm -f "$TARBALL"
 
-# 12. Final summary
+# 12. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
+#
+# Báo cảnh báo suông giữ nguyên đúng kiểu hỏng cần chặn: triển khai xanh trong khi cán bộ không
+# nhận được bản mới — đúng chuyện đã sống 5 ngày mà không ai biết.
+#
+# Nhưng cũng KHÔNG dừng giữa chừng: mã mới đã lên, đã đổi liên kết, đã khởi động lại và qua
+# health. Bỏ dở ở giữa là để máy ở trạng thái nửa vời vì một lệch CẤU HÌNH, trong khi bản vá
+# khẩn có thể đang nằm trong chính lần triển khai ấy. Nên: ship xong, rồi báo đỏ.
+if [ "${CANH_LECH:-0}" = "1" ]; then
+    log "=========================================="
+    log "Mã ĐÃ lên máy và qua health, NHƯNG bộ canh cache đã cũ."
+    log "Cán bộ có thể không nhận được bản mới cho tới khi chạy bằng root:"
+    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "Đánh dấu ĐỎ để không ai nhầm đây là lần triển khai sạch."
+    log "=========================================="
+    exit 1
+fi
+
+# 13. Final summary
 log "=========================================="
 log "Deploy OK: $RELEASE_SHA"
 log "Current: $(readlink "$CURRENT_SYMLINK")"
