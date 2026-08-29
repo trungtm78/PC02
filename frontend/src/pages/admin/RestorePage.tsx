@@ -9,6 +9,9 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { authStore } from '@/stores/auth.store';
 import { RotateCcw, X, AlertTriangle, FileText, ShieldAlert, Search } from 'lucide-react';
 import { formatVNDateTime } from '../../lib/dates';
@@ -82,6 +85,7 @@ export default function RestorePage() {
   const [rows, setRows] = useState<DeletedRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState('');
 
   // Restore modal state
@@ -96,6 +100,7 @@ export default function RestorePage() {
   const fetchList = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
+    setLoadError("");
     try {
       const meta = TAB_META[tab];
       const res = await api.get<{ success: boolean; data: DeletedRow[]; total: number }>(
@@ -108,6 +113,9 @@ export default function RestorePage() {
       console.error('[RestorePage] fetch failed:', err);
       setRows([]);
       setTotal(0);
+      // Không nói ra thì màn hình khẳng định "Không có vụ án nào đã bị xóa. Tổng cộng: 0" —
+      // một câu trả lời dứt khoát về thứ chưa hề hỏi được.
+      setLoadError(extractApiError(err, "Không tải được danh sách. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -208,6 +216,8 @@ export default function RestorePage() {
         </button>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh sách đã xoá" data-testid="restore-load-error" />
+
       {successMessage && (
         <div
           className="bg-green-50 border-2 border-green-300 rounded-lg p-3 flex items-center gap-3"
@@ -300,7 +310,7 @@ export default function RestorePage() {
           </table>
         </div>
         <div className="border-t border-slate-200 px-4 py-2 text-xs text-slate-600">
-          Tổng cộng: <strong>{total}</strong> {meta.entityLabel} đã xóa
+          Tổng cộng: <strong>{soLieuHienThi(total, !!loadError)}</strong> {meta.entityLabel} đã xóa
         </div>
       </div>
 

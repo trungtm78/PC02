@@ -10,6 +10,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +118,7 @@ export default function KpiDashboardPage() {
   const [teamKpis, setTeamKpis] = useState<TeamKpi[]>([]);
   const [trend, setTrend] = useState<KpiTrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const buildParams = useCallback(() => {
     const params: Record<string, string> = { year: String(year) };
@@ -136,10 +139,12 @@ export default function KpiDashboardPage() {
       setSummary(summaryRes.data);
       setTeamKpis(teamRes.data);
       setTrend(trendRes.data);
-    } catch {
+    } catch (e) {
       setSummary(null);
       setTeamKpis([]);
       setTrend([]);
+      // Không có `summary` thì trang chỉ còn bộ lọc — nhìn hệt một kỳ chưa có số liệu. Nói ra.
+      setLoadError(extractApiError(e, "Không tải được chỉ tiêu. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -200,6 +205,8 @@ export default function KpiDashboardPage() {
       </div>
 
       {loading && <div className="text-gray-500 text-sm">Đang tải...</div>}
+
+      <LoadErrorBanner error={loadError} what="chỉ tiêu KPI" data-testid="kpi-load-error" />
 
       {/* 4 KPI cards */}
       {summary && (

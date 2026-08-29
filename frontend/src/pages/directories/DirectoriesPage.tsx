@@ -16,6 +16,8 @@ import {
   Filter,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { extractApiError } from '@/lib/api-errors';
 import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
 import { usePermission } from '@/hooks/usePermission';
@@ -98,6 +100,7 @@ export default function DirectoriesPage() {
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -162,6 +165,7 @@ export default function DirectoriesPage() {
 
   const loadItems = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const offset = (currentPage - 1) * PAGE_SIZE;
       const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
@@ -172,8 +176,10 @@ export default function DirectoriesPage() {
       const res = await api.get('/directories', { params });
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
-    } catch {
-      // silently fail
+    } catch (e) {
+      // "silently fail" ở đây nghĩa là màn hình khẳng định "0 mục" cho danh mục đang chọn —
+      // một câu trả lời dứt khoát về thứ chưa hề hỏi được máy chủ.
+      setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
     }
@@ -307,6 +313,8 @@ export default function DirectoriesPage() {
         </div>
       </div>
 
+      <LoadErrorBanner error={loadError} what="danh mục" data-testid="directories-load-error" />
+
       <div className="grid grid-cols-4 gap-6">
         {/* Left: Type selector */}
         <div className="col-span-1">
@@ -359,7 +367,7 @@ export default function DirectoriesPage() {
                           {label}
                         </div>
                         {active && (
-                          <div className="text-xs text-slate-500 mt-0.5">{total} mục</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{soLieuHienThi(total, !!loadError)} mục</div>
                         )}
                       </div>
                     </div>
@@ -613,7 +621,7 @@ export default function DirectoriesPage() {
                   Hiển thị{' '}
                   <span className="font-medium">{(currentPage - 1) * PAGE_SIZE + 1}</span>–
                   <span className="font-medium">{Math.min(currentPage * PAGE_SIZE, total)}</span>{' '}
-                  trong tổng số <span className="font-medium">{total.toLocaleString('vi-VN')}</span> mục
+                  trong tổng số <span className="font-medium">{loadError ? '—' : total.toLocaleString('vi-VN')}</span> mục
                 </span>
                 <div className="flex items-center gap-2">
                   <button

@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { api } from '@/lib/api';
+import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { formatVNDate } from '../../lib/dates';
 import { useCatalog } from '@/hooks/useCatalog';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -472,6 +473,8 @@ export default function DocumentsPage() {
       return api.get(`/documents?${params}`).then((r) => r.data);
     },
   });
+  // Tải hỏng thì số đếm bên dưới vô nghĩa — che đi, đừng để nó đứng như một câu trả lời.
+  const coLoi = isError;
 
   // ── Fetch cases for FK select ──
   const { data: casesData, isLoading: loadingCases } = useQuery<{
@@ -622,7 +625,7 @@ export default function DocumentsPage() {
           <div className="border-b border-slate-200 px-6 py-4">
             <h2 className="font-semibold text-slate-800">Danh sách tài liệu</h2>
             <p className="text-sm text-slate-500 mt-0.5">
-              Tổng cộng {total} tài liệu
+              Tổng cộng {soLieuHienThi(total, coLoi)} tài liệu
             </p>
           </div>
 
