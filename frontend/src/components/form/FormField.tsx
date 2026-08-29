@@ -73,9 +73,13 @@ function FieldLabel({ label, required, htmlFor }: { label: string; required?: bo
 
 // ─── Error Message ──────────────────────────────────────────────────────────
 
-function FieldError({ error }: { error?: string }) {
+function FieldError({ error, id }: { error?: string; id?: string }) {
   if (!error) return null;
-  return <p className={FIELD_ERROR_TEXT} data-testid="field-error">{error}</p>;
+  return (
+    <p className={FIELD_ERROR_TEXT} id={id} data-testid="field-error">
+      {error}
+    </p>
+  );
 }
 
 // ─── FormInput ──────────────────────────────────────────────────────────────
@@ -96,6 +100,15 @@ export function FormInput({
   const hasIcon = !!icon;
   const inputClass = getInputClass(!!error, hasIcon);
   const id = useId();
+  // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
+  // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
+  // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
+  const errorId = error ? `${id}-loi` : undefined;
+  const aria = {
+    "aria-required": required || undefined,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": errorId,
+  } as const;
 
   const input = (
     <input
@@ -107,6 +120,7 @@ export function FormInput({
       placeholder={placeholder}
       min={min}
       data-testid={dataTestId}
+      {...aria}
     />
   );
 
@@ -121,7 +135,7 @@ export function FormInput({
       ) : (
         input
       )}
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </div>
   );
 }
@@ -144,6 +158,15 @@ export function FormSelect({
   const hasIcon = !!icon;
   const selectClass = getSelectClass(!!error, hasIcon);
   const id = useId();
+  // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
+  // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
+  // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
+  const errorId = error ? `${id}-loi` : undefined;
+  const aria = {
+    "aria-required": required || undefined,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": errorId,
+  } as const;
 
   const select = (
     <select
@@ -152,6 +175,7 @@ export function FormSelect({
       onChange={(e) => onChange(e.target.value)}
       className={selectClass}
       data-testid={dataTestId}
+      {...aria}
       autoFocus={autoFocus}
     >
       <option value="">{placeholder}</option>
@@ -174,7 +198,7 @@ export function FormSelect({
       ) : (
         select
       )}
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </div>
   );
 }
@@ -195,6 +219,15 @@ export function FormTextarea({
 }: TextareaFieldProps) {
   const hasIcon = !!icon;
   const id = useId();
+  // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
+  // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
+  // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
+  const errorId = error ? `${id}-loi` : undefined;
+  const aria = {
+    "aria-required": required || undefined,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": errorId,
+  } as const;
 
   return (
     <div className={getColSpanClass(colSpan)}>
@@ -210,6 +243,7 @@ export function FormTextarea({
             className={`${TEXTAREA_BASE} pl-9`}
             placeholder={placeholder}
             data-testid={dataTestId}
+            {...aria}
           />
         </div>
       ) : (
@@ -221,9 +255,10 @@ export function FormTextarea({
           className={TEXTAREA_BASE}
           placeholder={placeholder}
           data-testid={dataTestId}
+          {...aria}
         />
       )}
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </div>
   );
 }

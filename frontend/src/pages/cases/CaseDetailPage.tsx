@@ -578,10 +578,15 @@ function ConclusionModal({
   conclusion,
   onClose,
   onSave,
+  error = "",
+  saving = false,
 }: {
   conclusion: Conclusion | null;
   onClose: () => void;
   onSave: (c: Conclusion) => void;
+  /** Lý do máy chủ từ chối, do trang cha giữ — modal chỉ hiển thị. */
+  error?: string;
+  saving?: boolean;
 }) {
   const [form, setForm] = useState<Conclusion>(
     conclusion ?? {
@@ -676,16 +681,38 @@ function ConclusionModal({
             />
           </div>
         </div>
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy</button>
-          <button
-            onClick={() => onSave({ ...form, id: form.id || `KL-${Date.now()}` })}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium"
-            data-testid="btn-save-conclusion"
-          >
-            <Save className="w-4 h-4" />
-            {conclusion ? "Cập nhật" : "Lưu kết luận"}
-          </button>
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4">
+          {error && (
+            <div
+              data-testid="conclusion-error"
+              role="alert"
+              className="mb-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>
+                <strong className="font-medium">Chưa lưu được. </strong>
+                {error}
+              </span>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={() => onSave({ ...form, id: form.id || `KL-${Date.now()}` })}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium disabled:opacity-60"
+              data-testid="btn-save-conclusion"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "Đang lưu…" : conclusion ? "Cập nhật" : "Lưu kết luận"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -751,10 +778,24 @@ export default function CaseDetailPage() {
   const [conclusions, setConclusions] = useState<Conclusion[]>([]);
   const [loadingConclusions, setLoadingConclusions] = useState(false);
   const [showConclusionModal, setShowConclusionModal] = useState(false);
+  const [conclusionError, setConclusionError] = useState("");
+  const [conclusionSaving, setConclusionSaving] = useState(false);
   const [editingConclusion, setEditingConclusion] = useState<Conclusion | null>(null);
 
   // Supplementary Investigation state
   const [showSupplementModal, setShowSupplementModal] = useState(false);
+  const [supplementError, setSupplementError] = useState("");
+  /**
+   * Đóng popup bổ sung điều tra: xoá luôn lỗi cũ.
+   *
+   * Không có chỗ này thì lỗi của lần trước bám lại, và lần mở sau người dùng thấy ngay một
+   * thông báo đỏ về một lần lưu đã qua — trước cả khi họ bấm gì. Gom vào MỘT hàm để mọi nơi
+   * đóng đều sạch, thay vì bắt từng chỗ tự nhớ.
+   */
+  const closeSupplementModal = () => {
+    setShowSupplementModal(false);
+    setSupplementError("");
+  };
   const [supplementSaving, setSupplementSaving] = useState(false);
   const [supplementForm, setSupplementForm] = useState({
     type: "",
@@ -942,6 +983,10 @@ export default function CaseDetailPage() {
   };
 
   const handleSaveConclusion = async (c: Conclusion) => {
+    if (conclusionSaving) return;
+    setConclusionError("");
+    setConclusionSaving(true);
+    let daLuu = false;
     try {
       const STATUS_API_MAP: Record<string, string> = {
         [CONCLUSION_STATUS_LABEL[ConclusionStatus.DU_THAO]]: ConclusionStatus.DU_THAO,
@@ -963,15 +1008,28 @@ export default function CaseDetailPage() {
           status: STATUS_API_MAP[c.status] ?? ConclusionStatus.DU_THAO,
         });
       }
-      await fetchConclusions();
-    } catch {
-      // silently fail — keep UI state
-      setConclusions((prev) =>
-        editingConclusion ? prev.map((x) => (x.id === c.id ? c : x)) : [...prev, c]
-      );
+      // Máy chủ đã nhận. Từ đây trở đi mọi lỗi là lỗi LÀM MỚI DANH SÁCH, không phải lỗi lưu —
+      // gộp chung thì làm mới hỏng bị báo là lưu hỏng, popup mở lại, và bấm Lưu lần nữa sẽ tạo
+      // bản ghi TRÙNG vì lần đầu đã tới máy chủ rồi. Codex bắt đúng lớp này.
+      daLuu = true;
+    } catch (e) {
+      // KHÔNG chèn bản ghi vào danh sách và KHÔNG đóng popup.
+      //
+      // Bản trước làm đúng hai việc ấy: `catch` chèn kết luận vào `conclusions` rồi popup đóng
+      // vô điều kiện. Đo trên máy thật 29/08/2026 (chặn ghi trước khi tới máy chủ): nội dung
+      // vừa gõ HIỆN RA trên màn, không hộp thoại nào, không báo lỗi nào. Cán bộ tin rằng Kết
+      // luận điều tra đã lưu; tải lại trang thì mất.
+      //
+      // Tệ hơn lớp "báo thành công giả": chỗ kia chỉ NÓI thành công, chỗ này DỰNG RA kết quả.
+      setConclusionError(extractApiError(e, "Lưu kết luận thất bại. Vui lòng thử lại.").messages.join(", "));
+    } finally {
+      setConclusionSaving(false);
     }
-    setShowConclusionModal(false);
-    setEditingConclusion(null);
+    if (daLuu) {
+      setShowConclusionModal(false);
+      setEditingConclusion(null);
+      void fetchConclusions();
+    }
   };
 
   // Mở modal cập nhật tiến độ — khởi tạo từ caseData hiện tại
@@ -1006,6 +1064,7 @@ export default function CaseDetailPage() {
     if (!supplementForm.type || !supplementForm.decisionNumber || !supplementForm.reason) {
       return;
     }
+    setSupplementError("");
     setSupplementSaving(true);
     try {
       await api.post("/investigation-supplements", {
@@ -1019,7 +1078,11 @@ export default function CaseDetailPage() {
       setShowSupplementModal(false);
       setSupplementForm({ type: "", decisionNumber: "", decisionDate: "", reason: "", deadline: "" });
       fetchTimeline();
-    } catch {
+    } catch (e) {
+      // `catch` rỗng ở đây nghĩa là ghi hỏng mà không ai biết: popup đã đóng ở nhánh thành công
+      // nên nó ở lại, nhưng cán bộ không có manh mối nào vì sao bấm Lưu mà không có gì xảy ra —
+      // và sẽ bấm lại nhiều lần. Nói ra lý do máy chủ đưa.
+      setSupplementError(extractApiError(e, "Lưu quyết định thất bại. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setSupplementSaving(false);
     }
@@ -1526,7 +1589,7 @@ export default function CaseDetailPage() {
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-slate-800">Timeline tiến trình điều tra</h3>
           <button
-            onClick={() => setShowSupplementModal(true)}
+            onClick={() => { setSupplementError(""); setShowSupplementModal(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
             data-testid="btn-supplement-investigation"
           >
@@ -1824,7 +1887,9 @@ export default function CaseDetailPage() {
       {showConclusionModal && (
         <ConclusionModal
           conclusion={editingConclusion}
-          onClose={() => { setShowConclusionModal(false); setEditingConclusion(null); }}
+          error={conclusionError}
+          saving={conclusionSaving}
+          onClose={() => { setShowConclusionModal(false); setEditingConclusion(null); setConclusionError(""); }}
           onSave={handleSaveConclusion}
         />
       )}
@@ -1903,7 +1968,7 @@ export default function CaseDetailPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
             <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
               <h2 className="font-bold text-slate-800">Điều tra bổ sung / Điều tra lại</h2>
-              <button onClick={() => setShowSupplementModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <button onClick={closeSupplementModal} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-slate-600" />
               </button>
             </div>
@@ -1976,9 +2041,19 @@ export default function CaseDetailPage() {
               </div>
             </div>
 
+            {supplementError && (
+              <div
+                data-testid="supplement-error"
+                role="alert"
+                className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                <strong className="font-medium">Chưa lưu được. </strong>
+                {supplementError}
+              </div>
+            )}
             <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
               <button
-                onClick={() => setShowSupplementModal(false)}
+                onClick={closeSupplementModal}
                 className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 Hủy
