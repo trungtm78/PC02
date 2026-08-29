@@ -280,6 +280,10 @@ export default function RestorePage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500" data-testid="loading">Đang tải...</td></tr>
+              ) : loadError ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500" data-testid="error-row">
+                  Chưa hỏi được máy chủ — xem thông báo phía trên.
+                </td></tr>
               ) : rows.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500" data-testid="empty-state">
                   Không có {meta.entityLabel} nào đã bị xóa.

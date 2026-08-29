@@ -677,7 +677,7 @@ export default function WardCasesPage() {
                 <tr>
                   <td colSpan={9} className="px-4 py-16 text-center">
                     <Scale className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">Không tìm thấy vụ án nào</p>
+                    <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ án nào'}</p>
                     <p className="text-sm text-slate-400 mt-1">
                       Thử điều chỉnh bộ lọc hoặc kiểm tra phạm vi quyền truy cập
                     </p>

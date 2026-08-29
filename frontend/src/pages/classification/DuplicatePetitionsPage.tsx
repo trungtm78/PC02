@@ -555,7 +555,7 @@ export default function DuplicatePetitionsPage() {
         {!loading && filteredDuplicates.length === 0 && (
           <div className="text-center py-12">
             <Copy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">Không tìm thấy đơn trùng nào</p>
+            <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy đơn trùng nào'}</p>
           </div>
         )}
       </div>

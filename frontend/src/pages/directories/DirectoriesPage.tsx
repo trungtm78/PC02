@@ -512,9 +512,16 @@ export default function DirectoriesPage() {
                     <tr>
                       <td colSpan={7} className="py-12 text-center">
                         <FolderTree className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                        <p className="text-slate-600 font-medium mb-1">Chưa có danh mục nào</p>
+                        {/* "Chưa có danh mục nào" là một KHẲNG ĐỊNH — chỉ nói khi biết chắc.
+                            Đang lỗi mà vẫn nói câu ấy là trình bày một lần hỏi thất bại như
+                            một tập dữ liệu rỗng. */}
+                        <p className="text-slate-600 font-medium mb-1">
+                          {loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có danh mục nào'}
+                        </p>
                         <p className="text-sm text-slate-500">
-                          Nhấn "Thêm danh mục" hoặc "Seed dữ liệu mẫu"
+                          {loadError
+                            ? 'Xem thông báo phía trên rồi thử lại.'
+                            : 'Nhấn "Thêm danh mục" hoặc "Seed dữ liệu mẫu"'}
                         </p>
                       </td>
                     </tr>

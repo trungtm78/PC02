@@ -304,7 +304,7 @@ function InitialCasesPage() {
         ) : filteredData.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-lg text-slate-500 font-medium">Không có hồ sơ chờ xử lý</p>
+            <p className="text-lg text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có hồ sơ chờ xử lý'}</p>
             <p className="text-sm text-slate-400 mt-2">Tất cả hồ sơ đã được tiếp nhận hoặc thử điều chỉnh bộ lọc</p>
           </div>
         ) : (

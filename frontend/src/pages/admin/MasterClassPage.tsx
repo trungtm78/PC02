@@ -189,7 +189,7 @@ export default function MasterClassPage() {
           {loading ? (
             <div className="text-center py-12 text-slate-500">Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">Không có dữ liệu</div>
+            <div className="text-center py-12 text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có dữ liệu'}</div>
           ) : (
             <table className="w-full">
               <thead>
