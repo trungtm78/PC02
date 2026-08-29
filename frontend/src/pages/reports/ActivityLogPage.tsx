@@ -197,6 +197,10 @@ export default function ActivityLogPage() {
     return true;
   });
 
+  // Số 7 ở đây từng là hằng số viết thẳng trong JSX — nó không đổi dù dữ liệu có gì.
+  // Đếm từ chính các bản ghi đang hiện thì con số mới nói đúng thứ nó xưng.
+  const soLoaiThaoTac = new Set(filteredData.map((r) => r.actionType)).size;
+
   const handleResetFilters = () => {
     setFilters({
       quickSearch: "",
@@ -263,7 +267,7 @@ export default function ActivityLogPage() {
       view: <Eye className="w-3 h-3" />,
     };
 
-    return (
+  return (
       <span
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${styles[actionType]}`}
       >
@@ -351,7 +355,7 @@ export default function ActivityLogPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Loại thao tác</p>
-              <p className="text-3xl font-bold text-slate-800">7</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(soLoaiThaoTac, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-purple-600" />

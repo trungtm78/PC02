@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-08-25 after v0.73.0.0 (danh sách theo bố cục hệ cũ). Trước đó: 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -724,3 +724,26 @@ sử / Đề xuất sửa, và ô canh phải đều dựng được. Giữ riê
 phải dùng `ListPageShell.Table`, không tự dựng `<table>`, bật `onKeoGian`, có `datTongBeRong`
 (thiếu là bảng đổi bố cục cho cả người chưa hề kéo), có `<ColumnPicker>` + `onDoiCho`, và
 **mỗi màn một khoá bảng riêng** — trùng khoá là bố cục hai màn đè lên nhau.
+
+### Chip đếm: câu trả lời thứ BA (29/08/2026)
+
+`StatusChips` trước đây chỉ biết hai trạng thái — **đang hỏi** (`countsLoading` → chấm nhấp
+nháy) và **đã hỏi** (hiện con số). Không có chỗ nào cho **đã hỏi và hỏng**, nên các shell truyền
+`totalCount` bằng `data.length`, và khi máy chủ chết thì chip "Tất cả" ra **số 0**.
+
+Đo trên máy thật 29/08/2026, chặn `**/api/**`: `/objects` · `/people/suspects` ·
+`/people/victims` · `/people/witnesses` · `/lawyers` · `/uy-thac-dieu-tra` đều hiện `Tất cả 0`
+trong khi kho có hàng nghìn bản ghi. Số 0 ấy đọc như một câu trả lời chứ không đọc như sự cố.
+
+Thêm cờ **`countsUnknown`** → chip hiện dấu gạch. Sửa **một lần ở `StatusChips`**, không vá sáu
+màn: vá theo màn thì màn thứ bảy thêm sau này lại sót.
+
+| Shell | Truyền `countsUnknown` | Vì sao |
+|---|---|---|
+| `ObjectListPageShell` | `tableState === 'error'` | phục vụ cả 4 màn đối tượng/bị hại/nhân chứng/luật sư |
+| `UyThacDieuTraListPage` | `tableState === 'error'` | — |
+| `CaseListPageShell` · `IncidentListPageShell` · `PetitionListPageShell` | *không cần* | `countsLoading={stats == null}` vẫn đúng khi hỏng: `stats` ở lại `null` nên hiện chấm nhấp nháy, không hiện số |
+| `ComprehensiveListPageShell` | *không cần* | cùng lý do |
+
+Ghi bốn dòng cuối vì đó là **phần đã đo chứ không suy luận**: bốn shell ấy đúng sẵn, thêm cờ vào
+là thừa.

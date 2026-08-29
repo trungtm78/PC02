@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -221,6 +222,8 @@ export default function OverdueRecordsPage() {
     }
   };
 
+  // `error` bật nghĩa là danh sách rỗng KHÔNG phải câu trả lời — mọi con số dẫn xuất từ nó đều
+  // vô nghĩa, nên để dấu gạch thay vì số 0.
   const stats = [
     { label: "Tổng hồ sơ trễ hạn", value: filteredRecords.length, color: "red" },
     {
@@ -269,7 +272,7 @@ export default function OverdueRecordsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">{stat.label}</p>
-                <p className={`text-3xl font-bold text-${stat.color}-600`}>{stat.value}</p>
+                <p className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, Boolean(error))}</p>
               </div>
               <AlertTriangle className={`w-8 h-8 text-${stat.color}-600`} />
             </div>

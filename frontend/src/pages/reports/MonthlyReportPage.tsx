@@ -48,10 +48,10 @@ export default function MonthlyReportPage() {
   const chartData = reportData?.data ?? [];
 
   const stats = [
-    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? null, change: "+12%", color: "blue" },
-    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? null, change: "+8%", color: "purple" },
-    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? null, change: "+15%", color: "red" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, change: "+10%", color: "green" },
+    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? null, color: "blue" },
+    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? null, color: "purple" },
+    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? null, color: "red" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, color: "green" },
   ];
 
   return (
@@ -135,11 +135,12 @@ export default function MonthlyReportPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {stats.map((stat, index) => (
               <div key={index} className="bg-white border border-slate-200 rounded-lg p-6">
+                {/* Huy hiệu "+12%" ở đây từng là chuỗi viết cứng: nó hiện y hệt ở mọi tháng,
+                    mọi năm, mọi đơn vị, kể cả khi số liệu tải về bình thường. Máy chủ không trả
+                    số kỳ trước (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại) nên
+                    không tính được tỷ lệ thật — và một con số không tính được thì không hiện. */}
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-slate-600">{stat.label}</span>
-                  <span className={`text-xs font-medium px-2 py-1 bg-${stat.color}-100 text-${stat.color}-700 rounded`}>
-                    {stat.change}
-                  </span>
                 </div>
                 <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>

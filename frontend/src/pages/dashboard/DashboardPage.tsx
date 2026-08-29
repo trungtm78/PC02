@@ -54,6 +54,8 @@ interface StructureData {
   value: number;
 }
 
+import { CHUA_BIET } from '@/lib/soLieuHienThi';
+
 interface DashboardCharts {
   trends: TrendData[];
   structure: StructureData[];
@@ -62,7 +64,8 @@ interface DashboardCharts {
 // Stat Card Component
 interface StatCardProps {
   title: string;
-  value: number;
+  /** `null` = chưa hỏi được máy chủ. Khác hẳn số 0, và phải hiện khác. */
+  value: number | null;
   icon: React.ReactNode;
   color: string;
   testId: string;
@@ -82,7 +85,7 @@ function StatCard({ title, value, icon, color, testId, loading }: StatCardProps)
             <div className="h-9 w-16 bg-slate-100 animate-pulse rounded mt-2" />
           ) : (
             <p className="text-3xl font-bold text-slate-900 mt-2" data-testid={`${testId}-value`}>
-              {value.toLocaleString('vi-VN')}
+              {value === null ? CHUA_BIET : value.toLocaleString('vi-VN')}
             </p>
           )}
         </div>
@@ -140,28 +143,28 @@ export default function DashboardPage() {
   const statCards = [
     {
       title: 'Tổng hồ sơ',
-      value: stats?.totalCases ?? 0,
+      value: stats?.totalCases ?? null,
       icon: <FolderOpen className="w-6 h-6" />,
       color: COLORS.navy,
       testId: 'stat-total-cases',
     },
     {
       title: 'Hồ sơ mới',
-      value: stats?.newCases ?? 0,
+      value: stats?.newCases ?? null,
       icon: <FilePlus className="w-6 h-6" />,
       color: COLORS.gold,
       testId: 'stat-new-cases',
     },
     {
       title: 'Quá hạn',
-      value: stats?.overdueCases ?? 0,
+      value: stats?.overdueCases ?? null,
       icon: <AlertCircle className="w-6 h-6" />,
       color: '#EF4444',
       testId: 'stat-overdue-cases',
     },
     {
       title: 'Đã xử lý',
-      value: stats?.processedCases ?? 0,
+      value: stats?.processedCases ?? null,
       icon: <CheckCircle2 className="w-6 h-6" />,
       color: '#10B981',
       testId: 'stat-processed-cases',

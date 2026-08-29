@@ -18,6 +18,8 @@ import {
 } from '@/constants/styles';
 import { useListPageShellContext } from './ListPageShell';
 
+import { CHUA_BIET } from '@/lib/soLieuHienThi';
+
 export interface StatusChipOption {
   value: string;
   shortLabel: string;
@@ -34,6 +36,12 @@ export interface StatusChipsProps {
   /** Khi true, hiển thị skeleton thay vì count number. */
   countsLoading?: boolean;
   /**
+   * Đã hỏi và HỎNG. Khác `countsLoading` (đang hỏi) và khác count = 0 (đã hỏi, câu trả lời là
+   * không có gì). Đo trên máy thật 29/08/2026: chặn máy chủ thì chip "Tất cả" ra số 0 ở
+   * /objects · /people/* · /lawyers · /uy-thac-dieu-tra — số 0 ấy đọc như một câu trả lời.
+   */
+  countsUnknown?: boolean;
+  /**
    * Đang lọc theo NHÓM trạng thái (bấm thẻ thống kê) — lúc đó không status đơn lẻ nào
    * được chọn nên `activeValue` là null, và chip "Tất cả" sẽ sáng lên: đó là nói dối,
    * vì danh sách đang bị lọc. Cờ này tắt trạng thái sáng của chip "Tất cả".
@@ -47,6 +55,7 @@ export function StatusChips({
   onChange,
   totalCount,
   countsLoading,
+  countsUnknown = false,
   groupActive = false,
 }: StatusChipsProps) {
   const { tableId } = useListPageShellContext();
@@ -60,6 +69,13 @@ export function StatusChips({
           aria-hidden="true"
         >
           •
+        </span>
+      );
+    }
+    if (countsUnknown) {
+      return (
+        <span className={isActive ? STATUS_CHIP_COUNT_ACTIVE : STATUS_CHIP_COUNT_INACTIVE}>
+          {CHUA_BIET}
         </span>
       );
     }

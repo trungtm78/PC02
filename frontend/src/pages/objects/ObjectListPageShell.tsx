@@ -362,6 +362,7 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
           onChange={handleStatusChange}
           totalCount={totalCount}
           countsLoading={tableState === 'loading'}
+          countsUnknown={tableState === 'error'}
         />
         <ListPageShell.Toolbar
           searchValue={searchQuery}

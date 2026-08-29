@@ -575,3 +575,28 @@ Hạng lỗi này tệ hơn hạng đã vá ở #333.
 Cổng lớp `congSoLieuKhiTaiHong` phải **nới từ vựng** (`isError` cũng là phép xét lỗi, các trang
 react-query dùng nó) và **im bớt** (`label:`/`value:` là nhãn danh mục, không phải câu trả lời).
 Cả hai lần nới đều gieo lỗi lại để chứng minh cổng còn răng.
+
+### Vòng đo lại lần ba — bộ dò có cấu trúc, và phát hiện nặng nhất cả đợt
+
+Thay phép đo bằng bộ dò có cấu trúc (mỗi màn: có tín hiệu lỗi không · các ô chữ to đậm hiện gì).
+Kết quả **49/54 màn báo lỗi**; 5 màn còn lại **không báo là đúng** — `/journey` (chưa gõ thì chưa
+hỏi), `/reports/stat48` và `/phu-luc-1-6` (phải bấm mới tải), `/settings` và
+`/admin/di-tru-du-lieu` (trang tĩnh). Tức lớp "tải hỏng khác rỗng" đã đóng.
+
+Nhưng bộ dò phơi ra một hạng khác, và đây là thứ nặng nhất cả đợt:
+
+```
+MonthlyReportPage.tsx:51   change: "+12%"    ← chuỗi viết cứng
+QuarterlyReportPage.tsx:61 change: "+18%"    ← chuỗi viết cứng
+ActivityLogPage.tsx:354    <p …>7</p>        ← hằng số trong JSX
+```
+
+Máy chủ **không trả số kỳ trước** (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại), nên
+các tỷ lệ ấy không thể tính ra được từ đâu. Chúng **sai kể cả khi mọi thứ chạy tốt**: mở báo cáo
+tháng bất kỳ, năm bất kỳ, đơn vị bất kỳ — vẫn "+12%". Khác hẳn mọi thứ đã vá trước đó, vốn chỉ
+sai trên đường thất bại. Đã gỡ huy hiệu; muốn có tỷ lệ thật thì máy chủ phải trả thêm số kỳ
+trước — **chờ anh quyết**.
+
+Kèm theo: ba màn còn hiện số 0 cạnh câu báo lỗi (`/dashboard`, `/settings/overdue-records`,
+`/activity-log`), năm màn còn nói câu "chưa có gì" cạnh câu báo lỗi, và chip "Tất cả 0" ở bốn
+màn — chỗ cuối sửa **một lần ở `StatusChips`** bằng cờ `countsUnknown`, không vá bốn nơi.
