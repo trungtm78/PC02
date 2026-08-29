@@ -26,6 +26,7 @@ import {
 import { authStore } from "@/stores/auth.store";
 import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { useLuotNap } from "@/hooks/useLuotNap";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
@@ -142,7 +143,9 @@ export default function WardCasesPage() {
     }
   }, []);
 
+  const { batDau } = useLuotNap();
   const fetchData = useCallback(async () => {
+    const conMoiNhat = batDau();
     setLoading(true);
     setLoadError("");
     try {
@@ -150,6 +153,7 @@ export default function WardCasesPage() {
       if (filters.districtId) params.set("districtId", filters.districtId);
       if (filters.wardId) params.set("wardId", filters.wardId);
       const res = await api.get(`/cases?${params}`);
+      if (!conMoiNhat()) return;
       const mapped: WardCase[] = (res.data.data ?? []).map((c: any, i: number) => ({
         id: c.id,
         stt: i + 1,
@@ -179,6 +183,7 @@ export default function WardCasesPage() {
       }));
       setAllData(mapped);
     } catch (e) {
+      if (!conMoiNhat()) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
       // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setAllData([]);

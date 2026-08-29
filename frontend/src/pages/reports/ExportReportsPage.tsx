@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { extractApiError } from "@/lib/api-errors";
 import { api } from "@/lib/api";
+import { useLuotNap } from "@/hooks/useLuotNap";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate, toDateInput } from "@/lib/dates";
@@ -85,7 +86,9 @@ export default function ExportReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { batDau } = useLuotNap();
   const fetchPetitions = useCallback(async () => {
+    const conMoiNhat = batDau();
     setLoading(true);
     setLoadError("");
     try {
@@ -95,6 +98,7 @@ export default function ExportReportsPage() {
       });
       if (searchQuery) params.set("search", searchQuery);
       const res = await api.get(`/petitions?${params}`);
+      if (!conMoiNhat()) return;
       const data = (res.data.data ?? []).map((p: any) => ({
         id: p.id,
         documentNumber: p.stt ?? "",
@@ -109,6 +113,7 @@ export default function ExportReportsPage() {
       setPetitions(data);
       setTotalCount(res.data.total ?? data.length);
     } catch (e) {
+      if (!conMoiNhat()) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
       // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
       setPetitions([]);

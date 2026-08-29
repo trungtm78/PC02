@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Database,
   FolderTree,
@@ -163,7 +163,19 @@ export default function DirectoriesPage() {
 
   // ─── Load data ─────────────────────────────────────────────────────────────
 
+  /**
+   * Mã lượt nạp — chỉ lượt MỚI NHẤT được phép ghi vào state.
+   *
+   * Đổi loại danh mục / gõ tìm kiếm nhanh thì nhiều lượt nạp chạy song song. Trước đây `catch`
+   * im lặng nên một lượt cũ hỏng muộn là vô hại. Từ khi `catch` dọn dữ liệu và báo lỗi, lượt cũ
+   * hỏng muộn sẽ XOÁ kết quả của lượt mới đã xong và bày lỗi cho một câu hỏi người dùng không
+   * còn xem — tức bản vá tự tạo ra một cuộc đua.
+   */
+  const luotNap = useRef(0);
+
   const loadItems = useCallback(async () => {
+    const luot = ++luotNap.current;
+    const conMoiNhat = () => luot === luotNap.current;
     setLoading(true);
     setLoadError("");
     try {
@@ -174,6 +186,7 @@ export default function DirectoriesPage() {
       if (drillParentId) params.parentId = drillParentId;
       else if (filterParentId) params.parentId = filterParentId;
       const res = await api.get('/directories', { params });
+      if (!conMoiNhat()) return;
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
     } catch (e) {
@@ -182,11 +195,12 @@ export default function DirectoriesPage() {
       //
       // Dọn luôn dữ liệu cũ: giữ lại hàng của truy vấn TRƯỚC trong khi báo lỗi cho truy vấn SAU
       // là bày ra dữ liệu thuộc một câu hỏi khác — và cán bộ bấm sửa/xoá ngay trên đó được.
+      if (!conMoiNhat()) return;
       setItems([]);
       setTotal(0);
       setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (conMoiNhat()) setLoading(false);
     }
   }, [activeType, searchQuery, filterStatus, currentPage, drillParentId, filterParentId]);
 
