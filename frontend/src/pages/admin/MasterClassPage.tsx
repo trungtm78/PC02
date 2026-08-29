@@ -153,10 +153,15 @@ export default function MasterClassPage() {
         </div>
       </div>
 
-      <LoadErrorBanner error={loadError} what="danh mục" data-testid="master-class-load-error" />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Khối báo tải hỏng nằm TRONG cột nội dung: khung ngoài là `flex` ngang, đặt ở đó
+            thì banner thành một cột chen giữa thanh trái và bảng. */}
+        <div className="px-6 pt-4">
+          <LoadErrorBanner error={loadError} what="danh mục" data-testid="master-class-load-error" />
+        </div>
+
         {/* Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
           <div>
