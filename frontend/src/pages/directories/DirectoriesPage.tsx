@@ -179,6 +179,11 @@ export default function DirectoriesPage() {
     } catch (e) {
       // "silently fail" ở đây nghĩa là màn hình khẳng định "0 mục" cho danh mục đang chọn —
       // một câu trả lời dứt khoát về thứ chưa hề hỏi được máy chủ.
+      //
+      // Dọn luôn dữ liệu cũ: giữ lại hàng của truy vấn TRƯỚC trong khi báo lỗi cho truy vấn SAU
+      // là bày ra dữ liệu thuộc một câu hỏi khác — và cán bộ bấm sửa/xoá ngay trên đó được.
+      setItems([]);
+      setTotal(0);
       setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     } finally {
       setLoading(false);
