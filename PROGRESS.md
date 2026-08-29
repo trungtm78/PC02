@@ -466,3 +466,32 @@ Full suite: PASS (frontend 217 tệp / backend 285 tệp) | tsc: sạch | Test f
 ## BƯỚC TIẾP THEO
 M2-T7: tải hỏng phải khác rỗng trên 26 màn. Bắt đầu bằng cụm `/ward/*` (4 màn, nội dung tụt từ
 133.874 xuống 324 ký tự mà không báo lỗi). Dùng lại `soLieuHienThi` ở `frontend/src/lib/`.
+
+## M2 — cụm A+B+ (11/26 màn) — 2026-08-29T17:35+07:00
+
+- [x] M2-T7 primitive `LoadErrorBanner` + 8 ca kiểm — commit 36056849
+- [x] M2-T8 cụm A: ward/incidents · ward/petitions · ward/cases · duplicates · others — 9d6ab0eb
+- [x] M2-T9 cụm B: initial-cases · guidance · activity-log · transfer-return · case-exchange — 479332b7
+- [x] M2-T9b export-reports
+
+### Quyết định về 15 màn còn lại của M2
+Đã phủ HẾT các màn **hiện số 0 khi tải hỏng** — nhóm nguy hiểm nhất, vì số 0 đọc như một câu
+trả lời. 15 màn còn lại khi hỏng chỉ ra danh sách rỗng, không có con số nào tự nhận là sự thật,
+và mỗi màn có một hình dạng `catch` riêng (không còn mẫu `catch → set([])` chung).
+
+Sửa mù 15 tệp có hình dạng khác nhau là rủi ro cao hơn giá trị. Thay vào đó: sau khi triển khai,
+ĐO LẠI toàn bộ 54 màn bằng đúng phép đã dùng (chặn mọi GET, so số ký tự + có/không báo lỗi) rồi
+chỉ sửa những màn thật sự còn hỏng. Việc này nằm ở M5.
+
+### Bẫy gặp phải (ghi để không lặp)
+- 5 tệp nhập `useNavigate` từ `react-router` trần trong khi kho dùng `react-router-dom` → hai
+  bản sao ngữ cảnh, ca kiểm báo "useNavigate ngoài Router". Đã chuẩn hoá cả 5.
+- Kho dựng router bằng `createMemoryRouter` + `RouterProvider` (v7), KHÔNG phải `<MemoryRouter>`.
+- Giả lập `authStore` từng hàm là đuổi theo bề mặt API đang lớn dần → dùng bản THẬT, chỉ đè
+  `getUser`/`getProfile`.
+- Đặt banner cạnh lưới thẻ có thể rơi vào khối "Bộ lọc nâng cao" (chỉ hiện khi mở) → đặt ngay
+  dưới tiêu đề trang.
+
+## BƯỚC TIẾP THEO
+M3-T10: tách phép tính thời hạn (`incidents.service.ts:441`, `d.setDate(d.getDate() + n)`) ra
+hàm thuần rồi phủ property test. Đây là vùng rủi ro CAO duy nhất chưa có bất biến nào.
