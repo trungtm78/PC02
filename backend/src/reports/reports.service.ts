@@ -113,28 +113,51 @@ function giaoVoiKy(dau: Date, cuoi: Date, ky: Ky): { tu: Date; den: Date } | nul
   return tu <= den ? { tu, den } : null;
 }
 
+interface OBieuDo {
+  nam: number;
+  so: number;
+  tu: Date;
+  den: Date;
+}
+
 /**
- * Những THÁNG mà biểu đồ nên vẽ cho kỳ đang chọn.
+ * Những ô THÁNG mà biểu đồ nên vẽ, sinh TỪ CHÍNH KỲ chứ không từ năm được chọn.
  *
- * Trước đây biểu đồ luôn vẽ 12 tháng khi không chọn tháng cụ thể. Nên tệp Excel xuất cho "lũy kế
- * 8 tháng" ghi đủ 12 dòng tháng trong khi dòng TỔNG chỉ là 8 tháng — một tệp tự mâu thuẫn, và
- * người nhận tệp không có màn hình để đối chiếu.
+ * Hai lỗi đã đi qua đây, cả hai đều làm các ô không cộng ra dòng tổng:
+ *
+ *   1. Ô đếm TRỌN tháng trong khi kỳ chỉ là 05/03–20/05 → nay đếm phần giao.
+ *   2. Ô chỉ sinh trong `năm` được chọn, nên khoảng 01/11/2025–28/02/2026 ra bốn tháng ở dòng
+ *      tổng nhưng chỉ hai ô trên biểu đồ — và một khoảng nằm trọn năm 2025 thì KHÔNG ô nào.
+ *
+ * Cả hai đều là cùng một hình dạng: ô và tổng dựng từ hai nguồn khác nhau. Nay chỉ một nguồn.
  */
-function thangTrongKy(ky: Ky, nam: number): Array<{ so: number; tu: Date; den: Date }> {
-  const ra: Array<{ so: number; tu: Date; den: Date }> = [];
-  for (let m = 1; m <= 12; m++) {
-    const g = giaoVoiKy(new Date(nam, m - 1, 1), new Date(nam, m, 0, 23, 59, 59, 999), ky);
-    if (g) ra.push({ so: m, ...g });
+function thangTrongKy(ky: Ky): OBieuDo[] {
+  const ra: OBieuDo[] = [];
+  const d = new Date(ky.tu.getFullYear(), ky.tu.getMonth(), 1);
+  while (d <= ky.den) {
+    const g = giaoVoiKy(
+      new Date(d.getFullYear(), d.getMonth(), 1),
+      new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999),
+      ky,
+    );
+    if (g) ra.push({ nam: d.getFullYear(), so: d.getMonth() + 1, ...g });
+    d.setMonth(d.getMonth() + 1);
   }
   return ra;
 }
 
 /** Như `thangTrongKy`, cho quý. */
-function quyTrongKy(ky: Ky, nam: number): Array<{ so: number; tu: Date; den: Date }> {
-  const ra: Array<{ so: number; tu: Date; den: Date }> = [];
-  for (let q = 1; q <= 4; q++) {
-    const g = giaoVoiKy(new Date(nam, (q - 1) * 3, 1), new Date(nam, q * 3, 0, 23, 59, 59, 999), ky);
-    if (g) ra.push({ so: q, ...g });
+function quyTrongKy(ky: Ky): OBieuDo[] {
+  const ra: OBieuDo[] = [];
+  const d = new Date(ky.tu.getFullYear(), Math.floor(ky.tu.getMonth() / 3) * 3, 1);
+  while (d <= ky.den) {
+    const g = giaoVoiKy(
+      new Date(d.getFullYear(), d.getMonth(), 1),
+      new Date(d.getFullYear(), d.getMonth() + 3, 0, 23, 59, 59, 999),
+      ky,
+    );
+    if (g) ra.push({ nam: d.getFullYear(), so: Math.floor(d.getMonth() / 3) + 1, ...g });
+    d.setMonth(d.getMonth() + 3);
   }
   return ra;
 }
@@ -270,7 +293,7 @@ export class ReportsService {
     tuyChon?: TuyChonKy,
   ) {
     const kyChon = chonKy(year, month, tuyChon, (n, m) => kyThang(n, m));
-    const months = thangTrongKy(kyChon, year);
+    const months = thangTrongKy(kyChon);
 
     const data = await Promise.all(
       // Ô biểu đồ đếm phần GIAO với kỳ đang chọn, không đếm trọn tháng.
@@ -279,7 +302,7 @@ export class ReportsService {
       // con số trên cùng một tệp không cộng ra nhau, và người đọc không có cách nào biết bên
       // nào đúng.
       months.map(async (m) => ({
-        month: `T${m.so}/${year}`,
+        month: `T${m.so}/${m.nam}`,
         ...(await this.demTrongKhoang(m.tu, m.den)),
       })),
     );
@@ -336,12 +359,12 @@ export class ReportsService {
     tuyChon?: TuyChonKy,
   ) {
     const kyChon = chonKy(year, quarter, tuyChon, (n, q) => kyQuy(n, q));
-    const quarters = quyTrongKy(kyChon, year);
+    const quarters = quyTrongKy(kyChon);
 
     const data = await Promise.all(
       // Xem chú thích cùng nội dung ở `getMonthly`.
       quarters.map(async (q) => ({
-        quarter: `Q${q.so}/${year}`,
+        quarter: `Q${q.so}/${q.nam}`,
         ...(await this.demTrongKhoang(q.tu, q.den)),
       })),
     );

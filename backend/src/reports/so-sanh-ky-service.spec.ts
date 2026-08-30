@@ -382,6 +382,31 @@ describe('ReportsService — ô biểu đồ CẮT theo kỳ, không đếm tr�
     expect(khoang).not.toContain('2026-03-01..2026-03-31');
   });
 
+  /**
+   * Codex bắt: ô biểu đồ chỉ sinh trong NĂM được chọn, nên khoảng 01/11/2025–28/02/2026 ra bốn
+   * tháng ở dòng tổng nhưng chỉ HAI ô trên biểu đồ — và một khoảng nằm trọn năm 2025 thì không
+   * ô nào. Ô và tổng dựng từ hai nguồn khác nhau thì sớm muộn cũng lệch.
+   */
+  it('khoảng bắc qua HAI NĂM: đủ bốn ô, mỗi ô mang năm của chính nó', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', {
+      tu: '2025-11-01',
+      den: '2026-02-28',
+    });
+    jest.useRealTimers();
+    expect(kq.data.map((r) => r.month)).toEqual(['T11/2025', 'T12/2025', 'T1/2026', 'T2/2026']);
+  });
+
+  it('khoảng nằm TRỌN ngoài năm được chọn vẫn ra ô, không rỗng', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', {
+      tu: '2024-05-01',
+      den: '2024-06-30',
+    });
+    jest.useRealTimers();
+    expect(kq.data.map((r) => r.month)).toEqual(['T5/2024', 'T6/2024']);
+  });
+
   it('kỳ trọn tháng thì ô không bị cắt — không thu hẹp nhầm', async () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
     await svc.getMonthly(2026, 3, 'KHONG');
