@@ -48,6 +48,13 @@ export default function QuarterlyReportPage() {
   const [isExportingQuarterly, setIsExportingQuarterly] = useState(false);
 
   const fetchReport = useCallback(async () => {
+    // Khoảng tự chọn còn thiếu một đầu thì KHÔNG hỏi máy chủ. Hỏi thì nhận về CẢ NĂM, và màn
+    // hình hiện số cả năm dưới ô đang ghi "khoảng tự chọn" — đúng lớp lỗi "màn nói một kỳ, số
+    // là kỳ khác" mà cả đợt này đi vá.
+    if (!kyDuDeXuat(ky)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError("");
     try {
@@ -174,6 +181,15 @@ export default function QuarterlyReportPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="báo cáo quý" data-testid="quarterly-report-load-error" />
+      {!kyDuDeXuat(ky) && (
+        <div
+          className="mb-4 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          data-testid="thieu-ngay-khoang"
+        >
+          Chọn đủ <strong>ngày đầu</strong> và <strong>ngày cuối</strong> để xem số liệu của
+          khoảng tự chọn.
+        </div>
+      )}
       {!loadError && nhacDoDang && (
         <div
           className="mb-4 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"

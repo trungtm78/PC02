@@ -182,6 +182,29 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
   });
 
+  /**
+   * Tự soát bắt, sau khi Codex đã chỉ chỗ tương tự ở nút Xuất: khoảng tự chọn thiếu một đầu thì
+   * `thamSoKy` trả `{}`, nên máy chủ hiểu là CẢ NĂM và màn hình hiện số cả năm dưới ô đang ghi
+   * "khoảng tự chọn". Đúng lớp lỗi "màn nói một kỳ, số là kỳ khác".
+   *
+   * Không hỏi máy chủ là câu trả lời đúng: chưa đủ thông tin thì chưa có gì để hiện.
+   */
+  it('khoảng tự chọn thiếu một đầu → KHÔNG hỏi máy chủ, và nói rõ còn thiếu gì', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    const truoc = vi.mocked(api.get).mock.calls.length;
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    fireEvent.change(screen.getByTestId('ky-tu'), { target: { value: '2026-03-01' } });
+
+    expect(await screen.findByTestId('thieu-ngay-khoang')).toBeInTheDocument();
+    expect(vi.mocked(api.get).mock.calls.length).toBe(truoc);
+
+    fireEvent.change(screen.getByTestId('ky-den'), { target: { value: '2026-05-31' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.tu).toBe('2026-03-01'));
+    expect(screen.queryByTestId('thieu-ngay-khoang')).not.toBeInTheDocument();
+  });
+
   it('nền so sánh mặc định là CÙNG KỲ NĂM TRƯỚC, theo quy ước báo cáo ngành', async () => {
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('CUNG_KY_NAM_TRUOC'));
