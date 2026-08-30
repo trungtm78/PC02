@@ -182,6 +182,25 @@ describe('chay — sổ mang đủ khoá để khách hàng đối chiếu', () 
     });
   });
 
+  /**
+   * `stt` và `nam` nằm trong JSON hệ cũ dưới dạng SỐ, không phải chuỗi. Bản đầu của hàm đọc chỉ
+   * nhận `string` nên trả `null` cho cả 46.580 hồ sơ — danh sách xuất ra vẫn "chạy đúng", chỉ là
+   * HAI CỘT QUAN TRỌNG NHẤT với người xác nhận thì trống trơn.
+   *
+   * Chạy khô trên máy thật mới lộ ra; không ca kiểm nào bắt được vì bộ dữ liệu mẫu của em dùng
+   * chuỗi.
+   */
+  it('đọc được STT và NĂM khi chúng là SỐ trong JSON hệ cũ', async () => {
+    const { p } = prismaGia([
+      tao('trả đơn', {
+        legacyRaw: { ket_qua_xu_ly_giai_quyet_khac: 'trả đơn', stt: 80, nam: 2019 },
+      }),
+    ]);
+    const kq = await chay(p, false);
+    expect(kq.ap[0].sttCu).toBe('80');
+    expect(kq.ap[0].namCu).toBe('2019');
+  });
+
   it('hồ sơ không có ô kết quả thì bỏ qua hẳn, không vào sổ', async () => {
     const { p, soGhi } = prismaGia([tao('   ')]);
     const kq = await chay(p, false);
