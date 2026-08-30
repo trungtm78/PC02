@@ -649,3 +649,30 @@ Mọi trường cũ giữ nguyên; `soSanh` là trường THÊM. Màn hình bả
 
 `?soSanh=` đã nhận `KY_LIEN_TRUOC` và `KHONG` — chỉ cần một ô chọn trên giao diện là dùng được.
 Chưa dựng ô ấy vì chưa có yêu cầu; hạ tầng thì đã sẵn.
+
+### Báo cáo đang đếm NGÀY NHẬP MÁY, không phải ngày tiếp nhận
+
+Phép đo trên máy thật sau khi hạ tầng so sánh kỳ lên prod phơi ra thứ lớn hơn cả huy hiệu bịa:
+huy hiệu nói *"năm 2025 không có hồ sơ nào"* trong khi kho đang giữ hồ sơ từ 2006.
+
+Đo ngày 30/08/2026 trên CSDL thật:
+
+| Bảng | Số bản ghi | `createdAt` | Cột ngày nghiệp vụ | Phủ |
+|---|---:|---|---|---:|
+| petitions | 46.741 | **2026 → 2026** | `receivedDate` (225 → 2029) | **100%** |
+| incidents | 4.723 | **2026 → 2026** | `ngayDeXuat` (2006 → 2036) | **100%** |
+| cases | 3.381 | **2026 → 2026** | `receiveDate` (226 → 2026) | **98,8%** |
+
+`createdAt` là ngày NHẬP MÁY. Sau đợt di trú, mọi hồ sơ từ 2006 tới nay đều mang `createdAt`
+năm 2026 — nên biểu đồ 12 tháng dồn cục vào tháng di trú, và so cùng kỳ luôn ra 0.
+
+Chọn cột theo **số đo phủ**, không theo tên nghe hay: loại `incident.ngayTiepNhanNguonTin` (64%)
+và `case.ngay_tiep_nhan` (57%) — chọn cột phủ thấp là lặng lẽ đánh rơi một phần ba số hồ sơ.
+
+**"Đã giải quyết" vẫn đếm theo `updatedAt`** vì KHÔNG có cột ngày giải quyết dùng được:
+`cases.ngay_tra_ket_qua` rỗng **0/3.381**, incidents/petitions không có cột tương đương. Ghim
+bằng ca kiểm riêng để phân biệt "cố ý" với "bỏ sót". Muốn đúng thì phải thêm cột — **chờ anh**.
+
+Đổi cột làm một số hồ sơ rơi ra khỏi mọi kỳ (42 vụ án thiếu ngày, 2 hồ sơ năm rác). Con số nhỏ,
+nhưng **một hồ sơ không lọt vào báo cáo nào là một hồ sơ vô hình** — nên trả về `khongCoNgay` và
+hiện thẳng trên màn.
