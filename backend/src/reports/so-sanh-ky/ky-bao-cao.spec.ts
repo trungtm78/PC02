@@ -112,6 +112,11 @@ describe('Cắt kỳ nền theo tiến độ', () => {
     expect(catTheoTienDo(nen, 31)).toEqual(nen);
   });
 
+  it('cắt 0 ngày thì NÉM LỖI — không trả về một kỳ rỗng trông như kỳ thật', () => {
+    expect(() => catTheoTienDo(kyThang(2025, 8), 0)).toThrow();
+    expect(() => catTheoTienDo(kyThang(2025, 8), -3)).toThrow();
+  });
+
   it('nhãn nói rõ đã bị cắt — để không ai tưởng đang so với cả tháng', () => {
     expect(catTheoTienDo(kyThang(2025, 8), 10).nhan).toBe('tháng 8/2025 (10 ngày đầu)');
   });

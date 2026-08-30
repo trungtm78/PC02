@@ -135,3 +135,43 @@ describe('dungSoSanh — chỉ tiêu thiếu ở kỳ nền', () => {
     expect(kq.chiTieu.donThu.lyDoKhongCoTyLe).toBe('NEN_BANG_KHONG');
   });
 });
+
+describe('dungSoSanh — kỳ nằm ở TƯƠNG LAI', () => {
+  /**
+   * Codex bắt. API cho phép hỏi tháng 12 khi mới tháng 8. Kỳ ấy chưa trôi ngày nào, nhưng phép
+   * cắt cũ đặt `den = tu` — và bộ lọc Prisma dùng `gte`/`lte` nên vẫn ĐẾM ĐƯỢC bản ghi ở đúng
+   * thời khắc 00:00:00.000 ngày đầu kỳ nền. Kết quả: một kỳ chưa bắt đầu vẫn có nền khác 0 và
+   * vẫn ra chênh lệch — một con số hoàn toàn vô nghĩa, trình bày y như số thật.
+   *
+   * Câu trả lời đúng không phải "cắt cho nhỏ lại" mà là "KHÔNG CÓ NỀN": chưa có ngày nào trôi
+   * thì không có gì để so.
+   */
+  it('kỳ chưa bắt đầu thì KHÔNG hỏi kỳ nền, và không đưa ra chênh lệch nào', async () => {
+    const { dem, daHoi } = boDemGia({ donThu: 999 });
+    const kq = await dungSoSanh(
+      kyThang(2026, 12),
+      dem,
+      { donThu: 0 },
+      undefined,
+      new Date(2026, 7, 15),
+    );
+    expect(daHoi).toHaveLength(0);
+    expect(kq.nen).toBeNull();
+    expect(kq.chiTieu.donThu.chenhLech).toBeNull();
+    expect(kq.chiTieu.donThu.lyDoKhongCoTyLe).toBe('KHONG_CO_NEN');
+  });
+
+  it('ngày ĐẦU TIÊN của kỳ thì đã có nền — ranh giới không lệch một ngày', async () => {
+    const { dem, daHoi } = boDemGia({ donThu: 5 });
+    const kq = await dungSoSanh(
+      kyThang(2026, 8),
+      dem,
+      { donThu: 2 },
+      undefined,
+      new Date(2026, 7, 1, 0, 30),
+    );
+    expect(daHoi).toHaveLength(1);
+    expect(kq.soNgayDaTroi).toBe(1);
+    expect(kq.nen).not.toBeNull();
+  });
+});

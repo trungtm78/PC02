@@ -22,8 +22,15 @@ import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { HuyHieuSoSanh } from "@/components/shared/HuyHieuSoSanh";
 import { nhacKyChuaTron, type KhoiSoSanh } from "@/lib/soSanhKy";
 
+/** Quý viết bằng chữ số La Mã, đúng lối văn bản hành chính. */
+const SO_LA_MA = ['I', 'II', 'III', 'IV'];
+
 export default function QuarterlyReportPage() {
-  const [selectedQuarter, setSelectedQuarter] = useState("Q1-2026");
+  /**
+   * `null` = cả năm. Trước đây là chuỗi "Q1-2026" TỰ MANG NĂM của nó, tách rời khỏi ô chọn năm
+   * bên cạnh — chọn năm 2024 mà vẫn xuất Excel quý I năm 2026. Một kỳ, một nguồn sự thật.
+   */
+  const [quyChon, setQuyChon] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
   const [loadError, setLoadError] = useState("");
@@ -34,7 +41,9 @@ export default function QuarterlyReportPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const res = await api.get(`/reports/quarterly?year=${selectedYear}`);
+      const res = await api.get('/reports/quarterly', {
+        params: { year: selectedYear, ...(quyChon ? { quarter: quyChon } : {}) },
+      });
       // Backend /reports/quarterly returns raw `{data, totals}` — no envelope wrap.
       // Do NOT add `.data.data` here. See reports.controller.ts:112.
       setReportData(res.data);
@@ -46,7 +55,7 @@ export default function QuarterlyReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear]);
+  }, [selectedYear, quyChon]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
@@ -80,17 +89,22 @@ export default function QuarterlyReportPage() {
           </div>
           <div className="flex items-center gap-3">
             <select
-              value={selectedQuarter}
-              onChange={(e) => setSelectedQuarter(e.target.value)}
+              data-testid="chon-quy"
+              aria-label="Chọn kỳ báo cáo"
+              value={quyChon ?? ''}
+              onChange={(e) => setQuyChon(e.target.value === '' ? null : Number(e.target.value))}
               className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
             >
-              <option value="Q1-2025">Quý I/2025</option>
-              <option value="Q2-2025">Quý II/2025</option>
-              <option value="Q3-2025">Quý III/2025</option>
-              <option value="Q4-2025">Quý IV/2025</option>
-              <option value="Q1-2026">Quý I/2026</option>
+              <option value="">Cả năm {selectedYear}</option>
+              {SO_LA_MA.map((la, i) => (
+                <option key={la} value={i + 1}>
+                  Quý {la}/{selectedYear}
+                </option>
+              ))}
             </select>
             <select
+              data-testid="chon-nam"
+              aria-label="Chọn năm"
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
@@ -103,17 +117,16 @@ export default function QuarterlyReportPage() {
               onClick={async () => {
                 setIsExportingQuarterly(true);
                 try {
-                  // selectedQuarter format: "Q1-2026" → quarter=1, year=2026
-                  const [qPart, yrPart] = selectedQuarter.split('-');
-                  const quarter = qPart.replace('Q', '');
                   const response = await api.get('/reports/quarterly/export', {
-                    params: { year: yrPart ?? selectedYear, quarter },
+                    params: { year: selectedYear, ...(quyChon ? { quarter: quyChon } : {}) },
                     responseType: 'blob',
                   });
                   const url = URL.createObjectURL(new Blob([response.data]));
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `BaoCao_Quy${quarter}_${yrPart ?? selectedYear}.xlsx`;
+                  a.download = quyChon
+                    ? `BaoCao_Quy${SO_LA_MA[quyChon - 1]}_${selectedYear}.xlsx`
+                    : `BaoCao_CaNam_${selectedYear}.xlsx`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
@@ -124,6 +137,7 @@ export default function QuarterlyReportPage() {
                   setIsExportingQuarterly(false);
                 }
               }}
+              data-testid="xuat-excel"
               disabled={isExportingQuarterly}
               className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -250,7 +264,12 @@ export default function QuarterlyReportPage() {
           {/* Detailed Table */}
           <div className="bg-white border border-slate-200 rounded-lg">
             <div className="p-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800">Chi tiết báo cáo {selectedQuarter}</h3>
+              <h3 className="text-lg font-bold text-slate-800" data-testid="tieu-de-ky">
+                {/* Nhãn kỳ lấy TỪ MÁY CHỦ — cùng nguồn với các con số bên dưới. */}
+                Chi tiết báo cáo{' '}
+                {soSanh?.ky?.nhan ??
+                  (quyChon ? `quý ${SO_LA_MA[quyChon - 1]}/${selectedYear}` : `năm ${selectedYear}`)}
+              </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

@@ -114,7 +114,12 @@ export function kyChuaTron(ky: Ky, moc: Date): boolean {
  * Kẹp ở `den` của kỳ nền: tháng 2/2028 có 29 ngày, tháng 2/2027 chỉ có 28.
  */
 export function catTheoTienDo(kyNen: Ky, soNgay: number): Ky {
-  if (soNgay <= 0) return { ...kyNen, den: kyNen.tu, nhan: `${kyNen.nhan} (chưa có ngày nào)` };
+  // 0 ngày KHÔNG phải một khoảng nhỏ, mà là không có khoảng nào. Trả `den = tu` thì bộ lọc
+  // `gte`/`lte` vẫn đếm được bản ghi ở đúng thời khắc đầu kỳ, và một chênh lệch dựng trên đó
+  // trông y hệt số thật. Người gọi phải xử "chưa có nền" trước khi tới đây.
+  if (soNgay <= 0) {
+    throw new Error(`Không cắt được kỳ nền theo ${soNgay} ngày — kỳ chưa trôi ngày nào.`);
+  }
   const cat = cuoiNgay(new Date(kyNen.tu.getTime() + (soNgay - 1) * MOT_NGAY));
   if (cat >= kyNen.den) return kyNen;
   return { ...kyNen, den: cat, nhan: `${kyNen.nhan} (${soNgay} ngày đầu)` };

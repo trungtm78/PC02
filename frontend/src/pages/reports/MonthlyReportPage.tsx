@@ -20,7 +20,12 @@ import { HuyHieuSoSanh } from "@/components/shared/HuyHieuSoSanh";
 import { nhacKyChuaTron, type KhoiSoSanh } from "@/lib/soSanhKy";
 
 export default function MonthlyReportPage() {
-  const [selectedMonth, setSelectedMonth] = useState("2026-02");
+  /**
+   * `null` = cả năm. Trước đây là chuỗi "2026-02" TỰ MANG NĂM của nó, tách rời khỏi ô chọn năm
+   * bên cạnh — chọn năm 2025 mà vẫn xuất Excel tháng 2 năm 2026, và tên tệp cũng ghi 2026 nên
+   * không chỗ nào lộ ra sự lệch. Một kỳ, một nguồn sự thật.
+   */
+  const [thangChon, setThangChon] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
   const [loadError, setLoadError] = useState("");
@@ -31,7 +36,9 @@ export default function MonthlyReportPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const res = await api.get(`/reports/monthly?year=${selectedYear}`);
+      const res = await api.get('/reports/monthly', {
+        params: { year: selectedYear, ...(thangChon ? { month: thangChon } : {}) },
+      });
       // Backend /reports/monthly returns raw `{data, totals}` — no envelope wrap.
       // Do NOT add `.data.data` here. See reports.controller.ts:104.
       setReportData(res.data);
@@ -43,7 +50,7 @@ export default function MonthlyReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear]);
+  }, [selectedYear, thangChon]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
@@ -70,18 +77,22 @@ export default function MonthlyReportPage() {
           </div>
           <div className="flex items-center gap-3">
             <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              data-testid="chon-thang"
+              aria-label="Chọn kỳ báo cáo"
+              value={thangChon ?? ''}
+              onChange={(e) => setThangChon(e.target.value === '' ? null : Number(e.target.value))}
               className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
             >
-              <option value="2026-01">Tháng 1/2026</option>
-              <option value="2026-02">Tháng 2/2026</option>
-              <option value="2026-03">Tháng 3/2026</option>
-              <option value="2026-04">Tháng 4/2026</option>
-              <option value="2026-05">Tháng 5/2026</option>
-              <option value="2026-06">Tháng 6/2026</option>
+              <option value="">Cả năm {selectedYear}</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  Tháng {m}/{selectedYear}
+                </option>
+              ))}
             </select>
             <select
+              data-testid="chon-nam"
+              aria-label="Chọn năm"
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
@@ -94,16 +105,18 @@ export default function MonthlyReportPage() {
               onClick={async () => {
                 setIsExportingMonthly(true);
                 try {
-                  const [exportYear, exportMonth] = selectedMonth.split('-').map(Number);
+                  // Cả năm thì xuất tháng 1 tới 12 là vô nghĩa — máy chủ nhận `month` rỗng
+                  // nghĩa là cả năm, và tên tệp phải nói đúng điều đó.
                   const response = await api.get('/reports/monthly/export', {
-                    params: { year: exportYear, month: exportMonth },
+                    params: { year: selectedYear, ...(thangChon ? { month: thangChon } : {}) },
                     responseType: 'blob',
                   });
                   const url = URL.createObjectURL(new Blob([response.data]));
                   const a = document.createElement('a');
                   a.href = url;
-                  const [yr, mo] = selectedMonth.split('-');
-                  a.download = `BaoCao_Thang${mo}_${yr}.xlsx`;
+                  a.download = thangChon
+                    ? `BaoCao_Thang${String(thangChon).padStart(2, '0')}_${selectedYear}.xlsx`
+                    : `BaoCao_CaNam_${selectedYear}.xlsx`;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
@@ -114,6 +127,7 @@ export default function MonthlyReportPage() {
                   setIsExportingMonthly(false);
                 }
               }}
+              data-testid="xuat-excel"
               disabled={isExportingMonthly}
               className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -212,7 +226,11 @@ export default function MonthlyReportPage() {
           {/* Summary Table */}
           <div className="bg-white border border-slate-200 rounded-lg">
             <div className="p-6 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800">Chi tiết báo cáo tháng {selectedMonth.split('-')[1]}/{selectedYear}</h3>
+              <h3 className="text-lg font-bold text-slate-800" data-testid="tieu-de-ky">
+                {/* Nhãn kỳ lấy TỪ MÁY CHỦ: nó và các con số bên dưới phải cùng một nguồn, nếu
+                    không thì tiêu đề nói một kỳ mà số liệu là kỳ khác. */}
+                Chi tiết báo cáo {soSanh?.ky?.nhan ?? (thangChon ? `tháng ${thangChon}/${selectedYear}` : `năm ${selectedYear}`)}
+              </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

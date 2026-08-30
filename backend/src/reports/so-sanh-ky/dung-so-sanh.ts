@@ -59,9 +59,26 @@ export async function dungSoSanh(
     };
   }
 
-  const nenDay = kieu === 'KY_LIEN_TRUOC' ? kyLienTruoc(ky) : cungKyNamTruoc(ky);
   const chuaTron = kyChuaTron(ky, moc);
   const daTroi = chuaTron ? soNgayDaTroi(ky, moc) : null;
+
+  // Kỳ nằm ở TƯƠNG LAI — chưa trôi ngày nào. Không có gì để so, và nói "không có nền" mới đúng.
+  // Cắt kỳ nền còn 0 ngày là sai theo hai nghĩa: bộ lọc `gte`/`lte` vẫn đếm được bản ghi ở đúng
+  // thời khắc đầu kỳ, và một chênh lệch dựng trên đó trông y hệt một con số thật.
+  if (chuaTron && daTroi === 0) {
+    return {
+      kieu,
+      ky: moTa(ky),
+      nen: null,
+      kyChuaTron: true,
+      soNgayDaTroi: 0,
+      chiTieu: Object.fromEntries(
+        khoa.map((k) => [k, soSanh(soLieuHienTai[k], null, chieuTotCua(k))]),
+      ),
+    };
+  }
+
+  const nenDay = kieu === 'KY_LIEN_TRUOC' ? kyLienTruoc(ky) : cungKyNamTruoc(ky);
   // Kỳ chưa đóng thì cắt nền cho khớp tiến độ — nếu không, mọi chỉ tiêu đều "giảm" chỉ vì kỳ
   // này mới chạy được vài ngày.
   const nen = chuaTron ? catTheoTienDo(nenDay, daTroi!) : nenDay;
