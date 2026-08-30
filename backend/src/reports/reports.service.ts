@@ -6,7 +6,7 @@ import {
   kyNam,
   KIEU_SO_SANH_MAC_DINH,
   COT_NGAY_TIEP_NHAN,
-  NAM_HOP_LE,
+  MOC_NAM_HOP_LE,
   type KieuSoSanh,
 } from './so-sanh-ky';
 import { PrismaService } from '../prisma/prisma.service';
@@ -125,18 +125,41 @@ export class ReportsService {
    * nằm trong đầu người viết mã.
    */
   private async demKhongCoNgayTiepNhan() {
-    const ngoai = (cot: string) => ({
-      deletedAt: null,
-      OR: [
-        { [cot]: null },
-        { [cot]: { lt: new Date(NAM_HOP_LE.tu, 0, 1) } },
-        { [cot]: { gt: new Date(NAM_HOP_LE.den, 11, 31, 23, 59, 59, 999) } },
-      ],
-    });
+    // Viết TƯỜNG MINH ba truy vấn thay vì dựng điều kiện bằng khoá động: khoá động buộc phải
+    // ép kiểu, và `as never` ở bản trước đã bịt đúng lời cảnh báo cần nghe — `receivedDate`
+    // của đơn thư KHÔNG cho phép rỗng, nên hỏi `{ receivedDate: null }` là điều kiện sai kiểu
+    // mà Prisma có thể từ chối lúc chạy, làm hỏng cả endpoint báo cáo.
     const [donThu, vuViec, vuAn] = await Promise.all([
-      this.prisma.petition.count({ where: ngoai(COT_NGAY_TIEP_NHAN.petition) as never }),
-      this.prisma.incident.count({ where: ngoai(COT_NGAY_TIEP_NHAN.incident) as never }),
-      this.prisma.case.count({ where: ngoai(COT_NGAY_TIEP_NHAN.case) as never }),
+      // Đơn thư: cột bắt buộc, chỉ có thể nằm ngoài khoảng chứ không thể rỗng.
+      this.prisma.petition.count({
+        where: {
+          deletedAt: null,
+          OR: [
+            { receivedDate: { lt: MOC_NAM_HOP_LE.dau } },
+            { receivedDate: { gt: MOC_NAM_HOP_LE.cuoi } },
+          ],
+        },
+      }),
+      this.prisma.incident.count({
+        where: {
+          deletedAt: null,
+          OR: [
+            { ngayDeXuat: null },
+            { ngayDeXuat: { lt: MOC_NAM_HOP_LE.dau } },
+            { ngayDeXuat: { gt: MOC_NAM_HOP_LE.cuoi } },
+          ],
+        },
+      }),
+      this.prisma.case.count({
+        where: {
+          deletedAt: null,
+          OR: [
+            { receiveDate: null },
+            { receiveDate: { lt: MOC_NAM_HOP_LE.dau } },
+            { receiveDate: { gt: MOC_NAM_HOP_LE.cuoi } },
+          ],
+        },
+      }),
     ]);
     return { donThu, vuViec, vuAn, tong: donThu + vuViec + vuAn };
   }

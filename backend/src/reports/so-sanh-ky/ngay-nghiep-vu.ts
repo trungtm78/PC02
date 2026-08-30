@@ -45,3 +45,23 @@ export function ngayHopLe(d: Date | null | undefined): boolean {
   const n = d.getFullYear();
   return n >= NAM_HOP_LE.tu && n <= NAM_HOP_LE.den;
 }
+
+/**
+ * Cột ngày tiếp nhận có BẮT BUỘC hay không.
+ *
+ * `Petition.receivedDate` là `DateTime` không cho phép rỗng, nên hỏi Prisma `{ receivedDate:
+ * null }` là một điều kiện sai kiểu — và một bản vá dùng `as never` để bịt lời cảnh báo ấy đã
+ * lọt tới tận vòng soát. Khai ra ở đây để phép đếm "hồ sơ thiếu ngày" tự biết bảng nào cần hỏi
+ * rỗng, bảng nào thì hỏi là vô nghĩa.
+ */
+export const NGAY_TIEP_NHAN_BAT_BUOC = {
+  petition: true,
+  incident: false,
+  case: false,
+} as const;
+
+/** Mốc đầu và cuối của khoảng năm coi là ngày thật. */
+export const MOC_NAM_HOP_LE = {
+  dau: new Date(NAM_HOP_LE.tu, 0, 1),
+  cuoi: new Date(NAM_HOP_LE.den, 11, 31, 23, 59, 59, 999),
+};
