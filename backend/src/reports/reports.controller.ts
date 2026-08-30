@@ -1,4 +1,5 @@
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import type { KieuSoSanh } from './so-sanh-ky';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -24,6 +25,14 @@ class QueryMonthlyDto {
   @Max(12)
   @Type(() => Number)
   month?: number;
+
+  /**
+   * Nền để so sánh. Mặc định `CUNG_KY_NAM_TRUOC` theo quy ước báo cáo ngành — báo cáo Công an
+   * luôn viết "so với cùng kỳ năm trước", không phải "so với tháng trước".
+   */
+  @IsOptional()
+  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'KHONG'])
+  soSanh?: KieuSoSanh;
 }
 
 class QueryQuarterlyDto {
@@ -40,6 +49,14 @@ class QueryQuarterlyDto {
   @Max(4)
   @Type(() => Number)
   quarter?: number;
+
+  /**
+   * Nền để so sánh. Mặc định `CUNG_KY_NAM_TRUOC` theo quy ước báo cáo ngành — báo cáo Công an
+   * luôn viết "so với cùng kỳ năm trước", không phải "so với tháng trước".
+   */
+  @IsOptional()
+  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'KHONG'])
+  soSanh?: KieuSoSanh;
 }
 
 class QueryDistrictStatsDto {
@@ -105,7 +122,7 @@ export class ReportsController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getMonthly(@Query() query: QueryMonthlyDto) {
     const year = query.year ?? new Date().getFullYear();
-    return this.reportsService.getMonthly(year, query.month);
+    return this.reportsService.getMonthly(year, query.month, query.soSanh);
   }
 
   // GET /api/v1/reports/quarterly?year=&quarter=
@@ -113,7 +130,7 @@ export class ReportsController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getQuarterly(@Query() query: QueryQuarterlyDto) {
     const year = query.year ?? new Date().getFullYear();
-    return this.reportsService.getQuarterly(year, query.quarter);
+    return this.reportsService.getQuarterly(year, query.quarter, query.soSanh);
   }
 
   // GET /api/v1/reports/district-stats?fromDate=&toDate=&district=

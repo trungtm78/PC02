@@ -1,4 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  dungSoSanh,
+  kyThang,
+  kyQuy,
+  kyNam,
+  KIEU_SO_SANH_MAC_DINH,
+  type KieuSoSanh,
+} from './so-sanh-ky';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
 
@@ -62,66 +70,66 @@ export class ReportsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Đếm bốn chỉ tiêu trong một khoảng bất kỳ.
+   *
+   * Tách ra KHÔNG phải để bớt dòng, mà vì kỳ nền bắt buộc phải được đếm bằng ĐÚNG MỘT THƯỚC
+   * với kỳ hiện tại: cùng điều kiện `deletedAt`, cùng cột thời gian, cùng tập trạng thái. Hai
+   * bản sao của cùng một phép đếm là hai thước sẽ lệch nhau ở lần sửa thứ nhất — và lúc ấy
+   * chênh lệch đo được sẽ một phần là do đổi thước, không ai biết là phần nào.
+   */
+  private async demTrongKhoang(tu: Date, den: Date) {
+    const [donThu, vuViec, vuAn, daGiaiQuyet] = await Promise.all([
+      this.prisma.petition.count({
+        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+      }),
+      this.prisma.incident.count({
+        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+      }),
+      this.prisma.case.count({
+        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+      }),
+      // Đã giải quyết = cases kết luận + incidents giải quyết + petitions giải quyết
+      Promise.all([
+        this.prisma.case.count({
+          where: {
+            deletedAt: null,
+            updatedAt: { gte: tu, lte: den },
+            status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
+          },
+        }),
+        this.prisma.incident.count({
+          where: {
+            deletedAt: null,
+            updatedAt: { gte: tu, lte: den },
+            status: IncidentStatus.DA_GIAI_QUYET,
+          },
+        }),
+        this.prisma.petition.count({
+          where: {
+            deletedAt: null,
+            updatedAt: { gte: tu, lte: den },
+            status: PetitionStatus.DA_GIAI_QUYET,
+          },
+        }),
+      ]).then(([c, i, p]) => c + i + p),
+    ]);
+    return { donThu, vuViec, vuAn, daGiaiQuyet };
+  }
+
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/monthly?year=&month=
   // ─────────────────────────────────────────────
-  async getMonthly(year: number, month?: number) {
-    const months = month
-      ? [month]
-      : Array.from({ length: 12 }, (_, i) => i + 1);
+  async getMonthly(year: number, month?: number, kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH) {
+    const months = month ? [month] : Array.from({ length: 12 }, (_, i) => i + 1);
 
     const data = await Promise.all(
       months.map(async (m) => {
-        const start = new Date(year, m - 1, 1);
-        const end = new Date(year, m, 0, 23, 59, 59, 999);
-
-        const [donThu, vuViec, vuAn, daGiaiQuyet] = await Promise.all([
-          this.prisma.petition.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          this.prisma.incident.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          this.prisma.case.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          // Đã giải quyết = cases kết luận + incidents giải quyết + petitions giải quyết
-          Promise.all([
-            this.prisma.case.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
-              },
-            }),
-            this.prisma.incident.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: IncidentStatus.DA_GIAI_QUYET,
-              },
-            }),
-            this.prisma.petition.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: PetitionStatus.DA_GIAI_QUYET,
-              },
-            }),
-          ]).then(([c, i, p]) => c + i + p),
-        ]);
-
-        return {
-          month: `T${m}/${year}`,
-          donThu,
-          vuViec,
-          vuAn,
-          daGiaiQuyet,
-        };
+        const ky = kyThang(year, m);
+        return { month: `T${m}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
       }),
     );
 
-    // Summary totals
     const totals = data.reduce(
       (acc, row) => ({
         donThu: acc.donThu + row.donThu,
@@ -132,72 +140,39 @@ export class ReportsService {
       { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
     );
 
-    return { success: true, data, totals, year, month };
+    // Không chọn tháng nghĩa là đang xem CẢ NĂM — kỳ nền phải là cả năm trước, không phải
+    // tháng 12 năm trước.
+    const ky = month ? kyThang(year, month) : kyNam(year);
+    const soSanh = await dungSoSanh(
+      ky,
+      // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn
+      // phải được so: màn Báo cáo quý có một thẻ đúng bằng tổng ba loại hồ sơ, và thẻ ấy cần
+      // huy hiệu như ba thẻ kia.
+      async (tu, den) => {
+        const d = await this.demTrongKhoang(tu, den);
+        return { ...d, tongTiepNhan: d.donThu + d.vuViec + d.vuAn };
+      },
+      { ...totals, tongTiepNhan: totals.donThu + totals.vuViec + totals.vuAn },
+      kieuSoSanh,
+    );
+
+    return { success: true, data, totals, year, month, soSanh };
   }
 
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/quarterly?year=&quarter=
   // ─────────────────────────────────────────────
-  async getQuarterly(year: number, quarter?: number) {
-    const quarters = quarter
-      ? [quarter]
-      : [1, 2, 3, 4];
-
-    const QUARTER_MONTHS: Record<number, number[]> = {
-      1: [1, 2, 3],
-      2: [4, 5, 6],
-      3: [7, 8, 9],
-      4: [10, 11, 12],
-    };
+  async getQuarterly(
+    year: number,
+    quarter?: number,
+    kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
+  ) {
+    const quarters = quarter ? [quarter] : [1, 2, 3, 4];
 
     const data = await Promise.all(
       quarters.map(async (q) => {
-        const ms = QUARTER_MONTHS[q];
-        const start = new Date(year, ms[0] - 1, 1);
-        const end = new Date(year, ms[ms.length - 1], 0, 23, 59, 59, 999);
-
-        const [donThu, vuViec, vuAn, daGiaiQuyet] = await Promise.all([
-          this.prisma.petition.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          this.prisma.incident.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          this.prisma.case.count({
-            where: { deletedAt: null, createdAt: { gte: start, lte: end } },
-          }),
-          Promise.all([
-            this.prisma.case.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
-              },
-            }),
-            this.prisma.incident.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: IncidentStatus.DA_GIAI_QUYET,
-              },
-            }),
-            this.prisma.petition.count({
-              where: {
-                deletedAt: null,
-                updatedAt: { gte: start, lte: end },
-                status: PetitionStatus.DA_GIAI_QUYET,
-              },
-            }),
-          ]).then(([c, i, p]) => c + i + p),
-        ]);
-
-        return {
-          quarter: `Q${q}/${year}`,
-          donThu,
-          vuViec,
-          vuAn,
-          daGiaiQuyet,
-        };
+        const ky = kyQuy(year, q);
+        return { quarter: `Q${q}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
       }),
     );
 
@@ -211,7 +186,21 @@ export class ReportsService {
       { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
     );
 
-    return { success: true, data, totals, year, quarter };
+    const ky = quarter ? kyQuy(year, quarter) : kyNam(year);
+    const soSanh = await dungSoSanh(
+      ky,
+      // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn
+      // phải được so: màn Báo cáo quý có một thẻ đúng bằng tổng ba loại hồ sơ, và thẻ ấy cần
+      // huy hiệu như ba thẻ kia.
+      async (tu, den) => {
+        const d = await this.demTrongKhoang(tu, den);
+        return { ...d, tongTiepNhan: d.donThu + d.vuViec + d.vuAn };
+      },
+      { ...totals, tongTiepNhan: totals.donThu + totals.vuViec + totals.vuAn },
+      kieuSoSanh,
+    );
+
+    return { success: true, data, totals, year, quarter, soSanh };
   }
 
   // ─────────────────────────────────────────────
