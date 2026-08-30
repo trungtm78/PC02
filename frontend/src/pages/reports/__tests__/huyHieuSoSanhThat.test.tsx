@@ -202,3 +202,32 @@ describe('Hồ sơ ngoài mọi kỳ báo cáo', () => {
     expect(screen.queryByTestId('ho-so-ngoai-moi-ky')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Chỉ tiêu "Đã giải quyết" phải TỰ KHAI giới hạn của nó.
+ *
+ * Nó đếm theo `updatedAt` — lần cập nhật hồ sơ gần nhất — chứ không theo ngày giải quyết, vì
+ * CSDL không có cột ấy (`cases.ngay_tra_ket_qua` rỗng 0/3.381, incidents và petitions không có
+ * cột tương đương).
+ *
+ * Đo trên máy thật 30/08/2026, mở báo cáo năm 2024: đơn thư 4.217 · vụ việc 89 · vụ án 280 ·
+ * **đã giải quyết 0**. Số 0 ấy không có nghĩa là năm 2024 không giải quyết được vụ nào — nó chỉ
+ * có nghĩa là không hồ sơ nào được ĐỘNG TỚI trong năm 2024. Một giới hạn nằm trong lời chú thích
+ * của mã nguồn thì cán bộ đọc báo cáo không thấy; nó phải nằm cạnh chính con số ấy.
+ */
+describe('Chỉ tiêu "Đã giải quyết" tự khai giới hạn', () => {
+  it('có dấu cảnh báo ngay cạnh nhãn, và nói rõ đếm theo cái gì', async () => {
+    traVe(undefined);
+    bao();
+    const c = await screen.findByTestId('canh-bao-da-giai-quyet');
+    expect(c.getAttribute('title')).toMatch(/lần cập nhật/);
+    expect(c.getAttribute('title')).toMatch(/KHÔNG có nghĩa/);
+  });
+
+  it('chỉ MỘT chỉ tiêu mang cảnh báo — ba chỉ tiêu kia đếm theo ngày tiếp nhận thật', async () => {
+    traVe(undefined);
+    bao();
+    await screen.findByTestId('canh-bao-da-giai-quyet');
+    expect(screen.getAllByTestId('canh-bao-da-giai-quyet')).toHaveLength(1);
+  });
+});
