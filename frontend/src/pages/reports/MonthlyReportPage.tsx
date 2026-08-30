@@ -23,7 +23,7 @@ import {
   type KyDangChon,
   type NenDangChon,
 } from "@/components/shared/ChonKyBaoCao";
-import { thamSoKy, tenTepXuat } from "@/lib/thamSoKyBaoCao";
+import { thamSoKy, thamSoNen, tenTepXuat } from "@/lib/thamSoKyBaoCao";
 
 export default function MonthlyReportPage() {
   /**
@@ -47,8 +47,7 @@ export default function MonthlyReportPage() {
         params: {
           year: selectedYear,
           ...thamSoKy(ky, 'THANG'),
-          soSanh: nen.kieu,
-          ...(nen.kieu === 'TUY_CHON' ? { nenTu: nen.nenTu, nenDen: nen.nenDen } : {}),
+          ...thamSoNen(nen),
         },
       });
       // Backend /reports/monthly returns raw `{data, totals}` — no envelope wrap.

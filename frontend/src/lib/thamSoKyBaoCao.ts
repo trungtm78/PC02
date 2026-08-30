@@ -1,4 +1,4 @@
-import type { KyDangChon } from '@/components/shared/ChonKyBaoCao';
+import type { KyDangChon, NenDangChon } from '@/components/shared/ChonKyBaoCao';
 
 /**
  * Đổi lựa chọn kỳ trên màn thành tham số gửi máy chủ.
@@ -39,4 +39,18 @@ export function tenTepXuat(ky: KyDangChon, nam: number): string {
     default:
       return `BaoCao_Thang${String(ky.so ?? 1).padStart(2, '0')}_${nam}.xlsx`;
   }
+}
+
+/**
+ * Đổi lựa chọn nền so sánh thành tham số gửi máy chủ.
+ *
+ * Chốt duy nhất đáng nói: khi người dùng vừa chọn "khoảng tự chọn" mà CHƯA nhập đủ hai đầu, gửi
+ * `soSanh=TUY_CHON` là bắt máy chủ ném lỗi — màn hình nháy sang trạng thái hỏng trong lúc người
+ * ta còn đang gõ. Chưa đủ thì tạm KHÔNG SO: không có huy hiệu vẫn trung thực hơn một thông báo
+ * lỗi do chính màn hình gây ra.
+ */
+export function thamSoNen(nen: NenDangChon): Record<string, string | undefined> {
+  if (nen.kieu !== 'TUY_CHON') return { soSanh: nen.kieu };
+  if (!nen.nenTu || !nen.nenDen) return { soSanh: 'KHONG' };
+  return { soSanh: 'TUY_CHON', nenTu: nen.nenTu, nenDen: nen.nenDen };
 }

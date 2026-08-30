@@ -159,6 +159,21 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('CUNG_KY_NAM_TRUOC'));
   });
 
+  /**
+   * Codex bắt: vừa chọn "khoảng tự chọn" mà chưa nhập đủ hai đầu thì gửi `soSanh=TUY_CHON` là
+   * bắt máy chủ ném lỗi — màn hình nháy sang trạng thái hỏng trong lúc người ta còn đang gõ.
+   */
+  it('chọn nền tự chọn mà CHƯA nhập đủ hai đầu → tạm KHÔNG SO, không gọi lỗi', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-nen'), { target: { value: 'TUY_CHON' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('KHONG'));
+
+    fireEvent.change(screen.getByTestId('nen-tu'), { target: { value: '2024-01-01' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('KHONG'));
+  });
+
   it('đổi nền sang KHOẢNG TỰ CHỌN thì gửi hai đầu nền', async () => {
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());

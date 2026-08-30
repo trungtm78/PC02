@@ -245,17 +245,14 @@ export class ReportsService {
       }),
     );
 
-    const totals = data.reduce(
-      (acc, row) => ({
-        donThu: acc.donThu + row.donThu,
-        vuViec: acc.vuViec + row.vuViec,
-        vuAn: acc.vuAn + row.vuAn,
-        daGiaiQuyet: acc.daGiaiQuyet + row.daGiaiQuyet,
-      }),
-      { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
-    );
 
     const ky = chonKy(year, month, tuyChon, (n, m) => kyThang(n, m));
+    // Tổng đếm THẲNG trên kỳ đang chọn, không cộng dồn các ô của biểu đồ.
+    //
+    // Bản đầu cộng 12 ô tháng lại — nên chọn "lũy kế 8 tháng" hay một khoảng tự chọn thì nhãn
+    // và huy hiệu nói đúng kỳ ấy, còn bốn thẻ số vẫn là CẢ NĂM. Hai câu về hai kỳ khác nhau
+    // đứng cạnh nhau trên một màn, và không có gì trên màn lộ ra điều đó.
+    const totals = await this.demTrongKhoang(ky.tu, ky.den);
     const soSanh = await dungSoSanh(
       ky,
       // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn
@@ -307,17 +304,10 @@ export class ReportsService {
       }),
     );
 
-    const totals = data.reduce(
-      (acc, row) => ({
-        donThu: acc.donThu + row.donThu,
-        vuViec: acc.vuViec + row.vuViec,
-        vuAn: acc.vuAn + row.vuAn,
-        daGiaiQuyet: acc.daGiaiQuyet + row.daGiaiQuyet,
-      }),
-      { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
-    );
 
     const ky = chonKy(year, quarter, tuyChon, (n, q) => kyQuy(n, q));
+    // Xem chú thích cùng nội dung ở `getMonthly`.
+    const totals = await this.demTrongKhoang(ky.tu, ky.den);
     const soSanh = await dungSoSanh(
       ky,
       // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn

@@ -70,16 +70,31 @@ describe('ReportsService — khối so sánh kỳ', () => {
     expect(khoang).not.toContain('2025-12-01..2025-12-31');
   });
 
-  it('kỳ nền được đếm bằng ĐÚNG số phép đếm như kỳ hiện tại', async () => {
+  /**
+   * Ca này trước đây so SỐ LẦN GỌI giữa kỳ hiện tại và kỳ nền. Phép đo ấy hỏng khi `totals`
+   * chuyển sang đếm thẳng trên kỳ: kỳ hiện tại nay được đo hai lượt (một cho ô biểu đồ, một cho
+   * tổng) còn kỳ nền một lượt — số lần khác nhau mà thước vẫn y hệt.
+   *
+   * Điều thật sự cần chốt là CÙNG MỘT THƯỚC: cùng tập cột thời gian, cùng số phép đếm trong một
+   * lượt. Nếu kỳ nền đo bằng cột khác thì chênh lệch một phần là do đổi thước, và không ai biết
+   * là phần nào.
+   */
+  it('kỳ nền đo bằng ĐÚNG một lượt và ĐÚNG tập cột như kỳ hiện tại', async () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
     await svc.getMonthly(2026, 3);
     jest.useRealTimers();
 
-    const kyNay = khoang.filter((k) => k.startsWith('2026-03-01'));
-    const kyNen = khoang.filter((k) => k.startsWith('2025-03-01'));
-    expect(kyNen).toHaveLength(kyNay.length);
-    expect(kyNay.length).toBeGreaterThan(0);
+    const cotNay = new Set(
+      khoang.map((k, i) => (k.startsWith('2026-03-01') ? cot[i] : null)).filter(Boolean),
+    );
+    const cotNen = new Set(
+      khoang.map((k, i) => (k.startsWith('2025-03-01') ? cot[i] : null)).filter(Boolean),
+    );
+    expect([...cotNen].sort()).toEqual([...cotNay].sort());
+    // Một lượt `demTrongKhoang` = 6 phép đếm (3 hồ sơ đến + 3 đã giải quyết).
+    expect(khoang.filter((k) => k.startsWith('2025-03-01'))).toHaveLength(6);
   });
+
 
   it('soSanh=KHONG thì KHÔNG đụng tới kỳ nền lần nào', async () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
@@ -197,5 +212,66 @@ describe('ReportsService — đếm theo NGÀY TIẾP NHẬN, không phải ngà
     const kq = await svc.getMonthly(2026, 3);
     jest.useRealTimers();
     expect(kq.khongCoNgay).toEqual({ donThu: 0, vuViec: 0, vuAn: 0, tong: 0 });
+  });
+});
+
+describe('ReportsService — tổng phải theo KỲ ĐANG CHỌN', () => {
+  let svc: ReportsService;
+  let khoang: string[];
+
+  beforeEach(async () => {
+    khoang = [];
+    const dem = jest.fn(async (a: { where?: Record<string, unknown> }) => {
+      for (const v of Object.values(a?.where ?? {})) {
+        const m = v as { gte?: Date; lte?: Date };
+        if (m && typeof m === 'object' && m.gte instanceof Date && m.lte instanceof Date) {
+          khoang.push(`${ngay(m.gte)}..${ngay(m.lte)}`);
+        }
+      }
+      return 0;
+    });
+    const prisma = {
+      petition: { count: dem },
+      incident: { count: dem },
+      case: { count: dem },
+    } as unknown as PrismaService;
+    const mod = await Test.createTestingModule({
+      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    svc = mod.get(ReportsService);
+  });
+
+  /**
+   * Codex bắt P1. Bản đầu cộng dồn 12 ô tháng để ra `totals`, nên chọn "lũy kế 8 tháng" thì
+   * nhãn và huy hiệu nói đúng kỳ ấy còn bốn thẻ số vẫn là CẢ NĂM — hai câu về hai kỳ khác nhau
+   * đứng cạnh nhau, và không gì trên màn lộ ra.
+   */
+  it('lũy kế 8 tháng: TỔNG đếm trên 01/01–31/08, không cộng 12 tháng', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', { luyKeDenThang: 8 });
+    jest.useRealTimers();
+
+    expect(khoang).toContain('2026-01-01..2026-08-31');
+    expect(kq.soSanh.ky.nhan).toBe('lũy kế 8 tháng đầu năm 2026');
+  });
+
+  it('khoảng tự chọn: TỔNG đếm đúng khoảng ấy', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', {
+      tu: '2026-03-05',
+      den: '2026-05-20',
+    });
+    jest.useRealTimers();
+
+    expect(khoang).toContain('2026-03-05..2026-05-20');
+    expect(kq.soSanh.ky.nhan).toBe('05/03/2026 – 20/05/2026');
+  });
+
+  it('quý cũng vậy — không cộng dồn bốn ô quý', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    await svc.getQuarterly(2026, undefined, 'KHONG', { luyKeDenThang: 6 });
+    jest.useRealTimers();
+
+    expect(khoang).toContain('2026-01-01..2026-06-30');
   });
 });

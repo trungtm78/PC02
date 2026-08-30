@@ -221,7 +221,13 @@ export class ReportsController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
     const year = query.year ?? new Date().getFullYear();
-    const data = await this.reportsService.getMonthly(year, query.month);
+    // Tuỳ chọn kỳ phải đi theo tệp xuất. Không truyền thì tệp mang tên "lũy kế 8 tháng" mà nội
+    // dung là cả năm — người nhận tệp không có màn hình để đối chiếu.
+    const data = await this.reportsService.getMonthly(year, query.month, 'KHONG', {
+      luyKeDenThang: query.luyKeDenThang,
+      tu: query.tu,
+      den: query.den,
+    });
     await this.reportsExportService.exportMonthly(data as any, res);
   }
 
@@ -230,7 +236,12 @@ export class ReportsController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
     const year = query.year ?? new Date().getFullYear();
-    const data = await this.reportsService.getQuarterly(year, query.quarter);
+    // Xem chú thích ở `exportMonthly`.
+    const data = await this.reportsService.getQuarterly(year, query.quarter, 'KHONG', {
+      luyKeDenThang: query.luyKeDenThang,
+      tu: query.tu,
+      den: query.den,
+    });
     await this.reportsExportService.exportQuarterly(data as any, res);
   }
 
