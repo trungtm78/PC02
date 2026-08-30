@@ -16,6 +16,8 @@ export const CaseStatus = {
   DANG_XET_XU: 'DANG_XET_XU',
   DA_LUU_TRU: 'DA_LUU_TRU',
   DA_CHUYEN_DON_VI: 'DA_CHUYEN_DON_VI',
+  DA_NHAP_VU_KHAC: 'DA_NHAP_VU_KHAC',
+  CHUYEN_XPHC: 'CHUYEN_XPHC',
 } as const;
 export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
 
@@ -35,6 +37,7 @@ export const IncidentStatus = {
   DA_CHUYEN_DON_VI: 'DA_CHUYEN_DON_VI',
   DA_NHAP_VU_KHAC: 'DA_NHAP_VU_KHAC',
   PHAN_LOAI_DAN_SU: 'PHAN_LOAI_DAN_SU',
+  DINH_CHI: 'DINH_CHI',
 } as const;
 export type IncidentStatus = (typeof IncidentStatus)[keyof typeof IncidentStatus];
 
@@ -52,6 +55,9 @@ export const PetitionStatus = {
   TAM_DINH_CHI: 'TAM_DINH_CHI',
   KHONG_KHOI_TO: 'KHONG_KHOI_TO',
   DA_CHUYEN_DON_VI: 'DA_CHUYEN_DON_VI',
+  DA_NHAP_HO_SO_KHAC: 'DA_NHAP_HO_SO_KHAC',
+  DINH_CHI: 'DINH_CHI',
+  CHUYEN_XPHC: 'CHUYEN_XPHC',
 } as const;
 export type PetitionStatus = (typeof PetitionStatus)[keyof typeof PetitionStatus];
 

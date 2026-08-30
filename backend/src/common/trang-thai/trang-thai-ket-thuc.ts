@@ -38,6 +38,8 @@ export const TRANG_THAI_KET_THUC = {
     CaseStatus.DA_LUU_TRU,
     CaseStatus.DINH_CHI,
     CaseStatus.DA_CHUYEN_DON_VI,
+    CaseStatus.DA_NHAP_VU_KHAC,
+    CaseStatus.CHUYEN_XPHC,
   ] as CaseStatus[],
   /**
    * Khớp nguyên `TERMINAL_STATUSES` vốn có ở `incidents.constants.ts` — KỂ CẢ
@@ -55,6 +57,7 @@ export const TRANG_THAI_KET_THUC = {
     IncidentStatus.CHUYEN_XPHC,
     IncidentStatus.TDC_HET_THOI_HIEU,
     IncidentStatus.TDC_HTH_KHONG_KT,
+    IncidentStatus.DINH_CHI,
   ] as IncidentStatus[],
   /**
    * Khớp `notTerminal` vốn có ở `petitions.service.ts`, THÊM `DA_LUU_DON`.
@@ -74,6 +77,9 @@ export const TRANG_THAI_KET_THUC = {
     PetitionStatus.PHAN_LOAI_DAN_SU,
     PetitionStatus.KHONG_KHOI_TO,
     PetitionStatus.DA_CHUYEN_DON_VI,
+    PetitionStatus.DA_NHAP_HO_SO_KHAC,
+    PetitionStatus.DINH_CHI,
+    PetitionStatus.CHUYEN_XPHC,
     // TAM_DINH_CHI CỐ Ý không có mặt: hồ sơ tạm dừng còn phục hồi được, đếm vào "đã giải quyết"
     // là khai khống. Giống hệt cách xử ở Vụ việc và Vụ án.
   ] as PetitionStatus[],

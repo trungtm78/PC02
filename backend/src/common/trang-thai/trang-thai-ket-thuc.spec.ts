@@ -42,6 +42,9 @@ describe('Trạng thái kết thúc — ranh giới nghiệp vụ', () => {
       // Thêm 30/08/2026: hệ cũ ghi "chuyển…" cho 22 vụ án, và IncidentStatus vốn đã có giá trị
       // này — để hai thực thể lệch nhau chỉ vì một cái được khai sớm hơn là vô lý.
       CaseStatus.DA_CHUYEN_DON_VI,
+      // Đợt hai cùng ngày: phủ nốt kết quả hệ cũ để không hồ sơ nào bị bỏ lại.
+      CaseStatus.DA_NHAP_VU_KHAC,
+      CaseStatus.CHUYEN_XPHC,
     ]);
     expect([...TRANG_THAI_KET_THUC.incident]).toContain(IncidentStatus.DA_CHUYEN_VU_AN);
     // `DA_LUU_DON` là phần THÊM có chủ đích: lưu đơn là một kết quả xử lý, danh sách cũ bỏ sót

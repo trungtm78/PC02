@@ -85,6 +85,7 @@ const exhaustiveByStatus: Record<IncidentStatus, number> = {
   DA_CHUYEN_DON_VI: 0,
   DA_NHAP_VU_KHAC: 0,
   PHAN_LOAI_DAN_SU: 0,
+  DINH_CHI: 0,
 };
 
 const sampleStats = {

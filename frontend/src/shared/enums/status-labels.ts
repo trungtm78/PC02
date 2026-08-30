@@ -24,6 +24,8 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.DANG_XET_XU]:   'Đang xét xử',
   [CaseStatus.DA_LUU_TRU]:    'Đã lưu trữ',
   [CaseStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
+  [CaseStatus.DA_NHAP_VU_KHAC]: 'Đã nhập vụ khác',
+  [CaseStatus.CHUYEN_XPHC]: 'Chuyển xử phạt hành chính',
 };
 
 export const CASE_STATUS_OPTIONS = Object.entries(CASE_STATUS_LABEL).map(([value, label]) => ({ value, label }));
@@ -44,6 +46,8 @@ export const CASE_STATUS_SHORT_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.DANG_XET_XU]:   'Xét xử',
   [CaseStatus.DA_LUU_TRU]:    'Lưu trữ',
   [CaseStatus.DA_CHUYEN_DON_VI]: 'Chuyển ĐV',
+  [CaseStatus.DA_NHAP_VU_KHAC]: 'Nhập vụ khác',
+  [CaseStatus.CHUYEN_XPHC]: 'Chuyển XPHC',
 };
 
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
@@ -62,6 +66,7 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.DA_CHUYEN_DON_VI]:    'Đã chuyển đơn vị',
   [IncidentStatus.DA_NHAP_VU_KHAC]:     'Đã nhập vụ khác',
   [IncidentStatus.PHAN_LOAI_DAN_SU]:    'Phân loại dân sự',
+  [IncidentStatus.DINH_CHI]: 'Đình chỉ',
 };
 
 export const INCIDENT_STATUS_SHORT_LABEL: Record<IncidentStatus, string> = {
@@ -80,6 +85,7 @@ export const INCIDENT_STATUS_SHORT_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.DA_CHUYEN_DON_VI]:    'Chuyển ĐV',
   [IncidentStatus.DA_NHAP_VU_KHAC]:     'Nhập vụ khác',
   [IncidentStatus.PHAN_LOAI_DAN_SU]:    'Dân sự',
+  [IncidentStatus.DINH_CHI]: 'Đình chỉ',
 };
 
 export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
@@ -96,6 +102,9 @@ export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.TAM_DINH_CHI]: 'Tạm đình chỉ',
   [PetitionStatus.KHONG_KHOI_TO]: 'Không khởi tố',
   [PetitionStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
+  [PetitionStatus.DA_NHAP_HO_SO_KHAC]: 'Đã nhập hồ sơ khác',
+  [PetitionStatus.DINH_CHI]: 'Đình chỉ',
+  [PetitionStatus.CHUYEN_XPHC]: 'Chuyển xử phạt hành chính',
 };
 
 export const PETITION_STATUS_SHORT_LABEL: Record<PetitionStatus, string> = {
@@ -112,6 +121,9 @@ export const PETITION_STATUS_SHORT_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.TAM_DINH_CHI]: 'Tạm ĐC',
   [PetitionStatus.KHONG_KHOI_TO]: 'Không KT',
   [PetitionStatus.DA_CHUYEN_DON_VI]: 'Chuyển ĐV',
+  [PetitionStatus.DA_NHAP_HO_SO_KHAC]: 'Nhập HS khác',
+  [PetitionStatus.DINH_CHI]: 'Đình chỉ',
+  [PetitionStatus.CHUYEN_XPHC]: 'Chuyển XPHC',
 };
 
 // v0.37.2.4 — single source of truth cho Loại đơn (LoaiDon enum) Vietnamese labels.
@@ -149,6 +161,8 @@ export const CASE_STATUS_BADGE: Record<CaseStatus, string> = {
   [CaseStatus.DANG_XET_XU]:   BADGE_PROCESSING,
   [CaseStatus.DA_LUU_TRU]:    BADGE_DONE,
   [CaseStatus.DA_CHUYEN_DON_VI]: BADGE_DONE,
+  [CaseStatus.DA_NHAP_VU_KHAC]: BADGE_DONE,
+  [CaseStatus.CHUYEN_XPHC]: BADGE_DONE,
 };
 
 export const INCIDENT_STATUS_BADGE: Record<IncidentStatus, string> = {
@@ -167,6 +181,7 @@ export const INCIDENT_STATUS_BADGE: Record<IncidentStatus, string> = {
   [IncidentStatus.DA_CHUYEN_DON_VI]:    BADGE_DONE,
   [IncidentStatus.DA_NHAP_VU_KHAC]:     BADGE_DONE,
   [IncidentStatus.PHAN_LOAI_DAN_SU]:    BADGE_DONE,
+  [IncidentStatus.DINH_CHI]: BADGE_SUSPENDED,
 };
 
 export const PETITION_STATUS_BADGE: Record<PetitionStatus, string> = {
@@ -183,6 +198,9 @@ export const PETITION_STATUS_BADGE: Record<PetitionStatus, string> = {
   [PetitionStatus.TAM_DINH_CHI]: BADGE_SUSPENDED,
   [PetitionStatus.KHONG_KHOI_TO]: BADGE_DONE,
   [PetitionStatus.DA_CHUYEN_DON_VI]: BADGE_DONE,
+  [PetitionStatus.DA_NHAP_HO_SO_KHAC]: BADGE_DONE,
+  [PetitionStatus.DINH_CHI]: BADGE_SUSPENDED,
+  [PetitionStatus.CHUYEN_XPHC]: BADGE_DONE,
 };
 
 // ── Status chip options cho <ListPageShell.StatusChips> ──────────

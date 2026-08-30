@@ -431,6 +431,11 @@ describe('CasesService', () => {
                 // Thêm 30/08/2026: vụ án đã chuyển đơn vị khác thì đơn vị này hết việc. Đếm nó
                 // là còn tồn quá hạn là quy trách nhiệm cho người không còn giữ hồ sơ.
                 CaseStatus.DA_CHUYEN_DON_VI,
+                // Đợt hai 30/08/2026: vụ án đã nhập vào vụ khác hoặc chuyển xử phạt hành chính
+                // thì cũng hết việc ở đây — đếm là còn tồn quá hạn là quy trách nhiệm cho người
+                // không còn giữ hồ sơ.
+                CaseStatus.DA_NHAP_VU_KHAC,
+                CaseStatus.CHUYEN_XPHC,
               ],
             },
           }),

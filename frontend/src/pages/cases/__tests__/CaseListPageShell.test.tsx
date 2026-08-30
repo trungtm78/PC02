@@ -79,6 +79,8 @@ const sampleStats = {
     DANG_XET_XU: 2,
     DA_LUU_TRU: 0,
       DA_CHUYEN_DON_VI: 0,
+      DA_NHAP_VU_KHAC: 0,
+      CHUYEN_XPHC: 0,
     },
   // byGroup do SERVER đếm. Thiếu field này thì 4 thẻ nhóm render khung xương vĩnh viễn
   // và test vẫn pass vì không assert giá trị thẻ — "xanh giả".
