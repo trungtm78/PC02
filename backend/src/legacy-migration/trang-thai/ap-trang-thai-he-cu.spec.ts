@@ -83,26 +83,58 @@ describe('chay — chạy khô KHÔNG được đụng dữ liệu', () => {
   });
 });
 
-describe('chay — hai nhóm CỐ Ý để lại', () => {
+describe('chay — hai nhóm hàm ý hồ sơ khác: NAY GÁN, và nối liên kết khi khớp', () => {
   /**
-   * "Khởi tố" hàm ý có một VỤ ÁN ở bảng khác. Gán trạng thái mà không dựng liên kết là để hệ
-   * thống nói "đã khởi tố" mà không chỉ ra được vụ án nào — một câu khẳng định không kiểm chứng
-   * được, đúng lớp lỗi mà cả đợt soát này đi vá.
+   * Hai ca ở đây TRƯỚC ĐÂY chốt điều ngược lại: "khởi tố" và "nhập vụ khác" thì KHÔNG gán, vì
+   * chúng hàm ý một hồ sơ ở bảng khác và gán trạng thái mà không dựng liên kết là để hệ thống
+   * khẳng định thứ không kiểm chứng được.
+   *
+   * Anh chốt làm toàn bộ, xác nhận sau. Nên nay gán — nhưng giữ nguyên phần lo lắng ấy bằng cách
+   * khác: bóc tham chiếu từ chính câu chữ, và ĐÁNH DẤU vào sổ dòng nào có liên kết, dòng nào
+   * không. Để cả 3.614 hồ sơ đứng ở "mới tiếp nhận" cũng là một lời khẳng định sai, chỉ khác là
+   * nó im lặng hơn.
    */
-  it('ĐÃ KHỞI TỐ không gán — để lại kèm lý do', async () => {
+  it('ĐÃ KHỞI TỐ nay gán, đơn thư → DA_CHUYEN_VU_AN', async () => {
     const { p, daGhi } = prismaGia([tao('ktva 821-01 ngày 20/9/2021')]);
     const kq = await chay(p, true);
-    expect(daGhi).toEqual([]);
-    expect(kq.ap).toEqual([]);
-    expect(kq.deLai).toHaveLength(1);
-    expect(kq.deLai[0].lyDo).toMatch(/liên kết/);
+    expect(daGhi[0].data.status).toBe('DA_CHUYEN_VU_AN');
+    expect(kq.deLai).toEqual([]);
   });
 
-  it('ĐÃ NHẬP VỤ KHÁC cũng để lại — cùng lý do', async () => {
+  it('ĐÃ NHẬP VỤ KHÁC nay gán, đơn thư → DA_NHAP_HO_SO_KHAC', async () => {
     const { p, daGhi } = prismaGia([tao('nhập tố giác 1373-07/5/2019')]);
-    const kq = await chay(p, true);
-    expect(daGhi).toEqual([]);
-    expect(kq.deLai[0].trangThai).toBe('DA_NHAP_VU_KHAC');
+    await chay(p, true);
+    expect(daGhi[0].data.status).toBe('DA_NHAP_HO_SO_KHAC');
+  });
+
+  /**
+   * Hệ cũ viết `1373-07/5/2019` — số thứ tự, gạch, rồi ngày. Ghép `<năm>-<stt>` ra đúng dạng mã
+   * hồ sơ của hệ mới. Đo được 776/5.093 câu có dạng này.
+   */
+  it('bóc được mã hồ sơ được nhắc tới trong câu', async () => {
+    const { p } = prismaGia([tao('nhập tố giác 1373-07/5/2019 (nghiêm)')]);
+    const kq = await chay(p, false);
+    expect(kq.ap[0].maLienKet).toBe('2019-1373');
+  });
+
+  it('câu không có tham chiếu thì để rỗng, không đoán', async () => {
+    const { p } = prismaGia([tao('nhập vụ án lừa đảo')]);
+    const kq = await chay(p, false);
+    expect(kq.ap[0].maLienKet).toBeNull();
+  });
+
+  /** Câu nhiều nghĩa phải TỰ KHAI, để người xác nhận soi kỹ đúng nhóm đáng ngờ nhất. */
+  it('câu nhiều nghĩa được đánh dấu riêng', async () => {
+    const { p } = prismaGia([tao('nhập vv 276/05-2019 bình tân chuyển 30/05/2019')]);
+    const kq = await chay(p, false);
+    expect(kq.ap[0].nhieuNghia).toBe(true);
+    expect(kq.ap[0].trangThaiMoi).toBe('DA_NHAP_HO_SO_KHAC');
+  });
+
+  it('câu một nghĩa thì KHÔNG bị đánh dấu — đừng làm loãng cờ cảnh báo', async () => {
+    const { p } = prismaGia([tao('trả đơn')]);
+    const kq = await chay(p, false);
+    expect(kq.ap[0].nhieuNghia).toBe(false);
   });
 });
 
@@ -111,7 +143,11 @@ describe('chay — không ép vào giá trị gần đúng', () => {
    * `CaseStatus` không có "không khởi tố". Ép nó thành `DINH_CHI` hay `DA_KET_LUAN` là nói sai
    * với người đọc báo cáo — hai thứ khác nhau về hậu quả pháp lý.
    */
-  it('vụ án + KHÔNG KHỞI TỐ → để lại, vì CaseStatus không có trạng thái ấy', async () => {
+  /**
+   * `CaseStatus` vẫn không có "không khởi tố" — một vụ án đã khởi tố rồi thì không thể "không
+   * khởi tố". Ép nó thành `DINH_CHI` là nói sai: hai thứ khác nhau về hậu quả pháp lý.
+   */
+  it('vụ án + KHÔNG KHỞI TỐ → vẫn để lại, vì CaseStatus không có trạng thái ấy', async () => {
     const { p, daGhi } = prismaGia([], [], [tao('không khởi tố vụ án', { status: 'TIEP_NHAN' })]);
     const kq = await chay(p, true);
     expect(daGhi).toEqual([]);

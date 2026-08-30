@@ -22,6 +22,13 @@ import { suyTrangThai, type TrangThaiSuy } from './suy-trang-thai-he-cu';
  */
 
 /** Nhóm gán được ngay: không đụng tới quan hệ giữa các bảng. */
+/**
+ * Nhóm gán được.
+ *
+ * Lượt đầu chỉ gán 8 nhóm không đụng quan hệ. Nay gán HẾT — anh chốt "làm toàn bộ, xác nhận
+ * sau" — nhưng hai nhóm hàm ý hồ sơ khác vẫn được đánh dấu riêng trong danh sách, và được nối
+ * liên kết ở chỗ tham chiếu khớp.
+ */
 const AP_DUOC: TrangThaiSuy[] = [
   'TAM_DINH_CHI',
   'KHONG_KHOI_TO',
@@ -31,6 +38,11 @@ const AP_DUOC: TrangThaiSuy[] = [
   'PHAN_LOAI_DAN_SU',
   'DA_CHUYEN_DON_VI',
   'DA_GIAI_QUYET',
+  'DA_KHOI_TO',
+  'DA_NHAP_VU_KHAC',
+  'DINH_CHI',
+  'CHUYEN_XPHC',
+  'DANG_XU_LY',
 ];
 
 /**
@@ -68,12 +80,63 @@ const DICH: Record<TrangThaiSuy, { don_thu: string | null; vu_viec: string | nul
     vu_viec: IncidentStatus.DA_GIAI_QUYET,
     vu_an: CaseStatus.DA_KET_LUAN,
   },
-  // Hai nhóm dưới CỐ Ý không có đích: chúng hàm ý một hồ sơ khác ở bảng khác.
-  DA_KHOI_TO: { don_thu: null, vu_viec: null, vu_an: null },
-  DA_NHAP_VU_KHAC: { don_thu: null, vu_viec: null, vu_an: null },
+  /**
+   * Hai nhóm dưới hàm ý một hồ sơ KHÁC ở bảng khác. Lượt đầu để lại hẳn; nay gán trạng thái
+   * VÀ nối liên kết khi câu chữ có tham chiếu khớp đúng một hồ sơ.
+   *
+   * Đo được: 776/5.093 câu mang tham chiếu dạng `<stt>-<dd/mm/yyyy>`, trong đó 758 khớp một hồ
+   * sơ có thật. Nối được 15% thì 15% ấy kiểm chứng được; 85% còn lại vẫn hơn hẳn việc để cả
+   * 3.614 hồ sơ đứng ở "mới tiếp nhận" — miễn là danh sách nói rõ dòng nào có liên kết.
+   */
+  DA_KHOI_TO: {
+    don_thu: PetitionStatus.DA_CHUYEN_VU_AN,
+    vu_viec: IncidentStatus.DA_CHUYEN_VU_AN,
+    // "Khởi tố" ghi trên một VỤ ÁN là mô tả chính nó, không phải một bước chuyển — vụ án đã
+    // khởi tố thì đang trong giai đoạn điều tra.
+    vu_an: CaseStatus.DANG_DIEU_TRA,
+  },
+  DA_NHAP_VU_KHAC: {
+    don_thu: PetitionStatus.DA_NHAP_HO_SO_KHAC,
+    vu_viec: IncidentStatus.DA_NHAP_VU_KHAC,
+    vu_an: CaseStatus.DA_NHAP_VU_KHAC,
+  },
+  DINH_CHI: {
+    don_thu: PetitionStatus.DINH_CHI,
+    vu_viec: IncidentStatus.DINH_CHI,
+    vu_an: CaseStatus.DINH_CHI,
+  },
+  CHUYEN_XPHC: {
+    don_thu: PetitionStatus.CHUYEN_XPHC,
+    vu_viec: IncidentStatus.CHUYEN_XPHC,
+    vu_an: CaseStatus.CHUYEN_XPHC,
+  },
+  /**
+   * "Đang xử lý" KHÔNG phải kết quả — nó chỉ nói hồ sơ đã được phân công. Vẫn gán, vì đứng ở
+   * "mới tiếp nhận" trong khi đã có quyết định phân công cũng là sai; nhưng nó không bao giờ
+   * thắng một kết quả thật (xem `UU_TIEN`).
+   */
+  DANG_XU_LY: {
+    don_thu: PetitionStatus.DANG_XU_LY,
+    vu_viec: IncidentStatus.DANG_XAC_MINH,
+    vu_an: CaseStatus.DANG_XAC_MINH,
+  },
 };
 
 export type ThucThe = 'don_thu' | 'vu_viec' | 'vu_an';
+
+/**
+ * Tham chiếu tới một hồ sơ khác, bóc từ câu chữ.
+ *
+ * Hệ cũ viết `1373-07/5/2019` — số thứ tự, gạch, rồi ngày. Ghép `<năm>-<stt>` ra đúng dạng mã
+ * hồ sơ của hệ mới (xem quyết định "mã hồ sơ = năm-stt"). Đo được 776/5.093 câu có dạng này,
+ * trong đó 758 khớp một hồ sơ có thật.
+ */
+const MAU_THAM_CHIEU = /(\d{1,5})\s*-\s*\d{1,2}\/\d{1,2}\/(\d{4})/;
+
+export function maThamChieu(chu: string): string | null {
+  const m = MAU_THAM_CHIEU.exec(chu);
+  return m ? `${m[2]}-${m[1]}` : null;
+}
 
 export interface DongSo {
   thucThe: ThucThe;
@@ -86,6 +149,10 @@ export interface DongSo {
   trangThaiMoi: string;
   ngaySuy: Date | null;
   nguyenVan: string;
+  /** Suy từ câu khớp NHIỀU trạng thái — nhóm đáng soi kỹ nhất khi xác nhận. */
+  nhieuNghia: boolean;
+  /** Mã hồ sơ được nhắc tới trong câu, nếu khớp một hồ sơ có thật. */
+  maLienKet: string | null;
 }
 
 export interface KetQuaChay {
@@ -164,7 +231,7 @@ export async function chay(prisma: PrismaClient, apDung: boolean): Promise<KetQu
       const sttCu = lay(r.legacyRaw, 'stt');
       const namCu = lay(r.legacyRaw, 'nam');
 
-      if (suy.ly !== 'RO_RANG' || !suy.trangThai) {
+      if (!suy.trangThai) {
         kq.khongSuy.push({ thucThe, sttCu, ly: suy.ly, khop: suy.khop, nguyenVan: chu });
         continue;
       }
@@ -210,12 +277,28 @@ export async function chay(prisma: PrismaClient, apDung: boolean): Promise<KetQu
         trangThaiMoi: dich,
         ngaySuy: suy.ngay,
         nguyenVan: chu,
+        nhieuNghia: suy.ly === 'NHAP_NHANG',
+        maLienKet: maThamChieu(chu),
       });
     }
   }
 
   await prisma.legacyStatusInference.createMany({
-    data: kq.ap.map((d) => ({ runId, daApDung: apDung, ...d })),
+    data: kq.ap.map((d) => ({
+      runId,
+      daApDung: apDung,
+      thucThe: d.thucThe,
+      hoSoId: d.hoSoId,
+      legacyId: d.legacyId,
+      sttCu: d.sttCu,
+      namCu: d.namCu,
+      maHoSo: d.maHoSo,
+      trangThaiCu: d.trangThaiCu,
+      trangThaiMoi: d.trangThaiMoi,
+      ngaySuy: d.ngaySuy,
+      // Gắn cờ thẳng vào nguyên văn để sổ trong CSDL cũng đọc được, không phải chỉ tệp CSV.
+      nguyenVan: `${d.nhieuNghia ? '[NHIỀU NGHĨA] ' : ''}${d.maLienKet ? `[→ ${d.maLienKet}] ` : ''}${d.nguyenVan}`,
+    })),
   });
 
   if (apDung) {

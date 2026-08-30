@@ -72,6 +72,9 @@ const exhaustiveByStatus: Record<PetitionStatus, number> = {
   TAM_DINH_CHI: 5,
   KHONG_KHOI_TO: 7,
   DA_CHUYEN_DON_VI: 3,
+  DA_NHAP_HO_SO_KHAC: 0,
+  DINH_CHI: 0,
+  CHUYEN_XPHC: 0,
 };
 
 // byGroup do SERVER đếm (PETITION_STATUS_GROUPS). Thiếu field này thì thẻ nhóm render

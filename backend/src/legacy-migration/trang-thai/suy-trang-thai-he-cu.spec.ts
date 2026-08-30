@@ -51,19 +51,30 @@ describe('suyTrangThai — câu thật từ hệ cũ', () => {
 
 describe('suyTrangThai — KHÔNG đoán khi không chắc', () => {
   /**
-   * Câu thật, 21 bản ghi: vừa "nhập" vừa "chuyển". Đoán bừa một trong hai là khai sai tư cách
-   * pháp lý của hồ sơ.
+   * Ca này TRƯỚC ĐÂY chốt "khớp nhiều mẫu → KHÔNG suy, để người xem quyết". Lượt đầu đúng: thà
+   * bỏ 501 hồ sơ còn hơn khai sai tư cách pháp lý.
+   *
+   * Anh chốt làm toàn bộ, xác nhận sau. Nên nay CÓ chọn, theo thứ tự ưu tiên xếp từ "câu nào mô
+   * tả số phận của CHÍNH hồ sơ này" — nhập/chuyển nói hồ sơ đi đâu, còn khởi tố thường nói về
+   * vụ án sinh ra sau đó. Nhưng `ly` vẫn là NHAP_NHANG, và danh sách xuất ra ĐÁNH DẤU riêng
+   * nhóm này để người xác nhận soi kỹ đúng chỗ đáng ngờ nhất.
    */
-  it('khớp NHIỀU mẫu → NHAP_NHANG, không chọn bừa', () => {
+  it('khớp NHIỀU mẫu → chọn theo ưu tiên NHƯNG vẫn khai là nhiều nghĩa', () => {
     const k = suyTrangThai('nhập vv 276/05-2019 bình tân chuyển 30/05/2019, lên tố giác 15/07/2019');
     expect(k.ly).toBe('NHAP_NHANG');
-    expect(k.trangThai).toBeNull();
-    // Vẫn nói ra đã khớp những gì, để người xem quyết.
+    // "nhập" mô tả số phận của chính hồ sơ này, "chuyển" chỉ là một mốc trên đường đi.
+    expect(k.trangThai).toBe('DA_NHAP_VU_KHAC');
     expect(k.khop.length).toBeGreaterThan(1);
   });
 
+  /** Trạng thái ĐANG LÀM không bao giờ thắng một kết quả thật. */
+  it('"đang xử lý" luôn thua một kết quả thật trong cùng câu', () => {
+    const k = suyTrangThai('đã tiếp nhận, ra qđ phân công; sau đó trả đơn');
+    expect(k.trangThai).toBe('TRA_DON');
+  });
+
   it('khớp KHÔNG mẫu nào → KHONG_KHOP, để nguyên', () => {
-    for (const c of ['tb dân sự', 'không', 'thông báo 7464 ngày 07/4/2021; đã tiếp nhận, ra qđ phân công']) {
+    for (const c of ['abcxyz', 'không', '.']) {
       const k = suyTrangThai(c);
       expect({ c, tt: k.trangThai }).toEqual({ c, tt: null });
     }
@@ -117,8 +128,23 @@ describe('Bộ mẫu', () => {
    * Chỉ MỘT mẫu được phép mang loại trừ, và đó là mẫu khởi tố — vì chỉ nó có phủ định trùng
    * chuỗi. Thêm loại trừ ở chỗ khác là dấu hiệu bộ mẫu đang chồng chéo.
    */
-  it('chỉ mẫu khởi tố mang chuỗi loại trừ', () => {
+  /**
+   * Chuỗi loại trừ chỉ có ở hai mẫu, và cả hai đều vì cùng một lý do: phủ định trùng chuỗi với
+   * khẳng định ("không khởi tố" chứa "khởi tố", "tạm đình chỉ" chứa "đình chỉ"). Thêm loại trừ ở
+   * chỗ khác là dấu hiệu bộ mẫu đang chồng chéo.
+   */
+  it('chỉ hai mẫu mang chuỗi loại trừ, và đều vì phủ định trùng chuỗi', () => {
     const coTru = MAU_TRANG_THAI.filter((m) => (m.tru ?? []).length > 0).map((m) => m.trangThai);
-    expect(coTru).toEqual(['DA_KHOI_TO']);
+    expect(coTru.sort()).toEqual(['DA_KHOI_TO', 'DINH_CHI']);
+  });
+
+  /**
+   * Ca sinh ra từ chính cái bẫy ấy: "tạm đình chỉ" CHỨA "đình chỉ". Thiếu loại trừ thì 1.839 hồ
+   * sơ tạm dừng bị đọc thành đóng hẳn — hai hậu quả pháp lý khác nhau.
+   */
+  it('"tạm đình chỉ" KHÔNG bị đọc thành "đình chỉ"', () => {
+    expect(suyTrangThai('tạm đình chỉ (t11/2022)').trangThai).toBe('TAM_DINH_CHI');
+    expect(suyTrangThai('tđc giải quyết').trangThai).toBe('TAM_DINH_CHI');
+    expect(suyTrangThai('đình chỉ giải quyết ngày 5/3/2021').trangThai).toBe('DINH_CHI');
   });
 });

@@ -49,7 +49,20 @@ async function main() {
   writeFileSync(
     'da-gan.csv',
     csv(
-      ['Loại hồ sơ', 'Năm (hệ cũ)', 'STT (hệ cũ)', 'Mã hồ sơ (hệ mới)', 'Trạng thái cũ', 'Trạng thái mới', 'Ngày suy từ câu chữ', 'Nguyên văn hệ cũ'],
+      [
+        'Loại hồ sơ',
+        'Năm (hệ cũ)',
+        'STT (hệ cũ)',
+        'Mã hồ sơ (hệ mới)',
+        'Trạng thái cũ',
+        'Trạng thái mới',
+        'Ngày suy từ câu chữ',
+        // Hai cột dưới để người xác nhận soi KỸ đúng nhóm đáng ngờ, thay vì soi đều cả bảy
+        // nghìn dòng như nhau.
+        'Câu nhiều nghĩa?',
+        'Hồ sơ được nhắc tới',
+        'Nguyên văn hệ cũ',
+      ],
       kq.ap.map((d) => [
         TEN_THUC_THE[d.thucThe],
         nam(d.namCu),
@@ -58,6 +71,8 @@ async function main() {
         d.trangThaiCu,
         d.trangThaiMoi,
         d.ngaySuy ? d.ngaySuy.toLocaleDateString('vi-VN') : '',
+        d.nhieuNghia ? 'CÓ — cần soi kỹ' : '',
+        d.maLienKet ?? '',
         d.nguyenVan,
       ]),
     ),

@@ -522,6 +522,8 @@ enum CaseStatus {
   @@map("case_status")
   // 22 vụ án hệ cũ ghi "chuyển…" — IncidentStatus đã có giá trị này, CaseStatus thì không.
   DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác
+  DA_NHAP_VU_KHAC // Đã nhập vào vụ khác
+  CHUYEN_XPHC // Chuyển xử phạt vi phạm hành chính
 }
 
 model Case {
@@ -984,6 +986,10 @@ enum PetitionStatus {
   TAM_DINH_CHI // Tạm đình chỉ giải quyết — KHÔNG phải kết thúc, còn phục hồi được
   KHONG_KHOI_TO // Không khởi tố vụ án
   DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác giải quyết
+  // Đợt hai, 30/08/2026 — phủ nốt các kết quả còn lại của hệ cũ để không hồ sơ nào bị bỏ lại.
+  DA_NHAP_HO_SO_KHAC // Đã nhập vào hồ sơ khác
+  DINH_CHI // Đình chỉ giải quyết (khác TẠM đình chỉ)
+  CHUYEN_XPHC // Chuyển xử phạt vi phạm hành chính
 }
 
 model Petition {
@@ -1216,6 +1222,8 @@ enum IncidentStatus {
   PHAN_LOAI_DAN_SU // Phân loại dân sự
 
   @@map("incident_status")
+  // Hệ cũ ghi "đình chỉ" (không phải TẠM đình chỉ) cho một số vụ việc — hai việc khác nhau.
+  DINH_CHI // Đình chỉ giải quyết
 }
 
 model Incident {

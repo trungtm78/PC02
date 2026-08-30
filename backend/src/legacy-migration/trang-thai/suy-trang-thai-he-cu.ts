@@ -34,7 +34,11 @@ export type TrangThaiSuy =
   | 'DA_NHAP_VU_KHAC'
   | 'DA_GIAI_QUYET'
   | 'HUONG_DAN'
-  | 'PHAN_LOAI_DAN_SU';
+  | 'PHAN_LOAI_DAN_SU'
+  // Đợt hai 30/08/2026 — rút từ 3.307 hồ sơ chưa suy được của lượt đầu.
+  | 'DINH_CHI'
+  | 'CHUYEN_XPHC'
+  | 'DANG_XU_LY';
 
 export interface KetQuaSuy {
   trangThai: TrangThaiSuy | null;
@@ -81,8 +85,52 @@ export const MAU_TRANG_THAI: Mau[] = [
   { trangThai: 'DA_GIAI_QUYET', co: ['đã giải quyết', 'giải quyết xong'] },
   // 279
   { trangThai: 'HUONG_DAN', co: ['hướng dẫn'] },
-  // "phân loại dân sự (tỉnh)", "phân loại ngày 23/4/2024"
-  { trangThai: 'PHAN_LOAI_DAN_SU', co: ['phân loại'] },
+  // "phân loại dân sự (tỉnh)", "phân loại ngày 23/4/2024", và "tb dân sự" (233 bản ghi)
+  { trangThai: 'PHAN_LOAI_DAN_SU', co: ['phân loại', 'dân sự'] },
+  // 177 — "đình chỉ" KHÔNG có chữ "tạm" là một kết quả KHÁC HẲN tạm đình chỉ: hồ sơ đóng hẳn,
+  // không phục hồi. Phải loại trừ "tạm đình chỉ" và "tđc", nếu không mọi hồ sơ tạm đình chỉ đều
+  // bị đọc thành đình chỉ hẳn.
+  { trangThai: 'DINH_CHI', co: ['đình chỉ'], tru: ['tạm đình chỉ', 'tđc'] },
+  // 22 — "chuyển xử phạt hành chính", "xphc"
+  { trangThai: 'CHUYEN_XPHC', co: ['xử phạt', 'xphc'] },
+  // 364 + 29 + 24 — "ra qđ phân công giải quyết", "đã tiếp nhận", "đang xác minh". Đây là trạng
+  // thái ĐANG LÀM, không phải kết quả; xếp ưu tiên thấp nhất để một kết quả thật luôn thắng.
+  {
+    trangThai: 'DANG_XU_LY',
+    co: ['phân công', 'đã tiếp nhận', 'đang xác minh', 'đang điều tra', 'đang xử lý'],
+  },
+];
+
+/**
+ * Thứ tự ưu tiên khi một câu khớp NHIỀU mẫu — 501 hồ sơ ở lượt đầu.
+ *
+ * Bản đầu từ chối suy hẳn. Nhưng câu "nhập vv 276/05-2019 bình tân chuyển 30/05/2019" mô tả
+ * SỐ PHẬN CỦA CHÍNH hồ sơ này (nó bị nhập vào hồ sơ khác), còn "chuyển" chỉ là một mốc trên
+ * đường đi. Nên xếp theo mức độ mô tả số phận cuối cùng của chính bản ghi:
+ *
+ *   nhập / chuyển đơn vị  — hồ sơ này ĐI ĐÂU, dứt khoát nhất
+ *   khởi tố / không khởi tố / đình chỉ / tạm đình chỉ — kết quả tố tụng
+ *   xphc / trả đơn / lưu đơn / phân loại / hướng dẫn — kết quả hành chính
+ *   đã giải quyết        — câu chung chung nhất trong nhóm kết quả
+ *   đang xử lý           — KHÔNG phải kết quả, luôn thua
+ *
+ * Hồ sơ suy theo lối này được ĐÁNH DẤU riêng trong danh sách xuất ra, để người xác nhận soi kỹ
+ * đúng nhóm đáng ngờ nhất thay vì soi đều cả bảy nghìn dòng.
+ */
+export const UU_TIEN: TrangThaiSuy[] = [
+  'DA_NHAP_VU_KHAC',
+  'DA_CHUYEN_DON_VI',
+  'DA_KHOI_TO',
+  'KHONG_KHOI_TO',
+  'DINH_CHI',
+  'TAM_DINH_CHI',
+  'CHUYEN_XPHC',
+  'TRA_DON',
+  'LUU_DON',
+  'PHAN_LOAI_DAN_SU',
+  'HUONG_DAN',
+  'DA_GIAI_QUYET',
+  'DANG_XU_LY',
 ];
 
 /** Ngày viết tay trong câu: 1 hoặc 2 chữ số ngày/tháng, 4 chữ số năm. */
@@ -116,6 +164,10 @@ export function suyTrangThai(chuGoc: string | null | undefined): KetQuaSuy {
   const ngay = bocNgay(nguyenVan);
 
   if (khop.length === 0) return { trangThai: null, ngay, ly: 'KHONG_KHOP', khop, nguyenVan };
-  if (khop.length > 1) return { trangThai: null, ngay, ly: 'NHAP_NHANG', khop, nguyenVan };
-  return { trangThai: khop[0], ngay, ly: 'RO_RANG', khop, nguyenVan };
+  if (khop.length === 1) return { trangThai: khop[0], ngay, ly: 'RO_RANG', khop, nguyenVan };
+
+  // Khớp nhiều mẫu: chọn theo ƯU TIÊN, nhưng KHAI RÕ là suy từ câu nhiều nghĩa để người xác
+  // nhận soi kỹ đúng nhóm này.
+  const chon = UU_TIEN.find((t) => khop.includes(t)) ?? null;
+  return { trangThai: chon, ngay, ly: 'NHAP_NHANG', khop, nguyenVan };
 }

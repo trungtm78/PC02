@@ -11,6 +11,8 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.DANG_TRUY_TO]: 'Đang truy tố',
   [CaseStatus.DANG_XET_XU]: 'Đang xét xử',
   [CaseStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
+  [CaseStatus.DA_NHAP_VU_KHAC]: 'Đã nhập vụ khác',
+  [CaseStatus.CHUYEN_XPHC]: 'Chuyển xử phạt hành chính',
   [CaseStatus.DA_LUU_TRU]: 'Đã lưu trữ',
 };
 
@@ -30,6 +32,7 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
   [IncidentStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
   [IncidentStatus.DA_NHAP_VU_KHAC]: 'Đã nhập vụ khác',
   [IncidentStatus.PHAN_LOAI_DAN_SU]: 'Phân loại dân sự',
+  [IncidentStatus.DINH_CHI]: 'Đình chỉ',
 };
 
 export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
@@ -46,6 +49,9 @@ export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.TAM_DINH_CHI]: 'Tạm đình chỉ',
   [PetitionStatus.KHONG_KHOI_TO]: 'Không khởi tố',
   [PetitionStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
+  [PetitionStatus.DA_NHAP_HO_SO_KHAC]: 'Đã nhập hồ sơ khác',
+  [PetitionStatus.DINH_CHI]: 'Đình chỉ',
+  [PetitionStatus.CHUYEN_XPHC]: 'Chuyển xử phạt hành chính',
 };
 
 export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
