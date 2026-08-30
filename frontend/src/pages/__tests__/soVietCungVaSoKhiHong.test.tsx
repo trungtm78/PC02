@@ -67,6 +67,32 @@ describe('Không viết cứng con số cho người dùng đọc', () => {
   });
 });
 
+/**
+ * Huy hiệu so sánh phải ĐI QUA hàm dựng câu, không được tự đặt chữ.
+ *
+ * Cổng này khác cổng "không viết cứng tỷ lệ" ở trên: chỗ kia cấm chuỗi `"+12%"`, chỗ này chặn
+ * cách né — tự nối chuỗi `` `${x}%` `` ngay trong JSX của thẻ thống kê. Một khi đã nối tay thì
+ * ba luật của `cauSoSanh` (nền 0, nền nhỏ, chiều tốt/xấu) đều bị bỏ qua, mà màn hình vẫn trông
+ * đúng.
+ */
+describe('Huy hiệu so sánh đi qua hàm dựng câu', () => {
+  it.each([['MonthlyReportPage.tsx'], ['QuarterlyReportPage.tsx']])(
+    '%s — dùng HuyHieuSoSanh, không tự nối chuỗi phần trăm',
+    (ten) => {
+      const duong = Object.keys(TEP).find((k) => k.endsWith('/' + ten))!;
+      const ma = TEP[duong];
+      expect(ma).toMatch(/HuyHieuSoSanh/);
+      // Bỏ qua hàm vẽ nhãn của biểu đồ (`label={({ percent }) => …%}`): đó là phần trăm của
+      // TỔNG THỂ một lát bánh, không phải so sánh giữa hai kỳ. Cổng bắt nhầm là cổng sẽ bị tắt.
+      const dong = ma
+        .split(String.fromCharCode(10))
+        .filter((l) => !/label=\{\(/.test(l))
+        .filter((l) => /\$\{[^}]*\}%/.test(l));
+      expect(dong).toEqual([]);
+    },
+  );
+});
+
 describe('Không hiện con số khi chưa hỏi được máy chủ', () => {
   /**
    * Hai màn này dựng thẻ từ một mảng `stats`/`cards` rồi `.map`. Cổng đọc mã: hễ tệp có phép

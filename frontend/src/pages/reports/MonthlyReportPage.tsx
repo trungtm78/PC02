@@ -16,6 +16,8 @@ import { api } from "@/lib/api";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { extractApiError } from "@/lib/api-errors";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
+import { HuyHieuSoSanh } from "@/components/shared/HuyHieuSoSanh";
+import { nhacKyChuaTron, type KhoiSoSanh } from "@/lib/soSanhKy";
 
 export default function MonthlyReportPage() {
   const [selectedMonth, setSelectedMonth] = useState("2026-02");
@@ -47,11 +49,14 @@ export default function MonthlyReportPage() {
 
   const chartData = reportData?.data ?? [];
 
+  const soSanh: KhoiSoSanh | undefined = reportData?.soSanh;
+  const nhacDoDang = nhacKyChuaTron(soSanh);
+
   const stats = [
-    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? null, color: "blue" },
-    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? null, color: "purple" },
-    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? null, color: "red" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, color: "green" },
+    { label: "Tổng đơn thư", value: reportData?.totals?.donThu ?? null, chiTieu: "donThu", color: "blue" },
+    { label: "Tổng vụ việc", value: reportData?.totals?.vuViec ?? null, chiTieu: "vuViec", color: "purple" },
+    { label: "Tổng vụ án", value: reportData?.totals?.vuAn ?? null, chiTieu: "vuAn", color: "red" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, chiTieu: "daGiaiQuyet", color: "green" },
   ];
 
   return (
@@ -120,6 +125,15 @@ export default function MonthlyReportPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="báo cáo tháng" data-testid="monthly-report-load-error" />
+      {!loadError && nhacDoDang && (
+        <div
+          className="mb-4 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          data-testid="nhac-ky-chua-tron"
+        >
+          <span aria-hidden="true">⏳</span>
+          <span>{nhacDoDang}</span>
+        </div>
+      )}
 
       {/* Loading spinner */}
       {loading && (
@@ -139,8 +153,15 @@ export default function MonthlyReportPage() {
                     mọi năm, mọi đơn vị, kể cả khi số liệu tải về bình thường. Máy chủ không trả
                     số kỳ trước (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại) nên
                     không tính được tỷ lệ thật — và một con số không tính được thì không hiện. */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-sm text-slate-600">{stat.label}</span>
+                  {!loadError && (
+                    <HuyHieuSoSanh
+                      ketQua={stat.chiTieu ? soSanh?.chiTieu?.[stat.chiTieu] : undefined}
+                      nenNhan={soSanh?.nen?.nhan}
+                      data-testid={`so-sanh-${stat.chiTieu ?? index}`}
+                    />
+                  )}
                 </div>
                 <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>

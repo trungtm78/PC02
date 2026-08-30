@@ -19,6 +19,8 @@ import { api } from "@/lib/api";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { extractApiError } from "@/lib/api-errors";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
+import { HuyHieuSoSanh } from "@/components/shared/HuyHieuSoSanh";
+import { nhacKyChuaTron, type KhoiSoSanh } from "@/lib/soSanhKy";
 
 export default function QuarterlyReportPage() {
   const [selectedQuarter, setSelectedQuarter] = useState("Q1-2026");
@@ -57,11 +59,14 @@ export default function QuarterlyReportPage() {
     { name: "Vụ án", value: reportData?.totals?.vuAn ?? null, color: "#ef4444" },
   ];
 
+  const soSanh: KhoiSoSanh | undefined = reportData?.soSanh;
+  const nhacDoDang = nhacKyChuaTron(soSanh);
+
   const stats = [
-    { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), color: "blue" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, color: "green" },
-    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, color: "amber" },
-    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, color: "red" },
+    { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), chiTieu: "tongTiepNhan", color: "blue" },
+    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, chiTieu: "daGiaiQuyet", color: "green" },
+    { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, chiTieu: "dangXuLy", color: "amber" },
+    { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, chiTieu: "quaHan", color: "red" },
   ];
 
   return (
@@ -130,6 +135,15 @@ export default function QuarterlyReportPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="báo cáo quý" data-testid="quarterly-report-load-error" />
+      {!loadError && nhacDoDang && (
+        <div
+          className="mb-4 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          data-testid="nhac-ky-chua-tron"
+        >
+          <span aria-hidden="true">⏳</span>
+          <span>{nhacDoDang}</span>
+        </div>
+      )}
 
       {/* Loading spinner */}
       {loading && (
@@ -149,8 +163,15 @@ export default function QuarterlyReportPage() {
                     mọi năm, mọi đơn vị, kể cả khi số liệu tải về bình thường. Máy chủ không trả
                     số kỳ trước (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại) nên
                     không tính được tỷ lệ thật — và một con số không tính được thì không hiện. */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-sm text-slate-600">{stat.label}</span>
+                  {!loadError && (
+                    <HuyHieuSoSanh
+                      ketQua={stat.chiTieu ? soSanh?.chiTieu?.[stat.chiTieu] : undefined}
+                      nenNhan={soSanh?.nen?.nhan}
+                      data-testid={`so-sanh-${stat.chiTieu ?? index}`}
+                    />
+                  )}
                 </div>
                 <div className={`text-3xl font-bold text-${stat.color}-600`}>{soLieuHienThi(stat.value, !!loadError)}</div>
               </div>

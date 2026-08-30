@@ -600,3 +600,52 @@ trước — **chờ anh quyết**.
 Kèm theo: ba màn còn hiện số 0 cạnh câu báo lỗi (`/dashboard`, `/settings/overdue-records`,
 `/activity-log`), năm màn còn nói câu "chưa có gì" cạnh câu báo lỗi, và chip "Tất cả 0" ở bốn
 màn — chỗ cuối sửa **một lần ở `StatusChips`** bằng cờ `countsUnknown`, không vá bốn nơi.
+
+## Hạ tầng so sánh kỳ (`so-sanh-ky`) — thay huy hiệu bịa bằng phép tính thật
+
+Anh yêu cầu quyết theo tiêu chí quản trị sâu nhất + mở rộng tốt nhất, cho tăng phạm vi. Nên
+KHÔNG vá hai màn mà dựng một hạ tầng dùng chung.
+
+### Ba điều tra được từ thị trường, cả ba đổi thiết kế
+
+1. **Quy ước ngành là "so với CÙNG KỲ NĂM TRƯỚC"**, không phải kỳ liền trước. Báo cáo Bộ Công an
+   viết "giảm 23,16% số vụ so với cùng kỳ năm 2024". → nền mặc định là `CUNG_KY_NAM_TRUOC`.
+2. **Nền bằng 0 thì phần trăm vô định** — không phải 0%, không phải ∞%. → nêu số tuyệt đối.
+3. **Nền nhỏ thì tỷ lệ dao động dữ** — hướng dẫn công bố của cơ quan thống kê y tế Hoa Kỳ chặn
+   khi đếm ≤ 10 và ghi chú khi 11–20 (RSE > 25%). → lấy đúng hai ngưỡng ấy.
+
+### Thứ không có trong yêu cầu nhưng thiếu là sai có hệ thống
+
+- **Kỳ chưa trọn.** Ngày 10/8 mà đem cả tháng 8 (10 ngày dữ liệu) so với cả tháng 8 năm ngoái
+  (31 ngày) thì tháng nào cũng "giảm ~68%" — sai theo hướng NGHE NHƯ THÀNH TÍCH. → cắt kỳ nền
+  còn đúng số ngày đã trôi, và nói ra trên màn.
+- **Chiều tốt/xấu theo từng chỉ tiêu.** "Quá hạn giảm" là tốt, "đã giải quyết giảm" là xấu, cùng
+  một dấu trừ. Tô xanh cho mọi dấu cộng là cách nhanh nhất để màn hình chúc mừng cán bộ vì số
+  hồ sơ quá hạn vừa tăng.
+- **Đơn thư/vụ việc/vụ án là TRUNG TÍNH** — đếm khối lượng việc đến, không đo kết quả làm việc.
+
+### Kiến trúc
+
+```
+backend/src/reports/so-sanh-ky/
+  so-sanh.ts       phép tính thuần: chênh lệch · tỷ lệ · độ tin cậy · chiều tốt
+  ky-bao-cao.ts    số học kỳ: dựng · cùng kỳ năm trước · kỳ liền trước · cắt theo tiến độ
+  chi-tieu.ts      sổ đăng ký chiều tốt của từng chỉ tiêu
+  dung-so-sanh.ts  ghép lại; NHẬN HÀM ĐẾM nên không biết gì về Prisma
+```
+
+`dungSoSanh` nhận một hàm đếm chứ không nhận Prisma — nhờ vậy ca kiểm chạy không cần CSDL, và
+mọi màn báo cáo khác (KPI, thống kê phường/xã, thống kê 48 trường) dùng lại được y nguyên.
+
+Nhân tiện gộp phép đếm đang lặp giữa tháng và quý thành `demTrongKhoang`. Đây KHÔNG phải dọn
+dẹp: kỳ nền bắt buộc phải được đếm bằng **đúng một thước** với kỳ hiện tại, nếu không thì chênh
+lệch đo được một phần là do đổi thước và không ai biết là phần nào.
+
+### Tương thích ngược
+
+Mọi trường cũ giữ nguyên; `soSanh` là trường THÊM. Màn hình bản cũ không hiện huy hiệu, không vỡ.
+
+### Còn có thể mở rộng
+
+`?soSanh=` đã nhận `KY_LIEN_TRUOC` và `KHONG` — chỉ cần một ô chọn trên giao diện là dùng được.
+Chưa dựng ô ấy vì chưa có yêu cầu; hạ tầng thì đã sẵn.
