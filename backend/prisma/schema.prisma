@@ -520,6 +520,8 @@ enum CaseStatus {
   DA_LUU_TRU // Đã lưu trữ
 
   @@map("case_status")
+  // 22 vụ án hệ cũ ghi "chuyển…" — IncidentStatus đã có giá trị này, CaseStatus thì không.
+  DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác
 }
 
 model Case {
@@ -968,6 +970,20 @@ enum PetitionStatus {
   DA_CHUYEN_VU_AN // Đã chuyển thành Vụ án
 
   @@map("petition_status")
+  // ── Kết quả xử lý mà hệ cũ CÓ GHI nhưng hệ mới chưa có chỗ chứa ──
+  //
+  // Đo trên máy thật 30/08/2026: 5.094 đơn thư mang một trong sáu kết quả dưới đây ở ô
+  // `ket_qua_xu_ly_giai_quyet_khac` của hệ cũ, nhưng `PetitionStatus` chỉ có bảy giá trị và
+  // không giá trị nào diễn đạt được chúng. Hệ quả: toàn bộ 46.741 đơn thư đứng ở
+  // MOI_TIEP_NHAN, kể cả đơn đã trả cho công dân từ 2019.
+  //
+  // Ép chúng vào DA_GIAI_QUYET là nói sai: trả đơn KHÔNG phải giải quyết xong.
+  DA_TRA_DON // Đã trả đơn cho người gửi
+  DA_HUONG_DAN // Đã hướng dẫn (khởi kiện dân sự, liên hệ toà án…)
+  PHAN_LOAI_DAN_SU // Phân loại là quan hệ dân sự
+  TAM_DINH_CHI // Tạm đình chỉ giải quyết — KHÔNG phải kết thúc, còn phục hồi được
+  KHONG_KHOI_TO // Không khởi tố vụ án
+  DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác giải quyết
 }
 
 model Petition {
@@ -2907,4 +2923,33 @@ model LegacyFieldDiagnostic {
 
   @@index([runId, field])
   @@map("legacy_field_diagnostics")
+}
+
+/// Sổ ghi từng lần suy trạng thái từ chữ hệ cũ.
+///
+/// Không ghi vào `metadata` của hồ sơ: bảng riêng thì tra được "đã đổi những gì, vì câu chữ
+/// nào", đảo ngược được, và chính nó LÀ danh sách để đưa khách hàng xác nhận.
+model LegacyStatusInference {
+  id           String   @id @default(cuid())
+  runId        String
+  thucThe      String
+  hoSoId       String
+  legacyId     Int?
+  /// STT hệ cũ — khoá để khách hàng đối chiếu. Hệ cũ định danh bằng (năm, stt).
+  sttCu        String?
+  namCu        String?
+  maHoSo       String?
+  trangThaiCu  String
+  trangThaiMoi String
+  /// Ngày bóc từ chính câu chữ. NULL khi câu không ghi ngày nào.
+  ngaySuy      DateTime?
+  /// Nguyên văn câu hệ cũ — để đối chiếu phán đoán, không phải để hiển thị.
+  nguyenVan    String
+  daApDung     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([runId])
+  @@index([sttCu])
+  @@index([hoSoId])
+  @@map("legacy_status_inferences")
 }

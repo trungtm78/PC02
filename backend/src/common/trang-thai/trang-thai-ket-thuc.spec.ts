@@ -39,6 +39,9 @@ describe('Trạng thái kết thúc — ranh giới nghiệp vụ', () => {
       CaseStatus.DA_KET_LUAN,
       CaseStatus.DA_LUU_TRU,
       CaseStatus.DINH_CHI,
+      // Thêm 30/08/2026: hệ cũ ghi "chuyển…" cho 22 vụ án, và IncidentStatus vốn đã có giá trị
+      // này — để hai thực thể lệch nhau chỉ vì một cái được khai sớm hơn là vô lý.
+      CaseStatus.DA_CHUYEN_DON_VI,
     ]);
     expect([...TRANG_THAI_KET_THUC.incident]).toContain(IncidentStatus.DA_CHUYEN_VU_AN);
     // `DA_LUU_DON` là phần THÊM có chủ đích: lưu đơn là một kết quả xử lý, danh sách cũ bỏ sót
@@ -119,5 +122,41 @@ describe('mocGiaiQuyetMoi — quyết theo CHUYỂN TIẾP, không theo trạng 
   it('phân biệt "không đụng" với "xoá" — undefined khác null', () => {
     expect(mocGiaiQuyetMoi('petition', 'MOI_TIEP_NHAN', 'MOI_TIEP_NHAN', null, LUC)).toBeUndefined();
     expect(mocGiaiQuyetMoi('petition', 'DA_GIAI_QUYET', 'MOI_TIEP_NHAN', LUC, LUC)).toBeNull();
+  });
+});
+
+describe('Sáu trạng thái đơn thư thêm cho kết quả hệ cũ', () => {
+  /**
+   * Đo trên máy thật 30/08/2026: 5.094 đơn thư mang một trong sáu kết quả này ở ô
+   * `ket_qua_xu_ly_giai_quyet_khac`, nhưng `PetitionStatus` chỉ có bảy giá trị và không giá trị
+   * nào diễn đạt được chúng. Hệ quả: toàn bộ 46.741 đơn thư đứng ở MOI_TIEP_NHAN, kể cả đơn đã
+   * trả cho công dân từ 2019.
+   */
+  it('năm trạng thái kết quả là KẾT THÚC — đơn vị hết việc với đơn ấy', () => {
+    for (const t of [
+      PetitionStatus.DA_TRA_DON,
+      PetitionStatus.DA_HUONG_DAN,
+      PetitionStatus.PHAN_LOAI_DAN_SU,
+      PetitionStatus.KHONG_KHOI_TO,
+      PetitionStatus.DA_CHUYEN_DON_VI,
+    ]) {
+      expect({ t, xong: laKetThuc('petition', t) }).toEqual({ t, xong: true });
+    }
+  });
+
+  /**
+   * TAM_DINH_CHI của đơn thư CỐ Ý không phải kết thúc — hồ sơ tạm dừng còn phục hồi được, đếm
+   * vào "đã giải quyết" là khai khống. Giống hệt cách xử ở Vụ việc và Vụ án; ba thực thể lệch
+   * nhau ở chính điểm này là chỗ số liệu bắt đầu sai.
+   */
+  it('TẠM đình chỉ đơn thư KHÔNG phải kết thúc — giống Vụ việc và Vụ án', () => {
+    expect(laKetThuc('petition', PetitionStatus.TAM_DINH_CHI)).toBe(false);
+    expect(laKetThuc('incident', IncidentStatus.TAM_DINH_CHI)).toBe(false);
+    expect(laKetThuc('case', CaseStatus.TAM_DINH_CHI)).toBe(false);
+  });
+
+  it('trả đơn KHÔNG bị coi là đã giải quyết — hai việc khác nhau', () => {
+    expect(PetitionStatus.DA_TRA_DON).not.toBe(PetitionStatus.DA_GIAI_QUYET);
+    expect(laKetThuc('petition', PetitionStatus.DA_TRA_DON)).toBe(true);
   });
 });

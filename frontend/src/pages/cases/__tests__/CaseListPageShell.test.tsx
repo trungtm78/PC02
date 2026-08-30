@@ -78,7 +78,8 @@ const sampleStats = {
     DANG_TRUY_TO: 1,
     DANG_XET_XU: 2,
     DA_LUU_TRU: 0,
-  },
+      DA_CHUYEN_DON_VI: 0,
+    },
   // byGroup do SERVER đếm. Thiếu field này thì 4 thẻ nhóm render khung xương vĩnh viễn
   // và test vẫn pass vì không assert giá trị thẻ — "xanh giả".
   byGroup: {
@@ -114,11 +115,12 @@ describe('CaseListPageShell — initial mount + ready state', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Danh sách vụ án/i })).toBeInTheDocument();
   });
 
-  it('StatusChips render với 10 status options + "Tất cả"', async () => {
+  it('StatusChips render đủ MỌI CaseStatus + "Tất cả"', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
-    // "Tất cả" + 10 statuses = 11 tabs
-    expect(screen.getAllByRole('tab')).toHaveLength(11);
+    // Suy từ chính enum thay vì viết cứng con số: thêm một trạng thái là ca kiểm tự đúng, và
+    // nếu thanh chip bỏ sót một trạng thái thì ca kiểm đỏ — đó mới là điều cần canh.
+    expect(screen.getAllByRole('tab')).toHaveLength(Object.values(CaseStatus).length + 1);
   });
 
   it('StatusChips hiển thị server counts khi stats về', async () => {
