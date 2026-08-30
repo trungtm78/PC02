@@ -25,6 +25,15 @@ const GOC = resolve(__dirname, '../../..');
 const NL = String.fromCharCode(10);
 
 /** Chỗ ghi `status` KHÔNG cần đóng mốc, kèm lý do. Danh sách phải ngắn. */
+/**
+ * Chỗ ghi `status` KHÔNG cần đóng mốc, kèm lý do. Danh sách phải NGẮN, và mỗi dòng phải trả lời
+ * được câu "vì sao chỗ này không thể làm mốc sai".
+ *
+ * `DANG_XAC_MINH` từng nằm trong danh sách này với lý do "đổi sang trạng thái đang làm việc".
+ * Codex bắt: chính vì thế mà đường PHÂN CÔNG mở lại một vụ việc đã kết thúc vẫn giữ nguyên mốc
+ * cũ, và vụ việc đang mở vẫn được đếm là đã giải quyết. Một miễn trừ đặt theo trạng thái ĐÍCH
+ * luôn bỏ sót chiều ngược lại.
+ */
 const MIEN_TRU = [
   // Tạo mới: hồ sơ vừa sinh ra luôn ở trạng thái mở, không thể đã giải quyết.
   'TIEP_NHAN',
@@ -32,8 +41,6 @@ const MIEN_TRU = [
   // Đơn thư nâng lên vụ việc/vụ án — không phải giải quyết, xem TRANG_THAI_KET_THUC.
   'DA_CHUYEN_VU_VIEC',
   'DA_CHUYEN_VU_AN',
-  // Phân công điều tra viên: đổi sang trạng thái đang làm việc.
-  'DANG_XAC_MINH',
 ];
 
 function tepService(): string[] {

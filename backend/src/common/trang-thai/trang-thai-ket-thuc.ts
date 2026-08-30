@@ -41,25 +41,40 @@ export function laKetThuc(thucThe: ThucThe, trangThai: string): boolean {
 }
 
 /**
- * Mốc giải quyết MỚI khi trạng thái đổi.
+ * Mốc giải quyết MỚI, quyết theo CHUYỂN TIẾP chứ không theo trạng thái đích.
  *
- * - Vào trạng thái kết thúc mà chưa có mốc → đặt mốc.
- * - Vào trạng thái kết thúc mà ĐÃ có mốc → giữ nguyên. Sửa từ "đã kết luận" sang "đã lưu trữ"
- *   không phải là giải quyết lại; dời mốc là làm hồ sơ nhảy sang kỳ báo cáo khác.
- * - Ra khỏi trạng thái kết thúc → xoá mốc. Hồ sơ phục hồi mà giữ mốc cũ thì nó vừa đang mở vừa
- *   đã xong, và có mặt trong báo cáo của một kỳ nó không thuộc về.
+ * ── Vì sao phải biết trạng thái CŨ ──
+ *
+ * Bản đầu chỉ nhìn trạng thái mới: "kết thúc mà chưa có mốc → đặt mốc hôm nay". Codex bắt hậu
+ * quả: một vụ án đóng từ 2019, di trú sang chưa có mốc, chỉ cần cán bộ sửa MỘT Ô bất kỳ mà
+ * biểu mẫu gửi kèm nguyên trạng thái cũ — là hệ thống đóng cho nó mốc HÔM NAY. Vụ án 2019 nhảy
+ * vào báo cáo tháng 8/2026.
+ *
+ * Đó đúng là việc bịa ngày mà cả đợt này đi sửa, chỉ khác chỗ đứng. Nên mốc chỉ đặt khi hồ sơ
+ * THẬT SỰ đi từ đang-làm sang đã-xong.
+ *
+ * ── Ba nhánh ──
+ *
+ * - Đang làm → đã xong: đặt mốc (nếu chưa có).
+ * - Đã xong → đang làm: XOÁ mốc. Hồ sơ phục hồi mà giữ mốc cũ thì nó vừa đang mở vừa đã xong,
+ *   và có mặt trong báo cáo của một kỳ nó không còn thuộc về.
+ * - Không đổi bên: KHÔNG đụng tới cột. Sửa "đã kết luận" sang "đã lưu trữ" không phải giải
+ *   quyết lại; hồ sơ di sản chưa có mốc thì vẫn chưa có, và hiện ở ô "chưa rõ ngày".
  *
  * Trả `undefined` nghĩa là KHÔNG đụng tới cột — khác hẳn `null` là xoá.
  */
 export function mocGiaiQuyetMoi(
   thucThe: ThucThe,
+  trangThaiCu: string,
   trangThaiMoi: string,
   mocHienTai: Date | null | undefined,
   bayGio: Date,
 ): Date | null | undefined {
-  const ketThuc = laKetThuc(thucThe, trangThaiMoi);
-  if (ketThuc) return mocHienTai ? undefined : bayGio;
-  return mocHienTai ? null : undefined;
+  const cuXong = laKetThuc(thucThe, trangThaiCu);
+  const moiXong = laKetThuc(thucThe, trangThaiMoi);
+  if (!cuXong && moiXong) return mocHienTai ? undefined : bayGio;
+  if (cuXong && !moiXong) return mocHienTai ? null : undefined;
+  return undefined;
 }
 
 /**
@@ -70,10 +85,11 @@ export function mocGiaiQuyetMoi(
  */
 export function machMocGiaiQuyet(
   thucThe: ThucThe,
+  trangThaiCu: string,
   trangThaiMoi: string,
   mocHienTai: Date | null | undefined,
   bayGio: Date = new Date(),
 ): { ngayGiaiQuyet?: Date | null } {
-  const moc = mocGiaiQuyetMoi(thucThe, trangThaiMoi, mocHienTai, bayGio);
+  const moc = mocGiaiQuyetMoi(thucThe, trangThaiCu, trangThaiMoi, mocHienTai, bayGio);
   return moc === undefined ? {} : { ngayGiaiQuyet: moc };
 }

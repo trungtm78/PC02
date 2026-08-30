@@ -670,7 +670,7 @@ export class PetitionsService {
       ...(dto.status !== undefined && { status: dto.status }),
       // Xem chú thích cùng nội dung ở cases.service.ts — cùng một luật cho cả ba thực thể.
       ...(dto.status !== undefined &&
-        machMocGiaiQuyet('petition', dto.status, existing.ngayGiaiQuyet)),
+        machMocGiaiQuyet('petition', existing.status, dto.status, existing.ngayGiaiQuyet)),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
       ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),

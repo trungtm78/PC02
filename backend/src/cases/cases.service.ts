@@ -1373,7 +1373,7 @@ export class CasesService {
       // Đóng mốc giải quyết cùng lúc với trạng thái. Báo cáo "đã giải quyết" đọc cột này;
       // đổi trạng thái mà quên mốc thì hồ sơ xong việc vẫn không vào kỳ nào.
       ...(dto.status !== undefined &&
-        machMocGiaiQuyet('case', dto.status, existing.ngayGiaiQuyet)),
+        machMocGiaiQuyet('case', existing.status, dto.status, existing.ngayGiaiQuyet)),
       ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
       ...(dto.deadline !== undefined && {
         deadline: dto.deadline ? new Date(dto.deadline) : null,
