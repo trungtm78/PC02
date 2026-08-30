@@ -75,6 +75,15 @@ export default function QuarterlyReportPage() {
    * Con số này nhỏ, nhưng phải hiện: một hồ sơ không xuất hiện trong báo cáo nào là một hồ sơ
    * vô hình, và người đọc báo cáo cần biết tổng của mình thiếu bao nhiêu.
    */
+  /**
+   * Hồ sơ ĐANG ở trạng thái kết thúc mà chưa có mốc giải quyết — di sản của giai đoạn trước khi
+   * có cột `ngayGiaiQuyet`. Chúng không vào kỳ nào, nên phải hiện, nếu không thì "đã giải
+   * quyết: 0" đọc như một sự thật.
+   */
+  const xongChuaRoNgay = reportData?.daGiaiQuyetChuaRoNgay as
+    | { donThu: number; vuViec: number; vuAn: number; tong: number }
+    | undefined;
+
   const khongCoNgay = reportData?.khongCoNgay as
     | { donThu: number; vuViec: number; vuAn: number; tong: number }
     | undefined;
@@ -201,17 +210,16 @@ export default function QuarterlyReportPage() {
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-sm text-slate-600">
                     {stat.label}
-                    {stat.canhBao && (
-                      /* Chỉ tiêu này đếm theo LẦN CẬP NHẬT gần nhất, không phải ngày giải
-                         quyết — CSDL không có cột ấy (`cases.ngay_tra_ket_qua` rỗng 0/3.381).
-                         Với kỳ đã qua, con số gần như luôn bằng 0, và số 0 ấy KHÔNG có nghĩa
-                         là không giải quyết được vụ nào. Phải nói ra ngay cạnh con số. */
+                    {stat.canhBao && xongChuaRoNgay && xongChuaRoNgay.tong > 0 && (
+                      /* Không còn là lời cảnh báo chung chung mà là MỘT CON SỐ: bấy nhiêu hồ sơ
+                         đã xong việc nhưng kết thúc từ trước khi hệ thống có mốc giải quyết,
+                         nên không nằm trong kỳ nào. Con số này tự teo dần. */
                       <span
                         className="ml-1 cursor-help text-amber-600"
                         data-testid="canh-bao-da-giai-quyet"
-                        title="Đếm theo lần cập nhật hồ sơ gần nhất, không phải ngày giải quyết — hệ thống chưa có cột ngày giải quyết. Với kỳ đã qua, con số này thường bằng 0 và KHÔNG có nghĩa là không giải quyết được vụ nào."
+                        title={`${xongChuaRoNgay.tong.toLocaleString('vi-VN')} hồ sơ đã ở trạng thái kết thúc nhưng chưa ghi mốc giải quyết (đơn thư ${xongChuaRoNgay.donThu}, vụ việc ${xongChuaRoNgay.vuViec}, vụ án ${xongChuaRoNgay.vuAn}) — chúng kết thúc trước khi hệ thống có mốc này, nên không nằm trong kỳ nào. Hồ sơ giải quyết từ nay trở đi đều được ghi mốc.`}
                       >
-                        ⚠
+                        +{xongChuaRoNgay.tong.toLocaleString('vi-VN')}?
                       </span>
                     )}
                   </span>

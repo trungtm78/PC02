@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -904,6 +905,9 @@ export class IncidentsService {
           },
           data: {
             status: dto.status,
+            // Đóng mốc giải quyết ngay tại đây. Báo cáo "đã giải quyết" đọc cột này, không đọc
+            // `updatedAt` — nếu không đóng mốc thì hồ sơ giải quyết xong vẫn không vào kỳ nào.
+            ...machMocGiaiQuyet('incident', dto.status, existing.ngayGiaiQuyet),
             ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: [dto.lyDoKhongKhoiTo] }),
           },
           include: {
@@ -1204,6 +1208,7 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_NHAP_VU_KHAC,
+          ...machMocGiaiQuyet('incident', IncidentStatus.DA_NHAP_VU_KHAC, source.ngayGiaiQuyet),
           mergedIntoId: dto.targetId,
         },
       }),
@@ -1275,6 +1280,7 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_CHUYEN_DON_VI,
+          ...machMocGiaiQuyet('incident', IncidentStatus.DA_CHUYEN_DON_VI, existing.ngayGiaiQuyet),
           chuyenDenDonVi: dto.donViMoi,
           chuyenTuDonVi: existing.unitId ?? existing.donViGiaiQuyet,
         },

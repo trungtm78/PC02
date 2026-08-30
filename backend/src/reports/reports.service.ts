@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { TRANG_THAI_KET_THUC } from '../common/trang-thai/trang-thai-ket-thuc';
 import {
   dungSoSanh,
   kyThang,
@@ -92,24 +93,17 @@ export class ReportsService {
       this.prisma.case.count({
         where: { deletedAt: null, [COT_NGAY_TIEP_NHAN.case]: trongKy },
       }),
-      // "Đã giải quyết" vẫn đếm theo `updatedAt`. KHÔNG có cột ngày giải quyết dùng được: đo
-      // trên máy thật thì `cases.ngay_tra_ket_qua` rỗng 0/3.381, và incidents/petitions không
-      // có cột tương đương. Ghi ra đây để không ai tưởng đây là lựa chọn, và để lần sau có cột
-      // thật thì biết chỗ mà sửa.
+      // "Đã giải quyết" đếm theo MỐC GIẢI QUYẾT (`ngayGiaiQuyet`), không theo `updatedAt`.
+      // `updatedAt` là lần chạm bản ghi gần nhất, nên mọi kỳ đã qua đều ra 0 — không phải vì
+      // không giải quyết được vụ nào, mà vì không hồ sơ nào được động tới trong kỳ ấy.
+      //
+      // Hồ sơ đã ở trạng thái kết thúc từ TRƯỚC khi có cột này thì mốc rỗng, nên KHÔNG vào kỳ
+      // nào. Chúng được đếm riêng ở `daGiaiQuyetChuaRoNgay` và hiện trên màn — bịa một ngày cho
+      // chúng là bịa đúng con số mà cả đợt này đi sửa.
       Promise.all([
-        this.prisma.case.count({
-          where: {
-            deletedAt: null,
-            updatedAt: trongKy,
-            status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
-          },
-        }),
-        this.prisma.incident.count({
-          where: { deletedAt: null, updatedAt: trongKy, status: IncidentStatus.DA_GIAI_QUYET },
-        }),
-        this.prisma.petition.count({
-          where: { deletedAt: null, updatedAt: trongKy, status: PetitionStatus.DA_GIAI_QUYET },
-        }),
+        this.prisma.case.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
+        this.prisma.incident.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
+        this.prisma.petition.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
       ]).then(([c, i, p]) => c + i + p),
     ]);
     return { donThu, vuViec, vuAn, daGiaiQuyet };
@@ -124,6 +118,36 @@ export class ReportsService {
    * không lọt vào báo cáo nào là một hồ sơ VÔ HÌNH, và điều đó phải hiện trên màn chứ không
    * nằm trong đầu người viết mã.
    */
+  /**
+   * Hồ sơ ĐANG Ở trạng thái kết thúc mà chưa có mốc giải quyết.
+   *
+   * Toàn bộ số này là di sản: cột `ngayGiaiQuyet` mới có từ 30/08/2026, còn hồ sơ kết thúc
+   * trước đó không có mốc nào để đặt. Con số sẽ tự teo dần khi cán bộ xử lý hồ sơ mới, và nó
+   * PHẢI hiện trên màn cho tới lúc ấy — nếu không thì "đã giải quyết: 0" đọc như một sự thật.
+   */
+  private async demDaGiaiQuyetChuaRoNgay() {
+    const [vuAn, vuViec, donThu] = await Promise.all([
+      this.prisma.case.count({
+        where: { deletedAt: null, ngayGiaiQuyet: null, status: { in: TRANG_THAI_KET_THUC.case } },
+      }),
+      this.prisma.incident.count({
+        where: {
+          deletedAt: null,
+          ngayGiaiQuyet: null,
+          status: { in: TRANG_THAI_KET_THUC.incident },
+        },
+      }),
+      this.prisma.petition.count({
+        where: {
+          deletedAt: null,
+          ngayGiaiQuyet: null,
+          status: { in: TRANG_THAI_KET_THUC.petition },
+        },
+      }),
+    ]);
+    return { donThu, vuViec, vuAn, tong: donThu + vuViec + vuAn };
+  }
+
   private async demKhongCoNgayTiepNhan() {
     // Viết TƯỜNG MINH ba truy vấn thay vì dựng điều kiện bằng khoá động: khoá động buộc phải
     // ép kiểu, và `as never` ở bản trước đã bịt đúng lời cảnh báo cần nghe — `receivedDate`
@@ -203,8 +227,20 @@ export class ReportsService {
       kieuSoSanh,
     );
 
-    const khongCoNgay = await this.demKhongCoNgayTiepNhan();
-    return { success: true, data, totals, year, month, soSanh, khongCoNgay };
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
+      this.demKhongCoNgayTiepNhan(),
+      this.demDaGiaiQuyetChuaRoNgay(),
+    ]);
+    return {
+      success: true,
+      data,
+      totals,
+      year,
+      month,
+      soSanh,
+      khongCoNgay,
+      daGiaiQuyetChuaRoNgay,
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -248,8 +284,20 @@ export class ReportsService {
       kieuSoSanh,
     );
 
-    const khongCoNgay = await this.demKhongCoNgayTiepNhan();
-    return { success: true, data, totals, year, quarter, soSanh, khongCoNgay };
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
+      this.demKhongCoNgayTiepNhan(),
+      this.demDaGiaiQuyetChuaRoNgay(),
+    ]);
+    return {
+      success: true,
+      data,
+      totals,
+      year,
+      quarter,
+      soSanh,
+      khongCoNgay,
+      daGiaiQuyetChuaRoNgay,
+    };
   }
 
   // ─────────────────────────────────────────────
