@@ -105,6 +105,18 @@ export default function QuarterlyReportPage() {
     | { donThu: number; vuViec: number; vuAn: number; tong: number }
     | undefined;
 
+  /**
+   * Năm có dữ liệu, do MÁY CHỦ tính từ chính hồ sơ.
+   *
+   * Ô chọn năm trước đây viết cứng 2024–2026 trong khi hồ sơ có từ 2006 — hơn mười lăm năm dữ
+   * liệu không có đường bấm tới, và không gì trên màn nói ra. Người dùng chỉ thấy ba năm và tin
+   * rằng đó là tất cả.
+   */
+  const namCoDuLieu = (reportData?.namCoDuLieu as { tu: number; den: number } | undefined) ?? {
+    tu: new Date().getFullYear(),
+    den: new Date().getFullYear(),
+  };
+
   const khongCoNgay = reportData?.khongCoNgay as
     | { donThu: number; vuViec: number; vuAn: number; tong: number }
     | undefined;
@@ -141,9 +153,14 @@ export default function QuarterlyReportPage() {
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
             >
-              <option value={2024}>2024</option>
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
+              {Array.from(
+                { length: Math.max(1, namCoDuLieu.den - namCoDuLieu.tu + 1) },
+                (_, i) => namCoDuLieu.den - i,
+              ).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
             </select>
             <button
               onClick={async () => {
