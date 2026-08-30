@@ -1,4 +1,5 @@
 import { PetitionStatus } from '@prisma/client';
+import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 
 export interface PetitionCreateCtx {
@@ -47,6 +48,15 @@ export function buildPetitionCreateData(
     }),
     notes: dto.notes,
     status: dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
+    // Đơn thư có thể được TẠO thẳng ở trạng thái kết thúc (biểu mẫu cho chọn). Coi đó là
+    // chuyển tiếp từ MOI_TIEP_NHAN nên mốc được đóng ngay — nếu không, đơn vừa tạo đã xong
+    // lại rơi vào ô "đã xong nhưng chưa rõ ngày" và không vào kỳ báo cáo nào.
+    ...machMocGiaiQuyet(
+      'petition',
+      PetitionStatus.MOI_TIEP_NHAN,
+      dto.status ?? PetitionStatus.MOI_TIEP_NHAN,
+      null,
+    ),
 
     // v0.47 — Phiếu đề xuất / nghiệp vụ (TRƯỚC ĐÂY BỊ RỚT khi create — nay persist).
     // Cán bộ đề xuất: FE không gửi thì mặc định người tạo đơn (actor).

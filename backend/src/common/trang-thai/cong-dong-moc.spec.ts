@@ -44,6 +44,28 @@ const MOI_TRANG_THAI_KET_THUC = new Set<string>([
   ...TRANG_THAI_KET_THUC.petition,
 ]);
 
+/** Thân của một hàm dựng payload, tìm khắp ba thư mục. */
+function thanHam(ten: string): string {
+  for (const tep of tepService()) {
+    const ma = readFileSync(resolve(GOC, tep), 'utf8');
+    for (const mo of [`function ${ten}(`, `const ${ten} = (`]) {
+      const i = ma.indexOf(mo);
+      if (i === -1) continue;
+      const dau = ma.indexOf('{', ma.indexOf(')', i));
+      if (dau === -1) continue;
+      let k = dau + 1;
+      let sau = 1;
+      while (k < ma.length && sau > 0) {
+        if (ma[k] === '{') sau++;
+        else if (ma[k] === '}') sau--;
+        k++;
+      }
+      return ma.slice(dau, k);
+    }
+  }
+  return '';
+}
+
 /** Khối ghi có thể đặt hồ sơ vào một trạng thái kết thúc không? */
 function coTheKetThuc(khoi: string): boolean {
   // `status: dto.status` / `status: existing.status` — giá trị chạy mới biết, phải canh.
@@ -59,7 +81,10 @@ function tepService(): string[] {
   return ra
     .split(NL)
     .map((d) => d.trim())
-    .filter((d) => d.endsWith('.service.ts') && !d.includes('.spec.'));
+    // KHÔNG lọc theo `.service.ts`: đường TẠO đơn thư dựng payload ở `petition-data.builder.ts`,
+    // và cổng chỉ quét service thì tha đúng chỗ ấy. Lỗ thứ TƯ của cổng này. Quét mọi tệp mã
+    // trong ba thư mục, chỉ trừ ca kiểm.
+    .filter((d) => d.endsWith('.ts') && !d.includes('.spec.') && !d.includes('__tests__'));
 }
 
 /**
@@ -142,8 +167,17 @@ function bungTrai(khoi: string, maCaTep: string): string {
 
 /** Nội dung `data:` của một lời gọi — viết thẳng, qua biến, hoặc qua toán tử trải. */
 function noiDungData(lenh: string, maCaTep: string): string {
-  const m = /data:\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(lenh);
-  if (m) return khaiBaoBien(maCaTep, m[1]);
+  // `data: <biến>` — lần theo khai báo trong cùng tệp.
+  const mBien = /data:\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(lenh);
+  if (mBien) return khaiBaoBien(maCaTep, mBien[1]);
+
+  // `data: <hàm>(...)` — lần vào THÂN HÀM, kể cả khi hàm nằm ở tệp khác.
+  //
+  // Lỗ thứ NĂM: đường tạo đơn thư gọi `data: buildPetitionCreateData(dto, {...})`, và thân hàm
+  // ấy nằm ở `petition-data.builder.ts`. Nới cổng ra mọi tệp (lỗ thứ tư) vẫn chưa đủ, vì cổng
+  // đi từ LỜI GỌI `.petition.create(` — mà lời gọi ấy không chứa chữ `status` nào.
+  const mHam = /data:\s*([A-Za-z_$][\w$]*)\s*\(/.exec(lenh);
+  if (mHam) return thanHam(mHam[1]);
   const i = lenh.indexOf('data: {');
   if (i === -1) return '';
   let k = i + 'data: {'.length;
