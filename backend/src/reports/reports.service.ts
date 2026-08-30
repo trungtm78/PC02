@@ -106,6 +106,30 @@ function chonKy(
   return so ? dungTheoSo(nam, so) : kyNam(nam);
 }
 
+/**
+ * Những THÁNG mà biểu đồ nên vẽ cho kỳ đang chọn.
+ *
+ * Trước đây biểu đồ luôn vẽ 12 tháng khi không chọn tháng cụ thể. Nên tệp Excel xuất cho "lũy kế
+ * 8 tháng" ghi đủ 12 dòng tháng trong khi dòng TỔNG chỉ là 8 tháng — một tệp tự mâu thuẫn, và
+ * người nhận tệp không có màn hình để đối chiếu.
+ */
+function thangTrongKy(ky: Ky, nam: number): number[] {
+  return Array.from({ length: 12 }, (_, i) => i + 1).filter((m) => {
+    const dau = new Date(nam, m - 1, 1);
+    const cuoi = new Date(nam, m, 0, 23, 59, 59, 999);
+    return cuoi >= ky.tu && dau <= ky.den;
+  });
+}
+
+/** Như `thangTrongKy`, cho quý. */
+function quyTrongKy(ky: Ky, nam: number): number[] {
+  return [1, 2, 3, 4].filter((q) => {
+    const dau = new Date(nam, (q - 1) * 3, 1);
+    const cuoi = new Date(nam, q * 3, 0, 23, 59, 59, 999);
+    return cuoi >= ky.tu && dau <= ky.den;
+  });
+}
+
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
@@ -236,7 +260,8 @@ export class ReportsService {
     kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
     tuyChon?: TuyChonKy,
   ) {
-    const months = month ? [month] : Array.from({ length: 12 }, (_, i) => i + 1);
+    const kyChon = chonKy(year, month, tuyChon, (n, m) => kyThang(n, m));
+    const months = thangTrongKy(kyChon, year);
 
     const data = await Promise.all(
       months.map(async (m) => {
@@ -246,7 +271,7 @@ export class ReportsService {
     );
 
 
-    const ky = chonKy(year, month, tuyChon, (n, m) => kyThang(n, m));
+    const ky = kyChon;
     // Tổng đếm THẲNG trên kỳ đang chọn, không cộng dồn các ô của biểu đồ.
     //
     // Bản đầu cộng 12 ô tháng lại — nên chọn "lũy kế 8 tháng" hay một khoảng tự chọn thì nhãn
@@ -280,6 +305,7 @@ export class ReportsService {
       totals,
       year,
       month,
+      kyNhan: ky.nhan,
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,
@@ -295,7 +321,8 @@ export class ReportsService {
     kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
     tuyChon?: TuyChonKy,
   ) {
-    const quarters = quarter ? [quarter] : [1, 2, 3, 4];
+    const kyChon = chonKy(year, quarter, tuyChon, (n, q) => kyQuy(n, q));
+    const quarters = quyTrongKy(kyChon, year);
 
     const data = await Promise.all(
       quarters.map(async (q) => {
@@ -305,7 +332,7 @@ export class ReportsService {
     );
 
 
-    const ky = chonKy(year, quarter, tuyChon, (n, q) => kyQuy(n, q));
+    const ky = kyChon;
     // Xem chú thích cùng nội dung ở `getMonthly`.
     const totals = await this.demTrongKhoang(ky.tu, ky.den);
     const soSanh = await dungSoSanh(
@@ -335,6 +362,7 @@ export class ReportsService {
       totals,
       year,
       quarter,
+      kyNhan: ky.nhan,
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,

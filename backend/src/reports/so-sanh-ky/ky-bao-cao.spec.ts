@@ -179,14 +179,32 @@ describe('Kỳ TUỲ CHỌN', () => {
   });
 
   /**
-   * Một khoảng tuỳ ý KHÔNG có "cùng kỳ năm trước" đúng đắn: lùi 365 ngày sai vào năm nhuận, lùi
-   * một năm dương lịch thì 29/2 không tồn tại. Từ chối rõ ràng còn hơn trả một khoảng trông hợp
-   * lý mà lệch một ngày — người dùng sẽ không bao giờ phát hiện.
+   * Ca này TRƯỚC ĐÂY chốt "kỳ tuỳ chọn KHÔNG dịch được — phải chọn nền riêng", với lý lẽ lùi
+   * 365 ngày sai vào năm nhuận.
+   *
+   * Codex bắt hệ quả: người dùng chọn khoảng tự chọn mà để nguyên nền mặc định là báo cáo NÉM
+   * LỖI ngay khi họ vừa nhập xong. Và lý lẽ ấy giải sai bài toán — người chọn khoảng tự chọn
+   * thường muốn so năm trước hơn ai hết; từ chối chỉ đẩy họ sang tự tính hai ngày rồi nhập tay.
+   *
+   * Nay lùi cả hai đầu đúng một năm dương lịch, kẹp theo độ dài tháng. Điều làm nó trung thực
+   * KHÔNG phải phép kẹp mà là cái NHÃN: nó in ra đúng hai đầu thật, nên người đọc thấy chính
+   * xác thứ đã được đem ra so.
    */
-  it('KHÔNG dịch được sang kỳ khác — phải chọn nền riêng', () => {
-    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20));
-    expect(() => cungKyNamTruoc(k)).toThrow();
-    expect(() => kyLienTruoc(k)).toThrow();
+  it('cùng kỳ năm trước của khoảng tự chọn = lùi cả hai đầu một năm', () => {
+    const k = cungKyNamTruoc(kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20)));
+    expect(moc(k)).toEqual(['2025-03-05', '2025-05-20']);
+    expect(k.nhan).toBe('05/03/2025 – 20/05/2025');
+  });
+
+  it('29/2 năm nhuận lùi về năm thường thì KẸP về 28/2, và nhãn nói ra', () => {
+    const k = cungKyNamTruoc(kyTuyChon(new Date(2028, 1, 29), new Date(2028, 2, 10)));
+    expect(moc(k)).toEqual(['2027-02-28', '2027-03-10']);
+    expect(k.nhan).toBe('28/02/2027 – 10/03/2027');
+  });
+
+  it('kỳ liền trước = khoảng CÙNG ĐỘ DÀI nằm ngay trước, không chồng lấn', () => {
+    const k = kyLienTruoc(kyTuyChon(new Date(2026, 2, 11), new Date(2026, 2, 20)));
+    expect(moc(k)).toEqual(['2026-03-01', '2026-03-10']);
   });
 
   it('một ngày duy nhất vẫn là kỳ hợp lệ', () => {

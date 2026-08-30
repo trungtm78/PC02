@@ -275,3 +275,67 @@ describe('ReportsService — tổng phải theo KỲ ĐANG CHỌN', () => {
     expect(khoang).toContain('2026-01-01..2026-06-30');
   });
 });
+
+describe('ReportsService — ô biểu đồ và nhãn kỳ đi theo kỳ đang chọn', () => {
+  let svc: ReportsService;
+
+  beforeEach(async () => {
+    const dem = jest.fn(async () => 0);
+    const prisma = {
+      petition: { count: dem },
+      incident: { count: dem },
+      case: { count: dem },
+    } as unknown as PrismaService;
+    const mod = await Test.createTestingModule({
+      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    svc = mod.get(ReportsService);
+  });
+
+  /**
+   * Codex bắt: tệp Excel xuất cho "lũy kế 8 tháng" ghi đủ 12 dòng tháng trong khi dòng TỔNG chỉ
+   * là 8 tháng — tệp tự mâu thuẫn, và người nhận tệp không có màn hình để đối chiếu.
+   */
+  it('lũy kế 8 tháng: biểu đồ chỉ 8 ô, không phải 12', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', { luyKeDenThang: 8 });
+    jest.useRealTimers();
+    expect(kq.data).toHaveLength(8);
+    expect(kq.data[7].month).toBe('T8/2026');
+  });
+
+  it('khoảng tự chọn 03–05: biểu đồ đúng 3 ô tháng chạm khoảng ấy', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', {
+      tu: '2026-03-05',
+      den: '2026-05-20',
+    });
+    jest.useRealTimers();
+    expect(kq.data.map((r) => r.month)).toEqual(['T3/2026', 'T4/2026', 'T5/2026']);
+  });
+
+  it('cả năm vẫn đủ 12 ô — không thu hẹp nhầm', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2027, 0, 5));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG');
+    jest.useRealTimers();
+    expect(kq.data).toHaveLength(12);
+  });
+
+  it('trả NHÃN KỲ để tệp xuất dán đúng tên, không suy từ có/không có tháng', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, 'KHONG', { luyKeDenThang: 8 });
+    jest.useRealTimers();
+    expect(kq.kyNhan).toBe('lũy kế 8 tháng đầu năm 2026');
+  });
+
+  /** Codex bắt: chọn khoảng tự chọn mà để nguyên nền mặc định thì báo cáo NÉM LỖI. */
+  it('khoảng tự chọn + nền mặc định KHÔNG ném lỗi, và nền là khoảng ấy năm trước', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    const kq = await svc.getMonthly(2026, undefined, undefined, {
+      tu: '2026-03-05',
+      den: '2026-05-20',
+    });
+    jest.useRealTimers();
+    expect(kq.soSanh.nen!.nhan).toBe('05/03/2025 – 20/05/2025');
+  });
+});

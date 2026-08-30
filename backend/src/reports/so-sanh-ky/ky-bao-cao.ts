@@ -76,22 +76,43 @@ function dungLai(loai: LoaiKy, nam: number, so?: number): Ky {
   if (loai === 'THANG') return kyThang(nam, so!);
   if (loai === 'QUY') return kyQuy(nam, so!);
   if (loai === 'LUY_KE') return kyLuyKe(nam, so!);
-  if (loai === 'TUY_CHON') {
-    // Một khoảng tuỳ ý không có "cùng kỳ năm trước" đúng đắn: lùi 365 ngày sai vào năm nhuận,
-    // lùi một năm dương lịch thì 29/2 không tồn tại. Từ chối rõ ràng còn hơn trả một khoảng
-    // trông hợp lý mà lệch một ngày.
-    throw new Error('Kỳ tuỳ chọn không dịch được — phải chọn khoảng nền riêng.');
-  }
   return kyNam(nam);
+}
+
+/**
+ * Lùi một ngày về đúng ngày ấy năm trước, KẸP theo độ dài tháng.
+ *
+ * 29/02/2028 lùi về 2027 thì không có ngày 29 — kẹp về 28/02/2027. Đây là quy ước, không phải
+ * chân lý; điều làm nó trung thực là NHÃN của kỳ nền in ra đúng hai đầu thật, nên người đọc
+ * thấy chính xác thứ đã được đem ra so.
+ */
+function luiMotNam(d: Date): Date {
+  const nam = d.getFullYear() - 1;
+  const thang = d.getMonth();
+  const soNgayCuaThang = new Date(nam, thang + 1, 0).getDate();
+  return new Date(nam, thang, Math.min(d.getDate(), soNgayCuaThang));
 }
 
 /** Cùng kỳ năm trước — nền mặc định, theo quy ước báo cáo ngành. */
 export function cungKyNamTruoc(ky: Ky): Ky {
+  if (ky.loai === 'TUY_CHON') {
+    // Một khoảng tuỳ ý VẪN có cùng kỳ năm trước dùng được: lùi cả hai đầu đúng một năm dương
+    // lịch. Bản đầu từ chối làm việc này, nhưng người chọn khoảng tự chọn thường muốn so năm
+    // trước hơn ai hết — từ chối chỉ đẩy họ sang nhập tay hai ngày mà họ tự tính lấy.
+    return kyTuyChon(luiMotNam(ky.tu), luiMotNam(ky.den));
+  }
   return dungLai(ky.loai, ky.nam - 1, ky.so);
 }
 
 /** Kỳ liền trước — tháng trước, quý trước, năm trước; tự lùi năm khi vượt đầu năm. */
 export function kyLienTruoc(ky: Ky): Ky {
+  if (ky.loai === 'TUY_CHON') {
+    // Khoảng CÙNG ĐỘ DÀI nằm ngay trước. Đây là nghĩa duy nhất không mơ hồ của "kỳ liền trước"
+    // cho một khoảng tuỳ ý.
+    const daiMs = ky.den.getTime() - ky.tu.getTime();
+    const denTruoc = new Date(ky.tu.getTime() - 1);
+    return kyTuyChon(new Date(denTruoc.getTime() - daiMs), denTruoc);
+  }
   if (ky.loai === 'NAM') return kyNam(ky.nam - 1);
   // Số kỳ trong một năm: tháng và lũy kế đều đếm theo tháng (12), quý đếm theo quý (4).
   // Bản đầu viết `loai === 'THANG' ? 12 : 4` nên lũy kế tháng 1 lùi về "lũy kế quý 4" — một kỳ
