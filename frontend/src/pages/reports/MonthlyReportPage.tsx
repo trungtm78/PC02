@@ -18,14 +18,26 @@ import { extractApiError } from "@/lib/api-errors";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { HuyHieuSoSanh } from "@/components/shared/HuyHieuSoSanh";
 import { nhacKyChuaTron, type KhoiSoSanh } from "@/lib/soSanhKy";
+import {
+  ChonKyBaoCao,
+  type KyDangChon,
+  type NenDangChon,
+} from "@/components/shared/ChonKyBaoCao";
+import {
+  thamSoKy,
+  thamSoNen,
+  tenTepXuat,
+  kyDuDeXuat,
+} from "@/lib/thamSoKyBaoCao";
 
 export default function MonthlyReportPage() {
   /**
-   * `null` = cả năm. Trước đây là chuỗi "2026-02" TỰ MANG NĂM của nó, tách rời khỏi ô chọn năm
-   * bên cạnh — chọn năm 2025 mà vẫn xuất Excel tháng 2 năm 2026, và tên tệp cũng ghi 2026 nên
-   * không chỗ nào lộ ra sự lệch. Một kỳ, một nguồn sự thật.
+   * Kỳ đang xem và nền so sánh là HAI TRỤC khác nhau: "lũy kế 8 tháng" là một KỲ, "cùng kỳ năm
+   * trước" là một NỀN, và người ta muốn xem lũy kế 8 tháng so với cùng kỳ năm trước. Gộp vào
+   * một ô là bắt người dùng chọn một trong hai thứ họ cần cả hai.
    */
-  const [thangChon, setThangChon] = useState<number | null>(null);
+  const [ky, setKy] = useState<KyDangChon>({ loai: 'NAM' });
+  const [nen, setNen] = useState<NenDangChon>({ kieu: 'CUNG_KY_NAM_TRUOC' });
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportData, setReportData] = useState<any>(null);
   const [loadError, setLoadError] = useState("");
@@ -33,11 +45,22 @@ export default function MonthlyReportPage() {
   const [isExportingMonthly, setIsExportingMonthly] = useState(false);
 
   const fetchReport = useCallback(async () => {
+    // Khoảng tự chọn còn thiếu một đầu thì KHÔNG hỏi máy chủ. Hỏi thì nhận về CẢ NĂM, và màn
+    // hình hiện số cả năm dưới ô đang ghi "khoảng tự chọn" — đúng lớp lỗi "màn nói một kỳ, số
+    // là kỳ khác" mà cả đợt này đi vá.
+    if (!kyDuDeXuat(ky)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError("");
     try {
       const res = await api.get('/reports/monthly', {
-        params: { year: selectedYear, ...(thangChon ? { month: thangChon } : {}) },
+        params: {
+          year: selectedYear,
+          ...thamSoKy(ky, 'THANG'),
+          ...thamSoNen(nen),
+        },
       });
       // Backend /reports/monthly returns raw `{data, totals}` — no envelope wrap.
       // Do NOT add `.data.data` here. See reports.controller.ts:104.
@@ -50,7 +73,7 @@ export default function MonthlyReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedYear, thangChon]);
+  }, [selectedYear, ky, nen]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
@@ -93,20 +116,14 @@ export default function MonthlyReportPage() {
             <p className="text-slate-600">Tổng hợp số liệu theo từng tháng trong năm</p>
           </div>
           <div className="flex items-center gap-3">
-            <select
-              data-testid="chon-thang"
-              aria-label="Chọn kỳ báo cáo"
-              value={thangChon ?? ''}
-              onChange={(e) => setThangChon(e.target.value === '' ? null : Number(e.target.value))}
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
-            >
-              <option value="">Cả năm {selectedYear}</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>
-                  Tháng {m}/{selectedYear}
-                </option>
-              ))}
-            </select>
+            <ChonKyBaoCao
+              nam={selectedYear}
+              don="thang"
+              ky={ky}
+              nen={nen}
+              onDoiKy={setKy}
+              onDoiNen={setNen}
+            />
             <select
               data-testid="chon-nam"
               aria-label="Chọn năm"
@@ -125,15 +142,13 @@ export default function MonthlyReportPage() {
                   // Cả năm thì xuất tháng 1 tới 12 là vô nghĩa — máy chủ nhận `month` rỗng
                   // nghĩa là cả năm, và tên tệp phải nói đúng điều đó.
                   const response = await api.get('/reports/monthly/export', {
-                    params: { year: selectedYear, ...(thangChon ? { month: thangChon } : {}) },
+                    params: { year: selectedYear, ...thamSoKy(ky, 'THANG') },
                     responseType: 'blob',
                   });
                   const url = URL.createObjectURL(new Blob([response.data]));
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = thangChon
-                    ? `BaoCao_Thang${String(thangChon).padStart(2, '0')}_${selectedYear}.xlsx`
-                    : `BaoCao_CaNam_${selectedYear}.xlsx`;
+                  a.download = tenTepXuat(ky, selectedYear);
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
@@ -145,7 +160,9 @@ export default function MonthlyReportPage() {
                 }
               }}
               data-testid="xuat-excel"
-              disabled={isExportingMonthly}
+              // Khoảng tự chọn thiếu một đầu thì máy chủ trả CẢ NĂM dưới một cái tên nói khác.
+              disabled={isExportingMonthly || !kyDuDeXuat(ky)}
+              title={kyDuDeXuat(ky) ? undefined : 'Nhập đủ ngày đầu và ngày cuối để xuất'}
               className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <FileSpreadsheet className="w-4 h-4" />
@@ -156,6 +173,15 @@ export default function MonthlyReportPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="báo cáo tháng" data-testid="monthly-report-load-error" />
+      {!kyDuDeXuat(ky) && (
+        <div
+          className="mb-4 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          data-testid="thieu-ngay-khoang"
+        >
+          Chọn đủ <strong>ngày đầu</strong> và <strong>ngày cuối</strong> để xem số liệu của
+          khoảng tự chọn.
+        </div>
+      )}
       {!loadError && nhacDoDang && (
         <div
           className="mb-4 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
@@ -273,7 +299,7 @@ export default function MonthlyReportPage() {
               <h3 className="text-lg font-bold text-slate-800" data-testid="tieu-de-ky">
                 {/* Nhãn kỳ lấy TỪ MÁY CHỦ: nó và các con số bên dưới phải cùng một nguồn, nếu
                     không thì tiêu đề nói một kỳ mà số liệu là kỳ khác. */}
-                Chi tiết báo cáo {soSanh?.ky?.nhan ?? (thangChon ? `tháng ${thangChon}/${selectedYear}` : `năm ${selectedYear}`)}
+                Chi tiết báo cáo {soSanh?.ky?.nhan ?? `năm ${selectedYear}`}
               </h3>
             </div>
             <div className="overflow-x-auto">

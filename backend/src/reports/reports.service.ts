@@ -6,9 +6,14 @@ import {
   kyQuy,
   kyNam,
   KIEU_SO_SANH_MAC_DINH,
+  kyLuyKe,
+  kyTuyChon,
+  thangTrongKy,
+  quyTrongKy,
   COT_NGAY_TIEP_NHAN,
   MOC_NAM_HOP_LE,
   type KieuSoSanh,
+  type Ky,
 } from './so-sanh-ky';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
@@ -66,6 +71,60 @@ const STAT_GROUPS = [
     ],
   },
 ];
+
+/**
+ * Kỳ báo cáo do người dùng chọn, ngoài "một tháng / một quý / cả năm".
+ *
+ * `luyKeDenThang` và cặp `tu`/`den` loại trừ nhau — chọn cả hai là mâu thuẫn, và hàm `chonKy`
+ * ưu tiên theo thứ tự khai để không im lặng lấy bừa một cái.
+ */
+export interface TuyChonKy {
+  /** Lũy kế từ đầu năm tới hết tháng này. */
+  luyKeDenThang?: number;
+  /** Khoảng tự chọn cho KỲ ĐANG XEM. */
+  tu?: string;
+  den?: string;
+  /** Khoảng tự chọn cho KỲ NỀN (dùng với `soSanh=TUY_CHON`). */
+  nenTu?: string;
+  nenDen?: string;
+}
+
+/**
+ * Quy ước chọn kỳ, dùng chung cho báo cáo tháng và quý.
+ *
+ * Thứ tự ưu tiên viết thẳng ra đây thay vì rải trong hai hàm: hai bản sao của một quy tắc là
+ * hai bản sẽ lệch nhau.
+ */
+function chonKy(
+  nam: number,
+  so: number | undefined,
+  tuyChon: TuyChonKy | undefined,
+  dungTheoSo: (nam: number, so: number) => Ky,
+): Ky {
+  if (tuyChon?.tu && tuyChon?.den) return kyTuyChon(new Date(tuyChon.tu), new Date(tuyChon.den));
+  if (tuyChon?.luyKeDenThang) return kyLuyKe(nam, tuyChon.luyKeDenThang);
+  // Không chọn tháng/quý nghĩa là đang xem CẢ NĂM — kỳ nền phải là cả năm trước, không phải
+  // tháng 12 hay quý 4 năm trước.
+  return so ? dungTheoSo(nam, so) : kyNam(nam);
+}
+
+/**
+ * Kỳ báo cáo do người dùng chọn, ngoài "một tháng / một quý / cả năm".
+ *
+ * `luyKeDenThang` và cặp `tu`/`den` loại trừ nhau — chọn cả hai là mâu thuẫn, và hàm `chonKy`
+ * ưu tiên theo thứ tự khai để không im lặng lấy bừa một cái.
+ */
+export interface TuyChonKy {
+  /** Lũy kế từ đầu năm tới hết tháng này. */
+  luyKeDenThang?: number;
+  /** Khoảng tự chọn cho KỲ ĐANG XEM. */
+  tu?: string;
+  den?: string;
+  /** Khoảng tự chọn cho KỲ NỀN (dùng với `soSanh=TUY_CHON`). */
+  nenTu?: string;
+  nenDen?: string;
+}
+
 
 @Injectable()
 export class ReportsService {
@@ -191,29 +250,35 @@ export class ReportsService {
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/monthly?year=&month=
   // ─────────────────────────────────────────────
-  async getMonthly(year: number, month?: number, kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH) {
-    const months = month ? [month] : Array.from({ length: 12 }, (_, i) => i + 1);
+  async getMonthly(
+    year: number,
+    month?: number,
+    kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
+    tuyChon?: TuyChonKy,
+  ) {
+    const kyChon = chonKy(year, month, tuyChon, (n, m) => kyThang(n, m));
+    const months = thangTrongKy(kyChon);
 
     const data = await Promise.all(
-      months.map(async (m) => {
-        const ky = kyThang(year, m);
-        return { month: `T${m}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
-      }),
+      // Ô biểu đồ đếm phần GIAO với kỳ đang chọn, không đếm trọn tháng.
+      //
+      // Với khoảng 05/03–20/05, ô tháng 3 đếm trọn tháng 3 thì tổng các ô KHÁC dòng tổng — hai
+      // con số trên cùng một tệp không cộng ra nhau, và người đọc không có cách nào biết bên
+      // nào đúng.
+      months.map(async (m) => ({
+        month: `T${m.so}/${m.nam}`,
+        ...(await this.demTrongKhoang(m.tu, m.den)),
+      })),
     );
 
-    const totals = data.reduce(
-      (acc, row) => ({
-        donThu: acc.donThu + row.donThu,
-        vuViec: acc.vuViec + row.vuViec,
-        vuAn: acc.vuAn + row.vuAn,
-        daGiaiQuyet: acc.daGiaiQuyet + row.daGiaiQuyet,
-      }),
-      { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
-    );
 
-    // Không chọn tháng nghĩa là đang xem CẢ NĂM — kỳ nền phải là cả năm trước, không phải
-    // tháng 12 năm trước.
-    const ky = month ? kyThang(year, month) : kyNam(year);
+    const ky = kyChon;
+    // Tổng đếm THẲNG trên kỳ đang chọn, không cộng dồn các ô của biểu đồ.
+    //
+    // Bản đầu cộng 12 ô tháng lại — nên chọn "lũy kế 8 tháng" hay một khoảng tự chọn thì nhãn
+    // và huy hiệu nói đúng kỳ ấy, còn bốn thẻ số vẫn là CẢ NĂM. Hai câu về hai kỳ khác nhau
+    // đứng cạnh nhau trên một màn, và không có gì trên màn lộ ra điều đó.
+    const totals = await this.demTrongKhoang(ky.tu, ky.den);
     const soSanh = await dungSoSanh(
       ky,
       // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn
@@ -225,6 +290,10 @@ export class ReportsService {
       },
       { ...totals, tongTiepNhan: totals.donThu + totals.vuViec + totals.vuAn },
       kieuSoSanh,
+      new Date(),
+      tuyChon?.nenTu && tuyChon?.nenDen
+        ? kyTuyChon(new Date(tuyChon.nenTu), new Date(tuyChon.nenDen))
+        : undefined,
     );
 
     const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
@@ -237,6 +306,7 @@ export class ReportsService {
       totals,
       year,
       month,
+      kyNhan: ky.nhan,
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,
@@ -250,27 +320,23 @@ export class ReportsService {
     year: number,
     quarter?: number,
     kieuSoSanh: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
+    tuyChon?: TuyChonKy,
   ) {
-    const quarters = quarter ? [quarter] : [1, 2, 3, 4];
+    const kyChon = chonKy(year, quarter, tuyChon, (n, q) => kyQuy(n, q));
+    const quarters = quyTrongKy(kyChon);
 
     const data = await Promise.all(
-      quarters.map(async (q) => {
-        const ky = kyQuy(year, q);
-        return { quarter: `Q${q}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
-      }),
+      // Xem chú thích cùng nội dung ở `getMonthly`.
+      quarters.map(async (q) => ({
+        quarter: `Q${q.so}/${q.nam}`,
+        ...(await this.demTrongKhoang(q.tu, q.den)),
+      })),
     );
 
-    const totals = data.reduce(
-      (acc, row) => ({
-        donThu: acc.donThu + row.donThu,
-        vuViec: acc.vuViec + row.vuViec,
-        vuAn: acc.vuAn + row.vuAn,
-        daGiaiQuyet: acc.daGiaiQuyet + row.daGiaiQuyet,
-      }),
-      { donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 },
-    );
 
-    const ky = quarter ? kyQuy(year, quarter) : kyNam(year);
+    const ky = kyChon;
+    // Xem chú thích cùng nội dung ở `getMonthly`.
+    const totals = await this.demTrongKhoang(ky.tu, ky.den);
     const soSanh = await dungSoSanh(
       ky,
       // `tongTiepNhan` không nằm trong `totals` để không đổi hình dạng phản hồi cũ, nhưng vẫn
@@ -282,6 +348,10 @@ export class ReportsService {
       },
       { ...totals, tongTiepNhan: totals.donThu + totals.vuViec + totals.vuAn },
       kieuSoSanh,
+      new Date(),
+      tuyChon?.nenTu && tuyChon?.nenDen
+        ? kyTuyChon(new Date(tuyChon.nenTu), new Date(tuyChon.nenDen))
+        : undefined,
     );
 
     const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
@@ -294,6 +364,7 @@ export class ReportsService {
       totals,
       year,
       quarter,
+      kyNhan: ky.nhan,
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,

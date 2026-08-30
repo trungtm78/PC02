@@ -85,15 +85,17 @@ beforeEach(() => {
 });
 
 describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => {
-  it('danh sách tháng sinh từ NĂM đang chọn, đủ 12 tháng', async () => {
+  it('danh sách kỳ sinh từ NĂM đang chọn: 12 tháng + 12 mốc lũy kế + cả năm + tự chọn', async () => {
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     fireEvent.change(screen.getByTestId('chon-nam'), { target: { value: '2025' } });
-    const o = screen.getByTestId('chon-thang') as HTMLSelectElement;
+    const o = screen.getByTestId('chon-ky') as HTMLSelectElement;
     const nhan = [...o.options].map((x) => x.textContent);
-    expect(nhan).toContain('Tháng 12/2025');
     expect(nhan).toContain('Cả năm 2025');
+    expect(nhan).toContain('Tháng 12/2025');
+    expect(nhan).toContain('Lũy kế 8 tháng đầu năm 2025');
+    expect(nhan).toContain('Khoảng tự chọn…');
     expect(nhan.some((n) => n?.includes('2026'))).toBe(false);
   });
 
@@ -102,7 +104,7 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     fireEvent.change(screen.getByTestId('chon-nam'), { target: { value: '2025' } });
-    fireEvent.change(screen.getByTestId('chon-thang'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'THANG:3' } });
     fireEvent.click(screen.getByTestId('xuat-excel'));
 
     await waitFor(() => expect(lanGoi('/reports/monthly/export')).toBeDefined());
@@ -113,7 +115,7 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByTestId('chon-thang'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'THANG:3' } });
     await waitFor(() => expect(lanGoi('/reports/monthly')?.month).toBe(3));
   });
 
@@ -121,31 +123,149 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByTestId('chon-thang'), { target: { value: '3' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'THANG:3' } });
     await waitFor(() => expect(lanGoi('/reports/monthly')?.month).toBe(3));
 
-    fireEvent.change(screen.getByTestId('chon-thang'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'NAM' } });
     await waitFor(() => expect(lanGoi('/reports/monthly')?.month).toBeUndefined());
+  });
+
+  /** Bốn kiểu chọn kỳ anh yêu cầu, đo tận tham số gửi đi. */
+  it('LŨY KẾ gửi luyKeDenThang, không gửi month', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'LUY_KE:8' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.luyKeDenThang).toBe(8));
+    expect(lanGoi('/reports/monthly')?.month).toBeUndefined();
+  });
+
+  it('KHOẢNG TỰ CHỌN chỉ gửi khi đủ HAI đầu — nửa khoảng là một kỳ khác hẳn', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    fireEvent.change(screen.getByTestId('ky-tu'), { target: { value: '2026-03-01' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')).toBeDefined());
+    expect(lanGoi('/reports/monthly')?.tu).toBeUndefined();
+
+    fireEvent.change(screen.getByTestId('ky-den'), { target: { value: '2026-05-31' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.tu).toBe('2026-03-01'));
+    expect(lanGoi('/reports/monthly')?.den).toBe('2026-05-31');
+  });
+
+  /**
+   * Codex bắt: bấm Xuất khi khoảng tự chọn mới có MỘT đầu thì máy chủ trả CẢ NĂM, trong khi tên
+   * tệp vẫn mang dáng khoảng tự chọn với một đầu trống. Người nhận tệp cầm một năm số liệu dưới
+   * một cái tên nói khác.
+   */
+  it('khoảng tự chọn thiếu một đầu → KHOÁ nút Xuất, không xuất nhầm cả năm', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    expect(screen.getByTestId('xuat-excel')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('ky-tu'), { target: { value: '2026-03-01' } });
+    expect(screen.getByTestId('xuat-excel')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('ky-den'), { target: { value: '2026-05-31' } });
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+  });
+
+  it('kỳ thường thì nút Xuất luôn mở', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'LUY_KE:8' } });
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+  });
+
+  /**
+   * Tự soát bắt, sau khi Codex đã chỉ chỗ tương tự ở nút Xuất: khoảng tự chọn thiếu một đầu thì
+   * `thamSoKy` trả `{}`, nên máy chủ hiểu là CẢ NĂM và màn hình hiện số cả năm dưới ô đang ghi
+   * "khoảng tự chọn". Đúng lớp lỗi "màn nói một kỳ, số là kỳ khác".
+   *
+   * Không hỏi máy chủ là câu trả lời đúng: chưa đủ thông tin thì chưa có gì để hiện.
+   */
+  it('khoảng tự chọn thiếu một đầu → KHÔNG hỏi máy chủ, và nói rõ còn thiếu gì', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    const truoc = vi.mocked(api.get).mock.calls.length;
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    fireEvent.change(screen.getByTestId('ky-tu'), { target: { value: '2026-03-01' } });
+
+    expect(await screen.findByTestId('thieu-ngay-khoang')).toBeInTheDocument();
+    expect(vi.mocked(api.get).mock.calls.length).toBe(truoc);
+
+    fireEvent.change(screen.getByTestId('ky-den'), { target: { value: '2026-05-31' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.tu).toBe('2026-03-01'));
+    expect(screen.queryByTestId('thieu-ngay-khoang')).not.toBeInTheDocument();
+  });
+
+  it('nền so sánh mặc định là CÙNG KỲ NĂM TRƯỚC, theo quy ước báo cáo ngành', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('CUNG_KY_NAM_TRUOC'));
+  });
+
+  /**
+   * Codex bắt: vừa chọn "khoảng tự chọn" mà chưa nhập đủ hai đầu thì gửi `soSanh=TUY_CHON` là
+   * bắt máy chủ ném lỗi — màn hình nháy sang trạng thái hỏng trong lúc người ta còn đang gõ.
+   */
+  it('chọn nền tự chọn mà CHƯA nhập đủ hai đầu → tạm KHÔNG SO, không gọi lỗi', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-nen'), { target: { value: 'TUY_CHON' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('KHONG'));
+
+    fireEvent.change(screen.getByTestId('nen-tu'), { target: { value: '2024-01-01' } });
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('KHONG'));
+  });
+
+  it('đổi nền sang KHOẢNG TỰ CHỌN thì gửi hai đầu nền', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-nen'), { target: { value: 'TUY_CHON' } });
+    fireEvent.change(screen.getByTestId('nen-tu'), { target: { value: '2024-01-01' } });
+    fireEvent.change(screen.getByTestId('nen-den'), { target: { value: '2024-06-30' } });
+
+    await waitFor(() => expect(lanGoi('/reports/monthly')?.nenTu).toBe('2024-01-01'));
+    expect(lanGoi('/reports/monthly')?.nenDen).toBe('2024-06-30');
+    expect(lanGoi('/reports/monthly')?.soSanh).toBe('TUY_CHON');
+  });
+
+  it('ô nhập khoảng chỉ hiện khi CHỌN khoảng tự chọn — không làm rối màn', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.queryByTestId('khoang-ky')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('khoang-nen')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    expect(screen.getByTestId('khoang-ky')).toBeInTheDocument();
   });
 
   it('tiêu đề phần chi tiết nói ĐÚNG kỳ máy chủ đã trả, không tự đặt', async () => {
     bao(<MonthlyReportPage />);
     const t = await screen.findByTestId('tieu-de-ky');
-    // Máy chủ trả nhãn "tháng 3/2025" — màn hình phải dùng chính nhãn ấy.
     expect(t.textContent).toContain('tháng 3/2025');
   });
 });
 
 describe('Báo cáo quý — ô chọn kỳ điều khiển báo cáo', () => {
-  it('danh sách quý sinh từ NĂM đang chọn, đủ 4 quý', async () => {
+  it('danh sách kỳ sinh từ NĂM đang chọn, đủ 4 quý + lũy kế', async () => {
     bao(<QuarterlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     fireEvent.change(screen.getByTestId('chon-nam'), { target: { value: '2024' } });
-    const o = screen.getByTestId('chon-quy') as HTMLSelectElement;
+    const o = screen.getByTestId('chon-ky') as HTMLSelectElement;
     const nhan = [...o.options].map((x) => x.textContent);
     expect(nhan).toContain('Quý IV/2024');
     expect(nhan).toContain('Cả năm 2024');
+    expect(nhan).toContain('Lũy kế 6 tháng đầu năm 2024');
     expect(nhan.some((n) => n?.includes('2026'))).toBe(false);
   });
 
@@ -154,7 +274,7 @@ describe('Báo cáo quý — ô chọn kỳ điều khiển báo cáo', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     fireEvent.change(screen.getByTestId('chon-nam'), { target: { value: '2024' } });
-    fireEvent.change(screen.getByTestId('chon-quy'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'QUY:2' } });
     fireEvent.click(screen.getByTestId('xuat-excel'));
 
     await waitFor(() => expect(lanGoi('/reports/quarterly/export')).toBeDefined());
@@ -165,7 +285,7 @@ describe('Báo cáo quý — ô chọn kỳ điều khiển báo cáo', () => {
     bao(<QuarterlyReportPage />);
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByTestId('chon-quy'), { target: { value: '2' } });
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'QUY:2' } });
     await waitFor(() => expect(lanGoi('/reports/quarterly')?.quarter).toBe(2));
   });
 });

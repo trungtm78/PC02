@@ -20,6 +20,14 @@ interface MonthlyData {
   totals: { donThu: number; vuViec: number; vuAn: number; daGiaiQuyet: number };
   year: number;
   month?: number;
+  /**
+   * Nhãn kỳ do máy chủ dựng — có với mọi loại kỳ, kể cả lũy kế và khoảng tự chọn.
+   *
+   * Trước đây tiêu đề tệp suy từ `month`: có tháng thì "THÁNG N", không thì "NĂM". Nên tệp xuất
+   * cho "lũy kế 8 tháng" dán nhãn CẢ NĂM trong khi dòng tổng chỉ là 8 tháng — một tệp tự mâu
+   * thuẫn, và người nhận tệp không có màn hình để đối chiếu.
+   */
+  kyNhan?: string;
 }
 
 interface QuarterlyRow {
@@ -35,6 +43,8 @@ interface QuarterlyData {
   totals: { donThu: number; vuViec: number; vuAn: number; daGiaiQuyet: number };
   year: number;
   quarter?: number;
+  /** Xem chú thích ở `MonthlyData.kyNhan`. */
+  kyNhan?: string;
 }
 
 interface Stat48FieldResult {
@@ -121,12 +131,10 @@ export class ReportsExportService {
     const HEADERS = ['Đơn vị', 'Đơn thư', 'Vụ việc', 'Vụ án', 'Đã giải quyết', 'Tỷ lệ %'];
     const WIDTHS = [20, 12, 12, 12, 16, 12];
 
-    const title = data.month
-      ? `BẢNG THỐNG KÊ THÁNG ${data.month}/${data.year}`
-      : `BẢNG THỐNG KÊ NĂM ${data.year}`;
-    const period = data.month
-      ? `Kỳ báo cáo: Tháng ${data.month} năm ${data.year}`
-      : `Kỳ báo cáo: Năm ${data.year}`;
+    const nhanKy =
+      data.kyNhan ?? (data.month ? `Tháng ${data.month}/${data.year}` : `Năm ${data.year}`);
+    const title = `BẢNG THỐNG KÊ ${nhanKy.toUpperCase()}`;
+    const period = `Kỳ báo cáo: ${nhanKy}`;
 
     // BCA professional header (rows 1-6)
     BcaExcelHelper.addHeader(sheet, COL_COUNT, title, period);
@@ -187,12 +195,10 @@ export class ReportsExportService {
     const HEADERS = ['Kỳ', 'Đơn thư', 'Vụ việc', 'Vụ án', 'Đã giải quyết', 'Tỷ lệ %'];
     const WIDTHS = [20, 12, 12, 12, 16, 12];
 
-    const title = data.quarter
-      ? `BẢNG THỐNG KÊ QUÝ ${data.quarter}/${data.year}`
-      : `BẢNG THỐNG KÊ NĂM ${data.year} (THEO QUÝ)`;
-    const period = data.quarter
-      ? `Kỳ báo cáo: Quý ${data.quarter} năm ${data.year}`
-      : `Kỳ báo cáo: Năm ${data.year}`;
+    const nhanKy =
+      data.kyNhan ?? (data.quarter ? `Quý ${data.quarter}/${data.year}` : `Năm ${data.year}`);
+    const title = `BẢNG THỐNG KÊ ${nhanKy.toUpperCase()}`;
+    const period = `Kỳ báo cáo: ${nhanKy}`;
 
     BcaExcelHelper.addHeader(sheet, COL_COUNT, title, period);
     BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);

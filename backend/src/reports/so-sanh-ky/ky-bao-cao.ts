@@ -15,7 +15,7 @@
  * Đổi múi giờ là việc riêng, phải đổi cả hai chỗ cùng lúc.
  */
 
-export type LoaiKy = 'THANG' | 'QUY' | 'NAM';
+export type LoaiKy = 'THANG' | 'QUY' | 'NAM' | 'LUY_KE' | 'TUY_CHON';
 
 export interface Ky {
   loai: LoaiKy;
@@ -75,18 +75,49 @@ export function kyNam(nam: number): Ky {
 function dungLai(loai: LoaiKy, nam: number, so?: number): Ky {
   if (loai === 'THANG') return kyThang(nam, so!);
   if (loai === 'QUY') return kyQuy(nam, so!);
+  if (loai === 'LUY_KE') return kyLuyKe(nam, so!);
   return kyNam(nam);
+}
+
+/**
+ * Lùi một ngày về đúng ngày ấy năm trước, KẸP theo độ dài tháng.
+ *
+ * 29/02/2028 lùi về 2027 thì không có ngày 29 — kẹp về 28/02/2027. Đây là quy ước, không phải
+ * chân lý; điều làm nó trung thực là NHÃN của kỳ nền in ra đúng hai đầu thật, nên người đọc
+ * thấy chính xác thứ đã được đem ra so.
+ */
+function luiMotNam(d: Date): Date {
+  const nam = d.getFullYear() - 1;
+  const thang = d.getMonth();
+  const soNgayCuaThang = new Date(nam, thang + 1, 0).getDate();
+  return new Date(nam, thang, Math.min(d.getDate(), soNgayCuaThang));
 }
 
 /** Cùng kỳ năm trước — nền mặc định, theo quy ước báo cáo ngành. */
 export function cungKyNamTruoc(ky: Ky): Ky {
+  if (ky.loai === 'TUY_CHON') {
+    // Một khoảng tuỳ ý VẪN có cùng kỳ năm trước dùng được: lùi cả hai đầu đúng một năm dương
+    // lịch. Bản đầu từ chối làm việc này, nhưng người chọn khoảng tự chọn thường muốn so năm
+    // trước hơn ai hết — từ chối chỉ đẩy họ sang nhập tay hai ngày mà họ tự tính lấy.
+    return kyTuyChon(luiMotNam(ky.tu), luiMotNam(ky.den));
+  }
   return dungLai(ky.loai, ky.nam - 1, ky.so);
 }
 
 /** Kỳ liền trước — tháng trước, quý trước, năm trước; tự lùi năm khi vượt đầu năm. */
 export function kyLienTruoc(ky: Ky): Ky {
+  if (ky.loai === 'TUY_CHON') {
+    // Khoảng CÙNG ĐỘ DÀI nằm ngay trước. Đây là nghĩa duy nhất không mơ hồ của "kỳ liền trước"
+    // cho một khoảng tuỳ ý.
+    const daiMs = ky.den.getTime() - ky.tu.getTime();
+    const denTruoc = new Date(ky.tu.getTime() - 1);
+    return kyTuyChon(new Date(denTruoc.getTime() - daiMs), denTruoc);
+  }
   if (ky.loai === 'NAM') return kyNam(ky.nam - 1);
-  const canh = ky.loai === 'THANG' ? 12 : 4;
+  // Số kỳ trong một năm: tháng và lũy kế đều đếm theo tháng (12), quý đếm theo quý (4).
+  // Bản đầu viết `loai === 'THANG' ? 12 : 4` nên lũy kế tháng 1 lùi về "lũy kế quý 4" — một kỳ
+  // không tồn tại. Khai theo LOẠI, đừng khai theo phủ định của một loại.
+  const canh = ky.loai === 'QUY' ? 4 : 12;
   const truoc = ky.so! - 1;
   return truoc >= 1 ? dungLai(ky.loai, ky.nam, truoc) : dungLai(ky.loai, ky.nam - 1, canh);
 }
@@ -123,4 +154,54 @@ export function catTheoTienDo(kyNen: Ky, soNgay: number): Ky {
   const cat = cuoiNgay(new Date(kyNen.tu.getTime() + (soNgay - 1) * MOT_NGAY));
   if (cat >= kyNen.den) return kyNen;
   return { ...kyNen, den: cat, nhan: `${kyNen.nhan} (${soNgay} ngày đầu)` };
+}
+
+/**
+ * Kỳ LŨY KẾ: từ đầu năm tới hết kỳ đang chọn.
+ *
+ * ── Vì sao là một LOẠI KỲ chứ không phải một kiểu so sánh ──
+ *
+ * "Lũy kế 8 tháng đầu năm" đổi cả TỬ SỐ lẫn mẫu số: con số hiện trên thẻ phải là tổng 8 tháng,
+ * không phải riêng tháng 8. Nếu coi nó là một kiểu SO SÁNH thì thẻ hiện số của tháng 8 mà huy
+ * hiệu lại nói về 8 tháng — hai câu về hai kỳ khác nhau đứng cạnh nhau trên một thẻ.
+ *
+ * Là một loại kỳ thì mọi thứ đi theo: số liệu, huy hiệu, tiêu đề, tệp xuất ra. Và nền so sánh
+ * vẫn dùng chung phép cũ — cùng kỳ năm trước của một kỳ lũy kế là kỳ lũy kế cùng độ dài năm
+ * trước, tự đúng vì `cungKyNamTruoc` dựng lại từ (loại, năm, số).
+ */
+export function kyLuyKe(nam: number, denThang: number): Ky {
+  if (!Number.isInteger(denThang) || denThang < 1 || denThang > 12) {
+    throw new Error(`Tháng không hợp lệ: ${denThang}`);
+  }
+  return {
+    loai: 'LUY_KE',
+    nam,
+    so: denThang,
+    tu: new Date(nam, 0, 1),
+    den: cuoiNgay(new Date(nam, denThang, 0)),
+    nhan: `lũy kế ${denThang} tháng đầu năm ${nam}`,
+  };
+}
+
+/**
+ * Kỳ do người dùng tự chọn hai đầu.
+ *
+ * Không có "cùng kỳ năm trước" tự nhiên cho một khoảng tuỳ ý — lùi 365 ngày là sai vào năm
+ * nhuận, mà lùi một năm dương lịch thì 29/2 không tồn tại. Nên kỳ tuỳ chọn CHỈ so được với một
+ * khoảng nền cũng do người dùng chọn; các phép dịch kỳ từ chối làm việc với nó.
+ */
+export function kyTuyChon(tu: Date, den: Date): Ky {
+  if (den < tu) throw new Error('Khoảng thời gian không hợp lệ: ngày cuối trước ngày đầu.');
+  return {
+    loai: 'TUY_CHON',
+    nam: tu.getFullYear(),
+    tu: new Date(tu.getFullYear(), tu.getMonth(), tu.getDate()),
+    den: cuoiNgay(den),
+    nhan: `${dinhDang(tu)} – ${dinhDang(den)}`,
+  };
+}
+
+function dinhDang(d: Date): string {
+  const hai = (n: number) => String(n).padStart(2, '0');
+  return `${hai(d.getDate())}/${hai(d.getMonth() + 1)}/${d.getFullYear()}`;
 }

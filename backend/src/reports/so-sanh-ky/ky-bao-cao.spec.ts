@@ -7,6 +7,8 @@ import {
   soNgayDaTroi,
   kyChuaTron,
   catTheoTienDo,
+  kyLuyKe,
+  kyTuyChon,
 } from './ky-bao-cao';
 
 /** Ngày cuối cùng của kỳ, đọc ra dạng dễ đối chiếu bằng mắt. */
@@ -119,5 +121,94 @@ describe('Cắt kỳ nền theo tiến độ', () => {
 
   it('nhãn nói rõ đã bị cắt — để không ai tưởng đang so với cả tháng', () => {
     expect(catTheoTienDo(kyThang(2025, 8), 10).nhan).toBe('tháng 8/2025 (10 ngày đầu)');
+  });
+});
+
+describe('Kỳ LŨY KẾ', () => {
+  it('lũy kế 8 tháng = từ 1/1 tới hết 31/8', () => {
+    expect(moc(kyLuyKe(2026, 8))).toEqual(['2026-01-01', '2026-08-31']);
+  });
+
+  it('lũy kế 1 tháng đúng bằng tháng 1', () => {
+    expect(moc(kyLuyKe(2026, 1))).toEqual(['2026-01-01', '2026-01-31']);
+  });
+
+  it('lũy kế 12 tháng đúng bằng cả năm', () => {
+    expect(moc(kyLuyKe(2026, 12))).toEqual(moc(kyNam(2026)));
+  });
+
+  it('nhãn nói rõ là lũy kế, không lẫn với một tháng', () => {
+    expect(kyLuyKe(2026, 8).nhan).toBe('lũy kế 8 tháng đầu năm 2026');
+  });
+
+  /**
+   * Đây là chốt làm cho lũy kế đáng làm: nền của nó phải là lũy kế CÙNG ĐỘ DÀI năm trước, chứ
+   * không phải cả năm trước. So 8 tháng với 12 tháng thì năm nào cũng "giảm một phần ba".
+   */
+  it('cùng kỳ năm trước của lũy kế 8 tháng là LŨY KẾ 8 THÁNG năm trước', () => {
+    const nen = cungKyNamTruoc(kyLuyKe(2026, 8));
+    expect(moc(nen)).toEqual(['2025-01-01', '2025-08-31']);
+    expect(nen.nhan).toBe('lũy kế 8 tháng đầu năm 2025');
+  });
+
+  it('kỳ liền trước của lũy kế 1 tháng lùi về lũy kế 12 tháng năm trước', () => {
+    expect(moc(kyLienTruoc(kyLuyKe(2026, 1)))).toEqual(['2025-01-01', '2025-12-31']);
+  });
+
+  it('tháng ngoài dải thì ném lỗi', () => {
+    expect(() => kyLuyKe(2026, 0)).toThrow();
+    expect(() => kyLuyKe(2026, 13)).toThrow();
+  });
+});
+
+describe('Kỳ TUỲ CHỌN', () => {
+  it('ôm trọn ngày cuối tới 23:59:59.999', () => {
+    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20));
+    expect(moc(k)).toEqual(['2026-03-05', '2026-05-20']);
+    expect(k.den.getHours()).toBe(23);
+  });
+
+  it('nhãn ghi rõ hai đầu, để câu "so với …" không mơ hồ', () => {
+    expect(kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20)).nhan).toBe(
+      '05/03/2026 – 20/05/2026',
+    );
+  });
+
+  it('ngày cuối trước ngày đầu thì NÉM LỖI, không lặng lẽ đảo', () => {
+    expect(() => kyTuyChon(new Date(2026, 4, 20), new Date(2026, 2, 5))).toThrow();
+  });
+
+  /**
+   * Ca này TRƯỚC ĐÂY chốt "kỳ tuỳ chọn KHÔNG dịch được — phải chọn nền riêng", với lý lẽ lùi
+   * 365 ngày sai vào năm nhuận.
+   *
+   * Codex bắt hệ quả: người dùng chọn khoảng tự chọn mà để nguyên nền mặc định là báo cáo NÉM
+   * LỖI ngay khi họ vừa nhập xong. Và lý lẽ ấy giải sai bài toán — người chọn khoảng tự chọn
+   * thường muốn so năm trước hơn ai hết; từ chối chỉ đẩy họ sang tự tính hai ngày rồi nhập tay.
+   *
+   * Nay lùi cả hai đầu đúng một năm dương lịch, kẹp theo độ dài tháng. Điều làm nó trung thực
+   * KHÔNG phải phép kẹp mà là cái NHÃN: nó in ra đúng hai đầu thật, nên người đọc thấy chính
+   * xác thứ đã được đem ra so.
+   */
+  it('cùng kỳ năm trước của khoảng tự chọn = lùi cả hai đầu một năm', () => {
+    const k = cungKyNamTruoc(kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20)));
+    expect(moc(k)).toEqual(['2025-03-05', '2025-05-20']);
+    expect(k.nhan).toBe('05/03/2025 – 20/05/2025');
+  });
+
+  it('29/2 năm nhuận lùi về năm thường thì KẸP về 28/2, và nhãn nói ra', () => {
+    const k = cungKyNamTruoc(kyTuyChon(new Date(2028, 1, 29), new Date(2028, 2, 10)));
+    expect(moc(k)).toEqual(['2027-02-28', '2027-03-10']);
+    expect(k.nhan).toBe('28/02/2027 – 10/03/2027');
+  });
+
+  it('kỳ liền trước = khoảng CÙNG ĐỘ DÀI nằm ngay trước, không chồng lấn', () => {
+    const k = kyLienTruoc(kyTuyChon(new Date(2026, 2, 11), new Date(2026, 2, 20)));
+    expect(moc(k)).toEqual(['2026-03-01', '2026-03-10']);
+  });
+
+  it('một ngày duy nhất vẫn là kỳ hợp lệ', () => {
+    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 2, 5));
+    expect(moc(k)).toEqual(['2026-03-05', '2026-03-05']);
   });
 });

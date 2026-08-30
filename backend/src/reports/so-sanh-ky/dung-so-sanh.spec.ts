@@ -1,5 +1,5 @@
 import { dungSoSanh } from './dung-so-sanh';
-import { kyThang, kyNam } from './ky-bao-cao';
+import { kyThang, kyNam, kyLuyKe, kyTuyChon } from './ky-bao-cao';
 
 /** Bộ đếm giả: trả số cố định, và ghi lại nó được hỏi khoảng nào. */
 function boDemGia(tra: Record<string, number>) {
@@ -173,5 +173,65 @@ describe('dungSoSanh — kỳ nằm ở TƯƠNG LAI', () => {
     expect(daHoi).toHaveLength(1);
     expect(kq.soNgayDaTroi).toBe(1);
     expect(kq.nen).not.toBeNull();
+  });
+});
+
+describe('dungSoSanh — kỳ LŨY KẾ', () => {
+  it('lũy kế 8 tháng so với LŨY KẾ 8 THÁNG năm trước, không phải cả năm trước', async () => {
+    const { dem, daHoi } = boDemGia({ donThu: 100 });
+    const kq = await dungSoSanh(
+      kyLuyKe(2026, 8),
+      dem,
+      { donThu: 120 },
+      undefined,
+      new Date(2026, 8, 15),
+    );
+    expect([NGAY(daHoi[0][0]), NGAY(daHoi[0][1])]).toEqual(['2025-01-01', '2025-08-31']);
+    expect(kq.nen!.nhan).toBe('lũy kế 8 tháng đầu năm 2025');
+    expect(kq.chiTieu.donThu.tyLe).toBe(20);
+  });
+});
+
+describe('dungSoSanh — nền TUỲ CHỌN', () => {
+  it('hỏi ĐÚNG khoảng người dùng chọn, không tự dịch kỳ', async () => {
+    const { dem, daHoi } = boDemGia({ donThu: 80 });
+    const nen = kyTuyChon(new Date(2024, 0, 1), new Date(2024, 5, 30));
+    const kq = await dungSoSanh(
+      kyThang(2026, 8),
+      dem,
+      { donThu: 100 },
+      'TUY_CHON',
+      new Date(2026, 8, 15),
+      nen,
+    );
+    expect([NGAY(daHoi[0][0]), NGAY(daHoi[0][1])]).toEqual(['2024-01-01', '2024-06-30']);
+    expect(kq.nen!.nhan).toBe('01/01/2024 – 30/06/2024');
+    expect(kq.chiTieu.donThu.tyLe).toBe(25);
+  });
+
+  /**
+   * Nền tuỳ chọn KHÔNG bị cắt theo tiến độ. Người dùng đã tự chọn hai đầu; cắt tiếp là sửa lựa
+   * chọn của họ mà không nói một lời.
+   */
+  it('kỳ đang chạy cũng KHÔNG cắt nền tuỳ chọn', async () => {
+    const { dem, daHoi } = boDemGia({ donThu: 80 });
+    const nen = kyTuyChon(new Date(2024, 0, 1), new Date(2024, 5, 30));
+    const kq = await dungSoSanh(
+      kyThang(2026, 8),
+      dem,
+      { donThu: 100 },
+      'TUY_CHON',
+      new Date(2026, 7, 10),
+      nen,
+    );
+    expect([NGAY(daHoi[0][0]), NGAY(daHoi[0][1])]).toEqual(['2024-01-01', '2024-06-30']);
+    expect(kq.kyChuaTron).toBe(true);
+  });
+
+  it('chọn TUY_CHON mà quên khoảng nền thì NÉM LỖI, không lặng lẽ rơi về mặc định', async () => {
+    const { dem } = boDemGia({ donThu: 80 });
+    await expect(
+      dungSoSanh(kyThang(2026, 8), dem, { donThu: 100 }, 'TUY_CHON', new Date(2026, 8, 15)),
+    ).rejects.toThrow();
   });
 });
