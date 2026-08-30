@@ -85,9 +85,13 @@ describe('Cột bắt buộc không được hỏi rỗng', () => {
    * điều kiện truy vấn là một lần đổi lỗi biên dịch lấy lỗi lúc chạy.
    */
   it('không ép kiểu để bịt trình biên dịch trong reports.service.ts', () => {
-    const dong = MA.split(String.fromCharCode(10))
-      .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
-      .filter((l) => /as (never|any|unknown as)/.test(l));
+    // KHÔNG dùng regex ở đây. Hai lần trong cùng một phiên, ký tự thoát bị nuốt lúc sinh
+    // tệp và mẫu lặng lẽ thành thứ không bao giờ khớp — cổng xanh vì lý do sai, đúng ở chỗ
+    // nó có nhiệm vụ canh. So chuỗi thẳng thì không có gì để nuốt.
+    const EP_KIEU = ['as never', 'as any', 'as unknown as'];
+    const dong = MA.split(String.fromCharCode(10)).filter((l) =>
+      EP_KIEU.some((e) => l.includes(e)),
+    );
     expect(dong).toEqual([]);
   });
 });
