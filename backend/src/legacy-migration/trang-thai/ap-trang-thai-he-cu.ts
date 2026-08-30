@@ -113,9 +113,17 @@ function chuKetQua(raw: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
+/**
+ * Đọc một khoá của bản ghi hệ cũ về dạng chuỗi.
+ *
+ * Nhận CẢ SỐ. `stt` và `nam` nằm trong JSON dưới dạng số, nên bản đầu chỉ nhận `string` đã trả
+ * `null` cho cả 46.580 hồ sơ — và hai cột ấy chính là khoá để khách hàng đối chiếu. Danh sách
+ * xuất ra vẫn "chạy đúng", chỉ là hai cột quan trọng nhất trống trơn.
+ */
 function lay(raw: unknown, khoa: string): string | null {
   const r = raw as Record<string, unknown> | null;
   const v = r?.[khoa];
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
   return typeof v === 'string' && v.trim() ? v.trim() : null;
 }
 
