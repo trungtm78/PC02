@@ -9,6 +9,12 @@ import { useId } from 'react';
  * là một NỀN — và người ta muốn xem lũy kế 8 tháng so với cùng kỳ năm trước. Gộp vào một ô là
  * bắt người dùng chọn một trong hai thứ họ cần cả hai.
  *
+ * ── Chặn ngay tại ô nhập ──
+ *
+ * Hai ô ngày ràng buộc nhau bằng `min`/`max`: chọn ngày cuối trước ngày đầu là trạng thái không
+ * hợp lệ mà máy chủ phải từ chối, và một cú bấm không tạo ra được trạng thái ấy thì tốt hơn một
+ * thông báo lỗi sau đó.
+ *
  * ── Vì sao nền mặc định là "cùng kỳ năm trước" ──
  *
  * Quy ước báo cáo ngành: văn bản Bộ Công an luôn viết "so với cùng kỳ năm trước", không phải
@@ -106,6 +112,7 @@ export function ChonKyBaoCao({ nam, don, ky, nen, onDoiKy, onDoiNen }: Props) {
             type="date"
             aria-label="Kỳ — từ ngày"
             data-testid="ky-tu"
+            max={ky.den || undefined}
             value={ky.tu ?? ''}
             onChange={(e) => onDoiKy({ ...ky, tu: e.target.value })}
             className={oNgay}
@@ -115,6 +122,7 @@ export function ChonKyBaoCao({ nam, don, ky, nen, onDoiKy, onDoiNen }: Props) {
             type="date"
             aria-label="Kỳ — đến ngày"
             data-testid="ky-den"
+            min={ky.tu || undefined}
             value={ky.den ?? ''}
             onChange={(e) => onDoiKy({ ...ky, den: e.target.value })}
             className={oNgay}
@@ -146,6 +154,7 @@ export function ChonKyBaoCao({ nam, don, ky, nen, onDoiKy, onDoiNen }: Props) {
             type="date"
             aria-label="Nền so sánh — từ ngày"
             data-testid="nen-tu"
+            max={nen.nenDen || undefined}
             value={nen.nenTu ?? ''}
             onChange={(e) => onDoiNen({ ...nen, nenTu: e.target.value })}
             className={oNgay}
@@ -155,6 +164,7 @@ export function ChonKyBaoCao({ nam, don, ky, nen, onDoiKy, onDoiNen }: Props) {
             type="date"
             aria-label="Nền so sánh — đến ngày"
             data-testid="nen-den"
+            min={nen.nenTu || undefined}
             value={nen.nenDen ?? ''}
             onChange={(e) => onDoiNen({ ...nen, nenDen: e.target.value })}
             className={oNgay}

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { KieuSoSanh } from './so-sanh-ky';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -161,6 +161,38 @@ class Stat48QueryDto {
   format?: string;
 }
 
+/**
+ * Chặn đầu vào sai NGAY TẠI BIÊN, trả 400 kèm câu nói rõ.
+ *
+ * Không có nó thì `kyTuyChon` / `dungSoSanh` ném `Error` trần, Nest dịch thành 500, và màn hình
+ * rơi vào trạng thái "không tải được số liệu" — một thông báo không giúp người dùng sửa được gì,
+ * trong khi lỗi hoàn toàn nằm ở lựa chọn của họ.
+ */
+function kiemTraTuyChonKy(q: {
+  tu?: string;
+  den?: string;
+  soSanh?: KieuSoSanh;
+  nenTu?: string;
+  nenDen?: string;
+}) {
+  if ((q.tu && !q.den) || (!q.tu && q.den)) {
+    throw new BadRequestException('Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.');
+  }
+  if (q.tu && q.den && new Date(q.den) < new Date(q.tu)) {
+    throw new BadRequestException('Ngày cuối của khoảng tự chọn không được trước ngày đầu.');
+  }
+  if (q.soSanh === 'TUY_CHON') {
+    if (!q.nenTu || !q.nenDen) {
+      throw new BadRequestException(
+        'So sánh với khoảng tự chọn cần đủ ngày đầu và ngày cuối của kỳ nền.',
+      );
+    }
+    if (new Date(q.nenDen) < new Date(q.nenTu)) {
+      throw new BadRequestException('Ngày cuối của kỳ nền không được trước ngày đầu.');
+    }
+  }
+}
+
 @Controller('reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
@@ -173,6 +205,7 @@ export class ReportsController {
   @Get('monthly')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getMonthly(@Query() query: QueryMonthlyDto) {
+    kiemTraTuyChonKy(query);
     const year = query.year ?? new Date().getFullYear();
     return this.reportsService.getMonthly(year, query.month, query.soSanh, {
       luyKeDenThang: query.luyKeDenThang,
@@ -187,6 +220,7 @@ export class ReportsController {
   @Get('quarterly')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getQuarterly(@Query() query: QueryQuarterlyDto) {
+    kiemTraTuyChonKy(query);
     const year = query.year ?? new Date().getFullYear();
     return this.reportsService.getQuarterly(year, query.quarter, query.soSanh, {
       luyKeDenThang: query.luyKeDenThang,
@@ -220,6 +254,7 @@ export class ReportsController {
   @Get('monthly/export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
+    kiemTraTuyChonKy(query);
     const year = query.year ?? new Date().getFullYear();
     // Tuỳ chọn kỳ phải đi theo tệp xuất. Không truyền thì tệp mang tên "lũy kế 8 tháng" mà nội
     // dung là cả năm — người nhận tệp không có màn hình để đối chiếu.
@@ -235,6 +270,7 @@ export class ReportsController {
   @Get('quarterly/export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
+    kiemTraTuyChonKy(query);
     const year = query.year ?? new Date().getFullYear();
     // Xem chú thích ở `exportMonthly`.
     const data = await this.reportsService.getQuarterly(year, query.quarter, 'KHONG', {

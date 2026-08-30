@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { ReportsExportService } from './reports-export.service';
@@ -99,6 +100,64 @@ describe('ReportsController — delegation', () => {
         nenDen: '2024-06-30',
       }),
     );
+  });
+
+  /**
+   * Đầu vào sai phải trả 400 kèm câu nói rõ, KHÔNG phải 500.
+   *
+   * Codex bắt: thiếu một đầu ngày hay đảo ngược hai đầu thì `kyTuyChon`/`dungSoSanh` ném `Error`
+   * trần, Nest dịch thành 500, và màn hình rơi vào "không tải được số liệu" — một thông báo
+   * không giúp người dùng sửa được gì, trong khi lỗi hoàn toàn nằm ở lựa chọn của họ.
+   *
+   * Phép chặn chạy ĐỒNG BỘ, trước khi chạm tới service — nên ca kiểm dùng `expect(() => …)`
+   * chứ không phải `rejects`.
+   */
+  it('khoảng tự chọn thiếu một đầu → 400, không phải 500', () => {
+    expect(() => controller.getMonthly({ year: 2026, tu: '2026-03-01' })).toThrow(
+      BadRequestException,
+    );
+    expect(() => controller.getMonthly({ year: 2026, den: '2026-03-01' })).toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('ngày cuối trước ngày đầu → 400', () => {
+    expect(() =>
+      controller.getMonthly({ year: 2026, tu: '2026-05-01', den: '2026-03-01' }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('so sánh TUY_CHON mà thiếu khoảng nền → 400', () => {
+    expect(() => controller.getMonthly({ year: 2026, soSanh: 'TUY_CHON' })).toThrow(
+      BadRequestException,
+    );
+    expect(() =>
+      controller.getMonthly({ year: 2026, soSanh: 'TUY_CHON', nenTu: '2024-01-01' }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('kỳ nền đảo ngược → 400', () => {
+    expect(() =>
+      controller.getMonthly({
+        year: 2026,
+        soSanh: 'TUY_CHON',
+        nenTu: '2024-06-30',
+        nenDen: '2024-01-01',
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('báo cáo QUÝ cũng được chặn như vậy — không sót một endpoint', () => {
+    expect(() => controller.getQuarterly({ year: 2026, tu: '2026-03-01' })).toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('khoảng hợp lệ thì KHÔNG chặn — cổng không được chặn nhầm', async () => {
+    mockReportsService.getMonthly.mockResolvedValue({ data: {} });
+    await expect(
+      controller.getMonthly({ year: 2026, tu: '2026-03-01', den: '2026-05-31' }),
+    ).resolves.toBeDefined();
   });
 
   it('getOverdue() delegates to service.getOverdue with filter params', async () => {
