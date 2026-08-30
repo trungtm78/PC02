@@ -213,6 +213,44 @@ describe('ReportsController — delegation', () => {
     expect(() => controller.getQuarterly({ ...DAI })).not.toThrow();
   });
 
+  /**
+   * Ba cách xác định kỳ loại trừ nhau. Codex bắt: `month=5&luyKeDenThang=8` được chấp nhận, và
+   * máy chủ chọn ngầm một cái — trả số liệu lũy kế dưới trường `month: 5`. Bản cũ của giao diện
+   * đọc `month` sẽ nói sai kỳ mà không ai thấy.
+   */
+  it('chọn hai cách xác định kỳ cùng lúc → 400, nói rõ đang nhận những gì', () => {
+    expect(() => controller.getMonthly({ year: 2026, month: 5, luyKeDenThang: 8 })).toThrow(
+      BadRequestException,
+    );
+    expect(() =>
+      controller.getMonthly({ year: 2026, month: 5, tu: '2026-01-01', den: '2026-03-31' }),
+    ).toThrow(BadRequestException);
+
+    try {
+      controller.getMonthly({ year: 2026, month: 5, luyKeDenThang: 8 });
+    } catch (e) {
+      expect((e as Error).message).toMatch(/tháng\/quý \+ lũy kế/);
+    }
+  });
+
+  it('chỉ chọn MỘT cách thì không chặn', () => {
+    mockReportsService.getMonthly.mockResolvedValue({ data: {} });
+    expect(() => controller.getMonthly({ year: 2026, month: 5 })).not.toThrow();
+    expect(() => controller.getMonthly({ year: 2026, luyKeDenThang: 8 })).not.toThrow();
+    expect(() => controller.getMonthly({ year: 2026 })).not.toThrow();
+  });
+
+  /**
+   * Trần đếm bằng CHÍNH hàm sinh ô. Codex bắt: công thức `ceil(soThang/3)` cho khoảng không
+   * trùng mốc quý ra 60 trong khi bộ sinh ra 61 — trần bị lách mà không ai thấy.
+   */
+  it('khoảng lệch mốc quý vẫn bị chặn đúng — bộ chặn và bộ dựng cùng một thước', () => {
+    // 01/02/2010–31/01/2025: 180 tháng, nhưng chạm Q1/2010 tới Q1/2025 = 61 ô quý.
+    expect(() =>
+      controller.getQuarterly({ year: 2026, tu: '2010-02-01', den: '2025-01-31' }),
+    ).toThrow(BadRequestException);
+  });
+
   it('khoảng hợp lệ thì KHÔNG chặn — cổng không được chặn nhầm', async () => {
     mockReportsService.getMonthly.mockResolvedValue({ data: {} });
     await expect(

@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
-import type { KieuSoSanh } from './so-sanh-ky';
+import { demO, type KieuSoSanh } from './so-sanh-ky';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -181,6 +181,9 @@ const SO_O_TOI_DA = 60;
 
 function kiemTraTuyChonKy(
   q: {
+    month?: number;
+    quarter?: number;
+    luyKeDenThang?: number;
     tu?: string;
     den?: string;
     soSanh?: KieuSoSanh;
@@ -197,6 +200,19 @@ function kiemTraTuyChonKy(
    */
   don: 'thang' | 'quy',
 ) {
+  // Ba cách chọn kỳ LOẠI TRỪ nhau. Chọn ngầm một cái là trả về số liệu của kỳ này dưới trường
+  // `month` của kỳ kia — bản cũ của giao diện đọc `month` sẽ nói sai kỳ mà không ai thấy.
+  const daChon = [
+    q.month !== undefined || q.quarter !== undefined ? 'tháng/quý' : null,
+    q.luyKeDenThang !== undefined ? 'lũy kế' : null,
+    q.tu !== undefined || q.den !== undefined ? 'khoảng tự chọn' : null,
+  ].filter(Boolean);
+  if (daChon.length > 1) {
+    throw new BadRequestException(
+      `Chỉ chọn MỘT cách xác định kỳ báo cáo, đang nhận: ${daChon.join(' + ')}.`,
+    );
+  }
+
   if ((q.tu && !q.den) || (!q.tu && q.den)) {
     throw new BadRequestException('Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.');
   }
@@ -204,11 +220,10 @@ function kiemTraTuyChonKy(
     throw new BadRequestException('Ngày cuối của khoảng tự chọn không được trước ngày đầu.');
   }
   if (q.tu && q.den) {
-    const tu = new Date(q.tu);
-    const den = new Date(q.den);
-    const soThang =
-      (den.getFullYear() - tu.getFullYear()) * 12 + (den.getMonth() - tu.getMonth()) + 1;
-    const soO = don === 'quy' ? Math.ceil(soThang / 3) : soThang;
+    // Đếm bằng CHÍNH hàm sinh ô. Bản đầu dùng `Math.ceil(soThang / 3)`, và với khoảng không
+    // trùng mốc quý (01/02/2010–31/01/2025) nó ra 60 trong khi bộ sinh ra 61 — trần bị lách mà
+    // không ai thấy, vì bộ chặn và bộ dựng đếm bằng hai thước.
+    const soO = demO(new Date(q.tu), new Date(q.den), don);
     if (soO > SO_O_TOI_DA) {
       throw new BadRequestException(
         `Khoảng tự chọn quá dài: ${soO} ${don === 'quy' ? 'quý' : 'tháng'}, tối đa ${SO_O_TOI_DA}. Chia nhỏ khoảng thời gian.`,

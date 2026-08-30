@@ -3,3 +3,4 @@ export * from './ky-bao-cao';
 export * from './chi-tieu';
 export * from './dung-so-sanh';
 export * from './ngay-nghiep-vu';
+export * from './o-bieu-do';

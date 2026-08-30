@@ -8,6 +8,8 @@ import {
   KIEU_SO_SANH_MAC_DINH,
   kyLuyKe,
   kyTuyChon,
+  thangTrongKy,
+  quyTrongKy,
   COT_NGAY_TIEP_NHAN,
   MOC_NAM_HOP_LE,
   type KieuSoSanh,
@@ -106,61 +108,23 @@ function chonKy(
   return so ? dungTheoSo(nam, so) : kyNam(nam);
 }
 
-/** Giao của một ô biểu đồ với kỳ đang chọn. `null` khi không giao nhau. */
-function giaoVoiKy(dau: Date, cuoi: Date, ky: Ky): { tu: Date; den: Date } | null {
-  const tu = dau > ky.tu ? dau : ky.tu;
-  const den = cuoi < ky.den ? cuoi : ky.den;
-  return tu <= den ? { tu, den } : null;
-}
-
-interface OBieuDo {
-  nam: number;
-  so: number;
-  tu: Date;
-  den: Date;
-}
-
 /**
- * Những ô THÁNG mà biểu đồ nên vẽ, sinh TỪ CHÍNH KỲ chứ không từ năm được chọn.
+ * Kỳ báo cáo do người dùng chọn, ngoài "một tháng / một quý / cả năm".
  *
- * Hai lỗi đã đi qua đây, cả hai đều làm các ô không cộng ra dòng tổng:
- *
- *   1. Ô đếm TRỌN tháng trong khi kỳ chỉ là 05/03–20/05 → nay đếm phần giao.
- *   2. Ô chỉ sinh trong `năm` được chọn, nên khoảng 01/11/2025–28/02/2026 ra bốn tháng ở dòng
- *      tổng nhưng chỉ hai ô trên biểu đồ — và một khoảng nằm trọn năm 2025 thì KHÔNG ô nào.
- *
- * Cả hai đều là cùng một hình dạng: ô và tổng dựng từ hai nguồn khác nhau. Nay chỉ một nguồn.
+ * `luyKeDenThang` và cặp `tu`/`den` loại trừ nhau — chọn cả hai là mâu thuẫn, và hàm `chonKy`
+ * ưu tiên theo thứ tự khai để không im lặng lấy bừa một cái.
  */
-function thangTrongKy(ky: Ky): OBieuDo[] {
-  const ra: OBieuDo[] = [];
-  const d = new Date(ky.tu.getFullYear(), ky.tu.getMonth(), 1);
-  while (d <= ky.den) {
-    const g = giaoVoiKy(
-      new Date(d.getFullYear(), d.getMonth(), 1),
-      new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999),
-      ky,
-    );
-    if (g) ra.push({ nam: d.getFullYear(), so: d.getMonth() + 1, ...g });
-    d.setMonth(d.getMonth() + 1);
-  }
-  return ra;
+export interface TuyChonKy {
+  /** Lũy kế từ đầu năm tới hết tháng này. */
+  luyKeDenThang?: number;
+  /** Khoảng tự chọn cho KỲ ĐANG XEM. */
+  tu?: string;
+  den?: string;
+  /** Khoảng tự chọn cho KỲ NỀN (dùng với `soSanh=TUY_CHON`). */
+  nenTu?: string;
+  nenDen?: string;
 }
 
-/** Như `thangTrongKy`, cho quý. */
-function quyTrongKy(ky: Ky): OBieuDo[] {
-  const ra: OBieuDo[] = [];
-  const d = new Date(ky.tu.getFullYear(), Math.floor(ky.tu.getMonth() / 3) * 3, 1);
-  while (d <= ky.den) {
-    const g = giaoVoiKy(
-      new Date(d.getFullYear(), d.getMonth(), 1),
-      new Date(d.getFullYear(), d.getMonth() + 3, 0, 23, 59, 59, 999),
-      ky,
-    );
-    if (g) ra.push({ nam: d.getFullYear(), so: Math.floor(d.getMonth() / 3) + 1, ...g });
-    d.setMonth(d.getMonth() + 3);
-  }
-  return ra;
-}
 
 @Injectable()
 export class ReportsService {
