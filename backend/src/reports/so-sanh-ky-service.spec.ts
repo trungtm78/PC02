@@ -37,10 +37,12 @@ describe('ReportsService — khối so sánh kỳ', () => {
       }
       return 0;
     });
+    // Máy chủ nay hỏi thêm DẢI NĂM CÓ DỮ LIỆU để ô chọn năm sinh từ thực tế thay vì viết cứng.
+    const aggGia = jest.fn(async () => ({ _min: {}, _max: {} }));
     const prisma = {
-      petition: { count: dem },
-      incident: { count: dem },
-      case: { count: dem },
+      petition: { count: dem, aggregate: aggGia },
+      incident: { count: dem, aggregate: aggGia },
+      case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
 
     const mod = await Test.createTestingModule({
@@ -157,10 +159,12 @@ describe('ReportsService — đếm theo NGÀY TIẾP NHẬN, không phải ngà
       }
       return 0;
     });
+    // Máy chủ nay hỏi thêm DẢI NĂM CÓ DỮ LIỆU để ô chọn năm sinh từ thực tế thay vì viết cứng.
+    const aggGia = jest.fn(async () => ({ _min: {}, _max: {} }));
     const prisma = {
-      petition: { count: dem },
-      incident: { count: dem },
-      case: { count: dem },
+      petition: { count: dem, aggregate: aggGia },
+      incident: { count: dem, aggregate: aggGia },
+      case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
       providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
@@ -230,10 +234,12 @@ describe('ReportsService — tổng phải theo KỲ ĐANG CHỌN', () => {
       }
       return 0;
     });
+    // Máy chủ nay hỏi thêm DẢI NĂM CÓ DỮ LIỆU để ô chọn năm sinh từ thực tế thay vì viết cứng.
+    const aggGia = jest.fn(async () => ({ _min: {}, _max: {} }));
     const prisma = {
-      petition: { count: dem },
-      incident: { count: dem },
-      case: { count: dem },
+      petition: { count: dem, aggregate: aggGia },
+      incident: { count: dem, aggregate: aggGia },
+      case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
       providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
@@ -281,10 +287,12 @@ describe('ReportsService — ô biểu đồ và nhãn kỳ đi theo kỳ đang 
 
   beforeEach(async () => {
     const dem = jest.fn(async () => 0);
+    // Máy chủ nay hỏi thêm DẢI NĂM CÓ DỮ LIỆU để ô chọn năm sinh từ thực tế thay vì viết cứng.
+    const aggGia = jest.fn(async () => ({ _min: {}, _max: {} }));
     const prisma = {
-      petition: { count: dem },
-      incident: { count: dem },
-      case: { count: dem },
+      petition: { count: dem, aggregate: aggGia },
+      incident: { count: dem, aggregate: aggGia },
+      case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
       providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
@@ -355,10 +363,12 @@ describe('ReportsService — ô biểu đồ CẮT theo kỳ, không đếm tr�
       }
       return 0;
     });
+    // Máy chủ nay hỏi thêm DẢI NĂM CÓ DỮ LIỆU để ô chọn năm sinh từ thực tế thay vì viết cứng.
+    const aggGia = jest.fn(async () => ({ _min: {}, _max: {} }));
     const prisma = {
-      petition: { count: dem },
-      incident: { count: dem },
-      case: { count: dem },
+      petition: { count: dem, aggregate: aggGia },
+      incident: { count: dem, aggregate: aggGia },
+      case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
       providers: [ReportsService, { provide: PrismaService, useValue: prisma }],

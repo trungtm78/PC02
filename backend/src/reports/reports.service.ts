@@ -207,6 +207,42 @@ export class ReportsService {
     return { donThu, vuViec, vuAn, tong: donThu + vuViec + vuAn };
   }
 
+  /**
+   * Năm sớm nhất và muộn nhất CÓ dữ liệu, để ô chọn năm sinh từ thực tế.
+   *
+   * Ô ấy viết cứng 2024–2026 trong khi hồ sơ có từ 2006 — hơn mười lăm năm dữ liệu không có
+   * đường bấm tới, và không gì trên màn nói ra điều đó. Người dùng chỉ thấy một danh sách ba
+   * năm và tin rằng đó là tất cả.
+   */
+  private async namCoDuLieu() {
+    const [p, i, c] = await Promise.all([
+      this.prisma.petition.aggregate({
+        where: { deletedAt: null, receivedDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        _min: { receivedDate: true },
+        _max: { receivedDate: true },
+      }),
+      this.prisma.incident.aggregate({
+        where: { deletedAt: null, ngayDeXuat: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        _min: { ngayDeXuat: true },
+        _max: { ngayDeXuat: true },
+      }),
+      this.prisma.case.aggregate({
+        where: { deletedAt: null, receiveDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        _min: { receiveDate: true },
+        _max: { receiveDate: true },
+      }),
+    ]);
+    const nams = [
+      p._min.receivedDate, p._max.receivedDate,
+      i._min.ngayDeXuat, i._max.ngayDeXuat,
+      c._min.receiveDate, c._max.receiveDate,
+    ].filter((d): d is Date => d instanceof Date).map((d) => d.getFullYear());
+    const nayNam = new Date().getFullYear();
+    if (!nams.length) return { tu: nayNam, den: nayNam };
+    // Luôn với tới năm hiện tại: hồ sơ mới nhập hôm nay phải xem được ngay.
+    return { tu: Math.min(...nams), den: Math.max(...nams, nayNam) };
+  }
+
   private async demKhongCoNgayTiepNhan() {
     // Viết TƯỜNG MINH ba truy vấn thay vì dựng điều kiện bằng khoá động: khoá động buộc phải
     // ép kiểu, và `as never` ở bản trước đã bịt đúng lời cảnh báo cần nghe — `receivedDate`
@@ -296,9 +332,10 @@ export class ReportsService {
         : undefined,
     );
 
-    const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all([
       this.demKhongCoNgayTiepNhan(),
       this.demDaGiaiQuyetChuaRoNgay(),
+      this.namCoDuLieu(),
     ]);
     return {
       success: true,
@@ -310,6 +347,7 @@ export class ReportsService {
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,
+      namCoDuLieu,
     };
   }
 
@@ -354,9 +392,10 @@ export class ReportsService {
         : undefined,
     );
 
-    const [khongCoNgay, daGiaiQuyetChuaRoNgay] = await Promise.all([
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all([
       this.demKhongCoNgayTiepNhan(),
       this.demDaGiaiQuyetChuaRoNgay(),
+      this.namCoDuLieu(),
     ]);
     return {
       success: true,
@@ -368,6 +407,7 @@ export class ReportsService {
       soSanh,
       khongCoNgay,
       daGiaiQuyetChuaRoNgay,
+      namCoDuLieu,
     };
   }
 

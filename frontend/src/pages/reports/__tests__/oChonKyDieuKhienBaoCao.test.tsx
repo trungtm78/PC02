@@ -58,6 +58,7 @@ const PHAN_HOI = {
     success: true,
     data: [],
     totals: { donThu: 1, vuViec: 1, vuAn: 1, daGiaiQuyet: 1 },
+    namCoDuLieu: { tu: 2019, den: 2026 },
     soSanh: {
       kieu: 'CUNG_KY_NAM_TRUOC',
       ky: { tu: '', den: '', nhan: 'tháng 3/2025' },
@@ -97,6 +98,20 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     expect(nhan).toContain('Lũy kế 8 tháng đầu năm 2025');
     expect(nhan).toContain('Khoảng tự chọn…');
     expect(nhan.some((n) => n?.includes('2026'))).toBe(false);
+  });
+
+  /**
+   * Ô chọn năm viết cứng 2024–2026 trong khi hồ sơ có từ 2006 — hơn mười lăm năm dữ liệu không
+   * có đường bấm tới, và không gì trên màn nói ra. Người dùng chỉ thấy ba năm và tin rằng đó là
+   * tất cả. Nay danh sách năm do MÁY CHỦ tính từ chính hồ sơ.
+   */
+  it('danh sách NĂM sinh từ dữ liệu máy chủ trả, không viết cứng', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    const o = screen.getByTestId('chon-nam') as HTMLSelectElement;
+    const nam = [...o.options].map((x) => x.textContent);
+    expect(nam).toEqual(['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019']);
   });
 
   it('đổi NĂM thì kỳ xuất Excel đi theo — không xuất nhầm năm khác', async () => {
