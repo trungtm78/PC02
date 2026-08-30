@@ -5,6 +5,10 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import {
+  machMocGiaiQuyet,
+  TRANG_THAI_KET_THUC,
+} from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -223,7 +227,7 @@ export class CasesService {
       // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
       // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
       // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
-      const notTerminal = [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI];
+      const notTerminal = TRANG_THAI_KET_THUC.case;
       where.status =
         typeof where.status === 'string'
           ? { equals: where.status, notIn: notTerminal }
@@ -967,6 +971,15 @@ export class CasesService {
       crime: dto.crime,
       crimeChinhId: dto.crimeChinhId,
       status: dto.status ?? CaseStatus.TIEP_NHAN,
+      // Vụ án có thể được TẠO thẳng ở trạng thái kết thúc (biểu mẫu cho chọn). Coi đó là
+      // chuyển tiếp từ TIEP_NHAN nên mốc được đóng ngay — nếu không, vụ án vừa tạo đã xong
+      // lại rơi vào ô "đã xong nhưng chưa rõ ngày" và không vào kỳ nào.
+      ...machMocGiaiQuyet(
+        'case',
+        CaseStatus.TIEP_NHAN,
+        dto.status ?? CaseStatus.TIEP_NHAN,
+        null,
+      ),
       investigatorId: dto.investigatorId,
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
@@ -1124,6 +1137,13 @@ export class CasesService {
             data: {
               linkedCaseId: newCase.id,
               status: PetitionStatus.DA_CHUYEN_VU_AN,
+              // Xem chú thích cùng nội dung ở petitions.service.ts.
+              ...machMocGiaiQuyet(
+                'petition',
+                petition.status,
+                PetitionStatus.DA_CHUYEN_VU_AN,
+                petition.ngayGiaiQuyet,
+              ),
             },
           });
         } catch (e) {
@@ -1369,6 +1389,10 @@ export class CasesService {
       ...(dto.crime !== undefined && { crime: dto.crime }),
       ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
       ...(dto.status !== undefined && { status: dto.status }),
+      // Đóng mốc giải quyết cùng lúc với trạng thái. Báo cáo "đã giải quyết" đọc cột này;
+      // đổi trạng thái mà quên mốc thì hồ sơ xong việc vẫn không vào kỳ nào.
+      ...(dto.status !== undefined &&
+        machMocGiaiQuyet('case', existing.status, dto.status, existing.ngayGiaiQuyet)),
       ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
       ...(dto.deadline !== undefined && {
         deadline: dto.deadline ? new Date(dto.deadline) : null,

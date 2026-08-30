@@ -204,30 +204,49 @@ describe('Hồ sơ ngoài mọi kỳ báo cáo', () => {
 });
 
 /**
- * Chỉ tiêu "Đã giải quyết" phải TỰ KHAI giới hạn của nó.
+ * Chỉ tiêu "Đã giải quyết" nay đếm theo MỐC GIẢI QUYẾT, và phải nói ra phần di sản.
  *
- * Nó đếm theo `updatedAt` — lần cập nhật hồ sơ gần nhất — chứ không theo ngày giải quyết, vì
- * CSDL không có cột ấy (`cases.ngay_tra_ket_qua` rỗng 0/3.381, incidents và petitions không có
- * cột tương đương).
+ * Trước đây nó đếm theo `updatedAt` nên mọi kỳ đã qua đều ra 0. Nay có cột `ngayGiaiQuyet`, đặt
+ * khi trạng thái chuyển vào một trạng thái kết thúc. Nhưng hồ sơ kết thúc TRƯỚC khi có cột ấy
+ * thì mốc rỗng — chúng không nằm trong kỳ nào, và nếu im lặng thì "đã giải quyết: 0" lại đọc
+ * như một sự thật.
  *
- * Đo trên máy thật 30/08/2026, mở báo cáo năm 2024: đơn thư 4.217 · vụ việc 89 · vụ án 280 ·
- * **đã giải quyết 0**. Số 0 ấy không có nghĩa là năm 2024 không giải quyết được vụ nào — nó chỉ
- * có nghĩa là không hồ sơ nào được ĐỘNG TỚI trong năm 2024. Một giới hạn nằm trong lời chú thích
- * của mã nguồn thì cán bộ đọc báo cáo không thấy; nó phải nằm cạnh chính con số ấy.
+ * Nên dấu cảnh báo không còn là lời nhắc chung chung mà là MỘT CON SỐ đo được, và nó tự teo
+ * dần khi cán bộ xử lý hồ sơ mới.
  */
-describe('Chỉ tiêu "Đã giải quyết" tự khai giới hạn', () => {
-  it('có dấu cảnh báo ngay cạnh nhãn, và nói rõ đếm theo cái gì', async () => {
-    traVe(undefined);
+describe('Chỉ tiêu "Đã giải quyết" nói ra phần di sản', () => {
+  function traVeDiSan(daGiaiQuyetChuaRoNgay: unknown) {
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: [],
+        totals: { donThu: 1, vuViec: 1, vuAn: 1, daGiaiQuyet: 0 },
+        daGiaiQuyetChuaRoNgay,
+      },
+    } as never);
+  }
+
+  it('có hồ sơ xong mà chưa rõ ngày → hiện SỐ, không phải lời nhắc chung', async () => {
+    traVeDiSan({ donThu: 0, vuViec: 0, vuAn: 75, tong: 75 });
     bao();
     const c = await screen.findByTestId('canh-bao-da-giai-quyet');
-    expect(c.getAttribute('title')).toMatch(/lần cập nhật/);
-    expect(c.getAttribute('title')).toMatch(/KHÔNG có nghĩa/);
+    expect(c.textContent).toContain('75');
+    expect(c.getAttribute('title')).toMatch(/chưa ghi mốc giải quyết/);
+    expect(c.getAttribute('title')).toMatch(/từ nay trở đi/);
   });
 
-  it('chỉ MỘT chỉ tiêu mang cảnh báo — ba chỉ tiêu kia đếm theo ngày tiếp nhận thật', async () => {
-    traVe(undefined);
+  /** Hết di sản thì dấu ấy phải biến mất — nếu không nó thành trang trí vĩnh viễn. */
+  it('không còn hồ sơ nào chưa rõ ngày → KHÔNG hiện gì', async () => {
+    traVeDiSan({ donThu: 0, vuViec: 0, vuAn: 0, tong: 0 });
     bao();
-    await screen.findByTestId('canh-bao-da-giai-quyet');
-    expect(screen.getAllByTestId('canh-bao-da-giai-quyet')).toHaveLength(1);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.queryByTestId('canh-bao-da-giai-quyet')).not.toBeInTheDocument();
+  });
+
+  it('máy chủ bản cũ không trả khối ấy thì cũng không vỡ', async () => {
+    traVeDiSan(undefined);
+    bao();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.queryByTestId('canh-bao-da-giai-quyet')).not.toBeInTheDocument();
   });
 });

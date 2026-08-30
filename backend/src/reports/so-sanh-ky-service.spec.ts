@@ -169,14 +169,27 @@ describe('ReportsService — đếm theo NGÀY TIẾP NHẬN, không phải ngà
   });
 
   /**
-   * `updatedAt` VẪN dùng cho "đã giải quyết" — không có cột ngày giải quyết nào dùng được
-   * (`cases.ngay_tra_ket_qua` rỗng 0/3.381). Ghim lại để phân biệt "cố ý" với "bỏ sót".
+   * Ca này TRƯỚC ĐÂY ghim điều ngược lại: "vẫn dùng `updatedAt`, có chủ đích, vì không có cột
+   * nào khác". Lúc ấy đúng — đo trên máy thật thì `cases.ngay_tra_ket_qua` rỗng 0/3.381 và hai
+   * bảng kia không có cột tương đương.
+   *
+   * Nay đã dựng cột chuẩn `ngayGiaiQuyet` cho cả ba thực thể, nên giới hạn ấy hết hiệu lực và
+   * ca kiểm phải đảo chiều. Giữ lại lịch sử này để lần sau ai thấy `updatedAt` quay lại thì
+   * biết đó là bước lùi, không phải một cách viết khác.
    */
-  it('vẫn dùng updatedAt cho "đã giải quyết" — có chủ đích, vì không có cột nào khác', async () => {
+  it('đếm "đã giải quyết" theo MỐC GIẢI QUYẾT, không theo updatedAt', async () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
     await svc.getMonthly(2026, 3);
     jest.useRealTimers();
-    expect(cot).toContain('updatedAt');
+    expect(cot).toContain('ngayGiaiQuyet');
+    expect(cot).not.toContain('updatedAt');
+  });
+
+  it('trả về số hồ sơ đã kết thúc mà CHƯA có mốc — di sản phải nhìn thấy được', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    const kq = await svc.getMonthly(2026, 3);
+    jest.useRealTimers();
+    expect(kq.daGiaiQuyetChuaRoNgay).toEqual({ donThu: 0, vuViec: 0, vuAn: 0, tong: 0 });
   });
 
   it('trả về số hồ sơ KHÔNG lọt vào kỳ nào — không để hồ sơ nào vô hình', async () => {

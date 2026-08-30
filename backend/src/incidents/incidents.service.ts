@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -904,6 +905,9 @@ export class IncidentsService {
           },
           data: {
             status: dto.status,
+            // Đóng mốc giải quyết ngay tại đây. Báo cáo "đã giải quyết" đọc cột này, không đọc
+            // `updatedAt` — nếu không đóng mốc thì hồ sơ giải quyết xong vẫn không vào kỳ nào.
+            ...machMocGiaiQuyet('incident', existing.status, dto.status, existing.ngayGiaiQuyet),
             ...(dto.lyDoKhongKhoiTo !== undefined && { lyDoKhongKhoiTo: [dto.lyDoKhongKhoiTo] }),
           },
           include: {
@@ -1204,6 +1208,12 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_NHAP_VU_KHAC,
+          ...machMocGiaiQuyet(
+            'incident',
+            source.status,
+            IncidentStatus.DA_NHAP_VU_KHAC,
+            source.ngayGiaiQuyet,
+          ),
           mergedIntoId: dto.targetId,
         },
       }),
@@ -1275,6 +1285,12 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_CHUYEN_DON_VI,
+          ...machMocGiaiQuyet(
+            'incident',
+            existing.status,
+            IncidentStatus.DA_CHUYEN_DON_VI,
+            existing.ngayGiaiQuyet,
+          ),
           chuyenDenDonVi: dto.donViMoi,
           chuyenTuDonVi: existing.unitId ?? existing.donViGiaiQuyet,
         },
@@ -1379,6 +1395,15 @@ export class IncidentsService {
           ...(dto.investigatorId !== undefined ? { investigatorId: dto.investigatorId } : {}),
           deadline: dto.deadline ? new Date(dto.deadline) : existing.deadline,
           status: dto.investigatorId ? IncidentStatus.DANG_XAC_MINH : existing.status,
+          // Phân công cho điều tra viên là MỞ LẠI hồ sơ. Vụ việc đã kết thúc mà được phân
+          // công lại thì phải XOÁ mốc giải quyết — giữ mốc cũ là để nó vừa đang mở vừa đã
+          // xong, và vẫn nằm trong báo cáo của kỳ nó không còn thuộc về.
+          ...machMocGiaiQuyet(
+            'incident',
+            existing.status,
+            dto.investigatorId ? IncidentStatus.DANG_XAC_MINH : existing.status,
+            existing.ngayGiaiQuyet,
+          ),
         },
         include: {
           investigator: {
@@ -1514,6 +1539,13 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_CHUYEN_VU_AN,
+          // Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải bỏ dở — đóng mốc.
+          ...machMocGiaiQuyet(
+            'incident',
+            existing.status,
+            IncidentStatus.DA_CHUYEN_VU_AN,
+            existing.ngayGiaiQuyet,
+          ),
           linkedCaseId: caseRecord.id,
         },
       });

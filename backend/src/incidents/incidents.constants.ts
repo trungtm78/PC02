@@ -1,4 +1,5 @@
 import { IncidentStatus } from '@prisma/client';
+import { TRANG_THAI_KET_THUC } from '../common/trang-thai/trang-thai-ket-thuc';
 
 // 4 BCA workflow phases (TT28/2020/TT-BCA)
 export const PHASE_STATUSES: Record<string, IncidentStatus[]> = {
@@ -23,17 +24,10 @@ export const PHASE_LABELS: Record<string, string> = {
   'tam-dinh-chi': 'Tạm đình chỉ & Phục hồi',
 };
 
-// Terminal statuses — exclude from overdue filter
+// Trạng thái kết thúc — khai ở NGUỒN CHUNG cho cả ba thực thể, tái xuất ở đây để mọi chỗ gọi
+// cũ không phải đổi. Nuôi hai định nghĩa của cùng một khái niệm là hẹn ngày chúng lệch nhau.
 export const TERMINAL_STATUSES: IncidentStatus[] = [
-  IncidentStatus.DA_GIAI_QUYET,
-  IncidentStatus.DA_CHUYEN_VU_AN,
-  IncidentStatus.KHONG_KHOI_TO,
-  IncidentStatus.DA_NHAP_VU_KHAC,
-  IncidentStatus.PHAN_LOAI_DAN_SU,
-  IncidentStatus.DA_CHUYEN_DON_VI,
-  IncidentStatus.CHUYEN_XPHC,
-  IncidentStatus.TDC_HET_THOI_HIEU,
-  IncidentStatus.TDC_HTH_KHONG_KT,
+  ...TRANG_THAI_KET_THUC.incident,
 ];
 
 // Valid status transitions

@@ -528,6 +528,17 @@ model Case {
   crime               String? // tội danh (text tự do — giữ tương thích cũ)
   crimeChinhId        String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
   status              CaseStatus    @default(TIEP_NHAN)
+
+  /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
+  ///
+  /// Vì sao có: báo cáo tháng/quý từng đếm "đã giải quyết" theo `updatedAt`, nên mọi kỳ đã qua
+  /// đều ra 0 — không phải vì không giải quyết được vụ nào, mà vì không hồ sơ nào được động tới
+  /// trong kỳ ấy. Đo trên máy thật 30/08/2026: `ngay_tra_ket_qua` rỗng 0/3.381 và không bảng nào
+  /// có cột tương đương, nên phải dựng một cột chuẩn dùng chung cho cả ba thực thể.
+  ///
+  /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
+  /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
+  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
   investigatorId      String? // FK → users (nullable)
   deadline            DateTime?
   unit                String?
@@ -772,6 +783,7 @@ model Case {
   @@index([toiDanhChinhKhoiToId]) // truy nguyên hệ cũ
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
+  @@index([ngayGiaiQuyet])
   @@map("cases")
 }
 
@@ -1008,6 +1020,17 @@ model Petition {
   notes            String?
   // Trạng thái
   status           PetitionStatus @default(MOI_TIEP_NHAN)
+
+  /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
+  ///
+  /// Vì sao có: báo cáo tháng/quý từng đếm "đã giải quyết" theo `updatedAt`, nên mọi kỳ đã qua
+  /// đều ra 0 — không phải vì không giải quyết được vụ nào, mà vì không hồ sơ nào được động tới
+  /// trong kỳ ấy. Đo trên máy thật 30/08/2026: `ngay_tra_ket_qua` rỗng 0/3.381 và không bảng nào
+  /// có cột tương đương, nên phải dựng một cột chuẩn dùng chung cho cả ba thực thể.
+  ///
+  /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
+  /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
+  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
   // Liên kết sau khi chuyển đổi
   linkedCaseId     String? // FK → cases (sau khi chuyển thành Vụ án)
   linkedIncidentId String? // FK → incidents (sau khi chuyển thành Vụ việc)
@@ -1132,6 +1155,7 @@ model Petition {
   @@index([soHoSoCu]) // truy nguyên hệ cũ
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
+  @@index([ngayGiaiQuyet])
   @@map("petitions")
 }
 
@@ -1190,6 +1214,17 @@ model Incident {
   unitId           String? // ID đơn vị thụ lý
   investigatorId   String? // ID Điều tra viên thụ lý
   status           IncidentStatus @default(TIEP_NHAN)
+
+  /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
+  ///
+  /// Vì sao có: báo cáo tháng/quý từng đếm "đã giải quyết" theo `updatedAt`, nên mọi kỳ đã qua
+  /// đều ra 0 — không phải vì không giải quyết được vụ nào, mà vì không hồ sơ nào được động tới
+  /// trong kỳ ấy. Đo trên máy thật 30/08/2026: `ngay_tra_ket_qua` rỗng 0/3.381 và không bảng nào
+  /// có cột tương đương, nên phải dựng một cột chuẩn dùng chung cho cả ba thực thể.
+  ///
+  /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
+  /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
+  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
   sourcePetitionId String? // Nguồn gốc nếu từ đơn thư
 
   // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
@@ -1383,6 +1418,7 @@ model Incident {
   @@index([sttCu])
   @@index([legacyId, legacyCollection])
   @@index([crimeChinhId])
+  @@index([ngayGiaiQuyet])
   @@map("incidents")
 }
 

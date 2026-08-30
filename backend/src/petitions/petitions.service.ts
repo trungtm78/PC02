@@ -6,6 +6,10 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import {
+  machMocGiaiQuyet,
+  TRANG_THAI_KET_THUC,
+} from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
@@ -148,11 +152,7 @@ export class PetitionsService {
       where.deadline = { lt: new Date() };
       // Guard `if (!status)` cũ KHÔNG chặn statusGroup → bấm thẻ khi đang lọc quá hạn sẽ
       // mất điều kiện nhóm. Gộp bằng notIn thay vì gán đè (Prisma cho phép in + notIn).
-      const notTerminal = [
-        PetitionStatus.DA_GIAI_QUYET,
-        PetitionStatus.DA_CHUYEN_VU_VIEC,
-        PetitionStatus.DA_CHUYEN_VU_AN,
-      ];
+      const notTerminal = TRANG_THAI_KET_THUC.petition;
       where.status =
         typeof where.status === 'string'
           ? { equals: where.status, notIn: notTerminal }
@@ -667,6 +667,9 @@ export class PetitionsService {
       }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.status !== undefined && { status: dto.status }),
+      // Xem chú thích cùng nội dung ở cases.service.ts — cùng một luật cho cả ba thực thể.
+      ...(dto.status !== undefined &&
+        machMocGiaiQuyet('petition', existing.status, dto.status, existing.ngayGiaiQuyet)),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
       ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
@@ -929,6 +932,14 @@ export class PetitionsService {
         data: {
           linkedIncidentId: incident.id,
           status: PetitionStatus.DA_CHUYEN_VU_VIEC,
+          // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+          // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+          ...machMocGiaiQuyet(
+            'petition',
+            petition.status,
+            PetitionStatus.DA_CHUYEN_VU_VIEC,
+            petition.ngayGiaiQuyet,
+          ),
         },
       });
     } catch (e) {
@@ -1039,6 +1050,14 @@ export class PetitionsService {
         data: {
           linkedCaseId: newCase.id,
           status: PetitionStatus.DA_CHUYEN_VU_AN,
+          // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+          // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+          ...machMocGiaiQuyet(
+            'petition',
+            petition.status,
+            PetitionStatus.DA_CHUYEN_VU_AN,
+            petition.ngayGiaiQuyet,
+          ),
         },
       });
 

@@ -676,3 +676,8 @@ bằng ca kiểm riêng để phân biệt "cố ý" với "bỏ sót". Muốn �
 Đổi cột làm một số hồ sơ rơi ra khỏi mọi kỳ (42 vụ án thiếu ngày, 2 hồ sơ năm rác). Con số nhỏ,
 nhưng **một hồ sơ không lọt vào báo cáo nào là một hồ sơ vô hình** — nên trả về `khongCoNgay` và
 hiện thẳng trên màn.
+
+- ~~Ca kiểm hiệu năng PF-01 chập chờn~~ — **ĐÃ SỬA**. Ngưỡng "10.000 bản ghi < 5s" đo cỗ máy chứ
+  không đo mã: xanh trên máy rảnh, đỏ trên máy bận, cùng một dòng mã. Đổi sang đo TỶ LỆ (gấp bốn
+  đầu vào, thời gian phải dưới 10 lần) — bắt đúng thứ nó định bắt là bậc hai, và không phụ thuộc
+  máy nhanh hay chậm.
