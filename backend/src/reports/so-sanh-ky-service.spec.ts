@@ -11,7 +11,8 @@ import { PrismaService } from '../prisma/prisma.service';
  *   3. Tham số `soSanh` có thật sự tới nơi, hay bị nuốt ở tầng nào đó.
  */
 
-type Dieu = { where?: { createdAt?: { gte: Date; lte: Date }; updatedAt?: { gte: Date; lte: Date } } };
+type Khoang = { gte: Date; lte: Date };
+type Dieu = { where?: Record<string, unknown> };
 
 function ngay(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -20,13 +21,20 @@ function ngay(d: Date) {
 describe('ReportsService — khối so sánh kỳ', () => {
   let svc: ReportsService;
   let khoang: string[];
+  let cot: string[];
 
   beforeEach(async () => {
     khoang = [];
+    cot = [];
     const dem = jest.fn(async (a: Dieu) => {
-      const w = a?.where ?? {};
-      const m = w.createdAt ?? w.updatedAt;
-      if (m) khoang.push(`${ngay(m.gte)}..${ngay(m.lte)}`);
+      const w = (a?.where ?? {}) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(w)) {
+        const m = v as Khoang;
+        if (m && typeof m === 'object' && m.gte instanceof Date && m.lte instanceof Date) {
+          khoang.push(`${ngay(m.gte)}..${ngay(m.lte)}`);
+          cot.push(k);
+        }
+      }
       return 0;
     });
     const prisma = {
@@ -118,5 +126,63 @@ describe('ReportsService — khối so sánh kỳ', () => {
     expect(kq.success).toBe(true);
     expect(kq.totals).toEqual({ donThu: 0, vuViec: 0, vuAn: 0, daGiaiQuyet: 0 });
     expect(kq.data[0].month).toBe('T3/2026');
+  });
+});
+
+describe('ReportsService — đếm theo NGÀY TIẾP NHẬN, không phải ngày nhập máy', () => {
+  let svc: ReportsService;
+  let cot: string[];
+
+  beforeEach(async () => {
+    cot = [];
+    const dem = jest.fn(async (a: { where?: Record<string, unknown> }) => {
+      for (const [k, v] of Object.entries(a?.where ?? {})) {
+        const m = v as { gte?: Date; lte?: Date };
+        if (m && typeof m === 'object' && m.gte instanceof Date) cot.push(k);
+      }
+      return 0;
+    });
+    const prisma = {
+      petition: { count: dem },
+      incident: { count: dem },
+      case: { count: dem },
+    } as unknown as PrismaService;
+    const mod = await Test.createTestingModule({
+      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    svc = mod.get(ReportsService);
+  });
+
+  /**
+   * Đo trên máy thật 30/08/2026: cả 54.845 hồ sơ đều có `createdAt` năm 2026, vì đó là ngày
+   * NHẬP MÁY sau đợt di trú. Đếm theo cột ấy thì biểu đồ 12 tháng dồn cục vào tháng di trú, và
+   * "so với cùng kỳ năm trước" luôn trả lời "năm ngoái không có hồ sơ nào" — trong khi kho đang
+   * giữ hồ sơ từ năm 2006.
+   */
+  it('KHÔNG lọc theo createdAt ở phép đếm hồ sơ đến', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    await svc.getMonthly(2026, 3);
+    jest.useRealTimers();
+    expect(cot).toContain('receivedDate');
+    expect(cot).toContain('ngayDeXuat');
+    expect(cot).toContain('receiveDate');
+  });
+
+  /**
+   * `updatedAt` VẪN dùng cho "đã giải quyết" — không có cột ngày giải quyết nào dùng được
+   * (`cases.ngay_tra_ket_qua` rỗng 0/3.381). Ghim lại để phân biệt "cố ý" với "bỏ sót".
+   */
+  it('vẫn dùng updatedAt cho "đã giải quyết" — có chủ đích, vì không có cột nào khác', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    await svc.getMonthly(2026, 3);
+    jest.useRealTimers();
+    expect(cot).toContain('updatedAt');
+  });
+
+  it('trả về số hồ sơ KHÔNG lọt vào kỳ nào — không để hồ sơ nào vô hình', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    const kq = await svc.getMonthly(2026, 3);
+    jest.useRealTimers();
+    expect(kq.khongCoNgay).toEqual({ donThu: 0, vuViec: 0, vuAn: 0, tong: 0 });
   });
 });

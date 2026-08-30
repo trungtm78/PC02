@@ -157,3 +157,48 @@ describe('Huy hiệu so sánh trên Báo cáo tháng', () => {
     expect(screen.queryByTestId('nhac-ky-chua-tron')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Hồ sơ không lọt vào kỳ nào phải HIỆN RA.
+ *
+ * Đổi phép đếm từ `createdAt` (ngày nhập máy) sang ngày tiếp nhận làm một số hồ sơ rơi ra khỏi
+ * mọi kỳ: đo trên máy thật 30/08/2026 có 42 vụ án thiếu ngày và 2 hồ sơ mang năm rác (225, 226).
+ * Con số nhỏ, nhưng một hồ sơ không xuất hiện trong báo cáo nào là một hồ sơ VÔ HÌNH — người
+ * đọc báo cáo cần biết tổng của mình thiếu bao nhiêu.
+ */
+describe('Hồ sơ ngoài mọi kỳ báo cáo', () => {
+  function traVeKhongCoNgay(khongCoNgay: unknown) {
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        success: true,
+        data: [],
+        totals: { donThu: 1, vuViec: 1, vuAn: 1, daGiaiQuyet: 1 },
+        soSanh: undefined,
+        khongCoNgay,
+      },
+    } as never);
+  }
+
+  it('có hồ sơ rơi ra thì nói ra, kèm số của từng loại', async () => {
+    traVeKhongCoNgay({ donThu: 1, vuViec: 0, vuAn: 42, tong: 43 });
+    bao();
+    const o = await screen.findByTestId('ho-so-ngoai-moi-ky');
+    expect(o.textContent).toContain('43');
+    expect(o.textContent).toContain('42');
+    expect(o.textContent).toContain('KHÔNG được cộng');
+  });
+
+  it('không hồ sơ nào rơi ra thì KHÔNG hiện gì — đừng làm ồn khi mọi thứ đủ', async () => {
+    traVeKhongCoNgay({ donThu: 0, vuViec: 0, vuAn: 0, tong: 0 });
+    bao();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.queryByTestId('ho-so-ngoai-moi-ky')).not.toBeInTheDocument();
+  });
+
+  it('máy chủ bản cũ không trả khối ấy thì cũng không vỡ', async () => {
+    traVeKhongCoNgay(undefined);
+    bao();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.queryByTestId('ho-so-ngoai-moi-ky')).not.toBeInTheDocument();
+  });
+});

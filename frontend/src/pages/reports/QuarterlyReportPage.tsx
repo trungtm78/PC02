@@ -70,6 +70,14 @@ export default function QuarterlyReportPage() {
 
   const soSanh: KhoiSoSanh | undefined = reportData?.soSanh;
   const nhacDoDang = nhacKyChuaTron(soSanh);
+  /**
+   * Hồ sơ không lọt vào BẤT KỲ kỳ nào vì thiếu ngày tiếp nhận hoặc ngày nằm ngoài 1900–2100.
+   * Con số này nhỏ, nhưng phải hiện: một hồ sơ không xuất hiện trong báo cáo nào là một hồ sơ
+   * vô hình, và người đọc báo cáo cần biết tổng của mình thiếu bao nhiêu.
+   */
+  const khongCoNgay = reportData?.khongCoNgay as
+    | { donThu: number; vuViec: number; vuAn: number; tong: number }
+    | undefined;
 
   const stats = [
     { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), chiTieu: "tongTiepNhan", color: "blue" },
@@ -156,6 +164,19 @@ export default function QuarterlyReportPage() {
         >
           <span aria-hidden="true">⏳</span>
           <span>{nhacDoDang}</span>
+        </div>
+      )}
+      {!loadError && khongCoNgay && khongCoNgay.tong > 0 && (
+        <div
+          className="mb-4 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          data-testid="ho-so-ngoai-moi-ky"
+        >
+          <strong>{khongCoNgay.tong.toLocaleString("vi-VN")}</strong> hồ sơ không nằm trong bất kỳ
+          kỳ báo cáo nào vì thiếu ngày tiếp nhận hoặc ngày không hợp lệ
+          {" ("}đơn thư {khongCoNgay.donThu.toLocaleString("vi-VN")}, vụ việc{" "}
+          {khongCoNgay.vuViec.toLocaleString("vi-VN")}, vụ án{" "}
+          {khongCoNgay.vuAn.toLocaleString("vi-VN")}{")"}. Chúng KHÔNG được cộng vào các con số
+          bên dưới.
         </div>
       )}
 

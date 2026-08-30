@@ -5,6 +5,8 @@ import {
   kyQuy,
   kyNam,
   KIEU_SO_SANH_MAC_DINH,
+  COT_NGAY_TIEP_NHAN,
+  NAM_HOP_LE,
   type KieuSoSanh,
 } from './so-sanh-ky';
 import { PrismaService } from '../prisma/prisma.service';
@@ -79,42 +81,64 @@ export class ReportsService {
    * chênh lệch đo được sẽ một phần là do đổi thước, không ai biết là phần nào.
    */
   private async demTrongKhoang(tu: Date, den: Date) {
+    const trongKy = { gte: tu, lte: den };
     const [donThu, vuViec, vuAn, daGiaiQuyet] = await Promise.all([
       this.prisma.petition.count({
-        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+        where: { deletedAt: null, [COT_NGAY_TIEP_NHAN.petition]: trongKy },
       }),
       this.prisma.incident.count({
-        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+        where: { deletedAt: null, [COT_NGAY_TIEP_NHAN.incident]: trongKy },
       }),
       this.prisma.case.count({
-        where: { deletedAt: null, createdAt: { gte: tu, lte: den } },
+        where: { deletedAt: null, [COT_NGAY_TIEP_NHAN.case]: trongKy },
       }),
-      // Đã giải quyết = cases kết luận + incidents giải quyết + petitions giải quyết
+      // "Đã giải quyết" vẫn đếm theo `updatedAt`. KHÔNG có cột ngày giải quyết dùng được: đo
+      // trên máy thật thì `cases.ngay_tra_ket_qua` rỗng 0/3.381, và incidents/petitions không
+      // có cột tương đương. Ghi ra đây để không ai tưởng đây là lựa chọn, và để lần sau có cột
+      // thật thì biết chỗ mà sửa.
       Promise.all([
         this.prisma.case.count({
           where: {
             deletedAt: null,
-            updatedAt: { gte: tu, lte: den },
+            updatedAt: trongKy,
             status: { in: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU] },
           },
         }),
         this.prisma.incident.count({
-          where: {
-            deletedAt: null,
-            updatedAt: { gte: tu, lte: den },
-            status: IncidentStatus.DA_GIAI_QUYET,
-          },
+          where: { deletedAt: null, updatedAt: trongKy, status: IncidentStatus.DA_GIAI_QUYET },
         }),
         this.prisma.petition.count({
-          where: {
-            deletedAt: null,
-            updatedAt: { gte: tu, lte: den },
-            status: PetitionStatus.DA_GIAI_QUYET,
-          },
+          where: { deletedAt: null, updatedAt: trongKy, status: PetitionStatus.DA_GIAI_QUYET },
         }),
       ]).then(([c, i, p]) => c + i + p),
     ]);
     return { donThu, vuViec, vuAn, daGiaiQuyet };
+  }
+
+  /**
+   * Hồ sơ KHÔNG lọt vào bất kỳ kỳ báo cáo nào, vì ngày tiếp nhận trống hoặc nằm ngoài
+   * 1900–2100.
+   *
+   * Có hàm này vì đổi từ `createdAt` sang ngày nghiệp vụ làm một số hồ sơ biến mất khỏi mọi
+   * kỳ — đo được 42 vụ án thiếu ngày và 2 hồ sơ mang năm rác. Con số ấy nhỏ, nhưng một hồ sơ
+   * không lọt vào báo cáo nào là một hồ sơ VÔ HÌNH, và điều đó phải hiện trên màn chứ không
+   * nằm trong đầu người viết mã.
+   */
+  private async demKhongCoNgayTiepNhan() {
+    const ngoai = (cot: string) => ({
+      deletedAt: null,
+      OR: [
+        { [cot]: null },
+        { [cot]: { lt: new Date(NAM_HOP_LE.tu, 0, 1) } },
+        { [cot]: { gt: new Date(NAM_HOP_LE.den, 11, 31, 23, 59, 59, 999) } },
+      ],
+    });
+    const [donThu, vuViec, vuAn] = await Promise.all([
+      this.prisma.petition.count({ where: ngoai(COT_NGAY_TIEP_NHAN.petition) as never }),
+      this.prisma.incident.count({ where: ngoai(COT_NGAY_TIEP_NHAN.incident) as never }),
+      this.prisma.case.count({ where: ngoai(COT_NGAY_TIEP_NHAN.case) as never }),
+    ]);
+    return { donThu, vuViec, vuAn, tong: donThu + vuViec + vuAn };
   }
 
   // ─────────────────────────────────────────────
@@ -156,7 +180,8 @@ export class ReportsService {
       kieuSoSanh,
     );
 
-    return { success: true, data, totals, year, month, soSanh };
+    const khongCoNgay = await this.demKhongCoNgayTiepNhan();
+    return { success: true, data, totals, year, month, soSanh, khongCoNgay };
   }
 
   // ─────────────────────────────────────────────
@@ -200,7 +225,8 @@ export class ReportsService {
       kieuSoSanh,
     );
 
-    return { success: true, data, totals, year, quarter, soSanh };
+    const khongCoNgay = await this.demKhongCoNgayTiepNhan();
+    return { success: true, data, totals, year, quarter, soSanh, khongCoNgay };
   }
 
   // ─────────────────────────────────────────────
