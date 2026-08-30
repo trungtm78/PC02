@@ -971,6 +971,15 @@ export class CasesService {
       crime: dto.crime,
       crimeChinhId: dto.crimeChinhId,
       status: dto.status ?? CaseStatus.TIEP_NHAN,
+      // Vụ án có thể được TẠO thẳng ở trạng thái kết thúc (biểu mẫu cho chọn). Coi đó là
+      // chuyển tiếp từ TIEP_NHAN nên mốc được đóng ngay — nếu không, vụ án vừa tạo đã xong
+      // lại rơi vào ô "đã xong nhưng chưa rõ ngày" và không vào kỳ nào.
+      ...machMocGiaiQuyet(
+        'case',
+        CaseStatus.TIEP_NHAN,
+        dto.status ?? CaseStatus.TIEP_NHAN,
+        null,
+      ),
       investigatorId: dto.investigatorId,
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,

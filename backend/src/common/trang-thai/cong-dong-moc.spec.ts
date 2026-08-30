@@ -120,7 +120,27 @@ function khaiBaoBien(ma: string, ten: string): string {
   return '';
 }
 
-/** Nội dung `data:` của một lời gọi — viết thẳng hoặc qua biến. */
+/**
+ * Nội dung `data:` của một lời gọi — viết thẳng, qua biến, HOẶC qua toán tử trải.
+ *
+ * Lỗ thứ ba của cổng này, và lần nào cũng do Codex bắt chứ không do cổng tự lộ: đường TẠO vụ án
+ * viết `data: { ...baseCaseData, caseCode }`, nên `status` nằm trong biến được trải chứ không
+ * nằm trong khối. Cổng đọc khối, không thấy `status`, và tha.
+ *
+ * Bung một tầng trải là đủ cho kho này; sâu hơn thì phải phân tích cú pháp thật, và lúc ấy nên
+ * dùng công cụ lint chứ không tự viết.
+ */
+function bungTrai(khoi: string, maCaTep: string): string {
+  let ra = khoi;
+  const trai = /\.\.\.([A-Za-z_$][\w$]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = trai.exec(khoi)) !== null) {
+    ra += String.fromCharCode(10) + khaiBaoBien(maCaTep, m[1]);
+  }
+  return ra;
+}
+
+/** Nội dung `data:` của một lời gọi — viết thẳng, qua biến, hoặc qua toán tử trải. */
 function noiDungData(lenh: string, maCaTep: string): string {
   const m = /data:\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(lenh);
   if (m) return khaiBaoBien(maCaTep, m[1]);
@@ -133,7 +153,7 @@ function noiDungData(lenh: string, maCaTep: string): string {
     else if (lenh[k] === '}') sau--;
     k++;
   }
-  return lenh.slice(i, k);
+  return bungTrai(lenh.slice(i, k), maCaTep);
 }
 
 describe('Ghi trạng thái thì phải đóng mốc giải quyết', () => {
