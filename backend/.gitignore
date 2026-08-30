@@ -6,5 +6,8 @@ node_modules
 
 # Stryker mutation testing artifacts
 .stryker-tmp/
-reports/mutation/
-reports/
+# NEO VÀO GỐC (`/`). Viết `reports/` là khớp MỌI thư mục tên `reports` ở mọi độ sâu — kể cả
+# `src/reports/`, tức toàn bộ mã nguồn module báo cáo. Luật ấy đã nuốt im lặng module
+# `src/reports/so-sanh-ky/` khi nó ra đời: `git add` bỏ qua không một lời, ca kiểm ở máy vẫn
+# xanh vì tệp còn nằm trên đĩa, và chỉ CI mới đỏ. Xem cổng `khongBoQuaMaNguon.spec.ts`.
+/reports/
