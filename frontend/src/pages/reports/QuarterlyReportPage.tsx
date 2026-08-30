@@ -81,7 +81,7 @@ export default function QuarterlyReportPage() {
 
   const stats = [
     { label: "Tổng hồ sơ tiếp nhận", value: (reportData?.totals?.donThu ?? 0) + (reportData?.totals?.vuViec ?? 0) + (reportData?.totals?.vuAn ?? 0), chiTieu: "tongTiepNhan", color: "blue" },
-    { label: "Đã giải quyết", value: reportData?.totals?.daGiaiQuyet ?? null, chiTieu: "daGiaiQuyet", color: "green" },
+    { label: "Đã giải quyết", canhBao: true, value: reportData?.totals?.daGiaiQuyet ?? null, chiTieu: "daGiaiQuyet", color: "green" },
     { label: "Đang xử lý", value: reportData?.totals?.dangXuLy ?? null, chiTieu: "dangXuLy", color: "amber" },
     { label: "Quá hạn", value: reportData?.totals?.quaHan ?? null, chiTieu: "quaHan", color: "red" },
   ];
@@ -199,7 +199,22 @@ export default function QuarterlyReportPage() {
                     số kỳ trước (`reports-export.service.ts` chỉ có `totals` kỳ hiện tại) nên
                     không tính được tỷ lệ thật — và một con số không tính được thì không hiện. */}
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-sm text-slate-600">{stat.label}</span>
+                  <span className="text-sm text-slate-600">
+                    {stat.label}
+                    {stat.canhBao && (
+                      /* Chỉ tiêu này đếm theo LẦN CẬP NHẬT gần nhất, không phải ngày giải
+                         quyết — CSDL không có cột ấy (`cases.ngay_tra_ket_qua` rỗng 0/3.381).
+                         Với kỳ đã qua, con số gần như luôn bằng 0, và số 0 ấy KHÔNG có nghĩa
+                         là không giải quyết được vụ nào. Phải nói ra ngay cạnh con số. */
+                      <span
+                        className="ml-1 cursor-help text-amber-600"
+                        data-testid="canh-bao-da-giai-quyet"
+                        title="Đếm theo lần cập nhật hồ sơ gần nhất, không phải ngày giải quyết — hệ thống chưa có cột ngày giải quyết. Với kỳ đã qua, con số này thường bằng 0 và KHÔNG có nghĩa là không giải quyết được vụ nào."
+                      >
+                        ⚠
+                      </span>
+                    )}
+                  </span>
                   {!loadError && (
                     <HuyHieuSoSanh
                       ketQua={stat.chiTieu ? soSanh?.chiTieu?.[stat.chiTieu] : undefined}
