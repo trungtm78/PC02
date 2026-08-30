@@ -187,7 +187,15 @@ function kiemTraTuyChonKy(
     nenTu?: string;
     nenDen?: string;
   },
-  don: 'thang' | 'quy' = 'thang',
+  /**
+   * KHÔNG có giá trị mặc định — và đó là chủ đích.
+   *
+   * Bản đầu để mặc định `'thang'`, nên endpoint XUẤT báo cáo quý quên truyền `'quy'` và từ chối
+   * một khoảng mà chính màn hình quý vừa chấp nhận: xem được trên màn nhưng không xuất được, và
+   * không có gì nói vì sao. Một tham số có mặc định là một tham số cho phép quên; bỏ mặc định
+   * thì trình biên dịch bắt từng chỗ gọi phải khai.
+   */
+  don: 'thang' | 'quy',
 ) {
   if ((q.tu && !q.den) || (!q.tu && q.den)) {
     throw new BadRequestException('Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.');
@@ -232,7 +240,7 @@ export class ReportsController {
   @Get('monthly')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getMonthly(@Query() query: QueryMonthlyDto) {
-    kiemTraTuyChonKy(query);
+    kiemTraTuyChonKy(query, 'thang');
     const year = query.year ?? new Date().getFullYear();
     return this.reportsService.getMonthly(year, query.month, query.soSanh, {
       luyKeDenThang: query.luyKeDenThang,
@@ -281,7 +289,7 @@ export class ReportsController {
   @Get('monthly/export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
-    kiemTraTuyChonKy(query);
+    kiemTraTuyChonKy(query, 'thang');
     const year = query.year ?? new Date().getFullYear();
     // Tuỳ chọn kỳ phải đi theo tệp xuất. Không truyền thì tệp mang tên "lũy kế 8 tháng" mà nội
     // dung là cả năm — người nhận tệp không có màn hình để đối chiếu.
@@ -297,7 +305,7 @@ export class ReportsController {
   @Get('quarterly/export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
-    kiemTraTuyChonKy(query);
+    kiemTraTuyChonKy(query, 'quy');
     const year = query.year ?? new Date().getFullYear();
     // Xem chú thích ở `exportMonthly`.
     const data = await this.reportsService.getQuarterly(year, query.quarter, 'KHONG', {

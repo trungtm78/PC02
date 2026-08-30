@@ -191,6 +191,28 @@ describe('ReportsController — delegation', () => {
     ).not.toThrow();
   });
 
+  /**
+   * Bốn endpoint, hai đơn vị ô. Codex bắt: endpoint XUẤT báo cáo quý dùng nhầm trần tháng, nên
+   * một khoảng xem được trên màn lại không xuất được — và không có gì nói vì sao.
+   *
+   * Gốc rễ là tham số `don` có GIÁ TRỊ MẶC ĐỊNH: mặc định là cho phép quên. Đã bỏ mặc định để
+   * trình biên dịch bắt từng chỗ gọi phải khai. Ca này chốt cả bốn endpoint dùng ĐÚNG đơn vị —
+   * lần sau máy bắt, không phải mắt.
+   */
+  it('bốn endpoint dùng đúng đơn vị ô của chính nó', async () => {
+    const DAI = { year: 2026, tu: '2010-01-01', den: '2024-12-31' }; // 180 tháng = 60 quý
+
+    // Báo cáo THÁNG: 180 ô > 60 → chặn, ở cả màn lẫn tệp xuất.
+    expect(() => controller.getMonthly({ ...DAI })).toThrow(BadRequestException);
+    await expect(
+      controller.exportMonthly({ ...DAI }, { status: jest.fn() } as never),
+    ).rejects.toThrow(BadRequestException);
+
+    // Báo cáo QUÝ: đúng 60 ô → KHÔNG chặn, cũng ở cả hai.
+    mockReportsService.getQuarterly.mockResolvedValue({ data: {} });
+    expect(() => controller.getQuarterly({ ...DAI })).not.toThrow();
+  });
+
   it('khoảng hợp lệ thì KHÔNG chặn — cổng không được chặn nhầm', async () => {
     mockReportsService.getMonthly.mockResolvedValue({ data: {} });
     await expect(
