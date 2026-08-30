@@ -31,8 +31,34 @@ class QueryMonthlyDto {
    * luôn viết "so với cùng kỳ năm trước", không phải "so với tháng trước".
    */
   @IsOptional()
-  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'KHONG'])
+  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'TUY_CHON', 'KHONG'])
   soSanh?: KieuSoSanh;
+
+  /** Lũy kế từ đầu năm tới hết tháng này. Loại trừ với cặp `tu`/`den`. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  @Type(() => Number)
+  luyKeDenThang?: number;
+
+  /** Khoảng tự chọn cho KỲ ĐANG XEM — phải đủ cả hai đầu. */
+  @IsOptional()
+  @IsDateString()
+  tu?: string;
+
+  @IsOptional()
+  @IsDateString()
+  den?: string;
+
+  /** Khoảng tự chọn cho KỲ NỀN, dùng với `soSanh=TUY_CHON`. */
+  @IsOptional()
+  @IsDateString()
+  nenTu?: string;
+
+  @IsOptional()
+  @IsDateString()
+  nenDen?: string;
 }
 
 class QueryQuarterlyDto {
@@ -55,8 +81,34 @@ class QueryQuarterlyDto {
    * luôn viết "so với cùng kỳ năm trước", không phải "so với tháng trước".
    */
   @IsOptional()
-  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'KHONG'])
+  @IsIn(['CUNG_KY_NAM_TRUOC', 'KY_LIEN_TRUOC', 'TUY_CHON', 'KHONG'])
   soSanh?: KieuSoSanh;
+
+  /** Lũy kế từ đầu năm tới hết tháng này. Loại trừ với cặp `tu`/`den`. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  @Type(() => Number)
+  luyKeDenThang?: number;
+
+  /** Khoảng tự chọn cho KỲ ĐANG XEM — phải đủ cả hai đầu. */
+  @IsOptional()
+  @IsDateString()
+  tu?: string;
+
+  @IsOptional()
+  @IsDateString()
+  den?: string;
+
+  /** Khoảng tự chọn cho KỲ NỀN, dùng với `soSanh=TUY_CHON`. */
+  @IsOptional()
+  @IsDateString()
+  nenTu?: string;
+
+  @IsOptional()
+  @IsDateString()
+  nenDen?: string;
 }
 
 class QueryDistrictStatsDto {
@@ -122,7 +174,13 @@ export class ReportsController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getMonthly(@Query() query: QueryMonthlyDto) {
     const year = query.year ?? new Date().getFullYear();
-    return this.reportsService.getMonthly(year, query.month, query.soSanh);
+    return this.reportsService.getMonthly(year, query.month, query.soSanh, {
+      luyKeDenThang: query.luyKeDenThang,
+      tu: query.tu,
+      den: query.den,
+      nenTu: query.nenTu,
+      nenDen: query.nenDen,
+    });
   }
 
   // GET /api/v1/reports/quarterly?year=&quarter=
@@ -130,7 +188,13 @@ export class ReportsController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getQuarterly(@Query() query: QueryQuarterlyDto) {
     const year = query.year ?? new Date().getFullYear();
-    return this.reportsService.getQuarterly(year, query.quarter, query.soSanh);
+    return this.reportsService.getQuarterly(year, query.quarter, query.soSanh, {
+      luyKeDenThang: query.luyKeDenThang,
+      tu: query.tu,
+      den: query.den,
+      nenTu: query.nenTu,
+      nenDen: query.nenDen,
+    });
   }
 
   // GET /api/v1/reports/district-stats?fromDate=&toDate=&district=

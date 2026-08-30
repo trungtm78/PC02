@@ -7,6 +7,8 @@ import {
   soNgayDaTroi,
   kyChuaTron,
   catTheoTienDo,
+  kyLuyKe,
+  kyTuyChon,
 } from './ky-bao-cao';
 
 /** Ngày cuối cùng của kỳ, đọc ra dạng dễ đối chiếu bằng mắt. */
@@ -119,5 +121,76 @@ describe('Cắt kỳ nền theo tiến độ', () => {
 
   it('nhãn nói rõ đã bị cắt — để không ai tưởng đang so với cả tháng', () => {
     expect(catTheoTienDo(kyThang(2025, 8), 10).nhan).toBe('tháng 8/2025 (10 ngày đầu)');
+  });
+});
+
+describe('Kỳ LŨY KẾ', () => {
+  it('lũy kế 8 tháng = từ 1/1 tới hết 31/8', () => {
+    expect(moc(kyLuyKe(2026, 8))).toEqual(['2026-01-01', '2026-08-31']);
+  });
+
+  it('lũy kế 1 tháng đúng bằng tháng 1', () => {
+    expect(moc(kyLuyKe(2026, 1))).toEqual(['2026-01-01', '2026-01-31']);
+  });
+
+  it('lũy kế 12 tháng đúng bằng cả năm', () => {
+    expect(moc(kyLuyKe(2026, 12))).toEqual(moc(kyNam(2026)));
+  });
+
+  it('nhãn nói rõ là lũy kế, không lẫn với một tháng', () => {
+    expect(kyLuyKe(2026, 8).nhan).toBe('lũy kế 8 tháng đầu năm 2026');
+  });
+
+  /**
+   * Đây là chốt làm cho lũy kế đáng làm: nền của nó phải là lũy kế CÙNG ĐỘ DÀI năm trước, chứ
+   * không phải cả năm trước. So 8 tháng với 12 tháng thì năm nào cũng "giảm một phần ba".
+   */
+  it('cùng kỳ năm trước của lũy kế 8 tháng là LŨY KẾ 8 THÁNG năm trước', () => {
+    const nen = cungKyNamTruoc(kyLuyKe(2026, 8));
+    expect(moc(nen)).toEqual(['2025-01-01', '2025-08-31']);
+    expect(nen.nhan).toBe('lũy kế 8 tháng đầu năm 2025');
+  });
+
+  it('kỳ liền trước của lũy kế 1 tháng lùi về lũy kế 12 tháng năm trước', () => {
+    expect(moc(kyLienTruoc(kyLuyKe(2026, 1)))).toEqual(['2025-01-01', '2025-12-31']);
+  });
+
+  it('tháng ngoài dải thì ném lỗi', () => {
+    expect(() => kyLuyKe(2026, 0)).toThrow();
+    expect(() => kyLuyKe(2026, 13)).toThrow();
+  });
+});
+
+describe('Kỳ TUỲ CHỌN', () => {
+  it('ôm trọn ngày cuối tới 23:59:59.999', () => {
+    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20));
+    expect(moc(k)).toEqual(['2026-03-05', '2026-05-20']);
+    expect(k.den.getHours()).toBe(23);
+  });
+
+  it('nhãn ghi rõ hai đầu, để câu "so với …" không mơ hồ', () => {
+    expect(kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20)).nhan).toBe(
+      '05/03/2026 – 20/05/2026',
+    );
+  });
+
+  it('ngày cuối trước ngày đầu thì NÉM LỖI, không lặng lẽ đảo', () => {
+    expect(() => kyTuyChon(new Date(2026, 4, 20), new Date(2026, 2, 5))).toThrow();
+  });
+
+  /**
+   * Một khoảng tuỳ ý KHÔNG có "cùng kỳ năm trước" đúng đắn: lùi 365 ngày sai vào năm nhuận, lùi
+   * một năm dương lịch thì 29/2 không tồn tại. Từ chối rõ ràng còn hơn trả một khoảng trông hợp
+   * lý mà lệch một ngày — người dùng sẽ không bao giờ phát hiện.
+   */
+  it('KHÔNG dịch được sang kỳ khác — phải chọn nền riêng', () => {
+    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 4, 20));
+    expect(() => cungKyNamTruoc(k)).toThrow();
+    expect(() => kyLienTruoc(k)).toThrow();
+  });
+
+  it('một ngày duy nhất vẫn là kỳ hợp lệ', () => {
+    const k = kyTuyChon(new Date(2026, 2, 5), new Date(2026, 2, 5));
+    expect(moc(k)).toEqual(['2026-03-05', '2026-03-05']);
   });
 });

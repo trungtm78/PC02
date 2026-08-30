@@ -41,13 +41,13 @@ describe('ReportsController — delegation', () => {
     mockReportsService.getMonthly.mockResolvedValue({ data: {} });
     await controller.getMonthly({ year: 2025, month: 5 });
     // Không truyền `soSanh` thì để service quyết mặc định — controller KHÔNG được tự đặt.
-    expect(mockReportsService.getMonthly).toHaveBeenCalledWith(2025, 5, undefined);
+    expect(mockReportsService.getMonthly).toHaveBeenCalledWith(2025, 5, undefined, { luyKeDenThang: undefined, tu: undefined, den: undefined, nenTu: undefined, nenDen: undefined });
   });
 
   it('getQuarterly() delegates to service.getQuarterly with year and quarter', async () => {
     mockReportsService.getQuarterly.mockResolvedValue({ data: {} });
     await controller.getQuarterly({ year: 2025, quarter: 2 });
-    expect(mockReportsService.getQuarterly).toHaveBeenCalledWith(2025, 2, undefined);
+    expect(mockReportsService.getQuarterly).toHaveBeenCalledWith(2025, 2, undefined, { luyKeDenThang: undefined, tu: undefined, den: undefined, nenTu: undefined, nenDen: undefined });
   });
 
   /**
@@ -57,11 +57,48 @@ describe('ReportsController — delegation', () => {
   it('truyền THẲNG lựa chọn nền so sánh xuống service, không nuốt', async () => {
     mockReportsService.getMonthly.mockResolvedValue({ data: {} });
     await controller.getMonthly({ year: 2025, month: 5, soSanh: 'KY_LIEN_TRUOC' });
-    expect(mockReportsService.getMonthly).toHaveBeenCalledWith(2025, 5, 'KY_LIEN_TRUOC');
+    expect(mockReportsService.getMonthly).toHaveBeenCalledWith(2025, 5, 'KY_LIEN_TRUOC', { luyKeDenThang: undefined, tu: undefined, den: undefined, nenTu: undefined, nenDen: undefined });
 
     mockReportsService.getQuarterly.mockResolvedValue({ data: {} });
     await controller.getQuarterly({ year: 2025, quarter: 2, soSanh: 'KHONG' });
-    expect(mockReportsService.getQuarterly).toHaveBeenCalledWith(2025, 2, 'KHONG');
+    expect(mockReportsService.getQuarterly).toHaveBeenCalledWith(2025, 2, 'KHONG', { luyKeDenThang: undefined, tu: undefined, den: undefined, nenTu: undefined, nenDen: undefined });
+  });
+
+
+  /**
+   * Bốn cách chọn kỳ mà anh yêu cầu: kỳ trước · cùng kỳ năm trước · lũy kế trong năm · khoảng
+   * tự chọn. Ca này chốt rằng MỌI tham số đều tới nơi — tham số bị nuốt ở tầng giữa là lỗi
+   * không ai thấy: màn hình vẫn vẽ, chỉ là vẽ sai kỳ.
+   */
+  it('truyền THẲNG mọi tuỳ chọn kỳ xuống service', async () => {
+    mockReportsService.getMonthly.mockResolvedValue({ data: {} });
+    await controller.getMonthly({ year: 2026, luyKeDenThang: 8 });
+    expect(mockReportsService.getMonthly).toHaveBeenCalledWith(
+      2026,
+      undefined,
+      undefined,
+      expect.objectContaining({ luyKeDenThang: 8 }),
+    );
+
+    await controller.getMonthly({
+      year: 2026,
+      soSanh: 'TUY_CHON',
+      tu: '2026-03-01',
+      den: '2026-05-31',
+      nenTu: '2024-01-01',
+      nenDen: '2024-06-30',
+    });
+    expect(mockReportsService.getMonthly).toHaveBeenLastCalledWith(
+      2026,
+      undefined,
+      'TUY_CHON',
+      expect.objectContaining({
+        tu: '2026-03-01',
+        den: '2026-05-31',
+        nenTu: '2024-01-01',
+        nenDen: '2024-06-30',
+      }),
+    );
   });
 
   it('getOverdue() delegates to service.getOverdue with filter params', async () => {

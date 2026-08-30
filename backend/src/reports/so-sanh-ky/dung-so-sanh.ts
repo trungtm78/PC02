@@ -3,7 +3,7 @@ import { KetQuaSoSanh, soSanh } from './so-sanh';
 import { chieuTotCua } from './chi-tieu';
 
 /** Nền để so. Mặc định là cùng kỳ năm trước, theo quy ước báo cáo ngành. */
-export type KieuSoSanh = 'CUNG_KY_NAM_TRUOC' | 'KY_LIEN_TRUOC' | 'KHONG';
+export type KieuSoSanh = 'CUNG_KY_NAM_TRUOC' | 'KY_LIEN_TRUOC' | 'TUY_CHON' | 'KHONG';
 
 export const KIEU_SO_SANH_MAC_DINH: KieuSoSanh = 'CUNG_KY_NAM_TRUOC';
 
@@ -43,6 +43,8 @@ export async function dungSoSanh(
   soLieuHienTai: BoDem,
   kieu: KieuSoSanh = KIEU_SO_SANH_MAC_DINH,
   moc: Date = new Date(),
+  /** Chỉ dùng với `kieu = 'TUY_CHON'`: khoảng nền do người dùng chọn. */
+  nenTuyChon?: Ky,
 ): Promise<KhoiSoSanh> {
   const khoa = Object.keys(soLieuHienTai);
 
@@ -74,6 +76,23 @@ export async function dungSoSanh(
       soNgayDaTroi: 0,
       chiTieu: Object.fromEntries(
         khoa.map((k) => [k, soSanh(soLieuHienTai[k], null, chieuTotCua(k))]),
+      ),
+    };
+  }
+
+  // Nền tuỳ chọn KHÔNG bị cắt theo tiến độ: người dùng đã tự chọn hai đầu, cắt tiếp là sửa
+  // lựa chọn của họ mà không nói. Với nền suy ra (cùng kỳ / kỳ liền trước) thì vẫn cắt.
+  if (kieu === 'TUY_CHON') {
+    if (!nenTuyChon) throw new Error('Kiểu so sánh TUY_CHON cần khoảng nền.');
+    const soLieuNen = await demTrongKhoang(nenTuyChon.tu, nenTuyChon.den);
+    return {
+      kieu,
+      ky: moTa(ky),
+      nen: moTa(nenTuyChon),
+      kyChuaTron: chuaTron,
+      soNgayDaTroi: daTroi,
+      chiTieu: Object.fromEntries(
+        khoa.map((k) => [k, soSanh(soLieuHienTai[k], soLieuNen[k] ?? 0, chieuTotCua(k))]),
       ),
     };
   }

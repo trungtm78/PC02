@@ -681,3 +681,29 @@ hiện thẳng trên màn.
   không đo mã: xanh trên máy rảnh, đỏ trên máy bận, cùng một dòng mã. Đổi sang đo TỶ LỆ (gấp bốn
   đầu vào, thời gian phải dưới 10 lần) — bắt đúng thứ nó định bắt là bậc hai, và không phụ thuộc
   máy nhanh hay chậm.
+
+## Bốn kiểu chọn kỳ so sánh — hai TRỤC, không phải một danh sách
+
+Anh mô tả: "kỳ trước, cùng kỳ (năm trước), lũy kế trong năm, custom date". Bốn thứ ấy KHÔNG cùng
+một trục:
+
+| Trục | Lựa chọn |
+|---|---|
+| **Kỳ đang xem** | cả năm · tháng N · quý N · **lũy kế N tháng đầu năm** · **khoảng tự chọn** |
+| **Nền so sánh** | **cùng kỳ năm trước** (mặc định) · **kỳ liền trước** · **khoảng tự chọn** · không so |
+
+"Lũy kế 8 tháng" là một KỲ; "cùng kỳ năm trước" là một NỀN. Người ta muốn xem lũy kế 8 tháng
+**so với** cùng kỳ năm trước — gộp vào một ô là bắt chọn một trong hai thứ họ cần cả hai.
+
+### Ba quyết định có hệ quả
+
+- **Lũy kế đổi cả TỬ SỐ.** Thẻ phải hiện tổng 8 tháng, không phải riêng tháng 8. Nên nó là một
+  *loại kỳ*, không phải một kiểu so sánh — và mọi thứ đi theo: số liệu, huy hiệu, tiêu đề, tệp
+  xuất. Nền của nó tự đúng: cùng kỳ năm trước của lũy kế 8 tháng là **lũy kế 8 tháng** năm
+  trước, vì `cungKyNamTruoc` dựng lại từ (loại, năm, số). So 8 tháng với 12 tháng thì năm nào
+  cũng "giảm một phần ba".
+- **Kỳ tuỳ chọn KHÔNG dịch được.** Lùi 365 ngày sai vào năm nhuận; lùi một năm dương lịch thì
+  29/2 không tồn tại. Nên nó **ném lỗi** khi bị dịch, và chỉ so được với một khoảng nền cũng do
+  người dùng chọn. Trả một khoảng trông hợp lý mà lệch một ngày thì không ai phát hiện.
+- **Nền tuỳ chọn KHÔNG bị cắt theo tiến độ.** Người dùng đã tự chọn hai đầu; cắt tiếp là sửa
+  lựa chọn của họ mà không nói một lời. Nền *suy ra* thì vẫn cắt.
