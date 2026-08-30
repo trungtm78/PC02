@@ -424,7 +424,14 @@ describe('CasesService', () => {
           where: expect.objectContaining({
             deadline: { lt: expect.any(Date) },
             status: {
-              notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
+              notIn: [
+                CaseStatus.DA_KET_LUAN,
+                CaseStatus.DA_LUU_TRU,
+                CaseStatus.DINH_CHI,
+                // Thêm 30/08/2026: vụ án đã chuyển đơn vị khác thì đơn vị này hết việc. Đếm nó
+                // là còn tồn quá hạn là quy trách nhiệm cho người không còn giữ hồ sơ.
+                CaseStatus.DA_CHUYEN_DON_VI,
+              ],
             },
           }),
         }),

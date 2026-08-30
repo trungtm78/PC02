@@ -57,7 +57,7 @@ const sampleRow = {
   createdAt: '2026-05-15T00:00:00Z',
 };
 
-// Exhaustive byStatus — 7 PetitionStatus keys.
+// Exhaustive byStatus — 13 PetitionStatus keys (thêm 6 kết quả hệ cũ ngày 30/08/2026).
 const exhaustiveByStatus: Record<PetitionStatus, number> = {
   MOI_TIEP_NHAN: 8,
   DANG_XU_LY: 15,
@@ -66,6 +66,12 @@ const exhaustiveByStatus: Record<PetitionStatus, number> = {
   DA_GIAI_QUYET: 4,
   DA_CHUYEN_VU_VIEC: 3,
   DA_CHUYEN_VU_AN: 1,
+  DA_TRA_DON: 6,
+  DA_HUONG_DAN: 2,
+  PHAN_LOAI_DAN_SU: 9,
+  TAM_DINH_CHI: 5,
+  KHONG_KHOI_TO: 7,
+  DA_CHUYEN_DON_VI: 3,
 };
 
 // byGroup do SERVER đếm (PETITION_STATUS_GROUPS). Thiếu field này thì thẻ nhóm render
@@ -110,10 +116,11 @@ describe('PetitionListPageShell — initial mount + ready state', () => {
     ).toBeInTheDocument();
   });
 
-  it('StatusChips render 7 PetitionStatus + "Tất cả" = 8 chips', async () => {
+  it('StatusChips render đủ MỌI PetitionStatus + "Tất cả"', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Nguyễn Văn A'));
-    expect(screen.getAllByRole('tab')).toHaveLength(8);
+    // Suy từ chính enum thay vì viết cứng con số — xem chú thích cùng nội dung ở CaseListPageShell.
+    expect(screen.getAllByRole('tab')).toHaveLength(Object.values(PetitionStatus).length + 1);
   });
 
   it('StatusChips render server counts', async () => {

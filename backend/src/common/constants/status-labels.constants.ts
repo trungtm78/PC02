@@ -10,6 +10,7 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.DA_KET_LUAN]: 'Đã kết luận',
   [CaseStatus.DANG_TRUY_TO]: 'Đang truy tố',
   [CaseStatus.DANG_XET_XU]: 'Đang xét xử',
+  [CaseStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
   [CaseStatus.DA_LUU_TRU]: 'Đã lưu trữ',
 };
 
@@ -39,6 +40,12 @@ export const PETITION_STATUS_LABEL: Record<PetitionStatus, string> = {
   [PetitionStatus.DA_GIAI_QUYET]: 'Đã giải quyết',
   [PetitionStatus.DA_CHUYEN_VU_VIEC]: 'Đã chuyển vụ việc',
   [PetitionStatus.DA_CHUYEN_VU_AN]: 'Đã chuyển vụ án',
+  [PetitionStatus.DA_TRA_DON]: 'Đã trả đơn',
+  [PetitionStatus.DA_HUONG_DAN]: 'Đã hướng dẫn',
+  [PetitionStatus.PHAN_LOAI_DAN_SU]: 'Phân loại dân sự',
+  [PetitionStatus.TAM_DINH_CHI]: 'Tạm đình chỉ',
+  [PetitionStatus.KHONG_KHOI_TO]: 'Không khởi tố',
+  [PetitionStatus.DA_CHUYEN_DON_VI]: 'Đã chuyển đơn vị',
 };
 
 export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {

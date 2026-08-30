@@ -33,7 +33,12 @@ export const TRANG_THAI_KET_THUC = {
   /** Khớp nguyên `notTerminal` vốn có ở `cases.service.ts` (bộ lọc quá hạn). */
   // Giữ NGUYÊN thứ tự của mảng gốc: ca kiểm bộ lọc quá hạn chốt theo thứ tự phần tử. Đổi thứ
   // tự không đổi ý nghĩa nhưng làm ca kiểm đỏ vì một lý do không liên quan gì tới nghiệp vụ.
-  case: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI] as CaseStatus[],
+  case: [
+    CaseStatus.DA_KET_LUAN,
+    CaseStatus.DA_LUU_TRU,
+    CaseStatus.DINH_CHI,
+    CaseStatus.DA_CHUYEN_DON_VI,
+  ] as CaseStatus[],
   /**
    * Khớp nguyên `TERMINAL_STATUSES` vốn có ở `incidents.constants.ts` — KỂ CẢ
    * `DA_CHUYEN_VU_AN`. Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải việc bỏ dở;
@@ -62,6 +67,15 @@ export const TRANG_THAI_KET_THUC = {
     PetitionStatus.DA_LUU_DON,
     PetitionStatus.DA_CHUYEN_VU_VIEC,
     PetitionStatus.DA_CHUYEN_VU_AN,
+    // Sáu trạng thái thêm 30/08/2026 cho kết quả hệ cũ. Năm trong sáu là KẾT THÚC — đơn vị hết
+    // việc với đơn ấy, dù không phải cái nào cũng là thành tích.
+    PetitionStatus.DA_TRA_DON,
+    PetitionStatus.DA_HUONG_DAN,
+    PetitionStatus.PHAN_LOAI_DAN_SU,
+    PetitionStatus.KHONG_KHOI_TO,
+    PetitionStatus.DA_CHUYEN_DON_VI,
+    // TAM_DINH_CHI CỐ Ý không có mặt: hồ sơ tạm dừng còn phục hồi được, đếm vào "đã giải quyết"
+    // là khai khống. Giống hệt cách xử ở Vụ việc và Vụ án.
   ] as PetitionStatus[],
 } as const;
 
