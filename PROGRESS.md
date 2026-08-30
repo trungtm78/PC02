@@ -676,3 +676,8 @@ bằng ca kiểm riêng để phân biệt "cố ý" với "bỏ sót". Muốn �
 Đổi cột làm một số hồ sơ rơi ra khỏi mọi kỳ (42 vụ án thiếu ngày, 2 hồ sơ năm rác). Con số nhỏ,
 nhưng **một hồ sơ không lọt vào báo cáo nào là một hồ sơ vô hình** — nên trả về `khongCoNgay` và
 hiện thẳng trên màn.
+
+- **Ca kiểm hiệu năng `legacy-mapper.expert.spec.ts` (PF-01) chập chờn.** Nó chốt "10.000 bản
+  ghi < 5s" bằng đồng hồ treo tường, trong khi jest chạy nhiều tiến trình song song — đỏ khi máy
+  bận, xanh 25/25 khi chạy riêng. Ngưỡng theo đồng hồ trong bộ chạy song song là ngưỡng đo cả
+  máy chứ không đo mã. Nên đổi sang đo số phép tính, hoặc tách ra chạy tuần tự.

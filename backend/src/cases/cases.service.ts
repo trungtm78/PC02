@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -1369,6 +1370,10 @@ export class CasesService {
       ...(dto.crime !== undefined && { crime: dto.crime }),
       ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
       ...(dto.status !== undefined && { status: dto.status }),
+      // Đóng mốc giải quyết cùng lúc với trạng thái. Báo cáo "đã giải quyết" đọc cột này;
+      // đổi trạng thái mà quên mốc thì hồ sơ xong việc vẫn không vào kỳ nào.
+      ...(dto.status !== undefined &&
+        machMocGiaiQuyet('case', dto.status, existing.ngayGiaiQuyet)),
       ...(dto.investigatorId !== undefined && { investigatorId: dto.investigatorId }),
       ...(dto.deadline !== undefined && {
         deadline: dto.deadline ? new Date(dto.deadline) : null,

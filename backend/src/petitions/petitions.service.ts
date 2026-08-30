@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
@@ -667,6 +668,9 @@ export class PetitionsService {
       }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.status !== undefined && { status: dto.status }),
+      // Xem chú thích cùng nội dung ở cases.service.ts — cùng một luật cho cả ba thực thể.
+      ...(dto.status !== undefined &&
+        machMocGiaiQuyet('petition', dto.status, existing.ngayGiaiQuyet)),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
       ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
