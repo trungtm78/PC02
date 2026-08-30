@@ -677,7 +677,7 @@ bằng ca kiểm riêng để phân biệt "cố ý" với "bỏ sót". Muốn �
 nhưng **một hồ sơ không lọt vào báo cáo nào là một hồ sơ vô hình** — nên trả về `khongCoNgay` và
 hiện thẳng trên màn.
 
-- **Ca kiểm hiệu năng `legacy-mapper.expert.spec.ts` (PF-01) chập chờn.** Nó chốt "10.000 bản
-  ghi < 5s" bằng đồng hồ treo tường, trong khi jest chạy nhiều tiến trình song song — đỏ khi máy
-  bận, xanh 25/25 khi chạy riêng. Ngưỡng theo đồng hồ trong bộ chạy song song là ngưỡng đo cả
-  máy chứ không đo mã. Nên đổi sang đo số phép tính, hoặc tách ra chạy tuần tự.
+- ~~Ca kiểm hiệu năng PF-01 chập chờn~~ — **ĐÃ SỬA**. Ngưỡng "10.000 bản ghi < 5s" đo cỗ máy chứ
+  không đo mã: xanh trên máy rảnh, đỏ trên máy bận, cùng một dòng mã. Đổi sang đo TỶ LỆ (gấp bốn
+  đầu vào, thời gian phải dưới 10 lần) — bắt đúng thứ nó định bắt là bậc hai, và không phụ thuộc
+  máy nhanh hay chậm.

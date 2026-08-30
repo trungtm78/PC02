@@ -13,25 +13,56 @@ import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
  * Ranh giới ấy là tri thức nghiệp vụ, không rút ra được từ tên hằng số. Khai một chỗ để ba
  * thực thể và mọi báo cáo hiểu giống nhau.
  *
+ * ── Vì sao hợp nhất, không khai mới ──
+ *
+ * Kho ĐÃ có ba định nghĩa "kết thúc" nằm rải rác và không khớp nhau: hằng số `TERMINAL_STATUSES`
+ * ở `incidents.constants.ts`, và hai mảng viết thẳng trong thân hàm ở `cases.service.ts` và
+ * `petitions.service.ts`. Bản đầu của tệp này khai thêm cái thứ TƯ, lệch với cả ba — Codex bắt
+ * đúng hệ quả: vụ việc khởi tố thành vụ án sẽ không bao giờ được đóng mốc.
+ *
+ * Nên tệp này là NƠI DUY NHẤT khai, và ba chỗ cũ đọc từ đây. Nuôi hai định nghĩa của cùng một
+ * khái niệm là hẹn ngày chúng lệch nhau.
+ *
  * ── Chỗ dễ sai ──
  *
- * `DA_CHUYEN_VU_VIEC` / `DA_CHUYEN_VU_AN` của đơn thư là "đã nâng lên thực thể khác". Hồ sơ ấy
- * chưa được giải quyết — nó vừa BẮT ĐẦU một vòng đời mới ở bảng khác. Đếm nó là đếm hai lần
- * cùng một việc.
+ * "Chuyển thành vụ việc/vụ án" trông như bỏ dở nhưng KHÔNG phải: với nguồn tin, khởi tố chính
+ * là kết quả — TT28 lấy tỷ lệ khám phá làm chỉ tiêu. Hồ sơ sinh ra ở bảng sau kết thúc vào lúc
+ * khác, nên đây không phải đếm hai lần.
  */
 export const TRANG_THAI_KET_THUC = {
-  case: [CaseStatus.DA_KET_LUAN, CaseStatus.DINH_CHI, CaseStatus.DA_LUU_TRU] as CaseStatus[],
+  /** Khớp nguyên `notTerminal` vốn có ở `cases.service.ts` (bộ lọc quá hạn). */
+  // Giữ NGUYÊN thứ tự của mảng gốc: ca kiểm bộ lọc quá hạn chốt theo thứ tự phần tử. Đổi thứ
+  // tự không đổi ý nghĩa nhưng làm ca kiểm đỏ vì một lý do không liên quan gì tới nghiệp vụ.
+  case: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI] as CaseStatus[],
+  /**
+   * Khớp nguyên `TERMINAL_STATUSES` vốn có ở `incidents.constants.ts` — KỂ CẢ
+   * `DA_CHUYEN_VU_AN`. Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải việc bỏ dở;
+   * TT28 còn lấy tỷ lệ khám phá làm chỉ tiêu. Vụ án sinh ra sau đó kết thúc vào lúc khác, nên
+   * đây không phải đếm hai lần.
+   */
   incident: [
     IncidentStatus.DA_GIAI_QUYET,
+    IncidentStatus.DA_CHUYEN_VU_AN,
     IncidentStatus.KHONG_KHOI_TO,
+    IncidentStatus.DA_NHAP_VU_KHAC,
+    IncidentStatus.PHAN_LOAI_DAN_SU,
+    IncidentStatus.DA_CHUYEN_DON_VI,
     IncidentStatus.CHUYEN_XPHC,
     IncidentStatus.TDC_HET_THOI_HIEU,
     IncidentStatus.TDC_HTH_KHONG_KT,
-    IncidentStatus.DA_CHUYEN_DON_VI,
-    IncidentStatus.DA_NHAP_VU_KHAC,
-    IncidentStatus.PHAN_LOAI_DAN_SU,
   ] as IncidentStatus[],
-  petition: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_LUU_DON] as PetitionStatus[],
+  /**
+   * Khớp `notTerminal` vốn có ở `petitions.service.ts`, THÊM `DA_LUU_DON`.
+   *
+   * Lưu đơn là một kết quả xử lý — đơn vị đã quyết và hết việc. Danh sách cũ bỏ sót nó, nên
+   * đơn đã lưu vẫn bị bộ lọc quá hạn đếm là còn tồn. Hợp nhất về một chỗ sửa luôn chỗ ấy.
+   */
+  petition: [
+    PetitionStatus.DA_GIAI_QUYET,
+    PetitionStatus.DA_LUU_DON,
+    PetitionStatus.DA_CHUYEN_VU_VIEC,
+    PetitionStatus.DA_CHUYEN_VU_AN,
+  ] as PetitionStatus[],
 } as const;
 
 export type ThucThe = keyof typeof TRANG_THAI_KET_THUC;

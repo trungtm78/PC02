@@ -5,7 +5,10 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
+import {
+  machMocGiaiQuyet,
+  TRANG_THAI_KET_THUC,
+} from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -224,7 +227,7 @@ export class CasesService {
       // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
       // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
       // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
-      const notTerminal = [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI];
+      const notTerminal = TRANG_THAI_KET_THUC.case;
       where.status =
         typeof where.status === 'string'
           ? { equals: where.status, notIn: notTerminal }

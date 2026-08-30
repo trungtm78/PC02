@@ -6,7 +6,10 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
+import {
+  machMocGiaiQuyet,
+  TRANG_THAI_KET_THUC,
+} from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
@@ -149,11 +152,7 @@ export class PetitionsService {
       where.deadline = { lt: new Date() };
       // Guard `if (!status)` cũ KHÔNG chặn statusGroup → bấm thẻ khi đang lọc quá hạn sẽ
       // mất điều kiện nhóm. Gộp bằng notIn thay vì gán đè (Prisma cho phép in + notIn).
-      const notTerminal = [
-        PetitionStatus.DA_GIAI_QUYET,
-        PetitionStatus.DA_CHUYEN_VU_VIEC,
-        PetitionStatus.DA_CHUYEN_VU_AN,
-      ];
+      const notTerminal = TRANG_THAI_KET_THUC.petition;
       where.status =
         typeof where.status === 'string'
           ? { equals: where.status, notIn: notTerminal }

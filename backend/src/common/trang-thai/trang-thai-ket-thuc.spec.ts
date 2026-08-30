@@ -15,12 +15,35 @@ describe('Trạng thái kết thúc — ranh giới nghiệp vụ', () => {
   });
 
   /**
-   * Đơn thư chuyển thành vụ việc/vụ án là BẮT ĐẦU một vòng đời mới ở bảng khác, không phải
-   * giải quyết xong. Đếm nó là đếm hai lần cùng một việc.
+   * Ca này TRƯỚC ĐÂY khẳng định điều NGƯỢC LẠI: "đơn thư chuyển lên vụ việc/vụ án KHÔNG tính là
+   * đã giải quyết", với lý lẽ "nó vừa bắt đầu vòng đời mới ở bảng khác, đếm là đếm hai lần".
+   *
+   * Lý lẽ ấy nghe xuôi nhưng trái với chính kho mã: `petitions.service.ts` và
+   * `incidents.constants.ts` đã coi hai trạng thái ấy là kết thúc từ trước. Và trái cả nghiệp
+   * vụ: với nguồn tin, khởi tố CHÍNH LÀ kết quả — TT28 lấy tỷ lệ khám phá làm chỉ tiêu. Hồ sơ
+   * sinh ra ở bảng sau kết thúc vào một lúc khác, nên không phải đếm hai lần.
+   *
+   * Giữ lại lịch sử để lần sau ai định "sửa lại cho hợp lý" thì biết đã có người nghĩ vậy rồi.
    */
-  it('đơn thư chuyển lên vụ việc/vụ án KHÔNG tính là đã giải quyết', () => {
-    expect(laKetThuc('petition', PetitionStatus.DA_CHUYEN_VU_VIEC)).toBe(false);
-    expect(laKetThuc('petition', PetitionStatus.DA_CHUYEN_VU_AN)).toBe(false);
+  it('chuyển lên thực thể sau VẪN là kết thúc — khởi tố là kết quả, không phải bỏ dở', () => {
+    expect(laKetThuc('petition', PetitionStatus.DA_CHUYEN_VU_VIEC)).toBe(true);
+    expect(laKetThuc('petition', PetitionStatus.DA_CHUYEN_VU_AN)).toBe(true);
+    expect(laKetThuc('incident', IncidentStatus.DA_CHUYEN_VU_AN)).toBe(true);
+  });
+
+  /**
+   * Chốt HỢP NHẤT: ba định nghĩa "kết thúc" từng nằm rải rác và lệch nhau. Nay chỉ còn một.
+   */
+  it('khớp đúng các định nghĩa vốn có trong kho, không lệch đi', () => {
+    expect([...TRANG_THAI_KET_THUC.case]).toEqual([
+      CaseStatus.DA_KET_LUAN,
+      CaseStatus.DA_LUU_TRU,
+      CaseStatus.DINH_CHI,
+    ]);
+    expect([...TRANG_THAI_KET_THUC.incident]).toContain(IncidentStatus.DA_CHUYEN_VU_AN);
+    // `DA_LUU_DON` là phần THÊM có chủ đích: lưu đơn là một kết quả xử lý, danh sách cũ bỏ sót
+    // nên đơn đã lưu vẫn bị bộ lọc quá hạn đếm là còn tồn.
+    expect([...TRANG_THAI_KET_THUC.petition]).toContain(PetitionStatus.DA_LUU_DON);
   });
 
   it('trạng thái đang làm việc thì chưa xong', () => {

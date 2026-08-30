@@ -1539,6 +1539,13 @@ export class IncidentsService {
         },
         data: {
           status: IncidentStatus.DA_CHUYEN_VU_AN,
+          // Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải bỏ dở — đóng mốc.
+          ...machMocGiaiQuyet(
+            'incident',
+            existing.status,
+            IncidentStatus.DA_CHUYEN_VU_AN,
+            existing.ngayGiaiQuyet,
+          ),
           linkedCaseId: caseRecord.id,
         },
       });

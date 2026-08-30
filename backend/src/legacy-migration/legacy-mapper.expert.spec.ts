@@ -358,9 +358,9 @@ describe('EXPERT fuzzing — parser đầu vào méo, không crash (FZ-01..04)',
 });
 
 describe('EXPERT performance (PF-01)', () => {
-  it('PF-01: buildMigrationReport 10.000 record < 5s, không OOM', () => {
+  function loBanGhi(n: number): LegacyRecord[] {
     const batch: LegacyRecord[] = [];
-    for (let i = 0; i < 10_000; i++) {
+    for (let i = 0; i < n; i++) {
       batch.push({
         id: `PF-${i}`,
         phan_loai_nguon_tin_ban_dau: PHAN_LOAI_HOP_LE[i % PHAN_LOAI_HOP_LE.length],
@@ -369,12 +369,46 @@ describe('EXPERT performance (PF-01)', () => {
         toi_danh_chinh: '95',
       });
     }
+    return batch;
+  }
+
+  function doThoiGian(n: number): number {
+    const lo = loBanGhi(n);
     const t0 = Date.now();
-    const report = buildMigrationReport(batch);
+    const report = buildMigrationReport(lo);
     const dt = Date.now() - t0;
-    expect(report.totalRecords).toBe(10_000);
+    expect(report.totalRecords).toBe(n);
     expect(report.fieldCoverage.distinctSourceKeys).toBeGreaterThan(0);
-    expect(dt).toBeLessThan(5000);
+    return dt;
+  }
+
+  /**
+   * Ca này TRƯỚC ĐÂY chốt "10.000 bản ghi < 5s" bằng ĐỒNG HỒ TREO TƯỜNG.
+   *
+   * Một ngưỡng tuyệt đối trong bộ chạy nhiều tiến trình song song đo CỖ MÁY chứ không đo mã: nó
+   * xanh trên máy rảnh và đỏ trên máy bận, cùng một dòng mã. Đo được ngày 30/08/2026: đỏ ba lần
+   * liên tiếp trên máy phát triển trong khi CI xanh — tức nó báo về tải máy, không báo về hồi quy.
+   *
+   * Thứ ca này THẬT SỰ muốn canh là `buildMigrationReport` không có chỗ nào bậc hai. Điều đó đo
+   * bằng TỶ LỆ, và tỷ lệ thì không phụ thuộc máy nhanh hay chậm: gấp bốn lượng đầu vào mà thời
+   * gian gấp hơn mười lần là dấu hiệu bậc hai (bậc hai đúng lý thuyết là gấp mười sáu).
+   */
+  it('PF-01: buildMigrationReport không tăng theo bậc hai khi dữ liệu gấp bốn', () => {
+    const N = 2_500;
+    // Chạy nóng trước để không tính cả chi phí biên dịch lần đầu vào phép đo.
+    doThoiGian(200);
+
+    const nho = Math.max(doThoiGian(N), 1);
+    const to = doThoiGian(N * 4);
+
+    // Bậc một: ~4 lần. Bậc hai: ~16 lần. Đặt ngưỡng 10 để còn chỗ cho nhiễu mà vẫn bắt được
+    // bậc hai.
+    expect(to / nho).toBeLessThan(10);
+  });
+
+  /** Chốt riêng "không treo, không cạn bộ nhớ" — ngưỡng rộng, chỉ để bắt hỏng hẳn. */
+  it('PF-01b: 10.000 bản ghi chạy xong, không treo và không cạn bộ nhớ', () => {
+    expect(doThoiGian(10_000)).toBeLessThan(60_000);
   });
 
   it('MAPPED_LEGACY_KEYS không rỗng (registry coverage)', () => {
