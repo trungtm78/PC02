@@ -239,8 +239,12 @@ export class ReportsService {
     ].filter((d): d is Date => d instanceof Date).map((d) => d.getFullYear());
     const nayNam = new Date().getFullYear();
     if (!nams.length) return { tu: nayNam, den: nayNam };
-    // Luôn với tới năm hiện tại: hồ sơ mới nhập hôm nay phải xem được ngay.
-    return { tu: Math.min(...nams), den: Math.max(...nams, nayNam) };
+    // KHÔNG cho chọn năm TƯƠNG LAI. Đo trên máy thật: có hồ sơ mang ngày tới tận 2036 — ngày gõ
+    // hỏng ở hệ cũ. Để chúng kéo dải năm ra tới 2036 là bày trước mắt cán bộ mười năm không có
+    // gì, và một danh sách năm trông như có dữ liệu là một lời hứa suông.
+    //
+    // Chúng vẫn với tới được bằng khoảng tự chọn — không mất, chỉ không bày ra.
+    return { tu: Math.min(...nams), den: nayNam };
   }
 
   private async demKhongCoNgayTiepNhan() {

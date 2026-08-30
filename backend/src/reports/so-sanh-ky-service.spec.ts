@@ -432,3 +432,54 @@ describe('ReportsService — ô biểu đồ CẮT theo kỳ, không đếm tr�
     expect(khoang).not.toContain('2026-07-01..2026-09-30');
   });
 });
+
+describe('ReportsService — dải năm cho ô chọn', () => {
+  async function dungSvc(min: Date | null, max: Date | null) {
+    const dem = jest.fn(async () => 0);
+    const agg = jest.fn(async () => ({
+      _min: { receivedDate: min, ngayDeXuat: min, receiveDate: min },
+      _max: { receivedDate: max, ngayDeXuat: max, receiveDate: max },
+    }));
+    const prisma = {
+      petition: { count: dem, aggregate: agg },
+      incident: { count: dem, aggregate: agg },
+      case: { count: dem, aggregate: agg },
+    } as unknown as PrismaService;
+    const mod = await Test.createTestingModule({
+      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    return mod.get(ReportsService) as ReportsService;
+  }
+
+  /**
+   * Ô chọn năm từng viết cứng 2024–2026 trong khi hồ sơ có từ 2006 — hơn mười lăm năm dữ liệu
+   * không có đường bấm tới.
+   */
+  it('dải năm bắt đầu từ hồ sơ SỚM NHẤT có thật', async () => {
+    const svc = await dungSvc(new Date(2006, 4, 1), new Date(2024, 0, 1));
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    const kq = await svc.getMonthly(2026, 3, 'KHONG');
+    jest.useRealTimers();
+    expect(kq.namCoDuLieu.tu).toBe(2006);
+  });
+
+  /**
+   * KHÔNG cho chọn năm tương lai. Đo trên máy thật: có hồ sơ mang ngày tới 2036 — ngày gõ hỏng ở
+   * hệ cũ. Để chúng kéo dải năm ra là bày trước mắt cán bộ mười năm không có gì.
+   */
+  it('ngày rác ở tương lai KHÔNG kéo dải năm vượt năm hiện tại', async () => {
+    const svc = await dungSvc(new Date(2006, 4, 1), new Date(2036, 0, 1));
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    const kq = await svc.getMonthly(2026, 3, 'KHONG');
+    jest.useRealTimers();
+    expect(kq.namCoDuLieu.den).toBe(2026);
+  });
+
+  it('kho rỗng thì dải năm là năm hiện tại, không đổ vỡ', async () => {
+    const svc = await dungSvc(null, null);
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 15));
+    const kq = await svc.getMonthly(2026, 3, 'KHONG');
+    jest.useRealTimers();
+    expect(kq.namCoDuLieu).toEqual({ tu: 2026, den: 2026 });
+  });
+});
