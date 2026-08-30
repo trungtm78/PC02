@@ -154,6 +154,34 @@ describe('Báo cáo tháng — ô chọn kỳ điều khiển báo cáo', () => 
     expect(lanGoi('/reports/monthly')?.den).toBe('2026-05-31');
   });
 
+  /**
+   * Codex bắt: bấm Xuất khi khoảng tự chọn mới có MỘT đầu thì máy chủ trả CẢ NĂM, trong khi tên
+   * tệp vẫn mang dáng khoảng tự chọn với một đầu trống. Người nhận tệp cầm một năm số liệu dưới
+   * một cái tên nói khác.
+   */
+  it('khoảng tự chọn thiếu một đầu → KHOÁ nút Xuất, không xuất nhầm cả năm', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'TUY_CHON' } });
+    expect(screen.getByTestId('xuat-excel')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('ky-tu'), { target: { value: '2026-03-01' } });
+    expect(screen.getByTestId('xuat-excel')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('ky-den'), { target: { value: '2026-05-31' } });
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+  });
+
+  it('kỳ thường thì nút Xuất luôn mở', async () => {
+    bao(<MonthlyReportPage />);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('chon-ky'), { target: { value: 'LUY_KE:8' } });
+    expect(screen.getByTestId('xuat-excel')).not.toBeDisabled();
+  });
+
   it('nền so sánh mặc định là CÙNG KỲ NĂM TRƯỚC, theo quy ước báo cáo ngành', async () => {
     bao(<MonthlyReportPage />);
     await waitFor(() => expect(lanGoi('/reports/monthly')?.soSanh).toBe('CUNG_KY_NAM_TRUOC'));

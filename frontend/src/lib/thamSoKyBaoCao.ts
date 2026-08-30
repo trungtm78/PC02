@@ -54,3 +54,15 @@ export function thamSoNen(nen: NenDangChon): Record<string, string | undefined> 
   if (!nen.nenTu || !nen.nenDen) return { soSanh: 'KHONG' };
   return { soSanh: 'TUY_CHON', nenTu: nen.nenTu, nenDen: nen.nenDen };
 }
+
+/**
+ * Kỳ đã đủ thông tin để xuất tệp chưa.
+ *
+ * Codex bắt: chọn "khoảng tự chọn" rồi bấm Xuất khi mới nhập MỘT đầu thì máy chủ nhận được một
+ * kỳ rỗng và trả về CẢ NĂM — trong khi tên tệp vẫn mang dáng khoảng tự chọn với một đầu trống.
+ * Người nhận tệp cầm một năm số liệu dưới cái tên nói khác.
+ */
+export function kyDuDeXuat(ky: KyDangChon): boolean {
+  if (ky.loai !== 'TUY_CHON') return true;
+  return Boolean(ky.tu && ky.den);
+}

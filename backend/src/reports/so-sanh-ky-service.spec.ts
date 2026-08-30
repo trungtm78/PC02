@@ -339,3 +339,61 @@ describe('ReportsService — ô biểu đồ và nhãn kỳ đi theo kỳ đang 
     expect(kq.soSanh.nen!.nhan).toBe('05/03/2025 – 20/05/2025');
   });
 });
+
+describe('ReportsService — ô biểu đồ CẮT theo kỳ, không đếm trọn tháng', () => {
+  let svc: ReportsService;
+  let khoang: string[];
+
+  beforeEach(async () => {
+    khoang = [];
+    const dem = jest.fn(async (a: { where?: Record<string, unknown> }) => {
+      for (const v of Object.values(a?.where ?? {})) {
+        const m = v as { gte?: Date; lte?: Date };
+        if (m && typeof m === 'object' && m.gte instanceof Date && m.lte instanceof Date) {
+          khoang.push(`${ngay(m.gte)}..${ngay(m.lte)}`);
+        }
+      }
+      return 0;
+    });
+    const prisma = {
+      petition: { count: dem },
+      incident: { count: dem },
+      case: { count: dem },
+    } as unknown as PrismaService;
+    const mod = await Test.createTestingModule({
+      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    svc = mod.get(ReportsService);
+  });
+
+  /**
+   * Codex bắt P1. Với khoảng 05/03–20/05, ô tháng 3 đếm TRỌN tháng 3 thì tổng các ô KHÁC dòng
+   * tổng — hai con số trên cùng một tệp không cộng ra nhau, và người đọc không có cách nào biết
+   * bên nào đúng.
+   */
+  it('ô đầu và ô cuối bị cắt đúng hai đầu khoảng', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    await svc.getMonthly(2026, undefined, 'KHONG', { tu: '2026-03-05', den: '2026-05-20' });
+    jest.useRealTimers();
+
+    expect(khoang).toContain('2026-03-05..2026-03-31'); // ô tháng 3 cắt đầu
+    expect(khoang).toContain('2026-04-01..2026-04-30'); // ô giữa nguyên vẹn
+    expect(khoang).toContain('2026-05-01..2026-05-20'); // ô tháng 5 cắt đuôi
+    expect(khoang).not.toContain('2026-03-01..2026-03-31');
+  });
+
+  it('kỳ trọn tháng thì ô không bị cắt — không thu hẹp nhầm', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    await svc.getMonthly(2026, 3, 'KHONG');
+    jest.useRealTimers();
+    expect(khoang).toContain('2026-03-01..2026-03-31');
+  });
+
+  it('lũy kế 8 tháng: ô quý 3 bị cắt ở 31/08, không kéo tới 30/09', async () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 8, 15));
+    await svc.getQuarterly(2026, undefined, 'KHONG', { luyKeDenThang: 8 });
+    jest.useRealTimers();
+    expect(khoang).toContain('2026-07-01..2026-08-31');
+    expect(khoang).not.toContain('2026-07-01..2026-09-30');
+  });
+});

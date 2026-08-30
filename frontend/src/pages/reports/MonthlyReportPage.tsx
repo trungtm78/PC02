@@ -23,7 +23,12 @@ import {
   type KyDangChon,
   type NenDangChon,
 } from "@/components/shared/ChonKyBaoCao";
-import { thamSoKy, thamSoNen, tenTepXuat } from "@/lib/thamSoKyBaoCao";
+import {
+  thamSoKy,
+  thamSoNen,
+  tenTepXuat,
+  kyDuDeXuat,
+} from "@/lib/thamSoKyBaoCao";
 
 export default function MonthlyReportPage() {
   /**
@@ -148,7 +153,9 @@ export default function MonthlyReportPage() {
                 }
               }}
               data-testid="xuat-excel"
-              disabled={isExportingMonthly}
+              // Khoảng tự chọn thiếu một đầu thì máy chủ trả CẢ NĂM dưới một cái tên nói khác.
+              disabled={isExportingMonthly || !kyDuDeXuat(ky)}
+              title={kyDuDeXuat(ky) ? undefined : 'Nhập đủ ngày đầu và ngày cuối để xuất'}
               className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#0052a3] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <FileSpreadsheet className="w-4 h-4" />

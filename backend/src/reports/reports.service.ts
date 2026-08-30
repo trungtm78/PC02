@@ -106,6 +106,13 @@ function chonKy(
   return so ? dungTheoSo(nam, so) : kyNam(nam);
 }
 
+/** Giao của một ô biểu đồ với kỳ đang chọn. `null` khi không giao nhau. */
+function giaoVoiKy(dau: Date, cuoi: Date, ky: Ky): { tu: Date; den: Date } | null {
+  const tu = dau > ky.tu ? dau : ky.tu;
+  const den = cuoi < ky.den ? cuoi : ky.den;
+  return tu <= den ? { tu, den } : null;
+}
+
 /**
  * Những THÁNG mà biểu đồ nên vẽ cho kỳ đang chọn.
  *
@@ -113,21 +120,23 @@ function chonKy(
  * 8 tháng" ghi đủ 12 dòng tháng trong khi dòng TỔNG chỉ là 8 tháng — một tệp tự mâu thuẫn, và
  * người nhận tệp không có màn hình để đối chiếu.
  */
-function thangTrongKy(ky: Ky, nam: number): number[] {
-  return Array.from({ length: 12 }, (_, i) => i + 1).filter((m) => {
-    const dau = new Date(nam, m - 1, 1);
-    const cuoi = new Date(nam, m, 0, 23, 59, 59, 999);
-    return cuoi >= ky.tu && dau <= ky.den;
-  });
+function thangTrongKy(ky: Ky, nam: number): Array<{ so: number; tu: Date; den: Date }> {
+  const ra: Array<{ so: number; tu: Date; den: Date }> = [];
+  for (let m = 1; m <= 12; m++) {
+    const g = giaoVoiKy(new Date(nam, m - 1, 1), new Date(nam, m, 0, 23, 59, 59, 999), ky);
+    if (g) ra.push({ so: m, ...g });
+  }
+  return ra;
 }
 
 /** Như `thangTrongKy`, cho quý. */
-function quyTrongKy(ky: Ky, nam: number): number[] {
-  return [1, 2, 3, 4].filter((q) => {
-    const dau = new Date(nam, (q - 1) * 3, 1);
-    const cuoi = new Date(nam, q * 3, 0, 23, 59, 59, 999);
-    return cuoi >= ky.tu && dau <= ky.den;
-  });
+function quyTrongKy(ky: Ky, nam: number): Array<{ so: number; tu: Date; den: Date }> {
+  const ra: Array<{ so: number; tu: Date; den: Date }> = [];
+  for (let q = 1; q <= 4; q++) {
+    const g = giaoVoiKy(new Date(nam, (q - 1) * 3, 1), new Date(nam, q * 3, 0, 23, 59, 59, 999), ky);
+    if (g) ra.push({ so: q, ...g });
+  }
+  return ra;
 }
 
 @Injectable()
@@ -264,10 +273,15 @@ export class ReportsService {
     const months = thangTrongKy(kyChon, year);
 
     const data = await Promise.all(
-      months.map(async (m) => {
-        const ky = kyThang(year, m);
-        return { month: `T${m}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
-      }),
+      // Ô biểu đồ đếm phần GIAO với kỳ đang chọn, không đếm trọn tháng.
+      //
+      // Với khoảng 05/03–20/05, ô tháng 3 đếm trọn tháng 3 thì tổng các ô KHÁC dòng tổng — hai
+      // con số trên cùng một tệp không cộng ra nhau, và người đọc không có cách nào biết bên
+      // nào đúng.
+      months.map(async (m) => ({
+        month: `T${m.so}/${year}`,
+        ...(await this.demTrongKhoang(m.tu, m.den)),
+      })),
     );
 
 
@@ -325,10 +339,11 @@ export class ReportsService {
     const quarters = quyTrongKy(kyChon, year);
 
     const data = await Promise.all(
-      quarters.map(async (q) => {
-        const ky = kyQuy(year, q);
-        return { quarter: `Q${q}/${year}`, ...(await this.demTrongKhoang(ky.tu, ky.den)) };
-      }),
+      // Xem chú thích cùng nội dung ở `getMonthly`.
+      quarters.map(async (q) => ({
+        quarter: `Q${q.so}/${year}`,
+        ...(await this.demTrongKhoang(q.tu, q.den)),
+      })),
     );
 
 
