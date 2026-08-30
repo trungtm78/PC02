@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execFileSync } from 'child_process';
+import { TRANG_THAI_KET_THUC } from './trang-thai-ket-thuc';
 
 /**
  * Hễ ghi `status` vào cơ sở dữ liệu thì phải đóng MỐC GIẢI QUYẾT cùng lúc.
@@ -26,22 +27,29 @@ const NL = String.fromCharCode(10);
 
 /** Chỗ ghi `status` KHÔNG cần đóng mốc, kèm lý do. Danh sách phải ngắn. */
 /**
- * Chỗ ghi `status` KHÔNG cần đóng mốc, kèm lý do. Danh sách phải NGẮN, và mỗi dòng phải trả lời
- * được câu "vì sao chỗ này không thể làm mốc sai".
+ * Miễn trừ được SUY TỪ CHÍNH ĐỊNH NGHĨA, không viết tay.
  *
- * `DANG_XAC_MINH` từng nằm trong danh sách này với lý do "đổi sang trạng thái đang làm việc".
- * Codex bắt: chính vì thế mà đường PHÂN CÔNG mở lại một vụ việc đã kết thúc vẫn giữ nguyên mốc
- * cũ, và vụ việc đang mở vẫn được đếm là đã giải quyết. Một miễn trừ đặt theo trạng thái ĐÍCH
- * luôn bỏ sót chiều ngược lại.
+ * Bản trước liệt kê tay: `TIEP_NHAN`, `MOI_TIEP_NHAN`, `DA_CHUYEN_VU_VIEC`, `DA_CHUYEN_VU_AN`,
+ * `DANG_XAC_MINH`. Rồi định nghĩa "kết thúc" được hợp nhất và hai trạng thái `DA_CHUYEN_*` trở
+ * thành KẾT THÚC — nhưng danh sách miễn trừ vẫn giữ chúng, nên cổng lặng lẽ tha đúng những chỗ
+ * ghi cần canh nhất. Codex bắt.
+ *
+ * Một danh sách miễn trừ viết tay là bản sao thứ hai của cùng một tri thức, và bản sao thì lệch.
+ * Nay cổng tự tính: chỉ tha khối ghi mà MỌI trạng thái nhắc tới đều KHÔNG phải trạng thái kết
+ * thúc — tức khối ấy không thể nào tạo ra một mốc sai.
  */
-const MIEN_TRU = [
-  // Tạo mới: hồ sơ vừa sinh ra luôn ở trạng thái mở, không thể đã giải quyết.
-  'TIEP_NHAN',
-  'MOI_TIEP_NHAN',
-  // Đơn thư nâng lên vụ việc/vụ án — không phải giải quyết, xem TRANG_THAI_KET_THUC.
-  'DA_CHUYEN_VU_VIEC',
-  'DA_CHUYEN_VU_AN',
-];
+const MOI_TRANG_THAI_KET_THUC = new Set<string>([
+  ...TRANG_THAI_KET_THUC.case,
+  ...TRANG_THAI_KET_THUC.incident,
+  ...TRANG_THAI_KET_THUC.petition,
+]);
+
+/** Khối ghi có thể đặt hồ sơ vào một trạng thái kết thúc không? */
+function coTheKetThuc(khoi: string): boolean {
+  // `status: dto.status` / `status: existing.status` — giá trị chạy mới biết, phải canh.
+  if (/status:\s*[a-z_$][\w$]*\./.test(khoi)) return true;
+  return [...MOI_TRANG_THAI_KET_THUC].some((t) => khoi.includes(t));
+}
 
 function tepService(): string[] {
   const ra = execFileSync('git', ['ls-files', 'src/cases', 'src/incidents', 'src/petitions'], {
@@ -62,9 +70,11 @@ function tepService(): string[] {
  */
 function lenhGhiThucThe(ma: string): string[] {
   const ra: string[] = [];
+  // KHÔNG neo vào `prisma.`: trong giao dịch, bộ khách tên là `tx` (`tx.petition.update(...)`).
+  // Bản đầu neo vào `prisma.` nên bỏ sót đúng hai đường CHUYỂN ĐỔI nằm trong giao dịch.
   for (const bang of ['case', 'incident', 'petition']) {
     for (const phep of ['update', 'create', 'updateMany']) {
-      const moc = `prisma.${bang}.${phep}(`;
+      const moc = `.${bang}.${phep}(`;
       let i = ma.indexOf(moc);
       while (i !== -1) {
         let k = i + moc.length;
@@ -136,7 +146,7 @@ describe('Ghi trạng thái thì phải đóng mốc giải quyết', () => {
         // Chỉ quan tâm khối có GHI status (`status: X`), bỏ `status: true` của `select`.
         if (!/status:\s*[A-Za-z'"]/.test(khoi)) continue;
         if (/status:\s*true/.test(khoi)) continue;
-        if (MIEN_TRU.some((t) => khoi.includes(t))) continue;
+        if (!coTheKetThuc(khoi)) continue;
         if (khoi.includes('machMocGiaiQuyet')) continue;
         pham.push(`${tep}: ${khoi.replace(/\s+/g, ' ').slice(0, 90)}`);
       }

@@ -1128,6 +1128,13 @@ export class CasesService {
             data: {
               linkedCaseId: newCase.id,
               status: PetitionStatus.DA_CHUYEN_VU_AN,
+              // Xem chú thích cùng nội dung ở petitions.service.ts.
+              ...machMocGiaiQuyet(
+                'petition',
+                petition.status,
+                PetitionStatus.DA_CHUYEN_VU_AN,
+                petition.ngayGiaiQuyet,
+              ),
             },
           });
         } catch (e) {

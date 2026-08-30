@@ -932,6 +932,14 @@ export class PetitionsService {
         data: {
           linkedIncidentId: incident.id,
           status: PetitionStatus.DA_CHUYEN_VU_VIEC,
+          // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+          // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+          ...machMocGiaiQuyet(
+            'petition',
+            petition.status,
+            PetitionStatus.DA_CHUYEN_VU_VIEC,
+            petition.ngayGiaiQuyet,
+          ),
         },
       });
     } catch (e) {
@@ -1042,6 +1050,14 @@ export class PetitionsService {
         data: {
           linkedCaseId: newCase.id,
           status: PetitionStatus.DA_CHUYEN_VU_AN,
+          // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+          // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+          ...machMocGiaiQuyet(
+            'petition',
+            petition.status,
+            PetitionStatus.DA_CHUYEN_VU_AN,
+            petition.ngayGiaiQuyet,
+          ),
         },
       });
 
