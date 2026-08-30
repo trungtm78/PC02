@@ -153,6 +153,44 @@ describe('ReportsController — delegation', () => {
     );
   });
 
+  /**
+   * Codex bắt: mỗi ô biểu đồ là một lượt đếm 6 truy vấn, nên `tu=1900..den=2100` nổ ra hơn hai
+   * nghìn ô — hơn mười hai nghìn truy vấn cho MỘT lần bấm, và endpoint này chỉ cần một tài
+   * khoản hợp lệ để gọi.
+   */
+  it('khoảng dài quá trần số ô → 400, nói rõ dài bao nhiêu và trần là bao nhiêu', () => {
+    expect(() =>
+      controller.getMonthly({ year: 2026, tu: '1900-01-01', den: '2100-12-31' }),
+    ).toThrow(BadRequestException);
+
+    try {
+      controller.getMonthly({ year: 2026, tu: '1900-01-01', den: '2100-12-31' });
+    } catch (e) {
+      expect((e as Error).message).toMatch(/tối đa 60/);
+      expect((e as Error).message).toMatch(/Chia nhỏ/);
+    }
+  });
+
+  it('trần tính theo ĐƠN VỊ Ô: 60 tháng chặn, nhưng 60 quý (15 năm) thì không', () => {
+    // 61 tháng → chặn ở báo cáo tháng.
+    expect(() =>
+      controller.getMonthly({ year: 2026, tu: '2020-01-01', den: '2025-01-31' }),
+    ).toThrow(BadRequestException);
+
+    // Cùng khoảng ấy ở báo cáo quý chỉ là 21 ô → không chặn.
+    mockReportsService.getQuarterly.mockResolvedValue({ data: {} });
+    expect(() =>
+      controller.getQuarterly({ year: 2026, tu: '2020-01-01', den: '2025-01-31' }),
+    ).not.toThrow();
+  });
+
+  it('đúng 60 ô thì KHÔNG chặn — ranh giới không lệch một ô', () => {
+    mockReportsService.getMonthly.mockResolvedValue({ data: {} });
+    expect(() =>
+      controller.getMonthly({ year: 2026, tu: '2020-01-01', den: '2024-12-31' }),
+    ).not.toThrow();
+  });
+
   it('khoảng hợp lệ thì KHÔNG chặn — cổng không được chặn nhầm', async () => {
     mockReportsService.getMonthly.mockResolvedValue({ data: {} });
     await expect(

@@ -168,19 +168,46 @@ class Stat48QueryDto {
  * rơi vào trạng thái "không tải được số liệu" — một thông báo không giúp người dùng sửa được gì,
  * trong khi lỗi hoàn toàn nằm ở lựa chọn của họ.
  */
-function kiemTraTuyChonKy(q: {
-  tu?: string;
-  den?: string;
-  soSanh?: KieuSoSanh;
-  nenTu?: string;
-  nenDen?: string;
-}) {
+/**
+ * Số ô tối đa trên một báo cáo.
+ *
+ * Mỗi ô là một lượt `demTrongKhoang` = 6 phép đếm. Không có trần thì `tu=1900-01-01&den=2100-12-31`
+ * nổ ra hơn hai nghìn ô, tức hơn mười hai nghìn truy vấn cho MỘT lần bấm — và endpoint này chỉ
+ * cần một tài khoản hợp lệ để gọi.
+ *
+ * 60 ô cũng là trần của thứ đọc được: một biểu đồ 60 cột đã quá dày để nhìn ra gì.
+ */
+const SO_O_TOI_DA = 60;
+
+function kiemTraTuyChonKy(
+  q: {
+    tu?: string;
+    den?: string;
+    soSanh?: KieuSoSanh;
+    nenTu?: string;
+    nenDen?: string;
+  },
+  don: 'thang' | 'quy' = 'thang',
+) {
   if ((q.tu && !q.den) || (!q.tu && q.den)) {
     throw new BadRequestException('Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.');
   }
   if (q.tu && q.den && new Date(q.den) < new Date(q.tu)) {
     throw new BadRequestException('Ngày cuối của khoảng tự chọn không được trước ngày đầu.');
   }
+  if (q.tu && q.den) {
+    const tu = new Date(q.tu);
+    const den = new Date(q.den);
+    const soThang =
+      (den.getFullYear() - tu.getFullYear()) * 12 + (den.getMonth() - tu.getMonth()) + 1;
+    const soO = don === 'quy' ? Math.ceil(soThang / 3) : soThang;
+    if (soO > SO_O_TOI_DA) {
+      throw new BadRequestException(
+        `Khoảng tự chọn quá dài: ${soO} ${don === 'quy' ? 'quý' : 'tháng'}, tối đa ${SO_O_TOI_DA}. Chia nhỏ khoảng thời gian.`,
+      );
+    }
+  }
+
   if (q.soSanh === 'TUY_CHON') {
     if (!q.nenTu || !q.nenDen) {
       throw new BadRequestException(
@@ -220,7 +247,7 @@ export class ReportsController {
   @Get('quarterly')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getQuarterly(@Query() query: QueryQuarterlyDto) {
-    kiemTraTuyChonKy(query);
+    kiemTraTuyChonKy(query, 'quy');
     const year = query.year ?? new Date().getFullYear();
     return this.reportsService.getQuarterly(year, query.quarter, query.soSanh, {
       luyKeDenThang: query.luyKeDenThang,
