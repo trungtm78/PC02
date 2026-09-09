@@ -32,18 +32,23 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
     }
   });
 
-  it('mỗi mẫu gắn đúng một thực thể hệ mới', () => {
+  it('mỗi mẫu gắn ít nhất một thực thể, và thực thể nào cũng hợp lệ', () => {
     for (const m of MAU_HE_CU) {
-      expect(['DON_THU', 'VU_VIEC', 'VU_AN']).toContain(m.entityType);
+      expect(m.entityTypes.length).toBeGreaterThan(0);
+      for (const tt of m.entityTypes) expect(['DON_THU', 'VU_VIEC', 'VU_AN']).toContain(tt);
+      // Trùng thực thể trong cùng một mẫu là seed cố tạo hai dòng đụng khoá duy nhất.
+      expect(new Set(m.entityTypes).size).toBe(m.entityTypes.length);
     }
   });
 
   it('mã mẫu không trùng nhau trong cùng một thực thể', () => {
     const thay = new Set<string>();
     for (const m of MAU_HE_CU) {
-      const k = `${m.entityType}|${m.code}`;
-      expect(thay.has(k)).toBe(false);
-      thay.add(k);
+      for (const tt of m.entityTypes) {
+        const k = `${tt}|${m.code}`;
+        expect(thay.has(k)).toBe(false);
+        thay.add(k);
+      }
     }
   });
 
@@ -76,11 +81,13 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
   it('biến ngoài catalog khai `manual` và không bắt buộc', () => {
     for (const m of MAU_HE_CU) {
       const buf = fs.readFileSync(path.join(thuMucMauHeCu(), m.file));
-      const khoa = new Set(catalogKeys(m.entityType as never));
-      for (const v of bienCuaMauHeCu(buf, m.entityType)) {
-        if (khoa.has(v.name)) continue;
-        expect(v.source).toBe('manual');
-        expect(v.required).toBe(false);
+      for (const tt of m.entityTypes) {
+        const khoa = new Set(catalogKeys(tt as never));
+        for (const v of bienCuaMauHeCu(buf, tt)) {
+          if (khoa.has(v.name)) continue;
+          expect(v.source).toBe('manual');
+          expect(v.required).toBe(false);
+        }
       }
     }
   });
@@ -111,18 +118,20 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
   it('không nhận mã GUID của Word làm biến', () => {
     for (const m of MAU_HE_CU) {
       const buf = fs.readFileSync(path.join(thuMucMauHeCu(), m.file));
-      const guid = bienCuaMauHeCu(buf, m.entityType).filter((v) =>
-        /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(v.name),
-      );
-      expect(guid).toEqual([]);
+      for (const tt of m.entityTypes) {
+        const guid = bienCuaMauHeCu(buf, tt).filter((v) =>
+          /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i.test(v.name),
+        );
+        expect(guid).toEqual([]);
+      }
     }
   });
 
   it('KHÔNG biến nào bắt buộc — mẫu hệ cũ vốn in cả khi trống', () => {
     for (const m of MAU_HE_CU) {
       const buf = fs.readFileSync(path.join(thuMucMauHeCu(), m.file));
-      for (const v of bienCuaMauHeCu(buf, m.entityType)) {
-        expect(v.required).toBe(false);
+      for (const tt of m.entityTypes) {
+        for (const v of bienCuaMauHeCu(buf, tt)) expect(v.required).toBe(false);
       }
     }
   });
@@ -140,9 +149,11 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
     ['don_thu_mau.docx', 'DON_THU'],
     ['vu_viec_mau.docx', 'VU_VIEC'],
     ['vu_an_mau.docx', 'VU_AN'],
-  ])('%s gắn thực thể %s', (file, entityType) => {
+  ])('%s có thực thể CHÍNH là %s', (file, entityType) => {
     const m = MAU_HE_CU.find((x) => x.file === file);
     expect(m).toBeDefined();
-    expect(m!.entityType).toBe(entityType);
+    // Phần tử ĐẦU là thực thể chính — quyết định tên và nhóm mẫu hiện cho cán bộ; những thực
+    // thể sau là nơi hồ sơ cùng loại ấy thật sự nằm sau di trú.
+    expect(m!.entityTypes[0]).toBe(entityType);
   });
 });
