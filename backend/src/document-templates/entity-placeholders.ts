@@ -20,6 +20,21 @@ function s(v: unknown): string {
   return v === null || v === undefined ? '' : String(v);
 }
 
+/**
+ * Người dùng có THẬT SỰ nhập gì vào ô này không.
+ *
+ * Trước bản này dùng `manualValues[ten] ?? resolveField(...)`, mà `??` chỉ lùi khi `null` hoặc
+ * `undefined` — chuỗi RỖNG đi thẳng qua và ghi đè giá trị lấy từ hồ sơ. Cán bộ mở popup "bổ sung
+ * thông tin thiếu", chạm vào một ô rồi để trống là ô ấy MẤT CHỮ trên văn bản gửi đi, trong khi
+ * hồ sơ vẫn có dữ liệu. Tái hiện trên máy chủ 09/09/2026: cùng một hồ sơ, `{}` in ra
+ * "Kính gửi: PC01 Công an TP. HCM" còn `{donViNhan: ""}` in ra "Kính gửi:".
+ *
+ * Chỉ áp cho ô TỰ ĐIỀN. Ô thủ công không có nguồn nào để lùi về, rỗng vẫn là rỗng.
+ */
+function coNhap(v: string | undefined): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
 /** Escape token cú pháp docxtemplater mặc định `{ } < >` (homoglyph) — delimiter `{ }`. */
 function escDefault(v: string): string {
   return v.replace(/\{/g, '❴').replace(/\}/g, '❵').replace(/</g, '‹').replace(/>/g, '›');
@@ -108,11 +123,15 @@ export function buildTemplatePlaceholders(
       // Bản trước CHỈ lấy số engine cấp và không bao giờ hỏi catalog. Sau khi tắt cấp số cho bộ
       // mẫu PC01 (hệ cũ không có bộ đếm nào), bản in ra `Số: /ĐX-PC02-Đ1` — mất hẳn con số. Chỉ
       // lộ ra khi xuất một bản in THẬT rồi đọc, chứ nhìn cấu hình thì thấy đủ cả.
-      raw = manualValues['soVanBan'] ?? resolveField(entityType, fieldKey, record, ctx);
+      raw = coNhap(manualValues['soVanBan'])
+        ? manualValues['soVanBan']
+        : resolveField(entityType, fieldKey, record, ctx);
     } else {
       // AUTO: manualValues[name] override (popup "bổ sung thông tin thiếu" điền auto-field rỗng);
       // không có thì resolve từ record. KHÔNG để mất giá trị người dùng nhập (codex P1).
-      raw = manualValues[v.name] ?? resolveField(entityType, fieldKey, record, ctx);
+      raw = coNhap(manualValues[v.name])
+        ? manualValues[v.name]
+        : resolveField(entityType, fieldKey, record, ctx);
     }
     out[v.name] = escapeForDelimiters(s(raw), delimiters);
   }
