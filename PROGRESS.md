@@ -1,7 +1,7 @@
 # Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`. -->
-STATUS: IN_PROGRESS — M4 xong 5/5 trên máy thật; chờ #348 deploy để đo lại vòng cuối
+STATUS: IN_PROGRESS — M3 vòng cuối (PR #349 hoàn lại giả thuyết sai), rồi tới M5 monkey test
 
 ## Đã xong và ĐÃ LÊN MÁY THẬT
 
@@ -29,12 +29,18 @@ STATUS: IN_PROGRESS — M4 xong 5/5 trên máy thật; chờ #348 deploy để �
 
 ## BƯỚC TIẾP THEO
 
-1. Gộp #347 → deploy → **chạy lại seed mẫu với `SEED_TEMPLATES_FORCE_FILE=1`** (bản mẫu trong
-   CSDL đã chuẩn hoá bằng bộ cũ) → kiểm 9 dòng mẫu mới đã có.
-2. Chạy lại `cap-ban-in` đủ 8 cặp, lần này có cả cột lệch KIỂU CHỮ.
-3. Chụp ảnh từng trang 16 tệp giao anh đối chiếu bằng mắt (Word xuất PDF → PyMuPDF ra PNG).
-4. Ba mẫu hệ cũ CHƯA TỪNG in (`vu_viec_mau`, `an_tra_bo_sung_mau`, `so_dang_ky_bao_chua`)
-   không có bản gốc để so — ghi rõ là không so được, KHÔNG báo "khớp".
+1. Gộp #349 → deploy → chạy lại `cap-ban-in` vòng 4, kỳ vọng hồ sơ 18 về mức vòng-2 rồi soi
+   nốt 5 chỗ lệch còn lại của nó.
+2. Dựng ảnh từng trang của các cặp giao anh đối chiếu bằng mắt.
+3. **M5 — monkey test.**
+
+## Kết quả đo mới nhất (vòng 3, sau khi #348 lên máy thật)
+
+Chín trong mười cặp **0 lệch cả ba tầng** (chữ · đoạn · kiểu chữ), kể cả hai cặp kiểm chéo
+mẫu-khác-thực-thể. Cặp còn lại là hồ sơ 18, xấu đi vì một giả thuyết sai đã được hoàn lại ở #349.
+
+Ba dòng lệch duy nhất còn lại ở vòng 2 đều là hệ cũ tự in ra tên biến của nó (`${de_xuat}`,
+`${ nguon_don}`) — lỗi hệ cũ, cố ý không chép.
 
 ## Còn treo
 

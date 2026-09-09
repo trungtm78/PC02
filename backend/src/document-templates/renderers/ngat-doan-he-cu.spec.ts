@@ -4,7 +4,6 @@ import {
   danhDauXuongDong,
   ngatDoanNhuHeCu,
   DAU_NGAT_DOAN,
-  DAU_NGAT_MEM,
   PPR_DONG_TIEP,
 } from './ngat-doan-he-cu';
 
@@ -150,55 +149,40 @@ describe('ngatDoanNhuHeCu', () => {
  *
  * Bản đầu của bộ tách đối CẢ HAI thành đoạn, nên đúng cho 15.024 hồ sơ và SAI cho 3.927.
  */
-describe('phân biệt CRLF với LF đơn', () => {
-  it('CRLF thành ĐOẠN mới', () => {
-    const d = danhDauXuongDong({ x: 'một\r\nhai' });
+describe('mọi lần xuống dòng đều ra ĐOẠN MỚI', () => {
+  /**
+   * Vòng đo thứ ba (09/09/2026) đã thử phân biệt `
 
-    expect(d.x).toBe(`một${DAU_NGAT_DOAN}hai`);
+` với `
+` đơn, vì bản in hệ cũ của hồ sơ
+   * 18 có ngắt dòng MỀM. Đo thẳng dữ liệu thô mới rõ giả thuyết ấy SAI: hồ sơ 18 chỉ chứa `
+`
+   * mà hệ cũ vẫn tách đoạn — dấu ngắt mềm ấy do CHÍNH MẪU viết ra. Phân biệt sai làm hồ sơ 18 từ
+   * 5 chỗ lệch thành 17.
+   */
+  it('CRLF ra đoạn mới', () => {
+    expect(danhDauXuongDong({ x: ['một', 'hai'].join('\r\n') }).x).toBe(
+      `một${DAU_NGAT_DOAN}hai`,
+    );
   });
 
-  it('LF đơn thành NGẮT DÒNG MỀM, không phải đoạn', () => {
-    const d = danhDauXuongDong({ x: 'một\nhai' });
-
-    expect(d.x).toBe(`một${DAU_NGAT_MEM}hai`);
+  it('LF đơn CŨNG ra đoạn mới — không phải ngắt dòng mềm', () => {
+    expect(danhDauXuongDong({ x: ['một', 'hai'].join('\n') }).x).toBe(`một${DAU_NGAT_DOAN}hai`);
   });
 
-  it('dấu ngắt mềm dựng ra `<w:br/>`, và KHÔNG sinh đoạn mới', () => {
-    const vao = docxMau(DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_MEM}hai`));
-
-    const xml = xmlCua(ngatDoanNhuHeCu(vao));
-
-    expect(xml).toContain('<w:br/>');
-    expect(cacDoan(xml)).toHaveLength(1);
-    expect(xml).not.toContain(DAU_NGAT_MEM);
+  it('CR đơn cũng vậy', () => {
+    expect(danhDauXuongDong({ x: ['một', 'hai'].join('\r') }).x).toBe(`một${DAU_NGAT_DOAN}hai`);
   });
 
-  it('một giá trị có cả hai kiểu thì mỗi kiểu ra đúng thứ của nó', () => {
-    const vao = docxMau(
-      DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai${DAU_NGAT_MEM}ba`),
+  it('CRLF KHÔNG bị đếm thành hai lần ngắt', () => {
+    const doan = cacDoan(
+      xmlCua(ngatDoanNhuHeCu(docxMau(DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai`)))),
     );
 
-    const xml = xmlCua(ngatDoanNhuHeCu(vao));
-
-    expect(cacDoan(xml)).toHaveLength(2);
-    expect(xml).toContain('<w:br/>');
+    expect(doan).toHaveLength(2);
   });
 });
 
-/**
- * DÒNG TIẾP không mang cỡ chữ và không mang đậm của dòng đầu.
- *
- * Đo trên bản in thật của hệ cũ 09/09/2026:
- *
- *   `uy_thac_dieu_tra_mau.docx` hồ sơ 69122 — dòng đầu `bCs sz=28 szCs=28`,
- *                                             dòng tiếp `szCs=28 lang=en-US`
- *   `vu_an_mau.docx`            hồ sơ 69971 — dòng đầu `szCs=28 lang=en-US`,
- *                                             dòng tiếp `szCs=28 lang=en-US`
- *
- * Hệ cũ BỎ `sz` và các cờ đậm khi sinh dòng tiếp. Chép nguyên `rPr` của dòng đầu thì với
- * `uy_thac` (cỡ mặc định của tài liệu là 24) các dòng tiếp in ra 14pt thay vì 12pt — 13 chỗ
- * lệch trên một hồ sơ.
- */
 describe('kiểu chữ của dòng tiếp', () => {
   const DOAN_DAM =
     '<w:p><w:pPr><w:jc w:val="both"/></w:pPr>' +
@@ -226,13 +210,4 @@ describe('kiểu chữ của dòng tiếp', () => {
     expect(doan[0]).toContain('<w:b/>');
   });
 
-  /** Ngắt dòng MỀM nằm trong cùng một run nên không đụng gì tới kiểu chữ. */
-  it('ngắt dòng mềm KHÔNG đụng kiểu chữ', () => {
-    const vao = docxMau(DOAN_DAM.replace('NOI_DUNG', `một${DAU_NGAT_MEM}hai`));
-
-    const xml = xmlCua(ngatDoanNhuHeCu(vao));
-
-    expect(xml).toContain('<w:sz w:val="28"/>');
-    expect(xml).toContain('<w:b/>');
-  });
 });

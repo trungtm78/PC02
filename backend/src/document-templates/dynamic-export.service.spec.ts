@@ -461,8 +461,8 @@ describe('DynamicExportService', () => {
  * xem nó nghĩ gì. Thiếu nó thì mọi tầng dưới vẫn xanh trong khi bản in vẫn sai.
  */
 describe('kiểu xuống dòng theo mã mẫu', () => {
-  // CRLF → ĐOẠN mới · LF đơn → ngắt dòng mềm. Đo trên 55.503 hồ sơ hệ cũ 09/09/2026:
-  // 15.024 hồ sơ dùng CRLF, 3.927 hồ sơ dùng LF đơn, và bản in hệ cũ đối xử khác nhau.
+  // MỌI lần xuống dòng đều ra ĐOẠN mới — kể cả LF đơn. Hồ sơ 18 của hệ cũ chỉ chứa LF mà bản
+  // in vẫn tách đoạn; ngắt dòng mềm thấy trong bản in ấy là của CHÍNH MẪU.
   const NHIEU_DOAN = { caseCode: 'VA-1', name: ['dòng một', 'dòng hai', 'dòng ba'].join('\r\n') };
   const NGAT_MEM = { caseCode: 'VA-1', name: ['dòng một', 'dòng hai'].join('\n') };
 
@@ -495,7 +495,7 @@ describe('kiểu xuống dòng theo mã mẫu', () => {
   });
 
 
-  it('mẫu HE_CU_* với LF đơn → NGẮT DÒNG MỀM, không tách đoạn', async () => {
+  it('mẫu HE_CU_* với LF đơn → CŨNG tách đoạn', async () => {
     prisma.documentTemplate.findMany.mockResolvedValue([
       {
         ...T_NONUM,
@@ -510,8 +510,8 @@ describe('kiểu xuống dòng theo mã mẫu', () => {
     await svc.exportEntityDocuments('VU_AN', 'c1', NGAT_MEM, ['tc2'], 'merged', 'u1', {}, res);
 
     const xml = docxRa(res);
-    expect(xml).toContain('<w:br/>');
-    expect(xml.match(/<w:p[ >]/g) ?? []).toHaveLength(1);
+    expect(xml).not.toContain('<w:br/>');
+    expect(xml.match(/<w:p[ >]/g) ?? []).toHaveLength(2);
   });
 
   it('mẫu tố tụng hệ mới → giữ ngắt dòng mềm, KHÔNG chép quy ước của hệ khác', async () => {

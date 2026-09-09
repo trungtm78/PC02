@@ -36,13 +36,12 @@ export const PPR_DONG_TIEP =
 export function danhDauXuongDong(data: Record<string, string>): Record<string, string> {
   const ra: Record<string, string> = {};
   for (const [k, v] of Object.entries(data)) {
-    // `\r\n` → ĐOẠN MỚI · `\n` đơn → NGẮT DÒNG MỀM. Đo trên 55.503 hồ sơ hệ cũ (09/09/2026):
-    // 15.024 hồ sơ dùng `\r\n`, 3.927 hồ sơ dùng `\n` đơn, KHÔNG hồ sơ nào lẫn cả hai — và bản
-    // in của hệ cũ đối xử khác nhau với hai thứ ấy. Đối cả hai thành đoạn là sai với 3.927 hồ sơ.
-    ra[k] =
-      typeof v === 'string'
-        ? v.replace(/\r\n/g, DAU_NGAT_DOAN).replace(/[\r\n]/g, DAU_NGAT_MEM)
-        : v;
+    // MỌI lần xuống dòng đều thành ĐOẠN MỚI — kể cả `\n` đơn.
+    //
+    // Bản trước phân biệt `\r\n` với `\n` vì thấy bản in hệ cũ của hồ sơ 18 có ngắt dòng mềm. Đo
+    // thẳng dữ liệu thô mới rõ: hồ sơ ấy CHỈ có `\n` mà hệ cũ vẫn tách đoạn — dấu ngắt mềm ấy do
+    // CHÍNH MẪU viết ra, không phải do dữ liệu. Giả thuyết sai làm hồ sơ 18 từ 5 chỗ lệch thành 17.
+    ra[k] = typeof v === 'string' ? v.replace(/\r\n|[\r\n]/g, DAU_NGAT_DOAN) : v;
   }
   return ra;
 }
