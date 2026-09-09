@@ -15,17 +15,24 @@ là sửa dữ liệu vụ án có thật, không phải "thử nghiệm". Nên 
 
 **Không màn hình trắng. Không lỗi trang. Không màn "Đã xảy ra lỗi".**
 
-Đúng **một** lỗi, lặp trên mọi màn hình:
+**Hai lỗi thật**, cả hai đều hỏng LẶNG LẼ — không màn nào báo gì:
 
-| Lỗi | Đường | Ảnh hưởng |
-|---|---|---|
-| 401 Unauthorized | `/api/v1/notifications/stream` | dòng thông báo trực tuyến KHÔNG chạy cho bất kỳ ai |
+| Lỗi | Đường | Ảnh hưởng | Vá ở |
+|---|---|---|---|
+| 401 Unauthorized | `/api/v1/notifications/stream` | dòng thông báo trực tuyến KHÔNG chạy cho bất kỳ ai | #351 |
+| 400 Bad Request | `/api/v1/admin/users?isActive=true` | ô lọc **Cán bộ** rỗng trên cả ba trang danh sách | #353 |
+
+Lỗi thứ hai lộ ra ở lượt chạy SAU khi vá lỗi thứ nhất: 401 nhiều quá nên nó bị chôn. Vá một
+lớp nhiễu là thấy lớp dưới — lý do phải chạy lại monkey test sau mỗi lần vá.
 
 Kiểm lại bằng lời gọi trực tiếp, **cùng một token**: `/notifications` trả 200, `/notifications/stream`
 trả 401 — cả khi để token ở header lẫn ở query.
 
-**Gốc:** cổng SSE đòi `payload.type === 'access'` còn máy chủ ký token truy cập bằng payload
-trần. Đã vá ở PR #351, kèm cổng so hai bộ luật token với nhau.
+**Gốc lỗi 401:** cổng SSE đòi `payload.type === 'access'` còn máy chủ ký token truy cập bằng
+payload trần. Vá ở #351, kèm cổng so hai bộ luật token với nhau.
+
+**Gốc lỗi 400:** máy chủ khai khoá lọc là `status`, giao diện gửi `isActive`; `forbidNonWhitelisted`
+chặn lại. Vá ở #353, kèm ca kiểm chốt đúng bộ tham số gửi đi.
 
 ## Bộ chạy tự đỏ giả — hai lần
 
