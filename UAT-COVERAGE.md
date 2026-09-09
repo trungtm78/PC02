@@ -41,7 +41,7 @@ có đối chứng).
 ` đơn ra ngắt dòng mềm — như hệ cũ | đơn vị + dịch vụ | PASS |
 | M3-5 | Chỉ mẫu `HE_CU_*` dùng quy ước ấy; mẫu PC01 giữ ngắt dòng mềm | dịch vụ xuất | PASS |
 | M3-6 | Định dạng của nhãn KHÔNG trùm lên phần giá trị | đơn vị | PASS |
-| M3-7 | **8 mẫu có bản gốc: bản in hệ mới khớp hệ cũ về chữ · đoạn · kiểu chữ** | đối chiếu hiện vật trên máy thật | CHƯA CHẠY LẠI (chờ #348) |
+| M3-7 | **8 mẫu có bản gốc: bản in hệ mới khớp hệ cũ về chữ · đoạn · kiểu chữ** | đối chiếu hiện vật trên máy thật | PASS 9/10 cặp (vòng 3); cặp còn lại vá ở #350, chờ đo lại |
 | M3-8 | 3 mẫu hệ cũ chưa từng in | — | KHÔNG SO ĐƯỢC |
 | M3-9 | 17 mẫu tố tụng PC01 không có đối tác ở hệ cũ | — | KHÔNG SO ĐƯỢC |
 | M3-10 | Mẫu hệ cũ được mời in ở đủ thực thể mà hồ sơ loại ấy nằm | cổng CI + đếm trên máy thật | PASS |
@@ -56,9 +56,20 @@ có đối chứng).
 | Nút In trên danh sách | không có | có | hệ cũ phải mở hồ sơ mới in được |
 | Cột Thao tác | ở cuối | ở đầu | anh chốt 25/08 |
 
-## Việc chưa làm
+## M5 — Monkey test
 
-- **M5 — monkey test**, sau khi mọi mệnh đề trên PASS.
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M5-1 | 44 màn hình mở được, không màn nào trắng | E2E trên máy thật | PASS |
+| M5-2 | 40 lượt bấm ngẫu nhiên không làm vỡ trang | E2E trên máy thật | PASS |
+| M5-3 | Không màn nào hiện "Đã xảy ra lỗi" | E2E trên máy thật | PASS |
+| M5-4 | Không lỗi console nào ngoài một lỗi đã tìm ra gốc | E2E trên máy thật | PASS |
+
+**Bắt được một lỗi thật ngoài phạm vi việc được giao:** `/api/v1/notifications/stream` trả 401
+trên mọi màn hình — dòng thông báo trực tuyến chưa từng chạy. Gốc và cách vá ở PR #351.
+Báo cáo đầy đủ: `docs/monkey-test-ket-qua.md`.
+
+Chạy trên máy thật nên bộ monkey **chặn mọi lời gọi ghi ở tầng mạng** — không sửa một hồ sơ nào.
 
 
 ## Bốn lần bộ chạy UAT tự đỏ giả (09/09/2026)
