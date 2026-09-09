@@ -1,7 +1,7 @@
 # Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`. -->
-STATUS: IN_PROGRESS — chờ #350/#351 lên máy, rồi đo lại vòng 4 và chốt
+STATUS: IN_PROGRESS — chờ #353 (ô lọc cán bộ rỗng) lên máy là xong toàn bộ
 
 ## Đã xong và ĐÃ LÊN MÁY THẬT
 
@@ -29,11 +29,19 @@ STATUS: IN_PROGRESS — chờ #350/#351 lên máy, rồi đo lại vòng 4 và c
 
 ## BƯỚC TIẾP THEO
 
-1. Chờ #350 (`de_xuat` ngắt dòng mềm) và #351 (thông báo trực tuyến 401) lên máy thật.
-2. Đo lại vòng 4 đủ 10 cặp — kỳ vọng hồ sơ 18 về 1 chỗ lệch (chỉ còn `${ nguon_don}` của hệ cũ).
-3. Chạy lại monkey test sau #351 để xác nhận 401 đã hết.
-4. Dựng ảnh từng trang cho bộ cuối, giao anh đối chiếu bằng mắt.
-5. Dọn tệp tạm `tmp-*` trong kho.
+1. Chờ #353 lên máy thật, chạy lại monkey test lần ba để xác nhận console sạch.
+2. Xong toàn bộ.
+
+## Kết quả cuối (vòng 4, đo trên máy thật)
+
+10 cặp bản in: **0 lệch dữ liệu · 0 lệch bố cục · 0 lệch kiểu chữ**. Bốn chỗ lệch còn lại đều là
+hệ cũ tự in ra tên biến của nó khi hồ sơ thiếu khoá — lỗi hệ cũ, cố ý không chép.
+
+Bốn lớp khác biệt đã sửa: ngắt đoạn (15.338 + 6.259 hồ sơ) · định dạng nhãn trùm cả câu (anh
+phát hiện) · cỡ chữ và đậm ở dòng tiếp · ô `de_xuat` ngắt dòng mềm (498 hồ sơ).
+
+Monkey test bắt thêm **hai lỗi thật ngoài phạm vi**: dòng thông báo trực tuyến 401 (#351) và ô
+lọc cán bộ rỗng vì sai tên khoá (#353).
 
 ## Đã xong (M1 · M2 · M3 · M4 · M5)
 
