@@ -13,6 +13,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
+import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
@@ -191,8 +192,10 @@ export class CasesService {
       where.caseCode = { in: bienTheMa };
     }
 
-    if (sttCu?.trim()) {
-      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
+    const locSttCu = dieuKienSttCu(sttCu);
+    if (locSttCu) {
+      where.sttCu = locSttCu;
     }
 
     // "Cán bộ nhập" ở Vụ án là người tạo hồ sơ.

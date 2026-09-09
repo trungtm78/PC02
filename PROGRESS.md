@@ -1,7 +1,7 @@
 # PROGRESS
-Cập nhật: 2026-09-09 | Milestone: M2/4 | Task: 2/4
+Cập nhật: 2026-09-09 | Milestone: M3/5 | Task: 3/5
 
-STATUS: IN_PROGRESS — M2 (STT cũ theo format hệ cũ)
+STATUS: IN_PROGRESS — M3 (đối chiếu bản in Word với hệ cũ)
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
      Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi.
@@ -15,17 +15,20 @@ Nhánh: `feat/in-tu-danh-sach`, tách từ `main` @ f8945c6e
 - M2 — STT cũ ghép vào cột STT theo đúng format hệ cũ
 - M3 — đối chiếu bản in Word với hệ cũ, sửa cho khớp
 - M4 — UAT phủ 100% (§9)
+- M5 — monkey test (anh yêu cầu 09/09, chạy sau khi xong toàn bộ)
 
 ## Đã hoàn thành
 - [x] Đo nền trước khi làm (không có commit — chỉ đọc)
-- [x] **M1 — icon In trên cột Thao tác** — 4 danh sách, 12 ca kiểm mới, full suite 2819/2819
+- [x] **M1 — icon In trên cột Thao tác** — 4 danh sách, 12 ca kiểm mới — commit 445e0b26
+- [x] **M2 — STT cũ theo format hệ cũ** — `phanSttCu` + `dieuKienSttCu` + mở `sttCu` cho Vụ việc,
+      21 ca kiểm mới
 
 ## Đang làm dở
-Task: M2 — STT cũ theo format hệ cũ
-Đã làm: chưa viết mã.
-BƯỚC TIẾP THEO: thêm `sttCu: true` vào `select` của `getList` trong
-`backend/src/incidents/incidents.service.ts` (Đơn thư và Vụ án đã có), kèm ca kiểm đỏ
-File liên quan: `frontend/src/components/shared/ListPageShell/hoSoCode.ts`
+Task: M3 — đối chiếu bản in Word với hệ cũ
+Đã làm: chưa viết mã. Đã khảo sát xong 5 chỗ lệch của công cụ cũ.
+BƯỚC TIẾP THEO: thêm cờ `--mau <code>` và chuyển phần dựng bản hệ mới sang gọi API xuất thật
+trong `backend/src/legacy-migration/cli/so-ban-in.ts`
+File liên quan: `so-ban-in.ts`, `document-templates/docx-renderer`, `ban-in-he-cu/*.docx`
 
 ## Hàng đợi task kế tiếp
 1. M1 — provider + ActionContext + 3 registry + 4 shell + nới cột 7rem→9rem
@@ -40,6 +43,7 @@ File liên quan: `frontend/src/components/shared/ListPageShell/hoSoCode.ts`
 | 09/09 | Nhánh mới tách từ `main` | `feat/data-export-excel` đang 79 commit chưa gộp | Không trộn hai việc |
 | 09/09 | Ca kiểm shell bọc `CompositeModalProvider` thay vì từng provider | Bọc riêng thì mỗi lần thêm modal dùng chung là phải sửa lại mọi tệp ca kiểm, và chúng đỏ vì lý do không liên quan | 3 tệp ca kiểm |
 | 09/09 | `printModal` khai BẮT BUỘC trong `ActionContext` | Để tuỳ chọn thì một shell quên truyền là nút In im lặng không làm gì | Trình biên dịch bắt ngay, đã bắt 3 chỗ |
+| 09/09 | Gom điều kiện lọc STT cũ vào `dieuKienSttCu` | Ba service chép tay cùng một dòng; sửa một chỗ thì hai chỗ kia vẫn theo luật cũ | 3 service dùng chung |
 
 ## Assumption đã tự quyết
 | Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
@@ -56,7 +60,7 @@ File liên quan: `frontend/src/components/shared/ListPageShell/hoSoCode.ts`
 - Mẫu chứng từ đang bật: 28 (Đơn thư 14 · Vụ án 8 · Vụ việc 6); chỉ **8** có bản đối chứng hệ cũ
 
 ## Trạng thái test
-Full suite frontend: **PASS 2819/2819** (230 tệp) | `tsc -b` sạch | Test fail: không
+Frontend **2829/2829** (231 tệp) · Backend **4457/4457** (300 tệp) · `tsc` sạch cả hai phía
 
 ## Nợ kỹ thuật / rủi ro
 - `kieu-truong-he-cu.generated.ts` tự khai cổng CI `kieu-truong-he-cu.gate.spec.ts` — **tệp không tồn tại**

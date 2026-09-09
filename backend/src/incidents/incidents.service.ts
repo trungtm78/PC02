@@ -10,6 +10,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
+import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -149,8 +150,10 @@ export class IncidentsService {
       where.code = { in: bienTheMa };
     }
 
-    if (sttCu?.trim()) {
-      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
+    const locSttCu = dieuKienSttCu(sttCu);
+    if (locSttCu) {
+      where.sttCu = locSttCu;
     }
 
     // Date range filter on ngayDeXuat
@@ -214,6 +217,10 @@ export class IncidentsService {
         select: {
           id: true,
           code: true,
+          // STT cũ — hiện ghép trong ô STT ở danh sách để cán bộ tra chiếu lại hệ cũ.
+          // Đơn thư và Vụ án đã trả sẵn; thiếu ở đây thì giao diện đúng mà 3.323 hồ sơ
+          // có số cũ vẫn trống, không gì báo.
+          sttCu: true,
           name: true,
           incidentType: true,
           description: true,

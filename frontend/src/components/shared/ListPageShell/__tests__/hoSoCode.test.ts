@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatHoSoCode } from '../hoSoCode';
+import { formatHoSoCode, phanSttCu } from '../hoSoCode';
 
 /**
  * Hệ cũ hiển thị mã hồ sơ dạng `26-11171` (năm hai chữ số), hệ mới lưu `2026-11171`.
@@ -33,5 +33,38 @@ describe('formatHoSoCode', () => {
   it('không rút năm ngoài khoảng hợp lý — 1899/2201 không phải năm hồ sơ', () => {
     expect(formatHoSoCode('1899-5')).toBe('1899-5');
     expect(formatHoSoCode('3023-5325')).toBe('3023-5325');
+  });
+});
+
+/**
+ * Ghép STT cũ vào ô STT — anh yêu cầu 09/09/2026 để cán bộ tra chiếu lại hệ cũ.
+ *
+ * Format chép NGUYÊN từ hệ cũ, không tự nghĩ. `_PC02/Modules/doi_1/templates/doi_1_xem.tpl:44`:
+ *
+ *     {$info.stt} {if $info.stt_cu} <em class="text-danger"> -  (STT cũ: {$info.stt_cu})</em>{/if}
+ *
+ * Tức `243 - (STT cũ: 208)`, và CHỈ hiện khi có giá trị. Cột "STT cũ" riêng trong danh sách hệ
+ * cũ thì đang bị chú thích tắt (`doi_1_list.tpl:203`) — hệ cũ cố ý gộp vào một ô.
+ */
+describe('phanSttCu', () => {
+  it('có STT cũ thì trả đúng chữ của hệ cũ', () => {
+    expect(phanSttCu('208')).toBe(' -  (STT cũ: 208)');
+  });
+
+  it('không có STT cũ thì trả rỗng — KHÔNG in "(STT cũ: —)"', () => {
+    // Một phần ba tới quá nửa hồ sơ không có số cũ; in dấu gạch cho tất cả là làm mọi hàng
+    // cao thêm mà không nói gì.
+    expect(phanSttCu(null)).toBe('');
+    expect(phanSttCu(undefined)).toBe('');
+    expect(phanSttCu('')).toBe('');
+    expect(phanSttCu('   ')).toBe('');
+  });
+
+  it('cắt khoảng trắng thừa quanh giá trị', () => {
+    expect(phanSttCu('  208 ')).toBe(' -  (STT cũ: 208)');
+  });
+
+  it('giữ nguyên giá trị không phải số — không đoán thay dữ liệu', () => {
+    expect(phanSttCu('208/A')).toBe(' -  (STT cũ: 208/A)');
   });
 });

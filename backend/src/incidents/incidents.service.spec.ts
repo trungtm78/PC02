@@ -206,6 +206,31 @@ describe('IncidentsService', () => {
       expect(where.code).toEqual({ in: ['26-9706', '2026-9706'] });
     });
 
+    it('TRẢ VỀ sttCu — thiếu trường này thì cột STT im lặng không hiện số cũ', async () => {
+      // Đơn thư và Vụ án đã có sẵn trong `select`; Vụ việc thì không. Giao diện ghép số cũ vào
+      // ô STT sẽ trông đúng hoàn toàn mà 3.323 hồ sơ có số cũ vẫn trống — không lỗi, không cảnh
+      // báo, chỉ là dữ liệu không bao giờ tới nơi.
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({});
+
+      const { select } = mockPrisma.incident.findMany.mock.calls[0][0];
+      expect(select.sttCu).toBe(true);
+    });
+
+    it('lọc STT cũ nhận dạng năm-số như hệ cũ', async () => {
+      // Hệ cũ tách theo dấu `-` rồi lấy vế sau (`act/list.php:140-151`). Cán bộ quen gõ
+      // `2016-208`; khớp chuỗi thô thì không ra hồ sơ nào và không gì báo là do cách gõ.
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+
+      await service.getList({ sttCu: '2016-208' });
+
+      const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
+      expect(where.sttCu).toEqual({ contains: '208', mode: 'insensitive' });
+    });
+
     it('lọc theo STT cũ', async () => {
       mockPrisma.incident.findMany.mockResolvedValue([]);
       mockPrisma.incident.count.mockResolvedValue(0);

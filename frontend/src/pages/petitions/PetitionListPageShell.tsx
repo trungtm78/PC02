@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -461,7 +462,12 @@ export function PetitionListPageShell() {
         sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>
+          // STT cũ ghép ngay sau, đúng chữ và đúng kiểu nghiêng-đỏ của hệ cũ
+          // (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ.
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.stt)}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 

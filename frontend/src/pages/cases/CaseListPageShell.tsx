@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -474,7 +475,12 @@ export function CaseListPageShell() {
         sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-9893`; dữ liệu trong CSDL vẫn là `2026-9893`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.caseCode)}</span>
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.caseCode)}
+            {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
+                (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 

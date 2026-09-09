@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -482,8 +483,12 @@ export function IncidentListPageShell() {
         // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
         sortKey: 'stt',
         render: (r) => (
-          // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.code)}
+            {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
+                (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 
