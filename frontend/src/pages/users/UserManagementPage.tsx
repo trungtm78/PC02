@@ -29,7 +29,7 @@ import { TempPasswordHandoverModal } from '@/components/TempPasswordHandoverModa
 import { EnrollmentLinkModal, type EnrollmentHandover } from '@/components/EnrollmentLinkModal';
 import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
-import { hoTen } from '@/lib/hoTen';
+import { hoTen, tachHoTen } from '@/lib/hoTen';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,10 +291,8 @@ export default function UserManagementPage() {
     setSaving(true);
     setFormError('');
     try {
-      // Split fullName into firstName / lastName for the API
-      const nameParts = formData.fullName.trim().split(/\s+/);
-      const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
-      const lastName  = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      // Một chỗ duy nhất biết cách tách, cùng tệp với `hoTen` là chiều ngược của nó.
+      const { firstName, lastName } = tachHoTen(formData.fullName);
       const payload: Record<string, unknown> = {
         workId: formData.workId,
         firstName,

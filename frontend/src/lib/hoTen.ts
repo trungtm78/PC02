@@ -39,3 +39,18 @@ export function hoTenCoCapBac(
   if (!u) return '';
   return [u.rank, hoTen(u)].filter(Boolean).join(' ').trim();
 }
+
+/**
+ * Tách "Họ và tên" người dùng gõ thành hai cột của CSDL.
+ *
+ * Đây là chiều NGƯỢC của `hoTen`, và phải nằm cùng tệp: để hai chiều ở hai nơi là chúng trôi
+ * khỏi nhau. Đã trôi thật — form người dùng từng tách `firstName` = tất cả trừ chữ cuối, trong
+ * khi `hoTen` ghép `lastName + firstName`. Mở một tài khoản ĐANG ĐÚNG rồi bấm Lưu là hỏng luôn,
+ * mà form vẫn nhìn đúng; chỉ lộ ra khi cầm bản in chứng từ (máy chủ cũng ghép họ-trước).
+ *
+ * `lastName` = HỌ + ĐỆM · `firstName` = TÊN GỌI.
+ */
+export function tachHoTen(hoVaTen: string): { firstName: string; lastName: string } {
+  const phan = hoVaTen.trim().split(/\s+/).filter(Boolean);
+  return { firstName: phan[phan.length - 1] ?? '', lastName: phan.slice(0, -1).join(' ') };
+}
