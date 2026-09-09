@@ -40,8 +40,13 @@ describe('DynamicExportService', () => {
       documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
       // Người đang đăng nhập — nạp cho ngữ cảnh render (dòng ký in tên NGƯỜI IN).
       user: {
-        findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá', userTeams: [] }),
       },
+      // Bản giả phải có mặt bảng cấu hình: bộ render đọc tên trưởng phòng ở đây. Thiếu nó thì
+      // ca kiểm đỏ vì lý do SAI (bản giả hẹp hơn thực tế), che mất lỗi thật.
+      systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
       $queryRawUnsafe: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn(async (fn: any) => fn(prisma)),
     };
@@ -200,8 +205,11 @@ describe('DynamicExportService', () => {
         },
         documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
         user: {
-          findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá', userTeams: [] }),
         },
+        systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
         $queryRawUnsafe: jest.fn().mockResolvedValue([]),
         $transaction: jest.fn(async (fn: any) => fn(prisma)),
       };
@@ -349,8 +357,11 @@ describe('DynamicExportService', () => {
         },
         documentRenderLog: { create: jest.fn().mockResolvedValue({}) },
         user: {
-          findUnique: jest.fn().mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá' }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ firstName: 'Văn', lastName: 'In', rank: 'Trung tá', userTeams: [] }),
         },
+        systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
         $queryRawUnsafe: jest.fn().mockResolvedValue([]),
         $transaction: jest.fn(async (fn: any) => fn(prisma)),
       };

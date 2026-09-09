@@ -103,6 +103,24 @@ const DAU_XUONG_DONG = '\n';
 const TO_MAC_DINH = 'Tổ 2';
 
 /**
+ * Khối "Nơi nhận" — hai dòng đầu và dòng "Lưu:" giống nhau ở mọi mẫu; phần GIỮA khác nhau.
+ *
+ * Đo trên bản in gốc hệ cũ: Phiếu chuyển đơn có dòng nguồn đơn, ba mẫu Thông báo KHÔNG có,
+ * Phiếu chuyển nguồn tin có thêm VKSND và PC01. Một biến dùng chung cho cả ba sẽ in thừa hoặc
+ * thiếu dòng ở hai trong ba nhóm.
+ */
+function khoiNoiNhan(r: any, ctx: ResolveContext | undefined, giua: string[]): string {
+  const to = resolveField('DON_THU', 'toNhanDon', r, ctx);
+  const viet = resolveField('DON_THU', 'vietTatCanBo', r, ctx);
+  return [
+    '- Như trên;',
+    '- Đ/c Trưởng phòng (thay báo cáo);',
+    ...giua,
+    `- Lưu: PC02-Đ1 (${to}), ${viet}.`,
+  ].join(DAU_XUONG_DONG);
+}
+
+/**
  * Trưởng phòng ký ở 5 mẫu có khối "Nơi nhận".
  *
  * Đo từ bản in gốc hệ cũ (`docs/uat/in-nhu-he-cu/ban-in-he-cu/hecu_86374.docx`, đoạn 187).
@@ -461,18 +479,33 @@ const DON_THU_FIELDS: FieldDef[] = [
    */
   {
     key: 'noiNhan',
-    label: 'Nơi nhận',
+    label: 'Nơi nhận (Đề xuất · Chuyển đơn)',
     group: 'Văn bản',
     resolve: (r, ctx) => {
-      const dong = ['- Như trên;', '- Đ/c Trưởng phòng (thay báo cáo);'];
       const nguon = s(r.nguonDon);
       // Không có nguồn đơn thì BỎ HẲN dòng — không in "-  (thay báo cáo);".
-      if (nguon) dong.push(`- ${nguon} (thay báo cáo);`);
-      const to = resolveField('DON_THU', 'toNhanDon', r, ctx);
-      const viet = resolveField('DON_THU', 'vietTatCanBo', r, ctx);
-      dong.push(`- Lưu: PC02-Đ1 (${to}), ${viet}.`);
-      return dong.join(DAU_XUONG_DONG);
+      return khoiNoiNhan(r, ctx, nguon ? [`- ${nguon} (thay báo cáo);`] : []);
     },
+  },
+  /**
+   * Ba mẫu Thông báo — khối NGẮN hơn: hệ cũ không có dòng nguồn đơn ở đây.
+   *
+   * Đo từ bản in gốc (`hecu_86374.docx`, đoạn 245 · 279 · 312). Dùng chung một biến với Phiếu
+   * chuyển đơn sẽ thêm dòng "- Bưu điện (thay báo cáo);" vào cả ba mẫu Thông báo — một dòng hệ
+   * cũ không có, và không ai phát hiện vì bản in trông vẫn hợp lệ.
+   */
+  {
+    key: 'noiNhanThongBao',
+    label: 'Nơi nhận (Thông báo)',
+    group: 'Văn bản',
+    resolve: (r, ctx) => khoiNoiNhan(r, ctx, []),
+  },
+  /** Phiếu chuyển nguồn tin — thêm hai nơi nhận theo quy định tố tụng (đo: đoạn 176-177). */
+  {
+    key: 'noiNhanNguonTin',
+    label: 'Nơi nhận (Chuyển nguồn tin)',
+    group: 'Văn bản',
+    resolve: (r, ctx) => khoiNoiNhan(r, ctx, ['- VKSND TP HCM;', '- PC01 CATP HCM;']),
   },
   { key: 'lyDoChuyen', label: 'Lý do chuyển', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoChuyen) },
   { key: 'canCuPhapLy', label: 'Căn cứ pháp lý', group: 'Nghiệp vụ', resolve: (r) => s(r.canCuPhapLy) },

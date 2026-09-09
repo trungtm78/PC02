@@ -20,6 +20,7 @@ import {
 import { ResolveContext, resolveField } from './field-catalog';
 import { resolveRenderer } from './renderers';
 import { laMauHeCu } from './document-template.constants';
+import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -192,12 +193,48 @@ export class DynamicExportService {
    * Không tìm thấy → trả `{}` để resolver fallback về người tạo hồ sơ.
    */
   private async loadActorContext(actorId: string | undefined): Promise<ResolveContext> {
-    if (!actorId) return {};
+    const tenTruongPhong = await this.layTenTruongPhong();
+    if (!actorId) return { tenTruongPhong };
     const actor = await this.prisma.user.findUnique({
       where: { id: actorId },
-      select: { firstName: true, lastName: true, rank: true },
+      select: {
+        firstName: true,
+        lastName: true,
+        rank: true,
+        // Tổ của người in — cho dòng "Lưu: PC02-Đ1 (Tổ 5), V.Huy.". Người thuộc nhiều tổ thì
+        // lấy tổ đầu theo thứ tự ổn định, không phải thứ tự CSDL trả về ngẫu nhiên.
+        userTeams: {
+          select: { team: { select: { name: true } } },
+          orderBy: { team: { name: 'asc' } },
+          take: 1,
+        },
+      },
     });
-    return { actor: actor ?? null };
+    if (!actor) return { tenTruongPhong };
+    const { userTeams, ...nguoi } = actor;
+    return {
+      actor: { ...nguoi, teamName: userTeams[0]?.team?.name ?? null },
+      tenTruongPhong,
+    };
+  }
+
+  /**
+   * Trưởng phòng đang ký. Không có cấu hình thì trả `null` để bộ giải trị dùng giá trị đo từ
+   * bản in gốc hệ cũ — KHÔNG rơi về chuỗi rỗng, vì rỗng chính là lỗi đang sửa.
+   */
+  private async layTenTruongPhong(): Promise<string | null> {
+    // Đọc một dòng cấu hình KHÔNG được phép làm hỏng việc xuất chứng từ: hỏng ở đây thì bộ giải
+    // trị dùng giá trị đo từ bản in gốc hệ cũ, bản in vẫn có tên ở dòng ký.
+    try {
+      const row = await this.prisma.systemSetting.findUnique({
+        where: { key: SETTINGS_KEY.TEN_TRUONG_PHONG },
+        select: { value: true },
+      });
+      const gt = row?.value;
+      return typeof gt === 'string' && gt.trim() ? gt.trim() : null;
+    } catch {
+      return null;
+    }
   }
 
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */

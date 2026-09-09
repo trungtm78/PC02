@@ -128,6 +128,32 @@ describe('noiNhan — khối "Nơi nhận"', () => {
     );
   });
 
+  /**
+   * Ba mẫu Thông báo có khối NGẮN hơn — hệ cũ không có dòng nguồn đơn ở đó.
+   * Dùng chung một biến với Phiếu chuyển đơn sẽ in thừa một dòng mà không ai phát hiện.
+   */
+  it('Thông báo: KHÔNG có dòng nguồn đơn dù hồ sơ có nguồn đơn', () => {
+    expect(
+      resolveField('DON_THU', 'noiNhanThongBao', { nguonDon: 'Bưu điện', ...CAN_BO }),
+    ).toBe(
+      ['- Như trên;', '- Đ/c Trưởng phòng (thay báo cáo);', '- Lưu: PC02-Đ1 (Tổ 2), T.Văn.'].join(
+        '\n',
+      ),
+    );
+  });
+
+  it('Chuyển nguồn tin: thêm VKSND và PC01 theo quy định tố tụng', () => {
+    expect(resolveField('DON_THU', 'noiNhanNguonTin', CAN_BO)).toBe(
+      [
+        '- Như trên;',
+        '- Đ/c Trưởng phòng (thay báo cáo);',
+        '- VKSND TP HCM;',
+        '- PC01 CATP HCM;',
+        '- Lưu: PC02-Đ1 (Tổ 2), T.Văn.',
+      ].join('\n'),
+    );
+  });
+
   it('dùng tổ của người đang đăng nhập, không phải hằng số "Tổ 2"', () => {
     const ra = resolveField(
       'DON_THU',
