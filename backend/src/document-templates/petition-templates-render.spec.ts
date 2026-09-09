@@ -163,10 +163,21 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
     // cán bộ A in hộ cho B thì văn bản vẫn phải ghi B.
     const canBoChon = { firstName: 'Chọn', lastName: 'Văn', rank: 'Thiếu tá' };
 
-    it('có cán bộ ĐƯỢC CHỌN → thắng cả người in lẫn người tạo', () => {
+    it('có cán bộ ĐƯỢC CHỌN → thắng cả người in lẫn người tạo ở DÒNG KÝ', () => {
       const record = { canBoDeXuat: canBoChon, enteredBy: nguoiTao };
       expect(resolve('tenCanBoDeXuat', record, { actor: nguoiIn })).toBe('Thiếu tá Văn Chọn');
-      expect(resolve('vietTatCanBo', record, { actor: nguoiIn })).toBe('V.Chọn');
+    });
+
+    /**
+     * Dòng "Lưu:" đi NGƯỢC dòng ký — cố ý, theo yêu cầu 09/09/2026.
+     *
+     * Dòng ký nói "ai chịu trách nhiệm về nội dung" nên theo ô "Cán bộ đề xuất". Dòng "Lưu:"
+     * nói "bản này lưu ở đâu, ai giữ" nên phải là người thật sự bấm In. Trước bản này cả hai
+     * cùng theo ô "Cán bộ đề xuất", nên hồ sơ A in hộ B ghi lưu ở chỗ B — sai chỗ cất.
+     */
+    it('dòng "Lưu:" theo NGƯỜI IN, không theo ô "Cán bộ đề xuất"', () => {
+      const record = { canBoDeXuat: canBoChon, enteredBy: nguoiTao };
+      expect(resolve('vietTatCanBo', record, { actor: nguoiIn })).toBe('V.In');
     });
 
     it('không chọn cán bộ → vẫn lùi về người in', () => {

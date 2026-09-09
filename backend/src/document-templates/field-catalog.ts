@@ -29,7 +29,20 @@ export type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
  * thực hiện": người in mới là người ký, không phải người tạo đơn (`enteredBy`).
  */
 export interface ResolveContext {
-  actor?: { firstName?: string | null; lastName?: string | null; rank?: string | null } | null;
+  actor?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    rank?: string | null;
+    /**
+     * Tên TỔ của người đang đăng nhập — cho dòng "Lưu: PC02-Đ1 (Tổ 5), V.Huy."
+     *
+     * Trước bản này "(Tổ 2)" là chữ CỨNG trong tệp Word ở cả hệ cũ lẫn hệ mới, nên hồ sơ của
+     * tổ khác vẫn in "Tổ 2". Nạp ở `loadActorContext`, một `select`, không thêm truy vấn.
+     */
+    teamName?: string | null;
+  } | null;
+  /** Trưởng phòng đang ký — đọc từ SystemSetting lúc render, admin đổi được. */
+  tenTruongPhong?: string | null;
 }
 
 export interface FieldDef {
@@ -44,6 +57,59 @@ export interface FieldDef {
 function s(v: unknown): string {
   return v === null || v === undefined ? '' : String(v);
 }
+
+/**
+ * Đơn vị xử lý của hồ sơ — MỘT luật, ba nơi dùng (`deXuat`, `kinhGui`, `donViNhan`).
+ *
+ * Hồ sơ mới ghi `donViXuLy`; `donViGiaiQuyet` là đường lùi cho hồ sơ di trú. Đo 09/09/2026:
+ * `donViXuLy` rỗng ở CẢ 47.169 hồ sơ, nên trước bản này `Kính gửi: {donViNhan}` in ra trống
+ * trên Phiếu chuyển đơn và 4 mẫu khác — đúng lỗi anh chụp ảnh gửi.
+ *
+ * Ba bản sao của cùng một luật là bẫy "hai chiều một quy ước" đã cắn nhiều lần: sửa một chỗ,
+ * hai chỗ kia trôi đi. Giữ đúng một hàm.
+ */
+function donViCuaHoSo(r: any): string {
+  return s(r?.donViXuLy) || s(r?.donViGiaiQuyet);
+}
+
+/**
+ * Ba khuôn câu "Đề xuất" theo hướng xử lý — chép đúng chữ từ ba biến thể trong tệp mẫu hệ cũ
+ * `legacy-docx/don_thu_mau.docx` (đoạn 23 · 72 · 121).
+ *
+ * `null`/không rõ → khuôn Giao đơn, đúng bằng hành vi đã đo khớp hệ cũ 22/22 mục ngày
+ * 09/09/2026. Đừng đổi mặc định này mà không chạy lại phép đối chiếu 10 cặp mẫu.
+ */
+function cauDeXuat(huong: string, donVi: string): string {
+  if (huong === 'CHUYEN_DON') {
+    return `Chuyển ${donVi} để xem xét, giải quyết theo quy định và đề nghị thông báo kết quả cho PC02 Công an TP Hồ Chí Minh`;
+  }
+  if (huong === 'TRA_LUU_DON') return donVi;
+  return `Giao ${donVi} tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng phụ trách để giải quyết theo quy định`;
+}
+
+/** Đơn vị PHÁT HÀNH — hằng số, xem chú thích ở `tenDoi`. */
+const DON_VI_PHAT_HANH = 'Đội 1';
+
+/**
+ * Xuống dòng bên trong một ô nhiều dòng (`kinhGui`, `noiNhan`).
+ *
+ * Bộ mẫu PC01 render với `kieuXuongDong: 'mem'` → docxtemplater đổi `\n` thành `<w:br/>`, tức
+ * ngắt dòng MỀM trong cùng một đoạn. Đúng thứ cần: bốn dòng "Nơi nhận" là một khối, không phải
+ * bốn đoạn có thụt đầu dòng.
+ */
+const DAU_XUONG_DONG = '\n';
+
+/** Tổ ghi ở dòng "Lưu:" khi không suy được từ người đăng nhập hay hồ sơ — giữ chữ cũ của mẫu. */
+const TO_MAC_DINH = 'Tổ 2';
+
+/**
+ * Trưởng phòng ký ở 5 mẫu có khối "Nơi nhận".
+ *
+ * Đo từ bản in gốc hệ cũ (`docs/uat/in-nhu-he-cu/ban-in-he-cu/hecu_86374.docx`, đoạn 187).
+ * Là giá trị KHỞI ĐIỂM chứ không phải hằng số cuối: `SystemSetting` đè lên được. Không để
+ * chuỗi rỗng làm mặc định — rỗng chính là lỗi đang sửa (dòng ký trống ở 5 mẫu).
+ */
+const TRUONG_PHONG_MAC_DINH = 'Thượng tá Nguyễn Trung Hoà';
 
 function fmtDate(d: unknown): string {
   if (!d) return '';
@@ -360,9 +426,53 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'deXuat',
     label: 'Đề xuất',
     group: 'Nghiệp vụ',
-    resolve: (r) =>
-      s(r.deXuat) ||
-      `Giao ${s(r.donViGiaiQuyet)} tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng phụ trách để giải quyết theo quy định`,
+    resolve: (r) => s(r.deXuat) || cauDeXuat(s(r.huongXuLy), donViCuaHoSo(r)),
+  },
+  /**
+   * Ô "Kính gửi" — đổi theo hướng xử lý.
+   *
+   * MỘT biến nhiều dòng thay vì mấy đoạn rời trong tệp Word: `.docx` không bỏ được nguyên một
+   * đoạn khi giá trị rỗng, nên để rời thì hồ sơ chưa chọn đơn vị sẽ in ra gạch đầu dòng cụt.
+   *
+   * Mẫu hệ cũ chỉ có MỘT dạng (`- Ban chỉ huy PC02;` + `- Ban chỉ huy Đội 1.`, chữ cứng), nên
+   * ba dạng dưới đây chưa có hiện vật đối chứng — kiểm ở bản in thật đầu tiên.
+   */
+  {
+    key: 'kinhGui',
+    label: 'Kính gửi',
+    group: 'Văn bản',
+    resolve: (r) => {
+      const donVi = donViCuaHoSo(r);
+      const huong = s(r.huongXuLy);
+      // Chuyển đơn: gửi thẳng đơn vị ngoài, đúng như Phiếu chuyển đơn hệ cũ vẫn làm.
+      if (huong === 'CHUYEN_DON') return donVi ? `- ${donVi}.` : '';
+      const dong = ['- Ban chỉ huy PC02;'];
+      // Hồ sơ chưa có hướng và chưa có đơn vị → đúng chữ cứng của mẫu hệ cũ (chống hồi quy).
+      const noiBo = donVi || (huong ? '' : DON_VI_PHAT_HANH);
+      if (noiBo) dong.push(`- Ban chỉ huy ${noiBo}.`);
+      return dong.join(DAU_XUONG_DONG);
+    },
+  },
+  /**
+   * Khối "Nơi nhận" — cũng dựng ở máy chủ, cùng lý do như `kinhGui`.
+   *
+   * Mẫu Phiếu đề xuất hệ cũ KHÔNG có khối này; thêm vào là yêu cầu mới. Khuôn chép từ Phiếu
+   * chuyển đơn (mẫu duy nhất có dòng nguồn đơn).
+   */
+  {
+    key: 'noiNhan',
+    label: 'Nơi nhận',
+    group: 'Văn bản',
+    resolve: (r, ctx) => {
+      const dong = ['- Như trên;', '- Đ/c Trưởng phòng (thay báo cáo);'];
+      const nguon = s(r.nguonDon);
+      // Không có nguồn đơn thì BỎ HẲN dòng — không in "-  (thay báo cáo);".
+      if (nguon) dong.push(`- ${nguon} (thay báo cáo);`);
+      const to = resolveField('DON_THU', 'toNhanDon', r, ctx);
+      const viet = resolveField('DON_THU', 'vietTatCanBo', r, ctx);
+      dong.push(`- Lưu: PC02-Đ1 (${to}), ${viet}.`);
+      return dong.join(DAU_XUONG_DONG);
+    },
   },
   { key: 'lyDoChuyen', label: 'Lý do chuyển', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoChuyen) },
   { key: 'canCuPhapLy', label: 'Căn cứ pháp lý', group: 'Nghiệp vụ', resolve: (r) => s(r.canCuPhapLy) },
@@ -389,7 +499,19 @@ const DON_THU_FIELDS: FieldDef[] = [
     resolve: (r, ctx) => rankName(ctx?.actor) || rankName(r.enteredBy),
   },
   { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
-  { key: 'tenTruongPhong', label: 'Trưởng phòng', group: 'Cán bộ', resolve: () => '' },
+  /**
+   * Dòng ký dưới "KT. TRƯỞNG PHÒNG" ở 5 mẫu có khối "Nơi nhận".
+   *
+   * Trước bản này trả chuỗi RỖNG cứng, nên bản in ra ô ký trống — đúng phần thứ hai của lỗi
+   * "Nơi nhận thiếu thông tin". Nay đọc `SystemSetting`, và khi chưa cấu hình thì dùng giá trị
+   * đo từ bản in gốc hệ cũ chứ KHÔNG rơi lại về rỗng.
+   */
+  {
+    key: 'tenTruongPhong',
+    label: 'Trưởng phòng',
+    group: 'Cán bộ',
+    resolve: (_r, ctx) => s(ctx?.tenTruongPhong) || TRUONG_PHONG_MAC_DINH,
+  },
   // ── Bổ sung cho bộ mẫu PC01 (TT 128/2025/TT-BCA) ──────────────────────────
   // Ngày dạng ngắn: mẫu PC01 viết "Ngày 13/7/2026, ..." (đã có chữ "ngày" sẵn)
   /**
@@ -418,14 +540,34 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'ngayCapCCCD', label: 'Ngày cấp CCCD', group: 'Người gửi', resolve: (r) => fmtDateShort(r.senderIdIssueDate) },
   { key: 'noiCapCCCD', label: 'Nơi cấp CCCD', group: 'Người gửi', resolve: (r) => s(r.senderIdIssuePlace) },
   // Đơn vị nhận chuyển đơn (Phiếu chuyển / Thông báo)
-  { key: 'donViNhan', label: 'Đơn vị nhận chuyển', group: 'Đơn vị', resolve: (r) => s(r.donViXuLy) },
+  { key: 'donViNhan', label: 'Đơn vị nhận chuyển', group: 'Đơn vị', resolve: (r) => donViCuaHoSo(r) },
+  /**
+   * Tổ ở dòng "Lưu: PC02-Đ1 (Tổ 5), V.Huy." — tổ NHẬN ĐƠN, tức tổ của người đang đăng nhập.
+   *
+   * Trước bản này là chữ cứng "Tổ 2" trong tệp Word, nên mọi hồ sơ của mọi tổ đều in "Tổ 2".
+   * In một lần thì trông vẫn đúng — chỉ lộ ra khi hai tài khoản ở hai tổ cùng in một hồ sơ.
+   */
+  {
+    key: 'toNhanDon',
+    label: 'Tổ nhận đơn',
+    group: 'Đơn vị',
+    resolve: (r, ctx) => s(ctx?.actor?.teamName) || s(r.assignedTeam?.name) || TO_MAC_DINH,
+  },
   // Viết tắt cán bộ soạn ở dòng "Lưu:" (vd V.Huy)
   {
     key: 'vietTatCanBo',
     label: 'Viết tắt cán bộ',
     group: 'Cán bộ',
-    // Cùng thứ tự ưu tiên với tenCanBoDeXuat để một bản in nhất quán MỘT người.
-    resolve: (r, ctx) => abbrevName(r.canBoDeXuat) || abbrevName(ctx?.actor) || abbrevName(r.enteredBy),
+    /**
+     * Người ĐANG ĐĂNG NHẬP đứng trước — đảo ưu tiên có chủ ý so với `tenCanBoDeXuat`.
+     *
+     * Trước bản này thứ tự là canBoDeXuat → actor, nên dòng "Lưu:" ghi tên người được chọn ở ô
+     * "Cán bộ đề xuất" chứ không phải người thật sự bấm In. Dòng ấy là nơi LƯU hồ sơ, nên phải
+     * là người thao tác.
+     *
+     * Hệ quả đã biết và chấp nhận: cùng một hồ sơ do hai người in ra hai dòng "Lưu:" khác nhau.
+     */
+    resolve: (r, ctx) => abbrevName(ctx?.actor) || abbrevName(r.canBoDeXuat) || abbrevName(r.enteredBy),
   },
   // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
   { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },
