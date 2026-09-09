@@ -298,3 +298,10 @@ export const LoaiUyThac = {
   UY_THAC_GIAI_QUYET: 'UY_THAC_GIAI_QUYET',
 } as const;
 export type LoaiUyThac = (typeof LoaiUyThac)[keyof typeof LoaiUyThac];
+
+export const HuongXuLyDon = {
+  GIAO_DON: 'GIAO_DON',
+  CHUYEN_DON: 'CHUYEN_DON',
+  TRA_LUU_DON: 'TRA_LUU_DON',
+} as const;
+export type HuongXuLyDon = (typeof HuongXuLyDon)[keyof typeof HuongXuLyDon];

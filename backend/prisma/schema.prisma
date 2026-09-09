@@ -992,6 +992,19 @@ enum PetitionStatus {
   CHUYEN_XPHC // Chuyển xử phạt vi phạm hành chính
 }
 
+/// Hướng xử lý đơn thư — quyết định BA thứ cùng lúc trên Phiếu đề xuất:
+/// nguồn của ô "Đơn vị xử lý", câu in ở dòng "Đề xuất", và ô "Kính gửi".
+///
+/// TRA_LUU_DON gộp "Trả đơn" và "Lưu đơn" theo quyết định nghiệp vụ: hai việc ấy là một.
+/// Trạng thái tương ứng là DA_TRA_DON (DA_LUU_DON không dùng cho hướng này).
+enum HuongXuLyDon {
+  GIAO_DON // Giao tổ nội bộ tiếp nhận, kiểm tra, xác minh
+  CHUYEN_DON // Chuyển đơn vị ngoài giải quyết theo thẩm quyền
+  TRA_LUU_DON // Trả đơn / lưu đơn — đơn vị nội bộ
+
+  @@map("huong_xu_ly_don")
+}
+
 model Petition {
   id               String         @id @default(cuid())
   // Số tiếp nhận — duy nhất, format: DT-{YEAR}-{SEQ}
@@ -1145,6 +1158,12 @@ model Petition {
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
   thuocThamQuyen           Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
   donViXuLy                String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  /// Hướng xử lý — thay ô tích "Thuộc thẩm quyền" trên form; `thuocThamQuyen` nay được SUY ra
+  /// từ đây lúc lưu (xem petitions.service) để mọi chỗ đang đọc cột cũ không vỡ.
+  ///
+  /// `null` chỉ còn ở hồ sơ chưa qua backfill; bộ giải trị bản in coi null là GIAO_DON để giữ
+  /// nguyên hành vi đã đo khớp hệ cũ 22/22 mục.
+  huongXuLy                HuongXuLyDon?
 
   // Field-parity đầy đủ (feat/legacy-field-parity): field hệ cũ chưa có cột typed trên Đơn thư.
   phanLoaiToiPhamLinhVuc String? // old: phan_loai_toi_pham_theo_linh_vuc

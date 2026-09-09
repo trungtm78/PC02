@@ -87,8 +87,12 @@ export function buildPetitionPayload(
     canBoDeXuatId: oHeCu(formData.canBoDeXuatId),
     notes: oHeCu(formData.notes),
 
-    // Cả hai nhánh cùng ghi vào `donViXuLy` (thuộc thẩm quyền = tên Tổ/Nhóm; không thuộc = tên
-    // đơn vị). Ô này vốn đã gửi `null` đúng cách từ v0.47.
+    // Cả hai nhánh cùng ghi vào `donViXuLy` (nội bộ = tên Tổ/Nhóm; chuyển đơn = tên đơn vị).
+    // Ô này vốn đã gửi `null` đúng cách từ v0.47.
+    //
+    // `huongXuLy` là ô thật trên form; máy chủ SUY `thuocThamQuyen` từ nó. Vẫn gửi cột cũ để
+    // các đường không đi qua form (nhập hàng loạt, bộ di trú) không đổi hành vi.
+    huongXuLy: oHeCu(formData.huongXuLy),
     thuocThamQuyen: formData.thuocThamQuyen,
     donViXuLy: oHeCu(formData.donViXuLy),
 

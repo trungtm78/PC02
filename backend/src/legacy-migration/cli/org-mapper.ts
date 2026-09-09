@@ -7,17 +7,17 @@
  * `Team.name` VÀ `Team.code` đều `@unique` nên tạo trùng là ném lỗi giữa chừng.
  */
 
-/** Bỏ dấu tiếng Việt, gộp khoảng trắng, đưa về chữ thường. */
-export function normalizeVi(v: string): string {
-  return v
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+/**
+ * Bỏ dấu tiếng Việt, gộp khoảng trắng, đưa về chữ thường.
+ *
+ * Thân hàm đã chuyển sang `common/utils/chuan-hoa-ten.util.ts` vì tầng dịch vụ cũng cần: ô
+ * "Tạo mới" đơn vị xử lý phải chặn trùng bằng ĐÚNG bộ luật đã gộp 3.806 tên thô của hệ cũ
+ * xuống 2.812 đơn vị. Ở đây chỉ còn bí danh — một thân hàm duy nhất, hai bên không thể trôi
+ * khỏi nhau.
+ */
+import { boDauTiengViet } from '../../common/utils/chuan-hoa-ten.util';
+
+export const normalizeVi = boDauTiengViet;
 
 /**
  * Khoá so khớp tên đơn vị giữa hai hệ. Rút về dạng ngắn nhất còn phân biệt được:

@@ -1,6 +1,7 @@
 import { PetitionStatus } from '@prisma/client';
 import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { CreatePetitionDto } from './dto/create-petition.dto';
+import { suyThuocThamQuyen } from './huong-xu-ly.rule';
 
 export interface PetitionCreateCtx {
   stt: string;
@@ -104,7 +105,11 @@ export function buildPetitionCreateData(
     // Fix bug rớt data: update ghi thoiHanUTDT (petitions.service ~618) nhưng create builder bỏ sót → mất khi tạo.
     thoiHanUTDT: toDate(dto.thoiHanUTDT),
     // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
-    thuocThamQuyen: dto.thuocThamQuyen ?? true,
+    //
+    // `huongXuLy` là ô thật trên form; `thuocThamQuyen` suy ra từ nó. Đường gọi cũ chỉ gửi
+    // `thuocThamQuyen` (bộ di trú, ca kiểm) vẫn chạy đúng như trước.
+    huongXuLy: dto.huongXuLy,
+    thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) ?? dto.thuocThamQuyen ?? true,
     donViXuLy: dto.donViXuLy,
     // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
     phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,

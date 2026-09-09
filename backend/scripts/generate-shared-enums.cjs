@@ -65,6 +65,7 @@ const SHARED_ENUMS = [
   'CaseProvenance', // v0.37.1
   'CaseType', // v0.44 — UTDT
   'LoaiUyThac', // v0.44 — UTDT loại ủy thác
+  'HuongXuLyDon', // v0.76 — ba hướng xử lý đơn thư (thay ô tích "Thuộc thẩm quyền")
 ];
 
 function parseEnums(schemaSource) {

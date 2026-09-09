@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
+import { khoaDonVi } from '../common/utils/chuan-hoa-ten.util';
 
 type PartialCreateDto = Partial<CreateDirectoryDto> & {
   type?: string;
@@ -14,16 +15,70 @@ type PartialCreateDto = Partial<CreateDirectoryDto> & {
   name?: string;
 };
 
+/**
+ * Loại danh mục cán bộ được tự tạo trên ô tìm.
+ *
+ * Cố ý HẸP. Endpoint tạo nhanh dùng quyền `write:Petition` (cán bộ có sẵn) chứ không phải
+ * `write:Directory` (chỉ ADMIN); mở rộng danh sách này là gián tiếp cho cán bộ sửa mọi danh
+ * mục, kể cả danh mục pháp lý.
+ */
+export const LOAI_TAO_NHANH_DUOC = ['DON_VI'];
+
+/**
+ * Kết quả tạo nhanh. `daCoSan` là phần quan trọng: giao diện phải nói rõ "đơn vị này đã có, đã
+ * chọn giúp bạn" chứ không im lặng chọn một dòng người dùng không chủ ý tạo — im lặng thì cán
+ * bộ tưởng vừa tạo mới, và lần sau lại gõ thêm một biến thể nữa.
+ */
+export interface KetQuaTaoNhanh {
+  id: string;
+  type: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  daCoSan?: true;
+}
+
+/** Tiền tố mã sinh tự động theo loại. Mã phải khớp `^[A-Z0-9_-]+$` và ≤10 ký tự. */
+const TIEN_TO_MA: Record<string, string> = { DON_VI: 'DV' };
+
+/**
+ * Mã kế tiếp = mã LỚN NHẤT đang có + 1, không phải số lượng dòng + 1.
+ *
+ * Đếm dòng sai theo hai cách: hai người tạo cùng lúc ra cùng một mã, và sau khi xoá một dòng
+ * thì mã kế tiếp đụng mã đã tồn tại. Cả hai đều ném lỗi ở ràng buộc `@@unique([type, code])`
+ * ngay giữa thao tác của cán bộ.
+ */
+function sinhMaTiepTheo(daCo: string[], tienTo: string): string {
+  const mau = new RegExp(`^${tienTo}(\\d+)$`);
+  const lonNhat = daCo.reduce((max, c) => {
+    const m = mau.exec(c);
+    return m ? Math.max(max, Number(m[1])) : max;
+  }, 0);
+  return `${tienTo}${String(lonNhat + 1).padStart(4, '0')}`;
+}
+
 @Injectable()
 export class DirectoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryDirectoryDto) {
-    const { type, search, parentId, isActive, limit = 50, offset = 0 } = query;
+    const { type, search, parentId, isActive, choDuyet, limit = 50, offset = 0 } = query;
 
     const where: Record<string, unknown> = {};
     if (type) where.type = type;
     if (isActive !== undefined) where.isActive = isActive;
+    /**
+     * Lọc nhóm CHỜ DUYỆT — mục nạp từ dữ liệu cũ mà đợt phân loại trước không xác nhận được có
+     * phải tên đơn vị hay không, cộng mục cán bộ tự tạo trên ô tìm.
+     *
+     * Cờ nằm trong `metadata` chứ không phải cột riêng: `Directory` dùng chung cho ~30 loại
+     * danh mục, thêm một cột chỉ một loại cần là bắt 29 loại kia mang theo.
+     */
+    if (choDuyet !== undefined) {
+      where.metadata = choDuyet
+        ? { path: ['choDuyet'], equals: true }
+        : { NOT: { path: ['choDuyet'], equals: true } };
+    }
     if (parentId !== undefined) {
       where.parentId = parentId === 'null' ? null : parentId;
     }
@@ -105,6 +160,53 @@ export class DirectoryService {
         order: dto.order ?? 0,
         isActive: dto.isActive ?? true,
         metadata: (dto.metadata ?? undefined) as object | undefined,
+      },
+    });
+  }
+
+  /**
+   * Tạo nhanh một mục danh mục ngay trên ô tìm của form — cửa HẸP.
+   *
+   * `POST /directories` đòi `write:Directory`, mà đo 09/09/2026 thì CHỈ ADMIN có (OFFICER: 0).
+   * Cán bộ bấm "Tạo mới" sẽ nhận 403 — đúng lớp lỗi "không lưu được đơn thư" trước đây. Cửa này
+   * mở cho `write:Petition` nên phải tự giới hạn: chỉ loại trong `LOAI_TAO_NHANH_DUOC`, cưỡng
+   * chế ở ĐÂY chứ không chỉ ở DTO (DTO chỉ chặn đường đi qua controller).
+   *
+   * Chặn trùng bằng cùng bộ luật đã gộp dữ liệu cũ: gõ "BCH Công an phường Bàn Cờ" khi đã có
+   * "Công an Phường Bàn Cờ" thì trả về mục cũ, không sinh bản sao. Không có bước này thì tính
+   * năng dựng để chống trùng lại tự sinh trùng.
+   */
+  async taoNhanh(dto: { type: string; name: string }): Promise<KetQuaTaoNhanh> {
+    if (!LOAI_TAO_NHANH_DUOC.includes(dto.type)) {
+      throw new BadRequestException(
+        `Không tạo nhanh được loại danh mục "${dto.type}". Chỉ cho phép: ${LOAI_TAO_NHANH_DUOC.join(', ')}.`,
+      );
+    }
+    const ten = (dto.name ?? '').trim();
+    if (!ten) throw new BadRequestException('Tên đơn vị không được để trống');
+
+    const dangCo = await this.prisma.directory.findMany({
+      where: { type: dto.type },
+      select: { id: true, type: true, code: true, name: true, isActive: true },
+    });
+
+    const khoa = khoaDonVi(ten);
+    const trung = dangCo.find((d) => khoaDonVi(d.name) === khoa);
+    // Trả về mục đã có kèm dấu, để giao diện nói rõ "đơn vị này đã có" thay vì im lặng chọn một
+    // dòng người dùng không chủ ý tạo.
+    if (trung) return { ...trung, daCoSan: true as const };
+
+    return this.prisma.directory.create({
+      data: {
+        type: dto.type,
+        code: sinhMaTiepTheo(dangCo.map((d) => d.code), TIEN_TO_MA[dto.type]),
+        name: ten,
+        // Xếp sau các mục đã có: mục tự tạo chưa được duyệt, không nên nổi lên đầu ô tìm.
+        order: 9000,
+        isActive: true,
+        // Vào nhóm CHỜ DUYỆT để quản trị rà lại. Không đánh dấu thì mục cán bộ gõ vội lẫn vào
+        // danh mục chính và không còn đường nào tìm ra chúng.
+        metadata: { nguon: 'tao-nhanh', choDuyet: true },
       },
     });
   }

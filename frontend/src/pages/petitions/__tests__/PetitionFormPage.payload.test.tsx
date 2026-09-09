@@ -317,23 +317,45 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     expect(body.summary).toBe('Nội dung đầy đủ của đơn thư');
   });
 
-  it('YC6: mặc định thuộc thẩm quyền → payload thuocThamQuyen=true', async () => {
+  /**
+   * Ô tích "Thuộc thẩm quyền" đã được THAY bằng ba lựa chọn hướng xử lý (09/09/2026).
+   * Cột `thuocThamQuyen` vẫn còn và vẫn được gửi, nhưng máy chủ suy nó từ `huongXuLy`.
+   */
+  it('chưa chọn hướng → payload gửi huongXuLy null, giữ thuocThamQuyen mặc định', async () => {
     await renderForm();
-    expect((await screen.findByTestId('field-thuocThamQuyen') as HTMLInputElement).checked).toBe(true);
     await fillRequired();
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.huongXuLy).toBeNull();
     expect(body.thuocThamQuyen).toBe(true);
   });
 
-  it('YC6: bỏ tick thẩm quyền → payload thuocThamQuyen=false', async () => {
+  it('chọn Chuyển đơn → payload gửi huongXuLy=CHUYEN_DON', async () => {
     await renderForm();
     await fillRequired();
-    fireEvent.click(await screen.findByTestId('field-thuocThamQuyen')); // uncheck
+    fireEvent.click(await screen.findByTestId('field-huongXuLy-CHUYEN_DON'));
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(body.thuocThamQuyen).toBe(false);
+    expect(body.huongXuLy).toBe('CHUYEN_DON');
+  });
+
+  /**
+   * Đổi hướng phải XOÁ đơn vị đã chọn: danh sách tổ nội bộ và danh mục đơn vị ngoài là hai tập
+   * khác nhau, giữ lại sẽ gửi lên một giá trị không có trong nguồn mới — và không ai thấy sai
+   * cho tới khi in ra.
+   */
+  it('đổi hướng → xoá đơn vị xử lý đã chọn', async () => {
+    await renderForm();
+    await fillRequired();
+    fireEvent.click(await screen.findByTestId('field-huongXuLy-GIAO_DON'));
+    const o = await screen.findByTestId('field-donViXuLy');
+    fireEvent.change(o, { target: { value: 'Tổ 5' } });
+    fireEvent.click(await screen.findByTestId('field-huongXuLy-CHUYEN_DON'));
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.donViXuLy).toBeNull();
   });
 });

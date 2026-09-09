@@ -66,7 +66,8 @@ interface FKSelectProps {
   options?: FKOption[];
   placeholder?: string;
   canCreate?: boolean;
-  onCreateNew?: () => void;
+  /** Nhận chữ vừa gõ để điền sẵn vào màn tạo mới. */
+  onCreateNew?: (tenGoiY?: string) => void;
   loading?: boolean;
   testId?: string;
   'data-testid'?: string;
@@ -106,9 +107,24 @@ export function FKSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Từ khoá gửi lên máy chủ — trễ 250ms sau khi ngừng gõ.
+   *
+   * Có bước này vì máy chủ chặn cứng `limit` ở 1.000 dòng, mà danh mục `DON_VI` sẽ có ~1.868
+   * dòng sau khi nạp dữ liệu cũ. Lọc phía trình duyệt trên một trang đã cắt là hỏng IM LẶNG:
+   * cán bộ gõ tên một đơn vị CÓ THẬT trong cơ sở dữ liệu mà ô tìm báo không có, rồi tạo ra một
+   * bản trùng — đúng thứ danh mục này vừa được dọn để tránh.
+   */
+  const [tuKhoaMayChu, setTuKhoaMayChu] = useState("");
+  useEffect(() => {
+    if (!directoryType) return;
+    const h = setTimeout(() => setTuKhoaMayChu(searchQuery), 250);
+    return () => clearTimeout(h);
+  }, [searchQuery, directoryType]);
+
   // Auto-fetch from Directory API if directoryType is set
   const { data: directoryOptions, isLoading: directoryLoading } =
-    useDirectoryOptions(directoryType);
+    useDirectoryOptions(directoryType, { search: tuKhoaMayChu });
 
   // Auto-fetch from MasterClass API if masterClassType is set
   const { data: masterClassOpts, isLoading: masterClassLoading } =
@@ -124,8 +140,18 @@ export function FKSelect({
   // Find selected option label
   const selectedOption = options.find((o) => o.value === value);
 
-  // Filter options based on search query
-  const filteredOptions = options.filter((o) => smartMatch(o.label, searchQuery));
+  /**
+   * Lọc tại máy CHỈ khi danh sách vốn đã đầy đủ ở đây (options truyền vào, danh mục nhỏ).
+   *
+   * Với `directoryType`, máy chủ đã lọc rồi — lọc lại tại máy sẽ cắt bớt kết quả máy chủ vừa
+   * trả về đúng lúc chữ gõ và độ trễ chưa khớp nhau, làm danh sách nhấp nháy rỗng.
+   */
+  const filteredOptions = directoryType
+    ? options
+    : options.filter((o) => smartMatch(o.label, searchQuery));
+
+  /** Đang ở trạng thái "gõ rồi mà không ra gì" — điều kiện để mời tạo mới. */
+  const khongCoKetQua = !loading && filteredOptions.length === 0 && searchQuery.trim().length > 0;
 
   // Reset highlight when search query or filtered results change
   useEffect(() => {
@@ -189,11 +215,31 @@ export function FKSelect({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      /**
+       * Bộ gõ tiếng Việt dùng Enter để CHỐT chữ đang bỏ dấu, và trình duyệt vẫn bắn keydown.
+       * Không chặn thì mỗi lần cán bộ bỏ dấu một chữ, hộp "tạo mới" lại bật lên.
+       *
+       * `isComposing` là dấu hiệu chuẩn; `keyCode === 229` là đường lùi cho trình duyệt cũ
+       * không đặt cờ ấy.
+       */
+      const dangGoDau =
+        (e.nativeEvent as KeyboardEvent).isComposing || (e.nativeEvent as KeyboardEvent).keyCode === 229;
+      if (dangGoDau) return;
+
       if (filteredOptions.length === 0) {
         if (e.key === "Escape") {
           setIsOpen(false);
           setSearchQuery("");
           setHighlightedIndex(-1);
+        }
+        // Gõ rồi mà không ra gì → mời tạo mới, kèm nguyên chữ vừa gõ để điền sẵn.
+        if (e.key === "Enter" && canCreate && onCreateNew && khongCoKetQua) {
+          e.preventDefault();
+          const ten = searchQuery.trim();
+          setIsOpen(false);
+          setSearchQuery("");
+          setHighlightedIndex(-1);
+          onCreateNew(ten);
         }
         return;
       }
@@ -295,8 +341,16 @@ export function FKSelect({
                 <span className="ml-2 text-sm text-slate-500">Đang tải...</span>
               </div>
             ) : filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-slate-500">
+              <div
+                className="py-6 text-center text-sm text-slate-500"
+                data-testid={testId ? `${testId}-khong-co-ket-qua` : undefined}
+              >
                 Không tìm thấy kết quả
+                {khongCoKetQua && canCreate && onCreateNew && (
+                  <span className="block mt-1 text-xs text-blue-600">
+                    Nhấn Enter để tạo mới "{searchQuery.trim()}"
+                  </span>
+                )}
               </div>
             ) : (
               filteredOptions.map((option, index) => (
@@ -328,8 +382,9 @@ export function FKSelect({
                 onClick={() => {
                   setIsOpen(false);
                   setSearchQuery("");
+                  const ten = searchQuery.trim();
                   setHighlightedIndex(-1);
-                  onCreateNew();
+                  onCreateNew(ten);
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors font-medium"
                 data-testid={testId ? `${testId}-create-new` : undefined}

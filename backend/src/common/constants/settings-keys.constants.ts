@@ -43,6 +43,10 @@ export const SETTINGS_KEY = {
   THONG_KE_TRUONG_NGAY: 'THONG_KE_TRUONG_NGAY',
   THONG_KE_TU_NGAY: 'THONG_KE_TU_NGAY',
   THONG_KE_DEN_NGAY: 'THONG_KE_DEN_NGAY',
+
+  // v0.76 — Dòng ký "KT. TRƯỞNG PHÒNG / PHÓ TRƯỞNG PHÒNG" ở 5 mẫu có khối "Nơi nhận".
+  // Trước đây viết cứng chuỗi rỗng trong bộ giải trị nên bản in ra ô ký trống.
+  TEN_TRUONG_PHONG: 'TEN_TRUONG_PHONG',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];
