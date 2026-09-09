@@ -1,3 +1,15 @@
+> ## ⚠ BÁO CÁO NÀY ĐÃ LỖI THỜI — xem `KET-QUA-v2.md`
+>
+> Kết luận "0 chỗ lệch về dữ liệu" trong bản này **không đủ căn cứ**. Phép đo khi ấy đổi cả
+> `</w:p>` lẫn `<w:br/>` thành `
+` rồi bỏ mục rỗng, nên bản in tách ĐOẠN và bản in ngắt dòng
+> mềm cho ra **đúng một mảng** — khác biệt bố cục là vô hình với nó. Công cụ cũng **tự dựng lại**
+> phép render thay vì gọi đường xuất thật, lệch với máy chủ ở năm chỗ.
+>
+> Đo lại ngày 09/09/2026 bằng phép so BA TẦNG (chữ · đoạn · kiểu chữ), qua đường xuất thật: tìm
+> ra **bốn lớp khác biệt**, trong đó lớp "định dạng nhãn trùm cả câu" do anh nhìn ra khi đặt hai
+> bản in cạnh nhau. Tất cả đã sửa.
+
 # Đối chiếu dữ liệu in ra trên chứng từ Word: hệ cũ ↔ hệ mới
 
 **Ngày:** 28/08/2026 · **Nhánh:** `feat/doi-chieu-ban-in-word` · **Phạm vi:** dữ liệu điền vào
