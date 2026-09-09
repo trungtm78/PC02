@@ -19,6 +19,7 @@ import {
 } from './entity-placeholders';
 import { ResolveContext, resolveField } from './field-catalog';
 import { resolveRenderer } from './renderers';
+import { laMauHeCu } from './document-template.constants';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -246,6 +247,8 @@ export class DynamicExportService {
       buffer: Buffer.from(template.fileBytes),
       data: placeholders,
       delimiters,
+      // Mẫu hệ cũ in ô nhiều dòng thành nhiều ĐOẠN Word (đo trên bản in thật 09/09/2026).
+      kieuXuongDong: laMauHeCu(template.code) ? 'doan-he-cu' : 'mem',
     });
     const fileSha = createHash('sha256').update(buffer).digest('hex');
 

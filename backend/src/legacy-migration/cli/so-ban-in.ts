@@ -228,7 +228,7 @@ export function soDong(heCu: string[], heMoi: string[]): DongLech[] {
   return gop;
 }
 
-async function dangNhapHeCu(): Promise<string> {
+export async function dangNhapHeCu(): Promise<string> {
   const res = await fetch(`${CO_SO}/thanh-vien`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -245,7 +245,7 @@ async function dangNhapHeCu(): Promise<string> {
 }
 
 /** Tải bản in của hệ cũ. CHỈ ĐỌC — `GET`, đúng đường nút "Xuất Word" trên màn danh sách. */
-async function taiBanInHeCu(cookie: string, id: string, bienNhan = false): Promise<Buffer> {
+export async function taiBanInHeCu(cookie: string, id: string, bienNhan = false): Promise<Buffer> {
   const duong = `${CO_SO}/doi-1/XuatFile/${id}${bienNhan ? '?xuat_bien_nhan=1' : ''}`;
   const res = await fetch(duong, { headers: { cookie } });
   const kieu = res.headers.get('content-type') ?? '';
