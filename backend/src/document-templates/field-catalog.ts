@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   khoaTheoTenHeCu,
   namHoSoNhuHeCu,
+  ngayThangNamNhuHeCu,
   soHoSoNhuHeCu,
   KHOA_HE_CU_NGOAI_PARITY,
 } from './khoa-he-cu';
@@ -277,7 +278,14 @@ const DON_THU_FIELDS: FieldDef[] = [
    * vào số hiệu văn bản gửi đi.
    */
   { key: 'teamCode', label: 'Mã đơn vị phát hành', group: 'Đơn vị', resolve: () => 'Đ1' },
-  { key: 'tenDoi', label: 'Tên đội', group: 'Đơn vị', resolve: (r) => s(r.assignedTeam?.name) },
+  /**
+   * Tên đơn vị PHÁT HÀNH ở dòng "Ban chỉ huy …" và "… nhận được:".
+   *
+   * Mẫu hệ cũ ghi CỨNG "Đội 1" ở cả hai chỗ — hồ sơ 37315 giao Đội 8 mà vẫn in "Ban chỉ huy
+   * Đội 1". Đó là Đội Tham mưu tổng hợp, nơi phát hành; cùng đơn vị với hậu tố `Đ1` của số
+   * văn bản (xem `teamCode`).
+   */
+  { key: 'tenDoi', label: 'Tên đơn vị phát hành', group: 'Đơn vị', resolve: () => 'Đội 1' },
   { key: 'tenDoiPhongBan', label: 'Tên phòng ban', group: 'Đơn vị', resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP' },
   { key: 'diaDiem', label: 'Địa điểm', group: 'Đơn vị', resolve: () => 'Thành phố Hồ Chí Minh' },
   /**
@@ -287,7 +295,18 @@ const DON_THU_FIELDS: FieldDef[] = [
    * sơ. Dùng lại đúng hàm của bộ mẫu hệ cũ, không dựng bản thứ hai.
    */
   { key: 'namHoSo', label: 'Năm của hồ sơ', group: 'Mốc thời gian', resolve: (r) => namHoSoNhuHeCu(r) },
-  { key: 'ngayPhatHanh', label: 'Ngày phát hành', group: 'Mốc thời gian', resolve: () => fmtDate(new Date()) },
+  /**
+   * Dòng "Thành phố Hồ Chí Minh, …" ở đầu văn bản — NGÀY CỦA HỒ SƠ, không phải ngày in.
+   *
+   * Mẫu hệ cũ viết `ngày ${ngay} tháng ${thang} năm ${nam}`, ba trường của chính hồ sơ. Bản
+   * trước đổ ngày hôm nay, nên hồ sơ tiếp nhận 14/12/2016 in ra 09/09/2026.
+   */
+  {
+    key: 'ngayPhatHanh',
+    label: 'Ngày trên văn bản (theo hồ sơ)',
+    group: 'Mốc thời gian',
+    resolve: (r) => ngayThangNamNhuHeCu(r),
+  },
   { key: 'ngayNhan', label: 'Ngày nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.receivedDate) },
   { key: 'ngayDon', label: 'Ngày đơn', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.petitionDate ?? r.receivedDate) },
   /**
@@ -327,7 +346,24 @@ const DON_THU_FIELDS: FieldDef[] = [
     resolve: (r) => s(r.baoCaoBanGiamDocText) || (r.baoCaoBanGiamDoc ? 'Có' : ''),
   },
   { key: 'nhanThay', label: 'Nhận thấy', group: 'Nghiệp vụ', resolve: (r) => s(r.nhanThay) },
-  { key: 'deXuat', label: 'Đề xuất', group: 'Nghiệp vụ', resolve: (r) => s(r.deXuat) },
+  /**
+   * Đề xuất — chữ cán bộ viết; CHƯA viết thì ghép câu như mẫu hệ cũ.
+   *
+   * Câu ấy nằm trong CHÍNH MẪU hệ cũ, không phải trong dữ liệu:
+   *   `Đề xuất: Giao ${don_vi_giai_quyet} tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy
+   *    Phòng phụ trách để giải quyết theo quy định./.`
+   * Mẫu hệ mới viết `Đề xuất: {deXuat}./.` nên phần điền KHÔNG kèm "./." ở cuối.
+   *
+   * 47.079/47.169 hồ sơ có ô `deXuat` rỗng, nên không ghép là 99,8% bản in ra "Đề xuất: ./.".
+   */
+  {
+    key: 'deXuat',
+    label: 'Đề xuất',
+    group: 'Nghiệp vụ',
+    resolve: (r) =>
+      s(r.deXuat) ||
+      `Giao ${s(r.donViGiaiQuyet)} tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng phụ trách để giải quyết theo quy định`,
+  },
   { key: 'lyDoChuyen', label: 'Lý do chuyển', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoChuyen) },
   { key: 'canCuPhapLy', label: 'Căn cứ pháp lý', group: 'Nghiệp vụ', resolve: (r) => s(r.canCuPhapLy) },
   { key: 'huongDanKhoiKien', label: 'Hướng dẫn khởi kiện', group: 'Nghiệp vụ', resolve: (r) => s(r.huongDanKhoiKien) },
