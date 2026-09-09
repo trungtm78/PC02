@@ -107,13 +107,25 @@ export function bienCuaMauHeCu(buffer: Buffer, entityType: string): BienMau[] {
   }));
 }
 
+
+/**
+ * Có ghi đè bản mẫu hệ cũ đang nằm trong CSDL không.
+ *
+ * `SEED_TEMPLATES_FORCE_FILE=1` ghi đè MỌI bộ mẫu, kể cả 7 mẫu tố tụng PC01 — mà những mẫu ấy
+ * admin có thể đã sửa trên giao diện, và ghi đè là xoá mất công của họ mà không hỏi. Khi chỉ
+ * cần đẩy lại bộ mẫu hệ cũ (vd sau khi sửa bước chuẩn hoá run), dùng cờ HẸP này.
+ */
+export function coGhiDeMauHeCu(env: NodeJS.ProcessEnv): boolean {
+  return env['SEED_TEMPLATES_FORCE_HE_CU'] === '1' || env['SEED_TEMPLATES_FORCE_FILE'] === '1';
+}
+
 export async function seedLegacyTemplates(
   prisma: PrismaClient,
 ): Promise<{ created: number; skipped: number; updated: number }> {
   let created = 0;
   let skipped = 0;
   let updated = 0;
-  const forceFile = process.env['SEED_TEMPLATES_FORCE_FILE'] === '1';
+  const forceFile = coGhiDeMauHeCu(process.env);
 
   const admin = await (prisma as any).user.findFirst({
     where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  coGhiDeMauHeCu,
   MAU_HE_CU,
   bienCuaMauHeCu,
   thuMucMauHeCu,
@@ -155,5 +156,29 @@ describe('Mẫu in hệ cũ mang sang hệ mới', () => {
     // Phần tử ĐẦU là thực thể chính — quyết định tên và nhóm mẫu hiện cho cán bộ; những thực
     // thể sau là nơi hồ sơ cùng loại ấy thật sự nằm sau di trú.
     expect(m!.entityTypes[0]).toBe(entityType);
+  });
+});
+
+
+/**
+ * Cờ ghi đè phải HẸP.
+ *
+ * `SEED_TEMPLATES_FORCE_FILE=1` chạm cả 7 mẫu tố tụng PC01 — thứ admin có thể đã sửa trên giao
+ * diện. Đẩy lại bộ mẫu hệ cũ mà xoá luôn tuỳ chỉnh của họ là hỏng ngầm: không ai báo, và chỉ
+ * lộ ra khi cán bộ in đúng mẫu ấy.
+ */
+describe('coGhiDeMauHeCu', () => {
+  it('cờ hẹp bật riêng bộ mẫu hệ cũ', () => {
+    expect(coGhiDeMauHeCu({ SEED_TEMPLATES_FORCE_HE_CU: '1' })).toBe(true);
+  });
+
+  it('cờ rộng vẫn dùng được — không phá lối cũ', () => {
+    expect(coGhiDeMauHeCu({ SEED_TEMPLATES_FORCE_FILE: '1' })).toBe(true);
+  });
+
+  it('không đặt cờ thì KHÔNG ghi đè — mặc định phải an toàn', () => {
+    expect(coGhiDeMauHeCu({})).toBe(false);
+    expect(coGhiDeMauHeCu({ SEED_TEMPLATES_FORCE_HE_CU: '0' })).toBe(false);
+    expect(coGhiDeMauHeCu({ SEED_TEMPLATES_FORCE_HE_CU: 'true' })).toBe(false);
   });
 });
