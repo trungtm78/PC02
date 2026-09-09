@@ -371,7 +371,14 @@ export async function seedPetitionTemplates(
         format: 'DOCX',
         delimStart: '{',
         delimEnd: '}',
-        needsNumber: true,
+        // KHÔNG cấp số riêng: hệ cũ in STT của chính hồ sơ làm số văn bản.
+        //
+        // Đo bản in thật 09/09/2026 — hồ sơ 37315 (`stt = 2016-172`) in `172/ĐX-PC02-Đ1`,
+        // `172/PC-PC02-Đ1`, `172/TB-PC02-Đ1`, `172/HD-PC02-Đ1`: CÙNG một số cho mọi loại chứng
+        // từ, chỉ khác hậu tố. Bật cấp số thì engine ghi đè `{soVanBan}` bằng số của bộ đếm hệ
+        // mới (`0045`), nên cùng một hồ sơ mà hai hệ ra hai số khác nhau — và mỗi lần in lại
+        // đốt thêm một số vào sổ.
+        needsNumber: false,
         numberSeriesId,
         status: 'active',
         sortOrder: meta.sortOrder,

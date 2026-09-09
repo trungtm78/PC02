@@ -89,3 +89,55 @@ describe('field-catalog', () => {
     expect(Object.keys(FIELD_CATALOG).sort()).toEqual(['DON_THU', 'VU_AN', 'VU_VIEC']);
   });
 });
+
+/**
+ * SỐ VĂN BẢN và MÃ ĐƠN VỊ trên bộ mẫu PC01 phải in RA ĐÚNG NHƯ HỆ CŨ.
+ *
+ * Anh chốt: cùng một hồ sơ thì hai hệ phải ra giống hệt nhau. Đo trên bản in thật của hệ cũ
+ * ngày 09/09/2026:
+ *
+ *   hồ sơ 37315 (`stt = 2016-172`) → `172/ĐX-PC02-Đ1` · `172/PC-PC02-Đ1` · `172/TB-PC02-Đ1`
+ *                                     · `172/HD-PC02-Đ1`  (CÙNG một số, chỉ khác hậu tố loại)
+ *   hồ sơ 69971 (`stt = 5620`)     → `5620/ĐX-PC02-Đ1`
+ *
+ * Hai điều rút ra:
+ * 1. Số văn bản LÀ STT của chính hồ sơ, không phải bộ đếm riêng theo loại chứng từ.
+ * 2. Hậu tố `Đ1` KHÔNG đổi theo đội được giao — hồ sơ 37315 giao Đội 8, hồ sơ 69971 giao Công an
+ *    phường Hòa Hưng, cả hai vẫn in `-Đ1`. Đó là đơn vị PHÁT HÀNH (Đội Tham mưu tổng hợp).
+ *
+ * Bản trước in `0045/ĐX-PC02-Đ1/ĐX-PC02-DOI-4`: số lấy từ bộ đếm, hậu tố bị nhân đôi (bộ cấp số
+ * gắn một lần, mẫu viết thêm một lần), và `teamCode` in ra MÃ NỘI BỘ `DOI-4`.
+ */
+describe('số văn bản in ra như hệ cũ', () => {
+  it('lấy STT TRẦN của hồ sơ, không ghép năm', () => {
+    expect(resolveField('DON_THU', 'soVanBan', { stt: '2016-172' } as never)).toBe('172');
+    expect(resolveField('DON_THU', 'soVanBan', { code: '2017-18' } as never)).toBe('18');
+    expect(resolveField('DON_THU', 'soVanBan', { caseCode: '2025-175' } as never)).toBe('175');
+  });
+
+  it('hồ sơ di trú: lấy đúng giá trị thô của hệ cũ', () => {
+    expect(resolveField('DON_THU', 'soVanBan', { stt: '2025-5620', legacyRaw: { stt: '5620' } } as never)).toBe(
+      '5620',
+    );
+  });
+
+  it('hồ sơ chưa có số thì để TRỐNG, không bịa', () => {
+    expect(resolveField('DON_THU', 'soVanBan', {} as never)).toBe('');
+  });
+
+  it('mã đơn vị là Đ1 — đơn vị PHÁT HÀNH, không đổi theo đội được giao', () => {
+    expect(resolveField('DON_THU', 'teamCode', { assignedTeam: { code: 'DOI-4', name: 'Đội 4 (TT)' } } as never)).toBe(
+      'Đ1',
+    );
+    expect(resolveField('DON_THU', 'teamCode', { assignedTeam: { code: 'D8' } } as never)).toBe('Đ1');
+    expect(resolveField('DON_THU', 'teamCode', {} as never)).toBe('Đ1');
+  });
+
+  /** Ghép lại đúng dòng "Số:" của mẫu để thấy kết quả cuối cùng. */
+  it('ghép lại thành đúng dòng hệ cũ in ra', () => {
+    const r = { stt: '2016-172' } as never;
+    const dong = `Số: ${resolveField('DON_THU', 'soVanBan', r)}/ĐX-PC02-${resolveField('DON_THU', 'teamCode', r)}`;
+
+    expect(dong).toBe('Số: 172/ĐX-PC02-Đ1');
+  });
+});

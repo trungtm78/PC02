@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+import { khoaTheoTenHeCu, soHoSoNhuHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
 import { getCatalogEntry } from '../catalog/catalog.registry';
 export { personName, rankName, abbrevName } from './ten-nguoi.util';
 import { personName, rankName, abbrevName } from './ten-nguoi.util';
@@ -117,12 +117,27 @@ const LOAI_DON_LABEL: Record<string, string> = {
   KHAC: 'Khác',
 };
 
-/** Field "Số văn bản" — cấp lúc in (needsNumber), KHÔNG resolve từ record (override khi render). */
+/**
+ * Field "Số văn bản" — STT của CHÍNH HỒ SƠ, đúng như hệ cũ in.
+ *
+ * Đo trên bản in thật của hệ cũ 09/09/2026: hồ sơ 37315 (`stt = 2016-172`) in `172/ĐX-PC02-Đ1`,
+ * `172/PC-PC02-Đ1`, `172/TB-PC02-Đ1`, `172/HD-PC02-Đ1` — CÙNG một số cho mọi loại chứng từ, chỉ
+ * khác hậu tố; hồ sơ 69971 (`stt = 5620`) in `5620/ĐX-PC02-Đ1`. Không có bộ đếm riêng nào.
+ *
+ * Bản trước trả rỗng và để bộ cấp số ghi đè, nên bản in ra `0045/…` — số của hệ mới, không phải
+ * số hệ cũ đã cấp cho hồ sơ ấy. Cùng một hồ sơ mà hai hệ ra hai số khác nhau.
+ *
+ * Mẫu nào thật sự cần số do engine cấp thì `needsNumber = true` vẫn ghi đè giá trị này khi
+ * render — đường ấy không đổi.
+ *
+ * Dùng lại `soHoSoNhuHeCu` của bộ mẫu hệ cũ: một nơi duy nhất biết cách hệ cũ in số, không dựng
+ * bản thứ hai để rồi hai bản trôi khỏi nhau.
+ */
 const SO_VAN_BAN: FieldDef = {
   key: 'soVanBan',
-  label: 'Số văn bản (cấp khi in)',
+  label: 'Số văn bản (STT hồ sơ)',
   group: 'Văn bản',
-  resolve: () => '',
+  resolve: (r) => soHoSoNhuHeCu(r),
 };
 
 
@@ -246,7 +261,17 @@ const VU_VIEC_FIELDS: FieldDef[] = [
 
 // ── DON_THU (Petition) — khớp tên placeholder 7 mẫu (buildDocxPlaceholders) ───
 const DON_THU_FIELDS: FieldDef[] = [
-  { key: 'teamCode', label: 'Mã đội', group: 'Đơn vị', resolve: (r) => s(r.assignedTeam?.code ?? 'Đ1') },
+  /**
+   * Mã đơn vị PHÁT HÀNH trong số văn bản — hằng số `Đ1`, KHÔNG phải đội được giao.
+   *
+   * Đo trên bản in thật 09/09/2026: hồ sơ 37315 giao **Đội 8** và hồ sơ 69971 giao **Công an
+   * phường Hòa Hưng**, cả hai vẫn in `-Đ1`. Đó là Đội Tham mưu tổng hợp — nơi phát hành văn bản,
+   * ghi ngay dưới tiêu đề "PHÒNG CẢNH SÁT HÌNH SỰ".
+   *
+   * Bản trước đổ `assignedTeam.code` nên in ra MÃ NỘI BỘ (`DOI-4`, `TO-CT-02`, `PHUONG-THU-DUC`)
+   * vào số hiệu văn bản gửi đi.
+   */
+  { key: 'teamCode', label: 'Mã đơn vị phát hành', group: 'Đơn vị', resolve: () => 'Đ1' },
   { key: 'tenDoi', label: 'Tên đội', group: 'Đơn vị', resolve: (r) => s(r.assignedTeam?.name) },
   { key: 'tenDoiPhongBan', label: 'Tên phòng ban', group: 'Đơn vị', resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP' },
   { key: 'diaDiem', label: 'Địa điểm', group: 'Đơn vị', resolve: () => 'Thành phố Hồ Chí Minh' },

@@ -268,7 +268,7 @@ export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
  * Hồ sơ tạo mới trên hệ mới không có bản thô; lúc ấy cắt phần năm khỏi mã `2026-11141` để ra
  * cùng một con số, chứ không in cả mã.
  */
-function soHoSoNhuHeCu(record: unknown): string {
+export function soHoSoNhuHeCu(record: unknown): string {
   const r = (record ?? {}) as Record<string, unknown>;
   const raw = (r['legacyRaw'] ?? {}) as Record<string, unknown>;
   const tho = chuoi(raw['stt']);
