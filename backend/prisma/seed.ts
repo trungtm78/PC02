@@ -68,10 +68,27 @@ async function main() {
 
   // ── Grant OFFICER role: read permissions needed for dispatcher workflow ────
   // Calendar:read added in PR 1 (v0.16.0.0) — everyone needs to see the calendar.
+  //
+  // Directory:read them 09/09/2026. Thieu no thi MOI o chon lay tu danh muc deu rong voi can
+  // bo: `GET /directories` tra 403, va giao dien khong bao gi — o chi don gian khong co dong
+  // nao. Do tren may that bang tai khoan can bo that: 1.433 don vi xu ly vua nap, can bo khong
+  // thay mot dong. Day la quyen DOC danh muc tra cuu (don vi, loai don, toi danh...), KHONG
+  // dung du lieu ho so — pham vi ho so van do DataScope theo to/dieu tra vien giu.
   const officerReadPerms = await prisma.permission.findMany({
     where: {
       action: 'read',
-      subject: { in: ['Team', 'User', 'Case', 'Petition', 'Incident', 'DeadlineRuleVersion', 'Calendar'] },
+      subject: {
+        in: [
+          'Team',
+          'User',
+          'Case',
+          'Petition',
+          'Incident',
+          'DeadlineRuleVersion',
+          'Calendar',
+          'Directory',
+        ],
+      },
     },
   });
   for (const perm of officerReadPerms) {
