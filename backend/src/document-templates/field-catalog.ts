@@ -290,7 +290,19 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'ngayPhatHanh', label: 'Ngày phát hành', group: 'Mốc thời gian', resolve: () => fmtDate(new Date()) },
   { key: 'ngayNhan', label: 'Ngày nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.receivedDate) },
   { key: 'ngayDon', label: 'Ngày đơn', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.petitionDate ?? r.receivedDate) },
-  { key: 'loaiDon', label: 'Loại đơn', group: 'Hồ sơ', resolve: (r) => (r.petitionType ? LOAI_DON_LABEL[s(r.petitionType)] ?? '' : '') },
+  /**
+   * Loại đơn — đã phân loại thì dùng nhãn hệ mới, CHƯA thì lấy `loaiThongTin` như hệ cũ in.
+   *
+   * Đo 09/09/2026: 46.655/47.169 hồ sơ (98,9%) có `petitionType` rỗng mà `loaiThongTin` có chữ.
+   * Bản trước chỉ đọc `petitionType` nên gần như mọi bản in ra "Đơn ghi ngày …" — mất hẳn loại
+   * đơn, trong khi hệ cũ in "Đơn Tố giác ghi ngày …".
+   */
+  {
+    key: 'loaiDon',
+    label: 'Loại đơn',
+    group: 'Hồ sơ',
+    resolve: (r) => (r.petitionType ? (LOAI_DON_LABEL[s(r.petitionType)] ?? '') : s(r.loaiThongTin)),
+  },
   { key: 'ghiTen', label: 'Họ tên người gửi', group: 'Người gửi', resolve: (r) => s(r.senderName) },
   { key: 'namSinh', label: 'Năm sinh', group: 'Người gửi', resolve: (r) => s(r.senderBirthYear) },
   { key: 'diaChi', label: 'Địa chỉ', group: 'Người gửi', resolve: (r) => s(r.senderAddress) },
@@ -298,7 +310,22 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'noiDung', label: 'Nội dung', group: 'Nội dung', resolve: (r) => s(r.detailContent || r.summary || '') },
   { key: 'dinhKem', label: 'Đính kèm', group: 'Nội dung', resolve: (r) => s(r.attachmentsNote) },
   { key: 'raSoatTrung', label: 'Rà soát trùng', group: 'Nghiệp vụ', resolve: (r) => s(r.raSoatTrung ?? 'Không') },
-  { key: 'baoCaoBGD', label: 'Báo cáo BGĐ', group: 'Nghiệp vụ', resolve: (r) => (r.baoCaoBanGiamDoc ? 'Có' : 'Không') },
+  /**
+   * Thuộc trường hợp báo cáo Ban giám đốc — in CHỮ, không in "Có"/"Không".
+   *
+   * Mẫu hệ cũ đổ thẳng `${truong_hop_bao_cao_ban_giam_doc}`: hồ sơ 37315 in "Công ty Cổ phần Ánh
+   * Dương Việt Nam". Bản trước đọc cột BOOLEAN bên cạnh nên in "Có" — 35.502 hồ sơ có chữ mà
+   * bản in nuốt mất.
+   *
+   * Chỉ có ô đánh dấu mà không có chữ thì vẫn nói được là "Có"; không thuộc trường hợp thì in
+   * TRỐNG như hệ cũ, chứ không in "Không".
+   */
+  {
+    key: 'baoCaoBGD',
+    label: 'Báo cáo BGĐ',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.baoCaoBanGiamDocText) || (r.baoCaoBanGiamDoc ? 'Có' : ''),
+  },
   { key: 'nhanThay', label: 'Nhận thấy', group: 'Nghiệp vụ', resolve: (r) => s(r.nhanThay) },
   { key: 'deXuat', label: 'Đề xuất', group: 'Nghiệp vụ', resolve: (r) => s(r.deXuat) },
   { key: 'lyDoChuyen', label: 'Lý do chuyển', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoChuyen) },
