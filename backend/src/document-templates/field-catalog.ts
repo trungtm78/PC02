@@ -1,6 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { khoaTheoTenHeCu, soHoSoNhuHeCu, KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+import {
+  khoaTheoTenHeCu,
+  namHoSoNhuHeCu,
+  soHoSoNhuHeCu,
+  KHOA_HE_CU_NGOAI_PARITY,
+} from './khoa-he-cu';
 import { getCatalogEntry } from '../catalog/catalog.registry';
 export { personName, rankName, abbrevName } from './ten-nguoi.util';
 import { personName, rankName, abbrevName } from './ten-nguoi.util';
@@ -275,6 +280,13 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'tenDoi', label: 'Tên đội', group: 'Đơn vị', resolve: (r) => s(r.assignedTeam?.name) },
   { key: 'tenDoiPhongBan', label: 'Tên phòng ban', group: 'Đơn vị', resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP' },
   { key: 'diaDiem', label: 'Địa điểm', group: 'Đơn vị', resolve: () => 'Thành phố Hồ Chí Minh' },
+  /**
+   * Năm của HỒ SƠ cho dòng ký "Ngày … tháng … năm …".
+   *
+   * Mẫu Phiếu đề xuất ghi CỨNG "năm 2026" nên hồ sơ 2016 in ra 2026. Hệ cũ đổ thẳng năm của hồ
+   * sơ. Dùng lại đúng hàm của bộ mẫu hệ cũ, không dựng bản thứ hai.
+   */
+  { key: 'namHoSo', label: 'Năm của hồ sơ', group: 'Mốc thời gian', resolve: (r) => namHoSoNhuHeCu(r) },
   { key: 'ngayPhatHanh', label: 'Ngày phát hành', group: 'Mốc thời gian', resolve: () => fmtDate(new Date()) },
   { key: 'ngayNhan', label: 'Ngày nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.receivedDate) },
   { key: 'ngayDon', label: 'Ngày đơn', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.petitionDate ?? r.receivedDate) },
