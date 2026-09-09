@@ -392,8 +392,26 @@ const DON_THU_FIELDS: FieldDef[] = [
   { key: 'tenTruongPhong', label: 'Trưởng phòng', group: 'Cán bộ', resolve: () => '' },
   // ── Bổ sung cho bộ mẫu PC01 (TT 128/2025/TT-BCA) ──────────────────────────
   // Ngày dạng ngắn: mẫu PC01 viết "Ngày 13/7/2026, ..." (đã có chữ "ngày" sẵn)
-  { key: 'ngayNhanNgan', label: 'Ngày nhận (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.receivedDate) },
-  { key: 'ngayDonNgan', label: 'Ngày đơn (d/M/yyyy)', group: 'Mốc thời gian', resolve: (r) => fmtDateShort(r.petitionDate ?? r.receivedDate) },
+  /**
+   * Ô "Ngày …, … nhận được:" — đọc ĐÚNG trường hệ cũ đọc (`ngay_tiep_nhan_nguon_tin`).
+   *
+   * Bản trước lùi về `receivedDate`. Hồ sơ 37315 không có ngày tiếp nhận nguồn tin: hệ cũ in
+   * "Ngày , Đội 1 nhận được:" còn hệ mới in một ngày KHÔNG có ở ô ấy. Đo: 44.369/47.169 hồ sơ
+   * có trường thật; 2.800 hồ sơ để trống đúng như hệ cũ.
+   */
+  {
+    key: 'ngayNhanNgan',
+    label: 'Ngày tiếp nhận nguồn tin (d/M/yyyy)',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDateShort(r.ngayTiepNhanNguonTin),
+  },
+  /** Ô "Đơn … ghi ngày …" — hệ cũ đọc `ngay_viet_don`, không lùi sang ngày nhận. */
+  {
+    key: 'ngayDonNgan',
+    label: 'Ngày viết đơn (d/M/yyyy)',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDateShort(r.petitionDate),
+  },
   { key: 'gioTiepNhan', label: 'Giờ tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtGioPhut(r.receivedDate) },
   // Giấy tờ tuỳ thân người gửi (Giấy biên nhận — Mẫu 214)
   { key: 'soCCCD', label: 'Số CCCD người gửi', group: 'Người gửi', resolve: (r) => s(r.senderIdNumber) },

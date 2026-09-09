@@ -267,3 +267,39 @@ describe('ba mục còn lại — giống hệ cũ', () => {
     expect(resolveField('DON_THU', 'deXuat', r)).toBe('Chuyển Công an quận 5');
   });
 });
+
+/**
+ * HAI Ô NGÀY phải đọc ĐÚNG TRƯỜNG hệ cũ đọc, không tự lùi sang trường khác.
+ *
+ * Mẫu hệ cũ:
+ *   `Ngày ${ngay_tiep_nhan_nguon_tin}, Đội 1 nhận được:`
+ *   `Đơn ${loai_thong_tin} ghi ngày ${ngay_viet_don}`
+ *
+ * Bản trước lùi cả hai về `receivedDate`. Hồ sơ 37315 không có ngày tiếp nhận nguồn tin: hệ cũ
+ * in "Ngày , Đội 1 nhận được:" còn hệ mới in "Ngày 14/12/2016" — một ngày KHÔNG có ở ô ấy.
+ *
+ * Đo 09/09/2026: 44.369/47.169 hồ sơ có `ngayTiepNhanNguonTin` (in đúng trường thật);
+ * 2.800 hồ sơ để TRỐNG đúng như hệ cũ. Với ô ngày đơn: 41.820 có, 5.349 để trống.
+ */
+describe('hai ô ngày đọc đúng trường của hệ cũ', () => {
+  it('ngày nhận: đọc ngayTiepNhanNguonTin, KHÔNG lùi sang ngày nhận đơn', () => {
+    const r = { ngayTiepNhanNguonTin: null, receivedDate: '2016-12-14T00:00:00.000Z' } as never;
+
+    expect(resolveField('DON_THU', 'ngayNhanNgan', r)).toBe('');
+  });
+
+  it('ngày nhận: có trường thật thì in trường ấy', () => {
+    const r = {
+      ngayTiepNhanNguonTin: '2016-11-30T00:00:00.000Z',
+      receivedDate: '2016-12-14T00:00:00.000Z',
+    } as never;
+
+    expect(resolveField('DON_THU', 'ngayNhanNgan', r)).toBe('30/11/2016');
+  });
+
+  it('ngày đơn: đọc petitionDate, KHÔNG lùi sang ngày nhận', () => {
+    const r = { petitionDate: null, receivedDate: '2016-12-14T00:00:00.000Z' } as never;
+
+    expect(resolveField('DON_THU', 'ngayDonNgan', r)).toBe('');
+  });
+});
