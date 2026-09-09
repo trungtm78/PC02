@@ -4,6 +4,7 @@ import {
   danhDauXuongDong,
   ngatDoanNhuHeCu,
   DAU_NGAT_DOAN,
+  DAU_NGAT_MEM,
   PPR_DONG_TIEP,
 } from './ngat-doan-he-cu';
 
@@ -210,4 +211,54 @@ describe('kiểu chữ của dòng tiếp', () => {
     expect(doan[0]).toContain('<w:b/>');
   });
 
+});
+
+/**
+ * MỘT SỐ Ô hệ cũ dựng bằng NGẮT DÒNG MỀM chứ không tách đoạn.
+ *
+ * Đo trên bản in thật ngày 09/09/2026, bốn hồ sơ 18 · 27 · 65 · 96 (mẫu `tra_ho_so_mau`):
+ *
+ *   `de_xuat`          → `<w:br/>` trong CÙNG một đoạn (br=1..2, không đoạn mới)
+ *   `nhan_xet`         → mỗi dòng một ĐOẠN (br=0)
+ *   `tom_tat_noi_dung` → mỗi dòng một ĐOẠN
+ *
+ * Chỉ 498/55.514 hồ sơ có `de_xuat` nhiều dòng, nhưng khác biệt vẫn là khác biệt.
+ *
+ * Dấu xuống dòng ở CUỐI giá trị bị bỏ: `de_xuat` của hồ sơ 18 kết thúc bằng ba lần xuống dòng
+ * mà bản in hệ cũ không có đoạn trống nào ở đó.
+ */
+describe('ô dựng bằng ngắt dòng mềm', () => {
+  it('`de_xuat` dùng dấu MỀM, không phải dấu đoạn', () => {
+    const d = danhDauXuongDong({ de_xuat: ['một', 'hai'].join('\n') });
+
+    expect(d.de_xuat).toBe(`một${DAU_NGAT_MEM}hai`);
+  });
+
+  it('ô khác vẫn tách ĐOẠN', () => {
+    const d = danhDauXuongDong({ nhan_xet: ['một', 'hai'].join('\n') });
+
+    expect(d.nhan_xet).toBe(`một${DAU_NGAT_DOAN}hai`);
+  });
+
+  it('dấu mềm dựng ra `<w:br/>` và KHÔNG sinh đoạn mới', () => {
+    const xml = xmlCua(
+      ngatDoanNhuHeCu(docxMau(DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_MEM}hai`))),
+    );
+
+    expect(xml).toContain('<w:br/>');
+    expect(cacDoan(xml)).toHaveLength(1);
+    expect(xml).not.toContain(DAU_NGAT_MEM);
+  });
+
+  it('xuống dòng ở CUỐI giá trị bị bỏ, không để lại đoạn trống', () => {
+    const d = danhDauXuongDong({ nhan_xet: 'một\n\n\n' });
+
+    expect(d.nhan_xet).toBe('một');
+  });
+
+  it('xuống dòng ở cuối ô mềm cũng bị bỏ', () => {
+    const d = danhDauXuongDong({ de_xuat: 'một\nhai\n\n' });
+
+    expect(d.de_xuat).toBe(`một${DAU_NGAT_MEM}hai`);
+  });
 });

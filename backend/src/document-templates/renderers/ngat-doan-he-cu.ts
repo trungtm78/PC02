@@ -32,16 +32,29 @@ export const DAU_NGAT_MEM = '\uE001';
 export const PPR_DONG_TIEP =
   '<w:spacing w:before="60"/><w:ind w:firstLine="709"/><w:jc w:val="both"/>';
 
+/**
+ * Những ô hệ cũ dựng bằng NGẮT DÒNG MỀM chứ không tách đoạn.
+ *
+ * Đo trên bản in thật ngày 09/09/2026, bốn hồ sơ 18 · 27 · 65 · 96 (mẫu `tra_ho_so_mau`):
+ * `de_xuat` ra `<w:br/>` trong cùng một đoạn, trong khi `nhan_xet` và `tom_tat_noi_dung` của
+ * chính những hồ sơ ấy ra mỗi dòng một ĐOẠN. Chỉ 498/55.514 hồ sơ có `de_xuat` nhiều dòng.
+ *
+ * Danh sách HẸP có chủ ý: chỉ ghi ô đã ĐO thấy, không suy rộng ra ô chưa kiểm.
+ */
+const O_NGAT_MEM = new Set(['de_xuat']);
+
 /** Đánh dấu chỗ xuống dòng trong dữ liệu, trước khi đưa vào engine dựng. */
 export function danhDauXuongDong(data: Record<string, string>): Record<string, string> {
   const ra: Record<string, string> = {};
   for (const [k, v] of Object.entries(data)) {
-    // MỌI lần xuống dòng đều thành ĐOẠN MỚI — kể cả `\n` đơn.
-    //
-    // Bản trước phân biệt `\r\n` với `\n` vì thấy bản in hệ cũ của hồ sơ 18 có ngắt dòng mềm. Đo
-    // thẳng dữ liệu thô mới rõ: hồ sơ ấy CHỈ có `\n` mà hệ cũ vẫn tách đoạn — dấu ngắt mềm ấy do
-    // CHÍNH MẪU viết ra, không phải do dữ liệu. Giả thuyết sai làm hồ sơ 18 từ 5 chỗ lệch thành 17.
-    ra[k] = typeof v === 'string' ? v.replace(/\r\n|[\r\n]/g, DAU_NGAT_DOAN) : v;
+    // Xuống dòng ở CUỐI giá trị bị BỎ: `de_xuat` của hồ sơ 18 kết thúc bằng ba lần xuống
+    // dòng mà bản in hệ cũ không có đoạn trống nào ở đó.
+    if (typeof v !== 'string') {
+      ra[k] = v;
+      continue;
+    }
+    const dau = O_NGAT_MEM.has(k) ? DAU_NGAT_MEM : DAU_NGAT_DOAN;
+    ra[k] = v.replace(/[\r\n]+$/, '').replace(/\r\n|[\r\n]/g, dau);
   }
   return ra;
 }
