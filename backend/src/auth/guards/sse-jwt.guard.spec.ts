@@ -116,4 +116,31 @@ describe('SseJwtGuard (C4 fix)', () => {
     const ctx = makeCtx({});
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
+
+
+  it('CHẤP NHẬN token truy cập thật (không có `type`)', async () => {
+    mockJwt.verify.mockReturnValue({
+      sub: 'user-1',
+      email: 'a@a.com',
+      role: 'ADMIN',
+      tokenVersion: 1,
+      // KHÔNG có `type` — đúng như máy chủ phát ra.
+    });
+
+    await expect(guard.canActivate(makeCtx())).resolves.toBe(true);
+  });
+
+  it('vẫn TỪ CHỐI token làm mới', async () => {
+    mockJwt.verify.mockReturnValue({ sub: 'user-1', type: 'refresh', tokenVersion: 1 });
+
+    await expect(guard.canActivate(makeCtx())).rejects.toThrow();
+  });
+
+  it('vẫn TỪ CHỐI token nửa chừng (2fa, đổi mật khẩu)', async () => {
+    for (const t of ['2fa_pending', 'change_password_pending']) {
+      mockJwt.verify.mockReturnValue({ sub: 'user-1', type: t, tokenVersion: 1 });
+
+      await expect(guard.canActivate(makeCtx())).rejects.toThrow();
+    }
+  });
 });
