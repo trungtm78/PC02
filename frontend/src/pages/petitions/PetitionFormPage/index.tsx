@@ -39,6 +39,7 @@ import { useTeamOptions } from "@/hooks/useTeamOptions";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/QuickCreateDirectoryModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { HUONG_XU_LY_OPTIONS, laHuongNoiBo, moTaHuong } from "@/shared/enums/huong-xu-ly";
@@ -420,6 +421,9 @@ export function PetitionFormPage() {
 
   // Phím tắt form: F2 Lưu, Esc Hủy, F4 Xuất/In chứng từ, F3 Xóa (chỉ khi SỬA).
   const deleteModal = useDeleteResourceModalSafe();
+  // Tạo nhanh đơn vị xử lý ngay trên ô tìm. Bản "Safe": form này còn được dựng ở vài chỗ không
+  // bọc CompositeModalProvider (ca kiểm, màn nhúng) — ném ở đó là trắng màn hình vì tính năng phụ.
+  const taoNhanhDonVi = useQuickCreateDirectoryModalSafe();
   useFormShortcuts({
     onSave: () => void onSave(),
     onCancel: handleCancel,
@@ -951,7 +955,15 @@ export function PetitionFormPage() {
                     onChange={(v) => update("donViXuLy", v)}
                     placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
                     testId="field-donViXuLy"
-                    canCreate
+                    canCreate={!!taoNhanhDonVi}
+                    onCreateNew={(tenGoiY) =>
+                      taoNhanhDonVi?.open({
+                        type: "DON_VI",
+                        tenGoiY,
+                        // Tạo xong thì chọn ngay — nếu không, cán bộ vừa tạo lại phải tự đi tìm.
+                        onCreated: (ten) => update("donViXuLy", ten),
+                      })
+                    }
                   />
                 )}
                 <p className="mt-1 text-xs text-slate-500">{moTaHuong(formData.huongXuLy)}</p>
