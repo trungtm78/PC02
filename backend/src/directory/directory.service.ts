@@ -62,11 +62,23 @@ export class DirectoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryDirectoryDto) {
-    const { type, search, parentId, isActive, limit = 50, offset = 0 } = query;
+    const { type, search, parentId, isActive, choDuyet, limit = 50, offset = 0 } = query;
 
     const where: Record<string, unknown> = {};
     if (type) where.type = type;
     if (isActive !== undefined) where.isActive = isActive;
+    /**
+     * Lọc nhóm CHỜ DUYỆT — mục nạp từ dữ liệu cũ mà đợt phân loại trước không xác nhận được có
+     * phải tên đơn vị hay không, cộng mục cán bộ tự tạo trên ô tìm.
+     *
+     * Cờ nằm trong `metadata` chứ không phải cột riêng: `Directory` dùng chung cho ~30 loại
+     * danh mục, thêm một cột chỉ một loại cần là bắt 29 loại kia mang theo.
+     */
+    if (choDuyet !== undefined) {
+      where.metadata = choDuyet
+        ? { path: ['choDuyet'], equals: true }
+        : { NOT: { path: ['choDuyet'], equals: true } };
+    }
     if (parentId !== undefined) {
       where.parentId = parentId === 'null' ? null : parentId;
     }
@@ -192,6 +204,9 @@ export class DirectoryService {
         // Xếp sau các mục đã có: mục tự tạo chưa được duyệt, không nên nổi lên đầu ô tìm.
         order: 9000,
         isActive: true,
+        // Vào nhóm CHỜ DUYỆT để quản trị rà lại. Không đánh dấu thì mục cán bộ gõ vội lẫn vào
+        // danh mục chính và không còn đường nào tìm ra chúng.
+        metadata: { nguon: 'tao-nhanh', choDuyet: true },
       },
     });
   }

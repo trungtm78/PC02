@@ -36,6 +36,17 @@ describe('DirectoryService.taoNhanh', () => {
     expect(ra.code).toMatch(/^DV\d{4,}$/);
   });
 
+  /**
+   * Không đánh dấu thì mục cán bộ gõ vội lẫn vào danh mục chính và không còn đường nào tìm ra
+   * chúng để rà lại — đúng cách danh mục hệ cũ phình lên 3.806 tên thô.
+   */
+  it('mục tự tạo vào nhóm CHỜ DUYỆT và xếp cuối ô tìm', async () => {
+    await service.taoNhanh({ type: 'DON_VI', name: 'Công an phường Bến Nghé' });
+    const { data } = prisma.directory.create.mock.calls.at(-1)![0];
+    expect(data.metadata).toMatchObject({ choDuyet: true, nguon: 'tao-nhanh' });
+    expect(data.order).toBeGreaterThanOrEqual(9000);
+  });
+
   it('sinh mã từ mã LỚN NHẤT đang có, không phải từ số lượng dòng', async () => {
     // Danh mục có 2 dòng nhưng mã cao nhất là DV0500 — đếm dòng sẽ sinh DV0003, đụng mã cũ khi
     // dòng ấy tồn tại, hoặc tạo lỗ hổng khó lần khi không.

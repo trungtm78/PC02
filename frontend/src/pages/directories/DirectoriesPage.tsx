@@ -6,6 +6,7 @@ import {
   Search,
   Edit2,
   Trash2,
+  Check,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -33,6 +34,11 @@ type Directory = {
   parentId: string | null;
   order: number;
   isActive: boolean;
+  /**
+   * Dữ liệu kèm theo, tuỳ loại danh mục. Với `DON_VI` mang cờ `choDuyet` và dấu vết nguồn
+   * (nạp từ dữ liệu cũ hay cán bộ tự tạo trên ô tìm), để quản trị rà lại được.
+   */
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -103,6 +109,14 @@ export default function DirectoriesPage() {
   const [loadError, setLoadError] = useState("");
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  /**
+   * Lọc nhóm CHỜ DUYỆT — mục nạp từ dữ liệu cũ mà đợt phân loại trước không xác nhận được có
+   * phải tên đơn vị hay không, cộng mục cán bộ tự tạo trên ô tìm của form.
+   *
+   * Không có bộ lọc này thì ~1.263 mục chờ duyệt nằm lẫn trong danh mục chính và không có
+   * đường nào tìm ra chúng để rà — tức là chúng sẽ không bao giờ được rà.
+   */
+  const [locChoDuyet, setLocChoDuyet] = useState<'all' | 'cho' | 'da'>('all');
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Directory | null>(null);
@@ -183,6 +197,7 @@ export default function DirectoriesPage() {
       const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
       if (searchQuery) params.search = searchQuery;
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
+      if (locChoDuyet !== 'all') params.choDuyet = locChoDuyet === 'cho' ? 'true' : 'false';
       if (drillParentId) params.parentId = drillParentId;
       else if (filterParentId) params.parentId = filterParentId;
       const res = await api.get('/directories', { params });
@@ -202,13 +217,40 @@ export default function DirectoriesPage() {
     } finally {
       if (conMoiNhat()) setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus, currentPage, drillParentId, filterParentId]);
+  }, [activeType, searchQuery, filterStatus, locChoDuyet, currentPage, drillParentId, filterParentId]);
 
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
+
+  /**
+   * Mục này có đang chờ duyệt không.
+   *
+   * Cờ nằm trong `metadata` chứ không phải cột riêng: bảng `Directory` dùng chung cho khoảng
+   * 30 loại danh mục, thêm một cột chỉ một loại cần là bắt 29 loại kia mang theo.
+   */
+  const laChoDuyet = (item: Directory): boolean =>
+    (item.metadata as Record<string, unknown> | null)?.choDuyet === true;
+
+  /**
+   * Duyệt một mục: bỏ cờ chờ duyệt và đưa về thứ tự bình thường để nó nổi lên trong ô tìm.
+   *
+   * Giữ nguyên phần còn lại của `metadata` (nguồn, nhóm, số hồ sơ) — người duyệt sau còn cần
+   * biết mục này từ đâu ra.
+   */
+  const duyetMuc = async (item: Directory) => {
+    const meta = { ...((item.metadata as Record<string, unknown> | null) ?? {}) };
+    meta.choDuyet = false;
+    meta.duyetLuc = new Date().toISOString();
+    try {
+      await api.patch(`/directories/${item.id}`, { metadata: meta, order: 0 });
+      await loadItems();
+    } catch (e) {
+      setLoadError(extractApiError(e, "Không duyệt được mục này.").messages.join(", "));
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingItem(null);
@@ -444,6 +486,16 @@ export default function DirectoriesPage() {
                     <option value="active">Hoạt động</option>
                     <option value="inactive">Vô hiệu</option>
                   </select>
+                  <select
+                    value={locChoDuyet}
+                    onChange={(e) => { setLocChoDuyet(e.target.value as 'all' | 'cho' | 'da'); setCurrentPage(1); }}
+                    className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
+                    data-testid="loc-cho-duyet"
+                  >
+                    <option value="all">Mọi mục</option>
+                    <option value="cho">Chờ duyệt</option>
+                    <option value="da">Đã duyệt</option>
+                  </select>
                 </div>
               </div>
 
@@ -569,6 +621,16 @@ export default function DirectoriesPage() {
                                 data-testid="btn-drill-down"
                               >
                                 Xem phường/xã →
+                              </button>
+                            )}
+                            {laChoDuyet(item) && (
+                              <button
+                                onClick={() => void duyetMuc(item)}
+                                className="p-1.5 hover:bg-emerald-50 rounded transition-colors"
+                                title="Duyệt — đưa vào danh mục chính"
+                                data-testid={`btn-duyet-${item.id}`}
+                              >
+                                <Check className="w-4 h-4 text-emerald-600" />
                               </button>
                             )}
                             <button

@@ -26,6 +26,14 @@ export class QueryDirectoryDto {
   @IsOptional()
   isActive?: boolean;
 
+  /**
+   * Lọc nhóm CHỜ DUYỆT (mục nạp từ dữ liệu cũ chưa xác nhận, hoặc cán bộ tự tạo trên ô tìm).
+   * Bỏ trống = lấy cả hai.
+   */
+  @Transform(({ value }) => (value === undefined ? undefined : value === 'true' || value === true))
+  @IsOptional()
+  choDuyet?: boolean;
+
   @IsInt()
   @Min(1)
   @Max(1000)
