@@ -20,7 +20,13 @@ export function useOfficerOptions(enabled = true) {
   return useQuery({
     queryKey: ['officers', 'options'],
     queryFn: async () => {
-      const res = await api.get('/admin/users', { params: { limit: 200, isActive: true } });
+      // Khoá lọc là `status: 'active'`, KHÔNG phải `isActive`.
+      //
+      // Máy chủ khai `QueryUsersDto` với `status` (rồi tự đổi thành `isActive` khi truy vấn) và
+      // bật `forbidNonWhitelisted`, nên gửi `isActive` bị trả 400 "property isActive should not
+      // exist" — ô lọc cán bộ RỖNG trên cả ba trang danh sách, im lặng. Monkey test bắt được
+      // ngày 09/09/2026.
+      const res = await api.get('/admin/users', { params: { limit: 200, status: 'active' } });
       const items: Array<{
         id: string;
         firstName?: string | null;
