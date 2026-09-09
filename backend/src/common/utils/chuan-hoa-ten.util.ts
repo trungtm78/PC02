@@ -29,9 +29,17 @@ export function boDauTiengViet(v: string): string {
  * Bàn Cờ`. Không gộp chúng thì danh mục vừa dọn xong sẽ phình lại y như hệ cũ.
  */
 export function khoaDonVi(ten: string): string {
-  return boDauTiengViet(ten)
-    .replace(/^bch\s+/, '')
-    .replace(/[.,;:()\-/]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    boDauTiengViet(ten)
+      // "BCH Đội 4" = "Đội 4"; "Phòng PC01 …" = "PC01 …". Đo trên dữ liệu thật 09/09/2026:
+      // riêng tiền tố "Phòng" đang tách 60 đơn vị thành hai dòng, trong đó có PC01 (699 + 637
+      // hồ sơ) và PC03 (494 + 323) — hai đơn vị dùng nhiều nhất của danh mục.
+      .replace(/^(bch|phong)\s+/, '')
+      // "TP. HCM" và "TP. Hồ Chí Minh" là một thành phố. Không gộp thì "Cơ sở 1 - PC02" nằm
+      // hai dòng (299 + 239 hồ sơ). Chỉ khớp HCM đứng RIÊNG một từ, không cắt vào giữa chữ.
+      .replace(/\bhcm\b/g, 'ho chi minh')
+      .replace(/[.,;:()\-/]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
