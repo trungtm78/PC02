@@ -1,5 +1,5 @@
 import PizZip from 'pizzip';
-import { dinhDangDoan, chuTrongDocx, soDong, mauChoLoai, thucTheChoMau, ganCanBoNhap } from './so-ban-in';
+import { dinhDangDoan, manhChuTrongDocx, soKieuChu, chuTrongDocx, soDong, mauChoLoai, thucTheChoMau, ganCanBoNhap } from './so-ban-in';
 
 /**
  * Công cụ đối chiếu phải TỰ ĐÚNG trước đã.
@@ -239,5 +239,93 @@ describe('dinhDangDoan', () => {
 
     expect(chuTrongDocx(cu)).toEqual(chuTrongDocx(moi));
     expect(dinhDangDoan(cu)).not.toEqual(dinhDangDoan(moi));
+  });
+});
+
+/**
+ * KIỂU CHỮ — tầng thứ ba của phép so, và là tầng anh bắt được lỗi.
+ *
+ * Đặt hai bản in cạnh nhau ngày 09/09/2026: hệ cũ không đậm, hệ mới đậm. Phép so CHỮ không
+ * thấy (chữ giống hệt); phép so ĐOẠN cũng không thấy (đậm là thuộc tính của run). Ba tầng phải
+ * có đủ ba phép so, nếu không mỗi lần vá một tầng lại lộ ra tầng kế bên.
+ */
+function docxKieuChu(manh: { chu: string; dam?: boolean; ngh?: boolean; gach?: boolean; co?: string }[]): Buffer {
+  const runs = manh
+    .map((m) => {
+      const rPr =
+        m.dam || m.ngh || m.gach || m.co
+          ? `<w:rPr>${m.dam ? '<w:b/>' : ''}${m.ngh ? '<w:i/>' : ''}${
+              m.gach ? '<w:u w:val="single"/>' : ''
+            }${m.co ? `<w:sz w:val="${m.co}"/>` : ''}</w:rPr>`
+          : '';
+      return `<w:r>${rPr}<w:t>${m.chu}</w:t></w:r>`;
+    })
+    .join('');
+  const zip = new PizZip();
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0"?><w:document><w:body><w:p>${runs}</w:p></w:body></w:document>`,
+  );
+  return zip.generate({ type: 'nodebuffer' }) as Buffer;
+}
+
+describe('manhChuTrongDocx', () => {
+  it('gộp các run liền nhau CÙNG kiểu — nếu không thì mọi đoạn đều báo lệch giả', () => {
+    // Hệ cũ cắt một câu thành nhiều run cùng kiểu; hệ mới gộp thành một. Nhìn y hệt nhau.
+    const nhieu = manhChuTrongDocx(
+      docxKieuChu([{ chu: 'Giao' }, { chu: 'Công an' }, { chu: 'phường' }]),
+    );
+    const mot = manhChuTrongDocx(docxKieuChu([{ chu: 'Giao Công an phường' }]));
+
+    expect(nhieu[0]).toHaveLength(1);
+    expect(nhieu).toEqual(mot);
+  });
+
+  it('đọc đủ đậm · nghiêng · gạch chân · cỡ chữ', () => {
+    const m = manhChuTrongDocx(
+      docxKieuChu([{ chu: 'A', dam: true, gach: true, co: '28' }, { chu: 'B' }]),
+    )[0];
+
+    expect(m[0]).toEqual({ chu: 'A', dam: true, nghieng: false, gachChan: true, co: '28' });
+    expect(m[1].dam).toBe(false);
+  });
+});
+
+describe('soKieuChu', () => {
+  /** Chính đoạn "Đề xuất" của mẫu `HE_CU_VU_AN`, hồ sơ 69971 — dựng lại từ bản in thật. */
+  const HE_CU = docxKieuChu([
+    { chu: 'Đề xuất', dam: true, gach: true },
+    { chu: ':' , dam: true },
+    { chu: 'Giao' },
+    { chu: 'Công an phường Hòa Hưng', dam: true },
+    { chu: 'tiếp nhận thụ lý' },
+  ]);
+
+  it('nhãn đậm trùm lên cả câu → BÁO lệch, kèm chữ để đọc được là chỗ nào', () => {
+    const heMoi = docxKieuChu([
+      { chu: 'Đề xuất', dam: true, gach: true },
+      { chu: ':', dam: true, gach: true },
+      { chu: 'Giao', dam: true, gach: true },
+      { chu: 'Công an phường Hòa Hưng', dam: true, gach: true },
+      { chu: 'tiếp nhận thụ lý', dam: true, gach: true },
+    ]);
+
+    const lech = soKieuChu(manhChuTrongDocx(HE_CU), manhChuTrongDocx(heMoi));
+
+    // Nhãn "Đề xuất" hai bên giống nhau (đậm + gạch chân), nên chỗ lệch ĐẦU là dấu hai chấm.
+    expect(lech.length).toBeGreaterThan(0);
+    expect(lech[0]).toMatchObject({ chu: ':', heCu: 'đậm', heMoi: 'đậm + gạch chân' });
+    // Và chỗ đáng kể nhất: phần chữ thường của hệ cũ bị hệ mới in đậm.
+    expect(lech.some((l) => l.chu.includes('Giao') && l.heCu === 'thường')).toBe(true);
+  });
+
+  it('hai bản giống nhau → không lệch', () => {
+    expect(soKieuChu(manhChuTrongDocx(HE_CU), manhChuTrongDocx(HE_CU))).toEqual([]);
+  });
+
+  it('khác CHỮ thì im lặng — đó là việc của phép so chữ, báo hai lần là đếm đôi', () => {
+    const khac = docxKieuChu([{ chu: 'Chuyện khác hẳn' }]);
+
+    expect(soKieuChu(manhChuTrongDocx(HE_CU), manhChuTrongDocx(khac))).toEqual([]);
   });
 });

@@ -22,6 +22,7 @@ import * as path from 'path';
 import { detectDocxVariables } from '../src/document-templates/docx-variables.util';
 import { normalizeDocxTags } from '../src/document-templates/docx-normalize.util';
 import { isAutoPlaceholder } from '../src/document-templates/entity-placeholders';
+import { PHAN_BO_THUC_THE_DO_DUOC, type ThucTheMau } from './phan-bo-thuc-the-he-cu';
 import { timThuMucMau } from './duong-dan-mau';
 
 export interface MauHeCu {
@@ -30,7 +31,15 @@ export interface MauHeCu {
   /** Mã mẫu ở hệ mới — dùng `HE_CU_` để không đụng mã của bộ mẫu tố tụng. */
   code: string;
   name: string;
-  entityType: 'DON_THU' | 'VU_VIEC' | 'VU_AN';
+  /**
+   * MỌI thực thể mà mẫu này phải được mời in, phần tử đầu là thực thể chính.
+   *
+   * Trước đây chỉ một thực thể, suy từ bảng ánh xạ của hệ cũ. Nhưng hệ cũ chọn mẫu theo `loai`
+   * còn bộ di trú xếp hồ sơ theo trạng thái tố tụng — hai cách phân loại không trùng nhau, nên
+   * 5.227 hồ sơ (đo 09/09/2026) có chứng từ hệ cũ in được mà hệ mới không mời in. Bộ thực thể
+   * ở đây lấy từ SỐ ĐO thật, xem `phan-bo-thuc-the-he-cu.ts`.
+   */
+  entityTypes: ThucTheMau[];
   category: string;
 }
 
@@ -42,17 +51,17 @@ export interface MauHeCu {
  * dùng chung mẫu đăng ký bào chữa đúng như hệ cũ khai.
  */
 export const MAU_HE_CU: MauHeCu[] = [
-  { file: 'don_thu_mau.docx', code: 'HE_CU_DON_THU', name: 'Hồ sơ đơn thư (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Khác' },
-  { file: 'bien_nhan_don_thu_mau.docx', code: 'HE_CU_BIEN_NHAN', name: 'Biên nhận đơn thư (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Biên bản' },
-  { file: 'huong_dan_mau.docx', code: 'HE_CU_HUONG_DAN', name: 'Hồ sơ hướng dẫn (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Thông báo' },
-  { file: 'trao_doi_chuyen_an_mau.docx', code: 'HE_CU_TRAO_DOI', name: 'Trao đổi chuyển án (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Khác' },
-  { file: 'tra_ho_so_mau.docx', code: 'HE_CU_TRA_HO_SO', name: 'Trả hồ sơ (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Khác' },
-  { file: 'dang_ky_bao_chua_mau.docx', code: 'HE_CU_DANG_KY_BAO_CHUA', name: 'Đăng ký bào chữa (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Giấy chứng nhận' },
-  { file: 'so_dang_ky_bao_chua.docx', code: 'HE_CU_SO_DANG_KY_BAO_CHUA', name: 'Sổ đăng ký bào chữa (mẫu hệ cũ)', entityType: 'DON_THU', category: 'Khác' },
-  { file: 'vu_viec_mau.docx', code: 'HE_CU_VU_VIEC', name: 'Hồ sơ vụ việc (mẫu hệ cũ)', entityType: 'VU_VIEC', category: 'Khác' },
-  { file: 'vu_an_mau.docx', code: 'HE_CU_VU_AN', name: 'Hồ sơ vụ án (mẫu hệ cũ)', entityType: 'VU_AN', category: 'Khác' },
-  { file: 'an_tra_bo_sung_mau.docx', code: 'HE_CU_AN_TRA_BO_SUNG', name: 'Án trả bổ sung (mẫu hệ cũ)', entityType: 'VU_AN', category: 'Khác' },
-  { file: 'uy_thac_dieu_tra_mau.docx', code: 'HE_CU_UY_THAC', name: 'Uỷ thác điều tra (mẫu hệ cũ)', entityType: 'VU_AN', category: 'Khác' },
+  { file: 'don_thu_mau.docx', code: 'HE_CU_DON_THU', name: 'Hồ sơ đơn thư (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_DON_THU], category: 'Khác' },
+  { file: 'bien_nhan_don_thu_mau.docx', code: 'HE_CU_BIEN_NHAN', name: 'Biên nhận đơn thư (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_BIEN_NHAN], category: 'Biên bản' },
+  { file: 'huong_dan_mau.docx', code: 'HE_CU_HUONG_DAN', name: 'Hồ sơ hướng dẫn (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_HUONG_DAN], category: 'Thông báo' },
+  { file: 'trao_doi_chuyen_an_mau.docx', code: 'HE_CU_TRAO_DOI', name: 'Trao đổi chuyển án (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_TRAO_DOI], category: 'Khác' },
+  { file: 'tra_ho_so_mau.docx', code: 'HE_CU_TRA_HO_SO', name: 'Trả hồ sơ (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_TRA_HO_SO], category: 'Khác' },
+  { file: 'dang_ky_bao_chua_mau.docx', code: 'HE_CU_DANG_KY_BAO_CHUA', name: 'Đăng ký bào chữa (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_DANG_KY_BAO_CHUA], category: 'Giấy chứng nhận' },
+  { file: 'so_dang_ky_bao_chua.docx', code: 'HE_CU_SO_DANG_KY_BAO_CHUA', name: 'Sổ đăng ký bào chữa (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_SO_DANG_KY_BAO_CHUA], category: 'Khác' },
+  { file: 'vu_viec_mau.docx', code: 'HE_CU_VU_VIEC', name: 'Hồ sơ vụ việc (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_VU_VIEC], category: 'Khác' },
+  { file: 'vu_an_mau.docx', code: 'HE_CU_VU_AN', name: 'Hồ sơ vụ án (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_VU_AN], category: 'Khác' },
+  { file: 'an_tra_bo_sung_mau.docx', code: 'HE_CU_AN_TRA_BO_SUNG', name: 'Án trả bổ sung (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_AN_TRA_BO_SUNG], category: 'Khác' },
+  { file: 'uy_thac_dieu_tra_mau.docx', code: 'HE_CU_UY_THAC', name: 'Uỷ thác điều tra (mẫu hệ cũ)', entityTypes: [...PHAN_BO_THUC_THE_DO_DUOC.HE_CU_UY_THAC], category: 'Khác' },
 ];
 
 export function thuMucMauHeCu(): string {
@@ -98,13 +107,25 @@ export function bienCuaMauHeCu(buffer: Buffer, entityType: string): BienMau[] {
   }));
 }
 
+
+/**
+ * Có ghi đè bản mẫu hệ cũ đang nằm trong CSDL không.
+ *
+ * `SEED_TEMPLATES_FORCE_FILE=1` ghi đè MỌI bộ mẫu, kể cả 7 mẫu tố tụng PC01 — mà những mẫu ấy
+ * admin có thể đã sửa trên giao diện, và ghi đè là xoá mất công của họ mà không hỏi. Khi chỉ
+ * cần đẩy lại bộ mẫu hệ cũ (vd sau khi sửa bước chuẩn hoá run), dùng cờ HẸP này.
+ */
+export function coGhiDeMauHeCu(env: NodeJS.ProcessEnv): boolean {
+  return env['SEED_TEMPLATES_FORCE_HE_CU'] === '1' || env['SEED_TEMPLATES_FORCE_FILE'] === '1';
+}
+
 export async function seedLegacyTemplates(
   prisma: PrismaClient,
 ): Promise<{ created: number; skipped: number; updated: number }> {
   let created = 0;
   let skipped = 0;
   let updated = 0;
-  const forceFile = process.env['SEED_TEMPLATES_FORCE_FILE'] === '1';
+  const forceFile = coGhiDeMauHeCu(process.env);
 
   const admin = await (prisma as any).user.findFirst({
     where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },
@@ -125,11 +146,16 @@ export async function seedLegacyTemplates(
     // Lưu bản ĐÃ CHUẨN HOÁ: engine render đọc thẳng `fileBytes`, giữ bản gốc thì placeholder
     // vỡ vẫn vỡ và văn bản in ra còn nguyên chữ `{ten_bien}`.
     const buffer = normalizeDocxTags(fs.readFileSync(file));
-    const variables = bienCuaMauHeCu(buffer, m.entityType);
     const fileSha = createHash('sha256').update(buffer).digest('hex');
 
+    // MỘT DÒNG CHO MỖI THỰC THỂ. Khoá duy nhất là (entityType, code) nên cùng một mẫu tồn tại
+    // song song ở nhiều thực thể — đó là cách để hồ sơ nằm ở đâu cũng in được chứng từ mà hệ
+    // cũ in cho nó. Biến của mẫu phải tra theo ĐÚNG thực thể của dòng ấy.
+    for (const entityType of m.entityTypes) {
+    const variables = bienCuaMauHeCu(buffer, entityType);
+
     const existing = await (prisma as any).documentTemplate.findFirst({
-      where: { entityType: m.entityType, code: m.code, deletedAt: null },
+      where: { entityType, code: m.code, deletedAt: null },
       select: { id: true },
     });
 
@@ -157,7 +183,7 @@ export async function seedLegacyTemplates(
       data: {
         code: m.code,
         name: m.name,
-        entityType: m.entityType,
+        entityType,
         category: m.category,
         fileBytes: buffer,
         fileSha,
@@ -173,6 +199,7 @@ export async function seedLegacyTemplates(
       },
     });
     created++;
+    }
   }
   console.log(`[mau-he-cu] tạo ${created} · bỏ qua ${skipped} · cập nhật ${updated}`);
   return { created, skipped, updated };

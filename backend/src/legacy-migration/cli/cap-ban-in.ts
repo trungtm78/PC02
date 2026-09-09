@@ -7,10 +7,13 @@ import {
   chuTrongDocx,
   dangNhapHeCu,
   dinhDangDoan,
+  manhChuTrongDocx,
   soDong,
+  soKieuChu,
   taiBanInHeCu,
   type DinhDangDoan,
   type DongLech,
+  type LechKieuChu,
 } from './so-ban-in';
 
 /**
@@ -103,11 +106,13 @@ export interface CapBanIn {
   tepMoi: string;
   lechChu: DongLech[];
   lechDinhDang: LechDinhDang[];
+  /** Đậm · nghiêng · gạch chân · cỡ chữ — tầng thứ ba, và là tầng anh bắt được lỗi 09/09. */
+  lechKieuChu: LechKieuChu[];
 }
 
 /** Ghi cặp tệp ra đĩa và tính hai bảng lệch. Tách khỏi phần mạng để kiểm được. */
 export function dungCap(
-  thongTin: Omit<CapBanIn, 'tepCu' | 'tepMoi' | 'lechChu' | 'lechDinhDang'>,
+  thongTin: Omit<CapBanIn, 'tepCu' | 'tepMoi' | 'lechChu' | 'lechDinhDang' | 'lechKieuChu'>,
   banCu: Buffer,
   banMoi: Buffer,
   thuMuc: string,
@@ -124,6 +129,7 @@ export function dungCap(
     tepMoi,
     lechChu: soDong(chuTrongDocx(banCu), chuTrongDocx(banMoi)),
     lechDinhDang: soDinhDang(dinhDangDoan(banCu), dinhDangDoan(banMoi)),
+    lechKieuChu: soKieuChu(manhChuTrongDocx(banCu), manhChuTrongDocx(banMoi)),
   };
 }
 
@@ -192,12 +198,18 @@ export interface DongGhepCap {
 }
 
 function bangLech(cap: CapBanIn[], hong: CapHong[]): string {
-  const d: string[] = ['| Mẫu | Hồ sơ | Dòng chữ lệch | Đoạn định dạng lệch |', '|---|---|---|---|'];
+  const d: string[] = [
+    '| Mẫu | Hồ sơ | Dòng chữ lệch | Đoạn định dạng lệch | Chỗ lệch kiểu chữ |',
+    '|---|---|---|---|---|',
+  ];
   for (const c of cap) {
-    d.push(`| ${c.maMau} | ${c.legacyId} | ${c.lechChu.length} | ${c.lechDinhDang.length} |`);
+    d.push(
+      `| ${c.maMau} | ${c.legacyId} | ${c.lechChu.length} | ${c.lechDinhDang.length} | ` +
+        `${c.lechKieuChu.length} |`,
+    );
   }
   for (const h of hong) {
-    d.push(`| ${h.maMau} | ${h.legacyId} | KHÔNG LẤY ĐƯỢC | ${h.loi} |`);
+    d.push(`| ${h.maMau} | ${h.legacyId} | KHÔNG LẤY ĐƯỢC | ${h.loi} | — |`);
   }
   return d.join('\n');
 }
@@ -258,7 +270,7 @@ export async function chayVoi(
       cap.push(c);
       console.log(
         `${khai.code} · hồ sơ ${g.legacyId}: ${c.lechChu.length} dòng chữ lệch, ` +
-          `${c.lechDinhDang.length} đoạn lệch định dạng`,
+          `${c.lechDinhDang.length} đoạn lệch định dạng, ${c.lechKieuChu.length} chỗ lệch kiểu chữ`,
       );
     } catch (e) {
       hong.push({ maMau: khai.code, legacyId: g.legacyId, loi: (e as Error).message });
