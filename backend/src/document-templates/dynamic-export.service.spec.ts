@@ -461,7 +461,10 @@ describe('DynamicExportService', () => {
  * xem nó nghĩ gì. Thiếu nó thì mọi tầng dưới vẫn xanh trong khi bản in vẫn sai.
  */
 describe('kiểu xuống dòng theo mã mẫu', () => {
-  const NHIEU_DONG = { caseCode: 'VA-1', name: 'dòng một\ndòng hai\ndòng ba' };
+  // CRLF → ĐOẠN mới · LF đơn → ngắt dòng mềm. Đo trên 55.503 hồ sơ hệ cũ 09/09/2026:
+  // 15.024 hồ sơ dùng CRLF, 3.927 hồ sơ dùng LF đơn, và bản in hệ cũ đối xử khác nhau.
+  const NHIEU_DOAN = { caseCode: 'VA-1', name: ['dòng một', 'dòng hai', 'dòng ba'].join('\r\n') };
+  const NGAT_MEM = { caseCode: 'VA-1', name: ['dòng một', 'dòng hai'].join('\n') };
 
   // Một mẫu thì dịch vụ gửi thẳng tệp, không đi qua bước ghép — nên đọc từ `res.send`.
   function docxRa(res: any): string {
@@ -483,12 +486,32 @@ describe('kiểu xuống dòng theo mã mẫu', () => {
     ]);
 
     const res = plainRes();
-    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DONG, ['tc'], 'merged', 'u1', {}, res);
+    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DOAN, ['tc'], 'merged', 'u1', {}, res);
 
     const xml = docxRa(res);
     expect(xml).toContain('<w:spacing w:before="60"/><w:ind w:firstLine="709"/><w:jc w:val="both"/>');
     expect(xml).not.toContain('<w:br/>');
     expect(xml.match(/<w:p[ >]/g) ?? []).toHaveLength(3);
+  });
+
+
+  it('mẫu HE_CU_* với LF đơn → NGẮT DÒNG MỀM, không tách đoạn', async () => {
+    prisma.documentTemplate.findMany.mockResolvedValue([
+      {
+        ...T_NONUM,
+        id: 'tc2',
+        code: 'HE_CU_TRA_HO_SO',
+        variables: [{ name: 'tenVuAn', label: 'Tên vụ án', source: 'auto', field: 'tenVuAn' }],
+        fileBytes: makeDocx('{tenVuAn}'),
+      },
+    ]);
+
+    const res = plainRes();
+    await svc.exportEntityDocuments('VU_AN', 'c1', NGAT_MEM, ['tc2'], 'merged', 'u1', {}, res);
+
+    const xml = docxRa(res);
+    expect(xml).toContain('<w:br/>');
+    expect(xml.match(/<w:p[ >]/g) ?? []).toHaveLength(1);
   });
 
   it('mẫu tố tụng hệ mới → giữ ngắt dòng mềm, KHÔNG chép quy ước của hệ khác', async () => {
@@ -503,7 +526,7 @@ describe('kiểu xuống dòng theo mã mẫu', () => {
     ]);
 
     const res = plainRes();
-    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DONG, ['tm'], 'merged', 'u1', {}, res);
+    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DOAN, ['tm'], 'merged', 'u1', {}, res);
 
     const xml = docxRa(res);
     expect(xml).toContain('<w:br/>');

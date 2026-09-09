@@ -1,6 +1,12 @@
 import PizZip from 'pizzip';
 
-import { ngatDoanNhuHeCu, DAU_NGAT_DOAN, PPR_DONG_TIEP } from './ngat-doan-he-cu';
+import {
+  danhDauXuongDong,
+  ngatDoanNhuHeCu,
+  DAU_NGAT_DOAN,
+  DAU_NGAT_MEM,
+  PPR_DONG_TIEP,
+} from './ngat-doan-he-cu';
 
 /**
  * Ô nhiều dòng phải thành NHIỀU ĐOẠN WORD, đúng như hệ cũ in ra.
@@ -78,17 +84,20 @@ describe('ngatDoanNhuHeCu', () => {
   });
 
   /**
-   * Kiểu CHỮ của dòng sau phải theo dòng trước.
+   * Kiểu CHỮ của dòng sau theo dòng trước, TRỪ cỡ chữ và cờ đậm.
    *
-   * Mất `<w:rPr>` là cỡ chữ rơi về mặc định của tài liệu: dòng đầu 14, những dòng sau 11 — một
-   * bản in vỡ mà không có gì báo.
+   * Vứt sạch `<w:rPr>` là mất cả phông, ngôn ngữ, gạch chân. Nhưng giữ NGUYÊN cũng sai: đo trên
+   * bản in thật, hệ cũ bỏ `sz`, `b`, `bCs` khi sinh dòng tiếp (xem nhóm ca kiểm "kiểu chữ của
+   * dòng tiếp"). Bản đầu của ca kiểm này chốt quy ước em tự nghĩ ra trước khi có bằng chứng.
    */
-  it('giữ kiểu chữ của run cho các dòng sau', () => {
+  it('`rPr` chỉ có mỗi cỡ chữ thì bỏ hẳn, không để lại thẻ rỗng', () => {
+    // `<w:rPr></w:rPr>` rỗng là XML hợp lệ nhưng vô nghĩa; Word vẫn mở được, chỉ là rác.
     const vao = docxMau(DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai`));
 
     const doan = cacDoan(xmlCua(ngatDoanNhuHeCu(vao)));
 
-    expect(doan[1]).toContain('<w:sz w:val="28"/>');
+    expect(doan[1]).not.toContain('<w:rPr>');
+    expect(doan[1]).toContain('hai');
   });
 
   it('không có dấu ngắt thì tài liệu KHÔNG đổi một byte nào', () => {
@@ -123,5 +132,107 @@ describe('ngatDoanNhuHeCu', () => {
     );
 
     expect(cacDoan(xmlCua(ngatDoanNhuHeCu(vao))).map(chuCua)).toEqual(['một', '', 'ba']);
+  });
+});
+
+/**
+ * `\\r\\n` → ĐOẠN MỚI · `
+` đơn → NGẮT DÒNG MỀM.
+ *
+ * Đo trên dữ liệu thật của hệ cũ ngày 09/09/2026, 55.503 hồ sơ: 15.024 hồ sơ dùng `\\r\\n`,
+ * 3.927 hồ sơ dùng `
+` đơn, KHÔNG hồ sơ nào lẫn cả hai. Đối chiếu bản in cho thấy hệ cũ
+ * (PhpWord) đối xử khác nhau với hai thứ ấy:
+ *
+ *   hồ sơ 69971 · 69122 · 86649 · 79953 (`\\r\\n`) → mỗi dòng một ĐOẠN Word
+ *   hồ sơ 18 (`
+` đơn)                          → một đoạn, các dòng nối bằng `<w:br/>`
+ *
+ * Bản đầu của bộ tách đối CẢ HAI thành đoạn, nên đúng cho 15.024 hồ sơ và SAI cho 3.927.
+ */
+describe('phân biệt CRLF với LF đơn', () => {
+  it('CRLF thành ĐOẠN mới', () => {
+    const d = danhDauXuongDong({ x: 'một\r\nhai' });
+
+    expect(d.x).toBe(`một${DAU_NGAT_DOAN}hai`);
+  });
+
+  it('LF đơn thành NGẮT DÒNG MỀM, không phải đoạn', () => {
+    const d = danhDauXuongDong({ x: 'một\nhai' });
+
+    expect(d.x).toBe(`một${DAU_NGAT_MEM}hai`);
+  });
+
+  it('dấu ngắt mềm dựng ra `<w:br/>`, và KHÔNG sinh đoạn mới', () => {
+    const vao = docxMau(DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_MEM}hai`));
+
+    const xml = xmlCua(ngatDoanNhuHeCu(vao));
+
+    expect(xml).toContain('<w:br/>');
+    expect(cacDoan(xml)).toHaveLength(1);
+    expect(xml).not.toContain(DAU_NGAT_MEM);
+  });
+
+  it('một giá trị có cả hai kiểu thì mỗi kiểu ra đúng thứ của nó', () => {
+    const vao = docxMau(
+      DOAN_MAU.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai${DAU_NGAT_MEM}ba`),
+    );
+
+    const xml = xmlCua(ngatDoanNhuHeCu(vao));
+
+    expect(cacDoan(xml)).toHaveLength(2);
+    expect(xml).toContain('<w:br/>');
+  });
+});
+
+/**
+ * DÒNG TIẾP không mang cỡ chữ và không mang đậm của dòng đầu.
+ *
+ * Đo trên bản in thật của hệ cũ 09/09/2026:
+ *
+ *   `uy_thac_dieu_tra_mau.docx` hồ sơ 69122 — dòng đầu `bCs sz=28 szCs=28`,
+ *                                             dòng tiếp `szCs=28 lang=en-US`
+ *   `vu_an_mau.docx`            hồ sơ 69971 — dòng đầu `szCs=28 lang=en-US`,
+ *                                             dòng tiếp `szCs=28 lang=en-US`
+ *
+ * Hệ cũ BỎ `sz` và các cờ đậm khi sinh dòng tiếp. Chép nguyên `rPr` của dòng đầu thì với
+ * `uy_thac` (cỡ mặc định của tài liệu là 24) các dòng tiếp in ra 14pt thay vì 12pt — 13 chỗ
+ * lệch trên một hồ sơ.
+ */
+describe('kiểu chữ của dòng tiếp', () => {
+  const DOAN_DAM =
+    '<w:p><w:pPr><w:jc w:val="both"/></w:pPr>' +
+    '<w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="28"/><w:szCs w:val="28"/>' +
+    '<w:lang w:val="en-US"/></w:rPr><w:t>NOI_DUNG</w:t></w:r></w:p>';
+
+  it('bỏ `sz`, `b` và `bCs`, giữ phần còn lại', () => {
+    const vao = docxMau(DOAN_DAM.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai`));
+
+    const doan = cacDoan(xmlCua(ngatDoanNhuHeCu(vao)));
+
+    expect(doan[1]).toContain('<w:szCs w:val="28"/>');
+    expect(doan[1]).toContain('<w:lang w:val="en-US"/>');
+    expect(doan[1]).not.toContain('<w:sz w:val="28"/>');
+    expect(doan[1]).not.toContain('<w:b/>');
+    expect(doan[1]).not.toContain('<w:bCs/>');
+  });
+
+  it('dòng ĐẦU vẫn giữ nguyên mọi thứ — chỉ dòng tiếp mới bỏ', () => {
+    const vao = docxMau(DOAN_DAM.replace('NOI_DUNG', `một${DAU_NGAT_DOAN}hai`));
+
+    const doan = cacDoan(xmlCua(ngatDoanNhuHeCu(vao)));
+
+    expect(doan[0]).toContain('<w:sz w:val="28"/>');
+    expect(doan[0]).toContain('<w:b/>');
+  });
+
+  /** Ngắt dòng MỀM nằm trong cùng một run nên không đụng gì tới kiểu chữ. */
+  it('ngắt dòng mềm KHÔNG đụng kiểu chữ', () => {
+    const vao = docxMau(DOAN_DAM.replace('NOI_DUNG', `một${DAU_NGAT_MEM}hai`));
+
+    const xml = xmlCua(ngatDoanNhuHeCu(vao));
+
+    expect(xml).toContain('<w:sz w:val="28"/>');
+    expect(xml).toContain('<w:b/>');
   });
 });
