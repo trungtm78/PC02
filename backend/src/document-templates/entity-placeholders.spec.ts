@@ -130,3 +130,34 @@ describe('escapeForDelimiters', () => {
     expect(out).not.toBe('«hack»');
   });
 });
+
+/**
+ * `soVanBan` KHÔNG được rỗng khi mẫu không cấp số riêng.
+ *
+ * Chỗ này chặn riêng `soVanBan`: chỉ lấy từ số engine cấp, không bao giờ hỏi catalog. Sau khi
+ * tắt cấp số cho bộ mẫu PC01 (hệ cũ không có bộ đếm nào), bản in ra `Số: /ĐX-PC02-Đ1` — mất
+ * hẳn con số. Đo trên máy thật 09/09/2026 bằng chính bản in xuất ra, không phải bằng cấu hình.
+ *
+ * Thứ tự đúng: số engine cấp (mẫu nào thật sự cần) → rồi mới tới STT của hồ sơ như hệ cũ in.
+ */
+describe('soVanBan khi mẫu không cấp số riêng', () => {
+  const BIEN = [{ name: 'soVanBan', field: 'soVanBan', source: 'auto' as const, required: false }];
+
+  it('KHÔNG có số engine cấp → lấy STT của hồ sơ như hệ cũ', () => {
+    const ra = buildTemplatePlaceholders('DON_THU', BIEN, { stt: '2016-172' }, {});
+
+    expect(ra.soVanBan).toBe('172');
+  });
+
+  it('CÓ số engine cấp → dùng số ấy, không lấy STT', () => {
+    const ra = buildTemplatePlaceholders('DON_THU', BIEN, { stt: '2016-172' }, {
+      soVanBan: '0045/ĐX-PC02-Đ1',
+    });
+
+    expect(ra.soVanBan).toBe('0045/ĐX-PC02-Đ1');
+  });
+
+  it('hồ sơ chưa có STT và không có số engine → để TRỐNG, không bịa', () => {
+    expect(buildTemplatePlaceholders('DON_THU', BIEN, {}, {}).soVanBan).toBe('');
+  });
+});
