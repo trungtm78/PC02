@@ -6,6 +6,7 @@
  */
 
 import { today } from '@/lib/dates';
+import type { HuongXuLyDon } from '@/shared/enums/generated';
 
 export interface PetitionFormData {
   stt: string; receivedDate: string; unit: string; assignedTeamId: string;
@@ -49,6 +50,10 @@ export interface PetitionFormData {
   dieuTraVien: string;
   donViGiaiQuyet: string;
   // Thẩm quyền & đơn vị xử lý
+  //
+  // `huongXuLy` là ô thật trên form từ 09/09/2026; `thuocThamQuyen` giữ trong kiểu vì máy chủ
+  // vẫn nhận và nhiều màn khác còn đọc cột ấy, nhưng KHÔNG còn ô nhập nào — máy chủ suy ra.
+  huongXuLy: HuongXuLyDon | "";
   thuocThamQuyen: boolean;
   donViXuLy: string;
 
@@ -98,7 +103,7 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
   nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
-  thuocThamQuyen: true, donViXuLy: "",
+  huongXuLy: "", thuocThamQuyen: true, donViXuLy: "",
   baoCaoBanGiamDocText: "", tinhTrang: "",
   soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "",
   soQDTamDinhChiNguonTin: "", ngayQDTamDinhChiNguonTin: "",

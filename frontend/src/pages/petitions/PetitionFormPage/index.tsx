@@ -41,6 +41,7 @@ import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { today, toDateInput } from "@/lib/dates";
 import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
+import { HUONG_XU_LY_OPTIONS, laHuongNoiBo, moTaHuong } from "@/shared/enums/huong-xu-ly";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { PetitionAssignmentSection } from "../PetitionAssignmentSection";
@@ -267,6 +268,9 @@ export function PetitionFormPage() {
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
           donViGiaiQuyet: (d.donViGiaiQuyet as string) ?? "",
+          // Hồ sơ chưa qua backfill (hoặc tạo bằng đường không đi qua form) thì `huongXuLy`
+          // rỗng — để trống chứ không đoán, vì đoán sai sẽ đổi trạng thái hồ sơ lúc lưu.
+          huongXuLy: (d.huongXuLy as FormData["huongXuLy"]) ?? "",
           thuocThamQuyen: (d.thuocThamQuyen as boolean) ?? true,
           donViXuLy: (d.donViXuLy as string) ?? "",
           // ── Cột hệ cũ thêm 26/08/2026 ──
@@ -898,22 +902,39 @@ export function PetitionFormPage() {
               <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
-              {/* YC6: thẩm quyền + đơn vị xử lý */}
+              {/* Hướng xử lý — thay ô tích "Thuộc thẩm quyền" (09/09/2026).
+                  Quyết định ba thứ cùng lúc: nguồn của ô Đơn vị xử lý, câu in ở dòng "Đề xuất"
+                  trên Phiếu đề xuất, và trạng thái hồ sơ. */}
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.thuocThamQuyen}
-                    onChange={(e) => {
-                      // Đổi nguồn options → xoá lựa chọn cũ (tên tổ ≠ tên đơn vị ngoài).
-                      setFormData((prev) => ({ ...prev, thuocThamQuyen: e.target.checked, donViXuLy: "" }));
-                    }}
-                    className="w-4 h-4"
-                    data-testid="field-thuocThamQuyen"
-                  />
-                  Thuộc thẩm quyền (xử lý nội bộ theo Tổ/Nhóm)
-                </label>
-                {formData.thuocThamQuyen ? (
+                <span className="block text-sm font-medium text-slate-700 mb-2">Hướng xử lý</span>
+                <div className="flex flex-wrap gap-2 mb-3" role="radiogroup" aria-label="Hướng xử lý">
+                  {HUONG_XU_LY_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={formData.huongXuLy === o.value}
+                      onClick={() => {
+                        // Đổi hướng → xoá đơn vị đã chọn: tên tổ nội bộ và tên đơn vị ngoài là
+                        // hai tập khác nhau, giữ lại sẽ ghi một giá trị không có trong nguồn mới.
+                        setFormData((prev) =>
+                          prev.huongXuLy === o.value
+                            ? prev
+                            : { ...prev, huongXuLy: o.value, donViXuLy: "" },
+                        );
+                      }}
+                      className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        formData.huongXuLy === o.value
+                          ? "bg-blue-600 border-blue-600 text-white font-medium"
+                          : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                      }`}
+                      data-testid={`field-huongXuLy-${o.value}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                {laHuongNoiBo(formData.huongXuLy) ? (
                   <FKSelect
                     label="Đơn vị xử lý"
                     options={teamOptions}
@@ -928,14 +949,27 @@ export function PetitionFormPage() {
                     directoryType="DON_VI"
                     value={formData.donViXuLy}
                     onChange={(v) => update("donViXuLy", v)}
-                    placeholder="Chọn đơn vị xử lý"
+                    placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
                     testId="field-donViXuLy"
+                    canCreate
                   />
                 )}
+                <p className="mt-1 text-xs text-slate-500">{moTaHuong(formData.huongXuLy)}</p>
+              </div>
+              {/* Đề xuất — trước đây KHÔNG có ô nhập trên form, cán bộ chỉ sửa được qua popup
+                  lúc in. Bỏ trống thì bản in tự ghép câu theo hướng xử lý ở trên. */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Đề xuất</label>
+                <textarea
+                  value={formData.deXuat}
+                  onChange={(e) => update("deXuat", e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Để trống: bản in tự ghép câu theo hướng xử lý đã chọn"
+                  data-testid="field-deXuat"
+                />
                 <p className="mt-1 text-xs text-slate-500">
-                  {formData.thuocThamQuyen
-                    ? "Thuộc thẩm quyền: chọn Tổ/Nhóm nội bộ thụ lý."
-                    : "Không thuộc thẩm quyền: chọn đơn vị xử lý để chuyển."}
+                  Chữ nhập ở đây sẽ được in nguyên văn, thay cho câu tự ghép.
                 </p>
               </div>
               {/* Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
