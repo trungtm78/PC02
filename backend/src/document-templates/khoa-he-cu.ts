@@ -176,6 +176,9 @@ const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
     { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLyKhac', type: 'String' },
     { field: 'lanh_dao_to_tung', col: 'lanhDaoToTung', type: 'String' },
     { field: 'thoi_han_thuc_hien_uy_thac_dieu_tra', col: 'thoiHanUTDT', type: 'DateTime' },
+    // `uy_thac_dieu_tra_mau.docx` in `${toi-danh-ban-dau}`. Mẫu ấy nay được mời in cả ở Đơn thư
+    // (4 hồ sơ uỷ thác di trú thành Đơn thư), và cột đã có sẵn dữ liệu: 15.253/47.169 hồ sơ.
+    { field: 'toi-danh-ban-dau', col: 'toiDanhBanDau', type: 'String' },
   ],
   incident: [
     { field: 'tom_tat_noi_dung', col: 'description', type: 'String' },
@@ -186,6 +189,10 @@ const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
     { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLy', type: 'String' },
     { field: 'so_dien_thoai_nguyen_don', col: 'sdtNguoiToGiac', type: 'String' },
     { field: 'ngay_de_xuat', col: 'ngayDeXuat', type: 'DateTime' },
+    // `don_thu_mau.docx` in `${dia-chi-bi-hai}`. Mẫu ấy nay được mời in cả ở Vụ việc (25 hồ sơ
+    // đơn thư di trú thành Vụ việc). Đơn thư khai ô này là `senderAddress` — người TỐ GIÁC, nên
+    // ở Vụ việc là `diaChiNguoiToGiac`, không phải `diaChiXayRa`. 715 vụ việc có dữ liệu.
+    { field: 'dia-chi-bi-hai', col: 'diaChiNguoiToGiac', type: 'String' },
   ],
   case: [
     { field: 'so_dien_thoai_nguyen_don', col: 'sdtCungCap', type: 'String' },
