@@ -1,7 +1,7 @@
 # Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
 <!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`. -->
-STATUS: IN_PROGRESS — M3 vòng cuối (PR #349 hoàn lại giả thuyết sai), rồi tới M5 monkey test
+STATUS: IN_PROGRESS — chờ #350/#351 lên máy, rồi đo lại vòng 4 và chốt
 
 ## Đã xong và ĐÃ LÊN MÁY THẬT
 
@@ -29,20 +29,25 @@ STATUS: IN_PROGRESS — M3 vòng cuối (PR #349 hoàn lại giả thuyết sai)
 
 ## BƯỚC TIẾP THEO
 
-1. Gộp #349 → deploy → chạy lại `cap-ban-in` vòng 4, kỳ vọng hồ sơ 18 về mức vòng-2 rồi soi
-   nốt 5 chỗ lệch còn lại của nó.
-2. Dựng ảnh từng trang của các cặp giao anh đối chiếu bằng mắt.
-3. **M5 — monkey test.**
+1. Chờ #350 (`de_xuat` ngắt dòng mềm) và #351 (thông báo trực tuyến 401) lên máy thật.
+2. Đo lại vòng 4 đủ 10 cặp — kỳ vọng hồ sơ 18 về 1 chỗ lệch (chỉ còn `${ nguon_don}` của hệ cũ).
+3. Chạy lại monkey test sau #351 để xác nhận 401 đã hết.
+4. Dựng ảnh từng trang cho bộ cuối, giao anh đối chiếu bằng mắt.
+5. Dọn tệp tạm `tmp-*` trong kho.
 
-## Kết quả đo mới nhất (vòng 3, sau khi #348 lên máy thật)
+## Đã xong (M1 · M2 · M3 · M4 · M5)
 
-Chín trong mười cặp **0 lệch cả ba tầng** (chữ · đoạn · kiểu chữ), kể cả hai cặp kiểm chéo
-mẫu-khác-thực-thể. Cặp còn lại là hồ sơ 18, xấu đi vì một giả thuyết sai đã được hoàn lại ở #349.
-
-Ba dòng lệch duy nhất còn lại ở vòng 2 đều là hệ cũ tự in ra tên biến của nó (`${de_xuat}`,
-`${ nguon_don}`) — lỗi hệ cũ, cố ý không chép.
+- **M1** nút In: PASS trên máy thật, tải được `ChungTu_20260909.docx`.
+- **M2** STT cũ: PASS trên máy thật (hồ sơ `2017-259`).
+- **M3** bản in Word: 9/10 cặp sạch cả ba tầng; cặp cuối vá ở #350.
+- **M4** sổ phủ UAT: 5/5 mệnh đề có chủ ngữ là CÁN BỘ đã chạy thật.
+- **M5** monkey test: 44 màn, 0 màn trắng, bắt được lỗi thông báo trực tuyến (#351).
 
 ## Còn treo
+
+- **Cổng CI "Maestro on Android emulator" hỏng sẵn từ 23/08**: ghim SHA của
+  `subosito/flutter-action` không còn tồn tại nên chạy 2 giây là đỏ. Không liên quan việc này,
+  nhưng một cổng luôn đỏ là tiếng ồn che mất cổng đỏ thật — chờ anh quyết có sửa không.
 
 - **916 hồ sơ** hệ cũ in được mà hệ mới chưa có màn in (hướng dẫn 540 · trao đổi 76 · …).
 - Nhánh `feat/data-export-excel` còn 79 commit chưa gộp, chưa có PR.
