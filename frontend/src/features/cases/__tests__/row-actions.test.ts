@@ -8,17 +8,21 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
     perms: { canDispatch: true, canEdit: true, canDelete: true },
     assignModal: { open: vi.fn() },
     deleteModal: { open: vi.fn() },
+    printModal: { open: vi.fn() },
     ...overrides,
   };
 }
 
 describe('casesRowActions registry', () => {
-  it('registers 8 actions total (View, Edit, Delete, Assign, 2x Manage, Conclusion, Transfer)', () => {
+  it('registers 9 actions total (View, Edit, Delete, Print, Assign, 2x Manage, Conclusion, Transfer)', () => {
     const keys = casesRowActions.all().map((a) => a.key);
     expect(keys).toEqual([
       'view',
       'edit',
       'delete',
+      // 'print' đứng ngay sau nhóm chung: nó là nút INLINE trên cột Thao tác (anh yêu cầu
+      // 09/09/2026), không phải mục trong menu ⋮.
+      'print',
       'assign',
       'manage-defendants',
       'manage-lawyers',
@@ -74,5 +78,36 @@ describe('casesRowActions registry', () => {
     const ctx = makeCtx();
     tr.execute({ id: 'C4', status: 'TIEP_NHAN' }, ctx);
     expect(ctx.navigate).toHaveBeenCalledWith('/transfer-return?caseId=C4');
+  });
+});
+
+/**
+ * In chứng từ NGAY TỪ DANH SÁCH.
+ *
+ * Anh báo 09/09/2026: ba màn danh sách không có nút In, muốn in phải mở hồ sơ ra rồi bấm
+ * "In chứng từ" trong màn sửa — ba lần bấm cho một việc cán bộ làm liên tục.
+ *
+ * Mở đúng modal sẵn có (`DynamicExportDocumentsModal`) qua provider dùng chung, KHÔNG dựng
+ * màn in thứ hai: modal ấy chỉ cần `{entity, entityId}` và tự gọi API lấy phần còn lại.
+ */
+describe('casesRowActions — in chứng từ từ danh sách', () => {
+  it('có hành động in, nằm NGAY TRÊN cột Thao tác chứ không nấp trong menu', () => {
+    const inChungTu = casesRowActions.all().find((a) => a.key === 'print');
+
+    expect(inChungTu).toBeDefined();
+    // Nấp trong menu ⋮ là vẫn tốn hai lần bấm — đúng thứ anh yêu cầu bỏ đi.
+    expect(inChungTu!.position).toBe('inline');
+  });
+
+  it('bấm in mở modal với ĐÚNG thực thể và id của dòng', () => {
+    const ctx = makeCtx();
+    const inChungTu = casesRowActions.all().find((a) => a.key === 'print')!;
+
+    inChungTu.execute({ id: 'C9', status: 'TIEP_NHAN' }, ctx);
+
+    expect(ctx.printModal.open).toHaveBeenCalledWith({
+      entity: 'cases',
+      entityId: 'C9',
+    });
   });
 });

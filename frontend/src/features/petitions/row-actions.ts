@@ -1,4 +1,4 @@
-import { UserCheck } from 'lucide-react';
+import { UserCheck, Printer } from 'lucide-react';
 import {
   createRowActionRegistry,
   type RowAction,
@@ -30,6 +30,17 @@ export interface PetitionRowForActions {
 
 const petitions = createRowActionRegistry<PetitionRowForActions>();
 
+const inChungTu: RowAction<PetitionRowForActions> = {
+  key: 'print',
+  label: 'In chứng từ',
+  icon: Printer,
+  // INLINE chứ không nấp trong menu ⋮: in là việc cán bộ làm liên tục, mà từ danh sách hiện
+  // giờ KHÔNG in được — phải mở hồ sơ ra mới có nút. Chôn vào menu là vẫn tốn hai lần bấm.
+  position: 'inline',
+  execute: (row, ctx) => ctx.printModal.open({ entity: 'petitions', entityId: row.id }),
+  testid: 'btn-print',
+};
+
 const menuActions: RowAction<PetitionRowForActions>[] = [
   {
     key: 'assign',
@@ -54,6 +65,7 @@ petitions.registerMany([
     resourceType: 'petitions',
     canDelete: () => null,
   }),
+  inChungTu,
   ...menuActions,
 ]);
 

@@ -58,3 +58,16 @@ export function chuyenDuocSang(tu: string, sang: string): boolean {
   if (!hopLe(tu) || !hopLe(sang)) return false;
   return tu !== sang;
 }
+
+/**
+ * Tiền tố mã của bộ mẫu chép từ hệ cũ.
+ *
+ * Chỉ những mẫu này mới dựng ô nhiều dòng theo kiểu ĐOẠN của hệ cũ, vì chỉ chúng có bản in gốc
+ * để đối chiếu. Mẫu tố tụng của hệ mới không có đối tác nào ở hệ cũ, nên áp thụt đầu dòng 709
+ * twip của hệ khác vào là chép một quy ước không ai yêu cầu.
+ */
+export const TIEN_TO_MAU_HE_CU = 'HE_CU_';
+
+export function laMauHeCu(code: string): boolean {
+  return code.startsWith(TIEN_TO_MAU_HE_CU);
+}

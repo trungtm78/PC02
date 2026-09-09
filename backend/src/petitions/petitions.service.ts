@@ -27,6 +27,7 @@ import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
@@ -120,8 +121,10 @@ export class PetitionsService {
       where.stt = { in: bienTheStt };
     }
 
-    if (sttCu?.trim()) {
-      where.sttCu = { contains: sttCu.trim(), mode: 'insensitive' };
+    // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
+    const locSttCu = dieuKienSttCu(sttCu);
+    if (locSttCu) {
+      where.sttCu = locSttCu;
     }
 
     if (enteredById?.trim()) {

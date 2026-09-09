@@ -52,6 +52,7 @@ import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
@@ -212,6 +213,7 @@ export function ComprehensiveListPageShell() {
   // v0.66 PR4 — Action context + advanced filters.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const [refetchCounter, setRefetchCounter] = useState(0);
   useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
@@ -225,6 +227,7 @@ export function ComprehensiveListPageShell() {
         canDelete: canDelete('cases') || canDelete('incidents') || canDelete('petitions'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -440,7 +443,7 @@ export function ComprehensiveListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '8rem',
+        width: '10rem',
         render: (r) => (
           <RowActions
             registry={comprehensiveRowActions}

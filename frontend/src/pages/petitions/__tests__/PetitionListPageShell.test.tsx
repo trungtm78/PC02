@@ -10,7 +10,10 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
-import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+// Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
+// một modal dùng chung, cách bọc riêng bắt phải sửa lại từng tệp ca kiểm — và ca kiểm đỏ vì
+// lý do không liên quan gì tới thứ nó đang chốt.
+import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -30,7 +33,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
   const result = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
-      <AssignModalProvider>
+      <CompositeModalProvider>
         <DeleteResourceModalProvider>
           <Routes>
             <Route path="/petitions" element={<><PetitionListPageShell /><LocationTracker /></>} />
@@ -38,7 +41,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
             <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
           </Routes>
         </DeleteResourceModalProvider>
-      </AssignModalProvider>
+      </CompositeModalProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -677,5 +680,47 @@ describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
     expect(thanhCongCu.getByLabelText(/^STT$/i)).toBeInTheDocument();
     expect(thanhCongCu.getByLabelText(/STT cũ/i)).toBeInTheDocument();
     expect(thanhCongCu.getByLabelText(/Cán bộ nhập/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * STT cũ ghép vào ô STT — anh yêu cầu 09/09/2026 để cán bộ tra chiếu lại hệ cũ.
+ *
+ * Chốt ở TẦNG TRANG chứ không chỉ ở hàm dựng chuỗi: hàm đúng mà ô không truyền `sttCu` xuống
+ * thì màn hình vẫn trống, và không gì báo.
+ */
+describe('PetitionListPageShell — STT cũ trong ô STT', () => {
+  it('hồ sơ CÓ số cũ thì hiện đúng chữ của hệ cũ', async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url.includes('/stats')) return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({
+        data: { data: [{ ...sampleRow, stt: '2016-243', sttCu: '208' }], total: 1 },
+      });
+    });
+    renderWithRouter();
+
+    await waitFor(() => expect(screen.getByText(/16-243/)).toBeInTheDocument());
+
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    expect(within(hang).getByText(/\(STT cũ: 208\)/)).toBeInTheDocument();
+  });
+
+  it('hồ sơ KHÔNG có số cũ thì không hiện gì thêm', async () => {
+    // Hai phần ba hồ sơ vụ án không có số cũ; in "(STT cũ: —)" cho tất cả là làm mọi hàng
+    // cao thêm mà không nói gì.
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url.includes('/stats')) return Promise.resolve({ data: sampleStats });
+      return Promise.resolve({
+        data: { data: [{ ...sampleRow, stt: '2016-198', sttCu: null }], total: 1 },
+      });
+    });
+    renderWithRouter();
+
+    await waitFor(() => expect(screen.getByText(/16-198/)).toBeInTheDocument());
+
+    // Tìm TRONG hàng dữ liệu, không tìm cả trang: nhãn ô lọc cũng mang chữ "STT cũ", nên tìm
+    // cả trang là trúng bộ lọc và ca kiểm đỏ vì lý do không liên quan.
+    const hang = screen.getAllByRole('row').slice(1)[0];
+    expect(within(hang).queryByText(/STT cũ/)).not.toBeInTheDocument();
   });
 });

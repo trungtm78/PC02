@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -61,6 +62,7 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
@@ -200,6 +202,7 @@ export function PetitionListPageShell() {
   // v0.65 PR3 — Action context + advanced filter state.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
@@ -210,6 +213,7 @@ export function PetitionListPageShell() {
         canDelete: canDelete('petitions'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -431,7 +435,7 @@ export function PetitionListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '7rem',
+        width: '9rem',
         sticky: true,
         render: (r) => (
           <RowActions
@@ -458,7 +462,12 @@ export function PetitionListPageShell() {
         sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-11171`; dữ liệu trong CSDL vẫn là `2026-11171`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.stt)}</span>
+          // STT cũ ghép ngay sau, đúng chữ và đúng kiểu nghiêng-đỏ của hệ cũ
+          // (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ.
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.stt)}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 

@@ -17,7 +17,10 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { CaseListPageShell } from '../CaseListPageShell';
 import { CaseStatus } from '@/shared/enums/generated';
-import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+// Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
+// một modal dùng chung, cách bọc riêng bắt phải sửa lại từng tệp ca kiểm — và ca kiểm đỏ vì
+// lý do không liên quan gì tới thứ nó đang chốt.
+import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
@@ -36,7 +39,7 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
   const result = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
-      <AssignModalProvider>
+      <CompositeModalProvider>
         <DeleteResourceModalProvider>
           <Routes>
             <Route path="/cases" element={<><CaseListPageShell /><LocationTracker /></>} />
@@ -44,7 +47,7 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
             <Route path="/cases/:id" element={<div>DetailPage</div>} />
           </Routes>
         </DeleteResourceModalProvider>
-      </AssignModalProvider>
+      </CompositeModalProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );

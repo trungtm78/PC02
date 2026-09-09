@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -57,6 +58,7 @@ import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
@@ -212,6 +214,7 @@ export function IncidentListPageShell() {
   // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const statusTransitionModal = useStatusTransitionModal();
   const prosecuteModal = useProsecuteModal();
@@ -224,6 +227,7 @@ export function IncidentListPageShell() {
         canDelete: canDelete('incidents'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -454,7 +458,7 @@ export function IncidentListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '7rem',
+        width: '9rem',
         sticky: true,
         render: (r) => (
           <RowActions
@@ -479,8 +483,12 @@ export function IncidentListPageShell() {
         // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
         sortKey: 'stt',
         render: (r) => (
-          // Hệ cũ hiện `26-9706`; dữ liệu trong CSDL vẫn là `2026-9706`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.code)}</span>
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.code)}
+            {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
+                (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 

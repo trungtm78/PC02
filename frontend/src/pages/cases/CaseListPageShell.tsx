@@ -26,6 +26,7 @@ import {
   DateCell,
   SummaryCell,
   formatHoSoCode,
+  phanSttCu,
   type ColumnDef,
   type TableState,
   ColumnPicker,
@@ -57,6 +58,7 @@ import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { usePermission } from '@/hooks/usePermission';
@@ -209,6 +211,7 @@ export function CaseListPageShell() {
   // v0.63 PR1b — Action context (perms + modal openers).
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
@@ -219,6 +222,7 @@ export function CaseListPageShell() {
         canDelete: canDelete('cases'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -444,7 +448,7 @@ export function CaseListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '7rem',
+        width: '9rem',
         sticky: true,
         render: (r) => (
           <RowActions
@@ -471,7 +475,12 @@ export function CaseListPageShell() {
         sortKey: 'stt',
         render: (r) => (
           // Hệ cũ hiện `26-9893`; dữ liệu trong CSDL vẫn là `2026-9893`, không đổi.
-          <span className="font-mono text-xs text-slate-700">{formatHoSoCode(r.caseCode)}</span>
+          <span className="font-mono text-xs text-slate-700">
+            {formatHoSoCode(r.caseCode)}
+            {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
+                (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
+            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+          </span>
         ),
       },
 

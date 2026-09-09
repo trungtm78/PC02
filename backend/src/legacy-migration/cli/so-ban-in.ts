@@ -90,20 +90,24 @@ export function thucTheChoMau(mau: string): 'DON_THU' | 'VU_VIEC' | 'VU_AN' {
 }
 
 /**
- * Bóc chữ hiển thị của một tệp .docx.
+ * Bóc chữ hiển thị của một tệp .docx, GIỮ NGUYÊN CẤU TRÚC ĐOẠN.
  *
- * Cắt theo `</w:p>` để mỗi đoạn Word thành một dòng — nhờ đó khác biệt về NGẮT ĐOẠN cũng lộ ra,
- * chứ không chỉ khác biệt về chữ.
+ * Mỗi `<w:p>` là một mục trong mảng trả về — kể cả đoạn RỖNG, vì đoạn rỗng là thứ làm bản in
+ * dãn ra hay dồn lại.
+ *
+ * Ngắt dòng mềm `<w:br/>` KHÔNG được đổi thành ngắt đoạn: nó ở lại trong chính mục ấy dưới
+ * dạng dấu `⏎`. Bản trước đổi cả hai thành `
+` rồi bỏ mục rỗng, nên ba đoạn Word và một
+ * đoạn có hai ngắt dòng mềm cho ra đúng một mảng — và đó chính là khác biệt giữa hai hệ:
+ * hệ cũ (`xuatfile.php`) đổi mỗi lần xuống dòng thành một ĐOẠN mới, hệ mới dùng ngắt dòng
+ * mềm. Chú thích cũ đã tự nhận là cắt theo `</w:p>`, trong khi dòng ngay dưới xoá mất phân
+ * biệt ấy; kết luận "0 chỗ lệch" ngày 28/08 đứng trên chỗ mù này.
  */
-export function chuTrongDocx(buffer: Buffer): string[] {
-  const zip = new PizZip(buffer);
-  const xml = zip.files['word/document.xml']?.asText() ?? '';
+export const DAU_NGAT_DONG_MEM = '⏎';
+
+function giaiMaThucThe(s: string): string {
   return (
-    xml
-      .replace(/<\/w:p>/g, '\n')
-      .replace(/<w:br\s*\/>/g, '\n')
-      .replace(/<w:tab\s*\/>/g, ' ')
-      .replace(/<[^>]+>/g, '')
+    s
       // Giải mã ĐỦ thực thể XML, `&amp;` sau cùng.
       //
       // Thiếu `&quot;` là công cụ tự báo lệch giả: PhpWord nhét thẳng dấu `"` vào XML còn
@@ -116,10 +120,50 @@ export function chuTrongDocx(buffer: Buffer): string[] {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
-      .split('\n')
-      .map((d) => d.replace(/\s+/g, ' ').trim())
-      .filter(Boolean)
   );
+}
+
+/** Mọi đoạn `<w:p>` của tài liệu, kể cả `<w:p/>` tự đóng (đoạn rỗng). */
+function cacDoan(xml: string): string[] {
+  return xml.match(/<w:p\b[^>]*\/>|<w:p\b[^>]*>[\s\S]*?<\/w:p>/g) ?? [];
+}
+
+export function chuTrongDocx(buffer: Buffer): string[] {
+  const zip = new PizZip(buffer);
+  const xml = zip.files['word/document.xml']?.asText() ?? '';
+  return cacDoan(xml).map((doan) =>
+    giaiMaThucThe(
+      doan
+        .replace(/<w:br\s*\/>/g, DAU_NGAT_DONG_MEM)
+        .replace(/<w:tab\s*\/>/g, ' ')
+        .replace(/<[^>]+>/g, ''),
+    )
+      .replace(/\s+/g, ' ')
+      .trim(),
+  );
+}
+
+/** Định dạng đoạn — thứ phép so cũ hoàn toàn không nhìn thấy. */
+export interface DinhDangDoan {
+  /** Căn lề: `both` (căn đều) · `center` · `right` · `left`; rỗng nghĩa là theo kiểu mặc định. */
+  canLe: string;
+  /** Thụt dòng đầu, đơn vị twip như Word ghi; `0` là không thụt. */
+  thutDauDong: number;
+}
+
+/**
+ * Định dạng của TỪNG đoạn, trả riêng khỏi chữ.
+ *
+ * Gộp định dạng vào chính chuỗi chữ thì mọi dòng đều lệch khi hai hệ dùng kiểu chữ khác nhau,
+ * và khác biệt DỮ LIỆU — thứ anh cần thấy — chìm nghỉm trong đó. Hai bảng, hai vai.
+ */
+export function dinhDangDoan(buffer: Buffer): DinhDangDoan[] {
+  const zip = new PizZip(buffer);
+  const xml = zip.files['word/document.xml']?.asText() ?? '';
+  return cacDoan(xml).map((doan) => ({
+    canLe: /<w:jc\b[^>]*w:val="([^"]+)"/.exec(doan)?.[1] ?? '',
+    thutDauDong: Number(/<w:ind\b[^>]*w:firstLine="(\d+)"/.exec(doan)?.[1] ?? 0),
+  }));
 }
 
 export interface DongLech {
@@ -184,7 +228,7 @@ export function soDong(heCu: string[], heMoi: string[]): DongLech[] {
   return gop;
 }
 
-async function dangNhapHeCu(): Promise<string> {
+export async function dangNhapHeCu(): Promise<string> {
   const res = await fetch(`${CO_SO}/thanh-vien`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -201,7 +245,7 @@ async function dangNhapHeCu(): Promise<string> {
 }
 
 /** Tải bản in của hệ cũ. CHỈ ĐỌC — `GET`, đúng đường nút "Xuất Word" trên màn danh sách. */
-async function taiBanInHeCu(cookie: string, id: string, bienNhan = false): Promise<Buffer> {
+export async function taiBanInHeCu(cookie: string, id: string, bienNhan = false): Promise<Buffer> {
   const duong = `${CO_SO}/doi-1/XuatFile/${id}${bienNhan ? '?xuat_bien_nhan=1' : ''}`;
   const res = await fetch(duong, { headers: { cookie } });
   const kieu = res.headers.get('content-type') ?? '';

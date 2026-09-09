@@ -3,6 +3,7 @@ import { AssignModalProvider } from './AssignModalProvider';
 import { DeleteResourceModalProvider } from './DeleteResourceModalProvider';
 import { StatusTransitionModalProvider } from './StatusTransitionModalProvider';
 import { ProsecuteModalProvider } from './ProsecuteModalProvider';
+import { PrintDocumentsModalProvider } from './PrintDocumentsModalProvider';
 
 /**
  * v0.67 PR1 T3 — CompositeModalProvider (Issue I2 from /plan-eng-review).
@@ -21,7 +22,9 @@ export function CompositeModalProvider({ children }: { children: ReactNode }) {
     <AssignModalProvider>
       <DeleteResourceModalProvider>
         <StatusTransitionModalProvider>
-          <ProsecuteModalProvider>{children}</ProsecuteModalProvider>
+          <ProsecuteModalProvider>
+            <PrintDocumentsModalProvider>{children}</PrintDocumentsModalProvider>
+          </ProsecuteModalProvider>
         </StatusTransitionModalProvider>
       </DeleteResourceModalProvider>
     </AssignModalProvider>

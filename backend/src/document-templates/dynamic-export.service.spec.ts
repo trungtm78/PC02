@@ -452,4 +452,62 @@ describe('DynamicExportService', () => {
       expect(res.setHeader).toHaveBeenCalledWith('X-Batch-Records', '2');
     });
   });
+
+/**
+ * MẪU HỆ CŨ phải ra ĐOẠN Word, mẫu hệ mới vẫn ngắt dòng mềm.
+ *
+ * Bộ tách đoạn có ca kiểm riêng và xanh, nhưng nó chỉ chạy khi dịch vụ xuất BẢO nó chạy. Ca
+ * kiểm này đứng ở đúng tầng ấy: bấm đường xuất thật rồi mở tệp ra xem, chứ không hỏi một hàm
+ * xem nó nghĩ gì. Thiếu nó thì mọi tầng dưới vẫn xanh trong khi bản in vẫn sai.
+ */
+describe('kiểu xuống dòng theo mã mẫu', () => {
+  const NHIEU_DONG = { caseCode: 'VA-1', name: 'dòng một\ndòng hai\ndòng ba' };
+
+  // Một mẫu thì dịch vụ gửi thẳng tệp, không đi qua bước ghép — nên đọc từ `res.send`.
+  function docxRa(res: any): string {
+    const buf = res.send.mock.calls[0][0] as Buffer;
+    return new PizZip(buf).files['word/document.xml'].asText();
+  }
+
+  it('mẫu HE_CU_* → mỗi dòng một ĐOẠN, mang đúng thuộc tính của bản in hệ cũ', async () => {
+    prisma.documentTemplate.findMany.mockResolvedValue([
+      {
+        ...T_NONUM,
+        id: 'tc',
+        code: 'HE_CU_VU_AN',
+        // `variables` là thứ dịch vụ đọc để biết điền gì — không có thì mẫu ra rỗng và ca kiểm
+        // xanh/đỏ vì lý do chẳng liên quan gì tới xuống dòng.
+        variables: [{ name: 'tenVuAn', label: 'Tên vụ án', source: 'auto', field: 'tenVuAn' }],
+        fileBytes: makeDocx('{tenVuAn}'),
+      },
+    ]);
+
+    const res = plainRes();
+    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DONG, ['tc'], 'merged', 'u1', {}, res);
+
+    const xml = docxRa(res);
+    expect(xml).toContain('<w:spacing w:before="60"/><w:ind w:firstLine="709"/><w:jc w:val="both"/>');
+    expect(xml).not.toContain('<w:br/>');
+    expect(xml.match(/<w:p[ >]/g) ?? []).toHaveLength(3);
+  });
+
+  it('mẫu tố tụng hệ mới → giữ ngắt dòng mềm, KHÔNG chép quy ước của hệ khác', async () => {
+    prisma.documentTemplate.findMany.mockResolvedValue([
+      {
+        ...T_NONUM,
+        id: 'tm',
+        code: 'PHIEU_DE_XUAT',
+        variables: [{ name: 'tenVuAn', label: 'Tên vụ án', source: 'auto', field: 'tenVuAn' }],
+        fileBytes: makeDocx('{tenVuAn}'),
+      },
+    ]);
+
+    const res = plainRes();
+    await svc.exportEntityDocuments('VU_AN', 'c1', NHIEU_DONG, ['tm'], 'merged', 'u1', {}, res);
+
+    const xml = docxRa(res);
+    expect(xml).toContain('<w:br/>');
+    expect(xml).not.toContain('w:firstLine="709"');
+  });
+});
 });

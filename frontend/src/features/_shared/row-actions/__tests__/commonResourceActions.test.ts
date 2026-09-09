@@ -13,6 +13,7 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
     perms: { canDispatch: true, canEdit: true, canDelete: true },
     assignModal: { open: vi.fn() },
     deleteModal: { open: vi.fn() },
+    printModal: { open: vi.fn() },
     ...overrides,
   };
 }

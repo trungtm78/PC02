@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -747,3 +747,29 @@ màn: vá theo màn thì màn thứ bảy thêm sau này lại sót.
 
 Ghi bốn dòng cuối vì đó là **phần đã đo chứ không suy luận**: bốn shell ấy đúng sẵn, thêm cờ vào
 là thừa.
+
+## v0.73 — Nút In trên cột Thao tác + STT cũ (feat/in-tu-danh-sach)
+
+Hệ cũ **không có** nút In trên màn danh sách: muốn in phải mở hồ sơ ra. Đây là năng lực THÊM,
+cố ý khác bản cũ — cùng lý do đã đưa cột Thao tác lên đầu.
+
+| Năng lực | Cases | Incidents | Petitions | Gộp | Ghi chú |
+|---|---|---|---|---|---|
+| Nút In ngay trên dòng | ✅ | ✅ | ✅ | ✅ | `position: 'inline'`, mở đúng màn in chứng từ của chế độ sửa |
+| Modal in dùng chung | ✅ | ✅ | ✅ | ✅ | `PrintDocumentsModalProvider` trong `CompositeModalProvider`; **không** dựng cơ chế thứ hai |
+| Chọn thực thể theo dòng | — | — | — | ✅ | bảng gộp tra `RESOURCE_BY_TYPE[row.recordType]` |
+| Cột Thao tác 7rem → 9rem | ✅ | ✅ | ✅ | ✅ | 7rem vừa khít 3 nút; nút thứ tư là tràn |
+
+`printModal` khai **bắt buộc** trong `ActionContext` chứ không tuỳ chọn — nhờ vậy trình biên
+dịch bắt được ba shell quên nối, thay vì để nút im lặng không làm gì.
+
+### STT cũ ghép vào cột STT
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Hiện STT cũ trong cột STT | ✅ | ✅ | ✅ | dạng `16-243 - (STT cũ: 208)`, nghiêng đỏ — chép từ `doi_1_xem.tpl:44` |
+| Vắng hẳn khi không có số cũ | ✅ | ✅ | ✅ | 33–56% hồ sơ không có; in `cũ: —` là làm bảng cao lên mà không nói gì |
+| Ô lọc nhận cả `208` lẫn `2016-208` | ✅ | ✅ | ✅ | `dieuKienSttCu`, chép hành vi `act/list.php:140-151` |
+
+Hệ cũ có cột "STT cũ" riêng nhưng **đang bị chú thích tắt** (`doi_1_list.tpl:203`) — nó chỉ nằm
+ghép trong ô STT ở màn xem. Ghép vào cột sẵn có là đi theo hệ cũ, không phải rút gọn.
