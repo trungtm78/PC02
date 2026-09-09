@@ -166,6 +166,152 @@ export function dinhDangDoan(buffer: Buffer): DinhDangDoan[] {
   }));
 }
 
+
+/**
+ * Kiểu CHỮ của từng mảnh văn bản trong một đoạn.
+ *
+ * Anh bắt được lớp lỗi này khi đặt hai bản in cạnh nhau: hệ cũ không đậm, hệ mới đậm. Phép so
+ * CHỮ không thấy — chữ giống hệt nhau. Phép so ĐOẠN cũng không thấy — đậm là thuộc tính của
+ * run, không phải của đoạn. Ba phép so, ba tầng: chữ · đoạn · run.
+ */
+export interface ManhChu {
+  chu: string;
+  dam: boolean;
+  nghieng: boolean;
+  gachChan: boolean;
+  co: string;
+}
+
+function rPrCua(run: string): string {
+  return /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(run)?.[0] ?? '';
+}
+
+function chuCuaRun(run: string): string {
+  return (run.match(/<w:t(?:\s[^>]*)?>[\s\S]*?<\/w:t>/g) ?? [])
+    .map((t) => t.replace(/<[^>]+>/g, ''))
+    .join('');
+}
+
+/**
+ * Mảnh chữ của từng đoạn, đã GỘP các run liền nhau cùng kiểu.
+ *
+ * Không gộp thì mọi đoạn đều "lệch": hệ cũ cắt một câu thành tám run cùng kiểu, hệ mới gộp
+ * thành một — nhìn y hệt nhau. Dòng báo động giả kiểu ấy chôn vùi khác biệt thật, đúng như bản
+ * đầu của công cụ này từng làm với dấu ngoặc kép.
+ */
+export function manhChuTrongDocx(buffer: Buffer): ManhChu[][] {
+  const zip = new PizZip(buffer);
+  const xml = zip.files['word/document.xml']?.asText() ?? '';
+  return cacDoan(xml).map((doan) => {
+    const ra: ManhChu[] = [];
+    for (const run of doan.match(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g) ?? []) {
+      const chu = chuCuaRun(run).trim();
+      if (!chu) continue;
+      const rPr = rPrCua(run);
+      const manh: ManhChu = {
+        chu,
+        dam: /<w:b\s*\/>/.test(rPr),
+        nghieng: /<w:i\s*\/>/.test(rPr),
+        gachChan: /<w:u\s/.test(rPr),
+        co: /<w:sz w:val="(\d+)"/.exec(rPr)?.[1] ?? '',
+      };
+      const truoc = ra[ra.length - 1];
+      if (
+        truoc &&
+        truoc.dam === manh.dam &&
+        truoc.nghieng === manh.nghieng &&
+        truoc.gachChan === manh.gachChan &&
+        truoc.co === manh.co
+      ) {
+        truoc.chu = `${truoc.chu} ${manh.chu}`;
+      } else {
+        ra.push(manh);
+      }
+    }
+    return ra;
+  });
+}
+
+export interface LechKieuChu {
+  doanSo: number;
+  chu: string;
+  heCu: string;
+  heMoi: string;
+}
+
+function taKieu(m: ManhChu): string {
+  const c: string[] = [];
+  if (m.dam) c.push('đậm');
+  if (m.nghieng) c.push('nghiêng');
+  if (m.gachChan) c.push('gạch chân');
+  if (m.co) c.push(`cỡ ${m.co}`);
+  return c.length ? c.join(' + ') : 'thường';
+}
+
+/**
+ * So KIỂU CHỮ giữa hai bản in.
+ *
+ * Chỉ so những đoạn có CÙNG chuỗi mảnh chữ — khác chữ là việc của `soDong`, báo ở cả hai chỗ
+ * là đếm một khác biệt thành hai.
+ */
+/**
+ * So KIỂU CHỮ giữa hai bản in, theo TỪNG KÝ TỰ.
+ *
+ * Không so theo "mảnh": trường hợp thật là hệ cũ có 5 mảnh còn hệ mới gộp thành 1 mảnh trùm
+ * định dạng của nhãn lên cả câu — nếu bỏ qua khi số mảnh khác nhau thì phép so mù đúng chỗ cần
+ * nhìn nhất. Ghép kiểu vào từng ký tự rồi so, cấu trúc mảnh khác nhau không còn ảnh hưởng.
+ *
+ * Chỉ so những đoạn có CÙNG chữ — khác chữ là việc của `soDong`, báo ở cả hai chỗ là đếm một
+ * khác biệt thành hai.
+ */
+export function soKieuChu(heCu: ManhChu[][], heMoi: ManhChu[][]): LechKieuChu[] {
+  const lech: LechKieuChu[] = [];
+  for (let i = 0; i < Math.min(heCu.length, heMoi.length); i += 1) {
+    const a = trai(heCu[i]);
+    const b = trai(heMoi[i]);
+    if (a.chu !== b.chu || !a.chu) continue;
+
+    let k = 0;
+    while (k < a.kieu.length) {
+      if (a.kieu[k] === b.kieu[k]) {
+        k += 1;
+        continue;
+      }
+      const dau = k;
+      while (k < a.kieu.length && a.kieu[k] !== b.kieu[k] && a.kieu[k] === a.kieu[dau]) k += 1;
+      lech.push({
+        doanSo: i + 1,
+        chu: a.chu.slice(dau, k).trim().slice(0, 60),
+        heCu: a.kieu[dau],
+        heMoi: b.kieu[dau],
+      });
+    }
+  }
+  return lech;
+}
+
+/**
+ * Trải một đoạn thành chuỗi ký tự kèm kiểu của từng ký tự, BỎ KHOẢNG TRẮNG.
+ *
+ * Hai hệ đặt khoảng trắng khác nhau ở ranh giới run — hệ cũ cắt câu thành nhiều run nên có
+ * chỗ thừa chỗ thiếu một dấu cách. Giữ khoảng trắng lại thì hai chuỗi không bao giờ bằng nhau
+ * và phép so bỏ qua sạch mọi đoạn, tức là mù đúng chỗ cần nhìn. Kiểu chữ của một dấu cách
+ * cũng không phải thứ ai đọc bản in nhận ra.
+ */
+function trai(doan: ManhChu[]): { chu: string; kieu: string[] } {
+  const chu: string[] = [];
+  const kieu: string[] = [];
+  for (const m of doan) {
+    const k = taKieu(m);
+    for (const c of m.chu) {
+      if (/\s/.test(c)) continue;
+      chu.push(c);
+      kieu.push(k);
+    }
+  }
+  return { chu: chu.join(''), kieu };
+}
+
 export interface DongLech {
   /** `sua` = cùng chỗ nhưng khác chữ · `thieu` = chỉ hệ cũ có · `thua` = chỉ hệ mới có. */
   kieu: 'sua' | 'thieu' | 'thua';
