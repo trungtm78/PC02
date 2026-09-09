@@ -1,7 +1,7 @@
 # Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
-<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`. -->
-STATUS: IN_PROGRESS — chờ #353 (ô lọc cán bộ rỗng) lên máy là xong toàn bộ
+<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS: ALL_MILESTONES_DONE — cả 5 mốc xong, đã lên máy thật và kiểm tận nơi
+STATUS: ALL_MILESTONES_DONE — cả 5 mốc xong, đã lên máy thật và kiểm tận nơi
 
 ## Đã xong và ĐÃ LÊN MÁY THẬT
 
@@ -27,11 +27,6 @@ STATUS: IN_PROGRESS — chờ #353 (ô lọc cán bộ rỗng) lên máy là xon
 - **Phép so KIỂU CHỮ** — tầng thứ ba của công cụ. Hai tầng cũ (chữ · đoạn) không thể thấy lỗi
   trên: chữ giống hệt, còn đậm là thuộc tính của run.
 
-## BƯỚC TIẾP THEO
-
-1. Chờ #353 lên máy thật, chạy lại monkey test lần ba để xác nhận console sạch.
-2. Xong toàn bộ.
-
 ## Kết quả cuối (vòng 4, đo trên máy thật)
 
 10 cặp bản in: **0 lệch dữ liệu · 0 lệch bố cục · 0 lệch kiểu chữ**. Bốn chỗ lệch còn lại đều là
@@ -51,7 +46,16 @@ lọc cán bộ rỗng vì sai tên khoá (#353).
 - **M4** sổ phủ UAT: 5/5 mệnh đề có chủ ngữ là CÁN BỘ đã chạy thật.
 - **M5** monkey test: 44 màn, 0 màn trắng, bắt được lỗi thông báo trực tuyến (#351).
 
-## Còn treo
+## Việc chờ anh quyết
+
+- **916 hồ sơ** hệ cũ in được mà hệ mới chưa có màn in (hướng dẫn 540 · trao đổi 76 · …) — treo
+  từ 28/08.
+- **Cổng CI "Maestro on Android emulator" hỏng sẵn từ 23/08**: ghim SHA của
+  `subosito/flutter-action` không còn tồn tại nên chạy 2 giây là đỏ. Một cổng luôn đỏ là tiếng ồn
+  che mất cổng đỏ thật.
+- Nhánh `feat/data-export-excel` còn 79 commit chưa gộp, chưa có PR.
+
+## Còn treo (cũ)
 
 - **Cổng CI "Maestro on Android emulator" hỏng sẵn từ 23/08**: ghim SHA của
   `subosito/flutter-action` không còn tồn tại nên chạy 2 giây là đỏ. Không liên quan việc này,

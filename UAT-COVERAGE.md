@@ -41,8 +41,8 @@ có đối chứng).
 ` đơn ra ngắt dòng mềm — như hệ cũ | đơn vị + dịch vụ | PASS |
 | M3-5 | Chỉ mẫu `HE_CU_*` dùng quy ước ấy; mẫu PC01 giữ ngắt dòng mềm | dịch vụ xuất | PASS |
 | M3-6 | Định dạng của nhãn KHÔNG trùm lên phần giá trị | đơn vị | PASS |
-| M3-7 | **8 mẫu có bản gốc: bản in hệ mới khớp hệ cũ về chữ · đoạn · kiểu chữ** | đối chiếu hiện vật trên máy thật | PASS 9/10 cặp (vòng 3); cặp còn lại vá ở #350, chờ đo lại |
-| M3-8 | 3 mẫu hệ cũ chưa từng in | — | KHÔNG SO ĐƯỢC |
+| M3-7 | **8 mẫu có bản gốc: bản in hệ mới khớp hệ cũ về chữ · đoạn · kiểu chữ** | đối chiếu hiện vật trên máy thật | PASS 10/10 cặp (vòng 4) |
+| M3-8 | 3 mẫu hệ cũ chưa từng in | — | KHÔNG SO ĐƯỢC; chỉ kiểm được là dựng ra tệp hợp lệ, 0 biến sót |
 | M3-9 | 17 mẫu tố tụng PC01 không có đối tác ở hệ cũ | — | KHÔNG SO ĐƯỢC |
 | M3-10 | Mẫu hệ cũ được mời in ở đủ thực thể mà hồ sơ loại ấy nằm | cổng CI + đếm trên máy thật | PASS |
 | M3-11 | Mẫu tự điền được ở MỌI thực thể nó được mời in | cổng CI | PASS |
@@ -85,3 +85,18 @@ Lượt đầu **0/5**, và không mệnh đề nào trong đó là lỗi sản 
 
 Ảnh chụp màn hình là thứ phân biệt được "sản phẩm hỏng" với "bộ chạy hỏng": nhìn ảnh thấy
 **icon máy in nằm sẵn trong cột Thao tác**, tức sản phẩm đúng còn phép đo sai.
+
+
+## Chốt cuối (09/09/2026)
+
+Cả năm mốc PASS trên **máy thật**, kiểm tận nơi chứ không suy từ ca kiểm:
+
+- **10/10 cặp bản in**: 0 lệch dữ liệu · 0 lệch bố cục · 0 lệch kiểu chữ. Bốn chỗ lệch còn lại
+  đều là hệ cũ tự in ra tên biến của nó — lỗi hệ cũ, cố ý không chép.
+- **5/5 mệnh đề có chủ ngữ là CÁN BỘ** chạy qua giao diện thật.
+- **Monkey test**: 44 màn · 40 lượt bấm · 0 màn trắng · **0 lời gọi bị máy chủ từ chối**.
+
+Ba lỗi tìm thêm ngoài phạm vi được giao, đã vá và đã lên máy: 5.227 hồ sơ không mời in được
+chứng từ hệ cũ (#347) · dòng thông báo trực tuyến 401 (#351) · ô lọc cán bộ rỗng (#353).
+
+Hai bộ công cụ đã đưa vào kho để chạy lại được: `tools/monkey-test/` và `tools/uat-may-that/`.
