@@ -9,17 +9,33 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
     perms: { canDispatch: true, canEdit: true, canDelete: true },
     assignModal: { open: vi.fn() },
     deleteModal: { open: vi.fn() },
+  printModal: { open: vi.fn() },
     ...overrides,
   };
 }
 
 describe('comprehensiveRowActions polyglot dispatch', () => {
-  it('registers View/Edit/Delete (3 actions)', () => {
+  it('registers View/Edit/Print/Delete (4 actions)', () => {
     expect(comprehensiveRowActions.all().map((a) => a.key)).toEqual([
       'view',
       'edit',
+      // Bảng gộp cũng có nút In (anh yêu cầu 09/09/2026); thực thể lấy theo `recordType`
+      // của DÒNG chứ không phải của trang, vì bảng này trộn cả ba loại hồ sơ.
+      'print',
       'delete',
     ]);
+  });
+
+  it('In chứng từ mở đúng thực thể theo loại của dòng', () => {
+    const ctx = makeCtx();
+    const inChungTu = comprehensiveRowActions.all().find((a) => a.key === 'print')!;
+
+    inChungTu.execute({ id: 'X1', recordType: 'INCIDENT' }, ctx);
+
+    expect(ctx.printModal.open).toHaveBeenCalledWith({
+      entity: 'incidents',
+      entityId: 'X1',
+    });
   });
 
   it('View dispatches to /cases when recordType=CASE', () => {

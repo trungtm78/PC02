@@ -16,7 +16,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
-import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+// Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
+// một modal dùng chung, cách bọc riêng bắt phải sửa lại từng tệp ca kiểm — và ca kiểm đỏ vì
+// lý do không liên quan gì tới thứ nó đang chốt.
+import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 vi.mock('@/lib/api', () => ({
@@ -35,7 +38,7 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
   const result = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
-      <AssignModalProvider>
+      <CompositeModalProvider>
         <DeleteResourceModalProvider>
           <Routes>
             <Route
@@ -48,7 +51,7 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
             <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
           </Routes>
         </DeleteResourceModalProvider>
-      </AssignModalProvider>
+      </CompositeModalProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );

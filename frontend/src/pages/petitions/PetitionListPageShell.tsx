@@ -61,6 +61,7 @@ import { Filters } from '@/features/_shared/list-filters/Filters';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
@@ -200,6 +201,7 @@ export function PetitionListPageShell() {
   // v0.65 PR3 — Action context + advanced filter state.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
@@ -210,6 +212,7 @@ export function PetitionListPageShell() {
         canDelete: canDelete('petitions'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -431,7 +434,7 @@ export function PetitionListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '7rem',
+        width: '9rem',
         sticky: true,
         render: (r) => (
           <RowActions

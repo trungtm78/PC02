@@ -10,7 +10,10 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
-import { AssignModalProvider } from '@/features/_shared/modals/AssignModalProvider';
+// Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
+// một modal dùng chung, cách bọc riêng bắt phải sửa lại từng tệp ca kiểm — và ca kiểm đỏ vì
+// lý do không liên quan gì tới thứ nó đang chốt.
+import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -30,7 +33,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
   const result = render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
-      <AssignModalProvider>
+      <CompositeModalProvider>
         <DeleteResourceModalProvider>
           <Routes>
             <Route path="/petitions" element={<><PetitionListPageShell /><LocationTracker /></>} />
@@ -38,7 +41,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
             <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
           </Routes>
         </DeleteResourceModalProvider>
-      </AssignModalProvider>
+      </CompositeModalProvider>
     </MemoryRouter>
     </QueryClientProvider>,
   );

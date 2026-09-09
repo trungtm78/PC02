@@ -1,4 +1,4 @@
-import { Users, Briefcase, FileText, ArrowRightLeft, UserCheck } from 'lucide-react';
+import { Users, Briefcase, FileText, ArrowRightLeft, UserCheck, Printer } from 'lucide-react';
 import {
   createRowActionRegistry,
   type RowAction,
@@ -28,6 +28,17 @@ export interface CaseRowForActions {
 const TIEP_NHAN = 'TIEP_NHAN';
 
 const cases = createRowActionRegistry<CaseRowForActions>();
+
+const inChungTu: RowAction<CaseRowForActions> = {
+  key: 'print',
+  label: 'In chứng từ',
+  icon: Printer,
+  // INLINE chứ không nấp trong menu ⋮: in là việc cán bộ làm liên tục, mà từ danh sách hiện
+  // giờ KHÔNG in được — phải mở hồ sơ ra mới có nút. Chôn vào menu là vẫn tốn hai lần bấm.
+  position: 'inline',
+  execute: (row, ctx) => ctx.printModal.open({ entity: 'cases', entityId: row.id }),
+  testid: 'btn-print',
+};
 
 const menuActions: RowAction<CaseRowForActions>[] = [
   {
@@ -87,6 +98,7 @@ cases.registerMany([
     canDelete: (row) =>
       row.status === TIEP_NHAN ? null : 'Chỉ xóa được khi trạng thái = Tiếp nhận',
   }),
+  inChungTu,
   ...menuActions,
 ]);
 

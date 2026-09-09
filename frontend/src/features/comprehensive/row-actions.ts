@@ -1,4 +1,4 @@
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Printer, Trash2 } from 'lucide-react';
 import {
   createRowActionRegistry,
   type RowAction,
@@ -32,7 +32,8 @@ const ROUTE_BY_TYPE: Record<ComprehensiveRecordType, string> = {
   PETITION: '/petitions',
 };
 
-const DELETE_RESOURCE_BY_TYPE: Record<
+/** Loại dòng → tên thực thể ở API. Dùng chung cho cả xoá lẫn in, để hai chỗ không lệch nhau. */
+const RESOURCE_BY_TYPE: Record<
   ComprehensiveRecordType,
   'cases' | 'incidents' | 'petitions'
 > = {
@@ -62,6 +63,16 @@ const actions: RowAction<ComprehensiveRowForActions>[] = [
     testid: 'btn-edit',
   },
   {
+    key: 'print',
+    label: 'In chứng từ',
+    icon: Printer,
+    // Bảng gộp ba loại nên thực thể lấy theo `recordType` của DÒNG, không phải của trang.
+    position: 'inline',
+    execute: (row, ctx) =>
+      ctx.printModal.open({ entity: RESOURCE_BY_TYPE[row.recordType], entityId: row.id }),
+    testid: 'btn-print',
+  },
+  {
     key: 'delete',
     label: 'Xóa',
     icon: Trash2,
@@ -70,7 +81,7 @@ const actions: RowAction<ComprehensiveRowForActions>[] = [
     visible: (_row, ctx) => ctx.perms.canDelete !== false,
     execute: (row, ctx) =>
       ctx.deleteModal.open({
-        resourceType: DELETE_RESOURCE_BY_TYPE[row.recordType],
+        resourceType: RESOURCE_BY_TYPE[row.recordType],
         recordId: row.id,
         recordLabel: row.caseNumber ?? row.name,
       }),

@@ -42,6 +42,13 @@ export interface ProsecuteOpenArgs {
   onSuccess?: (caseId: string) => void;
 }
 
+/** Tham số mở màn in chứng từ. `entity` khớp `ExportEntity` của module document-templates. */
+export interface PrintModalOpenArgs {
+  entity: 'cases' | 'incidents' | 'petitions';
+  entityId: string;
+  onPatched?: () => void;
+}
+
 export interface ActionContext {
   navigate: NavigateFunction;
   perms: {
@@ -51,6 +58,11 @@ export interface ActionContext {
   };
   assignModal: { open: (args: AssignModalOpenArgs) => void };
   deleteModal: { open: (args: DeleteModalOpenArgs) => void };
+  /**
+   * Mở màn in chứng từ cho một dòng. BẮT BUỘC — mọi danh sách đều có hành động in, nên để
+   * tuỳ chọn là mời gọi một shell quên truyền rồi nút im lặng không làm gì.
+   */
+  printModal: { open: (args: PrintModalOpenArgs) => void };
   /** v0.67 PR1 — optional Incidents-only modals. Caller must provide
    * if action targets transition/prosecute; otherwise undefined OK. */
   statusTransition?: { open: (args: StatusTransitionOpenArgs) => void };

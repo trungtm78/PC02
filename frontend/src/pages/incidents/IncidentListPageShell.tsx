@@ -57,6 +57,7 @@ import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
@@ -212,6 +213,7 @@ export function IncidentListPageShell() {
   // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
   const { canDispatch, canEdit, canDelete } = usePermission();
   const assignModal = useAssignModal();
+  const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const statusTransitionModal = useStatusTransitionModal();
   const prosecuteModal = useProsecuteModal();
@@ -224,6 +226,7 @@ export function IncidentListPageShell() {
         canDelete: canDelete('incidents'),
       },
       assignModal,
+      printModal,
       deleteModal: {
         open: (args) =>
           deleteModal.open({
@@ -454,7 +457,7 @@ export function IncidentListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '7rem',
+        width: '9rem',
         sticky: true,
         render: (r) => (
           <RowActions

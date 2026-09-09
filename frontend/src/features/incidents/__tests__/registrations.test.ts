@@ -9,16 +9,20 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
     perms: { canDispatch: true, canEdit: true, canDelete: true },
     assignModal: { open: vi.fn() },
     deleteModal: { open: vi.fn() },
+    printModal: { open: vi.fn() },
     ...overrides,
   };
 }
 
 describe('incidentsRowActions', () => {
-  it('registers View/Edit/Delete/Assign/Transition/Prosecute in order', () => {
+  it('registers View/Edit/Delete/Print/Assign/Transition/Prosecute in order', () => {
     expect(incidentsRowActions.all().map((a) => a.key)).toEqual([
       'view',
       'edit',
       'delete',
+      // 'print' đứng ngay sau nhóm chung: nó là nút INLINE trên cột Thao tác (anh yêu cầu
+      // 09/09/2026), không phải mục trong menu ⋮.
+      'print',
       'assign',
       'transition',
       'prosecute',
@@ -164,5 +168,36 @@ describe('incidentsListFilters', () => {
       'filter-can-bo-nhap',
       'filter-tinh-theo',
     ]);
+  });
+});
+
+/**
+ * In chứng từ NGAY TỪ DANH SÁCH.
+ *
+ * Anh báo 09/09/2026: ba màn danh sách không có nút In, muốn in phải mở hồ sơ ra rồi bấm
+ * "In chứng từ" trong màn sửa — ba lần bấm cho một việc cán bộ làm liên tục.
+ *
+ * Mở đúng modal sẵn có (`DynamicExportDocumentsModal`) qua provider dùng chung, KHÔNG dựng
+ * màn in thứ hai: modal ấy chỉ cần `{entity, entityId}` và tự gọi API lấy phần còn lại.
+ */
+describe('incidentsRowActions — in chứng từ từ danh sách', () => {
+  it('có hành động in, nằm NGAY TRÊN cột Thao tác chứ không nấp trong menu', () => {
+    const inChungTu = incidentsRowActions.all().find((a) => a.key === 'print');
+
+    expect(inChungTu).toBeDefined();
+    // Nấp trong menu ⋮ là vẫn tốn hai lần bấm — đúng thứ anh yêu cầu bỏ đi.
+    expect(inChungTu!.position).toBe('inline');
+  });
+
+  it('bấm in mở modal với ĐÚNG thực thể và id của dòng', () => {
+    const ctx = makeCtx();
+    const inChungTu = incidentsRowActions.all().find((a) => a.key === 'print')!;
+
+    inChungTu.execute({ id: 'I9', status: 'TIEP_NHAN' }, ctx);
+
+    expect(ctx.printModal.open).toHaveBeenCalledWith({
+      entity: 'incidents',
+      entityId: 'I9',
+    });
   });
 });
