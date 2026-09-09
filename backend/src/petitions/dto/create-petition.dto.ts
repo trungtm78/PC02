@@ -14,7 +14,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { PetitionStatus, LoaiDon } from '@prisma/client';
+import { PetitionStatus, LoaiDon, HuongXuLyDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
@@ -362,9 +362,22 @@ export class CreatePetitionDto {
   donViGiaiQuyet?: string;
 
   // Thẩm quyền: true → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  //
+  // Đã BỎ khỏi form (09/09/2026) — nay suy ra từ `huongXuLy`. Giữ lại trong DTO cho các đường
+  // gọi cũ (bộ di trú, ca kiểm) và vì cột vẫn còn; gửi cả hai thì `huongXuLy` thắng.
   @IsOptional()
   @IsBoolean()
   thuocThamQuyen?: boolean;
+
+  /**
+   * Hướng xử lý — thay ô tích "Thuộc thẩm quyền" trên form.
+   *
+   * Quyết định nguồn của ô "Đơn vị xử lý", câu in ở dòng "Đề xuất", ô "Kính gửi", và (chỉ khi
+   * hướng THỰC SỰ đổi) trạng thái hồ sơ.
+   */
+  @IsOptional()
+  @IsEnum(HuongXuLyDon)
+  huongXuLy?: HuongXuLyDon;
 
   // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
   @IsOptional()

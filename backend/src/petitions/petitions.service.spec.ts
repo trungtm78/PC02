@@ -643,6 +643,62 @@ describe('PetitionsService', () => {
       );
     });
 
+    /**
+     * Hướng xử lý đi qua ĐƯỜNG THẬT — ca kiểm luật ở `huong-xu-ly.rule.spec.ts` chỉ chốt phép
+     * tính; ba ca dưới đây chốt phần dễ hỏng hơn: dữ liệu có tới `prisma.update` không.
+     */
+    describe('hướng xử lý', () => {
+      const duLieuGhi = () => mockPrisma.petition.update.mock.calls.at(-1)![0].data;
+
+      it('chọn Chuyển đơn → ghi hướng, suy thuocThamQuyen=false, đổi trạng thái', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue({ ...mockPetition, huongXuLy: null });
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+
+        await service.update('petition-001', { huongXuLy: 'CHUYEN_DON' } as never, 'user-001');
+
+        expect(duLieuGhi()).toMatchObject({
+          huongXuLy: 'CHUYEN_DON',
+          thuocThamQuyen: false,
+          status: PetitionStatus.DA_CHUYEN_DON_VI,
+        });
+      });
+
+      /**
+       * Ca chống hỏng-lặng-lẽ: sửa một ô KHÔNG liên quan rồi bấm Lưu không được kéo hồ sơ
+       * ngược về trạng thái của hướng. Hồ sơ dưới đây đang GIAO_DON nhưng trạng thái đã được
+       * người khác đưa sang DA_GIAI_QUYET bằng đường riêng.
+       */
+      it('lưu lại mà không đổi hướng → KHÔNG đụng trạng thái', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue({
+          ...mockPetition,
+          huongXuLy: 'GIAO_DON',
+          status: PetitionStatus.DA_GIAI_QUYET,
+        });
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+
+        await service.update(
+          'petition-001',
+          { huongXuLy: 'GIAO_DON', senderName: 'Sửa tên' } as never,
+          'user-001',
+        );
+
+        expect(duLieuGhi()).not.toHaveProperty('status');
+      });
+
+      it('gửi status tường minh thì status THẮNG hướng', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue({ ...mockPetition, huongXuLy: null });
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+
+        await service.update(
+          'petition-001',
+          { huongXuLy: 'CHUYEN_DON', status: PetitionStatus.CHO_PHE_DUYET } as never,
+          'user-001',
+        );
+
+        expect(duLieuGhi().status).toBe(PetitionStatus.CHO_PHE_DUYET);
+      });
+    });
+
     it('should throw NotFoundException when petition not found', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(null);
 

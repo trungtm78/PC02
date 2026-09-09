@@ -41,6 +41,7 @@ import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
+import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -731,8 +732,32 @@ export class PetitionsService {
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
       ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
       // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
-      ...(dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
+      //
+      // `huongXuLy` là ô thật trên form; `thuocThamQuyen` suy ra từ nó (cột cũ vẫn còn nhiều
+      // nơi đọc). Đường gọi chỉ gửi `thuocThamQuyen` vẫn chạy như trước.
+      ...(dto.huongXuLy !== undefined && { huongXuLy: dto.huongXuLy }),
+      ...(suyThuocThamQuyen(dto.huongXuLy) !== undefined
+        ? { thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) }
+        : dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
       ...(dto.donViXuLy !== undefined && { donViXuLy: dto.donViXuLy }),
+      /**
+       * Trạng thái theo hướng — CHỈ khi hướng thực sự đổi trong lần lưu này.
+       *
+       * Áp mọi lần lưu là hỏng lặng lẽ: sửa số điện thoại người gửi rồi bấm Lưu sẽ kéo hồ sơ
+       * ngược về trạng thái của hướng, xoá thay đổi trạng thái người khác vừa làm.
+       *
+       * `dto.status` gửi tường minh vẫn THẮNG — người dùng nói rõ thì nghe người dùng.
+       */
+      ...(dto.status === undefined &&
+        canDoiTrangThai(existing.huongXuLy, dto.huongXuLy) && {
+          status: trangThaiTheoHuong(dto.huongXuLy!),
+          ...machMocGiaiQuyet(
+            'petition',
+            existing.status,
+            trangThaiTheoHuong(dto.huongXuLy!),
+            existing.ngayGiaiQuyet,
+          ),
+        }),
       // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
       ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),
       ...(dto.phanLoaiHoSoNoiBo !== undefined && { phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo }),
