@@ -275,6 +275,17 @@ export async function seedPetitionTemplates(
   let skipped = 0;
   let updated = 0;
   const forceFile = process.env.SEED_TEMPLATES_FORCE_FILE === '1';
+  /**
+   * Giới hạn ghi đè cho ĐÚNG những mã được liệt kê (phân cách bằng dấu phẩy).
+   *
+   * Không có nó thì `SEED_TEMPLATES_FORCE_FILE=1` quét cả bộ 7 mẫu — kể cả mẫu lần này không
+   * đụng tới. Trên máy thật quản trị có quyền tải mẫu lên sửa, nên quét cả bộ là xoá bản họ
+   * vừa sửa mà không ai biết, chỉ lộ ra khi in.
+   */
+  const chiGhiDe = (process.env.SEED_TEMPLATES_FORCE_ONLY ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const admin = await (prisma as any).user.findFirst({
     where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN'] } } },
@@ -300,7 +311,7 @@ export async function seedPetitionTemplates(
       where: { entityType: 'DON_THU', code: docType, deletedAt: null },
       select: { id: true, variables: true },
     });
-    if (existing && forceFile) {
+    if (existing && forceFile && (chiGhiDe.length === 0 || chiGhiDe.includes(docType))) {
       // Ghi đè có chủ đích: dựng lại mapping từ file mới (GATE catalog bên trong).
       const variables = buildPetitionSeedVariables(docType, buffer);
       const fileSha = createHash('sha256').update(buffer).digest('hex');
