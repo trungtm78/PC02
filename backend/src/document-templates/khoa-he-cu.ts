@@ -333,6 +333,19 @@ export function namHoSoNhuHeCu(record: unknown): string {
   return oDauVanBan(record, 'nam');
 }
 
+/**
+ * Dòng "…, ngày … tháng … năm …" ở đầu văn bản, đúng chữ hệ cũ in.
+ *
+ * Mẫu hệ cũ viết `ngày ${ngay} tháng ${thang} năm ${nam}` — ba TRƯỜNG của chính hồ sơ, không
+ * phải ngày in. Giữ luật đệm số 0 KHÔNG đối xứng của hệ cũ: đệm `ngay`, không đệm `thang`.
+ */
+export function ngayThangNamNhuHeCu(record: unknown): string {
+  const ngay = oDauVanBan(record, 'ngay');
+  const thang = oDauVanBan(record, 'thang');
+  const nam = oDauVanBan(record, 'nam');
+  return `ngày ${ngay} tháng ${thang} năm ${nam}`;
+}
+
 
 /** Ngày dùng cho dòng "ngày … tháng … năm …" khi hồ sơ không mang bản thô của hệ cũ. */
 function ngayKy(record: unknown): Date {

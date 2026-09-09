@@ -48,9 +48,13 @@ describe('field-catalog', () => {
       );
       expect(resolveField('DON_THU', 'noiDung', { detailContent: 'chi tiết' })).toBe('chi tiết');
     });
-    it('baoCaoBGD computed Có/Không', () => {
+    /**
+     * Bản trước chốt "Có/Không". Đo bản in hệ cũ 09/09/2026: mẫu đổ thẳng
+     * `${truong_hop_bao_cao_ban_giam_doc}` — in CHỮ, rỗng thì để trống, không bao giờ in "Không".
+     */
+    it('baoCaoBGD: chỉ có ô đánh dấu thì nói Có, không thuộc thì để TRỐNG', () => {
       expect(resolveField('DON_THU', 'baoCaoBGD', { baoCaoBanGiamDoc: true })).toBe('Có');
-      expect(resolveField('DON_THU', 'baoCaoBGD', { baoCaoBanGiamDoc: false })).toBe('Không');
+      expect(resolveField('DON_THU', 'baoCaoBGD', { baoCaoBanGiamDoc: false })).toBe('');
     });
   });
 
@@ -164,5 +168,102 @@ describe('năm ở dòng ký', () => {
     expect(resolveField('DON_THU', 'namHoSo', { legacyRaw: { ngay: '14', nam: '' } } as never)).toBe(
       '',
     );
+  });
+});
+
+/**
+ * Hai ô in SAI trên gần như mọi hồ sơ, đo trên máy thật 09/09/2026.
+ *
+ * So bản in Phiếu đề xuất của hệ mới với bản in hệ cũ của CÙNG hồ sơ 37315:
+ *
+ *   hệ cũ : "Đơn Tố giác ghi ngày 28/11/2016"
+ *   hệ mới: "Đơn ghi ngày 28/11/2016"                    <- mất loại đơn
+ *
+ *   hệ cũ : "Thuộc trường hợp báo cáo Ban giám đốc: Công ty Cổ phần Ánh Dương Việt Nam"
+ *   hệ mới: "Thuộc trường hợp báo cáo Ban giám đốc: Có"  <- in cột BOOLEAN thay vì cột CHỮ
+ *
+ * Quy mô: 46.655/47.169 hồ sơ (98,9%) có `petitionType` rỗng mà `loaiThongTin` có chữ — hệ cũ in
+ * chính chữ ấy. 35.502 hồ sơ có `baoCaoBanGiamDocText`, mà bản in đọc cột boolean bên cạnh.
+ */
+describe('hai ô đọc nhầm cột', () => {
+  it('loại đơn: chưa phân loại thì lấy loại thông tin như hệ cũ in', () => {
+    expect(resolveField('DON_THU', 'loaiDon', { loaiThongTin: 'Tố giác' } as never)).toBe('Tố giác');
+  });
+
+  it('loại đơn: đã phân loại thì dùng nhãn của hệ mới', () => {
+    const ra = resolveField('DON_THU', 'loaiDon', {
+      petitionType: 'DON_TO_CAO',
+      loaiThongTin: 'Tố giác',
+    } as never);
+
+    expect(ra).toBe('Đơn tố cáo');
+  });
+
+  it('báo cáo BGĐ: in CHỮ, không in "Có"', () => {
+    const ra = resolveField('DON_THU', 'baoCaoBGD', {
+      baoCaoBanGiamDoc: true,
+      baoCaoBanGiamDocText: 'Công ty Cổ phần Ánh Dương Việt Nam',
+    } as never);
+
+    expect(ra).toBe('Công ty Cổ phần Ánh Dương Việt Nam');
+  });
+
+  it('báo cáo BGĐ: chỉ có ô đánh dấu, không có chữ → vẫn nói được là Có', () => {
+    expect(resolveField('DON_THU', 'baoCaoBGD', { baoCaoBanGiamDoc: true } as never)).toBe('Có');
+  });
+
+  it('báo cáo BGĐ: không thuộc trường hợp → in TRỐNG như hệ cũ, không in "Không"', () => {
+    // Mẫu hệ cũ chỉ đổ `${truong_hop_bao_cao_ban_giam_doc}`; rỗng thì in rỗng.
+    expect(resolveField('DON_THU', 'baoCaoBGD', { baoCaoBanGiamDoc: false } as never)).toBe('');
+  });
+});
+
+/**
+ * BA MỤC CÒN LẠI — anh chốt "làm giống như cũ hết" (09/09/2026).
+ *
+ * So bản in Phiếu đề xuất của hệ mới với bản in hệ cũ, cùng hồ sơ 37315:
+ *
+ *   | mục | hệ cũ | hệ mới (trước khi sửa) |
+ *   |---|---|---|
+ *   | dòng địa điểm | `…, ngày 14 tháng 12 năm 2016` (ngày của HỒ SƠ) | `…, ngày 09 tháng 09 năm 2026` (hôm nay) |
+ *   | Ban chỉ huy   | `Đội 1` (đơn vị PHÁT HÀNH, chữ CỨNG trong mẫu cũ) | `Đội 8` (đội được giao) |
+ *   | Đề xuất       | `Giao Đội 8 tiếp nhận kiểm tra, xác minh, …` | `./.` (rỗng ở 47.079/47.169 hồ sơ) |
+ *
+ * Câu "Đề xuất" của hệ cũ nằm trong CHÍNH MẪU:
+ *   `Đề xuất: Giao ${don_vi_giai_quyet} tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng
+ *    phụ trách để giải quyết theo quy định./.`
+ * Mẫu hệ mới viết `Đề xuất: {deXuat}./.` nên phần điền KHÔNG kèm "./." ở cuối.
+ */
+describe('ba mục còn lại — giống hệ cũ', () => {
+  it('dòng địa điểm lấy NGÀY CỦA HỒ SƠ, không phải hôm nay', () => {
+    const r = { legacyRaw: { ngay: 14, thang: 12, nam: 2016 } } as never;
+
+    expect(resolveField('DON_THU', 'ngayPhatHanh', r)).toBe('ngày 14 tháng 12 năm 2016');
+  });
+
+  it('giữ luật đệm số 0 KHÔNG đối xứng của hệ cũ: đệm ngày, KHÔNG đệm tháng', () => {
+    const r = { legacyRaw: { ngay: 9, thang: 8, nam: 2026 } } as never;
+
+    expect(resolveField('DON_THU', 'ngayPhatHanh', r)).toBe('ngày 09 tháng 8 năm 2026');
+  });
+
+  it('tên đội là đơn vị PHÁT HÀNH, không phải đội được giao', () => {
+    const r = { assignedTeam: { name: 'Đội 8', code: 'D8' } } as never;
+
+    expect(resolveField('DON_THU', 'tenDoi', r)).toBe('Đội 1');
+  });
+
+  it('đề xuất: cán bộ chưa viết thì ghép câu như mẫu hệ cũ', () => {
+    const r = { donViGiaiQuyet: 'Đội 8' } as never;
+
+    expect(resolveField('DON_THU', 'deXuat', r)).toBe(
+      'Giao Đội 8 tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng phụ trách để giải quyết theo quy định',
+    );
+  });
+
+  it('đề xuất: cán bộ ĐÃ viết thì dùng đúng chữ của cán bộ', () => {
+    const r = { deXuat: 'Chuyển Công an quận 5', donViGiaiQuyet: 'Đội 8' } as never;
+
+    expect(resolveField('DON_THU', 'deXuat', r)).toBe('Chuyển Công an quận 5');
   });
 });
