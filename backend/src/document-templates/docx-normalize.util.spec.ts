@@ -154,3 +154,51 @@ describe('normalizeDocxTags — giữ nguyên thứ không phải chữ, và hi�
     expect(detectDocxVariables(normalizeDocxTags(buf), { start: '${', end: '}' })).toEqual(['stt']);
   });
 });
+
+/**
+ * CHỈ GỘP ĐÚNG NHỊP RUN MÀ PLACEHOLDER VẮT QUA.
+ *
+ * Bản trước gộp CẢ dãy run thuần chữ của đoạn thành một run và lấy `rPr` của run ĐẦU. Trong
+ * mẫu hệ cũ, đoạn "Đề xuất" mở đầu bằng nhãn ĐẬM + GẠCH CHÂN rồi mới tới giá trị — nên cả câu
+ * bị in đậm và gạch chân, trong khi hệ cũ chỉ đậm mỗi cái nhãn.
+ *
+ * Đo trên bản in thật ngày 09/09/2026, hồ sơ 69971 mẫu `HE_CU_VU_AN`:
+ *
+ *   hệ cũ  : [b,u]"Đề xuất" · [b]": " · []"Giao " · [b]"Công an phường Hòa Hưng" · []"tiếp nhận…"
+ *   hệ mới : [b,u]"Đề xuất:  Giao Công an phường Hòa Hưng tiếp nhận thụ lý để giải quyết…"
+ *
+ * Phép so chữ không thấy — chữ giống hệt. Cùng lớp với chỗ mù ngắt đoạn.
+ */
+describe('normalizeDocxTags — không trùm định dạng của nhãn lên cả câu', () => {
+  const DOAN_DE_XUAT =
+    '<w:p>' +
+    '<w:r><w:rPr><w:b/><w:u w:val="single"/></w:rPr><w:t>Đề xuất</w:t></w:r>' +
+    '<w:r><w:rPr><w:b/></w:rPr><w:t>: </w:t></w:r>' +
+    '<w:r><w:t>Giao ${don</w:t></w:r>' +
+    '<w:r><w:rPr><w:i/></w:rPr><w:t>_vi} tiếp nhận</w:t></w:r>' +
+    '</w:p>';
+
+  it('nhãn đậm+gạch chân KHÔNG lan sang phần giá trị', () => {
+    const xml = bodyXmlOf(normalizeDocxTags(makeRawDocx(DOAN_DE_XUAT)));
+
+    // Run mang gạch chân chỉ được chứa đúng chữ "Đề xuất".
+    const runGachChan = /<w:r>(?:(?!<\/w:r>)[\s\S])*<w:u w:val="single"\/>[\s\S]*?<\/w:r>/.exec(xml)?.[0] ?? '';
+    expect(runGachChan).toContain('Đề xuất');
+    expect(runGachChan).not.toContain('tiếp nhận');
+    expect(runGachChan).not.toContain('Giao');
+  });
+
+  it('vẫn gộp được placeholder bị cắt — đó mới là việc của bước này', () => {
+    expect(detectDocxVariables(normalizeDocxTags(makeRawDocx(DOAN_DE_XUAT)), {
+      start: '${',
+      end: '}',
+    })).toEqual(['don_vi']);
+  });
+
+  it('run KHÔNG dính placeholder giữ nguyên `rPr` của chính nó', () => {
+    const xml = bodyXmlOf(normalizeDocxTags(makeRawDocx(DOAN_DE_XUAT)));
+
+    // Nhãn đậm-không-gạch `": "` phải còn là run riêng, không bị nuốt vào run gộp.
+    expect(xml).toContain('<w:r><w:rPr><w:b/></w:rPr><w:t>: </w:t></w:r>');
+  });
+});

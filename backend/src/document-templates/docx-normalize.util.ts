@@ -47,6 +47,113 @@ function cacPlaceholder(s: string): string[] {
  * đứng ngoài dãy và giữ nguyên. Gộp cả chúng là xoá mất tab và ngắt dòng — thứ mẫu Word dùng
  * để canh dòng ký, dòng địa chỉ — và bố cục vỡ vĩnh viễn ngay khi nạp mẫu.
  */
+/**
+ * Nhịp run mà một placeholder vắt qua, tính theo vị trí ký tự trong chuỗi chữ đã nối.
+ *
+ * Trả `null` khi placeholder nằm gọn trong một run — khi ấy không phải gộp gì.
+ */
+function nhipCuaPlaceholder(chu: string[], ph: string): [number, number] | null {
+  const toanBo = chu.join('');
+  const dau = toanBo.indexOf(ph);
+  if (dau < 0) return null;
+  const cuoi = dau + ph.length - 1;
+
+  let moc = 0;
+  let a = -1;
+  let b = -1;
+  for (let k = 0; k < chu.length; k += 1) {
+    const tu = moc;
+    const den = moc + chu[k].length - 1;
+    if (a < 0 && dau >= tu && dau <= den) a = k;
+    if (cuoi >= tu && cuoi <= den) {
+      b = k;
+      break;
+    }
+    moc = den + 1;
+  }
+  if (a < 0 || b < 0 || a === b) return null;
+  return [a, b];
+}
+
+/** Gộp các nhịp chồng lên nhau — hai placeholder cạnh nhau có thể dùng chung một run. */
+function gopNhip(nhip: [number, number][]): [number, number][] {
+  const sap = [...nhip].sort((x, y) => x[0] - y[0]);
+  const ra: [number, number][] = [];
+  for (const [a, b] of sap) {
+    const cuoi = ra[ra.length - 1];
+    if (cuoi && a <= cuoi[1] + 1) cuoi[1] = Math.max(cuoi[1], b);
+    else ra.push([a, b]);
+  }
+  return ra;
+}
+
+/**
+ * Gộp các run LIỀN NHAU và THUẦN CHỮ khi placeholder bị cắt ngang chúng.
+ *
+ * Word cắt một chuỗi thành nhiều run mỗi khi định dạng đổi — bôi đậm nửa chữ, hay bộ kiểm
+ * chính tả chen vào. Placeholder khi ấy nằm rải ở ba bốn run với `rPr` khác nhau, và bước gộp
+ * đơn giản (chỉ gộp run KHÔNG có `rPr`) không đụng tới được. Cả 11 mẫu in của hệ cũ đều vỡ
+ * kiểu này — dò biến ra tên rác lẫn nguyên thẻ XML, tức không mẫu nào dùng được.
+ *
+ * CHỈ GỘP ĐÚNG NHỊP RUN MÀ PLACEHOLDER VẮT QUA. Bản trước gộp cả dãy run thuần chữ của đoạn
+ * rồi lấy `rPr` của run ĐẦU, nên trong mẫu hệ cũ — nơi đoạn mở đầu bằng nhãn ĐẬM + GẠCH CHÂN
+ * ("Đề xuất:", "Nhận xét:") — cả câu bị in đậm và gạch chân, còn hệ cũ chỉ đậm mỗi nhãn. Chữ
+ * giống hệt nên phép so chữ không thấy; đo trên bản in thật hồ sơ 69971 mới lộ ra.
+ *
+ * Chỉ gộp trong DÃY run thuần chữ: run mang `<w:tab/>`, `<w:br/>`, hình vẽ hay trường động
+ * đứng ngoài dãy và giữ nguyên. Gộp cả chúng là xoá mất tab và ngắt dòng — thứ mẫu Word dùng
+ * để canh dòng ký, dòng địa chỉ — và bố cục vỡ vĩnh viễn ngay khi nạp mẫu.
+ */
+/** `rPr` của một run, dạng chuỗi — dùng để biết hai run có CÙNG định dạng không. */
+function rPrCua(run: string): string {
+  return /<w:rPr>[\s\S]*?<\/w:rPr>/.exec(run)?.[0] ?? '';
+}
+
+/**
+ * Gộp run liền nhau CÙNG ĐỊNH DẠNG.
+ *
+ * Word cắt một chuỗi thành nhiều run vì đủ thứ lý do không liên quan tới định dạng (bộ kiểm
+ * chính tả, dấu vết soạn thảo). Gộp lại giúp placeholder liền mạch với MỌI cặp delimiter, kể
+ * cả cặp admin tự chọn như `«»` mà bước gộp theo placeholder không biết.
+ *
+ * BẮT BUỘC cùng `rPr`. Bản trước gộp bất cứ khi nào run SAU trống `rPr`, nên chữ của nó thừa
+ * hưởng định dạng của run trước — trong mẫu hệ cũ, giá trị sau nhãn đậm "Đề xuất:" bị in đậm
+ * theo, còn hệ cũ chỉ đậm mỗi nhãn.
+ */
+function gopRunCungKieu(xml: string): string {
+  return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (doan) => {
+    const runs = doan.match(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g);
+    if (!runs || runs.length < 2) return doan;
+
+    let ra = doan;
+    let i = 0;
+    while (i < runs.length) {
+      let j = i;
+      while (
+        j + 1 < runs.length &&
+        runThuanChu(runs[j]) &&
+        runThuanChu(runs[j + 1]) &&
+        rPrCua(runs[j]) === rPrCua(runs[j + 1])
+      ) {
+        j++;
+      }
+      if (j > i) {
+        const day = runs.slice(i, j + 1);
+        const esc = day
+          .map(chuCuaRun)
+          .join('')
+          .replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;');
+        ra = ra.replace(
+          day.join(''),
+          `<w:r>${rPrCua(day[0])}<w:t xml:space="preserve">${esc}</w:t></w:r>`,
+        );
+      }
+      i = j + 1;
+    }
+    return ra;
+  });
+}
+
 function gopRunTrongDoanVo(xml: string): string {
   return xml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (doan) => {
     const runs = doan.match(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g);
@@ -64,15 +171,19 @@ function gopRunTrongDoanVo(xml: string): string {
       if (j > i) {
         const day = runs.slice(i, j + 1);
         const chu = day.map(chuCuaRun);
-        const toanBo = chu.join("");
-        const ph = cacPlaceholder(toanBo);
-        // Có placeholder, và ít nhất một cái KHÔNG nằm trọn trong một run → phải gộp dãy.
-        const voi = ph.filter((x) => !chu.some((c) => c.includes(x)));
-        if (ph.length > 0 && voi.length > 0) {
-          const rPr = day[0].match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? "";
-          const esc = toanBo.replace(/&(?!(amp|lt|gt|quot|apos);)/g, "&amp;");
-          const gop = `<w:r>${rPr}<w:t xml:space="preserve">${esc}</w:t></w:r>`;
-          ra = ra.replace(day.join(""), gop);
+        const nhip = cacPlaceholder(chu.join(''))
+          .map((ph) => nhipCuaPlaceholder(chu, ph))
+          .filter((n): n is [number, number] => n !== null);
+
+        // Gộp từ CUỐI về ĐẦU để chỉ số của những nhịp chưa xử lý không bị lệch.
+        for (const [a, b] of gopNhip(nhip).reverse()) {
+          const phan = day.slice(a, b + 1);
+          const rPr = phan[0].match(/<w:rPr>[\s\S]*?<\/w:rPr>/)?.[0] ?? '';
+          const esc = phan
+            .map(chuCuaRun)
+            .join('')
+            .replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;');
+          ra = ra.replace(phan.join(''), `<w:r>${rPr}<w:t xml:space="preserve">${esc}</w:t></w:r>`);
         }
       }
       i = j + 1;
@@ -82,13 +193,17 @@ function gopRunTrongDoanVo(xml: string): string {
 }
 
 function normalizeXml(xml: string): string {
+  // KHÔNG còn bước "gộp mọi run mà run sau không có rPr".
+  //
+  // Bước ấy xoá ranh giới `</w:t></w:r><w:r><w:t>` bất cứ khi nào run sau trống `rPr`, nên chữ
+  // của run sau thừa hưởng định dạng của run TRƯỚC. Trong mẫu hệ cũ, đoạn mở đầu bằng nhãn
+  // ĐẬM ("Đề xuất:", "Nhận xét:") rồi tới giá trị thường — và giá trị bị in đậm theo. Phần việc
+  // thật của nó (Word cắt run giữa placeholder) nay do `gopRunTrongDoanVo` làm, và làm hẹp hơn:
+  // chỉ đúng nhịp run mà placeholder vắt qua.
   const b1 = xml
     .replace(/<w:proofErr\b[^>]*\/>/g, '')
-    .replace(/<w:noProof\b[^>]*\/>/g, '')
-    // Gộp run text liền nhau khi run thứ hai KHÔNG có rPr: bỏ ranh giới
-    // `</w:t></w:r> <w:r> <w:t…>` → 2 đoạn text nối liền trong 1 run.
-    .replace(/<\/w:t><\/w:r>\s*<w:r>\s*<w:t(?:\s[^>]*)?>/g, '');
-  return gopRunTrongDoanVo(b1);
+    .replace(/<w:noProof\b[^>]*\/>/g, '');
+  return gopRunTrongDoanVo(gopRunCungKieu(b1));
 }
 
 /**
