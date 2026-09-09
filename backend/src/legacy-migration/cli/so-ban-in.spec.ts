@@ -1,5 +1,5 @@
 import PizZip from 'pizzip';
-import { chuTrongDocx, soDong, mauChoLoai, thucTheChoMau, ganCanBoNhap } from './so-ban-in';
+import { dinhDangDoan, chuTrongDocx, soDong, mauChoLoai, thucTheChoMau, ganCanBoNhap } from './so-ban-in';
 
 /**
  * Công cụ đối chiếu phải TỰ ĐÚNG trước đã.
@@ -38,8 +38,14 @@ describe('Bóc chữ khỏi tệp Word', () => {
     expect(chuTrongDocx(docxGia(['&amp;quot; là cách viết']))[0]).toBe('&quot; là cách viết');
   });
 
-  it('mỗi đoạn Word là một dòng, bỏ dòng trống', () => {
-    expect(chuTrongDocx(docxGia(['một', '', '  ', 'hai']))).toEqual(['một', 'hai']);
+  /**
+   * Đoạn TRỐNG được GIỮ, không bị bỏ như bản trước.
+   *
+   * Đoạn trống là thứ làm bản in dãn ra hay dồn lại; bỏ nó đi thì một bản in thưa và một bản
+   * in dày cho ra đúng một mảng. Ca kiểm này trước đây chốt đúng quy ước mù ấy.
+   */
+  it('mỗi đoạn Word là một mục, GIỮ cả đoạn trống', () => {
+    expect(chuTrongDocx(docxGia(['một', '', '  ', 'hai']))).toEqual(['một', '', '', 'hai']);
   });
 });
 
@@ -132,5 +138,106 @@ describe('Gắn cán bộ nhập cho giàn thử', () => {
     const bg: Record<string, unknown> = {};
     ganCanBoNhap(bg, '   ');
     expect(bg['enteredBy']).toBeUndefined();
+  });
+});
+
+/**
+ * CHỖ MÙ ĐÃ ĐỂ LỌT KẾT LUẬN "0 CHỖ LỆCH" NGÀY 28/08.
+ *
+ * Hệ cũ (`xuatfile.php`) đổi mỗi lần xuống dòng trong ô nhiều dòng thành MỘT ĐOẠN Word mới,
+ * có thụt đầu dòng và căn đều. Hệ mới dùng ngắt dòng mềm `<w:br/>` — cùng chữ, khác hẳn cách
+ * trình bày. Ảnh hưởng 15.338 hồ sơ có `tom_tat_noi_dung` nhiều dòng.
+ *
+ * Bản trước của bộ bóc chữ đổi CẢ `</w:p>` LẪN `<w:br/>` thành `\n`, nên hai bản in ấy cho ra
+ * đúng một danh sách dòng và công cụ báo "khớp". Báo cáo cũ xếp khác biệt này là "trình bày,
+ * không phải dữ liệu" rồi bỏ qua — nhưng mở hai tệp đặt cạnh nhau thì đó là thứ đập vào mắt.
+ */
+function docxNgatDongMem(dong: string[]): Buffer {
+  const than = `<w:p><w:r>${dong.map((d) => `<w:t>${d}</w:t>`).join('<w:br/>')}</w:r></w:p>`;
+  const zip = new PizZip();
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0"?><w:document><w:body>${than}</w:body></w:document>`,
+  );
+  return zip.generate({ type: 'nodebuffer' }) as Buffer;
+}
+
+describe('Bóc chữ — phân biệt ĐOẠN thật với ngắt dòng mềm', () => {
+  it('ba đoạn Word KHÁC một đoạn có hai ngắt dòng mềm', () => {
+    const heCu = chuTrongDocx(docxGia(['dòng một', 'dòng hai', 'dòng ba']));
+    const heMoi = chuTrongDocx(docxNgatDongMem(['dòng một', 'dòng hai', 'dòng ba']));
+
+    // Cùng chữ, khác cấu trúc. Bằng nhau nghĩa là công cụ vẫn mù.
+    expect(heMoi).not.toEqual(heCu);
+    expect(soDong(heCu, heMoi).length).toBeGreaterThan(0);
+  });
+
+  it('cùng cấu trúc thì vẫn khớp — không sinh báo động giả', () => {
+    const a = chuTrongDocx(docxGia(['dòng một', 'dòng hai']));
+    const b = chuTrongDocx(docxGia(['dòng một', 'dòng hai']));
+
+    expect(soDong(a, b)).toEqual([]);
+  });
+
+  it('đoạn RỖNG cũng phải đếm — hệ cũ chèn đoạn trống thì bản in dãn ra', () => {
+    // `.filter(Boolean)` của bản trước nuốt hẳn đoạn trống, nên một bản in thưa và một bản in
+    // dày trông y hệt nhau.
+    const co = chuTrongDocx(docxGia(['trên', '', 'dưới']));
+    const khong = chuTrongDocx(docxGia(['trên', 'dưới']));
+
+    expect(co).not.toEqual(khong);
+  });
+});
+
+/**
+ * Định dạng đoạn trả RIÊNG khỏi chữ.
+ *
+ * Gộp định dạng vào chính chuỗi chữ thì mọi dòng đều lệch khi hai hệ dùng kiểu chữ khác nhau,
+ * và khác biệt DỮ LIỆU chìm nghỉm trong đó. Đây là lý do có hai hàm chứ không một.
+ */
+function docxCoDinhDang(doanVan: { chu: string; canLe?: string; thut?: number }[]): Buffer {
+  const than = doanVan
+    .map((d) => {
+      const pPr =
+        d.canLe || d.thut
+          ? `<w:pPr>${d.canLe ? `<w:jc w:val="${d.canLe}"/>` : ''}${
+              d.thut ? `<w:ind w:firstLine="${d.thut}"/>` : ''
+            }</w:pPr>`
+          : '';
+      return `<w:p>${pPr}<w:r><w:t>${d.chu}</w:t></w:r></w:p>`;
+    })
+    .join('');
+  const zip = new PizZip();
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0"?><w:document><w:body>${than}</w:body></w:document>`,
+  );
+  return zip.generate({ type: 'nodebuffer' }) as Buffer;
+}
+
+describe('dinhDangDoan', () => {
+  it('đọc căn lề và thụt đầu dòng của từng đoạn', () => {
+    const dd = dinhDangDoan(
+      docxCoDinhDang([{ chu: 'a', canLe: 'both', thut: 720 }, { chu: 'b' }]),
+    );
+
+    expect(dd).toEqual([
+      { canLe: 'both', thutDauDong: 720 },
+      { canLe: '', thutDauDong: 0 },
+    ]);
+  });
+
+  it('số đoạn định dạng KHỚP số đoạn chữ — hai bảng phải căn được với nhau', () => {
+    const b = docxCoDinhDang([{ chu: 'a' }, { chu: '' }, { chu: 'c', canLe: 'center' }]);
+
+    expect(dinhDangDoan(b)).toHaveLength(chuTrongDocx(b).length);
+  });
+
+  it('cùng chữ nhưng KHÁC căn lề vẫn phân biệt được — đây là thứ phép so cũ không thấy', () => {
+    const cu = docxCoDinhDang([{ chu: 'Nội dung', canLe: 'both', thut: 720 }]);
+    const moi = docxCoDinhDang([{ chu: 'Nội dung' }]);
+
+    expect(chuTrongDocx(cu)).toEqual(chuTrongDocx(moi));
+    expect(dinhDangDoan(cu)).not.toEqual(dinhDangDoan(moi));
   });
 });
