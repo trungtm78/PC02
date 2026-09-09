@@ -899,7 +899,11 @@ export function PetitionFormPage() {
           </div>
         </div>
 
-        {/* v0.47 PR3.1 T11 — Section 6: Nội dung phiếu đề xuất (hiện cả CREATE + EDIT mode, field-parity hệ thống cũ) */}
+          </LegacyTabBody>
+        {/* Nội dung phiếu đề xuất — thẻ LUÔN HIỆN, cố ý nằm NGOÀI LegacyTabBody.
+            Đặt làm children thì nó rơi vào thẻ gập "Bổ sung hệ mới" và mặc định ĐÓNG:
+            cán bộ không thấy ô Hướng xử lý lẫn Đơn vị xử lý, trong khi hai ô ấy quyết định
+            câu in trên Phiếu đề xuất và trạng thái hồ sơ. Anh báo 09/09/2026. */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
             <div className="border-b border-slate-200 px-6 py-4">
               <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
@@ -1005,12 +1009,8 @@ export function PetitionFormPage() {
                   Tên in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Mặc định là bạn; đổi nếu lập hộ cán bộ khác.
                 </p>
               </div>
-              <div>
-              </div>
             </div>
           </div>
-
-          </LegacyTabBody>
         </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
