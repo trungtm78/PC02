@@ -323,6 +323,17 @@ function oDauVanBan(record: unknown, khoa: 'ngay' | 'thang' | 'nam'): string {
   return String(d.getDate()).padStart(2, '0');
 }
 
+/**
+ * Năm của HỒ SƠ — dùng cho dòng ký "Ngày … tháng … năm …" của bộ mẫu PC01.
+ *
+ * Hệ cũ đổ thẳng `$info['nam']`, nên hồ sơ 2016 in ra 2016. Mẫu Phiếu đề xuất của hệ mới ghi
+ * CỨNG "năm 2026", nên mọi hồ sơ cũ in ra 2026 — sai với 46.000 hồ sơ di trú.
+ */
+export function namHoSoNhuHeCu(record: unknown): string {
+  return oDauVanBan(record, 'nam');
+}
+
+
 /** Ngày dùng cho dòng "ngày … tháng … năm …" khi hồ sơ không mang bản thô của hệ cũ. */
 function ngayKy(record: unknown): Date {
   const r = (record ?? {}) as Record<string, unknown>;

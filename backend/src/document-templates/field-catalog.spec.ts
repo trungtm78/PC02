@@ -141,3 +141,28 @@ describe('số văn bản in ra như hệ cũ', () => {
     expect(dong).toBe('Số: 172/ĐX-PC02-Đ1');
   });
 });
+
+/**
+ * NĂM ở dòng ký phải là năm của HỒ SƠ, không phải năm hiện tại.
+ *
+ * Mẫu Phiếu đề xuất ghi CỨNG "Ngày … tháng … năm 2026", nên hồ sơ tiếp nhận năm 2016 in ra
+ * 2026 — sai với toàn bộ hồ sơ di trú. Hệ cũ đổ thẳng `$info['nam']`.
+ */
+describe('năm ở dòng ký', () => {
+  it('hồ sơ di trú: lấy đúng năm thô của hệ cũ', () => {
+    expect(resolveField('DON_THU', 'namHoSo', { legacyRaw: { nam: '2016' } } as never)).toBe('2016');
+  });
+
+  it('hồ sơ hệ mới: lấy năm của ngày ký', () => {
+    const nam = String(new Date().getFullYear());
+
+    expect(resolveField('DON_THU', 'namHoSo', {} as never)).toBe(nam);
+  });
+
+  it('hồ sơ di trú thiếu ô năm → in TRỐNG, không lùi về năm nay', () => {
+    // Hệ cũ đổ thẳng: rỗng thì in rỗng. Lùi về năm nay là bịa ra một năm không có ở đâu cả.
+    expect(resolveField('DON_THU', 'namHoSo', { legacyRaw: { ngay: '14', nam: '' } } as never)).toBe(
+      '',
+    );
+  });
+});
