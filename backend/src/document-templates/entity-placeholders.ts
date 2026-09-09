@@ -102,7 +102,13 @@ export function buildTemplatePlaceholders(
     if (v.source === 'manual') {
       raw = manualValues[v.name] ?? '';
     } else if (fieldKey === 'soVanBan') {
-      raw = manualValues['soVanBan'] ?? '';
+      // Số engine cấp TRƯỚC (mẫu nào thật sự cần cấp số), rồi mới tới STT của hồ sơ — đúng như
+      // hệ cũ in: `Số: 172/ĐX-PC02-Đ1`, cùng một số cho mọi loại chứng từ.
+      //
+      // Bản trước CHỈ lấy số engine cấp và không bao giờ hỏi catalog. Sau khi tắt cấp số cho bộ
+      // mẫu PC01 (hệ cũ không có bộ đếm nào), bản in ra `Số: /ĐX-PC02-Đ1` — mất hẳn con số. Chỉ
+      // lộ ra khi xuất một bản in THẬT rồi đọc, chứ nhìn cấu hình thì thấy đủ cả.
+      raw = manualValues['soVanBan'] ?? resolveField(entityType, fieldKey, record, ctx);
     } else {
       // AUTO: manualValues[name] override (popup "bổ sung thông tin thiếu" điền auto-field rỗng);
       // không có thì resolve từ record. KHÔNG để mất giá trị người dùng nhập (codex P1).
