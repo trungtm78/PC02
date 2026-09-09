@@ -1,86 +1,76 @@
-# UAT-COVERAGE — popup In chứng từ nhớ lựa chọn của từng cán bộ
+# Sổ phủ UAT — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
-Chạy trên **máy thật** `http://171.244.40.245` ngày 29/08/2026, bản dựng `e862b6a6`.
+Mỗi dòng là một MỆNH ĐỀ kèm **tầng của bằng chứng**. Mệnh đề có chủ ngữ là *người dùng* thì bằng
+chứng phải đi qua giao diện hoặc HTTP; mệnh đề nói về một *hàm* thì ca đơn vị là đủ — và câu chữ
+phải thu hẹp lại cho khớp. Ghi PASS cho mệnh đề rộng dựa trên bằng chứng hẹp là dạng trượt mà mọi
+tầng đều xanh trong khi tính năng không dùng được.
 
-| ID | Màn hình / Chức năng | Viết test | Chạy test | Kết quả |
-|---|---|---|---|---|
-| **API — lựa chọn đi trọn đường xuống CSDL** ||||
-| A-01 | Chưa lưu gì thì trả bản đồ rỗng, không lỗi | ✔ | ✔ | **PASS** |
-| A-02 | Ghi rồi đọc lại đúng tập mẫu và định dạng | ✔ | ✔ | **PASS** |
-| A-03 | Ghi lại thì ĐÈ, không cộng dồn | ✔ | ✔ | **PASS** |
-| A-04 | Lưu được lựa chọn KHÔNG mẫu nào | ✔ | ✔ | **PASS** |
-| A-05 | Xoá thì bản ghi biến MẤT hẳn, không thành khối rỗng | ✔ | ✔ | **PASS** |
-| A-06 | Payload méo được chuẩn hoá, không hỏng bản ghi | ✔ | ✔ | **PASS** |
-| A-07 | Loại hồ sơ lạ bị từ chối (400) | ✔ | ✔ | **PASS** |
-| A-08 | Ba loại hồ sơ tách bạch, không lẫn sang nhau | ✔ | ✔ | **PASS** |
-| A-09 | **KHÔNG rò sang tài khoản khác** | ✔ | ✔ | **PASS** |
-| A-10 | Không có token thì bị từ chối (401) | ✔ | ✔ | **PASS** |
-| **Giao diện — bấm đúng thứ cán bộ bấm** ||||
-| E-01 | Tích → Xuất → mở lại: đúng tập mẫu và đúng định dạng | ✔ | ✔ | **PASS** |
-| E-02 | Lựa chọn xuống tới máy chủ (không chỉ nhớ trong màn hình) | ✔ | ✔ | **PASS** |
-| E-03 | "Dùng lại mặc định" quay về cờ admin | ✔ | ✔ | **PASS** |
-| E-04 | "Dùng lại mặc định" xoá hẳn bản ghi trên máy chủ | ✔ | ✔ | **PASS** |
-| **Thành phần — nhánh khó dựng trên máy thật** ||||
-| C-01 | Chưa từng đặt → theo cờ admin | ✔ | ✔ | **PASS** |
-| C-02 | Đã lưu → lựa chọn cá nhân THẮNG cờ admin | ✔ | ✔ | **PASS** |
-| C-03 | Nhớ cả định dạng xuất | ✔ | ✔ | **PASS** |
-| C-04 | Bỏ mã mẫu không còn tồn tại | ✔ | ✔ | **PASS** |
-| C-05 | Không tích mẫu đã lưu nhưng nay thiếu thông tin | ✔ | ✔ | **PASS** |
-| C-06 | Bản ghi rỗng KHÁC chưa từng đặt | ✔ | ✔ | **PASS** |
-| C-07 | Lựa chọn loại hồ sơ khác không lẫn sang | ✔ | ✔ | **PASS** |
-| C-08 | Đã có lựa chọn riêng thì không tự tích sau "Lưu bổ sung" | ✔ | ✔ | **PASS** |
-| C-09 | Đang Đặt lại thì nút Xuất bị khoá | ✔ | ✔ | **PASS** |
-| C-10 | Lưu XONG rồi mới xuất, không bắn-rồi-quên | ✔ | ✔ | **PASS** |
-| C-11 | Lưu hỏng thì vẫn xuất bình thường | ✔ | ✔ | **PASS** |
-| C-12 | Chỉ tích mà chưa Xuất thì KHÔNG lưu | ✔ | ✔ | **PASS** |
-| C-13 | Máy chủ lỗi thì rơi về cờ admin, không chặn popup | ✔ | ✔ | **PASS** |
-| **Kho đệm — rò dữ liệu giữa hai tài khoản** ||||
-| K-01 | Token biến mất → xoá sạch kho đệm | ✔ | ✔ | **PASS** |
-| K-02 | Vẫn còn token → KHÔNG xoá (không tải lại vô cớ) | ✔ | ✔ | **PASS** |
-| K-03 | Gỡ khỏi màn hình thì thôi nghe, không rò trình nghe | ✔ | ✔ | **PASS** |
-| **Backend — chuẩn hoá và cách ly** ||||
-| B-01…B-25 | `chuanHoaLuaChon`: kiểu sai bỏ, quá tay cắt, khử trùng, chặn khoá nguyên mẫu, bình ổn | ✔ | ✔ | **PASS** (25) |
-| B-26…B-37 | Service: cách ly theo `userId`, chuẩn hoá KHI ĐỌC, allowlist, xoá đúng hàng | ✔ | ✔ | **PASS** (12) |
+Trạng thái: **PASS** · **FAIL** · **CHƯA CHẠY** (chưa có bằng chứng) · **KHÔNG SO ĐƯỢC** (không
+có đối chứng).
 
-**37 + 27 = 64 dòng, tất cả PASS.**
+## M1 — Nút In trên cột Thao tác
 
-## Tệp
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M1-1 | Hành động `print` có trong registry của Vụ án · Vụ việc · Đơn thư | đơn vị | PASS |
+| M1-2 | Bảng gộp chọn đúng thực thể theo `recordType` của dòng | đơn vị | PASS |
+| M1-3 | `printModal` khai BẮT BUỘC nên shell quên nối là lỗi biên dịch | biên dịch | PASS |
+| M1-4 | **Cán bộ bấm icon In trên một dòng danh sách thì mở đúng màn in chứng từ** | E2E trên máy thật | PASS |
+| M1-5 | **Chọn mẫu trong popup ấy rồi tải được tệp Word** | E2E trên máy thật | PASS (`ChungTu_20260909.docx`) |
 
-| Loại | Tệp | Số ca |
-|---|---|---:|
-| API (máy thật) | `tests/api/nho-lua-chon-in-uat.api.spec.ts` | 10 |
-| Giao diện (máy thật) | `tests/e2e/nho-lua-chon-in-uat.e2e.spec.ts` | 2 |
-| Thành phần | `features/document-templates/components/__tests__/nhoLuaChonInChungTu.test.tsx` | 15 |
-| Kho đệm | `hooks/__tests__/useXoaKhoDemKhiDoiTaiKhoan.test.tsx` | 3 |
-| Backend | `user-export-preferences/chuan-hoa-lua-chon.util.spec.ts` · `.service.spec.ts` | 37 |
+## M2 — STT cũ trong cột STT
 
-Bài API và E2E đều **trả máy thật về nguyên trạng** ở cuối; kiểm lại sau khi chạy: **0 bản ghi**.
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M2-1 | Chuỗi hiển thị đúng dạng hệ cũ `16-243 - (STT cũ: 208)` | đơn vị | PASS |
+| M2-2 | Hồ sơ KHÔNG có STT cũ thì không hiện gì thêm | đơn vị | PASS |
+| M2-3 | Ô lọc nhận cả `208` lẫn `2016-208` như hệ cũ | đơn vị | PASS |
+| M2-4 | Máy chủ Vụ việc TRẢ VỀ `sttCu` (thiếu thì 3.323 hồ sơ trống lặng lẽ) | tích hợp | PASS |
+| M2-5 | **Mở danh sách Vụ việc trên máy thật thấy số cũ ở cột STT** | E2E trên máy thật | PASS (hồ sơ `2017-259`) |
 
-## ĐÍNH CHÍNH — một kết luận em nói vội
+## M3 — Bản in Word giống hệ cũ
 
-PR #311 ghi rằng UAT trên máy thật chứng minh `mutate` (bắn-rồi-quên) **không** gửi được lệnh
-ghi. **Điều đó chưa được chứng minh.**
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M3-1 | Phép so THẤY được khác biệt ngắt đoạn | đơn vị (ca đỏ trước, xanh sau) | PASS |
+| M3-2 | Phép so THẤY được khác biệt kiểu chữ (đậm · nghiêng · gạch chân · cỡ) | đơn vị | PASS |
+| M3-3 | Bản hệ mới đem so là thứ MÁY CHỦ THẬT trả về, không phải dựng lại | tích hợp (gọi API prod) | PASS |
+| M3-4 | `
 
-Lần chạy E2E hỏng ấy được giải thích TRỌN VẸN bằng một lỗi của chính bài kiểm: endpoint này trả
-thân **trần** (`{DON_THU: {...}}`) chứ không bọc `{success, data}` như danh sách hồ sơ, mà bài
-kiểm lại bóc `?.data ?? {}` — nên luôn ra rỗng. Soi CSDL máy thật lúc ấy cho thấy bản ghi **đã
-được ghi đúng**.
+` ra ĐOẠN mới, `
+` đơn ra ngắt dòng mềm — như hệ cũ | đơn vị + dịch vụ | PASS |
+| M3-5 | Chỉ mẫu `HE_CU_*` dùng quy ước ấy; mẫu PC01 giữ ngắt dòng mềm | dịch vụ xuất | PASS |
+| M3-6 | Định dạng của nhãn KHÔNG trùm lên phần giá trị | đơn vị | PASS |
+| M3-7 | **8 mẫu có bản gốc: bản in hệ mới khớp hệ cũ về chữ · đoạn · kiểu chữ** | đối chiếu hiện vật trên máy thật | CHƯA CHẠY LẠI (chờ #348) |
+| M3-8 | 3 mẫu hệ cũ chưa từng in | — | KHÔNG SO ĐƯỢC |
+| M3-9 | 17 mẫu tố tụng PC01 không có đối tác ở hệ cũ | — | KHÔNG SO ĐƯỢC |
+| M3-10 | Mẫu hệ cũ được mời in ở đủ thực thể mà hồ sơ loại ấy nằm | cổng CI + đếm trên máy thật | PASS |
+| M3-11 | Mẫu tự điền được ở MỌI thực thể nó được mời in | cổng CI | PASS |
+| M3-12 | **Cán bộ mở một Vụ việc di trú từ hồ sơ "Trả hồ sơ" thì thấy mẫu ấy trong popup** | E2E trên máy thật | PASS (hồ sơ `2017-18`) |
 
-Đổi sang `mutateAsync` + `await` vẫn là thay đổi **đúng** — nó bảo đảm thứ tự và bảo đảm lệnh ghi
-đi xong trước khi popup bị gỡ — nhưng lý do em nêu trong PR ấy là **nói quá**. Ghi lại đây để bản
-ghi đúng sự thật.
+## Ba chỗ CỐ Ý khác hệ cũ
 
-Đây là lần thứ HAI trong hai ngày em dẫm đúng bẫy "bóc thân phản hồi hai kiểu", dù đã ghi nó vào
-bộ nhớ chiều hôm trước.
+| Chỗ | Hệ cũ | Hệ mới | Vì sao |
+|---|---|---|---|
+| Hồ sơ thiếu khoá | in ra tên biến `${de_xuat}` | in trống | lỗi hệ cũ, không chép |
+| Nút In trên danh sách | không có | có | hệ cũ phải mở hồ sơ mới in được |
+| Cột Thao tác | ở cuối | ở đầu | anh chốt 25/08 |
 
-## Đối chiếu ngược với yêu cầu gốc
+## Việc chưa làm
 
-| Anh yêu cầu | Dòng phủ |
+- **M5 — monkey test**, sau khi mọi mệnh đề trên PASS.
+
+
+## Bốn lần bộ chạy UAT tự đỏ giả (09/09/2026)
+
+Lượt đầu **0/5**, và không mệnh đề nào trong đó là lỗi sản phẩm:
+
+| Chỗ trượt | Vì sao đỏ giả |
 |---|---|
-| "lưu trữ các setting để lần tới dùng lại, không cần phải setup lại" | E-01 · E-02 · C-01…C-03 · A-01…A-05 |
-| "tất cả việc select chọn đến việc Định dạng xuất" | C-02 (chọn mẫu) · C-03 (định dạng) · E-01 (cả hai) |
-| Cá nhân hoá, không phải thiết lập chung | A-09 · K-01…K-03 · C-02 |
-| Chưa đặt thì dùng mặc định ở màn Mẫu chứng từ | C-01 · E-03 · E-04 |
-| Lưu ở máy chủ theo tài khoản | A-01…A-10 · E-02 |
+| Ô đăng nhập dò theo NHÃN | ô có `id` nhưng không có nhãn liên kết → không đăng nhập được → mọi mệnh đề sau đỏ |
+| `getByTestId('btn-print')` | testid dựng theo từng dòng (`btn-print-<id>`), khớp chính xác là trượt |
+| Tìm kiếm dùng `?q=` | khoá có TIỀN TỐ (`incidents_q`), nên trang bỏ qua và hiện danh sách mặc định — toàn bản nhập thử, không bản nào có STT cũ |
+| Tìm nút In ở màn CHI TIẾT Vụ việc | nút ấy nằm ở màn sửa và ở danh sách, không ở màn chi tiết |
 
-Không sót màn hình hay chức năng nào trong phạm vi.
+Ảnh chụp màn hình là thứ phân biệt được "sản phẩm hỏng" với "bộ chạy hỏng": nhìn ảnh thấy
+**icon máy in nằm sẵn trong cột Thao tác**, tức sản phẩm đúng còn phép đo sai.

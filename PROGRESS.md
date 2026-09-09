@@ -1,68 +1,47 @@
-# PROGRESS
-Cập nhật: 2026-09-09 | Milestone: M3/5 | Task: 3/5
+# Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
-STATUS: IN_PROGRESS — M3 (đối chiếu bản in Word với hệ cũ)
+<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`. -->
+STATUS: IN_PROGRESS — M4 xong 5/5 trên máy thật; chờ #348 deploy để đo lại vòng cuối
 
-<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS:`.
-     Kẹp nó giữa một dòng có nội dung khác thì hook không khớp và chặn mãi.
-     Cảnh báo này giữ lại từ bản PROGRESS.md của epic trước (đã ALL_MILESTONES_DONE 28/08). -->
+## Đã xong và ĐÃ LÊN MÁY THẬT
 
-Spec gốc: `C:\Users\Than Minh Trung\.claude\plans\gleaming-pondering-thacker.md`
-Nhánh: `feat/in-tu-danh-sach`, tách từ `main` @ f8945c6e
+- **M1 · Nút In trên cột Thao tác** (PR #346) — ba màn danh sách + bảng gộp.
+- **M2 · STT cũ trong cột STT** (PR #346) — dạng `16-243 - (STT cũ: 208)`; ô lọc nhận cả
+  `208` lẫn `2016-208`; mở `sttCu` trong `select` của Vụ việc.
+- **M3a · Sửa PHÉP ĐO trước khi sửa bản in** (PR #346) — bộ bóc chữ cũ gộp cả `</w:p>` lẫn
+  `<w:br/>` thành `
+`, nên bản tách đoạn và bản ngắt dòng mềm cho ra ĐÚNG MỘT mảng. Đây là
+  chỗ mù đã đỡ cho kết luận "0 chỗ lệch" ngày 28/08.
+- **M3b · Đối chiếu qua ĐƯỜNG XUẤT THẬT** (PR #346) — `cap-ban-in.ts` gọi API xuất của máy chủ.
+- **M3c · Ngắt đoạn như hệ cũ** (PR #346) — 38 dòng lệch → 3, và cả 3 là hệ cũ tự in ra tên
+  biến của nó. Prod-verified 09/09.
 
-## Milestone
-- M1 — icon In trên cột Thao tác của 3 danh sách (+ bảng gộp)
-- M2 — STT cũ ghép vào cột STT theo đúng format hệ cũ
-- M3 — đối chiếu bản in Word với hệ cũ, sửa cho khớp
-- M4 — UAT phủ 100% (§9)
-- M5 — monkey test (anh yêu cầu 09/09, chạy sau khi xong toàn bộ)
+## Đã gộp — PR #347 (chờ deploy)
 
-## Đã hoàn thành
-- [x] Đo nền trước khi làm (không có commit — chỉ đọc)
-- [x] **M1 — icon In trên cột Thao tác** — 4 danh sách, 12 ca kiểm mới — commit 445e0b26
-- [x] **M2 — STT cũ theo format hệ cũ** — `phanSttCu` + `dieuKienSttCu` + mở `sttCu` cho Vụ việc,
-      21 ca kiểm mới
+- **Mẫu hệ cũ phủ đủ thực thể**: 5.227 hồ sơ có chứng từ hệ cũ in được mà hệ mới không mời in
+  (Vụ án 4.338 · Trả hồ sơ 441 · Đơn thư 245 · Đăng ký bào chữa 198 · …). Đo trên toàn bộ
+  54.697 hồ sơ. Sửa bằng cách thêm dòng mẫu cho từng thực thể — khoá `(entityType, code)` cho
+  phép, không đụng lược đồ.
+- **Định dạng của nhãn trùm lên cả câu** — ANH PHÁT HIỆN: hệ cũ chỉ đậm nhãn "Đề xuất:" và tên
+  đơn vị, hệ mới đậm + gạch chân cả câu. Hai bước chuẩn hoá cùng gây ra; cả hai đã sửa.
+- **Phép so KIỂU CHỮ** — tầng thứ ba của công cụ. Hai tầng cũ (chữ · đoạn) không thể thấy lỗi
+  trên: chữ giống hệt, còn đậm là thuộc tính của run.
 
-## Đang làm dở
-Task: M3 — đối chiếu bản in Word với hệ cũ
-Đã làm: chưa viết mã. Đã khảo sát xong 5 chỗ lệch của công cụ cũ.
-BƯỚC TIẾP THEO: thêm cờ `--mau <code>` và chuyển phần dựng bản hệ mới sang gọi API xuất thật
-trong `backend/src/legacy-migration/cli/so-ban-in.ts`
-File liên quan: `so-ban-in.ts`, `document-templates/docx-renderer`, `ban-in-he-cu/*.docx`
+## BƯỚC TIẾP THEO
 
-## Hàng đợi task kế tiếp
-1. M1 — provider + ActionContext + 3 registry + 4 shell + nới cột 7rem→9rem
-2. M2 — `sttCu` vào select Vụ việc; ô STT ghép `- (STT cũ: n)`; lọc nhận `2016-208`
-3. M3 — `so-ban-in.ts` gọi API thật + thấy cấu trúc đoạn; sửa ngắt đoạn; ca kiểm mở .docx thật
+1. Gộp #347 → deploy → **chạy lại seed mẫu với `SEED_TEMPLATES_FORCE_FILE=1`** (bản mẫu trong
+   CSDL đã chuẩn hoá bằng bộ cũ) → kiểm 9 dòng mẫu mới đã có.
+2. Chạy lại `cap-ban-in` đủ 8 cặp, lần này có cả cột lệch KIỂU CHỮ.
+3. Chụp ảnh từng trang 16 tệp giao anh đối chiếu bằng mắt (Word xuất PDF → PyMuPDF ra PNG).
+4. Ba mẫu hệ cũ CHƯA TỪNG in (`vu_viec_mau`, `an_tra_bo_sung_mau`, `so_dang_ky_bao_chua`)
+   không có bản gốc để so — ghi rõ là không so được, KHÔNG báo "khớp".
 
-## Quyết định kiến trúc
-| Ngày | Quyết định | Lý do | Ảnh hưởng |
-|---|---|---|---|
-| 09/09 | Modal In dùng khuôn provider singleton sẵn có | `CompositeModalProvider` đã chừa chỗ mở rộng; không dựng cơ chế thứ hai | 1 tệp mới + 1 dòng cắm |
-| 09/09 | Đối chiếu bản in qua ĐƯỜNG XUẤT THẬT | Công cụ cũ lệch máy chủ thật ở 5 chỗ → từng cho kết luận "0 lệch" sai | Bỏ phần dựng lại render trong CLI |
-| 09/09 | Nhánh mới tách từ `main` | `feat/data-export-excel` đang 79 commit chưa gộp | Không trộn hai việc |
-| 09/09 | Ca kiểm shell bọc `CompositeModalProvider` thay vì từng provider | Bọc riêng thì mỗi lần thêm modal dùng chung là phải sửa lại mọi tệp ca kiểm, và chúng đỏ vì lý do không liên quan | 3 tệp ca kiểm |
-| 09/09 | `printModal` khai BẮT BUỘC trong `ActionContext` | Để tuỳ chọn thì một shell quên truyền là nút In im lặng không làm gì | Trình biên dịch bắt ngay, đã bắt 3 chỗ |
-| 09/09 | Gom điều kiện lọc STT cũ vào `dieuKienSttCu` | Ba service chép tay cùng một dòng; sửa một chỗ thì hai chỗ kia vẫn theo luật cũ | 3 service dùng chung |
+## Còn treo
 
-## Assumption đã tự quyết
-| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
-|---|---|---|
-| Giao thức §4 đòi chú thích tiếng Anh | GIỮ tiếng Việt | Chính §4 ghi "convention repo thắng"; toàn kho đang tiếng Việt; anh đã chốt riêng cho dự án này |
-| "STT theo format hệ cũ" | Chép đúng `doi_1_xem.tpl:44`: `mã - (STT cũ: n)`, nghiêng đỏ, vắng khi rỗng | Đọc thẳng mã nguồn hệ cũ, không suy diễn |
-| "phản ảnh đầy đủ cột STT" | STT tự thân đã trung thành; phần thiếu là `sttCu` chưa hiện ở đâu | Đo trên bản chạy (bảng dưới) |
+- **916 hồ sơ** hệ cũ in được mà hệ mới chưa có màn in (hướng dẫn 540 · trao đổi 76 · …).
+- Nhánh `feat/data-export-excel` còn 79 commit chưa gộp, chưa có PR.
 
-## Số đo nền (bản chạy thật, 09/09)
-- STT khớp `năm-stt` hệ cũ: vụ án 3.360/3.360 · vụ việc 4.596/4.715 · đơn thư 46.576/46.580
-- 118 vụ việc lệch vì **bản thô hệ cũ không có `nam`/`stt`** (nhóm `TamDinhChi_vu_viec_21` đã biết);
-  1 lệch là hậu tố chống trùng `-2`. Không phải lỗi trung thành.
-- `sttCu` có dữ liệu: đơn thư 31.460/46.741 (67%) · vụ việc 3.323/4.723 (70%) · vụ án 1.486/3.381 (44%)
-- Mẫu chứng từ đang bật: 28 (Đơn thư 14 · Vụ án 8 · Vụ việc 6); chỉ **8** có bản đối chứng hệ cũ
+## Chưa làm
 
-## Trạng thái test
-Frontend **2829/2829** (231 tệp) · Backend **4457/4457** (300 tệp) · `tsc` sạch cả hai phía
-
-## Nợ kỹ thuật / rủi ro
-- `kieu-truong-he-cu.generated.ts` tự khai cổng CI `kieu-truong-he-cu.gate.spec.ts` — **tệp không tồn tại**
-- 916 hồ sơ hệ cũ in được mà hệ mới chưa có màn in — treo từ 28/08, ngoài phạm vi
-- Nhánh `feat/data-export-excel` 79 commit chưa có PR
+- **M4** — `UAT-COVERAGE.md` 100% PASS.
+- **M5** — monkey test.
