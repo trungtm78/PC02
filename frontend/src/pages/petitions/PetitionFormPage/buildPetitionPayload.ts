@@ -87,14 +87,13 @@ export function buildPetitionPayload(
     canBoDeXuatId: oHeCu(formData.canBoDeXuatId),
     notes: oHeCu(formData.notes),
 
-    // Cả hai nhánh cùng ghi vào `donViXuLy` (nội bộ = tên Tổ/Nhóm; chuyển đơn = tên đơn vị).
-    // Ô này vốn đã gửi `null` đúng cách từ v0.47.
+    // Đơn vị: MỘT cột duy nhất `donViGiaiQuyet` (10/09/2026). Cả ba hướng xử lý cùng ghi vào
+    // đó — nội bộ là tên Tổ/Nhóm, chuyển đơn là tên đơn vị ngoài.
     //
     // `huongXuLy` là ô thật trên form; máy chủ SUY `thuocThamQuyen` từ nó. Vẫn gửi cột cũ để
     // các đường không đi qua form (nhập hàng loạt, bộ di trú) không đổi hành vi.
     huongXuLy: oHeCu(formData.huongXuLy),
     thuocThamQuyen: formData.thuocThamQuyen,
-    donViXuLy: oHeCu(formData.donViXuLy),
 
     // Nội dung phiếu đề xuất: vốn gửi chuỗi rỗng tường minh nên đã xoá được. Đổi sang `null`
     // cho thống nhất — cả hai đều xoá cột, `null` sạch hơn chuỗi rỗng trong cơ sở dữ liệu.

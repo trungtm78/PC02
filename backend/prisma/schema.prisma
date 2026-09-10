@@ -1157,7 +1157,16 @@ model Petition {
   thoiHanUTDT              DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
   thuocThamQuyen           Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
-  donViXuLy                String? // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  /**
+   * KHÔNG DÙNG NỮA từ 10/09/2026 — form Đơn thư gộp còn MỘT ô, ghi vào `donViGiaiQuyet`.
+   *
+   * Giữ cột chứ không xoá: nó chưa từng có dữ liệu (0/46.741 hồ sơ đo ngày gộp) nên xoá chẳng
+   * lợi gì, mà migration xoá cột là việc một chiều. Không đường ghi nào còn chạm vào đây.
+   *
+   * Vì sao cột thắng là `donViGiaiQuyet`: nó chứa 46.723/46.741 hồ sơ, là cột của hệ cũ, và
+   * danh sách / bộ lọc theo đơn vị / thẻ thống kê / xuất Excel của Đơn thư CHỈ đọc cột ấy.
+   */
+  donViXuLy                String?
   /// Hướng xử lý — thay ô tích "Thuộc thẩm quyền" trên form; `thuocThamQuyen` nay được SUY ra
   /// từ đây lúc lưu (xem petitions.service) để mọi chỗ đang đọc cột cũ không vỡ.
   ///

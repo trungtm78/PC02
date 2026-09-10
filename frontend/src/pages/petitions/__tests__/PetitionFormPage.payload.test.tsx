@@ -43,7 +43,10 @@ vi.mock('@/features/document-numbers/api', () => ({
 const LUA_CHON_THEO_DANH_MUC: Record<string, string[]> = {
   UNIT: ['Đội 1 PC02', 'Đội 4', 'Đội 8'],
 };
-const LUA_CHON_MAC_DINH = ['Cao', 'Trung bình', 'Thấp'];
+// Ô "Đơn vị xử lý" ở nhánh nội bộ nhận `options={teamOptions}` (KHÔNG có directoryType), nên
+// bản giả rơi vào danh sách mặc định — phải có sẵn tên tổ, nếu không `fireEvent.change` với tên
+// tổ chẳng chọn được gì và ca kiểm đỏ vì bản giả hẹp hơn thực tế.
+const LUA_CHON_MAC_DINH = ['Cao', 'Trung bình', 'Thấp', 'Đội 1 PC02', 'Đội 4', 'Đội 8'];
 
 vi.mock('@/components/FKSelect', () => ({
   FKSelect: ({ value, onChange, testId, directoryType }: {
@@ -350,12 +353,14 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     await renderForm();
     await fillRequired();
     fireEvent.click(await screen.findByTestId('field-huongXuLy-GIAO_DON'));
-    const o = await screen.findByTestId('field-donViXuLy');
+    const o = await screen.findByTestId('field-donViGiaiQuyet');
     fireEvent.change(o, { target: { value: 'Tổ 5' } });
     fireEvent.click(await screen.findByTestId('field-huongXuLy-CHUYEN_DON'));
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(body.donViXuLy).toBeNull();
+    // MỘT cột duy nhất từ 10/09/2026; `donViXuLy` không còn được gửi lên nữa.
+    expect(body.donViGiaiQuyet).toBeNull();
+    expect(body).not.toHaveProperty('donViXuLy');
   });
 });

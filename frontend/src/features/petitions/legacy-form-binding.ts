@@ -134,10 +134,26 @@ const DOI_LUA_CHON: Readonly<
   phanLoaiNguonTinBanDau: LUA_CHON_PHAN_LOAI,
 };
 
+/**
+ * Ô của bố cục hệ cũ được BỎ khỏi form Đơn thư vì đã có ô khác trên chính form ghi vào cùng cột.
+ *
+ * Khai tường minh kèm lý do — không phải danh sách "ẩn cho gọn". Cổng `moiOCoChoLuu` bắt mỗi ô
+ * trong tập này phải có một ô nhập khác ghi vào ĐÚNG cột ấy, nên bỏ nhầm là đỏ.
+ *
+ * `supervisingUnit` → cột `donViGiaiQuyet`: khối "Nội dung phiếu đề xuất" đã có ô "Đơn vị xử lý"
+ * ghi vào cùng cột, kèm ba hướng xử lý và danh mục 1.433 đơn vị. Để cả hai thì cán bộ thấy hai ô
+ * hỏi cùng một thứ, điền ô này ô kia vẫn trống (10/09/2026).
+ */
+export const BO_O_DA_CO_CHO_KHAC: ReadonlyMap<string, string> = new Map([
+  ['supervisingUnit', 'donViGiaiQuyet'],
+]);
+
 function doiTab(
   items: readonly LegacyLayoutItem<CaseFieldPath, LegacyTabId>[],
 ): readonly LegacyLayoutItem<PetitionFieldPath, LegacyTabId>[] {
-  return items.map((it) => ({
+  return items
+    .filter((it) => !BO_O_DA_CO_CHO_KHAC.has(it.field))
+    .map((it) => ({
     ...it,
     field: dichLuu(it.field),
     ...(DOI_LUA_CHON[it.field] ? { options: DOI_LUA_CHON[it.field] } : {}),
@@ -151,6 +167,14 @@ export const PETITION_LEGACY_LAYOUT: LegacyLayout<LegacyTabId, PetitionFieldPath
       doiTab(items as readonly LegacyLayoutItem<CaseFieldPath, LegacyTabId>[]),
     ]),
   ) as LegacyLayout<LegacyTabId, PetitionFieldPath>;
+
+/** Nhãn (lấy từ bố cục GỐC) của ô đã bỏ → cột nó ghi vào. Dựng tự động, không gõ tay. */
+const NHAN_DA_CHUYEN_CHO: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.values(LEGACY_FORM_LAYOUT)
+    .flat()
+    .filter((it) => BO_O_DA_CO_CHO_KHAC.has(it.field))
+    .map((it) => [it.caption, BO_O_DA_CO_CHO_KHAC.get(it.field)!]),
+);
 
 const O_PHU = nestedAccessor<PetitionFormData, typeof NHANH_PHU>(NHANH_PHU);
 
@@ -187,6 +211,9 @@ export const PETITION_LEGACY_SPEC: LegacyFormSpec<
   entity: 'petition',
   tabLabel: LEGACY_TAB_LABEL,
   layout: PETITION_LEGACY_LAYOUT,
+  // Nhãn của ô đã bỏ khỏi bố cục → cột nó vẫn ghi vào. Dựng TỪ `BO_O_DA_CO_CHO_KHAC` và bố cục
+  // gốc, không gõ tay, để hai chỗ không thể trôi khỏi nhau.
+  nhanDaChuyenCho: NHAN_DA_CHUYEN_CHO,
   read: (form, field) => O_PHU.read(form, field),
   write: (form, field, value) => O_PHU.write(form, field, value),
   fieldToColumn: O_VOI_COT,

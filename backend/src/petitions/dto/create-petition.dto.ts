@@ -379,7 +379,8 @@ export class CreatePetitionDto {
   @IsEnum(HuongXuLyDon)
   huongXuLy?: HuongXuLyDon;
 
-  // Tên đơn vị xử lý (danh mục DON_VI) khi KHÔNG thuộc thẩm quyền
+  // KHÔNG DÙNG NỮA từ 10/09/2026 — form gộp còn một ô, ghi vào `donViGiaiQuyet`.
+  // Giữ trong DTO để đường gọi cũ gửi lên không bị 400; máy chủ nhận rồi bỏ qua.
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()

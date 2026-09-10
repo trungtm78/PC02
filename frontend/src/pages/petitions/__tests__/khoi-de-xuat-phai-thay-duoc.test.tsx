@@ -68,7 +68,7 @@ describe('khối "Nội dung phiếu đề xuất" phải thấy được ngay',
   it.each([
     ['section-noi-dung-phieu-de-xuat', 'cả khối'],
     ['field-huongXuLy-GIAO_DON', 'ô Hướng xử lý'],
-    ['field-donViXuLy', 'ô Đơn vị xử lý'],
+    ['field-donViGiaiQuyet', 'ô Đơn vị xử lý'],
     ['field-deXuat', 'ô Đề xuất'],
   ])('%s (%s) không bị gập trong thẻ đóng', async (testId) => {
     await moForm();
@@ -108,5 +108,32 @@ describe('khối "Nội dung phiếu đề xuất" phải thấy được ngay',
     await waitFor(() => expect(khoi).toBeTruthy());
     const goi = document.querySelector('[data-testid^="bo-sung-he-moi-"]');
     expect(goi?.contains(khoi) ?? false).toBe(false);
+  });
+});
+
+describe('chỉ còn MỘT ô hỏi đơn vị trên form Đơn thư', () => {
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); authStore.setProfile(NGUOI_DUNG); });
+  afterEach(() => { vi.clearAllMocks(); });
+
+  /**
+   * Anh yêu cầu 10/09/2026: gộp "Đơn vị giải quyết" và "Đơn vị xử lý" thành MỘT trường.
+   *
+   * Trước đó form có hai ô hỏi cùng một thứ, ghi vào hai cột khác nhau — điền ô này thì ô kia
+   * vẫn trống, và bản in phải đoán bằng đường lùi. ĐẾM số ô chứ không chỉ kiểm ô mới còn đó:
+   * ô cũ vẫn nằm trong bố cục hệ cũ dùng chung, chỉ bị lọc riêng cho Đơn thư.
+   */
+  it('đúng MỘT ô, và nó ghi vào cột donViGiaiQuyet', async () => {
+    await moForm();
+    await screen.findByTestId('section-noi-dung-phieu-de-xuat');
+    expect(screen.getAllByTestId('field-donViGiaiQuyet')).toHaveLength(1);
+    // Ô cũ ghi cột khác đã biến hẳn.
+    expect(screen.queryAllByTestId('field-donViXuLy')).toHaveLength(0);
+  });
+
+  it('ô duy nhất ấy nằm trong khối "Nội dung phiếu đề xuất", cạnh ba nút hướng xử lý', async () => {
+    await moForm();
+    const khoi = await screen.findByTestId('section-noi-dung-phieu-de-xuat');
+    expect(khoi.contains(screen.getByTestId('field-donViGiaiQuyet'))).toBe(true);
+    expect(khoi.contains(screen.getByTestId('field-huongXuLy-CHUYEN_DON'))).toBe(true);
   });
 });

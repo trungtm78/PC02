@@ -13,18 +13,24 @@ const HO_SO_CHUYEN = { huongXuLy: 'CHUYEN_DON', donViGiaiQuyet: 'Công an phư�
 const HO_SO_TRA = { huongXuLy: 'TRA_LUU_DON', donViGiaiQuyet: 'Tổ công tác số 6' };
 
 describe('donViCuaHoSo — một luật dùng chung cho deXuat · kinhGui · donViNhan', () => {
-  it('ưu tiên donViXuLy khi hồ sơ mới đã ghi cột ấy', () => {
-    expect(
-      resolveField('DON_THU', 'donViNhan', { donViXuLy: 'Đội 8', donViGiaiQuyet: 'Đội 4' }),
-    ).toBe('Đội 8');
+  /**
+   * MỘT cột duy nhất từ 10/09/2026. Trước đó form có hai ô cùng nghĩa ghi vào hai cột, và hàm
+   * này phải đoán bằng `donViXuLy || donViGiaiQuyet`.
+   *
+   * Cột thắng là `donViGiaiQuyet` vì đo trên máy thật: nó có dữ liệu ở 46.723/46.741 hồ sơ
+   * (`donViXuLy`: 0), nó là cột của hệ cũ, và danh sách / bộ lọc / thẻ thống kê / xuất Excel
+   * của Đơn thư CHỈ đọc cột ấy.
+   */
+  it('đọc donViGiaiQuyet — cột duy nhất', () => {
+    expect(resolveField('DON_THU', 'donViNhan', { donViGiaiQuyet: 'Đội 4' })).toBe('Đội 4');
   });
 
-  /**
-   * Đây là lỗi anh báo bằng ảnh chụp: `Kính gửi:` trống trên Phiếu chuyển đơn.
-   * Đo 09/09/2026: cột `donViXuLy` rỗng ở CẢ 47.169 hồ sơ — hệ cũ đổ vào `donViGiaiQuyet`.
-   */
-  it('lùi về donViGiaiQuyet — 47.169 hồ sơ di trú không có donViXuLy', () => {
-    expect(resolveField('DON_THU', 'donViNhan', { donViGiaiQuyet: 'Đội 4' })).toBe('Đội 4');
+  /** Cột cũ không còn tiếng nói: có giá trị ở đó cũng KHÔNG được lấy. */
+  it('KHÔNG đọc donViXuLy nữa, kể cả khi cột ấy có giá trị', () => {
+    expect(
+      resolveField('DON_THU', 'donViNhan', { donViXuLy: 'Đội 8', donViGiaiQuyet: 'Đội 4' }),
+    ).toBe('Đội 4');
+    expect(resolveField('DON_THU', 'donViNhan', { donViXuLy: 'Đội 8' })).toBe('');
   });
 
   it('cả hai rỗng → chuỗi rỗng, không in ký tự thừa', () => {
