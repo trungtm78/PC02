@@ -11,6 +11,7 @@
  * không biết gì về `CaseFormData` hay `PetitionFormData`.
  */
 
+import { Fragment } from "react";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { FKSelect } from "@/components/FKSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
@@ -40,6 +41,14 @@ interface Props<TForm, TTab extends string, TField extends string> {
    * lực — giữ đúng chỗ, đúng nhãn, chỉ đổi ruột.
    */
   renderOverride?: Partial<Record<string, (label: string) => React.ReactNode>>;
+  /**
+   * Chèn một khối NGAY SAU một ô của bố cục hệ cũ, chiếm trọn bề ngang.
+   *
+   * Dùng khi khối của hệ mới phải đứng đúng chỗ trong mạch đọc của cán bộ — vd "Nội dung phiếu
+   * đề xuất" phải nằm ngay dưới ô "Nhận xét". Đặt nó ở cuối tab hay trong khối gập thì cán bộ
+   * điền xong Nhận xét không thấy bước kế tiếp.
+   */
+  sauO?: Partial<Record<string, React.ReactNode>>;
 }
 
 export function LegacyLayoutSection<TForm, TTab extends string, TField extends string>({
@@ -50,6 +59,7 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
   errorFor,
   onFieldTouched,
   renderOverride,
+  sauO,
 }: Props<TForm, TTab, TField>) {
   const ghi = (field: TField, value: LegacyFieldValue) => {
     setFormData((prev) => spec.write(prev, field, value));
@@ -60,28 +70,32 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {items.map((item, i) => {
         const rieng = renderOverride?.[item.field];
-        if (rieng) {
-          return (
-            <div
-              key={`${item.field}-${i}`}
-              className={item.span === "full" ? "md:col-span-2" : ""}
-              data-testid={`legacy-field-${item.field}`}
-            >
-              {rieng(legacyCaptionOf(item, spec.tabLabel))}
-            </div>
-          );
-        }
+        // Khối chèn sau ô: chỉ gắn ở LẦN XUẤT HIỆN ĐẦU của ô, vì một ô lưu có thể có bản gương
+        // trong cùng tab — gắn cả hai lần sẽ dựng khối hai lần.
+        const chen = items.findIndex((x) => x.field === item.field) === i ? sauO?.[item.field] : undefined;
+        const o = rieng ? (
+          <div
+            className={item.span === "full" ? "md:col-span-2" : ""}
+            data-testid={`legacy-field-${item.field}`}
+          >
+            {rieng(legacyCaptionOf(item, spec.tabLabel))}
+          </div>
+        ) : (
+          <LegacyField
+            item={item as LegacyLayoutItem}
+            label={legacyCaptionOf(item, spec.tabLabel)}
+            value={spec.read(formData, item.field)}
+            error={errorFor?.(item.field)}
+            onChange={(v) => ghi(item.field, v)}
+          />
+        );
+        // Cùng một ô lưu có thể xuất hiện hai lần trong một tab (bản gốc và bản gương), nên
+        // khoá phải kèm vị trí, không thể chỉ dùng tên ô.
         return (
-        <LegacyField
-          // Cùng một ô lưu có thể xuất hiện hai lần trong một tab (bản gốc và bản gương),
-          // nên khoá phải kèm vị trí, không thể chỉ dùng tên ô.
-          key={`${item.field}-${i}`}
-          item={item as LegacyLayoutItem}
-          label={legacyCaptionOf(item, spec.tabLabel)}
-          value={spec.read(formData, item.field)}
-          error={errorFor?.(item.field)}
-          onChange={(v) => ghi(item.field, v)}
-        />
+          <Fragment key={`${item.field}-${i}`}>
+            {o}
+            {chen ? <div className="md:col-span-2">{chen}</div> : null}
+          </Fragment>
         );
       })}
     </div>

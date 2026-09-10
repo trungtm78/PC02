@@ -25,6 +25,8 @@ interface Props<TForm, TTab extends string, TField extends string> {
   onFieldTouched?: (field: string) => void;
   /** Thay ô mặc định bằng ô riêng cho vài trường cần hơn một ô chữ. */
   renderOverride?: Partial<Record<string, (label: string) => React.ReactNode>>;
+  /** Chèn một khối ngay SAU một ô của bố cục hệ cũ — xem LegacyLayoutSection. */
+  sauO?: Partial<Record<string, ReactNode>>;
   /** Khối luôn hiện, đặt trên bố cục hệ cũ. Dùng cho ô bắt buộc của hệ mới. */
   pinnedTop?: ReactNode;
   /** Chèn giữa bố cục hệ cũ và khối gập — dùng cho bảng con của hệ cũ (vd ĐTBS). */
@@ -41,6 +43,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
   errorFor,
   onFieldTouched,
   renderOverride,
+  sauO,
   pinnedTop,
   afterLegacy,
   children,
@@ -63,6 +66,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
           errorFor={errorFor}
           onFieldTouched={onFieldTouched}
           renderOverride={renderOverride}
+          sauO={sauO}
         />
       </div>
 

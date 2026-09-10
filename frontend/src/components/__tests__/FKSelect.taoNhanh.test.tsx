@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -133,5 +134,67 @@ describe('FKSelect — tạo nhanh khi tìm không ra', () => {
     await waitFor(() => expect(screen.getByTestId('dv-khong-co-ket-qua')).toBeTruthy());
     fireEvent.keyDown(o, { key: 'Enter' });
     expect(taoMoi).not.toHaveBeenCalled();
+  });
+});
+
+describe('FKSelect — giữ được mục đã chọn khi danh sách đổi', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  /**
+   * Hồi quy do chính việc chuyển sang tìm-trên-máy-chủ gây ra.
+   *
+   * Chọn xong thì ô tìm được xoá, truy vấn tải lại TRANG MẶC ĐỊNH (200 dòng đầu theo thứ tự).
+   * Đơn vị vừa chọn nằm ngoài 200 dòng ấy nên `options.find(...)` không thấy, ô hiện lại chữ
+   * gợi ý — trông như chưa chọn được gì, trong khi giá trị ĐÃ nằm trong form.
+   *
+   * Cùng lỗi khi mở hồ sơ cũ có đơn vị nằm sâu trong danh mục.
+   */
+  it('chọn một mục rồi danh sách đổi → vẫn hiện tên đã chọn', async () => {
+    const KQ_TIM = { data: { data: [{ id: 'x', name: 'Công an phường Bến Nghé', code: 'DV0900' }] } };
+    const TRANG_MAC_DINH = { data: { data: [{ id: 'y', name: 'Đơn vị khác', code: 'DV0001' }] } };
+    let lan = 0;
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      lan += 1;
+      return Promise.resolve(lan === 1 ? TRANG_MAC_DINH : KQ_TIM);
+    });
+
+    function Bao() {
+      const [v, setV] = useState('');
+      return (
+        <FKSelect label="Đơn vị xử lý" directoryType="DON_VI" value={v} onChange={setV} testId="dv" />
+      );
+    }
+    boc(<Bao />);
+    fireEvent.click(screen.getByTestId('dv-trigger'));
+    fireEvent.change(screen.getByTestId('dv-search'), { target: { value: 'Bến Nghé' } });
+    const nut = await screen.findByTestId('dv-option-Công an phường Bến Nghé');
+    fireEvent.click(nut);
+
+    // Danh sach quay ve trang mac dinh (khong con don vi vua chon) — nhung o phai van hien ten.
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue(TRANG_MAC_DINH);
+    await waitFor(() =>
+      expect(screen.getByTestId('dv-trigger').textContent).toContain('Công an phường Bến Nghé'),
+    );
+  });
+
+  /** Hồ sơ cũ: giá trị có sẵn mà không nằm trong trang đầu — vẫn phải hiện, không để trống. */
+  it('giá trị có sẵn ngoài trang đầu → vẫn hiện, không hiện chữ gợi ý', async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { data: [{ id: 'y', name: 'Đơn vị khác', code: 'DV0001' }] },
+    });
+    boc(
+      <FKSelect
+        label="Đơn vị xử lý"
+        directoryType="DON_VI"
+        value="PC01 Công an TP. HCM"
+        onChange={() => {}}
+        testId="dv"
+        placeholder="Chọn đơn vị"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('dv-trigger').textContent).toContain('PC01 Công an TP. HCM'),
+    );
+    expect(screen.getByTestId('dv-trigger').textContent).not.toContain('Chọn đơn vị');
   });
 });
