@@ -55,7 +55,6 @@ export interface PetitionFormData {
   // vẫn nhận và nhiều màn khác còn đọc cột ấy, nhưng KHÔNG còn ô nhập nào — máy chủ suy ra.
   huongXuLy: HuongXuLyDon | "";
   thuocThamQuyen: boolean;
-  donViXuLy: string;
 
   // ── Cột hệ cũ thêm 26/08/2026 (xem PARITY.petition) ──
   baoCaoBanGiamDocText: string;
@@ -103,7 +102,7 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
   nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
-  huongXuLy: "", thuocThamQuyen: true, donViXuLy: "",
+  huongXuLy: "", thuocThamQuyen: true,
   baoCaoBanGiamDocText: "", tinhTrang: "",
   soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "",
   soQDTamDinhChiNguonTin: "", ngayQDTamDinhChiNguonTin: "",

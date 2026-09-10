@@ -110,16 +110,23 @@ describe('buildPetitionCreateData', () => {
     expect(withTeam.assignedTeamId).toBe('team-9');
   });
 
-  it('thuocThamQuyen mặc định true; nhận false + donViXuLy khi KHÔNG thuộc thẩm quyền', () => {
-    const def = buildPetitionCreateData(baseDto, ctx);
-    expect(def.thuocThamQuyen).toBe(true);
-    expect(def.donViXuLy).toBeUndefined();
+  it('thuocThamQuyen mặc định true, nhận false khi chuyển ra ngoài', () => {
+    expect(buildPetitionCreateData(baseDto, ctx).thuocThamQuyen).toBe(true);
+    expect(
+      buildPetitionCreateData({ ...baseDto, thuocThamQuyen: false }, ctx).thuocThamQuyen,
+    ).toBe(false);
+  });
 
-    const outside = buildPetitionCreateData(
-      { ...baseDto, thuocThamQuyen: false, donViXuLy: 'Công an Quận 1' },
+  /**
+   * Đơn vị lưu vào MỘT cột `donViGiaiQuyet` (10/09/2026). Cột `donViXuLy` giữ trong lược đồ
+   * nhưng không đường ghi nào chạm tới — gửi lên cũng bị bỏ qua, không lặng lẽ tạo cột thứ hai.
+   */
+  it('ghi đơn vị vào donViGiaiQuyet, KHÔNG ghi donViXuLy', () => {
+    const ra = buildPetitionCreateData(
+      { ...baseDto, donViGiaiQuyet: 'Công an Quận 1', donViXuLy: 'Đội 8' } as never,
       ctx,
     );
-    expect(outside.thuocThamQuyen).toBe(false);
-    expect(outside.donViXuLy).toBe('Công an Quận 1');
+    expect(ra.donViGiaiQuyet).toBe('Công an Quận 1');
+    expect(ra).not.toHaveProperty('donViXuLy');
   });
 });

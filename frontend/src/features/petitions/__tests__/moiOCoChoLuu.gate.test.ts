@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  BO_O_DA_CO_CHO_KHAC,
   PETITION_LEGACY_LAYOUT,
   PETITION_LEGACY_SPEC,
   dichLuu,
@@ -18,12 +19,34 @@ import { ownedColumns } from '@/features/legacy-form/types';
 describe('Mọi ô hệ cũ trên form Đơn thư đều có chỗ lưu', () => {
   const KHOA_FORM = new Set(Object.keys(INITIAL_PETITION_FORM));
 
-  it('bố cục Đơn thư giữ NGUYÊN số ô và thứ tự của bố cục hệ cũ', () => {
+  it('bố cục Đơn thư giữ NGUYÊN số ô và thứ tự của bố cục hệ cũ, trừ ô đã khai bỏ', () => {
     for (const tab of Object.keys(LEGACY_FORM_LAYOUT)) {
-      const goc = LEGACY_FORM_LAYOUT[tab as keyof typeof LEGACY_FORM_LAYOUT];
+      const goc = LEGACY_FORM_LAYOUT[tab as keyof typeof LEGACY_FORM_LAYOUT].filter(
+        (i) => !BO_O_DA_CO_CHO_KHAC.has(i.field),
+      );
       const donThu = PETITION_LEGACY_LAYOUT[tab as keyof typeof PETITION_LEGACY_LAYOUT];
       expect(donThu.map((i) => i.caption)).toEqual(goc.map((i) => i.caption));
       expect(donThu.map((i) => i.span)).toEqual(goc.map((i) => i.span));
+    }
+  });
+
+  /**
+   * Mệnh đề THAY THẾ cho phần vừa được miễn trừ, và mạnh hơn nó.
+   *
+   * Miễn trừ một ô khỏi bố cục chỉ hợp lệ khi cột của ô ấy VẪN có chỗ nhập trên form. Không có
+   * mệnh đề này thì tập miễn trừ trở thành cửa sau: thêm một dòng là ô biến mất và dữ liệu
+   * không còn đường nhập, mà cổng vẫn xanh.
+   */
+  it('mỗi ô được miễn trừ vẫn còn chỗ nhập khác trên form, đúng cột ấy', () => {
+    expect(BO_O_DA_CO_CHO_KHAC.size).toBeGreaterThan(0);
+    for (const [oHeCu, cot] of BO_O_DA_CO_CHO_KHAC) {
+      // Ô đã thật sự biến khỏi bố cục Đơn thư…
+      const conTrongBoCuc = Object.values(PETITION_LEGACY_LAYOUT)
+        .flat()
+        .some((i) => i.field === oHeCu || i.field === cot);
+      expect(conTrongBoCuc).toBe(false);
+      // …nhưng cột của nó vẫn là một khoá form, tức vẫn có ô nhập ghi vào đó.
+      expect(KHOA_FORM.has(cot)).toBe(true);
     }
   });
 

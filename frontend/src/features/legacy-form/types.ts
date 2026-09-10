@@ -73,6 +73,15 @@ export interface LegacyFormSpec<TForm, TTab extends string, TField extends strin
   write(form: TForm, field: TField, value: LegacyFieldValue): TForm;
   /** Tên cột ở lớp máy chủ khi khác tên ô trong dữ liệu form. */
   fieldToColumn: Readonly<Record<string, string>>;
+  /**
+   * NHÃN của ô hệ cũ đã bỏ khỏi bố cục vì có ô khác trên form ghi vào cùng cột → cột ấy.
+   *
+   * Cần khai để `columnForCaption` vẫn tra được: cột danh sách mang nhãn cũ, còn ô nhập nay ở
+   * chỗ khác. Không có bảng này thì cổng đối chiếu danh sách ↔ form báo "không tìm thấy" và ta
+   * buộc phải miễn trừ cả nhãn — tức mất luôn phép đối chiếu cột, đúng thứ cổng ấy sinh ra để
+   * canh.
+   */
+  nhanDaChuyenCho?: Readonly<Record<string, string>>;
 }
 
 /** Nhãn hiển thị thật: gắn hậu tố "(Tab: X)" cho trường gương, đúng cách hệ cũ làm. */
@@ -107,7 +116,8 @@ export function columnForCaption<TForm, TTab extends string, TField extends stri
       return spec.fieldToColumn[field] ?? field;
     }
   }
-  return null;
+  // Ô mang nhãn ấy đã chuyển sang chỗ khác trên form nhưng vẫn ghi vào một cột xác định.
+  return spec.nhanDaChuyenCho?.[caption] ?? null;
 }
 
 /**

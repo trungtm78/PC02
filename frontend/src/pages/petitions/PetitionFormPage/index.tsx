@@ -273,7 +273,6 @@ export function PetitionFormPage() {
           // rỗng — để trống chứ không đoán, vì đoán sai sẽ đổi trạng thái hồ sơ lúc lưu.
           huongXuLy: (d.huongXuLy as FormData["huongXuLy"]) ?? "",
           thuocThamQuyen: (d.thuocThamQuyen as boolean) ?? true,
-          donViXuLy: (d.donViXuLy as string) ?? "",
           // ── Cột hệ cũ thêm 26/08/2026 ──
           baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",
           tinhTrang: (d.tinhTrang as string) ?? "",
@@ -603,7 +602,7 @@ export function PetitionFormPage() {
                           setFormData((prev) =>
                             prev.huongXuLy === o.value
                               ? prev
-                              : { ...prev, huongXuLy: o.value, donViXuLy: "" },
+                              : { ...prev, huongXuLy: o.value, donViGiaiQuyet: "" },
                           );
                         }}
                         className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
@@ -621,26 +620,26 @@ export function PetitionFormPage() {
                     <FKSelect
                       label="Đơn vị xử lý"
                       options={teamOptions}
-                      value={formData.donViXuLy}
-                      onChange={(v) => update("donViXuLy", v)}
+                      value={formData.donViGiaiQuyet}
+                      onChange={(v) => update("donViGiaiQuyet", v)}
                       placeholder="Chọn Tổ/Nhóm xử lý"
-                      testId="field-donViXuLy"
+                      testId="field-donViGiaiQuyet"
                     />
                   ) : (
                     <FKSelect
                       label="Đơn vị xử lý"
                       directoryType="DON_VI"
-                      value={formData.donViXuLy}
-                      onChange={(v) => update("donViXuLy", v)}
+                      value={formData.donViGiaiQuyet}
+                      onChange={(v) => update("donViGiaiQuyet", v)}
                       placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
-                      testId="field-donViXuLy"
+                      testId="field-donViGiaiQuyet"
                       canCreate={!!taoNhanhDonVi}
                       onCreateNew={(tenGoiY) =>
                         taoNhanhDonVi?.open({
                           type: "DON_VI",
                           tenGoiY,
                           // Tạo xong thì chọn ngay — nếu không, cán bộ vừa tạo lại phải tự đi tìm.
-                          onCreated: (ten) => update("donViXuLy", ten),
+                          onCreated: (ten) => update("donViGiaiQuyet", ten),
                         })
                       }
                     />

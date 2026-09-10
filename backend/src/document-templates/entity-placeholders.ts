@@ -177,6 +177,10 @@ export const DYNAMIC_EXPORT_SAVABLE: Record<
     huongDanKhoiKien: { column: 'huongDanKhoiKien', type: 'textarea' },
     lyDoTraDon: { column: 'lyDoTraDon', type: 'textarea' },
     // Bộ mẫu PC01: đơn vị nhận chuyển đơn — bắt buộc ở Phiếu chuyển / Thông báo chuyển.
-    donViNhan: { column: 'donViXuLy', type: 'text' },
+    //
+    // Cột phải TRÙNG với cột form ghi (`donViGiaiQuyet`, từ 10/09/2026). Trỏ khác cột là form
+    // ghi một nơi, popup "Lưu bổ sung thông tin thiếu" ghi nơi khác — hai đường cùng sửa một ô
+    // trên giao diện mà lưu vào hai chỗ, đúng bẫy "hai chiều một quy ước".
+    donViNhan: { column: 'donViGiaiQuyet', type: 'text' },
   },
 };

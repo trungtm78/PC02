@@ -61,15 +61,20 @@ function s(v: unknown): string {
 /**
  * Đơn vị xử lý của hồ sơ — MỘT luật, ba nơi dùng (`deXuat`, `kinhGui`, `donViNhan`).
  *
- * Hồ sơ mới ghi `donViXuLy`; `donViGiaiQuyet` là đường lùi cho hồ sơ di trú. Đo 09/09/2026:
- * `donViXuLy` rỗng ở CẢ 47.169 hồ sơ, nên trước bản này `Kính gửi: {donViNhan}` in ra trống
- * trên Phiếu chuyển đơn và 4 mẫu khác — đúng lỗi anh chụp ảnh gửi.
+ * Đọc `donViGiaiQuyet` — cột DUY NHẤT kể từ 10/09/2026. Trước đó form có hai ô cùng nghĩa ghi
+ * vào hai cột và hàm này phải đoán bằng `donViXuLy || donViGiaiQuyet`.
+ *
+ * Vì sao giữ cột này chứ không phải `donViXuLy`, đo trên máy thật 10/09/2026:
+ *  - `donViGiaiQuyet` có dữ liệu ở 46.723/46.741 hồ sơ; `donViXuLy` rỗng tuyệt đối (0).
+ *  - Nó là cột của hệ cũ (`legacy-migration/field-parity.def.ts`: `don_vi_giai_quyet`).
+ *  - Danh sách, bộ lọc theo đơn vị, thẻ thống kê và xuất Excel của Đơn thư CHỈ đọc cột này —
+ *    gộp về `donViXuLy` là làm hồ sơ mới biến mất khỏi cột danh sách và không lọc được.
  *
  * Ba bản sao của cùng một luật là bẫy "hai chiều một quy ước" đã cắn nhiều lần: sửa một chỗ,
  * hai chỗ kia trôi đi. Giữ đúng một hàm.
  */
 function donViCuaHoSo(r: any): string {
-  return s(r?.donViXuLy) || s(r?.donViGiaiQuyet);
+  return s(r?.donViGiaiQuyet);
 }
 
 /**

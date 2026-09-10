@@ -110,7 +110,6 @@ export function buildPetitionCreateData(
     // `thuocThamQuyen` (bộ di trú, ca kiểm) vẫn chạy đúng như trước.
     huongXuLy: dto.huongXuLy,
     thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) ?? dto.thuocThamQuyen ?? true,
-    donViXuLy: dto.donViXuLy,
     // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
     phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
     phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,

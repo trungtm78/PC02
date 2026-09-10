@@ -739,7 +739,6 @@ export class PetitionsService {
       ...(suyThuocThamQuyen(dto.huongXuLy) !== undefined
         ? { thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) }
         : dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
-      ...(dto.donViXuLy !== undefined && { donViXuLy: dto.donViXuLy }),
       /**
        * Trạng thái theo hướng — CHỈ khi hướng thực sự đổi trong lần lưu này.
        *
