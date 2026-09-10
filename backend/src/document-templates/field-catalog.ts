@@ -374,7 +374,22 @@ const DON_THU_FIELDS: FieldDef[] = [
    * Đội 1". Đó là Đội Tham mưu tổng hợp, nơi phát hành; cùng đơn vị với hậu tố `Đ1` của số
    * văn bản (xem `teamCode`).
    */
-  { key: 'tenDoi', label: 'Tên đơn vị phát hành', group: 'Đơn vị', resolve: () => 'Đội 1' },
+  { key: 'tenDoi', label: 'Tên đơn vị phát hành', group: 'Đơn vị', resolve: () => DON_VI_PHAT_HANH },
+  /**
+   * Cùng đơn vị với `tenDoi` nhưng VIẾT HOA, cho dòng chức danh trong khối ký.
+   *
+   * Mẫu hệ cũ ghi cứng "PHÓ ĐỘI TRƯỞNG ĐỘI 1" — cả dòng viết hoa. Khi templatize, "ĐỘI 1" bị
+   * thay bằng `{tenDoi}` (trả về "Đội 1") nên bản in ra "PHÓ ĐỘI TRƯỞNG Đội 1", lệch kiểu chữ
+   * với đúng ba chữ bên cạnh. Dùng biến riêng chứ KHÔNG đặt `<w:caps/>` trong mẫu: `caps` chỉ
+   * đổi cách HIỂN THỊ, chữ bóc ra khỏi tệp vẫn là "Đội 1" nên phép so bản in với hệ cũ ở tầng
+   * chữ sẽ báo lệch.
+   */
+  {
+    key: 'tenDoiHoa',
+    label: 'Tên đơn vị phát hành (viết hoa)',
+    group: 'Đơn vị',
+    resolve: () => DON_VI_PHAT_HANH.toUpperCase(),
+  },
   { key: 'tenDoiPhongBan', label: 'Tên phòng ban', group: 'Đơn vị', resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP' },
   { key: 'diaDiem', label: 'Địa điểm', group: 'Đơn vị', resolve: () => 'Thành phố Hồ Chí Minh' },
   /**

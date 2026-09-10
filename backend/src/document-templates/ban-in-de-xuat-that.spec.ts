@@ -72,6 +72,36 @@ function inRa(huongXuLy: string | null): string {
     .replace(/<[^>]+>/g, '');
 }
 
+/**
+ * Ba ô của HÀNG ĐẦU trong bảng chữ ký cuối trang, theo đúng thứ tự trái → phải.
+ *
+ * Phải đọc theo Ô chứ không theo chữ: `toContain('Đại uý Phạm Thanh Văn')` vẫn xanh khi tên
+ * nằm nhầm cột "PHÊ DUYỆT CỦA BAN CHỈ HUY PHÒNG" — đúng lỗi anh chụp ảnh ngày 10/09/2026.
+ */
+function oKhoiKy(huongXuLy: string | null): string[] {
+  const bytes = fs.readFileSync(MAU);
+  const bien = detectDocxVariables(bytes).map((n) => ({ name: n, source: 'auto' as const, field: n }));
+  const ph = buildTemplatePlaceholders('DON_THU', bien, { ...HO_SO, huongXuLy }, {}, undefined, CTX);
+  const ra = resolveRenderer('DOCX').render({
+    buffer: bytes,
+    data: ph,
+    delimiters: DEFAULT_DELIMITERS,
+    kieuXuongDong: 'mem',
+  });
+  const xml = new PizZip(ra).file('word/document.xml')!.asText();
+  const bang = xml.slice(xml.lastIndexOf('<w:tbl>'));
+  const hang = bang.slice(0, bang.indexOf('</w:tr>'));
+  return hang
+    .split('<w:tc>')
+    .slice(1)
+    .map((o) =>
+      o
+        .replace(/<\/w:p>/g, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim(),
+    );
+}
+
 describe('bản in Phiếu đề xuất THẬT — đọc chữ ra khỏi tệp .docx', () => {
   it('Giao đơn: Kính gửi hai dòng Ban chỉ huy, câu Đề xuất khuôn Giao', () => {
     const chu = inRa('GIAO_DON');
@@ -150,6 +180,49 @@ describe('bản in Phiếu đề xuất THẬT — đọc chữ ra khỏi tệp 
     const chu = inRa(null);
     expect(chu).toContain('Giao Tổ công tác số 6 tiếp nhận kiểm tra, xác minh');
     expect(chu).toContain('- Ban chỉ huy PC02;');
+  });
+
+  /**
+   * Khung đỏ thứ nhất anh vẽ: dòng chức danh trộn HOA với thường. Mẫu hệ cũ ghi cứng
+   * "PHÓ ĐỘI TRƯỞNG ĐỘI 1".
+   */
+  it('dòng chức danh viết HOA cả cụm, kể cả tên đội', () => {
+    const [, giua] = oKhoiKy('GIAO_DON');
+    expect(giua).toContain('PHÓ ĐỘI TRƯỞNG ĐỘI 1');
+    expect(giua).not.toContain('PHÓ ĐỘI TRƯỞNG Đội 1');
+  });
+
+  /**
+   * Khung đỏ thứ hai: tên cán bộ đề xuất in ra dưới cột "PHÊ DUYỆT CỦA BAN CHỈ HUY PHÒNG".
+   * Chốt theo Ô — mỗi tên phải nằm ĐÚNG dưới chức danh của mình, và ô phê duyệt phải trống
+   * để chỉ huy ký tay.
+   */
+  it('tên cán bộ đề xuất nằm trong Ô "CÁN BỘ ĐỀ XUẤT", không lệch sang ô phê duyệt', () => {
+    const [pheDuyet, giua, canBo] = oKhoiKy('GIAO_DON');
+    expect(canBo).toContain('CÁN BỘ ĐỀ XUẤT');
+    expect(canBo).toContain('Đại úy Phạm Thanh Văn');
+    expect(pheDuyet).toContain('PHÊ DUYỆT');
+    expect(pheDuyet).not.toContain('Phạm Thanh Văn');
+    expect(giua).not.toContain('Phạm Thanh Văn');
+  });
+
+  /**
+   * Hai tên phải cùng một dòng ngang. Ô giữa có thêm dòng "Ngày … tháng …" nên số đoạn trống
+   * hai bên khác nhau — đếm đoạn mới thấy, nhìn chữ thì không.
+   */
+  it('tên cán bộ và tên phó đội trưởng nằm cùng một dòng ngang', () => {
+    // Đo trên CHÍNH tệp mẫu: bản render không dùng được vì {tenPhoDoiTruong} của hồ sơ mẫu
+    // rỗng (chưa có tổ trưởng), dòng trống thì không so vị trí được.
+    const xml = new PizZip(fs.readFileSync(MAU)).file('word/document.xml')!.asText();
+    const bang = xml.slice(xml.lastIndexOf('<w:tbl>'));
+    const o = bang
+      .slice(0, bang.indexOf('</w:tr>'))
+      .split('<w:tc>')
+      .slice(1)
+      .map((c) => c.split('</w:p>').map((p) => p.replace(/<[^>]+>/g, '')));
+    expect(o[2].findIndex((d) => d.includes('{tenCanBoDeXuat}'))).toBe(
+      o[1].findIndex((d) => d.includes('{tenPhoDoiTruong}')),
+    );
   });
 
   it('không còn ô nào in ra tên biến chưa thay', () => {
