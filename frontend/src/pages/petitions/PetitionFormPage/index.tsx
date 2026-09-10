@@ -571,6 +571,123 @@ export function PetitionFormPage() {
     ),
   };
 
+  /**
+   * Khối "Nội dung phiếu đề xuất" — cắm NGAY SAU ô "Nhận xét" của bố cục hệ cũ.
+   *
+   * Vị trí không phải chuyện thẩm mỹ: đọc tới Nhận xét là tới bước quyết định hướng xử
+   * lý. Đặt ở cuối tab thì cán bộ điền xong Nhận xét không thấy bước kế tiếp; đặt trong
+   * khối gập "Bổ sung hệ mới" thì không thấy gì cả (lỗi 09/09/2026).
+   */
+  const khoiNoiDungDeXuat = (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
+              <div className="border-b border-slate-200 px-6 py-4">
+                <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
+                <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
+              </div>
+              <div className="p-4 sm:p-6 space-y-4">
+                {/* Hướng xử lý — thay ô tích "Thuộc thẩm quyền" (09/09/2026).
+                    Quyết định ba thứ cùng lúc: nguồn của ô Đơn vị xử lý, câu in ở dòng "Đề xuất"
+                    trên Phiếu đề xuất, và trạng thái hồ sơ. */}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <span className="block text-sm font-medium text-slate-700 mb-2">Hướng xử lý</span>
+                  <div className="flex flex-wrap gap-2 mb-3" role="radiogroup" aria-label="Hướng xử lý">
+                    {HUONG_XU_LY_OPTIONS.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={formData.huongXuLy === o.value}
+                        onClick={() => {
+                          // Đổi hướng → xoá đơn vị đã chọn: tên tổ nội bộ và tên đơn vị ngoài là
+                          // hai tập khác nhau, giữ lại sẽ ghi một giá trị không có trong nguồn mới.
+                          setFormData((prev) =>
+                            prev.huongXuLy === o.value
+                              ? prev
+                              : { ...prev, huongXuLy: o.value, donViXuLy: "" },
+                          );
+                        }}
+                        className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          formData.huongXuLy === o.value
+                            ? "bg-blue-600 border-blue-600 text-white font-medium"
+                            : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                        }`}
+                        data-testid={`field-huongXuLy-${o.value}`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  {laHuongNoiBo(formData.huongXuLy) ? (
+                    <FKSelect
+                      label="Đơn vị xử lý"
+                      options={teamOptions}
+                      value={formData.donViXuLy}
+                      onChange={(v) => update("donViXuLy", v)}
+                      placeholder="Chọn Tổ/Nhóm xử lý"
+                      testId="field-donViXuLy"
+                    />
+                  ) : (
+                    <FKSelect
+                      label="Đơn vị xử lý"
+                      directoryType="DON_VI"
+                      value={formData.donViXuLy}
+                      onChange={(v) => update("donViXuLy", v)}
+                      placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+                      testId="field-donViXuLy"
+                      canCreate={!!taoNhanhDonVi}
+                      onCreateNew={(tenGoiY) =>
+                        taoNhanhDonVi?.open({
+                          type: "DON_VI",
+                          tenGoiY,
+                          // Tạo xong thì chọn ngay — nếu không, cán bộ vừa tạo lại phải tự đi tìm.
+                          onCreated: (ten) => update("donViXuLy", ten),
+                        })
+                      }
+                    />
+                  )}
+                  <p className="mt-1 text-xs text-slate-500">{moTaHuong(formData.huongXuLy)}</p>
+                </div>
+                {/* Đề xuất — trước đây KHÔNG có ô nhập trên form, cán bộ chỉ sửa được qua popup
+                    lúc in. Bỏ trống thì bản in tự ghép câu theo hướng xử lý ở trên. */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Đề xuất</label>
+                  <textarea
+                    value={formData.deXuat}
+                    onChange={(e) => update("deXuat", e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Để trống: bản in tự ghép câu theo hướng xử lý đã chọn"
+                    data-testid="field-deXuat"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Chữ nhập ở đây sẽ được in nguyên văn, thay cho câu tự ghép.
+                  </p>
+                </div>
+                {/* Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
+                    Mặc định người đang đăng nhập, cho phép chọn cán bộ khác (in hộ). */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Cán bộ đề xuất</label>
+                  <select
+                    value={formData.canBoDeXuatId}
+                    onChange={(e) => update("canBoDeXuatId", e.target.value)}
+                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    data-testid="field-canBoDeXuatId"
+                  >
+                    <option value="">-- Chọn cán bộ --</option>
+                    {userOptions.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {displayName(u)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Tên in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Mặc định là bạn; đổi nếu lập hộ cán bộ khác.
+                  </p>
+                </div>
+              </div>
+            </div>
+  );
+
   return (
     <div className="p-6 space-y-6" data-testid="petition-form-page">
       <div className="flex items-center justify-between">
@@ -675,6 +792,8 @@ export function PetitionFormPage() {
             formData={formData}
             setFormData={setFormData}
             renderOverride={oRieng}
+            // Khoá là tên ô SAU khi dịch sang Đơn thư (doiTab: nhanXet -> nhanThay), không phải tên hệ cũ.
+            sauO={{ nhanThay: khoiNoiDungDeXuat }}
             pinnedTop={
               <div className="rounded-xl border border-slate-200 bg-white p-5">
                 {/*
@@ -900,117 +1019,6 @@ export function PetitionFormPage() {
         </div>
 
           </LegacyTabBody>
-        {/* Nội dung phiếu đề xuất — thẻ LUÔN HIỆN, cố ý nằm NGOÀI LegacyTabBody.
-            Đặt làm children thì nó rơi vào thẻ gập "Bổ sung hệ mới" và mặc định ĐÓNG:
-            cán bộ không thấy ô Hướng xử lý lẫn Đơn vị xử lý, trong khi hai ô ấy quyết định
-            câu in trên Phiếu đề xuất và trạng thái hồ sơ. Anh báo 09/09/2026. */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid="section-noi-dung-phieu-de-xuat">
-            <div className="border-b border-slate-200 px-6 py-4">
-              <h2 className="font-bold text-slate-800">Nội dung phiếu đề xuất</h2>
-              <p className="text-xs text-slate-500 mt-1">Nội dung nghiệp vụ phục vụ xuất Phiếu đề xuất, Phiếu chuyển, Thông báo. Bắt buộc khi xuất Phiếu đề xuất.</p>
-            </div>
-            <div className="p-4 sm:p-6 space-y-4">
-              {/* Hướng xử lý — thay ô tích "Thuộc thẩm quyền" (09/09/2026).
-                  Quyết định ba thứ cùng lúc: nguồn của ô Đơn vị xử lý, câu in ở dòng "Đề xuất"
-                  trên Phiếu đề xuất, và trạng thái hồ sơ. */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <span className="block text-sm font-medium text-slate-700 mb-2">Hướng xử lý</span>
-                <div className="flex flex-wrap gap-2 mb-3" role="radiogroup" aria-label="Hướng xử lý">
-                  {HUONG_XU_LY_OPTIONS.map((o) => (
-                    <button
-                      key={o.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={formData.huongXuLy === o.value}
-                      onClick={() => {
-                        // Đổi hướng → xoá đơn vị đã chọn: tên tổ nội bộ và tên đơn vị ngoài là
-                        // hai tập khác nhau, giữ lại sẽ ghi một giá trị không có trong nguồn mới.
-                        setFormData((prev) =>
-                          prev.huongXuLy === o.value
-                            ? prev
-                            : { ...prev, huongXuLy: o.value, donViXuLy: "" },
-                        );
-                      }}
-                      className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
-                        formData.huongXuLy === o.value
-                          ? "bg-blue-600 border-blue-600 text-white font-medium"
-                          : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                      }`}
-                      data-testid={`field-huongXuLy-${o.value}`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-                {laHuongNoiBo(formData.huongXuLy) ? (
-                  <FKSelect
-                    label="Đơn vị xử lý"
-                    options={teamOptions}
-                    value={formData.donViXuLy}
-                    onChange={(v) => update("donViXuLy", v)}
-                    placeholder="Chọn Tổ/Nhóm xử lý"
-                    testId="field-donViXuLy"
-                  />
-                ) : (
-                  <FKSelect
-                    label="Đơn vị xử lý"
-                    directoryType="DON_VI"
-                    value={formData.donViXuLy}
-                    onChange={(v) => update("donViXuLy", v)}
-                    placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
-                    testId="field-donViXuLy"
-                    canCreate={!!taoNhanhDonVi}
-                    onCreateNew={(tenGoiY) =>
-                      taoNhanhDonVi?.open({
-                        type: "DON_VI",
-                        tenGoiY,
-                        // Tạo xong thì chọn ngay — nếu không, cán bộ vừa tạo lại phải tự đi tìm.
-                        onCreated: (ten) => update("donViXuLy", ten),
-                      })
-                    }
-                  />
-                )}
-                <p className="mt-1 text-xs text-slate-500">{moTaHuong(formData.huongXuLy)}</p>
-              </div>
-              {/* Đề xuất — trước đây KHÔNG có ô nhập trên form, cán bộ chỉ sửa được qua popup
-                  lúc in. Bỏ trống thì bản in tự ghép câu theo hướng xử lý ở trên. */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đề xuất</label>
-                <textarea
-                  value={formData.deXuat}
-                  onChange={(e) => update("deXuat", e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Để trống: bản in tự ghép câu theo hướng xử lý đã chọn"
-                  data-testid="field-deXuat"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Chữ nhập ở đây sẽ được in nguyên văn, thay cho câu tự ghép.
-                </p>
-              </div>
-              {/* Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
-                  Mặc định người đang đăng nhập, cho phép chọn cán bộ khác (in hộ). */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Cán bộ đề xuất</label>
-                <select
-                  value={formData.canBoDeXuatId}
-                  onChange={(e) => update("canBoDeXuatId", e.target.value)}
-                  className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  data-testid="field-canBoDeXuatId"
-                >
-                  <option value="">-- Chọn cán bộ --</option>
-                  {userOptions.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {displayName(u)}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  Tên in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Mặc định là bạn; đổi nếu lập hộ cán bộ khác.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}

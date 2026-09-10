@@ -76,6 +76,32 @@ describe('khối "Nội dung phiếu đề xuất" phải thấy được ngay',
     expect(biGapLai(el)).toBe(false);
   });
 
+  /**
+   * Anh chốt 10/09/2026: khối phải nằm NGAY DƯỚI ô "Nhận xét".
+   *
+   * Vị trí không phải chuyện thẩm mỹ — đọc tới Nhận xét là tới bước quyết định hướng xử lý.
+   * Ô "Nhận xét" của bố cục hệ cũ mang tên `nhanXet`, nhưng với Đơn thư nó được `doiTab` dịch
+   * thành `nhanThay`; dùng nhầm tên hệ cũ thì khối biến mất KHÔNG báo lỗi.
+   */
+  it('nằm NGAY SAU ô Nhận xét, không phải cuối tab', async () => {
+    await moForm();
+    const khoi = await screen.findByTestId('section-noi-dung-phieu-de-xuat');
+    const nhanXet = document.querySelector('[name="nhanThay"], [data-testid="legacy-field-nhanThay"]')
+      ?? [...document.querySelectorAll('textarea')].find(
+        (x) => (x.getAttribute('placeholder') ?? '').includes('Nhận xét về vụ việc'),
+      );
+    expect(nhanXet).toBeTruthy();
+
+    // Đứng SAU ô Nhận xét theo thứ tự đọc của tài liệu.
+    const sau = nhanXet!.compareDocumentPosition(khoi) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(Boolean(sau)).toBe(true);
+
+    // Và đứng NGAY SAU: ô lưới liền trước khối chính là ô chứa Nhận xét. Đo quan hệ anh-em
+    // trong lưới thay vì đếm ô nhập — đếm thì đổi bố cục một chút là đỏ oan.
+    const oLienTruoc = khoi.parentElement?.previousElementSibling ?? null;
+    expect(oLienTruoc?.contains(nhanXet as Node) ?? false).toBe(true);
+  });
+
   it('không nằm dưới nhãn "Bổ sung hệ mới"', async () => {
     await moForm();
     const khoi = await screen.findByTestId('section-noi-dung-phieu-de-xuat');

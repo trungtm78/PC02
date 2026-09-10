@@ -141,6 +141,19 @@ export function FKSelect({
   const selectedOption = options.find((o) => o.value === value);
 
   /**
+   * Nhãn hiện ở ô khi đã chọn.
+   *
+   * KHÔNG chỉ dựa vào `options`: với danh mục tìm-trên-máy-chủ, danh sách đang tải về chỉ là
+   * MỘT TRANG. Chọn xong thì ô tìm được xoá và truy vấn quay lại trang mặc định — mục vừa chọn
+   * nằm ngoài trang ấy nên `find` không thấy, ô hiện lại chữ gợi ý và trông như chưa chọn gì,
+   * trong khi giá trị ĐÃ nằm trong form. Cùng lỗi khi mở hồ sơ cũ có giá trị nằm sâu.
+   *
+   * Với `directoryType`, `value` chính là TÊN (xem `useDirectoryOptions`), nên dùng thẳng nó
+   * làm nhãn là đúng. Với danh sách truyền tay, `value` có thể là id nên không lùi về nó.
+   */
+  const nhanDaChon = selectedOption?.label ?? (directoryType && value ? value : "");
+
+  /**
    * Lọc tại máy CHỈ khi danh sách vốn đã đầy đủ ở đây (options truyền vào, danh mục nhỏ).
    *
    * Với `directoryType`, máy chủ đã lọc rồi — lọc lại tại máy sẽ cắt bớt kết quả máy chủ vừa
@@ -292,8 +305,8 @@ export function FKSelect({
         } ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""} bg-white`}
         data-testid={testId ? `${testId}-trigger` : undefined}
       >
-        <span className={`text-sm ${selectedOption ? "text-slate-800" : "text-slate-400"}`}>
-          {selectedOption ? selectedOption.label : placeholder}
+        <span className={`text-sm ${nhanDaChon ? "text-slate-800" : "text-slate-400"}`}>
+          {nhanDaChon || placeholder}
         </span>
         <div className="flex items-center gap-1">
           {value && (
