@@ -146,6 +146,27 @@ describe('LegacyMigrationService', () => {
       expect(mockTx.petition.create.mock.calls[0][0].data.legacySourceId).toBe('ho_so:1');
     });
 
+    /**
+     * Đợt nạp 11/09/2026 đưa vào 434 đơn thư mang hướng xử lý TRỐNG. Ca kiểm ở tầng `commit`
+     * chứ không chỉ ở hàm `ganHuongXuLyKhiTrong`: hàm đúng mà không ai gọi thì vẫn hỏng.
+     */
+    it('tạo petition mới: mang sẵn hướng xử lý suy từ trạng thái', async () => {
+      await service.commit([petitionRec], 'actor-1');
+      expect(mockTx.petition.create.mock.calls[0][0].data.huongXuLy).toBe('GIAO_DON');
+    });
+
+    it('update petition đã có hướng: KHÔNG ghi đè hướng cán bộ đã chọn', async () => {
+      mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1', huongXuLy: 'CHUYEN_DON' });
+      await service.commit([petitionRec], 'actor-1');
+      expect('huongXuLy' in mockTx.petition.update.mock.calls[0][0].data).toBe(false);
+    });
+
+    it('update petition đang trống hướng: điền theo trạng thái đang có', async () => {
+      mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1', huongXuLy: null, status: 'DA_CHUYEN_DON_VI' });
+      await service.commit([petitionRec], 'actor-1');
+      expect(mockTx.petition.update.mock.calls[0][0].data.huongXuLy).toBe('CHUYEN_DON');
+    });
+
     it('update petition khi legacySourceId đã tồn tại (idempotent)', async () => {
       mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1' });
       const res = await service.commit([petitionRec], 'actor-1');

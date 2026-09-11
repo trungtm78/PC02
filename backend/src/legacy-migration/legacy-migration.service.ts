@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
+import { PetitionStatus } from '@prisma/client';
+import { huongTheoTrangThai } from '../petitions/huong-xu-ly.rule';
 
 // Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
 const IMPORTED = (actorId: string) => ({
@@ -85,6 +87,22 @@ export function giuChuCanBoDaGo(
   for (const o of O_KHONG_DE_KHI_DA_CO) {
     if (daCoGiaTri(danCo[o])) delete data[o];
   }
+}
+
+/**
+ * Đơn thư nạp từ hệ cũ phải mang hướng xử lý.
+ *
+ * Bộ ánh xạ không có cột này (hệ cũ không có), nên thiếu bước này thì hồ sơ vào hệ mới với
+ * hướng TRỐNG — đợt nạp 11/09/2026 đưa vào 434 đơn thư như thế. Tạo mới thì suy từ trạng thái;
+ * cập nhật thì CHỈ điền khi đang trống: hướng cán bộ đã chọn trên hệ mới không bị bộ nạp đè.
+ */
+export function ganHuongXuLyKhiTrong(
+  data: Record<string, unknown>,
+  danCo: { huongXuLy?: unknown; status?: unknown } | null,
+): void {
+  if (danCo?.huongXuLy) return;
+  const trangThai = (data.status ?? danCo?.status ?? PetitionStatus.MOI_TIEP_NHAN) as string;
+  data.huongXuLy = huongTheoTrangThai(trangThai);
 }
 
 @Injectable()
@@ -177,6 +195,7 @@ export class LegacyMigrationService {
             const data = { ...d.petition };
             await this.resolveCrime(tx, data);
             const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
+            ganHuongXuLyKhiTrong(data, existing);
             if (existing) {
               giuChuCanBoDaGo(data, existing);
               await tx.petition.update({ where: { id: existing.id }, data });
