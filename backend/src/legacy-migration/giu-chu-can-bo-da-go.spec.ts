@@ -1,4 +1,4 @@
-import { giuChuCanBoDaGo } from './legacy-migration.service';
+import { giuChuCanBoDaGo, ganHuongXuLyKhiTrong } from './legacy-migration.service';
 
 /**
  * Chạy lại di trú KHÔNG được đè lên chữ cán bộ đã gõ.
@@ -65,5 +65,38 @@ describe('giuChuCanBoDaGo — chạy lại di trú không nuốt chữ đã sử
     const data: Record<string, unknown> = { senderName: 'bản cũ' };
     giuChuCanBoDaGo(data, { senderName: 'cán bộ đã sửa' });
     expect(data.senderName).toBe('bản cũ');
+  });
+});
+
+/**
+ * Hướng xử lý của đơn thư nạp từ hệ cũ.
+ *
+ * Đợt nạp 11/09/2026 đưa vào 434 đơn thư mang `huongXuLy` TRỐNG: form không chọn sẵn hướng nào
+ * và bản in phải đoán. Tạo mới thì suy từ trạng thái; cập nhật thì CHỈ điền khi đang trống —
+ * hướng cán bộ đã chọn trên hệ mới không bao giờ bị bộ nạp đè.
+ */
+describe('ganHuongXuLyKhiTrong — bộ nạp hệ cũ không để đơn thư thiếu hướng', () => {
+  it('tạo mới: suy hướng từ trạng thái', () => {
+    const data: Record<string, unknown> = { status: 'DA_CHUYEN_DON_VI' };
+    ganHuongXuLyKhiTrong(data, null);
+    expect(data.huongXuLy).toBe('CHUYEN_DON');
+  });
+
+  it('tạo mới không mang trạng thái: theo trạng thái mặc định lúc tạo → Giao đơn', () => {
+    const data: Record<string, unknown> = {};
+    ganHuongXuLyKhiTrong(data, null);
+    expect(data.huongXuLy).toBe('GIAO_DON');
+  });
+
+  it('cập nhật hồ sơ đang trống hướng: điền theo trạng thái ĐANG CÓ', () => {
+    const data: Record<string, unknown> = {};
+    ganHuongXuLyKhiTrong(data, { huongXuLy: null, status: 'DA_TRA_DON' });
+    expect(data.huongXuLy).toBe('TRA_LUU_DON');
+  });
+
+  it('cập nhật hồ sơ ĐÃ có hướng: không đụng, kể cả khi trạng thái gợi ý hướng khác', () => {
+    const data: Record<string, unknown> = {};
+    ganHuongXuLyKhiTrong(data, { huongXuLy: 'CHUYEN_DON', status: 'MOI_TIEP_NHAN' });
+    expect('huongXuLy' in data).toBe(false);
   });
 });
