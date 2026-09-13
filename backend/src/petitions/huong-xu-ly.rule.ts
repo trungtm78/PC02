@@ -63,3 +63,56 @@ export function huongTheoTrangThai(status: PetitionStatus | string | null | unde
   }
   return HuongXuLyDon.GIAO_DON;
 }
+
+/** So khớp đầu câu: bỏ khoảng trắng, về chữ thường, gộp dấu tổ hợp để "Trả" gõ kiểu nào cũng khớp. */
+function chuanDauCau(v: string | null | undefined): string {
+  return (v ?? '').normalize('NFC').trim().toLocaleLowerCase('vi');
+}
+
+/**
+ * Chữ mở đầu của một CÂU đề xuất — đo trên toàn bộ ô đơn vị của đơn thư prod ngày 13/09/2026.
+ *
+ * "Giao" chỉ tính khi theo sau là một đơn vị/người nhận: "Giao thông vận tải" là tên đơn vị.
+ * "Đồng chí …", "Đ/c Trưởng …", "Trưởng Công an …" KHÔNG ở đây — đó là người nhận, khuôn
+ * "Giao … tiếp nhận" vẫn đọc đúng như biến thể 1 của mẫu hệ cũ.
+ */
+const MO_DAU_CAU_DE_XUAT =
+  /^(trả\s+(lại\s+)?(đơn|hồ\s*sơ|tài\s*liệu)|lưu\s+(đơn|hồ\s*sơ)|hoàn\s+trả|hướng\s+dẫn|thông\s+báo|chuyển|giao\s+(cho\s+)?(đội|tổ|đ\/c|đồng\s+chí|bch|ban\s+chỉ\s+huy|cơ\s+sở|công\s+an|phòng))(?=$|[\s,.;:(])/u;
+
+/** Chữ mở đầu nói RÕ hướng Trả đơn/Lưu đơn. */
+const MO_DAU_TRA_LUU =
+  /^(trả\s+(lại\s+)?(đơn|hồ\s*sơ|tài\s*liệu)|lưu\s+(đơn|hồ\s*sơ)|hoàn\s+trả|hướng\s+dẫn|thông\s+báo\s+(trả|không))(?=$|[\s,.;:(])/u;
+
+/**
+ * Một mệnh đề giao/chuyển TÁCH RIÊNG trong câu ("…; giao Tổ X", "… và chuyển Công an Y").
+ * Chữ "giao" nằm trong từ khác ("hợp đồng giao dịch") không tính.
+ */
+const MENH_DE_GIAO_CHUYEN = /(^|[;,.(]|\svà)\s*(giao|chuyển)(?=\s)/u;
+
+/**
+ * Ô "Đơn vị giải quyết" đã là CẢ CÂU đề xuất, không phải tên đơn vị.
+ *
+ * Hệ cũ không có ô hướng xử lý: với trả đơn / lưu đơn, cán bộ gõ luôn câu vào ô đơn vị, và mẫu
+ * `don_thu_mau.docx` có sẵn biến thể 3 in nguyên văn — `Đề xuất: ${don_vi_giai_quyet}./.`.
+ * Bọc câu ấy vào khuôn Giao/Chuyển cho ra "Giao Lưu đơn; Hướng dẫn khởi kiện tại TAND tiếp nhận
+ * kiểm tra…" (~1.600 đơn thư đo 13/09/2026).
+ */
+export function laCauDeXuat(donVi: string | null | undefined): boolean {
+  return MO_DAU_CAU_DE_XUAT.test(chuanDauCau(donVi));
+}
+
+/**
+ * Hướng xử lý đọc ra từ câu trong ô đơn vị — CHỈ khi câu nói rõ một hướng.
+ *
+ * Trả `undefined` thay vì đoán cho hai nhóm đo được trên prod:
+ *  - câu nhiều nội dung ("Hướng dẫn khởi kiện…; giao Tổ Hình sự khu vực 6") không có một hướng;
+ *  - "Chuyển Đ/c Phú - Phó Trưởng phòng để chỉ đạo Đội 8" là giao NỘI BỘ, không phải chuyển ra
+ *    ngoài — đoán theo chữ đầu là sai.
+ * Hai nhóm ấy bản in vẫn đúng vì câu được in nguyên văn (`laCauDeXuat`).
+ */
+export function huongTheoNoiDungDonVi(donVi: string | null | undefined): HuongXuLyDon | undefined {
+  const cau = chuanDauCau(donVi);
+  if (!MO_DAU_TRA_LUU.test(cau)) return undefined;
+  if (MENH_DE_GIAO_CHUYEN.test(cau)) return undefined;
+  return HuongXuLyDon.TRA_LUU_DON;
+}

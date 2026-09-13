@@ -8,6 +8,7 @@ import {
   KHOA_HE_CU_NGOAI_PARITY,
 } from './khoa-he-cu';
 import { getCatalogEntry } from '../catalog/catalog.registry';
+import { laCauDeXuat } from '../petitions/huong-xu-ly.rule';
 export { personName, rankName, abbrevName } from './ten-nguoi.util';
 import { personName, rankName, abbrevName } from './ten-nguoi.util';
 
@@ -85,6 +86,9 @@ function donViCuaHoSo(r: any): string {
  * 09/09/2026. Đừng đổi mặc định này mà không chạy lại phép đối chiếu 10 cặp mẫu.
  */
 function cauDeXuat(huong: string, donVi: string): string {
+  // Ô đơn vị đã là CẢ CÂU ("Trả đơn, đề nghị bổ sung…", "Chuyển Đ/c Phú … để chỉ đạo") → in
+  // nguyên văn, đúng biến thể 3 của mẫu hệ cũ. Bọc khuôn thì ra "Giao Trả đơn… tiếp nhận…".
+  if (laCauDeXuat(donVi)) return donVi;
   if (huong === 'CHUYEN_DON') {
     return `Chuyển ${donVi} để xem xét, giải quyết theo quy định và đề nghị thông báo kết quả cho PC02 Công an TP Hồ Chí Minh`;
   }
@@ -482,6 +486,11 @@ const DON_THU_FIELDS: FieldDef[] = [
     resolve: (r) => {
       const donVi = donViCuaHoSo(r);
       const huong = s(r.huongXuLy);
+      // Ô đơn vị là câu đề xuất, không phải tên đơn vị → chữ cứng của CẢ BA biến thể mẫu hệ cũ.
+      // Ghép vào thì ra "- Ban chỉ huy Lưu đơn; Hướng dẫn khởi kiện tại TAND."
+      if (laCauDeXuat(donVi)) {
+        return ['- Ban chỉ huy PC02;', `- Ban chỉ huy ${DON_VI_PHAT_HANH}.`].join(DAU_XUONG_DONG);
+      }
       // Chuyển đơn: gửi thẳng đơn vị ngoài, đúng như Phiếu chuyển đơn hệ cũ vẫn làm.
       if (huong === 'CHUYEN_DON') return donVi ? `- ${donVi}.` : '';
       const dong = ['- Ban chỉ huy PC02;'];

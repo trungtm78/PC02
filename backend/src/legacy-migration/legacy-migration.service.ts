@@ -3,8 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
-import { PetitionStatus } from '@prisma/client';
-import { huongTheoTrangThai } from '../petitions/huong-xu-ly.rule';
+import { HuongXuLyDon, PetitionStatus } from '@prisma/client';
+import { huongTheoTrangThai, huongTheoNoiDungDonVi } from '../petitions/huong-xu-ly.rule';
 
 // Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
 const IMPORTED = (actorId: string) => ({
@@ -93,16 +93,29 @@ export function giuChuCanBoDaGo(
  * Đơn thư nạp từ hệ cũ phải mang hướng xử lý.
  *
  * Bộ ánh xạ không có cột này (hệ cũ không có), nên thiếu bước này thì hồ sơ vào hệ mới với
- * hướng TRỐNG — đợt nạp 11/09/2026 đưa vào 434 đơn thư như thế. Tạo mới thì suy từ trạng thái;
- * cập nhật thì CHỈ điền khi đang trống: hướng cán bộ đã chọn trên hệ mới không bị bộ nạp đè.
+ * hướng TRỐNG — đợt nạp 11/09/2026 đưa vào 434 đơn thư như thế. Cập nhật thì CHỈ điền khi đang
+ * trống: hướng cán bộ đã chọn trên hệ mới không bị bộ nạp đè.
+ *
+ * Hai nguồn, theo thứ tự:
+ *  1. TRẠNG THÁI nói rõ hướng (đã chuyển đơn vị / đã trả / đã lưu) — đó là kết quả đợt suy trạng
+ *     thái đã duyệt, câu chữ không được đè lên.
+ *  2. Trạng thái không nói gì (mới tiếp nhận…) → đọc CÂU trong ô đơn vị. Hệ cũ không có ô hướng:
+ *     trả đơn / lưu đơn thì cán bộ gõ luôn câu vào ô đơn vị. Bỏ bước này, hồ sơ 2026-11725
+ *     ("Lưu đơn; Hướng dẫn khởi kiện tại TAND") thành Giao đơn và in sai câu đề xuất.
  */
 export function ganHuongXuLyKhiTrong(
   data: Record<string, unknown>,
-  danCo: { huongXuLy?: unknown; status?: unknown } | null,
+  danCo: { huongXuLy?: unknown; status?: unknown; donViGiaiQuyet?: unknown } | null,
 ): void {
   if (danCo?.huongXuLy) return;
   const trangThai = (data.status ?? danCo?.status ?? PetitionStatus.MOI_TIEP_NHAN) as string;
-  data.huongXuLy = huongTheoTrangThai(trangThai);
+  const theoTrangThai = huongTheoTrangThai(trangThai);
+  if (theoTrangThai !== HuongXuLyDon.GIAO_DON) {
+    data.huongXuLy = theoTrangThai;
+    return;
+  }
+  const donVi = (data.donViGiaiQuyet ?? danCo?.donViGiaiQuyet) as string | null | undefined;
+  data.huongXuLy = huongTheoNoiDungDonVi(donVi) ?? theoTrangThai;
 }
 
 @Injectable()
