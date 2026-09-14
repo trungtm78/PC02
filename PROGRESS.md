@@ -1,3 +1,4 @@
+STATUS: IN_PROGRESS
 # PROGRESS
 Cập nhật: 2026-09-15T00:30+07:00 | Milestone: M1/7 | Task: 6/7
 
@@ -35,6 +36,14 @@ Task: M1-T7 — /review + /codex → PR → CI → merge → deploy → chạy C
 BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh pr create; chờ CI xanh (kiểm kết quả, không chỉ hết PENDING); merge; kiểm deploy + bản công khai; prod: sao lưu → chạy thử CLI → **DỪNG xin anh xác nhận trước --that**
 Điểm cần anh duyệt trong bảng gộp: "Tố giác"/"Trình báo"/"Đề nghị" nhóm hạn Phản ánh (15 ngày) theo đặc tả; "Đơn tố cáo" (2 hồ sơ) rơi vào Phản ánh; "Đề nghị (lần 2/3)" là mục riêng; 352 mục chờ duyệt đa số lỗi gõ
 
+## M1 HOÀN TẤT (15/09) — kiểm prod sau ghi: nhóm hạn PHAN_ANH 43.955 · KHIEU_NAI 2.307 · KIEN_NGHI 628 · TO_CAO 322 · trống 20; NFD 0; updatedAt bị đẩy 0; loại ngoài danh mục 0
+
+## M1-T7 trên prod (15/09 00:22)
+- PR #375 merge 727f0970, CI + Deploy success, health ok buildId 727f0970, bundle có field-loaiThongTin.
+- Sao lưu: /home/pc02/backups/truoc-nap-loai-thong-tin-20260915-002214.dump (133 MB, 72 bảng dữ liệu).
+- Chạy thử CLI prod: 47.232 đơn thư → 517 mục (356 chờ duyệt), đổi tên 7.016, điền từ tóm tắt 67, không suy được 20, gán nhóm hạn 47.162. CSV: /home/pc02/backups/loai-thong-tin-bang-gop-20260915-002214.csv
+- Anh xác nhận 15/09 → `--that` xong: thêm 517 mục, đổi loại 7.083 hồ sơ, gán nhóm hạn 47.162; chạy lần 2 ra 0 (20 hồ sơ không suy được giữ trống).
+
 ## Phát hiện M2-T0 (đo trước khi xây, 15/09 trên pc02_spike = bản sao pc02_that)
 - **Prod là PostgreSQL 16.15** (không phải 18 như local). `pg_trgm` đã cài; `unaccent` có sẵn, chưa cài. `pc02_user` không superuser nhưng là chủ DB + có CREATE → cài được extension trusted `unaccent` trong migration. Prod 47.232 đơn thư.
 - `f_bo_dau` IMMUTABLE đúng: "Nguyễn  Văn Á"→"nguyen van a", "ĐỖ"→"do", NBSP gộp.
@@ -44,6 +53,10 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - **boDauTiengViet (JS) ≠ f_bo_dau (SQL)**: `unaccent` đổi cả dấu câu (ngoặc kép cong “ ” → "), JS giữ nguyên. Đo 67.695 chuỗi thật (người gửi, loại thông tin, đơn vị, 200 ký tự đầu tóm tắt): lệch 221 (0,33%), TOÀN BỘ là dấu câu — “→" 109, –→- 58, …→. 45, ’→' 7, ¾→3 1, ”→" 1; không lệch chữ nào. Chốt T4: bộ bỏ dấu cho tìm kiếm phía JS mô phỏng đúng các ánh xạ dấu câu này (bảng nhỏ, có ca kiểm vàng chạy trên PG), không tự viết bảng chữ riêng ở SQL.
 
 - **`unaccent.rules` khác theo phiên bản**: PG16 prod 1.650 dòng, PG18 local 2.661 (thêm 1.011, khác dịch 29). Chốt T0-d: bỏ phụ thuộc `unaccent`; một bảng ánh xạ TS sinh cả hàm JS lẫn thân `f_bo_dau` SQL (`translate` + `replace`), gate so bảng ≡ SQL. Không cần cài extension trên prod.
+
+## M2-T4 bỏ dấu tìm kiếm (15/09)
+- `backend/src/common/tim-kiem/bo-dau.ts`: bảng ánh xạ (mã điểm, không ký tự vô hình) → `boDauTimKiem` + `sinhHamFBoDau` (translate/replace, không unaccent) + `thoatLike`. Spec 26 ca, phủ 100%.
+- Ca kiểm vàng PG18 local (pc02_spike): 99.553 chuỗi thật + 646 tổng hợp → 0 lệch. PG16.15 prod (hàm `pg_temp`, không ghi bền): 646 tổng hợp → 0 lệch. Probe tạm ở scratchpad/probe-vang-f-bo-dau.cjs — **phải chuyển thành CLI trong repo** (`common/tim-kiem/cli/kiem-vang-bo-dau.ts`) cùng T2/T12, không để công cụ kiểm nằm ngoài kho mã.
 
 ## Hàng đợi task kế tiếp (M1)
 1. M1-T1 khoá gộp + nhóm hạn theo tên (util thuần)
