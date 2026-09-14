@@ -190,13 +190,27 @@ describe('hai ô đọc nhầm cột', () => {
     expect(resolveField('DON_THU', 'loaiDon', { loaiThongTin: 'Tố giác' } as never)).toBe('Tố giác');
   });
 
-  it('loại đơn: đã phân loại thì dùng nhãn của hệ mới', () => {
+  /**
+   * Từ 14/09/2026 form chỉ còn ô "Loại thông tin"; `petitionType` là NHÓM HẠN suy ra từ nó (Tố
+   * giác → nhóm Phản ánh). In nhãn nhóm hạn là in sai loại đơn cán bộ đã chọn.
+   */
+  it('loại đơn: có loại thông tin thì in loại thông tin, không in nhãn nhóm hạn', () => {
     const ra = resolveField('DON_THU', 'loaiDon', {
-      petitionType: 'DON_TO_CAO',
+      petitionType: 'PHAN_ANH',
       loaiThongTin: 'Tố giác',
     } as never);
 
-    expect(ra).toBe('Đơn tố cáo');
+    expect(ra).toBe('Tố giác');
+  });
+
+  /** Mã THẬT của enum `LoaiDon` — bảng nhãn cũ chỉ có mã `DON_*` nên ra chuỗi rỗng. */
+  it.each([
+    ['TO_CAO', 'Tố cáo'],
+    ['KHIEU_NAI', 'Khiếu nại'],
+    ['KIEN_NGHI', 'Kiến nghị'],
+    ['PHAN_ANH', 'Phản ánh'],
+  ])('loại đơn: không có loại thông tin, petitionType %s → "%s"', (ma, nhan) => {
+    expect(resolveField('DON_THU', 'loaiDon', { petitionType: ma } as never)).toBe(nhan);
   });
 
   it('báo cáo BGĐ: in CHỮ, không in "Có"', () => {

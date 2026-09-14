@@ -42,6 +42,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
+import { nhomHanCuaLoaiThongTin } from './loai-thong-tin.rule';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -415,6 +416,15 @@ export class PetitionsService {
     return { success: true, data: record };
   }
 
+  /** Nhóm hạn của một Loại thông tin — tra danh mục `LOAI_THONG_TIN`, lùi về luật theo tên. */
+  private async nhomHanTheoDanhMuc(loaiThongTin: string): Promise<LoaiDon | undefined> {
+    const danhMuc = await this.prisma.directory.findMany({
+      where: { type: 'LOAI_THONG_TIN' },
+      select: { name: true, metadata: true },
+    });
+    return nhomHanCuaLoaiThongTin(loaiThongTin, danhMuc);
+  }
+
   // ─────────────────────────────────────────────
   // CREATE
   // ─────────────────────────────────────────────
@@ -461,6 +471,12 @@ export class PetitionsService {
       if (!canBo) {
         throw new BadRequestException('Cán bộ đề xuất không tồn tại');
       }
+    }
+
+    // Nhóm hạn: form không còn ô "Loại đơn thư" — suy từ Loại thông tin qua danh mục, TRƯỚC khối
+    // tính hạn. petitionType gửi tường minh vẫn thắng.
+    if (!dto.petitionType && dto.loaiThongTin) {
+      dto = { ...dto, petitionType: await this.nhomHanTheoDanhMuc(dto.loaiThongTin) } as CreatePetitionDto;
     }
 
     // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
@@ -623,6 +639,17 @@ export class PetitionsService {
       }
     }
 
+    // Nhóm hạn đi theo Loại thông tin khi đổi loại mà không gửi petitionType. Hạn đã giao KHÔNG
+    // tính lại — chỉ cột nhóm hạn đổi.
+    const petitionTypeCapNhat =
+      dto.petitionType !== undefined
+        ? dto.petitionType
+        : dto.loaiThongTin !== undefined
+          ? dto.loaiThongTin
+            ? ((await this.nhomHanTheoDanhMuc(dto.loaiThongTin)) ?? null)
+            : null
+          : undefined;
+
     // v0.30: PETITION_UPDATED via wrapUpdate — full before/after for inline diff.
     const petitionData = {
       ...(dto.stt !== undefined && { stt: dto.stt }),
@@ -652,9 +679,7 @@ export class PetitionsService {
       ...(dto.suspectedAddress !== undefined && {
         suspectedAddress: dto.suspectedAddress,
       }),
-      ...(dto.petitionType !== undefined && {
-        petitionType: dto.petitionType,
-      }),
+      ...(petitionTypeCapNhat !== undefined && { petitionType: petitionTypeCapNhat }),
       ...(dto.priority !== undefined && { priority: dto.priority }),
       ...(dto.summary !== undefined && { summary: dto.summary }),
       ...(dto.detailContent !== undefined && {

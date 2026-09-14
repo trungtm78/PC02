@@ -206,6 +206,12 @@ const NGUON_PHAT_TIN_LABEL: Record<string, string> = {
 
 /** Nhãn loại đơn (LoaiDon) — render nhãn tiếng Việt thay mã enum. */
 const LOAI_DON_LABEL: Record<string, string> = {
+  // Mã THẬT của enum `LoaiDon` (cột petitionType). Bảng này trước chỉ có mã `DON_*` không tồn tại
+  // trong lược đồ, nên hồ sơ mang petitionType in ra loại đơn RỖNG.
+  TO_CAO: 'Tố cáo',
+  KHIEU_NAI: 'Khiếu nại',
+  KIEN_NGHI: 'Kiến nghị',
+  PHAN_ANH: 'Phản ánh',
   TO_GIAC: 'Tố giác',
   TIN_BAO: 'Tin báo',
   KIEN_NGHI_KHOI_TO: 'Kiến nghị khởi tố',
@@ -428,7 +434,10 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'loaiDon',
     label: 'Loại đơn',
     group: 'Hồ sơ',
-    resolve: (r) => (r.petitionType ? (LOAI_DON_LABEL[s(r.petitionType)] ?? '') : s(r.loaiThongTin)),
+    // Loại thông tin TRƯỚC: từ 14/09/2026 `petitionType` là nhóm hạn suy ra (Tố giác → Phản ánh),
+    // in nhãn nhóm hạn là in sai loại đơn cán bộ đã chọn.
+    resolve: (r) =>
+      s(r.loaiThongTin) || (r.petitionType ? (LOAI_DON_LABEL[s(r.petitionType)] ?? '') : ''),
   },
   { key: 'ghiTen', label: 'Họ tên người gửi', group: 'Người gửi', resolve: (r) => s(r.senderName) },
   { key: 'namSinh', label: 'Năm sinh', group: 'Người gửi', resolve: (r) => s(r.senderBirthYear) },
