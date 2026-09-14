@@ -106,8 +106,9 @@ export class CreatePetitionDto {
   @MaxLength(500)
   suspectedAddress?: string;
 
-  // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined); @IsCatalogValue kiểm thuộc danh mục.
-  @IsNotEmpty({ message: 'Loại đơn thư là bắt buộc' })
+  // Nhóm hạn — TUỲ CHỌN từ 14/09/2026: form chỉ còn ô "Loại thông tin", máy chủ tự suy nhóm hạn
+  // từ danh mục (petitions/loai-thong-tin.rule.ts). Gửi thì vẫn phải thuộc danh mục.
+  @IsOptional()
   @IsCatalogValue('LOAI_DON', {
     message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
   })

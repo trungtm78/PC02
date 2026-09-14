@@ -95,17 +95,5 @@ export function gopThanhDanhMuc(
   return ra;
 }
 
-/**
- * Mã kế tiếp = mã LỚN NHẤT đang có + 1.
- *
- * Không đếm số dòng: sau khi xoá một dòng thì mã kế tiếp đụng mã đã tồn tại, và ràng buộc
- * `@@unique([type, code])` ném lỗi giữa chừng đợt nạp.
- */
-export function sinhDayMa(daCo: string[], soLuong: number, tienTo = 'DV'): string[] {
-  const mau = new RegExp(`^${tienTo}(\\d+)$`);
-  let n = daCo.reduce((max, c) => {
-    const m = mau.exec(c);
-    return m ? Math.max(max, Number(m[1])) : max;
-  }, 0);
-  return Array.from({ length: soLuong }, () => `${tienTo}${String(++n).padStart(4, '0')}`);
-}
+// Sinh mã dùng chung với ô "Tạo mới" trên form — xem `common/utils/ma-danh-muc.util.ts`.
+export { sinhDayMa } from '../../common/utils/ma-danh-muc.util';

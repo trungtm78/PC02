@@ -13,7 +13,7 @@ export interface PetitionFormData {
   senderName: string;
   senderBirthYear: string; senderAddress: string; senderPhone: string;
   senderEmail: string; suspectedPerson: string; suspectedAddress: string;
-  petitionType: string; priority: string; summary: string;
+  priority: string; summary: string;
   detailContent: string; attachmentsNote: string; deadline: string;
   assignedToId: string; canBoDeXuatId: string; notes: string;
   // v0.47 PR3.1 — Nội dung phiếu đề xuất
@@ -89,7 +89,7 @@ export interface PetitionFormData {
 export const INITIAL_PETITION_FORM: PetitionFormData = {
   stt: "", receivedDate: today(), unit: "", assignedTeamId: "",
   senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
-  senderEmail: "", suspectedPerson: "", suspectedAddress: "", petitionType: "",
+  senderEmail: "", suspectedPerson: "", suspectedAddress: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
   deadline: "", assignedToId: "", canBoDeXuatId: "", notes: "",
   nhanThay: "", deXuat: "", raSoatTrung: "Không", baoCaoBanGiamDoc: false,

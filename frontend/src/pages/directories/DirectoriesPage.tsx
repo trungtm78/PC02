@@ -77,6 +77,7 @@ const DIRECTORY_TYPE_LABELS: Record<string, string> = {
   EDUCATION_LEVEL:    'Trình độ học vấn',
   ORG:                'Tổ chức/Đơn vị',
   DON_VI:             'Đơn vị',
+  LOAI_THONG_TIN:     'Loại thông tin',
   // Legacy types still in DB
   LOCATION:           'Địa bàn (cũ)',
   STATUS:             'Trạng thái (cũ)',

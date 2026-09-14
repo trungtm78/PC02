@@ -39,9 +39,8 @@ import { useTeamOptions } from "@/hooks/useTeamOptions";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
-import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/QuickCreateDirectoryModalProvider";
+import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { today, toDateInput } from "@/lib/dates";
-import { LOAI_DON_OPTIONS } from "@/shared/enums/status-labels";
 import { HUONG_XU_LY_OPTIONS, laHuongNoiBo, moTaHuong } from "@/shared/enums/huong-xu-ly";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
@@ -67,14 +66,6 @@ export function PetitionFormPage() {
 
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
-  /**
-   * Ho so nay den TU HE CU hay khong.
-   *
-   * Cu the la `legacySourceId`, KHONG phai `legacyRaw`: 161 ho so di tru la vo lien ket - ban
-   * tho nam o thuc the anh em cung khoa nguon nen `legacyRaw` cua chinh no de trong. Lay theo
-   * `legacyRaw` thi dung nhom ay khong duoc mien va van bi chan Luu.
-   */
-  const [laHoSoDiTru, setLaHoSoDiTru] = useState(false);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<string[]>([]);
@@ -84,7 +75,7 @@ export function PetitionFormPage() {
   const { data: teamOptions = [] } = useTeamOptions();
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
   const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(
-    () => computeFormErrors(formData, effectiveEdit, laHoSoDiTru).fields,
+    () => computeFormErrors(formData, effectiveEdit).fields,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
@@ -200,7 +191,6 @@ export function PetitionFormPage() {
       .then((res) => {
         const d = res.data.data;
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
-        setLaHoSoDiTru(d.legacySourceId != null || d.legacyRaw != null);
         // Tách đôi metadata đọc về: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`,
         // còn lại để `metaState` cho panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại
         // vùng ghi sau đè vùng kia — cán bộ sửa ở panel động, bấm Lưu, không đổi gì.
@@ -229,7 +219,6 @@ export function PetitionFormPage() {
           senderEmail: (d.senderEmail as string) ?? "",
           suspectedPerson: (d.suspectedPerson as string) ?? "",
           suspectedAddress: (d.suspectedAddress as string) ?? "",
-          petitionType: (d.petitionType as string) ?? "",
           priority: (d.priority as string) ?? "",
           summary: (d.summary as string) ?? "",
           detailContent: (d.detailContent as string) ?? "",
@@ -311,7 +300,7 @@ export function PetitionFormPage() {
 
   const validateForm = (): boolean => {
     // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
-    const { msgs } = computeFormErrors(formData, effectiveEdit, laHoSoDiTru);
+    const { msgs } = computeFormErrors(formData, effectiveEdit);
     setErrors(msgs);
     return msgs.length === 0;
   };
@@ -420,9 +409,10 @@ export function PetitionFormPage() {
 
   // Phím tắt form: F2 Lưu, Esc Hủy, F4 Xuất/In chứng từ, F3 Xóa (chỉ khi SỬA).
   const deleteModal = useDeleteResourceModalSafe();
-  // Tạo nhanh đơn vị xử lý ngay trên ô tìm. Bản "Safe": form này còn được dựng ở vài chỗ không
-  // bọc CompositeModalProvider (ca kiểm, màn nhúng) — ném ở đó là trắng màn hình vì tính năng phụ.
-  const taoNhanhDonVi = useQuickCreateDirectoryModalSafe();
+  // Tạo nhanh mục danh mục (Đơn vị xử lý, Loại thông tin) ngay trên ô tìm. Bản "Safe": form này
+  // còn được dựng ở vài chỗ không bọc CompositeModalProvider (ca kiểm, màn nhúng) — ném ở đó là
+  // trắng màn hình vì tính năng phụ.
+  const taoNhanh = useQuickCreateDirectoryModalSafe();
   useFormShortcuts({
     onSave: () => void onSave(),
     onCancel: handleCancel,
@@ -460,11 +450,33 @@ export function PetitionFormPage() {
   /**
    * Ô riêng cho vài trường mà hệ mới mạnh hơn hẳn ô chữ của hệ cũ.
    *
-   * Bố cục hệ cũ quyết nhãn, thứ tự và chỗ đứng; ba ô này giữ nguyên chỗ nhưng đổi ruột —
+   * Bố cục hệ cũ quyết nhãn, thứ tự và chỗ đứng; các ô này giữ nguyên chỗ nhưng đổi ruột —
    * số điện thoại có định dạng, "Ghi chú trùng đơn" tra được đơn trùng, "Tội danh cũ trước
-   * đây" tra được tiền án. Bỏ chúng đi để giống hệ cũ là hạ cấp năng lực.
+   * đây" tra được tiền án, "Loại thông tin" chọn từ danh mục. Bỏ chúng đi để giống hệ cũ là
+   * hạ cấp năng lực.
    */
   const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    // Một ô duy nhất hỏi loại, như hệ cũ (14/09/2026). Chọn từ danh mục để cùng một loại không
+    // bị gõ thành nhiều biến thể; chưa có thì tạo nhanh. Nhóm hạn giải quyết do máy chủ suy từ
+    // danh mục, form không gửi `petitionType`.
+    loaiThongTin: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="LOAI_THONG_TIN"
+        value={formData.loaiThongTin}
+        onChange={(v) => update("loaiThongTin", v)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-loaiThongTin"
+        canCreate={!!taoNhanh}
+        onCreateNew={(tenGoiY) =>
+          taoNhanh?.open({
+            type: "LOAI_THONG_TIN",
+            tenGoiY,
+            onCreated: (ten) => update("loaiThongTin", ten),
+          })
+        }
+      />
+    ),
     senderPhone: (label) => (
       <>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
@@ -633,9 +645,9 @@ export function PetitionFormPage() {
                       onChange={(v) => update("donViGiaiQuyet", v)}
                       placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
                       testId="field-donViGiaiQuyet"
-                      canCreate={!!taoNhanhDonVi}
+                      canCreate={!!taoNhanh}
                       onCreateNew={(tenGoiY) =>
-                        taoNhanhDonVi?.open({
+                        taoNhanh?.open({
                           type: "DON_VI",
                           tenGoiY,
                           // Tạo xong thì chọn ngay — nếu không, cán bộ vừa tạo lại phải tự đi tìm.
@@ -796,8 +808,8 @@ export function PetitionFormPage() {
             pinnedTop={
               <div className="rounded-xl border border-slate-200 bg-white p-5">
                 {/*
-                  Ô BẮT BUỘC không được nằm trong khối gập. Hai ô này máy chủ đòi mà bố cục hệ
-                  cũ không có, nên chúng phải ở ngoài — gập đi thì cán bộ bấm Lưu, bị chặn bởi
+                  Ô BẮT BUỘC không được nằm trong khối gập. Ô này máy chủ đòi mà bố cục hệ
+                  cũ không có, nên nó phải ở ngoài — gập đi thì cán bộ bấm Lưu, bị chặn bởi
                   một ô không nhìn thấy được và không hiểu vì sao. Đúng lỗi đã bấm trúng trên
                   máy thật ở epic Vụ án (PR #248).
                 */}
@@ -821,22 +833,6 @@ export function PetitionFormPage() {
               });
             }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Loại đơn thư <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={formData.petitionType}
-            onChange={(e) => update("petitionType", e.target.value)}
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            data-testid="field-petitionType"
-          >
-            <option value="">-- Chọn loại đơn thư --</option>
-            {LOAI_DON_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
         </div>
                 </div>
               </div>
