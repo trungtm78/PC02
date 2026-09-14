@@ -233,3 +233,55 @@ describe('tenTruongPhong — không được rỗng, vì rỗng chính là lỗi
     expect(resolveField('DON_THU', 'tenTruongPhong', {})).toBe('Thượng tá Nguyễn Trung Hoà');
   });
 });
+
+/**
+ * Ô đơn vị đã là CẢ CÂU đề xuất → in NGUYÊN VĂN, đúng biến thể 3 của mẫu hệ cũ
+ * (`Đề xuất: ${don_vi_giai_quyet}./.`). Cả ba biến thể hệ cũ đều ghi "Kính gửi" bằng chữ cứng.
+ *
+ * Trước bản này, hồ sơ 2026-11725 in ra "Giao Lưu đơn; Hướng dẫn khởi kiện tại TAND tiếp nhận
+ * kiểm tra, xác minh…" và "Kính gửi: - Ban chỉ huy Lưu đơn; Hướng dẫn khởi kiện tại TAND." — đo
+ * 13/09/2026 có ~1.600 đơn thư mang kiểu nội dung này.
+ */
+describe('ô đơn vị là cả câu đề xuất — in nguyên văn như biến thể 3 hệ cũ', () => {
+  const CAU = 'Lưu đơn; Hướng dẫn khởi kiện tại TAND';
+
+  it.each(['GIAO_DON', 'CHUYEN_DON', 'TRA_LUU_DON', ''])(
+    'deXuat với hướng "%s" → nguyên văn, không bọc khuôn câu',
+    (huong) => {
+      expect(resolveField('DON_THU', 'deXuat', { huongXuLy: huong, donViGiaiQuyet: CAU })).toBe(
+        CAU,
+      );
+    },
+  );
+
+  it('"Chuyển Đ/c … để chỉ đạo" không bị bọc thành "Giao Chuyển …"', () => {
+    const v = 'Chuyển Đ/c Phú - Phó Trưởng phòng để chỉ đạo Đội 8';
+    expect(resolveField('DON_THU', 'deXuat', { huongXuLy: 'GIAO_DON', donViGiaiQuyet: v })).toBe(v);
+  });
+
+  it.each(['GIAO_DON', 'CHUYEN_DON', 'TRA_LUU_DON', ''])(
+    'kinhGui với hướng "%s" → chữ cứng hệ cũ, không ghép câu vào sau "Ban chỉ huy"',
+    (huong) => {
+      expect(resolveField('DON_THU', 'kinhGui', { huongXuLy: huong, donViGiaiQuyet: CAU })).toBe(
+        '- Ban chỉ huy PC02;\n- Ban chỉ huy Đội 1.',
+      );
+    },
+  );
+
+  /** Chống hồi quy: tên đơn vị bình thường vẫn đi đúng khuôn câu cũ. */
+  it('tên đơn vị bình thường vẫn bọc khuôn câu Giao đơn', () => {
+    expect(resolveField('DON_THU', 'deXuat', HO_SO_GIAO)).toBe(
+      'Giao Đội 4 tiếp nhận kiểm tra, xác minh, báo cáo Đ/c Chỉ huy Phòng phụ trách để giải quyết theo quy định',
+    );
+  });
+
+  /** Người nhận "Đồng chí …" KHÔNG phải câu — giữ khuôn Giao như biến thể 1 hệ cũ. */
+  it('"Đồng chí Minh - Phó Trưởng phòng…" là người nhận, vẫn bọc khuôn Giao', () => {
+    expect(
+      resolveField('DON_THU', 'deXuat', {
+        huongXuLy: 'GIAO_DON',
+        donViGiaiQuyet: 'Đồng chí Minh - Phó Trưởng phòng để chỉ đạo Đội 8',
+      }),
+    ).toMatch(/^Giao Đồng chí Minh/);
+  });
+});
