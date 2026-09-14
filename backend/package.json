@@ -22,6 +22,7 @@
     "prisma:migrate": "prisma migrate dev",
     "gen:enums": "node scripts/generate-shared-enums.cjs",
     "gen:catalog": "node scripts/generate-catalog.cjs",
+    "gen:tim-kiem": "ts-node --transpile-only src/common/tim-kiem/cli/gen-tim-kiem.ts",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:sample": "ts-node prisma/seed-sample-data.ts",
     "db:seed:features": "ts-node prisma/seed-feature-flags.ts",

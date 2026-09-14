@@ -58,6 +58,13 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - `backend/src/common/tim-kiem/bo-dau.ts`: bảng ánh xạ (mã điểm, không ký tự vô hình) → `boDauTimKiem` + `sinhHamFBoDau` (translate/replace, không unaccent) + `thoatLike`. Spec 26 ca, phủ 100%.
 - Ca kiểm vàng PG18 local (pc02_spike): 99.553 chuỗi thật + 646 tổng hợp → 0 lệch. PG16.15 prod (hàm `pg_temp`, không ghi bền): 646 tổng hợp → 0 lệch. Probe tạm ở scratchpad/probe-vang-f-bo-dau.cjs — **phải chuyển thành CLI trong repo** (`common/tim-kiem/cli/kiem-vang-bo-dau.ts`) cùng T2/T12, không để công cụ kiểm nằm ngoài kho mã.
 
+## M2-T1/T2 cột bóng + bộ sinh (15/09)
+- Khai `common/tim-kiem/khai/don-thu.khai.ts` (13 trường theo cột danh sách + soHoSoCu) → bộ sinh `sinh/sinh-tim-kiem.ts` (migration SQL, field Prisma, `frontend/src/shared/tim-kiem/generated.ts`) + CLI `npm run gen:tim-kiem [-- --moi <ten>]` + cổng `tim-kiem-sinh-khop.gate.spec.ts` (đỏ trước khi sinh, xanh sau; có gieo lỗi).
+- Migration `20260915060305_tim_kiem_don_thu`: f_bo_dau sinh từ bảng, 6 cột bóng + tim_kiem_bd trên petitions, ho_ten_bd trên users, trigger BEFORE INSERT/UPDATE OF có EXCEPTION, GIN trigram; KHÔNG backfill.
+- Chạy thật pc02_spike PG18: migration sạch; sửa cột nguồn → cột bóng đổi; sửa cột khác → trigger không chạy; f_bo_dau hỏng → UPDATE vẫn thành công, cột bóng NULL + WARNING; users ho_ten_bd đúng; 2 trigger + 8 chỉ mục.
+- schema.prisma: 7 field Petition + hoTenBd User; prisma validate + generate + tsc sạch. Spec tim-kiem 60 ca.
+- Còn trong PR1: T12 CLI nạp cột bóng theo lô (+ chuyển probe vàng vào repo), T3 helper docThe/dungDieuKienTimKiem + DTO tk[] + gỡ where.OR chép tay, T7 scope, T5/T6 giao diện, T8 lát Tổng hợp, T9 hotfix SQL, T11 shell-parity.
+
 ## Hàng đợi task kế tiếp (M1)
 1. M1-T1 khoá gộp + nhóm hạn theo tên (util thuần)
 2. M1-T2 máy chủ: LOAI_TAO_NHANH_DUOC + taoNhanh chặn trùng theo khoá gộp, metadata nhomHan/choDuyet
