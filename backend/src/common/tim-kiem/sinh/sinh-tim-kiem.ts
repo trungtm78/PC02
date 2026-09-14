@@ -21,6 +21,11 @@ export interface TruongTimKiem {
   cot?: string;
   /** Quan hệ tới `User` — bắt buộc với kiểu `nguoi`. */
   quanHe?: string;
+  /**
+   * Kiểu `chon`: giá trị được nhận (vd mã enum). Giá trị lạ trả 400 thay vì để Prisma ném 500.
+   * Chỉ dùng phía máy chủ — bộ sinh không xuất ra giao diện.
+   */
+  giaTriHopLe?: readonly string[];
 }
 
 export interface KhaiThucThe {
@@ -196,6 +201,65 @@ export function truongPrismaCanCo(
   }
   if (coTruongNguoi(khais)) ra.push({ model: 'User', ...COT_HO_TEN });
   return ra;
+}
+
+/** Có trường kiểu người → phải nạp `users.ho_ten_bd`. */
+export const canNapHoTen = coTruongNguoi;
+
+/**
+ * Cột gốc ghép vào `tim_kiem_bd` — CÙNG danh sách trigger dùng. Điều kiện thẻ "tất cả các cột" lùi
+ * về đúng các cột này khi cột ghép chưa được nạp.
+ */
+export const cotGhepTatCa = cotTatCa;
+
+const cotDong = (cot: string) => `"${cot}"`;
+const ghepDong = (cots: readonly string[]) =>
+  `concat_ws(' ', ${cots.map(cotDong).join(', ')})`;
+
+export interface CauNap {
+  /** Đếm dòng có cột bóng lệch cột nguồn (cả bảng). */
+  dem: string;
+  /** Lấy tối đa `$2` id sau con trỏ `$1`, sắp theo id — đi theo khoá chính. */
+  layLo: string;
+  /** Ghi cột bóng cho các id `$1` của lô, CHỈ dòng lệch. */
+  nap: string;
+}
+
+/**
+ * Câu nạp cột bóng cho dữ liệu cũ — CÙNG biểu thức trigger, chỉ đổi `NEW."x"` thành `"x"`.
+ * Chỉ SET cột bóng: SET cột nguồn sẽ kích trigger (và trigger `sttSort`) trên cả bảng.
+ *
+ * Theo con trỏ id chứ không "lấy N dòng lệch đầu tiên": cách sau buộc lô thứ k đi qua lại mọi dòng
+ * các lô trước đã sửa (đo trên 47.169 đơn thư: ~15 s mỗi lô).
+ */
+function cauNap(bang: string, gan: readonly Gan[]): CauNap {
+  const bieu = (g: Gan) => `' ' || f_bo_dau(${g.bieuThuc})`;
+  const lech = gan
+    .map((g) => `"${g.cotBong}" IS DISTINCT FROM ${bieu(g)}`)
+    .join(' OR ');
+  const set = gan.map((g) => `"${g.cotBong}" = ${bieu(g)}`).join(', ');
+  return {
+    dem: `SELECT count(*)::int AS n FROM "${bang}" WHERE ${lech}`,
+    layLo: `SELECT id FROM "${bang}" WHERE id > $1 ORDER BY id LIMIT $2`,
+    nap: `UPDATE "${bang}" SET ${set} WHERE id = ANY($1::text[]) AND (${lech})`,
+  };
+}
+
+export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
+  kiemKhai(khai);
+  return cauNap(khai.bang, [
+    ...cotChu(khai).map((c) => ({
+      cotBong: cotBongCua(c).cot,
+      bieuThuc: cotDong(c),
+    })),
+    { cotBong: COT_TAT_CA.cot, bieuThuc: ghepDong(cotTatCa(khai)) },
+  ]);
+}
+
+export function sinhCauNapHoTen(): CauNap {
+  return cauNap('users', [
+    { cotBong: COT_HO_TEN.cot, bieuThuc: ghepDong(COT_NGUON_HO_TEN) },
+  ]);
 }
 
 const chuoiTs = (s: string) =>

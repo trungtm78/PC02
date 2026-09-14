@@ -15,6 +15,7 @@ import {
   sinhFrontendTimKiem,
   sinhMigrationTimKiem,
   truongPrismaCanCo,
+  type KhaiThucThe,
 } from '../sinh/sinh-tim-kiem';
 import {
   TEP_FRONTEND,
@@ -24,12 +25,35 @@ import {
   truongPrismaThieu,
 } from '../sinh/tep-sinh';
 
-function dauThoiGian(d = new Date()): string {
+export function dauThoiGian(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
-function main(argv: readonly string[]): number {
+export interface DuongDanGen {
+  thuMucMigration: string;
+  tepFrontend: string;
+  tepSchema: string;
+}
+
+const DUONG_DAN_THAT: DuongDanGen = {
+  thuMucMigration: THU_MUC_MIGRATION,
+  tepFrontend: TEP_FRONTEND,
+  tepSchema: TEP_SCHEMA,
+};
+
+/**
+ * Thân lệnh — nhận đường dẫn và danh sách khai qua tham số để ca kiểm chạy trên thư mục tạm,
+ * không ghi đè tệp thật của kho mã.
+ *
+ * @returns mã thoát: 0 xong · 1 schema.prisma thiếu field · 2 tham số sai / chưa có migration
+ */
+export function chayGenTimKiem(
+  argv: readonly string[],
+  duongDan: DuongDanGen = DUONG_DAN_THAT,
+  khais: readonly KhaiThucThe[] = KHAI_TIM_KIEM,
+  bayGio: Date = new Date(),
+): number {
   const iMoi = argv.indexOf('--moi');
   let thuMuc: string | undefined;
   if (iMoi >= 0) {
@@ -40,9 +64,11 @@ function main(argv: readonly string[]): number {
       );
       return 2;
     }
-    thuMuc = `${dauThoiGian()}_tim_kiem_${ten}`;
+    thuMuc = `${dauThoiGian(bayGio)}_tim_kiem_${ten}`;
   } else {
-    thuMuc = thuMucMigrationTimKiemMoiNhat();
+    thuMuc = thuMucMigrationTimKiemMoiNhat(
+      fs.readdirSync(duongDan.thuMucMigration),
+    );
     if (!thuMuc) {
       console.error(
         'Chưa có migration tìm kiếm nào — chạy với --moi <ten> để tạo.',
@@ -51,17 +77,21 @@ function main(argv: readonly string[]): number {
     }
   }
 
-  const tepMigration = path.join(THU_MUC_MIGRATION, thuMuc, 'migration.sql');
+  const tepMigration = path.join(
+    duongDan.thuMucMigration,
+    thuMuc,
+    'migration.sql',
+  );
   fs.mkdirSync(path.dirname(tepMigration), { recursive: true });
-  fs.writeFileSync(tepMigration, sinhMigrationTimKiem(KHAI_TIM_KIEM), 'utf8');
-  fs.mkdirSync(path.dirname(TEP_FRONTEND), { recursive: true });
-  fs.writeFileSync(TEP_FRONTEND, sinhFrontendTimKiem(KHAI_TIM_KIEM), 'utf8');
-  console.log(`Đã ghi ${path.relative(process.cwd(), tepMigration)}`);
-  console.log(`Đã ghi ${path.relative(process.cwd(), TEP_FRONTEND)}`);
+  fs.writeFileSync(tepMigration, sinhMigrationTimKiem(khais), 'utf8');
+  fs.mkdirSync(path.dirname(duongDan.tepFrontend), { recursive: true });
+  fs.writeFileSync(duongDan.tepFrontend, sinhFrontendTimKiem(khais), 'utf8');
+  console.log(`Đã ghi ${tepMigration}`);
+  console.log(`Đã ghi ${duongDan.tepFrontend}`);
 
   const thieu = truongPrismaThieu(
-    fs.readFileSync(TEP_SCHEMA, 'utf8'),
-    truongPrismaCanCo(KHAI_TIM_KIEM),
+    fs.readFileSync(duongDan.tepSchema, 'utf8'),
+    truongPrismaCanCo(khais),
   );
   if (thieu.length) {
     console.error(
@@ -76,5 +106,5 @@ function main(argv: readonly string[]): number {
 }
 
 if (require.main === module) {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = chayGenTimKiem(process.argv.slice(2));
 }

@@ -63,7 +63,9 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - Migration `20260915060305_tim_kiem_don_thu`: f_bo_dau sinh từ bảng, 6 cột bóng + tim_kiem_bd trên petitions, ho_ten_bd trên users, trigger BEFORE INSERT/UPDATE OF có EXCEPTION, GIN trigram; KHÔNG backfill.
 - Chạy thật pc02_spike PG18: migration sạch; sửa cột nguồn → cột bóng đổi; sửa cột khác → trigger không chạy; f_bo_dau hỏng → UPDATE vẫn thành công, cột bóng NULL + WARNING; users ho_ten_bd đúng; 2 trigger + 8 chỉ mục.
 - schema.prisma: 7 field Petition + hoTenBd User; prisma validate + generate + tsc sạch. Spec tim-kiem 60 ca.
-- Còn trong PR1: T12 CLI nạp cột bóng theo lô (+ chuyển probe vàng vào repo), T3 helper docThe/dungDieuKienTimKiem + DTO tk[] + gỡ where.OR chép tay, T7 scope, T5/T6 giao diện, T8 lát Tổng hợp, T9 hotfix SQL, T11 shell-parity.
+- T12: `sinhCauNapCotBong`/`sinhCauNapHoTen` (cùng biểu thức trigger, chỉ SET cột bóng) + CLI `cli/nap-cot-bong-tim-kiem.ts` theo CON TRỎ id (bản đầu "lấy N dòng lệch đầu tiên" chạy thật ~15 s/lô, tổng bình phương → đổi) + `chayGenTimKiem` tách để kiểm trên thư mục tạm. Tìm kiếm 78 ca, phủ 97,2%/92,2%. Nạp thật pc02_spike: 23.169 dòng / 301 s (gồm 2 lần đếm toàn bảng), chạy lại ra 0 → prod ~47k ≈ 10 phút, chạy nền sau deploy.
+- T3 helper `common/tim-kiem/dieu-kien.ts`: docThe (khoá lạ/sai dạng/>20 thẻ/>200 ký tự/giá trị chọn lạ/ngày sai → 400), docKhoangNgay (+07:00, ngày/tháng/năm), dungDieuKienTimKiem (chữ: cột bóng + lùi cột gốc khi NULL, 1–2 ký tự khớp đầu từ, thoát LIKE; `*` tim_kiem_bd; mã biến thể; mã cũ; ngày khoảng; chọn in; người qua quan hệ; chỉ AND), noiVaoWhere. Tìm kiếm 124 ca. Tiếp: nối vào getList/getStats Đơn thư + DTO tk[].
+- Còn trong PR1: (T12 xong phần mã) (+ chuyển probe vàng vào repo), T3 helper docThe/dungDieuKienTimKiem + DTO tk[] + gỡ where.OR chép tay, T7 scope, T5/T6 giao diện, T8 lát Tổng hợp, T9 hotfix SQL, T11 shell-parity.
 
 ## Hàng đợi task kế tiếp (M1)
 1. M1-T1 khoá gộp + nhóm hạn theo tên (util thuần)
