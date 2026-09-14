@@ -163,6 +163,84 @@ describe('<ListPageShell.Toolbar>', () => {
     expect(filterBtn.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // ── Ô tìm kiếm không được "nuốt" chữ đang gõ ──────────────────────────────
+  //
+  // Sáu màn danh sách truyền `searchValue` đọc từ URL. React Router 7 đổi URL trong
+  // `startTransition`, nên prop về TRỄ hơn phím bấm. Ô ràng thẳng vào prop thì mỗi phím React
+  // vẽ lại bằng giá trị cũ: gõ "nguyen van a" còn "a", Telex "nguyên" thành
+  // "ngngunguynguyen…" — đo trên Chrome thật 14/09/2026. Mô phỏng "prop về trễ" bằng một prop
+  // KHÔNG đổi trong lúc gõ.
+
+  it('prop về trễ: ô vẫn giữ nguyên chữ vừa gõ, không bị kéo về giá trị cũ', () => {
+    const onSearchChange = vi.fn();
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={onSearchChange} />
+      </ListPageShell>,
+    );
+    const input = screen.getByRole('searchbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'n' } });
+    fireEvent.change(input, { target: { value: 'nguyễn' } });
+    expect(input.value).toBe('nguyễn');
+    expect(onSearchChange).toHaveBeenLastCalledWith('nguyễn');
+  });
+
+  it('giá trị đổi từ BÊN NGOÀI (Xoá lọc, lùi trang) → ô cập nhật theo', () => {
+    const { rerender } = render(
+      <ListPageShell>
+        <Toolbar searchValue="abc" onSearchChange={() => {}} />
+      </ListPageShell>,
+    );
+    rerender(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={() => {}} />
+      </ListPageShell>,
+    );
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
+  });
+
+  /**
+   * URL trả về một giá trị TRUNG GIAN mà chính ô đã gửi đi ("a" trong lúc đã gõ tới "ab"):
+   * đó là tiếng vọng của mình, không phải thay đổi từ ngoài — không được kéo ô lùi lại.
+   */
+  it('tiếng vọng trễ của giá trị chính ô vừa gửi → không kéo ô lùi lại', () => {
+    const onSearchChange = vi.fn();
+    const { rerender } = render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={onSearchChange} />
+      </ListPageShell>,
+    );
+    const input = screen.getByRole('searchbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'a' } });
+    fireEvent.change(input, { target: { value: 'ab' } });
+    rerender(
+      <ListPageShell>
+        <Toolbar searchValue="a" onSearchChange={onSearchChange} />
+      </ListPageShell>,
+    );
+    expect(input.value).toBe('ab');
+  });
+
+  /** Bộ gõ đang ghép chữ (Telex) → chưa ghi ra ngoài; ghép xong mới gửi đúng một chữ hoàn chỉnh. */
+  it('đang ghép chữ (IME) thì chưa gửi; ghép xong gửi chữ hoàn chỉnh', () => {
+    const onSearchChange = vi.fn();
+    render(
+      <ListPageShell>
+        <Toolbar searchValue="" onSearchChange={onSearchChange} />
+      </ListPageShell>,
+    );
+    const input = screen.getByRole('searchbox') as HTMLInputElement;
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: 'nguye' } });
+    expect(input.value).toBe('nguye');
+    expect(onSearchChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: 'nguyên' } });
+    fireEvent.compositionEnd(input);
+    expect(onSearchChange).toHaveBeenCalledTimes(1);
+    expect(onSearchChange).toHaveBeenLastCalledWith('nguyên');
+    expect(input.value).toBe('nguyên');
+  });
+
   it('search input nằm trong container riêng dưới filter row (không cùng flex parent)', () => {
     render(
       <ListPageShell>

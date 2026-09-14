@@ -20,6 +20,7 @@ import {
   TOOLBAR_CARD,
   TOOLBAR_STRIP,
 } from '@/constants/styles';
+import { useOChuDongBo } from './useOChuDongBo';
 
 export interface ToolbarProps {
   searchValue: string;
@@ -55,6 +56,8 @@ export function Toolbar({
   const [expanded, setExpanded] = useState(false);
   const filterPanelId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // `searchValue` của sáu màn danh sách đọc từ URL và về trễ — xem `useOChuDongBo`.
+  const oTimKiem = useOChuDongBo(searchValue, onSearchChange);
 
   const hasAdvancedFilters = children != null;
   const showReset = activeFilterCount > 0 && onResetFilters != null;
@@ -115,8 +118,10 @@ export function Toolbar({
           type="search"
           role="searchbox"
           aria-label="Tìm kiếm trong danh sách"
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={oTimKiem.value}
+          onChange={oTimKiem.onChange}
+          onCompositionStart={oTimKiem.onCompositionStart}
+          onCompositionEnd={oTimKiem.onCompositionEnd}
           placeholder={searchPlaceholder}
           className={`${INPUT_WITH_ICON} ${A11Y_FOCUS_RING}`}
         />
