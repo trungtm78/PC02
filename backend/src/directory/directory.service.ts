@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
 import { khoaDonVi } from '../common/utils/chuan-hoa-ten.util';
+import { khoaLoaiThongTin, nhomHanTheoTen } from '../common/utils/khoa-loai-thong-tin.util';
 
 type PartialCreateDto = Partial<CreateDirectoryDto> & {
   type?: string;
@@ -15,14 +16,35 @@ type PartialCreateDto = Partial<CreateDirectoryDto> & {
   name?: string;
 };
 
+/** Luật tạo nhanh của MỘT loại danh mục. */
+interface LuatTaoNhanh {
+  /** Tiền tố mã sinh tự động. Mã phải khớp `^[A-Z0-9_-]+$` và ≤10 ký tự. */
+  tienTo: string;
+  /** Khoá so trùng — CÙNG hàm bộ nạp dữ liệu cũ dùng, để hai bên không trôi khỏi nhau. */
+  khoa: (ten: string) => string;
+  /** Dữ liệu kèm theo riêng của loại (vd nhóm hạn của Loại thông tin). */
+  metadataRieng: (ten: string) => Record<string, unknown>;
+}
+
 /**
- * Loại danh mục cán bộ được tự tạo trên ô tìm.
+ * Loại danh mục cán bộ được tự tạo trên ô tìm, kèm luật của từng loại.
  *
  * Cố ý HẸP. Endpoint tạo nhanh dùng quyền `write:Petition` (cán bộ có sẵn) chứ không phải
- * `write:Directory` (chỉ ADMIN); mở rộng danh sách này là gián tiếp cho cán bộ sửa mọi danh
- * mục, kể cả danh mục pháp lý.
+ * `write:Directory` (chỉ ADMIN); thêm loại vào đây là gián tiếp cho cán bộ sửa loại danh mục ấy,
+ * nên chỉ thêm danh mục tra cứu tự do, KHÔNG thêm danh mục pháp lý.
  */
-export const LOAI_TAO_NHANH_DUOC = ['DON_VI'];
+const LUAT_TAO_NHANH: Readonly<Record<string, LuatTaoNhanh>> = {
+  DON_VI: { tienTo: 'DV', khoa: khoaDonVi, metadataRieng: () => ({}) },
+  // Mục mới phải mang nhóm hạn ngay: hồ sơ chọn "Tố cáo …" mà thiếu nhóm hạn sẽ tính hạn theo
+  // nhánh mặc định 15 ngày thay vì 30.
+  LOAI_THONG_TIN: {
+    tienTo: 'LTT',
+    khoa: khoaLoaiThongTin,
+    metadataRieng: (ten) => ({ nhomHan: nhomHanTheoTen(ten) }),
+  },
+};
+
+export const LOAI_TAO_NHANH_DUOC = Object.keys(LUAT_TAO_NHANH);
 
 /**
  * Kết quả tạo nhanh. `daCoSan` là phần quan trọng: giao diện phải nói rõ "đơn vị này đã có, đã
@@ -37,9 +59,6 @@ export interface KetQuaTaoNhanh {
   isActive: boolean;
   daCoSan?: true;
 }
-
-/** Tiền tố mã sinh tự động theo loại. Mã phải khớp `^[A-Z0-9_-]+$` và ≤10 ký tự. */
-const TIEN_TO_MA: Record<string, string> = { DON_VI: 'DV' };
 
 /**
  * Mã kế tiếp = mã LỚN NHẤT đang có + 1, không phải số lượng dòng + 1.
@@ -177,21 +196,24 @@ export class DirectoryService {
    * năng dựng để chống trùng lại tự sinh trùng.
    */
   async taoNhanh(dto: { type: string; name: string }): Promise<KetQuaTaoNhanh> {
-    if (!LOAI_TAO_NHANH_DUOC.includes(dto.type)) {
+    const luat = Object.prototype.hasOwnProperty.call(LUAT_TAO_NHANH, dto.type)
+      ? LUAT_TAO_NHANH[dto.type]
+      : undefined;
+    if (!luat) {
       throw new BadRequestException(
         `Không tạo nhanh được loại danh mục "${dto.type}". Chỉ cho phép: ${LOAI_TAO_NHANH_DUOC.join(', ')}.`,
       );
     }
     const ten = (dto.name ?? '').trim();
-    if (!ten) throw new BadRequestException('Tên đơn vị không được để trống');
+    if (!ten) throw new BadRequestException('Tên mục danh mục không được để trống');
 
     const dangCo = await this.prisma.directory.findMany({
       where: { type: dto.type },
       select: { id: true, type: true, code: true, name: true, isActive: true },
     });
 
-    const khoa = khoaDonVi(ten);
-    const trung = dangCo.find((d) => khoaDonVi(d.name) === khoa);
+    const khoa = luat.khoa(ten);
+    const trung = dangCo.find((d) => luat.khoa(d.name) === khoa);
     // Trả về mục đã có kèm dấu, để giao diện nói rõ "đơn vị này đã có" thay vì im lặng chọn một
     // dòng người dùng không chủ ý tạo.
     if (trung) return { ...trung, daCoSan: true as const };
@@ -199,14 +221,14 @@ export class DirectoryService {
     return this.prisma.directory.create({
       data: {
         type: dto.type,
-        code: sinhMaTiepTheo(dangCo.map((d) => d.code), TIEN_TO_MA[dto.type]),
+        code: sinhMaTiepTheo(dangCo.map((d) => d.code), luat.tienTo),
         name: ten,
         // Xếp sau các mục đã có: mục tự tạo chưa được duyệt, không nên nổi lên đầu ô tìm.
         order: 9000,
         isActive: true,
         // Vào nhóm CHỜ DUYỆT để quản trị rà lại. Không đánh dấu thì mục cán bộ gõ vội lẫn vào
         // danh mục chính và không còn đường nào tìm ra chúng.
-        metadata: { nguon: 'tao-nhanh', choDuyet: true },
+        metadata: { ...luat.metadataRieng(ten), nguon: 'tao-nhanh', choDuyet: true },
       },
     });
   }

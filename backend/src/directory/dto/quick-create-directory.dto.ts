@@ -15,7 +15,7 @@ export class QuickCreateDirectoryDto {
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @MinLength(1, { message: 'Tên đơn vị không được để trống' })
+  @MinLength(1, { message: 'Tên mục danh mục không được để trống' })
   // 500 như cột `donViGiaiQuyet`: đo dữ liệu cũ, giá trị dài nhất là 329 ký tự. Giới hạn ngắn
   // hơn dữ liệu thật chỉ khiến cán bộ gõ xong không lưu được mà không hiểu vì sao.
   @MaxLength(500)
