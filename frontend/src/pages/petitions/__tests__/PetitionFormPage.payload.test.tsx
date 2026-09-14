@@ -42,6 +42,7 @@ vi.mock('@/features/document-numbers/api', () => ({
 // với giá trị không có trong danh sách thì `<select>` giữ nguyên rỗng, và ca kiểm đọc ra null.
 const LUA_CHON_THEO_DANH_MUC: Record<string, string[]> = {
   UNIT: ['Đội 1 PC02', 'Đội 4', 'Đội 8'],
+  LOAI_THONG_TIN: ['Tố giác', 'Khiếu nại (Quyết định tố tụng)', 'Đề nghị'],
 };
 // Ô "Đơn vị xử lý" ở nhánh nội bộ nhận `options={teamOptions}` (KHÔNG có directoryType), nên
 // bản giả rơi vào danh sách mặc định — phải có sẵn tên tổ, nếu không `fireEvent.change` với tên
@@ -57,6 +58,7 @@ vi.mock('@/components/FKSelect', () => ({
   }) => (
     <select
       data-testid={testId}
+      data-directory-type={directoryType}
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
     >
@@ -126,47 +128,38 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     vi.clearAllMocks();
   });
 
-  it('submits petitionType as enum value (TO_CAO), not Vietnamese name', async () => {
+  /**
+   * 14/09/2026 — form gộp "Loại đơn thư" vào "Loại thông tin" như hệ cũ (một ô). `petitionType`
+   * là NHÓM HẠN máy chủ tự suy từ danh mục; form KHÔNG gửi nó nữa.
+   */
+  it('chỉ còn MỘT ô hỏi loại: không có ô Loại đơn thư, Loại thông tin là ô chọn danh mục', async () => {
+    await renderForm();
+    const o = await screen.findByTestId('field-loaiThongTin');
+    expect(o).toHaveAttribute('data-directory-type', 'LOAI_THONG_TIN');
+    expect(screen.queryByTestId('field-petitionType')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Loại đơn thư/)).not.toBeInTheDocument();
+  });
+
+  it('gửi loaiThongTin chọn từ danh mục, KHÔNG gửi petitionType', async () => {
     await renderForm();
 
-    // v0.42: stt is now auto-generated (readonly DocNumberPreviewField), no manual fill needed.
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Test Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT address' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'UAT detail' } });
-    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('field-loaiThongTin'), {
+      target: { value: 'Khiếu nại (Quyết định tố tụng)' },
+    });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
-    // Required-on-create mới: SĐT nguyên đơn + Tội danh chính
     fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
-    const submitBtns = screen.getAllByRole('button', { name: /Lưu đơn thư/ });
-    fireEvent.click(submitBtns[0]);
-
-    await waitFor(() => {
-      expect(api.post).toHaveBeenCalled();
-    });
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
 
     const [url, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toBe('/petitions');
-    expect(body.petitionType).toBe('TO_CAO');
-    expect(body.petitionType).not.toBe('Tố cáo');
-  });
-
-  it('exposes all 4 LoaiDon enum values as <option> with Vietnamese labels', async () => {
-    await renderForm();
-    const select = await screen.findByTestId('field-petitionType') as HTMLSelectElement;
-    const optionValues = Array.from(select.options).map((o) => o.value);
-    const optionLabels = Array.from(select.options).map((o) => o.textContent);
-
-    expect(optionValues).toContain('TO_CAO');
-    expect(optionValues).toContain('KHIEU_NAI');
-    expect(optionValues).toContain('KIEN_NGHI');
-    expect(optionValues).toContain('PHAN_ANH');
-
-    expect(optionLabels.join(' | ')).toContain('Tố cáo');
-    expect(optionLabels.join(' | ')).toContain('Khiếu nại');
-    expect(optionLabels.join(' | ')).toContain('Kiến nghị');
-    expect(optionLabels.join(' | ')).toContain('Phản ánh');
+    expect(body.loaiThongTin).toBe('Khiếu nại (Quyết định tố tụng)');
+    expect(body).not.toHaveProperty('petitionType');
   });
 
   it('render + gửi 5 field parity tab "Thông tin" (nguonDon/petitionDate/ngayDeXuat/phanLoaiNguonTin/dieuTraVien)', async () => {
@@ -175,7 +168,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung' } });
-    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
     fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
@@ -205,22 +197,20 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     expect(await screen.findByText(/Ghi chú trùng đơn/i)).toBeInTheDocument();
   });
 
-  it('client-side validation rejects empty petitionType (does not POST)', async () => {
+  /** Thiếu loại thông tin KHÔNG chặn lưu — hệ cũ không bắt buộc, máy chủ tính hạn theo nhánh mặc định. */
+  it('chưa chọn Loại thông tin vẫn lưu được, không còn lỗi "Loại đơn thư là bắt buộc"', async () => {
     await renderForm();
 
-    // v0.42: stt is now auto-generated (readonly), no manual fill needed.
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
-    // Intentionally skip petitionType + priority
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
-    const submitBtns = screen.getAllByRole('button', { name: /Lưu đơn thư/ });
-    fireEvent.click(submitBtns[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Loại đơn thư là bắt buộc/i)).toBeInTheDocument();
-    });
-    expect(api.post).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(screen.queryByText(/Loại đơn thư là bắt buộc/i)).not.toBeInTheDocument();
   });
 
   it('[T8/F2] "Lưu và xuất file" → lưu (bắt id) → mở popup xuất chứng từ, KHÔNG về danh sách', async () => {
@@ -231,7 +221,6 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'addr' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
-    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
     fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
@@ -265,7 +254,6 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung đầy đủ của đơn thư' } });
-    fireEvent.change(screen.getByTestId('field-petitionType'), { target: { value: 'TO_CAO' } });
     fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
   }

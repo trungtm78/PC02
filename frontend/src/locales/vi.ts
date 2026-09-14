@@ -96,6 +96,62 @@ export const fields = {
 
 export type FieldKey = keyof typeof fields;
 
+// ── Popup tạo nhanh mục danh mục trên ô tìm ──────────────────────────────────
+
+interface KhaiTaoNhanh {
+  /** Danh từ chỉ mục đang tạo, viết thường — ghép vào mọi câu của popup. */
+  danhTu: string;
+  tieuDe: string;
+  nhanTen: string;
+  goiY: string;
+}
+
+const hoaChuDau = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const KHAI_TAO_NHANH_CHUNG: KhaiTaoNhanh = {
+  danhTu: 'mục danh mục',
+  tieuDe: 'Tạo mục danh mục',
+  nhanTen: 'Tên mục danh mục',
+  goiY: '',
+};
+
+/** Khoá là `Directory.type` mà máy chủ cho tạo nhanh (`LOAI_TAO_NHANH_DUOC`). */
+const KHAI_TAO_NHANH_THEO_LOAI: Record<string, KhaiTaoNhanh> = {
+  DON_VI: {
+    danhTu: 'đơn vị',
+    tieuDe: 'Tạo đơn vị xử lý',
+    nhanTen: 'Tên đơn vị',
+    goiY: 'Ví dụ: Công an phường Bến Nghé',
+  },
+  LOAI_THONG_TIN: {
+    danhTu: 'loại thông tin',
+    tieuDe: 'Tạo loại thông tin',
+    nhanTen: 'Tên loại thông tin',
+    goiY: 'Ví dụ: Tố giác, Khiếu nại (Quyết định tố tụng)',
+  },
+};
+
+/** Câu chữ popup tạo nhanh cho một loại danh mục; loại chưa khai dùng câu chữ chung. */
+export function taoNhanhDanhMuc(type: string) {
+  const khai = Object.prototype.hasOwnProperty.call(KHAI_TAO_NHANH_THEO_LOAI, type)
+    ? KHAI_TAO_NHANH_THEO_LOAI[type]
+    : KHAI_TAO_NHANH_CHUNG;
+  const { danhTu } = khai;
+  return {
+    tieuDe: khai.tieuDe,
+    nhanTen: khai.nhanTen,
+    goiY: khai.goiY,
+    moTa: `${hoaChuDau(danhTu)} tạo ở đây dùng được ngay và cần quản trị duyệt lại sau.`,
+    loiRong: `${khai.nhanTen} không được để trống`,
+    daCo: (ten: string) =>
+      `${hoaChuDau(danhTu)} này đã có trong danh mục với tên "${ten}". Bấm "Dùng ${danhTu} đã có" để chọn, tránh tạo hai dòng cho cùng một ${danhTu}.`,
+    nutDungDaCo: `Dùng ${danhTu} đã có`,
+    nutTao: 'Tạo',
+    dangTao: 'Đang tạo…',
+    nutHuy: common.cancel,
+  };
+}
+
 // ── First-login forced password change (D1) ──────────────────────────────────
 
 export const firstLoginPasswordChange = {

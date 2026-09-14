@@ -1,40 +1,24 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
+import { taoNhanhDanhMuc } from '@/locales/vi';
+import {
+  QuickCreateDirectoryCtx,
+  type QuickCreateDirectoryApi,
+  type QuickCreateDirectoryArgs,
+} from './useQuickCreateDirectoryModal';
 
 /**
  * Tạo nhanh một mục danh mục ngay trên ô tìm của form.
  *
  * Vì sao cần: danh mục "Đơn vị xử lý" chỉ có 5 dòng trong khi dữ liệu cũ có ~1.868 đơn vị. Kể
  * cả sau khi nạp hết, cán bộ vẫn gặp đơn vị chưa có — trước bản này họ không có đường nào ngoài
- * việc nhờ ADMIN thêm hộ.
+ * việc nhờ ADMIN thêm hộ. Từ 14/09/2026 ô "Loại thông tin" dùng chung popup; câu chữ lấy theo
+ * loại danh mục ở `taoNhanhDanhMuc`.
  *
  * Khuôn provider singleton chép từ `PrintDocumentsModalProvider`: một thể hiện ở gốc cây, mở
- * bằng lời gọi hàm.
+ * bằng lời gọi hàm (`useQuickCreateDirectoryModalSafe`).
  */
-export interface QuickCreateDirectoryArgs {
-  type: string;
-  /** Chữ cán bộ vừa gõ ở ô tìm — điền sẵn để họ không phải gõ lại. */
-  tenGoiY?: string;
-  nhanTitle?: string;
-  /** Gọi sau khi tạo xong (hoặc tìm thấy bản đã có) với TÊN để chọn ngay. */
-  onCreated?: (ten: string) => void;
-}
-
-export interface QuickCreateDirectoryApi {
-  open: (args: QuickCreateDirectoryArgs) => void;
-}
-
-const Ctx = createContext<QuickCreateDirectoryApi | null>(null);
-
 export function QuickCreateDirectoryModalProvider({ children }: { children: ReactNode }) {
   const [args, setArgs] = useState<QuickCreateDirectoryArgs | null>(null);
   const [ten, setTen] = useState('');
@@ -51,12 +35,14 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
   const open = useCallback((next: QuickCreateDirectoryArgs) => setArgs(next), []);
   const close = useCallback(() => setArgs(null), []);
   const apiObj = useMemo<QuickCreateDirectoryApi>(() => ({ open }), [open]);
+  // Câu chữ theo loại danh mục đang tạo — popup dùng chung cho Đơn vị xử lý và Loại thông tin.
+  const cauChu = useMemo(() => taoNhanhDanhMuc(args?.type ?? ''), [args?.type]);
 
   const luu = useCallback(async () => {
     if (!args) return;
     const sach = ten.trim();
     if (!sach) {
-      setLoi('Tên đơn vị không được để trống');
+      setLoi(cauChu.loiRong);
       return;
     }
     setDangLuu(true);
@@ -79,7 +65,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
     } finally {
       setDangLuu(false);
     }
-  }, [args, ten]);
+  }, [args, ten, cauChu]);
 
   const chonBanDaCo = useCallback(() => {
     args?.onCreated?.(ten.trim());
@@ -87,7 +73,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
   }, [args, ten]);
 
   return (
-    <Ctx.Provider value={apiObj}>
+    <QuickCreateDirectoryCtx.Provider value={apiObj}>
       {children}
       {args && (
         <div
@@ -97,14 +83,12 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="font-bold text-slate-800">
-                {args.nhanTitle ?? 'Tạo đơn vị xử lý'}
+                {args.nhanTitle ?? cauChu.tieuDe}
               </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Đơn vị tạo ở đây dùng được ngay và cần quản trị duyệt lại sau.
-              </p>
+              <p className="mt-1 text-xs text-slate-500">{cauChu.moTa}</p>
             </div>
             <div className="space-y-3 p-5">
-              <label className="block text-sm font-medium text-slate-700">Tên đơn vị</label>
+              <label className="block text-sm font-medium text-slate-700">{cauChu.nhanTen}</label>
               <input
                 autoFocus
                 value={ten}
@@ -113,7 +97,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
                   setDaCoSan(false);
                 }}
                 className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ví dụ: Công an phường Bến Nghé"
+                placeholder={cauChu.goiY}
                 data-testid="quick-create-directory-name"
               />
               {daCoSan && (
@@ -121,8 +105,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
                   className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800"
                   data-testid="quick-create-directory-da-co"
                 >
-                  Đơn vị này đã có trong danh mục với tên "{ten}". Bấm "Dùng đơn vị đã có" để
-                  chọn, tránh tạo hai dòng cho cùng một đơn vị.
+                  {cauChu.daCo(ten)}
                 </p>
               )}
               {loi && (
@@ -138,7 +121,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
                 className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
                 data-testid="quick-create-directory-cancel"
               >
-                Huỷ
+                {cauChu.nutHuy}
               </button>
               {daCoSan ? (
                 <button
@@ -147,7 +130,7 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
                   className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
                   data-testid="quick-create-directory-use-existing"
                 >
-                  Dùng đơn vị đã có
+                  {cauChu.nutDungDaCo}
                 </button>
               ) : (
                 <button
@@ -157,21 +140,13 @@ export function QuickCreateDirectoryModalProvider({ children }: { children: Reac
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                   data-testid="quick-create-directory-save"
                 >
-                  {dangLuu ? 'Đang tạo…' : 'Tạo'}
+                  {dangLuu ? cauChu.dangTao : cauChu.nutTao}
                 </button>
               )}
             </div>
           </div>
         </div>
       )}
-    </Ctx.Provider>
+    </QuickCreateDirectoryCtx.Provider>
   );
-}
-
-/**
- * Bản KHÔNG ném lỗi khi chưa có provider — form Đơn thư được dựng trong ca kiểm và trong vài
- * màn không bọc CompositeModalProvider. Ném ở đó là làm trắng màn hình vì một tính năng phụ.
- */
-export function useQuickCreateDirectoryModalSafe(): QuickCreateDirectoryApi | null {
-  return useContext(Ctx);
 }

@@ -129,13 +129,16 @@ describe('Hồ sơ di trú lưu được mà không phải chọn loại đơn',
     await waitFor(() => expect(api.put).toHaveBeenCalled());
   });
 
-  /** Đơn của hệ mới: không có dấu vết hệ cũ nào thì vẫn phải chọn loại đơn. */
-  it('đơn tạo trên hệ mới vẫn bị chặn khi thiếu loại đơn', async () => {
+  /**
+   * 14/09/2026 — form không còn ô "Loại đơn thư" (gộp vào "Loại thông tin"), nên đơn của hệ mới
+   * cũng lưu được khi chưa có loại: máy chủ suy nhóm hạn, thiếu thì tính hạn theo nhánh mặc định.
+   */
+  it('đơn tạo trên hệ mới cũng lưu được khi chưa có loại', async () => {
     napChiTiet(HO_SO({ legacySourceId: null, legacyRaw: null }));
     await moManSua();
     await screen.findByDisplayValue('Nguyễn Văn A');
     await bamLuu();
-    expect(await screen.findByText(/Loại đơn thư là bắt buộc/)).toBeInTheDocument();
-    expect(api.put).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(screen.queryByText(/Loại đơn thư là bắt buộc/)).toBeNull();
   });
 });

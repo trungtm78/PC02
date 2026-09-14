@@ -78,7 +78,6 @@ export function buildPetitionPayload(
     senderEmail: oHeCu(formData.senderEmail),
     suspectedPerson: oHeCu(formData.suspectedPerson),
     suspectedAddress: oHeCu(formData.suspectedAddress),
-    petitionType: oHeCu(formData.petitionType),
     priority: oHeCu(formData.priority),
     detailContent: oHeCu(formData.detailContent),
     attachmentsNote: oHeCu(formData.attachmentsNote),
