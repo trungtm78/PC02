@@ -1,4 +1,8 @@
-import { khoaLoaiThongTin, nhomHanTheoTen, vietHoaChuDau } from './khoa-loai-thong-tin.util';
+import {
+  khoaLoaiThongTin,
+  nhomHanTheoTen,
+  vietHoaChuDau,
+} from './khoa-loai-thong-tin.util';
 
 /**
  * Khoá gộp của ô "Loại thông tin".
@@ -42,7 +46,9 @@ describe('khoaLoaiThongTin — cùng nghĩa ra cùng khoá', () => {
   });
 
   it('hậu tố đếm đơn chỉ bỏ khi đứng CUỐI và đúng dạng số', () => {
-    expect(khoaLoaiThongTin('Tố giác (nhiều đơn)')).not.toBe(khoaLoaiThongTin('Tố giác'));
+    expect(khoaLoaiThongTin('Tố giác (nhiều đơn)')).not.toBe(
+      khoaLoaiThongTin('Tố giác'),
+    );
   });
 });
 
@@ -64,6 +70,14 @@ describe('nhomHanTheoTen', () => {
     ['Rút khiếu nại', 'PHAN_ANH'],
     ['Rút tố cáo', 'PHAN_ANH'],
     ['', 'PHAN_ANH'],
+    // Soát 15/09/2026: "Đơn tố cáo" và "Tố cáo/khiếu nại" có thật trong dữ liệu cũ mà rơi về
+    // Phản ánh 15 ngày thay vì 30. Tiền tố "Đơn" không đổi nghĩa; dấu "/" vẫn là ranh giới từ.
+    ['Đơn tố cáo', 'TO_CAO'],
+    ['Đơn khiếu nại', 'KHIEU_NAI'],
+    ['đơn kiến nghị', 'KIEN_NGHI'],
+    ['Tố cáo/khiếu nại', 'TO_CAO'],
+    ['Đơn đề nghị', 'PHAN_ANH'],
+    ['Tố cáoo', 'PHAN_ANH'],
   ])('"%s" → %s', (ten, nhom) => {
     expect(nhomHanTheoTen(ten)).toBe(nhom);
   });
@@ -72,7 +86,9 @@ describe('nhomHanTheoTen', () => {
 describe('vietHoaChuDau — tên hiển thị của mục danh mục', () => {
   it('viết hoa chữ đầu, giữ nguyên phần còn lại, bỏ khoảng trắng thừa', () => {
     expect(vietHoaChuDau('  tố giác  ')).toBe('Tố giác');
-    expect(vietHoaChuDau('khiếu nại (Quyết định tố tụng)')).toBe('Khiếu nại (Quyết định tố tụng)');
+    expect(vietHoaChuDau('khiếu nại (Quyết định tố tụng)')).toBe(
+      'Khiếu nại (Quyết định tố tụng)',
+    );
     expect(vietHoaChuDau('đề nghị')).toBe('Đề nghị');
     expect(vietHoaChuDau('')).toBe('');
   });

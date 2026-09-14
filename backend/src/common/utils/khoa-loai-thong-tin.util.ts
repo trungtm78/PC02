@@ -9,6 +9,12 @@ import { boDauTiengViet } from './chuan-hoa-ten.util';
  * Đo trên bản sao dữ liệu thật 27/08/2026: 735 giá trị khác nhau, 624 sau khi bỏ hoa/thường.
  */
 
+/** `Directory.type` của danh mục Loại thông tin. */
+export const LOAI_DANH_MUC_LOAI_THONG_TIN = 'LOAI_THONG_TIN';
+
+/** Tiền tố mã mục — ô "Tạo mới" trên form và CLI nạp dữ liệu cũ PHẢI dùng chung một dãy mã. */
+export const TIEN_TO_MA_LOAI_THONG_TIN = 'LTT';
+
 /** Hậu tố đếm số đơn đứng cuối: "Tố giác (02 đơn)" → "Tố giác". */
 const HAU_TO_DEM_DON = /\s*\(\s*\d+\s*don\s*\)\s*$/;
 
@@ -42,16 +48,27 @@ const TIEN_TO_NHOM_HAN: ReadonlyArray<readonly [string, LoaiDon]> = [
   ['kien nghi', LoaiDon.KIEN_NGHI],
 ];
 
+/** "Đơn tố cáo" là "Tố cáo" — chữ "Đơn" đứng đầu không đổi loại. */
+const TIEN_TO_DON = /^don /;
+
+const KY_TU_CUA_TU = /[a-z0-9]/;
+
 /**
  * Nhóm hạn gán SẴN cho một loại theo tên — giá trị khởi điểm của `metadata.nhomHan` trong danh mục,
  * cán bộ quản trị sửa được sau.
  *
- * Mặc định `PHAN_ANH` vì đó đúng là nhánh cuối của khối tự tính hạn khi hồ sơ không mang loại đơn.
+ * Tiền tố phải là NGUYÊN từ: "Tố cáo/khiếu nại" khớp Tố cáo (dấu "/" là ranh giới), "Tố cáoo" thì
+ * không. Mặc định `PHAN_ANH` vì đó đúng là nhánh cuối của khối tự tính hạn khi hồ sơ không mang
+ * loại đơn.
  */
 export function nhomHanTheoTen(ten: string | null | undefined): LoaiDon {
-  const khoa = khoaLoaiThongTin(ten);
+  const khoa = khoaLoaiThongTin(ten).replace(TIEN_TO_DON, '');
   for (const [tienTo, nhom] of TIEN_TO_NHOM_HAN) {
-    if (khoa === tienTo || khoa.startsWith(`${tienTo} `)) return nhom;
+    if (
+      khoa.startsWith(tienTo) &&
+      !KY_TU_CUA_TU.test(khoa.charAt(tienTo.length))
+    )
+      return nhom;
   }
   return LoaiDon.PHAN_ANH;
 }

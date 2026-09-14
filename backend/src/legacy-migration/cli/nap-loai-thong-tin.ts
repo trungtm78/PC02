@@ -24,7 +24,11 @@
 import * as fs from 'fs';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { sinhDayMa } from './nap-don-vi-xu-ly.util';
+import {
+  LOAI_DANH_MUC_LOAI_THONG_TIN,
+  TIEN_TO_MA_LOAI_THONG_TIN,
+} from '../../common/utils/khoa-loai-thong-tin.util';
+import { sinhDayMa } from '../../common/utils/ma-danh-muc.util';
 import {
   bangGopCsv,
   gopLoaiThongTin,
@@ -33,9 +37,8 @@ import {
   type HoSoLoai,
 } from './nap-loai-thong-tin.util';
 
-const LOAI = 'LOAI_THONG_TIN';
-/** Tiền tố mã — CÙNG tiền tố ô "Tạo mới" trên form dùng (`directory.service.ts`), để dãy mã không đụng nhau. */
-const TIEN_TO_MA = 'LTT';
+const LOAI = LOAI_DANH_MUC_LOAI_THONG_TIN;
+const TIEN_TO_MA = TIEN_TO_MA_LOAI_THONG_TIN;
 const LO = 500;
 
 type HoSoDoc = HoSoLoai & { stt: string };
@@ -156,6 +159,13 @@ export async function napLoaiThongTin(
       skipDuplicates: true,
     });
     ketQua.daGhi.muc = tao.count;
+    // `skipDuplicates` bỏ LẶNG LẼ mục đụng mã (ô "Tạo mới" chen giữa lúc đọc và lúc ghi). Đi tiếp
+    // là đổi hồ sơ sang tên không có trong danh mục. Dừng trước khi đụng hồ sơ — chạy lại là đủ.
+    if (tao.count !== mucMoi.length) {
+      throw new Error(
+        `Danh mục đổi trong lúc chạy: định thêm ${mucMoi.length} mục, chỉ thêm được ${tao.count}. Chưa đụng hồ sơ nào — chạy lại.`,
+      );
+    }
   }
 
   // Đổi loại TRƯỚC: câu gán nhóm hạn bên dưới chặn theo tên loại SAU khi đã chuẩn hoá.

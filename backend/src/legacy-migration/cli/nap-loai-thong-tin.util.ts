@@ -4,7 +4,8 @@ import {
   nhomHanTheoTen,
   vietHoaChuDau,
 } from '../../common/utils/khoa-loai-thong-tin.util';
-import { nhomHanCuaLoaiThongTin } from '../../petitions/loai-thong-tin.rule';
+import { THU_TU_CHO_DUYET } from '../../common/utils/ma-danh-muc.util';
+import { nhomHanCuaMuc } from '../../petitions/loai-thong-tin.rule';
 
 /**
  * Gộp giá trị "Loại thông tin" của dữ liệu cũ thành danh mục `LOAI_THONG_TIN` và lập kế hoạch
@@ -17,9 +18,6 @@ import { nhomHanCuaLoaiThongTin } from '../../petitions/loai-thong-tin.rule';
 
 /** Mục dựa trên ít hồ sơ hơn ngưỡng này thì chờ quản trị duyệt — hay là lỗi gõ, không phải một loại. */
 export const NGUONG_CHO_DUYET = 3;
-
-/** Mục chờ duyệt xếp sau mọi mục đã duyệt trong ô tìm. */
-const THU_TU_CHO_DUYET = 9000;
 
 export interface GiaTriDem {
   giaTri: string | null;
@@ -131,9 +129,7 @@ export function gopLoaiThongTin(
         name: g.daCo.name,
         soHoSo: g.soHoSo,
         bienThe: xepGiamDan(g.demTong),
-        nhomHan:
-          nhomHanCuaLoaiThongTin(g.daCo.name, [g.daCo]) ??
-          nhomHanTheoTen(g.daCo.name),
+        nhomHan: nhomHanCuaMuc(g.daCo),
         choDuyet: choDuyetCuaMucDaCo(g.daCo, g.soHoSo),
         daCo: true,
         order: 0,

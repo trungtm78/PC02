@@ -8,7 +8,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
 import { khoaDonVi } from '../common/utils/chuan-hoa-ten.util';
-import { khoaLoaiThongTin, nhomHanTheoTen } from '../common/utils/khoa-loai-thong-tin.util';
+import {
+  LOAI_DANH_MUC_LOAI_THONG_TIN,
+  TIEN_TO_MA_LOAI_THONG_TIN,
+  khoaLoaiThongTin,
+  nhomHanTheoTen,
+} from '../common/utils/khoa-loai-thong-tin.util';
+import { THU_TU_CHO_DUYET, sinhDayMa } from '../common/utils/ma-danh-muc.util';
 
 type PartialCreateDto = Partial<CreateDirectoryDto> & {
   type?: string;
@@ -37,8 +43,8 @@ const LUAT_TAO_NHANH: Readonly<Record<string, LuatTaoNhanh>> = {
   DON_VI: { tienTo: 'DV', khoa: khoaDonVi, metadataRieng: () => ({}) },
   // Mục mới phải mang nhóm hạn ngay: hồ sơ chọn "Tố cáo …" mà thiếu nhóm hạn sẽ tính hạn theo
   // nhánh mặc định 15 ngày thay vì 30.
-  LOAI_THONG_TIN: {
-    tienTo: 'LTT',
+  [LOAI_DANH_MUC_LOAI_THONG_TIN]: {
+    tienTo: TIEN_TO_MA_LOAI_THONG_TIN,
     khoa: khoaLoaiThongTin,
     metadataRieng: (ten) => ({ nhomHan: nhomHanTheoTen(ten) }),
   },
@@ -61,20 +67,10 @@ export interface KetQuaTaoNhanh {
 }
 
 /**
- * Mã kế tiếp = mã LỚN NHẤT đang có + 1, không phải số lượng dòng + 1.
- *
- * Đếm dòng sai theo hai cách: hai người tạo cùng lúc ra cùng một mã, và sau khi xoá một dòng
- * thì mã kế tiếp đụng mã đã tồn tại. Cả hai đều ném lỗi ở ràng buộc `@@unique([type, code])`
- * ngay giữa thao tác của cán bộ.
+ * Số lần tạo nhanh khi đụng mã. Mã sinh từ "mã lớn nhất + 1" nên hai cán bộ tạo cùng lúc ra
+ * cùng mã; lần sau đọc lại danh mục là có mã mới.
  */
-function sinhMaTiepTheo(daCo: string[], tienTo: string): string {
-  const mau = new RegExp(`^${tienTo}(\\d+)$`);
-  const lonNhat = daCo.reduce((max, c) => {
-    const m = mau.exec(c);
-    return m ? Math.max(max, Number(m[1])) : max;
-  }, 0);
-  return `${tienTo}${String(lonNhat + 1).padStart(4, '0')}`;
-}
+const SO_LAN_THU_TAO_NHANH = 3;
 
 @Injectable()
 export class DirectoryService {
@@ -205,32 +201,55 @@ export class DirectoryService {
       );
     }
     const ten = (dto.name ?? '').trim();
-    if (!ten) throw new BadRequestException('Tên mục danh mục không được để trống');
-
-    const dangCo = await this.prisma.directory.findMany({
-      where: { type: dto.type },
-      select: { id: true, type: true, code: true, name: true, isActive: true },
-    });
+    if (!ten)
+      throw new BadRequestException('Tên mục danh mục không được để trống');
 
     const khoa = luat.khoa(ten);
-    const trung = dangCo.find((d) => luat.khoa(d.name) === khoa);
-    // Trả về mục đã có kèm dấu, để giao diện nói rõ "đơn vị này đã có" thay vì im lặng chọn một
-    // dòng người dùng không chủ ý tạo.
-    if (trung) return { ...trung, daCoSan: true as const };
+    for (let lan = 1; ; lan++) {
+      const dangCo = await this.prisma.directory.findMany({
+        where: { type: dto.type },
+        select: {
+          id: true,
+          type: true,
+          code: true,
+          name: true,
+          isActive: true,
+        },
+      });
 
-    return this.prisma.directory.create({
-      data: {
-        type: dto.type,
-        code: sinhMaTiepTheo(dangCo.map((d) => d.code), luat.tienTo),
-        name: ten,
-        // Xếp sau các mục đã có: mục tự tạo chưa được duyệt, không nên nổi lên đầu ô tìm.
-        order: 9000,
-        isActive: true,
-        // Vào nhóm CHỜ DUYỆT để quản trị rà lại. Không đánh dấu thì mục cán bộ gõ vội lẫn vào
-        // danh mục chính và không còn đường nào tìm ra chúng.
-        metadata: { ...luat.metadataRieng(ten), nguon: 'tao-nhanh', choDuyet: true },
-      },
-    });
+      const trung = dangCo.find((d) => luat.khoa(d.name) === khoa);
+      // Trả về mục đã có kèm dấu, để giao diện nói rõ "đơn vị này đã có" thay vì im lặng chọn một
+      // dòng người dùng không chủ ý tạo.
+      if (trung) return { ...trung, daCoSan: true as const };
+
+      try {
+        return await this.prisma.directory.create({
+          data: {
+            type: dto.type,
+            code: sinhDayMa(
+              dangCo.map((d) => d.code),
+              1,
+              luat.tienTo,
+            )[0],
+            name: ten,
+            // Xếp sau các mục đã có: mục tự tạo chưa được duyệt, không nên nổi lên đầu ô tìm.
+            order: THU_TU_CHO_DUYET,
+            isActive: true,
+            // Vào nhóm CHỜ DUYỆT để quản trị rà lại. Không đánh dấu thì mục cán bộ gõ vội lẫn vào
+            // danh mục chính và không còn đường nào tìm ra chúng.
+            metadata: {
+              ...luat.metadataRieng(ten),
+              nguon: 'tao-nhanh',
+              choDuyet: true,
+            },
+          },
+        });
+      } catch (e) {
+        // Đụng mã: người khác vừa tạo giữa lúc đọc và lúc ghi — có khi chính loại này. Đọc lại.
+        const trungMa = (e as { code?: string } | null)?.code === 'P2002';
+        if (!trungMa || lan >= SO_LAN_THU_TAO_NHANH) throw e;
+      }
+    }
   }
 
   async update(id: string, dto: PartialCreateDto) {

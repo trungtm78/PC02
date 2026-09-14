@@ -65,6 +65,8 @@ describe('LegacyMigrationService', () => {
     }).compile();
     service = module.get<LegacyMigrationService>(LegacyMigrationService);
     jest.clearAllMocks();
+    // clearAllMocks KHÔNG xoá mockResolvedValue — danh mục một ca đặt sẽ rò sang ca sau.
+    mockPrisma.directory.findMany.mockResolvedValue([]);
     // Default: $transaction runs its callback with mockTx
     mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockTx));
     mockTx.petition.findFirst.mockResolvedValue(null);

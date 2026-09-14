@@ -1,10 +1,10 @@
 /**
- * Đường ĐẦY ĐỦ: chi tiết trả về từ máy chủ → cờ "hồ sơ di trú" → phép kiểm trên form.
+ * Đường ĐẦY ĐỦ: chi tiết trả về từ máy chủ → form sửa → bấm Cập nhật, với hồ sơ KHÔNG mang loại.
  *
- * Ca kiểm ở tầng hàm thuần chỉ chứng minh nhánh rẽ đúng khi ĐƯỢC TRUYỀN cờ đúng. Nó không
- * chứng minh cờ ấy được tính đúng từ dữ liệu máy chủ trả về — mà đó mới là chỗ hỏng: 161 hồ sơ
- * di trú là VỎ LIÊN KẾT, bản thô nằm ở thực thể anh em nên `legacyRaw` của chính nó để trống.
- * Tính cờ theo `legacyRaw` thì đúng nhóm ấy vẫn bị chặn Lưu.
+ * Trước 14/09/2026 form bắt buộc "Loại đơn thư" và chỉ miễn cho hồ sơ di trú (tính cờ theo
+ * `legacySourceId`, vì 161 hồ sơ vỏ liên kết không có `legacyRaw`). Ô ấy đã gộp vào "Loại thông
+ * tin" và không còn bắt buộc; các ca dưới đây giữ lại đúng những nhóm từng bị chặn Lưu, để lối
+ * chặn không quay lại theo đường khác.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';

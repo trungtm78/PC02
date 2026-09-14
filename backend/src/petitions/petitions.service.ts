@@ -42,7 +42,13 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
-import { nhomHanCuaLoaiThongTin } from './loai-thong-tin.rule';
+import {
+  TRUY_VAN_DANH_MUC_LOAI_THONG_TIN,
+  lapChiMucLoaiThongTin,
+  traLoaiTheoKhoa,
+  type ChiMucLoaiThongTin,
+} from './loai-thong-tin.rule';
+import { khoaLoaiThongTin } from '../common/utils/khoa-loai-thong-tin.util';
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -416,13 +422,49 @@ export class PetitionsService {
     return { success: true, data: record };
   }
 
-  /** Nhóm hạn của một Loại thông tin — tra danh mục `LOAI_THONG_TIN`, lùi về luật theo tên. */
-  private async nhomHanTheoDanhMuc(loaiThongTin: string): Promise<LoaiDon | undefined> {
-    const danhMuc = await this.prisma.directory.findMany({
-      where: { type: 'LOAI_THONG_TIN' },
-      select: { name: true, metadata: true },
-    });
-    return nhomHanCuaLoaiThongTin(loaiThongTin, danhMuc);
+  private async taiChiMucLoaiThongTin(): Promise<ChiMucLoaiThongTin> {
+    return lapChiMucLoaiThongTin(
+      await this.prisma.directory.findMany(TRUY_VAN_DANH_MUC_LOAI_THONG_TIN),
+    );
+  }
+
+  /**
+   * Loại thông tin + nhóm hạn khi SỬA đơn — chỉ trả các cột phải ghi.
+   *
+   * Form gửi `loaiThongTin` ở MỌI lần Lưu, nên nhóm hạn chỉ được suy lại khi loại THẬT SỰ đổi
+   * (so khoá gộp) hoặc hồ sơ chưa có nhóm hạn. Suy lại mỗi lần là: sửa số điện thoại cũng đè nhóm
+   * hạn cán bộ đã chọn trên form cũ, và hoàn tác nhóm hạn đồng bộ từ Vụ án (cases.service ghi
+   * thẳng cột ấy). Xoá trắng loại KHÔNG xoá nhóm hạn. Hạn đã giao không tính lại.
+   *
+   * Hồ sơ có loại thì DANH MỤC quyết nhóm hạn, kể cả khi client gửi `petitionType` — API không được
+   * vòng qua luật hạn. Không có loại mới nghe `petitionType` client gửi.
+   */
+  private async loaiVaNhomHanKhiSua(
+    dto: Pick<UpdatePetitionDto, 'loaiThongTin' | 'petitionType'>,
+    existing: { loaiThongTin: string | null; petitionType: LoaiDon | null },
+  ): Promise<{ loaiThongTin?: string; petitionType?: LoaiDon }> {
+    if (dto.loaiThongTin === undefined && dto.petitionType === undefined)
+      return {};
+    const loaiHieuLuc =
+      dto.loaiThongTin !== undefined ? dto.loaiThongTin : existing.loaiThongTin;
+    const khoa = khoaLoaiThongTin(loaiHieuLuc);
+    if (!khoa)
+      return dto.petitionType ? { petitionType: dto.petitionType } : {};
+
+    const canNhomHan =
+      khoa !== khoaLoaiThongTin(existing.loaiThongTin) ||
+      !existing.petitionType;
+    if (dto.loaiThongTin === undefined && !canNhomHan) return {};
+
+    const loai = traLoaiTheoKhoa(
+      khoa,
+      loaiHieuLuc as string,
+      await this.taiChiMucLoaiThongTin(),
+    );
+    return {
+      ...(dto.loaiThongTin !== undefined && { loaiThongTin: loai.ten }),
+      ...(canNhomHan && { petitionType: loai.nhomHan }),
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -473,10 +515,21 @@ export class PetitionsService {
       }
     }
 
-    // Nhóm hạn: form không còn ô "Loại đơn thư" — suy từ Loại thông tin qua danh mục, TRƯỚC khối
-    // tính hạn. petitionType gửi tường minh vẫn thắng.
-    if (!dto.petitionType && dto.loaiThongTin) {
-      dto = { ...dto, petitionType: await this.nhomHanTheoDanhMuc(dto.loaiThongTin) } as CreatePetitionDto;
+    // Nhóm hạn: form không còn ô "Loại đơn thư". Có Loại thông tin thì DANH MỤC quyết nhóm hạn, kể
+    // cả khi client gửi petitionType (API không được vòng qua luật hạn), và chữ loại đổi về tên
+    // của mục. Phải chạy TRƯỚC khối tính hạn.
+    const khoaLoai = khoaLoaiThongTin(dto.loaiThongTin);
+    if (khoaLoai) {
+      const loai = traLoaiTheoKhoa(
+        khoaLoai,
+        dto.loaiThongTin as string,
+        await this.taiChiMucLoaiThongTin(),
+      );
+      dto = {
+        ...dto,
+        loaiThongTin: loai.ten,
+        petitionType: loai.nhomHan,
+      } as CreatePetitionDto;
     }
 
     // Auto-calculate deadline by petition type — days read from SystemSettings (GAP-7)
@@ -639,16 +692,7 @@ export class PetitionsService {
       }
     }
 
-    // Nhóm hạn đi theo Loại thông tin khi đổi loại mà không gửi petitionType. Hạn đã giao KHÔNG
-    // tính lại — chỉ cột nhóm hạn đổi.
-    const petitionTypeCapNhat =
-      dto.petitionType !== undefined
-        ? dto.petitionType
-        : dto.loaiThongTin !== undefined
-          ? dto.loaiThongTin
-            ? ((await this.nhomHanTheoDanhMuc(dto.loaiThongTin)) ?? null)
-            : null
-          : undefined;
+    const loaiVaNhomHan = await this.loaiVaNhomHanKhiSua(dto, existing);
 
     // v0.30: PETITION_UPDATED via wrapUpdate — full before/after for inline diff.
     const petitionData = {
@@ -679,7 +723,6 @@ export class PetitionsService {
       ...(dto.suspectedAddress !== undefined && {
         suspectedAddress: dto.suspectedAddress,
       }),
-      ...(petitionTypeCapNhat !== undefined && { petitionType: petitionTypeCapNhat }),
       ...(dto.priority !== undefined && { priority: dto.priority }),
       ...(dto.summary !== undefined && { summary: dto.summary }),
       ...(dto.detailContent !== undefined && {
@@ -728,6 +771,8 @@ export class PetitionsService {
       ...(dto.senderIdIssuePlace !== undefined && { senderIdIssuePlace: dto.senderIdIssuePlace }),
       ...(dto.senderIsAnonymous !== undefined && { senderIsAnonymous: dto.senderIsAnonymous }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
+      // Sau ô gốc: tên chuẩn theo danh mục + nhóm hạn (nếu phải ghi) đè lên chữ client gửi.
+      ...loaiVaNhomHan,
       ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
       ...(dto.ngayPhieuChuyen !== undefined && {
         ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null,

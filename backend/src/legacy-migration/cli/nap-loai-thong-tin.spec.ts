@@ -231,6 +231,21 @@ describe('napLoaiThongTin', () => {
     expect(kq.daGhi).toEqual({ muc: 2, loai: 2, nhom: 4 });
   });
 
+  /**
+   * Soát 15/09/2026: `skipDuplicates` bỏ LẶNG LẼ mục đụng mã (một lượt tạo nhanh chen giữa lúc đọc
+   * và lúc ghi). Đi tiếp thì hồ sơ bị đổi sang một tên không có trong danh mục — ô chọn không hiện
+   * được. Thiếu mục là dừng trước khi đụng hồ sơ; chạy lại thì đọc danh mục mới và đủ.
+   */
+  it('ghi thật: createMany tạo thiếu mục → dừng, KHÔNG đụng hồ sơ', async () => {
+    const { prisma, ghi, createMany } = gia({ hoSo: HO_SO });
+    createMany.mockImplementationOnce(() => Promise.resolve({ count: 1 }));
+
+    await expect(napLoaiThongTin(prisma, true, csv)).rejects.toThrow(
+      /2 mục.*1/,
+    );
+    expect(ghi).toEqual([]);
+  });
+
   it('ghi thật chia lô 500 hồ sơ mỗi câu UPDATE', async () => {
     const nhieu = Array.from({ length: 1001 }, (_, i) => ({
       id: `h${i}`,

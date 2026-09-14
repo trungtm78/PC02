@@ -1,17 +1,12 @@
 /**
- * v0.37.2.4 — Regression test for P0 bug found during user UAT 2026-05-23.
+ * Payload form Đơn thư.
  *
- * Bug: PetitionFormPage submitted Vietnamese name "Tố cáo" as petitionType
- * (because FKSelect with directoryType="PETITION_TYPE" returns Directory.name)
- * but backend DTO `@IsEnum(LoaiDon)` requires enum value "TO_CAO" → 100%
- * submissions returned 400 with error "petitionType phải là TO_CAO,
- * KHIEU_NAI, KIEN_NGHI hoặc PHAN_ANH".
- *
- * Fix: dùng native <select> với hardcoded enum options (LOAI_DON_OPTIONS from
- * shared/enums/status-labels.ts). value=enum, label=Vietnamese.
+ * Lịch sử: v0.37.2.4 form gửi TÊN "Tố cáo" vào `petitionType` (enum) → 100% đơn bị 400. Từ
+ * 14/09/2026 form không còn ô Loại đơn thư: chỉ một ô "Loại thông tin" chọn từ danh mục
+ * LOAI_THONG_TIN (gửi TÊN), còn nhóm hạn `petitionType` do máy chủ suy — form KHÔNG gửi nó.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, type AuthUser } from '@/stores/auth.store';
@@ -34,9 +29,12 @@ vi.mock('@/features/document-numbers/api', () => ({
   },
 }));
 
-// Mock FKSelect (custom button-based combobox) as plain native <select> so that
-// fireEvent.change works in tests. petitionType is now a native <select> in
-// production code, but priority + unit still use FKSelect — mocking unifies them.
+// Mock FKSelect (combobox tự dựng) thành <select> gốc để fireEvent.change dùng được. Ô có
+// `onCreateNew` thì kèm nút "tạo mới" giả — kiểm được đường nối popup tạo nhanh của form.
+const moPopupTaoNhanh = vi.hoisted(() => vi.fn());
+vi.mock('@/features/_shared/modals/useQuickCreateDirectoryModal', () => ({
+  useQuickCreateDirectoryModalSafe: () => ({ open: moPopupTaoNhanh }),
+}));
 // Lựa chọn theo TỪNG loại danh mục. Trước 27/08/2026 giả lập trả đúng ba mức ưu tiên cho
 // mọi loại, nên ô "Đơn vị giải quyết" (loại UNIT) không chọn nổi tên tổ nào — `fireEvent.change`
 // với giá trị không có trong danh sách thì `<select>` giữ nguyên rỗng, và ca kiểm đọc ra null.
@@ -50,25 +48,36 @@ const LUA_CHON_THEO_DANH_MUC: Record<string, string[]> = {
 const LUA_CHON_MAC_DINH = ['Cao', 'Trung bình', 'Thấp', 'Đội 1 PC02', 'Đội 4', 'Đội 8'];
 
 vi.mock('@/components/FKSelect', () => ({
-  FKSelect: ({ value, onChange, testId, directoryType }: {
+  FKSelect: ({ value, onChange, testId, directoryType, onCreateNew }: {
     value: string;
     onChange: (v: string) => void;
     testId?: string;
     directoryType?: string;
+    onCreateNew?: (tenGoiY: string) => void;
   }) => (
-    <select
-      data-testid={testId}
-      data-directory-type={directoryType}
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">--</option>
-      {(LUA_CHON_THEO_DANH_MUC[directoryType ?? ''] ?? LUA_CHON_MAC_DINH).map((v) => (
-        <option key={v} value={v}>
-          {v}
-        </option>
-      ))}
-    </select>
+    <>
+      <select
+        data-testid={testId}
+        data-directory-type={directoryType}
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">--</option>
+        {value && <option value={value}>{value}</option>}
+        {(LUA_CHON_THEO_DANH_MUC[directoryType ?? ''] ?? LUA_CHON_MAC_DINH)
+          .filter((v) => v !== value)
+          .map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+      </select>
+      {onCreateNew && (
+        <button type="button" data-testid={`${testId}-tao-moi`} onClick={() => onCreateNew('trình báo')}>
+          tạo mới
+        </button>
+      )}
+    </>
   ),
 }));
 
@@ -195,6 +204,33 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
   it('nhãn "Ghi chú trùng đơn" hiển thị (khớp hệ cũ)', async () => {
     await renderForm();
     expect(await screen.findByText(/Ghi chú trùng đơn/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Nối dây tạo nhanh: ca kiểm popup chỉ chứng minh popup đúng khi ĐƯỢC mở đúng. Mở với loại
+   * DON_VI, hay `onCreated` ghi nhầm ô, thì popup vẫn xanh mà cán bộ tạo xong ô vẫn trống.
+   */
+  it('tạo nhanh Loại thông tin: mở popup đúng loại, tạo xong ô mang tên mới và được gửi đi', async () => {
+    await renderForm();
+
+    fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
+    fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
+    fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
+    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
+
+    fireEvent.click(screen.getByTestId('field-loaiThongTin-tao-moi'));
+    expect(moPopupTaoNhanh).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'LOAI_THONG_TIN', tenGoiY: 'trình báo' }),
+    );
+    const { onCreated } = moPopupTaoNhanh.mock.calls.at(-1)![0] as { onCreated: (ten: string) => void };
+    act(() => onCreated('Trình báo'));
+    expect(screen.getByTestId('field-loaiThongTin')).toHaveValue('Trình báo');
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(body.loaiThongTin).toBe('Trình báo');
   });
 
   /** Thiếu loại thông tin KHÔNG chặn lưu — hệ cũ không bắt buộc, máy chủ tính hạn theo nhánh mặc định. */

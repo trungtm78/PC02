@@ -202,6 +202,8 @@ describe('PetitionsService', () => {
     service = module.get<PetitionsService>(PetitionsService);
     jest.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+    // clearAllMocks KHÔNG xoá mockResolvedValue — danh mục một ca đặt sẽ rò sang ca sau.
+    mockPrisma.directory.findMany.mockResolvedValue([]);
   });
 
   // ── getList ────────────────────────────────────────────────────────────────
@@ -584,11 +586,16 @@ describe('PetitionsService', () => {
         const { petitionType: _bo, ...khongLoaiDon } = validDto as Record<string, unknown>;
         await service.create({ ...khongLoaiDon, loaiThongTin: 'tố giác' } as never, 'user-001');
 
-        expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({ where: expect.objectContaining({ type: 'LOAI_THONG_TIN' }) }),
-        );
+        expect(mockPrisma.directory.findMany).toHaveBeenCalledWith({
+          where: { type: 'LOAI_THONG_TIN', isActive: true },
+          select: { name: true, metadata: true },
+          orderBy: { code: 'asc' },
+        });
         expect(mockDeadlineRules.getActive).toHaveBeenCalledWith('THOI_HAN_KHIEU_NAI');
-        expect(mockPrisma.petition.create.mock.calls[0][0].data.petitionType).toBe('KHIEU_NAI');
+        const data = mockPrisma.petition.create.mock.calls[0][0].data;
+        expect(data.petitionType).toBe('KHIEU_NAI');
+        // Chữ gõ lệch cách viết được đổi về tên của mục — không để biến thể quay lại danh sách.
+        expect(data.loaiThongTin).toBe('Tố giác');
       });
 
       it('không có trong danh mục → luật theo tên ("Tố cáo cán bộ" → 30 ngày)', async () => {
@@ -603,12 +610,30 @@ describe('PetitionsService', () => {
         expect(mockPrisma.petition.create.mock.calls[0][0].data.petitionType).toBe('TO_CAO');
       });
 
-      it('petitionType gửi tường minh THẮNG loại thông tin, không đọc danh mục', async () => {
+      /**
+       * Soát 15/09/2026 (Codex): form đã bỏ ô Loại đơn thư, nhưng API vẫn nhận `petitionType`. Để
+       * nó thắng thì một lời gọi API ghi "Tố cáo" (in ra văn bản) mà hạn tính theo Kiến nghị 15
+       * ngày. Có Loại thông tin thì DANH MỤC quyết nhóm hạn.
+       */
+      it('có Loại thông tin → danh mục THẮNG petitionType client gửi', async () => {
         mockPrisma.petition.findUnique.mockResolvedValue(null);
         mockPrisma.petition.create.mockResolvedValue(mockPetition);
 
         await service.create(
           { ...validDto, petitionType: LoaiDon.KIEN_NGHI, loaiThongTin: 'Tố cáo' } as never,
+          'user-001',
+        );
+
+        expect(mockDeadlineRules.getActive).toHaveBeenCalledWith('THOI_HAN_TO_CAO');
+        expect(mockPrisma.petition.create.mock.calls[0][0].data.petitionType).toBe('TO_CAO');
+      });
+
+      it('không có Loại thông tin → dùng petitionType client gửi', async () => {
+        mockPrisma.petition.findUnique.mockResolvedValue(null);
+        mockPrisma.petition.create.mockResolvedValue(mockPetition);
+
+        await service.create(
+          { ...validDto, petitionType: LoaiDon.KIEN_NGHI, loaiThongTin: '  ' } as never,
           'user-001',
         );
 
@@ -719,12 +744,20 @@ describe('PetitionsService', () => {
     describe('nhóm hạn theo Loại thông tin', () => {
       const duLieuGhi = () => mockPrisma.petition.update.mock.calls.at(-1)![0].data;
 
-      it('đổi loaiThongTin, không gửi petitionType → ghi nhóm hạn mới, không đụng deadline', async () => {
-        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      const hoSo = (loaiThongTin: string | null, petitionType: string | null) => ({
+        ...mockPetition,
+        loaiThongTin,
+        petitionType,
+      });
+      const danhMucKhieuNai = [
+        { name: 'Khiếu nại (Quyết định tố tụng)', metadata: { nhomHan: 'KHIEU_NAI' } },
+        { name: 'Tố giác', metadata: { nhomHan: 'PHAN_ANH' } },
+      ];
+
+      it('đổi sang loại khác → tên chuẩn + nhóm hạn mới, không đụng deadline', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố giác', 'PHAN_ANH'));
         mockPrisma.petition.update.mockResolvedValue(mockPetition);
-        mockPrisma.directory.findMany.mockResolvedValue([
-          { name: 'Khiếu nại (Quyết định tố tụng)', metadata: { nhomHan: 'KHIEU_NAI' } },
-        ]);
+        mockPrisma.directory.findMany.mockResolvedValue(danhMucKhieuNai);
 
         await service.update(
           'petition-001',
@@ -733,34 +766,67 @@ describe('PetitionsService', () => {
         );
 
         expect(duLieuGhi()).toMatchObject({
-          loaiThongTin: 'Khiếu nại (QĐ tố tụng)',
+          loaiThongTin: 'Khiếu nại (Quyết định tố tụng)',
           petitionType: 'KHIEU_NAI',
         });
         expect(duLieuGhi()).not.toHaveProperty('deadline');
         expect(mockDeadlineRules.getActive).not.toHaveBeenCalled();
       });
 
-      it('xoá trắng loaiThongTin → petitionType cũng về null', async () => {
-        mockPrisma.petition.findFirst.mockResolvedValue({ ...mockPetition, petitionType: 'TO_CAO' });
+      /**
+       * Soát 15/09/2026 — lỗi chặn merge (bốn nguồn soát cùng chỉ ra): form gửi `loaiThongTin` ở
+       * MỌI lần Lưu. Suy lại nhóm hạn mỗi lần là sửa số điện thoại cũng đè nhóm hạn cán bộ đã chọn
+       * trên form cũ, và hoàn tác nhóm hạn đồng bộ từ Vụ án (cases.service.ts ghi thẳng cột ấy).
+       */
+      it('Lưu lại cùng loại (khác cách viết) khi đã có nhóm hạn → KHÔNG đổi nhóm hạn', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố giác', 'TO_CAO'));
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+        mockPrisma.directory.findMany.mockResolvedValue(danhMucKhieuNai);
+
+        await service.update(
+          'petition-001',
+          { loaiThongTin: 'tố giác', senderPhone: '0901234567' } as never,
+          'user-001',
+        );
+
+        expect(duLieuGhi()).not.toHaveProperty('petitionType');
+        expect(duLieuGhi()).toMatchObject({ loaiThongTin: 'Tố giác' });
+      });
+
+      it('cùng loại nhưng hồ sơ chưa có nhóm hạn → suy nhóm hạn', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố giác', null));
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+        mockPrisma.directory.findMany.mockResolvedValue(danhMucKhieuNai);
+
+        await service.update('petition-001', { loaiThongTin: 'Tố giác' } as never, 'user-001');
+
+        expect(duLieuGhi()).toMatchObject({ petitionType: 'PHAN_ANH' });
+      });
+
+      it('xoá trắng loaiThongTin → GIỮ nhóm hạn (không ghi null)', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố cáo', 'TO_CAO'));
         mockPrisma.petition.update.mockResolvedValue(mockPetition);
 
         await service.update('petition-001', { loaiThongTin: null } as never, 'user-001');
 
-        expect(duLieuGhi()).toMatchObject({ loaiThongTin: null, petitionType: null });
+        expect(duLieuGhi()).toMatchObject({ loaiThongTin: null });
+        expect(duLieuGhi()).not.toHaveProperty('petitionType');
+        expect(mockPrisma.directory.findMany).not.toHaveBeenCalled();
       });
 
-      it('không gửi loaiThongTin → không đọc danh mục, không đổi petitionType', async () => {
-        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      it('không gửi loaiThongTin lẫn petitionType → không đọc danh mục, không đổi gì', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố cáo', null));
         mockPrisma.petition.update.mockResolvedValue(mockPetition);
 
         await service.update('petition-001', { senderName: 'Tên mới' } as never, 'user-001');
 
         expect(mockPrisma.directory.findMany).not.toHaveBeenCalled();
         expect(duLieuGhi()).not.toHaveProperty('petitionType');
+        expect(duLieuGhi()).not.toHaveProperty('loaiThongTin');
       });
 
-      it('gửi cả hai → petitionType tường minh thắng', async () => {
-        mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      it('hồ sơ có loại + client gửi petitionType → danh mục THẮNG', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo('Tố cáo', null));
         mockPrisma.petition.update.mockResolvedValue(mockPetition);
 
         await service.update(
@@ -769,7 +835,20 @@ describe('PetitionsService', () => {
           'user-001',
         );
 
-        expect(duLieuGhi()).toMatchObject({ petitionType: 'PHAN_ANH' });
+        expect(duLieuGhi()).toMatchObject({ petitionType: 'TO_CAO' });
+      });
+
+      it('hồ sơ không có loại + client gửi petitionType → dùng giá trị client', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(hoSo(null, null));
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+
+        await service.update(
+          'petition-001',
+          { petitionType: LoaiDon.KIEN_NGHI } as never,
+          'user-001',
+        );
+
+        expect(duLieuGhi()).toMatchObject({ petitionType: 'KIEN_NGHI' });
         expect(mockPrisma.directory.findMany).not.toHaveBeenCalled();
       });
     });
