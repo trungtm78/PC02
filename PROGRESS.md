@@ -1,70 +1,66 @@
-# Tiến độ — In từ danh sách · STT cũ · bản in Word giống hệ cũ
+# PROGRESS
+Cập nhật: 2026-09-15T00:30+07:00 | Milestone: M1/7 | Task: 6/7
 
-<!-- Dấu STATUS phải nằm ĐẦU DÒNG: `.claude/hooks/stop-guard.bat` neo bằng `^STATUS: ALL_MILESTONES_DONE — cả 5 mốc xong, đã lên máy thật và kiểm tận nơi
-STATUS: ALL_MILESTONES_DONE — cả 5 mốc xong, đã lên máy thật và kiểm tận nơi
+<!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
-## Đã xong và ĐÃ LÊN MÁY THẬT
+Spec gốc:
+- M1: `docs/superpowers/specs/2026-09-14-loai-thong-tin-design.md`
+- M2–M6: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md` (đã qua /plan-eng-review, 22 phát hiện đã gộp)
 
-- **M1 · Nút In trên cột Thao tác** (PR #346) — ba màn danh sách + bảng gộp.
-- **M2 · STT cũ trong cột STT** (PR #346) — dạng `16-243 - (STT cũ: 208)`; ô lọc nhận cả
-  `208` lẫn `2016-208`; mở `sttCu` trong `select` của Vụ việc.
-- **M3a · Sửa PHÉP ĐO trước khi sửa bản in** (PR #346) — bộ bóc chữ cũ gộp cả `</w:p>` lẫn
-  `<w:br/>` thành `
-`, nên bản tách đoạn và bản ngắt dòng mềm cho ra ĐÚNG MỘT mảng. Đây là
-  chỗ mù đã đỡ cho kết luận "0 chỗ lệch" ngày 28/08.
-- **M3b · Đối chiếu qua ĐƯỜNG XUẤT THẬT** (PR #346) — `cap-ban-in.ts` gọi API xuất của máy chủ.
-- **M3c · Ngắt đoạn như hệ cũ** (PR #346) — 38 dòng lệch → 3, và cả 3 là hệ cũ tự in ra tên
-  biến của nó. Prod-verified 09/09.
+## Milestone
+| # | Nội dung | Nhánh |
+|---|---|---|
+| M1 | Ô Loại thông tin: một ô smart select, danh mục LOAI_THONG_TIN, nhóm hạn, chuẩn hoá dữ liệu | feat/loai-thong-tin-smart-select |
+| M2 | Tìm kiếm dạng thẻ — T0 đo trước + PR1 nền + Đơn thư + lát Tổng hợp | feat/tim-kiem-dang-the-nen |
+| M3 | PR2 Vụ việc, Vụ án, Ủy thác điều tra | |
+| M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | |
+| M5 | PR4 12 màn tìm phía trình duyệt | |
+| M6 | PR5 9 màn tìm phía máy chủ + GlobalSearchBar | |
+| M7 | UAT phủ 100% (UAT-COVERAGE.md) | |
 
-## Đã gộp — PR #347 (chờ deploy)
+## Đã hoàn thành
+- [x] M1-spec — commit eb1afe00 — đặc tả Loại thông tin
+- [x] M2-spec — kế hoạch tìm kiếm dạng thẻ + /plan-eng-review (outside voice Claude subagent; Codex hết giờ)
+- [x] M1-T1 — commit 74f7ede6 — khoaLoaiThongTin + nhomHanTheoTen (31 ca chuỗi thật, phủ 100%)
+- [x] M1-T2 — commit f6dc213a — tạo nhanh LOAI_THONG_TIN chặn trùng theo khoá gộp (directory 53 ca, phủ 98,9%)
+- [x] M1-T3 — commit 90974a41 — petitionType tuỳ chọn, suy nhóm hạn từ danh mục; field-catalog loaiDon ưu tiên loaiThongTin
+- [x] M1-T4 — commit 2cfbbeb4 — bộ nạp hệ cũ chuẩn hoá loaiThongTin + gán petitionType (legacy 59 bộ/950 ca)
+- [x] M1-T5 — commit (feat(don-thu) một ô Loại thông tin) — gỡ ô Loại đơn thư, FKSelect LOAI_THONG_TIN + tạo nhanh, popup câu chữ theo loại, tách hook popup (lint react-refresh) — frontend 237 tệp/2.863 ca
 
-- **Mẫu hệ cũ phủ đủ thực thể**: 5.227 hồ sơ có chứng từ hệ cũ in được mà hệ mới không mời in
-  (Vụ án 4.338 · Trả hồ sơ 441 · Đơn thư 245 · Đăng ký bào chữa 198 · …). Đo trên toàn bộ
-  54.697 hồ sơ. Sửa bằng cách thêm dòng mẫu cho từng thực thể — khoá `(entityType, code)` cho
-  phép, không đụng lược đồ.
-- **Định dạng của nhãn trùm lên cả câu** — ANH PHÁT HIỆN: hệ cũ chỉ đậm nhãn "Đề xuất:" và tên
-  đơn vị, hệ mới đậm + gạch chân cả câu. Hai bước chuẩn hoá cùng gây ra; cả hai đã sửa.
-- **Phép so KIỂU CHỮ** — tầng thứ ba của công cụ. Hai tầng cũ (chữ · đoạn) không thể thấy lỗi
-  trên: chữ giống hệt, còn đậm là thuộc tính của run.
+- [x] M1-T6 — commit feat(legacy) CLI nap-loai-thong-tin — 35 ca (util phủ 100% dòng, CLI 87,7% — phần chưa phủ là khối `require.main`); pc02_that: 512 mục/352 chờ duyệt, đổi loại 7.054, nhóm hạn 46.721, lần 2 ra 0, NFD 0, updatedAt không đổi
 
-## Kết quả cuối (vòng 4, đo trên máy thật)
+## Đang làm dở
+Task: M1-T7 — /review + /codex → PR → CI → merge → deploy → chạy CLI trên prod
+Đã làm: chưa
+BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh pr create; chờ CI xanh (kiểm kết quả, không chỉ hết PENDING); merge; kiểm deploy + bản công khai; prod: sao lưu → chạy thử CLI → **DỪNG xin anh xác nhận trước --that**
+Điểm cần anh duyệt trong bảng gộp: "Tố giác"/"Trình báo"/"Đề nghị" nhóm hạn Phản ánh (15 ngày) theo đặc tả; "Đơn tố cáo" (2 hồ sơ) rơi vào Phản ánh; "Đề nghị (lần 2/3)" là mục riêng; 352 mục chờ duyệt đa số lỗi gõ
 
-10 cặp bản in: **0 lệch dữ liệu · 0 lệch bố cục · 0 lệch kiểu chữ**. Bốn chỗ lệch còn lại đều là
-hệ cũ tự in ra tên biến của nó khi hồ sơ thiếu khoá — lỗi hệ cũ, cố ý không chép.
+## Hàng đợi task kế tiếp (M1)
+1. M1-T1 khoá gộp + nhóm hạn theo tên (util thuần)
+2. M1-T2 máy chủ: LOAI_TAO_NHANH_DUOC + taoNhanh chặn trùng theo khoá gộp, metadata nhomHan/choDuyet
+3. M1-T3 máy chủ: petitionType tuỳ chọn, suy nhóm hạn từ danh mục trước khối tính hạn; field-catalog `loaiDon` ưu tiên loaiThongTin
+4. M1-T4 bộ nạp hệ cũ chuẩn hoá loaiThongTin + gán petitionType
+5. M1-T5 giao diện: gỡ ô Loại đơn thư, ô Loại thông tin thành FKSelect LOAI_THONG_TIN + tạo nhanh
+6. M1-T6 CLI nap-loai-thong-tin (chạy thử mặc định, CSV bảng gộp) + chạy trên bản sao pc02_that
+7. M1-T7 PR → CI → merge → deploy; chạy CLI trên prod: sao lưu → chạy thử → **DỪNG xin xác nhận trước --that (ghi đè dữ liệu prod, §8c)**
 
-Bốn lớp khác biệt đã sửa: ngắt đoạn (15.338 + 6.259 hồ sơ) · định dạng nhãn trùm cả câu (anh
-phát hiện) · cỡ chữ và đậm ở dòng tiếp · ô `de_xuat` ngắt dòng mềm (498 hồ sơ).
+## Quyết định kiến trúc
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 14/09 | Gộp Loại đơn thư vào Loại thông tin; giữ cột petitionType làm nhóm hạn | petitionType quyết định hạn tự tính (petitions.service.ts:476) | Excel/số văn bản/đồng bộ vụ án đọc tiếp không vỡ |
+| 14/09 | Tìm kiếm: cột bóng `_bd` trên bảng + bộ sinh từ một tệp khai, không EAV/jsonb | Prisma string_contains jsonb không dùng chỉ mục; EAV khuếch đại ghi | Thêm cột tìm được = sửa tệp khai + chạy bộ sinh |
 
-Monkey test bắt thêm **hai lỗi thật ngoài phạm vi**: dòng thông báo trực tuyến 401 (#351) và ô
-lọc cán bộ rỗng vì sai tên khoá (#353).
+## Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+|---|---|---|
+| Giao thức §4 "tiếng Anh toàn bộ" vs "convention repo thắng" | Theo repo: định danh/chú thích tiếng Việt như code lân cận; chữ hiển thị qua hằng số/i18n | §4 dòng cuối; CLAUDE.md toàn cục (Lumina mới bắt tiếng Anh) |
+| Giá trị ghép "Tố giác, Đề nghị" | Giữ một mục riêng | Spec M1 §3.1 |
+| Mục tạo nhanh chưa phân nhóm hạn | nhomHan = PHAN_ANH, choDuyet = true | Spec M1 §3.3 |
 
-## Đã xong (M1 · M2 · M3 · M4 · M5)
+## Trạng thái test
+Full suite: PASS (backend 319 bộ/4.754 ca, frontend 236 tệp/2.862 ca — lần chạy 14/09 trước PR #374) | Patch coverage: — | Test fail: không
 
-- **M1** nút In: PASS trên máy thật, tải được `ChungTu_20260909.docx`.
-- **M2** STT cũ: PASS trên máy thật (hồ sơ `2017-259`).
-- **M3** bản in Word: 9/10 cặp sạch cả ba tầng; cặp cuối vá ở #350.
-- **M4** sổ phủ UAT: 5/5 mệnh đề có chủ ngữ là CÁN BỘ đã chạy thật.
-- **M5** monkey test: 44 màn, 0 màn trắng, bắt được lỗi thông báo trực tuyến (#351).
-
-## Việc chờ anh quyết
-
-- **916 hồ sơ** hệ cũ in được mà hệ mới chưa có màn in (hướng dẫn 540 · trao đổi 76 · …) — treo
-  từ 28/08.
-- **Cổng CI "Maestro on Android emulator" hỏng sẵn từ 23/08**: ghim SHA của
-  `subosito/flutter-action` không còn tồn tại nên chạy 2 giây là đỏ. Một cổng luôn đỏ là tiếng ồn
-  che mất cổng đỏ thật.
-- Nhánh `feat/data-export-excel` còn 79 commit chưa gộp, chưa có PR.
-
-## Còn treo (cũ)
-
-- **Cổng CI "Maestro on Android emulator" hỏng sẵn từ 23/08**: ghim SHA của
-  `subosito/flutter-action` không còn tồn tại nên chạy 2 giây là đỏ. Không liên quan việc này,
-  nhưng một cổng luôn đỏ là tiếng ồn che mất cổng đỏ thật — chờ anh quyết có sửa không.
-
-- **916 hồ sơ** hệ cũ in được mà hệ mới chưa có màn in (hướng dẫn 540 · trao đổi 76 · …).
-- Nhánh `feat/data-export-excel` còn 79 commit chưa gộp, chưa có PR.
-
-## Chưa làm
-
-- **M4** — `UAT-COVERAGE.md` 100% PASS.
-- **M5** — monkey test.
+## Nợ kỹ thuật / rủi ro
+- Workflow "Mutation — expert modules" đỏ 3 tuần từ 30/08 (không chặn merge) — chưa điều tra.
+- Tài khoản ADMIN tạm thời (duy.tranhoang.doi2, thanh.phamtruong.doi2, minh.nguyenhoang.doi2) chờ anh bảo hạ quyền.
+- Comprehensive: prefix `comprehensive`≠`comp`, lọc nâng cao không gửi API (sửa ở M2/M4).
