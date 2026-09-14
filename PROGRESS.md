@@ -43,6 +43,8 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - **Prisma `contains` KHÔNG thoát `%`/`_`** (contains '%' khớp 47.169/47.169). Helper tìm kiếm PHẢI tự thoát `\ % _` trước khi đưa vào contains.
 - **boDauTiengViet (JS) ≠ f_bo_dau (SQL)**: `unaccent` đổi cả dấu câu (ngoặc kép cong “ ” → "), JS giữ nguyên. Đo 67.695 chuỗi thật (người gửi, loại thông tin, đơn vị, 200 ký tự đầu tóm tắt): lệch 221 (0,33%), TOÀN BỘ là dấu câu — “→" 109, –→- 58, …→. 45, ’→' 7, ¾→3 1, ”→" 1; không lệch chữ nào. Chốt T4: bộ bỏ dấu cho tìm kiếm phía JS mô phỏng đúng các ánh xạ dấu câu này (bảng nhỏ, có ca kiểm vàng chạy trên PG), không tự viết bảng chữ riêng ở SQL.
 
+- **`unaccent.rules` khác theo phiên bản**: PG16 prod 1.650 dòng, PG18 local 2.661 (thêm 1.011, khác dịch 29). Chốt T0-d: bỏ phụ thuộc `unaccent`; một bảng ánh xạ TS sinh cả hàm JS lẫn thân `f_bo_dau` SQL (`translate` + `replace`), gate so bảng ≡ SQL. Không cần cài extension trên prod.
+
 ## Hàng đợi task kế tiếp (M1)
 1. M1-T1 khoá gộp + nhóm hạn theo tên (util thuần)
 2. M1-T2 máy chủ: LOAI_TAO_NHANH_DUOC + taoNhanh chặn trùng theo khoá gộp, metadata nhomHan/choDuyet

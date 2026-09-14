@@ -256,6 +256,7 @@ Lane 1: T0 → A → B · Lane 2: C (sau A) song song B · rồi D. PR2–PR5 tu
 | T0-a | Prisma `contains` không thoát `%`/`_` | Helper tự thoát `\ % _`; ca kiểm "50%" |
 | T0-b | Bỏ dấu JS≠SQL ở dấu câu (0,33%) | `boDauTimKiem` mô phỏng unaccent; KHÔNG sửa `boDauTiengViet` (khoá gộp danh mục đang dùng) |
 | T0-c | Prod PG16, local PG18 | Mọi SQL migration/trigger dùng cú pháp chung PG16; ca kiểm chạy local PG18, gate cấm tính năng chỉ có ở PG17+ |
+| T0-d | `unaccent.rules` PG16 prod (1.650 dòng) ≠ PG18 local (2.661 dòng, 29 dòng dịch khác) — ca kiểm local không đại diện prod, nâng cấp PG âm thầm đổi kết quả tìm | **Bỏ phụ thuộc `unaccent`.** MỘT bảng ánh xạ khai trong TS (`common/tim-kiem/bang-bo-dau.ts`: chữ Việt + đ + dấu câu/ký hiệu đã gặp trong dữ liệu) → bộ sinh ra cả `boDauTimKiem` (JS) lẫn thân `f_bo_dau` (SQL `translate()` cho ánh xạ 1 ký tự + `replace` cho vài ánh xạ nhiều ký tự), IMMUTABLE thật, không cần extension; gate 4 chiều thêm "bảng ≡ thân hàm SQL"; ca kiểm vàng so JS với SQL chạy được trên mọi phiên bản PG |
 | OV1 | Trigger hỏng làm 500 mọi ghi | EXCEPTION → WARNING + ca kiểm sau migrate + hotfix SQL |
 | OV2 | Ngày lệch múi giờ | Không lưu ngày dạng chữ; khoảng +07:00 |
 | OV4 | Ghi khuếch đại | `BEFORE UPDATE OF` cột nguồn, không EAV |
