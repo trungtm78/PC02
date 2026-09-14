@@ -31,7 +31,7 @@ Spec gốc:
 
 ## Đang làm dở
 Task: M1-T7 — /review + /codex → PR → CI → merge → deploy → chạy CLI trên prod
-Đã làm: chưa
+Đã làm: /review xong (4 chuyên gia + Claude đối kháng + Codex). Sửa: update đè/xoá nhóm hạn mỗi lần Lưu (chặn merge), client petitionType vòng qua luật hạn, tra danh mục không tất định/tính mục đã tắt, bộ nạp lệch nhóm hạn khi hệ cũ đổi loại, tạo nhanh đụng mã P2002, CLI bỏ lặng lẽ mục, luật tiền tố "Đơn tố cáo"/"Tố cáo/khiếu nại", rò mock giữa ca. Commit fix(loai-thong-tin). Còn INVESTIGATE (không sửa, ghi nợ): đổi TÊN mục danh mục làm hồ sơ mang tên cũ mất nhóm hạn danh mục (hồ sơ lưu tên, không lưu id); endpoint tạo nhanh chưa giới hạn tần suất; bản in "Loại đơn" của đơn cũ đổi từ nhãn nhóm hạn sang chữ loại (đúng đặc tả §3.3); tạo nhanh khớp cả mục đã tắt (có từ DON_VI).
 BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh pr create; chờ CI xanh (kiểm kết quả, không chỉ hết PENDING); merge; kiểm deploy + bản công khai; prod: sao lưu → chạy thử CLI → **DỪNG xin anh xác nhận trước --that**
 Điểm cần anh duyệt trong bảng gộp: "Tố giác"/"Trình báo"/"Đề nghị" nhóm hạn Phản ánh (15 ngày) theo đặc tả; "Đơn tố cáo" (2 hồ sơ) rơi vào Phản ánh; "Đề nghị (lần 2/3)" là mục riêng; 352 mục chờ duyệt đa số lỗi gõ
 
