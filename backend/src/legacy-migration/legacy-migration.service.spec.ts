@@ -21,6 +21,8 @@ const mockTx: any = {
 
 const mockPrisma = {
   crime: { findFirst: jest.fn() },
+  // Danh mục Loại thông tin — `commit` nạp một lần cho cả lượt để chuẩn hoá ô loaiThongTin.
+  directory: { findMany: jest.fn().mockResolvedValue([]) },
   $transaction: jest.fn(),
 };
 
@@ -112,6 +114,28 @@ describe('LegacyMigrationService', () => {
   // ---- commit ---------------------------------------------------------------
 
   describe('commit', () => {
+    /**
+     * Nối dây THẬT: ca kiểm hàm thuần ở `loai-thong-tin-khi-nap.spec.ts` chỉ chốt phép tính; ca này
+     * chốt phần dễ hỏng hơn — danh mục có được nạp và chữ chuẩn có tới `petition.create` không.
+     */
+    it('chuẩn hoá loaiThongTin theo danh mục (nạp một lần) và gán nhóm hạn', async () => {
+      mockPrisma.directory.findMany.mockResolvedValue([
+        { name: 'Tố giác', metadata: { nhomHan: 'PHAN_ANH' } },
+      ]);
+      await service.commit(
+        [
+          { ...petitionRec, loai_thong_tin: 'tố giác (02 đơn)' },
+          { ...petitionRec, id: 'L-009', loai_thong_tin: 'Tố cáo cán bộ' },
+        ],
+        'actor-1',
+      );
+
+      expect(mockPrisma.directory.findMany).toHaveBeenCalledTimes(1);
+      const [dauTien, thuHai] = mockTx.petition.create.mock.calls.map((c: any) => c[0].data);
+      expect(dauTien).toMatchObject({ loaiThongTin: 'Tố giác', petitionType: 'PHAN_ANH' });
+      expect(thuHai).toMatchObject({ loaiThongTin: 'Tố cáo cán bộ', petitionType: 'TO_CAO' });
+    });
+
     it('tạo petition mới khi chưa có legacySourceId', async () => {
       const res = await service.commit([petitionRec], 'actor-1');
       expect(mockTx.petition.create).toHaveBeenCalledTimes(1);

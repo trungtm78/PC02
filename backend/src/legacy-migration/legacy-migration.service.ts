@@ -5,6 +5,8 @@ import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-ma
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 import { HuongXuLyDon, PetitionStatus } from '@prisma/client';
 import { huongTheoTrangThai, huongTheoNoiDungDonVi } from '../petitions/huong-xu-ly.rule';
+import { nhomHanCuaLoaiThongTin, type MucLoaiThongTin } from '../petitions/loai-thong-tin.rule';
+import { khoaLoaiThongTin } from '../common/utils/khoa-loai-thong-tin.util';
 
 // Provenance import (Case/Incident có cột; Petition KHÔNG có → không set). actorId = người chạy di trú.
 const IMPORTED = (actorId: string) => ({
@@ -103,6 +105,27 @@ export function giuChuCanBoDaGo(
  *     trả đơn / lưu đơn thì cán bộ gõ luôn câu vào ô đơn vị. Bỏ bước này, hồ sơ 2026-11725
  *     ("Lưu đơn; Hướng dẫn khởi kiện tại TAND") thành Giao đơn và in sai câu đề xuất.
  */
+/**
+ * Chuẩn hoá ô "Loại thông tin" của đơn thư nạp từ hệ cũ theo danh mục `LOAI_THONG_TIN`.
+ *
+ * Hệ cũ không có danh mục — cán bộ gõ tay ("tố giác (02 đơn)", "Khiếu nại (QĐ tố tụng)"). Không
+ * chuẩn hoá thì mỗi lần cập nhật từ hệ cũ lại đổ chữ lộn xộn vào đúng chỗ vừa dọn, và đơn mới nạp
+ * mang nhóm hạn TRỐNG. Nhóm hạn cán bộ đã chọn trên hệ mới không bị đè.
+ */
+export function chuanHoaLoaiThongTinKhiNap(
+  data: Record<string, unknown>,
+  danCo: { petitionType?: unknown } | null,
+  danhMuc: readonly MucLoaiThongTin[],
+): void {
+  const loaiThongTin = data.loaiThongTin as string | null | undefined;
+  const khoa = khoaLoaiThongTin(loaiThongTin);
+  if (!khoa) return;
+  const muc = danhMuc.find((m) => khoaLoaiThongTin(m.name) === khoa);
+  if (muc) data.loaiThongTin = muc.name;
+  if (danCo?.petitionType) return;
+  data.petitionType = nhomHanCuaLoaiThongTin(loaiThongTin, danhMuc);
+}
+
 export function ganHuongXuLyKhiTrong(
   data: Record<string, unknown>,
   danCo: { huongXuLy?: unknown; status?: unknown; donViGiaiQuyet?: unknown } | null,
@@ -163,6 +186,11 @@ export class LegacyMigrationService {
     };
     const errors: { legacyId: string; message: string }[] = [];
     let skipped = 0;
+    // Danh mục Loại thông tin nạp MỘT lần cho cả lượt — không truy vấn lại cho từng hồ sơ.
+    const danhMucLoaiThongTin: MucLoaiThongTin[] = await this.prisma.directory.findMany({
+      where: { type: 'LOAI_THONG_TIN' },
+      select: { name: true, metadata: true },
+    });
 
     for (const rec of records) {
       // Khoá PHẢI kèm tên collection nguồn — `ho_so.id` [1,2,3,4] trùng 100% với `ho_so_doi_1`,
@@ -209,6 +237,7 @@ export class LegacyMigrationService {
             await this.resolveCrime(tx, data);
             const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
             ganHuongXuLyKhiTrong(data, existing);
+            chuanHoaLoaiThongTinKhiNap(data, existing, danhMucLoaiThongTin);
             if (existing) {
               giuChuCanBoDaGo(data, existing);
               await tx.petition.update({ where: { id: existing.id }, data });
