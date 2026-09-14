@@ -49,6 +49,39 @@ import {
   type ChiMucLoaiThongTin,
 } from './loai-thong-tin.rule';
 import { khoaLoaiThongTin } from '../common/utils/khoa-loai-thong-tin.util';
+import {
+  KHOA_TAT_CA,
+  docThe,
+  dungDieuKienTimKiem,
+  noiVaoWhere,
+} from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
+
+/**
+ * Điều kiện ô tìm dạng thẻ của Đơn thư — MỘT chỗ cho danh sách lẫn thống kê. Tham số lọc chữ
+ * cũ (`search`, `senderName`, `unit`) quy về thẻ ở đây để đường dẫn cũ vẫn chạy mà không áp hai
+ * lần, và để thẻ số không lọc khác danh sách ngay dưới.
+ */
+function dieuKienTimKiemDonThu(query: {
+  tk?: string | string[];
+  search?: string;
+  senderName?: string;
+  unit?: string;
+}): Record<string, unknown>[] {
+  const tho =
+    query.tk === undefined
+      ? []
+      : Array.isArray(query.tk)
+        ? [...query.tk]
+        : [query.tk];
+  if (query.search?.trim()) tho.push(`${KHOA_TAT_CA}~${query.search}`);
+  if (query.senderName?.trim()) tho.push(`nguoiGui~${query.senderName}`);
+  if (query.unit?.trim()) tho.push(`donViGiaiQuyet~${query.unit}`);
+  return dungDieuKienTimKiem(
+    docThe(tho, KHAI_TIM_KIEM_DON_THU),
+    KHAI_TIM_KIEM_DON_THU,
+  );
+}
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -78,11 +111,8 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
     const {
-      search,
       status,
       statusGroup,
-      unit,
-      senderName,
       fromDate,
       toDate,
       overdue,
@@ -100,16 +130,8 @@ export class PetitionsService {
       deletedAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { stt: { contains: search, mode: 'insensitive' } },
-        { senderName: { contains: search, mode: 'insensitive' } },
-        { suspectedPerson: { contains: search, mode: 'insensitive' } },
-        { summary: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (và search/senderName/unit cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(where as Record<string, unknown>, dieuKienTimKiemDonThu(query));
 
     // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
     // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
@@ -139,17 +161,9 @@ export class PetitionsService {
       where.enteredById = enteredById.trim();
     }
 
-    if (unit) {
-      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN và
-      // rỗng ở toàn bộ 46.660 đơn thư, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
-      // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
-      // vẫn dùng được.
-      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
-    }
-
-    if (senderName) {
-      where.senderName = { contains: senderName, mode: 'insensitive' };
-    }
+    // `unit` / `senderName` cũ đã quy về thẻ donViGiaiQuyet / nguoiGui ở dieuKienTimKiemDonThu.
+    // (`unit` lọc cột "Đơn vị giải quyết" chứ không phải đơn vị TIẾP NHẬN — cột ấy rỗng ở toàn
+    // bộ 46.660 đơn thư.)
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
@@ -332,18 +346,18 @@ export class PetitionsService {
       baseWhere.OR = orConditions;
     }
 
-    // Search across STT (prefix-style — petitioners search by SỐ TT) and senderName (contains).
+    // Tìm qua CÙNG helper với danh sách chính (thẻ "tất cả các cột", bỏ dấu). Phạm vi đang nằm ở
+    // OR phía trên được chuyển vào AND trước, để điều kiện tìm không đè lên nó.
     if (search.length > 0) {
-      baseWhere.AND = [
-        baseWhere.OR ? { OR: baseWhere.OR } : {},
-        {
-          OR: [
-            { stt: { startsWith: search, mode: 'insensitive' as const } },
-            { senderName: { contains: search, mode: 'insensitive' as const } },
-          ],
-        },
-      ];
-      delete baseWhere.OR;
+      if (baseWhere.OR) {
+        baseWhere.AND = [{ OR: baseWhere.OR }];
+        delete baseWhere.OR;
+      }
+      // Cắt còn 200 ký tự: ô chọn nhận chữ đang gõ, không để quá giới hạn thành lỗi 400.
+      noiVaoWhere(
+        baseWhere as Record<string, unknown>,
+        dieuKienTimKiemDonThu({ search: search.slice(0, 200) }),
+      );
     }
 
     const rows = await this.prisma.petition.findMany({
@@ -1909,15 +1923,12 @@ export class PetitionsService {
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
 
-    const where: Prisma.PetitionWhereInput = {
-      deletedAt: { not: null },
-      ...(search && {
-        OR: [
-          { senderName: { contains: search, mode: 'insensitive' } },
-          { stt: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-    };
+    const where: Prisma.PetitionWhereInput = { deletedAt: { not: null } };
+    // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu({ search }),
+    );
 
     const [data, total] = await Promise.all([
       this.prisma.petition.findMany({
@@ -1961,25 +1972,13 @@ export class PetitionsService {
   // - Strips status filter (counts BY status, not filtered by it)
   // ─────────────────────────────────────────────
   async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
-    const { search, unit, senderName, fromDate, toDate, overdue, wardTeamId } = query;
+    const { fromDate, toDate, overdue, wardTeamId } = query;
 
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
 
-    if (search) {
-      where.OR = [
-        { stt: { contains: search, mode: 'insensitive' } },
-        { senderName: { contains: search, mode: 'insensitive' } },
-        { suspectedPerson: { contains: search, mode: 'insensitive' } },
-        { summary: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — lọc lệch cột thì số trên thẻ
-    // và số dòng dưới bảng không khớp nhau.
-    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
-    if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
+    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG helper với getList, nên số
+    // trên thẻ và số dòng dưới bảng không thể lọc lệch nhau.
+    noiVaoWhere(where as Record<string, unknown>, dieuKienTimKiemDonThu(query));
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
@@ -2082,14 +2081,13 @@ export class PetitionsService {
   ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
     if (!q?.trim()) return [];
 
-    const where: Prisma.PetitionWhereInput = {
-      deletedAt: null,
-      OR: [
-        { senderName: { contains: q, mode: 'insensitive' } },
-        { stt: { contains: q, mode: 'insensitive' } },
-        { summary: { contains: q, mode: 'insensitive' } },
-      ],
-    };
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+    // Rà trùng dùng CÙNG luật bỏ dấu với ô tìm — gõ không dấu vẫn thấy đơn trùng. Cắt còn 200
+    // ký tự vì ô này nhận chữ đang gõ, không để quá giới hạn thành lỗi 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu({ search: q.slice(0, 200) }),
+    );
 
     if (excludeId) {
       where.id = { not: excludeId };

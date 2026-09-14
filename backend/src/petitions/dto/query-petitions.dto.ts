@@ -1,4 +1,7 @@
 import {
+  ArrayMaxSize,
+  IsArray,
+  MaxLength,
   IsOptional,
   IsString,
   IsInt,
@@ -14,9 +17,25 @@ import { PetitionStatus } from './create-petition.dto';
 import { PETITION_STATUS_GROUP_KEYS } from '../petitions.constants';
 
 export class QueryPetitionsDto {
+  /** Ô tìm cũ — máy chủ quy về thẻ "tất cả các cột" (`*`). Giữ để đường dẫn cũ vẫn dùng được. */
   @IsOptional()
   @IsString()
   search?: string;
+
+  /**
+   * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và
+   * giá trị được kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chỉ chặn
+   * yêu cầu quá cỡ trước khi tới service.
+   */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === undefined ? undefined : Array.isArray(value) ? value : [value],
+  )
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(250, { each: true })
+  tk?: string[];
 
   @IsOptional()
   @IsEnum(PetitionStatus)

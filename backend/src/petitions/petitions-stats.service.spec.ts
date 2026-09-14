@@ -139,19 +139,41 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
     expect(whereArg.deletedAt).toBeNull();
   });
 
-  it('search filter pass-through', async () => {
+  /** Thẻ số phải lọc ĐÚNG như danh sách ngay dưới — cùng helper, cùng điều kiện trong AND. */
+  it('search cũ → thẻ "tất cả các cột" trong where.AND (giống danh sách)', async () => {
     mockPrisma.petition.groupBy.mockResolvedValue([]);
     await service.getStats({ search: 'xyz' }, null);
     const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
-    expect(whereArg.OR).toBeDefined();
-    expect(Array.isArray(whereArg.OR)).toBe(true);
+    expect(whereArg.OR).toBeUndefined();
+    expect(whereArg.AND).toContainEqual({
+      OR: [
+        { timKiemBd: { contains: 'xyz' } },
+        expect.objectContaining({ timKiemBd: null }),
+      ],
+    });
   });
 
-  it('senderName filter pass-through', async () => {
+  it('senderName cũ → thẻ nguoiGui trong where.AND', async () => {
     mockPrisma.petition.groupBy.mockResolvedValue([]);
     await service.getStats({ senderName: 'Nguyen' }, null);
     const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
-    expect(whereArg.senderName).toEqual({ contains: 'Nguyen', mode: 'insensitive' });
+    expect(whereArg.senderName).toBeUndefined();
+    expect(whereArg.AND).toContainEqual({
+      OR: [
+        { senderNameBd: { contains: 'nguyen' } },
+        {
+          senderNameBd: null,
+          senderName: { contains: 'Nguyen', mode: 'insensitive' },
+        },
+      ],
+    });
+  });
+
+  it('tk trong thống kê dựng cùng điều kiện với danh sách', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([]);
+    await service.getStats({ tk: ['trangThai~DANG_XU_LY'] } as never, null);
+    const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
+    expect(whereArg.AND).toContainEqual({ status: { in: ['DANG_XU_LY'] } });
   });
 
   it('overdue filter pass-through', async () => {

@@ -1,3 +1,4 @@
+import { PetitionStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
 
 /**
@@ -60,7 +61,14 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       kieu: 'nguoi',
       quanHe: 'enteredBy',
     },
-    { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', cot: 'status' },
+    {
+      key: 'trangThai',
+      nhan: 'Trạng thái',
+      kieu: 'chon',
+      cot: 'status',
+      // Mã trạng thái lạ → 400; để lọt tới Prisma là 500 vì giá trị enum không hợp lệ.
+      giaTriHopLe: Object.values(PetitionStatus),
+    },
     {
       key: 'doiTuong',
       nhan: 'Đối tượng bị tố',
