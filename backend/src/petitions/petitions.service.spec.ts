@@ -2235,6 +2235,24 @@ describe('PetitionsService', () => {
       expect(where).toEqual({ deletedAt: { not: null } });
     });
 
+    // M6: màn Khôi phục gửi thẻ theo cột (khai Đơn thư), không chỉ ô chữ.
+    it('listDeleted: thẻ `tk` → cột bóng riêng của Đơn thư, vẫn chỉ hồ sơ đã xoá', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.listDeleted({ tk: ['nguoiGui~tran binh'] });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(JSON.stringify(where.AND)).toContain('"senderNameBd"');
+    });
+
+    it('listDeleted: thẻ khoá lạ → 400', async () => {
+      await expect(service.listDeleted({ tk: ['khongCo~x'] })).rejects.toThrow(
+        /không tìm kiếm được/,
+      );
+    });
+
     it('listLinkable: search → thẻ "*" trong AND, giữ điều kiện phạm vi', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
 

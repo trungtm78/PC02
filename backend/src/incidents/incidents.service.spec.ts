@@ -634,6 +634,20 @@ describe('IncidentsService', () => {
       await service.listDeleted({});
       expect(whereCuaLanGoi().AND).toBeUndefined();
     });
+
+    // M6: màn Khôi phục gửi thẻ theo cột (khai Vụ việc), không chỉ ô chữ.
+    it('listDeleted: thẻ `tk` → cột bóng riêng của Vụ việc, vẫn chỉ hồ sơ đã xoá', async () => {
+      await service.listDeleted({ tk: ['nguoiGui~tran binh'] });
+      const where = whereCuaLanGoi();
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(JSON.stringify(where.AND)).toContain('"benVuBd"');
+    });
+
+    it('listDeleted: thẻ khoá lạ → 400', async () => {
+      await expect(service.listDeleted({ tk: ['khongCo~x'] })).rejects.toThrow(
+        /không tìm kiếm được/,
+      );
+    });
   });
 
   describe('getById', () => {

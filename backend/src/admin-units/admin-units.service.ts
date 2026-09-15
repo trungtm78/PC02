@@ -1,5 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import {
+  DO_DAI_GIA_TRI_TOI_DA,
+  noiVaoWhere,
+} from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_DANH_MUC } from '../common/tim-kiem/khai/danh-muc.khai';
 
 /**
  * AdminUnitsService — read-only browser API for Tỉnh/Phường (v0.34.0.0).
@@ -16,7 +22,26 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Injectable()
 export class AdminUnitsService {
+  private boTimKiem?: BoTimKiem;
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Tìm tên phường KHÔNG DẤU qua cột bóng `directories.name_bd` (khai danh-muc, thẻ `ten`) — gõ
+   * "ben nghe" ra "Phường Bến Nghé". Tạo LƯỜI (`this.prisma` chưa gán lúc khởi tạo field).
+   */
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_DANH_MUC,
+    ));
+  }
+
+  /** Điều kiện "tên chứa chữ gõ" (bỏ dấu); rỗng khi không gõ gì. Cắt độ dài như ô tìm cũ. */
+  private async dieuKienTen(q: string | undefined) {
+    const chu = (q ?? '').trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+    return chu ? this.timKiem.dieuKien({ tk: [`ten~${chu}`] }) : [];
+  }
 
   /**
    * All active provinces sorted by name.
@@ -41,15 +66,14 @@ export class AdminUnitsService {
    * @param q optional case-insensitive name substring
    */
   async getWardsByProvince(provinceId: string, q?: string) {
+    const where: Record<string, unknown> = {
+      type: 'WARD',
+      isActive: true,
+      parentId: provinceId,
+    };
+    noiVaoWhere(where, await this.dieuKienTen(q));
     return this.prisma.directory.findMany({
-      where: {
-        type: 'WARD',
-        isActive: true,
-        parentId: provinceId,
-        ...(q && q.trim().length > 0
-          ? { name: { contains: q.trim(), mode: 'insensitive' as const } }
-          : {}),
-      },
+      where,
       select: {
         id: true,
         code: true,
@@ -112,12 +136,10 @@ export class AdminUnitsService {
     const query = q.trim();
     if (query.length === 0) return [];
 
+    const where: Record<string, unknown> = { type: 'WARD', isActive: true };
+    noiVaoWhere(where, await this.dieuKienTen(query));
     const wards = await this.prisma.directory.findMany({
-      where: {
-        type: 'WARD',
-        isActive: true,
-        name: { contains: query, mode: 'insensitive' as const },
-      },
+      where,
       select: {
         id: true,
         code: true,

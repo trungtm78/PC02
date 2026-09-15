@@ -72,16 +72,21 @@ describe('AdminUnitsService (v0.34.0.0)', () => {
       );
     });
 
-    it('adds case-insensitive name search when q provided', async () => {
+    /**
+     * M6: tìm tên phường KHÔNG DẤU qua cột bóng `directories.name_bd` (khai danh-muc, thẻ `ten`) —
+     * gõ "ben nghe" ra "Phường Bến Nghé". Trước đây `contains` thường: phải gõ đúng dấu.
+     */
+    it('tìm tên phường không dấu qua cột bóng nameBd (trong AND, giữ lọc tỉnh)', async () => {
       prismaMock.directory.findMany.mockResolvedValue([]);
       await service.getWardsByProvince('province-id-1', 'Bến');
 
-      expect(prismaMock.directory.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            name: { contains: 'Bến', mode: 'insensitive' },
-          }),
-        }),
+      const [goi] = prismaMock.directory.findMany.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(goi.where.parentId).toBe('province-id-1');
+      expect(goi.where.name).toBeUndefined();
+      expect(JSON.stringify(goi.where.AND)).toContain(
+        '"nameBd":{"contains":"ben"}',
       );
     });
 
@@ -91,6 +96,9 @@ describe('AdminUnitsService (v0.34.0.0)', () => {
 
       const callArg = prismaMock.directory.findMany.mock.calls[0][0];
       expect(callArg.where.name).toBeUndefined();
+      expect(
+        (callArg as { where: Record<string, unknown> }).where.AND,
+      ).toBeUndefined();
     });
   });
 

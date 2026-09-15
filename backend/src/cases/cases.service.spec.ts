@@ -2133,5 +2133,23 @@ describe('CasesService', () => {
         '"timKiemBd":{"contains":"tham nhung"}',
       );
     });
+
+    // M6: màn Khôi phục gửi thẻ theo cột (khai Vụ án), không chỉ ô chữ.
+    it('BE-R7: thẻ `tk` → cột bóng riêng của Vụ án, vẫn chỉ hồ sơ đã xoá', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      mockPrisma.case.count.mockResolvedValue(0);
+      (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([]);
+      await service.listDeleted({ tk: ['nguoiGui~tran binh'] });
+      const where = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(JSON.stringify(where.AND)).toContain('"tenCungCapBd"');
+    });
+
+    it('BE-R8: thẻ khoá lạ → 400, không hỏi CSDL', async () => {
+      await expect(service.listDeleted({ tk: ['khongCo~x'] })).rejects.toThrow(
+        /không tìm kiếm được/,
+      );
+      expect(mockPrisma.case.findMany).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1925,16 +1925,21 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // LIST DELETED — paginated với enriched delete audit
   // ─────────────────────────────────────────────
-  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+  async listDeleted(query: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    tk?: string[];
+  }) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
-    const search = query.search?.trim();
 
     const where: Prisma.PetitionWhereInput = { deletedAt: { not: null } };
-    // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
+    // CÙNG helper với danh sách chính: `search` cũ → thẻ "*", `tk` → thẻ theo cột (màn Khôi phục), khoá
+    // lạ 400. Hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
     noiVaoWhere(
       where as Record<string, unknown>,
-      await this.timKiem.dieuKien({ search }),
+      await this.timKiem.dieuKien({ search: query.search, tk: query.tk }),
     );
 
     const [data, total] = await Promise.all([
