@@ -84,6 +84,10 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - cases 3.418 (UTDT 1.720); `nghiVanDoiTuong` cột typed phủ 2.170 = metadata 2.170 (UTDT 1.453 = 1.453) → thẻ Đối tượng nghi vấn dùng CỘT typed (JSON path không chỉ mục, phân biệt dấu). incidents 4.724. subjects 1.292 (SUSPECT 1.194) → cột bóng `subjects.full_name_bd` rẻ.
 - Trường có `@map` (donViGiao→don_vi_giao, soQuyetDinhUyThac→so_quyet_dinh_uy_thac): trigger/câu nạp SQL phải dùng tên cột thật → thêm `cotDb` vào khai + cổng `cotDbLech` đối chiếu `@map` trong schema.prisma.
 
+## M3 đã xong
+- [x] M3-T1 — commit adc3cb69 (cotDb + cotDbLech), ffdc3db0 (kiểu doi-tuong + subjects.full_name_bd), b1c4090e (khai Vụ việc + Vụ án, migration 20260915083627_tim_kiem_vu_viec_vu_an: pc02_spike 839 ms, trigger cases/subjects/incidents đúng, 5 trigger) — tìm kiếm 13 bộ/169 ca.
+- [x] M3-T2 — commit 286bb188 BoTimKiem dùng chung (dieuKien/luiCotGoc/kyApDung, tham số cũ nhiều khoá → OR); Đơn thư chuyển sang, 32 bộ/556 ca xanh.
+
 ## Hàng đợi M3 (nhánh feat/tim-kiem-dang-the-vu-viec-vu-an, từ main cb2b8b92)
 1. M3-T1 khai `vu-viec.khai.ts` (incidents) + `vu-an.khai.ts` (cases, chung Vụ án thường + UTDT) + kiểu `doi-tuong` (quan hệ subjects SUSPECT, cột bóng `subjects.full_name_bd` + trigger như users) → `gen:tim-kiem -- --moi vu_viec_vu_an`; CLI nạp + SQL tắt/bật + kiểm vàng tự gồm bảng mới. `*` giữ đủ cột ô tìm cũ (Vụ việc: name, doiTuongCaNhan, doiTuongToChuc, soHoSoCu; Vụ án: name, crime, soHoSoCu).
 2. M3-T2 gom helper dùng chung sang `common/tim-kiem` (dựng điều kiện thẻ + tham số cũ, hỏi còn dòng chưa nạp có nhớ, kỳ áp dụng khi có thẻ ngày) — Đơn thư chuyển sang dùng, không đổi hành vi.

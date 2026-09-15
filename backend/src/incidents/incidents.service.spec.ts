@@ -202,8 +202,12 @@ describe('IncidentsService', () => {
       await service.getList({ stt: '26-9706' });
 
       const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
-      // Vụ việc lưu mã ở `code`, không phải `stt`.
-      expect(where.code).toEqual({ in: ['26-9706', '2026-9706'] });
+      // Vụ việc lưu mã ở `code`, không phải `stt`. Từ 15/09/2026 tham số cũ đi qua thẻ `stt`
+      // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng lên `where.code`.
+      expect(where.code).toBeUndefined();
+      expect(where.AND).toContainEqual({
+        code: { in: ['26-9706', '2026-9706'] },
+      });
     });
 
     it('TRẢ VỀ sttCu — thiếu trường này thì cột STT im lặng không hiện số cũ', async () => {
@@ -228,7 +232,9 @@ describe('IncidentsService', () => {
       await service.getList({ sttCu: '2016-208' });
 
       const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
-      expect(where.sttCu).toEqual({ contains: '208', mode: 'insensitive' });
+      expect(where.AND).toContainEqual({
+        sttCu: { contains: '208', mode: 'insensitive' },
+      });
     });
 
     it('lọc theo STT cũ', async () => {
@@ -238,7 +244,9 @@ describe('IncidentsService', () => {
       await service.getList({ sttCu: '679' });
 
       const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
-      expect(where.sttCu).toEqual({ contains: '679', mode: 'insensitive' });
+      expect(where.AND).toContainEqual({
+        sttCu: { contains: '679', mode: 'insensitive' },
+      });
     });
 
     it('ô lọc để trống thì KHÔNG thêm điều kiện', async () => {
@@ -250,6 +258,7 @@ describe('IncidentsService', () => {
       const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
       expect(where.code).toBeUndefined();
       expect(where.sttCu).toBeUndefined();
+      expect(where.AND).toBeUndefined();
     });
 
     // ── Thứ tự sắp xếp ────────────────────────────────────────────────────
@@ -295,22 +304,25 @@ describe('IncidentsService', () => {
       expect(result.pageSize).toBe(20);
     });
 
-    it('should apply search filter across multiple fields', async () => {
+    /**
+     * `search` cũ (GlobalSearchBar, đường dẫn cũ) tìm cả cột trên bảng lẫn TÊN ĐIỀU TRA VIÊN. Từ
+     * 15/09/2026 đi qua thẻ: MỘT khối "hoặc" giữa "tất cả các cột" (cột ghép bỏ dấu) và thẻ Điều
+     * tra viên — không phải hai thẻ "và" (thu hẹp sai), và không còn `where.OR` chép tay.
+     */
+    it('search cũ → một khối OR: tất cả các cột HOẶC tên điều tra viên', async () => {
       mockPrisma.incident.findMany.mockResolvedValue([]);
       mockPrisma.incident.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'test search' });
+      await service.getList({ search: 'Nguyễn Văn' });
 
-      expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              expect.objectContaining({ code: { contains: 'test search', mode: 'insensitive' } }),
-              expect.objectContaining({ name: { contains: 'test search', mode: 'insensitive' } }),
-            ]),
-          }),
-        }),
-      );
+      const { where } = mockPrisma.incident.findMany.mock.calls[0][0];
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toHaveLength(1);
+      const khoi = JSON.stringify(where.AND[0]);
+      expect(Object.keys(where.AND[0] as object)).toEqual(['OR']);
+      expect(khoi).toContain('"timKiemBd":{"contains":"nguyen van"}');
+      expect(khoi).toContain('"investigator"');
+      expect(khoi).toContain('"hoTenBd":{"contains":"nguyen van"}');
     });
 
     it('should filter by status', async () => {
@@ -508,6 +520,75 @@ describe('IncidentsService', () => {
   });
 
   // ── getById ───────────────────────────────────────────────────────────────
+
+  /**
+   * Ô tìm dạng thẻ của Vụ việc (15/09/2026). Cột thật theo ĐÚNG cột màn hình đang hiện: "Tên cá
+   * nhân, cơ quan, tổ chức cung cấp, bị hại" là `benVu` (trước đây không tìm được).
+   */
+  describe('thẻ tìm kiếm tk (Vụ việc)', () => {
+    const whereCuaLanGoi = (): Record<string, unknown> =>
+      mockPrisma.incident.findMany.mock.calls[0][0].where as Record<
+        string,
+        unknown
+      >;
+
+    beforeEach(() => {
+      mockPrisma.incident.findMany.mockResolvedValue([]);
+      mockPrisma.incident.count.mockResolvedValue(0);
+    });
+
+    it('thẻ Tên cá nhân… lọc cột bóng benVuBd (lùi benVu khi chưa nạp)', async () => {
+      await service.getList({ tk: ['nguoiGui~Trần An'] } as never);
+      expect(whereCuaLanGoi().AND).toContainEqual({
+        OR: [
+          { benVuBd: { contains: 'tran an' } },
+          {
+            benVuBd: null,
+            benVu: { contains: 'Trần An', mode: 'insensitive' },
+          },
+        ],
+      });
+    });
+
+    it('tham số donViGiaiQuyet cũ đi qua thẻ, không gán thẳng where.donViGiaiQuyet', async () => {
+      await service.getList({ donViGiaiQuyet: 'Đội 4' } as never);
+      const where = whereCuaLanGoi();
+      expect(where.donViGiaiQuyet).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain('"donViGiaiQuyetBd"');
+    });
+
+    it('khoá thẻ lạ → 400, không truy vấn', async () => {
+      await expect(
+        service.getList({ tk: ['khongCo~x'] } as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.incident.findMany).not.toHaveBeenCalled();
+    });
+
+    it('thẻ ngày → bỏ kỳ thống kê mặc định (không giao ra 0 dòng)', async () => {
+      mockSettings.getKyThongKe.mockResolvedValueOnce({
+        ky: 'THANG_HIEN_TAI',
+        truong: 'NGAY_TIEP_NHAN',
+        tuNgay: '2026-09-01',
+        denNgay: '2026-09-30',
+      });
+      await service.getList({ tk: ['ngayDeXuat~2019'] } as never);
+      expect(whereCuaLanGoi().ngayDeXuat).toBeUndefined();
+    });
+
+    it('thẻ + phạm vi dữ liệu cùng nằm trong AND — thẻ không đè phạm vi', async () => {
+      await service.getList(
+        { tk: ['nguoiGui~An'] } as never,
+        {
+          userIds: ['user-001'],
+          teamIds: ['team-a'],
+          writableTeamIds: ['team-a'],
+        } as never,
+      );
+      const json = JSON.stringify(whereCuaLanGoi().AND);
+      expect(json).toContain('benVuBd');
+      expect(json).toContain('team-a');
+    });
+  });
 
   describe('getById', () => {
     it('should return incident with includes', async () => {
