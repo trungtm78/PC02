@@ -266,21 +266,22 @@ describe('UTDT — CasesService', () => {
   // (f) UTDT search includes metadata.nghiVanDoiTuong
   // ──────────────────────────────────────────────────────────────────────────
   describe('getList UTDT search', () => {
-    it('(f) search with caseType=UTDT includes metadata.nghiVanDoiTuong in OR clause', async () => {
+    /**
+     * Ô tìm cũ trên Ủy thác vẫn tìm được Đối tượng nghi vấn: từ 15/09/2026 qua thẻ "tất cả các cột"
+     * — cột ghép `tim_kiem_bd` gồm `nghiVanDoiTuong` (cột typed, đo prod phủ đúng như metadata).
+     * Lùi về cột gốc khi chưa nạp cũng gồm cột ấy.
+     */
+    it('(f) search with caseType=UTDT tìm cả Đối tượng nghi vấn qua cột ghép', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
       await service.getList({ caseType: CaseType.UY_THAC_DIEU_TRA, search: 'Nguyễn' });
 
       const callArgs = mockPrisma.case.findMany.mock.calls[0][0];
-      const orClauses = callArgs?.where?.OR ?? [];
-      const hasMetadataSearch = orClauses.some(
-        (clause: unknown) =>
-          typeof clause === 'object' &&
-          clause !== null &&
-          'metadata' in (clause as Record<string, unknown>),
-      );
-      expect(hasMetadataSearch).toBe(true);
+      const json = JSON.stringify(callArgs?.where?.AND);
+      expect(callArgs?.where?.OR).toBeUndefined();
+      expect(json).toContain('"timKiemBd":{"contains":"nguyen"}');
+      expect(json).toContain('"nghiVanDoiTuong":{"contains":"Nguyễn"');
     });
   });
 

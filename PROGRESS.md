@@ -87,6 +87,8 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 ## M3 đã xong
 - [x] M3-T1 — commit adc3cb69 (cotDb + cotDbLech), ffdc3db0 (kiểu doi-tuong + subjects.full_name_bd), b1c4090e (khai Vụ việc + Vụ án, migration 20260915083627_tim_kiem_vu_viec_vu_an: pc02_spike 839 ms, trigger cases/subjects/incidents đúng, 5 trigger) — tìm kiếm 13 bộ/169 ca.
 - [x] M3-T2 — commit 286bb188 BoTimKiem dùng chung (dieuKien/luiCotGoc/kyApDung, tham số cũ nhiều khoá → OR); Đơn thư chuyển sang, 32 bộ/556 ca xanh.
+- [x] M3-T3 — commit 94e9fbf4 Vụ việc máy chủ: DTO tk, getList/getStats/listLinkable/listDeleted qua BoTimKiem; `search` cũ = OR(tất cả cột, Điều tra viên); vá getStats bỏ stt/sttCu; src/incidents + 3 cổng 14 bộ/526 ca.
+- [x] M3-T4 — Vụ án + UTDT máy chủ: DTO tk; getList/getStats/getUtdtStats/listDeleted qua BoTimKiem; THAM_SO_CU_VU_AN (search/charges/unit/stt/sttCu/donViGiao/investigatorName → thẻ); vá getStats bỏ stt/sttCu/createdById + overdue dùng TRANG_THAI_KET_THUC.case; getUtdtStats áp CÙNG kỳ với danh sách UTDT + trả ky, phạm vi nối AND không đè thẻ; listDeleted tìm mã hồ sơ thay id. Cổng o-form-va-cot gộp 3 thực thể soi đủ 3 mắt xích. src/cases + 3 cổng 20 bộ/335 ca, tsc sạch.
 
 ## Hàng đợi M3 (nhánh feat/tim-kiem-dang-the-vu-viec-vu-an, từ main cb2b8b92)
 1. M3-T1 khai `vu-viec.khai.ts` (incidents) + `vu-an.khai.ts` (cases, chung Vụ án thường + UTDT) + kiểu `doi-tuong` (quan hệ subjects SUSPECT, cột bóng `subjects.full_name_bd` + trigger như users) → `gen:tim-kiem -- --moi vu_viec_vu_an`; CLI nạp + SQL tắt/bật + kiểm vàng tự gồm bảng mới. `*` giữ đủ cột ô tìm cũ (Vụ việc: name, doiTuongCaNhan, doiTuongToChuc, soHoSoCu; Vụ án: name, crime, soHoSoCu).
