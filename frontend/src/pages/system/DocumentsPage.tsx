@@ -10,7 +10,7 @@
  * - Soft delete documents
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { api } from '@/lib/api';
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { formatVNDate } from '../../lib/dates';
@@ -37,6 +37,9 @@ import {
 } from "lucide-react";
 import { FKSelection } from "@/components/FKSelection";
 import { hoTen } from '@/lib/hoTen';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { TIM_KIEM_TAI_LIEU } from '@/shared/tim-kiem/generated';
 import {
   LABEL_BASE,
   INPUT_BASE,
@@ -455,21 +458,43 @@ export default function DocumentsPage() {
   const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
   const docTypeLabel = Object.fromEntries(docTypeOptions.map((o) => [o.code, o.label]));
 
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ (bỏ dấu, chọn cột, khoá lạ hiện đỏ không gửi). Thẻ trên URL
+  // `documents_tk` để lùi trang / dán đường dẫn giữ nguyên. Cờ `TIM_KIEM_THE` tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const giaTriChonTaiLieu = useMemo(
+    () => ({ loai: docTypeOptions.map((o) => ({ value: o.code, label: o.label })) }),
+    [docTypeOptions],
+  );
+  const timKiem = useTheTimKiem({
+    prefix: 'documents',
+    khai: TIM_KIEM_TAI_LIEU,
+    giaTriChon: giaTriChonTaiLieu,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // Thẻ đổi = bộ lọc mới: về trang 1 (trang cũ của kết quả ngắn là bảng rỗng giả).
+  useEffect(() => { setPage(1); }, [tkKey]);
   const [showUpload, setShowUpload] = useState(false);
   const [deleteDocument, setDeleteDocument] = useState<Document | null>(null);
   const [formError, setFormError] = useState<string | undefined>();
 
   // ── Fetch documents ──
   const { data, isLoading, isError } = useQuery<DocumentListResponse>({
-    queryKey: ["documents", search, page],
+    queryKey: ["documents", theBat ? tkKey : search, page],
     queryFn: () => {
       const params = new URLSearchParams({
         limit: String(PAGE_SIZE),
         offset: String((page - 1) * PAGE_SIZE),
       });
-      if (search) params.set("search", search);
+      if (theBat) {
+        for (const v of JSON.parse(tkKey) as string[]) params.append("tk", v);
+      } else if (search) {
+        params.set("search", search);
+      }
       return api.get(`/documents?${params}`).then((r) => r.data);
     },
   });
@@ -607,17 +632,30 @@ export default function DocumentsPage() {
       <div className="px-6 py-6 space-y-5">
         {/* ── Search bar ── */}
         <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Tìm theo tiêu đề, tên file, mô tả... (hỗ trợ tìm kiếm không dấu)"
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              data-testid="document-search-input"
+          {theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={TIM_KIEM_TAI_LIEU}
+              khai={TIM_KIEM_TAI_LIEU}
+              giaTriChon={giaTriChonTaiLieu}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
-          </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                placeholder="Tìm theo tiêu đề, tên file, mô tả... (hỗ trợ tìm kiếm không dấu)"
+                className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                data-testid="document-search-input"
+              />
+            </div>
+          )}
         </div>
 
         {/* ── Table ── */}
@@ -644,8 +682,22 @@ export default function DocumentsPage() {
               <div className={EMPTY_STATE_ICON}>
                 <File className="w-6 h-6 text-slate-400" />
               </div>
-              <p className={EMPTY_STATE_TEXT}>Chưa có tài liệu nào</p>
-              <p className={EMPTY_STATE_SUBTEXT}>Nhấn "Upload tài liệu" để thêm mới</p>
+              {theBat && timKiem.the.length > 0 ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                  <span>Không tìm thấy với:</span>
+                  <DanhSachThe
+                    the={timKiem.the}
+                    khai={TIM_KIEM_TAI_LIEU}
+                    giaTriChon={giaTriChonTaiLieu}
+                    onBoThe={timKiem.boThe}
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className={EMPTY_STATE_TEXT}>Chưa có tài liệu nào</p>
+                  <p className={EMPTY_STATE_SUBTEXT}>Nhấn "Upload tài liệu" để thêm mới</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
