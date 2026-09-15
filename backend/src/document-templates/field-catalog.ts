@@ -112,6 +112,20 @@ const DAU_XUONG_DONG = '\n';
 const TO_MAC_DINH = 'Tổ 2';
 
 /**
+ * Tên tổ theo quy ước văn bản: "Tổ công tác Số 2" → "Tổ 2".
+ *
+ * Tên tổ trong CSDL là tên đầy đủ (đo prod 15/09/2026: "Tổ công tác Số 1".."Số 10"), còn dòng
+ * "Lưu: PC02-Đ1 (Tổ 2), V.Huy." của văn bản dùng tên rút gọn. In nguyên tên là sai quy ước. Tên không
+ * theo mẫu đánh số ("Tổ Truy nã", "Tổ Tăng cường CS1", "Đội 7") giữ nguyên — không đoán.
+ */
+export function rutGonTenTo(ten: string): string {
+  const m = /^tổ\s+công\s+tác\s+số\s*(\d+)$/iu.exec(
+    ten.trim().replace(/\s+/g, ' '),
+  );
+  return m ? `Tổ ${Number(m[1])}` : ten.trim();
+}
+
+/**
  * Khối "Nơi nhận" — hai dòng đầu và dòng "Lưu:" giống nhau ở mọi mẫu; phần GIỮA khác nhau.
  *
  * Đo trên bản in gốc hệ cũ: Phiếu chuyển đơn có dòng nguồn đơn, ba mẫu Thông báo KHÔNG có,
@@ -622,7 +636,11 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'toNhanDon',
     label: 'Tổ nhận đơn',
     group: 'Đơn vị',
-    resolve: (r, ctx) => s(ctx?.actor?.teamName) || s(r.assignedTeam?.name) || TO_MAC_DINH,
+    resolve: (r, ctx) => {
+      const hoSo = r as { assignedTeam?: { name?: string | null } | null };
+      const ten = s(ctx?.actor?.teamName) || s(hoSo.assignedTeam?.name);
+      return ten ? rutGonTenTo(ten) : TO_MAC_DINH;
+    },
   },
   // Viết tắt cán bộ soạn ở dòng "Lưu:" (vd V.Huy)
   {
