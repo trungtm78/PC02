@@ -62,10 +62,16 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
 ```
 
 ### 1. CSDL — cột bỏ dấu trên CHÍNH bảng hồ sơ (thay EAV/jsonb)
-- `CREATE EXTENSION IF NOT EXISTS unaccent;` (trusted; bước T0 kiểm `pg_available_extensions` trên prod).
+- `CREATE EXTENSION IF NOT EXISTS unaccent;` (trusted). **T0 đã kiểm prod 15/09/2026:** PostgreSQL **16.15** (local là 18 —
+  ca kiểm trigger/hàm phải chạy được trên cả hai), `unaccent` 1.1 có sẵn chưa cài, `pg_trgm` 1.6 đã cài; `pc02_user` không
+  superuser nhưng là chủ DB và có quyền CREATE → migration cài được extension trusted.
 - `f_bo_dau(text) RETURNS text IMMUTABLE PARALLEL SAFE SET search_path = public`:
   `btrim(regexp_replace(replace(lower(public.unaccent('public.unaccent'::regdictionary, coalesce($1,''))), E' ', ' '), '\s+', ' ', 'g'))`
   — khớp `boDauTiengViet` (`common/utils/chuan-hoa-ten.util.ts:13`, gộp khoảng trắng + trim).
+  **T0 đo 67.695 chuỗi thật: lệch 221 (0,33%), toàn bộ là DẤU CÂU** mà `unaccent` đổi còn JS giữ: “→" 109 · –→- 58 ·
+  …→. 45 · ’→' 7 · ¾→3 · ”→". Không lệch chữ nào. Chốt: hàm bỏ dấu cho TÌM KIẾM phía JS (`boDauTimKiem`, dùng chung máy chủ
+  + giao diện) = `boDauTiengViet` + bảng dấu câu mô phỏng `unaccent.rules`; ca kiểm vàng chạy trên PG so hai phía, lệch là đỏ.
+  Không sửa `boDauTiengViet` (khoá gộp danh mục đang dùng nó — đổi là đổi khoá của dữ liệu đã nạp).
 - Mỗi cột chữ tìm được có cột bóng `<cot>_bd` = `' ' || f_bo_dau(<cot>)` (khoảng trắng đầu để khớp đầu từ bằng `contains ' ' || x`)
   + GIN `gin_trgm_ops`. Mỗi thực thể thêm `tim_kiem_bd` = ghép mọi cột bóng (thẻ "tất cả các cột").
 - Trigger `BEFORE INSERT OR UPDATE OF <danh sách cột nguồn>` (tiền lệ `stt_sort/migration.sql:65`) — chỉ chạy khi cột
@@ -73,7 +79,10 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
   `RAISE WARNING`, KHÔNG chặn thao tác ghi nghiệp vụ.
 - Quan hệ tên người (người nhập, điều tra viên, cán bộ đề xuất): cột bóng `ho_ten_bd` trên `users`, thẻ dùng
   `enteredBy: { is: { hoTenBd: { contains } } }` — không trigger lan truyền khi đổi tên. Tổ/trạng thái = so id/mã.
-- Migration điền luôn cột bóng (`UPDATE … SET <cot>_bd = …` theo cột bóng, không kích trigger nghiệp vụ): 47k dòng mất vài giây → không cần CLI nạp.
+- ~~Migration điền luôn cột bóng~~ — **T0 đo: UPDATE 47.169 đơn thư mất 35 s + dựng GIN "tất cả cột" 14 s**, khoá bảng
+  giữa lúc deploy (ghi nghiệp vụ chờ). Chốt: migration chỉ thêm hàm/cột/trigger/chỉ mục (cột mới NULL, nhanh); điền cột bóng
+  bằng CLI `nap-cot-bong-tim-kiem` theo lô 1.000 dòng, `WHERE <cot>_bd IS NULL OR` lệch nguồn, SQL thô không đẩy `updatedAt`,
+  chạy lại ra 0. Trong lúc chưa nạp xong, thẻ chữ lùi về `contains` trên cột gốc cho dòng cột bóng NULL (không mất kết quả).
 - Hotfix sẵn: `docs/van-hanh/tat-trigger-tim-kiem.sql` (`DROP TRIGGER` + ghi chú) — không chờ deploy.
 - Ngày KHÔNG đưa vào cột bóng — tìm ngày luôn là khoảng trên cột ngày thật (hết lệch múi giờ).
 
@@ -83,7 +92,9 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
 - `doc-the.ts` `docThe(tk, khai)`: tách `khoá~giá trị`; **khoá lạ → `BadRequestException` (400)**; gộp cùng khoá; `*` = mọi cột; giá trị rỗng bỏ.
 - `dieu-kien.ts` `dungDieuKienTimKiem(the, khai)` → mảng điều kiện nối `where.AND`; không bao giờ trả khoá top-level
   `OR`/`case`/`investigator`/`assignedTeam` (subjects.service.ts:79 và lawyers.service.ts GÁN `where.case = scope`):
-  - chữ ≥3: `{ [cotBd]: { contains: boDau(v) } }` (KHÔNG `mode: 'insensitive'`); 1–2: `{ contains: ' ' + boDau(v) }`
+  - **Thoát ký tự đại diện trước mọi `contains`: `\`→`\\`, `%`→`\%`, `_`→`\_`.** T0 đo: Prisma sinh
+    `LIKE ('%' || $1 || '%')` và KHÔNG thoát — `contains: '%'` khớp 47.169/47.169 dòng. Gõ "50%" mà không thoát là trả cả bảng.
+  - chữ ≥3: `{ [cotBd]: { contains: thoat(boDau(v)) } }` (KHÔNG `mode: 'insensitive'`); 1–2: `{ contains: ' ' + thoat(boDau(v)) }`
   - `*`: `{ timKiemBd: { contains } }`; mã: `hoSoCodeVariants`/`dieuKienSttCu`; ngày: `docKhoangNgay` (+07:00) → `{ gte, lt }`;
     chọn/tổ: `{ in }`; người: `{ [quanHe]: { is: { hoTenBd: { contains } } } }`
   - nhiều giá trị cùng khoá → `{ OR: [...] }` bên TRONG phần tử AND.
@@ -109,9 +120,15 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
 - Cờ tính năng `TIM_KIEM_THE` (`feature_flags` + `@FeatureFlag`) chỉ để bật dần GIAO DIỆN theo màn và tắt tức thì; máy chủ luôn nhận cả `search` lẫn `tk`.
 
 ### 4. Thứ tự (mỗi đợt một PR)
-0. **T0 — thử nghiệm đo trước khi xây** (không PR): trên `pc02_that` tạo `f_bo_dau` + 2 cột bóng Đơn thư + GIN; `EXPLAIN ANALYZE`
-   câu Prisma sinh ra cho `contains` (≥3, 1–2 ký tự có khoảng trắng đầu, `*`), kiểm Prisma thoát `%`/`_`, đo count+findMany+groupBy.
-   Kiểm `unaccent` trên prod. Kết quả ghi vào PR1.
+0. **T0 — thử nghiệm đo trước khi xây** — **XONG 15/09/2026** trên `pc02_spike` (bản sao `pc02_that`, 47.169 đơn thư):
+   | Truy vấn | LIMIT 20 | count |
+   |---|---|---|
+   | người gửi ≥3 ký tự `%nguyen van%` | 10 ms | 41 ms (GIN, 1.872 dòng) |
+   | 1–2 ký tự khớp đầu từ `% an%` | 0,7 ms | 71 ms (GIN, 3.798 dòng) |
+   | tất cả cột `%lua dao%` | 0,7 ms | 184 ms (GIN, 10.166 dòng) |
+   | tất cả cột từ hiếm `%jungle journey%` | 1,3 ms | 2,9 ms |
+   Chỉ mục: người gửi 3,5 MB, tất cả cột 25 MB (bảng 484 MB). Ba phát hiện đổi kế hoạch: backfill trong migration khoá bảng
+   ~50 s (→ CLI theo lô), Prisma không thoát `%`/`_` (→ helper tự thoát), JS≠SQL ở dấu câu (→ `boDauTimKiem`). Kết quả ghi vào PR1.
 1. **PR1 — nền + Đơn thư + lát mỏng Tổng hợp**: bộ sinh + migration + helper + DTO + gate + component + hook + registry;
    Đơn thư đầy đủ; Tổng hợp gửi thẻ `*` + `nguoiGui` tới 3 API (chứng minh khoá chuẩn ngay đợt đầu; vá prefix `comprehensive`≠`comp`).
 2. **PR2 — Vụ việc, Vụ án, Ủy thác điều tra** (vá stats UTDT thiếu `caseStatus`).
@@ -147,10 +164,12 @@ CODE PATHS                                                   USER FLOWS
 [+] gen:tim-kiem                                             [+] Đơn thư: gõ không dấu → Enter
   ├── sinh migration/prisma/generated khớp khai [unit]         ├── [→E2E] thẻ "*" ra hồ sơ "Nguyễn…"
   └── gate lệch khai↔migration↔prisma↔generated → đỏ           ├── [→E2E] chọn cột Người gửi, thêm lần 2 → "hoặc"
-[+] f_bo_dau (PG18 pc02_that)                                  ├── [→E2E] thẻ khác cột → thu hẹp; thẻ thống kê = số dòng
+[+] f_bo_dau (PG16 prod · PG18 local)                          ├── [→E2E] thẻ khác cột → thu hẹp; thẻ thống kê = số dòng
   ├── "Nguyễn Văn Á"→" nguyen van a", "ĐỖ"→"do", NULL          ├── Backspace / × / Xóa lọc / bấm thẻ sửa
-  ├── NBSP, 2 khoảng trắng, tab, NFD vs NFC                    ├── ẩn cột bằng ColumnPicker → biến khỏi gợi ý
-  └── ≡ boDauTiengViet trên 1.000 chuỗi thật [vàng]            ├── [→E2E] lùi trang / dán đường dẫn giữ thẻ
+  ├── NBSP, 2 khoảng trắng, tab, NFD vs NFC, “ – … ’           ├── ẩn cột bằng ColumnPicker → biến khỏi gợi ý
+  └── ≡ boDauTimKiem trên 67.695 chuỗi thật [vàng, 0 lệch]     ├── [→E2E] lùi trang / dán đường dẫn giữ thẻ
+[+] thoát LIKE: "50%", "a_b", "\" là chữ, không phải đại diện
+[+] CLI nạp cột bóng: theo lô · chạy lại ra 0 · không đẩy updatedAt · thẻ lùi cột gốc khi cột bóng NULL
 [+] trigger BEFORE UPDATE OF                                   └── đường dẫn cũ ?petitions_q=abc → thẻ
   ├── cột nguồn đổi → cột bóng đổi; cột khác đổi → không chạy  [+] Gõ tiếng Việt [→E2E Chrome thật]
   ├── lỗi trong thân hàm → ghi nghiệp vụ VẪN thành công        ├── gõ nhanh / Unikey / IME Telex
@@ -179,6 +198,9 @@ Tệp kế hoạch QA: `~/.gstack/projects/trungtm78-PC02/Than Minh Trung-feat-l
 | 1–2 ký tự | quét lớn | EXPLAIN T0 | khoảng trắng đầu → trigram dùng được | gợi ý gõ ≥3 |
 | scope quan hệ | đè `where.case` | ca kiểm + gieo lỗi | chỉ AND | (critical — đã có ca kiểm) |
 | múi giờ ngày | lệch 1 ngày 00–07h | ca kiểm +07:00 | khoảng trên cột thật | — |
+| backfill cột bóng | UPDATE cả bảng trong migration khoá ~50 s lúc deploy | T0 đo | CLI theo lô sau deploy | ghi không bị treo; thẻ lùi cột gốc tới khi nạp xong |
+| ký tự đại diện LIKE | Prisma không thoát → "50%" trả cả bảng | ca kiểm thoát + T0 đo | helper thoát `\ % _` | kết quả đúng chữ đã gõ |
+| bỏ dấu JS≠SQL | dấu câu “ – … lệch → gõ ngoặc cong không ra | vàng 67.695 chuỗi trên PG | `boDauTimKiem` mô phỏng unaccent | — |
 Critical gaps: 0 (mọi đường có ca kiểm + xử lý + người dùng thấy rõ).
 
 ## Song song hoá
@@ -191,16 +213,18 @@ Critical gaps: 0 (mọi đường có ca kiểm + xử lý + người dùng th�
 Lane 1: T0 → A → B · Lane 2: C (sau A) song song B · rồi D. PR2–PR5 tuần tự sau PR1 (cùng chạm helper/registry).
 
 ## Implementation Tasks
-- [ ] **T0 (P1, human: ~4h / CC: ~20m)** — db — Đo trước: EXPLAIN Prisma contains trên cột bóng, thoát `%`/`_`, unaccent trên prod
-  - Surfaced by: Outside voice #7, Performance — trigram < 3 ký tự · Files: (spike trên pc02_that) · Verify: EXPLAIN dùng GIN
-- [ ] **T1 (P1, human: ~2d / CC: ~1h)** — db — Cột bóng `_bd` + `f_bo_dau` IMMUTABLE schema-qualified + trigger BEFORE UPDATE OF có EXCEPTION
-  - Surfaced by: Architecture (jsonb không dùng chỉ mục) + Outside voice #1 #4 #12 #14 · Files: backend/prisma/schema.prisma, backend/prisma/migrations · Verify: ca kiểm trigger PG18
+- [x] **T0 (P1, human: ~4h / CC: ~20m)** — db — Đo trước: EXPLAIN Prisma contains trên cột bóng, thoát `%`/`_`, unaccent trên prod — XONG 15/09 (số đo ở §4)
+  - Surfaced by: Outside voice #7, Performance — trigram < 3 ký tự · Files: (spike trên pc02_spike) · Verify: EXPLAIN dùng GIN ✓
+- [ ] **T1 (P1, human: ~2d / CC: ~1h)** — db — Cột bóng `_bd` + `f_bo_dau` IMMUTABLE schema-qualified + trigger BEFORE UPDATE OF có EXCEPTION; migration KHÔNG backfill
+  - Surfaced by: Architecture (jsonb không dùng chỉ mục) + Outside voice #1 #4 #12 #14 + T0 (khoá bảng) · Files: backend/prisma/schema.prisma, backend/prisma/migrations · Verify: ca kiểm trigger chạy được trên PG16 (prod) lẫn PG18
+- [ ] **T12 (P1, human: ~3h / CC: ~20m)** — tooling — CLI `nap-cot-bong-tim-kiem` theo lô 1.000, idempotent, không đẩy updatedAt; thẻ chữ lùi cột gốc khi cột bóng NULL
+  - Surfaced by: T0 (UPDATE 47k = 35 s + GIN 14 s) · Files: backend/src/legacy-migration/cli/ hoặc backend/src/common/tim-kiem/cli · Verify: chạy thử pc02_spike, lần 2 ra 0
 - [ ] **T2 (P1, human: ~1d / CC: ~40m)** — tooling — Bộ sinh `gen:tim-kiem` từ tệp khai + gate 4 chiều
   - Surfaced by: Code quality (hai chiều một quy ước) · Files: backend/src/common/tim-kiem/khai, backend/scripts · Verify: gieo lệch → đỏ
 - [ ] **T3 (P1, human: ~2d / CC: ~1h)** — backend — Helper docThe (khoá lạ 400) + dungDieuKienTimKiem (chỉ AND) + DTO @Transform; gỡ where.OR chép tay
   - Surfaced by: Code quality DRY + Outside voice #3 #13 · Files: backend/src/common/tim-kiem, *.service.ts, dto/query-*.dto.ts · Verify: jest + gieo lỗi
-- [ ] **T4 (P1, human: ~3h / CC: ~15m)** — backend — `f_bo_dau` ≡ `boDauTiengViet` ca kiểm vàng (NBSP, khoảng trắng, NFD, đ)
-  - Surfaced by: Outside voice #5 · Files: backend/src/common/utils/chuan-hoa-ten.util.ts · Verify: 1.000 chuỗi thật khớp 100%
+- [ ] **T4 (P1, human: ~3h / CC: ~15m)** — backend — `boDauTimKiem` (= boDauTiengViet + dấu câu kiểu unaccent) ≡ `f_bo_dau`, ca kiểm vàng (NBSP, khoảng trắng, NFD, đ, “ – … ’ ¾) + thoát LIKE
+  - Surfaced by: Outside voice #5 + T0 (221/67.695 lệch dấu câu, Prisma không thoát %/_) · Files: backend/src/common/tim-kiem/bo-dau.ts (dùng chung frontend qua generated/lib) · Verify: 67.695 chuỗi thật khớp 100% trên PG
 - [ ] **T5 (P1, human: ~2d / CC: ~1h)** — frontend — Registry nguồn duy nhất + ô lọc chữ thành thẻ
   - Surfaced by: Architecture (tiền lệ #233) · Files: frontend/src/features/_shared/list-filters/registry.ts, features/*/list-filters.ts · Verify: vitest
 - [ ] **T6 (P1, human: ~3d / CC: ~2h)** — frontend — OTimKiemThe + useTheTimKiem (URL, tương thích, IME, thẻ đỏ, trạng thái rỗng)
@@ -228,11 +252,15 @@ Lane 1: T0 → A → B · Lane 2: C (sau A) song song B · rồi D. PR2–PR5 tu
 | 2C | GlobalSearchBar thiếu kiểm IME | Vá trong PR5 (tăng phạm vi) |
 | 3A | Ca kiểm | Toàn bộ sơ đồ trên, gồm E2E Chrome thật + gieo lỗi |
 | 4A | Trigram không dùng dưới 3 ký tự | Khoảng trắng đầu + khớp đầu từ |
-| 4B | Nạp 47k+ dòng | Điền cột bóng ngay trong migration (vài giây) |
+| 4B | Nạp 47k+ dòng | ~~Điền trong migration~~ → **CLI theo lô sau deploy** (T0 đo migration khoá bảng ~50 s) |
+| T0-a | Prisma `contains` không thoát `%`/`_` | Helper tự thoát `\ % _`; ca kiểm "50%" |
+| T0-b | Bỏ dấu JS≠SQL ở dấu câu (0,33%) | `boDauTimKiem` mô phỏng unaccent; KHÔNG sửa `boDauTiengViet` (khoá gộp danh mục đang dùng) |
+| T0-c | Prod PG16, local PG18 | Mọi SQL migration/trigger dùng cú pháp chung PG16; ca kiểm chạy local PG18, gate cấm tính năng chỉ có ở PG17+ |
+| T0-d | `unaccent.rules` PG16 prod (1.650 dòng) ≠ PG18 local (2.661 dòng, 29 dòng dịch khác) — ca kiểm local không đại diện prod, nâng cấp PG âm thầm đổi kết quả tìm | **Bỏ phụ thuộc `unaccent`.** MỘT bảng ánh xạ khai trong TS (`common/tim-kiem/bang-bo-dau.ts`: chữ Việt + đ + dấu câu/ký hiệu đã gặp trong dữ liệu) → bộ sinh ra cả `boDauTimKiem` (JS) lẫn thân `f_bo_dau` (SQL `translate()` cho ánh xạ 1 ký tự + `replace` cho vài ánh xạ nhiều ký tự), IMMUTABLE thật, không cần extension; gate 4 chiều thêm "bảng ≡ thân hàm SQL"; ca kiểm vàng so JS với SQL chạy được trên mọi phiên bản PG |
 | OV1 | Trigger hỏng làm 500 mọi ghi | EXCEPTION → WARNING + ca kiểm sau migrate + hotfix SQL |
 | OV2 | Ngày lệch múi giờ | Không lưu ngày dạng chữ; khoảng +07:00 |
 | OV4 | Ghi khuếch đại | `BEFORE UPDATE OF` cột nguồn, không EAV |
-| OV5 | Bỏ dấu JS ≠ SQL | `f_bo_dau` gộp khoảng trắng/NBSP + ca kiểm vàng |
+| OV5 | Bỏ dấu JS ≠ SQL | `f_bo_dau` gộp khoảng trắng/NBSP + ca kiểm vàng (T0: lệch dấu câu → xem T0-b) |
 | OV9 | Tên quan hệ cũ | Cột bóng trên `users`, lọc qua quan hệ |
 | OV14 | EAV quá nặng | Nhận — cột bóng + bộ sinh (giữ mở rộng) |
 | OV15 | Khoá chuẩn chỉ thử ở PR3 | Lát mỏng Tổng hợp vào PR1 |

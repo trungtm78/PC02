@@ -355,15 +355,167 @@ describe('PetitionsService', () => {
       });
     });
 
-    it('should filter by search query', async () => {
-      mockPrisma.petition.findMany.mockResolvedValue([]);
-      mockPrisma.petition.count.mockResolvedValue(0);
+    /**
+     * Ô tìm dạng thẻ (15/09/2026): điều kiện thẻ dựng bởi CÙNG helper với thống kê, nối vào
+     * `where.AND` — không còn OR chép tay ở tầng ngoài (đã trôi khỏi thống kê và tìm nhầm cột).
+     */
+    describe('thẻ tìm kiếm tk', () => {
+      const whereCuaLanGoi = (): Record<string, unknown> => {
+        const lanGoi = mockPrisma.petition.findMany.mock.calls as Array<
+          [{ where: Record<string, unknown> }]
+        >;
+        return lanGoi[0][0].where;
+      };
+      const dkNguoiGui = (v: string, b: string) => ({
+        OR: [
+          { senderNameBd: { contains: b } },
+          {
+            senderNameBd: null,
+            senderName: { contains: v, mode: 'insensitive' },
+          },
+        ],
+      });
 
-      await service.getList({ search: 'Test query' });
+      beforeEach(() => {
+        mockPrisma.petition.findMany.mockResolvedValue([]);
+        mockPrisma.petition.count.mockResolvedValue(0);
+      });
 
-      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
-      expect(callArgs.where.OR).toBeDefined();
-      expect(callArgs.where.OR.length).toBeGreaterThan(0);
+      it('tk dựng điều kiện bỏ dấu trong where.AND, không có where.OR ở tầng ngoài', async () => {
+        await service.getList({ tk: ['nguoiGui~Nguyễn Văn'] } as never);
+        const where = whereCuaLanGoi();
+        expect(where.AND).toContainEqual(
+          dkNguoiGui('Nguyễn Văn', 'nguyen van'),
+        );
+        expect(where.OR).toBeUndefined();
+      });
+
+      it('một giá trị tk đơn (query ?tk=x) cũng nhận', async () => {
+        await service.getList({ tk: 'stt~26-11171' } as never);
+        expect(whereCuaLanGoi().AND).toContainEqual({
+          stt: { in: ['26-11171', '2026-11171'] },
+        });
+      });
+
+      it('search cũ quy về thẻ "tất cả các cột"', async () => {
+        await service.getList({ search: 'Lừa đảo' });
+        const where = whereCuaLanGoi();
+        expect(where.OR).toBeUndefined();
+        expect(where.AND).toContainEqual({
+          OR: [
+            { timKiemBd: { contains: 'lua dao' } },
+            expect.objectContaining({ timKiemBd: null }),
+          ],
+        });
+      });
+
+      it('senderName cũ quy về thẻ nguoiGui (bỏ dấu), không lọc thẳng cột', async () => {
+        await service.getList({ senderName: 'Nguyen' });
+        const where = whereCuaLanGoi();
+        expect(where.senderName).toBeUndefined();
+        expect(where.AND).toContainEqual(dkNguoiGui('Nguyen', 'nguyen'));
+      });
+
+      it('unit cũ quy về thẻ donViGiaiQuyet (cột "Đơn vị giải quyết")', async () => {
+        await service.getList({ unit: 'Đội 4' });
+        const where = whereCuaLanGoi();
+        expect(where.donViGiaiQuyet).toBeUndefined();
+        expect(where.AND).toContainEqual({
+          OR: [
+            { donViGiaiQuyetBd: { contains: 'doi 4' } },
+            {
+              donViGiaiQuyetBd: null,
+              donViGiaiQuyet: { contains: 'Đội 4', mode: 'insensitive' },
+            },
+          ],
+        });
+      });
+
+      it('khoá thẻ lạ → 400, không trả dữ liệu chưa lọc', async () => {
+        await expect(
+          service.getList({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+      });
+
+      /** Phạm vi dữ liệu và thẻ cùng nằm trong AND — thẻ không được đè phạm vi. */
+      it('thẻ + phạm vi dữ liệu cùng có trong where.AND', async () => {
+        await service.getList({ tk: ['nguoiGui~An'] } as never, {
+          teamIds: ['team-1'],
+          userIds: ['u1'],
+          writableTeamIds: ['team-1'],
+        });
+        const and = whereCuaLanGoi().AND as unknown[];
+        expect(and).toContainEqual(dkNguoiGui('An', ' an'));
+        // Chốt CHÍNH điều kiện phạm vi, không chỉ đếm phần tử: đếm thì một điều kiện khác chen
+        // vào chỗ phạm vi bị mất vẫn xanh.
+        expect(JSON.stringify(and)).toContain('team-1');
+      });
+
+      /** Ô tìm cũ (GlobalSearchBar, trang khôi phục…) gửi chữ dán dài: cắt, không 400 cả trang. */
+      it('search cũ dài hơn 200 ký tự → cắt còn 200, không 400', async () => {
+        await service.getList({ search: 'a'.repeat(250) } as never);
+        const json = JSON.stringify(whereCuaLanGoi().AND);
+        expect(json).toContain('a'.repeat(200));
+        expect(json).not.toContain('a'.repeat(201));
+      });
+
+      /**
+       * Kỳ thống kê mặc định (vd tháng hiện tại) gán thẳng lên cột ngày. Thẻ ngày `ngayDeXuat~2019`
+       * nằm trong AND → giao với kỳ = 0 dòng mà không lời nào. Cán bộ đã chỉ rõ ngày → bỏ kỳ mặc định.
+       */
+      it('thẻ ngày → bỏ kỳ mặc định; thẻ chữ → vẫn trong kỳ', async () => {
+        const kyThang = {
+          ky: 'THANG_HIEN_TAI',
+          truong: 'NGAY_TIEP_NHAN',
+          tuNgay: '2026-09-01',
+          denNgay: '2026-09-30',
+        };
+        mockSettings.getKyThongKe.mockResolvedValueOnce(kyThang);
+        await service.getList({ tk: ['ngayDeXuat~2019'] } as never);
+        expect(whereCuaLanGoi().ngayDeXuat).toBeUndefined();
+
+        mockPrisma.petition.findMany.mockClear();
+        mockSettings.getKyThongKe.mockResolvedValueOnce(kyThang);
+        await service.getList({ tk: ['nguoiGui~An'] } as never);
+        expect(whereCuaLanGoi().ngayDeXuat).toBeDefined();
+      });
+
+      /**
+       * Nhánh lùi `cột bóng IS NULL AND cột gốc ILIKE` buộc quét cả bảng. CSDL báo không còn dòng
+       * chưa nạp → bỏ nhánh ấy; hỏi lỗi → giữ nhánh lùi (đúng trước, nhanh sau).
+       */
+      describe('lùi về cột gốc chỉ khi còn dòng chưa nạp', () => {
+        afterEach(() => {
+          delete (mockPrisma as Record<string, unknown>).$queryRawUnsafe;
+        });
+
+        it('đã nạp xong → chỉ cột bóng', async () => {
+          (mockPrisma as Record<string, unknown>).$queryRawUnsafe = jest
+            .fn()
+            .mockResolvedValue([{ co: false }]);
+          await service.getList({ tk: ['nguoiGui~An'] } as never);
+          expect(whereCuaLanGoi().AND).toContainEqual({
+            senderNameBd: { contains: ' an' },
+          });
+        });
+
+        it('còn dòng chưa nạp → giữ nhánh lùi', async () => {
+          (mockPrisma as Record<string, unknown>).$queryRawUnsafe = jest
+            .fn()
+            .mockResolvedValue([{ co: true }]);
+          await service.getList({ tk: ['nguoiGui~An'] } as never);
+          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', ' an'));
+        });
+
+        it('hỏi CSDL lỗi → giữ nhánh lùi', async () => {
+          (mockPrisma as Record<string, unknown>).$queryRawUnsafe = jest
+            .fn()
+            .mockRejectedValue(new Error('mất kết nối'));
+          await service.getList({ tk: ['nguoiGui~An'] } as never);
+          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', ' an'));
+        });
+      });
     });
 
     it('should filter by status', async () => {
@@ -1917,6 +2069,25 @@ describe('PetitionsService', () => {
       );
     });
 
+    /**
+     * `?q=%` từng khớp MỌI đơn (Prisma `contains` không thoát ký tự LIKE) và endpoint bỏ qua phạm
+     * vi: cán bộ tổ nào cũng liệt kê được họ tên, số giấy tờ, tội danh của tổ khác (Codex 15/09).
+     */
+    it('V-S4: thoát ký tự LIKE và áp phạm vi dữ liệu', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.suspectSearch('50%_', {
+        teamIds: ['team-1'],
+        userIds: ['u1'],
+        writableTeamIds: ['team-1'],
+      });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.OR[0].senderName.contains).toBe('50\\%\\_');
+      expect(where.OR[1].senderIdNumber.contains).toBe('50\\%\\_');
+      expect(JSON.stringify(where.AND)).toContain('team-1');
+    });
+
     it('V-S2: returns empty array for blank query', async () => {
       const result = await service.suspectSearch('', null);
       expect(result).toEqual([]);
@@ -1987,10 +2158,116 @@ describe('PetitionsService', () => {
       expect(JSON.stringify(call.where)).toContain('pet-current');
     });
 
+    /** Rà trùng chỉ trên hồ sơ trong phạm vi dữ liệu của cán bộ — như mọi đường đọc Đơn thư. */
+    it('V-D5: áp phạm vi dữ liệu khi có scope', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.duplicateSearch('Lê Văn C', undefined, {
+        teamIds: ['team-1'],
+        userIds: ['u1'],
+        writableTeamIds: ['team-1'],
+      });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(where.AND)).toContain('team-1');
+      expect(where.OR).toHaveLength(3);
+    });
+
     it('V-D3: returns empty array for blank query', async () => {
       const result = await service.duplicateSearch('', undefined, null);
       expect(result).toEqual([]);
       expect(mockPrisma.petition.findMany).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Rà trùng GIỮ ĐÚNG ba cột cũ (người gửi, STT, tóm tắt). Endpoint này chưa lọc phạm vi dữ liệu;
+     * đưa nó qua thẻ "tất cả các cột" từng mở rộng thứ dò được sang nội dung đơn và đối tượng bị
+     * tố của tổ khác. Chỉ thêm thoát `%`/`_` (Prisma không tự thoát).
+     */
+    it('V-D4: chỉ ba cột cũ, thoát ký tự LIKE', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.duplicateSearch('Lê 50%_', 'pet-current', null);
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      const chua = { contains: 'Lê 50\\%\\_', mode: 'insensitive' };
+      expect(where.OR).toEqual([
+        { senderName: chua },
+        { stt: chua },
+        { summary: chua },
+      ]);
+      expect(where.AND).toBeUndefined();
+      expect(where.id).toEqual({ not: 'pet-current' });
+    });
+  });
+
+  /**
+   * Hồ sơ đã xoá và bộ chọn đơn khi tạo Vụ án tìm bằng CÙNG helper với danh sách chính — OR chép
+   * tay ở các đường này đã trôi khỏi danh sách (không bỏ dấu, tìm ít cột hơn).
+   */
+  describe('đường đọc phụ dùng thẻ tìm kiếm', () => {
+    const dkTatCa = (b: string) => ({
+      OR: [
+        { timKiemBd: { contains: b } },
+        expect.objectContaining({ timKiemBd: null }),
+      ],
+    });
+
+    it('listDeleted: search → thẻ "*" trong AND, vẫn chỉ hồ sơ đã xoá', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.listDeleted({ search: 'Tố giác' });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toContainEqual(dkTatCa('to giac'));
+    });
+
+    it('listDeleted: không search → không thêm điều kiện', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      mockPrisma.petition.count.mockResolvedValue(0);
+
+      await service.listDeleted({});
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where).toEqual({ deletedAt: { not: null } });
+    });
+
+    it('listLinkable: search → thẻ "*" trong AND, giữ điều kiện phạm vi', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.listLinkable(
+        { search: '26-11171' },
+        {
+          teamIds: ['team-1'],
+          userIds: ['u1'],
+          writableTeamIds: ['team-1'],
+        },
+      );
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.linkedCaseId).toBeNull();
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toContainEqual(dkTatCa('26-11171'));
+      expect(JSON.stringify(where.AND)).toContain('team-1');
+    });
+
+    it('listLinkable: không search, có phạm vi → phạm vi vẫn áp', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.listLinkable(
+        {},
+        {
+          teamIds: ['team-1'],
+          userIds: ['u1'],
+          writableTeamIds: ['team-1'],
+        },
+      );
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(where)).toContain('team-1');
     });
   });
 

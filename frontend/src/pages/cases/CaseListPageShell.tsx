@@ -657,8 +657,9 @@ export function CaseListPageShell() {
   const { data: officerOptions } = useOfficerOptions();
 
   const handleResetFilters = useCallback(() => {
-    url.clearAll();
+    // Thứ tự có nghĩa — `clearAll` phải là lần ghi URL cuối. Xem cổng xoaLocGhiUrlCuoi.gate.test.ts.
     listFilters.reset();
+    url.clearAll();
   }, [url, listFilters]);
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;

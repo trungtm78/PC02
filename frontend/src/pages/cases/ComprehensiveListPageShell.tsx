@@ -242,7 +242,9 @@ export function ComprehensiveListPageShell() {
     [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
   );
   const listFilters = useListFilters<ComprehensiveFilterValue>({
-    prefix: 'comprehensive',
+    // CÙNG tiền tố với `useListPageUrlState('comp')`. Trước 15/09/2026 là 'comprehensive', nên
+    // `url.clearAll()` (xoá `comp_*`) không bao giờ chạm khoá của mặt lọc — "Xóa lọc" để sót lọc.
+    prefix: 'comp',
     registry: comprehensiveListFilters,
   });
   const appliedFilters = listFilters.applied;
@@ -557,8 +559,9 @@ export function ComprehensiveListPageShell() {
   );
 
   const handleResetFilters = useCallback(() => {
-    url.clearAll();
+    // Thứ tự có nghĩa — `clearAll` phải là lần ghi URL cuối. Xem cổng xoaLocGhiUrlCuoi.gate.test.ts.
     listFilters.reset();
+    url.clearAll();
   }, [url, listFilters]);
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;

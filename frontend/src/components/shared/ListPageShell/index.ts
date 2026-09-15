@@ -80,3 +80,8 @@ export { useColumnVisibility } from './useColumnVisibility';
 export { useBoCucCot } from './useBoCucCot';
 export { apDungBoCuc, ganViTri, type BoCucCot } from './boCucCot';
 export { TayNamKeo } from './TayNamKeo';
+// Ô tìm kiếm dạng thẻ (15/09/2026) — spec docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md.
+export { OTimKiemThe, DanhSachThe } from './OTimKiemThe';
+export type { OTimKiemTheProps, GiaTriChon } from './OTimKiemThe';
+export { useTheTimKiem } from './useTheTimKiem';
+export { truongGoiY } from './truongGoiY';

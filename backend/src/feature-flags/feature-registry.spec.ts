@@ -73,6 +73,12 @@ describe('FEATURE_REGISTRY', () => {
       expect(getManifest('does-not-exist')).toBeUndefined();
     });
 
+    // Giao diện đọc đúng khoá này (`useFeatureBatMacDinh('TIM_KIEM_THE')`). Thiếu dòng seed thì
+    // quản trị không có công tắc để tắt ô thẻ khi cần.
+    it('returns the TIM_KIEM_THE manifest (kill switch for tag search box)', () => {
+      expect(getManifest('TIM_KIEM_THE')?.domain).toBe('core');
+    });
+
     // v0.37.2.1: regression test for hidden Tổng hợp menu. Frontend has
     // features/comprehensive/feature.manifest.ts since v0.37.1 but backend
     // was missing the matching manifest → seedFeatureFlags() never created

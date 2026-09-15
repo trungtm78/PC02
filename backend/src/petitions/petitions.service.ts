@@ -28,7 +28,10 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
-import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import {
+  apDungKyVaoWhere,
+  KY_THONG_KE,
+} from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -49,6 +52,81 @@ import {
   type ChiMucLoaiThongTin,
 } from './loai-thong-tin.rule';
 import { khoaLoaiThongTin } from '../common/utils/khoa-loai-thong-tin.util';
+import {
+  KHOA_TAT_CA,
+  docThe,
+  dungDieuKienTimKiem,
+  noiVaoWhere,
+  DO_DAI_GIA_TRI_TOI_DA,
+} from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
+import { thoatLike } from '../common/tim-kiem/bo-dau';
+import { sinhCauConChuaNap } from '../common/tim-kiem/sinh/sinh-tim-kiem';
+
+const CAU_CON_CHUA_NAP_DON_THU = sinhCauConChuaNap(KHAI_TIM_KIEM_DON_THU);
+/** Nhớ câu trả lời "còn dòng chưa nạp cột bóng" — tắt khẩn trigger thì chậm nhất chừng này mới lùi. */
+const THOI_GIAN_NHO_CHUA_NAP_MS = 60_000;
+
+const damThe = (tk: string | string[] | undefined): string[] =>
+  tk === undefined ? [] : Array.isArray(tk) ? [...tk] : [tk];
+
+/**
+ * Điều kiện ô tìm dạng thẻ của Đơn thư — MỘT chỗ cho danh sách lẫn thống kê. Tham số lọc chữ
+ * cũ (`search`, `senderName`, `unit`) quy về thẻ ở đây để đường dẫn cũ vẫn chạy mà không áp hai
+ * lần, và để thẻ số không lọc khác danh sách ngay dưới.
+ *
+ * Tham số cũ cắt còn DO_DAI_GIA_TRI_TOI_DA: các ô tìm cũ (GlobalSearchBar, trang khôi phục…) gửi
+ * nguyên chữ dán vào, quá giới hạn thẻ thì cả trang 400.
+ */
+function dieuKienTimKiemDonThu(
+  query: {
+    tk?: string | string[];
+    search?: string;
+    senderName?: string;
+    unit?: string;
+  },
+  luiCotGoc: boolean,
+): Record<string, unknown>[] {
+  const tho = damThe(query.tk);
+  const cu = (v: string | undefined) =>
+    v?.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+  if (cu(query.search)) tho.push(`${KHOA_TAT_CA}~${cu(query.search)}`);
+  if (cu(query.senderName)) tho.push(`nguoiGui~${cu(query.senderName)}`);
+  if (cu(query.unit)) tho.push(`donViGiaiQuyet~${cu(query.unit)}`);
+  return dungDieuKienTimKiem(
+    docThe(tho, KHAI_TIM_KIEM_DON_THU),
+    KHAI_TIM_KIEM_DON_THU,
+    { luiCotGoc },
+  );
+}
+
+/**
+ * Có thẻ ngày không. Kỳ thống kê mặc định (vd tháng hiện tại) gán thẳng lên cột ngày; thẻ
+ * `ngayDeXuat~2019` nằm trong AND nên giao với kỳ ra 0 dòng mà không lời nào. Cán bộ đã chỉ rõ
+ * ngày thì bỏ kỳ MẶC ĐỊNH (Từ/Đến ngày tự đặt vẫn áp).
+ */
+function coTheNgayDonThu(tk: string | string[] | undefined): boolean {
+  return damThe(tk).some((muc) => {
+    const i = muc.indexOf('~');
+    if (i <= 0) return false;
+    const khoa = muc.slice(0, i);
+    return KHAI_TIM_KIEM_DON_THU.truong.some(
+      (t) => t.key === khoa && t.kieu === 'ngay',
+    );
+  });
+}
+
+/**
+ * Kỳ THỰC SỰ áp cho danh sách/thống kê: có thẻ ngày thì "tất cả" — dùng cho cả điều kiện lọc lẫn
+ * nhãn kỳ trả về, để thanh thẻ không ghi "Tháng này" trên con số không lọc tháng.
+ */
+function kyApDungDonThu<
+  K extends { ky: string; tuNgay: string | null; denNgay: string | null },
+>(ky: K, tk: string | string[] | undefined): K {
+  return coTheNgayDonThu(tk)
+    ? { ...ky, ky: KY_THONG_KE.TAT_CA, tuNgay: null, denNgay: null }
+    : ky;
+}
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -73,16 +151,39 @@ export class PetitionsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  private nhoChuaNap: { giaTri: boolean; het: number } | null = null;
+
+  /**
+   * Có còn phải lùi về cột gốc không. Nhánh lùi `cột bóng IS NULL AND cột gốc ILIKE` buộc quét cả
+   * bảng (đo pc02_spike 47.169 đơn: 124 ms so với 51 ms qua GIN), nên chỉ giữ khi CÒN dòng chưa
+   * nạp — ngay sau deploy, hoặc sau khi tắt khẩn trigger. Hỏi lỗi thì giữ nhánh lùi: đúng trước,
+   * nhanh sau.
+   */
+  private async canLuiCotGoc(): Promise<boolean> {
+    const bayGio = Date.now();
+    if (this.nhoChuaNap && this.nhoChuaNap.het > bayGio) {
+      return this.nhoChuaNap.giaTri;
+    }
+    let giaTri = true;
+    try {
+      const [dong] = await this.prisma.$queryRawUnsafe<Array<{ co: boolean }>>(
+        CAU_CON_CHUA_NAP_DON_THU,
+      );
+      giaTri = dong?.co !== false;
+    } catch (e) {
+      this.logger.warn(`Không hỏi được trạng thái nạp cột bóng: ${String(e)}`);
+    }
+    this.nhoChuaNap = { giaTri, het: bayGio + THOI_GIAN_NHO_CHUA_NAP_MS };
+    return giaTri;
+  }
+
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
   async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
     const {
-      search,
       status,
       statusGroup,
-      unit,
-      senderName,
       fromDate,
       toDate,
       overdue,
@@ -100,16 +201,11 @@ export class PetitionsService {
       deletedAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { stt: { contains: search, mode: 'insensitive' } },
-        { senderName: { contains: search, mode: 'insensitive' } },
-        { suspectedPerson: { contains: search, mode: 'insensitive' } },
-        { summary: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (và search/senderName/unit cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+    );
 
     // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
     // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
@@ -139,25 +235,26 @@ export class PetitionsService {
       where.enteredById = enteredById.trim();
     }
 
-    if (unit) {
-      // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN và
-      // rỗng ở toàn bộ 46.660 đơn thư, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
-      // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
-      // vẫn dùng được.
-      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
-    }
-
-    if (senderName) {
-      where.senderName = { contains: senderName, mode: 'insensitive' };
-    }
+    // `unit` / `senderName` cũ đã quy về thẻ donViGiaiQuyet / nguoiGui ở dieuKienTimKiemDonThu.
+    // (`unit` lọc cột "Đơn vị giải quyết" chứ không phải đơn vị TIẾP NHẬN — cột ấy rỗng ở toàn
+    // bộ 46.660 đơn thư.)
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    const kyThongKe = kyApDungDonThu(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
     // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
     // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
+    apDungKyVaoWhere(
+      where as Record<string, unknown>,
+      kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -332,18 +429,17 @@ export class PetitionsService {
       baseWhere.OR = orConditions;
     }
 
-    // Search across STT (prefix-style — petitioners search by SỐ TT) and senderName (contains).
+    // Tìm qua CÙNG helper với danh sách chính (thẻ "tất cả các cột", bỏ dấu). Phạm vi đang nằm ở
+    // OR phía trên được chuyển vào AND trước, để điều kiện tìm không đè lên nó.
     if (search.length > 0) {
-      baseWhere.AND = [
-        baseWhere.OR ? { OR: baseWhere.OR } : {},
-        {
-          OR: [
-            { stt: { startsWith: search, mode: 'insensitive' as const } },
-            { senderName: { contains: search, mode: 'insensitive' as const } },
-          ],
-        },
-      ];
-      delete baseWhere.OR;
+      if (baseWhere.OR) {
+        baseWhere.AND = [{ OR: baseWhere.OR }];
+        delete baseWhere.OR;
+      }
+      noiVaoWhere(
+        baseWhere as Record<string, unknown>,
+        dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
+      );
     }
 
     const rows = await this.prisma.petition.findMany({
@@ -1909,15 +2005,12 @@ export class PetitionsService {
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
 
-    const where: Prisma.PetitionWhereInput = {
-      deletedAt: { not: null },
-      ...(search && {
-        OR: [
-          { senderName: { contains: search, mode: 'insensitive' } },
-          { stt: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-    };
+    const where: Prisma.PetitionWhereInput = { deletedAt: { not: null } };
+    // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
+    );
 
     const [data, total] = await Promise.all([
       this.prisma.petition.findMany({
@@ -1961,30 +2054,30 @@ export class PetitionsService {
   // - Strips status filter (counts BY status, not filtered by it)
   // ─────────────────────────────────────────────
   async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
-    const { search, unit, senderName, fromDate, toDate, overdue, wardTeamId } = query;
+    const { fromDate, toDate, overdue, wardTeamId } = query;
 
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
 
-    if (search) {
-      where.OR = [
-        { stt: { contains: search, mode: 'insensitive' } },
-        { senderName: { contains: search, mode: 'insensitive' } },
-        { suspectedPerson: { contains: search, mode: 'insensitive' } },
-        { summary: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — lọc lệch cột thì số trên thẻ
-    // và số dòng dưới bảng không khớp nhau.
-    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
-    if (senderName) where.senderName = { contains: senderName, mode: 'insensitive' };
+    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG helper với getList, nên số
+    // trên thẻ và số dòng dưới bảng không thể lọc lệch nhau.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+    );
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
+    const kyThongKe = kyApDungDonThu(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    apDungKyVaoWhere(
+      where as Record<string, unknown>,
+      kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -2035,18 +2128,22 @@ export class PetitionsService {
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
   async suspectSearch(
     q: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
     if (!q?.trim()) return [];
 
+    // Thoát `%`/`_` (Prisma `contains` không tự thoát — `?q=%` từng khớp mọi đơn) và áp phạm vi
+    // dữ liệu như mọi đường đọc Đơn thư: kết quả có số giấy tờ và tội danh.
+    const chua = { contains: thoatLike(q), mode: 'insensitive' as const };
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      OR: [{ senderName: chua }, { senderIdNumber: chua }],
+    };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+
     const petitions = await this.prisma.petition.findMany({
-      where: {
-        deletedAt: null,
-        OR: [
-          { senderName: { contains: q, mode: 'insensitive' } },
-          { senderIdNumber: { contains: q, mode: 'insensitive' } },
-        ],
-      },
+      where,
       select: {
         id: true,
         stt: true,
@@ -2078,18 +2175,20 @@ export class PetitionsService {
   async duplicateSearch(
     q: string,
     excludeId?: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
     if (!q?.trim()) return [];
 
+    // GIỮ ĐÚNG ba cột cũ: đưa qua thẻ "tất cả các cột" sẽ mở rộng thứ dò được sang nội dung đơn và
+    // đối tượng bị tố. Thoát `%`/`_` (Prisma `contains` không tự thoát) và áp phạm vi dữ liệu như
+    // mọi đường đọc Đơn thư — trước 15/09/2026 tham số phạm vi bị bỏ qua.
+    const chua = { contains: thoatLike(q), mode: 'insensitive' as const };
     const where: Prisma.PetitionWhereInput = {
       deletedAt: null,
-      OR: [
-        { senderName: { contains: q, mode: 'insensitive' } },
-        { stt: { contains: q, mode: 'insensitive' } },
-        { summary: { contains: q, mode: 'insensitive' } },
-      ],
+      OR: [{ senderName: chua }, { stt: chua }, { summary: chua }],
     };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
 
     if (excludeId) {
       where.id = { not: excludeId };

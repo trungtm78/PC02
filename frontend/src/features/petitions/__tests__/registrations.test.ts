@@ -61,16 +61,17 @@ describe('petitionsRowActions', () => {
 });
 
 describe('petitionsListFilters', () => {
-  it('registers 9 fields — 4 gốc + 3 ô theo bảng lọc hệ cũ', () => {
-    // 3 ô mới khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì
-    // không có cách nào đúng để trả lời "ô nào đang có hiệu lực" (đã mắc và phải gỡ).
+  /**
+   * HỢP ĐỒNG ĐỔI CÓ CHỦ ĐÍCH (15/09/2026, trước: có thêm sender/unit/stt/sttCu).
+   *
+   * Bốn ô lọc CHỮ chuyển sang ô tìm kiếm dạng thẻ (thẻ `nguoiGui`, `donViGiaiQuyet`, `stt`,
+   * `sttCu`). Giữ cả ô chữ lẫn thẻ là hai lối vào một bộ lọc — "ô nào đang có hiệu lực" không có
+   * câu trả lời đúng (đã mắc với hai ô "Từ ngày", #233). Mặt lọc còn ngày, cán bộ nhập, kỳ.
+   */
+  it('mặt lọc còn ngày + cán bộ nhập + kỳ; ô lọc chữ đã thành thẻ', () => {
     expect(petitionsListFilters.all().map((f) => f.key)).toEqual([
       'fromDate',
       'toDate',
-      'sender',
-      'unit',
-      'stt',
-      'sttCu',
       'enteredById',
       // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
       // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
@@ -83,8 +84,10 @@ describe('petitionsListFilters', () => {
     // thích bên dưới. Ca này chốt để chuyện đó không tái diễn.
     const keys = petitionsListFilters.all().map((f) => f.urlKey);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toContain('stt_cu');
     expect(keys).toContain('entered_by');
+    // Khoá của ô chữ cũ nay do ô thẻ đọc lại (đường dẫn cũ → thẻ). Mặt lọc mà khai lại khoá ấy
+    // là hai nơi cùng ghi một khoá — đúng kiểu lỗi `petitions_status` bên dưới.
+    for (const cu of ['sender', 'unit', 'stt', 'stt_cu']) expect(keys).not.toContain(cu);
   });
 
   /**
@@ -109,10 +112,6 @@ describe('petitionsListFilters', () => {
     expect(petitionsListFilters.all().map((f) => f.testid)).toEqual([
       'filter-from-date',
       'filter-to-date',
-      'filter-sender',
-      'filter-unit',
-      'filter-stt',
-      'filter-stt-cu',
       'filter-can-bo-nhap',
       'filter-tinh-theo',
     ]);

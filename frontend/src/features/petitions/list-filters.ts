@@ -3,8 +3,12 @@ import { createListFilterRegistry } from '@/features/_shared/list-filters/regist
 /**
  * v0.65 PR3 — Petitions advanced filter fields registration.
  *
- * Mirrors legacy PetitionListPage.tsx (commit 2cbdd90^):
- *   fromDate, toDate, sender, status (enum), unit.
+ * Mirrors legacy PetitionListPage.tsx (commit 2cbdd90^): fromDate, toDate, status (enum).
+ *
+ * 15/09/2026: các ô lọc CHỮ (Người gửi, Đơn vị, STT, STT cũ) chuyển sang ô tìm kiếm dạng thẻ —
+ * khoá thẻ khai ở `backend/src/common/tim-kiem/khai/don-thu.khai.ts`. Giữ ô chữ ở đây nữa là hai
+ * lối vào một bộ lọc (tiền lệ #233). Đường dẫn cũ `petitions_sender=`… vẫn mở ra thẻ tương ứng
+ * (`THAM_SO_CU_DON_THU` ở PetitionListPageShell). Mặt lọc còn ngày, chọn cán bộ, kỳ thống kê.
  *
  * See docs/audit/shell-parity-matrix.md Petitions section.
  */
@@ -12,11 +16,7 @@ import { createListFilterRegistry } from '@/features/_shared/list-filters/regist
 export interface PetitionFilterValue {
   fromDate?: string;
   toDate?: string;
-  sender?: string;
   status?: string;
-  unit?: string;
-  stt?: string;
-  sttCu?: string;
   enteredById?: string;
   /** Tạm đổi kỳ thống kê tính theo ngày nào; rỗng = theo cấu hình hệ thống. */
   thongKeTruongNgay?: string;
@@ -39,45 +39,11 @@ petitions.registerMany([
     urlKey: 'to_date',
     testid: 'filter-to-date',
   },
-  {
-    key: 'sender',
-    label: 'Người gửi',
-    type: 'text',
-    urlKey: 'sender',
-    testid: 'filter-sender',
-    placeholder: 'Tên người gửi đơn',
-  },
   // ĐÃ GỠ field 'status'. Nó khai `urlKey:'status'` nên `useListFilters` ghi vào
   // `petitions_status` — ĐÚNG key mà thanh chip đang dùng. Hai control cùng ghi một
   // state, khiến trang gửi kèm param `advancedStatus` không có trong DTO, và
   // `forbidNonWhitelisted` trả 400 → bộ lọc nâng cao gãy.
   // Lọc theo trạng thái nay đã có thanh chip + thẻ thống kê bấm được, nên field này thừa.
-  {
-    key: 'unit',
-    label: 'Đơn vị',
-    type: 'text',
-    urlKey: 'unit',
-    testid: 'filter-unit',
-    placeholder: 'PC02, PC03, ...',
-  },
-  // ── Bổ sung theo bảng lọc hệ cũ (25/08/2026) ─────────────────────────────
-  // Khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì không có
-  // cách nào đúng để trả lời "ô nào đang có hiệu lực" — đúng lỗi đã mắc và phải gỡ.
-  {
-    key: 'stt',
-    label: 'STT',
-    type: 'text',
-    urlKey: 'stt',
-    testid: 'filter-stt',
-    placeholder: 'vd 26-11171',
-  },
-  {
-    key: 'sttCu',
-    label: 'STT cũ',
-    type: 'text',
-    urlKey: 'stt_cu',
-    testid: 'filter-stt-cu',
-  },
   {
     key: 'enteredById',
     label: 'Cán bộ nhập',

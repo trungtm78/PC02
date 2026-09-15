@@ -92,6 +92,12 @@ export interface ColumnDef<TRow> {
    * cột ngay lần đầu ai đó thêm cột mà quên cập nhật, và không có gì báo.
    */
   optional?: 'show' | 'hide';
+  /**
+   * Khoá thẻ tìm kiếm (trong `shared/tim-kiem/generated.ts`) mà cột này hiển thị. Ô tìm kiếm
+   * gợi ý đúng các cột ĐANG HIỆN theo thứ tự trên bảng; ẩn cột là cột ấy rời khỏi gợi ý. Một cột
+   * có thể mang nhiều khoá (cột STT hiện cả STT cũ).
+   */
+  timKiem?: string | readonly string[];
 }
 
 export interface TableProps<TRow, TId extends string | number = string> {
@@ -152,6 +158,8 @@ export interface TableProps<TRow, TId extends string | number = string> {
   /** Filtered-empty state CTA (state=empty-filtered). */
   emptyFilteredState?: {
     onClearFilters(): void;
+    /** Nói rõ đang lọc bởi gì (vd các thẻ tìm kiếm, bỏ được tại chỗ). */
+    chiTiet?: ReactNode;
   };
   onRowClick?(row: TRow): void;
   getRowClassName?(row: TRow): string;
@@ -231,6 +239,7 @@ function EmptyFilteredState({
       <FilterX className={EMPTY_STATE_ICON} aria-hidden="true" />
       <p className={EMPTY_STATE_TEXT}>Không có kết quả phù hợp bộ lọc</p>
       <p className={EMPTY_STATE_SUBTEXT}>Thử xoá bộ lọc hoặc đổi từ khoá tìm kiếm.</p>
+      {emptyFilteredState?.chiTiet}
       {emptyFilteredState?.onClearFilters && (
         <button
           type="button"

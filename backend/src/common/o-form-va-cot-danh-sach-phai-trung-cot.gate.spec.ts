@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { KHAI_TIM_KIEM_DON_THU } from './tim-kiem/khai/don-thu.khai';
 
 /**
  * CỔNG: một nhãn hệ cũ thì ô trên form, cột trên danh sách và bộ lọc phải trỏ CÙNG MỘT CỘT.
@@ -111,8 +112,6 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
   };
 
   it.each([
-    ['Đơn thư', 'backend/src/petitions/petitions.service.ts', 'getList'],
-    ['Đơn thư', 'backend/src/petitions/petitions.service.ts', 'getStats'],
     ['Vụ án', 'backend/src/cases/cases.service.ts', 'getList'],
     ['Vụ án', 'backend/src/cases/cases.service.ts', 'getStats'],
   ])('%s · %s lọc `donViGiaiQuyet`, không lọc `unit`', (_ten, duong, ham) => {
@@ -120,6 +119,30 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
     expect(than).toContain('where.donViGiaiQuyet');
     expect(than).not.toMatch(/where\.unit\s*=/);
   });
+
+  /**
+   * Đơn thư từ 15/09/2026 lọc chữ qua ô tìm dạng thẻ: tham số `unit` cũ quy về thẻ
+   * `donViGiaiQuyet`, và thẻ ấy trỏ cột `donViGiaiQuyet` trong tệp khai. Soi cả BA mắt xích —
+   * thiếu một là bộ lọc theo tổ lại lọc sai cột mà không ca kiểm khứ hồi nào thấy.
+   */
+  it.each(['getList', 'getStats'])(
+    'Đơn thư · %s lọc `donViGiaiQuyet` qua thẻ tìm kiếm, không lọc `unit`',
+    (ham) => {
+      const duong = 'backend/src/petitions/petitions.service.ts';
+      const than = THAN(duong, ham);
+      expect(than).toMatch(/dieuKienTimKiemDonThu\(\s*query\b/);
+      expect(than).not.toMatch(/where\.unit\s*=/);
+
+      const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
+      expect(src).toMatch(
+        /cu\(query\.unit\)\)\s*tho\.push\(\s*`donViGiaiQuyet~/,
+      );
+      const truong = KHAI_TIM_KIEM_DON_THU.truong.find(
+        (t) => t.key === 'donViGiaiQuyet',
+      );
+      expect(truong?.cot).toBe('donViGiaiQuyet');
+    },
+  );
 
   /**
    * SỬA hồ sơ cũng phải ghi được cột ấy. Thiếu nhánh trong `update` thì cán bộ sửa, bấm Lưu,

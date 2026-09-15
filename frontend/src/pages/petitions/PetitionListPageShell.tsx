@@ -31,6 +31,10 @@ import {
   type TableState,
   ColumnPicker,
   useBoCucCot,
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  truongGoiY,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -68,11 +72,34 @@ import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { petitionsRowActions } from '@/features/petitions/row-actions';
 import { petitionsListFilters, type PetitionFilterValue } from '@/features/petitions/list-filters';
+import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 
 const PETITION_STATUS_VALUES = new Set<string>(Object.values(PetitionStatus));
 function isValidPetitionStatus(value: string | null): value is PetitionStatus {
   return value != null && PETITION_STATUS_VALUES.has(value);
 }
+
+/**
+ * Tham số trước thời thẻ → khoá thẻ. Đường dẫn cũ (dấu trang, tin nhắn) mở ra vẫn đúng bộ lọc:
+ * ô tìm kiếm `q` thành thẻ "tất cả các cột", các ô lọc chữ cũ thành thẻ theo cột.
+ */
+const THAM_SO_CU_DON_THU = {
+  q: KHOA_TAT_CA,
+  sender: 'nguoiGui',
+  unit: 'donViGiaiQuyet',
+  stt: 'stt',
+  stt_cu: 'sttCu',
+} as const;
+
+/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
+const GIA_TRI_CHON_DON_THU = {
+  trangThai: Object.values(PetitionStatus).map((v) => ({
+    value: v,
+    label: PETITION_STATUS_LABEL[v],
+  })),
+};
 
 function getVietnameseErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
@@ -178,6 +205,15 @@ export function PetitionListPageShell() {
   const groupFilter = url.getParam('statusGroup');
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
+  // Ô tìm kiếm dạng thẻ. Cờ `TIM_KIEM_THE` là công tắc khẩn: quản trị tắt thì trang trở lại ô
+  // chữ `q` → `search` như trước, không cần deploy. Máy chủ nhận cả hai.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'petitions',
+    khai: TIM_KIEM_DON_THU,
+    thamSoCu: THAM_SO_CU_DON_THU,
+    bat: theBat,
+  });
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -245,27 +281,24 @@ export function PetitionListPageShell() {
 
   const baseQueryParams = useMemo(
     () => ({
-      ...(debouncedSearch && { search: debouncedSearch }),
+      // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
+      // Các ô lọc chữ cũ (người gửi, đơn vị, STT, STT cũ) nay là thẻ, không gửi riêng nữa.
+      ...(theBat
+        ? timKiem.tkGui.length > 0 && { tk: timKiem.tkGui }
+        : debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
       ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
       // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
       ...(appliedFilters.thongKeTruongNgay && {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
-      ...(appliedFilters.sender && { senderName: appliedFilters.sender }),
-      // Giữ TÊN THAM SỐ `unit` — máy chủ chỉ nhận đúng bộ khoá đã khai (`forbidNonWhitelisted`),
-      // gửi khoá lạ là hỏng cả yêu cầu. Việc lọc trên cột nào là chuyện của máy chủ, và từ
-      // 27/08/2026 nó lọc `donViGiaiQuyet` — cột thật sự có dữ liệu.
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
-      // Bộ lọc theo kiểu hệ cũ. Thiếu ba dòng này thì thẻ lọc chỉ ghi vào địa chỉ trang mà
-      // KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
-      ...(appliedFilters.stt && { stt: appliedFilters.stt }),
-      ...(appliedFilters.sttCu && { sttCu: appliedFilters.sttCu }),
+      // Thiếu dòng này thì ô lọc chỉ ghi vào địa chỉ trang mà KHÔNG đi xuống API — người dùng
+      // thấy ô lọc đổi còn danh sách đứng yên.
       ...(appliedFilters.enteredById && { enteredById: appliedFilters.enteredById }),
       // `fromDate`/`toDate` đã khai ở trên — hai ô ngày là MỘT, dùng chung khoá. Khai lại
       // lần nữa ở đây là tàn dư của lúc màn hình còn hai mặt lọc.
     }),
-    [debouncedSearch, appliedFilters],
+    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
   );
 
   /**
@@ -310,7 +343,9 @@ export function PetitionListPageShell() {
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
           setTableState(
-            debouncedSearch || statusFilter || groupFilter ? 'empty-filtered' : 'empty',
+            debouncedSearch || statusFilter || groupFilter || timKiem.the.length > 0
+              ? 'empty-filtered'
+              : 'empty',
           );
         } else {
           setTableState('ready');
@@ -324,7 +359,7 @@ export function PetitionListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
+  }, [statusFilter, groupFilter, page, baseQueryKey, refetchCounter, sort.sortBy, sort.sortOrder]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -376,7 +411,7 @@ export function PetitionListPageShell() {
   useEffect(() => {
     // Đổi bộ lọc → bỏ chọn, tránh thao tác hàng loạt lên các dòng không còn hiển thị.
     selectionClearRef.current();
-  }, [statusFilter, groupFilter, page, debouncedSearch]);
+  }, [statusFilter, groupFilter, page, baseQueryKey]);
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<PetitionRow>) => {
       if (action.key === 'export') {
@@ -456,6 +491,7 @@ export function PetitionListPageShell() {
       {
         key: 'stt',
         header: 'STT',
+        timKiem: ['stt', 'sttCu'],
         width: '6rem',
         // Anh yêu cầu 27/08/2026: bấm tiêu đề cột STT để đổi chiều sắp xếp, như cột ngày.
         // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
@@ -481,6 +517,7 @@ export function PetitionListPageShell() {
         // lẫn Vụ án cũng đọc `ngayDeXuat` — chỉ màn này lệch.
         key: 'ngayDeXuat',
         header: 'Ngày đề xuất',
+        timKiem: 'ngayDeXuat',
         width: '7rem',
         optional: 'show',
         sortKey: 'ngayDeXuat',
@@ -490,6 +527,7 @@ export function PetitionListPageShell() {
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
+        timKiem: 'nguonDon',
         width: '8rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -499,6 +537,7 @@ export function PetitionListPageShell() {
       {
         key: 'senderName',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        timKiem: 'nguoiGui',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -511,6 +550,7 @@ export function PetitionListPageShell() {
         // hồ sơ và hụt 1, nên danh sách đọc nó thì cán bộ sửa nội dung xong vẫn thấy chữ cũ.
         key: 'detailContent',
         header: 'Tóm tắt nội dung',
+        timKiem: 'tomTat',
         width: '20rem',
         optional: 'show',
         render: (r) => <SummaryCell value={r.detailContent} />,
@@ -519,6 +559,7 @@ export function PetitionListPageShell() {
       {
         key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
+        timKiem: 'donViGiaiQuyet',
         width: '9rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -528,6 +569,7 @@ export function PetitionListPageShell() {
       {
         key: 'ketQuaXuLyKhac',
         header: 'Kết quả xử lý, giải quyết khác',
+        timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -537,6 +579,7 @@ export function PetitionListPageShell() {
       {
         key: 'enteredBy',
         header: 'Người nhập',
+        timKiem: 'nguoiNhap',
         width: '8rem',
         optional: 'show',
         render: (r) =>
@@ -549,6 +592,7 @@ export function PetitionListPageShell() {
       {
         key: 'status',
         header: 'Trạng thái',
+        timKiem: 'trangThai',
         width: '9rem',
         optional: 'show',
         render: (r) => (
@@ -562,6 +606,7 @@ export function PetitionListPageShell() {
       {
         key: 'suspectedPerson',
         header: 'Đối tượng bị tố',
+        timKiem: 'doiTuong',
         width: '11rem',
         optional: 'hide',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -571,6 +616,7 @@ export function PetitionListPageShell() {
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        timKiem: 'hanXuLy',
         width: '8rem',
         optional: 'hide',
         sortKey: 'deadline',
@@ -588,6 +634,7 @@ export function PetitionListPageShell() {
       {
         key: 'createdAt',
         header: 'Ngày tạo',
+        timKiem: 'ngayTao',
         width: '7rem',
         optional: 'hide',
         sortKey: 'createdAt',
@@ -618,6 +665,8 @@ export function PetitionListPageShell() {
     doiCho,
     datLai: resetColumns,
   } = useBoCucCot('petitions', columns);
+  // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
+  const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_DON_THU), [visibleColumns]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -649,13 +698,20 @@ export function PetitionListPageShell() {
   const { data: officerOptions } = useOfficerOptions();
 
   const handleResetFilters = useCallback(() => {
-    url.clearAll();
+    // THỨ TỰ CÓ NGHĨA: `setSearchParams(prev => …)` của React Router 7 tính `prev` từ tham số
+    // LÚC VẼ, không nối tiếp lần ghi trước trong cùng lượt. Gọi `clearAll` trước rồi `reset` thì
+    // `reset` dựng lại địa chỉ từ tham số cũ (còn thẻ, `q`, trạng thái) — "Xóa lọc" chỉ xoá mặt
+    // lọc. `clearAll` xoá MỌI khoá `petitions_*` (bao cả khoá của mặt lọc) nên phải là lần ghi cuối.
     listFilters.reset();
+    url.clearAll();
   }, [url, listFilters]);
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (groupFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
+    (statusFilter ? 1 : 0) +
+    (groupFilter ? 1 : 0) +
+    (theBat ? timKiem.the.length : searchQuery ? 1 : 0) +
+    appliedFilterCount;
 
   // Xuất Word đồng loạt — mẫu lấy ĐỘNG từ DB qua BatchExportDocumentsModal
   // (không còn dùng danh sách DOC_TYPES hardcode).
@@ -765,6 +821,20 @@ export function PetitionListPageShell() {
       <ListPageShell.Toolbar
         searchValue={searchQuery}
         onSearchChange={handleSearchChange}
+        searchSlot={
+          theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={truongTimKiem}
+              khai={TIM_KIEM_DON_THU}
+              giaTriChon={GIA_TRI_CHON_DON_THU}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+            />
+          ) : undefined
+        }
         searchPlaceholder="Tìm kiếm theo STT, người gửi, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
@@ -848,7 +918,21 @@ export function PetitionListPageShell() {
           actionLabel: 'Tạo đơn thư mới',
           onAction: () => navigate('/petitions/new'),
         }}
-        emptyFilteredState={{ onClearFilters: handleResetFilters }}
+        emptyFilteredState={{
+          onClearFilters: handleResetFilters,
+          chiTiet:
+            timKiem.the.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={TIM_KIEM_DON_THU}
+                  giaTriChon={GIA_TRI_CHON_DON_THU}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            ) : undefined,
+        }}
         onRowClick={(r) => navigate(`/petitions/${r.id}`)}
         getRowClassName={(r) => (isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : '')}
         bulkSelection={selection}

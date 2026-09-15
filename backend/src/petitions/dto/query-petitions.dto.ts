@@ -1,4 +1,7 @@
 import {
+  ArrayMaxSize,
+  IsArray,
+  MaxLength,
   IsOptional,
   IsString,
   IsInt,
@@ -12,11 +15,34 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { PetitionStatus } from './create-petition.dto';
 import { PETITION_STATUS_GROUP_KEYS } from '../petitions.constants';
+import {
+  DO_DAI_GIA_TRI_TOI_DA,
+  SO_THE_TOI_DA,
+} from '../../common/tim-kiem/dieu-kien';
+
+/** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
+const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
 
 export class QueryPetitionsDto {
+  /** Ô tìm cũ — máy chủ quy về thẻ "tất cả các cột" (`*`). Giữ để đường dẫn cũ vẫn dùng được. */
   @IsOptional()
   @IsString()
   search?: string;
+
+  /**
+   * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và
+   * giá trị được kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chỉ chặn
+   * yêu cầu quá cỡ trước khi tới service.
+   */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === undefined ? undefined : Array.isArray(value) ? value : [value],
+  )
+  @IsArray()
+  @ArrayMaxSize(SO_THE_TOI_DA)
+  @IsString({ each: true })
+  @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
+  tk?: string[];
 
   @IsOptional()
   @IsEnum(PetitionStatus)

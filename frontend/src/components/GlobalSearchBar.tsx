@@ -279,6 +279,8 @@ export function GlobalSearchBar() {
       e.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, -1));
     } else if (e.key === 'Enter') {
+      // Bộ gõ Telex/VNI/IME dùng Enter để CHỐT chữ đang ghép — lúc ấy chưa phải lệnh mở kết quả.
+      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
       e.preventDefault();
       if (activeIndex >= 0 && flatResults[activeIndex]) {
         navigateTo(flatResults[activeIndex].href);
