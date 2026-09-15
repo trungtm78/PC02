@@ -47,6 +47,7 @@ import { JOURNEY_MANIFEST } from '../journey/feature.manifest'; // v0.40.0.0
 import { DOCUMENT_NUMBERS_MANIFEST } from '../document-numbers/feature.manifest'; // v0.42.0.0
 import { UY_THAC_DIEU_TRA_MANIFEST } from '../uy-thac-dieu-tra/feature.manifest'; // v0.44
 import { DOCUMENT_TEMPLATES_MANIFEST } from '../document-templates/feature.manifest'; // v0.69 (fix: flag chưa seed → menu admin ẩn)
+import { TIM_KIEM_THE_MANIFEST } from '../common/tim-kiem/feature.manifest'; // 15/09/2026 công tắc khẩn ô thẻ
 
 export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   AUTH_MANIFEST,
@@ -86,6 +87,7 @@ export const FEATURE_REGISTRY: readonly FeatureManifest[] = [
   DOCUMENT_NUMBERS_MANIFEST, // v0.42.0.0
   UY_THAC_DIEU_TRA_MANIFEST, // v0.44
   DOCUMENT_TEMPLATES_MANIFEST, // v0.69 — flag cho menu admin Mẫu chứng từ động
+  TIM_KIEM_THE_MANIFEST, // 15/09/2026 — công tắc khẩn ô tìm kiếm dạng thẻ
 ] as const;
 
 export function getManifest(key: string): FeatureManifest | undefined {

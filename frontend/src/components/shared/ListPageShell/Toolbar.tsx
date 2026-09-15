@@ -22,9 +22,16 @@ import {
 } from '@/constants/styles';
 import { useOChuDongBo } from './useOChuDongBo';
 
+const KHONG_LAM_GI = () => {};
+
 export interface ToolbarProps {
-  searchValue: string;
-  onSearchChange(value: string): void;
+  searchValue?: string;
+  onSearchChange?(value: string): void;
+  /**
+   * Ô tìm kiếm thay cho ô chữ mặc định (vd ô thẻ `OTimKiemThe`). Có slot thì `searchValue`,
+   * `onSearchChange`, `searchPlaceholder` không dùng — trang không bao giờ có hai ô tìm kiếm.
+   */
+  searchSlot?: ReactNode;
   searchPlaceholder?: string;
   /** Số filter đang active (hiển thị badge cạnh nút "Bộ lọc"). */
   activeFilterCount?: number;
@@ -44,8 +51,9 @@ export interface ToolbarProps {
 }
 
 export function Toolbar({
-  searchValue,
-  onSearchChange,
+  searchValue = '',
+  onSearchChange = KHONG_LAM_GI,
+  searchSlot,
   searchPlaceholder = 'Tìm kiếm...',
   activeFilterCount = 0,
   onResetFilters,
@@ -113,18 +121,22 @@ export function Toolbar({
 
       {/* Row 2: Search input — full width below action row (mt-4 only when Row 1 exists) */}
       <div className={hasRow1 ? "relative mt-4" : "relative"}>
-        <Search className={ICON_INPUT_POSITION} aria-hidden="true" />
-        <input
-          type="search"
-          role="searchbox"
-          aria-label="Tìm kiếm trong danh sách"
-          value={oTimKiem.value}
-          onChange={oTimKiem.onChange}
-          onCompositionStart={oTimKiem.onCompositionStart}
-          onCompositionEnd={oTimKiem.onCompositionEnd}
-          placeholder={searchPlaceholder}
-          className={`${INPUT_WITH_ICON} ${A11Y_FOCUS_RING}`}
-        />
+        {searchSlot ?? (
+          <>
+            <Search className={ICON_INPUT_POSITION} aria-hidden="true" />
+            <input
+              type="search"
+              role="searchbox"
+              aria-label="Tìm kiếm trong danh sách"
+              value={oTimKiem.value}
+              onChange={oTimKiem.onChange}
+              onCompositionStart={oTimKiem.onCompositionStart}
+              onCompositionEnd={oTimKiem.onCompositionEnd}
+              placeholder={searchPlaceholder}
+              className={`${INPUT_WITH_ICON} ${A11Y_FOCUS_RING}`}
+            />
+          </>
+        )}
       </div>
 
       {/* Filter accordion — below search */}

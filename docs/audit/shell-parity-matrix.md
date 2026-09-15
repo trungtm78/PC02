@@ -484,10 +484,23 @@ mới lấy giao diện cũ. Có ca kiểm hồi quy chốt điều này ở c�
 |---|---|---|---|
 | `filter-from-date` | Từ ngày | ❌ missing | NEEDED |
 | `filter-to-date` | Đến ngày | ❌ missing | NEEDED |
-| `filter-sender` | Người gửi | ❌ missing | NEEDED |
-| `filter-status` | Trạng thái | ❌ missing | NEEDED |
-| `filter-unit` | Đơn vị | ❌ missing | NEEDED |
-| `btn-advanced-search` | Toggle | ❌ missing | NEEDED |
+| `filter-sender` | Người gửi | ✅ thẻ `nguoiGui` trong ô tìm kiếm dạng thẻ (15/09/2026) — `petitions_sender=` cũ vẫn mở ra thẻ | DONE |
+| `filter-status` | Trạng thái | ✅ chip + thẻ thống kê + thẻ `trangThai` | DONE |
+| `filter-unit` | Đơn vị | ✅ thẻ `donViGiaiQuyet` (15/09/2026) — `petitions_unit=` cũ vẫn mở ra thẻ | DONE |
+| `btn-advanced-search` | Toggle | ✅ nút "Bộ lọc" của Toolbar | DONE |
+
+### Ô tìm kiếm dạng thẻ (15/09/2026)
+
+Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
+
+| Hành vi | testid / vai trò | Trạng thái |
+|---|---|---|
+| Ô thẻ thay ô chữ `petitions_q` | `o-tim-kiem-the`, `combobox` "Tìm kiếm trong danh sách" | ✅ |
+| Thẻ trên URL | `petitions_tk=<khoá>~<giá trị>` (lặp khoá) → API `tk` | ✅ |
+| Gợi ý = cột đang hiện | `ColumnDef.timKiem` + `truongGoiY` | ✅ cổng `timKiemDonThu.gate.test.ts` |
+| Ô lọc chữ STT / STT cũ / Người gửi / Đơn vị | GỠ khỏi mặt lọc — thành thẻ | ✅ đường dẫn cũ → thẻ |
+| Không kết quả | `list-page-shell-table-empty-filtered` + "Không tìm thấy với" + bỏ từng thẻ | ✅ |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` như cũ | ✅ |
 
 ### Header / bulk
 

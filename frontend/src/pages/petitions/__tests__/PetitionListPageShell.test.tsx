@@ -16,6 +16,8 @@ import { PetitionStatus } from '@/shared/enums/generated';
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -23,14 +25,14 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-function renderWithRouter(initialEntries: string[] = ['/petitions']) {
+function renderWithRouter(initialEntries: string[] = ['/petitions'], flags?: FeatureFlag[]) {
   let lastLocation = '';
   function LocationTracker() {
     const loc = useLocation();
     lastLocation = loc.pathname + loc.search;
     return null;
   }
-  const result = render(
+  const trang = (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <CompositeModalProvider>
@@ -43,7 +45,10 @@ function renderWithRouter(initialEntries: string[] = ['/petitions']) {
         </DeleteResourceModalProvider>
       </CompositeModalProvider>
     </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+  );
+  const result = render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
   return { ...result, getLocation: () => lastLocation };
 }
@@ -309,12 +314,12 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
    */
   it('đặt bộ lọc rồi Áp dụng → về trang 1, không để lại bảng trống', async () => {
     const { getLocation } = renderWithRouter(['/petitions?petitions_page=3']);
-    await waitFor(() => expect(screen.getByTestId('filter-stt')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('filter-tinh-theo')).toBeInTheDocument());
 
-    fireEvent.change(screen.getByTestId('filter-stt'), { target: { value: '26-9706' } });
+    fireEvent.change(screen.getByTestId('filter-tinh-theo'), { target: { value: 'NGAY_TAO' } });
     fireEvent.click(screen.getByTestId('btn-apply-filters'));
 
-    await waitFor(() => expect(getLocation()).toContain('petitions_stt=26-9706'));
+    await waitFor(() => expect(getLocation()).toContain('petitions_tinh_theo=NGAY_TAO'));
     expect(getLocation()).not.toContain('petitions_page=3');
   });
 
@@ -406,7 +411,9 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
       const p = calls[calls.length - 1]?.[1]?.params ?? {};
       expect(p.sender).toBeUndefined();
       expect(p.advancedStatus).toBeUndefined();
-      expect(p.senderName).toBe('Nguyen');
+      // Từ 15/09/2026 ô lọc chữ "Người gửi" thành thẻ; đường dẫn cũ vẫn lọc, qua `tk`.
+      expect(p.senderName).toBeUndefined();
+      expect(p.tk).toEqual(['nguoiGui~Nguyen']);
     });
   });
 
@@ -417,7 +424,7 @@ describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
       const statsCalls = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
         (c) => c[0] === '/petitions/stats',
       );
-      expect(statsCalls[statsCalls.length - 1]?.[1]?.params.senderName).toBe('Nguyen');
+      expect(statsCalls[statsCalls.length - 1]?.[1]?.params.tk).toEqual(['nguoiGui~Nguyen']);
     });
   });
 });
@@ -623,8 +630,9 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
       );
       expect(goi).toBeDefined();
       const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
-      expect(params.stt).toBe('26-11171');
-      expect(params.sttCu).toBe('1964');
+      // STT / STT cũ nay là thẻ; khoá địa chỉ cũ vẫn mở ra đúng bộ lọc.
+      expect(params.stt).toBeUndefined();
+      expect(params.tk).toEqual(['stt~26-11171', 'sttCu~1964']);
       expect(params.enteredById).toBe('u1');
     });
   });
@@ -667,7 +675,11 @@ describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
     expect(screen.queryByTestId('legacy-filter-right')).not.toBeInTheDocument();
   });
 
-  it('ô STT / STT cũ / Cán bộ nhập nằm trong cùng mặt lọc ấy', async () => {
+  /**
+   * STT / STT cũ từ 15/09/2026 tìm qua ô thẻ. Giữ thêm ô chữ riêng là hai lối vào MỘT bộ lọc —
+   * đúng lỗi hai ô "Từ ngày" không đồng bộ đã phải gỡ (#233).
+   */
+  it('STT / STT cũ tìm qua ô thẻ, không còn ô chữ riêng; Cán bộ nhập vẫn ở mặt lọc', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Nguyễn Văn A'));
     const nutLoc = screen.queryByRole('button', { name: /bộ lọc/i });
@@ -677,9 +689,17 @@ describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
     // nhãn tay nắm kéo giãn không lẫn vào tên cột), nên tìm theo nhãn trên cả trang sẽ vớ luôn
     // tiêu đề cột "STT". Phép kiểm này nói về Ô LỌC, nên phải hỏi đúng chỗ có ô lọc.
     const thanhCongCu = within(screen.getByTestId('list-page-shell-toolbar'));
-    expect(thanhCongCu.getByLabelText(/^STT$/i)).toBeInTheDocument();
-    expect(thanhCongCu.getByLabelText(/STT cũ/i)).toBeInTheDocument();
+    expect(thanhCongCu.queryByLabelText(/^STT$/i)).not.toBeInTheDocument();
+    expect(thanhCongCu.queryByLabelText(/STT cũ/i)).not.toBeInTheDocument();
     expect(thanhCongCu.getByLabelText(/Cán bộ nhập/i)).toBeInTheDocument();
+
+    const o = thanhCongCu.getByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    fireEvent.change(o, { target: { value: '26-1' } });
+    const goiY = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .map((x) => x.textContent ?? '');
+    expect(goiY.some((t) => t.startsWith('Tìm STT:'))).toBe(true);
+    expect(goiY.some((t) => t.startsWith('Tìm STT cũ:'))).toBe(true);
   });
 });
 
@@ -722,5 +742,123 @@ describe('PetitionListPageShell — STT cũ trong ô STT', () => {
     // cả trang là trúng bộ lọc và ca kiểm đỏ vì lý do không liên quan.
     const hang = screen.getAllByRole('row').slice(1)[0];
     expect(within(hang).queryByText(/STT cũ/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Ô tìm kiếm dạng thẻ (15/09/2026). Chốt ở TẦNG TRANG: component có ca kiểm riêng, nhưng chỉ ở
+ * đây mới thấy thẻ có thật sự đi xuống CẢ danh sách lẫn thống kê hay không.
+ */
+describe('PetitionListPageShell — ô tìm kiếm dạng thẻ', () => {
+  const mockGet = () => api.get as unknown as ReturnType<typeof vi.fn>;
+  const thamSoCuoi = (url: string) => {
+    const goi = mockGet().mock.calls.filter((c) => c[0] === url);
+    return (goi[goi.length - 1]?.[1]?.params ?? {}) as Record<string, unknown>;
+  };
+  const oThe = () => screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGet().mockImplementation((url: string, cfg?: { params?: { tk?: string[] } }) => {
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      if (url === '/petitions') {
+        const rong = cfg?.params?.tk?.includes('nguoiGui~Zed');
+        return Promise.resolve({ data: { data: rong ? [] : [sampleRow], total: rong ? 0 : 1 } });
+      }
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  it('gõ rồi Enter → thẻ "*" lên URL, về trang 1, đi xuống CẢ danh sách lẫn thống kê', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_page=2']);
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'nguyen' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(decodeURIComponent(getLocation())).toContain('petitions_tk=*~nguyen'),
+    );
+    expect(getLocation()).not.toContain('petitions_page=2');
+    await waitFor(() => expect(thamSoCuoi('/petitions').tk).toEqual(['*~nguyen']));
+    expect(thamSoCuoi('/petitions').search).toBeUndefined();
+    await waitFor(() => expect(thamSoCuoi('/petitions/stats').tk).toEqual(['*~nguyen']));
+  });
+
+  it('gợi ý theo CỘT ĐANG HIỆN: có Tóm tắt nội dung, không có cột ẩn sẵn Đối tượng bị tố', async () => {
+    renderWithRouter();
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'abc' } });
+    const goiY = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .map((x) => x.textContent ?? '');
+    expect(goiY).toContain('Tìm Tóm tắt nội dung: "abc"');
+    expect(goiY.some((t) => t.includes('Đối tượng bị tố'))).toBe(false);
+  });
+
+  it('đường dẫn cũ `?petitions_q=` → thẻ, có mặt NGAY ở lượt gọi API đầu tiên', async () => {
+    renderWithRouter(['/petitions?petitions_q=abc']);
+    await waitFor(() => expect(mockGet()).toHaveBeenCalledWith('/petitions', expect.anything()));
+    const dauTien = mockGet().mock.calls.find((c) => c[0] === '/petitions');
+    expect(dauTien?.[1]?.params.tk).toEqual(['*~abc']);
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveTextContent('Tất cả các cột: abc');
+  });
+
+  it('cột Trạng thái: gõ không dấu, chọn giá trị → gửi MÃ trạng thái', async () => {
+    renderWithRouter();
+    const o = await oThe();
+    fireEvent.change(o, { target: { value: 'luu don' } });
+    const dong = within(screen.getByRole('listbox'))
+      .getAllByRole('option')
+      .find((x) => /^Trạng thái: .*lưu đơn/i.test(x.textContent ?? ''));
+    expect(dong).toBeDefined();
+    fireEvent.click(dong!);
+    await waitFor(() => expect(thamSoCuoi('/petitions').tk).toEqual(['trangThai~DA_LUU_DON']));
+  });
+
+  it('không có kết quả → nói rõ đang lọc bởi thẻ nào, bỏ được từng thẻ ngay tại chỗ', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_tk=nguoiGui~Zed']);
+    const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+    expect(vung).toHaveTextContent('Không tìm thấy với');
+    fireEvent.click(
+      within(vung).getByRole('button', {
+        name: 'Bỏ thẻ Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+      }),
+    );
+    await waitFor(() => expect(getLocation()).not.toContain('petitions_tk'));
+  });
+
+  it('"Xóa lọc" xoá cả thẻ', async () => {
+    const { getLocation } = renderWithRouter(['/petitions?petitions_tk=*~abc']);
+    await screen.findByTestId('the-tim-kiem');
+    // Nút của THANH CÔNG CỤ — mặt lọc nâng cao có nút "Xóa lọc" riêng (`btn-clear-filters`),
+    // chỉ xoá các ô trong mặt lọc.
+    const nutXoa = within(screen.getByTestId('list-page-shell-toolbar'))
+      .getAllByRole('button', { name: /Xóa lọc/ })
+      .find((b) => b.getAttribute('data-testid') !== 'btn-clear-filters');
+    fireEvent.click(nutXoa!);
+    await waitFor(() => expect(getLocation()).not.toContain('petitions_tk'));
+  });
+
+  it('cờ TIM_KIEM_THE tắt → ô chữ cũ, gửi `search` như trước', async () => {
+    renderWithRouter(
+      ['/petitions'],
+      [
+        {
+          key: 'TIM_KIEM_THE',
+          label: 'Tìm kiếm dạng thẻ',
+          description: null,
+          enabled: false,
+          domain: null,
+          rolloutPct: 100,
+        },
+      ],
+    );
+    const o = await screen.findByRole('searchbox');
+    fireEvent.change(o, { target: { value: 'abc' } });
+    await waitFor(() => expect(thamSoCuoi('/petitions').search).toBe('abc'));
+    expect(thamSoCuoi('/petitions').tk).toBeUndefined();
+    expect(
+      screen.queryByRole('combobox', { name: 'Tìm kiếm trong danh sách' }),
+    ).not.toBeInTheDocument();
   });
 });

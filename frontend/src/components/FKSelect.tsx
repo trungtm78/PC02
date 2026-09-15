@@ -4,34 +4,7 @@ import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import { useDirectoryOptions } from "@/hooks/useDirectoryOptions";
 import { useMasterClassOptions } from "@/hooks/useMasterClassOptions";
 
-// ─── Vietnamese diacritics removal ──────────────────────────────────────────
-
-const VIETNAMESE_MAP: Record<string, string> = {
-  a: "aàảãáạăằẳẵắặâầẩẫấậ",
-  d: "dđ",
-  e: "eèẻẽéẹêềểễếệ",
-  i: "iìỉĩíị",
-  o: "oòỏõóọôồổỗốộơờởỡớợ",
-  u: "uùủũúụưừửữứự",
-  y: "yỳỷỹýỵ",
-};
-
-function removeVietnameseDiacritics(str: string): string {
-  let result = str.toLowerCase();
-  for (const [latin, chars] of Object.entries(VIETNAMESE_MAP)) {
-    for (const char of chars) {
-      result = result.replaceAll(char, latin);
-    }
-  }
-  return result;
-}
-
-function fuzzyMatch(text: string, query: string): boolean {
-  if (!query) return true;
-  const normalizedText = removeVietnameseDiacritics(text);
-  const normalizedQuery = removeVietnameseDiacritics(query);
-  return normalizedText.includes(normalizedQuery);
-}
+import { khopKhongDau as fuzzyMatch } from "@/lib/bo-dau";
 
 function matchesAbbreviation(text: string, query: string): boolean {
   if (!query || query.length < 2) return false;

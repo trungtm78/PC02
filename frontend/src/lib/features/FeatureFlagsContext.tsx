@@ -1,17 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import axios from 'axios';
 import { api } from '../api';
 import { authStore } from '@/stores/auth.store';
 import type { FeatureFlag } from './types';
-
-interface FeatureFlagsContextValue {
-  flags: Map<string, FeatureFlag>;
-  isLoading: boolean;
-  error: Error | null;
-  refresh: () => Promise<void>;
-}
-
-const FeatureFlagsContext = createContext<FeatureFlagsContextValue | null>(null);
+import { FeatureFlagsContext, type FeatureFlagsContextValue } from './featureFlagsContextObject';
 
 interface Props {
   children: ReactNode;

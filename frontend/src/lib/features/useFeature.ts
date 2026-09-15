@@ -1,4 +1,18 @@
+import { useContext } from 'react';
 import { useFeatureFlagsContext } from './FeatureFlagsContext';
+import { FeatureFlagsContext } from './featureFlagsContextObject';
+
+/**
+ * Cờ dạng CÔNG TẮC KHẨN: BẬT trừ khi quản trị chủ động tắt cờ ấy.
+ *
+ * Ngược với `useFeature` (tắt khi đang nạp hoặc cờ chưa seed). Dùng cho tính năng THAY THẾ một
+ * thứ đang chạy: ở đó "chưa seed cờ" mà làm tính năng biến mất thì mỗi lần deploy quên chạy
+ * `db:seed:features` là một lần giao diện lùi về bản cũ không ai hay.
+ */
+export function useFeatureBatMacDinh(key: string): boolean {
+  // Đọc context thẳng (không qua `useFeatureFlagsContext`): thiếu provider thì trả null thay vì ném.
+  return useContext(FeatureFlagsContext)?.flags.get(key)?.enabled !== false;
+}
 
 /**
  * Returns true when the given feature key is enabled for the current user.

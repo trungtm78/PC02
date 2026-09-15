@@ -4,6 +4,9 @@ import type { AuthUser } from '@/stores/auth.store';
 export const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
+  // Mảng đi dạng khoá lặp `tk=a&tk=b`, KHÔNG `tk[]=a`: máy chủ Express 5 đọc query kiểu "simple",
+  // `tk[]` thành một khoá lạ và `forbidNonWhitelisted` trả 400 cho cả yêu cầu.
+  paramsSerializer: { indexes: null },
 });
 
 // Attach access token to every request UNLESS the caller already set
