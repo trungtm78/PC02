@@ -30,6 +30,9 @@ import { useLuotNap } from "@/hooks/useLuotNap";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 interface WardCase {
   id: string;
@@ -99,6 +102,34 @@ function getUserPermissions(): UserPermissions {
     isAdmin: false,
   };
 }
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_VU_AN_PHUONG: readonly TruongLoc<WardCase>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (c) => c.stt },
+  { key: 'tenVuAn', nhan: 'Tên vụ án', kieu: 'chu', lay: (c) => c.caseName },
+  { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu', lay: (c) => c.charge },
+  { key: 'biCan', nhan: 'Bị can', kieu: 'chu', lay: (c) => c.suspects },
+  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (c) => [c.ward, c.district] },
+  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay', lay: (c) => c.reportedDate },
+  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (c) => c.severity },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (c) => c.status },
+];
+
+const GIA_TRI_CHON_VU_AN_PHUONG = {
+  mucDo: [
+    { value: 'low', label: 'Thấp' },
+    { value: 'medium', label: 'Trung bình' },
+    { value: 'high', label: 'Cao' },
+    { value: 'critical', label: 'Nghiêm trọng' },
+  ],
+  trangThai: [
+    { value: 'pending', label: 'Chờ xử lý' },
+    { value: 'investigating', label: 'Đang điều tra' },
+    { value: 'transferred', label: 'Đã chuyển Quận' },
+    { value: 'prosecuted', label: 'Đã chuyển VKS' },
+    { value: 'resolved', label: 'Đã kết thúc' },
+  ],
+};
 
 export default function WardCasesPage() {
   const navigate = useNavigate();
@@ -209,9 +240,19 @@ export default function WardCasesPage() {
     });
   }, [userPermissions, allData]);
 
+  // Ô tìm dạng thẻ: lọc SAU phạm vi quyền (authorizedData), cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'wardCases',
+    khai: KHAI_VU_AN_PHUONG,
+    giaTriChon: GIA_TRI_CHON_VU_AN_PHUONG,
+    dong: authorizedData,
+    bat: theBat,
+  });
+
   const filteredData = useMemo(() => {
-    return authorizedData.filter((caseItem) => {
-      if (filters.quickSearch) {
+    return timKiem.dongLoc.filter((caseItem) => {
+      if (!theBat && filters.quickSearch) {
         const searchLower = filters.quickSearch.toLowerCase();
         const matchesSearch =
           String(caseItem.stt).toLowerCase().includes(searchLower) ||
@@ -230,9 +271,10 @@ export default function WardCasesPage() {
 
       return true;
     });
-  }, [authorizedData, filters]);
+  }, [timKiem.dongLoc, theBat, filters]);
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       fromDate: "",
@@ -519,17 +561,30 @@ export default function WardCasesPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            data-testid="quick-search-input"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo STT, Tên vụ án, Tội danh, Phường/Xã..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={KHAI_VU_AN_PHUONG}
+            khai={KHAI_VU_AN_PHUONG}
+            giaTriChon={GIA_TRI_CHON_VU_AN_PHUONG}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              data-testid="quick-search-input"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo STT, Tên vụ án, Tội danh, Phường/Xã..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+            />
+          </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
@@ -683,9 +738,21 @@ export default function WardCasesPage() {
                   <td colSpan={9} className="px-4 py-16 text-center">
                     <Scale className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ án nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      Thử điều chỉnh bộ lọc hoặc kiểm tra phạm vi quyền truy cập
-                    </p>
+                    {!loadError && timKiem.coThe ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_VU_AN_PHUONG}
+                          giaTriChon={GIA_TRI_CHON_VU_AN_PHUONG}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">
+                        Thử điều chỉnh bộ lọc hoặc kiểm tra phạm vi quyền truy cập
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (

@@ -21,6 +21,9 @@ import { api } from "@/lib/api";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 interface OtherCase {
   id: string;
@@ -56,6 +59,26 @@ const categories = [
   "Hồ sơ lưu trữ",
   "Khác",
 ];
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_PHAN_LOAI_KHAC: readonly TruongLoc<OtherCase>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (c) => c.stt },
+  { key: 'tenHoSo', nhan: 'Tên hồ sơ', kieu: 'chu', lay: (c) => c.caseName },
+  { key: 'loai', nhan: 'Loại', kieu: 'chu', lay: (c) => c.type },
+  { key: 'phanLoai', nhan: 'Phân loại', kieu: 'chu', lay: (c) => c.category },
+  { key: 'diaDiem', nhan: 'Địa điểm', kieu: 'chu', lay: (c) => [c.ward, c.district] },
+  { key: 'ngay', nhan: 'Ngày', kieu: 'ngay', lay: (c) => c.reportedDate },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (c) => c.status },
+];
+
+const GIA_TRI_CHON_PHAN_LOAI_KHAC = {
+  trangThai: [
+    { value: 'pending', label: 'Chờ xử lý' },
+    { value: 'processing', label: 'Đang xử lý' },
+    { value: 'resolved', label: 'Đã giải quyết' },
+    { value: 'archived', label: 'Đã lưu trữ' },
+  ],
+};
 
 export default function OtherClassificationPage() {
   const navigate = useNavigate();
@@ -119,9 +142,19 @@ export default function OtherClassificationPage() {
     fetch();
   }, []);
 
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'otherClassification',
+    khai: KHAI_PHAN_LOAI_KHAC,
+    giaTriChon: GIA_TRI_CHON_PHAN_LOAI_KHAC,
+    dong: allData,
+    bat: theBat,
+  });
+
   const filteredData = useMemo(() => {
-    return allData.filter((item) => {
-      if (filters.quickSearch) {
+    return timKiem.dongLoc.filter((item) => {
+      if (!theBat && filters.quickSearch) {
         const searchLower = filters.quickSearch.toLowerCase();
         const matchesSearch =
           String(item.stt).toLowerCase().includes(searchLower) ||
@@ -140,9 +173,10 @@ export default function OtherClassificationPage() {
 
       return true;
     });
-  }, [allData, filters]);
+  }, [timKiem.dongLoc, theBat, filters]);
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       fromDate: "",
@@ -317,17 +351,30 @@ export default function OtherClassificationPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            data-testid="quick-search-input"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo STT, Tên hồ sơ, Loại, Phường/Xã..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={KHAI_PHAN_LOAI_KHAC}
+            khai={KHAI_PHAN_LOAI_KHAC}
+            giaTriChon={GIA_TRI_CHON_PHAN_LOAI_KHAC}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              data-testid="quick-search-input"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo STT, Tên hồ sơ, Loại, Phường/Xã..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+            />
+          </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
@@ -467,7 +514,19 @@ export default function OtherClassificationPage() {
                   <td colSpan={8} className="px-4 py-16 text-center">
                     <FolderOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hồ sơ nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
+                    {!loadError && timKiem.coThe ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_PHAN_LOAI_KHAC}
+                          giaTriChon={GIA_TRI_CHON_PHAN_LOAI_KHAC}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
+                    )}
                   </td>
                 </tr>
               ) : (
