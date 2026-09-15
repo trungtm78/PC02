@@ -458,6 +458,24 @@ describe('ObjectListPageShell — ô tìm kiếm dạng thẻ', () => {
     expect(vung).toHaveTextContent('Không tìm thấy với');
     expect(within(vung).getByRole('button', { name: 'Bỏ thẻ CCCD' })).toBeInTheDocument();
   });
+
+  /**
+   * Thẻ Trạng thái mang MÃ lạ (đường dẫn sửa tay, mã đổi tên): hiện đỏ mà vẫn gửi đi là 400 cho cả
+   * danh sách. Hook phải nhận CÙNG bảng mã với ô thẻ để lọc trước khi gửi.
+   */
+  it('thẻ Trạng thái mã lạ → đỏ, KHÔNG gửi `tk`', async () => {
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_tk=trangThai~ZZ');
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveAttribute('data-hop-le', 'false');
+    await waitFor(() => expect(mockApiGet).toHaveBeenCalled());
+    expect(thamSoCuoi().getAll('tk')).toEqual([]);
+  });
+
+  it('chỉ còn thẻ đỏ mà rỗng → vẫn "lọc không ra"; số bộ lọc không đếm thẻ đỏ', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [], total: 0 } });
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_tk=khongCo~abc');
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+    expect(screen.queryByTestId('list-page-shell-filter-count')).not.toBeInTheDocument();
+  });
 });
 
 // /codex PR5 P2 regression: clear selection when subjectType prop changes.

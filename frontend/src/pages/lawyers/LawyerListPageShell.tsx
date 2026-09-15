@@ -80,6 +80,8 @@ export function LawyerListPageShell() {
   });
   // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi (cả khi chỉ đổi trang).
   const tkKey = JSON.stringify(timKiem.tkGui);
+  // Còn thẻ (kể cả thẻ đỏ không gửi) thì bảng rỗng vẫn là "lọc không ra": cán bộ cần thấy thẻ để gỡ.
+  const coThe = timKiem.the.length > 0;
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -124,7 +126,7 @@ export function LawyerListPageShell() {
         setRows(data);
         setTotalCount(total);
         if (total === 0) {
-          const coTimKiem = theBat ? tkKey !== '[]' : !!debouncedSearch;
+          const coTimKiem = theBat ? coThe : !!debouncedSearch;
           setTableState(coTimKiem ? 'empty-filtered' : 'empty');
         } else {
           setTableState('ready');
@@ -135,7 +137,7 @@ export function LawyerListPageShell() {
         setError(getVietnameseErrorMessage(e, 'luật sư'));
         setTableState('error');
       });
-  }, [page, debouncedSearch, theBat, tkKey]);
+  }, [page, debouncedSearch, theBat, tkKey, coThe]);
 
   useEffect(() => {
     fetchList();
@@ -241,7 +243,8 @@ export function LawyerListPageShell() {
     url.clearAll();
   }, [url]);
 
-  const activeFilterCount = theBat ? timKiem.the.length : searchQuery ? 1 : 0;
+  // Chỉ đếm thẻ thật sự áp — thẻ đỏ không gửi đi thì không lọc gì.
+  const activeFilterCount = theBat ? timKiem.theHopLe.length : searchQuery ? 1 : 0;
 
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<Lawyer>) => {

@@ -431,6 +431,14 @@ describe('LawyerListPageShell — search + URL state', () => {
     expect(within(vung).getByRole('button', { name: 'Bỏ thẻ Số thẻ' })).toBeInTheDocument();
   });
 
+  it('chỉ còn thẻ đỏ mà rỗng → vẫn "lọc không ra", không gửi `tk`; số bộ lọc không đếm thẻ đỏ', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [], total: 0 } });
+    renderShell('/lawyers?lawyers_tk=khongCo~abc');
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+    expect(thamSoCuoi().getAll('tk')).toEqual([]);
+    expect(screen.queryByTestId('list-page-shell-filter-count')).not.toBeInTheDocument();
+  });
+
   // /codex P2 fix #1: case column renders case.name (API doesn't return caseCode)
   it('case column renders case.name (not caseCode)', async () => {
     renderShell();

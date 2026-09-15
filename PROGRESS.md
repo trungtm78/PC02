@@ -124,6 +124,8 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Thẻ đỏ nói đúng lý do (`lyDoKhongHopLe`, kèm trong aria-label nút sửa); Tổng hợp: "Chỉ áp dụng khi chọn đúng loại hồ sơ" / "Không áp dụng cho loại hồ sơ này".
   - Chip "Tất cả" không cộng thiếu khi một thống kê bị bỏ; số bộ lọc chỉ đếm thẻ hợp lệ; còn thẻ (kể cả đỏ) mà rỗng → "lọc không ra".
   - Dọn: bỏ bí danh `canNap*` không ai gọi, chú thích CLI cũ, `tenNguoi` → `hoTen`; SQL tắt khẩn ghi chú migration mới bật lại trigger.
+  - Commit e50f8a9d; bộ ĐẦY ĐỦ: backend 346 bộ/5.163 ca, FE 252 tệp/3.015 ca xanh; tsc sạch; lint dòng mới 0. PR #378, CI xanh.
+- [x] M4 /codex (chia 2 lượt backend/frontend, reasoning medium — lần trước hết giờ): backend "No findings, Ship". Frontend 1 P2 + 2 P3, ĐÃ SỬA (TDD, đỏ 3 → xanh): bản vá thẻ hợp lệ chỉ áp ở Tổng hợp, chưa áp ở Đối tượng/Luật sư — Đối tượng: hook thiếu `giaTriChon` nên mã Trạng thái lạ vẫn gửi (400); cả hai màn: bảng rỗng xét `tkKey` (thẻ đỏ bị lọc hết → "chưa có dữ liệu" thay vì "lọc không ra"), số bộ lọc đếm cả thẻ đỏ.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).

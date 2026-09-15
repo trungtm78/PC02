@@ -152,11 +152,15 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
   const timKiem = useTheTimKiem({
     prefix: cfg.urlPrefix,
     khai: TIM_KIEM_DOI_TUONG,
+    // CÙNG bảng mã với ô thẻ: mã Trạng thái lạ hiện đỏ và không gửi (gửi là 400 cả danh sách).
+    giaTriChon: GIA_TRI_CHON_DOI_TUONG,
     thamSoCu: THAM_SO_CU_DOI_TUONG,
     bat: theBat,
   });
   // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi (cả khi chỉ đổi trang).
   const tkKey = JSON.stringify(timKiem.tkGui);
+  // Còn thẻ (kể cả thẻ đỏ không gửi) thì bảng rỗng vẫn là "lọc không ra": cán bộ cần thấy thẻ để gỡ.
+  const coThe = timKiem.the.length > 0;
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -203,7 +207,7 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
         setRows(data);
         setTotalCount(total);
         if (total === 0) {
-          const coTimKiem = theBat ? tkKey !== '[]' : !!debouncedSearch;
+          const coTimKiem = theBat ? coThe : !!debouncedSearch;
           setTableState(coTimKiem || statusFilter ? 'empty-filtered' : 'empty');
         } else {
           setTableState('ready');
@@ -214,7 +218,7 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
         setError(getVietnameseErrorMessage(e, cfg.resourceLabel));
         setTableState('error');
       });
-  }, [subjectType, page, debouncedSearch, statusFilter, cfg.resourceLabel, theBat, tkKey]);
+  }, [subjectType, page, debouncedSearch, statusFilter, cfg.resourceLabel, theBat, tkKey, coThe]);
 
   useEffect(() => {
     fetchList();
@@ -349,7 +353,8 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
   }, [url]);
 
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (theBat ? timKiem.the.length : searchQuery ? 1 : 0);
+    // Chỉ đếm thẻ thật sự áp — thẻ đỏ không gửi đi thì không lọc gì.
+    (statusFilter ? 1 : 0) + (theBat ? timKiem.theHopLe.length : searchQuery ? 1 : 0);
 
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<Subject>) => {
