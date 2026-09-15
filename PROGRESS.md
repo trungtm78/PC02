@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-15 | Milestone: M4/7 | Task: T1–T5 + sửa /review xong trên nhánh; kế: /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN prod
+Cập nhật: 2026-09-15 | Milestone: M5/7 | Task: M4 XONG trên prod; M5 bắt đầu (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
@@ -14,7 +14,7 @@ Spec gốc:
 | M1 | Ô Loại thông tin: một ô smart select, danh mục LOAI_THONG_TIN, nhóm hạn, chuẩn hoá dữ liệu | feat/loai-thong-tin-smart-select |
 | M2 | Tìm kiếm dạng thẻ — T0 đo trước + PR1 nền + Đơn thư + lát Tổng hợp | feat/tim-kiem-dang-the-nen |
 | M3 | PR2 Vụ việc, Vụ án, Ủy thác điều tra | |
-| M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | |
+| M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | DONE — PR #378 merge f5ed68a5, prod-verified 15/09 |
 | M5 | PR4 12 màn tìm phía trình duyệt | |
 | M6 | PR5 9 màn tìm phía máy chủ + GlobalSearchBar | |
 | M7 | UAT phủ 100% (UAT-COVERAGE.md) | |
@@ -126,6 +126,31 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Dọn: bỏ bí danh `canNap*` không ai gọi, chú thích CLI cũ, `tenNguoi` → `hoTen`; SQL tắt khẩn ghi chú migration mới bật lại trigger.
   - Commit e50f8a9d; bộ ĐẦY ĐỦ: backend 346 bộ/5.163 ca, FE 252 tệp/3.015 ca xanh; tsc sạch; lint dòng mới 0. PR #378, CI xanh.
 - [x] M4 /codex (chia 2 lượt backend/frontend, reasoning medium — lần trước hết giờ): backend "No findings, Ship". Frontend 1 P2 + 2 P3, ĐÃ SỬA (TDD, đỏ 3 → xanh): bản vá thẻ hợp lệ chỉ áp ở Tổng hợp, chưa áp ở Đối tượng/Luật sư — Đối tượng: hook thiếu `giaTriChon` nên mã Trạng thái lạ vẫn gửi (400); cả hai màn: bảng rỗng xét `tkKey` (thẻ đỏ bị lọc hết → "chưa có dữ liệu" thay vì "lọc không ra"), số bộ lọc đếm cả thẻ đỏ.
+- [x] M4 PR #378 — commit d8b73b31 (FE 252 tệp/3.018 ca xanh); CI 3/3 xanh ĐÚNG sha d8b73b31 (đối chiếu check-runs); merge --admin f5ed68a5.
+- [x] M4 deploy — lượt đầu ĐỎ ở bước `ssh-keyscan` (runner không tới VM, lỗi mạng; dừng TRƯỚC rsync, prod giữ f6ba1f77 nguyên vẹn) → `gh run rerun --failed` xanh. Health công khai buildId f5ed68a5; release symlink f5ed68a5; migration 20260915110524 áp (không rolled back); index.html phục vụ ≡ bản release (sha256).
+- [x] M4 prod dữ liệu — nạp cột bóng chạy thử: subjects 1.293, cases 3.710 (name_bd mới), lawyers 261, còn lại 0 → `--that` → chạy lại 0 lệch cả 6 bảng. `kiem-vang-bo-dau --chuoi-that`: 646 + 100.475 chuỗi, lệch 0.
+- [x] M4 EXPLAIN prod — Đối tượng `*` 0,8 ms (seq, bảng 1.293 dòng); Đối tượng thẻ Vụ án qua `cases_name_bd_trgm` Bitmap Index 1,7 ms; Luật sư `*` 0,4 ms (seq, 261 dòng).
+
+### Tiến độ M5 (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
+- 12 màn lọc phía trình duyệt bằng `toLowerCase().includes` (không bỏ dấu, không chọn cột), KHÔNG dùng ListPageShell (bảng tự dựng): classification/{DuplicatePetitions, OtherClassification, ProsecutorProposal, WardCases, WardIncidents}, workflow/{CaseExchange, InvestigationDelegation, PetitionGuidance, TransferAndReturn}, petitions/WardPetitions, cases/InitialCases, admin/MasterClass.
+- [x] M5-T1 — commit 0b4480f8: `locTheoThe(rows, the, khai)` thuần (shared/tim-kiem/loc-theo-the.ts), cùng ngữ nghĩa máy chủ: cùng khoá OR/khác khoá AND, `*` chữ+mã, bỏ dấu + gộp khoảng trắng/NBSP, <3 ký tự khớp đầu từ, ngày theo giờ VN (đọc cả ô đã định dạng dd/mm/yyyy — ca đỏ bắt được trước GREEN), chọn so đúng mã, khoá lạ bỏ qua. 13 ca.
+- [x] M5-T2 — commit bbbbf5da: `useLocTheoThe` hook chung thẻ URL + lọc tại chỗ; `coThe` tính cả thẻ đỏ. 5 ca.
+- [x] M5-T3 — commit 39931a2e: Đơn thư phường/xã (8 cột, 6 ca mới + 17 cũ xanh).
+- [x] M5-T4 — commit 071af281: Vụ việc/Vụ án phường xã + Phân loại khác (Vụ án lọc SAU phạm vi quyền). 12 ca mới.
+- [x] M5-T5 — commit 88cd3b51: Trao đổi chuyên án, Ủy thác điều tra, Hướng dẫn đơn, Chuyển đội/Trả hồ sơ (Trạng thái Chuyển đội tìm theo NHÃN — mã khác nhau theo loại; 2 màn trước không có dòng rỗng nay có). 16 ca mới.
+- [x] M5-T6 — commit ad97b2b7: Hồ sơ mới tiếp nhận, Đơn trùng, Kiến nghị VKS, Phân loại danh mục; ca tải hỏng Kiến nghị VKS dựng trong router (màn nay giữ thẻ trên URL). 16 ca mới, 3 tệp kiểm cũ xanh.
+- [x] Bộ FE đầy đủ lần 1 ĐỎ 2 ca — cổng CÓ SẴN `congSoLieuKhiTaiHong` bắt đúng: dòng rỗng "Không tìm thấy với:" mới thêm ở Trao đổi chuyên án + Chuyển đội chỉ xét `coThe`, tải HỎNG mà còn thẻ thì vừa báo lỗi vừa khẳng định "không tìm thấy". Vá `!loadError &&` như 3 màn còn lại; cổng + cụm B 108 ca xanh.
+- [x] M5 PR #379 mở; CI 3/3 xanh trên eb161511 (chưa merge — còn sửa review).
+- [x] M5 /review (subagent soát độc lập) + Codex (lượt đầu mất mạng DNS tạm thời, tự nối lại) — gộp 6 lớp lỗi thật, ĐÃ SỬA:
+  - Thẻ MÃ so chứa (`stt~5` ra dòng 15, 25, 50–59) → so ĐÚNG mã như máy chủ; `*` vẫn so chứa trên cột mã (như tim_kiem_bd). TDD đỏ → xanh.
+  - Trao đổi chuyên án + Chuyển đội: thẻ đổi không về trang 1 (trang 2 của kết quả 1 dòng = bảng rỗng giả) → về trang 1 khi thẻ đổi. TDD.
+  - Chuyển đội: lựa chọn giữ id dòng đã bị thẻ ẩn, nút Chuyển đội/Trả hồ sơ thao tác lên hồ sơ không còn thấy → bỏ khỏi lựa chọn mọi id không còn trong kết quả lọc. TDD.
+  - Kiến nghị VKS + Đơn trùng: thẻ thống kê đếm allData → đếm dòng đã áp thẻ (số thẻ khớp số dòng, như M3/M4). Kiến nghị TDD; Đơn trùng: ca kiểm viết SAU khi đã sửa (lệch thứ tự TDD — ghi nhận).
+  - Nút làm mới: Kiến nghị VKS (thêm testid reset-filters-btn), Trao đổi chuyên án, Chuyển đội (nút trước KHÔNG có onClick) nay xoá thẻ. TDD.
+  - Cổng M5 hai kẽ hở: không kiểm bảng lọc từ `timKiem.dongLoc.filter(`; điều kiện cờ xét trên CẢ tệp → xét TỪNG chỗ so chữ ô cũ (8 dòng trước). Gieo lỗi mới cho cả hai.
+  - Không sửa (P3): "Thời gian khởi tạo" Trao đổi hiện cả giờ, thẻ ngày so ngày — đúng kiểu ngày.
+  - 8 tệp liên quan 193 ca xanh; tsc -b sạch; lint dòng mới 0.
+- [ ] M5-T7 — cổng `locTheoTheManTrinhDuyet.gate.test.ts` (12 màn dùng hook + ô thẻ; ô chữ cũ chỉ lọc khi cờ tắt; tiền tố không trùng; gieo lỗi) → bộ đầy đủ → /review + /codex → PR → CI → merge → deploy (chỉ giao diện, không migration).
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).

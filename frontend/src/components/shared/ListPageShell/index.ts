@@ -84,4 +84,5 @@ export { TayNamKeo } from './TayNamKeo';
 export { OTimKiemThe, DanhSachThe } from './OTimKiemThe';
 export type { OTimKiemTheProps, GiaTriChon } from './OTimKiemThe';
 export { useTheTimKiem } from './useTheTimKiem';
+export { useLocTheoThe } from './useLocTheoThe';
 export { truongGoiY } from './truongGoiY';

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import ProsecutorProposalPage from '../ProsecutorProposalPage';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
@@ -9,6 +10,15 @@ vi.mock('@/hooks/useFormDefaults', () => ({
 
 import { api } from '@/lib/api';
 const mApi = vi.mocked(api) as unknown as { get: ReturnType<typeof vi.fn> };
+
+/**
+ * Dựng trong router như trong ứng dụng: ô tìm dạng thẻ giữ thẻ trên địa chỉ trang, nên màn cần
+ * ngữ cảnh router (`createMemoryRouter` — `<MemoryRouter>` bọc ngoài không đủ ở react-router v7).
+ */
+const dung = () => {
+  const router = createMemoryRouter([{ path: '/', element: <ProsecutorProposalPage /> }]);
+  return render(<RouterProvider router={router} />);
+};
 
 /**
  * Tải HỎNG phải phân biệt được với KHÔNG CÓ GÌ.
@@ -43,7 +53,7 @@ describe('Tải danh sách kiến nghị hỏng', () => {
 
   it('hiện khối báo lỗi kèm nút thử lại', async () => {
     mApi.get.mockRejectedValue(LOI);
-    render(<ProsecutorProposalPage />);
+    dung();
     expect(await screen.findByTestId('proposal-load-error')).toBeInTheDocument();
     expect(screen.getByTestId('proposal-retry')).toBeInTheDocument();
   });
@@ -51,7 +61,7 @@ describe('Tải danh sách kiến nghị hỏng', () => {
   /** Chốt then chốt: KHÔNG con số nào được hiện, vì con số nào cũng sẽ bị đọc là sự thật. */
   it('thẻ thống kê KHÔNG hiện số 0', async () => {
     mApi.get.mockRejectedValue(LOI);
-    render(<ProsecutorProposalPage />);
+    dung();
     await screen.findByTestId('proposal-load-error');
     const the = screen.getAllByTestId('proposal-stat');
     expect(the.length).toBeGreaterThan(0);
@@ -64,20 +74,20 @@ describe('Tải danh sách kiến nghị hỏng', () => {
   /** "Không tìm thấy kiến nghị nào" là một KHẲNG ĐỊNH — không được nói khi chưa hỏi được. */
   it('KHÔNG nói "không tìm thấy kiến nghị nào"', async () => {
     mApi.get.mockRejectedValue(LOI);
-    render(<ProsecutorProposalPage />);
+    dung();
     await screen.findByTestId('proposal-load-error');
     expect(screen.queryByText(/Không tìm thấy kiến nghị nào/)).not.toBeInTheDocument();
   });
 
   it('nói rõ lý do máy chủ đưa ra', async () => {
     mApi.get.mockRejectedValue(LOI);
-    render(<ProsecutorProposalPage />);
+    dung();
     expect(await screen.findByText(/Máy chủ bận/)).toBeInTheDocument();
   });
 
   it('bấm Thử lại thì hỏi máy chủ lần nữa', async () => {
     mApi.get.mockRejectedValue(LOI);
-    render(<ProsecutorProposalPage />);
+    dung();
     await screen.findByTestId('proposal-load-error');
     const lanDau = mApi.get.mock.calls.length;
     fireEvent.click(screen.getByTestId('proposal-retry'));
@@ -88,7 +98,7 @@ describe('Tải danh sách kiến nghị hỏng', () => {
     mApi.get.mockRejectedValueOnce(LOI).mockResolvedValue({
       data: { data: [{ id: 'p1', proposalNumber: 'KN-1', status: 'CHO_GUI' }] },
     });
-    render(<ProsecutorProposalPage />);
+    dung();
     await screen.findByTestId('proposal-load-error');
     fireEvent.click(screen.getByTestId('proposal-retry'));
     await waitFor(() =>
@@ -104,7 +114,7 @@ describe('Danh sách kiến nghị rỗng thật', () => {
 
   it('hiện số 0 và câu "không tìm thấy", KHÔNG có khối lỗi', async () => {
     mApi.get.mockResolvedValue({ data: { data: [] } });
-    render(<ProsecutorProposalPage />);
+    dung();
     await waitFor(() => expect(screen.getByText(/Không tìm thấy kiến nghị nào/)).toBeInTheDocument());
     expect(screen.queryByTestId('proposal-load-error')).not.toBeInTheDocument();
     expect(screen.getAllByTestId('proposal-stat')[0]).toHaveTextContent('0');

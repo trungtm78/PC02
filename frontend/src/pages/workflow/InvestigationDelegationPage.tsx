@@ -37,6 +37,27 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { downloadCsv } from '@/lib/csv';
 import { today, toDateInput, formatVNDate } from '@/lib/dates';
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_UY_THAC: readonly TruongLoc<Delegation>[] = [
+  { key: 'soUyThac', nhan: 'Số ủy thác', kieu: 'ma', lay: (d) => d.delegationNumber },
+  { key: 'noiDung', nhan: 'Nội dung', kieu: 'chu', lay: (d) => d.content },
+  { key: 'ngayUyThac', nhan: 'Ngày ủy thác', kieu: 'ngay', lay: (d) => d.delegationDate },
+  { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu', lay: (d) => d.receivingUnit },
+  { key: 'nguoiTao', nhan: 'Người tạo', kieu: 'chu', lay: (d) => d.createdBy },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (d) => d.status },
+];
+
+const GIA_TRI_CHON_UY_THAC = {
+  trangThai: [
+    { value: 'pending', label: 'Chờ nhận' },
+    { value: 'received', label: 'Đã nhận' },
+    { value: 'completed', label: 'Đã hoàn thành' },
+  ],
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -154,8 +175,18 @@ export default function InvestigationDelegationPage() {
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
-  const filteredData = allDelegations.filter((d) => {
-    if (filters.quickSearch) {
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'delegation',
+    khai: KHAI_UY_THAC,
+    giaTriChon: GIA_TRI_CHON_UY_THAC,
+    dong: allDelegations,
+    bat: theBat,
+  });
+
+  const filteredData = timKiem.dongLoc.filter((d) => {
+    if (!theBat && filters.quickSearch) {
       const q = filters.quickSearch.toLowerCase();
       const match =
         d.delegationNumber.toLowerCase().includes(q) ||
@@ -417,7 +448,10 @@ export default function InvestigationDelegationPage() {
 
           <button
             data-testid="refresh-btn"
-            onClick={() => setFilters({ quickSearch: '', fromDate: '', toDate: '', receivingUnit: '', status: '' })}
+            onClick={() => {
+              timKiem.xoaHet();
+              setFilters({ quickSearch: '', fromDate: '', toDate: '', receivingUnit: '', status: '' });
+            }}
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
@@ -428,17 +462,30 @@ export default function InvestigationDelegationPage() {
 
       {/* Tìm kiếm và bộ lọc */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            data-testid="quick-search-input"
-            type="text"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo số ủy thác, nội dung, đơn vị nhận..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={KHAI_UY_THAC}
+            khai={KHAI_UY_THAC}
+            giaTriChon={GIA_TRI_CHON_UY_THAC}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              data-testid="quick-search-input"
+              type="text"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo số ủy thác, nội dung, đơn vị nhận..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
@@ -530,7 +577,19 @@ export default function InvestigationDelegationPage() {
                     <td colSpan={7} className="px-4 py-16 text-center">
                       <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy ủy thác nào'}</p>
-                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc hoặc tạo ủy thác mới</p>
+                      {!loadError && timKiem.coThe ? (
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                          <span>Không tìm thấy với:</span>
+                          <DanhSachThe
+                            the={timKiem.the}
+                            khai={KHAI_UY_THAC}
+                            giaTriChon={GIA_TRI_CHON_UY_THAC}
+                            onBoThe={timKiem.boThe}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc hoặc tạo ủy thác mới</p>
+                      )}
                     </td>
                   </tr>
                 ) : (

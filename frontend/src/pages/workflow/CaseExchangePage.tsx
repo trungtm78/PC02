@@ -33,6 +33,30 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { formatVNDate, formatVNTime, formatVNDateTime } from '../../lib/dates';
 import { authStore } from '@/stores/auth.store';
 import { downloadCsv } from '@/lib/csv';
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_TRAO_DOI: readonly TruongLoc<Exchange>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (e) => e.stt },
+  { key: 'maHoSo', nhan: 'Mã hồ sơ', kieu: 'ma', lay: (e) => e.recordCode },
+  { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon', lay: (e) => e.recordType },
+  { key: 'donViGui', nhan: 'Đơn vị gửi', kieu: 'chu', lay: (e) => e.senderUnit },
+  { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu', lay: (e) => e.receiverUnit },
+  { key: 'thoiGianKhoiTao', nhan: 'Thời gian khởi tạo', kieu: 'ngay', lay: (e) => e.createdDate },
+  { key: 'tinNhanCuoi', nhan: 'Tin nhắn cuối', kieu: 'chu', lay: (e) => e.lastMessage },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (e) => e.status },
+];
+
+const GIA_TRI_CHON_TRAO_DOI = {
+  loaiHoSo: ['Vụ án', 'Vụ việc', 'Đơn thư'].map((v) => ({ value: v, label: v })),
+  trangThai: [
+    { value: 'open', label: 'Đang trao đổi' },
+    { value: 'pending', label: 'Chờ phản hồi' },
+    { value: 'closed', label: 'Hoàn thành' },
+  ],
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -161,7 +185,22 @@ export default function CaseExchangePage() {
 
   useEffect(() => { fetchExchanges(); }, [fetchExchanges]);
 
-  const filteredExchanges = exchanges.filter((exchange) => {
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'caseExchange',
+    khai: KHAI_TRAO_DOI,
+    giaTriChon: GIA_TRI_CHON_TRAO_DOI,
+    dong: exchanges,
+    bat: theBat,
+  });
+
+  // Thẻ đổi = bộ lọc mới: về trang 1. Giữ trang cũ thì trang 2 của một kết quả 1 dòng là bảng rỗng.
+  const khoaThe = JSON.stringify(timKiem.tkGui);
+  useEffect(() => { setCurrentPage(1); }, [khoaThe]);
+
+  const filteredExchanges = timKiem.dongLoc.filter((exchange) => {
+    if (theBat) return true;
     const q = quickSearch.toLowerCase();
     return (
       exchange.recordCode.toLowerCase().includes(q) ||
@@ -238,7 +277,7 @@ export default function CaseExchangePage() {
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
-            <button data-testid="refresh-btn" onClick={() => fetchExchanges()} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button data-testid="refresh-btn" onClick={() => { timKiem.xoaHet(); fetchExchanges(); }} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
@@ -246,17 +285,30 @@ export default function CaseExchangePage() {
 
         {/* Tìm kiếm nhanh */}
         <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              data-testid="quick-search-input"
-              type="text"
-              value={quickSearch}
-              onChange={(e) => setQuickSearch(e.target.value)}
-              placeholder="Tìm kiếm theo mã hồ sơ, đơn vị gửi/nhận, nội dung trao đổi..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={KHAI_TRAO_DOI}
+              khai={KHAI_TRAO_DOI}
+              giaTriChon={GIA_TRI_CHON_TRAO_DOI}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
-          </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                data-testid="quick-search-input"
+                type="text"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Tìm kiếm theo mã hồ sơ, đơn vị gửi/nhận, nội dung trao đổi..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         {/* Bộ lọc nâng cao */}
@@ -379,6 +431,21 @@ export default function CaseExchangePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
+                {!loadError && displayedExchanges.length === 0 && timKiem.coThe && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center">
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_TRAO_DOI}
+                          giaTriChon={GIA_TRI_CHON_TRAO_DOI}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {displayedExchanges.map((exchange) => (
                   <tr
                     key={exchange.id}

@@ -35,6 +35,28 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
 import { today, formatVNDate } from '@/lib/dates';
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_HUONG_DAN: readonly TruongLoc<GuidanceRecord>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (g) => g.stt },
+  { key: 'ngay', nhan: 'Ngày', kieu: 'ngay', lay: (g) => g.date },
+  { key: 'vanDe', nhan: 'Vấn đề', kieu: 'chu', lay: (g) => g.subject },
+  { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu', lay: (g) => g.unit },
+  { key: 'nguoiNhap', nhan: 'Người nhập', kieu: 'chu', lay: (g) => g.createdBy },
+  { key: 'nguoiDuocHuongDan', nhan: 'Người được hướng dẫn', kieu: 'chu', lay: (g) => [g.guidedPerson, g.guidedPersonPhone] },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (g) => g.status },
+];
+
+const GIA_TRI_CHON_HUONG_DAN = {
+  trangThai: [
+    { value: 'pending', label: 'Chờ hoàn thành' },
+    { value: 'completed', label: 'Đã hoàn thành' },
+    { value: 'cancelled', label: 'Đã hủy' },
+  ],
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -152,8 +174,18 @@ export default function PetitionGuidancePage() {
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
-  const filteredData = allGuidances.filter((g) => {
-    if (filters.quickSearch) {
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'guidance',
+    khai: KHAI_HUONG_DAN,
+    giaTriChon: GIA_TRI_CHON_HUONG_DAN,
+    dong: allGuidances,
+    bat: theBat,
+  });
+
+  const filteredData = timKiem.dongLoc.filter((g) => {
+    if (!theBat && filters.quickSearch) {
       const q = filters.quickSearch.toLowerCase();
       const match =
         g.stt.toLowerCase().includes(q) ||
@@ -179,6 +211,7 @@ export default function PetitionGuidancePage() {
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({ quickSearch: '', fromDate: '', toDate: '', unit: '', status: '' });
   };
 
@@ -399,17 +432,30 @@ export default function PetitionGuidancePage() {
 
       {/* Tìm kiếm và bộ lọc */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            data-testid="quick-search-input"
-            type="text"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo STT, Người được hướng dẫn, Vấn đề, Người nhập..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={KHAI_HUONG_DAN}
+            khai={KHAI_HUONG_DAN}
+            giaTriChon={GIA_TRI_CHON_HUONG_DAN}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              data-testid="quick-search-input"
+              type="text"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo STT, Người được hướng dẫn, Vấn đề, Người nhập..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
@@ -500,7 +546,19 @@ export default function PetitionGuidancePage() {
                     <td colSpan={8} className="px-4 py-16 text-center">
                       <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hướng dẫn nào'}</p>
-                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc hoặc thêm hướng dẫn mới</p>
+                      {!loadError && timKiem.coThe ? (
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                          <span>Không tìm thấy với:</span>
+                          <DanhSachThe
+                            the={timKiem.the}
+                            khai={KHAI_HUONG_DAN}
+                            giaTriChon={GIA_TRI_CHON_HUONG_DAN}
+                            onBoThe={timKiem.boThe}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc hoặc thêm hướng dẫn mới</p>
+                      )}
                     </td>
                   </tr>
                 ) : (

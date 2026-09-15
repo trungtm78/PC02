@@ -24,6 +24,9 @@ import { api } from "@/lib/api";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 interface WardIncident {
   id: string;
@@ -51,6 +54,32 @@ interface FilterData {
   status: string;
   priority: string;
 }
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_VU_VIEC_PHUONG: readonly TruongLoc<WardIncident>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (i) => i.stt },
+  { key: 'tenVuViec', nhan: 'Tên vụ việc', kieu: 'chu', lay: (i) => i.incidentName },
+  { key: 'loai', nhan: 'Loại', kieu: 'chu', lay: (i) => i.type },
+  { key: 'diaDiem', nhan: 'Địa điểm', kieu: 'chu', lay: (i) => i.location },
+  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (i) => [i.ward, i.district] },
+  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay', lay: (i) => i.reportedDate },
+  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (i) => i.priority },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (i) => i.status },
+];
+
+const GIA_TRI_CHON_VU_VIEC_PHUONG = {
+  mucDo: [
+    { value: 'low', label: 'Thấp' },
+    { value: 'medium', label: 'Trung bình' },
+    { value: 'high', label: 'Cao' },
+  ],
+  trangThai: [
+    { value: 'pending', label: 'Chờ xử lý' },
+    { value: 'investigating', label: 'Đang xác minh' },
+    { value: 'resolved', label: 'Đã giải quyết' },
+    { value: 'closed', label: 'Đã đóng' },
+  ],
+};
 
 export default function WardIncidentsPage() {
   const navigate = useNavigate();
@@ -115,9 +144,19 @@ export default function WardIncidentsPage() {
     fetch();
   }, []);
 
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'wardIncidents',
+    khai: KHAI_VU_VIEC_PHUONG,
+    giaTriChon: GIA_TRI_CHON_VU_VIEC_PHUONG,
+    dong: allData,
+    bat: theBat,
+  });
+
   const filteredData = useMemo(() => {
-    return allData.filter((incident) => {
-      if (filters.quickSearch) {
+    return timKiem.dongLoc.filter((incident) => {
+      if (!theBat && filters.quickSearch) {
         const searchLower = filters.quickSearch.toLowerCase();
         const matchesSearch =
           String(incident.stt).toLowerCase().includes(searchLower) ||
@@ -136,9 +175,10 @@ export default function WardIncidentsPage() {
 
       return true;
     });
-  }, [allData, filters]);
+  }, [timKiem.dongLoc, theBat, filters]);
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       fromDate: "",
@@ -338,17 +378,30 @@ export default function WardIncidentsPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            data-testid="quick-search-input"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo STT, Tên vụ việc, Loại, Phường/Xã..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={KHAI_VU_VIEC_PHUONG}
+            khai={KHAI_VU_VIEC_PHUONG}
+            giaTriChon={GIA_TRI_CHON_VU_VIEC_PHUONG}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              data-testid="quick-search-input"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo STT, Tên vụ việc, Loại, Phường/Xã..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+            />
+          </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
@@ -489,9 +542,21 @@ export default function WardIncidentsPage() {
                   <td colSpan={9} className="px-4 py-16 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ việc nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      Thử điều chỉnh bộ lọc tìm kiếm
-                    </p>
+                    {!loadError && timKiem.coThe ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_VU_VIEC_PHUONG}
+                          giaTriChon={GIA_TRI_CHON_VU_VIEC_PHUONG}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">
+                        Thử điều chỉnh bộ lọc tìm kiếm
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (

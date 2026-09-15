@@ -16,11 +16,24 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import WardPetitionsPage from '../WardPetitionsPage';
 import { api } from '@/lib/api';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
+
+const CO_TAT_THE: FeatureFlag[] = [
+  {
+    key: 'TIM_KIEM_THE',
+    label: 'Tìm kiếm dạng thẻ',
+    description: null,
+    enabled: false,
+    domain: null,
+    rolloutPct: 100,
+  },
+];
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -38,16 +51,19 @@ const fixturePetitions = [
   { id: 'p6', stt: 'DT-2026-00006', senderName: 'Người F', petitionType: 'TO_CAO', receivedDate: '2026-02-25', status: 'DA_CHUYEN_VU_VIEC', summary: 'Đơn 6', priority: null, assignedTeam: { ward: { name: 'Phường 6' } } },
 ];
 
-function renderPage() {
+function renderPage(url = '/petitions/ward', flags?: FeatureFlag[]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const trang = (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[url]}>
         <WardPetitionsPage />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+  );
+  return render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
 }
 
@@ -278,5 +294,69 @@ describe('WardPetitionsPage', () => {
     });
     expect(screen.getByTestId('ward-cell-p1')).toHaveTextContent('Phường 2');
     expect(screen.getByTestId('ward-cell-p4')).toHaveTextContent('—');
+  });
+});
+
+/**
+ * Ô tìm dạng thẻ (M5): màn tải hết đơn thư phường/xã về rồi lọc tại chỗ. Trước đây ô chữ so
+ * `toLowerCase().includes` trên ba cột cố định — gõ không dấu không ra, không chọn được cột.
+ */
+describe('WardPetitionsPage — ô tìm kiếm dạng thẻ', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('có ô thẻ; thẻ trên URL lọc không dấu', async () => {
+    mockListResponse();
+    renderPage('/petitions/ward?wardPetitions_tk=nguoiGui~nguoi a');
+    expect(await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1));
+    expect(screen.getByTestId('petition-row-p1')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('1');
+  });
+
+  it('thẻ Loại đơn so đúng mã; thẻ Phường/Xã lọc cột phường', async () => {
+    mockListResponse();
+    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO&wardPetitions_tk=phuongXa~phuong 6');
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(2));
+    expect(screen.getByTestId('petition-row-p5')).toBeInTheDocument();
+    expect(screen.getByTestId('petition-row-p6')).toBeInTheDocument();
+  });
+
+  it('gõ rồi Enter → thẻ "tất cả các cột"', async () => {
+    mockListResponse();
+    renderPage();
+    const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
+    fireEvent.change(o, { target: { value: 'don 3' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1));
+    expect(screen.getByTestId('petition-row-p3')).toBeInTheDocument();
+  });
+
+  it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+    mockListResponse();
+    renderPage('/petitions/ward?wardPetitions_tk=nguoiGui~khong ai');
+    const rong = await screen.findByTestId('ward-petitions-empty');
+    expect(rong).toHaveTextContent('Không tìm thấy với');
+    expect(within(rong).getByRole('button', { name: 'Bỏ thẻ Người gửi' })).toBeInTheDocument();
+  });
+
+  it('"Làm mới" xoá cả thẻ', async () => {
+    mockListResponse();
+    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO');
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(3));
+    fireEvent.click(screen.getByTestId('reset-filters-btn'));
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
+    expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument();
+  });
+
+  it('cờ tắt → ô chữ cũ, vẫn lọc như trước', async () => {
+    mockListResponse();
+    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO', CO_TAT_THE);
+    const o = await screen.findByTestId('quick-search-input');
+    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
+    fireEvent.change(o, { target: { value: 'Người B' } });
+    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1);
   });
 });

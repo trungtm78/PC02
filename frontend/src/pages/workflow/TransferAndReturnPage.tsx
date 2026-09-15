@@ -26,6 +26,26 @@ import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { formatVNDate } from '../../lib/dates';
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_CHUYEN_TRA: readonly TruongLoc<CaseRecord>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (r) => r.stt },
+  { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon', lay: (r) => r.recordType },
+  { key: 'maHoSo', nhan: 'Mã hồ sơ', kieu: 'ma', lay: (r) => r.recordCode },
+  { key: 'tenHoSo', nhan: 'Tên hồ sơ', kieu: 'chu', lay: (r) => r.name },
+  { key: 'doiHienTai', nhan: 'Đội hiện tại', kieu: 'chu', lay: (r) => r.currentTeam },
+  { key: 'nguoiPhuTrach', nhan: 'Người phụ trách', kieu: 'chu', lay: (r) => r.assignedTo },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', lay: (r) => r.createdDate },
+  // Mã trạng thái khác nhau theo loại hồ sơ: tìm theo NHÃN đang hiện trên bảng.
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chu', lay: (r) => getStatusLabel(r.recordType, r.status) },
+];
+
+const GIA_TRI_CHON_CHUYEN_TRA = {
+  loaiHoSo: ['Đơn thư', 'Vụ việc', 'Vụ án'].map((v) => ({ value: v, label: v })),
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -255,9 +275,20 @@ export default function TransferAndReturnPage() {
 
   // ── Filtering ──────────────────────────────────────────────────────────────
 
-  const filteredRecords = allData.filter((record) => {
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'transferReturn',
+    khai: KHAI_CHUYEN_TRA,
+    giaTriChon: GIA_TRI_CHON_CHUYEN_TRA,
+    dong: allData,
+    bat: theBat,
+  });
+
+  const filteredRecords = timKiem.dongLoc.filter((record) => {
     const q = quickSearch.toLowerCase();
     const matchesQuickSearch =
+      theBat ||
       record.recordCode.toLowerCase().includes(q) ||
       record.name.toLowerCase().includes(q) ||
       record.currentTeam.toLowerCase().includes(q);
@@ -269,6 +300,21 @@ export default function TransferAndReturnPage() {
 
     return matchesQuickSearch && matchesType && matchesTeam && matchesStatus;
   });
+
+  // Thẻ đổi = bộ lọc mới: về trang 1. Giữ trang cũ thì trang 2 của một kết quả 1 dòng là bảng rỗng.
+  const khoaThe = JSON.stringify(timKiem.tkGui);
+  useEffect(() => { setCurrentPage(1); }, [khoaThe]);
+
+  // Lựa chọn chỉ gồm dòng ĐANG THẤY: nút Chuyển đội/Trả hồ sơ đọc từ allData, giữ id của dòng đã bị
+  // lọc ẩn là thao tác lên hồ sơ cán bộ không còn nhìn thấy.
+  const idsDangThay = filteredRecords.map((r) => r.id).join('|');
+  useEffect(() => {
+    const con = new Set(idsDangThay.split('|'));
+    setSelectedRecords((truoc) => {
+      const giu = truoc.filter((id) => con.has(id));
+      return giu.length === truoc.length ? truoc : giu;
+    });
+  }, [idsDangThay]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
   const displayedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -416,6 +462,11 @@ export default function TransferAndReturnPage() {
             </button>
             <button
               data-testid="refresh-btn"
+              onClick={() => {
+                timKiem.xoaHet();
+                setQuickSearch('');
+                setAdvancedFilters({ recordType: '', currentTeam: '', status: '', fromDate: '', toDate: '' });
+              }}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
@@ -425,17 +476,30 @@ export default function TransferAndReturnPage() {
 
         {/* Tìm kiếm nhanh */}
         <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              data-testid="quick-search-input"
-              type="text"
-              value={quickSearch}
-              onChange={(e) => setQuickSearch(e.target.value)}
-              placeholder="Tìm kiếm theo mã hồ sơ, tên hồ sơ, đội hiện tại..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={KHAI_CHUYEN_TRA}
+              khai={KHAI_CHUYEN_TRA}
+              giaTriChon={GIA_TRI_CHON_CHUYEN_TRA}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
-          </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                data-testid="quick-search-input"
+                type="text"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Tìm kiếm theo mã hồ sơ, tên hồ sơ, đội hiện tại..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         {/* Tìm kiếm nâng cao */}
@@ -581,6 +645,21 @@ export default function TransferAndReturnPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
+                {!loadError && displayedRecords.length === 0 && timKiem.coThe && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-12 text-center">
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_CHUYEN_TRA}
+                          giaTriChon={GIA_TRI_CHON_CHUYEN_TRA}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {displayedRecords.map((record) => (
                   <tr
                     key={record.id}
