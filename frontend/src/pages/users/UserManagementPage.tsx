@@ -30,6 +30,7 @@ import { EnrollmentLinkModal, type EnrollmentHandover } from '@/components/Enrol
 import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
 import { hoTen, tachHoTen } from '@/lib/hoTen';
+import { thamSoDanhSachNguoiDung } from './thamSoDanhSachNguoiDung';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,10 +186,11 @@ export default function UserManagementPage() {
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);    setLoadError("");
     try {
-      const params: Record<string, string> = {};
-      if (searchQuery) params.search = searchQuery;
-      if (filterRole !== 'all') params.roleId = filterRole;
-      if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
+      const params = thamSoDanhSachNguoiDung({
+        tuKhoa: searchQuery,
+        vaiTro: filterRole,
+        trangThai: filterStatus,
+      });
       const res = await api.get('/admin/users', { params });
       // Normalize: merge firstName/lastName into fullName for display
       const rawUsers: User[] = (res.data.data ?? []).map((u: User) => ({
