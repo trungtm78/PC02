@@ -54,7 +54,10 @@ describe('chayKiemVang', () => {
   let cauGhi: string[];
   let cauDoc: string[];
 
-  function prismaGia(hong?: (v: string) => boolean): PrismaVang {
+  function prismaGia(
+    hong?: (v: string) => boolean,
+    thieuDong = false,
+  ): PrismaVang {
     const tx: TxVang = {
       $executeRawUnsafe: (sql: string) => {
         cauGhi.push(sql);
@@ -68,7 +71,8 @@ describe('chayKiemVang', () => {
         }
         if (sql.includes('unnest')) {
           const ds = gt[0] as string[];
-          return Promise.resolve(ds.map((v, i) => ({ i: i + 1, s: tinh(v) })));
+          const ra = ds.map((v, i) => ({ i: i + 1, s: tinh(v) }));
+          return Promise.resolve(thieuDong ? ra.slice(1) : ra);
         }
         return Promise.resolve([{ v: 'Đỗ Thị Ánh', s: tinh('Đỗ Thị Ánh') }]);
       },
@@ -113,5 +117,12 @@ describe('chayKiemVang', () => {
   it('tham số lạ → 2, không chạm CSDL', async () => {
     expect(await chayKiemVang(['--ghi'], prismaGia())).toBe(2);
     expect(cauGhi).toEqual([]);
+  });
+
+  /** Thiếu dòng mà vẫn so phần còn lại là báo "khớp" trên một tập đã hụt — phải dừng hẳn. */
+  it('CSDL trả thiếu dòng → ném lỗi, không báo khớp', async () => {
+    await expect(chayKiemVang([], prismaGia(undefined, true))).rejects.toThrow(
+      'Thiếu kết quả',
+    );
   });
 });
