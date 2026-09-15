@@ -56,13 +56,18 @@ export class DocumentsService {
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
     };
+    // Tìm kiếm và phạm vi là HAI điều kiện riêng trong AND. Trước đây cả hai cùng gán `where.OR`, nên
+    // khối phạm vi chạy sau đè mất khối tìm — cán bộ có phạm vi gõ gì cũng ra mọi tài liệu.
+    const dieuKien: Prisma.DocumentWhereInput[] = [];
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { originalName: { contains: search, mode: 'insensitive' } },
-      ];
+      dieuKien.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { originalName: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     if (caseId) where.caseId = caseId;
@@ -73,13 +78,18 @@ export class DocumentsService {
     const caseScope = buildScopeFilter(dataScope);
     const petitionScope = buildPetitionScopeFilter(dataScope);
     if (caseScope || petitionScope) {
-      (where as any).OR = [
-        ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
-        // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
-        // from scope queries — chain-of-custody bleeding prevention.
-        ...(petitionScope ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }] : []),
-      ];
+      dieuKien.push({
+        OR: [
+          ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
+          // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
+          // from scope queries — chain-of-custody bleeding prevention.
+          ...(petitionScope
+            ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }]
+            : []),
+        ],
+      });
     }
+    if (dieuKien.length) where.AND = dieuKien;
 
     const allowedSortFields = [
       'createdAt',
