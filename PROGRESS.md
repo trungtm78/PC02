@@ -100,7 +100,8 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - URL >20 thẻ làm cả màn 400 → docTheTuThamSo dừng ở 20.
   - Trạng thái trống khi chỉ lọc ở mặt lọc hiện "Chưa có hồ sơ" → "lọc không ra" (Vụ việc, Vụ án, Đơn thư).
   - Ca kiểm bổ sung: getUtdtStats tìm+phạm vi cùng AND; incidents listLinkable/listDeleted; UTDT cờ tắt `inv`; BoTimKiem.dieuKienTatCa (gom 3 chỗ cắt 200 cứng); getUtdtStats dùng noiVaoWhere.
-  - Kết quả: backend src/cases+incidents+tim-kiem 943 ca, tsc sạch; FE các thư mục liên quan xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
+  - Kết quả: commit 636168c1. Bộ ĐẦY ĐỦ sau review: backend 341 bộ/5.121 ca xanh, tsc sạch; FE 250 tệp/2.980 ca xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
+  - Kế: push → PR → CI (kiểm JSON từng check) → merge → deploy → prod: nạp cột bóng (dry-run rồi --that) + kiem-vang-bo-dau --chuoi-that + đo EXPLAIN.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
