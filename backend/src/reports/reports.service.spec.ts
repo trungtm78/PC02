@@ -11,6 +11,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -199,6 +200,86 @@ describe('ReportsService', () => {
       const result = await service.getOverdue();
       expect(result.data).toHaveLength(0);
       expect(result.total).toBe(0);
+    });
+
+    /**
+     * M6: tìm hồ sơ trễ hạn đi qua `BoTimKiem` của TỪNG khai (Vụ án/Vụ việc/Đơn thư) — bỏ dấu, thẻ
+     * "*" + khoá chung ba khai; khoá không chung → 400. Trước đây ba khối OR chép tay, `contains`
+     * thường, vụ việc còn so `unitId` (một ID) như chữ.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem ba khai)', () => {
+      const whereCua = (bang: 'case' | 'incident' | 'petition') =>
+        JSON.stringify(mockPrisma[bang].findMany.mock.calls[0][0].where);
+
+      it('search có dấu → "*" bỏ dấu trong AND ở CẢ ba bảng, không còn OR tầng trên', async () => {
+        await service.getOverdue('Nguyễn');
+        for (const bang of ['case', 'incident', 'petition'] as const) {
+          const where = mockPrisma[bang].findMany.mock.calls[0][0].where;
+          expect(where.OR).toBeUndefined();
+          expect(whereCua(bang)).toContain('"timKiemBd":{"contains":"nguyen"}');
+        }
+      });
+
+      it('thẻ khoá chung → cột bóng RIÊNG của từng bảng', async () => {
+        await service.getOverdue(undefined, undefined, undefined, undefined, [
+          'nguoiGui~tran',
+        ]);
+        expect(whereCua('petition')).toContain('"senderNameBd"');
+        expect(whereCua('incident')).toContain('"benVuBd"');
+        expect(whereCua('case')).toContain('"tenCungCapBd"');
+      });
+
+      it('thẻ không nằm trong khoá chung ba khai → 400, không hỏi CSDL', async () => {
+        await expect(
+          service.getOverdue(undefined, undefined, undefined, undefined, [
+            'trangThai~DANG_XU_LY',
+          ]),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.case.findMany).not.toHaveBeenCalled();
+      });
+
+      it('khoá lạ hoàn toàn → 400', async () => {
+        await expect(
+          service.getOverdue(undefined, undefined, undefined, undefined, [
+            'khongCo~x',
+          ]),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('thẻ không đè điều kiện trễ hạn (deadline, trạng thái)', async () => {
+        await service.getOverdue(undefined, undefined, undefined, undefined, [
+          '*~an',
+        ]);
+        const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+        expect(where.deletedAt).toBeNull();
+        expect(where.deadline).toEqual({ lt: expect.any(Date) });
+        expect(where.status).toBeDefined();
+      });
+    });
+
+    /**
+     * [lỗi có sẵn] Số hồ sơ vụ án/vụ việc hiện id cắt 8 ký tự: `select` không lấy `caseCode`/`code`
+     * nên `item.stt ?? item.code` luôn rỗng. Thẻ STT tìm theo đúng mã ấy — cột phải hiện mã ấy.
+     */
+    it('số hồ sơ vụ án = caseCode, vụ việc = code (không phải id cắt ngắn)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeOverdueCase(5, { caseCode: '2026-15' }),
+      ]);
+      mockPrisma.incident.findMany.mockResolvedValue([
+        { ...makeOverdueIncident(6), code: '2026-7' },
+      ]);
+      const result = await service.getOverdue();
+      const so = Object.fromEntries(
+        result.data.map((r) => [r.recordType, r.recordNumber]),
+      );
+      expect(so.case).toBe('2026-15');
+      expect(so.incident).toBe('2026-7');
+      expect(mockPrisma.case.findMany.mock.calls[0][0].select.caseCode).toBe(
+        true,
+      );
+      expect(mockPrisma.incident.findMany.mock.calls[0][0].select.code).toBe(
+        true,
+      );
     });
   });
 
