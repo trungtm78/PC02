@@ -23,16 +23,42 @@ const DANH_MUC: KhaiThucThe = {
 };
 
 describe('chon + giaTriCot', () => {
-  it('đổi giá trị thẻ sang giá trị cột thật (boolean)', () => {
+  /**
+   * [sửa sau review 15/09/2026] Bộ lọc boolean của Prisma (`BoolFilter`) CHỈ có `equals`/`not` —
+   * không có `in`. Bản trước dựng `{ isActive: { in: [true] } }`: Prisma từ chối tham số → 500 cả danh
+   * sách khi chọn thẻ Trạng thái (Người dùng, Danh mục, Ánh xạ địa chỉ). Ca kiểm cũ ghim đúng hình lỗi.
+   */
+  it('một giá trị → `equals` giá trị cột thật (boolean)', () => {
     expect(
       dungDieuKienTimKiem([{ key: 'trangThai', giaTri: ['active'] }], DANH_MUC),
-    ).toEqual([{ isActive: { in: [true] } }]);
+    ).toEqual([{ isActive: { equals: true } }]);
+  });
+
+  it('nhiều giá trị → OR các `equals`; trùng giá trị gộp một', () => {
     expect(
       dungDieuKienTimKiem(
         [{ key: 'trangThai', giaTri: ['active', 'inactive'] }],
         DANH_MUC,
       ),
-    ).toEqual([{ isActive: { in: [true, false] } }]);
+    ).toEqual([
+      {
+        OR: [{ isActive: { equals: true } }, { isActive: { equals: false } }],
+      },
+    ]);
+    expect(
+      dungDieuKienTimKiem(
+        [{ key: 'trangThai', giaTri: ['inactive', 'inactive'] }],
+        DANH_MUC,
+      ),
+    ).toEqual([{ isActive: { equals: false } }]);
+  });
+
+  it('không bao giờ dựng `in` cho cột có giaTriCot (BoolFilter không có `in`)', () => {
+    const ra = dungDieuKienTimKiem(
+      [{ key: 'trangThai', giaTri: ['active', 'inactive'] }],
+      DANH_MUC,
+    );
+    expect(JSON.stringify(ra)).not.toContain('"in"');
   });
 
   it('giá trị không có trong bảng ánh xạ → 400', () => {

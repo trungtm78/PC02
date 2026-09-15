@@ -277,7 +277,13 @@ function dieuKienMotThe(
       );
     case 'chon': {
       const doi = truong.giaTriCot;
-      return [{ [cot]: { in: the.giaTri.map((v) => (doi ? doi[v] : v)) } }];
+      // Cột enum/chuỗi: `in` (EnumFilter/StringFilter có `in`).
+      if (!doi) return [{ [cot]: { in: the.giaTri } }];
+      // `giaTriCot` dùng cho cột boolean — `BoolFilter` của Prisma CHỈ có `equals`/`not`, không có `in`:
+      // dựng `{ in: [true] }` là Prisma từ chối tham số → 500 cả danh sách. Mỗi giá trị một `equals`,
+      // trùng gộp một, nhiều giá trị OR bên trong phần tử AND.
+      const giaTri = [...new Set(the.giaTri.map((v) => doi[v]))];
+      return hoac(giaTri.map((v) => ({ [cot]: { equals: v } })));
     }
     case 'doi-tuong':
       return hoac(the.giaTri.flatMap((v) => dieuKienDoiTuong(truong, v)));

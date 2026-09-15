@@ -140,7 +140,7 @@ describe('DirectoryService', () => {
       it('thẻ Trạng thái → cột boolean isActive', async () => {
         await service.findAll({ tk: ['trangThai~inactive'] } as never);
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"isActive":{"in":[false]}',
+          '"isActive":{"equals":false}',
         );
       });
 

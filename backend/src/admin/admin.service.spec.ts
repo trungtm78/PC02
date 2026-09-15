@@ -181,7 +181,7 @@ describe('AdminService', () => {
       it('thẻ Trạng thái → cột boolean isActive', async () => {
         await service.getUsers({ tk: ['trangThai~active'] } as never);
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"isActive":{"in":[true]}',
+          '"isActive":{"equals":true}',
         );
       });
 

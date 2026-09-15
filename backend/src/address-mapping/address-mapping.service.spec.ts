@@ -108,7 +108,7 @@ describe('AddressMappingService', () => {
       it('thẻ Trạng thái cần xem lại → cột boolean needsReview', async () => {
         await service.findAll({ tk: ['canXemLai~review'] } as never);
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"needsReview":{"in":[true]}',
+          '"needsReview":{"equals":true}',
         );
       });
 
