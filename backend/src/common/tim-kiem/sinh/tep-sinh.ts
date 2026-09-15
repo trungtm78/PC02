@@ -110,6 +110,80 @@ export function cotDbLech(
   return ra;
 }
 
+export interface KieuCotLech {
+  model: string;
+  field: string;
+  kieuThe: string;
+  /** Kiểu Prisma của cột (bỏ `?`/`[]`), vd `Boolean`, `String`, `DateTime`, tên enum. */
+  kieuCot: string;
+  lyDo: string;
+}
+
+/**
+ * Trường khai mà kiểu thẻ không hợp kiểu cột trong schema.prisma. Bộ lọc Prisma khác nhau theo kiểu
+ * cột: `BoolFilter` chỉ có `equals`/`not` (không `in`), `mode: 'insensitive'` chỉ có ở `String`, cột
+ * bóng `f_bo_dau(...)` cần chữ, khoảng ngày cần `DateTime`. Khai lệch là 500 LÚC LỌC — ca kiểm so hình
+ * đối tượng vẫn xanh (thẻ Trạng thái trên `User.isActive` từng dựng `{ in: [true] }`).
+ *
+ * Trường không có trong model do `cotDbLech` báo; ở đây bỏ qua để không báo trùng.
+ */
+export function kieuCotLech(
+  schema: string,
+  khais: readonly KhaiThucThe[],
+): KieuCotLech[] {
+  const ra: KieuCotLech[] = [];
+  for (const khai of khais) {
+    const than = thanModel(schema, khai.model) ?? '';
+    const kieuCua = (field: string): string | null => {
+      const dong = new RegExp(`^\\s*${field}\\s+(\\S+)`, 'm').exec(than);
+      return dong ? dong[1].replace(/[?[\]]/g, '') : null;
+    };
+    const kiem = (
+      field: string,
+      kieuThe: string,
+      hop: (kieuCot: string) => boolean,
+      lyDo: string,
+    ) => {
+      const kieuCot = kieuCua(field);
+      if (kieuCot !== null && !hop(kieuCot)) {
+        ra.push({ model: khai.model, field, kieuThe, kieuCot, lyDo });
+      }
+    };
+    for (const t of khai.truong) {
+      if (!t.cot) continue;
+      const la = (kieu: string) => (k: string) => k === kieu;
+      switch (t.kieu) {
+        case 'chu':
+          for (const c of t.cotGhep ?? [t.cot]) {
+            kiem(c, t.kieu, la('String'), 'cột bóng bỏ dấu cần cột String');
+          }
+          break;
+        case 'ma':
+        case 'ma-cu':
+        case 'ma-thuong':
+          kiem(t.cot, t.kieu, la('String'), 'so mã cần cột String');
+          break;
+        case 'ngay':
+          kiem(t.cot, t.kieu, la('DateTime'), 'khoảng ngày cần DateTime');
+          break;
+        case 'chon':
+          if (t.giaTriCot) {
+            kiem(t.cot, t.kieu, la('Boolean'), 'giaTriCot chỉ cho Boolean');
+          } else {
+            kiem(
+              t.cot,
+              t.kieu,
+              (k) => k !== 'Boolean',
+              'cột Boolean phải khai giaTriCot (BoolFilter không có in)',
+            );
+          }
+          break;
+      }
+    }
+  }
+  return ra;
+}
+
 /** Field bộ sinh cần mà schema.prisma chưa khai đúng `<field> String? @map("<cot>")`. */
 export function truongPrismaThieu(
   schema: string,
