@@ -28,4 +28,32 @@ describe('thamSoDanhSachNguoiDung', () => {
       roleId: 'r1',
     });
   });
+
+  /**
+   * M6: cờ `TIM_KIEM_THE` bật → gửi thẻ (`tk`) thay cho ô chữ; máy chủ bỏ dấu và chọn cột. Không gửi
+   * cả hai: `search` cũ cũng quy về thẻ "*" ở máy chủ, gửi kèm là lọc hai lần.
+   */
+  it('cờ bật → gửi `tk`, không gửi `search`; lọc vai trò/trạng thái giữ nguyên', () => {
+    expect(
+      thamSoDanhSachNguoiDung({
+        tuKhoa: 'chu cu',
+        vaiTro: 'r1',
+        trangThai: 'active',
+        theBat: true,
+        tk: ['hoTen~an', '*~cb01'],
+      }),
+    ).toEqual({ tk: ['hoTen~an', '*~cb01'], roleId: 'r1', status: 'active' });
+  });
+
+  it('cờ bật mà không có thẻ → không gửi `tk` rỗng', () => {
+    expect(
+      thamSoDanhSachNguoiDung({
+        tuKhoa: '',
+        vaiTro: 'all',
+        trangThai: 'all',
+        theBat: true,
+        tk: [],
+      }),
+    ).toEqual({});
+  });
 });

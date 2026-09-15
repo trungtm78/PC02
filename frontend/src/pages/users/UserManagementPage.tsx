@@ -31,6 +31,17 @@ import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
 import { hoTen, tachHoTen } from '@/lib/hoTen';
 import { thamSoDanhSachNguoiDung } from './thamSoDanhSachNguoiDung';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { TIM_KIEM_NGUOI_DUNG } from '@/shared/tim-kiem/generated';
+
+/** Mã thẻ Trạng thái — đúng bảng `giaTriCot` của khai nguoi-dung (máy chủ đổi sang isActive). */
+const GIA_TRI_CHON_NGUOI_DUNG = {
+  trangThai: [
+    { value: 'active', label: 'Hoạt động' },
+    { value: 'inactive', label: 'Tạm khóa' },
+  ],
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +155,17 @@ export default function UserManagementPage() {
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ (bỏ dấu, chọn cột). Thẻ trên URL `users_tk`. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'users',
+    khai: TIM_KIEM_NGUOI_DUNG,
+    giaTriChon: GIA_TRI_CHON_NGUOI_DUNG,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
   // --- User modal ---
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -190,6 +212,8 @@ export default function UserManagementPage() {
         tuKhoa: searchQuery,
         vaiTro: filterRole,
         trangThai: filterStatus,
+        theBat,
+        tk: JSON.parse(tkKey) as string[],
       });
       const res = await api.get('/admin/users', { params });
       // Normalize: merge firstName/lastName into fullName for display
@@ -210,7 +234,7 @@ export default function UserManagementPage() {
     } finally {
       setUsersLoading(false);
     }
-  }, [searchQuery, filterRole, filterStatus]);
+  }, [searchQuery, filterRole, filterStatus, theBat, tkKey]);
 
   const loadRoles = useCallback(async () => {
     setRolesLoading(true);
@@ -514,16 +538,31 @@ export default function UserManagementPage() {
           {/* Search & Filter */}
           <div className="p-6 border-b border-slate-200 bg-slate-50">
             <div className="flex gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm theo mã cán bộ, họ tên, email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
-                />
-              </div>
+              {theBat ? (
+                <div className="flex-1">
+                  <OTimKiemThe
+                    the={timKiem.the}
+                    truong={TIM_KIEM_NGUOI_DUNG}
+                    khai={TIM_KIEM_NGUOI_DUNG}
+                    giaTriChon={GIA_TRI_CHON_NGUOI_DUNG}
+                    onThem={timKiem.them}
+                    onBoThe={timKiem.boThe}
+                    onBoGiaTri={timKiem.boGiaTri}
+                    placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm theo mã cán bộ, họ tên, email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
+                  />
+                </div>
+              )}
               <select
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
@@ -579,9 +618,21 @@ export default function UserManagementPage() {
                       <p className="text-slate-600 font-medium mb-1">
                         {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Chưa có người dùng nào'}
                       </p>
-                      <p className="text-sm text-slate-500">
-                        Nhấn "Thêm người dùng" để tạo tài khoản mới
-                      </p>
+                      {!loadError && theBat && timKiem.the.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                          <span>Không tìm thấy với:</span>
+                          <DanhSachThe
+                            the={timKiem.the}
+                            khai={TIM_KIEM_NGUOI_DUNG}
+                            giaTriChon={GIA_TRI_CHON_NGUOI_DUNG}
+                            onBoThe={timKiem.boThe}
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">
+                          Nhấn "Thêm người dùng" để tạo tài khoản mới
+                        </p>
+                      )}
                     </td>
                   </tr>
                 ) : (
