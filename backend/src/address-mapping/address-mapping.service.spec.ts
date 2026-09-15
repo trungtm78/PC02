@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AddressMappingService } from './address-mapping.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -65,6 +69,54 @@ describe('AddressMappingService', () => {
       expect(mockPrisma.addressMapping.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ province: 'HCM' }) }),
       );
+    });
+
+    /**
+     * M6: tìm ánh xạ đi qua `BoTimKiem` — gõ "phu nhuan" ra "quận phú nhuận" (trước đây `contains`
+     * thường phải gõ đúng dấu), chọn cột, khoá lạ 400.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      const anhXa = (
+        mockPrisma as { addressMapping: Record<string, jest.Mock> }
+      ).addressMapping;
+      const whereCua = (): Record<string, unknown> =>
+        (
+          anhXa.findMany.mock.calls[0] as [{ where: Record<string, unknown> }]
+        )[0].where;
+
+      beforeEach(() => {
+        anhXa.findMany.mockResolvedValue([]);
+        anhXa.count.mockResolvedValue(0);
+      });
+
+      it('search có dấu → thẻ "*" bỏ dấu trong AND, không còn OR tầng trên', async () => {
+        await service.findAll({ search: 'Phú Nhuận' });
+        const where = whereCua();
+        expect(where.OR).toBeUndefined();
+        expect(JSON.stringify(where.AND)).toContain(
+          '"timKiemBd":{"contains":"phu nhuan"}',
+        );
+      });
+
+      it('thẻ Quận/Huyện cũ → cột bóng riêng', async () => {
+        await service.findAll({ tk: ['quanCu~phu nhuan'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"oldDistrictBd":{"contains":"phu nhuan"}',
+        );
+      });
+
+      it('thẻ Trạng thái cần xem lại → cột boolean needsReview', async () => {
+        await service.findAll({ tk: ['canXemLai~review'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"needsReview":{"in":[true]}',
+        );
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(
+          service.findAll({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
   });
 

@@ -4,6 +4,12 @@ import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressMappingDto } from './dto/create-address-mapping.dto';
 import { QueryAddressMappingDto, LookupAddressMappingDto } from './dto/query-address-mapping.dto';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_ANH_XA_DIA_CHI } from '../common/tim-kiem/khai/anh-xa-dia-chi.khai';
+
+/** `search` cũ → thẻ "tất cả các cột". */
+const THAM_SO_CU_ANH_XA_DIA_CHI = { search: KHOA_TAT_CA } as const;
 
 // Province code → /api/v1 numeric code (provinces.open-api.vn).
 // HCM = 79 is the only fully-tested entry; HN/DN/HP/CT to be enabled by follow-up PRs
@@ -23,21 +29,27 @@ const SNAPSHOT_DIR = join(process.cwd(), 'prisma', 'data', 'snapshots');
 @Injectable()
 export class AddressMappingService {
   private readonly logger = new Logger(AddressMappingService.name);
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_ANH_XA_DIA_CHI,
+      THAM_SO_CU_ANH_XA_DIA_CHI,
+    ));
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryAddressMappingDto) {
-    const { province, search, needsReview, isActive, limit = 50, offset = 0 } = query;
+    const { province, needsReview, isActive, limit = 50, offset = 0 } = query;
     const where: Record<string, unknown> = {};
     if (province) where.province = province;
     if (needsReview !== undefined) where.needsReview = needsReview;
     if (isActive !== undefined) where.isActive = isActive;
-    if (search) {
-      where.OR = [
-        { oldWard: { contains: search.toLowerCase(), mode: 'insensitive' } },
-        { oldDistrict: { contains: search.toLowerCase(), mode: 'insensitive' } },
-        { newWard: { contains: search.toLowerCase(), mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400. Trước đây OR `contains`
+    // thường trên ba cột: gõ "phu nhuan" không ra "quận phú nhuận".
+    noiVaoWhere(where, await this.timKiem.dieuKien(query));
     const [data, total] = await Promise.all([
       this.prisma.addressMapping.findMany({ where, orderBy: [{ province: 'asc' }, { oldDistrict: 'asc' }, { oldWard: 'asc' }], take: limit, skip: offset }),
       this.prisma.addressMapping.count({ where }),
