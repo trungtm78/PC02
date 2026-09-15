@@ -122,12 +122,29 @@ describe('mergeCaseApiToFormData — UTDT fields (caseProvenance=UY_THAC_DIEU_TR
     expect(result.utdt_ngayTiepNhan).toMatch(/^2026-05-0[12]$/); // toDateInput may adjust for timezone
   });
 
-  it('hydrates utdt_nghiVanDoiTuong from metadata', () => {
-    const result = mergeCaseApiToFormData(
+  /**
+   * UTDT từng có ô RIÊNG `utdt_nghiVanDoiTuong` (đọc/ghi metadata) song song với ô "Thông tin" (cột
+   * typed) — hai ô cùng nghĩa trôi khỏi nhau, thẻ tìm kiếm và bản in đọc cột typed còn danh sách UTDT
+   * đọc metadata. Nay một khoá `nghiVanDoiTuong`: typed trước, metadata cũ làm dự phòng.
+   */
+  it('UTDT: nghi vấn đối tượng nạp vào MỘT khoá — typed trước, metadata cũ dự phòng', () => {
+    const chiMetadata = mergeCaseApiToFormData(
       { ...baseApi, caseProvenance: 'UY_THAC_DIEU_TRA', metadata: { nghiVanDoiTuong: 'Đối tượng A' } },
       INITIAL_FORM_DATA,
     );
-    expect(result.utdt_nghiVanDoiTuong).toBe('Đối tượng A');
+    expect(chiMetadata.nghiVanDoiTuong).toBe('Đối tượng A');
+    expect('utdt_nghiVanDoiTuong' in chiMetadata).toBe(false);
+
+    const lech = mergeCaseApiToFormData(
+      {
+        ...baseApi,
+        caseProvenance: 'UY_THAC_DIEU_TRA',
+        nghiVanDoiTuong: 'Đối tượng typed',
+        metadata: { nghiVanDoiTuong: 'Đối tượng cũ' },
+      },
+      INITIAL_FORM_DATA,
+    );
+    expect(lech.nghiVanDoiTuong).toBe('Đối tượng typed');
   });
 
   it('falls back to prev utdt fields when API returns null', () => {

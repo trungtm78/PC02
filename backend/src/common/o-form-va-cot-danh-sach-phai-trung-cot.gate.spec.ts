@@ -1,6 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { KHAI_TIM_KIEM_DON_THU } from './tim-kiem/khai/don-thu.khai';
+import { KHAI_TIM_KIEM_VU_AN } from './tim-kiem/khai/vu-an.khai';
+import { KHAI_TIM_KIEM_VU_VIEC } from './tim-kiem/khai/vu-viec.khai';
+import type { KhaiThucThe } from './tim-kiem/sinh/sinh-tim-kiem';
 
 /**
  * CỔNG: một nhãn hệ cũ thì ô trên form, cột trên danh sách và bộ lọc phải trỏ CÙNG MỘT CỘT.
@@ -111,35 +114,56 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
     return src.slice(i, j > 0 ? j : undefined);
   };
 
-  it.each([
-    ['Vụ án', 'backend/src/cases/cases.service.ts', 'getList'],
-    ['Vụ án', 'backend/src/cases/cases.service.ts', 'getStats'],
-  ])('%s · %s lọc `donViGiaiQuyet`, không lọc `unit`', (_ten, duong, ham) => {
-    const than = THAN(duong, ham as string);
-    expect(than).toContain('where.donViGiaiQuyet');
-    expect(than).not.toMatch(/where\.unit\s*=/);
-  });
-
   /**
-   * Đơn thư từ 15/09/2026 lọc chữ qua ô tìm dạng thẻ: tham số `unit` cũ quy về thẻ
-   * `donViGiaiQuyet`, và thẻ ấy trỏ cột `donViGiaiQuyet` trong tệp khai. Soi cả BA mắt xích —
-   * thiếu một là bộ lọc theo tổ lại lọc sai cột mà không ca kiểm khứ hồi nào thấy.
+   * Từ 15/09/2026 cả ba thực thể lọc chữ qua ô tìm dạng thẻ: tham số cũ (`unit` ở Đơn thư/Vụ án,
+   * `donViGiaiQuyet` ở Vụ việc) quy về thẻ `donViGiaiQuyet`, và thẻ ấy trỏ cột `donViGiaiQuyet`
+   * trong tệp khai. Soi cả BA mắt xích ở cả danh sách lẫn thống kê — thiếu một là bộ lọc theo tổ lại
+   * lọc sai cột mà không ca kiểm khứ hồi nào thấy.
    */
-  it.each(['getList', 'getStats'])(
-    'Đơn thư · %s lọc `donViGiaiQuyet` qua thẻ tìm kiếm, không lọc `unit`',
-    (ham) => {
-      const duong = 'backend/src/petitions/petitions.service.ts';
+  const BANG_THE = [
+    [
+      'Đơn thư',
+      'backend/src/petitions/petitions.service.ts',
+      'THAM_SO_CU_DON_THU',
+      'unit',
+      KHAI_TIM_KIEM_DON_THU,
+    ],
+    [
+      'Vụ việc',
+      'backend/src/incidents/incidents.service.ts',
+      'THAM_SO_CU_VU_VIEC',
+      'donViGiaiQuyet',
+      KHAI_TIM_KIEM_VU_VIEC,
+    ],
+    [
+      'Vụ án',
+      'backend/src/cases/cases.service.ts',
+      'THAM_SO_CU_VU_AN',
+      'unit',
+      KHAI_TIM_KIEM_VU_AN,
+    ],
+  ] as const;
+
+  it.each(
+    BANG_THE.flatMap((d) => [
+      [d[0], 'getList', ...d.slice(1)],
+      [d[0], 'getStats', ...d.slice(1)],
+    ]) as Array<[string, string, string, string, string, KhaiThucThe]>,
+  )(
+    '%s · %s lọc `donViGiaiQuyet` qua thẻ tìm kiếm, không lọc `unit`',
+    (_ten, ham, duong, tenHang, thamSoCu, khai) => {
       const than = THAN(duong, ham);
-      expect(than).toMatch(/dieuKienTimKiemDonThu\(\s*query\b/);
+      expect(than).toMatch(/this\.timKiem\.dieuKien\(\s*query\s*\)/);
       expect(than).not.toMatch(/where\.unit\s*=/);
+      expect(than).not.toMatch(/where\.donViGiaiQuyet\s*=/);
 
       const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
       expect(src).toMatch(
-        /cu\(query\.unit\)\)\s*tho\.push\(\s*`donViGiaiQuyet~/,
+        new RegExp(
+          `${tenHang}\\s*=\\s*\\{[^}]*\\b${thamSoCu}:\\s*'donViGiaiQuyet'`,
+        ),
       );
-      const truong = KHAI_TIM_KIEM_DON_THU.truong.find(
-        (t) => t.key === 'donViGiaiQuyet',
-      );
+      const truong = khai.truong.find((t) => t.key === 'donViGiaiQuyet');
       expect(truong?.cot).toBe('donViGiaiQuyet');
     },
   );

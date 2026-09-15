@@ -104,12 +104,28 @@ describe('IncidentsService.getStats — status count aggregation (PR2/T1)', () =
     expect(whereArg.deletedAt).toBeNull();
   });
 
-  it('search filter pass-through', async () => {
+  it('search filter pass-through — CÙNG helper thẻ với danh sách', async () => {
     mockPrisma.incident.groupBy.mockResolvedValue([]);
     await service.getStats({ search: 'abc' }, null);
     const whereArg = mockPrisma.incident.groupBy.mock.calls[0][0].where;
-    expect(whereArg.OR).toBeDefined();
-    expect(Array.isArray(whereArg.OR)).toBe(true);
+    expect(whereArg.OR).toBeUndefined();
+    expect(JSON.stringify(whereArg.AND)).toContain('"timKiemBd"');
+  });
+
+  /**
+   * REGRESSION: getStats từng KHÔNG áp `stt`/`sttCu` dù giao diện gửi cả hai tới /stats — lọc theo
+   * mã thì danh sách ra 1 dòng còn thẻ số vẫn đếm cả kỳ. Nay cùng đi qua thẻ với danh sách.
+   */
+  it('[P1] stt/sttCu cũ lọc cả ở thống kê — thẻ số khớp danh sách', async () => {
+    mockPrisma.incident.groupBy.mockResolvedValue([]);
+    await service.getStats({ stt: '26-9706', sttCu: '679' } as never, null);
+    const whereArg = mockPrisma.incident.groupBy.mock.calls[0][0].where;
+    expect(whereArg.AND).toContainEqual({
+      code: { in: ['26-9706', '2026-9706'] },
+    });
+    expect(whereArg.AND).toContainEqual({
+      sttCu: { contains: '679', mode: 'insensitive' },
+    });
   });
 
   it('investigatorId filter pass-through', async () => {

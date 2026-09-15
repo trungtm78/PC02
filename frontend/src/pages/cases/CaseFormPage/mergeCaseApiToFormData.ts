@@ -256,7 +256,7 @@ export function mergeCaseApiToFormData(
     utdt_ketQuaUyThac:          (apiData.ketQuaUyThac as string)          ?? prev.utdt_ketQuaUyThac,
     utdt_ngayTraKetQua:         apiData.ngayTraKetQua ? toDateInput(apiData.ngayTraKetQua as string) : prev.utdt_ngayTraKetQua,
     // UTDT metadata fields
-    utdt_nghiVanDoiTuong:              meta.nghiVanDoiTuong              ?? prev.utdt_nghiVanDoiTuong,
+    // Nghi vấn đối tượng: KHÔNG còn ô riêng của UTDT — tab Ủy thác soi gương `nghiVanDoiTuong` ở trên.
     utdt_lyDoKhongThucHienDuoc:        meta.lyDoKhongThucHienDuoc        ?? prev.utdt_lyDoKhongThucHienDuoc,
     utdt_ngayThongBaoKhongThucHien:    meta.ngayThongBaoKhongThucHien    ?? prev.utdt_ngayThongBaoKhongThucHien,
     // Field-parity: KLĐT + QĐ điều tra lại

@@ -174,8 +174,12 @@ describe('CasesService', () => {
       await service.getList({ stt: '26-9893' });
 
       const { where } = mockPrisma.case.findMany.mock.calls[0][0];
-      // Vụ án lưu mã ở `caseCode`, không phải `stt`.
-      expect(where.caseCode).toEqual({ in: ['26-9893', '2026-9893'] });
+      // Vụ án lưu mã ở `caseCode`, không phải `stt`. Từ 15/09/2026 tham số cũ đi qua thẻ `stt`
+      // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng `where.caseCode`.
+      expect(where.caseCode).toBeUndefined();
+      expect(where.AND).toContainEqual({
+        caseCode: { in: ['26-9893', '2026-9893'] },
+      });
     });
 
     it('lọc theo STT cũ và cán bộ nhập', async () => {
@@ -185,7 +189,9 @@ describe('CasesService', () => {
       await service.getList({ sttCu: '1253', createdById: 'user-9' });
 
       const { where } = mockPrisma.case.findMany.mock.calls[0][0];
-      expect(where.sttCu).toEqual({ contains: '1253', mode: 'insensitive' });
+      expect(where.AND).toContainEqual({
+        sttCu: { contains: '1253', mode: 'insensitive' },
+      });
       // "Cán bộ nhập" ở Vụ án là người tạo — cột `createdById`, đã có chỉ mục.
       expect(where.createdById).toBe('user-9');
     });
@@ -200,6 +206,7 @@ describe('CasesService', () => {
       expect(where.caseCode).toBeUndefined();
       expect(where.sttCu).toBeUndefined();
       expect(where.createdById).toBeUndefined();
+      expect(where.AND).toBeUndefined();
     });
 
     it('trả về tóm tắt nội dung — cột hệ cũ mà danh sách Vụ án đang thiếu', async () => {
@@ -299,20 +306,17 @@ describe('CasesService', () => {
       expect(result.pageSize).toBe(20);
     });
 
-    it('should apply search filter', async () => {
+    /** `search` cũ đi qua thẻ "tất cả các cột" (cột ghép bỏ dấu) — không còn `where.OR` chép tay. */
+    it('search cũ → thẻ tất cả các cột, không OR chép tay', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
       await service.getList({ search: 'tham nhũng' });
 
-      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              expect.objectContaining({ name: { contains: 'tham nhũng', mode: 'insensitive' } }),
-            ]),
-          }),
-        }),
+      const { where } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(where.OR).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain(
+        '"timKiemBd":{"contains":"tham nhung"}',
       );
     });
 
@@ -374,12 +378,11 @@ describe('CasesService', () => {
 
       await service.getList({ charges: 'trộm cắp' });
 
-      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            crime: { contains: 'trộm cắp', mode: 'insensitive' },
-          }),
-        }),
+      // Từ 15/09/2026 đi qua thẻ Tội danh (cột bóng `crime_bd`, gõ không dấu vẫn ra).
+      const { where } = mockPrisma.case.findMany.mock.calls[0][0];
+      expect(where.crime).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain(
+        '"crimeBd":{"contains":"trom cap"}',
       );
     });
 
@@ -460,7 +463,11 @@ describe('CasesService', () => {
       });
     });
 
-    it('filters by investigatorName with case-insensitive partial match on firstName or lastName', async () => {
+    /**
+     * `investigatorName` cũ đi qua thẻ Điều tra viên: cột bóng họ tên bỏ dấu (gồm cả tài khoản —
+     * ô lọc hứa "Tên hoặc username" mà bản cũ chỉ so họ/tên), nằm trong AND.
+     */
+    it('investigatorName cũ → thẻ Điều tra viên qua quan hệ, không gán where.investigator', async () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
@@ -470,11 +477,85 @@ describe('CasesService', () => {
       });
 
       const whereArg = mockPrisma.case.findMany.mock.calls[0][0].where;
-      expect(whereArg.investigator).toMatchObject({
-        OR: [
-          { firstName: { contains: 'Nguyễn', mode: 'insensitive' } },
-          { lastName: { contains: 'Nguyễn', mode: 'insensitive' } },
-        ],
+      expect(whereArg.investigator).toBeUndefined();
+      const json = JSON.stringify(whereArg.AND);
+      expect(json).toContain('"investigator"');
+      expect(json).toContain('"hoTenBd":{"contains":"nguyen"}');
+    });
+
+    describe('thẻ tìm kiếm tk (Vụ án)', () => {
+      const whereCuaLanGoi = (): Record<string, unknown> =>
+        mockPrisma.case.findMany.mock.calls[0][0].where as Record<
+          string,
+          unknown
+        >;
+
+      beforeEach(() => {
+        mockPrisma.case.findMany.mockResolvedValue([]);
+        mockPrisma.case.count.mockResolvedValue(0);
+      });
+
+      it('thẻ Tên cá nhân… lọc cột bóng tenCungCapBd (cột màn hình hiện, không phải name)', async () => {
+        await service.getList({ tk: ['nguoiGui~Lê Bình'] } as never);
+        expect(whereCuaLanGoi().AND).toContainEqual({
+          OR: [
+            { tenCungCapBd: { contains: 'le binh' } },
+            {
+              tenCungCapBd: null,
+              tenCungCap: { contains: 'Lê Bình', mode: 'insensitive' },
+            },
+          ],
+        });
+      });
+
+      it('thẻ Đối tượng bị can lọc subjects.some loại SUSPECT, bỏ đã xoá', async () => {
+        await service.getList({ tk: ['doiTuongBiCan~Hùng'] } as never);
+        const json = JSON.stringify(whereCuaLanGoi().AND);
+        expect(json).toContain('"subjects":{"some":{');
+        expect(json).toContain('"type":"SUSPECT"');
+        expect(json).toContain('"fullNameBd":{"contains":"hung"}');
+      });
+
+      it('thẻ Đơn vị giao (trường có @map) lọc qua field Prisma donViGiaoBd', async () => {
+        await service.getList({
+          tk: ['donViGiao~Công an Quận 1'],
+          caseType: 'UY_THAC_DIEU_TRA',
+        } as never);
+        expect(JSON.stringify(whereCuaLanGoi().AND)).toContain(
+          '"donViGiaoBd":{"contains":"cong an quan 1"}',
+        );
+      });
+
+      it('khoá thẻ lạ → 400, không truy vấn', async () => {
+        await expect(
+          service.getList({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.case.findMany).not.toHaveBeenCalled();
+      });
+
+      it('thẻ ngày → bỏ kỳ thống kê mặc định', async () => {
+        mockSettings.getKyThongKe.mockResolvedValueOnce({
+          ky: 'THANG_HIEN_TAI',
+          truong: 'NGAY_TIEP_NHAN',
+          tuNgay: '2026-09-01',
+          denNgay: '2026-09-30',
+        });
+        await service.getList({ tk: ['ngayDeXuat~2019'] } as never);
+        expect(whereCuaLanGoi().ngayDeXuat).toBeUndefined();
+      });
+
+      it('thẻ + phạm vi dữ liệu cùng nằm trong AND', async () => {
+        await service.getList(
+          { tk: ['nguoiGui~An'] } as never,
+          {
+            userIds: ['user-001'],
+            teamIds: ['team-a'],
+            writableTeamIds: ['team-a'],
+          } as never,
+        );
+        const json = JSON.stringify(whereCuaLanGoi().AND);
+        expect(json).toContain('tenCungCapBd');
+        expect(json).toContain('team-a');
       });
     });
   });
@@ -2044,15 +2125,12 @@ describe('CasesService', () => {
       mockPrisma.case.count.mockResolvedValue(0);
       (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([]);
       await service.listDeleted({ search: 'tham nhũng' });
-      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deletedAt: { not: null },
-            OR: expect.arrayContaining([
-              expect.objectContaining({ name: { contains: 'tham nhũng', mode: 'insensitive' } }),
-            ]),
-          }),
-        }),
+      // Tìm qua thẻ "tất cả các cột" (gồm mã hồ sơ — bản cũ tìm `id` thay cho mã).
+      const where = mockPrisma.case.findMany.mock.calls[0][0].where;
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(where.OR).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain(
+        '"timKiemBd":{"contains":"tham nhung"}',
       );
     });
   });

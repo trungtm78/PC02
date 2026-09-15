@@ -105,10 +105,15 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
           subtitle="TT 28/2020/TT-BCA"
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/*
+            TRƯỜNG GƯƠNG của ô "Nghi vấn đối tượng hoặc bị can" ở tab Thông tin — cùng một ô lưu (cột
+            typed, metadata ghi kèm bản sao). Trước đây tab này giữ ô riêng ghi metadata: sửa ở đây thì
+            danh sách UTDT đổi mà thẻ tìm kiếm và bản in vẫn giá trị cũ.
+          */}
           <FormInput
             label="Nghi vấn đối tượng / bị can"
-            value={formData.utdt_nghiVanDoiTuong}
-            onChange={(v) => update('utdt_nghiVanDoiTuong', v)}
+            value={formData.nghiVanDoiTuong}
+            onChange={(v) => update('nghiVanDoiTuong', v)}
             placeholder="Tên, thông tin nhận dạng..."
           />
         </div>

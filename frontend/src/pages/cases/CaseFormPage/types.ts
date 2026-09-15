@@ -190,7 +190,6 @@ export interface CaseFormData {
   utdt_ketQuaUyThac: string;       // Kết quả điều tra
   utdt_ngayTraKetQua: string;      // Ngày trả kết quả
   // Metadata UTDT fields
-  utdt_nghiVanDoiTuong: string;
   utdt_lyDoKhongThucHienDuoc: string;
   utdt_ngayThongBaoKhongThucHien: string;
 
@@ -486,7 +485,6 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   utdt_loaiThongTin: '',
   utdt_ketQuaUyThac: '',
   utdt_ngayTraKetQua: '',
-  utdt_nghiVanDoiTuong: '',
   utdt_lyDoKhongThucHienDuoc: '',
   utdt_ngayThongBaoKhongThucHien: '',
   // Tab 2

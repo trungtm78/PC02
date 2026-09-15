@@ -59,6 +59,20 @@ import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { comprehensiveRowActions } from '@/features/comprehensive/row-actions';
 import { comprehensiveListFilters, type ComprehensiveFilterValue } from '@/features/comprehensive/list-filters';
 import { hoTen } from '@/lib/hoTen';
+import { DO_DAI_GIA_TRI_TOI_DA, KHOA_TAT_CA, ghiTheRaUrl } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+
+/**
+ * Phần tìm kiếm gửi CHUNG cho cả ba API (danh sách lẫn thống kê). Màn này mới có ô chữ: một chuỗi
+ * thành thẻ `*` — khoá chuẩn liên thực thể mà cả ba máy chủ đều hiểu, nên cùng một chuỗi ra cùng một
+ * nghĩa ở ba bảng. Cờ `TIM_KIEM_THE` tắt → `search` như trước. Ô thẻ chọn cột chờ đợt M4.
+ */
+function thamSoTimKiem(chuoi: string, theBat: boolean): { tk?: string[]; search?: string } {
+  const v = chuoi.trim();
+  if (!v) return {};
+  if (!theBat) return { search: chuoi };
+  return { tk: ghiTheRaUrl([{ khoa: KHOA_TAT_CA, giaTri: [v.slice(0, DO_DAI_GIA_TRI_TOI_DA)] }]) };
+}
 
 const RECORD_TYPE = {
   CASE: 'CASE',
@@ -191,6 +205,7 @@ export function ComprehensiveListPageShell() {
   const typeFilter = isValidRecordType(rawType) ? rawType : null;
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -257,7 +272,7 @@ export function ComprehensiveListPageShell() {
     setTableState('loading');
     setError(undefined);
 
-    const searchParam = debouncedSearch ? { search: debouncedSearch } : {};
+    const searchParam = thamSoTimKiem(debouncedSearch, theBat);
 
     const fetchAll = async () => {
       try {
@@ -376,7 +391,7 @@ export function ComprehensiveListPageShell() {
     void fetchAll();
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, page, debouncedSearch, refetchCounter, appliedFilters]);
+  }, [typeFilter, page, debouncedSearch, theBat, refetchCounter, appliedFilters]);
 
   // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint
   // cho future per-status drill-down. Khi typeFilter == null (Tất cả), counts
@@ -385,7 +400,8 @@ export function ComprehensiveListPageShell() {
   useEffect(() => {
     if (typeFilter == null) return; // Tất cả mode — counts come from list responses
     const ctrl = new AbortController();
-    const statsParams = debouncedSearch ? { search: debouncedSearch } : {};
+    // CÙNG phần tìm kiếm với danh sách — lệch là số trên chip không khớp dòng.
+    const statsParams = thamSoTimKiem(debouncedSearch, theBat);
 
     const safeGet = async (path: string) => {
       try {
@@ -407,7 +423,7 @@ export function ComprehensiveListPageShell() {
       setCounts({ cases, incidents, petitions });
     });
     return () => ctrl.abort();
-  }, [debouncedSearch, typeFilter]);
+  }, [debouncedSearch, theBat, typeFilter]);
 
   const chipOptions = useMemo(
     () => [

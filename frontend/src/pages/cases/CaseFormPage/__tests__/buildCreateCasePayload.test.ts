@@ -232,6 +232,17 @@ describe('buildCreateCasePayload — UTDT (caseProvenance=UY_THAC_DIEU_TRA)', ()
     expect(payload.donViGiao).toBe('C06');
     expect(payload.caseType).toBe('UY_THAC_DIEU_TRA');
   });
+
+  /**
+   * Nghi vấn đối tượng: MỘT ô (tab Ủy thác chỉ soi gương ô của tab Thông tin). Nhánh UTDT từng ghi
+   * đè `metadata.nghiVanDoiTuong` bằng ô riêng — metadata (danh sách UTDT, chi tiết) và cột typed
+   * (thẻ tìm kiếm, bản in) trôi khỏi nhau ngay lần sửa đầu tiên.
+   */
+  it('nghi vấn đối tượng: cột typed và metadata CÙNG một giá trị, không bị nhánh UTDT ghi đè', () => {
+    const payload = buildCreateCasePayload({ ...utdtBase, nghiVanDoiTuong: 'Nguyễn Văn Nghi' });
+    expect(payload.nghiVanDoiTuong).toBe('Nguyễn Văn Nghi');
+    expect(payload.metadata.nghiVanDoiTuong).toBe('Nguyễn Văn Nghi');
+  });
 });
 
 /**

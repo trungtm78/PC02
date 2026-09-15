@@ -3,6 +3,7 @@ import { hoSoCodeVariants } from '../utils/ho-so-code.util';
 import { dieuKienSttCu } from '../utils/stt-cu.util';
 import { boDauTimKiem, thoatLike } from './bo-dau';
 import {
+  COT_NGUON_DOI_TUONG,
   COT_NGUON_HO_TEN,
   cotBongCua,
   cotGhepTatCa,
@@ -143,6 +144,9 @@ const chuaGoc = (cot: string, giaTri: string): DieuKien => ({
 /**
  * Cột bóng chứa mẫu; khi `luiCotGoc` thêm "HOẶC cột bóng chưa nạp và cột gốc chứa chữ gõ". Nhánh
  * lùi buộc quét cả bảng (GIN không phục vụ IS NULL), nên nơi gọi chỉ bật khi còn dòng chưa nạp.
+ *
+ * Giá trị bỏ dấu xong RỖNG (chỉ gồm `#`, `--`, `/`…): so nguyên chữ trên cột gốc. Trả `[]` là bỏ
+ * luôn điều kiện — danh sách ra mọi dòng mà trông như đã lọc.
  */
 function luaChonChu(
   cot: string,
@@ -150,7 +154,7 @@ function luaChonChu(
   luiCotGoc: boolean,
 ): DieuKien[] {
   const mau = mauBoDau(giaTri);
-  if (mau === undefined) return [];
+  if (mau === undefined) return [chuaGoc(cot, giaTri)];
   const bong = cotBongCua(cot).field;
   const bongChua = { [bong]: { contains: mau } };
   return luiCotGoc
@@ -164,7 +168,9 @@ function luaChonTatCa(
   luiCotGoc: boolean,
 ): DieuKien[] {
   const mau = mauBoDau(giaTri);
-  if (mau === undefined) return [];
+  if (mau === undefined) {
+    return [{ OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)) }];
+  }
   const ghepChua = { timKiemBd: { contains: mau } };
   return luiCotGoc
     ? [
@@ -222,6 +228,8 @@ function dieuKienMotThe(
       );
     case 'chon':
       return [{ [cot]: { in: [...the.giaTri] } }];
+    case 'doi-tuong':
+      return hoac(the.giaTri.flatMap((v) => dieuKienDoiTuong(truong, v)));
     case 'nguoi':
       return hoac(
         the.giaTri.flatMap((v) => {
@@ -229,7 +237,13 @@ function dieuKienMotThe(
           // Luôn giữ nhánh lùi: bảng users nhỏ nên không tốn, và `ho_ten_bd` rỗng tới khi chạy CLI
           // nạp — không lùi thì thẻ Người nhập trả 0 dòng mà trông như lọc thật.
           return mau === undefined
-            ? []
+            ? [
+                {
+                  [truong.quanHe as string]: {
+                    is: { OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)) },
+                  },
+                },
+              ]
             : [
                 {
                   [truong.quanHe as string]: {
@@ -248,6 +262,33 @@ function dieuKienMotThe(
         }),
       );
   }
+}
+
+/**
+ * Thẻ kiểu đối tượng: có ÍT NHẤT MỘT đối tượng đúng loại, chưa xoá, tên khớp. Luôn giữ nhánh lùi —
+ * bảng `subjects` nhỏ nên không tốn, và `full_name_bd` rỗng tới khi chạy CLI nạp.
+ */
+function dieuKienDoiTuong(truong: TruongTimKiem, v: string): DieuKien[] {
+  const mau = mauBoDau(v);
+  return [
+    {
+      [truong.quanHe as string]: {
+        some: {
+          deletedAt: null,
+          ...(truong.loaiDoiTuong ? { type: truong.loaiDoiTuong } : {}),
+          // Bỏ dấu xong rỗng → so nguyên chữ trên cột gốc (xem luaChonChu).
+          ...(mau === undefined
+            ? chuaGoc(COT_NGUON_DOI_TUONG[0], v)
+            : {
+                OR: [
+                  { fullNameBd: { contains: mau } },
+                  { fullNameBd: null, ...chuaGoc(COT_NGUON_DOI_TUONG[0], v) },
+                ],
+              }),
+        },
+      },
+    },
+  ];
 }
 
 export interface TuyChonDieuKien {

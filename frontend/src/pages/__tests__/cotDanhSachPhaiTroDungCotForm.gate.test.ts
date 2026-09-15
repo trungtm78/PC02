@@ -50,6 +50,8 @@ const MIEN_TRU: Readonly<Record<string, string>> = {
   'Đối tượng bị tố': 'cột ẩn của hệ mới, không nằm trong bộ cột hệ cũ',
   'Đối tượng bị can': 'danh sách bị can dựng từ quan hệ, không đọc một cột',
   STT: 'mã hồ sơ, mỗi thực thể một tên cột riêng (`stt`/`code`/`caseCode`)',
+  'Tội danh':
+    'cột ẩn của hệ mới (Vụ án) mang thẻ `toiDanh` trên cột chữ `crime`, thay ô lọc "Tội danh" đã gỡ — bố cục hệ cũ chỉ có "Tội danh cũ trước đây"/"Tội danh chính…" (cột khác)',
 };
 
 /**

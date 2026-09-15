@@ -2,16 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { casesListFilters } from '../list-filters';
 
 describe('casesListFilters registry', () => {
-  it('registers 9 fields — 5 gốc + 3 ô theo bảng lọc hệ cũ', () => {
+  it('registers 4 fields — ô lọc chữ theo cột đã thành thẻ tìm kiếm', () => {
     const keys = casesListFilters.all().map((f) => f.key);
     expect(keys).toEqual([
       'fromDate',
       'toDate',
-      'unit',
-      'investigator',
-      'charges',
-      'stt',
-      'sttCu',
       'createdById',
       // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận
       // hay ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
@@ -29,11 +24,6 @@ describe('casesListFilters registry', () => {
     expect(testids).toEqual([
       'filter-from-date',
       'filter-to-date',
-      'filter-unit',
-      'filter-investigator',
-      'filter-charges',
-      'filter-stt',
-      'filter-stt-cu',
       'filter-can-bo-nhap',
       'filter-tinh-theo',
     ]);
@@ -46,11 +36,15 @@ describe('casesListFilters registry', () => {
     expect(toDate.type).toBe('date');
   });
 
-  it('text fields are type=text', () => {
-    const text = ['unit', 'investigator', 'charges'];
-    for (const k of text) {
-      const f = casesListFilters.all().find((x) => x.key === k)!;
-      expect(f.type).toBe('text');
+  /**
+   * 15/09/2026: Đơn vị, Điều tra viên, Tội danh, STT, STT cũ là thẻ của ô tìm kiếm dạng thẻ. Để
+   * lại ô chữ ở mặt lọc là hai lối vào một bộ lọc — tiền lệ #233 hai ô "Từ ngày" lệch nhau.
+   */
+  it('không còn ô lọc chữ nào trùng thẻ tìm kiếm', () => {
+    const keys = casesListFilters.all().map((f) => f.key as string);
+    for (const k of ['unit', 'investigator', 'charges', 'stt', 'sttCu']) {
+      expect(keys).not.toContain(k);
     }
+    expect(casesListFilters.all().filter((f) => f.type === 'text')).toEqual([]);
   });
 });

@@ -31,6 +31,10 @@ import {
   type TableState,
   ColumnPicker,
   useBoCucCot,
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  truongGoiY,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -68,12 +72,34 @@ import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
 import { incidentsListFilters, type IncidentFilterValue } from '@/features/incidents/list-filters';
 import { hoTen } from '@/lib/hoTen';
+import { TIM_KIEM_VU_VIEC } from '@/shared/tim-kiem/generated';
+import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 
 // Trust boundary — URL `?incidents_status=__proto__` must not land in lookups.
 const INCIDENT_STATUS_VALUES = new Set<string>(Object.values(IncidentStatus));
 function isValidIncidentStatus(value: string | null): value is IncidentStatus {
   return value != null && INCIDENT_STATUS_VALUES.has(value);
 }
+
+/**
+ * Tham số trước thời thẻ → khoá thẻ. Đường dẫn cũ (dấu trang, tin nhắn) mở ra vẫn đúng bộ lọc:
+ * ô tìm kiếm `q` thành thẻ "tất cả các cột", các ô lọc chữ cũ thành thẻ theo cột.
+ */
+const THAM_SO_CU_VU_VIEC = {
+  q: KHOA_TAT_CA,
+  unit: 'donViGiaiQuyet',
+  stt: 'stt',
+  stt_cu: 'sttCu',
+} as const;
+
+/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
+const GIA_TRI_CHON_VU_VIEC = {
+  trangThai: Object.values(IncidentStatus).map((v) => ({
+    value: v,
+    label: INCIDENT_STATUS_LABEL[v],
+  })),
+};
 
 // Phase = grouping of statuses per BCA TT28/2020 4-stage workflow.
 // Values MUST match backend PHASE_STATUSES keys at
@@ -193,6 +219,15 @@ export function IncidentListPageShell() {
   const phaseFilter = isValidPhase(rawPhase) ? rawPhase : null;
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
+  // Ô tìm kiếm dạng thẻ. Cờ `TIM_KIEM_THE` là công tắc khẩn: quản trị tắt thì trang trở lại ô
+  // chữ `q` → `search` như trước, không cần deploy. Máy chủ nhận cả hai.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'incidents',
+    khai: TIM_KIEM_VU_VIEC,
+    thamSoCu: THAM_SO_CU_VU_VIEC,
+    bat: theBat,
+  });
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -287,19 +322,19 @@ export function IncidentListPageShell() {
    * mà DTO không có → `forbidNonWhitelisted` trả 400, bộ lọc nâng cao GÃY hoàn toàn:
    *  - `keyword` đã gỡ khỏi registry vì trùng chức năng với ô tìm kiếm trên thanh công cụ
    *  - `reporter` nay tra theo CCCD/SĐT (schema không có cột TÊN người tố giác)
-   *  - `unit` → `donViGiaiQuyet` (cột text đơn vị thụ lý)
+   *  - Đơn vị / STT / STT cũ nay là thẻ tìm kiếm (15/09/2026), đi xuống qua `tk`
    */
 
   const baseQueryParams = useMemo(
     () => ({
-      ...(debouncedSearch && { search: debouncedSearch }),
+      // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
+      ...(theBat
+        ? timKiem.tkGui.length > 0 && { tk: timKiem.tkGui }
+        : debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.loaiDonVu && { loaiDonVu: appliedFilters.loaiDonVu }),
       ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
-      ...(appliedFilters.unit && { donViGiaiQuyet: appliedFilters.unit }),
-      // Bộ lọc theo kiểu hệ cũ. Thiếu phần này thì thẻ lọc chỉ ghi vào địa chỉ trang
-      // mà KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
-      ...(appliedFilters.stt && { stt: appliedFilters.stt }),
-      ...(appliedFilters.sttCu && { sttCu: appliedFilters.sttCu }),
+      // Thiếu dòng này thì ô lọc chỉ ghi vào địa chỉ trang mà KHÔNG đi xuống API — người dùng
+      // thấy ô lọc đổi còn danh sách đứng yên.
       ...(appliedFilters.canBoNhapId && { canBoNhapId: appliedFilters.canBoNhapId }),
       ...(appliedFilters.fromDateRange && { fromDateRange: appliedFilters.fromDateRange }),
       ...(appliedFilters.toDateRange && { toDateRange: appliedFilters.toDateRange }),
@@ -308,7 +343,7 @@ export function IncidentListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
     }),
-    [debouncedSearch, appliedFilters],
+    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
@@ -335,7 +370,16 @@ export function IncidentListPageShell() {
         setRows(listRes.data.data);
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
-          setTableState(debouncedSearch || statusFilter || phaseFilter ? 'empty-filtered' : 'empty');
+          setTableState(
+            // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
+            debouncedSearch ||
+            statusFilter ||
+            phaseFilter ||
+            timKiem.the.length > 0 ||
+            Object.values(appliedFilters).some((v) => v)
+              ? 'empty-filtered'
+              : 'empty',
+          );
         } else {
           setTableState('ready');
         }
@@ -349,7 +393,7 @@ export function IncidentListPageShell() {
     return () => ctrl.abort();
     // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, phaseFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
+  }, [statusFilter, phaseFilter, page, baseQueryKey, refetchCounter, sort.sortBy, sort.sortOrder]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
@@ -397,8 +441,9 @@ export function IncidentListPageShell() {
   const selectionClearRef = useRef(selection.clear);
   selectionClearRef.current = selection.clear;
   useEffect(() => {
+    // Đổi bộ lọc (gồm thẻ) → bỏ chọn, tránh thao tác hàng loạt lên các dòng không còn hiển thị.
     selectionClearRef.current();
-  }, [statusFilter, phaseFilter, page, debouncedSearch]);
+  }, [statusFilter, phaseFilter, page, baseQueryKey]);
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
     text: string;
@@ -478,6 +523,7 @@ export function IncidentListPageShell() {
       {
         key: 'code',
         header: 'STT',
+        timKiem: ['stt', 'sttCu'],
         width: '6rem',
         // Anh yêu cầu 27/08/2026: bấm tiêu đề cột STT để đổi chiều sắp xếp, như cột ngày.
         // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
@@ -495,6 +541,7 @@ export function IncidentListPageShell() {
       {
         key: 'ngayDeXuat',
         header: 'Ngày đề xuất',
+        timKiem: 'ngayDeXuat',
         width: '7rem',
         optional: 'show',
         sortKey: 'ngayDeXuat',
@@ -509,6 +556,7 @@ export function IncidentListPageShell() {
         // 3.454 hồ sơ; mất cột là cán bộ phải mở từng hồ sơ mới biết hồ sơ từ đâu tới.
         key: 'chuyenTuDonVi',
         header: 'Nguồn đơn/Đơn vị giao',
+        timKiem: 'nguonDon',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -518,6 +566,7 @@ export function IncidentListPageShell() {
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        timKiem: 'nguoiGui',
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -532,6 +581,7 @@ export function IncidentListPageShell() {
       {
         key: 'description',
         header: 'Tóm tắt nội dung',
+        timKiem: 'tomTat',
         width: '22rem',
         optional: 'show',
         render: (r) => <SummaryCell value={r.description} />,
@@ -540,6 +590,7 @@ export function IncidentListPageShell() {
       {
         key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
+        timKiem: 'donViGiaiQuyet',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -549,6 +600,7 @@ export function IncidentListPageShell() {
       {
         key: 'ketQuaXuLy',
         header: 'Kết quả xử lý, giải quyết khác',
+        timKiem: 'ketQuaXuLyKhac',
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -558,6 +610,7 @@ export function IncidentListPageShell() {
       {
         key: 'canBoNhap',
         header: 'Người nhập',
+        timKiem: 'nguoiNhap',
         width: '8rem',
         optional: 'show',
         render: (r) =>
@@ -570,6 +623,7 @@ export function IncidentListPageShell() {
       {
         key: 'status',
         header: 'Trạng thái',
+        timKiem: 'trangThai',
         width: '9rem',
         optional: 'show',
         render: (r) => (
@@ -583,6 +637,7 @@ export function IncidentListPageShell() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        timKiem: 'dieuTraVien',
         width: '10rem',
         optional: 'hide',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -596,6 +651,7 @@ export function IncidentListPageShell() {
       {
         key: 'deadline',
         header: 'Hạn xử lý',
+        timKiem: 'hanXuLy',
         width: '8rem',
         optional: 'hide',
         sortKey: 'deadline',
@@ -613,6 +669,7 @@ export function IncidentListPageShell() {
       {
         key: 'createdAt',
         header: 'Ngày tạo',
+        timKiem: 'ngayTao',
         width: '7rem',
         optional: 'hide',
         sortKey: 'createdAt',
@@ -637,6 +694,8 @@ export function IncidentListPageShell() {
     doiCho,
     datLai: resetColumns,
   } = useBoCucCot('incidents', columns);
+  // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
+  const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_VIEC), [visibleColumns]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -686,7 +745,7 @@ export function IncidentListPageShell() {
   const activeFilterCount =
     (statusFilter ? 1 : 0) +
     (phaseFilter ? 1 : 0) +
-    (searchQuery ? 1 : 0) +
+    (theBat ? timKiem.the.length : searchQuery ? 1 : 0) +
     appliedFilterCount;
 
   return (
@@ -761,6 +820,20 @@ export function IncidentListPageShell() {
       <ListPageShell.Toolbar
         searchValue={searchQuery}
         onSearchChange={handleSearchChange}
+        searchSlot={
+          theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={truongTimKiem}
+              khai={TIM_KIEM_VU_VIEC}
+              giaTriChon={GIA_TRI_CHON_VU_VIEC}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+            />
+          ) : undefined
+        }
         searchPlaceholder="Tìm kiếm theo mã, tên, đối tượng..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
@@ -844,7 +917,21 @@ export function IncidentListPageShell() {
           actionLabel: 'Tạo vụ việc mới',
           onAction: () => navigate('/incidents/new'),
         }}
-        emptyFilteredState={{ onClearFilters: handleResetFilters }}
+        emptyFilteredState={{
+          onClearFilters: handleResetFilters,
+          chiTiet:
+            timKiem.the.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={TIM_KIEM_VU_VIEC}
+                  giaTriChon={GIA_TRI_CHON_VU_VIEC}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            ) : undefined,
+        }}
         onRowClick={(r) => navigate(`/incidents/${r.id}`)}
         getRowClassName={(r) => (isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : '')}
         bulkSelection={selection}

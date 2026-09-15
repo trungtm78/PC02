@@ -7,6 +7,7 @@ import {
   sinhMigrationTimKiem,
   sinhSqlBatLaiTimKiem,
   sinhSqlTatTimKiem,
+  truongPrismaCanCo,
 } from '../sinh/sinh-tim-kiem';
 import { chayGenTimKiem, dauThoiGian, type DuongDanGen } from './gen-tim-kiem';
 
@@ -17,20 +18,18 @@ import { chayGenTimKiem, dauThoiGian, type DuongDanGen } from './gen-tim-kiem';
 describe('chayGenTimKiem', () => {
   let goc: string;
   let dd: DuongDanGen;
-  const SCHEMA_DU = [
-    'model Petition {',
-    '  nguonDonBd        String? @map("nguon_don_bd")',
-    '  senderNameBd      String? @map("sender_name_bd")',
-    '  detailContentBd   String? @map("detail_content_bd")',
-    '  donViGiaiQuyetBd  String? @map("don_vi_giai_quyet_bd")',
-    '  ketQuaXuLyKhacBd  String? @map("ket_qua_xu_ly_khac_bd")',
-    '  suspectedPersonBd String? @map("suspected_person_bd")',
-    '  timKiemBd         String? @map("tim_kiem_bd")',
-    '}',
-    'model User {',
-    '  hoTenBd             String?   @map("ho_ten_bd")',
-    '}',
-  ].join('\n');
+  // Schema đủ field chỉ đọc DỰNG TỪ bộ sinh — thêm tệp khai mới không phải sửa tay chuỗi mẫu này.
+  const SCHEMA_DU = (() => {
+    const theoModel = new Map<string, string[]>();
+    for (const t of truongPrismaCanCo(KHAI_TIM_KIEM)) {
+      const ds = theoModel.get(t.model) ?? [];
+      ds.push(`  ${t.field} String? @map("${t.cot}")`);
+      theoModel.set(t.model, ds);
+    }
+    return [...theoModel]
+      .map(([model, ds]) => [`model ${model} {`, ...ds, '}'].join('\n'))
+      .join('\n');
+  })();
 
   beforeEach(() => {
     goc = fs.mkdtempSync(path.join(os.tmpdir(), 'gen-tim-kiem-'));

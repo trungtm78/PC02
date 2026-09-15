@@ -1,15 +1,10 @@
 -- SINH TỰ ĐỘNG từ backend/src/common/tim-kiem/khai/*.khai.ts bằng `npm run gen:tim-kiem` — không sửa tay.
 --
--- BẬT LẠI trigger tìm kiếm sau khi đã chạy tat-trigger-tim-kiem.sql — thân hàm y hệt migration.
---
--- Sau khi chạy: dòng sửa trong lúc tắt đang có cột bóng NULL (thẻ vẫn đúng nhờ lùi về cột gốc).
--- Nạp lại để chúng dùng lại chỉ mục, từ thư mục backend đang chạy:
---   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js          # chạy thử, đếm dòng lệch
---   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that   # nạp theo lô, không đẩy updatedAt
---
--- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/bat-lai-trigger-tim-kiem.sql
+-- Cột bóng bỏ dấu cho ô tìm dạng thẻ. Migration KHÔNG điền dữ liệu cũ: đo 15/09/2026 trên 47.169
+-- đơn thư, điền trong migration khoá bảng ~50 giây lúc deploy. Điền bằng CLI theo lô sau deploy;
+-- trong lúc chưa điền, thẻ chữ lùi về cột gốc cho dòng có cột bóng rỗng.
 
-BEGIN;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- SINH TỰ ĐỘNG từ backend/src/common/tim-kiem/bo-dau.ts (sinhHamFBoDau) — không sửa tay.
 CREATE OR REPLACE FUNCTION public.f_bo_dau(text) RETURNS text
@@ -18,6 +13,8 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $f$
 $f$;
 
 -- ── users: họ tên người nhập / cán bộ (thẻ kiểu người lọc qua quan hệ) ──
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ho_ten_bd" text;
+
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_users() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -29,7 +26,16 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS pc02_tim_kiem_users ON "users";
+CREATE TRIGGER pc02_tim_kiem_users
+  BEFORE INSERT OR UPDATE OF "lastName", "firstName", "username" ON "users"
+  FOR EACH ROW EXECUTE FUNCTION pc02_dat_tim_kiem_users();
+
+CREATE INDEX IF NOT EXISTS "users_ho_ten_bd_trgm" ON "users" USING gin ("ho_ten_bd" gin_trgm_ops);
+
 -- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──
+ALTER TABLE "subjects" ADD COLUMN IF NOT EXISTS "full_name_bd" text;
+
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_subjects() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -41,7 +47,22 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS pc02_tim_kiem_subjects ON "subjects";
+CREATE TRIGGER pc02_tim_kiem_subjects
+  BEFORE INSERT OR UPDATE OF "fullName" ON "subjects"
+  FOR EACH ROW EXECUTE FUNCTION pc02_dat_tim_kiem_subjects();
+
+CREATE INDEX IF NOT EXISTS "subjects_full_name_bd_trgm" ON "subjects" USING gin ("full_name_bd" gin_trgm_ops);
+
 -- ── petitions (don-thu) ──
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "nguon_don_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "sender_name_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "detail_content_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "don_vi_giai_quyet_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "ket_qua_xu_ly_khac_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "suspected_person_bd" text;
+ALTER TABLE "petitions" ADD COLUMN IF NOT EXISTS "tim_kiem_bd" text;
+
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_petitions() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -65,7 +86,28 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS pc02_tim_kiem_petitions ON "petitions";
+CREATE TRIGGER pc02_tim_kiem_petitions
+  BEFORE INSERT OR UPDATE OF "stt", "sttCu", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soHoSoCu" ON "petitions"
+  FOR EACH ROW EXECUTE FUNCTION pc02_dat_tim_kiem_petitions();
+
+CREATE INDEX IF NOT EXISTS "petitions_nguon_don_bd_trgm" ON "petitions" USING gin ("nguon_don_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_sender_name_bd_trgm" ON "petitions" USING gin ("sender_name_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_detail_content_bd_trgm" ON "petitions" USING gin ("detail_content_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_don_vi_giai_quyet_bd_trgm" ON "petitions" USING gin ("don_vi_giai_quyet_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_ket_qua_xu_ly_khac_bd_trgm" ON "petitions" USING gin ("ket_qua_xu_ly_khac_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_suspected_person_bd_trgm" ON "petitions" USING gin ("suspected_person_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_trgm" ON "petitions" USING gin ("tim_kiem_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_chua_nap" ON "petitions" ("id") WHERE "tim_kiem_bd" IS NULL;
+
 -- ── incidents (vu-viec) ──
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "chuyen_tu_don_vi_bd" text;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "ben_vu_bd" text;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "description_bd" text;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "don_vi_giai_quyet_bd" text;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "ket_qua_xu_ly_bd" text;
+ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "tim_kiem_bd" text;
+
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_incidents() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -87,7 +129,31 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+DROP TRIGGER IF EXISTS pc02_tim_kiem_incidents ON "incidents";
+CREATE TRIGGER pc02_tim_kiem_incidents
+  BEFORE INSERT OR UPDATE OF "code", "sttCu", "chuyenTuDonVi", "benVu", "description", "donViGiaiQuyet", "ketQuaXuLy", "name", "doiTuongCaNhan", "doiTuongToChuc", "soHoSoCu" ON "incidents"
+  FOR EACH ROW EXECUTE FUNCTION pc02_dat_tim_kiem_incidents();
+
+CREATE INDEX IF NOT EXISTS "incidents_chuyen_tu_don_vi_bd_trgm" ON "incidents" USING gin ("chuyen_tu_don_vi_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_ben_vu_bd_trgm" ON "incidents" USING gin ("ben_vu_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_description_bd_trgm" ON "incidents" USING gin ("description_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_don_vi_giai_quyet_bd_trgm" ON "incidents" USING gin ("don_vi_giai_quyet_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_ket_qua_xu_ly_bd_trgm" ON "incidents" USING gin ("ket_qua_xu_ly_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_tim_kiem_bd_trgm" ON "incidents" USING gin ("tim_kiem_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "incidents_tim_kiem_bd_chua_nap" ON "incidents" ("id") WHERE "tim_kiem_bd" IS NULL;
+
 -- ── cases (vu-an) ──
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "nguon_don_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "ten_cung_cap_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "mo_ta_chi_tiet_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "don_vi_giai_quyet_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "ket_qua_xu_ly_khac_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "don_vi_giao_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "so_quyet_dinh_uy_thac_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "nghi_van_doi_tuong_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "crime_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "tim_kiem_bd" text;
+
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_cases() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -117,4 +183,19 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
-COMMIT;
+DROP TRIGGER IF EXISTS pc02_tim_kiem_cases ON "cases";
+CREATE TRIGGER pc02_tim_kiem_cases
+  BEFORE INSERT OR UPDATE OF "caseCode", "sttCu", "nguonDon", "tenCungCap", "moTaChiTiet", "donViGiaiQuyet", "ketQuaXuLyKhac", "don_vi_giao", "so_quyet_dinh_uy_thac", "nghiVanDoiTuong", "crime", "name", "soHoSoCu" ON "cases"
+  FOR EACH ROW EXECUTE FUNCTION pc02_dat_tim_kiem_cases();
+
+CREATE INDEX IF NOT EXISTS "cases_nguon_don_bd_trgm" ON "cases" USING gin ("nguon_don_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_ten_cung_cap_bd_trgm" ON "cases" USING gin ("ten_cung_cap_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_mo_ta_chi_tiet_bd_trgm" ON "cases" USING gin ("mo_ta_chi_tiet_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_don_vi_giai_quyet_bd_trgm" ON "cases" USING gin ("don_vi_giai_quyet_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_ket_qua_xu_ly_khac_bd_trgm" ON "cases" USING gin ("ket_qua_xu_ly_khac_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_don_vi_giao_bd_trgm" ON "cases" USING gin ("don_vi_giao_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_so_quyet_dinh_uy_thac_bd_trgm" ON "cases" USING gin ("so_quyet_dinh_uy_thac_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_nghi_van_doi_tuong_bd_trgm" ON "cases" USING gin ("nghi_van_doi_tuong_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_crime_bd_trgm" ON "cases" USING gin ("crime_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_tim_kiem_bd_trgm" ON "cases" USING gin ("tim_kiem_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_tim_kiem_bd_chua_nap" ON "cases" ("id") WHERE "tim_kiem_bd" IS NULL;

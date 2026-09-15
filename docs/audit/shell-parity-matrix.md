@@ -404,9 +404,26 @@ mới lấy giao diện cũ. Có ca kiểm hồi quy chốt điều này ở c�
 |---|---|---|---|---|
 | `filter-from-date` | Từ ngày | date | ❌ missing | NEEDED |
 | `filter-to-date` | Đến ngày | date | ❌ missing | NEEDED |
-| `filter-unit` | Đơn vị | text | ❌ missing | NEEDED |
-| `filter-investigator` | Điều tra viên | text | ❌ missing | NEEDED |
-| `filter-charges` | Tội danh | text/FKSelect | ❌ missing | NEEDED |
+| `filter-unit` | Đơn vị | text | ✅ thẻ `donViGiaiQuyet` (15/09/2026) — `cases_unit=` cũ vẫn mở ra thẻ | DONE |
+| `filter-investigator` | Điều tra viên | text | ✅ thẻ `dieuTraVien` — `cases_investigator=` cũ vẫn mở ra thẻ | DONE |
+| `filter-charges` | Tội danh | text/FKSelect | ✅ thẻ `toiDanh` — `cases_charges=` cũ vẫn mở ra thẻ | DONE |
+
+### Ô tìm kiếm dạng thẻ (15/09/2026) — Vụ án + Ủy thác điều tra
+
+Cùng hành vi với Đơn thư (xem mục Petitions). Khai chung `backend/src/common/tim-kiem/khai/vu-an.khai.ts`
+cho cả hai màn vì cùng bảng `cases`.
+
+| Hành vi | Vụ án `/cases` | UTDT `/uy-thac-dieu-tra` |
+|---|---|---|
+| Ô thẻ thay ô chữ `q` | ✅ `cases_tk` → API `tk` (danh sách + `/cases/stats`) | ✅ `utdt_tk` → API `tk` (danh sách + `/cases/utdt-stats`) |
+| Tham số cũ → thẻ | `q` `unit` `investigator` `charges` `stt` `stt_cu` | `q` `dv` (Đơn vị giao) `inv` (Điều tra viên) |
+| Ô lọc chữ GỠ khỏi mặt lọc | Đơn vị, Điều tra viên, Tội danh, STT, STT cũ | Đơn vị giao, Điều tra viên (hiện lại khi cờ tắt) |
+| Thẻ riêng | `doiTuongBiCan` (lọc qua `subjects` loại SUSPECT) | `ngayTiepNhan` `donViGiao` `soQuyetDinh` `doiTuongNghiVan` `toiDanh` `thoiHan` |
+| Nhãn kỳ thống kê trên thanh thẻ | ✅ có sẵn | ✅ THÊM — `utdt-stats` nay trả `ky` |
+| Cổng cột ↔ khai | `pages/__tests__/timKiemCotKhai.gate.test.ts` tính HỢP cột của hai màn, VÀ mỗi ô lọc chữ đã gỡ phải có cột mang khoá trên CHÍNH màn ấy | ← |
+| Cột mang thẻ thay ô lọc đã gỡ | THÊM cột "Tội danh" (ẩn sẵn, `toiDanh`) — review 15/09 bắt: ô lọc Tội danh gỡ mà màn Vụ án không cột nào mang khoá | có sẵn cột Tội danh |
+| Cột "Đối tượng nghi vấn" | — | ✅ đọc cột typed `nghiVanDoiTuong` (CÙNG cột thẻ lọc), metadata chỉ dự phòng; tab Ủy thác của form nay soi gương ô tab Thông tin |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search`. Ô lọc chữ đã gỡ KHÔNG hiện lại | cờ tắt → ô chữ `q` + hai ô Đơn vị giao / Điều tra viên hiện lại |
 
 ### Header actions (verify shell has)
 
@@ -448,8 +465,24 @@ mới lấy giao diện cũ. Có ca kiểm hồi quy chốt điều này ở c�
 | `filter-keyword` | Từ khóa | ❌ missing | NEEDED |
 | (also need): `filter-loai-don-vu` enum | TO_GIAC \| TIN_BAO \| KIEN_NGHI_KHOI_TO | ❌ missing | NEEDED |
 | (also need): `filter-reporter` | Người tố giác | ❌ missing | NEEDED |
-| (also need): `filter-unit` | Đơn vị | ❌ missing | NEEDED |
+| (also need): `filter-unit` | Đơn vị | ✅ thẻ `donViGiaiQuyet` (15/09/2026) — `incidents_unit=` cũ vẫn mở ra thẻ | DONE |
 | `btn-advanced-search` | Toggle advanced filter | ❌ missing | NEEDED |
+
+### Ô tìm kiếm dạng thẻ (15/09/2026) — Vụ việc
+
+Cùng hành vi với Đơn thư (xem mục Petitions). Khai `backend/src/common/tim-kiem/khai/vu-viec.khai.ts`.
+
+| Hành vi | Trạng thái |
+|---|---|
+| Ô thẻ thay ô chữ `incidents_q` → `incidents_tk` → API `tk` (danh sách + `/incidents/stats`) | ✅ |
+| Tham số cũ → thẻ: `q` `unit` `stt` `stt_cu` | ✅ |
+| Ô lọc chữ Đơn vị / STT / STT cũ GỠ khỏi mặt lọc | ✅ |
+| `filter-reporter` (CCCD/SĐT người tố giác) Ở LẠI mặt lọc — không cột nào mang, không thành thẻ được | ✅ |
+| Không kết quả → "Không tìm thấy với" + bỏ từng thẻ | ✅ |
+| Cổng cột ↔ khai `pages/__tests__/timKiemCotKhai.gate.test.ts` | ✅ |
+| Sửa thẻ của cột đang ẩn giữ đúng cột (không âm thầm thành "tất cả các cột") — cả 4 màn | ✅ |
+| Không kết quả chỉ vì bộ lọc ở mặt lọc (ngày, cán bộ nhập) → "lọc không ra", không mời tạo mới — Vụ việc, Vụ án, Đơn thư | ✅ |
+| Công tắc khẩn: cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search`. Ô lọc chữ Đơn vị / STT / STT cũ đã gỡ KHÔNG hiện lại (đường dẫn cũ `incidents_unit=` khi cờ tắt không lọc) | ✅ (giới hạn đã biết) |
 
 ### Header / bulk
 
@@ -497,7 +530,7 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 |---|---|---|
 | Ô thẻ thay ô chữ `petitions_q` | `o-tim-kiem-the`, `combobox` "Tìm kiếm trong danh sách" | ✅ |
 | Thẻ trên URL | `petitions_tk=<khoá>~<giá trị>` (lặp khoá) → API `tk` | ✅ |
-| Gợi ý = cột đang hiện | `ColumnDef.timKiem` + `truongGoiY` | ✅ cổng `timKiemDonThu.gate.test.ts` |
+| Gợi ý = cột đang hiện | `ColumnDef.timKiem` + `truongGoiY` | ✅ cổng `pages/__tests__/timKiemCotKhai.gate.test.ts` (gộp cả ba thực thể) |
 | Ô lọc chữ STT / STT cũ / Người gửi / Đơn vị | GỠ khỏi mặt lọc — thành thẻ | ✅ đường dẫn cũ → thẻ |
 | Không kết quả | `list-page-shell-table-empty-filtered` + "Không tìm thấy với" + bỏ từng thẻ | ✅ |
 | Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` như cũ | ✅ |
@@ -517,6 +550,15 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 ---
 
 ## Comprehensive (`/comprehensive`)
+
+### Tìm kiếm — lát mỏng thẻ `*` (15/09/2026)
+
+| Hành vi | Trạng thái |
+|---|---|
+| Ô chữ `comp_q` → thẻ `*` (khoá chuẩn liên thực thể) tới CẢ BA API danh sách `/cases` `/incidents` `/petitions` | ✅ |
+| Cùng thẻ ấy tới ba API thống kê (chế độ một loại) — số trên chip khớp dòng | ✅ |
+| Cờ `TIM_KIEM_THE` tắt → `search` như trước | ✅ |
+| Ô thẻ chọn cột + cột có khai `timKiem` | ⏳ đợt M4 (cột của màn này gộp ba thực thể, cần khai riêng) |
 
 ### Single-row actions (polyglot: row type ∈ Case/Incident/Petition)
 

@@ -12,8 +12,9 @@ import {
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
-import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
-import { dieuKienSttCu } from '../common/utils/stt-cu.util';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHAI_TIM_KIEM_VU_AN } from '../common/tim-kiem/khai/vu-an.khai';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
@@ -97,6 +98,22 @@ export function buildTrangThaiFilter(state: TrangThaiPhanHoi): Prisma.CaseWhereI
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Tham số lọc chữ cũ của Vụ án / UTDT → khoá thẻ (đường dẫn cũ, GlobalSearchBar, bộ lọc nâng cao,
+ * trang UTDT…). `search` cũ gồm cả cột riêng UTDT (đơn vị giao, số QĐ, đối tượng nghi vấn) — cột
+ * ghép "tất cả các cột" của `cases` đã gồm các cột ấy. `unit` là "Đơn vị giải quyết" (`unit` thật
+ * rỗng ở mọi vụ án). `investigatorName` qua thẻ Điều tra viên (họ tên + tài khoản, bỏ dấu).
+ */
+const THAM_SO_CU_VU_AN = {
+  search: KHOA_TAT_CA,
+  charges: 'toiDanh',
+  unit: 'donViGiaiQuyet',
+  stt: 'stt',
+  sttCu: 'sttCu',
+  donViGiao: 'donViGiao',
+  investigatorName: 'dieuTraVien',
+} as const;
+
 @Injectable()
 export class CasesService {
   constructor(
@@ -107,17 +124,28 @@ export class CasesService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  private boTimKiem?: BoTimKiem;
+
+  /**
+   * Tìm kiếm dạng thẻ của bảng `cases` (Vụ án + UTDT) — lớp dùng chung với Đơn thư/Vụ việc. Tạo LƯỜI:
+   * khởi tạo ở khai báo field thì `this.prisma` có thể chưa gán.
+   */
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_VU_AN,
+      THAM_SO_CU_VU_AN,
+    ));
+  }
+
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
   async getList(query: QueryCasesDto, dataScope?: DataScope | null) {
     const {
-      search,
       status,
       statusGroup,
-      charges,
       investigatorId,
-      unit,
       fromDate,
       toDate,
       overdue,
@@ -126,14 +154,10 @@ export class CasesService {
       wardTeamId,
       capDoToiPham,
       caseType,
-      donViGiao,
       loaiUyThac,
       trangThaiPhanHoi,
       ngayTiepNhanFrom,
       ngayTiepNhanTo,
-      investigatorName,
-      stt,
-      sttCu,
       createdById,
       limit = 20,
       offset = 0,
@@ -147,24 +171,12 @@ export class CasesService {
       caseType: caseType ?? CaseType.REGULAR,
     };
 
-    if (search) {
-      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { crime: { contains: search, mode: 'insensitive' } },
-        { unit: { contains: search, mode: 'insensitive' } },
-        { caseCode: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-        ...(isUtdt
-          ? [
-              { donViGiao: { contains: search, mode: 'insensitive' as const } },
-              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
-              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
-            ]
-          : []),
-      ];
-    }
+    // Thẻ tìm kiếm + tham số lọc chữ cũ (search/charges/unit/stt/sttCu/donViGiao/investigatorName)
+    // — CÙNG helper cho danh sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
 
     // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
     // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain.
@@ -175,44 +187,20 @@ export class CasesService {
       where.status = status;
     }
 
-    // Tội danh — bộ lọc nâng cao "Tội danh" trước đây gửi param `charges` mà DTO KHÔNG có,
-    // nên `forbidNonWhitelisted` trả 400. Nay nhận thật.
-    if (charges) {
-      where.crime = { contains: charges, mode: 'insensitive' };
-    }
-
     if (investigatorId) {
       where.investigatorId = investigatorId;
     }
 
-    // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-9893`, hệ mới lưu `2026-9893`. Khớp
-    // CHÍNH XÁC theo danh sách biến thể — `contains` sẽ quét trúng hàng nghìn mã khác.
-    const bienTheMa = hoSoCodeVariants(stt);
-    if (bienTheMa.length) {
-      where.caseCode = { in: bienTheMa };
-    }
-
-    // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
-    const locSttCu = dieuKienSttCu(sttCu);
-    if (locSttCu) {
-      where.sttCu = locSttCu;
-    }
+    // `stt` (mã hồ sơ, khớp đúng biến thể `26-9893`/`2026-9893`), `sttCu` (nhận `208` lẫn
+    // `2016-208`) và Tội danh (`charges`) đã đi qua thẻ ở trên.
 
     // "Cán bộ nhập" ở Vụ án là người tạo hồ sơ.
     if (createdById?.trim()) {
       where.createdById = createdById.trim();
     }
 
-    // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN
-    // và rỗng ở toàn bộ 3.286 vụ án, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
-    // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
-    // vẫn dùng được.
-    if (unit) {
-      // Khớp CHỨA, không khớp bằng: ô lọc là ô gõ chữ tự do, còn giá trị lưu là nhãn đầy đủ
-      // ("Đội 1 PC02"). Gõ "PC02" mà khớp bằng thì không ra hồ sơ nào — Đơn thư và Vụ việc
-      // vốn đã khớp chứa.
-      where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
-    }
+    // `unit` cũ = "Đơn vị giải quyết" (cột `donViGiaiQuyet` đang hiện; `unit` thật rỗng ở mọi vụ
+    // án) — đi qua thẻ `donViGiaiQuyet` ở trên, khớp CHỨA bỏ dấu.
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
     // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.
@@ -221,7 +209,11 @@ export class CasesService {
     // (`receivedDate`) và Vụ việc (`ngayDeXuat`). Hồ sơ di trú dồn chung MỘT ngày tạo nên
     // bộ lọc ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia; muốn
     // lọc theo ngày tạo thì chọn "Tính theo: Ngày tạo".
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     // Filter quá hạn
@@ -241,10 +233,7 @@ export class CasesService {
       where.capDoToiPham = capDoToiPham;
     }
 
-    // v0.44 — UTDT-specific filters
-    if (donViGiao) {
-      where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
-    }
+    // v0.44 — UTDT-specific filters (`donViGiao` chữ tự do đã đi qua thẻ ở trên)
     if (loaiUyThac) {
       where.loaiUyThac = loaiUyThac;
     }
@@ -273,15 +262,7 @@ export class CasesService {
       };
     }
 
-    // v0.44.3 — investigatorName partial search (case-insensitive)
-    if (investigatorName) {
-      where.investigator = {
-        OR: [
-          { firstName: { contains: investigatorName, mode: 'insensitive' } },
-          { lastName: { contains: investigatorName, mode: 'insensitive' } },
-        ],
-      };
-    }
+    // `investigatorName` cũ đã đi qua thẻ Điều tra viên ở trên (họ tên + tài khoản, bỏ dấu, trong AND).
 
     // Filter theo quận/huyện hoặc phường/xã (qua subjects)
     if (districtId || wardId) {
@@ -386,6 +367,8 @@ export class CasesService {
           updatedAt: true,
           caseType: true,
           donViGiao: true,
+          // Cột "Đối tượng nghi vấn" của màn UTDT — CÙNG cột mà thẻ `doiTuongNghiVan` lọc.
+          nghiVanDoiTuong: true,
           soQuyetDinhUyThac: true,
           ngayTiepNhan: true,
           thoiHanUyThac: true,
@@ -439,10 +422,7 @@ export class CasesService {
   // và highlight active chip separately.
   async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
     const {
-      search,
-      charges,
       investigatorId,
-      unit,
       fromDate,
       toDate,
       overdue,
@@ -451,12 +431,11 @@ export class CasesService {
       wardTeamId,
       capDoToiPham,
       caseType,
-      donViGiao,
       loaiUyThac,
       trangThaiPhanHoi,
       ngayTiepNhanFrom,
       ngayTiepNhanTo,
-      investigatorName,
+      createdById,
     } = query;
 
     const where: Prisma.CaseWhereInput = {
@@ -464,37 +443,17 @@ export class CasesService {
       caseType: caseType ?? CaseType.REGULAR,
     };
 
-    // PHẢI áp cùng điều kiện với getList, nếu không số trên thẻ đếm mọi tội danh trong
-    // khi danh sách chỉ có tội danh đang lọc → hai số lệch nhau.
-    if (charges) {
-      where.crime = { contains: charges, mode: 'insensitive' };
-    }
-
-    if (search) {
-      const isUtdt = (caseType ?? CaseType.REGULAR) === CaseType.UY_THAC_DIEU_TRA;
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { crime: { contains: search, mode: 'insensitive' } },
-        { unit: { contains: search, mode: 'insensitive' } },
-        { caseCode: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-        ...(isUtdt
-          ? [
-              { donViGiao: { contains: search, mode: 'insensitive' as const } },
-              { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' as const } },
-              { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
-            ]
-          : []),
-      ];
-    }
+    // Thẻ tìm kiếm + tham số lọc chữ cũ (search/charges/unit/stt/sttCu/donViGiao/investigatorName)
+    // — CÙNG helper cho danh sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
 
     if (investigatorId) where.investigatorId = investigatorId;
-    // Lọc theo ĐÚNG cột mà cột "Đơn vị giải quyết" đang hiện. `unit` là đơn vị TIẾP NHẬN
-    // và rỗng ở toàn bộ 3.286 vụ án, nên lọc trên nó không bao giờ ra kết quả — cán bộ lọc
-    // theo tổ sẽ tưởng tổ ấy không có hồ sơ nào. Giữ tên tham số `unit` để địa chỉ trang cũ
-    // vẫn dùng được.
-    if (unit) where.donViGiaiQuyet = { contains: unit, mode: 'insensitive' };
+    // PHẢI áp cùng điều kiện với getList — trước đây thống kê bỏ qua `createdById` (và `stt`/`sttCu`,
+    // nay đi qua thẻ) dù giao diện gửi, nên thẻ số không khớp danh sách ngay dưới.
+    if (createdById?.trim()) where.createdById = createdById.trim();
 
     // Kỳ thống kê: người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng một
     // hàm với thẻ số và badge menu nên ba chỗ không thể lệch nhau.
@@ -503,21 +462,22 @@ export class CasesService {
     // (`receivedDate`) và Vụ việc (`ngayDeXuat`). Hồ sơ di trú dồn chung MỘT ngày tạo nên
     // bộ lọc ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia; muốn
     // lọc theo ngày tạo thì chọn "Tính theo: Ngày tạo".
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
 
     if (overdue) {
       where.deadline = { lt: new Date() };
-      // KHÔNG strip status notIn vì overdue logic exclude terminal states.
-      // Counts vẫn group by status, nhưng terminal states sẽ là 0 trong response.
-      where.status = {
-        notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
-      };
+      // CÙNG danh sách trạng thái kết thúc với getList (TRANG_THAI_KET_THUC.case). Bản viết tay 3
+      // trạng thái cũ đếm cả hồ sơ đã chuyển đơn vị / nhập vụ khác / chuyển XPHC là "quá hạn".
+      where.status = { notIn: [...TRANG_THAI_KET_THUC.case] };
     }
 
     if (capDoToiPham) where.capDoToiPham = capDoToiPham;
 
-    if (donViGiao) where.donViGiao = { contains: donViGiao, mode: 'insensitive' };
     if (loaiUyThac) where.loaiUyThac = loaiUyThac;
     if (trangThaiPhanHoi) {
       const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
@@ -540,15 +500,6 @@ export class CasesService {
       where.ngayTiepNhan = {
         ...(where.ngayTiepNhan as Prisma.DateTimeNullableFilter | undefined),
         lte: _to,
-      };
-    }
-
-    if (investigatorName) {
-      where.investigator = {
-        OR: [
-          { firstName: { contains: investigatorName, mode: 'insensitive' } },
-          { lastName: { contains: investigatorName, mode: 'insensitive' } },
-        ],
       };
     }
 
@@ -622,13 +573,12 @@ export class CasesService {
   // state, not filtered by it).
   async getUtdtStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
     const {
-      search,
       investigatorId,
-      donViGiao,
       loaiUyThac,
       ngayTiepNhanFrom,
       ngayTiepNhanTo,
-      investigatorName,
+      fromDate,
+      toDate,
     } = query;
 
     // Base where: UTDT records, not deleted. Apply non-state filters.
@@ -637,19 +587,28 @@ export class CasesService {
       caseType: CaseType.UY_THAC_DIEU_TRA,
     };
 
-    if (search) {
-      baseWhere.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { crime: { contains: search, mode: 'insensitive' } },
-        { unit: { contains: search, mode: 'insensitive' } },
-        { donViGiao: { contains: search, mode: 'insensitive' } },
-        { soQuyetDinhUyThac: { contains: search, mode: 'insensitive' } },
-        { metadata: { path: ['nghiVanDoiTuong'], string_contains: search } },
-      ];
-    }
+    // CÙNG helper thẻ với danh sách UTDT (GET /cases?caseType=UY_THAC_DIEU_TRA) — trước đây ô tìm
+    // ở đây là bản chép tay khác danh sách (thiếu mã hồ sơ, bỏ qua charges/unit/stt/sttCu).
+    noiVaoWhere(
+      baseWhere as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
     if (investigatorId) baseWhere.investigatorId = investigatorId;
-    if (donViGiao) baseWhere.donViGiao = { contains: donViGiao, mode: 'insensitive' };
     if (loaiUyThac) baseWhere.loaiUyThac = loaiUyThac;
+
+    // CÙNG kỳ thống kê với danh sách UTDT (danh sách áp kỳ mặc định trên `ngayDeXuat`; thẻ ở đây
+    // từng đếm mọi kỳ → hai số lệch nhau). Trả kèm kỳ đã áp cho nhãn.
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    apDungKyVaoWhere(
+      baseWhere as Record<string, unknown>,
+      kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
 
     if (ngayTiepNhanFrom) {
       baseWhere.ngayTiepNhan = {
@@ -664,18 +623,10 @@ export class CasesService {
       };
     }
 
-    if (investigatorName) {
-      baseWhere.investigator = {
-        OR: [
-          { firstName: { contains: investigatorName, mode: 'insensitive' } },
-          { lastName: { contains: investigatorName, mode: 'insensitive' } },
-        ],
-      };
-    }
-
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      baseWhere.AND = [scopeFilter as Prisma.CaseWhereInput];
+      // NỐI thêm, không gán đè: AND đã chứa điều kiện thẻ tìm kiếm.
+      noiVaoWhere(baseWhere as Record<string, unknown>, [scopeFilter]);
     }
 
     const states: TrangThaiPhanHoi[] = [
@@ -709,7 +660,7 @@ export class CasesService {
     };
     const total = counts.reduce((a, b) => a + b, 0);
 
-    return { total, byTrangThai };
+    return { total, byTrangThai, ky: kyThongKe };
   }
 
   // ─────────────────────────────────────────────
@@ -2003,15 +1954,15 @@ export class CasesService {
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
 
-    const where: Prisma.CaseWhereInput = {
-      deletedAt: { not: null },
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { id: { contains: search } },
-        ],
-      }),
-    };
+    const where: Prisma.CaseWhereInput = { deletedAt: { not: null } };
+    // CÙNG helper với danh sách chính (gồm mã hồ sơ — bản cũ tìm `id` thay cho mã). Hồ sơ đã xoá
+    // vẫn có cột bóng do trigger giữ.
+    if (search) {
+      noiVaoWhere(
+        where as Record<string, unknown>,
+        await this.timKiem.dieuKienTatCa(search),
+      );
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({

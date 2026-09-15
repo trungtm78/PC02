@@ -21,6 +21,8 @@ import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
 // lý do không liên quan gì tới thứ nó đang chốt.
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -28,14 +30,14 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
+function renderWithRouter(initialEntries: string[] = ['/comprehensive'], flags?: FeatureFlag[]) {
   let lastLocation = '';
   function LocationTracker() {
     const loc = useLocation();
     lastLocation = loc.pathname + loc.search;
     return null;
   }
-  const result = render(
+  const trang = (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <CompositeModalProvider>
@@ -53,7 +55,10 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive']) {
         </DeleteResourceModalProvider>
       </CompositeModalProvider>
     </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+  );
+  const result = render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
   return { ...result, getLocation: () => lastLocation };
 }
@@ -265,5 +270,64 @@ describe('ComprehensiveListPageShell — empty + error + security', () => {
     expect(dataCallPaths).toContain('/incidents');
     expect(dataCallPaths).not.toContain('/cases');
     expect(dataCallPaths).not.toContain('/petitions');
+  });
+});
+
+/**
+ * Lát mỏng tìm kiếm dạng thẻ (15/09/2026): Tổng hợp gửi CHUNG một thẻ `*` tới ba API. Khoá `*` là khoá
+ * chuẩn liên thực thể — cả ba máy chủ đều hiểu, nên một chuỗi gõ ra cùng một nghĩa ở ba bảng. Ô thẻ
+ * đầy đủ (chọn cột) chờ M4, khi cột của màn này có khai riêng.
+ */
+describe('ComprehensiveListPageShell — thẻ tìm kiếm `*` tới ba API', () => {
+  const mockGet = () => api.get as unknown as ReturnType<typeof vi.fn>;
+  const thamSoCuoi = (url: string) => {
+    const goi = mockGet().mock.calls.filter((c) => c[0] === url);
+    return (goi[goi.length - 1]?.[1]?.params ?? {}) as Record<string, unknown>;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappy();
+  });
+
+  it('"Tất cả": `comp_q` → thẻ `*` tới CẢ BA danh sách, không gửi `search`', async () => {
+    renderWithRouter(['/comprehensive?comp_q=abc']);
+    await waitFor(() => {
+      for (const duong of ['/cases', '/incidents', '/petitions']) {
+        expect(thamSoCuoi(duong).tk).toEqual(['*~abc']);
+      }
+    });
+    for (const duong of ['/cases', '/incidents', '/petitions']) {
+      expect(thamSoCuoi(duong).search).toBeUndefined();
+    }
+  });
+
+  it('một loại: danh sách và CẢ BA thống kê cùng thẻ — số trên chip khớp dòng', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE&comp_q=abc']);
+    await waitFor(() => {
+      expect(thamSoCuoi('/cases').tk).toEqual(['*~abc']);
+      for (const duong of ['/cases/stats', '/incidents/stats', '/petitions/stats']) {
+        expect(thamSoCuoi(duong).tk).toEqual(['*~abc']);
+        expect(thamSoCuoi(duong).search).toBeUndefined();
+      }
+    });
+  });
+
+  it('cờ TIM_KIEM_THE tắt → gửi `search` như trước', async () => {
+    renderWithRouter(
+      ['/comprehensive?comp_q=abc'],
+      [
+        {
+          key: 'TIM_KIEM_THE',
+          label: 'Tìm kiếm dạng thẻ',
+          description: null,
+          enabled: false,
+          domain: null,
+          rolloutPct: 100,
+        },
+      ],
+    );
+    await waitFor(() => expect(thamSoCuoi('/cases').search).toBe('abc'));
+    expect(thamSoCuoi('/cases').tk).toBeUndefined();
   });
 });

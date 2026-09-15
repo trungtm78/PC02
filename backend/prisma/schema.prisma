@@ -655,6 +655,21 @@ model Case {
   legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
   soHoSoCu          String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên (hiển thị + tìm kiếm)
   sttCu             String? // STT cũ hơn (trường `stt_cu`) — hiển thị + tìm kiếm
+
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM (' ' || f_bo_dau(cột gốc)), trigger `pc02_tim_kiem_cases` giữ.
+  /// Không ghi từ ứng dụng. Danh sách cột sinh từ `src/common/tim-kiem/khai/vu-an.khai.ts`
+  /// (`npm run gen:tim-kiem`); cổng `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
+  nguonDonBd          String? @map("nguon_don_bd")
+  tenCungCapBd        String? @map("ten_cung_cap_bd")
+  moTaChiTietBd       String? @map("mo_ta_chi_tiet_bd")
+  donViGiaiQuyetBd    String? @map("don_vi_giai_quyet_bd")
+  ketQuaXuLyKhacBd    String? @map("ket_qua_xu_ly_khac_bd")
+  donViGiaoBd         String? @map("don_vi_giao_bd")
+  soQuyetDinhUyThacBd String? @map("so_quyet_dinh_uy_thac_bd")
+  nghiVanDoiTuongBd   String? @map("nghi_van_doi_tuong_bd")
+  crimeBd             String? @map("crime_bd")
+  /// Ghép mọi cột chữ + mã hồ sơ + tên vụ án, số hồ sơ cũ — thẻ "tất cả các cột".
+  timKiemBd           String? @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
   /// dữ liệu giữ nó, định nghĩa thật nằm ở migration 20260827160000_stt_sort. Mã là chuỗi
   /// "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
@@ -910,6 +925,9 @@ model Subject {
   status        SubjectStatus @default(INVESTIGATING)
   notes         String?
   deletedAt     DateTime? // Soft delete
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(fullName)), trigger `pc02_tim_kiem_subjects`
+  /// giữ. Thẻ "Đối tượng bị can" của Vụ án lọc qua quan hệ: subjects: { some: { fullNameBd } }.
+  fullNameBd    String?   @map("full_name_bd")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -1452,6 +1470,17 @@ model Incident {
   legacySourceId   String? // Khóa gốc hệ thống cũ — idempotent di trú
   soHoSoCu         String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
   sttCu            String? // STT cũ hơn (trường `stt_cu`)
+
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM (' ' || f_bo_dau(cột gốc)), trigger `pc02_tim_kiem_incidents` giữ.
+  /// Không ghi từ ứng dụng. Danh sách cột sinh từ `src/common/tim-kiem/khai/vu-viec.khai.ts`
+  /// (`npm run gen:tim-kiem`); cổng `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
+  chuyenTuDonViBd  String? @map("chuyen_tu_don_vi_bd")
+  benVuBd          String? @map("ben_vu_bd")
+  descriptionBd    String? @map("description_bd")
+  donViGiaiQuyetBd String? @map("don_vi_giai_quyet_bd")
+  ketQuaXuLyBd     String? @map("ket_qua_xu_ly_bd")
+  /// Ghép mọi cột chữ + mã hồ sơ + tên vụ việc, đối tượng, số hồ sơ cũ — thẻ "tất cả các cột".
+  timKiemBd        String? @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
   /// dữ liệu giữ nó, định nghĩa thật nằm ở migration 20260827160000_stt_sort. Mã là chuỗi
   /// "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.

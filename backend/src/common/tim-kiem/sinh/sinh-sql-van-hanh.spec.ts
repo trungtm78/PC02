@@ -60,8 +60,12 @@ describe('sinhSqlBatLaiTimKiem', () => {
   it('mọi khối hàm trùng NGUYÊN VĂN khối trong migration', () => {
     // f_bo_dau đóng bằng `$f$;`, hàm trigger bằng `$$;`.
     const khoi = bat.match(/CREATE OR REPLACE FUNCTION [\s\S]*?\$f?\$;/g) ?? [];
-    // f_bo_dau + users + petitions
-    expect(khoi.length).toBe(3);
+    // f_bo_dau + một hàm trigger mỗi bảng — suy từ migration, không viết cứng số bảng.
+    const soHamTrigger =
+      migration.match(/CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_\w+\(\)/g)
+        ?.length ?? 0;
+    expect(soHamTrigger).toBeGreaterThanOrEqual(3);
+    expect(khoi.length).toBe(1 + soHamTrigger);
     for (const k of khoi) expect(migration).toContain(k);
   });
 

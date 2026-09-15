@@ -28,10 +28,7 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
-import {
-  apDungKyVaoWhere,
-  KY_THONG_KE,
-} from '../common/utils/thong-ke-ky.util';
+import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -52,81 +49,21 @@ import {
   type ChiMucLoaiThongTin,
 } from './loai-thong-tin.rule';
 import { khoaLoaiThongTin } from '../common/utils/khoa-loai-thong-tin.util';
-import {
-  KHOA_TAT_CA,
-  docThe,
-  dungDieuKienTimKiem,
-  noiVaoWhere,
-  DO_DAI_GIA_TRI_TOI_DA,
-} from '../common/tim-kiem/dieu-kien';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
 import { thoatLike } from '../common/tim-kiem/bo-dau';
-import { sinhCauConChuaNap } from '../common/tim-kiem/sinh/sinh-tim-kiem';
-
-const CAU_CON_CHUA_NAP_DON_THU = sinhCauConChuaNap(KHAI_TIM_KIEM_DON_THU);
-/** Nhớ câu trả lời "còn dòng chưa nạp cột bóng" — tắt khẩn trigger thì chậm nhất chừng này mới lùi. */
-const THOI_GIAN_NHO_CHUA_NAP_MS = 60_000;
-
-const damThe = (tk: string | string[] | undefined): string[] =>
-  tk === undefined ? [] : Array.isArray(tk) ? [...tk] : [tk];
 
 /**
- * Điều kiện ô tìm dạng thẻ của Đơn thư — MỘT chỗ cho danh sách lẫn thống kê. Tham số lọc chữ
- * cũ (`search`, `senderName`, `unit`) quy về thẻ ở đây để đường dẫn cũ vẫn chạy mà không áp hai
- * lần, và để thẻ số không lọc khác danh sách ngay dưới.
- *
- * Tham số cũ cắt còn DO_DAI_GIA_TRI_TOI_DA: các ô tìm cũ (GlobalSearchBar, trang khôi phục…) gửi
- * nguyên chữ dán vào, quá giới hạn thẻ thì cả trang 400.
+ * Tham số lọc chữ cũ của Đơn thư → khoá thẻ. Đường dẫn cũ và các ô tìm cũ (GlobalSearchBar, trang
+ * khôi phục…) vẫn chạy, qua CÙNG điều kiện với thẻ — danh sách và thẻ số không lọc lệch nhau.
+ * `unit` là "Đơn vị giải quyết" (cột `donViGiaiQuyet`), không phải đơn vị tiếp nhận.
  */
-function dieuKienTimKiemDonThu(
-  query: {
-    tk?: string | string[];
-    search?: string;
-    senderName?: string;
-    unit?: string;
-  },
-  luiCotGoc: boolean,
-): Record<string, unknown>[] {
-  const tho = damThe(query.tk);
-  const cu = (v: string | undefined) =>
-    v?.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
-  if (cu(query.search)) tho.push(`${KHOA_TAT_CA}~${cu(query.search)}`);
-  if (cu(query.senderName)) tho.push(`nguoiGui~${cu(query.senderName)}`);
-  if (cu(query.unit)) tho.push(`donViGiaiQuyet~${cu(query.unit)}`);
-  return dungDieuKienTimKiem(
-    docThe(tho, KHAI_TIM_KIEM_DON_THU),
-    KHAI_TIM_KIEM_DON_THU,
-    { luiCotGoc },
-  );
-}
-
-/**
- * Có thẻ ngày không. Kỳ thống kê mặc định (vd tháng hiện tại) gán thẳng lên cột ngày; thẻ
- * `ngayDeXuat~2019` nằm trong AND nên giao với kỳ ra 0 dòng mà không lời nào. Cán bộ đã chỉ rõ
- * ngày thì bỏ kỳ MẶC ĐỊNH (Từ/Đến ngày tự đặt vẫn áp).
- */
-function coTheNgayDonThu(tk: string | string[] | undefined): boolean {
-  return damThe(tk).some((muc) => {
-    const i = muc.indexOf('~');
-    if (i <= 0) return false;
-    const khoa = muc.slice(0, i);
-    return KHAI_TIM_KIEM_DON_THU.truong.some(
-      (t) => t.key === khoa && t.kieu === 'ngay',
-    );
-  });
-}
-
-/**
- * Kỳ THỰC SỰ áp cho danh sách/thống kê: có thẻ ngày thì "tất cả" — dùng cho cả điều kiện lọc lẫn
- * nhãn kỳ trả về, để thanh thẻ không ghi "Tháng này" trên con số không lọc tháng.
- */
-function kyApDungDonThu<
-  K extends { ky: string; tuNgay: string | null; denNgay: string | null },
->(ky: K, tk: string | string[] | undefined): K {
-  return coTheNgayDonThu(tk)
-    ? { ...ky, ky: KY_THONG_KE.TAT_CA, tuNgay: null, denNgay: null }
-    : ky;
-}
+const THAM_SO_CU_DON_THU = {
+  search: KHOA_TAT_CA,
+  senderName: 'nguoiGui',
+  unit: 'donViGiaiQuyet',
+} as const;
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
 // Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
@@ -151,30 +88,18 @@ export class PetitionsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  private nhoChuaNap: { giaTri: boolean; het: number } | null = null;
+  private boTimKiem?: BoTimKiem;
 
   /**
-   * Có còn phải lùi về cột gốc không. Nhánh lùi `cột bóng IS NULL AND cột gốc ILIKE` buộc quét cả
-   * bảng (đo pc02_spike 47.169 đơn: 124 ms so với 51 ms qua GIN), nên chỉ giữ khi CÒN dòng chưa
-   * nạp — ngay sau deploy, hoặc sau khi tắt khẩn trigger. Hỏi lỗi thì giữ nhánh lùi: đúng trước,
-   * nhanh sau.
+   * Tìm kiếm dạng thẻ của Đơn thư (quy tham số cũ, nhánh lùi cột gốc, kỳ khi có thẻ ngày) — lớp dùng
+   * chung với Vụ việc/Vụ án. Tạo LƯỜI: khởi tạo ở khai báo field thì `this.prisma` có thể chưa gán.
    */
-  private async canLuiCotGoc(): Promise<boolean> {
-    const bayGio = Date.now();
-    if (this.nhoChuaNap && this.nhoChuaNap.het > bayGio) {
-      return this.nhoChuaNap.giaTri;
-    }
-    let giaTri = true;
-    try {
-      const [dong] = await this.prisma.$queryRawUnsafe<Array<{ co: boolean }>>(
-        CAU_CON_CHUA_NAP_DON_THU,
-      );
-      giaTri = dong?.co !== false;
-    } catch (e) {
-      this.logger.warn(`Không hỏi được trạng thái nạp cột bóng: ${String(e)}`);
-    }
-    this.nhoChuaNap = { giaTri, het: bayGio + THOI_GIAN_NHO_CHUA_NAP_MS };
-    return giaTri;
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_DON_THU,
+      THAM_SO_CU_DON_THU,
+    ));
   }
 
   // ─────────────────────────────────────────────
@@ -204,7 +129,7 @@ export class PetitionsService {
     // Thẻ tìm kiếm (và search/senderName/unit cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
     noiVaoWhere(
       where as Record<string, unknown>,
-      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+      await this.timKiem.dieuKien(query),
     );
 
     // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
@@ -235,13 +160,13 @@ export class PetitionsService {
       where.enteredById = enteredById.trim();
     }
 
-    // `unit` / `senderName` cũ đã quy về thẻ donViGiaiQuyet / nguoiGui ở dieuKienTimKiemDonThu.
+    // `unit` / `senderName` cũ đã quy về thẻ donViGiaiQuyet / nguoiGui qua THAM_SO_CU_DON_THU.
     // (`unit` lọc cột "Đơn vị giải quyết" chứ không phải đơn vị TIẾP NHẬN — cột ấy rỗng ở toàn
     // bộ 46.660 đơn thư.)
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = kyApDungDonThu(
+    const kyThongKe = this.timKiem.kyApDung(
       await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
       query.tk,
     );
@@ -438,7 +363,7 @@ export class PetitionsService {
       }
       noiVaoWhere(
         baseWhere as Record<string, unknown>,
-        dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
+        await this.timKiem.dieuKien({ search }),
       );
     }
 
@@ -2009,7 +1934,7 @@ export class PetitionsService {
     // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
     noiVaoWhere(
       where as Record<string, unknown>,
-      dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
+      await this.timKiem.dieuKien({ search }),
     );
 
     const [data, total] = await Promise.all([
@@ -2062,12 +1987,12 @@ export class PetitionsService {
     // trên thẻ và số dòng dưới bảng không thể lọc lệch nhau.
     noiVaoWhere(
       where as Record<string, unknown>,
-      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+      await this.timKiem.dieuKien(query),
     );
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = kyApDungDonThu(
+    const kyThongKe = this.timKiem.kyApDung(
       await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
       query.tk,
     );

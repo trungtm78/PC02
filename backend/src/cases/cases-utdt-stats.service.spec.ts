@@ -96,15 +96,16 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
     }
   });
 
-  it('search filter pass-through (includes UTDT-specific fields)', async () => {
+  it('search filter pass-through — CÙNG helper thẻ với danh sách UTDT (gồm cột riêng UTDT)', async () => {
     mockPrisma.case.count.mockResolvedValue(0);
     await service.getUtdtStats({ search: 'PC01' }, null);
     const callArg = mockPrisma.case.count.mock.calls[0][0];
-    expect(callArg.where.OR).toBeDefined();
-    expect(Array.isArray(callArg.where.OR)).toBe(true);
-    const fields = (callArg.where.OR as any[]).map((o) => Object.keys(o)[0]);
-    expect(fields).toContain('donViGiao');
-    expect(fields).toContain('soQuyetDinhUyThac');
+    expect(callArg.where.OR).toBeUndefined();
+    const json = JSON.stringify(callArg.where.AND);
+    expect(json).toContain('"timKiemBd":{"contains":"pc01"}');
+    // Lùi cột gốc khi chưa nạp gồm đủ cột riêng UTDT.
+    expect(json).toContain('"donViGiao"');
+    expect(json).toContain('"soQuyetDinhUyThac"');
   });
 
   it('donViGiao + loaiUyThac + ngayTiepNhanFrom filters pass-through', async () => {
@@ -114,9 +115,37 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
       null,
     );
     const callArg = mockPrisma.case.count.mock.calls[0][0];
-    expect(callArg.where.donViGiao).toEqual({ contains: 'PC01', mode: 'insensitive' });
+    expect(callArg.where.donViGiao).toBeUndefined();
+    expect(JSON.stringify(callArg.where.AND)).toContain(
+      '"donViGiaoBd":{"contains":"pc01"}',
+    );
     expect(callArg.where.loaiUyThac).toBe('UY_THAC_DIEU_TRA');
     expect(callArg.where.ngayTiepNhan).toBeDefined();
+  });
+
+  /**
+   * REGRESSION: danh sách UTDT (GET /cases?caseType=UY_THAC_DIEU_TRA) áp kỳ thống kê mặc định trên
+   * `ngayDeXuat`, còn getUtdtStats KHÔNG áp — thẻ đếm mọi kỳ trong khi danh sách chỉ có kỳ hiện
+   * tại. Nay cùng kỳ, và trả kèm kỳ đã áp cho nhãn.
+   */
+  it('[P1] áp CÙNG kỳ thống kê với danh sách UTDT và trả kèm kỳ', async () => {
+    mockPrisma.case.count.mockResolvedValue(0);
+    const ky = {
+      ky: 'THANG_HIEN_TAI',
+      truong: 'NGAY_TIEP_NHAN',
+      tuNgay: '2026-09-01',
+      denNgay: '2026-09-30',
+    };
+    const { settings } = service as unknown as {
+      settings: { getKyThongKe: jest.Mock };
+    };
+    settings.getKyThongKe.mockResolvedValueOnce(ky);
+
+    const result = await service.getUtdtStats({}, null);
+
+    const callArg = mockPrisma.case.count.mock.calls[0][0];
+    expect(callArg.where.ngayDeXuat).toBeDefined();
+    expect(result.ky).toEqual(ky);
   });
 
   it('applies DataScope filter to where.AND when dataScope non-null', async () => {
@@ -128,6 +157,28 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
     const callArg = mockPrisma.case.count.mock.calls[0][0];
     expect(callArg.where.AND).toBeDefined();
     expect(Array.isArray(callArg.where.AND)).toBe(true);
+  });
+
+  /**
+   * REGRESSION: bản cũ GÁN ĐÈ `where.AND = [scope]`. Nay AND đã chứa điều kiện thẻ, gán đè là mất
+   * hoặc thẻ hoặc phạm vi. Ca phạm vi ở trên truyền query rỗng nên không bắt được — ca này có cả hai.
+   */
+  it('[P1] tìm kiếm + phạm vi dữ liệu CÙNG nằm trong AND ở cả 4 lượt đếm', async () => {
+    mockPrisma.case.count.mockResolvedValue(0);
+    await service.getUtdtStats(
+      { search: 'PC01' },
+      {
+        userIds: ['user-001'],
+        teamIds: ['team-a'],
+        writableTeamIds: ['team-a'],
+      },
+    );
+    expect(mockPrisma.case.count).toHaveBeenCalledTimes(4);
+    for (const [arg] of mockPrisma.case.count.mock.calls) {
+      const json = JSON.stringify(arg.where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"pc01"}');
+      expect(json).toContain('team-a');
+    }
   });
 
   it('each state query merges baseWhere + buildTrangThaiFilter (no clobber)', async () => {

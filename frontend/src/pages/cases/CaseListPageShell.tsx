@@ -31,6 +31,10 @@ import {
   type TableState,
   ColumnPicker,
   useBoCucCot,
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  truongGoiY,
 } from '@/components/shared/ListPageShell';
 import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
@@ -66,6 +70,9 @@ import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
 import { casesListFilters, type CaseFilterValue } from '@/features/cases/list-filters';
 import { hoTen } from '@/lib/hoTen';
+import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
+import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 
 // AUTO-FIX #5 (security): validate URL status param against CaseStatus enum.
 // Trust boundary — attacker URL `?cases_status=__proto__` cannot land in lookups.
@@ -73,6 +80,27 @@ const CASE_STATUS_VALUES = new Set<string>(Object.values(CaseStatus));
 function isValidCaseStatus(value: string | null): value is CaseStatus {
   return value != null && CASE_STATUS_VALUES.has(value);
 }
+
+/**
+ * Tham số trước thời thẻ → khoá thẻ. Đường dẫn cũ (dấu trang, tin nhắn) mở ra vẫn đúng bộ lọc:
+ * ô tìm kiếm `q` thành thẻ "tất cả các cột", các ô lọc chữ cũ thành thẻ theo cột.
+ */
+const THAM_SO_CU_VU_AN = {
+  q: KHOA_TAT_CA,
+  unit: 'donViGiaiQuyet',
+  investigator: 'dieuTraVien',
+  charges: 'toiDanh',
+  stt: 'stt',
+  stt_cu: 'sttCu',
+} as const;
+
+/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
+const GIA_TRI_CHON_VU_AN = {
+  trangThai: Object.values(CaseStatus).map((v) => ({
+    value: v,
+    label: CASE_STATUS_LABEL[v],
+  })),
+};
 
 // AUTO-FIX #4 (i18n): axios English messages mapped to Vietnamese.
 function getVietnameseErrorMessage(e: unknown): string {
@@ -108,6 +136,8 @@ interface CaseRow {
   sttCu?: string | null;
   nguonDon?: string | null;
   ketQuaXuLyKhac?: string | null;
+  /** Tội danh (chữ) — cột ẩn sẵn; mang thẻ `toiDanh` thay cho ô lọc "Tội danh" đã gỡ. */
+  crime?: string | null;
   /** Bị can đã khởi tố — server cắt sẵn ở LIST_SUSPECT_NAMES_LIMIT tên. */
   subjects?: { id: string; fullName: string }[] | null;
   /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
@@ -191,6 +221,15 @@ export function CaseListPageShell() {
   // gây offset âm → backend 400 → stuck error state forever.
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = url.getParam('q') ?? '';
+  // Ô tìm kiếm dạng thẻ. Cờ `TIM_KIEM_THE` là công tắc khẩn: quản trị tắt thì trang trở lại ô
+  // chữ `q` → `search` như trước, không cần deploy. Máy chủ nhận cả hai.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'cases',
+    khai: TIM_KIEM_VU_AN,
+    thamSoCu: THAM_SO_CU_VU_AN,
+    bat: theBat,
+  });
 
   // AUTO-FIX #1: debounce search query 300ms để tránh keystroke=2-API-calls.
   // Local input state syncs to URL on debounce timer. Cancelled via cleanup.
@@ -254,16 +293,15 @@ export function CaseListPageShell() {
 
   const baseQueryParams = useMemo(
     () => ({
-      ...(debouncedSearch && { search: debouncedSearch }),
+      // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
+      // Các ô lọc chữ cũ (đơn vị, điều tra viên, tội danh, STT, STT cũ) nay là thẻ, không gửi riêng.
+      ...(theBat
+        ? timKiem.tkGui.length > 0 && { tk: timKiem.tkGui }
+        : debouncedSearch && { search: debouncedSearch }),
       ...(appliedFilters.fromDate && { fromDate: appliedFilters.fromDate }),
       ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
-      ...(appliedFilters.unit && { unit: appliedFilters.unit }),
-      ...(appliedFilters.investigator && { investigatorName: appliedFilters.investigator }),
-      ...(appliedFilters.charges && { charges: appliedFilters.charges }),
-      // Bộ lọc theo kiểu hệ cũ. Thiếu phần này thì thẻ lọc chỉ ghi vào địa chỉ trang
-      // mà KHÔNG đi xuống API — người dùng thấy ô lọc đổi còn danh sách đứng yên.
-      ...(appliedFilters.stt && { stt: appliedFilters.stt }),
-      ...(appliedFilters.sttCu && { sttCu: appliedFilters.sttCu }),
+      // Thiếu dòng này thì ô lọc chỉ ghi vào địa chỉ trang mà KHÔNG đi xuống API — người dùng
+      // thấy ô lọc đổi còn danh sách đứng yên.
       ...(appliedFilters.createdById && { createdById: appliedFilters.createdById }),
       // `fromDate`/`toDate` đã khai ở trên — hai ô ngày là MỘT, dùng chung khoá. Khai lại
       // lần nữa ở đây là tàn dư của lúc màn hình còn hai mặt lọc.
@@ -272,7 +310,7 @@ export function CaseListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
     }),
-    [debouncedSearch, appliedFilters],
+    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
   );
 
   /**
@@ -323,7 +361,14 @@ export function CaseListPageShell() {
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
           setTableState(
-            debouncedSearch || statusFilter || groupFilter ? 'empty-filtered' : 'empty',
+            // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
+            debouncedSearch ||
+            statusFilter ||
+            groupFilter ||
+            timKiem.the.length > 0 ||
+            Object.values(appliedFilters).some((v) => v)
+              ? 'empty-filtered'
+              : 'empty',
           );
         } else {
           setTableState('ready');
@@ -338,7 +383,7 @@ export function CaseListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, debouncedSearch, refetchCounter, appliedFilters, sort.sortBy, sort.sortOrder]);
+  }, [statusFilter, groupFilter, page, baseQueryKey, refetchCounter, sort.sortBy, sort.sortOrder]);
 
   // Stats dùng CHUNG baseQueryParams với danh sách (backend strip status/statusGroup).
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
@@ -390,8 +435,9 @@ export function CaseListPageShell() {
   const selectionClearRef = useRef(selection.clear);
   selectionClearRef.current = selection.clear;
   useEffect(() => {
+    // Đổi bộ lọc (gồm thẻ) → bỏ chọn, tránh thao tác hàng loạt lên các dòng không còn hiển thị.
     selectionClearRef.current();
-  }, [statusFilter, groupFilter, page, debouncedSearch]);
+  }, [statusFilter, groupFilter, page, baseQueryKey]);
 
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
@@ -469,6 +515,7 @@ export function CaseListPageShell() {
       {
         key: 'caseCode',
         header: 'STT',
+        timKiem: ['stt', 'sttCu'],
         width: '6rem',
         // Anh yêu cầu 27/08/2026: bấm tiêu đề cột STT để đổi chiều sắp xếp, như cột ngày.
         // Máy chủ sắp trên cột số `sttSort`; tên khoá gửi đi vẫn là `stt`.
@@ -487,6 +534,7 @@ export function CaseListPageShell() {
       {
         key: 'ngayDeXuat',
         header: 'Ngày đề xuất',
+        timKiem: 'ngayDeXuat',
         width: '7rem',
         optional: 'show',
         sortKey: 'ngayDeXuat',
@@ -504,6 +552,7 @@ export function CaseListPageShell() {
       {
         key: 'doiTuongBiCan',
         header: 'Đối tượng bị can',
+        timKiem: 'doiTuongBiCan',
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -518,6 +567,7 @@ export function CaseListPageShell() {
       {
         key: 'nguonDon',
         header: 'Nguồn đơn/Đơn vị giao',
+        timKiem: 'nguonDon',
         width: '9rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -526,6 +576,7 @@ export function CaseListPageShell() {
       {
         key: 'name',
         header: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
+        timKiem: 'nguoiGui',
         width: '11rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -539,6 +590,7 @@ export function CaseListPageShell() {
       {
         key: 'moTaChiTiet',
         header: 'Tóm tắt nội dung',
+        timKiem: 'tomTat',
         width: '22rem',
         optional: 'show',
         render: (r) => <SummaryCell value={r.moTaChiTiet} />,
@@ -547,6 +599,7 @@ export function CaseListPageShell() {
       {
         key: 'donViGiaiQuyet',
         header: 'Đơn vị giải quyết',
+        timKiem: 'donViGiaiQuyet',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -556,6 +609,7 @@ export function CaseListPageShell() {
       {
         key: 'ketQuaXuLyKhac',
         header: 'Kết quả xử lý, giải quyết khác',
+        timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -564,6 +618,7 @@ export function CaseListPageShell() {
       {
         key: 'createdBy',
         header: 'Người nhập',
+        timKiem: 'nguoiNhap',
         width: '8rem',
         optional: 'show',
         render: (r) =>
@@ -576,6 +631,7 @@ export function CaseListPageShell() {
       {
         key: 'status',
         header: 'Trạng thái',
+        timKiem: 'trangThai',
         width: '9rem',
         optional: 'show',
         render: (r) => (
@@ -589,6 +645,7 @@ export function CaseListPageShell() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        timKiem: 'dieuTraVien',
         width: '10rem',
         optional: 'hide',
         cellClassName: TABLE_CELL_TRUNCATE,
@@ -600,8 +657,21 @@ export function CaseListPageShell() {
       },
 
       {
+        // Hệ cũ không có cột này nên ẩn sẵn. Có mặt vì ô lọc "Tội danh" đã chuyển thành thẻ: không cột
+        // nào mang khoá `toiDanh` thì cán bộ ở màn này không còn lối chọn thẻ ấy (cổng timKiemCotKhai).
+        key: 'crime',
+        header: 'Tội danh',
+        timKiem: 'toiDanh',
+        width: '10rem',
+        optional: 'hide',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => r.crime || '—',
+      },
+
+      {
         key: 'createdAt',
         header: 'Ngày tạo',
+        timKiem: 'ngayTao',
         width: '7rem',
         optional: 'hide',
         sortKey: 'createdAt',
@@ -626,6 +696,9 @@ export function CaseListPageShell() {
     doiCho,
     datLai: resetColumns,
   } = useBoCucCot('cases', columns);
+  // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý. Các trường
+  // riêng Ủy thác điều tra (đơn vị giao, số QĐ…) gợi ý ở màn UTDT, nơi có cột mang chúng.
+  const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_AN), [visibleColumns]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -664,7 +737,10 @@ export function CaseListPageShell() {
 
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
-    (statusFilter ? 1 : 0) + (groupFilter ? 1 : 0) + (searchQuery ? 1 : 0) + appliedFilterCount;
+    (statusFilter ? 1 : 0) +
+    (groupFilter ? 1 : 0) +
+    (theBat ? timKiem.the.length : searchQuery ? 1 : 0) +
+    appliedFilterCount;
 
   return (
     <ListPageShell>
@@ -702,6 +778,20 @@ export function CaseListPageShell() {
       <ListPageShell.Toolbar
         searchValue={searchQuery}
         onSearchChange={handleSearchChange}
+        searchSlot={
+          theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={truongTimKiem}
+              khai={TIM_KIEM_VU_AN}
+              giaTriChon={GIA_TRI_CHON_VU_AN}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+            />
+          ) : undefined
+        }
         searchPlaceholder="Tìm kiếm theo mã, tên, đơn vị..."
         activeFilterCount={activeFilterCount}
         onResetFilters={handleResetFilters}
@@ -785,7 +875,21 @@ export function CaseListPageShell() {
           actionLabel: 'Tạo vụ án mới',
           onAction: () => navigate('/cases/new'),
         }}
-        emptyFilteredState={{ onClearFilters: handleResetFilters }}
+        emptyFilteredState={{
+          onClearFilters: handleResetFilters,
+          chiTiet:
+            timKiem.the.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={TIM_KIEM_VU_AN}
+                  giaTriChon={GIA_TRI_CHON_VU_AN}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            ) : undefined,
+        }}
         onRowClick={(r) => navigate(`/cases/${r.id}`)}
         bulkSelection={selection}
         bulkRowsLabel="vụ án"

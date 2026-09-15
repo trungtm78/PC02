@@ -52,6 +52,14 @@ const BANG: Man[] = [
       'assignedTeam',
     ],
   },
+  {
+    // UTDT dùng CHUNG `getList` của Vụ án (GET /cases?caseType=UY_THAC_DIEU_TRA). Cột "Đối tượng
+    // nghi vấn" từng đọc metadata vì cột typed không có trong `select` — thẻ tìm kiếm thì lọc cột typed.
+    ten: 'Ủy thác điều tra',
+    service: 'backend/src/cases/cases.service.ts',
+    shell: 'frontend/src/features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx',
+    ngoaiLe: ['investigator', 'createdBy'],
+  },
 ];
 
 /** Trường mà `getList` khai trong `select`. */

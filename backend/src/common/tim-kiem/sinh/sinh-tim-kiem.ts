@@ -10,7 +10,14 @@ import { sinhHamFBoDau } from '../bo-dau';
  * đã commit với đầu ra ở đây — quên chạy bộ sinh là đỏ.
  */
 
-export type KieuTruong = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi';
+export type KieuTruong =
+  | 'chu'
+  | 'ma'
+  | 'ma-cu'
+  | 'ngay'
+  | 'chon'
+  | 'nguoi'
+  | 'doi-tuong';
 
 export interface TruongTimKiem {
   /** Khoá thẻ trên URL — tên CHUẨN liên thực thể. */
@@ -19,8 +26,18 @@ export interface TruongTimKiem {
   kieu: KieuTruong;
   /** Cột Prisma (camelCase) — bắt buộc trừ kiểu `nguoi`. */
   cot?: string;
-  /** Quan hệ tới `User` — bắt buộc với kiểu `nguoi`. */
+  /**
+   * Tên cột THẬT trong CSDL khi trường Prisma có `@map` (vd `donViGiao` → `don_vi_giao`). Trigger và
+   * câu nạp chạy SQL thô nên phải gọi tên này; cổng `cotDbLech` đối chiếu với schema.prisma.
+   */
+  cotDb?: string;
+  /**
+   * Quan hệ — bắt buộc với kiểu `nguoi` (tới `User`, lọc qua `users.ho_ten_bd`) và `doi-tuong`
+   * (danh sách `Subject`, lọc qua `subjects.full_name_bd`).
+   */
   quanHe?: string;
+  /** Kiểu `doi-tuong`: chỉ tính đối tượng loại này (vd `SUSPECT` cho cột "Đối tượng bị can"). */
+  loaiDoiTuong?: string;
   /**
    * Kiểu `chon`: giá trị được nhận (vd mã enum). Giá trị lạ trả 400 thay vì để Prisma ném 500.
    * Chỉ dùng phía máy chủ — bộ sinh không xuất ra giao diện.
@@ -65,14 +82,15 @@ function kiemKhai(khai: KhaiThucThe): void {
       throw new Error(`Khai tìm kiếm ${khai.thucThe}: trùng khoá "${t.key}"`);
     }
     daCo.add(t.key);
-    if (t.kieu === 'nguoi') {
+    if (t.kieu === 'nguoi' || t.kieu === 'doi-tuong') {
       if (!t.quanHe)
-        throw new Error(`Trường "${t.key}" (kiểu nguoi) thiếu quanHe`);
+        throw new Error(`Trường "${t.key}" (kiểu ${t.kieu}) thiếu quanHe`);
       kiemTen(t.quanHe, 'quan hệ');
     } else {
       if (!t.cot)
         throw new Error(`Trường "${t.key}" (kiểu ${t.kieu}) thiếu cot`);
       kiemTen(t.cot, 'nguồn');
+      if (t.cotDb) kiemTen(t.cotDb, 'CSDL');
     }
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
@@ -89,8 +107,19 @@ const cotTatCa = (khai: KhaiThucThe) => [
   ...(khai.cotThemVaoTatCa ?? []),
 ];
 
+/** Tên cột CSDL của một trường Prisma trong khai — `cotDb` nếu có `@map`, không thì chính tên trường. */
+const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
+  khai.truong.find((t) => t.cot === cot && t.cotDb)?.cotDb ?? cot;
+
 const coTruongNguoi = (khais: readonly KhaiThucThe[]) =>
   khais.some((k) => k.truong.some((t) => t.kieu === 'nguoi'));
+
+const COT_DOI_TUONG = { cot: 'full_name_bd', field: 'fullNameBd' } as const;
+/** Cột gốc của `subjects.full_name_bd` — thẻ kiểu đối tượng lùi về đúng cột này khi cột bóng rỗng. */
+export const COT_NGUON_DOI_TUONG = ['fullName'] as const;
+
+const coTruongDoiTuong = (khais: readonly KhaiThucThe[]) =>
+  khais.some((k) => k.truong.some((t) => t.kieu === 'doi-tuong'));
 
 const moi = (cot: string) => `NEW."${cot}"`;
 const ghep = (cots: readonly string[]) =>
@@ -187,18 +216,30 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
       cotNguon: COT_NGUON_HO_TEN,
     });
   }
+  if (coTruongDoiTuong(khais)) {
+    ra.push({
+      tieuDe:
+        '-- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──',
+      bang: 'subjects',
+      gan: [
+        { cotBong: COT_DOI_TUONG.cot, bieuThuc: ghep(COT_NGUON_DOI_TUONG) },
+      ],
+      cotNguon: COT_NGUON_DOI_TUONG,
+    });
+  }
   for (const khai of khais) {
+    const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
         ...cotChu(khai).map((c) => ({
           cotBong: cotBongCua(c).cot,
-          bieuThuc: moi(c),
+          bieuThuc: moi(tenCotDb(khai, c)),
         })),
-        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotTatCa(khai)) },
+        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
       ],
-      cotNguon: cotTatCa(khai),
+      cotNguon: cotDbTatCa,
     });
   }
   return ra;
@@ -306,11 +347,14 @@ export function truongPrismaCanCo(
     ra.push({ model: khai.model, ...COT_TAT_CA });
   }
   if (coTruongNguoi(khais)) ra.push({ model: 'User', ...COT_HO_TEN });
+  if (coTruongDoiTuong(khais)) ra.push({ model: 'Subject', ...COT_DOI_TUONG });
   return ra;
 }
 
 /** Có trường kiểu người → phải nạp `users.ho_ten_bd`. */
 export const canNapHoTen = coTruongNguoi;
+/** Có trường kiểu đối tượng → phải nạp `subjects.full_name_bd`. */
+export const canNapDoiTuong = coTruongDoiTuong;
 
 /**
  * Cột gốc ghép vào `tim_kiem_bd` — CÙNG danh sách trigger dùng. Điều kiện thẻ "tất cả các cột" lùi
@@ -356,15 +400,24 @@ export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   return cauNap(khai.bang, [
     ...cotChu(khai).map((c) => ({
       cotBong: cotBongCua(c).cot,
-      bieuThuc: cotDong(c),
+      bieuThuc: cotDong(tenCotDb(khai, c)),
     })),
-    { cotBong: COT_TAT_CA.cot, bieuThuc: ghepDong(cotTatCa(khai)) },
+    {
+      cotBong: COT_TAT_CA.cot,
+      bieuThuc: ghepDong(cotTatCa(khai).map((c) => tenCotDb(khai, c))),
+    },
   ]);
 }
 
 export function sinhCauNapHoTen(): CauNap {
   return cauNap('users', [
     { cotBong: COT_HO_TEN.cot, bieuThuc: ghepDong(COT_NGUON_HO_TEN) },
+  ]);
+}
+
+export function sinhCauNapDoiTuong(): CauNap {
+  return cauNap('subjects', [
+    { cotBong: COT_DOI_TUONG.cot, bieuThuc: ghepDong(COT_NGUON_DOI_TUONG) },
   ]);
 }
 
@@ -377,7 +430,7 @@ export function sinhFrontendTimKiem(khais: readonly KhaiThucThe[]): string {
     '// AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.',
     '// Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts',
     '',
-    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi';",
+    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong';",
   ];
   for (const khai of khais) {
     const ten = khai.thucThe.toUpperCase().replace(/-/g, '_');

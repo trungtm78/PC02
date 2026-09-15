@@ -320,8 +320,13 @@ describe('dungDieuKienTimKiem', () => {
     expect(dk(['nguoiGui~An', 'stt~2026-1'])).toHaveLength(2);
   });
 
-  it('giá trị bỏ dấu ra rỗng (chỉ dấu tổ hợp) → bỏ qua thẻ, không khớp-tất-cả', () => {
-    expect(dk([`nguoiGui~${String.fromCharCode(0x301)}`])).toEqual([]);
+  // Đổi 15/09/2026 (review): bỏ qua thẻ là trả MỌI dòng mà trông như đã lọc — trái nguyên tắc của
+  // `docThe`. Nay so nguyên chữ trên cột gốc; vẫn không khớp-tất-cả trên cột bóng. Ca đủ kiểu thẻ ở
+  // dieu-kien-ky-tu-dac-biet.spec.ts.
+  it('giá trị bỏ dấu ra rỗng (chỉ dấu tổ hợp) → so nguyên chữ trên cột gốc, không bỏ lọc', () => {
+    const ra = dk([`nguoiGui~${String.fromCharCode(0x301)}`]);
+    expect(ra).toHaveLength(1);
+    expect(JSON.stringify(ra)).not.toMatch(/Bd":\{"contains"/);
   });
 
   /**

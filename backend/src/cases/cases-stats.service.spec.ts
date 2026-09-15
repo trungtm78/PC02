@@ -154,9 +154,54 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
 
     await service.getStats({ search: 'abc' }, null);
 
+    // CÙNG helper thẻ với danh sách — không còn where.OR chép tay.
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
-    expect(whereArg.OR).toBeDefined();
-    expect(Array.isArray(whereArg.OR)).toBe(true);
+    expect(whereArg.OR).toBeUndefined();
+    expect(JSON.stringify(whereArg.AND)).toContain('"timKiemBd"');
+  });
+
+  /**
+   * REGRESSION: getStats từng KHÔNG áp stt/sttCu/createdById dù giao diện gửi cả ba tới /stats —
+   * lọc theo mã thì danh sách ra 1 dòng còn thẻ số vẫn đếm cả kỳ.
+   */
+  it('[P1] stt/sttCu/createdById lọc cả ở thống kê — thẻ số khớp danh sách', async () => {
+    mockPrisma.case.groupBy.mockResolvedValue([]);
+    mockPrisma.case.count.mockResolvedValue(0);
+
+    await service.getStats(
+      { stt: '26-9893', sttCu: '1253', createdById: 'user-9' } as never,
+      null,
+    );
+
+    const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
+    expect(whereArg.AND).toContainEqual({
+      caseCode: { in: ['26-9893', '2026-9893'] },
+    });
+    expect(whereArg.AND).toContainEqual({
+      sttCu: { contains: '1253', mode: 'insensitive' },
+    });
+    expect(whereArg.createdById).toBe('user-9');
+  });
+
+  /**
+   * REGRESSION: overdue ở thống kê từng dùng danh sách trạng thái kết thúc VIẾT TAY (3 trạng thái),
+   * danh sách dùng TRANG_THAI_KET_THUC.case (6) — hồ sơ đã chuyển đơn vị vẫn bị đếm "quá hạn".
+   */
+  it('[P1] overdue dùng CÙNG danh sách trạng thái kết thúc với getList', async () => {
+    mockPrisma.case.groupBy.mockResolvedValue([]);
+    mockPrisma.case.count.mockResolvedValue(0);
+
+    await service.getStats({ overdue: true }, null);
+
+    const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
+    expect(whereArg.status.notIn).toEqual(
+      expect.arrayContaining([
+        CaseStatus.DA_KET_LUAN,
+        CaseStatus.DA_CHUYEN_DON_VI,
+        CaseStatus.DA_NHAP_VU_KHAC,
+        CaseStatus.CHUYEN_XPHC,
+      ]),
+    );
   });
   /**
    * [P1] Trước đây getStats KHÔNG destructure `charges`, nên param lọt qua validation rồi
@@ -168,8 +213,12 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
 
     await service.getStats({ charges: 'trộm cắp' } as never, null);
 
+    // Qua thẻ Tội danh như danh sách (cột bóng bỏ dấu).
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
-    expect(whereArg.crime).toEqual({ contains: 'trộm cắp', mode: 'insensitive' });
+    expect(whereArg.crime).toBeUndefined();
+    expect(JSON.stringify(whereArg.AND)).toContain(
+      '"crimeBd":{"contains":"trom cap"}',
+    );
   });
 
   it('trả byGroup theo CASE_STATUS_GROUPS', async () => {

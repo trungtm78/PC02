@@ -22,6 +22,8 @@ import { CaseStatus } from '@/shared/enums/generated';
 // lý do không liên quan gì tới thứ nó đang chốt.
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -29,14 +31,14 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-function renderWithRouter(initialEntries: string[] = ['/cases']) {
+function renderWithRouter(initialEntries: string[] = ['/cases'], flags?: FeatureFlag[]) {
   let lastLocation = '';
   function LocationTracker() {
     const loc = useLocation();
     lastLocation = loc.pathname + loc.search;
     return null;
   }
-  const result = render(
+  const trang = (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={initialEntries}>
       <CompositeModalProvider>
@@ -49,10 +51,24 @@ function renderWithRouter(initialEntries: string[] = ['/cases']) {
         </DeleteResourceModalProvider>
       </CompositeModalProvider>
     </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+  );
+  const result = render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
   return { ...result, getLocation: () => lastLocation };
 }
+
+const CO_TAT_THE: FeatureFlag[] = [
+  {
+    key: 'TIM_KIEM_THE',
+    label: 'Tìm kiếm dạng thẻ',
+    description: null,
+    enabled: false,
+    domain: null,
+    rolloutPct: 100,
+  },
+];
 
 const sampleRow = {
   id: 'case-1',
@@ -161,8 +177,17 @@ describe('CaseListPageShell — interactions', () => {
     });
   });
 
-  it('search input change → URL state cập nhật', async () => {
+  it('ô tìm dạng thẻ: gõ rồi Enter → thẻ "*" lên URL', async () => {
     const { getLocation } = renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
+    const o = screen.getByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    fireEvent.change(o, { target: { value: 'abc' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
+    await waitFor(() => expect(decodeURIComponent(getLocation())).toContain('cases_tk=*~abc'));
+  });
+
+  it('cờ TIM_KIEM_THE tắt → ô chữ cũ ghi `cases_q`', async () => {
+    const { getLocation } = renderWithRouter(['/cases'], CO_TAT_THE);
     await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'abc' } });
     await waitFor(() => expect(getLocation()).toContain('cases_q=abc'));
@@ -277,13 +302,24 @@ describe('CaseListPageShell — URL state load from query params', () => {
     expect(listCall?.[1]?.params.status).toBe('DANG_DIEU_TRA');
   });
 
-  it('load from URL với search query → fetch caller với search param', async () => {
+  it('load from URL với `cases_q` cũ → thẻ "*" ngay ở lượt gọi đầu tiên', async () => {
     renderWithRouter(['/cases?cases_q=abc']);
     await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
     const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
       (c) => c[0] === '/cases',
     );
+    expect(listCall?.[1]?.params.tk).toEqual(['*~abc']);
+    expect(listCall?.[1]?.params.search).toBeUndefined();
+  });
+
+  it('cờ tắt + `cases_q` → gửi `search` như trước', async () => {
+    renderWithRouter(['/cases?cases_q=abc'], CO_TAT_THE);
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
+    const listCall = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => c[0] === '/cases',
+    );
     expect(listCall?.[1]?.params.search).toBe('abc');
+    expect(listCall?.[1]?.params.tk).toBeUndefined();
   });
 
   it('load from URL với page=2 → fetch offset=20', async () => {
@@ -503,14 +539,66 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
   });
 
   it('bộ lọc kiểu hệ cũ ĐI VÀO lời gọi API', async () => {
-    renderWithRouter(['/cases?cases_stt=26-9893&cases_created_by=u1']);
+    renderWithRouter([
+      '/cases?cases_stt=26-9893&cases_created_by=u1&cases_unit=PC02&cases_investigator=An&cases_charges=trom',
+    ]);
     await waitFor(() => {
       const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
         (c: unknown[]) => c[0] === '/cases',
       );
       const params = (goi as [string, { params: Record<string, unknown> }])[1].params;
-      expect(params.stt).toBe('26-9893');
+      // Ô lọc chữ cũ nay là thẻ (15/09/2026): khoá địa chỉ cũ vẫn mở ra đúng bộ lọc, qua `tk`.
+      expect(params.stt).toBeUndefined();
+      expect(params.unit).toBeUndefined();
+      expect(params.investigatorName).toBeUndefined();
+      expect(params.charges).toBeUndefined();
+      expect(params.tk).toEqual([
+        'donViGiaiQuyet~PC02',
+        'dieuTraVien~An',
+        'toiDanh~trom',
+        'stt~26-9893',
+      ]);
       expect(params.createdById).toBe('u1');
     });
+  });
+
+  it('thẻ đi xuống CẢ thống kê — số trên thẻ khớp dòng', async () => {
+    renderWithRouter(['/cases?cases_tk=doiTuongBiCan~nguyen']);
+    await waitFor(() => {
+      const goi = (api.get as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+        (c: unknown[]) => c[0] === '/cases/stats',
+      );
+      expect(goi[goi.length - 1]?.[1]?.params.tk).toEqual(['doiTuongBiCan~nguyen']);
+    });
+  });
+
+  it('không kết quả chỉ vì bộ lọc ở mặt lọc (ngày) → "lọc không ra", không mời tạo vụ án đầu tiên', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases') return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+    renderWithRouter(['/cases?cases_from_date=2026-01-01']);
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+  });
+
+  it('cột "Tội danh" có trong menu chọn cột (ẩn sẵn) — ô lọc Tội danh đã thành thẻ, phải chọn được', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
+    expect(screen.queryByRole('columnheader', { name: 'Tội danh' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    expect(within(screen.getByTestId('column-picker-menu')).getByText('Tội danh')).toBeInTheDocument();
+  });
+
+  it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases') return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+    renderWithRouter(['/cases?cases_tk=toiDanh~zzz']);
+    const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+    expect(vung).toHaveTextContent('Không tìm thấy với');
+    expect(within(vung).getByRole('button', { name: 'Bỏ thẻ Tội danh' })).toBeInTheDocument();
   });
 });

@@ -9,8 +9,9 @@ import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
-import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
-import { dieuKienSttCu } from '../common/utils/stt-cu.util';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHAI_TIM_KIEM_VU_VIEC } from '../common/tim-kiem/khai/vu-viec.khai';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { AuditService } from '../audit/audit.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -40,6 +41,20 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 
+/**
+ * Tham số lọc chữ cũ của Vụ việc → khoá thẻ (đường dẫn cũ, GlobalSearchBar, ô chọn liên kết…).
+ *
+ * `search` cũ tìm cả cột trên bảng lẫn TÊN ĐIỀU TRA VIÊN; thẻ `*` chỉ gồm cột trên bảng nên quy về
+ * MỘT khối "hoặc" với thẻ Điều tra viên. `stt`/`sttCu` đi qua thẻ cùng luật biến thể — nhờ vậy thống
+ * kê cũng áp (trước đây getStats bỏ qua hai tham số này dù giao diện gửi).
+ */
+const THAM_SO_CU_VU_VIEC = {
+  search: [KHOA_TAT_CA, 'dieuTraVien'],
+  donViGiaiQuyet: 'donViGiaiQuyet',
+  stt: 'stt',
+  sttCu: 'sttCu',
+} as const;
+
 @Injectable()
 export class IncidentsService {
   constructor(
@@ -51,12 +66,25 @@ export class IncidentsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  private boTimKiem?: BoTimKiem;
+
+  /**
+   * Tìm kiếm dạng thẻ của Vụ việc — lớp dùng chung với Đơn thư/Vụ án. Tạo LƯỜI: khởi tạo ở khai báo
+   * field thì `this.prisma` có thể chưa gán.
+   */
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_VU_VIEC,
+      THAM_SO_CU_VU_VIEC,
+    ));
+  }
+
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
   async getList(query: QueryIncidentsDto, dataScope?: DataScope | null) {
     const {
-      search,
       status,
       phase,
       investigatorId,
@@ -68,14 +96,11 @@ export class IncidentsService {
       loaiDonVu,
       benVu,
       reporter,
-      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
       fromDateRange,
       toDateRange,
-      stt,
-      sttCu,
       limit = 20,
       offset = 0,
       sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
@@ -86,26 +111,12 @@ export class IncidentsService {
       deletedAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { doiTuongCaNhan: { contains: search, mode: 'insensitive' } },
-        { doiTuongToChuc: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-        {
-          investigator: {
-            OR: [
-              { firstName: { contains: search, mode: 'insensitive' } },
-              { lastName: { contains: search, mode: 'insensitive' } },
-              { username: { contains: search, mode: 'insensitive' } },
-            ],
-          },
-        },
-      ];
-    }
+    // Thẻ tìm kiếm + tham số lọc chữ cũ (search/donViGiaiQuyet/stt/sttCu) — CÙNG helper cho danh
+    // sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
 
     // Phase takes precedence over status (phase is a group of statuses)
     // If both provided, phase wins — status is ignored.
@@ -136,30 +147,21 @@ export class IncidentsService {
         },
       ];
     }
-    if (donViGiaiQuyet) {
-      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
-    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
 
-    // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-9706`, hệ mới lưu `2026-9706`. Khớp
-    // CHÍNH XÁC theo danh sách biến thể — `contains` sẽ quét trúng hàng nghìn mã khác.
-    const bienTheMa = hoSoCodeVariants(stt);
-    if (bienTheMa.length) {
-      where.code = { in: bienTheMa };
-    }
-
-    // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
-    const locSttCu = dieuKienSttCu(sttCu);
-    if (locSttCu) {
-      where.sttCu = locSttCu;
-    }
+    // `stt` (mã hồ sơ, khớp đúng biến thể `26-9706`/`2026-9706`) và `sttCu` (nhận `208` lẫn
+    // `2016-208`) đã đi qua thẻ ở trên — cùng luật `hoSoCodeVariants`/`dieuKienSttCu`.
 
     // Date range filter on ngayDeXuat
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDateRange, toDateRange, 'ngayDeXuat');
 
     // Filter quá hạn — use TERMINAL_STATUSES constant
@@ -322,16 +324,13 @@ export class IncidentsService {
       baseWhere.OR = orConditions;
     }
 
-    // Search across code (prefix) + name (contains)
+    // Tìm qua thẻ "tất cả các cột" — cùng luật bỏ dấu với danh sách. Phạm vi (OR) chuyển vào AND
+    // TRƯỚC khi nối, để điều kiện tìm không bao giờ nới lỏng phạm vi. Cắt 200: ô chọn nhận chữ đang gõ.
     if (search.length > 0) {
+      const dieuKienTim = await this.timKiem.dieuKienTatCa(search);
       baseWhere.AND = [
-        baseWhere.OR ? { OR: baseWhere.OR } : {},
-        {
-          OR: [
-            { code: { startsWith: search, mode: 'insensitive' as const } },
-            { name: { contains: search, mode: 'insensitive' as const } },
-          ],
-        },
+        ...(baseWhere.OR ? [{ OR: baseWhere.OR }] : []),
+        ...(dieuKienTim as Prisma.IncidentWhereInput[]),
       ];
       delete baseWhere.OR;
     }
@@ -1054,7 +1053,6 @@ export class IncidentsService {
   // - Strips status filter từ where (counts BY status, not filtered by it)
   async getStats(query: QueryIncidentsStatsDto, dataScope?: DataScope | null) {
     const {
-      search,
       // `phase` cố tình KHÔNG destructure — DTO đã chặn ở cổng, và thẻ thống kê phải
       // đếm toàn bộ dataset chứ không tự lọc theo giai đoạn đang chọn.
       investigatorId,
@@ -1066,7 +1064,6 @@ export class IncidentsService {
       loaiDonVu,
       benVu,
       reporter,
-      donViGiaiQuyet,
       tinhTrangHoSo,
       tinhTrangThoiHieu,
       canBoNhapId,
@@ -1076,26 +1073,12 @@ export class IncidentsService {
 
     const where: Prisma.IncidentWhereInput = { deletedAt: null };
 
-    if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { doiTuongCaNhan: { contains: search, mode: 'insensitive' } },
-        { doiTuongToChuc: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { soHoSoCu: { contains: search, mode: 'insensitive' } }, // truy nguyên: tìm theo STT hệ cũ
-        { sttCu: { contains: search, mode: 'insensitive' } },
-        {
-          investigator: {
-            OR: [
-              { firstName: { contains: search, mode: 'insensitive' } },
-              { lastName: { contains: search, mode: 'insensitive' } },
-              { username: { contains: search, mode: 'insensitive' } },
-            ],
-          },
-        },
-      ];
-    }
+    // Thẻ tìm kiếm + tham số lọc chữ cũ (search/donViGiaiQuyet/stt/sttCu) — CÙNG helper cho danh
+    // sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
 
     // KHÔNG lọc theo `phase` ở stats. Thẻ thống kê phải đếm TOÀN BỘ dataset, nếu không
     // thì chọn 1 giai đoạn sẽ khiến 3 thẻ kia về 0 — người dùng hết chỗ bấm sang giai
@@ -1118,16 +1101,17 @@ export class IncidentsService {
         },
       ];
     }
-    if (donViGiaiQuyet) {
-      where.donViGiaiQuyet = { contains: donViGiaiQuyet, mode: 'insensitive' };
-    }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
     if (canBoNhapId) where.canBoNhapId = canBoNhapId;
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDateRange, toDateRange, 'ngayDeXuat');
 
     if (overdue) {
@@ -1801,15 +1785,14 @@ export class IncidentsService {
     const offset = query.offset ?? 0;
     const search = query.search?.trim();
 
-    const where: Prisma.IncidentWhereInput = {
-      deletedAt: { not: null },
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { code: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-    };
+    const where: Prisma.IncidentWhereInput = { deletedAt: { not: null } };
+    // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
+    if (search) {
+      noiVaoWhere(
+        where as Record<string, unknown>,
+        await this.timKiem.dieuKienTatCa(search),
+      );
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.incident.findMany({
