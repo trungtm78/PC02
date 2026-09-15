@@ -19,6 +19,11 @@ export interface TruongTimKiem {
   kieu: KieuTruong;
   /** Cột Prisma (camelCase) — bắt buộc trừ kiểu `nguoi`. */
   cot?: string;
+  /**
+   * Tên cột THẬT trong CSDL khi trường Prisma có `@map` (vd `donViGiao` → `don_vi_giao`). Trigger và
+   * câu nạp chạy SQL thô nên phải gọi tên này; cổng `cotDbLech` đối chiếu với schema.prisma.
+   */
+  cotDb?: string;
   /** Quan hệ tới `User` — bắt buộc với kiểu `nguoi`. */
   quanHe?: string;
   /**
@@ -73,6 +78,7 @@ function kiemKhai(khai: KhaiThucThe): void {
       if (!t.cot)
         throw new Error(`Trường "${t.key}" (kiểu ${t.kieu}) thiếu cot`);
       kiemTen(t.cot, 'nguồn');
+      if (t.cotDb) kiemTen(t.cotDb, 'CSDL');
     }
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
@@ -88,6 +94,10 @@ const cotTatCa = (khai: KhaiThucThe) => [
     .map((t) => t.cot as string),
   ...(khai.cotThemVaoTatCa ?? []),
 ];
+
+/** Tên cột CSDL của một trường Prisma trong khai — `cotDb` nếu có `@map`, không thì chính tên trường. */
+const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
+  khai.truong.find((t) => t.cot === cot && t.cotDb)?.cotDb ?? cot;
 
 const coTruongNguoi = (khais: readonly KhaiThucThe[]) =>
   khais.some((k) => k.truong.some((t) => t.kieu === 'nguoi'));
@@ -188,17 +198,18 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
     });
   }
   for (const khai of khais) {
+    const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
         ...cotChu(khai).map((c) => ({
           cotBong: cotBongCua(c).cot,
-          bieuThuc: moi(c),
+          bieuThuc: moi(tenCotDb(khai, c)),
         })),
-        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotTatCa(khai)) },
+        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
       ],
-      cotNguon: cotTatCa(khai),
+      cotNguon: cotDbTatCa,
     });
   }
   return ra;
@@ -356,9 +367,12 @@ export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   return cauNap(khai.bang, [
     ...cotChu(khai).map((c) => ({
       cotBong: cotBongCua(c).cot,
-      bieuThuc: cotDong(c),
+      bieuThuc: cotDong(tenCotDb(khai, c)),
     })),
-    { cotBong: COT_TAT_CA.cot, bieuThuc: ghepDong(cotTatCa(khai)) },
+    {
+      cotBong: COT_TAT_CA.cot,
+      bieuThuc: ghepDong(cotTatCa(khai).map((c) => tenCotDb(khai, c))),
+    },
   ]);
 }
 

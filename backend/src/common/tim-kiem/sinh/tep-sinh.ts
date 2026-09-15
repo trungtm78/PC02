@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TruongPrisma } from './sinh-tim-kiem';
+import type { KhaiThucThe, TruongPrisma } from './sinh-tim-kiem';
 
 /**
  * Chỗ nằm của các tệp bộ sinh tìm kiếm — MỘT nơi cho CLI ghi và cổng đọc, để hai bên không trỏ
@@ -54,6 +54,43 @@ function thanModel(schema: string, model: string): string | undefined {
     schema,
   );
   return m?.[1];
+}
+
+export interface CotDbLech {
+  model: string;
+  field: string;
+  /** Tên cột khai dùng trong SQL thô (`cotDb` hoặc tên trường). */
+  khai: string;
+  /** Tên cột theo schema (`@map` hoặc tên trường); `null` khi model không có trường ấy. */
+  schema: string | null;
+}
+
+/**
+ * Trường khai mà tên cột SQL lệch schema.prisma: quên `cotDb` cho trường có `@map`, khai `cotDb`
+ * thừa, hoặc gõ sai tên trường. Trigger sinh từ tên lệch sẽ làm migration dừng giữa deploy.
+ */
+export function cotDbLech(
+  schema: string,
+  khais: readonly KhaiThucThe[],
+): CotDbLech[] {
+  const ra: CotDbLech[] = [];
+  for (const khai of khais) {
+    const than = thanModel(schema, khai.model) ?? '';
+    const cotSchema = (field: string): string | null => {
+      const dong = new RegExp(`^\\s*${field}\\s+\\S+[^\\n]*$`, 'm').exec(than);
+      if (!dong) return null;
+      return /@map\("([^"]+)"\)/.exec(dong[0])?.[1] ?? field;
+    };
+    const kiem = (field: string, khaiCot: string) => {
+      const s = cotSchema(field);
+      if (s !== khaiCot) {
+        ra.push({ model: khai.model, field, khai: khaiCot, schema: s });
+      }
+    };
+    for (const t of khai.truong) if (t.cot) kiem(t.cot, t.cotDb ?? t.cot);
+    for (const c of khai.cotThemVaoTatCa ?? []) kiem(c, c);
+  }
+  return ra;
 }
 
 /** Field bộ sinh cần mà schema.prisma chưa khai đúng `<field> String? @map("<cot>")`. */

@@ -9,6 +9,7 @@ import {
   truongPrismaCanCo,
 } from './sinh/sinh-tim-kiem';
 import {
+  cotDbLech,
   TEP_FRONTEND,
   TEP_SCHEMA,
   TEP_SQL_BAT_LAI,
@@ -55,6 +56,11 @@ describe('GATE tìm kiếm — tệp sinh khớp tệp khai', () => {
 
   it('docs/van-hanh/bat-lai-trigger-tim-kiem.sql ≡ đầu ra bộ sinh', () => {
     expect(docLF(TEP_SQL_BAT_LAI)).toBe(sinhSqlBatLaiTimKiem(KHAI_TIM_KIEM));
+  });
+
+  /** Trigger gọi tên cột thật — khai lệch `@map` thì migration dừng giữa deploy. */
+  it('tên cột trong khai khớp @map của schema.prisma', () => {
+    expect(cotDbLech(docLF(TEP_SCHEMA), KHAI_TIM_KIEM)).toEqual([]);
   });
 
   it('schema.prisma khai đủ field chỉ đọc cho mọi cột bóng', () => {
