@@ -130,12 +130,12 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
     (ham) => {
       const duong = 'backend/src/petitions/petitions.service.ts';
       const than = THAN(duong, ham);
-      expect(than).toMatch(/dieuKienTimKiemDonThu\(\s*query\b/);
+      expect(than).toMatch(/this\.timKiem\.dieuKien\(\s*query\s*\)/);
       expect(than).not.toMatch(/where\.unit\s*=/);
 
       const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
       expect(src).toMatch(
-        /cu\(query\.unit\)\)\s*tho\.push\(\s*`donViGiaiQuyet~/,
+        /THAM_SO_CU_DON_THU\s*=\s*\{[^}]*\bunit:\s*'donViGiaiQuyet'/,
       );
       const truong = KHAI_TIM_KIEM_DON_THU.truong.find(
         (t) => t.key === 'donViGiaiQuyet',
