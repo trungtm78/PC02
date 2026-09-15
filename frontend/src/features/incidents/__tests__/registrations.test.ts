@@ -115,17 +115,16 @@ describe('incidentsRowActions', () => {
 });
 
 describe('incidentsListFilters', () => {
-  it('registers 9 fields — 3 gốc + 5 ô theo bảng lọc hệ cũ', () => {
+  it('registers 6 fields — ô lọc chữ theo cột đã thành thẻ tìm kiếm', () => {
     // Vụ việc trước đây KHÔNG có ô ngày nào trong registry, nên Từ/Đến ngày ở đây là ô
     // mới thật, không phải trùng với ô sẵn có như ở Đơn thư và Vụ án.
+    // 15/09/2026: Đơn vị / STT / STT cũ chuyển sang ô tìm kiếm dạng thẻ. `reporter` Ở LẠI: nó tra
+    // CCCD/SĐT người tố giác — không cột nào trên danh sách mang nó nên không thành thẻ được.
     expect(incidentsListFilters.all().map((f) => f.key)).toEqual([
       'loaiDonVu',
       'reporter',
-      'unit',
       'fromDateRange',
       'toDateRange',
-      'stt',
-      'sttCu',
       'canBoNhapId',
       // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
       // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
@@ -160,11 +159,8 @@ describe('incidentsListFilters', () => {
     expect(incidentsListFilters.all().map((f) => f.testid)).toEqual([
       'filter-loai-don-vu',
       'filter-reporter',
-      'filter-unit',
       'filter-from-date',
       'filter-to-date',
-      'filter-stt',
-      'filter-stt-cu',
       'filter-can-bo-nhap',
       'filter-tinh-theo',
     ]);

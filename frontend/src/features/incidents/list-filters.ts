@@ -9,6 +9,11 @@ import { createListFilterRegistry } from '@/features/_shared/list-filters/regist
  * Phase tabs (Tiếp nhận / Xác minh / Kết quả / Tạm đình chỉ) handled by shell
  * separately via existing phaseFilter URL state.
  *
+ * 15/09/2026: các ô lọc CHỮ theo cột (Đơn vị, STT, STT cũ) chuyển sang ô tìm kiếm dạng thẻ — khoá
+ * thẻ khai ở `backend/src/common/tim-kiem/khai/vu-viec.khai.ts`. Đường dẫn cũ `incidents_unit=`…
+ * vẫn mở ra thẻ tương ứng (`THAM_SO_CU_VU_VIEC` ở IncidentListPageShell). `reporter` Ở LẠI: nó tra
+ * CCCD/SĐT người tố giác, không cột nào trên danh sách mang nó nên không thành thẻ được.
+ *
  * See docs/audit/shell-parity-matrix.md Incidents section.
  */
 
@@ -16,9 +21,6 @@ export interface IncidentFilterValue {
   keyword?: string;
   loaiDonVu?: string;
   reporter?: string;
-  unit?: string;
-  stt?: string;
-  sttCu?: string;
   canBoNhapId?: string;
   fromDateRange?: string;
   toDateRange?: string;
@@ -54,14 +56,6 @@ incidents.registerMany([
     placeholder: 'CCCD hoặc số điện thoại',
   },
   {
-    key: 'unit',
-    label: 'Đơn vị',
-    type: 'text',
-    urlKey: 'unit',
-    testid: 'filter-unit',
-    placeholder: 'PC02, PC03, ...',
-  },
-  {
     key: 'fromDateRange',
     label: 'Từ ngày',
     type: 'date',
@@ -78,21 +72,6 @@ incidents.registerMany([
   // ── Bổ sung theo bảng lọc hệ cũ (25/08/2026) ─────────────────────────────
   // Khai VÀO ĐÂY chứ không dựng mặt lọc riêng: hai mặt lọc trên một màn hình thì không có
   // cách nào đúng để trả lời "ô nào đang có hiệu lực" — đúng lỗi đã mắc và phải gỡ.
-  {
-    key: 'stt',
-    label: 'STT',
-    type: 'text',
-    urlKey: 'stt',
-    testid: 'filter-stt',
-    placeholder: 'vd 26-9706',
-  },
-  {
-    key: 'sttCu',
-    label: 'STT cũ',
-    type: 'text',
-    urlKey: 'stt_cu',
-    testid: 'filter-stt-cu',
-  },
   {
     key: 'canBoNhapId',
     label: 'Cán bộ nhập',

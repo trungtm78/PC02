@@ -17,9 +17,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const testQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
 
-const mockApiGet = vi.fn();
-const mockApiDelete = vi.fn(() => Promise.resolve({ data: { success: true } }));
+// `vi.hoisted`: `vi.mock` được kéo lên đầu tệp, và `FeatureFlagsContext` (import tĩnh) nạp `@/lib/api`
+// ngay lúc import — biến khai thường lúc ấy chưa khởi tạo.
+const { mockApiGet, mockApiDelete } = vi.hoisted(() => ({
+  mockApiGet: vi.fn(),
+  mockApiDelete: vi.fn(() => Promise.resolve({ data: { success: true } })),
+}));
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -74,9 +80,9 @@ function setupHappyFetch() {
   });
 }
 
-async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
+async function renderPage(initialEntry = '/uy-thac-dieu-tra', flags?: FeatureFlag[]) {
   const { default: Page } = await import('../UyThacDieuTraListPage');
-  return render(
+  const trang = (
     <QueryClientProvider client={testQueryClient()}>
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -87,8 +93,30 @@ async function renderPage(initialEntry = '/uy-thac-dieu-tra') {
         />
       </Routes>
     </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
+  );
+}
+
+const CO_TAT_THE: FeatureFlag[] = [
+  {
+    key: 'TIM_KIEM_THE',
+    label: 'Tìm kiếm dạng thẻ',
+    description: null,
+    enabled: false,
+    domain: null,
+    rolloutPct: 100,
+  },
+];
+
+/** Tham số (đã giải mã) của lượt gọi CUỐI tới đường dẫn bắt đầu bằng `duong`. */
+function thamSoGoiCuoi(duong: string): URLSearchParams {
+  const goi = mockApiGet.mock.calls
+    .map((c) => (c as unknown as [string])[0])
+    .filter((u) => typeof u === 'string' && u.split('?')[0] === duong);
+  return new URLSearchParams((goi[goi.length - 1] ?? '').split('?')[1] ?? '');
 }
 
 describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
@@ -307,13 +335,86 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     });
   });
 
-  it('control chars in utdt_dv (donViGiao) → stripped', async () => {
+  it('cờ tắt: control chars in utdt_dv (donViGiao) → stripped', async () => {
     // utdt_dv contains tab (%09) + LF (%0A) — should be removed
-    await renderPage('/uy-thac-dieu-tra?utdt_dv=PC01%09evil%0A');
+    await renderPage('/uy-thac-dieu-tra?utdt_dv=PC01%09evil%0A', CO_TAT_THE);
     await waitFor(() => {
       const url = mockApiGet.mock.calls[0][0] as string;
       // donViGiao param present with PC01evil (control chars stripped)
       expect(url).toContain('donViGiao=PC01evil');
+    });
+  });
+
+  /**
+   * Ô tìm kiếm dạng thẻ (15/09/2026). Ô chữ "Đơn vị giao" và "Điều tra viên" thành thẻ; đường dẫn
+   * cũ `utdt_dv`/`utdt_inv`/`utdt_q` vẫn mở ra đúng bộ lọc. Thẻ phải tới CẢ danh sách lẫn thẻ đếm.
+   */
+  describe('ô tìm kiếm dạng thẻ', () => {
+    it('đường dẫn cũ `q` + `dv` + `inv` → thẻ, gửi tới CẢ /cases lẫn /cases/utdt-stats', async () => {
+      await renderPage('/uy-thac-dieu-tra?utdt_q=abc&utdt_dv=PC01&utdt_inv=An');
+      await waitFor(() => {
+        expect(thamSoGoiCuoi('/cases').getAll('tk')).toEqual([
+          '*~abc',
+          'donViGiao~PC01',
+          'dieuTraVien~An',
+        ]);
+        expect(thamSoGoiCuoi('/cases/utdt-stats').getAll('tk')).toEqual([
+          '*~abc',
+          'donViGiao~PC01',
+          'dieuTraVien~An',
+        ]);
+      });
+      for (const duong of ['/cases', '/cases/utdt-stats']) {
+        const p = thamSoGoiCuoi(duong);
+        expect(p.get('search')).toBeNull();
+        expect(p.get('donViGiao')).toBeNull();
+        expect(p.get('investigatorName')).toBeNull();
+      }
+      expect(thamSoGoiCuoi('/cases').get('caseType')).toBe('UY_THAC_DIEU_TRA');
+    });
+
+    it('có ô thẻ; ô chữ "Đơn vị giao" và "Điều tra viên" rời mặt lọc', async () => {
+      await renderPage();
+      expect(
+        await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' }),
+      ).toBeInTheDocument();
+      // Dò theo placeholder: nhãn của ô lọc UTDT không gắn `htmlFor`, dò theo nhãn luôn rỗng —
+      // ca kiểm sẽ xanh cả khi ô còn nguyên.
+      expect(screen.queryByPlaceholderText('PC01, CA quận X...')).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Tên điều tra viên...')).not.toBeInTheDocument();
+    });
+
+    it('gợi ý có trường riêng UTDT (Số QĐ/Phiếu)', async () => {
+      await renderPage();
+      const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+      fireEvent.change(o, { target: { value: '123' } });
+      const goiY = (await screen.findAllByRole('option')).map((x) => x.textContent ?? '');
+      expect(goiY).toContain('Tìm Số QĐ/Phiếu: "123"');
+    });
+
+    it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+      mockApiGet.mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+          return Promise.resolve({
+            data: { total: 0, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 0 } },
+          });
+        }
+        return Promise.resolve({ data: { success: true, data: [], total: 0 } });
+      });
+      await renderPage('/uy-thac-dieu-tra?utdt_tk=toiDanh~zzz');
+      const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+      expect(vung).toHaveTextContent('Không tìm thấy với');
+    });
+
+    it('cờ tắt → ô chữ cũ, gửi `search` + `donViGiao` như trước', async () => {
+      await renderPage('/uy-thac-dieu-tra?utdt_q=abc&utdt_dv=PC01', CO_TAT_THE);
+      await waitFor(() => {
+        const p = thamSoGoiCuoi('/cases');
+        expect(p.get('search')).toBe('abc');
+        expect(p.get('donViGiao')).toBe('PC01');
+        expect(p.getAll('tk')).toEqual([]);
+      });
+      expect(screen.getByRole('searchbox')).toBeInTheDocument();
     });
   });
 
