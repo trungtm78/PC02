@@ -12,20 +12,35 @@ import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_LUAT_SU } from '../common/tim-kiem/khai/luat-su.khai';
+
+/** `search` cũ (GlobalSearchBar, đường dẫn cũ) → thẻ "tất cả các cột". */
+const THAM_SO_CU_LUAT_SU = { search: KHOA_TAT_CA } as const;
 
 @Injectable()
 export class LawyersService {
+  private boTimKiem?: BoTimKiem;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_LUAT_SU,
+      THAM_SO_CU_LUAT_SU,
+    ));
+  }
 
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
   async getList(query: QueryLawyersDto, dataScope?: DataScope | null) {
     const {
-      search,
       caseId,
       subjectId,
       limit = 20,
@@ -38,21 +53,20 @@ export class LawyersService {
       deletedAt: null,
     };
 
-    if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: 'insensitive' } },
-        { barNumber: { contains: search, mode: 'insensitive' } },
-        { lawFirm: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, cùng luật với các màn danh sách khác; khoá lạ → 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(query),
+    );
 
     if (caseId) where.caseId = caseId;
     if (subjectId) where.subjectId = subjectId;
 
     const caseScope = buildScopeFilter(dataScope);
     if (caseScope) {
-      (where as any).case = caseScope;
+      // NỐI vào AND, không gán `where.case`: thẻ Vụ án cũng lọc trên quan hệ `case` — gán ở tầng trên
+      // là một bên đè bên kia, cán bộ thấy luật sư ngoài phạm vi.
+      noiVaoWhere(where as Record<string, unknown>, [{ case: caseScope }]);
     }
 
     const allowedSortFields = [

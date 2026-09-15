@@ -22,6 +22,7 @@ const TEN_BANG = [
   'petitions',
   'incidents',
   'cases',
+  'lawyers',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -73,7 +74,11 @@ describe('napCotBongTimKiem', () => {
   );
   afterEach(() => jest.restoreAllMocks());
 
-  it('nạp đủ mọi bảng có cột bóng: users, subjects trước; rồi đơn thư, vụ việc, vụ án', async () => {
+  /**
+   * `subjects` chỉ xuất hiện MỘT lần dù hai nguồn đòi cột bóng (thẻ bị can của Vụ án + khai Đối
+   * tượng) — bộ sinh gộp khối theo bảng, CLI đi theo khối đã gộp.
+   */
+  it('nạp đủ mọi bảng có cột bóng, mỗi bảng một lần: users, subjects; rồi đơn thư, vụ việc, vụ án, luật sư', async () => {
     const { prisma } = gia({});
     const kq = await napCotBongTimKiem(prisma as never, false);
     expect(kq.map((k) => k.bang)).toEqual([
@@ -82,6 +87,7 @@ describe('napCotBongTimKiem', () => {
       'petitions',
       'incidents',
       'cases',
+      'lawyers',
     ]);
   });
 
@@ -177,7 +183,7 @@ describe('napCotBongTimKiem', () => {
     };
     const kq = await napCotBongTimKiem(prisma as never, true);
     expect(kq.every((k) => k.lechTruoc === 0)).toBe(true);
-    expect(kq).toHaveLength(5);
+    expect(kq).toHaveLength(TEN_BANG.length);
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
   });
 });

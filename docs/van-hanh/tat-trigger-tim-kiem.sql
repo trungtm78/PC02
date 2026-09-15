@@ -24,10 +24,13 @@ BEGIN
 END $$;
 
 -- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──
+-- ── subjects (doi-tuong) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_subjects() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW."full_name_bd" := NULL;
+  NEW."id_number_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
 
@@ -71,6 +74,18 @@ BEGIN
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
   NEW."crime_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── lawyers (luat-su) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_lawyers() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."full_name_bd" := NULL;
+  NEW."bar_number_bd" := NULL;
+  NEW."law_firm_bd" := NULL;
+  NEW."phone_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
