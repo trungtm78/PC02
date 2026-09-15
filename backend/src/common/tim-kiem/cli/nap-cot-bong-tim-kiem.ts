@@ -20,8 +20,10 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { KHAI_TIM_KIEM } from '../khai';
 import {
+  canNapDoiTuong,
   canNapHoTen,
   sinhCauNapCotBong,
+  sinhCauNapDoiTuong,
   sinhCauNapHoTen,
   type CauNap,
 } from '../sinh/sinh-tim-kiem';
@@ -50,6 +52,9 @@ export async function napCotBongTimKiem(
   const viec: Array<{ bang: string; cau: CauNap }> = [
     ...(canNapHoTen(KHAI_TIM_KIEM)
       ? [{ bang: 'users', cau: sinhCauNapHoTen() }]
+      : []),
+    ...(canNapDoiTuong(KHAI_TIM_KIEM)
+      ? [{ bang: 'subjects', cau: sinhCauNapDoiTuong() }]
       : []),
     ...KHAI_TIM_KIEM.map((k) => ({ bang: k.bang, cau: sinhCauNapCotBong(k) })),
   ];

@@ -1,7 +1,7 @@
 // AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.
 // Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts
 
-export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi';
+export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong';
 
 export const TIM_KIEM_DON_THU = [
   { key: 'stt', nhan: 'STT', kieu: 'ma' },

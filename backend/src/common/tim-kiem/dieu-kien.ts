@@ -3,6 +3,7 @@ import { hoSoCodeVariants } from '../utils/ho-so-code.util';
 import { dieuKienSttCu } from '../utils/stt-cu.util';
 import { boDauTimKiem, thoatLike } from './bo-dau';
 import {
+  COT_NGUON_DOI_TUONG,
   COT_NGUON_HO_TEN,
   cotBongCua,
   cotGhepTatCa,
@@ -222,6 +223,8 @@ function dieuKienMotThe(
       );
     case 'chon':
       return [{ [cot]: { in: [...the.giaTri] } }];
+    case 'doi-tuong':
+      return hoac(the.giaTri.flatMap((v) => dieuKienDoiTuong(truong, v)));
     case 'nguoi':
       return hoac(
         the.giaTri.flatMap((v) => {
@@ -248,6 +251,29 @@ function dieuKienMotThe(
         }),
       );
   }
+}
+
+/**
+ * Thẻ kiểu đối tượng: có ÍT NHẤT MỘT đối tượng đúng loại, chưa xoá, tên khớp. Luôn giữ nhánh lùi —
+ * bảng `subjects` nhỏ nên không tốn, và `full_name_bd` rỗng tới khi chạy CLI nạp.
+ */
+function dieuKienDoiTuong(truong: TruongTimKiem, v: string): DieuKien[] {
+  const mau = mauBoDau(v);
+  if (mau === undefined) return [];
+  return [
+    {
+      [truong.quanHe as string]: {
+        some: {
+          deletedAt: null,
+          ...(truong.loaiDoiTuong ? { type: truong.loaiDoiTuong } : {}),
+          OR: [
+            { fullNameBd: { contains: mau } },
+            { fullNameBd: null, ...chuaGoc(COT_NGUON_DOI_TUONG[0], v) },
+          ],
+        },
+      },
+    },
+  ];
 }
 
 export interface TuyChonDieuKien {
