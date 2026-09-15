@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp). Trước đó: 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -533,7 +533,7 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 | Gợi ý = cột đang hiện | `ColumnDef.timKiem` + `truongGoiY` | ✅ cổng `pages/__tests__/timKiemCotKhai.gate.test.ts` (gộp cả ba thực thể) |
 | Ô lọc chữ STT / STT cũ / Người gửi / Đơn vị | GỠ khỏi mặt lọc — thành thẻ | ✅ đường dẫn cũ → thẻ |
 | Không kết quả | `list-page-shell-table-empty-filtered` + "Không tìm thấy với" + bỏ từng thẻ | ✅ |
-| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` như cũ | ✅ |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` như cũ. **Bốn ô lọc chữ đã gỡ (Người gửi · Đơn vị · STT · STT cũ) KHÔNG hiện lại**: `features/petitions/list-filters.ts` gỡ hẳn khỏi registry, không có nhánh nào rẽ theo cờ — nên đường dẫn cũ `petitions_sender=` khi cờ tắt không lọc được | ✅ (giới hạn đã biết, 16/09/2026) |
 
 ### Header / bulk
 
@@ -557,7 +557,7 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 |---|---|
 | Ô chữ `comp_q` → thẻ `*` (khoá chuẩn liên thực thể) tới CẢ BA API danh sách `/cases` `/incidents` `/petitions` | ✅ |
 | Cùng thẻ ấy tới ba API thống kê (chế độ một loại) — số trên chip khớp dòng | ✅ |
-| Cờ `TIM_KIEM_THE` tắt → `search` như trước | ✅ |
+| Cờ `TIM_KIEM_THE` tắt → `search` như trước. **Ba ô lọc chữ đã gỡ (Quận/Huyện · Trạng thái chung · Người tạo) KHÔNG hiện lại**: `features/comprehensive/list-filters.ts` chỉ còn hai ô ngày, không có nhánh nào rẽ theo cờ — nên đường dẫn cũ `comp_district=` khi cờ tắt không lọc được | ✅ (giới hạn đã biết, 16/09/2026) |
 | Ô thẻ chọn cột + cột có khai `timKiem` | ✅ M4 (15/09/2026) — khai theo chip loại: "Tất cả" = khoá chung ba loại (bỏ kiểu chọn); một loại = khai đầy đủ loại ấy; thẻ không hợp lệ với chế độ hiện ĐỎ, không gửi |
 | Thống kê chip khi có thẻ riêng một loại | ✅ loại không nhận đủ khoá thì KHÔNG gọi `/stats` (tránh 400 / số không lọc), chip để trống số |
 | Mặt lọc: Quận/Huyện · Trạng thái (chung) · Người tạo | GỠ — từng khai mà không đi xuống API; nay là thẻ `donViGiaiQuyet` · `trangThai` · `nguoiNhap`, đường dẫn cũ `comp_district`/`comp_status`/`comp_created_by` mở ra thẻ |
