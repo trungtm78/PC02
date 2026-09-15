@@ -6,7 +6,7 @@
 | GET | /api/v1/petitions | read/Petition | QueryPetitionsDto |
 | GET | /api/v1/petitions/linkable | read/Petition | ListLinkableDto |
 | GET | /api/v1/petitions/stats | read/Petition | QueryPetitionsStatsDto |
-| GET | /api/v1/petitions/export | read/Petition (5/60s) | ExportPetitionsQueryDto |
+| GET | /api/v1/petitions/export | read/Petition (5/60s) | ExportPetitionsQueryDto: ids, fromDate, toDate, unit, status + **tk[] / search (M6)** — lượt xuất áp CÙNG thẻ với danh sách |
 | GET | /api/v1/petitions/export/ward | read/Petition (5/60s) | unitId, fromDate, toDate |
 | GET | /api/v1/petitions/export/duplicates | read/Petition | - |
 | GET | /api/v1/petitions/:id | read/Petition | - |
