@@ -229,11 +229,19 @@ export default function ExportReportsPage() {
     setIsExportingExcel(true);
     try {
       const ids = selectedIds.length > 0 ? selectedIds.join(',') : undefined;
-      const params: Record<string, string> = {};
+      const params: Record<string, string | string[]> = {};
       if (ids) params.ids = ids;
       if (filters.fromDate) params.fromDate = filters.fromDate;
       if (filters.toDate) params.toDate = filters.toDate;
       if (filters.unit) params.unit = filters.unit;
+      // Xuất đúng thứ đang hiện: mang CÙNG ô tìm với danh sách. Không tích dòng nào thì "xuất" chính
+      // là "xuất cái đang xem" — trước đây tệp ra là mọi đơn khớp ngày/đơn vị.
+      if (theBat) {
+        const tk = JSON.parse(tkKey) as string[];
+        if (tk.length) params.tk = tk;
+      } else if (searchQuery) {
+        params.search = searchQuery;
+      }
 
       const response = await api.get('/petitions/export', { params, responseType: 'blob' });
       const timestamp = new Date().toISOString().replace(/[-:T]/g, '').substring(0, 14);

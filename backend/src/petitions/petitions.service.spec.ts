@@ -31,6 +31,8 @@ import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { PetitionStatus, LoaiDon, Prisma } from '@prisma/client';
+// Ca kiểm cũ trong tệp dùng `require('exceljs')`; dòng mới dùng import (luật cấm require).
+import * as ExcelJS from 'exceljs';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -1587,6 +1589,67 @@ describe('PetitionsService', () => {
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
       // scopeFilter should be applied via AND
       expect(callArgs.where.AND).toBeDefined();
+    });
+
+    /**
+     * [lỗi có sẵn — codex M6] Màn Xuất báo cáo lọc bằng thẻ rồi bấm "Xuất Excel": tệp ra là MỌI đơn
+     * khớp ngày/đơn vị, khác hẳn thứ đang hiện. Lượt xuất phải đi qua CÙNG helper thẻ với danh sách.
+     */
+    const oTrong = () => ({
+      value: null,
+      font: {},
+      fill: {},
+      alignment: {},
+      border: {},
+    });
+    const spyWorkbook = () =>
+      jest.spyOn(ExcelJS, 'Workbook').mockImplementation(
+        () =>
+          ({
+            addWorksheet: () => ({
+              mergeCells: jest.fn(),
+              getCell: oTrong,
+              getRow: () => ({ getCell: oTrong, height: 0 }),
+              columns: [],
+            }),
+            xlsx: { write: jest.fn().mockResolvedValue(undefined) },
+          }) as never,
+      );
+
+    it('áp thẻ `tk` như danh sách (xuất đúng thứ đang hiện)', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      spyWorkbook();
+
+      await service.exportToExcel(
+        { tk: ['nguoiGui~tran binh'] } as never,
+        null,
+        buildMockRes() as never,
+      );
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(where.AND)).toContain('"senderNameBd"');
+    });
+
+    it('`search` cũ (cờ thẻ tắt) cũng áp; khoá lạ → 400', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+      spyWorkbook();
+
+      await service.exportToExcel(
+        { search: 'Nguyễn' } as never,
+        null,
+        buildMockRes() as never,
+      );
+      expect(
+        JSON.stringify(mockPrisma.petition.findMany.mock.calls[0][0].where.AND),
+      ).toContain('"timKiemBd"');
+
+      await expect(
+        service.exportToExcel(
+          { tk: ['khongCo~x'] } as never,
+          null,
+          buildMockRes() as never,
+        ),
+      ).rejects.toThrow(/không tìm kiếm được/);
     });
 
     it('limits to 500 records max', async () => {

@@ -104,6 +104,7 @@ PASS bằng bằng chứng đi qua giao diện hoặc HTTP trên máy thật —
 | M6-6 | Trễ hạn: chỉ nhận `*` + khoá chung ba khai; khoá riêng một loại → 400 | đơn vị | PASS |
 | M6-7 | Trễ hạn: lọc `priority` và `recordType` (hoa/thường) áp ở máy chủ | đơn vị | PASS (đã sửa sau codex) |
 | M6-8 | Danh sách đã xoá (Khôi phục) nhận thẻ theo khai từng loại + DTO kiểm `limit`/`offset` | đơn vị | PASS |
+| M6-8b | Xuất Excel đơn thư áp CÙNG thẻ với danh sách (xuất đúng thứ đang hiện) | đơn vị + giao diện | PASS (lỗi có sẵn, codex bắt) |
 
 ### Cán bộ trên máy thật (CHƯA CHẠY — phải bấm thử sau khi deploy)
 
@@ -132,7 +133,6 @@ PASS bằng bằng chứng đi qua giao diện hoặc HTTP trên máy thật —
 | Chỗ | Vì sao |
 |---|---|
 | Thẻ `*` không tìm `petitions.unit` (89/47.273 dòng = 0,19%) và `cases.unit` (0 dòng) | đổi khai phải sinh lại cột bóng đơn thư đã chạy prod từ M2; số đo quá nhỏ so với rủi ro |
-| Nút "Xuất Excel" ở Xuất báo cáo không áp ô tìm | vốn đã vậy trước đợt này (không phải hồi quy) |
 | Đơn vị hành chính giữ ô chữ | là ô gợi ý kiểu Cmd+K, không phải màn danh sách; chỉ máy chủ bỏ dấu |
 
 ## Chốt cuối (09/09/2026)

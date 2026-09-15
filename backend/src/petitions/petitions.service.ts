@@ -1355,6 +1355,13 @@ export class PetitionsService {
   ): Promise<void> {
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
 
+    // Lượt xuất áp CÙNG thẻ với danh sách: màn lọc bằng thẻ còn vài đơn mà tệp xuất ra mọi đơn khớp
+    // ngày/đơn vị là hai câu trả lời khác nhau cho cùng một câu hỏi.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien({ search: query.search, tk: query.tk }),
+    );
+
     if (query.ids) {
       where.id = { in: query.ids.split(',').map((s) => s.trim()).filter(Boolean) };
     }

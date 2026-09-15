@@ -113,4 +113,31 @@ describe('ExportReportsPage — ô tìm kiếm dạng thẻ', () => {
     await waitFor(() => expect(thamSoCuoi().get('search')).toBe('an'));
     expect(thamSoCuoi().getAll('tk')).toEqual([]);
   });
+
+  /**
+   * [lỗi có sẵn — codex M6] Nút "Xuất Excel" dựng tham số riêng (ids/fromDate/toDate/unit) nên KHÔNG
+   * mang ô tìm: màn lọc bằng thẻ còn 3 đơn, tệp xuất ra là mọi đơn khớp ngày/đơn vị. Không tích dòng
+   * nào thì đó chính là "xuất cái đang xem".
+   */
+  it('bấm "Xuất Excel" khi đang lọc bằng thẻ → lượt xuất mang CÙNG thẻ', async () => {
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() });
+    m.get.mockImplementation((url: string) => {
+      if (url === '/petitions/export') return Promise.resolve({ data: new Blob(['x']) });
+      if (url.startsWith('/petitions?')) {
+        return Promise.resolve({ data: { data: [DON], total: 1 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    dung('/?exportReports_tk=nguoiGui~nguyen');
+    await screen.findByText('2026-15');
+
+    fireEvent.click(screen.getByRole('button', { name: /Xuất Excel/ }));
+
+    await waitFor(() => {
+      const goi = m.get.mock.calls.filter((c) => (c as [string])[0] === '/petitions/export');
+      expect(goi.length).toBeGreaterThan(0);
+      const ts = (goi[goi.length - 1] as [string, { params?: Record<string, unknown> }])[1]?.params;
+      expect(ts?.tk).toEqual(['nguoiGui~nguyen']);
+    });
+  });
 });
