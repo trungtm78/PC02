@@ -162,6 +162,7 @@ ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "don_vi_giao_bd" text;
 ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "so_quyet_dinh_uy_thac_bd" text;
 ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "nghi_van_doi_tuong_bd" text;
 ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "crime_bd" text;
+ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "name_bd" text;
 ALTER TABLE "cases" ADD COLUMN IF NOT EXISTS "tim_kiem_bd" text;
 
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_cases() RETURNS trigger
@@ -176,6 +177,7 @@ BEGIN
   NEW."so_quyet_dinh_uy_thac_bd" := ' ' || f_bo_dau(NEW."so_quyet_dinh_uy_thac");
   NEW."nghi_van_doi_tuong_bd" := ' ' || f_bo_dau(NEW."nghiVanDoiTuong");
   NEW."crime_bd" := ' ' || f_bo_dau(NEW."crime");
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
   NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."caseCode", NEW."sttCu", NEW."nguonDon", NEW."tenCungCap", NEW."moTaChiTiet", NEW."donViGiaiQuyet", NEW."ketQuaXuLyKhac", NEW."don_vi_giao", NEW."so_quyet_dinh_uy_thac", NEW."nghiVanDoiTuong", NEW."crime", NEW."name", NEW."soHoSoCu"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
@@ -189,6 +191,7 @@ EXCEPTION WHEN OTHERS THEN
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
   NEW."crime_bd" := NULL;
+  NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
@@ -207,6 +210,7 @@ CREATE INDEX IF NOT EXISTS "cases_don_vi_giao_bd_trgm" ON "cases" USING gin ("do
 CREATE INDEX IF NOT EXISTS "cases_so_quyet_dinh_uy_thac_bd_trgm" ON "cases" USING gin ("so_quyet_dinh_uy_thac_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "cases_nghi_van_doi_tuong_bd_trgm" ON "cases" USING gin ("nghi_van_doi_tuong_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "cases_crime_bd_trgm" ON "cases" USING gin ("crime_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "cases_name_bd_trgm" ON "cases" USING gin ("name_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "cases_tim_kiem_bd_trgm" ON "cases" USING gin ("tim_kiem_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "cases_tim_kiem_bd_chua_nap" ON "cases" ("id") WHERE "tim_kiem_bd" IS NULL;
 

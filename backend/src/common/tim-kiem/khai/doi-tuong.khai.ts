@@ -22,8 +22,8 @@ export const KHAI_TIM_KIEM_DOI_TUONG: KhaiThucThe = {
       kieu: 'quan-he',
       quanHe: 'case',
       modelDich: 'Case',
-      cotDich: 'timKiemBd',
-      cotNguonDich: ['caseCode', 'name'],
+      cotDich: 'nameBd',
+      cotNguonDich: ['name'],
     },
     {
       key: 'trangThai',

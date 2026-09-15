@@ -34,10 +34,12 @@ export class QuerySubjectsDto {
   @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
   tk?: string[];
 
-  /** Ô tìm cũ (GlobalSearchBar, đường dẫn cũ) — máy chủ quy về thẻ "tất cả các cột". */
+  /**
+   * Ô tìm cũ (GlobalSearchBar, đường dẫn cũ) — máy chủ quy về thẻ "tất cả các cột" và tự cắt độ dài.
+   * Không chặn độ dài ở đây: chặn là 400 trước khi kịp cắt, nhóm Đối tượng lặng lẽ biến khỏi tìm chung.
+   */
   @IsString()
   @IsOptional()
-  @MaxLength(DO_DAI_GIA_TRI_TOI_DA)
   search?: string;
 
   @IsEnum(SubjectStatus)

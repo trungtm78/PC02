@@ -668,6 +668,8 @@ model Case {
   soQuyetDinhUyThacBd String? @map("so_quyet_dinh_uy_thac_bd")
   nghiVanDoiTuongBd   String? @map("nghi_van_doi_tuong_bd")
   crimeBd             String? @map("crime_bd")
+  /// CHỈ ĐỌC — cột bóng TÊN vụ án, đích của thẻ "Vụ án" ở Đối tượng/Luật sư (`cotBongPhu` trong vu-an.khai.ts).
+  nameBd              String? @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ án, số hồ sơ cũ — thẻ "tất cả các cột".
   timKiemBd           String? @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở

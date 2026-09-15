@@ -5,9 +5,10 @@ import {
   boThe as boTheKhoiDs,
   docTheTuThamSo,
   ghiTheRaUrl,
-  khoaHopLe,
   khoaUrlThe,
+  locTheHopLe,
   themGiaTri,
+  type BangMaChon,
   type The,
   type TruongTimKiem,
 } from '@/shared/tim-kiem/the';
@@ -15,6 +16,8 @@ import {
 interface Args {
   prefix: string;
   khai: readonly TruongTimKiem[];
+  /** Mã được nhận của cột kiểu `chon` — thẻ mang mã lạ hiện đỏ và không gửi. Truyền HẰNG của module. */
+  giaTriChon?: BangMaChon;
   /** Tham số trước thời thẻ → khoá thẻ, vd `{ q: '*', sender: 'nguoiGui' }`. Truyền HẰNG của module. */
   thamSoCu?: Readonly<Record<string, string>>;
   /** Cờ `TIM_KIEM_THE` tắt → hook không đọc, không ghi gì; trang dùng lại ô chữ cũ. */
@@ -33,7 +36,13 @@ const KHONG_CO: Readonly<Record<string, string>> = {};
  * chưa nạp (mặc định bật), viết lại là xoá `q` — cờ nạp xong mà đang tắt thì ô chữ cũ mất bộ lọc.
  * Khoá cũ chỉ bị gỡ ở lần cán bộ tự sửa thẻ.
  */
-export function useTheTimKiem({ prefix, khai, thamSoCu = KHONG_CO, bat = true }: Args) {
+export function useTheTimKiem({
+  prefix,
+  khai,
+  giaTriChon,
+  thamSoCu = KHONG_CO,
+  bat = true,
+}: Args) {
   const [sp, setSp] = useSearchParams();
 
   /**
@@ -51,10 +60,9 @@ export function useTheTimKiem({ prefix, khai, thamSoCu = KHONG_CO, bat = true }:
     [bat, sp, prefix, thamSoCu],
   );
 
-  const tkGui = useMemo(
-    () => ghiTheRaUrl(the.filter((t) => khoaHopLe(t.khoa, khai))),
-    [the, khai],
-  );
+  /** Phần thật sự áp: số bộ lọc trên thanh công cụ đếm cái này, không đếm thẻ đỏ. */
+  const theHopLe = useMemo(() => locTheHopLe(the, khai, giaTriChon), [the, khai, giaTriChon]);
+  const tkGui = useMemo(() => ghiTheRaUrl(theHopLe), [theHopLe]);
 
   /** Bộ thẻ MỚI NHẤT — gồm cả lần ghi chưa kịp vẽ. */
   const theMoiNhat = useCallback(
@@ -107,5 +115,5 @@ export function useTheTimKiem({ prefix, khai, thamSoCu = KHONG_CO, bat = true }:
     if (bat) viet(() => []);
   }, [bat, viet]);
 
-  return { the, tkGui, them, boGiaTri, boThe, xoaHet };
+  return { the, theHopLe, tkGui, them, boGiaTri, boThe, xoaHet };
 }

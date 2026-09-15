@@ -41,7 +41,7 @@ export interface TruongTimKiem {
   loaiDoiTuong?: string;
   /**
    * Kiểu `quan-he` (quan hệ MỘT-MỘT, vd Luật sư → Vụ án): model đích, field cột bóng CÓ SẴN của đích
-   * (vd `timKiemBd` do khai Vụ án sinh), và cột gốc của đích để lùi khi cột bóng rỗng. Không dựng
+   * (vd `nameBd` do `cotBongPhu` của khai Vụ án sinh), và cột gốc của đích để lùi khi cột bóng rỗng. Không dựng
    * trigger riêng — bộ sinh báo lỗi nếu không khai nào sinh cột bóng đích.
    */
   modelDich?: string;
@@ -63,6 +63,12 @@ export interface KhaiThucThe {
   truong: readonly TruongTimKiem[];
   /** Cột không hiện trên danh sách nhưng thẻ "tất cả các cột" phải tìm được. */
   cotThemVaoTatCa?: readonly string[];
+  /**
+   * Cột có cột bóng riêng mà KHÔNG thành khoá thẻ trên bảng này — chỉ làm đích cho thẻ `quan-he` của
+   * thực thể khác (vd cột "Vụ án" ở Đối tượng/Luật sư hiện `case.name`: lọc trên `cases.tim_kiem_bd`
+   * ghép 13 cột thì ra cả hồ sơ mà mô tả vụ án có chữ ấy, còn cột trên màn không có).
+   */
+  cotBongPhu?: readonly string[];
 }
 
 const TEN_HOP_LE = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -114,10 +120,16 @@ function kiemKhai(khai: KhaiThucThe): void {
     }
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
+  for (const c of khai.cotBongPhu ?? []) kiemTen(c, 'bóng phụ');
 }
 
 const cotChu = (khai: KhaiThucThe) =>
   khai.truong.filter((t) => t.kieu === 'chu').map((t) => t.cot as string);
+
+/** Cột có cột bóng riêng: cột chữ (thành thẻ) rồi cột bóng phụ (chỉ làm đích quan hệ), không trùng. */
+const cotCoBong = (khai: KhaiThucThe) => [
+  ...new Set([...cotChu(khai), ...(khai.cotBongPhu ?? [])]),
+];
 
 /** Cột ghép vào "tất cả các cột": chữ + mã + cột thêm, theo thứ tự khai. */
 const cotTatCa = (khai: KhaiThucThe) => [
@@ -250,17 +262,18 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   }
   for (const khai of khais) {
     const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
+    const cotDbBong = cotCoBong(khai).map((c) => tenCotDb(khai, c));
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
-        ...cotChu(khai).map((c) => ({
+        ...cotCoBong(khai).map((c) => ({
           cotBong: cotBongCua(c).cot,
           bieuThuc: moi(tenCotDb(khai, c)),
         })),
         { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
       ],
-      cotNguon: cotDbTatCa,
+      cotNguon: [...new Set([...cotDbTatCa, ...cotDbBong])],
     });
   }
   return gopTheoBang(ra);
@@ -340,6 +353,9 @@ export function sinhSqlTatTimKiem(khais: readonly KhaiThucThe[]): string {
     '--',
     '-- Muốn giấu luôn ô thẻ trên giao diện: tắt cờ tính năng TIM_KIEM_THE (màn danh sách trở lại ô chữ cũ).',
     '-- Bật lại: chạy docs/van-hanh/bat-lai-trigger-tim-kiem.sql rồi nạp lại cột bóng (chỉ dẫn trong tệp ấy).',
+    '--',
+    '-- LƯU Ý DEPLOY: mỗi migration tìm kiếm mới chạy lại `CREATE OR REPLACE FUNCTION` nên BẬT LẠI trigger.',
+    '-- Deploy trong lúc đang tắt khẩn thì chạy lại tệp này ngay sau deploy nếu sự cố chưa xử lý xong.',
     '--',
     '-- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/tat-trigger-tim-kiem.sql',
     '',
@@ -421,7 +437,7 @@ function kiemDich(khais: readonly KhaiThucThe[]): void {
 function truongPrismaGoc(khais: readonly KhaiThucThe[]): TruongPrisma[] {
   const ra: TruongPrisma[] = [];
   for (const khai of khais) {
-    for (const c of cotChu(khai))
+    for (const c of cotCoBong(khai))
       ra.push({ model: khai.model, ...cotBongCua(c) });
     ra.push({ model: khai.model, ...COT_TAT_CA });
   }
@@ -433,11 +449,6 @@ function truongPrismaGoc(khais: readonly KhaiThucThe[]): TruongPrisma[] {
       ra.findIndex((x) => x.model === t.model && x.field === t.field) === i,
   );
 }
-
-/** Có trường kiểu người → phải nạp `users.ho_ten_bd`. */
-export const canNapHoTen = coTruongNguoi;
-/** Có trường kiểu đối tượng → phải nạp `subjects.full_name_bd`. */
-export const canNapDoiTuong = coTruongDoiTuong;
 
 /**
  * Cột gốc ghép vào `tim_kiem_bd` — CÙNG danh sách trigger dùng. Điều kiện thẻ "tất cả các cột" lùi
@@ -481,7 +492,7 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
 export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   kiemKhai(khai);
   return cauNap(khai.bang, [
-    ...cotChu(khai).map((c) => ({
+    ...cotCoBong(khai).map((c) => ({
       cotBong: cotBongCua(c).cot,
       bieuThuc: cotDong(tenCotDb(khai, c)),
     })),

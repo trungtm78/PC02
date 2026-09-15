@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-15 | Milestone: M3/7 | Task: T1–T6 xong trên nhánh; kế: /review + /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng prod
+Cập nhật: 2026-09-15 | Milestone: M4/7 | Task: T1–T5 + sửa /review xong trên nhánh; kế: /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN prod
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
@@ -117,6 +117,13 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - [x] M4-T2+T3 — commit b631a765: khai doi-tuong.khai.ts + luat-su.khai.ts; migration 20260915110524_tim_kiem_doi_tuong_luat_su (subjects một trigger gộp thêm id_number_bd/tim_kiem_bd; lawyers cột bóng + GIN + chua_nap); schema field chỉ đọc; getList Đối tượng/Luật sư qua BoTimKiem (`search` cũ → `*`, khoá lạ 400, DTO `tk`); [P0] phạm vi `where.case` → AND. 25 bộ/315 ca.
 - [x] M4-T4 — commit c1b1c628: ObjectListPageShell (3 loại, tiền tố objects/victims/witnesses, vẫn gửi `type`) + LawyerListPageShell: ô thẻ, cột timKiem, `q` → `*`; the.ts lọc ký tự điều khiển cho thẻ (giữ ranh giới tin cậy sanitizeStringParam). FE 32 tệp/380 ca, tsc -b sạch.
 - [x] M4-T5 — Tổng hợp đầy đủ: khai theo chip loại ("Tất cả" = khoá chung ba loại bỏ kiểu chọn; một loại = khai đầy đủ); thẻ lạ với chế độ hiện đỏ không gửi; thống kê loại khác chỉ gọi khi mọi thẻ thuộc khoá chung (Đơn thư/Vụ việc cũng có khoá trangThai nhưng mã khác/trùng sai nghĩa); mặt lọc gỡ 3 ô chữ chết (thành thẻ donViGiaiQuyet/trangThai/nguoiNhap, đường dẫn cũ → thẻ), 2 ô ngày nay gửi xuống cả 3 API (Vụ việc fromDateRange); cột Đơn vị → "Đơn vị giải quyết" đọc donViGiaiQuyet; cột "Người nhập" ẩn sẵn; cổng timKiemCotKhai + xoaLocGhiUrlCuoi (gieo lỗi nhắm đúng useListFilters). FE 12 tệp/218 ca, lint dòng mới 0.
+- [x] M4 /review (chuyên gia bảo mật/hiệu năng/di trú dữ liệu: KHÔNG phát hiện) — ĐÃ SỬA (TDD, đỏ 9 BE + 7 FE → xanh):
+  - Thẻ "Vụ án" ở Đối tượng/Luật sư lọc `cases.tim_kiem_bd` (13 cột) trong khi cột hiện `case.name` → khai mới `cotBongPhu` (cột bóng không thành khoá thẻ, chỉ làm đích quan hệ); Vụ án `cotBongPhu: ['name']` → `cases.name_bd` + GIN; quan-he trỏ `nameBd`. Migration 20260915110524 sinh lại (chưa deploy).
+  - DTO Đối tượng/Luật sư bỏ `MaxLength` trên `search` cũ (400 trước khi máy chủ kịp cắt → nhóm biến khỏi tìm chung); thêm spec DTO.
+  - Thẻ chọn mang MÃ lạ (đổi chip loại ở Tổng hợp, `comp_status` gõ tự do) → 400 cả màn: `locTheHopLe`/`theHopLe` trong the.ts, hook nhận `giaTriChon`, trả `theHopLe`; thẻ đỏ không gửi.
+  - Thẻ đỏ nói đúng lý do (`lyDoKhongHopLe`, kèm trong aria-label nút sửa); Tổng hợp: "Chỉ áp dụng khi chọn đúng loại hồ sơ" / "Không áp dụng cho loại hồ sơ này".
+  - Chip "Tất cả" không cộng thiếu khi một thống kê bị bỏ; số bộ lọc chỉ đếm thẻ hợp lệ; còn thẻ (kể cả đỏ) mà rỗng → "lọc không ra".
+  - Dọn: bỏ bí danh `canNap*` không ai gọi, chú thích CLI cũ, `tenNguoi` → `hoTen`; SQL tắt khẩn ghi chú migration mới bật lại trigger.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).

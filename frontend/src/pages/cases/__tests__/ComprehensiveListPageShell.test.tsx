@@ -434,4 +434,53 @@ describe('ComprehensiveListPageShell — ô thẻ đầy đủ', () => {
     const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
     expect(vung).toHaveTextContent('Không tìm thấy với');
   });
+
+  /**
+   * Khoá `trangThai` có ở cả ba loại nhưng MÃ khác nhau: đổi chip sang Đơn thư với thẻ trạng thái
+   * Vụ án, xét theo khoá thôi thì thẻ vẫn đi — máy chủ trả 400, cả danh sách thành lỗi.
+   */
+  it('đổi sang loại mà GIÁ TRỊ thẻ chọn không hợp lệ → thẻ đỏ, không gửi (không 400)', async () => {
+    renderWithRouter(['/comprehensive?comp_type=PETITION&comp_tk=trangThai~DANG_DIEU_TRA']);
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveAttribute('data-hop-le', 'false');
+    await waitFor(() => expect(thamSoCuoi('/petitions')).toBeDefined());
+    expect(thamSoCuoi('/petitions')?.tk).toBeUndefined();
+  });
+
+  it('đường dẫn cũ `comp_status` gõ tự do → thẻ đỏ, không gửi', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE&comp_status=dang%20xu%20ly']);
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveAttribute('data-hop-le', 'false');
+    await waitFor(() => expect(thamSoCuoi('/cases')).toBeDefined());
+    expect(thamSoCuoi('/cases')?.tk).toBeUndefined();
+  });
+
+  it('một loại + thẻ CHUNG: thống kê loại khác VẪN gọi, cùng thẻ + ngày theo tên từng API', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE&comp_tk=stt~1&comp_from_date=2026-01-01']);
+    await waitFor(() =>
+      expect(thamSoCuoi('/incidents/stats')).toMatchObject({
+        tk: ['stt~1'],
+        fromDateRange: '2026-01-01',
+      }),
+    );
+    expect(thamSoCuoi('/petitions/stats')).toMatchObject({ tk: ['stt~1'], fromDate: '2026-01-01' });
+  });
+
+  it('thẻ đỏ (không gửi) KHÔNG tính vào số bộ lọc; chỉ còn thẻ đỏ mà rỗng → vẫn "lọc không ra"', async () => {
+    mockGet().mockImplementation((path: string) => {
+      if (path.endsWith('/stats')) return Promise.resolve({ data: { total: 0, byStatus: {} } });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+    renderWithRouter(['/comprehensive?comp_tk=trangThai~TIEP_NHAN']);
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveAttribute('data-hop-le', 'false');
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+    expect(screen.queryByTestId('list-page-shell-filter-count')).not.toBeInTheDocument();
+  });
+
+  it('chip "Tất cả" KHÔNG hiện tổng cộng thiếu khi thống kê loại khác bị bỏ qua', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE&comp_tk=trangThai~TIEP_NHAN']);
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /^Vụ án/ }).textContent).toContain('10'),
+    );
+    const tatCa = screen.getAllByRole('tab').find((t) => t.textContent?.startsWith('Tất cả'));
+    expect(tatCa?.textContent).not.toMatch(/\d/);
+  });
 });

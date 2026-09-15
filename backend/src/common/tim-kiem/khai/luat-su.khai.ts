@@ -21,8 +21,8 @@ export const KHAI_TIM_KIEM_LUAT_SU: KhaiThucThe = {
       kieu: 'quan-he',
       quanHe: 'case',
       modelDich: 'Case',
-      cotDich: 'timKiemBd',
-      cotNguonDich: ['caseCode', 'name'],
+      cotDich: 'nameBd',
+      cotNguonDich: ['name'],
     },
     {
       key: 'thanChu',

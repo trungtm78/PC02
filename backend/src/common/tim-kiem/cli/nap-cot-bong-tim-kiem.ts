@@ -8,7 +8,7 @@
  * Cách "lấy 1.000 dòng lệch đầu tiên" chạy thật mất ~15 s mỗi lô vì lô sau phải đi qua lại mọi
  * dòng lô trước đã sửa. Con trỏ luôn tăng nên vòng lặp tự kết thúc.
  *
- * Câu SQL sinh từ CÙNG tệp khai với trigger (`sinhCauNapCotBong`), chỉ SET cột bóng (không đẩy
+ * Câu SQL sinh từ CÙNG khối trigger đã gộp theo bảng (`sinhCacCauNap`), chỉ SET cột bóng (không đẩy
  * `updatedAt`, không kích trigger). Chỉ ghi dòng lệch nên chạy lại ra 0 ghi.
  *
  * Dùng:

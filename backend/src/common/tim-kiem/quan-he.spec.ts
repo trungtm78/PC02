@@ -99,6 +99,22 @@ describe('kiểu quan-he — điều kiện', () => {
     ]);
   });
 
+  it('giá trị bỏ dấu ra rỗng → chỉ so nguyên chữ trên cột gốc của đích', () => {
+    const dau = String.fromCharCode(0x301);
+    expect(dk([`vuAn~${dau}`])).toEqual([
+      {
+        case: {
+          is: {
+            OR: [
+              { caseCode: { contains: dau, mode: 'insensitive' } },
+              { name: { contains: dau, mode: 'insensitive' } },
+            ],
+          },
+        },
+      },
+    ]);
+  });
+
   it('luiCotGoc: false vẫn giữ nhánh lùi (bảng đích có thể chưa nạp)', () => {
     expect(dk(['vuAn~An'], false)).toEqual(dk(['vuAn~An']));
   });

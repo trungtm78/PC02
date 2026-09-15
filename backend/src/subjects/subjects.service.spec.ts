@@ -150,7 +150,11 @@ describe('SubjectsService', () => {
       expect(json).toContain('"fullNameBd":{"contains":"tran thi binh"}');
     });
 
-    it('thẻ Vụ án → quan hệ một-một `case: { is }` trên cột bóng vụ án', async () => {
+    /**
+     * Cột "Vụ án" hiện TÊN vụ án — thẻ phải lọc cột bóng của tên (`name_bd`), không phải cột ghép
+     * `tim_kiem_bd` 13 cột (ra cả đối tượng mà mô tả vụ án có chữ ấy, cột thì không).
+     */
+    it('thẻ Vụ án → `case: { is }` trên cột bóng TÊN vụ án, lùi đúng cột tên', async () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
@@ -158,7 +162,7 @@ describe('SubjectsService', () => {
 
       const where = whereCua(mockPrisma.subject.findMany);
       expect(JSON.stringify(where.AND)).toContain(
-        '"case":{"is":{"OR":[{"timKiemBd":{"contains":"trom cap"}}',
+        '"case":{"is":{"OR":[{"nameBd":{"contains":"trom cap"}},{"nameBd":null,"OR":[{"name":{"contains":"Trộm cắp","mode":"insensitive"}}]}]}}',
       );
     });
 
@@ -186,8 +190,35 @@ describe('SubjectsService', () => {
       expect(where.case).toBeUndefined();
       const json = JSON.stringify(where.AND);
       expect(json).toContain('"investigatorId":{"in":["u1"]}');
-      expect(json).toContain('"is":');
+      // Hai phần tử AND riêng: phạm vi `{ case: … }` và thẻ `{ case: { is: … } }` — không gộp một.
+      const and = where.AND as Array<Record<string, unknown>>;
+      expect(
+        and.some((c) => JSON.stringify(c).startsWith('{"case":{"is":')),
+      ).toBe(true);
+      expect(
+        and.some((c) => JSON.stringify(c).startsWith('{"case":{"OR":')),
+      ).toBe(true);
       expect(whereCua(mockPrisma.subject.count)).toEqual(where);
+    });
+
+    it('`search` cũ + caseId + phạm vi: không OR tầng trên, caseId giữ, AND có cả tìm lẫn phạm vi', async () => {
+      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockPrisma.subject.count.mockResolvedValue(0);
+
+      await service.getList({ search: 'x y z', caseId: 'c1' }, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+      } as never);
+
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(where.OR).toBeUndefined();
+      expect(where.caseId).toBe('c1');
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"x y z"}');
+      expect(json).toContain(
+        '"case":{"OR":[{"investigatorId":{"in":["u1"]}}]}',
+      );
     });
 
     it('phạm vi không có thẻ vẫn áp, trong AND', async () => {

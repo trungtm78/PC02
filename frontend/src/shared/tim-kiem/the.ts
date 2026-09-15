@@ -96,6 +96,36 @@ export function khoaHopLe(khoa: string, khai: readonly TruongTimKiem[]): boolean
   return khoa === KHOA_TAT_CA || khai.some((t) => t.key === khoa);
 }
 
+/** Mã được nhận của từng cột kiểu `chon` (trạng thái…). Cột không có danh sách: không kiểm mã. */
+export type BangMaChon = Readonly<Record<string, readonly { value: string }[]>>;
+
+function maChonHopLe(khoa: string, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon) {
+  const ds =
+    khai.find((t) => t.key === khoa)?.kieu === 'chon' ? giaTriChon?.[khoa] : undefined;
+  return (v: string) => !ds || ds.some((g) => g.value === v);
+}
+
+/**
+ * Thẻ hợp lệ trọn vẹn: khoá có trong khai VÀ mọi mã chọn có trong danh sách. Mã lạ (đổi chip loại
+ * hồ sơ, đường dẫn cũ gõ tự do, sửa URL tay) gửi đi là 400 cho cả danh sách.
+ */
+export function theHopLe(t: The, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon): boolean {
+  return khoaHopLe(t.khoa, khai) && t.giaTri.every(maChonHopLe(t.khoa, khai, giaTriChon));
+}
+
+/** Phần gửi được của bộ thẻ: bỏ thẻ khoá lạ, bỏ mã chọn lạ (thẻ hết giá trị thì bỏ luôn). */
+export function locTheHopLe(
+  the: readonly The[],
+  khai: readonly TruongTimKiem[],
+  giaTriChon?: BangMaChon,
+): The[] {
+  return the.flatMap((t) => {
+    if (!khoaHopLe(t.khoa, khai)) return [];
+    const giaTri = t.giaTri.filter(maChonHopLe(t.khoa, khai, giaTriChon));
+    return giaTri.length ? [{ khoa: t.khoa, giaTri }] : [];
+  });
+}
+
 const ngayHopLe = (nam: number, thang: number, ngay: number) => {
   if (nam < 1900 || nam > 2100 || thang < 1 || thang > 12 || ngay < 1) return false;
   return ngay <= new Date(Date.UTC(nam, thang, 0)).getUTCDate();

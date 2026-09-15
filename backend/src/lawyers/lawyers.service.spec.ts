@@ -176,6 +176,38 @@ describe('LawyersService', () => {
       expect(whereCua(mockPrisma.lawyer.count)).toEqual(where);
     });
 
+    it('thẻ Vụ án → `case: { is }` trên cột bóng TÊN vụ án (cột màn hiện `case.name`)', async () => {
+      mockPrisma.lawyer.findMany.mockResolvedValue([]);
+      mockPrisma.lawyer.count.mockResolvedValue(0);
+
+      await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
+
+      const json = JSON.stringify(whereCua(mockPrisma.lawyer.findMany).AND);
+      expect(json).toContain(
+        '"case":{"is":{"OR":[{"nameBd":{"contains":"trom cap"}}',
+      );
+    });
+
+    it('`search` cũ + caseId + phạm vi: không OR tầng trên, caseId giữ, AND có cả tìm lẫn phạm vi', async () => {
+      mockPrisma.lawyer.findMany.mockResolvedValue([]);
+      mockPrisma.lawyer.count.mockResolvedValue(0);
+
+      await service.getList({ search: 'x y z', caseId: 'c1' }, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+      } as never);
+
+      const where = whereCua(mockPrisma.lawyer.findMany);
+      expect(where.OR).toBeUndefined();
+      expect(where.caseId).toBe('c1');
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"x y z"}');
+      expect(json).toContain(
+        '"case":{"OR":[{"investigatorId":{"in":["u1"]}}]}',
+      );
+    });
+
     it('phạm vi không có thẻ vẫn áp, trong AND', async () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);

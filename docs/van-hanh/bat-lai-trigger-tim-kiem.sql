@@ -105,6 +105,7 @@ BEGIN
   NEW."so_quyet_dinh_uy_thac_bd" := ' ' || f_bo_dau(NEW."so_quyet_dinh_uy_thac");
   NEW."nghi_van_doi_tuong_bd" := ' ' || f_bo_dau(NEW."nghiVanDoiTuong");
   NEW."crime_bd" := ' ' || f_bo_dau(NEW."crime");
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
   NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."caseCode", NEW."sttCu", NEW."nguonDon", NEW."tenCungCap", NEW."moTaChiTiet", NEW."donViGiaiQuyet", NEW."ketQuaXuLyKhac", NEW."don_vi_giao", NEW."so_quyet_dinh_uy_thac", NEW."nghiVanDoiTuong", NEW."crime", NEW."name", NEW."soHoSoCu"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
@@ -118,6 +119,7 @@ EXCEPTION WHEN OTHERS THEN
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
   NEW."crime_bd" := NULL;
+  NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;

@@ -9,7 +9,7 @@ const KHAI = [
   { key: 'stt', nhan: 'STT', kieu: 'ma' },
 ] as const;
 
-function dung(url: string, opts: { bat?: boolean; thamSoCu?: Record<string, string> } = {}) {
+function dung(url: string, opts: Partial<Parameters<typeof useTheTimKiem>[0]> = {}) {
   let viTri = '';
   const wrapper = ({ children }: { children: ReactNode }) => (
     <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
@@ -100,6 +100,30 @@ describe('useTheTimKiem', () => {
     act(() => result.current.xoaHet());
     expect(result.current.the).toEqual([]);
     expect(viTri()).not.toContain('p_tk');
+  });
+
+  /**
+   * Thẻ kiểu chọn mang MÃ. Khoá hợp lệ mà mã không có trong danh sách (đổi chip loại hồ sơ ở Tổng
+   * hợp, đường dẫn cũ gõ tự do, sửa URL tay) → máy chủ trả 400 cho cả danh sách. Không gửi mã ấy.
+   */
+  it('thẻ kiểu chọn: mã không có trong danh sách → không gửi, không tính là thẻ hợp lệ', () => {
+    const khai = [...KHAI, { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' }] as const;
+    const giaTriChon = { trangThai: [{ value: 'A', label: 'Mã A' }] };
+
+    const { result } = dung('/x?p_tk=trangThai~A&p_tk=trangThai~ZZ&p_tk=nguoiGui~An', {
+      khai,
+      giaTriChon,
+    });
+    expect(result.current.tkGui).toEqual(['trangThai~A', 'nguoiGui~An']);
+    expect(result.current.theHopLe).toEqual([
+      { khoa: 'trangThai', giaTri: ['A'] },
+      { khoa: 'nguoiGui', giaTri: ['An'] },
+    ]);
+
+    const chiSai = dung('/x?p_tk=trangThai~ZZ', { khai, giaTriChon });
+    expect(chiSai.result.current.tkGui).toEqual([]);
+    expect(chiSai.result.current.theHopLe).toEqual([]);
+    expect(chiSai.result.current.the).toHaveLength(1);
   });
 
   it('cờ tắt → không thẻ, không viết lại URL (ô cũ vẫn dùng `q`)', () => {

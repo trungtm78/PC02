@@ -146,14 +146,6 @@ function thamSoNgay(loai: LoaiHoSo, tu?: string, den?: string): Record<string, s
   return { ...(tu ? { [khoaTu]: tu } : {}), ...(den ? { [khoaDen]: den } : {}) };
 }
 
-/** Họ tên người dùng như các màn danh sách khác (họ trước tên); không có thì tài khoản. */
-function tenNguoi(
-  u?: { firstName?: string | null; lastName?: string | null; username?: string } | null,
-): string {
-  if (!u) return '—';
-  return `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() || u.username || '—';
-}
-
 const RECORD_TYPE = {
   CASE: 'CASE',
   INCIDENT: 'INCIDENT',
@@ -227,7 +219,7 @@ function caseToUnified(c: {
     receivedDate: c.createdAt,
     createdAt: c.createdAt,
     district: c.donViGiaiQuyet ?? undefined,
-    nguoiNhap: tenNguoi(c.createdBy),
+    nguoiNhap: hoTen(c.createdBy) || '—',
   };
 }
 
@@ -256,7 +248,7 @@ function incidentToUnified(i: {
     receivedDate: i.createdAt,
     createdAt: i.createdAt,
     district: i.donViGiaiQuyet ?? undefined,
-    nguoiNhap: tenNguoi(i.canBoNhap),
+    nguoiNhap: hoTen(i.canBoNhap) || '—',
   };
 }
 
@@ -282,7 +274,7 @@ function petitionToUnified(p: {
     receivedDate: p.receivedDate,
     createdAt: p.createdAt,
     district: p.donViGiaiQuyet ?? undefined,
-    nguoiNhap: tenNguoi(p.enteredBy),
+    nguoiNhap: hoTen(p.enteredBy) || '—',
   };
 }
 
@@ -299,14 +291,21 @@ export function ComprehensiveListPageShell() {
   // không hợp lệ với khai đang dùng hiện ĐỎ và không được gửi (tkGui đã lọc).
   const khaiHienTai = typeFilter ? KHAI_THEO_LOAI[typeFilter] : KHAI_CHUNG;
   const giaTriChon = typeFilter ? GIA_TRI_CHON_THEO_LOAI[typeFilter] : undefined;
+  // Mã chọn cũng theo loại: Trạng thái Vụ án mang sang Đơn thư là mã lạ → đỏ, không gửi (không 400).
   const timKiem = useTheTimKiem({
     prefix: 'comp',
     khai: khaiHienTai,
+    giaTriChon,
     thamSoCu: THAM_SO_CU_TONG_HOP,
     bat: theBat,
   });
+  const lyDoTheDo = typeFilter
+    ? 'Không áp dụng cho loại hồ sơ này'
+    : 'Chỉ áp dụng khi chọn đúng loại hồ sơ';
   // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi (cả khi chỉ đổi trang).
   const tkKey = JSON.stringify(timKiem.tkGui);
+  // Còn thẻ (kể cả thẻ đỏ không gửi) thì bảng rỗng vẫn là "lọc không ra": cán bộ cần thấy thẻ để gỡ.
+  const coThe = timKiem.the.length > 0;
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -381,7 +380,7 @@ export function ComprehensiveListPageShell() {
       ...thamSoNgay(loai, appliedFilters.fromDate, appliedFilters.toDate),
     });
     const coLoc =
-      (theBat ? tkKey !== '[]' : !!debouncedSearch) ||
+      (theBat ? coThe : !!debouncedSearch) ||
       !!appliedFilters.fromDate ||
       !!appliedFilters.toDate;
 
@@ -502,7 +501,7 @@ export function ComprehensiveListPageShell() {
     void fetchAll();
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, page, debouncedSearch, theBat, tkKey, refetchCounter, appliedFilters]);
+  }, [typeFilter, page, debouncedSearch, theBat, tkKey, coThe, refetchCounter, appliedFilters]);
 
   // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint
   // cho future per-status drill-down. Khi typeFilter == null (Tất cả), counts
@@ -566,11 +565,13 @@ export function ComprehensiveListPageShell() {
     [counts],
   );
 
+  // Thiếu MỘT số (thống kê bị bỏ qua vì thẻ không áp cho loại ấy, hoặc lỗi) thì tổng là số sai —
+  // để trống thay vì cộng thiếu.
   const totalChipCount = useMemo(() => {
-    if (counts.cases == null && counts.incidents == null && counts.petitions == null) {
+    if (counts.cases == null || counts.incidents == null || counts.petitions == null) {
       return undefined;
     }
-    return (counts.cases ?? 0) + (counts.incidents ?? 0) + (counts.petitions ?? 0);
+    return counts.cases + counts.incidents + counts.petitions;
   }, [counts]);
 
   const columns: ColumnDef<UnifiedRow>[] = useMemo(
@@ -723,7 +724,8 @@ export function ComprehensiveListPageShell() {
   const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
   const activeFilterCount =
     (typeFilter ? 1 : 0) +
-    (theBat ? timKiem.the.length : searchQuery ? 1 : 0) +
+    // Chỉ đếm thẻ thật sự áp — thẻ đỏ không gửi đi thì không lọc gì.
+    (theBat ? timKiem.theHopLe.length : searchQuery ? 1 : 0) +
     appliedFilterCount;
 
   const handleRowClick = useCallback(
@@ -773,6 +775,7 @@ export function ComprehensiveListPageShell() {
               onThem={timKiem.them}
               onBoThe={timKiem.boThe}
               onBoGiaTri={timKiem.boGiaTri}
+              lyDoKhongHopLe={lyDoTheDo}
               placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
           ) : undefined
@@ -828,6 +831,7 @@ export function ComprehensiveListPageShell() {
                   khai={khaiHienTai}
                   giaTriChon={giaTriChon}
                   onBoThe={timKiem.boThe}
+                  lyDoKhongHopLe={lyDoTheDo}
                 />
               </div>
             ) : undefined,
