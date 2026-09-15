@@ -165,7 +165,9 @@ Hiện trạng: 9 màn đều bảng tự dựng, không URL, tìm Prisma `conta
     - Cách đúng: `pg_dump --schema-only` prod (chỉ đọc, không dữ liệu) → DB tạm cục bộ (0 lỗi) → áp migration M6 (thoát 0) → chèn thử có dấu: 6/6 phép so đúng (ộ, Đ, khoảng trắng thừa, UPDATE tính lại). Lần đầu ra `tr?m` là console Windows làm hỏng chữ gửi vào (psql -c), KHÔNG phải f_bo_dau — chạy lại bằng tệp UTF-8 + PGCLIENTENCODING=UTF8. Đã xoá DB tạm + tệp cấu trúc.
     - Backend đầy đủ 350 bộ/5.177 ca xanh; lint dòng mới 0; tsc sạch.
   - Quyết định khai: Vai trò (users) không thành thẻ — danh sách động + đã có ô chọn roleId. Loại tài liệu `chon` không danh sách cứng (danh mục động). Tài liệu Vụ án/Vụ việc lọc theo TÊN (`cases.name_bd`, `incidents.name_bd` mới qua `cotBongPhu`).
-- [ ] M6-T2 Tài liệu: getList qua BoTimKiem; màn DocumentsPage ô thẻ + URL.
+- [x] M6-T2 Tài liệu: getList qua BoTimKiem; màn DocumentsPage ô thẻ + URL.
+  - [x] commit daec8119 — máy chủ qua BoTimKiem (search cũ → `*` trên timKiemBd bỏ dấu; tk chọn cột; khoá lạ 400; vẫn AND với phạm vi); DTO tk. TDD đỏ 6 → xanh; documents 49 ca.
+  - [x] commit (DocumentsPage) — ô thẻ URL `documents_tk`, gửi tk thay search; loại theo danh mục động; thẻ đổi về offset 0; bảng rỗng nói rõ thẻ; cờ tắt → ô chữ cũ. TDD đỏ 4 → xanh (2 giả định sai của ca kiểm sửa: màn dùng limit/offset không page; nút "Bỏ thẻ" trùng ở ô tìm → xét trong vùng rỗng).
   - [x] commit b9c1853d — **[lỗi có sẵn] phạm vi gán lại `where.OR` ĐÈ mất điều kiện tìm** (cán bộ có phạm vi gõ gì cũng ra mọi tài liệu trong phạm vi) → hai điều kiện riêng trong `where.AND`. TDD đỏ (Received chỉ còn khối phạm vi) → xanh; 42 ca.
   - Đo prod 15/09 (chỉ đọc): directories 15.913 · documents 10 · address_mappings 1.086 · audit_logs 13.218 (10 MB, ~1.457/tuần) · users 257 → trigger cột bóng + nạp đều rẻ, không cần cách riêng cho audit_logs.
 - [ ] M6-T3 Quản lý người dùng: getUsers qua BoTimKiem; màn ô thẻ.
