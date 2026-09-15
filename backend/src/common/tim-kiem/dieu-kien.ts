@@ -230,6 +230,8 @@ function dieuKienMotThe(
       return [{ [cot]: { in: [...the.giaTri] } }];
     case 'doi-tuong':
       return hoac(the.giaTri.flatMap((v) => dieuKienDoiTuong(truong, v)));
+    case 'quan-he':
+      return hoac(the.giaTri.map((v) => dieuKienQuanHe(truong, v)));
     case 'nguoi':
       return hoac(
         the.giaTri.flatMap((v) => {
@@ -289,6 +291,28 @@ function dieuKienDoiTuong(truong: TruongTimKiem, v: string): DieuKien[] {
       },
     },
   ];
+}
+
+/**
+ * Thẻ kiểu quan hệ MỘT-MỘT (vd Luật sư → Vụ án): `is` trên cột bóng của đích. Luôn giữ nhánh lùi về
+ * cột gốc của đích — bảng đích có thể chưa nạp, và bộ `luiCotGoc` chỉ hỏi bảng chính.
+ * Trả MỘT khoá quan hệ nằm trong phần tử AND — không bao giờ gán đè khoá cùng tên ở tầng trên (vd
+ * `where.case = phạm vi` của Đối tượng/Luật sư).
+ */
+function dieuKienQuanHe(truong: TruongTimKiem, v: string): DieuKien {
+  const mau = mauBoDau(v);
+  const nguon = {
+    OR: (truong.cotNguonDich ?? []).map((c) => chuaGoc(c, v)),
+  };
+  const cot = truong.cotDich as string;
+  return {
+    [truong.quanHe as string]: {
+      is:
+        mau === undefined
+          ? nguon
+          : { OR: [{ [cot]: { contains: mau } }, { [cot]: null, ...nguon }] },
+    },
+  };
 }
 
 export interface TuyChonDieuKien {

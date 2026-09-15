@@ -101,7 +101,16 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Trạng thái trống khi chỉ lọc ở mặt lọc hiện "Chưa có hồ sơ" → "lọc không ra" (Vụ việc, Vụ án, Đơn thư).
   - Ca kiểm bổ sung: getUtdtStats tìm+phạm vi cùng AND; incidents listLinkable/listDeleted; UTDT cờ tắt `inv`; BoTimKiem.dieuKienTatCa (gom 3 chỗ cắt 200 cứng); getUtdtStats dùng noiVaoWhere.
   - Kết quả: commit 636168c1. Bộ ĐẦY ĐỦ sau review: backend 341 bộ/5.121 ca xanh, tsc sạch; FE 250 tệp/2.980 ca xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
-  - Đã push 2ee4da7f, mở PR #377 (https://github.com/trungtm78/PC02/pull/377). Kế: CI (kiểm JSON từng check) → merge (--admin như #375/#376) → deploy → prod: nạp cột bóng (dry-run rồi --that) + kiem-vang-bo-dau --chuoi-that + đo EXPLAIN.
+  - PR #377 CI 3/3 xanh → merge squash f6ba1f77 (--admin) → Deploy success, health buildId f6ba1f77, migration 20260915083627_tim_kiem_vu_viec_vu_an áp 10:46.
+- **M3 HOÀN TẤT TRÊN PROD (15/09 ~10:55)**: nạp cột bóng `--that` subjects 1.293 + incidents 4.855 + cases 3.710, chạy thử lại lệch 0 cả 5 bảng; kiểm vàng PG16.15 tổng hợp 646 + chuỗi thật 100.441 lệch 0; EXISTS chưa nạp = false cả incidents/cases/subjects (nhánh lùi tắt); EXPLAIN: Vụ việc `*` LIMIT 20 2,7 ms, đếm Vụ án GIN cases_tim_kiem_bd_trgm 23,8 ms, thẻ bị can 1,6 ms.
+
+## Hàng đợi M4 (nhánh feat/tim-kiem-dang-the-tong-hop-doi-tuong-luat-su từ main f6ba1f77 — push phải `-u origin <nhánh>`, upstream đang trỏ main)
+1. M4-T1 bộ sinh: gộp khối trigger THEO BẢNG (khai `subjects` mới sẽ trùng tên hàm/trigger với khối doi-tuong của Vụ án; trùng field Prisma; CLI nạp chạy subjects 2 lần) + kiểu thẻ quan hệ một-một (`is`) cho Luật sư → Vụ án / Thân chủ.
+2. M4-T2 Đối tượng máy chủ: khai `doi-tuong.khai.ts` (hoTen, cccd, vuAn, trangThai chon SubjectStatus, ngayTao; `*` thêm address/phone), DTO tk, getList qua BoTimKiem, phạm vi `where.case` chuyển vào AND (bài học subjects-lawyers-gan-where-case-scope), spec cũ where.OR sửa. Migration `gen:tim-kiem -- --moi`.
+3. M4-T3 Luật sư máy chủ: khai `luat-su.khai.ts` (hoTen, soThe, vanPhong, vuAn, thanChu, sdt, ngayTao), tương tự T2.
+4. M4-T4 giao diện Đối tượng (ObjectListPageShell, 4 đường dẫn / 3 loại, tiền tố objects/victims/witnesses) + Luật sư (LawyerListPageShell): ô thẻ, cột timKiem, tham số cũ q → *, cổng cột↔khai.
+5. M4-T5 Tổng hợp đầy đủ: ô thẻ; "Tất cả" = khoá chung ba thực thể (*, stt, sttCu, nguoiGui, donViGiaiQuyet, nguoiNhap, ngayTao, ngayDeXuat); chọn một loại = khai đầy đủ loại ấy; cột hiển thị đúng trường thẻ lọc; mặt lọc nâng cao đang không gửi API (sửa hoặc gỡ).
+6. Rồi /review + /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
