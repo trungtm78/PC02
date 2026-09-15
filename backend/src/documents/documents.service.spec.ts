@@ -130,6 +130,8 @@ describe('DocumentsService', () => {
       expect(where.deletedAt).toBeNull();
       expect(where.OR).toBeUndefined();
       const json = JSON.stringify(where.AND);
+      // `search` cũ = thẻ "tất cả các cột": cột bóng ghép bỏ dấu, lùi về ba cột gốc khi chưa nạp.
+      expect(json).toContain('"timKiemBd":{"contains":"test"}');
       expect(json).toContain('"title":{"contains":"test"');
       expect(json).toContain('"description":{"contains":"test"');
       expect(json).toContain('"originalName":{"contains":"test"');
@@ -227,12 +229,55 @@ describe('DocumentsService', () => {
 
       const where = whereCua(mockPrismaService.document.findMany);
       const json = JSON.stringify(where);
+      expect(json).toContain('"timKiemBd":{"contains":"bien ban"}');
       expect(json).toContain('"title":{"contains":"bien ban"');
       expect(json).toContain('"petition":');
       expect(json).toContain('"case":');
       // Không còn một `OR` tầng trên duy nhất để hai khối tranh nhau.
       expect(where.OR).toBeUndefined();
       expect(whereCua(mockPrismaService.document.count)).toEqual(where);
+    });
+
+    /**
+     * M6: tìm kiếm Tài liệu đi qua `BoTimKiem` như các màn danh sách khác — gõ không dấu ra tài liệu
+     * có dấu (trước đây `contains` thường, "bien ban" không ra "Biên bản"), chọn được cột, khoá lạ 400.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      beforeEach(() => {
+        mockPrismaService.document.findMany.mockResolvedValue([]);
+        mockPrismaService.document.count.mockResolvedValue(0);
+      });
+
+      it('search có dấu → cột bóng ghép bỏ dấu', async () => {
+        await service.getList({ search: 'Biên bản' });
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"timKiemBd":{"contains":"bien ban"}');
+      });
+
+      it('thẻ Tiêu đề → cột bóng tiêu đề', async () => {
+        await service.getList({ tk: ['tieuDe~bien ban'] } as never);
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"titleBd":{"contains":"bien ban"}');
+      });
+
+      it('thẻ Vụ việc → quan hệ incident trên cột bóng TÊN vụ việc', async () => {
+        await service.getList({ tk: ['vuViec~Trộm cắp'] } as never);
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"incident":{"is":');
+        expect(json).toContain('"nameBd":{"contains":"trom cap"}');
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(
+          service.getList({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
   });
 

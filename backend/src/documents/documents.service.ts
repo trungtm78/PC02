@@ -16,10 +16,25 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, assertPetitionParentInScope, buildScopeFilter, buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_TAI_LIEU } from '../common/tim-kiem/khai/tai-lieu.khai';
+
+/** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
+const THAM_SO_CU_TAI_LIEU = { search: KHOA_TAT_CA } as const;
 
 @Injectable()
 export class DocumentsService {
   private readonly uploadDir: string;
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_TAI_LIEU,
+      THAM_SO_CU_TAI_LIEU,
+    ));
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,7 +57,6 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   async getList(query: QueryDocumentsDto, dataScope?: DataScope | null) {
     const {
-      search,
       caseId,
       incidentId,
       petitionId,
@@ -60,15 +74,11 @@ export class DocumentsService {
     // khối phạm vi chạy sau đè mất khối tìm — cán bộ có phạm vi gõ gì cũng ra mọi tài liệu.
     const dieuKien: Prisma.DocumentWhereInput[] = [];
 
-    if (search) {
-      dieuKien.push({
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-          { originalName: { contains: search, mode: 'insensitive' } },
-        ],
-      });
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400; cùng luật với mọi màn
+    // danh sách. Trước đây `contains` thường trên ba cột: gõ "bien ban" không ra "Biên bản".
+    dieuKien.push(
+      ...((await this.timKiem.dieuKien(query)) as Prisma.DocumentWhereInput[]),
+    );
 
     if (caseId) where.caseId = caseId;
     if (incidentId) where.incidentId = incidentId;
