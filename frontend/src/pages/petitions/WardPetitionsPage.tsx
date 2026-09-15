@@ -39,6 +39,9 @@ import {
   BADGE_DEFAULT,
 } from '@/shared/enums/status-labels';
 import { WardFilterDropdown } from '@/components/WardFilterDropdown';
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 interface PetitionRow {
   id: string;
@@ -69,6 +72,27 @@ const RESOLVED_STATUSES: PetitionStatus[] = [
   PetitionStatus.DA_CHUYEN_VU_VIEC,
   PetitionStatus.DA_CHUYEN_VU_AN,
 ];
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng; khoá chuẩn như màn Đơn thư. */
+const KHAI_DON_THU_PHUONG: readonly TruongLoc<PetitionRow>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (p) => p.stt },
+  { key: 'nguoiGui', nhan: 'Người gửi', kieu: 'chu', lay: (p) => p.senderName },
+  { key: 'loaiDon', nhan: 'Loại đơn', kieu: 'chon', lay: (p) => p.petitionType },
+  { key: 'tomTat', nhan: 'Tóm tắt', kieu: 'chu', lay: (p) => p.summary },
+  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (p) => p.assignedTeam?.ward?.name },
+  { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay', lay: (p) => p.receivedDate },
+  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (p) => p.priority },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (p) => p.status },
+];
+
+const GIA_TRI_CHON_DON_THU_PHUONG = {
+  loaiDon: LOAI_DON_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+  mucDo: ['Cao', 'Trung bình', 'Thấp'].map((v) => ({ value: v, label: v })),
+  trangThai: (Object.keys(PETITION_STATUS_LABEL) as PetitionStatus[]).map((s) => ({
+    value: s,
+    label: PETITION_STATUS_LABEL[s],
+  })),
+};
 
 export default function WardPetitionsPage() {
   const navigate = useNavigate();
@@ -108,9 +132,19 @@ export default function WardPetitionsPage() {
     fetch();
   }, [wardTeamId]);
 
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'wardPetitions',
+    khai: KHAI_DON_THU_PHUONG,
+    giaTriChon: GIA_TRI_CHON_DON_THU_PHUONG,
+    dong: rows,
+    bat: theBat,
+  });
+
   const filteredData = useMemo(() => {
-    return rows.filter((p) => {
-      if (filters.quickSearch) {
+    return timKiem.dongLoc.filter((p) => {
+      if (!theBat && filters.quickSearch) {
         const q = filters.quickSearch.toLowerCase();
         const match =
           p.stt?.toLowerCase().includes(q) ||
@@ -128,9 +162,10 @@ export default function WardPetitionsPage() {
       if (filters.status && p.status !== filters.status) return false;
       return true;
     });
-  }, [rows, filters]);
+  }, [timKiem.dongLoc, theBat, filters]);
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: '',
       fromDate: '',
@@ -318,17 +353,32 @@ export default function WardPetitionsPage() {
       {/* Search + Advanced filter */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="md:col-span-2 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              data-testid="quick-search-input"
-              value={filters.quickSearch}
-              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-              placeholder="Tìm kiếm theo STT, Người gửi, Tóm tắt..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
-            />
-          </div>
+          {theBat ? (
+            <div className="md:col-span-2">
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_DON_THU_PHUONG}
+                khai={KHAI_DON_THU_PHUONG}
+                giaTriChon={GIA_TRI_CHON_DON_THU_PHUONG}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            </div>
+          ) : (
+            <div className="md:col-span-2 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                data-testid="quick-search-input"
+                value={filters.quickSearch}
+                onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                placeholder="Tìm kiếm theo STT, Người gửi, Tóm tắt..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+              />
+            </div>
+          )}
           <WardFilterDropdown value={wardTeamId} onChange={(v) => setWardTeamId(v ?? '')} />
         </div>
 
@@ -429,7 +479,19 @@ export default function WardPetitionsPage() {
                   <td colSpan={9} className="px-4 py-16 text-center" data-testid="ward-petitions-empty">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy đơn thư nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
+                    {!loadError && timKiem.coThe ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={KHAI_DON_THU_PHUONG}
+                          giaTriChon={GIA_TRI_CHON_DON_THU_PHUONG}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
+                    )}
                   </td>
                 </tr>
               ) : (
