@@ -373,6 +373,36 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       expect(thamSoGoiCuoi('/cases').get('caseType')).toBe('UY_THAC_DIEU_TRA');
     });
 
+    /**
+     * Cột "Đối tượng nghi vấn" phải đọc CÙNG cột mà thẻ `doiTuongNghiVan` lọc (cột typed). Đọc
+     * metadata thì sửa ở form xong, cột hiện một đằng mà tìm theo cột ra một nẻo.
+     */
+    it('cột Đối tượng nghi vấn đọc cột typed (cột thẻ lọc), metadata chỉ là dự phòng', async () => {
+      mockApiGet.mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
+          return Promise.resolve({
+            data: { total: 1, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 1 } },
+          });
+        }
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: [
+              {
+                ...SAMPLE_ROW,
+                nghiVanDoiTuong: 'Nguyễn Typed',
+                metadata: { nghiVanDoiTuong: 'Trần Metadata Cũ' },
+              },
+            ],
+            total: 1,
+          },
+        });
+      });
+      await renderPage();
+      expect(await screen.findByText('Nguyễn Typed')).toBeInTheDocument();
+      expect(screen.queryByText('Trần Metadata Cũ')).not.toBeInTheDocument();
+    });
+
     it('có ô thẻ; ô chữ "Đơn vị giao" và "Điều tra viên" rời mặt lọc', async () => {
       await renderPage();
       expect(
@@ -404,6 +434,17 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       await renderPage('/uy-thac-dieu-tra?utdt_tk=toiDanh~zzz');
       const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
       expect(vung).toHaveTextContent('Không tìm thấy với');
+    });
+
+    it('cờ tắt: `inv` cũ → `investigatorName` tới CẢ danh sách lẫn thống kê, không có `tk`', async () => {
+      await renderPage('/uy-thac-dieu-tra?utdt_inv=An', CO_TAT_THE);
+      await waitFor(() => {
+        for (const duong of ['/cases', '/cases/utdt-stats']) {
+          const p = thamSoGoiCuoi(duong);
+          expect(p.get('investigatorName')).toBe('An');
+          expect(p.getAll('tk')).toEqual([]);
+        }
+      });
     });
 
     it('cờ tắt → ô chữ cũ, gửi `search` + `donViGiao` như trước', async () => {

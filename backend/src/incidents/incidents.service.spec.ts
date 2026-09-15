@@ -588,6 +588,52 @@ describe('IncidentsService', () => {
       expect(json).toContain('benVuBd');
       expect(json).toContain('team-a');
     });
+
+    /**
+     * Ô chọn vụ việc để liên kết: phạm vi là một khối OR. Nối điều kiện tìm cạnh `where.OR` (không
+     * gom vào AND) là OR của tìm kiếm với phạm vi — gõ gì cũng mở rộng ra ngoài phạm vi.
+     */
+    it('listLinkable: tìm kiếm → thẻ "*" trong AND, phạm vi GIỮ NGUYÊN trong AND', async () => {
+      await service.listLinkable({ search: 'Nguyễn' }, {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        canDispatch: false,
+      } as never);
+      const where = whereCuaLanGoi();
+      expect(where.OR).toBeUndefined();
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"nguyen"}');
+      expect(json).toContain('"investigatorId":{"in":["u1"]}');
+      expect(json).toContain('"assignedTeamId":{"in":["t1"]}');
+    });
+
+    it('listLinkable: không tìm kiếm → phạm vi vẫn áp', async () => {
+      await service.listLinkable({}, {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: [],
+        canDispatch: false,
+      } as never);
+      expect(JSON.stringify(whereCuaLanGoi())).toContain(
+        '"investigatorId":{"in":["u1"]}',
+      );
+    });
+
+    it('listDeleted: tìm kiếm qua thẻ "*", chỉ hồ sơ đã xoá', async () => {
+      await service.listDeleted({ search: 'Trần' });
+      const where = whereCuaLanGoi();
+      expect(where.deletedAt).toEqual({ not: null });
+      expect(where.OR).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain(
+        '"timKiemBd":{"contains":"tran"}',
+      );
+    });
+
+    it('listDeleted: không tìm kiếm → không có AND', async () => {
+      await service.listDeleted({});
+      expect(whereCuaLanGoi().AND).toBeUndefined();
+    });
   });
 
   describe('getById', () => {

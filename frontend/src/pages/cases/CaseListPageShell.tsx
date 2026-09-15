@@ -136,6 +136,8 @@ interface CaseRow {
   sttCu?: string | null;
   nguonDon?: string | null;
   ketQuaXuLyKhac?: string | null;
+  /** Tội danh (chữ) — cột ẩn sẵn; mang thẻ `toiDanh` thay cho ô lọc "Tội danh" đã gỡ. */
+  crime?: string | null;
   /** Bị can đã khởi tố — server cắt sẵn ở LIST_SUSPECT_NAMES_LIMIT tên. */
   subjects?: { id: string; fullName: string }[] | null;
   /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
@@ -359,7 +361,12 @@ export function CaseListPageShell() {
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
           setTableState(
-            debouncedSearch || statusFilter || groupFilter || timKiem.the.length > 0
+            // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
+            debouncedSearch ||
+            statusFilter ||
+            groupFilter ||
+            timKiem.the.length > 0 ||
+            Object.values(appliedFilters).some((v) => v)
               ? 'empty-filtered'
               : 'empty',
           );
@@ -647,6 +654,18 @@ export function CaseListPageShell() {
           const name = hoTen(r.investigator);
           return name || r.investigator.username;
         },
+      },
+
+      {
+        // Hệ cũ không có cột này nên ẩn sẵn. Có mặt vì ô lọc "Tội danh" đã chuyển thành thẻ: không cột
+        // nào mang khoá `toiDanh` thì cán bộ ở màn này không còn lối chọn thẻ ấy (cổng timKiemCotKhai).
+        key: 'crime',
+        header: 'Tội danh',
+        timKiem: 'toiDanh',
+        width: '10rem',
+        optional: 'hide',
+        cellClassName: TABLE_CELL_TRUNCATE,
+        render: (r) => r.crime || '—',
       },
 
       {

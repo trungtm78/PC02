@@ -91,6 +91,30 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - [x] M3-T4 — Vụ án + UTDT máy chủ: DTO tk; getList/getStats/getUtdtStats/listDeleted qua BoTimKiem; THAM_SO_CU_VU_AN (search/charges/unit/stt/sttCu/donViGiao/investigatorName → thẻ); vá getStats bỏ stt/sttCu/createdById + overdue dùng TRANG_THAI_KET_THUC.case; getUtdtStats áp CÙNG kỳ với danh sách UTDT + trả ky, phạm vi nối AND không đè thẻ; listDeleted tìm mã hồ sơ thay id. Cổng o-form-va-cot gộp 3 thực thể soi đủ 3 mắt xích. src/cases + 3 cổng 20 bộ/335 ca, tsc sạch.
 - [x] M3-T5 — giao diện Vụ việc + Vụ án + UTDT: ô thẻ, cột `timKiem`, THAM_SO_CU (Vụ việc q/unit/stt/stt_cu; Vụ án q/unit/investigator/charges/stt/stt_cu; UTDT q/dv/inv), registry gỡ ô chữ (Vụ việc giữ `reporter` CCCD/SĐT), thẻ tới list + stats/utdt-stats, UTDT thêm nhãn kỳ, ô chữ UTDT chỉ hiện khi cờ tắt. Cổng `pages/__tests__/timKiemCotKhai.gate.test.ts` gộp 3 thực thể (Vụ án = hợp cột Vụ án + UTDT), thay timKiemDonThu. Backend full 340 bộ/5107 ca xanh; FE full 2962/2963 (1 ca form Đơn thư timeout dưới tải, chạy riêng xanh 3,6s); tsc -b sạch; lint dòng mới 0 (diff --text vì tệp UTDT có ký tự điều khiển).
 - [x] M3-T6 — lát Tổng hợp: `comp_q` → thẻ `*` tới 3 API danh sách + 3 stats (cờ tắt → `search`). 25 ca xanh, lint dòng mới 0, tsc sạch. Ô thẻ chọn cột → M4.
+- [x] M3 /review (8 chuyên gia + Claude đối kháng + Codex đối kháng + Codex cấu trúc) — ĐÃ SỬA (TDD):
+  - UTDT "Đối tượng nghi vấn": tab Ủy thác ghi ô riêng vào metadata, thẻ/bản in đọc cột typed → trôi khỏi nhau. Nay tab Ủy thác soi gương `nghiVanDoiTuong`, bỏ ghi đè metadata, danh sách UTDT đọc cột typed (getList select thêm cột; cổng cot-danh-sach phủ màn UTDT).
+  - Màn Vụ án gỡ ô lọc Tội danh mà không cột nào mang `toiDanh` → thêm cột "Tội danh" ẩn sẵn; cổng timKiemCotKhai soi TỪNG màn (khoá mọi ô lọc chữ cũ có cột trên chính màn).
+  - Sửa thẻ của cột đang ẩn âm thầm thành `*` → OTimKiemThe đưa trường đang sửa vào gợi ý.
+  - Thẻ ngày rỗng `ngayDeXuat~` gỡ kỳ mặc định → coTheNgay đòi giá trị thật.
+  - Giá trị bỏ dấu ra rỗng (chỉ dấu tổ hợp) bị bỏ lọc → so nguyên chữ trên cột gốc (4 kiểu thẻ).
+  - URL >20 thẻ làm cả màn 400 → docTheTuThamSo dừng ở 20.
+  - Trạng thái trống khi chỉ lọc ở mặt lọc hiện "Chưa có hồ sơ" → "lọc không ra" (Vụ việc, Vụ án, Đơn thư).
+  - Ca kiểm bổ sung: getUtdtStats tìm+phạm vi cùng AND; incidents listLinkable/listDeleted; UTDT cờ tắt `inv`; BoTimKiem.dieuKienTatCa (gom 3 chỗ cắt 200 cứng); getUtdtStats dùng noiVaoWhere.
+  - Kết quả: backend src/cases+incidents+tim-kiem 943 ca, tsc sạch; FE các thư mục liên quan xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
+- Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
+  - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
+  - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
+  - Trộn `tk` + tham số cũ cùng khoá → OR: đúng doc ThamSoCu, giao diện không gửi cả hai.
+  - Khoá lạ trên URL: hiện thẻ ĐỎ "Cột không còn tìm được", không gửi (theo kế hoạch), không 400 cả màn.
+  - Thẻ trangThai thu hẹp số trên thẻ thống kê: đúng nguyên tắc thẻ khớp dòng.
+- Review — GHI NỢ (chưa sửa, cần quyết/đợt sau):
+  - Cờ TIM_KIEM_THE tắt: Vụ việc/Vụ án/Đơn thư KHÔNG hiện lại ô lọc chữ đã gỡ (UTDT có); ghi rõ trong shell-parity-matrix.
+  - Ngữ nghĩa đổi phía API: `search` 1–2 ký tự khớp đầu từ (quyết định 4A); utdt-stats nay áp kỳ thống kê (UAT docs/uat/utdt TC-006/041/065 cần sửa oracle); cases listDeleted không còn tìm theo id; listLinkable Vụ việc tìm mọi cột (rộng hơn tiền tố mã); `incidents_q`/Tổng hợp `*` không còn khớp tên điều tra viên.
+  - Hiệu năng: search cũ Vụ việc OR quan hệ điều tra viên không dùng GIN; nhánh lùi subjects luôn bật; nạp cột bóng chưa tự động trong deploy.sh.
+  - Migration: chưa `lock_timeout`; mỗi migration tìm kiếm dựng lại trigger petitions/users.
+  - tat-trigger-tim-kiem.sql: f_bo_dau sai thì dòng đã nạp giữ giá trị sai → phải tắt cả cờ; ghi chú bộ sinh chưa nói.
+  - Bảo trì (advisory): khối `tk` chép 3 DTO; khối ô thẻ/trạng thái rỗng chép 4 màn; kyApDung+getKyThongKe chép 7 chỗ.
+  - DỮ LIỆU PROD UTDT nghiVanDoiTuong có thể lệch metadata↔typed: chạy `backfill-consolidate --dry` (chỉ đọc) xem CONFLICT trước; ghi đè dữ liệu prod = §8c, chờ anh.
 
 ## Hàng đợi M3 (nhánh feat/tim-kiem-dang-the-vu-viec-vu-an, từ main cb2b8b92)
 1. M3-T1 khai `vu-viec.khai.ts` (incidents) + `vu-an.khai.ts` (cases, chung Vụ án thường + UTDT) + kiểu `doi-tuong` (quan hệ subjects SUSPECT, cột bóng `subjects.full_name_bd` + trigger như users) → `gen:tim-kiem -- --moi vu_viec_vu_an`; CLI nạp + SQL tắt/bật + kiểm vàng tự gồm bảng mới. `*` giữ đủ cột ô tìm cũ (Vụ việc: name, doiTuongCaNhan, doiTuongToChuc, soHoSoCu; Vụ án: name, crime, soHoSoCu).

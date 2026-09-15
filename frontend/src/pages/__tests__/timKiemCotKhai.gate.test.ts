@@ -53,6 +53,27 @@ describe('GATE tìm kiếm — cột ↔ khai', () => {
     },
   );
 
+  /**
+   * Mỗi ô lọc chữ cũ đã GỠ khỏi mặt lọc của một màn (tham số cũ quy về thẻ) phải có cột mang khoá ấy
+   * trên CHÍNH màn đó. Tính hợp cột nhiều màn thì lọt: Vụ án từng gỡ ô "Tội danh" trong khi chỉ màn
+   * UTDT có cột Tội danh — cán bộ ở màn Vụ án không còn lối nào chọn được thẻ ấy.
+   */
+  const MAN_THAM_SO_CU = [
+    ['Đơn thư', donThu],
+    ['Vụ việc', vuViec],
+    ['Vụ án', vuAn],
+    ['Ủy thác điều tra', uyThac],
+  ] as const;
+
+  it.each(MAN_THAM_SO_CU)('%s: khoá của mọi ô lọc chữ cũ có cột trên chính màn này', (_ten, src) => {
+    const khoiCu = /const THAM_SO_CU_\w+ = \{([^}]*)\}/.exec(src);
+    expect(khoiCu).not.toBeNull();
+    const khoaCu = [...khoiCu![1].matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]);
+    expect(khoaCu.length).toBeGreaterThan(0);
+    const coCot = khoaTrenCot(src);
+    expect(khoaCu.filter((k) => !coCot.has(k))).toEqual([]);
+  });
+
   it('gieo lỗi: gỡ khoá một cột thì cổng bắt được', () => {
     const hong = vuViec.replace(/timKiem:\s*'tomTat'/, '');
     expect(hong).not.toBe(vuViec);

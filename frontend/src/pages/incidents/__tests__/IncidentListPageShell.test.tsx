@@ -615,6 +615,17 @@ describe('IncidentListPageShell — ô tìm kiếm dạng thẻ', () => {
     await waitFor(() => expect(getLocation()).not.toContain('incidents_tk'));
   });
 
+  it('không kết quả chỉ vì bộ lọc ở mặt lọc (ngày) → "lọc không ra", không mời tạo vụ việc đầu tiên', async () => {
+    mockGet().mockImplementation((url: string) => {
+      if (url === '/incidents/stats') return Promise.resolve({ data: sampleStats });
+      if (url === '/incidents') return Promise.resolve({ data: { data: [], total: 0 } });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+    renderWithRouter(['/incidents?incidents_from_date=2026-01-01']);
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+    expect(screen.queryByTestId('list-page-shell-table-empty')).not.toBeInTheDocument();
+  });
+
   it('cờ TIM_KIEM_THE tắt → ô chữ cũ, gửi `search` như trước', async () => {
     renderWithRouter(
       ['/incidents'],

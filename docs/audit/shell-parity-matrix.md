@@ -420,8 +420,10 @@ cho cả hai màn vì cùng bảng `cases`.
 | Ô lọc chữ GỠ khỏi mặt lọc | Đơn vị, Điều tra viên, Tội danh, STT, STT cũ | Đơn vị giao, Điều tra viên (hiện lại khi cờ tắt) |
 | Thẻ riêng | `doiTuongBiCan` (lọc qua `subjects` loại SUSPECT) | `ngayTiepNhan` `donViGiao` `soQuyetDinh` `doiTuongNghiVan` `toiDanh` `thoiHan` |
 | Nhãn kỳ thống kê trên thanh thẻ | ✅ có sẵn | ✅ THÊM — `utdt-stats` nay trả `ky` |
-| Cổng cột ↔ khai | `pages/__tests__/timKiemCotKhai.gate.test.ts` tính HỢP cột của hai màn | ← |
-| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ + `search` như cũ | ← |
+| Cổng cột ↔ khai | `pages/__tests__/timKiemCotKhai.gate.test.ts` tính HỢP cột của hai màn, VÀ mỗi ô lọc chữ đã gỡ phải có cột mang khoá trên CHÍNH màn ấy | ← |
+| Cột mang thẻ thay ô lọc đã gỡ | THÊM cột "Tội danh" (ẩn sẵn, `toiDanh`) — review 15/09 bắt: ô lọc Tội danh gỡ mà màn Vụ án không cột nào mang khoá | có sẵn cột Tội danh |
+| Cột "Đối tượng nghi vấn" | — | ✅ đọc cột typed `nghiVanDoiTuong` (CÙNG cột thẻ lọc), metadata chỉ dự phòng; tab Ủy thác của form nay soi gương ô tab Thông tin |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search`. Ô lọc chữ đã gỡ KHÔNG hiện lại | cờ tắt → ô chữ `q` + hai ô Đơn vị giao / Điều tra viên hiện lại |
 
 ### Header actions (verify shell has)
 
@@ -478,7 +480,9 @@ Cùng hành vi với Đơn thư (xem mục Petitions). Khai `backend/src/common/
 | `filter-reporter` (CCCD/SĐT người tố giác) Ở LẠI mặt lọc — không cột nào mang, không thành thẻ được | ✅ |
 | Không kết quả → "Không tìm thấy với" + bỏ từng thẻ | ✅ |
 | Cổng cột ↔ khai `pages/__tests__/timKiemCotKhai.gate.test.ts` | ✅ |
-| Công tắc khẩn: cờ `TIM_KIEM_THE` tắt → ô chữ + `search` | ✅ |
+| Sửa thẻ của cột đang ẩn giữ đúng cột (không âm thầm thành "tất cả các cột") — cả 4 màn | ✅ |
+| Không kết quả chỉ vì bộ lọc ở mặt lọc (ngày, cán bộ nhập) → "lọc không ra", không mời tạo mới — Vụ việc, Vụ án, Đơn thư | ✅ |
+| Công tắc khẩn: cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search`. Ô lọc chữ Đơn vị / STT / STT cũ đã gỡ KHÔNG hiện lại (đường dẫn cũ `incidents_unit=` khi cờ tắt không lọc) | ✅ (giới hạn đã biết) |
 
 ### Header / bulk
 

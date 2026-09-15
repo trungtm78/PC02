@@ -572,6 +572,24 @@ describe('CaseListPageShell — bố cục theo hệ cũ', () => {
     });
   });
 
+  it('không kết quả chỉ vì bộ lọc ở mặt lọc (ngày) → "lọc không ra", không mời tạo vụ án đầu tiên', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/cases') return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/cases/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+    renderWithRouter(['/cases?cases_from_date=2026-01-01']);
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+  });
+
+  it('cột "Tội danh" có trong menu chọn cột (ẩn sẵn) — ô lọc Tội danh đã thành thẻ, phải chọn được', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Thị Cung Cấp'));
+    expect(screen.queryByRole('columnheader', { name: 'Tội danh' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    expect(within(screen.getByTestId('column-picker-menu')).getByText('Tội danh')).toBeInTheDocument();
+  });
+
   it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/cases') return Promise.resolve({ data: { data: [], total: 0 } });

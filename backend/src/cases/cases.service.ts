@@ -367,6 +367,8 @@ export class CasesService {
           updatedAt: true,
           caseType: true,
           donViGiao: true,
+          // Cột "Đối tượng nghi vấn" của màn UTDT — CÙNG cột mà thẻ `doiTuongNghiVan` lọc.
+          nghiVanDoiTuong: true,
           soQuyetDinhUyThac: true,
           ngayTiepNhan: true,
           thoiHanUyThac: true,
@@ -624,14 +626,7 @@ export class CasesService {
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
       // NỐI thêm, không gán đè: AND đã chứa điều kiện thẻ tìm kiếm.
-      baseWhere.AND = [
-        ...(Array.isArray(baseWhere.AND)
-          ? baseWhere.AND
-          : baseWhere.AND
-            ? [baseWhere.AND]
-            : []),
-        scopeFilter as Prisma.CaseWhereInput,
-      ];
+      noiVaoWhere(baseWhere as Record<string, unknown>, [scopeFilter]);
     }
 
     const states: TrangThaiPhanHoi[] = [
@@ -1965,9 +1960,7 @@ export class CasesService {
     if (search) {
       noiVaoWhere(
         where as Record<string, unknown>,
-        await this.timKiem.dieuKien({
-          tk: [`${KHOA_TAT_CA}~${search.slice(0, 200)}`],
-        }),
+        await this.timKiem.dieuKienTatCa(search),
       );
     }
 

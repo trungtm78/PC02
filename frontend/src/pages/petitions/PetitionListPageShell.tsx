@@ -343,7 +343,12 @@ export function PetitionListPageShell() {
         setTotalCount(listRes.data.total);
         if (listRes.data.total === 0) {
           setTableState(
-            debouncedSearch || statusFilter || groupFilter || timKiem.the.length > 0
+            // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
+            debouncedSearch ||
+            statusFilter ||
+            groupFilter ||
+            timKiem.the.length > 0 ||
+            Object.values(appliedFilters).some((v) => v)
               ? 'empty-filtered'
               : 'empty',
           );

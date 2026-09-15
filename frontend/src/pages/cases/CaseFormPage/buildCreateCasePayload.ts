@@ -399,7 +399,8 @@ export function buildCreateCasePayload(
     payload.ketQuaUyThac =      oHeCu(formData.utdt_ketQuaUyThac);
     payload.ngayTraKetQua =     oHeCu(formData.utdt_ngayTraKetQua);
     // Store additional UTDT metadata fields
-    payload.metadata.nghiVanDoiTuong =               oHeCu(formData.utdt_nghiVanDoiTuong);
+    // `nghiVanDoiTuong` KHÔNG ghi ở đây: tab Ủy thác soi gương ô ở tab Thông tin, metadata đã nhận
+    // cùng giá trị ở khối metadata phía trên. Ghi đè từ ô riêng là metadata và cột typed trôi khỏi nhau.
     payload.metadata.lyDoKhongThucHienDuoc =         oHeCu(formData.utdt_lyDoKhongThucHienDuoc);
     payload.metadata.ngayThongBaoKhongThucHien =     oHeCu(formData.utdt_ngayThongBaoKhongThucHien);
   } else if (formData.sourceDocumentNote) {

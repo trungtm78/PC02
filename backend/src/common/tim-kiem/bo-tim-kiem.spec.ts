@@ -132,6 +132,16 @@ describe('BoTimKiem.luiCotGoc', () => {
   });
 });
 
+describe('BoTimKiem.dieuKienTatCa', () => {
+  it('chuỗi dài quá giới hạn → cắt, không 400; ra đúng điều kiện thẻ "*"', async () => {
+    const bo = new BoTimKiem(prismaGia(daNap), KHAI);
+    const dai = 'a'.repeat(500);
+    const ra = await bo.dieuKienTatCa(dai);
+    expect(ra).toEqual(await bo.dieuKien({ tk: [`*~${'a'.repeat(200)}`] }));
+    expect(JSON.stringify(ra)).toContain('timKiemBd');
+  });
+});
+
 describe('BoTimKiem.kyApDung', () => {
   const bo = new BoTimKiem(prismaGia(daNap), KHAI);
   const ky = {
@@ -151,6 +161,10 @@ describe('BoTimKiem.kyApDung', () => {
   });
 
   it('không có thẻ ngày → giữ nguyên kỳ (cả chính đối tượng)', () => {
+    // Thẻ ngày RỖNG không lọc gì (docThe bỏ giá trị rỗng) — nên cũng không được gỡ kỳ mặc định, nếu
+    // không `?tk=ngayDeXuat~` làm danh sách lẫn thống kê đếm mọi kỳ mà nhãn không lọc ngày nào.
+    expect(bo.kyApDung(ky, ['ngayDeXuat~'])).toBe(ky);
+    expect(bo.kyApDung(ky, ['ngayDeXuat~   '])).toBe(ky);
     expect(bo.kyApDung(ky, ['nguoiGui~An'])).toBe(ky);
     expect(bo.kyApDung(ky, undefined)).toBe(ky);
     expect(bo.kyApDung(ky, 'khongDauNga')).toBe(ky);

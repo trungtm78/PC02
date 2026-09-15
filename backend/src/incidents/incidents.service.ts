@@ -327,9 +327,7 @@ export class IncidentsService {
     // Tìm qua thẻ "tất cả các cột" — cùng luật bỏ dấu với danh sách. Phạm vi (OR) chuyển vào AND
     // TRƯỚC khi nối, để điều kiện tìm không bao giờ nới lỏng phạm vi. Cắt 200: ô chọn nhận chữ đang gõ.
     if (search.length > 0) {
-      const dieuKienTim = await this.timKiem.dieuKien({
-        tk: [`${KHOA_TAT_CA}~${search.slice(0, 200)}`],
-      });
+      const dieuKienTim = await this.timKiem.dieuKienTatCa(search);
       baseWhere.AND = [
         ...(baseWhere.OR ? [{ OR: baseWhere.OR }] : []),
         ...(dieuKienTim as Prisma.IncidentWhereInput[]),
@@ -1792,9 +1790,7 @@ export class IncidentsService {
     if (search) {
       noiVaoWhere(
         where as Record<string, unknown>,
-        await this.timKiem.dieuKien({
-          tk: [`${KHOA_TAT_CA}~${search.slice(0, 200)}`],
-        }),
+        await this.timKiem.dieuKienTatCa(search),
       );
     }
 

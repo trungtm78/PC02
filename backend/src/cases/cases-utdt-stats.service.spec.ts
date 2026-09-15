@@ -159,6 +159,28 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
     expect(Array.isArray(callArg.where.AND)).toBe(true);
   });
 
+  /**
+   * REGRESSION: bản cũ GÁN ĐÈ `where.AND = [scope]`. Nay AND đã chứa điều kiện thẻ, gán đè là mất
+   * hoặc thẻ hoặc phạm vi. Ca phạm vi ở trên truyền query rỗng nên không bắt được — ca này có cả hai.
+   */
+  it('[P1] tìm kiếm + phạm vi dữ liệu CÙNG nằm trong AND ở cả 4 lượt đếm', async () => {
+    mockPrisma.case.count.mockResolvedValue(0);
+    await service.getUtdtStats(
+      { search: 'PC01' },
+      {
+        userIds: ['user-001'],
+        teamIds: ['team-a'],
+        writableTeamIds: ['team-a'],
+      },
+    );
+    expect(mockPrisma.case.count).toHaveBeenCalledTimes(4);
+    for (const [arg] of mockPrisma.case.count.mock.calls) {
+      const json = JSON.stringify(arg.where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"pc01"}');
+      expect(json).toContain('team-a');
+    }
+  });
+
   it('each state query merges baseWhere + buildTrangThaiFilter (no clobber)', async () => {
     mockPrisma.case.count.mockResolvedValue(0);
     await service.getUtdtStats({}, null);

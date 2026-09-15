@@ -161,6 +161,16 @@ export function OTimKiemThe({
 
   const q = chu.trim();
 
+  /**
+   * Đang sửa một thẻ mà cột của nó không nằm trong gợi ý (cột đang ẩn, hoặc thẻ đến từ đường dẫn cũ):
+   * đưa trường ấy lên đầu, nếu không Enter rơi vào "tất cả các cột" và thẻ âm thầm đổi phạm vi.
+   */
+  const truongGoi = useMemo<readonly TruongTimKiem[]>(() => {
+    if (!uuTienKhoa || truong.some((t) => t.key === uuTienKhoa)) return truong;
+    const dangSua = khai.find((t) => t.key === uuTienKhoa);
+    return dangSua ? [dangSua, ...truong] : truong;
+  }, [uuTienKhoa, truong, khai]);
+
   const luaChon = useMemo<LuaChon[]>(() => {
     const ds: LuaChon[] = [];
     const themGiaTriChon = (t: TruongTimKiem, loc: string) => {
@@ -170,11 +180,11 @@ export function OTimKiemThe({
       }
     };
     if (!q) {
-      if (moRong) for (const t of truong) if (t.kieu === 'chon') themGiaTriChon(t, '');
+      if (moRong) for (const t of truongGoi) if (t.kieu === 'chon') themGiaTriChon(t, '');
       return ds;
     }
     ds.push({ khoa: KHOA_TAT_CA, giaTri: q, nhan: `Tìm trong tất cả các cột: "${q}"` });
-    for (const t of truong) {
+    for (const t of truongGoi) {
       if (t.kieu === 'chon') themGiaTriChon(t, q);
       else if (t.kieu === 'ngay' && !laGiaTriNgay(q)) {
         ds.push({
@@ -186,7 +196,7 @@ export function OTimKiemThe({
       } else ds.push({ khoa: t.key, giaTri: q, nhan: `Tìm ${t.nhan}: "${q}"` });
     }
     return ds;
-  }, [q, moRong, truong, giaTriChon]);
+  }, [q, moRong, truongGoi, giaTriChon]);
 
   const macDinh = Math.max(
     0,

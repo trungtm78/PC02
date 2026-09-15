@@ -90,6 +90,8 @@ interface UyThacFromApi {
   ketQuaUyThac: string | null;
   ngayTraKetQua: string | null;
   metadata: Record<string, unknown> | null;
+  /** Nghi vấn đối tượng — cột typed, cũng là cột thẻ `doiTuongNghiVan` lọc. */
+  nghiVanDoiTuong?: string | null;
   trangThaiPhanHoi?: TrangThaiPhanHoi;
   investigator: { id: string; firstName?: string; lastName?: string; username: string } | null;
   createdBy: { id: string; firstName?: string; lastName?: string } | null;
@@ -558,7 +560,8 @@ export default function UyThacDieuTraListPage() {
         header: 'Đối tượng nghi vấn',
         timKiem: 'doiTuongNghiVan',
         render: (r) => {
-          const nghiVan = getNghiVan(r);
+          // Cột typed trước — CÙNG cột thẻ tìm kiếm lọc; metadata chỉ đỡ hồ sơ cũ chưa chuẩn hoá.
+          const nghiVan = r.nghiVanDoiTuong?.trim() || getNghiVan(r);
           return (
             <span className="block max-w-[180px] truncate" title={nghiVan ?? undefined}>
               {nghiVan ?? '—'}

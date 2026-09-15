@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { KY_THONG_KE } from '../utils/thong-ke-ky.util';
 import {
   DO_DAI_GIA_TRI_TOI_DA,
+  KHOA_TAT_CA,
   docThe,
   dungDieuKienTimKiem,
 } from './dieu-kien';
@@ -107,11 +108,24 @@ export class BoTimKiem {
     return ra;
   }
 
-  /** Có thẻ ngày không — cán bộ đã chỉ rõ ngày thì kỳ thống kê MẶC ĐỊNH không được cắt thêm. */
+  /**
+   * Một chuỗi gõ tự do (ô chọn liên kết, màn khôi phục) → điều kiện của thẻ "tất cả các cột". Cắt còn
+   * DO_DAI_GIA_TRI_TOI_DA: ô ấy gửi nguyên chữ đang gõ, quá giới hạn thẻ là 400.
+   */
+  dieuKienTatCa(chuoi: string): Promise<DieuKien[]> {
+    return this.dieuKien({
+      tk: [`${KHOA_TAT_CA}~${chuoi.slice(0, DO_DAI_GIA_TRI_TOI_DA)}`],
+    });
+  }
+
+  /**
+   * Có thẻ ngày không — cán bộ đã chỉ rõ ngày thì kỳ thống kê MẶC ĐỊNH không được cắt thêm. Thẻ ngày
+   * RỖNG không tính: `docThe` bỏ nó nên không lọc ngày nào, gỡ kỳ mặc định là đếm mọi kỳ.
+   */
   coTheNgay(tk: unknown): boolean {
     return damThe(tk).some((muc) => {
       const i = muc.indexOf('~');
-      if (i <= 0) return false;
+      if (i <= 0 || !muc.slice(i + 1).trim()) return false;
       const khoa = muc.slice(0, i);
       return this.khai.truong.some((t) => t.key === khoa && t.kieu === 'ngay');
     });

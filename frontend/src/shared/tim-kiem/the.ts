@@ -41,6 +41,9 @@ function napVao(the: The[], khoa: string, giaTriTho: string): The[] {
 /**
  * Đọc thẻ từ tham số trang. `thamSoCu` quy tham số trước thời thẻ (`q`, ô lọc chữ) về khoá thẻ:
  * đường dẫn cũ còn trong dấu trang và tin nhắn, mở ra mà mất bộ lọc thì cán bộ tưởng hồ sơ mất.
+ *
+ * Qua `themGiaTri` nên dừng ở SO_GIA_TRI_TOI_DA: đường dẫn dán tay không đi qua ô thẻ, vượt giới hạn
+ * máy chủ là 400 cho cả danh sách lẫn thống kê.
  */
 export function docTheTuThamSo(
   sp: URLSearchParams,
@@ -51,11 +54,11 @@ export function docTheTuThamSo(
   for (const muc of sp.getAll(khoaUrlThe(prefix))) {
     const i = muc.indexOf(DAU_TACH);
     if (i <= 0) continue;
-    the = napVao(the, muc.slice(0, i), muc.slice(i + 1));
+    the = themGiaTri(the, muc.slice(0, i), muc.slice(i + 1));
   }
   for (const [cu, khoa] of Object.entries(thamSoCu)) {
     const v = sp.get(`${prefix}_${cu}`);
-    if (v) the = napVao(the, khoa, v);
+    if (v) the = themGiaTri(the, khoa, v);
   }
   return the;
 }
