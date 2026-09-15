@@ -101,6 +101,67 @@ describe('DirectoryService', () => {
         }),
       );
     });
+
+    /**
+     * M6: tìm danh mục đi qua `BoTimKiem` — gõ không dấu ra "Trộm cắp", chọn cột (mã, tên, mô tả,
+     * trạng thái), khoá lạ 400. Trước đây OR `contains` thường trên mã + tên: "trom" không ra "Trộm".
+     * `search` cũ vẫn là đường của ô chọn FKSelect khắp hệ thống → thẻ "*" (cột bóng gồm mã + tên).
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      const whereCua = (): Record<string, unknown> =>
+        (
+          mockPrisma.directory.findMany.mock.calls[0] as [
+            { where: Record<string, unknown> },
+          ]
+        )[0].where;
+
+      beforeEach(() => {
+        mockPrisma.directory.findMany.mockResolvedValue([]);
+        mockPrisma.directory.count.mockResolvedValue(0);
+      });
+
+      it('search có dấu → thẻ "*" bỏ dấu trong AND, không còn OR tầng trên', async () => {
+        await service.findAll({ type: 'CRIME', search: 'Trộm cắp' });
+        const where = whereCua();
+        expect(where.OR).toBeUndefined();
+        expect(where.type).toBe('CRIME');
+        expect(JSON.stringify(where.AND)).toContain(
+          '"timKiemBd":{"contains":"trom cap"}',
+        );
+      });
+
+      it('thẻ Mã → đúng mã, không phân biệt hoa thường', async () => {
+        await service.findAll({ tk: ['ma~th001'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"code":{"equals":"th001","mode":"insensitive"}',
+        );
+      });
+
+      it('thẻ Trạng thái → cột boolean isActive', async () => {
+        await service.findAll({ tk: ['trangThai~inactive'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"isActive":{"equals":false}',
+        );
+      });
+
+      it('thẻ không đè lọc chờ duyệt / cha', async () => {
+        await service.findAll({
+          tk: ['ten~phuong'],
+          choDuyet: true,
+          parentId: 'p1',
+        } as never);
+        const where = whereCua();
+        expect(where.parentId).toBe('p1');
+        expect(where.metadata).toEqual({ path: ['choDuyet'], equals: true });
+        expect(JSON.stringify(where.AND)).toContain('"nameBd"');
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(
+          service.findAll({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
   });
 
   // ── findOne ───────────────────────────────────────────────────────────────
@@ -237,9 +298,10 @@ describe('DirectoryService', () => {
 
       await service.findAll({ search: 'trộm', limit: 50, offset: 0 });
 
+      // M6: `search` quy về thẻ "*" nằm trong AND (không còn OR tầng trên dễ bị ghi đè).
       expect(mockPrisma.directory.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ OR: expect.any(Array) }),
+          where: expect.objectContaining({ AND: expect.any(Array) }),
         }),
       );
     });

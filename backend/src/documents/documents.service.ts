@@ -16,10 +16,25 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, assertPetitionParentInScope, buildScopeFilter, buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_TAI_LIEU } from '../common/tim-kiem/khai/tai-lieu.khai';
+
+/** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
+const THAM_SO_CU_TAI_LIEU = { search: KHOA_TAT_CA } as const;
 
 @Injectable()
 export class DocumentsService {
   private readonly uploadDir: string;
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_TAI_LIEU,
+      THAM_SO_CU_TAI_LIEU,
+    ));
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,7 +57,6 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   async getList(query: QueryDocumentsDto, dataScope?: DataScope | null) {
     const {
-      search,
       caseId,
       incidentId,
       petitionId,
@@ -56,14 +70,15 @@ export class DocumentsService {
     const where: Prisma.DocumentWhereInput = {
       deletedAt: null,
     };
+    // Tìm kiếm và phạm vi là HAI điều kiện riêng trong AND. Trước đây cả hai cùng gán `where.OR`, nên
+    // khối phạm vi chạy sau đè mất khối tìm — cán bộ có phạm vi gõ gì cũng ra mọi tài liệu.
+    const dieuKien: Prisma.DocumentWhereInput[] = [];
 
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { originalName: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400; cùng luật với mọi màn
+    // danh sách. Trước đây `contains` thường trên ba cột: gõ "bien ban" không ra "Biên bản".
+    dieuKien.push(
+      ...((await this.timKiem.dieuKien(query)) as Prisma.DocumentWhereInput[]),
+    );
 
     if (caseId) where.caseId = caseId;
     if (incidentId) where.incidentId = incidentId;
@@ -73,13 +88,18 @@ export class DocumentsService {
     const caseScope = buildScopeFilter(dataScope);
     const petitionScope = buildPetitionScopeFilter(dataScope);
     if (caseScope || petitionScope) {
-      (where as any).OR = [
-        ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
-        // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
-        // from scope queries — chain-of-custody bleeding prevention.
-        ...(petitionScope ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }] : []),
-      ];
+      dieuKien.push({
+        OR: [
+          ...(caseScope ? [{ case: caseScope }, { incident: caseScope }] : []),
+          // Soft-delete cascade (Cycle 3): exclude documents linked to soft-deleted petitions
+          // from scope queries — chain-of-custody bleeding prevention.
+          ...(petitionScope
+            ? [{ petition: { AND: [petitionScope, { deletedAt: null }] } }]
+            : []),
+        ],
+      });
     }
+    if (dieuKien.length) where.AND = dieuKien;
 
     const allowedSortFields = [
       'createdAt',

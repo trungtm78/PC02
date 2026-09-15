@@ -261,7 +261,26 @@ describe('ReportsController — delegation', () => {
   it('getOverdue() delegates to service.getOverdue with filter params', async () => {
     mockReportsService.getOverdue.mockResolvedValue({ data: [] });
     await controller.getOverdue({ search: 'foo', recordType: 'CASE', priority: 'HIGH', minDaysOverdue: 7 });
-    expect(mockReportsService.getOverdue).toHaveBeenCalledWith('foo', 'CASE', 'HIGH', 7);
+    expect(mockReportsService.getOverdue).toHaveBeenCalledWith(
+      'foo',
+      'CASE',
+      'HIGH',
+      7,
+      undefined,
+    );
+  });
+
+  // M6: thẻ tìm kiếm (`tk`) của màn Hồ sơ trễ hạn phải tới service.
+  it('getOverdue() chuyển thẻ `tk` xuống service', async () => {
+    mockReportsService.getOverdue.mockResolvedValue({ data: [] });
+    await controller.getOverdue({ tk: ['nguoiGui~an'] });
+    expect(mockReportsService.getOverdue).toHaveBeenCalledWith(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      ['nguoiGui~an'],
+    );
   });
 
   it('getDistrictStats() delegates to service.getDistrictStats', async () => {

@@ -15,6 +15,12 @@ import {
   nhomHanTheoTen,
 } from '../common/utils/khoa-loai-thong-tin.util';
 import { THU_TU_CHO_DUYET, sinhDayMa } from '../common/utils/ma-danh-muc.util';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_DANH_MUC } from '../common/tim-kiem/khai/danh-muc.khai';
+
+/** `search` cũ → thẻ "tất cả các cột" (mã, tên, mô tả). */
+const THAM_SO_CU_DANH_MUC = { search: KHOA_TAT_CA } as const;
 
 type PartialCreateDto = Partial<CreateDirectoryDto> & {
   type?: string;
@@ -74,10 +80,27 @@ const SO_LAN_THU_TAO_NHANH = 3;
 
 @Injectable()
 export class DirectoryService {
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_DANH_MUC,
+      THAM_SO_CU_DANH_MUC,
+    ));
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: QueryDirectoryDto) {
-    const { type, search, parentId, isActive, choDuyet, limit = 50, offset = 0 } = query;
+    const {
+      type,
+      parentId,
+      isActive,
+      choDuyet,
+      limit = 50,
+      offset = 0,
+    } = query;
 
     const where: Record<string, unknown> = {};
     if (type) where.type = type;
@@ -97,12 +120,9 @@ export class DirectoryService {
     if (parentId !== undefined) {
       where.parentId = parentId === 'null' ? null : parentId;
     }
-    if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ của ô chọn FKSelect) — bỏ dấu, chọn cột, khoá lạ → 400. Trước đây
+    // OR `contains` thường trên mã + tên: gõ "trom" không ra "Trộm cắp".
+    noiVaoWhere(where, await this.timKiem.dieuKien(query));
 
     const [data, total] = await Promise.all([
       this.prisma.directory.findMany({

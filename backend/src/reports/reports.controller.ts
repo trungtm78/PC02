@@ -7,9 +7,27 @@ import { ReportsExportService } from './reports-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import { IsOptional, IsInt, IsString, IsDateString, IsIn, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsOptional,
+  IsInt,
+  IsString,
+  IsDateString,
+  IsIn,
+  MaxLength,
+  Min,
+  Max,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { EXPORT_FORMAT } from '../common/constants/export-format.constants';
+import {
+  DO_DAI_GIA_TRI_TOI_DA,
+  SO_THE_TOI_DA,
+} from '../common/tim-kiem/dieu-kien';
+
+/** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
+const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
 
 class QueryMonthlyDto {
   @IsOptional()
@@ -125,7 +143,22 @@ class QueryDistrictStatsDto {
   district?: string; // Tên phường/xã (cải cách 2025: không còn cấp quận/huyện)
 }
 
-class QueryOverdueDto {
+export class QueryOverdueDto {
+  /**
+   * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được. Chỉ "*" và khoá chung ba khai hồ sơ (kiểm ở
+   * service, khoá khác 400). Giới hạn ở đây chặn yêu cầu quá cỡ.
+   */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === undefined ? undefined : Array.isArray(value) ? value : [value],
+  )
+  @IsArray()
+  @ArrayMaxSize(SO_THE_TOI_DA)
+  @IsString({ each: true })
+  @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
+  tk?: string[];
+
+  /** Ô tìm cũ — quy về thẻ "tất cả các cột" của từng khai. */
   @IsOptional()
   @IsString()
   search?: string;
@@ -297,6 +330,7 @@ export class ReportsController {
       query.recordType,
       query.priority,
       query.minDaysOverdue,
+      query.tk,
     );
   }
 

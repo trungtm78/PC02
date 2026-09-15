@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AddressMappingModule } from '../AddressMappingModule';
 import { api } from '@/lib/api';
 
@@ -48,7 +49,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       data: { jobId: 'job-123', statusUrl: '/address-mappings/seed/status/job-123' },
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     const button = screen.getByRole('button', { name: /Cập nhật từ API/i });
@@ -67,7 +68,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       data: { jobId: 'job-456', statusUrl: '/address-mappings/seed/status/job-456' },
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     await waitFor(() => expect(api.get).toHaveBeenCalled());
 
     const select = screen.getByLabelText(/Tỉnh\/TP để seed/i) as HTMLSelectElement;
@@ -101,7 +102,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       return Promise.resolve({ data: {} });
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     // Drain initial list/stats fetches.
     await act(async () => { await Promise.resolve(); });
 
@@ -138,7 +139,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       return Promise.resolve({ data: {} });
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
     fireEvent.click(screen.getByRole('button', { name: /Cập nhật từ API/i }));
@@ -180,7 +181,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       return Promise.resolve({ data: {} });
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     const listCallsAfterMount = listCalls;
 
@@ -213,7 +214,7 @@ describe('AddressMappingModule — "Cập nhật từ API" button', () => {
       return Promise.resolve({ data: {} });
     });
 
-    render(<AddressMappingModule />);
+    render(<AddressMappingModule />, { wrapper: MemoryRouter });
     await act(async () => { await Promise.resolve(); });
 
     const button = screen.getByRole('button', { name: /Cập nhật từ API/i }) as HTMLButtonElement;

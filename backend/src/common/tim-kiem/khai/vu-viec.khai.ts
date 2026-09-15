@@ -77,4 +77,7 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
   // Ô tìm cũ tìm cả tên vụ việc, đối tượng bị tố giác (cá nhân/tổ chức) và số hồ sơ hệ cũ — thẻ
   // "tất cả các cột" phải tìm được đủ, không giảm phạm vi tìm của cán bộ.
   cotThemVaoTatCa: ['name', 'doiTuongCaNhan', 'doiTuongToChuc', 'soHoSoCu'],
+  // Đích của thẻ "Vụ việc" ở màn Tài liệu: cột ấy hiện TÊN vụ việc, lọc phải đúng tên chứ không phải
+  // `tim_kiem_bd` (ghép cả mô tả, đơn vị…).
+  cotBongPhu: ['name'],
 };

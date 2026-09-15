@@ -317,7 +317,7 @@
       "title": "UTDT stats 4 TrangThaiPhanHoi",
       "pre": "DB có UTDT ở 4 state",
       "steps": "GET /utdt-stats",
-      "expected": "HTTP 200, byTrangThai = {DA_PHAN_HOI, KHONG_THUC_HIEN_DUOC, QUA_HAN, CHUA_PHAN_HOI}",
+      "expected": "HTTP 200, byTrangThai = {DA_PHAN_HOI, KHONG_THUC_HIEN_DUOC, QUA_HAN, CHUA_PHAN_HOI}. Số đếm tính theo KỲ THỐNG KÊ đang cấu hình (SystemSetting: ky/truong/tuNgay/denNgay): kỳ TAT_CA thì đếm mọi hồ sơ, kỳ khác chỉ đếm hồ sơ có `truong` (mặc định NGAY_TIEP_NHAN) nằm trong kỳ",
       "data": [
         "utdt.all_state.D0"
       ]
@@ -842,7 +842,7 @@
       "title": "utdt-stats với scope filter (donViGiao) → counts đúng theo filter",
       "pre": "-",
       "steps": "GET /utdt-stats?donViGiao=PC01",
-      "expected": "HTTP 200, byTrangThai chỉ tính UTDT có donViGiao=PC01",
+      "expected": "HTTP 200, byTrangThai chỉ tính UTDT có donViGiao=PC01 VÀ nằm trong kỳ thống kê đang cấu hình (kỳ khác TAT_CA thì lọc thêm theo kỳ)",
       "data": [
         "utdt.donvi_pc01.D0",
         "utdt.donvi_pc02.D0"
@@ -1204,7 +1204,7 @@
       "title": "Decision matrix computed state — 4×3 (state × scenario)",
       "pre": "-",
       "steps": "3 scenario mỗi state: (default), (with filter donViGiao), (with date range)",
-      "expected": "12 cell counts đúng theo buildTrangThaiFilter",
+      "expected": "12 cell counts đúng theo buildTrangThaiFilter; kịch bản (with date range) và kỳ thống kê đang cấu hình cùng áp — kỳ khác TAT_CA thì mọi ô chỉ đếm hồ sơ trong kỳ",
       "data": [
         "utdt.all_state.D0"
       ]

@@ -80,7 +80,8 @@ function khopMotGiaTri<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
       return tienTo !== null && o.some((x) => ngayVietNam(x)?.startsWith(tienTo) ?? false);
     }
     case 'ma':
-    case 'ma-cu': {
+    case 'ma-cu':
+    case 'ma-thuong': {
       // Máy chủ so thẻ mã ĐÚNG mã: so chứa thì `stt~5` ra cả dòng 15, 25, 50–59.
       const q = chuanHoa(giaTri);
       return q !== '' && o.some((x) => chuanHoa(x) === q);
@@ -91,7 +92,7 @@ function khopMotGiaTri<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
 }
 
 const laCotTatCa = (t: TruongTimKiem) =>
-  t.kieu === 'chu' || t.kieu === 'ma' || t.kieu === 'ma-cu';
+  t.kieu === 'chu' || t.kieu === 'ma' || t.kieu === 'ma-cu' || t.kieu === 'ma-thuong';
 
 export function locTheoThe<R>(
   dong: readonly R[],

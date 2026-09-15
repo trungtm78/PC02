@@ -17,6 +17,38 @@ import {
 } from './so-sanh-ky';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaseStatus, IncidentStatus, PetitionStatus } from '@prisma/client';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
+import { kiemTheChung } from '../common/tim-kiem/khoa-chung';
+import { KHAI_TIM_KIEM_VU_AN } from '../common/tim-kiem/khai/vu-an.khai';
+import { KHAI_TIM_KIEM_VU_VIEC } from '../common/tim-kiem/khai/vu-viec.khai';
+import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
+
+/** Ba loại hồ sơ của màn Hồ sơ trễ hạn — thẻ chỉ nhận "*" và khoá chung của cả ba. */
+const KHAI_HO_SO_TRE_HAN = [
+  KHAI_TIM_KIEM_VU_AN,
+  KHAI_TIM_KIEM_VU_VIEC,
+  KHAI_TIM_KIEM_DON_THU,
+] as const;
+/** `search` cũ → thẻ "tất cả các cột" của từng khai. */
+const THAM_SO_CU_TRE_HAN = { search: KHOA_TAT_CA } as const;
+
+interface NguonSoHoSo {
+  id: string;
+  stt?: string | null;
+  caseCode?: string | null;
+  code?: string | null;
+}
+
+/**
+ * Số hồ sơ trên màn Trễ hạn: đơn thư `stt`, vụ án `caseCode`, vụ việc `code` — đúng mã thẻ STT tìm theo.
+ * Trước đây `select` không lấy `caseCode`/`code` nên vụ án/vụ việc luôn hiện id cắt 8 ký tự.
+ */
+function soHoSo(item: NguonSoHoSo): string {
+  return (
+    item.stt ?? item.caseCode ?? item.code ?? item.id.slice(0, 8).toUpperCase()
+  );
+}
 
 // ─────────────────────────────────────────────
 // Stat48 field definitions
@@ -129,6 +161,35 @@ export interface TuyChonKy {
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
+  private boVuAn?: BoTimKiem;
+  private boVuViec?: BoTimKiem;
+  private boDonThu?: BoTimKiem;
+
+  // Tìm kiếm dạng thẻ của Hồ sơ trễ hạn — MỘT bộ cho mỗi khai, tạo LƯỜI (`this.prisma` chưa gán lúc
+  // khởi tạo field); mỗi bộ nhớ riêng câu trả lời "bảng còn dòng chưa nạp cột bóng".
+  private get timKiemVuAn(): BoTimKiem {
+    return (this.boVuAn ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_VU_AN,
+      THAM_SO_CU_TRE_HAN,
+    ));
+  }
+
+  private get timKiemVuViec(): BoTimKiem {
+    return (this.boVuViec ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_VU_VIEC,
+      THAM_SO_CU_TRE_HAN,
+    ));
+  }
+
+  private get timKiemDonThu(): BoTimKiem {
+    return (this.boDonThu ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_DON_THU,
+      THAM_SO_CU_TRE_HAN,
+    ));
+  }
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -535,89 +596,123 @@ export class ReportsService {
   // ─────────────────────────────────────────────
   // GET /api/v1/reports/overdue
   // ─────────────────────────────────────────────
-  async getOverdue(search?: string, recordType?: string, priority?: string, minDaysOverdue?: number) {
+  async getOverdue(
+    search?: string,
+    recordType?: string,
+    priority?: string,
+    minDaysOverdue?: number,
+    tk?: string[],
+  ) {
     const now = new Date();
 
-    const overdueCases = recordType && recordType !== 'case' ? [] : await this.prisma.case.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [CaseStatus.DA_KET_LUAN, CaseStatus.DA_LUU_TRU, CaseStatus.DINH_CHI],
-        },
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { unit: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        deadline: true,
-        createdAt: true,
-        unit: true,
-        status: true,
-        investigator: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    // Thẻ tìm kiếm: MỘT ô cho ba loại hồ sơ → chỉ nhận "*" và khoá CHUNG ba khai (cùng nghĩa trên cả
+    // ba bảng); khoá khác 400 trước khi hỏi CSDL. Mỗi bảng dựng điều kiện bằng BoTimKiem của CHÍNH
+    // khai ấy (cột bóng riêng). Trước đây ba khối OR chép tay, `contains` thường, vụ việc còn so
+    // `unitId` (một ID) như chữ.
+    kiemTheChung(tk, KHAI_HO_SO_TRE_HAN);
+    // So chữ thường: client gửi mã kiểu enum (`CASE`) thì mọi nhánh bị bỏ qua → danh sách rỗng mà
+    // trông như "không có hồ sơ trễ hạn".
+    const loai = recordType?.trim().toLowerCase();
+    const mucUuTien = priority?.trim().toLowerCase();
+    const thamSoTim = { search, tk };
+    const [timVuAn, timVuViec, timDonThu] = await Promise.all([
+      this.timKiemVuAn.dieuKien(thamSoTim),
+      this.timKiemVuViec.dieuKien(thamSoTim),
+      this.timKiemDonThu.dieuKien(thamSoTim),
+    ]);
 
-    const overdueIncidents = recordType && recordType !== 'incident' ? [] : await this.prisma.incident.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [IncidentStatus.DA_GIAI_QUYET, IncidentStatus.DA_CHUYEN_VU_AN],
-        },
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { unitId: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        deadline: true,
-        createdAt: true,
-        unitId: true,
-        status: true,
-        investigator: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    const overdueCases =
+      loai && loai !== 'case'
+        ? []
+        : await this.prisma.case.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  CaseStatus.DA_KET_LUAN,
+                  CaseStatus.DA_LUU_TRU,
+                  CaseStatus.DINH_CHI,
+                ],
+              },
+              AND: timVuAn,
+            },
+            select: {
+              id: true,
+              caseCode: true,
+              name: true,
+              deadline: true,
+              createdAt: true,
+              unit: true,
+              status: true,
+              investigator: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
 
-    const overduePetitions = recordType && recordType !== 'petition' ? [] : await this.prisma.petition.findMany({
-      where: {
-        deletedAt: null,
-        deadline: { lt: now },
-        status: {
-          notIn: [PetitionStatus.DA_GIAI_QUYET, PetitionStatus.DA_CHUYEN_VU_AN, PetitionStatus.DA_CHUYEN_VU_VIEC],
-        },
-        ...(search && {
-          OR: [
-            { senderName: { contains: search, mode: 'insensitive' } },
-            { summary: { contains: search, mode: 'insensitive' } },
-            { unit: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      select: {
-        id: true,
-        stt: true,
-        summary: true,
-        deadline: true,
-        receivedDate: true,
-        unit: true,
-        status: true,
-        priority: true,
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { deadline: 'asc' },
-    });
+    const overdueIncidents =
+      loai && loai !== 'incident'
+        ? []
+        : await this.prisma.incident.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  IncidentStatus.DA_GIAI_QUYET,
+                  IncidentStatus.DA_CHUYEN_VU_AN,
+                ],
+              },
+              AND: timVuViec,
+            },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              deadline: true,
+              createdAt: true,
+              unitId: true,
+              status: true,
+              investigator: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
+
+    const overduePetitions =
+      loai && loai !== 'petition'
+        ? []
+        : await this.prisma.petition.findMany({
+            where: {
+              deletedAt: null,
+              deadline: { lt: now },
+              status: {
+                notIn: [
+                  PetitionStatus.DA_GIAI_QUYET,
+                  PetitionStatus.DA_CHUYEN_VU_AN,
+                  PetitionStatus.DA_CHUYEN_VU_VIEC,
+                ],
+              },
+              AND: timDonThu,
+            },
+            select: {
+              id: true,
+              stt: true,
+              summary: true,
+              deadline: true,
+              receivedDate: true,
+              unit: true,
+              status: true,
+              priority: true,
+              assignedTo: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+            orderBy: { deadline: 'asc' },
+          });
 
     const toOverdueRecord = (item: any, type: string) => {
       const deadline = new Date(item.deadline);
@@ -627,7 +722,7 @@ export class ReportsService {
       return {
         id: item.id,
         recordType: type,
-        recordNumber: item.stt ?? item.code ?? item.id.slice(0, 8).toUpperCase(),
+        recordNumber: soHoSo(item as NguonSoHoSo),
         title: item.name ?? item.summary ?? `Đơn thư ${item.stt}`,
         assignedTo: item.investigator
           ? `${item.investigator.firstName ?? ''} ${item.investigator.lastName ?? ''}`.trim()
@@ -652,6 +747,13 @@ export class ReportsService {
     // Filter by minDaysOverdue
     if (minDaysOverdue && minDaysOverdue > 0) {
       records = records.filter((r) => r.daysOverdue >= minDaysOverdue);
+    }
+
+    // Mức ưu tiên là giá trị SUY RA khi dựng bản ghi (theo số ngày trễ) nên lọc ở đây, không lọc được
+    // trong câu hỏi CSDL. Trước đây tham số này nhận rồi bỏ qua: gọi API với `priority=critical` vẫn
+    // trả cả medium/high (màn lọc lại phía trình duyệt nên chỉ ai gọi API mới thấy sai).
+    if (mucUuTien) {
+      records = records.filter((r) => r.priority === mucUuTien);
     }
 
     // Sort by daysOverdue descending

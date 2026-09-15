@@ -19,10 +19,13 @@
 BEGIN;
 
 -- ── users: họ tên người nhập / cán bộ (thẻ kiểu người lọc qua quan hệ) ──
+-- ── users (nguoi-dung) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_users() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW."ho_ten_bd" := NULL;
+  NEW."email_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
 
@@ -60,6 +63,7 @@ BEGIN
   NEW."description_bd" := NULL;
   NEW."don_vi_giai_quyet_bd" := NULL;
   NEW."ket_qua_xu_ly_bd" := NULL;
+  NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
@@ -90,6 +94,47 @@ BEGIN
   NEW."bar_number_bd" := NULL;
   NEW."law_firm_bd" := NULL;
   NEW."phone_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── directories (danh-muc) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_directories() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."name_bd" := NULL;
+  NEW."description_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── documents (tai-lieu) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_documents() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."title_bd" := NULL;
+  NEW."original_name_bd" := NULL;
+  NEW."description_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── address_mappings (anh-xa-dia-chi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_address_mappings() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."old_ward_bd" := NULL;
+  NEW."old_district_bd" := NULL;
+  NEW."new_ward_bd" := NULL;
+  NEW."note_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── audit_logs (nhat-ky) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_audit_logs() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;

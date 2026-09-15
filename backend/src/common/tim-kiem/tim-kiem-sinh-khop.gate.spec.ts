@@ -10,6 +10,7 @@ import {
 } from './sinh/sinh-tim-kiem';
 import {
   cotDbLech,
+  kieuCotLech,
   TEP_FRONTEND,
   TEP_SCHEMA,
   TEP_SQL_BAT_LAI,
@@ -61,6 +62,14 @@ describe('GATE tìm kiếm — tệp sinh khớp tệp khai', () => {
   /** Trigger gọi tên cột thật — khai lệch `@map` thì migration dừng giữa deploy. */
   it('tên cột trong khai khớp @map của schema.prisma', () => {
     expect(cotDbLech(docLF(TEP_SCHEMA), KHAI_TIM_KIEM)).toEqual([]);
+  });
+
+  /**
+   * Bộ lọc Prisma khác nhau theo kiểu cột (BoolFilter không có `in`, `mode` chỉ ở String) — khai lệch
+   * kiểu là 500 lúc lọc mà ca kiểm hình đối tượng vẫn xanh (lỗi thẻ Trạng thái M6).
+   */
+  it('kiểu thẻ khai hợp kiểu cột schema.prisma', () => {
+    expect(kieuCotLech(docLF(TEP_SCHEMA), KHAI_TIM_KIEM)).toEqual([]);
   });
 
   it('schema.prisma khai đủ field chỉ đọc cho mọi cột bóng', () => {

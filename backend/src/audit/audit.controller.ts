@@ -29,6 +29,7 @@ export class AuditController {
       subjectId: query.subjectId,
       subject: query.subject,
       search: query.search,
+      tk: query.tk,
       // v0.29 fix: normalize date-only input để dateTo `2026-05-20` cover hết ngày.
       dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
       dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
@@ -68,6 +69,8 @@ export class AuditController {
       subjectId: query.subjectId,
       subject: query.subject,
       search: query.search,
+      // Xuất CSV áp CÙNG thẻ như danh sách — bỏ thẻ là tệp chứa bản ghi màn không hiện.
+      tk: query.tk,
       dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
       dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
       limit: 10000,

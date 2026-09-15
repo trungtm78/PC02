@@ -26,9 +26,25 @@ import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import { AccessLevel } from '@prisma/client';
 import { ROLE_NAMES } from '../common/constants/role.constants';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_NGUOI_DUNG } from '../common/tim-kiem/khai/nguoi-dung.khai';
+
+/** `search` cũ → thẻ "tất cả các cột" (mã cán bộ, họ tên, email). */
+const THAM_SO_CU_NGUOI_DUNG = { search: KHOA_TAT_CA } as const;
 
 @Injectable()
 export class AdminService {
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_NGUOI_DUNG,
+      THAM_SO_CU_NGUOI_DUNG,
+    ));
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -41,26 +57,13 @@ export class AdminService {
   // ──────────────────────────────────────────────────────
 
   async getUsers(query: QueryUsersDto) {
-    const {
-      search,
-      roleId,
-      status,
-      departmentId,
-      limit = 20,
-      offset = 0,
-    } = query;
+    const { roleId, status, departmentId, limit = 20, offset = 0 } = query;
 
     const where: Record<string, unknown> = {};
 
-    if (search) {
-      where.OR = [
-        { username: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { workId: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400. Trước đây OR `contains`
+    // thường trên năm cột: gõ "nguyen" không ra "Nguyễn".
+    noiVaoWhere(where, await this.timKiem.dieuKien(query));
     if (roleId) where.roleId = roleId;
     if (status) where.isActive = status === UserStatus.ACTIVE;
     if (departmentId) where.departmentId = departmentId;

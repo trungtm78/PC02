@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
+import { QueryDaXoaDto } from '../common/dto/query-da-xoa.dto';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
 import { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
 import { IncidentsJourneyService } from './incidents-journey.service';
@@ -224,11 +225,12 @@ export class IncidentsController {
   // GET /api/v1/incidents/admin/deleted — v0.32.0.0 list vụ việc đã xóa mềm (ADMIN)
   @Get('admin/deleted')
   @RequirePermissions({ action: 'restore', subject: 'Incident' })
-  listDeleted(@Query() query: { limit?: number; offset?: number; search?: string }) {
+  listDeleted(@Query() query: QueryDaXoaDto) {
     return this.incidentsService.listDeleted({
-      limit: query.limit ? Number(query.limit) : undefined,
-      offset: query.offset ? Number(query.offset) : undefined,
+      limit: query.limit,
+      offset: query.offset,
       search: query.search,
+      tk: query.tk,
     });
   }
 

@@ -1949,20 +1949,22 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // LIST DELETED — paginated list deleted Cases + enriched delete audit
   // ─────────────────────────────────────────────
-  async listDeleted(query: { limit?: number; offset?: number; search?: string }) {
+  async listDeleted(query: {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    tk?: string[];
+  }) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
-    const search = query.search?.trim();
 
     const where: Prisma.CaseWhereInput = { deletedAt: { not: null } };
-    // CÙNG helper với danh sách chính (gồm mã hồ sơ — bản cũ tìm `id` thay cho mã). Hồ sơ đã xoá
-    // vẫn có cột bóng do trigger giữ.
-    if (search) {
-      noiVaoWhere(
-        where as Record<string, unknown>,
-        await this.timKiem.dieuKienTatCa(search),
-      );
-    }
+    // CÙNG helper với danh sách chính (gồm mã hồ sơ — bản cũ tìm `id` thay cho mã): `search` cũ → thẻ
+    // "*", `tk` → thẻ theo cột (màn Khôi phục), khoá lạ 400. Hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien({ search: query.search, tk: query.tk }),
+    );
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({

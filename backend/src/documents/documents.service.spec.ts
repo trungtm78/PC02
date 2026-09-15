@@ -78,6 +78,10 @@ describe('DocumentsService', () => {
   });
 
   describe('getList', () => {
+    /** `where` của lượt gọi đầu — có kiểu, để ca kiểm không đọc `any` từ mock. */
+    const whereCua = (fn: jest.Mock): Record<string, unknown> =>
+      (fn.mock.calls[0] as [{ where: Record<string, unknown> }])[0].where;
+
     it('should return paginated list of documents', async () => {
       const mockDocuments = [
         {
@@ -121,18 +125,16 @@ describe('DocumentsService', () => {
 
       await service.getList({ search: searchQuery });
 
-      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deletedAt: null,
-            OR: expect.arrayContaining([
-              expect.objectContaining({ title: expect.any(Object) }),
-              expect.objectContaining({ description: expect.any(Object) }),
-              expect.objectContaining({ originalName: expect.any(Object) }),
-            ]),
-          }),
-        }),
-      );
+      // Điều kiện tìm nằm trong AND (một phần tử `{ OR }`) để không tranh `where.OR` với phạm vi.
+      const where = whereCua(mockPrismaService.document.findMany);
+      expect(where.deletedAt).toBeNull();
+      expect(where.OR).toBeUndefined();
+      const json = JSON.stringify(where.AND);
+      // `search` cũ = thẻ "tất cả các cột": cột bóng ghép bỏ dấu, lùi về ba cột gốc khi chưa nạp.
+      expect(json).toContain('"timKiemBd":{"contains":"test"}');
+      expect(json).toContain('"title":{"contains":"test"');
+      expect(json).toContain('"description":{"contains":"test"');
+      expect(json).toContain('"originalName":{"contains":"test"');
     });
 
     it('should filter documents by caseId', async () => {
@@ -195,13 +197,87 @@ describe('DocumentsService', () => {
 
       await service.getList({}, scope as any);
 
-      const callArgs = mockPrismaService.document.findMany.mock.calls[0][0];
-      const orClauses = callArgs.where.OR as Array<Record<string, any>>;
+      // Phạm vi nằm trong AND (một phần tử `{ OR: [...] }`), không gán thẳng `where.OR`.
+      const and = whereCua(mockPrismaService.document.findMany).AND as Array<
+        Record<string, unknown>
+      >;
+      const orClauses = and.flatMap(
+        (c) => (c.OR ?? []) as Array<Record<string, unknown>>,
+      );
       const petitionClause = orClauses.find((c) => 'petition' in c);
       expect(petitionClause).toBeDefined();
       // Petition predicate must include deletedAt:null guard — soft-deleted petitions
       // must not leak documents into scope query.
       expect(JSON.stringify(petitionClause)).toContain('deletedAt');
+    });
+
+    /**
+     * [lỗi có sẵn] Phạm vi từng GÁN `where.OR = [...]` ngay sau khối tìm kiếm cũng ghi `where.OR` —
+     * cán bộ có phạm vi gõ tìm là điều kiện tìm bị đè mất, danh sách trả mọi tài liệu trong phạm vi.
+     * Hai điều kiện phải cùng áp (AND), không cái nào đè cái nào.
+     */
+    it('search + phạm vi: cả hai cùng áp, điều kiện tìm không bị phạm vi đè', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+      };
+      await service.getList({ search: 'bien ban' }, scope as never);
+
+      const where = whereCua(mockPrismaService.document.findMany);
+      const json = JSON.stringify(where);
+      expect(json).toContain('"timKiemBd":{"contains":"bien ban"}');
+      expect(json).toContain('"title":{"contains":"bien ban"');
+      expect(json).toContain('"petition":');
+      expect(json).toContain('"case":');
+      // Không còn một `OR` tầng trên duy nhất để hai khối tranh nhau.
+      expect(where.OR).toBeUndefined();
+      expect(whereCua(mockPrismaService.document.count)).toEqual(where);
+    });
+
+    /**
+     * M6: tìm kiếm Tài liệu đi qua `BoTimKiem` như các màn danh sách khác — gõ không dấu ra tài liệu
+     * có dấu (trước đây `contains` thường, "bien ban" không ra "Biên bản"), chọn được cột, khoá lạ 400.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      beforeEach(() => {
+        mockPrismaService.document.findMany.mockResolvedValue([]);
+        mockPrismaService.document.count.mockResolvedValue(0);
+      });
+
+      it('search có dấu → cột bóng ghép bỏ dấu', async () => {
+        await service.getList({ search: 'Biên bản' });
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"timKiemBd":{"contains":"bien ban"}');
+      });
+
+      it('thẻ Tiêu đề → cột bóng tiêu đề', async () => {
+        await service.getList({ tk: ['tieuDe~bien ban'] } as never);
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"titleBd":{"contains":"bien ban"}');
+      });
+
+      it('thẻ Vụ việc → quan hệ incident trên cột bóng TÊN vụ việc', async () => {
+        await service.getList({ tk: ['vuViec~Trộm cắp'] } as never);
+        const json = JSON.stringify(
+          whereCua(mockPrismaService.document.findMany).AND,
+        );
+        expect(json).toContain('"incident":{"is":');
+        expect(json).toContain('"nameBd":{"contains":"trom cap"}');
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(
+          service.getList({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
   });
 

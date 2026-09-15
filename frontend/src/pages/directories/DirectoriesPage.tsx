@@ -22,6 +22,9 @@ import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { extractApiError } from '@/lib/api-errors';
 import { useDirectoryOptions } from '@/hooks/useDirectoryOptions';
 import { usePermission } from '@/hooks/usePermission';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { TIM_KIEM_DANH_MUC } from '@/shared/tim-kiem/generated';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,6 +100,14 @@ const EMPTY_FORM: FormData = {
 
 const PAGE_SIZE = 50;
 
+/** Mã thẻ Trạng thái — đúng bảng `giaTriCot` của khai danh-muc (máy chủ đổi sang isActive). */
+const GIA_TRI_CHON_DANH_MUC = {
+  trangThai: [
+    { value: 'active', label: 'Hoạt động' },
+    { value: 'inactive', label: 'Vô hiệu' },
+  ],
+};
+
 export default function DirectoriesPage() {
   const { canEdit } = usePermission();
   const canEditRow = canEdit('directories');
@@ -118,6 +129,21 @@ export default function DirectoriesPage() {
    * đường nào tìm ra chúng để rà — tức là chúng sẽ không bao giờ được rà.
    */
   const [locChoDuyet, setLocChoDuyet] = useState<'all' | 'cho' | 'da'>('all');
+
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ (bỏ dấu, chọn cột). Thẻ trên URL `directories_tk`. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'directories',
+    khai: TIM_KIEM_DANH_MUC,
+    giaTriChon: GIA_TRI_CHON_DANH_MUC,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+  // Thẻ đổi → về trang đầu (trang cũ có thể vượt tổng số mục mới).
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tkKey]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Directory | null>(null);
@@ -195,8 +221,14 @@ export default function DirectoriesPage() {
     setLoadError("");
     try {
       const offset = (currentPage - 1) * PAGE_SIZE;
-      const params: Record<string, string | number> = { type: activeType, limit: PAGE_SIZE, offset };
-      if (searchQuery) params.search = searchQuery;
+      const params: Record<string, string | number | string[]> = { type: activeType, limit: PAGE_SIZE, offset };
+      // Cờ bật → chỉ gửi thẻ: `search` cũng quy về thẻ "*" ở máy chủ, gửi kèm là lọc hai lần.
+      if (theBat) {
+        const tk = JSON.parse(tkKey) as string[];
+        if (tk.length) params.tk = tk;
+      } else if (searchQuery) {
+        params.search = searchQuery;
+      }
       if (filterStatus !== 'all') params.isActive = filterStatus === 'active' ? 'true' : 'false';
       if (locChoDuyet !== 'all') params.choDuyet = locChoDuyet === 'cho' ? 'true' : 'false';
       if (drillParentId) params.parentId = drillParentId;
@@ -218,7 +250,7 @@ export default function DirectoriesPage() {
     } finally {
       if (conMoiNhat()) setLoading(false);
     }
-  }, [activeType, searchQuery, filterStatus, locChoDuyet, currentPage, drillParentId, filterParentId]);
+  }, [activeType, searchQuery, filterStatus, locChoDuyet, currentPage, drillParentId, filterParentId, theBat, tkKey]);
 
   useEffect(() => {
     void loadItems();
@@ -466,16 +498,31 @@ export default function DirectoriesPage() {
             {/* Filters */}
             <div className="p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm theo mã hoặc tên..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
-                  />
-                </div>
+                {theBat ? (
+                  <div className="flex-1">
+                    <OTimKiemThe
+                      the={timKiem.the}
+                      truong={TIM_KIEM_DANH_MUC}
+                      khai={TIM_KIEM_DANH_MUC}
+                      giaTriChon={GIA_TRI_CHON_DANH_MUC}
+                      onThem={timKiem.them}
+                      onBoThe={timKiem.boThe}
+                      onBoGiaTri={timKiem.boGiaTri}
+                      placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Tìm theo mã hoặc tên..."
+                      value={searchQuery}
+                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <Filter className="w-4 h-4 text-slate-500" />
                   <select
@@ -585,11 +632,23 @@ export default function DirectoriesPage() {
                         <p className="text-slate-600 font-medium mb-1">
                           {loadError ? 'Chưa hỏi được máy chủ' : 'Chưa có danh mục nào'}
                         </p>
-                        <p className="text-sm text-slate-500">
-                          {loadError
-                            ? 'Xem thông báo phía trên rồi thử lại.'
-                            : 'Nhấn "Thêm danh mục" hoặc "Seed dữ liệu mẫu"'}
-                        </p>
+                        {!loadError && theBat && timKiem.the.length > 0 ? (
+                          <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                            <span>Không tìm thấy với:</span>
+                            <DanhSachThe
+                              the={timKiem.the}
+                              khai={TIM_KIEM_DANH_MUC}
+                              giaTriChon={GIA_TRI_CHON_DANH_MUC}
+                              onBoThe={timKiem.boThe}
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-500">
+                            {loadError
+                              ? 'Xem thông báo phía trên rồi thử lại.'
+                              : 'Nhấn "Thêm danh mục" hoặc "Seed dữ liệu mẫu"'}
+                          </p>
+                        )}
                       </td>
                     </tr>
                   ) : (

@@ -2,14 +2,13 @@
  * GlobalSearchBar — Thanh tìm kiếm toàn cục trong header
  *
  * Cách hoạt động:
- * - Người dùng gõ ≥ 2 ký tự → debounce 300ms → gọi song song 4 API:
- *     GET /cases?search=&limit=5
- *     GET /petitions?search=&limit=5
- *     GET /subjects?search=&limit=5
- *     GET /incidents?search=&limit=5
+ * - Người dùng gõ ≥ 2 ký tự → debounce 300ms → gọi song song 4 API (/cases, /petitions, /subjects,
+ *   /incidents) với thẻ "tất cả các cột" `tk=*~<chữ gõ>` — máy chủ bỏ dấu, CÙNG quy tắc mọi màn danh
+ *   sách. Cờ `TIM_KIEM_THE` tắt → gửi `search` như cũ.
  * - Kết quả hiển thị dropdown nhóm theo loại (tối đa 4 kết quả mỗi loại)
- * - Click vào kết quả → navigate đến trang chi tiết/danh sách
- * - Nhấn Enter → navigate đến trang danh sách đầu tiên có kết quả với ?search=
+ * - Click vào kết quả → mở hồ sơ (vụ án, đơn thư, vụ việc) hoặc danh sách đối tượng đúng loại lọc theo
+ *   họ tên
+ * - "Xem tất cả" / Enter → danh sách của nhóm mang thẻ "*" trên đúng khoá URL màn ấy đọc
  * - Nhấn Escape → đóng dropdown
  * - Click ngoài → đóng dropdown
  * - Loading spinner khi đang tìm kiếm
@@ -29,6 +28,15 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { boDau } from '@/lib/bo-dau';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { khoaUrlThe } from '@/shared/tim-kiem/the';
+import {
+  CASE_STATUS_LABEL,
+  INCIDENT_STATUS_LABEL,
+  PETITION_STATUS_LABEL,
+} from '@/shared/enums/status-labels';
+import { SUBJECT_TYPE_LABEL, SubjectType } from '@/shared/enums/subject-status';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,82 +56,82 @@ interface ResultGroup {
   listHref: string;    // URL "Xem tất cả"
 }
 
-// ── API response shapes (chỉ những field cần thiết) ──────────────────────────
+// ── API response shapes — ĐÚNG tên trường API trả về ─────────────────────────
+//
+// [lỗi có sẵn] Bản trước đọc `caseNumber`/`caseName`, `incidentNumber`/`incidentName` — API không có
+// các trường ấy (vụ án `caseCode`/`name`, vụ việc `code`/`name`), nên nhãn chỉ còn id.
 
 interface CaseItem {
   id: string;
-  caseNumber?: string;
-  caseName?: string;
+  caseCode?: string | null;
+  name?: string | null;
   status?: string;
 }
 
 interface PetitionItem {
   id: string;
-  stt?: string;
-  senderName?: string;
+  stt?: string | null;
+  senderName?: string | null;
   status?: string;
 }
 
 interface SubjectItem {
   id: string;
-  fullName?: string;
+  fullName?: string | null;
   type?: string;
-  subjectType?: string;
 }
 
 interface IncidentItem {
   id: string;
-  incidentNumber?: string;
-  incidentName?: string;
+  code?: string | null;
+  name?: string | null;
   status?: string;
 }
 
-// ── Status label helpers ──────────────────────────────────────────────────────
+// ── Label helpers — nhãn trạng thái từ bảng nhãn chung, không chép tay ────────
 
-const CASE_STATUS: Record<string, string> = {
-  DANG_DIEU_TRA: 'Đang điều tra',
-  DA_KET_THUC: 'Đã kết thúc',
-  TAM_DINH_CHI: 'Tạm đình chỉ',
-  DINH_CHI: 'Đình chỉ',
-  CHUYEN_VKS: 'Chuyển VKS',
-  KHOI_TO: 'Khởi tố',
-};
-
-const PETITION_STATUS: Record<string, string> = {
-  MOI_TIEP_NHAN: 'Mới tiếp nhận',
-  DANG_XU_LY: 'Đang xử lý',
-  DA_GIAI_QUYET: 'Đã giải quyết',
-  DA_LUU_DON: 'Đã lưu đơn',
-  DA_CHUYEN_VU_AN: 'Đã chuyển VA',
-};
+const nhan = (bang: Record<string, string>, ma?: string) => (ma ? (bang[ma] ?? ma) : '');
 
 function caseLabel(c: CaseItem): string {
-  return [c.caseNumber, c.caseName].filter(Boolean).join(' — ') || c.id;
-}
-function caseSublabel(c: CaseItem): string {
-  return c.status ? (CASE_STATUS[c.status] ?? c.status) : '';
+  return [c.caseCode, c.name].filter(Boolean).join(' — ') || c.id;
 }
 function petitionLabel(p: PetitionItem): string {
   return [p.stt, p.senderName].filter(Boolean).join(' — ') || p.id;
 }
-function petitionSublabel(p: PetitionItem): string {
-  return p.status ? (PETITION_STATUS[p.status] ?? p.status) : '';
-}
 function subjectLabel(s: SubjectItem): string {
   return s.fullName || s.id;
 }
-function subjectSublabel(s: SubjectItem): string {
-  const t = s.subjectType ?? s.type;
-  if (t === 'BI_CAN') return 'Bị can';
-  if (t === 'BI_HAI') return 'Bị hại';
-  if (t === 'NHAN_CHUNG') return 'Nhân chứng';
-  return t ?? '';
-}
 function incidentLabel(i: IncidentItem): string {
-  return [i.incidentNumber, i.incidentName].filter(Boolean).join(' — ') || i.id;
+  return [i.code, i.name].filter(Boolean).join(' — ') || i.id;
 }
-function incidentSublabel(i: IncidentItem): string {
-  return i.status ?? '';
+
+// ── Đường tới danh sách — khoá URL mà màn ấy đọc ─────────────────────────────
+
+/** Máy chủ nhận giá trị thẻ tối đa 200 ký tự; dán dài hơn là 400 cả bốn nhóm. */
+const DO_DAI_TIM_TOI_DA = 200;
+
+/** Danh sách đối tượng theo loại: đường + tiền tố khoá URL (`ObjectListPageShell` TYPE_CONFIG). */
+const DS_DOI_TUONG: Record<string, { duong: string; prefix: string }> = {
+  [SubjectType.SUSPECT]: { duong: '/objects', prefix: 'objects' },
+  [SubjectType.VICTIM]: { duong: '/people/victims', prefix: 'victims' },
+  [SubjectType.WITNESS]: { duong: '/people/witnesses', prefix: 'witnesses' },
+};
+
+/**
+ * Địa chỉ danh sách lọc sẵn. Cờ bật → thẻ `<prefix>_tk=<khoá>~<giá trị>`; cờ tắt → khoá chữ cũ
+ * `<prefix>_q=` (chỉ cho thẻ "*"). Bản trước gửi `?search=` mà KHÔNG màn nào đọc → danh sách chưa lọc.
+ */
+function diaChiDanhSach(
+  duong: string,
+  prefix: string,
+  giaTri: string,
+  theBat: boolean,
+  khoa = '*',
+): string {
+  const ts = new URLSearchParams();
+  if (theBat) ts.append(khoaUrlThe(prefix), `${khoa}~${giaTri}`);
+  else ts.set(`${prefix}_q`, giaTri);
+  return `${duong}?${ts.toString()}`;
 }
 
 // ── useDebounce hook ──────────────────────────────────────────────────────────
@@ -141,6 +149,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export function GlobalSearchBar() {
   const navigate = useNavigate();
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -163,12 +172,15 @@ export function GlobalSearchBar() {
     setIsOpen(true);
     setActiveIndex(-1);
 
+    const chu = q.slice(0, DO_DAI_TIM_TOI_DA);
+    const params = theBat ? { tk: [`*~${chu}`], limit: 4 } : { search: chu, limit: 4 };
+
     try {
       const [casesRes, petitionsRes, subjectsRes, incidentsRes] = await Promise.allSettled([
-        api.get<{ data: CaseItem[] }>('/cases', { params: { search: q, limit: 4 } }),
-        api.get<{ data: PetitionItem[] }>('/petitions', { params: { search: q, limit: 4 } }),
-        api.get<{ data: SubjectItem[] }>('/subjects', { params: { search: q, limit: 4 } }),
-        api.get<{ data: IncidentItem[] }>('/incidents', { params: { search: q, limit: 4 } }),
+        api.get<{ data: CaseItem[] }>('/cases', { params }),
+        api.get<{ data: PetitionItem[] }>('/petitions', { params }),
+        api.get<{ data: SubjectItem[] }>('/subjects', { params }),
+        api.get<{ data: IncidentItem[] }>('/incidents', { params }),
       ]);
 
       const newGroups: ResultGroup[] = [];
@@ -182,11 +194,11 @@ export function GlobalSearchBar() {
             title: 'Vụ án',
             icon: <Scale className="w-3.5 h-3.5" />,
             color: 'text-blue-600',
-            listHref: `/cases?search=${encodeURIComponent(q)}`,
+            listHref: diaChiDanhSach('/cases', 'cases', chu, theBat),
             results: items.map((c) => ({
               id: c.id,
               label: caseLabel(c),
-              sublabel: caseSublabel(c),
+              sublabel: nhan(CASE_STATUS_LABEL, c.status),
               href: `/cases/${c.id}`,
             })),
           });
@@ -202,33 +214,40 @@ export function GlobalSearchBar() {
             title: 'Đơn thư',
             icon: <FileText className="w-3.5 h-3.5" />,
             color: 'text-green-600',
-            listHref: `/petitions?search=${encodeURIComponent(q)}`,
+            listHref: diaChiDanhSach('/petitions', 'petitions', chu, theBat),
             results: items.map((p) => ({
               id: p.id,
               label: petitionLabel(p),
-              sublabel: petitionSublabel(p),
+              sublabel: nhan(PETITION_STATUS_LABEL, p.status),
               href: `/petitions/${p.id}/edit`,
             })),
           });
         }
       }
 
-      // Subjects
+      // Subjects — không có trang chi tiết: mở danh sách ĐÚNG loại, lọc đúng họ tên ấy.
       if (subjectsRes.status === 'fulfilled') {
         const items = subjectsRes.value.data.data ?? [];
         if (items.length > 0) {
+          const bican = DS_DOI_TUONG[SubjectType.SUSPECT];
           newGroups.push({
             key: 'subjects',
             title: 'Đối tượng',
             icon: <Users className="w-3.5 h-3.5" />,
             color: 'text-purple-600',
-            listHref: `/objects?search=${encodeURIComponent(q)}`,
-            results: items.map((s) => ({
-              id: s.id,
-              label: subjectLabel(s),
-              sublabel: subjectSublabel(s),
-              href: `/objects?search=${encodeURIComponent(q)}`,
-            })),
+            listHref: diaChiDanhSach(bican.duong, bican.prefix, chu, theBat),
+            results: items.map((s) => {
+              const ds = DS_DOI_TUONG[s.type ?? ''] ?? bican;
+              const ten = s.fullName || chu;
+              return {
+                id: s.id,
+                label: subjectLabel(s),
+                sublabel: nhan(SUBJECT_TYPE_LABEL, s.type),
+                href: theBat
+                  ? diaChiDanhSach(ds.duong, ds.prefix, ten, true, 'hoTen')
+                  : diaChiDanhSach(ds.duong, ds.prefix, ten, false),
+              };
+            }),
           });
         }
       }
@@ -242,12 +261,12 @@ export function GlobalSearchBar() {
             title: 'Vụ việc',
             icon: <AlertTriangle className="w-3.5 h-3.5" />,
             color: 'text-amber-600',
-            listHref: `/vu-viec?search=${encodeURIComponent(q)}`,
+            listHref: diaChiDanhSach('/vu-viec', 'incidents', chu, theBat),
             results: items.map((i) => ({
               id: i.id,
               label: incidentLabel(i),
-              sublabel: incidentSublabel(i),
-              href: `/vu-viec?search=${encodeURIComponent(q)}`,
+              sublabel: nhan(INCIDENT_STATUS_LABEL, i.status),
+              href: `/vu-viec/${i.id}`,
             })),
           });
         }
@@ -259,7 +278,7 @@ export function GlobalSearchBar() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [theBat]);
 
   useEffect(() => {
     void runSearch(debouncedQuery);
@@ -460,17 +479,46 @@ export function GlobalSearchBar() {
 
 // ── Highlight matched text ────────────────────────────────────────────────────
 
+/**
+ * Vị trí [đầu, cuối) của đoạn khớp KHÔNG phân biệt dấu trong chữ GỐC. Máy chủ tìm bỏ dấu, nên gõ
+ * "nguyen" ra "Nguyễn" — tô sáng so có dấu thì kết quả ấy không được tô. Bỏ dấu từng ký tự và giữ bảng
+ * vị trí gốc: "ễ" dựng sẵn thành "e", dấu kết hợp (chữ NFD) thành rỗng và dính vào ký tự trước.
+ */
+function viTriKhop(text: string, query: string): [number, number] | null {
+  const q = boDau(query).trim();
+  if (!q) return null;
+  let chuan = '';
+  // goc[k] = [đầu, cuối) trong chữ gốc của ký tự chuẩn thứ k.
+  const goc: Array<[number, number]> = [];
+  let viTri = 0;
+  for (const ch of text) {
+    const n = boDau(ch);
+    const ketThuc = viTri + ch.length;
+    if (n.length === 0 && goc.length > 0) {
+      // Dấu kết hợp (chữ NFD) không sinh ký tự chuẩn — gộp vào ký tự trước để tô trọn chữ.
+      goc[goc.length - 1] = [goc[goc.length - 1][0], ketThuc];
+    }
+    for (let k = 0; k < n.length; k++) goc.push([viTri, ketThuc]);
+    chuan += n;
+    viTri = ketThuc;
+  }
+  const at = chuan.indexOf(q);
+  if (at < 0) return null;
+  return [goc[at][0], goc[at + q.length - 1][1]];
+}
+
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return <>{text}</>;
+  const khop = viTriKhop(text, query);
+  if (!khop) return <>{text}</>;
+  const [dau, cuoi] = khop;
   return (
     <>
-      {text.slice(0, idx)}
+      {text.slice(0, dau)}
       <mark className="bg-yellow-100 text-yellow-800 rounded-sm px-0.5 font-semibold not-italic">
-        {text.slice(idx, idx + query.length)}
+        {text.slice(dau, cuoi)}
       </mark>
-      {text.slice(idx + query.length)}
+      {text.slice(cuoi)}
     </>
   );
 }

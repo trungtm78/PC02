@@ -143,6 +143,61 @@ describe('AdminService', () => {
         expect.objectContaining({ where: { isActive: false } }),
       );
     });
+
+    /**
+     * M6: tìm người dùng đi qua `BoTimKiem` như mọi màn danh sách — gõ không dấu ra "Nguyễn",
+     * chọn cột (mã cán bộ, họ tên, email, trạng thái, đăng nhập cuối), khoá lạ 400. Trước đây OR
+     * `contains` thường trên năm cột.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      const whereCua = (): Record<string, unknown> =>
+        (
+          mockPrisma.user.findMany.mock.calls[0] as [
+            { where: Record<string, unknown> },
+          ]
+        )[0].where;
+
+      beforeEach(() => {
+        mockPrisma.user.findMany.mockResolvedValue([]);
+        mockPrisma.user.count.mockResolvedValue(0);
+      });
+
+      it('search có dấu → thẻ "*" bỏ dấu trong AND, không còn OR tầng trên', async () => {
+        await service.getUsers({ search: 'Nguyễn' });
+        const where = whereCua();
+        expect(where.OR).toBeUndefined();
+        expect(JSON.stringify(where.AND)).toContain(
+          '"timKiemBd":{"contains":"nguyen"}',
+        );
+      });
+
+      it('thẻ Họ tên → cột bóng họ tên ghép', async () => {
+        await service.getUsers({ tk: ['hoTen~tran binh'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"hoTenBd":{"contains":"tran binh"}',
+        );
+      });
+
+      it('thẻ Trạng thái → cột boolean isActive', async () => {
+        await service.getUsers({ tk: ['trangThai~active'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"isActive":{"equals":true}',
+        );
+      });
+
+      it('thẻ Mã cán bộ → đúng mã, không phân biệt hoa thường', async () => {
+        await service.getUsers({ tk: ['maCanBo~cb01'] } as never);
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"workId":{"equals":"cb01","mode":"insensitive"}',
+        );
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(
+          service.getUsers({ tk: ['khongCo~x'] } as never),
+        ).rejects.toThrow(BadRequestException);
+      });
+    });
   });
 
   // ── getUserById ───────────────────────────────────────────────────────────
@@ -464,10 +519,15 @@ describe('AdminService', () => {
 
       await service.getUsers({ search: 'admin' });
 
-      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ OR: expect.any(Array) }),
-        }),
+      // `search` cũ = thẻ "tất cả các cột" trong AND (cột bóng ghép mã cán bộ, họ tên, email).
+      const where = (
+        mockPrisma.user.findMany.mock.calls[0] as [
+          { where: Record<string, unknown> },
+        ]
+      )[0].where;
+      expect(where.OR).toBeUndefined();
+      expect(JSON.stringify(where.AND)).toContain(
+        '"timKiemBd":{"contains":"admin"}',
       );
     });
 

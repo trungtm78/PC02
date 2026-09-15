@@ -48,6 +48,35 @@ describe('AuditController — delegation', () => {
     expect(mockService.findAll).toHaveBeenCalled();
   });
 
+  /**
+   * M6: thẻ tìm kiếm (`tk`) phải tới service ở CẢ danh sách lẫn xuất CSV — xuất mà bỏ thẻ là tệp
+   * chứa bản ghi màn không hiện (khác thứ cán bộ vừa lọc).
+   */
+  it('findAll() chuyển thẻ `tk` xuống service', async () => {
+    mockService.findAll.mockResolvedValue({ data: [] });
+    await controller.findAll({ tk: ['nguoiThucHien~an'] });
+    expect(mockService.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ tk: ['nguoiThucHien~an'] }),
+    );
+  });
+
+  it('exportCsv() áp cùng thẻ `tk` như danh sách', async () => {
+    mockService.findAll.mockResolvedValue({ data: [] });
+    const req = { user: { sub: 'u1' }, ip: '127.0.0.1', headers: {} };
+    const res = { setHeader: jest.fn(), write: jest.fn(), end: jest.fn() };
+    await controller.exportCsv(
+      { tk: ['thaoTac~CASE_CREATED'] },
+      req as never,
+      res as never,
+    );
+    expect(mockService.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tk: ['thaoTac~CASE_CREATED'],
+        forExport: true,
+      }),
+    );
+  });
+
   it('actions() delegates to service.distinctActions', async () => {
     mockService.distinctActions.mockResolvedValue(['USER_CREATED', 'CASE_CREATED']);
     const result = await controller.actions();

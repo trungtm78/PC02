@@ -16,6 +16,33 @@ import { authStore } from '@/stores/auth.store';
 import { RotateCcw, X, AlertTriangle, FileText, ShieldAlert, Search } from 'lucide-react';
 import { formatVNDateTime } from '../../lib/dates';
 import { hoTen } from '@/lib/hoTen';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { TIM_KIEM_VU_AN, TIM_KIEM_VU_VIEC, TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import {
+  CASE_STATUS_LABEL,
+  INCIDENT_STATUS_LABEL,
+  PETITION_STATUS_LABEL,
+} from '@/shared/enums/status-labels';
+import { CaseStatus, IncidentStatus, PetitionStatus } from '@/shared/enums/generated';
+
+/** Cột "Trạng thái" mỗi loại tìm theo MÃ của đúng enum ấy; nhãn từ bảng nhãn cột trạng thái dùng. */
+const GIA_TRI_CHON_VU_AN = {
+  trangThai: Object.values(CaseStatus).map((v) => ({ value: v, label: CASE_STATUS_LABEL[v] })),
+};
+const GIA_TRI_CHON_VU_VIEC = {
+  trangThai: Object.values(IncidentStatus).map((v) => ({
+    value: v,
+    label: INCIDENT_STATUS_LABEL[v],
+  })),
+};
+const GIA_TRI_CHON_DON_THU = {
+  trangThai: Object.values(PetitionStatus).map((v) => ({
+    value: v,
+    label: PETITION_STATUS_LABEL[v],
+  })),
+};
+const GOI_Y_THE = 'Tìm trong mọi cột — gõ rồi chọn cột (phím /)';
 
 type TabKey = 'cases' | 'incidents' | 'petitions';
 
@@ -66,6 +93,12 @@ const TAB_META: Record<TabKey, {
 };
 
 
+/** Thẻ gửi đi (chuỗi JSON khoá theo giá trị) → mảng; rỗng thì không gửi khoá `tk`. */
+function tkMang(tkKey: string): string[] | undefined {
+  const tk = JSON.parse(tkKey) as string[];
+  return tk.length ? tk : undefined;
+}
+
 function actorDisplay(row: DeletedRow): string {
   const u = row.createdBy ?? row.enteredBy;
   if (!u) return '—';
@@ -90,6 +123,32 @@ export default function RestorePage() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState('');
 
+  // Ô tìm dạng thẻ — mỗi tab một khai và một khoá URL riêng: khoá của Vụ án (vd `doiTuongBiCan`) không
+  // có ở Đơn thư, mang sang là 400 cả danh sách. Hook gọi đủ ba (không được gọi có điều kiện); chỉ thẻ
+  // của tab đang mở được gửi. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timVuAn = useTheTimKiem({
+    prefix: 'restoreCases',
+    khai: TIM_KIEM_VU_AN,
+    giaTriChon: GIA_TRI_CHON_VU_AN,
+    bat: theBat,
+  });
+  const timVuViec = useTheTimKiem({
+    prefix: 'restoreIncidents',
+    khai: TIM_KIEM_VU_VIEC,
+    giaTriChon: GIA_TRI_CHON_VU_VIEC,
+    bat: theBat,
+  });
+  const timDonThu = useTheTimKiem({
+    prefix: 'restorePetitions',
+    khai: TIM_KIEM_DON_THU,
+    giaTriChon: GIA_TRI_CHON_DON_THU,
+    bat: theBat,
+  });
+  const theTab = tab === 'cases' ? timVuAn : tab === 'incidents' ? timVuViec : timDonThu;
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(theTab.tkGui);
+
   // Restore modal state
   const [target, setTarget] = useState<DeletedRow | null>(null);
   const [reason, setReason] = useState('');
@@ -107,7 +166,16 @@ export default function RestorePage() {
       const meta = TAB_META[tab];
       const res = await api.get<{ success: boolean; data: DeletedRow[]; total: number }>(
         `${meta.apiPath}/admin/deleted`,
-        { params: { limit: 50, offset: 0, search: search.trim() || undefined } },
+        {
+          params: {
+            limit: 50,
+            offset: 0,
+            // Cờ bật → chỉ gửi thẻ của tab đang mở; `search` cũng quy về thẻ "*" ở máy chủ.
+            ...(theBat
+              ? { tk: tkMang(tkKey) }
+              : { search: search.trim() || undefined }),
+          },
+        },
       );
       setRows(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
@@ -121,7 +189,7 @@ export default function RestorePage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, search, isAdmin]);
+  }, [tab, search, isAdmin, theBat, tkKey]);
 
   useEffect(() => {
     void fetchList();
@@ -272,17 +340,58 @@ export default function RestorePage() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={`Tìm kiếm ${meta.entityLabel}...`}
-          className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          data-testid="search-input"
-        />
-      </div>
+      {theBat ? (
+        <div className="max-w-2xl">
+          {tab === 'cases' && (
+            <OTimKiemThe
+              the={timVuAn.the}
+              truong={TIM_KIEM_VU_AN}
+              khai={TIM_KIEM_VU_AN}
+              giaTriChon={GIA_TRI_CHON_VU_AN}
+              onThem={timVuAn.them}
+              onBoThe={timVuAn.boThe}
+              onBoGiaTri={timVuAn.boGiaTri}
+              placeholder={GOI_Y_THE}
+            />
+          )}
+          {tab === 'incidents' && (
+            <OTimKiemThe
+              the={timVuViec.the}
+              truong={TIM_KIEM_VU_VIEC}
+              khai={TIM_KIEM_VU_VIEC}
+              giaTriChon={GIA_TRI_CHON_VU_VIEC}
+              onThem={timVuViec.them}
+              onBoThe={timVuViec.boThe}
+              onBoGiaTri={timVuViec.boGiaTri}
+              placeholder={GOI_Y_THE}
+            />
+          )}
+          {tab === 'petitions' && (
+            <OTimKiemThe
+              the={timDonThu.the}
+              truong={TIM_KIEM_DON_THU}
+              khai={TIM_KIEM_DON_THU}
+              giaTriChon={GIA_TRI_CHON_DON_THU}
+              onThem={timDonThu.them}
+              onBoThe={timDonThu.boThe}
+              onBoGiaTri={timDonThu.boGiaTri}
+              placeholder={GOI_Y_THE}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Tìm kiếm ${meta.entityLabel}...`}
+            className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            data-testid="search-input"
+          />
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -308,6 +417,21 @@ export default function RestorePage() {
               ) : rows.length === 0 ? (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500" data-testid="empty-state">
                   Không có {meta.entityLabel} nào đã bị xóa.
+                  {/* Nhánh `loadError` nằm ngay trên — rỗng ở đây là câu trả lời thật của máy chủ. */}
+                  {theBat && theTab.the.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                      <span>Không tìm thấy với:</span>
+                      {tab === 'cases' && (
+                        <DanhSachThe the={timVuAn.the} khai={TIM_KIEM_VU_AN} giaTriChon={GIA_TRI_CHON_VU_AN} onBoThe={timVuAn.boThe} />
+                      )}
+                      {tab === 'incidents' && (
+                        <DanhSachThe the={timVuViec.the} khai={TIM_KIEM_VU_VIEC} giaTriChon={GIA_TRI_CHON_VU_VIEC} onBoThe={timVuViec.boThe} />
+                      )}
+                      {tab === 'petitions' && (
+                        <DanhSachThe the={timDonThu.the} khai={TIM_KIEM_DON_THU} giaTriChon={GIA_TRI_CHON_DON_THU} onBoThe={timDonThu.boThe} />
+                      )}
+                    </div>
+                  )}
                 </td></tr>
               ) : (
                 rows.map((row) => (
