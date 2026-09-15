@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-15 | Milestone: M4/7 | Task: T1–T5 + sửa /review xong trên nhánh; kế: /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN prod
+Cập nhật: 2026-09-15 | Milestone: M5/7 | Task: M4 XONG trên prod; M5 bắt đầu (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
@@ -14,7 +14,7 @@ Spec gốc:
 | M1 | Ô Loại thông tin: một ô smart select, danh mục LOAI_THONG_TIN, nhóm hạn, chuẩn hoá dữ liệu | feat/loai-thong-tin-smart-select |
 | M2 | Tìm kiếm dạng thẻ — T0 đo trước + PR1 nền + Đơn thư + lát Tổng hợp | feat/tim-kiem-dang-the-nen |
 | M3 | PR2 Vụ việc, Vụ án, Ủy thác điều tra | |
-| M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | |
+| M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | DONE — PR #378 merge f5ed68a5, prod-verified 15/09 |
 | M5 | PR4 12 màn tìm phía trình duyệt | |
 | M6 | PR5 9 màn tìm phía máy chủ + GlobalSearchBar | |
 | M7 | UAT phủ 100% (UAT-COVERAGE.md) | |
@@ -126,6 +126,15 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Dọn: bỏ bí danh `canNap*` không ai gọi, chú thích CLI cũ, `tenNguoi` → `hoTen`; SQL tắt khẩn ghi chú migration mới bật lại trigger.
   - Commit e50f8a9d; bộ ĐẦY ĐỦ: backend 346 bộ/5.163 ca, FE 252 tệp/3.015 ca xanh; tsc sạch; lint dòng mới 0. PR #378, CI xanh.
 - [x] M4 /codex (chia 2 lượt backend/frontend, reasoning medium — lần trước hết giờ): backend "No findings, Ship". Frontend 1 P2 + 2 P3, ĐÃ SỬA (TDD, đỏ 3 → xanh): bản vá thẻ hợp lệ chỉ áp ở Tổng hợp, chưa áp ở Đối tượng/Luật sư — Đối tượng: hook thiếu `giaTriChon` nên mã Trạng thái lạ vẫn gửi (400); cả hai màn: bảng rỗng xét `tkKey` (thẻ đỏ bị lọc hết → "chưa có dữ liệu" thay vì "lọc không ra"), số bộ lọc đếm cả thẻ đỏ.
+- [x] M4 PR #378 — commit d8b73b31 (FE 252 tệp/3.018 ca xanh); CI 3/3 xanh ĐÚNG sha d8b73b31 (đối chiếu check-runs); merge --admin f5ed68a5.
+- [x] M4 deploy — lượt đầu ĐỎ ở bước `ssh-keyscan` (runner không tới VM, lỗi mạng; dừng TRƯỚC rsync, prod giữ f6ba1f77 nguyên vẹn) → `gh run rerun --failed` xanh. Health công khai buildId f5ed68a5; release symlink f5ed68a5; migration 20260915110524 áp (không rolled back); index.html phục vụ ≡ bản release (sha256).
+- [x] M4 prod dữ liệu — nạp cột bóng chạy thử: subjects 1.293, cases 3.710 (name_bd mới), lawyers 261, còn lại 0 → `--that` → chạy lại 0 lệch cả 6 bảng. `kiem-vang-bo-dau --chuoi-that`: 646 + 100.475 chuỗi, lệch 0.
+- [x] M4 EXPLAIN prod — Đối tượng `*` 0,8 ms (seq, bảng 1.293 dòng); Đối tượng thẻ Vụ án qua `cases_name_bd_trgm` Bitmap Index 1,7 ms; Luật sư `*` 0,4 ms (seq, 261 dòng).
+
+### Tiến độ M5 (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
+- 12 màn lọc phía trình duyệt bằng `toLowerCase().includes` (không bỏ dấu, không chọn cột), KHÔNG dùng ListPageShell (bảng tự dựng): classification/{DuplicatePetitions, OtherClassification, ProsecutorProposal, WardCases, WardIncidents}, workflow/{CaseExchange, InvestigationDelegation, PetitionGuidance, TransferAndReturn}, petitions/WardPetitions, cases/InitialCases, admin/MasterClass.
+- [ ] M5-T1 — `locTheoThe(rows, the, khai)` thuần (shared/tim-kiem), cùng ngữ nghĩa máy chủ; bỏ dấu giao diện gộp khoảng trắng/NBSP như `f_bo_dau`.
+- [ ] M5-T2..T4 — nối ô thẻ + URL `<prefix>_tk` vào 12 màn (theo cụm classification / workflow / 3 màn lẻ), cột mang khoá thẻ, cổng timKiemCotKhai mở rộng.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
