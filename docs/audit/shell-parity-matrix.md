@@ -558,7 +558,12 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 | Ô chữ `comp_q` → thẻ `*` (khoá chuẩn liên thực thể) tới CẢ BA API danh sách `/cases` `/incidents` `/petitions` | ✅ |
 | Cùng thẻ ấy tới ba API thống kê (chế độ một loại) — số trên chip khớp dòng | ✅ |
 | Cờ `TIM_KIEM_THE` tắt → `search` như trước | ✅ |
-| Ô thẻ chọn cột + cột có khai `timKiem` | ⏳ đợt M4 (cột của màn này gộp ba thực thể, cần khai riêng) |
+| Ô thẻ chọn cột + cột có khai `timKiem` | ✅ M4 (15/09/2026) — khai theo chip loại: "Tất cả" = khoá chung ba loại (bỏ kiểu chọn); một loại = khai đầy đủ loại ấy; thẻ không hợp lệ với chế độ hiện ĐỎ, không gửi |
+| Thống kê chip khi có thẻ riêng một loại | ✅ loại không nhận đủ khoá thì KHÔNG gọi `/stats` (tránh 400 / số không lọc), chip để trống số |
+| Mặt lọc: Quận/Huyện · Trạng thái (chung) · Người tạo | GỠ — từng khai mà không đi xuống API; nay là thẻ `donViGiaiQuyet` · `trangThai` · `nguoiNhap`, đường dẫn cũ `comp_district`/`comp_status`/`comp_created_by` mở ra thẻ |
+| Mặt lọc: Từ ngày · Đến ngày | ✅ nay THẬT SỰ gửi xuống cả ba API (Vụ việc: `fromDateRange`/`toDateRange`) |
+| Cột "Đơn vị" | đổi tên "Đơn vị giải quyết", đọc `donViGiaiQuyet` cả ba loại (bản cũ đọc `unit` — rỗng ở Vụ án) |
+| Cột "Người nhập" | THÊM, ẩn sẵn, mang thẻ `nguoiNhap` |
 
 ### Single-row actions (polyglot: row type ∈ Case/Incident/Petition)
 

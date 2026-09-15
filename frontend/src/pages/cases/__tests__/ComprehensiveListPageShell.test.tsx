@@ -11,7 +11,7 @@
  * - Security: malformed type URL param ignored
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -69,6 +69,8 @@ const caseRow = {
   name: 'Vụ án XYZ',
   status: 'TIEP_NHAN',
   unit: 'PA',
+  donViGiaiQuyet: 'Đội 3',
+  createdBy: { id: 'u1', firstName: 'Nhập', lastName: 'Cán Bộ' },
   investigator: { firstName: 'Nguyễn', lastName: 'A', username: 'nva' },
   createdAt: '2026-05-25T00:00:00Z',
 };
@@ -89,6 +91,7 @@ const petitionRow = {
   senderName: 'Người gửi C',
   status: 'MOI_TIEP_NHAN',
   unit: 'PC02',
+  donViGiaiQuyet: 'Đội 5',
   receivedDate: '2026-05-20T00:00:00Z',
   createdAt: '2026-05-20T00:00:00Z',
 };
@@ -329,5 +332,106 @@ describe('ComprehensiveListPageShell — thẻ tìm kiếm `*` tới ba API', ()
     );
     await waitFor(() => expect(thamSoCuoi('/cases').search).toBe('abc'));
     expect(thamSoCuoi('/cases').tk).toBeUndefined();
+  });
+});
+
+/**
+ * Ô thẻ ĐẦY ĐỦ cho Tổng hợp (M4, 15/09/2026). Bảng gộp ba loại hồ sơ, mỗi máy chủ chỉ nhận khoá của
+ * mình (khoá lạ → 400). Nên: "Tất cả" chỉ dùng khoá CHUNG ba loại (trừ kiểu chọn — mã trạng thái mỗi
+ * loại khác nhau); chọn một loại thì dùng khai đầy đủ của loại ấy.
+ */
+describe('ComprehensiveListPageShell — ô thẻ đầy đủ', () => {
+  const mockGet = () => api.get as unknown as ReturnType<typeof vi.fn>;
+  const thamSoCuoi = (url: string) => {
+    const goi = mockGet().mock.calls.filter((c) => c[0] === url);
+    return goi[goi.length - 1]?.[1]?.params as Record<string, unknown> | undefined;
+  };
+  const oThe = () => screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+  const goiYKhiGo = async (chu: string) => {
+    fireEvent.change(await oThe(), { target: { value: chu } });
+    return (await screen.findAllByRole('option')).map((x) => x.textContent ?? '');
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappy();
+  });
+
+  it('"Tất cả": gợi ý khoá CHUNG — có STT, Đơn vị giải quyết; không có Trạng thái', async () => {
+    renderWithRouter();
+    const goiY = await goiYKhiGo('abc');
+    expect(goiY).toContain('Tìm STT: "abc"');
+    expect(goiY).toContain('Tìm Đơn vị giải quyết: "abc"');
+    expect(goiY.some((t) => t.startsWith('Trạng thái'))).toBe(false);
+  });
+
+  it('chọn một loại (Vụ án): gợi ý có Trạng thái theo mã của loại ấy', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE']);
+    const goiY = await goiYKhiGo('tiep nhan');
+    expect(goiY.some((t) => /^Trạng thái: /.test(t))).toBe(true);
+  });
+
+  it('đường dẫn cũ district / created_by → thẻ, gửi tới CẢ BA danh sách', async () => {
+    renderWithRouter(['/comprehensive?comp_district=Doi%203&comp_created_by=An']);
+    await waitFor(() => {
+      for (const duong of ['/cases', '/incidents', '/petitions']) {
+        expect(thamSoCuoi(duong)?.tk).toEqual(['donViGiaiQuyet~Doi 3', 'nguoiNhap~An']);
+      }
+    });
+  });
+
+  it('Từ ngày / Đến ngày ĐI XUỐNG cả ba API (Vụ việc dùng fromDateRange/toDateRange)', async () => {
+    renderWithRouter(['/comprehensive?comp_from_date=2026-01-01&comp_to_date=2026-01-31']);
+    await waitFor(() => {
+      expect(thamSoCuoi('/cases')).toMatchObject({ fromDate: '2026-01-01', toDate: '2026-01-31' });
+      expect(thamSoCuoi('/petitions')).toMatchObject({ fromDate: '2026-01-01', toDate: '2026-01-31' });
+      expect(thamSoCuoi('/incidents')).toMatchObject({
+        fromDateRange: '2026-01-01',
+        toDateRange: '2026-01-31',
+      });
+    });
+  });
+
+  it('một loại + thẻ riêng loại ấy: thống kê loại khác KHÔNG bị gửi thẻ lạ (không 400)', async () => {
+    renderWithRouter(['/comprehensive?comp_type=CASE&comp_tk=trangThai~TIEP_NHAN']);
+    await waitFor(() => expect(thamSoCuoi('/cases')?.tk).toEqual(['trangThai~TIEP_NHAN']));
+    await waitFor(() => expect(thamSoCuoi('/cases/stats')?.tk).toEqual(['trangThai~TIEP_NHAN']));
+    expect(mockGet().mock.calls.some((c) => c[0] === '/petitions/stats')).toBe(false);
+    expect(mockGet().mock.calls.some((c) => c[0] === '/incidents/stats')).toBe(false);
+  });
+
+  it('"Tất cả" mang thẻ riêng một loại → thẻ ĐỎ, không gửi thẻ ấy', async () => {
+    renderWithRouter(['/comprehensive?comp_tk=trangThai~TIEP_NHAN']);
+    const the = await screen.findByTestId('the-tim-kiem');
+    expect(the).toHaveAttribute('data-hop-le', 'false');
+    await waitFor(() => expect(thamSoCuoi('/cases')).toBeDefined());
+    expect(thamSoCuoi('/cases')?.tk).toBeUndefined();
+  });
+
+  it('cột Đơn vị giải quyết hiện ĐÚNG cột thẻ lọc (donViGiaiQuyet), không phải `unit`', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Vụ án XYZ'));
+    expect(screen.getByRole('columnheader', { name: 'Đơn vị giải quyết' })).toBeInTheDocument();
+    expect(screen.getByText('Đội 3')).toBeInTheDocument();
+    expect(screen.getByText('Đội 5')).toBeInTheDocument();
+    expect(screen.queryByText('PA')).not.toBeInTheDocument();
+  });
+
+  it('cột "Người nhập" có trong menu chọn cột (ẩn sẵn) — ô lọc Người tạo đã thành thẻ', async () => {
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Vụ án XYZ'));
+    expect(screen.queryByRole('columnheader', { name: 'Người nhập' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-column-picker'));
+    expect(within(screen.getByTestId('column-picker-menu')).getByText('Người nhập')).toBeInTheDocument();
+  });
+
+  it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+    mockGet().mockImplementation((path: string) => {
+      if (path.endsWith('/stats')) return Promise.resolve({ data: { total: 0, byStatus: {} } });
+      return Promise.resolve({ data: { data: [], total: 0 } });
+    });
+    renderWithRouter(['/comprehensive?comp_tk=stt~999']);
+    const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+    expect(vung).toHaveTextContent('Không tìm thấy với');
   });
 });

@@ -10,15 +10,17 @@ import { createListFilterRegistry } from '@/features/_shared/list-filters/regist
  * the shell (not as a filter dropdown), so excluded from this advanced filter
  * registry. Stats fanout already isolates per-type counts.
  *
+ * M4 (15/09/2026): ba ô chữ Quận/Huyện, Trạng thái (chung), Người tạo từng khai mà KHÔNG ô nào đi
+ * xuống API — cán bộ nhập, danh sách đứng yên. Nay là thẻ của ô tìm kiếm (Đơn vị giải quyết, Trạng
+ * thái, Người nhập); đường dẫn cũ `comp_district=`… vẫn mở ra thẻ (`THAM_SO_CU_TONG_HOP`). Hai ô ngày
+ * ở lại và nay THẬT SỰ gửi xuống cả ba API.
+ *
  * See docs/audit/shell-parity-matrix.md Comprehensive section.
  */
 
 export interface ComprehensiveFilterValue {
   fromDate?: string;
   toDate?: string;
-  district?: string;
-  status?: string;
-  createdBy?: string;
 }
 
 const comprehensive = createListFilterRegistry<ComprehensiveFilterValue>();
@@ -37,30 +39,6 @@ comprehensive.registerMany([
     type: 'date',
     urlKey: 'to_date',
     testid: 'filter-to-date',
-  },
-  {
-    key: 'district',
-    label: 'Quận/Huyện',
-    type: 'text',
-    urlKey: 'district',
-    testid: 'filter-district',
-    placeholder: 'Quận 1, Thủ Đức, ...',
-  },
-  {
-    key: 'status',
-    label: 'Trạng thái (chung)',
-    type: 'text',
-    urlKey: 'status',
-    testid: 'filter-status',
-    placeholder: 'TIEP_NHAN, DANG_XU_LY, ...',
-  },
-  {
-    key: 'createdBy',
-    label: 'Người tạo',
-    type: 'text',
-    urlKey: 'created_by',
-    testid: 'filter-created-by',
-    placeholder: 'Tên hoặc username',
   },
 ]);
 

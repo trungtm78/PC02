@@ -92,20 +92,20 @@ describe('comprehensiveRowActions polyglot dispatch', () => {
 });
 
 describe('comprehensiveListFilters', () => {
-  it('registers 5 fields', () => {
+  /**
+   * M4 (15/09/2026): ba ô lọc chữ (Quận/Huyện, Trạng thái chung, Người tạo) từng khai mà KHÔNG ô nào
+   * đi xuống API — cán bộ nhập vào, danh sách đứng yên. Nay chúng là thẻ (Đơn vị giải quyết, Trạng
+   * thái, Người nhập) — đường dẫn cũ vẫn mở ra thẻ. Mặt lọc còn hai ô ngày, đã nối xuống cả ba API.
+   */
+  it('registers 2 fields — chỉ còn ô ngày', () => {
     expect(comprehensiveListFilters.all().map((f) => f.key)).toEqual([
       'fromDate',
       'toDate',
-      'district',
-      'status',
-      'createdBy',
     ]);
   });
 
   it('testid pattern legacy preserved', () => {
     const testids = comprehensiveListFilters.all().map((f) => f.testid);
-    expect(testids).toContain('filter-from-date');
-    expect(testids).toContain('filter-district');
-    expect(testids).toContain('filter-created-by');
+    expect(testids).toEqual(['filter-from-date', 'filter-to-date']);
   });
 });
