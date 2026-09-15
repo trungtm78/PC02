@@ -14,7 +14,7 @@
 | POST | /api/v1/incidents | write/Incident | CreateIncidentDto |
 | PUT | /api/v1/incidents/:id | edit/Incident | UpdateIncidentDto |
 | DELETE | /api/v1/incidents/:id | delete/Incident | DeleteIncidentDto (reason 10-500) |
-| GET | /api/v1/incidents/admin/deleted | restore/Incident | limit, offset, search |
+| GET | /api/v1/incidents/admin/deleted | restore/Incident | limit, offset, search, tk[] (M6: QueryDaXoaDto — khoá lạ/limit sai → 400) |
 | POST | /api/v1/incidents/:id/restore | restore/Incident | RestoreIncidentDto |
 | PATCH | /api/v1/incidents/:id/status | edit/Incident | UpdateStatusDto |
 | PATCH | /api/v1/incidents/:id/merge | edit/Incident | MergeIncidentDto |

@@ -15,7 +15,7 @@
 | 9 | POST | /api/v1/cases | write/Case | CreateCaseDto |
 | 10 | PUT | /api/v1/cases/:id | edit/Case | UpdateCaseDto |
 | 11 | GET | /api/v1/cases/:id/delete-preflight | delete/Case | - |
-| 12 | GET | /api/v1/cases/admin/deleted | restore/Case | limit, offset, search |
+| 12 | GET | /api/v1/cases/admin/deleted | restore/Case | limit, offset, search, tk[] (M6: QueryDaXoaDto — khoá lạ/limit sai → 400) |
 | 13 | POST | /api/v1/cases/:id/restore | restore/Case | RestoreCaseDto (reason 10-500) |
 | 14 | DELETE | /api/v1/cases/:id | delete/Case | DeleteCaseDto (reason 10-500) |
 | 15 | PATCH | /api/v1/cases/:id/tdc-backfill | write/Case | { lyDoTamDinhChiVuAn } |
