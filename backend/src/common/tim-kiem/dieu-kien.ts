@@ -168,14 +168,47 @@ function luaChonChu(
   return luiCotGoc ? [bongChua, { [bong]: null, ...goc }] : [bongChua];
 }
 
+/**
+ * Tên người qua quan hệ (`users.ho_ten_bd`). Luôn giữ nhánh lùi: bảng users nhỏ nên không tốn, và
+ * `ho_ten_bd` rỗng tới khi chạy CLI nạp — không lùi thì thẻ Người nhập trả 0 dòng mà trông như lọc thật.
+ */
+function dieuKienNguoi(truong: TruongTimKiem, v: string): DieuKien {
+  const mau = mauBoDau(v);
+  const quanHe = truong.quanHe as string;
+  if (mau === undefined) {
+    return {
+      [quanHe]: { is: { OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)) } },
+    };
+  }
+  return {
+    [quanHe]: {
+      is: {
+        OR: [
+          { hoTenBd: { contains: mau } },
+          { hoTenBd: null, OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)) },
+        ],
+      },
+    },
+  };
+}
+
 function luaChonTatCa(
   khai: KhaiThucThe,
   giaTri: string,
   luiCotGoc: boolean,
 ): DieuKien[] {
+  // `tatCaGomNguoi`: "*" HOẶC thêm tên người qua quan hệ (bảng không có cột chữ nào chứa tên người).
+  const nguoi = khai.tatCaGomNguoi
+    ? khai.truong
+        .filter((t) => t.kieu === 'nguoi')
+        .map((t) => dieuKienNguoi(t, giaTri))
+    : [];
   const mau = mauBoDau(giaTri);
   if (mau === undefined) {
-    return [{ OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)) }];
+    return [
+      { OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)) },
+      ...nguoi,
+    ];
   }
   const ghepChua = { timKiemBd: { contains: mau } };
   return luiCotGoc
@@ -185,8 +218,9 @@ function luaChonTatCa(
           timKiemBd: null,
           OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)),
         },
+        ...nguoi,
       ]
-    : [ghepChua];
+    : [ghepChua, ...nguoi];
 }
 
 /** Luôn bọc OR — dùng cho các lựa chọn vốn là "hoặc" (cột bóng / cột gốc). */
@@ -250,36 +284,7 @@ function dieuKienMotThe(
     case 'quan-he':
       return hoac(the.giaTri.map((v) => dieuKienQuanHe(truong, v)));
     case 'nguoi':
-      return hoac(
-        the.giaTri.flatMap((v) => {
-          const mau = mauBoDau(v);
-          // Luôn giữ nhánh lùi: bảng users nhỏ nên không tốn, và `ho_ten_bd` rỗng tới khi chạy CLI
-          // nạp — không lùi thì thẻ Người nhập trả 0 dòng mà trông như lọc thật.
-          return mau === undefined
-            ? [
-                {
-                  [truong.quanHe as string]: {
-                    is: { OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)) },
-                  },
-                },
-              ]
-            : [
-                {
-                  [truong.quanHe as string]: {
-                    is: {
-                      OR: [
-                        { hoTenBd: { contains: mau } },
-                        {
-                          hoTenBd: null,
-                          OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)),
-                        },
-                      ],
-                    },
-                  },
-                },
-              ];
-        }),
-      );
+      return hoac(the.giaTri.map((v) => dieuKienNguoi(truong, v)));
   }
 }
 

@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { sanitizePII, computeFieldDiff, ChangedField, sanitizeMetadataRecursive } from './audit.utils';
+import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
+import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
+import { KHAI_TIM_KIEM_NHAT_KY } from '../common/tim-kiem/khai/nhat-ky.khai';
 
 export interface AuditLogCreateInput {
   userId?: string;
@@ -19,7 +22,10 @@ export interface FindAllParams {
   userId?: string;
   subjectId?: string;
   subject?: string;
+  /** Ô tìm cũ — quy về thẻ "tất cả các cột" (gồm tên người thực hiện). */
   search?: string;
+  /** Thẻ tìm kiếm `khoá~giá trị` (khai nhat-ky); khoá lạ → 400. */
+  tk?: string[];
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
@@ -34,8 +40,21 @@ const LIMIT_MAX = 100;
 const LIMIT_EXPORT_MAX = 10000;
 const LIMIT_DEFAULT = 20;
 
+/** `search` cũ → thẻ "tất cả các cột". */
+const THAM_SO_CU_NHAT_KY = { search: KHOA_TAT_CA } as const;
+
 @Injectable()
 export class AuditService {
+  private boTimKiem?: BoTimKiem;
+
+  private get timKiem(): BoTimKiem {
+    return (this.boTimKiem ??= new BoTimKiem(
+      this.prisma,
+      KHAI_TIM_KIEM_NHAT_KY,
+      THAM_SO_CU_NHAT_KY,
+    ));
+  }
+
   constructor(private readonly prisma: PrismaService) {}
 
   async log(
@@ -236,7 +255,6 @@ export class AuditService {
       userId,
       subjectId,
       subject,
-      search,
       dateFrom,
       dateTo,
     } = params;
@@ -251,13 +269,6 @@ export class AuditService {
     if (!Number.isFinite(offset)) offset = 0;
     offset = Math.max(0, Math.floor(offset));
 
-    // v0.29: escape % and _ in search to prevent wildcard injection bypass.
-    // Also cap length to 200 chars to prevent ReDoS / oversized query.
-    const escapedSearch =
-      search && typeof search === 'string'
-        ? search.slice(0, 200).replace(/[\\%_]/g, (m) => '\\' + m)
-        : undefined;
-
     const where: Prisma.AuditLogWhereInput = {
       ...(action && { action }),
       ...(userId && { userId }),
@@ -269,20 +280,14 @@ export class AuditService {
           ...(dateTo && { lte: dateTo }),
         },
       }),
-      // v0.29: search via action/subject/subjectId ILIKE (Prisma compatible).
-      // Metadata::text full-text search (using GIN trigram index từ migration)
-      // sẽ implement bằng $queryRaw trong v0.30 — Prisma findMany không native
-      // support `metadata::text ILIKE`. GIN index không waste vì PostgreSQL planner
-      // có thể dùng nó cho future raw queries.
-      // PII sanitized at write nên search KHÔNG match hash/token/secret values.
-      ...(escapedSearch && {
-        OR: [
-          { action: { contains: escapedSearch, mode: 'insensitive' } },
-          { subject: { contains: escapedSearch, mode: 'insensitive' } },
-          { subjectId: { contains: escapedSearch, mode: 'insensitive' } },
-        ],
-      }),
     };
+    // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400; "*" gồm tên người thực hiện.
+    // Thoát `%`/`_` và cắt độ dài nằm trong common/tim-kiem. Trước đây OR `contains` thường trên
+    // action/subject/subjectId, còn tên người thì màn lọc lại trên trang đã tải — không bao giờ ra.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien(params),
+    );
 
     const [rawData, total] = await Promise.all([
       this.prisma.auditLog.findMany({

@@ -13,6 +13,9 @@ export const KHAI_TIM_KIEM_NHAT_KY: KhaiThucThe = {
   thucThe: 'nhat-ky',
   bang: 'audit_logs',
   model: 'AuditLog',
+  // Thẻ "*" tìm cả tên người thực hiện: bảng không có cột chữ nào chứa tên (thao tác/đối tượng/IP
+  // đều là mã) mà ô tìm cũ hứa "tìm theo người thực hiện". 13k dòng — OR qua users không đáng kể.
+  tatCaGomNguoi: true,
   truong: [
     { key: 'thoiGian', nhan: 'Thời gian', kieu: 'ngay', cot: 'createdAt' },
     {

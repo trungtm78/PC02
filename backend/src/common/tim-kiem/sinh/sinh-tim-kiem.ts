@@ -81,6 +81,13 @@ export interface KhaiThucThe {
    * ghép 13 cột thì ra cả hồ sơ mà mô tả vụ án có chữ ấy, còn cột trên màn không có).
    */
   cotBongPhu?: readonly string[];
+  /**
+   * Thẻ "tất cả các cột" tìm CẢ tên người qua các trường kiểu `nguoi` (HOẶC với cột ghép). Chỉ bật cho
+   * bảng không có cột chữ nào chứa tên người (vd Nhật ký hoạt động: thao tác/đối tượng/IP đều là mã) —
+   * OR qua quan hệ users làm câu hỏi không dùng được chỉ mục GIN của cột ghép, bảng lớn là quét cả bảng.
+   * Không cần sinh lại SQL: tuỳ chọn chỉ đổi điều kiện Prisma.
+   */
+  tatCaGomNguoi?: boolean;
 }
 
 const TEN_HOP_LE = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -141,6 +148,11 @@ function kiemKhai(khai: KhaiThucThe): void {
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
   for (const c of khai.cotBongPhu ?? []) kiemTen(c, 'bóng phụ');
+  if (khai.tatCaGomNguoi && !khai.truong.some((t) => t.kieu === 'nguoi')) {
+    throw new Error(
+      `Khai tìm kiếm ${khai.thucThe}: tatCaGomNguoi cần ít nhất một trường kiểu nguoi`,
+    );
+  }
 }
 
 const cotChu = (khai: KhaiThucThe) =>

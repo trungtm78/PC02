@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -165,6 +166,61 @@ describe('AuditService', () => {
       const callArg = JSON.stringify(mockPrisma.auditLog.findMany.mock.calls[0][0]);
       // After escape, raw '100%_test' should NOT appear (would appear as 100\%\_test)
       expect(callArg).not.toMatch(/"100%_test"/);
+    });
+
+    /**
+     * M6: tìm nhật ký đi qua `BoTimKiem` — bỏ dấu, chọn cột (thời gian, người thực hiện, thao tác,
+     * loại/mã đối tượng, IP), khoá lạ 400. Trước đây OR `contains` thường trên action/subject/subjectId
+     * còn tên người thì màn lọc lại trên trang đã tải — tên người không bao giờ ra.
+     */
+    describe('thẻ tìm kiếm (BoTimKiem)', () => {
+      const whereCua = (): Record<string, unknown> =>
+        (
+          (mockPrisma as { auditLog: { findMany: jest.Mock } }).auditLog
+            .findMany.mock.calls[0] as [{ where: Record<string, unknown> }]
+        )[0].where;
+
+      it('search có dấu → thẻ "*" trong AND gồm cả tên người thực hiện', async () => {
+        await service.findAll({ search: 'Nguyễn' });
+        const where = whereCua();
+        expect(where.OR).toBeUndefined();
+        const and = JSON.stringify(where.AND);
+        expect(and).toContain('"timKiemBd":{"contains":"nguyen"}');
+        expect(and).toContain('"hoTenBd":{"contains":"nguyen"}');
+      });
+
+      it('thẻ Người thực hiện → lọc ở MÁY CHỦ qua quan hệ users', async () => {
+        await service.findAll({ tk: ['nguoiThucHien~tran binh'] });
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"user":{"is":{"OR":[{"hoTenBd":{"contains":"tran binh"}}',
+        );
+      });
+
+      it('thẻ Thao tác → đúng mã, không phân biệt hoa thường', async () => {
+        await service.findAll({ tk: ['thaoTac~case_created'] });
+        expect(JSON.stringify(whereCua().AND)).toContain(
+          '"action":{"equals":"case_created","mode":"insensitive"}',
+        );
+      });
+
+      it('thẻ không đè lọc action/ngày có sẵn', async () => {
+        const dateFrom = new Date('2026-05-01');
+        await service.findAll({
+          action: 'CASE_CREATED',
+          dateFrom,
+          tk: ['ip~127.0.0.1'],
+        });
+        const where = whereCua();
+        expect(where.action).toBe('CASE_CREATED');
+        expect(where.createdAt).toEqual({ gte: dateFrom });
+        expect(JSON.stringify(where.AND)).toContain('"ipAddress"');
+      });
+
+      it('khoá không có trong khai → 400', async () => {
+        await expect(service.findAll({ tk: ['khongCo~x'] })).rejects.toThrow(
+          BadRequestException,
+        );
+      });
     });
   });
 
