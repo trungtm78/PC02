@@ -85,6 +85,38 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
     expect(result.byStatus.DA_CHUYEN_VU_VIEC).toBe(0);
   });
 
+  /**
+   * Có thẻ ngày thì máy chủ bỏ kỳ mặc định khỏi truy vấn. Nhãn kỳ trả về cho thanh thẻ phải nói
+   * "tất cả" — trả nguyên kỳ tháng hiện tại là thanh thẻ ghi "Tháng này" trên con số không lọc tháng.
+   */
+  it('thẻ ngày → kỳ trả về TAT_CA, không lọc theo kỳ mặc định', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([]);
+    const { settings } = service as unknown as {
+      settings: { getKyThongKe: jest.Mock };
+    };
+    settings.getKyThongKe.mockResolvedValueOnce({
+      ky: 'THANG_HIEN_TAI',
+      truong: 'NGAY_TIEP_NHAN',
+      tuNgay: '2026-09-01',
+      denNgay: '2026-09-30',
+    });
+
+    const result = await service.getStats(
+      { tk: ['ngayDeXuat~2019'] } as Parameters<
+        PetitionsService['getStats']
+      >[0],
+      null,
+    );
+
+    expect(result.ky).toMatchObject({
+      ky: 'TAT_CA',
+      tuNgay: null,
+      denNgay: null,
+    });
+    const where = mockPrisma.petition.groupBy.mock.calls[0][0].where;
+    expect(where.ngayDeXuat).toBeUndefined();
+  });
+
   it('total derived from groupResults (snapshot consistent — PR1 codex P2 fix pattern)', async () => {
     mockPrisma.petition.groupBy.mockResolvedValue([
       { status: PetitionStatus.MOI_TIEP_NHAN, _count: { _all: 11 } },

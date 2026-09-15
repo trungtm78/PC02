@@ -28,7 +28,10 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
-import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import {
+  apDungKyVaoWhere,
+  KY_THONG_KE,
+} from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -85,7 +88,8 @@ function dieuKienTimKiemDonThu(
   luiCotGoc: boolean,
 ): Record<string, unknown>[] {
   const tho = damThe(query.tk);
-  const cu = (v: string | undefined) => v?.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+  const cu = (v: string | undefined) =>
+    v?.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
   if (cu(query.search)) tho.push(`${KHOA_TAT_CA}~${cu(query.search)}`);
   if (cu(query.senderName)) tho.push(`nguoiGui~${cu(query.senderName)}`);
   if (cu(query.unit)) tho.push(`donViGiaiQuyet~${cu(query.unit)}`);
@@ -110,6 +114,18 @@ function coTheNgayDonThu(tk: string | string[] | undefined): boolean {
       (t) => t.key === khoa && t.kieu === 'ngay',
     );
   });
+}
+
+/**
+ * Kỳ THỰC SỰ áp cho danh sách/thống kê: có thẻ ngày thì "tất cả" — dùng cho cả điều kiện lọc lẫn
+ * nhãn kỳ trả về, để thanh thẻ không ghi "Tháng này" trên con số không lọc tháng.
+ */
+function kyApDungDonThu<
+  K extends { ky: string; tuNgay: string | null; denNgay: string | null },
+>(ky: K, tk: string | string[] | undefined): K {
+  return coTheNgayDonThu(tk)
+    ? { ...ky, ky: KY_THONG_KE.TAT_CA, tuNgay: null, denNgay: null }
+    : ky;
 }
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
@@ -225,15 +241,16 @@ export class PetitionsService {
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    const kyThongKe = kyApDungDonThu(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
     // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
     // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
     apDungKyVaoWhere(
       where as Record<string, unknown>,
-      coTheNgayDonThu(query.tk)
-        ? { ...kyThongKe, tuNgay: null, denNgay: null }
-        : kyThongKe,
+      kyThongKe,
       fromDate,
       toDate,
       'ngayDeXuat',
@@ -2050,12 +2067,13 @@ export class PetitionsService {
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
+    const kyThongKe = kyApDungDonThu(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     apDungKyVaoWhere(
       where as Record<string, unknown>,
-      coTheNgayDonThu(query.tk)
-        ? { ...kyThongKe, tuNgay: null, denNgay: null }
-        : kyThongKe,
+      kyThongKe,
       fromDate,
       toDate,
       'ngayDeXuat',
