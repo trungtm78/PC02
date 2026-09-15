@@ -101,7 +101,7 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Trạng thái trống khi chỉ lọc ở mặt lọc hiện "Chưa có hồ sơ" → "lọc không ra" (Vụ việc, Vụ án, Đơn thư).
   - Ca kiểm bổ sung: getUtdtStats tìm+phạm vi cùng AND; incidents listLinkable/listDeleted; UTDT cờ tắt `inv`; BoTimKiem.dieuKienTatCa (gom 3 chỗ cắt 200 cứng); getUtdtStats dùng noiVaoWhere.
   - Kết quả: commit 636168c1. Bộ ĐẦY ĐỦ sau review: backend 341 bộ/5.121 ca xanh, tsc sạch; FE 250 tệp/2.980 ca xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
-  - Kế: push → PR → CI (kiểm JSON từng check) → merge → deploy → prod: nạp cột bóng (dry-run rồi --that) + kiem-vang-bo-dau --chuoi-that + đo EXPLAIN.
+  - Đã push 2ee4da7f, mở PR #377 (https://github.com/trungtm78/PC02/pull/377). Kế: CI (kiểm JSON từng check) → merge (--admin như #375/#376) → deploy → prod: nạp cột bóng (dry-run rồi --that) + kiem-vang-bo-dau --chuoi-that + đo EXPLAIN.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
@@ -115,7 +115,7 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Migration: chưa `lock_timeout`; mỗi migration tìm kiếm dựng lại trigger petitions/users.
   - tat-trigger-tim-kiem.sql: f_bo_dau sai thì dòng đã nạp giữ giá trị sai → phải tắt cả cờ; ghi chú bộ sinh chưa nói.
   - Bảo trì (advisory): khối `tk` chép 3 DTO; khối ô thẻ/trạng thái rỗng chép 4 màn; kyApDung+getKyThongKe chép 7 chỗ.
-  - DỮ LIỆU PROD UTDT nghiVanDoiTuong có thể lệch metadata↔typed: chạy `backfill-consolidate --dry` (chỉ đọc) xem CONFLICT trước; ghi đè dữ liệu prod = §8c, chờ anh.
+  - ~~Dữ liệu prod UTDT nghiVanDoiTuong lệch metadata↔typed~~ — ĐO 15/09 (SELECT trong BEGIN READ ONLY qua ssh): 1.720 UTDT, 1.453 có ở CẢ hai, chỉ-metadata 0, chỉ-typed 0, khác nhau 0 → KHÔNG cần sửa dữ liệu; bản vá form chặn lệch từ nay.
 
 ## Hàng đợi M3 (nhánh feat/tim-kiem-dang-the-vu-viec-vu-an, từ main cb2b8b92)
 1. M3-T1 khai `vu-viec.khai.ts` (incidents) + `vu-an.khai.ts` (cases, chung Vụ án thường + UTDT) + kiểu `doi-tuong` (quan hệ subjects SUSPECT, cột bóng `subjects.full_name_bd` + trigger như users) → `gen:tim-kiem -- --moi vu_viec_vu_an`; CLI nạp + SQL tắt/bật + kiểm vàng tự gồm bảng mới. `*` giữ đủ cột ô tìm cũ (Vụ việc: name, doiTuongCaNhan, doiTuongToChuc, soHoSoCu; Vụ án: name, crime, soHoSoCu).
