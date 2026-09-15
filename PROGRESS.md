@@ -133,8 +133,14 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 
 ### Tiến độ M5 (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
 - 12 màn lọc phía trình duyệt bằng `toLowerCase().includes` (không bỏ dấu, không chọn cột), KHÔNG dùng ListPageShell (bảng tự dựng): classification/{DuplicatePetitions, OtherClassification, ProsecutorProposal, WardCases, WardIncidents}, workflow/{CaseExchange, InvestigationDelegation, PetitionGuidance, TransferAndReturn}, petitions/WardPetitions, cases/InitialCases, admin/MasterClass.
-- [ ] M5-T1 — `locTheoThe(rows, the, khai)` thuần (shared/tim-kiem), cùng ngữ nghĩa máy chủ; bỏ dấu giao diện gộp khoảng trắng/NBSP như `f_bo_dau`.
-- [ ] M5-T2..T4 — nối ô thẻ + URL `<prefix>_tk` vào 12 màn (theo cụm classification / workflow / 3 màn lẻ), cột mang khoá thẻ, cổng timKiemCotKhai mở rộng.
+- [x] M5-T1 — commit 0b4480f8: `locTheoThe(rows, the, khai)` thuần (shared/tim-kiem/loc-theo-the.ts), cùng ngữ nghĩa máy chủ: cùng khoá OR/khác khoá AND, `*` chữ+mã, bỏ dấu + gộp khoảng trắng/NBSP, <3 ký tự khớp đầu từ, ngày theo giờ VN (đọc cả ô đã định dạng dd/mm/yyyy — ca đỏ bắt được trước GREEN), chọn so đúng mã, khoá lạ bỏ qua. 13 ca.
+- [x] M5-T2 — commit bbbbf5da: `useLocTheoThe` hook chung thẻ URL + lọc tại chỗ; `coThe` tính cả thẻ đỏ. 5 ca.
+- [x] M5-T3 — commit 39931a2e: Đơn thư phường/xã (8 cột, 6 ca mới + 17 cũ xanh).
+- [x] M5-T4 — commit 071af281: Vụ việc/Vụ án phường xã + Phân loại khác (Vụ án lọc SAU phạm vi quyền). 12 ca mới.
+- [x] M5-T5 — commit 88cd3b51: Trao đổi chuyên án, Ủy thác điều tra, Hướng dẫn đơn, Chuyển đội/Trả hồ sơ (Trạng thái Chuyển đội tìm theo NHÃN — mã khác nhau theo loại; 2 màn trước không có dòng rỗng nay có). 16 ca mới.
+- [x] M5-T6 — commit ad97b2b7: Hồ sơ mới tiếp nhận, Đơn trùng, Kiến nghị VKS, Phân loại danh mục; ca tải hỏng Kiến nghị VKS dựng trong router (màn nay giữ thẻ trên URL). 16 ca mới, 3 tệp kiểm cũ xanh.
+- [x] Bộ FE đầy đủ lần 1 ĐỎ 2 ca — cổng CÓ SẴN `congSoLieuKhiTaiHong` bắt đúng: dòng rỗng "Không tìm thấy với:" mới thêm ở Trao đổi chuyên án + Chuyển đội chỉ xét `coThe`, tải HỎNG mà còn thẻ thì vừa báo lỗi vừa khẳng định "không tìm thấy". Vá `!loadError &&` như 3 màn còn lại; cổng + cụm B 108 ca xanh.
+- [ ] M5-T7 — cổng `locTheoTheManTrinhDuyet.gate.test.ts` (12 màn dùng hook + ô thẻ; ô chữ cũ chỉ lọc khi cờ tắt; tiền tố không trùng; gieo lỗi) → bộ đầy đủ → /review + /codex → PR → CI → merge → deploy (chỉ giao diện, không migration).
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).

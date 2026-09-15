@@ -625,7 +625,7 @@ export default function TransferAndReturnPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {displayedRecords.length === 0 && timKiem.coThe && (
+                {!loadError && displayedRecords.length === 0 && timKiem.coThe && (
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center">
                       <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">

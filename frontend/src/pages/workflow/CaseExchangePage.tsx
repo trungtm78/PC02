@@ -427,7 +427,7 @@ export default function CaseExchangePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {displayedExchanges.length === 0 && timKiem.coThe && (
+                {!loadError && displayedExchanges.length === 0 && timKiem.coThe && (
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center">
                       <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
