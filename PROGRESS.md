@@ -155,8 +155,11 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 ### Hàng đợi M6 (nhánh feat/tim-kiem-dang-the-man-may-chu từ main 93551023) — khảo sát 15/09
 Hiện trạng: 9 màn đều bảng tự dựng, không URL, tìm Prisma `contains`+insensitive (KHÔNG bỏ dấu). Chỉ users/cases/subjects/lawyers/petitions/incidents có cột bóng; directories/documents/address_mappings/audit_logs CHƯA.
 - [ ] M6-T1 hạ tầng: khai + migration cột bóng/trigger/GIN cho directories, documents, address_mappings, audit_logs (qua `gen:tim-kiem -- --moi`); khai users (đã có ho_ten_bd). Kiểm vàng + nạp CLI như M2–M4.
-- [ ] M6-T2 Tài liệu: getList qua BoTimKiem; **[lỗi có sẵn] phạm vi ghi thẳng `where.OR` ĐÈ mất điều kiện tìm** → noiVaoWhere (AND). Màn DocumentsPage ô thẻ + URL.
-- [ ] M6-T3 Quản lý người dùng: getUsers qua BoTimKiem; **[lỗi có sẵn] màn gửi `isActive` mà DTO chỉ có `status` → forbidNonWhitelisted 400 khi lọc trạng thái** (kiểm lại bằng ca kiểm trước khi sửa). Màn ô thẻ.
+- [ ] M6-T2 Tài liệu: getList qua BoTimKiem; màn DocumentsPage ô thẻ + URL.
+  - [x] commit b9c1853d — **[lỗi có sẵn] phạm vi gán lại `where.OR` ĐÈ mất điều kiện tìm** (cán bộ có phạm vi gõ gì cũng ra mọi tài liệu trong phạm vi) → hai điều kiện riêng trong `where.AND`. TDD đỏ (Received chỉ còn khối phạm vi) → xanh; 42 ca.
+  - Đo prod 15/09 (chỉ đọc): directories 15.913 · documents 10 · address_mappings 1.086 · audit_logs 13.218 (10 MB, ~1.457/tuần) · users 257 → trigger cột bóng + nạp đều rẻ, không cần cách riêng cho audit_logs.
+- [ ] M6-T3 Quản lý người dùng: getUsers qua BoTimKiem; màn ô thẻ.
+  - [x] commit (users) — **[lỗi có sẵn] màn gửi `isActive`, DTO chỉ có `status`; main.ts bật forbidNonWhitelisted → 400 cả danh sách khi lọc trạng thái** (xác nhận trên mã). Tách `thamSoDanhSachNguoiDung.ts` gửi `status`; spec DTO chốt hợp đồng bằng đúng cấu hình pipe. TDD đỏ → xanh.
 - [ ] M6-T4 Danh mục (Directories) + AddressMapping (module Cài đặt): BoTimKiem + ô thẻ.
 - [ ] M6-T5 Nhật ký hoạt động: **[lỗi có sẵn] lọc HAI lần (máy chủ action/subject/subjectId rồi client lọc lại theo tên người dùng/nhãn) → tên người dùng không bao giờ ra**; thoát `%`/`_` tay trong khi Prisma contains đã thoát. Tìm máy chủ theo khai (người thực hiện qua quan hệ users.ho_ten_bd), bỏ lọc client.
 - [ ] M6-T6 Trễ hạn (reports/overdue): 3 khối OR chép tay (cases name/unit, incidents name/unitId-là-ID, petitions) → BoTimKiem của 3 thực thể (đã có cột bóng); placeholder hứa số hồ sơ/người xử lý mà không tìm. ExportReportsPage: máy chủ /petitions đã có thẻ → chỉ giao diện.
