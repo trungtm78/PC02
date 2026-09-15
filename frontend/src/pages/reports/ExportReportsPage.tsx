@@ -24,6 +24,19 @@ import { useLuotNap } from "@/hooks/useLuotNap";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate, toDateInput } from "@/lib/dates";
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from "@/components/shared/ListPageShell";
+import { useFeatureBatMacDinh } from "@/lib/features/useFeature";
+import { TIM_KIEM_DON_THU } from "@/shared/tim-kiem/generated";
+import { PETITION_STATUS_LABEL } from "@/shared/enums/status-labels";
+import { PetitionStatus } from "@/shared/enums/generated";
+
+/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn trạng thái đơn thư. */
+const GIA_TRI_CHON_XUAT = {
+  trangThai: Object.values(PetitionStatus).map((v) => ({
+    value: v,
+    label: PETITION_STATUS_LABEL[v],
+  })),
+};
 
 interface Document {
   id: string;
@@ -86,6 +99,22 @@ export default function ExportReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Ô tìm dạng thẻ — máy chủ `/petitions` tìm theo khai Đơn thư (bỏ dấu, chọn cột). Thẻ trên URL
+  // `exportReports_tk`. Cờ tắt → ô chữ cũ + nút tìm.
+  const theBat = useFeatureBatMacDinh("TIM_KIEM_THE");
+  const timKiem = useTheTimKiem({
+    prefix: "exportReports",
+    khai: TIM_KIEM_DON_THU,
+    giaTriChon: GIA_TRI_CHON_XUAT,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+  // Thẻ đổi → về trang đầu (trang cũ có thể vượt tổng số đơn mới).
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tkKey]);
+
   const { batDau } = useLuotNap();
   const fetchPetitions = useCallback(async () => {
     const conMoiNhat = batDau();
@@ -96,7 +125,12 @@ export default function ExportReportsPage() {
         limit: String(PAGE_SIZE),
         offset: String((currentPage - 1) * PAGE_SIZE),
       });
-      if (searchQuery) params.set("search", searchQuery);
+      // Cờ bật → chỉ gửi thẻ: `search` cũng quy về thẻ "*" ở máy chủ, gửi kèm là lọc hai lần.
+      if (theBat) {
+        for (const t of JSON.parse(tkKey) as string[]) params.append("tk", t);
+      } else if (searchQuery) {
+        params.set("search", searchQuery);
+      }
       const res = await api.get(`/petitions?${params}`);
       if (!conMoiNhat()) return;
       const data = (res.data.data ?? []).map((p: any) => ({
@@ -121,7 +155,7 @@ export default function ExportReportsPage() {
     } finally {
       if (conMoiNhat()) setLoading(false);
     }
-  }, [currentPage, searchQuery]);
+  }, [batDau, currentPage, searchQuery, theBat, tkKey]);
 
   useEffect(() => { fetchPetitions(); }, [fetchPetitions]);
 
@@ -148,6 +182,7 @@ export default function ExportReportsPage() {
   });
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       fromDate: "",
@@ -520,25 +555,38 @@ export default function ExportReportsPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              value={filters.quickSearch}
-              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
-              placeholder="Tìm kiếm theo STT, người gửi, nghi vấn đối tượng, tóm tắt..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={TIM_KIEM_DON_THU}
+            khai={TIM_KIEM_DON_THU}
+            giaTriChon={GIA_TRI_CHON_XUAT}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+          />
+        ) : (
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                value={filters.quickSearch}
+                onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+                placeholder="Tìm kiếm theo STT, người gửi, nghi vấn đối tượng, tóm tắt..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              onClick={handleSearchSubmit}
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              <Search className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={handleSearchSubmit}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-        </div>
+        )}
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200">
@@ -652,7 +700,19 @@ export default function ExportReportsPage() {
                   <td colSpan={10} className="px-4 py-16 text-center">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hồ sơ nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc</p>
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={TIM_KIEM_DON_THU}
+                          giaTriChon={GIA_TRI_CHON_XUAT}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc</p>
+                    )}
                   </td>
                 </tr>
               ) : (

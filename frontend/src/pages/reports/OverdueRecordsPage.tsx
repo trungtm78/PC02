@@ -18,6 +18,18 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatVNDate } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from "@/components/shared/ListPageShell";
+import { useFeatureBatMacDinh } from "@/lib/features/useFeature";
+import { TIM_KIEM_DON_THU, TIM_KIEM_VU_VIEC, TIM_KIEM_VU_AN } from "@/shared/tim-kiem/generated";
+import { khoaChung } from "@/shared/tim-kiem/khoa-chung";
+
+/**
+ * Màn gộp ba loại hồ sơ → thẻ chỉ gồm khoá CHUNG ba khai (máy chủ 400 với khoá khác). Thẻ khoá riêng
+ * một loại (trạng thái, điều tra viên) trên URL hiện đỏ và không gửi.
+ */
+const TRUONG_TRE_HAN = khoaChung([TIM_KIEM_DON_THU, TIM_KIEM_VU_VIEC, TIM_KIEM_VU_AN]);
+/** Khoá chung không có kiểu chọn — hằng số ngoài component để không đổi tham chiếu mỗi lượt vẽ. */
+const GIA_TRI_CHON_TRE_HAN = {};
 
 interface OverdueRecord {
   id: string;
@@ -57,15 +69,32 @@ export default function OverdueRecordsPage() {
     minDaysOverdue: "",
   });
 
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ trên cả ba loại hồ sơ. Thẻ trên URL `overdue_tk`. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh("TIM_KIEM_THE");
+  const timKiem = useTheTimKiem({
+    prefix: "overdue",
+    khai: TRUONG_TRE_HAN,
+    giaTriChon: GIA_TRI_CHON_TRE_HAN,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string> = {
-        search: filters.quickSearch,
+      const params: Record<string, string | string[]> = {
         recordType: filters.recordType,
         minDaysOverdue: filters.minDaysOverdue,
       };
+      // Cờ bật → chỉ gửi thẻ: `search` cũng quy về thẻ "*" ở máy chủ, gửi kèm là lọc hai lần.
+      if (theBat) {
+        const tk = JSON.parse(tkKey) as string[];
+        if (tk.length) params.tk = tk;
+      } else {
+        params.search = filters.quickSearch;
+      }
       const response = await api.get("/reports/overdue", { params });
       const result = response.data;
       if (result.success) {
@@ -76,7 +105,7 @@ export default function OverdueRecordsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.quickSearch, filters.recordType, filters.minDaysOverdue]);
+  }, [filters.quickSearch, filters.recordType, filters.minDaysOverdue, theBat, tkKey]);
 
   useEffect(() => {
     fetchRecords();
@@ -87,6 +116,7 @@ export default function OverdueRecordsPage() {
   };
 
   const handleReset = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       recordType: "",
@@ -283,16 +313,31 @@ export default function OverdueRecordsPage() {
       {/* Search & Filter */}
       <div className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
         <div className="flex items-center gap-4 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              value={filters.quickSearch}
-              onChange={(e) => handleFilterChange("quickSearch", e.target.value)}
-              placeholder="Tìm kiếm theo số hồ sơ, tiêu đề, người xử lý..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
-            />
-          </div>
+          {theBat ? (
+            <div className="flex-1">
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={TRUONG_TRE_HAN}
+                khai={TRUONG_TRE_HAN}
+                giaTriChon={GIA_TRI_CHON_TRE_HAN}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trên cả ba loại hồ sơ — gõ rồi chọn cột (phím /)"
+              />
+            </div>
+          ) : (
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                value={filters.quickSearch}
+                onChange={(e) => handleFilterChange("quickSearch", e.target.value)}
+                placeholder="Tìm kiếm theo số hồ sơ, tiêu đề, người xử lý..."
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
+              />
+            </div>
+          )}
           <button
             onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
             className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -438,6 +483,18 @@ export default function OverdueRecordsPage() {
                   <tr>
                     <td colSpan={10} className="py-12 text-center text-slate-500">
                       Không tìm thấy hồ sơ trễ hạn nào
+                      {/* Bảng chỉ hiện khi không lỗi tải (`!error`) — rỗng ở đây là câu trả lời thật. */}
+                      {theBat && timKiem.the.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                          <span>Không tìm thấy với:</span>
+                          <DanhSachThe
+                            the={timKiem.the}
+                            khai={TRUONG_TRE_HAN}
+                            giaTriChon={GIA_TRI_CHON_TRE_HAN}
+                            onBoThe={timKiem.boThe}
+                          />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
