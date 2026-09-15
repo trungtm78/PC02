@@ -111,11 +111,13 @@ export function docThe(
       throw loi(`Giá trị tìm kiếm dài quá ${DO_DAI_GIA_TRI_TOI_DA} ký tự`);
     }
     if (!giaTri) continue;
-    if (
-      truong?.kieu === 'chon' &&
-      truong.giaTriHopLe &&
-      !truong.giaTriHopLe.includes(giaTri)
-    ) {
+    const hopLe =
+      truong?.kieu === 'chon'
+        ? truong.giaTriCot
+          ? Object.keys(truong.giaTriCot)
+          : truong.giaTriHopLe
+        : undefined;
+    if (hopLe && !hopLe.includes(giaTri)) {
       throw loi(`Giá trị "${giaTri}" không hợp lệ cho cột "${key}"`);
     }
     if (truong?.kieu === 'ngay' && !docKhoangNgay(giaTri)) {
@@ -150,16 +152,20 @@ const chuaGoc = (cot: string, giaTri: string): DieuKien => ({
  */
 function luaChonChu(
   cot: string,
+  nguon: readonly string[],
   giaTri: string,
   luiCotGoc: boolean,
 ): DieuKien[] {
+  // Cột bóng ghép nhiều nguồn (`cotGhep`) thì nhánh lùi tìm TỪNG cột nguồn; một nguồn thì để trần.
+  const goc: DieuKien =
+    nguon.length === 1
+      ? chuaGoc(nguon[0], giaTri)
+      : { OR: nguon.map((c) => chuaGoc(c, giaTri)) };
   const mau = mauBoDau(giaTri);
-  if (mau === undefined) return [chuaGoc(cot, giaTri)];
+  if (mau === undefined) return [goc];
   const bong = cotBongCua(cot).field;
   const bongChua = { [bong]: { contains: mau } };
-  return luiCotGoc
-    ? [bongChua, { [bong]: null, ...chuaGoc(cot, giaTri) }]
-    : [bongChua];
+  return luiCotGoc ? [bongChua, { [bong]: null, ...goc }] : [bongChua];
 }
 
 function luaChonTatCa(
@@ -205,7 +211,16 @@ function dieuKienMotThe(
   const cot = truong.cot as string;
   switch (truong.kieu) {
     case 'chu':
-      return gop(the.giaTri.flatMap((v) => luaChonChu(cot, v, luiCotGoc)));
+      return gop(
+        the.giaTri.flatMap((v) =>
+          luaChonChu(cot, truong.cotGhep ?? [cot], v, luiCotGoc),
+        ),
+      );
+    case 'ma-thuong':
+      // Mã danh mục / mã cán bộ: đúng mã, không phân biệt hoa thường (không đi biến thể mã hồ sơ).
+      return hoac(
+        the.giaTri.map((v) => ({ [cot]: { equals: v, mode: 'insensitive' } })),
+      );
     case 'ma':
       return [
         { [cot]: { in: [...new Set(the.giaTri.flatMap(hoSoCodeVariants))] } },
@@ -226,8 +241,10 @@ function dieuKienMotThe(
           return khoang ? [{ [cot]: khoang }] : [];
         }),
       );
-    case 'chon':
-      return [{ [cot]: { in: [...the.giaTri] } }];
+    case 'chon': {
+      const doi = truong.giaTriCot;
+      return [{ [cot]: { in: the.giaTri.map((v) => (doi ? doi[v] : v)) } }];
+    }
     case 'doi-tuong':
       return hoac(the.giaTri.flatMap((v) => dieuKienDoiTuong(truong, v)));
     case 'quan-he':

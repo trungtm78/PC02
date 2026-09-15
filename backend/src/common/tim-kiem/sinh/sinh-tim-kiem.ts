@@ -18,7 +18,8 @@ export type KieuTruong =
   | 'chon'
   | 'nguoi'
   | 'doi-tuong'
-  | 'quan-he';
+  | 'quan-he'
+  | 'ma-thuong';
 
 export interface TruongTimKiem {
   /** Khoá thẻ trên URL — tên CHUẨN liên thực thể. */
@@ -52,6 +53,17 @@ export interface TruongTimKiem {
    * Chỉ dùng phía máy chủ — bộ sinh không xuất ra giao diện.
    */
   giaTriHopLe?: readonly string[];
+  /**
+   * Kiểu `chon` trên cột KHÔNG phải chuỗi (boolean…): giá trị thẻ (luôn là chuỗi trên URL) → giá trị
+   * cột thật. Khoá của bảng là danh sách giá trị hợp lệ (lạ → 400); gửi thẳng chuỗi tới cột boolean
+   * là Prisma ném lỗi kiểu → 500.
+   */
+  giaTriCot?: Readonly<Record<string, string | number | boolean>>;
+  /**
+   * Kiểu `chu`: MỘT cột bóng ghép từ NHIỀU cột nguồn (vd "Họ tên" = họ + tên + tài khoản). `cot` khi
+   * ấy là tên gốc của cột bóng (`hoTen` → `ho_ten_bd` / `hoTenBd`), không phải cột thật.
+   */
+  cotGhep?: readonly string[];
 }
 
 export interface KhaiThucThe {
@@ -118,6 +130,14 @@ function kiemKhai(khai: KhaiThucThe): void {
       kiemTen(t.cot, 'nguồn');
       if (t.cotDb) kiemTen(t.cotDb, 'CSDL');
     }
+    if (t.cotGhep) {
+      if (t.kieu !== 'chu' || t.cotGhep.length < 2) {
+        throw new Error(
+          `Trường "${t.key}": cotGhep chỉ dùng cho kiểu chu và cần ít nhất hai cột`,
+        );
+      }
+      for (const g of t.cotGhep) kiemTen(g, 'ghép');
+    }
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
   for (const c of khai.cotBongPhu ?? []) kiemTen(c, 'bóng phụ');
@@ -131,17 +151,36 @@ const cotCoBong = (khai: KhaiThucThe) => [
   ...new Set([...cotChu(khai), ...(khai.cotBongPhu ?? [])]),
 ];
 
-/** Cột ghép vào "tất cả các cột": chữ + mã + cột thêm, theo thứ tự khai. */
+/**
+ * Cột ghép vào "tất cả các cột": chữ + mã + cột thêm, theo thứ tự khai. Trường `cotGhep` góp CÁC CỘT
+ * NGUỒN của nó (cột `cot` của nó là tên cột bóng, không có thật trong bảng).
+ */
 const cotTatCa = (khai: KhaiThucThe) => [
   ...khai.truong
-    .filter((t) => t.kieu === 'chu' || t.kieu === 'ma' || t.kieu === 'ma-cu')
-    .map((t) => t.cot as string),
+    .filter(
+      (t) =>
+        t.kieu === 'chu' ||
+        t.kieu === 'ma' ||
+        t.kieu === 'ma-cu' ||
+        t.kieu === 'ma-thuong',
+    )
+    .flatMap((t) => (t.cotGhep ? [...t.cotGhep] : [t.cot as string])),
   ...(khai.cotThemVaoTatCa ?? []),
 ];
 
 /** Tên cột CSDL của một trường Prisma trong khai — `cotDb` nếu có `@map`, không thì chính tên trường. */
 const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
   khai.truong.find((t) => t.cot === cot && t.cotDb)?.cotDb ?? cot;
+
+/** Cột CSDL nguồn của cột bóng mang tên `cot`: các cột `cotGhep` nếu có, không thì chính cột ấy. */
+const nguonDb = (khai: KhaiThucThe, cot: string): string[] => {
+  const ghepNguon = khai.truong.find(
+    (t) => t.cot === cot && t.cotGhep,
+  )?.cotGhep;
+  return ghepNguon
+    ? ghepNguon.map((g) => tenCotDb(khai, g))
+    : [tenCotDb(khai, cot)];
+};
 
 const coTruongNguoi = (khais: readonly KhaiThucThe[]) =>
   khais.some((k) => k.truong.some((t) => t.kieu === 'nguoi'));
@@ -262,15 +301,20 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   }
   for (const khai of khais) {
     const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
-    const cotDbBong = cotCoBong(khai).map((c) => tenCotDb(khai, c));
+    const cotDbBong = cotCoBong(khai).flatMap((c) => nguonDb(khai, c));
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
-        ...cotCoBong(khai).map((c) => ({
-          cotBong: cotBongCua(c).cot,
-          bieuThuc: moi(tenCotDb(khai, c)),
-        })),
+        ...cotCoBong(khai).map((c) => {
+          const nguon = nguonDb(khai, c);
+          return {
+            cotBong: cotBongCua(c).cot,
+            // Một nguồn để trần `NEW."x"`; nhiều nguồn ghép — cùng dạng kiểu người sinh cho
+            // `users.ho_ten_bd`, nên gopTheoBang coi là một.
+            bieuThuc: nguon.length > 1 ? ghep(nguon) : moi(nguon[0]),
+          };
+        }),
         { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
       ],
       cotNguon: [...new Set([...cotDbTatCa, ...cotDbBong])],
@@ -492,10 +536,13 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
 export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   kiemKhai(khai);
   return cauNap(khai.bang, [
-    ...cotCoBong(khai).map((c) => ({
-      cotBong: cotBongCua(c).cot,
-      bieuThuc: cotDong(tenCotDb(khai, c)),
-    })),
+    ...cotCoBong(khai).map((c) => {
+      const nguon = nguonDb(khai, c);
+      return {
+        cotBong: cotBongCua(c).cot,
+        bieuThuc: nguon.length > 1 ? ghepDong(nguon) : cotDong(nguon[0]),
+      };
+    }),
     {
       cotBong: COT_TAT_CA.cot,
       bieuThuc: ghepDong(cotTatCa(khai).map((c) => tenCotDb(khai, c))),
@@ -544,7 +591,7 @@ export function sinhFrontendTimKiem(khais: readonly KhaiThucThe[]): string {
     '// AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.',
     '// Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts',
     '',
-    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he';",
+    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he' | 'ma-thuong';",
   ];
   for (const khai of khais) {
     const ten = khai.thucThe.toUpperCase().replace(/-/g, '_');

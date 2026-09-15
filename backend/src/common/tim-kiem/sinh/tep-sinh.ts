@@ -89,6 +89,11 @@ export function cotDbLech(
     };
     for (const t of khai.truong) {
       if (!t.cot) continue;
+      if (t.cotGhep) {
+        // `cot` là tên cột bóng, không có thật — kiểm từng cột nguồn ghép.
+        for (const g of t.cotGhep) kiem(g, g);
+        continue;
+      }
       if (t.kieu === 'ngay' || t.kieu === 'chon') {
         // Chỉ đi qua Prisma bằng tên trường, không vào SQL thô: `@map` không liên quan — chỉ cần
         // trường tồn tại (gõ sai tên thì Prisma ném 500 lúc lọc).
