@@ -8,6 +8,12 @@ import { getRoleLabel } from "@/shared/enums/role-labels";
 import { getAuditActionLabel } from "@/shared/enums/audit-action-labels";
 import { getFieldLabel } from "@/shared/enums/audit-field-labels";
 import { today, toDateInput, formatVNDateTime } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from "@/components/shared/ListPageShell";
+import { useFeatureBatMacDinh } from "@/lib/features/useFeature";
+import { TIM_KIEM_NHAT_KY } from "@/shared/tim-kiem/generated";
+
+/** Khai nhat-ky không có cột kiểu chọn — hằng số ngoài component để không đổi tham chiếu mỗi lượt vẽ. */
+const GIA_TRI_CHON_NHAT_KY = {};
 import {
   Search,
   Download,
@@ -154,6 +160,30 @@ export default function ActivityLogPage() {
     objectType: "",
   });
 
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ (bỏ dấu, chọn cột; "*" ra cả tên người thực hiện). Thẻ trên URL
+  // `activityLog_tk`. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh("TIM_KIEM_THE");
+  const timKiem = useTheTimKiem({
+    prefix: "activityLog",
+    khai: TIM_KIEM_NHAT_KY,
+    giaTriChon: GIA_TRI_CHON_NHAT_KY,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
+  /** Tham số tìm chung cho danh sách và xuất CSV — xuất phải áp đúng thứ màn đang lọc. */
+  const ganThamSoTim = useCallback(
+    (params: URLSearchParams) => {
+      if (theBat) {
+        for (const t of JSON.parse(tkKey) as string[]) params.append("tk", t);
+      } else if (filters.quickSearch) {
+        params.set("search", filters.quickSearch);
+      }
+    },
+    [theBat, tkKey, filters.quickSearch],
+  );
+
   const fetchLogs = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -164,8 +194,8 @@ export default function ActivityLogPage() {
       if (filters.fromDate) params.set("dateFrom", filters.fromDate);
       if (filters.toDate) params.set("dateTo", filters.toDate);
       if (filters.actionType) params.set("action", filters.actionType.toUpperCase());
-      // v0.29: free-text search via backend (escapes %/_)
-      if (filters.quickSearch) params.set("search", filters.quickSearch);
+      // Tìm ở máy chủ: thẻ (cờ bật) hoặc `search` cũ.
+      ganThamSoTim(params);
       setLoadError("");
       const res = await api.get(`/audit-logs?${params}`);
       const data = res.data.data ?? res.data ?? [];
@@ -176,22 +206,16 @@ export default function ActivityLogPage() {
       setAllData([]);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     }
-  }, [page, filters.fromDate, filters.toDate, filters.actionType, filters.quickSearch]);
+  }, [page, filters.fromDate, filters.toDate, filters.actionType, ganThamSoTim]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
-  // Client-side filter for search/user/objectType
+  // Lọc trên trang đã tải chỉ còn cho hai ô chọn nâng cao (người/loại đối tượng). Ô tìm KHÔNG lọc lại
+  // ở đây: máy chủ đã tìm (bỏ dấu, gồm tên người) — lọc lại theo chữ có dấu từng giấu đúng dòng máy
+  // chủ trả về (gõ "nguyen" không ra "Nguyễn").
   const filteredData = allData.filter((log) => {
-    if (filters.quickSearch) {
-      const searchLower = filters.quickSearch.toLowerCase();
-      const matchesSearch =
-        log.user.toLowerCase().includes(searchLower) ||
-        log.objectId.toLowerCase().includes(searchLower) ||
-        log.description.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-    }
     if (filters.user && log.user !== filters.user) return false;
     if (filters.objectType && log.objectType !== filters.objectType) return false;
     return true;
@@ -202,6 +226,7 @@ export default function ActivityLogPage() {
   const soLoaiThaoTac = new Set(filteredData.map((r) => r.actionType)).size;
 
   const handleResetFilters = () => {
+    timKiem.xoaHet();
     setFilters({
       quickSearch: "",
       fromDate: "",
@@ -226,7 +251,7 @@ export default function ActivityLogPage() {
       if (filters.fromDate) params.set('dateFrom', filters.fromDate);
       if (filters.toDate) params.set('dateTo', filters.toDate);
       if (filters.actionType) params.set('action', filters.actionType.toUpperCase());
-      if (filters.quickSearch) params.set('search', filters.quickSearch);
+      ganThamSoTim(params);
 
       const res = await api.get(`/audit-logs/export.csv?${params}`, {
         responseType: 'blob',
@@ -409,16 +434,29 @@ export default function ActivityLogPage() {
       {/* Tìm kiếm và bộ lọc */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
         {/* Tìm kiếm nhanh */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            value={filters.quickSearch}
-            onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-            placeholder="Tìm kiếm theo người thực hiện, đối tượng, mô tả..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {theBat ? (
+          <OTimKiemThe
+            the={timKiem.the}
+            truong={TIM_KIEM_NHAT_KY}
+            khai={TIM_KIEM_NHAT_KY}
+            giaTriChon={GIA_TRI_CHON_NHAT_KY}
+            onThem={timKiem.them}
+            onBoThe={timKiem.boThe}
+            onBoGiaTri={timKiem.boGiaTri}
+            placeholder="Tìm trong mọi cột (gồm người thực hiện) — gõ rồi chọn cột (phím /)"
           />
-        </div>
+        ) : (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              value={filters.quickSearch}
+              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+              placeholder="Tìm kiếm theo người thực hiện, đối tượng, mô tả..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
 
         {/* Bộ lọc nâng cao */}
         {showAdvancedFilter && (
@@ -553,7 +591,19 @@ export default function ActivityLogPage() {
                   <td colSpan={7} className="px-4 py-16 text-center">
                     <Activity className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy bản ghi nào'}</p>
-                    <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc</p>
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={TIM_KIEM_NHAT_KY}
+                          giaTriChon={GIA_TRI_CHON_NHAT_KY}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc</p>
+                    )}
                   </td>
                 </tr>
               ) : (
