@@ -24,6 +24,37 @@ import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
 import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng (cột STT là số thứ tự dòng). */
+const KHAI_HO_SO_MOI: readonly TruongLoc<InitialCase>[] = [
+  { key: 'soHoSo', nhan: 'Số hồ sơ', kieu: 'ma', lay: (c) => c.caseNumber },
+  { key: 'loai', nhan: 'Loại', kieu: 'chon', lay: (c) => c.type },
+  { key: 'noiDung', nhan: 'Nội dung vụ việc', kieu: 'chu', lay: (c) => c.subject },
+  { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu', lay: (c) => c.district },
+  { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay', lay: (c) => c.receivedDate },
+  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (c) => c.priority },
+  { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', lay: (c) => c.deadline },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (c) => c.status },
+];
+
+const GIA_TRI_CHON_HO_SO_MOI = {
+  loai: [
+    { value: 'incident', label: 'Vụ việc' },
+    { value: 'case', label: 'Vụ án' },
+  ],
+  mucDo: [
+    { value: 'normal', label: 'Bình thường' },
+    { value: 'urgent', label: 'Khẩn' },
+    { value: 'critical', label: 'Rất khẩn' },
+  ],
+  trangThai: [
+    { value: 'pending', label: 'Chờ xử lý' },
+    { value: 'overdue', label: 'Quá hạn' },
+  ],
+};
 
 interface InitialCase {
   id: string;
@@ -126,8 +157,18 @@ function InitialCasesPage() {
   const [caseToDelete, setCaseToDelete] = useState<InitialCase | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const filteredData = cases.filter((record) => {
-    if (filters.quickSearch) {
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'initialCases',
+    khai: KHAI_HO_SO_MOI,
+    giaTriChon: GIA_TRI_CHON_HO_SO_MOI,
+    dong: cases,
+    bat: theBat,
+  });
+
+  const filteredData = timKiem.dongLoc.filter((record) => {
+    if (!theBat && filters.quickSearch) {
       const searchLower = filters.quickSearch.toLowerCase();
       const matchesSearch = record.caseNumber.toLowerCase().includes(searchLower) || record.subject.toLowerCase().includes(searchLower) || record.district.toLowerCase().includes(searchLower);
       if (!matchesSearch) return false;
@@ -143,7 +184,10 @@ function InitialCasesPage() {
   const overdueCount = filteredData.filter((c) => c.status === CASE_PHASE.OVERDUE).length;
   const urgentCount = filteredData.filter((c) => c.priority !== "normal").length;
 
-  const handleResetFilters = () => { setFilters({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" }); };
+  const handleResetFilters = () => {
+    timKiem.xoaHet();
+    setFilters({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" });
+  };
   const handleView = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}`); };
   const handleEdit = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}/edit`); };
   const handleAssign = (caseItem: InitialCase) => { setSelectedCase(caseItem); setShowAssignModal(true); };
@@ -256,10 +300,23 @@ function InitialCasesPage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-2">Tìm kiếm</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input type="text" value={filters.quickSearch} onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })} placeholder="Số hồ sơ, nội dung, đơn vị..." className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="initial-search" />
-            </div>
+            {theBat ? (
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_HO_SO_MOI}
+                khai={KHAI_HO_SO_MOI}
+                giaTriChon={GIA_TRI_CHON_HO_SO_MOI}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" value={filters.quickSearch} onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })} placeholder="Số hồ sơ, nội dung, đơn vị..." className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="initial-search" />
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
@@ -305,7 +362,19 @@ function InitialCasesPage() {
           <div className="text-center py-16">
             <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <p className="text-lg text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có hồ sơ chờ xử lý'}</p>
-            <p className="text-sm text-slate-400 mt-2">Tất cả hồ sơ đã được tiếp nhận hoặc thử điều chỉnh bộ lọc</p>
+            {!loadError && timKiem.coThe ? (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={KHAI_HO_SO_MOI}
+                  giaTriChon={GIA_TRI_CHON_HO_SO_MOI}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 mt-2">Tất cả hồ sơ đã được tiếp nhận hoặc thử điều chỉnh bộ lọc</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -30,6 +30,24 @@ import {
 import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
 import { loiTuMayChu } from "./loiTuMayChu";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_KIEN_NGHI: readonly TruongLoc<Proposal>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (p) => p.stt },
+  { key: 'maKienNghi', nhan: 'Mã kiến nghị', kieu: 'ma', lay: (p) => p.proposalNumber },
+  { key: 'hoSoLienQuan', nhan: 'Mã hồ sơ liên quan', kieu: 'chu', lay: (p) => [p.caseType, p.relatedCase] },
+  { key: 'noiDung', nhan: 'Nội dung kiến nghị', kieu: 'chu', lay: (p) => p.content },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', lay: (p) => p.createdDate },
+  { key: 'donViVks', nhan: 'Đơn vị VKS', kieu: 'chu', lay: (p) => p.unit },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (p) => p.status },
+];
+
+const GIA_TRI_CHON_KIEN_NGHI = {
+  trangThai: Object.values(PROPOSAL_STATUS_LABEL).map((v) => ({ value: v, label: v })),
+};
 
 type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
 
@@ -140,9 +158,20 @@ export default function ProsecutorProposalPage() {
 
   useEffect(() => { fetchProposals(); }, [fetchProposals]);
 
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'prosecutorProposal',
+    khai: KHAI_KIEN_NGHI,
+    giaTriChon: GIA_TRI_CHON_KIEN_NGHI,
+    dong: allProposals,
+    bat: theBat,
+  });
+
   const filteredProposals = useMemo(() => {
-    return allProposals.filter((proposal) => {
+    return timKiem.dongLoc.filter((proposal) => {
       const matchesQuickSearch =
+        theBat ||
         (proposal.proposalNumber ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
         (proposal.relatedCase ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
         (proposal.content ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
@@ -153,7 +182,7 @@ export default function ProsecutorProposalPage() {
 
       return matchesQuickSearch && matchesStatus && matchesUnit;
     });
-  }, [allProposals, quickSearch, filters]);
+  }, [timKiem.dongLoc, theBat, quickSearch, filters]);
 
   const handleAdd = () => {
     setSelectedProposal(null);
@@ -391,17 +420,30 @@ export default function ProsecutorProposalPage() {
         </div>
 
         <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              data-testid="quick-search-input"
-              value={quickSearch}
-              onChange={(e) => setQuickSearch(e.target.value)}
-              placeholder="Tìm kiếm theo mã kiến nghị, mã hồ sơ, nội dung, đơn vị..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+          {theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={KHAI_KIEN_NGHI}
+              khai={KHAI_KIEN_NGHI}
+              giaTriChon={GIA_TRI_CHON_KIEN_NGHI}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
-          </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                data-testid="quick-search-input"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Tìm kiếm theo mã kiến nghị, mã hồ sơ, nội dung, đơn vị..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         {showAdvancedSearch && (
@@ -623,6 +665,17 @@ export default function ProsecutorProposalPage() {
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500">Không tìm thấy kiến nghị nào</p>
+            {timKiem.coThe && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={KHAI_KIEN_NGHI}
+                  giaTriChon={GIA_TRI_CHON_KIEN_NGHI}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

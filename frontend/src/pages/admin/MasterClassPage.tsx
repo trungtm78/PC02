@@ -7,6 +7,24 @@ import { extractApiError } from "@/lib/api-errors";
 import { MASTER_CLASS_TYPE_LIST } from "@/constants/master-class-types";
 import { Search, Plus, Pencil, Trash2, FolderTree, Save, X } from "lucide-react";
 import { usePermission } from "@/hooks/usePermission";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_DANH_MUC: readonly TruongLoc<MasterClassEntry>[] = [
+  { key: 'ma', nhan: 'Mã', kieu: 'ma', lay: (e) => e.code },
+  { key: 'ten', nhan: 'Tên', kieu: 'chu', lay: (e) => e.name },
+  { key: 'thuTu', nhan: 'Thứ tự', kieu: 'ma', lay: (e) => e.order },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (e) => (e.isActive ? 'active' : 'inactive') },
+];
+
+const GIA_TRI_CHON_DANH_MUC = {
+  trangThai: [
+    { value: 'active', label: 'Hoạt động' },
+    { value: 'inactive', label: 'Tắt' },
+  ],
+};
 
 interface MasterClassEntry {
   id: string;
@@ -79,7 +97,18 @@ export default function MasterClassPage() {
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
 
-  const filtered = entries.filter(e =>
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'masterClass',
+    khai: KHAI_DANH_MUC,
+    giaTriChon: GIA_TRI_CHON_DANH_MUC,
+    dong: entries,
+    bat: theBat,
+  });
+
+  const filtered = timKiem.dongLoc.filter(e =>
+    theBat ||
     !search ||
     e.code.toLowerCase().includes(search.toLowerCase()) ||
     e.name.toLowerCase().includes(search.toLowerCase())
@@ -139,7 +168,7 @@ export default function MasterClassPage() {
           {MASTER_CLASS_TYPE_LIST.map(t => (
             <button
               key={t.code}
-              onClick={() => { setSelectedType(t.code); setSearch(""); }}
+              onClick={() => { setSelectedType(t.code); setSearch(""); timKiem.xoaHet(); }}
               className={`w-full text-left px-4 py-3 flex items-center justify-between transition-colors ${
                 selectedType === t.code
                   ? "bg-blue-50 text-blue-700 border-r-2 border-blue-600"
@@ -174,15 +203,31 @@ export default function MasterClassPage() {
             <p className="text-sm text-slate-500">Type: {selectedType} · {filtered.length} mục</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Tìm kiếm..."
-                className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
+            {theBat ? (
+              <div className="w-96">
+                <OTimKiemThe
+                  the={timKiem.the}
+                  truong={KHAI_DANH_MUC}
+                  khai={KHAI_DANH_MUC}
+                  giaTriChon={GIA_TRI_CHON_DANH_MUC}
+                  onThem={timKiem.them}
+                  onBoThe={timKiem.boThe}
+                  onBoGiaTri={timKiem.boGiaTri}
+                  placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  data-testid="master-class-search"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Tìm kiếm..."
+                  className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                />
+              </div>
+            )}
             <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
               <Plus className="w-4 h-4" /> Thêm mới
             </button>
@@ -194,7 +239,20 @@ export default function MasterClassPage() {
           {loading ? (
             <div className="text-center py-12 text-slate-500">Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có dữ liệu'}</div>
+            <div className="text-center py-12 text-slate-500">
+              {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có dữ liệu'}
+              {!loadError && timKiem.coThe && (
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                  <span>Không tìm thấy với:</span>
+                  <DanhSachThe
+                    the={timKiem.the}
+                    khai={KHAI_DANH_MUC}
+                    giaTriChon={GIA_TRI_CHON_DANH_MUC}
+                    onBoThe={timKiem.boThe}
+                  />
+                </div>
+              )}
+            </div>
           ) : (
             <table className="w-full">
               <thead>

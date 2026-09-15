@@ -27,6 +27,30 @@ import { api } from "@/lib/api";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
 import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
 import { formatVNDate } from "../../lib/dates";
+import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+
+/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
+const KHAI_DON_TRUNG: readonly TruongLoc<DuplicatePetition>[] = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (d) => d.stt },
+  { key: 'maDon', nhan: 'Mã đơn mới', kieu: 'ma', lay: (d) => d.newPetitionCode },
+  { key: 'tieuDe', nhan: 'Tiêu đề', kieu: 'chu', lay: (d) => d.newPetitionTitle },
+  { key: 'tieuChiTrung', nhan: 'Tiêu chí trùng', kieu: 'chu', lay: (d) => d.duplicateCriteria },
+  {
+    key: 'hoSoGoc',
+    nhan: 'Hồ sơ gốc gợi ý',
+    kieu: 'chu',
+    lay: (d) => d.suggestedOriginals.flatMap((o) => [o.code, o.title]),
+  },
+  { key: 'nguoiNop', nhan: 'Người nộp', kieu: 'chu', lay: (d) => d.submittedBy },
+  { key: 'ngayNop', nhan: 'Ngày nộp', kieu: 'ngay', lay: (d) => d.submittedDate },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (d) => d.status },
+];
+
+const GIA_TRI_CHON_DON_TRUNG = {
+  trangThai: Object.values(DUPLICATE_PETITION_STATUS).map((v) => ({ value: v, label: v })),
+};
 
 interface DuplicatePetition {
   id: string;
@@ -118,9 +142,20 @@ export default function DuplicatePetitionsPage() {
     fetchData();
   }, []);
 
+  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useLocTheoThe({
+    prefix: 'duplicatePetitions',
+    khai: KHAI_DON_TRUNG,
+    giaTriChon: GIA_TRI_CHON_DON_TRUNG,
+    dong: allData,
+    bat: theBat,
+  });
+
   const filteredDuplicates = useMemo(() => {
-    return allData.filter((dup) => {
+    return timKiem.dongLoc.filter((dup) => {
       const matchesQuickSearch =
+        theBat ||
         dup.newPetitionCode.toLowerCase().includes(quickSearch.toLowerCase()) ||
         dup.newPetitionTitle.toLowerCase().includes(quickSearch.toLowerCase()) ||
         dup.submittedBy.toLowerCase().includes(quickSearch.toLowerCase());
@@ -131,7 +166,7 @@ export default function DuplicatePetitionsPage() {
 
       return matchesQuickSearch && matchesStatus && matchesCriteria;
     });
-  }, [allData, quickSearch, filters]);
+  }, [timKiem.dongLoc, theBat, quickSearch, filters]);
 
   const handleViewDetail = (duplicate: DuplicatePetition) => {
     setSelectedDuplicate(duplicate);
@@ -297,7 +332,10 @@ export default function DuplicatePetitionsPage() {
               {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
             <button
-              onClick={() => setFilters({ criteria: "", fromDate: "", toDate: "", status: "" })}
+              onClick={() => {
+                timKiem.xoaHet();
+                setFilters({ criteria: "", fromDate: "", toDate: "", status: "" });
+              }}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
@@ -306,17 +344,30 @@ export default function DuplicatePetitionsPage() {
         </div>
 
         <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              data-testid="quick-search-input"
-              value={quickSearch}
-              onChange={(e) => setQuickSearch(e.target.value)}
-              placeholder="Tìm kiếm theo mã đơn, tiêu đề, người nộp..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+          {theBat ? (
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={KHAI_DON_TRUNG}
+              khai={KHAI_DON_TRUNG}
+              giaTriChon={GIA_TRI_CHON_DON_TRUNG}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
             />
-          </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                data-testid="quick-search-input"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Tìm kiếm theo mã đơn, tiêu đề, người nộp..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         {showAdvancedSearch && (
@@ -556,6 +607,17 @@ export default function DuplicatePetitionsPage() {
           <div className="text-center py-12">
             <Copy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy đơn trùng nào'}</p>
+            {!loadError && timKiem.coThe && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                <span>Không tìm thấy với:</span>
+                <DanhSachThe
+                  the={timKiem.the}
+                  khai={KHAI_DON_TRUNG}
+                  giaTriChon={GIA_TRI_CHON_DON_TRUNG}
+                  onBoThe={timKiem.boThe}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
