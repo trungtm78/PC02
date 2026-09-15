@@ -28,7 +28,13 @@ export interface The {
 export const khoaUrlThe = (prefix: string) => `${prefix}_tk`;
 
 function napVao(the: The[], khoa: string, giaTriTho: string): The[] {
-  const giaTri = giaTriTho.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+  // Bỏ ký tự điều khiển (tab, xuống dòng, NUL…) — ranh giới tin cậy cho đường dẫn sửa tay, như
+  // `sanitizeStringParam` của ô tìm cũ. Một chỗ cho mọi màn, cả `_tk` lẫn tham số cũ lẫn ô thẻ.
+  const giaTri = giaTriTho
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim()
+    .slice(0, DO_DAI_GIA_TRI_TOI_DA);
   if (!khoa || !giaTri) return the;
   const i = the.findIndex((t) => t.khoa === khoa);
   if (i < 0) return [...the, { khoa, giaTri: [giaTri] }];
@@ -88,6 +94,36 @@ export function boThe(the: readonly The[], khoa: string): The[] {
 
 export function khoaHopLe(khoa: string, khai: readonly TruongTimKiem[]): boolean {
   return khoa === KHOA_TAT_CA || khai.some((t) => t.key === khoa);
+}
+
+/** Mã được nhận của từng cột kiểu `chon` (trạng thái…). Cột không có danh sách: không kiểm mã. */
+export type BangMaChon = Readonly<Record<string, readonly { value: string }[]>>;
+
+function maChonHopLe(khoa: string, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon) {
+  const ds =
+    khai.find((t) => t.key === khoa)?.kieu === 'chon' ? giaTriChon?.[khoa] : undefined;
+  return (v: string) => !ds || ds.some((g) => g.value === v);
+}
+
+/**
+ * Thẻ hợp lệ trọn vẹn: khoá có trong khai VÀ mọi mã chọn có trong danh sách. Mã lạ (đổi chip loại
+ * hồ sơ, đường dẫn cũ gõ tự do, sửa URL tay) gửi đi là 400 cho cả danh sách.
+ */
+export function theHopLe(t: The, khai: readonly TruongTimKiem[], giaTriChon?: BangMaChon): boolean {
+  return khoaHopLe(t.khoa, khai) && t.giaTri.every(maChonHopLe(t.khoa, khai, giaTriChon));
+}
+
+/** Phần gửi được của bộ thẻ: bỏ thẻ khoá lạ, bỏ mã chọn lạ (thẻ hết giá trị thì bỏ luôn). */
+export function locTheHopLe(
+  the: readonly The[],
+  khai: readonly TruongTimKiem[],
+  giaTriChon?: BangMaChon,
+): The[] {
+  return the.flatMap((t) => {
+    if (!khoaHopLe(t.khoa, khai)) return [];
+    const giaTri = t.giaTri.filter(maChonHopLe(t.khoa, khai, giaTriChon));
+    return giaTri.length ? [{ khoa: t.khoa, giaTri }] : [];
+  });
 }
 
 const ngayHopLe = (nam: number, thang: number, ngay: number) => {

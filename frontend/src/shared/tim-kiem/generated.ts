@@ -1,7 +1,7 @@
 // AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.
 // Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts
 
-export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong';
+export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he';
 
 export const TIM_KIEM_DON_THU = [
   { key: 'stt', nhan: 'STT', kieu: 'ma' },
@@ -55,4 +55,22 @@ export const TIM_KIEM_VU_AN = [
   { key: 'doiTuongNghiVan', nhan: 'Đối tượng nghi vấn', kieu: 'chu' },
   { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu' },
   { key: 'thoiHan', nhan: 'Thời hạn', kieu: 'ngay' },
+] as const;
+
+export const TIM_KIEM_DOI_TUONG = [
+  { key: 'hoTen', nhan: 'Họ tên', kieu: 'chu' },
+  { key: 'cccd', nhan: 'CCCD', kieu: 'chu' },
+  { key: 'vuAn', nhan: 'Vụ án', kieu: 'quan-he' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+] as const;
+
+export const TIM_KIEM_LUAT_SU = [
+  { key: 'hoTen', nhan: 'Họ tên', kieu: 'chu' },
+  { key: 'soThe', nhan: 'Số thẻ', kieu: 'chu' },
+  { key: 'vanPhong', nhan: 'Văn phòng', kieu: 'chu' },
+  { key: 'vuAn', nhan: 'Vụ án', kieu: 'quan-he' },
+  { key: 'thanChu', nhan: 'Bị can / Thân chủ', kieu: 'quan-he' },
+  { key: 'sdt', nhan: 'SĐT', kieu: 'chu' },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
 ] as const;

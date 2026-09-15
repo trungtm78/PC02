@@ -67,7 +67,12 @@ describe('GATE "Xóa lọc" — clearAll là lần ghi URL cuối, cùng tiền 
     expect(dao).not.toBe(donThu);
     expect(viTriSai(dao)).not.toBeNull();
 
-    const lech = tongHop.replace(/prefix:\s*'comp'/, "prefix: 'comprehensive'");
+    // Nhắm ĐÚNG tiền tố của mặt lọc: trang còn `useTheTimKiem({ prefix: 'comp' })` đứng trước, thay
+    // chuỗi `prefix: 'comp'` đầu tiên là gieo nhầm chỗ và ca này đỏ vì lý do không liên quan.
+    const lech = tongHop.replace(
+      /(useListFilters<[^>]*>\(\{\s*(?:\/\/[^\n]*\n\s*)*prefix:\s*)'comp'/,
+      "$1'comprehensive'",
+    );
     expect(lech).not.toBe(tongHop);
     expect(tienTo(lech).loc).not.toBe(tienTo(lech).url);
   });

@@ -21,6 +21,25 @@ function Bao({ children }: { children: ReactNode }) {
 }
 import { ObjectListPageShell } from '../ObjectListPageShell';
 import { SubjectType } from '@/shared/enums/subject-status';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
+
+const CO_TAT_THE: FeatureFlag[] = [
+  {
+    key: 'TIM_KIEM_THE',
+    label: 'Tìm kiếm dạng thẻ',
+    description: null,
+    enabled: false,
+    domain: null,
+    rolloutPct: 100,
+  },
+];
+
+/** Tham số (đã giải mã) của lượt gọi CUỐI tới `/subjects`. */
+function thamSoCuoi(): URLSearchParams {
+  const goi = mockApiGet.mock.calls.map((c) => (c as [string])[0]);
+  return new URLSearchParams((goi[goi.length - 1] ?? '').split('?')[1] ?? '');
+}
 
 // BulkActionBar renders "Đã chọn N {resourceLabel}" — broken across spans.
 // Query role=status to find the bar deterministically.
@@ -90,10 +109,11 @@ function setupHappyFetch(subjects = SAMPLE_SUSPECTS) {
 function renderShell(
   subjectType: SubjectType = 'SUSPECT' as SubjectType,
   initialEntry?: string,
+  flags?: FeatureFlag[],
 ) {
   const cfgPrefix = subjectType === 'SUSPECT' ? 'objects' : subjectType === 'VICTIM' ? 'victims' : 'witnesses';
   const entry = initialEntry ?? `/${cfgPrefix}`;
-  return render(
+  const trang = (
     <Bao>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
@@ -103,7 +123,10 @@ function renderShell(
           />
         </Routes>
       </MemoryRouter>
-    </Bao>,
+    </Bao>
+  );
+  return render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
 }
 
@@ -369,12 +392,19 @@ describe('ObjectListPageShell — URL state + trust boundary', () => {
     });
   });
 
-  it('objects_q + control chars → stripped', async () => {
-    renderShell('SUSPECT' as SubjectType, '/objects?objects_q=Nguy%09evil');
+  it('cờ tắt: objects_q + control chars → stripped, gửi `search`', async () => {
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_q=Nguy%09evil', CO_TAT_THE);
     await waitFor(() => {
       const url = mockApiGet.mock.calls[0][0] as string;
       expect(url).toContain('search=Nguyevil');
     });
+  });
+
+  it('objects_q cũ + control chars → thẻ "*" đã lọc ký tự điều khiển, không gửi `search`', async () => {
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_q=Nguy%09evil');
+    await waitFor(() => expect(thamSoCuoi().getAll('tk')).toEqual(['*~Nguyevil']));
+    expect(thamSoCuoi().get('search')).toBeNull();
+    expect(thamSoCuoi().get('type')).toBe('SUSPECT');
   });
 
   it('empty-filtered when status chip active + no rows', async () => {
@@ -383,6 +413,68 @@ describe('ObjectListPageShell — URL state + trust boundary', () => {
     await waitFor(() =>
       expect(screen.getByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument(),
     );
+  });
+});
+
+/**
+ * Ô tìm kiếm dạng thẻ (M4, 15/09/2026). Ba loại đối tượng dùng chung một khai máy chủ; loại vẫn là tham
+ * số `type` riêng, thẻ chỉ lọc trong loại đang xem.
+ */
+describe('ObjectListPageShell — ô tìm kiếm dạng thẻ', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyFetch();
+  });
+
+  it('có ô thẻ thay ô chữ; gợi ý theo cột đang hiện', async () => {
+    renderShell();
+    const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    fireEvent.change(o, { target: { value: 'abc' } });
+    const goiY = (await screen.findAllByRole('option')).map((x) => x.textContent ?? '');
+    expect(goiY).toContain('Tìm Họ tên: "abc"');
+    expect(goiY).toContain('Tìm Vụ án: "abc"');
+  });
+
+  it('chọn thẻ → gửi `tk`, về trang 1', async () => {
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_page=2');
+    const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    fireEvent.change(o, { target: { value: 'nguyen' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
+    await waitFor(() => expect(thamSoCuoi().getAll('tk')).toEqual(['*~nguyen']));
+    expect(thamSoCuoi().get('offset')).toBe('0');
+  });
+
+  it('màn Bị hại: thẻ riêng tiền tố `victims`, vẫn gửi type=VICTIM', async () => {
+    renderShell('VICTIM' as SubjectType, '/victims?victims_tk=hoTen~An');
+    await waitFor(() => expect(thamSoCuoi().getAll('tk')).toEqual(['hoTen~An']));
+    expect(thamSoCuoi().get('type')).toBe('VICTIM');
+  });
+
+  it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [], total: 0 } });
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_tk=cccd~999');
+    const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+    expect(vung).toHaveTextContent('Không tìm thấy với');
+    expect(within(vung).getByRole('button', { name: 'Bỏ thẻ CCCD' })).toBeInTheDocument();
+  });
+
+  /**
+   * Thẻ Trạng thái mang MÃ lạ (đường dẫn sửa tay, mã đổi tên): hiện đỏ mà vẫn gửi đi là 400 cho cả
+   * danh sách. Hook phải nhận CÙNG bảng mã với ô thẻ để lọc trước khi gửi.
+   */
+  it('thẻ Trạng thái mã lạ → đỏ, KHÔNG gửi `tk`', async () => {
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_tk=trangThai~ZZ');
+    expect(await screen.findByTestId('the-tim-kiem')).toHaveAttribute('data-hop-le', 'false');
+    await waitFor(() => expect(mockApiGet).toHaveBeenCalled());
+    expect(thamSoCuoi().getAll('tk')).toEqual([]);
+  });
+
+  it('chỉ còn thẻ đỏ mà rỗng → vẫn "lọc không ra"; số bộ lọc không đếm thẻ đỏ', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [], total: 0 } });
+    renderShell('SUSPECT' as SubjectType, '/objects?objects_tk=khongCo~abc');
+    expect(await screen.findByTestId('list-page-shell-table-empty-filtered')).toBeInTheDocument();
+    expect(screen.queryByTestId('list-page-shell-filter-count')).not.toBeInTheDocument();
   });
 });
 

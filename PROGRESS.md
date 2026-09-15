@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-15 | Milestone: M3/7 | Task: T1–T6 xong trên nhánh; kế: /review + /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng prod
+Cập nhật: 2026-09-15 | Milestone: M4/7 | Task: T1–T5 + sửa /review xong trên nhánh; kế: /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN prod
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
@@ -101,7 +101,31 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Trạng thái trống khi chỉ lọc ở mặt lọc hiện "Chưa có hồ sơ" → "lọc không ra" (Vụ việc, Vụ án, Đơn thư).
   - Ca kiểm bổ sung: getUtdtStats tìm+phạm vi cùng AND; incidents listLinkable/listDeleted; UTDT cờ tắt `inv`; BoTimKiem.dieuKienTatCa (gom 3 chỗ cắt 200 cứng); getUtdtStats dùng noiVaoWhere.
   - Kết quả: commit 636168c1. Bộ ĐẦY ĐỦ sau review: backend 341 bộ/5.121 ca xanh, tsc sạch; FE 250 tệp/2.980 ca xanh, tsc -b sạch; lint dòng mới 0 (FE 19 tệp, BE 10 tệp).
-  - Kế: push → PR → CI (kiểm JSON từng check) → merge → deploy → prod: nạp cột bóng (dry-run rồi --that) + kiem-vang-bo-dau --chuoi-that + đo EXPLAIN.
+  - PR #377 CI 3/3 xanh → merge squash f6ba1f77 (--admin) → Deploy success, health buildId f6ba1f77, migration 20260915083627_tim_kiem_vu_viec_vu_an áp 10:46.
+- **M3 HOÀN TẤT TRÊN PROD (15/09 ~10:55)**: nạp cột bóng `--that` subjects 1.293 + incidents 4.855 + cases 3.710, chạy thử lại lệch 0 cả 5 bảng; kiểm vàng PG16.15 tổng hợp 646 + chuỗi thật 100.441 lệch 0; EXISTS chưa nạp = false cả incidents/cases/subjects (nhánh lùi tắt); EXPLAIN: Vụ việc `*` LIMIT 20 2,7 ms, đếm Vụ án GIN cases_tim_kiem_bd_trgm 23,8 ms, thẻ bị can 1,6 ms.
+
+## Hàng đợi M4 (nhánh feat/tim-kiem-dang-the-tong-hop-doi-tuong-luat-su từ main f6ba1f77 — push phải `-u origin <nhánh>`, upstream đang trỏ main)
+1. M4-T1 bộ sinh: gộp khối trigger THEO BẢNG (khai `subjects` mới sẽ trùng tên hàm/trigger với khối doi-tuong của Vụ án; trùng field Prisma; CLI nạp chạy subjects 2 lần) + kiểu thẻ quan hệ một-một (`is`) cho Luật sư → Vụ án / Thân chủ.
+2. M4-T2 Đối tượng máy chủ: khai `doi-tuong.khai.ts` (hoTen, cccd, vuAn, trangThai chon SubjectStatus, ngayTao; `*` thêm address/phone), DTO tk, getList qua BoTimKiem, phạm vi `where.case` chuyển vào AND (bài học subjects-lawyers-gan-where-case-scope), spec cũ where.OR sửa. Migration `gen:tim-kiem -- --moi`.
+3. M4-T3 Luật sư máy chủ: khai `luat-su.khai.ts` (hoTen, soThe, vanPhong, vuAn, thanChu, sdt, ngayTao), tương tự T2.
+4. M4-T4 giao diện Đối tượng (ObjectListPageShell, 4 đường dẫn / 3 loại, tiền tố objects/victims/witnesses) + Luật sư (LawyerListPageShell): ô thẻ, cột timKiem, tham số cũ q → *, cổng cột↔khai.
+5. M4-T5 Tổng hợp đầy đủ: ô thẻ; "Tất cả" = khoá chung ba thực thể (*, stt, sttCu, nguoiGui, donViGiaiQuyet, nguoiNhap, ngayTao, ngayDeXuat); chọn một loại = khai đầy đủ loại ấy; cột hiển thị đúng trường thẻ lọc; mặt lọc nâng cao đang không gửi API (sửa hoặc gỡ).
+6. Rồi /review + /codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN.
+
+### Tiến độ M4 (nhánh feat/tim-kiem-dang-the-tong-hop-doi-tuong-luat-su)
+- [x] M4-T1 — commit 5e5221b4: bộ sinh gộp khối trigger THEO BẢNG (một hàm/trigger mỗi bảng, biểu thức cột bóng lệch thật → lỗi), truongPrismaCanCo khử trùng, `sinhCacCauNap` (CLI nạp mỗi bảng một lần, cùng biểu thức trigger); kiểu thẻ `quan-he` (`is` trên cột bóng có sẵn của đích, lùi cột gốc đích; đích chưa có cột bóng → lỗi bộ sinh). tim-kiem 17 bộ/204 ca.
+- [x] M4-T2+T3 — commit b631a765: khai doi-tuong.khai.ts + luat-su.khai.ts; migration 20260915110524_tim_kiem_doi_tuong_luat_su (subjects một trigger gộp thêm id_number_bd/tim_kiem_bd; lawyers cột bóng + GIN + chua_nap); schema field chỉ đọc; getList Đối tượng/Luật sư qua BoTimKiem (`search` cũ → `*`, khoá lạ 400, DTO `tk`); [P0] phạm vi `where.case` → AND. 25 bộ/315 ca.
+- [x] M4-T4 — commit c1b1c628: ObjectListPageShell (3 loại, tiền tố objects/victims/witnesses, vẫn gửi `type`) + LawyerListPageShell: ô thẻ, cột timKiem, `q` → `*`; the.ts lọc ký tự điều khiển cho thẻ (giữ ranh giới tin cậy sanitizeStringParam). FE 32 tệp/380 ca, tsc -b sạch.
+- [x] M4-T5 — Tổng hợp đầy đủ: khai theo chip loại ("Tất cả" = khoá chung ba loại bỏ kiểu chọn; một loại = khai đầy đủ); thẻ lạ với chế độ hiện đỏ không gửi; thống kê loại khác chỉ gọi khi mọi thẻ thuộc khoá chung (Đơn thư/Vụ việc cũng có khoá trangThai nhưng mã khác/trùng sai nghĩa); mặt lọc gỡ 3 ô chữ chết (thành thẻ donViGiaiQuyet/trangThai/nguoiNhap, đường dẫn cũ → thẻ), 2 ô ngày nay gửi xuống cả 3 API (Vụ việc fromDateRange); cột Đơn vị → "Đơn vị giải quyết" đọc donViGiaiQuyet; cột "Người nhập" ẩn sẵn; cổng timKiemCotKhai + xoaLocGhiUrlCuoi (gieo lỗi nhắm đúng useListFilters). FE 12 tệp/218 ca, lint dòng mới 0.
+- [x] M4 /review (chuyên gia bảo mật/hiệu năng/di trú dữ liệu: KHÔNG phát hiện) — ĐÃ SỬA (TDD, đỏ 9 BE + 7 FE → xanh):
+  - Thẻ "Vụ án" ở Đối tượng/Luật sư lọc `cases.tim_kiem_bd` (13 cột) trong khi cột hiện `case.name` → khai mới `cotBongPhu` (cột bóng không thành khoá thẻ, chỉ làm đích quan hệ); Vụ án `cotBongPhu: ['name']` → `cases.name_bd` + GIN; quan-he trỏ `nameBd`. Migration 20260915110524 sinh lại (chưa deploy).
+  - DTO Đối tượng/Luật sư bỏ `MaxLength` trên `search` cũ (400 trước khi máy chủ kịp cắt → nhóm biến khỏi tìm chung); thêm spec DTO.
+  - Thẻ chọn mang MÃ lạ (đổi chip loại ở Tổng hợp, `comp_status` gõ tự do) → 400 cả màn: `locTheHopLe`/`theHopLe` trong the.ts, hook nhận `giaTriChon`, trả `theHopLe`; thẻ đỏ không gửi.
+  - Thẻ đỏ nói đúng lý do (`lyDoKhongHopLe`, kèm trong aria-label nút sửa); Tổng hợp: "Chỉ áp dụng khi chọn đúng loại hồ sơ" / "Không áp dụng cho loại hồ sơ này".
+  - Chip "Tất cả" không cộng thiếu khi một thống kê bị bỏ; số bộ lọc chỉ đếm thẻ hợp lệ; còn thẻ (kể cả đỏ) mà rỗng → "lọc không ra".
+  - Dọn: bỏ bí danh `canNap*` không ai gọi, chú thích CLI cũ, `tenNguoi` → `hoTen`; SQL tắt khẩn ghi chú migration mới bật lại trigger.
+  - Commit e50f8a9d; bộ ĐẦY ĐỦ: backend 346 bộ/5.163 ca, FE 252 tệp/3.015 ca xanh; tsc sạch; lint dòng mới 0. PR #378, CI xanh.
+- [x] M4 /codex (chia 2 lượt backend/frontend, reasoning medium — lần trước hết giờ): backend "No findings, Ship". Frontend 1 P2 + 2 P3, ĐÃ SỬA (TDD, đỏ 3 → xanh): bản vá thẻ hợp lệ chỉ áp ở Tổng hợp, chưa áp ở Đối tượng/Luật sư — Đối tượng: hook thiếu `giaTriChon` nên mã Trạng thái lạ vẫn gửi (400); cả hai màn: bảng rỗng xét `tkKey` (thẻ đỏ bị lọc hết → "chưa có dữ liệu" thay vì "lọc không ra"), số bộ lọc đếm cả thẻ đỏ.
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
@@ -115,7 +139,7 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Migration: chưa `lock_timeout`; mỗi migration tìm kiếm dựng lại trigger petitions/users.
   - tat-trigger-tim-kiem.sql: f_bo_dau sai thì dòng đã nạp giữ giá trị sai → phải tắt cả cờ; ghi chú bộ sinh chưa nói.
   - Bảo trì (advisory): khối `tk` chép 3 DTO; khối ô thẻ/trạng thái rỗng chép 4 màn; kyApDung+getKyThongKe chép 7 chỗ.
-  - DỮ LIỆU PROD UTDT nghiVanDoiTuong có thể lệch metadata↔typed: chạy `backfill-consolidate --dry` (chỉ đọc) xem CONFLICT trước; ghi đè dữ liệu prod = §8c, chờ anh.
+  - ~~Dữ liệu prod UTDT nghiVanDoiTuong lệch metadata↔typed~~ — ĐO 15/09 (SELECT trong BEGIN READ ONLY qua ssh): 1.720 UTDT, 1.453 có ở CẢ hai, chỉ-metadata 0, chỉ-typed 0, khác nhau 0 → KHÔNG cần sửa dữ liệu; bản vá form chặn lệch từ nay.
 
 ## Hàng đợi M3 (nhánh feat/tim-kiem-dang-the-vu-viec-vu-an, từ main cb2b8b92)
 1. M3-T1 khai `vu-viec.khai.ts` (incidents) + `vu-an.khai.ts` (cases, chung Vụ án thường + UTDT) + kiểu `doi-tuong` (quan hệ subjects SUSPECT, cột bóng `subjects.full_name_bd` + trigger như users) → `gen:tim-kiem -- --moi vu_viec_vu_an`; CLI nạp + SQL tắt/bật + kiểm vàng tự gồm bảng mới. `*` giữ đủ cột ô tìm cũ (Vụ việc: name, doiTuongCaNhan, doiTuongToChuc, soHoSoCu; Vụ án: name, crime, soHoSoCu).

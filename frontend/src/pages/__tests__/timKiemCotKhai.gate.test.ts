@@ -3,8 +3,13 @@ import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import uyThac from '../../features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx?raw';
+import doiTuong from '../objects/ObjectListPageShell.tsx?raw';
+import luatSu from '../lawyers/LawyerListPageShell.tsx?raw';
+import tongHop from '../cases/ComprehensiveListPageShell.tsx?raw';
 import {
+  TIM_KIEM_DOI_TUONG,
   TIM_KIEM_DON_THU,
+  TIM_KIEM_LUAT_SU,
   TIM_KIEM_VU_AN,
   TIM_KIEM_VU_VIEC,
 } from '@/shared/tim-kiem/generated';
@@ -36,6 +41,9 @@ const THUC_THE = [
   ['Đơn thư', TIM_KIEM_DON_THU, [donThu]],
   ['Vụ việc', TIM_KIEM_VU_VIEC, [vuViec]],
   ['Vụ án + Ủy thác điều tra', TIM_KIEM_VU_AN, [vuAn, uyThac]],
+  // Ba loại đối tượng (bị can / bị hại / nhân chứng) dùng CHUNG một shell và một khai.
+  ['Đối tượng', TIM_KIEM_DOI_TUONG, [doiTuong]],
+  ['Luật sư', TIM_KIEM_LUAT_SU, [luatSu]],
 ] as const;
 
 const khaiCua = (khai: readonly { key: string }[]) => khai.map((t) => t.key);
@@ -63,7 +71,21 @@ describe('GATE tìm kiếm — cột ↔ khai', () => {
     ['Vụ việc', vuViec],
     ['Vụ án', vuAn],
     ['Ủy thác điều tra', uyThac],
+    ['Tổng hợp', tongHop],
   ] as const;
+
+  /**
+   * Tổng hợp gộp ba loại hồ sơ nên không có tệp khai riêng: khoá trên cột phải có ở ÍT NHẤT một trong
+   * ba khai (máy chủ nào không nhận khoá thì giao diện lọc bỏ theo loại, không gửi).
+   */
+  it('Tổng hợp: cột chỉ mang khoá có ở ít nhất một trong ba thực thể', () => {
+    const hop = new Set(
+      [...TIM_KIEM_DON_THU, ...TIM_KIEM_VU_VIEC, ...TIM_KIEM_VU_AN].map((t) => t.key as string),
+    );
+    const trenCot = [...khoaTrenCot(tongHop)];
+    expect(trenCot.length).toBeGreaterThan(0);
+    expect(trenCot.filter((k) => !hop.has(k))).toEqual([]);
+  });
 
   it.each(MAN_THAM_SO_CU)('%s: khoá của mọi ô lọc chữ cũ có cột trên chính màn này', (_ten, src) => {
     const khoiCu = /const THAM_SO_CU_\w+ = \{([^}]*)\}/.exec(src);

@@ -5,8 +5,8 @@ import { A11Y_FOCUS_RING } from '@/constants/styles';
 import { khopKhongDau } from '@/lib/bo-dau';
 import {
   KHOA_TAT_CA,
-  khoaHopLe,
   laGiaTriNgay,
+  theHopLe,
   type The,
   type TruongTimKiem,
 } from '@/shared/tim-kiem/the';
@@ -31,6 +31,8 @@ export interface OTimKiemTheProps {
   onBoThe(khoa: string): void;
   onBoGiaTri(khoa: string, giaTri: string): void;
   placeholder?: string;
+  /** Lý do thẻ đỏ — màn tự nói đúng lý do của mình (vd Tổng hợp: chưa chọn loại hồ sơ). */
+  lyDoKhongHopLe?: string;
 }
 
 interface LuaChon {
@@ -43,6 +45,7 @@ interface LuaChon {
 const SO_GIA_TRI_CHON_TOI_DA = 8;
 const DO_DAI_TIM_NOI_DUNG = 3;
 const KHONG_CO_GIA_TRI_CHON: BangGiaTriChon = {};
+const LY_DO_MAC_DINH = 'Cột không còn tìm được';
 
 function laOGo(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -56,6 +59,7 @@ interface DanhSachTheProps {
   onBoThe(khoa: string): void;
   /** Có thì bấm vào thẻ để sửa; không có (vd ở trạng thái rỗng) thẻ chỉ bỏ được. */
   onSua?(t: The): void;
+  lyDoKhongHopLe?: string;
 }
 
 /**
@@ -68,6 +72,7 @@ export function DanhSachThe({
   giaTriChon = KHONG_CO_GIA_TRI_CHON,
   onBoThe,
   onSua,
+  lyDoKhongHopLe = LY_DO_MAC_DINH,
 }: DanhSachTheProps) {
   const nhanTruong = (khoa: string) =>
     khoa === KHOA_TAT_CA ? 'Tất cả các cột' : (khai.find((t) => t.key === khoa)?.nhan ?? khoa);
@@ -77,13 +82,13 @@ export function DanhSachThe({
   return (
     <>
       {the.map((t) => {
-        const hopLe = khoaHopLe(t.khoa, khai);
+        const hopLe = theHopLe(t, khai, giaTriChon);
         const nhan = nhanTruong(t.khoa);
         const giaTri = t.giaTri.map((v) => nhanGiaTri(t.khoa, v)).join(' hoặc ');
         const noiDung = (
           <>
             <span className="font-semibold">{nhan}:</span> {giaTri}
-            {!hopLe && <span> — Cột không còn tìm được</span>}
+            {!hopLe && <span> — {lyDoKhongHopLe}</span>}
           </>
         );
         const lopNoiDung = 'px-2 py-0.5 truncate max-w-[20rem] text-left';
@@ -103,7 +108,7 @@ export function DanhSachThe({
             {onSua ? (
               <button
                 type="button"
-                aria-label={`Sửa thẻ ${nhan}`}
+                aria-label={hopLe ? `Sửa thẻ ${nhan}` : `Sửa thẻ ${nhan} (${lyDoKhongHopLe})`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSua(t);
@@ -149,6 +154,7 @@ export function OTimKiemThe({
   onBoThe,
   onBoGiaTri,
   placeholder = 'Tìm kiếm…',
+  lyDoKhongHopLe,
 }: OTimKiemTheProps) {
   const [chu, setChu] = useState('');
   const [mo, setMo] = useState(false);
@@ -299,6 +305,7 @@ export function OTimKiemThe({
           giaTriChon={giaTriChon}
           onBoThe={onBoThe}
           onSua={sua}
+          lyDoKhongHopLe={lyDoKhongHopLe}
         />
         <input
           ref={oRef}

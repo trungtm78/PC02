@@ -668,6 +668,8 @@ model Case {
   soQuyetDinhUyThacBd String? @map("so_quyet_dinh_uy_thac_bd")
   nghiVanDoiTuongBd   String? @map("nghi_van_doi_tuong_bd")
   crimeBd             String? @map("crime_bd")
+  /// CHỈ ĐỌC — cột bóng TÊN vụ án, đích của thẻ "Vụ án" ở Đối tượng/Luật sư (`cotBongPhu` trong vu-an.khai.ts).
+  nameBd              String? @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ án, số hồ sơ cũ — thẻ "tất cả các cột".
   timKiemBd           String? @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
@@ -928,6 +930,10 @@ model Subject {
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(fullName)), trigger `pc02_tim_kiem_subjects`
   /// giữ. Thẻ "Đối tượng bị can" của Vụ án lọc qua quan hệ: subjects: { some: { fullNameBd } }.
   fullNameBd    String?   @map("full_name_bd")
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM CCCD, cùng trigger `pc02_tim_kiem_subjects` giữ (khai doi-tuong.khai.ts).
+  idNumberBd    String?   @map("id_number_bd")
+  /// CHỈ ĐỌC — ghép họ tên, CCCD, địa chỉ, SĐT cho thẻ "tất cả các cột" của danh sách Đối tượng.
+  timKiemBd     String?   @map("tim_kiem_bd")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -963,6 +969,13 @@ model Lawyer {
   caseId    String // FK → cases (required)
   subjectId String? // FK → subjects (nullable — one lawyer can defend multiple)
   deletedAt DateTime? // Soft delete
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_lawyers` giữ (khai luat-su.khai.ts).
+  fullNameBd  String? @map("full_name_bd")
+  barNumberBd String? @map("bar_number_bd")
+  lawFirmBd   String? @map("law_firm_bd")
+  phoneBd     String? @map("phone_bd")
+  /// CHỈ ĐỌC — ghép họ tên, số thẻ, văn phòng, SĐT cho thẻ "tất cả các cột" của danh sách Luật sư.
+  timKiemBd   String? @map("tim_kiem_bd")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

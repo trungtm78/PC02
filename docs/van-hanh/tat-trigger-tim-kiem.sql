@@ -11,6 +11,9 @@
 -- Muốn giấu luôn ô thẻ trên giao diện: tắt cờ tính năng TIM_KIEM_THE (màn danh sách trở lại ô chữ cũ).
 -- Bật lại: chạy docs/van-hanh/bat-lai-trigger-tim-kiem.sql rồi nạp lại cột bóng (chỉ dẫn trong tệp ấy).
 --
+-- LƯU Ý DEPLOY: mỗi migration tìm kiếm mới chạy lại `CREATE OR REPLACE FUNCTION` nên BẬT LẠI trigger.
+-- Deploy trong lúc đang tắt khẩn thì chạy lại tệp này ngay sau deploy nếu sự cố chưa xử lý xong.
+--
 -- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/tat-trigger-tim-kiem.sql
 
 BEGIN;
@@ -24,10 +27,13 @@ BEGIN
 END $$;
 
 -- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──
+-- ── subjects (doi-tuong) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_subjects() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW."full_name_bd" := NULL;
+  NEW."id_number_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
 
@@ -71,6 +77,19 @@ BEGIN
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
   NEW."crime_bd" := NULL;
+  NEW."name_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── lawyers (luat-su) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_lawyers() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."full_name_bd" := NULL;
+  NEW."bar_number_bd" := NULL;
+  NEW."law_firm_bd" := NULL;
+  NEW."phone_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;

@@ -113,34 +113,128 @@ describe('SubjectsService', () => {
       );
     });
 
-    it('applies search filter across fullName, idNumber, address, phone', async () => {
+    /**
+     * Từ M4 (15/09/2026) ô tìm của Đối tượng đi qua thẻ: `search` cũ = thẻ "tất cả các cột" trên cột
+     * bóng bỏ dấu `tim_kiem_bd` — gồm họ tên, CCCD, và địa chỉ, SĐT như bản cũ. Không còn `where.OR`
+     * ở tầng trên (OR ấy chung tầng với phạm vi thì dễ nới phạm vi).
+     */
+    /** `where` của lần gọi thứ `i` — ép kiểu một chỗ, không truy cập thành viên trên `any`. */
+    const whereCua = (fn: jest.Mock, i = 0): Record<string, unknown> =>
+      (fn.mock.calls[i] as [{ where: Record<string, unknown> }])[0].where;
+
+    it('search cũ → thẻ "*" bỏ dấu trong AND, vẫn gồm địa chỉ và SĐT', async () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
       await service.getList({ search: 'Nguyễn' });
 
-      expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              { fullName: { contains: 'Nguyễn', mode: 'insensitive' } },
-              { idNumber: { contains: 'Nguyễn', mode: 'insensitive' } },
-            ]),
-          }),
-        }),
-      );
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(where.OR).toBeUndefined();
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"nguyen"}');
+      // Nhánh lùi về cột gốc (còn dòng chưa nạp) phủ đúng bốn cột bản cũ tìm.
+      for (const cot of ['fullName', 'idNumber', 'address', 'phone']) {
+        expect(json).toContain(
+          `"${cot}":{"contains":"Nguyễn","mode":"insensitive"}`,
+        );
+      }
     });
 
-    it('EC-01: Vietnamese name fuzzy search — applies insensitive mode', async () => {
+    it('EC-01: gõ không dấu vẫn ra — thẻ Họ tên lọc cột bóng fullNameBd', async () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'Trần Thị Bình' });
+      await service.getList({ tk: ['hoTen~Tran Thi Binh'] } as never);
 
-      const callArg = mockPrisma.subject.findMany.mock.calls[0][0];
-      expect(callArg.where.OR[0]).toMatchObject({
-        fullName: { mode: 'insensitive' },
-      });
+      const json = JSON.stringify(whereCua(mockPrisma.subject.findMany).AND);
+      expect(json).toContain('"fullNameBd":{"contains":"tran thi binh"}');
+    });
+
+    /**
+     * Cột "Vụ án" hiện TÊN vụ án — thẻ phải lọc cột bóng của tên (`name_bd`), không phải cột ghép
+     * `tim_kiem_bd` 13 cột (ra cả đối tượng mà mô tả vụ án có chữ ấy, cột thì không).
+     */
+    it('thẻ Vụ án → `case: { is }` trên cột bóng TÊN vụ án, lùi đúng cột tên', async () => {
+      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockPrisma.subject.count.mockResolvedValue(0);
+
+      await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
+
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(JSON.stringify(where.AND)).toContain(
+        '"case":{"is":{"OR":[{"nameBd":{"contains":"trom cap"}},{"nameBd":null,"OR":[{"name":{"contains":"Trộm cắp","mode":"insensitive"}}]}]}}',
+      );
+    });
+
+    it('khoá thẻ lạ → 400, không truy vấn', async () => {
+      await expect(
+        service.getList({ tk: ['khongCo~x'] } as never),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.subject.findMany).not.toHaveBeenCalled();
+    });
+
+    /**
+     * [P0] Bản cũ GÁN `where.case = phạm vi`. Thẻ Vụ án cũng lọc trên quan hệ `case` — nếu thẻ nằm ở
+     * tầng trên cùng khoá thì một bên đè bên kia và cán bộ ngoài tổ thấy đối tượng của tổ khác.
+     */
+    it('[P0] thẻ Vụ án + phạm vi: CẢ HAI trong AND, phạm vi không bị đè', async () => {
+      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockPrisma.subject.count.mockResolvedValue(0);
+
+      await service.getList(
+        { tk: ['vuAn~A'] } as never,
+        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] } as never,
+      );
+
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(where.case).toBeUndefined();
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"investigatorId":{"in":["u1"]}');
+      // Hai phần tử AND riêng: phạm vi `{ case: … }` và thẻ `{ case: { is: … } }` — không gộp một.
+      const and = where.AND as Array<Record<string, unknown>>;
+      expect(
+        and.some((c) => JSON.stringify(c).startsWith('{"case":{"is":')),
+      ).toBe(true);
+      expect(
+        and.some((c) => JSON.stringify(c).startsWith('{"case":{"OR":')),
+      ).toBe(true);
+      expect(whereCua(mockPrisma.subject.count)).toEqual(where);
+    });
+
+    it('`search` cũ + caseId + phạm vi: không OR tầng trên, caseId giữ, AND có cả tìm lẫn phạm vi', async () => {
+      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockPrisma.subject.count.mockResolvedValue(0);
+
+      await service.getList({ search: 'x y z', caseId: 'c1' }, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+      } as never);
+
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(where.OR).toBeUndefined();
+      expect(where.caseId).toBe('c1');
+      const json = JSON.stringify(where.AND);
+      expect(json).toContain('"timKiemBd":{"contains":"x y z"}');
+      expect(json).toContain(
+        '"case":{"OR":[{"investigatorId":{"in":["u1"]}}]}',
+      );
+    });
+
+    it('phạm vi không có thẻ vẫn áp, trong AND', async () => {
+      mockPrisma.subject.findMany.mockResolvedValue([]);
+      mockPrisma.subject.count.mockResolvedValue(0);
+
+      await service.getList({}, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+      } as never);
+
+      const where = whereCua(mockPrisma.subject.findMany);
+      expect(JSON.stringify(where.AND)).toContain(
+        '"case":{"OR":[{"investigatorId":{"in":["u1"]}}]}',
+      );
     });
 
     it('filters by status', async () => {

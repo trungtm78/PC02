@@ -100,6 +100,7 @@ export function cotDbLech(
       kiem(t.cot, t.cotDb ?? t.cot);
     }
     for (const c of khai.cotThemVaoTatCa ?? []) kiem(c, c);
+    for (const c of khai.cotBongPhu ?? []) kiem(c, c);
   }
   return ra;
 }

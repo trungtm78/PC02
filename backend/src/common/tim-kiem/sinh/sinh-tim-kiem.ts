@@ -17,7 +17,8 @@ export type KieuTruong =
   | 'ngay'
   | 'chon'
   | 'nguoi'
-  | 'doi-tuong';
+  | 'doi-tuong'
+  | 'quan-he';
 
 export interface TruongTimKiem {
   /** Khoá thẻ trên URL — tên CHUẨN liên thực thể. */
@@ -39,6 +40,14 @@ export interface TruongTimKiem {
   /** Kiểu `doi-tuong`: chỉ tính đối tượng loại này (vd `SUSPECT` cho cột "Đối tượng bị can"). */
   loaiDoiTuong?: string;
   /**
+   * Kiểu `quan-he` (quan hệ MỘT-MỘT, vd Luật sư → Vụ án): model đích, field cột bóng CÓ SẴN của đích
+   * (vd `nameBd` do `cotBongPhu` của khai Vụ án sinh), và cột gốc của đích để lùi khi cột bóng rỗng. Không dựng
+   * trigger riêng — bộ sinh báo lỗi nếu không khai nào sinh cột bóng đích.
+   */
+  modelDich?: string;
+  cotDich?: string;
+  cotNguonDich?: readonly string[];
+  /**
    * Kiểu `chon`: giá trị được nhận (vd mã enum). Giá trị lạ trả 400 thay vì để Prisma ném 500.
    * Chỉ dùng phía máy chủ — bộ sinh không xuất ra giao diện.
    */
@@ -54,6 +63,12 @@ export interface KhaiThucThe {
   truong: readonly TruongTimKiem[];
   /** Cột không hiện trên danh sách nhưng thẻ "tất cả các cột" phải tìm được. */
   cotThemVaoTatCa?: readonly string[];
+  /**
+   * Cột có cột bóng riêng mà KHÔNG thành khoá thẻ trên bảng này — chỉ làm đích cho thẻ `quan-he` của
+   * thực thể khác (vd cột "Vụ án" ở Đối tượng/Luật sư hiện `case.name`: lọc trên `cases.tim_kiem_bd`
+   * ghép 13 cột thì ra cả hồ sơ mà mô tả vụ án có chữ ấy, còn cột trên màn không có).
+   */
+  cotBongPhu?: readonly string[];
 }
 
 const TEN_HOP_LE = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -86,6 +101,17 @@ function kiemKhai(khai: KhaiThucThe): void {
       if (!t.quanHe)
         throw new Error(`Trường "${t.key}" (kiểu ${t.kieu}) thiếu quanHe`);
       kiemTen(t.quanHe, 'quan hệ');
+    } else if (t.kieu === 'quan-he') {
+      for (const ten of ['quanHe', 'modelDich', 'cotDich'] as const) {
+        const v = t[ten];
+        if (!v)
+          throw new Error(`Trường "${t.key}" (kiểu quan-he) thiếu ${ten}`);
+        kiemTen(v, ten);
+      }
+      if (!t.cotNguonDich?.length) {
+        throw new Error(`Trường "${t.key}" (kiểu quan-he) thiếu cotNguonDich`);
+      }
+      for (const c of t.cotNguonDich) kiemTen(c, 'nguồn đích');
     } else {
       if (!t.cot)
         throw new Error(`Trường "${t.key}" (kiểu ${t.kieu}) thiếu cot`);
@@ -94,10 +120,16 @@ function kiemKhai(khai: KhaiThucThe): void {
     }
   }
   for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
+  for (const c of khai.cotBongPhu ?? []) kiemTen(c, 'bóng phụ');
 }
 
 const cotChu = (khai: KhaiThucThe) =>
   khai.truong.filter((t) => t.kieu === 'chu').map((t) => t.cot as string);
+
+/** Cột có cột bóng riêng: cột chữ (thành thẻ) rồi cột bóng phụ (chỉ làm đích quan hệ), không trùng. */
+const cotCoBong = (khai: KhaiThucThe) => [
+  ...new Set([...cotChu(khai), ...(khai.cotBongPhu ?? [])]),
+];
 
 /** Cột ghép vào "tất cả các cột": chữ + mã + cột thêm, theo thứ tự khai. */
 const cotTatCa = (khai: KhaiThucThe) => [
@@ -206,6 +238,7 @@ interface KhoiTrigger {
 /** Mỗi bảng có trigger tìm kiếm — thứ tự và nội dung dùng chung cho migration lẫn SQL vận hành. */
 function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   khais.forEach(kiemKhai);
+  kiemDich(khais);
   const ra: KhoiTrigger[] = [];
   if (coTruongNguoi(khais)) {
     ra.push({
@@ -229,20 +262,56 @@ function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   }
   for (const khai of khais) {
     const cotDbTatCa = cotTatCa(khai).map((c) => tenCotDb(khai, c));
+    const cotDbBong = cotCoBong(khai).map((c) => tenCotDb(khai, c));
     ra.push({
       tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
       bang: khai.bang,
       gan: [
-        ...cotChu(khai).map((c) => ({
+        ...cotCoBong(khai).map((c) => ({
           cotBong: cotBongCua(c).cot,
           bieuThuc: moi(tenCotDb(khai, c)),
         })),
         { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotDbTatCa) },
       ],
-      cotNguon: cotDbTatCa,
+      cotNguon: [...new Set([...cotDbTatCa, ...cotDbBong])],
     });
   }
-  return ra;
+  return gopTheoBang(ra);
+}
+
+/** `concat_ws(' ', NEW."x")` một cột ≡ `NEW."x"` (f_bo_dau coi NULL như chuỗi rỗng). */
+const chuanHoaBieuThuc = (b: string): string =>
+  /^concat_ws\(' ', (NEW\."\w+")\)$/.exec(b)?.[1] ?? b;
+
+/**
+ * MỘT khối mỗi bảng. Hai nguồn có thể cùng sinh khối cho một bảng — vd thẻ `doi-tuong` của Vụ án giữ
+ * `subjects.full_name_bd`, và tệp khai riêng của Đối tượng. Không gộp thì migration có hai
+ * `CREATE OR REPLACE FUNCTION` cùng tên: hàm sau âm thầm thay hàm trước, mất cột bóng của khối đầu.
+ * Cùng cột bóng mà biểu thức lệch thật là khai sai — báo lỗi, không chọn bừa một bên.
+ */
+function gopTheoBang(khois: readonly KhoiTrigger[]): KhoiTrigger[] {
+  const theoBang = new Map<string, KhoiTrigger>();
+  for (const k of khois) {
+    const cu = theoBang.get(k.bang);
+    if (!cu) {
+      theoBang.set(k.bang, { ...k, gan: [...k.gan] });
+      continue;
+    }
+    for (const g of k.gan) {
+      const trung = cu.gan.find((x) => x.cotBong === g.cotBong);
+      if (!trung) cu.gan.push(g);
+      else if (
+        chuanHoaBieuThuc(trung.bieuThuc) !== chuanHoaBieuThuc(g.bieuThuc)
+      ) {
+        throw new Error(
+          `Khai tìm kiếm: cột bóng "${k.bang}.${g.cotBong}" có hai biểu thức lệch nhau: ${trung.bieuThuc} ≠ ${g.bieuThuc}`,
+        );
+      }
+    }
+    cu.cotNguon = [...new Set([...cu.cotNguon, ...k.cotNguon])];
+    cu.tieuDe = `${cu.tieuDe}\n${k.tieuDe}`;
+  }
+  return [...theoBang.values()];
 }
 
 const DONG_SINH_TU_DONG =
@@ -284,6 +353,9 @@ export function sinhSqlTatTimKiem(khais: readonly KhaiThucThe[]): string {
     '--',
     '-- Muốn giấu luôn ô thẻ trên giao diện: tắt cờ tính năng TIM_KIEM_THE (màn danh sách trở lại ô chữ cũ).',
     '-- Bật lại: chạy docs/van-hanh/bat-lai-trigger-tim-kiem.sql rồi nạp lại cột bóng (chỉ dẫn trong tệp ấy).',
+    '--',
+    '-- LƯU Ý DEPLOY: mỗi migration tìm kiếm mới chạy lại `CREATE OR REPLACE FUNCTION` nên BẬT LẠI trigger.',
+    '-- Deploy trong lúc đang tắt khẩn thì chạy lại tệp này ngay sau deploy nếu sự cố chưa xử lý xong.',
     '--',
     '-- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/tat-trigger-tim-kiem.sql',
     '',
@@ -340,21 +412,43 @@ export function truongPrismaCanCo(
   khais: readonly KhaiThucThe[],
 ): TruongPrisma[] {
   khais.forEach(kiemKhai);
+  kiemDich(khais);
+  return truongPrismaGoc(khais);
+}
+
+/**
+ * Thẻ `quan-he` lọc trên cột bóng CỦA ĐÍCH mà không dựng trigger riêng — đích phải là cột bóng bộ sinh
+ * thật sự tạo. Thiếu thì Prisma ném 500 lúc lọc, và không ca kiểm đơn vị nào thấy trước khi lên máy thật.
+ */
+function kiemDich(khais: readonly KhaiThucThe[]): void {
+  const co = truongPrismaGoc(khais);
+  for (const khai of khais) {
+    for (const t of khai.truong) {
+      if (t.kieu !== 'quan-he') continue;
+      if (!co.some((x) => x.model === t.modelDich && x.field === t.cotDich)) {
+        throw new Error(
+          `Trường "${t.key}" (kiểu quan-he): đích ${t.modelDich}.${t.cotDich} chưa có cột bóng — khai thực thể đích trước`,
+        );
+      }
+    }
+  }
+}
+
+function truongPrismaGoc(khais: readonly KhaiThucThe[]): TruongPrisma[] {
   const ra: TruongPrisma[] = [];
   for (const khai of khais) {
-    for (const c of cotChu(khai))
+    for (const c of cotCoBong(khai))
       ra.push({ model: khai.model, ...cotBongCua(c) });
     ra.push({ model: khai.model, ...COT_TAT_CA });
   }
   if (coTruongNguoi(khais)) ra.push({ model: 'User', ...COT_HO_TEN });
   if (coTruongDoiTuong(khais)) ra.push({ model: 'Subject', ...COT_DOI_TUONG });
-  return ra;
+  // Một bảng có thể được hai nguồn đòi cùng cột bóng (xem gopTheoBang) — khai field một lần.
+  return ra.filter(
+    (t, i) =>
+      ra.findIndex((x) => x.model === t.model && x.field === t.field) === i,
+  );
 }
-
-/** Có trường kiểu người → phải nạp `users.ho_ten_bd`. */
-export const canNapHoTen = coTruongNguoi;
-/** Có trường kiểu đối tượng → phải nạp `subjects.full_name_bd`. */
-export const canNapDoiTuong = coTruongDoiTuong;
 
 /**
  * Cột gốc ghép vào `tim_kiem_bd` — CÙNG danh sách trigger dùng. Điều kiện thẻ "tất cả các cột" lùi
@@ -398,7 +492,7 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
 export function sinhCauNapCotBong(khai: KhaiThucThe): CauNap {
   kiemKhai(khai);
   return cauNap(khai.bang, [
-    ...cotChu(khai).map((c) => ({
+    ...cotCoBong(khai).map((c) => ({
       cotBong: cotBongCua(c).cot,
       bieuThuc: cotDong(tenCotDb(khai, c)),
     })),
@@ -421,16 +515,36 @@ export function sinhCauNapDoiTuong(): CauNap {
   ]);
 }
 
+/**
+ * Câu nạp cho MỌI bảng có trigger tìm kiếm — dựng từ CHÍNH các khối trigger đã gộp theo bảng, nên
+ * biểu thức nạp không thể lệch trigger và mỗi bảng chỉ nạp một lần.
+ */
+export function sinhCacCauNap(
+  khais: readonly KhaiThucThe[],
+): Array<{ bang: string; cau: CauNap }> {
+  return cacKhoiTrigger(khais).map((k) => ({
+    bang: k.bang,
+    cau: cauNap(
+      k.bang,
+      k.gan.map((g) => ({
+        cotBong: g.cotBong,
+        bieuThuc: g.bieuThuc.replace(/NEW\./g, ''),
+      })),
+    ),
+  }));
+}
+
 const chuoiTs = (s: string) =>
   `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
 export function sinhFrontendTimKiem(khais: readonly KhaiThucThe[]): string {
   khais.forEach(kiemKhai);
+  kiemDich(khais);
   const dong = [
     '// AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.',
     '// Nguồn: backend/src/common/tim-kiem/khai/*.khai.ts',
     '',
-    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong';",
+    "export type KieuTruongTimKiem = 'chu' | 'ma' | 'ma-cu' | 'ngay' | 'chon' | 'nguoi' | 'doi-tuong' | 'quan-he';",
   ];
   for (const khai of khais) {
     const ten = khai.thucThe.toUpperCase().replace(/-/g, '_');

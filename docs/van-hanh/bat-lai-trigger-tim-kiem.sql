@@ -30,14 +30,19 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──
+-- ── subjects (doi-tuong) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_subjects() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW."full_name_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."fullName"));
+  NEW."id_number_bd" := ' ' || f_bo_dau(NEW."idNumber");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."fullName", NEW."idNumber", NEW."address", NEW."phone"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'pc02_dat_tim_kiem_subjects: %', SQLERRM;
   NEW."full_name_bd" := NULL;
+  NEW."id_number_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
 
@@ -100,6 +105,7 @@ BEGIN
   NEW."so_quyet_dinh_uy_thac_bd" := ' ' || f_bo_dau(NEW."so_quyet_dinh_uy_thac");
   NEW."nghi_van_doi_tuong_bd" := ' ' || f_bo_dau(NEW."nghiVanDoiTuong");
   NEW."crime_bd" := ' ' || f_bo_dau(NEW."crime");
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
   NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."caseCode", NEW."sttCu", NEW."nguonDon", NEW."tenCungCap", NEW."moTaChiTiet", NEW."donViGiaiQuyet", NEW."ketQuaXuLyKhac", NEW."don_vi_giao", NEW."so_quyet_dinh_uy_thac", NEW."nghiVanDoiTuong", NEW."crime", NEW."name", NEW."soHoSoCu"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
@@ -113,6 +119,27 @@ EXCEPTION WHEN OTHERS THEN
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
   NEW."crime_bd" := NULL;
+  NEW."name_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── lawyers (luat-su) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_lawyers() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."full_name_bd" := ' ' || f_bo_dau(NEW."fullName");
+  NEW."bar_number_bd" := ' ' || f_bo_dau(NEW."barNumber");
+  NEW."law_firm_bd" := ' ' || f_bo_dau(NEW."lawFirm");
+  NEW."phone_bd" := ' ' || f_bo_dau(NEW."phone");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."fullName", NEW."barNumber", NEW."lawFirm", NEW."phone"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_lawyers: %', SQLERRM;
+  NEW."full_name_bd" := NULL;
+  NEW."bar_number_bd" := NULL;
+  NEW."law_firm_bd" := NULL;
+  NEW."phone_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;

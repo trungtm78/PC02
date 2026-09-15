@@ -8,7 +8,7 @@
  * Cách "lấy 1.000 dòng lệch đầu tiên" chạy thật mất ~15 s mỗi lô vì lô sau phải đi qua lại mọi
  * dòng lô trước đã sửa. Con trỏ luôn tăng nên vòng lặp tự kết thúc.
  *
- * Câu SQL sinh từ CÙNG tệp khai với trigger (`sinhCauNapCotBong`), chỉ SET cột bóng (không đẩy
+ * Câu SQL sinh từ CÙNG khối trigger đã gộp theo bảng (`sinhCacCauNap`), chỉ SET cột bóng (không đẩy
  * `updatedAt`, không kích trigger). Chỉ ghi dòng lệch nên chạy lại ra 0 ghi.
  *
  * Dùng:
@@ -19,14 +19,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { KHAI_TIM_KIEM } from '../khai';
-import {
-  canNapDoiTuong,
-  canNapHoTen,
-  sinhCauNapCotBong,
-  sinhCauNapDoiTuong,
-  sinhCauNapHoTen,
-  type CauNap,
-} from '../sinh/sinh-tim-kiem';
+import { sinhCacCauNap, type CauNap } from '../sinh/sinh-tim-kiem';
 
 export const LO_MAC_DINH = 1000;
 
@@ -49,15 +42,9 @@ export async function napCotBongTimKiem(
   ghiThat: boolean,
   lo = LO_MAC_DINH,
 ): Promise<KetQuaNap[]> {
-  const viec: Array<{ bang: string; cau: CauNap }> = [
-    ...(canNapHoTen(KHAI_TIM_KIEM)
-      ? [{ bang: 'users', cau: sinhCauNapHoTen() }]
-      : []),
-    ...(canNapDoiTuong(KHAI_TIM_KIEM)
-      ? [{ bang: 'subjects', cau: sinhCauNapDoiTuong() }]
-      : []),
-    ...KHAI_TIM_KIEM.map((k) => ({ bang: k.bang, cau: sinhCauNapCotBong(k) })),
-  ];
+  // Mỗi bảng MỘT lần, cùng biểu thức với trigger (khối đã gộp theo bảng).
+  const viec: Array<{ bang: string; cau: CauNap }> =
+    sinhCacCauNap(KHAI_TIM_KIEM);
 
   const ketQua: KetQuaNap[] = [];
   for (const { bang, cau } of viec) {

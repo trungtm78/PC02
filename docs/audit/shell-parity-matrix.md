@@ -558,7 +558,12 @@ Spec: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md`.
 | Ô chữ `comp_q` → thẻ `*` (khoá chuẩn liên thực thể) tới CẢ BA API danh sách `/cases` `/incidents` `/petitions` | ✅ |
 | Cùng thẻ ấy tới ba API thống kê (chế độ một loại) — số trên chip khớp dòng | ✅ |
 | Cờ `TIM_KIEM_THE` tắt → `search` như trước | ✅ |
-| Ô thẻ chọn cột + cột có khai `timKiem` | ⏳ đợt M4 (cột của màn này gộp ba thực thể, cần khai riêng) |
+| Ô thẻ chọn cột + cột có khai `timKiem` | ✅ M4 (15/09/2026) — khai theo chip loại: "Tất cả" = khoá chung ba loại (bỏ kiểu chọn); một loại = khai đầy đủ loại ấy; thẻ không hợp lệ với chế độ hiện ĐỎ, không gửi |
+| Thống kê chip khi có thẻ riêng một loại | ✅ loại không nhận đủ khoá thì KHÔNG gọi `/stats` (tránh 400 / số không lọc), chip để trống số |
+| Mặt lọc: Quận/Huyện · Trạng thái (chung) · Người tạo | GỠ — từng khai mà không đi xuống API; nay là thẻ `donViGiaiQuyet` · `trangThai` · `nguoiNhap`, đường dẫn cũ `comp_district`/`comp_status`/`comp_created_by` mở ra thẻ |
+| Mặt lọc: Từ ngày · Đến ngày | ✅ nay THẬT SỰ gửi xuống cả ba API (Vụ việc: `fromDateRange`/`toDateRange`) |
+| Cột "Đơn vị" | đổi tên "Đơn vị giải quyết", đọc `donViGiaiQuyet` cả ba loại (bản cũ đọc `unit` — rỗng ở Vụ án) |
+| Cột "Người nhập" | THÊM, ẩn sẵn, mang thẻ `nguoiNhap` |
 
 ### Single-row actions (polyglot: row type ∈ Case/Incident/Petition)
 
@@ -576,6 +581,23 @@ Legacy Comprehensive had 7 filter fields (FilterData interface lines 29-36):
 All ❌ missing trong shell.
 
 ---
+
+## Ô tìm kiếm dạng thẻ — Đối tượng + Luật sư (M4, 15/09/2026)
+
+Cùng hành vi với Đơn thư / Vụ việc / Vụ án (xem các mục trên). Khai máy chủ
+`backend/src/common/tim-kiem/khai/doi-tuong.khai.ts` và `luat-su.khai.ts`.
+
+| Hành vi | Đối tượng (`ObjectListPageShell`) | Luật sư (`LawyerListPageShell`) |
+|---|---|---|
+| Ô thẻ thay ô chữ `q` | ✅ tiền tố theo loại: `objects_tk` · `victims_tk` · `witnesses_tk`; vẫn gửi `type` | ✅ `lawyers_tk` |
+| Tham số cũ → thẻ | `<tiền tố>_q` → `*` | `lawyers_q` → `*` |
+| Cột mang thẻ | Họ tên · CCCD · Vụ án (quan hệ `case: { is }`) · Trạng thái (mã) · Ngày tạo | Họ tên · Số thẻ · Văn phòng · Vụ án · Bị can / Thân chủ (quan hệ `subject: { is }`) · SĐT · Ngày tạo |
+| Thẻ "tất cả các cột" | họ tên, CCCD, địa chỉ, SĐT (như ô tìm cũ) | họ tên, số thẻ, văn phòng, SĐT (như ô tìm cũ) |
+| Phạm vi dữ liệu | [P0] máy chủ nối phạm vi vào AND — không còn gán `where.case` (thẻ Vụ án cùng quan hệ không đè được) | ← |
+| Ký tự điều khiển trong URL | lọc ở `the.ts` (thẻ lẫn tham số cũ) — giữ ranh giới tin cậy của `sanitizeStringParam` | ← |
+| Không kết quả | "Không tìm thấy với" + bỏ từng thẻ | ← |
+| Cổng cột ↔ khai | `pages/__tests__/timKiemCotKhai.gate.test.ts` | ← |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` | ← |
 
 ## Cross-cutting v0.61 baselines (must NOT regress)
 
