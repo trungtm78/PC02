@@ -28,4 +28,14 @@ describe('QueryUsersDto', () => {
     const loi = await kiem({ status: 'ACTIVE' });
     expect(loi.map((l) => l.property)).toContain('status');
   });
+
+  it('thẻ tìm kiếm: một thẻ → mảng; 20 qua, 21 bị chặn', async () => {
+    const mot = plainToInstance(QueryUsersDto, { tk: 'hoTen~an' });
+    expect(mot.tk).toEqual(['hoTen~an']);
+    const hai10 = Array.from({ length: 20 }, (_, i) => `*~v${i}`);
+    expect(await kiem({ tk: hai10 })).toEqual([]);
+    expect(
+      (await kiem({ tk: [...hai10, '*~thua'] })).map((l) => l.property),
+    ).toContain('tk');
+  });
 });
