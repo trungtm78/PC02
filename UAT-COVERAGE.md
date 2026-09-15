@@ -87,6 +87,54 @@ Lượt đầu **0/5**, và không mệnh đề nào trong đó là lỗi sản 
 **icon máy in nằm sẵn trong cột Thao tác**, tức sản phẩm đúng còn phép đo sai.
 
 
+## M6 — Ô tìm dạng thẻ (đợt tìm kiếm, 15–16/09/2026)
+
+Sổ phủ của đợt tìm kiếm. Quy tắc của tệp này giữ nguyên: mệnh đề có chủ ngữ là *cán bộ* chỉ được
+PASS bằng bằng chứng đi qua giao diện hoặc HTTP trên máy thật — ca kiểm đơn vị KHÔNG đủ, dù xanh.
+
+### Máy chủ (bằng chứng: ca kiểm đơn vị/tích hợp — đã có)
+
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M6-1 | Thẻ `khoá~giá trị` thành điều kiện nối `where.AND`, không gán đè khoá tầng trên (giữ phạm vi dữ liệu) | đơn vị | PASS |
+| M6-2 | Khoá thẻ không có trong khai → 400, KHÔNG âm thầm trả dữ liệu chưa lọc | đơn vị | PASS |
+| M6-3 | Thẻ chọn trên cột Boolean dùng `equals` (Prisma `BoolFilter` không có `in`) | đơn vị + cổng kiểu cột | PASS (lỗi 500 đã sửa) |
+| M6-4 | Kiểu thẻ khai hợp kiểu cột `schema.prisma` ở MỌI khai | cổng CI | PASS |
+| M6-5 | Nhật ký: xuất CSV áp CÙNG thẻ với danh sách | đơn vị | PASS |
+| M6-6 | Trễ hạn: chỉ nhận `*` + khoá chung ba khai; khoá riêng một loại → 400 | đơn vị | PASS |
+| M6-7 | Trễ hạn: lọc `priority` và `recordType` (hoa/thường) áp ở máy chủ | đơn vị | PASS (đã sửa sau codex) |
+| M6-8 | Danh sách đã xoá (Khôi phục) nhận thẻ theo khai từng loại + DTO kiểm `limit`/`offset` | đơn vị | PASS |
+
+### Cán bộ trên máy thật (CHƯA CHẠY — phải bấm thử sau khi deploy)
+
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M6-9 | **Gõ không dấu ("nguyen") ra hồ sơ có dấu ("Nguyễn") ở từng màn danh sách** | E2E trên máy thật | CHƯA CHẠY |
+| M6-10 | **Chọn được cột cụ thể trong gợi ý rồi lọc đúng cột ấy** | E2E trên máy thật | CHƯA CHẠY |
+| M6-11 | **Thẻ nằm trên địa chỉ trang: lùi trang và dán đường dẫn giữ nguyên bộ lọc** | E2E trên máy thật | CHƯA CHẠY |
+| M6-12 | **Chọn thẻ Trạng thái ở Người dùng · Danh mục · Ánh xạ địa chỉ không lỗi** (lỗi 500 đã sửa) | E2E trên máy thật | CHƯA CHẠY |
+| M6-13 | **Nhật ký: gõ không dấu ra ĐÚNG tên người thực hiện** (trước đây trình duyệt lọc lại nên không bao giờ ra) | E2E trên máy thật | CHƯA CHẠY |
+| M6-14 | **Ô tìm toàn cục: "Xem tất cả" mở danh sách ĐÃ lọc** (trước gửi `?search=` không màn nào đọc) | E2E trên máy thật | CHƯA CHẠY |
+| M6-15 | **Ô tìm toàn cục: bấm một vụ việc mở đúng hồ sơ ấy; bấm một đối tượng mở danh sách đúng loại** | E2E trên máy thật | CHƯA CHẠY |
+| M6-16 | **Cờ `TIM_KIEM_THE` tắt → ô chữ cũ vẫn tìm được như trước** | E2E trên máy thật | CHƯA CHẠY |
+| M6-17 | **Bộ gõ tiếng Việt: Enter lúc đang ghép chữ không mở nhầm kết quả** | E2E Chrome thật | CHƯA CHẠY |
+
+### Số đo phải có sau khi deploy (CHƯA CHẠY)
+
+| # | Mệnh đề | Tầng bằng chứng | Trạng thái |
+|---|---|---|---|
+| M6-18 | Nạp cột bóng prod xong, chạy thử lại còn 0 dòng lệch (mọi bảng M6) | CLI trên prod | CHƯA CHẠY |
+| M6-19 | Kiểm vàng bỏ dấu (chuỗi thật) lệch 0 giữa JS và SQL | CLI trên prod | CHƯA CHẠY |
+| M6-20 | EXPLAIN các truy vấn thẻ dùng chỉ mục GIN, không quét cả bảng | EXPLAIN trên prod | CHƯA CHẠY |
+
+### Đã biết, cố ý không làm trong đợt này
+
+| Chỗ | Vì sao |
+|---|---|
+| Thẻ `*` không tìm `petitions.unit` (89/47.273 dòng = 0,19%) và `cases.unit` (0 dòng) | đổi khai phải sinh lại cột bóng đơn thư đã chạy prod từ M2; số đo quá nhỏ so với rủi ro |
+| Nút "Xuất Excel" ở Xuất báo cáo không áp ô tìm | vốn đã vậy trước đợt này (không phải hồi quy) |
+| Đơn vị hành chính giữ ô chữ | là ô gợi ý kiểu Cmd+K, không phải màn danh sách; chỉ máy chủ bỏ dấu |
+
 ## Chốt cuối (09/09/2026)
 
 Cả năm mốc PASS trên **máy thật**, kiểm tận nơi chứ không suy từ ca kiểm:
