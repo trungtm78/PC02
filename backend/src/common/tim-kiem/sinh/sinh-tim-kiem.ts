@@ -100,19 +100,12 @@ interface Gan {
   bieuThuc: string;
 }
 
-function khoiBang(
-  bang: string,
-  gan: readonly Gan[],
-  cotNguon: readonly string[],
-): string {
-  const ham = `pc02_dat_tim_kiem_${bang}`;
-  const trigger = `pc02_tim_kiem_${bang}`;
+const tenHam = (bang: string) => `pc02_dat_tim_kiem_${bang}`;
+
+/** Thân hàm trigger — CÙNG một nguồn cho migration và SQL bật lại khẩn. */
+function thanHam(bang: string, gan: readonly Gan[]): string[] {
+  const ham = tenHam(bang);
   return [
-    ...gan.map(
-      (g) =>
-        `ALTER TABLE "${bang}" ADD COLUMN IF NOT EXISTS "${g.cotBong}" text;`,
-    ),
-    '',
     `CREATE OR REPLACE FUNCTION ${ham}() RETURNS trigger`,
     'LANGUAGE plpgsql AS $$',
     'BEGIN',
@@ -127,6 +120,23 @@ function khoiBang(
     ...gan.map((g) => `  NEW."${g.cotBong}" := NULL;`),
     '  RETURN NEW;',
     'END $$;',
+  ];
+}
+
+function khoiBang(
+  bang: string,
+  gan: readonly Gan[],
+  cotNguon: readonly string[],
+): string {
+  const ham = tenHam(bang);
+  const trigger = `pc02_tim_kiem_${bang}`;
+  return [
+    ...gan.map(
+      (g) =>
+        `ALTER TABLE "${bang}" ADD COLUMN IF NOT EXISTS "${g.cotBong}" text;`,
+    ),
+    '',
+    ...thanHam(bang, gan),
     '',
     `DROP TRIGGER IF EXISTS ${trigger} ON "${bang}";`,
     `CREATE TRIGGER ${trigger}`,
@@ -140,10 +150,49 @@ function khoiBang(
   ].join('\n');
 }
 
-export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
+interface KhoiTrigger {
+  tieuDe: string;
+  bang: string;
+  gan: Gan[];
+  cotNguon: readonly string[];
+}
+
+/** Mỗi bảng có trigger tìm kiếm — thứ tự và nội dung dùng chung cho migration lẫn SQL vận hành. */
+function cacKhoiTrigger(khais: readonly KhaiThucThe[]): KhoiTrigger[] {
   khais.forEach(kiemKhai);
+  const ra: KhoiTrigger[] = [];
+  if (coTruongNguoi(khais)) {
+    ra.push({
+      tieuDe:
+        '-- ── users: họ tên người nhập / cán bộ (thẻ kiểu người lọc qua quan hệ) ──',
+      bang: 'users',
+      gan: [{ cotBong: COT_HO_TEN.cot, bieuThuc: ghep(COT_NGUON_HO_TEN) }],
+      cotNguon: COT_NGUON_HO_TEN,
+    });
+  }
+  for (const khai of khais) {
+    ra.push({
+      tieuDe: `-- ── ${khai.bang} (${khai.thucThe}) ──`,
+      bang: khai.bang,
+      gan: [
+        ...cotChu(khai).map((c) => ({
+          cotBong: cotBongCua(c).cot,
+          bieuThuc: moi(c),
+        })),
+        { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotTatCa(khai)) },
+      ],
+      cotNguon: cotTatCa(khai),
+    });
+  }
+  return ra;
+}
+
+const DONG_SINH_TU_DONG =
+  '-- SINH TỰ ĐỘNG từ backend/src/common/tim-kiem/khai/*.khai.ts bằng `npm run gen:tim-kiem` — không sửa tay.';
+
+export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
   const phan: string[] = [
-    '-- SINH TỰ ĐỘNG từ backend/src/common/tim-kiem/khai/*.khai.ts bằng `npm run gen:tim-kiem` — không sửa tay.',
+    DONG_SINH_TU_DONG,
     '--',
     '-- Cột bóng bỏ dấu cho ô tìm dạng thẻ. Migration KHÔNG điền dữ liệu cũ: đo 15/09/2026 trên 47.169',
     '-- đơn thư, điền trong migration khoá bảng ~50 giây lúc deploy. Điền bằng CLI theo lô sau deploy;',
@@ -153,34 +202,74 @@ export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
     '',
     sinhHamFBoDau(),
   ];
-
-  if (coTruongNguoi(khais)) {
-    phan.push(
-      '',
-      '-- ── users: họ tên người nhập / cán bộ (thẻ kiểu người lọc qua quan hệ) ──',
-      khoiBang(
-        'users',
-        [{ cotBong: COT_HO_TEN.cot, bieuThuc: ghep(COT_NGUON_HO_TEN) }],
-        COT_NGUON_HO_TEN,
-      ),
-    );
-  }
-
-  for (const khai of khais) {
-    const gan: Gan[] = [
-      ...cotChu(khai).map((c) => ({
-        cotBong: cotBongCua(c).cot,
-        bieuThuc: moi(c),
-      })),
-      { cotBong: COT_TAT_CA.cot, bieuThuc: ghep(cotTatCa(khai)) },
-    ];
-    phan.push(
-      '',
-      `-- ── ${khai.bang} (${khai.thucThe}) ──`,
-      khoiBang(khai.bang, gan, cotTatCa(khai)),
-    );
+  for (const k of cacKhoiTrigger(khais)) {
+    phan.push('', k.tieuDe, khoiBang(k.bang, k.gan, k.cotNguon));
   }
   return `${phan.join('\n')}\n`;
+}
+
+/**
+ * TẮT KHẨN trigger tìm kiếm: thay thân hàm bằng bản chỉ đặt cột bóng NULL. Không gỡ trigger — gỡ
+ * thì cột bóng CŨ nằm lại trên dòng đã sửa và thẻ trả sai; NULL thì thẻ lùi về cột gốc, vẫn đúng.
+ */
+export function sinhSqlTatTimKiem(khais: readonly KhaiThucThe[]): string {
+  const dong: string[] = [
+    DONG_SINH_TU_DONG,
+    '--',
+    '-- TẮT KHẨN trigger tìm kiếm — chạy tay trên CSDL khi trigger cột bóng gây sự cố (ghi hồ sơ chậm,',
+    '-- nhật ký PostgreSQL đầy cảnh báo `pc02_dat_tim_kiem_*`, hàm f_bo_dau hỏng). Không cần deploy.',
+    '--',
+    '-- Làm gì: thay thân hàm trigger bằng bản chỉ đặt cột bóng = NULL. Dòng được sửa từ lúc này có cột',
+    '-- bóng NULL, thẻ tìm kiếm LÙI VỀ CỘT GỐC cho dòng ấy — kết quả vẫn đúng, chỉ chậm hơn. KHÔNG gỡ',
+    '-- trigger: gỡ thì cột bóng cũ nằm lại trên dòng đã sửa và thẻ trả SAI mà không ai biết.',
+    '-- Không đụng dữ liệu nghiệp vụ, không đổi cấu trúc bảng.',
+    '--',
+    '-- Muốn giấu luôn ô thẻ trên giao diện: tắt cờ tính năng TIM_KIEM_THE (màn danh sách trở lại ô chữ cũ).',
+    '-- Bật lại: chạy docs/van-hanh/bat-lai-trigger-tim-kiem.sql rồi nạp lại cột bóng (chỉ dẫn trong tệp ấy).',
+    '--',
+    '-- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/tat-trigger-tim-kiem.sql',
+    '',
+    'BEGIN;',
+  ];
+  for (const k of cacKhoiTrigger(khais)) {
+    dong.push(
+      '',
+      k.tieuDe,
+      `CREATE OR REPLACE FUNCTION ${tenHam(k.bang)}() RETURNS trigger`,
+      'LANGUAGE plpgsql AS $$',
+      'BEGIN',
+      ...k.gan.map((g) => `  NEW."${g.cotBong}" := NULL;`),
+      '  RETURN NEW;',
+      'END $$;',
+    );
+  }
+  dong.push('', 'COMMIT;');
+  return `${dong.join('\n')}\n`;
+}
+
+/** BẬT LẠI sau khi đã tắt khẩn — thân hàm nguyên văn như migration. */
+export function sinhSqlBatLaiTimKiem(khais: readonly KhaiThucThe[]): string {
+  const dong: string[] = [
+    DONG_SINH_TU_DONG,
+    '--',
+    '-- BẬT LẠI trigger tìm kiếm sau khi đã chạy tat-trigger-tim-kiem.sql — thân hàm y hệt migration.',
+    '--',
+    '-- Sau khi chạy: dòng sửa trong lúc tắt đang có cột bóng NULL (thẻ vẫn đúng nhờ lùi về cột gốc).',
+    '-- Nạp lại để chúng dùng lại chỉ mục, từ thư mục backend đang chạy:',
+    '--   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js          # chạy thử, đếm dòng lệch',
+    '--   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that   # nạp theo lô, không đẩy updatedAt',
+    '--',
+    '-- Chạy: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f docs/van-hanh/bat-lai-trigger-tim-kiem.sql',
+    '',
+    'BEGIN;',
+    '',
+    sinhHamFBoDau(),
+  ];
+  for (const k of cacKhoiTrigger(khais)) {
+    dong.push('', k.tieuDe, ...thanHam(k.bang, k.gan));
+  }
+  dong.push('', 'COMMIT;');
+  return `${dong.join('\n')}\n`;
 }
 
 export interface TruongPrisma {

@@ -4,11 +4,15 @@ import { KHAI_TIM_KIEM } from './khai';
 import {
   sinhFrontendTimKiem,
   sinhMigrationTimKiem,
+  sinhSqlBatLaiTimKiem,
+  sinhSqlTatTimKiem,
   truongPrismaCanCo,
 } from './sinh/sinh-tim-kiem';
 import {
   TEP_FRONTEND,
   TEP_SCHEMA,
+  TEP_SQL_BAT_LAI,
+  TEP_SQL_TAT,
   THU_MUC_MIGRATION,
   thuMucMigrationTimKiemMoiNhat,
   truongPrismaThieu,
@@ -39,6 +43,18 @@ describe('GATE tìm kiếm — tệp sinh khớp tệp khai', () => {
 
   it('frontend/src/shared/tim-kiem/generated.ts ≡ đầu ra bộ sinh', () => {
     expect(docLF(TEP_FRONTEND)).toBe(sinhFrontendTimKiem(KHAI_TIM_KIEM));
+  });
+
+  /**
+   * SQL vận hành khẩn nằm trong docs/van-hanh để chạy tay trên prod lúc sự cố. Khai thêm cột mà tệp
+   * không sinh lại thì bản "tắt" bỏ sót cột bóng mới — đúng lúc cần nó nhất.
+   */
+  it('docs/van-hanh/tat-trigger-tim-kiem.sql ≡ đầu ra bộ sinh', () => {
+    expect(docLF(TEP_SQL_TAT)).toBe(sinhSqlTatTimKiem(KHAI_TIM_KIEM));
+  });
+
+  it('docs/van-hanh/bat-lai-trigger-tim-kiem.sql ≡ đầu ra bộ sinh', () => {
+    expect(docLF(TEP_SQL_BAT_LAI)).toBe(sinhSqlBatLaiTimKiem(KHAI_TIM_KIEM));
   });
 
   it('schema.prisma khai đủ field chỉ đọc cho mọi cột bóng', () => {

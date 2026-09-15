@@ -5,6 +5,8 @@ import { KHAI_TIM_KIEM } from '../khai';
 import {
   sinhFrontendTimKiem,
   sinhMigrationTimKiem,
+  sinhSqlBatLaiTimKiem,
+  sinhSqlTatTimKiem,
 } from '../sinh/sinh-tim-kiem';
 import { chayGenTimKiem, dauThoiGian, type DuongDanGen } from './gen-tim-kiem';
 
@@ -36,6 +38,8 @@ describe('chayGenTimKiem', () => {
       thuMucMigration: path.join(goc, 'migrations'),
       tepFrontend: path.join(goc, 'frontend', 'generated.ts'),
       tepSchema: path.join(goc, 'schema.prisma'),
+      tepSqlTat: path.join(goc, 'docs', 'tat.sql'),
+      tepSqlBatLai: path.join(goc, 'docs', 'bat-lai.sql'),
     };
     fs.mkdirSync(dd.thuMucMigration, { recursive: true });
     fs.writeFileSync(dd.tepSchema, SCHEMA_DU);
@@ -69,6 +73,13 @@ describe('chayGenTimKiem', () => {
     );
     expect(fs.readFileSync(dd.tepFrontend, 'utf8')).toBe(
       sinhFrontendTimKiem(KHAI_TIM_KIEM),
+    );
+    // SQL vận hành khẩn sinh cùng lượt — khai thêm cột là bản "tắt" có luôn cột mới.
+    expect(fs.readFileSync(dd.tepSqlTat, 'utf8')).toBe(
+      sinhSqlTatTimKiem(KHAI_TIM_KIEM),
+    );
+    expect(fs.readFileSync(dd.tepSqlBatLai, 'utf8')).toBe(
+      sinhSqlBatLaiTimKiem(KHAI_TIM_KIEM),
     );
   });
 

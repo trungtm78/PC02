@@ -21,6 +21,17 @@ export const TEP_FRONTEND = path.resolve(
   'generated.ts',
 );
 
+/** SQL vận hành khẩn — chạy tay trên CSDL lúc sự cố, nên nằm cạnh tài liệu vận hành. */
+const THU_MUC_VAN_HANH = path.resolve(GOC_BACKEND, '..', 'docs', 'van-hanh');
+export const TEP_SQL_TAT = path.join(
+  THU_MUC_VAN_HANH,
+  'tat-trigger-tim-kiem.sql',
+);
+export const TEP_SQL_BAT_LAI = path.join(
+  THU_MUC_VAN_HANH,
+  'bat-lai-trigger-tim-kiem.sql',
+);
+
 /** Thư mục migration tìm kiếm có dạng `<14 chữ số>_tim_kiem_<tên>`. */
 const MAU_MIGRATION_TIM_KIEM = /^\d{14}_tim_kiem_[a-z0-9_]+$/;
 

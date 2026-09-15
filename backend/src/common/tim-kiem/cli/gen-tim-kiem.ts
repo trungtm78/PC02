@@ -14,12 +14,16 @@ import { KHAI_TIM_KIEM } from '../khai';
 import {
   sinhFrontendTimKiem,
   sinhMigrationTimKiem,
+  sinhSqlBatLaiTimKiem,
+  sinhSqlTatTimKiem,
   truongPrismaCanCo,
   type KhaiThucThe,
 } from '../sinh/sinh-tim-kiem';
 import {
   TEP_FRONTEND,
   TEP_SCHEMA,
+  TEP_SQL_BAT_LAI,
+  TEP_SQL_TAT,
   THU_MUC_MIGRATION,
   thuMucMigrationTimKiemMoiNhat,
   truongPrismaThieu,
@@ -34,12 +38,17 @@ export interface DuongDanGen {
   thuMucMigration: string;
   tepFrontend: string;
   tepSchema: string;
+  /** SQL vận hành khẩn: tắt / bật lại trigger tìm kiếm. */
+  tepSqlTat: string;
+  tepSqlBatLai: string;
 }
 
 const DUONG_DAN_THAT: DuongDanGen = {
   thuMucMigration: THU_MUC_MIGRATION,
   tepFrontend: TEP_FRONTEND,
   tepSchema: TEP_SCHEMA,
+  tepSqlTat: TEP_SQL_TAT,
+  tepSqlBatLai: TEP_SQL_BAT_LAI,
 };
 
 /**
@@ -86,8 +95,14 @@ export function chayGenTimKiem(
   fs.writeFileSync(tepMigration, sinhMigrationTimKiem(khais), 'utf8');
   fs.mkdirSync(path.dirname(duongDan.tepFrontend), { recursive: true });
   fs.writeFileSync(duongDan.tepFrontend, sinhFrontendTimKiem(khais), 'utf8');
+  fs.mkdirSync(path.dirname(duongDan.tepSqlTat), { recursive: true });
+  fs.writeFileSync(duongDan.tepSqlTat, sinhSqlTatTimKiem(khais), 'utf8');
+  fs.mkdirSync(path.dirname(duongDan.tepSqlBatLai), { recursive: true });
+  fs.writeFileSync(duongDan.tepSqlBatLai, sinhSqlBatLaiTimKiem(khais), 'utf8');
   console.log(`Đã ghi ${tepMigration}`);
   console.log(`Đã ghi ${duongDan.tepFrontend}`);
+  console.log(`Đã ghi ${duongDan.tepSqlTat}`);
+  console.log(`Đã ghi ${duongDan.tepSqlBatLai}`);
 
   const thieu = truongPrismaThieu(
     fs.readFileSync(duongDan.tepSchema, 'utf8'),
