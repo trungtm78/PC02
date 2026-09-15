@@ -65,6 +65,10 @@ model User {
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(họ tên đệm tên username)), trigger
   /// `pc02_tim_kiem_users` giữ. Thẻ "Người nhập" lọc qua quan hệ: enteredBy: { is: { hoTenBd } }.
   hoTenBd             String?   @map("ho_ten_bd")
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM email; và ghép mã cán bộ, họ tên, email cho thẻ "tất cả các cột" của
+  /// màn Quản lý người dùng (khai nguoi-dung.khai.ts, cùng trigger `pc02_tim_kiem_users`).
+  emailBd             String?   @map("email_bd")
+  timKiemBd           String?   @map("tim_kiem_bd")
   passwordHash        String
   firstName           String?
   lastName            String?
@@ -278,6 +282,12 @@ model Directory {
   sourceVersion String? // vd "v2024-1279" — version dataset đã import row này
   legalBasis    String? // vd "Nghị quyết 1279/QH15 ngày 12/06/2024"
   importedAt    DateTime? // thời điểm import từ dataset
+
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_directories` giữ (khai danh-muc.khai.ts).
+  nameBd        String? @map("name_bd")
+  descriptionBd String? @map("description_bd")
+  /// CHỈ ĐỌC — ghép mã, tên, mô tả cho thẻ "tất cả các cột" của màn Danh mục.
+  timKiemBd     String? @map("tim_kiem_bd")
 
   @@unique([type, code])
   // v0.34.0.0: partial index on (type, officialCode) created via separate CONCURRENTLY
@@ -1492,6 +1502,8 @@ model Incident {
   descriptionBd    String? @map("description_bd")
   donViGiaiQuyetBd String? @map("don_vi_giai_quyet_bd")
   ketQuaXuLyBd     String? @map("ket_qua_xu_ly_bd")
+  /// CHỈ ĐỌC — cột bóng TÊN vụ việc, đích của thẻ "Vụ việc" ở màn Tài liệu (`cotBongPhu` trong vu-viec.khai.ts).
+  nameBd           String? @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ việc, đối tượng, số hồ sơ cũ — thẻ "tất cả các cột".
   timKiemBd        String? @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
@@ -1581,6 +1593,13 @@ model Document {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_documents` giữ (khai tai-lieu.khai.ts).
+  titleBd        String? @map("title_bd")
+  originalNameBd String? @map("original_name_bd")
+  descriptionBd  String? @map("description_bd")
+  /// CHỈ ĐỌC — ghép tiêu đề, tên tệp, mô tả cho thẻ "tất cả các cột" của màn Tài liệu.
+  timKiemBd      String? @map("tim_kiem_bd")
 
   // Relations
   case                    Case?                 @relation(fields: [caseId], references: [id], onDelete: SetNull)
@@ -1914,6 +1933,9 @@ model AuditLog {
   createdAt       DateTime @default(now())
   // v0.48 PR1 B2: link N item rows to 1 BulkOperation header (audit-inside-tx pattern).
   bulkOperationId String?
+  /// CHỈ ĐỌC — ghép thao tác, loại/mã đối tượng, IP cho thẻ "tất cả các cột" của Nhật ký hoạt động
+  /// (trigger `pc02_tim_kiem_audit_logs`, khai nhat-ky.khai.ts).
+  timKiemBd       String?  @map("tim_kiem_bd")
 
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   bulkOperation BulkOperation? @relation(fields: [bulkOperationId], references: [id], onDelete: SetNull)
@@ -2547,6 +2569,14 @@ model AddressMapping {
   candidates  Json? // when needsReview, all candidate new wards from API
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_address_mappings` giữ (khai anh-xa-dia-chi.khai.ts).
+  oldWardBd     String? @map("old_ward_bd")
+  oldDistrictBd String? @map("old_district_bd")
+  newWardBd     String? @map("new_ward_bd")
+  noteBd        String? @map("note_bd")
+  /// CHỈ ĐỌC — ghép phường/quận cũ, phường mới, tỉnh, ghi chú cho thẻ "tất cả các cột".
+  timKiemBd     String? @map("tim_kiem_bd")
 
   @@unique([oldWard, oldDistrict, province])
   @@index([province, oldDistrict])

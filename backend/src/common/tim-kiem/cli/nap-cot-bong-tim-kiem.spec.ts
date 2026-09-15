@@ -23,6 +23,10 @@ const TEN_BANG = [
   'incidents',
   'cases',
   'lawyers',
+  'directories',
+  'documents',
+  'address_mappings',
+  'audit_logs',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -88,6 +92,12 @@ describe('napCotBongTimKiem', () => {
       'incidents',
       'cases',
       'lawyers',
+      // M6: danh mục, tài liệu, ánh xạ địa chỉ, nhật ký. `users` vẫn MỘT lần ở đầu dù khai Người
+      // dùng cũng đòi cột bóng trên bảng ấy (gộp với khối kiểu người).
+      'directories',
+      'documents',
+      'address_mappings',
+      'audit_logs',
     ]);
   });
 

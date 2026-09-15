@@ -74,3 +74,47 @@ export const TIM_KIEM_LUAT_SU = [
   { key: 'sdt', nhan: 'SĐT', kieu: 'chu' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
 ] as const;
+
+export const TIM_KIEM_NGUOI_DUNG = [
+  { key: 'maCanBo', nhan: 'Mã cán bộ', kieu: 'ma-thuong' },
+  { key: 'hoTen', nhan: 'Họ tên', kieu: 'chu' },
+  { key: 'email', nhan: 'Email', kieu: 'chu' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+  { key: 'dangNhapCuoi', nhan: 'Đăng nhập cuối', kieu: 'ngay' },
+] as const;
+
+export const TIM_KIEM_DANH_MUC = [
+  { key: 'ma', nhan: 'Mã', kieu: 'ma-thuong' },
+  { key: 'ten', nhan: 'Tên danh mục', kieu: 'chu' },
+  { key: 'moTa', nhan: 'Mô tả', kieu: 'chu' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;
+
+export const TIM_KIEM_TAI_LIEU = [
+  { key: 'tieuDe', nhan: 'Tiêu đề', kieu: 'chu' },
+  { key: 'tenTep', nhan: 'Tên tệp', kieu: 'chu' },
+  { key: 'moTa', nhan: 'Mô tả', kieu: 'chu' },
+  { key: 'loai', nhan: 'Loại', kieu: 'chon' },
+  { key: 'vuAn', nhan: 'Vụ án', kieu: 'quan-he' },
+  { key: 'vuViec', nhan: 'Vụ việc', kieu: 'quan-he' },
+  { key: 'nguoiTaiLen', nhan: 'Người upload', kieu: 'nguoi' },
+  { key: 'ngayTaiLen', nhan: 'Ngày upload', kieu: 'ngay' },
+] as const;
+
+export const TIM_KIEM_ANH_XA_DIA_CHI = [
+  { key: 'phuongCu', nhan: 'Phường/Xã cũ', kieu: 'chu' },
+  { key: 'quanCu', nhan: 'Quận/Huyện cũ', kieu: 'chu' },
+  { key: 'phuongMoi', nhan: 'Phường/Xã mới', kieu: 'chu' },
+  { key: 'tinh', nhan: 'Tỉnh', kieu: 'ma-thuong' },
+  { key: 'ghiChu', nhan: 'Ghi chú', kieu: 'chu' },
+  { key: 'canXemLai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;
+
+export const TIM_KIEM_NHAT_KY = [
+  { key: 'thoiGian', nhan: 'Thời gian', kieu: 'ngay' },
+  { key: 'nguoiThucHien', nhan: 'Người thực hiện', kieu: 'nguoi' },
+  { key: 'thaoTac', nhan: 'Thao tác', kieu: 'ma-thuong' },
+  { key: 'loaiDoiTuong', nhan: 'Loại đối tượng', kieu: 'ma-thuong' },
+  { key: 'maDoiTuong', nhan: 'Mã đối tượng', kieu: 'ma-thuong' },
+  { key: 'ip', nhan: 'IP', kieu: 'ma-thuong' },
+] as const;

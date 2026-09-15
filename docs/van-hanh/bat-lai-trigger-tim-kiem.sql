@@ -18,14 +18,19 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $f$
 $f$;
 
 -- ── users: họ tên người nhập / cán bộ (thẻ kiểu người lọc qua quan hệ) ──
+-- ── users (nguoi-dung) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_users() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   NEW."ho_ten_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."lastName", NEW."firstName", NEW."username"));
+  NEW."email_bd" := ' ' || f_bo_dau(NEW."email");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."workId", NEW."lastName", NEW."firstName", NEW."username", NEW."email"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'pc02_dat_tim_kiem_users: %', SQLERRM;
   NEW."ho_ten_bd" := NULL;
+  NEW."email_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
 
@@ -79,6 +84,7 @@ BEGIN
   NEW."description_bd" := ' ' || f_bo_dau(NEW."description");
   NEW."don_vi_giai_quyet_bd" := ' ' || f_bo_dau(NEW."donViGiaiQuyet");
   NEW."ket_qua_xu_ly_bd" := ' ' || f_bo_dau(NEW."ketQuaXuLy");
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
   NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."code", NEW."sttCu", NEW."chuyenTuDonVi", NEW."benVu", NEW."description", NEW."donViGiaiQuyet", NEW."ketQuaXuLy", NEW."name", NEW."doiTuongCaNhan", NEW."doiTuongToChuc", NEW."soHoSoCu"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
@@ -88,6 +94,7 @@ EXCEPTION WHEN OTHERS THEN
   NEW."description_bd" := NULL;
   NEW."don_vi_giai_quyet_bd" := NULL;
   NEW."ket_qua_xu_ly_bd" := NULL;
+  NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
@@ -140,6 +147,72 @@ EXCEPTION WHEN OTHERS THEN
   NEW."bar_number_bd" := NULL;
   NEW."law_firm_bd" := NULL;
   NEW."phone_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── directories (danh-muc) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_directories() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
+  NEW."description_bd" := ' ' || f_bo_dau(NEW."description");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."code", NEW."name", NEW."description"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_directories: %', SQLERRM;
+  NEW."name_bd" := NULL;
+  NEW."description_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── documents (tai-lieu) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_documents() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."title_bd" := ' ' || f_bo_dau(NEW."title");
+  NEW."original_name_bd" := ' ' || f_bo_dau(NEW."originalName");
+  NEW."description_bd" := ' ' || f_bo_dau(NEW."description");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."title", NEW."originalName", NEW."description"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_documents: %', SQLERRM;
+  NEW."title_bd" := NULL;
+  NEW."original_name_bd" := NULL;
+  NEW."description_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── address_mappings (anh-xa-dia-chi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_address_mappings() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."old_ward_bd" := ' ' || f_bo_dau(NEW."oldWard");
+  NEW."old_district_bd" := ' ' || f_bo_dau(NEW."oldDistrict");
+  NEW."new_ward_bd" := ' ' || f_bo_dau(NEW."newWard");
+  NEW."note_bd" := ' ' || f_bo_dau(NEW."note");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."oldWard", NEW."oldDistrict", NEW."newWard", NEW."province", NEW."note"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_address_mappings: %', SQLERRM;
+  NEW."old_ward_bd" := NULL;
+  NEW."old_district_bd" := NULL;
+  NEW."new_ward_bd" := NULL;
+  NEW."note_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── audit_logs (nhat-ky) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_audit_logs() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."action", NEW."subject", NEW."subjectId", NEW."ipAddress"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_audit_logs: %', SQLERRM;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;
