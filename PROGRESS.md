@@ -155,6 +155,16 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 ### Hàng đợi M6 (nhánh feat/tim-kiem-dang-the-man-may-chu từ main 93551023) — khảo sát 15/09
 Hiện trạng: 9 màn đều bảng tự dựng, không URL, tìm Prisma `contains`+insensitive (KHÔNG bỏ dấu). Chỉ users/cases/subjects/lawyers/petitions/incidents có cột bóng; directories/documents/address_mappings/audit_logs CHƯA.
 - [ ] M6-T1 hạ tầng: khai + migration cột bóng/trigger/GIN cho directories, documents, address_mappings, audit_logs (qua `gen:tim-kiem -- --moi`); khai users (đã có ho_ten_bd). Kiểm vàng + nạp CLI như M2–M4.
+  - [x] M6-T1a commit 58e6dded — bộ sinh thiếu 3 năng lực cho các bảng này, đã mở rộng (TDD đỏ 9 → xanh; tim-kiem 222 ca):
+    - `ma-thuong` (mã danh mục/mã cán bộ/id: đúng mã, không phân biệt hoa) — KHÔNG đổi `ma` (biến thể mã hồ sơ + `in` dùng btree; đổi sang insensitive là ILIKE mất chỉ mục).
+    - `chon.giaTriCot` (chuỗi thẻ → boolean cột; khoá = danh sách hợp lệ) — `in: ['true']` trên cột boolean là Prisma 500.
+    - `chu.cotGhep` (một cột bóng nhiều nguồn: Họ tên = họ+tên+tài khoản) — sinh đúng `users.ho_ten_bd` của kiểu người nên gộp một khối.
+    - Sinh lại: chỉ generated.ts đổi (migration M4 đã lên prod không đổi byte).
+  - [x] M6-T1b — khai 5 thực thể (users, directories, documents, address_mappings, audit_logs) + incidents.name_bd; migration `20260915155629_tim_kiem_may_chu` (--moi). Kiểm:
+    - DB cục bộ pc02_db kẹt P3009 từ 31/08 (migration calendar cũ hỏng) và thiếu cột M3 → KHÔNG dùng được; dựng DB tạm từ chuỗi migration cũng không được (migration đầu giả định `cases` có sẵn).
+    - Cách đúng: `pg_dump --schema-only` prod (chỉ đọc, không dữ liệu) → DB tạm cục bộ (0 lỗi) → áp migration M6 (thoát 0) → chèn thử có dấu: 6/6 phép so đúng (ộ, Đ, khoảng trắng thừa, UPDATE tính lại). Lần đầu ra `tr?m` là console Windows làm hỏng chữ gửi vào (psql -c), KHÔNG phải f_bo_dau — chạy lại bằng tệp UTF-8 + PGCLIENTENCODING=UTF8. Đã xoá DB tạm + tệp cấu trúc.
+    - Backend đầy đủ 350 bộ/5.177 ca xanh; lint dòng mới 0; tsc sạch.
+  - Quyết định khai: Vai trò (users) không thành thẻ — danh sách động + đã có ô chọn roleId. Loại tài liệu `chon` không danh sách cứng (danh mục động). Tài liệu Vụ án/Vụ việc lọc theo TÊN (`cases.name_bd`, `incidents.name_bd` mới qua `cotBongPhu`).
 - [ ] M6-T2 Tài liệu: getList qua BoTimKiem; màn DocumentsPage ô thẻ + URL.
   - [x] commit b9c1853d — **[lỗi có sẵn] phạm vi gán lại `where.OR` ĐÈ mất điều kiện tìm** (cán bộ có phạm vi gõ gì cũng ra mọi tài liệu trong phạm vi) → hai điều kiện riêng trong `where.AND`. TDD đỏ (Received chỉ còn khối phạm vi) → xanh; 42 ca.
   - Đo prod 15/09 (chỉ đọc): directories 15.913 · documents 10 · address_mappings 1.086 · audit_logs 13.218 (10 MB, ~1.457/tuần) · users 257 → trigger cột bóng + nạp đều rẻ, không cần cách riêng cho audit_logs.
