@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-15 | Milestone: M5/7 | Task: M4 XONG trên prod; M5 bắt đầu (nhánh feat/tim-kiem-dang-the-man-trinh-duyet từ main f5ed68a5)
+Cập nhật: 2026-09-15 | Milestone: M6/7 | Task: M5 XONG (PR #379 93551023); M6 bắt đầu (nhánh feat/tim-kiem-dang-the-man-may-chu từ main 93551023)
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
@@ -15,7 +15,7 @@ Spec gốc:
 | M2 | Tìm kiếm dạng thẻ — T0 đo trước + PR1 nền + Đơn thư + lát Tổng hợp | feat/tim-kiem-dang-the-nen |
 | M3 | PR2 Vụ việc, Vụ án, Ủy thác điều tra | |
 | M4 | PR3 Tổng hợp đầy đủ, Đối tượng, Luật sư | DONE — PR #378 merge f5ed68a5, prod-verified 15/09 |
-| M5 | PR4 12 màn tìm phía trình duyệt | |
+| M5 | PR4 12 màn tìm phía trình duyệt | DONE — PR #379 merge 93551023, deploy xanh 15/09 |
 | M6 | PR5 9 màn tìm phía máy chủ + GlobalSearchBar | |
 | M7 | UAT phủ 100% (UAT-COVERAGE.md) | |
 
@@ -150,7 +150,19 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
   - Cổng M5 hai kẽ hở: không kiểm bảng lọc từ `timKiem.dongLoc.filter(`; điều kiện cờ xét trên CẢ tệp → xét TỪNG chỗ so chữ ô cũ (8 dòng trước). Gieo lỗi mới cho cả hai.
   - Không sửa (P3): "Thời gian khởi tạo" Trao đổi hiện cả giờ, thẻ ngày so ngày — đúng kiểu ngày.
   - 8 tệp liên quan 193 ca xanh; tsc -b sạch; lint dòng mới 0.
-- [ ] M5-T7 — cổng `locTheoTheManTrinhDuyet.gate.test.ts` (12 màn dùng hook + ô thẻ; ô chữ cũ chỉ lọc khi cờ tắt; tiền tố không trùng; gieo lỗi) → bộ đầy đủ → /review + /codex → PR → CI → merge → deploy (chỉ giao diện, không migration).
+- [x] M5 commit b2a53e61 (sửa review); bộ FE đầy đủ 259 tệp/3.135 ca xanh; CI 2/2 xanh ĐÚNG sha b2a53e61 (commit này không đụng *ListPageShell nên parity-check không chạy — chỉ 1 workflow CI); merge --admin 93551023; Deploy xanh (CI + Deploy success trên 93551023). Prod: health công khai buildId 93551023, release symlink 93551023, index.html phục vụ ≡ bản release (sha256 418a17d2…). Chỉ giao diện — không migration, không nạp dữ liệu.
+
+### Hàng đợi M6 (nhánh feat/tim-kiem-dang-the-man-may-chu từ main 93551023) — khảo sát 15/09
+Hiện trạng: 9 màn đều bảng tự dựng, không URL, tìm Prisma `contains`+insensitive (KHÔNG bỏ dấu). Chỉ users/cases/subjects/lawyers/petitions/incidents có cột bóng; directories/documents/address_mappings/audit_logs CHƯA.
+- [ ] M6-T1 hạ tầng: khai + migration cột bóng/trigger/GIN cho directories, documents, address_mappings, audit_logs (qua `gen:tim-kiem -- --moi`); khai users (đã có ho_ten_bd). Kiểm vàng + nạp CLI như M2–M4.
+- [ ] M6-T2 Tài liệu: getList qua BoTimKiem; **[lỗi có sẵn] phạm vi ghi thẳng `where.OR` ĐÈ mất điều kiện tìm** → noiVaoWhere (AND). Màn DocumentsPage ô thẻ + URL.
+- [ ] M6-T3 Quản lý người dùng: getUsers qua BoTimKiem; **[lỗi có sẵn] màn gửi `isActive` mà DTO chỉ có `status` → forbidNonWhitelisted 400 khi lọc trạng thái** (kiểm lại bằng ca kiểm trước khi sửa). Màn ô thẻ.
+- [ ] M6-T4 Danh mục (Directories) + AddressMapping (module Cài đặt): BoTimKiem + ô thẻ.
+- [ ] M6-T5 Nhật ký hoạt động: **[lỗi có sẵn] lọc HAI lần (máy chủ action/subject/subjectId rồi client lọc lại theo tên người dùng/nhãn) → tên người dùng không bao giờ ra**; thoát `%`/`_` tay trong khi Prisma contains đã thoát. Tìm máy chủ theo khai (người thực hiện qua quan hệ users.ho_ten_bd), bỏ lọc client.
+- [ ] M6-T6 Trễ hạn (reports/overdue): 3 khối OR chép tay (cases name/unit, incidents name/unitId-là-ID, petitions) → BoTimKiem của 3 thực thể (đã có cột bóng); placeholder hứa số hồ sơ/người xử lý mà không tìm. ExportReportsPage: máy chủ /petitions đã có thẻ → chỉ giao diện.
+- [ ] M6-T7 Khôi phục (Restore): máy chủ đã dùng tim-kiem (dieuKienTatCa) → giao diện ô thẻ; @Query inline không DTO → thêm DTO có kiểm tra. AdminUnits (cây + ô gợi ý): đánh giá — tìm phường/xã bỏ dấu qua cột bóng directories.
+- [ ] M6-T8 GlobalSearchBar: gửi thẻ `*` (tk) thay `search`; "Xem tất cả" mở danh sách với `<prefix>_tk=*~q` (hiện gửi `?search=` mà màn không đọc); highlight bỏ dấu; mục Đối tượng/Vụ việc mở đúng bản ghi.
+- [ ] M6 review + codex → PR → CI → merge → deploy → nạp cột bóng + kiểm vàng + EXPLAIN prod. (12 màn dùng hook + ô thẻ; ô chữ cũ chỉ lọc khi cờ tắt; tiền tố không trùng; gieo lỗi) → bộ đầy đủ → /review + /codex → PR → CI → merge → deploy (chỉ giao diện, không migration).
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
   - Codex "stats bỏ status/phase lệch danh sách" = cố ý (thẻ đếm mọi trạng thái để drill-down).
