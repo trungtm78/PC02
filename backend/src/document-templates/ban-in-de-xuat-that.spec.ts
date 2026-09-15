@@ -37,7 +37,13 @@ const HO_SO = {
 
 /** Người đang đăng nhập — KHÁC cán bộ đề xuất, để thấy rõ dòng "Lưu:" theo ai. */
 const CTX = {
-  actor: { firstName: 'Huy', lastName: 'Nguyễn Văn', rank: 'Thiếu tá', teamName: 'Tổ 5' },
+  // Tên tổ ĐÚNG như CSDL prod ("Tổ công tác Số N") — dữ liệu giả "Tổ 5" từng che lỗi in nguyên tên.
+  actor: {
+    firstName: 'Huy',
+    lastName: 'Nguyễn Văn',
+    rank: 'Thiếu tá',
+    teamName: 'Tổ công tác Số 5',
+  },
 };
 
 function inRa(huongXuLy: string | null): string {

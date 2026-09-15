@@ -193,6 +193,57 @@ describe('toNhanDon — tổ ở dòng "Lưu:"', () => {
   it('không suy được → giữ "Tổ 2" như mẫu cũ', () => {
     expect(resolveField('DON_THU', 'toNhanDon', {})).toBe('Tổ 2');
   });
+
+  /**
+   * [hotfix 15/09/2026] Tên tổ THẬT trong CSDL là "Tổ công tác Số 2" (đo prod: 10 tổ "Tổ công tác Số
+   * 1..10"), nên bản in ghi "Lưu: PC02-Đ1 (Tổ công tác Số 2)" — sai quy ước văn bản "(Tổ 2)". Các ca
+   * trên dùng dữ liệu giả "Tổ 5" nên không bắt được. Tên không đánh số ("Tổ Truy nã", "Đội 7") giữ nguyên.
+   */
+  it('tên thật "Tổ công tác Số 2" của người đăng nhập → "Tổ 2"', () => {
+    expect(
+      resolveField('DON_THU', 'toNhanDon', {}, {
+        actor: { teamName: 'Tổ công tác Số 2' },
+      } as never),
+    ).toBe('Tổ 2');
+  });
+
+  it('rút gọn cả tổ phân công của hồ sơ, không phân biệt hoa thường/khoảng trắng', () => {
+    expect(
+      resolveField(
+        'DON_THU',
+        'toNhanDon',
+        { assignedTeam: { name: '  tổ công tác số  10 ' } },
+        { actor: {} } as never,
+      ),
+    ).toBe('Tổ 10');
+  });
+
+  it('tên tổ không theo mẫu "Tổ công tác Số N" → giữ nguyên', () => {
+    for (const ten of ['Tổ Truy nã', 'Tổ Tăng cường CS1', 'Đội 7']) {
+      expect(
+        resolveField('DON_THU', 'toNhanDon', {}, {
+          actor: { teamName: ten },
+        } as never),
+      ).toBe(ten);
+    }
+  });
+
+  it('dòng "Lưu:" đầy đủ với tên tổ thật', () => {
+    const ra = resolveField(
+      'DON_THU',
+      'noiNhan',
+      { canBoDeXuat: { firstName: 'Văn', lastName: 'Phạm Thanh' } },
+      {
+        actor: {
+          firstName: 'Huy',
+          lastName: 'Nguyễn Văn',
+          teamName: 'Tổ công tác Số 2',
+        },
+      } as never,
+    );
+    expect(ra).toContain('- Lưu: PC02-Đ1 (Tổ 2), V.Huy.');
+    expect(ra).not.toContain('Tổ công tác');
+  });
 });
 
 describe('vietTatCanBo — người ĐĂNG NHẬP đứng trước (đảo ưu tiên có chủ ý)', () => {
