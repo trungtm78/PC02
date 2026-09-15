@@ -87,7 +87,18 @@ export function cotDbLech(
         ra.push({ model: khai.model, field, khai: khaiCot, schema: s });
       }
     };
-    for (const t of khai.truong) if (t.cot) kiem(t.cot, t.cotDb ?? t.cot);
+    for (const t of khai.truong) {
+      if (!t.cot) continue;
+      if (t.kieu === 'ngay' || t.kieu === 'chon') {
+        // Chỉ đi qua Prisma bằng tên trường, không vào SQL thô: `@map` không liên quan — chỉ cần
+        // trường tồn tại (gõ sai tên thì Prisma ném 500 lúc lọc).
+        if (cotSchema(t.cot) === null) {
+          ra.push({ model: khai.model, field: t.cot, khai: t.cot, schema: null });
+        }
+        continue;
+      }
+      kiem(t.cot, t.cotDb ?? t.cot);
+    }
     for (const c of khai.cotThemVaoTatCa ?? []) kiem(c, c);
   }
   return ra;

@@ -60,7 +60,10 @@ describe('dungDieuKienTimKiem — kiểu doi-tuong', () => {
       ...KHAI,
       truong: [{ ...KHAI.truong[0], loaiDoiTuong: undefined }],
     };
-    const ra = dungDieuKienTimKiem(docThe(['doiTuongBiCan~An'], khongLoai), khongLoai);
+    const ra = dungDieuKienTimKiem(
+      docThe(['doiTuongBiCan~An'], khongLoai),
+      khongLoai,
+    );
     expect(JSON.stringify(ra)).not.toContain('SUSPECT');
     expect(JSON.stringify(ra)).toContain('"deletedAt":null');
   });

@@ -23,6 +23,14 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- ── subjects: họ tên đối tượng (thẻ kiểu đối tượng lọc qua quan hệ) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_subjects() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."full_name_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 -- ── petitions (don-thu) ──
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_petitions() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -33,6 +41,36 @@ BEGIN
   NEW."don_vi_giai_quyet_bd" := NULL;
   NEW."ket_qua_xu_ly_khac_bd" := NULL;
   NEW."suspected_person_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── incidents (vu-viec) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_incidents() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."chuyen_tu_don_vi_bd" := NULL;
+  NEW."ben_vu_bd" := NULL;
+  NEW."description_bd" := NULL;
+  NEW."don_vi_giai_quyet_bd" := NULL;
+  NEW."ket_qua_xu_ly_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
+-- ── cases (vu-an) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_cases() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."nguon_don_bd" := NULL;
+  NEW."ten_cung_cap_bd" := NULL;
+  NEW."mo_ta_chi_tiet_bd" := NULL;
+  NEW."don_vi_giai_quyet_bd" := NULL;
+  NEW."ket_qua_xu_ly_khac_bd" := NULL;
+  NEW."don_vi_giao_bd" := NULL;
+  NEW."so_quyet_dinh_uy_thac_bd" := NULL;
+  NEW."nghi_van_doi_tuong_bd" := NULL;
+  NEW."crime_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;
   RETURN NEW;
 END $$;

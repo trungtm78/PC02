@@ -71,7 +71,12 @@ describe('cotDbLech — đối chiếu khai với @map trong schema.prisma', () 
       truong: KHAI.truong.map((t) => ({ ...t, cotDb: undefined })),
     };
     expect(cotDbLech(schema, [quen])).toEqual([
-      { model: 'Case', field: 'donViGiao', khai: 'donViGiao', schema: 'don_vi_giao' },
+      {
+        model: 'Case',
+        field: 'donViGiao',
+        khai: 'donViGiao',
+        schema: 'don_vi_giao',
+      },
     ]);
   });
 
@@ -90,7 +95,49 @@ describe('cotDbLech — đối chiếu khai với @map trong schema.prisma', () 
       ],
     };
     expect(cotDbLech(schema, [thua])).toEqual([
-      { model: 'Case', field: 'moTaChiTiet', khai: 'mo_ta', schema: 'moTaChiTiet' },
+      {
+        model: 'Case',
+        field: 'moTaChiTiet',
+        khai: 'mo_ta',
+        schema: 'moTaChiTiet',
+      },
+    ]);
+  });
+
+  /** Trường ngày/chọn chỉ đi qua Prisma bằng tên trường — `@map` của chúng không vào SQL thô. */
+  it('trường ngày có @map không cần cotDb; trường ngày sai tên vẫn bị báo', () => {
+    const schemaNgay = schema.replace(
+      '}',
+      '  ngayTiepNhan DateTime? @map("ngay_tiep_nhan")\n}',
+    );
+    const coNgay: KhaiThucThe = {
+      ...KHAI,
+      truong: [
+        ...KHAI.truong,
+        {
+          key: 'ngayTiepNhan',
+          nhan: 'Ngày',
+          kieu: 'ngay',
+          cot: 'ngayTiepNhan',
+        },
+      ],
+    };
+    expect(cotDbLech(schemaNgay, [coNgay])).toEqual([]);
+
+    const saiTen: KhaiThucThe = {
+      ...KHAI,
+      truong: [
+        ...KHAI.truong,
+        { key: 'x', nhan: 'X', kieu: 'ngay', cot: 'ngayKhongCo' },
+      ],
+    };
+    expect(cotDbLech(schemaNgay, [saiTen])).toEqual([
+      {
+        model: 'Case',
+        field: 'ngayKhongCo',
+        khai: 'ngayKhongCo',
+        schema: null,
+      },
     ]);
   });
 
