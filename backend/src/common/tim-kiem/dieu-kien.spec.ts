@@ -255,10 +255,65 @@ describe('dungDieuKienTimKiem', () => {
     ]);
   });
 
-  it('người: lọc qua quan hệ tới cột bóng họ tên', () => {
+  /**
+   * `users.ho_ten_bd` NULL cho tới khi chạy CLI nạp (và sau khi tắt khẩn trigger). Không lùi về
+   * cột gốc thì thẻ Người nhập trả 0 dòng mà trông như lọc thật.
+   */
+  it('người: lọc qua quan hệ tới cột bóng họ tên; cột bóng rỗng thì lùi về họ/tên/tài khoản', () => {
+    const goc = (cot: string) => ({
+      [cot]: { contains: 'Bùi Trà', mode: 'insensitive' },
+    });
     expect(dk(['nguoiNhap~Bùi Trà'])).toEqual([
-      { enteredBy: { is: { hoTenBd: { contains: 'bui tra' } } } },
+      {
+        enteredBy: {
+          is: {
+            OR: [
+              { hoTenBd: { contains: 'bui tra' } },
+              {
+                hoTenBd: null,
+                OR: [goc('lastName'), goc('firstName'), goc('username')],
+              },
+            ],
+          },
+        },
+      },
     ]);
+  });
+
+  /**
+   * Nhánh lùi `cột bóng IS NULL AND cột gốc ILIKE` buộc PostgreSQL quét cả bảng (đo pc02_spike
+   * 47.169 đơn: 124 ms quét tuần tự so với 51 ms qua GIN). Khi đã nạp xong thì bỏ nhánh ấy.
+   */
+  describe('luiCotGoc: false — cột bóng đã nạp xong', () => {
+    const dkNap = (tk: string[]) =>
+      dungDieuKienTimKiem(docThe(tk, KHAI), KHAI, { luiCotGoc: false });
+
+    it('chữ: chỉ cột bóng', () => {
+      expect(dkNap(['nguoiGui~Nguyễn Văn'])).toEqual([
+        { senderNameBd: { contains: 'nguyen van' } },
+      ]);
+    });
+
+    it('tất cả các cột: chỉ cột ghép', () => {
+      expect(dkNap(['*~Lừa đảo'])).toEqual([
+        { timKiemBd: { contains: 'lua dao' } },
+      ]);
+    });
+
+    it('nhiều giá trị cùng khoá vẫn OR', () => {
+      expect(dkNap(['nguoiGui~An', 'nguoiGui~Bình'])).toEqual([
+        {
+          OR: [
+            { senderNameBd: { contains: ' an' } },
+            { senderNameBd: { contains: 'binh' } },
+          ],
+        },
+      ]);
+    });
+
+    it('người: bảng users nhỏ — vẫn giữ nhánh lùi', () => {
+      expect(dkNap(['nguoiNhap~Bùi Trà'])).toEqual(dk(['nguoiNhap~Bùi Trà']));
+    });
   });
 
   it('khác cột → mỗi thẻ một phần tử (AND giữa các thẻ)', () => {

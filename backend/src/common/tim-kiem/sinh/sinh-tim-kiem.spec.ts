@@ -1,6 +1,7 @@
 import { sinhHamFBoDau } from '../bo-dau';
 import {
   cotBongCua,
+  sinhCauConChuaNap,
   sinhFrontendTimKiem,
   sinhMigrationTimKiem,
   truongPrismaCanCo,
@@ -115,6 +116,19 @@ describe('sinhMigrationTimKiem', () => {
       'CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_trgm" ON "petitions" USING gin ("tim_kiem_bd" gin_trgm_ops);',
     );
     expect(sql).not.toMatch(/CONCURRENTLY/i);
+  });
+
+  /**
+   * Máy chủ chỉ lùi về cột gốc khi CÒN dòng chưa nạp — hỏi bằng EXISTS trên chỉ mục một phần,
+   * nên câu hỏi tức thì dù bảng lớn. Không có chỉ mục này thì chính câu hỏi lại quét cả bảng.
+   */
+  it('chỉ mục một phần cho dòng chưa nạp cột ghép + câu hỏi dùng đúng điều kiện ấy', () => {
+    expect(sql).toContain(
+      'CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_chua_nap" ON "petitions" ("id") WHERE "tim_kiem_bd" IS NULL;',
+    );
+    expect(sinhCauConChuaNap(KHAI)).toBe(
+      'SELECT EXISTS (SELECT 1 FROM "petitions" WHERE "tim_kiem_bd" IS NULL) AS co',
+    );
   });
 
   /** Đo T0: UPDATE 47k dòng + dựng GIN = ~50 s khoá bảng lúc deploy. Nạp bằng CLI theo lô. */

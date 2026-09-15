@@ -3,6 +3,7 @@ import { hoSoCodeVariants } from '../utils/ho-so-code.util';
 import { dieuKienSttCu } from '../utils/stt-cu.util';
 import { boDauTimKiem, thoatLike } from './bo-dau';
 import {
+  COT_NGUON_HO_TEN,
   cotBongCua,
   cotGhepTatCa,
   type KhaiThucThe,
@@ -139,24 +140,41 @@ const chuaGoc = (cot: string, giaTri: string): DieuKien => ({
   [cot]: { contains: thoatLike(giaTri), mode: 'insensitive' },
 });
 
-/** Hai lựa chọn: cột bóng chứa mẫu, HOẶC cột bóng chưa nạp và cột gốc chứa chữ gõ. */
-function luaChonChu(cot: string, giaTri: string): DieuKien[] {
+/**
+ * Cột bóng chứa mẫu; khi `luiCotGoc` thêm "HOẶC cột bóng chưa nạp và cột gốc chứa chữ gõ". Nhánh
+ * lùi buộc quét cả bảng (GIN không phục vụ IS NULL), nên nơi gọi chỉ bật khi còn dòng chưa nạp.
+ */
+function luaChonChu(
+  cot: string,
+  giaTri: string,
+  luiCotGoc: boolean,
+): DieuKien[] {
   const mau = mauBoDau(giaTri);
   if (mau === undefined) return [];
   const bong = cotBongCua(cot).field;
-  return [
-    { [bong]: { contains: mau } },
-    { [bong]: null, ...chuaGoc(cot, giaTri) },
-  ];
+  const bongChua = { [bong]: { contains: mau } };
+  return luiCotGoc
+    ? [bongChua, { [bong]: null, ...chuaGoc(cot, giaTri) }]
+    : [bongChua];
 }
 
-function luaChonTatCa(khai: KhaiThucThe, giaTri: string): DieuKien[] {
+function luaChonTatCa(
+  khai: KhaiThucThe,
+  giaTri: string,
+  luiCotGoc: boolean,
+): DieuKien[] {
   const mau = mauBoDau(giaTri);
   if (mau === undefined) return [];
-  return [
-    { timKiemBd: { contains: mau } },
-    { timKiemBd: null, OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)) },
-  ];
+  const ghepChua = { timKiemBd: { contains: mau } };
+  return luiCotGoc
+    ? [
+        ghepChua,
+        {
+          timKiemBd: null,
+          OR: cotGhepTatCa(khai).map((c) => chuaGoc(c, giaTri)),
+        },
+      ]
+    : [ghepChua];
 }
 
 /** Luôn bọc OR — dùng cho các lựa chọn vốn là "hoặc" (cột bóng / cột gốc). */
@@ -166,16 +184,22 @@ const hoacLuon = (ds: DieuKien[]): DieuKien[] =>
 const hoac = (ds: DieuKien[]): DieuKien[] =>
   ds.length === 0 ? [] : ds.length === 1 ? ds : [{ OR: ds }];
 
-function dieuKienMotThe(the: The, khai: KhaiThucThe): DieuKien[] {
+function dieuKienMotThe(
+  the: The,
+  khai: KhaiThucThe,
+  luiCotGoc: boolean,
+): DieuKien[] {
+  // Có nhánh lùi thì mỗi giá trị là một cặp "hoặc" — luôn bọc OR; không có thì một điều kiện để trần.
+  const gop = luiCotGoc ? hoacLuon : hoac;
   if (the.key === KHOA_TAT_CA) {
-    return hoacLuon(the.giaTri.flatMap((v) => luaChonTatCa(khai, v)));
+    return gop(the.giaTri.flatMap((v) => luaChonTatCa(khai, v, luiCotGoc)));
   }
   const truong = timTruong(khai, the.key);
   if (!truong) return [];
   const cot = truong.cot as string;
   switch (truong.kieu) {
     case 'chu':
-      return hoacLuon(the.giaTri.flatMap((v) => luaChonChu(cot, v)));
+      return gop(the.giaTri.flatMap((v) => luaChonChu(cot, v, luiCotGoc)));
     case 'ma':
       return [
         { [cot]: { in: [...new Set(the.giaTri.flatMap(hoSoCodeVariants))] } },
@@ -202,12 +226,22 @@ function dieuKienMotThe(the: The, khai: KhaiThucThe): DieuKien[] {
       return hoac(
         the.giaTri.flatMap((v) => {
           const mau = mauBoDau(v);
+          // Luôn giữ nhánh lùi: bảng users nhỏ nên không tốn, và `ho_ten_bd` rỗng tới khi chạy CLI
+          // nạp — không lùi thì thẻ Người nhập trả 0 dòng mà trông như lọc thật.
           return mau === undefined
             ? []
             : [
                 {
                   [truong.quanHe as string]: {
-                    is: { hoTenBd: { contains: mau } },
+                    is: {
+                      OR: [
+                        { hoTenBd: { contains: mau } },
+                        {
+                          hoTenBd: null,
+                          OR: COT_NGUON_HO_TEN.map((c) => chuaGoc(c, v)),
+                        },
+                      ],
+                    },
                   },
                 },
               ];
@@ -216,12 +250,18 @@ function dieuKienMotThe(the: The, khai: KhaiThucThe): DieuKien[] {
   }
 }
 
+export interface TuyChonDieuKien {
+  /** Còn dòng chưa nạp cột bóng → lùi về cột gốc cho dòng ấy. Mặc định BẬT (đúng trước, nhanh sau). */
+  luiCotGoc?: boolean;
+}
+
 /** Mỗi thẻ một phần tử (AND giữa các thẻ); nhiều giá trị cùng thẻ là OR bên trong phần tử. */
 export function dungDieuKienTimKiem(
   the: readonly The[],
   khai: KhaiThucThe,
+  { luiCotGoc = true }: TuyChonDieuKien = {},
 ): DieuKien[] {
-  return the.flatMap((t) => dieuKienMotThe(t, khai));
+  return the.flatMap((t) => dieuKienMotThe(t, khai, luiCotGoc));
 }
 
 /** Nối điều kiện thẻ vào `where.AND`, giữ nguyên điều kiện đã có (phạm vi dữ liệu…). */

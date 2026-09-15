@@ -42,7 +42,8 @@ export interface KhaiThucThe {
 const TEN_HOP_LE = /^[A-Za-z][A-Za-z0-9_]*$/;
 const COT_TAT_CA = { cot: 'tim_kiem_bd', field: 'timKiemBd' } as const;
 const COT_HO_TEN = { cot: 'ho_ten_bd', field: 'hoTenBd' } as const;
-const COT_NGUON_HO_TEN = ['lastName', 'firstName', 'username'] as const;
+/** Cột gốc của `users.ho_ten_bd` — thẻ kiểu người lùi về đúng các cột này khi cột bóng rỗng. */
+export const COT_NGUON_HO_TEN = ['lastName', 'firstName', 'username'] as const;
 
 /** Tên cột bóng (snake_case + `_bd`) và field Prisma (`<cot>Bd`) của một cột nguồn. */
 export function cotBongCua(cot: string): { cot: string; field: string } {
@@ -147,7 +148,23 @@ function khoiBang(
       (g) =>
         `CREATE INDEX IF NOT EXISTS "${bang}_${g.cotBong}_trgm" ON "${bang}" USING gin ("${g.cotBong}" gin_trgm_ops);`,
     ),
+    // Máy chủ hỏi "còn dòng chưa nạp không" để quyết có lùi về cột gốc — chỉ mục một phần làm câu
+    // hỏi tức thì (không có nó, chính câu hỏi quét cả bảng).
+    ...(gan.some((g) => g.cotBong === COT_TAT_CA.cot)
+      ? [
+          `CREATE INDEX IF NOT EXISTS "${bang}_${COT_TAT_CA.cot}_chua_nap" ON "${bang}" ("id") WHERE "${COT_TAT_CA.cot}" IS NULL;`,
+        ]
+      : []),
   ].join('\n');
+}
+
+/**
+ * "Còn dòng chưa nạp cột bóng không" — trigger, CLI nạp và SQL tắt khẩn luôn đặt MỌI cột bóng của
+ * một dòng cùng lúc, nên hỏi cột ghép là đủ. Dùng chỉ mục một phần `<bang>_tim_kiem_bd_chua_nap`.
+ */
+export function sinhCauConChuaNap(khai: KhaiThucThe): string {
+  kiemKhai(khai);
+  return `SELECT EXISTS (SELECT 1 FROM "${khai.bang}" WHERE "${COT_TAT_CA.cot}" IS NULL) AS co`;
 }
 
 interface KhoiTrigger {

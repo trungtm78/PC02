@@ -77,3 +77,4 @@ CREATE INDEX IF NOT EXISTS "petitions_don_vi_giai_quyet_bd_trgm" ON "petitions" 
 CREATE INDEX IF NOT EXISTS "petitions_ket_qua_xu_ly_khac_bd_trgm" ON "petitions" USING gin ("ket_qua_xu_ly_khac_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "petitions_suspected_person_bd_trgm" ON "petitions" USING gin ("suspected_person_bd" gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_trgm" ON "petitions" USING gin ("tim_kiem_bd" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "petitions_tim_kiem_bd_chua_nap" ON "petitions" ("id") WHERE "tim_kiem_bd" IS NULL;

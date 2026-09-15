@@ -32,17 +32,40 @@ describe('useTheTimKiem', () => {
     expect(result.current.tkGui).toEqual(['nguoiGui~An', '*~abc']);
   });
 
-  it('tham số cũ thành thẻ NGAY lần dựng đầu và được viết lại lên URL', () => {
+  /**
+   * Tham số cũ chỉ ĐỌC thành thẻ, không tự viết lại địa chỉ lúc mở trang: lúc ấy cờ tính năng có
+   * thể chưa nạp (mặc định bật), viết lại là xoá `q` — cờ nạp xong mà đang tắt thì ô chữ cũ mất
+   * bộ lọc. Khoá cũ chỉ bị gỡ ở lần cán bộ tự sửa thẻ.
+   */
+  it('tham số cũ thành thẻ NGAY lần dựng đầu; địa chỉ chỉ đổi khi cán bộ sửa thẻ', () => {
     const { result, viTri } = dung('/x?p_q=abc&p_sender=Nguyen&p_page=2', {
       thamSoCu: { q: '*', sender: 'nguoiGui' },
     });
     expect(result.current.tkGui).toEqual(['*~abc', 'nguoiGui~Nguyen']);
+    expect(viTri()).toContain('p_q=abc');
+    expect(viTri()).toContain('p_page=2');
+
+    act(() => {
+      result.current.them('stt', '26-1');
+    });
     expect(viTri()).toContain('p_tk=*~abc');
     expect(viTri()).toContain('p_tk=nguoiGui~Nguyen');
+    expect(viTri()).toContain('p_tk=stt~26-1');
     expect(viTri()).not.toContain('p_q=');
     expect(viTri()).not.toContain('p_sender=');
-    // Viết lại địa chỉ không phải lọc mới — giữ trang đang xem.
-    expect(viTri()).toContain('p_page=2');
+  });
+
+  /**
+   * `setSearchParams(prev => …)` của React Router 7 tính `prev` từ tham số LÚC VẼ. Hai lần thêm
+   * trước khi trang vẽ lại (Enter nhanh, máy chậm) thì lần sau dựng từ địa chỉ chưa có thẻ trước.
+   */
+  it('hai lần thêm trong cùng một lượt không mất thẻ nào', () => {
+    const { result } = dung('/x');
+    act(() => {
+      result.current.them('nguoiGui', 'An');
+      result.current.them('stt', '26-1');
+    });
+    expect(result.current.tkGui).toEqual(['nguoiGui~An', 'stt~26-1']);
   });
 
   it('thêm thẻ → lên URL và về trang 1', () => {

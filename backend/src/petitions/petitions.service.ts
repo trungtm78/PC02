@@ -54,33 +54,62 @@ import {
   docThe,
   dungDieuKienTimKiem,
   noiVaoWhere,
+  DO_DAI_GIA_TRI_TOI_DA,
 } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
+import { thoatLike } from '../common/tim-kiem/bo-dau';
+import { sinhCauConChuaNap } from '../common/tim-kiem/sinh/sinh-tim-kiem';
+
+const CAU_CON_CHUA_NAP_DON_THU = sinhCauConChuaNap(KHAI_TIM_KIEM_DON_THU);
+/** Nhớ câu trả lời "còn dòng chưa nạp cột bóng" — tắt khẩn trigger thì chậm nhất chừng này mới lùi. */
+const THOI_GIAN_NHO_CHUA_NAP_MS = 60_000;
+
+const damThe = (tk: string | string[] | undefined): string[] =>
+  tk === undefined ? [] : Array.isArray(tk) ? [...tk] : [tk];
 
 /**
  * Điều kiện ô tìm dạng thẻ của Đơn thư — MỘT chỗ cho danh sách lẫn thống kê. Tham số lọc chữ
  * cũ (`search`, `senderName`, `unit`) quy về thẻ ở đây để đường dẫn cũ vẫn chạy mà không áp hai
  * lần, và để thẻ số không lọc khác danh sách ngay dưới.
+ *
+ * Tham số cũ cắt còn DO_DAI_GIA_TRI_TOI_DA: các ô tìm cũ (GlobalSearchBar, trang khôi phục…) gửi
+ * nguyên chữ dán vào, quá giới hạn thẻ thì cả trang 400.
  */
-function dieuKienTimKiemDonThu(query: {
-  tk?: string | string[];
-  search?: string;
-  senderName?: string;
-  unit?: string;
-}): Record<string, unknown>[] {
-  const tho =
-    query.tk === undefined
-      ? []
-      : Array.isArray(query.tk)
-        ? [...query.tk]
-        : [query.tk];
-  if (query.search?.trim()) tho.push(`${KHOA_TAT_CA}~${query.search}`);
-  if (query.senderName?.trim()) tho.push(`nguoiGui~${query.senderName}`);
-  if (query.unit?.trim()) tho.push(`donViGiaiQuyet~${query.unit}`);
+function dieuKienTimKiemDonThu(
+  query: {
+    tk?: string | string[];
+    search?: string;
+    senderName?: string;
+    unit?: string;
+  },
+  luiCotGoc: boolean,
+): Record<string, unknown>[] {
+  const tho = damThe(query.tk);
+  const cu = (v: string | undefined) => v?.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+  if (cu(query.search)) tho.push(`${KHOA_TAT_CA}~${cu(query.search)}`);
+  if (cu(query.senderName)) tho.push(`nguoiGui~${cu(query.senderName)}`);
+  if (cu(query.unit)) tho.push(`donViGiaiQuyet~${cu(query.unit)}`);
   return dungDieuKienTimKiem(
     docThe(tho, KHAI_TIM_KIEM_DON_THU),
     KHAI_TIM_KIEM_DON_THU,
+    { luiCotGoc },
   );
+}
+
+/**
+ * Có thẻ ngày không. Kỳ thống kê mặc định (vd tháng hiện tại) gán thẳng lên cột ngày; thẻ
+ * `ngayDeXuat~2019` nằm trong AND nên giao với kỳ ra 0 dòng mà không lời nào. Cán bộ đã chỉ rõ
+ * ngày thì bỏ kỳ MẶC ĐỊNH (Từ/Đến ngày tự đặt vẫn áp).
+ */
+function coTheNgayDonThu(tk: string | string[] | undefined): boolean {
+  return damThe(tk).some((muc) => {
+    const i = muc.indexOf('~');
+    if (i <= 0) return false;
+    const khoa = muc.slice(0, i);
+    return KHAI_TIM_KIEM_DON_THU.truong.some(
+      (t) => t.key === khoa && t.kieu === 'ngay',
+    );
+  });
 }
 
 // Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
@@ -105,6 +134,32 @@ export class PetitionsService {
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private nhoChuaNap: { giaTri: boolean; het: number } | null = null;
+
+  /**
+   * Có còn phải lùi về cột gốc không. Nhánh lùi `cột bóng IS NULL AND cột gốc ILIKE` buộc quét cả
+   * bảng (đo pc02_spike 47.169 đơn: 124 ms so với 51 ms qua GIN), nên chỉ giữ khi CÒN dòng chưa
+   * nạp — ngay sau deploy, hoặc sau khi tắt khẩn trigger. Hỏi lỗi thì giữ nhánh lùi: đúng trước,
+   * nhanh sau.
+   */
+  private async canLuiCotGoc(): Promise<boolean> {
+    const bayGio = Date.now();
+    if (this.nhoChuaNap && this.nhoChuaNap.het > bayGio) {
+      return this.nhoChuaNap.giaTri;
+    }
+    let giaTri = true;
+    try {
+      const [dong] = await this.prisma.$queryRawUnsafe<Array<{ co: boolean }>>(
+        CAU_CON_CHUA_NAP_DON_THU,
+      );
+      giaTri = dong?.co !== false;
+    } catch (e) {
+      this.logger.warn(`Không hỏi được trạng thái nạp cột bóng: ${String(e)}`);
+    }
+    this.nhoChuaNap = { giaTri, het: bayGio + THOI_GIAN_NHO_CHUA_NAP_MS };
+    return giaTri;
+  }
 
   // ─────────────────────────────────────────────
   // GET LIST
@@ -131,7 +186,10 @@ export class PetitionsService {
     };
 
     // Thẻ tìm kiếm (và search/senderName/unit cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
-    noiVaoWhere(where as Record<string, unknown>, dieuKienTimKiemDonThu(query));
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+    );
 
     // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
     // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
@@ -171,7 +229,15 @@ export class PetitionsService {
     // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
     // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
     // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
+    apDungKyVaoWhere(
+      where as Record<string, unknown>,
+      coTheNgayDonThu(query.tk)
+        ? { ...kyThongKe, tuNgay: null, denNgay: null }
+        : kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -353,10 +419,9 @@ export class PetitionsService {
         baseWhere.AND = [{ OR: baseWhere.OR }];
         delete baseWhere.OR;
       }
-      // Cắt còn 200 ký tự: ô chọn nhận chữ đang gõ, không để quá giới hạn thành lỗi 400.
       noiVaoWhere(
         baseWhere as Record<string, unknown>,
-        dieuKienTimKiemDonThu({ search: search.slice(0, 200) }),
+        dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
       );
     }
 
@@ -1927,7 +1992,7 @@ export class PetitionsService {
     // CÙNG helper với danh sách chính — hồ sơ đã xoá vẫn có cột bóng do trigger giữ.
     noiVaoWhere(
       where as Record<string, unknown>,
-      dieuKienTimKiemDonThu({ search }),
+      dieuKienTimKiemDonThu({ search }, await this.canLuiCotGoc()),
     );
 
     const [data, total] = await Promise.all([
@@ -1978,12 +2043,23 @@ export class PetitionsService {
 
     // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG helper với getList, nên số
     // trên thẻ và số dòng dưới bảng không thể lọc lệch nhau.
-    noiVaoWhere(where as Record<string, unknown>, dieuKienTimKiemDonThu(query));
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      dieuKienTimKiemDonThu(query, await this.canLuiCotGoc()),
+    );
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
     const kyThongKe = await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay });
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDate, toDate, 'ngayDeXuat');
+    apDungKyVaoWhere(
+      where as Record<string, unknown>,
+      coTheNgayDonThu(query.tk)
+        ? { ...kyThongKe, tuNgay: null, denNgay: null }
+        : kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
 
     if (overdue) {
       where.deadline = { lt: new Date() };
@@ -2081,13 +2157,15 @@ export class PetitionsService {
   ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
     if (!q?.trim()) return [];
 
-    const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    // Rà trùng dùng CÙNG luật bỏ dấu với ô tìm — gõ không dấu vẫn thấy đơn trùng. Cắt còn 200
-    // ký tự vì ô này nhận chữ đang gõ, không để quá giới hạn thành lỗi 400.
-    noiVaoWhere(
-      where as Record<string, unknown>,
-      dieuKienTimKiemDonThu({ search: q.slice(0, 200) }),
-    );
+    // GIỮ ĐÚNG ba cột cũ. Endpoint này chưa lọc phạm vi dữ liệu (`_dataScope` bỏ trống — rà trùng
+    // toàn đơn vị là chủ ý hay không là quyết định nghiệp vụ, chưa đổi ở đây); đưa nó qua thẻ "tất
+    // cả các cột" sẽ mở rộng thứ dò được sang nội dung đơn và đối tượng bị tố của tổ khác.
+    // Chỉ thêm thoát `%`/`_`: Prisma `contains` không tự thoát.
+    const chua = { contains: thoatLike(q), mode: 'insensitive' as const };
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      OR: [{ senderName: chua }, { stt: chua }, { summary: chua }],
+    };
 
     if (excludeId) {
       where.id = { not: excludeId };
