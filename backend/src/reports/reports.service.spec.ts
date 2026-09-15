@@ -180,6 +180,36 @@ describe('ReportsService', () => {
       expect(result.data).toHaveLength(2);
     });
 
+    /**
+     * [sau codex M6] `recordType` so CHỮ THƯỜNG: client gửi mã kiểu enum (`CASE`) thì mọi nhánh bị bỏ
+     * qua → danh sách rỗng mà trông như "không có hồ sơ trễ hạn". Màn hiện gửi chữ thường nên chưa lộ.
+     */
+    it('recordType không phân biệt hoa thường (CASE ≡ case)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5)]);
+      const ra = await service.getOverdue(undefined, 'CASE');
+      expect(ra.data).toHaveLength(1);
+      expect(mockPrisma.incident.findMany).not.toHaveBeenCalled();
+    });
+
+    /**
+     * [sau codex M6] `priority` nhận ở DTO + controller nhưng KHÔNG lọc: `/reports/overdue?priority=critical`
+     * trả cả medium/high. Màn đang lọc lại phía trình duyệt nên người dùng chưa thấy, nhưng ai gọi API
+     * (hoặc xuất dữ liệu) thì nhận sai.
+     */
+    it('lọc theo priority ở MÁY CHỦ (critical bỏ medium/high)', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        makeOverdueCase(40), // critical (>30 ngày)
+        makeOverdueCase(20), // high
+        makeOverdueCase(3), // medium
+      ]);
+      const ra = await service.getOverdue(undefined, undefined, 'critical');
+      const muc = (ra.data as Array<{ priority: string }>).map(
+        (r) => r.priority,
+      );
+      expect(muc).toEqual(['critical']);
+      expect(ra.total).toBe(1);
+    });
+
     it('filters by recordType=case (skips incidents and petitions)', async () => {
       mockPrisma.case.findMany.mockResolvedValue([makeOverdueCase(5)]);
       await service.getOverdue(undefined, 'case');

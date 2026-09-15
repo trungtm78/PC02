@@ -610,6 +610,10 @@ export class ReportsService {
     // khai ấy (cột bóng riêng). Trước đây ba khối OR chép tay, `contains` thường, vụ việc còn so
     // `unitId` (một ID) như chữ.
     kiemTheChung(tk, KHAI_HO_SO_TRE_HAN);
+    // So chữ thường: client gửi mã kiểu enum (`CASE`) thì mọi nhánh bị bỏ qua → danh sách rỗng mà
+    // trông như "không có hồ sơ trễ hạn".
+    const loai = recordType?.trim().toLowerCase();
+    const mucUuTien = priority?.trim().toLowerCase();
     const thamSoTim = { search, tk };
     const [timVuAn, timVuViec, timDonThu] = await Promise.all([
       this.timKiemVuAn.dieuKien(thamSoTim),
@@ -618,7 +622,7 @@ export class ReportsService {
     ]);
 
     const overdueCases =
-      recordType && recordType !== 'case'
+      loai && loai !== 'case'
         ? []
         : await this.prisma.case.findMany({
             where: {
@@ -649,7 +653,7 @@ export class ReportsService {
           });
 
     const overdueIncidents =
-      recordType && recordType !== 'incident'
+      loai && loai !== 'incident'
         ? []
         : await this.prisma.incident.findMany({
             where: {
@@ -679,7 +683,7 @@ export class ReportsService {
           });
 
     const overduePetitions =
-      recordType && recordType !== 'petition'
+      loai && loai !== 'petition'
         ? []
         : await this.prisma.petition.findMany({
             where: {
@@ -743,6 +747,13 @@ export class ReportsService {
     // Filter by minDaysOverdue
     if (minDaysOverdue && minDaysOverdue > 0) {
       records = records.filter((r) => r.daysOverdue >= minDaysOverdue);
+    }
+
+    // Mức ưu tiên là giá trị SUY RA khi dựng bản ghi (theo số ngày trễ) nên lọc ở đây, không lọc được
+    // trong câu hỏi CSDL. Trước đây tham số này nhận rồi bỏ qua: gọi API với `priority=critical` vẫn
+    // trả cả medium/high (màn lọc lại phía trình duyệt nên chỉ ai gọi API mới thấy sai).
+    if (mucUuTien) {
+      records = records.filter((r) => r.priority === mucUuTien);
     }
 
     // Sort by daysOverdue descending
