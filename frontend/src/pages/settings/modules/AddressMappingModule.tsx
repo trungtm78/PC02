@@ -3,6 +3,17 @@ import { MapPin, Plus, Edit2, Trash2, RefreshCw, Search, X, Save, Loader2, Alert
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { usePermission } from '@/hooks/usePermission';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { TIM_KIEM_ANH_XA_DIA_CHI } from '@/shared/tim-kiem/generated';
+
+/** Mã thẻ Trạng thái — đúng bảng `giaTriCot` của khai anh-xa-dia-chi (máy chủ đổi sang needsReview). */
+const GIA_TRI_CHON_ANH_XA = {
+  canXemLai: [
+    { value: 'review', label: 'Cần review' },
+    { value: 'ok', label: 'Đã xác nhận' },
+  ],
+};
 
 interface AddressMapping {
   id: string;
@@ -62,6 +73,22 @@ export function AddressMappingModule() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterReview, setFilterReview] = useState<'all' | 'needs_review'>('all');
+  /**
+   * Lỗi tải danh sách. Trước đây `catch` chỉ dọn bảng → lượt hỏi hỏng hiện "Không có dữ liệu", một
+   * khẳng định về thứ chưa hỏi được máy chủ (nay càng dễ gặp: thẻ khoá lạ là 400).
+   */
+  const [loiTai, setLoiTai] = useState('');
+
+  // Ô tìm dạng thẻ — tìm ở MÁY CHỦ (bỏ dấu, chọn cột). Thẻ trên URL `addressMappings_tk`. Cờ tắt → ô chữ cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'addressMappings',
+    khai: TIM_KIEM_ANH_XA_DIA_CHI,
+    giaTriChon: GIA_TRI_CHON_ANH_XA,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
   const [stats, setStats] = useState<{ total: number; needsReview: number; active: number } | null>(null);
 
   const [showModal, setShowModal] = useState(false);
@@ -76,16 +103,26 @@ export function AddressMappingModule() {
 
   const loadItems = useCallback(async () => {
     setLoading(true);
+    setLoiTai('');
     try {
       const params = new URLSearchParams({ limit: '100', offset: '0' });
-      if (search) params.set('search', search);
+      // Cờ bật → chỉ gửi thẻ: `search` cũng quy về thẻ "*" ở máy chủ, gửi kèm là lọc hai lần.
+      if (theBat) {
+        for (const t of JSON.parse(tkKey) as string[]) params.append('tk', t);
+      } else if (search) {
+        params.set('search', search);
+      }
       if (filterReview === 'needs_review') params.set('needsReview', 'true');
       const res = await api.get(`/address-mappings?${params}`);
       setItems(res.data.data ?? []);
       setTotal(res.data.total ?? 0);
-    } catch { setItems([]); }
+    } catch (e) {
+      setItems([]);
+      setTotal(0);
+      setLoiTai(extractApiError(e, 'Không tải được ánh xạ địa chỉ.').messages.join(', '));
+    }
     finally { setLoading(false); }
-  }, [search, filterReview]);
+  }, [search, filterReview, theBat, tkKey]);
 
   useEffect(() => { void loadItems(); }, [loadItems]);
 
@@ -301,12 +338,27 @@ export function AddressMappingModule() {
 
       {/* Filter */}
       <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Tìm phường/xã, quận/huyện..."
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#003973]" />
-        </div>
+        {theBat ? (
+          <div className="flex-1">
+            <OTimKiemThe
+              the={timKiem.the}
+              truong={TIM_KIEM_ANH_XA_DIA_CHI}
+              khai={TIM_KIEM_ANH_XA_DIA_CHI}
+              giaTriChon={GIA_TRI_CHON_ANH_XA}
+              onThem={timKiem.them}
+              onBoThe={timKiem.boThe}
+              onBoGiaTri={timKiem.boGiaTri}
+              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+            />
+          </div>
+        ) : (
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Tìm phường/xã, quận/huyện..."
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#003973]" />
+          </div>
+        )}
         <select value={filterReview} onChange={e => setFilterReview(e.target.value as 'all' | 'needs_review')}
           className="px-3 py-2 border border-slate-300 rounded-lg text-sm">
           <option value="all">Tất cả</option>
@@ -330,7 +382,25 @@ export function AddressMappingModule() {
               {loading ? (
                 <tr><td colSpan={7} className="py-8 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Đang tải...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={7} className="py-8 text-center text-slate-400">Không có dữ liệu</td></tr>
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-400" data-testid="address-mapping-empty">
+                    {loiTai ? (
+                      <span className="text-red-600">Chưa hỏi được máy chủ — {loiTai}</span>
+                    ) : theBat && timKiem.the.length > 0 ? (
+                      <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe
+                          the={timKiem.the}
+                          khai={TIM_KIEM_ANH_XA_DIA_CHI}
+                          giaTriChon={GIA_TRI_CHON_ANH_XA}
+                          onBoThe={timKiem.boThe}
+                        />
+                      </div>
+                    ) : (
+                      'Không có dữ liệu'
+                    )}
+                  </td>
+                </tr>
               ) : items.map(item => (
                 <tr
                   key={item.id}
