@@ -301,6 +301,21 @@ export default function TransferAndReturnPage() {
     return matchesQuickSearch && matchesType && matchesTeam && matchesStatus;
   });
 
+  // Thẻ đổi = bộ lọc mới: về trang 1. Giữ trang cũ thì trang 2 của một kết quả 1 dòng là bảng rỗng.
+  const khoaThe = JSON.stringify(timKiem.tkGui);
+  useEffect(() => { setCurrentPage(1); }, [khoaThe]);
+
+  // Lựa chọn chỉ gồm dòng ĐANG THẤY: nút Chuyển đội/Trả hồ sơ đọc từ allData, giữ id của dòng đã bị
+  // lọc ẩn là thao tác lên hồ sơ cán bộ không còn nhìn thấy.
+  const idsDangThay = filteredRecords.map((r) => r.id).join('|');
+  useEffect(() => {
+    const con = new Set(idsDangThay.split('|'));
+    setSelectedRecords((truoc) => {
+      const giu = truoc.filter((id) => con.has(id));
+      return giu.length === truoc.length ? truoc : giu;
+    });
+  }, [idsDangThay]);
+
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
   const displayedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
@@ -447,6 +462,11 @@ export default function TransferAndReturnPage() {
             </button>
             <button
               data-testid="refresh-btn"
+              onClick={() => {
+                timKiem.xoaHet();
+                setQuickSearch('');
+                setAdvancedFilters({ recordType: '', currentTeam: '', status: '', fromDate: '', toDate: '' });
+              }}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />

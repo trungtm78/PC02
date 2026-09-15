@@ -64,6 +64,12 @@ function tienToNgay(giaTri: string): string | null {
   return v;
 }
 
+/** So chứa (dưới 3 ký tự: đầu từ) — cột chữ, và mọi cột chữ/mã khi thẻ là `*` (như `tim_kiem_bd`). */
+function khopChuoi<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
+  const q = chuanHoa(giaTri);
+  return q !== '' && cacGiaTri(t, dong).some((x) => khopChu(x, q, q.length < DO_DAI_TIM_NOI_DUNG));
+}
+
 function khopMotGiaTri<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
   const o = cacGiaTri(t, dong);
   switch (t.kieu) {
@@ -75,13 +81,12 @@ function khopMotGiaTri<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
     }
     case 'ma':
     case 'ma-cu': {
+      // Máy chủ so thẻ mã ĐÚNG mã: so chứa thì `stt~5` ra cả dòng 15, 25, 50–59.
       const q = chuanHoa(giaTri);
-      return q !== '' && o.some((x) => khopChu(x, q, false));
+      return q !== '' && o.some((x) => chuanHoa(x) === q);
     }
-    default: {
-      const q = chuanHoa(giaTri);
-      return q !== '' && o.some((x) => khopChu(x, q, q.length < DO_DAI_TIM_NOI_DUNG));
-    }
+    default:
+      return khopChuoi(t, dong, giaTri);
   }
 }
 
@@ -96,7 +101,7 @@ export function locTheoThe<R>(
   const dieuKien = the.flatMap((th) => {
     if (th.khoa === KHOA_TAT_CA) {
       const cot = khai.filter(laCotTatCa);
-      return [(d: R) => th.giaTri.some((v) => cot.some((t) => khopMotGiaTri(t, d, v)))];
+      return [(d: R) => th.giaTri.some((v) => cot.some((t) => khopChuoi(t, d, v)))];
     }
     const t = khai.find((x) => x.key === th.khoa);
     return t ? [(d: R) => th.giaTri.some((v) => khopMotGiaTri(t, d, v))] : [];

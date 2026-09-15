@@ -197,12 +197,14 @@ export default function DuplicatePetitionsPage() {
     return colors[criterion] || "bg-slate-100 text-slate-700";
   };
 
+  // Thẻ thống kê đếm theo dòng ĐÃ ÁP THẺ — số trên thẻ phải khớp số dòng cán bộ đang lọc.
+  const dongTheoThe = timKiem.dongLoc;
   const statusCounts = {
-    total: allData.length,
-    pending: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.PENDING).length,
-    reviewing: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.REVIEWING).length,
-    merged: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.MERGED).length,
-    separated: allData.filter((d) => d.status === DUPLICATE_PETITION_STATUS.SPLIT).length,
+    total: dongTheoThe.length,
+    pending: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.PENDING).length,
+    reviewing: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.REVIEWING).length,
+    merged: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.MERGED).length,
+    separated: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.SPLIT).length,
   };
 
   const handleExport = useCallback(async () => {

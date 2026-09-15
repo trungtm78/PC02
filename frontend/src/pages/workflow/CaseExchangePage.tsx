@@ -195,6 +195,10 @@ export default function CaseExchangePage() {
     bat: theBat,
   });
 
+  // Thẻ đổi = bộ lọc mới: về trang 1. Giữ trang cũ thì trang 2 của một kết quả 1 dòng là bảng rỗng.
+  const khoaThe = JSON.stringify(timKiem.tkGui);
+  useEffect(() => { setCurrentPage(1); }, [khoaThe]);
+
   const filteredExchanges = timKiem.dongLoc.filter((exchange) => {
     if (theBat) return true;
     const q = quickSearch.toLowerCase();
@@ -273,7 +277,7 @@ export default function CaseExchangePage() {
               <Download className="w-4 h-4" />
               Xuất Excel
             </button>
-            <button data-testid="refresh-btn" onClick={() => fetchExchanges()} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button data-testid="refresh-btn" onClick={() => { timKiem.xoaHet(); fetchExchanges(); }} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>

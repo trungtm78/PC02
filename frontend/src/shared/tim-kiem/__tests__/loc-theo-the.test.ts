@@ -90,6 +90,28 @@ describe('locTheoThe — lọc phía trình duyệt cùng ngữ nghĩa máy ch�
     expect(ids([{ khoa: '*', giaTri: ['TIEP_NHAN'] }])).toEqual([]);
   });
 
+  /**
+   * Máy chủ so thẻ MÃ đúng mã (biến thể), không so chứa. Nhiều màn khai STT là số thứ tự 1..100:
+   * so chứa thì `stt~5` ra cả dòng 15, 25, 50–59. Thẻ `*` vẫn so chứa trên cột mã (như tim_kiem_bd).
+   */
+  it('mã: so đúng mã (không hoa thường), không so chứa; `*` vẫn so chứa', () => {
+    const khai: readonly TruongLoc<{ id: string; stt: number; ma: string }>[] = [
+      { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (x) => x.stt },
+      { key: 'ma', nhan: 'Mã', kieu: 'ma', lay: (x) => x.ma },
+    ];
+    const rows = [
+      { id: 'a', stt: 5, ma: 'DT-2026-00012' },
+      { id: 'b', stt: 15, ma: 'DT-2026-00125' },
+      { id: 'c', stt: 50, ma: 'VA-2026-00012' },
+    ];
+    const loc = (the: Parameters<typeof locTheoThe>[1]) =>
+      locTheoThe(rows, the, khai).map((r) => r.id);
+    expect(loc([{ khoa: 'stt', giaTri: ['5'] }])).toEqual(['a']);
+    expect(loc([{ khoa: 'ma', giaTri: ['dt-2026-00012'] }])).toEqual(['a']);
+    expect(loc([{ khoa: 'ma', giaTri: ['00012'] }])).toEqual([]);
+    expect(loc([{ khoa: '*', giaTri: ['00012'] }])).toEqual(['a', 'c']);
+  });
+
   it('cột nhiều giá trị (danh sách cán bộ): khớp bất kỳ phần tử nào', () => {
     expect(ids([{ khoa: 'canBo', giaTri: ['cuong'] }])).toEqual(['2']);
   });

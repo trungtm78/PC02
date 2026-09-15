@@ -236,12 +236,14 @@ export default function ProsecutorProposalPage() {
     }
   };
 
+  // Thẻ thống kê đếm theo dòng ĐÃ ÁP THẺ — số trên thẻ phải khớp số dòng cán bộ đang lọc.
+  const dongTheoThe = timKiem.dongLoc;
   const statusCounts = {
-    total: allProposals.length,
-    pending: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CHO_GUI).length,
-    sent: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_GUI).length,
-    responded: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CO_PHAN_HOI).length,
-    completed: allProposals.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_XU_LY).length,
+    total: dongTheoThe.length,
+    pending: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CHO_GUI).length,
+    sent: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_GUI).length,
+    responded: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CO_PHAN_HOI).length,
+    completed: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_XU_LY).length,
   };
 
   const handleExportExcel = useCallback(async () => {
@@ -411,7 +413,11 @@ export default function ProsecutorProposalPage() {
               {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
             </button>
             <button
-              onClick={() => setFilters({ status: "", fromDate: "", toDate: "", unit: "" })}
+              data-testid="reset-filters-btn"
+              onClick={() => {
+                timKiem.xoaHet();
+                setFilters({ status: "", fromDate: "", toDate: "", unit: "" });
+              }}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />

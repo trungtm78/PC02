@@ -140,6 +140,16 @@ BƯỚC TIẾP THEO: /review diff nhánh so với main; codex review; push + gh 
 - [x] M5-T5 — commit 88cd3b51: Trao đổi chuyên án, Ủy thác điều tra, Hướng dẫn đơn, Chuyển đội/Trả hồ sơ (Trạng thái Chuyển đội tìm theo NHÃN — mã khác nhau theo loại; 2 màn trước không có dòng rỗng nay có). 16 ca mới.
 - [x] M5-T6 — commit ad97b2b7: Hồ sơ mới tiếp nhận, Đơn trùng, Kiến nghị VKS, Phân loại danh mục; ca tải hỏng Kiến nghị VKS dựng trong router (màn nay giữ thẻ trên URL). 16 ca mới, 3 tệp kiểm cũ xanh.
 - [x] Bộ FE đầy đủ lần 1 ĐỎ 2 ca — cổng CÓ SẴN `congSoLieuKhiTaiHong` bắt đúng: dòng rỗng "Không tìm thấy với:" mới thêm ở Trao đổi chuyên án + Chuyển đội chỉ xét `coThe`, tải HỎNG mà còn thẻ thì vừa báo lỗi vừa khẳng định "không tìm thấy". Vá `!loadError &&` như 3 màn còn lại; cổng + cụm B 108 ca xanh.
+- [x] M5 PR #379 mở; CI 3/3 xanh trên eb161511 (chưa merge — còn sửa review).
+- [x] M5 /review (subagent soát độc lập) + Codex (lượt đầu mất mạng DNS tạm thời, tự nối lại) — gộp 6 lớp lỗi thật, ĐÃ SỬA:
+  - Thẻ MÃ so chứa (`stt~5` ra dòng 15, 25, 50–59) → so ĐÚNG mã như máy chủ; `*` vẫn so chứa trên cột mã (như tim_kiem_bd). TDD đỏ → xanh.
+  - Trao đổi chuyên án + Chuyển đội: thẻ đổi không về trang 1 (trang 2 của kết quả 1 dòng = bảng rỗng giả) → về trang 1 khi thẻ đổi. TDD.
+  - Chuyển đội: lựa chọn giữ id dòng đã bị thẻ ẩn, nút Chuyển đội/Trả hồ sơ thao tác lên hồ sơ không còn thấy → bỏ khỏi lựa chọn mọi id không còn trong kết quả lọc. TDD.
+  - Kiến nghị VKS + Đơn trùng: thẻ thống kê đếm allData → đếm dòng đã áp thẻ (số thẻ khớp số dòng, như M3/M4). Kiến nghị TDD; Đơn trùng: ca kiểm viết SAU khi đã sửa (lệch thứ tự TDD — ghi nhận).
+  - Nút làm mới: Kiến nghị VKS (thêm testid reset-filters-btn), Trao đổi chuyên án, Chuyển đội (nút trước KHÔNG có onClick) nay xoá thẻ. TDD.
+  - Cổng M5 hai kẽ hở: không kiểm bảng lọc từ `timKiem.dongLoc.filter(`; điều kiện cờ xét trên CẢ tệp → xét TỪNG chỗ so chữ ô cũ (8 dòng trước). Gieo lỗi mới cho cả hai.
+  - Không sửa (P3): "Thời gian khởi tạo" Trao đổi hiện cả giờ, thẻ ngày so ngày — đúng kiểu ngày.
+  - 8 tệp liên quan 193 ca xanh; tsc -b sạch; lint dòng mới 0.
 - [ ] M5-T7 — cổng `locTheoTheManTrinhDuyet.gate.test.ts` (12 màn dùng hook + ô thẻ; ô chữ cũ chỉ lọc khi cờ tắt; tiền tố không trùng; gieo lỗi) → bộ đầy đủ → /review + /codex → PR → CI → merge → deploy (chỉ giao diện, không migration).
 - Review — CÓ LÝ DO KHÔNG SỬA / BÁO NHẦM:
   - Codex P1 "chuỗi không đóng dieu-kien-doi-tuong.spec.ts:48" = BÁO NHẦM (PowerShell đọc UTF-8 vỡ chữ; bộ 340 xanh).
