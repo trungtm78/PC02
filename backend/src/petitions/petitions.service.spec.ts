@@ -2069,6 +2069,25 @@ describe('PetitionsService', () => {
       );
     });
 
+    /**
+     * `?q=%` từng khớp MỌI đơn (Prisma `contains` không thoát ký tự LIKE) và endpoint bỏ qua phạm
+     * vi: cán bộ tổ nào cũng liệt kê được họ tên, số giấy tờ, tội danh của tổ khác (Codex 15/09).
+     */
+    it('V-S4: thoát ký tự LIKE và áp phạm vi dữ liệu', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.suspectSearch('50%_', {
+        teamIds: ['team-1'],
+        userIds: ['u1'],
+        writableTeamIds: ['team-1'],
+      });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.OR[0].senderName.contains).toBe('50\\%\\_');
+      expect(where.OR[1].senderIdNumber.contains).toBe('50\\%\\_');
+      expect(JSON.stringify(where.AND)).toContain('team-1');
+    });
+
     it('V-S2: returns empty array for blank query', async () => {
       const result = await service.suspectSearch('', null);
       expect(result).toEqual([]);
@@ -2137,6 +2156,21 @@ describe('PetitionsService', () => {
 
       const call = mockPrisma.petition.findMany.mock.calls[0][0];
       expect(JSON.stringify(call.where)).toContain('pet-current');
+    });
+
+    /** Rà trùng chỉ trên hồ sơ trong phạm vi dữ liệu của cán bộ — như mọi đường đọc Đơn thư. */
+    it('V-D5: áp phạm vi dữ liệu khi có scope', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([]);
+
+      await service.duplicateSearch('Lê Văn C', undefined, {
+        teamIds: ['team-1'],
+        userIds: ['u1'],
+        writableTeamIds: ['team-1'],
+      });
+
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(JSON.stringify(where.AND)).toContain('team-1');
+      expect(where.OR).toHaveLength(3);
     });
 
     it('V-D3: returns empty array for blank query', async () => {

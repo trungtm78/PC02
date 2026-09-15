@@ -2128,18 +2128,22 @@ export class PetitionsService {
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
   async suspectSearch(
     q: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
     if (!q?.trim()) return [];
 
+    // Thoát `%`/`_` (Prisma `contains` không tự thoát — `?q=%` từng khớp mọi đơn) và áp phạm vi
+    // dữ liệu như mọi đường đọc Đơn thư: kết quả có số giấy tờ và tội danh.
+    const chua = { contains: thoatLike(q), mode: 'insensitive' as const };
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      OR: [{ senderName: chua }, { senderIdNumber: chua }],
+    };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+
     const petitions = await this.prisma.petition.findMany({
-      where: {
-        deletedAt: null,
-        OR: [
-          { senderName: { contains: q, mode: 'insensitive' } },
-          { senderIdNumber: { contains: q, mode: 'insensitive' } },
-        ],
-      },
+      where,
       select: {
         id: true,
         stt: true,
@@ -2171,19 +2175,20 @@ export class PetitionsService {
   async duplicateSearch(
     q: string,
     excludeId?: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
     if (!q?.trim()) return [];
 
-    // GIỮ ĐÚNG ba cột cũ. Endpoint này chưa lọc phạm vi dữ liệu (`_dataScope` bỏ trống — rà trùng
-    // toàn đơn vị là chủ ý hay không là quyết định nghiệp vụ, chưa đổi ở đây); đưa nó qua thẻ "tất
-    // cả các cột" sẽ mở rộng thứ dò được sang nội dung đơn và đối tượng bị tố của tổ khác.
-    // Chỉ thêm thoát `%`/`_`: Prisma `contains` không tự thoát.
+    // GIỮ ĐÚNG ba cột cũ: đưa qua thẻ "tất cả các cột" sẽ mở rộng thứ dò được sang nội dung đơn và
+    // đối tượng bị tố. Thoát `%`/`_` (Prisma `contains` không tự thoát) và áp phạm vi dữ liệu như
+    // mọi đường đọc Đơn thư — trước 15/09/2026 tham số phạm vi bị bỏ qua.
     const chua = { contains: thoatLike(q), mode: 'insensitive' as const };
     const where: Prisma.PetitionWhereInput = {
       deletedAt: null,
       OR: [{ senderName: chua }, { stt: chua }, { summary: chua }],
     };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
 
     if (excludeId) {
       where.id = { not: excludeId };
