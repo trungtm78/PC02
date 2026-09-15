@@ -16,6 +16,25 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LawyerListPageShell } from '../LawyerListPageShell';
+import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
+import type { FeatureFlag } from '@/lib/features/types';
+
+const CO_TAT_THE: FeatureFlag[] = [
+  {
+    key: 'TIM_KIEM_THE',
+    label: 'Tìm kiếm dạng thẻ',
+    description: null,
+    enabled: false,
+    domain: null,
+    rolloutPct: 100,
+  },
+];
+
+/** Tham số (đã giải mã) của lượt gọi CUỐI tới `/lawyers`. */
+function thamSoCuoi(): URLSearchParams {
+  const goi = mockApiGet.mock.calls.map((c) => (c as [string])[0]);
+  return new URLSearchParams((goi[goi.length - 1] ?? '').split('?')[1] ?? '');
+}
 
 // BulkActionBar wraps "Đã chọn N luật sư" in role="status" + aria-live="polite".
 // Use that to find the bar deterministically, then check its textContent.
@@ -90,18 +109,21 @@ function setupHappyFetch(lawyers = SAMPLE_LAWYERS) {
   });
 }
 
-function renderShell(initialEntry = '/lawyers') {
+function renderShell(initialEntry = '/lawyers', flags?: FeatureFlag[]) {
   // Trang nay dung `useBoCucCot` (bo cuc cot luu theo tai khoan) nen can react-query, giong
   // moi trang danh sach khac. `retry: false` de loi mang gia lap khong keo dai ca kiem.
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const trang = (
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/lawyers" element={<LawyerListPageShell />} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+  );
+  return render(
+    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
 }
 
@@ -365,8 +387,14 @@ describe('LawyerListPageShell — search + URL state', () => {
     setupHappyFetch();
   });
 
-  it('lawyers_q in URL → passed as search param to API', async () => {
+  it('lawyers_q cũ trong URL → thẻ "*" gửi `tk`, không gửi `search`', async () => {
     renderShell('/lawyers?lawyers_q=Nguyen');
+    await waitFor(() => expect(thamSoCuoi().getAll('tk')).toEqual(['*~Nguyen']));
+    expect(thamSoCuoi().get('search')).toBeNull();
+  });
+
+  it('cờ tắt: lawyers_q → passed as search param to API', async () => {
+    renderShell('/lawyers?lawyers_q=Nguyen', CO_TAT_THE);
     await waitFor(() => {
       const url = mockApiGet.mock.calls[0][0] as string;
       expect(url).toContain('search=Nguyen');
@@ -381,12 +409,26 @@ describe('LawyerListPageShell — search + URL state', () => {
     });
   });
 
-  it('control chars in lawyers_q stripped', async () => {
+  it('control chars in lawyers_q stripped — cả khi thành thẻ', async () => {
     renderShell('/lawyers?lawyers_q=Nguy%09evil%0A');
-    await waitFor(() => {
-      const url = mockApiGet.mock.calls[0][0] as string;
-      expect(url).toContain('search=Nguyevil');
-    });
+    await waitFor(() => expect(thamSoCuoi().getAll('tk')).toEqual(['*~Nguyevil']));
+  });
+
+  it('gợi ý theo cột: có Bị can / Thân chủ và Số thẻ', async () => {
+    renderShell();
+    const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    fireEvent.change(o, { target: { value: 'abc' } });
+    const goiY = (await screen.findAllByRole('option')).map((x) => x.textContent ?? '');
+    expect(goiY).toContain('Tìm Bị can / Thân chủ: "abc"');
+    expect(goiY).toContain('Tìm Số thẻ: "abc"');
+  });
+
+  it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
+    mockApiGet.mockResolvedValue({ data: { data: [], total: 0 } });
+    renderShell('/lawyers?lawyers_tk=soThe~LS-999');
+    const vung = await screen.findByTestId('list-page-shell-table-empty-filtered');
+    expect(vung).toHaveTextContent('Không tìm thấy với');
+    expect(within(vung).getByRole('button', { name: 'Bỏ thẻ Số thẻ' })).toBeInTheDocument();
   });
 
   // /codex P2 fix #1: case column renders case.name (API doesn't return caseCode)
@@ -440,11 +482,12 @@ describe('LawyerListPageShell — bulk selection clears on URL change (Codex P2)
     fireEvent.click(screen.getByRole('checkbox', { name: /Chọn luật sư Nguyễn Văn A/i }));
     await findBulkBarWithCount(1);
 
-    // Typing in search updates URL via setParams which triggers page=1 + q=value
-    const searchInput = screen.getByRole('searchbox');
-    fireEvent.change(searchInput, { target: { value: 'someone' } });
+    // Thêm thẻ ghi URL (`lawyers_tk`, bỏ `lawyers_page`) → bộ lọc đổi → bỏ chọn.
+    const o = screen.getByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
+    fireEvent.change(o, { target: { value: 'someone' } });
+    fireEvent.keyDown(o, { key: 'Enter' });
 
-    // searchQuery (URL-derived) changes → effect clears selection
+    // Thẻ (URL) đổi → effect clears selection
     await waitFor(() => {
       expect(queryBulkBarWithCount(1)).toBeNull();
     });

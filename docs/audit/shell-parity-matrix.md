@@ -577,6 +577,23 @@ All ❌ missing trong shell.
 
 ---
 
+## Ô tìm kiếm dạng thẻ — Đối tượng + Luật sư (M4, 15/09/2026)
+
+Cùng hành vi với Đơn thư / Vụ việc / Vụ án (xem các mục trên). Khai máy chủ
+`backend/src/common/tim-kiem/khai/doi-tuong.khai.ts` và `luat-su.khai.ts`.
+
+| Hành vi | Đối tượng (`ObjectListPageShell`) | Luật sư (`LawyerListPageShell`) |
+|---|---|---|
+| Ô thẻ thay ô chữ `q` | ✅ tiền tố theo loại: `objects_tk` · `victims_tk` · `witnesses_tk`; vẫn gửi `type` | ✅ `lawyers_tk` |
+| Tham số cũ → thẻ | `<tiền tố>_q` → `*` | `lawyers_q` → `*` |
+| Cột mang thẻ | Họ tên · CCCD · Vụ án (quan hệ `case: { is }`) · Trạng thái (mã) · Ngày tạo | Họ tên · Số thẻ · Văn phòng · Vụ án · Bị can / Thân chủ (quan hệ `subject: { is }`) · SĐT · Ngày tạo |
+| Thẻ "tất cả các cột" | họ tên, CCCD, địa chỉ, SĐT (như ô tìm cũ) | họ tên, số thẻ, văn phòng, SĐT (như ô tìm cũ) |
+| Phạm vi dữ liệu | [P0] máy chủ nối phạm vi vào AND — không còn gán `where.case` (thẻ Vụ án cùng quan hệ không đè được) | ← |
+| Ký tự điều khiển trong URL | lọc ở `the.ts` (thẻ lẫn tham số cũ) — giữ ranh giới tin cậy của `sanitizeStringParam` | ← |
+| Không kết quả | "Không tìm thấy với" + bỏ từng thẻ | ← |
+| Cổng cột ↔ khai | `pages/__tests__/timKiemCotKhai.gate.test.ts` | ← |
+| Công tắc khẩn | cờ `TIM_KIEM_THE` tắt → ô chữ `q` → `search` | ← |
+
 ## Cross-cutting v0.61 baselines (must NOT regress)
 
 | Feature | testid pattern | Verify still works after PR1b |

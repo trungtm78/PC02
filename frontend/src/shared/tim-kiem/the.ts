@@ -28,7 +28,13 @@ export interface The {
 export const khoaUrlThe = (prefix: string) => `${prefix}_tk`;
 
 function napVao(the: The[], khoa: string, giaTriTho: string): The[] {
-  const giaTri = giaTriTho.trim().slice(0, DO_DAI_GIA_TRI_TOI_DA);
+  // Bỏ ký tự điều khiển (tab, xuống dòng, NUL…) — ranh giới tin cậy cho đường dẫn sửa tay, như
+  // `sanitizeStringParam` của ô tìm cũ. Một chỗ cho mọi màn, cả `_tk` lẫn tham số cũ lẫn ô thẻ.
+  const giaTri = giaTriTho
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim()
+    .slice(0, DO_DAI_GIA_TRI_TOI_DA);
   if (!khoa || !giaTri) return the;
   const i = the.findIndex((t) => t.khoa === khoa);
   if (i < 0) return [...the, { khoa, giaTri: [giaTri] }];

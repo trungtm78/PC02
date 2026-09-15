@@ -32,7 +32,14 @@ import {
   getVietnameseErrorMessage,
   sanitizeStringParam,
   LIST_PAGE_SIZE,
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  truongGoiY,
 } from '@/components/shared/ListPageShell';
+import { TIM_KIEM_LUAT_SU } from '@/shared/tim-kiem/generated';
+import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildLawyersAdapter } from '@/features/_shared/bulk/adapters/lawyers';
@@ -55,11 +62,24 @@ interface Lawyer {
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
 
+/** Tham số trước thời thẻ → khoá thẻ: đường dẫn cũ `lawyers_q=` mở ra thẻ "tất cả các cột". */
+const THAM_SO_CU_LUAT_SU = { q: KHOA_TAT_CA } as const;
+
 export function LawyerListPageShell() {
   const url = useListPageUrlState('lawyers');
 
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = sanitizeStringParam(url.getParam('q'));
+  // Ô tìm kiếm dạng thẻ. Cờ `TIM_KIEM_THE` tắt → trở lại ô chữ `q` → `search` như trước.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'lawyers',
+    khai: TIM_KIEM_LUAT_SU,
+    thamSoCu: THAM_SO_CU_LUAT_SU,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi (cả khi chỉ đổi trang).
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -87,7 +107,11 @@ export function LawyerListPageShell() {
     const params = new URLSearchParams();
     params.set('offset', String((page - 1) * PAGE_SIZE));
     params.set('limit', String(PAGE_SIZE));
-    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) params.append('tk', v);
+    } else if (debouncedSearch) {
+      params.set('search', debouncedSearch);
+    }
 
     api
       .get<{ data: Lawyer[]; total: number }>(`/lawyers?${params.toString()}`, {
@@ -100,7 +124,8 @@ export function LawyerListPageShell() {
         setRows(data);
         setTotalCount(total);
         if (total === 0) {
-          setTableState(debouncedSearch ? 'empty-filtered' : 'empty');
+          const coTimKiem = theBat ? tkKey !== '[]' : !!debouncedSearch;
+          setTableState(coTimKiem ? 'empty-filtered' : 'empty');
         } else {
           setTableState('ready');
         }
@@ -110,7 +135,7 @@ export function LawyerListPageShell() {
         setError(getVietnameseErrorMessage(e, 'luật sư'));
         setTableState('error');
       });
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, theBat, tkKey]);
 
   useEffect(() => {
     fetchList();
@@ -140,7 +165,7 @@ export function LawyerListPageShell() {
   selectionClearRef.current = selection.clear;
   useEffect(() => {
     selectionClearRef.current();
-  }, [page, searchQuery]);
+  }, [page, searchQuery, tkKey]);
 
   const adapter = useMemo(
     () => buildLawyersAdapter({ enableDelete: true, enableExport: true }),
@@ -153,26 +178,26 @@ export function LawyerListPageShell() {
    */
   const columns: ColumnDef<Lawyer>[] = useMemo(
     () => [
-      { key: 'fullName', header: 'Họ tên', width: '14rem', optional: 'show',
+      { key: 'fullName', header: 'Họ tên', timKiem: 'hoTen', width: '14rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm font-medium text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.fullName },
-      { key: 'barNumber', header: 'Số thẻ', width: '9rem', optional: 'show',
+      { key: 'barNumber', header: 'Số thẻ', timKiem: 'soThe', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-xs font-mono text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.barNumber },
-      { key: 'lawFirm', header: 'Văn phòng', width: '14rem', optional: 'show',
+      { key: 'lawFirm', header: 'Văn phòng', timKiem: 'vanPhong', width: '14rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.lawFirm ?? '—' },
       // API luật sư trả `case.{id,name,status}` — KHÔNG có `caseCode`. Codex đã sửa ở PR4.
-      { key: 'case', header: 'Vụ án', width: '18rem', optional: 'show',
+      { key: 'case', header: 'Vụ án', timKiem: 'vuAn', width: '18rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.case?.name ?? '—' },
-      { key: 'subject', header: 'Bị can / Thân chủ', width: '13rem', optional: 'show',
+      { key: 'subject', header: 'Bị can / Thân chủ', timKiem: 'thanChu', width: '13rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.subject?.fullName ?? '—' },
-      { key: 'phone', header: 'SĐT', width: '9rem', optional: 'show',
+      { key: 'phone', header: 'SĐT', timKiem: 'sdt', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.phone ?? '—' },
-      { key: 'createdAt', header: 'Ngày tạo', width: '9rem', optional: 'show',
+      { key: 'createdAt', header: 'Ngày tạo', timKiem: 'ngayTao', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => formatVNDate(r.createdAt) },
     ],
@@ -190,6 +215,11 @@ export function LawyerListPageShell() {
     doiCho,
     datLai,
   } = useBoCucCot('lawyers', columns);
+  // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
+  const truongTimKiem = useMemo(
+    () => truongGoiY(visibleColumns, TIM_KIEM_LUAT_SU),
+    [visibleColumns],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -211,7 +241,7 @@ export function LawyerListPageShell() {
     url.clearAll();
   }, [url]);
 
-  const activeFilterCount = searchQuery ? 1 : 0;
+  const activeFilterCount = theBat ? timKiem.the.length : searchQuery ? 1 : 0;
 
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<Lawyer>) => {
@@ -259,6 +289,19 @@ export function LawyerListPageShell() {
         <ListPageShell.Toolbar
           searchValue={searchQuery}
           onSearchChange={handleSearchChange}
+          searchSlot={
+            theBat ? (
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={truongTimKiem}
+                khai={TIM_KIEM_LUAT_SU}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            ) : undefined
+          }
           searchPlaceholder="Tìm theo họ tên, số thẻ luật sư, văn phòng..."
           activeFilterCount={activeFilterCount}
           onResetFilters={handleResetFilters}
@@ -321,7 +364,20 @@ export function LawyerListPageShell() {
             title: 'Chưa có luật sư nào',
             description: 'Thêm luật sư qua màn hình vụ án.',
           }}
-          emptyFilteredState={{ onClearFilters: handleResetFilters }}
+          emptyFilteredState={{
+            onClearFilters: handleResetFilters,
+            chiTiet:
+              timKiem.the.length > 0 ? (
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                  <span>Không tìm thấy với:</span>
+                  <DanhSachThe
+                    the={timKiem.the}
+                    khai={TIM_KIEM_LUAT_SU}
+                    onBoThe={timKiem.boThe}
+                  />
+                </div>
+              ) : undefined,
+          }}
         />
 
         <ListPageShell.Pagination

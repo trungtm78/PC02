@@ -35,7 +35,14 @@ import {
   type TableState,
   getVietnameseErrorMessage,
   sanitizeStringParam,
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  truongGoiY,
 } from '@/components/shared/ListPageShell';
+import { TIM_KIEM_DOI_TUONG } from '@/shared/tim-kiem/generated';
+import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
+import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildSubjectsAdapter } from '@/features/_shared/bulk/adapters/subjects';
@@ -115,6 +122,17 @@ const SUBJECT_STATUS_CHIPS: ReadonlyArray<{
   label: SUBJECT_STATUS_LABEL[s],
 }));
 
+/** Tham số trước thời thẻ → khoá thẻ: đường dẫn cũ `<tiền tố>_q=` mở ra thẻ "tất cả các cột". */
+const THAM_SO_CU_DOI_TUONG = { q: KHOA_TAT_CA } as const;
+
+/** Cột "Trạng thái" tìm theo MÃ; nhãn lấy từ đúng bảng nhãn mà cột trên bảng dùng. */
+const GIA_TRI_CHON_DOI_TUONG = {
+  trangThai: (Object.keys(SUBJECT_STATUS_LABEL) as SubjectStatus[]).map((v) => ({
+    value: v,
+    label: SUBJECT_STATUS_LABEL[v],
+  })),
+};
+
 const PAGE_SIZE = 20;
 
 interface Props {
@@ -129,6 +147,16 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
   const statusFilter = isValidSubjectStatus(rawStatus) ? rawStatus : null;
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = sanitizeStringParam(url.getParam('q'));
+  // Ô tìm kiếm dạng thẻ — mỗi loại đối tượng một tiền tố URL. Cờ `TIM_KIEM_THE` tắt → ô chữ `q` cũ.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: cfg.urlPrefix,
+    khai: TIM_KIEM_DOI_TUONG,
+    thamSoCu: THAM_SO_CU_DOI_TUONG,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi (cả khi chỉ đổi trang).
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
@@ -157,7 +185,11 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
     params.set('type', subjectType);
     params.set('limit', String(PAGE_SIZE));
     params.set('offset', String((page - 1) * PAGE_SIZE));
-    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) params.append('tk', v);
+    } else if (debouncedSearch) {
+      params.set('search', debouncedSearch);
+    }
     if (statusFilter) params.set('status', statusFilter);
 
     api
@@ -171,7 +203,8 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
         setRows(data);
         setTotalCount(total);
         if (total === 0) {
-          setTableState(debouncedSearch || statusFilter ? 'empty-filtered' : 'empty');
+          const coTimKiem = theBat ? tkKey !== '[]' : !!debouncedSearch;
+          setTableState(coTimKiem || statusFilter ? 'empty-filtered' : 'empty');
         } else {
           setTableState('ready');
         }
@@ -181,7 +214,7 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
         setError(getVietnameseErrorMessage(e, cfg.resourceLabel));
         setTableState('error');
       });
-  }, [subjectType, page, debouncedSearch, statusFilter, cfg.resourceLabel]);
+  }, [subjectType, page, debouncedSearch, statusFilter, cfg.resourceLabel, theBat, tkKey]);
 
   useEffect(() => {
     fetchList();
@@ -212,7 +245,7 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
   selectionClearRef.current = selection.clear;
   useEffect(() => {
     selectionClearRef.current();
-  }, [subjectType, page, searchQuery, statusFilter]);
+  }, [subjectType, page, searchQuery, statusFilter, tkKey]);
 
   const adapter = useMemo(
     () =>
@@ -247,24 +280,24 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
    */
   const columns: ColumnDef<Subject>[] = useMemo(
     () => [
-      { key: 'fullName', header: 'Họ tên', width: '16rem', optional: 'show',
+      { key: 'fullName', header: 'Họ tên', timKiem: 'hoTen', width: '16rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm font-medium text-slate-800 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.fullName },
-      { key: 'idNumber', header: 'CCCD', width: '10rem', optional: 'show',
+      { key: 'idNumber', header: 'CCCD', timKiem: 'cccd', width: '10rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-xs font-mono text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.idNumber ?? '—' },
       // Cột này hiện `case.name` chứ KHÔNG phải `caseCode` — Codex đã sửa ở PR4, giữ nguyên.
-      { key: 'case', header: 'Vụ án', width: '20rem', optional: 'show',
+      { key: 'case', header: 'Vụ án', timKiem: 'vuAn', width: '20rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-sm text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => r.case?.name ?? '—' },
-      { key: 'status', header: 'Trạng thái', width: '11rem', optional: 'show',
+      { key: 'status', header: 'Trạng thái', timKiem: 'trangThai', width: '11rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-xs whitespace-nowrap overflow-hidden',
         render: (r) => (
           <span className="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
             {SUBJECT_STATUS_LABEL[r.status] ?? r.status}
           </span>
         ) },
-      { key: 'createdAt', header: 'Ngày tạo', width: '9rem', optional: 'show',
+      { key: 'createdAt', header: 'Ngày tạo', timKiem: 'ngayTao', width: '9rem', optional: 'show',
         cellClassName: 'px-3 py-2 text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis',
         render: (r) => formatVNDate(r.createdAt) },
     ],
@@ -282,6 +315,11 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
     doiCho,
     datLai,
   } = useBoCucCot('objects', columns);
+  // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
+  const truongTimKiem = useMemo(
+    () => truongGoiY(visibleColumns, TIM_KIEM_DOI_TUONG),
+    [visibleColumns],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -310,7 +348,8 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
     url.clearAll();
   }, [url]);
 
-  const activeFilterCount = (statusFilter ? 1 : 0) + (searchQuery ? 1 : 0);
+  const activeFilterCount =
+    (statusFilter ? 1 : 0) + (theBat ? timKiem.the.length : searchQuery ? 1 : 0);
 
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<Subject>) => {
@@ -367,6 +406,20 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
         <ListPageShell.Toolbar
           searchValue={searchQuery}
           onSearchChange={handleSearchChange}
+          searchSlot={
+            theBat ? (
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={truongTimKiem}
+                khai={TIM_KIEM_DOI_TUONG}
+                giaTriChon={GIA_TRI_CHON_DOI_TUONG}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            ) : undefined
+          }
           searchPlaceholder={`Tìm theo họ tên, CCCD, địa chỉ...`}
           activeFilterCount={activeFilterCount}
           onResetFilters={handleResetFilters}
@@ -429,7 +482,21 @@ export function ObjectListPageShell({ subjectType = SubjectType.SUSPECT }: Props
             title: `Chưa có ${cfg.resourceLabel} nào`,
             description: `Thêm ${cfg.resourceLabel} qua màn hình vụ án.`,
           }}
-          emptyFilteredState={{ onClearFilters: handleResetFilters }}
+          emptyFilteredState={{
+            onClearFilters: handleResetFilters,
+            chiTiet:
+              timKiem.the.length > 0 ? (
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                  <span>Không tìm thấy với:</span>
+                  <DanhSachThe
+                    the={timKiem.the}
+                    khai={TIM_KIEM_DOI_TUONG}
+                    giaTriChon={GIA_TRI_CHON_DOI_TUONG}
+                    onBoThe={timKiem.boThe}
+                  />
+                </div>
+              ) : undefined,
+          }}
         />
 
         <ListPageShell.Pagination

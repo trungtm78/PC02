@@ -3,8 +3,12 @@ import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import uyThac from '../../features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx?raw';
+import doiTuong from '../objects/ObjectListPageShell.tsx?raw';
+import luatSu from '../lawyers/LawyerListPageShell.tsx?raw';
 import {
+  TIM_KIEM_DOI_TUONG,
   TIM_KIEM_DON_THU,
+  TIM_KIEM_LUAT_SU,
   TIM_KIEM_VU_AN,
   TIM_KIEM_VU_VIEC,
 } from '@/shared/tim-kiem/generated';
@@ -36,6 +40,9 @@ const THUC_THE = [
   ['Đơn thư', TIM_KIEM_DON_THU, [donThu]],
   ['Vụ việc', TIM_KIEM_VU_VIEC, [vuViec]],
   ['Vụ án + Ủy thác điều tra', TIM_KIEM_VU_AN, [vuAn, uyThac]],
+  // Ba loại đối tượng (bị can / bị hại / nhân chứng) dùng CHUNG một shell và một khai.
+  ['Đối tượng', TIM_KIEM_DOI_TUONG, [doiTuong]],
+  ['Luật sư', TIM_KIEM_LUAT_SU, [luatSu]],
 ] as const;
 
 const khaiCua = (khai: readonly { key: string }[]) => khai.map((t) => t.key);
