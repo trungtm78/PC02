@@ -264,10 +264,10 @@ Trước khi viết test case, em so sánh UTDT với 3 module list đã có (Ca
 | **Điều kiện tiên quyết** | 1. Đăng nhập Dispatcher<br>2. Có UTDT với nghiVanDoiTuong = "Trần Văn Bình" và hồ sơ khác không liên quan |
 | **Các bước kiểm thử** | 1. Mở `/uy-thac-dieu-tra`<br>2. Nhập "Trần Văn Bình" vào ô tìm kiếm<br>3. Dừng 500ms (debounce)<br>4. Quan sát kết quả |
 | **Dữ liệu kiểm thử** | Search query: "Trần Văn Bình" |
-| **Kết quả mong đợi** | 1. Chỉ hiển thị hồ sơ khớp với "Trần Văn Bình" trong `metadata.nghiVanDoiTuong`<br>2. URL: `?utdt_q=Tr%E1%BA%A7n+V%C4%83n+B%C3%ACnh`<br>3. API chỉ gọi 1 lần sau 300ms debounce (không gọi mỗi keystroke)<br>4. Khi xóa search → trở về toàn bộ danh sách |
+| **Kết quả mong đợi** | 1. Chỉ hiển thị hồ sơ khớp "Trần Văn Bình" ở cột typed `nghiVanDoiTuong` (từ M6 đọc CỘT, không đọc `metadata`)<br>2. URL: `?utdt_q=…` (đường dẫn cũ vẫn mở được — máy chủ quy `utdt_q` về thẻ "tất cả các cột"); cờ `TIM_KIEM_THE` bật thì ô thẻ ghi `?cases_tk=*~Trần Văn Bình`<br>3. Gõ KHÔNG DẤU ("tran van binh") cũng phải ra hồ sơ ấy — máy chủ so trên cột bóng bỏ dấu<br>4. API chỉ gọi 1 lần sau 300ms debounce (không gọi mỗi keystroke)<br>5. Khi xóa search → trở về toàn bộ danh sách |
 | **Kết quả thực tế** | _(QA điền)_ |
 | **Trạng thái** | _(Đạt / Không đạt / Bị chặn)_ |
-| **Ghi chú** | Search fields: name, crime, unit, donViGiao, soQuyetDinhUyThac, metadata.nghiVanDoiTuong |
+| **Ghi chú** | Cột tìm được (khai `vu-an`, từ M6): stt/caseCode · sttCu · nguonDon · tenCungCap · moTaChiTiet · donViGiaiQuyet · ketQuaXuLyKhac · donViGiao · soQuyetDinhUyThac · **nghiVanDoiTuong (cột typed)** · crime · name (qua thẻ "*"). KHÔNG còn tìm `unit` (đo prod: rỗng ở 100% vụ án) và KHÔNG đọc `metadata` nữa |
 
 ---
 

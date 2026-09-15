@@ -124,9 +124,9 @@ PASS bằng bằng chứng đi qua giao diện hoặc HTTP trên máy thật —
 
 | # | Mệnh đề | Tầng bằng chứng | Trạng thái |
 |---|---|---|---|
-| M6-18 | Nạp cột bóng prod xong, chạy thử lại còn 0 dòng lệch (mọi bảng M6) | CLI trên prod | CHƯA CHẠY |
-| M6-19 | Kiểm vàng bỏ dấu (chuỗi thật) lệch 0 giữa JS và SQL | CLI trên prod | CHƯA CHẠY |
-| M6-20 | EXPLAIN các truy vấn thẻ dùng chỉ mục GIN, không quét cả bảng | EXPLAIN trên prod | CHƯA CHẠY |
+| M6-18 | Nạp cột bóng prod xong, chạy thử lại còn 0 dòng lệch (mọi bảng M6) | CLI trên prod | PASS (16/09: nạp users 257 · incidents 4.855 · directories 15.913 · audit_logs 13.446 · address_mappings 1.086 · documents 10 → chạy thử lại 0 lệch cả 10 bảng) |
+| M6-19 | Kiểm vàng bỏ dấu (chuỗi thật) lệch 0 giữa JS và SQL | CLI trên prod | PASS (646 tổng hợp + 100.531 chuỗi thật, lệch 0, PG16.15) |
+| M6-20 | Truy vấn thẻ dùng được chỉ mục GIN (bảng lớn), chỉ mục có đủ ở mọi bảng | EXPLAIN + `pg_indexes` trên prod | PASS (Danh mục 0,64 ms qua GIN; Nhật ký đếm toàn bộ 2,6 ms qua GIN; bảng nhỏ ≤13k dòng bộ tối ưu chọn Seq Scan — chỉ mục vẫn có đủ) |
 
 ### Đã biết, cố ý không làm trong đợt này
 
