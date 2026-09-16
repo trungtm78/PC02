@@ -1404,7 +1404,7 @@
       "type": "GREEN",
       "priority": "P0",
       "module": "List",
-      "title": "Search 'Trộm cắp' tìm case có name/crime/unit chứa từ này (case-insensitive)",
+      "title": "Search 'Trộm cắp' tìm case có name/crime chứa từ này (không phân biệt hoa thường VÀ không phân biệt dấu)",
       "requirement": "REQ-CASE-LIST-077",
       "technique": "Use case testing",
       "risk_level": "Cao",
@@ -1412,10 +1412,10 @@
       "steps": "GET /cases?search=Trộm cắp",
       "test_data": "search='Trộm cắp'",
       "expected_ui": "Show cả A và B",
-      "expected_api": "OR contains insensitive, return 2 results",
+      "expected_api": "HTTP 200, trả đúng 2 hồ sơ (A khớp name, B khớp crime)",
       "expected_side": "-",
       "severity_if_fail": "High",
-      "notes": ""
+      "notes": "SỬA ORACLE 16/09/2026 (M2-M6): không còn khối OR ... ILIKE chép tay; search quy về thẻ * chạy trên cột bóng tim_kiem_bd. Cột unit ĐÃ BỊ LOẠI khỏi thẻ * của Vụ án (đo prod: rỗng 100% hồ sơ, xem vu-an.khai.ts) nên bỏ unit khỏi mệnh đề; số 2 kết quả vẫn đúng vì tiền đề chỉ dùng name và crime"
     },
     {
       "tc_id": "TC-078",
@@ -1430,10 +1430,10 @@
       "steps": "GET ?search=tron cap (không dấu)",
       "test_data": "search='tron cap'",
       "expected_ui": "-",
-      "expected_api": "Postgres không tìm thấy nếu thiếu collation → cần unaccent extension",
+      "expected_api": "HTTP 200 và RA hồ sơ có dấu: gõ 'tron cap' khớp 'Trộm cắp'. search nay quy về thẻ * chạy trên cột bóng tim_kiem_bd (bỏ dấu bằng f_bo_dau, dựa trên unaccent), không phân biệt hoa thường, không phân biệt khoảng trắng thừa",
       "expected_side": "-",
       "severity_if_fail": "Medium",
-      "notes": "Gap nếu Postgres mặc định case-insensitive nhưng accent-sensitive"
+      "notes": "SỬA ORACLE 16/09/2026 (M2-M6): bản cũ kỳ vọng KHÔNG tìm thấy vì thiếu unaccent. Extension + cột bóng + chỉ mục GIN đã chạy thật trên production nên kỳ vọng ngược lại mới đúng"
     },
     {
       "tc_id": "TC-079",

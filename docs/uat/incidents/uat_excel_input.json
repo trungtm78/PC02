@@ -2334,7 +2334,7 @@
       "test_data": "incidents.shape.normal.D0",
       "data_required": "incidents.shape.normal.D0",
       "expected_ui": "",
-      "expected_api": "HTTP 200, match (nếu citext/unaccent) — verify behavior",
+      "expected_api": "HTTP 200 và PHẢI trả vụ việc có tên chứa Đông. SỬA ORACLE 16/09/2026 (M2-M6): bỏ mệnh đề có điều kiện 'nếu citext/unaccent - verify behavior' vì oracle có điều kiện thì ca không chấm được; hành vi nay tất định — unaccent + f_bo_dau + cột bóng tim_kiem_bd đã chạy thật trên production nên dong khớp Đông",
       "expected_side": "Endpoint: GET /api/v1/incidents | Role: OFFICER",
       "severity_if_fail": "Medium",
       "notes": "Type: DATA | Endpoint: GET /api/v1/incidents"

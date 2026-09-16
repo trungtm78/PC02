@@ -890,7 +890,7 @@
       "test_data": "account.investigator.active.D0",
       "data_required": "account.investigator.active.D0",
       "expected_ui": "",
-      "expected_api": "HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)",
+      "expected_api": "HTTP 400, vượt giới hạn độ dài giá trị tìm (200 ký tự). SỬA ORACLE 16/09/2026 (M2-M6): không còn JSONB ILIKE để phải bảo vệ; giá trị tìm bị chặn ở DO_DAI_GIA_TRI_TOI_DA=200 khi đọc thẻ và ở @MaxLength của DTO, tức chặn TRƯỚC khi chạm CSDL",
       "expected_side": "Endpoint: GET /api/v1/cases | Role: INVESTIGATOR",
       "severity_if_fail": "High",
       "notes": "Type: RED | Endpoint: GET /api/v1/cases"
@@ -1688,7 +1688,7 @@
       "test_data": "account.officer.primary",
       "data_required": "account.officer.primary",
       "expected_ui": "",
-      "expected_api": "HTTP 200, ILIKE literal, không leak filesystem",
+      "expected_api": "HTTP 200, chuỗi được coi là VĂN BẢN THUẦN: không đọc tệp, không lộ đường dẫn máy chủ; danh sách rỗng hoặc chỉ gồm hồ sơ thật sự chứa chuỗi ấy. SỬA ORACLE 16/09/2026 (M2-M6): không còn ILIKE chép tay; điều kiện là contains trên cột bóng, Prisma tự thoát % và _",
       "expected_side": "Endpoint: GET /api/v1/cases | Role: OFFICER",
       "severity_if_fail": "High",
       "notes": "Type: SECURITY | Endpoint: GET /api/v1/cases"

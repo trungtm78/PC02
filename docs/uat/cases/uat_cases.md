@@ -707,7 +707,7 @@
 - **Pre**: -
 - **Steps**:
   1. GET ?search=<chuỗi 201 ký tự>
-- **Expected**: HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)
+- **Expected**: HTTP 400, vượt giới hạn độ dài giá trị tìm (200 ký tự). [SỬA ORACLE 16/09/2026 — M2–M6] Không còn JSONB ILIKE để phải bảo vệ: giá trị tìm nay bị chặn ở `DO_DAI_GIA_TRI_TOI_DA = 200` khi đọc thẻ, và ở `@MaxLength` của DTO — chặn TRƯỚC khi chạm CSDL
 - **Data required**: `account.investigator.active.D0`
 
 #### TC-CASE-048 — Query limit > 100 → 400
@@ -1358,7 +1358,7 @@
 - **Pre**: -
 - **Steps**:
   GET ?search=../../../etc/passwd
-- **Expected**: HTTP 200, ILIKE literal, không leak filesystem
+- **Expected**: HTTP 200, chuỗi được coi là VĂN BẢN THUẦN, không đọc tệp, không lộ đường dẫn máy chủ; danh sách trả về rỗng hoặc chỉ gồm hồ sơ thật sự chứa chuỗi ấy. [SỬA ORACLE 16/09/2026 — M2–M6] Không còn `ILIKE` chép tay: điều kiện nay là `contains` trên cột bóng, Prisma tự thoát `%` và `_`
 - **Data required**: `account.officer.primary`
 
 #### TC-CASE-090 — Throttle export 5 req/60s

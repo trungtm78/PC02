@@ -3530,7 +3530,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Risk: `Cao`
 - Severity nếu fail: `High` ⚠️
 
-**Tiêu đề**: Search 'Trộm cắp' tìm case có name/crime/unit chứa từ này (case-insensitive)
+**Tiêu đề**: Search 'Trộm cắp' tìm case có name/crime chứa từ này (không phân biệt hoa thường VÀ không phân biệt dấu)
 
 ### Điều kiện tiên quyết
 - Case A name='Vụ Trộm Cắp Xe', Case B crime='trộm cắp tài sản'
@@ -3548,7 +3548,8 @@ search='Trộm cắp'
 - Show cả A và B
 
 **API**:
-- OR contains insensitive, return 2 results
+- HTTP 200, trả đúng 2 hồ sơ (A khớp `name`, B khớp `crime`)
+- [SỬA ORACLE 16/09/2026 — M2–M6] Không còn khối `OR ... ILIKE` chép tay: `search` quy về thẻ `*` chạy trên cột bóng `tim_kiem_bd`. Cột `unit` ĐÃ BỊ LOẠI khỏi thẻ `*` của Vụ án (đo prod: rỗng 100% hồ sơ, xem `vu-an.khai.ts`) — nên bỏ `unit` khỏi mệnh đề; số 2 kết quả vẫn đúng vì tiền đề chỉ dùng `name` và `crime`
 
 **Side effects** (DB, email, log, queue...):
 - -
@@ -3607,7 +3608,8 @@ search='tron cap'
 - -
 
 **API**:
-- Postgres không tìm thấy nếu thiếu collation → cần unaccent extension
+- HTTP 200 và RA hồ sơ có dấu: gõ `tron cap` khớp `Trộm cắp`. `search` nay quy về thẻ `*` chạy trên cột bóng `tim_kiem_bd` (bỏ dấu bằng `f_bo_dau`, dựa trên `unaccent`), không phân biệt hoa thường, không phân biệt khoảng trắng thừa
+- [SỬA ORACLE 16/09/2026 — M2–M6] Bản cũ kỳ vọng KHÔNG tìm thấy vì thiếu `unaccent`. Extension + cột bóng + chỉ mục GIN đã chạy thật trên production, nên kỳ vọng ngược lại mới đúng
 
 **Side effects** (DB, email, log, queue...):
 - -

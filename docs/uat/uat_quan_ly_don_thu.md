@@ -548,6 +548,10 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ### Kết quả mong đợi
 **API**:
+- HTTP 200. Danh sách chỉ còn đơn thư có **số tiếp nhận** chứa `DT-2026` (dạng `DT-YYYY-NNNNN`), giữ nguyên phạm vi dữ liệu của tài khoản đang đăng nhập
+- Đơn thư có **người gửi** trùng chuỗi tìm cũng được tính là khớp — ô tìm ngoài danh sách tìm trên nhiều cột, không chỉ số tiếp nhận
+- Phân trang và tổng số đếm theo tập ĐÃ lọc, không phải tổng toàn bộ
+- [BỔ SUNG ORACLE 16/09/2026 — M2–M6] Trước đây mục này BỎ TRỐNG nên ca không chấm được. Cơ chế hiện tại: `search` quy về thẻ `*` chạy trên cột bóng `tim_kiem_bd` (đã bỏ dấu), nối vào `where.AND` cùng điều kiện phạm vi — gõ không dấu vẫn ra bản ghi có dấu
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 

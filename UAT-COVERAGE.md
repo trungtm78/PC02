@@ -128,6 +128,38 @@ PASS bằng bằng chứng đi qua giao diện hoặc HTTP trên máy thật —
 | M6-19 | Kiểm vàng bỏ dấu (chuỗi thật) lệch 0 giữa JS và SQL | CLI trên prod | PASS (646 tổng hợp + 100.531 chuỗi thật, lệch 0, PG16.15) |
 | M6-20 | Truy vấn thẻ dùng được chỉ mục GIN (bảng lớn), chỉ mục có đủ ở mọi bảng | EXPLAIN + `pg_indexes` trên prod | PASS (Danh mục 0,64 ms qua GIN; Nhật ký đếm toàn bộ 2,6 ms qua GIN; bảng nhỏ ≤13k dòng bộ tối ưu chọn Seq Scan — chỉ mục vẫn có đủ) |
 
+### Lỗ hổng phủ — phát hiện khi rà oracle 16/09/2026
+
+Rà toàn bộ `docs/uat/**` để tìm oracle bị ngữ nghĩa M2–M6 làm sai. Kết quả quan trọng hơn cả
+danh sách sửa: **ba thay đổi hành vi không làm sai ca nào, vì KHÔNG CÓ ca nào phủ chúng.**
+Đây là lỗ hổng phủ, không phải bằng chứng an toàn.
+
+| # | Thay đổi hành vi | Số ca phủ | Ghi chú |
+|---|---|---|---|
+| M6-21 | Chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ ("an" ra "Nguyễn Văn An", không ra "Toàn") | **0** | Cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%` (kiểm thoát ký tự), không phải chữ cái |
+| M6-22 | `/cases/admin/deleted` KHÔNG còn tìm theo `id` | **0** | 8 ca chạm endpoint (TC-CASE-081, TC-INC-077/117, TC-PET-045/089, TC-167/168/213) đều chỉ kiểm phân quyền và phân trang, không ca nào truyền tham số tìm |
+| M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **0** | 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
+
+Ba dòng này giữ **CHƯA CHẠY** cho tới khi có ca kiểm thật. Không ghi PASS cho thứ chưa ai đo.
+
+### Oracle đã sửa vì ngữ nghĩa M2–M6 (16/09/2026)
+
+| Ca | Sai ở đâu | Đã sửa thành |
+|---|---|---|
+| TC-078 (Vụ việc) | Kỳ vọng gõ không dấu **KHÔNG** ra hồ sơ có dấu ("cần unaccent extension") | Gõ không dấu PHẢI ra — `unaccent` + `f_bo_dau` + cột bóng đã chạy thật trên prod |
+| TC-077 (Vụ việc) | Mệnh đề kể cả cột `unit` | Bỏ `unit` (đo prod: rỗng 100% vụ án nên đã loại khỏi thẻ `*`); số 2 kết quả giữ nguyên |
+| TC-007 (Vụ án) | `name ILIKE %trộm%` | `tim_kiem_bd contains 'trom'`, nối vào `where.AND` cùng phạm vi |
+| TC-032 (UTDT) | Dữ liệu mẫu không nói rõ cột, dễ lấy nhầm tên điều tra viên → 0 dòng, đỏ oan | Chốt dữ liệu phải nằm ở cột thuộc thẻ `*` của khai Vụ án; tìm theo điều tra viên dùng `investigatorName`/thẻ `dieuTraVien` |
+| TC-009 (Đơn thư) | Mục "Kết quả mong đợi → API" **bỏ trống** — ca không chấm được | Điền oracle theo `REQ-PET-RD-03` |
+| TC-CASE-047 | "MaxLength fail (bảo vệ JSONB ILIKE)" | Chặn ở `DO_DAI_GIA_TRI_TOI_DA = 200` + `@MaxLength`, trước khi chạm CSDL |
+| TC-CASE-089 | "ILIKE literal" | `contains` trên cột bóng, Prisma tự thoát `%`/`_` |
+| TC-INC-123 | "match (nếu citext/unaccent) — verify behavior" | Bỏ mệnh đề có điều kiện; hành vi tất định |
+
+Mỗi ca có 2–3 bản song sinh (`.md`, `uat.json`, `uat_excel_input.json`, `.batches/batch_*.json`).
+Đã sửa **đồng bộ 12 bản** và xác nhận bằng máy: 8 tệp JSON parse được, số ca giữ nguyên
+(130 · 130 · 30 · 30 · 140 · 140 · 20 · 781), 11 ca mang dấu sửa. Sửa một bản là để lại hai
+oracle mâu thuẫn cho cùng một mã ca.
+
 ### Đã biết, cố ý không làm trong đợt này
 
 | Chỗ | Vì sao |
