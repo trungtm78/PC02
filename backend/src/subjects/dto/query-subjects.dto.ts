@@ -1,37 +1,14 @@
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsInt,
-  MaxLength,
-  Min,
-  Max,
-} from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { IsString, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 import { SubjectStatus, SubjectType } from '@prisma/client';
-import {
-  DO_DAI_GIA_TRI_TOI_DA,
-  SO_THE_TOI_DA,
-} from '../../common/tim-kiem/dieu-kien';
-
-/** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
-const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
+import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 
 export class QuerySubjectsDto {
   /**
    * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=hoTen~An&tk=vuAn~Trộm cắp`). Khoá và giá
    * trị kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chặn yêu cầu quá cỡ.
    */
-  @IsOptional()
-  @Transform(({ value }: { value: unknown }) =>
-    value === undefined ? undefined : Array.isArray(value) ? value : [value],
-  )
-  @IsArray()
-  @ArrayMaxSize(SO_THE_TOI_DA)
-  @IsString({ each: true })
-  @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
+  @TheTimKiem()
   tk?: string[];
 
   /**
