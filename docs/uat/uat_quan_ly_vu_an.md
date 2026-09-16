@@ -2570,7 +2570,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Risk: `TB`
 - Severity nếu fail: `Medium` ⚡
 
-**Tiêu đề**: Search theo tên vụ án (ILIKE)
+**Tiêu đề**: Search theo tên vụ án (thẻ `*` trên cột bóng bỏ dấu)
 
 ### Điều kiện tiên quyết
 - Có vụ án tên chứa 'trộm cắp'
@@ -2589,7 +2589,8 @@ search='trộm'
 - List filter theo case insensitive
 
 **API**:
-- , name ILIKE %trộm%
+- HTTP 200, danh sách chỉ còn vụ án khớp `trộm`
+- [SỬA ORACLE 16/09/2026 — M2–M6] Không còn `name ILIKE %trộm%`: điều kiện nay là `tim_kiem_bd contains 'trom'` (thẻ `*` trên cột bóng đã bỏ dấu), nối vào `where.AND` cùng phạm vi dữ liệu. Tập kết quả không đổi, nhưng bộ chạy nào khẳng định hình dạng truy vấn hoặc đích danh cột `name` sẽ trượt
 
 **Side effects** (DB, email, log, queue...):
 - Không

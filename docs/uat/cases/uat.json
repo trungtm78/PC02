@@ -941,7 +941,7 @@
       "title": "Query search > 200 chars → 400",
       "pre": "-",
       "steps": "1. GET ?search=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-      "expected": "HTTP 400, MaxLength fail (bảo vệ JSONB ILIKE)",
+      "expected": "HTTP 400, vượt giới hạn độ dài giá trị tìm (200 ký tự). SỬA ORACLE 16/09/2026 (M2-M6): không còn JSONB ILIKE để phải bảo vệ; giá trị tìm bị chặn ở DO_DAI_GIA_TRI_TOI_DA=200 khi đọc thẻ và ở @MaxLength của DTO, tức chặn TRƯỚC khi chạm CSDL",
       "data": [
         "account.investigator.active.D0"
       ]
@@ -1574,7 +1574,7 @@
       "title": "Path traversal trong search ?search=../../..etc/passwd",
       "pre": "-",
       "steps": "GET ?search=../../../etc/passwd",
-      "expected": "HTTP 200, ILIKE literal, không leak filesystem",
+      "expected": "HTTP 200, chuỗi được coi là VĂN BẢN THUẦN: không đọc tệp, không lộ đường dẫn máy chủ; danh sách rỗng hoặc chỉ gồm hồ sơ thật sự chứa chuỗi ấy. SỬA ORACLE 16/09/2026 (M2-M6): không còn ILIKE chép tay; điều kiện là contains trên cột bóng, Prisma tự thoát % và _",
       "data": [
         "account.officer.primary"
       ]

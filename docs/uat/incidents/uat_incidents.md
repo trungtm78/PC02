@@ -1606,7 +1606,7 @@
 - **Pre**: DB có VV name chứa 'Đông'
 - **Steps**:
   GET ?search=dong
-- **Expected**: HTTP 200, match (nếu citext/unaccent) — verify behavior
+- **Expected**: HTTP 200 và PHẢI trả vụ việc có tên chứa `Đông`. [SỬA ORACLE 16/09/2026 — M2–M6] Bỏ chữ "nếu citext/unaccent — verify behavior": oracle có điều kiện thì ca không chấm được. Hành vi nay tất định — `unaccent` + `f_bo_dau` + cột bóng `tim_kiem_bd` đã chạy thật trên production, nên `dong` khớp `Đông` và `đ` khớp `d`
 - **Data required**: `incidents.shape.normal.D0`
 
 ### A11Y (7 TC)

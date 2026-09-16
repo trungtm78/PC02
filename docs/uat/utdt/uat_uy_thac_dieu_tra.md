@@ -600,8 +600,8 @@ Trước khi viết test case, em so sánh UTDT với 3 module list đã có (Ca
 | **Yêu cầu** | REQ-UTDT-16 |
 | **Điều kiện tiên quyết** | Đăng nhập Dispatcher, DevTools → Network |
 | **Các bước kiểm thử** | 1. Mở `/uy-thac-dieu-tra`<br>2. Bật Network tab<br>3. Gõ nhanh "nguyen van a" vào ô search (9 ký tự trong < 1s)<br>4. Đếm số request API thực sự được gửi |
-| **Dữ liệu kiểm thử** | Search: "nguyen van a" (gõ nhanh) |
-| **Kết quả mong đợi** | 1. Chỉ có 1 request API sau khi ngừng gõ 300ms (debounce)<br>2. Không có 9 requests riêng biệt (1 per keystroke)<br>3. Response hiển thị đúng kết quả cho "nguyen van a" |
+| **Dữ liệu kiểm thử** | Search: "nguyen van a" (gõ nhanh). **Chuỗi này phải nằm ở một cột thuộc thẻ `*` của khai Vụ án** — ví dụ Đối tượng nghi vấn (`nghiVanDoiTuong`) hoặc Tên cá nhân cung cấp (`tenCungCap`). KHÔNG lấy tên điều tra viên hay người nhập làm dữ liệu mẫu |
+| **Kết quả mong đợi** | 1. Chỉ có 1 request API sau khi ngừng gõ 300ms (debounce)<br>2. Không có 9 requests riêng biệt (1 per keystroke)<br>3. Response trả đúng hồ sơ chứa "nguyen van a" ở cột nói trên — gõ không dấu vẫn ra bản ghi có dấu ("Nguyễn Văn A")<br>4. [SỬA ORACLE 16/09/2026 — M2–M6] Thẻ `*` của Vụ án **không** đi qua quan hệ người dùng (khai `vu-an.khai.ts` không bật `tatCaGomNguoi`, cố ý: nối OR sang bảng người dùng sẽ vô hiệu hoá chỉ mục GIN). Muốn tìm theo điều tra viên thì dùng tham số riêng `investigatorName` hoặc thẻ `dieuTraVien` — xem TC-UTDT-013 |
 | **Kết quả thực tế** | _(QA điền: số requests thực tế)_ |
 | **Trạng thái** | _(Đạt / Không đạt / Bị chặn)_ |
 
