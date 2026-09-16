@@ -282,6 +282,21 @@ if ! npx ts-node prisma/seed-admin-units-runner.ts; then
     exit 1
 fi
 
+# 9e. Cột bóng tìm kiếm của dữ liệu CŨ có được nạp chưa.
+#
+# Migration tìm kiếm chỉ TẠO cột `<cot>_bd` và trigger. Dòng đã có từ trước vẫn NULL cho tới khi
+# có người nhớ chạy CLI nạp bằng tay. Cán bộ KHÔNG mất kết quả — nhánh lùi về cột gốc vẫn trả
+# đúng — nhưng truy vấn không dùng được chỉ mục GIN nên chậm hẳn, và không ai được báo. Lại đúng
+# kiểu hỏng im lặng mà tệp này đã ba lần tự cảnh báo ở trên.
+#
+# KHÔNG tự nạp: đo trên prod 16/09/2026, nạp thật quét lại cả bảng cũ nên rất lâu; nhét vào đây
+# là chặn cả lượt triển khai và chặn khởi động lại dịch vụ. Chỉ CHẠY THỬ (không ghi gì) rồi báo,
+# đúng khuôn đang dùng với bộ canh cache.
+log "Kiểm cột bóng tìm kiếm (chạy thử, không ghi)..."
+if ! node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js; then
+    COT_BONG_LECH=1
+fi
+
 # 9d. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
 #
 # Báo cảnh báo suông giữ nguyên đúng kiểu hỏng cần chặn: triển khai xanh trong khi cán bộ không
@@ -290,11 +305,19 @@ fi
 # Nhưng cũng KHÔNG dừng giữa chừng: mã mới đã lên, đã đổi liên kết, đã khởi động lại và qua
 # health. Bỏ dở ở giữa là để máy ở trạng thái nửa vời vì một lệch CẤU HÌNH, trong khi bản vá
 # khẩn có thể đang nằm trong chính lần triển khai ấy. Nên: ship xong, rồi báo đỏ.
-if [ "${CANH_LECH:-0}" = "1" ]; then
+if [ "${CANH_LECH:-0}" = "1" ] || [ "${COT_BONG_LECH:-0}" = "1" ]; then
     log "=========================================="
-    log "Mã ĐÃ lên máy và qua health, NHƯNG bộ canh cache đã cũ."
-    log "Cán bộ có thể không nhận được bản mới cho tới khi chạy bằng root:"
-    log "  bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    log "Mã ĐÃ lên máy và qua health, NHƯNG có việc phải làm tay."
+    if [ "${CANH_LECH:-0}" = "1" ]; then
+        log "• Bộ canh cache đã cũ — cán bộ có thể không nhận được bản mới."
+        log "  Chạy bằng root: bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
+    fi
+    if [ "${COT_BONG_LECH:-0}" = "1" ]; then
+        log "• Cột bóng tìm kiếm CHƯA nạp cho dữ liệu cũ — tìm kiếm vẫn ĐÚNG (lùi về cột gốc)"
+        log "  nhưng KHÔNG dùng được chỉ mục GIN nên chậm hẳn trên bảng lớn."
+        log "  Chạy: cd $CURRENT_SYMLINK/backend && set -a && source .env && set +a \\"
+        log "        && node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that"
+    fi
     log "Đánh dấu ĐỎ để không ai nhầm đây là lần triển khai sạch."
     log "=========================================="
     exit 1

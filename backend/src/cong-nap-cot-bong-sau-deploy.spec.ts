@@ -1,0 +1,70 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * CỔNG: `deploy.sh` phải KIỂM cột bóng tìm kiếm sau khi migration chạy.
+ *
+ * Migration tìm kiếm chỉ TẠO cột bóng `<cot>_bd` và trigger; dữ liệu CŨ vẫn NULL cho tới khi có
+ * người nhớ chạy CLI nạp bằng tay. Cột bóng NULL không làm cán bộ mất kết quả — nhánh lùi về cột
+ * gốc vẫn trả đúng — nhưng truy vấn không dùng được chỉ mục GIN nên chậm hơn hẳn, và KHÔNG AI
+ * ĐƯỢC BÁO. Đúng lớp hỏng im lặng mà chính `deploy.sh` đã ba lần tự cảnh báo trong chú thích
+ * (service worker bị cache, bộ canh cache cũ, bản công khai lệch).
+ *
+ * Cổng này KHÔNG đòi deploy tự nạp. Nạp thật đo trên prod 16/09/2026 mất rất lâu vì CLI quét lại
+ * cả bảng cũ; nhét vào deploy là chặn cả lượt triển khai và chặn khởi động lại dịch vụ. Đòi đúng
+ * thứ `deploy.sh` vẫn làm với bộ canh cache: chạy bản CHẠY THỬ (không ghi gì), lệch thì báo to
+ * kèm đúng lệnh phải chạy, rồi kết thúc ĐỎ sau khi mã đã lên và qua health.
+ */
+const DEPLOY_SH = path.resolve(__dirname, '../../scripts/deploy/deploy.sh');
+
+function docDeploy(): string {
+  return fs.readFileSync(DEPLOY_SH, 'utf8');
+}
+
+describe('GATE — deploy.sh kiểm cột bóng tìm kiếm sau migration', () => {
+  it('tệp deploy.sh đọc được', () => {
+    expect(docDeploy()).toMatch(/\S/);
+  });
+
+  it('có gọi CLI nạp cột bóng', () => {
+    expect(docDeploy()).toContain('nap-cot-bong-tim-kiem');
+  });
+
+  /**
+   * Chỉ soi dòng THỰC THI. Dòng `log` in lệnh hướng dẫn chạy tay BẮT BUỘC chứa `--that` — đó là
+   * cả mục đích của khối cảnh báo. Bản đầu của ca kiểm này cấm `--that` trên mọi dòng, nên nó ép
+   * viết thông điệp vòng vo chỉ để lách chính nó.
+   */
+  it('gọi ở chế độ CHẠY THỬ — deploy không được tự ghi dữ liệu', () => {
+    const src = docDeploy();
+    const dong = src
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(
+        (l) =>
+          l.includes('nap-cot-bong-tim-kiem') &&
+          !l.startsWith('#') &&
+          !l.startsWith('log '),
+      );
+    expect(dong.length).toBeGreaterThan(0);
+    for (const l of dong) expect(l).not.toContain('--that');
+  });
+
+  it('lệch thì báo kèm đúng lệnh phải chạy tay (có --that)', () => {
+    expect(docDeploy()).toContain('--that');
+  });
+
+  it('chạy SAU khi migration đã áp — kiểm trước migration là luôn thấy lệch', () => {
+    const src = docDeploy();
+    expect(src.indexOf('prisma migrate deploy')).toBeLessThan(
+      src.indexOf('nap-cot-bong-tim-kiem'),
+    );
+  });
+
+  it('không chặn giữa chừng: kiểm SAU health check, theo đúng khuôn bộ canh cache', () => {
+    const src = docDeploy();
+    expect(src.indexOf('health-check.sh')).toBeLessThan(
+      src.indexOf('nap-cot-bong-tim-kiem'),
+    );
+  });
+});
