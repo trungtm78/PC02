@@ -142,6 +142,12 @@ danh sách sửa: **ba thay đổi hành vi không làm sai ca nào, vì KHÔNG 
 | M6-22c | `/petitions/admin/deleted` nhận thẻ tìm và lọc đúng; khoá lạ → 400 | **TC-PET-123** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: TC-PET-045 và TC-PET-089 đều chỉ kiểm 403 |
 | M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **TC-INC-141** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
 
+**Số ca đi theo số ĐƯỜNG MÃ độc lập, không theo số màn hình.** Vì sao M6-21 chỉ một ca mà
+M6-22 phải ba: quy tắc "chuỗi 1–2 ký tự khớp đầu từ" nằm ở đúng **một** chỗ dùng chung
+(`common/tim-kiem/dieu-kien.ts`, hàm `mauBoDau` — mọi khai đều đi qua), nên một ca kiểm là đủ,
+sửa hỏng chỗ ấy là ca đỏ ngay. Ngược lại ba danh sách đã xoá có **ba khai riêng**, nên phải ba ca.
+Đếm theo màn hình thì vừa viết thừa ở chỗ dùng chung, vừa viết thiếu ở chỗ tách đường.
+
 **Bịt lỗ hổng phải bịt cả ba cửa, không phải một.** Đợt đầu chỉ viết ca cho
 `/cases/admin/deleted`, trong khi cùng thay đổi ấy áp lên cả ba danh sách đã xoá. Đo lại thấy
 bộ Vụ việc và bộ Đơn thư cũng 0 ca truyền tham số tìm — nên có thêm M6-22b và M6-22c.
