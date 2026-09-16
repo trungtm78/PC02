@@ -1,6 +1,4 @@
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -14,27 +12,14 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
-import {
-  DO_DAI_GIA_TRI_TOI_DA,
-  SO_THE_TOI_DA,
-} from '../../common/tim-kiem/dieu-kien';
-
-/** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
-const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
+import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 
 export class QueryIncidentsDto {
   /**
    * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và giá
    * trị kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chặn yêu cầu quá cỡ.
    */
-  @IsOptional()
-  @Transform(({ value }: { value: unknown }) =>
-    value === undefined ? undefined : Array.isArray(value) ? value : [value],
-  )
-  @IsArray()
-  @ArrayMaxSize(SO_THE_TOI_DA)
-  @IsString({ each: true })
-  @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
+  @TheTimKiem()
   tk?: string[];
 
   // Tìm kiếm tổng hợp: mã, tên, tên ĐTV. Cap 200 ký tự (tránh heavy ILIKE/JSONB scan — đồng bộ QueryCasesDto).
@@ -177,5 +162,4 @@ export class QueryIncidentsDto {
   @IsOptional()
   @IsString()
   thongKeTruongNgay?: string;
-
 }

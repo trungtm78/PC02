@@ -1,6 +1,4 @@
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -16,30 +14,21 @@ import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { CASE_STATUS_GROUP_KEYS } from '../cases.constants';
-import {
-  DO_DAI_GIA_TRI_TOI_DA,
-  SO_THE_TOI_DA,
-} from '../../common/tim-kiem/dieu-kien';
+import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 
-export type TrangThaiPhanHoi = 'DA_PHAN_HOI' | 'KHONG_THUC_HIEN_DUOC' | 'QUA_HAN' | 'CHUA_PHAN_HOI';
+export type TrangThaiPhanHoi =
+  | 'DA_PHAN_HOI'
+  | 'KHONG_THUC_HIEN_DUOC'
+  | 'QUA_HAN'
+  | 'CHUA_PHAN_HOI';
 export { CaseType, LoaiUyThac };
-
-/** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
-const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
 
 export class QueryCasesDto {
   /**
    * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và giá
    * trị kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chặn yêu cầu quá cỡ.
    */
-  @IsOptional()
-  @Transform(({ value }: { value: unknown }) =>
-    value === undefined ? undefined : Array.isArray(value) ? value : [value],
-  )
-  @IsArray()
-  @ArrayMaxSize(SO_THE_TOI_DA)
-  @IsString({ each: true })
-  @MaxLength(DO_DAI_MUC_THE_TOI_DA, { each: true })
+  @TheTimKiem()
   tk?: string[];
 
   // Search: cap at 200 chars để tránh heavy JSONB scan / ILIKE on UTDT metadata.path
@@ -160,7 +149,7 @@ export class QueryCasesDto {
   sortBy?: string;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'asc' ? 'asc' : 'desc')
+  @Transform(({ value }) => (value === 'asc' ? 'asc' : 'desc'))
   sortOrder?: 'asc' | 'desc' = 'desc';
 
   // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ─────────────────────────────────────
@@ -189,5 +178,4 @@ export class QueryCasesDto {
   @IsOptional()
   @IsString()
   thongKeTruongNgay?: string;
-
 }
