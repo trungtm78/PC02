@@ -66,4 +66,4 @@
 - Auto-assign team v0.33
 
 ## Coverage target (LEAN)
-**141 TC**: GREEN 18, RED 56, BOUNDARY 10, EP 10, EDGE 1, SECURITY 14, STATE 8, DECISION 4, DATA 4, A11Y 7, COMPAT 6, PERFORMANCE 3 — DATA 3 → 4 do thêm TC-INC-141 ngày 16/09/2026 bịt lỗ hổng phủ M6-23 (`/incidents/linkable` tìm mọi cột, trước chỉ khớp tiền tố mã).
+**142 TC**: GREEN 18, RED 56, BOUNDARY 10, EP 10, EDGE 1, SECURITY 14, STATE 8, DECISION 4, DATA 5, A11Y 7, COMPAT 6, PERFORMANCE 3 — DATA 3 → 4 do thêm TC-INC-141 ngày 16/09/2026 bịt lỗ hổng phủ M6-23 (`/incidents/linkable` tìm mọi cột, trước chỉ khớp tiền tố mã) và TC-INC-142 bịt M6-22b (`/incidents/admin/deleted` nhận thẻ tìm; khoá lạ → 400).

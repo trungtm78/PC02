@@ -1564,3 +1564,36 @@
   POST 100 IDs
 - **Expected**: < 30s, ZIP size hợp lý
 - **Data required**: `petitions.shape.full.D0`
+
+#### TC-PET-121 — M6: lượt xuất áp CÙNG thẻ với danh sách (xuất đúng thứ đang hiện)
+- **Type/Priority/Severity**: GREEN / P0 / High
+- **Endpoint**: `GET /api/v1/petitions/export`
+- **Role**: OFFICER
+- **Pre**: Có ≥1 đơn khớp thẻ và ≥1 đơn KHÔNG khớp, cùng khoảng ngày
+- **Steps**:
+  1) GET /petitions?tk=nguoiGui~<tên> đếm N dòng
+  2) GET /petitions/export?tk=nguoiGui~<tên> (không truyền ids)
+- **Expected**: Tệp xuất chứa ĐÚNG N đơn của bước 1, không kèm đơn ngoài thẻ. [lỗi có sẵn trước M6: lượt xuất bỏ qua ô tìm nên ra mọi đơn khớp ngày/đơn vị]
+- **Data required**: `account.officer.primary`
+
+#### TC-PET-122 — M6: thẻ khoá lạ khi xuất → 400, không xuất tệp
+- **Type/Priority/Severity**: RED / P1 / Medium
+- **Endpoint**: `GET /api/v1/petitions/export`
+- **Role**: OFFICER
+- **Pre**: -
+- **Steps**:
+  GET /petitions/export?tk=khongCo~x
+- **Expected**: HTTP 400 (khoá không có trong khai đơn thư); KHÔNG trả tệp xlsx
+- **Data required**: `account.officer.primary`
+
+#### TC-PET-123 — M6-22c: danh sách đơn thư đã xoá NHẬN thẻ tìm; khoá lạ → 400
+- **Type/Priority/Severity**: DATA / P1 / Medium
+- **Endpoint**: `GET /api/v1/petitions/admin/deleted`
+- **Role**: ADMIN
+- **Pre**: Có ít nhất 2 đơn thư đã xoá mềm, người gửi khác nhau rõ rệt
+- **Steps**:
+  1. GET /api/v1/petitions/admin/deleted (không thẻ) → đếm N dòng
+  2. GET ...?tk=nguoiGui~<tên chỉ có ở 1 đơn>
+  3. GET ...?tk=khongCoKhoaNay~x
+- **Expected**: Bước 1 → HTTP 200, N dòng. Bước 2 → HTTP 200, CHỈ đơn khớp thẻ (ít hơn N), vẫn chỉ gồm đơn đã xoá. Bước 3 → HTTP 400, KHÔNG trả danh sách chưa lọc. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-22c: TC-PET-045 và TC-PET-089 đều chỉ kiểm 403]
+- **Data required**: `petition.deleted.D7`, `account.admin.primary`

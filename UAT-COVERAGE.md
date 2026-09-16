@@ -138,7 +138,18 @@ danh sách sửa: **ba thay đổi hành vi không làm sai ca nào, vì KHÔNG 
 |---|---|---|---|---|
 | M6-21 | Chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ ("an" ra "Nguyễn Văn An", không ra "Toàn") | **TC-CASE-131** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%` (kiểm thoát ký tự), không phải chữ cái |
 | M6-22 | `/cases/admin/deleted` KHÔNG còn tìm theo `id` | **TC-CASE-132** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 8 ca chạm endpoint (TC-CASE-081, TC-INC-077/117, TC-PET-045/089, TC-167/168/213) đều chỉ kiểm phân quyền và phân trang, không ca nào truyền tham số tìm |
+| M6-22b | `/incidents/admin/deleted` nhận thẻ tìm và lọc đúng; khoá lạ → 400 | **TC-INC-142** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: TC-INC-077 và TC-INC-117 đều chỉ kiểm 403 |
+| M6-22c | `/petitions/admin/deleted` nhận thẻ tìm và lọc đúng; khoá lạ → 400 | **TC-PET-123** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: TC-PET-045 và TC-PET-089 đều chỉ kiểm 403 |
 | M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **TC-INC-141** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
+
+**Bịt lỗ hổng phải bịt cả ba cửa, không phải một.** Đợt đầu chỉ viết ca cho
+`/cases/admin/deleted`, trong khi cùng thay đổi ấy áp lên cả ba danh sách đã xoá. Đo lại thấy
+bộ Vụ việc và bộ Đơn thư cũng 0 ca truyền tham số tìm — nên có thêm M6-22b và M6-22c.
+
+**Đính chính lỗi của chính đợt tài liệu trước (PR #383):** TC-PET-121 và TC-PET-122 khi ấy chỉ
+được ghi vào `.batches/batch_2.json`, **bỏ sót** `petitions/uat.json` và `petitions/uat_petitions.md`,
+và cũng quên nâng mục tiêu phủ. Đã bổ sung đủ ba bản ngày 16/09. Đây là lỗi bỏ sót bản song sinh —
+đúng thứ tệp này vẫn cảnh báo — nên ghi ra thay vì lặng lẽ vá.
 
 Ba ca kiểm đã được **viết** ngày 16/09/2026 và ghi vào cả ba bản song sinh của mỗi bộ
 (`uat.json` · `uat_<bộ>.md` · `.batches/batch_5.json`); mục tiêu phủ nâng theo: Vụ án 130 → 132,
