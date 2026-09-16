@@ -1652,3 +1652,24 @@
   GET export/ward fromDate=…toDate=cover 5000 cases
 - **Expected**: Response < 10s, file size hợp lý, không timeout
 - **Data required**: `cases.shape.large.D0`
+
+#### TC-CASE-131 — M6-21: chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ, không khớp giữa từ
+- **Type/Priority/Severity**: DATA / P1 / Medium
+- **Endpoint**: `GET /api/v1/cases`
+- **Role**: OFFICER
+- **Pre**: DB có vụ án tên chứa từ BẮT ĐẦU bằng `An` (vd "Nguyễn Văn An") VÀ vụ án chứa `an` ở GIỮA từ (vd "Toàn")
+- **Steps**:
+  1. GET /api/v1/cases?search=an
+- **Expected**: HTTP 200. Trả hồ sơ có từ BẮT ĐẦU bằng `an`; KHÔNG trả hồ sơ chỉ chứa `an` ở giữa từ. Lý do: chuỗi dưới 3 ký tự được thêm khoảng trắng đầu trước khi so trên cột bóng, để chỉ mục GIN còn dùng được. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-21, trước đó KHÔNG ca nào phủ thay đổi này]
+- **Data required**: `cases.shape.normal.D0`
+
+#### TC-CASE-132 — M6-22: danh sách đã xoá KHÔNG còn tìm theo id, tìm theo mã hồ sơ thì ra
+- **Type/Priority/Severity**: DATA / P1 / Medium
+- **Endpoint**: `GET /api/v1/cases/admin/deleted`
+- **Role**: ADMIN
+- **Pre**: Có vụ án đã xoá mềm, biết CẢ id (UUID) lẫn mã hồ sơ của nó
+- **Steps**:
+  1. GET /api/v1/cases/admin/deleted?search=<id UUID của hồ sơ ấy>
+  2. GET /api/v1/cases/admin/deleted?search=<mã hồ sơ của CHÍNH hồ sơ ấy>
+- **Expected**: Bước 1 → HTTP 200 nhưng KHÔNG chứa hồ sơ ấy (tìm theo UUID đã bỏ). Bước 2 → HTTP 200 và CÓ hồ sơ ấy. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-22: 8 ca chạm endpoint này đều chỉ kiểm phân quyền/phân trang, không ca nào truyền tham số tìm]
+- **Data required**: `case.deleted.D7`, `account.admin.primary`

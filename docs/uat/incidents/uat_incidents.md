@@ -1799,3 +1799,13 @@
   POST /prosecute
 - **Expected**: Response < 2s (Case create + VV update transaction)
 - **Data required**: `incident.investigating.D60`
+
+#### TC-INC-141 — M6-23: danh sách vụ việc liên kết được tìm trên MỌI cột, không chỉ tiền tố mã
+- **Type/Priority/Severity**: DATA / P1 / Medium
+- **Endpoint**: `GET /api/v1/incidents/linkable`
+- **Role**: OFFICER
+- **Pre**: Có vụ việc chưa gắn vụ án (`linkedCaseId = null`) mà chuỗi tìm nằm ở TÊN vụ việc, KHÔNG nằm ở mã
+- **Steps**:
+  1. GET /api/v1/incidents/linkable?search=<một từ trong tên vụ việc ấy>
+- **Expected**: HTTP 200 và CÓ vụ việc ấy, dù chuỗi tìm không phải tiền tố mã hồ sơ. Vẫn chỉ trả vụ việc có `linkedCaseId = null` và nằm trong phạm vi dữ liệu của tài khoản. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-23: 3 ca chạm endpoint này đều không có bước tìm]
+- **Data required**: `incidents.shape.normal.D0`

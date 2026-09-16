@@ -134,13 +134,22 @@ Rà toàn bộ `docs/uat/**` để tìm oracle bị ngữ nghĩa M2–M6 làm sa
 danh sách sửa: **ba thay đổi hành vi không làm sai ca nào, vì KHÔNG CÓ ca nào phủ chúng.**
 Đây là lỗ hổng phủ, không phải bằng chứng an toàn.
 
-| # | Thay đổi hành vi | Số ca phủ | Ghi chú |
-|---|---|---|---|
-| M6-21 | Chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ ("an" ra "Nguyễn Văn An", không ra "Toàn") | **0** | Cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%` (kiểm thoát ký tự), không phải chữ cái |
-| M6-22 | `/cases/admin/deleted` KHÔNG còn tìm theo `id` | **0** | 8 ca chạm endpoint (TC-CASE-081, TC-INC-077/117, TC-PET-045/089, TC-167/168/213) đều chỉ kiểm phân quyền và phân trang, không ca nào truyền tham số tìm |
-| M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **0** | 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
+| # | Thay đổi hành vi | Ca phủ | Trạng thái | Ghi chú |
+|---|---|---|---|---|
+| M6-21 | Chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ ("an" ra "Nguyễn Văn An", không ra "Toàn") | **TC-CASE-131** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%` (kiểm thoát ký tự), không phải chữ cái |
+| M6-22 | `/cases/admin/deleted` KHÔNG còn tìm theo `id` | **TC-CASE-132** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 8 ca chạm endpoint (TC-CASE-081, TC-INC-077/117, TC-PET-045/089, TC-167/168/213) đều chỉ kiểm phân quyền và phân trang, không ca nào truyền tham số tìm |
+| M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **TC-INC-141** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
 
-Ba dòng này giữ **CHƯA CHẠY** cho tới khi có ca kiểm thật. Không ghi PASS cho thứ chưa ai đo.
+Ba ca kiểm đã được **viết** ngày 16/09/2026 và ghi vào cả ba bản song sinh của mỗi bộ
+(`uat.json` · `uat_<bộ>.md` · `.batches/batch_5.json`); mục tiêu phủ nâng theo: Vụ án 130 → 132,
+Vụ việc 140 → 141.
+
+Trạng thái vẫn là **CHƯA CHẠY**: viết ca kiểm không phải là chạy ca kiểm. Ba mệnh đề này chỉ
+chuyển sang PASS khi có bằng chứng chạy thật qua HTTP hoặc giao diện.
+
+**Không** cập nhật `uat_excel_input.json` của hai bộ: tệp ấy là đầu vào sinh bảng Excel, mang
+lược đồ khác (`expected_api`/`expected_ui`) và được sinh lại từ bộ chạy chuẩn hoá — sửa tay vào
+đó là tạo thêm một nguồn thứ tư dễ lệch. Ghi ra đây để lần sinh sau ai đó không tưởng là bỏ sót.
 
 ### Oracle đã sửa vì ngữ nghĩa M2–M6 (16/09/2026)
 

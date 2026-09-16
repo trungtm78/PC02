@@ -102,7 +102,7 @@ TIEP_NHAN → DANG_XAC_MINH → DA_XAC_MINH → DANG_DIEU_TRA → {TAM_DINH_CHI 
 - 25 inputs × 8 = 200
 - 5 roles × 4 = 20
 - 15 errors × 2 = 30
-- **Formula = 378 → LEAN target 130 TC (capped pragmatic)**
+- **Formula = 378 → LEAN target 132 TC (capped pragmatic)** — 130 + 2 ca thêm 16/09/2026 bịt lỗ hổng phủ M6-21 (chuỗi 1–2 ký tự khớp đầu từ) và M6-22 (danh sách đã xoá bỏ khớp `id`). Số ca đi theo mức phủ và rủi ro, không giữ một con số cố định.
 
 ## Ratio target (130 TC)
 - GREEN ≤20% → ≤26
