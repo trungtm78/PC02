@@ -2198,6 +2198,37 @@
       "data": [
         "cases.shape.large.D0"
       ]
+    },
+    {
+      "id": "TC-CASE-131",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases",
+      "role": "OFFICER",
+      "title": "M6-21: chuỗi tìm 1-2 ký tự chỉ khớp ĐẦU TỪ, không khớp giữa từ",
+      "pre": "DB có vụ án tên chứa từ bắt đầu bằng An (vd Nguyễn Văn An) VÀ vụ án chứa An ở GIỮA từ (vd Toàn)",
+      "steps": "GET /api/v1/cases?search=an",
+      "expected": "HTTP 200. Trả hồ sơ có từ BẮT ĐẦU bằng an (Nguyễn Văn An); KHÔNG trả hồ sơ chỉ chứa an ở giữa từ (Toàn). Lý do: chuỗi dưới 3 ký tự được thêm khoảng trắng đầu trước khi so trên cột bóng, để chỉ mục GIN còn dùng được. Ca kiểm THÊM 16/09/2026 - lỗ hổng phủ M6-21, trước đó không ca nào phủ thay đổi này",
+      "data": [
+        "cases.shape.normal.D0"
+      ]
+    },
+    {
+      "id": "TC-CASE-132",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/cases/admin/deleted",
+      "role": "ADMIN",
+      "title": "M6-22: danh sách đã xoá KHÔNG còn tìm theo id (UUID), tìm theo mã hồ sơ thì ra",
+      "pre": "Có vụ án đã xoá mềm, biết cả id (UUID) lẫn mã hồ sơ của nó",
+      "steps": "1. GET /api/v1/cases/admin/deleted?search=<id UUID của hồ sơ ấy> 2. GET /api/v1/cases/admin/deleted?search=<mã hồ sơ của chính hồ sơ ấy>",
+      "expected": "Bước 1: HTTP 200 nhưng KHÔNG chứa hồ sơ ấy (tìm theo UUID đã bỏ). Bước 2: HTTP 200 và CÓ hồ sơ ấy. Ca kiểm THÊM 16/09/2026 - lỗ hổng phủ M6-22: 8 ca chạm endpoint này đều chỉ kiểm phân quyền/phân trang, không ca nào truyền tham số tìm",
+      "data": [
+        "case.deleted.D7",
+        "account.admin.primary"
+      ]
     }
   ]
 }
