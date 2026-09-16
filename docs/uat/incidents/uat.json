@@ -2422,6 +2422,22 @@
       "data": [
         "incidents.shape.normal.D0"
       ]
+    },
+    {
+      "id": "TC-INC-142",
+      "type": "DATA",
+      "priority": "P1",
+      "severity": "Medium",
+      "endpoint": "GET /api/v1/incidents/admin/deleted",
+      "role": "ADMIN",
+      "title": "M6-22b: danh sách vụ việc đã xoá NHẬN thẻ tìm và lọc đúng; khoá lạ → 400",
+      "pre": "Có ÍT NHẤT 2 vụ việc đã xoá mềm, tên khác nhau rõ rệt",
+      "steps": "1. GET /api/v1/incidents/admin/deleted (không thẻ) đếm N dòng 2. GET ...?tk=ten~<một từ chỉ có ở 1 hồ sơ> 3. GET ...?tk=khongCoKhoaNay~x",
+      "expected": "Bước 1: HTTP 200, N dòng. Bước 2: HTTP 200, CHỈ hồ sơ khớp thẻ (ít hơn N), vẫn chỉ gồm hồ sơ đã xoá. Bước 3: HTTP 400 (khoá không có trong khai vụ việc), KHÔNG trả danh sách chưa lọc. Ca thêm 16/09/2026 - lỗ hổng phủ M6-22b: 2 ca chạm endpoint này (TC-INC-077, TC-INC-117) đều chỉ kiểm 403, không ca nào truyền tham số tìm",
+      "data": [
+        "incident.deleted.D7",
+        "account.admin.primary"
+      ]
     }
   ]
 }

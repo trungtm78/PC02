@@ -1809,3 +1809,15 @@
   1. GET /api/v1/incidents/linkable?search=<một từ trong tên vụ việc ấy>
 - **Expected**: HTTP 200 và CÓ vụ việc ấy, dù chuỗi tìm không phải tiền tố mã hồ sơ. Vẫn chỉ trả vụ việc có `linkedCaseId = null` và nằm trong phạm vi dữ liệu của tài khoản. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-23: 3 ca chạm endpoint này đều không có bước tìm]
 - **Data required**: `incidents.shape.normal.D0`
+
+#### TC-INC-142 — M6-22b: danh sách vụ việc đã xoá NHẬN thẻ tìm; khoá lạ → 400
+- **Type/Priority/Severity**: DATA / P1 / Medium
+- **Endpoint**: `GET /api/v1/incidents/admin/deleted`
+- **Role**: ADMIN
+- **Pre**: Có ít nhất 2 vụ việc đã xoá mềm, tên khác nhau rõ rệt
+- **Steps**:
+  1. GET /api/v1/incidents/admin/deleted (không thẻ) → đếm N dòng
+  2. GET ...?tk=ten~<một từ chỉ có ở 1 hồ sơ>
+  3. GET ...?tk=khongCoKhoaNay~x
+- **Expected**: Bước 1 → HTTP 200, N dòng. Bước 2 → HTTP 200, CHỈ hồ sơ khớp thẻ (ít hơn N), vẫn chỉ gồm hồ sơ đã xoá. Bước 3 → HTTP 400, KHÔNG trả danh sách chưa lọc. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-22b: TC-INC-077 và TC-INC-117 đều chỉ kiểm 403]
+- **Data required**: `incident.deleted.D7`, `account.admin.primary`

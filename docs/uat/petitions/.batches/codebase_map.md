@@ -48,5 +48,10 @@
 - Doc Template Engine: 6 docx types (PHIEU_DE_XUAT/PHIEU_CHUYEN_NGUON_TIN/PHIEU_CHUYEN_DON/THONG_BAO_CHUYEN/THONG_BAO_HUONG_DAN/THONG_BAO_TRA_LAI)
 - Throttle export 5/60s
 
-## Coverage target (LEAN): 120 TC
-GREEN 16, RED 48, BOUNDARY 9, EP 9, EDGE 1, SECURITY 12, STATE 5, DECISION 3, DATA 2, A11Y 6, COMPAT 6, PERFORMANCE 3
+## Coverage target (LEAN): 123 TC
+GREEN 17, RED 49, BOUNDARY 9, EP 9, EDGE 1, SECURITY 12, STATE 5, DECISION 3, DATA 3, A11Y 6, COMPAT 6, PERFORMANCE 3
+
+Nâng 120 → 123 ngày 16/09/2026: TC-PET-121 (GREEN, xuất Excel áp cùng thẻ) + TC-PET-122 (RED,
+thẻ khoá lạ khi xuất → 400) thêm ở đợt trước nhưng **quên nâng con số này**, cộng TC-PET-123
+(DATA, `/petitions/admin/deleted` nhận thẻ tìm — lỗ hổng phủ M6-22c). Số ca đi theo mức phủ và
+rủi ro, không giữ một con số cố định.
