@@ -57,7 +57,6 @@ interface FilterData {
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_VU_VIEC_PHUONG: readonly TruongLoc<WardIncident>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (i) => i.stt },
   { key: 'tenVuViec', nhan: 'Tên vụ việc', kieu: 'chu', lay: (i) => i.incidentName },
   { key: 'loai', nhan: 'Loại', kieu: 'chu', lay: (i) => i.type },
   { key: 'diaDiem', nhan: 'Địa điểm', kieu: 'chu', lay: (i) => i.location },

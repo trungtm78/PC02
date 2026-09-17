@@ -39,7 +39,6 @@ import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_TRAO_DOI: readonly TruongLoc<Exchange>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (e) => e.stt },
   { key: 'maHoSo', nhan: 'Mã hồ sơ', kieu: 'ma', lay: (e) => e.recordCode },
   { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon', lay: (e) => e.recordType },
   { key: 'donViGui', nhan: 'Đơn vị gửi', kieu: 'chu', lay: (e) => e.senderUnit },

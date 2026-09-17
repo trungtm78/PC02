@@ -5,8 +5,9 @@
  * cùng kết quả dù màn lọc ở đâu:
  * - cùng khoá → OR, khác khoá → AND; `*` = mọi cột chữ và mã;
  * - chữ: không dấu, không hoa thường, gộp khoảng trắng thừa/NBSP; khớp CHUỖI CON ở mọi độ dài (%like%);
- * - mã hồ sơ: chứa chuỗi gõ trên cả hai biến thể năm 2↔4 chữ số; STT cũ: luật hệ cũ rồi chứa;
- *   mã thường (mã danh mục, IP…): chứa;
+ * - mã (mã hồ sơ, mã thường): chứa chuỗi gõ NGUYÊN VĂN, chỉ không phân biệt hoa thường — như máy chủ
+ *   `contains` + `mode: insensitive` trên cột gốc (cột mã không có cột bóng bỏ dấu); STT cũ: luật hệ cũ
+ *   rồi chứa như thế; thẻ `*` vẫn bỏ dấu cả hai phía (máy chủ chạy `*` trên `tim_kiem_bd`);
  * - ngày: dd/mm/yyyy · yyyy-mm-dd · mm/yyyy · yyyy theo giờ Việt Nam (+07:00);
  * - chọn: so đúng mã.
  * Khoá không có trong khai bị bỏ qua — ô tìm hiện thẻ ĐỎ, không làm rỗng cả bảng.
@@ -69,31 +70,6 @@ function tienToNgay(giaTri: string): string | null {
   return v;
 }
 
-/** Năm hồ sơ hợp lý — như `backend/src/common/utils/ho-so-code.util.ts`. */
-const NAM_MIN = 1900;
-const NAM_MAX = 2100;
-
-/**
- * Biến thể mã hồ sơ — cùng luật `hoSoCodeVariants` của máy chủ. Hồ sơ lưu dạng NGẮN "26-11171" thì gõ
- * dạng ĐẦY ĐỦ "2026-11171" không phải chuỗi con của nó, nên phải thử cả dạng ngắn. Chỉ sinh biến thể cho
- * thứ CHẮC là mã `năm-stt`; chuỗi khác giữ nguyên.
- */
-function bienTheMaHoSo(nhapVao: string): string[] {
-  const s = nhapVao.trim();
-  if (!s) return [];
-  const day = /^(\d{4})-(\d+(?:-\d+)*)$/.exec(s);
-  if (day) {
-    const nam = Number(day[1]);
-    return nam < NAM_MIN || nam > NAM_MAX ? [s] : [s, `${String(nam).slice(2)}-${day[2]}`];
-  }
-  const ngan = /^(\d{2})-(\d+(?:-\d+)*)$/.exec(s);
-  if (ngan) {
-    const n = Number(ngan[1]);
-    return [s, `${n < 50 ? 2000 + n : 1900 + n}-${ngan[2]}`];
-  }
-  return [s];
-}
-
 /**
  * STT cũ — cùng luật `dieuKienSttCu` của máy chủ (chép hệ cũ `list.php:140-151`): lấy vế SAU dấu `-`
  * (vế sau rỗng thì giữ nguyên chuỗi), chuỗi thuần số bỏ số 0 đệm.
@@ -105,6 +81,15 @@ function mauSttCu(giaTri: string): string | null {
   const chon = sau || tho;
   return /^\d+$/.test(chon) ? String(parseInt(chon, 10)) : chon;
 }
+
+/**
+ * So chứa NGUYÊN VĂN không phân biệt hoa thường — cho thẻ mã, như ILIKE trên cột gốc của máy chủ. Không bỏ
+ * dấu: gõ "2026–11171" (gạch ngang ngắn) hay "DT" không được ra "2026-11171" / "ĐT01" khi máy chủ không ra.
+ */
+const chuaMaNguyenVan = (o: readonly string[], mau: string): boolean => {
+  const m = mau.trim().toLowerCase();
+  return m !== '' && o.some((x) => x.toLowerCase().includes(m));
+};
 
 /** So chứa — cột chữ, và mọi cột chữ/mã khi thẻ là `*` (như `tim_kiem_bd`). */
 function khopChuoi<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
@@ -122,13 +107,14 @@ function khopMotGiaTri<R>(t: TruongLoc<R>, dong: R, giaTri: string): boolean {
       return tienTo !== null && o.some((x) => ngayVietNam(x)?.startsWith(tienTo) ?? false);
     }
     case 'ma':
-      return chuaMotTrong(o, bienTheMaHoSo(giaTri).map(chuanHoa).filter(Boolean));
+    case 'ma-thuong':
+      return chuaMaNguyenVan(o, giaTri);
     case 'ma-cu': {
       const m = mauSttCu(giaTri);
-      return m !== null && chuaMotTrong(o, [chuanHoa(m)].filter(Boolean));
+      return m !== null && chuaMaNguyenVan(o, m);
     }
     default:
-      // chu, nguoi, doi-tuong, quan-he, ma-thuong: chứa chuỗi gõ.
+      // chu, nguoi, doi-tuong, quan-he: chứa chuỗi gõ, bỏ dấu cả hai phía (cột bóng).
       return khopChuoi(t, dong, giaTri);
   }
 }

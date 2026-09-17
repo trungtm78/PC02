@@ -235,14 +235,21 @@ describe('dungDieuKienTimKiem', () => {
     ]);
   });
 
-  it('mã hồ sơ: chứa trên CẢ HAI biến thể (dạng ngắn ↔ đầy đủ)', () => {
+  /**
+   * KHÔNG sinh biến thể năm 2↔4 số khi so CHỨA. Đo prod 17/09/2026: 0 mã lưu dạng ngắn ở cả ba bảng
+   * (đơn thư 47.336 · vụ việc 4.607 · vụ án 3.380 đều dạng đầy đủ) — nên biến thể dạng ngắn không phục vụ
+   * hồ sơ nào, chỉ gây RÒ: gõ "2026-1" sinh "26-1", mà "26-1" là chuỗi con của "2025-126-1" → hồ sơ năm
+   * 2025 lọt vào kết quả tìm năm 2026. Gõ dạng ngắn "26-11171" vẫn ra "2026-11171" vì là chuỗi con của nó.
+   */
+  it('mã hồ sơ: dạng ngắn vẫn ra vì là chuỗi con — không cần biến thể', () => {
     expect(dk(['stt~26-11171'])).toEqual([
-      {
-        OR: [
-          { stt: { contains: '26-11171', mode: 'insensitive' } },
-          { stt: { contains: '2026-11171', mode: 'insensitive' } },
-        ],
-      },
+      { stt: { contains: '26-11171', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('mã hồ sơ: gõ "2026-1" KHÔNG sinh "26-1" (rò sang hồ sơ năm khác)', () => {
+    expect(dk(['stt~2026-1'])).toEqual([
+      { stt: { contains: '2026-1', mode: 'insensitive' } },
     ]);
   });
 

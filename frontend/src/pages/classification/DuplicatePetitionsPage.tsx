@@ -33,7 +33,6 @@ import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_DON_TRUNG: readonly TruongLoc<DuplicatePetition>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (d) => d.stt },
   { key: 'maDon', nhan: 'Mã đơn mới', kieu: 'ma', lay: (d) => d.newPetitionCode },
   { key: 'tieuDe', nhan: 'Tiêu đề', kieu: 'chu', lay: (d) => d.newPetitionTitle },
   { key: 'tieuChiTrung', nhan: 'Tiêu chí trùng', kieu: 'chu', lay: (d) => d.duplicateCriteria },

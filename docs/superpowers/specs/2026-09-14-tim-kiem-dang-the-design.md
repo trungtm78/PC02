@@ -38,7 +38,7 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
 - ~~Chữ 1–2 ký tự: khớp **đầu từ bất kỳ** ("An" ra "Nguyễn Văn An") + gợi ý "gõ từ 3 ký tự để tìm trong nội dung".~~
   **THAY 17/09/2026 (quyết định 4A bị thay):** anh báo "search chưa đúng %like%" (vd thẻ "STT: 78" ra "Không tìm
   thấy"). Nay MỌI thẻ chữ và mã khớp **chuỗi con ở mọi độ dài**: bỏ khoảng trắng đầu ở mẫu 1–2 ký tự; thẻ STT và mã
-  thường đổi từ so đúng nguyên giá trị sang `contains` (STT vẫn thử cả biến thể năm 2↔4 số); gỡ gợi ý "gõ từ 3 ký
+  thường đổi từ so đúng nguyên giá trị sang `contains` (KHÔNG sinh biến thể năm 2↔4 số: prod 0 mã lưu dạng ngắn, dạng ngắn gõ vào đã là chuỗi con; biến thể gây rò "2026-1"→"26-1" khớp "2025-126-1"). Thẻ mã so nguyên văn không hoa thường ở CẢ HAI phía (trình duyệt không bỏ dấu, như ILIKE cột gốc); gỡ gợi ý "gõ từ 3 ký
   tự". Lý do 4A không còn đứng — đo lại `pc02_spike` (47.169 đơn thư, bộ đệm nóng, trung vị 5 lần): đếm `% an%` đầu
   từ 317 ms, `%an%` chuỗi con 255 ms (cả hai Seq Scan); chỉ chuỗi ngắn HIẾM chậm đi (4 ms → 234 ms), vẫn dưới 300 ms;
   `stt ILIKE '%78%'` đếm 81 ms. Cột bóng giữ khoảng trắng đầu (vô hại) nên không migration. Trình duyệt dùng CHUNG

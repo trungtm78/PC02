@@ -177,11 +177,9 @@ describe('CasesService', () => {
       // Vụ án lưu mã ở `caseCode`, không phải `stt`. Từ 15/09/2026 tham số cũ đi qua thẻ `stt`
       // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng `where.caseCode`.
       expect(where.caseCode).toBeUndefined();
+      // Dạng ngắn "26-9893" là chuỗi con của mã lưu "2026-9893" — so chứa ra được, không cần biến thể.
       expect(where.AND).toContainEqual({
-        OR: [
-          { caseCode: { contains: '26-9893', mode: 'insensitive' } },
-          { caseCode: { contains: '2026-9893', mode: 'insensitive' } },
-        ],
+        caseCode: { contains: '26-9893', mode: 'insensitive' },
       });
     });
 

@@ -62,7 +62,6 @@ const categories = [
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_PHAN_LOAI_KHAC: readonly TruongLoc<OtherCase>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (c) => c.stt },
   { key: 'tenHoSo', nhan: 'Tên hồ sơ', kieu: 'chu', lay: (c) => c.caseName },
   { key: 'loai', nhan: 'Loại', kieu: 'chu', lay: (c) => c.type },
   { key: 'phanLoai', nhan: 'Phân loại', kieu: 'chu', lay: (c) => c.category },

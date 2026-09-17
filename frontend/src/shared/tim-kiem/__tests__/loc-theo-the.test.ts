@@ -134,22 +134,41 @@ describe('locTheoThe — lọc phía trình duyệt cùng ngữ nghĩa máy ch�
   });
 
   /**
-   * Biến thể mã hồ sơ như máy chủ (`ho-so-code.util.ts`): hồ sơ lưu dạng NGẮN "26-11171" thì gõ dạng
-   * ĐẦY ĐỦ "2026-11171" không phải chuỗi con của nó — phải thử cả dạng ngắn.
+   * KHÔNG sinh biến thể năm 2↔4 số (như máy chủ). Đo prod 17/09/2026: 0 mã lưu dạng ngắn ở cả ba bảng,
+   * nên biến thể dạng ngắn chỉ gây RÒ — "2026-1" sinh "26-1", là chuỗi con của "2025-126-1". Gõ dạng ngắn
+   * "26-11171" vẫn ra "2026-11171" vì là chuỗi con của nó.
    */
-  it('mã: gõ dạng đầy đủ vẫn ra hồ sơ lưu dạng ngắn, và ngược lại', () => {
+  it('mã: gõ "2026-1" không rò sang hồ sơ năm khác; dạng ngắn vẫn ra', () => {
     const khai: readonly TruongLoc<{ id: string; ma: string }>[] = [
       { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (x) => x.ma },
     ];
     const rows = [
-      { id: 'ngan', ma: '26-11171' },
-      { id: 'day', ma: '2025-4478' },
+      { id: 'a', ma: '2026-11171' },
+      { id: 'b', ma: '2025-126-1' },
+      { id: 'c', ma: '2025-4478' },
     ];
     const loc = (v: string) =>
       locTheoThe(rows, [{ khoa: 'stt', giaTri: [v] }], khai).map((r) => r.id);
-    expect(loc('2026-11171')).toEqual(['ngan']);
-    expect(loc('25-4478')).toEqual(['day']);
-    expect(loc('78')).toEqual(['day']);
+    expect(loc('2026-1')).toEqual(['a']);
+    expect(loc('26-11171')).toEqual(['a']);
+    expect(loc('78')).toEqual(['c']);
+  });
+
+  /**
+   * Thẻ MÃ so NGUYÊN VĂN, chỉ không phân biệt hoa thường — đúng như máy chủ (`contains` + `mode:
+   * insensitive` trên cột gốc; cột mã KHÔNG có cột bóng bỏ dấu). Bản đầu PR1 bỏ dấu cả hai vế ở trình
+   * duyệt nên gõ "2026–11171" (gạch ngang ngắn dán từ Word) ra ở màn lọc tại chỗ mà máy chủ ra rỗng — Codex
+   * và rà mã cùng bắt. Thẻ `*` vẫn bỏ dấu cả hai phía (máy chủ chạy `*` trên cột bóng `tim_kiem_bd`).
+   */
+  it('mã: so nguyên văn không phân biệt hoa thường — không bỏ dấu, như máy chủ', () => {
+    const khai: readonly TruongLoc<{ id: string; ma: string }>[] = [
+      { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (x) => x.ma },
+    ];
+    const rows = [{ id: 'a', ma: 'DT-2026-11171' }];
+    const loc = (v: string) =>
+      locTheoThe(rows, [{ khoa: 'stt', giaTri: [v] }], khai).map((r) => r.id);
+    expect(loc(`2026${String.fromCharCode(0x2013)}11171`)).toEqual([]);
+    expect(loc('dt-2026')).toEqual(['a']);
   });
 
   /**

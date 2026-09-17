@@ -395,10 +395,7 @@ describe('PetitionsService', () => {
       it('một giá trị tk đơn (query ?tk=x) cũng nhận', async () => {
         await service.getList({ tk: 'stt~26-11171' } as never);
         expect(whereCuaLanGoi().AND).toContainEqual({
-          OR: [
-            { stt: { contains: '26-11171', mode: 'insensitive' } },
-            { stt: { contains: '2026-11171', mode: 'insensitive' } },
-          ],
+          stt: { contains: '26-11171', mode: 'insensitive' },
         });
       });
 

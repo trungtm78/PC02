@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { hoSoCodeVariants } from '../utils/ho-so-code.util';
 import { dieuKienSttCu } from '../utils/stt-cu.util';
 import { boDauTimKiem, thoatLike } from './bo-dau';
 import {
@@ -268,11 +267,12 @@ function dieuKienMotThe(
       // "192.168.1.10"). Không đi biến thể mã hồ sơ.
       return hoac(the.giaTri.map((v) => chuaMa(cot, v)));
     case 'ma':
-      // STT hồ sơ: CHỨA chuỗi gõ trên từng biến thể. Trước 17/09/2026 so ĐÚNG NGUYÊN mã (`in`) nên
-      // anh gõ thẻ "STT: 78" ra "Không tìm thấy". Biến thể vẫn cần: hồ sơ lưu dạng ngắn "26-11171"
-      // thì gõ dạng đầy đủ "2026-11171" không phải chuỗi con của nó.
+      // STT hồ sơ: CHỨA chuỗi gõ. Trước 17/09/2026 so ĐÚNG NGUYÊN mã (`in`) nên anh gõ thẻ "STT: 78"
+      // ra "Không tìm thấy". KHÔNG sinh biến thể năm 2↔4 số: đo prod 17/09 có 0 mã lưu dạng ngắn ở cả
+      // ba bảng, nên dạng ngắn gõ vào đã là chuỗi con của mã lưu; còn biến thể thì gây rò ("2026-1" sinh
+      // "26-1", khớp "2025-126-1").
       return hoac(
-        [...new Set(the.giaTri.flatMap(hoSoCodeVariants))].map((v) =>
+        [...new Set(the.giaTri.map((v) => v.trim()).filter(Boolean))].map((v) =>
           chuaMa(cot, v),
         ),
       );
