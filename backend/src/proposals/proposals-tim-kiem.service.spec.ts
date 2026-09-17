@@ -153,6 +153,19 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
       writableTeamIds: [],
     });
     const chuoi = JSON.stringify(whereList().AND);
-    expect(chuoi).toContain('{"relatedCase":null}');
+    expect(chuoi).toContain('{"relatedCase":null,"createdById":{"not":null}}');
+  });
+
+  it('tổ trưởng: chỉ bản không gắn hồ sơ CÓ người tạo; sắp theo createdAt rồi id', async () => {
+    await service.getList({} as never, {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+    });
+    const call = mockPrisma.proposal.findMany.mock.calls[0][0];
+    expect(JSON.stringify(call.where.AND)).toContain(
+      '{"relatedCase":null,"createdById":{"not":null}}',
+    );
+    expect(call.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
   });
 });

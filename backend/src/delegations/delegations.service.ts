@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
+import { UpdateDelegationDto } from './dto/update-delegation.dto';
 import { DelegationStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import {
@@ -102,7 +103,8 @@ export class DelegationsService {
           createdBy: { select: { id: true, firstName: true, lastName: true } },
           relatedCase: { select: { id: true, name: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        // Khoá sắp phụ `id`: cùng createdAt (nạp hàng loạt) thì thứ tự ổn định giữa các trang.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
         skip: offset,
       }),
@@ -176,7 +178,9 @@ export class DelegationsService {
         phamVi.push(
           userIds.length > 0
             ? { relatedCase: null, createdById: { in: userIds } }
-            : { relatedCase: null },
+            : // Chỉ bản CÓ người tạo: getById (assertCreatorInScope) từ chối bản createdById rỗng — hiện
+              // trong danh sách mà mở ra 403 (người tạo bị xoá → SetNull).
+              { relatedCase: null, createdById: { not: null } },
         );
         dieuKien.push({ OR: phamVi });
       }
@@ -331,7 +335,7 @@ export class DelegationsService {
 
   async update(
     id: string,
-    dto: Partial<CreateDelegationDto>,
+    dto: UpdateDelegationDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
@@ -346,6 +350,13 @@ export class DelegationsService {
     const record = await this.prisma.delegation.update({
       where: { id },
       data: {
+        // Form sửa cho đổi Số và Ngày ủy thác — trước 17/09/2026 hai trường này bị bỏ qua im lặng.
+        ...(dto.delegationNumber !== undefined && {
+          delegationNumber: dto.delegationNumber,
+        }),
+        ...(dto.delegationDate !== undefined && {
+          delegationDate: new Date(dto.delegationDate),
+        }),
         ...(dto.receivingUnit !== undefined && {
           receivingUnit: dto.receivingUnit,
         }),

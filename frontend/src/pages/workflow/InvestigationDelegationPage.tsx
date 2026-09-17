@@ -114,8 +114,15 @@ const TRANG_THAI_API: Record<string, DelegationStatus> = {
   COMPLETED: 'completed',
 };
 
+/** Trạng thái gửi máy chủ theo MÃ enum — DTO kiểm `@IsEnum(DelegationStatus)`, chữ thường là 400. */
+const TRANG_THAI_GUI: Record<DelegationStatus, 'PENDING' | 'RECEIVED' | 'COMPLETED'> = {
+  pending: 'PENDING',
+  received: 'RECEIVED',
+  completed: 'COMPLETED',
+};
+
 const NHAN_TRANG_THAI: Record<DelegationStatus, string> = {
-  pending: 'Chờ xử lý',
+  pending: 'Chờ nhận',
   received: 'Đã nhận',
   completed: 'Đã hoàn thành',
 };
@@ -177,6 +184,8 @@ export default function InvestigationDelegationPage() {
   });
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  /** Lỗi lưu không gắn với ô nào — NÓI ra lý do máy chủ đưa, không để modal đứng im. */
+  const [loiLuu, setLoiLuu] = useState('');
 
   // ── Tìm kiếm, lọc, phân trang, thống kê: ĐỀU ở máy chủ ─────────────────────
   // Trước 17/09/2026 màn tải `limit=100` rồi lọc tại chỗ, thẻ thống kê đếm trên phần đã tải.
@@ -353,6 +362,7 @@ export default function InvestigationDelegationPage() {
       relatedCase: '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
@@ -368,6 +378,7 @@ export default function InvestigationDelegationPage() {
       relatedCase: delegation.relatedCase || '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
@@ -383,20 +394,23 @@ export default function InvestigationDelegationPage() {
       relatedCase: delegation.relatedCase || '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
   const handleSave = async () => {
     if (!validateForm()) return;
     try {
+      // Không gửi `relatedCase`: API chỉ nhận `relatedCaseId`, tên gõ tay không quy ra được id —
+      // gửi khoá lạ là 400 (`forbidNonWhitelisted`). Trước 17/09/2026 tạo mới vì thế luôn hỏng.
       const dto = {
         delegationNumber: formData.delegationNumber,
         content: formData.content,
         delegationDate: formData.delegationDate,
         receivingUnit: formData.receivingUnit,
-        status: formData.status,
-        relatedCase: formData.relatedCase || undefined,
+        status: TRANG_THAI_GUI[formData.status],
       };
+      setLoiLuu('');
       if (editingMode === 'add') {
         await api.post('/delegations', dto);
       } else if (editingMode === 'edit' && selectedDelegation) {
@@ -412,6 +426,8 @@ export default function InvestigationDelegationPage() {
           ...validationErrors,
           delegationNumber: `Số ủy thác "${formData.delegationNumber}" đã tồn tại. Vui lòng nhập số khác.`,
         });
+      } else {
+        setLoiLuu(extractApiError(e, 'Không lưu được ủy thác. Vui lòng thử lại.').messages.join(', '));
       }
       return;
     }
@@ -917,14 +933,14 @@ export default function InvestigationDelegationPage() {
                   {/* Vụ án liên quan */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-2">Vụ án liên quan</label>
+                    {/* CHỈ HIỂN THỊ liên kết đã có: API nhận `relatedCaseId`, tên gõ tay không lưu được. */}
                     <input
                       data-testid="related-case-input"
                       type="text"
                       value={formData.relatedCase}
-                      onChange={(e) => setFormData({ ...formData, relatedCase: e.target.value })}
-                      disabled={editingMode === 'view'}
-                      placeholder="VA-XXX/2026"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+                      readOnly
+                      placeholder="Chưa liên kết vụ án"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
                     />
                   </div>
                 </div>
@@ -989,6 +1005,12 @@ export default function InvestigationDelegationPage() {
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">
+              {loiLuu && (
+                <p data-testid="delegation-save-error" role="alert" className="mr-auto flex items-center gap-1.5 text-sm text-red-600">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {loiLuu}
+                </p>
+              )}
               <button
                 onClick={() => { setShowDelegationModal(false); setSelectedDelegation(null); setValidationErrors({}); }}
                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"

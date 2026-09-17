@@ -71,7 +71,8 @@ export class ProposalsService {
           },
           relatedCase: { select: { id: true, name: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        // Khoá sắp phụ `id`: cùng createdAt (nạp hàng loạt) thì thứ tự ổn định giữa các trang.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
         skip: offset,
       }),
@@ -151,7 +152,9 @@ export class ProposalsService {
         phamVi.push(
           userIds.length > 0
             ? { relatedCase: null, createdById: { in: userIds } }
-            : { relatedCase: null },
+            : // Chỉ bản CÓ người tạo: getById (assertCreatorInScope) từ chối bản createdById rỗng — hiện
+              // trong danh sách mà mở ra 403 (người tạo bị xoá → SetNull).
+              { relatedCase: null, createdById: { not: null } },
         );
         dieuKien.push({ OR: phamVi });
       }

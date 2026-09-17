@@ -20,6 +20,7 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateDelegationDto } from './dto/create-delegation.dto';
+import { UpdateDelegationDto } from './dto/update-delegation.dto';
 
 @Controller('delegations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -62,7 +63,7 @@ export class DelegationsController {
   @RequirePermissions({ action: 'edit', subject: 'Case' })
   update(
     @Param('id') id: string,
-    @Body() dto: Partial<CreateDelegationDto>,
+    @Body() dto: UpdateDelegationDto,
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {

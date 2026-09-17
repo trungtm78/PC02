@@ -95,7 +95,9 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
       teamIds: ['t1'],
       writableTeamIds: [],
     });
-    expect(JSON.stringify(whereList().AND)).toContain('{"relatedCase":null}');
+    expect(JSON.stringify(whereList().AND)).toContain(
+      '{"relatedCase":null,"createdById":{"not":null}}',
+    );
   });
 
   /** Lọc NGÀY ỦY THÁC đang hiện trên bảng (không phải ngày nhập máy), theo ngày Việt Nam. */
@@ -133,5 +135,22 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
     const chuoi = JSON.stringify(where);
     expect(chuoi).not.toContain('COMPLETED');
     expect(chuoi).toContain('"receivingUnitBd":{"contains":"quan 1"}');
+  });
+
+  /**
+   * Rà mã 17/09: tổ trưởng thấy dòng không gắn hồ sơ mà người tạo đã bị xoá (createdById null) — getById
+   * từ chối (assertCreatorInScope) nên dòng hiện mà mở ra 403. Phân trang cần khoá sắp phụ ổn định.
+   */
+  it('tổ trưởng: chỉ bản không gắn hồ sơ CÓ người tạo; sắp theo createdAt rồi id', async () => {
+    await service.getList({} as never, {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+    });
+    const call = mockPrisma.delegation.findMany.mock.calls[0][0];
+    expect(JSON.stringify(call.where.AND)).toContain(
+      '{"relatedCase":null,"createdById":{"not":null}}',
+    );
+    expect(call.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
   });
 });
