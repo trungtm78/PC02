@@ -246,6 +246,27 @@ describe('decomposeLegacyRecord — tier ③ (PR-M3: 5 loại bị skip + luật
     expect(r.proposal!.proposalNumber).toBeUndefined();
   });
 
+  /**
+   * REGRESSION 17/09/2026: ba builder tier-3 không gắn người nhập. Đo prod: 650/650 bản (hướng dẫn
+   * 541 · trao đổi 76 · kiến nghị 33) có `createdById` NULL, trong khi phạm vi dữ liệu của ba màn lọc
+   * `createdById IN userIds` và OFFICER luôn có userIds ⇒ 247 cán bộ OFFICER thấy 0 bản ghi.
+   */
+  it.each([
+    ['huong-dan-ban-dau', 'guidance'],
+    ['trao-doi-chuyen-an', 'exchange'],
+    ['kien-nghi-vks', 'proposal'],
+  ] as const)('%s → %s mang người nhập từ __createdById', (phanLoai, thucThe) => {
+    const co = decomposeLegacyRecord({
+      ...base,
+      phan_loai_nguon_tin_ban_dau: phanLoai,
+      __createdById: 'user-cb-1',
+    });
+    expect(co[thucThe]!.createdById).toBe('user-cb-1');
+    // Không tra được người → để TRỐNG, không gán bừa (FK tới users).
+    const khong = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: phanLoai });
+    expect(khong[thucThe]).not.toHaveProperty('createdById');
+  });
+
   it('uy-thac-dieu-tra → case caseType UY_THAC_DIEU_TRA + provenance hint (CHECK constraint non-linked)', () => {
     const r = decomposeLegacyRecord({ ...base, phan_loai_nguon_tin_ban_dau: 'uy-thac-dieu-tra' });
     expect(r.case).toBeDefined();

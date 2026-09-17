@@ -607,6 +607,8 @@ export function buildCase(rec: LegacyRecord): Record<string, unknown> {
 function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
   return clean({
     legacySourceId: legacyKey(rec),
+    // Người nhập: phạm vi dữ liệu của màn lọc createdById — thiếu là OFFICER không thấy bản ghi (17/09/2026).
+    createdById: s(rec.__createdById),
     guidedPerson: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap) ?? '(di trú)',
     guidedPersonPhone: s(rec.so_dien_thoai_nguyen_don),
     subject: s(rec.loai_thong_tin),
@@ -623,6 +625,8 @@ function buildGuidance(rec: LegacyRecord): Record<string, unknown> {
 function buildExchange(rec: LegacyRecord): Record<string, unknown> {
   return clean({
     legacySourceId: legacyKey(rec),
+    // Người nhập: phạm vi dữ liệu của màn lọc createdById — thiếu là OFFICER không thấy bản ghi (17/09/2026).
+    createdById: s(rec.__createdById),
     recordCode: s(rec.so_phieu_chuyen),
     recordType: s(rec.loai_thong_tin),
     senderUnit: s(rec.ten_ca_nhan_co_quan_to_chuc_cung_cap),
@@ -637,6 +641,8 @@ function buildExchange(rec: LegacyRecord): Record<string, unknown> {
 function buildProposal(rec: LegacyRecord): Record<string, unknown> {
   return clean({
     legacySourceId: legacyKey(rec),
+    // Người nhập: phạm vi dữ liệu của màn lọc createdById — thiếu là OFFICER không thấy bản ghi (17/09/2026).
+    createdById: s(rec.__createdById),
     content: s(rec.tom_tat_noi_dung) ?? '(di trú — không có nội dung)',
     unit: s(rec.don_vi_giai_quyet),
     notes: s(rec.nhan_xet),
