@@ -48,6 +48,8 @@ export default function MasterClassPage() {
   const canEditRow = canEdit('settings');
   const [selectedType, setSelectedType] = useState(MASTER_CLASS_TYPE_LIST[0].code);
   const [entries, setEntries] = useState<MasterClassEntry[]>([]);
+  /** Tổng máy chủ báo cho loại đang xem — lớn hơn số dòng đã tải là đang CẮT CỤT. */
+  const [tongMayChu, setTongMayChu] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -68,9 +70,11 @@ export default function MasterClassPage() {
       const res = await api.get(`/master-classes?type=${selectedType}&limit=500`);
       if (!conMoiNhat()) return;
       setEntries(res.data?.data ?? []);
+      setTongMayChu(typeof res.data?.total === "number" ? res.data.total : null);
     } catch (e) {
       if (!conMoiNhat()) return;
       setEntries([]);
+      setTongMayChu(null);
       setLoadError(extractApiError(e, "Không tải được danh mục. Vui lòng thử lại.").messages.join(", "));
     }
     if (conMoiNhat()) setLoading(false);
@@ -194,6 +198,15 @@ export default function MasterClassPage() {
             thì banner thành một cột chen giữa thanh trái và bảng. */}
         <div className="px-6 pt-4">
           <LoadErrorBanner error={loadError} what="danh mục" data-testid="master-class-load-error" />
+          {/*
+            Màn lọc TẠI CHỖ trên phần đã tải (`limit=500`). Danh mục vượt ngưỡng thì phần sau ngưỡng không
+            bao giờ hiện, tìm đúng cũng không ra — cùng lớp lỗi Hướng dẫn đơn (100/541). Không lặng im.
+          */}
+          {tongMayChu !== null && tongMayChu > entries.length && (
+            <div data-testid="master-class-cat-cut" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+              Đang hiện {entries.length} / {tongMayChu} mục của danh mục này — tìm kiếm chỉ trong phần đã tải.
+            </div>
+          )}
         </div>
 
         {/* Header */}
