@@ -19,6 +19,7 @@ import WardCasesPage from '../WardCasesPage';
 import { api } from '@/lib/api';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 const CO_TAT_THE: FeatureFlag[] = [
   { key: 'TIM_KIEM_THE', label: 'Tìm kiếm dạng thẻ', description: null, enabled: false, domain: null, rolloutPct: 100 },
@@ -81,7 +82,9 @@ function dung(url = '/ward/cases', flags?: FeatureFlag[]) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const trang = (
     <QueryClientProvider client={qc}>
-      <RouterProvider router={router} />
+      <DeleteResourceModalProvider>
+        <RouterProvider router={router} />
+      </DeleteResourceModalProvider>
     </QueryClientProvider>
   );
   return render(flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang);
@@ -256,15 +259,19 @@ describe('WardCasesPage — dữ liệu thật, phạm vi ở máy chủ', () =>
     expect(screen.queryByTestId('delete-btn-c1')).not.toBeInTheDocument();
   });
 
-  it('quản trị viên xoá → gọi DELETE rồi tải lại', async () => {
+  it('[rà mã P2] quản trị viên xoá → hộp xoá chuẩn hỏi LÝ DO (máy chủ bắt buộc), gửi kèm lý do rồi tải lại', async () => {
+    // Bản cũ gọi DELETE không thân → DeleteCaseDto trả 400 "Lý do xóa bắt buộc" với mọi hồ sơ.
     vaiTro.role = 'ADMIN';
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     m.delete.mockResolvedValue({ data: {} });
     dung();
     await screen.findByTestId('ward-case-row-c1');
     const truoc = goi('/cases?').length;
     fireEvent.click(screen.getByTestId('delete-btn-c1'));
-    await waitFor(() => expect(m.delete).toHaveBeenCalledWith('/cases/c1'));
+    fireEvent.change(await screen.findByTestId('input-ly-do-xoa'), { target: { value: 'Hồ sơ nhập trùng lặp' } });
+    fireEvent.click(screen.getByTestId('btn-confirm-delete'));
+    await waitFor(() =>
+      expect(m.delete).toHaveBeenCalledWith('/cases/c1', { data: { reason: 'Hồ sơ nhập trùng lặp' } }),
+    );
     await waitFor(() => expect(goi('/cases?').length).toBeGreaterThan(truoc));
   });
 });

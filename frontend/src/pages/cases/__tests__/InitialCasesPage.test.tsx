@@ -17,6 +17,7 @@ import InitialCasesPage from '../InitialCasesPage';
 import { api } from '@/lib/api';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
+import { DeleteResourceModalProvider } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 const CO_TAT_THE: FeatureFlag[] = [
   { key: 'TIM_KIEM_THE', label: 'Tìm kiếm dạng thẻ', description: null, enabled: false, domain: null, rolloutPct: 100 },
@@ -69,7 +70,11 @@ function dung(url = '/cases/initial', flags?: FeatureFlag[]) {
   const router = createMemoryRouter([{ path: '/cases/initial', element: <InitialCasesPage /> }], {
     initialEntries: [url],
   });
-  const trang = <RouterProvider router={router} />;
+  const trang = (
+    <DeleteResourceModalProvider>
+      <RouterProvider router={router} />
+    </DeleteResourceModalProvider>
+  );
   return render(flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang);
 }
 
@@ -156,6 +161,32 @@ describe('InitialCasesPage — dữ liệu thật, lọc ở máy chủ', () => 
     expect(screen.getByTestId('initial-cases-total')).toHaveTextContent('860');
     fireEvent.click(screen.getByTestId('initial-cases-next-page'));
     await waitFor(() => expect(ds().get('offset')).toBe('20'));
+  });
+
+  it('[rà mã P2] Xoá → hộp xoá chuẩn hỏi LÝ DO (máy chủ bắt buộc), gửi kèm lý do rồi tải lại; hỏng thì giữ hộp + lý do', async () => {
+    // Bản cũ gọi DELETE không thân → DeleteCaseDto trả 400 "Lý do xóa bắt buộc" với mọi hồ sơ.
+    m.delete.mockResolvedValueOnce({ data: {} });
+    dung();
+    await screen.findByTestId('initial-row-c1');
+    const truoc = goi('/cases?').length;
+    fireEvent.click(screen.getByTestId('btn-delete-c1'));
+    fireEvent.change(await screen.findByTestId('input-ly-do-xoa'), { target: { value: 'Hồ sơ nhập trùng lặp' } });
+    fireEvent.click(screen.getByTestId('btn-confirm-delete'));
+    await waitFor(() =>
+      expect(m.delete).toHaveBeenCalledWith('/cases/c1', { data: { reason: 'Hồ sơ nhập trùng lặp' } }),
+    );
+    await waitFor(() => expect(goi('/cases?').length).toBeGreaterThan(truoc));
+    await waitFor(() => expect(screen.queryByTestId('delete-confirm-modal')).not.toBeInTheDocument());
+
+    m.delete.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { success: false, error: { code: 'X', message: 'Hồ sơ đang được xử lý', details: [] } } },
+    });
+    fireEvent.click(await screen.findByTestId('btn-delete-c1'));
+    fireEvent.change(await screen.findByTestId('input-ly-do-xoa'), { target: { value: 'Hồ sơ nhập trùng lặp' } });
+    fireEvent.click(screen.getByTestId('btn-confirm-delete'));
+    expect(await screen.findByText(/Hồ sơ đang được xử lý/)).toBeInTheDocument();
+    expect(screen.getByTestId('delete-confirm-modal')).toBeInTheDocument();
   });
 
   it('Nhận xử lý → PUT trạng thái rồi tải lại; hỏng thì nói lý do', async () => {

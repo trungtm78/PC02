@@ -36,6 +36,7 @@ import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { CaseStatus } from '@/shared/enums/generated';
 import { CASE_PROVENANCE_OPTIONS } from './CaseFormPage/constants';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 interface HoSoMoi {
   id: string;
@@ -203,30 +204,17 @@ function InitialCasesPage() {
     }
   };
 
-  // ── Xoá ──────────────────────────────────────────────
-  const [caseToDelete, setCaseToDelete] = useState<HoSoMoi | null>(null);
-  const [deleteError, setDeleteError] = useState('');
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const closeDeleteDialog = () => {
-    setCaseToDelete(null);
-    setDeleteError('');
-  };
-  const confirmDelete = async () => {
-    if (!caseToDelete) return;
-    setDeleteError('');
-    setDeleteLoading(true);
-    try {
-      await api.delete(`/cases/${caseToDelete.id}`);
-      closeDeleteDialog();
-      setLanTai((n) => n + 1);
-    } catch (e) {
-      // KHÔNG đóng hộp xác nhận khi máy chủ TỪ CHỐI xoá: đóng ở cả hai nhánh thì xoá hỏng nhìn y hệt
-      // xoá xong, hồ sơ vẫn còn mà cán bộ đã tin là đã xoá.
-      setDeleteError(extractApiError(e, 'Xoá hồ sơ thất bại. Vui lòng thử lại.').messages.join(', '));
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
+  // ── Xoá qua hộp xoá CHUẨN ───────────────────────────
+  // Máy chủ bắt buộc lý do (DeleteCaseDto, 10–500 ký tự). Hộp riêng cũ gọi DELETE không thân → 400 với mọi hồ
+  // sơ. Hộp chuẩn hỏi lý do, giữ mở kèm lý do khi máy chủ từ chối.
+  const deleteModal = useDeleteResourceModal();
+  const xoaHoSo = (hs: HoSoMoi) =>
+    deleteModal.open({
+      resourceType: 'cases',
+      recordId: hs.id,
+      recordLabel: `vụ án ${formatHoSoCode(hs.caseCode) || hs.name}`,
+      onSuccess: () => setLanTai((n) => n + 1),
+    });
 
   const choNhan = thongKe ? (thongKe.byStatus?.[CaseStatus.TIEP_NHAN] ?? 0) : undefined;
   const soCot = COT.length + 1;
@@ -443,7 +431,7 @@ function InitialCasesPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCaseToDelete(hs)}
+                          onClick={() => xoaHoSo(hs)}
                           className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Xóa"
                           data-testid={`btn-delete-${hs.id}`}
@@ -560,68 +548,6 @@ function InitialCasesPage() {
         </div>
       )}
 
-      {caseToDelete && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          data-testid="delete-dialog"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800">Xác nhận xóa hồ sơ</h3>
-                </div>
-                <button type="button" onClick={closeDeleteDialog} className="p-1 hover:bg-slate-100 rounded transition-colors">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-slate-700">Bạn có chắc chắn muốn xóa vụ án này? Thao tác này không thể hoàn tác.</p>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-900">
-                  STT: <span className="font-bold">{formatHoSoCode(caseToDelete.caseCode)}</span>
-                </p>
-                <p className="text-sm text-red-800 mt-1 line-clamp-2">{caseToDelete.name}</p>
-              </div>
-            </div>
-            {deleteError && (
-              <div
-                data-testid="initial-delete-error"
-                role="alert"
-                className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
-              >
-                <strong className="font-medium">Chưa xoá được. </strong>
-                {deleteError}
-              </div>
-            )}
-            <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeDeleteDialog}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium"
-                data-testid="btn-cancel-delete"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={deleteLoading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50"
-                data-testid="btn-confirm-delete"
-              >
-                {deleteLoading ? 'Đang xóa...' : 'Xóa hồ sơ'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

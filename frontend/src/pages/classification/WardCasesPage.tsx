@@ -42,6 +42,7 @@ import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
 interface WardCaseRow {
   id: string;
@@ -218,15 +219,15 @@ export default function WardCasesPage() {
 
   const xemHoSo = (id: string) => navigate(`/cases/${id}`);
 
-  const handleDelete = async (row: WardCaseRow) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa vụ án ${formatHoSoCode(row.caseCode) || row.name}?`)) return;
-    try {
-      await api.delete(`/cases/${row.id}`);
-      setLanTai((n) => n + 1);
-    } catch (e) {
-      alert(extractApiError(e, 'Xóa thất bại. Vui lòng thử lại.').messages.join(', '));
-    }
-  };
+  // Xoá qua hộp xoá CHUẨN: máy chủ bắt buộc lý do (DeleteCaseDto) — gọi DELETE không thân là 400 với mọi hồ sơ.
+  const deleteModal = useDeleteResourceModal();
+  const handleDelete = (row: WardCaseRow) =>
+    deleteModal.open({
+      resourceType: 'cases',
+      recordId: row.id,
+      recordLabel: `vụ án ${formatHoSoCode(row.caseCode) || row.name}`,
+      onSuccess: () => setLanTai((n) => n + 1),
+    });
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -517,7 +518,7 @@ export default function WardCasesPage() {
                           {laQuanTri && (
                             <button
                               type="button"
-                              onClick={() => void handleDelete(c)}
+                              onClick={() => handleDelete(c)}
                               data-testid={`delete-btn-${c.id}`}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Xóa"

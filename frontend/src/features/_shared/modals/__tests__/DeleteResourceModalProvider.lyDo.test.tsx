@@ -88,3 +88,21 @@ describe('Xóa vụ án / vụ việc phải kèm lý do', () => {
     expect(screen.queryByText(/không thể hoàn tác/i)).not.toBeInTheDocument();
   });
 });
+
+describe('Máy chủ từ chối xóa — hộp giữ mở và nói ĐÚNG lý do máy chủ đưa', () => {
+  it('lỗi dạng chuẩn { error: { message } } hiện nguyên văn, không thay bằng "Xóa thất bại"', async () => {
+    mockApi.delete.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { success: false, error: { code: 'CONFLICT', message: 'Chỉ xóa được hồ sơ đang Tiếp nhận', details: [] } },
+      },
+    });
+    dung('cases');
+    fireEvent.click(screen.getByTestId('mo'));
+    fireEvent.change(screen.getByTestId('input-ly-do-xoa'), { target: { value: 'Hồ sơ nhập trùng lặp' } });
+    fireEvent.click(screen.getByTestId('btn-confirm-delete'));
+    expect(await screen.findByText(/Chỉ xóa được hồ sơ đang Tiếp nhận/)).toBeInTheDocument();
+    expect(screen.getByTestId('delete-confirm-modal')).toBeInTheDocument();
+  });
+});
