@@ -49,3 +49,25 @@ export const NHAN_TIEU_CHI_TRUNG: Record<TieuChiTrung, string> = {
   senderAddress: 'Địa chỉ',
   suspectedPerson: 'Đối tượng bị tố giác',
 };
+
+/** Số đơn lấy về mỗi nhóm ở màn danh sách (bảng vẫn hiện TỔNG số đơn của nhóm). */
+export const SO_DON_MOI_NHOM = 20;
+
+export interface TuyChonNhomTrung {
+  /** `null` = lấy trọn đơn của nhóm (đường xuất Excel). Bỏ trống = `SO_DON_MOI_NHOM`. */
+  soDonMoiNhom?: number | null;
+  /** Lấy MỌI nhóm trong một lượt (đường xuất Excel) thay vì theo trang. */
+  tatCaNhom?: boolean;
+}
+
+/**
+ * Bí danh tiếng Việt của tiêu chí — đường xuất Excel trước 18/09/2026 nhận các nhãn này, nên đường dẫn
+ * cán bộ đã lưu vẫn phải chạy.
+ */
+export const BI_DANH_TIEU_CHI_TRUNG: Record<string, TieuChiTrung> = {
+  'Họ tên': 'senderName',
+  'Số điện thoại': 'senderPhone',
+  'Địa chỉ': 'senderAddress',
+  'Bị đơn trùng': 'suspectedPerson',
+  'Đối tượng bị tố giác': 'suspectedPerson',
+};

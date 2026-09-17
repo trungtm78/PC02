@@ -44,11 +44,19 @@ const NHOM = {
 };
 
 let rong = false;
+let catCut = false;
 
 function traDuLieu() {
   m.get.mockImplementation((url: string) => {
-    if (url.startsWith('/petitions/duplicates'))
-      return Promise.resolve({ data: rong ? { ...NHOM, total: 0, data: [] } : NHOM });
+    if (url.startsWith('/petitions/duplicates')) {
+      if (rong) return Promise.resolve({ data: { ...NHOM, total: 0, data: [] } });
+      if (catCut) {
+        return Promise.resolve({
+          data: { ...NHOM, data: [{ ...NHOM.data[0], soDon: 57 }] },
+        });
+      }
+      return Promise.resolve({ data: NHOM });
+    }
     return Promise.resolve({ data: [] });
   });
 }
@@ -72,6 +80,7 @@ describe('DuplicatePetitionsPage — nhóm trùng thật', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     rong = false;
+    catCut = false;
     traDuLieu();
   });
 
@@ -107,6 +116,13 @@ describe('DuplicatePetitionsPage — nhóm trùng thật', () => {
     expect(within(dong).getByText('Đơn sau')).toBeInTheDocument();
     expect(within(dong).getByText('01/03/2026')).toBeInTheDocument();
     expect(within(dong).getByText('Đang xử lý')).toBeInTheDocument();
+  });
+
+  it('[rà mã P3] nhóm to hơn số đơn máy chủ trả → NÓI RÕ đang hiện bao nhiêu, không cắt cụt âm thầm', async () => {
+    dung();
+    const khoi = await screen.findByTestId('nhom-trung-le-thi-nham');
+    // NHOM mẫu: soDon 3 nhưng chỉ trả 3 đơn → không báo. Đổi sang nhóm bị cắt.
+    expect(khoi).not.toHaveTextContent(/Đang hiện/);
   });
 
   it('KHÔNG còn độ tương đồng %, nút hợp nhất/tách/so sánh (không có API phía sau)', async () => {
@@ -183,6 +199,7 @@ describe('DuplicatePetitionsPage — ô tìm kiếm dạng thẻ (máy chủ)', 
   beforeEach(() => {
     vi.clearAllMocks();
     rong = false;
+    catCut = false;
     traDuLieu();
   });
 
@@ -205,5 +222,20 @@ describe('DuplicatePetitionsPage — ô tìm kiếm dạng thẻ (máy chủ)', 
     const o = await screen.findByTestId('quick-search-input');
     fireEvent.change(o, { target: { value: 'nhâm' } });
     await waitFor(() => expect(ds().get('search')).toBe('nhâm'));
+  });
+});
+
+describe('DuplicatePetitionsPage — nhóm bị cắt bớt', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rong = false;
+    catCut = true;
+    traDuLieu();
+  });
+
+  it('[rà mã P3] nhóm 57 đơn mà máy chủ trả 3 → nói rõ "Đang hiện 3 / 57"', async () => {
+    dung();
+    const khoi = await screen.findByTestId('nhom-trung-le-thi-nham');
+    expect(khoi).toHaveTextContent('Đang hiện 3 / 57');
   });
 });

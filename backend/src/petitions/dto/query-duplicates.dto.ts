@@ -1,12 +1,22 @@
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
-import { TIEU_CHI_TRUNG } from '../don-trung.types';
+import { BI_DANH_TIEU_CHI_TRUNG, TIEU_CHI_TRUNG } from '../don-trung.types';
 
 /** Tham số của GET /petitions/duplicates — màn Đơn trùng và tệp xuất dùng chung. */
 export class QueryDuplicatesDto {
-  /** Tiêu chí gom nhóm; mặc định Họ tên người gửi. Mã lạ → 400 ngay ở cổng. */
+  /**
+   * Tiêu chí gom nhóm; mặc định Họ tên người gửi. Mã lạ → 400 ngay ở cổng.
+   *
+   * Nhận cả NHÃN tiếng Việt mà đường xuất Excel cũ dùng ("Họ tên", "Số điện thoại"…): đường dẫn cán bộ
+   * đã lưu hoặc đặt trong tài liệu vẫn chạy thay vì trả 400.
+   */
   @IsOptional()
+  @Transform(({ value }: { value: unknown }): unknown =>
+    typeof value === 'string'
+      ? (BI_DANH_TIEU_CHI_TRUNG[value] ?? value)
+      : value,
+  )
   @IsIn(TIEU_CHI_TRUNG)
   criteria?: string;
 

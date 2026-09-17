@@ -434,7 +434,11 @@ export default function DuplicatePetitionsPage() {
                   <span className="text-slate-600">Trùng {nhanTieuChi.toLowerCase()}:</span>
                   <span className="font-bold text-slate-800">{n.giaTri}</span>
                 </div>
-                <span className="text-sm font-medium text-amber-800">{n.soDon} đơn</span>
+                <span className="text-sm font-medium text-amber-800">
+                  {/* Máy chủ chỉ trả tối đa 20 đơn mỗi nhóm (nhóm lớn nhất prod: 569 đơn). Nói RÕ đang hiện
+                      bao nhiêu thay vì để cán bộ tưởng nhóm chỉ có ngần ấy. */}
+                  {n.dons.length < n.soDon ? `Đang hiện ${n.dons.length} / ${n.soDon} đơn` : `${n.soDon} đơn`}
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">

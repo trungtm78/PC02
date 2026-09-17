@@ -29,6 +29,8 @@ import {
   type NhomDonTrung,
   type TieuChiTrung,
   NHAN_TIEU_CHI_TRUNG,
+  SO_DON_MOI_NHOM,
+  type TuyChonNhomTrung,
 } from './don-trung.types';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
@@ -1520,6 +1522,7 @@ export class PetitionsService {
   async listDuplicates(
     query: QueryDuplicatesDto,
     dataScope?: DataScope | null,
+    tuyChon: TuyChonNhomTrung = {},
   ): Promise<{
     data: NhomDonTrung[];
     total: number;
@@ -1533,8 +1536,12 @@ export class PetitionsService {
       );
     }
     const cot = COT_TIEU_CHI_TRUNG[criteria];
-    const limit = query.limit ?? 20;
-    const offset = query.offset ?? 0;
+    // Đường xuất Excel lấy TẤT CẢ nhóm trong MỘT lượt: gọi lại theo trang thì mỗi lượt tính lại toàn bộ
+    // phép gom (262 ms trên bản sao prod) — 7.500 nhóm là ~150 lượt, đủ để nginx cắt ở 60 giây.
+    const limit = tuyChon.tatCaNhom
+      ? Number.MAX_SAFE_INTEGER
+      : (query.limit ?? 20);
+    const offset = tuyChon.tatCaNhom ? 0 : (query.offset ?? 0);
 
     const where: Prisma.PetitionWhereInput = { deletedAt: null };
     // Thẻ tìm kiếm (và `search` cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
@@ -1597,28 +1604,53 @@ export class PetitionsService {
     const trang = sapXep.slice(offset, offset + limit);
     const giaTriTrang = trang.map((g) => String(g[cot]));
 
-    // Bước 2 — mọi đơn của các nhóm TRÊN TRANG (không lấy cả 7.500 nhóm về).
-    const dons = giaTriTrang.length
-      ? await this.prisma.petition.findMany({
-          where: { ...where, [cot]: { in: giaTriTrang } },
-          orderBy: [
-            { ngayDeXuat: { sort: 'asc', nulls: 'last' } },
-            { id: 'asc' },
-          ],
-          select: {
-            id: true,
-            stt: true,
-            senderName: true,
-            senderPhone: true,
-            senderAddress: true,
-            suspectedPerson: true,
-            detailContent: true,
-            ngayDeXuat: true,
-            status: true,
-            [cot]: true,
-          } as Prisma.PetitionSelect,
-        })
-      : [];
+    // Bước 2 — đơn của các nhóm TRÊN TRANG (không lấy cả 7.500 nhóm về).
+    //
+    // Nhóm sắp theo SỐ ĐƠN giảm dần nên trang 1 luôn là các nhóm to nhất: lấy trọn mọi đơn thì một
+    // trang `criteria=senderAddress` trả 3.195 đơn ≈ 1,9 MB (đo trên bản sao prod 18/09/2026). Mặc định
+    // lấy tối đa `SO_DON_MOI_NHOM` đơn/nhóm — bảng vẫn nói rõ nhóm có bao nhiêu đơn. Đường xuất Excel
+    // truyền `soDonMoiNhom: null` để lấy trọn.
+    const soDonMoiNhom =
+      tuyChon.soDonMoiNhom === undefined
+        ? SO_DON_MOI_NHOM
+        : tuyChon.soDonMoiNhom;
+    const chonDon = {
+      id: true,
+      stt: true,
+      senderName: true,
+      senderPhone: true,
+      senderAddress: true,
+      suspectedPerson: true,
+      detailContent: true,
+      ngayDeXuat: true,
+      status: true,
+      [cot]: true,
+    } as Prisma.PetitionSelect;
+    const sapDon = [
+      { ngayDeXuat: { sort: 'asc', nulls: 'last' } },
+      { id: 'asc' },
+    ] as Prisma.PetitionOrderByWithRelationInput[];
+
+    const dons = !giaTriTrang.length
+      ? []
+      : soDonMoiNhom === null
+        ? await this.prisma.petition.findMany({
+            where: { ...where, [cot]: { in: giaTriTrang } },
+            orderBy: sapDon,
+            select: chonDon,
+          })
+        : (
+            await Promise.all(
+              giaTriTrang.map((giaTri) =>
+                this.prisma.petition.findMany({
+                  where: { ...where, [cot]: giaTri },
+                  orderBy: sapDon,
+                  take: soDonMoiNhom,
+                  select: chonDon,
+                }),
+              ),
+            )
+          ).flat();
 
     const theoNhom = new Map<string, DonTrong[]>();
     for (const d of dons as unknown as Array<
@@ -1630,7 +1662,7 @@ export class PetitionsService {
       if (ds) ds.push(d);
       else theoNhom.set(k, [d]);
     }
-    // Sắp lại trong nhóm thay vì tin thứ tự truy vấn: "hồ sơ gốc" là đơn SỚM NHẤT, đọc sai cột này là
+    // Sắp lại trong nhóm thay vì tin thứ tự truy vấn: "hồ sơ gốc" là đơn có NGÀY ĐỀ XUẤT sớm nhất; đọc sai cột này là
     // chỉ sai đúng thứ cán bộ dùng để đối chiếu. Đơn chưa có ngày xuống cuối.
     const mocThoiGian = (d: DonTrong) =>
       d.ngayDeXuat?.getTime() ?? Number.POSITIVE_INFINITY;
@@ -1653,7 +1685,8 @@ export class PetitionsService {
           // Số đơn của NHÓM theo bước gom: bước lấy đơn dùng cùng điều kiện nên bằng nhau, nhưng lấy
           // số của bước gom để trang hiện đúng cả khi một đơn vừa bị xoá giữa hai truy vấn.
           soDon: dem(g),
-          // "Hồ sơ gốc" = đơn tiếp nhận SỚM NHẤT nhóm (đã sắp tăng dần ở trên).
+          // "Hồ sơ gốc" = đơn có NGÀY ĐỀ XUẤT sớm nhất nhóm — đúng cột bảng đang hiện và đang lọc.
+          // (Ngày nhận lệch ngày đề xuất ở 29.231/47.352 đơn, nên phải nói rõ theo cột nào.)
           goc: ds[0] ?? null,
           dons: ds,
         };
@@ -1795,19 +1828,14 @@ export class PetitionsService {
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    const MOI_LUOT = 50;
-    const nhom: NhomDonTrung[] = [];
-    let tieuChi: TieuChiTrung = 'senderName';
-    for (let offset = 0; ; offset += MOI_LUOT) {
-      const trang = await this.listDuplicates(
-        { ...query, limit: MOI_LUOT, offset },
-        dataScope,
-      );
-      tieuChi = trang.criteria;
-      nhom.push(...trang.data);
-      if (trang.data.length < MOI_LUOT || nhom.length >= trang.total) break;
-    }
-
+    // MỘT lượt cho cả tệp:  lấy mọi nhóm,  lấy trọn đơn từng nhóm.
+    // Gọi theo trang thì mỗi lượt tính lại toàn bộ phép gom (262 ms × ~150 lượt trên bản sao prod).
+    const ketQua = await this.listDuplicates(query, dataScope, {
+      tatCaNhom: true,
+      soDonMoiNhom: null,
+    });
+    const nhom = ketQua.data;
+    const tieuChi = ketQua.criteria;
     const COL_COUNT = 7;
     const HEADERS = [
       'STT',

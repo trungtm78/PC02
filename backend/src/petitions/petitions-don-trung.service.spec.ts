@@ -2,6 +2,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { QueryDuplicatesDto } from './dto/query-duplicates.dto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionStatus } from '@prisma/client';
@@ -141,7 +144,26 @@ describe('PetitionsService.listDuplicates — nhóm đơn trùng thật', () => 
       expect(chuoi).toContain('senderNameBd');
       expect(chuoi).toContain('u1');
     }
-    expect(lay.senderNameChuan).toEqual({ in: ['lê thị nhâm'] });
+    // Mặc định lấy theo TỪNG nhóm (mỗi nhóm một truy vấn có trần) nên điều kiện là giá trị nhóm.
+    expect(lay.senderNameChuan).toBe('lê thị nhâm');
+  });
+
+  it('[rà mã P3] mỗi nhóm chỉ lấy tối đa 20 đơn — trang 1 gom nhóm lớn nhất, lấy hết là vài nghìn đơn/1,9 MB', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([nhom('a', 569)]);
+    mockPrisma.petition.findMany.mockResolvedValue([]);
+    await service.listDuplicates({} as never, null);
+    for (const [a] of mockPrisma.petition.findMany.mock.calls) {
+      expect(a.take).toBe(20);
+    }
+  });
+
+  it('[rà mã P3] tuỳ chọn lấy HẾT đơn mỗi nhóm (đường xuất Excel) thì không đặt trần', async () => {
+    mockPrisma.petition.groupBy.mockResolvedValue([nhom('a', 569)]);
+    mockPrisma.petition.findMany.mockResolvedValue([]);
+    await service.listDuplicates({} as never, null, { soDonMoiNhom: null });
+    for (const [a] of mockPrisma.petition.findMany.mock.calls) {
+      expect(a.take).toBeUndefined();
+    }
   });
 
   it('phân trang theo NHÓM: tổng là số nhóm, không phải số đơn', async () => {
@@ -161,7 +183,7 @@ describe('PetitionsService.listDuplicates — nhóm đơn trùng thật', () => 
 });
 
 describe('PetitionsService.exportDuplicates — tệp xuất dùng CHUNG nguồn với màn', () => {
-  it('gọi listDuplicates (không tự dựng truy vấn gom riêng) và lấy hết nhóm theo trang', async () => {
+  it('gọi listDuplicates ĐÚNG MỘT lượt, lấy mọi nhóm và trọn đơn (rà mã P2)', async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PetitionsService,
@@ -248,9 +270,33 @@ describe('PetitionsService.exportDuplicates — tệp xuất dùng CHUNG nguồn
       null,
       res as never,
     );
-    expect(goi).toHaveBeenCalled();
+    // [rà mã P2] MỘT lượt: gọi theo trang thì 7.500 nhóm = ~150 lần tính lại phép gom (~40-60 giây).
+    expect(goi).toHaveBeenCalledTimes(1);
+    expect(goi.mock.calls[0][2]).toEqual({
+      tatCaNhom: true,
+      soDonMoiNhom: null,
+    });
     expect(goi.mock.calls[0][0]).toEqual(
       expect.objectContaining({ criteria: 'senderPhone' }),
     );
+  });
+});
+
+describe('QueryDuplicatesDto — nhận cả nhãn tiếng Việt cũ (rà mã P3)', () => {
+  it.each([
+    ['Họ tên', 'senderName'],
+    ['Số điện thoại', 'senderPhone'],
+    ['Địa chỉ', 'senderAddress'],
+    ['Bị đơn trùng', 'suspectedPerson'],
+    ['senderName', 'senderName'],
+  ])('criteria=%s → %s', async (vao, ra) => {
+    const dto = plainToInstance(QueryDuplicatesDto, { criteria: vao });
+    expect(dto.criteria).toBe(ra);
+    expect((await validate(dto)).map((e) => e.property)).toEqual([]);
+  });
+
+  it('mã lạ vẫn 400 ở cổng', async () => {
+    const dto = plainToInstance(QueryDuplicatesDto, { criteria: 'khongCo' });
+    expect((await validate(dto)).map((e) => e.property)).toEqual(['criteria']);
   });
 });
