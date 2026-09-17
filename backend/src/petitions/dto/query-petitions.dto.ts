@@ -10,6 +10,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { LoaiDon } from '@prisma/client';
 import { PetitionStatus } from './create-petition.dto';
 import { PETITION_STATUS_GROUP_KEYS } from '../petitions.constants';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
@@ -91,6 +92,14 @@ export class QueryPetitionsDto {
   @IsOptional()
   @IsString()
   wardTeamId?: string;
+
+  /**
+   * Loại đơn (mã enum `LoaiDon`). Màn Đơn thư phường/xã lọc ở MÁY CHỦ từ 17/09/2026 — trước đó tải
+   * 100/47.352 đơn rồi lọc tại chỗ. Mã lạ → 400 ở đây, không để lọt tới Prisma (500).
+   */
+  @IsOptional()
+  @IsEnum(LoaiDon)
+  petitionType?: LoaiDon;
 
   // ── Bộ lọc theo kiểu hệ cũ (25/08/2026) ─────────────────────────────────────
   // Cán bộ quen bảng lọc của hệ cũ; ba ô dưới đây là phần hệ mới còn thiếu.

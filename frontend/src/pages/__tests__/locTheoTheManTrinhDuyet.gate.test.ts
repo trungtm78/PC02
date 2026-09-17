@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import donThuPhuong from '../petitions/WardPetitionsPage.tsx?raw';
 import vuViecPhuong from '../classification/WardIncidentsPage.tsx?raw';
 import vuAnPhuong from '../classification/WardCasesPage.tsx?raw';
 import phanLoaiKhac from '../classification/OtherClassificationPage.tsx?raw';
@@ -9,8 +8,8 @@ import hoSoMoi from '../cases/InitialCasesPage.tsx?raw';
 import danhMuc from '../admin/MasterClassPage.tsx?raw';
 
 /**
- * CỔNG: 8 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
- * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi rời cổng 17/09/2026
+ * CỔNG: 7 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
+ * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường rời cổng 17/09/2026
  * — chuyển xuống máy chủ (`*.timKiemThe.test.tsx` của từng màn).
  *
  * Trước M5, mỗi màn tự chép một đoạn `toLowerCase().includes` trên vài cột cố định — gõ "trom cap"
@@ -21,7 +20,6 @@ import danhMuc from '../admin/MasterClassPage.tsx?raw';
  * Đọc mã nguồn dạng văn bản (`?raw`) vì khai và hook nằm trong component.
  */
 const MAN = [
-  ['Đơn thư phường/xã', donThuPhuong],
   ['Vụ việc phường/xã', vuViecPhuong],
   ['Vụ án phường/xã', vuAnPhuong],
   ['Phân loại khác', phanLoaiKhac],
@@ -74,7 +72,7 @@ const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.t
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
-describe('GATE tìm kiếm — 8 màn lọc phía trình duyệt', () => {
+describe('GATE tìm kiếm — 7 màn lọc phía trình duyệt', () => {
   it.each(MAN)('%s: dùng useLocTheoThe + OTimKiemThe, bảng lọc từ dòng của hook', (_ten, src) => {
     expect(dungHook(src)).toBe(true);
     expect(coOThe(src)).toBe(true);
@@ -106,7 +104,7 @@ describe('GATE tìm kiếm — 8 màn lọc phía trình duyệt', () => {
   });
 
   it('gieo lỗi: gỡ hook / gỡ điều kiện cờ / trùng tiền tố thì cổng bắt được', () => {
-    const boHook = donThuPhuong.replace(/useLocTheoThe\(\{/g, 'useKhac({');
+    const boHook = vuViecPhuong.replace(/useLocTheoThe\(\{/g, 'useKhac({');
     expect(dungHook(boHook)).toBe(false);
 
     const boCo = vuViecPhuong.replace(/!theBat\s*&&\s*/g, '');

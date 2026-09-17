@@ -2,12 +2,12 @@
  * WardPetitionsPage — Đơn thư theo phường/xã
  *
  * Mirror cấu trúc WardCasesPage / WardIncidentsPage: 4 KPI cards, advanced
- * filter panel, sticky action column, status + priority badges có màu, export
+ * filter panel, sticky action column, status badge có màu (cột Mức độ bỏ 17/09/2026 — prod 0% dữ liệu), export
  * Excel button. Backend hỗ trợ wardTeamId (v0.36.0.0) + /petitions/export/ward
  * (sync với 3 màn hình ward đồng bộ).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -18,8 +18,9 @@ import {
   ChevronUp,
   Eye,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
-  AlertTriangle,
   FileText,
   Clock,
   CheckCircle,
@@ -39,21 +40,30 @@ import {
   BADGE_DEFAULT,
 } from '@/shared/enums/status-labels';
 import { WardFilterDropdown } from '@/components/WardFilterDropdown';
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 
 interface PetitionRow {
   id: string;
   stt: string;
   senderName: string;
   petitionType?: LoaiDon | null;
-  receivedDate?: string | null;
+  /** Cột ngày của danh sách — bộ lọc ngày máy chủ lọc đúng cột này (lệch Ngày nhận ở 29.026 đơn). */
+  ngayDeXuat?: string | null;
   status: PetitionStatus;
-  summary?: string | null;
-  priority?: string | null;
+  /** Tóm tắt nội dung — cùng cột thẻ `tomTat` tìm (`summary` chỉ khác ở 74/47.352 đơn). */
+  detailContent?: string | null;
   assignedTeam?: { ward?: { name?: string | null } | null } | null;
 }
+
+interface ThongKeDonThu {
+  total: number;
+  byStatus: Partial<Record<PetitionStatus, number>>;
+}
+
+const PAGE_SIZE = 20;
 
 interface FilterData {
   quickSearch: string;
@@ -73,21 +83,24 @@ const RESOLVED_STATUSES: PetitionStatus[] = [
   PetitionStatus.DA_CHUYEN_VU_AN,
 ];
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng; khoá chuẩn như màn Đơn thư. */
-const KHAI_DON_THU_PHUONG: readonly TruongLoc<PetitionRow>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (p) => p.stt },
-  { key: 'nguoiGui', nhan: 'Người gửi', kieu: 'chu', lay: (p) => p.senderName },
-  { key: 'loaiDon', nhan: 'Loại đơn', kieu: 'chon', lay: (p) => p.petitionType },
-  { key: 'tomTat', nhan: 'Tóm tắt', kieu: 'chu', lay: (p) => p.summary },
-  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (p) => p.assignedTeam?.ward?.name },
-  { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay', lay: (p) => p.receivedDate },
-  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (p) => p.priority },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (p) => p.status },
-];
+/**
+ * Khoá tìm được trên màn này — TẬP CON khai Đơn thư của máy chủ, chỉ các khoá có cột trên bảng. Loại đơn
+ * và Phường/Xã lọc bằng ô chọn riêng (tham số `petitionType`, `wardTeamId`); Mức độ bỏ vì prod 0% dữ liệu.
+ */
+/** Khoá → nhãn đúng tiêu đề cột của BẢNG NÀY (khai chung dùng nhãn cột của màn Đơn thư chính). */
+const NHAN_TREN_BANG: Record<string, string> = {
+  stt: 'STT',
+  nguoiGui: 'Người gửi',
+  tomTat: 'Tóm tắt',
+  ngayDeXuat: 'Ngày đề xuất',
+  trangThai: 'Trạng thái',
+};
+const KHAI_DON_THU_PHUONG = TIM_KIEM_DON_THU.filter((t) => t.key in NHAN_TREN_BANG).map((t) => ({
+  ...t,
+  nhan: NHAN_TREN_BANG[t.key],
+}));
 
 const GIA_TRI_CHON_DON_THU_PHUONG = {
-  loaiDon: LOAI_DON_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
-  mucDo: ['Cao', 'Trung bình', 'Thấp'].map((v) => ({ value: v, label: v })),
   trangThai: (Object.keys(PETITION_STATUS_LABEL) as PetitionStatus[]).map((s) => ({
     value: s,
     label: PETITION_STATUS_LABEL[s],
@@ -110,59 +123,89 @@ export default function WardPetitionsPage() {
     status: '',
   });
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const params: Record<string, string> = { limit: '100' };
-        if (wardTeamId) params.wardTeamId = wardTeamId;
-        const resp = await api.get('/petitions', { params });
-        const data = resp.data?.data ?? resp.data ?? [];
-        setRows(Array.isArray(data) ? data : []);
-      } catch (e) {
-        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-        setRows([]);
-        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, [wardTeamId]);
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
+  // ── Tìm kiếm, lọc, phân trang, thẻ KPI: ĐỀU ở máy chủ ──────────────────────
+  // Trước 17/09/2026 màn tải `limit=100` trên 47.352 đơn rồi lọc tại chỗ: tìm kiếm và thẻ KPI chỉ tính
+  // trong 100 đơn mới nhất.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
+  const timKiem = useTheTimKiem({
     prefix: 'wardPetitions',
     khai: KHAI_DON_THU_PHUONG,
     giaTriChon: GIA_TRI_CHON_DON_THU_PHUONG,
-    dong: rows,
     bat: theBat,
   });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
-  const filteredData = useMemo(() => {
-    return timKiem.dongLoc.filter((p) => {
-      if (!theBat && filters.quickSearch) {
-        const q = filters.quickSearch.toLowerCase();
-        const match =
-          p.stt?.toLowerCase().includes(q) ||
-          p.senderName?.toLowerCase().includes(q) ||
-          p.summary?.toLowerCase().includes(q);
-        if (!match) return false;
+  /** Tham số lọc chung của danh sách và thẻ KPI (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    if (wardTeamId) p.set('wardTeamId', wardTeamId);
+    if (filters.petitionType) p.set('petitionType', filters.petitionType);
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.petitionType, filters.fromDate, filters.toDate, wardTeamId]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeDonThu | null>(null);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (nút Làm mới). */
+  const [lanTai, setLanTai] = useState(0);
+
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
+    setLoading(true);
+    setLoadError("");
+    try {
+      const [res, tk] = await Promise.all([
+        api.get<{ data?: PetitionRow[]; total?: number }>(`/petitions?${danhSach}`),
+        api.get<ThongKeDonThu>(`/petitions/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data?.total ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        // Tổng giảm dưới trang đang xem → kẹp về trang cuối (lượt này không hạ cờ loading).
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
       }
-      if (filters.fromDate && p.receivedDate) {
-        if (p.receivedDate.slice(0, 10) < filters.fromDate) return false;
-      }
-      if (filters.toDate && p.receivedDate) {
-        if (p.receivedDate.slice(0, 10) > filters.toDate) return false;
-      }
-      if (filters.petitionType && p.petitionType !== filters.petitionType) return false;
-      if (filters.status && p.status !== filters.status) return false;
-      return true;
-    });
-  }, [timKiem.dongLoc, theBat, filters]);
+      setRows(Array.isArray(res.data?.data) ? res.data.data : []);
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
+      setRows([]);
+      setTotal(0);
+      setThongKe(null);
+      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, filters.status, page, khoaLoc, lanTai]);
+
+  useEffect(() => { void taiDuLieu(); }, [taiDuLieu]);
 
   const handleResetFilters = () => {
     timKiem.xoaHet();
@@ -173,6 +216,7 @@ export default function WardPetitionsPage() {
       petitionType: '',
       status: '',
     });
+    setLanTai((n) => n + 1);
   };
 
   const handleExport = useCallback(async () => {
@@ -201,10 +245,13 @@ export default function WardPetitionsPage() {
     }
   }, [wardTeamId, filters.fromDate, filters.toDate]);
 
-  const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((p) => p.status === PetitionStatus.MOI_TIEP_NHAN).length;
-  const processingCount = filteredData.filter((p) => PROCESSING_STATUSES.includes(p.status)).length;
-  const resolvedCount = filteredData.filter((p) => RESOLVED_STATUSES.includes(p.status)).length;
+  // Thẻ KPI lấy số từ MÁY CHỦ trên cùng thẻ/phường/loại/ngày. Chưa có số → undefined → dấu gạch.
+  const dem = (ds: PetitionStatus[]) =>
+    thongKe ? ds.reduce((n, st) => n + (thongKe.byStatus[st] ?? 0), 0) : undefined;
+  const totalCount = thongKe?.total;
+  const pendingCount = dem([PetitionStatus.MOI_TIEP_NHAN]);
+  const processingCount = dem(PROCESSING_STATUSES);
+  const resolvedCount = dem(RESOLVED_STATUSES);
 
   const getStatusBadge = (row: PetitionRow) => {
     const cls = PETITION_STATUS_BADGE[row.status] ?? BADGE_DEFAULT;
@@ -215,31 +262,6 @@ export default function WardPetitionsPage() {
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${cls}`}
       >
         {label}
-      </span>
-    );
-  };
-
-  const getPriorityBadge = (row: PetitionRow) => {
-    const p = (row.priority ?? '').trim();
-    let cls = 'bg-slate-100 text-slate-500 border border-slate-200';
-    let display = '—';
-    if (p === 'Cao') {
-      cls = 'bg-red-100 text-red-800 border border-red-300';
-      display = p;
-    } else if (p === 'Trung bình') {
-      cls = 'bg-yellow-100 text-yellow-800 border border-yellow-300';
-      display = p;
-    } else if (p === 'Thấp') {
-      cls = 'bg-slate-100 text-slate-700 border border-slate-300';
-      display = p;
-    }
-    return (
-      <span
-        data-testid={`priority-badge-${row.id}`}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cls}`}
-      >
-        {p === 'Cao' && <AlertTriangle className="w-3 h-3" />}
-        {display}
       </span>
     );
   };
@@ -312,7 +334,7 @@ export default function WardPetitionsPage() {
           {loading ? (
             <span>Đang tải...</span>
           ) : (
-            <>Hiển thị <span className="font-medium text-[#003973]">{filteredData.length}</span> đơn thư</>
+            <>Có <span data-testid="ward-petitions-total" className="font-medium text-[#003973]">{total}</span> đơn thư</>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -462,24 +484,23 @@ export default function WardPetitionsPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Loại đơn</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Tóm tắt</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Phường/Xã</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Ngày nhận</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Mức độ</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Ngày đề xuất</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Trạng thái</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center" data-testid="ward-petitions-loading">
+                  <td colSpan={8} className="px-4 py-16 text-center" data-testid="ward-petitions-loading">
                     <p className="text-slate-500">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center" data-testid="ward-petitions-empty">
+                  <td colSpan={8} className="px-4 py-16 text-center" data-testid="ward-petitions-empty">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy đơn thư nào'}</p>
-                    {!loadError && timKiem.coThe ? (
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
                       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                         <span>Không tìm thấy với:</span>
                         <DanhSachThe
@@ -495,7 +516,7 @@ export default function WardPetitionsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredData.map((p) => {
+                rows.map((p) => {
                   const wardName = p.assignedTeam?.ward?.name ?? '';
                   return (
                     <tr
@@ -535,7 +556,7 @@ export default function WardPetitionsPage() {
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{p.summary ?? ''}</p>
+                        <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{p.detailContent ?? ''}</p>
                       </td>
                       <td className="px-4 py-3" data-testid={`ward-cell-${p.id}`}>
                         <div className="flex items-center gap-1.5">
@@ -549,11 +570,10 @@ export default function WardPetitionsPage() {
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           <span className="text-sm text-slate-700">
-                            {formatVNDate(p.receivedDate)}
+                            {formatVNDate(p.ngayDeXuat)}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">{getPriorityBadge(p)}</td>
                       <td className="px-4 py-3">{getStatusBadge(p)}</td>
                     </tr>
                   );
@@ -562,6 +582,35 @@ export default function WardPetitionsPage() {
             </tbody>
           </table>
         </div>
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} đơn thư
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="ward-petitions-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="ward-petitions-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

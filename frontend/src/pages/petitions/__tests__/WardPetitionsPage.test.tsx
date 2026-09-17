@@ -1,24 +1,30 @@
 /**
- * WardPetitionsPage tests (TDD F1-F17).
+ * WardPetitionsPage — Đơn thư theo phường/xã.
  *
- * Mirror coverage of WardIncidentsPage / WardCasesPage: 4 KPI cards,
- * advanced filter panel, export button, status+priority badges, etc.
+ * 17/09/2026 chuyển tìm kiếm, lọc, phân trang và thẻ KPI xuống MÁY CHỦ. Trước đó màn tải `limit=100`
+ * trên 47.352 đơn thư rồi lọc tại chỗ: tìm kiếm và 4 thẻ KPI chỉ tính trong 100 đơn mới nhất.
  *
- * Test groups:
- *   F1-F5 : KPI cards (render + count by PetitionStatus phase)
- *   F6-F9 : Filters (toggle + fromDate + petitionType + status)
- *   F10   : Export button
- *   F11-F12: Badges (status + priority)
- *   F13   : Reset filters
- *   F14-F15: Empty + loading states
- *   F16   : Row navigation
- *   F17   : Ward column shows assignedTeam.ward.name
+ * Đo prod cùng ngày (chỉ đọc):
+ *   - `priority` rỗng 100% → bỏ cột "Mức độ" (nhãn Cao/Trung bình/Thấp là bịa);
+ *   - bộ lọc ngày của danh sách lọc `ngayDeXuat` → cột ngày hiện Ngày đề xuất (lệch Ngày nhận ở 29.026 đơn);
+ *   - `summary` ≈ `detailContent` (74 đơn khác) → cột Tóm tắt hiện `detailContent`, đúng cột thẻ tìm.
+ *
+ * Nhóm ca:
+ *   F1–F5  : thẻ KPI lấy số từ `/petitions/stats`
+ *   F6–F9  : bộ lọc gửi xuống máy chủ (ngày, loại đơn, trạng thái, phường)
+ *   F10    : xuất Excel
+ *   F11    : nhãn trạng thái có màu
+ *   F13    : đặt lại bộ lọc
+ *   F14–F15: rỗng / đang tải
+ *   F16    : điều hướng dòng
+ *   F17    : cột phường
+ *   F18    : phân trang máy chủ
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import WardPetitionsPage from '../WardPetitionsPage';
 import { api } from '@/lib/api';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
@@ -36,30 +42,60 @@ const CO_TAT_THE: FeatureFlag[] = [
 ];
 
 vi.mock('@/lib/api', () => ({
-  api: {
-    get: vi.fn(),
-  },
+  api: { get: vi.fn() },
 }));
 
-// 6 petitions covering all KPI buckets
-const fixturePetitions = [
-  { id: 'p1', stt: 'DT-2026-00001', senderName: 'Người A', petitionType: 'TO_CAO', receivedDate: '2026-02-01', status: 'MOI_TIEP_NHAN', summary: 'Đơn 1', priority: 'Cao', assignedTeam: { ward: { name: 'Phường 2' } } },
-  { id: 'p2', stt: 'DT-2026-00002', senderName: 'Người B', petitionType: 'KHIEU_NAI', receivedDate: '2026-02-05', status: 'DANG_XU_LY', summary: 'Đơn 2', priority: 'Trung bình', assignedTeam: { ward: { name: 'Phường 4' } } },
-  { id: 'p3', stt: 'DT-2026-00003', senderName: 'Người C', petitionType: 'KIEN_NGHI', receivedDate: '2026-02-10', status: 'DANG_XU_LY', summary: 'Đơn 3', priority: 'Thấp', assignedTeam: { ward: { name: 'Phường 2' } } },
-  { id: 'p4', stt: 'DT-2026-00004', senderName: 'Người D', petitionType: 'PHAN_ANH', receivedDate: '2026-02-15', status: 'CHO_PHE_DUYET', summary: 'Đơn 4', priority: null, assignedTeam: null },
-  { id: 'p5', stt: 'DT-2026-00005', senderName: 'Người E', petitionType: 'TO_CAO', receivedDate: '2026-02-20', status: 'DA_GIAI_QUYET', summary: 'Đơn 5', priority: 'Cao', assignedTeam: { ward: { name: 'Phường 6' } } },
-  { id: 'p6', stt: 'DT-2026-00006', senderName: 'Người F', petitionType: 'TO_CAO', receivedDate: '2026-02-25', status: 'DA_CHUYEN_VU_VIEC', summary: 'Đơn 6', priority: null, assignedTeam: { ward: { name: 'Phường 6' } } },
+const m = vi.mocked(api) as unknown as { get: ReturnType<typeof vi.fn> };
+
+const DON = [
+  { id: 'p1', stt: '2026-1', senderName: 'Người A', petitionType: 'TO_CAO', ngayDeXuat: '2026-02-01T00:00:00.000Z', status: 'MOI_TIEP_NHAN', detailContent: 'Đơn 1', assignedTeam: { ward: { name: 'Phường 2' } } },
+  { id: 'p2', stt: '2026-2', senderName: 'Người B', petitionType: 'KHIEU_NAI', ngayDeXuat: '2026-02-05T00:00:00.000Z', status: 'DANG_XU_LY', detailContent: 'Đơn 2', assignedTeam: { ward: { name: 'Phường 4' } } },
+  { id: 'p5', stt: '2026-5', senderName: 'Người E', petitionType: 'TO_CAO', ngayDeXuat: '2026-02-20T00:00:00.000Z', status: 'DA_GIAI_QUYET', detailContent: 'Đơn 5', assignedTeam: null },
 ];
 
-function renderPage(url = '/petitions/ward', flags?: FeatureFlag[]) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+const THONG_KE = {
+  total: 3911,
+  byStatus: {
+    MOI_TIEP_NHAN: 100,
+    DANG_XU_LY: 200,
+    CHO_PHE_DUYET: 30,
+    DA_GIAI_QUYET: 400,
+    DA_CHUYEN_VU_VIEC: 50,
+    DA_CHUYEN_VU_AN: 7,
+  },
+};
+
+let rong = false;
+let tongDanhSach = 3;
+
+function traDuLieu() {
+  m.get.mockImplementation((url: string) => {
+    if (url.startsWith('/petitions/stats')) return Promise.resolve({ data: THONG_KE });
+    if (url.startsWith('/petitions?')) {
+      return Promise.resolve({ data: { data: rong ? [] : DON, total: rong ? 0 : tongDanhSach } });
+    }
+    return Promise.resolve({ data: [] });
   });
+}
+
+const goi = (duong: string) =>
+  m.get.mock.calls.map((c) => String(c[0])).filter((u) => u.startsWith(duong));
+function thamSoCuoi(duong: '/petitions?' | '/petitions/stats?'): URLSearchParams {
+  const g = goi(duong);
+  return new URLSearchParams((g[g.length - 1] ?? '').split('?')[1] ?? '');
+}
+const ds = () => thamSoCuoi('/petitions?');
+const tk = () => thamSoCuoi('/petitions/stats?');
+
+function dung(url = '/petitions/ward', flags?: FeatureFlag[]) {
+  const router = createMemoryRouter([{ path: '/petitions/ward', element: <WardPetitionsPage /> }], {
+    initialEntries: [url],
+  });
+  // WardFilterDropdown dùng react-query.
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const trang = (
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[url]}>
-        <WardPetitionsPage />
-      </MemoryRouter>
+    <QueryClientProvider client={qc}>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
   return render(
@@ -67,296 +103,186 @@ function renderPage(url = '/petitions/ward', flags?: FeatureFlag[]) {
   );
 }
 
-function mockListResponse(data: typeof fixturePetitions = fixturePetitions) {
-  vi.mocked(api.get).mockImplementation((url: string) => {
-    if (url === '/petitions' || url.startsWith('/petitions?')) {
-      return Promise.resolve({ data: { data } } as any);
-    }
-    // Other endpoints (admin-units) return empty for WardFilterDropdown
-    return Promise.resolve({ data: [] } as any);
-  });
-}
-
 describe('WardPetitionsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rong = false;
+    tongDanhSach = 3;
+    traDuLieu();
   });
 
-  it('F1: renders 4 KPI cards with data-testid', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('kpi-card-total')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('kpi-card-pending')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-card-processing')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-card-resolved')).toBeInTheDocument();
+  it('F1–F5: 4 thẻ KPI lấy số từ /petitions/stats theo nhóm trạng thái', async () => {
+    dung();
+    await waitFor(() => expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('3911'));
+    expect(screen.getByTestId('kpi-card-pending')).toHaveTextContent('100');
+    expect(screen.getByTestId('kpi-card-processing')).toHaveTextContent('230');
+    expect(screen.getByTestId('kpi-card-resolved')).toHaveTextContent('457');
   });
 
-  it('F2: KPI Tổng = count of all fetched petitions', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('6');
-    });
-  });
-
-  it('F3: KPI Chờ xử lý counts MOI_TIEP_NHAN', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      // fixture has 1 MOI_TIEP_NHAN
-      expect(screen.getByTestId('kpi-card-pending')).toHaveTextContent('1');
-    });
-  });
-
-  it('F4: KPI Đang xử lý counts DANG_XU_LY + CHO_PHE_DUYET', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      // fixture has 2 DANG_XU_LY + 1 CHO_PHE_DUYET = 3
-      expect(screen.getByTestId('kpi-card-processing')).toHaveTextContent('3');
-    });
-  });
-
-  it('F5: KPI Đã giải quyết counts DA_GIAI_QUYET + DA_CHUYEN_VU_VIEC + DA_CHUYEN_VU_AN', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      // fixture has 1 DA_GIAI_QUYET + 1 DA_CHUYEN_VU_VIEC + 0 DA_CHUYEN_VU_AN = 2
-      expect(screen.getByTestId('kpi-card-resolved')).toHaveTextContent('2');
-    });
-  });
-
-  it('F6: filter toggle button shows advanced filter panel with date/petitionType/status fields', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('filter-toggle-btn')).toBeInTheDocument();
-    });
+  it('F6: bảng lọc có ngày, loại đơn, trạng thái', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
     expect(screen.queryByTestId('advanced-filter-panel')).not.toBeInTheDocument();
-
     fireEvent.click(screen.getByTestId('filter-toggle-btn'));
-
-    expect(screen.getByTestId('advanced-filter-panel')).toBeInTheDocument();
     expect(screen.getByTestId('filter-from-date')).toBeInTheDocument();
     expect(screen.getByTestId('filter-to-date')).toBeInTheDocument();
     expect(screen.getByTestId('filter-petition-type')).toBeInTheDocument();
     expect(screen.getByTestId('filter-status')).toBeInTheDocument();
   });
 
-  it('F7: fromDate filter narrows table to receivedDate >= fromDate', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('ward-petitions-table')).toBeInTheDocument();
-    });
-    // Before filter: 6 rows
-    const rowsBefore = screen.getAllByTestId(/^petition-row-/);
-    expect(rowsBefore).toHaveLength(6);
-
+  it('F7–F9: ngày, loại đơn, trạng thái gửi xuống máy chủ; thống kê theo ngày + loại, bỏ trạng thái', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
     fireEvent.click(screen.getByTestId('filter-toggle-btn'));
-    fireEvent.change(screen.getByTestId('filter-from-date'), {
-      target: { value: '2026-02-15' },
-    });
-
-    // After filter: only p4 (2026-02-15), p5 (2026-02-20), p6 (2026-02-25) = 3 rows
-    const rowsAfter = screen.getAllByTestId(/^petition-row-/);
-    expect(rowsAfter).toHaveLength(3);
+    fireEvent.change(screen.getByTestId('filter-from-date'), { target: { value: '2026-02-15' } });
+    fireEvent.change(screen.getByTestId('filter-petition-type'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'DANG_XU_LY' } });
+    await waitFor(() => expect(ds().get('status')).toBe('DANG_XU_LY'));
+    expect(ds().get('fromDate')).toBe('2026-02-15');
+    expect(ds().get('petitionType')).toBe('TO_CAO');
+    await waitFor(() => expect(tk().get('petitionType')).toBe('TO_CAO'));
+    expect(tk().get('fromDate')).toBe('2026-02-15');
+    expect(tk().get('status')).toBeNull();
   });
 
-  it('F8: petitionType filter narrows table by LoaiDon', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('ward-petitions-table')).toBeInTheDocument();
-    });
+  it('F9b: ngày đang gõ dở (năm ngoài 1900–2100) không gửi', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
     fireEvent.click(screen.getByTestId('filter-toggle-btn'));
-    fireEvent.change(screen.getByTestId('filter-petition-type'), {
-      target: { value: 'TO_CAO' },
-    });
-    // fixture has 3 TO_CAO (p1, p5, p6)
-    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(3);
+    fireEvent.change(screen.getByTestId('filter-from-date'), { target: { value: '0002-02-15' } });
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'DANG_XU_LY' } });
+    await waitFor(() => expect(ds().get('status')).toBe('DANG_XU_LY'));
+    expect(ds().get('fromDate')).toBeNull();
   });
 
-  it('F9: status filter narrows table by PetitionStatus', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('ward-petitions-table')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
-    fireEvent.change(screen.getByTestId('filter-status'), {
-      target: { value: 'DANG_XU_LY' },
-    });
-    // 2 DANG_XU_LY
-    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(2);
-  });
-
-  it('F10: export button triggers GET /petitions/export/ward with filter params', async () => {
-    mockListResponse();
-    // Stub URL.createObjectURL for blob download
+  it('F10: xuất Excel gọi /petitions/export/ward dạng blob', async () => {
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:test'), writable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), writable: true });
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('export-excel-btn')).toBeInTheDocument();
-    });
-
-    vi.mocked(api.get).mockResolvedValueOnce({ data: new Blob() } as any);
+    dung();
+    await screen.findByTestId('petition-row-p1');
+    m.get.mockResolvedValueOnce({ data: new Blob() });
     fireEvent.click(screen.getByTestId('export-excel-btn'));
-
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
+    await waitFor(() =>
+      expect(m.get).toHaveBeenCalledWith(
         '/petitions/export/ward',
         expect.objectContaining({ responseType: 'blob' }),
-      );
-    });
+      ),
+    );
   });
 
-  it('F11: status badge has color class for DANG_XU_LY (blue) and DA_GIAI_QUYET (green)', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('status-badge-DANG_XU_LY-p2')).toBeInTheDocument();
-    });
-    const blueBadge = screen.getByTestId('status-badge-DANG_XU_LY-p2');
-    expect(blueBadge.className).toMatch(/blue/);
-    const greenBadge = screen.getByTestId('status-badge-DA_GIAI_QUYET-p5');
-    expect(greenBadge.className).toMatch(/green/);
+  it('F11: nhãn trạng thái có màu', async () => {
+    dung();
+    const xanh = await screen.findByTestId('status-badge-DANG_XU_LY-p2');
+    expect(xanh.className).toMatch(/blue/);
+    expect(screen.getByTestId('status-badge-DA_GIAI_QUYET-p5').className).toMatch(/green/);
   });
 
-  it('F12: priority badge maps Cao→red, Trung bình→yellow, Thấp→slate, null→em-dash', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('priority-badge-p1')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('priority-badge-p1').className).toMatch(/red/);
-    expect(screen.getByTestId('priority-badge-p2').className).toMatch(/yellow/);
-    expect(screen.getByTestId('priority-badge-p3').className).toMatch(/slate/);
-    // p4 has null priority → render em-dash placeholder
-    expect(screen.getByTestId('priority-badge-p4')).toHaveTextContent('—');
+  it('F12: KHÔNG còn cột Mức độ (prod 0% dữ liệu)', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
+    expect(within(screen.getByTestId('ward-petitions-table')).queryByText('Mức độ')).not.toBeInTheDocument();
   });
 
-  it('F13: reset filters button clears all filter fields', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('ward-petitions-table')).toBeInTheDocument();
-    });
+  it('F13: đặt lại xoá bộ lọc và tải lại không còn trạng thái', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
     fireEvent.click(screen.getByTestId('filter-toggle-btn'));
     fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'DANG_XU_LY' } });
-    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(2);
-
+    await waitFor(() => expect(ds().get('status')).toBe('DANG_XU_LY'));
     fireEvent.click(screen.getByTestId('reset-filters-btn'));
-
-    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6);
+    await waitFor(() => expect(ds().get('status')).toBeNull());
     expect((screen.getByTestId('filter-status') as HTMLSelectElement).value).toBe('');
   });
 
-  it('F14: empty state shows FileText icon and helpful text when no rows match', async () => {
-    mockListResponse([]);
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('ward-petitions-empty')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('ward-petitions-empty')).toHaveTextContent(/Không tìm thấy đơn thư/);
+  it('F14: rỗng → câu "Không tìm thấy đơn thư"', async () => {
+    rong = true;
+    dung();
+    expect(await screen.findByTestId('ward-petitions-empty')).toHaveTextContent(/Không tìm thấy đơn thư/);
   });
 
-  it('F15: loading state shows "Đang tải" while fetching', async () => {
-    // Never resolve the request
-    vi.mocked(api.get).mockImplementation(() => new Promise(() => {}));
-    renderPage();
-    expect(screen.getByTestId('ward-petitions-loading')).toBeInTheDocument();
+  it('F15: đang tải → "Đang tải"; thẻ KPI hiện dấu gạch, không hiện 0', async () => {
+    m.get.mockImplementation(() => new Promise(() => {}));
+    dung();
+    expect(await screen.findByTestId('ward-petitions-loading')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('—');
   });
 
-  it('F16: row click navigates to /petitions/:id/edit', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('petition-row-p1')).toBeInTheDocument();
-    });
-    const row = screen.getByTestId('petition-row-p1');
-    fireEvent.click(row);
-    // MemoryRouter doesn't expose location; assert row is focusable (tabIndex)
-    expect(row).toHaveAttribute('tabindex', '0');
-    // And the row has an explicit view button leading to edit URL
-    const viewBtn = screen.getByTestId('view-btn-p1');
-    expect(viewBtn).toBeInTheDocument();
+  it('F16: dòng bấm được và có nút xem', async () => {
+    dung();
+    const dong = await screen.findByTestId('petition-row-p1');
+    expect(dong).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId('view-btn-p1')).toBeInTheDocument();
   });
 
-  it('F17: ward column shows assignedTeam.ward.name when present, em-dash when null', async () => {
-    mockListResponse();
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByTestId('petition-row-p1')).toBeInTheDocument();
-    });
+  it('F17: cột phường hiện tên phường, rỗng thì gạch', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
     expect(screen.getByTestId('ward-cell-p1')).toHaveTextContent('Phường 2');
-    expect(screen.getByTestId('ward-cell-p4')).toHaveTextContent('—');
+    expect(screen.getByTestId('ward-cell-p5')).toHaveTextContent('—');
+  });
+
+  it('F18: phân trang máy chủ — tổng từ máy chủ, trang sau gửi offset', async () => {
+    tongDanhSach = 3911;
+    dung();
+    await screen.findByTestId('petition-row-p1');
+    expect(screen.getByTestId('ward-petitions-total')).toHaveTextContent('3911');
+    fireEvent.click(screen.getByTestId('ward-petitions-next-page'));
+    await waitFor(() => expect(ds().get('offset')).toBe('20'));
+    expect(ds().get('limit')).toBe('20');
+  });
+
+  it('cột Tóm tắt hiện detailContent; cột ngày hiện Ngày đề xuất', async () => {
+    dung();
+    const dong = await screen.findByTestId('petition-row-p1');
+    expect(within(dong).getByText('Đơn 1')).toBeInTheDocument();
+    expect(within(screen.getByTestId('ward-petitions-table')).getByText('Ngày đề xuất')).toBeInTheDocument();
   });
 });
 
-/**
- * Ô tìm dạng thẻ (M5): màn tải hết đơn thư phường/xã về rồi lọc tại chỗ. Trước đây ô chữ so
- * `toLowerCase().includes` trên ba cột cố định — gõ không dấu không ra, không chọn được cột.
- */
-describe('WardPetitionsPage — ô tìm kiếm dạng thẻ', () => {
+describe('WardPetitionsPage — ô tìm kiếm dạng thẻ (máy chủ)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rong = false;
+    tongDanhSach = 3;
+    traDuLieu();
   });
 
-  it('có ô thẻ; thẻ trên URL lọc không dấu', async () => {
-    mockListResponse();
-    renderPage('/petitions/ward?wardPetitions_tk=nguoiGui~nguoi a');
-    expect(await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1));
-    expect(screen.getByTestId('petition-row-p1')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('1');
+  it('thẻ trên URL gửi xuống máy chủ cho CẢ danh sách lẫn thống kê', async () => {
+    dung('/petitions/ward?wardPetitions_tk=nguoiGui~nguoi a');
+    await waitFor(() => expect(ds().getAll('tk')).toEqual(['nguoiGui~nguoi a']));
+    await waitFor(() => expect(tk().getAll('tk')).toEqual(['nguoiGui~nguoi a']));
   });
 
-  it('thẻ Loại đơn so đúng mã; thẻ Phường/Xã lọc cột phường', async () => {
-    mockListResponse();
-    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO&wardPetitions_tk=phuongXa~phuong 6');
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(2));
-    expect(screen.getByTestId('petition-row-p5')).toBeInTheDocument();
-    expect(screen.getByTestId('petition-row-p6')).toBeInTheDocument();
-  });
-
-  it('gõ rồi Enter → thẻ "tất cả các cột"', async () => {
-    mockListResponse();
-    renderPage();
+  it('gõ rồi Enter → thẻ "tất cả các cột", về trang đầu', async () => {
+    dung();
     const o = await screen.findByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
+    await screen.findByTestId('petition-row-p1');
     fireEvent.change(o, { target: { value: 'don 3' } });
     fireEvent.keyDown(o, { key: 'Enter' });
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1));
-    expect(screen.getByTestId('petition-row-p3')).toBeInTheDocument();
+    await waitFor(() => expect(ds().getAll('tk')).toEqual(['*~don 3']));
+    expect(ds().get('offset')).toBe('0');
   });
 
   it('không có kết quả với thẻ → nói rõ đang lọc bởi thẻ nào', async () => {
-    mockListResponse();
-    renderPage('/petitions/ward?wardPetitions_tk=nguoiGui~khong ai');
-    const rong = await screen.findByTestId('ward-petitions-empty');
-    expect(rong).toHaveTextContent('Không tìm thấy với');
-    expect(within(rong).getByRole('button', { name: 'Bỏ thẻ Người gửi' })).toBeInTheDocument();
+    rong = true;
+    dung('/petitions/ward?wardPetitions_tk=nguoiGui~khong ai');
+    const vung = await screen.findByTestId('ward-petitions-empty');
+    await waitFor(() => expect(vung).toHaveTextContent('Không tìm thấy với'));
+    expect(within(vung).getByRole('button', { name: 'Bỏ thẻ Người gửi' })).toBeInTheDocument();
   });
 
   it('"Làm mới" xoá cả thẻ', async () => {
-    mockListResponse();
-    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO');
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(3));
+    dung('/petitions/ward?wardPetitions_tk=nguoiGui~nguoi a');
+    expect(await screen.findByTestId('the-tim-kiem')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('reset-filters-btn'));
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
-    expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument());
+    await waitFor(() => expect(ds().getAll('tk')).toEqual([]));
   });
 
-  it('cờ tắt → ô chữ cũ, vẫn lọc như trước', async () => {
-    mockListResponse();
-    renderPage('/petitions/ward?wardPetitions_tk=loaiDon~TO_CAO', CO_TAT_THE);
+  it('cờ tắt → ô chữ cũ gửi `search`', async () => {
+    dung('/petitions/ward', CO_TAT_THE);
     const o = await screen.findByTestId('quick-search-input');
-    await waitFor(() => expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(6));
     fireEvent.change(o, { target: { value: 'Người B' } });
-    expect(screen.getAllByTestId(/^petition-row-/)).toHaveLength(1);
+    await waitFor(() => expect(ds().get('search')).toBe('Người B'));
   });
 });
