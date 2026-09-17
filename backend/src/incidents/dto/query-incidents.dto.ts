@@ -77,6 +77,14 @@ export class QueryIncidentsDto {
   @IsString()
   wardTeamId?: string;
 
+  /**
+   * Màn phường/xã chưa chọn phường cụ thể: chỉ hồ sơ của tổ CÓ gắn phường (xem common/utils/to-phuong.util.ts).
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  chiToPhuong?: boolean;
+
   // BCA phase filter (server-side resolve via PHASE_STATUSES)
   @IsOptional()
   @IsString()

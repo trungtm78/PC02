@@ -5,6 +5,7 @@ import {
   MAC_DINH_THEO_KHOA,
   KHOA_KIEU_NGAY,
   nhanKyThongKe,
+  nhanKyApDung,
   sapXepCaiDat,
   oNgayDangVoHieu,
 } from '../thongKeSettings';
@@ -135,5 +136,24 @@ describe('oNgayDangVoHieu', () => {
   it('khoá khác không bao giờ bị coi là vô hiệu', () => {
     expect(oNgayDangVoHieu('THONG_KE_KY', 'THANG_HIEN_TAI')).toBe(false);
     expect(oNgayDangVoHieu('CANH_BAO_SAP_HAN', 'THANG_HIEN_TAI')).toBe(false);
+  });
+});
+
+describe('nhanKyApDung — nhãn khoảng ngày ĐANG ÁP', () => {
+  const THANG9 = { ky: 'THANG_HIEN_TAI', tuNgay: '2026-09-01', denNgay: '2026-09-30' };
+  const TAT_CA = { ky: 'TAT_CA', tuNgay: null, denNgay: null };
+
+  it('không chọn ngày → nhãn kỳ mặc định', () => {
+    expect(nhanKyApDung(THANG9, '', '')).toBe('Tháng 9/2026');
+    expect(nhanKyApDung(TAT_CA, null, undefined)).toBe('Tất cả thời gian');
+  });
+
+  it('chọn đủ hai ngày → đúng khoảng đã chọn, không phải kỳ mặc định', () => {
+    expect(nhanKyApDung(THANG9, '2025-01-01', '2025-12-31')).toBe('01/01/2025 – 31/12/2025');
+  });
+
+  it('chọn một đầu → đầu kia lấy mốc kỳ mặc định (như máy chủ), lộ ra khoảng rỗng thay vì im lặng', () => {
+    expect(nhanKyApDung(THANG9, '', '2025-12-31')).toBe('01/09/2026 – 31/12/2025');
+    expect(nhanKyApDung(TAT_CA, '2025-01-01', '')).toBe('Từ 01/01/2025');
   });
 });

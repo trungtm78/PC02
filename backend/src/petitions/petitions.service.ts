@@ -14,6 +14,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
 import { PrismaService } from '../prisma/prisma.service';
+import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
@@ -28,7 +29,10 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
-import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import {
+  apDungKyVaoWhere,
+  phuDeKyXuat,
+} from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -36,7 +40,7 @@ import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
-import { hoSoCodeVariants } from '../common/utils/ho-so-code.util';
+import { hoSoCodeVariants, maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
@@ -194,9 +198,8 @@ export class PetitionsService {
     }
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
     // Màn Đơn thư phường/xã lọc Loại đơn ở máy chủ (17/09/2026) — CÙNG điều kiện ở getStats.
     if (petitionType) where.petitionType = petitionType;
 
@@ -1497,8 +1500,14 @@ export class PetitionsService {
   // Mirror IncidentsService.exportWardIncidents — BCA-styled XLSX
   // Endpoint: GET /api/v1/petitions/export/ward
   // ─────────────────────────────────────────────
+  /**
+   * Xuất đúng những gì màn Đơn thư phường/xã đang lọc: CÙNG tham số (`tk`, `wardTeamId`, `chiToPhuong`,
+   * `status`, `petitionType`, ngày…) và CÙNG điều kiện với `getList` — gọi thẳng `getList` theo từng trang.
+   * Bản cũ (tới 17/09/2026) lọc `donViGiaiQuyet` bằng ID phường (không bao giờ khớp), ngày theo `createdAt`
+   * (ngày di trú), bỏ qua thẻ/trạng thái/loại đơn và cắt ở 500 dòng.
+   */
   async exportWardPetitions(
-    query: { unitId?: string; fromDate?: string; toDate?: string },
+    query: QueryPetitionsDto,
     dataScope: DataScope | null | undefined,
     res: Response,
     actor?: { userId: string; ipAddress?: string; userAgent?: string },
@@ -1514,57 +1523,53 @@ export class PetitionsService {
       });
     }
 
-    const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    // Cùng lý do: cột `unit` rỗng ở mọi đơn thư nên lọc trên nó trả về danh sách trắng.
-    if (query.unitId) where.donViGiaiQuyet = query.unitId;
-    if (query.fromDate || query.toDate) {
-      where.createdAt = {};
-      if (query.fromDate) (where.createdAt as Prisma.DateTimeFilter).gte = new Date(query.fromDate);
-      if (query.toDate) (where.createdAt as Prisma.DateTimeFilter).lte = new Date(query.toDate + 'T23:59:59.999Z');
+    const MOI_LUOT = 200;
+    type DongPhuong = Awaited<
+      ReturnType<PetitionsService['getList']>
+    >['data'][number];
+    const records: DongPhuong[] = [];
+    for (let offset = 0; ; offset += MOI_LUOT) {
+      const trang = await this.getList(
+        { ...query, limit: MOI_LUOT, offset },
+        dataScope,
+      );
+      records.push(...trang.data);
+      if (trang.data.length < MOI_LUOT || records.length >= trang.total) break;
     }
-
-    const scopeFilter = buildPetitionScopeFilter(dataScope);
-    if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        scopeFilter as Prisma.PetitionWhereInput,
-      ];
-    }
-
-    const records = await this.prisma.petition.findMany({
-      where,
-      take: 500,
-      // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
-      // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
-      // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
-      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
-      select: {
-        id: true,
-        stt: true,
-        receivedDate: true,
-        senderName: true,
-        summary: true,
-        petitionType: true,
-        status: true,
-        assignedTeam: { select: { ward: { select: { name: true } } } },
-      },
-    });
 
     const COL_COUNT = 8;
     const HEADERS = [
-      'STT', 'Số đơn', 'Người gửi', 'Loại đơn', 'Tóm tắt',
-      'Phường/Xã', 'Ngày tiếp nhận', 'Trạng thái',
+      'STT',
+      'Số đơn',
+      'Người gửi',
+      'Loại đơn',
+      'Tóm tắt',
+      'Phường/Xã',
+      'Ngày đề xuất',
+      'Trạng thái',
     ];
     const WIDTHS = [6, 18, 22, 16, 40, 18, 16, 22];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    const period = phuDeKyXuat(
+      ky,
+      query.fromDate,
+      query.toDate,
+      'Ngày đề xuất',
+    );
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Đơn thư theo phường xã');
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ', period);
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ',
+      period,
+    );
     const headerRow = sheet.getRow(7);
     BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
 
@@ -1572,12 +1577,19 @@ export class PetitionsService {
       const wardName = rec.assignedTeam?.ward?.name ?? '';
       const dataRow = sheet.addRow([
         idx + 1,
-        rec.stt ?? '',
+        maHoSoNgan(rec.stt),
         rec.senderName ?? '',
-        rec.petitionType ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType) : '',
-        rec.summary ?? '',
+        rec.petitionType
+          ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType)
+          : '',
+        // Cùng cột "Tóm tắt" trên màn (`detailContent`); đơn chưa có thì lùi bản rút gọn.
+        rec.detailContent ?? rec.summary ?? '',
         wardName,
-        rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
+        rec.ngayDeXuat
+          ? rec.ngayDeXuat.toLocaleDateString('vi-VN', {
+              timeZone: 'Asia/Ho_Chi_Minh',
+            })
+          : '',
         PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
@@ -2030,7 +2042,8 @@ export class PetitionsService {
       };
     }
 
-    if (wardTeamId) where.assignedTeam = { is: { wardId: wardTeamId } };
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
     if (query.petitionType) where.petitionType = query.petitionType;
 
     const scopeFilter = buildPetitionScopeFilter(dataScope);

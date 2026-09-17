@@ -106,6 +106,14 @@ export class QueryCasesDto {
   @IsString()
   wardTeamId?: string;
 
+  /**
+   * Màn phường/xã chưa chọn phường cụ thể: chỉ hồ sơ của tổ CÓ gắn phường (xem common/utils/to-phuong.util.ts).
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  chiToPhuong?: boolean;
+
   // Lọc theo mức độ tội phạm (BLHS Điều 9)
   @IsOptional()
   @IsCatalogValue('CAP_DO_TOI_PHAM')

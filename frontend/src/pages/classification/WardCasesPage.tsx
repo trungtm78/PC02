@@ -41,7 +41,7 @@ import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/compo
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
-import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { nhanKyApDung } from '@/constants/thongKeSettings';
 
 interface WardCaseRow {
   id: string;
@@ -143,7 +143,9 @@ export default function WardCasesPage() {
     } else if (filters.quickSearch.trim()) {
       p.set('search', filters.quickSearch.trim());
     }
+    // Chưa chọn phường: chỉ hồ sơ của tổ CÓ gắn phường — không để lẫn hồ sơ của các Đội vào màn phường/xã.
     if (wardTeamId) p.set('wardTeamId', wardTeamId);
+    else p.set('chiToPhuong', 'true');
     // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
     if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
     if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
@@ -282,7 +284,11 @@ export default function WardCasesPage() {
         <p className="text-sm text-slate-500" data-testid="ward-cases-ky">
           Thống kê:{' '}
           <span className="text-slate-700 font-medium">
-            {nhanKyThongKe(thongKe.ky.ky, thongKe.ky.tuNgay, thongKe.ky.denNgay)}
+            {nhanKyApDung(
+              thongKe.ky,
+              laGiaTriNgay(filters.fromDate) ? filters.fromDate : '',
+              laGiaTriNgay(filters.toDate) ? filters.toDate : '',
+            )}
           </span>
           {' '}— danh sách và thẻ số cùng tính trong kỳ này; chọn ngày ở Bộ lọc để đổi.
         </p>

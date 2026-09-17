@@ -70,6 +70,21 @@ describe('CasesService — màn Vụ án phường/xã', () => {
     });
   });
 
+  it('[rà mã P3] chiToPhuong: danh sách lẫn thống kê chỉ lấy tổ CÓ phường', async () => {
+    await service.getList({ chiToPhuong: true } as never, null);
+    expect(
+      mockPrisma.case.findMany.mock.calls[0][0].where.assignedTeam,
+    ).toEqual({
+      is: { wardId: { not: null } },
+    });
+    await service.getStats({ chiToPhuong: true } as never, null);
+    expect(mockPrisma.case.groupBy.mock.calls[0][0].where.assignedTeam).toEqual(
+      {
+        is: { wardId: { not: null } },
+      },
+    );
+  });
+
   it('thẻ Tội danh chính lọc qua quan hệ danh mục, bỏ dấu, lùi cột gốc khi chưa nạp cột bóng', async () => {
     await service.getList({ tk: ['toiDanhChinh~Giết người'] } as never, null);
     const and = JSON.stringify(

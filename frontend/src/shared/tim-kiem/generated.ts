@@ -33,6 +33,8 @@ export const TIM_KIEM_VU_VIEC = [
   { key: 'dieuTraVien', nhan: 'Điều tra viên', kieu: 'nguoi' },
   { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'toiDanhChinh', nhan: 'Tội danh chính', kieu: 'quan-he' },
+  { key: 'tenVuViec', nhan: 'Tên vụ việc', kieu: 'chu' },
 ] as const;
 
 export const TIM_KIEM_VU_AN = [

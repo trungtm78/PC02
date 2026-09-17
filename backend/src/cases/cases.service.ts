@@ -17,6 +17,7 @@ import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHAI_TIM_KIEM_VU_AN } from '../common/tim-kiem/khai/vu-an.khai';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
@@ -32,7 +33,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import {
   apDungKyVaoWhere,
-  TRUONG_NGAY_THONG_KE,
+  phuDeKyXuat,
 } from '../common/utils/thong-ke-ky.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -282,11 +283,8 @@ export class CasesService {
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN.
     // Ward officer's scope filter (v0.33) đã restrict tới wardTeam mình → wardTeamId
     // query của ward officer effectively no-op (intersection của 2 filter cùng team).
-    if (wardTeamId) {
-      where.assignedTeam = {
-        is: { wardId: wardTeamId },
-      };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
 
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
@@ -522,9 +520,8 @@ export class CasesService {
       };
     }
 
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
@@ -2217,18 +2214,11 @@ export class CasesService {
       await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
       query.tk,
     );
-    const tu = query.fromDate || ky.tuNgay;
-    const den = query.toDate || ky.denNgay;
-    const dmy = (s: string) => s.split('-').reverse().join('/');
-    const tenCot =
-      ky.truong === TRUONG_NGAY_THONG_KE.NGAY_TAO ? 'Ngày tạo' : 'Ngày đề xuất';
     BcaExcelHelper.addHeader(
       sheet,
       COL_COUNT,
       'DANH SÁCH VỤ ÁN THEO PHƯỜNG/XÃ',
-      tu || den
-        ? `${tenCot} từ ${tu ? dmy(tu) : '…'} đến ${den ? dmy(den) : '…'}`
-        : 'Tất cả thời gian',
+      phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
     );
     BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
 

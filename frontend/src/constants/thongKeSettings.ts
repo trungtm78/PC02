@@ -102,3 +102,21 @@ export function sapXepCaiDat<T extends { key: string }>(ds: readonly T[]): T[] {
   };
   return [...ds].sort((a, b) => viTri(a.key) - viTri(b.key));
 }
+
+/**
+ * Nhãn khoảng ngày ĐANG ÁP trên màn tự dựng (phường/xã): ô ngày người dùng thắng, ô trống lấy mốc kỳ mặc
+ * định — cùng luật ghép `apDungKyVaoWhere` của máy chủ. Máy chủ luôn trả `ky` MẶC ĐỊNH kể cả khi người
+ * dùng đã chọn ngày, nên hiện thẳng `ky` là nói sai (chọn năm 2025 mà nhãn vẫn ghi "Tháng 9/2026").
+ */
+export function nhanKyApDung(
+  ky: { ky: string; tuNgay: string | null; denNgay: string | null },
+  tuNguoiDung: string | null | undefined,
+  denNguoiDung: string | null | undefined,
+): string {
+  if (!tuNguoiDung && !denNguoiDung) return nhanKyThongKe(ky.ky, ky.tuNgay, ky.denNgay);
+  const tu = tuNguoiDung || ky.tuNgay;
+  const den = denNguoiDung || ky.denNgay;
+  const dmy = (s: string) => s.split('-').reverse().join('/');
+  if (tu && den) return `${dmy(tu)} – ${dmy(den)}`;
+  return tu ? `Từ ${dmy(tu)}` : `Đến ${dmy(den as string)}`;
+}
