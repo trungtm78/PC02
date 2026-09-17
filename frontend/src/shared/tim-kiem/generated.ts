@@ -127,3 +127,12 @@ export const TIM_KIEM_HUONG_DAN = [
   { key: 'nguoiDuocHuongDan', nhan: 'Người được hướng dẫn', kieu: 'chu' },
   { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
 ] as const;
+
+export const TIM_KIEM_KIEN_NGHI = [
+  { key: 'maKienNghi', nhan: 'Mã kiến nghị', kieu: 'ma-thuong' },
+  { key: 'hoSoLienQuan', nhan: 'Mã hồ sơ liên quan', kieu: 'quan-he' },
+  { key: 'noiDung', nhan: 'Nội dung kiến nghị', kieu: 'chu' },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'donViVks', nhan: 'Đơn vị VKS', kieu: 'chu' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;

@@ -235,4 +235,20 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── proposals (kien-nghi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_proposals() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."content_bd" := ' ' || f_bo_dau(NEW."content");
+  NEW."unit_bd" := ' ' || f_bo_dau(NEW."unit");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."proposalNumber", NEW."content", NEW."unit"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_proposals: %', SQLERRM;
+  NEW."content_bd" := NULL;
+  NEW."unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;
