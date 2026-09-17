@@ -251,4 +251,20 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── delegations (uy-thac) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_delegations() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."content_bd" := ' ' || f_bo_dau(NEW."content");
+  NEW."receiving_unit_bd" := ' ' || f_bo_dau(NEW."receivingUnit");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."delegationNumber", NEW."content", NEW."receivingUnit"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_delegations: %', SQLERRM;
+  NEW."content_bd" := NULL;
+  NEW."receiving_unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

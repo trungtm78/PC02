@@ -1831,6 +1831,12 @@ model Delegation {
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
+  // Cột bóng bỏ dấu cho ô tìm dạng thẻ — CHỈ ĐỌC, trigger `pc02_tim_kiem_delegations` ghi
+  // (khai: src/common/tim-kiem/khai/uy-thac.khai.ts).
+  contentBd       String? @map("content_bd")
+  receivingUnitBd String? @map("receiving_unit_bd")
+  timKiemBd       String? @map("tim_kiem_bd")
+
   createdBy   User? @relation("DelegationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   assignedTo  User? @relation("DelegationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)

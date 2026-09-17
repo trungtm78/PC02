@@ -136,3 +136,13 @@ export const TIM_KIEM_KIEN_NGHI = [
   { key: 'donViVks', nhan: 'Đơn vị VKS', kieu: 'chu' },
   { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
 ] as const;
+
+export const TIM_KIEM_UY_THAC = [
+  { key: 'soUyThac', nhan: 'Số ủy thác', kieu: 'ma-thuong' },
+  { key: 'hoSoLienQuan', nhan: 'Hồ sơ liên quan', kieu: 'quan-he' },
+  { key: 'noiDung', nhan: 'Nội dung', kieu: 'chu' },
+  { key: 'ngayUyThac', nhan: 'Ngày ủy thác', kieu: 'ngay' },
+  { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu' },
+  { key: 'nguoiTao', nhan: 'Người tạo', kieu: 'nguoi' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;

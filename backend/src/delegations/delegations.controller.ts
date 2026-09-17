@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { DelegationsService, QueryDelegationsDto } from './delegations.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -19,6 +32,13 @@ export class DelegationsController {
     return this.delegationsService.getList(query, req.dataScope);
   }
 
+  /** Thẻ thống kê — cùng thẻ/ngày/phạm vi với danh sách. Khai TRƯỚC `:id` để 'stats' không bị đọc thành id. */
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getStats(@Query() query: QueryDelegationsDto, @Req() req: ScopedRequest) {
+    return this.delegationsService.getStats(query, req.dataScope);
+  }
+
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getById(@Param('id') id: string, @Req() req: ScopedRequest) {
@@ -27,20 +47,47 @@ export class DelegationsController {
 
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  create(@Body() dto: CreateDelegationDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.delegationsService.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  create(
+    @Body() dto: CreateDelegationDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.delegationsService.create(dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   @Put(':id')
   @RequirePermissions({ action: 'edit', subject: 'Case' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateDelegationDto>, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.delegationsService.update(id, dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateDelegationDto>,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.delegationsService.update(
+      id,
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
-  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.delegationsService.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.delegationsService.delete(
+      id,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 }
