@@ -313,6 +313,10 @@ model Crime {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // Cột bóng tìm kiếm (trigger migration tim_kiem_vu_an_phuong_toi_danh ghi, CHỈ ĐỌC) — đích thẻ
+  // "Tội danh chính" của Vụ án. Xem common/tim-kiem/khai/toi-danh.khai.ts.
+  nameBd       String?  @map("name_bd")
+  timKiemBd    String?  @map("tim_kiem_bd")
 
   subjects       Subject[] // bị can/đối tượng gắn tội danh (FK thật)
   petitionsChinh Petition[] @relation("PetitionCrimeChinh") // đơn thư gắn tội danh chính

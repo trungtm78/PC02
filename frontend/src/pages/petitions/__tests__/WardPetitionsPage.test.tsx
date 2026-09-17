@@ -63,6 +63,7 @@ const THONG_KE = {
     DA_CHUYEN_VU_VIEC: 50,
     DA_CHUYEN_VU_AN: 7,
   },
+  ky: { ky: 'THANG_HIEN_TAI', truong: 'NGAY_TIEP_NHAN', tuNgay: '2026-09-01', denNgay: '2026-09-30' },
 };
 
 let rong = false;
@@ -117,6 +118,11 @@ describe('WardPetitionsPage', () => {
     expect(screen.getByTestId('kpi-card-pending')).toHaveTextContent('100');
     expect(screen.getByTestId('kpi-card-processing')).toHaveTextContent('230');
     expect(screen.getByTestId('kpi-card-resolved')).toHaveTextContent('457');
+  });
+
+  it('nói rõ số liệu tính theo KỲ nào (ô ngày trống thì máy chủ áp kỳ mặc định)', async () => {
+    dung();
+    expect(await screen.findByTestId('ward-petitions-ky')).toHaveTextContent('Thống kê: Tháng 9/2026');
   });
 
   it('F6: bảng lọc có ngày, loại đơn, trạng thái', async () => {

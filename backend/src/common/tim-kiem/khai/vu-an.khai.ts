@@ -109,16 +109,33 @@ export const KHAI_TIM_KIEM_VU_AN: KhaiThucThe = {
       cot: 'nghiVanDoiTuong',
     },
     { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu', cot: 'crime' },
+    // Tội danh chọn từ danh mục BLHS — màn Vụ án phường/xã hiện cột này (344/368 hồ sơ, ô chữ
+    // `crime` chỉ 36/368). Cột bóng đích do khai Tội danh sinh.
+    {
+      key: 'toiDanhChinh',
+      nhan: 'Tội danh chính',
+      kieu: 'quan-he',
+      quanHe: 'crimeChinh',
+      modelDich: 'Crime',
+      cotDich: 'nameBd',
+      cotNguonDich: ['name'],
+    },
     {
       key: 'thoiHan',
       nhan: 'Thời hạn',
       kieu: 'ngay',
       cot: 'thoiHanUyThac',
     },
+    // CUỐI danh sách có chủ ý: `name` trước đây đứng đầu `cotThemVaoTatCa`, nên đặt ở đây thì cột ghép
+    // "tất cả các cột" giữ nguyên thứ tự cũ — không phải nạp lại `tim_kiem_bd` của 3.418 vụ án.
+    { key: 'tenVuAn', nhan: 'Tên vụ án', kieu: 'chu', cot: 'name' },
   ],
-  // Ô tìm cũ tìm cả tên vụ án và số hồ sơ hệ cũ — thẻ "tất cả các cột" phải tìm được đủ.
-  // (`unit` rỗng ở toàn bộ vụ án nên không đưa vào.)
-  cotThemVaoTatCa: ['name', 'soHoSoCu'],
+  // Ô tìm cũ tìm cả số hồ sơ hệ cũ — thẻ "tất cả các cột" phải tìm được đủ (tên vụ án đã là trường
+  // `tenVuAn` ở trên). `unit` rỗng ở toàn bộ vụ án nên không đưa vào.
+  cotThemVaoTatCa: ['soHoSoCu'],
+  // Tên tội danh chính và tên bị can đang HIỆN trên cột (Vụ án, Vụ án phường/xã) nhưng nằm ở bảng khác —
+  // "*" gõ "giết người" phải ra (tội danh chính 344/368 hồ sơ tổ phường, ô chữ `crime` chỉ 36).
+  tatCaGomQuanHe: ['toiDanhChinh', 'doiTuongBiCan'],
   // Đích của thẻ "Vụ án" ở Đối tượng/Luật sư: cột ấy hiện TÊN vụ án, lọc phải đúng tên chứ không
   // phải `tim_kiem_bd` (ghép cả mô tả, đơn vị…).
   cotBongPhu: ['name'],

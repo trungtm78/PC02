@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
+import vuAnPhuong from '../classification/WardCasesPage.tsx?raw';
 import uyThac from '../../features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx?raw';
 import doiTuong from '../objects/ObjectListPageShell.tsx?raw';
 import luatSu from '../lawyers/LawyerListPageShell.tsx?raw';
@@ -40,7 +41,8 @@ function khoaTrenCot(src: string): Set<string> {
 const THUC_THE = [
   ['Đơn thư', TIM_KIEM_DON_THU, [donThu]],
   ['Vụ việc', TIM_KIEM_VU_VIEC, [vuViec]],
-  ['Vụ án + Ủy thác điều tra', TIM_KIEM_VU_AN, [vuAn, uyThac]],
+  // Vụ án phường/xã (17/09/2026) mang Tên vụ án + Tội danh chính — hai trường chỉ màn ấy hiện.
+  ['Vụ án + Ủy thác điều tra + Vụ án phường/xã', TIM_KIEM_VU_AN, [vuAn, uyThac, vuAnPhuong]],
   // Ba loại đối tượng (bị can / bị hại / nhân chứng) dùng CHUNG một shell và một khai.
   ['Đối tượng', TIM_KIEM_DOI_TUONG, [doiTuong]],
   ['Luật sư', TIM_KIEM_LUAT_SU, [luatSu]],
@@ -104,7 +106,7 @@ describe('GATE tìm kiếm — cột ↔ khai', () => {
     // Trường riêng UTDT chỉ mang ở màn UTDT: gỡ ở đó là đỏ, dù màn Vụ án vẫn nguyên.
     const uyThacHong = uyThac.replace(/timKiem:\s*'donViGiao'/, '');
     expect(uyThacHong).not.toBe(uyThac);
-    const coCot = new Set([...khoaTrenCot(vuAn), ...khoaTrenCot(uyThacHong)]);
+    const coCot = new Set([...khoaTrenCot(vuAn), ...khoaTrenCot(uyThacHong), ...khoaTrenCot(vuAnPhuong)]);
     expect(khaiCua(TIM_KIEM_VU_AN).filter((k) => !coCot.has(k))).toEqual(['donViGiao']);
   });
 });

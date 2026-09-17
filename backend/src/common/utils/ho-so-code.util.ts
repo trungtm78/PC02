@@ -62,3 +62,17 @@ export function maHoSoHeCu(legacyRaw: unknown): string | null {
     (typeof v === 'string' && /^\d+$/.test(v));
   return hop(nam) && hop(stt) ? `${String(nam)}-${String(stt)}` : null;
 }
+
+/**
+ * Mã hồ sơ dạng NGẮN như bảng danh sách đang hiện (`2026-11171` → `26-11171`) — cùng luật
+ * `formatHoSoCode` phía giao diện, để tệp xuất khớp chữ cán bộ nhìn thấy. Mã không đúng dạng
+ * `năm-stt` hoặc năm vô lý giữ nguyên.
+ */
+export function maHoSoNgan(ma: string | null | undefined): string {
+  if (!ma) return '';
+  const m = DANG_DAY_DU.exec(ma.trim());
+  if (!m) return ma;
+  const nam = Number(m[1]);
+  if (nam < NAM_MIN || nam > NAM_MAX) return ma;
+  return `${String(nam).slice(2)}-${m[2]}`;
+}

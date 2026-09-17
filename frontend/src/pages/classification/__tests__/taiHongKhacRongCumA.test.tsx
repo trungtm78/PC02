@@ -2,20 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import WardIncidentsPage from '../WardIncidentsPage';
-import WardCasesPage from '../WardCasesPage';
 import OtherClassificationPage from '../OtherClassificationPage';
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
-// Trang vụ án phường/xã tự chặn quyền: không có người dùng thì nó dựng màn "không có quyền"
-// thay vì danh sách. Cấp một quản trị viên để đi tới được đúng màn cần đo.
-vi.mock('@/stores/auth.store', () => ({
-  authStore: {
-    getUser: () => ({ id: 'u1', role: 'ADMIN', username: 'admin' }),
-    getToken: () => 't',
-  },
-}));
+// Vụ án phường/xã rời cụm này 17/09/2026 (tải hỏng kiểm ở WardCasesPage.test.tsx).
 
 import { api } from '@/lib/api';
 const m = vi.mocked(api) as unknown as { get: ReturnType<typeof vi.fn> };
@@ -46,7 +38,6 @@ const LOI = {
 
 const MAN: [string, React.ComponentType, string][] = [
   ['Vụ việc phường/xã', WardIncidentsPage, 'ward-incidents-load-error'],
-  ['Vụ án phường/xã', WardCasesPage, 'ward-cases-load-error'],
   ['Phân loại khác', OtherClassificationPage, 'others-load-error'],
 ];
 
