@@ -17,6 +17,9 @@ import { KHAI_TIM_KIEM_HUONG_DAN } from '../common/tim-kiem/khai/huong-dan.khai'
 /** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
 const THAM_SO_CU_HUONG_DAN = { search: KHOA_TAT_CA } as const;
 
+/** Khoá thẻ Trạng thái trong khai Hướng dẫn đơn. */
+const KHOA_TRANG_THAI = 'trangThai';
+
 const LECH_GIO_VIET_NAM_MS = 7 * 60 * 60 * 1000;
 
 /** `yyyy-mm-dd` theo giờ Việt Nam. */
@@ -116,7 +119,12 @@ export class GuidanceService {
     dataScope?: DataScope | null,
     bayGio: Date = new Date(),
   ) {
-    const where = await this.dungWhere(query, dataScope);
+    // Thẻ Trạng thái cũng không thu hẹp thống kê — như tham số `status` — để lọc bằng thẻ hay bằng ô
+    // chọn cho CÙNG bộ số.
+    const tk = (
+      Array.isArray(query.tk) ? query.tk : query.tk ? [query.tk] : []
+    ).filter((t) => !t.startsWith(`${KHOA_TRANG_THAI}~`));
+    const where = await this.dungWhere({ ...query, tk }, dataScope);
     const homNay = docKhoangNgay(ngayVietNam(bayGio));
     const [nhom, today] = await Promise.all([
       this.prisma.guidanceRecord.groupBy({

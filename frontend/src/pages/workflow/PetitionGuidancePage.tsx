@@ -38,6 +38,7 @@ import { formatVNDate } from '@/lib/dates';
 import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_HUONG_DAN } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 
 /** Thẻ Trạng thái so MÃ enum ở máy chủ (`GuidanceStatus`); nhãn chỉ để hiện. */
 const GIA_TRI_CHON_HUONG_DAN = {
@@ -201,15 +202,18 @@ export default function PetitionGuidancePage() {
     } else if (filters.quickSearch.trim()) {
       p.set('search', filters.quickSearch.trim());
     }
-    if (filters.fromDate) p.set('fromDate', filters.fromDate);
-    if (filters.toDate) p.set('toDate', filters.toDate);
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
     return p.toString();
   }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate]);
 
-  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì tự về trang 1 (trang cũ của kết quả ngắn là bảng rỗng
-  // giả) — không cần effect đặt lại.
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 (trang cũ của kết quả ngắn là bảng rỗng giả).
+  // Đặt lại NGAY lúc vẽ (không effect) và ghi đè khoá cũ — chỉ so khoá thì đổi ngược về bộ lọc trước
+  // lại nhảy về trang cũ.
   const khoaLoc = `${thamSoLoc}|${filters.status}`;
   const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
   const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
   const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
 
@@ -220,6 +224,8 @@ export default function PetitionGuidancePage() {
   const [loadError, setLoadError] = useState("");
   /** Số lượt tải — kết quả về trễ của lượt cũ (gõ nhanh, bấm trang liên tiếp) không đè lượt mới. */
   const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (nút Làm mới). */
+  const [lanTai, setLanTai] = useState(0);
 
   const fetchGuidances = useCallback(async () => {
     const luot = ++luotTai.current;
@@ -235,6 +241,12 @@ export default function PetitionGuidancePage() {
         api.get<ThongKe>(`/guidance/stats?${thamSoLoc}`),
       ]);
       if (luot !== luotTai.current) return;
+      // Tổng giảm dưới trang đang xem (người khác xoá bớt) → kẹp về trang cuối còn dữ liệu rồi tải lại.
+      const trangCuoi = Math.max(1, Math.ceil(Number(ds.data.total ?? 0) / PAGE_SIZE));
+      if (page > trangCuoi) {
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
+      }
       setGuidances((ds.data.data ?? []).map(docDongApi));
       setTotal(Number(ds.data.total ?? 0));
       setThongKe(tk.data);
@@ -249,7 +261,7 @@ export default function PetitionGuidancePage() {
     } finally {
       if (luot === luotTai.current) setLoading(false);
     }
-  }, [thamSoLoc, filters.status, page]);
+  }, [thamSoLoc, filters.status, page, khoaLoc, lanTai]);
 
   useEffect(() => { void fetchGuidances(); }, [fetchGuidances]);
 
@@ -260,6 +272,7 @@ export default function PetitionGuidancePage() {
   const handleResetFilters = () => {
     timKiem.xoaHet();
     setFilters({ quickSearch: '', fromDate: '', toDate: '', status: '' });
+    setLanTai((n) => n + 1);
   };
 
   const openAddModal = () => {

@@ -167,4 +167,41 @@ describe('PetitionGuidancePage — tìm kiếm và thống kê phía máy chủ'
     // Thống kê bỏ lọc trạng thái (máy chủ tự bỏ) nhưng vẫn theo khoảng ngày.
     await waitFor(() => expect(thamSoThongKe().get('fromDate')).toBe('2024-08-01'));
   });
+  /** Rà mã 17/09: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 và cả màn báo lỗi. */
+  it('ngày đang gõ dở (năm ngoài 1900–2100) KHÔNG gửi xuống máy chủ', async () => {
+    dung();
+    await screen.findByTestId('view-guidance-g1');
+    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+    fireEvent.change(screen.getByTestId('filter-from-date'), { target: { value: '0002-09-17' } });
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'PENDING' } });
+    await waitFor(() => expect(thamSoDanhSach().get('status')).toBe('PENDING'));
+    expect(thamSoDanhSach().get('fromDate')).toBeNull();
+  });
+
+  it('đổi bộ lọc rồi đổi NGƯỢC lại → về trang 1, không nhảy lại trang cũ', async () => {
+    tongDanhSach = 45;
+    dung();
+    await screen.findByTestId('view-guidance-g1');
+    fireEvent.click(screen.getByTestId('guidance-next-page'));
+    await waitFor(() => expect(thamSoDanhSach().get('offset')).toBe('20'));
+    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'PENDING' } });
+    await waitFor(() => expect(thamSoDanhSach().get('status')).toBe('PENDING'));
+    expect(thamSoDanhSach().get('offset')).toBe('0');
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: '' } });
+    await waitFor(() => expect(thamSoDanhSach().get('status')).toBeNull());
+    expect(thamSoDanhSach().get('offset')).toBe('0');
+  });
+
+  it('tổng giảm dưới trang đang xem → kẹp về trang cuối còn dữ liệu', async () => {
+    tongDanhSach = 45;
+    dung();
+    await screen.findByTestId('view-guidance-g1');
+    fireEvent.click(screen.getByTestId('guidance-next-page'));
+    fireEvent.click(await screen.findByTestId('guidance-next-page'));
+    await waitFor(() => expect(thamSoDanhSach().get('offset')).toBe('40'));
+    tongDanhSach = 25; // người khác xoá bớt: còn 2 trang
+    fireEvent.click(screen.getByTestId('refresh-btn'));
+    await waitFor(() => expect(thamSoDanhSach().get('offset')).toBe('20'));
+  });
 });
