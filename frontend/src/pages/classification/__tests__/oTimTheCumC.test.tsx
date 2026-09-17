@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import InitialCasesPage from '../../cases/InitialCasesPage';
 import DuplicatePetitionsPage from '../DuplicatePetitionsPage';
 import MasterClassPage from '../../admin/MasterClassPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
@@ -87,7 +86,6 @@ interface Man {
 }
 
 const CUM_C: Man[] = [
-  { ten: 'Hồ sơ mới tiếp nhận', Man: InitialCasesPage, prefix: 'initialCases', khoa: 'noiDung', nhan: 'Nội dung vụ việc', khop: { testid: 'initial-row-c1aaaaaaaa' }, khongKhop: { testid: 'initial-row-c2bbbbbbbb' }, oCu: 'initial-search' },
   { ten: 'Đơn trùng', Man: DuplicatePetitionsPage, prefix: 'duplicatePetitions', khoa: 'tieuDe', nhan: 'Tiêu đề', khop: { testid: 'view-btn-p1' }, khongKhop: { testid: 'view-btn-p2' }, oCu: 'quick-search-input' },
   { ten: 'Phân loại danh mục', Man: MasterClassPage, prefix: 'masterClass', khoa: 'ten', nhan: 'Tên', khop: { chu: 'Trộm cắp' }, khongKhop: { chu: 'Tranh chấp đất đai' }, oCu: 'master-class-search' },
 ];

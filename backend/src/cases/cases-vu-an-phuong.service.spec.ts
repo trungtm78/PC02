@@ -70,6 +70,13 @@ describe('CasesService — màn Vụ án phường/xã', () => {
     });
   });
 
+  it('danh sách trả nguồn hồ sơ (caseProvenance) — cột Nguồn hồ sơ của màn Hồ sơ mới tiếp nhận', async () => {
+    await service.getList({} as never, null);
+    expect(
+      mockPrisma.case.findMany.mock.calls[0][0].select.caseProvenance,
+    ).toBe(true);
+  });
+
   it('[rà mã P3] chiToPhuong: danh sách lẫn thống kê chỉ lấy tổ CÓ phường', async () => {
     await service.getList({ chiToPhuong: true } as never, null);
     expect(

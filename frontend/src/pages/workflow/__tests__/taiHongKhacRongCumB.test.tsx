@@ -5,7 +5,6 @@ import PetitionGuidancePage from '../PetitionGuidancePage';
 import TransferAndReturnPage from '../TransferAndReturnPage';
 import CaseExchangePage from '../CaseExchangePage';
 import ActivityLogPage from '../../reports/ActivityLogPage';
-import InitialCasesPage from '../../cases/InitialCasesPage';
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -53,7 +52,6 @@ const LOI = {
 };
 
 const MAN: [string, React.ComponentType, string][] = [
-  ['Hồ sơ mới tiếp nhận', InitialCasesPage, 'initial-cases-load-error'],
   ['Hướng dẫn nghiệp vụ', PetitionGuidancePage, 'guidance-load-error'],
   ['Nhật ký hoạt động', ActivityLogPage, 'activity-log-load-error'],
   ['Chuyển đội / Trả hồ sơ', TransferAndReturnPage, 'transfer-load-error'],

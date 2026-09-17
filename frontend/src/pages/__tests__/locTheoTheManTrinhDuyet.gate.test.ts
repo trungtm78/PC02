@@ -2,12 +2,11 @@ import { describe, it, expect } from 'vitest';
 import phanLoaiKhac from '../classification/OtherClassificationPage.tsx?raw';
 import donTrung from '../classification/DuplicatePetitionsPage.tsx?raw';
 import chuyenTra from '../workflow/TransferAndReturnPage.tsx?raw';
-import hoSoMoi from '../cases/InitialCasesPage.tsx?raw';
 import danhMuc from '../admin/MasterClassPage.tsx?raw';
 
 /**
- * CỔNG: 5 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
- * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường, Vụ việc phường rời cổng 17/09/2026
+ * CỔNG: 4 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
+ * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường, Vụ việc phường, Hồ sơ mới tiếp nhận rời cổng 17/09/2026
  * — chuyển xuống máy chủ (`*.timKiemThe.test.tsx` của từng màn).
  *
  * Trước M5, mỗi màn tự chép một đoạn `toLowerCase().includes` trên vài cột cố định — gõ "trom cap"
@@ -21,7 +20,6 @@ const MAN = [
   ['Phân loại khác', phanLoaiKhac],
   ['Đơn trùng', donTrung],
   ['Chuyển đội / Trả hồ sơ', chuyenTra],
-  ['Hồ sơ mới tiếp nhận', hoSoMoi],
   ['Phân loại danh mục', danhMuc],
 ] as const;
 
@@ -68,7 +66,7 @@ const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.t
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
-describe('GATE tìm kiếm — 5 màn lọc phía trình duyệt', () => {
+describe('GATE tìm kiếm — 4 màn lọc phía trình duyệt', () => {
   it.each(MAN)('%s: dùng useLocTheoThe + OTimKiemThe, bảng lọc từ dòng của hook', (_ten, src) => {
     expect(dungHook(src)).toBe(true);
     expect(coOThe(src)).toBe(true);
@@ -107,7 +105,7 @@ describe('GATE tìm kiếm — 5 màn lọc phía trình duyệt', () => {
     expect(boCo).not.toBe(phanLoaiKhac);
     expect(soChuCuKhongChanCo(boCo)).toBe(true);
 
-    const trung = hoSoMoi.replace(/prefix:\s*'initialCases'/, "prefix: 'otherClassification'");
+    const trung = donTrung.replace(/prefix:\s*'duplicatePetitions'/, "prefix: 'otherClassification'");
     expect(prefixCua(trung)).toBe(prefixCua(phanLoaiKhac));
   });
 
