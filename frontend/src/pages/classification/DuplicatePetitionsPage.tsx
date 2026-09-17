@@ -1,223 +1,230 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { PetitionStatus } from "@/shared/enums/generated";
-import { DUPLICATE_PETITION_STATUS } from "@/shared/enums/duplicate-petition-status";
+/**
+ * DuplicatePetitionsPage — Đơn trùng.
+ *
+ * 18/09/2026: nguồn dữ liệu THẬT từ `/petitions/duplicates`. Trước đó màn tải `limit=100` đơn bất kỳ rồi
+ * hiện chúng như đơn trùng — cột "Tiêu chí trùng" và "Hồ sơ gốc gợi ý" luôn rỗng, "độ tương đồng %" và các
+ * nút hợp nhất / tách / so sánh không có API nào phía sau (đã gỡ).
+ *
+ * Máy chủ gom theo cột chuẩn hoá GIỮ DẤU THANH (migration `don_trung_chuan_hoa`), loại nhóm "nặc danh",
+ * phân trang theo NHÓM. Đo prod 17/09 trên 47.352 đơn: 7.571 nhóm / 29.788 đơn theo họ tên.
+ */
+
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Download,
   RotateCcw,
   Eye,
-  GitMerge,
-  GitBranch,
-  X,
   Calendar,
-  User,
-  FileText,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  SlidersHorizontal,
-  Fingerprint,
-  FileCheck,
-  TrendingUp,
-  Link2,
   Copy,
-} from "lucide-react";
-import { extractApiError } from "@/lib/api-errors";
-import { api } from "@/lib/api";
-import { soLieuHienThi } from "@/lib/soLieuHienThi";
-import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
-import { formatVNDate } from "../../lib/dates";
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Link2,
+} from 'lucide-react';
+import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { formatVNDate } from '../../lib/dates';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { PetitionStatus } from '@/shared/enums/generated';
+import { PETITION_STATUS_LABEL, PETITION_STATUS_BADGE, BADGE_DEFAULT } from '@/shared/enums/status-labels';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_DON_TRUNG: readonly TruongLoc<DuplicatePetition>[] = [
-  { key: 'maDon', nhan: 'Mã đơn mới', kieu: 'ma', lay: (d) => d.newPetitionCode },
-  { key: 'tieuDe', nhan: 'Tiêu đề', kieu: 'chu', lay: (d) => d.newPetitionTitle },
-  { key: 'tieuChiTrung', nhan: 'Tiêu chí trùng', kieu: 'chu', lay: (d) => d.duplicateCriteria },
-  {
-    key: 'hoSoGoc',
-    nhan: 'Hồ sơ gốc gợi ý',
-    kieu: 'chu',
-    lay: (d) => d.suggestedOriginals.flatMap((o) => [o.code, o.title]),
-  },
-  { key: 'nguoiNop', nhan: 'Người nộp', kieu: 'chu', lay: (d) => d.submittedBy },
-  { key: 'ngayNop', nhan: 'Ngày nộp', kieu: 'ngay', lay: (d) => d.submittedDate },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (d) => d.status },
-];
-
-const GIA_TRI_CHON_DON_TRUNG = {
-  trangThai: Object.values(DUPLICATE_PETITION_STATUS).map((v) => ({ value: v, label: v })),
-};
-
-interface DuplicatePetition {
+interface DonTrong {
   id: string;
-  stt: number;
-  newPetitionCode: string;
-  newPetitionTitle: string;
-  submittedBy: string;
-  submittedDate: string;
-  duplicateCriteria: string[];
-  suggestedOriginals: {
-    code: string;
-    title: string;
-    similarity: number;
-    submittedDate: string;
-  }[];
-  status: "Chờ xử lý" | "Đã hợp nhất" | "Tách riêng" | "Đang xem xét";
-  statusColor: string;
-  handler?: string;
-  processedDate?: string;
-  notes?: string;
+  stt: string | null;
+  senderName: string | null;
+  detailContent?: string | null;
+  ngayDeXuat?: string | null;
+  status: PetitionStatus;
 }
 
-const criteria = [
-  "Họ tên",
-  "CCCD",
-  "Số điện thoại",
-  "Địa chỉ",
-  "Nội dung tương tự",
-  "Bị đơn trùng",
-  "Thời gian gần nhau",
-];
+interface NhomTrung {
+  giaTri: string;
+  soDon: number;
+  goc: DonTrong | null;
+  dons: DonTrong[];
+}
+
+interface KetQuaTrung {
+  data: NhomTrung[];
+  total: number;
+  criteria: string;
+  ky?: { ky: string; tuNgay: string | null; denNgay: string | null };
+}
+
+const PAGE_SIZE = 20;
+
+/**
+ * Tiêu chí gom — khớp từng dòng với `backend/src/petitions/don-trung.types.ts`. Mã lạ máy chủ trả 400,
+ * nên ô chọn chỉ nhận đúng bốn mã này.
+ */
+const TIEU_CHI = [
+  { value: 'senderName', label: 'Họ tên người gửi' },
+  { value: 'senderPhone', label: 'Số điện thoại' },
+  { value: 'senderAddress', label: 'Địa chỉ' },
+  { value: 'suspectedPerson', label: 'Đối tượng bị tố giác' },
+] as const;
+
+/** Cột của bảng — khoá `timKiem` là thẻ tìm được trên cột ấy (khai Đơn thư của máy chủ). */
+const COT = [
+  { tieuDe: 'Mã đơn', timKiem: 'stt' },
+  { tieuDe: 'Người gửi', timKiem: 'nguoiGui' },
+  { tieuDe: 'Tóm tắt', timKiem: 'tomTat' },
+  { tieuDe: 'Ngày đề xuất', timKiem: 'ngayDeXuat' },
+  { tieuDe: 'Trạng thái', timKiem: 'trangThai' },
+] as const;
+
+const NHAN_TREN_BANG: Record<string, string> = {
+  stt: 'Mã đơn',
+  nguoiGui: 'Người gửi',
+  tomTat: 'Tóm tắt',
+  ngayDeXuat: 'Ngày đề xuất',
+  trangThai: 'Trạng thái',
+};
+const KHAI_DON_TRUNG = TIM_KIEM_DON_THU.filter((t) => t.key in NHAN_TREN_BANG).map((t) => ({
+  ...t,
+  nhan: NHAN_TREN_BANG[t.key],
+}));
+
+const GIA_TRI_CHON_DON_TRUNG = {
+  trangThai: (Object.keys(PETITION_STATUS_LABEL) as PetitionStatus[]).map((s) => ({
+    value: s,
+    label: PETITION_STATUS_LABEL[s],
+  })),
+};
+
+/** Khoá testid ổn định cho một nhóm: bỏ dấu + gạch nối (giá trị gom là chữ tự do). */
+const khoaNhom = (giaTri: string) =>
+  giaTri
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+
+interface FilterData {
+  quickSearch: string;
+  criteria: string;
+  status: string;
+  fromDate: string;
+  toDate: string;
+}
+
+const BO_LOC_TRONG: FilterData = {
+  quickSearch: '',
+  criteria: 'senderName',
+  status: '',
+  fromDate: '',
+  toDate: '',
+};
 
 export default function DuplicatePetitionsPage() {
-  const [quickSearch, setQuickSearch] = useState("");
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showProcessModal, setShowProcessModal] = useState(false);
-  const [showCompareModal, setShowCompareModal] = useState(false);
-  const [selectedDuplicate, setSelectedDuplicate] = useState<DuplicatePetition | null>(null);
-  const [compareWith, setCompareWith] = useState<string>("");
-
-  const [allData, setAllData] = useState<DuplicatePetition[]>([]);
+  const navigate = useNavigate();
+  const [nhom, setNhom] = useState<NhomTrung[]>([]);
+  const [total, setTotal] = useState(0);
+  const [ky, setKy] = useState<KetQuaTrung['ky']>(undefined);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
 
-  const [filters, setFilters] = useState({
-    criteria: "",
-    status: "",
-    fromDate: "",
-    toDate: "",
-  });
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const res = await api.get("/petitions?limit=100");
-        const mapped: DuplicatePetition[] = (res.data.data ?? []).map((p: any, i: number) => ({
-          id: p.id,
-          stt: i + 1,
-          newPetitionCode: p.stt ?? `DT-${i + 1}`,
-          newPetitionTitle: p.summary ?? "",
-          submittedBy: p.senderName ?? "",
-          submittedDate: formatVNDate(p.receivedDate),
-          duplicateCriteria: [],
-          suggestedOriginals: [],
-          status: (() => {
-            const m: Record<string, string> = {
-              [PetitionStatus.MOI_TIEP_NHAN]: DUPLICATE_PETITION_STATUS.PENDING,
-              [PetitionStatus.DANG_XU_LY]: DUPLICATE_PETITION_STATUS.REVIEWING,
-              [PetitionStatus.DA_GIAI_QUYET]: DUPLICATE_PETITION_STATUS.SPLIT,
-            };
-            return m[p.status] ?? DUPLICATE_PETITION_STATUS.PENDING;
-          })() as DuplicatePetition["status"],
-          statusColor: "text-amber-600",
-        }));
-        setAllData(mapped);
-      } catch (e) {
-        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-        setAllData([]);
-        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
+  const timKiem = useTheTimKiem({
     prefix: 'duplicatePetitions',
     khai: KHAI_DON_TRUNG,
     giaTriChon: GIA_TRI_CHON_DON_TRUNG,
-    dong: allData,
     bat: theBat,
   });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
-  const filteredDuplicates = useMemo(() => {
-    return timKiem.dongLoc.filter((dup) => {
-      const matchesQuickSearch =
-        theBat ||
-        dup.newPetitionCode.toLowerCase().includes(quickSearch.toLowerCase()) ||
-        dup.newPetitionTitle.toLowerCase().includes(quickSearch.toLowerCase()) ||
-        dup.submittedBy.toLowerCase().includes(quickSearch.toLowerCase());
+  /** Tham số chung của danh sách và tệp xuất (không gồm trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    p.set('criteria', filters.criteria);
+    if (filters.status) p.set('status', filters.status);
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-01-01… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    // Lọc ngày theo ĐÚNG cột đang hiện, không theo cấu hình "tính theo Ngày tạo" của admin.
+    p.set('thongKeTruongNgay', TRUONG_NGAY_DE_XUAT);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.criteria, filters.status, filters.fromDate, filters.toDate]);
 
-      const matchesStatus = filters.status === "" || dup.status === filters.status;
-      const matchesCriteria =
-        filters.criteria === "" || dup.duplicateCriteria.includes(filters.criteria);
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect).
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: thamSoLoc, page: 1 });
+  if (trangTheoLoc.khoa !== thamSoLoc) setTrangTheoLoc({ khoa: thamSoLoc, page: 1 });
+  const page = trangTheoLoc.khoa === thamSoLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: thamSoLoc, page: doi(page) });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-      return matchesQuickSearch && matchesStatus && matchesCriteria;
-    });
-  }, [timKiem.dongLoc, theBat, quickSearch, filters]);
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (Làm mới). */
+  const [lanTai, setLanTai] = useState(0);
 
-  const handleViewDetail = (duplicate: DuplicatePetition) => {
-    setSelectedDuplicate(duplicate);
-    setShowDetailModal(true);
-  };
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const q = new URLSearchParams(thamSoLoc);
+    q.set('limit', String(PAGE_SIZE));
+    q.set('offset', String((page - 1) * PAGE_SIZE));
+    setLoading(true);
+    setLoadError('');
+    try {
+      const res = await api.get<KetQuaTrung>(`/petitions/duplicates?${q}`);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data?.total ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        // Tổng giảm dưới trang đang xem → kẹp về trang cuối (lượt này không hạ cờ loading).
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: thamSoLoc, page: trangCuoi });
+        return;
+      }
+      setNhom(Array.isArray(res.data?.data) ? res.data.data : []);
+      setTotal(tong);
+      setKy(res.data?.ky);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm thẻ số ra 0, và số 0
+      // đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
+      setNhom([]);
+      setTotal(0);
+      setKy(undefined);
+      setLoadError(extractApiError(e, 'Không tải được dữ liệu. Vui lòng thử lại.').messages.join(', '));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, page, lanTai]);
 
-  const handleProcess = (duplicate: DuplicatePetition) => {
-    setSelectedDuplicate(duplicate);
-    setShowProcessModal(true);
-  };
+  useEffect(() => {
+    void taiDuLieu();
+  }, [taiDuLieu]);
 
-  const handleCompare = (duplicate: DuplicatePetition, originalCode: string) => {
-    setSelectedDuplicate(duplicate);
-    setCompareWith(originalCode);
-    setShowCompareModal(true);
-  };
-
-  const getCriteriaColor = (criterion: string) => {
-    const colors: Record<string, string> = {
-      "Họ tên": "bg-blue-100 text-blue-700",
-      CCCD: "bg-purple-100 text-purple-700",
-      "Số điện thoại": "bg-green-100 text-green-700",
-      "Địa chỉ": "bg-amber-100 text-amber-700",
-      "Nội dung tương tự": "bg-pink-100 text-pink-700",
-      "Bị đơn trùng": "bg-red-100 text-red-700",
-      "Thời gian gần nhau": "bg-cyan-100 text-cyan-700",
-    };
-    return colors[criterion] || "bg-slate-100 text-slate-700";
-  };
-
-  // Thẻ thống kê đếm theo dòng ĐÃ ÁP THẺ — số trên thẻ phải khớp số dòng cán bộ đang lọc.
-  const dongTheoThe = timKiem.dongLoc;
-  const statusCounts = {
-    total: dongTheoThe.length,
-    pending: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.PENDING).length,
-    reviewing: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.REVIEWING).length,
-    merged: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.MERGED).length,
-    separated: dongTheoThe.filter((d) => d.status === DUPLICATE_PETITION_STATUS.SPLIT).length,
+  const handleReset = () => {
+    timKiem.xoaHet();
+    setFilters(BO_LOC_TRONG);
+    setLanTai((n) => n + 1);
   };
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
-      const res = await api.get('/petitions/export/duplicates', {
-        params: {
-          status: filters.status || undefined,
-          criteria: filters.criteria || undefined,
-          fromDate: filters.fromDate || undefined,
-          toDate: filters.toDate || undefined,
-        },
-        responseType: 'blob',
-      });
+      // CÙNG tham số với bảng: tệp xuất là đúng những nhóm cán bộ đang nhìn thấy (mọi trang).
+      const res = await api.get(`/petitions/export/duplicates?${thamSoLoc}`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
@@ -231,384 +238,178 @@ export default function DuplicatePetitionsPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filters]);
+  }, [thamSoLoc]);
+
+  const nhanTieuChi = TIEU_CHI.find((t) => t.value === filters.criteria)?.label ?? '';
 
   return (
     <div className="p-6 space-y-6" data-testid="duplicate-petitions-page">
       <div>
-        <h1 className="text-2xl font-bold text-[#003973]">Quản lý đơn trùng</h1>
+        <h1 className="text-2xl font-bold text-[#003973]">Đơn trùng</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Phát hiện và xử lý các đơn thư có dấu hiệu trùng lặp
+          Nhóm đơn có cùng {nhanTieuChi.toLowerCase()} — trong phạm vi dữ liệu của tài khoản. Đơn tiếp nhận sớm
+          nhất mỗi nhóm là hồ sơ gốc.
         </p>
       </div>
 
-      <LoadErrorBanner error={loadError} what="danh sách đơn trùng lặp" data-testid="duplicates-load-error" />
+      <LoadErrorBanner error={loadError} what="danh sách đơn trùng" data-testid="duplicate-petitions-load-error" />
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+      {ky && (
+        <p className="text-sm text-slate-500" data-testid="don-trung-ky">
+          Thống kê:{' '}
+          <span className="text-slate-700 font-medium">
+            {nhanKyApDung(
+              ky,
+              laGiaTriNgay(filters.fromDate) ? filters.fromDate : '',
+              laGiaTriNgay(filters.toDate) ? filters.toDate : '',
+            )}
+          </span>{' '}
+          — nhóm trùng tính trong kỳ này; chọn ngày để đổi.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div data-testid="don-trung-tong-nhom" className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-600">Tổng số đơn trùng</p>
-              <p className="text-2xl font-bold text-[#003973] mt-1">{soLieuHienThi(statusCounts.total, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
-              <Copy className="w-6 h-6 text-[#003973]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Chờ xử lý</p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">{soLieuHienThi(statusCounts.pending, !!loadError)}</p>
+              <p className="text-sm text-amber-700 font-medium mb-1">Nhóm trùng</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(loading ? undefined : total, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Đang xem xét</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{soLieuHienThi(statusCounts.reviewing, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Eye className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Đã hợp nhất</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{soLieuHienThi(statusCounts.merged, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <GitMerge className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600">Tách riêng</p>
-              <p className="text-2xl font-bold text-purple-600 mt-1">{soLieuHienThi(statusCounts.separated, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <GitBranch className="w-6 h-6 text-purple-600" />
+              <Copy className="w-6 h-6 text-amber-600" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              data-testid="filter-toggle-btn"
-              className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
-                showAdvancedSearch
-                  ? "bg-[#003973]/10 border-[#003973] text-[#003973]"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Bộ lọc
-            </button>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-slate-600">
+          {loading ? <span>Đang tải...</span> : <>Trang {page} / {totalPages}</>}
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting}
+            data-testid="export-excel-btn"
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" />
+            {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            data-testid="reset-filters-btn"
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" /> Làm mới
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="md:col-span-2">
+            {theBat ? (
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_DON_TRUNG}
+                khai={KHAI_DON_TRUNG}
+                giaTriChon={GIA_TRI_CHON_DON_TRUNG}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  data-testid="quick-search-input"
+                  value={filters.quickSearch}
+                  onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                  placeholder="Tìm theo mã đơn, người gửi, tóm tắt..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
+                />
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              data-testid="export-excel-btn"
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Trùng theo</label>
+            <select
+              data-testid="chon-tieu-chi"
+              value={filters.criteria}
+              onChange={(e) => setFilters({ ...filters, criteria: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
             >
-              <Download className="w-4 h-4" />
-              {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
-            </button>
-            <button
-              onClick={() => {
-                timKiem.xoaHet();
-                setFilters({ criteria: "", fromDate: "", toDate: "", status: "" });
-              }}
-              className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              {TIEU_CHI.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
+            <select
+              data-testid="loc-trang-thai"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
             >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+              <option value="">Tất cả</option>
+              {GIA_TRI_CHON_DON_TRUNG.trangThai.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-
-        <div className="mt-4">
-          {theBat ? (
-            <OTimKiemThe
-              the={timKiem.the}
-              truong={KHAI_DON_TRUNG}
-              khai={KHAI_DON_TRUNG}
-              giaTriChon={GIA_TRI_CHON_DON_TRUNG}
-              onThem={timKiem.them}
-              onBoThe={timKiem.boThe}
-              onBoGiaTri={timKiem.boGiaTri}
-              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
-            />
-          ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất từ</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                type="text"
-                data-testid="quick-search-input"
-                value={quickSearch}
-                onChange={(e) => setQuickSearch(e.target.value)}
-                placeholder="Tìm kiếm theo mã đơn, tiêu đề, người nộp..."
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+                type="date"
+                data-testid="loc-tu-ngay"
+                value={filters.fromDate}
+                onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
               />
             </div>
-          )}
-        </div>
-
-        {showAdvancedSearch && (
-          <div className="mt-4 pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Tiêu chí trùng</label>
-                <select
-                  value={filters.criteria}
-                  onChange={(e) => setFilters({ ...filters, criteria: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
-                >
-                  <option value="">Tất cả tiêu chí</option>
-                  {criteria.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="date"
-                    value={filters.fromDate}
-                    onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="date"
-                    value={filters.toDate}
-                    onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
-                >
-                  <option value="">Tất cả</option>
-                  {Object.values(DUPLICATE_PETITION_STATUS).map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="date"
+                data-testid="loc-den-ngay"
+                value={filters.toDate}
+                onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
+              />
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="font-bold text-[#003973]">Danh sách đơn trùng</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Hiển thị {filteredDuplicates.length} / {allData.length} đơn trùng
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full" data-testid="duplicates-table">
-            <thead className="bg-[#003973]/5 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider w-28 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
-                  Thao tác
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider w-16">
-                  STT
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Mã đơn mới
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Tiêu chí trùng
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Hồ sơ gốc gợi ý
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Người nộp
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Ngày nộp
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#003973] uppercase tracking-wider">
-                  Trạng thái
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
-                    <p className="text-slate-500">Đang tải dữ liệu...</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredDuplicates.map((dup) => (
-                  <tr
-                    key={dup.id}
-                    onClick={() => handleViewDetail(dup)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewDetail(dup); } }}
-                    tabIndex={0}
-                    className="cursor-pointer hover:bg-blue-50 transition-colors"
-                  >
-                    <td
-                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleViewDetail(dup)}
-                          data-testid={`view-btn-${dup.id}`}
-                          className="p-2 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {dup.status === DUPLICATE_PETITION_STATUS.PENDING && (
-                          <button
-                            onClick={() => handleProcess(dup)}
-                            data-testid={`process-btn-${dup.id}`}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
-                            title="Xử lý"
-                          >
-                            <FileCheck className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">
-                      {dup.stt}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-[#003973]">
-                          {dup.newPetitionCode}
-                        </span>
-                        <span className="text-xs text-slate-500 line-clamp-1 max-w-xs">
-                          {dup.newPetitionTitle}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
-                        {dup.duplicateCriteria.map((criterion) => (
-                          <span
-                            key={criterion}
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${getCriteriaColor(
-                              criterion
-                            )}`}
-                          >
-                            {criterion}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1.5 max-w-sm">
-                        {dup.suggestedOriginals.map((original) => (
-                          <div
-                            key={original.code}
-                            className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-purple-600">
-                                  {original.code}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <TrendingUp className="w-3 h-3 text-green-600" />
-                                  <span
-                                    data-testid={`similarity-${dup.id}-${original.code}`}
-                                    className={`text-xs font-medium ${
-                                      original.similarity > 90 ? "text-red-600" : "text-green-600"
-                                    }`}
-                                  >
-                                    {original.similarity}%
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-xs text-slate-500 line-clamp-1">{original.title}</p>
-                            </div>
-                            <button
-                              onClick={() => handleCompare(dup, original.code)}
-                              data-testid={`compare-btn-${dup.id}-${original.code}`}
-                              className="p-1 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                              title="So sánh"
-                            >
-                              <Link2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <User className="w-3 h-3 text-slate-400" />
-                        <span className="line-clamp-1">{dup.submittedBy}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-sm text-slate-700">
-                        <Calendar className="w-3 h-3 text-slate-400" />
-                        {dup.submittedDate}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        data-testid={`status-badge-${dup.status.replace(/\s/g, "-")}`}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium ${dup.statusColor}`}
-                      >
-                        {dup.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {!loading && filteredDuplicates.length === 0 && (
-          <div className="text-center py-12">
-            <Copy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy đơn trùng nào'}</p>
-            {!loadError && timKiem.coThe && (
+      <div className="space-y-4">
+        {loading ? (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-16 text-center" data-testid="don-trung-loading">
+            <p className="text-slate-500">Đang tải dữ liệu...</p>
+          </div>
+        ) : nhom.length === 0 ? (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-16 text-center" data-testid="don-trung-empty">
+            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-medium">
+              {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có nhóm trùng nào'}
+            </p>
+            {!loadError && theBat && timKiem.the.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                 <span>Không tìm thấy với:</span>
                 <DanhSachThe
@@ -620,584 +421,131 @@ export default function DuplicatePetitionsPage() {
               </div>
             )}
           </div>
+        ) : (
+          nhom.map((n) => (
+            <div
+              key={n.giaTri}
+              data-testid={`nhom-trung-${khoaNhom(n.giaTri)}`}
+              className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden"
+            >
+              <div className="flex items-center justify-between gap-3 px-5 py-3 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-center gap-2 text-sm">
+                  <Link2 className="w-4 h-4 text-amber-700" />
+                  <span className="text-slate-600">Trùng {nhanTieuChi.toLowerCase()}:</span>
+                  <span className="font-bold text-slate-800">{n.giaTri}</span>
+                </div>
+                <span className="text-sm font-medium text-amber-800">{n.soDon} đơn</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase w-24">Thao tác</th>
+                      {COT.map((c) => (
+                        <th key={c.tieuDe} className="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">
+                          {c.tieuDe}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {n.dons.map((d) => {
+                      const laGoc = n.goc?.id === d.id;
+                      return (
+                        <tr
+                          key={d.id}
+                          data-testid={`don-trung-${d.id}`}
+                          onClick={() => navigate(`/petitions/${d.id}/edit`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              navigate(`/petitions/${d.id}/edit`);
+                            }
+                          }}
+                          tabIndex={0}
+                          className={`cursor-pointer hover:bg-blue-50 transition-colors ${laGoc ? 'bg-green-50/60' : ''}`}
+                        >
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/petitions/${d.id}/edit`)}
+                              data-testid={`view-btn-${d.id}`}
+                              className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                              title="Mở đơn"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="text-sm font-mono font-bold text-[#003973]">{formatHoSoCode(d.stt)}</span>
+                            {laGoc ? (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border border-green-300 bg-green-100 text-green-800">
+                                Hồ sơ gốc
+                              </span>
+                            ) : (
+                              // Nói thẳng đơn này trùng với hồ sơ gốc NÀO: không có dòng này thì cán bộ phải tự dò
+                              // lên đầu nhóm để biết mã cần đối chiếu.
+                              n.goc && (
+                                <span className="ml-2 text-xs text-slate-500">
+                                  Trùng với {formatHoSoCode(n.goc.stt)}
+                                </span>
+                              )
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-800">{d.senderName || '—'}</td>
+                          <td className="px-4 py-3">
+                            <p className="text-sm text-slate-700 line-clamp-2 max-w-md">{d.detailContent || '—'}</p>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
+                            {formatVNDate(d.ngayDeXuat)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${PETITION_STATUS_BADGE[d.status] ?? BADGE_DEFAULT}`}
+                            >
+                              {PETITION_STATUS_LABEL[d.status] ?? d.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {showDetailModal && selectedDuplicate && (
-        <DuplicateDetailModal
-          duplicate={selectedDuplicate}
-          onClose={() => {
-            setShowDetailModal(false);
-            setSelectedDuplicate(null);
-          }}
-          onProcess={() => {
-            setShowDetailModal(false);
-            setShowProcessModal(true);
-          }}
-          onCompare={(originalCode) => {
-            setShowDetailModal(false);
-            setCompareWith(originalCode);
-            setShowCompareModal(true);
-          }}
-        />
+      {!loading && total > PAGE_SIZE && (
+        <div className="flex items-center justify-between px-2">
+          <p className="text-sm text-slate-500">
+            Trang {page} / {totalPages} — {total} nhóm trùng
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="don-trung-prev-page"
+              aria-label="Trang trước"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              data-testid="don-trung-next-page"
+              aria-label="Trang sau"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
-
-      {showProcessModal && selectedDuplicate && (
-        <ProcessDuplicateModal
-          duplicate={selectedDuplicate}
-          onClose={() => {
-            setShowProcessModal(false);
-            setSelectedDuplicate(null);
-          }}
-        />
-      )}
-
-      {showCompareModal && selectedDuplicate && compareWith && (
-        <ComparePetitionsModal
-          newPetition={selectedDuplicate}
-          originalCode={compareWith}
-          onClose={() => {
-            setShowCompareModal(false);
-            setSelectedDuplicate(null);
-            setCompareWith("");
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function DuplicateDetailModal({
-  duplicate,
-  onClose,
-  onProcess,
-  onCompare,
-}: {
-  duplicate: DuplicatePetition;
-  onClose: () => void;
-  onProcess: () => void;
-  onCompare: (originalCode: string) => void;
-}) {
-  const getCriteriaColor = (criterion: string) => {
-    const colors: Record<string, string> = {
-      "Họ tên": "bg-blue-100 text-blue-700",
-      CCCD: "bg-purple-100 text-purple-700",
-      "Số điện thoại": "bg-green-100 text-green-700",
-      "Địa chỉ": "bg-amber-100 text-amber-700",
-      "Nội dung tương tự": "bg-pink-100 text-pink-700",
-      "Bị đơn trùng": "bg-red-100 text-red-700",
-      "Thời gian gần nhau": "bg-cyan-100 text-cyan-700",
-    };
-    return colors[criterion] || "bg-slate-100 text-slate-700";
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-bold text-[#003973]">Chi tiết đơn trùng</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-600" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="p-4 bg-[#003973]/5 border border-[#003973]/20 rounded-lg">
-            <h3 className="font-medium text-[#003973] mb-3 flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Thông tin đơn mới
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Mã đơn</label>
-                <p className="text-[#003973] font-medium">{duplicate.newPetitionCode}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Ngày nộp</label>
-                <p className="text-slate-800">{duplicate.submittedDate}</p>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-600 mb-1">Tiêu đề</label>
-                <p className="text-slate-800">{duplicate.newPetitionTitle}</p>
-              </div>
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-slate-600 mb-1">Người nộp</label>
-                <p className="text-slate-800">{duplicate.submittedBy}</p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium text-[#003973] mb-3 flex items-center gap-2">
-              <Fingerprint className="w-5 h-5" />
-              Tiêu chí phát hiện trùng
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {duplicate.duplicateCriteria.map((criterion) => (
-                <span
-                  key={criterion}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium ${getCriteriaColor(
-                    criterion
-                  )}`}
-                >
-                  {criterion}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium text-[#003973] mb-3 flex items-center gap-2">
-              <Link2 className="w-5 h-5" />
-              Hồ sơ gốc được gợi ý
-            </h3>
-            <div className="space-y-3">
-              {duplicate.suggestedOriginals.map((original) => (
-                <div
-                  key={original.code}
-                  className="p-4 bg-slate-50 border border-slate-200 rounded-lg"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-sm font-medium text-purple-600">{original.code}</span>
-                        <div
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded ${
-                            original.similarity > 90 ? "bg-red-100" : "bg-green-100"
-                          }`}
-                        >
-                          <TrendingUp
-                            className={`w-3 h-3 ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                          />
-                          <span
-                            className={`text-xs font-medium ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                          >
-                            Độ tương đồng: {original.similarity}%
-                          </span>
-                        </div>
-                        <span className="text-xs text-slate-500">
-                          Ngày nộp: {original.submittedDate}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-700">{original.title}</p>
-                    </div>
-                    <button
-                      onClick={() => onCompare(original.code)}
-                      data-testid="detail-compare-btn"
-                      className="flex items-center gap-2 px-3 py-1.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors text-sm"
-                    >
-                      <Link2 className="w-4 h-4" />
-                      So sánh
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-t border-slate-200 pt-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Trạng thái</label>
-                <span
-                  className={`inline-block px-3 py-1.5 rounded-md text-sm font-medium ${duplicate.statusColor}`}
-                >
-                  {duplicate.status}
-                </span>
-              </div>
-              {duplicate.handler && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
-                    Người xử lý
-                  </label>
-                  <p className="text-slate-800">{duplicate.handler}</p>
-                </div>
-              )}
-              {duplicate.processedDate && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">
-                    Ngày xử lý
-                  </label>
-                  <p className="text-slate-800">{duplicate.processedDate}</p>
-                </div>
-              )}
-              {duplicate.notes && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-600 mb-2">
-                    Ghi chú xử lý
-                  </label>
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-800">{duplicate.notes}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-between">
-          <div>
-            {duplicate.status === DUPLICATE_PETITION_STATUS.PENDING && (
-              <button
-                onClick={onProcess}
-                data-testid="detail-process-btn"
-                className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <FileCheck className="w-4 h-4" />
-                Xử lý đơn trùng
-              </button>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Đóng
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProcessDuplicateModal({
-  duplicate,
-  onClose,
-}: {
-  duplicate: DuplicatePetition;
-  onClose: () => void;
-}) {
-  const [action, setAction] = useState<"merge" | "separate" | "review">("merge");
-  const [selectedOriginal, setSelectedOriginal] = useState(
-    duplicate.suggestedOriginals[0]?.code || ""
-  );
-  const [notes, setNotes] = useState("");
-
-  const handleSubmit = () => {
-    if (action === "merge" && !selectedOriginal) {
-      alert("Vui lòng chọn hồ sơ gốc để hợp nhất");
-      return;
-    }
-
-    if (!notes.trim()) {
-      alert("Vui lòng nhập ghi chú xử lý");
-      return;
-    }
-
-    const actionText =
-      action === "merge"
-        ? "hợp nhất vào hồ sơ " + selectedOriginal
-        : action === "separate"
-        ? "tách thành hồ sơ riêng"
-        : "chuyển sang trạng thái xem xét";
-
-    alert(`Đã ${actionText} cho đơn ${duplicate.newPetitionCode}`);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-bold text-[#003973]">Xử lý đơn trùng</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-600" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <h3 className="font-medium text-slate-800 mb-2">Đơn cần xử lý</h3>
-            <p className="text-sm">
-              <span className="font-medium text-[#003973]">{duplicate.newPetitionCode}</span>
-              <span className="text-slate-600"> - {duplicate.newPetitionTitle}</span>
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Hành động xử lý <span className="text-red-500">*</span>
-            </label>
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                <input
-                  type="radio"
-                  name="action"
-                  value="merge"
-                  checked={action === "merge"}
-                  onChange={(e) => setAction(e.target.value as any)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <GitMerge className="w-5 h-5 text-green-600" />
-                    <span className="font-medium text-slate-800">Hợp nhất vào hồ sơ gốc</span>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Hợp nhất đơn này vào một hồ sơ đã có trước đó
-                  </p>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                <input
-                  type="radio"
-                  name="action"
-                  value="separate"
-                  checked={action === "separate"}
-                  onChange={(e) => setAction(e.target.value as any)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <GitBranch className="w-5 h-5 text-purple-600" />
-                    <span className="font-medium text-slate-800">Tách thành hồ sơ riêng</span>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Sau khi xem xét, xác định đây không phải đơn trùng
-                  </p>
-                </div>
-              </label>
-
-              <label className="flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
-                <input
-                  type="radio"
-                  name="action"
-                  value="review"
-                  checked={action === "review"}
-                  onChange={(e) => setAction(e.target.value as any)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Eye className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-slate-800">Chuyển sang xem xét</span>
-                  </div>
-                  <p className="text-sm text-slate-600">Cần thêm thời gian để xem xét và đánh giá</p>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {action === "merge" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Chọn hồ sơ gốc <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-2">
-                {duplicate.suggestedOriginals.map((original) => (
-                  <label
-                    key={original.code}
-                    className="flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-                  >
-                    <input
-                      type="radio"
-                      name="original"
-                      value={original.code}
-                      checked={selectedOriginal === original.code}
-                      onChange={(e) => setSelectedOriginal(e.target.value)}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-purple-600">{original.code}</span>
-                        <div
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded ${
-                            original.similarity > 90 ? "bg-red-100" : "bg-green-100"
-                          }`}
-                        >
-                          <TrendingUp
-                            className={`w-3 h-3 ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                          />
-                          <span
-                            className={`text-xs font-medium ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                          >
-                            {original.similarity}%
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-600">{original.title}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Ngày nộp: {original.submittedDate}
-                      </p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Ghi chú xử lý <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              data-testid="process-notes-input"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
-              placeholder="Nhập lý do và căn cứ xử lý..."
-            />
-          </div>
-
-          <div className="p-4 bg-[#F59E0B]/10 border border-[#F59E0B] rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-[#F59E0B] flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-[#92400E]">
-              <p className="font-medium mb-1">Lưu ý:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Hành động này sẽ ảnh hưởng đến luồng xử lý của đơn</li>
-                <li>Người nộp đơn sẽ được thông báo về kết quả xử lý</li>
-                <li>Vui lòng kiểm tra kỹ trước khi xác nhận</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={handleSubmit}
-            data-testid="confirm-process-btn"
-            className="px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium"
-          >
-            Xác nhận xử lý
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ComparePetitionsModal({
-  newPetition,
-  originalCode,
-  onClose,
-}: {
-  newPetition: DuplicatePetition;
-  originalCode: string;
-  onClose: () => void;
-}) {
-  const original = newPetition.suggestedOriginals.find((o) => o.code === originalCode);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-bold text-[#003973]">So sánh đơn thư</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-            <X className="w-5 h-5 text-slate-600" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="p-4 bg-[#003973]/5 border-2 border-[#003973]/20 rounded-lg">
-                <h3 className="font-bold text-[#003973] mb-2 flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Đơn mới
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Mã đơn</label>
-                    <p className="text-[#003973] font-medium">{newPetition.newPetitionCode}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Ngày nộp</label>
-                    <p className="text-slate-800">{newPetition.submittedDate}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Người nộp</label>
-                    <p className="text-slate-800">{newPetition.submittedBy}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Tiêu đề</label>
-                    <p className="text-slate-800">{newPetition.newPetitionTitle}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                <h3 className="font-bold text-purple-800 mb-2 flex items-center gap-2">
-                  <FileCheck className="w-5 h-5" />
-                  Hồ sơ gốc
-                  {original && (
-                    <div
-                      className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded ${
-                        original.similarity > 90 ? "bg-red-100" : "bg-green-100"
-                      }`}
-                    >
-                      <TrendingUp
-                        className={`w-3 h-3 ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                      />
-                      <span
-                        className={`text-xs font-medium ${original.similarity > 90 ? "text-red-700" : "text-green-700"}`}
-                      >
-                        Độ tương đồng: {original.similarity}%
-                      </span>
-                    </div>
-                  )}
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-purple-700 mb-1">Mã đơn</label>
-                    <p className="text-purple-900 font-medium">{originalCode}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-purple-700 mb-1">Ngày nộp</label>
-                    <p className="text-purple-900">{original?.submittedDate}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-purple-700 mb-1">
-                      Người nộp
-                    </label>
-                    <p className="text-purple-900">Nguyễn Văn A (CCCD: 001234567890)</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-purple-700 mb-1">Tiêu đề</label>
-                    <p className="text-purple-900">{original?.title}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-            <h3 className="font-bold text-[#003973] mb-3 flex items-center gap-2">
-              <Fingerprint className="w-5 h-5" />
-              Phân tích điểm trùng khớp
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {newPetition.duplicateCriteria.map((criterion) => (
-                <div
-                  key={criterion}
-                  className="flex items-center gap-2 p-2 bg-white rounded border border-slate-200"
-                >
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-slate-700">{criterion}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Đóng
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

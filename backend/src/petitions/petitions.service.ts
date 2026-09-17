@@ -21,6 +21,15 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { buildPetitionCreateData } from './petition-data.builder';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
+import { QueryDuplicatesDto } from './dto/query-duplicates.dto';
+import {
+  COT_TIEU_CHI_TRUNG,
+  LOAI_KHOI_NHOM_TRUNG,
+  type DonTrong,
+  type NhomDonTrung,
+  type TieuChiTrung,
+  NHAN_TIEU_CHI_TRUNG,
+} from './don-trung.types';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
@@ -32,6 +41,7 @@ import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import {
   apDungKyVaoWhere,
   phuDeKyXuat,
+  type KyDaGiai,
 } from '../common/utils/thong-ke-ky.util';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
@@ -1495,6 +1505,162 @@ export class PetitionsService {
     }
   }
 
+  /**
+   * Nhóm đơn TRÙNG theo một tiêu chí — nguồn dữ liệu của màn Đơn trùng và của tệp xuất.
+   *
+   * Gom trên cột CHUẨN HOÁ do CSDL sinh (`*_chuan`, migration `don_trung_chuan_hoa`): giữ dấu thanh,
+   * quy một dạng Unicode + một cách đặt dấu + không hoa thường. So nguyên văn thì "Toà án nhân dân Quận
+   * 5" và "Tòa án Nhân dân quận 5" là hai nhóm; bỏ dấu thì "Hồ Vĩnh Thanh" gộp nhầm "Hồ Vĩnh Thạnh".
+   *
+   * Nhóm "nặc danh" bị loại: 183 đơn ấy không phải một người gửi nhiều lần.
+   *
+   * Phân trang theo NHÓM (mỗi trang N nhóm, kèm mọi đơn của nhóm) — đếm theo đơn thì trang cắt ngang
+   * giữa nhóm và cán bộ không còn thấy nhóm nào trọn vẹn.
+   */
+  async listDuplicates(
+    query: QueryDuplicatesDto,
+    dataScope?: DataScope | null,
+  ): Promise<{
+    data: NhomDonTrung[];
+    total: number;
+    criteria: TieuChiTrung;
+    ky: KyDaGiai;
+  }> {
+    const criteria = (query.criteria ?? 'senderName') as TieuChiTrung;
+    if (!Object.prototype.hasOwnProperty.call(COT_TIEU_CHI_TRUNG, criteria)) {
+      throw new BadRequestException(
+        `Tiêu chí trùng không hợp lệ: ${String(query.criteria)}. Nhận: ${Object.keys(COT_TIEU_CHI_TRUNG).join(', ')}`,
+      );
+    }
+    const cot = COT_TIEU_CHI_TRUNG[criteria];
+    const limit = query.limit ?? 20;
+    const offset = query.offset ?? 0;
+
+    const where: Prisma.PetitionWhereInput = { deletedAt: null };
+    // Thẻ tìm kiếm (và `search` cũ) — đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    noiVaoWhere(
+      where as Record<string, unknown>,
+      await this.timKiem.dieuKien({ search: query.search, tk: query.tk }),
+    );
+    if (query.status) {
+      if (!(Object.values(PetitionStatus) as string[]).includes(query.status)) {
+        throw new BadRequestException(
+          `Trạng thái không hợp lệ: ${query.status}`,
+        );
+      }
+      where.status = query.status as PetitionStatus;
+    }
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    apDungKyVaoWhere(
+      where as Record<string, unknown>,
+      ky,
+      query.fromDate,
+      query.toDate,
+      'ngayDeXuat',
+    );
+    const scopeFilter = buildPetitionScopeFilter(dataScope);
+    if (scopeFilter) {
+      where.AND = [
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
+        scopeFilter as Prisma.PetitionWhereInput,
+      ];
+    }
+
+    // Bước 1 — các giá trị xuất hiện từ 2 đơn trở lên. `notIn` loại cả NULL lẫn rỗng (Prisma 7 không
+    // nhận `not: null` trong groupBy) và loại luôn nhóm "nặc danh".
+    const nhomTho = await (
+      this.prisma.petition.groupBy as never as (
+        a: unknown,
+      ) => Promise<Array<Record<string, unknown>>>
+    )({
+      by: [cot],
+      where: { ...where, [cot]: { notIn: ['', ...LOAI_KHOI_NHOM_TRUNG] } },
+      _count: { _all: true },
+      having: { [cot]: { _count: { gt: 1 } } },
+    });
+
+    const dem = (g: Record<string, unknown>) =>
+      Number((g._count as { _all?: number } | undefined)?._all ?? 0);
+    const sapXep = [...nhomTho]
+      .filter((g) => typeof g[cot] === 'string' && String(g[cot]).length > 0)
+      .sort(
+        (a, b) =>
+          dem(b) - dem(a) || String(a[cot]).localeCompare(String(b[cot])),
+      );
+    const trang = sapXep.slice(offset, offset + limit);
+    const giaTriTrang = trang.map((g) => String(g[cot]));
+
+    // Bước 2 — mọi đơn của các nhóm TRÊN TRANG (không lấy cả 7.500 nhóm về).
+    const dons = giaTriTrang.length
+      ? await this.prisma.petition.findMany({
+          where: { ...where, [cot]: { in: giaTriTrang } },
+          orderBy: [
+            { ngayDeXuat: { sort: 'asc', nulls: 'last' } },
+            { id: 'asc' },
+          ],
+          select: {
+            id: true,
+            stt: true,
+            senderName: true,
+            senderPhone: true,
+            senderAddress: true,
+            suspectedPerson: true,
+            detailContent: true,
+            ngayDeXuat: true,
+            status: true,
+            [cot]: true,
+          } as Prisma.PetitionSelect,
+        })
+      : [];
+
+    const theoNhom = new Map<string, DonTrong[]>();
+    for (const d of dons as unknown as Array<
+      DonTrong & Record<string, unknown>
+    >) {
+      const giaTriCot = d[cot];
+      const k = typeof giaTriCot === 'string' ? giaTriCot : '';
+      const ds = theoNhom.get(k);
+      if (ds) ds.push(d);
+      else theoNhom.set(k, [d]);
+    }
+    // Sắp lại trong nhóm thay vì tin thứ tự truy vấn: "hồ sơ gốc" là đơn SỚM NHẤT, đọc sai cột này là
+    // chỉ sai đúng thứ cán bộ dùng để đối chiếu. Đơn chưa có ngày xuống cuối.
+    const mocThoiGian = (d: DonTrong) =>
+      d.ngayDeXuat?.getTime() ?? Number.POSITIVE_INFINITY;
+    for (const ds of theoNhom.values()) {
+      ds.sort(
+        (a, b) => mocThoiGian(a) - mocThoiGian(b) || a.id.localeCompare(b.id),
+      );
+    }
+
+    return {
+      criteria,
+      // Kỳ ĐANG ÁP để màn nói rõ đang tính trong khoảng nào (ô ngày trống thì là kỳ mặc định admin đặt).
+      ky,
+      total: sapXep.length,
+      data: trang.map((g) => {
+        const giaTri = String(g[cot]);
+        const ds = theoNhom.get(giaTri) ?? [];
+        return {
+          giaTri,
+          // Số đơn của NHÓM theo bước gom: bước lấy đơn dùng cùng điều kiện nên bằng nhau, nhưng lấy
+          // số của bước gom để trang hiện đúng cả khi một đơn vừa bị xoá giữa hai truy vấn.
+          soDon: dem(g),
+          // "Hồ sơ gốc" = đơn tiếp nhận SỚM NHẤT nhóm (đã sắp tăng dần ở trên).
+          goc: ds[0] ?? null,
+          dons: ds,
+        };
+      }),
+    };
+  }
+
   // ─────────────────────────────────────────────
   // EXPORT WARD PETITIONS (Đơn thư theo phường/xã)
   // Mirror IncidentsService.exportWardIncidents — BCA-styled XLSX
@@ -1600,7 +1766,10 @@ export class PetitionsService {
     BcaExcelHelper.setPrintSetup(sheet);
 
     const filename = `DonThuPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {
@@ -1615,119 +1784,91 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // EXPORT DUPLICATES (Đơn trùng lặp)
   // ─────────────────────────────────────────────
+  /**
+   * Xuất nhóm đơn trùng — CÙNG nguồn với màn (`listDuplicates`), không dựng truy vấn gom riêng.
+   *
+   * Bản cũ gom trên cột NGUYÊN VĂN nên tách "Toà án"/"Tòa án" thành hai nhóm, không loại "nặc danh",
+   * cắt ở 500 đơn và không in ra nhóm nào trùng theo giá trị gì.
+   */
   async exportDuplicates(
-    query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    query: QueryDuplicatesDto,
     dataScope: DataScope | null | undefined,
     res: Response,
   ): Promise<void> {
-    const where: Prisma.PetitionWhereInput = { deletedAt: null };
-    if (query.status && (Object.values(PetitionStatus) as string[]).includes(query.status)) {
-      where.status = query.status as PetitionStatus;
+    const MOI_LUOT = 50;
+    const nhom: NhomDonTrung[] = [];
+    let tieuChi: TieuChiTrung = 'senderName';
+    for (let offset = 0; ; offset += MOI_LUOT) {
+      const trang = await this.listDuplicates(
+        { ...query, limit: MOI_LUOT, offset },
+        dataScope,
+      );
+      tieuChi = trang.criteria;
+      nhom.push(...trang.data);
+      if (trang.data.length < MOI_LUOT || nhom.length >= trang.total) break;
     }
-    if (query.fromDate) {
-      where.receivedDate = { ...(where.receivedDate as any), gte: new Date(query.fromDate) };
-    }
-    if (query.toDate) {
-      where.receivedDate = { ...(where.receivedDate as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
-    }
-
-    const scopeFilter = buildPetitionScopeFilter(dataScope);
-    if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        scopeFilter as Prisma.PetitionWhereInput,
-      ];
-    }
-
-    // Resolve criteria → groupBy key. Default to senderName.
-    // Accepts both English field names and Vietnamese UI labels for compatibility.
-    type DupKey = 'senderName' | 'senderPhone' | 'senderAddress' | 'suspectedPerson';
-    const CRITERIA_MAP: Record<string, DupKey> = {
-      senderName: 'senderName',
-      'Họ tên': 'senderName',
-      senderPhone: 'senderPhone',
-      'Số điện thoại': 'senderPhone',
-      senderAddress: 'senderAddress',
-      'Địa chỉ': 'senderAddress',
-      suspectedPerson: 'suspectedPerson',
-      'Bị đơn trùng': 'suspectedPerson',
-    };
-    const dupKey: DupKey = (query.criteria && CRITERIA_MAP[query.criteria]) || 'senderName';
-
-    // Step 1: find duplicate values within the filtered scope (count >= 2, non-null/non-empty).
-    const groups = await (this.prisma.petition.groupBy as any)({
-      by: [dupKey],
-      where: {
-        // Prisma v7: `not: null` bị reject trong groupBy. `notIn: ['']` (SQL NOT IN) loại cả NULL lẫn ''.
-        ...where,
-        [dupKey]: { notIn: [''] },
-      },
-      _count: { _all: true },
-      having: { [dupKey]: { _count: { gt: 1 } } },
-    });
-    const dupValues: string[] = (groups as Array<Record<string, unknown>>)
-      .map((g) => g[dupKey])
-      .filter((v): v is string => typeof v === 'string' && v.length > 0);
-
-    // Step 2: fetch petitions whose dupKey value is in dupValues. If no duplicate groups
-    // were found, return an empty Excel rather than the entire petition list.
-    const records = dupValues.length > 0
-      ? await this.prisma.petition.findMany({
-          where: { ...where, [dupKey]: { in: dupValues } },
-          take: 500,
-          orderBy: [{ [dupKey]: 'asc' }, { receivedDate: 'desc' }],
-          select: {
-            id: true,
-            stt: true,
-            senderName: true,
-            summary: true,
-            receivedDate: true,
-            status: true,
-            assignedTo: { select: { firstName: true, lastName: true } },
-          },
-        })
-      : [];
 
     const COL_COUNT = 7;
-    const HEADERS = ['STT', 'Mã đơn', 'Người nộp', 'Tóm tắt nội dung', 'Ngày tiếp nhận', 'Trạng thái', 'ĐTV xử lý'];
-    const WIDTHS = [6, 18, 22, 45, 16, 20, 22];
+    const HEADERS = [
+      'STT',
+      'Trùng theo',
+      'Mã đơn',
+      'Hồ sơ gốc',
+      'Người gửi',
+      'Ngày đề xuất',
+      'Trạng thái',
+    ];
+    const WIDTHS = [6, 30, 16, 16, 24, 14, 20];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
-
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Đơn trùng lặp');
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      `DANH SÁCH ĐƠN TRÙNG THEO ${NHAN_TIEU_CHI_TRUNG[tieuChi].toUpperCase()}`,
+      phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
+    );
+    BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH ĐƠN TRÙNG LẶP', period);
+    let dong = 0;
+    for (const n of nhom) {
+      for (const d of n.dons) {
+        const row = sheet.addRow([
+          ++dong,
+          n.giaTri,
+          maHoSoNgan(d.stt),
+          maHoSoNgan(n.goc?.stt ?? null),
+          d.senderName ?? '',
+          d.ngayDeXuat
+            ? d.ngayDeXuat.toLocaleDateString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+              })
+            : '',
+          PETITION_STATUS_LABEL[d.status] ?? d.status,
+        ]);
+        BcaExcelHelper.styleDataRow(row, dong % 2 === 0, COL_COUNT);
+      }
+    }
 
-    const headerRow = sheet.getRow(7);
-    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
-
-    records.forEach((rec, idx) => {
-      const assignedName = rec.assignedTo
-        ? `${rec.assignedTo.lastName ?? ''} ${rec.assignedTo.firstName ?? ''}`.trim()
-        : '';
-      const dataRow = sheet.addRow([
-        idx + 1,
-        rec.stt ?? '',
-        rec.senderName ?? '',
-        rec.summary ?? '',
-        rec.receivedDate ? rec.receivedDate.toLocaleDateString('vi-VN') : '',
-        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
-        assignedName,
-      ]);
-      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
-    });
-
-    const lastDataRow = sheet.lastRow?.number ?? 7;
-    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.addFooter(
+      sheet,
+      (sheet.lastRow?.number ?? 7) + 2,
+      COL_COUNT,
+    );
     BcaExcelHelper.setPrintSetup(sheet);
 
-    const filename = `DonTrungLap_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="DonTrungLap_${new Date().toISOString().slice(0, 10)}.xlsx"`,
+    );
     try {
       await workbook.xlsx.write(res);
     } catch (err) {

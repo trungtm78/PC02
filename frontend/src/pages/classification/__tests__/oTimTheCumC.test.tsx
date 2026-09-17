@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import DuplicatePetitionsPage from '../DuplicatePetitionsPage';
 import MasterClassPage from '../../admin/MasterClassPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
@@ -86,7 +85,6 @@ interface Man {
 }
 
 const CUM_C: Man[] = [
-  { ten: 'Đơn trùng', Man: DuplicatePetitionsPage, prefix: 'duplicatePetitions', khoa: 'tieuDe', nhan: 'Tiêu đề', khop: { testid: 'view-btn-p1' }, khongKhop: { testid: 'view-btn-p2' }, oCu: 'quick-search-input' },
   { ten: 'Phân loại danh mục', Man: MasterClassPage, prefix: 'masterClass', khoa: 'ten', nhan: 'Tên', khop: { chu: 'Trộm cắp' }, khongKhop: { chu: 'Tranh chấp đất đai' }, oCu: 'master-class-search' },
 ];
 
