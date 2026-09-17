@@ -168,6 +168,21 @@ describe('GuidanceService — tìm kiếm dạng thẻ + thống kê phía máy 
       );
     });
 
+    /**
+     * Lọc trạng thái bằng THẺ phải cho cùng bộ số với lọc bằng ô chọn: thẻ Trạng thái không thu hẹp
+     * thống kê (rà mã 17/09 bắt: tk=trangThai~PENDING làm thẻ "Đã hoàn thành" về 0).
+     */
+    it('thẻ Trạng thái KHÔNG thu hẹp thống kê, thẻ khác vẫn áp', async () => {
+      await service.getStats(
+        { tk: ['trangThai~PENDING', 'donVi~doi 4'] } as never,
+        null,
+      );
+      const where = mockPrisma.guidanceRecord.groupBy.mock.calls[0][0].where;
+      const chuoi = JSON.stringify(where);
+      expect(chuoi).not.toContain('PENDING');
+      expect(chuoi).toContain('"unitBd":{"contains":"doi 4"}');
+    });
+
     it('trạng thái lạ ở danh sách → 400 (không để Prisma ném 500)', async () => {
       await expect(
         service.getList({ status: 'ACTIVE' } as never, null),
