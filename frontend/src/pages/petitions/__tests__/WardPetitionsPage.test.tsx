@@ -125,6 +125,24 @@ describe('WardPetitionsPage', () => {
     expect(await screen.findByTestId('ward-petitions-ky')).toHaveTextContent('Thống kê: Tháng 9/2026');
   });
 
+  it('chọn ngày → nhãn ghi đúng khoảng đang áp, không giữ kỳ mặc định', async () => {
+    dung();
+    await screen.findByTestId('ward-petitions-ky');
+    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+    fireEvent.change(screen.getByTestId('filter-from-date'), { target: { value: '2025-01-01' } });
+    fireEvent.change(screen.getByTestId('filter-to-date'), { target: { value: '2025-12-31' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('ward-petitions-ky')).toHaveTextContent('Thống kê: 01/01/2025 – 31/12/2025'),
+    );
+  });
+
+  it('chưa chọn phường → chỉ hồ sơ tổ CÓ phường (chiToPhuong), cả danh sách lẫn thống kê', async () => {
+    dung();
+    await screen.findByTestId('petition-row-p1');
+    expect(ds().get('chiToPhuong')).toBe('true');
+    expect(tk().get('chiToPhuong')).toBe('true');
+  });
+
   it('F6: bảng lọc có ngày, loại đơn, trạng thái', async () => {
     dung();
     await screen.findByTestId('petition-row-p1');

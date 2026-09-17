@@ -90,6 +90,21 @@ describe('IncidentsService — màn Vụ việc phường/xã', () => {
     expect(select.crimeChinh).toEqual({ select: { name: true } });
   });
 
+  it('[rà mã P3] chiToPhuong: danh sách lẫn thống kê chỉ lấy tổ CÓ phường', async () => {
+    await service.getList({ chiToPhuong: true } as never, null);
+    expect(
+      mockPrisma.incident.findMany.mock.calls[0][0].where.assignedTeam,
+    ).toEqual({
+      is: { wardId: { not: null } },
+    });
+    await service.getStats({ chiToPhuong: true } as never, null);
+    expect(
+      mockPrisma.incident.groupBy.mock.calls[0][0].where.assignedTeam,
+    ).toEqual({
+      is: { wardId: { not: null } },
+    });
+  });
+
   it('thẻ Tội danh chính lọc qua quan hệ, bỏ dấu, lùi cột gốc', async () => {
     await service.getList({ tk: ['toiDanhChinh~Trộm cắp'] } as never, null);
     expect(whereAnd()).toContain('"crimeChinh":{"is"');
@@ -100,6 +115,8 @@ describe('IncidentsService — màn Vụ việc phường/xã', () => {
     await service.getList({ tk: ['tenVuViec~trom'] } as never, null);
     expect(whereAnd()).toContain('"nameBd":{"contains":"trom"}');
     expect(whereAnd()).not.toContain('timKiemBd');
+    // cột `nameBd` cũng có ở `crimes`: thẻ Tên vụ việc KHÔNG được đi qua quan hệ tội danh.
+    expect(whereAnd()).not.toContain('crimeChinh');
   });
 
   it('thẻ `*` tìm cả cột ghép lẫn tên tội danh chính', async () => {

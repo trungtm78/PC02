@@ -146,6 +146,23 @@ describe('WardIncidentsPage — dữ liệu thật, lọc ở máy chủ', () =>
     expect(await screen.findByTestId('ward-incidents-ky')).toHaveTextContent('Thống kê: Tháng 9/2026');
   });
 
+  it('[rà mã P3] chọn ngày → nhãn ghi đúng khoảng đang áp, không giữ kỳ mặc định', async () => {
+    dung();
+    await screen.findByTestId('ward-incidents-ky');
+    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+    fireEvent.change(screen.getByTestId('filter-to-date'), { target: { value: '2025-12-31' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('ward-incidents-ky')).toHaveTextContent('Thống kê: 01/09/2026 – 31/12/2025'),
+    );
+  });
+
+  it('[rà mã P3] chưa chọn phường → chỉ hồ sơ tổ CÓ phường (chiToPhuong), cả danh sách lẫn thống kê', async () => {
+    dung();
+    await screen.findByTestId('ward-incident-row-i1');
+    expect(ds().get('chiToPhuong')).toBe('true');
+    expect(tk().get('chiToPhuong')).toBe('true');
+  });
+
   it('đang tải → KPI gạch; tải hỏng → báo lỗi, không nói "không có"', async () => {
     m.get.mockImplementation(() => new Promise(() => {}));
     const { unmount } = dung();

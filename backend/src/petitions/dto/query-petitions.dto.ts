@@ -94,6 +94,14 @@ export class QueryPetitionsDto {
   wardTeamId?: string;
 
   /**
+   * Màn phường/xã chưa chọn phường cụ thể: chỉ hồ sơ của tổ CÓ gắn phường (xem common/utils/to-phuong.util.ts).
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  chiToPhuong?: boolean;
+
+  /**
    * Loại đơn (mã enum `LoaiDon`). Màn Đơn thư phường/xã lọc ở MÁY CHỦ từ 17/09/2026 — trước đó tải
    * 100/47.352 đơn rồi lọc tại chỗ. Mã lạ → 400 ở đây, không để lọt tới Prisma (500).
    */

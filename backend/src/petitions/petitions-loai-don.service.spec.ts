@@ -79,6 +79,17 @@ describe('PetitionsService — lọc Loại đơn (màn Đơn thư phường/xã
     ).toBe(LoaiDon.KHIEU_NAI);
   });
 
+  it('[rà mã P3] chiToPhuong: danh sách lẫn thống kê chỉ lấy tổ CÓ phường', async () => {
+    await service.getList({ chiToPhuong: true } as never, null);
+    expect(
+      mockPrisma.petition.findMany.mock.calls[0][0].where.assignedTeam,
+    ).toEqual({ is: { wardId: { not: null } } });
+    await service.getStats({ chiToPhuong: true } as never, null);
+    expect(
+      mockPrisma.petition.groupBy.mock.calls[0][0].where.assignedTeam,
+    ).toEqual({ is: { wardId: { not: null } } });
+  });
+
   it('DTO: mã lạ → lỗi kiểm (400 trước khi tới Prisma); cả DTO thống kê cũng kiểm', async () => {
     const loi = async (
       cls: typeof QueryPetitionsDto | typeof QueryPetitionsStatsDto,

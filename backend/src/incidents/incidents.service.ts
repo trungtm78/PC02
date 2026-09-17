@@ -32,6 +32,7 @@ import {
   phuDeKyXuat,
 } from '../common/utils/thong-ke-ky.util';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { tinhThoiHan, tinhHanSauGiaHan } from './tinh-thoi-han';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
@@ -182,9 +183,8 @@ export class IncidentsService {
     if (districtId) where.unitId = districtId;
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
     // (wardId chưa được dùng — kept cho future Subject-level filter)
     void wardId;
 
@@ -1134,9 +1134,8 @@ export class IncidentsService {
     if (districtId) where.unitId = districtId;
     void wardId;
 
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {

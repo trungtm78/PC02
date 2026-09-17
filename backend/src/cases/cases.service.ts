@@ -17,6 +17,7 @@ import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHAI_TIM_KIEM_VU_AN } from '../common/tim-kiem/khai/vu-an.khai';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
@@ -282,11 +283,8 @@ export class CasesService {
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN.
     // Ward officer's scope filter (v0.33) đã restrict tới wardTeam mình → wardTeamId
     // query của ward officer effectively no-op (intersection của 2 filter cùng team).
-    if (wardTeamId) {
-      where.assignedTeam = {
-        is: { wardId: wardTeamId },
-      };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
 
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
@@ -522,9 +520,8 @@ export class CasesService {
       };
     }
 
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {

@@ -14,6 +14,7 @@ import { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
 import { PrismaService } from '../prisma/prisma.service';
+import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
@@ -194,9 +195,8 @@ export class PetitionsService {
     }
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
-    if (wardTeamId) {
-      where.assignedTeam = { is: { wardId: wardTeamId } };
-    }
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
     // Màn Đơn thư phường/xã lọc Loại đơn ở máy chủ (17/09/2026) — CÙNG điều kiện ở getStats.
     if (petitionType) where.petitionType = petitionType;
 
@@ -2030,7 +2030,8 @@ export class PetitionsService {
       };
     }
 
-    if (wardTeamId) where.assignedTeam = { is: { wardId: wardTeamId } };
+    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    if (toPhuong) where.assignedTeam = toPhuong;
     if (query.petitionType) where.petitionType = query.petitionType;
 
     const scopeFilter = buildPetitionScopeFilter(dataScope);
