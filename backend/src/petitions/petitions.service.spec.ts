@@ -593,8 +593,10 @@ describe('PetitionsService', () => {
       await service.getList({});
 
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
+      // 18/09/2026 thêm `id`/`name`: màn Chuyển đội / Trả hồ sơ hiện cột "Đội hiện tại" (trước đọc ô
+      // chữ `unit`, rỗng ở mọi đơn).
       expect(callArgs.select.assignedTeam).toEqual({
-        select: { ward: { select: { name: true } } },
+        select: { id: true, name: true, ward: { select: { name: true } } },
       });
     });
   });

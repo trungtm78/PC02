@@ -72,6 +72,15 @@ describe('PetitionsService — lọc Loại đơn (màn Đơn thư phường/xã
     ).toBe(LoaiDon.TO_CAO);
   });
 
+  it('danh sách trả TÊN tổ thụ lý (màn Chuyển đội đọc cột Đội hiện tại)', async () => {
+    await service.getList({} as never, null);
+    expect(
+      mockPrisma.petition.findMany.mock.calls[0][0].select.assignedTeam,
+    ).toEqual({
+      select: { id: true, name: true, ward: { select: { name: true } } },
+    });
+  });
+
   it('thống kê lọc CÙNG petitionType', async () => {
     await service.getStats({ petitionType: LoaiDon.KHIEU_NAI } as never, null);
     expect(

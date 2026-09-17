@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import CaseExchangePage from '../workflow/CaseExchangePage';
-import TransferAndReturnPage from '../workflow/TransferAndReturnPage';
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -114,37 +113,8 @@ describe('Trao đổi chuyên án — thẻ đổi thì về trang 1; Làm mới
   });
 });
 
-describe('Chuyển đội / Trả hồ sơ — trang, lựa chọn, làm mới theo thẻ', () => {
-  it('đang ở trang 2, thêm thẻ khớp dòng trang 1 → thấy dòng ấy', async () => {
-    dung(TransferAndReturnPage);
-    await screen.findByTestId('view-record-case-00001');
-    fireEvent.click(screen.getByRole('button', { name: 'Sau' }));
-    await screen.findByTestId('view-record-case-00025');
-    await themTheTatCa('trom cap');
-    expect(await screen.findByTestId('view-record-case-00001')).toBeInTheDocument();
-  });
-
-  it('dòng đã chọn bị thẻ ẩn → bỏ khỏi lựa chọn, nút Chuyển đội không gửi nó', async () => {
-    dung(TransferAndReturnPage);
-    fireEvent.click(await screen.findByTestId('record-checkbox-case-00002'));
-    expect(screen.getByTestId('transfer-btn')).toHaveTextContent('Chuyển đội (1)');
-    await themTheTatCa('trom cap');
-    await waitFor(() =>
-      expect(screen.queryByTestId('view-record-case-00002')).not.toBeInTheDocument(),
-    );
-    expect(screen.getByTestId('transfer-btn')).toHaveTextContent('Chuyển đội (0)');
-    expect(screen.getByTestId('transfer-btn')).toBeDisabled();
-  });
-
-  it('nút làm mới xoá thẻ', async () => {
-    dung(TransferAndReturnPage, '/?transferReturn_tk=tenHoSo~trom cap');
-    expect(await screen.findByTestId('the-tim-kiem')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('refresh-btn'));
-    await waitFor(() => expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument());
-    expect(await screen.findByTestId('view-record-case-00002')).toBeInTheDocument();
-  });
-});
-
+// Chuyển đội / Trả hồ sơ rời tệp này 18/09/2026: màn hỏi máy chủ theo trang, không còn lọc và phân
+// trang tại chỗ ().
 // Đơn trùng rời tệp này 18/09/2026: màn không còn đếm tại chỗ mà lấy SỐ NHÓM từ máy chủ
 // (`DuplicatePetitionsPage.test.tsx` — "thẻ số: số NHÓM trùng lấy từ máy chủ").
 

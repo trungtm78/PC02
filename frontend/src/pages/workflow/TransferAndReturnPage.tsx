@@ -1,1204 +1,827 @@
 /**
- * TransferAndReturnPage — Chuyển đội và Trả hồ sơ (SCR-PF-01)
- * TASK-ID: TASK-2026-260216
+ * TransferAndReturnPage — Chuyển đội và Trả hồ sơ.
  *
- * REFS-FIRST: Adapted from C:/PC02/Refs/src/app/pages/TransferAndReturn.tsx
- * data-testid added for E2E/UAT automation per OPENCODE_QA_GATE.
+ * 18/09/2026: danh sách đọc dữ liệu THẬT ở máy chủ và hai nút làm THẬT. Trước đó màn tải 50 hồ sơ mỗi
+ * loại rồi gộp/lọc/phân trang tại chỗ; "Mã hồ sơ" của Vụ án là id cắt 8 ký tự; "Đội hiện tại" đọc ô chữ
+ * `unit`/`unitId` (prod rỗng); "Chuyển đội" ghi đè ô chữ `unit` và nhét lý do vào `metadata` (prod 0 bản
+ * ghi có `metadata.transferReason` — chưa từng chạy được); "Trả hồ sơ" và "Xuất Excel" không gọi API nào.
+ *
+ * Nay: mỗi loại hồ sơ hỏi đúng endpoint của nó với CÙNG thẻ tìm `*` + ngày, gộp rồi cắt trang; Chuyển đội
+ * gọi `PATCH /:id/assign` (đường phân công thật, có kiểm quyền và ghi nhật ký); Trả hồ sơ ghi trạng thái
+ * "Đã chuyển đơn vị khác" — chỉ Vụ án và Vụ việc có trạng thái ấy, Đơn thư thì nút tắt kèm lý do.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
-  SlidersHorizontal,
-  Download,
   RotateCcw,
   Eye,
   ArrowRightLeft,
   CornerUpLeft,
   X,
   Calendar,
-  Building2,
-  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
   Info,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { formatVNDate } from '../../lib/dates';
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { CaseStatus, IncidentStatus } from '@/shared/enums/generated';
+import {
+  CASE_STATUS_LABEL,
+  INCIDENT_STATUS_LABEL,
+  PETITION_STATUS_LABEL,
+} from '@/shared/enums/status-labels';
+import { hoTen } from '@/lib/hoTen';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_CHUYEN_TRA: readonly TruongLoc<CaseRecord>[] = [
-  { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chon', lay: (r) => r.recordType },
-  { key: 'maHoSo', nhan: 'Mã hồ sơ', kieu: 'ma', lay: (r) => r.recordCode },
-  { key: 'tenHoSo', nhan: 'Tên hồ sơ', kieu: 'chu', lay: (r) => r.name },
-  { key: 'doiHienTai', nhan: 'Đội hiện tại', kieu: 'chu', lay: (r) => r.currentTeam },
-  { key: 'nguoiPhuTrach', nhan: 'Người phụ trách', kieu: 'chu', lay: (r) => r.assignedTo },
-  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', lay: (r) => r.createdDate },
-  // Mã trạng thái khác nhau theo loại hồ sơ: tìm theo NHÃN đang hiện trên bảng.
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chu', lay: (r) => getStatusLabel(r.recordType, r.status) },
+type LoaiHoSo = 'Vụ án' | 'Vụ việc' | 'Đơn thư';
+
+interface NguonHoSo {
+  loai: LoaiHoSo;
+  duong: '/cases' | '/incidents' | '/petitions';
+  /** Tên tham số ngày của endpoint ấy (Vụ việc dùng `fromDateRange`). */
+  tuNgay: string;
+  denNgay: string;
+  nhanTrangThai: Record<string, string>;
+  /** Trạng thái "đã chuyển đơn vị khác" — Đơn thư KHÔNG có, nên không trả hồ sơ được. */
+  trangThaiTra: string | null;
+  /** Cột ghi đơn vị nhận khi trả (chỉ Vụ việc có). */
+  cotDonViNhan?: string;
+  mauNhan: string;
+}
+
+const NGUON: NguonHoSo[] = [
+  {
+    loai: 'Vụ án',
+    duong: '/cases',
+    tuNgay: 'fromDate',
+    denNgay: 'toDate',
+    nhanTrangThai: CASE_STATUS_LABEL,
+    trangThaiTra: CaseStatus.DA_CHUYEN_DON_VI,
+    mauNhan: 'bg-red-100 text-red-700',
+  },
+  {
+    loai: 'Vụ việc',
+    duong: '/incidents',
+    tuNgay: 'fromDateRange',
+    denNgay: 'toDateRange',
+    nhanTrangThai: INCIDENT_STATUS_LABEL,
+    trangThaiTra: IncidentStatus.DA_CHUYEN_DON_VI,
+    cotDonViNhan: 'chuyenDenDonVi',
+    mauNhan: 'bg-purple-100 text-purple-700',
+  },
+  {
+    loai: 'Đơn thư',
+    duong: '/petitions',
+    tuNgay: 'fromDate',
+    denNgay: 'toDate',
+    nhanTrangThai: PETITION_STATUS_LABEL,
+    // Đơn thư không có trạng thái "đã chuyển đơn vị khác" (chỉ có lưu đơn / chuyển vụ việc / vụ án).
+    trangThaiTra: null,
+    mauNhan: 'bg-blue-100 text-blue-700',
+  },
 ];
 
-const GIA_TRI_CHON_CHUYEN_TRA = {
-  loaiHoSo: ['Đơn thư', 'Vụ việc', 'Vụ án'].map((v) => ({ value: v, label: v })),
-};
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface CaseRecord {
+interface DongHoSo {
   id: string;
-  stt: number;
-  recordType: 'Đơn thư' | 'Vụ việc' | 'Vụ án';
-  recordCode: string;
-  name: string;
-  currentTeam: string;
-  createdDate: string;
+  loai: LoaiHoSo;
+  ma: string | null;
+  ten: string;
+  toId: string | null;
+  toTen: string;
+  nguoiPhuTrach: string;
+  ngayDeXuat: string | null;
+  trangThai: string;
+  nhanTrangThai: string;
+}
+
+interface HoSoMayChu {
+  id: string;
+  caseCode?: string | null;
+  code?: string | null;
+  stt?: string | null;
+  name?: string | null;
+  summary?: string | null;
+  detailContent?: string | null;
   status: string;
-  statusColor: string;
-  assignedTo: string;
-  isClosed?: boolean;
+  ngayDeXuat?: string | null;
+  assignedTeam?: { id?: string | null; name?: string | null } | null;
+  investigator?: { firstName?: string | null; lastName?: string | null; username?: string } | null;
+  assignedTo?: { firstName?: string | null; lastName?: string | null; username?: string } | null;
 }
 
-// ─── Status label maps ────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
 
-const CASE_STATUS_LABELS: Record<string, string> = {
-  TIEP_NHAN: 'Tiếp nhận',
-  DANG_XAC_MINH: 'Đang xác minh',
-  DA_XAC_MINH: 'Đã xác minh',
-  DANG_DIEU_TRA: 'Đang điều tra',
-  TAM_DINH_CHI: 'Tạm đình chỉ',
-  DINH_CHI: 'Đình chỉ',
-  DA_KET_LUAN: 'Đã kết luận',
-  DANG_TRUY_TO: 'Đang truy tố',
-  DANG_XET_XU: 'Đang xét xử',
-  DA_LUU_TRU: 'Đã lưu trữ',
-  CHUYEN_VKS: 'Chuyển VKS',
-  KHOI_TO: 'Khởi tố',
-  DA_KET_THUC: 'Đã kết thúc',
-};
-
-const INCIDENT_STATUS_LABELS: Record<string, string> = {
-  TIEP_NHAN: 'Tiếp nhận',
-  DANG_XAC_MINH: 'Đang xác minh',
-  DA_GIAI_QUYET: 'Đã giải quyết',
-  TAM_DINH_CHI: 'Tạm đình chỉ',
-  QUA_HAN: 'Quá hạn',
-  DA_CHUYEN_VU_AN: 'Đã chuyển vụ án',
-};
-
-const PETITION_STATUS_LABELS: Record<string, string> = {
-  MOI_TIEP_NHAN: 'Mới tiếp nhận',
-  DANG_XU_LY: 'Đang xử lý',
-  DA_GIAI_QUYET: 'Đã giải quyết',
-  DA_LUU_DON: 'Đã lưu đơn',
-  DA_CHUYEN_VU_AN: 'Đã chuyển VA',
-};
-
-function getStatusLabel(recordType: CaseRecord['recordType'], status: string): string {
-  if (recordType === 'Vụ án') return CASE_STATUS_LABELS[status] ?? status;
-  if (recordType === 'Vụ việc') return INCIDENT_STATUS_LABELS[status] ?? status;
-  return PETITION_STATUS_LABELS[status] ?? status;
-}
-
-function getStatusBadgeClass(status: string): string {
-  if (['DANG_DIEU_TRA', 'DANG_XU_LY', 'DANG_XAC_MINH', 'TIEP_NHAN', 'MOI_TIEP_NHAN', 'KHOI_TO', 'DANG_TRUY_TO', 'DANG_XET_XU'].includes(status))
-    return 'bg-blue-100 text-blue-700';
-  if (['DA_GIAI_QUYET', 'DA_KET_LUAN', 'DA_KET_THUC', 'DA_LUU_TRU', 'DA_LUU_DON', 'DA_XAC_MINH'].includes(status))
-    return 'bg-green-100 text-green-700';
-  if (['TAM_DINH_CHI', 'DINH_CHI'].includes(status))
-    return 'bg-slate-100 text-slate-600';
-  if (['QUA_HAN'].includes(status))
-    return 'bg-red-100 text-red-700';
-  if (['DA_CHUYEN_VU_AN', 'CHUYEN_VKS'].includes(status))
-    return 'bg-purple-100 text-purple-700';
-  return 'bg-slate-100 text-slate-600';
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
+/** Cột của bảng — `timKiem` chỉ có thẻ `*` vì ba loại hồ sơ có khai khác nhau (chỉ "mọi cột" là chung). */
+const COT = ['Loại', 'Mã hồ sơ', 'Tên hồ sơ', 'Đội hiện tại', 'Người phụ trách', 'Ngày đề xuất', 'Trạng thái'] as const;
 
 /**
- * Màn hình Chuyển đội và Trả hồ sơ — quản lý chuyển giao hồ sơ giữa các đội.
- * Hỗ trợ multiselect, tìm kiếm nhanh, bộ lọc nâng cao, modal Chuyển/Trả.
+ * Ô tìm chỉ nhận thẻ "tất cả các cột": bảng gộp ba loại hồ sơ, mỗi loại một khai riêng ở máy chủ, nên
+ * thẻ theo cột của loại này sẽ là khoá lạ (400) với hai loại kia.
  */
+const KHAI_CHUYEN_TRA = TIM_KIEM_DON_THU.filter(() => false);
+
+interface FilterData {
+  quickSearch: string;
+  loai: string;
+  fromDate: string;
+  toDate: string;
+}
+
+const BO_LOC_TRONG: FilterData = { quickSearch: '', loai: '', fromDate: '', toDate: '' };
+
+const mocThoiGian = (d: DongHoSo) => (d.ngayDeXuat ? new Date(d.ngayDeXuat).getTime() : -Infinity);
+
 export default function TransferAndReturnPage() {
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleViewRecord = (record: { id: string; recordType: string }) => {
-    if (record.recordType === 'Vụ án') navigate(`/cases/${record.id}`);
-    else if (record.recordType === 'Vụ việc') navigate(`/vu-viec/${record.id}`);
-    else if (record.recordType === 'Đơn thư') navigate(`/petitions/${record.id}`);
-  };
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 20;
-  const [quickSearch, setQuickSearch] = useState('');
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
-
-  // Context banner (khi navigate từ màn hình khác)
-  const [showContextBanner, setShowContextBanner] = useState(false);
-  const [contextInfo, setContextInfo] = useState<{
-    recordCode: string;
-    sourceScreen: string;
-  } | null>(null);
-
-  // Modal states
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [showReturnModal, setShowReturnModal] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'transfer' | 'return' | null>(null);
-
-  const [advancedFilters, setAdvancedFilters] = useState({
-    recordType: '',
-    currentTeam: '',
-    status: '',
-    fromDate: '',
-    toDate: '',
-  });
-
-  // ── Real data state ────────────────────────────────────────────────────────
-  const [allData, setAllData] = useState<CaseRecord[]>([]);
+  const [rows, setRows] = useState<DongHoSo[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState('');
+  const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
+  const [chon, setChon] = useState<string[]>([]);
+  const [moChuyen, setMoChuyen] = useState(false);
+  const [moTra, setMoTra] = useState(false);
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);      setLoadError("");
-      try {
-        const [casesRes, incidentsRes, petitionsRes] = await Promise.all([
-          api.get('/cases?limit=50'),
-          api.get('/incidents?limit=50'),
-          api.get('/petitions?limit=50'),
-        ]);
-        const cases: CaseRecord[] = (casesRes.data.data ?? []).map((c: any, i: number) => ({
-          id: c.id,
-          stt: i + 1,
-          recordType: 'Vụ án' as const,
-          recordCode: c.id.slice(0, 8).toUpperCase(),
-          name: c.name,
-          currentTeam: c.unit ?? '',
-          createdDate: formatVNDate(c.createdAt),
-          status: c.status ?? '',
-          statusColor: 'text-blue-600',
-          assignedTo: c.investigator ? `${c.investigator.firstName ?? ''} ${c.investigator.lastName ?? ''}`.trim() : '',
-          isClosed: ['DA_KET_LUAN', 'DA_LUU_TRU', 'DINH_CHI'].includes(c.status),
-        }));
-        const incidents: CaseRecord[] = (incidentsRes.data.data ?? []).map((i: any, idx: number) => ({
-          id: i.id,
-          stt: cases.length + idx + 1,
-          recordType: 'Vụ việc' as const,
-          recordCode: i.code ?? i.id.slice(0, 8).toUpperCase(),
-          name: i.name,
-          currentTeam: i.unitId ?? '',
-          createdDate: formatVNDate(i.createdAt),
-          status: i.status ?? '',
-          statusColor: 'text-emerald-600',
-          assignedTo: i.investigator ? `${i.investigator.firstName ?? ''} ${i.investigator.lastName ?? ''}`.trim() : '',
-          isClosed: ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN'].includes(i.status),
-        }));
-        const petitions: CaseRecord[] = (petitionsRes.data.data ?? []).map((p: any, idx: number) => ({
-          id: p.id,
-          stt: cases.length + incidents.length + idx + 1,
-          recordType: 'Đơn thư' as const,
-          recordCode: p.stt ?? p.id.slice(0, 8).toUpperCase(),
-          name: p.summary ?? `Đơn thư ${p.stt}`,
-          currentTeam: p.unit ?? '',
-          createdDate: formatVNDate(p.receivedDate),
-          status: p.status ?? '',
-          statusColor: 'text-amber-600',
-          assignedTo: p.assignedTo ? `${p.assignedTo.firstName ?? ''} ${p.assignedTo.lastName ?? ''}`.trim() : '',
-          isClosed: ['DA_GIAI_QUYET', 'DA_CHUYEN_VU_AN', 'DA_CHUYEN_VU_VIEC'].includes(p.status),
-        }));
-        setAllData([...cases, ...incidents, ...petitions]);
-      } catch (e) {
-        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-        setAllData([]);
-        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAll();
-  }, []);
-
-  // ── Auto-select từ navigation state ───────────────────────────────────────
-  useEffect(() => {
-    // Chờ data load xong mới xử lý
-    if (allData.length === 0) return;
-
-    const state = location.state as {
-      preselectedRecord?: { id: string; caseNumber: string };
-      sourceScreen?: string;
-    } | null;
-
-    if (!state?.preselectedRecord) return;
-
-    const { id, caseNumber } = state.preselectedRecord;
-
-    // Tìm record khớp theo id (chính xác nhất)
-    const matchingRecord = allData.find((r) => r.id === id);
-
-    if (matchingRecord) {
-      setSelectedRecords([matchingRecord.id]);
-      setShowContextBanner(true);
-
-      const sourceScreenMap: Record<string, string> = {
-        'comprehensive-list': 'Danh sách tổng hợp',
-        'cases': 'Danh sách vụ án',
-        'incidents': 'Danh sách vụ việc',
-        'petitions': 'Danh sách đơn thư',
-      };
-
-      setContextInfo({
-        recordCode: caseNumber ?? matchingRecord.recordCode,
-        sourceScreen: sourceScreenMap[state.sourceScreen ?? ''] ?? (state.sourceScreen ?? ''),
-      });
-
-      // Auto-scroll đến row đã chọn
-      setTimeout(() => {
-        const selectedRow = document.querySelector(`tr[data-record-id="${matchingRecord.id}"]`);
-        if (selectedRow) {
-          selectedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 150);
-    }
-
-    // Xóa state khỏi history để tránh re-select khi refresh
-    window.history.replaceState({}, document.title);
-  }, [location, allData]);
-
-  // ── Filtering ──────────────────────────────────────────────────────────────
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
-    prefix: 'transferReturn',
-    khai: KHAI_CHUYEN_TRA,
-    giaTriChon: GIA_TRI_CHON_CHUYEN_TRA,
-    dong: allData,
-    bat: theBat,
-  });
+  const timKiem = useTheTimKiem({ prefix: 'transferReturn', khai: KHAI_CHUYEN_TRA, bat: theBat });
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
-  const filteredRecords = timKiem.dongLoc.filter((record) => {
-    const q = quickSearch.toLowerCase();
-    const matchesQuickSearch =
-      theBat ||
-      record.recordCode.toLowerCase().includes(q) ||
-      record.name.toLowerCase().includes(q) ||
-      record.currentTeam.toLowerCase().includes(q);
+  /** Tham số chung gửi cho CẢ BA nguồn (chỉ những khoá mọi endpoint đều nhận). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    p.set('thongKeTruongNgay', TRUONG_NGAY_DE_XUAT);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch]);
 
-    const matchesType = !advancedFilters.recordType || record.recordType === advancedFilters.recordType;
-    const matchesTeam = !advancedFilters.currentTeam ||
-      record.currentTeam.toLowerCase().includes(advancedFilters.currentTeam.toLowerCase());
-    const matchesStatus = !advancedFilters.status || record.status === advancedFilters.status;
+  const khoaLoc = `${thamSoLoc}|${filters.loai}|${filters.fromDate}|${filters.toDate}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-    return matchesQuickSearch && matchesType && matchesTeam && matchesStatus;
-  });
+  const luotTai = useRef(0);
+  const [lanTai, setLanTai] = useState(0);
 
-  // Thẻ đổi = bộ lọc mới: về trang 1. Giữ trang cũ thì trang 2 của một kết quả 1 dòng là bảng rỗng.
-  const khoaThe = JSON.stringify(timKiem.tkGui);
-  useEffect(() => { setCurrentPage(1); }, [khoaThe]);
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const nguonCanHoi = NGUON.filter((n) => !filters.loai || n.loai === filters.loai);
+    // Gộp ba nguồn rồi cắt trang: mỗi nguồn phải lấy TỚI HẾT trang đang xem, vì dòng của trang 2 có thể
+    // nằm ở nguồn nào cũng được.
+    const denHetTrang = page * PAGE_SIZE;
+    setLoading(true);
+    setLoadError('');
+    try {
+      const ketQua = await Promise.all(
+        nguonCanHoi.map(async (n) => {
+          const q = new URLSearchParams(thamSoLoc);
+          q.set('limit', String(denHetTrang));
+          q.set('offset', '0');
+          if (filters.fromDate && laGiaTriNgay(filters.fromDate)) q.set(n.tuNgay, filters.fromDate);
+          if (filters.toDate && laGiaTriNgay(filters.toDate)) q.set(n.denNgay, filters.toDate);
+          const res = await api.get<{ data?: HoSoMayChu[]; total?: number }>(`${n.duong}?${q}`);
+          const ds = Array.isArray(res.data?.data) ? res.data.data : [];
+          return {
+            tong: Number(res.data?.total ?? 0),
+            dong: ds.map<DongHoSo>((r) => ({
+              id: r.id,
+              loai: n.loai,
+              ma: r.caseCode ?? r.code ?? r.stt ?? null,
+              ten: r.name ?? r.detailContent ?? r.summary ?? '',
+              toId: r.assignedTeam?.id ?? null,
+              toTen: r.assignedTeam?.name ?? '',
+              nguoiPhuTrach: hoTen(r.investigator ?? r.assignedTo ?? undefined),
+              ngayDeXuat: r.ngayDeXuat ?? null,
+              trangThai: r.status,
+              nhanTrangThai: n.nhanTrangThai[r.status] ?? r.status,
+            })),
+          };
+        }),
+      );
+      if (luot !== luotTai.current) return;
+      const gop = ketQua
+        .flatMap((k) => k.dong)
+        .sort((a, b) => mocThoiGian(b) - mocThoiGian(a) || a.id.localeCompare(b.id));
+      const tong = ketQua.reduce((n, k) => n + k.tong, 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
+      }
+      setRows(gop.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+      setTotal(tong);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả".
+      setRows([]);
+      setTotal(0);
+      setLoadError(extractApiError(e, 'Không tải được dữ liệu. Vui lòng thử lại.').messages.join(', '));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, filters.loai, filters.fromDate, filters.toDate, page, khoaLoc, lanTai]);
 
-  // Lựa chọn chỉ gồm dòng ĐANG THẤY: nút Chuyển đội/Trả hồ sơ đọc từ allData, giữ id của dòng đã bị
-  // lọc ẩn là thao tác lên hồ sơ cán bộ không còn nhìn thấy.
-  const idsDangThay = filteredRecords.map((r) => r.id).join('|');
+  useEffect(() => {
+    void taiDuLieu();
+  }, [taiDuLieu]);
+
+  // Chọn chỉ gồm dòng ĐANG THẤY: giữ id của dòng đã rời bảng là thao tác lên hồ sơ cán bộ không nhìn thấy.
+  const idsDangThay = rows.map((r) => r.id).join('|');
   useEffect(() => {
     const con = new Set(idsDangThay.split('|'));
-    setSelectedRecords((truoc) => {
+    setChon((truoc) => {
       const giu = truoc.filter((id) => con.has(id));
       return giu.length === truoc.length ? truoc : giu;
     });
   }, [idsDangThay]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
-  const displayedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // Hồ sơ được chọn sẵn khi điều hướng từ màn khác.
+  const [banner, setBanner] = useState<{ ma: string; tuMan: string } | null>(null);
+  useEffect(() => {
+    const state = location.state as {
+      preselectedRecord?: { id: string; caseNumber?: string };
+      sourceScreen?: string;
+    } | null;
+    if (!state?.preselectedRecord) return;
+    const dong = rows.find((r) => r.id === state.preselectedRecord?.id);
+    if (!dong) return;
+    setChon([dong.id]);
+    setBanner({
+      ma: state.preselectedRecord.caseNumber ?? formatHoSoCode(dong.ma),
+      tuMan: state.sourceScreen ?? '',
+    });
+    window.history.replaceState({}, document.title);
+  }, [location, rows]);
 
-  // ── Select logic ───────────────────────────────────────────────────────────
+  const daChon = rows.filter((r) => chon.includes(r.id));
+  const loaiKhongTraDuoc = [...new Set(daChon.filter((r) => !nguonCua(r.loai).trangThaiTra).map((r) => r.loai))];
+  const traDuoc = daChon.length > 0 && loaiKhongTraDuoc.length === 0;
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedRecords(filteredRecords.map((r) => r.id));
-    } else {
-      setSelectedRecords([]);
-    }
+  const handleReset = () => {
+    timKiem.xoaHet();
+    setFilters(BO_LOC_TRONG);
+    setChon([]);
+    setLanTai((n) => n + 1);
   };
 
-  const handleSelectRecord = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedRecords((prev) => [...prev, id]);
-    } else {
-      setSelectedRecords((prev) => prev.filter((rid) => rid !== id));
-    }
+  const xemHoSo = (r: DongHoSo) => {
+    const duong = r.loai === 'Vụ án' ? 'cases' : r.loai === 'Vụ việc' ? 'incidents' : 'petitions';
+    navigate(`/${duong}/${r.id}`);
   };
-
-  // ── Action handlers ────────────────────────────────────────────────────────
-
-  const handleTransferClick = () => {
-    if (selectedRecords.length === 0) return;
-    // EC-02: Không cho chuyển hồ sơ đã đóng
-    const hasClosedRecord = allData
-      .filter((r) => selectedRecords.includes(r.id))
-      .some((r) => r.isClosed);
-    if (hasClosedRecord) {
-      alert('Không thể chuyển hồ sơ đã ở trạng thái "Đã đóng". Vui lòng bỏ chọn hồ sơ đó.');
-      return;
-    }
-    setConfirmAction('transfer');
-    setShowConfirmDialog(true);
-  };
-
-  const handleReturnClick = () => {
-    if (selectedRecords.length === 0) return;
-    setConfirmAction('return');
-    setShowConfirmDialog(true);
-  };
-
-  const handleConfirmProceed = () => {
-    setShowConfirmDialog(false);
-    if (confirmAction === 'transfer') {
-      setShowTransferModal(true);
-    } else if (confirmAction === 'return') {
-      setShowReturnModal(true);
-    }
-  };
-
-  const getSelectedRecordsInfo = () =>
-    allData.filter((r) => selectedRecords.includes(r.id));
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Tiêu đề */}
+    <div className="p-6 space-y-6" data-testid="transfer-return-page">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Chuyển đội và Trả hồ sơ</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Quản lý chuyển giao hồ sơ giữa các đội điều tra và trả hồ sơ về đơn vị
+          Chuyển hồ sơ sang tổ khác (ghi nhật ký phân công) hoặc trả hồ sơ về đơn vị khác
         </p>
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách chuyển đội / trả hồ sơ" data-testid="transfer-load-error" />
 
-      {/* Context Banner — hiển thị khi navigate từ màn hình khác */}
-      {showContextBanner && contextInfo && (
+      {banner && (
         <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4 shadow-sm" data-testid="context-banner">
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Info className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-blue-900 mb-1">
-                Đang xử lý hồ sơ từ {contextInfo.sourceScreen}
-              </h3>
-              <p className="text-sm text-blue-800">
-                Hồ sơ <span className="font-semibold">{contextInfo.recordCode}</span> đã được tự động chọn.
-                Bạn có thể tiếp tục chọn thêm hồ sơ khác hoặc bắt đầu chuyển đội / trả hồ sơ ngay.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowContextBanner(false)}
-              className="flex-shrink-0 p-1.5 hover:bg-blue-100 rounded-lg transition-colors"
-              title="Đóng thông báo"
-              data-testid="close-context-banner"
-            >
-              <X className="w-4 h-4 text-blue-700" />
-            </button>
+            <Info className="w-5 h-5 text-blue-700 mt-0.5" />
+            <p className="text-sm text-blue-900">
+              Hồ sơ <span className="font-semibold">{banner.ma}</span> đã được chọn sẵn
+              {banner.tuMan ? ` từ ${banner.tuMan}` : ''}.
+            </p>
           </div>
         </div>
       )}
 
-      {/* Thanh hành động */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              data-testid="transfer-btn"
-              onClick={handleTransferClick}
-              disabled={selectedRecords.length === 0}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-medium ${
-                selectedRecords.length === 0
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-              Chuyển đội ({selectedRecords.length})
-            </button>
-            <button
-              data-testid="return-btn"
-              onClick={handleReturnClick}
-              disabled={selectedRecords.length === 0}
-              className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
-                selectedRecords.length === 0
-                  ? 'border-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'border-purple-600 text-purple-600 hover:bg-purple-50'
-              }`}
-            >
-              <CornerUpLeft className="w-4 h-4" />
-              Trả hồ sơ ({selectedRecords.length})
-            </button>
-            <button
-              data-testid="advanced-search-btn"
-              onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Tìm kiếm nâng cao
-            </button>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div data-testid="chuyen-tra-tong" className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-600 mb-1">Tổng hồ sơ</p>
+              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(loading ? undefined : total, !!loadError)}</p>
+            </div>
+            <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
+              <FileText className="w-6 h-6 text-[#003973]" />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              data-testid="export-excel-btn"
-              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="md:col-span-2">
+            {theBat ? (
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_CHUYEN_TRA}
+                khai={KHAI_CHUYEN_TRA}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột của cả ba loại hồ sơ"
+              />
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  data-testid="quick-search-input"
+                  value={filters.quickSearch}
+                  onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                  placeholder="Tìm theo mã hồ sơ, tên hồ sơ..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>
+            <select
+              data-testid="loc-loai-ho-so"
+              value={filters.loai}
+              onChange={(e) => setFilters({ ...filters, loai: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
-              <Download className="w-4 h-4" />
-              Xuất Excel
-            </button>
+              <option value="">Tất cả</option>
+              {NGUON.map((n) => (
+                <option key={n.loai} value={n.loai}>
+                  {n.loai}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
             <button
+              type="button"
+              onClick={handleReset}
               data-testid="refresh-btn"
-              onClick={() => {
-                timKiem.xoaHet();
-                setQuickSearch('');
-                setAdvancedFilters({ recordType: '', currentTeam: '', status: '', fromDate: '', toDate: '' });
-              }}
-              className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4" /> Làm mới
             </button>
           </div>
         </div>
-
-        {/* Tìm kiếm nhanh */}
-        <div className="mt-4">
-          {theBat ? (
-            <OTimKiemThe
-              the={timKiem.the}
-              truong={KHAI_CHUYEN_TRA}
-              khai={KHAI_CHUYEN_TRA}
-              giaTriChon={GIA_TRI_CHON_CHUYEN_TRA}
-              onThem={timKiem.them}
-              onBoThe={timKiem.boThe}
-              onBoGiaTri={timKiem.boGiaTri}
-              placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
-            />
-          ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất từ</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
-                data-testid="quick-search-input"
-                type="text"
-                value={quickSearch}
-                onChange={(e) => setQuickSearch(e.target.value)}
-                placeholder="Tìm kiếm theo mã hồ sơ, tên hồ sơ, đội hiện tại..."
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="date"
+                data-testid="loc-tu-ngay"
+                value={filters.fromDate}
+                onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="date"
+                data-testid="loc-den-ngay"
+                value={filters.toDate}
+                onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Tìm kiếm nâng cao */}
-        {showAdvancedSearch && (
-          <div className="mt-4 pt-4 border-t border-slate-200" data-testid="advanced-search-panel">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-slate-800 flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4" />
-                Bộ lọc nâng cao
-              </h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600">
+          {loading ? 'Đang tải...' : `Đã chọn ${daChon.length} hồ sơ`}
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            data-testid="btn-chuyen-doi"
+            disabled={daChon.length === 0}
+            onClick={() => setMoChuyen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowRightLeft className="w-4 h-4" /> Chuyển đội
+          </button>
+          <div className="flex flex-col">
+            <button
+              type="button"
+              data-testid="btn-tra-ho-so"
+              disabled={!traDuoc}
+              onClick={() => setMoTra(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CornerUpLeft className="w-4 h-4" /> Trả hồ sơ
+            </button>
+            {loaiKhongTraDuoc.length > 0 && (
+              <span data-testid="btn-tra-ho-so-ly-do" className="text-xs text-amber-700 mt-1 max-w-xs">
+                {loaiKhongTraDuoc.join(', ')} không có trạng thái "Đã chuyển đơn vị khác" nên không trả được.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="chuyen-tra-table">
+            <thead className="bg-slate-50 border-b-2 border-slate-200">
+              <tr>
+                <th className="px-3 py-3 w-10" />
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase w-16">Xem</th>
+                {COT.map((c) => (
+                  <th key={c} className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase">
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={COT.length + 2} className="px-4 py-16 text-center" data-testid="chuyen-tra-loading">
+                    <p className="text-slate-500">Đang tải dữ liệu...</p>
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={COT.length + 2} className="px-4 py-16 text-center" data-testid="chuyen-tra-empty">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">
+                      {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hồ sơ nào'}
+                    </p>
+                    {!loadError && theBat && timKiem.the.length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe the={timKiem.the} khai={KHAI_CHUYEN_TRA} onBoThe={timKiem.boThe} />
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id} data-testid={`chuyen-tra-row-${r.id}`} data-record-id={r.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        data-testid={`chon-${r.id}`}
+                        checked={chon.includes(r.id)}
+                        onChange={(e) =>
+                          setChon((truoc) =>
+                            e.target.checked ? [...truoc, r.id] : truoc.filter((id) => id !== r.id),
+                          )
+                        }
+                        className="w-4 h-4"
+                        aria-label={`Chọn hồ sơ ${formatHoSoCode(r.ma)}`}
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => xemHoSo(r)}
+                        data-testid={`view-record-${r.id}`}
+                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${nguonCua(r.loai).mauNhan}`}>
+                        {r.loai}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm font-mono font-bold text-blue-600">{formatHoSoCode(r.ma)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-slate-800 line-clamp-2 max-w-md">{r.ten}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{r.toTen || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{r.nguoiPhuTrach || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatVNDate(r.ngayDeXuat)}</td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                        {r.nhanTrangThai}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} hồ sơ
+            </p>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowAdvancedSearch(false)}
-                className="p-1 hover:bg-slate-100 rounded transition-colors"
+                type="button"
+                data-testid="chuyen-tra-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
               >
-                <X className="w-4 h-4 text-slate-600" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>
-                <select
-                  value={advancedFilters.recordType}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, recordType: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="Đơn thư">Đơn thư</option>
-                  <option value="Vụ việc">Vụ việc</option>
-                  <option value="Vụ án">Vụ án</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đội hiện tại</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={advancedFilters.currentTeam}
-                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, currentTeam: e.target.value })}
-                    placeholder="Tên đội"
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
-                <select
-                  value={advancedFilters.status}
-                  onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="Mới tiếp nhận">Mới tiếp nhận</option>
-                  <option value="Đang xử lý">Đang xử lý</option>
-                  <option value="Đang điều tra">Đang điều tra</option>
-                  <option value="Đã đóng">Đã đóng</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="date"
-                    value={advancedFilters.fromDate}
-                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, fromDate: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="date"
-                    value={advancedFilters.toDate}
-                    onChange={(e) => setAdvancedFilters({ ...advancedFilters, toDate: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
               <button
-                onClick={() => setAdvancedFilters({ recordType: '', currentTeam: '', status: '', fromDate: '', toDate: '' })}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                type="button"
+                data-testid="chuyen-tra-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
               >
-                Xóa bộ lọc
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Bảng dữ liệu */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="font-bold text-slate-800">Danh sách hồ sơ</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            {loading ? 'Đang tải...' : (
-              <>
-                Hiển thị {filteredRecords.length} / {allData.length} hồ sơ
-                {selectedRecords.length > 0 && (
-                  <span className="ml-2 text-blue-600 font-medium">
-                    • Đã chọn {selectedRecords.length} hồ sơ
-                  </span>
-                )}
-              </>
-            )}
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              <span className="ml-3 text-slate-600">Đang tải dữ liệu...</span>
-            </div>
-          ) : (
-            <table className="w-full" data-testid="record-table">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3 w-12">
-                    <input
-                      type="checkbox"
-                      data-testid="select-all-checkbox"
-                      checked={filteredRecords.length > 0 && selectedRecords.length === filteredRecords.length}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-16 sticky left-12 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider w-16">STT</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Loại hồ sơ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Mã hồ sơ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Tên hồ sơ</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Đội hiện tại</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Người phụ trách</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Ngày tạo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {!loadError && displayedRecords.length === 0 && timKiem.coThe && (
-                  <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center">
-                      <div className="flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
-                        <span>Không tìm thấy với:</span>
-                        <DanhSachThe
-                          the={timKiem.the}
-                          khai={KHAI_CHUYEN_TRA}
-                          giaTriChon={GIA_TRI_CHON_CHUYEN_TRA}
-                          onBoThe={timKiem.boThe}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                {displayedRecords.map((record) => (
-                  <tr
-                    key={record.id}
-                    data-record-id={record.id}
-                    onClick={() => handleViewRecord(record)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewRecord(record); } }}
-                    tabIndex={0}
-                    className={`cursor-pointer transition-colors ${
-                      selectedRecords.includes(record.id) ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-blue-50'
-                    } ${record.isClosed ? 'opacity-60' : ''}`}
-                  >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        data-testid={`record-checkbox-${record.id}`}
-                        checked={selectedRecords.includes(record.id)}
-                        onChange={(e) => handleSelectRecord(record.id, e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td
-                      className="px-3 py-3 whitespace-nowrap sticky left-12 z-10 bg-white border-r border-slate-100"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        data-testid={`view-record-${record.id}`}
-                        onClick={() => handleViewRecord(record)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700 font-medium">{record.stt}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        record.recordType === 'Đơn thư'
-                          ? 'bg-blue-100 text-blue-700'
-                          : record.recordType === 'Vụ việc'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {record.recordType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm font-medium text-blue-600">{record.recordCode}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-700 line-clamp-2">{record.name}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{record.currentTeam}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{record.assignedTo}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{record.createdDate}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${getStatusBadgeClass(record.status)}`}>
-                        {getStatusLabel(record.recordType, record.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination */}
-        <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div className="text-sm text-slate-600">
-            Hiển thị <span className="font-medium">{filteredRecords.length}</span> trên{' '}
-            <span className="font-medium">{allData.length}</span> hồ sơ
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Trước</button>
-            <span className="px-3 py-2 text-sm font-medium text-slate-700">Trang {currentPage}/{totalPages}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Sau</button>
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
-      {showConfirmDialog && (
-        <ConfirmDialog
-          action={confirmAction!}
-          selectedCount={selectedRecords.length}
-          onConfirm={handleConfirmProceed}
-          onCancel={() => setShowConfirmDialog(false)}
+      {moChuyen && (
+        <HopChuyenDoi
+          hoSo={daChon}
+          onClose={() => setMoChuyen(false)}
+          onXong={() => {
+            setMoChuyen(false);
+            setChon([]);
+            setLanTai((n) => n + 1);
+          }}
         />
       )}
-
-      {showTransferModal && (
-        <TransferModal
-          selectedRecords={getSelectedRecordsInfo()}
-          onClose={() => { setShowTransferModal(false); setSelectedRecords([]); }}
-        />
-      )}
-
-      {showReturnModal && (
-        <ReturnModal
-          selectedRecords={getSelectedRecordsInfo()}
-          onClose={() => { setShowReturnModal(false); setSelectedRecords([]); }}
+      {moTra && (
+        <HopTraHoSo
+          hoSo={daChon}
+          onClose={() => setMoTra(false)}
+          onXong={() => {
+            setMoTra(false);
+            setChon([]);
+            setLanTai((n) => n + 1);
+          }}
         />
       )}
     </div>
   );
 }
 
-// ─── ConfirmDialog ────────────────────────────────────────────────────────────
+function nguonCua(loai: LoaiHoSo): NguonHoSo {
+  return NGUON.find((n) => n.loai === loai) as NguonHoSo;
+}
 
-function ConfirmDialog({
-  action,
-  selectedCount,
-  onConfirm,
-  onCancel,
+interface To {
+  id: string;
+  name: string;
+}
+
+/**
+ * Chuyển đội = PHÂN CÔNG lại tổ: gọi `PATCH /{loại}/{id}/assign` — đường có kiểm quyền điều phối và ghi
+ * nhật ký. Bản cũ gọi `PUT` ghi đè ô chữ đơn vị và nhét lý do vào `metadata`; prod không có bản ghi nào
+ * mang `metadata.transferReason`, tức nó chưa từng chạy được.
+ */
+function HopChuyenDoi({
+  hoSo,
+  onClose,
+  onXong,
 }: {
-  action: 'transfer' | 'return';
-  selectedCount: number;
-  onConfirm: () => void;
-  onCancel: () => void;
+  hoSo: DongHoSo[];
+  onClose: () => void;
+  onXong: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="confirm-dialog">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-slate-800 mb-2">
-                Xác nhận {action === 'transfer' ? 'chuyển đội' : 'trả hồ sơ'}
-              </h3>
-              <p className="text-slate-600 text-sm mb-4">
-                Bạn đã chọn <span className="font-medium text-slate-800">{selectedCount} hồ sơ</span>{' '}
-                để {action === 'transfer' ? 'chuyển đội' : 'trả về'}.
-              </p>
-              <p className="text-slate-600 text-sm">
-                Bạn có chắc chắn muốn tiếp tục thực hiện thao tác này?
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button
-            data-testid="confirm-cancel-btn"
-            onClick={onCancel}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            data-testid="confirm-proceed-btn"
-            onClick={onConfirm}
-            className={`px-4 py-2.5 text-white rounded-lg transition-colors font-medium ${
-              action === 'transfer' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
-            }`}
-          >
-            Tiếp tục
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+  const [toId, setToId] = useState('');
+  const [dsTo, setDsTo] = useState<To[]>([]);
+  const [dangGui, setDangGui] = useState(false);
+  const [ketQua, setKetQua] = useState<{ xong: string[]; hong: string[] } | null>(null);
 
-// ─── TransferModal ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    api
+      .get<{ data: To[] }>('/teams')
+      .then((r) => setDsTo(r.data.data ?? []))
+      .catch(() => setDsTo([]));
+  }, []);
 
-function TransferModal({ selectedRecords, onClose }: { selectedRecords: CaseRecord[]; onClose: () => void }) {
-  const [formData, setFormData] = useState({ receivingTeam: '', reason: '', notes: '' });
-  const [errors, setErrors] = useState<{ receivingTeam?: string; reason?: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [results, setResults] = useState<{ succeeded: string[]; failed: string[] } | null>(null);
-
-  // Map recordType → { endpoint, unitField }
-  const getConfig = (recordType: CaseRecord['recordType']) => {
-    if (recordType === 'Vụ án')   return { endpoint: 'cases',     unitField: 'unit' };
-    if (recordType === 'Vụ việc') return { endpoint: 'incidents', unitField: 'unitId' };
-    return                               { endpoint: 'petitions', unitField: 'unit' };
+  const guiDi = async () => {
+    if (!toId) return;
+    setDangGui(true);
+    const xong: string[] = [];
+    const hong: string[] = [];
+    for (const r of hoSo) {
+      const duong = nguonCua(r.loai).duong;
+      try {
+        await api.patch(`${duong}/${r.id}/assign`, { assignedTeamId: toId });
+        xong.push(formatHoSoCode(r.ma) || r.id);
+      } catch (e) {
+        hong.push(
+          `${formatHoSoCode(r.ma) || r.id}: ${extractApiError(e, 'Không chuyển được').messages.join(', ')}`,
+        );
+      }
+    }
+    setDangGui(false);
+    setKetQua({ xong, hong });
   };
-
-  const validate = () => {
-    const newErrors: typeof errors = {};
-    if (!formData.receivingTeam) newErrors.receivingTeam = 'Vui lòng chọn đội nhận';
-    if (!formData.reason.trim()) newErrors.reason = 'Vui lòng nhập lý do chuyển đội';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validate()) return;
-    setIsSubmitting(true);
-    setApiError(null);
-
-    const succeeded: string[] = [];
-    const failed: string[] = [];
-
-    await Promise.allSettled(
-      selectedRecords.map(async (record) => {
-        try {
-          const { endpoint, unitField } = getConfig(record.recordType);
-          // Ghi đè unit = tên đội nhận, lưu lý do vào metadata
-          await api.put(`/${endpoint}/${record.id}`, {
-            [unitField]: formData.receivingTeam,
-            metadata: {
-              transferReason: formData.reason,
-              transferNotes: formData.notes || undefined,
-              transferredFrom: record.currentTeam,
-              transferredAt: new Date().toISOString(),
-            },
-          });
-          succeeded.push(record.recordCode);
-        } catch {
-          failed.push(record.recordCode);
-        }
-      }),
-    );
-
-    setIsSubmitting(false);
-    setResults({ succeeded, failed });
-  };
-
-  // Màn hình kết quả
-  if (results) {
-    const allOk = results.failed.length === 0;
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="transfer-modal">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-          <div className="p-6 text-center">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${allOk ? 'bg-green-100' : 'bg-amber-100'}`}>
-              {allOk
-                ? <ArrowRightLeft className="w-8 h-8 text-green-600" />
-                : <AlertTriangle className="w-8 h-8 text-amber-600" />
-              }
-            </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">
-              {allOk ? 'Chuyển đội thành công!' : 'Chuyển đội hoàn tất (có lỗi)'}
-            </h3>
-            {results.succeeded.length > 0 && (
-              <p className="text-sm text-green-700 mb-1">
-                ✓ Thành công: <span className="font-medium">{results.succeeded.join(', ')}</span>
-              </p>
-            )}
-            {results.failed.length > 0 && (
-              <p className="text-sm text-red-700 mb-1">
-                ✗ Thất bại: <span className="font-medium">{results.failed.join(', ')}</span>
-              </p>
-            )}
-            <p className="text-xs text-slate-500 mt-3">
-              Đội nhận: <span className="font-medium text-slate-700">{formData.receivingTeam}</span>
-            </p>
-          </div>
-          <div className="border-t border-slate-200 px-6 py-4 flex justify-center">
-            <button
-              data-testid="transfer-result-close-btn"
-              onClick={onClose}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="transfer-modal">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="font-bold text-slate-800">Chuyển đội</h2>
-            <p className="text-sm text-slate-600 mt-1">Đang chuyển {selectedRecords.length} hồ sơ sang đội mới</p>
-          </div>
-          <button onClick={onClose} disabled={isSubmitting} className="p-2 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50">
+          <h2 className="font-bold text-slate-800">Chuyển đội ({hoSo.length} hồ sơ)</h2>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
             <X className="w-5 h-5 text-slate-600" />
           </button>
         </div>
-
-        <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {/* Danh sách hồ sơ đã chọn */}
-          <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-3">
-              Danh sách hồ sơ được chọn ({selectedRecords.length})
-            </h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-3 bg-slate-50">
-              {selectedRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between gap-2 text-sm bg-white p-2 rounded border border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      record.recordType === 'Đơn thư' ? 'bg-blue-100 text-blue-700'
-                        : record.recordType === 'Vụ việc' ? 'bg-purple-100 text-purple-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {record.recordType}
-                    </span>
-                    <span className="font-medium text-blue-600">{record.recordCode}</span>
-                  </div>
-                  <span className="text-slate-600 text-xs truncate max-w-[160px]">
-                    {record.currentTeam || '—'}
-                    {record.currentTeam && <span className="text-slate-400 mx-1">→</span>}
-                    {formData.receivingTeam && <span className="text-blue-600 font-medium">{formData.receivingTeam}</span>}
-                  </span>
+        <div className="p-6 space-y-4">
+          {ketQua ? (
+            <div data-testid="ket-qua-chuyen" className="space-y-2 text-sm">
+              {ketQua.xong.length > 0 && (
+                <p className="text-green-700">Đã chuyển: {ketQua.xong.join(', ')}</p>
+              )}
+              {ketQua.hong.length > 0 && (
+                <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-red-700">
+                  <strong className="font-medium">Chưa chuyển được: </strong>
+                  {ketQua.hong.join(' · ')}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          {/* Đội nhận */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Đội nhận <span className="text-red-500">*</span>
-            </label>
-            <select
-              data-testid="receiving-team-select"
-              value={formData.receivingTeam}
-              onChange={(e) => { setFormData({ ...formData, receivingTeam: e.target.value }); setErrors({ ...errors, receivingTeam: undefined }); }}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${errors.receivingTeam ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              disabled={isSubmitting}
-            >
-              <option value="">Chọn đội nhận</option>
-              <option value="Đội Điều tra Kinh tế">Đội Điều tra Kinh tế</option>
-              <option value="Đội Điều tra Hình sự">Đội Điều tra Hình sự</option>
-              <option value="Đội Điều tra Ma túy">Đội Điều tra Ma túy</option>
-              <option value="Đội Điều tra Tổng hợp">Đội Điều tra Tổng hợp</option>
-              <option value="Đội Điều tra Tham nhũng">Đội Điều tra Tham nhũng</option>
-              <option value="Đội Cảnh sát Hình sự">Đội Cảnh sát Hình sự</option>
-            </select>
-            {errors.receivingTeam && <p className="text-xs text-red-600 mt-1">{errors.receivingTeam}</p>}
-          </div>
-
-          {/* Lý do chuyển đội */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Lý do chuyển đội <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              data-testid="transfer-reason-textarea"
-              value={formData.reason}
-              onChange={(e) => { setFormData({ ...formData, reason: e.target.value }); setErrors({ ...errors, reason: undefined }); }}
-              rows={4}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${errors.reason ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              placeholder="Nhập lý do cụ thể tại sao cần chuyển hồ sơ sang đội khác..."
-              disabled={isSubmitting}
-            />
-            {errors.reason && <p className="text-xs text-red-600 mt-1">{errors.reason}</p>}
-          </div>
-
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú bổ sung</label>
-            <textarea
-              data-testid="transfer-notes-textarea"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Các ghi chú khác..."
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* API error */}
-          {apiError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              {apiError}
-            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tổ nhận <span className="text-red-500">*</span>
+                </label>
+                <select
+                  data-testid="chon-to-nhan"
+                  value={toId}
+                  onChange={(e) => setToId(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Chọn tổ --</option>
+                  {dsTo.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-slate-500">
+                Việc phân công được ghi nhật ký; hồ sơ ngoài quyền điều phối của bạn sẽ bị máy chủ từ chối và
+                báo rõ ở đây.
+              </p>
+            </>
           )}
-
-          {/* Lưu ý */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">Lưu ý:</p>
-              <p>Sau khi chuyển đội, trường <strong>Đơn vị</strong> của hồ sơ sẽ được cập nhật thành đội nhận. Lý do chuyển được ghi vào metadata hồ sơ.</p>
-            </div>
-          </div>
         </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+        <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3">
           <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+            type="button"
+            onClick={ketQua ? onXong : onClose}
+            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
           >
-            Hủy
+            {ketQua ? 'Đóng' : 'Hủy bỏ'}
           </button>
-          <button
-            data-testid="submit-transfer-btn"
-            onClick={() => void handleSubmit()}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting
-              ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Đang chuyển...</>
-              : <><ArrowRightLeft className="w-4 h-4" />Chuyển đội ({selectedRecords.length})</>
-            }
-          </button>
+          {!ketQua && (
+            <button
+              type="button"
+              data-testid="btn-xac-nhan-chuyen"
+              disabled={!toId || dangGui}
+              onClick={() => void guiDi()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+            >
+              {dangGui ? 'Đang chuyển...' : 'Xác nhận chuyển'}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── ReturnModal ──────────────────────────────────────────────────────────────
+/**
+ * Trả hồ sơ = ghi trạng thái "Đã chuyển đơn vị khác". Vụ việc có cột `chuyenDenDonVi` để ghi đơn vị nhận;
+ * Vụ án chỉ có trạng thái. Đơn thư không có trạng thái ấy nên nút gọi hộp này đã bị tắt từ ngoài.
+ */
+function HopTraHoSo({
+  hoSo,
+  onClose,
+  onXong,
+}: {
+  hoSo: DongHoSo[];
+  onClose: () => void;
+  onXong: () => void;
+}) {
+  const [donViNhan, setDonViNhan] = useState('');
+  const [dangGui, setDangGui] = useState(false);
+  const [ketQua, setKetQua] = useState<{ xong: string[]; hong: string[] } | null>(null);
 
-function ReturnModal({ selectedRecords, onClose }: { selectedRecords: CaseRecord[]; onClose: () => void }) {
-  const [formData, setFormData] = useState({ returnType: '', receivingUnit: '', reason: '', notes: '' });
-  const [errors, setErrors] = useState<{ returnType?: string; receivingUnit?: string; reason?: string }>({});
-
-  const handleSubmit = () => {
-    const newErrors: typeof errors = {};
-    if (!formData.returnType) newErrors.returnType = 'Vui lòng chọn loại trả';
-    if (!formData.receivingUnit) newErrors.receivingUnit = 'Vui lòng nhập đơn vị nhận trả';
-    if (!formData.reason) newErrors.reason = 'Vui lòng nhập lý do trả hồ sơ';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
+  const guiDi = async () => {
+    setDangGui(true);
+    const xong: string[] = [];
+    const hong: string[] = [];
+    for (const r of hoSo) {
+      const n = nguonCua(r.loai);
+      if (!n.trangThaiTra) continue;
+      try {
+        await api.put(`${n.duong}/${r.id}`, {
+          status: n.trangThaiTra,
+          ...(n.cotDonViNhan && donViNhan.trim()
+            ? { [n.cotDonViNhan]: donViNhan.trim() }
+            : {}),
+        });
+        xong.push(formatHoSoCode(r.ma) || r.id);
+      } catch (e) {
+        hong.push(
+          `${formatHoSoCode(r.ma) || r.id}: ${extractApiError(e, 'Không trả được').messages.join(', ')}`,
+        );
+      }
     }
-    alert(`Đã trả ${selectedRecords.length} hồ sơ về ${formData.receivingUnit} thành công!`);
-    onClose();
+    setDangGui(false);
+    setKetQua({ xong, hong });
   };
+
+  const coCotDonVi = hoSo.some((r) => nguonCua(r.loai).cotDonViNhan);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="return-modal">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="font-bold text-slate-800">Trả hồ sơ</h2>
-            <p className="text-sm text-slate-600 mt-1">Đang trả {selectedRecords.length} hồ sơ về đơn vị</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+          <h2 className="font-bold text-slate-800">Trả hồ sơ ({hoSo.length} hồ sơ)</h2>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
             <X className="w-5 h-5 text-slate-600" />
           </button>
         </div>
-
-        <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {/* Danh sách hồ sơ */}
-          <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-3">Danh sách hồ sơ được chọn ({selectedRecords.length})</h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-3 bg-slate-50">
-              {selectedRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between gap-2 text-sm bg-white p-2 rounded border border-slate-200">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      record.recordType === 'Đơn thư' ? 'bg-blue-100 text-blue-700'
-                        : record.recordType === 'Vụ việc' ? 'bg-purple-100 text-purple-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {record.recordType}
-                    </span>
-                    <span className="font-medium text-blue-600">{record.recordCode}</span>
-                  </div>
-                  <span className="text-slate-600 text-xs">{record.currentTeam}</span>
+        <div className="p-6 space-y-4">
+          {ketQua ? (
+            <div data-testid="ket-qua-tra" className="space-y-2 text-sm">
+              {ketQua.xong.length > 0 && <p className="text-green-700">Đã trả: {ketQua.xong.join(', ')}</p>}
+              {ketQua.hong.length > 0 && (
+                <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-red-700">
+                  <strong className="font-medium">Chưa trả được: </strong>
+                  {ketQua.hong.join(' · ')}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          {/* Loại trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Loại trả hồ sơ <span className="text-red-500">*</span></label>
-            <select
-              data-testid="return-type-select"
-              value={formData.returnType}
-              onChange={(e) => { setFormData({ ...formData, returnType: e.target.value }); setErrors({ ...errors, returnType: undefined }); }}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white ${errors.returnType ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-            >
-              <option value="">Chọn loại trả</option>
-              <option value="Trả về đơn vị cấp trên">Trả về đơn vị cấp trên</option>
-              <option value="Trả về Viện Kiểm sát">Trả về Viện Kiểm sát</option>
-              <option value="Trả về đơn vị khác">Trả về đơn vị khác</option>
-              <option value="Trả về người gửi">Trả về người gửi</option>
-              <option value="Lưu hồ sơ">Lưu hồ sơ</option>
-            </select>
-            {errors.returnType && <p className="text-xs text-red-600 mt-1">{errors.returnType}</p>}
-          </div>
-
-          {/* Đơn vị nhận trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị nhận trả <span className="text-red-500">*</span></label>
-            <input
-              data-testid="return-receiving-unit-input"
-              type="text"
-              value={formData.receivingUnit}
-              onChange={(e) => { setFormData({ ...formData, receivingUnit: e.target.value }); setErrors({ ...errors, receivingUnit: undefined }); }}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${errors.receivingUnit ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              placeholder="Nhập tên đơn vị nhận trả hồ sơ"
-            />
-            {errors.receivingUnit && <p className="text-xs text-red-600 mt-1">{errors.receivingUnit}</p>}
-          </div>
-
-          {/* Lý do trả */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Lý do trả hồ sơ <span className="text-red-500">*</span></label>
-            <textarea
-              data-testid="return-reason-textarea"
-              value={formData.reason}
-              onChange={(e) => { setFormData({ ...formData, reason: e.target.value }); setErrors({ ...errors, reason: undefined }); }}
-              rows={4}
-              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 ${errors.reason ? 'border-red-300 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
-              placeholder="Nhập lý do cụ thể tại sao cần trả hồ sơ..."
-            />
-            {errors.reason && <p className="text-xs text-red-600 mt-1">{errors.reason}</p>}
-          </div>
-
-          {/* Ghi chú */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú bổ sung</label>
-            <textarea
-              data-testid="return-notes-textarea"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Các ghi chú khác..."
-            />
-          </div>
-
-          {/* Lưu ý */}
-          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-purple-800">
-              <p className="font-medium mb-1">Lưu ý:</p>
-              <p>Sau khi trả hồ sơ, trạng thái hồ sơ sẽ được cập nhật thành &quot;Đã trả&quot; và hồ sơ sẽ không còn thuộc quyền quản lý của đơn vị hiện tại.</p>
-            </div>
-          </div>
+          ) : (
+            <>
+              <p className="text-sm text-slate-700">
+                Hồ sơ sẽ chuyển sang trạng thái <strong>Đã chuyển đơn vị khác</strong>.
+              </p>
+              {coCotDonVi && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị nhận</label>
+                  <input
+                    type="text"
+                    data-testid="tra-don-vi-nhan"
+                    value={donViNhan}
+                    onChange={(e) => setDonViNhan(e.target.value)}
+                    placeholder="Ví dụ: Công an Quận 1"
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Chỉ Vụ việc lưu được đơn vị nhận (cột dành riêng).</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy</button>
+        <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3">
           <button
-            data-testid="submit-return-btn"
-            onClick={handleSubmit}
-            className="px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            type="button"
+            onClick={ketQua ? onXong : onClose}
+            className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50"
           >
-            <CornerUpLeft className="w-4 h-4 inline mr-2" />
-            Lưu trả hồ sơ
+            {ketQua ? 'Đóng' : 'Hủy bỏ'}
           </button>
+          {!ketQua && (
+            <button
+              type="button"
+              data-testid="btn-xac-nhan-tra"
+              disabled={dangGui}
+              onClick={() => void guiDi()}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium disabled:opacity-50"
+            >
+              {dangGui ? 'Đang trả...' : 'Xác nhận trả'}
+            </button>
+          )}
         </div>
       </div>
     </div>
