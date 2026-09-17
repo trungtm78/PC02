@@ -52,6 +52,7 @@ const THONG_KE = {
   total: 368,
   byStatus: { TIEP_NHAN: 329, DANG_DIEU_TRA: 39 },
   byGroup: { 'dang-dieu-tra': 368, 'da-ket-luan': 0, 'dinh-chi': 5, 'tam-dinh-chi': 7 },
+  ky: { ky: 'THANG_HIEN_TAI', truong: 'NGAY_TIEP_NHAN', tuNgay: '2026-09-01', denNgay: '2026-09-30' },
 };
 
 let rong = false;
@@ -156,6 +157,11 @@ describe('WardCasesPage — dữ liệu thật, phạm vi ở máy chủ', () =>
     expect(screen.getByTestId('kpi-card-dang-dieu-tra')).toHaveTextContent('368');
     expect(screen.getByTestId('kpi-card-da-ket-luan')).toHaveTextContent('0');
     expect(screen.getByTestId('kpi-card-dinh-chi')).toHaveTextContent('12');
+  });
+
+  it('[rà mã P2] nói rõ số liệu tính theo KỲ nào (ô ngày trống thì máy chủ áp kỳ mặc định)', async () => {
+    dung();
+    expect(await screen.findByTestId('ward-cases-ky')).toHaveTextContent('Thống kê: Tháng 9/2026');
   });
 
   it('đang tải → thẻ KPI gạch, không hiện 0', async () => {

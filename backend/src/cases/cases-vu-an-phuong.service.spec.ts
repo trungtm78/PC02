@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { BcaExcelHelper } from '../common/bca-excel.helper';
 
 const mockPrisma = {
   case: {
@@ -27,6 +28,13 @@ const PHAM_VI = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
  * phải quản trị thấy 0 dòng. Đo prod: 368 vụ án REGULAR gắn tổ phường; tội danh chính có ở 344, ô chữ
  * `crime` chỉ 36.
  */
+const kyMacDinh = {
+  ky: 'TAT_CA',
+  truong: 'NGAY_TIEP_NHAN',
+  tuNgay: null as string | null,
+  denNgay: null as string | null,
+};
+
 describe('CasesService — màn Vụ án phường/xã', () => {
   let service: CasesService;
 
@@ -41,12 +49,7 @@ describe('CasesService — màn Vụ án phường/xã', () => {
           provide: SettingsService,
           useValue: {
             getValue: jest.fn().mockResolvedValue(null),
-            getKyThongKe: jest.fn().mockResolvedValue({
-              ky: 'TAT_CA',
-              truong: 'NGAY_TIEP_NHAN',
-              tuNgay: null,
-              denNgay: null,
-            }),
+            getKyThongKe: jest.fn(() => Promise.resolve({ ...kyMacDinh })),
           },
         },
         {
@@ -96,6 +99,16 @@ describe('CasesService — màn Vụ án phường/xã', () => {
     expect(and).toContain('"timKiemBd":{"contains":"trom"}');
   });
 
+  it('[rà mã P2] thẻ `*` tìm cả chữ đang hiện ở cột Tội danh chính và Bị can (qua quan hệ)', async () => {
+    await service.getList({ tk: ['*~giet nguoi'] } as never, null);
+    const and = JSON.stringify(
+      mockPrisma.case.findMany.mock.calls[0][0].where.AND,
+    );
+    expect(and).toContain('"crimeChinh":{"is"');
+    expect(and).toContain('"subjects":{"some"');
+    expect(and).toContain('"timKiemBd":{"contains":"giet nguoi"}');
+  });
+
   describe('xuất Excel theo phường — CÙNG bộ lọc với danh sách', () => {
     const res = () => ({
       setHeader: jest.fn(),
@@ -127,6 +140,37 @@ describe('CasesService — màn Vụ án phường/xã', () => {
       const and = JSON.stringify(where.AND);
       expect(and).toContain('"nameBd":{"contains":"trom"}');
       expect(and).toContain('"assignedTeamId":{"in":["t1"]}');
+    });
+
+    it('[rà mã P2] phụ đề tệp xuất ghi ĐÚNG kỳ đang áp (kỳ mặc định tháng), không ghi Tất cả thời gian', async () => {
+      const dauDe = jest.spyOn(BcaExcelHelper, 'addHeader');
+      Object.assign(kyMacDinh, {
+        ky: 'THANG_HIEN_TAI',
+        tuNgay: '2026-09-01',
+        denNgay: '2026-09-30',
+      });
+      try {
+        await service.exportWardCases({} as never, null, res() as never);
+        expect(dauDe.mock.calls[0][3]).toBe(
+          'Ngày đề xuất từ 01/09/2026 đến 30/09/2026',
+        );
+        dauDe.mockClear();
+        await service.exportWardCases(
+          { fromDate: '2026-09-10' } as never,
+          null,
+          res() as never,
+        );
+        expect(dauDe.mock.calls[0][3]).toBe(
+          'Ngày đề xuất từ 10/09/2026 đến 30/09/2026',
+        );
+        dauDe.mockClear();
+        Object.assign(kyMacDinh, { ky: 'TAT_CA', tuNgay: null, denNgay: null });
+        await service.exportWardCases({} as never, null, res() as never);
+        expect(dauDe.mock.calls[0][3]).toBe('Tất cả thời gian');
+      } finally {
+        Object.assign(kyMacDinh, { ky: 'TAT_CA', tuNgay: null, denNgay: null });
+        dauDe.mockRestore();
+      }
     });
 
     it('tải HẾT mọi trang, không cắt ở 500 dòng đầu', async () => {

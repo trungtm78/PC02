@@ -215,6 +215,13 @@ function luaChonTatCa(
         .filter((t) => t.kieu === 'nguoi')
         .map((t) => dieuKienNguoi(t, giaTri))
     : [];
+  // `tatCaGomQuanHe`: thêm các trường quan hệ đang hiện trên bảng (tội danh chính, bị can…).
+  for (const k of khai.tatCaGomQuanHe ?? []) {
+    const t = timTruong(khai, k);
+    if (t?.kieu === 'quan-he') nguoi.push(dieuKienQuanHe(t, giaTri));
+    else if (t?.kieu === 'doi-tuong')
+      nguoi.push(...dieuKienDoiTuong(t, giaTri));
+  }
   const mau = mauBoDau(giaTri);
   if (mau === undefined) {
     return [

@@ -44,6 +44,7 @@ import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/Lis
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 
 interface PetitionRow {
   id: string;
@@ -61,6 +62,8 @@ interface PetitionRow {
 interface ThongKeDonThu {
   total: number;
   byStatus: Partial<Record<PetitionStatus, number>>;
+  /** Kỳ máy chủ ĐÃ áp cho cả danh sách lẫn thẻ số: ô ngày trống thì là kỳ mặc định admin đặt. */
+  ky?: { ky: string; tuNgay: string | null; denNgay: string | null };
 }
 
 const PAGE_SIZE = 20;
@@ -277,6 +280,16 @@ export default function WardPetitionsPage() {
 
       {/* KPI cards */}
       <LoadErrorBanner error={loadError} what="danh sách đơn thư phường/xã" data-testid="ward-petitions-load-error" />
+
+      {thongKe?.ky && (
+        <p className="text-sm text-slate-500" data-testid="ward-petitions-ky">
+          Thống kê:{' '}
+          <span className="text-slate-700 font-medium">
+            {nhanKyThongKe(thongKe.ky.ky, thongKe.ky.tuNgay, thongKe.ky.denNgay)}
+          </span>
+          {' '}— danh sách và thẻ số cùng tính trong kỳ này; chọn ngày ở Bộ lọc để đổi.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div data-testid="kpi-card-total" className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">

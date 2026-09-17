@@ -133,6 +133,9 @@ export const KHAI_TIM_KIEM_VU_AN: KhaiThucThe = {
   // Ô tìm cũ tìm cả số hồ sơ hệ cũ — thẻ "tất cả các cột" phải tìm được đủ (tên vụ án đã là trường
   // `tenVuAn` ở trên). `unit` rỗng ở toàn bộ vụ án nên không đưa vào.
   cotThemVaoTatCa: ['soHoSoCu'],
+  // Tên tội danh chính và tên bị can đang HIỆN trên cột (Vụ án, Vụ án phường/xã) nhưng nằm ở bảng khác —
+  // "*" gõ "giết người" phải ra (tội danh chính 344/368 hồ sơ tổ phường, ô chữ `crime` chỉ 36).
+  tatCaGomQuanHe: ['toiDanhChinh', 'doiTuongBiCan'],
   // Đích của thẻ "Vụ án" ở Đối tượng/Luật sư: cột ấy hiện TÊN vụ án, lọc phải đúng tên chứ không
   // phải `tim_kiem_bd` (ghép cả mô tả, đơn vị…).
   cotBongPhu: ['name'],

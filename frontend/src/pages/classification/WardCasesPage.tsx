@@ -41,6 +41,7 @@ import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/compo
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 
 interface WardCaseRow {
   id: string;
@@ -58,6 +59,8 @@ interface WardCaseRow {
 interface ThongKeVuAn {
   total: number;
   byGroup?: Partial<Record<'dang-dieu-tra' | 'da-ket-luan' | 'dinh-chi' | 'tam-dinh-chi', number>>;
+  /** Kỳ máy chủ ĐÃ áp cho cả danh sách lẫn thẻ số: ô ngày trống thì là kỳ mặc định admin đặt. */
+  ky?: { ky: string; tuNgay: string | null; denNgay: string | null };
 }
 
 const PAGE_SIZE = 20;
@@ -274,6 +277,16 @@ export default function WardCasesPage() {
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách vụ án phường/xã" data-testid="ward-cases-load-error" />
+
+      {thongKe?.ky && (
+        <p className="text-sm text-slate-500" data-testid="ward-cases-ky">
+          Thống kê:{' '}
+          <span className="text-slate-700 font-medium">
+            {nhanKyThongKe(thongKe.ky.ky, thongKe.ky.tuNgay, thongKe.ky.denNgay)}
+          </span>
+          {' '}— danh sách và thẻ số cùng tính trong kỳ này; chọn ngày ở Bộ lọc để đổi.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {THE_KPI.map(({ testid, nhan, so, mau, Icon }) => (

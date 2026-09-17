@@ -30,7 +30,10 @@ import { Prisma, CaseStatus, PetitionStatus, LoaiDon, CapDoToiPham, LyDoTamDinhC
 import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
-import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import {
+  apDungKyVaoWhere,
+  TRUONG_NGAY_THONG_KE,
+} from '../common/utils/thong-ke-ky.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
@@ -2208,12 +2211,23 @@ export class CasesService {
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách vụ án');
+    // Phụ đề ghi ĐÚNG khoảng ngày `getList` đã áp: ô ngày trống thì là kỳ mặc định admin đặt (vd tháng
+    // hiện tại), không phải "tất cả" — cùng luật ghép với `apDungKyVaoWhere`.
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    const tu = query.fromDate || ky.tuNgay;
+    const den = query.toDate || ky.denNgay;
+    const dmy = (s: string) => s.split('-').reverse().join('/');
+    const tenCot =
+      ky.truong === TRUONG_NGAY_THONG_KE.NGAY_TAO ? 'Ngày tạo' : 'Ngày đề xuất';
     BcaExcelHelper.addHeader(
       sheet,
       COL_COUNT,
       'DANH SÁCH VỤ ÁN THEO PHƯỜNG/XÃ',
-      query.fromDate || query.toDate
-        ? `Ngày đề xuất ${query.fromDate ?? '…'} đến ${query.toDate ?? '…'}`
+      tu || den
+        ? `${tenCot} từ ${tu ? dmy(tu) : '…'} đến ${den ? dmy(den) : '…'}`
         : 'Tất cả thời gian',
     );
     BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);

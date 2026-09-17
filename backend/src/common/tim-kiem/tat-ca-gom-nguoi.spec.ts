@@ -84,3 +84,11 @@ describe('điều kiện — "*" gồm tên người (tatCaGomNguoi)', () => {
     expect(KHAI_TIM_KIEM_NHAT_KY.tatCaGomNguoi).toBe(true);
   });
 });
+
+describe('điều kiện — "*" gồm trường quan hệ (tatCaGomQuanHe)', () => {
+  it('khai trỏ tới khoá không phải quan-he/doi-tuong → khai sai, báo lỗi', () => {
+    expect(() =>
+      sinhCauConChuaNap({ ...NHAT_KY, tatCaGomQuanHe: ['khongCo'] }),
+    ).toThrow(/tatCaGomQuanHe/);
+  });
+});

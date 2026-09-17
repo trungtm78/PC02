@@ -88,6 +88,12 @@ export interface KhaiThucThe {
    * Không cần sinh lại SQL: tuỳ chọn chỉ đổi điều kiện Prisma.
    */
   tatCaGomNguoi?: boolean;
+  /**
+   * Thẻ "tất cả các cột" tìm CẢ các trường kiểu `quan-he`/`doi-tuong` liệt kê (khoá trường) — chữ ấy
+   * đang HIỆN trên cột nhưng không nằm trong cột ghép của bảng (vd Vụ án: tên tội danh chính, tên bị
+   * can). Chỉ bật cho bảng vừa phải: mỗi khoá thêm một nhánh OR qua quan hệ. Không cần sinh lại SQL.
+   */
+  tatCaGomQuanHe?: readonly string[];
 }
 
 const TEN_HOP_LE = /^[A-Za-z][A-Za-z0-9_]*$/;
@@ -152,6 +158,14 @@ function kiemKhai(khai: KhaiThucThe): void {
     throw new Error(
       `Khai tìm kiếm ${khai.thucThe}: tatCaGomNguoi cần ít nhất một trường kiểu nguoi`,
     );
+  }
+  for (const k of khai.tatCaGomQuanHe ?? []) {
+    const t = khai.truong.find((x) => x.key === k);
+    if (!t || (t.kieu !== 'quan-he' && t.kieu !== 'doi-tuong')) {
+      throw new Error(
+        `Khai tìm kiếm ${khai.thucThe}: tatCaGomQuanHe "${k}" phải là trường kiểu quan-he hoặc doi-tuong`,
+      );
+    }
   }
 }
 
