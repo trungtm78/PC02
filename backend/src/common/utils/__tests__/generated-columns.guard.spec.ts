@@ -18,7 +18,15 @@ import * as path from 'path';
  * Ca kiểm này quét mã nguồn thay vì chạy truy vấn, vì lỗi chỉ lộ ra lúc chạy thật với
  * CSDL thật — quá muộn.
  */
-const GENERATED_COLUMNS = ['sortReceivedDate'] as const;
+const GENERATED_COLUMNS = [
+  'sortReceivedDate',
+  // 18/09/2026 — cột chuẩn hoá của màn Đơn trùng (migration don_trung_chuan_hoa). Cùng loại bẫy:
+  // lược đồ Prisma khai như trường thường nên không gì ngăn một `data: { ...đơn }` mang chúng theo.
+  'senderNameChuan',
+  'senderAddressChuan',
+  'suspectedPersonChuan',
+  'senderPhoneChuan',
+] as const;
 
 /** Chỗ được phép nhắc tên cột: sắp xếp, khai báo, và chính ca kiểm này. */
 const ALLOWED_FILES = [
@@ -27,10 +35,18 @@ const ALLOWED_FILES = [
   'petitions.service.ts',
   'petitions.service.spec.ts',
   'generated-columns.guard.spec.ts',
+  // Màn Đơn trùng ĐỌC các cột chuẩn hoá (gom nhóm, lọc) — không ghi.
+  'don-trung.types.ts',
+  'petitions-don-trung.service.spec.ts',
 ];
 
 /** Dấu hiệu GHI của Prisma. Nhắc tên cột trong chú thích hay orderBy thì không sao. */
-const WRITE_MARKERS = [/\bdata\s*:\s*\{/, /\bcreate\s*\(/, /\bupdate\s*\(/, /\bupsert\s*\(/];
+const WRITE_MARKERS = [
+  /\bdata\s*:\s*\{/,
+  /\bcreate\s*\(/,
+  /\bupdate\s*\(/,
+  /\bupsert\s*\(/,
+];
 
 function collectTsFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -76,6 +92,36 @@ describe('Chốt chặn cột sinh tự động', () => {
     const idx = schema.indexOf('sortReceivedDate');
     expect(idx).toBeGreaterThan(-1);
     expect(schema.slice(Math.max(0, idx - 700), idx)).toContain('CHỈ ĐỌC');
+  });
+
+  it('lược đồ Prisma ghi rõ CÁC cột chuẩn hoá của Đơn trùng là CHỈ ĐỌC', () => {
+    const schema = fs.readFileSync(
+      path.resolve(__dirname, '../../../../prisma/schema.prisma'),
+      'utf-8',
+    );
+    const idx = schema.indexOf('senderNameChuan');
+    expect(idx).toBeGreaterThan(-1);
+    expect(schema.slice(Math.max(0, idx - 700), idx)).toContain('CHỈ ĐỌC');
+  });
+
+  it('migration Đơn trùng khai đủ 4 cột sinh, đúng kiểu STORED', () => {
+    const sql = fs.readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../../prisma/migrations/20260918000500_don_trung_chuan_hoa/migration.sql',
+      ),
+      'utf-8',
+    );
+    for (const cot of [
+      'sender_name_chuan',
+      'sender_address_chuan',
+      'suspected_person_chuan',
+      'sender_phone_chuan',
+    ]) {
+      expect(sql).toContain(cot);
+    }
+    expect(sql.match(/GENERATED ALWAYS AS/g)).toHaveLength(4);
+    expect(sql.match(/\) STORED/g)).toHaveLength(4);
   });
 
   it('migration định nghĩa cột sinh đúng như lược đồ mô tả', () => {

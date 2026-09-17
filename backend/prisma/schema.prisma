@@ -1127,6 +1127,13 @@ model Petition {
   suspectedPersonBd String? @map("suspected_person_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + số hồ sơ cũ — thẻ "tất cả các cột".
   timKiemBd         String? @map("tim_kiem_bd")
+  /// CHỈ ĐỌC — cột SINH TỰ ĐỘNG của CSDL (migration `don_trung_chuan_hoa`), dùng để gom nhóm ở màn Đơn
+  /// trùng. Giữ dấu thanh, chỉ quy một dạng Unicode + một cách đặt dấu + không hoa thường; số điện thoại
+  /// chỉ giữ chữ số. KHÔNG ghi vào các cột này (PostgreSQL từ chối).
+  senderNameChuan      String? @map("sender_name_chuan")
+  senderAddressChuan   String? @map("sender_address_chuan")
+  suspectedPersonChuan String? @map("suspected_person_chuan")
+  senderPhoneChuan     String? @map("sender_phone_chuan")
   // Liên kết sau khi chuyển đổi
   linkedCaseId     String? // FK → cases (sau khi chuyển thành Vụ án)
   linkedIncidentId String? // FK → incidents (sau khi chuyển thành Vụ việc)

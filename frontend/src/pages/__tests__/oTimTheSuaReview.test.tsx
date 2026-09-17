@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import CaseExchangePage from '../workflow/CaseExchangePage';
 import TransferAndReturnPage from '../workflow/TransferAndReturnPage';
-import DuplicatePetitionsPage from '../classification/DuplicatePetitionsPage';
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -146,12 +145,6 @@ describe('Chuyển đội / Trả hồ sơ — trang, lựa chọn, làm mới t
   });
 });
 
-describe('Đơn trùng — thẻ thống kê theo thẻ', () => {
-  it('thẻ thu hẹp bảng → thẻ Tổng số đơn trùng đếm đúng số dòng đang áp thẻ', async () => {
-    dung(DuplicatePetitionsPage, '/?duplicatePetitions_tk=tieuDe~trom cap');
-    await screen.findByTestId('view-btn-p1');
-    const nhan = screen.getByText('Tổng số đơn trùng');
-    await waitFor(() => expect(nhan.nextElementSibling).toHaveTextContent('1'));
-  });
-});
+// Đơn trùng rời tệp này 18/09/2026: màn không còn đếm tại chỗ mà lấy SỐ NHÓM từ máy chủ
+// (`DuplicatePetitionsPage.test.tsx` — "thẻ số: số NHÓM trùng lấy từ máy chủ").
 

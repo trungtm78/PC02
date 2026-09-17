@@ -32,6 +32,7 @@ import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
+import { QueryDuplicatesDto } from './dto/query-duplicates.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
@@ -185,13 +186,24 @@ export class PetitionsController {
     } : undefined);
   }
 
+  // GET /api/v1/petitions/duplicates — Nhóm đơn TRÙNG theo một tiêu chí (màn Đơn trùng).
+  // Phân trang theo NHÓM; mỗi nhóm kèm mọi đơn và đơn tiếp nhận sớm nhất (hồ sơ gốc).
+  @Get('duplicates')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  listDuplicates(
+    @Query() query: QueryDuplicatesDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.listDuplicates(query, req.dataScope);
+  }
+
   // GET /api/v1/petitions/export/duplicates — Xuất danh sách đơn trùng lặp ra Excel
   @Get('export/duplicates')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportDuplicates(
-    @Query() query: { status?: string; criteria?: string; fromDate?: string; toDate?: string },
+    @Query() query: QueryDuplicatesDto,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
