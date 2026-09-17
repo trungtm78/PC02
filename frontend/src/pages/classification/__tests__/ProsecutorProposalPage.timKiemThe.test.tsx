@@ -183,4 +183,20 @@ describe('ProsecutorProposalPage — tìm kiếm và thống kê phía máy ch�
     const url = String(m.get.mock.calls.find((c) => String(c[0]).startsWith('/proposals/export?'))![0]);
     expect(new URLSearchParams(url.split('?')[1]).getAll('tk')).toEqual(['donViVks~quan 8']);
   });
+
+  /** Rà mã 226abee2: chưa có số từ máy chủ mà hiện "0" là một khẳng định sai — phải hiện dấu gạch. */
+  it('đang tải lần đầu → thẻ thống kê hiện "—", không hiện "0"', async () => {
+    m.get.mockImplementation(() => new Promise(() => undefined));
+    dung();
+    const the = await screen.findAllByTestId('proposal-stat');
+    for (const t of the) expect(t).toHaveTextContent('—');
+  });
+
+  it('nút xoá lọc xoá thẻ và tải lại không còn `tk`', async () => {
+    dung('/?prosecutorProposal_tk=donViVks~quan 8');
+    expect(await screen.findByTestId('the-tim-kiem')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('reset-filters-btn'));
+    await waitFor(() => expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument());
+    await waitFor(() => expect(thamSoDanhSach().getAll('tk')).toEqual([]));
+  });
 });

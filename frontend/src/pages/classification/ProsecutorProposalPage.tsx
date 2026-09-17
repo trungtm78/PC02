@@ -166,6 +166,8 @@ export default function ProsecutorProposalPage() {
       // Tổng giảm dưới trang đang xem → kẹp về trang cuối còn dữ liệu rồi tải lại.
       const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
       if (page > trangCuoi) {
+        // Đánh dấu lượt này đã cũ để `finally` không hạ cờ loading — bảng không nháy dòng trang cũ.
+        luotTai.current++;
         setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
         return;
       }
@@ -273,13 +275,14 @@ export default function ProsecutorProposalPage() {
   };
 
   // Thẻ thống kê lấy số từ MÁY CHỦ trên cùng thẻ/ngày/phạm vi — không đếm phần đã tải.
-  const byStatus = thongKe?.byStatus ?? {};
+  // Chưa có số (đang tải lần đầu) → undefined → thẻ hiện dấu gạch, KHÔNG hiện "0": số 0 đọc như một câu trả lời.
+  const demTrangThai = (t: ProposalStatus) => (thongKe ? (thongKe.byStatus[t] ?? 0) : undefined);
   const statusCounts = {
-    total: thongKe?.total ?? 0,
-    pending: byStatus.CHO_GUI ?? 0,
-    sent: byStatus.DA_GUI ?? 0,
-    responded: byStatus.CO_PHAN_HOI ?? 0,
-    completed: byStatus.DA_XU_LY ?? 0,
+    total: thongKe?.total,
+    pending: demTrangThai(ProposalStatus.CHO_GUI),
+    sent: demTrangThai(ProposalStatus.DA_GUI),
+    responded: demTrangThai(ProposalStatus.CO_PHAN_HOI),
+    completed: demTrangThai(ProposalStatus.DA_XU_LY),
   };
 
   const handleExportExcel = useCallback(async () => {
@@ -701,7 +704,6 @@ export default function ProsecutorProposalPage() {
             )}
           </div>
         )}
-      </div>
 
         {!loading && total > PAGE_SIZE && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
@@ -730,6 +732,7 @@ export default function ProsecutorProposalPage() {
             </div>
           </div>
         )}
+      </div>
 
       {showFormModal && (
         <ProposalFormModal

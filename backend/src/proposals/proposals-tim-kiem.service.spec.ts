@@ -115,4 +115,44 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
     expect(chuoi).toContain('"unitBd":{"contains":"quan 8"}');
     expect(chuoi).toContain('"createdById":{"in":["u1"]}');
   });
+
+  /**
+   * Ô tìm cũ (cờ TIM_KIEM_THE tắt) trước đây khớp cả TÊN vụ án liên quan đang hiện trên cột — `search`
+   * phải tìm cả mọi cột lẫn Hồ sơ liên quan (Codex rà 226abee2 bắt).
+   */
+  it('`search` cũ tìm CẢ mọi cột lẫn tên vụ án liên quan (một khối hoặc)', async () => {
+    await service.getList({ search: 'trom cap' } as never, null);
+    const chuoi = JSON.stringify(whereList().AND);
+    expect(chuoi).toContain('"timKiemBd":{"contains":"trom cap"}');
+    expect(chuoi).toContain('"nameBd":{"contains":"trom cap"}');
+  });
+
+  /**
+   * Phạm vi danh sách phải KHỚP quyền xem chi tiết (`getById`): người điều phối đọc toàn bộ; tổ trưởng
+   * (userIds rỗng, có tổ) thấy kiến nghị không gắn hồ sơ. Rà mã độc lập bắt: danh sách ẩn những bản ghi
+   * mà màn chi tiết vẫn cho xem.
+   */
+  it('người điều phối (canDispatch): KHÔNG thêm điều kiện phạm vi', async () => {
+    await service.getList(
+      {} as never,
+      {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: [],
+        canDispatch: true,
+      } as never,
+    );
+    expect(JSON.stringify(whereList())).not.toContain('createdById');
+    expect(JSON.stringify(whereList())).not.toContain('relatedCase');
+  });
+
+  it('tổ trưởng (userIds rỗng, có tổ): thấy kiến nghị không gắn hồ sơ', async () => {
+    await service.getList({} as never, {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+    });
+    const chuoi = JSON.stringify(whereList().AND);
+    expect(chuoi).toContain('{"relatedCase":null}');
+  });
 });

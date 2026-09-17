@@ -121,7 +121,14 @@ describe('Danh sách kiến nghị rỗng thật', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('hiện số 0 và câu "không tìm thấy", KHÔNG có khối lỗi', async () => {
-    mApi.get.mockResolvedValue({ data: { data: [] } });
+    // Máy chủ thật trả tổng 0 cho thống kê — không phải thiếu trường (thiếu thì thẻ hiện dấu gạch).
+    mApi.get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith('/proposals/stats')
+          ? { data: { total: 0, byStatus: {} } }
+          : { data: { data: [], total: 0 } },
+      ),
+    );
     dung();
     await waitFor(() => expect(screen.getByText(/Không tìm thấy kiến nghị nào/)).toBeInTheDocument());
     expect(screen.queryByTestId('proposal-load-error')).not.toBeInTheDocument();

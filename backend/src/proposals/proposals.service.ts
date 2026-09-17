@@ -24,7 +24,11 @@ import { KHOA_TAT_CA, docKhoangNgay } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_KIEN_NGHI } from '../common/tim-kiem/khai/kien-nghi.khai';
 
 /** Tham số cũ → khoá thẻ: `search` → mọi cột; `unit` (xuất Excel cũ) → Đơn vị VKS. */
-const THAM_SO_CU_KIEN_NGHI = { search: KHOA_TAT_CA, unit: 'donViVks' } as const;
+const THAM_SO_CU_KIEN_NGHI = {
+  // Ô tìm cũ khớp cả TÊN vụ án liên quan đang hiện trên cột — thẻ `*` chỉ gồm cột trên bảng.
+  search: [KHOA_TAT_CA, 'hoSoLienQuan'],
+  unit: 'donViVks',
+} as const;
 
 /** Khoá thẻ Trạng thái — thống kê bỏ thẻ này như bỏ tham số `status`. */
 const KHOA_TRANG_THAI = 'trangThai';
@@ -131,7 +135,11 @@ export class ProposalsService {
         ...(den && { lt: den.lt }),
       };
 
-    if (dataScope) {
+    // Phạm vi danh sách KHỚP quyền xem chi tiết (`getById`): gắn vụ án → theo phạm vi vụ án
+    // (`assertParentInScope`); không gắn → theo người tạo (`assertCreatorInScope`). Người điều phối đọc
+    // toàn bộ (`buildScopeFilter` trả null); tổ trưởng (userIds rỗng, có tổ) thấy mọi kiến nghị không gắn
+    // hồ sơ. Trước 17/09/2026 danh sách ẩn hai nhóm này dù màn chi tiết vẫn cho xem.
+    if (dataScope && !dataScope.canDispatch) {
       const { userIds, teamIds } = dataScope;
       if (userIds.length === 0 && teamIds.length === 0) {
         dieuKien.push({ id: '__no_access__' });
@@ -140,9 +148,12 @@ export class ProposalsService {
         const phamVi: Prisma.ProposalWhereInput[] = [];
         if (caseScope)
           phamVi.push({ relatedCase: caseScope as Prisma.CaseWhereInput });
-        if (userIds.length > 0)
-          phamVi.push({ relatedCase: null, createdById: { in: userIds } });
-        if (phamVi.length > 0) dieuKien.push({ OR: phamVi });
+        phamVi.push(
+          userIds.length > 0
+            ? { relatedCase: null, createdById: { in: userIds } }
+            : { relatedCase: null },
+        );
+        dieuKien.push({ OR: phamVi });
       }
     }
     if (dieuKien.length) where.AND = dieuKien;
