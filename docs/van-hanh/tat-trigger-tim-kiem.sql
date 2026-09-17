@@ -155,4 +155,14 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- ── proposals (kien-nghi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_proposals() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."content_bd" := NULL;
+  NEW."unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

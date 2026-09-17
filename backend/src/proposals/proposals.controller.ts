@@ -1,4 +1,18 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
@@ -22,12 +36,19 @@ export class ProposalsController {
     return this.proposalsService.getList(query, req.dataScope);
   }
 
+  /** Thẻ thống kê — cùng thẻ/ngày/phạm vi với danh sách. Khai TRƯỚC `:id` để 'stats' không bị đọc thành id. */
+  @Get('stats')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getStats(@Query() query: QueryProposalsDto, @Req() req: ScopedRequest) {
+    return this.proposalsService.getStats(query, req.dataScope);
+  }
+
   @Get('export')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportExcel(
-    @Query() query: { status?: string; unit?: string; fromDate?: string; toDate?: string },
+    @Query() query: QueryProposalsDto,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
@@ -42,20 +63,47 @@ export class ProposalsController {
 
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
-  create(@Body() dto: CreateProposalDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.proposalsService.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+  create(
+    @Body() dto: CreateProposalDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.proposalsService.create(dto, user.id, {
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   @Put(':id')
   @RequirePermissions({ action: 'edit', subject: 'Case' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateProposalDto>, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.proposalsService.update(id, dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateProposalDto>,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.proposalsService.update(
+      id,
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'delete', subject: 'Case' })
-  delete(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.proposalsService.delete(id, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] }, req.dataScope);
+  delete(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.proposalsService.delete(
+      id,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 }

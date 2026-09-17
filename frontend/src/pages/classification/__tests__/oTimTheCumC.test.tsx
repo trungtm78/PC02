@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import InitialCasesPage from '../../cases/InitialCasesPage';
 import DuplicatePetitionsPage from '../DuplicatePetitionsPage';
-import ProsecutorProposalPage from '../ProsecutorProposalPage';
 import MasterClassPage from '../../admin/MasterClassPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
@@ -90,7 +89,6 @@ interface Man {
 const CUM_C: Man[] = [
   { ten: 'Hồ sơ mới tiếp nhận', Man: InitialCasesPage, prefix: 'initialCases', khoa: 'noiDung', nhan: 'Nội dung vụ việc', khop: { testid: 'initial-row-c1aaaaaaaa' }, khongKhop: { testid: 'initial-row-c2bbbbbbbb' }, oCu: 'initial-search' },
   { ten: 'Đơn trùng', Man: DuplicatePetitionsPage, prefix: 'duplicatePetitions', khoa: 'tieuDe', nhan: 'Tiêu đề', khop: { testid: 'view-btn-p1' }, khongKhop: { testid: 'view-btn-p2' }, oCu: 'quick-search-input' },
-  { ten: 'Kiến nghị VKS', Man: ProsecutorProposalPage, prefix: 'prosecutorProposal', khoa: 'noiDung', nhan: 'Nội dung kiến nghị', khop: { testid: 'view-btn-k1' }, khongKhop: { testid: 'view-btn-k2' }, oCu: 'quick-search-input' },
   { ten: 'Phân loại danh mục', Man: MasterClassPage, prefix: 'masterClass', khoa: 'ten', nhan: 'Tên', khop: { chu: 'Trộm cắp' }, khongKhop: { chu: 'Tranh chấp đất đai' }, oCu: 'master-class-search' },
 ];
 

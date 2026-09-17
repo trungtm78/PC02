@@ -95,9 +95,17 @@ describe('Tải danh sách kiến nghị hỏng', () => {
   });
 
   it('thử lại thành công thì khối lỗi biến mất và số liệu hiện ra', async () => {
-    mApi.get.mockRejectedValueOnce(LOI).mockResolvedValue({
-      data: { data: [{ id: 'p1', proposalNumber: 'KN-1', status: 'CHO_GUI' }] },
-    });
+    // Lượt đầu hỏng CẢ danh sách lẫn thống kê (hai yêu cầu song song); lượt sau trả dữ liệu theo đường dẫn.
+    mApi.get
+      .mockRejectedValueOnce(LOI)
+      .mockRejectedValueOnce(LOI)
+      .mockImplementation((url: string) =>
+        Promise.resolve(
+          url.startsWith('/proposals/stats')
+            ? { data: { total: 1, byStatus: { CHO_GUI: 1 } } }
+            : { data: { data: [{ id: 'p1', proposalNumber: 'KN-1', status: 'CHO_GUI' }], total: 1 } },
+        ),
+      );
     dung();
     await screen.findByTestId('proposal-load-error');
     fireEvent.click(screen.getByTestId('proposal-retry'));

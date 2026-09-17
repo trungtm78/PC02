@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Search,
   Download,
@@ -19,6 +19,8 @@ import {
   FileCheck,
   Printer,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -30,23 +32,24 @@ import {
 import { CASE_TYPE, type CaseType } from "@/shared/enums/case-types";
 import { loiTuMayChu } from "./loiTuMayChu";
 import { soLieuHienThi } from "@/lib/soLieuHienThi";
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_KIEN_NGHI } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_KIEN_NGHI: readonly TruongLoc<Proposal>[] = [
-  { key: 'maKienNghi', nhan: 'Mã kiến nghị', kieu: 'ma', lay: (p) => p.proposalNumber },
-  { key: 'hoSoLienQuan', nhan: 'Mã hồ sơ liên quan', kieu: 'chu', lay: (p) => [p.caseType, p.relatedCase] },
-  { key: 'noiDung', nhan: 'Nội dung kiến nghị', kieu: 'chu', lay: (p) => p.content },
-  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', lay: (p) => p.createdDate },
-  { key: 'donViVks', nhan: 'Đơn vị VKS', kieu: 'chu', lay: (p) => p.unit },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (p) => p.status },
-];
-
+/** Thẻ Trạng thái so MÃ enum ở máy chủ (`ProposalStatus`); nhãn chỉ để hiện. */
 const GIA_TRI_CHON_KIEN_NGHI = {
-  trangThai: Object.values(PROPOSAL_STATUS_LABEL).map((v) => ({ value: v, label: v })),
+  trangThai: (Object.entries(PROPOSAL_STATUS_LABEL) as [ProposalStatus, string][]).map(
+    ([value, label]) => ({ value, label }),
+  ),
 };
+
+const PAGE_SIZE = 20;
+
+interface ThongKeKienNghi {
+  total: number;
+  byStatus: Partial<Record<ProposalStatus, number>>;
+}
 
 type ProposalStatusLabel = (typeof PROPOSAL_STATUS_LABEL)[ProposalStatus];
 
@@ -92,7 +95,11 @@ export default function ProsecutorProposalPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
 
-  const [allProposals, setAllProposals] = useState<Proposal[]>([]);
+  // ── Tìm kiếm, lọc, phân trang, thống kê: ĐỀU ở máy chủ ─────────────────────
+  // Trước 17/09/2026 màn tải `limit=100` rồi lọc tại chỗ, thẻ thống kê đếm trên phần đã tải.
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeKienNghi | null>(null);
   const [loading, setLoading] = useState(true);
   // Lần hỏi máy chủ gần nhất có hỏng không. Trước đây `catch` chỉ đặt danh sách về rỗng, nên
   // "không hỏi được" và "không có gì" cho ra CÙNG một màn hình.
@@ -100,24 +107,74 @@ export default function ProsecutorProposalPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   const [filters, setFilters] = useState({
+    /** Mã enum máy chủ (CHO_GUI…), rỗng = tất cả. */
     status: "",
     fromDate: "",
     toDate: "",
-    unit: "",
   });
 
+  // Ô tìm dạng thẻ — thẻ trên URL `prosecutorProposal_tk`. Cờ `TIM_KIEM_THE` tắt → ô chữ cũ gửi `search`.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'prosecutorProposal',
+    khai: TIM_KIEM_KIEN_NGHI,
+    giaTriChon: GIA_TRI_CHON_KIEN_NGHI,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
+  /** Tham số lọc chung của danh sách, thống kê và xuất Excel (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (quickSearch.trim()) {
+      p.set('search', quickSearch.trim());
+    }
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, quickSearch, filters.fromDate, filters.toDate]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+
   const fetchProposals = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
     setLoading(true);
     try {
-      const res = await api.get("/proposals?limit=100");
+      const [res, tk] = await Promise.all([
+        api.get<{ data?: ProposalTho[]; total?: number }>(`/proposals?${danhSach}`),
+        api.get<ThongKeKienNghi>(`/proposals/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data.total ?? res.data.data?.length ?? 0);
+      // Tổng giảm dưới trang đang xem → kẹp về trang cuối còn dữ liệu rồi tải lại.
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
+      }
       const statusColorMap: Record<ProposalStatusLabel, string> = {
         [PROPOSAL_STATUS_LABEL.CHO_GUI]: "bg-slate-400 text-white",
         [PROPOSAL_STATUS_LABEL.DA_GUI]: "bg-amber-500 text-white",
         [PROPOSAL_STATUS_LABEL.CO_PHAN_HOI]: "bg-blue-600 text-white",
         [PROPOSAL_STATUS_LABEL.DA_XU_LY]: "bg-green-600 text-white",
       };
-      // Bản ghi THÔ từ máy chủ: mọi trường đều có thể vắng, nên khai `?` hết và để phần dựng
-      // bên dưới tự đặt giá trị thay thế. Thay cho `any` — cổng lint của kho coi `any` là LỖI.
       const mapped: Proposal[] = (res.data.data ?? []).map((p: ProposalTho, i: number) => {
         const apiStatus = p.status as ProposalStatus | undefined;
         const status: ProposalStatusLabel =
@@ -126,11 +183,12 @@ export default function ProsecutorProposalPage() {
             : PROPOSAL_STATUS_LABEL[ProposalStatus.CHO_GUI];
         return {
           id: p.id,
-          stt: i + 1,
-          proposalNumber: p.proposalNumber,
+          // Số thứ tự HIỂN THỊ theo trang — không phải dữ liệu, không khai là khoá tìm được.
+          stt: (page - 1) * PAGE_SIZE + i + 1,
+          proposalNumber: p.proposalNumber ?? "",
           relatedCase: p.relatedCase?.name ?? "",
           caseType: (p.caseType ?? CASE_TYPE.CASE) as CaseType,
-          content: p.content,
+          content: p.content ?? "",
           createdDate: formatVNDate(p.createdAt),
           sentDate: p.sentDate ? formatVNDate(p.sentDate) : undefined,
           unit: p.unit ?? "",
@@ -141,47 +199,26 @@ export default function ProsecutorProposalPage() {
           responseDate: p.responseDate ? formatVNDate(p.responseDate) : undefined,
         };
       });
-      setAllProposals(mapped);
+      setProposals(mapped);
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
       setLoiTai('');
     } catch (e) {
+      if (luot !== luotTai.current) return;
       // KHÔNG đặt danh sách về rỗng rồi im: mảng rỗng làm mọi thẻ thống kê ra số 0, và số 0
       // đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-      setAllProposals([]);
+      setProposals([]);
+      setTotal(0);
+      setThongKe(null);
       setLoiTai(
         loiTuMayChu(e, 'Máy chủ không phản hồi. Kiểm tra kết nối mạng rồi bấm Thử lại.'),
       );
     } finally {
-      setLoading(false);
+      if (luot === luotTai.current) setLoading(false);
     }
-  }, []);
+  }, [thamSoLoc, filters.status, page, khoaLoc]);
 
-  useEffect(() => { fetchProposals(); }, [fetchProposals]);
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
-  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
-    prefix: 'prosecutorProposal',
-    khai: KHAI_KIEN_NGHI,
-    giaTriChon: GIA_TRI_CHON_KIEN_NGHI,
-    dong: allProposals,
-    bat: theBat,
-  });
-
-  const filteredProposals = useMemo(() => {
-    return timKiem.dongLoc.filter((proposal) => {
-      const matchesQuickSearch =
-        theBat ||
-        (proposal.proposalNumber ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
-        (proposal.relatedCase ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
-        (proposal.content ?? "").toLowerCase().includes(quickSearch.toLowerCase()) ||
-        (proposal.unit ?? "").toLowerCase().includes(quickSearch.toLowerCase());
-
-      const matchesStatus = filters.status === "" || proposal.status === filters.status;
-      const matchesUnit = filters.unit === "" || proposal.unit === filters.unit;
-
-      return matchesQuickSearch && matchesStatus && matchesUnit;
-    });
-  }, [timKiem.dongLoc, theBat, quickSearch, filters]);
+  useEffect(() => { void fetchProposals(); }, [fetchProposals]);
 
   const handleAdd = () => {
     setSelectedProposal(null);
@@ -235,31 +272,23 @@ export default function ProsecutorProposalPage() {
     }
   };
 
-  // Thẻ thống kê đếm theo dòng ĐÃ ÁP THẺ — số trên thẻ phải khớp số dòng cán bộ đang lọc.
-  const dongTheoThe = timKiem.dongLoc;
+  // Thẻ thống kê lấy số từ MÁY CHỦ trên cùng thẻ/ngày/phạm vi — không đếm phần đã tải.
+  const byStatus = thongKe?.byStatus ?? {};
   const statusCounts = {
-    total: dongTheoThe.length,
-    pending: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CHO_GUI).length,
-    sent: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_GUI).length,
-    responded: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.CO_PHAN_HOI).length,
-    completed: dongTheoThe.filter((p) => p.status === PROPOSAL_STATUS_LABEL.DA_XU_LY).length,
+    total: thongKe?.total ?? 0,
+    pending: byStatus.CHO_GUI ?? 0,
+    sent: byStatus.DA_GUI ?? 0,
+    responded: byStatus.CO_PHAN_HOI ?? 0,
+    completed: byStatus.DA_XU_LY ?? 0,
   };
 
   const handleExportExcel = useCallback(async () => {
     setIsExporting(true);
     try {
-      const statusEnum = filters.status
-        ? (Object.entries(PROPOSAL_STATUS_LABEL).find(([, v]) => v === filters.status)?.[0] ?? undefined)
-        : undefined;
-      const res = await api.get("/proposals/export", {
-        params: {
-          status: statusEnum,
-          unit: filters.unit || undefined,
-          fromDate: filters.fromDate || undefined,
-          toDate: filters.toDate || undefined,
-        },
-        responseType: "blob",
-      });
+      // CÙNG thẻ và bộ lọc với danh sách — tệp xuất ra đúng những dòng cán bộ đang thấy.
+      const thamSo = new URLSearchParams(thamSoLoc);
+      if (filters.status) thamSo.set('status', filters.status);
+      const res = await api.get(`/proposals/export?${thamSo}`, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
       a.href = url;
@@ -273,7 +302,7 @@ export default function ProsecutorProposalPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filters]);
+  }, [thamSoLoc, filters.status]);
 
   return (
     <div className="p-6 space-y-6" data-testid="prosecutor-proposal-page">
@@ -415,7 +444,8 @@ export default function ProsecutorProposalPage() {
               data-testid="reset-filters-btn"
               onClick={() => {
                 timKiem.xoaHet();
-                setFilters({ status: "", fromDate: "", toDate: "", unit: "" });
+                setFilters({ status: "", fromDate: "", toDate: "" });
+                void fetchProposals();
               }}
               className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
             >
@@ -428,8 +458,8 @@ export default function ProsecutorProposalPage() {
           {theBat ? (
             <OTimKiemThe
               the={timKiem.the}
-              truong={KHAI_KIEN_NGHI}
-              khai={KHAI_KIEN_NGHI}
+              truong={TIM_KIEM_KIEN_NGHI}
+              khai={TIM_KIEM_KIEN_NGHI}
               giaTriChon={GIA_TRI_CHON_KIEN_NGHI}
               onThem={timKiem.them}
               onBoThe={timKiem.boThe}
@@ -453,29 +483,15 @@ export default function ProsecutorProposalPage() {
 
         {showAdvancedSearch && (
           <div className="mt-4 pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Đơn vị VKS
-                </label>
-                <select
-                  value={filters.unit}
-                  onChange={(e) => setFilters({ ...filters, unit: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
-                >
-                  <option value="">Tất cả đơn vị</option>
-                  <option value="Viện Kiểm sát Quận 1">Viện Kiểm sát Quận 1</option>
-                  <option value="Viện Kiểm sát Quận 3">Viện Kiểm sát Quận 3</option>
-                  <option value="Viện Kiểm sát Quận 5">Viện Kiểm sát Quận 5</option>
-                  <option value="Viện Kiểm sát Quận 7">Viện Kiểm sát Quận 7</option>
-                </select>
-              </div>
+            {/* Đơn vị VKS: lọc bằng thẻ "Đơn vị VKS" — ô chọn cũ liệt kê cứng bốn VKS quận không có trong dữ liệu. */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-from-date"
                     value={filters.fromDate}
                     onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
@@ -488,6 +504,7 @@ export default function ProsecutorProposalPage() {
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-to-date"
                     value={filters.toDate}
                     onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] text-sm"
@@ -497,14 +514,15 @@ export default function ProsecutorProposalPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
                 <select
+                  data-testid="filter-status"
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white text-sm"
                 >
                   <option value="">Tất cả</option>
-                  {Object.values(PROPOSAL_STATUS_LABEL).map((label) => (
-                    <option key={label} value={label}>
-                      {label}
+                  {GIA_TRI_CHON_KIEN_NGHI.trangThai.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
@@ -518,7 +536,7 @@ export default function ProsecutorProposalPage() {
         <div className="border-b border-slate-200 px-6 py-4">
           <h2 className="font-bold text-[#003973]">Danh sách kiến nghị</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Hiển thị {filteredProposals.length} / {allProposals.length} kiến nghị
+            Hiển thị <span data-testid="proposal-total">{total}</span> kiến nghị
           </p>
         </div>
 
@@ -560,7 +578,7 @@ export default function ProsecutorProposalPage() {
                   </td>
                 </tr>
               ) : (
-                filteredProposals.map((proposal) => (
+                proposals.map((proposal) => (
                   <tr
                     key={proposal.id}
                     onClick={() => handleViewDetail(proposal)}
@@ -666,16 +684,16 @@ export default function ProsecutorProposalPage() {
           </table>
         </div>
 
-        {!loading && !loiTai && filteredProposals.length === 0 && (
+        {!loading && !loiTai && proposals.length === 0 && (
           <div className="text-center py-12">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500">Không tìm thấy kiến nghị nào</p>
-            {timKiem.coThe && (
+            {theBat && timKiem.the.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                 <span>Không tìm thấy với:</span>
                 <DanhSachThe
                   the={timKiem.the}
-                  khai={KHAI_KIEN_NGHI}
+                  khai={TIM_KIEM_KIEN_NGHI}
                   giaTriChon={GIA_TRI_CHON_KIEN_NGHI}
                   onBoThe={timKiem.boThe}
                 />
@@ -684,6 +702,34 @@ export default function ProsecutorProposalPage() {
           </div>
         )}
       </div>
+
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} kiến nghị
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                data-testid="proposal-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                data-testid="proposal-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
       {showFormModal && (
         <ProposalFormModal

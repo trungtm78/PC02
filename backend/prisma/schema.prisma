@@ -1686,6 +1686,12 @@ model Proposal {
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
+  // Cột bóng bỏ dấu cho ô tìm dạng thẻ — CHỈ ĐỌC, trigger `pc02_tim_kiem_proposals` ghi
+  // (khai: src/common/tim-kiem/khai/kien-nghi.khai.ts).
+  contentBd String? @map("content_bd")
+  unitBd    String? @map("unit_bd")
+  timKiemBd String? @map("tim_kiem_bd")
+
   relatedCase Case? @relation(fields: [relatedCaseId], references: [id], onDelete: SetNull)
   createdBy   User? @relation("ProposalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 

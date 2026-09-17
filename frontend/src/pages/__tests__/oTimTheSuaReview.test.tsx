@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import CaseExchangePage from '../workflow/CaseExchangePage';
 import TransferAndReturnPage from '../workflow/TransferAndReturnPage';
-import ProsecutorProposalPage from '../classification/ProsecutorProposalPage';
 import DuplicatePetitionsPage from '../classification/DuplicatePetitionsPage';
 
 vi.mock('@/lib/api', () => ({
@@ -156,18 +155,3 @@ describe('Đơn trùng — thẻ thống kê theo thẻ', () => {
   });
 });
 
-describe('Kiến nghị VKS — thẻ thống kê theo thẻ; nút xoá lọc xoá thẻ', () => {
-  it('thẻ thu hẹp bảng → thẻ Tổng đếm đúng số dòng đang áp thẻ', async () => {
-    dung(ProsecutorProposalPage, '/?prosecutorProposal_tk=noiDung~trom cap');
-    await screen.findByTestId('view-btn-k1');
-    await waitFor(() => expect(screen.getAllByTestId('proposal-stat')[0]).toHaveTextContent('1'));
-  });
-
-  it('nút xoá lọc xoá cả thẻ', async () => {
-    dung(ProsecutorProposalPage, '/?prosecutorProposal_tk=noiDung~trom cap');
-    expect(await screen.findByTestId('the-tim-kiem')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('reset-filters-btn'));
-    await waitFor(() => expect(screen.queryByTestId('the-tim-kiem')).not.toBeInTheDocument());
-    expect(await screen.findByTestId('view-btn-k2')).toBeInTheDocument();
-  });
-});
