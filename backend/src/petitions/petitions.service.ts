@@ -113,6 +113,7 @@ export class PetitionsService {
       toDate,
       overdue,
       wardTeamId,
+      petitionType,
       stt,
       sttCu,
       enteredById,
@@ -196,6 +197,8 @@ export class PetitionsService {
     if (wardTeamId) {
       where.assignedTeam = { is: { wardId: wardTeamId } };
     }
+    // Màn Đơn thư phường/xã lọc Loại đơn ở máy chủ (17/09/2026) — CÙNG điều kiện ở getStats.
+    if (petitionType) where.petitionType = petitionType;
 
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
@@ -2028,6 +2031,7 @@ export class PetitionsService {
     }
 
     if (wardTeamId) where.assignedTeam = { is: { wardId: wardTeamId } };
+    if (query.petitionType) where.petitionType = query.petitionType;
 
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
