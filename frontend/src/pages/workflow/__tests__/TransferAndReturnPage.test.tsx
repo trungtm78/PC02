@@ -27,28 +27,19 @@ const CO_TAT_THE: FeatureFlag[] = [
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), patch: vi.fn(), put: vi.fn() } }));
 const m = vi.mocked(api) as unknown as Record<'get' | 'patch' | 'put', ReturnType<typeof vi.fn>>;
 
-const VU_AN = [
+/** Máy chủ đã gộp sẵn ba loại và sắp theo ngày đề xuất giảm dần. */
+const GOP = [
   {
-    id: 'c1', caseCode: '2026-11171', name: 'Trộm cắp xe máy', status: 'DANG_DIEU_TRA',
-    ngayDeXuat: '2026-09-01T00:00:00.000Z',
-    assignedTeam: { id: 't1', name: 'Đội 2' },
-    investigator: { firstName: 'Văn A', lastName: 'Nguyễn' },
+    id: 'c1', loai: 'Vụ án', ma: '2026-11171', ten: 'Trộm cắp xe máy', trangThai: 'DANG_DIEU_TRA',
+    ngayDeXuat: '2026-09-01T00:00:00.000Z', toId: 't1', toTen: 'Đội 2', nguoiPhuTrach: 'Nguyễn Văn A',
   },
-];
-const VU_VIEC = [
   {
-    id: 'i1', code: '2026-9706', name: 'Mất trộm xe', status: 'TIEP_NHAN',
-    ngayDeXuat: '2026-08-01T00:00:00.000Z',
-    assignedTeam: { id: 't2', name: 'Tổ 3' },
-    investigator: null,
+    id: 'i1', loai: 'Vụ việc', ma: '2026-9706', ten: 'Mất trộm xe', trangThai: 'TIEP_NHAN',
+    ngayDeXuat: '2026-08-01T00:00:00.000Z', toId: 't2', toTen: 'Tổ 3', nguoiPhuTrach: '',
   },
-];
-const DON_THU = [
   {
-    id: 'p1', stt: '2026-1', summary: 'Đơn tố giác', detailContent: 'Đơn tố giác', status: 'MOI_TIEP_NHAN',
-    ngayDeXuat: '2026-07-01T00:00:00.000Z',
-    assignedTeam: { id: 't1', name: 'Đội 2' },
-    assignedTo: null,
+    id: 'p1', loai: 'Đơn thư', ma: '2026-1', ten: 'Đơn tố giác', trangThai: 'MOI_TIEP_NHAN',
+    ngayDeXuat: '2026-07-01T00:00:00.000Z', toId: 't1', toTen: 'Đội 2', nguoiPhuTrach: '',
   },
 ];
 const TO = [
@@ -58,10 +49,10 @@ const TO = [
 
 function traDuLieu() {
   m.get.mockImplementation((url: string) => {
-    if (url.startsWith('/cases?')) return Promise.resolve({ data: { data: VU_AN, total: 3179 } });
-    if (url.startsWith('/incidents?')) return Promise.resolve({ data: { data: VU_VIEC, total: 4141 } });
-    if (url.startsWith('/petitions?')) return Promise.resolve({ data: { data: DON_THU, total: 36476 } });
-    if (url.startsWith('/teams')) return Promise.resolve({ data: { data: TO } });
+    if (url.startsWith('/workflow/chuyen-tra'))
+      return Promise.resolve({ data: { data: GOP, total: 3179 + 4141 + 36476, tranGop: 2000 } });
+    // GET /teams trả MẢNG THÔ (không bọc {data}) — đúng như máy chủ.
+    if (url.startsWith('/teams')) return Promise.resolve({ data: TO });
     return Promise.resolve({ data: [] });
   });
   m.patch.mockResolvedValue({ data: {} });
@@ -73,6 +64,7 @@ function thamSoCuoi(duong: string): URLSearchParams {
   const g = goi(duong);
   return new URLSearchParams((g[g.length - 1] ?? '').split('?')[1] ?? '');
 }
+const ds = () => thamSoCuoi('/workflow/chuyen-tra?');
 
 function dung(url = '/workflow/transfer', flags?: FeatureFlag[]) {
   const router = createMemoryRouter([{ path: '/workflow/transfer', element: <TransferAndReturnPage /> }], {
@@ -88,13 +80,14 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     traDuLieu();
   });
 
-  it('gọi cả ba nguồn ở máy chủ, KHÔNG tải 50 dòng mỗi loại để lọc tại chỗ', async () => {
+  it('hỏi MỘT endpoint gộp ở máy chủ (không tự gộp ba nguồn ở trình duyệt)', async () => {
     dung();
     await screen.findByTestId('chuyen-tra-row-c1');
-    expect(goi('/cases?limit=50')).toEqual([]);
-    for (const d of ['/cases?', '/incidents?', '/petitions?']) {
-      expect(thamSoCuoi(d).get('limit')).toBe('20');
-    }
+    // Trình duyệt tự gộp thì phải xin `limit = trang × 20` mỗi nguồn — DTO chặn 100, trang 6 là 400 cả
+    // màn; và ba nguồn sắp theo STT nên gộp lại theo ngày là sai thứ tự.
+    for (const d of ['/cases?', '/incidents?', '/petitions?']) expect(goi(d)).toEqual([]);
+    expect(ds().get('limit')).toBe('20');
+    expect(ds().get('offset')).toBe('0');
   });
 
   it('cột đọc trường thật: mã hồ sơ, tên, ĐỘI hiện tại, người phụ trách, ngày đề xuất, trạng thái', async () => {
@@ -118,21 +111,21 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     );
   });
 
-  it('lọc loại hồ sơ → chỉ hỏi đúng nguồn ấy', async () => {
+  it('lọc loại hồ sơ gửi xuống máy chủ', async () => {
     dung();
     await screen.findByTestId('chuyen-tra-row-c1');
-    const truocIncidents = goi('/incidents?').length;
     fireEvent.change(screen.getByTestId('loc-loai-ho-so'), { target: { value: 'Vụ án' } });
-    await waitFor(() => expect(goi('/cases?').length).toBeGreaterThan(1));
-    expect(goi('/incidents?').length).toBe(truocIncidents);
-    expect(screen.queryByTestId('chuyen-tra-row-i1')).not.toBeInTheDocument();
+    await waitFor(() => expect(ds().get('loai')).toBe('Vụ án'));
+    expect(ds().get('offset')).toBe('0');
   });
 
-  it('thẻ tìm "tất cả các cột" gửi xuống CẢ BA nguồn', async () => {
+  it('thẻ tìm "tất cả các cột" và ngày gửi xuống máy chủ; ngày gõ dở không gửi', async () => {
     dung('/workflow/transfer?transferReturn_tk=*~trom');
-    await waitFor(() => expect(thamSoCuoi('/cases?').getAll('tk')).toEqual(['*~trom']));
-    expect(thamSoCuoi('/incidents?').getAll('tk')).toEqual(['*~trom']);
-    expect(thamSoCuoi('/petitions?').getAll('tk')).toEqual(['*~trom']);
+    await waitFor(() => expect(ds().getAll('tk')).toEqual(['*~trom']));
+    fireEvent.change(screen.getByTestId('loc-tu-ngay'), { target: { value: '2026-01-01' } });
+    fireEvent.change(screen.getByTestId('loc-den-ngay'), { target: { value: '0002-01-01' } });
+    await waitFor(() => expect(ds().get('fromDate')).toBe('2026-01-01'));
+    expect(ds().get('toDate')).toBeNull();
   });
 
   it('Chuyển đội gọi PATCH /:id/assign với TỔ THẬT, không ghi đè ô chữ đơn vị', async () => {
@@ -171,7 +164,7 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     expect(screen.getByTestId('btn-tra-ho-so')).toBeEnabled();
   });
 
-  it('Trả hồ sơ ghi trạng thái ĐÃ CHUYỂN ĐƠN VỊ và đơn vị nhận', async () => {
+  it('Trả Vụ việc: đổi trạng thái qua PATCH /:id/status (UpdateIncidentDto KHÔNG nhận `status`), đơn vị nhận qua PUT', async () => {
     dung();
     await screen.findByTestId('chuyen-tra-row-i1');
     fireEvent.click(screen.getByTestId('chon-i1'));
@@ -179,11 +172,9 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     fireEvent.change(await screen.findByTestId('tra-don-vi-nhan'), { target: { value: 'Công an Quận 1' } });
     fireEvent.click(screen.getByTestId('btn-xac-nhan-tra'));
     await waitFor(() =>
-      expect(m.put).toHaveBeenCalledWith('/incidents/i1', {
-        status: 'DA_CHUYEN_DON_VI',
-        chuyenDenDonVi: 'Công an Quận 1',
-      }),
+      expect(m.patch).toHaveBeenCalledWith('/incidents/i1/status', { status: 'DA_CHUYEN_DON_VI' }),
     );
+    expect(m.put).toHaveBeenCalledWith('/incidents/i1', { chuyenDenDonVi: 'Công an Quận 1' });
   });
 
   it('KHÔNG còn nút Xuất Excel (không có API phía sau)', async () => {
@@ -206,21 +197,34 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     expect(screen.getByTestId('chuyen-tra-empty')).not.toHaveTextContent('Không tìm thấy hồ sơ');
   });
 
-  it('phân trang gộp: trang sau lấy đủ dòng của cả ba nguồn', async () => {
+  it('phân trang ở máy chủ: trang sau gửi offset 20, limit giữ 20', async () => {
     dung();
     await screen.findByTestId('chuyen-tra-row-c1');
     fireEvent.click(screen.getByTestId('chuyen-tra-next-page'));
-    await waitFor(() => expect(thamSoCuoi('/cases?').get('limit')).toBe('40'));
-    // Gộp ba nguồn rồi cắt: mỗi nguồn phải lấy tới hết trang đang xem, không phải chỉ 20 dòng đầu.
-    expect(thamSoCuoi('/incidents?').get('limit')).toBe('40');
-    expect(thamSoCuoi('/petitions?').get('limit')).toBe('40');
+    await waitFor(() => expect(ds().get('offset')).toBe('20'));
+    expect(ds().get('limit')).toBe('20');
   });
 
-  it('cờ tắt → ô chữ cũ gửi `search` cho cả ba nguồn', async () => {
+  it('dòng đã chọn rời bảng sau khi lọc → bỏ khỏi lựa chọn, không thao tác lên hồ sơ không còn thấy', async () => {
+    dung();
+    await screen.findByTestId('chuyen-tra-row-c1');
+    fireEvent.click(screen.getByTestId('chon-c1'));
+    expect(screen.getByTestId('btn-chuyen-doi')).toBeEnabled();
+    m.get.mockImplementation((url: string) => {
+      if (url.startsWith('/workflow/chuyen-tra'))
+        return Promise.resolve({ data: { data: GOP.filter((d) => d.id !== 'c1'), total: 2, tranGop: 2000 } });
+      if (url.startsWith('/teams')) return Promise.resolve({ data: TO });
+      return Promise.resolve({ data: [] });
+    });
+    fireEvent.change(screen.getByTestId('loc-loai-ho-so'), { target: { value: 'Vụ việc' } });
+    await waitFor(() => expect(screen.queryByTestId('chuyen-tra-row-c1')).not.toBeInTheDocument());
+    expect(screen.getByTestId('btn-chuyen-doi')).toBeDisabled();
+  });
+
+  it('cờ tắt → ô chữ cũ gửi `search`', async () => {
     dung('/workflow/transfer', CO_TAT_THE);
     const o = await screen.findByTestId('quick-search-input');
     fireEvent.change(o, { target: { value: 'trom' } });
-    await waitFor(() => expect(thamSoCuoi('/cases?').get('search')).toBe('trom'));
-    expect(thamSoCuoi('/petitions?').get('search')).toBe('trom');
+    await waitFor(() => expect(ds().get('search')).toBe('trom'));
   });
 });

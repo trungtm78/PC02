@@ -42,7 +42,6 @@ import {
   INCIDENT_STATUS_LABEL,
   PETITION_STATUS_LABEL,
 } from '@/shared/enums/status-labels';
-import { hoTen } from '@/lib/hoTen';
 
 type LoaiHoSo = 'Vụ án' | 'Vụ việc' | 'Đơn thư';
 
@@ -57,6 +56,8 @@ interface NguonHoSo {
   trangThaiTra: string | null;
   /** Cột ghi đơn vị nhận khi trả (chỉ Vụ việc có). */
   cotDonViNhan?: string;
+  /** Đường đổi trạng thái riêng (Vụ việc: PATCH `/:id/status`); bỏ trống = gửi `status` trong PUT. */
+  duongDoiTrangThai?: string;
   mauNhan: string;
 }
 
@@ -78,6 +79,7 @@ const NGUON: NguonHoSo[] = [
     nhanTrangThai: INCIDENT_STATUS_LABEL,
     trangThaiTra: IncidentStatus.DA_CHUYEN_DON_VI,
     cotDonViNhan: 'chuyenDenDonVi',
+    duongDoiTrangThai: '/status',
     mauNhan: 'bg-purple-100 text-purple-700',
   },
   {
@@ -95,6 +97,7 @@ const NGUON: NguonHoSo[] = [
 interface DongHoSo {
   id: string;
   loai: LoaiHoSo;
+  /** Mã hồ sơ THẬT theo từng loại (caseCode / code / stt) — máy chủ đã chọn đúng cột. */
   ma: string | null;
   ten: string;
   toId: string | null;
@@ -102,22 +105,13 @@ interface DongHoSo {
   nguoiPhuTrach: string;
   ngayDeXuat: string | null;
   trangThai: string;
-  nhanTrangThai: string;
 }
 
-interface HoSoMayChu {
-  id: string;
-  caseCode?: string | null;
-  code?: string | null;
-  stt?: string | null;
-  name?: string | null;
-  summary?: string | null;
-  detailContent?: string | null;
-  status: string;
-  ngayDeXuat?: string | null;
-  assignedTeam?: { id?: string | null; name?: string | null } | null;
-  investigator?: { firstName?: string | null; lastName?: string | null; username?: string } | null;
-  assignedTo?: { firstName?: string | null; lastName?: string | null; username?: string } | null;
+interface KetQuaChuyenTra {
+  data: DongHoSo[];
+  total: number;
+  /** Số dòng còn lật được của bảng gộp — chạm trần thì tắt nút sang trang và nói ra. */
+  tranGop: number;
 }
 
 const PAGE_SIZE = 20;
@@ -140,14 +134,13 @@ interface FilterData {
 
 const BO_LOC_TRONG: FilterData = { quickSearch: '', loai: '', fromDate: '', toDate: '' };
 
-const mocThoiGian = (d: DongHoSo) => (d.ngayDeXuat ? new Date(d.ngayDeXuat).getTime() : -Infinity);
-
 export default function TransferAndReturnPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [rows, setRows] = useState<DongHoSo[]>([]);
   const [total, setTotal] = useState(0);
+  const [tranGop, setTranGop] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
@@ -176,59 +169,37 @@ export default function TransferAndReturnPage() {
   if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
   const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
   const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // Bảng gộp chỉ lật được tới trần máy chủ đặt (máy chủ 400 nếu vượt) — nói ra thay vì để bấm rồi lỗi.
+  const soDongLatDuoc = tranGop ? Math.min(total, tranGop) : total;
+  const totalPages = Math.max(1, Math.ceil(soDongLatDuoc / PAGE_SIZE));
 
   const luotTai = useRef(0);
   const [lanTai, setLanTai] = useState(0);
 
   const taiDuLieu = useCallback(async () => {
     const luot = ++luotTai.current;
-    const nguonCanHoi = NGUON.filter((n) => !filters.loai || n.loai === filters.loai);
-    // Gộp ba nguồn rồi cắt trang: mỗi nguồn phải lấy TỚI HẾT trang đang xem, vì dòng của trang 2 có thể
-    // nằm ở nguồn nào cũng được.
-    const denHetTrang = page * PAGE_SIZE;
+    const q = new URLSearchParams(thamSoLoc);
+    if (filters.loai) q.set('loai', filters.loai);
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) q.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) q.set('toDate', filters.toDate);
+    q.set('limit', String(PAGE_SIZE));
+    q.set('offset', String((page - 1) * PAGE_SIZE));
     setLoading(true);
     setLoadError('');
     try {
-      const ketQua = await Promise.all(
-        nguonCanHoi.map(async (n) => {
-          const q = new URLSearchParams(thamSoLoc);
-          q.set('limit', String(denHetTrang));
-          q.set('offset', '0');
-          if (filters.fromDate && laGiaTriNgay(filters.fromDate)) q.set(n.tuNgay, filters.fromDate);
-          if (filters.toDate && laGiaTriNgay(filters.toDate)) q.set(n.denNgay, filters.toDate);
-          const res = await api.get<{ data?: HoSoMayChu[]; total?: number }>(`${n.duong}?${q}`);
-          const ds = Array.isArray(res.data?.data) ? res.data.data : [];
-          return {
-            tong: Number(res.data?.total ?? 0),
-            dong: ds.map<DongHoSo>((r) => ({
-              id: r.id,
-              loai: n.loai,
-              ma: r.caseCode ?? r.code ?? r.stt ?? null,
-              ten: r.name ?? r.detailContent ?? r.summary ?? '',
-              toId: r.assignedTeam?.id ?? null,
-              toTen: r.assignedTeam?.name ?? '',
-              nguoiPhuTrach: hoTen(r.investigator ?? r.assignedTo ?? undefined),
-              ngayDeXuat: r.ngayDeXuat ?? null,
-              trangThai: r.status,
-              nhanTrangThai: n.nhanTrangThai[r.status] ?? r.status,
-            })),
-          };
-        }),
-      );
+      const res = await api.get<KetQuaChuyenTra>(`/workflow/chuyen-tra?${q}`);
       if (luot !== luotTai.current) return;
-      const gop = ketQua
-        .flatMap((k) => k.dong)
-        .sort((a, b) => mocThoiGian(b) - mocThoiGian(a) || a.id.localeCompare(b.id));
-      const tong = ketQua.reduce((n, k) => n + k.tong, 0);
-      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      const tong = Number(res.data?.total ?? 0);
+      const tran = Number(res.data?.tranGop ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(Math.min(tong, tran || tong) / PAGE_SIZE));
       if (page > trangCuoi) {
         luotTai.current++;
         setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
         return;
       }
-      setRows(gop.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+      setRows(Array.isArray(res.data?.data) ? res.data.data : []);
       setTotal(tong);
+      setTranGop(tran);
     } catch (e) {
       if (luot !== luotTai.current) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả".
@@ -256,14 +227,20 @@ export default function TransferAndReturnPage() {
 
   // Hồ sơ được chọn sẵn khi điều hướng từ màn khác.
   const [banner, setBanner] = useState<{ ma: string; tuMan: string } | null>(null);
+  const daChonSan = useRef(false);
   useEffect(() => {
     const state = location.state as {
       preselectedRecord?: { id: string; caseNumber?: string };
       sourceScreen?: string;
     } | null;
     if (!state?.preselectedRecord) return;
+    // CHỈ MỘT LẦN: `window.history.replaceState` không xoá `location.state` của react-router, nên nếu
+    // không chốt lại thì mỗi lần tải lại danh sách (vd sau khi chuyển đội) lựa chọn của cán bộ lại bị
+    // kéo về đúng hồ sơ được chọn sẵn.
+    if (daChonSan.current) return;
     const dong = rows.find((r) => r.id === state.preselectedRecord?.id);
     if (!dong) return;
+    daChonSan.current = true;
     setChon([dong.id]);
     setBanner({
       ma: state.preselectedRecord.caseNumber ?? formatHoSoCode(dong.ma),
@@ -522,7 +499,7 @@ export default function TransferAndReturnPage() {
                     <td className="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">{formatVNDate(r.ngayDeXuat)}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                        {r.nhanTrangThai}
+                        {nguonCua(r.loai).nhanTrangThai[r.trangThai] ?? r.trangThai}
                       </span>
                     </td>
                   </tr>
@@ -595,6 +572,7 @@ function nguonCua(loai: LoaiHoSo): NguonHoSo {
 interface To {
   id: string;
   name: string;
+  isActive?: boolean;
 }
 
 /**
@@ -617,9 +595,14 @@ function HopChuyenDoi({
   const [ketQua, setKetQua] = useState<{ xong: string[]; hong: string[] } | null>(null);
 
   useEffect(() => {
+    // `GET /teams` trả MẢNG THÔ (không bọc `{data}`) — đọc `r.data.data` là danh sách luôn rỗng và nút
+    // xác nhận không bao giờ bật được. Lọc tổ đã ngừng hoạt động (prod: 23/215).
     api
-      .get<{ data: To[] }>('/teams')
-      .then((r) => setDsTo(r.data.data ?? []))
+      .get<To[] | { data?: To[] }>('/teams')
+      .then((r) => {
+        const ds = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
+        setDsTo(ds.filter((t) => t.isActive !== false));
+      })
       .catch(() => setDsTo([]));
   }, []);
 
@@ -742,12 +725,19 @@ function HopTraHoSo({
       const n = nguonCua(r.loai);
       if (!n.trangThaiTra) continue;
       try {
-        await api.put(`${n.duong}/${r.id}`, {
-          status: n.trangThaiTra,
-          ...(n.cotDonViNhan && donViNhan.trim()
-            ? { [n.cotDonViNhan]: donViNhan.trim() }
-            : {}),
-        });
+        // Vụ việc đổi trạng thái qua đường RIÊNG: `UpdateIncidentDto` đã gỡ `status` và máy chủ bật
+        // `forbidNonWhitelisted`, nên gửi kèm trong PUT là 400. Vụ án thì PUT nhận `status`.
+        if (n.duongDoiTrangThai) {
+          await api.patch(`${n.duong}/${r.id}${n.duongDoiTrangThai}`, { status: n.trangThaiTra });
+          if (n.cotDonViNhan && donViNhan.trim()) {
+            await api.put(`${n.duong}/${r.id}`, { [n.cotDonViNhan]: donViNhan.trim() });
+          }
+        } else {
+          await api.put(`${n.duong}/${r.id}`, {
+            status: n.trangThaiTra,
+            ...(n.cotDonViNhan && donViNhan.trim() ? { [n.cotDonViNhan]: donViNhan.trim() } : {}),
+          });
+        }
         xong.push(formatHoSoCode(r.ma) || r.id);
       } catch (e) {
         hong.push(
