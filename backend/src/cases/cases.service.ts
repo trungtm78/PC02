@@ -32,7 +32,7 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
 import {
   apDungKyVaoWhere,
-  TRUONG_NGAY_THONG_KE,
+  phuDeKyXuat,
 } from '../common/utils/thong-ke-ky.util';
 import { buildIncidentFromCase, shouldAutoCreateIncident } from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -2217,18 +2217,11 @@ export class CasesService {
       await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
       query.tk,
     );
-    const tu = query.fromDate || ky.tuNgay;
-    const den = query.toDate || ky.denNgay;
-    const dmy = (s: string) => s.split('-').reverse().join('/');
-    const tenCot =
-      ky.truong === TRUONG_NGAY_THONG_KE.NGAY_TAO ? 'Ngày tạo' : 'Ngày đề xuất';
     BcaExcelHelper.addHeader(
       sheet,
       COL_COUNT,
       'DANH SÁCH VỤ ÁN THEO PHƯỜNG/XÃ',
-      tu || den
-        ? `${tenCot} từ ${tu ? dmy(tu) : '…'} đến ${den ? dmy(den) : '…'}`
-        : 'Tất cả thời gian',
+      phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
     );
     BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
 

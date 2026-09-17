@@ -156,3 +156,22 @@ export function apDungKyVaoWhere(
   if (den) dieuKien.lte = new Date(`${den}T23:59:59.999`);
   where[cot] = { ...(where[cot] as object | undefined), ...dieuKien };
 }
+
+/**
+ * Phụ đề khoảng ngày cho tệp xuất — ĐÚNG khoảng `apDungKyVaoWhere` đã áp (ô ngày người dùng thắng, trống
+ * thì lấy mốc kỳ mặc định). Viết "Tất cả thời gian" khi kỳ không lọc ngày, KHÔNG khi ô ngày chỉ trống.
+ */
+export function phuDeKyXuat(
+  ky: Pick<KyDaGiai, 'truong' | 'tuNgay' | 'denNgay'>,
+  nguoiDungTuNgay: string | undefined | null,
+  nguoiDungDenNgay: string | undefined | null,
+  tenCotTiepNhan: string,
+): string {
+  const tu = nguoiDungTuNgay || ky.tuNgay;
+  const den = nguoiDungDenNgay || ky.denNgay;
+  if (!tu && !den) return 'Tất cả thời gian';
+  const dmy = (s: string) => s.split('-').reverse().join('/');
+  const tenCot =
+    ky.truong === TRUONG_NGAY_THONG_KE.NGAY_TAO ? 'Ngày tạo' : tenCotTiepNhan;
+  return `${tenCot} từ ${tu ? dmy(tu) : '…'} đến ${den ? dmy(den) : '…'}`;
+}

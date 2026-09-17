@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import WardIncidentsPage from '../WardIncidentsPage';
 import OtherClassificationPage from '../OtherClassificationPage';
 
 vi.mock('@/lib/api', () => ({
@@ -37,7 +36,6 @@ const LOI = {
 };
 
 const MAN: [string, React.ComponentType, string][] = [
-  ['Vụ việc phường/xã', WardIncidentsPage, 'ward-incidents-load-error'],
   ['Phân loại khác', OtherClassificationPage, 'others-load-error'],
 ];
 

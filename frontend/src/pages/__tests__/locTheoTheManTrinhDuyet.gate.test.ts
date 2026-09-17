@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import vuViecPhuong from '../classification/WardIncidentsPage.tsx?raw';
 import phanLoaiKhac from '../classification/OtherClassificationPage.tsx?raw';
 import donTrung from '../classification/DuplicatePetitionsPage.tsx?raw';
 import chuyenTra from '../workflow/TransferAndReturnPage.tsx?raw';
@@ -7,8 +6,8 @@ import hoSoMoi from '../cases/InitialCasesPage.tsx?raw';
 import danhMuc from '../admin/MasterClassPage.tsx?raw';
 
 /**
- * CỔNG: 6 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
- * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường rời cổng 17/09/2026
+ * CỔNG: 5 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
+ * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường, Vụ việc phường rời cổng 17/09/2026
  * — chuyển xuống máy chủ (`*.timKiemThe.test.tsx` của từng màn).
  *
  * Trước M5, mỗi màn tự chép một đoạn `toLowerCase().includes` trên vài cột cố định — gõ "trom cap"
@@ -19,7 +18,6 @@ import danhMuc from '../admin/MasterClassPage.tsx?raw';
  * Đọc mã nguồn dạng văn bản (`?raw`) vì khai và hook nằm trong component.
  */
 const MAN = [
-  ['Vụ việc phường/xã', vuViecPhuong],
   ['Phân loại khác', phanLoaiKhac],
   ['Đơn trùng', donTrung],
   ['Chuyển đội / Trả hồ sơ', chuyenTra],
@@ -70,7 +68,7 @@ const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.t
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
-describe('GATE tìm kiếm — 6 màn lọc phía trình duyệt', () => {
+describe('GATE tìm kiếm — 5 màn lọc phía trình duyệt', () => {
   it.each(MAN)('%s: dùng useLocTheoThe + OTimKiemThe, bảng lọc từ dòng của hook', (_ten, src) => {
     expect(dungHook(src)).toBe(true);
     expect(coOThe(src)).toBe(true);
@@ -90,8 +88,8 @@ describe('GATE tìm kiếm — 6 màn lọc phía trình duyệt', () => {
   });
 
   it('gieo lỗi: khai lại khoá stt ở màn gán STT bằng số dòng → cổng bắt được', () => {
-    expect(STT_LA_SO_DONG.test(vuViecPhuong)).toBe(true); // màn mẫu đúng là gán số dòng
-    const khaiLai = `${vuViecPhuong}\nconst X = [{ key: 'stt', nhan: 'STT', kieu: 'ma' }];`;
+    expect(STT_LA_SO_DONG.test(phanLoaiKhac)).toBe(true); // màn mẫu đúng là gán số dòng
+    const khaiLai = `${phanLoaiKhac}\nconst X = [{ key: 'stt', nhan: 'STT', kieu: 'ma' }];`;
     expect(sttSoDongTimDuoc(khaiLai)).toBe(true);
   });
 
@@ -102,19 +100,19 @@ describe('GATE tìm kiếm — 6 màn lọc phía trình duyệt', () => {
   });
 
   it('gieo lỗi: gỡ hook / gỡ điều kiện cờ / trùng tiền tố thì cổng bắt được', () => {
-    const boHook = vuViecPhuong.replace(/useLocTheoThe\(\{/g, 'useKhac({');
+    const boHook = phanLoaiKhac.replace(/useLocTheoThe\(\{/g, 'useKhac({');
     expect(dungHook(boHook)).toBe(false);
 
-    const boCo = vuViecPhuong.replace(/!theBat\s*&&\s*/g, '');
-    expect(boCo).not.toBe(vuViecPhuong);
+    const boCo = phanLoaiKhac.replace(/!theBat\s*&&\s*/g, '');
+    expect(boCo).not.toBe(phanLoaiKhac);
     expect(soChuCuKhongChanCo(boCo)).toBe(true);
 
-    const trung = phanLoaiKhac.replace(/prefix:\s*'otherClassification'/, "prefix: 'wardIncidents'");
-    expect(prefixCua(trung)).toBe(prefixCua(vuViecPhuong));
+    const trung = hoSoMoi.replace(/prefix:\s*'initialCases'/, "prefix: 'otherClassification'");
+    expect(prefixCua(trung)).toBe(prefixCua(phanLoaiKhac));
   });
 
   it('gieo lỗi: lọc từ allData dù vẫn gọi hook → cổng bắt được', () => {
-    const boQuaHook = vuViecPhuong.replace(/timKiem\.dongLoc\.filter\(/g, 'allData.filter(');
+    const boQuaHook = phanLoaiKhac.replace(/timKiem\.dongLoc\.filter\(/g, 'allData.filter(');
     expect(dungHook(boQuaHook)).toBe(true);
     expect(locTuHook(boQuaHook)).toBe(false);
   });

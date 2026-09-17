@@ -1,8 +1,13 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { IncidentStatus } from "@/shared/enums/generated";
-import { INCIDENT_STATUS_LABEL } from "@/shared/enums/status-labels";
-import { CASE_PHASE } from "@/shared/enums/case-phase";
+/**
+ * WardIncidentsPage — Vụ việc phường/xã.
+ *
+ * 17/09/2026: tìm kiếm, lọc, phân trang và thẻ KPI chạy ở MÁY CHỦ. Trước đó màn tải 100/4.725 vụ việc rồi lọc
+ * tại chỗ; STT là số dòng, Phường đọc `unitId` (prod 0%), Loại đọc `incidentType` (0%), Địa điểm hiện mô tả,
+ * Mức độ gán cứng "Trung bình": đều đã bỏ, cột nay đọc đúng trường thật (đo prod cùng ngày, xem ca kiểm).
+ */
+
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Download,
@@ -10,200 +15,208 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Calendar,
   MapPin,
-  AlertTriangle,
+  Scale,
+  User,
   FileText,
-  Clock,
+  Inbox,
   CheckCircle,
-  XCircle,
-} from "lucide-react";
-import { extractApiError } from "@/lib/api-errors";
-import { api } from "@/lib/api";
-import { soLieuHienThi } from "@/lib/soLieuHienThi";
-import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
-import { formatVNDate } from "../../lib/dates";
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+  PauseCircle,
+} from 'lucide-react';
+import { IncidentStatus } from '@/shared/enums/generated';
+import { INCIDENT_STATUS_LABEL, INCIDENT_STATUS_BADGE, BADGE_DEFAULT } from '@/shared/enums/status-labels';
+import { extractApiError } from '@/lib/api-errors';
+import { api } from '@/lib/api';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { WardFilterDropdown } from '@/components/WardFilterDropdown';
+import { formatVNDate } from '../../lib/dates';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_VU_VIEC } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { nhanKyThongKe } from '@/constants/thongKeSettings';
 
-interface WardIncident {
+interface WardIncidentRow {
   id: string;
-  stt: number;
-  incidentName: string;
-  type: string;
-  location: string;
-  ward: string;
-  district: string;
-  reportedBy: string;
-  reportedDate: string;
-  status: "pending" | "investigating" | "resolved" | "closed";
-  statusLabel: string;
-  priority: "low" | "medium" | "high";
-  priorityLabel: string;
-  description: string;
+  code: string | null;
+  name: string;
+  crimeChinh?: { name: string } | null;
+  benVu?: string | null;
+  ngayDeXuat?: string | null;
+  status: IncidentStatus;
+  assignedTeam?: { ward?: { name?: string | null } | null } | null;
 }
+
+type NhomGiaiDoan = 'tiep-nhan' | 'xac-minh' | 'ket-qua' | 'tam-dinh-chi';
+
+interface ThongKeVuViec {
+  total: number;
+  byGroup?: Partial<Record<NhomGiaiDoan, number>>;
+  /** Kỳ máy chủ ĐÃ áp cho cả danh sách lẫn thẻ số: ô ngày trống thì là kỳ mặc định admin đặt. */
+  ky?: { ky: string; tuNgay: string | null; denNgay: string | null };
+}
+
+const PAGE_SIZE = 20;
+
+/**
+ * Cột của bảng — khoá `timKiem` là thẻ tìm được trên cột ấy (cổng `timKiemCotKhai` đọc đúng khai này).
+ * Loại (0%), Địa điểm (địa chỉ xảy ra 6/1.165; bản cũ hiện mô tả) và Mức độ (gán cứng) đã gỡ.
+ */
+const COT = [
+  { tieuDe: 'STT', timKiem: 'stt' },
+  { tieuDe: 'Tên vụ việc', timKiem: 'tenVuViec' },
+  { tieuDe: 'Tội danh', timKiem: 'toiDanhChinh' },
+  { tieuDe: 'Người cung cấp, bị hại', timKiem: 'nguoiGui' },
+  { tieuDe: 'Phường/Xã' },
+  { tieuDe: 'Ngày đề xuất', timKiem: 'ngayDeXuat' },
+  { tieuDe: 'Trạng thái', timKiem: 'trangThai' },
+] as const;
+
+/** Nhãn thẻ theo ĐÚNG tiêu đề cột của bảng này (khai chung mang nhãn của màn Vụ việc chính). */
+const NHAN_TREN_BANG: Record<string, string> = {
+  stt: 'STT',
+  tenVuViec: 'Tên vụ việc',
+  toiDanhChinh: 'Tội danh',
+  nguoiGui: 'Người cung cấp, bị hại',
+  ngayDeXuat: 'Ngày đề xuất',
+  trangThai: 'Trạng thái',
+};
+const KHAI_VU_VIEC_PHUONG = TIM_KIEM_VU_VIEC.filter((t) => t.key in NHAN_TREN_BANG).map((t) => ({
+  ...t,
+  nhan: NHAN_TREN_BANG[t.key],
+}));
+
+const GIA_TRI_CHON_VU_VIEC_PHUONG = {
+  trangThai: (Object.keys(INCIDENT_STATUS_LABEL) as IncidentStatus[]).map((s) => ({
+    value: s,
+    label: INCIDENT_STATUS_LABEL[s],
+  })),
+};
 
 interface FilterData {
   quickSearch: string;
   fromDate: string;
   toDate: string;
-  ward: string;
-  district: string;
   status: string;
-  priority: string;
 }
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_VU_VIEC_PHUONG: readonly TruongLoc<WardIncident>[] = [
-  { key: 'tenVuViec', nhan: 'Tên vụ việc', kieu: 'chu', lay: (i) => i.incidentName },
-  { key: 'loai', nhan: 'Loại', kieu: 'chu', lay: (i) => i.type },
-  { key: 'diaDiem', nhan: 'Địa điểm', kieu: 'chu', lay: (i) => i.location },
-  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (i) => [i.ward, i.district] },
-  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay', lay: (i) => i.reportedDate },
-  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (i) => i.priority },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (i) => i.status },
-];
-
-const GIA_TRI_CHON_VU_VIEC_PHUONG = {
-  mucDo: [
-    { value: 'low', label: 'Thấp' },
-    { value: 'medium', label: 'Trung bình' },
-    { value: 'high', label: 'Cao' },
-  ],
-  trangThai: [
-    { value: 'pending', label: 'Chờ xử lý' },
-    { value: 'investigating', label: 'Đang xác minh' },
-    { value: 'resolved', label: 'Đã giải quyết' },
-    { value: 'closed', label: 'Đã đóng' },
-  ],
-};
+const BO_LOC_TRONG: FilterData = { quickSearch: '', fromDate: '', toDate: '', status: '' };
 
 export default function WardIncidentsPage() {
   const navigate = useNavigate();
-  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
 
-  const [allData, setAllData] = useState<WardIncident[]>([]);
+  const [rows, setRows] = useState<WardIncidentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [wardTeamId, setWardTeamId] = useState('');
+  const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
 
-  const [filters, setFilters] = useState<FilterData>({
-    quickSearch: "",
-    fromDate: "",
-    toDate: "",
-    ward: "",
-    district: "",
-    status: "",
-    priority: "",
-  });
-
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const res = await api.get("/incidents?limit=100");
-        const mapped: WardIncident[] = (res.data.data ?? []).map((item: any, i: number) => ({
-          id: item.id,
-          stt: i + 1,
-          incidentName: item.name,
-          type: item.incidentType ?? "",
-          location: item.description ?? "",
-          ward: item.unitId ?? "",
-          district: item.unitId ?? "",
-          reportedBy: item.investigator ? `${item.investigator.firstName ?? ""} ${item.investigator.lastName ?? ""}`.trim() : "",
-          reportedDate: formatVNDate(item.createdAt),
-          status: (() => {
-            const m: Record<string, string> = {
-              [IncidentStatus.TIEP_NHAN]: "pending",
-              [IncidentStatus.DANG_XAC_MINH]: "investigating",
-              [IncidentStatus.DA_GIAI_QUYET]: "resolved",
-              [IncidentStatus.TAM_DINH_CHI]: "closed",
-              [IncidentStatus.QUA_HAN]: "closed",
-            };
-            return m[item.status] ?? "pending";
-          })() as WardIncident["status"],
-          statusLabel: INCIDENT_STATUS_LABEL[item.status as IncidentStatus] ?? item.status ?? "",
-          priority: "medium" as const,
-          priorityLabel: "Trung bình",
-          description: item.description ?? "",
-        }));
-        setAllData(mapped);
-      } catch (e) {
-        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-        setAllData([]);
-        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, []);
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
+  const timKiem = useTheTimKiem({
     prefix: 'wardIncidents',
     khai: KHAI_VU_VIEC_PHUONG,
     giaTriChon: GIA_TRI_CHON_VU_VIEC_PHUONG,
-    dong: allData,
     bat: theBat,
   });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
-  const filteredData = useMemo(() => {
-    return timKiem.dongLoc.filter((incident) => {
-      if (!theBat && filters.quickSearch) {
-        const searchLower = filters.quickSearch.toLowerCase();
-        const matchesSearch =
-          String(incident.stt).toLowerCase().includes(searchLower) ||
-          incident.incidentName.toLowerCase().includes(searchLower) ||
-          incident.type.toLowerCase().includes(searchLower) ||
-          incident.ward.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
+  /** Tham số lọc chung của danh sách, thẻ KPI và tệp xuất (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    if (wardTeamId) p.set('wardTeamId', wardTeamId);
+    // Vụ việc nhận ngày đề xuất qua `fromDateRange`/`toDateRange`. Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ
+    // số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDateRange', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDateRange', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate, wardTeamId]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeVuViec | null>(null);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (Làm mới). */
+  const [lanTai, setLanTai] = useState(0);
+
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [res, tk] = await Promise.all([
+        api.get<{ data?: WardIncidentRow[]; total?: number }>(`/incidents?${danhSach}`),
+        api.get<ThongKeVuViec>(`/incidents/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data?.total ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        // Tổng giảm dưới trang đang xem → kẹp về trang cuối (lượt này không hạ cờ loading).
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
       }
+      setRows(Array.isArray(res.data?.data) ? res.data.data : []);
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
+      setRows([]);
+      setTotal(0);
+      setThongKe(null);
+      setLoadError(extractApiError(e, 'Không tải được dữ liệu. Vui lòng thử lại.').messages.join(', '));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, filters.status, page, khoaLoc, lanTai]);
 
-      if (filters.fromDate && incident.reportedDate < filters.fromDate) return false;
-      if (filters.toDate && incident.reportedDate > filters.toDate) return false;
-      if (filters.ward && incident.ward !== filters.ward) return false;
-      if (filters.district && incident.district !== filters.district) return false;
-      if (filters.status && incident.status !== filters.status) return false;
-      if (filters.priority && incident.priority !== filters.priority) return false;
-
-      return true;
-    });
-  }, [timKiem.dongLoc, theBat, filters]);
+  useEffect(() => {
+    void taiDuLieu();
+  }, [taiDuLieu]);
 
   const handleResetFilters = () => {
     timKiem.xoaHet();
-    setFilters({
-      quickSearch: "",
-      fromDate: "",
-      toDate: "",
-      ward: "",
-      district: "",
-      status: "",
-      priority: "",
-    });
+    setFilters(BO_LOC_TRONG);
+    setWardTeamId('');
+    setLanTai((n) => n + 1);
   };
 
-  const handleView = (incident: WardIncident) => {
-    navigate(`/incidents/${incident.id}`);
-  };
+  const xemHoSo = (id: string) => navigate(`/incidents/${id}`);
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
-      const res = await api.get('/incidents/export/ward', {
-        params: {
-          unitId: filters.ward || filters.district || undefined,
-          fromDate: filters.fromDate || undefined,
-          toDate: filters.toDate || undefined,
-        },
-        responseType: 'blob',
-      });
+      // CÙNG bộ lọc với bảng: tệp xuất là đúng những hồ sơ cán bộ đang nhìn thấy (mọi trang).
+      const q = new URLSearchParams(thamSoLoc);
+      if (filters.status) q.set('status', filters.status);
+      const res = await api.get(`/incidents/export/ward?${q}`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
@@ -217,115 +230,62 @@ export default function WardIncidentsPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filters]);
+  }, [thamSoLoc, filters.status]);
 
-  const getStatusBadge = (status: WardIncident["status"], label: string) => {
-    const styles = {
-      pending: "bg-amber-600 text-white",
-      investigating: "bg-blue-600 text-white",
-      resolved: "bg-green-600 text-white",
-      closed: "bg-slate-500 text-white",
-    };
+  // Thẻ KPI lấy nhóm giai đoạn MÁY CHỦ đếm trên cùng bộ lọc. Chưa có số → undefined → dấu gạch.
+  const nhom = (k: NhomGiaiDoan) => (thongKe ? (thongKe.byGroup?.[k] ?? 0) : undefined);
 
-    const icons = {
-      pending: <Clock className="w-3 h-3" />,
-      investigating: <Search className="w-3 h-3" />,
-      resolved: <CheckCircle className="w-3 h-3" />,
-      closed: <XCircle className="w-3 h-3" />,
-    };
-
-    return (
-      <span
-        data-testid={`status-badge-${status}`}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium ${styles[status]}`}
-      >
-        {icons[status]}
-        {label}
-      </span>
-    );
+  const THE_KPI = [
+    { testid: 'kpi-card-total', nhan: 'Tổng vụ việc', so: thongKe?.total, mau: 'slate', Icon: FileText },
+    { testid: 'kpi-card-tiep-nhan', nhan: 'Tiếp nhận', so: nhom('tiep-nhan'), mau: 'amber', Icon: Inbox },
+    { testid: 'kpi-card-xac-minh', nhan: 'Xác minh & giải quyết', so: nhom('xac-minh'), mau: 'blue', Icon: Search },
+    { testid: 'kpi-card-ket-qua', nhan: 'Kết quả', so: nhom('ket-qua'), mau: 'green', Icon: CheckCircle },
+    { testid: 'kpi-card-tam-dinh-chi', nhan: 'Tạm đình chỉ', so: nhom('tam-dinh-chi'), mau: 'slate', Icon: PauseCircle },
+  ] as const;
+  const MAU_THE: Record<string, { vien: string; chu: string; nen: string }> = {
+    slate: { vien: 'border-slate-200', chu: 'text-[#003973]', nen: 'bg-[#003973]/10' },
+    blue: { vien: 'border-blue-200', chu: 'text-blue-600', nen: 'bg-blue-100' },
+    green: { vien: 'border-green-200', chu: 'text-green-600', nen: 'bg-green-100' },
+    amber: { vien: 'border-amber-200', chu: 'text-amber-600', nen: 'bg-amber-100' },
   };
 
-  const getPriorityBadge = (priority: WardIncident["priority"], label: string) => {
-    const styles = {
-      low: "bg-slate-100 text-slate-700 border border-slate-300",
-      medium: "bg-yellow-100 text-yellow-800 border border-yellow-300",
-      high: "bg-red-100 text-red-800 border border-red-300",
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${styles[priority]}`}
-      >
-        {priority === "high" && <AlertTriangle className="w-3 h-3" />}
-        {label}
-      </span>
-    );
-  };
-
-  const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((i) => i.status === CASE_PHASE.PENDING).length;
-  const investigatingCount = filteredData.filter((i) => i.status === CASE_PHASE.INVESTIGATING).length;
-  const resolvedCount = filteredData.filter((i) => i.status === CASE_PHASE.RESOLVED).length;
+  const soCot = COT.length + 1;
 
   return (
     <div className="p-6 space-y-6" data-testid="ward-incidents-page">
       <div>
         <h1 className="text-2xl font-bold text-[#003973]">Vụ việc Phường/Xã</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Quản lý các vụ việc dân sự và vi phạm hành chính cấp phường/xã
+          Vụ việc do các tổ phường/xã thụ lý — trong phạm vi dữ liệu được giao cho tài khoản của bạn.
         </p>
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách vụ việc phường/xã" data-testid="ward-incidents-load-error" />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600 mb-1">Tổng vụ việc</p>
-              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(totalCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
-              <FileText className="w-6 h-6 text-[#003973]" />
-            </div>
-          </div>
-        </div>
+      {thongKe?.ky && (
+        <p className="text-sm text-slate-500" data-testid="ward-incidents-ky">
+          Thống kê:{' '}
+          <span className="text-slate-700 font-medium">
+            {nhanKyThongKe(thongKe.ky.ky, thongKe.ky.tuNgay, thongKe.ky.denNgay)}
+          </span>{' '}
+          — danh sách và thẻ số cùng tính trong kỳ này; chọn ngày ở Bộ lọc để đổi.
+        </p>
+      )}
 
-        <div className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-amber-700 font-medium mb-1">Chờ xử lý</p>
-              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border-2 border-blue-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-700 font-medium mb-1">Đang xác minh</p>
-              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(investigatingCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Search className="w-6 h-6 text-blue-600" />
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {THE_KPI.map(({ testid, nhan, so, mau, Icon }) => (
+          <div key={testid} data-testid={testid} className={`bg-white rounded-lg border-2 ${MAU_THE[mau].vien} shadow-sm p-5`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 mb-1">{nhan}</p>
+                <p className={`text-3xl font-bold ${MAU_THE[mau].chu}`}>{soLieuHienThi(so, !!loadError)}</p>
+              </div>
+              <div className={`w-12 h-12 ${MAU_THE[mau].nen} rounded-lg flex items-center justify-center`}>
+                <Icon className={`w-6 h-6 ${MAU_THE[mau].chu}`} />
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg border-2 border-green-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-700 font-medium mb-1">Đã giải quyết</p>
-              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(resolvedCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -333,30 +293,27 @@ export default function WardIncidentsPage() {
           {loading ? (
             <span>Đang tải...</span>
           ) : (
-            <>Hiển thị <span className="font-medium text-[#003973]">{filteredData.length}</span> vụ việc</>
+            <>
+              Có <span data-testid="ward-incidents-total" className="font-medium text-[#003973]">{total}</span> vụ việc
+            </>
           )}
         </div>
-
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+            type="button"
+            onClick={() => setShowAdvancedFilter((v) => !v)}
             data-testid="filter-toggle-btn"
             className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
               showAdvancedFilter
-                ? "bg-[#003973]/10 border-[#003973] text-[#003973]"
-                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                ? 'bg-[#003973]/10 border-[#003973] text-[#003973]'
+                : 'border-slate-300 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <Filter className="w-4 h-4" />
-            Bộ lọc
-            {showAdvancedFilter ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            <Filter className="w-4 h-4" /> Bộ lọc
+            {showAdvancedFilter ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
-
           <button
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
             data-testid="export-excel-btn"
@@ -365,129 +322,91 @@ export default function WardIncidentsPage() {
             <Download className="w-4 h-4" />
             {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
-
           <button
+            type="button"
             onClick={handleResetFilters}
+            data-testid="reset-filters-btn"
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
-            Làm mới
+            <RotateCcw className="w-4 h-4" /> Làm mới
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        {theBat ? (
-          <OTimKiemThe
-            the={timKiem.the}
-            truong={KHAI_VU_VIEC_PHUONG}
-            khai={KHAI_VU_VIEC_PHUONG}
-            giaTriChon={GIA_TRI_CHON_VU_VIEC_PHUONG}
-            onThem={timKiem.them}
-            onBoThe={timKiem.boThe}
-            onBoGiaTri={timKiem.boGiaTri}
-            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
-          />
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              data-testid="quick-search-input"
-              value={filters.quickSearch}
-              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-              placeholder="Tìm kiếm theo STT, Tên vụ việc, Loại, Phường/Xã..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
-            />
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {theBat ? (
+            <div className="md:col-span-2">
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_VU_VIEC_PHUONG}
+                khai={KHAI_VU_VIEC_PHUONG}
+                giaTriChon={GIA_TRI_CHON_VU_VIEC_PHUONG}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            </div>
+          ) : (
+            <div className="md:col-span-2 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                data-testid="quick-search-input"
+                value={filters.quickSearch}
+                onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                placeholder="Tìm kiếm theo STT, Tên vụ việc, Tội danh..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+              />
+            </div>
+          )}
+          <WardFilterDropdown value={wardTeamId} onChange={(v) => setWardTeamId(v ?? '')} />
+        </div>
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất từ</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-from-date"
                     value={filters.fromDate}
                     onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-to-date"
                     value={filters.toDate}
                     onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Quận/Huyện</label>
-                <select
-                  value={filters.district}
-                  onChange={(e) => setFilters({ ...filters, district: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="Quận 1">Quận 1</option>
-                  <option value="Quận 3">Quận 3</option>
-                  <option value="Quận 5">Quận 5</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Phường/Xã</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select
-                    value={filters.ward}
-                    onChange={(e) => setFilters({ ...filters, ward: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="Phường 2">Phường 2</option>
-                    <option value="Phường 4">Phường 4</option>
-                    <option value="Phường 6">Phường 6</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Mức độ</label>
-                <select
-                  value={filters.priority}
-                  onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="low">Thấp</option>
-                  <option value="medium">Trung bình</option>
-                  <option value="high">Cao</option>
-                </select>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
                 <select
+                  data-testid="filter-status"
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
                 >
                   <option value="">Tất cả</option>
-                  <option value="pending">Chờ xử lý</option>
-                  <option value="investigating">Đang xác minh</option>
-                  <option value="resolved">Đã giải quyết</option>
-                  <option value="closed">Đã đóng</option>
+                  {GIA_TRI_CHON_VU_VIEC_PHUONG.trangThai.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -503,45 +422,28 @@ export default function WardIncidentsPage() {
                 <th className="px-3 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider w-20 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
                   Thao tác
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  STT
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Tên vụ việc
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Loại
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Địa điểm
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Phường/Xã
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Ngày tiếp nhận
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Mức độ
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Trạng thái
-                </th>
+                {COT.map((c) => (
+                  <th key={c.tieuDe} className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
+                    {c.tieuDe}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center">
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="ward-incidents-loading">
                     <p className="text-slate-500">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center">
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="ward-incidents-empty">
                     <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ việc nào'}</p>
-                    {!loadError && timKiem.coThe ? (
+                    <p className="text-slate-500 font-medium">
+                      {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ việc nào'}
+                    </p>
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
                       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                         <span>Không tìm thấy với:</span>
                         <DanhSachThe
@@ -552,81 +454,115 @@ export default function WardIncidentsPage() {
                         />
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400 mt-1">
-                        Thử điều chỉnh bộ lọc tìm kiếm
-                      </p>
+                      !loadError && <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
                     )}
                   </td>
                 </tr>
               ) : (
-                filteredData.map((incident) => (
-                  <tr
-                    key={incident.id}
-                    onClick={() => handleView(incident)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleView(incident); } }}
-                    tabIndex={0}
-                    className="cursor-pointer hover:bg-blue-50 transition-colors"
-                  >
-                    <td
-                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
-                      onClick={(e) => e.stopPropagation()}
+                rows.map((v) => {
+                  const phuong = v.assignedTeam?.ward?.name ?? '';
+                  return (
+                    <tr
+                      key={v.id}
+                      data-testid={`ward-incident-row-${v.id}`}
+                      onClick={() => xemHoSo(v.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          xemHoSo(v.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      className="cursor-pointer hover:bg-blue-50 transition-colors"
                     >
-                      <button
-                        onClick={() => handleView(incident)}
-                        data-testid={`view-btn-${incident.id}`}
-                        className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                        title="Xem chi tiết"
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-bold text-[#003973]">{incident.stt}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-800 font-medium line-clamp-2 max-w-xs">
-                        {incident.incidentName}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-700">{incident.type}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">
-                        {incident.location}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => xemHoSo(v.id)}
+                          data-testid={`view-btn-${v.id}`}
+                          className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm font-mono font-bold text-[#003973]">{formatHoSoCode(v.code)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-slate-800 font-medium line-clamp-2 max-w-xs">{v.name}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-1.5">
+                          <Scale className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{v.crimeChinh?.name || '—'}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-1.5">
+                          <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{v.benVu || '—'}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3" data-testid={`ward-cell-${v.id}`}>
                         <div className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-sm font-medium text-slate-800">
-                            {incident.ward}
-                          </span>
+                          <span className="text-sm font-medium text-slate-800">{phuong || '—'}</span>
                         </div>
-                        <span className="text-xs text-slate-500">{incident.district}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-sm text-slate-700">
-                          {incident.reportedDate}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-sm text-slate-700">{formatVNDate(v.ngayDeXuat)}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          data-testid={`status-badge-${v.status}-${v.id}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${INCIDENT_STATUS_BADGE[v.status] ?? BADGE_DEFAULT}`}
+                        >
+                          {INCIDENT_STATUS_LABEL[v.status] ?? v.status}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getPriorityBadge(incident.priority, incident.priorityLabel)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {getStatusBadge(incident.status, incident.statusLabel)}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} vụ việc
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="ward-incidents-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="ward-incidents-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

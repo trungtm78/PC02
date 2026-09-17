@@ -27,7 +27,11 @@ import { Prisma, IncidentStatus, LoaiNguonTin, LyDoKhongKhoiTo } from '@prisma/c
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildScopeFilter } from '../common/utils/scope-filter.util';
-import { apDungKyVaoWhere } from '../common/utils/thong-ke-ky.util';
+import {
+  apDungKyVaoWhere,
+  phuDeKyXuat,
+} from '../common/utils/thong-ke-ky.util';
+import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { tinhThoiHan, tinhHanSauGiaHan } from './tinh-thoi-han';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
@@ -262,6 +266,12 @@ export class IncidentsService {
           canBoNhap: {
             select: { id: true, firstName: true, lastName: true, username: true },
           },
+          // Màn Vụ việc phường/xã: cột Phường = phường của TỔ thụ lý (cùng trường `wardTeamId` lọc; `unitId`
+          // rỗng ở mọi vụ việc), cột Tội danh = tội danh chính (cùng thẻ `toiDanhChinh`).
+          assignedTeam: {
+            select: { id: true, name: true, ward: { select: { name: true } } },
+          },
+          crimeChinh: { select: { name: true } },
         },
         orderBy,
         take: limit,
@@ -1617,8 +1627,13 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   // EXPORT WARD INCIDENTS (Vụ việc theo phường/xã)
   // ─────────────────────────────────────────────
+  /**
+   * Xuất đúng những gì màn Vụ việc phường/xã đang lọc: CÙNG tham số (`tk`, `wardTeamId`, `status`, ngày…)
+   * và CÙNG điều kiện với `getList` — gọi thẳng `getList` theo từng trang. Bản cũ lọc `unitId` (rỗng ở mọi
+   * vụ việc), lọc ngày theo `createdAt` (ngày di trú), cắt ở 500 dòng và in cột Loại/Đơn vị trống.
+   */
   async exportWardIncidents(
-    query: { unitId?: string; fromDate?: string; toDate?: string },
+    query: QueryIncidentsDto,
     dataScope: DataScope | null | undefined,
     res: Response,
     actor?: { userId: string; ipAddress?: string; userAgent?: string },
@@ -1634,84 +1649,88 @@ export class IncidentsService {
         userAgent: actor.userAgent,
       });
     }
-    const where: Prisma.IncidentWhereInput = { deletedAt: null };
-    if (query.unitId) where.unitId = query.unitId;
-    if (query.fromDate) {
-      where.createdAt = { ...(where.createdAt as any), gte: new Date(query.fromDate) };
-    }
-    if (query.toDate) {
-      where.createdAt = { ...(where.createdAt as any), lte: new Date(query.toDate + 'T23:59:59.999Z') };
-    }
 
-    const scopeFilter = buildScopeFilter(dataScope);
-    if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        scopeFilter as Prisma.IncidentWhereInput,
-      ];
+    const MOI_LUOT = 200;
+    type DongPhuong = Awaited<
+      ReturnType<IncidentsService['getList']>
+    >['data'][number];
+    const dong: DongPhuong[] = [];
+    for (let offset = 0; ; offset += MOI_LUOT) {
+      const trang = await this.getList(
+        { ...query, limit: MOI_LUOT, offset },
+        dataScope,
+      );
+      dong.push(...trang.data);
+      if (trang.data.length < MOI_LUOT || dong.length >= trang.total) break;
     }
 
-    const records = await this.prisma.incident.findMany({
-      where,
-      take: 500,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        incidentType: true,
-        description: true,
-        diaChiXayRa: true,
-        createdAt: true,
-        status: true,
-        unitId: true,
-        investigator: { select: { firstName: true, lastName: true } },
-      },
-    });
-
-    const COL_COUNT = 8;
-    const HEADERS = ['STT', 'Tên vụ việc', 'Loại', 'Địa điểm', 'ĐTV phụ trách', 'Ngày tiếp nhận', 'Trạng thái', 'Đơn vị'];
-    const WIDTHS = [6, 30, 20, 25, 20, 16, 20, 20];
-
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const HEADERS = [
+      'STT',
+      'Mã hồ sơ',
+      'Tên vụ việc',
+      'Tội danh',
+      'Người cung cấp, bị hại',
+      'Phường/Xã',
+      'ĐTV phụ trách',
+      'Ngày đề xuất',
+      'Trạng thái',
+    ];
+    const WIDTHS = [6, 14, 36, 28, 28, 22, 22, 14, 18];
+    const COL_COUNT = HEADERS.length;
+    const ngayVN = (d: Date | null | undefined) =>
+      d ? d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Vụ việc theo phường xã');
+    // Phụ đề ghi ĐÚNG khoảng ngày `getList` đã áp (ô ngày trống thì là kỳ mặc định admin đặt).
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
+      'DANH SÁCH VỤ VIỆC THEO PHƯỜNG/XÃ',
+      phuDeKyXuat(ky, query.fromDateRange, query.toDateRange, 'Ngày đề xuất'),
+    );
+    BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
 
-    BcaExcelHelper.addHeader(sheet, COL_COUNT, 'DANH SÁCH VỤ VIỆC THEO PHƯỜNG/XÃ', period);
-
-    const headerRow = sheet.getRow(7);
-    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
-
-    records.forEach((rec, idx) => {
-      const investigatorName = rec.investigator
-        ? `${rec.investigator.lastName ?? ''} ${rec.investigator.firstName ?? ''}`.trim()
+    dong.forEach((v, idx) => {
+      const dtv = v.investigator
+        ? `${v.investigator.lastName ?? ''} ${v.investigator.firstName ?? ''}`.trim()
         : '';
-      const dataRow = sheet.addRow([
+      const row = sheet.addRow([
         idx + 1,
-        rec.name ?? '',
-        rec.incidentType ?? '',
-        rec.diaChiXayRa ?? '',
-        investigatorName,
-        rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        INCIDENT_STATUS_LABEL[rec.status as IncidentStatus] ?? rec.status ?? '',
-        rec.unitId ?? '',
+        maHoSoNgan(v.code),
+        v.name ?? '',
+        v.crimeChinh?.name ?? '',
+        v.benVu ?? '',
+        v.assignedTeam?.ward?.name ?? '',
+        dtv,
+        ngayVN(v.ngayDeXuat),
+        INCIDENT_STATUS_LABEL[v.status] ?? v.status,
       ]);
-      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
+      BcaExcelHelper.styleDataRow(row, idx % 2 === 1, COL_COUNT);
     });
 
-    const lastDataRow = sheet.lastRow?.number ?? 7;
-    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
+    BcaExcelHelper.addFooter(
+      sheet,
+      (sheet.lastRow?.number ?? 7) + 2,
+      COL_COUNT,
+    );
     BcaExcelHelper.setPrintSetup(sheet);
 
-    const filename = `VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx"`,
+    );
     try {
       await workbook.xlsx.write(res);
-    } catch (err) {
+    } catch {
       if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
       else res.destroy();
     }
