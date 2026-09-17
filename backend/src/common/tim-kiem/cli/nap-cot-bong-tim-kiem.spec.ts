@@ -27,6 +27,7 @@ const TEN_BANG = [
   'documents',
   'address_mappings',
   'audit_logs',
+  'guidance_records',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -98,6 +99,8 @@ describe('napCotBongTimKiem', () => {
       'documents',
       'address_mappings',
       'audit_logs',
+      // 17/09/2026: Hướng dẫn đơn chuyển tìm kiếm xuống máy chủ.
+      'guidance_records',
     ]);
   });
 

@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import CaseExchangePage from '../CaseExchangePage';
 import InvestigationDelegationPage from '../InvestigationDelegationPage';
-import PetitionGuidancePage from '../PetitionGuidancePage';
 import TransferAndReturnPage from '../TransferAndReturnPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
@@ -52,10 +51,6 @@ const DU_LIEU: Record<string, unknown[]> = {
     { id: 'd1', delegationNumber: 'UT-001/2026', delegationDate: NGAY, receivingUnit: 'Công an Quận 1', status: 'PENDING', content: 'Xác minh vụ trộm cắp tài sản' },
     { id: 'd2', delegationNumber: 'UT-002/2026', delegationDate: NGAY, receivingUnit: 'Công an Quận 3', status: 'PENDING', content: 'Lấy lời khai nhân chứng' },
   ],
-  '/guidance': [
-    { id: 'g1', stt: 'HD-001/2026', date: '2026-09-01', unit: 'Đội CSĐT 1', guidedPerson: 'Nguyễn Văn An', subject: 'Tố cáo trộm cắp', guidanceContent: 'Hướng dẫn viết đơn', status: 'PENDING' },
-    { id: 'g2', stt: 'HD-002/2026', date: '2026-09-02', unit: 'Đội CSĐT 2', guidedPerson: 'Lê Thị Hoa', subject: 'Khiếu nại đất đai', guidanceContent: 'Hướng dẫn nộp hồ sơ', status: 'PENDING' },
-  ],
   '/cases': [
     { id: 'c1aaaaaaaa', name: 'Trộm cắp tài sản', unit: 'Đội 1', status: 'TIEP_NHAN', createdAt: NGAY },
     { id: 'c2bbbbbbbb', name: 'Cố ý gây thương tích', unit: 'Đội 2', status: 'TIEP_NHAN', createdAt: NGAY },
@@ -83,7 +78,6 @@ interface Man {
 const CUM_B: Man[] = [
   { ten: 'Trao đổi chuyên án', Man: CaseExchangePage, prefix: 'caseExchange', khoa: 'donViGui', nhan: 'Đơn vị gửi', khop: 'view-thread-e1', khongKhop: 'view-thread-e2' },
   { ten: 'Ủy thác điều tra', Man: InvestigationDelegationPage, prefix: 'delegation', khoa: 'noiDung', nhan: 'Nội dung', khop: 'view-delegation-d1', khongKhop: 'view-delegation-d2' },
-  { ten: 'Hướng dẫn đơn', Man: PetitionGuidancePage, prefix: 'guidance', khoa: 'vanDe', nhan: 'Vấn đề', khop: 'view-guidance-g1', khongKhop: 'view-guidance-g2' },
   { ten: 'Chuyển đội / Trả hồ sơ', Man: TransferAndReturnPage, prefix: 'transferReturn', khoa: 'tenHoSo', nhan: 'Tên hồ sơ', khop: 'view-record-c1aaaaaaaa', khongKhop: 'view-record-c2bbbbbbbb' },
 ];
 

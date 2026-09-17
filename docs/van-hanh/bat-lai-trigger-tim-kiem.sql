@@ -217,4 +217,22 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── guidance_records (huong-dan) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_guidance_records() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."subject_bd" := ' ' || f_bo_dau(NEW."subject");
+  NEW."unit_bd" := ' ' || f_bo_dau(NEW."unit");
+  NEW."nguoi_duoc_huong_dan_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."guidedPerson", NEW."guidedPersonPhone"));
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."subject", NEW."unit", NEW."guidedPerson", NEW."guidedPersonPhone", NEW."guidanceContent"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_guidance_records: %', SQLERRM;
+  NEW."subject_bd" := NULL;
+  NEW."unit_bd" := NULL;
+  NEW."nguoi_duoc_huong_dan_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

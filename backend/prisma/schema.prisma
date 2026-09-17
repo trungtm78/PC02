@@ -1727,6 +1727,13 @@ model GuidanceRecord {
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
+  // Cột bóng bỏ dấu cho ô tìm dạng thẻ — CHỈ ĐỌC, trigger `pc02_tim_kiem_guidance_records` ghi
+  // (khai: src/common/tim-kiem/khai/huong-dan.khai.ts). `nguoiDuocHuongDanBd` ghép tên + SĐT.
+  subjectBd           String? @map("subject_bd")
+  unitBd              String? @map("unit_bd")
+  nguoiDuocHuongDanBd String? @map("nguoi_duoc_huong_dan_bd")
+  timKiemBd           String? @map("tim_kiem_bd")
+
   createdBy User? @relation("GuidanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
