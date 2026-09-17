@@ -185,10 +185,11 @@ describe('AdminService', () => {
         );
       });
 
-      it('thẻ Mã cán bộ → đúng mã, không phân biệt hoa thường', async () => {
+      // ĐỔI LUẬT 17/09/2026: mã thường so CHỨA (như %like%) — gõ một phần mã cán bộ vẫn ra.
+      it('thẻ Mã cán bộ → chứa chuỗi gõ, không phân biệt hoa thường', async () => {
         await service.getUsers({ tk: ['maCanBo~cb01'] } as never);
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"workId":{"equals":"cb01","mode":"insensitive"}',
+          '"workId":{"contains":"cb01","mode":"insensitive"}',
         );
       });
 

@@ -196,10 +196,12 @@ describe('AuditService', () => {
         );
       });
 
-      it('thẻ Thao tác → đúng mã, không phân biệt hoa thường', async () => {
+      // ĐỔI LUẬT 17/09/2026: mã thường so CHỨA (như %like%), không còn đúng nguyên mã. `_` là ký tự
+      // đại diện của LIKE nên phải được THOÁT — gõ "case_created" không được khớp "caseXcreated".
+      it('thẻ Thao tác → chứa chuỗi gõ, không phân biệt hoa thường, thoát `_`', async () => {
         await service.findAll({ tk: ['thaoTac~case_created'] });
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"action":{"equals":"case_created","mode":"insensitive"}',
+          '"action":{"contains":"case\\\\_created","mode":"insensitive"}',
         );
       });
 

@@ -178,7 +178,10 @@ describe('CasesService', () => {
       // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng `where.caseCode`.
       expect(where.caseCode).toBeUndefined();
       expect(where.AND).toContainEqual({
-        caseCode: { in: ['26-9893', '2026-9893'] },
+        OR: [
+          { caseCode: { contains: '26-9893', mode: 'insensitive' } },
+          { caseCode: { contains: '2026-9893', mode: 'insensitive' } },
+        ],
       });
     });
 

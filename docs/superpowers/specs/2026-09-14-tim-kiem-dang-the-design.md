@@ -35,7 +35,14 @@ dấu vẫn ra; mọi quyết định chọn theo quản trị sâu nhất + m�
 - Kiểu so khớp: chữ = chứa, không dấu, không hoa thường, không phân biệt khoảng trắng thừa/NBSP; mã hồ sơ = đúng biến thể
   (`hoSoCodeVariants`, `dieuKienSttCu`); ngày = ngày/tháng/năm → khoảng trên CỘT NGÀY THẬT (múi giờ Asia/Ho_Chi_Minh);
   chọn-giá-trị (trạng thái, người nhập, tổ) = so đúng mã/id.
-- Chữ 1–2 ký tự: khớp **đầu từ bất kỳ** ("An" ra "Nguyễn Văn An") + gợi ý "gõ từ 3 ký tự để tìm trong nội dung".
+- ~~Chữ 1–2 ký tự: khớp **đầu từ bất kỳ** ("An" ra "Nguyễn Văn An") + gợi ý "gõ từ 3 ký tự để tìm trong nội dung".~~
+  **THAY 17/09/2026 (quyết định 4A bị thay):** anh báo "search chưa đúng %like%" (vd thẻ "STT: 78" ra "Không tìm
+  thấy"). Nay MỌI thẻ chữ và mã khớp **chuỗi con ở mọi độ dài**: bỏ khoảng trắng đầu ở mẫu 1–2 ký tự; thẻ STT và mã
+  thường đổi từ so đúng nguyên giá trị sang `contains` (STT vẫn thử cả biến thể năm 2↔4 số); gỡ gợi ý "gõ từ 3 ký
+  tự". Lý do 4A không còn đứng — đo lại `pc02_spike` (47.169 đơn thư, bộ đệm nóng, trung vị 5 lần): đếm `% an%` đầu
+  từ 317 ms, `%an%` chuỗi con 255 ms (cả hai Seq Scan); chỉ chuỗi ngắn HIẾM chậm đi (4 ms → 234 ms), vẫn dưới 300 ms;
+  `stt ILIKE '%78%'` đếm 81 ms. Cột bóng giữ khoảng trắng đầu (vô hại) nên không migration. Trình duyệt dùng CHUNG
+  bảng bỏ dấu với máy chủ qua tệp sinh `bo-dau.generated.ts`, có cổng chạy thật so hai phía.
 - Gõ tiếng Việt: dùng lại `useOChuDongBo`; Enter khi `isComposing`/keyCode 229 KHÔNG chọn dòng.
 - Thẻ nằm trong URL → lùi trang / chia sẻ đường dẫn giữ nguyên; đường dẫn cũ `?<prefix>_q=` và khoá lọc chữ cũ vẫn mở thành thẻ.
 - Khoá thẻ không hợp lệ (cột đổi tên, đường dẫn cũ) → hiện thẻ đỏ "Cột không còn tìm được", KHÔNG âm thầm bỏ qua.

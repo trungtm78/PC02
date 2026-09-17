@@ -2206,10 +2206,10 @@
       "severity": "Medium",
       "endpoint": "GET /api/v1/cases",
       "role": "OFFICER",
-      "title": "M6-21: chuỗi tìm 1-2 ký tự chỉ khớp ĐẦU TỪ, không khớp giữa từ",
-      "pre": "DB có vụ án tên chứa từ bắt đầu bằng An (vd Nguyễn Văn An) VÀ vụ án chứa An ở GIỮA từ (vd Toàn)",
+      "title": "M6-21: chuỗi tìm 1-2 ký tự khớp CHUỖI CON ở bất kỳ đâu (như %like%), không chỉ đầu từ",
+      "pre": "DB có vụ án tên chứa từ BẮT ĐẦU bằng An (vd Nguyễn Văn An) VÀ vụ án chứa an ở GIỮA từ (vd Toàn)",
       "steps": "GET /api/v1/cases?search=an",
-      "expected": "HTTP 200. Trả hồ sơ có từ BẮT ĐẦU bằng an (Nguyễn Văn An); KHÔNG trả hồ sơ chỉ chứa an ở giữa từ (Toàn). Lý do: chuỗi dưới 3 ký tự được thêm khoảng trắng đầu trước khi so trên cột bóng, để chỉ mục GIN còn dùng được. Ca kiểm THÊM 16/09/2026 - lỗ hổng phủ M6-21, trước đó không ca nào phủ thay đổi này",
+      "expected": "HTTP 200. Trả CẢ hồ sơ có từ bắt đầu bằng an (Nguyễn Văn An) LẪN hồ sơ chứa an giữa từ (Toàn). SỬA ORACLE 17/09/2026: luật cũ chỉ khớp đầu từ (thêm khoảng trắng đầu) — anh báo tìm kiếm chưa đúng %like%; đo lại 47.169 đơn thư thấy chuỗi ngắn phổ biến cả hai cách đều quét cả bảng nên bỏ luật đầu từ",
       "data": [
         "cases.shape.normal.D0"
       ]

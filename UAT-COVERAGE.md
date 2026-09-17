@@ -136,14 +136,15 @@ danh sách sửa: **ba thay đổi hành vi không làm sai ca nào, vì KHÔNG 
 
 | # | Thay đổi hành vi | Ca phủ | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| M6-21 | Chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ ("an" ra "Nguyễn Văn An", không ra "Toàn") | **TC-CASE-131** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%` (kiểm thoát ký tự), không phải chữ cái |
+| M6-21 | Chuỗi tìm 1–2 ký tự khớp **CHUỖI CON** ở bất kỳ đâu ("an" ra CẢ "Nguyễn Văn An" LẪN "Toàn") — **luật đổi 17/09** | **TC-CASE-131** (viết 16/09, lật 17/09) | CHƯA CHẠY | Trước đó 0 ca: cả kho chỉ có TC-064 dùng chuỗi 1 ký tự và đó là `%`. Ngày 16/09 ca viết theo luật đầu từ; 17/09 anh báo tìm kiếm chưa đúng %like% nên lật lại |
+| M6-24 | Thẻ **STT gõ một phần** vẫn ra: "STT: 78" ra mọi đơn có STT chứa 78; dạng ngắn "26-11171" vẫn ra "2026-11171" | **TC-PET-124** (viết 17/09) | CHƯA CHẠY | Từ báo lỗi thật 17/09: thẻ mã so ĐÚNG NGUYÊN mã nên "STT: 78" ra "Không tìm thấy". Cùng luật áp mã thường (mã danh mục, mã cán bộ, IP, thao tác) |
 | M6-22 | `/cases/admin/deleted` KHÔNG còn tìm theo `id` | **TC-CASE-132** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 8 ca chạm endpoint (TC-CASE-081, TC-INC-077/117, TC-PET-045/089, TC-167/168/213) đều chỉ kiểm phân quyền và phân trang, không ca nào truyền tham số tìm |
 | M6-22b | `/incidents/admin/deleted` nhận thẻ tìm và lọc đúng; khoá lạ → 400 | **TC-INC-142** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: TC-INC-077 và TC-INC-117 đều chỉ kiểm 403 |
 | M6-22c | `/petitions/admin/deleted` nhận thẻ tìm và lọc đúng; khoá lạ → 400 | **TC-PET-123** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: TC-PET-045 và TC-PET-089 đều chỉ kiểm 403 |
 | M6-23 | `/incidents/linkable` tìm MỌI cột (trước chỉ khớp tiền tố mã) | **TC-INC-141** (viết 16/09) | CHƯA CHẠY | Trước đó 0 ca: 3 ca chạm linkable (TC-INC-007, TC-007 v2, TC-060) đều không có bước tìm |
 
 **Số ca đi theo số ĐƯỜNG MÃ độc lập, không theo số màn hình.** Vì sao M6-21 chỉ một ca mà
-M6-22 phải ba: quy tắc "chuỗi 1–2 ký tự khớp đầu từ" nằm ở đúng **một** chỗ dùng chung
+M6-22 phải ba: quy tắc khớp chuỗi (nay là chuỗi con ở mọi độ dài) nằm ở đúng **một** chỗ dùng chung
 (`common/tim-kiem/dieu-kien.ts`, hàm `mauBoDau` — mọi khai đều đi qua), nên một ca kiểm là đủ,
 sửa hỏng chỗ ấy là ca đỏ ngay. Ngược lại ba danh sách đã xoá có **ba khai riêng**, nên phải ba ca.
 Đếm theo màn hình thì vừa viết thừa ở chỗ dùng chung, vừa viết thiếu ở chỗ tách đường.

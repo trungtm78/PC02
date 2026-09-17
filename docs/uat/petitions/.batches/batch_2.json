@@ -502,6 +502,21 @@
         "petition.deleted.D7",
         "account.admin.primary"
       ]
+    },
+    {
+      "id": "TC-PET-124",
+      "type": "GREEN",
+      "priority": "P0",
+      "severity": "High",
+      "endpoint": "GET /api/v1/petitions",
+      "role": "OFFICER",
+      "title": "Thẻ STT gõ MỘT PHẦN mã vẫn ra: \"STT: 78\" ra mọi đơn có STT chứa 78",
+      "pre": "Có ít nhất một đơn thư có STT chứa chuỗi 78 (vd 2025-4478) và một đơn KHÔNG chứa 78",
+      "steps": "1. GET /api/v1/petitions?tk=stt~78  2. GET /api/v1/petitions?tk=stt~26-11171 (dạng ngắn) với hồ sơ lưu 2026-11171",
+      "expected": "Bước 1: HTTP 200, CHỈ gồm đơn có STT chứa 78, KHÔNG rỗng. Bước 2: HTTP 200, có hồ sơ 2026-11171. Ca thêm 17/09/2026 từ báo lỗi thật: anh gõ thẻ STT: 78 trên Danh sách đơn thư ra Không tìm thấy vì thẻ mã so đúng nguyên mã",
+      "data": [
+        "account.officer.primary"
+      ]
     }
   ]
 }

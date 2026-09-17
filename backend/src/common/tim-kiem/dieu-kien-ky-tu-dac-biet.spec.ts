@@ -31,9 +31,10 @@ describe('tìm kiếm — giá trị bỏ dấu xong rỗng KHÔNG được bỏ
     }
   });
 
+  // 17/09/2026: mẫu không còn khoảng trắng đầu (chuỗi 1–2 ký tự nay khớp CHUỖI CON, không chỉ đầu từ).
   it('`#` vẫn tìm trên cột bóng (bỏ dấu giữ nguyên ký tự)', () => {
     expect(JSON.stringify(dk(['nguoiGui~#'], false))).toContain(
-      '"tenCungCapBd":{"contains":" #"}',
+      '"tenCungCapBd":{"contains":"#"}',
     );
   });
 });

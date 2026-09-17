@@ -175,7 +175,10 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
 
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
     expect(whereArg.AND).toContainEqual({
-      caseCode: { in: ['26-9893', '2026-9893'] },
+      OR: [
+        { caseCode: { contains: '26-9893', mode: 'insensitive' } },
+        { caseCode: { contains: '2026-9893', mode: 'insensitive' } },
+      ],
     });
     expect(whereArg.AND).toContainEqual({
       sttCu: { contains: '1253', mode: 'insensitive' },

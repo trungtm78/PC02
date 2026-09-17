@@ -100,6 +100,55 @@ export function boDauTimKiem(v: string | null | undefined): string {
 
 const literalSql = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+/** Chuỗi TS nháy đơn — giá trị đích trong bảng chỉ gồm ASCII in được. */
+const chuoiTs = (s: string) =>
+  `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+/** Ký tự nguồn viết bằng MÃ ĐIỂM (NBSP, BOM, dấu tổ hợp là ký tự vô hình). */
+const maDiem = (c: string) =>
+  `0x${(c.codePointAt(0) as number).toString(16).padStart(4, '0')}`;
+
+/**
+ * Tệp `frontend/src/shared/tim-kiem/bo-dau.generated.ts` sinh từ CÙNG bảng — trình duyệt lọc 12 màn tại
+ * chỗ phải bỏ dấu y hệt máy chủ. Trước 17/09/2026 trình duyệt dùng hàm riêng (`lib/bo-dau.ts`) không quy
+ * đổi dấu câu, nên gõ "12-2026" không ra "Số 12–2026" dán từ Word, trong khi màn lọc ở máy chủ vẫn ra.
+ *
+ * Thân hàm `boDauTimKiem` sinh ra phải giữ đúng thứ tự bước như bản máy chủ ở trên; cổng
+ * `bo-dau-trinh-duyet.gate.spec.ts` biên dịch và chạy thật tệp này để so kết quả trên từng ký tự.
+ */
+export function sinhFrontendBoDau(): string {
+  const dongBang = (bang: Iterable<readonly [string, string]>) =>
+    [...bang].map(([nguon, dich]) => `  [${maDiem(nguon)}, ${chuoiTs(dich)}],`);
+  return [
+    '// AUTO-GENERATED — SINH TỰ ĐỘNG bởi `cd backend && npm run gen:tim-kiem` — không sửa tay.',
+    '// Nguồn: backend/src/common/tim-kiem/bo-dau.ts — CÙNG bảng với máy chủ và hàm SQL f_bo_dau.',
+    '',
+    'const MOT_KY_TU: ReadonlyArray<readonly [number, string]> = [',
+    ...dongBang(BANG_MOT_KY_TU),
+    '];',
+    '',
+    'const NHIEU_KY_TU: ReadonlyArray<readonly [number, string]> = [',
+    ...dongBang(BANG_NHIEU_KY_TU),
+    '];',
+    '',
+    'const BANG_MOT: ReadonlyMap<string, string> = new Map(',
+    '  MOT_KY_TU.map(([ma, dich]): [string, string] => [String.fromCharCode(ma), dich]),',
+    ');',
+    'const BANG_NHIEU: ReadonlyArray<readonly [string, string]> = NHIEU_KY_TU.map(',
+    '  ([ma, dich]): readonly [string, string] => [String.fromCharCode(ma), dich],',
+    ');',
+    '',
+    '/** Bỏ dấu cho tìm kiếm — cùng kết quả với `boDauTimKiem` của máy chủ (có cổng chạy thật). */',
+    'export function boDauTimKiem(v: string | null | undefined): string {',
+    "  if (!v) return '';",
+    "  let s = '';",
+    '  for (const c of v) s += BANG_MOT.get(c) ?? c;',
+    '  for (const [nguon, dich] of BANG_NHIEU) s = s.split(nguon).join(dich);',
+    "  return s.toLowerCase().replace(/[ \\t\\n\\r\\f\\v]+/g, ' ').trim();",
+    '}',
+    '',
+  ].join('\n');
+}
+
 /**
  * Câu `CREATE OR REPLACE FUNCTION public.f_bo_dau` sinh từ CÙNG bảng — migration chép nguyên văn,
  * gate so migration với hàm này. Chỉ dùng hàm dựng sẵn nên IMMUTABLE thật trên mọi phiên bản PG.

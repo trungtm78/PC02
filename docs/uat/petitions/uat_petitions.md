@@ -1597,3 +1597,14 @@
   3. GET ...?tk=khongCoKhoaNay~x
 - **Expected**: Bước 1 → HTTP 200, N dòng. Bước 2 → HTTP 200, CHỈ đơn khớp thẻ (ít hơn N), vẫn chỉ gồm đơn đã xoá. Bước 3 → HTTP 400, KHÔNG trả danh sách chưa lọc. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-22c: TC-PET-045 và TC-PET-089 đều chỉ kiểm 403]
 - **Data required**: `petition.deleted.D7`, `account.admin.primary`
+
+#### TC-PET-124 — Thẻ STT gõ MỘT PHẦN mã vẫn ra: "STT: 78" ra mọi đơn có STT chứa 78
+- **Type/Priority/Severity**: GREEN / P0 / High
+- **Endpoint**: `GET /api/v1/petitions`
+- **Role**: OFFICER
+- **Pre**: Có ít nhất một đơn thư có STT chứa chuỗi `78` (vd `2025-4478`) và một đơn KHÔNG chứa `78`
+- **Steps**:
+  1. GET /api/v1/petitions?tk=stt~78
+  2. GET /api/v1/petitions?tk=stt~26-11171 (dạng ngắn) với hồ sơ lưu `2026-11171`
+- **Expected**: Bước 1 → HTTP 200, CHỈ gồm đơn có STT chứa `78`, KHÔNG rỗng. Bước 2 → HTTP 200, có hồ sơ `2026-11171`. [CA KIỂM THÊM 17/09/2026 từ báo lỗi thật: anh gõ thẻ "STT: 78" trên Danh sách đơn thư ra "Không tìm thấy", vì thẻ mã so ĐÚNG NGUYÊN mã]
+- **Data required**: `account.officer.primary`

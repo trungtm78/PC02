@@ -206,7 +206,10 @@ describe('IncidentsService', () => {
       // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng lên `where.code`.
       expect(where.code).toBeUndefined();
       expect(where.AND).toContainEqual({
-        code: { in: ['26-9706', '2026-9706'] },
+        OR: [
+          { code: { contains: '26-9706', mode: 'insensitive' } },
+          { code: { contains: '2026-9706', mode: 'insensitive' } },
+        ],
       });
     });
 

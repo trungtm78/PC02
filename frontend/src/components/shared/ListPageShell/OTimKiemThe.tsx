@@ -43,7 +43,6 @@ interface LuaChon {
 }
 
 const SO_GIA_TRI_CHON_TOI_DA = 8;
-const DO_DAI_TIM_NOI_DUNG = 3;
 const KHONG_CO_GIA_TRI_CHON: BangGiaTriChon = {};
 const LY_DO_MAC_DINH = 'Cột không còn tìm được';
 
@@ -366,11 +365,6 @@ export function OTimKiemThe({
               </li>
             ))}
           </ul>
-          {q.length > 0 && q.length < DO_DAI_TIM_NOI_DUNG && (
-            <p className="px-3 py-1.5 text-xs text-slate-500 border-t border-slate-100">
-              Gõ từ 3 ký tự để tìm trong nội dung — dưới 3 ký tự chỉ khớp đầu từ.
-            </p>
-          )}
         </div>
       )}
     </div>

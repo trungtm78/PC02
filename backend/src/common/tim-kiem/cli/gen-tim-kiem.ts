@@ -10,6 +10,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { sinhFrontendBoDau } from '../bo-dau';
 import { KHAI_TIM_KIEM } from '../khai';
 import {
   sinhFrontendTimKiem,
@@ -21,6 +22,7 @@ import {
 } from '../sinh/sinh-tim-kiem';
 import {
   TEP_FRONTEND,
+  TEP_FRONTEND_BO_DAU,
   TEP_SCHEMA,
   TEP_SQL_BAT_LAI,
   TEP_SQL_TAT,
@@ -37,6 +39,8 @@ export function dauThoiGian(d: Date): string {
 export interface DuongDanGen {
   thuMucMigration: string;
   tepFrontend: string;
+  /** Bảng bỏ dấu cho trình duyệt — cùng bảng với máy chủ. */
+  tepFrontendBoDau: string;
   tepSchema: string;
   /** SQL vận hành khẩn: tắt / bật lại trigger tìm kiếm. */
   tepSqlTat: string;
@@ -46,6 +50,7 @@ export interface DuongDanGen {
 const DUONG_DAN_THAT: DuongDanGen = {
   thuMucMigration: THU_MUC_MIGRATION,
   tepFrontend: TEP_FRONTEND,
+  tepFrontendBoDau: TEP_FRONTEND_BO_DAU,
   tepSchema: TEP_SCHEMA,
   tepSqlTat: TEP_SQL_TAT,
   tepSqlBatLai: TEP_SQL_BAT_LAI,
@@ -95,12 +100,15 @@ export function chayGenTimKiem(
   fs.writeFileSync(tepMigration, sinhMigrationTimKiem(khais), 'utf8');
   fs.mkdirSync(path.dirname(duongDan.tepFrontend), { recursive: true });
   fs.writeFileSync(duongDan.tepFrontend, sinhFrontendTimKiem(khais), 'utf8');
+  fs.mkdirSync(path.dirname(duongDan.tepFrontendBoDau), { recursive: true });
+  fs.writeFileSync(duongDan.tepFrontendBoDau, sinhFrontendBoDau(), 'utf8');
   fs.mkdirSync(path.dirname(duongDan.tepSqlTat), { recursive: true });
   fs.writeFileSync(duongDan.tepSqlTat, sinhSqlTatTimKiem(khais), 'utf8');
   fs.mkdirSync(path.dirname(duongDan.tepSqlBatLai), { recursive: true });
   fs.writeFileSync(duongDan.tepSqlBatLai, sinhSqlBatLaiTimKiem(khais), 'utf8');
   console.log(`Đã ghi ${tepMigration}`);
   console.log(`Đã ghi ${duongDan.tepFrontend}`);
+  console.log(`Đã ghi ${duongDan.tepFrontendBoDau}`);
   console.log(`Đã ghi ${duongDan.tepSqlTat}`);
   console.log(`Đã ghi ${duongDan.tepSqlBatLai}`);
 

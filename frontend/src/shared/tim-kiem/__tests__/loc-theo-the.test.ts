@@ -68,10 +68,29 @@ describe('locTheoThe — lọc phía trình duyệt cùng ngữ nghĩa máy ch�
     expect(ids([{ khoa: 'nguoiGui', giaTri: ['dang'] }])).toEqual(['3']);
   });
 
-  /** Máy chủ: dưới 3 ký tự chỉ khớp ĐẦU TỪ (tránh "an" khớp "Khang", "Thanh"…). */
-  it('1–2 ký tự: chỉ khớp đầu từ', () => {
-    expect(ids([{ khoa: 'nguoiGui', giaTri: ['an'] }])).toEqual(['1', '3']);
-    expect(ids([{ khoa: 'nguoiGui', giaTri: ['ng'] }])).toEqual(['1']);
+  /**
+   * ĐỔI LUẬT 17/09/2026 (anh báo "search chưa đúng %like%"): trước dưới 3 ký tự chỉ khớp ĐẦU TỪ, nay
+   * CHUỖI CON ở bất kỳ đâu như máy chủ. Ví dụ chọn sao cho hai luật cho kết quả KHÁC nhau — "an" thì
+   * cả hai dòng đều có từ bắt đầu bằng "an", nên không chứng minh được gì.
+   */
+  it('1–2 ký tự: khớp chuỗi con ở bất kỳ đâu (như %like%)', () => {
+    // "ng" giữa từ: "Đặng", "Khang" — luật đầu từ chỉ ra dòng 1 ("Nguyễn").
+    expect(ids([{ khoa: 'nguoiGui', giaTri: ['ng'] }])).toEqual(['1', '3']);
+    // "uy" chỉ nằm GIỮA từ "Nguyễn" — luật đầu từ ra rỗng.
+    expect(ids([{ khoa: 'nguoiGui', giaTri: ['uy'] }])).toEqual(['1']);
+  });
+
+  /**
+   * Bỏ dấu phải GIỐNG máy chủ, kể cả dấu câu: dữ liệu dán từ Word mang gạch ngang ngắn (U+2013),
+   * cán bộ gõ gạch thường. Trước 17/09/2026 trình duyệt không quy đổi nên lọc ra rỗng trong khi màn
+   * lọc ở máy chủ vẫn ra — cùng một chữ gõ, hai màn hai kết quả.
+   */
+  it('dấu câu quy đổi như máy chủ: gạch ngang ngắn ≡ gạch thường', () => {
+    const khai: readonly TruongLoc<{ t: string }>[] = [
+      { key: 'ten', nhan: 'Tên', kieu: 'chu', lay: (x) => x.t },
+    ];
+    const rows = [{ t: `Số 12${String.fromCharCode(0x2013)}2026` }];
+    expect(locTheoThe(rows, [{ khoa: 'ten', giaTri: ['12-2026'] }], khai)).toEqual(rows);
   });
 
   it('cùng khoá → OR; khác khoá → AND', () => {
@@ -91,10 +110,12 @@ describe('locTheoThe — lọc phía trình duyệt cùng ngữ nghĩa máy ch�
   });
 
   /**
-   * Máy chủ so thẻ MÃ đúng mã (biến thể), không so chứa. Nhiều màn khai STT là số thứ tự 1..100:
-   * so chứa thì `stt~5` ra cả dòng 15, 25, 50–59. Thẻ `*` vẫn so chứa trên cột mã (như tim_kiem_bd).
+   * ĐỔI LUẬT 17/09/2026: anh gõ thẻ "STT: 78" ra "Không tìm thấy" vì thẻ MÃ so ĐÚNG NGUYÊN mã. Nay
+   * so CHỨA như máy chủ. Lý do cũ ("nhiều màn khai STT là số thứ tự 1..100, so chứa thì `stt~5` ra cả
+   * dòng 15") là lỗi của chính các màn ấy — cột STT hiện số dòng thay cho mã thật — và được sửa ở màn,
+   * không phải bằng cách làm thẻ mã không tìm được một phần.
    */
-  it('mã: so đúng mã (không hoa thường), không so chứa; `*` vẫn so chứa', () => {
+  it('mã: so CHỨA chuỗi gõ (không hoa thường), giống `*`', () => {
     const khai: readonly TruongLoc<{ id: string; stt: number; ma: string }>[] = [
       { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (x) => x.stt },
       { key: 'ma', nhan: 'Mã', kieu: 'ma', lay: (x) => x.ma },
@@ -106,10 +127,58 @@ describe('locTheoThe — lọc phía trình duyệt cùng ngữ nghĩa máy ch�
     ];
     const loc = (the: Parameters<typeof locTheoThe>[1]) =>
       locTheoThe(rows, the, khai).map((r) => r.id);
-    expect(loc([{ khoa: 'stt', giaTri: ['5'] }])).toEqual(['a']);
+    expect(loc([{ khoa: 'stt', giaTri: ['5'] }])).toEqual(['a', 'b', 'c']);
     expect(loc([{ khoa: 'ma', giaTri: ['dt-2026-00012'] }])).toEqual(['a']);
-    expect(loc([{ khoa: 'ma', giaTri: ['00012'] }])).toEqual([]);
+    expect(loc([{ khoa: 'ma', giaTri: ['00012'] }])).toEqual(['a', 'c']);
     expect(loc([{ khoa: '*', giaTri: ['00012'] }])).toEqual(['a', 'c']);
+  });
+
+  /**
+   * Biến thể mã hồ sơ như máy chủ (`ho-so-code.util.ts`): hồ sơ lưu dạng NGẮN "26-11171" thì gõ dạng
+   * ĐẦY ĐỦ "2026-11171" không phải chuỗi con của nó — phải thử cả dạng ngắn.
+   */
+  it('mã: gõ dạng đầy đủ vẫn ra hồ sơ lưu dạng ngắn, và ngược lại', () => {
+    const khai: readonly TruongLoc<{ id: string; ma: string }>[] = [
+      { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (x) => x.ma },
+    ];
+    const rows = [
+      { id: 'ngan', ma: '26-11171' },
+      { id: 'day', ma: '2025-4478' },
+    ];
+    const loc = (v: string) =>
+      locTheoThe(rows, [{ khoa: 'stt', giaTri: [v] }], khai).map((r) => r.id);
+    expect(loc('2026-11171')).toEqual(['ngan']);
+    expect(loc('25-4478')).toEqual(['day']);
+    expect(loc('78')).toEqual(['day']);
+  });
+
+  /**
+   * STT cũ theo ĐÚNG luật máy chủ (`stt-cu.util.ts`, chép hệ cũ `list.php:140-151`): gõ `2016-208` thì
+   * lấy vế SAU dấu `-`; chuỗi thuần số bỏ số 0 đệm (`008` ≡ `8`); rồi so chứa. Trước 17/09/2026 trình
+   * duyệt so ĐÚNG NGUYÊN — gõ `2016-208` không ra hồ sơ có STT cũ `208`, trong khi máy chủ vẫn ra.
+   */
+  it('STT cũ: lấy vế sau dấu -, bỏ số 0 đệm, so chứa — như máy chủ', () => {
+    const khai: readonly TruongLoc<{ id: string; cu: string }>[] = [
+      { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu', lay: (x) => x.cu },
+    ];
+    const rows = [
+      { id: 'a', cu: '208' },
+      { id: 'b', cu: '1208' },
+      { id: 'c', cu: '8' },
+    ];
+    const loc = (v: string) =>
+      locTheoThe(rows, [{ khoa: 'sttCu', giaTri: [v] }], khai).map((r) => r.id);
+    expect(loc('2016-208')).toEqual(['a', 'b']);
+    expect(loc('008')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('mã thường (mã danh mục, IP): so CHỨA', () => {
+    const khai: readonly TruongLoc<{ ma: string }>[] = [
+      { key: 'ma', nhan: 'Mã', kieu: 'ma-thuong', lay: (x) => x.ma },
+    ];
+    const rows = [{ ma: 'T01' }, { ma: '192.168.1.10' }];
+    expect(locTheoThe(rows, [{ khoa: 'ma', giaTri: ['t0'] }], khai)).toEqual([rows[0]]);
+    expect(locTheoThe(rows, [{ khoa: 'ma', giaTri: ['192.168'] }], khai)).toEqual([rows[1]]);
   });
 
   it('cột nhiều giá trị (danh sách cán bộ): khớp bất kỳ phần tử nào', () => {

@@ -121,7 +121,10 @@ describe('IncidentsService.getStats — status count aggregation (PR2/T1)', () =
     await service.getStats({ stt: '26-9706', sttCu: '679' } as never, null);
     const whereArg = mockPrisma.incident.groupBy.mock.calls[0][0].where;
     expect(whereArg.AND).toContainEqual({
-      code: { in: ['26-9706', '2026-9706'] },
+      OR: [
+        { code: { contains: '26-9706', mode: 'insensitive' } },
+        { code: { contains: '2026-9706', mode: 'insensitive' } },
+      ],
     });
     expect(whereArg.AND).toContainEqual({
       sttCu: { contains: '679', mode: 'insensitive' },
