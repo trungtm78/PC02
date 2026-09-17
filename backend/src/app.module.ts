@@ -15,6 +15,7 @@ import { CasesModule } from './cases/cases.module';
 import { SubjectsModule } from './subjects/subjects.module';
 import { LawyersModule } from './lawyers/lawyers.module';
 import { PetitionsModule } from './petitions/petitions.module';
+import { WorkflowModule } from './workflow/workflow.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -85,6 +86,7 @@ import { CatalogModule } from './catalog/catalog.module';
     SubjectsModule,
     LawyersModule,
     PetitionsModule,
+    WorkflowModule,
     IncidentsModule,
     DocumentsModule,
     DashboardModule,

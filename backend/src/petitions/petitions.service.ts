@@ -305,7 +305,9 @@ export class PetitionsService {
             },
           },
           assignedTeam: {
-            select: { ward: { select: { name: true } } },
+            // `name` cho cột "Đội hiện tại" của màn Chuyển đội / Trả hồ sơ (trước đọc ô chữ `unit`, rỗng
+            // ở mọi đơn); `ward.name` cho cột Phường/Xã của màn Đơn thư phường.
+            select: { id: true, name: true, ward: { select: { name: true } } },
           },
         },
         orderBy,

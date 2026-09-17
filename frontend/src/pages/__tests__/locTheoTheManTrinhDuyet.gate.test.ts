@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import phanLoaiKhac from '../classification/OtherClassificationPage.tsx?raw';
-import chuyenTra from '../workflow/TransferAndReturnPage.tsx?raw';
 import danhMuc from '../admin/MasterClassPage.tsx?raw';
 
 /**
- * CỔNG: 3 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
- * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường, Vụ việc phường, Hồ sơ mới tiếp nhận, Đơn trùng rời cổng 17–18/09/2026
+ * CỔNG: 2 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
+ * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn, Kiến nghị VKS, Ủy thác, Trao đổi, Đơn thư phường, Vụ án phường, Vụ việc phường, Hồ sơ mới tiếp nhận, Đơn trùng, Chuyển đội/Trả hồ sơ rời cổng 17–18/09/2026
  * — chuyển xuống máy chủ (`*.timKiemThe.test.tsx` của từng màn).
  *
  * Trước M5, mỗi màn tự chép một đoạn `toLowerCase().includes` trên vài cột cố định — gõ "trom cap"
@@ -17,7 +16,6 @@ import danhMuc from '../admin/MasterClassPage.tsx?raw';
  */
 const MAN = [
   ['Phân loại khác', phanLoaiKhac],
-  ['Chuyển đội / Trả hồ sơ', chuyenTra],
   ['Phân loại danh mục', danhMuc],
 ] as const;
 
@@ -64,7 +62,7 @@ const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.t
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
-describe('GATE tìm kiếm — 3 màn lọc phía trình duyệt', () => {
+describe('GATE tìm kiếm — 2 màn lọc phía trình duyệt', () => {
   it.each(MAN)('%s: dùng useLocTheoThe + OTimKiemThe, bảng lọc từ dòng của hook', (_ten, src) => {
     expect(dungHook(src)).toBe(true);
     expect(coOThe(src)).toBe(true);
@@ -103,7 +101,7 @@ describe('GATE tìm kiếm — 3 màn lọc phía trình duyệt', () => {
     expect(boCo).not.toBe(phanLoaiKhac);
     expect(soChuCuKhongChanCo(boCo)).toBe(true);
 
-    const trung = chuyenTra.replace(/prefix:\s*'transferReturn'/, "prefix: 'otherClassification'");
+    const trung = danhMuc.replace(/prefix:\s*'masterClass'/, "prefix: 'otherClassification'");
     expect(prefixCua(trung)).toBe(prefixCua(phanLoaiKhac));
   });
 
@@ -114,9 +112,10 @@ describe('GATE tìm kiếm — 3 màn lọc phía trình duyệt', () => {
   });
 
   it('gieo lỗi: gỡ điều kiện cờ ở MỘT chỗ khi tệp còn điều kiện cờ chỗ khác → cổng bắt được', () => {
-    // Chuyển đội: `theBat ||` đứng trước chỗ so chữ ô cũ. Gỡ nó đi, tệp vẫn còn `theBat` ở nơi khác.
-    const hong = chuyenTra.replace(/theBat \|\|\s*\n(\s*)record\.recordCode/, '\n$1record.recordCode');
-    expect(hong).not.toBe(chuyenTra);
+    // Phân loại khác: `!theBat &&` đứng trước chỗ so chữ ô cũ. Gỡ nó đi, tệp vẫn còn `theBat` ở nơi khác
+    // (ô thẻ vẫn vẽ theo cờ), nên cổng phải xét TỪNG chỗ so chữ chứ không xét cả tệp.
+    const hong = phanLoaiKhac.replace(/!theBat && filters\.quickSearch/, 'filters.quickSearch');
+    expect(hong).not.toBe(phanLoaiKhac);
     expect(/theBat/.test(hong)).toBe(true);
     expect(soChuCuKhongChanCo(hong)).toBe(true);
   });
