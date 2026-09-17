@@ -146,3 +146,12 @@ export const TIM_KIEM_UY_THAC = [
   { key: 'nguoiTao', nhan: 'Người tạo', kieu: 'nguoi' },
   { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
 ] as const;
+
+export const TIM_KIEM_TRAO_DOI = [
+  { key: 'maHoSo', nhan: 'Mã hồ sơ', kieu: 'ma-thuong' },
+  { key: 'loaiHoSo', nhan: 'Loại hồ sơ', kieu: 'chu' },
+  { key: 'donViGui', nhan: 'Đơn vị gửi', kieu: 'chu' },
+  { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu' },
+  { key: 'thoiGianKhoiTao', nhan: 'Thời gian khởi tạo', kieu: 'ngay' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;

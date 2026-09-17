@@ -175,4 +175,15 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- ── exchanges (trao-doi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_exchanges() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."record_type_bd" := NULL;
+  NEW."sender_unit_bd" := NULL;
+  NEW."receiver_unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

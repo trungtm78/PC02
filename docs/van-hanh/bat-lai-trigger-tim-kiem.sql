@@ -267,4 +267,22 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── exchanges (trao-doi) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_exchanges() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."record_type_bd" := ' ' || f_bo_dau(NEW."recordType");
+  NEW."sender_unit_bd" := ' ' || f_bo_dau(NEW."senderUnit");
+  NEW."receiver_unit_bd" := ' ' || f_bo_dau(NEW."receiverUnit");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."recordCode", NEW."recordType", NEW."senderUnit", NEW."receiverUnit", NEW."subject"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_exchanges: %', SQLERRM;
+  NEW."record_type_bd" := NULL;
+  NEW."sender_unit_bd" := NULL;
+  NEW."receiver_unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

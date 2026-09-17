@@ -13,6 +13,7 @@ import { assertCreatorInScope } from '../common/utils/scope-filter.util';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, docKhoangNgay } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_HUONG_DAN } from '../common/tim-kiem/khai/huong-dan.khai';
+import { maHoSoHeCu } from '../common/utils/ho-so-code.util';
 
 /** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
 const THAM_SO_CU_HUONG_DAN = { search: KHOA_TAT_CA } as const;
@@ -48,19 +49,6 @@ const CHON_DONG_DANH_SACH = {
     select: { id: true, firstName: true, lastName: true, username: true },
   },
 } satisfies Prisma.GuidanceRecordSelect;
-
-/**
- * Mã hồ sơ hệ cũ `năm-stt` (như mã Đơn thư/Vụ việc/Vụ án). Bảng chưa có cột mã; đo prod 17/09/2026:
- * cặp (nam, stt) có đủ và duy nhất ở cả 541 bản di trú. Bản tạo mới ở hệ mới chưa có mã → null.
- */
-function maHoSoHeCu(legacyRaw: unknown): string | null {
-  if (!legacyRaw || typeof legacyRaw !== 'object') return null;
-  const { nam, stt } = legacyRaw as Record<string, unknown>;
-  const hop = (v: unknown) =>
-    (typeof v === 'number' && Number.isInteger(v)) ||
-    (typeof v === 'string' && /^\d+$/.test(v));
-  return hop(nam) && hop(stt) ? `${String(nam)}-${String(stt)}` : null;
-}
 
 @Injectable()
 export class GuidanceService {

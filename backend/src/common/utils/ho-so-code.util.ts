@@ -49,3 +49,16 @@ export function hoSoCodeVariants(nhapVao: string | null | undefined): string[] {
 
   return [s];
 }
+
+/**
+ * Mã hồ sơ hệ cũ `năm-stt` (như mã Đơn thư/Vụ việc/Vụ án). Bảng chưa có cột mã; đo prod 17/09/2026:
+ * cặp (nam, stt) có đủ và duy nhất ở cả 541 bản di trú. Bản tạo mới ở hệ mới chưa có mã → null.
+ */
+export function maHoSoHeCu(legacyRaw: unknown): string | null {
+  if (!legacyRaw || typeof legacyRaw !== 'object') return null;
+  const { nam, stt } = legacyRaw as Record<string, unknown>;
+  const hop = (v: unknown) =>
+    (typeof v === 'number' && Number.isInteger(v)) ||
+    (typeof v === 'string' && /^\d+$/.test(v));
+  return hop(nam) && hop(stt) ? `${String(nam)}-${String(stt)}` : null;
+}

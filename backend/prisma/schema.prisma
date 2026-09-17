@@ -1776,6 +1776,13 @@ model Exchange {
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
   legacyRaw      Json? // Toàn bộ field raw hệ cũ — không mất data
 
+  // Cột bóng bỏ dấu cho ô tìm dạng thẻ — CHỈ ĐỌC, trigger `pc02_tim_kiem_exchanges` ghi
+  // (khai: src/common/tim-kiem/khai/trao-doi.khai.ts).
+  recordTypeBd   String? @map("record_type_bd")
+  senderUnitBd   String? @map("sender_unit_bd")
+  receiverUnitBd String? @map("receiver_unit_bd")
+  timKiemBd      String? @map("tim_kiem_bd")
+
   createdBy User?             @relation("ExchangeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   messages  ExchangeMessage[]
 
