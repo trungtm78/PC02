@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import CaseExchangePage from '../CaseExchangePage';
-import InvestigationDelegationPage from '../InvestigationDelegationPage';
 import TransferAndReturnPage from '../TransferAndReturnPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
@@ -47,10 +46,6 @@ const DU_LIEU: Record<string, unknown[]> = {
     { id: 'e1', recordCode: 'VA-2026-001', recordType: 'Vụ án', senderUnit: 'Đội Trộm cắp', receiverUnit: 'Công an Quận 1', status: 'OPEN', lastMessage: 'Đã gửi hồ sơ', createdAt: NGAY },
     { id: 'e2', recordCode: 'VV-2026-002', recordType: 'Vụ việc', senderUnit: 'Đội Kinh tế', receiverUnit: 'Công an Quận 3', status: 'OPEN', lastMessage: 'Chờ phản hồi', createdAt: NGAY },
   ],
-  '/delegations': [
-    { id: 'd1', delegationNumber: 'UT-001/2026', delegationDate: NGAY, receivingUnit: 'Công an Quận 1', status: 'PENDING', content: 'Xác minh vụ trộm cắp tài sản' },
-    { id: 'd2', delegationNumber: 'UT-002/2026', delegationDate: NGAY, receivingUnit: 'Công an Quận 3', status: 'PENDING', content: 'Lấy lời khai nhân chứng' },
-  ],
   '/cases': [
     { id: 'c1aaaaaaaa', name: 'Trộm cắp tài sản', unit: 'Đội 1', status: 'TIEP_NHAN', createdAt: NGAY },
     { id: 'c2bbbbbbbb', name: 'Cố ý gây thương tích', unit: 'Đội 2', status: 'TIEP_NHAN', createdAt: NGAY },
@@ -77,7 +72,6 @@ interface Man {
 
 const CUM_B: Man[] = [
   { ten: 'Trao đổi chuyên án', Man: CaseExchangePage, prefix: 'caseExchange', khoa: 'donViGui', nhan: 'Đơn vị gửi', khop: 'view-thread-e1', khongKhop: 'view-thread-e2' },
-  { ten: 'Ủy thác điều tra', Man: InvestigationDelegationPage, prefix: 'delegation', khoa: 'noiDung', nhan: 'Nội dung', khop: 'view-delegation-d1', khongKhop: 'view-delegation-d2' },
   { ten: 'Chuyển đội / Trả hồ sơ', Man: TransferAndReturnPage, prefix: 'transferReturn', khoa: 'tenHoSo', nhan: 'Tên hồ sơ', khop: 'view-record-c1aaaaaaaa', khongKhop: 'view-record-c2bbbbbbbb' },
 ];
 

@@ -165,4 +165,14 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- ── delegations (uy-thac) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_delegations() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."content_bd" := NULL;
+  NEW."receiving_unit_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

@@ -7,8 +7,7 @@
  * EC-03: Validation format UT-XXX/YYYY + duplicate check.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { CASE_PHASE } from '@/shared/enums/case-phase';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -17,6 +16,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Edit,
   FileText,
@@ -37,27 +38,28 @@ import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { downloadCsv } from '@/lib/csv';
 import { today, toDateInput, formatVNDate } from '@/lib/dates';
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_UY_THAC } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_UY_THAC: readonly TruongLoc<Delegation>[] = [
-  { key: 'soUyThac', nhan: 'Số ủy thác', kieu: 'ma', lay: (d) => d.delegationNumber },
-  { key: 'noiDung', nhan: 'Nội dung', kieu: 'chu', lay: (d) => d.content },
-  { key: 'ngayUyThac', nhan: 'Ngày ủy thác', kieu: 'ngay', lay: (d) => d.delegationDate },
-  { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu', lay: (d) => d.receivingUnit },
-  { key: 'nguoiTao', nhan: 'Người tạo', kieu: 'chu', lay: (d) => d.createdBy },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (d) => d.status },
-];
-
+/** Thẻ Trạng thái so MÃ enum ở máy chủ (`DelegationStatus`); nhãn chỉ để hiện. */
 const GIA_TRI_CHON_UY_THAC = {
   trangThai: [
-    { value: 'pending', label: 'Chờ nhận' },
-    { value: 'received', label: 'Đã nhận' },
-    { value: 'completed', label: 'Đã hoàn thành' },
+    { value: 'PENDING', label: 'Chờ nhận' },
+    { value: 'RECEIVED', label: 'Đã nhận' },
+    { value: 'COMPLETED', label: 'Đã hoàn thành' },
   ],
 };
+
+const PAGE_SIZE = 20;
+/** Trần một lượt tải khi xuất (`@Max(200)` của DTO). */
+const LO_XUAT = 200;
+
+interface ThongKeUyThac {
+  total: number;
+  byStatus: Partial<Record<'PENDING' | 'RECEIVED' | 'COMPLETED', number>>;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -93,11 +95,59 @@ interface ValidationErrors {
   receivingUnit?: string;
 }
 
+/** Một dòng `GET /delegations` — chỉ các trường màn dùng. */
+interface DongUyThac {
+  id: string;
+  delegationNumber: string;
+  delegationDate?: string | null;
+  receivingUnit: string;
+  status: string;
+  content: string;
+  createdBy?: { firstName?: string | null; lastName?: string | null } | null;
+  completedDate?: string | null;
+  relatedCase?: { name?: string | null } | null;
+}
+
+const TRANG_THAI_API: Record<string, DelegationStatus> = {
+  PENDING: 'pending',
+  RECEIVED: 'received',
+  COMPLETED: 'completed',
+};
+
+/** Trạng thái gửi máy chủ theo MÃ enum — DTO kiểm `@IsEnum(DelegationStatus)`, chữ thường là 400. */
+const TRANG_THAI_GUI: Record<DelegationStatus, 'PENDING' | 'RECEIVED' | 'COMPLETED'> = {
+  pending: 'PENDING',
+  received: 'RECEIVED',
+  completed: 'COMPLETED',
+};
+
+const NHAN_TRANG_THAI: Record<DelegationStatus, string> = {
+  pending: 'Chờ nhận',
+  received: 'Đã nhận',
+  completed: 'Đã hoàn thành',
+};
+
+function docDongUyThac(d: DongUyThac): Delegation {
+  const status = TRANG_THAI_API[d.status] ?? 'pending';
+  return {
+    id: d.id,
+    delegationNumber: d.delegationNumber,
+    delegationDate: toDateInput(d.delegationDate ?? undefined),
+    receivingUnit: d.receivingUnit,
+    status,
+    statusLabel: NHAN_TRANG_THAI[status],
+    content: d.content,
+    createdBy: d.createdBy ? `${d.createdBy.firstName ?? ''} ${d.createdBy.lastName ?? ''}`.trim() : '',
+    completedDate: d.completedDate ? new Date(d.completedDate).toISOString().split('T')[0] : undefined,
+    relatedCase: d.relatedCase?.name ?? undefined,
+  };
+}
+
 interface FilterData {
   quickSearch: string;
   fromDate: string;
   toDate: string;
-  receivingUnit: string;
+  /** Mã enum máy chủ (PENDING…), rỗng = tất cả. */
   status: string;
 }
 
@@ -121,7 +171,6 @@ export default function InvestigationDelegationPage() {
     quickSearch: '',
     fromDate: '',
     toDate: '',
-    receivingUnit: '',
     status: '',
   });
 
@@ -135,78 +184,133 @@ export default function InvestigationDelegationPage() {
   });
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  /** Lỗi lưu không gắn với ô nào — NÓI ra lý do máy chủ đưa, không để modal đứng im. */
+  const [loiLuu, setLoiLuu] = useState('');
 
-  // ── Real data state ────────────────────────────────────────────────────────
-  const [allDelegations, setAllDelegations] = useState<Delegation[]>([]);
+  // ── Tìm kiếm, lọc, phân trang, thống kê: ĐỀU ở máy chủ ─────────────────────
+  // Trước 17/09/2026 màn tải `limit=100` rồi lọc tại chỗ, thẻ thống kê đếm trên phần đã tải.
+
+  // Ô tìm dạng thẻ — thẻ trên URL `delegation_tk`. Cờ `TIM_KIEM_THE` tắt → ô chữ cũ gửi `search`.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'delegation',
+    khai: TIM_KIEM_UY_THAC,
+    giaTriChon: GIA_TRI_CHON_UY_THAC,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
+  /** Tham số lọc chung của danh sách, thống kê và xuất (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+
+  const [delegations, setDelegations] = useState<Delegation[]>([]);
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeUyThac | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (nút Làm mới). */
+  const [lanTai, setLanTai] = useState(0);
 
   const fetchDelegations = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
     setLoading(true);
     setLoadError("");
     try {
-      const res = await api.get('/delegations?limit=100');
-      const statusMap: Record<string, string> = { PENDING: 'pending', RECEIVED: 'received', COMPLETED: 'completed' };
-      const mapped: Delegation[] = (res.data.data ?? []).map((d: any, i: number) => ({
-        id: d.id,
-        stt: i + 1,
-        delegationNumber: d.delegationNumber,
-        delegationDate: toDateInput(d.delegationDate),
-        receivingUnit: d.receivingUnit,
-        status: (statusMap[d.status] ?? 'pending') as DelegationStatus,
-        statusLabel: statusMap[d.status] === 'completed' ? 'Đã hoàn thành' : statusMap[d.status] === 'received' ? 'Đã nhận' : 'Chờ xử lý',
-        content: d.content,
-        createdBy: d.createdBy ? `${d.createdBy.firstName ?? ''} ${d.createdBy.lastName ?? ''}`.trim() : '',
-        completedDate: d.completedDate ? new Date(d.completedDate).toISOString().split('T')[0] : undefined,
-        relatedCase: d.relatedCase?.name,
-      }));
-      setAllDelegations(mapped);
+      const [ds, tk] = await Promise.all([
+        api.get<{ data?: DongUyThac[]; total?: number }>(`/delegations?${danhSach}`),
+        api.get<ThongKeUyThac>(`/delegations/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(ds.data.total ?? 0);
+      // Tổng giảm dưới trang đang xem → kẹp về trang cuối còn dữ liệu (lượt này không hạ cờ loading).
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
+      }
+      setDelegations((ds.data.data ?? []).map(docDongUyThac));
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
     } catch (e) {
+      if (luot !== luotTai.current) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
       // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-      setAllDelegations([]);
+      setDelegations([]);
+      setTotal(0);
+      setThongKe(null);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (luot === luotTai.current) setLoading(false);
     }
-  }, []);
+  }, [thamSoLoc, filters.status, page, khoaLoc, lanTai]);
 
-  useEffect(() => { fetchDelegations(); }, [fetchDelegations]);
+  useEffect(() => { void fetchDelegations(); }, [fetchDelegations]);
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
-  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
-    prefix: 'delegation',
-    khai: KHAI_UY_THAC,
-    giaTriChon: GIA_TRI_CHON_UY_THAC,
-    dong: allDelegations,
-    bat: theBat,
-  });
-
-  const filteredData = timKiem.dongLoc.filter((d) => {
-    if (!theBat && filters.quickSearch) {
-      const q = filters.quickSearch.toLowerCase();
-      const match =
-        d.delegationNumber.toLowerCase().includes(q) ||
-        d.content.toLowerCase().includes(q) ||
-        d.receivingUnit.toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    if (filters.fromDate && d.delegationDate < filters.fromDate) return false;
-    if (filters.toDate && d.delegationDate > filters.toDate) return false;
-    if (filters.receivingUnit && d.receivingUnit !== filters.receivingUnit) return false;
-    if (filters.status && d.status !== filters.status) return false;
-    return true;
-  });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // ── Stats ──────────────────────────────────────────────────────────────────
+  // Lấy từ MÁY CHỦ trên cùng thẻ/ngày/phạm vi. Chưa có số (đang tải lần đầu) → undefined → dấu gạch.
+  const demTrangThai = (t: 'PENDING' | 'RECEIVED' | 'COMPLETED') =>
+    thongKe ? (thongKe.byStatus[t] ?? 0) : undefined;
+  const totalCount = thongKe?.total;
+  const pendingCount = demTrangThai('PENDING');
+  const receivedCount = demTrangThai('RECEIVED');
+  const completedCount = demTrangThai('COMPLETED');
 
-  const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((d) => d.status === CASE_PHASE.PENDING).length;
-  const receivedCount = filteredData.filter((d) => d.status === 'received').length;
-  const completedCount = filteredData.filter((d) => d.status === 'completed').length;
+  /** Xuất CSV: tải ĐỦ mọi trang khớp bộ lọc (không chỉ trang đang xem), rồi mới ghi tệp. */
+  const [dangXuat, setDangXuat] = useState(false);
+  const xuatCsv = async () => {
+    setDangXuat(true);
+    try {
+      const tatCa: Delegation[] = [];
+      for (let offset = 0; ; offset += LO_XUAT) {
+        const p = new URLSearchParams(thamSoLoc);
+        if (filters.status) p.set('status', filters.status);
+        p.set('limit', String(LO_XUAT));
+        p.set('offset', String(offset));
+        const res = await api.get<{ data?: DongUyThac[]; total?: number }>(`/delegations?${p}`);
+        const lo = (res.data.data ?? []).map(docDongUyThac);
+        tatCa.push(...lo);
+        if (lo.length < LO_XUAT || tatCa.length >= Number(res.data.total ?? 0)) break;
+      }
+      const headers = ['STT', 'Số ủy thác', 'Ngày', 'Đơn vị nhận', 'Trạng thái', 'Nội dung', 'Người tạo'];
+      const rows = tatCa.map((d, i) => [
+        i + 1, d.delegationNumber, d.delegationDate, d.receivingUnit,
+        d.statusLabel, d.content, d.createdBy,
+      ]);
+      downloadCsv(rows, headers, `UyThacDieuTra_${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch {
+      alert('Xuất Excel thất bại. Vui lòng thử lại.');
+    } finally {
+      setDangXuat(false);
+    }
+  };
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
@@ -220,7 +324,7 @@ export default function InvestigationDelegationPage() {
     } else {
       // EC-03: Kiểm tra số ủy thác trùng
       const isEditingSelf = editingMode === 'edit' && selectedDelegation?.delegationNumber === formData.delegationNumber;
-      const isDuplicate = !isEditingSelf && allDelegations.some((d) => d.delegationNumber === formData.delegationNumber);
+      const isDuplicate = !isEditingSelf && delegations.some((d) => d.delegationNumber === formData.delegationNumber);
       if (isDuplicate) {
         errors.delegationNumber = `Số ủy thác "${formData.delegationNumber}" đã tồn tại. Vui lòng nhập số khác.`;
       }
@@ -258,6 +362,7 @@ export default function InvestigationDelegationPage() {
       relatedCase: '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
@@ -273,6 +378,7 @@ export default function InvestigationDelegationPage() {
       relatedCase: delegation.relatedCase || '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
@@ -288,28 +394,41 @@ export default function InvestigationDelegationPage() {
       relatedCase: delegation.relatedCase || '',
     });
     setValidationErrors({});
+    setLoiLuu('');
     setShowDelegationModal(true);
   };
 
   const handleSave = async () => {
     if (!validateForm()) return;
     try {
+      // Không gửi `relatedCase`: API chỉ nhận `relatedCaseId`, tên gõ tay không quy ra được id —
+      // gửi khoá lạ là 400 (`forbidNonWhitelisted`). Trước 17/09/2026 tạo mới vì thế luôn hỏng.
       const dto = {
         delegationNumber: formData.delegationNumber,
         content: formData.content,
         delegationDate: formData.delegationDate,
         receivingUnit: formData.receivingUnit,
-        status: formData.status,
-        relatedCase: formData.relatedCase || undefined,
+        status: TRANG_THAI_GUI[formData.status],
       };
+      setLoiLuu('');
       if (editingMode === 'add') {
         await api.post('/delegations', dto);
       } else if (editingMode === 'edit' && selectedDelegation) {
         await api.put(`/delegations/${selectedDelegation.id}`, dto);
       }
       await fetchDelegations();
-    } catch {
-      // keep modal open on error
+    } catch (e) {
+      // Danh sách đã phân trang: kiểm trùng tại chỗ chỉ thấy trang đang xem. Máy chủ chặn trùng bằng khoá
+      // duy nhất (409) — phải NÓI ra dưới ô Số ủy thác, không để modal đứng im không lý do.
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setValidationErrors({
+          ...validationErrors,
+          delegationNumber: `Số ủy thác "${formData.delegationNumber}" đã tồn tại. Vui lòng nhập số khác.`,
+        });
+      } else {
+        setLoiLuu(extractApiError(e, 'Không lưu được ủy thác. Vui lòng thử lại.').messages.join(', '));
+      }
       return;
     }
     setShowDelegationModal(false);
@@ -432,14 +551,8 @@ export default function InvestigationDelegationPage() {
 
           <button
             data-testid="export-excel-btn"
-            onClick={() => {
-              const headers = ['STT', 'Số ủy thác', 'Ngày', 'Đơn vị nhận', 'Trạng thái', 'Nội dung', 'Người tạo'];
-              const rows = filteredData.map((d, i) => [
-                i + 1, d.delegationNumber, d.delegationDate, d.receivingUnit,
-                d.statusLabel, d.content, d.createdBy,
-              ]);
-              downloadCsv(rows, headers, `UyThacDieuTra_${new Date().toISOString().slice(0, 10)}.csv`);
-            }}
+            onClick={() => { void xuatCsv(); }}
+            disabled={dangXuat}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Download className="w-4 h-4" />
@@ -450,7 +563,8 @@ export default function InvestigationDelegationPage() {
             data-testid="refresh-btn"
             onClick={() => {
               timKiem.xoaHet();
-              setFilters({ quickSearch: '', fromDate: '', toDate: '', receivingUnit: '', status: '' });
+              setFilters({ quickSearch: '', fromDate: '', toDate: '', status: '' });
+              setLanTai((n) => n + 1);
             }}
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
           >
@@ -465,8 +579,8 @@ export default function InvestigationDelegationPage() {
         {theBat ? (
           <OTimKiemThe
             the={timKiem.the}
-            truong={KHAI_UY_THAC}
-            khai={KHAI_UY_THAC}
+            truong={TIM_KIEM_UY_THAC}
+            khai={TIM_KIEM_UY_THAC}
             giaTriChon={GIA_TRI_CHON_UY_THAC}
             onThem={timKiem.them}
             onBoThe={timKiem.boThe}
@@ -489,12 +603,13 @@ export default function InvestigationDelegationPage() {
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Đơn vị nhận: lọc bằng thẻ "Đơn vị nhận" — ô chọn cũ liệt kê cứng 5 công an quận không có trong dữ liệu. */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={filters.fromDate}
+                  <input type="date" data-testid="filter-from-date" value={filters.fromDate}
                     onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -504,39 +619,22 @@ export default function InvestigationDelegationPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={filters.toDate}
+                  <input type="date" data-testid="filter-to-date" value={filters.toDate}
                     onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị nhận</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select value={filters.receivingUnit}
-                    onChange={(e) => setFilters({ ...filters, receivingUnit: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="Công an Quận 1">Công an Quận 1</option>
-                    <option value="Công an Quận 3">Công an Quận 3</option>
-                    <option value="Công an Quận 5">Công an Quận 5</option>
-                    <option value="Công an Quận 10">Công an Quận 10</option>
-                    <option value="Công an Quận Tân Bình">Công an Quận Tân Bình</option>
-                  </select>
-                </div>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
-                <select value={filters.status}
+                <select data-testid="filter-status" value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="">Tất cả</option>
-                  <option value="pending">Chờ nhận</option>
-                  <option value="received">Đã nhận</option>
-                  <option value="completed">Đã hoàn thành</option>
+                  {GIA_TRI_CHON_UY_THAC.trangThai.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -545,7 +643,7 @@ export default function InvestigationDelegationPage() {
 
         <div className="text-sm text-slate-600">
           {loading ? 'Đang tải...' : (
-            <>Tìm thấy <span className="font-medium text-slate-800">{filteredData.length}</span> ủy thác</>
+            <>Tìm thấy <span data-testid="delegation-total" className="font-medium text-slate-800">{total}</span> ủy thác</>
           )}
         </div>
       </div>
@@ -572,17 +670,17 @@ export default function InvestigationDelegationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredData.length === 0 ? (
+                {delegations.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-16 text-center">
                       <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy ủy thác nào'}</p>
-                      {!loadError && timKiem.coThe ? (
+                      {!loadError && theBat && timKiem.the.length > 0 ? (
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                           <span>Không tìm thấy với:</span>
                           <DanhSachThe
                             the={timKiem.the}
-                            khai={KHAI_UY_THAC}
+                            khai={TIM_KIEM_UY_THAC}
                             giaTriChon={GIA_TRI_CHON_UY_THAC}
                             onBoThe={timKiem.boThe}
                           />
@@ -593,7 +691,7 @@ export default function InvestigationDelegationPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((delegation) => (
+                  delegations.map((delegation) => (
                     <tr
                       key={delegation.id}
                       onClick={() => openViewModal(delegation)}
@@ -667,6 +765,33 @@ export default function InvestigationDelegationPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} ủy thác
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                data-testid="delegation-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                data-testid="delegation-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -808,14 +933,14 @@ export default function InvestigationDelegationPage() {
                   {/* Vụ án liên quan */}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-2">Vụ án liên quan</label>
+                    {/* CHỈ HIỂN THỊ liên kết đã có: API nhận `relatedCaseId`, tên gõ tay không lưu được. */}
                     <input
                       data-testid="related-case-input"
                       type="text"
                       value={formData.relatedCase}
-                      onChange={(e) => setFormData({ ...formData, relatedCase: e.target.value })}
-                      disabled={editingMode === 'view'}
-                      placeholder="VA-XXX/2026"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50"
+                      readOnly
+                      placeholder="Chưa liên kết vụ án"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
                     />
                   </div>
                 </div>
@@ -880,6 +1005,12 @@ export default function InvestigationDelegationPage() {
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">
+              {loiLuu && (
+                <p data-testid="delegation-save-error" role="alert" className="mr-auto flex items-center gap-1.5 text-sm text-red-600">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {loiLuu}
+                </p>
+              )}
               <button
                 onClick={() => { setShowDelegationModal(false); setSelectedDelegation(null); setValidationErrors({}); }}
                 className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
