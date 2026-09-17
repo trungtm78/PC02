@@ -8,10 +8,12 @@ import {
   sinhSqlTatTimKiem,
   truongPrismaCanCo,
 } from './sinh/sinh-tim-kiem';
+import { sinhFrontendBoDau } from './bo-dau';
 import {
   cotDbLech,
   kieuCotLech,
   TEP_FRONTEND,
+  TEP_FRONTEND_BO_DAU,
   TEP_SCHEMA,
   TEP_SQL_BAT_LAI,
   TEP_SQL_TAT,
@@ -45,6 +47,14 @@ describe('GATE tìm kiếm — tệp sinh khớp tệp khai', () => {
 
   it('frontend/src/shared/tim-kiem/generated.ts ≡ đầu ra bộ sinh', () => {
     expect(docLF(TEP_FRONTEND)).toBe(sinhFrontendTimKiem(KHAI_TIM_KIEM));
+  });
+
+  /**
+   * Trình duyệt lọc 12 màn tại chỗ. Trước 17/09/2026 nó dùng hàm bỏ dấu RIÊNG (`lib/bo-dau.ts`), không
+   * quy đổi dấu câu như máy chủ — chú thích trong bo-dau.ts nói "hai nơi dùng" mà thực tế một nơi.
+   */
+  it('frontend/src/shared/tim-kiem/bo-dau.generated.ts ≡ đầu ra bộ sinh', () => {
+    expect(docLF(TEP_FRONTEND_BO_DAU)).toBe(sinhFrontendBoDau());
   });
 
   /**

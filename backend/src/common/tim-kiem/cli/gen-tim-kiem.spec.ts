@@ -9,6 +9,7 @@ import {
   sinhSqlTatTimKiem,
   truongPrismaCanCo,
 } from '../sinh/sinh-tim-kiem';
+import { sinhFrontendBoDau } from '../bo-dau';
 import { chayGenTimKiem, dauThoiGian, type DuongDanGen } from './gen-tim-kiem';
 
 /**
@@ -36,6 +37,7 @@ describe('chayGenTimKiem', () => {
     dd = {
       thuMucMigration: path.join(goc, 'migrations'),
       tepFrontend: path.join(goc, 'frontend', 'generated.ts'),
+      tepFrontendBoDau: path.join(goc, 'frontend', 'bo-dau.generated.ts'),
       tepSchema: path.join(goc, 'schema.prisma'),
       tepSqlTat: path.join(goc, 'docs', 'tat.sql'),
       tepSqlBatLai: path.join(goc, 'docs', 'bat-lai.sql'),
@@ -72,6 +74,10 @@ describe('chayGenTimKiem', () => {
     );
     expect(fs.readFileSync(dd.tepFrontend, 'utf8')).toBe(
       sinhFrontendTimKiem(KHAI_TIM_KIEM),
+    );
+    // Bảng bỏ dấu sang trình duyệt sinh cùng lượt — sửa bảng một nơi, hai phía đổi cùng lúc.
+    expect(fs.readFileSync(dd.tepFrontendBoDau, 'utf8')).toBe(
+      sinhFrontendBoDau(),
     );
     // SQL vận hành khẩn sinh cùng lượt — khai thêm cột là bản "tắt" có luôn cột mới.
     expect(fs.readFileSync(dd.tepSqlTat, 'utf8')).toBe(

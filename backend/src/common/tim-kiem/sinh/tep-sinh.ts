@@ -20,6 +20,11 @@ export const TEP_FRONTEND = path.resolve(
   'tim-kiem',
   'generated.ts',
 );
+/** Bảng bỏ dấu cho trình duyệt — sinh từ `bo-dau.ts`, cùng thư mục với `generated.ts`. */
+export const TEP_FRONTEND_BO_DAU = path.join(
+  path.dirname(TEP_FRONTEND),
+  'bo-dau.generated.ts',
+);
 
 /** SQL vận hành khẩn — chạy tay trên CSDL lúc sự cố, nên nằm cạnh tài liệu vận hành. */
 const THU_MUC_VAN_HANH = path.resolve(GOC_BACKEND, '..', 'docs', 'van-hanh');

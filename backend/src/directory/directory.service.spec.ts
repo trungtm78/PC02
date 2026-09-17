@@ -130,10 +130,11 @@ describe('DirectoryService', () => {
         );
       });
 
-      it('thẻ Mã → đúng mã, không phân biệt hoa thường', async () => {
+      // ĐỔI LUẬT 17/09/2026: mã thường so CHỨA (như %like%) — "T0" ra "T01".
+      it('thẻ Mã → chứa chuỗi gõ, không phân biệt hoa thường', async () => {
         await service.findAll({ tk: ['ma~th001'] } as never);
         expect(JSON.stringify(whereCua().AND)).toContain(
-          '"code":{"equals":"th001","mode":"insensitive"}',
+          '"code":{"contains":"th001","mode":"insensitive"}',
         );
       });
 

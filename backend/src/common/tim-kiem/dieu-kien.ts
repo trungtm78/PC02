@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { hoSoCodeVariants } from '../utils/ho-so-code.util';
 import { dieuKienSttCu } from '../utils/stt-cu.util';
 import { boDauTimKiem, thoatLike } from './bo-dau';
 import {
@@ -132,12 +131,25 @@ export function docThe(
   return [...theoKhoa].map(([key, giaTri]) => ({ key, giaTri }));
 }
 
-/** Mẫu `contains` trên cột bỏ dấu: 1–2 ký tự thì khớp ĐẦU TỪ (cột bóng có khoảng trắng đầu). */
+/**
+ * Mẫu `contains` trên cột bỏ dấu — CHUỖI CON ở bất kỳ đâu, mọi độ dài (như `%like%`).
+ *
+ * Trước 17/09/2026 chuỗi 1–2 ký tự được thêm khoảng trắng đầu nên chỉ khớp ĐẦU TỪ ("an" không ra
+ * "Tuấn", "11" không ra "26-11171"), để GIN trigram dùng được. Đo lại trên 47.169 đơn thư: chuỗi
+ * ngắn phổ biến thì CẢ HAI cách đều Seq Scan và chuỗi con còn nhanh hơn (đếm 255 ms so với 317 ms);
+ * chỉ chuỗi ngắn HIẾM chậm đi (4 ms → ~234 ms), vẫn dưới ngưỡng 300 ms. Cột bóng giữ nguyên khoảng
+ * trắng đầu — vô hại với `contains`, nên không cần migration hay nạp lại.
+ */
 function mauBoDau(giaTri: string): string | undefined {
   const b = boDauTimKiem(giaTri);
   if (!b) return undefined;
-  return thoatLike(b.length < 3 ? ` ${b}` : b);
+  return thoatLike(b);
 }
+
+/** Chứa chuỗi gõ trên cột gốc, không phân biệt hoa thường — cho cột MÃ (không có cột bóng). */
+const chuaMa = (cot: string, giaTri: string): DieuKien => ({
+  [cot]: { contains: thoatLike(giaTri), mode: 'insensitive' },
+});
 
 const chuaGoc = (cot: string, giaTri: string): DieuKien => ({
   [cot]: { contains: thoatLike(giaTri), mode: 'insensitive' },
@@ -251,14 +263,19 @@ function dieuKienMotThe(
         ),
       );
     case 'ma-thuong':
-      // Mã danh mục / mã cán bộ: đúng mã, không phân biệt hoa thường (không đi biến thể mã hồ sơ).
-      return hoac(
-        the.giaTri.map((v) => ({ [cot]: { equals: v, mode: 'insensitive' } })),
-      );
+      // Mã danh mục / mã cán bộ / IP / thao tác: CHỨA chuỗi gõ ("T0" ra "T01", "192.168" ra IP
+      // "192.168.1.10"). Không đi biến thể mã hồ sơ.
+      return hoac(the.giaTri.map((v) => chuaMa(cot, v)));
     case 'ma':
-      return [
-        { [cot]: { in: [...new Set(the.giaTri.flatMap(hoSoCodeVariants))] } },
-      ];
+      // STT hồ sơ: CHỨA chuỗi gõ. Trước 17/09/2026 so ĐÚNG NGUYÊN mã (`in`) nên anh gõ thẻ "STT: 78"
+      // ra "Không tìm thấy". KHÔNG sinh biến thể năm 2↔4 số: đo prod 17/09 có 0 mã lưu dạng ngắn ở cả
+      // ba bảng, nên dạng ngắn gõ vào đã là chuỗi con của mã lưu; còn biến thể thì gây rò ("2026-1" sinh
+      // "26-1", khớp "2025-126-1").
+      return hoac(
+        [...new Set(the.giaTri.map((v) => v.trim()).filter(Boolean))].map((v) =>
+          chuaMa(cot, v),
+        ),
+      );
     case 'ma-cu':
       return hoac(
         the.giaTri.flatMap((v) => {

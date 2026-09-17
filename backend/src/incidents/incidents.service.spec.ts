@@ -205,8 +205,9 @@ describe('IncidentsService', () => {
       // Vụ việc lưu mã ở `code`, không phải `stt`. Từ 15/09/2026 tham số cũ đi qua thẻ `stt`
       // (cùng luật biến thể) — điều kiện nằm trong AND, không gán thẳng lên `where.code`.
       expect(where.code).toBeUndefined();
+      // Dạng ngắn "26-9706" là chuỗi con của mã lưu "2026-9706" — so chứa ra được, không cần biến thể.
       expect(where.AND).toContainEqual({
-        code: { in: ['26-9706', '2026-9706'] },
+        code: { contains: '26-9706', mode: 'insensitive' },
       });
     });
 

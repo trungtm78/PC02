@@ -36,7 +36,6 @@ import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_KIEN_NGHI: readonly TruongLoc<Proposal>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (p) => p.stt },
   { key: 'maKienNghi', nhan: 'Mã kiến nghị', kieu: 'ma', lay: (p) => p.proposalNumber },
   { key: 'hoSoLienQuan', nhan: 'Mã hồ sơ liên quan', kieu: 'chu', lay: (p) => [p.caseType, p.relatedCase] },
   { key: 'noiDung', nhan: 'Nội dung kiến nghị', kieu: 'chu', lay: (p) => p.content },

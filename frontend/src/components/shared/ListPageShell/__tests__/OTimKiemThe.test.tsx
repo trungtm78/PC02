@@ -112,12 +112,15 @@ describe('<OTimKiemThe>', () => {
     expect(nhan.some((t) => t.includes('tất cả các cột'))).toBe(false);
   });
 
-  it('dưới 3 ký tự → nhắc chỉ khớp đầu từ', () => {
+  /**
+   * ĐỔI LUẬT 17/09/2026: tìm kiếm nay khớp CHUỖI CON ở mọi độ dài (như %like%), nên câu nhắc "dưới 3 ký
+   * tự chỉ khớp đầu từ" thành SAI. Giữ nó là nói với cán bộ một luật hệ thống không còn chạy.
+   */
+  it('gõ 1–2 ký tự → KHÔNG còn nhắc "chỉ khớp đầu từ"', () => {
     const { o } = dung();
     goChu(o, 'An');
-    expect(screen.getByText(/Gõ từ 3 ký tự/)).toBeInTheDocument();
-    goChu(o, 'Anh');
     expect(screen.queryByText(/Gõ từ 3 ký tự/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/đầu từ/)).not.toBeInTheDocument();
   });
 
   it('Esc đóng danh sách', () => {

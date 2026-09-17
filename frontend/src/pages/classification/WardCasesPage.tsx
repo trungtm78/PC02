@@ -105,7 +105,6 @@ function getUserPermissions(): UserPermissions {
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_VU_AN_PHUONG: readonly TruongLoc<WardCase>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (c) => c.stt },
   { key: 'tenVuAn', nhan: 'Tên vụ án', kieu: 'chu', lay: (c) => c.caseName },
   { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu', lay: (c) => c.charge },
   { key: 'biCan', nhan: 'Bị can', kieu: 'chu', lay: (c) => c.suspects },

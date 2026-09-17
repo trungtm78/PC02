@@ -1653,14 +1653,14 @@
 - **Expected**: Response < 10s, file size hợp lý, không timeout
 - **Data required**: `cases.shape.large.D0`
 
-#### TC-CASE-131 — M6-21: chuỗi tìm 1–2 ký tự chỉ khớp ĐẦU TỪ, không khớp giữa từ
+#### TC-CASE-131 — M6-21: chuỗi tìm 1–2 ký tự khớp CHUỖI CON ở bất kỳ đâu (như %like%), không chỉ đầu từ
 - **Type/Priority/Severity**: DATA / P1 / Medium
 - **Endpoint**: `GET /api/v1/cases`
 - **Role**: OFFICER
 - **Pre**: DB có vụ án tên chứa từ BẮT ĐẦU bằng `An` (vd "Nguyễn Văn An") VÀ vụ án chứa `an` ở GIỮA từ (vd "Toàn")
 - **Steps**:
   1. GET /api/v1/cases?search=an
-- **Expected**: HTTP 200. Trả hồ sơ có từ BẮT ĐẦU bằng `an`; KHÔNG trả hồ sơ chỉ chứa `an` ở giữa từ. Lý do: chuỗi dưới 3 ký tự được thêm khoảng trắng đầu trước khi so trên cột bóng, để chỉ mục GIN còn dùng được. [CA KIỂM THÊM 16/09/2026 — lỗ hổng phủ M6-21, trước đó KHÔNG ca nào phủ thay đổi này]
+- **Expected**: HTTP 200. Trả **CẢ** hồ sơ có từ bắt đầu bằng `an` ("Nguyễn Văn An") **LẪN** hồ sơ chứa `an` ở giữa từ ("Toàn"). [SỬA ORACLE 17/09/2026 — luật cũ chỉ khớp đầu từ (thêm khoảng trắng đầu để GIN dùng được). Anh báo tìm kiếm chưa đúng %like%; đo lại 47.169 đơn thư thấy chuỗi ngắn phổ biến thì cả hai cách đều quét cả bảng, nên bỏ luật đầu từ. Ca này viết 16/09 theo luật cũ, nay lật lại.]
 - **Data required**: `cases.shape.normal.D0`
 
 #### TC-CASE-132 — M6-22: danh sách đã xoá KHÔNG còn tìm theo id, tìm theo mã hồ sơ thì ra

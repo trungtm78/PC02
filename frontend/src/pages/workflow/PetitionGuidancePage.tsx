@@ -41,7 +41,6 @@ import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
 
 /** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
 const KHAI_HUONG_DAN: readonly TruongLoc<GuidanceRecord>[] = [
-  { key: 'stt', nhan: 'STT', kieu: 'ma', lay: (g) => g.stt },
   { key: 'ngay', nhan: 'Ngày', kieu: 'ngay', lay: (g) => g.date },
   { key: 'vanDe', nhan: 'Vấn đề', kieu: 'chu', lay: (g) => g.subject },
   { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu', lay: (g) => g.unit },

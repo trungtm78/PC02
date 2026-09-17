@@ -165,11 +165,17 @@ describe('dungDieuKienTimKiem', () => {
     ]);
   });
 
-  it('chữ 1–2 ký tự: khớp ĐẦU TỪ (khoảng trắng đầu)', () => {
+  /**
+   * ĐỔI LUẬT 17/09/2026 (anh báo "search chưa đúng %like%"). Trước: 1–2 ký tự thêm khoảng trắng đầu →
+   * chỉ khớp ĐẦU TỪ ("an" không ra "Tuấn", "11" không ra "26-11171"). Lý do cũ là để GIN trigram dùng
+   * được. Đo lại trên 47.169 đơn thư: chuỗi ngắn phổ biến thì CẢ HAI cách đều Seq Scan và chuỗi con
+   * còn nhanh hơn (đếm 255 ms so với 317 ms) — lý do ấy không còn đứng.
+   */
+  it('chữ 1–2 ký tự: khớp CHUỖI CON ở bất kỳ đâu (như %like%)', () => {
     expect(dk(['nguoiGui~An'])).toEqual([
       {
         OR: [
-          { senderNameBd: { contains: ' an' } },
+          { senderNameBd: { contains: 'an' } },
           {
             senderNameBd: null,
             senderName: { contains: 'An', mode: 'insensitive' },
@@ -218,9 +224,38 @@ describe('dungDieuKienTimKiem', () => {
     ]);
   });
 
-  it('mã hồ sơ: khớp đúng biến thể (dạng ngắn ↔ dạng đầy đủ), không contains', () => {
+  /**
+   * ĐỔI LUẬT 17/09/2026. Anh gõ thẻ "STT: 78" trên Danh sách đơn thư → "Không tìm thấy", vì thẻ mã so
+   * ĐÚNG NGUYÊN mã (`in`). Nay so CHUỖI CON trên từng biến thể: "78" ra mọi STT chứa 78; dạng ngắn
+   * "26-11171" vẫn ra hồ sơ lưu dạng đầy đủ "2026-11171" và ngược lại.
+   */
+  it('mã hồ sơ: chứa chuỗi gõ — "78" ra mọi STT chứa 78', () => {
+    expect(dk(['stt~78'])).toEqual([
+      { stt: { contains: '78', mode: 'insensitive' } },
+    ]);
+  });
+
+  /**
+   * KHÔNG sinh biến thể năm 2↔4 số khi so CHỨA. Đo prod 17/09/2026: 0 mã lưu dạng ngắn ở cả ba bảng
+   * (đơn thư 47.336 · vụ việc 4.607 · vụ án 3.380 đều dạng đầy đủ) — nên biến thể dạng ngắn không phục vụ
+   * hồ sơ nào, chỉ gây RÒ: gõ "2026-1" sinh "26-1", mà "26-1" là chuỗi con của "2025-126-1" → hồ sơ năm
+   * 2025 lọt vào kết quả tìm năm 2026. Gõ dạng ngắn "26-11171" vẫn ra "2026-11171" vì là chuỗi con của nó.
+   */
+  it('mã hồ sơ: dạng ngắn vẫn ra vì là chuỗi con — không cần biến thể', () => {
     expect(dk(['stt~26-11171'])).toEqual([
-      { stt: { in: ['26-11171', '2026-11171'] } },
+      { stt: { contains: '26-11171', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('mã hồ sơ: gõ "2026-1" KHÔNG sinh "26-1" (rò sang hồ sơ năm khác)', () => {
+    expect(dk(['stt~2026-1'])).toEqual([
+      { stt: { contains: '2026-1', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('mã hồ sơ: thoát ký tự đại diện — "7%" không thành "mọi mã có số 7"', () => {
+    expect(dk(['stt~7%'])).toEqual([
+      { stt: { contains: '7\\%', mode: 'insensitive' } },
     ]);
   });
 
@@ -304,7 +339,7 @@ describe('dungDieuKienTimKiem', () => {
       expect(dkNap(['nguoiGui~An', 'nguoiGui~Bình'])).toEqual([
         {
           OR: [
-            { senderNameBd: { contains: ' an' } },
+            { senderNameBd: { contains: 'an' } },
             { senderNameBd: { contains: 'binh' } },
           ],
         },

@@ -68,6 +68,16 @@ const soChuCuKhongChanCo = (src: string) => {
   );
 };
 
+/**
+ * Cột "STT" gán bằng số thứ tự DÒNG (`stt: i + 1`) thì KHÔNG được khai là khoá tìm được. Từ 17/09/2026
+ * thẻ mã so CHỨA (như %like%), nên khoá ấy gõ "5" ra dòng 5, 15, 25, 50–59… — số dòng không phải dữ
+ * liệu, tìm theo nó vô nghĩa. Bắt cả số dòng lồng trong mã bịa (`HD-${String(i + 1)…}` ở Hướng dẫn đơn).
+ * Bản đầu PR1 đổi luật mà không gỡ khoá này ở 8 màn (rà mã thấy 5, cổng này thấy đủ 8).
+ */
+const STT_LA_SO_DONG = /\bstt:[^\n]*\bi\s*\+\s*1\b/;
+const KHAI_STT = /key:\s*'stt'/;
+const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.test(src);
+
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
@@ -84,6 +94,17 @@ describe('GATE tìm kiếm — 12 màn lọc phía trình duyệt', () => {
 
   it.each(MAN)('%s: ô chữ cũ chỉ lọc khi cờ TIM_KIEM_THE tắt', (_ten, src) => {
     expect(soChuCuKhongChanCo(src)).toBe(false);
+  });
+
+  it.each(MAN)('%s: cột STT là số thứ tự dòng thì KHÔNG là khoá tìm được', (_ten, src) => {
+    expect(sttSoDongTimDuoc(src)).toBe(false);
+  });
+
+  it('gieo lỗi: khai lại khoá stt ở màn gán STT bằng số dòng → cổng bắt được', () => {
+    expect(STT_LA_SO_DONG.test(vuAnPhuong)).toBe(true); // màn mẫu đúng là gán số dòng
+    expect(STT_LA_SO_DONG.test(huongDan)).toBe(true); // số dòng lồng trong mã bịa HD-00N
+    const khaiLai = `${vuAnPhuong}\nconst X = [{ key: 'stt', nhan: 'STT', kieu: 'ma' }];`;
+    expect(sttSoDongTimDuoc(khaiLai)).toBe(true);
   });
 
   it('mỗi màn một tiền tố thẻ, không trùng', () => {

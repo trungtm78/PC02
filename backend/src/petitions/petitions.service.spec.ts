@@ -395,7 +395,7 @@ describe('PetitionsService', () => {
       it('một giá trị tk đơn (query ?tk=x) cũng nhận', async () => {
         await service.getList({ tk: 'stt~26-11171' } as never);
         expect(whereCuaLanGoi().AND).toContainEqual({
-          stt: { in: ['26-11171', '2026-11171'] },
+          stt: { contains: '26-11171', mode: 'insensitive' },
         });
       });
 
@@ -448,7 +448,7 @@ describe('PetitionsService', () => {
           writableTeamIds: ['team-1'],
         });
         const and = whereCuaLanGoi().AND as unknown[];
-        expect(and).toContainEqual(dkNguoiGui('An', ' an'));
+        expect(and).toContainEqual(dkNguoiGui('An', 'an'));
         // Chốt CHÍNH điều kiện phạm vi, không chỉ đếm phần tử: đếm thì một điều kiện khác chen
         // vào chỗ phạm vi bị mất vẫn xanh.
         expect(JSON.stringify(and)).toContain('team-1');
@@ -498,7 +498,7 @@ describe('PetitionsService', () => {
             .mockResolvedValue([{ co: false }]);
           await service.getList({ tk: ['nguoiGui~An'] } as never);
           expect(whereCuaLanGoi().AND).toContainEqual({
-            senderNameBd: { contains: ' an' },
+            senderNameBd: { contains: 'an' },
           });
         });
 
@@ -507,7 +507,7 @@ describe('PetitionsService', () => {
             .fn()
             .mockResolvedValue([{ co: true }]);
           await service.getList({ tk: ['nguoiGui~An'] } as never);
-          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', ' an'));
+          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', 'an'));
         });
 
         it('hỏi CSDL lỗi → giữ nhánh lùi', async () => {
@@ -515,7 +515,7 @@ describe('PetitionsService', () => {
             .fn()
             .mockRejectedValue(new Error('mất kết nối'));
           await service.getList({ tk: ['nguoiGui~An'] } as never);
-          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', ' an'));
+          expect(whereCuaLanGoi().AND).toContainEqual(dkNguoiGui('An', 'an'));
         });
       });
     });

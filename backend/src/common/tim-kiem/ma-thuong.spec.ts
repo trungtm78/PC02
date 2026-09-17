@@ -23,20 +23,30 @@ const DANH_MUC: KhaiThucThe = {
 };
 
 describe('điều kiện — ma-thuong', () => {
-  it('so đúng mã, không phân biệt hoa thường; nhiều giá trị OR', () => {
+  /**
+   * ĐỔI LUẬT 17/09/2026: trước so ĐÚNG NGUYÊN mã (`equals`) → "T0" không ra "T01", "192.168" không ra IP
+   * "192.168.1.10", "CREATED" không ra thao tác "CASE_CREATED". Nay chứa chuỗi gõ, như %like%.
+   */
+  it('chứa chuỗi gõ, không phân biệt hoa thường; nhiều giá trị OR', () => {
     expect(
       dungDieuKienTimKiem([{ key: 'ma', giaTri: ['va'] }], DANH_MUC),
-    ).toEqual([{ code: { equals: 'va', mode: 'insensitive' } }]);
+    ).toEqual([{ code: { contains: 'va', mode: 'insensitive' } }]);
     expect(
-      dungDieuKienTimKiem([{ key: 'ma', giaTri: ['va', 'T01'] }], DANH_MUC),
+      dungDieuKienTimKiem([{ key: 'ma', giaTri: ['va', 'T0'] }], DANH_MUC),
     ).toEqual([
       {
         OR: [
-          { code: { equals: 'va', mode: 'insensitive' } },
-          { code: { equals: 'T01', mode: 'insensitive' } },
+          { code: { contains: 'va', mode: 'insensitive' } },
+          { code: { contains: 'T0', mode: 'insensitive' } },
         ],
       },
     ]);
+  });
+
+  it('thoát ký tự đại diện — "a_b" không khớp "aXb"', () => {
+    expect(
+      dungDieuKienTimKiem([{ key: 'ma', giaTri: ['a_b'] }], DANH_MUC),
+    ).toEqual([{ code: { contains: 'a\\_b', mode: 'insensitive' } }]);
   });
 });
 
