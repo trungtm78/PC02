@@ -152,3 +152,59 @@ describe('WorkflowService.listChuyenTra — gộp ba nguồn ở máy chủ', ()
     ).rejects.toThrow(BadRequestException);
   });
 });
+
+describe('WorkflowService.listChuyenTra — vá rà mã Codex', () => {
+  let service: WorkflowService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WorkflowService,
+        { provide: CasesService, useValue: vuAn },
+        { provide: IncidentsService, useValue: vuViec },
+        { provide: PetitionsService, useValue: donThu },
+      ],
+    }).compile();
+    service = module.get(WorkflowService);
+  });
+
+  it('[P1] chuyển tiếp `thongKeTruongNgay` (màn luôn gửi; thiếu khai ở DTO là 400 mọi lượt)', async () => {
+    await service.listChuyenTra(
+      { thongKeTruongNgay: 'NGAY_TIEP_NHAN' } as never,
+      null,
+    );
+    for (const nguon of [vuAn, vuViec, donThu]) {
+      expect(nguon.getList.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ thongKeTruongNgay: 'NGAY_TIEP_NHAN' }),
+      );
+    }
+  });
+
+  it('[P2] trùng ngày thì sắp theo id GIẢM DẦN — đúng khoá phụ của từng nguồn', async () => {
+    const cungNgay = new Date('2026-09-01T00:00:00Z');
+    vuAn.getList.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'a1',
+          caseCode: '2026-1',
+          name: 'A',
+          status: 'TIEP_NHAN',
+          ngayDeXuat: cungNgay,
+        },
+        {
+          id: 'a9',
+          caseCode: '2026-9',
+          name: 'B',
+          status: 'TIEP_NHAN',
+          ngayDeXuat: cungNgay,
+        },
+      ],
+      total: 2,
+    });
+    vuViec.getList.mockResolvedValueOnce({ data: [], total: 0 });
+    donThu.getList.mockResolvedValueOnce({ data: [], total: 0 });
+    const kq = await service.listChuyenTra({} as never, null);
+    expect(kq.data.map((d) => d.id)).toEqual(['a9', 'a1']);
+  });
+});

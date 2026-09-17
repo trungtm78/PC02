@@ -221,6 +221,12 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     expect(screen.getByTestId('btn-chuyen-doi')).toBeDisabled();
   });
 
+  it('gửi thongKeTruongNgay để máy chủ lọc đúng cột Ngày đề xuất', async () => {
+    dung();
+    await screen.findByTestId('chuyen-tra-row-c1');
+    expect(ds().get('thongKeTruongNgay')).toBe('NGAY_TIEP_NHAN');
+  });
+
   it('cờ tắt → ô chữ cũ gửi `search`', async () => {
     dung('/workflow/transfer', CO_TAT_THE);
     const o = await screen.findByTestId('quick-search-input');

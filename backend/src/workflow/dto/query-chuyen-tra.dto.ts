@@ -27,6 +27,14 @@ export class QueryChuyenTraDto {
   @IsString()
   toDate?: string;
 
+  /**
+   * Cột ngày để lọc — màn gửi `NGAY_TIEP_NHAN` để lọc đúng cột "Ngày đề xuất" đang hiện. Thiếu khai ở
+   * đây là ValidationPipe (`forbidNonWhitelisted`) trả 400 cho MỌI lượt tải màn.
+   */
+  @IsOptional()
+  @IsString()
+  thongKeTruongNgay?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

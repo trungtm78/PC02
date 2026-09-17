@@ -67,6 +67,7 @@ export class WorkflowService {
       offset: 0,
       sortBy: 'ngayDeXuat',
       sortOrder: 'desc' as const,
+      thongKeTruongNgay: query.thongKeTruongNgay,
     };
 
     const nguon: Array<{
@@ -139,7 +140,9 @@ export class WorkflowService {
         : Number.NEGATIVE_INFINITY;
     const gop = ketQua
       .flatMap((k) => k.dong)
-      .sort((a, b) => moc(b) - moc(a) || a.id.localeCompare(b.id));
+      // Khoá phụ GIẢM DẦN như `buildListOrderBy` (ngayDeXuat desc, id desc). Sắp id tăng dần ở đây là
+      // đảo thứ tự trong nhóm cùng ngày, mà phần đuôi nhóm ấy có thể chưa được lấy về — dòng bị nhảy trang.
+      .sort((a, b) => moc(b) - moc(a) || b.id.localeCompare(a.id));
 
     return {
       data: gop.slice(offset, offset + limit),
