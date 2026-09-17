@@ -144,4 +144,15 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- ── guidance_records (huong-dan) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_guidance_records() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."subject_bd" := NULL;
+  NEW."unit_bd" := NULL;
+  NEW."nguoi_duoc_huong_dan_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

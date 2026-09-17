@@ -118,3 +118,12 @@ export const TIM_KIEM_NHAT_KY = [
   { key: 'maDoiTuong', nhan: 'Mã đối tượng', kieu: 'ma-thuong' },
   { key: 'ip', nhan: 'IP', kieu: 'ma-thuong' },
 ] as const;
+
+export const TIM_KIEM_HUONG_DAN = [
+  { key: 'ngay', nhan: 'Ngày', kieu: 'ngay' },
+  { key: 'vanDe', nhan: 'Vấn đề', kieu: 'chu' },
+  { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu' },
+  { key: 'nguoiNhap', nhan: 'Người nhập', kieu: 'nguoi' },
+  { key: 'nguoiDuocHuongDan', nhan: 'Người được hướng dẫn', kieu: 'chu' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;

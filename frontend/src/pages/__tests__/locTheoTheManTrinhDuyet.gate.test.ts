@@ -7,14 +7,14 @@ import donTrung from '../classification/DuplicatePetitionsPage.tsx?raw';
 import kienNghi from '../classification/ProsecutorProposalPage.tsx?raw';
 import traoDoi from '../workflow/CaseExchangePage.tsx?raw';
 import uyThac from '../workflow/InvestigationDelegationPage.tsx?raw';
-import huongDan from '../workflow/PetitionGuidancePage.tsx?raw';
 import chuyenTra from '../workflow/TransferAndReturnPage.tsx?raw';
 import hoSoMoi from '../cases/InitialCasesPage.tsx?raw';
 import danhMuc from '../admin/MasterClassPage.tsx?raw';
 
 /**
- * CỔNG: 12 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
- * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL).
+ * CỔNG: 11 màn tải hết dòng về rồi lọc tại chỗ đều tìm bằng ô thẻ (`useLocTheoThe`), cùng ngữ
+ * nghĩa máy chủ (không dấu, chọn cột, thẻ trên URL). Hướng dẫn đơn rời cổng này 17/09/2026 — chuyển
+ * xuống máy chủ (`PetitionGuidancePage.timKiemThe.test.tsx`).
  *
  * Trước M5, mỗi màn tự chép một đoạn `toLowerCase().includes` trên vài cột cố định — gõ "trom cap"
  * không ra "Trộm cắp", và đoạn chép lệch nhau theo thời gian. Cổng này chặn hai đường lùi:
@@ -32,7 +32,6 @@ const MAN = [
   ['Kiến nghị VKS', kienNghi],
   ['Trao đổi chuyên án', traoDoi],
   ['Ủy thác điều tra', uyThac],
-  ['Hướng dẫn đơn', huongDan],
   ['Chuyển đội / Trả hồ sơ', chuyenTra],
   ['Hồ sơ mới tiếp nhận', hoSoMoi],
   ['Phân loại danh mục', danhMuc],
@@ -71,7 +70,7 @@ const soChuCuKhongChanCo = (src: string) => {
 /**
  * Cột "STT" gán bằng số thứ tự DÒNG (`stt: i + 1`) thì KHÔNG được khai là khoá tìm được. Từ 17/09/2026
  * thẻ mã so CHỨA (như %like%), nên khoá ấy gõ "5" ra dòng 5, 15, 25, 50–59… — số dòng không phải dữ
- * liệu, tìm theo nó vô nghĩa. Bắt cả số dòng lồng trong mã bịa (`HD-${String(i + 1)…}` ở Hướng dẫn đơn).
+ * liệu, tìm theo nó vô nghĩa. Bắt cả số dòng lồng trong biểu thức (mã bịa `HD-${String(i + 1)…}` từng có).
  * Bản đầu PR1 đổi luật mà không gỡ khoá này ở 8 màn (rà mã thấy 5, cổng này thấy đủ 8).
  */
 const STT_LA_SO_DONG = /\bstt:[^\n]*\bi\s*\+\s*1\b/;
@@ -81,7 +80,7 @@ const sttSoDongTimDuoc = (src: string) => STT_LA_SO_DONG.test(src) && KHAI_STT.t
 /** Prefix URL của thẻ — mỗi màn một tiền tố, trùng thì hai màn đọc thẻ của nhau. */
 const prefixCua = (src: string) => /useLocTheoThe\(\{\s*prefix:\s*'([^']+)'/.exec(src)?.[1];
 
-describe('GATE tìm kiếm — 12 màn lọc phía trình duyệt', () => {
+describe('GATE tìm kiếm — 11 màn lọc phía trình duyệt', () => {
   it.each(MAN)('%s: dùng useLocTheoThe + OTimKiemThe, bảng lọc từ dòng của hook', (_ten, src) => {
     expect(dungHook(src)).toBe(true);
     expect(coOThe(src)).toBe(true);
@@ -102,7 +101,6 @@ describe('GATE tìm kiếm — 12 màn lọc phía trình duyệt', () => {
 
   it('gieo lỗi: khai lại khoá stt ở màn gán STT bằng số dòng → cổng bắt được', () => {
     expect(STT_LA_SO_DONG.test(vuAnPhuong)).toBe(true); // màn mẫu đúng là gán số dòng
-    expect(STT_LA_SO_DONG.test(huongDan)).toBe(true); // số dòng lồng trong mã bịa HD-00N
     const khaiLai = `${vuAnPhuong}\nconst X = [{ key: 'stt', nhan: 'STT', kieu: 'ma' }];`;
     expect(sttSoDongTimDuoc(khaiLai)).toBe(true);
   });
