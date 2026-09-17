@@ -141,6 +141,9 @@ describe('WardPetitionsPage', () => {
     await screen.findByTestId('petition-row-p1');
     expect(ds().get('chiToPhuong')).toBe('true');
     expect(tk().get('chiToPhuong')).toBe('true');
+    // Codex P2: cột ngày CỐ ĐỊNH là Ngày đề xuất (đúng cột đang hiện), không theo cấu hình "theo Ngày tạo".
+    expect(ds().get('thongKeTruongNgay')).toBe('NGAY_TIEP_NHAN');
+    expect(tk().get('thongKeTruongNgay')).toBe('NGAY_TIEP_NHAN');
   });
 
   it('F6: bảng lọc có ngày, loại đơn, trạng thái', async () => {

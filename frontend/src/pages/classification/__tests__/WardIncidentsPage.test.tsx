@@ -94,6 +94,10 @@ describe('WardIncidentsPage — dữ liệu thật, lọc ở máy chủ', () =>
     expect(ds().get('limit')).toBe('20');
     expect(ds().get('offset')).toBe('0');
     expect(goi('/incidents?limit=100')).toEqual([]);
+    // Codex P2: cột ngày CỐ ĐỊNH là Ngày đề xuất (đúng cột đang hiện) — admin đặt kỳ "theo Ngày tạo" thì máy
+    // chủ lọc `createdAt` (ngày di trú) nếu màn không nói rõ.
+    expect(ds().get('thongKeTruongNgay')).toBe('NGAY_TIEP_NHAN');
+    expect(tk().get('thongKeTruongNgay')).toBe('NGAY_TIEP_NHAN');
   });
 
   it('STT là mã hồ sơ dạng ngắn, không phải số dòng', async () => {

@@ -44,7 +44,7 @@ import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/Lis
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
-import { nhanKyApDung } from '@/constants/thongKeSettings';
+import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
 
 interface PetitionRow {
   id: string;
@@ -154,6 +154,7 @@ export default function WardPetitionsPage() {
     // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
     if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
     if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    p.set('thongKeTruongNgay', TRUONG_NGAY_DE_XUAT);
     return p.toString();
   }, [theBat, tkKey, filters.quickSearch, filters.petitionType, filters.fromDate, filters.toDate, wardTeamId]);
 
