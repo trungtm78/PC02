@@ -6,8 +6,7 @@
  * data-testid added for E2E/UAT automation per OPENCODE_QA_GATE.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { CASE_PHASE } from '@/shared/enums/case-phase';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -16,11 +15,12 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Edit,
   FileText,
   Calendar,
-  Building2,
   CheckCircle,
   Clock,
   XCircle,
@@ -34,28 +34,27 @@ import { extractApiError } from '@/lib/api-errors';
 import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { soLieuHienThi } from '@/lib/soLieuHienThi';
 import { useFormDefaults } from '@/hooks/useFormDefaults';
-import { today, formatVNDate } from '@/lib/dates';
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+import { formatVNDate } from '@/lib/dates';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_HUONG_DAN } from '@/shared/tim-kiem/generated';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_HUONG_DAN: readonly TruongLoc<GuidanceRecord>[] = [
-  { key: 'ngay', nhan: 'Ngày', kieu: 'ngay', lay: (g) => g.date },
-  { key: 'vanDe', nhan: 'Vấn đề', kieu: 'chu', lay: (g) => g.subject },
-  { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu', lay: (g) => g.unit },
-  { key: 'nguoiNhap', nhan: 'Người nhập', kieu: 'chu', lay: (g) => g.createdBy },
-  { key: 'nguoiDuocHuongDan', nhan: 'Người được hướng dẫn', kieu: 'chu', lay: (g) => [g.guidedPerson, g.guidedPersonPhone] },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (g) => g.status },
-];
-
+/** Thẻ Trạng thái so MÃ enum ở máy chủ (`GuidanceStatus`); nhãn chỉ để hiện. */
 const GIA_TRI_CHON_HUONG_DAN = {
   trangThai: [
-    { value: 'pending', label: 'Chờ hoàn thành' },
-    { value: 'completed', label: 'Đã hoàn thành' },
-    { value: 'cancelled', label: 'Đã hủy' },
+    { value: 'PENDING', label: 'Chờ hoàn thành' },
+    { value: 'COMPLETED', label: 'Đã hoàn thành' },
+    { value: 'CANCELLED', label: 'Đã hủy' },
   ],
 };
+
+const PAGE_SIZE = 20;
+
+interface ThongKe {
+  total: number;
+  byStatus: Record<string, number>;
+  today: number;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,8 @@ type GuidanceStatus = 'pending' | 'completed' | 'cancelled';
 
 interface GuidanceRecord {
   id: string;
-  stt: string;
+  /** Mã `năm-stt` hệ cũ; bản tạo ở hệ mới chưa có mã → null. */
+  maHoSo: string | null;
   date: string;
   unit: string;
   createdBy: string;
@@ -74,6 +74,52 @@ interface GuidanceRecord {
   guidanceContent: string;
   subject: string;
   notes: string;
+}
+
+/** Một dòng `GET /guidance` — chỉ các trường màn dùng. */
+interface DongApi {
+  id: string;
+  maHoSo?: string | null;
+  date?: string | null;
+  createdAt?: string | null;
+  unit?: string | null;
+  createdBy?: { firstName?: string | null; lastName?: string | null } | null;
+  guidedPerson: string;
+  guidedPersonPhone?: string | null;
+  status: string;
+  guidanceContent: string;
+  subject?: string | null;
+  notes?: string | null;
+}
+
+const TRANG_THAI_API: Record<string, GuidanceStatus> = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+};
+
+const NHAN_TRANG_THAI: Record<GuidanceStatus, string> = {
+  pending: 'Đang chờ',
+  completed: 'Đã hoàn thành',
+  cancelled: 'Đã hủy',
+};
+
+function docDongApi(g: DongApi): GuidanceRecord {
+  const status = TRANG_THAI_API[g.status] ?? 'pending';
+  return {
+    id: g.id,
+    maHoSo: g.maHoSo ?? null,
+    date: g.date ?? g.createdAt ?? '',
+    unit: g.unit ?? '',
+    createdBy: g.createdBy ? `${g.createdBy.lastName ?? ''} ${g.createdBy.firstName ?? ''}`.trim() : '',
+    guidedPerson: g.guidedPerson,
+    guidedPersonPhone: g.guidedPersonPhone ?? '',
+    status,
+    statusLabel: NHAN_TRANG_THAI[status],
+    guidanceContent: g.guidanceContent,
+    subject: g.subject ?? '',
+    notes: g.notes ?? '',
+  };
 }
 
 interface GuidanceFormData {
@@ -89,7 +135,7 @@ interface FilterData {
   quickSearch: string;
   fromDate: string;
   toDate: string;
-  unit: string;
+  /** Mã enum máy chủ (PENDING…), rỗng = tất cả. */
   status: string;
 }
 
@@ -116,7 +162,6 @@ export default function PetitionGuidancePage() {
     quickSearch: '',
     fromDate: '',
     toDate: '',
-    unit: '',
     status: '',
   });
 
@@ -133,85 +178,88 @@ export default function PetitionGuidancePage() {
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  // ── Real data state ────────────────────────────────────────────────────────
-  const [allGuidances, setAllGuidances] = useState<GuidanceRecord[]>([]);
+  // ── Tìm kiếm, lọc, phân trang, thống kê: ĐỀU ở máy chủ ─────────────────────
+  // Trước 17/09/2026 màn tải `limit=100` rồi lọc tại chỗ: prod có 541 bản ghi nên 441 bản không bao
+  // giờ tìm ra, còn thẻ thống kê và "Tìm thấy N" đếm trên phần đã tải.
+
+  // Ô tìm dạng thẻ — thẻ trên URL `guidance_tk`. Cờ `TIM_KIEM_THE` tắt → ô chữ cũ gửi `search`.
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({
+    prefix: 'guidance',
+    khai: TIM_KIEM_HUONG_DAN,
+    giaTriChon: GIA_TRI_CHON_HUONG_DAN,
+    bat: theBat,
+  });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
+  /** Tham số lọc chung của danh sách và thống kê (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    if (filters.fromDate) p.set('fromDate', filters.fromDate);
+    if (filters.toDate) p.set('toDate', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì tự về trang 1 (trang cũ của kết quả ngắn là bảng rỗng
+  // giả) — không cần effect đặt lại.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+
+  const [guidances, setGuidances] = useState<GuidanceRecord[]>([]);
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKe | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  /** Số lượt tải — kết quả về trễ của lượt cũ (gõ nhanh, bấm trang liên tiếp) không đè lượt mới. */
+  const luotTai = useRef(0);
 
   const fetchGuidances = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
     setLoading(true);
     setLoadError("");
     try {
-      const res = await api.get('/guidance?limit=100');
-      const statusMap: Record<string, string> = { PENDING: 'pending', COMPLETED: 'completed', CANCELLED: 'cancelled' };
-      const mapped: GuidanceRecord[] = (res.data.data ?? []).map((g: any, i: number) => ({
-        id: g.id,
-        stt: g.stt ?? `HD-${String(i + 1).padStart(3, '0')}/${new Date().getFullYear()}`,
-        date: g.date ?? g.createdAt ?? '',
-        unit: g.unit ?? '',
-        createdBy: g.createdBy ? `${g.createdBy.firstName ?? ''} ${g.createdBy.lastName ?? ''}`.trim() : '',
-        guidedPerson: g.guidedPerson,
-        guidedPersonPhone: g.guidedPersonPhone ?? '',
-        status: (statusMap[g.status] ?? 'pending') as GuidanceStatus,
-        statusLabel: statusMap[g.status] === 'completed' ? 'Đã hoàn thành' : statusMap[g.status] === 'cancelled' ? 'Đã hủy' : 'Đang chờ',
-        guidanceContent: g.guidanceContent,
-        subject: g.subject ?? '',
-        notes: g.notes ?? '',
-      }));
-      setAllGuidances(mapped);
+      const [ds, tk] = await Promise.all([
+        api.get<{ data?: DongApi[]; total?: number }>(`/guidance?${danhSach}`),
+        api.get<ThongKe>(`/guidance/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      setGuidances((ds.data.data ?? []).map(docDongApi));
+      setTotal(Number(ds.data.total ?? 0));
+      setThongKe(tk.data);
     } catch (e) {
+      if (luot !== luotTai.current) return;
       // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
       // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-      setAllGuidances([]);
+      setGuidances([]);
+      setTotal(0);
+      setThongKe(null);
       setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
     } finally {
-      setLoading(false);
+      if (luot === luotTai.current) setLoading(false);
     }
-  }, []);
+  }, [thamSoLoc, filters.status, page]);
 
-  useEffect(() => { fetchGuidances(); }, [fetchGuidances]);
+  useEffect(() => { void fetchGuidances(); }, [fetchGuidances]);
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
-  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
-    prefix: 'guidance',
-    khai: KHAI_HUONG_DAN,
-    giaTriChon: GIA_TRI_CHON_HUONG_DAN,
-    dong: allGuidances,
-    bat: theBat,
-  });
-
-  const filteredData = timKiem.dongLoc.filter((g) => {
-    if (!theBat && filters.quickSearch) {
-      const q = filters.quickSearch.toLowerCase();
-      const match =
-        g.stt.toLowerCase().includes(q) ||
-        g.guidedPerson.toLowerCase().includes(q) ||
-        g.subject.toLowerCase().includes(q) ||
-        g.createdBy.toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    if (filters.fromDate && g.date < filters.fromDate) return false;
-    if (filters.toDate && g.date > filters.toDate) return false;
-    if (filters.unit && g.unit !== filters.unit) return false;
-    if (filters.status && g.status !== filters.status) return false;
-    return true;
-  });
-
-  // ── Stats ──────────────────────────────────────────────────────────────────
-
-  const totalCount = filteredData.length;
-  const completedCount = filteredData.filter((g) => g.status === 'completed').length;
-  const pendingCount = filteredData.filter((g) => g.status === CASE_PHASE.PENDING).length;
-  const todayCount = filteredData.filter((g) => g.date === today()).length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleResetFilters = () => {
     timKiem.xoaHet();
-    setFilters({ quickSearch: '', fromDate: '', toDate: '', unit: '', status: '' });
+    setFilters({ quickSearch: '', fromDate: '', toDate: '', status: '' });
   };
 
   const openAddModal = () => {
@@ -339,7 +387,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-700 font-medium mb-1">Tổng số hướng dẫn</p>
-              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(totalCount, !!loadError)}</p>
+              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(thongKe?.total ?? 0, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <HelpCircle className="w-6 h-6 text-blue-600" />
@@ -351,7 +399,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-700 font-medium mb-1">Đã hoàn thành</p>
-              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(completedCount, !!loadError)}</p>
+              <p className="text-3xl font-bold text-green-600">{soLieuHienThi(thongKe?.byStatus.COMPLETED ?? 0, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
@@ -363,7 +411,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-700 font-medium mb-1">Chờ hoàn thành</p>
-              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(thongKe?.byStatus.PENDING ?? 0, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
               <Clock className="w-6 h-6 text-amber-600" />
@@ -375,7 +423,7 @@ export default function PetitionGuidancePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 mb-1">Hôm nay</p>
-              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(todayCount, !!loadError)}</p>
+              <p className="text-3xl font-bold text-slate-800">{soLieuHienThi(thongKe?.today ?? 0, !!loadError)}</p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-purple-600" />
@@ -434,8 +482,8 @@ export default function PetitionGuidancePage() {
         {theBat ? (
           <OTimKiemThe
             the={timKiem.the}
-            truong={KHAI_HUONG_DAN}
-            khai={KHAI_HUONG_DAN}
+            truong={TIM_KIEM_HUONG_DAN}
+            khai={TIM_KIEM_HUONG_DAN}
             giaTriChon={GIA_TRI_CHON_HUONG_DAN}
             onThem={timKiem.them}
             onBoThe={timKiem.boThe}
@@ -450,7 +498,7 @@ export default function PetitionGuidancePage() {
               type="text"
               value={filters.quickSearch}
               onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-              placeholder="Tìm kiếm theo STT, Người được hướng dẫn, Vấn đề, Người nhập..."
+              placeholder="Tìm kiếm theo Người được hướng dẫn, Vấn đề, Đơn vị, Nội dung..."
               className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -458,12 +506,13 @@ export default function PetitionGuidancePage() {
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Đơn vị: lọc bằng thẻ "Đơn vị" trên ô tìm — ô chọn cũ liệt kê cứng đơn vị không có trong dữ liệu. */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={filters.fromDate}
+                  <input type="date" data-testid="filter-from-date" value={filters.fromDate}
                     onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -473,37 +522,22 @@ export default function PetitionGuidancePage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={filters.toDate}
+                  <input type="date" data-testid="filter-to-date" value={filters.toDate}
                     onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select value={filters.unit}
-                    onChange={(e) => setFilters({ ...filters, unit: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Tất cả</option>
-                    <option value="Phòng Tiếp công dân">Phòng Tiếp công dân</option>
-                    <option value="Đội CSĐT 1">Đội CSĐT 1</option>
-                    <option value="Đội CSĐT 2">Đội CSĐT 2</option>
-                  </select>
-                </div>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
-                <select value={filters.status}
+                <select data-testid="filter-status" value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="">Tất cả</option>
-                  <option value="pending">Chờ hoàn thành</option>
-                  <option value="completed">Đã hoàn thành</option>
-                  <option value="cancelled">Đã hủy</option>
+                  {GIA_TRI_CHON_HUONG_DAN.trangThai.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -512,7 +546,7 @@ export default function PetitionGuidancePage() {
 
         <div className="text-sm text-slate-600">
           {loading ? 'Đang tải...' : (
-            <>Tìm thấy <span className="font-medium text-slate-800">{filteredData.length}</span> hướng dẫn</>
+            <>Tìm thấy <span data-testid="guidance-total" className="font-medium text-slate-800">{total}</span> hướng dẫn</>
           )}
         </div>
       </div>
@@ -540,17 +574,17 @@ export default function PetitionGuidancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredData.length === 0 ? (
+                {guidances.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-16 text-center">
                       <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy hướng dẫn nào'}</p>
-                      {!loadError && timKiem.coThe ? (
+                      {!loadError && theBat && timKiem.the.length > 0 ? (
                         <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                           <span>Không tìm thấy với:</span>
                           <DanhSachThe
                             the={timKiem.the}
-                            khai={KHAI_HUONG_DAN}
+                            khai={TIM_KIEM_HUONG_DAN}
                             giaTriChon={GIA_TRI_CHON_HUONG_DAN}
                             onBoThe={timKiem.boThe}
                           />
@@ -561,7 +595,7 @@ export default function PetitionGuidancePage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((guidance) => (
+                  guidances.map((guidance) => (
                     <tr
                       key={guidance.id}
                       onClick={() => openViewModal(guidance)}
@@ -595,7 +629,11 @@ export default function PetitionGuidancePage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm font-bold text-blue-600">{guidance.stt}</span>
+                        {guidance.maHoSo ? (
+                          <span className="text-sm font-bold text-blue-600">{guidance.maHoSo}</span>
+                        ) : (
+                          <span className="text-sm text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 text-sm text-slate-700">
@@ -629,6 +667,33 @@ export default function PetitionGuidancePage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} hướng dẫn
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                data-testid="guidance-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                data-testid="guidance-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -756,7 +821,7 @@ export default function PetitionGuidancePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-xs text-slate-600 mb-1">Mã số</p>
-                      <p className="text-sm font-bold text-slate-800">{selectedGuidance.stt}</p>
+                      <p className="text-sm font-bold text-slate-800">{selectedGuidance.maHoSo ?? '—'}</p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-xs text-slate-600 mb-1">Ngày tạo</p>
