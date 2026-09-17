@@ -173,7 +173,7 @@ export class PetitionsController {
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportWardPetitions(
-    @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @Query() query: QueryPetitionsDto,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {

@@ -179,18 +179,25 @@ describe('WardPetitionsPage', () => {
     expect(ds().get('fromDate')).toBeNull();
   });
 
-  it('F10: xuất Excel gọi /petitions/export/ward dạng blob', async () => {
+  it('F10: xuất Excel gửi CÙNG bộ lọc danh sách (thẻ, tổ phường, loại đơn, trạng thái) dạng blob', async () => {
     Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:test'), writable: true });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), writable: true });
-    dung();
+    dung('/petitions/ward?wardPetitions_tk=nguoiGui~nguoi a');
     await screen.findByTestId('petition-row-p1');
+    fireEvent.click(screen.getByTestId('filter-toggle-btn'));
+    fireEvent.change(screen.getByTestId('filter-petition-type'), { target: { value: 'TO_CAO' } });
+    fireEvent.change(screen.getByTestId('filter-status'), { target: { value: 'DANG_XU_LY' } });
+    await waitFor(() => expect(ds().get('status')).toBe('DANG_XU_LY'));
     m.get.mockResolvedValueOnce({ data: new Blob() });
     fireEvent.click(screen.getByTestId('export-excel-btn'));
-    await waitFor(() =>
-      expect(m.get).toHaveBeenCalledWith(
-        '/petitions/export/ward',
-        expect.objectContaining({ responseType: 'blob' }),
-      ),
+    await waitFor(() => expect(goi('/petitions/export/ward?').length).toBe(1));
+    const q = thamSoCuoi('/petitions/export/ward?' as '/petitions?');
+    expect(q.getAll('tk')).toEqual(['nguoiGui~nguoi a']);
+    expect(q.get('chiToPhuong')).toBe('true');
+    expect(q.get('petitionType')).toBe('TO_CAO');
+    expect(q.get('status')).toBe('DANG_XU_LY');
+    expect(m.get.mock.calls.find((c) => String(c[0]).startsWith('/petitions/export/ward?'))?.[1]).toEqual(
+      expect.objectContaining({ responseType: 'blob' }),
     );
   });
 

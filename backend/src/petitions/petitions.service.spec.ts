@@ -1889,19 +1889,37 @@ describe('PetitionsService', () => {
       );
     });
 
-    it('B2: filters petitions by unitId query param', async () => {
+    it('B2: CÙNG bộ lọc với màn (Codex P2 17/09/2026) — phường, tổ phường, trạng thái, loại đơn', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
 
-      await service.exportWardPetitions({ unitId: 'unit-q1' }, null, mockRes);
+      // Trước 17/09/2026 tệp xuất tự dựng điều kiện: lọc `donViGiaiQuyet` bằng ID phường (không
+      // bao giờ khớp), bỏ qua thẻ/trạng thái/loại đơn và cắt 500 dòng — tệp khác hẳn màn hình.
+      await service.exportWardPetitions(
+        {
+          wardTeamId: 'w1',
+          status: PetitionStatus.MOI_TIEP_NHAN,
+          petitionType: LoaiDon.TO_CAO,
+        } as never,
+        null,
+        mockRes,
+      );
+      let where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.assignedTeam).toEqual({ is: { wardId: 'w1' } });
+      expect(where.status).toBe(PetitionStatus.MOI_TIEP_NHAN);
+      expect(where.petitionType).toBe(LoaiDon.TO_CAO);
+      expect(where.donViGiaiQuyet).toBeUndefined();
 
-      const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
-      // 27/08/2026: lọc trên `donViGiaiQuyet` chứ không phải `unit`. `unit` là đơn vị TIẾP
-      // NHẬN và rỗng ở toàn bộ 46.660 đơn thư, nên hợp đồng cũ chốt một bộ lọc không bao giờ
-      // ra kết quả.
-      expect(callArgs.where.donViGiaiQuyet).toBe('unit-q1');
+      mockPrisma.petition.findMany.mockClear();
+      await service.exportWardPetitions(
+        { chiToPhuong: true } as never,
+        null,
+        mockRes,
+      );
+      where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where.assignedTeam).toEqual({ is: { wardId: { not: null } } });
     });
 
-    it('B3: filters by fromDate/toDate on createdAt (mirror Incidents ward export semantics)', async () => {
+    it('B3: ngày lọc CỘT NGÀY CỦA DANH SÁCH (ngayDeXuat), không phải createdAt (ngày di trú)', async () => {
       mockPrisma.petition.findMany.mockResolvedValue([]);
 
       await service.exportWardPetitions(
@@ -1911,9 +1929,13 @@ describe('PetitionsService', () => {
       );
 
       const callArgs = mockPrisma.petition.findMany.mock.calls[0][0];
-      expect(callArgs.where.createdAt).toBeDefined();
-      expect(callArgs.where.createdAt.gte).toEqual(new Date('2026-01-01'));
-      expect(callArgs.where.createdAt.lte).toEqual(new Date('2026-03-31T23:59:59.999Z'));
+      expect(callArgs.where.createdAt).toBeUndefined();
+      expect(callArgs.where.ngayDeXuat.gte).toEqual(
+        new Date('2026-01-01T00:00:00'),
+      );
+      expect(callArgs.where.ngayDeXuat.lte).toEqual(
+        new Date('2026-03-31T23:59:59.999'),
+      );
     });
 
     it('B4: applies buildPetitionScopeFilter for non-dispatcher dataScope', async () => {

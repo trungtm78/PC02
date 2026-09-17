@@ -227,14 +227,10 @@ export default function WardPetitionsPage() {
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
-      const res = await api.get('/petitions/export/ward', {
-        params: {
-          unitId: wardTeamId || undefined,
-          fromDate: filters.fromDate || undefined,
-          toDate: filters.toDate || undefined,
-        },
-        responseType: 'blob',
-      });
+      // CÙNG bộ lọc với bảng: tệp xuất là đúng những đơn cán bộ đang nhìn thấy (mọi trang).
+      const q = new URLSearchParams(thamSoLoc);
+      if (filters.status) q.set('status', filters.status);
+      const res = await api.get(`/petitions/export/ward?${q}`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
@@ -248,7 +244,7 @@ export default function WardPetitionsPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [wardTeamId, filters.fromDate, filters.toDate]);
+  }, [thamSoLoc, filters.status]);
 
   // Thẻ KPI lấy số từ MÁY CHỦ trên cùng thẻ/phường/loại/ngày. Chưa có số → undefined → dấu gạch.
   const dem = (ds: PetitionStatus[]) =>
