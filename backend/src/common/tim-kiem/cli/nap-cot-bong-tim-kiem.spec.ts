@@ -30,6 +30,7 @@ const TEN_BANG = [
   'guidance_records',
   'proposals',
   'delegations',
+  'exchanges',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -105,6 +106,7 @@ describe('napCotBongTimKiem', () => {
       'guidance_records',
       'proposals',
       'delegations',
+      'exchanges',
     ]);
   });
 
