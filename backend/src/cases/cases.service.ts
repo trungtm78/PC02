@@ -365,6 +365,9 @@ export class CasesService {
             },
           },
           ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
+          // Cột "Nguồn hồ sơ" của màn Hồ sơ mới tiếp nhận (trước 17/09/2026 màn đọc trường này nhưng API
+          // không trả → mọi hồ sơ rơi về "Vụ án").
+          caseProvenance: true,
           createdAt: true,
           updatedAt: true,
           caseType: true,

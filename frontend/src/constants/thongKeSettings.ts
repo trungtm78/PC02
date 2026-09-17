@@ -18,6 +18,12 @@ export const KY_THONG_KE_OPTIONS: readonly LuaChonCaiDat[] = [
   { value: 'TAT_CA', label: 'Tất cả (không giới hạn thời gian)' },
 ] as const;
 
+/**
+ * Màn tự dựng hiện cột "Ngày đề xuất" gửi giá trị này để máy chủ lọc ĐÚNG cột ấy: không gửi thì máy chủ theo cấu
+ * hình admin, và "theo Ngày tạo" là lọc `createdAt` (ngày di trú) trong khi ô lọc ghi Ngày đề xuất.
+ */
+export const TRUONG_NGAY_DE_XUAT = 'NGAY_TIEP_NHAN';
+
 export const TRUONG_NGAY_OPTIONS: readonly LuaChonCaiDat[] = [
   { value: 'NGAY_TIEP_NHAN', label: 'Ngày tiếp nhận' },
   { value: 'NGAY_TAO', label: 'Ngày tạo' },

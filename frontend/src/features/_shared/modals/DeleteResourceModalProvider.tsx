@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { extractApiError } from '@/lib/api-errors';
 import {
   BTN_DANGER,
   BTN_OUTLINE_SLATE,
@@ -97,10 +98,9 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
       args.onSuccess?.();
       close();
     } catch (e) {
-      setError(
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          'Xóa thất bại',
-      );
+      // Máy chủ trả lỗi dạng `{ error: { message } }`; đọc `data.message` là luôn rơi về câu chung chung
+      // và giấu mất lý do thật (vd "chỉ xóa được hồ sơ đang Tiếp nhận").
+      setError(extractApiError(e, 'Xóa thất bại').messages.join(', '));
     } finally {
       setLoading(false);
     }

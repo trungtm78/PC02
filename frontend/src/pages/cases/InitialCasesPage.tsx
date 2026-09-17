@@ -1,302 +1,267 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePermission } from "@/hooks/usePermission";
-import { CASE_PHASE } from "@/shared/enums/case-phase";
+/**
+ * InitialCasesPage — Hồ sơ mới tiếp nhận: vụ án ở trạng thái Tiếp nhận, chờ cán bộ nhận xử lý.
+ *
+ * 17/09/2026: tìm kiếm, lọc, phân trang và thẻ số chạy ở MÁY CHỦ; cột đọc đúng trường thật. Trước đó màn tải
+ * 50/860 hồ sơ rồi lọc tại chỗ; Số hồ sơ là id cắt 8 ký tự, Loại đọc trường API không trả, Mức độ đọc trường
+ * Vụ án không có, Hạn xử lý/Quá hạn đọc `deadline` (prod 0/860), Đơn vị đọc `unit` rỗng với ô lọc quận gán cứng.
+ */
+
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Calendar,
-  Building2,
   Eye,
   Edit,
   Trash2,
   CheckCircle,
-  AlertTriangle,
   Clock,
   Filter,
   RotateCcw,
   FileText,
-  Bell,
   X,
-} from "lucide-react";
-import { extractApiError } from "@/lib/api-errors";
-import { api } from "@/lib/api";
-import { soLieuHienThi } from "@/lib/soLieuHienThi";
-import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
-import { formatVNDate } from "../../lib/dates";
-import { mapCaseToInitialType } from "./utils/case-provenance-mapper";
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+import { usePermission } from '@/hooks/usePermission';
+import { extractApiError } from '@/lib/api-errors';
+import { api } from '@/lib/api';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { formatVNDate } from '../../lib/dates';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
+import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { CaseStatus } from '@/shared/enums/generated';
+import { CASE_PROVENANCE_OPTIONS } from './CaseFormPage/constants';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
 
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng (cột STT là số thứ tự dòng). */
-const KHAI_HO_SO_MOI: readonly TruongLoc<InitialCase>[] = [
-  { key: 'soHoSo', nhan: 'Số hồ sơ', kieu: 'ma', lay: (c) => c.caseNumber },
-  { key: 'loai', nhan: 'Loại', kieu: 'chon', lay: (c) => c.type },
-  { key: 'noiDung', nhan: 'Nội dung vụ việc', kieu: 'chu', lay: (c) => c.subject },
-  { key: 'donVi', nhan: 'Đơn vị', kieu: 'chu', lay: (c) => c.district },
-  { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay', lay: (c) => c.receivedDate },
-  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (c) => c.priority },
-  { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', lay: (c) => c.deadline },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (c) => c.status },
-];
-
-const GIA_TRI_CHON_HO_SO_MOI = {
-  loai: [
-    { value: 'incident', label: 'Vụ việc' },
-    { value: 'case', label: 'Vụ án' },
-  ],
-  mucDo: [
-    { value: 'normal', label: 'Bình thường' },
-    { value: 'urgent', label: 'Khẩn' },
-    { value: 'critical', label: 'Rất khẩn' },
-  ],
-  trangThai: [
-    { value: 'pending', label: 'Chờ xử lý' },
-    { value: 'overdue', label: 'Quá hạn' },
-  ],
-};
-
-interface InitialCase {
+interface HoSoMoi {
   id: string;
-  caseNumber: string;
-  type: "incident" | "case";
-  typeLabel: string;
-  receivedDate: string;
-  district: string;
-  subject: string;
-  priority: "normal" | "urgent" | "critical";
-  priorityLabel: string;
-  deadline: string;
-  assignedFrom: string;
-  status: "pending" | "overdue";
+  caseCode: string | null;
+  name: string;
+  moTaChiTiet?: string | null;
+  nguonDon?: string | null;
+  donViGiaiQuyet?: string | null;
+  caseProvenance?: string | null;
+  ngayDeXuat?: string | null;
 }
+
+interface ThongKeVuAn {
+  byStatus?: Partial<Record<CaseStatus, number>>;
+  /** Kỳ máy chủ ĐÃ áp cho cả danh sách lẫn thẻ số: ô ngày trống thì là kỳ mặc định admin đặt. */
+  ky?: { ky: string; tuNgay: string | null; denNgay: string | null };
+}
+
+const PAGE_SIZE = 20;
+
+/** Nhãn nguồn hồ sơ — cùng bảng với ô chọn trên form Vụ án (một nguồn, không chép). */
+const NHAN_NGUON_HO_SO: Record<string, string> = Object.fromEntries(
+  CASE_PROVENANCE_OPTIONS.map((o) => [o.value, o.label]),
+);
+
+/**
+ * Cột của bảng — khoá `timKiem` là thẻ tìm được trên cột ấy (cổng `timKiemCotKhai` đọc đúng khai này).
+ * Nguồn hồ sơ là mã enum, lọc bằng thẻ chữ không có nghĩa nên không mang khoá.
+ */
+const COT = [
+  { tieuDe: 'STT', timKiem: 'stt' },
+  { tieuDe: 'Tên vụ án', timKiem: 'tenVuAn' },
+  { tieuDe: 'Tóm tắt nội dung', timKiem: 'tomTat' },
+  { tieuDe: 'Nguồn đơn/Đơn vị giao', timKiem: 'nguonDon' },
+  { tieuDe: 'Đơn vị giải quyết', timKiem: 'donViGiaiQuyet' },
+  { tieuDe: 'Nguồn hồ sơ' },
+  { tieuDe: 'Ngày đề xuất', timKiem: 'ngayDeXuat' },
+] as const;
+
+const KHOA_TREN_BANG = new Set<string>(
+  COT.flatMap((c) => ('timKiem' in c ? [c.timKiem] : [])),
+);
+const KHAI_HO_SO_MOI = TIM_KIEM_VU_AN.filter((t) => KHOA_TREN_BANG.has(t.key));
 
 interface FilterData {
   quickSearch: string;
   fromDate: string;
   toDate: string;
-  district: string;
-  type: string;
 }
+
+const BO_LOC_TRONG: FilterData = { quickSearch: '', fromDate: '', toDate: '' };
 
 function InitialCasesPage() {
   const navigate = useNavigate();
   const { canEdit } = usePermission();
   const canEditRow = canEdit('cases');
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedCase, setSelectedCase] = useState<InitialCase | null>(null);
-  const [filters, setFilters] = useState<FilterData>({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" });
 
-  // ── Real data state ────────────────────────────────────────────────────────
-  const [cases, setCases] = useState<InitialCase[]>([]);
+  const [rows, setRows] = useState<HoSoMoi[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState('');
+  const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
+
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const timKiem = useTheTimKiem({ prefix: 'initialCases', khai: KHAI_HO_SO_MOI, bat: theBat });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
+
+  /** Tham số lọc chung của danh sách và thẻ số (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    p.set('thongKeTruongNgay', TRUONG_NGAY_DE_XUAT);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: thamSoLoc, page: 1 });
+  if (trangTheoLoc.khoa !== thamSoLoc) setTrangTheoLoc({ khoa: thamSoLoc, page: 1 });
+  const page = trangTheoLoc.khoa === thamSoLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: thamSoLoc, page: doi(page) });
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeVuAn | null>(null);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (Làm mới, sau khi nhận/xoá). */
+  const [lanTai, setLanTai] = useState(0);
+
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    danhSach.set('status', CaseStatus.TIEP_NHAN);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [res, tk] = await Promise.all([
+        api.get<{ data?: HoSoMoi[]; total?: number }>(`/cases?${danhSach}`),
+        api.get<ThongKeVuAn>(`/cases/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data?.total ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        // Tổng giảm dưới trang đang xem (vừa nhận/xoá) → kẹp về trang cuối (lượt này không hạ cờ loading).
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: thamSoLoc, page: trangCuoi });
+        return;
+      }
+      setRows(Array.isArray(res.data?.data) ? res.data.data : []);
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
+      setRows([]);
+      setTotal(0);
+      setThongKe(null);
+      setLoadError(extractApiError(e, 'Không tải được dữ liệu. Vui lòng thử lại.').messages.join(', '));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, page, lanTai]);
 
   useEffect(() => {
-    const fetchCases = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const res = await api.get("/cases?status=TIEP_NHAN&limit=50");
-        const raw: any[] = res.data.data ?? [];
-        const mapped: InitialCase[] = raw.map((c: any) => {
-          // Map priority
-          const priorityRaw = (c.priority ?? c.urgencyLevel ?? "NORMAL").toUpperCase();
-          const priorityMap: Record<string, "normal" | "urgent" | "critical"> = {
-            NORMAL: "normal", BINH_THUONG: "normal",
-            URGENT: "urgent", KHAN: "urgent",
-            CRITICAL: "critical", RAT_KHAN: "critical",
-          };
-          const priority = priorityMap[priorityRaw] ?? "normal";
-          const priorityLabelMap: Record<string, string> = { normal: "Bình thường", urgent: "Khẩn", critical: "Rất khẩn" };
-
-          // Map status — overdue if past deadline, else pending
-          const deadline = c.deadline ?? c.dueDate ?? "";
-          const isOverdue = deadline && new Date(deadline) < new Date();
-          const status: "pending" | "overdue" = isOverdue ? "overdue" : "pending";
-
-          // Map type — v0.37.1: prefer caseProvenance, legacy fallback during soak
-          const type = mapCaseToInitialType(c);
-          const typeLabel = type === "incident" ? "Vụ việc" : "Vụ án";
-
-          return {
-            id: c.id,
-            caseNumber: c.caseNumber ?? c.code ?? c.id?.slice(0, 8).toUpperCase() ?? "",
-            type,
-            typeLabel,
-            receivedDate: c.receivedDate
-              ? new Date(c.receivedDate).toISOString().split("T")[0]
-              : c.createdAt
-              ? new Date(c.createdAt).toISOString().split("T")[0]
-              : "",
-            district: c.unit ?? c.district ?? "",
-            subject: c.name ?? c.subject ?? c.description ?? "",
-            priority,
-            priorityLabel: priorityLabelMap[priority],
-            deadline,
-            assignedFrom: c.assignedFrom ?? c.referralUnit ?? "",
-            status,
-          };
-        });
-        setCases(mapped);
-      } catch (e) {
-        // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-        // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-        setCases([]);
-        setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCases();
-  }, []);
-
-  // ── Dialog xóa ──────────────────────────────────────
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-  const [caseToDelete, setCaseToDelete] = useState<InitialCase | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Ô tìm dạng thẻ: thẻ trên URL, dòng lọc tại chỗ cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
-  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
-    prefix: 'initialCases',
-    khai: KHAI_HO_SO_MOI,
-    giaTriChon: GIA_TRI_CHON_HO_SO_MOI,
-    dong: cases,
-    bat: theBat,
-  });
-
-  const filteredData = timKiem.dongLoc.filter((record) => {
-    if (!theBat && filters.quickSearch) {
-      const searchLower = filters.quickSearch.toLowerCase();
-      const matchesSearch = record.caseNumber.toLowerCase().includes(searchLower) || record.subject.toLowerCase().includes(searchLower) || record.district.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-    }
-    if (filters.fromDate && record.receivedDate < filters.fromDate) return false;
-    if (filters.toDate && record.receivedDate > filters.toDate) return false;
-    if (filters.district && record.district !== filters.district) return false;
-    if (filters.type && record.type !== filters.type) return false;
-    return true;
-  });
-
-  const pendingCount = filteredData.filter((c) => c.status === CASE_PHASE.PENDING).length;
-  const overdueCount = filteredData.filter((c) => c.status === CASE_PHASE.OVERDUE).length;
-  const urgentCount = filteredData.filter((c) => c.priority !== "normal").length;
+    void taiDuLieu();
+  }, [taiDuLieu]);
 
   const handleResetFilters = () => {
     timKiem.xoaHet();
-    setFilters({ quickSearch: "", fromDate: "", toDate: "", district: "", type: "" });
+    setFilters(BO_LOC_TRONG);
+    setLanTai((n) => n + 1);
   };
-  const handleView = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}`); };
-  const handleEdit = (caseItem: InitialCase) => { navigate(`/cases/${caseItem.id}/edit`); };
-  const handleAssign = (caseItem: InitialCase) => { setSelectedCase(caseItem); setShowAssignModal(true); };
+
+  // ── Nhận xử lý ──────────────────────────────────────
+  const [selectedCase, setSelectedCase] = useState<HoSoMoi | null>(null);
   const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const moHopNhan = (hs: HoSoMoi) => {
+    setAssignError('');
+    setSelectedCase(hs);
+  };
   const confirmAssign = async () => {
     if (!selectedCase) return;
     setAssignLoading(true);
+    setAssignError('');
     try {
-      await api.put(`/cases/${selectedCase.id}`, { status: 'DANG_DIEU_TRA' });
-      setCases(prev => prev.filter(c => c.id !== selectedCase.id));
-      setShowAssignModal(false);
+      await api.put(`/cases/${selectedCase.id}`, { status: CaseStatus.DANG_DIEU_TRA });
       setSelectedCase(null);
-    } catch {
-      alert('Nhận xử lý thất bại. Vui lòng thử lại.');
+      setLanTai((n) => n + 1);
+    } catch (e) {
+      // Giữ hộp mở kèm lý do: đóng hộp khi máy chủ từ chối thì cán bộ tưởng đã nhận xong.
+      setAssignError(extractApiError(e, 'Nhận xử lý thất bại. Vui lòng thử lại.').messages.join(', '));
     } finally {
       setAssignLoading(false);
     }
   };
 
-  const openDeleteDialog = (caseItem: InitialCase) => { setCaseToDelete(caseItem); setDeleteDialogOpen(true); };
-  const closeDeleteDialog = () => { setDeleteDialogOpen(false); setCaseToDelete(null); setDeleteError(""); };
+  // ── Xoá qua hộp xoá CHUẨN ───────────────────────────
+  // Máy chủ bắt buộc lý do (DeleteCaseDto, 10–500 ký tự). Hộp riêng cũ gọi DELETE không thân → 400 với mọi hồ
+  // sơ. Hộp chuẩn hỏi lý do, giữ mở kèm lý do khi máy chủ từ chối.
+  const deleteModal = useDeleteResourceModal();
+  const xoaHoSo = (hs: HoSoMoi) =>
+    deleteModal.open({
+      resourceType: 'cases',
+      recordId: hs.id,
+      recordLabel: `vụ án ${formatHoSoCode(hs.caseCode) || hs.name}`,
+      onSuccess: () => setLanTai((n) => n + 1),
+    });
 
-  const confirmDelete = async () => {
-    if (!caseToDelete) return;
-    setDeleteError("");
-    setDeleteLoading(true);
-    try {
-      await api.delete(`/cases/${caseToDelete.id}`);
-      setCases((prev) => prev.filter((c) => c.id !== caseToDelete.id));
-      closeDeleteDialog();
-    } catch (e) {
-      // KHÔNG đóng hộp xác nhận khi máy chủ TỪ CHỐI xoá.
-      //
-      // Bản trước đóng hộp ở cả hai nhánh, nên xoá hỏng nhìn y hệt xoá xong: hộp biến mất,
-      // không thông báo nào. Hồ sơ vẫn còn trong danh sách nhưng cán bộ đã tin là đã xoá và
-      // không nhìn lại. Giữ hộp mở kèm lý do là cách duy nhất nói ra chuyện đã xảy ra.
-      setDeleteError(extractApiError(e, "Xoá hồ sơ thất bại. Vui lòng thử lại.").messages.join(", "));
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
-  const getStatusBadge = (status: InitialCase["status"]) => {
-    if (status === CASE_PHASE.OVERDUE) {
-      return (<span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold bg-red-600 text-white border-2 border-red-700 shadow-sm"><AlertTriangle className="w-4 h-4" />QUÁ HẠN</span>);
-    }
-    return (<span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold bg-amber-500 text-white border-2 border-amber-600 shadow-sm"><Clock className="w-4 h-4" />CHỜ NHẬN</span>);
-  };
-
-  const getPriorityBadge = (priority: InitialCase["priority"], label: string) => {
-    const styles = { normal: "bg-slate-100 text-slate-700 border-slate-300", urgent: "bg-orange-100 text-orange-800 border-orange-300", critical: "bg-red-100 text-red-800 border-red-300" };
-    return (<span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${styles[priority]}`}>{label}</span>);
-  };
-
-  const getTypeBadge = (type: InitialCase["type"], label: string) => {
-    const styles = { incident: "bg-orange-50 text-orange-700 border-orange-200", case: "bg-red-50 text-red-700 border-red-200" };
-    return (<span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${styles[type]}`}>{label}</span>);
-  };
-
-
-  const getDaysRemaining = (deadline: string) => {
-    if (!deadline) return 0;
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  const choNhan = thongKe ? (thongKe.byStatus?.[CaseStatus.TIEP_NHAN] ?? 0) : undefined;
+  const soCot = COT.length + 1;
 
   return (
     <div className="p-6 space-y-6" data-testid="initial-cases-page">
-      {/* ── Header ─────────────────────────────────────── */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Vụ án - Vụ việc ban đầu</h1>
-        <p className="text-slate-600 text-sm mt-1">Danh sách hồ sơ chờ tiếp nhận và xử lý</p>
+        <p className="text-slate-600 text-sm mt-1">Vụ án đang ở trạng thái Tiếp nhận, chờ cán bộ nhận xử lý</p>
       </div>
 
-      {/* ── Thẻ thống kê ────────────────────────────────── */}
       <LoadErrorBanner error={loadError} what="danh sách hồ sơ mới tiếp nhận" data-testid="initial-cases-load-error" />
 
+      {thongKe?.ky && (
+        <p className="text-sm text-slate-500" data-testid="initial-cases-ky">
+          Thống kê:{' '}
+          <span className="text-slate-700 font-medium">
+            {nhanKyApDung(
+              thongKe.ky,
+              laGiaTriNgay(filters.fromDate) ? filters.fromDate : '',
+              laGiaTriNgay(filters.toDate) ? filters.toDate : '',
+            )}
+          </span>{' '}
+          — danh sách và thẻ số cùng tính trong kỳ này; chọn ngày để đổi.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
+        <div data-testid="initial-kpi-cho-nhan" className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
-            <div><p className="text-sm text-amber-700 font-medium mb-1">Chờ nhận</p><p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p></div>
-            <div className="w-14 h-14 bg-amber-100 rounded-lg flex items-center justify-center"><Clock className="w-7 h-7 text-amber-600" /></div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border-2 border-red-300 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm text-red-700 font-medium mb-1">Quá hạn</p><p className="text-3xl font-bold text-red-600">{soLieuHienThi(overdueCount, !!loadError)}</p></div>
-            <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center"><AlertTriangle className="w-7 h-7 text-red-600" /></div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border-2 border-orange-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm text-orange-700 font-medium mb-1">Khẩn cấp</p><p className="text-3xl font-bold text-orange-600">{soLieuHienThi(urgentCount, !!loadError)}</p></div>
-            <div className="w-14 h-14 bg-orange-100 rounded-lg flex items-center justify-center"><Bell className="w-7 h-7 text-orange-600" /></div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border-2 border-blue-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm text-blue-700 font-medium mb-1">Tổng hồ sơ</p><p className="text-3xl font-bold text-blue-600">{soLieuHienThi(filteredData.length, !!loadError)}</p></div>
-            <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center"><FileText className="w-7 h-7 text-blue-600" /></div>
+            <div>
+              <p className="text-sm text-amber-700 font-medium mb-1">Chờ nhận</p>
+              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(choNhan, !!loadError)}</p>
+            </div>
+            <div className="w-14 h-14 bg-amber-100 rounded-lg flex items-center justify-center">
+              <Clock className="w-7 h-7 text-amber-600" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Bộ lọc ─────────────────────────────────────── */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-        <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Filter className="w-5 h-5" />Bộ lọc</h2>
+        <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Filter className="w-5 h-5" />
+          Bộ lọc
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-2">Tìm kiếm</label>
@@ -305,7 +270,6 @@ function InitialCasesPage() {
                 the={timKiem.the}
                 truong={KHAI_HO_SO_MOI}
                 khai={KHAI_HO_SO_MOI}
-                giaTriChon={GIA_TRI_CHON_HO_SO_MOI}
                 onThem={timKiem.them}
                 onBoThe={timKiem.boThe}
                 onBoGiaTri={timKiem.boGiaTri}
@@ -314,209 +278,277 @@ function InitialCasesPage() {
             ) : (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" value={filters.quickSearch} onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })} placeholder="Số hồ sơ, nội dung, đơn vị..." className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="initial-search" />
+                <input
+                  type="text"
+                  value={filters.quickSearch}
+                  onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                  placeholder="STT, tên vụ án, đơn vị..."
+                  className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-testid="initial-search"
+                />
               </div>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
-            <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="date" value={filters.fromDate} onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
-            <div className="relative"><Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="date" value={filters.toDate} onChange={(e) => setFilters({ ...filters, toDate: e.target.value })} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-          </div>
-          <div className="flex items-end">
-            <button onClick={handleResetFilters} className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"><RotateCcw className="w-4 h-4" />Làm mới</button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Đơn vị</label>
-            <div className="relative"><Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <select value={filters.district} onChange={(e) => setFilters({ ...filters, district: e.target.value })} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="">Tất cả</option><option value="Quận 1">Quận 1</option><option value="Quận 3">Quận 3</option><option value="Quận 5">Quận 5</option><option value="Quận 10">Quận 10</option><option value="Quận Tân Bình">Quận Tân Bình</option><option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
-              </select>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất từ</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="date"
+                data-testid="initial-from-date"
+                value={filters.fromDate}
+                onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Loại hồ sơ</label>
-            <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">Tất cả</option><option value="incident">Vụ việc</option><option value="case">Vụ án</option>
-            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="date"
+                data-testid="initial-to-date"
+                value={filters.toDate}
+                onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              data-testid="initial-reset"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Làm mới
+            </button>
           </div>
         </div>
         <div className="mt-4 text-sm text-slate-600">
-          {loading ? "Đang tải..." : <>Tìm thấy <span className="font-medium text-slate-800">{filteredData.length}</span> hồ sơ</>}
+          {loading ? (
+            'Đang tải...'
+          ) : (
+            <>
+              Có <span data-testid="initial-cases-total" className="font-medium text-slate-800">{total}</span> hồ sơ
+              chờ nhận
+            </>
+          )}
         </div>
       </div>
 
-      {/* ── Bảng dữ liệu ───────────────────────────────── */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-            <span className="ml-3 text-slate-600">Đang tải dữ liệu...</span>
-          </div>
-        ) : filteredData.length === 0 ? (
-          <div className="text-center py-16">
-            <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <p className="text-lg text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có hồ sơ chờ xử lý'}</p>
-            {!loadError && timKiem.coThe ? (
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
-                <span>Không tìm thấy với:</span>
-                <DanhSachThe
-                  the={timKiem.the}
-                  khai={KHAI_HO_SO_MOI}
-                  giaTriChon={GIA_TRI_CHON_HO_SO_MOI}
-                  onBoThe={timKiem.boThe}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400 mt-2">Tất cả hồ sơ đã được tiếp nhận hoặc thử điều chỉnh bộ lọc</p>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full" data-testid="initial-cases-table">
-              <thead className="bg-slate-50 border-b-2 border-slate-200">
+        <div className="overflow-x-auto">
+          <table className="w-full" data-testid="initial-cases-table">
+            <thead className="bg-slate-50 border-b-2 border-slate-200">
+              <tr>
+                <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-56 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">
+                  Thao tác
+                </th>
+                {COT.map((c) => (
+                  <th key={c.tieuDe} className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {c.tieuDe}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {loading ? (
                 <tr>
-                  <th className="px-3 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider w-56 sticky left-0 bg-slate-50 z-10 border-r border-slate-200">Thao tác</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">STT</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Số hồ sơ</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Loại</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Nội dung vụ việc</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Đơn vị</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Ngày nhận</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Mức độ</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Hạn xử lý</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">Trạng thái</th>
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="initial-cases-loading">
+                    <span className="text-slate-600">Đang tải dữ liệu...</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filteredData.map((caseItem, index) => {
-                  const daysRemaining = getDaysRemaining(caseItem.deadline);
-                  const isOverdue = caseItem.status === CASE_PHASE.OVERDUE;
-                  return (
-                    <tr
-                      key={caseItem.id}
-                      onClick={canEditRow ? () => handleEdit(caseItem) : undefined}
-                      onKeyDown={canEditRow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleEdit(caseItem); } } : undefined}
-                      tabIndex={canEditRow ? 0 : undefined}
-                      className={`transition-colors ${canEditRow ? "cursor-pointer hover:bg-blue-50" : "hover:bg-slate-50"} ${isOverdue ? "bg-red-50/50" : ""}`}
-                      data-testid={`initial-row-${caseItem.id}`}
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="initial-cases-empty">
+                    <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <p className="text-lg text-slate-500 font-medium">
+                      {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không có hồ sơ chờ xử lý'}
+                    </p>
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
+                        <span>Không tìm thấy với:</span>
+                        <DanhSachThe the={timKiem.the} khai={KHAI_HO_SO_MOI} onBoThe={timKiem.boThe} />
+                      </div>
+                    ) : (
+                      !loadError && (
+                        <p className="text-sm text-slate-400 mt-2">Tất cả hồ sơ đã được nhận hoặc thử điều chỉnh bộ lọc</p>
+                      )
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((hs) => (
+                  <tr
+                    key={hs.id}
+                    onClick={canEditRow ? () => navigate(`/cases/${hs.id}/edit`) : undefined}
+                    onKeyDown={
+                      canEditRow
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              navigate(`/cases/${hs.id}/edit`);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={canEditRow ? 0 : undefined}
+                    className={`transition-colors ${canEditRow ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-slate-50'}`}
+                    data-testid={`initial-row-${hs.id}`}
+                  >
+                    <td
+                      className="px-3 py-4 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <td
-                        className="px-3 py-4 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleAssign(caseItem)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium" data-testid={`btn-assign-${caseItem.id}`}>
-                            <CheckCircle className="w-4 h-4" />Nhận
-                          </button>
-                          <button onClick={() => handleView(caseItem)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Xem chi tiết"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => handleEdit(caseItem)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Chỉnh sửa" data-testid={`btn-edit-${caseItem.id}`}><Edit className="w-4 h-4" /></button>
-                          <button onClick={() => openDeleteDialog(caseItem)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="Xóa" data-testid={`btn-delete-${caseItem.id}`}><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-slate-600 font-medium">{index + 1}</td>
-                      <td className="px-4 py-4"><span className="text-sm font-bold text-blue-600">{caseItem.caseNumber}</span></td>
-                      <td className="px-4 py-4">{getTypeBadge(caseItem.type, caseItem.typeLabel)}</td>
-                      <td className="px-4 py-4"><div className="max-w-xs"><p className="text-sm text-slate-800 font-medium line-clamp-2">{caseItem.subject}</p><p className="text-xs text-slate-500 mt-1">Từ: {caseItem.assignedFrom}</p></div></td>
-                      <td className="px-4 py-4 text-sm text-slate-700">{caseItem.district}</td>
-                      <td className="px-4 py-4 text-sm text-slate-700">{formatVNDate(caseItem.receivedDate)}</td>
-                      <td className="px-4 py-4">{getPriorityBadge(caseItem.priority, caseItem.priorityLabel)}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className={`text-sm font-medium ${isOverdue ? "text-red-700" : "text-slate-700"}`}>{formatVNDate(caseItem.deadline)}</span>
-                          {isOverdue ? (<span className="text-xs font-bold text-red-700">Đã quá {Math.abs(daysRemaining)} ngày</span>) : daysRemaining <= 2 ? (<span className="text-xs font-medium text-amber-700">Còn {daysRemaining} ngày</span>) : (<span className="text-xs text-slate-500">Còn {daysRemaining} ngày</span>)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">{getStatusBadge(caseItem.status)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moHopNhan(hs)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          data-testid={`btn-assign-${hs.id}`}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Nhận
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/cases/${hs.id}`)}
+                          className="p-1.5 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/cases/${hs.id}/edit`)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                          title="Chỉnh sửa"
+                          data-testid={`btn-edit-${hs.id}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => xoaHoSo(hs)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Xóa"
+                          data-testid={`btn-delete-${hs.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="text-sm font-mono font-bold text-blue-600">{formatHoSoCode(hs.caseCode)}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm text-slate-800 font-medium line-clamp-2 max-w-xs">{hs.name}</p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{hs.moTaChiTiet || '—'}</p>
+                    </td>
+                    <td className="px-4 py-4 text-sm text-slate-700">{hs.nguonDon || '—'}</td>
+                    <td className="px-4 py-4 text-sm text-slate-700">{hs.donViGiaiQuyet || '—'}</td>
+                    <td className="px-4 py-4 text-sm text-slate-700">
+                      {hs.caseProvenance ? (NHAN_NGUON_HO_SO[hs.caseProvenance] ?? hs.caseProvenance) : '—'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-slate-700 whitespace-nowrap">{formatVNDate(hs.ngayDeXuat)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} hồ sơ
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="initial-cases-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="initial-cases-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* ── Modal xác nhận nhận xử lý ──────────────────── */}
-      {showAssignModal && selectedCase && (
+      {selectedCase && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="assign-modal">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-slate-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-slate-800">Xác nhận nhận xử lý</h3>
-                <button onClick={() => setShowAssignModal(false)} className="p-1 hover:bg-slate-100 rounded transition-colors"><X className="w-5 h-5 text-slate-500" /></button>
+                <button type="button" onClick={() => setSelectedCase(null)} className="p-1 hover:bg-slate-100 rounded transition-colors">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
               </div>
             </div>
             <div className="p-6 space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-medium text-blue-900">Số hồ sơ: <span className="font-bold">{selectedCase.caseNumber}</span></p>
-                <p className="text-sm text-blue-800 mt-1">Loại: {selectedCase.typeLabel}</p>
-                <p className="text-sm text-blue-800 mt-1">Nội dung: {selectedCase.subject}</p>
-                <p className="text-sm text-blue-800 mt-1">Hạn xử lý: <span className="font-medium">{formatVNDate(selectedCase.deadline)}</span></p>
+                <p className="text-sm font-medium text-blue-900">
+                  STT: <span className="font-bold">{formatHoSoCode(selectedCase.caseCode)}</span>
+                </p>
+                <p className="text-sm text-blue-800 mt-1">Tên vụ án: {selectedCase.name}</p>
               </div>
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800"><strong>Lưu ý:</strong> Sau khi nhận xử lý, hồ sơ sẽ được chuyển vào danh sách công việc của bạn. Vui lòng xử lý trong thời hạn quy định.</p>
+                <p className="text-sm text-amber-800">
+                  <strong>Lưu ý:</strong> Sau khi nhận, vụ án chuyển sang trạng thái Đang điều tra.
+                </p>
               </div>
-            </div>
-            <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button onClick={() => setShowAssignModal(false)} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">Hủy bỏ</button>
-              <button onClick={confirmAssign} disabled={assignLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed" data-testid="btn-confirm-assign">{assignLoading ? 'Đang xử lý...' : 'Xác nhận nhận xử lý'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Dialog xác nhận xóa ────────────────────────── */}
-      {deleteDialogOpen && caseToDelete && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          data-testid="delete-dialog"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800">Xác nhận xóa hồ sơ</h3>
+              {assignError && (
+                <div
+                  data-testid="initial-assign-error"
+                  role="alert"
+                  className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+                >
+                  <strong className="font-medium">Chưa nhận được. </strong>
+                  {assignError}
                 </div>
-                <button onClick={closeDeleteDialog} className="p-1 hover:bg-slate-100 rounded transition-colors"><X className="w-5 h-5 text-slate-500" /></button>
-              </div>
+              )}
             </div>
-            <div className="p-6 space-y-4">
-              <p className="text-slate-700">Bạn có chắc chắn muốn xóa vụ án này? Thao tác này không thể hoàn tác.</p>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-900">Số hồ sơ: <span className="font-bold">{caseToDelete.caseNumber}</span></p>
-                <p className="text-sm text-red-800 mt-1 line-clamp-2">{caseToDelete.subject}</p>
-              </div>
-            </div>
-            {deleteError && (
-              <div
-                data-testid="initial-delete-error"
-                role="alert"
-                className="mx-6 mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
-              >
-                <strong className="font-medium">Chưa xoá được. </strong>
-                {deleteError}
-              </div>
-            )}
             <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button onClick={closeDeleteDialog} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors font-medium" data-testid="btn-cancel-delete">Hủy bỏ</button>
-              <button onClick={() => void confirmDelete()} disabled={deleteLoading} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50" data-testid="btn-confirm-delete">
-                {deleteLoading ? "Đang xóa..." : "Xóa hồ sơ"}
+              <button
+                type="button"
+                onClick={() => setSelectedCase(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmAssign()}
+                disabled={assignLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                data-testid="btn-confirm-assign"
+              >
+                {assignLoading ? 'Đang xử lý...' : 'Xác nhận nhận xử lý'}
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
