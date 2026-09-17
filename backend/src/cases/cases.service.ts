@@ -16,6 +16,7 @@ import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHAI_TIM_KIEM_VU_AN } from '../common/tim-kiem/khai/vu-an.khai';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
+import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { AuditService } from '../audit/audit.service';
 import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
@@ -387,6 +388,11 @@ export class CasesService {
           },
           createdBy: {
             select: { id: true, firstName: true, lastName: true },
+          },
+          // Cột "Phường/Xã" của màn Vụ án phường/xã: phường của TỔ thụ lý — cùng trường mà tham số
+          // `wardTeamId` lọc. `unit` rỗng ở mọi vụ án, đọc nó là cột trắng.
+          assignedTeam: {
+            select: { id: true, name: true, ward: { select: { name: true } } },
           },
         },
         orderBy,
@@ -2147,8 +2153,13 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // EXPORT WARD CASES (Vụ án theo phường/xã)
   // ─────────────────────────────────────────────
+  /**
+   * Xuất đúng những gì màn Vụ án phường/xã đang lọc: CÙNG tham số (`tk`, `wardTeamId`, `status`, ngày…)
+   * và CÙNG điều kiện với `getList` — gọi thẳng `getList` theo từng trang. Bản cũ lọc `donViGiaiQuyet`
+   * bằng ID phường (không bao giờ khớp), bỏ qua loại hồ sơ và cắt ở 500 dòng.
+   */
   async exportWardCases(
-    query: { unitId?: string; fromDate?: string; toDate?: string },
+    query: QueryCasesDto,
     dataScope: DataScope | null | undefined,
     res: Response,
     actor?: { userId: string; ipAddress?: string; userAgent?: string },
@@ -2164,13 +2175,90 @@ export class CasesService {
         userAgent: actor.userAgent,
       });
     }
-    await this._exportCases(
-      query,
-      dataScope,
-      res,
+
+    const MOI_LUOT = 200;
+    type DongPhuong = Awaited<
+      ReturnType<CasesService['getList']>
+    >['data'][number];
+    const dong: DongPhuong[] = [];
+    for (let offset = 0; ; offset += MOI_LUOT) {
+      const trang = await this.getList(
+        { ...query, limit: MOI_LUOT, offset },
+        dataScope,
+      );
+      dong.push(...trang.data);
+      if (trang.data.length < MOI_LUOT || dong.length >= trang.total) break;
+    }
+
+    const HEADERS = [
+      'STT',
+      'Mã hồ sơ',
+      'Tên vụ án',
+      'Tội danh',
+      'Bị can',
+      'Phường/Xã',
+      'ĐTV phụ trách',
+      'Ngày đề xuất',
+      'Trạng thái',
+    ];
+    const WIDTHS = [6, 14, 36, 28, 28, 22, 22, 14, 18];
+    const COL_COUNT = HEADERS.length;
+    const ngayVN = (d: Date | null | undefined) =>
+      d ? d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '';
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Danh sách vụ án');
+    BcaExcelHelper.addHeader(
+      sheet,
+      COL_COUNT,
       'DANH SÁCH VỤ ÁN THEO PHƯỜNG/XÃ',
-      `VuAnPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      query.fromDate || query.toDate
+        ? `Ngày đề xuất ${query.fromDate ?? '…'} đến ${query.toDate ?? '…'}`
+        : 'Tất cả thời gian',
     );
+    BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
+
+    dong.forEach((c, idx) => {
+      const biCan = (c.subjects ?? []).map((s) => s.fullName);
+      const du = (c._count?.subjects ?? biCan.length) - biCan.length;
+      const dtv = c.investigator
+        ? `${c.investigator.lastName ?? ''} ${c.investigator.firstName ?? ''}`.trim()
+        : '';
+      const row = sheet.addRow([
+        idx + 1,
+        maHoSoNgan(c.caseCode),
+        c.name ?? '',
+        c.crimeChinh?.name ?? c.crime ?? '',
+        biCan.join(', ') + (du > 0 ? ` (+${du})` : ''),
+        c.assignedTeam?.ward?.name ?? '',
+        dtv,
+        ngayVN(c.ngayDeXuat),
+        CASE_STATUS_LABEL[c.status] ?? c.status,
+      ]);
+      BcaExcelHelper.styleDataRow(row, idx % 2 === 1, COL_COUNT);
+    });
+
+    BcaExcelHelper.addFooter(
+      sheet,
+      (sheet.lastRow?.number ?? 7) + 2,
+      COL_COUNT,
+    );
+    BcaExcelHelper.setPrintSetup(sheet);
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="VuAnPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx"`,
+    );
+    try {
+      await workbook.xlsx.write(res);
+    } catch {
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy();
+    }
   }
 
   // ─────────────────────────────────────────────

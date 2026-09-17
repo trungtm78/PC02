@@ -285,4 +285,18 @@ EXCEPTION WHEN OTHERS THEN
   RETURN NEW;
 END $$;
 
+-- ── crimes (toi-danh) ──
+CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_crimes() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  NEW."name_bd" := ' ' || f_bo_dau(NEW."name");
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."code", NEW."name"));
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'pc02_dat_tim_kiem_crimes: %', SQLERRM;
+  NEW."name_bd" := NULL;
+  NEW."tim_kiem_bd" := NULL;
+  RETURN NEW;
+END $$;
+
 COMMIT;

@@ -54,7 +54,9 @@ export const TIM_KIEM_VU_AN = [
   { key: 'soQuyetDinh', nhan: 'Số QĐ/Phiếu', kieu: 'chu' },
   { key: 'doiTuongNghiVan', nhan: 'Đối tượng nghi vấn', kieu: 'chu' },
   { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu' },
+  { key: 'toiDanhChinh', nhan: 'Tội danh chính', kieu: 'quan-he' },
   { key: 'thoiHan', nhan: 'Thời hạn', kieu: 'ngay' },
+  { key: 'tenVuAn', nhan: 'Tên vụ án', kieu: 'chu' },
 ] as const;
 
 export const TIM_KIEM_DOI_TUONG = [
@@ -154,4 +156,9 @@ export const TIM_KIEM_TRAO_DOI = [
   { key: 'donViNhan', nhan: 'Đơn vị nhận', kieu: 'chu' },
   { key: 'thoiGianKhoiTao', nhan: 'Thời gian khởi tạo', kieu: 'ngay' },
   { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+] as const;
+
+export const TIM_KIEM_TOI_DANH = [
+  { key: 'ma', nhan: 'Mã', kieu: 'ma-thuong' },
+  { key: 'ten', nhan: 'Tên tội danh', kieu: 'chu' },
 ] as const;

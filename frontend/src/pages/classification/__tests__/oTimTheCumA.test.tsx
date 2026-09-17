@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import WardIncidentsPage from '../WardIncidentsPage';
-import WardCasesPage from '../WardCasesPage';
 import OtherClassificationPage from '../OtherClassificationPage';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
@@ -60,7 +59,6 @@ interface Man {
 
 const CUM_A: Man[] = [
   { ten: 'Vụ việc phường/xã', Man: WardIncidentsPage, prefix: 'wardIncidents', khoaTen: 'tenVuViec', nhanTen: 'Tên vụ việc', khop: 'i1', khongKhop: 'i2' },
-  { ten: 'Vụ án phường/xã', Man: WardCasesPage, prefix: 'wardCases', khoaTen: 'tenVuAn', nhanTen: 'Tên vụ án', khop: 'c1', khongKhop: 'c2' },
   { ten: 'Phân loại khác', Man: OtherClassificationPage, prefix: 'otherClassification', khoaTen: 'tenHoSo', nhanTen: 'Tên hồ sơ', khop: 'c1', khongKhop: 'c2' },
 ];
 

@@ -31,6 +31,7 @@ const TEN_BANG = [
   'proposals',
   'delegations',
   'exchanges',
+  'crimes',
 ] as const;
 type TenBang = (typeof TEN_BANG)[number];
 
@@ -107,6 +108,8 @@ describe('napCotBongTimKiem', () => {
       'proposals',
       'delegations',
       'exchanges',
+      // 17/09/2026: tội danh — đích thẻ Tội danh chính của Vụ án phường/xã.
+      'crimes',
     ]);
   });
 

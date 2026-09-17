@@ -129,7 +129,7 @@ export class CasesController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportWard(
-    @Query() query: { unitId?: string; fromDate?: string; toDate?: string },
+    @Query() query: QueryCasesDto,
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,

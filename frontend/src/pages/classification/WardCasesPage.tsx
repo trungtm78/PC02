@@ -1,9 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { CaseStatus } from "@/shared/enums/generated";
-import { CASE_STATUS_LABEL } from "@/shared/enums/status-labels";
-import { ROLE_NAMES } from "@/shared/enums/roles";
-import { CASE_PHASE } from "@/shared/enums/case-phase";
+/**
+ * WardCasesPage — Vụ án phường/xã.
+ *
+ * 17/09/2026: tìm kiếm, lọc, phân trang và thẻ KPI chạy ở MÁY CHỦ; phạm vi dữ liệu do máy chủ áp. Trước đó
+ * màn tải 100 vụ án rồi lọc theo danh sách phường GÁN CỨNG ("Phường 2/4/6", "Quận 1/3") trên cột `unit`
+ * rỗng 100% — cán bộ không phải quản trị thấy 0 dòng. Cột STT là số dòng, Mức độ gán cứng "Trung bình",
+ * Bị can luôn rỗng: đều đã bỏ, cột nay đọc đúng trường thật (đo prod cùng ngày, xem ca kiểm của màn).
+ */
+
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Download,
@@ -11,323 +16,220 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Trash2,
   Calendar,
-  User,
-  AlertTriangle,
   MapPin,
-  ShieldAlert,
-  Lock,
   Users,
   Scale,
-  BadgeAlert,
-} from "lucide-react";
-import { authStore } from "@/stores/auth.store";
-import { extractApiError } from "@/lib/api-errors";
-import { api } from "@/lib/api";
-import { useLuotNap } from "@/hooks/useLuotNap";
-import { soLieuHienThi } from "@/lib/soLieuHienThi";
-import { LoadErrorBanner } from "@/components/shared/LoadErrorBanner";
-import { formatVNDate } from "../../lib/dates";
-import { OTimKiemThe, DanhSachThe, useLocTheoThe } from '@/components/shared/ListPageShell';
+  CheckCircle,
+  PauseCircle,
+} from 'lucide-react';
+import { CaseStatus } from '@/shared/enums/generated';
+import { CASE_STATUS_LABEL, CASE_STATUS_BADGE, BADGE_DEFAULT } from '@/shared/enums/status-labels';
+import { ROLE_NAMES } from '@/shared/enums/roles';
+import { authStore } from '@/stores/auth.store';
+import { extractApiError } from '@/lib/api-errors';
+import { api } from '@/lib/api';
+import { soLieuHienThi } from '@/lib/soLieuHienThi';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
+import { WardFilterDropdown } from '@/components/WardFilterDropdown';
+import { formatVNDate } from '../../lib/dates';
+import { OTimKiemThe, DanhSachThe, useTheTimKiem, formatHoSoCode } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
-import type { TruongLoc } from '@/shared/tim-kiem/loc-theo-the';
+import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
+import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 
-interface WardCase {
+interface WardCaseRow {
   id: string;
-  stt: string;
-  caseName: string;
-  charge: string;
-  suspects: string[];
-  ward: string;
-  district: string;
-  reportedBy: string;
-  reportedDate: string;
-  status: "pending" | "investigating" | "transferred" | "prosecuted" | "resolved";
-  statusLabel: string;
-  severity: "low" | "medium" | "high" | "critical";
-  severityLabel: string;
+  caseCode: string | null;
+  name: string;
+  crime?: string | null;
+  crimeChinh?: { name: string } | null;
+  subjects?: { id: string; fullName: string }[] | null;
+  _count?: { subjects?: number } | null;
+  ngayDeXuat?: string | null;
+  status: CaseStatus;
+  assignedTeam?: { ward?: { name?: string | null } | null } | null;
 }
+
+interface ThongKeVuAn {
+  total: number;
+  byGroup?: Partial<Record<'dang-dieu-tra' | 'da-ket-luan' | 'dinh-chi' | 'tam-dinh-chi', number>>;
+}
+
+const PAGE_SIZE = 20;
+/** Số tên bị can hiện trên một dòng; phần dư hiện "+N" theo số máy chủ đếm. */
+const SO_TEN_BI_CAN = 2;
+
+/**
+ * Cột của bảng — khoá `timKiem` là thẻ tìm được trên cột ấy (cổng `timKiemCotKhai` đọc đúng khai này).
+ * Tội danh hiện TỘI DANH CHÍNH (danh mục, prod 344/368) và lùi ô chữ `crime` (36/368) nên mang cả hai khoá.
+ */
+const COT = [
+  { tieuDe: 'STT', timKiem: 'stt' },
+  { tieuDe: 'Tên vụ án', timKiem: 'tenVuAn' },
+  { tieuDe: 'Tội danh', timKiem: ['toiDanhChinh', 'toiDanh'] },
+  { tieuDe: 'Bị can', timKiem: 'doiTuongBiCan' },
+  { tieuDe: 'Phường/Xã' },
+  { tieuDe: 'Ngày đề xuất', timKiem: 'ngayDeXuat' },
+  { tieuDe: 'Trạng thái', timKiem: 'trangThai' },
+] as const;
+
+/** Nhãn thẻ theo ĐÚNG tiêu đề cột của bảng này (khai chung mang nhãn của màn Vụ án chính). */
+const NHAN_TREN_BANG: Record<string, string> = {
+  stt: 'STT',
+  tenVuAn: 'Tên vụ án',
+  toiDanhChinh: 'Tội danh',
+  toiDanh: 'Tội danh (ghi chữ)',
+  doiTuongBiCan: 'Bị can',
+  ngayDeXuat: 'Ngày đề xuất',
+  trangThai: 'Trạng thái',
+};
+const KHAI_VU_AN_PHUONG = TIM_KIEM_VU_AN.filter((t) => t.key in NHAN_TREN_BANG).map((t) => ({
+  ...t,
+  nhan: NHAN_TREN_BANG[t.key],
+}));
+
+const GIA_TRI_CHON_VU_AN_PHUONG = {
+  trangThai: (Object.keys(CASE_STATUS_LABEL) as CaseStatus[]).map((s) => ({
+    value: s,
+    label: CASE_STATUS_LABEL[s],
+  })),
+};
 
 interface FilterData {
   quickSearch: string;
   fromDate: string;
   toDate: string;
-  ward: string;
-  district: string;
-  districtId: string;
-  wardId: string;
   status: string;
-  severity: string;
 }
 
-interface UserPermissions {
-  hasAccess: boolean;
-  allowedWards: string[];
-  allowedDistricts: string[];
-  role: string;
-  isAdmin: boolean;
-}
-
-function getUserPermissions(): UserPermissions {
-  const user = authStore.getUser();
-  if (!user) {
-    return {
-      hasAccess: false,
-      allowedWards: [],
-      allowedDistricts: [],
-      role: "",
-      isAdmin: false,
-    };
-  }
-
-  const isAdmin = user.role === ROLE_NAMES.ADMIN || user.role === ROLE_NAMES.SYSTEM;
-
-  if (isAdmin) {
-    return {
-      hasAccess: true,
-      allowedWards: [],
-      allowedDistricts: [],
-      role: "Quản trị viên",
-      isAdmin: true,
-    };
-  }
-
-  return {
-    hasAccess: true,
-    allowedWards: ["Phường 2", "Phường 4", "Phường 6"],
-    allowedDistricts: ["Quận 1", "Quận 3"],
-    role: "Cán bộ Phường - Phụ trách Vụ án",
-    isAdmin: false,
-  };
-}
-
-/** Cột tìm được — đúng thứ tự và đúng giá trị cột trên bảng. */
-const KHAI_VU_AN_PHUONG: readonly TruongLoc<WardCase>[] = [
-  { key: 'tenVuAn', nhan: 'Tên vụ án', kieu: 'chu', lay: (c) => c.caseName },
-  { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu', lay: (c) => c.charge },
-  { key: 'biCan', nhan: 'Bị can', kieu: 'chu', lay: (c) => c.suspects },
-  { key: 'phuongXa', nhan: 'Phường/Xã', kieu: 'chu', lay: (c) => [c.ward, c.district] },
-  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay', lay: (c) => c.reportedDate },
-  { key: 'mucDo', nhan: 'Mức độ', kieu: 'chon', lay: (c) => c.severity },
-  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon', lay: (c) => c.status },
-];
-
-const GIA_TRI_CHON_VU_AN_PHUONG = {
-  mucDo: [
-    { value: 'low', label: 'Thấp' },
-    { value: 'medium', label: 'Trung bình' },
-    { value: 'high', label: 'Cao' },
-    { value: 'critical', label: 'Nghiêm trọng' },
-  ],
-  trangThai: [
-    { value: 'pending', label: 'Chờ xử lý' },
-    { value: 'investigating', label: 'Đang điều tra' },
-    { value: 'transferred', label: 'Đã chuyển Quận' },
-    { value: 'prosecuted', label: 'Đã chuyển VKS' },
-    { value: 'resolved', label: 'Đã kết thúc' },
-  ],
-};
+const BO_LOC_TRONG: FilterData = { quickSearch: '', fromDate: '', toDate: '', status: '' };
 
 export default function WardCasesPage() {
   const navigate = useNavigate();
-  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-  const [showAccessDeniedModal, setShowAccessDeniedModal] = useState(false);
-  const [accessDeniedReason, setAccessDeniedReason] = useState("");
-  const [hasPageAccess, setHasPageAccess] = useState(true);
+  const nguoiDung = authStore.getUser();
+  const laQuanTri = nguoiDung?.role === ROLE_NAMES.ADMIN || nguoiDung?.role === ROLE_NAMES.SYSTEM;
 
-  const [allData, setAllData] = useState<WardCase[]>([]);
+  const [rows, setRows] = useState<WardCaseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [wardTeamId, setWardTeamId] = useState('');
+  const [filters, setFilters] = useState<FilterData>(BO_LOC_TRONG);
 
-  const [filters, setFilters] = useState<FilterData>({
-    quickSearch: "",
-    fromDate: "",
-    toDate: "",
-    ward: "",
-    district: "",
-    districtId: "",
-    wardId: "",
-    status: "",
-    severity: "",
-  });
-
-  const [userPermissions, setUserPermissions] = useState<UserPermissions>({
-    hasAccess: false,
-    allowedWards: [],
-    allowedDistricts: [],
-    role: "",
-    isAdmin: false,
-  });
-
-  useEffect(() => {
-    const permissions = getUserPermissions();
-    setUserPermissions(permissions);
-    if (!permissions.hasAccess) {
-      setHasPageAccess(false);
-      setAccessDeniedReason(
-        "Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên để được cấp quyền."
-      );
-    }
-  }, []);
-
-  const { batDau } = useLuotNap();
-  const fetchData = useCallback(async () => {
-    const conMoiNhat = batDau();
-    setLoading(true);
-    setLoadError("");
-    try {
-      const params = new URLSearchParams({ limit: "100" });
-      if (filters.districtId) params.set("districtId", filters.districtId);
-      if (filters.wardId) params.set("wardId", filters.wardId);
-      const res = await api.get(`/cases?${params}`);
-      if (!conMoiNhat()) return;
-      const mapped: WardCase[] = (res.data.data ?? []).map((c: any, i: number) => ({
-        id: c.id,
-        stt: i + 1,
-        caseName: c.name,
-        charge: c.crime ?? "",
-        suspects: [],
-        ward: c.unit ?? "",
-        district: c.unit ?? "",
-        reportedBy: c.investigator ? `${c.investigator.firstName ?? ""} ${c.investigator.lastName ?? ""}`.trim() : "",
-        reportedDate: formatVNDate(c.createdAt),
-        status: (() => {
-          const statusMap: Record<string, string> = {
-            [CaseStatus.TIEP_NHAN]: "pending",
-            [CaseStatus.DANG_XAC_MINH]: "investigating",
-            [CaseStatus.DANG_DIEU_TRA]: "investigating",
-            [CaseStatus.DA_KET_LUAN]: "resolved",
-            [CaseStatus.DA_LUU_TRU]: "resolved",
-            [CaseStatus.DINH_CHI]: "resolved",
-            [CaseStatus.DANG_TRUY_TO]: "prosecuted",
-            [CaseStatus.DANG_XET_XU]: "prosecuted",
-          };
-          return statusMap[c.status] ?? "pending";
-        })() as WardCase["status"],
-        statusLabel: CASE_STATUS_LABEL[c.status as CaseStatus] ?? c.status ?? "",
-        severity: "medium" as const,
-        severityLabel: "Trung bình",
-      }));
-      setAllData(mapped);
-    } catch (e) {
-      if (!conMoiNhat()) return;
-      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
-      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
-      setAllData([]);
-      setLoadError(extractApiError(e, "Không tải được dữ liệu. Vui lòng thử lại.").messages.join(", "));
-    } finally {
-      if (conMoiNhat()) setLoading(false);
-    }
-  }, [filters.districtId, filters.wardId]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const authorizedData = useMemo(() => {
-    if (userPermissions.isAdmin) return allData;
-
-    return allData.filter((caseItem) => {
-      if (!userPermissions.allowedDistricts.includes(caseItem.district)) {
-        return false;
-      }
-      if (!userPermissions.allowedWards.includes(caseItem.ward)) {
-        return false;
-      }
-      return true;
-    });
-  }, [userPermissions, allData]);
-
-  // Ô tìm dạng thẻ: lọc SAU phạm vi quyền (authorizedData), cùng ngữ nghĩa máy chủ. Cờ tắt → ô chữ cũ.
   const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
-  const timKiem = useLocTheoThe({
+  const timKiem = useTheTimKiem({
     prefix: 'wardCases',
     khai: KHAI_VU_AN_PHUONG,
     giaTriChon: GIA_TRI_CHON_VU_AN_PHUONG,
-    dong: authorizedData,
     bat: theBat,
   });
+  // Khoá theo GIÁ TRỊ: `tkGui` đổi tham chiếu mỗi lần URL đổi.
+  const tkKey = JSON.stringify(timKiem.tkGui);
 
-  const filteredData = useMemo(() => {
-    return timKiem.dongLoc.filter((caseItem) => {
-      if (!theBat && filters.quickSearch) {
-        const searchLower = filters.quickSearch.toLowerCase();
-        const matchesSearch =
-          String(caseItem.stt).toLowerCase().includes(searchLower) ||
-          caseItem.caseName.toLowerCase().includes(searchLower) ||
-          caseItem.charge.toLowerCase().includes(searchLower) ||
-          caseItem.ward.toLowerCase().includes(searchLower);
-        if (!matchesSearch) return false;
+  /** Tham số lọc chung của danh sách, thẻ KPI và tệp xuất (không gồm trạng thái, trang). */
+  const thamSoLoc = useMemo(() => {
+    const p = new URLSearchParams();
+    if (theBat) {
+      for (const v of JSON.parse(tkKey) as string[]) p.append('tk', v);
+    } else if (filters.quickSearch.trim()) {
+      p.set('search', filters.quickSearch.trim());
+    }
+    if (wardTeamId) p.set('wardTeamId', wardTeamId);
+    // Chỉ gửi ngày HỢP LỆ: gõ năm từng chữ số, ô ngày bắn 0002-09-17… — gửi đi là 400 cả màn.
+    if (filters.fromDate && laGiaTriNgay(filters.fromDate)) p.set('fromDate', filters.fromDate);
+    if (filters.toDate && laGiaTriNgay(filters.toDate)) p.set('toDate', filters.toDate);
+    return p.toString();
+  }, [theBat, tkKey, filters.quickSearch, filters.fromDate, filters.toDate, wardTeamId]);
+
+  // Trang gắn với KHOÁ bộ lọc: bộ lọc đổi thì về trang 1 ngay lúc vẽ (không effect), ghi đè khoá cũ.
+  const khoaLoc = `${thamSoLoc}|${filters.status}`;
+  const [trangTheoLoc, setTrangTheoLoc] = useState({ khoa: khoaLoc, page: 1 });
+  if (trangTheoLoc.khoa !== khoaLoc) setTrangTheoLoc({ khoa: khoaLoc, page: 1 });
+  const page = trangTheoLoc.khoa === khoaLoc ? trangTheoLoc.page : 1;
+  const setPage = (doi: (p: number) => number) => setTrangTheoLoc({ khoa: khoaLoc, page: doi(page) });
+  const [total, setTotal] = useState(0);
+  const [thongKe, setThongKe] = useState<ThongKeVuAn | null>(null);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
+  const luotTai = useRef(0);
+  /** Tăng để tải lại cùng bộ lọc (Làm mới, sau khi xoá). */
+  const [lanTai, setLanTai] = useState(0);
+
+  const taiDuLieu = useCallback(async () => {
+    const luot = ++luotTai.current;
+    const danhSach = new URLSearchParams(thamSoLoc);
+    if (filters.status) danhSach.set('status', filters.status);
+    danhSach.set('limit', String(PAGE_SIZE));
+    danhSach.set('offset', String((page - 1) * PAGE_SIZE));
+    setLoading(true);
+    setLoadError('');
+    try {
+      const [res, tk] = await Promise.all([
+        api.get<{ data?: WardCaseRow[]; total?: number }>(`/cases?${danhSach}`),
+        api.get<ThongKeVuAn>(`/cases/stats?${thamSoLoc}`),
+      ]);
+      if (luot !== luotTai.current) return;
+      const tong = Number(res.data?.total ?? 0);
+      const trangCuoi = Math.max(1, Math.ceil(tong / PAGE_SIZE));
+      if (page > trangCuoi) {
+        // Tổng giảm dưới trang đang xem (vd vừa xoá) → kẹp về trang cuối (lượt này không hạ cờ loading).
+        luotTai.current++;
+        setTrangTheoLoc({ khoa: khoaLoc, page: trangCuoi });
+        return;
       }
+      setRows(Array.isArray(res.data?.data) ? res.data.data : []);
+      setTotal(tong);
+      setThongKe(tk.data ?? null);
+    } catch (e) {
+      if (luot !== luotTai.current) return;
+      // KHÔNG biến "không hỏi được máy chủ" thành "không có gì cả": mảng rỗng làm mọi thẻ
+      // thống kê ra số 0, và số 0 đọc như một câu trả lời. Giữ lỗi lại để giao diện nói ra.
+      setRows([]);
+      setTotal(0);
+      setThongKe(null);
+      setLoadError(extractApiError(e, 'Không tải được dữ liệu. Vui lòng thử lại.').messages.join(', '));
+    } finally {
+      if (luot === luotTai.current) setLoading(false);
+    }
+  }, [thamSoLoc, filters.status, page, khoaLoc, lanTai]);
 
-      if (filters.fromDate && caseItem.reportedDate < filters.fromDate) return false;
-      if (filters.toDate && caseItem.reportedDate > filters.toDate) return false;
-      if (filters.ward && caseItem.ward !== filters.ward) return false;
-      if (filters.district && caseItem.district !== filters.district) return false;
-      if (filters.status && caseItem.status !== filters.status) return false;
-      if (filters.severity && caseItem.severity !== filters.severity) return false;
-
-      return true;
-    });
-  }, [timKiem.dongLoc, theBat, filters]);
+  useEffect(() => {
+    void taiDuLieu();
+  }, [taiDuLieu]);
 
   const handleResetFilters = () => {
     timKiem.xoaHet();
-    setFilters({
-      quickSearch: "",
-      fromDate: "",
-      toDate: "",
-      ward: "",
-      district: "",
-      districtId: "",
-      wardId: "",
-      status: "",
-      severity: "",
-    });
+    setFilters(BO_LOC_TRONG);
+    setWardTeamId('');
+    setLanTai((n) => n + 1);
   };
 
-  const handleView = (caseItem: WardCase) => {
-    if (!userPermissions.isAdmin) {
-      if (
-        !userPermissions.allowedDistricts.includes(caseItem.district) ||
-        !userPermissions.allowedWards.includes(caseItem.ward)
-      ) {
-        setAccessDeniedReason(
-          `Bạn không có quyền xem vụ án tại ${caseItem.ward}, ${caseItem.district}. Chỉ có thể xem vụ án thuộc phạm vi quản lý được giao.`
-        );
-        setShowAccessDeniedModal(true);
-        return;
-      }
-    }
-    navigate(`/cases/${caseItem.id}`);
-  };
+  const xemHoSo = (id: string) => navigate(`/cases/${id}`);
 
-  const handleDelete = async (caseItem: WardCase) => {
-    if (!userPermissions.isAdmin) {
-      alert("Bạn không có quyền xóa hồ sơ này.");
-      return;
-    }
-    if (!confirm(`Bạn có chắc chắn muốn xóa vụ án ${caseItem.stt}?`)) return;
+  const handleDelete = async (row: WardCaseRow) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa vụ án ${formatHoSoCode(row.caseCode) || row.name}?`)) return;
     try {
-      await api.delete(`/cases/${caseItem.id}`);
-      setAllData(prev => prev.filter(c => c.id !== caseItem.id));
-    } catch {
-      alert('Xóa thất bại. Vui lòng thử lại.');
+      await api.delete(`/cases/${row.id}`);
+      setLanTai((n) => n + 1);
+    } catch (e) {
+      alert(extractApiError(e, 'Xóa thất bại. Vui lòng thử lại.').messages.join(', '));
     }
   };
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
-      const res = await api.get('/cases/export/ward', {
-        params: {
-          unitId: filters.wardId || filters.districtId || undefined,
-          fromDate: filters.fromDate || undefined,
-          toDate: filters.toDate || undefined,
-        },
-        responseType: 'blob',
-      });
+      // CÙNG bộ lọc với bảng: tệp xuất là đúng những hồ sơ cán bộ đang nhìn thấy (mọi trang).
+      const q = new URLSearchParams(thamSoLoc);
+      if (filters.status) q.set('status', filters.status);
+      const res = await api.get(`/cases/export/ward?${q}`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
@@ -341,173 +243,52 @@ export default function WardCasesPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [filters]);
+  }, [thamSoLoc, filters.status]);
 
-  const getStatusBadge = (status: WardCase["status"], label: string) => {
-    const styles = {
-      pending: "bg-amber-600 text-white",
-      investigating: "bg-blue-600 text-white",
-      transferred: "bg-purple-600 text-white",
-      prosecuted: "bg-indigo-600 text-white",
-      resolved: "bg-green-600 text-white",
-    };
+  // Thẻ KPI lấy nhóm trạng thái MÁY CHỦ đếm trên cùng bộ lọc. Chưa có số → undefined → dấu gạch.
+  const nhom = (...k: (keyof NonNullable<ThongKeVuAn['byGroup']>)[]) =>
+    thongKe ? k.reduce((n, key) => n + (thongKe.byGroup?.[key] ?? 0), 0) : undefined;
 
-    return (
-      <span
-        data-testid={`status-badge-${status}`}
-        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${styles[status]}`}
-      >
-        {label}
-      </span>
-    );
+  const THE_KPI = [
+    { testid: 'kpi-card-total', nhan: 'Tổng vụ án', so: thongKe?.total, mau: 'slate', Icon: Scale },
+    { testid: 'kpi-card-dang-dieu-tra', nhan: 'Đang điều tra', so: nhom('dang-dieu-tra'), mau: 'blue', Icon: Search },
+    { testid: 'kpi-card-da-ket-luan', nhan: 'Đã kết luận', so: nhom('da-ket-luan'), mau: 'green', Icon: CheckCircle },
+    { testid: 'kpi-card-dinh-chi', nhan: 'Đình chỉ / Tạm đình chỉ', so: nhom('dinh-chi', 'tam-dinh-chi'), mau: 'amber', Icon: PauseCircle },
+  ] as const;
+  const MAU_THE: Record<string, { vien: string; chu: string; nen: string }> = {
+    slate: { vien: 'border-slate-200', chu: 'text-[#003973]', nen: 'bg-[#003973]/10' },
+    blue: { vien: 'border-blue-200', chu: 'text-blue-600', nen: 'bg-blue-100' },
+    green: { vien: 'border-green-200', chu: 'text-green-600', nen: 'bg-green-100' },
+    amber: { vien: 'border-amber-200', chu: 'text-amber-600', nen: 'bg-amber-100' },
   };
 
-  const getSeverityBadge = (severity: WardCase["severity"], label: string) => {
-    const styles = {
-      low: "bg-slate-100 text-slate-700 border border-slate-300",
-      medium: "bg-yellow-100 text-yellow-800 border border-yellow-300",
-      high: "bg-orange-100 text-orange-800 border border-orange-300",
-      critical: "bg-red-100 text-red-800 border border-red-300",
-    };
-
-    const icons = {
-      low: null,
-      medium: null,
-      high: <AlertTriangle className="w-3 h-3" />,
-      critical: <BadgeAlert className="w-3 h-3" />,
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${styles[severity]}`}
-      >
-        {icons[severity]}
-        {label}
-      </span>
-    );
-  };
-
-  const totalCount = filteredData.length;
-  const pendingCount = filteredData.filter((c) => c.status === CASE_PHASE.PENDING).length;
-  const investigatingCount = filteredData.filter((c) => c.status === CASE_PHASE.INVESTIGATING).length;
-  const criticalCount = filteredData.filter((c) => c.severity === "critical").length;
-
-  if (!hasPageAccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6" data-testid="access-denied-page">
-        <div className="bg-white rounded-lg border-2 border-red-200 shadow-xl max-w-lg w-full p-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ShieldAlert className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Truy cập bị từ chối</h2>
-            <p className="text-slate-600 mb-6">{accessDeniedReason}</p>
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-6">
-              <div className="flex items-start gap-3">
-                <Lock className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-red-900">Lưu ý quan trọng</p>
-                  <p className="text-sm text-red-800 mt-1">
-                    Trang này chỉ dành cho cán bộ cấp phường/xã có quyền xử lý vụ án. Để được cấp
-                    quyền, vui lòng liên hệ quản trị viên hệ thống.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="w-full px-4 py-2.5 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium"
-            >
-              Quay về trang chủ
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const soCot = COT.length + 1;
 
   return (
     <div className="p-6 space-y-6" data-testid="ward-cases-page">
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-2xl font-bold text-[#003973]">Vụ án Phường/Xã</h1>
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#F59E0B]/20 border border-[#F59E0B] text-[#92400E] text-xs font-bold rounded">
-            <Lock className="w-3 h-3" />
-            Có kiểm soát quyền
-          </span>
-        </div>
+        <h1 className="text-2xl font-bold text-[#003973]">Vụ án Phường/Xã</h1>
         <p className="text-slate-600 text-sm mt-1">
-          Quản lý vụ án hình sự cấp phường/xã - {userPermissions.isAdmin ? "Xem toàn bộ hồ sơ" : "Chỉ xem vụ án thuộc phạm vi được giao"}
+          Vụ án hình sự do các tổ phường/xã thụ lý — trong phạm vi dữ liệu được giao cho tài khoản của bạn.
         </p>
-        <div className="mt-2 p-3 bg-[#003973]/5 border border-[#003973]/20 rounded-lg">
-          <div className="flex items-start gap-2">
-            <User className="w-4 h-4 text-[#003973] flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-[#003973]">
-                Vai trò: {userPermissions.role}
-              </p>
-              {!userPermissions.isAdmin && (
-                <p className="text-xs text-[#003973]/70 mt-1">
-                  Phạm vi: {userPermissions.allowedWards.slice(0, 3).join(", ")}
-                  {userPermissions.allowedWards.length > 3 &&
-                    ` +${userPermissions.allowedWards.length - 3}`}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       <LoadErrorBanner error={loadError} what="danh sách vụ án phường/xã" data-testid="ward-cases-load-error" />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border-2 border-slate-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-600 mb-1">Tổng vụ án</p>
-              <p className="text-3xl font-bold text-[#003973]">{soLieuHienThi(totalCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-[#003973]/10 rounded-lg flex items-center justify-center">
-              <Scale className="w-6 h-6 text-[#003973]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border-2 border-amber-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-amber-700 font-medium mb-1">Chờ xử lý</p>
-              <p className="text-3xl font-bold text-amber-600">{soLieuHienThi(pendingCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-amber-600" />
+        {THE_KPI.map(({ testid, nhan, so, mau, Icon }) => (
+          <div key={testid} data-testid={testid} className={`bg-white rounded-lg border-2 ${MAU_THE[mau].vien} shadow-sm p-5`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 mb-1">{nhan}</p>
+                <p className={`text-3xl font-bold ${MAU_THE[mau].chu}`}>{soLieuHienThi(so, !!loadError)}</p>
+              </div>
+              <div className={`w-12 h-12 ${MAU_THE[mau].nen} rounded-lg flex items-center justify-center`}>
+                <Icon className={`w-6 h-6 ${MAU_THE[mau].chu}`} />
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg border-2 border-blue-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-700 font-medium mb-1">Đang điều tra</p>
-              <p className="text-3xl font-bold text-blue-600">{soLieuHienThi(investigatingCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Search className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border-2 border-red-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-red-700 font-medium mb-1">Nghiêm trọng</p>
-              <p className="text-3xl font-bold text-red-600">{soLieuHienThi(criticalCount, !!loadError)}</p>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <BadgeAlert className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -515,31 +296,27 @@ export default function WardCasesPage() {
           {loading ? (
             <span>Đang tải...</span>
           ) : (
-            <>Hiển thị <span className="font-medium text-[#003973]">{filteredData.length}</span> vụ án
-            {userPermissions.isAdmin ? "" : " thuộc phạm vi quản lý"}</>
+            <>
+              Có <span data-testid="ward-cases-total" className="font-medium text-[#003973]">{total}</span> vụ án
+            </>
           )}
         </div>
-
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+            type="button"
+            onClick={() => setShowAdvancedFilter((v) => !v)}
             data-testid="filter-toggle-btn"
             className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${
               showAdvancedFilter
-                ? "bg-[#003973]/10 border-[#003973] text-[#003973]"
-                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                ? 'bg-[#003973]/10 border-[#003973] text-[#003973]'
+                : 'border-slate-300 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <Filter className="w-4 h-4" />
-            Bộ lọc
-            {showAdvancedFilter ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            <Filter className="w-4 h-4" /> Bộ lọc
+            {showAdvancedFilter ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
-
           <button
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
             data-testid="export-excel-btn"
@@ -548,142 +325,91 @@ export default function WardCasesPage() {
             <Download className="w-4 h-4" />
             {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
           </button>
-
           <button
+            type="button"
             onClick={handleResetFilters}
+            data-testid="reset-filters-btn"
             className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
           >
-            <RotateCcw className="w-4 h-4" />
-            Làm mới
+            <RotateCcw className="w-4 h-4" /> Làm mới
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 space-y-4">
-        {theBat ? (
-          <OTimKiemThe
-            the={timKiem.the}
-            truong={KHAI_VU_AN_PHUONG}
-            khai={KHAI_VU_AN_PHUONG}
-            giaTriChon={GIA_TRI_CHON_VU_AN_PHUONG}
-            onThem={timKiem.them}
-            onBoThe={timKiem.boThe}
-            onBoGiaTri={timKiem.boGiaTri}
-            placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
-          />
-        ) : (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              data-testid="quick-search-input"
-              value={filters.quickSearch}
-              onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
-              placeholder="Tìm kiếm theo STT, Tên vụ án, Tội danh, Phường/Xã..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
-            />
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {theBat ? (
+            <div className="md:col-span-2">
+              <OTimKiemThe
+                the={timKiem.the}
+                truong={KHAI_VU_AN_PHUONG}
+                khai={KHAI_VU_AN_PHUONG}
+                giaTriChon={GIA_TRI_CHON_VU_AN_PHUONG}
+                onThem={timKiem.them}
+                onBoThe={timKiem.boThe}
+                onBoGiaTri={timKiem.boGiaTri}
+                placeholder="Tìm trong mọi cột — gõ rồi chọn cột (phím /)"
+              />
+            </div>
+          ) : (
+            <div className="md:col-span-2 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                data-testid="quick-search-input"
+                value={filters.quickSearch}
+                onChange={(e) => setFilters({ ...filters, quickSearch: e.target.value })}
+                placeholder="Tìm kiếm theo STT, Tên vụ án, Tội danh..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] focus:border-transparent"
+              />
+            </div>
+          )}
+          <WardFilterDropdown value={wardTeamId} onChange={(v) => setWardTeamId(v ?? '')} />
+        </div>
 
         {showAdvancedFilter && (
           <div className="pt-4 border-t border-slate-200" data-testid="advanced-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Từ ngày</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Ngày đề xuất từ</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-from-date"
                     value={filters.fromDate}
                     onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Đến ngày</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    data-testid="filter-to-date"
                     value={filters.toDate}
                     onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
                     className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973]"
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Quận/Huyện</label>
-                <select
-                  value={filters.district}
-                  onChange={(e) => setFilters({ ...filters, district: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  {(userPermissions.isAdmin
-                    ? ["Quận 1", "Quận 3", "Quận 5"]
-                    : userPermissions.allowedDistricts
-                  ).map((district) => (
-                    <option key={district} value={district}>
-                      {district}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Phường/Xã</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select
-                    value={filters.ward}
-                    onChange={(e) => setFilters({ ...filters, ward: e.target.value })}
-                    disabled={!userPermissions.isAdmin}
-                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Tất cả</option>
-                    {(userPermissions.isAdmin
-                      ? ["Phường 2", "Phường 4", "Phường 6", "Phường 15"]
-                      : userPermissions.allowedWards
-                    ).map((ward) => (
-                      <option key={ward} value={ward}>
-                        {ward}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Mức độ</label>
-                <select
-                  value={filters.severity}
-                  onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="low">Thấp</option>
-                  <option value="medium">Trung bình</option>
-                  <option value="high">Cao</option>
-                  <option value="critical">Nghiêm trọng</option>
-                </select>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Trạng thái</label>
                 <select
+                  data-testid="filter-status"
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003973] bg-white"
                 >
                   <option value="">Tất cả</option>
-                  <option value="pending">Chờ xử lý</option>
-                  <option value="investigating">Đang điều tra</option>
-                  <option value="transferred">Đã chuyển Quận</option>
-                  <option value="prosecuted">Đã chuyển VKS</option>
-                  <option value="resolved">Đã kết thúc</option>
+                  {GIA_TRI_CHON_VU_AN_PHUONG.trangThai.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -699,45 +425,28 @@ export default function WardCasesPage() {
                 <th className="px-3 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider w-24 sticky left-0 bg-[#eef2f7] z-10 border-r border-slate-200">
                   Thao tác
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  STT
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Tên vụ án
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Tội danh
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Bị can
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Phường/Xã
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Ngày tiếp nhận
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Mức độ
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
-                  Trạng thái
-                </th>
+                {COT.map((c) => (
+                  <th key={c.tieuDe} className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">
+                    {c.tieuDe}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center">
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="ward-cases-loading">
                     <p className="text-slate-500">Đang tải dữ liệu...</p>
                   </td>
                 </tr>
-              ) : filteredData.length === 0 ? (
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center">
+                  <td colSpan={soCot} className="px-4 py-16 text-center" data-testid="ward-cases-empty">
                     <Scale className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">{loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ án nào'}</p>
-                    {!loadError && timKiem.coThe ? (
+                    <p className="text-slate-500 font-medium">
+                      {loadError ? 'Chưa hỏi được máy chủ — xem thông báo phía trên' : 'Không tìm thấy vụ án nào'}
+                    </p>
+                    {!loadError && theBat && timKiem.the.length > 0 ? (
                       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-sm text-slate-600">
                         <span>Không tìm thấy với:</span>
                         <DanhSachThe
@@ -748,150 +457,143 @@ export default function WardCasesPage() {
                         />
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400 mt-1">
-                        Thử điều chỉnh bộ lọc hoặc kiểm tra phạm vi quyền truy cập
-                      </p>
+                      !loadError && <p className="text-sm text-slate-400 mt-1">Thử điều chỉnh bộ lọc tìm kiếm</p>
                     )}
                   </td>
                 </tr>
               ) : (
-                filteredData.map((caseItem) => (
-                  <tr
-                    key={caseItem.id}
-                    onClick={() => handleView(caseItem)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleView(caseItem); } }}
-                    tabIndex={0}
-                    className="cursor-pointer hover:bg-blue-50 transition-colors"
-                  >
-                    <td
-                      className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
-                      onClick={(e) => e.stopPropagation()}
+                rows.map((c) => {
+                  const tenBiCan = c.subjects ?? [];
+                  const du = (c._count?.subjects ?? tenBiCan.length) - Math.min(tenBiCan.length, SO_TEN_BI_CAN);
+                  const toiDanh = c.crimeChinh?.name || c.crime || '';
+                  const phuong = c.assignedTeam?.ward?.name ?? '';
+                  return (
+                    <tr
+                      key={c.id}
+                      data-testid={`ward-case-row-${c.id}`}
+                      onClick={() => xemHoSo(c.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          xemHoSo(c.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      className="cursor-pointer hover:bg-blue-50 transition-colors"
                     >
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleView(caseItem)}
-                          data-testid={`view-btn-${caseItem.id}`}
-                          className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {userPermissions.isAdmin && (
+                      <td
+                        className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleDelete(caseItem)}
-                            data-testid={`delete-btn-${caseItem.id}`}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Xóa"
+                            type="button"
+                            onClick={() => xemHoSo(c.id)}
+                            data-testid={`view-btn-${c.id}`}
+                            className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
+                            title="Xem chi tiết"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-bold text-[#003973]">{caseItem.stt}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-800 font-medium line-clamp-2 max-w-xs">
-                        {caseItem.caseName}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-start gap-1.5">
-                        <Scale className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">
-                          {caseItem.charge}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-start gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          {caseItem.suspects.slice(0, 2).map((suspect, index) => (
-                            <p key={index} className="text-sm text-slate-700">
-                              {suspect}
-                            </p>
-                          ))}
-                          {caseItem.suspects.length > 2 && (
-                            <p className="text-xs text-slate-500">
-                              +{caseItem.suspects.length - 2} người khác
-                            </p>
+                          {laQuanTri && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(c)}
+                              data-testid={`delete-btn-${c.id}`}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Xóa"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-0.5">
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm font-mono font-bold text-[#003973]">{formatHoSoCode(c.caseCode)}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-slate-800 font-medium line-clamp-2 max-w-xs">{c.name}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-1.5">
+                          <Scale className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{toiDanh || '—'}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            {tenBiCan.length === 0 ? (
+                              <p className="text-sm text-slate-400">—</p>
+                            ) : (
+                              tenBiCan.slice(0, SO_TEN_BI_CAN).map((s) => (
+                                <p key={s.id} className="text-sm text-slate-700">
+                                  {s.fullName}
+                                </p>
+                              ))
+                            )}
+                            {du > 0 && <p className="text-xs text-slate-500">+{du} người khác</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3" data-testid={`ward-cell-${c.id}`}>
                         <div className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-sm font-medium text-slate-800">
-                            {caseItem.ward}
-                          </span>
+                          <span className="text-sm font-medium text-slate-800">{phuong || '—'}</span>
                         </div>
-                        <span className="text-xs text-slate-500">{caseItem.district}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-sm text-slate-700">
-                          {caseItem.reportedDate}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="text-sm text-slate-700">{formatVNDate(c.ngayDeXuat)}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          data-testid={`status-badge-${c.status}-${c.id}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${CASE_STATUS_BADGE[c.status] ?? BADGE_DEFAULT}`}
+                        >
+                          {CASE_STATUS_LABEL[c.status] ?? c.status}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getSeverityBadge(caseItem.severity, caseItem.severityLabel)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {getStatusBadge(caseItem.status, caseItem.statusLabel)}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
-      </div>
-
-      {showAccessDeniedModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="access-denied-modal">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldAlert className="w-6 h-6 text-red-600" />
-              </div>
-
-              <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
-                Không có quyền truy cập
-              </h3>
-
-              <p className="text-sm text-slate-600 text-center mb-6">{accessDeniedReason}</p>
-
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-6">
-                <div className="flex items-start gap-2">
-                  <Lock className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-red-900">Phạm vi được phép:</p>
-                    <ul className="text-sm text-red-800 mt-1 space-y-0.5">
-                      {userPermissions.allowedWards.map((ward) => (
-                        <li key={ward}>• {ward}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
+        {!loading && total > PAGE_SIZE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200">
+            <p className="text-sm text-slate-500">
+              Trang {page} / {totalPages} — {total} vụ án
+            </p>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowAccessDeniedModal(false)}
-                className="w-full px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#002d5c] transition-colors font-medium"
+                type="button"
+                data-testid="ward-cases-prev-page"
+                aria-label="Trang trước"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
               >
-                Đã hiểu
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                data-testid="ward-cases-next-page"
+                aria-label="Trang sau"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 text-slate-500 hover:text-slate-700 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
