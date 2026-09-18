@@ -246,7 +246,12 @@ export class LegacyMigrationService {
 
           // Đơn thư GẮN KÈM ghi SAU vụ án/vụ việc (cần id đích) và không làm vụ án thành FROM_PETITION.
           if (d.petition && !d.petitionGanKem) {
-            const don = await this.ghiDonThu(tx, legacyId, d.petition, chiMucLoaiThongTin);
+            const don = await this.ghiDonThu(
+              tx,
+              legacyId,
+              d.petition,
+              chiMucLoaiThongTin,
+            );
             linkedPetitionId = don.id;
             if (don.taoMoi) d2.petitions++;
           }
@@ -343,12 +348,22 @@ export class LegacyMigrationService {
           }
 
           if (d.petition && d.petitionGanKem) {
-            const dichId = d.petitionGanKem === 'CASE' ? caseRow?.id : linkedIncidentId;
-            if (!dichId) throw new Error(`Đơn thư gắn kèm không có hồ sơ đích (${d.petitionGanKem})`);
-            const don = await this.ghiDonThu(tx, legacyId, d.petition, chiMucLoaiThongTin, {
-              loai: d.petitionGanKem,
-              dichId,
-            });
+            const dichId =
+              d.petitionGanKem === 'CASE' ? caseRow?.id : linkedIncidentId;
+            if (!dichId)
+              throw new Error(
+                `Đơn thư gắn kèm không có hồ sơ đích (${d.petitionGanKem})`,
+              );
+            const don = await this.ghiDonThu(
+              tx,
+              legacyId,
+              d.petition,
+              chiMucLoaiThongTin,
+              {
+                loai: d.petitionGanKem,
+                dichId,
+              },
+            );
             if (don.taoMoi) d2.petitions++;
           }
 
@@ -444,7 +459,9 @@ export class LegacyMigrationService {
       if (ganKem.loai === 'CASE') data.linkedCaseId = ganKem.dichId;
       else data.linkedIncidentId = ganKem.dichId;
     }
-    const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
+    const existing = await tx.petition.findFirst({
+      where: { legacySourceId: legacyId },
+    });
     ganHuongXuLyKhiTrong(data, existing as Record<string, unknown> | null);
     chuanHoaLoaiThongTinKhiNap(
       data,
@@ -454,19 +471,30 @@ export class LegacyMigrationService {
       } | null,
       chiMucLoaiThongTin,
     );
+    const trangThaiDaChuyen: PetitionStatus | undefined = ganKem
+      ? ganKem.loai === 'CASE'
+        ? PetitionStatus.DA_CHUYEN_VU_AN
+        : PetitionStatus.DA_CHUYEN_VU_VIEC
+      : undefined;
     if (existing) {
       giuChuCanBoDaGo(data, existing as unknown as Record<string, unknown>);
+      // Đơn thường cũ nay mới được nối (hệ cũ đổi phân loại sang vụ án/vụ việc): đặt "Đã chuyển" —
+      // để "Mới tiếp nhận" thì đơn vẫn lên báo cáo quá hạn mà nút Chuyển đã ẩn (rà mã 18/09/2026).
+      // Đơn đã nối từ trước thì giữ trạng thái cán bộ đang dùng.
+      if (
+        trangThaiDaChuyen &&
+        !existing.linkedCaseId &&
+        !existing.linkedIncidentId
+      ) {
+        data.status = trangThaiDaChuyen;
+      }
       await tx.petition.update({
         where: { id: existing.id },
         data: data as Prisma.PetitionUncheckedUpdateInput,
       });
       return { id: existing.id, taoMoi: false };
     }
-    const status: PetitionStatus = ganKem
-      ? ganKem.loai === 'CASE'
-        ? PetitionStatus.DA_CHUYEN_VU_AN
-        : PetitionStatus.DA_CHUYEN_VU_VIEC
-      : PetitionStatus.MOI_TIEP_NHAN;
+    const status = trangThaiDaChuyen ?? PetitionStatus.MOI_TIEP_NHAN;
     const row = await tx.petition.create({
       data: {
         stt: `DT-LEGACY-${legacyId}`,
@@ -489,13 +517,21 @@ export class LegacyMigrationService {
     records: LegacyRecord[],
     chayThu: boolean,
   ): Promise<{
-    daTao: Array<{ legacyId: string; loai: 'CASE' | 'INCIDENT'; dichId: string }>;
+    daTao: Array<{
+      legacyId: string;
+      loai: 'CASE' | 'INCIDENT';
+      dichId: string;
+    }>;
     daCo: number;
     khongThayDich: string[];
     loi: Array<{ legacyId: string; message: string }>;
   }> {
     const kq = {
-      daTao: [] as Array<{ legacyId: string; loai: 'CASE' | 'INCIDENT'; dichId: string }>,
+      daTao: [] as Array<{
+        legacyId: string;
+        loai: 'CASE' | 'INCIDENT';
+        dichId: string;
+      }>,
       daCo: 0,
       khongThayDich: [] as string[],
       loi: [] as Array<{ legacyId: string; message: string }>,
@@ -513,18 +549,31 @@ export class LegacyMigrationService {
         await this.prisma.$transaction(async (tx) => {
           const dich =
             loai === 'CASE'
-              ? await tx.case.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } })
-              : await tx.incident.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } });
+              ? await tx.case.findFirst({
+                  where: { legacySourceId: legacyId },
+                  select: { id: true },
+                })
+              : await tx.incident.findFirst({
+                  where: { legacySourceId: legacyId },
+                  select: { id: true },
+                });
           if (!dich) {
             kq.khongThayDich.push(legacyId);
             return;
           }
-          const daCo = await tx.petition.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } });
+          const daCo = await tx.petition.findFirst({
+            where: { legacySourceId: legacyId },
+            select: { id: true },
+          });
           if (daCo) {
             kq.daCo++;
             return;
           }
-          if (!chayThu) await this.ghiDonThu(tx, legacyId, donThu, chiMucLoaiThongTin, { loai, dichId: dich.id });
+          if (!chayThu)
+            await this.ghiDonThu(tx, legacyId, donThu, chiMucLoaiThongTin, {
+              loai,
+              dichId: dich.id,
+            });
           kq.daTao.push({ legacyId, loai, dichId: dich.id });
         });
       } catch (e) {

@@ -60,9 +60,17 @@ describe('decomposeLegacyRecord — đơn thư gắn kèm hồ sơ lệch loại
     expect(d.petition).toBeUndefined();
   });
 
-  it('thiếu ngày tiếp nhận → KHÔNG thêm đơn (không bịa ngày), vụ án vẫn nạp, có cảnh báo', () => {
+  it('thiếu ngày tiếp nhận nhưng có ngày đề xuất → theo đúng luật đơn thư thường (dùng ngày đề xuất)', () => {
     const d = decomposeLegacyRecord(
-      hoSo({ ngay_tiep_nhan_nguon_tin: undefined }),
+      hoSo({ ngay_tiep_nhan_nguon_tin: undefined, ngay_de_xuat: '20/08/2026' }),
+    );
+    expect(d.petitionGanKem).toBe('CASE');
+    expect(d.petition?.receivedDate).toBeInstanceOf(Date);
+  });
+
+  it('không có ngày nào → KHÔNG thêm đơn (không bịa ngày), vụ án vẫn nạp, có cảnh báo', () => {
+    const d = decomposeLegacyRecord(
+      hoSo({ ngay_tiep_nhan_nguon_tin: undefined, ngay_de_xuat: undefined }),
     );
     expect(d.case).toBeDefined();
     expect(d.petition).toBeUndefined();
@@ -162,10 +170,14 @@ describe('LegacyMigrationService — ghi đơn thư gắn kèm', () => {
   it('nạp lại (hệ cũ sửa): cập nhật đúng đơn gắn kèm đã có, KHÔNG tạo đơn thứ hai, KHÔNG đè trạng thái', async () => {
     mockTx.case.findFirst.mockResolvedValue({ id: 'c9', metadata: null });
     mockTx.case.update.mockResolvedValue({ id: 'c9' });
+    // Đơn gắn kèm đã nối vụ án từ lần nạp trước; cán bộ có thể đã đổi trạng thái.
     mockTx.petition.findFirst.mockResolvedValue({
       id: 'p9',
       loaiThongTin: null,
       petitionType: null,
+      linkedCaseId: 'c9',
+      linkedIncidentId: null,
+      status: 'DA_GIAI_QUYET',
     });
     await service.commit([hoSo({})], 'actor');
     expect(mockTx.petition.create).not.toHaveBeenCalled();
@@ -174,6 +186,21 @@ describe('LegacyMigrationService — ghi đơn thư gắn kèm', () => {
     expect(suaDon.data.status).toBeUndefined();
     expect(suaDon.data.linkedCaseId).toBe('c9');
     expect(goi(mockTx.case.update).data.caseProvenance).toBe('TRANSFERRED');
+  });
+
+  it('đơn THƯỜNG cũ nay mới được nối (hệ cũ đổi phân loại) → đặt Đã chuyển vụ án', async () => {
+    mockTx.petition.findFirst.mockResolvedValue({
+      id: 'p9',
+      loaiThongTin: null,
+      petitionType: null,
+      linkedCaseId: null,
+      linkedIncidentId: null,
+      status: 'MOI_TIEP_NHAN',
+    });
+    await service.commit([hoSo({})], 'actor');
+    const suaDon = goi(mockTx.petition.update);
+    expect(suaDon.data.linkedCaseId).toBe('c1');
+    expect(suaDon.data.status).toBe('DA_CHUYEN_VU_AN');
   });
 
   it('bù cho hồ sơ ĐÃ CÓ: chỉ thêm đơn gắn kèm, KHÔNG ghi vào vụ án', async () => {

@@ -19,7 +19,11 @@ describe('hoSoLoaiDonThu', () => {
       { legacySourceId: 'ho_so_doi_1:4', legacyRaw: null },
       { legacySourceId: null, legacyRaw: { id: 5, loai: 'don_thu' } },
       { legacySourceId: 'ho_so_doi_1:6', legacyRaw: { id: 6 } },
+      {
+        legacySourceId: 'ho_so_doi_1:7',
+        legacyRaw: { id: 7, loai: 'Đơn thư' },
+      },
     ]);
-    expect(kq.map((r) => r.id)).toEqual([1, 2]);
+    expect(kq.map((r) => r.id)).toEqual([1, 2, 7]);
   });
 });

@@ -17,23 +17,23 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { LegacyMigrationService } from '../legacy-migration.service';
-import type { LegacyRecord } from '../legacy-mapper';
+import { laLoaiDonThu, type LegacyRecord } from '../legacy-mapper';
 import { buMaHoSo } from './backfill-ma-ho-so';
 
 /** Bản thô của vụ án/vụ việc di trú mà hệ cũ xếp ở danh sách Đơn thư. */
 export function hoSoLoaiDonThu(
   dong: Array<{ legacySourceId: string | null; legacyRaw: unknown }>,
 ): LegacyRecord[] {
-  return dong
-    .filter(
-      (d) => d.legacySourceId && d.legacyRaw && typeof d.legacyRaw === 'object',
-    )
-    .map((d) => d.legacyRaw as LegacyRecord)
-    .filter((r) => {
-      const loai =
-        typeof r.loai === 'string' ? r.loai.trim().toLowerCase() : '';
-      return loai === 'don_thu' || loai === 'don-thu' || loai === 'don';
-    });
+  return (
+    dong
+      .filter(
+        (d) =>
+          d.legacySourceId && d.legacyRaw && typeof d.legacyRaw === 'object',
+      )
+      .map((d) => d.legacyRaw as LegacyRecord)
+      // CÙNG hàm với bộ nạp — bộ lọc riêng từng hẹp hơn (bỏ sót "Đơn thư", "don-cong-van-ban-dau").
+      .filter((r) => laLoaiDonThu(r))
+  );
 }
 
 async function main(): Promise<void> {
