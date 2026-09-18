@@ -281,6 +281,14 @@ export const userTableLayoutsApi = {
     api.delete<{ deleted: number }>(`/user-table-layouts/${encodeURIComponent(tableKey)}`),
 };
 
+/** Mật độ dòng của bảng danh sách (18/09/2026): Gọn / Đọc (mặc định) / Đầy đủ — nhớ theo cán bộ, theo bảng. */
+export type MatDo = 'gon' | 'doc' | 'day-du';
+export const matDoDongApi = {
+  list: () => api.get<Record<string, MatDo>>('/user-table-layouts/mat-do'),
+  luu: (tableKey: string, matDo: MatDo) =>
+    api.put(`/user-table-layouts/${encodeURIComponent(tableKey)}/mat-do`, { matDo }),
+};
+
 /**
  * Lựa chọn in chứng từ (mẫu đã tích + định dạng xuất), riêng từng tài khoản.
  *

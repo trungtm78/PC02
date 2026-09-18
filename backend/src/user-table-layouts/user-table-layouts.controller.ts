@@ -11,6 +11,9 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserTableLayoutsService } from './user-table-layouts.service';
 import { LuuBoCucDto } from './dto/luu-bo-cuc.dto';
+import { LuuMatDoDto } from './dto/luu-mat-do.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 /**
  * Bố cục cột bảng danh sách của chính người đang đăng nhập.
@@ -29,6 +32,21 @@ export class UserTableLayoutsController {
   @Get()
   list(@Request() req: any) {
     return this.service.list(req.user.id);
+  }
+
+  // Khai TRƯỚC `:tableKey` — route tĩnh phải đứng trước route có tham số cùng tầng.
+  @Get('mat-do')
+  listMatDo(@CurrentUser() user: AuthUser) {
+    return this.service.listMatDo(user.id);
+  }
+
+  @Put(':tableKey/mat-do')
+  luuMatDo(
+    @CurrentUser() user: AuthUser,
+    @Param('tableKey') tableKey: string,
+    @Body() dto: LuuMatDoDto,
+  ) {
+    return this.service.luuMatDo(user.id, tableKey, dto.matDo);
   }
 
   @Put(':tableKey')

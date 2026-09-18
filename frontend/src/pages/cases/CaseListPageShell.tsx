@@ -26,6 +26,8 @@ import {
   useListSort,
   DateCell,
   SummaryCell,
+  ChonMatDo,
+  useMatDoDong,
   formatHoSoCode,
   phanSttCu,
   type ColumnDef,
@@ -688,6 +690,7 @@ export function CaseListPageShell() {
     doiCho,
     datLai: resetColumns,
   } = useBoCucCot('cases', columns);
+  const [matDo, datMatDo] = useMatDoDong('cases');
   // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý. Các trường
   // riêng Ủy thác điều tra (đơn vị giao, số QĐ…) gợi ý ở màn UTDT, nơi có cột mang chúng.
   const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_AN), [visibleColumns]);
@@ -789,13 +792,17 @@ export function CaseListPageShell() {
         onResetFilters={handleResetFilters}
         cardStyle
         columnPicker={
-          <ColumnPicker
-            columns={toggleableColumns}
-            isVisible={isVisible}
-            onToggle={toggle}
-            onReset={resetColumns}
-            onDoiCho={doiCho}
-          />
+          <div className="flex items-center gap-2">
+            {/* Mật độ dòng cạnh nút "Cột" (PR-F2, 18/09/2026) — nhớ theo cán bộ ở máy chủ. */}
+            <ChonMatDo giaTri={matDo} onDoi={datMatDo} />
+            <ColumnPicker
+              columns={toggleableColumns}
+              isVisible={isVisible}
+              onToggle={toggle}
+              onReset={resetColumns}
+              onDoiCho={doiCho}
+            />
+          </div>
         }
       >
         <Filters<CaseFilterValue>
@@ -866,6 +873,7 @@ export function CaseListPageShell() {
         fixedLayout
         // Anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội dung + thanh cuộn ngang ở trên bảng.
         xuongDong
+        matDo={matDo}
         onKeoGian={datBeRong}
         datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}
