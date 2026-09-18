@@ -52,6 +52,8 @@ interface RowProps {
    * từng hàng nên truyền xuống đây thay vì đoán.
    */
   bgClass?: string;
+  /** Canh ô tick lên ĐỈNH dòng — bảng ở chế độ xuống dòng canh mọi ô trên (dòng bung "Xem thêm" cao nhiều dòng). */
+  canhTren?: boolean;
 }
 
 export function BulkSelectionRowCell({
@@ -60,11 +62,12 @@ export function BulkSelectionRowCell({
   ineligibleReason,
   rowLabel,
   bgClass = 'bg-inherit',
+  canhTren = false,
 }: RowProps) {
   const disabled = ineligibleReason != null;
   return (
     <td
-      className={`w-10 px-2 py-2 sticky left-0 z-[1] ${bgClass}`}
+      className={`w-10 px-2 py-2 sticky left-0 z-[1] ${bgClass}${canhTren ? ' align-top' : ''}`}
       onClick={(e) => e.stopPropagation()} // tránh trigger row onClick
     >
       <input

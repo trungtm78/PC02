@@ -77,6 +77,29 @@ describe('ThanhCuonNgangTren', () => {
     expect(thanh.scrollLeft).toBe(700);
   });
 
+  /**
+   * Cuộn mượt (touchpad, Shift+lăn): sự kiện `scroll` phát theo khung hình, KHÔNG phát ngay lúc gán. Tiếng vọng
+   * của lần gán trước tới muộn, khi bảng đã cuộn tiếp — không nhận ra tiếng vọng là kéo bảng giật ngược.
+   */
+  it('tiếng vọng đến muộn của lần đồng bộ trước KHÔNG kéo ngược bảng đang cuộn', () => {
+    render(<Khung rongNoiDung={2400} rongKhung={1000} />);
+    act(() => goiLai?.());
+    const thanh = screen.getByTestId('thanh-cuon-ngang-tren');
+    const khung = screen.getByTestId('khung-bang');
+
+    khung.scrollLeft = 100;
+    fireEvent.scroll(khung); // bảng cuộn → thanh được gán 100 (sự kiện của thanh chưa tới)
+    expect(thanh.scrollLeft).toBe(100);
+    khung.scrollLeft = 120; // cán bộ cuộn tiếp
+    fireEvent.scroll(thanh); // tiếng vọng muộn của lần gán 100
+    expect(khung.scrollLeft).toBe(120);
+
+    // Sau tiếng vọng, thanh vẫn điều khiển được bảng như thường.
+    thanh.scrollLeft = 500;
+    fireEvent.scroll(thanh);
+    expect(khung.scrollLeft).toBe(500);
+  });
+
   it('thanh vừa hiện mà bảng đã cuộn sẵn → tay nắm đứng đúng chỗ', () => {
     render(<Khung rongNoiDung={800} rongKhung={1000} />);
     act(() => goiLai?.());

@@ -35,6 +35,7 @@ function soHang(minWidth: string): string[] {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('<Table xuongDong>', () => {
@@ -66,6 +67,10 @@ describe('<Table xuongDong>', () => {
       clear: vi.fn(),
     };
     ve({ xuongDong: true, bulkSelection: chon });
+    // Ô tick canh TRÊN như mọi ô khác — dòng bung "Xem thêm" cao 20 dòng thì ô tick không trôi xuống giữa.
+    expect(
+      screen.getByRole('checkbox', { name: 'Chọn bản ghi r1' }).closest('td')!.className,
+    ).toMatch(/\balign-top\b/);
     expect(soHang(screen.getByRole('table').style.minWidth)).toEqual([
       '120px',
       '2.5rem',
@@ -81,7 +86,6 @@ describe('<Table xuongDong>', () => {
     const thanh = screen.getByTestId('thanh-cuon-ngang-tren');
     // Thanh đứng TRƯỚC khung bảng.
     expect(thanh.compareDocumentPosition(screen.getByRole('table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    vi.restoreAllMocks();
   });
 
   it('KHÔNG bật xuongDong → bảng giữ nguyên như cũ (không bề rộng tối thiểu, ô không xuống dòng)', () => {

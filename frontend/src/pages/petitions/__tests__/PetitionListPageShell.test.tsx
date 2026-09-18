@@ -4,7 +4,7 @@
  * Mirror Cases + Incidents shell test patterns. Petition has no phase tabs
  * (single workflow), so coverage simpler than Incidents.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -97,6 +97,9 @@ const sampleStats = {
     'da-luu-don': 1,
   },
 };
+
+// Gỡ spy đo dàn trang (scrollHeight/clientHeight) kể cả khi ca kiểm đỏ giữa chừng — không rò sang ca sau.
+afterEach(() => vi.restoreAllMocks());
 
 describe('PetitionListPageShell — initial mount + ready state', () => {
   beforeEach(() => {
@@ -600,7 +603,6 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
       expect(screen.getByTestId('summary-text')).toHaveTextContent('Tố giác bà Phạm Thị Thuỳ Oanh'),
     );
     expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
-    vi.restoreAllMocks();
   });
 
   it('mã hồ sơ hiện dạng ngắn như hệ cũ, KHÔNG đổi dữ liệu', async () => {

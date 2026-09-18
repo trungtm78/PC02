@@ -498,6 +498,7 @@ export function Table<TRow, TId extends string | number = string>({
                       rowLabel={bulkRowLabel?.(row)}
                       ineligibleReason={bulkRowEligible?.(row) ?? null}
                       bgClass={NEN_O_GHIM}
+                      canhTren={xuongDong}
                     />
                   )}
                   {columns.map((col) => (
