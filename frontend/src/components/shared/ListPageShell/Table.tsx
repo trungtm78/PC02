@@ -39,6 +39,7 @@ import {
 } from '@/constants/styles';
 import { SortableHeader } from './SortableHeader';
 import { ThanhCuonNgangTren } from './ThanhCuonNgangTren';
+import { MAT_DO_MAC_DINH, MatDoContext, type MatDo } from './matDo';
 import { useListPageShellContext } from './ListPageShell';
 
 /**
@@ -151,6 +152,11 @@ export interface TableProps<TRow, TId extends string | number = string> {
    * ngang), và có thanh cuộn ngang ở TRÊN bảng. Không bật = bảng giữ nguyên như cũ.
    */
   xuongDong?: boolean;
+  /**
+   * Mật độ dòng (PR-F2): Gọn = mỗi ô một dòng (cắt bằng dấu …), Tóm tắt 1 dòng; Đọc = xuống dòng, Tóm tắt 5 dòng
+   * (mặc định); Đầy đủ = xuống dòng, Tóm tắt không kẹp. Truyền xuống ô Tóm tắt qua `MatDoContext`.
+   */
+  matDo?: MatDo;
   sortBy?: string;
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
@@ -345,6 +351,7 @@ export function Table<TRow, TId extends string | number = string>({
   onVeMacDinhCot,
   datTongBeRong,
   xuongDong,
+  matDo = MAT_DO_MAC_DINH,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
   // Khung cuộn của bảng — thanh cuộn ngang trên bám theo nó.
@@ -400,7 +407,8 @@ export function Table<TRow, TId extends string | number = string>({
     : xuongDong
       ? { minWidth: tongKhai }
       : undefined;
-  const oMacDinh = xuongDong ? TABLE_CELL_WRAP : TABLE_CELL;
+  // Mật độ "Gọn": mỗi ô một dòng (TABLE_CELL cắt bằng dấu …) — cán bộ tự chọn để xem được nhiều hồ sơ.
+  const oMacDinh = xuongDong && matDo !== 'gon' ? TABLE_CELL_WRAP : TABLE_CELL;
 
   // state === 'ready'
   return (
@@ -508,7 +516,7 @@ export function Table<TRow, TId extends string | number = string>({
                         col.sticky ? `${LOP_GHIM} ${NEN_O_GHIM}` : ''
                       }`.trim()}
                     >
-                      {col.render(row)}
+                      <MatDoContext.Provider value={matDo}>{col.render(row)}</MatDoContext.Provider>
                     </td>
                   ))}
                 </tr>

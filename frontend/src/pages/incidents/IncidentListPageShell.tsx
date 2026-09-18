@@ -26,6 +26,8 @@ import {
   useListSort,
   DateCell,
   SummaryCell,
+  ChonMatDo,
+  useMatDoDong,
   formatHoSoCode,
   phanSttCu,
   type ColumnDef,
@@ -682,6 +684,7 @@ export function IncidentListPageShell() {
     doiCho,
     datLai: resetColumns,
   } = useBoCucCot('incidents', columns);
+  const [matDo, datMatDo] = useMatDoDong('incidents');
   // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
   const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_VIEC), [visibleColumns]);
 
@@ -827,13 +830,17 @@ export function IncidentListPageShell() {
         onResetFilters={handleResetFilters}
         cardStyle
         columnPicker={
-          <ColumnPicker
-            columns={toggleableColumns}
-            isVisible={isVisible}
-            onToggle={toggle}
-            onReset={resetColumns}
-            onDoiCho={doiCho}
-          />
+          <div className="flex items-center gap-2">
+            {/* Mật độ dòng cạnh nút "Cột" (PR-F2, 18/09/2026) — nhớ theo cán bộ ở máy chủ. */}
+            <ChonMatDo giaTri={matDo} onDoi={datMatDo} />
+            <ColumnPicker
+              columns={toggleableColumns}
+              isVisible={isVisible}
+              onToggle={toggle}
+              onReset={resetColumns}
+              onDoiCho={doiCho}
+            />
+          </div>
         }
       >
         <Filters<IncidentFilterValue>
@@ -904,6 +911,7 @@ export function IncidentListPageShell() {
         fixedLayout
         // Anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội dung + thanh cuộn ngang ở trên bảng.
         xuongDong
+        matDo={matDo}
         onKeoGian={datBeRong}
         datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}

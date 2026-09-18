@@ -33,6 +33,10 @@ function viPham(src: string): string[] {
   // Ngày MỘT dòng, mono, số thẳng hàng — mọi cột ngày đi qua DateCell (PR-F, 18/09/2026).
   // Cấm MỌI `formatVNDate(` ở màn danh sách (không chỉ `r.x`): `row.x`, `r?.x` cũng là tự vẽ ngày.
   if (/\bformatVNDate\(/.test(src)) loi.push('cột ngày tự vẽ, không qua DateCell');
+  // Mật độ dòng (PR-F2): bộ chọn cạnh nút Cột, nhớ theo cán bộ, bảng nhận đúng giá trị.
+  if (!/<ChonMatDo\b/.test(src)) loi.push('thiếu bộ chọn mật độ dòng');
+  if (!/useMatDoDong\('/.test(src)) loi.push('mật độ không nhớ theo cán bộ');
+  if (!/^\s*matDo=\{matDo\}/m.test(theBang(src))) loi.push('bảng chưa nhận matDo');
   return loi;
 }
 
@@ -45,6 +49,8 @@ describe('CỔNG bảng dễ đọc', () => {
     expect(donThuPhuong).toMatch(/<SummaryCell\b/);
     expect(donThuPhuong).toMatch(/<ThanhCuonNgangTren\b/);
     expect(donThuPhuong).not.toMatch(/line-clamp-2/);
+    expect(donThuPhuong).toMatch(/<ChonMatDo\b/);
+    expect(donThuPhuong).toMatch(/useMatDoDong\('ward-petitions'\)/);
   });
 
   it('gieo lỗi: thêm lại một ô cắt chữ / bỏ xuongDong → cổng bắt được', () => {
@@ -58,6 +64,8 @@ describe('CỔNG bảng dễ đọc', () => {
       '{formatVNDate(r.createdAt)}',
     );
     expect(viPham(tuVeNgay)).toContain('cột ngày tự vẽ, không qua DateCell');
+    const boMatDo = donThu.replace(/^\s*matDo=\{matDo\}\n/m, '\n');
+    expect(viPham(boMatDo)).toContain('bảng chưa nhận matDo');
     const boXuongDong = donThu.replace(/^\s*xuongDong\n/m, '\n');
     expect(viPham(boXuongDong)).toContain('bảng chưa bật xuongDong');
   });

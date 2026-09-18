@@ -438,9 +438,19 @@ KHÔNG có giao diện nào (không hộp thoại, không toast) — app tự l�
 Ô ngày: mọi cột ngày đi qua `DateCell` — một dòng, mono, `tabular-nums`, 13px. Đo Chrome sau khi đổi font:
 "27/08/2026" rộng 78px trong ô 80px; mã STT 58px trong 64px (không tràn, không xuống dòng).
 
-### 11.6 Mật độ dòng (PR-F2, chưa có trong mã)
+### 11.6 Mật độ dòng (PR-F2)
 
-Gọn (1 dòng) / Đọc (5 dòng, mặc định) / Đầy đủ; nhớ theo cán bộ ở máy chủ (`user_table_layouts`).
+Nhóm nút `ChonMatDo` (Gọn · Đọc · Đầy đủ, `aria-pressed`) đặt cạnh nút "Cột" ở 3 màn + trên bảng Đơn thư phường.
+
+| Mức | Ô Tóm tắt | Ô khác | Khi nào |
+|---|---|---|---|
+| Gọn | 1 dòng, rê chuột xem toàn văn (không nút — để dòng thật sự một dòng) | một dòng, cắt bằng … | quét nhanh nhiều hồ sơ |
+| **Đọc** (mặc định) | 5 dòng + "Xem thêm" | xuống dòng | đọc thường ngày |
+| Đầy đủ | không kẹp, không nút | xuống dòng | hầu hết hồ sơ đều dài — khỏi bấm "Xem thêm" từng dòng |
+
+Nhớ theo cán bộ, theo bảng ở máy chủ: cột `user_table_layouts.matDo`, `GET /user-table-layouts/mat-do`,
+`PUT /user-table-layouts/:tableKey/mat-do` (chỉ `gon|doc|day-du`). "Đặt lại cột" KHÔNG xoá mật độ. `Table matDo` truyền
+xuống ô Tóm tắt qua `MatDoContext`.
 
 ### Do / Don't
 

@@ -46,6 +46,9 @@ import {
   useTheTimKiem,
   SummaryCell,
   ThanhCuonNgangTren,
+  ChonMatDo,
+  useMatDoDong,
+  MatDoContext,
 } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
@@ -179,6 +182,8 @@ export default function WardPetitionsPage() {
   const luotTai = useRef(0);
   /** Khung cuộn ngang của bảng — thanh cuộn trên bám theo nó. */
   const khungBangRef = useRef<HTMLDivElement>(null);
+  /** Mật độ dòng của ô Tóm tắt (PR-F2) — nhớ theo cán bộ, như 3 màn danh sách. */
+  const [matDo, datMatDo] = useMatDoDong('ward-petitions');
   /** Tăng để tải lại cùng bộ lọc (nút Làm mới). */
   const [lanTai, setLanTai] = useState(0);
 
@@ -500,6 +505,9 @@ export default function WardPetitionsPage() {
           bám vào khung này thay vì trang và trôi mất khi cuộn xuống — cùng lý do với TABLE_SECTION_CARD. */}
       <div className={TABLE_SECTION_CARD}>
         {/* Anh yêu cầu 18/09/2026: thanh cuộn ngang ở TRÊN bảng, dùng chung với 3 màn danh sách. */}
+        <div className="flex justify-end px-4 py-2 border-b border-slate-200">
+          <ChonMatDo giaTri={matDo} onDoi={datMatDo} />
+        </div>
         <ThanhCuonNgangTren khung={khungBangRef} />
         <div ref={khungBangRef} className="overflow-x-auto">
           <table className="w-full" data-testid="ward-petitions-table">
@@ -586,7 +594,9 @@ export default function WardPetitionsPage() {
                       </td>
                       <td className="px-4 py-3 align-top text-sm">
                         {/* 5 dòng + "Xem thêm" bung tại chỗ — nút chặn lan lên dòng (dòng mở hồ sơ). */}
-                        <SummaryCell value={p.detailContent} />
+                        <MatDoContext.Provider value={matDo}>
+                          <SummaryCell value={p.detailContent} />
+                        </MatDoContext.Provider>
                       </td>
                       <td className="px-4 py-3" data-testid={`ward-cell-${p.id}`}>
                         <div className="flex items-center gap-1.5">
