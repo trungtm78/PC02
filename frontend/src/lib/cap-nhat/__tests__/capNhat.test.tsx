@@ -122,6 +122,19 @@ describe('trangDangRanh — chỉ tự tải khi không có gì để mất', ()
     expect(trangDangRanh(document, '/petitions')).toBe(true);
     cleanup();
   });
+  it('bấm ô tích, nút chọn, chọn ngày/ô chọn trên bộ lọc thì VẪN rảnh (không có chữ để mất)', () => {
+    batDauTheoDoiGo();
+    document.body.innerHTML =
+      '<input type="checkbox" /><input type="radio" /><input type="date" /><select><option>a</option></select>';
+    const o = document.querySelectorAll('input, select');
+    fireEvent.click(o[0]);
+    fireEvent.change(o[0]);
+    fireEvent.change(o[1]);
+    fireEvent.change(o[2], { target: { value: '2026-09-18' } });
+    fireEvent.change(o[3]);
+    expect(trangDangRanh(document, '/petitions')).toBe(true);
+    document.body.innerHTML = '';
+  });
   it('lớp phủ hộp tự dựng (fixed inset-0) đang mở thì KHÔNG rảnh', () => {
     document.body.innerHTML = '<div class="fixed inset-0 bg-black/50"><div>Tạm đình chỉ</div></div>';
     expect(trangDangRanh(document, '/cases/abc')).toBe(false);

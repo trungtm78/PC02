@@ -18,11 +18,24 @@ const HOP_THOAI = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], d
 const oDaGo = new Set<Element>();
 let daNghe = false;
 
+/**
+ * Chỉ ô NHẬP CHỮ mới có thứ để mất. Ô tích/nút chọn luôn mang `value="on"`, ô chọn/ngày giữ giá trị
+ * đã chọn — tính chúng là "đang gõ" thì một bộ lọc bình thường chặn cập nhật mãi (codex 18/09/2026).
+ */
+const KIEU_O_CHU = new Set(['', 'text', 'search', 'email', 'tel', 'url', 'number', 'password']);
+function laONhapChu(o: Element): boolean {
+  if (o instanceof HTMLTextAreaElement) return true;
+  if (o instanceof HTMLInputElement) return KIEU_O_CHU.has((o.getAttribute('type') ?? '').toLowerCase());
+  // `isContentEditable` là thuộc tính tính toán (jsdom không có); đọc thẳng thuộc tính khai báo.
+  const ce = o.closest('[contenteditable]')?.getAttribute('contenteditable');
+  return ce === '' || ce === 'true' || ce === 'plaintext-only';
+}
+
 function ngheGo(doc: Document): void {
   if (daNghe) return;
   daNghe = true;
   const ghiNhan = (e: Event) => {
-    if (e.target instanceof Element) oDaGo.add(e.target);
+    if (e.target instanceof Element && laONhapChu(e.target)) oDaGo.add(e.target);
   };
   doc.addEventListener('input', ghiNhan, true);
   doc.addEventListener('change', ghiNhan, true);
@@ -40,10 +53,7 @@ function conChuDaGo(): boolean {
       oDaGo.delete(o);
       continue;
     }
-    const giaTri =
-      o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || o instanceof HTMLSelectElement
-        ? o.value
-        : (o.textContent ?? '');
+    const giaTri = o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement ? o.value : (o.textContent ?? '');
     if (giaTri.trim() !== '') return true;
   }
   return false;
