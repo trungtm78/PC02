@@ -1,6 +1,6 @@
 # Coverage Ledger — đợt 18/09/2026
 
-> Sinh TRƯỚC khi viết ca (enumerate-before-write). Mỗi dòng = một mệnh đề; cột **Tầng** nói bằng chứng đi qua đâu
+> Sinh TRƯỚC khi viết ca (enumerate-before-write). Cột Trạng thái = kết quả lượt cuối 19/09 (xem UAT-COVERAGE.md §1). Mỗi dòng = một mệnh đề; cột **Tầng** nói bằng chứng đi qua đâu
 > (E2E = Chrome thật + backend/CSDL thật; API = HTTP thật; UNIT = ca kiểm đơn vị/tích hợp — chỉ dùng khi chủ ngữ
 > của mệnh đề là một hàm/bảng và câu đã thu hẹp cho khớp). Oracle: `_domain-pack.md`.
 
@@ -55,7 +55,7 @@ Chỗ M4 buộc đào sâu thêm: thêm ca phủ định cho R1 (E02, E03), R2-K
 | C5.10 | Hồ sơ xoá mềm giữa chừng không lọt tệp | R5-EXPORT | EDGE | UNIT | `*-xuat-danh-sach.spec.ts` | PASS (hàm) |
 | C5.11 | Tệp phường/xã vẫn xuất, giữ tên tệp, A4 ngang | R5-EXPORT | REGRESSION | API | A05 | PASS |
 | C5.12 | Vụ việc: lọc Cán bộ nhập ra hồ sơ, cột Người nhập có tên | R5-OFFICER | GREEN | E2E | E10 | PASS |
-| C5.13 | OFFICER chỉ xuất được hồ sơ trong phạm vi | R5-EXPORT | SECURITY | UNIT | `*-mot-where.spec.ts` (export dùng CHUNG `dungWhereDanhSach` với danh sách) | **GAP-E2E** — bản sao không có mật khẩu tài khoản OFFICER thật; không tạo tài khoản khi chưa được phép. Mệnh đề thu hẹp: "hàm dựng điều kiện xuất = hàm của danh sách" |
+| C5.13 | OFFICER chỉ xuất được hồ sơ trong phạm vi | R5-EXPORT | SECURITY | API (token officer1 thật) | A10 | PASS (prod + bản sao) |
 | C6.1 | Tìm "Kha Tử Thạnh" ở Vụ việc ra 26-11732 | R6-FIND | GREEN | E2E (bản sao) | E17 | PASS bản sao · prod NOT_EXECUTED (chờ anh xác nhận ghi) |
 | C6.2 | Tìm "Lê Nguyễn Yến Thanh" ở Đơn thư ra 26-11129 "Đã chuyển vụ án", mở sang vụ án | R6-FIND, R6-LINK | GREEN | E2E (bản sao) | E18 | PASS bản sao · prod NOT_EXECUTED |
 | C6.3 | Chạy lại CLI → 0 (bình ổn) | R6-FIND | REGRESSION | CLI thật (bản sao) | Thực thi mục 3 | PASS |
@@ -64,6 +64,7 @@ Chỗ M4 buộc đào sâu thêm: thêm ca phủ định cho R1 (E02, E03), R2-K
 | CD.1 | Gọn = 1 dòng, không nút; Đầy đủ = không kẹp; nhớ sau tải lại | RD-DENSITY | STATE | E2E | E15 | PASS |
 | CD.2 | Giá trị lạ / bảng lạ → 400; chưa đăng nhập → 401 | RD-DENSITY | RED/SECURITY | API | A06 | PASS |
 | CD.3 | "Đặt lại cột" không xoá mật độ | RD-DENSITY | STATE | API | A07 | PASS |
+| C5.14 | Ô Cán bộ nhập có ĐỦ mọi cán bộ, không hai nhãn trùng (U3/U4 UAT prod bắt) | R5-FILTER | EP/DATA | E2E prod | E09 ×3, E10, E12 | PASS sau #418 |
 | CU.1 | Không hộp thoại chen ngang; aria-pressed/aria-expanded; bàn phím tới được | UX | A11Y | E2E | E16, E05 | PASS |
 | CO.1 | Máy chủ báo buildId (OAT) | R1-ROUTE | OAT | API | A08 + 8 lần deploy khớp buildId | PASS |
 

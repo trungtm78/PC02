@@ -1,3 +1,10 @@
+# Đợt mới nhất — 18/09/2026: danh sách dễ đọc + tự cập nhật + dữ liệu hệ cũ thiếu
+
+→ **`docs/uat/dot-1809/UAT-COVERAGE.md`** — prod: API 18/18, E2E 23 PASS (2 chờ anh duyệt ghi dữ liệu); 4 lỗi UAT bắt
+được đã sửa (#416, #418); gieo lỗi 15/15 bị bắt; 46/46 mệnh đề có bằng chứng.
+
+---
+
 # Sổ phủ UAT — In từ danh sách · STT cũ · bản in Word giống hệ cũ
 
 Mỗi dòng là một MỆNH ĐỀ kèm **tầng của bằng chứng**. Mệnh đề có chủ ngữ là *người dùng* thì bằng
