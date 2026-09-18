@@ -59,7 +59,6 @@ import {
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getPetitionStatusIcon } from '@/shared/enums/status-icons';
-import { formatVNDate } from '@/lib/dates';
 // v0.65 PR3 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
@@ -620,15 +619,9 @@ export function PetitionListPageShell() {
         width: '8rem',
         optional: 'hide',
         sortKey: 'deadline',
-        render: (r) => {
-          if (!r.deadline) return '—';
-          const overdue = isOverdue(r.deadline);
-          return (
-            <span className={overdue ? 'text-red-700 font-semibold' : 'text-slate-700'}>
-              {formatVNDate(r.deadline)}
-            </span>
-          );
-        },
+        render: (r) => (
+          <DateCell value={r.deadline} quaHan={!!r.deadline && isOverdue(r.deadline)} />
+        ),
       },
 
       {
@@ -641,9 +634,10 @@ export function PetitionListPageShell() {
         // Hồ sơ di trú đều mang cùng một ngày tạo (ngày chuyển dữ liệu) — chú giải để
         // cán bộ không tưởng là lỗi hiển thị.
         render: (r) => (
-          <span title="Ngày nhập vào hệ thống. Hồ sơ di trú đều là ngày chuyển dữ liệu.">
-            {formatVNDate(r.createdAt)}
-          </span>
+          <DateCell
+            value={r.createdAt}
+            title="Ngày nhập vào hệ thống. Hồ sơ di trú đều là ngày chuyển dữ liệu."
+          />
         ),
       },
     ],

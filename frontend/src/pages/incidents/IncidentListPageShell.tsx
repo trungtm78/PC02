@@ -56,7 +56,6 @@ import {
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
-import { formatVNDate } from '@/lib/dates';
 // v0.64 PR2 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
@@ -650,15 +649,9 @@ export function IncidentListPageShell() {
         width: '8rem',
         optional: 'hide',
         sortKey: 'deadline',
-        render: (r) => {
-          if (!r.deadline) return '—';
-          const overdue = isOverdue(r.deadline);
-          return (
-            <span className={overdue ? 'text-red-700 font-semibold' : 'text-slate-700'}>
-              {formatVNDate(r.deadline)}
-            </span>
-          );
-        },
+        render: (r) => (
+          <DateCell value={r.deadline} quaHan={!!r.deadline && isOverdue(r.deadline)} />
+        ),
       },
 
       {
@@ -668,7 +661,7 @@ export function IncidentListPageShell() {
         width: '7rem',
         optional: 'hide',
         sortKey: 'createdAt',
-        render: (r) => formatVNDate(r.createdAt),
+        render: (r) => <DateCell value={r.createdAt} />,
       },
     ],
     [actionCtx],
