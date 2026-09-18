@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.tsx';
 import { RouteErrorBoundary } from './lib/features/RouteBoundary';
+import { taiLaiKhiHongChunk } from './lib/cap-nhat/apDungBanMoi';
+
+// Vite báo không nạp được gói tải-động (tên gói đổi sau deploy, tab còn giữ bản cũ). Tự tải lại
+// MỘT lần; tải lại rồi vẫn hỏng thì để lỗi đi tiếp tới `RouteErrorBoundary` hiện thông báo.
+window.addEventListener('vite:preloadError', (event) => {
+  if (taiLaiKhiHongChunk(__BUILD_ID__)) event.preventDefault();
+});
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

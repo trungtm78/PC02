@@ -4,6 +4,7 @@
  */
 
 import { buildPetitionPayload } from "./buildPetitionPayload";
+import { useDauHieuDangSua } from '@/lib/cap-nhat/formDoDang';
 // Kiểu và giá trị khởi tạo tách sang tệp riêng để hàm dựng payload và ca kiểm dùng được
 // mà không phải nạp cả trang. Giữ tên cục bộ `FormData`/`INITIAL_FORM` cho phần còn lại.
 import {
@@ -87,6 +88,8 @@ export function PetitionFormPage() {
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  // Khai với app "đang sửa dở" khi dữ liệu khác bản đã lưu — app không tự lên bản mới lúc này.
+  useDauHieuDangSua(!isLoadingData && JSON.stringify(formData) !== savedSnapshotRef.current);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
   // Nhóm II: convert state

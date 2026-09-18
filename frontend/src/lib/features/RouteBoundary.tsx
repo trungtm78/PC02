@@ -19,6 +19,7 @@
  * hỏng thì nói hỏng, nói vì sao, và luôn chừa một đường đi tiếp.
  */
 import { Component, type ErrorInfo, type ReactElement, type ReactNode } from 'react';
+import { taiLaiKhiHongChunk } from '@/lib/cap-nhat/apDungBanMoi';
 
 export function RouteLoading(): ReactElement {
   return (
@@ -57,6 +58,9 @@ export class RouteErrorBoundary extends Component<Props, State> {
     // Giữ nguyên dấu vết ở bảng điều khiển. Nuốt lỗi ở đây là tái lập đúng điểm mù
     // mà lớp bọc này sinh ra để xoá.
     console.error('[RouteErrorBoundary] trang lỗi khi dựng:', error, info.componentStack);
+    // Gói đổi tên sau deploy: tự tải lại MỘT lần cho bản đang chạy (anh chốt 18/09/2026 — không
+    // bắt cán bộ bấm). Tải lại mà vẫn cùng bản thì gói hỏng thật: giữ thông báo + nút bên dưới.
+    if (isChunkLoadError(error)) taiLaiKhiHongChunk(__BUILD_ID__);
   }
 
   private handleReload = (): void => {

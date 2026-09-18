@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useDauHieuDangSua } from '@/lib/cap-nhat/formDoDang';
 import { extractApiError } from '@/lib/api-errors';
 import {
   BTN_DANGER,
@@ -67,6 +68,8 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lyDo, setLyDo] = useState('');
+  // Ô lý do xoá đã gõ thì app không tự lên bản mới (tải lại sẽ cuốn mất chữ).
+  useDauHieuDangSua(args !== null && lyDo.trim() !== '');
 
   const canLyDo = args ? CAN_LY_DO.has(args.resourceType) : false;
   const lyDoHopLe =

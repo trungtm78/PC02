@@ -72,8 +72,8 @@ vi.mock('@/components/ShortcutCheatSheet', () => ({
   ShortcutCheatSheet: () => null,
   CheatSheetButton: () => null,
 }));
-vi.mock('@/components/PwaUpdatePrompt', () => ({
-  PwaUpdatePrompt: () => null,
+vi.mock('@/lib/cap-nhat/useTuCapNhat', () => ({
+  useTuCapNhat: () => undefined,
 }));
 
 function renderLayout(initialPath = '/') {

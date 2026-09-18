@@ -18,15 +18,23 @@
  * được ném ra.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { lazy } from 'react';
 import { wrapRoute } from '../wrapRoute';
+import { KHOA_DA_TAI_LAI_CHUNK } from '@/lib/cap-nhat/apDungBanMoi';
 
 describe('wrapRoute — không bao giờ để lại khoảng trắng câm lặng', () => {
+  let soLanTaiLai = 0;
   beforeEach(() => {
     // Gói tải-động hỏng sẽ ghi lỗi ra bảng điều khiển; đó là hành vi ĐÚNG (giữ dấu vết
     // để chẩn đoán), nhưng làm nhiễu kết quả chạy kiểm nên tạm câm ở đây.
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    sessionStorage.clear();
+    soLanTaiLai = 0;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload: () => { soLanTaiLai += 1; } },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -54,6 +62,36 @@ describe('wrapRoute — không bao giờ để lại khoảng trắng câm lặn
 
     // Phải có đường đi tiếp, không được là ngõ cụt.
     expect(screen.getByRole('button', { name: /tải lại/i })).toBeTruthy();
+  });
+
+  /** Anh chốt 18/09/2026: không bắt cán bộ bấm — gói đổi tên sau deploy thì tự tải lại một lần. */
+  it('gói tải-động HỎNG lần đầu → tự tải lại đúng MỘT lần', async () => {
+    const Fails = lazy(() =>
+      Promise.reject(new Error('Failed to fetch dynamically imported module')),
+    );
+    render(wrapRoute(<Fails />));
+    await screen.findByRole('alert');
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
+  });
+
+  it('đã tự tải lại cho bản này mà gói vẫn hỏng → KHÔNG lặp, giữ thông báo + nút', async () => {
+    sessionStorage.setItem(KHOA_DA_TAI_LAI_CHUNK, __BUILD_ID__);
+    const Fails = lazy(() =>
+      Promise.reject(new Error('Failed to fetch dynamically imported module')),
+    );
+    render(wrapRoute(<Fails />));
+    await screen.findByRole('alert');
+    expect(soLanTaiLai).toBe(0);
+    expect(screen.getByRole('button', { name: /tải lại/i })).toBeTruthy();
+  });
+
+  it('lỗi dựng thường (không phải gói) → KHÔNG tự tải lại', async () => {
+    const Boom = () => {
+      throw new Error('vỡ khi dựng');
+    };
+    render(wrapRoute(<Boom />));
+    await screen.findByRole('alert');
+    expect(soLanTaiLai).toBe(0);
   });
 
   it('trang ném lỗi lúc dựng → hiện thông báo, KHÔNG gỡ trắng cả màn hình', async () => {

@@ -53,8 +53,9 @@ export default defineConfig({
     tailwindcss(),
     versionWatcher(),
     // PWA: makes PC02 installable on mobile devices.
-    // - registerType: 'prompt' (auto-decision #12) so users opt in to updates,
-    //   preventing form-state loss from silent SW replacement.
+    // - registerType: 'prompt' so a new SW never swaps itself under a running page. There is
+    //   no prompt UI any more (18/09/2026): `useTuCapNhat` registers the SW and applies the
+    //   update itself at safe moments only (route change, idle tab return, chunk error).
     // - Workbox API allowlist: ONLY /api/v1/health is cached. /notifications
     //   contains case/petition/incident metadata (PII exfiltration risk via
     //   CacheStorage); /feature-flags can serve stale role-based menu config.

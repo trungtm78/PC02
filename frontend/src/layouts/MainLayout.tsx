@@ -11,10 +11,8 @@ import { useAddressConverter } from '@/hooks/useAddressConverter';
 import { AddressConversionDialog } from '@/components/AddressConversionDialog';
 import { useShortcut } from '@/hooks/useShortcut';
 import { useUserShortcutBroadcast } from '@/hooks/useUserShortcuts';
-import { useTuChuaBanCu } from '@/hooks/useTuChuaBanCu';
-import { BanCuPrompt } from '@/components/BanCuPrompt';
+import { useTuCapNhat } from '@/lib/cap-nhat/useTuCapNhat';
 import { ShortcutCheatSheet, CheatSheetButton } from '@/components/ShortcutCheatSheet';
-import { PwaUpdatePrompt } from '@/components/PwaUpdatePrompt';
 import { authStore } from '@/stores/auth.store';
 import { api } from '@/lib/api';
 import logoCA from '@/assets/logo-cong-an.png';
@@ -38,10 +36,8 @@ function getUserInitials(email: string | undefined): string {
 export function MainLayout() {
   useAbbreviationExpander();
   useUserShortcutBroadcast();
-  // App tự nhận ra mình đang chạy bản cũ và tự thoát. Ngày 28/08/2026 cán bộ dùng bản của 5
-  // ngày trước mà không ai biết: CDN giữ service worker cũ, và service worker ấy phục vụ gói
-  // cũ từ kho nội bộ nên app chạy trơn tru, không lỗi, không cảnh báo.
-  const { banCu, capNhat } = useTuChuaBanCu(__BUILD_ID__); // cross-tab sync for shortcut bindings
+  // App tự lên bản mới ở thời điểm an toàn, KHÔNG hiện hộp nhắc (anh chốt 18/09/2026).
+  useTuCapNhat(__BUILD_ID__);
   const { preview: addressPreview, applyConversion, cancelConversion } = useAddressConverter();
   const navigate = useNavigate();
   const location = useLocation();
@@ -313,11 +309,6 @@ export function MainLayout() {
       {/* `?` keyboard cheat sheet (discoverability layer) */}
       <ShortcutCheatSheet />
 
-      {/* PWA: prompt user when new SW version available (non-blocking bottom banner) */}
-      <PwaUpdatePrompt />
-      {/* Dải báo KHÔNG phụ thuộc service worker. `PwaUpdatePrompt` im lặng ở cả hai đường vào:
-          HTTP trần không cho chạy service worker, còn tên miền thì CDN ghim bản sw.js cũ. */}
-      {banCu && <BanCuPrompt onCapNhat={capNhat} />}
     </div>
   );
 }
