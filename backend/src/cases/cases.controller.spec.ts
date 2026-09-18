@@ -1,10 +1,13 @@
 import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { CasesController } from './cases.controller';
 import { CasesService } from './cases.service';
 import { CasesJourneyService } from './cases-journey.service';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
 
 const mockService = {
+  xuatDanhSach: jest.fn(),
   getList: jest.fn(),
   getStats: jest.fn(),
   getById: jest.fn(),
@@ -124,5 +127,26 @@ describe('CasesController — delegation', () => {
     mockService.getStatusHistory.mockResolvedValue({ data: [] });
     await controller.getStatusHistory('case-1');
     expect(mockService.getStatusHistory).toHaveBeenCalledWith('case-1');
+  });
+
+  // Xuất Excel theo bộ lọc (18/09/2026): controller chuyển ĐÚNG bộ lọc, phạm vi dữ liệu và người xuất
+  // (ghi nhật ký kiểm toán) xuống service.
+  it('xuatDanhSach() chuyển bộ lọc + phạm vi + người xuất xuống service', async () => {
+    mockService.xuatDanhSach.mockResolvedValue(undefined);
+    const req = makeReq() as ScopedRequest;
+    const nguoiXuat = mockUser as AuthUser;
+    const res = { setHeader: jest.fn() } as never;
+    const query = { cot: 'a,b', tk: ['x~y'] } as never;
+    await controller.xuatDanhSach(query, nguoiXuat, req, res);
+    expect(mockService.xuatDanhSach).toHaveBeenCalledWith(
+      query,
+      req.dataScope,
+      res,
+      {
+        userId: nguoiXuat.id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'jest-test',
+      },
+    );
   });
 });

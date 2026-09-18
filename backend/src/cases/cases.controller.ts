@@ -32,6 +32,7 @@ import { CreateCaseDto } from './dto/create-case.dto';
 import { UpdateCaseDto } from './dto/update-case.dto';
 import { QueryCasesDto } from './dto/query-cases.dto';
 import { QueryCasesStatsDto } from './dto/query-cases-stats.dto';
+import { XuatDanhSachVuAnDto } from './dto/xuat-danh-sach-vu-an.dto';
 import { AssignCaseDto } from './dto/assign-case.dto';
 import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
 import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
@@ -121,6 +122,24 @@ export class CasesController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getUtdtStats(@Query() query: QueryCasesStatsDto, @Req() req: ScopedRequest) {
     return this.casesService.getUtdtStats(query, req.dataScope);
+  }
+
+  // GET /api/v1/cases/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách vụ án.
+  @Get('export/danh-sach')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async xuatDanhSach(
+    @Query() query: XuatDanhSachVuAnDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.casesService.xuatDanhSach(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // GET /api/v1/cases/export/ward — Xuất vụ án theo phường/xã

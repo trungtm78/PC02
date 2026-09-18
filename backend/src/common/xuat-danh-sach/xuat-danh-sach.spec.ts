@@ -93,6 +93,26 @@ describe('xuatDanhSachExcel', () => {
     expect(sheet.getRow(7).getCell(2).value).toBe('STT');
   });
 
+  it('thiết lập trang in như mọi tệp mẫu BCA: A4 ngang, vừa một trang bề ngang', async () => {
+    const { res, docSheet } = resGia();
+    await xuatDanhSachExcel<Dong>({
+      res: res as never,
+      tenTep: 'a.xlsx',
+      tenSheet: 'Đơn thư',
+      tieuDe: 'Danh sách',
+      phuDe: '',
+      cot: KHAI,
+      demTong: () => Promise.resolve(1),
+      layIdTheoThuTu: () => Promise.resolve(['a']),
+      layDong: () => Promise.resolve([{ id: 'a', ma: '26-1', ten: 'An' }]),
+    });
+    const trangIn = (await docSheet()).pageSetup;
+    expect(trangIn.paperSize).toBe(9);
+    expect(trangIn.orientation).toBe('landscape');
+    expect(trangIn.fitToPage).toBe(true);
+    expect(trangIn.fitToWidth).toBe(1);
+  });
+
   it('vượt trần → 400 nói rõ số dòng, KHÔNG ghi gì ra phản hồi', async () => {
     const { res, headers } = resGia();
     await expect(
@@ -126,5 +146,28 @@ describe('xuatDanhSachExcel', () => {
         layDong: () => Promise.resolve([]),
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('lỗi giữa lúc ghi (đã gửi header) → huỷ luồng để trình duyệt thấy tải hỏng, ném lỗi', async () => {
+    const { res } = resGia();
+    const huy = jest.spyOn(res, 'destroy');
+    const baoLoi = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    await expect(
+      xuatDanhSachExcel<Dong>({
+        res: res as never,
+        tenTep: 'x.xlsx',
+        tenSheet: 'x',
+        tieuDe: 'x',
+        phuDe: '',
+        cot: KHAI,
+        demTong: () => Promise.resolve(2),
+        layIdTheoThuTu: () => Promise.resolve(['a', 'b']),
+        layDong: () => Promise.reject(new Error('mất kết nối giữa chừng')),
+      }),
+    ).rejects.toThrow('mất kết nối giữa chừng');
+    expect(huy).toHaveBeenCalled();
+    baoLoi.mockRestore();
   });
 });

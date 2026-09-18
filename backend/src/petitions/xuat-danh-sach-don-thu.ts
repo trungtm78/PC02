@@ -1,8 +1,8 @@
-import type { PetitionStatus } from '@prisma/client';
 import type { KhaiCotXuat } from '../common/xuat-danh-sach/xuat-danh-sach';
 import { hoTenCanBo, ngayVN } from '../common/xuat-danh-sach/dinh-dang';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { LOAI_DON_LABEL_BE } from './petitions.constants';
 import type { DongDanhSachDonThu } from './petitions.service';
 
 /**
@@ -65,7 +65,7 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       key: 'status',
       tieuDe: 'Trạng thái',
       rong: 18,
-      doc: (d) => PETITION_STATUS_LABEL[d.status as PetitionStatus] ?? d.status,
+      doc: (d) => PETITION_STATUS_LABEL[d.status] ?? d.status,
     },
     {
       key: 'suspectedPerson',
@@ -84,5 +84,54 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       tieuDe: 'Ngày tạo',
       rong: 13,
       doc: (d) => ngayVN(d.createdAt),
+    },
+  ];
+
+/**
+ * Cột tệp "Đơn thư theo phường/xã" (`GET /petitions/export/ward`) — GIỮ ĐÚNG các cột tệp này vẫn có
+ * trước khi chuyển sang bộ xuất chung (18/09/2026).
+ */
+export const KHAI_COT_XUAT_DON_THU_PHUONG: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
+  [
+    { key: 'stt', tieuDe: 'Số đơn', rong: 18, doc: (d) => maHoSoNgan(d.stt) },
+    {
+      key: 'senderName',
+      tieuDe: 'Người gửi',
+      rong: 22,
+      doc: (d) => d.senderName ?? '',
+    },
+    {
+      key: 'petitionType',
+      tieuDe: 'Loại đơn',
+      rong: 16,
+      doc: (d) =>
+        d.petitionType
+          ? (LOAI_DON_LABEL_BE[d.petitionType] ?? d.petitionType)
+          : '',
+    },
+    {
+      key: 'detailContent',
+      tieuDe: 'Tóm tắt',
+      rong: 40,
+      // Cùng cột "Tóm tắt" trên màn (`detailContent`); đơn chưa có thì lùi bản rút gọn.
+      doc: (d) => d.detailContent ?? d.summary ?? '',
+    },
+    {
+      key: 'phuongXa',
+      tieuDe: 'Phường/Xã',
+      rong: 18,
+      doc: (d) => d.assignedTeam?.ward?.name ?? '',
+    },
+    {
+      key: 'ngayDeXuat',
+      tieuDe: 'Ngày đề xuất',
+      rong: 16,
+      doc: (d) => ngayVN(d.ngayDeXuat),
+    },
+    {
+      key: 'status',
+      tieuDe: 'Trạng thái',
+      rong: 22,
+      doc: (d) => PETITION_STATUS_LABEL[d.status] ?? d.status,
     },
   ];

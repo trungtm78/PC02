@@ -49,9 +49,18 @@ import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
-import { chonCotXuat, xuatDanhSachExcel } from '../common/xuat-danh-sach/xuat-danh-sach';
-import { tachCotXuat, type CotXuatDto } from '../common/xuat-danh-sach/cot-xuat.dto';
-import { KHAI_COT_XUAT_DON_THU } from './xuat-danh-sach-don-thu';
+import {
+  chonCotXuat,
+  xuatDanhSachExcel,
+} from '../common/xuat-danh-sach/xuat-danh-sach';
+import {
+  tachCotXuat,
+  type CotXuatDto,
+} from '../common/xuat-danh-sach/cot-xuat.dto';
+import {
+  KHAI_COT_XUAT_DON_THU,
+  KHAI_COT_XUAT_DON_THU_PHUONG,
+} from './xuat-danh-sach-don-thu';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
@@ -83,16 +92,6 @@ const THAM_SO_CU_DON_THU = {
   senderName: 'nguoiGui',
   unit: 'donViGiaiQuyet',
 } as const;
-
-// Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
-// Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
-// frontend/src/shared/enums/status-labels.ts → LOAI_DON_LABEL.
-const LOAI_DON_LABEL_BE: Record<LoaiDon, string> = {
-  [LoaiDon.TO_CAO]: 'Tố cáo',
-  [LoaiDon.KHIEU_NAI]: 'Khiếu nại',
-  [LoaiDon.KIEN_NGHI]: 'Kiến nghị',
-  [LoaiDon.PHAN_ANH]: 'Phản ánh',
-};
 
 /**
  * Cột một dòng danh sách Đơn thư — dùng CHUNG cho màn danh sách và tệp Excel xuất theo bộ lọc, để hai
@@ -1808,96 +1807,38 @@ export class PetitionsService {
       });
     }
 
-    const MOI_LUOT = 200;
-    type DongPhuong = Awaited<
-      ReturnType<PetitionsService['getList']>
-    >['data'][number];
-    const records: DongPhuong[] = [];
-    for (let offset = 0; ; offset += MOI_LUOT) {
-      const trang = await this.getList(
-        { ...query, limit: MOI_LUOT, offset },
-        dataScope,
-      );
-      records.push(...trang.data);
-      if (trang.data.length < MOI_LUOT || records.length >= trang.total) break;
-    }
-
-    const COL_COUNT = 8;
-    const HEADERS = [
-      'STT',
-      'Số đơn',
-      'Người gửi',
-      'Loại đơn',
-      'Tóm tắt',
-      'Phường/Xã',
-      'Ngày đề xuất',
-      'Trạng thái',
-    ];
-    const WIDTHS = [6, 18, 22, 16, 40, 18, 16, 22];
-
-    const ky = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
+    // Cùng bộ xuất với "Xuất Excel theo bộ lọc" (18/09/2026): cùng điều kiện, thứ tự và cột của màn;
+    // trước đây lặp `getList` 200 dòng/lượt (đếm lại mỗi lượt) và dựng cả tệp trong bộ nhớ.
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
+    const orderBy = this.thuTuDanhSach(
+      query.sortBy,
+      (query.sortOrder ?? 'desc') as ListSortOrder,
     );
-    const period = phuDeKyXuat(
-      ky,
-      query.fromDate,
-      query.toDate,
-      'Ngày đề xuất',
-    );
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Đơn thư theo phường xã');
-
-    BcaExcelHelper.addHeader(
-      sheet,
-      COL_COUNT,
-      'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ',
-      period,
-    );
-    const headerRow = sheet.getRow(7);
-    BcaExcelHelper.addColumnHeaders(headerRow, HEADERS, WIDTHS);
-
-    records.forEach((rec, idx) => {
-      const wardName = rec.assignedTeam?.ward?.name ?? '';
-      const dataRow = sheet.addRow([
-        idx + 1,
-        maHoSoNgan(rec.stt),
-        rec.senderName ?? '',
-        rec.petitionType
-          ? (LOAI_DON_LABEL_BE[rec.petitionType] ?? rec.petitionType)
-          : '',
-        // Cùng cột "Tóm tắt" trên màn (`detailContent`); đơn chưa có thì lùi bản rút gọn.
-        rec.detailContent ?? rec.summary ?? '',
-        wardName,
-        rec.ngayDeXuat
-          ? rec.ngayDeXuat.toLocaleDateString('vi-VN', {
-              timeZone: 'Asia/Ho_Chi_Minh',
-            })
-          : '',
-        PETITION_STATUS_LABEL[rec.status as PetitionStatus] ?? rec.status ?? '',
-      ]);
-      BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
+    await xuatDanhSachExcel<DongDanhSachDonThu>({
+      res,
+      tenTep: `DonThuPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Đơn thư theo phường xã',
+      tieuDe: 'DANH SÁCH ĐƠN THƯ THEO PHƯỜNG/XÃ',
+      phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
+      cot: KHAI_COT_XUAT_DON_THU_PHUONG,
+      demTong: () => this.prisma.petition.count({ where }),
+      layIdTheoThuTu: async (toiDa) =>
+        (
+          await this.prisma.petition.findMany({
+            where,
+            orderBy,
+            select: { id: true },
+            take: toiDa,
+          })
+        ).map((d) => d.id),
+      layDong: (ids) =>
+        this.prisma.petition.findMany({
+          where: { id: { in: ids } },
+          select: CHON_DONG_DANH_SACH_DON_THU,
+        }),
+      // Tệp phường có sẵn từ trước vẫn trả tệp (chỉ tiêu đề) khi không có đơn nào — giữ hành vi.
+      choPhepRong: true,
     });
-
-    const lastDataRow = sheet.lastRow?.number ?? 7;
-    BcaExcelHelper.addFooter(sheet, lastDataRow + 2, COL_COUNT);
-    BcaExcelHelper.setPrintSetup(sheet);
-
-    const filename = `DonThuPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    try {
-      await workbook.xlsx.write(res);
-    } catch (err) {
-      this.logger.error('ExcelJS write failed for ward petition export', err);
-      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
-      else res.destroy();
-    }
   }
 
   // ─────────────────────────────────────────────
@@ -2263,9 +2204,11 @@ export class PetitionsService {
   async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
     // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG hàm với getList và xuất Excel,
     // chỉ bỏ điều kiện trạng thái để các chip vẫn đếm mọi trạng thái.
-    const { where, ky: kyThongKe } = await this.dungWhereDanhSach(query, dataScope, {
-      boTrangThai: true,
-    });
+    const { where, ky: kyThongKe } = await this.dungWhereDanhSach(
+      query,
+      dataScope,
+      { boTrangThai: true },
+    );
 
     const byStatus: Record<PetitionStatus, number> = Object.values(PetitionStatus).reduce(
       (acc, status) => {

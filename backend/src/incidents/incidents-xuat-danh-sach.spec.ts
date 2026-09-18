@@ -3,41 +3,47 @@ import * as ExcelJS from 'exceljs';
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PetitionsService } from './petitions.service';
+import { IncidentsService } from './incidents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
+import { KHAI_COT_XUAT_VU_VIEC } from './xuat-danh-sach-vu-viec';
 
 /**
- * Nút "Xuất Excel" trong khung Bộ lọc (anh yêu cầu 18/09/2026): tệp chứa ĐÚNG các dòng đang lọc, theo
- * thứ tự và các cột đang hiện trên màn.
+ * Nút "Xuất Excel" trong khung Bộ lọc của màn Vụ việc: tệp chứa ĐÚNG các dòng đang lọc, theo thứ tự và
+ * các cột đang hiện trên màn.
  */
-const dong = (id: string, stt: string, ten: string) => ({
+const dong = (
+  id: string,
+  code: string,
+  benVu: string,
+  sttCu: string | null,
+) => ({
   id,
-  stt,
-  sttCu: null,
+  code,
+  sttCu,
   ngayDeXuat: new Date('2026-09-10T00:00:00Z'),
-  nguonDon: 'Trực tiếp',
-  senderName: ten,
-  detailContent: 'Nội dung',
+  chuyenTuDonVi: 'Công an phường',
+  benVu,
+  description: 'Nội dung',
   donViGiaiQuyet: null,
-  ketQuaXuLyKhac: null,
-  enteredBy: {
+  ketQuaXuLy: null,
+  canBoNhap: {
     id: 'u1',
     firstName: 'Tuấn',
     lastName: 'Dương Trọng',
     username: 'tuan',
   },
-  status: 'MOI_TIEP_NHAN',
-  suspectedPerson: null,
+  investigator: null,
+  status: 'DANG_XAC_MINH',
   deadline: null,
   createdAt: new Date('2026-09-10T00:00:00Z'),
 });
 
 const mockPrisma = {
-  petition: {
+  incident: {
     count: jest.fn(),
     findMany: jest.fn(),
   },
@@ -58,14 +64,14 @@ function resGia() {
   return { res, docSheet };
 }
 
-describe('PetitionsService.xuatDanhSach', () => {
-  let service: PetitionsService;
+describe('IncidentsService.xuatDanhSach', () => {
+  let service: IncidentsService;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        PetitionsService,
+        IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: audit },
         {
@@ -86,25 +92,42 @@ describe('PetitionsService.xuatDanhSach', () => {
         },
         {
           provide: DocumentNumbersService,
-          useValue: { generate: jest.fn(), commitWithTx: jest.fn() },
+          useValue: { commitWithTx: jest.fn(), draft: jest.fn() },
         },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
-    service = module.get(PetitionsService);
+    service = module.get(IncidentsService);
+  });
+
+  it('khoá cột trùng khoá cột màn Vụ việc (trừ Thao tác), đúng thứ tự', () => {
+    expect(KHAI_COT_XUAT_VU_VIEC.map((c) => c.key)).toEqual([
+      'code',
+      'ngayDeXuat',
+      'chuyenTuDonVi',
+      'name',
+      'description',
+      'donViGiaiQuyet',
+      'ketQuaXuLy',
+      'canBoNhap',
+      'status',
+      'investigator',
+      'deadline',
+      'createdAt',
+    ]);
   });
 
   it('xuất đúng cột đang hiện, đúng thứ tự dòng, cùng điều kiện lọc với danh sách, ghi nhật ký', async () => {
-    mockPrisma.petition.count.mockResolvedValue(2);
-    mockPrisma.petition.findMany
+    mockPrisma.incident.count.mockResolvedValue(2);
+    mockPrisma.incident.findMany
       .mockResolvedValueOnce([{ id: 'b' }, { id: 'a' }])
       .mockResolvedValueOnce([
-        dong('a', '2026-11129', 'Lê Nguyễn Yến Thanh'),
-        dong('b', '2026-11732', 'Kha Tử Thạnh'),
+        dong('a', '2026-9706', 'Lê Nguyễn Yến Thanh', null),
+        dong('b', '2026-11171', 'Kha Tử Thạnh', '208'),
       ]);
     const { res, docSheet } = resGia();
     await service.xuatDanhSach(
-      { enteredById: 'u1', cot: 'stt,senderName,enteredBy' } as never,
+      { canBoNhapId: 'u1', cot: 'code,name,canBoNhap,status' } as never,
       null,
       res as never,
       { userId: 'actor' },
@@ -113,43 +136,59 @@ describe('PetitionsService.xuatDanhSach', () => {
     expect(sheet.getRow(7).values).toEqual([
       undefined,
       'STT',
-      'STT hồ sơ',
+      'STT',
       'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại',
       'Người nhập',
+      'Trạng thái',
     ]);
     expect((sheet.getRow(8).values as unknown[]).slice(1)).toEqual([
       1,
-      '26-11732',
+      '26-11171 (208)',
       'Kha Tử Thạnh',
       'Dương Trọng Tuấn',
+      'Đang xác minh',
     ]);
     expect((sheet.getRow(9).values as unknown[]).slice(1)).toEqual([
       2,
-      '26-11129',
+      '26-9706',
       'Lê Nguyễn Yến Thanh',
       'Dương Trọng Tuấn',
+      'Đang xác minh',
     ]);
     // Cùng điều kiện với danh sách (Cán bộ nhập có mặt ở cả đếm lẫn lấy id).
     const whereDem = (
-      mockPrisma.petition.count.mock.calls[0] as [
+      mockPrisma.incident.count.mock.calls[0] as [
         { where: Record<string, unknown> },
       ]
     )[0].where;
-    expect(whereDem.enteredById).toBe('u1');
-    const nhatKy = (
-      audit.log.mock.calls[0] as [
-        { action: string; metadata: Record<string, unknown> },
+    expect(whereDem.canBoNhapId).toBe('u1');
+    const whereId = (
+      mockPrisma.incident.findMany.mock.calls[0] as [
+        { where: Record<string, unknown> },
       ]
-    )[0];
-    expect(nhatKy.action).toBe('PETITION_EXPORTED');
-    expect(nhatKy.metadata).toMatchObject({ kind: 'danh-sach', soDong: 2 });
+    )[0].where;
+    expect(whereId).toEqual(whereDem);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'INCIDENT_EXPORTED',
+        subject: 'Incident',
+        metadata: expect.objectContaining({
+          kind: 'danh-sach',
+          soDong: 2,
+        }) as unknown,
+      }),
+    );
   });
 
   it('cột lạ → 400, không đọc CSDL', async () => {
     const { res } = resGia();
     await expect(
-      service.xuatDanhSach({ cot: 'stt,matKhau' } as never, null, res as never),
+      service.xuatDanhSach(
+        { cot: 'code,matKhau' } as never,
+        null,
+        res as never,
+      ),
     ).rejects.toThrow(BadRequestException);
-    expect(mockPrisma.petition.count).not.toHaveBeenCalled();
+    expect(mockPrisma.incident.count).not.toHaveBeenCalled();
   });
 });

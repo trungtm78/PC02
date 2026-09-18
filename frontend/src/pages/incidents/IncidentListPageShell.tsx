@@ -12,6 +12,7 @@
  * KHÔNG thay thế production IncidentListPage directly — swap qua feature flag
  * trong PR3 sau khi soak. PR2 ships shell-consumers alongside legacy pages.
  */
+import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
@@ -855,6 +856,23 @@ export function IncidentListPageShell() {
           onApply={listFilters.apply}
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
+          hanhDongPhu={
+            // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
+            <NutXuatTheoBoLoc
+              duongDan="/incidents/export/danh-sach"
+              thamSo={{
+                ...baseQueryParams,
+                ...(statusFilter && { status: statusFilter }),
+                ...(phaseFilter && { phase: phaseFilter }),
+                ...sort.params,
+              }}
+              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+              tong={tableState === 'loading' ? null : totalCount}
+              hasUnappliedChanges={listFilters.hasUnappliedChanges}
+              onApply={listFilters.apply}
+              tenDuPhong="danh-sach-vu-viec.xlsx"
+            />
+          }
           dynamicOptions={{
             canBoNhapId: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
           }}

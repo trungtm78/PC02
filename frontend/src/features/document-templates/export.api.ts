@@ -89,7 +89,11 @@ export function resolveFilename(
 }
 
 /** Kích hoạt tải file blob về máy người dùng. */
-export function triggerDownload(response: AxiosResponse<Blob>, mode: 'merged' | 'zip'): void {
+export function triggerDownload(
+  response: AxiosResponse<Blob>,
+  /** `'merged'`/`'zip'` hoặc tên tệp dự phòng — cùng nghĩa với `resolveFilename`. */
+  mode: 'merged' | 'zip' | (string & {}),
+): void {
   const filename = resolveFilename(response.headers as Record<string, unknown>, mode);
   const url = URL.createObjectURL(response.data);
   const a = document.createElement('a');

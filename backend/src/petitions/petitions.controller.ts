@@ -175,15 +175,15 @@ export class PetitionsController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async xuatDanhSach(
     @Query() query: XuatDanhSachDonThuDto,
+    @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    const user = (req as any).user as AuthUser | undefined;
-    await this.petitionsService.xuatDanhSach(query, req.dataScope, res, user ? {
+    await this.petitionsService.xuatDanhSach(query, req.dataScope, res, {
       userId: user.id,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
-    } : undefined);
+    });
   }
 
   // GET /api/v1/petitions/export/ward — Xuất danh sách đơn thư theo phường/xã ra Excel

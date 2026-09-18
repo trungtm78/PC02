@@ -152,10 +152,16 @@ describe('GATE "Đơn vị giải quyết" — ô form, cột danh sách và b�
   )(
     '%s · %s lọc `donViGiaiQuyet` qua thẻ tìm kiếm, không lọc `unit`',
     (_ten, ham, duong, tenHang, thamSoCu, khai) => {
+      // Từ 18/09/2026 danh sách, thẻ số và bộ xuất dựng điều kiện ở MỘT chỗ (`dungWhereDanhSach`) —
+      // soi cả hàm gọi (phải đi qua nó) lẫn chính nó (phải lọc qua thẻ, không lọc `unit`).
       const than = THAN(duong, ham);
-      expect(than).toMatch(/this\.timKiem\.dieuKien\(\s*query\s*\)/);
-      expect(than).not.toMatch(/where\.unit\s*=/);
-      expect(than).not.toMatch(/where\.donViGiaiQuyet\s*=/);
+      expect(than).toMatch(/this\.dungWhereDanhSach\(\s*query\b/);
+      const dung = THAN(duong, 'dungWhereDanhSach');
+      expect(dung).toMatch(/this\.timKiem\.dieuKien\(\s*query\s*\)/);
+      for (const t of [than, dung]) {
+        expect(t).not.toMatch(/where\.unit\s*=/);
+        expect(t).not.toMatch(/where\.donViGiaiQuyet\s*=/);
+      }
 
       const src = fs.readFileSync(path.join(GOC, duong), 'utf8');
       expect(src).toMatch(

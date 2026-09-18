@@ -61,12 +61,17 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
   layDong: (ids: string[]) => Promise<T[]>;
   tran?: number;
   lo?: number;
+  /**
+   * Cho xuất tệp không dòng nào (chỉ tiêu đề). Các tệp xuất PHƯỜNG/XÃ có sẵn từ trước vẫn trả tệp khi
+   * rỗng — giữ hành vi ấy; xuất theo bộ lọc mới thì 400 cho rõ.
+   */
+  choPhepRong?: boolean;
 }): Promise<number> {
   const tran = o.tran ?? TRAN_XUAT_DANH_SACH;
   const lo = o.lo ?? LO_MAC_DINH;
 
   const tong = await o.demTong();
-  if (tong === 0) {
+  if (tong === 0 && !o.choPhepRong) {
     throw new BadRequestException('Không có dữ liệu nào khớp bộ lọc để xuất.');
   }
   if (tong > tran) {
@@ -85,42 +90,50 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
     `attachment; filename*=UTF-8''${encodeURIComponent(o.tenTep)}`,
   );
 
-  const soCot = o.cot.length + 1;
-  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
-    stream: o.res,
-    useStyles: true,
-  });
-  // Bộ ghi luồng có đủ `mergeCells`/`getCell`/`getRow` mà mẫu BCA dùng — cùng mẫu với mọi tệp xuất.
-  const sheet = workbook.addWorksheet(
-    o.tenSheet,
-  ) as unknown as ExcelJS.Worksheet;
-  BcaExcelHelper.addHeader(sheet, soCot, o.tieuDe, o.phuDe);
-  BcaExcelHelper.addColumnHeaders(
-    sheet.getRow(HANG_TIEU_DE_COT),
-    ['STT', ...o.cot.map((c) => c.tieuDe)],
-    [7, ...o.cot.map((c) => c.rong)],
-  );
-  sheet.getRow(HANG_TIEU_DE_COT).commit();
-
   let daGhi = 0;
-  for (let i = 0; i < ids.length; i += lo) {
-    const phan = ids.slice(i, i + lo);
-    const theoId = new Map((await o.layDong(phan)).map((d) => [d.id, d]));
-    for (const id of phan) {
-      const dong = theoId.get(id);
-      // Dòng biến mất giữa lúc lấy id và lúc đọc (vừa bị xoá) thì bỏ qua — không ghi hàng trống.
-      if (!dong) continue;
-      const hang = sheet.addRow([
-        daGhi + 1,
-        ...o.cot.map((c) => c.doc(dong) ?? ''),
-      ]);
-      BcaExcelHelper.styleDataRow(hang, daGhi % 2 === 1, soCot);
-      hang.commit();
-      daGhi++;
-    }
-  }
+  // Từ đây byte đã bắt đầu đi: lỗi giữa chừng không trả được mã lỗi HTTP nữa — huỷ luồng để trình
+  // duyệt thấy tải hỏng (không nhận một tệp cụt tưởng là đủ), ghi dấu vết, rồi ném tiếp.
+  try {
+    const soCot = o.cot.length + 1;
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      stream: o.res,
+      useStyles: true,
+    });
+    // Bộ ghi luồng có đủ `mergeCells`/`getCell`/`getRow` mà mẫu BCA dùng — cùng mẫu với mọi tệp xuất.
+    const sheet = workbook.addWorksheet(o.tenSheet, {
+      pageSetup: BcaExcelHelper.printSetup(),
+    }) as unknown as ExcelJS.Worksheet;
+    BcaExcelHelper.addHeader(sheet, soCot, o.tieuDe, o.phuDe);
+    BcaExcelHelper.addColumnHeaders(
+      sheet.getRow(HANG_TIEU_DE_COT),
+      ['STT', ...o.cot.map((c) => c.tieuDe)],
+      [7, ...o.cot.map((c) => c.rong)],
+    );
+    sheet.getRow(HANG_TIEU_DE_COT).commit();
 
-  BcaExcelHelper.addFooter(sheet, HANG_TIEU_DE_COT + daGhi + 2, soCot);
-  await workbook.commit();
+    for (let i = 0; i < ids.length; i += lo) {
+      const phan = ids.slice(i, i + lo);
+      const theoId = new Map((await o.layDong(phan)).map((d) => [d.id, d]));
+      for (const id of phan) {
+        const dong = theoId.get(id);
+        // Dòng biến mất giữa lúc lấy id và lúc đọc (vừa bị xoá) thì bỏ qua — không ghi hàng trống.
+        if (!dong) continue;
+        const hang = sheet.addRow([
+          daGhi + 1,
+          ...o.cot.map((c) => c.doc(dong) ?? ''),
+        ]);
+        BcaExcelHelper.styleDataRow(hang, daGhi % 2 === 1, soCot);
+        hang.commit();
+        daGhi++;
+      }
+    }
+
+    BcaExcelHelper.addFooter(sheet, HANG_TIEU_DE_COT + daGhi + 2, soCot);
+    await workbook.commit();
+  } catch (loi) {
+    console.error('[xuatDanhSachExcel] lỗi giữa lúc ghi tệp, huỷ luồng:', loi);
+    o.res.destroy(loi as Error);
+    throw loi;
+  }
   return daGhi;
 }

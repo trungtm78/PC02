@@ -17,6 +17,7 @@
  *   - convertToCase: success, missing fields (EC-01), already converted (AC-03)
  */
 
+import * as ExcelJSDoc from 'exceljs';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -1912,10 +1913,13 @@ describe('PetitionsService', () => {
       expect(where.donViGiaiQuyet).toBeUndefined();
 
       mockPrisma.petition.findMany.mockClear();
+      // Phản hồi là luồng ghi MỘT lần — lượt xuất thứ hai cần phản hồi mới.
+      const res2 = Object.assign(new PassThrough(), { setHeader: jest.fn() });
+      res2.on('data', () => {});
       await service.exportWardPetitions(
         { chiToPhuong: true } as never,
         null,
-        mockRes,
+        res2 as never,
       );
       where = mockPrisma.petition.findMany.mock.calls[0][0].where;
       expect(where.assignedTeam).toEqual({ is: { wardId: { not: null } } });
@@ -1990,32 +1994,31 @@ describe('PetitionsService', () => {
     });
 
     it('B5b: maps petitionType enum to Vietnamese label in Excel row (consistency with status column)', async () => {
-      mockPrisma.petition.findMany.mockResolvedValue([
-        {
-          id: 'p1', stt: 'DT-2026-00001', receivedDate: new Date('2026-02-15'),
-          senderName: 'Người A', summary: 'tóm tắt', petitionType: LoaiDon.TO_CAO,
-          status: PetitionStatus.MOI_TIEP_NHAN, assignedTeam: null,
-        },
-      ]);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const ExcelJS = require('exceljs');
-      const captured: string[][] = [];
-      const probeWb = new ExcelJS.Workbook();
-      const WsProto = Object.getPrototypeOf(probeWb.addWorksheet('probe'));
-      const realAddRow = WsProto.addRow;
-      WsProto.addRow = function (values: any[]) {
-        captured.push(values.map((v) => String(v ?? '')));
-        return { getCell: () => ({ font: {}, fill: {}, alignment: {}, border: {} }) };
+      const dongDon = {
+        id: 'p1',
+        stt: 'DT-2026-00001',
+        receivedDate: new Date('2026-02-15'),
+        senderName: 'Người A',
+        summary: 'tóm tắt',
+        petitionType: LoaiDon.TO_CAO,
+        status: PetitionStatus.MOI_TIEP_NHAN,
+        assignedTeam: null,
       };
-      try {
-        await service.exportWardPetitions({}, null, mockRes);
-      } finally {
-        WsProto.addRow = realAddRow;
-      }
-      // First non-header row should have 'Tố cáo' at index 3 (Loại đơn column)
-      const dataRow = captured.find((r) => r[1] === 'DT-2026-00001');
-      expect(dataRow).toBeDefined();
-      expect(dataRow![3]).toBe('Tố cáo');
+      mockPrisma.petition.count.mockResolvedValue(1);
+      mockPrisma.petition.findMany
+        .mockResolvedValueOnce([{ id: 'p1' }])
+        .mockResolvedValueOnce([dongDon]);
+      const phan: Buffer[] = [];
+      const res = Object.assign(new PassThrough(), { setHeader: jest.fn() });
+      res.on('data', (c: Buffer) => phan.push(c));
+      await service.exportWardPetitions({}, null, res as never);
+      await new Promise((r) => setImmediate(r));
+      const wb = new ExcelJSDoc.Workbook();
+      await wb.xlsx.load(Buffer.concat(phan) as never);
+      const hang = wb.worksheets[0].getRow(8).values as unknown[];
+      // [_, STT, Số đơn, Người gửi, Loại đơn, ...]
+      expect(hang[2]).toBe('DT-2026-00001');
+      expect(hang[4]).toBe('Tố cáo');
     });
 
     it('B6: audit logs PETITION_EXPORTED with kind=ward when actor provided', async () => {
@@ -2052,25 +2055,15 @@ describe('PetitionsService', () => {
       expect(exportLogs).toHaveLength(0);
     });
 
-    it('B7: returns 500 JSON when xlsx write fails and headers not yet sent', async () => {
-      mockPrisma.petition.findMany.mockResolvedValue([]);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const ExcelJS = require('exceljs');
-      // XLSX class is not exported — grab prototype via a probe instance, then patch.
-      const probeWb = new ExcelJS.Workbook();
-      const XlsxProto = Object.getPrototypeOf(probeWb.xlsx);
-      const realWrite = XlsxProto.write;
-      XlsxProto.write = jest.fn().mockRejectedValue(new Error('disk full'));
-      mockRes.headersSent = false;
-
-      try {
-        await service.exportWardPetitions({}, null, mockRes);
-      } finally {
-        XlsxProto.write = realWrite;
-      }
-
-      expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Export failed' });
+    it('B7: lỗi đọc CSDL trước khi ghi byte nào → ném lỗi, KHÔNG gửi header tệp (Nest trả 500)', async () => {
+      mockPrisma.petition.count.mockRejectedValue(new Error('mất kết nối'));
+      await expect(
+        service.exportWardPetitions({}, null, mockRes),
+      ).rejects.toThrow('mất kết nối');
+      expect(mockRes.setHeader).not.toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.anything(),
+      );
     });
   });
 

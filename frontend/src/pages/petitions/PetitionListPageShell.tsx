@@ -12,6 +12,7 @@
  *
  * v0.56: ĐÃ thay thế production PetitionListPage (route /petitions trỏ vào Shell này).
  */
+import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
@@ -861,6 +862,23 @@ export function PetitionListPageShell() {
           onApply={listFilters.apply}
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
+          hanhDongPhu={
+            // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
+            <NutXuatTheoBoLoc
+              duongDan="/petitions/export/danh-sach"
+              thamSo={{
+                ...baseQueryParams,
+                ...(statusFilter && { status: statusFilter }),
+                ...(groupFilter && { statusGroup: groupFilter }),
+                ...sort.params,
+              }}
+              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+              tong={tableState === 'loading' ? null : totalCount}
+              hasUnappliedChanges={listFilters.hasUnappliedChanges}
+              onApply={listFilters.apply}
+              tenDuPhong="danh-sach-don-thu.xlsx"
+            />
+          }
           dynamicOptions={{
             enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
           }}
