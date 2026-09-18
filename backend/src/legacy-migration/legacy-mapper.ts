@@ -23,6 +23,12 @@ export interface DecomposedEntities {
   // Gợi ý caseProvenance khi tạo Case standalone (không phải decompose 1→nhiều).
   // Commit ưu tiên FROM_PETITION/FROM_INCIDENT nếu record cũng sinh petition/incident.
   caseProvenanceHint?: string;
+  /**
+   * `petition` là ĐƠN THƯ GẮN KÈM (18/09/2026): hồ sơ hệ cũ nằm ở danh sách Đơn thư (`loai=don_thu`)
+   * nhưng phân loại nguồn tin ra vụ án/vụ việc. Commit tạo đơn SAU vụ án/vụ việc, nối
+   * `linkedCaseId`/`linkedIncidentId`, trạng thái "Đã chuyển …", và KHÔNG đổi nguồn gốc vụ án.
+   */
+  petitionGanKem?: 'CASE' | 'INCIDENT';
   warnings: string[];
 }
 
@@ -852,6 +858,39 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
   });
 }
 
+/** Hồ sơ hệ cũ đang nằm ở danh sách Đơn thư (`loai`, không phải phân loại nguồn tin ban đầu). */
+export function laLoaiDonThu(rec: LegacyRecord): boolean {
+  const loai = s(rec.loai);
+  if (!loai) return false;
+  const slug = toSlug(loai);
+  return PHAN_LOAI_DON.has(PHAN_LOAI_ALIAS[slug] ?? slug);
+}
+
+/**
+ * Hệ cũ xếp danh sách theo `loai` (nơi hồ sơ ĐANG nằm); bộ nạp chọn thực thể theo phân loại nguồn tin
+ * ban đầu. Hồ sơ `loai=don_thu` mà phân loại ra vụ án/vụ việc (vd 26-11129: luật sư → vụ án) thì ở hệ
+ * mới KHÔNG có đơn thư nào, tìm ở danh sách Đơn thư không ra — đo prod 18/09/2026: 61 vụ án + 25 vụ
+ * việc. Thêm đơn thư gắn kèm (anh chốt), dựng bằng CHÍNH `buildPetition` nên theo đúng luật ngày của
+ * đơn thư thường (ngày tiếp nhận, không có thì ngày đề xuất — đều là ngày thật của hồ sơ). Không có
+ * ngày nào thì KHÔNG thêm — không bịa ngày.
+ */
+function ganDonThuKemKhiLechLoai(
+  rec: LegacyRecord,
+  out: DecomposedEntities,
+  warnings: string[],
+): void {
+  if (out.petition || !(out.case || out.incident) || !laLoaiDonThu(rec)) return;
+  const don = buildPetition(rec);
+  if (!(don.receivedDate instanceof Date)) {
+    warnings.push(
+      `Hồ sơ ${s(rec.id)} nằm ở danh sách Đơn thư hệ cũ nhưng thiếu cả ngày tiếp nhận lẫn ngày đề xuất — KHÔNG tạo đơn thư gắn kèm (không bịa ngày)`,
+    );
+    return;
+  }
+  out.petition = don;
+  out.petitionGanKem = out.case ? 'CASE' : 'INCIDENT';
+}
+
 export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
   const warnings: string[] = [];
 
@@ -914,6 +953,8 @@ export function decomposeLegacyRecord(rec: LegacyRecord): DecomposedEntities {
   if (hasKhoiTo && !out.case) {
     out.case = buildCase(rec);
   }
+
+  ganDonThuKemKhiLechLoai(rec, out, warnings);
 
   // Thống kê mở rộng (case_statistics 1-1) — chỉ khi có dữ liệu thống kê + có Case nhận.
   if (out.case) {
