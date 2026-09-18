@@ -537,7 +537,8 @@ export class IncidentsService {
           benVu: dto.benVu,
           donViGiaiQuyet: dto.donViGiaiQuyet,
           ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : undefined,
-          canBoNhapId: dto.canBoNhapId,
+          // Không chọn thì người tạo là người nhập — cột/bộ lọc/thẻ tìm "Người nhập" đọc ô này.
+          canBoNhapId: dto.canBoNhapId || actorId,
           assignedTeamId: effectiveAssignedTeamId, // v0.33: ward officer override
           createdById: actorId,
           soQuyetDinh: dto.soQuyetDinh,

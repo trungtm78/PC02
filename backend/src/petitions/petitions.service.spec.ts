@@ -1221,6 +1221,15 @@ describe('PetitionsService', () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('thành công');
+      // Vụ việc sinh từ đơn phải có người tạo + Cán bộ nhập (18/09/2026) — thiếu là cột "Người nhập"
+      // trắng và lọt khỏi bộ lọc Cán bộ nhập.
+      const taoVuViec = (
+        mockPrisma.incident.create.mock.calls[0] as [
+          { data: Record<string, unknown> },
+        ]
+      )[0].data;
+      expect(taoVuViec.createdById).toBe('user-001');
+      expect(taoVuViec.canBoNhapId).toBe('user-001');
     });
 
     it('EC-01: should throw BadRequestException when incidentName missing', async () => {

@@ -303,6 +303,13 @@ describe('XlsxImportCommitService', () => {
           detectedType: 'Case',
           importLogId: 'log-c',
         },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 01',
+          payload: { col1: 1, col2: 'VV-100', col3: 'Vụ việc Gamma' },
+          detectedType: 'Incident',
+          importLogId: 'log-c',
+        },
       ];
       const { prisma, state } = makeMockPrisma({ log: pending, staging });
       const svc = new XlsxImportCommitService(prisma as never);
@@ -310,7 +317,7 @@ describe('XlsxImportCommitService', () => {
       expect(result).toMatchObject({
         status: XLSX_IMPORT_STATUS.COMMITTED,
         materialisedCases: 2,
-        materialisedIncidents: 0,
+        materialisedIncidents: 1,
       });
       expect(state.casesCreated).toHaveLength(2);
       for (const created of state.casesCreated) {
@@ -318,7 +325,13 @@ describe('XlsxImportCommitService', () => {
         expect(created.importedFrom).toBe(IMPORT_SOURCE_TAG);
         expect(created.importedById).toBe('admin-b');
         expect(created.caseProvenance).toBe(IMPORT_DEFAULT_CASE_PROVENANCE);
+        // Cột "Người nhập" của Vụ án đọc `createdBy` (18/09/2026).
+        expect(created.createdById).toBe('admin-b');
       }
+      // Vụ việc: cột/bộ lọc/thẻ tìm "Người nhập" đọc `canBoNhap`.
+      expect(state.incidentsCreated).toHaveLength(1);
+      expect(state.incidentsCreated[0].createdById).toBe('admin-b');
+      expect(state.incidentsCreated[0].canBoNhapId).toBe('admin-b');
       expect((state.log as { secondConfirmById: string }).secondConfirmById).toBe('admin-b');
     });
 

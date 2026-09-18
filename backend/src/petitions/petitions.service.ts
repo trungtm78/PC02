@@ -1087,6 +1087,9 @@ export class PetitionsService {
           investigatorId: dto.assignedToId,
           sourcePetitionId: petitionId,
           status: 'TIEP_NHAN',
+          // Người chuyển là người tạo + Cán bộ nhập — thiếu thì cột "Người nhập" trắng, lọt bộ lọc.
+          createdById: actorId,
+          canBoNhapId: actorId,
         },
       }),
     ]);

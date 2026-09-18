@@ -438,6 +438,9 @@ function buildIncident(rec: LegacyRecord): Record<string, unknown> {
     legacySourceId: legacyKey(rec),
     ...traceFields(rec),
     createdById: own.createdById,
+    // Cột/bộ lọc/thẻ tìm "Người nhập" của Vụ việc đọc ô này. Hệ cũ chỉ có MỘT người (`nguoi_them`);
+    // thiếu dòng này thì 4.601/4.725 vụ việc trắng người nhập và lọc theo cán bộ nhập ra 0 (18/09/2026).
+    canBoNhapId: own.createdById,
     investigatorId: own.investigatorId,
     assignedTeamId: own.assignedTeamId,
     name: s(rec.tom_tat_noi_dung) ?? 'Vụ việc di trú ' + s(rec.id),
