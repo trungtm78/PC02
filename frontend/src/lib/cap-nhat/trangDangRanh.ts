@@ -16,6 +16,8 @@ const HOP_THOAI = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], d
  * nên phép so ấy luôn ra "chưa gõ" trong app thật (rà mã 18/09/2026 đo trên jsdom).
  */
 const oDaGo = new Set<Element>();
+/** Ô chọn tệp đã chọn tệp (chưa biết đã tải lên chưa). */
+const oChonTep = new Set<Element>();
 let daNghe = false;
 
 /**
@@ -35,7 +37,13 @@ function ngheGo(doc: Document): void {
   if (daNghe) return;
   daNghe = true;
   const ghiNhan = (e: Event) => {
-    if (e.target instanceof Element && laONhapChu(e.target)) oDaGo.add(e.target);
+    const o = e.target;
+    if (!(o instanceof Element)) return;
+    if (laONhapChu(o)) oDaGo.add(o);
+    // Tệp đã chọn mà chưa tải lên cũng là thứ để mất. Nhiều form đọc tệp vào state rồi XOÁ giá trị ô
+    // chọn tệp, nên không dựa vào `files` lúc kiểm: đã chọn tệp thì coi là dở dang tới khi ô bị tháo
+    // (codex 18/09/2026 — EntityDocumentsTab trên màn chi tiết).
+    if (o instanceof HTMLInputElement && o.type === 'file' && (o.files?.length ?? 0) > 0) oChonTep.add(o);
   };
   doc.addEventListener('input', ghiNhan, true);
   doc.addEventListener('change', ghiNhan, true);
@@ -44,6 +52,14 @@ function ngheGo(doc: Document): void {
 /** Bắt đầu ghi nhận thao tác gõ. Gọi một lần ở khung ứng dụng; gọi lại vô hại. */
 export function batDauTheoDoiGo(doc: Document = document): void {
   ngheGo(doc);
+}
+
+function conTepChoTai(): boolean {
+  for (const o of oChonTep) {
+    if (o.isConnected) return true;
+    oChonTep.delete(o);
+  }
+  return false;
 }
 
 function conChuDaGo(): boolean {
@@ -67,12 +83,14 @@ function conChuDaGo(): boolean {
  *  2. có form tự khai đang sửa dở (`useDauHieuDangSua`);
  *  3. có hộp thoại/lớp phủ đang mở;
  *  4. còn ô cán bộ đã gõ mà vẫn đang nằm trên trang và có chữ — kể cả ô tìm kiếm: hoãn một lần
- *     cập nhật tới lần chuyển màn kế tiếp rẻ hơn nhiều so với cuốn mất chữ.
+ *     cập nhật tới lần chuyển màn kế tiếp rẻ hơn nhiều so với cuốn mất chữ;
+ *  5. còn ô chọn tệp đã chọn tệp trên trang (tệp chờ tải lên).
  */
 export function trangDangRanh(doc: Document = document, duongDan: string = window.location.pathname): boolean {
   if (DUONG_DAN_FORM.test(duongDan)) return false;
   if (coFormDoDang()) return false;
   if (doc.querySelector(HOP_THOAI)) return false;
   if (conChuDaGo()) return false;
+  if (conTepChoTai()) return false;
   return true;
 }

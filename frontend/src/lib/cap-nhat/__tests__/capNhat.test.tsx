@@ -135,6 +135,25 @@ describe('trangDangRanh — chỉ tự tải khi không có gì để mất', ()
     expect(trangDangRanh(document, '/petitions')).toBe(true);
     document.body.innerHTML = '';
   });
+  it('đã chọn tệp chờ tải lên thì KHÔNG rảnh, kể cả khi form đã xoá giá trị ô; tháo ô thì rảnh lại', () => {
+    batDauTheoDoiGo();
+    document.body.innerHTML = '<input type="file" />';
+    const o = document.querySelector('input') as HTMLInputElement;
+    const tep = new File(['x'], 'don.pdf', { type: 'application/pdf' });
+    Object.defineProperty(o, 'files', { configurable: true, value: [tep] });
+    fireEvent.change(o);
+    Object.defineProperty(o, 'files', { configurable: true, value: [] });
+    expect(trangDangRanh(document, '/cases/abc')).toBe(false);
+    document.body.innerHTML = '';
+    expect(trangDangRanh(document, '/cases/abc')).toBe(true);
+  });
+  it('mở hộp chọn tệp rồi huỷ (không tệp nào) thì vẫn rảnh', () => {
+    batDauTheoDoiGo();
+    document.body.innerHTML = '<input type="file" />';
+    fireEvent.change(document.querySelector('input') as HTMLInputElement);
+    expect(trangDangRanh(document, '/cases/abc')).toBe(true);
+    document.body.innerHTML = '';
+  });
   it('lớp phủ hộp tự dựng (fixed inset-0) đang mở thì KHÔNG rảnh', () => {
     document.body.innerHTML = '<div class="fixed inset-0 bg-black/50"><div>Tạm đình chỉ</div></div>';
     expect(trangDangRanh(document, '/cases/abc')).toBe(false);
