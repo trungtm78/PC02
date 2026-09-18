@@ -162,6 +162,13 @@ describe('CasesService.xuatDanhSach', () => {
       ]
     )[0].where;
     expect(whereDem.createdById).toBe('u1');
+    // Hồ sơ bị xoá mềm GIỮA lúc lấy id và lúc đọc dòng thì không được lọt vào tệp.
+    const whereDong = (
+      mockPrisma.case.findMany.mock.calls[1] as [
+        { where: Record<string, unknown> },
+      ]
+    )[0].where;
+    expect(whereDong.deletedAt).toBeNull();
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'CASE_EXPORTED',

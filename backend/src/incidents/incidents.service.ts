@@ -1643,7 +1643,7 @@ export class IncidentsService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.incident.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_VU_VIEC,
         }),
     });
@@ -1718,7 +1718,7 @@ export class IncidentsService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.incident.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_VU_VIEC,
         }),
       // The pre-existing ward file still returns a header-only file when nothing matches — keep that.

@@ -2145,7 +2145,7 @@ export class CasesService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.case.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_VU_AN,
         }),
     });
@@ -2214,7 +2214,7 @@ export class CasesService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.case.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_VU_AN,
         }),
       // Tệp phường có sẵn từ trước vẫn trả tệp (chỉ tiêu đề) khi không có vụ án nào — giữ hành vi.

@@ -76,10 +76,14 @@ export function NutXuatTheoBoLoc({
     void xuat();
   };
 
-  const nhan =
-    tong === null
+  // `tong` là số dòng của bộ lọc ĐANG áp dụng — còn thay đổi chưa áp dụng thì chưa biết số dòng sẽ xuất,
+  // và bộ lọc cũ ra 0 dòng không có nghĩa bộ lọc mới cũng thế.
+  const nhan = hasUnappliedChanges
+    ? 'Áp dụng & xuất Excel'
+    : tong === null
       ? 'Xuất Excel'
       : `Xuất ${tong.toLocaleString('vi-VN')} dòng Excel`;
+  const rong = tong === 0 && !hasUnappliedChanges;
 
   return (
     <div className="flex flex-col items-end">
@@ -87,8 +91,8 @@ export function NutXuatTheoBoLoc({
         type="button"
         data-testid="btn-xuat-excel-theo-bo-loc"
         onClick={bam}
-        disabled={dangXuat || tong === 0}
-        title={tong === 0 ? 'Không có dữ liệu để xuất' : undefined}
+        disabled={dangXuat || rong}
+        title={rong ? 'Không có dữ liệu để xuất' : undefined}
         className={`${BTN_OUTLINE_BLUE} ${A11Y_FOCUS_RING} inline-flex items-center gap-2`}
       >
         {dangXuat ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}

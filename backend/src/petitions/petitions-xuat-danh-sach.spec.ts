@@ -136,6 +136,13 @@ describe('PetitionsService.xuatDanhSach', () => {
       ]
     )[0].where;
     expect(whereDem.enteredById).toBe('u1');
+    // Hồ sơ bị xoá mềm GIỮA lúc lấy id và lúc đọc dòng thì không được lọt vào tệp.
+    const whereDong = (
+      mockPrisma.petition.findMany.mock.calls[1] as [
+        { where: Record<string, unknown> },
+      ]
+    )[0].where;
+    expect(whereDong.deletedAt).toBeNull();
     const nhatKy = (
       audit.log.mock.calls[0] as [
         { action: string; metadata: Record<string, unknown> },

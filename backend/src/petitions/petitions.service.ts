@@ -1774,7 +1774,7 @@ export class PetitionsService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.petition.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_DON_THU,
         }),
     });
@@ -1833,7 +1833,7 @@ export class PetitionsService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.petition.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, deletedAt: null },
           select: CHON_DONG_DANH_SACH_DON_THU,
         }),
       // Tệp phường có sẵn từ trước vẫn trả tệp (chỉ tiêu đề) khi không có đơn nào — giữ hành vi.

@@ -84,4 +84,20 @@ describe('NutXuatTheoBoLoc', () => {
     render(<NutXuatTheoBoLoc {...coBan} tong={0} />);
     expect((screen.getByTestId('btn-xuat-excel-theo-bo-loc') as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('đang 0 dòng nhưng vừa nới bộ lọc (chưa áp dụng) → nút MỞ, bấm thì áp dụng rồi xuất', () => {
+    const onApply = vi.fn();
+    render(<NutXuatTheoBoLoc {...coBan} tong={0} hasUnappliedChanges onApply={onApply} />);
+    const nut = screen.getByTestId('btn-xuat-excel-theo-bo-loc') as HTMLButtonElement;
+    expect(nut.disabled).toBe(false);
+    fireEvent.click(nut);
+    expect(onApply).toHaveBeenCalled();
+  });
+
+  it('còn thay đổi chưa áp dụng → nhãn KHÔNG nói số dòng của bộ lọc cũ', () => {
+    render(<NutXuatTheoBoLoc {...coBan} hasUnappliedChanges />);
+    const nhan = screen.getByTestId('btn-xuat-excel-theo-bo-loc').textContent ?? '';
+    expect(nhan).not.toMatch(/1\.284/);
+    expect(nhan).toMatch(/Áp dụng & xuất Excel/);
+  });
 });
