@@ -61,11 +61,13 @@ export function canCapNhat(cuaGiaoDien?: string, cuaMayChu?: string): boolean {
 }
 
 /**
- * Gỡ service worker + xoá kho, rồi tải `url` (mặc định: tải lại trang hiện tại).
- * Ghi chốt TRƯỚC khi tải; không ghi được chốt thì THÔI — nguy cơ lặp lớn hơn lợi ích.
+ * Gỡ service worker + xoá kho rồi TẢI LẠI trang hiện tại.
+ *
+ * Luôn `reload()`, không `assign(url)`: lúc chuyển màn thì URL đã là màn đích, và `assign` tạo mục
+ * lịch sử mới với `history.state` rỗng — màn đọc `location.state` (vd CaseDetail `activeTab`,
+ * Chuyển/Trả hồ sơ `preselectedRecord`) sẽ mất dữ liệu (rà mã 18/09/2026).
  */
-export async function apDungBanMoi(banDich: string, url?: string): Promise<void> {
-  if (!ghi(KHOA_DA_CAP_NHAT, banDich)) return;
+async function goBanCuRoiTaiLai(): Promise<void> {
   try {
     if ('serviceWorker' in navigator) {
       const ds = await navigator.serviceWorker.getRegistrations();
@@ -79,8 +81,13 @@ export async function apDungBanMoi(banDich: string, url?: string): Promise<void>
     // Gỡ hỏng thì vẫn tải: bản thân lượt tải đã có thể lấy được bản mới. Để lại dấu vết.
     console.warn('[apDungBanMoi] gỡ service worker/kho lỗi, vẫn tải trang:', loi);
   }
-  if (url) window.location.assign(url);
-  else window.location.reload();
+  window.location.reload();
+}
+
+/** Lên bản `banDich`. Ghi chốt TRƯỚC; không ghi được chốt thì THÔI — nguy cơ lặp lớn hơn lợi ích. */
+export async function apDungBanMoi(banDich: string): Promise<void> {
+  if (!ghi(KHOA_DA_CAP_NHAT, banDich)) return;
+  await goBanCuRoiTaiLai();
 }
 
 /**
@@ -92,6 +99,8 @@ export function taiLaiKhiHongChunk(banDangChay: string): boolean {
   const daThu = doc(KHOA_DA_TAI_LAI_CHUNK);
   if (daThu === KHONG_DOC_DUOC || daThu === banDangChay) return false;
   if (!ghi(KHOA_DA_TAI_LAI_CHUNK, banDangChay)) return false;
-  window.location.reload();
+  // Gỡ cả service worker: tab do SW điều khiển mà chỉ `reload()` thì SW cũ có thể trả lại đúng bộ
+  // khung cũ, và chốt đã ghi thì lần hỏng sau không thử nữa — kẹt ở màn lỗi (codex 18/09/2026).
+  void goBanCuRoiTaiLai();
   return true;
 }

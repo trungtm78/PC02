@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor, render, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { apDungBanMoi, canCapNhat, KHOA_DA_CAP_NHAT, KHOA_DA_TAI_LAI_CHUNK, taiLaiKhiHongChunk } from '../apDungBanMoi';
 import { registerSW } from 'virtual:pwa-register';
-import { trangDangRanh } from '../trangDangRanh';
+import { batDauTheoDoiGo, trangDangRanh } from '../trangDangRanh';
 import { coFormDoDang, useDauHieuDangSua } from '../formDoDang';
 import { useTuCapNhat, TAB_AN_TOI_THIEU_MS } from '../useTuCapNhat';
 
@@ -90,15 +90,45 @@ describe('trangDangRanh — chỉ tự tải khi không có gì để mất', ()
     document.body.innerHTML = '<div role="dialog"><textarea></textarea></div>';
     expect(trangDangRanh(document, '/petitions')).toBe(false);
   });
-  it('ô nhập đã gõ chữ (hộp tự dựng không khai role) thì KHÔNG rảnh', () => {
-    document.body.innerHTML = '<div><input type="text" /></div>';
-    const o = document.querySelector('input') as HTMLInputElement;
-    o.value = 'Lý do xoá đang gõ';
+  /**
+   * Ô React ĐIỀU KHIỂN + thao tác gõ thật. Bản đầu so `value` với `defaultValue` và ca kiểm dựng ô
+   * DOM thô nên xanh — nhưng React 19 đồng bộ `defaultValue` theo `value`, nên trong app thật phép
+   * so luôn ra "chưa gõ" (rà mã 18/09/2026). Ca này dựng đúng thứ app dùng.
+   */
+  function OLyDo() {
+    const [v, setV] = useState('');
+    return <textarea aria-label="ly-do" value={v} onChange={(e) => setV(e.target.value)} />;
+  }
+  it('ô React điều khiển đã gõ chữ (hộp tự dựng không khai role) thì KHÔNG rảnh', () => {
+    batDauTheoDoiGo();
+    const { getByLabelText } = render(<OLyDo />);
+    fireEvent.input(getByLabelText('ly-do'), { target: { value: 'Lý do xoá đang gõ' } });
+    expect((getByLabelText('ly-do') as HTMLTextAreaElement).defaultValue).toBe('Lý do xoá đang gõ');
     expect(trangDangRanh(document, '/petitions')).toBe(false);
+    cleanup();
   });
-  it('ô nhập giữ nguyên giá trị ban đầu thì vẫn rảnh', () => {
-    document.body.innerHTML = '<input type="text" value="mặc định" />';
+  it('gõ xong rồi ô bị tháo (lưu xong/đóng hộp) thì rảnh lại', () => {
+    batDauTheoDoiGo();
+    const { getByLabelText, unmount } = render(<OLyDo />);
+    fireEvent.input(getByLabelText('ly-do'), { target: { value: 'abc' } });
+    unmount();
     expect(trangDangRanh(document, '/petitions')).toBe(true);
+  });
+  it('xoá hết chữ đã gõ thì rảnh lại', () => {
+    batDauTheoDoiGo();
+    const { getByLabelText } = render(<OLyDo />);
+    fireEvent.input(getByLabelText('ly-do'), { target: { value: 'abc' } });
+    fireEvent.input(getByLabelText('ly-do'), { target: { value: '' } });
+    expect(trangDangRanh(document, '/petitions')).toBe(true);
+    cleanup();
+  });
+  it('lớp phủ hộp tự dựng (fixed inset-0) đang mở thì KHÔNG rảnh', () => {
+    document.body.innerHTML = '<div class="fixed inset-0 bg-black/50"><div>Tạm đình chỉ</div></div>';
+    expect(trangDangRanh(document, '/cases/abc')).toBe(false);
+  });
+  it('màn nhập liệu tên lạ được luật nhận ra (propose, backfill)', () => {
+    expect(trangDangRanh(document, '/admin/deadline-rules/k1/propose')).toBe(false);
+    expect(trangDangRanh(document, '/cases/tdac-backfill')).toBe(false);
   });
   it('form tự khai đang sửa dở thì KHÔNG rảnh, tháo form thì rảnh lại', () => {
     const { rerender, unmount } = renderHook(({ d }) => useDauHieuDangSua(d), { initialProps: { d: true } });
@@ -115,9 +145,11 @@ describe('trangDangRanh — chỉ tự tải khi không có gì để mất', ()
 describe('taiLaiKhiHongChunk — lỗi tải gói sau deploy', () => {
   beforeEach(datMoiTruong);
 
-  it('tự tải lại MỘT lần cho bản đang chạy', () => {
+  it('tự tải lại MỘT lần cho bản đang chạy, qua đường gỡ service worker (codex 18/09/2026)', async () => {
+    const goSw = navigator.serviceWorker.getRegistrations as unknown as ReturnType<typeof vi.fn>;
     expect(taiLaiKhiHongChunk('aaa')).toBe(true);
-    expect(soLanTaiLai).toBe(1);
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
+    expect(goSw).toHaveBeenCalled();
     expect(sessionStorage.getItem(KHOA_DA_TAI_LAI_CHUNK)).toBe('aaa');
   });
   it('tải lại rồi mà vẫn cùng bản (gói hỏng thật) thì KHÔNG lặp', () => {
@@ -168,9 +200,10 @@ describe('useTuCapNhat — ba thời điểm an toàn', () => {
     );
     await waitFor(() => expect(apiGet).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
-    window.location.href = 'http://localhost/cases';
-    act(() => result.current('/cases'));
-    await waitFor(() => expect(diToi).toEqual(['http://localhost/cases']));
+    act(() => result.current('/cases', { state: { activeTab: 'tai-lieu' } }));
+    // `reload()` chứ không `assign(url)`: giữ `history.state` của màn đích (rà mã 18/09/2026).
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
+    expect(diToi).toEqual([]);
     expect(sessionStorage.getItem(KHOA_DA_CAP_NHAT)).toBe('bbb');
   });
 
@@ -285,9 +318,12 @@ describe('nhánh biên', () => {
     canhBao.mockRestore();
   });
 
-  it('ô contenteditable có chữ thì KHÔNG rảnh', () => {
+  it('ô contenteditable đã gõ chữ thì KHÔNG rảnh', () => {
+    batDauTheoDoiGo();
     document.body.innerHTML = '<div contenteditable="true">ghi chú đang gõ</div>';
+    fireEvent.input(document.querySelector('[contenteditable]') as Element);
     expect(trangDangRanh(document, '/petitions')).toBe(false);
+    document.body.innerHTML = '';
   });
 
   it('service worker báo có bản chờ → hỏi lại máy chủ; đăng ký xong thì hẹn nhịp tự kiểm', async () => {

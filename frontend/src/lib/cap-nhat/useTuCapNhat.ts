@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 import { api } from '@/lib/api';
 import { apDungBanMoi, canCapNhat } from './apDungBanMoi';
-import { trangDangRanh } from './trangDangRanh';
+import { batDauTheoDoiGo, trangDangRanh } from './trangDangRanh';
 
 /** Nhịp hỏi máy chủ khi tab mở liên tục. */
 const NHIP_HOI_MS = 5 * 60 * 1000;
@@ -21,7 +21,7 @@ export const TAB_AN_TOI_THIEU_MS = 5 * 60 * 1000;
  *
  * Lên bản ở đúng ba thời điểm an toàn (khuôn "version skew" chuẩn của SPA):
  *
- *   có bản mới ──┬─ (1) cán bộ chuyển màn ──────────────► tải URL đích bằng bản mới
+ *   có bản mới ──┬─ (1) cán bộ chuyển màn ──────────────► tải lại màn đích bằng bản mới
  *                ├─ (2) quay lại tab sau ≥ 5 phút ẩn ──► chỉ khi trangDangRanh()
  *                └─ (3) lỗi tải gói (main.tsx)       ──► taiLaiKhiHongChunk()
  *
@@ -30,15 +30,15 @@ export const TAB_AN_TOI_THIEU_MS = 5 * 60 * 1000;
 export function useTuCapNhat(phienBanGiaoDien: string): void {
   const { pathname } = useLocation();
   const banDich = useRef<string | null>(null);
-  const dangHoi = useRef(false);
+  /** Lượt hỏi đang bay — lượt gọi trùng (focus + visibilitychange cùng lúc) CHỜ chung lượt ấy. */
+  const luotHoi = useRef<Promise<void> | null>(null);
   const anTu = useRef<number | null>(null);
 
   useEffect(() => {
     let huy = false;
+    batDauTheoDoiGo();
 
-    const hoi = async (): Promise<void> => {
-      if (huy || dangHoi.current) return;
-      dangHoi.current = true;
+    const hoiMayChu = async (): Promise<void> => {
       try {
         const r = await api.get<{ buildId?: string }>('/health');
         const cuaMayChu = r.data?.buildId;
@@ -46,9 +46,16 @@ export function useTuCapNhat(phienBanGiaoDien: string): void {
         if (!huy && canCapNhat(phienBanGiaoDien, cuaMayChu)) banDich.current = cuaMayChu ?? null;
       } catch {
         // Mất mạng hoặc máy chủ lỗi: chưa biết gì thêm, nhịp sau hỏi lại. Không có gì để báo.
-      } finally {
-        dangHoi.current = false;
       }
+    };
+    const hoi = (): Promise<void> => {
+      if (huy) return Promise.resolve();
+      if (!luotHoi.current) {
+        luotHoi.current = hoiMayChu().finally(() => {
+          luotHoi.current = null;
+        });
+      }
+      return luotHoi.current;
     };
 
     const khiDoiHienThi = () => {
@@ -78,7 +85,8 @@ export function useTuCapNhat(phienBanGiaoDien: string): void {
     registerSW({
       onNeedRefresh: () => void hoi(),
       onRegisteredSW: (_url, dangKy) => {
-        if (!dangKy) return;
+        // Đăng ký xong SAU khi màn đã tháo (đăng xuất nhanh, StrictMode) thì không hẹn nhịp — tránh rò.
+        if (!dangKy || huy) return;
         nhipSw = setInterval(() => {
           dangKy.update().catch(() => {
             // Mất mạng: nhịp sau thử lại.
@@ -104,6 +112,6 @@ export function useTuCapNhat(phienBanGiaoDien: string): void {
       return;
     }
     const dich = banDich.current;
-    if (dich) void apDungBanMoi(dich, window.location.href);
+    if (dich) void apDungBanMoi(dich);
   }, [pathname]);
 }

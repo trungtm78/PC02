@@ -18,7 +18,7 @@
  * được ném ra.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { lazy } from 'react';
 import { wrapRoute } from '../wrapRoute';
 import { KHOA_DA_TAI_LAI_CHUNK } from '@/lib/cap-nhat/apDungBanMoi';
@@ -71,7 +71,7 @@ describe('wrapRoute — không bao giờ để lại khoảng trắng câm lặn
     );
     render(wrapRoute(<Fails />));
     await screen.findByRole('alert');
-    expect(soLanTaiLai).toBe(1);
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
   });
 
   it('đã tự tải lại cho bản này mà gói vẫn hỏng → KHÔNG lặp, giữ thông báo + nút', async () => {
