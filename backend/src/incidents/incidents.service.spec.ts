@@ -772,6 +772,25 @@ describe('IncidentsService', () => {
       expect(createCall.data.maxExtensionsSnapshot).toBe(2);
     });
 
+    // Cột/bộ lọc/thẻ tìm "Người nhập" đọc `canBoNhapId` (18/09/2026): tạo mà không chọn cán bộ nhập thì
+    // người nhập là người tạo — như Vụ án đọc `createdBy` — thay vì để trống và lọt khỏi mọi bộ lọc.
+    it('không chọn Cán bộ nhập → người tạo là người nhập; có chọn → giữ người được chọn', async () => {
+      mockPrisma.incident.create.mockResolvedValue(mockIncident);
+      await service.create({ name: 'Test' } as never, 'actor-001');
+      expect(mockPrisma.incident.create.mock.calls[0][0].data.canBoNhapId).toBe(
+        'actor-001',
+      );
+
+      mockPrisma.incident.create.mockClear();
+      await service.create(
+        { name: 'Test', canBoNhapId: 'u-khac' } as never,
+        'actor-001',
+      );
+      expect(mockPrisma.incident.create.mock.calls[0][0].data.canBoNhapId).toBe(
+        'u-khac',
+      );
+    });
+
     it('should not crash when ngayDeXuat is null', async () => {
       mockPrisma.incident.create.mockResolvedValue(mockIncident);
 

@@ -32,6 +32,8 @@ const IMPORTED = (actorId: string) => ({
  */
 const FK_RELATIONS: Record<string, string> = {
   createdById: 'createdBy',
+  // Vụ việc (18/09/2026) — cùng bẫy với `crimeChinhId` bên dưới: thiếu dòng này là cả bản ghi hỏng.
+  canBoNhapId: 'canBoNhap',
   investigatorId: 'investigator',
   assignedTeamId: 'assignedTeam',
   importedById: 'importedBy',
