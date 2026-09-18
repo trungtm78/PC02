@@ -23,7 +23,8 @@ import { LegacyMigrationService } from '../legacy-migration.service';
 import type { LegacyRecord } from '../legacy-mapper';
 import { loadLookups, attachOwnership, attachInferredClass } from './import';
 import { chonHoSoCanCapNhat, type TaiLieuHeCu } from './chon-ho-so-can-cap-nhat';
-import { buMaHoSo } from './backfill-ma-ho-so';
+import { buMaHoSo, taoGhiSoMoi, timNguoiChayDiTru } from './backfill-ma-ho-so';
+import { duDoanTrungSoHeMoi } from './du-doan-trung-so';
 
 /** Bảng hệ cũ giữ hồ sơ chính. Các bảng tra cứu khác không đổi hằng ngày nên không đụng. */
 const BANG_HO_SO = 'ho_so_doi_1';
@@ -167,6 +168,32 @@ async function main(): Promise<void> {
     }
     if (opts.dry) {
       console.log(`[cap-nhat] THỬ — sẽ nạp ${can.length} hồ sơ, không ghi gì.`);
+      // Hệ cũ còn chạy song song nên có thể cấp số mà hệ mới đã cấp. In trước để người duyệt thấy:
+      // trùng CÙNG LOẠI → số mới theo bộ đếm + số hệ cũ vào STT cũ; khác loại → giữ số.
+      const tai = (await db
+        .collection(BANG_HO_SO)
+        .find(
+          {
+            id: {
+              // Chỉ hồ sơ CHƯA CÓ mới được cấp mã; hồ sơ "đã sửa" đã mang mã thật.
+              $in: can
+                .filter((c) => c.lyDo === 'chua-co')
+                .map((c) => Number(c.sourceId))
+                .filter((n) => Number.isFinite(n)),
+            },
+          },
+          { projection: { id: 1, nam: 1, stt: 1, loai: 1 } },
+        )
+        .toArray()) as unknown as Array<Record<string, unknown>>;
+      const trung = await duDoanTrungSoHeMoi(prisma, tai);
+      console.log(
+        `[cap-nhat] ${trung.length} hồ sơ mang số đã có hồ sơ HỆ MỚI giữ:`,
+      );
+      for (const t of trung) {
+        console.log(
+          `  ${t.soHeCu} (hệ cũ ${t.sourceId}, loai=${t.loaiHeCu}) — hệ mới đang giữ ở: ${t.bangHeMoi.join(', ')}`,
+        );
+      }
       console.log(
         '  mười hồ sơ đầu: ' +
           can
@@ -177,15 +204,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    let actorId = opts.actorId;
-    if (!actorId) {
-      const admin = await prisma.user.findFirst({
-        where: { role: { name: 'ADMIN' } },
-        select: { id: true },
-      });
-      if (!admin) throw new Error('Không tìm thấy tài khoản ADMIN để ghi nhận người chạy di trú.');
-      actorId = admin.id;
-    }
+    const actorId = opts.actorId || (await timNguoiChayDiTru(prisma));
     const lk = await loadLookups(prisma);
     const service = new LegacyMigrationService(prisma as never, {
       log: async () => undefined,
@@ -241,7 +260,7 @@ async function main(): Promise<void> {
     // đếm số cho khớp. Bỏ bước này thì hồ sơ vừa nạp mang mã vô nghĩa — cán bộ tra theo mã hệ
     // cũ không thấy — và bộ đếm tụt lại phía sau, nên hồ sơ tạo mới sau đó TRÙNG mã với hồ sơ
     // vừa nạp. Cả hai đã xảy ra thật ngày 28/08/2026 với 83 đơn thư.
-    await buMaHoSo(prisma, true);
+    await buMaHoSo(prisma, true, { ghiSoMoi: taoGhiSoMoi(prisma, actorId) });
 
     console.log('[cap-nhat] XONG.');
   } finally {
