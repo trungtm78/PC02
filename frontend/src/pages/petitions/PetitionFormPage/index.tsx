@@ -22,7 +22,7 @@ import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import {
@@ -1053,6 +1053,16 @@ export function PetitionFormPage() {
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save"
           />
+          {(linkedCaseId || linkedIncidentId) && (
+            // Đơn đã chuyển (kể cả đơn gắn kèm hồ sơ hệ cũ lệch loại, 18/09/2026): mở thẳng hồ sơ đích.
+            <Link
+              to={linkedCaseId ? `/cases/${linkedCaseId}` : `/vu-viec/${linkedIncidentId}`}
+              data-testid="link-ho-so-da-chuyen"
+              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 min-h-[44px] border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+            >
+              {linkedCaseId ? "Mở vụ án đã chuyển" : "Mở vụ việc đã chuyển"}
+            </Link>
+          )}
           {canConvert && (
             <button
               type="button"

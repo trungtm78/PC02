@@ -97,4 +97,28 @@ describe('PetitionFormPage — Nhóm II: btn-convert-petition visibility', () =>
       expect(screen.queryByTestId('btn-convert-petition')).not.toBeInTheDocument();
     }, { timeout: 5000 });
   });
+
+  /**
+   * 18/09/2026: đơn thư gắn kèm hồ sơ lệch loại (vd 26-11129 hệ cũ ở danh sách Đơn thư nhưng nạp thành
+   * vụ án) mang trạng thái "Đã chuyển vụ án" — cán bộ phải MỞ được hồ sơ đích từ chính đơn.
+   */
+  it('đơn đã nối vụ án: có đường mở sang vụ án', async () => {
+    await renderEditFormWrapped('pet-edit-03', null, 'case-99');
+    const lienKet = await screen.findByTestId('link-ho-so-da-chuyen', {}, { timeout: 5000 });
+    expect(lienKet.getAttribute('href')).toBe('/cases/case-99');
+    expect(lienKet.textContent).toMatch(/vụ án/i);
+  });
+
+  it('đơn đã nối vụ việc: có đường mở sang vụ việc', async () => {
+    await renderEditFormWrapped('pet-edit-04', 'inc-77', null);
+    const lienKet = await screen.findByTestId('link-ho-so-da-chuyen', {}, { timeout: 5000 });
+    expect(lienKet.getAttribute('href')).toBe('/vu-viec/inc-77');
+    expect(lienKet.textContent).toMatch(/vụ việc/i);
+  });
+
+  it('đơn chưa nối: không có đường mở', async () => {
+    await renderEditFormWrapped('pet-edit-05', null, null);
+    await screen.findByTestId('btn-convert-petition', {}, { timeout: 5000 });
+    expect(screen.queryByTestId('link-ho-so-da-chuyen')).not.toBeInTheDocument();
+  });
 });

@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
-import { HuongXuLyDon, PetitionStatus } from '@prisma/client';
+import { HuongXuLyDon, PetitionStatus, Prisma } from '@prisma/client';
 import { huongTheoTrangThai, huongTheoNoiDungDonVi } from '../petitions/huong-xu-ly.rule';
 import {
   TRUY_VAN_DANH_MUC_LOAI_THONG_TIN,
@@ -244,36 +244,11 @@ export class LegacyMigrationService {
           let linkedPetitionId: string | undefined;
           let linkedIncidentId: string | undefined;
 
-          if (d.petition) {
-            const data = { ...d.petition };
-            await this.resolveCrime(tx, data);
-            const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
-            ganHuongXuLyKhiTrong(data, existing);
-            chuanHoaLoaiThongTinKhiNap(
-              data,
-              existing as {
-                loaiThongTin: string | null;
-                petitionType: string | null;
-              } | null,
-              chiMucLoaiThongTin,
-            );
-            if (existing) {
-              giuChuCanBoDaGo(data, existing);
-              await tx.petition.update({ where: { id: existing.id }, data });
-              linkedPetitionId = existing.id;
-            } else {
-              const row = await tx.petition.create({
-                data: {
-                  stt: `DT-LEGACY-${legacyId}`,
-                  receivedDate: data.receivedDate as Date,
-                  senderName: (data.senderName as string) ?? '(di trú)',
-                  status: 'MOI_TIEP_NHAN',
-                  ...data,
-                },
-              });
-              linkedPetitionId = row.id;
-              d2.petitions++;
-            }
+          // Đơn thư GẮN KÈM ghi SAU vụ án/vụ việc (cần id đích) và không làm vụ án thành FROM_PETITION.
+          if (d.petition && !d.petitionGanKem) {
+            const don = await this.ghiDonThu(tx, legacyId, d.petition, chiMucLoaiThongTin);
+            linkedPetitionId = don.id;
+            if (don.taoMoi) d2.petitions++;
           }
           if (d.incident) {
             const data = { ...d.incident };
@@ -367,6 +342,16 @@ export class LegacyMigrationService {
             }
           }
 
+          if (d.petition && d.petitionGanKem) {
+            const dichId = d.petitionGanKem === 'CASE' ? caseRow?.id : linkedIncidentId;
+            if (!dichId) throw new Error(`Đơn thư gắn kèm không có hồ sơ đích (${d.petitionGanKem})`);
+            const don = await this.ghiDonThu(tx, legacyId, d.petition, chiMucLoaiThongTin, {
+              loai: d.petitionGanKem,
+              dichId,
+            });
+            if (don.taoMoi) d2.petitions++;
+          }
+
           // ── Tier ③ — idempotent upsert theo legacySourceId (Codex P1#3) ──
           if (d.guidance) {
             const data = { ...d.guidance };
@@ -436,6 +421,117 @@ export class LegacyMigrationService {
     });
 
     return { created, skipped, errors, report: buildMigrationReport(records) };
+  }
+
+  /**
+   * Ghi MỘT đơn thư di trú (tạo mới hoặc cập nhật theo `legacySourceId`) — dùng chung cho đơn thư
+   * thường và đơn thư gắn kèm, để hai đường không lệch nhau (tội danh, hướng xử lý, loại thông tin,
+   * giữ chữ cán bộ đã gõ).
+   *
+   * `ganKem` (đơn gắn kèm vụ án/vụ việc): nối tới hồ sơ đích; trạng thái "Đã chuyển …" chỉ đặt khi
+   * TẠO — nạp lại không đè trạng thái cán bộ đã đổi.
+   */
+  private async ghiDonThu(
+    tx: Prisma.TransactionClient,
+    legacyId: string,
+    donThu: Record<string, unknown>,
+    chiMucLoaiThongTin: ReturnType<typeof lapChiMucLoaiThongTin>,
+    ganKem?: { loai: 'CASE' | 'INCIDENT'; dichId: string },
+  ): Promise<{ id: string; taoMoi: boolean }> {
+    const data: Record<string, unknown> = { ...donThu };
+    await this.resolveCrime(tx, data);
+    if (ganKem) {
+      if (ganKem.loai === 'CASE') data.linkedCaseId = ganKem.dichId;
+      else data.linkedIncidentId = ganKem.dichId;
+    }
+    const existing = await tx.petition.findFirst({ where: { legacySourceId: legacyId } });
+    ganHuongXuLyKhiTrong(data, existing as Record<string, unknown> | null);
+    chuanHoaLoaiThongTinKhiNap(
+      data,
+      existing as {
+        loaiThongTin: string | null;
+        petitionType: string | null;
+      } | null,
+      chiMucLoaiThongTin,
+    );
+    if (existing) {
+      giuChuCanBoDaGo(data, existing as unknown as Record<string, unknown>);
+      await tx.petition.update({
+        where: { id: existing.id },
+        data: data as Prisma.PetitionUncheckedUpdateInput,
+      });
+      return { id: existing.id, taoMoi: false };
+    }
+    const status: PetitionStatus = ganKem
+      ? ganKem.loai === 'CASE'
+        ? PetitionStatus.DA_CHUYEN_VU_AN
+        : PetitionStatus.DA_CHUYEN_VU_VIEC
+      : PetitionStatus.MOI_TIEP_NHAN;
+    const row = await tx.petition.create({
+      data: {
+        stt: `DT-LEGACY-${legacyId}`,
+        receivedDate: data.receivedDate as Date,
+        senderName: (data.senderName as string) ?? '(di trú)',
+        status,
+        ...data,
+      } as Prisma.PetitionUncheckedCreateInput,
+    });
+    return { id: row.id, taoMoi: true };
+  }
+
+  /**
+   * Bù đơn thư gắn kèm cho hồ sơ lệch loại ĐÃ nạp trước 18/09/2026 (61 vụ án + 25 vụ việc trên prod).
+   *
+   * CHỈ THÊM đơn thư — không ghi gì vào vụ án/vụ việc (anh chốt). Không tìm thấy hồ sơ đích thì báo,
+   * không tạo đơn mồ côi. Đơn đã có thì bỏ qua (chạy lại ra 0). `chayThu` = không ghi, chỉ liệt kê.
+   */
+  async ganDonThuKemChoHoSoDaCo(
+    records: LegacyRecord[],
+    chayThu: boolean,
+  ): Promise<{
+    daTao: Array<{ legacyId: string; loai: 'CASE' | 'INCIDENT'; dichId: string }>;
+    daCo: number;
+    khongThayDich: string[];
+    loi: Array<{ legacyId: string; message: string }>;
+  }> {
+    const kq = {
+      daTao: [] as Array<{ legacyId: string; loai: 'CASE' | 'INCIDENT'; dichId: string }>,
+      daCo: 0,
+      khongThayDich: [] as string[],
+      loi: [] as Array<{ legacyId: string; message: string }>,
+    };
+    const chiMucLoaiThongTin = lapChiMucLoaiThongTin(
+      await this.prisma.directory.findMany(TRUY_VAN_DANH_MUC_LOAI_THONG_TIN),
+    );
+    for (const rec of records) {
+      const legacyId = legacyKey(rec) ?? '';
+      const d = decomposeLegacyRecord(rec);
+      if (!legacyId || !d.petition || !d.petitionGanKem) continue;
+      const loai = d.petitionGanKem;
+      const donThu = d.petition;
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const dich =
+            loai === 'CASE'
+              ? await tx.case.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } })
+              : await tx.incident.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } });
+          if (!dich) {
+            kq.khongThayDich.push(legacyId);
+            return;
+          }
+          const daCo = await tx.petition.findFirst({ where: { legacySourceId: legacyId }, select: { id: true } });
+          if (daCo) {
+            kq.daCo++;
+            return;
+          }
+          if (!chayThu) await this.ghiDonThu(tx, legacyId, donThu, chiMucLoaiThongTin, { loai, dichId: dich.id });
+          kq.daTao.push({ legacyId, loai, dichId: dich.id });
+        });
+      } catch (e) {
+        kq.loi.push({ legacyId, message: (e as Error).message });
+      }
+    }
+    return kq;
   }
 
   // Rollback: xóa entity đã di trú theo danh sách legacySourceId (chỉ record do di trú tạo).
