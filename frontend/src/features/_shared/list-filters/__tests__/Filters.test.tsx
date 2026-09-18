@@ -216,4 +216,49 @@ describe('Filters — lựa chọn nạp động', () => {
 
     expect(screen.getByRole('option', { name: 'Tố giác' })).toBeInTheDocument();
   });
+
+  /**
+   * 18/09/2026: ô "Tính theo" khai sẵn lựa chọn giá trị rỗng ("Theo cấu hình hệ thống"), ô "Cán bộ nhập"
+   * nạp kèm "Tất cả" — Filters lại chèn thêm "— Tất cả —" → HAI dòng rỗng, cán bộ không biết chọn dòng
+   * nào là "không lọc".
+   */
+  it('không chèn thêm dòng rỗng khi lựa chọn đã có giá trị rỗng', () => {
+    render(
+      <Filters
+        registry={makeRegistry()}
+        value={{}}
+        onChange={vi.fn()}
+        onApply={vi.fn()}
+        onReset={vi.fn()}
+        hasUnappliedChanges={false}
+        dynamicOptions={{ source: [{ value: '', label: 'Theo cấu hình hệ thống' }, { value: 'TO_GIAC', label: 'Tố giác' }] }}
+      />,
+    );
+    const rong = [...(screen.getByTestId('filter-source') as HTMLSelectElement).options].filter((o) => o.value === '');
+    expect(rong.map((o) => o.textContent)).toEqual(['Theo cấu hình hệ thống']);
+  });
+
+  it('lựa chọn không có giá trị rỗng thì vẫn có "— Tất cả —" để bỏ lọc', () => {
+    render(
+      <Filters registry={makeRegistry()} value={{}} onChange={vi.fn()} onApply={vi.fn()} onReset={vi.fn()} hasUnappliedChanges={false} />,
+    );
+    const rong = [...(screen.getByTestId('filter-source') as HTMLSelectElement).options].filter((o) => o.value === '');
+    expect(rong.map((o) => o.textContent)).toEqual(['— Tất cả —']);
+  });
+
+  it('hành động phụ (vd Xuất Excel) nằm giữa Xóa lọc và Áp dụng', () => {
+    render(
+      <Filters
+        registry={makeRegistry()}
+        value={{}}
+        onChange={vi.fn()}
+        onApply={vi.fn()}
+        onReset={vi.fn()}
+        hasUnappliedChanges
+        hanhDongPhu={<button type="button">Xuất Excel</button>}
+      />,
+    );
+    const nut = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(nut.slice(-3)).toEqual(['Xóa lọc', 'Xuất Excel', 'Áp dụng']);
+  });
 });

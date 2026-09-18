@@ -64,7 +64,7 @@ import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
-import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
@@ -763,7 +763,7 @@ export function CaseListPageShell() {
       <StatsCardsStrip
         cards={buildCasesCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
+        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDate, appliedFilters.toDate) : null}
         activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />

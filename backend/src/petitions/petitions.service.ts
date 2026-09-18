@@ -49,6 +49,9 @@ import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { chonCotXuat, xuatDanhSachExcel } from '../common/xuat-danh-sach/xuat-danh-sach';
+import { tachCotXuat, type CotXuatDto } from '../common/xuat-danh-sach/cot-xuat.dto';
+import { KHAI_COT_XUAT_DON_THU } from './xuat-danh-sach-don-thu';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
@@ -91,6 +94,68 @@ const LOAI_DON_LABEL_BE: Record<LoaiDon, string> = {
   [LoaiDon.PHAN_ANH]: 'Phản ánh',
 };
 
+/**
+ * Cột một dòng danh sách Đơn thư — dùng CHUNG cho màn danh sách và tệp Excel xuất theo bộ lọc, để hai
+ * nơi đọc đúng một bộ trường (18/09/2026).
+ */
+const CHON_DONG_DANH_SACH_DON_THU = {
+  id: true,
+  stt: true,
+  receivedDate: true,
+  // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
+  // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
+  ngayDeXuat: true,
+  // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
+  // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
+  detailContent: true,
+  unit: true,
+  // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
+  // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
+  donViGiaiQuyet: true,
+  senderName: true,
+  suspectedPerson: true,
+  status: true,
+  deadline: true,
+  summary: true,
+  // Ba cột hệ cũ hiển thị trên danh sách mà hệ mới chưa trả về. `summary` phủ
+  // 99,99% đơn thư — thiếu nó thì cán bộ phải mở từng hồ sơ mới biết nội dung.
+  nguonDon: true,
+  ketQuaXuLyKhac: true,
+  sttCu: true,
+  priority: true,
+  petitionType: true,
+  linkedCaseId: true,
+  linkedIncidentId: true,
+  createdAt: true,
+  updatedAt: true,
+  enteredBy: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+    },
+  },
+  assignedTo: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+    },
+  },
+  assignedTeam: {
+    // `name` cho cột "Đội hiện tại" của màn Chuyển đội / Trả hồ sơ (trước đọc ô chữ `unit`, rỗng
+    // ở mọi đơn); `ward.name` cho cột Phường/Xã của màn Đơn thư phường.
+    select: { id: true, name: true, ward: { select: { name: true } } },
+  },
+} satisfies Prisma.PetitionSelect;
+
+/** Một dòng danh sách Đơn thư như `getList` trả. */
+export type DongDanhSachDonThu = Prisma.PetitionGetPayload<{
+  select: typeof CHON_DONG_DANH_SACH_DON_THU;
+}>;
+
 @Injectable()
 export class PetitionsService {
   private readonly logger = new Logger(PetitionsService.name);
@@ -121,24 +186,22 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
-    const {
-      status,
-      statusGroup,
-      fromDate,
-      toDate,
-      overdue,
-      wardTeamId,
-      petitionType,
-      stt,
-      sttCu,
-      enteredById,
-      limit = 20,
-      offset = 0,
-      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
-      sortOrder = 'desc',
-    } = query;
-
+  /**
+   * MỘT nguồn điều kiện lọc cho danh sách, thẻ số và xuất Excel (18/09/2026).
+   *
+   * Trước đây `getStats` tự dựng `where` riêng và sót `enteredById`, `stt`, `sttCu`, lại dùng danh sách
+   * trạng thái kết thúc khác `getList` — bấm "Áp dụng" với Cán bộ nhập thì bảng đổi mà thẻ số đứng yên,
+   * cán bộ báo "bộ lọc không lọc được". Gộp một chỗ thì ba đường không thể lệch nhau nữa.
+   *
+   * `boTrangThai`: thẻ số bỏ điều kiện trạng thái/nhóm trạng thái đang chọn, để các chip vẫn đếm MỌI
+   * trạng thái (drill-down). Mọi điều kiện khác giữ nguyên.
+   */
+  async dungWhereDanhSach(
+    query: QueryPetitionsDto | QueryPetitionsStatsDto,
+    dataScope?: DataScope | null,
+    { boTrangThai = false }: { boTrangThai?: boolean } = {},
+  ) {
+    const q = query as QueryPetitionsDto;
     const where: Prisma.PetitionWhereInput = {
       deletedAt: null,
     };
@@ -149,32 +212,34 @@ export class PetitionsService {
       await this.timKiem.dieuKien(query),
     );
 
-    // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
-    // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
-    // `PETITION_STATUS_GROUPS[statusGroup]` trần (sẽ trả hàm Object → Prisma ném 500).
-    const groupStatuses = resolveGroup(PETITION_STATUS_GROUPS, statusGroup);
-    if (groupStatuses) {
-      where.status = { in: [...groupStatuses] };
-    } else if (status) {
-      where.status = status;
+    if (!boTrangThai) {
+      // Nhóm trạng thái (drill-down thẻ thống kê) THẮNG status đơn lẻ — giống semantic
+      // `phase` đã ship ở Vụ việc. `resolveGroup` chặn prototype chain, KHÔNG viết
+      // `PETITION_STATUS_GROUPS[statusGroup]` trần (sẽ trả hàm Object → Prisma ném 500).
+      const groupStatuses = resolveGroup(PETITION_STATUS_GROUPS, q.statusGroup);
+      if (groupStatuses) {
+        where.status = { in: [...groupStatuses] };
+      } else if (q.status) {
+        where.status = q.status;
+      }
     }
 
     // Mã hồ sơ tồn tại ở HAI dạng: hệ cũ hiện `26-11171`, hệ mới lưu `2026-11171`. Cán bộ
     // đọc quen dạng ngắn nên sẽ gõ dạng ngắn. Khớp CHÍNH XÁC theo danh sách biến thể, không
     // dùng `contains` — `contains: '26-1'` sẽ quét trúng hàng nghìn mã khác.
-    const bienTheStt = hoSoCodeVariants(stt);
+    const bienTheStt = hoSoCodeVariants(q.stt);
     if (bienTheStt.length) {
       where.stt = { in: bienTheStt };
     }
 
     // Nhận cả `208` lẫn `2016-208` như hệ cũ — xem `dieuKienSttCu`.
-    const locSttCu = dieuKienSttCu(sttCu);
+    const locSttCu = dieuKienSttCu(q.sttCu);
     if (locSttCu) {
       where.sttCu = locSttCu;
     }
 
-    if (enteredById?.trim()) {
-      where.enteredById = enteredById.trim();
+    if (q.enteredById?.trim()) {
+      where.enteredById = q.enteredById.trim();
     }
 
     // `unit` / `senderName` cũ đã quy về thẻ donViGiaiQuyet / nguoiGui qua THAM_SO_CU_DON_THU.
@@ -183,22 +248,22 @@ export class PetitionsService {
 
     // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
     // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
+    const ky = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: q.thongKeTruongNgay }),
+      q.tk,
     );
     // Lọc theo ĐÚNG cột mà cột ngày trên danh sách đang hiện. Lọc `receivedDate` (ngày TIẾP
     // NHẬN) trong khi bảng hiện `ngayDeXuat` thì hồ sơ có ngày hiện nằm trong khoảng vẫn bị
     // loại — hai ngày lệch nhau ở 29.026 hồ sơ. Vụ việc và Vụ án vốn đã lọc `ngayDeXuat`.
     apDungKyVaoWhere(
       where as Record<string, unknown>,
-      kyThongKe,
-      fromDate,
-      toDate,
+      ky,
+      q.fromDate,
+      q.toDate,
       'ngayDeXuat',
     );
 
-    if (overdue) {
+    if (q.overdue) {
       where.deadline = { lt: new Date() };
       // Guard `if (!status)` cũ KHÔNG chặn statusGroup → bấm thẻ khi đang lọc quá hạn sẽ
       // mất điều kiện nhóm. Gộp bằng notIn thay vì gán đè (Prisma cho phép in + notIn).
@@ -210,10 +275,10 @@ export class PetitionsService {
     }
 
     // v0.36.0.0: filter theo phường công tác (Team.wardId) — cross-ward view PC02/ADMIN
-    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
+    const toPhuong = dieuKienToPhuong(q.wardTeamId, q.chiToPhuong);
     if (toPhuong) where.assignedTeam = toPhuong;
-    // Màn Đơn thư phường/xã lọc Loại đơn ở máy chủ (17/09/2026) — CÙNG điều kiện ở getStats.
-    if (petitionType) where.petitionType = petitionType;
+    // Màn Đơn thư phường/xã lọc Loại đơn ở máy chủ (17/09/2026).
+    if (q.petitionType) where.petitionType = q.petitionType;
 
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
@@ -224,13 +289,18 @@ export class PetitionsService {
       ];
     }
 
+    return { where, ky };
+  }
+
+  /** Thứ tự danh sách Đơn thư — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
+  private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
     // Mặc định sắp theo NGÀY NHẬN, không phải ngày tạo. Lý do đo được trên dữ liệu
     // thật: toàn bộ 45.459 đơn thư có CÙNG một `createdAt` (ngày di trú), nên sắp theo
     // nó cho ra thứ tự ngẫu nhiên. `receivedDate` phủ 100% và là NOT NULL.
     // Kèm lợi ích: `receivedDate` CÓ chỉ mục còn `createdAt` thì không.
-    const orderBy = buildListOrderBy({
+    return buildListOrderBy({
       sortBy,
-      sortOrder: sortOrder as ListSortOrder,
+      sortOrder,
       allowed: [
         'createdAt',
         'updatedAt',
@@ -254,62 +324,24 @@ export class PetitionsService {
       // Cột HIỂN THỊ vẫn là `receivedDate` gốc — không giấu dữ liệu, chỉ đổi thứ tự.
       fieldAliases: { receivedDate: 'sortReceivedDate', stt: 'sttSort' },
     });
+  }
+
+  async getList(query: QueryPetitionsDto, dataScope?: DataScope | null) {
+    const {
+      limit = 20,
+      offset = 0,
+      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
+      sortOrder = 'desc',
+    } = query;
+
+    const { where } = await this.dungWhereDanhSach(query, dataScope);
+
+    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
     const [data, total] = await Promise.all([
       this.prisma.petition.findMany({
         where,
-        select: {
-          id: true,
-          stt: true,
-          receivedDate: true,
-          // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
-          // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
-          ngayDeXuat: true,
-          // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
-          // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
-          detailContent: true,
-          unit: true,
-          // Cột "Đơn vị giải quyết" của danh sách đọc trường này. Truy vấn dùng `select`
-          // tường minh nên thiếu khai là cột luôn rỗng, không lỗi, không cảnh báo.
-          donViGiaiQuyet: true,
-          senderName: true,
-          suspectedPerson: true,
-          status: true,
-          deadline: true,
-          summary: true,
-          // Ba cột hệ cũ hiển thị trên danh sách mà hệ mới chưa trả về. `summary` phủ
-          // 99,99% đơn thư — thiếu nó thì cán bộ phải mở từng hồ sơ mới biết nội dung.
-          nguonDon: true,
-          ketQuaXuLyKhac: true,
-          sttCu: true,
-          priority: true,
-          petitionType: true,
-          linkedCaseId: true,
-          linkedIncidentId: true,
-          createdAt: true,
-          updatedAt: true,
-          enteredBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              username: true,
-            },
-          },
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              username: true,
-            },
-          },
-          assignedTeam: {
-            // `name` cho cột "Đội hiện tại" của màn Chuyển đội / Trả hồ sơ (trước đọc ô chữ `unit`, rỗng
-            // ở mọi đơn); `ward.name` cho cột Phường/Xã của màn Đơn thư phường.
-            select: { id: true, name: true, ward: { select: { name: true } } },
-          },
-        },
+        select: CHON_DONG_DANH_SACH_DON_THU,
         orderBy,
         take: limit,
         skip: offset,
@@ -1707,6 +1739,58 @@ export class PetitionsService {
    * Bản cũ (tới 17/09/2026) lọc `donViGiaiQuyet` bằng ID phường (không bao giờ khớp), ngày theo `createdAt`
    * (ngày di trú), bỏ qua thẻ/trạng thái/loại đơn và cắt ở 500 dòng.
    */
+  /**
+   * Xuất Excel danh sách Đơn thư theo ĐÚNG bộ lọc và thứ tự của bảng (anh yêu cầu 18/09/2026: nút Xuất
+   * Excel trong khung Bộ lọc). Cùng `dungWhereDanhSach`, `thuTuDanhSach`, `CHON_DONG_DANH_SACH_DON_THU`
+   * với màn danh sách — không có đường thứ hai để lệch. Ghi nhật ký kiểm toán mỗi lần xuất.
+   */
+  async xuatDanhSach(
+    query: QueryPetitionsDto & CotXuatDto,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    const cot = chonCotXuat(KHAI_COT_XUAT_DON_THU, tachCotXuat(query.cot));
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
+    const orderBy = this.thuTuDanhSach(
+      query.sortBy,
+      (query.sortOrder ?? 'desc') as ListSortOrder,
+    );
+    const soDong = await xuatDanhSachExcel<DongDanhSachDonThu>({
+      res,
+      tenTep: `danh-sach-don-thu-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Đơn thư',
+      tieuDe: 'DANH SÁCH ĐƠN THƯ',
+      phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
+      cot,
+      demTong: () => this.prisma.petition.count({ where }),
+      layIdTheoThuTu: async (toiDa) =>
+        (
+          await this.prisma.petition.findMany({
+            where,
+            orderBy,
+            select: { id: true },
+            take: toiDa,
+          })
+        ).map((d) => d.id),
+      layDong: (ids) =>
+        this.prisma.petition.findMany({
+          where: { id: { in: ids } },
+          select: CHON_DONG_DANH_SACH_DON_THU,
+        }),
+    });
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'PETITION_EXPORTED',
+        subject: 'Petition',
+        metadata: { format: 'xlsx', kind: 'danh-sach', filters: query, soDong },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+    }
+  }
+
   async exportWardPetitions(
     query: QueryPetitionsDto,
     dataScope: DataScope | null | undefined,
@@ -2177,53 +2261,11 @@ export class PetitionsService {
   // - Strips status filter (counts BY status, not filtered by it)
   // ─────────────────────────────────────────────
   async getStats(query: QueryPetitionsStatsDto, dataScope?: DataScope | null) {
-    const { fromDate, toDate, overdue, wardTeamId } = query;
-
-    const where: Prisma.PetitionWhereInput = { deletedAt: null };
-
-    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG helper với getList, nên số
-    // trên thẻ và số dòng dưới bảng không thể lọc lệch nhau.
-    noiVaoWhere(
-      where as Record<string, unknown>,
-      await this.timKiem.dieuKien(query),
-    );
-
-    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
-    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    const kyThongKe = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
-    );
-    apDungKyVaoWhere(
-      where as Record<string, unknown>,
-      kyThongKe,
-      fromDate,
-      toDate,
-      'ngayDeXuat',
-    );
-
-    if (overdue) {
-      where.deadline = { lt: new Date() };
-      where.status = {
-        notIn: [
-          PetitionStatus.DA_GIAI_QUYET,
-          PetitionStatus.DA_CHUYEN_VU_VIEC,
-          PetitionStatus.DA_CHUYEN_VU_AN,
-        ],
-      };
-    }
-
-    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
-    if (toPhuong) where.assignedTeam = toPhuong;
-    if (query.petitionType) where.petitionType = query.petitionType;
-
-    const scopeFilter = buildPetitionScopeFilter(dataScope);
-    if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        scopeFilter as Prisma.PetitionWhereInput,
-      ];
-    }
+    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG hàm với getList và xuất Excel,
+    // chỉ bỏ điều kiện trạng thái để các chip vẫn đếm mọi trạng thái.
+    const { where, ky: kyThongKe } = await this.dungWhereDanhSach(query, dataScope, {
+      boTrangThai: true,
+    });
 
     const byStatus: Record<PetitionStatus, number> = Object.values(PetitionStatus).reduce(
       (acc, status) => {

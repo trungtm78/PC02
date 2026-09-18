@@ -63,7 +63,7 @@ import { formatVNDate } from '@/lib/dates';
 // v0.65 PR3 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
-import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
@@ -811,7 +811,7 @@ export function PetitionListPageShell() {
       <StatsCardsStrip
         cards={buildPetitionsCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
+        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDate, appliedFilters.toDate) : null}
         activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />

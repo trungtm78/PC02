@@ -64,7 +64,7 @@ import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
-import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
 import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalProvider';
 import { usePermission } from '@/hooks/usePermission';
@@ -769,7 +769,7 @@ export function IncidentListPageShell() {
       <StatsCardsStrip
         cards={buildIncidentsCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
+        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDateRange, appliedFilters.toDateRange) : null}
         activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />

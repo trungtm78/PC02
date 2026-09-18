@@ -39,6 +39,7 @@ import { ConvertToCaseDto } from './dto/convert-case.dto';
 import { AssignPetitionDto } from './dto/assign-petition.dto';
 import { RestorePetitionDto } from './dto/restore-petition.dto'; // v0.32.0.0
 import { ListLinkableDto } from './dto/list-linkable.dto'; // v0.37.1
+import { XuatDanhSachDonThuDto } from './dto/xuat-danh-sach-don-thu.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('petitions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -165,6 +166,24 @@ export class PetitionsController {
   ): Promise<void> {
     const user = (req as any).user as AuthUser | undefined;
     await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
+  }
+
+  // GET /api/v1/petitions/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách đơn thư.
+  @Get('export/danh-sach')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async xuatDanhSach(
+    @Query() query: XuatDanhSachDonThuDto,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const user = (req as any).user as AuthUser | undefined;
+    await this.petitionsService.xuatDanhSach(query, req.dataScope, res, user ? {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    } : undefined);
   }
 
   // GET /api/v1/petitions/export/ward — Xuất danh sách đơn thư theo phường/xã ra Excel

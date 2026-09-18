@@ -27,6 +27,11 @@ interface FiltersProps<TValue extends object> {
   dynamicOptions?: Record<string, EnumOption[]>;
   /** Nội dung phụ chèn dưới lưới ô lọc (vd chip khoảng thời gian). */
   children?: ReactNode;
+  /**
+   * Nút phụ đặt GIỮA "Xóa lọc" và "Áp dụng" — vd "Xuất Excel" theo đúng bộ lọc của bảng
+   * (18/09/2026). Đặt ở đây để cán bộ lọc xong xuất luôn, không phải tìm nút ở chỗ khác.
+   */
+  hanhDongPhu?: ReactNode;
 }
 
 /**
@@ -47,6 +52,7 @@ export function Filters<TValue extends object>({
   hasUnappliedChanges,
   dynamicOptions,
   children,
+  hanhDongPhu,
 }: FiltersProps<TValue>) {
   const fields = registry.all();
   const v = value as Record<string, string | undefined>;
@@ -73,6 +79,7 @@ export function Filters<TValue extends object>({
         >
           Xóa lọc
         </button>
+        {hanhDongPhu}
         <button
           type="button"
           data-testid="btn-apply-filters"
@@ -108,7 +115,9 @@ function FieldInput<TValue>({ field, value, onChange, options }: FieldInputProps
           onChange={(e) => onChange(e.target.value)}
           className={INPUT_BASE}
         >
-          <option value="">— Tất cả —</option>
+          {/* Lựa chọn đã có dòng rỗng riêng ("Tất cả", "Theo cấu hình hệ thống") thì không chèn thêm —
+              hai dòng rỗng làm cán bộ không biết dòng nào là "không lọc" (18/09/2026). */}
+          {!(options ?? []).some((opt) => opt.value === '') && <option value="">— Tất cả —</option>}
           {(options ?? []).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
