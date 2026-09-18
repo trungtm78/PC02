@@ -157,7 +157,8 @@ test.describe('UAT-CL-04: Prosecutor Proposal Excel Export', () => {
   });
 });
 
-test.describe('UAT-CL-05: Phân loại khác ĐÃ GỠ (18/09/2026)', () => {
+// Màn "Phân loại khác" GỠ 18/09/2026 (hệ cũ 0 hồ sơ loại ấy; màn hiện mọi vụ án với cột phân loại bịa).
+test.describe('UAT-CL-05: Phân loại khác đã gỡ', () => {
   test('đường dẫn cũ không dựng màn, menu không còn mục', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto(`${BASE_URL}/classification/others`);
@@ -165,7 +166,7 @@ test.describe('UAT-CL-05: Phân loại khác ĐÃ GỠ (18/09/2026)', () => {
 
     await page.goto(`${BASE_URL}/dashboard`);
     await expect(page.getByRole('link', { name: /Phân loại khác/i })).toHaveCount(0);
+
     await page.screenshot({ path: 'tests/screenshots/uat-cl-05-step01-da-go.png' });
   });
-});
 });
