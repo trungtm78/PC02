@@ -30,12 +30,17 @@ export const TAB_AN_TOI_THIEU_MS = 5 * 60 * 1000;
 export function useTuCapNhat(phienBanGiaoDien: string): void {
   const { pathname } = useLocation();
   const banDich = useRef<string | null>(null);
-  /** Lượt hỏi đang bay — lượt gọi trùng (focus + visibilitychange cùng lúc) CHỜ chung lượt ấy. */
-  const luotHoi = useRef<Promise<void> | null>(null);
   const anTu = useRef<number | null>(null);
 
   useEffect(() => {
     let huy = false;
+    /**
+     * Lượt hỏi đang bay — lượt gọi trùng (focus + visibilitychange cùng lúc) CHỜ chung lượt ấy. RIÊNG từng lần chạy
+     * effect, KHÔNG để ở ref: StrictMode (và mọi lần effect chạy lại) tháo lượt cũ khi lượt hỏi đầu còn bay; dùng
+     * chung qua ref thì lượt mới chờ đúng lượt hỏi mang cờ huỷ của effect đã chết → kết quả bị bỏ, không biết có bản
+     * mới cho tới nhịp 5 phút sau (UAT Chrome 18/09/2026).
+     */
+    let luotHoi: Promise<void> | null = null;
     batDauTheoDoiGo();
 
     const hoiMayChu = async (): Promise<void> => {
@@ -50,12 +55,12 @@ export function useTuCapNhat(phienBanGiaoDien: string): void {
     };
     const hoi = (): Promise<void> => {
       if (huy) return Promise.resolve();
-      if (!luotHoi.current) {
-        luotHoi.current = hoiMayChu().finally(() => {
-          luotHoi.current = null;
+      if (!luotHoi) {
+        luotHoi = hoiMayChu().finally(() => {
+          luotHoi = null;
         });
       }
-      return luotHoi.current;
+      return luotHoi;
     };
 
     const khiDoiHienThi = () => {

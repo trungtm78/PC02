@@ -239,6 +239,31 @@ describe('useTuCapNhat — ba thời điểm an toàn', () => {
     expect(sessionStorage.getItem(KHOA_DA_CAP_NHAT)).toBe('bbb');
   });
 
+  /**
+   * UAT Chrome 18/09/2026 bắt (bản dev): React StrictMode chạy effect HAI lần. Lượt hỏi /health của lượt đầu còn đang
+   * bay thì bị tháo (`huy = true`); lượt hai DÙNG LẠI đúng lượt hỏi ấy (ref sống qua hai lượt) → kết quả bị bỏ vì cờ
+   * huỷ của effect đã chết → không bao giờ biết có bản mới cho tới nhịp 5 phút sau. `main.tsx` bọc app trong
+   * StrictMode, nên cùng lỗ ấy mở ra với BẤT KỲ lần effect chạy lại nào.
+   */
+  it('(1) effect chạy lại khi lượt hỏi đầu còn đang bay (StrictMode / đổi đầu vào): vẫn biết có bản mới', async () => {
+    let tra: (v: unknown) => void = () => {};
+    apiGet.mockImplementationOnce(() => new Promise((r) => (tra = r))); // lượt hỏi đầu đang bay
+    apiGet.mockResolvedValue({ data: { buildId: 'bbb' } });
+    const { result, rerender } = renderHook(
+      ({ v }: { v: string }) => {
+        useTuCapNhat(v);
+        return useNavigate();
+      },
+      { wrapper: boc('/petitions'), initialProps: { v: 'aaa' } },
+    );
+    // Effect chạy lại (tháo lượt cũ) trong lúc lượt hỏi đầu CHƯA về — đúng thứ StrictMode làm lúc mới vào màn.
+    rerender({ v: 'aaa2' });
+    await act(async () => tra({ data: { buildId: 'bbb' } }));
+    await new Promise((r) => setTimeout(r, 20));
+    act(() => result.current('/cases'));
+    await waitFor(() => expect(soLanTaiLai).toBe(1));
+  });
+
   it('(2) quay lại tab sau lâu, trang rảnh: tự tải lại', async () => {
     apiGet.mockResolvedValue({ data: { buildId: 'bbb' } });
     const now = vi.spyOn(Date, 'now');

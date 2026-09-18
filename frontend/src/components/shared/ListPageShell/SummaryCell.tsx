@@ -36,12 +36,23 @@ export function SummaryCell({ value }: { value?: string | null }) {
     const el = chuRef.current;
     // Không kẹp (đang bung, hoặc mật độ "Đầy đủ") thì không đo — giữ nguyên "có tràn" để nút "Thu gọn" còn đó.
     if (!el || !kep) return;
-    const doLai = () => setCoTran(el.scrollHeight > el.clientHeight + 1);
+    let huy = false;
+    const doLai = () => {
+      if (!huy) setCoTran(el.scrollHeight > el.clientHeight + 1);
+    };
     doLai();
-    if (typeof ResizeObserver === 'undefined') return;
-    const quanSat = new ResizeObserver(doLai);
-    quanSat.observe(el);
-    return () => quanSat.disconnect();
+    // Đo lại khi FONT WEB nạp xong (UAT Chrome 18/09/2026): font có chân rộng hơn làm chữ dài thêm dòng, nhưng khung
+    // bị kẹp 5 dòng nên không đổi cỡ — ResizeObserver KHÔNG báo, ô tràn mà mất nút "Xem thêm".
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    void fonts?.ready.then(doLai);
+    fonts?.addEventListener('loadingdone', doLai);
+    const quanSat = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(doLai);
+    quanSat?.observe(el);
+    return () => {
+      huy = true;
+      fonts?.removeEventListener('loadingdone', doLai);
+      quanSat?.disconnect();
+    };
   }, [text, kep]);
 
   if (!text) {
