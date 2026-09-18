@@ -51,7 +51,6 @@ import {
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getCaseStatusIcon } from '@/shared/enums/status-icons';
-import { formatVNDate } from '@/lib/dates';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
@@ -668,7 +667,7 @@ export function CaseListPageShell() {
         width: '7rem',
         optional: 'hide',
         sortKey: 'createdAt',
-        render: (r) => formatVNDate(r.createdAt),
+        render: (r) => <DateCell value={r.createdAt} />,
       },
     ],
     [actionCtx],

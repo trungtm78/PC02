@@ -30,6 +30,8 @@ function viPham(src: string): string[] {
   if (!/<SummaryCell\b/.test(src)) loi.push('thiếu SummaryCell');
   if (!/^\s*xuongDong\b/m.test(theBang(src))) loi.push('bảng chưa bật xuongDong');
   if (/\bTABLE_CELL_TRUNCATE\b/.test(src)) loi.push('còn ô cắt chữ TABLE_CELL_TRUNCATE');
+  // Ngày MỘT dòng, mono, số thẳng hàng — mọi cột ngày đi qua DateCell (PR-F, 18/09/2026).
+  if (/formatVNDate\(r\./.test(src)) loi.push('cột ngày tự vẽ, không qua DateCell');
   return loi;
 }
 
@@ -50,6 +52,11 @@ describe('CỔNG bảng dễ đọc', () => {
       "key: 'nguonDon',\n        cellClassName: TABLE_CELL_TRUNCATE,",
     );
     expect(viPham(catChu)).toContain('còn ô cắt chữ TABLE_CELL_TRUNCATE');
+    const tuVeNgay = donThu.replace(
+      /<DateCell\s+value=\{r\.createdAt\}[\s\S]*?\/>/,
+      '{formatVNDate(r.createdAt)}',
+    );
+    expect(viPham(tuVeNgay)).toContain('cột ngày tự vẽ, không qua DateCell');
     const boXuongDong = donThu.replace(/^\s*xuongDong\n/m, '\n');
     expect(viPham(boXuongDong)).toContain('bảng chưa bật xuongDong');
   });

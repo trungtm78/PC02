@@ -51,7 +51,7 @@ export function SummaryCell({ value }: { value?: string | null }) {
         data-testid="summary-text"
         // KHÔNG kèm `block` khi đang kẹp: `line-clamp-5` cần `display:-webkit-box`, `block` đè mất và ô hiện hết
         // mọi dòng (bấm thử Chrome 18/09/2026 — ô cao 13 dòng; jsdom không tính CSS nên ca kiểm không thấy).
-        className={`text-slate-700 whitespace-pre-wrap break-words ${moRong ? 'block' : 'line-clamp-5'}`}
+        className={`font-serif text-[0.906rem] leading-relaxed text-slate-700 whitespace-pre-wrap break-words ${moRong ? 'block' : 'line-clamp-5'}`}
       >
         {text}
       </span>

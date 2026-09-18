@@ -428,11 +428,19 @@ của bộ lọc cũ); 0 dòng mà không có thay đổi → khoá kèm lý do;
 
 KHÔNG có giao diện nào (không hộp thoại, không toast) — app tự lên bản mới ở thời điểm an toàn (`useTuCapNhat`).
 
-### 11.5 Việc kế tiếp (PR-F, chưa có trong mã)
+### 11.5 Font (PR-F1, tự host)
 
-Font tự host (`@fontsource`): Be Vietnam Pro (giao diện), Source Serif 4 (chỉ cột Tóm tắt), JetBrains Mono (mã,
-ngày, `tnum`); đo lại bề rộng cột sau khi đổi font. Mật độ dòng Gọn (1) / Đọc (5, mặc định) / Đầy đủ, nhớ theo
-cán bộ ở máy chủ.
+`frontend/src/fonts.css` khai tay 12 mặt chữ — CHỈ bộ tiếng Việt + Latin, mỗi mặt có `unicode-range` (tệp con của
+`@fontsource` không có, thiếu là chữ có dấu rơi về font hệ thống). Theme: `--font-sans` Be Vietnam Pro (giao diện),
+`--font-serif` Source Serif 4 (CHỈ cột Tóm tắt), `--font-mono` JetBrains Mono (mã, ngày). Không gọi Google Fonts.
+12 tệp woff2, 264KB, nằm trong precache PWA. Cổng `fontTuHost.gate`.
+
+Ô ngày: mọi cột ngày đi qua `DateCell` — một dòng, mono, `tabular-nums`, 13px. Đo Chrome sau khi đổi font:
+"27/08/2026" rộng 78px trong ô 80px; mã STT 58px trong 64px (không tràn, không xuống dòng).
+
+### 11.6 Mật độ dòng (PR-F2, chưa có trong mã)
+
+Gọn (1 dòng) / Đọc (5 dòng, mặc định) / Đầy đủ; nhớ theo cán bộ ở máy chủ (`user_table_layouts`).
 
 ### Do / Don't
 
