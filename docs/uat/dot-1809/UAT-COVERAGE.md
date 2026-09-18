@@ -8,13 +8,13 @@
 | Môi trường | Tầng | Đạt | Đỏ | Bỏ qua | Ghi chú |
 |---|---|---|---|---|---|
 | **Prod** `31a5cbcc` | API | **18/18** | 0 | 0 | gồm A10 phạm vi OFFICER (officer1) |
-| **Prod** `31a5cbcc` | E2E Chrome | **23** | 0 | 2 | E17/E18 (YC-6) — dữ liệu prod CHỜ ANH XÁC NHẬN ghi |
+| **Prod** `31a5cbcc` | E2E Chrome | **25** | 0 | 0 | E17 sau lượt E, E18 sau lượt D (19/09) |
 | Bản sao `pc02_e2e_c` (đã chạy 3 CLI) | API | **18/18** | 0 | 0 | — |
 | Bản sao | E2E Chrome | **24** | 0 | 1 | E05: trang đầu bản sao không có tóm tắt dài — **đã PASS trên prod** |
 
 **Phủ mệnh đề: 46/46 dòng ledger có bằng chứng PASS** (mỗi dòng ở đúng tầng chủ ngữ của nó; dòng chủ ngữ là hàm thì
 câu đã thu hẹp). R6: anh duyệt lượt ghi **E** 19/09 → C6.1 (tìm "Kha Tử Thạnh" ra 26-11732) **PASS trên prod** (E17).
-C6.2 ("Lê Nguyễn Yến Thanh" ở Đơn thư) cần lượt ghi **D** — anh chưa duyệt → prod NOT_EXECUTED (PASS trên bản sao).
+Anh duyệt lượt ghi **D** 19/09 → C6.2 ("Lê Nguyễn Yến Thanh" ở Đơn thư ra 26-11129 "Đã chuyển vụ án") **PASS trên prod** (E18).
 
 ## 2. Lỗi UAT bắt được (đều đã sửa, deploy, chạy lại PASS)
 
@@ -63,7 +63,7 @@ Mọi tệp đã trả nguyên trạng sau mỗi lượt gieo (kiểm `git statu
 
 | Mục | Lý do | Đề xuất |
 |---|---|---|
-| YC-6 "Lê Nguyễn Yến Thanh" ở Đơn thư trên prod (E18) | Cần lượt ghi D (86 đơn gắn kèm) — anh chưa duyệt | Khi anh duyệt D: chạy `bu-don-thu-lech-loai --that` rồi E18 trên prod |
+| ~~YC-6 "Lê Nguyễn Yến Thanh" ở Đơn thư (E18)~~ | ĐÃ ĐÓNG trên prod 19/09 06:47: sao lưu `pre-bu-don-thu-lech-loai-20260919-0647.sql.gz`; thêm 86 đơn gắn kèm (61 vụ án + 25 vụ việc), mỗi đơn nối đúng hồ sơ đích; 0 số trùng; chạy lại 0 | — |
 | ~~Trùng số hệ mới → số mới + STT cũ (C6.4)~~ | ĐÃ ĐÓNG trên prod 19/09: 13 đơn 11729–11742 → 2026-11936…11948, 13/13 có STT cũ, 0 số trùng, chạy lại 0 | — |
 | Hiệu năng xuất 47k dòng | Không đo thời gian ở UAT | Đo lúc anh bấm thử lần đầu |
 | axe tự động | Chưa cài `@axe-core/playwright` | Đã kiểm tên: aria-pressed/aria-expanded/bàn phím (E05, E16) |
@@ -72,5 +72,5 @@ Mọi tệp đã trả nguyên trạng sau mỗi lượt gieo (kiểm `git statu
 
 **Đề xuất GO** cho YC-1…YC-5 + font + mật độ dòng (0 lỗi mở, 46/46 dòng ledger PASS, 15/15 lỗi gieo bị bắt).
 **YC-6:** Kha Tử Thạnh ĐÃ ĐÓNG trên prod (lượt E, sao lưu `pre-cap-nhat-he-cu-20260919-0628.sql.gz`). Lê Nguyễn Yến Thanh ở
-Đơn thư chờ anh duyệt lượt D; bù Cán bộ nhập 4.601 vụ việc chờ lượt C2. Chữ ký nghiệm thu là của anh
+Đơn thư ĐÃ ĐÓNG (lượt D, sao lưu `pre-bu-don-thu-lech-loai-20260919-0647.sql.gz`, E18 PASS prod); bù Cán bộ nhập 4.601 vụ việc chờ lượt C2. Chữ ký nghiệm thu là của anh
 (AI không tự duyệt).

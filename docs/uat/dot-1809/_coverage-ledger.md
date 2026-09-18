@@ -56,8 +56,8 @@ Chỗ M4 buộc đào sâu thêm: thêm ca phủ định cho R1 (E02, E03), R2-K
 | C5.11 | Tệp phường/xã vẫn xuất, giữ tên tệp, A4 ngang | R5-EXPORT | REGRESSION | API | A05 | PASS |
 | C5.12 | Vụ việc: lọc Cán bộ nhập ra hồ sơ, cột Người nhập có tên | R5-OFFICER | GREEN | E2E | E10 | PASS |
 | C5.13 | OFFICER chỉ xuất được hồ sơ trong phạm vi | R5-EXPORT | SECURITY | API (token officer1 thật) | A10 | PASS (prod + bản sao) |
-| C6.1 | Tìm "Kha Tử Thạnh" ở Vụ việc ra 26-11732 | R6-FIND | GREEN | E2E (bản sao) | E17 | PASS bản sao · prod NOT_EXECUTED (chờ anh xác nhận ghi) |
-| C6.2 | Tìm "Lê Nguyễn Yến Thanh" ở Đơn thư ra 26-11129 "Đã chuyển vụ án", mở sang vụ án | R6-FIND, R6-LINK | GREEN | E2E (bản sao) | E18 | PASS bản sao · prod NOT_EXECUTED |
+| C6.1 | Tìm "Kha Tử Thạnh" ở Vụ việc ra 26-11732 | R6-FIND | GREEN | E2E (bản sao) | E17 | PASS bản sao · **PASS prod** 19/09 (sau lượt E) |
+| C6.2 | Tìm "Lê Nguyễn Yến Thanh" ở Đơn thư ra 26-11129 "Đã chuyển vụ án", mở sang vụ án | R6-FIND, R6-LINK | GREEN | E2E (bản sao) | E18 | PASS bản sao · **PASS prod** 19/09 (sau lượt D) |
 | C6.3 | Chạy lại CLI → 0 (bình ổn) | R6-FIND | REGRESSION | CLI thật (bản sao) | Thực thi mục 3 | PASS |
 | C6.4 | Trùng số hệ mới → số theo bộ đếm, số cũ ở STT cũ | R6-STTCU | DECISION | UNIT/tích hợp | `bu-ma-trung-he-moi.spec.ts` | PASS (hàm) — bản sao không có đơn hệ mới ≥11729 để tái hiện |
 | CF.1 | Font tự host, đủ glyph tiếng Việt, không gọi Google Fonts | RF-FONT | COMPAT | E2E | E14 | PASS |
