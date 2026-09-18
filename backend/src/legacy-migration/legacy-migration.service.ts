@@ -81,7 +81,13 @@ export interface CommitResult {
  * NO KY THUAT da khai: nhanh cap nhat van de len ~50 cot khac theo dung kieu nay. Sua tron ven
  * la viec cua mot dot rieng — o day chi chan dung cho o vua duoc noi day.
  */
-const O_KHONG_DE_KHI_DA_CO = ['detailContent', 'summary', 'receiveDate'] as const;
+const O_KHONG_DE_KHI_DA_CO = [
+  'detailContent',
+  'summary',
+  'receiveDate',
+  // Vụ việc (18/09/2026): người cán bộ chọn ở ô "Cán bộ nhập" thắng người thêm của hệ cũ.
+  'canBoNhapId',
+] as const;
 
 /** Ô đã có giá trị thật chưa — chữ có nội dung, hoặc một mốc ngày hợp lệ. */
 function daCoGiaTri(v: unknown): boolean {
@@ -265,6 +271,11 @@ export class LegacyMigrationService {
             await this.resolveCrime(tx, data, 'incident');
             const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
             if (existing) {
+              // Cán bộ nhập là ô cán bộ CHỌN trên form — đồng bộ lại không đè khi đã có (18/09/2026).
+              giuChuCanBoDaGo(
+                data,
+                existing as unknown as Record<string, unknown>,
+              );
               await tx.incident.update({ where: { id: existing.id }, data: toRelationConnect(data) });
               linkedIncidentId = existing.id;
             } else {

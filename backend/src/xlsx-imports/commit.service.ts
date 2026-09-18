@@ -379,6 +379,8 @@ export class XlsxImportCommitService {
                 importedFrom: IMPORT_SOURCE_TAG,
                 importedAt: now,
                 importedById: actor.id,
+                // Cột "Người nhập" của Vụ án đọc `createdBy` (18/09/2026).
+                createdById: actor.id,
                 sourceFile: log.sourceFile,
                 importLogId: logId,
               },
@@ -395,6 +397,9 @@ export class XlsxImportCommitService {
                 importedFrom: IMPORT_SOURCE_TAG,
                 importedAt: now,
                 importedById: actor.id,
+                // Cột/bộ lọc/thẻ tìm "Người nhập" của Vụ việc đọc `canBoNhap` (18/09/2026).
+                createdById: actor.id,
+                canBoNhapId: actor.id,
                 sourceFile: log.sourceFile,
                 importLogId: logId,
               },

@@ -138,6 +138,34 @@ describe('LegacyMigrationService', () => {
       expect(thuHai).toMatchObject({ loaiThongTin: 'Tố cáo cán bộ', petitionType: 'TO_CAO' });
     });
 
+    /**
+     * "Cán bộ nhập" là ô cán bộ CHỌN trên form Vụ việc (18/09/2026): đồng bộ lại từ hệ cũ không được đè
+     * người cán bộ đã chọn bằng người thêm của hệ cũ. Ô đang trống thì vẫn điền như lần nạp đầu.
+     */
+    it('đồng bộ lại vụ việc: Cán bộ nhập đã có thì KHÔNG đè; đang trống thì điền', async () => {
+      const rec = { ...incidentRec, __createdById: 'u-nguoi-them' };
+      type TxVuViec = { incident: { findFirst: jest.Mock; update: jest.Mock } };
+      const vuViec = (mockTx as TxVuViec).incident;
+      type LanGhi = [{ data: Record<string, unknown> }];
+      const ghiLan = (i: number) =>
+        (vuViec.update.mock.calls[i] as LanGhi)[0].data;
+      vuViec.update.mockResolvedValue({ id: 'i-cu' });
+
+      vuViec.findFirst.mockResolvedValue({
+        id: 'i-cu',
+        canBoNhapId: 'u-da-chon',
+      });
+      await service.commit([rec], 'actor-1');
+      expect(ghiLan(0).canBoNhap).toBeUndefined();
+      expect(ghiLan(0).createdBy).toEqual({ connect: { id: 'u-nguoi-them' } });
+
+      vuViec.findFirst.mockResolvedValue({ id: 'i-cu', canBoNhapId: null });
+      await service.commit([rec], 'actor-1');
+      expect(ghiLan(1).canBoNhap).toEqual({
+        connect: { id: 'u-nguoi-them' },
+      });
+    });
+
     it('tạo petition mới khi chưa có legacySourceId', async () => {
       const res = await service.commit([petitionRec], 'actor-1');
       expect(mockTx.petition.create).toHaveBeenCalledTimes(1);
