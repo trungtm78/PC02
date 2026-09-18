@@ -31,7 +31,8 @@ function viPham(src: string): string[] {
   if (!/^\s*xuongDong\b/m.test(theBang(src))) loi.push('bảng chưa bật xuongDong');
   if (/\bTABLE_CELL_TRUNCATE\b/.test(src)) loi.push('còn ô cắt chữ TABLE_CELL_TRUNCATE');
   // Ngày MỘT dòng, mono, số thẳng hàng — mọi cột ngày đi qua DateCell (PR-F, 18/09/2026).
-  if (/formatVNDate\(r\./.test(src)) loi.push('cột ngày tự vẽ, không qua DateCell');
+  // Cấm MỌI `formatVNDate(` ở màn danh sách (không chỉ `r.x`): `row.x`, `r?.x` cũng là tự vẽ ngày.
+  if (/\bformatVNDate\(/.test(src)) loi.push('cột ngày tự vẽ, không qua DateCell');
   return loi;
 }
 

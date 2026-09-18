@@ -27,11 +27,13 @@ describe('DateCell', () => {
     expect(screen.getByText('27/08/2026')).toHaveAttribute('title', 'Ngày nhập vào hệ thống');
   });
 
-  it('không có ngày → gạch; ngày phi lý vẫn một dòng và được đánh dấu', () => {
+  it('không có ngày → gạch; ngày phi lý được đánh dấu và ĐƯỢC xuống dòng', () => {
     const { container, rerender } = render(<DateCell value={null} />);
     expect(container.textContent).toBe('—');
-    rerender(<DateCell value="3023-01-01T00:00:00+07:00" />);
+    rerender(<DateCell value="3023-01-01T00:00:00+07:00" quaHan />);
     const o = screen.getByTitle(/Ngày không hợp lệ/);
-    expect(o.className).toMatch(/\bwhitespace-nowrap\b/);
+    // Biểu tượng + ngày (~96px) dài hơn cột ngày (80px chỗ chữ): cấm xuống dòng thì đè sang cột bên.
+    expect(o.className).not.toMatch(/\bwhitespace-nowrap\b/);
+    expect(o.className).toMatch(/\btext-amber-700\b/);
   });
 });

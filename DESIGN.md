@@ -432,7 +432,7 @@ KHÔNG có giao diện nào (không hộp thoại, không toast) — app tự l�
 
 `frontend/src/fonts.css` khai tay 12 mặt chữ — CHỈ bộ tiếng Việt + Latin, mỗi mặt có `unicode-range` (tệp con của
 `@fontsource` không có, thiếu là chữ có dấu rơi về font hệ thống). Theme: `--font-sans` Be Vietnam Pro (giao diện),
-`--font-serif` Source Serif 4 (CHỈ cột Tóm tắt), `--font-mono` JetBrains Mono (mã, ngày). Không gọi Google Fonts.
+`--font-doc` Source Serif 4 (CHỈ cột Tóm tắt, lớp `font-doc`; KHÔNG đè `--font-serif` — mẫu in Mẫu 59/60 dùng nó), `--font-mono` JetBrains Mono (mã, ngày). Không gọi Google Fonts.
 12 tệp woff2, 264KB, nằm trong precache PWA. Cổng `fontTuHost.gate`.
 
 Ô ngày: mọi cột ngày đi qua `DateCell` — một dòng, mono, `tabular-nums`, 13px. Đo Chrome sau khi đổi font:

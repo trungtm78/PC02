@@ -38,14 +38,17 @@ describe('CỔNG font tự host', () => {
 
   it('theme dùng đúng ba họ chữ; trang nạp tệp font; không gọi Google Fonts', () => {
     expect(indexCss).toMatch(/--font-sans:\s*'Be Vietnam Pro'/);
-    expect(indexCss).toMatch(/--font-serif:\s*'Source Serif 4 Variable'/);
+    // Token RIÊNG cho cột Tóm tắt — KHÔNG đè `--font-serif`: mẫu in Mẫu 59/60 (ủy thác điều tra) dùng
+    // `font-serif`, đè là văn bản hành chính đổi font theo (rà mã 18/09/2026).
+    expect(indexCss).toMatch(/--font-doc:\s*'Source Serif 4 Variable'/);
+    expect(indexCss).not.toMatch(/--font-serif:/);
     expect(indexCss).toMatch(/--font-mono:\s*'JetBrains Mono Variable'/);
     expect(mainTsx).toMatch(/import '\.\/fonts\.css';/);
     expect(`${indexHtml}\n${indexCss}\n${fonts}`).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
   });
 
   it('cột Tóm tắt dùng font có chân (đọc đoạn dài)', () => {
-    expect(summaryCell).toMatch(/\bfont-serif\b/);
+    expect(summaryCell).toMatch(/\bfont-doc\b/);
   });
 
   it('gieo lỗi: mặt chữ thiếu unicode-range → cổng bắt được', () => {
