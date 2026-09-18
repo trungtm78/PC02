@@ -82,6 +82,32 @@ describe('useOfficerOptions', () => {
     ]);
   });
 
+  /** Sắp theo `createdAt` không có khoá phụ → giữa hai trang có thể lặp một người; loại trùng theo id. */
+  it('người lặp giữa hai trang chỉ hiện một lần; trùng tên mà thiếu tên đăng nhập thì kèm id', async () => {
+    const trang1 = Array.from({ length: 500 }, (_, i) => ({ id: `a${i}`, username: `cb${String(i).padStart(3, '0')}` }));
+    get.mockReset();
+    get
+      .mockResolvedValueOnce({ data: { data: trang1, total: 502 } })
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            { id: 'a499', username: 'cb499' },
+            { id: 'x1', firstName: 'Bình', lastName: 'Lê' },
+            { id: 'x2', firstName: 'Bình', lastName: 'Lê' },
+          ],
+          total: 502,
+        },
+      });
+    const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    const ds = result.current.data ?? [];
+    expect(ds.filter((o) => o.value === 'a499')).toHaveLength(1);
+    expect(ds.filter((o) => o.label.startsWith('Lê Bình')).map((o) => o.label).sort()).toEqual([
+      'Lê Bình (x1)',
+      'Lê Bình (x2)',
+    ]);
+  });
+
   it('dựng nhãn từ họ tên, lùi về tên đăng nhập khi thiếu', async () => {
     get.mockResolvedValue({
       data: [

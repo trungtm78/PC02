@@ -33,11 +33,17 @@ export function useOfficerOptions(enabled = true) {
       // ~45 cán bộ không lọc được). Máy chủ cho tối đa 500 dòng mỗi trang.
       type NguoiDung = { id: string; firstName?: string | null; lastName?: string | null; username?: string | null };
       const tatCa: NguoiDung[] = [];
+      const daCo = new Set<string>();
       for (let offset = 0; ; offset += MOI_TRANG) {
         const res = await api.get('/admin/users', { params: { limit: MOI_TRANG, offset, status: 'active' } });
         const than = res.data as NguoiDung[] | { data?: NguoiDung[]; total?: number } | undefined;
         const trang = Array.isArray(than) ? than : (than?.data ?? []);
-        tatCa.push(...trang);
+        // Máy chủ sắp theo `createdAt` không khoá phụ → một người có thể lặp giữa hai trang: loại trùng theo id.
+        for (const u of trang) {
+          if (daCo.has(u.id)) continue;
+          daCo.add(u.id);
+          tatCa.push(u);
+        }
         const tong = Array.isArray(than) ? tatCa.length : Number(than?.total ?? tatCa.length);
         if (trang.length < MOI_TRANG || tatCa.length >= tong) break;
       }
@@ -52,7 +58,7 @@ export function useOfficerOptions(enabled = true) {
           const nhan = hoTen(u);
           return {
             value: u.id,
-            label: (soLan.get(nhan) ?? 0) > 1 && u.username ? `${nhan} (${u.username})` : nhan,
+            label: (soLan.get(nhan) ?? 0) > 1 ? `${nhan} (${u.username ?? u.id})` : nhan,
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, 'vi')) as OfficerOption[];
