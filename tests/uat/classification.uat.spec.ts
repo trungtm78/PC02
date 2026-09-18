@@ -157,15 +157,16 @@ test.describe('UAT-CL-04: Prosecutor Proposal Excel Export', () => {
   });
 });
 
-test.describe('UAT-CL-05: Other Classification', () => {
-  test('Other Classification page renders correctly', async ({ page }) => {
+// Màn "Phân loại khác" GỠ 18/09/2026 (hệ cũ 0 hồ sơ loại ấy; màn hiện mọi vụ án với cột phân loại bịa).
+test.describe('UAT-CL-05: Phân loại khác đã gỡ', () => {
+  test('đường dẫn cũ không dựng màn, menu không còn mục', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto(`${BASE_URL}/classification/others`);
+    await expect(page.getByTestId('other-classification-page')).toHaveCount(0);
 
-    await expect(page.getByTestId('other-classification-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Phân loại khác/i })).toBeVisible();
-    await expect(page.getByTestId('other-classification-table')).toBeVisible();
+    await page.goto(`${BASE_URL}/dashboard`);
+    await expect(page.getByRole('link', { name: /Phân loại khác/i })).toHaveCount(0);
 
-    await page.screenshot({ path: 'tests/screenshots/uat-cl-05-step01-other-classification.png' });
+    await page.screenshot({ path: 'tests/screenshots/uat-cl-05-step01-da-go.png' });
   });
 });

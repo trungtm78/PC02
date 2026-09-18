@@ -161,21 +161,21 @@ test.describe('E2E-CL-04: Duplicate Petitions Page', () => {
   });
 });
 
-test.describe('E2E-CL-05: Other Classification Page', () => {
+// Màn "Phân loại khác" GỠ 18/09/2026: hệ cũ (`Modules/PhanLoaiKhac`) lọc `ho_so_doi_1.loai =
+// "phan_loai_khac"` và Mongo hệ cũ đếm 0 bản; hệ mới không có chỗ lưu loại ấy, còn màn thì hiện MỌI vụ
+// án với cột "phân loại" = tội danh. Hai ca dưới chốt điều ngược lại để nó không lặng lẽ quay lại.
+test.describe('E2E-CL-05: Phân loại khác đã gỡ', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });
 
-  test('Other Classification page renders with title and table', async ({ page }) => {
+  test('đường dẫn cũ không dựng màn Phân loại khác', async ({ page }) => {
     await page.goto(`${BASE_URL}/classification/others`);
-    await expect(page.getByTestId('other-classification-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Phân loại khác/i })).toBeVisible();
-    await expect(page.getByTestId('other-classification-table')).toBeVisible();
+    await expect(page.getByTestId('other-classification-page')).toHaveCount(0);
   });
 
-  test('Other Classification filter panel toggles correctly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/others`);
-    await page.getByTestId('filter-toggle-btn').click();
-    await expect(page.getByTestId('advanced-filter-panel')).toBeVisible();
+  test('menu không còn mục Phân loại khác', async ({ page }) => {
+    await page.goto(`${BASE_URL}/dashboard`);
+    await expect(page.getByRole('link', { name: /Phân loại khác/i })).toHaveCount(0);
   });
 });
