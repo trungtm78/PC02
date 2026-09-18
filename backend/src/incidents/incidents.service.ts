@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { Response } from 'express';
-import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
@@ -31,7 +30,6 @@ import {
   apDungKyVaoWhere,
   phuDeKyXuat,
 } from '../common/utils/thong-ke-ky.util';
-import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { tinhThoiHan, tinhHanSauGiaHan } from './tinh-thoi-han';
 import { TERMINAL_STATUSES, VALID_TRANSITIONS, PHASE_STATUSES } from './incidents.constants';
@@ -40,11 +38,21 @@ import { SettingsService } from '../settings/settings.service';
 import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
-import { BcaExcelHelper } from '../common/bca-excel.helper';
-import { INCIDENT_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
+import {
+  chonCotXuat,
+  xuatDanhSachExcel,
+} from '../common/xuat-danh-sach/xuat-danh-sach';
+import {
+  tachCotXuat,
+  type CotXuatDto,
+} from '../common/xuat-danh-sach/cot-xuat.dto';
+import {
+  KHAI_COT_XUAT_VU_VIEC,
+  KHAI_COT_XUAT_VU_VIEC_PHUONG,
+} from './xuat-danh-sach-vu-viec';
 
 /**
  * Tham số lọc chữ cũ của Vụ việc → khoá thẻ (đường dẫn cũ, GlobalSearchBar, ô chọn liên kết…).
@@ -59,6 +67,69 @@ const THAM_SO_CU_VU_VIEC = {
   stt: 'stt',
   sttCu: 'sttCu',
 } as const;
+
+/**
+ * Cột một dòng danh sách Vụ việc — dùng CHUNG cho màn danh sách và tệp Excel xuất theo bộ lọc, để hai
+ * nơi đọc đúng một bộ trường (18/09/2026).
+ */
+const CHON_DONG_DANH_SACH_VU_VIEC = {
+  id: true,
+  code: true,
+  // STT cũ — hiện ghép trong ô STT ở danh sách để cán bộ tra chiếu lại hệ cũ.
+  // Đơn thư và Vụ án đã trả sẵn; thiếu ở đây thì giao diện đúng mà 3.323 hồ sơ
+  // có số cũ vẫn trống, không gì báo.
+  sttCu: true,
+  name: true,
+  incidentType: true,
+  description: true,
+  fromDate: true,
+  toDate: true,
+  deadline: true,
+  unitId: true,
+  status: true,
+  sourcePetitionId: true,
+  doiTuongCaNhan: true,
+  doiTuongToChuc: true,
+  loaiDonVu: true,
+  benVu: true,
+  donViGiaiQuyet: true,
+  // Cột "Nguồn đơn/Đơn vị giao" của danh sách hệ cũ. Không khai ở đây thì cột trên
+  // màn hình luôn rỗng dù dữ liệu có đủ — truy vấn dùng `select` tường minh.
+  chuyenTuDonVi: true,
+  ngayDeXuat: true,
+  ketQuaXuLy: true,
+  tinhTrangHoSo: true,
+  tinhTrangThoiHieu: true,
+  nguoiQuyetDinh: true,
+  soQuyetDinh: true,
+  ngayQuyetDinh: true,
+  lyDoKhongKhoiTo: true,
+  lyDoTamDinhChiText: true,
+  lyDoTamDinhChiVuViec: true,
+  diaChiXayRa: true,
+  sdtNguoiToGiac: true,
+  diaChiNguoiToGiac: true,
+  cmndNguoiToGiac: true,
+  createdAt: true,
+  updatedAt: true,
+  investigator: {
+    select: { id: true, firstName: true, lastName: true, username: true },
+  },
+  canBoNhap: {
+    select: { id: true, firstName: true, lastName: true, username: true },
+  },
+  // Màn Vụ việc phường/xã: cột Phường = phường của TỔ thụ lý (cùng trường `wardTeamId` lọc; `unitId`
+  // rỗng ở mọi vụ việc), cột Tội danh = tội danh chính (cùng thẻ `toiDanhChinh`).
+  assignedTeam: {
+    select: { id: true, name: true, ward: { select: { name: true } } },
+  },
+  crimeChinh: { select: { name: true } },
+} satisfies Prisma.IncidentSelect;
+
+/** Một dòng danh sách Vụ việc như `getList` trả. */
+export type DongDanhSachVuViec = Prisma.IncidentGetPayload<{
+  select: typeof CHON_DONG_DANH_SACH_VU_VIEC;
+}>;
 
 @Injectable()
 export class IncidentsService {
@@ -88,10 +159,23 @@ export class IncidentsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryIncidentsDto, dataScope?: DataScope | null) {
+  /**
+   * MỘT nguồn điều kiện lọc cho danh sách, thẻ số và xuất Excel (18/09/2026).
+   *
+   * Trước đây `getStats` chép tay lại toàn bộ khối dựng `where` của `getList` — hai bản đang khớp nhau
+   * nhưng chỉ cần một bên thêm bộ lọc mà bên kia quên là thẻ số đứng yên khi bảng đổi (đúng lỗi đã xảy
+   * ra ở Đơn thư). Gộp một chỗ thì ba đường không thể lệch nhau nữa.
+   *
+   * `boTrangThai`: thẻ số bỏ điều kiện trạng thái/giai đoạn đang chọn, để các chip vẫn đếm MỌI trạng
+   * thái (drill-down). Mọi điều kiện khác giữ nguyên.
+   */
+  async dungWhereDanhSach(
+    query: QueryIncidentsDto | QueryIncidentsStatsDto,
+    dataScope?: DataScope | null,
+    { boTrangThai = false }: { boTrangThai?: boolean } = {},
+  ) {
+    const q = query as QueryIncidentsDto;
     const {
-      status,
-      phase,
       investigatorId,
       unitId,
       overdue,
@@ -106,11 +190,7 @@ export class IncidentsService {
       canBoNhapId,
       fromDateRange,
       toDateRange,
-      limit = 20,
-      offset = 0,
-      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
-      sortOrder = 'desc',
-    } = query;
+    } = q;
 
     const where: Prisma.IncidentWhereInput = {
       deletedAt: null,
@@ -123,16 +203,20 @@ export class IncidentsService {
       await this.timKiem.dieuKien(query),
     );
 
-    // Phase takes precedence over status (phase is a group of statuses)
-    // If both provided, phase wins — status is ignored.
-    // `resolveGroup` dùng hasOwnProperty: viết `PHASE_STATUSES[phase]` trần thì
-    // `?phase=constructor` trả về hàm Object — truthy nhưng không phải mảng — rồi lọt
-    // xuống Prisma thành `{ in: [Function] }` và ném lỗi 500.
-    const phaseStatuses = resolveGroup(PHASE_STATUSES, phase);
-    if (phaseStatuses) {
-      where.status = { in: [...phaseStatuses] };
-    } else if (status) {
-      where.status = status;
+    // Thẻ số KHÔNG lọc theo `phase`/`status`: phải đếm TOÀN BỘ dataset, nếu không thì chọn 1 giai
+    // đoạn sẽ khiến 3 thẻ kia về 0 — người dùng hết chỗ bấm sang giai đoạn khác.
+    if (!boTrangThai) {
+      // Phase takes precedence over status (phase is a group of statuses)
+      // If both provided, phase wins — status is ignored.
+      // `resolveGroup` dùng hasOwnProperty: viết `PHASE_STATUSES[phase]` trần thì
+      // `?phase=constructor` trả về hàm Object — truthy nhưng không phải mảng — rồi lọt
+      // xuống Prisma thành `{ in: [Function] }` và ném lỗi 500.
+      const phaseStatuses = resolveGroup(PHASE_STATUSES, q.phase);
+      if (phaseStatuses) {
+        where.status = { in: [...phaseStatuses] };
+      } else if (q.status) {
+        where.status = q.status;
+      }
     }
     if (investigatorId) where.investigatorId = investigatorId;
     if (unitId) where.unitId = unitId;
@@ -197,14 +281,19 @@ export class IncidentsService {
       ];
     }
 
+    return { where, ky: kyThongKe };
+  }
+
+  /** Thứ tự danh sách Vụ việc — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
+  private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
     // Mặc định sắp theo NGÀY TIẾP NHẬN NGUỒN TIN. Ở bảng này cột đó tên là
     // `ngayDeXuat` (lược đồ chú thích "Ngày tiếp nhận nguồn tin — Đ.146 BLTTHS") —
     // KHÔNG phải `ngayTiepNhanNguonTin`, dù tên gọi gợi ý ngược lại. Đo trên dữ liệu
     // thật: `ngayDeXuat` phủ 97,5% và có chỉ mục; `ngayTiepNhanNguonTin` chỉ 64,3% và
     // không có chỉ mục. `createdAt` thì cả 4.713 vụ việc đều cùng một ngày (ngày di trú).
-    const orderBy = buildListOrderBy({
+    return buildListOrderBy({
       sortBy,
-      sortOrder: sortOrder as ListSortOrder,
+      sortOrder,
       allowed: [
         'createdAt', 'updatedAt', 'deadline', 'status', 'code', 'name',
         'ngayDeXuat', 'ngayTiepNhanNguonTin', 'stt',
@@ -216,63 +305,24 @@ export class IncidentsService {
       nullableFields: ['ngayDeXuat', 'ngayTiepNhanNguonTin', 'deadline', 'sttSort'],
       fieldAliases: { stt: 'sttSort' },
     });
+  }
+
+  async getList(query: QueryIncidentsDto, dataScope?: DataScope | null) {
+    const {
+      limit = 20,
+      offset = 0,
+      sortBy, // mac dinh do buildListOrderBy quyet dinh, KHONG dat o day
+      sortOrder = 'desc',
+    } = query;
+
+    const { where } = await this.dungWhereDanhSach(query, dataScope);
+
+    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
 
     const [data, total] = await Promise.all([
       this.prisma.incident.findMany({
         where,
-        select: {
-          id: true,
-          code: true,
-          // STT cũ — hiện ghép trong ô STT ở danh sách để cán bộ tra chiếu lại hệ cũ.
-          // Đơn thư và Vụ án đã trả sẵn; thiếu ở đây thì giao diện đúng mà 3.323 hồ sơ
-          // có số cũ vẫn trống, không gì báo.
-          sttCu: true,
-          name: true,
-          incidentType: true,
-          description: true,
-          fromDate: true,
-          toDate: true,
-          deadline: true,
-          unitId: true,
-          status: true,
-          sourcePetitionId: true,
-          doiTuongCaNhan: true,
-          doiTuongToChuc: true,
-          loaiDonVu: true,
-          benVu: true,
-          donViGiaiQuyet: true,
-          // Cột "Nguồn đơn/Đơn vị giao" của danh sách hệ cũ. Không khai ở đây thì cột trên
-          // màn hình luôn rỗng dù dữ liệu có đủ — truy vấn dùng `select` tường minh.
-          chuyenTuDonVi: true,
-          ngayDeXuat: true,
-          ketQuaXuLy: true,
-          tinhTrangHoSo: true,
-          tinhTrangThoiHieu: true,
-          nguoiQuyetDinh: true,
-          soQuyetDinh: true,
-          ngayQuyetDinh: true,
-          lyDoKhongKhoiTo: true,
-          lyDoTamDinhChiText: true,
-          lyDoTamDinhChiVuViec: true,
-          diaChiXayRa: true,
-          sdtNguoiToGiac: true,
-          diaChiNguoiToGiac: true,
-          cmndNguoiToGiac: true,
-          createdAt: true,
-          updatedAt: true,
-          investigator: {
-            select: { id: true, firstName: true, lastName: true, username: true },
-          },
-          canBoNhap: {
-            select: { id: true, firstName: true, lastName: true, username: true },
-          },
-          // Màn Vụ việc phường/xã: cột Phường = phường của TỔ thụ lý (cùng trường `wardTeamId` lọc; `unitId`
-          // rỗng ở mọi vụ việc), cột Tội danh = tội danh chính (cùng thẻ `toiDanhChinh`).
-          assignedTeam: {
-            select: { id: true, name: true, ward: { select: { name: true } } },
-          },
-          crimeChinh: { select: { name: true } },
-        },
+        select: CHON_DONG_DANH_SACH_VU_VIEC,
         orderBy,
         take: limit,
         skip: offset,
@@ -1062,88 +1112,14 @@ export class IncidentsService {
   //   — /codex review P2 fix pattern applied here too)
   // - Strips status filter từ where (counts BY status, not filtered by it)
   async getStats(query: QueryIncidentsStatsDto, dataScope?: DataScope | null) {
-    const {
-      // `phase` cố tình KHÔNG destructure — DTO đã chặn ở cổng, và thẻ thống kê phải
-      // đếm toàn bộ dataset chứ không tự lọc theo giai đoạn đang chọn.
-      investigatorId,
-      unitId,
-      overdue,
-      districtId,
-      wardId,
-      wardTeamId,
-      loaiDonVu,
-      benVu,
-      reporter,
-      tinhTrangHoSo,
-      tinhTrangThoiHieu,
-      canBoNhapId,
-      fromDateRange,
-      toDateRange,
-    } = query;
-
-    const where: Prisma.IncidentWhereInput = { deletedAt: null };
-
-    // Thẻ tìm kiếm + tham số lọc chữ cũ (search/donViGiaiQuyet/stt/sttCu) — CÙNG helper cho danh
-    // sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
-    noiVaoWhere(
-      where as Record<string, unknown>,
-      await this.timKiem.dieuKien(query),
+    // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG hàm với getList và xuất Excel,
+    // chỉ bỏ điều kiện trạng thái/giai đoạn để các chip vẫn đếm mọi trạng thái (`phase` cũng đã bị
+    // OmitType chặn ở DTO stats).
+    const { where, ky: kyThongKe } = await this.dungWhereDanhSach(
+      query,
+      dataScope,
+      { boTrangThai: true },
     );
-
-    // KHÔNG lọc theo `phase` ở stats. Thẻ thống kê phải đếm TOÀN BỘ dataset, nếu không
-    // thì chọn 1 giai đoạn sẽ khiến 3 thẻ kia về 0 — người dùng hết chỗ bấm sang giai
-    // đoạn khác, drill-down mất ý nghĩa. `phase` cũng đã bị OmitType chặn ở DTO stats.
-    if (investigatorId) where.investigatorId = investigatorId;
-    if (unitId) where.unitId = unitId;
-    if (loaiDonVu) where.loaiDonVu = loaiDonVu;
-    if (benVu) where.benVu = benVu;
-    // Người tố giác: schema KHÔNG có cột TÊN, chỉ CCCD/SĐT → tra theo hai cột đó.
-    if (reporter) {
-      // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
-      // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        {
-          OR: [
-            { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
-            { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
-          ],
-        },
-      ];
-    }
-    if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
-    if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
-    if (canBoNhapId) where.canBoNhapId = canBoNhapId;
-
-    // Kỳ thống kê: nếu người dùng không tự đặt ngày thì áp mặc định admin cấu hình. Cùng
-    // một hàm với thẻ số và badge menu, nên ba chỗ không thể lệch nhau.
-    // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
-    const kyThongKe = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
-    );
-    apDungKyVaoWhere(where as Record<string, unknown>, kyThongKe, fromDateRange, toDateRange, 'ngayDeXuat');
-
-    if (overdue) {
-      where.deadline = { lt: new Date() };
-      where.status = { notIn: TERMINAL_STATUSES };
-    }
-
-    // Mirror getList: districtId maps to unitId; wardId currently unused
-    // (Incident has no Subject relation). Reserved for future Subject-level filter.
-    if (districtId) where.unitId = districtId;
-    void wardId;
-
-    const toPhuong = dieuKienToPhuong(wardTeamId, query.chiToPhuong);
-    if (toPhuong) where.assignedTeam = toPhuong;
-
-    const scopeFilter = buildScopeFilter(dataScope);
-    if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        scopeFilter as Prisma.IncidentWhereInput,
-      ];
-    }
 
     // Initialize all IncidentStatus keys to 0 → exhaustive response shape
     const byStatus: Record<IncidentStatus, number> = Object.values(IncidentStatus).reduce(
@@ -1624,11 +1600,71 @@ export class IncidentsService {
   }
 
   // ─────────────────────────────────────────────
+  // EXPORT DANH SÁCH (theo bộ lọc của màn Vụ việc)
+  // ─────────────────────────────────────────────
+  /**
+   * Xuất Excel danh sách Vụ việc theo ĐÚNG bộ lọc và thứ tự của bảng (nút Xuất Excel trong khung Bộ lọc,
+   * 18/09/2026). Cùng `dungWhereDanhSach`, `thuTuDanhSach`, `CHON_DONG_DANH_SACH_VU_VIEC` với màn danh
+   * sách — không có đường thứ hai để lệch. Ghi nhật ký kiểm toán mỗi lần xuất.
+   */
+  async xuatDanhSach(
+    query: QueryIncidentsDto & CotXuatDto,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    const cot = chonCotXuat(KHAI_COT_XUAT_VU_VIEC, tachCotXuat(query.cot));
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
+    const orderBy = this.thuTuDanhSach(
+      query.sortBy,
+      (query.sortOrder ?? 'desc') as ListSortOrder,
+    );
+    const soDong = await xuatDanhSachExcel<DongDanhSachVuViec>({
+      res,
+      tenTep: `danh-sach-vu-viec-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Vụ việc',
+      tieuDe: 'DANH SÁCH VỤ VIỆC',
+      phuDe: phuDeKyXuat(
+        ky,
+        query.fromDateRange,
+        query.toDateRange,
+        'Ngày đề xuất',
+      ),
+      cot,
+      demTong: () => this.prisma.incident.count({ where }),
+      layIdTheoThuTu: async (toiDa) =>
+        (
+          await this.prisma.incident.findMany({
+            where,
+            orderBy,
+            select: { id: true },
+            take: toiDa,
+          })
+        ).map((d) => d.id),
+      layDong: (ids) =>
+        this.prisma.incident.findMany({
+          where: { id: { in: ids }, deletedAt: null },
+          select: CHON_DONG_DANH_SACH_VU_VIEC,
+        }),
+    });
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'INCIDENT_EXPORTED',
+        subject: 'Incident',
+        metadata: { format: 'xlsx', kind: 'danh-sach', filters: query, soDong },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // EXPORT WARD INCIDENTS (Vụ việc theo phường/xã)
   // ─────────────────────────────────────────────
   /**
    * Xuất đúng những gì màn Vụ việc phường/xã đang lọc: CÙNG tham số (`tk`, `wardTeamId`, `status`, ngày…)
-   * và CÙNG điều kiện với `getList` — gọi thẳng `getList` theo từng trang. Bản cũ lọc `unitId` (rỗng ở mọi
+   * và CÙNG điều kiện, thứ tự với `getList` (qua `dungWhereDanhSach`/`thuTuDanhSach`). Bản cũ lọc `unitId` (rỗng ở mọi
    * vụ việc), lọc ngày theo `createdAt` (ngày di trú), cắt ở 500 dòng và in cột Loại/Đơn vị trống.
    */
   async exportWardIncidents(
@@ -1649,90 +1685,45 @@ export class IncidentsService {
       });
     }
 
-    const MOI_LUOT = 200;
-    type DongPhuong = Awaited<
-      ReturnType<IncidentsService['getList']>
-    >['data'][number];
-    const dong: DongPhuong[] = [];
-    for (let offset = 0; ; offset += MOI_LUOT) {
-      const trang = await this.getList(
-        { ...query, limit: MOI_LUOT, offset },
-        dataScope,
-      );
-      dong.push(...trang.data);
-      if (trang.data.length < MOI_LUOT || dong.length >= trang.total) break;
-    }
-
-    const HEADERS = [
-      'STT',
-      'Mã hồ sơ',
-      'Tên vụ việc',
-      'Tội danh',
-      'Người cung cấp, bị hại',
-      'Phường/Xã',
-      'ĐTV phụ trách',
-      'Ngày đề xuất',
-      'Trạng thái',
-    ];
-    const WIDTHS = [6, 14, 36, 28, 28, 22, 22, 14, 18];
-    const COL_COUNT = HEADERS.length;
-    const ngayVN = (d: Date | null | undefined) =>
-      d ? d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '';
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Vụ việc theo phường xã');
-    // Phụ đề ghi ĐÚNG khoảng ngày `getList` đã áp (ô ngày trống thì là kỳ mặc định admin đặt).
-    const ky = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
+    // Same exporter as "Xuất Excel theo bộ lọc" (18/09/2026): same conditions and order as the screen;
+    // previously looped `getList` 200 rows at a time (re-counting each page) and built the whole file in
+    // memory.
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
+    const orderBy = this.thuTuDanhSach(
+      query.sortBy,
+      (query.sortOrder ?? 'desc') as ListSortOrder,
     );
-    BcaExcelHelper.addHeader(
-      sheet,
-      COL_COUNT,
-      'DANH SÁCH VỤ VIỆC THEO PHƯỜNG/XÃ',
-      phuDeKyXuat(ky, query.fromDateRange, query.toDateRange, 'Ngày đề xuất'),
-    );
-    BcaExcelHelper.addColumnHeaders(sheet.getRow(7), HEADERS, WIDTHS);
-
-    dong.forEach((v, idx) => {
-      const dtv = v.investigator
-        ? `${v.investigator.lastName ?? ''} ${v.investigator.firstName ?? ''}`.trim()
-        : '';
-      const row = sheet.addRow([
-        idx + 1,
-        maHoSoNgan(v.code),
-        v.name ?? '',
-        v.crimeChinh?.name ?? '',
-        v.benVu ?? '',
-        v.assignedTeam?.ward?.name ?? '',
-        dtv,
-        ngayVN(v.ngayDeXuat),
-        INCIDENT_STATUS_LABEL[v.status] ?? v.status,
-      ]);
-      BcaExcelHelper.styleDataRow(row, idx % 2 === 1, COL_COUNT);
+    await xuatDanhSachExcel<DongDanhSachVuViec>({
+      res,
+      tenTep: `VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Vụ việc theo phường xã',
+      tieuDe: 'DANH SÁCH VỤ VIỆC THEO PHƯỜNG/XÃ',
+      // Subtitle states EXACTLY the date range applied (empty date inputs → admin default period).
+      phuDe: phuDeKyXuat(
+        ky,
+        query.fromDateRange,
+        query.toDateRange,
+        'Ngày đề xuất',
+      ),
+      cot: KHAI_COT_XUAT_VU_VIEC_PHUONG,
+      demTong: () => this.prisma.incident.count({ where }),
+      layIdTheoThuTu: async (toiDa) =>
+        (
+          await this.prisma.incident.findMany({
+            where,
+            orderBy,
+            select: { id: true },
+            take: toiDa,
+          })
+        ).map((d) => d.id),
+      layDong: (ids) =>
+        this.prisma.incident.findMany({
+          where: { id: { in: ids }, deletedAt: null },
+          select: CHON_DONG_DANH_SACH_VU_VIEC,
+        }),
+      // The pre-existing ward file still returns a header-only file when nothing matches — keep that.
+      choPhepRong: true,
     });
-
-    BcaExcelHelper.addFooter(
-      sheet,
-      (sheet.lastRow?.number ?? 7) + 2,
-      COL_COUNT,
-    );
-    BcaExcelHelper.setPrintSetup(sheet);
-
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="VuViecPhuongXa_${new Date().toISOString().slice(0, 10)}.xlsx"`,
-    );
-    try {
-      await workbook.xlsx.write(res);
-    } catch {
-      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
-      else res.destroy();
-    }
   }
 
   // ─────────────────────────────────────────────

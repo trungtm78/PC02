@@ -12,6 +12,7 @@
  * KHÔNG thay thế production IncidentListPage directly — swap qua feature flag
  * trong PR3 sau khi soak. PR2 ships shell-consumers alongside legacy pages.
  */
+import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
@@ -64,7 +65,7 @@ import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
-import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
 import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalProvider';
 import { usePermission } from '@/hooks/usePermission';
@@ -769,7 +770,7 @@ export function IncidentListPageShell() {
       <StatsCardsStrip
         cards={buildIncidentsCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}
+        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDateRange, appliedFilters.toDateRange) : null}
         activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />
@@ -855,6 +856,23 @@ export function IncidentListPageShell() {
           onApply={listFilters.apply}
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
+          hanhDongPhu={
+            // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
+            <NutXuatTheoBoLoc
+              duongDan="/incidents/export/danh-sach"
+              thamSo={{
+                ...baseQueryParams,
+                ...(statusFilter && { status: statusFilter }),
+                ...(phaseFilter && { phase: phaseFilter }),
+                ...sort.params,
+              }}
+              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+              tong={tableState === 'loading' ? null : totalCount}
+              hasUnappliedChanges={listFilters.hasUnappliedChanges}
+              onApply={listFilters.apply}
+              tenDuPhong="danh-sach-vu-viec.xlsx"
+            />
+          }
           dynamicOptions={{
             canBoNhapId: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
           }}

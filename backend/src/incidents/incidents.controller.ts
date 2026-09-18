@@ -31,6 +31,7 @@ import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { QueryIncidentsDto } from './dto/query-incidents.dto';
 import { QueryIncidentsStatsDto } from './dto/query-incidents-stats.dto';
+import { XuatDanhSachVuViecDto } from './dto/xuat-danh-sach-vu-viec.dto';
 import { AssignInvestigatorDto } from './dto/assign-investigator.dto';
 import { ProsecuteIncidentDto } from './dto/prosecute-incident.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -123,6 +124,24 @@ export class IncidentsController {
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   getInvestigators(@Query('search') search?: string) {
     return this.incidentsService.getInvestigators(search);
+  }
+
+  // GET /api/v1/incidents/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách vụ việc.
+  @Get('export/danh-sach')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async xuatDanhSach(
+    @Query() query: XuatDanhSachVuViecDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.incidentsService.xuatDanhSach(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // GET /api/v1/incidents/export/ward — Xuất vụ việc theo phường/xã ra Excel

@@ -11,6 +11,9 @@ import { SettingsService } from '../settings/settings.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
+import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
+import * as ExcelJSDoc from 'exceljs';
+import { PassThrough } from 'stream';
 
 const mockPrisma = {
   case: {
@@ -132,18 +135,12 @@ describe('CasesService — màn Vụ án phường/xã', () => {
   });
 
   describe('xuất Excel theo phường — CÙNG bộ lọc với danh sách', () => {
-    const res = () => ({
-      setHeader: jest.fn(),
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      destroy: jest.fn(),
-      headersSent: false,
-      write: jest.fn(),
-      end: jest.fn(),
-      on: jest.fn(),
-      once: jest.fn(),
-      emit: jest.fn(),
-    });
+    // Bộ xuất chung ghi LUỒNG thẳng vào phản hồi — cần luồng thật; mỗi lượt xuất một phản hồi mới.
+    const res = (phan: Buffer[] = []) => {
+      const r = Object.assign(new PassThrough(), { setHeader: jest.fn() });
+      r.on('data', (c: Buffer) => phan.push(c));
+      return r;
+    };
 
     it('áp thẻ tìm, phường, trạng thái, loại REGULAR và phạm vi dữ liệu như danh sách', async () => {
       await service.exportWardCases(
@@ -195,7 +192,7 @@ describe('CasesService — màn Vụ án phường/xã', () => {
       }
     });
 
-    it('tải HẾT mọi trang, không cắt ở 500 dòng đầu', async () => {
+    it('tải HẾT mọi dòng khớp, không cắt ở 500 dòng đầu — đúng thứ tự danh sách', async () => {
       const dong = (i: number) => ({
         id: `c${i}`,
         caseCode: `2026-${i}`,
@@ -209,25 +206,114 @@ describe('CasesService — màn Vụ án phường/xã', () => {
         assignedTeam: { ward: { name: 'Phường Bến Nghé' } },
         investigator: null,
       });
-      mockPrisma.case.count.mockResolvedValue(450);
+      mockPrisma.case.count.mockResolvedValue(650);
       mockPrisma.case.findMany.mockImplementation(
-        ({ skip, take }: { skip: number; take: number }) =>
+        (a: { where: { id?: { in: string[] } } }) =>
           Promise.resolve(
-            Array.from(
-              { length: Math.max(0, Math.min(take, 450 - skip)) },
-              (_, k) => dong(skip + k),
-            ),
+            a.where.id
+              ? a.where.id.in.map((id) => dong(Number(id.slice(1))))
+              : Array.from({ length: 650 }, (_, k) => ({ id: `c${k}` })),
           ),
       );
-      await service.exportWardCases({} as never, null, res() as never);
-      const layRa = mockPrisma.case.findMany.mock.calls.reduce(
-        (n: number, [a]: [{ skip: number; take: number }]) =>
-          n + Math.max(0, Math.min(a.take, 450 - a.skip)),
-        0,
+      try {
+        const phan: Buffer[] = [];
+        await service.exportWardCases({} as never, null, res(phan) as never);
+        await new Promise((r) => setImmediate(r));
+        const wb = new ExcelJSDoc.Workbook();
+        await wb.xlsx.load(Buffer.concat(phan) as never);
+        const sheet = wb.worksheets[0];
+        // Hàng 7 tiêu đề cột, 8..657 là 650 dòng dữ liệu.
+        expect(sheet.getRow(657).getCell(2).value).toBe('26-649');
+        expect(sheet.getRow(658).getCell(2).value).toBeNull();
+      } finally {
+        mockPrisma.case.findMany.mockReset().mockResolvedValue([]);
+        mockPrisma.case.count.mockReset().mockResolvedValue(0);
+      }
+    });
+
+    it('GIỮ đúng cột, tiêu đề và giá trị của tệp phường cũ; tên tệp, sheet, tiêu đề không đổi', async () => {
+      const vuAn = {
+        id: 'c1',
+        caseCode: '2026-11171',
+        name: 'Trộm xe máy',
+        crime: 'chữ cũ',
+        crimeChinh: { name: 'Tội trộm cắp tài sản' },
+        status: CaseStatus.TIEP_NHAN,
+        ngayDeXuat: new Date('2026-09-01T03:00:00Z'),
+        subjects: [{ fullName: 'Nguyễn A' }, { fullName: 'Trần B' }],
+        _count: { subjects: 5 },
+        assignedTeam: { ward: { name: 'Phường Bến Nghé' } },
+        investigator: { lastName: 'Lê', firstName: 'Văn C', username: 'lvc' },
+      };
+      mockPrisma.case.count.mockResolvedValue(1);
+      mockPrisma.case.findMany
+        .mockResolvedValueOnce([{ id: 'c1' }])
+        .mockResolvedValueOnce([vuAn]);
+      const phan: Buffer[] = [];
+      const r = res(phan);
+      try {
+        await service.exportWardCases({} as never, null, r as never);
+        await new Promise((x) => setImmediate(x));
+      } finally {
+        mockPrisma.case.count.mockReset().mockResolvedValue(0);
+      }
+      expect(r.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringMatching(/VuAnPhuongXa_\d{4}-\d{2}-\d{2}\.xlsx/),
       );
-      expect(layRa).toBe(450);
-      mockPrisma.case.findMany.mockReset().mockResolvedValue([]);
-      mockPrisma.case.count.mockReset().mockResolvedValue(0);
+      const wb = new ExcelJSDoc.Workbook();
+      await wb.xlsx.load(Buffer.concat(phan) as never);
+      const sheet = wb.worksheets[0];
+      expect(sheet.name).toBe('Danh sách vụ án');
+      expect(JSON.stringify(sheet.getRow(4).values)).toContain(
+        'DANH SÁCH VỤ ÁN THEO PHƯỜNG/XÃ',
+      );
+      expect((sheet.getRow(7).values as unknown[]).slice(1)).toEqual([
+        'STT',
+        'Mã hồ sơ',
+        'Tên vụ án',
+        'Tội danh',
+        'Bị can',
+        'Phường/Xã',
+        'ĐTV phụ trách',
+        'Ngày đề xuất',
+        'Trạng thái',
+      ]);
+      expect(
+        [2, 3, 4, 5, 6, 7, 8, 9].map((c) => sheet.getColumn(c).width),
+      ).toEqual([14, 36, 28, 28, 22, 22, 14, 18]);
+      expect((sheet.getRow(8).values as unknown[]).slice(1)).toEqual([
+        1,
+        '26-11171',
+        'Trộm xe máy',
+        'Tội trộm cắp tài sản',
+        'Nguyễn A, Trần B (+3)',
+        'Phường Bến Nghé',
+        'Lê Văn C',
+        // Same formatter as the old file (ICU output differs across Node builds).
+        vuAn.ngayDeXuat.toLocaleDateString('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+        }),
+        CASE_STATUS_LABEL[CaseStatus.TIEP_NHAN],
+      ]);
+    });
+
+    it('không có vụ án nào vẫn trả tệp (chỉ tiêu đề) như trước; ghi nhật ký kind=ward', async () => {
+      const audit = (service as unknown as { audit: { log: jest.Mock } }).audit;
+      const r = res();
+      await service.exportWardCases({} as never, null, r as never, {
+        userId: 'u1',
+      });
+      expect(r.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringContaining('VuAnPhuongXa_'),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CASE_EXPORTED',
+          metadata: expect.objectContaining({ kind: 'ward', format: 'xlsx' }),
+        }),
+      );
     });
   });
 

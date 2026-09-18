@@ -70,10 +70,22 @@ function truongTraVe(duong: string): Set<string> {
   const than = src.slice(i, src.indexOf('async ', i + 12));
   const k = than.indexOf('select:');
   if (k < 0) return new Set();
+  // Từ 18/09/2026 `select` là một HẰNG dùng chung với bộ xuất Excel (`select: CHON_DONG_…`) — lần
+  // theo tên về chỗ khai trong cùng tệp rồi mới cắt khối.
+  const tenHang = /^select:\s*([A-Z][A-Z0-9_]+)\b/.exec(than.slice(k))?.[1];
+  if (tenHang) {
+    const khai = src.indexOf(`const ${tenHang} = {`);
+    if (khai < 0) return new Set();
+    return khoiSelect(src, src.indexOf('{', khai));
+  }
+  return khoiSelect(than, than.indexOf('{', k));
+}
+
+/** Trường `ten: true` trong khối `{…}` bắt đầu tại `dau`. */
+function khoiSelect(than: string, dau: number): Set<string> {
   // Cắt theo ĐỘ SÂU NGOẶC. Cắt ở `},` đầu tiên sẽ trúng một đối tượng lồng (vd
   // `investigator: { select: {...} },`) và bỏ sót phần lớn danh sách — khi ấy cổng báo thiếu
   // hàng loạt trường vẫn đang được trả về đầy đủ.
-  const dau = than.indexOf('{', k);
   let sau = 0;
   let cuoi = than.length;
   for (let i = dau; i < than.length; i++) {

@@ -219,7 +219,15 @@ export class BcaExcelHelper {
     sheet: ExcelJS.Worksheet,
     landscape = true,
   ): void {
-    sheet.pageSetup = {
+    sheet.pageSetup = BcaExcelHelper.printSetup(landscape);
+  }
+
+  /**
+   * Thiết lập trang in dạng giá trị — bộ ghi luồng (`stream.xlsx.WorkbookWriter`) chỉ nhận nó lúc
+   * `addWorksheet`, không gán sau được như sổ trong bộ nhớ.
+   */
+  static printSetup(landscape = true): Partial<ExcelJS.PageSetup> {
+    return {
       paperSize: 9, // A4
       orientation: landscape ? 'landscape' : 'portrait',
       fitToPage: true,

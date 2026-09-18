@@ -1,4 +1,4 @@
-import { PetitionStatus } from '@prisma/client';
+import { LoaiDon, PetitionStatus } from '@prisma/client';
 import type { StatusGroups } from '../common/status-groups.util';
 
 /**
@@ -19,3 +19,13 @@ export const PETITION_STATUS_GROUPS: StatusGroups<PetitionStatus> = {
 };
 
 export const PETITION_STATUS_GROUP_KEYS = Object.keys(PETITION_STATUS_GROUPS);
+
+// Vietnamese labels for LoaiDon — Excel display consistency with PETITION_STATUS_LABEL.
+// Mirror frontend LOAI_DON_LABEL exactly (no drift). FE source:
+// frontend/src/shared/enums/status-labels.ts → LOAI_DON_LABEL.
+export const LOAI_DON_LABEL_BE: Record<LoaiDon, string> = {
+  [LoaiDon.TO_CAO]: 'Tố cáo',
+  [LoaiDon.KHIEU_NAI]: 'Khiếu nại',
+  [LoaiDon.KIEN_NGHI]: 'Kiến nghị',
+  [LoaiDon.PHAN_ANH]: 'Phản ánh',
+};
