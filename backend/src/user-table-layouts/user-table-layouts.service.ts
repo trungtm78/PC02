@@ -98,17 +98,13 @@ export class UserTableLayoutsService {
    */
   async reset(userId: string, tableKey: string): Promise<{ deleted: number }> {
     this.kiemBang(tableKey);
-    const hang = await this.prisma.userTableLayout.findUnique({
-      where: { userId_tableKey: { userId, tableKey } },
-      select: { matDo: true },
+    // MỘT lệnh ghi có điều kiện, không đọc-rồi-ghi: hai tab cùng bấm thì hàng có thể biến mất giữa hai lệnh và
+    // lệnh cập nhật ném P2025 (500).
+    const giuMatDo = await this.prisma.userTableLayout.updateMany({
+      where: { userId, tableKey, matDo: { not: null } },
+      data: { columns: {} },
     });
-    if (hang?.matDo) {
-      await this.prisma.userTableLayout.update({
-        where: { userId_tableKey: { userId, tableKey } },
-        data: { columns: {} },
-      });
-      return { deleted: 1 };
-    }
+    if (giuMatDo.count > 0) return { deleted: giuMatDo.count };
     const r = await this.prisma.userTableLayout.deleteMany({ where: { userId, tableKey } });
     return { deleted: r.count };
   }

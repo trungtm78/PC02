@@ -16,11 +16,10 @@ import { LuuMatDoDto } from './dto/luu-mat-do.dto';
 const kho = {
   userTableLayout: {
     findMany: jest.fn(),
-    findUnique: jest.fn(),
+    updateMany: jest.fn(),
     upsert: jest.fn((a: { create: object }) =>
       Promise.resolve({ id: 'l1', ...a.create }),
     ),
-    update: jest.fn(() => Promise.resolve({})),
     deleteMany: jest.fn(() => Promise.resolve({ count: 1 })),
   },
 };
@@ -76,18 +75,22 @@ describe('UserTableLayoutsService — mật độ dòng', () => {
     expect(kho.userTableLayout.upsert).toHaveBeenCalled();
   });
 
-  it('"Đặt lại cột" GIỮ mật độ đã chọn: có mật độ thì chỉ xoá bố cục cột', async () => {
-    kho.userTableLayout.findUnique.mockResolvedValue({ matDo: 'gon' });
+  /**
+   * MỘT lệnh ghi có điều kiện, không đọc-rồi-ghi: hai tab cùng bấm "Đặt lại" thì hàng có thể bị xoá giữa lúc đọc và
+   * lúc cập nhật → cập nhật ném P2025 thành 500 (rà mã PR-F2).
+   */
+  it('"Đặt lại cột" GIỮ mật độ đã chọn: có mật độ thì chỉ làm rỗng bố cục cột', async () => {
+    kho.userTableLayout.updateMany.mockResolvedValue({ count: 1 });
     expect(await svc.reset('u1', 'petitions')).toEqual({ deleted: 1 });
-    expect(kho.userTableLayout.update).toHaveBeenCalledWith({
-      where: { userId_tableKey: { userId: 'u1', tableKey: 'petitions' } },
+    expect(kho.userTableLayout.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', tableKey: 'petitions', matDo: { not: null } },
       data: { columns: {} },
     });
     expect(kho.userTableLayout.deleteMany).not.toHaveBeenCalled();
   });
 
   it('"Đặt lại cột" khi chưa chọn mật độ → xoá hàng như cũ', async () => {
-    kho.userTableLayout.findUnique.mockResolvedValue({ matDo: null });
+    kho.userTableLayout.updateMany.mockResolvedValue({ count: 0 });
     await svc.reset('u1', 'petitions');
     expect(kho.userTableLayout.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'u1', tableKey: 'petitions' },

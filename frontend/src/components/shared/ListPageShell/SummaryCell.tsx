@@ -1,5 +1,5 @@
 import { useContext, useLayoutEffect, useRef, useState, type SyntheticEvent } from 'react';
-import { LOP_KEP, MatDoContext, SO_DONG_TOM_TAT } from './matDo';
+import { LOP_KEP, MatDoContext, SO_DONG_TOM_TAT, type MatDo } from './matDo';
 
 /**
  * Ô "Tóm tắt nội dung" — cột cán bộ đọc nhiều nhất ở hệ cũ.
@@ -12,14 +12,23 @@ import { LOP_KEP, MatDoContext, SO_DONG_TOM_TAT } from './matDo';
  * - Nút chặn lan cả chuột lẫn phím: ô nằm trong `<tr onClick/onKeyDown>` mở hồ sơ — không chặn thì bấm
  *   "Xem thêm" là nhảy sang màn xem (lỗi anh báo ở cả 3 màn).
  * - Có "Thu gọn": hệ cũ mở rồi không đóng lại được.
- * - Số dòng theo MẬT ĐỘ của bảng (context, PR-F2): Gọn 1 · Đọc 5 (mặc định) · Đầy đủ không kẹp, không nút.
+ * - Số dòng theo MẬT ĐỘ của bảng (context, PR-F2): Gọn 1 · Đọc 5 (mặc định) · Đầy đủ không kẹp. CHỈ "Đọc" có nút:
+ *   "Gọn" phải thật sự một dòng (nút chiếm dòng thứ hai) — rê chuột đọc toàn văn; "Đầy đủ" không kẹp gì để bung.
  */
 export function SummaryCell({ value }: { value?: string | null }) {
+  const matDo = useContext(MatDoContext);
   const [moRong, setMoRong] = useState(false);
+  // Đổi mật độ → thu ô lại, theo đúng mật độ mới (không kẹt ở trạng thái bung). Chỉnh state NGAY lúc vẽ khi đầu vào
+  // đổi — khuôn React khuyên dùng thay cho effect, và là khuôn repo đã dùng (WardPetitionsPage `trangTheoLoc`).
+  const [matDoTruoc, setMatDoTruoc] = useState<MatDo>(matDo);
+  if (matDoTruoc !== matDo) {
+    setMatDoTruoc(matDo);
+    setMoRong(false);
+  }
   const [coTran, setCoTran] = useState(false);
   const chuRef = useRef<HTMLSpanElement>(null);
 
-  const soDong = SO_DONG_TOM_TAT[useContext(MatDoContext)];
+  const soDong = SO_DONG_TOM_TAT[matDo];
   const text = (value ?? '').trim();
   const kep = soDong !== null && !moRong;
 
@@ -53,13 +62,15 @@ export function SummaryCell({ value }: { value?: string | null }) {
       <span
         ref={chuRef}
         data-testid="summary-text"
+        // "Gọn" không có nút — rê chuột đọc toàn văn.
+        title={matDo === 'gon' ? text : undefined}
         // KHÔNG kèm `block` khi đang kẹp: `line-clamp-5` cần `display:-webkit-box`, `block` đè mất và ô hiện hết
         // mọi dòng (bấm thử Chrome 18/09/2026 — ô cao 13 dòng; jsdom không tính CSS nên ca kiểm không thấy).
         className={`font-doc text-[0.906rem] leading-relaxed text-slate-700 whitespace-pre-wrap break-words ${kep ? LOP_KEP[soDong] : 'block'}`}
       >
         {text}
       </span>
-      {soDong !== null && (coTran || moRong) && (
+      {matDo === 'doc' && (coTran || moRong) && (
         <button
           type="button"
           aria-expanded={moRong}

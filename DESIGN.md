@@ -444,7 +444,7 @@ Nhóm nút `ChonMatDo` (Gọn · Đọc · Đầy đủ, `aria-pressed`) đặt 
 
 | Mức | Ô Tóm tắt | Ô khác | Khi nào |
 |---|---|---|---|
-| Gọn | 1 dòng + "Xem thêm" | một dòng, cắt bằng … | quét nhanh nhiều hồ sơ |
+| Gọn | 1 dòng, rê chuột xem toàn văn (không nút — để dòng thật sự một dòng) | một dòng, cắt bằng … | quét nhanh nhiều hồ sơ |
 | **Đọc** (mặc định) | 5 dòng + "Xem thêm" | xuống dòng | đọc thường ngày |
 | Đầy đủ | không kẹp, không nút | xuống dòng | hầu hết hồ sơ đều dài — khỏi bấm "Xem thêm" từng dòng |
 

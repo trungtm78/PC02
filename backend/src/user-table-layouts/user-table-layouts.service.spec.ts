@@ -6,8 +6,8 @@ import { BE_RONG_TOI_THIEU } from './bo-cuc-cot.util';
 const kho = {
   userTableLayout: {
     findMany: jest.fn(),
-    // `reset` đọc mật độ dòng trước khi xoá (18/09/2026) — chưa chọn mật độ thì xoá hàng như cũ.
-    findUnique: jest.fn(() => Promise.resolve(null)),
+    // `reset` giữ mật độ dòng (18/09/2026): không có hàng mang mật độ (count 0) thì xoá hàng như cũ.
+    updateMany: jest.fn(() => Promise.resolve({ count: 0 })),
     upsert: jest.fn((a: any) => Promise.resolve({ id: 'l1', ...a.create })),
     deleteMany: jest.fn(() => Promise.resolve({ count: 1 })),
   },

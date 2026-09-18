@@ -46,6 +46,40 @@ describe('SummaryCell theo mật độ', () => {
     expect(screen.getByTestId('summary-text').className).toMatch(/\bline-clamp-5\b/);
   });
 
+  it('Gọn → THẬT SỰ một dòng: không nút "Xem thêm" (nút chiếm dòng thứ hai), rê chuột đọc toàn văn', () => {
+    giaLapTran();
+    render(
+      <MatDoContext.Provider value="gon">
+        <SummaryCell value={DAI} />
+      </MatDoContext.Provider>,
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByTestId('summary-text')).toHaveAttribute('title', DAI.trim());
+  });
+
+  it('đang bung ở "Đọc" rồi đổi mật độ → ô theo mật độ mới, không kẹt ở trạng thái bung', () => {
+    giaLapTran();
+    const { rerender } = render(
+      <MatDoContext.Provider value="doc">
+        <SummaryCell value={DAI} />
+      </MatDoContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /xem thêm/i }));
+    expect(screen.getByTestId('summary-text').className).not.toMatch(/line-clamp/);
+    rerender(
+      <MatDoContext.Provider value="gon">
+        <SummaryCell value={DAI} />
+      </MatDoContext.Provider>,
+    );
+    expect(screen.getByTestId('summary-text').className).toMatch(/\bline-clamp-1\b/);
+    rerender(
+      <MatDoContext.Provider value="doc">
+        <SummaryCell value={DAI} />
+      </MatDoContext.Provider>,
+    );
+    expect(screen.getByTestId('summary-text').className).toMatch(/\bline-clamp-5\b/);
+  });
+
   it('Đầy đủ → không kẹp, KHÔNG có nút "Xem thêm" dù chữ dài', () => {
     giaLapTran();
     render(
@@ -112,6 +146,26 @@ describe('useMatDoDong', () => {
     expect(result.current[0]).toBe('doc');
     const { result: r2 } = renderHook(() => useMatDoDong('petitions'), { wrapper: khung() });
     await waitFor(() => expect(r2.current[0]).toBe('gon'));
+  });
+
+  /**
+   * Bố cục cột (`useBoCucCot`) huỷ/làm mới khoá `['user-table-layouts']` theo TIỀN TỐ — khoá mật độ nằm dưới tiền
+   * tố ấy thì mỗi lần kéo cột lại huỷ truy vấn mật độ, bảng lật tạm về "Đọc" (rà mã PR-F2).
+   */
+  it('làm mới bố cục cột KHÔNG đụng mật độ (khoá riêng, không chung tiền tố)', async () => {
+    apiList.mockResolvedValue({ data: { petitions: 'gon' } });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Boc = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(() => useMatDoDong('petitions'), { wrapper: Boc });
+    await waitFor(() => expect(result.current[0]).toBe('gon'));
+    await act(async () => {
+      await qc.cancelQueries({ queryKey: ['user-table-layouts'] });
+      await qc.invalidateQueries({ queryKey: ['user-table-layouts'] });
+    });
+    expect(apiList).toHaveBeenCalledTimes(1);
+    expect(result.current[0]).toBe('gon');
   });
 
   it('máy chủ lỗi → vẫn "Đọc" (danh sách không chết vì một tuỳ chọn hiển thị)', async () => {

@@ -3,8 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { matDoDongApi, type MatDo } from '@/lib/api';
 import { MAT_DO_MAC_DINH } from './matDo';
 
-/** Một khoá cho mọi bảng — một lần gọi lúc vào màn đủ cho cả ứng dụng (cùng lối `useBoCucCot`). */
-const KHOA_TRUY_VAN = ['user-table-layouts', 'mat-do'];
+/**
+ * Một khoá cho mọi bảng — một lần gọi lúc vào màn đủ cho cả ứng dụng. Khoá GỐC RIÊNG, không nằm dưới
+ * `['user-table-layouts']`: `useBoCucCot` huỷ/làm mới khoá ấy theo tiền tố mỗi lần kéo cột — chung tiền tố là mật
+ * độ bị huỷ theo và bảng lật tạm về "Đọc" (rà mã PR-F2).
+ */
+const KHOA_TRUY_VAN = ['user-table-mat-do'];
 
 /**
  * Mật độ dòng của MỘT bảng, nhớ theo cán bộ ở máy chủ (18/09/2026, PR-F2).
