@@ -33,8 +33,53 @@ describe('useOfficerOptions', () => {
 
     const [duong, cauHinh] = get.mock.calls[0] as [string, { params: Record<string, unknown> }];
     expect(duong).toBe('/admin/users');
-    expect(cauHinh.params).toEqual({ limit: 200, status: 'active' });
+    expect(cauHinh.params).toEqual({ limit: 500, offset: 0, status: 'active' });
     expect(cauHinh.params).not.toHaveProperty('isActive');
+  });
+
+  /**
+   * UAT prod 19/09/2026: prod có 245 tài khoản đang hoạt động mà ô chọn chỉ tải 200 → ~45 cán bộ KHÔNG chọn được để
+   * lọc. Tải theo trang tới khi đủ `total` — không giả định số người dùng luôn dưới một ngưỡng.
+   */
+  it('tải ĐỦ mọi cán bộ qua nhiều trang (không cắt ở một ngưỡng)', async () => {
+    const trang1 = Array.from({ length: 500 }, (_, i) => ({ id: `a${i}`, username: `cb${String(i).padStart(3, '0')}` }));
+    get.mockReset();
+    get
+      .mockResolvedValueOnce({ data: { data: trang1, total: 501 } })
+      .mockResolvedValueOnce({ data: { data: [{ id: 'cuoi', firstName: 'Cuối', lastName: 'Cán Bộ' }], total: 501 } });
+    const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.data).toHaveLength(501);
+    expect(result.current.data?.some((o) => o.value === 'cuoi')).toBe(true);
+    expect((get.mock.calls[1] as [string, { params: Record<string, unknown> }])[1].params).toEqual({
+      limit: 500,
+      offset: 500,
+      status: 'active',
+    });
+  });
+
+  /**
+   * UAT prod 19/09/2026: 13 cặp trùng họ tên (vd tài khoản cũ `mrtea` và `tra.buithanh.doi2` đều "Bùi Thanh Trà") →
+   * hai dòng y hệt trong ô chọn, chọn nhầm là lọc ra 0. Trùng thì ghi kèm tên đăng nhập.
+   */
+  it('trùng họ tên → ghi kèm tên đăng nhập để phân biệt; không trùng thì giữ nguyên', async () => {
+    get.mockResolvedValue({
+      data: {
+        data: [
+          { id: 'u1', firstName: 'Trà', lastName: 'Bùi Thanh', username: 'mrtea' },
+          { id: 'u2', firstName: 'Trà', lastName: 'Bùi Thanh', username: 'tra.buithanh.doi2' },
+          { id: 'u3', firstName: 'An', lastName: 'Nguyễn', username: 'an' },
+        ],
+        total: 3,
+      },
+    });
+    const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.data).toEqual([
+      { value: 'u1', label: 'Bùi Thanh Trà (mrtea)' },
+      { value: 'u2', label: 'Bùi Thanh Trà (tra.buithanh.doi2)' },
+      { value: 'u3', label: 'Nguyễn An' },
+    ]);
   });
 
   it('dựng nhãn từ họ tên, lùi về tên đăng nhập khi thiếu', async () => {
