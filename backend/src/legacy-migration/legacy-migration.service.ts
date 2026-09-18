@@ -153,6 +153,13 @@ export function ganHuongXuLyKhiTrong(
   data.huongXuLy = huongTheoNoiDungDonVi(donVi) ?? theoTrangThai;
 }
 
+/** Đơn còn đang mở — được chuyển sang "Đã chuyển …" khi hệ cũ đưa hồ sơ sang vụ án/vụ việc. */
+const TRANG_THAI_DON_DANG_MO: ReadonlySet<PetitionStatus> = new Set([
+  PetitionStatus.MOI_TIEP_NHAN,
+  PetitionStatus.DANG_XU_LY,
+  PetitionStatus.CHO_PHE_DUYET,
+]);
+
 @Injectable()
 export class LegacyMigrationService {
   constructor(
@@ -481,10 +488,12 @@ export class LegacyMigrationService {
       // Đơn thường cũ nay mới được nối (hệ cũ đổi phân loại sang vụ án/vụ việc): đặt "Đã chuyển" —
       // để "Mới tiếp nhận" thì đơn vẫn lên báo cáo quá hạn mà nút Chuyển đã ẩn (rà mã 18/09/2026).
       // Đơn đã nối từ trước thì giữ trạng thái cán bộ đang dùng.
+      // Chỉ đơn còn ĐANG MỞ; trạng thái cán bộ đã chốt (đã giải quyết, trả đơn…) giữ nguyên (codex).
       if (
         trangThaiDaChuyen &&
         !existing.linkedCaseId &&
-        !existing.linkedIncidentId
+        !existing.linkedIncidentId &&
+        TRANG_THAI_DON_DANG_MO.has(existing.status)
       ) {
         data.status = trangThaiDaChuyen;
       }
