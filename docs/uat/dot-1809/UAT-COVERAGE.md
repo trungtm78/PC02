@@ -13,7 +13,8 @@
 | Bản sao | E2E Chrome | **24** | 0 | 1 | E05: trang đầu bản sao không có tóm tắt dài — **đã PASS trên prod** |
 
 **Phủ mệnh đề: 46/46 dòng ledger có bằng chứng PASS** (mỗi dòng ở đúng tầng chủ ngữ của nó; dòng chủ ngữ là hàm thì
-câu đã thu hẹp). Hai dòng R6 (C6.1, C6.2) PASS trên bản sao, **prod NOT_EXECUTED** tới khi anh xác nhận ghi.
+câu đã thu hẹp). R6: anh duyệt lượt ghi **E** 19/09 → C6.1 (tìm "Kha Tử Thạnh" ra 26-11732) **PASS trên prod** (E17).
+C6.2 ("Lê Nguyễn Yến Thanh" ở Đơn thư) cần lượt ghi **D** — anh chưa duyệt → prod NOT_EXECUTED (PASS trên bản sao).
 
 ## 2. Lỗi UAT bắt được (đều đã sửa, deploy, chạy lại PASS)
 
@@ -62,13 +63,14 @@ Mọi tệp đã trả nguyên trạng sau mỗi lượt gieo (kiểm `git statu
 
 | Mục | Lý do | Đề xuất |
 |---|---|---|
-| YC-6 trên prod (tìm "Kha Tử Thạnh", "Lê Nguyễn Yến Thanh") | Ghi prod cần anh xác nhận (§8c) | Sau khi anh duyệt: chạy lại `UAT_PROD=1 … dot-1809-uat.e2e.spec.ts` bật `UAT_BAN_SAO=1` |
-| Trùng số hệ mới → số mới + STT cũ (C6.4) | Bản sao không có đơn hệ mới ≥ 11729 | Đã phủ tích hợp; kiểm trên prod sau lượt ghi E |
+| YC-6 "Lê Nguyễn Yến Thanh" ở Đơn thư trên prod (E18) | Cần lượt ghi D (86 đơn gắn kèm) — anh chưa duyệt | Khi anh duyệt D: chạy `bu-don-thu-lech-loai --that` rồi E18 trên prod |
+| ~~Trùng số hệ mới → số mới + STT cũ (C6.4)~~ | ĐÃ ĐÓNG trên prod 19/09: 13 đơn 11729–11742 → 2026-11936…11948, 13/13 có STT cũ, 0 số trùng, chạy lại 0 | — |
 | Hiệu năng xuất 47k dòng | Không đo thời gian ở UAT | Đo lúc anh bấm thử lần đầu |
 | axe tự động | Chưa cài `@axe-core/playwright` | Đã kiểm tên: aria-pressed/aria-expanded/bàn phím (E05, E16) |
 
 ## 6. Đề xuất nghiệm thu
 
 **Đề xuất GO** cho YC-1…YC-5 + font + mật độ dòng (0 lỗi mở, 46/46 dòng ledger PASS, 15/15 lỗi gieo bị bắt).
-**YC-6: chờ** anh xác nhận 3 lượt ghi prod — sau đó chạy lại E17/E18 trên prod để đóng. Chữ ký nghiệm thu là của anh
+**YC-6:** Kha Tử Thạnh ĐÃ ĐÓNG trên prod (lượt E, sao lưu `pre-cap-nhat-he-cu-20260919-0628.sql.gz`). Lê Nguyễn Yến Thanh ở
+Đơn thư chờ anh duyệt lượt D; bù Cán bộ nhập 4.601 vụ việc chờ lượt C2. Chữ ký nghiệm thu là của anh
 (AI không tự duyệt).
