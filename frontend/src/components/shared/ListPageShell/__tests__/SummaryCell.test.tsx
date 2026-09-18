@@ -119,6 +119,40 @@ describe('SummaryCell', () => {
     vi.unstubAllGlobals();
   });
 
+  /**
+   * UAT Chrome 18/09/2026 bắt: ô đo "có tràn" TRƯỚC khi font web (Source Serif) nạp xong. Font có chân rộng hơn →
+   * chữ dài thêm dòng, nhưng khung ô bị kẹp 5 dòng nên KHÔNG đổi cỡ → ResizeObserver không báo → ô dài hơn 5 dòng
+   * mà không có nút "Xem thêm" (20 ô tràn, 18 nút). Phải đo lại khi trình duyệt báo font đã nạp.
+   */
+  it('font web nạp xong làm chữ tràn → đo lại và hiện "Xem thêm"', async () => {
+    const nghe: Record<string, () => void> = {};
+    let xongNap: () => void = () => {};
+    const fonts = {
+      ready: new Promise<void>((r) => (xongNap = r)),
+      addEventListener: vi.fn((ten: string, fn: () => void) => (nghe[ten] = fn)),
+      removeEventListener: vi.fn(),
+    };
+    Object.defineProperty(document, 'fonts', { configurable: true, value: fonts });
+    try {
+      giaLapTran(false);
+      const { unmount } = render(<SummaryCell value={DAI} />);
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+
+      giaLapTran(true); // font có chân thay vào → chữ dài thêm
+      await act(async () => xongNap());
+      expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
+
+      // Font nạp muộn hơn (lượt sau) cũng được bắt qua sự kiện `loadingdone`.
+      giaLapTran(false);
+      act(() => nghe.loadingdone?.());
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      unmount();
+      expect(fonts.removeEventListener).toHaveBeenCalledWith('loadingdone', expect.any(Function));
+    } finally {
+      Reflect.deleteProperty(document, 'fonts');
+    }
+  });
+
   it('ô trống hiện dấu gạch, không hiện nút', () => {
     render(<SummaryCell value={null} />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();

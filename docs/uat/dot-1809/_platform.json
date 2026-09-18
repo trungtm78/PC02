@@ -1,0 +1,20 @@
+{
+  "platforms": ["WEB", "API"],
+  "evidence": {
+    "WEB": "frontend/vite.config.ts (React 19 + Vite + vite-plugin-pwa)",
+    "API": "backend/src/main.ts (NestJS), backend/prisma/schema.prisma"
+  },
+  "packages": [
+    { "name": "frontend", "platforms": ["WEB"] },
+    { "name": "backend", "platforms": ["API"] }
+  ],
+  "mobile": "N/A — đợt này chỉ đổi giao diện web + API; app mobile (mobile/) không đụng",
+  "apiBaseUrl": {
+    "local": "http://localhost:5173/api/v1 (vite proxy → :3000, CSDL bản sao pc02_e2e_c)",
+    "prod": "http://171.244.40.245/api/v1"
+  },
+  "host": { "os": "Windows 11", "iosPossible": false },
+  "blockers": [
+    "Ghi prod của #409/#410/#412 CHỜ anh xác nhận → hành trình J-TIM trên prod NOT_EXECUTED; đã chạy trên bản sao"
+  ]
+}
