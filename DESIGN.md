@@ -64,9 +64,9 @@ Three entity types are color-coded consistently across all components:
 
 | Entity | Background | Text | Border accent |
 |--------|-----------|------|---------------|
-| CASE (Vụ việc) | `bg-blue-100` | `text-blue-700` | `border-blue-500` |
+| CASE (Vụ án) | `bg-blue-100` | `text-blue-700` | `border-blue-500` |
 | PETITION (Đơn thư) | `bg-violet-100` | `text-violet-700` | `border-violet-500` |
-| INCIDENT (Vụ án) | `bg-orange-100` | `text-orange-700` | `border-orange-500` |
+| INCIDENT (Vụ việc) | `bg-orange-100` | `text-orange-700` | `border-orange-500` |
 
 Icons from `lucide-react`: CASE=`<FileText>`, PETITION=`<Mail>`, INCIDENT=`<AlertTriangle>`.
 
@@ -82,7 +82,7 @@ These styles are established in `HoSoJourney.tsx` (`ENTITY_BADGE_STYLE`) and mus
 // Entity badge (small inline)
 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
   <FileText className="w-3 h-3" />
-  Vụ việc
+  Vụ án
 </span>
 
 // Filter chip (toggle)
@@ -243,9 +243,9 @@ Icons from `lucide-react` only. Common icons used in this system:
 
 | Icon | Usage |
 |------|-------|
-| `FileText` | Case (Vụ việc) entity |
+| `FileText` | Case (Vụ án) entity |
 | `Mail` | Petition (Đơn thư) entity |
-| `AlertTriangle` | Incident (Vụ án) entity |
+| `AlertTriangle` | Incident (Vụ việc) entity |
 | `GitBranch` | Hành trình hồ sơ sidebar menu |
 | `Search` | Search input |
 | `ChevronDown` / `ChevronRight` | Collapsible toggle |
@@ -388,3 +388,55 @@ File: `frontend/src/components/DocNumberPreviewField.tsx`
 | `AUTO` | `text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700` |
 | `MANUAL` | `text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600` |
 | `AUTO_WITH_OVERRIDE` | `text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700` |
+
+---
+
+## 11. Danh sách hồ sơ (Đơn thư, Vụ án, Vụ việc, Đơn thư phường) — 18/09/2026
+
+> Nguồn: yêu cầu của anh 18/09/2026 ("tóm tắt 5 dòng, xem thêm bung tại chỗ, các cột xuống dòng, thanh cuộn
+> ngang ở trên"); /design-consultation 18/09 (hướng "sổ thụ lý kẻ dòng", bản C). Nhãn ở §3 đã sửa cho đúng:
+> CASE = **Vụ án**, INCIDENT = **Vụ việc** (bản cũ ghi ngược).
+
+### 11.1 Bảng — chế độ xuống dòng (`<ListPageShell.Table xuongDong>`)
+
+| Quy tắc | Cách làm | Vì sao |
+|---|---|---|
+| Các cột xuống dòng | Ô mặc định `TABLE_CELL_WRAP` (`whitespace-normal break-words align-top`) | Thấy đủ nội dung; chữ canh TRÊN vì dòng cao thấp khác nhau |
+| Bảng không co khít khung | `min-width` = tổng `width` khai của các cột đang hiện (kể cả ô tick) | Thiếu sàn này, xuống dòng làm bảng co lại và mất cuộn ngang (bẫy 25/08) |
+| Thanh cuộn ngang ở TRÊN | `ThanhCuonNgangTren` dính trên bảng, đồng bộ `scrollLeft` hai chiều (so giá trị, không dùng cờ), tự ẩn khi bảng không tràn | Bảng dài thì thanh cuộn gốc nằm tận cuối trang |
+| Không ô cắt chữ | Cấm `TABLE_CELL_TRUNCATE` ở 3 màn danh sách (cổng `bangDeDoc.gate`) | Cắt chữ là đúng lỗi anh báo |
+
+Bảng tự dựng (Đơn thư phường) gắn `ThanhCuonNgangTren` vào khung `overflow-x-auto` của nó.
+
+### 11.2 Ô "Tóm tắt nội dung" (`SummaryCell`)
+
+- Kẹp **5 dòng** bằng CSS `line-clamp-5` — toàn văn vẫn nằm trong ô. **Không** kèm lớp đổi `display` (`block`,
+  `flex`…) khi đang kẹp: nó đè `display:-webkit-box` và ô hiện hết mọi dòng (bấm thử Chrome 18/09).
+- "Xem thêm ▾ / Thu gọn ▴" chỉ hiện khi chữ **tràn thật** (`scrollHeight > clientHeight`, đo lại qua
+  ResizeObserver khi cột đổi bề rộng); `type="button"`, `aria-expanded`.
+- Nút **chặn lan** cả `click` lẫn `keydown`: ô nằm trong `<tr onClick/onKeyDown>` mở hồ sơ. Bấm vào CHỮ (ngoài nút)
+  vẫn mở hồ sơ như mọi ô khác.
+- Ca kiểm phải dựng ô **trong** một dòng bấm được — ca kiểm cũ dựng ô đứng riêng nên không thấy lỗi nhảy trang.
+
+### 11.3 Khung Bộ lọc — nút xuất
+
+Thứ tự nút bên phải: `Xóa lọc` (nhẹ) · `Xuất N dòng Excel` (viền xanh, icon bảng tính) · `Áp dụng` (đặc xanh).
+Nút xuất: đang xuất → khoá, "Đang xuất…"; còn thay đổi chưa áp dụng → "Áp dụng & xuất Excel" (không nói số dòng
+của bộ lọc cũ); 0 dòng mà không có thay đổi → khoá kèm lý do; máy chủ từ chối (vượt 50.000 dòng) → hiện nguyên câu.
+
+### 11.4 Cập nhật phiên bản
+
+KHÔNG có giao diện nào (không hộp thoại, không toast) — app tự lên bản mới ở thời điểm an toàn (`useTuCapNhat`).
+
+### 11.5 Việc kế tiếp (PR-F, chưa có trong mã)
+
+Font tự host (`@fontsource`): Be Vietnam Pro (giao diện), Source Serif 4 (chỉ cột Tóm tắt), JetBrains Mono (mã,
+ngày, `tnum`); đo lại bề rộng cột sau khi đổi font. Mật độ dòng Gọn (1) / Đọc (5, mặc định) / Đầy đủ, nhớ theo
+cán bộ ở máy chủ.
+
+### Do / Don't
+
+- **Do:** bấm thử ô Tóm tắt NẰM TRONG dòng có `onClick`; đo trên Chrome thật (jsdom không tính CSS).
+- **Don't:** zebra trên bảng xuống dòng (dòng cao thấp khác nhau làm mắt nhảy); hộp nhắc cập nhật; ô cắt chữ ở
+  danh sách hồ sơ.
+

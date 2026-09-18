@@ -592,11 +592,15 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
   });
 
   it('hiện tóm tắt nội dung — cột cán bộ đọc nhiều nhất mà hệ mới đang thiếu', async () => {
+    // "Xem thêm" chỉ hiện khi chữ TRÀN 5 dòng thật (18/09/2026); jsdom không dàn trang nên giả lập ô tràn.
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(200);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100);
     renderWithRouter();
     await waitFor(() =>
       expect(screen.getByTestId('summary-text')).toHaveTextContent('Tố giác bà Phạm Thị Thuỳ Oanh'),
     );
     expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 
   it('mã hồ sơ hiện dạng ngắn như hệ cũ, KHÔNG đổi dữ liệu', async () => {

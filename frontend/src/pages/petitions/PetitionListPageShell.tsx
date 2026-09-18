@@ -56,7 +56,6 @@ import {
   BTN_PRIMARY,
   A11Y_FOCUS_RING,
   OVERDUE_ROW_HIGHLIGHT,
-  TABLE_CELL_TRUNCATE,
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getPetitionStatusIcon } from '@/shared/enums/status-icons';
@@ -536,7 +535,6 @@ export function PetitionListPageShell() {
         timKiem: 'nguonDon',
         width: '8rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon ?? '—',
       },
 
@@ -546,7 +544,6 @@ export function PetitionListPageShell() {
         timKiem: 'nguoiGui',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="font-medium text-slate-800">{r.senderName}</span>,
       },
 
@@ -568,7 +565,6 @@ export function PetitionListPageShell() {
         timKiem: 'donViGiaiQuyet',
         width: '9rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
@@ -578,7 +574,6 @@ export function PetitionListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLyKhac ?? '—',
       },
 
@@ -615,7 +610,6 @@ export function PetitionListPageShell() {
         timKiem: 'doiTuong',
         width: '11rem',
         optional: 'hide',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.suspectedPerson ?? '—',
       },
 
@@ -921,6 +915,8 @@ export function PetitionListPageShell() {
         // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
+        // Anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội dung + thanh cuộn ngang ở trên bảng.
+        xuongDong
         onKeoGian={datBeRong}
         datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}
