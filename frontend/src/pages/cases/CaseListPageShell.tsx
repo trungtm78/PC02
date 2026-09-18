@@ -48,7 +48,6 @@ import { CaseStatus } from '@/shared/enums/generated';
 import {
   BTN_PRIMARY,
   A11Y_FOCUS_RING,
-  TABLE_CELL_TRUNCATE,
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getCaseStatusIcon } from '@/shared/enums/status-icons';
@@ -556,7 +555,6 @@ export function CaseListPageShell() {
         timKiem: 'doiTuongBiCan',
         width: '11rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => (
           <span data-testid="cell-doi-tuong-bi-can">{formatDoiTuongBiCan(r)}</span>
         ),
@@ -571,7 +569,6 @@ export function CaseListPageShell() {
         timKiem: 'nguonDon',
         width: '9rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.nguonDon || '—',
       },
       {
@@ -580,7 +577,6 @@ export function CaseListPageShell() {
         timKiem: 'nguoiGui',
         width: '11rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         // Đọc `tenCungCap` — cột giữ `ten_ca_nhan_co_quan_to_chuc_cung_cap`, cũng là cột ô
         // cùng nhãn trên form ghi vào. `name` là TÊN VỤ ÁN: cột đầy dữ liệu nên nhìn qua
         // tưởng đúng, nhưng khớp bản gốc 0%. Hệ cũ chỉ có 746/3.359 hồ sơ điền ô này — 2.613
@@ -603,7 +599,6 @@ export function CaseListPageShell() {
         timKiem: 'donViGiaiQuyet',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
@@ -613,7 +608,6 @@ export function CaseListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLyKhac || '—',
       },
       {
@@ -649,7 +643,6 @@ export function CaseListPageShell() {
         timKiem: 'dieuTraVien',
         width: '10rem',
         optional: 'hide',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
           const name = hoTen(r.investigator);
@@ -665,7 +658,6 @@ export function CaseListPageShell() {
         timKiem: 'toiDanh',
         width: '10rem',
         optional: 'hide',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.crime || '—',
       },
 
@@ -873,6 +865,8 @@ export function CaseListPageShell() {
         // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
+        // Anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội dung + thanh cuộn ngang ở trên bảng.
+        xuongDong
         onKeoGian={datBeRong}
         datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}

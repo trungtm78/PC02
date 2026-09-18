@@ -53,7 +53,6 @@ import {
   BTN_PRIMARY,
   A11Y_FOCUS_RING,
   OVERDUE_ROW_HIGHLIGHT,
-  TABLE_CELL_TRUNCATE,
 } from '@/constants/styles';
 import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
 import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
@@ -560,7 +559,6 @@ export function IncidentListPageShell() {
         timKiem: 'nguonDon',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => <span className="text-slate-700">{r.chuyenTuDonVi || '—'}</span>,
       },
 
@@ -570,7 +568,6 @@ export function IncidentListPageShell() {
         timKiem: 'nguoiGui',
         width: '11rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         // Đọc `benVu` — cột giữ `ten_ca_nhan_co_quan_to_chuc_cung_cap` của hệ cũ, và là cột
         // mà ô cùng nhãn trên form ghi vào. `doiTuongCaNhan` là ĐỐI TƯỢNG BỊ TỐ GIÁC
         // (`nghi_van_doi_tuong`) — người khác hẳn: khớp bản gốc 0%, trong khi `benVu` khớp
@@ -594,7 +591,6 @@ export function IncidentListPageShell() {
         timKiem: 'donViGiaiQuyet',
         width: '10rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.donViGiaiQuyet ?? '—',
       },
 
@@ -604,7 +600,6 @@ export function IncidentListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '11rem',
         optional: 'show',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => r.ketQuaXuLy ?? '—',
       },
 
@@ -641,7 +636,6 @@ export function IncidentListPageShell() {
         timKiem: 'dieuTraVien',
         width: '10rem',
         optional: 'hide',
-        cellClassName: TABLE_CELL_TRUNCATE,
         render: (r) => {
           if (!r.investigator) return '—';
           const name = hoTen(r.investigator);
@@ -915,6 +909,8 @@ export function IncidentListPageShell() {
         // Bố cục cột CỐ ĐỊNH: bề rộng dưới đây do dữ liệu thật quyết, không do chuỗi dài
         // nhất trong cột quyết. Xem chú thích ở khối `columns`.
         fixedLayout
+        // Anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội dung + thanh cuộn ngang ở trên bảng.
+        xuongDong
         onKeoGian={datBeRong}
         datTongBeRong={coGhiDeBeRong}
         onVeMacDinhCot={xoaBeRong}

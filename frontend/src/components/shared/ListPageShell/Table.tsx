@@ -9,7 +9,7 @@
  *
  * Mobile: defer to consumer (T16+) — current implementation desktop-first table.
  */
-import { type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { AlertCircle, Inbox, WifiOff, FilterX } from 'lucide-react';
 import {
   BulkSelectionHeaderCell,
@@ -24,6 +24,7 @@ import {
   TABLE_HEADER_STICKY_BG,
   TABLE_BODY,
   TABLE_CELL,
+  TABLE_CELL_WRAP,
   TABLE_SECTION_CARD,
   TABLE_SECTION_HEADER,
   TABLE_SECTION_HEADER_TITLE,
@@ -37,6 +38,7 @@ import {
   A11Y_FOCUS_RING,
 } from '@/constants/styles';
 import { SortableHeader } from './SortableHeader';
+import { ThanhCuonNgangTren } from './ThanhCuonNgangTren';
 import { useListPageShellContext } from './ListPageShell';
 
 /**
@@ -143,6 +145,12 @@ export interface TableProps<TRow, TId extends string | number = string> {
    * `w-full` y như trước — người không yêu cầu gì không được thấy bảng đổi hình.
    */
   datTongBeRong?: boolean;
+  /**
+   * Chế độ XUỐNG DÒNG (anh yêu cầu 18/09/2026): ô mặc định xuống dòng + canh trên, bảng LUÔN rộng tối
+   * thiểu bằng tổng bề rộng khai của các cột (chữ xuống dòng trong cột, bảng rộng hơn khung thì vẫn cuộn
+   * ngang), và có thanh cuộn ngang ở TRÊN bảng. Không bật = bảng giữ nguyên như cũ.
+   */
+  xuongDong?: boolean;
   sortBy?: string;
   /** Chiều đang sắp. Mặc định 'desc'. */
   sortOrder?: 'asc' | 'desc';
@@ -336,8 +344,11 @@ export function Table<TRow, TId extends string | number = string>({
   onKeoGian,
   onVeMacDinhCot,
   datTongBeRong,
+  xuongDong,
 }: TableProps<TRow, TId>) {
   const { tableId } = useListPageShellContext();
+  // Khung cuộn của bảng — thanh cuộn ngang trên bám theo nó.
+  const khungRef = useRef<HTMLDivElement>(null);
   // Ô ghim buộc phải có nền ĐỤC, nếu không nội dung cuộn bên dưới hiện xuyên qua. Nền phải
   // là nền THẬT của hàng chứ không phải màu cứng — xem chú thích ở `nenHang` bên dưới.
   const LOP_GHIM = 'sticky left-10 z-[1]';
@@ -380,19 +391,26 @@ export function Table<TRow, TId extends string | number = string>({
   //
   // Ô tick chọn nhiều dòng là một CỘT THẬT chèn trước mọi cột (`BulkSelectionColumn`, `w-10`).
   // Bỏ nó ra khỏi tổng thì bảng hụt đúng 2.5rem và cột cuối bị cắt.
-  const tongBeRong =
-    onKeoGian && datTongBeRong
-      ? `calc(${[...(bulkSelection ? [BE_RONG_O_TICK] : []), ...columns.map((c) => c.width ?? '150px')].join(' + ')})`
+  const tongKhai = `calc(${[...(bulkSelection ? [BE_RONG_O_TICK] : []), ...columns.map((c) => c.width ?? '150px')].join(' + ')})`;
+  const tongBeRong = onKeoGian && datTongBeRong ? tongKhai : undefined;
+  // Chế độ xuống dòng: chưa kéo cột nào thì bảng vẫn `w-full` nhưng KHÔNG được hẹp hơn tổng bề rộng khai —
+  // thiếu sàn này là chữ xuống dòng làm bảng co khít khung và mất thanh cuộn ngang (bẫy 25/08/2026).
+  const kieuBang = tongBeRong
+    ? { width: tongBeRong, minWidth: '100%' }
+    : xuongDong
+      ? { minWidth: tongKhai }
       : undefined;
+  const oMacDinh = xuongDong ? TABLE_CELL_WRAP : TABLE_CELL;
 
   // state === 'ready'
   return (
     <StateCard {...cardProps}>
-      <div className={TABLE_WRAPPER}>
+      {xuongDong && <ThanhCuonNgangTren khung={khungRef} />}
+      <div ref={khungRef} className={TABLE_WRAPPER}>
         <table
           id={tableId}
           className={`${TABLE_BASE}${fixedLayout ? ' table-fixed' : ''}`}
-          style={tongBeRong ? { width: tongBeRong, minWidth: '100%' } : undefined}
+          style={kieuBang}
           aria-labelledby={headingId}
         >
           {/* sr-only caption only when no visible h2 (sectionTitle) exists to label the table.
@@ -480,12 +498,13 @@ export function Table<TRow, TId extends string | number = string>({
                       rowLabel={bulkRowLabel?.(row)}
                       ineligibleReason={bulkRowEligible?.(row) ?? null}
                       bgClass={NEN_O_GHIM}
+                      canhTren={xuongDong}
                     />
                   )}
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`${col.cellClassName ?? TABLE_CELL} ${
+                      className={`${col.cellClassName ?? oMacDinh} ${
                         col.sticky ? `${LOP_GHIM} ${NEN_O_GHIM}` : ''
                       }`.trim()}
                     >

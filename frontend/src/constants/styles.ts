@@ -139,6 +139,13 @@ export const TABLE_CELL_BOLD = "px-4 py-3 text-sm text-slate-800 font-medium";
 export const TABLE_CELL_TRUNCATE =
   "px-4 py-3 text-sm text-slate-700 max-w-xs truncate";
 
+// Ô XUỐNG DÒNG cho bảng ở chế độ `xuongDong` (anh yêu cầu 18/09/2026: các cột xuống dòng để thấy đủ nội
+// dung). Chỉ an toàn khi đi cùng bề rộng tối thiểu của bảng = tổng bề rộng cột — `Table` tự đặt ở chế độ
+// này, nên chữ xuống dòng TRONG cột thay vì bảng co khít khung (bẫy 25/08 ở chú thích TABLE_CELL).
+// `break-words`: chuỗi liền không dấu cách (mã, địa chỉ email) dài hơn cột thì bẻ, không tràn đè cột bên.
+export const TABLE_CELL_WRAP =
+  "px-4 py-3 text-sm text-slate-700 whitespace-normal break-words align-top";
+
 // ─── Modal Styles ───────────────────────────────────────────────────────────
 //
 // Mobile-responsive defaults (autoplan v0.46 auto-decisions #14, #16):

@@ -1,54 +1,127 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { SummaryCell } from '../SummaryCell';
 
 /**
- * Cột "Tóm tắt nội dung" là cột cán bộ đọc nhiều nhất ở hệ cũ, và là cột hệ mới đang
- * thiếu — dù dữ liệu có ở 99,99% đơn thư. Hệ cũ cắt ngắn kèm liên kết "Xem thêm".
+ * Ô "Tóm tắt nội dung" (anh yêu cầu 18/09/2026): hiện 5 DÒNG, "Xem thêm" bung TẠI CHỖ — không nhảy
+ * sang màn xem. Trước đây ô cắt theo 150 ký tự, và nút "Xem thêm" không chặn cú bấm nên cú bấm lan lên
+ * `<tr onClick>` mở luôn hồ sơ. Ca kiểm cũ dựng ô KHÔNG nằm trong dòng nên không bắt được lỗi ấy.
  */
 const DAI =
   'Tố giác bà Phạm Thị Thuỳ Oanh (Sinh năm: 1992; Địa chỉ: 93 Đặng Thuỳ Trâm, phường Bình Lợi Trung, TP. HCM) chiếm đoạt số tiền 769.325.000 đồng thông qua việc vay mượn và tạo các dây hụi ảo để thu tiền của bà Tâm sau đó chiếm đoạt, bỏ trốn khỏi nơi cư trú.';
 
+/** jsdom không dàn trang: giả lập ô "tràn" (cao nội dung > cao khung) hay "vừa". */
+function giaLapTran(tran: boolean) {
+  vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(tran ? 200 : 40);
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(tran ? 100 : 40);
+}
+
+function trongDong(ui: React.ReactNode) {
+  const moDong = vi.fn();
+  const phimDong = vi.fn();
+  render(
+    <table>
+      <tbody>
+        <tr onClick={moDong} onKeyDown={phimDong} tabIndex={0}>
+          <td>{ui}</td>
+        </tr>
+      </tbody>
+    </table>,
+  );
+  return { moDong, phimDong };
+}
+
+afterEach(() => vi.restoreAllMocks());
+
 describe('SummaryCell', () => {
-  it('nội dung dài bị cắt và có nút "Xem thêm"', () => {
+  it('giữ ĐỦ nội dung, kẹp 5 dòng bằng CSS (không cắt chữ)', () => {
+    giaLapTran(true);
     render(<SummaryCell value={DAI} />);
-    const nut = screen.getByRole('button', { name: /xem thêm/i });
-    expect(nut).toBeInTheDocument();
-    expect(screen.getByTestId('summary-text').textContent!.length).toBeLessThan(DAI.length);
+    const chu = screen.getByTestId('summary-text');
+    expect(chu.textContent).toBe(DAI);
+    expect(chu.className).toMatch(/\bline-clamp-5\b/);
+    // `line-clamp` cần `display:-webkit-box`; lớp đổi display đi kèm là đè mất kẹp — ô hiện hết mọi dòng
+    // (bấm thử Chrome 18/09/2026). jsdom không tính CSS, nên chốt bằng tên lớp.
+    expect(chu.className).not.toMatch(/(^|\s)(block|inline|inline-block|flex|grid)(\s|$)/);
   });
 
-  it('bấm "Xem thêm" hiện đủ nội dung, và thu lại được', async () => {
-    const user = userEvent.setup();
-    render(<SummaryCell value={DAI} />);
-
-    await user.click(screen.getByRole('button', { name: /xem thêm/i }));
-    expect(screen.getByTestId('summary-text')).toHaveTextContent(DAI.slice(0, 60));
-    expect(screen.getByTestId('summary-text').textContent).toBe(DAI);
-
-    // Thu lại: cán bộ mở nhầm một dòng không nên phải tải lại trang mới đóng được.
-    await user.click(screen.getByRole('button', { name: /thu gọn/i }));
+  it('tràn thật → có "Xem thêm"; vừa khung → KHÔNG có nút', () => {
+    giaLapTran(true);
+    const { unmount } = render(<SummaryCell value={DAI} />);
     expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
-  });
+    unmount();
 
-  it('nội dung ngắn KHÔNG hiện nút — nút thừa làm rối bảng', () => {
+    giaLapTran(false);
     render(<SummaryCell value="Đơn tố giác ngắn." />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.getByTestId('summary-text')).toHaveTextContent('Đơn tố giác ngắn.');
+  });
+
+  it('bấm "Xem thêm" bung TẠI CHỖ (bỏ kẹp), "Thu gọn" kẹp lại; báo trạng thái cho trình đọc màn hình', () => {
+    giaLapTran(true);
+    render(<SummaryCell value={DAI} />);
+    const nut = screen.getByRole('button', { name: /xem thêm/i });
+    expect(nut).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(nut);
+    expect(screen.getByTestId('summary-text').className).not.toMatch(/line-clamp/);
+    const thuGon = screen.getByRole('button', { name: /thu gọn/i });
+    expect(thuGon).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(thuGon);
+    expect(screen.getByTestId('summary-text').className).toMatch(/\bline-clamp-5\b/);
+  });
+
+  it('nằm TRONG dòng bấm được: bấm hoặc nhấn phím trên nút KHÔNG mở hồ sơ', () => {
+    giaLapTran(true);
+    const { moDong, phimDong } = trongDong(<SummaryCell value={DAI} />);
+    const nut = screen.getByRole('button', { name: /xem thêm/i });
+
+    fireEvent.click(nut);
+    fireEvent.keyDown(nut, { key: 'Enter' });
+    fireEvent.keyDown(nut, { key: ' ' });
+
+    expect(moDong).not.toHaveBeenCalled();
+    expect(phimDong).not.toHaveBeenCalled();
+    // Vẫn bung được — chặn lan không được nuốt luôn hành động của chính nút.
+    expect(screen.getByRole('button', { name: /thu gọn/i })).toBeInTheDocument();
+  });
+
+  it('bấm vào CHỮ (không phải nút) vẫn mở hồ sơ như mọi ô khác', () => {
+    giaLapTran(true);
+    const { moDong } = trongDong(<SummaryCell value={DAI} />);
+    fireEvent.click(screen.getByTestId('summary-text'));
+    expect(moDong).toHaveBeenCalledTimes(1);
+  });
+
+  it('cột hẹp lại (kéo giãn cột) làm chữ tràn → đo lại và hiện "Xem thêm"; gỡ ô thì thôi quan sát', () => {
+    let doLai: (() => void) | undefined;
+    const thoi = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          doLai = cb;
+        }
+        observe() {}
+        disconnect = thoi;
+      },
+    );
+    giaLapTran(false);
+    const { unmount } = render(<SummaryCell value={DAI} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+
+    giaLapTran(true);
+    act(() => doLai?.());
+    expect(screen.getByRole('button', { name: /xem thêm/i })).toBeInTheDocument();
+
+    unmount();
+    expect(thoi).toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it('ô trống hiện dấu gạch, không hiện nút', () => {
     render(<SummaryCell value={null} />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByTestId('summary-text')).toHaveTextContent('—');
-  });
-
-  it('cắt ở ranh giới TỪ, không cắt giữa chữ', () => {
-    render(<SummaryCell value={DAI} />);
-    const text = screen.getByTestId('summary-text').textContent!;
-    // Bỏ dấu "…" rồi kiểm ký tự cuối không nằm giữa một từ.
-    const thay = text.replace(/…$/, '');
-    expect(DAI.startsWith(thay)).toBe(true);
-    expect(DAI[thay.length]).toMatch(/\s|$/);
   });
 });

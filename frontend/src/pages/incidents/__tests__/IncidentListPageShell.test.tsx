@@ -453,14 +453,18 @@ describe('IncidentListPageShell — bố cục theo hệ cũ', () => {
    * 7rem tràn ra đè lên cột "Tên cá nhân", hai dòng chữ chồng nhau. Chốt ở token là chốt
    * design token; chốt ở đây là chốt đúng cái ô mà anh nhìn thấy.
    */
-  it('ô dữ liệu cắt phần thừa, không vẽ đè sang cột bên', async () => {
+  // Anh yêu cầu 18/09/2026: các cột XUỐNG DÒNG để thấy đủ nội dung. Mục tiêu cũ của ca này vẫn giữ — chữ không
+  // vẽ đè sang cột bên — nay đạt bằng xuống dòng + bẻ chuỗi dài TRONG cột, và bảng không bao giờ hẹp hơn tổng
+  // bề rộng cột (nên vẫn cuộn ngang thay vì ép cột).
+  it('ô dữ liệu xuống dòng trong cột, không vẽ đè sang cột bên; bảng giữ bề rộng tối thiểu', async () => {
     renderWithRouter();
     await waitFor(() => expect(screen.getByTestId('summary-text')).toBeInTheDocument());
 
     const hang = screen.getAllByRole('row').slice(1)[0];
     const oStt = within(hang).getAllByRole('cell')[2]; // [0] ô tick, [1] Thao tác, [2] STT
-    expect(oStt.className).toContain('overflow-hidden');
-    expect(oStt.className).toContain('whitespace-nowrap');
+    expect(oStt.className).toContain('whitespace-normal');
+    expect(oStt.className).toContain('break-words');
+    expect(screen.getByRole('table').style.minWidth).toMatch(/^calc\(/);
   });
 
 

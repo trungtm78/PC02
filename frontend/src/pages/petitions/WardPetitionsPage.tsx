@@ -40,11 +40,18 @@ import {
   BADGE_DEFAULT,
 } from '@/shared/enums/status-labels';
 import { WardFilterDropdown } from '@/components/WardFilterDropdown';
-import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
+import {
+  OTimKiemThe,
+  DanhSachThe,
+  useTheTimKiem,
+  SummaryCell,
+  ThanhCuonNgangTren,
+} from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { TABLE_SECTION_CARD } from '@/constants/styles';
 
 interface PetitionRow {
   id: string;
@@ -170,6 +177,8 @@ export default function WardPetitionsPage() {
 
   /** Số lượt tải — kết quả về trễ của lượt cũ không đè lượt mới. */
   const luotTai = useRef(0);
+  /** Khung cuộn ngang của bảng — thanh cuộn trên bám theo nó. */
+  const khungBangRef = useRef<HTMLDivElement>(null);
   /** Tăng để tải lại cùng bộ lọc (nút Làm mới). */
   const [lanTai, setLanTai] = useState(0);
 
@@ -487,8 +496,12 @@ export default function WardPetitionsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* `overflow-clip` chứ không `overflow-hidden`: hidden tạo khung cuộn riêng, thanh cuộn trên (`sticky`)
+          bám vào khung này thay vì trang và trôi mất khi cuộn xuống — cùng lý do với TABLE_SECTION_CARD. */}
+      <div className={TABLE_SECTION_CARD}>
+        {/* Anh yêu cầu 18/09/2026: thanh cuộn ngang ở TRÊN bảng, dùng chung với 3 màn danh sách. */}
+        <ThanhCuonNgangTren khung={khungBangRef} />
+        <div ref={khungBangRef} className="overflow-x-auto">
           <table className="w-full" data-testid="ward-petitions-table">
             <thead className="bg-[#003973]/5 border-b-2 border-[#003973]/20">
               <tr>
@@ -498,7 +511,7 @@ export default function WardPetitionsPage() {
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">STT</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Người gửi</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Loại đơn</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Tóm tắt</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider min-w-[20rem]">Tóm tắt</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Phường/Xã</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Ngày đề xuất</th>
                 <th className="px-4 py-3 text-left text-xs font-bold text-[#003973] uppercase tracking-wider">Trạng thái</th>
@@ -571,8 +584,9 @@ export default function WardPetitionsPage() {
                           {p.petitionType ? LOAI_DON_LABEL[p.petitionType as LoaiDon] : '—'}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-slate-700 line-clamp-2 max-w-xs">{p.detailContent ?? ''}</p>
+                      <td className="px-4 py-3 align-top text-sm">
+                        {/* 5 dòng + "Xem thêm" bung tại chỗ — nút chặn lan lên dòng (dòng mở hồ sơ). */}
+                        <SummaryCell value={p.detailContent} />
                       </td>
                       <td className="px-4 py-3" data-testid={`ward-cell-${p.id}`}>
                         <div className="flex items-center gap-1.5">
