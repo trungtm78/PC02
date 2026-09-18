@@ -6,6 +6,9 @@ export interface OfficerOption {
   label: string; // Họ và tên, lùi về username khi thiếu
 }
 
+/** Số cán bộ mỗi lần tải — trần `@Max(500)` của `QueryUsersDto`. */
+const MOI_TRANG = 500;
+
 /**
  * Danh sách cán bộ cho ô lọc "Cán bộ nhập" — bảng lọc theo kiểu hệ cũ.
  *
@@ -26,19 +29,38 @@ export function useOfficerOptions(enabled = true) {
       // bật `forbidNonWhitelisted`, nên gửi `isActive` bị trả 400 "property isActive should not
       // exist" — ô lọc cán bộ RỖNG trên cả ba trang danh sách, im lặng. Monkey test bắt được
       // ngày 09/09/2026.
-      const res = await api.get('/admin/users', { params: { limit: 200, status: 'active' } });
-      const items: Array<{
-        id: string;
-        firstName?: string | null;
-        lastName?: string | null;
-        username?: string | null;
-      }> = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+      // Tải THEO TRANG tới khi đủ `total` (UAT prod 19/09/2026: 245 tài khoản đang hoạt động mà bản cũ cắt ở 200 →
+      // ~45 cán bộ không lọc được). Máy chủ cho tối đa 500 dòng mỗi trang.
+      type NguoiDung = { id: string; firstName?: string | null; lastName?: string | null; username?: string | null };
+      const tatCa: NguoiDung[] = [];
+      const daCo = new Set<string>();
+      for (let offset = 0; ; offset += MOI_TRANG) {
+        const res = await api.get('/admin/users', { params: { limit: MOI_TRANG, offset, status: 'active' } });
+        const than = res.data as NguoiDung[] | { data?: NguoiDung[]; total?: number } | undefined;
+        const trang = Array.isArray(than) ? than : (than?.data ?? []);
+        // Máy chủ sắp theo `createdAt` không khoá phụ → một người có thể lặp giữa hai trang: loại trùng theo id.
+        for (const u of trang) {
+          if (daCo.has(u.id)) continue;
+          daCo.add(u.id);
+          tatCa.push(u);
+        }
+        const tong = Array.isArray(than) ? tatCa.length : Number(than?.total ?? tatCa.length);
+        if (trang.length < MOI_TRANG || tatCa.length >= tong) break;
+      }
 
-      return items
-        .map((u) => ({
-          value: u.id,
-          label: `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() || (u.username ?? u.id),
-        }))
+      const hoTen = (u: NguoiDung) => `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() || (u.username ?? u.id);
+      // Trùng họ tên (13 cặp trên prod, vd tài khoản cũ + tài khoản `.doi2`) → ghi kèm tên đăng nhập, không thì hai
+      // dòng y hệt và chọn nhầm là lọc ra 0.
+      const soLan = new Map<string, number>();
+      for (const u of tatCa) soLan.set(hoTen(u), (soLan.get(hoTen(u)) ?? 0) + 1);
+      return tatCa
+        .map((u) => {
+          const nhan = hoTen(u);
+          return {
+            value: u.id,
+            label: (soLan.get(nhan) ?? 0) > 1 ? `${nhan} (${u.username ?? u.id})` : nhan,
+          };
+        })
         .sort((a, b) => a.label.localeCompare(b.label, 'vi')) as OfficerOption[];
     },
     enabled,

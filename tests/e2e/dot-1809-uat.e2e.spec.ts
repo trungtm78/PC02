@@ -77,28 +77,42 @@ async function docExcel(dl: Download) {
   return { tieuDe, soDong, maDauTien: String(dauTien[0] ?? ''), trangIn: ws.pageSetup };
 }
 
+/** id Cán bộ nhập của dòng đầu danh sách (qua API — cùng thứ tự mặc định với màn). */
+async function idNguoiNhapDongDau(page: Page, url: string): Promise<string> {
+  const r = await page.request.get(`${API}${url}?limit=1&offset=0`, {
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+  });
+  const h = ((await r.json()).data ?? [])[0] as Record<string, { id?: string } | null> | undefined;
+  const id = h?.enteredBy?.id ?? h?.createdBy?.id ?? h?.canBoNhap?.id ?? '';
+  expect(id, 'dòng đầu phải có người nhập').toBeTruthy();
+  return id;
+}
+
 /**
- * Mở khung Bộ lọc, chọn ĐÚNG người nhập của dòng đầu danh sách (chắc chắn có hồ sơ — người đầu ô chọn có thể
- * chưa nhập gì), Áp dụng.
+ * Mở khung Bộ lọc, chọn ĐÚNG người nhập của dòng đầu danh sách (chắc chắn có hồ sơ), KHÔNG bấm Áp dụng. Người ấy
+ * PHẢI có trong ô chọn — UAT prod 19/09 bắt ô chọn cắt ở 200/245 người và hai người trùng tên không phân biệt được.
  */
-async function locTheoCanBoDauTien(page: Page): Promise<string> {
-  const iCot = (await page.locator('thead th').allTextContents()).findIndex((t) => /Người nhập/.test(t));
-  expect(iCot, 'bảng phải có cột Người nhập').toBeGreaterThanOrEqual(0);
-  const ten = ((await page.locator('tbody tr').first().locator('td').nth(iCot).textContent()) ?? '').trim();
-  expect(ten && ten !== '—', 'dòng đầu phải có người nhập').toBeTruthy();
+async function chonCanBoDongDau(page: Page, url: string): Promise<string> {
+  const id = await idNguoiNhapDongDau(page, url);
   await page.getByTestId('list-page-shell-filter-toggle').click();
   const o = page.getByTestId('filter-can-bo-nhap');
   await expect(o).toBeVisible();
-  const giaTri = await o.evaluate(
-    (el, t) => [...(el as HTMLSelectElement).options].find((x) => x.value && x.textContent?.trim() === t)?.value ?? '',
-    ten,
+  await expect(o.locator(`option[value="${id}"]`), 'người nhập của dòng đầu phải có trong ô chọn').toHaveCount(1);
+  const nhan = await o.evaluate(
+    (el) => [...(el as HTMLSelectElement).options].map((x) => x.textContent ?? ''),
   );
-  expect(giaTri, `ô Cán bộ nhập phải có "${ten}"`).toBeTruthy();
+  expect(new Set(nhan).size, 'không có hai lựa chọn trùng nhãn').toBe(nhan.length);
+  await o.selectOption(id);
+  return id;
+}
+
+/** Như trên rồi bấm Áp dụng và chờ danh sách đổi. */
+async function locTheoCanBoDauTien(page: Page, url: string): Promise<string> {
   const truoc = await tongDanhSach(page);
-  await o.selectOption(giaTri);
+  const id = await chonCanBoDongDau(page, url);
   await page.getByTestId('btn-apply-filters').click();
   await choDanhSachDoi(page, truoc);
-  return giaTri;
+  return id;
 }
 
 // ───────────────────────── YC-1 · tự cập nhật, không hộp nhắc ─────────────────────────
@@ -283,7 +297,7 @@ for (const m of MAN) {
   test(`E09 [R5-FILTER, R5-EXPORT] ${m.ten}: lọc Cán bộ nhập → danh sách = thẻ số = số dòng Excel, đúng cột`, async ({ page }) => {
     await moDanhSach(page, m.url);
     const tongTruoc = await tongDanhSach(page);
-    await locTheoCanBoDauTien(page);
+    await locTheoCanBoDauTien(page, m.url);
     await expect(page.locator('tbody tr').first()).toBeVisible();
     const tong = await tongDanhSach(page);
     expect(tong, 'lọc theo một cán bộ phải thu hẹp danh sách').toBeLessThan(tongTruoc);
@@ -308,7 +322,7 @@ for (const m of MAN) {
 
 test('E10 [R5-OFFICER] Vụ việc: lọc Cán bộ nhập ra hồ sơ và cột Người nhập có tên', async ({ page }) => {
   await moDanhSach(page, '/incidents');
-  await locTheoCanBoDauTien(page);
+  await locTheoCanBoDauTien(page, '/incidents');
   const tong = await tongDanhSach(page);
   expect(tong).toBeGreaterThan(0);
   const iNguoiNhap = (await page.locator('thead th').allTextContents()).findIndex((t) => /Người nhập/.test(t));
@@ -328,17 +342,8 @@ test('E11 [R5-LABEL] Đơn thư: chọn kỳ → nhãn "Thống kê" nói đúng
 
 test('E12 [R5-APPLYFIRST] còn thay đổi chưa áp dụng → nút "Áp dụng & xuất Excel", tệp theo bộ lọc MỚI', async ({ page }) => {
   await moDanhSach(page, '/petitions');
-  const iCot = (await page.locator('thead th').allTextContents()).findIndex((t) => /Người nhập/.test(t));
-  const ten = ((await page.locator('tbody tr').first().locator('td').nth(iCot).textContent()) ?? '').trim();
-  await page.getByTestId('list-page-shell-filter-toggle').click();
-  const o = page.getByTestId('filter-can-bo-nhap');
-  const giaTri = await o.evaluate(
-    (el, t) => [...(el as HTMLSelectElement).options].find((x) => x.value && x.textContent?.trim() === t)?.value ?? '',
-    ten,
-  );
-  expect(giaTri).toBeTruthy();
   const truoc = await tongDanhSach(page);
-  await o.selectOption(giaTri); // CHƯA bấm Áp dụng
+  await chonCanBoDongDau(page, '/petitions'); // CHƯA bấm Áp dụng
   const nut = page.getByTestId('btn-xuat-excel-theo-bo-loc');
   await expect(nut).toHaveText(/Áp dụng & xuất Excel/);
   const [dl] = await Promise.all([page.waitForEvent('download'), nut.click()]);
