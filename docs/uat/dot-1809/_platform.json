@@ -15,6 +15,6 @@
   },
   "host": { "os": "Windows 11", "iosPossible": false },
   "blockers": [
-    "Ghi prod: lượt E (#409) và D (#410) đã chạy 19/09, J-TIM PASS prod; lượt C2 (#412, 4.601 vụ việc) chờ anh xác nhận"
+    "Ghi prod: lượt E (#409) và D (#410) đã chạy 19/09, J-TIM PASS prod; lượt C2 (#412) đã bù 4.601 vụ việc 19/09"
   ]
 }
