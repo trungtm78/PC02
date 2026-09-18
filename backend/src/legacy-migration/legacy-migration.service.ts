@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { laKetThuc } from '../common/trang-thai/trang-thai-ket-thuc';
 import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 import { HuongXuLyDon, PetitionStatus, Prisma } from '@prisma/client';
@@ -152,13 +153,6 @@ export function ganHuongXuLyKhiTrong(
   const donVi = (data.donViGiaiQuyet ?? danCo?.donViGiaiQuyet) as string | null | undefined;
   data.huongXuLy = huongTheoNoiDungDonVi(donVi) ?? theoTrangThai;
 }
-
-/** Đơn còn đang mở — được chuyển sang "Đã chuyển …" khi hệ cũ đưa hồ sơ sang vụ án/vụ việc. */
-const TRANG_THAI_DON_DANG_MO: ReadonlySet<PetitionStatus> = new Set([
-  PetitionStatus.MOI_TIEP_NHAN,
-  PetitionStatus.DANG_XU_LY,
-  PetitionStatus.CHO_PHE_DUYET,
-]);
 
 @Injectable()
 export class LegacyMigrationService {
@@ -488,12 +482,13 @@ export class LegacyMigrationService {
       // Đơn thường cũ nay mới được nối (hệ cũ đổi phân loại sang vụ án/vụ việc): đặt "Đã chuyển" —
       // để "Mới tiếp nhận" thì đơn vẫn lên báo cáo quá hạn mà nút Chuyển đã ẩn (rà mã 18/09/2026).
       // Đơn đã nối từ trước thì giữ trạng thái cán bộ đang dùng.
-      // Chỉ đơn còn ĐANG MỞ; trạng thái cán bộ đã chốt (đã giải quyết, trả đơn…) giữ nguyên (codex).
+      // Chỉ đơn CHƯA KẾT THÚC (cùng định nghĩa toàn hệ, gồm cả Tạm đình chỉ vì còn phục hồi được);
+      // trạng thái cán bộ đã chốt (đã giải quyết, trả đơn…) giữ nguyên (codex 18/09/2026).
       if (
         trangThaiDaChuyen &&
         !existing.linkedCaseId &&
         !existing.linkedIncidentId &&
-        TRANG_THAI_DON_DANG_MO.has(existing.status)
+        !laKetThuc('petition', existing.status)
       ) {
         data.status = trangThaiDaChuyen;
       }

@@ -218,6 +218,19 @@ describe('LegacyMigrationService — ghi đơn thư gắn kèm', () => {
     expect(suaDon.data.status).toBeUndefined();
   });
 
+  it('đơn thường cũ đang Tạm đình chỉ (chưa kết thúc) → nối và đặt Đã chuyển', async () => {
+    mockTx.petition.findFirst.mockResolvedValue({
+      id: 'p9',
+      loaiThongTin: null,
+      petitionType: null,
+      linkedCaseId: null,
+      linkedIncidentId: null,
+      status: 'TAM_DINH_CHI',
+    });
+    await service.commit([hoSo({})], 'actor');
+    expect(goi(mockTx.petition.update).data.status).toBe('DA_CHUYEN_VU_AN');
+  });
+
   it('bù cho hồ sơ ĐÃ CÓ: chỉ thêm đơn gắn kèm, KHÔNG ghi vào vụ án', async () => {
     mockTx.case.findFirst.mockResolvedValue({ id: 'c9' });
     const kq = await service.ganDonThuKemChoHoSoDaCo([hoSo({})], false);
