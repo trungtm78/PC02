@@ -100,6 +100,33 @@ describe('ThanhCuonNgangTren', () => {
     expect(khung.scrollLeft).toBe(500);
   });
 
+  /**
+   * Trình duyệt KẸP `scrollLeft` ở mép (bảng vừa nở, ruột thanh chưa kịp dài ra): gán mà vị trí không đổi thì
+   * không có sự kiện nào — nếu vẫn ghi nhớ "tiếng vọng", lần cuộn thật sau đúng giá trị ấy bị nuốt.
+   */
+  it('gán bị kẹp (vị trí không đổi) → KHÔNG ghi nhớ tiếng vọng, lần cuộn thật sau vẫn đồng bộ', () => {
+    render(<Khung rongNoiDung={2400} rongKhung={1000} />);
+    act(() => goiLai?.());
+    const thanh = screen.getByTestId('thanh-cuon-ngang-tren');
+    const khung = screen.getByTestId('khung-bang');
+    let viTri = 0;
+    Object.defineProperty(thanh, 'scrollLeft', {
+      configurable: true,
+      get: () => viTri,
+      set: (v: number) => {
+        viTri = Math.min(v, 500); // mép phải của thanh đang ở 500
+      },
+    });
+    viTri = 500;
+
+    khung.scrollLeft = 600;
+    fireEvent.scroll(khung); // gán thanh = 600 → bị kẹp ở 500, không đổi, không có sự kiện
+    expect(thanh.scrollLeft).toBe(500);
+
+    fireEvent.scroll(thanh); // cán bộ kéo thanh — sự kiện thật ở 500
+    expect(khung.scrollLeft).toBe(500);
+  });
+
   it('thanh vừa hiện mà bảng đã cuộn sẵn → tay nắm đứng đúng chỗ', () => {
     render(<Khung rongNoiDung={800} rongKhung={1000} />);
     act(() => goiLai?.());

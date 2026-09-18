@@ -43,13 +43,21 @@ export function ThanhCuonNgangTren({ khung }: { khung: RefObject<HTMLElement | n
   //  - chỉ so hai bên: sự kiện cuộn phát theo KHUNG HÌNH, tiếng vọng của lần gán trước tới muộn khi bảng đã cuộn
   //    tiếp (touchpad, Shift+lăn) → bị coi là cuộn thật và kéo bảng giật ngược.
   // Nhớ giá trị ĐỌC LẠI sau khi gán (trình duyệt có thể kẹp/làm tròn), tiếng vọng khớp đúng giá trị ấy thì bỏ.
+  // CHỈ nhớ khi vị trí thật sự đổi: gán mà bị kẹp ở mép thì không có sự kiện nào, nhớ vào là treo và nuốt lần
+  // cuộn thật sau đúng giá trị ấy.
   useEffect(() => {
     const el = khung.current;
     const thanh = thanhRef.current;
     if (!tran || !el || !thanh) return;
     let vongThanh: number | null = null;
     let vongKhung: number | null = null;
-    thanh.scrollLeft = el.scrollLeft;
+    /** Gán `scrollLeft`, trả giá trị cần nhớ làm tiếng vọng — `null` khi vị trí không đổi (không có sự kiện). */
+    const gan = (dich: HTMLElement, giaTri: number): number | null => {
+      const truoc = dich.scrollLeft;
+      dich.scrollLeft = giaTri;
+      return dich.scrollLeft !== truoc ? dich.scrollLeft : null;
+    };
+    vongThanh = gan(thanh, el.scrollLeft);
     const theoKhung = () => {
       if (vongKhung !== null && el.scrollLeft === vongKhung) {
         vongKhung = null;
@@ -57,8 +65,7 @@ export function ThanhCuonNgangTren({ khung }: { khung: RefObject<HTMLElement | n
       }
       vongKhung = null;
       if (thanh.scrollLeft === el.scrollLeft) return;
-      thanh.scrollLeft = el.scrollLeft;
-      vongThanh = thanh.scrollLeft;
+      vongThanh = gan(thanh, el.scrollLeft);
     };
     const theoThanh = () => {
       if (vongThanh !== null && thanh.scrollLeft === vongThanh) {
@@ -67,8 +74,7 @@ export function ThanhCuonNgangTren({ khung }: { khung: RefObject<HTMLElement | n
       }
       vongThanh = null;
       if (el.scrollLeft === thanh.scrollLeft) return;
-      el.scrollLeft = thanh.scrollLeft;
-      vongKhung = el.scrollLeft;
+      vongKhung = gan(el, thanh.scrollLeft);
     };
     el.addEventListener('scroll', theoKhung);
     thanh.addEventListener('scroll', theoThanh);

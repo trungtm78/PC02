@@ -51,6 +51,7 @@ import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { TABLE_SECTION_CARD } from '@/constants/styles';
 
 interface PetitionRow {
   id: string;
@@ -497,7 +498,7 @@ export default function WardPetitionsPage() {
       {/* Table */}
       {/* `overflow-clip` chứ không `overflow-hidden`: hidden tạo khung cuộn riêng, thanh cuộn trên (`sticky`)
           bám vào khung này thay vì trang và trôi mất khi cuộn xuống — cùng lý do với TABLE_SECTION_CARD. */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-clip">
+      <div className={TABLE_SECTION_CARD}>
         {/* Anh yêu cầu 18/09/2026: thanh cuộn ngang ở TRÊN bảng, dùng chung với 3 màn danh sách. */}
         <ThanhCuonNgangTren khung={khungBangRef} />
         <div ref={khungBangRef} className="overflow-x-auto">
