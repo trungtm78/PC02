@@ -175,7 +175,9 @@ async function main(): Promise<void> {
         .find(
           {
             id: {
+              // Chỉ hồ sơ CHƯA CÓ mới được cấp mã; hồ sơ "đã sửa" đã mang mã thật.
               $in: can
+                .filter((c) => c.lyDo === 'chua-co')
                 .map((c) => Number(c.sourceId))
                 .filter((n) => Number.isFinite(n)),
             },

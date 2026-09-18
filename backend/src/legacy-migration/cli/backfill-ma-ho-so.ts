@@ -76,18 +76,20 @@ function laMaTam(ma: string | null): boolean {
 export type LoaiSo = 'CASE' | 'INCIDENT' | 'PETITION';
 
 /**
- * Cấp số mới theo bộ đếm hệ mới cho hồ sơ `id` và ghi số hệ cũ vào STT cũ — trong MỘT giao dịch.
- * Trả số vừa cấp.
+ * Cấp số mới theo bộ đếm hệ mới cho hồ sơ `id` — trong MỘT giao dịch. `soHeCu` khác null thì ghi
+ * vào STT cũ; null khi STT cũ đã có giá trị riêng (không ghi đè). Trả số vừa cấp.
  */
 export type GhiSoMoi = (
   loai: LoaiSo,
   id: string,
-  soHeCu: string,
+  soHeCu: string | null,
 ) => Promise<string>;
 
 export interface TuyChonBuMa {
   /** Mặc định: `taoGhiSoMoi(prisma, <ADMIN đầu tiên>)`. Ca kiểm truyền bản giả. */
   ghiSoMoi?: GhiSoMoi;
+  /** Năm của kỳ bộ đếm (mặc định năm hiện tại). Ca kiểm cố định để không phụ thuộc ngày chạy. */
+  namBoDem?: number;
 }
 
 export interface KetQuaMotLoai {
@@ -96,8 +98,12 @@ export interface KetQuaMotLoai {
   boQua: number;
   /** Hồ sơ trùng số với hồ sơ HỆ MỚI tạo → đã/sẽ nhận số mới theo bộ đếm. */
   soMoi: Array<{ id: string; soHeCu: string; ma: string }>;
-  /** Trùng số hệ mới nhưng đã có STT cũ riêng — không ghi đè, để người xử lý. */
-  canXuLyTay: string[];
+  /**
+   * Trùng số hệ mới, đã cấp số mới, nhưng STT cũ ĐÃ có giá trị riêng nên không ghi đè — số hệ cũ
+   * chỉ còn trong bản thô (`legacyRaw.nam/stt`). Không để trống mã: mã trống là lỗi công cụ này sinh
+   * ra để vá (rà mã 18/09/2026).
+   */
+  sttCuDaCo: Array<{ id: string; soHeCu: string }>;
 }
 
 export interface KetQuaBuMa {
@@ -119,11 +125,11 @@ const SO_MOI_CHAY_THU = '(số mới từ bộ đếm)';
  * Cấp mã cho MỘT loại hồ sơ.
  *
  *   mã cơ sở (năm-stt hệ cũ)
- *     ├─ chưa ai dùng ──────────────────────► giữ nguyên
- *     ├─ trùng hồ sơ DI TRÚ khác ───────────► hậu tố -2, -3 (hệ cũ tự trùng; giữ đúng năm)
- *     └─ trùng hồ sơ HỆ MỚI tạo
- *          ├─ đã có STT cũ riêng ───────────► không ghi đè, báo xử lý tay
- *          └─ còn lại ──────────────────────► số mới theo bộ đếm + STT cũ = mã cơ sở
+ *     ├─ chưa ai dùng ──────────────────────────────► giữ nguyên
+ *     ├─ trùng hồ sơ DI TRÚ khác, hoặc năm ≠ năm bộ đếm ► hậu tố -2, -3 (giữ đúng năm)
+ *     └─ trùng số HỆ MỚI (hồ sơ hệ mới tạo, hoặc số bộ đếm đã cấp cho hồ sơ di trú)
+ *          └─────────────────────────────────────► số mới theo bộ đếm + STT cũ = mã cơ sở
+ *                                                   (STT cũ đã có riêng thì giữ, không ghi đè)
  */
 async function buMotLoai(opts: {
   ten: string;
@@ -134,14 +140,15 @@ async function buMotLoai(opts: {
   ghiMa: (id: string, ma: string) => Promise<unknown>;
   ghiSoMoi: () => Promise<GhiSoMoi>;
   apply: boolean;
+  namBoDem: number;
 }): Promise<KetQuaMotLoai> {
-  const { ten, loai, maDangDung, canMa, ghiMa, apply } = opts;
+  const { ten, loai, maDangDung, canMa, ghiMa, apply, namBoDem } = opts;
   const kq: KetQuaMotLoai = {
     thieu: canMa.length,
     cap: 0,
     boQua: 0,
     soMoi: [],
-    canXuLyTay: [],
+    sttCuDaCo: [],
   };
   const daDung = new Set(maDangDung.keys());
   const viDu: string[] = [];
@@ -152,21 +159,23 @@ async function buMotLoai(opts: {
       kq.boQua++;
       continue;
     }
-    if (maDangDung.get(base) === true) {
-      if (h.sttCu && h.sttCu.trim()) {
-        kq.canXuLyTay.push(h.id);
-        continue;
-      }
+    // Bộ đếm cấp số theo NĂM HIỆN TẠI: số gốc năm khác mà cấp số bộ đếm là đổi năm của hồ sơ.
+    const cungNamBoDem = base.startsWith(`${namBoDem}-`);
+    if (maDangDung.get(base) === true && cungNamBoDem) {
+      const sttCuDaCo = !!h.sttCu?.trim();
       const ma = apply
         ? await (
             await opts.ghiSoMoi()
-          )(loai, h.id, base)
+          )(loai, h.id, sttCuDaCo ? null : base)
         : SO_MOI_CHAY_THU;
       if (apply) {
         daDung.add(ma);
-        maDangDung.set(ma, false);
+        // Số vừa cấp là số HỆ MỚI: hồ sơ hệ cũ phát sau mang đúng số này cũng phải nhận số mới,
+        // không được rơi vào nhánh hậu tố (rà mã 18/09/2026).
+        maDangDung.set(ma, true);
       }
       kq.soMoi.push({ id: h.id, soHeCu: base, ma });
+      if (sttCuDaCo) kq.sttCuDaCo.push({ id: h.id, soHeCu: base });
       kq.cap++;
       continue;
     }
@@ -187,22 +196,44 @@ async function buMotLoai(opts: {
     );
     for (const s of kq.soMoi) console.log(`    ${s.soHeCu} → ${s.ma}`);
   }
-  if (kq.canXuLyTay.length) {
+  if (kq.sttCuDaCo.length) {
     console.log(
-      `  ${kq.canXuLyTay.length} hồ sơ trùng số hệ mới nhưng ĐÃ có STT cũ — cần xử lý tay: ${kq.canXuLyTay.join(', ')}`,
+      `  ${kq.sttCuDaCo.length} hồ sơ đã có STT cũ riêng nên KHÔNG ghi số hệ cũ vào STT cũ (số hệ cũ còn trong bản thô): ` +
+        kq.sttCuDaCo.map((x) => `${x.id}=${x.soHeCu}`).join(', '),
     );
   }
   return kq;
 }
 
-/** Mã → có hồ sơ HỆ MỚI tạo (không khoá nguồn hệ cũ) đang giữ mã ấy không. */
+/**
+ * Mã có phải số HỆ MỚI không: hồ sơ hệ mới tạo (không khoá nguồn hệ cũ), hoặc hồ sơ di trú đã được
+ * cấp số theo bộ đếm (mã khác năm-stt trong bản thô của nó). Hồ sơ di trú không có bản thô (vỏ liên
+ * kết) coi như giữ số hệ cũ.
+ */
+export function laSoHeMoi(d: {
+  ma: string | null;
+  legacySourceId: string | null;
+  raw: Record<string, unknown> | null;
+}): boolean {
+  if (!d.ma) return false;
+  if (d.legacySourceId == null) return true;
+  if (!d.raw) return false;
+  const goc = maTuBanTho(d.raw);
+  return !!goc && d.ma !== goc && !d.ma.startsWith(`${goc}-`);
+}
+
+/** Mã → có số HỆ MỚI nào đang giữ mã ấy không (xem `laSoHeMoi`). */
 function banDoMa(
-  dong: Array<{ ma: string | null; legacySourceId: string | null }>,
+  dong: Array<{
+    ma: string | null;
+    legacySourceId: string | null;
+    raw: Record<string, unknown> | null;
+  }>,
 ): Map<string, boolean> {
   const m = new Map<string, boolean>();
   for (const d of dong) {
     if (!d.ma) continue;
-    m.set(d.ma, m.get(d.ma) === true || d.legacySourceId == null);
+    m.set(d.ma, m.get(d.ma) === true || laSoHeMoi(d));
   }
   return m;
 }
@@ -215,6 +246,7 @@ export function taoGhiSoMoi(prisma: PrismaClient, actorId: string): GhiSoMoi {
   const docNums = new DocumentNumbersService(prisma as never);
   return (loai, id, soHeCu) =>
     prisma.$transaction(async (tx) => {
+      const sttCu = soHeCu === null ? {} : { sttCu: soHeCu };
       const { number } = await docNums.commitWithTx(
         loai,
         { userId: actorId },
@@ -224,17 +256,17 @@ export function taoGhiSoMoi(prisma: PrismaClient, actorId: string): GhiSoMoi {
       if (loai === 'CASE')
         await tx.case.update({
           where: { id },
-          data: { caseCode: number, sttCu: soHeCu },
+          data: { caseCode: number, ...sttCu },
         });
       else if (loai === 'INCIDENT')
         await tx.incident.update({
           where: { id },
-          data: { code: number, sttCu: soHeCu },
+          data: { code: number, ...sttCu },
         });
       else
         await tx.petition.update({
           where: { id },
-          data: { stt: number, sttCu: soHeCu },
+          data: { stt: number, ...sttCu },
         });
       return number;
     });
@@ -242,7 +274,9 @@ export function taoGhiSoMoi(prisma: PrismaClient, actorId: string): GhiSoMoi {
 
 /** Người chạy di trú — ghi vào nhật ký cấp số. Cùng cách `cap-nhat-tu-he-cu` chọn. */
 export async function timNguoiChayDiTru(prisma: PrismaClient): Promise<string> {
+  // Sắp theo ngày tạo: nhật ký cấp số ghi CÙNG một người qua các lần chạy.
   const admin = await prisma.user.findFirst({
+    orderBy: { createdAt: 'asc' },
     where: { role: { name: 'ADMIN' } },
     select: { id: true },
   });
@@ -274,6 +308,7 @@ export async function buMaHoSo(
   );
 
   let ghiSoMoiDaTao: GhiSoMoi | undefined = tuyChon.ghiSoMoi;
+  const namBoDem = tuyChon.namBoDem ?? new Date().getFullYear();
   const ghiSoMoi = async (): Promise<GhiSoMoi> => {
     ghiSoMoiDaTao ??= taoGhiSoMoi(prisma, await timNguoiChayDiTru(prisma));
     return ghiSoMoiDaTao;
@@ -298,6 +333,7 @@ export async function buMaHoSo(
       vuAnTatCa.map((c) => ({
         ma: c.caseCode,
         legacySourceId: c.legacySourceId,
+        raw: c.legacyRaw as Record<string, unknown> | null,
       })),
     ),
     canMa: vuAnTatCa
@@ -312,6 +348,7 @@ export async function buMaHoSo(
       prisma.case.update({ where: { id }, data: { caseCode: ma } }),
     ghiSoMoi,
     apply,
+    namBoDem,
   });
 
   // ── Vụ việc ─────────────────────────────────────────────────────────────
@@ -333,6 +370,7 @@ export async function buMaHoSo(
       vuViecTatCa.map((i) => ({
         ma: i.code,
         legacySourceId: i.legacySourceId,
+        raw: i.legacyRaw as Record<string, unknown> | null,
       })),
     ),
     canMa: vuViecTatCa
@@ -347,6 +385,7 @@ export async function buMaHoSo(
       prisma.incident.update({ where: { id }, data: { code: ma } }),
     ghiSoMoi,
     apply,
+    namBoDem,
   });
   if (vuViec.boQua) {
     console.log(
@@ -397,7 +436,11 @@ export async function buMaHoSo(
     ten: 'ĐƠN THƯ ',
     loai: 'PETITION',
     maDangDung: banDoMa(
-      donThuTatCa.map((p) => ({ ma: p.stt, legacySourceId: p.legacySourceId })),
+      donThuTatCa.map((p) => ({
+        ma: p.stt,
+        legacySourceId: p.legacySourceId,
+        raw: p.legacyRaw as Record<string, unknown> | null,
+      })),
     ),
     canMa: donThuThieu.map((p) => ({
       id: p.id,
@@ -412,6 +455,7 @@ export async function buMaHoSo(
       prisma.petition.update({ where: { id }, data: { stt: ma } }),
     ghiSoMoi,
     apply,
+    namBoDem,
   });
 
   // ── Bộ đếm ──────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { maTuBanTho } from './backfill-ma-ho-so';
+import { laSoHeMoi, maTuBanTho } from './backfill-ma-ho-so';
 
 /** Giá trị Mongo nguyên thuỷ → chuỗi; kiểu khác (đối tượng, mảng) coi như trống. */
 function chuoi(v: unknown): string {
@@ -15,15 +15,22 @@ export interface TrungSoHeMoi {
   bangHeMoi: Array<'Đơn thư' | 'Vụ việc' | 'Vụ án'>;
 }
 
+type DongMa = {
+  ma: string | null;
+  legacySourceId: string | null;
+  legacyRaw: unknown;
+};
+
 /**
- * Xem trước khi nạp (chế độ `--dry`): hồ sơ hệ cũ nào mang số đã có hồ sơ HỆ MỚI tạo giữ.
+ * Xem trước khi nạp (chế độ `--dry`): hồ sơ hệ cũ CHƯA CÓ trong hệ mới mang số đang là số HỆ MỚI.
  *
- * Để người duyệt thấy TRƯỚC khi ghi: hồ sơ trùng CÙNG LOẠI sẽ nhận số mới theo bộ đếm và giữ số
- * hệ cũ ở STT cũ (`buMaHoSo`); trùng KHÁC LOẠI thì giữ nguyên số (bộ đếm tách theo loại).
+ * Cùng luật với `buMaHoSo` (`laSoHeMoi` + cùng năm bộ đếm), để bản xem trước nói đúng điều bước ghi
+ * sẽ làm: trùng CÙNG LOẠI → số mới theo bộ đếm, số hệ cũ vào STT cũ; khác loại → giữ số.
  */
 export async function duDoanTrungSoHeMoi(
   prisma: PrismaClient,
   taiLieu: Array<Record<string, unknown>>,
+  namBoDem: number = new Date().getFullYear(),
 ): Promise<TrungSoHeMoi[]> {
   const theoSo = new Map<
     string,
@@ -31,7 +38,7 @@ export async function duDoanTrungSoHeMoi(
   >();
   for (const d of taiLieu) {
     const so = maTuBanTho(d);
-    if (!so) continue;
+    if (!so || !so.startsWith(`${namBoDem}-`)) continue;
     const ds = theoSo.get(so) ?? [];
     ds.push({ sourceId: chuoi(d['id']), loaiHeCu: chuoi(d['loai']) });
     theoSo.set(so, ds);
@@ -41,26 +48,31 @@ export async function duDoanTrungSoHeMoi(
 
   const [don, viec, an] = await Promise.all([
     prisma.petition.findMany({
-      where: { stt: { in: so }, legacySourceId: null },
-      select: { stt: true },
+      where: { stt: { in: so } },
+      select: { stt: true, legacySourceId: true, legacyRaw: true },
     }),
     prisma.incident.findMany({
-      where: { code: { in: so }, legacySourceId: null },
-      select: { code: true },
+      where: { code: { in: so } },
+      select: { code: true, legacySourceId: true, legacyRaw: true },
     }),
     prisma.case.findMany({
-      where: { caseCode: { in: so }, legacySourceId: null },
-      select: { caseCode: true },
+      where: { caseCode: { in: so } },
+      select: { caseCode: true, legacySourceId: true, legacyRaw: true },
     }),
   ]);
   const giu = new Map<string, TrungSoHeMoi['bangHeMoi']>();
-  const them = (ma: string | null, ten: TrungSoHeMoi['bangHeMoi'][number]) => {
-    if (!ma) return;
-    giu.set(ma, [...(giu.get(ma) ?? []), ten]);
+  const them = (d: DongMa, ten: TrungSoHeMoi['bangHeMoi'][number]) => {
+    const raw = (d.legacyRaw ?? null) as Record<string, unknown> | null;
+    if (
+      !d.ma ||
+      !laSoHeMoi({ ma: d.ma, legacySourceId: d.legacySourceId, raw })
+    )
+      return;
+    giu.set(d.ma, [...(giu.get(d.ma) ?? []), ten]);
   };
-  don.forEach((d) => them(d.stt, 'Đơn thư'));
-  viec.forEach((v) => them(v.code, 'Vụ việc'));
-  an.forEach((a) => them(a.caseCode, 'Vụ án'));
+  don.forEach((d) => them({ ...d, ma: d.stt }, 'Đơn thư'));
+  viec.forEach((v) => them({ ...v, ma: v.code }, 'Vụ việc'));
+  an.forEach((a) => them({ ...a, ma: a.caseCode }, 'Vụ án'));
 
   return [...giu.entries()]
     .flatMap(([soHeCu, bangHeMoi]) =>

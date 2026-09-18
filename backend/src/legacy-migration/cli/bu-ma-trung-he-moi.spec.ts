@@ -92,7 +92,7 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
       ],
     });
     const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('2026-11914');
-    const kq = await buMaHoSo(prisma, true, { ghiSoMoi });
+    const kq = await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
     expect(ghiSoMoi).toHaveBeenCalledWith('PETITION', 'cu', '2026-11732');
     expect(kq.donThu.soMoi).toEqual([
       { id: 'cu', soHeCu: '2026-11732', ma: '2026-11914' },
@@ -123,7 +123,7 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
       ],
     });
     const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('khong-duoc-goi');
-    await buMaHoSo(prisma, true, { ghiSoMoi });
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
     expect(ghiSoMoi).not.toHaveBeenCalled();
     expect(dsCap).toEqual([
       { bang: 'incident', id: 'vv', data: { code: '2026-11732' } },
@@ -150,14 +150,14 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
       ],
     });
     const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('khong-duoc-goi');
-    await buMaHoSo(prisma, true, { ghiSoMoi });
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
     expect(ghiSoMoi).not.toHaveBeenCalled();
     expect(dsCap).toEqual([
       { bang: 'case', id: 'b', data: { caseCode: '2019-125-2' } },
     ]);
   });
 
-  it('hồ sơ đã có STT cũ riêng → KHÔNG ghi đè, để mã tạm và báo cần xử lý tay', async () => {
+  it('hồ sơ đã có STT cũ riêng → VẪN cấp số mới (không để trống mã), KHÔNG ghi đè STT cũ', async () => {
     const { prisma } = prismaGia({
       petition: [
         {
@@ -176,10 +176,103 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
         },
       ],
     });
+    const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('2026-11930');
+    const kq = await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
+    expect(ghiSoMoi).toHaveBeenCalledWith('PETITION', 'cu', null);
+    expect(kq.donThu.sttCuDaCo).toEqual([{ id: 'cu', soHeCu: '2026-11740' }]);
+  });
+
+  /**
+   * Rà mã 18/09/2026: số bộ đếm vừa cấp cho hồ sơ di trú (2026-11914) vẫn mang khoá nguồn hệ cũ,
+   * nên bản đầu coi nó là "số di trú". Hệ cũ đếm tăng dần, chắc chắn sẽ phát 2026-11914 cho hồ sơ
+   * kế — bản đầu gắn hậu tố 2026-11914-2 thay vì cấp số mới.
+   */
+  it('số bộ đếm đã cấp cho hồ sơ di trú là số HỆ MỚI: hồ sơ hệ cũ sau mang số ấy nhận số mới', async () => {
+    const { prisma } = prismaGia({
+      petition: [
+        {
+          id: 'da-doi-so',
+          stt: '2026-11914',
+          legacySourceId: 'ho_so_doi_1:87544',
+          legacyRaw: raw(2026, 11732),
+          sttCu: '2026-11732',
+        },
+        {
+          id: 'moi-nap',
+          stt: 'DT-LEGACY-87600',
+          legacySourceId: 'ho_so_doi_1:87600',
+          legacyRaw: raw(2026, 11914),
+          sttCu: null,
+        },
+      ],
+    });
+    const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('2026-11931');
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
+    expect(ghiSoMoi).toHaveBeenCalledWith('PETITION', 'moi-nap', '2026-11914');
+  });
+
+  it('số vừa cấp trong CÙNG lượt cũng là số hệ mới', async () => {
+    const { prisma } = prismaGia({
+      petition: [
+        {
+          id: 'moi',
+          stt: '2026-100',
+          legacySourceId: null,
+          legacyRaw: null,
+          sttCu: null,
+        },
+        {
+          id: 'a',
+          stt: 'DT-LEGACY-1',
+          legacySourceId: 'ho_so_doi_1:1',
+          legacyRaw: raw(2026, 100),
+          sttCu: null,
+        },
+        {
+          id: 'b',
+          stt: 'DT-LEGACY-2',
+          legacySourceId: 'ho_so_doi_1:2',
+          legacyRaw: raw(2026, 200),
+          sttCu: null,
+        },
+      ],
+    });
+    const ghiSoMoi = jest
+      .fn()
+      .mockResolvedValueOnce('2026-200')
+      .mockResolvedValueOnce('2026-201');
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
+    expect(ghiSoMoi.mock.calls).toEqual([
+      ['PETITION', 'a', '2026-100'],
+      ['PETITION', 'b', '2026-200'],
+    ]);
+  });
+
+  it('số gốc KHÁC năm bộ đếm trùng hồ sơ hệ mới → hậu tố (không cấp số năm nay cho hồ sơ năm cũ)', async () => {
+    const { prisma, dsCap } = prismaGia({
+      incident: [
+        {
+          id: 'moi',
+          code: '2025-7',
+          legacySourceId: null,
+          legacyRaw: null,
+          sttCu: null,
+        },
+        {
+          id: 'cu',
+          code: 'VV-LEGACY-9',
+          legacySourceId: 'ho_so_doi_1:9',
+          legacyRaw: raw(2025, 7),
+          sttCu: null,
+        },
+      ],
+    });
     const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('khong-duoc-goi');
-    const kq = await buMaHoSo(prisma, true, { ghiSoMoi });
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
     expect(ghiSoMoi).not.toHaveBeenCalled();
-    expect(kq.donThu.canXuLyTay).toEqual(['cu']);
+    expect(dsCap).toEqual([
+      { bang: 'incident', id: 'cu', data: { code: '2025-7-2' } },
+    ]);
   });
 
   it('chạy thử (không --apply) → không ghi gì, báo trước số hồ sơ sẽ nhận số mới', async () => {
@@ -202,7 +295,7 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
       ],
     });
     const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('khong-duoc-goi');
-    const kq = await buMaHoSo(prisma, false, { ghiSoMoi });
+    const kq = await buMaHoSo(prisma, false, { ghiSoMoi, namBoDem: 2026 });
     expect(ghiSoMoi).not.toHaveBeenCalled();
     expect(dsCap).toEqual([]);
     expect(kq.donThu.soMoi).toEqual([
@@ -229,7 +322,7 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
         },
       ],
     });
-    await buMaHoSo(prisma, true, { ghiSoMoi: jest.fn() });
+    await buMaHoSo(prisma, true, { ghiSoMoi: jest.fn(), namBoDem: 2026 });
     expect(dsCap.map((d) => d.data)).toEqual([
       { code: '2026-5' },
       { code: '2026-5-2' },
