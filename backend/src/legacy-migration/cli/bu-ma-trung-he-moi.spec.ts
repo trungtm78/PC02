@@ -211,6 +211,39 @@ describe('buMaHoSo — hồ sơ hệ cũ mới nạp trùng số hệ mới', ()
     expect(ghiSoMoi).toHaveBeenCalledWith('PETITION', 'moi-nap', '2026-11914');
   });
 
+  it('vỏ liên kết (không bản thô) đã mang số bộ đếm: xét bằng bản thô vụ án anh em → là số hệ mới', async () => {
+    const { prisma } = prismaGia({
+      case: [
+        {
+          id: 'va',
+          caseCode: '2026-500',
+          legacySourceId: 'ho_so_doi_1:50',
+          legacyRaw: raw(2026, 500),
+          sttCu: null,
+        },
+      ],
+      petition: [
+        {
+          id: 'vo',
+          stt: '2026-11950',
+          legacySourceId: 'ho_so_doi_1:50',
+          legacyRaw: null,
+          sttCu: '2026-500',
+        },
+        {
+          id: 'moi-nap',
+          stt: 'DT-LEGACY-9',
+          legacySourceId: 'ho_so_doi_1:9',
+          legacyRaw: raw(2026, 11950),
+          sttCu: null,
+        },
+      ],
+    });
+    const ghiSoMoi: GhiSoMoi = jest.fn().mockResolvedValue('2026-11951');
+    await buMaHoSo(prisma, true, { ghiSoMoi, namBoDem: 2026 });
+    expect(ghiSoMoi).toHaveBeenCalledWith('PETITION', 'moi-nap', '2026-11950');
+  });
+
   it('số vừa cấp trong CÙNG lượt cũng là số hệ mới', async () => {
     const { prisma } = prismaGia({
       petition: [

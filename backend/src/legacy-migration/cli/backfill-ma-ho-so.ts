@@ -410,8 +410,9 @@ export async function buMaHoSo(
 
   // Một số đơn thư di trú là VỎ LIÊN KẾT: bản thô được định tuyến sang vụ án hoặc vụ việc
   // cùng khoá nguồn, nên `legacyRaw` để trống. Dữ kiện cấp mã vẫn có — chỉ nằm ở thực thể
-  // anh em. Lấy từ đó thay vì bỏ cuộc.
-  const khoaThieuRaw = donThuThieu
+  // anh em. Lấy từ đó thay vì bỏ cuộc. Lấy cho MỌI vỏ liên kết (không chỉ vỏ đang thiếu mã): xét
+  // "số này có phải số bộ đếm đã cấp không" cũng cần bản thô (codex 18/09/2026).
+  const khoaThieuRaw = donThuTatCa
     .filter((p) => !p.legacyRaw && p.legacySourceId)
     .map((p) => p.legacySourceId as string);
   const rawAnhEm = new Map<string, Record<string, unknown>>();
@@ -432,6 +433,13 @@ export async function buMaHoSo(
       }
     }
   }
+  const rawCua = (p: {
+    legacyRaw: unknown;
+    legacySourceId: string | null;
+  }): Record<string, unknown> | null =>
+    (p.legacyRaw as Record<string, unknown> | null) ??
+    (p.legacySourceId ? rawAnhEm.get(p.legacySourceId) : undefined) ??
+    null;
   const donThu = await buMotLoai({
     ten: 'ĐƠN THƯ ',
     loai: 'PETITION',
@@ -439,16 +447,13 @@ export async function buMaHoSo(
       donThuTatCa.map((p) => ({
         ma: p.stt,
         legacySourceId: p.legacySourceId,
-        raw: p.legacyRaw as Record<string, unknown> | null,
+        raw: rawCua(p),
       })),
     ),
     canMa: donThuThieu.map((p) => ({
       id: p.id,
       ma: p.stt,
-      raw:
-        (p.legacyRaw as Record<string, unknown> | null) ??
-        (p.legacySourceId ? rawAnhEm.get(p.legacySourceId) : undefined) ??
-        null,
+      raw: rawCua(p),
       sttCu: p.sttCu,
     })),
     ghiMa: (id, ma) =>
