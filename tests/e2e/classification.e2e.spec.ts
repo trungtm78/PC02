@@ -161,14 +161,15 @@ test.describe('E2E-CL-04: Duplicate Petitions Page', () => {
   });
 });
 
-test.describe('E2E-CL-05: Phân loại khác ĐÃ GỠ (18/09/2026)', () => {
+// Màn "Phân loại khác" GỠ 18/09/2026: hệ cũ (`Modules/PhanLoaiKhac`) lọc `ho_so_doi_1.loai =
+// "phan_loai_khac"` và Mongo hệ cũ đếm 0 bản; hệ mới không có chỗ lưu loại ấy, còn màn thì hiện MỌI vụ
+// án với cột "phân loại" = tội danh. Hai ca dưới chốt điều ngược lại để nó không lặng lẽ quay lại.
+test.describe('E2E-CL-05: Phân loại khác đã gỡ', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });
 
-  // Hệ cũ (`Modules/PhanLoaiKhac`) lọc `ho_so_doi_1.loai = "phan_loai_khac"` và Mongo hệ cũ đếm 0 bản;
-  // hệ mới không có chỗ lưu loại ấy. Màn cũ hiện MỌI vụ án với cột "phân loại" = tội danh, nên đã gỡ.
-  test('đường dẫn cũ không còn dựng màn Phân loại khác', async ({ page }) => {
+  test('đường dẫn cũ không dựng màn Phân loại khác', async ({ page }) => {
     await page.goto(`${BASE_URL}/classification/others`);
     await expect(page.getByTestId('other-classification-page')).toHaveCount(0);
   });
@@ -176,107 +177,5 @@ test.describe('E2E-CL-05: Phân loại khác ĐÃ GỠ (18/09/2026)', () => {
   test('menu không còn mục Phân loại khác', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard`);
     await expect(page.getByRole('link', { name: /Phân loại khác/i })).toHaveCount(0);
-  });
-});
-
-  test('Ward Cases access denied modal shows for unauthorized access', async ({ page }) => {
-    await page.goto(`${BASE_URL}/ward/cases`);
-    const accessDeniedModal = page.getByTestId('access-denied-modal');
-    const modalVisible = await accessDeniedModal.isVisible().catch(() => false);
-    if (modalVisible) {
-      await expect(accessDeniedModal.getByText(/Không có quyền truy cập/i)).toBeVisible();
-      await page.screenshot({ path: 'tests/screenshots/phan-loai-quan-ly-step02-denied.png' });
-    }
-  });
-});
-
-test.describe('E2E-CL-02: Ward Incidents Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-  });
-
-  test('Ward Incidents page renders with title and table', async ({ page }) => {
-    await page.goto(`${BASE_URL}/ward/incidents`);
-    await expect(page.getByTestId('ward-incidents-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Vụ việc Phường\/Xã/i })).toBeVisible();
-    await expect(page.getByTestId('ward-incidents-table')).toBeVisible();
-  });
-
-  test('Ward Incidents filter panel toggles correctly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/ward/incidents`);
-    await page.getByTestId('filter-toggle-btn').click();
-    await expect(page.getByTestId('advanced-filter-panel')).toBeVisible();
-  });
-});
-
-test.describe('E2E-CL-03: Prosecutor Proposal Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-  });
-
-  test('Prosecutor Proposal page renders with title and table', async ({ page }) => {
-    await page.goto(`${BASE_URL}/prosecutor-proposal`);
-    await expect(page.getByTestId('prosecutor-proposal-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Kiến nghị VKS/i })).toBeVisible();
-    await expect(page.getByTestId('proposals-table')).toBeVisible();
-  });
-
-  test('Prosecutor Proposal add button opens form modal', async ({ page }) => {
-    await page.goto(`${BASE_URL}/prosecutor-proposal`);
-    await page.getByTestId('add-proposal-btn').click();
-    await expect(page.getByRole('dialog').getByText(/Tạo kiến nghị VKS mới/i)).toBeVisible();
-  });
-
-  test('Prosecutor Proposal export Excel triggers download', async ({ page }) => {
-    await page.goto(`${BASE_URL}/prosecutor-proposal`);
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByTestId('export-excel-btn').click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toContain('.csv');
-    await page.screenshot({ path: 'tests/screenshots/phan-loai-quan-ly-step04-excel.png' });
-  });
-});
-
-test.describe('E2E-CL-04: Duplicate Petitions Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-  });
-
-  test('Duplicate Petitions page renders with title and table', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/duplicates`);
-    await expect(page.getByTestId('duplicate-petitions-page')).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Quản lý đơn trùng/i })).toBeVisible();
-    await expect(page.getByTestId('duplicates-table')).toBeVisible();
-  });
-
-  test('Duplicate Petitions shows similarity percentage for duplicates', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/duplicates`);
-    const similarity95 = page.getByTestId('similarity-DUP-001-DT-2026-089');
-    await expect(similarity95).toBeVisible();
-    expect(await similarity95.textContent()).toContain('95');
-  });
-
-  test('Duplicate Petitions compare button opens compare modal', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/duplicates`);
-    const compareBtn = page.getByTestId('compare-btn-DUP-001-DT-2026-089');
-    await compareBtn.click();
-    await expect(page.getByRole('heading', { name: /So sánh đơn thư/i })).toBeVisible();
-    await page.screenshot({ path: 'tests/screenshots/phan-loai-quan-ly-step03-compare.png' });
-  });
-
-  test('Duplicate Petitions process button opens process modal', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/duplicates`);
-    const viewBtn = page.getByTestId('view-btn-DUP-001');
-    await viewBtn.click();
-    await expect(page.getByRole('heading', { name: /Chi tiết đơn trùng/i })).toBeVisible();
-  });
-
-  test('Duplicate Petitions process flow with merge action', async ({ page }) => {
-    await page.goto(`${BASE_URL}/classification/duplicates`);
-    await page.getByTestId('process-btn-DUP-001').click();
-    await expect(page.getByRole('heading', { name: /Xử lý đơn trùng/i })).toBeVisible();
-    await page.getByTestId('process-notes-input').fill('Test merge action');
-    page.on('dialog', (dialog) => dialog.accept());
-    await page.getByTestId('confirm-process-btn').click();
   });
 });
