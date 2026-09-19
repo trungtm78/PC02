@@ -26,11 +26,14 @@ export function phamViTo(
 export function chonToBaoCao(
   yeuCau: string[],
   phamVi: string[] | null,
+  thaoTac: 'read' | 'write' = 'read',
 ): string[] {
   if (phamVi === null) return yeuCau;
   if (phamVi.length === 0) {
     throw new ForbiddenException(
-      'Bạn chưa thuộc tổ nào nên không xem được báo cáo tạm đình chỉ theo tổ',
+      thaoTac === 'write'
+        ? 'Bạn không có tổ nào được quyền ghi nên không lập được bản nháp báo cáo tạm đình chỉ'
+        : 'Bạn chưa thuộc tổ nào nên không xem được báo cáo tạm đình chỉ theo tổ',
     );
   }
   if (yeuCau.length === 0) return phamVi;

@@ -84,6 +84,7 @@ export class TdacController {
     const teamIds = chonToBaoCao(
       dto.teamIds ?? [],
       phamViTo(req.dataScope, 'write'),
+      'write',
     );
     return this.draftService.create({ ...dto, teamIds }, req.user.id);
   }

@@ -46,6 +46,11 @@ describe('chonToBaoCao', () => {
       ForbiddenException,
     );
   });
+  it('tạo bản nháp khi không có tổ GHI được → 403 nói đúng lý do (không bảo "chưa thuộc tổ nào")', () => {
+    expect(() => chonToBaoCao([], [], 'write')).toThrow(
+      /không có tổ nào được quyền ghi/,
+    );
+  });
   it('cán bộ không thuộc tổ nào → 403 (trước đây được thả)', () => {
     expect(() => chonToBaoCao([], [])).toThrow(ForbiddenException);
   });
