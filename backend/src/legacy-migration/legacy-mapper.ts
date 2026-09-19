@@ -815,6 +815,30 @@ export const MAPPED_LEGACY_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Ngày tiếp nhận của vụ việc TĐC từ ba ô `tiep_nhan_ngay/thang/nam`. Đo prod 19/09/2026: CẢ 118 hồ sơ lưu NGƯỢC —
+ * `tiep_nhan_ngay` là năm (2020…), `tiep_nhan_nam` là ngày (1…31). Bản cũ ghép thẳng `Date.UTC(2000 + nam, …, ngay)`
+ * nên TRÀN (30/11/2020 → 12/05/2036). Nay: ô "ngày" > 31 thì hai ô đổi vai; năm 2 chữ số → +2000; ngày không có thật
+ * (31/2, tháng 13) → không có ngày, KHÔNG để Date tự tràn sang tháng/năm khác.
+ */
+export function ngayTiepNhanTdc(rec: LegacyRecord): {
+  ngay?: Date;
+  nam?: number;
+} {
+  let d = num(rec.tiep_nhan_ngay);
+  const m = num(rec.tiep_nhan_thang);
+  let y = num(rec.tiep_nhan_nam);
+  if (d && y && d > 31 && y <= 31) [d, y] = [y, d];
+  if (y && y < 100) y += 2000;
+  if (!d || !m || !y) return { nam: y || undefined };
+  const ngay = new Date(Date.UTC(y, m - 1, d));
+  const coThat =
+    ngay.getUTCFullYear() === y &&
+    ngay.getUTCMonth() === m - 1 &&
+    ngay.getUTCDate() === d;
+  return { ngay: coThat ? ngay : undefined, nam: y };
+}
+
+/**
  * Bảng `TamDinhChi_vu_viec_21` của hệ cũ là danh sách vụ việc ĐÃ TẠM ĐÌNH CHỈ, cấu trúc
  * khác hẳn `ho_so_doi_1` (cột riêng: tam_dinh_chi_so, ly_do, dtv, ksv…). Không có khoá nối
  * tới hồ sơ đã di trú nên coi là vụ việc riêng, trạng thái TAM_DINH_CHI.
@@ -823,6 +847,7 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
   const own = ownership(rec);
   const noiDung = s(rec.noi_dung);
   const dieu = s(rec.dieu);
+  const tiepNhan = ngayTiepNhanTdc(rec);
   // Incident KHÔNG có metadata JSON (chỉ legacyRaw). Các key riêng của bảng TĐC không có
   // ô tương ứng (dtv/ksv/cơ quan/ghi chú) — ghép vào mô tả để cán bộ đọc được, không mất.
   const boSung = [
@@ -830,16 +855,13 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
     s(rec.dtv) ? `Điều tra viên: ${s(rec.dtv)}` : '',
     s(rec.ksv) ? `Kiểm sát viên: ${s(rec.ksv)}` : '',
     s(rec.tam_dinh_chi_co_quan) ? `Cơ quan TĐC: ${s(rec.tam_dinh_chi_co_quan)}` : '',
-    s(rec.tiep_nhan_so) ? `Số tiếp nhận: ${s(rec.tiep_nhan_so)}/${s(rec.tiep_nhan_nam)}` : '',
+    // Năm THẬT (hệ cũ đảo ô ngày/năm — xem ngayTiepNhanTdc); không suy được thì giữ nguyên ô gốc.
+    s(rec.tiep_nhan_so)
+      ? `Số tiếp nhận: ${s(rec.tiep_nhan_so)}/${tiepNhan.nam ?? s(rec.tiep_nhan_nam)}`
+      : '',
     s(rec.ghi_chu) ? `Ghi chú: ${s(rec.ghi_chu)}` : '',
   ].filter(Boolean).join(' · ');
   const moTa = [noiDung, boSung].filter(Boolean).join('\n\n');
-  // Ngày tiếp nhận: ghép tiep_nhan_ngay/thang/nam (nam là 2 chữ số cuối → +2000).
-  const tnNam = num(rec.tiep_nhan_nam);
-  const tnThang = num(rec.tiep_nhan_thang);
-  const tnNgay = num(rec.tiep_nhan_ngay);
-  const ngayTiepNhan =
-    tnNam && tnThang && tnNgay ? new Date(Date.UTC(tnNam < 100 ? 2000 + tnNam : tnNam, tnThang - 1, tnNgay)) : undefined;
   return clean({
     legacySourceId: legacyKey(rec),
     ...traceFields(rec),
@@ -847,7 +869,7 @@ function buildTamDinhChiIncident(rec: LegacyRecord): Record<string, unknown> {
     description: moTa,
     status: 'TAM_DINH_CHI',
     tinhTrangHoSo: dieu ? `Tạm đình chỉ theo Điều ${dieu}` : undefined,
-    ngayDeXuat: ngayTiepNhan && !Number.isNaN(ngayTiepNhan.getTime()) ? ngayTiepNhan : undefined,
+    ngayDeXuat: tiepNhan.ngay,
     soQuyetDinhTamDinhChiVV: s(rec.tam_dinh_chi_so),
     ngayTamDinhChiVV: parseLegacyDate(rec.tam_dinh_chi_time),
     canCuTamDinhChi: s(rec.ly_do),
