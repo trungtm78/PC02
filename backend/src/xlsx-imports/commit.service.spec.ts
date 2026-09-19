@@ -310,6 +310,13 @@ describe('XlsxImportCommitService', () => {
           importLogId: 'log-c',
         },
         {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 01',
+          payload: { col1: 'STT', col2: 'Mã VV', col3: 'Tên vụ việc' },
+          detectedType: 'Incident',
+          importLogId: 'log-c',
+        },
+        {
           rowIndex: 8,
           sheetName: 'Phụ lục 01',
           payload: { col1: 1, col2: 'VV-100', col3: 'Vụ việc Gamma' },
@@ -588,9 +595,13 @@ describe('XlsxImportCommitService', () => {
   });
 
   /**
-   * Vụ án nhập từ Excel mà TỆP THIẾU cột mã: trước 20/09/2026 ghi thẳng caseCode = null, trong khi Vụ việc có mã dự
-   * phòng. Hồ sơ không mã thì tra theo mã không ra, in chứng từ thiếu số. Prod 20/09: 3.397 vụ án nhập Excel đều có
-   * mã (tệp luôn kèm cột), nên đây là lỗ CHỜ SẴN — vá trước khi có tệp thiếu cột.
+   * Hàng nhập Excel KHÔNG có mã (tệp thiếu cột mã, hoặc ô trống). Trước 20/09/2026: Vụ án ghi thẳng caseCode = null
+   * (tra theo mã không ra, in chứng từ thiếu số), Vụ việc thì tự đặt mã `VV-IMP-…`.
+   *
+   * Mã hồ sơ là ĐỊNH DANH của hồ sơ nên không bịa mã thay cán bộ: mã bịa in ra văn bản gửi đi thành chuỗi rác
+   * (`soHoSoNhuHeCu` trả nguyên chuỗi khi không khớp dạng năm-stt), và mã sinh theo (logId, dòng) còn đụng nhau
+   * giữa các phụ lục cùng loại vì số dòng chỉ duy nhất TRONG một sheet (rà mã PR #446). Nay: chạy thử báo rõ, commit
+   * chặn cả lần nhập. Prod 20/09/2026: đường nhập xlsx có 2 import log và 0 hồ sơ được ghi, nên chặn không ảnh hưởng ai.
    */
   describe('hàng thiếu mã', () => {
     const logThieu = {
@@ -626,8 +637,7 @@ describe('XlsxImportCommitService', () => {
         log: logThieu,
         staging: stagingThieu('log-m'),
       }) as MockPrisma;
-      const prisma = gia.prisma;
-      const svc = new XlsxImportCommitService(prisma as never);
+      const svc = new XlsxImportCommitService(gia.prisma as never);
       const result = await svc.dryRun('log-m', ADMIN_A);
       expect(result.conflicts).toEqual([
         expect.objectContaining({
@@ -638,7 +648,53 @@ describe('XlsxImportCommitService', () => {
       ]);
     });
 
-    it('commit: vụ án vẫn có mã truy nguyên được, không để trống', async () => {
+    it('chạy thử: sheet bìa/hướng dẫn (không nhập được) KHÔNG bị báo thiếu mã', async () => {
+      const gia = makeMockPrisma({
+        log: logThieu,
+        staging: [
+          {
+            rowIndex: 3,
+            sheetName: 'Hướng dẫn',
+            payload: { col1: 'Đọc kỹ trước khi nhập' },
+            detectedType: null,
+            importLogId: 'log-m',
+          },
+        ],
+      }) as MockPrisma;
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      const result = await svc.dryRun('log-m', ADMIN_A);
+      expect(result.conflicts).toEqual([]);
+    });
+
+    it('sheet KHÔNG nhận ra dòng tiêu đề → cũng chặn (nếu không sẽ ghi hồ sơ tên "Imported row N", trống mã)', async () => {
+      const pending = {
+        ...logThieu,
+        id: 'log-c',
+        status: XLSX_IMPORT_STATUS.PENDING_SECOND_CONFIRM,
+        firstConfirmById: 'admin-a',
+        firstConfirmAt: new Date(Date.now() - 10 * 60 * 1000),
+      };
+      const gia = makeMockPrisma({
+        log: pending,
+        // Có mã thật ở col2 nhưng KHÔNG có dòng tiêu đề → không cột nào được ánh xạ.
+        staging: [
+          {
+            rowIndex: 8,
+            sheetName: 'Phụ lục 04',
+            payload: { col1: 1, col2: 'VA-100', col3: 'Vụ án Alpha' },
+            detectedType: 'Case',
+            importLogId: 'log-c',
+          },
+        ],
+      }) as MockPrisma;
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'MISSING_CODE' }) as unknown,
+      });
+      expect(gia.state.casesCreated).toHaveLength(0);
+    });
+
+    it('commit: CHẶN cả lần nhập, nói rõ sheet + dòng, không ghi hồ sơ nào', async () => {
       const pending = {
         ...logThieu,
         id: 'log-c',
@@ -650,11 +706,15 @@ describe('XlsxImportCommitService', () => {
         log: pending,
         staging: stagingThieu('log-c'),
       }) as MockPrisma;
-      const { prisma, state } = gia;
-      const svc = new XlsxImportCommitService(prisma as never);
-      await svc.commit('log-c', ADMIN_B);
-      expect(state.casesCreated).toHaveLength(1);
-      expect(state.casesCreated[0].caseCode).toBe('VA-IMP-log-c-8');
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MISSING_CODE',
+          sheetName: 'Phụ lục 04',
+          rowIndexes: [8],
+        }) as unknown,
+      });
+      expect(gia.state.casesCreated).toHaveLength(0);
     });
   });
 });

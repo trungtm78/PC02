@@ -66,15 +66,6 @@ export interface DryRunResult {
   secondConfirmEligibleAt: Date | null;
 }
 
-/**
- * Mã dự phòng cho hàng nhập Excel KHÔNG có mã trong tệp — hồ sơ không mã thì tra theo mã không ra và in chứng từ
- * thiếu số. Dùng trọn `logId` (không cắt 8 ký tự) để hai lần nhập khác nhau không đụng mã; kèm số dòng nên truy
- * nguyên được về đúng dòng của tệp gốc. Bản chạy thử đã báo `missing_code` để cán bộ sửa tệp nếu muốn mã thật.
- */
-function maDuPhong(loai: 'VA' | 'VV', logId: string, rowIndex: number): string {
-  return `${loai}-IMP-${logId}-${rowIndex}`;
-}
-
 @Injectable()
 export class XlsxImportCommitService {
   private readonly logger = new Logger(XlsxImportCommitService.name);
@@ -149,16 +140,18 @@ export class XlsxImportCommitService {
 
       // Intra-batch — flag duplicate codes within the same upload BEFORE
       // they hit the P2002 path on commit.
-      // Hàng KHÔNG có mã: tệp thiếu cột mã hoặc ô trống. Trước 20/09/2026 Vụ án ghi thẳng caseCode = null (tra theo
-      // mã không ra, in chứng từ thiếu số) còn Vụ việc thì có mã dự phòng. Nay báo rõ ở bản chạy thử, và khi commit
-      // cả hai đều nhận mã dự phòng truy nguyên được.
-      for (const skel of skeletons) {
-        if (skel.code) continue;
-        conflicts.push({
-          rowIndex: skel.rowIndex,
-          sheetName,
-          reason: 'missing_code',
-        });
+      // Hàng KHÔNG có mã (tệp thiếu cột mã, hoặc ô trống): mã hồ sơ là ĐỊNH DANH — không bịa mã thay cán bộ, và
+      // không ghi hồ sơ trống mã (tra theo mã không ra, in chứng từ thiếu số). Báo rõ ở bản chạy thử; commit thì chặn.
+      // Chỉ xét sheet thật sự nhập được — sheet bìa/hướng dẫn (detectedType = null) bị bỏ qua khi commit.
+      if (detectedType) {
+        for (const skel of skeletons) {
+          if (skel.code) continue;
+          conflicts.push({
+            rowIndex: skel.rowIndex,
+            sheetName,
+            reason: 'missing_code',
+          });
+        }
       }
 
       const codeCounts = new Map<string, number>();
@@ -327,13 +320,18 @@ export class XlsxImportCommitService {
     {
       const bySheetCheck = new Map<
         string,
-        Array<{ rowIndex: number; payload: Record<string, unknown> }>
+        Array<{
+          rowIndex: number;
+          payload: Record<string, unknown>;
+          detectedType: string | null;
+        }>
       >();
       for (const row of stagingForCheck) {
         const list = bySheetCheck.get(row.sheetName) ?? [];
         list.push({
           rowIndex: row.rowIndex,
           payload: row.payload as Record<string, unknown>,
+          detectedType: row.detectedType,
         });
         bySheetCheck.set(row.sheetName, list);
       }
@@ -344,6 +342,21 @@ export class XlsxImportCommitService {
           if (!skel.code) continue;
           seen.set(skel.code, (seen.get(skel.code) ?? 0) + 1);
         }
+        const thieuMa = skeletons
+          .filter((sk) => !sk.code)
+          .map((sk) => sk.rowIndex);
+        if (rows[0]?.detectedType && thieuMa.length > 0) {
+          const dau = thieuMa.slice(0, 20).join(', ');
+          throw new ConflictException({
+            code: 'MISSING_CODE',
+            message:
+              `Sheet "${sheetName}" có ${thieuMa.length} dòng KHÔNG có mã hồ sơ (dòng ${dau}${thieuMa.length > 20 ? '…' : ''}). ` +
+              'Mã hồ sơ là định danh của hồ sơ — điền mã vào file rồi upload lại. Nếu file CÓ cột mã, kiểm lại dòng tiêu đề: không nhận ra tiêu đề thì không cột nào được ánh xạ.',
+            rowIndexes: thieuMa,
+            sheetName,
+          });
+        }
+
         const dups = [...seen.entries()].filter(([, n]) => n > 1).map(([c]) => c);
         if (dups.length > 0) {
           throw new ConflictException({
@@ -388,13 +401,23 @@ export class XlsxImportCommitService {
 
         const skeletons = mapSheetToSkeletons(rows);
         for (const skel of skeletons) {
+          if (!skel.code) {
+            // Không tới được: đã chặn ở bước kiểm trước giao dịch. Giữ để không bao giờ ghi hồ sơ trống mã nếu
+            // bước kia đổi mà quên chỗ này.
+            throw new ConflictException({
+              code: 'MISSING_CODE',
+              message: `Sheet "${sheetName}" dòng ${skel.rowIndex} không có mã hồ sơ.`,
+              rowIndexes: [skel.rowIndex],
+              sheetName,
+            });
+          }
           if (detectedType === 'Case') {
             await tx.case.create({
               data: {
                 name: skel.name,
                 // PR6 review P1-3 — use Prisma enum, not string cast.
                 caseProvenance: CaseProvenance.TRANSFERRED,
-                caseCode: skel.code ?? maDuPhong('VA', logId, skel.rowIndex),
+                caseCode: skel.code,
                 metadata: skel.metadata as never,
                 unit: log.unitCodeDetected,
                 importedFrom: IMPORT_SOURCE_TAG,
@@ -411,7 +434,7 @@ export class XlsxImportCommitService {
             await tx.incident.create({
               data: {
                 name: skel.name,
-                code: skel.code ?? maDuPhong('VV', logId, skel.rowIndex),
+                code: skel.code,
                 importedFrom: IMPORT_SOURCE_TAG,
                 importedAt: now,
                 importedById: actor.id,
