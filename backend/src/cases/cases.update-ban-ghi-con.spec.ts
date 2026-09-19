@@ -336,3 +336,68 @@ describe('GET /cases/:id/status-history', () => {
     expect(prisma.caseStatusHistory.findMany).toHaveBeenCalled();
   });
 });
+
+/**
+ * Trang chi tiết vụ án ẩn nút GHI (thêm đối tượng, luật sư, kết luận…) khi người xem chỉ ĐỌC được vụ án — vd điều phối
+ * viên xem vụ án tổ khác (ngoài phạm vi chỉ xem + phân công, quyết định 19/09/2026). Trước đây nút vẫn hiện, bấm → 403.
+ * Máy chủ trả `quyenGhi` tính bằng CHÍNH luật của checkWriteScope — giao diện không tự đoán phạm vi.
+ */
+describe('GET /cases/:id — quyenGhi', () => {
+  function dungDoc(vuAn: Record<string, unknown>) {
+    const prisma = {
+      case: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ ...vuAn, subjects: [], petitions: [] }),
+      },
+      incident: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new CasesService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    return service;
+  }
+  const phamVi = (o: Record<string, unknown>) => ({
+    teamIds: ['t1', 't2'],
+    userIds: ['u1'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
+    canDispatch: false,
+    ...o,
+  });
+
+  it('vụ án tổ ghi được → quyenGhi = true', async () => {
+    const kq = await dungDoc(VU_AN).getById('c1', phamVi({}) as never);
+    expect(kq.data.quyenGhi).toBe(true);
+  });
+
+  it('vụ án tổ CHỈ XEM → quyenGhi = false', async () => {
+    const kq = await dungDoc({
+      ...VU_AN,
+      assignedTeamId: 't2',
+      investigatorId: 'u-khac',
+    }).getById('c1', phamVi({}) as never);
+    expect(kq.data.quyenGhi).toBe(false);
+  });
+
+  it('điều phối viên xem vụ án tổ khác → đọc được nhưng quyenGhi = false', async () => {
+    const kq = await dungDoc({
+      ...VU_AN,
+      assignedTeamId: 't9',
+      investigatorId: 'u-khac',
+    }).getById('c1', phamVi({ canDispatch: true }) as never);
+    expect(kq.data.quyenGhi).toBe(false);
+  });
+
+  it('quản trị (không phạm vi) → quyenGhi = true', async () => {
+    const kq = await dungDoc({ ...VU_AN, assignedTeamId: 't9' }).getById(
+      'c1',
+      null,
+    );
+    expect(kq.data.quyenGhi).toBe(true);
+  });
+});
