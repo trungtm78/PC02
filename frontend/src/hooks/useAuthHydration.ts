@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { authStore, AUTH_TOKEN_EVENT } from '@/stores/auth.store';
+import { authStore, AUTH_TOKEN_EVENT, layChuToken } from '@/stores/auth.store';
 import { authApi } from '@/lib/api';
 
 /**
@@ -23,6 +23,10 @@ export function useAuthHydration() {
       try {
         const { data } = await authApi.me();
         if (cancelled) return;
+        // Chỉ ghi khi hồ sơ là của CHỦ token hiện hành: /me của tài khoản A về muộn sau khi B đã đăng nhập trong cùng
+        // tab thì bỏ — nếu không hồ sơ A ghi đè phiên của B (rà mã PR #435, 19/09/2026).
+        const tokenHienHanh = authStore.getAccessToken();
+        if (!tokenHienHanh || layChuToken(tokenHienHanh) !== data.id) return;
         authStore.setProfile(data);
       } catch {
         // Network/server error — leave profile null. Forms degrade gracefully

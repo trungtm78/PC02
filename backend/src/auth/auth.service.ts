@@ -666,7 +666,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        role: true,
+        // Quyền THẬT của vai trò — giao diện ẩn/hiện nút theo đây (19/09/2026; thay MOCK_ALL_PERMISSIONS).
+        role: { include: { permissions: { include: { permission: true } } } },
         userTeams: {
           include: {
             team: {
@@ -725,6 +726,11 @@ export class AuthService {
       primaryTeam,
       isWardOfficer: wardTeam != null,
       wardTeam,
+      // Cùng dạng PermissionsGuard so khớp: 'action:subject'. Không ưu tiên riêng ADMIN — quản trị có đủ quyền qua
+      // role_permissions, giao diện và máy chủ cùng một nguồn.
+      permissions: (user.role.permissions ?? []).map(
+        (rp) => `${rp.permission.action}:${rp.permission.subject}`,
+      ),
     };
   }
 

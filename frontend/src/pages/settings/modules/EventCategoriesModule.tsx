@@ -27,7 +27,7 @@ const HEX_REGEX = /^#[0-9a-fA-F]{6}$/;
 
 export function EventCategoriesModule() {
   const { canEdit } = usePermission();
-  const canEditRow = canEdit('settings');
+  const canEditRow = canEdit('calendar');
 
   const [items, setItems] = useState<EventCategory[]>([]);
   const [loading, setLoading] = useState(false);
