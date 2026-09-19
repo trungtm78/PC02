@@ -5,7 +5,7 @@ import type { BulkAction, BulkAdapter } from '../types';
 import type { UseBulkSelectionResult } from '../useBulkSelection';
 
 vi.mock('@/hooks/usePermission', () => ({
-  usePermission: () => ({ hasPermission: () => true }),
+  usePermission: () => ({ hasPermission: () => true, canDispatch: true }),
 }));
 
 function makeSelection(ids: string[], clear = vi.fn()): UseBulkSelectionResult {

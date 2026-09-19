@@ -37,7 +37,7 @@ export function BulkActionBar<TRow = unknown>({
   onSuccess,
   onError,
 }: Props<TRow>) {
-  const { hasPermission } = usePermission();
+  const { hasPermission, canDispatch } = usePermission();
   const [pendingAction, setPendingAction] = useState<BulkAction<TRow> | null>(null);
   const [reason, setReason] = useState('');
   const [acknowledgedLargeSet, setAcknowledgedLargeSet] = useState(false);
@@ -45,11 +45,10 @@ export function BulkActionBar<TRow = unknown>({
 
   if (selection.count === 0) return null;
 
-  // Frontend 'view' → backend 'read' translate (plan eng E-C3).
-  const translateAction = (a: BulkAction<TRow>['permission']['action']) =>
-    a === 'view' ? 'view' : a;
+  // Quyền hiện nút khớp luật máy chủ: phân công = quyền điều phối (DispatchGuard); còn lại theo tài nguyên/hành
+  // động (usePermission quy về 'action:subject' của máy chủ).
   const visibleActions = adapter.actions.filter((a) =>
-    hasPermission(a.permission.resource, translateAction(a.permission.action)),
+    'dieuPhoi' in a.permission ? canDispatch : hasPermission(a.permission.resource, a.permission.action),
   );
 
   const count = selection.count;

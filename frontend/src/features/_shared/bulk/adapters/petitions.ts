@@ -72,7 +72,8 @@ const assignAction: BulkAction<PetitionRow> = {
   key: 'assign',
   label: 'Phân công',
   variant: 'primary',
-  permission: { resource: 'petitions', action: 'edit' },
+  // Máy chủ: bulk-assign dùng DispatchGuard (điều phối hoặc ADMIN), không đòi quyền sửa.
+  permission: { dieuPhoi: true },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey, params }) => {
@@ -111,7 +112,8 @@ const restoreAction: BulkAction<PetitionRow> = {
   key: 'restore',
   label: 'Khôi phục',
   variant: 'primary',
-  permission: { resource: 'petitions', action: 'edit' },
+  // Máy chủ: bulk-restore đòi restore:<Subject>.
+  permission: { resource: 'petitions', action: 'restore' },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey }) => {

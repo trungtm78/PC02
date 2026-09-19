@@ -47,7 +47,8 @@ const assignAction: BulkAction<IncidentRow> = {
   key: 'assign',
   label: 'Phân công',
   variant: 'primary',
-  permission: { resource: 'incidents', action: 'edit' },
+  // Máy chủ: bulk-assign dùng DispatchGuard (điều phối hoặc ADMIN), không đòi quyền sửa.
+  permission: { dieuPhoi: true },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey, params }) => {
@@ -89,7 +90,8 @@ const restoreAction: BulkAction<IncidentRow> = {
   key: 'restore',
   label: 'Khôi phục',
   variant: 'primary',
-  permission: { resource: 'incidents', action: 'edit' },
+  // Máy chủ: bulk-restore đòi restore:<Subject>.
+  permission: { resource: 'incidents', action: 'restore' },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey }) => {
