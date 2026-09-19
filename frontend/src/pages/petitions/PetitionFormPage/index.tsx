@@ -33,6 +33,7 @@ import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
+import { BangChiXem } from "@/components/shared/BangChiXem";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -84,6 +85,10 @@ export function PetitionFormPage() {
   // "Lưu và xuất file" → đóng popup thì về danh sách; nút "In chứng từ" độc lập → ở lại form.
   const [exportNavigateOnClose, setExportNavigateOnClose] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(isEditMode);
+  // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
+  // Thiếu trường (máy chủ cũ) → như trước.
+  const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
+  const chiXem = isEditMode && quyenGhi === false;
   // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
@@ -193,6 +198,7 @@ export function PetitionFormPage() {
       .get<{ success: boolean; data: Record<string, unknown> }>(`/petitions/${id}`)
       .then((res) => {
         const d = res.data.data;
+        setQuyenGhi(d.quyenGhi as boolean | undefined);
         setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
         // Tách đôi metadata đọc về: khoá nào bố cục hệ cũ đã có ô thì thuộc `legacyExtra`,
         // còn lại để `metaState` cho panel động. Cùng giữ một khoá ở hai vùng thì lúc gộp lại
@@ -312,6 +318,7 @@ export function PetitionFormPage() {
   // quyết định điều hướng hay mở popup xuất chứng từ. [F2] create bắt id từ response.
   const saveOnly = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // đang lưu → bỏ qua click lặp
+    if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
     if (!validateForm()) {
       // Mọi ô có thể báo lỗi đều nằm ở tab Thông tin. Đang đứng ở tab khác mà bấm Lưu thì ô
       // lỗi nằm trong khối ẩn — cán bộ thấy thông báo mà không thấy ô nào để sửa. Nhảy về
@@ -428,7 +435,7 @@ export function PetitionFormPage() {
         deleteModal.open({ resourceType: "petitions", recordId: id, onSuccess: () => navigate("/petitions") });
       }
     },
-    canDelete: isEditMode,
+    canDelete: isEditMode && !chiXem,
     onReset: () => {
       // Init màn hình: làm trống form, nhập lại từ đầu (form tạo mới sạch hoàn toàn).
       // EDIT → sang route tạo mới (tránh ghi đè bản ghi cũ bằng dữ liệu trắng).
@@ -732,13 +739,13 @@ export function PetitionFormPage() {
               <FileText className="w-4 h-4" />In chứng từ
             </button>
           )}
-          <SaveSplitButton
+          {!chiXem && <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save-top"
-          />
+          />}
         </div>
       </div>
 
@@ -757,6 +764,8 @@ export function PetitionFormPage() {
           </div>
         </div>
       )}
+
+      {chiXem && <BangChiXem loai="Đơn thư" />}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
         {/* Truy nguyên hệ cũ — STT + STT cũ (đơn thư di trú) */}
@@ -1046,13 +1055,13 @@ export function PetitionFormPage() {
           <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
             Hủy
           </button>
-          <SaveSplitButton
+          {!chiXem && <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save"
-          />
+          />}
           {(linkedCaseId || linkedIncidentId) && (
             // Đơn đã chuyển (kể cả đơn gắn kèm hồ sơ hệ cũ lệch loại, 18/09/2026): mở thẳng hồ sơ đích.
             <Link
@@ -1063,7 +1072,7 @@ export function PetitionFormPage() {
               {linkedCaseId ? "Mở vụ án đã chuyển" : "Mở vụ việc đã chuyển"}
             </Link>
           )}
-          {canConvert && (
+          {canConvert && !chiXem && (
             <button
               type="button"
               data-testid="btn-convert-petition"

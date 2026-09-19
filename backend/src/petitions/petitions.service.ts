@@ -457,11 +457,15 @@ export class PetitionsService {
     this.checkWriteScope(record, dataScope);
   }
 
-  private checkWriteScope(
+  /**
+   * Người xem có GHI được đơn này không — luật DUY NHẤT cho cả chặn ghi (checkWriteScope) lẫn cờ `quyenGhi` trả về
+   * cho form sửa (báo "chỉ xem" ngay khi mở; cùng cách Vụ án #439, Vụ việc #440 — 20/09/2026).
+   */
+  private coQuyenGhi(
     record: { enteredById?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
-  ) {
-    if (!dataScope) return;
+  ): boolean {
+    if (!dataScope) return true;
     // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
     const {
       writableUserIds: userIds,
@@ -473,7 +477,14 @@ export class PetitionsService {
     // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
     // Without this, WO could convert unassigned petition if they obtain ID (even though list filter hides it).
     const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
-    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+    return Boolean(ownerMatch || teamMatch || unassignedMatch);
+  }
+
+  private checkWriteScope(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!this.coQuyenGhi(record, dataScope)) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
   }
@@ -518,7 +529,11 @@ export class PetitionsService {
 
     this.checkRecordInScope(record, dataScope);
 
-    return { success: true, data: record };
+    return {
+      success: true,
+      // Form sửa báo "chỉ xem" khi false — cùng luật với checkWriteScope (máy chủ vẫn chặn ghi như cũ).
+      data: { ...record, quyenGhi: this.coQuyenGhi(record, dataScope) },
+    };
   }
 
   private async taiChiMucLoaiThongTin(): Promise<ChiMucLoaiThongTin> {

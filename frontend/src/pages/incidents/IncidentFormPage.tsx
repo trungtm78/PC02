@@ -7,6 +7,7 @@ import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
+import { BangChiXem } from "@/components/shared/BangChiXem";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -140,6 +141,10 @@ export function IncidentFormPage() {
   // Trạng thái bản ghi (edit) — để gate phím tắt Xóa (F3) theo rule danh sách (chỉ TIEP_NHAN).
   const [recordStatus, setRecordStatus] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(false);
+  // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
+  // Thiếu trường (máy chủ cũ) → như trước.
+  const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
+  const chiXem = isEditMode && quyenGhi === false;
   const [userOptions, setUserOptions] = useState<FKOption[]>([]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState('');
@@ -216,6 +221,7 @@ export function IncidentFormPage() {
       .then((res) => {
         const d = res.data.data;
         if (d) {
+          setQuyenGhi(d.quyenGhi as boolean | undefined);
           setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
           // Tach doi metadata: khoa nao bo cuc he cu da co o trong tab thi thuoc `legacyExtra`,
           // con lai de panel dong. Cung giu mot khoa o hai vung thi luc gop lai vung ghi sau de
@@ -260,6 +266,7 @@ export function IncidentFormPage() {
   // quyết định điều hướng hay mở popup xuất chứng từ động.
   const doSave = async (): Promise<{ ok: boolean; id: string | null }> => {
     if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
+    if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
     if (!validateForm()) { if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
     savingRef.current = true;
     setIsSubmitting(true);
@@ -335,7 +342,7 @@ export function IncidentFormPage() {
       }
     },
     // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (incidents/row-actions.ts).
-    canDelete: isEditMode && recordStatus === IncidentStatus.TIEP_NHAN,
+    canDelete: isEditMode && !chiXem && recordStatus === IncidentStatus.TIEP_NHAN,
     onReset: () => {
       // EDIT → route tạo mới (tránh ghi đè bản ghi cũ); CREATE → reload để sạch mọi state.
       if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
@@ -382,14 +389,14 @@ export function IncidentFormPage() {
               <FileText className="w-4 h-4" />In chứng từ
             </button>
           )}
-          <SaveSplitButton
+          {!chiXem && <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
             idPrefix="btn-save-top"
             mainTestId="btn-save-top"
-          />
+          />}
         </div>
       </div>
 
@@ -401,6 +408,8 @@ export function IncidentFormPage() {
           </div>
         </div>
       )}
+
+      {chiXem && <BangChiXem loai="Vụ việc" />}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
         {/* Truy nguyên hệ cũ — STT + STT cũ (vụ việc di trú) */}
@@ -796,14 +805,14 @@ export function IncidentFormPage() {
               <FileText className="w-4 h-4" />In chứng từ
             </button>
           )}
-          <SaveSplitButton
+          {!chiXem && <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
             idPrefix="btn-save"
             mainTestId="btn-save"
-          />
+          />}
         </div>
       </form>
 
