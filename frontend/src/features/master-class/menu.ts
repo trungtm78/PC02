@@ -5,7 +5,7 @@ export const masterClassMenu: FeatureMenuEntry[] = [
     section: 'system',
     id: 'master-class',
     label: 'Lớp phân loại',
-    path: '/phan-loai',
+    path: '/phan-loai', quyen: ['read:Directory'],
     icon: 'Tags',
   },
 ];

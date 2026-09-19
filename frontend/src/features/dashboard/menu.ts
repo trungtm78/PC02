@@ -11,6 +11,7 @@ export const dashboardMenu: FeatureMenuEntry[] = [
     // mới còn giá trị.
     label: 'Bảng điều khiển',
     path: '/dashboard',
+    quyen: ['read:Case'],
     icon: 'LayoutDashboard',
   },
 ];

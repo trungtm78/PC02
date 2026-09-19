@@ -6,6 +6,7 @@ export const teamsMenu: FeatureMenuEntry[] = [
     id: 'teams',
     label: 'Tổ/Đội công tác',
     path: '/to-nhom',
+    quyen: ['read:Team'],
     icon: 'Users',
   },
 ];

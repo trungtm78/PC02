@@ -6,6 +6,7 @@ export const documentTemplatesMenu: FeatureMenuEntry[] = [
     id: 'document-templates',
     label: 'Mẫu chứng từ',
     path: '/settings/document-templates',
+    quyen: ['read:Setting'],
     icon: 'FileText',
   },
 ];

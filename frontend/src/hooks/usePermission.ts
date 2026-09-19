@@ -70,5 +70,7 @@ export function usePermission() {
     canView,
     canDispatch,
     userRole: user?.role ?? null,
+    /** Khoá quyền máy chủ của tài khoản; `null` = chưa biết (hồ sơ chưa nạp) — nơi dùng tự quyết cách xử lý. */
+    permissions,
   };
 }

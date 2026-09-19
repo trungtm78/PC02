@@ -4,6 +4,7 @@ import { FEATURE_MODULES } from './featureRegistry';
 import { useFeatureFlagsContext } from './FeatureFlagsContext';
 import { iconFor } from './iconRegistry';
 import type { FeatureMenuEntry } from './moduleTypes';
+import { usePermission } from '@/hooks/usePermission';
 
 type Icon = ComponentType<{ className?: string }>;
 
@@ -78,6 +79,28 @@ export function trungTenMuc(entry: FeatureMenuEntry): boolean {
   return entry.label === NHAN_MUC.get(entry.section) && (entry.children?.length ?? 0) > 0;
 }
 
+/**
+ * Bỏ mục mà tài khoản không có quyền nào trong `quyen` (có MỘT là đủ), lọc cả mục con. Nhóm KHÔNG có đường dẫn riêng
+ * mà hết con thì bỏ luôn (nhóm rỗng không dẫn tới đâu); nhóm có đường dẫn riêng vẫn giữ vì bản thân nó là một trang.
+ */
+export function locMucTheoQuyen(
+  entries: readonly FeatureMenuEntry[],
+  coQuyen: (khoa: string) => boolean,
+): FeatureMenuEntry[] {
+  const kq: FeatureMenuEntry[] = [];
+  for (const e of entries) {
+    if (e.quyen?.length && !e.quyen.some(coQuyen)) continue;
+    if (!e.children) {
+      kq.push(e);
+      continue;
+    }
+    const con = locMucTheoQuyen(e.children, coQuyen);
+    if (con.length === 0 && !e.path) continue;
+    kq.push({ ...e, children: con });
+  }
+  return kq;
+}
+
 function resolve(entry: FeatureMenuEntry): ResolvedMenuItem {
   return {
     id: entry.id,
@@ -104,16 +127,22 @@ function resolve(entry: FeatureMenuEntry): ResolvedMenuItem {
  */
 export function useMenuSections(): ResolvedMenuSection[] {
   const { flags, isLoading } = useFeatureFlagsContext();
+  // Quyền thật từ /auth/me. Chưa biết (hồ sơ chưa nạp) → không lọc: máy chủ vẫn chặn, ẩn rồi hiện lại làm menu chớp.
+  const { permissions } = usePermission();
+  // Khoá theo GIÁ TRỊ: getUser() dựng đối tượng mới mỗi lần vẽ.
+  const khoaQuyen = permissions ? permissions.join('\n') : null;
 
   return useMemo(() => {
     const bySection = new Map<SectionId, ResolvedMenuItem[]>();
+    const tapQuyen = khoaQuyen === null ? null : new Set(khoaQuyen.split('\n'));
+    const coQuyen = (k: string) => tapQuyen === null || tapQuyen.has(k);
 
     for (const feature of FEATURE_MODULES) {
       if (!isLoading) {
         const flag = flags.get(feature.manifest.key);
         if (!flag || !flag.enabled) continue;
       }
-      for (const entry of feature.menu ?? []) {
+      for (const entry of locMucTheoQuyen(feature.menu ?? [], coQuyen)) {
         const list = bySection.get(entry.section) ?? [];
         // Nhóm trùng tên mục cha là một TẦNG THỪA — gỡ nó, đẩy con lên thẳng mục.
         if (trungTenMuc(entry)) list.push(...entry.children!.map(resolve));
@@ -132,5 +161,5 @@ export function useMenuSections(): ResolvedMenuSection[] {
           .sort((a, b) => a.order - b.order),
       }))
       .filter((s) => s.items.length > 0);
-  }, [flags, isLoading]);
+  }, [flags, isLoading, khoaQuyen]);
 }

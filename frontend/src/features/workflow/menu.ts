@@ -7,10 +7,10 @@ export const workflowMenu: FeatureMenuEntry[] = [
     label: 'Quy trình xử lý',
     icon: 'Workflow',
     children: [
-      { section: 'workflow', id: 'workflow-transfer', label: 'Luân chuyển / Trả lại', path: '/transfer-return' },
-      { section: 'workflow', id: 'workflow-guidance', label: 'Hướng dẫn nghiệp vụ', path: '/guidance' },
-      { section: 'workflow', id: 'workflow-exchange', label: 'Trao đổi vụ án', path: '/case-exchange' },
-      { section: 'workflow', id: 'workflow-delegation', label: 'Ủy quyền điều tra', path: '/investigation-delegation' },
+      { section: 'workflow', id: 'workflow-transfer', label: 'Luân chuyển / Trả lại', path: '/transfer-return', quyen: ['read:Case'] },
+      { section: 'workflow', id: 'workflow-guidance', label: 'Hướng dẫn nghiệp vụ', path: '/guidance', quyen: ['read:Case'] },
+      { section: 'workflow', id: 'workflow-exchange', label: 'Trao đổi vụ án', path: '/case-exchange', quyen: ['read:Case'] },
+      { section: 'workflow', id: 'workflow-delegation', label: 'Ủy quyền điều tra', path: '/investigation-delegation', quyen: ['read:Case'] },
     ],
   },
 ];

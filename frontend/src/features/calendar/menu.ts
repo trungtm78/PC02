@@ -5,7 +5,7 @@ export const calendarMenu: FeatureMenuEntry[] = [
     section: 'system',
     id: 'calendar',
     label: 'Lịch công tác',
-    path: '/calendar',
+    path: '/calendar', quyen: ['read:Calendar'],
     icon: 'Calendar',
   },
 ];

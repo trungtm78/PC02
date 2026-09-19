@@ -6,6 +6,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     id: 'users',
     label: 'Người dùng',
     path: '/nguoi-dung',
+    quyen: ['read:User'],
     icon: 'User',
   },
   {
@@ -13,6 +14,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     id: 'deadline-rules',
     label: 'Quy tắc thời hạn',
     path: '/admin/deadline-rules',
+    quyen: ['read:DeadlineRuleVersion'],
     icon: 'ClipboardList',
   },
   {
@@ -27,6 +29,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     id: 'admin-settings',
     label: 'Cấu hình admin',
     path: '/admin/settings',
+    quyen: ['read:Setting'],
     icon: 'Settings',
   },
   {
@@ -35,5 +38,7 @@ export const adminMenu: FeatureMenuEntry[] = [
     label: 'Khôi phục dữ liệu',
     path: '/admin/khoi-phuc',
     icon: 'RotateCcw',
+    // GET cases|incidents|petitions/admin/deleted — trang hiện tab theo từng quyền (#442).
+    quyen: ['restore:Case', 'restore:Incident', 'restore:Petition'],
   },
 ];
