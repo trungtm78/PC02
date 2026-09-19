@@ -70,6 +70,15 @@ describe('NotificationDropdown — handleNotificationClick', () => {
     });
   });
 
+  // 20/09/2026: mở chuông từng gọi POST /notifications/seed → tài khoản chưa có thông báo nào nhận 5 thông báo GIẢ
+  // ("Vụ án VA-2026-001 đã chuyển sang Đang điều tra"...) trên prod — cán bộ tưởng thật.
+  it('mở chuông KHÔNG tạo thông báo demo', async () => {
+    renderDropdown();
+    fireEvent.click(screen.getByTestId('notification-bell'));
+    await waitFor(() => expect(vi.mocked(api.get)).toHaveBeenCalledWith('/notifications', expect.anything()));
+    expect(vi.mocked(api.post)).not.toHaveBeenCalledWith('/notifications/seed');
+  });
+
   it('calls PATCH /notifications/:id/read when notification.isRead=false', async () => {
     const unread = {
       id: 'notif-unread',

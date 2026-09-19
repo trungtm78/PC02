@@ -8,7 +8,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Post,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,13 +33,6 @@ export class NotificationsController {
   @Get('unread-count')
   getUnreadCount(@CurrentUser() user: AuthUser) {
     return this.notificationsService.getUnreadCount(user.id);
-  }
-
-  /** POST /api/v1/notifications/seed — tạo thông báo demo (chỉ nếu chưa có) */
-  @Post('seed')
-  @HttpCode(HttpStatus.OK)
-  seedDemo(@CurrentUser() user: AuthUser) {
-    return this.notificationsService.seedDemoForUser(user.id);
   }
 
   /** PATCH /api/v1/notifications/:id/read — đánh dấu 1 thông báo đã đọc */

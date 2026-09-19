@@ -157,9 +157,6 @@ export function NotificationDropdown() {
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Seed demo data if this is first time
-      await api.post('/notifications/seed').catch(() => {});
-
       const res = await api.get<NotificationListResponse>('/notifications', {
         params: { limit: 20 },
       });
