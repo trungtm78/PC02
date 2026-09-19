@@ -180,6 +180,9 @@ const CHON_DONG_DANH_SACH_VU_AN = {
     },
   },
   ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
+  // Khoá sắp thứ hai của danh sách (cùng ngày đề xuất thì STT số giảm dần). Màn Chuyển đội / Trả hồ sơ
+  // gộp ba nguồn phải sắp lại theo ĐÚNG khoá này, nếu không trang 2 lặp/mất dòng (workflow.service.ts).
+  sttSort: true,
   // Cột "Nguồn hồ sơ" của màn Hồ sơ mới tiếp nhận (trước 17/09/2026 màn đọc trường này nhưng API
   // không trả → mọi hồ sơ rơi về "Vụ án").
   caseProvenance: true,

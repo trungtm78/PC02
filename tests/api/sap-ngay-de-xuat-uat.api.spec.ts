@@ -25,10 +25,14 @@ interface Dong {
   [k: string]: unknown;
 }
 
-/** "2026-11948" → [2026, 11948]; mã lạ → null (không so được thì không kết luận). */
+/**
+ * "2026-11948" → [2026, 11948]. Mã khác dạng (quá 5 chữ số, năm ngoài 1900–2100, có khoảng trắng) là mã méo:
+ * cán bộ không đọc nó như một số hồ sơ, nên không kết luận thứ tự trên nó → null.
+ */
 function soHoSo(ma: unknown): [number, number] | null {
-  const m = /^(\d{4})-(\d{1,6})$/.exec(String(ma ?? '').trim());
-  return m ? [Number(m[1]), Number(m[2])] : null;
+  const m = /^(\d{4})-(\d{1,5})$/.exec(String(ma ?? ''));
+  if (!m || Number(m[1]) < 1900 || Number(m[1]) > 2100) return null;
+  return [Number(m[1]), Number(m[2])];
 }
 
 for (const { ten, url, ma } of [
@@ -60,6 +64,8 @@ for (const { ten, url, ma } of [
       if (tb > ta) loi.push(`#${i}: ${String(a[ma])} (${na}) → ${String(b[ma])} (${nb}) ngày TĂNG`);
       if (tb === ta) {
         const [sa, sb] = [soHoSo(a[ma]), soHoSo(b[ma])];
+        // Mã méo đứng SAU mã thật trong cùng ngày (không có số thì chìm cuối nhóm).
+        if (!sa && sb) loi.push(`#${i}: cùng ngày ${na}, mã méo ${String(a[ma])} đứng trước ${String(b[ma])}`);
         if (sa && sb && (sb[0] > sa[0] || (sb[0] === sa[0] && sb[1] > sa[1]))) {
           loi.push(`#${i}: cùng ngày ${na}, số ${String(a[ma])} → ${String(b[ma])} TĂNG`);
         }

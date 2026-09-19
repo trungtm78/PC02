@@ -104,6 +104,9 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
   // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
   ngayDeXuat: true,
+  // Khoá sắp thứ hai của danh sách (cùng ngày đề xuất thì STT số giảm dần). Màn Chuyển đội / Trả hồ sơ
+  // gộp ba nguồn phải sắp lại theo ĐÚNG khoá này, nếu không trang 2 lặp/mất dòng (workflow.service.ts).
+  sttSort: true,
   // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
   // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
   detailContent: true,

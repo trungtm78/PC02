@@ -22,6 +22,6 @@ CREATE INDEX IF NOT EXISTS "cases_caseType_ngayDeXuat_sttSort_id_idx"
   ON "cases" ("case_type", "ngayDeXuat" DESC NULLS LAST, "sttSort" DESC NULLS LAST, "id" DESC)
   WHERE "deletedAt" IS NULL;
 
--- KHÔNG xoá hai chỉ mục cũ (ngayDeXuat, id) của Vụ việc/Vụ án: vẫn còn truy vấn sắp đúng
--- `ngayDeXuat DESC, id DESC` không có STT ở giữa (workflow.service.ts), mà chỉ mục mới chỉ phục vụ
--- nó bằng sắp bổ sung. Hai bảng vài nghìn hàng, chi phí ghi thêm không đáng kể.
+-- KHÔNG xoá hai chỉ mục cũ (ngayDeXuat, id) của Vụ việc/Vụ án ở migration này: sau bản vá không còn truy vấn
+-- danh sách nào dùng chúng, nhưng xoá chỉ mục trên prod là việc riêng — đo `pg_stat_user_indexes` sau một
+-- thời gian chạy (idx_scan = 0) rồi mới xoá. Hai bảng vài nghìn hàng, chi phí ghi thêm không đáng kể.

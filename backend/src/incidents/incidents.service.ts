@@ -97,6 +97,9 @@ const CHON_DONG_DANH_SACH_VU_VIEC = {
   // màn hình luôn rỗng dù dữ liệu có đủ — truy vấn dùng `select` tường minh.
   chuyenTuDonVi: true,
   ngayDeXuat: true,
+  // Khoá sắp thứ hai của danh sách (cùng ngày đề xuất thì STT số giảm dần). Màn Chuyển đội / Trả hồ sơ
+  // gộp ba nguồn phải sắp lại theo ĐÚNG khoá này, nếu không trang 2 lặp/mất dòng (workflow.service.ts).
+  sttSort: true,
   ketQuaXuLy: true,
   tinhTrangHoSo: true,
   tinhTrangThoiHieu: true,
