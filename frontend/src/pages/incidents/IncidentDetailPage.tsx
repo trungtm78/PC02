@@ -30,6 +30,8 @@ interface IncidentDetail {
   nguoiQuyetDinh?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Máy chủ: người xem có GHI được vụ việc không (luật checkWriteScope). false = chỉ xem → ẩn nút ghi. */
+  quyenGhi?: boolean;
 }
 
 function Field({ label, value, icon }: { label: string; value?: string | null; icon?: React.ReactNode }) {
@@ -81,6 +83,7 @@ export default function IncidentDetailPage() {
           nguoiQuyetDinh: d.nguoiQuyetDinh as string | undefined,
           createdAt: d.createdAt as string | undefined,
           updatedAt: d.updatedAt as string | undefined,
+          quyenGhi: d.quyenGhi as boolean | undefined,
         });
       })
       .catch(() => setError("Không thể tải thông tin vụ việc."))
@@ -112,6 +115,9 @@ export default function IncidentDetailPage() {
     );
   }
 
+  // Chỉ xem được (vd điều phối viên xem vụ việc tổ khác) → ẩn Chỉnh sửa / Khởi tố — máy chủ sẽ 403 (20/09/2026).
+  // Thiếu trường (máy chủ cũ) → như trước. Quyền VAI TRÒ (canEdit) vẫn áp.
+  const chiXem = incident.quyenGhi === false;
   const statusLabel = INCIDENT_STATUS_LABEL[incident.status] ?? incident.status;
   const statusColor = INCIDENT_STATUS_BADGE[incident.status] ?? BADGE_DEFAULT;
   const investigatorName = incident.investigator
@@ -141,7 +147,16 @@ export default function IncidentDetailPage() {
           <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColor}`}>
             {statusLabel}
           </span>
-          {canEdit('incidents') && (
+          {chiXem && (
+            <span
+              className="px-3 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs"
+              data-testid="nhan-chi-xem"
+              title="Vụ việc ngoài phạm vi ghi của bạn — chỉ xem (và phân công nếu có quyền điều phối)"
+            >
+              Chỉ xem
+            </span>
+          )}
+          {canEdit('incidents') && !chiXem && (
             <button
               onClick={() => navigate(`/vu-viec/${incident.id}/edit`)}
               className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -151,7 +166,7 @@ export default function IncidentDetailPage() {
             </button>
           )}
           {/* PR 3 v0.38.2.0 — Entry path 2: Khởi tố thành vụ án từ IncidentDetailPage */}
-          {canEdit('incidents') && (
+          {canEdit('incidents') && !chiXem && (
             <button
               onClick={() => {
                 if (window.confirm(
