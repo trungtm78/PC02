@@ -41,7 +41,6 @@ describe('CỔNG quyền thanh bên', () => {
     const coDuong = MUC.filter((m) => m.path);
     // Mở cho mọi người đã đăng nhập theo đúng máy chủ (không @RequirePermissions) hoặc chặn theo VAI TRÒ trong mã.
     const KHONG_KHAI = new Set([
-      '/reports/stat48',
       '/don-vi-hanh-chinh',
       '/admin/di-tru-du-lieu',
     ]);
