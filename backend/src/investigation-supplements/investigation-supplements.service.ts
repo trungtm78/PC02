@@ -5,6 +5,7 @@ import { CreateInvestigationSupplementDto } from './dto/create-investigation-sup
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -63,7 +64,13 @@ export class InvestigationSupplementsService {
     return { success: true, data: record };
   }
 
-  async create(dto: CreateInvestigationSupplementDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateInvestigationSupplementDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
     const record = await this.prisma.investigationSupplement.create({
       data: {
         caseId: dto.caseId,

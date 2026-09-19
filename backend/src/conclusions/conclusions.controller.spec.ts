@@ -33,7 +33,7 @@ describe('ConclusionsController — delegation', () => {
     expect(mockService.getById).toHaveBeenCalledWith('con-1', req.dataScope);
   });
 
-  it('create() delegates to service.create with dto, userId and audit info', async () => {
+  it('create() delegates to service.create with dto, userId, audit info and dataScope', async () => {
     mockService.create.mockResolvedValue({ data: { id: 'con-1' } });
     const req = makeReq();
     await controller.create({} as any, mockUser, req);
@@ -41,6 +41,7 @@ describe('ConclusionsController — delegation', () => {
       {},
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+      req.dataScope,
     );
   });
 

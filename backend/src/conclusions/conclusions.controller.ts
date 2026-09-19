@@ -28,7 +28,12 @@ export class ConclusionsController {
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
   create(@Body() dto: CreateConclusionDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.conclusionsService.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return this.conclusionsService.create(
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Put(':id')

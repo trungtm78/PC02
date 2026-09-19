@@ -29,7 +29,7 @@ describe('InvestigationSupplementsController — delegation', () => {
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
   });
 
-  it('create() delegates to service.create with dto, userId and audit info', async () => {
+  it('create() delegates to service.create with dto, userId, audit info and dataScope', async () => {
     mockService.create.mockResolvedValue({ data: { id: 'is-1' } });
     const req = makeReq();
     await controller.create({} as any, mockUser, req);
@@ -37,6 +37,7 @@ describe('InvestigationSupplementsController — delegation', () => {
       {},
       mockUser.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
+      req.dataScope,
     );
   });
 

@@ -12,6 +12,7 @@ import { QueryLawyersDto } from './dto/query-lawyers.dto';
 import { Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_LUAT_SU } from '../common/tim-kiem/khai/luat-su.khai';
@@ -138,7 +139,11 @@ export class LawyersService {
     dto: CreateLawyerDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // Vụ án cha phải tồn tại và nằm trong phạm vi GHI — trước mọi kiểm khác, để không lộ dữ liệu vụ án ngoài phạm vi.
+    await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
+
     // Check duplicate barNumber
     const existing = await this.prisma.lawyer.findFirst({
       where: { barNumber: dto.barNumber, deletedAt: null },
@@ -149,13 +154,6 @@ export class LawyersService {
       );
     }
 
-    // Validate caseId
-    const caseRecord = await this.prisma.case.findFirst({
-      where: { id: dto.caseId, deletedAt: null },
-    });
-    if (!caseRecord) {
-      throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
-    }
 
     // Validate subjectId if provided (EC-01: lawyer can defend multiple suspects — same lawyer re-assigned means new record)
     if (dto.subjectId) {
@@ -213,6 +211,10 @@ export class LawyersService {
   ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
+    // Chuyển sang vụ án khác phải kiểm phạm vi GHI của vụ án ĐÍCH (kiểm ở trên chỉ là vụ án hiện tại).
+    if (dto.caseId && dto.caseId !== existing.caseId) {
+      await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
+    }
 
     // Check duplicate barNumber (exclude self)
     if (dto.barNumber && dto.barNumber !== existing.barNumber) {
@@ -222,18 +224,6 @@ export class LawyersService {
       if (dup) {
         throw new ConflictException(
           `Số thẻ luật sư "${dto.barNumber}" đã tồn tại trong hệ thống`,
-        );
-      }
-    }
-
-    // Validate caseId if provided
-    if (dto.caseId) {
-      const caseRecord = await this.prisma.case.findFirst({
-        where: { id: dto.caseId, deletedAt: null },
-      });
-      if (!caseRecord) {
-        throw new BadRequestException(
-          `Vụ án không tồn tại (id: ${dto.caseId})`,
         );
       }
     }
@@ -262,6 +252,10 @@ export class LawyersService {
         ...(dto.subjectId !== undefined && {
           subjectId: dto.subjectId ?? null,
         }),
+        // Đổi vụ án mà không chọn lại bị can → bỏ bị can của vụ án CŨ (bị can thuộc đúng một vụ án).
+        ...(dto.subjectId === undefined &&
+          dto.caseId &&
+          dto.caseId !== existing.caseId && { subjectId: null }),
       },
       include: {
         case: { select: { id: true, name: true, status: true } },
