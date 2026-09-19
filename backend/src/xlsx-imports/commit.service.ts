@@ -66,6 +66,15 @@ export interface DryRunResult {
   secondConfirmEligibleAt: Date | null;
 }
 
+/**
+ * Mã dự phòng cho hàng nhập Excel KHÔNG có mã trong tệp — hồ sơ không mã thì tra theo mã không ra và in chứng từ
+ * thiếu số. Dùng trọn `logId` (không cắt 8 ký tự) để hai lần nhập khác nhau không đụng mã; kèm số dòng nên truy
+ * nguyên được về đúng dòng của tệp gốc. Bản chạy thử đã báo `missing_code` để cán bộ sửa tệp nếu muốn mã thật.
+ */
+function maDuPhong(loai: 'VA' | 'VV', logId: string, rowIndex: number): string {
+  return `${loai}-IMP-${logId}-${rowIndex}`;
+}
+
 @Injectable()
 export class XlsxImportCommitService {
   private readonly logger = new Logger(XlsxImportCommitService.name);
@@ -140,6 +149,18 @@ export class XlsxImportCommitService {
 
       // Intra-batch — flag duplicate codes within the same upload BEFORE
       // they hit the P2002 path on commit.
+      // Hàng KHÔNG có mã: tệp thiếu cột mã hoặc ô trống. Trước 20/09/2026 Vụ án ghi thẳng caseCode = null (tra theo
+      // mã không ra, in chứng từ thiếu số) còn Vụ việc thì có mã dự phòng. Nay báo rõ ở bản chạy thử, và khi commit
+      // cả hai đều nhận mã dự phòng truy nguyên được.
+      for (const skel of skeletons) {
+        if (skel.code) continue;
+        conflicts.push({
+          rowIndex: skel.rowIndex,
+          sheetName,
+          reason: 'missing_code',
+        });
+      }
+
       const codeCounts = new Map<string, number>();
       for (const c of codes) codeCounts.set(c, (codeCounts.get(c) ?? 0) + 1);
       for (const skel of skeletons) {
@@ -373,7 +394,7 @@ export class XlsxImportCommitService {
                 name: skel.name,
                 // PR6 review P1-3 — use Prisma enum, not string cast.
                 caseProvenance: CaseProvenance.TRANSFERRED,
-                caseCode: skel.code ?? null,
+                caseCode: skel.code ?? maDuPhong('VA', logId, skel.rowIndex),
                 metadata: skel.metadata as never,
                 unit: log.unitCodeDetected,
                 importedFrom: IMPORT_SOURCE_TAG,
@@ -390,10 +411,7 @@ export class XlsxImportCommitService {
             await tx.incident.create({
               data: {
                 name: skel.name,
-                // Incident.code is @unique — fall back to deterministic
-                // import-tagged code (full logId, not 8-char prefix, to avoid
-                // birthday collisions across imports per PR6 review P2).
-                code: skel.code ?? `VV-IMP-${logId}-${skel.rowIndex}`,
+                code: skel.code ?? maDuPhong('VV', logId, skel.rowIndex),
                 importedFrom: IMPORT_SOURCE_TAG,
                 importedAt: now,
                 importedById: actor.id,
