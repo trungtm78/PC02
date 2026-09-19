@@ -1506,10 +1506,15 @@ export class IncidentsService {
     let result;
     try {
     result = await this.prisma.$transaction(async (tx) => {
-      let caseRecord;
+        // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
+        // trước đây vụ án khởi tố từ vụ việc không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+        let caseRecord: Prisma.CaseGetPayload<object>;
       try {
         caseRecord = await tx.case.create({
           data: {
+              caseCode,
             name: dto.caseName,
             crime: dto.crime,
             status: 'TIEP_NHAN',
@@ -1530,6 +1535,10 @@ export class IncidentsService {
         }
         throw err;
       }
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: caseRecord.id },
+        });
 
       await tx.incident.update({
         where: {

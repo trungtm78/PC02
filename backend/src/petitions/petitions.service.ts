@@ -1226,8 +1226,13 @@ export class PetitionsService {
     let caseRecord;
     try {
     [caseRecord] = await this.prisma.$transaction(async (tx) => {
+        // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
+        // trước đây vụ án chuyển từ đơn thư không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
       const newCase = await tx.case.create({
         data: {
+            caseCode,
           name: dto.caseName,
           crime: dto.crime,
           unit: dto.jurisdiction,
@@ -1238,6 +1243,10 @@ export class PetitionsService {
           linkedPetitionId: petitionId,
         },
       });
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: newCase.id },
+        });
 
       await tx.petition.update({
         where: {

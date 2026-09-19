@@ -1662,6 +1662,7 @@ describe('IncidentsService', () => {
           case: { create: jest.fn().mockResolvedValue(mockCaseRecord) },
           incident: { update: jest.fn().mockResolvedValue({}) },
           incidentStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -1693,6 +1694,7 @@ describe('IncidentsService', () => {
           case: { create: jest.fn().mockResolvedValue(mockCaseRecord) },
           incident: { update: jest.fn().mockResolvedValue({}) },
           incidentStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -2064,5 +2066,68 @@ describe('IncidentsService.mergeInto — kiểm phạm vi cả vụ việc đíc
     ).rejects.toThrow(ForbiddenException);
     expect(trans).not.toHaveBeenCalled();
     trans.mockRestore();
+  });
+});
+
+/**
+ * BUG-010 (tồn đọng PR #220, 19/09/2026): khởi tố từ vụ việc tạo vụ án KHÔNG có mã (`caseCode` null) — cột không có
+ * mặc định, còn đường tạo vụ án thường thì cấp mã qua bộ đếm CASE. Vụ án không mã chìm cuối danh sách sắp theo STT, rơi
+ * khỏi tìm theo mã và bản in trống ô số. Prod chưa có ca nào chỉ vì đường này chưa ai dùng.
+ */
+describe('IncidentsService.prosecute — cấp mã vụ án', () => {
+  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        IncidentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    const service = moduleRef.get(IncidentsService);
+    mockPrisma.incident.findFirst.mockResolvedValue({
+      ...mockIncident,
+      status: IncidentStatus.DANG_XAC_MINH,
+    });
+    mockDocNums.commitWithTx.mockResolvedValueOnce({
+      number: '2026-11722',
+      logId: 'log-case',
+      changed: false,
+    });
+    const tx = {
+      case: {
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 'case-new', caseCode: '2026-11722' }),
+      },
+      incident: { update: jest.fn().mockResolvedValue({}) },
+      incidentStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+      documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+    await service.prosecute(
+      'inc-001',
+      { caseName: 'VA', prosecutionDecision: 'QD', crime: 'X' } as any,
+      'actor-001',
+    );
+
+    expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+      'CASE',
+      { userId: 'actor-001' },
+      tx,
+    );
+    expect(tx.case.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ caseCode: '2026-11722' }),
+      }),
+    );
+    expect(tx.documentNumberLog.update).toHaveBeenCalledWith({
+      where: { id: 'log-case' },
+      data: { documentId: 'case-new' },
+    });
   });
 });

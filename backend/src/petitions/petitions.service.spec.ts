@@ -1420,6 +1420,7 @@ describe('PetitionsService', () => {
             }),
           },
           document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -1448,6 +1449,7 @@ describe('PetitionsService', () => {
           case: { create: jest.fn().mockResolvedValue(mockCase) },
           petition: { update: updateMock },
           document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -1510,6 +1512,7 @@ describe('PetitionsService', () => {
             status: PetitionStatus.DA_CHUYEN_VU_AN,
           }) },
           document: { updateMany: updateManyMock },
+          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
@@ -2639,5 +2642,70 @@ describe('PetitionsService.listAssignments — điều phối viên', () => {
         canDispatch: true,
       }),
     ).resolves.toBeDefined();
+  });
+});
+
+/**
+ * BUG-010 (tồn đọng PR #220, 19/09/2026): chuyển đơn thư thành vụ án tạo vụ án KHÔNG có mã — cột `caseCode` không có
+ * mặc định, còn đường tạo vụ án thường cấp mã qua bộ đếm CASE. Vụ án không mã chìm cuối danh sách, rơi khỏi tìm theo mã.
+ */
+describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
+  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        PetitionsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    const service = moduleRef.get(PetitionsService);
+    jest.clearAllMocks();
+    mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+    mockDocNums.commitWithTx.mockResolvedValueOnce({
+      number: '2026-11722',
+      logId: 'log-case',
+      changed: false,
+    });
+    const tx = {
+      case: {
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 'case-new', caseCode: '2026-11722' }),
+      },
+      petition: { update: jest.fn().mockResolvedValue({}) },
+      document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+    };
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+
+    await service.convertToCase(
+      'petition-001',
+      {
+        caseName: 'VA',
+        crime: 'X',
+        jurisdiction: 'Y',
+        expectedUpdatedAt: '2026-05-22T10:00:00.000Z',
+      },
+      'user-001',
+    );
+
+    expect(mockDocNums.commitWithTx).toHaveBeenCalledWith(
+      'CASE',
+      { userId: 'user-001' },
+      tx,
+    );
+    expect(tx.case.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ caseCode: '2026-11722' }),
+      }),
+    );
+    expect(tx.documentNumberLog.update).toHaveBeenCalledWith({
+      where: { id: 'log-case' },
+      data: { documentId: 'case-new' },
+    });
   });
 });
