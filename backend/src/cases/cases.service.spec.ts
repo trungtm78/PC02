@@ -1787,6 +1787,7 @@ describe('CasesService', () => {
         },
       ];
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue(mockHistory);
+      mockPrisma.case.findFirst.mockResolvedValue(mockCase); // vụ án phải tồn tại (kiểm phạm vi trước)
 
       const result = await service.getStatusHistory('case-001');
 

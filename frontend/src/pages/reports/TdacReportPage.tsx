@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileSpreadsheet, Eye, FilePlus, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
+import { extractApiError } from "@/lib/api-errors";
 import { today } from "@/lib/dates";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -137,8 +138,10 @@ export default function TdacReportPage() {
       // Backend /reports/tdac/* returns raw TdacReportData — no envelope wrap.
       // Do NOT add `.data.data` here. See tdac.controller.ts:57+67.
       setReportData(res.data);
-    } catch {
-      setError("Không thể tải dữ liệu báo cáo. Vui lòng thử lại.");
+    } catch (err) {
+      // 403 = ngoài phạm vi tổ: hiện ĐÚNG lý do của máy chủ — "thử lại" không giúp gì (19/09/2026).
+      const loi = extractApiError(err);
+      setError(loi.status === 403 ? loi.message : "Không thể tải dữ liệu báo cáo. Vui lòng thử lại.");
       setReportData(null);
     } finally {
       setLoading(false);

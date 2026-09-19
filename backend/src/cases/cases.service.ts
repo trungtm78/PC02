@@ -2198,7 +2198,10 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // STATUS HISTORY
   // ─────────────────────────────────────────────
-  async getStatusHistory(caseId: string) {
+  // Cùng luật phạm vi với xem chi tiết (soát IDOR 19/09/2026 — trước đây đọc được lịch sử vụ án bất kỳ, và id
+  // không tồn tại trả [] thay vì 404).
+  async getStatusHistory(caseId: string, dataScope?: DataScope | null) {
+    await this.kiemXemVuAn(caseId, dataScope);
     const rows = await this.prisma.caseStatusHistory.findMany({
       where: { caseId },
       orderBy: { changedAt: 'asc' },

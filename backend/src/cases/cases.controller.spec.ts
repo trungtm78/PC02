@@ -125,8 +125,13 @@ describe('CasesController — delegation', () => {
 
   it('getStatusHistory() delegates to service.getStatusHistory', async () => {
     mockService.getStatusHistory.mockResolvedValue({ data: [] });
-    await controller.getStatusHistory('case-1');
-    expect(mockService.getStatusHistory).toHaveBeenCalledWith('case-1');
+    const req = makeReq();
+    await controller.getStatusHistory('case-1', req);
+    // Phạm vi dữ liệu PHẢI được chuyển xuống (soát IDOR 19/09/2026).
+    expect(mockService.getStatusHistory).toHaveBeenCalledWith(
+      'case-1',
+      req.dataScope,
+    );
   });
 
   // Xuất Excel theo bộ lọc (18/09/2026): controller chuyển ĐÚNG bộ lọc, phạm vi dữ liệu và người xuất

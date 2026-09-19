@@ -176,8 +176,8 @@ export class CasesController {
   // GET /api/v1/cases/:id/status-history — Lịch sử thay đổi trạng thái
   @Get(':id/status-history')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getStatusHistory(@Param('id') id: string) {
-    return this.casesService.getStatusHistory(id);
+  getStatusHistory(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.casesService.getStatusHistory(id, req.dataScope);
   }
 
   // GET /api/v1/cases/:id/subjects — MỌI đối tượng của vụ án (chỉ đọc, không giới hạn 100 như GET /subjects)

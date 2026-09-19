@@ -283,3 +283,56 @@ describe('GET /cases/:id/subjects', () => {
     expect(prisma.subject.findMany).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Soát IDOR 19/09/2026: GET /cases/:id/status-history không kiểm phạm vi — cán bộ đọc được dòng thời gian trạng thái
+ * và tên cán bộ thao tác của vụ án bất kỳ; id không tồn tại trả [] thay vì 404 (dò được id).
+ */
+describe('GET /cases/:id/status-history', () => {
+  const canBo = {
+    teamIds: ['t1'],
+    userIds: ['u1'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
+    canDispatch: false,
+  };
+  function dungDoc(vuAn: Record<string, unknown> | null) {
+    const prisma = {
+      case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
+      caseStatusHistory: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new CasesService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    return { service, prisma };
+  }
+
+  it('vụ án ngoài phạm vi → 403, không đọc lịch sử', async () => {
+    const { service, prisma } = dungDoc({
+      ...VU_AN,
+      assignedTeamId: 't-khac',
+      investigatorId: 'u-khac',
+    });
+    await expect(
+      service.getStatusHistory('c1', canBo as never),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.caseStatusHistory.findMany).not.toHaveBeenCalled();
+  });
+
+  it('vụ án không tồn tại → 404 (không trả [] cho phép dò id)', async () => {
+    const { service } = dungDoc(null);
+    await expect(
+      service.getStatusHistory('c-khong', canBo as never),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('trong phạm vi → đọc được', async () => {
+    const { service, prisma } = dungDoc(VU_AN);
+    await service.getStatusHistory('c1', canBo as never);
+    expect(prisma.caseStatusHistory.findMany).toHaveBeenCalled();
+  });
+});
