@@ -34,14 +34,21 @@ describe('Ô ngày chỉ nhận ngày có thật', () => {
     ).toHaveLength(1);
   });
 
-  it.each(['2024-02-29', '2026-09-19', '2026-09-19T10:00:00.000Z'])(
-    'nhận %s',
-    (ngay) => {
-      expect(
-        loiNgay(UpdateCaseDto, { ngayDeXuat: ngay }, 'ngayDeXuat'),
-      ).toHaveLength(0);
-    },
-  );
+  // Năm < 1000 là ngày CÓ trên lịch — hồ sơ di trú năm 0225 phải lưu lại được khi sửa ô khác (rà mã 19/09/2026:
+  // strict của validator.js bỏ số 0 đầu năm và từ chối oan). Cùng các dạng ISO hợp lệ khác.
+  it.each([
+    '2024-02-29',
+    '2026-09-19',
+    '2026-09-19T10:00:00.000Z',
+    '0225-05-12',
+    '0001-01-01T00:00:00.000Z',
+    '2026-09-19T10:30',
+    '2026-09-19T10:30:00+07:00',
+  ])('nhận %s', (ngay) => {
+    expect(
+      loiNgay(UpdateCaseDto, { ngayDeXuat: ngay }, 'ngayDeXuat'),
+    ).toHaveLength(0);
+  });
 
   it('lời báo lỗi tiếng Việt nói rõ ngày không có thật', () => {
     const [loi] = loiNgay(
@@ -57,7 +64,7 @@ describe('Ô ngày chỉ nhận ngày có thật', () => {
 
 /** CỔNG: không còn `@IsDateString` trần trong mã nguồn — thêm ô ngày mới mà quên là đỏ. */
 describe('CỔNG ô ngày', () => {
-  it('mọi ô ngày dùng @IsNgayThat, không dùng @IsDateString trần', () => {
+  it('mọi ô ngày dùng @IsNgayThat, không dùng @IsDateString / @IsISO8601 trần', () => {
     const goc = path.resolve(__dirname, '../../..');
     const vi: string[] = [];
     const duyet = (d: string) => {
@@ -70,7 +77,8 @@ describe('CỔNG ô ngày', () => {
           !p.includes('is-ngay-that.validator')
         ) {
           const s = fs.readFileSync(p, 'utf8');
-          if (/@IsDateString\(/.test(s)) vi.push(path.relative(goc, p));
+          if (/@(IsDateString|IsISO8601)\(/.test(s))
+            vi.push(path.relative(goc, p));
         }
       }
     };

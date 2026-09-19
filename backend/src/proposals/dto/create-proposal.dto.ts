@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { Transform } from 'class-transformer';
 import { ProposalStatus } from '@prisma/client';
 
@@ -29,7 +30,7 @@ export class CreateProposalDto {
   status?: ProposalStatus;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   sentDate?: string;
 
   @IsOptional()
@@ -37,7 +38,7 @@ export class CreateProposalDto {
   response?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   responseDate?: string;
 
   @IsOptional()

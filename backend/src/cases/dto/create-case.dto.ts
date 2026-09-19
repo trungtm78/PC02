@@ -5,7 +5,6 @@ import {
   IsInt,
   IsBoolean,
   IsObject,
-  IsISO8601,
   IsNotEmpty,
   IsArray,
   ValidateIf,
@@ -268,12 +267,12 @@ export class CreateCaseDto {
 
   // Required when caseProvenance === FROM_PETITION (for optimistic lock on Petition.updatedAt)
   @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)
-  @IsISO8601()
+  @IsNgayThat()
   expectedPetitionUpdatedAt?: string;
 
   // Required when caseProvenance === FROM_INCIDENT
   @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_INCIDENT)
-  @IsISO8601()
+  @IsNgayThat()
   expectedIncidentUpdatedAt?: string;
 
   @IsOptional()

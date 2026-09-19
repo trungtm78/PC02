@@ -4,9 +4,9 @@ import {
   IsInt,
   Min,
   Max,
-  IsISO8601,
   MaxLength,
 } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { Type } from 'class-transformer';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 
@@ -48,11 +48,11 @@ export class QueryAuditLogsDto {
   search?: string;
 
   @IsOptional()
-  @IsISO8601()
+  @IsNgayThat()
   dateFrom?: string;
 
   @IsOptional()
-  @IsISO8601()
+  @IsNgayThat()
   dateTo?: string;
 
   @IsOptional()

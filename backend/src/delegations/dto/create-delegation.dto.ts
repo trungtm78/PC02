@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 import { Transform } from 'class-transformer';
 import { DelegationStatus } from '@prisma/client';
 
@@ -10,7 +11,7 @@ export class CreateDelegationDto {
   delegationNumber?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   delegationDate?: string;
 
   @IsString()
@@ -24,7 +25,7 @@ export class CreateDelegationDto {
   status?: DelegationStatus;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   completedDate?: string;
 
   @IsOptional()
