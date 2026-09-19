@@ -91,13 +91,13 @@ test.describe('UAT Field-Parity (API)', () => {
 
     t1 = await tryTokenOrLogin(request, 'officer1-fp', 'officer1-fp@pc02.local', localFpPass)
       || await tryTokenOrLogin(request, 'officer1', 'officer1@pc02.local',
-        process.env.OFFICER1_PASSWORD || '8I@&5c1gHmfy', localDevPass);
+        process.env.OFFICER1_PASSWORD || '', localDevPass);
     t2 = await tryTokenOrLogin(request, 'officer2-fp', 'officer2-fp@pc02.local', localFpPass)
       || await tryTokenOrLogin(request, 'officer2', 'officer2@pc02.local',
-        process.env.OFFICER2_PASSWORD || '4TMa3hq*x3$v', localDevPass);
+        process.env.OFFICER2_PASSWORD || '', localDevPass);
     _ta = await tryTokenOrLogin(request, 'admin-fp', 'admin-fp@pc02.local', localFpPass)
       || await tryTokenOrLogin(request, 'admin', 'admin@pc02.local',
-        process.env.ADMIN_PASSWORD || '68@Love2love68', localAdminPass);
+        process.env.ADMIN_PASSWORD || '', localAdminPass);
 
     if (t1) {
       const resp = await request.get(`${API}/crimes`, {

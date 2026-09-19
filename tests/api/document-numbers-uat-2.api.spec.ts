@@ -22,9 +22,9 @@ async function loginApi(req: APIRequestContext, email: string, pass: string): Pr
 function auth(token: string) { return { Authorization: `Bearer ${token}` }; }
 
 const ADMIN_EMAIL    = process.env.ADMIN_USERNAME ?? process.env.ADMIN_EMAIL ?? 'admin@pc02.local';
-const ADMIN_PASS     = process.env.ADMIN_PASSWORD ?? 'Admin@1234';
+const ADMIN_PASS     = process.env.ADMIN_PASSWORD ?? '';
 const OFFICER1_EMAIL = process.env.OFFICER1_USERNAME ?? process.env.OFFICER1_EMAIL ?? 'officer1@pc02.local';
-const OFFICER1_PASS  = process.env.OFFICER1_PASSWORD ?? 'Officer@1234';
+const OFFICER1_PASS  = process.env.OFFICER1_PASSWORD ?? '';
 
 let _adminCtx: AuthCtx | undefined;
 let _officerCtx: AuthCtx | undefined;

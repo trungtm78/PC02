@@ -29,7 +29,7 @@
     {
       "fixture_id": "account.admin.primary",
       "ref": "_shared/test-accounts.json#account.admin.primary",
-      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'68@Love2love68'} → outputs.token = response.accessToken",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'} → outputs.token = response.accessToken",
       "cleanup_recipe": "logout (token invalidate optional)",
       "outputs": {
         "token": "$.accessToken",
@@ -39,7 +39,7 @@
     {
       "fixture_id": "account.admin.secondary",
       "ref": "_shared/test-accounts.json#account.admin.secondary",
-      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'isP$sT4N@o71'}",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}",
       "cleanup_recipe": "-",
       "outputs": {
         "token": "$.accessToken",
@@ -49,7 +49,7 @@
     {
       "fixture_id": "account.officer.primary",
       "ref": "_shared/test-accounts.json#account.officer.primary",
-      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'8I@&5c1gHmfy'}",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}",
       "cleanup_recipe": "-",
       "outputs": {
         "token": "$.accessToken",
@@ -60,7 +60,7 @@
     {
       "fixture_id": "account.officer.secondary",
       "ref": "_shared/test-accounts.json#account.officer.secondary",
-      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'4TMa3hq*x3$v'}",
+      "setup_recipe": "login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}",
       "cleanup_recipe": "-",
       "outputs": {
         "token": "$.accessToken",

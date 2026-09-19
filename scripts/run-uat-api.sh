@@ -12,7 +12,7 @@
 set -u
 BASE="${BASE_URL:-http://localhost:3000}"
 ADMIN_USER="${ADMIN_USERNAME:-admin@pc02.local}"
-ADMIN_PASS="${ADMIN_PASSWORD:-68@Love2love68}"
+ADMIN_PASS="${ADMIN_PASSWORD:?Cần đặt ADMIN_PASSWORD (không để mật khẩu trong mã)}"
 OUT="test-results/uat-api"; mkdir -p "$OUT"
 
 gettok() {

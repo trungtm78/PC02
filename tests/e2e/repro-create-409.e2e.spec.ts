@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
 
 const ADMIN_U = process.env.ADMIN_USERNAME || 'admin@pc02.local';
-const ADMIN_P = process.env.ADMIN_PASSWORD || '68@Love2love68';
+const ADMIN_P = process.env.ADMIN_PASSWORD || '';
 
 test('tạo 2 đơn thư liên tiếp qua form → không 409, counter tự tăng', async ({ page }) => {
   await new LoginPage(page).login(ADMIN_U, ADMIN_P);

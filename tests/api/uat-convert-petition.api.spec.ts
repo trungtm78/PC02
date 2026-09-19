@@ -11,7 +11,7 @@ async function fetchToken(request: APIRequestContext): Promise<string> {
   const res = await request.post(`${API}/auth/login`, {
     data: {
       username: process.env.ADMIN_EMAIL || 'admin@pc02.local',
-      password: process.env.ADMIN_PASS || '68@Love2love68',
+      password: process.env.ADMIN_PASS || '',
     },
     failOnStatusCode: false,
   });

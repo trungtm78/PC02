@@ -12,7 +12,7 @@ async function globalSetup(_config: FullConfig): Promise<void> {
 
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
   const username = process.env.ADMIN_USERNAME || 'admin@pc02.local';
-  const password = process.env.ADMIN_PASSWORD || '68@Love2love68';
+  const password = process.env.ADMIN_PASSWORD || '';
 
   console.log(`[UAT global-setup] Login ${username} @ ${baseUrl}`);
 
@@ -53,10 +53,10 @@ async function globalSetup(_config: FullConfig): Promise<void> {
 
     // Pre-fetch tokens cho 4 roles còn lại, lưu vào files riêng
     const extraAccounts = [
-      { key: 'admin2', user: process.env.ADMIN2_USERNAME || 'admin2@pc02.local', pass: process.env.ADMIN2_PASSWORD || 'isP$sT4N@o71' },
-      { key: 'officer1', user: process.env.OFFICER1_USERNAME || 'officer1@pc02.local', pass: process.env.OFFICER1_PASSWORD || '8I@&5c1gHmfy' },
-      { key: 'officer2', user: process.env.OFFICER2_USERNAME || 'officer2@pc02.local', pass: process.env.OFFICER2_PASSWORD || '4TMa3hq*x3$v' },
-      { key: 'approver1', user: process.env.APPROVER1_USERNAME || 'approver1@pc02.local', pass: process.env.APPROVER1_PASSWORD || '6!rrw@ILte62' },
+      { key: 'admin2', user: process.env.ADMIN2_USERNAME || 'admin2@pc02.local', pass: process.env.ADMIN2_PASSWORD || '' },
+      { key: 'officer1', user: process.env.OFFICER1_USERNAME || 'officer1@pc02.local', pass: process.env.OFFICER1_PASSWORD || '' },
+      { key: 'officer2', user: process.env.OFFICER2_USERNAME || 'officer2@pc02.local', pass: process.env.OFFICER2_PASSWORD || '' },
+      { key: 'approver1', user: process.env.APPROVER1_USERNAME || 'approver1@pc02.local', pass: process.env.APPROVER1_PASSWORD || '' },
     ];
     for (const acc of extraAccounts) {
       const t = await loginAs(acc.user, acc.pass);

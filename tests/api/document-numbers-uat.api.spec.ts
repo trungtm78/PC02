@@ -14,7 +14,7 @@ import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
 
-const API = process.env.API_BASE || 'http://171.244.40.245/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 const DN = `${API}/document-numbers`;
 const ADMIN_EMAIL = process.env.ADMIN_USERNAME!;
 const ADMIN_PASS = process.env.ADMIN_PASSWORD!;

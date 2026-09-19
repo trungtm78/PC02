@@ -6,7 +6,7 @@ import { test, expect, APIRequestContext } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
 
 const ADMIN_U = process.env.ADMIN_USERNAME || 'admin@pc02.local';
-const ADMIN_P = process.env.ADMIN_PASSWORD || '68@Love2love68';
+const ADMIN_P = process.env.ADMIN_PASSWORD || '';
 const API = process.env.UAT_API_URL || 'http://localhost:3000/api/v1';
 
 async function token(req: APIRequestContext) {

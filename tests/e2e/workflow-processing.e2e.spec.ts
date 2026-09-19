@@ -17,7 +17,7 @@ import * as fs from 'fs';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5175';
 const ADMIN = {
   email: process.env.TEST_USER || 'admin@pc02.local',
-  password: process.env.TEST_PASS || 'Admin@1234!',
+  password: process.env.TEST_PASS || '',
 };
 
 const SCREENSHOT_DIR = 'test-results/uat/screenshots';

@@ -17,7 +17,7 @@ import { test, expect, request as playwrightRequest, type APIRequestContext } fr
  * Bài kiểm ĐỔI cấu hình thật của một mẫu, nên nó luôn trả về giá trị ban đầu ở `afterAll`, kể cả
  * khi có ca đỏ. Không dọn là để lại một mẫu bật/tắt sai mà không ai biết vì sao.
  */
-const API = process.env.API_BASE ?? 'http://171.244.40.245/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
 let ctx: APIRequestContext;
 let token = '';

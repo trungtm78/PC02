@@ -10,7 +10,7 @@ import { loginToPage, getAuthToken } from '../helpers/auth';
  *
  * Bài KHÔNG để lại thay đổi: cờ nào bật lên đều được tắt lại ở cuối.
  */
-const API = process.env.API_BASE ?? 'http://171.244.40.245/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
 test.describe('UAT giao diện · tích sẵn & chọn hàng loạt', () => {
   test('công tắc "Tích sẵn khi in" bật/tắt được ngay trên danh sách mẫu', async ({ page, request }) => {

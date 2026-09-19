@@ -35,7 +35,7 @@ test.describe('CASES — UAT API smoke layer', () => {
   test.beforeAll(async ({ request }) => {
     const base = (process.env.BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '') + '/api/v1';
     try {
-      const r = await request.post(base + '/auth/login', { data: { username: process.env.LOWPRIV_USERNAME || 'approver1@pc02.local', password: process.env.LOWPRIV_PASSWORD || '6!rrw@ILte62' }, failOnStatusCode: false });
+      const r = await request.post(base + '/auth/login', { data: { username: process.env.LOWPRIV_USERNAME || 'approver1@pc02.local', password: process.env.LOWPRIV_PASSWORD || '' }, failOnStatusCode: false });
       if (r.ok()) { const d: any = await r.json(); __lowToken = ((d.data && d.data.accessToken) || d.accessToken) || ''; }
     } catch (_e) { /* low-token optional */ }
     const auth = { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' };

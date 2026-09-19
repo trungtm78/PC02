@@ -4,7 +4,7 @@
  */
 import { APIRequestContext, expect } from '@playwright/test';
 
-export const PROD_BASE = process.env.BASE_URL || 'http://171.244.40.245';
+export const PROD_BASE = process.env.BASE_URL || 'http://localhost:5173';
 
 export type Role = 'admin' | 'admin2' | 'officer1' | 'officer2' | 'approver1' | 'noauth';
 

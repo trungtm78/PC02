@@ -172,7 +172,7 @@
 | **Độ ưu tiên** | P0 |
 | **Tiêu đề** | Login admin thành công — tiền đề cho toàn bộ UAT |
 | **Điều kiện tiên quyết** | SMK-01 đạt |
-| **Các bước kiểm thử** | 1. `POST /api/v1/auth/login` body `{"email":"admin@pc02.local","password":"68@Love2love68"}` |
+| **Các bước kiểm thử** | 1. `POST /api/v1/auth/login` body `{"email":"admin@pc02.local","password":"<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>"}` |
 | **Kết quả mong đợi** | 1. HTTP 200<br>2. Response có `accessToken` (JWT)<br>3. Token dùng được cho request tiếp theo |
 | **Kết quả thực tế** | _(QA điền)_ |
 | **Trạng thái** | _(Đạt / Không đạt / Bị chặn)_ |

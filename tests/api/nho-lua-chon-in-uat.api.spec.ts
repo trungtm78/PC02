@@ -14,7 +14,7 @@ import { test, expect, request as playwrightRequest, type APIRequestContext } fr
  * Bài kiểm GHI thật vào bảng cấu hình của tài khoản quản trị, nên nó luôn xoá sạch ở `afterAll`,
  * kể cả khi có ca đỏ.
  */
-const API = process.env.API_BASE ?? 'http://171.244.40.245/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 const DUONG = '/user-export-preferences';
 
 let ctx: APIRequestContext;
