@@ -426,11 +426,15 @@ export class IncidentsService {
     return { data: rows };
   }
 
-  private checkWriteScope(
+  /**
+   * Người xem có GHI được vụ việc này không — luật DUY NHẤT cho cả chặn ghi (checkWriteScope) lẫn cờ `quyenGhi` trả về
+   * cho trang chi tiết (ẩn nút ghi khi chỉ xem được; cùng cách với Vụ án #439, 20/09/2026).
+   */
+  private coQuyenGhi(
     record: { investigatorId?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
-  ) {
-    if (!dataScope) return;
+  ): boolean {
+    if (!dataScope) return true;
     // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
     const {
       writableUserIds: userIds,
@@ -443,7 +447,14 @@ export class IncidentsService {
     // (trước 19/09/2026 sửa/xoá lẻ được, xoá hàng loạt thì bị chặn).
     const unassignedMatch =
       !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
-    if (!ownerMatch && !teamMatch && !unassignedMatch) {
+    return Boolean(ownerMatch || teamMatch || unassignedMatch);
+  }
+
+  private checkWriteScope(
+    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (!this.coQuyenGhi(record, dataScope)) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
   }
@@ -487,7 +498,11 @@ export class IncidentsService {
 
     this.checkRecordInScope(record, dataScope);
 
-    return { success: true, data: record };
+    return {
+      success: true,
+      // Giao diện ẩn nút ghi khi false — cùng luật với checkWriteScope (máy chủ vẫn chặn ghi như cũ).
+      data: { ...record, quyenGhi: this.coQuyenGhi(record, dataScope) },
+    };
   }
 
   // ─────────────────────────────────────────────
