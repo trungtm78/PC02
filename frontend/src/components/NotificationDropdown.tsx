@@ -9,7 +9,6 @@
  * - "Đánh dấu tất cả đã đọc" button
  * - "Xóa đã đọc" button
  * - Poll unread count mỗi 60 giây
- * - Auto-seed demo notifications nếu chưa có thông báo nào
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -157,9 +156,6 @@ export function NotificationDropdown() {
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Seed demo data if this is first time
-      await api.post('/notifications/seed').catch(() => {});
-
       const res = await api.get<NotificationListResponse>('/notifications', {
         params: { limit: 20 },
       });

@@ -5,7 +5,6 @@ import { NotificationsService } from './notifications.service';
 const mockService = {
   getList: jest.fn(),
   getUnreadCount: jest.fn(),
-  seedDemoForUser: jest.fn(),
   markAsRead: jest.fn(),
   markAllAsRead: jest.fn(),
   deleteOne: jest.fn(),

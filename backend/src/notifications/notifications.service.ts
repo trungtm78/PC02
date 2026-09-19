@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
-import { NotificationType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
@@ -113,52 +113,5 @@ export class NotificationsService {
       },
     });
     return notification;
-  }
-
-  // ── SEED DEMO NOTIFICATIONS (for initial testing) ────────────────────────
-  async seedDemoForUser(userId: string) {
-    const existing = await this.prisma.notification.count({ where: { userId } });
-    if (existing > 0) return { seeded: false };
-
-    const demos = [
-      {
-        userId,
-        type: NotificationType.CASE_STATUS_CHANGED,
-        title: 'Vụ án cập nhật trạng thái',
-        message: 'Vụ án VA-2026-001 đã chuyển sang trạng thái "Đang điều tra".',
-        link: '/cases',
-      },
-      {
-        userId,
-        type: NotificationType.CASE_DEADLINE_NEAR,
-        title: 'Vụ án sắp đến hạn',
-        message: 'Vụ án VA-2026-002 sẽ đến hạn xử lý trong 3 ngày nữa.',
-        link: '/cases',
-      },
-      {
-        userId,
-        type: NotificationType.PETITION_RECEIVED,
-        title: 'Đơn thư mới tiếp nhận',
-        message: 'Đã tiếp nhận đơn tố cáo mới từ công dân Nguyễn Văn A.',
-        link: '/petitions',
-      },
-      {
-        userId,
-        type: NotificationType.DOCUMENT_UPLOADED,
-        title: 'Tài liệu vụ án được cập nhật',
-        message: 'Biên bản lấy lời khai đã được tải lên vụ án VA-2026-003.',
-        link: '/cases',
-      },
-      {
-        userId,
-        type: NotificationType.SYSTEM,
-        title: 'Chào mừng đến hệ thống PC02',
-        message: 'Hệ thống Quản lý Vụ án PC02 đã sẵn sàng phục vụ.',
-        link: '/dashboard',
-      },
-    ];
-
-    await this.prisma.notification.createMany({ data: demos });
-    return { seeded: true, count: demos.length };
   }
 }
