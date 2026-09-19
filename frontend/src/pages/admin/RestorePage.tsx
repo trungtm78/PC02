@@ -1,5 +1,5 @@
 /**
- * RestorePage — /admin/khoi-phuc (ADMIN only via permission table; v0.32.0.0)
+ * RestorePage — /admin/khoi-phuc (theo quyền restore:<Subject> từng loại hồ sơ; v0.32.0.0, 20/09/2026)
  *
  * 3 tabs (Vụ án / Vụ việc / Đơn thư), mỗi tab list records đã xóa mềm
  * (deletedAt != null). Click "Khôi phục" → modal nhập reason 10-500 chars →
@@ -18,6 +18,7 @@ import { formatVNDateTime } from '../../lib/dates';
 import { hoTen } from '@/lib/hoTen';
 import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { usePermission } from '@/hooks/usePermission';
 import { TIM_KIEM_VU_AN, TIM_KIEM_VU_VIEC, TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import {
   CASE_STATUS_LABEL,
@@ -114,9 +115,15 @@ export default function RestorePage() {
   const profile = authStore.getProfile();
   // "Chưa biết" và "biết, không phải admin" là hai chuyện khác nhau — xem `chuaBietTaiKhoan`.
   const chuaBietTaiKhoan = !profile;
-  const isAdmin = profile?.role === 'ADMIN';
+  // Theo QUYỀN THẬT `restore:<Subject>` từng loại hồ sơ — cùng nguồn PermissionsGuard của máy chủ (20/09/2026). Trước
+  // đó xét tên vai trò ADMIN: vai trò khác được cấp quyền khôi phục vẫn bị chặn, ADMIN bị gỡ quyền vẫn vào rồi nhận 403.
+  const { hasPermission } = usePermission();
+  const tabDuocPhep = (Object.keys(TAB_META) as TabKey[]).filter((k) => hasPermission(k, 'restore'));
+  const coQuyenKhoiPhuc = tabDuocPhep.length > 0;
 
-  const [tab, setTab] = useState<TabKey>('cases');
+  const [tabChon, setTab] = useState<TabKey>('cases');
+  // Tab đang chọn mà không có quyền (vd chỉ được khôi phục Đơn thư) → tab được phép đầu tiên.
+  const tab: TabKey = tabDuocPhep.includes(tabChon) ? tabChon : (tabDuocPhep[0] ?? 'cases');
   const [rows, setRows] = useState<DeletedRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -159,7 +166,7 @@ export default function RestorePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const fetchList = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!coQuyenKhoiPhuc) return;
     setLoading(true);
     setLoadError("");
     try {
@@ -189,7 +196,7 @@ export default function RestorePage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, search, isAdmin, theBat, tkKey]);
+  }, [tab, search, coQuyenKhoiPhuc, theBat, tkKey]);
 
   useEffect(() => {
     void fetchList();
@@ -265,15 +272,15 @@ export default function RestorePage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!coQuyenKhoiPhuc) {
     return (
       <div className="p-6" data-testid="restore-non-admin-block">
         <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-amber-900">Chỉ quản trị viên truy cập được trang này</h2>
+            <h2 className="text-base font-semibold text-amber-900">Tài khoản chưa được cấp quyền khôi phục dữ liệu</h2>
             <p className="text-sm text-amber-800 mt-1">
-              Trang Khôi phục dữ liệu dành riêng cho vai trò ADMIN. Liên hệ quản trị viên hệ thống nếu cần khôi phục dữ liệu đã xóa.
+              Vai trò của anh/chị chưa có quyền khôi phục Vụ án, Vụ việc hay Đơn thư đã xoá. Liên hệ quản trị viên hệ thống nếu cần.
             </p>
           </div>
         </div>
@@ -323,7 +330,7 @@ export default function RestorePage() {
 
       {/* Tabs */}
       <div className="border-b border-slate-200 flex gap-1">
-        {(Object.keys(TAB_META) as TabKey[]).map((key) => (
+        {tabDuocPhep.map((key) => (
           <button
             key={key}
             onClick={() => { setTab(key); setSearch(''); }}
