@@ -41,6 +41,9 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
   const [reminders, setReminders] = useState<DraftReminder[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Danh mục sự kiện hỏng/rỗng: trước đây lời gọi không có catch → ô "Loại" rỗng, bấm Lưu chỉ báo "Chọn danh mục"
+  // trong khi KHÔNG có gì để chọn (tồn đọng PR #217/#220, sửa 20/09/2026). Nay nói rõ lý do và khoá nút Lưu.
+  const [loiDanhMuc, setLoiDanhMuc] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -54,12 +57,22 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
     setRecurrenceEndDate('');
     setReminders([]);
     setScope('PERSONAL');
-    void eventCategoriesApi.list().then((res) => {
-      setCategories(res.data);
-      if (res.data.length > 0 && !categoryId) {
-        setCategoryId(res.data[0].id);
-      }
-    });
+    setLoiDanhMuc('');
+    void eventCategoriesApi
+      .list()
+      .then((res) => {
+        setCategories(res.data);
+        if (res.data.length === 0) {
+          setLoiDanhMuc('Chưa có danh mục sự kiện nào. Nhờ quản trị viên khai danh mục ở Cấu hình hệ thống rồi thử lại.');
+          return;
+        }
+        // Danh mục đang chọn có thể ĐÃ BỊ XOÁ giữa hai lần mở — giữ nguyên thì ô "Loại" trắng và Lưu ra 400.
+        if (!res.data.some((c) => c.id === categoryId)) setCategoryId(res.data[0].id);
+      })
+      .catch(() => {
+        setCategories([]);
+        setLoiDanhMuc('Không tải được danh mục sự kiện. Kiểm tra kết nối hoặc nhờ quản trị viên bật tính năng danh mục sự kiện.');
+      });
   }, [isOpen, defaultDate]);
 
   if (!isOpen) return null;
@@ -124,6 +137,15 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
         </div>
 
         <div className="p-5 space-y-4">
+          {loiDanhMuc && (
+            <div
+              role="alert"
+              data-testid="loi-danh-muc-su-kien"
+              className="p-3 bg-amber-50 border border-amber-300 text-amber-800 text-sm rounded"
+            >
+              {loiDanhMuc}
+            </div>
+          )}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded">{error}</div>
           )}
@@ -261,7 +283,7 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || categories.length === 0}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-[#003973] text-white rounded-lg hover:bg-[#003973]/90 disabled:opacity-50"
             data-testid="create-event-save"
           >
