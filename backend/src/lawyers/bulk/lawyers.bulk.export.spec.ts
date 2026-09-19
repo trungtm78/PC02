@@ -97,7 +97,12 @@ describe('LawyersBulkService.bulkExport — F5', () => {
     const res = mockRes();
     await service.bulkExport({
       ids: ['lawyer-1'],
-      dataScope: { userIds: ['u1'], teamIds: [], writableTeamIds: [] },
+      dataScope: {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      },
       res,
       actorId: 'u1',
     });

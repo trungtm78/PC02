@@ -14,6 +14,7 @@ describe('PetitionsBulkService — v0.48 B5', () => {
     userIds: [],
     teamIds: [],
     writableTeamIds: [],
+    writableUserIds: [],
     canDispatch: true,
     isWardOfficer: false,
   } as DataScope;
@@ -152,6 +153,7 @@ describe('PetitionsBulkService — v0.48 B5', () => {
         userIds: ['u-1'],
         teamIds: ['t-1'],
         writableTeamIds: ['t-1'],
+        writableUserIds: ['u-1'],
         canDispatch: false,
         isWardOfficer: false,
       } as DataScope;

@@ -447,7 +447,12 @@ describe('IncidentsService', () => {
 
       await service.getList(
         { limit: 20, offset: 0 },
-        { userIds: ['user-001'], teamIds: [], writableTeamIds: [] },
+        {
+          userIds: ['user-001'],
+          teamIds: [],
+          writableTeamIds: [],
+          writableUserIds: ['user-001'],
+        },
       );
 
       expect(mockPrisma.incident.findMany).toHaveBeenCalledWith(
@@ -583,6 +588,7 @@ describe('IncidentsService', () => {
           userIds: ['user-001'],
           teamIds: ['team-a'],
           writableTeamIds: ['team-a'],
+          writableUserIds: ['user-001'],
         } as never,
       );
       const json = JSON.stringify(whereCuaLanGoi().AND);
@@ -599,6 +605,7 @@ describe('IncidentsService', () => {
         userIds: ['u1'],
         teamIds: ['t1'],
         writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
         canDispatch: false,
       } as never);
       const where = whereCuaLanGoi();
@@ -614,6 +621,7 @@ describe('IncidentsService', () => {
         userIds: ['u1'],
         teamIds: ['t1'],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: false,
       } as never);
       expect(JSON.stringify(whereCuaLanGoi())).toContain(
@@ -1516,7 +1524,12 @@ describe('IncidentsService', () => {
 
       await service.getStats(
         {},
-        { userIds: ['user-001'], teamIds: [], writableTeamIds: [] },
+        {
+          userIds: ['user-001'],
+          teamIds: [],
+          writableTeamIds: [],
+          writableUserIds: ['user-001'],
+        },
       );
 
       expect(mockPrisma.incident.groupBy).toHaveBeenCalledWith(
@@ -1599,7 +1612,13 @@ describe('IncidentsService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-inv', firstName: 'X', lastName: 'Y' });
       mockPrisma.incident.update.mockResolvedValue({ ...mockIncident, investigatorId: 'user-inv' });
 
-      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+      const dispatcherScope = {
+        teamIds: ['own-team'],
+        userIds: ['actor-001'],
+        writableTeamIds: ['own-team'],
+        writableUserIds: ['actor-001'],
+        canDispatch: true,
+      };
 
       await expect(
         service.assignInvestigator('inc-001', { investigatorId: 'user-inv' }, 'actor-001', {}, dispatcherScope),
@@ -1612,7 +1631,13 @@ describe('IncidentsService', () => {
       mockPrisma.team.findFirst.mockResolvedValue({ id: 'team-b', isActive: true });
       mockPrisma.userTeam.findFirst.mockResolvedValue(null);
 
-      const dispatcherScope = { teamIds: ['own-team'], userIds: ['actor-001'], writableTeamIds: ['own-team'], canDispatch: true };
+      const dispatcherScope = {
+        teamIds: ['own-team'],
+        userIds: ['actor-001'],
+        writableTeamIds: ['own-team'],
+        writableUserIds: ['actor-001'],
+        canDispatch: true,
+      };
 
       await expect(
         service.assignInvestigator('inc-001', { investigatorId: 'user-inv', assignedTeamId: 'team-b' }, 'actor-001', {}, dispatcherScope),
@@ -1871,7 +1896,12 @@ describe('IncidentsService', () => {
       const incident = { ...mockIncident, soLanGiaHan: 0, deadline: baseDeadline, investigatorId: 'other-user', assignedTeamId: 'other-team', maxExtensionsSnapshot: 2 };
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
 
-      const dataScope = { teamIds: ['my-team'], userIds: ['actor-001'], writableTeamIds: ['my-team'] };
+      const dataScope = {
+        teamIds: ['my-team'],
+        userIds: ['actor-001'],
+        writableTeamIds: ['my-team'],
+        writableUserIds: ['actor-001'],
+      };
       await expect(service.extendDeadline('inc-001', 'actor-001', {}, dataScope)).rejects.toThrow();
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     });
@@ -1893,7 +1923,12 @@ describe('IncidentsService', () => {
       mockPrisma.incident.findFirst.mockResolvedValue(incident);
       // checkWriteScope throws before getNumericValue is called — no mock needed
 
-      const readOnlyScope = { teamIds: ['read-only-team'], userIds: ['actor-001'], writableTeamIds: [] };
+      const readOnlyScope = {
+        teamIds: ['read-only-team'],
+        userIds: ['actor-001'],
+        writableTeamIds: [],
+        writableUserIds: ['actor-001'],
+      };
       await expect(service.extendDeadline('inc-001', 'actor-001', {}, readOnlyScope)).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.incident.updateMany).not.toHaveBeenCalled();
     });
@@ -1973,5 +2008,59 @@ describe('IncidentsService', () => {
       mockPrisma.$transaction.mockRejectedValueOnce(p2025);
       await expect(service.restore('inc-001', REASON, ACTOR_ID)).rejects.toThrow(/đã được khôi phục/);
     });
+  });
+});
+
+/** Rà độc lập 19/09/2026: gộp vụ việc chỉ kiểm vụ việc NGUỒN — đích ngoài phạm vi vẫn nhận đơn thư/tài liệu nối sang. */
+describe('IncidentsService.mergeInto — kiểm phạm vi cả vụ việc đích', () => {
+  it('đích ngoài phạm vi ghi → 403, không ghi', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        IncidentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get<IncidentsService>(IncidentsService);
+    jest.clearAllMocks();
+    mockPrisma.incident.findFirst.mockImplementation(
+      (args: { where: { id: string } }) =>
+        Promise.resolve(
+          args.where.id === 'nguon'
+            ? {
+                id: 'nguon',
+                investigatorId: 'u1',
+                assignedTeamId: 't1',
+                status: 'TIEP_NHAN',
+              }
+            : {
+                id: 'dich',
+                investigatorId: 'u-khac',
+                assignedTeamId: 't-khac',
+                status: 'TIEP_NHAN',
+              },
+        ),
+    );
+    const trans = jest.spyOn(mockPrisma, '$transaction');
+    await expect(
+      service.mergeInto(
+        'nguon',
+        { targetId: 'dich' } as never,
+        'u1',
+        undefined,
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(trans).not.toHaveBeenCalled();
+    trans.mockRestore();
   });
 });

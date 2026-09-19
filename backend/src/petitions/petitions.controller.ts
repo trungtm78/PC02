@@ -436,7 +436,13 @@ export class PetitionsController {
     @Param('id') id: string,
     @Param('userId') userId: string,
     @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.petitionsService.removeAssignment(id, userId, user.id);
+    return this.petitionsService.removeAssignment(
+      id,
+      userId,
+      user.id,
+      req.dataScope,
+    );
   }
 }

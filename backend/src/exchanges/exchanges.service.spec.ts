@@ -37,12 +37,24 @@ describe('ExchangesService — scope enforcement', () => {
 
   it('throws ForbiddenException when createdById is not in scope userIds', async () => {
     mockPrisma.exchange.findFirst.mockResolvedValue({ ...FAKE_EXCHANGE, createdById: 'other-user' });
-    await expect(service.getById('ex-001', { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.getById('ex-001', {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      }),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('passes when createdById matches scope userIds', async () => {
     mockPrisma.exchange.findFirst.mockResolvedValue(FAKE_EXCHANGE);
-    const result = await service.getById('ex-001', { userIds: ['u1'], teamIds: [], writableTeamIds: [] });
+    const result = await service.getById('ex-001', {
+      userIds: ['u1'],
+      teamIds: [],
+      writableTeamIds: [],
+      writableUserIds: ['u1'],
+    });
     expect(result.success).toBe(true);
   });
 
@@ -54,12 +66,24 @@ describe('ExchangesService — scope enforcement', () => {
 
   it('throws ForbiddenException for deny-all scope {userIds:[], teamIds:[]}', async () => {
     mockPrisma.exchange.findFirst.mockResolvedValue({ ...FAKE_EXCHANGE, createdById: 'user-X' });
-    await expect(service.getById('ex-001', { userIds: [], teamIds: [], writableTeamIds: [] })).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.getById('ex-001', {
+        userIds: [],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      }),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('passes for team-leader scope {userIds:[], teamIds:[...]} (creator-anchored resource)', async () => {
     mockPrisma.exchange.findFirst.mockResolvedValue({ ...FAKE_EXCHANGE, createdById: 'any-user' });
-    const result = await service.getById('ex-001', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
+    const result = await service.getById('ex-001', {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: [],
+    });
     expect(result.success).toBe(true);
   });
 });

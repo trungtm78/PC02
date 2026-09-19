@@ -23,6 +23,7 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     userIds: [],
     teamIds: [],
     writableTeamIds: [],
+    writableUserIds: [],
     canDispatch: true,
     isWardOfficer: false,
   } as DataScope;
@@ -228,6 +229,7 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
     userIds: [],
     teamIds: [],
     writableTeamIds: [],
+    writableUserIds: [],
     canDispatch: true,
     isWardOfficer: false,
   } as DataScope;
@@ -399,6 +401,7 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
     userIds: [],
     teamIds: [],
     writableTeamIds: [],
+    writableUserIds: [],
     canDispatch: true,
     isWardOfficer: false,
   } as DataScope;

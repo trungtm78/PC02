@@ -136,7 +136,12 @@ describe('WorkflowService.listChuyenTra — gộp ba nguồn ở máy chủ', ()
   });
 
   it('phạm vi dữ liệu truyền xuống từng nguồn', async () => {
-    const pham = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
+    const pham = {
+      userIds: ['u1'],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+      writableUserIds: ['u1'],
+    };
     await service.listChuyenTra({} as never, pham as never);
     for (const nguon of [vuAn, vuViec, donThu]) {
       expect(nguon.getList.mock.calls[0][1]).toBe(pham);

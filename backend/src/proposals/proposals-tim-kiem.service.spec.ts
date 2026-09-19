@@ -23,7 +23,12 @@ const mockPrisma = {
 };
 
 const whereList = () => mockPrisma.proposal.findMany.mock.calls[0][0].where;
-const PHAM_VI = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
+const PHAM_VI = {
+  userIds: ['u1'],
+  teamIds: ['t1'],
+  writableTeamIds: [],
+  writableUserIds: ['u1'],
+};
 
 describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy chủ', () => {
   let service: ProposalsService;
@@ -139,6 +144,7 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
         userIds: ['u1'],
         teamIds: ['t1'],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: true,
       } as never,
     );
@@ -151,6 +157,7 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     const chuoi = JSON.stringify(whereList().AND);
     expect(chuoi).toContain('{"relatedCase":null,"createdById":{"not":null}}');
@@ -161,6 +168,7 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     const call = mockPrisma.proposal.findMany.mock.calls[0][0];
     expect(JSON.stringify(call.where.AND)).toContain(

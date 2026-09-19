@@ -84,7 +84,12 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
   it('scope filter applied', async () => {
     await service.bulkExport({
       ids: ['subj-1'],
-      dataScope: { userIds: ['u1'], teamIds: [], writableTeamIds: [] },
+      dataScope: {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      },
       res: mockRes(),
       actorId: 'u1',
     });

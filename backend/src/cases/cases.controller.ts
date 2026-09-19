@@ -297,9 +297,16 @@ export class CasesController {
   async tdcBackfill(
     @Param('id') id: string,
     @Body() dto: TdcBackfillDto,
-    @Req() req: any,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
   ) {
-    return this.casesService.tdcBackfill(id, dto.lyDoTamDinhChiVuAn, req.user.userId);
+    // `user.id` — bản cũ đọc `req.user.userId`, trường JwtStrategy không đặt → luôn undefined.
+    return this.casesService.tdcBackfill(
+      id,
+      dto.lyDoTamDinhChiVuAn,
+      user.id,
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/cases/:id/assign — Phân công / tái phân công vụ án (dispatcher only)

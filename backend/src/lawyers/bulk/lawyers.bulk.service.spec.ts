@@ -14,6 +14,7 @@ describe('LawyersBulkService.bulkDelete — v0.51', () => {
     userIds: [],
     teamIds: [],
     writableTeamIds: [],
+    writableUserIds: [],
     canDispatch: true,
     isWardOfficer: false,
   } as DataScope;

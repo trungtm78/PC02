@@ -274,7 +274,7 @@ export class CasesBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            ...buildScopeFilter(input.dataScope, 'assign'),
           },
           select: { id: true },
         });
@@ -397,7 +397,7 @@ export class CasesBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            ...buildScopeFilter(input.dataScope, 'write'),
           },
           include: {
             subjects: { where: { deletedAt: null }, select: { id: true } },

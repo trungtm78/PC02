@@ -72,7 +72,7 @@ export class SubjectsBulkService {
         $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
       },
       preflight: async (ids) => {
-        const scopeFilter = buildScopeFilter(input.dataScope);
+        const scopeFilter = buildScopeFilter(input.dataScope, 'write');
         const inScope = await this.prisma.subject.findMany({
           where: {
             id: { in: ids },

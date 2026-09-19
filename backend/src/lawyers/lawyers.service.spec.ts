@@ -165,7 +165,12 @@ describe('LawyersService', () => {
 
       await service.getList(
         { tk: ['vuAn~A'] } as never,
-        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] } as never,
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        } as never,
       );
 
       const where = whereCua(mockPrisma.lawyer.findMany);
@@ -196,6 +201,7 @@ describe('LawyersService', () => {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
       } as never);
 
       const where = whereCua(mockPrisma.lawyer.findMany);
@@ -216,6 +222,7 @@ describe('LawyersService', () => {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
       } as never);
 
       const json = JSON.stringify(whereCua(mockPrisma.lawyer.findMany).AND);
@@ -328,7 +335,12 @@ describe('LawyersService', () => {
         ...FAKE_LAWYER,
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      };
       await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
@@ -337,7 +349,12 @@ describe('LawyersService', () => {
         ...FAKE_LAWYER,
         case: { assignedTeamId: null, investigatorId: 'u1' },
       });
-      const scope = { userIds: ['u1'], teamIds: [], writableTeamIds: [] };
+      const scope = {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      };
       const result = await service.getById('law-001', scope);
       expect(result.success).toBe(true);
     });

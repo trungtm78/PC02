@@ -69,6 +69,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
       userIds: ['u1'],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: ['u1'],
     });
     let chuoi = JSON.stringify(goiList().where.AND);
     expect(chuoi).toContain('"receiverUnitBd":{"contains":"doi 4"}');
@@ -80,6 +81,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: true,
       } as never,
     );
@@ -89,6 +91,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     chuoi = JSON.stringify(goiList().where.AND);
     expect(chuoi).toContain('"createdById":{"not":null}');
@@ -164,6 +167,37 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.exchangeMessage.create).not.toHaveBeenCalled();
+  });
+});
+
+/** Quyết định 19/09/2026: điều phối viên ngoài phạm vi chỉ XEM + PHÂN CÔNG — gửi tin nhắn là GHI. */
+describe('ExchangesService.addMessage — điều phối viên', () => {
+  it('trao đổi của người ngoài phạm vi: điều phối viên cũng bị chặn 403', async () => {
+    jest.clearAllMocks();
+    const module = await Test.createTestingModule({
+      providers: [
+        ExchangesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get(ExchangesService);
+    mockPrisma.exchange.findFirst.mockResolvedValue({
+      id: 'e1',
+      createdById: 'u-khac',
+      deletedAt: null,
+    });
+    await expect(
+      service.addMessage({ exchangeId: 'e1', content: 'x' }, 'u1', {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+        canDispatch: true,
       }),
     ).rejects.toThrow(ForbiddenException);
     expect(mockPrisma.exchangeMessage.create).not.toHaveBeenCalled();

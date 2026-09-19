@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import type { DataScope } from '../../auth/services/unit-scope.service';
 import { buildScopeFilter, buildPetitionScopeFilter, assertParentInScope, assertPetitionParentInScope, assertCreatorInScope } from './scope-filter.util';
 
 describe('buildScopeFilter', () => {
@@ -11,22 +12,47 @@ describe('buildScopeFilter', () => {
   });
 
   it('returns null for dispatcher scope (canDispatch=true) — full read access', () => {
-    expect(buildScopeFilter({ userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true })).toBeNull();
+    expect(
+      buildScopeFilter({
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+        canDispatch: true,
+      }),
+    ).toBeNull();
   });
 
   it('returns deny-all sentinel for empty scope', () => {
-    expect(buildScopeFilter({ userIds: [], teamIds: [], writableTeamIds: [] })).toEqual({ id: '__no_access__' });
+    expect(
+      buildScopeFilter({
+        userIds: [],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      }),
+    ).toEqual({ id: '__no_access__' });
   });
 
   it('returns OR with investigatorId when only userIds present', () => {
-    const result = buildScopeFilter({ userIds: ['u1', 'u2'], teamIds: [], writableTeamIds: [] });
+    const result = buildScopeFilter({
+      userIds: ['u1', 'u2'],
+      teamIds: [],
+      writableTeamIds: [],
+      writableUserIds: ['u1', 'u2'],
+    });
     expect(result).toEqual({
       OR: [{ investigatorId: { in: ['u1', 'u2'] } }],
     });
   });
 
   it('returns OR with assignedTeamId + null when only teamIds present', () => {
-    const result = buildScopeFilter({ userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
+    const result = buildScopeFilter({
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: [],
+    });
     expect(result).toEqual({
       OR: [
         { assignedTeamId: { in: ['t1'] } },
@@ -36,7 +62,12 @@ describe('buildScopeFilter', () => {
   });
 
   it('combines userIds and teamIds in OR conditions', () => {
-    const result = buildScopeFilter({ userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] });
+    const result = buildScopeFilter({
+      userIds: ['u1'],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: ['u1'],
+    });
     expect(result).toEqual({
       OR: [
         { investigatorId: { in: ['u1'] } },
@@ -53,15 +84,35 @@ describe('buildPetitionScopeFilter', () => {
   });
 
   it('returns null for dispatcher scope (canDispatch=true)', () => {
-    expect(buildPetitionScopeFilter({ userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true })).toBeNull();
+    expect(
+      buildPetitionScopeFilter({
+        userIds: [],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: [],
+        canDispatch: true,
+      }),
+    ).toBeNull();
   });
 
   it('returns deny-all sentinel for empty scope', () => {
-    expect(buildPetitionScopeFilter({ userIds: [], teamIds: [], writableTeamIds: [] })).toEqual({ id: '__no_access__' });
+    expect(
+      buildPetitionScopeFilter({
+        userIds: [],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      }),
+    ).toEqual({ id: '__no_access__' });
   });
 
   it('uses enteredById (not investigatorId) for ownership', () => {
-    const result = buildPetitionScopeFilter({ userIds: ['u1'], teamIds: [], writableTeamIds: [] });
+    const result = buildPetitionScopeFilter({
+      userIds: ['u1'],
+      teamIds: [],
+      writableTeamIds: [],
+      writableUserIds: ['u1'],
+    });
     expect(result).toEqual({
       OR: [{ enteredById: { in: ['u1'] } }],
     });
@@ -69,7 +120,12 @@ describe('buildPetitionScopeFilter', () => {
   });
 
   it('includes assignedTeamId null condition for team scope', () => {
-    const result = buildPetitionScopeFilter({ userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] });
+    const result = buildPetitionScopeFilter({
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: [],
+    });
     expect(result).toEqual({
       OR: [
         { assignedTeamId: { in: ['t1'] } },
@@ -88,13 +144,23 @@ describe('assertParentInScope', () => {
 
   it('P0-001: throws ForbiddenException when parent is null — orphan record (bypass fix)', () => {
     expect(() =>
-      assertParentInScope(null, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
+      assertParentInScope(null, {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      }),
     ).toThrow(ForbiddenException);
   });
 
   it('P0-001: throws ForbiddenException when parent is undefined — orphan record (bypass fix)', () => {
     expect(() =>
-      assertParentInScope(undefined, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
+      assertParentInScope(undefined, {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      }),
     ).toThrow(ForbiddenException);
   });
 
@@ -105,7 +171,13 @@ describe('assertParentInScope', () => {
   });
 
   it('P0-001: canDispatch bypass still works on null parent (dispatcher read-all)', () => {
-    const dispatcherScope = { userIds: ['d1'], teamIds: [], writableTeamIds: [], canDispatch: true };
+    const dispatcherScope = {
+      userIds: ['d1'],
+      teamIds: [],
+      writableTeamIds: [],
+      writableUserIds: ['d1'],
+      canDispatch: true,
+    };
     expect(() => assertParentInScope(null, dispatcherScope)).not.toThrow();
   });
 
@@ -113,7 +185,12 @@ describe('assertParentInScope', () => {
     expect(() =>
       assertParentInScope(
         { assignedTeamId: 'other-team', investigatorId: 'u1' },
-        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] },
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        },
       ),
     ).not.toThrow();
   });
@@ -122,7 +199,12 @@ describe('assertParentInScope', () => {
     expect(() =>
       assertParentInScope(
         { assignedTeamId: 't1', investigatorId: 'other-user' },
-        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] },
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        },
       ),
     ).not.toThrow();
   });
@@ -131,7 +213,12 @@ describe('assertParentInScope', () => {
     expect(() =>
       assertParentInScope(
         { assignedTeamId: null, investigatorId: 'other-user' },
-        { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] },
+        {
+          userIds: [],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: [],
+        },
       ),
     ).not.toThrow();
   });
@@ -140,7 +227,12 @@ describe('assertParentInScope', () => {
     expect(() =>
       assertParentInScope(
         { assignedTeamId: 'team-X', investigatorId: 'user-X' },
-        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] },
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        },
       ),
     ).toThrow(ForbiddenException);
   });
@@ -153,13 +245,24 @@ describe('assertParentInScope', () => {
 
   it('throws ForbiddenException for empty scope (userIds:[], teamIds:[]) — deny-all', () => {
     expect(() =>
-      assertParentInScope({ assignedTeamId: 'team-X', investigatorId: 'user-X' }, { userIds: [], teamIds: [], writableTeamIds: [] }),
+      assertParentInScope(
+        { assignedTeamId: 'team-X', investigatorId: 'user-X' },
+        { userIds: [], teamIds: [], writableTeamIds: [], writableUserIds: [] },
+      ),
     ).toThrow(ForbiddenException);
   });
 
   it('passes when both assignedTeamId and investigatorId are null (unassigned record, non-empty teamScope)', () => {
     expect(() =>
-      assertParentInScope({ assignedTeamId: null, investigatorId: null }, { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] }),
+      assertParentInScope(
+        { assignedTeamId: null, investigatorId: null },
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        },
+      ),
     ).not.toThrow();
   });
 
@@ -167,7 +270,13 @@ describe('assertParentInScope', () => {
     expect(() =>
       assertParentInScope(
         { assignedTeamId: 'other-team', investigatorId: 'other-user' },
-        { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true },
+        {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+          canDispatch: true,
+        },
       ),
     ).not.toThrow();
   });
@@ -178,6 +287,7 @@ describe('assertParentInScope', () => {
       userIds: ['cap-u1'],
       teamIds: ['team-ward-bn'],
       writableTeamIds: ['team-ward-bn'],
+      writableUserIds: ['cap-u1'],
       isWardOfficer: true,
       wardTeamId: 'team-ward-bn',
     };
@@ -218,31 +328,56 @@ describe('assertCreatorInScope', () => {
 
   it('throws ForbiddenException when createdById is null (orphan record denies scoped users)', () => {
     expect(() =>
-      assertCreatorInScope(null, { userIds: ['u1'], teamIds: [], writableTeamIds: [] }),
+      assertCreatorInScope(null, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      }),
     ).toThrow(ForbiddenException);
   });
 
   it('passes when createdById is in userIds', () => {
     expect(() =>
-      assertCreatorInScope('u1', { userIds: ['u1', 'u2'], teamIds: [], writableTeamIds: [] }),
+      assertCreatorInScope('u1', {
+        userIds: ['u1', 'u2'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1', 'u2'],
+      }),
     ).not.toThrow();
   });
 
   it('passes when userIds is empty but teamIds has items (team-leader sees all creator-anchored records)', () => {
     expect(() =>
-      assertCreatorInScope('user-X', { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] }),
+      assertCreatorInScope('user-X', {
+        userIds: [],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: [],
+      }),
     ).not.toThrow();
   });
 
   it('throws ForbiddenException for deny-all scope (userIds:[], teamIds:[]) even when createdById is set', () => {
     expect(() =>
-      assertCreatorInScope('user-X', { userIds: [], teamIds: [], writableTeamIds: [] }),
+      assertCreatorInScope('user-X', {
+        userIds: [],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      }),
     ).toThrow(ForbiddenException);
   });
 
   it('throws ForbiddenException when createdById not in userIds', () => {
     expect(() =>
-      assertCreatorInScope('user-X', { userIds: ['u1', 'u2'], teamIds: [], writableTeamIds: [] }),
+      assertCreatorInScope('user-X', {
+        userIds: ['u1', 'u2'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1', 'u2'],
+      }),
     ).toThrow(ForbiddenException);
   });
 
@@ -251,18 +386,36 @@ describe('assertCreatorInScope', () => {
   });
 
   it('throws ForbiddenException when createdById is undefined (orphan record denies scoped users)', () => {
-    expect(() => assertCreatorInScope(undefined, { userIds: ['u1'], teamIds: [], writableTeamIds: [] })).toThrow(ForbiddenException);
+    expect(() =>
+      assertCreatorInScope(undefined, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      }),
+    ).toThrow(ForbiddenException);
   });
 
   it('passes for any createdById when canDispatch=true — dispatcher read bypass', () => {
     expect(() =>
-      assertCreatorInScope('unrelated-user', { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'], canDispatch: true }),
+      assertCreatorInScope('unrelated-user', {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+        canDispatch: true,
+      }),
     ).not.toThrow();
   });
 });
 
 describe('assertParentInScope (write operation)', () => {
-  const writeScope = { userIds: ['u1'], teamIds: ['t1', 'read-team'], writableTeamIds: ['t1'] };
+  const writeScope = {
+    userIds: ['u1'],
+    teamIds: ['t1', 'read-team'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
+  };
 
   it('passes when assignedTeamId is in writableTeamIds', () => {
     expect(() =>
@@ -282,10 +435,23 @@ describe('assertParentInScope (write operation)', () => {
     ).not.toThrow();
   });
 
-  it('uses teamIds as fallback when writableTeamIds is absent', () => {
-    const scopeNoWritable = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] } as { userIds: string[]; teamIds: string[]; writableTeamIds: string[] };
+  // 19/09/2026: dự phòng ĐÓNG — phạm vi thiếu tổ/người ghi được thì không ghi được gì (trước đây lùi về tổ ĐỌC,
+  // tức quyền xem thành quyền ghi). Prod luôn đặt đủ (resolveScope, interceptor từ-chối-hết); đây là lưới cuối.
+  it('writableTeamIds / writableUserIds thiếu → GHI bị chặn (không lùi về phạm vi đọc)', () => {
+    const thieu = { userIds: ['u1'], teamIds: ['t1'] } as unknown as DataScope;
     expect(() =>
-      assertParentInScope({ assignedTeamId: 't1', investigatorId: 'other' }, scopeNoWritable, 'write'),
+      assertParentInScope(
+        { assignedTeamId: 't1', investigatorId: 'u1' },
+        thieu,
+        'write',
+      ),
+    ).toThrow(ForbiddenException);
+    expect(() =>
+      assertParentInScope(
+        { assignedTeamId: 't1', investigatorId: 'u1' },
+        thieu,
+        'read',
+      ),
     ).not.toThrow();
   });
 
@@ -297,7 +463,12 @@ describe('assertParentInScope (write operation)', () => {
 });
 
 describe('assertCreatorInScope (write operation)', () => {
-  const writeScope = { userIds: ['u1', 'u2'], teamIds: ['t1', 'read-team'], writableTeamIds: ['t1'] };
+  const writeScope = {
+    userIds: ['u1', 'u2'],
+    teamIds: ['t1', 'read-team'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1', 'u2'],
+  };
 
   it('passes when createdById is in userIds and user has writable teams', () => {
     expect(() =>
@@ -306,21 +477,36 @@ describe('assertCreatorInScope (write operation)', () => {
   });
 
   it('throws when scope has teamIds but empty writableTeamIds (READ-only team bypass denied for write)', () => {
-    const readOnlyScope = { userIds: [], teamIds: ['read-team'], writableTeamIds: [] };
+    const readOnlyScope = {
+      userIds: [],
+      teamIds: ['read-team'],
+      writableTeamIds: [],
+      writableUserIds: [],
+    };
     expect(() =>
       assertCreatorInScope('any-user', readOnlyScope, 'write'),
     ).toThrow(ForbiddenException);
   });
 
   it('passes team bypass when writableTeamIds is non-empty', () => {
-    const teamOnlyScope = { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] };
+    const teamOnlyScope = {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: [],
+    };
     expect(() =>
       assertCreatorInScope('any-user', teamOnlyScope, 'write'),
     ).not.toThrow();
   });
 
   it('backward compat: no operation param defaults to read using teamIds for team bypass', () => {
-    const readOnlyScope = { userIds: [], teamIds: ['read-team'], writableTeamIds: [] };
+    const readOnlyScope = {
+      userIds: [],
+      teamIds: ['read-team'],
+      writableTeamIds: [],
+      writableUserIds: [],
+    };
     expect(() =>
       assertCreatorInScope('any-user', readOnlyScope),
     ).not.toThrow();
@@ -334,6 +520,7 @@ describe('buildScopeFilter — ward officer (v0.33.0.0)', () => {
       userIds: ['u1'],
       teamIds: ['ward-team-bn'],
       writableTeamIds: ['ward-team-bn'],
+      writableUserIds: ['u1'],
       isWardOfficer: true,
       wardTeamId: 'ward-team-bn',
     };
@@ -350,6 +537,7 @@ describe('buildScopeFilter — ward officer (v0.33.0.0)', () => {
       userIds: ['u1'],
       teamIds: ['pc02-team'],
       writableTeamIds: ['pc02-team'],
+      writableUserIds: ['u1'],
     };
     const filter = buildScopeFilter(pc02Scope as any);
     const conditions = (filter as any).OR as Array<Record<string, unknown>>;
@@ -369,6 +557,7 @@ describe('assertPetitionParentInScope', () => {
     userIds: ['u1'],
     teamIds: ['team-A'],
     writableTeamIds: ['team-A'],
+    writableUserIds: ['u1'],
   } as any;
 
   it('admin passthrough (null scope)', () => {
@@ -381,7 +570,13 @@ describe('assertPetitionParentInScope', () => {
     expect(() =>
       assertPetitionParentInScope(
         { assignedTeamId: 'team-X', enteredById: 'user-X' },
-        { userIds: [], teamIds: [], writableTeamIds: [], canDispatch: true } as any,
+        {
+          userIds: [],
+          teamIds: [],
+          writableTeamIds: [],
+          writableUserIds: [],
+          canDispatch: true,
+        } as DataScope,
       ),
     ).not.toThrow();
   });
@@ -430,6 +625,7 @@ describe('assertPetitionParentInScope', () => {
       userIds: ['u1'],
       teamIds: ['read-team'],
       writableTeamIds: ['write-team'],
+      writableUserIds: ['u1'],
     } as any;
     // Petition assigned to read-team — fail on write (only writable team-write allowed)
     expect(() =>
@@ -454,6 +650,7 @@ describe('assertPetitionParentInScope', () => {
       userIds: ['u1'],
       teamIds: ['read-team'],
       writableTeamIds: [],
+      writableUserIds: ['u1'],
     } as any;
     expect(() =>
       assertPetitionParentInScope(

@@ -280,7 +280,8 @@ export class ExchangesService {
       where: { id: dto.exchangeId, deletedAt: null },
     });
     if (!exchange) throw new NotFoundException(`Trao đổi không tồn tại`);
-    assertCreatorInScope(exchange.createdById, dataScope);
+    // Gửi tin là GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+    assertCreatorInScope(exchange.createdById, dataScope, 'write');
 
     const message = await this.prisma.exchangeMessage.create({
       data: {

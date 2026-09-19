@@ -23,7 +23,12 @@ const mockPrisma = {
   },
 };
 
-const PHAM_VI = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
+const PHAM_VI = {
+  userIds: ['u1'],
+  teamIds: ['t1'],
+  writableTeamIds: [],
+  writableUserIds: ['u1'],
+};
 
 /**
  * Màn Đơn trùng (18/09/2026) có nguồn dữ liệu THẬT. Trước đó màn tải `limit=100` đơn bất kỳ rồi hiện

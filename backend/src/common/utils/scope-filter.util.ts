@@ -20,6 +20,35 @@ function recordDenial(resource: string): void {
 }
 
 /**
+ * Thao tác mà bộ lọc phục vụ. Quyết định của anh 19/09/2026 cho quyền ĐIỀU PHỐI (canDispatch): ngoài phạm vi của
+ * mình chỉ được XEM (`read`) và PHÂN CÔNG (`assign`); `write` (sửa nội dung, xoá, xoá hàng loạt, tạo bản ghi
+ * con) chỉ trong phạm vi GHI (`writableTeamIds` — không gồm tổ chỉ được cấp quyền xem).
+ */
+export type ThaoTacPhamVi = 'read' | 'write' | 'assign';
+
+/** Điều phối viên được bỏ qua phạm vi ở thao tác này không. */
+function dieuPhoiBoQua(scope: DataScope, op: ThaoTacPhamVi): boolean {
+  return !!scope.canDispatch && op !== 'write';
+}
+
+/**
+ * Tổ và người dùng để lọc: đọc theo `teamIds` / `userIds`; ghi và phân công (khi không được bỏ qua) theo
+ * `writableTeamIds` / `writableUserIds`. `userIds` gồm cả thành viên tổ chỉ được cấp quyền XEM — so thao tác ghi
+ * theo nó là quyền xem thành quyền ghi. Thiếu trường ghi → rỗng (dự phòng ĐÓNG, không lùi về phạm vi đọc).
+ */
+function phamViTheoThaoTac(
+  scope: DataScope,
+  op: ThaoTacPhamVi,
+): { teamIds: string[]; userIds: string[] } {
+  return op === 'read'
+    ? { teamIds: scope.teamIds, userIds: scope.userIds }
+    : {
+        teamIds: scope.writableTeamIds ?? [],
+        userIds: scope.writableUserIds ?? [],
+      };
+}
+
+/**
  * Build Prisma where-clause filter for Case/Incident scope.
  * Uses investigatorId for ownership.
  *
@@ -28,20 +57,21 @@ function recordDenial(resource: string): void {
  */
 export function buildScopeFilter(
   scope: DataScope | null | undefined,
+  op: ThaoTacPhamVi = 'read',
 ): Record<string, unknown> | null {
   // null scope = admin, no filtering
   if (scope === null || scope === undefined) return null;
-  // dispatcher: full read access — sees all records regardless of team
-  if (scope.canDispatch) return null;
+  if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
 
-  if (scope.userIds.length > 0) {
-    conditions.push({ investigatorId: { in: scope.userIds } });
+  if (userIds.length > 0) {
+    conditions.push({ investigatorId: { in: userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake (unassigned records).
     // Cán bộ phường chỉ thấy records assignedTeamId IN ward team mình.
     // PC02 user (non-ward) vẫn thấy intake để claim/assign.
@@ -64,18 +94,20 @@ export function buildScopeFilter(
  */
 export function buildPetitionScopeFilter(
   scope: DataScope | null | undefined,
+  op: ThaoTacPhamVi = 'read',
 ): Record<string, unknown> | null {
   if (scope === null || scope === undefined) return null;
-  if (scope.canDispatch) return null;
+  if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
 
-  if (scope.userIds.length > 0) {
-    conditions.push({ enteredById: { in: scope.userIds } });
+  if (userIds.length > 0) {
+    conditions.push({ enteredById: { in: userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake — same as buildScopeFilter
     if (!scope.isWardOfficer) {
       conditions.push({ assignedTeamId: null });
@@ -101,7 +133,8 @@ export function assertParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   // P0-001 fix: null parent = orphan record (caseId+incidentId both null on Document/VKS/ActionPlan/Delegation).
   // Previously: silent pass → cross-tenant data leak. Now: deny by default. Admin (scope=null) bypassed above.
   if (!parent) {
@@ -110,8 +143,10 @@ export function assertParentInScope(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
   // v0.33.0.0 codex HIGH 5: ward officer KHÔNG được pass unassigned parent (same logic as buildScopeFilter)
@@ -137,15 +172,18 @@ export function assertPetitionParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   if (!parent) {
     recordDenial('petition-parent-null');
     throw new ForbiddenException(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const ownerMatch = parent.enteredById ? userIds.includes(parent.enteredById) : false;
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
   const isWardOfficer = (scope as any).isWardOfficer === true;
@@ -172,12 +210,15 @@ export function assertCreatorInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const isDenyAll = userIds.length === 0 && effectiveTeamIds.length === 0;
   if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
     recordDenial('creator');

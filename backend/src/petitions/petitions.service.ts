@@ -363,10 +363,13 @@ export class PetitionsService {
   ) {
     if (!dataScope) return;
     if (dataScope.canDispatch) return; // dispatcher: full read access
-    const { userIds, teamIds } = dataScope;
+    const { userIds, teamIds, isWardOfficer } = dataScope;
     const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
     const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && teamIds.length > 0;
+    // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
+    // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
+    const unassignedMatch =
+      !record.assignedTeamId && teamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
     }
@@ -388,10 +391,11 @@ export class PetitionsService {
     };
 
     // Scope filter: same OR pattern as cases.service.create (FROM_PETITION branch)
-    if (dataScope && !dataScope.canDispatch) {
+    // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+    if (dataScope) {
       const orConditions: Prisma.PetitionWhereInput[] = [];
-      if (dataScope.userIds.length > 0) {
-        orConditions.push({ enteredById: { in: dataScope.userIds } });
+      if (dataScope.writableUserIds.length > 0) {
+        orConditions.push({ enteredById: { in: dataScope.writableUserIds } });
       }
       if (dataScope.writableTeamIds.length > 0) {
         orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -435,12 +439,29 @@ export class PetitionsService {
     return { data: rows };
   }
 
+  /**
+   * Thêm/bớt cán bộ được giao là PHÂN CÔNG: điều phối viên được làm trên mọi đơn; người khác chỉ trong phạm vi GHI
+   * (quyết định 19/09/2026). Trước đó hai đường này không kiểm gì — có quyền `edit Petition` là phân công mọi đơn.
+   */
+  private kiemPhamViPhanCong(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (dataScope?.canDispatch) return;
+    this.checkWriteScope(record, dataScope);
+  }
+
   private checkWriteScope(
     record: { enteredById?: string | null; assignedTeamId?: string | null },
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds, isWardOfficer } = dataScope;
+    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
+    const {
+      writableUserIds: userIds,
+      writableTeamIds,
+      isWardOfficer,
+    } = dataScope;
     const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
     // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
@@ -2328,10 +2349,11 @@ export class PetitionsService {
     userId: string,
     role: 'LEAD' | 'SUPPORT',
     actorId: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2355,9 +2377,11 @@ export class PetitionsService {
     petitionId: string,
     userId: string,
     _actorId: string,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2372,10 +2396,11 @@ export class PetitionsService {
 
   async listAssignments(
     petitionId: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.checkRecordInScope(petition, dataScope);
 
     return this.prisma.petitionAssignment.findMany({
       where: { petitionId },

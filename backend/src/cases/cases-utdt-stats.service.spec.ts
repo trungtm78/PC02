@@ -152,7 +152,12 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
     mockPrisma.case.count.mockResolvedValue(0);
     await service.getUtdtStats(
       {},
-      { userIds: ['user-001'], teamIds: ['team-a'], writableTeamIds: [] },
+      {
+        userIds: ['user-001'],
+        teamIds: ['team-a'],
+        writableTeamIds: [],
+        writableUserIds: ['user-001'],
+      },
     );
     const callArg = mockPrisma.case.count.mock.calls[0][0];
     expect(callArg.where.AND).toBeDefined();
@@ -171,6 +176,7 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
         userIds: ['user-001'],
         teamIds: ['team-a'],
         writableTeamIds: ['team-a'],
+        writableUserIds: ['user-001'],
       },
     );
     expect(mockPrisma.case.count).toHaveBeenCalledTimes(4);

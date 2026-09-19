@@ -637,14 +637,16 @@ export class CasesService {
   ) {
     if (!dataScope) return; // admin or no scope = allow
     if (dataScope.canDispatch) return; // dispatcher: full read access
-    const { userIds, teamIds } = dataScope;
+    const { userIds, teamIds, isWardOfficer } = dataScope;
 
     const ownerMatch =
       record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch =
       record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
+    // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
     const unassignedMatch =
-      !record.assignedTeamId && teamIds.length > 0;
+      !record.assignedTeamId && teamIds.length > 0 && !isWardOfficer;
 
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');
@@ -656,10 +658,18 @@ export class CasesService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds } = dataScope;
+    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
+    const {
+      writableUserIds: userIds,
+      writableTeamIds,
+      isWardOfficer,
+    } = dataScope;
     const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    // Cán bộ phường không ghi hồ sơ chưa giao tổ — khớp bộ lọc ghi dùng chung và checkWriteScope của đơn thư
+    // (trước 19/09/2026 sửa/xoá lẻ được, xoá hàng loạt thì bị chặn).
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -1005,9 +1015,12 @@ export class CasesService {
     if (effectiveProvenance === CaseProvenance.FROM_PETITION) {
       // Build scope filter for Petition (DataScope): same OR conditions as petitions.service checkWriteScope
       const petitionScopeOR: Prisma.PetitionWhereInput[] = [];
-      if (dataScope && !dataScope.canDispatch) {
-        if (dataScope.userIds.length > 0) {
-          petitionScopeOR.push({ enteredById: { in: dataScope.userIds } });
+      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+      if (dataScope) {
+        if (dataScope.writableUserIds.length > 0) {
+          petitionScopeOR.push({
+            enteredById: { in: dataScope.writableUserIds },
+          });
         }
         if (dataScope.writableTeamIds.length > 0) {
           petitionScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -1024,7 +1037,14 @@ export class CasesService {
           where: {
             id: dto.linkedPetitionId!,
             deletedAt: null,
-            ...(petitionScopeOR.length > 0 ? { OR: petitionScopeOR } : {}),
+            ...(dataScope
+              ? {
+                  OR:
+                    petitionScopeOR.length > 0
+                      ? petitionScopeOR
+                      : [{ id: '__no_access__' }],
+                }
+              : {}),
           },
         });
         if (!petition) {
@@ -1095,9 +1115,12 @@ export class CasesService {
     // ── FROM_INCIDENT: link existing Incident (IDOR-safe + optimistic lock) ──
     if (effectiveProvenance === CaseProvenance.FROM_INCIDENT) {
       const incidentScopeOR: Prisma.IncidentWhereInput[] = [];
-      if (dataScope && !dataScope.canDispatch) {
-        if (dataScope.userIds.length > 0) {
-          incidentScopeOR.push({ investigatorId: { in: dataScope.userIds } });
+      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+      if (dataScope) {
+        if (dataScope.writableUserIds.length > 0) {
+          incidentScopeOR.push({
+            investigatorId: { in: dataScope.writableUserIds },
+          });
         }
         if (dataScope.writableTeamIds.length > 0) {
           incidentScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -1115,7 +1138,14 @@ export class CasesService {
             id: dto.linkedIncidentId!,
             deletedAt: null,
             linkedCaseId: null,
-            ...(incidentScopeOR.length > 0 ? { OR: incidentScopeOR } : {}),
+            ...(dataScope
+              ? {
+                  OR:
+                    incidentScopeOR.length > 0
+                      ? incidentScopeOR
+                      : [{ id: '__no_access__' }],
+                }
+              : {}),
           },
         });
         if (!incident) {
@@ -2083,14 +2113,35 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // TDC BACKFILL
   // ─────────────────────────────────────────────
-  async tdcBackfill(id: string, lyDoTamDinhChiVuAn: string, userId: string) {
-    const caseRecord = await this.prisma.case.findUnique({ where: { id } });
+  async tdcBackfill(
+    id: string,
+    lyDoTamDinhChiVuAn: string,
+    userId: string,
+    dataScope?: DataScope | null,
+  ) {
+    // Bỏ qua vụ án đã xoá mềm (trước đây sửa được cả vụ án trong thùng rác).
+    const caseRecord = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!caseRecord) throw new NotFoundException('Case not found');
-    return this.prisma.case.update({
+    // Trước 19/09/2026 không kiểm phạm vi: có quyền `write Case` là sửa lý do TĐC của MỌI vụ án.
+    this.checkWriteScope(caseRecord, dataScope);
+    const sau = await this.prisma.case.update({
       where: { id },
       // PR-8: cột nay là mảng — wrap giá trị đơn vào mảng 1 phần tử.
       data: { lyDoTamDinhChiVuAn: [lyDoTamDinhChiVuAn] as any },
     });
+    await this.audit.log({
+      userId,
+      action: 'CASE_TDC_BACKFILLED',
+      subject: 'Case',
+      subjectId: id,
+      metadata: {
+        truoc: caseRecord.lyDoTamDinhChiVuAn ?? null,
+        sau: [lyDoTamDinhChiVuAn],
+      },
+    });
+    return sau;
   }
 
   // ─────────────────────────────────────────────
