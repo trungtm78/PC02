@@ -12,6 +12,8 @@ export interface DongChuyenTra {
   toTen: string;
   nguoiPhuTrach: string;
   ngayDeXuat: Date | string | null;
+  /** Khoá sắp thứ hai của nguồn (STT dạng số) — phép gộp cần nó để sắp ĐÚNG như từng nguồn. */
+  sttSort: number | null;
   trangThai: string;
 }
 

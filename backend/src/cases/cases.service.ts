@@ -180,6 +180,9 @@ const CHON_DONG_DANH_SACH_VU_AN = {
     },
   },
   ngayDeXuat: true, // ngày tiếp nhận — trường sắp mặc định, cần cho cột danh sách
+  // Khoá sắp thứ hai của danh sách (cùng ngày đề xuất thì STT số giảm dần). Màn Chuyển đội / Trả hồ sơ
+  // gộp ba nguồn phải sắp lại theo ĐÚNG khoá này, nếu không trang 2 lặp/mất dòng (workflow.service.ts).
+  sttSort: true,
   // Cột "Nguồn hồ sơ" của màn Hồ sơ mới tiếp nhận (trước 17/09/2026 màn đọc trường này nhưng API
   // không trả → mọi hồ sơ rơi về "Vụ án").
   caseProvenance: true,
@@ -425,10 +428,13 @@ export class CasesService {
         'createdAt', 'updatedAt', 'name', 'deadline', 'status',
         'ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'stt',
       ],
-      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
-      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
-      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
-      defaultField: 'stt',
+      // Anh yêu cầu 19/09/2026: "ngày đề xuất phải được order by theo giảm dần" — thay mặc định STT
+      // của 27/08. Cùng một ngày (hệ cũ nhập theo ngày, không theo giờ) thì STT giảm dần làm khoá thứ
+      // hai, rồi mới tới `id`. STT sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi
+      // mã thì `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn. Bấm tiêu đề cột STT vẫn đổi được.
+      // Chỉ mục khớp đúng thứ tự này: migration `*_sap_ngay_de_xuat_stt`.
+      defaultField: 'ngayDeXuat',
+      thenBy: ['stt'],
       nullableFields: ['ngayDeXuat', 'receiveDate', 'ngayTiepNhan', 'deadline', 'sttSort'],
       fieldAliases: { stt: 'sttSort' },
     });

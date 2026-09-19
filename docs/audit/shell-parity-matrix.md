@@ -217,6 +217,10 @@ form ghi.
 
 #### Sắp xếp mặc định theo STT giảm dần, bấm tiêu đề đổi chiều — 27/08/2026
 
+> **Đã thay 19/09/2026:** anh yêu cầu mặc định sắp theo **Ngày đề xuất giảm dần**; STT lùi xuống làm khoá
+> thứ hai (cùng ngày thì số lớn trước), rồi `id`. Cột STT vẫn bấm được. Xem `thenBy` trong
+> `backend/src/common/utils/list-sort.util.ts`.
+
 Anh yêu cầu. Mã hồ sơ là chuỗi `"2026-11171"` nên sắp thẳng trên nó ra sai thứ tự
 (`2026-9395` đứng sau `2026-11171`). Thêm cột số `sttSort` do **trigger của CSDL** giữ — mã
 được sinh ở nhiều đường nên tính trong mã ứng dụng kiểu gì cũng sót một đường.

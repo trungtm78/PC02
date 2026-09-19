@@ -104,6 +104,9 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
   // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
   ngayDeXuat: true,
+  // Khoá sắp thứ hai của danh sách (cùng ngày đề xuất thì STT số giảm dần). Màn Chuyển đội / Trả hồ sơ
+  // gộp ba nguồn phải sắp lại theo ĐÚNG khoá này, nếu không trang 2 lặp/mất dòng (workflow.service.ts).
+  sttSort: true,
   // Cột "Tóm tắt nội dung" đọc trường này: nó là cột ô cùng nhãn trên form ghi vào và
   // khớp bản gốc hệ cũ 46.497/46.497, trong khi `summary` là bản rút gọn suy lại.
   detailContent: true,
@@ -293,10 +296,9 @@ export class PetitionsService {
 
   /** Thứ tự danh sách Đơn thư — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
   private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
-    // Mặc định sắp theo NGÀY NHẬN, không phải ngày tạo. Lý do đo được trên dữ liệu
-    // thật: toàn bộ 45.459 đơn thư có CÙNG một `createdAt` (ngày di trú), nên sắp theo
-    // nó cho ra thứ tự ngẫu nhiên. `receivedDate` phủ 100% và là NOT NULL.
-    // Kèm lợi ích: `receivedDate` CÓ chỉ mục còn `createdAt` thì không.
+    // Không sắp theo ngày tạo: toàn bộ 45.459 đơn thư di trú có CÙNG một `createdAt` (ngày di
+    // trú), sắp theo nó cho ra thứ tự ngẫu nhiên. Đo prod 19/09/2026: `ngayDeXuat` 0 hồ sơ rỗng,
+    // 0 ngày tương lai — nên không cần cột sinh chặn ngày phi lý như `sortReceivedDate`.
     return buildListOrderBy({
       sortBy,
       sortOrder,
@@ -312,10 +314,13 @@ export class PetitionsService {
         'senderName',
         'stt',
       ],
-      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
-      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
-      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
-      defaultField: 'stt',
+      // Anh yêu cầu 19/09/2026: "ngày đề xuất phải được order by theo giảm dần" — thay mặc định STT
+      // của 27/08. Cùng một ngày (hệ cũ nhập theo ngày, không theo giờ) thì STT giảm dần làm khoá thứ
+      // hai, rồi mới tới `id`. STT sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi
+      // mã thì `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn. Bấm tiêu đề cột STT vẫn đổi được.
+      // Chỉ mục khớp đúng thứ tự này: migration `*_sap_ngay_de_xuat_stt`.
+      defaultField: 'ngayDeXuat',
+      thenBy: ['stt'],
       nullableFields: ['deadline', 'sortReceivedDate', 'ngayDeXuat', 'sttSort'],
       // Người dùng nói "ngày nhận", nhưng SẮP theo cột sinh `sortReceivedDate`: nó bằng
       // `receivedDate` với ngày hợp lý và NULL với ngày phi lý (9 hồ sơ năm 3023, 2925,

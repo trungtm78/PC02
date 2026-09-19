@@ -212,4 +212,38 @@ describe('WorkflowService.listChuyenTra — vá rà mã Codex', () => {
     const kq = await service.listChuyenTra({} as never, null);
     expect(kq.data.map((d) => d.id)).toEqual(['a9', 'a1']);
   });
+
+  /**
+   * Rà mã độc lập 19/09/2026: từ khi ba nguồn sắp `ngayDeXuat → sttSort → id`, phép gộp còn sắp
+   * `ngayDeXuat → id` thì K dòng đầu mỗi nguồn KHÔNG còn là tiền tố theo thứ tự gộp — cùng một ngày có
+   * 30 hồ sơ thì trang 2 hiện lại dòng của trang 1 và có dòng không bao giờ hiện. Phép gộp phải sắp
+   * ĐÚNG khoá của nguồn: cùng ngày thì STT (số) giảm dần, STT rỗng cuối, rồi mới tới id.
+   */
+  it('[P1] cùng ngày thì sắp theo STT giảm dần (khoá thứ hai của nguồn), STT rỗng cuối, rồi id', async () => {
+    const cungNgay = new Date('2026-09-01T00:00:00Z');
+    const dong = (id: string, caseCode: string, sttSort: number | null) => ({
+      id,
+      caseCode,
+      sttSort,
+      name: id,
+      status: 'TIEP_NHAN',
+      ngayDeXuat: cungNgay,
+    });
+    // Thứ tự NGUỒN trả (theo sttSort) ngược với thứ tự id — sắp theo id là lộ ngay.
+    vuAn.getList.mockResolvedValueOnce({
+      data: [
+        dong('a1', '2026-30', 202600030),
+        dong('a2', '2026-20', 202600020),
+        dong('a3', 'X', null),
+      ],
+      total: 3,
+    });
+    vuViec.getList.mockResolvedValueOnce({
+      data: [dong('b1', '2026-25', 202600025)],
+      total: 1,
+    });
+    donThu.getList.mockResolvedValueOnce({ data: [], total: 0 });
+    const kq = await service.listChuyenTra({} as never, null);
+    expect(kq.data.map((d) => d.id)).toEqual(['a1', 'b1', 'a2', 'a3']);
+  });
 });

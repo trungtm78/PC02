@@ -20,6 +20,7 @@ interface HoSoTho {
   summary?: string | null;
   status: string;
   ngayDeXuat?: Date | null;
+  sttSort?: number | null;
   assignedTeam?: { id?: string | null; name?: string | null } | null;
   investigator?: { firstName?: string | null; lastName?: string | null } | null;
   assignedTo?: { firstName?: string | null; lastName?: string | null } | null;
@@ -35,12 +36,12 @@ const hoTen = (
  * Gộp ở MÁY CHỦ chứ không ở trình duyệt vì hai lẽ đo được (18/09/2026):
  *   1. `limit` của ba endpoint bị chặn ở 100 — trình duyệt muốn gộp tới trang N phải xin N×20 dòng mỗi
  *      nguồn, nên từ trang 6 là 400 và cả màn trắng.
- *   2. Ba endpoint mặc định sắp theo STT, trong khi bảng gộp sắp theo NGÀY ĐỀ XUẤT: lấy K dòng đầu mỗi
- *      nguồn rồi sắp lại là sai — hồ sơ ngày mới mà STT nhỏ không bao giờ hiện, và dòng đã thấy ở trang 1
- *      có thể hiện lại ở trang 2 khi K tăng.
+ *   2. Lấy K dòng đầu mỗi nguồn rồi sắp lại chỉ đúng khi nguồn và phép gộp dùng CÙNG khoá sắp; lệch khoá thì
+ *      hồ sơ nằm ngoài K dòng đầu không bao giờ hiện, và dòng đã thấy ở trang 1 hiện lại ở trang 2 khi K tăng.
  *
- * Ở đây mỗi nguồn được hỏi với ĐÚNG thứ tự của bảng gộp (`sortBy=ngayDeXuat`) và lấy tới hết trang đang
- * xem, nên phép gộp là chính xác. Vượt trần thì báo lỗi rõ thay vì trả trang thiếu.
+ * Ở đây mỗi nguồn được hỏi với `sortBy=ngayDeXuat` — nguồn sắp `ngayDeXuat → sttSort → id` (`thenBy` của
+ * `buildListOrderBy`, 19/09/2026) — và phép gộp sắp lại theo ĐÚNG ba khoá ấy, lấy tới hết trang đang xem,
+ * nên phép gộp là chính xác. Vượt trần thì báo lỗi rõ thay vì trả trang thiếu.
  */
 @Injectable()
 export class WorkflowService {
@@ -128,6 +129,7 @@ export class WorkflowService {
             toTen: r.assignedTeam?.name ?? '',
             nguoiPhuTrach: hoTen(r.investigator ?? r.assignedTo),
             ngayDeXuat: r.ngayDeXuat ?? null,
+            sttSort: r.sttSort ?? null,
             trangThai: r.status,
           })),
         };
@@ -138,11 +140,14 @@ export class WorkflowService {
       d.ngayDeXuat
         ? new Date(d.ngayDeXuat).getTime()
         : Number.NEGATIVE_INFINITY;
+    const so = (d: DongChuyenTra) => d.sttSort ?? Number.NEGATIVE_INFINITY;
     const gop = ketQua
       .flatMap((k) => k.dong)
-      // Khoá phụ GIẢM DẦN như `buildListOrderBy` (ngayDeXuat desc, id desc). Sắp id tăng dần ở đây là
-      // đảo thứ tự trong nhóm cùng ngày, mà phần đuôi nhóm ấy có thể chưa được lấy về — dòng bị nhảy trang.
-      .sort((a, b) => moc(b) - moc(a) || b.id.localeCompare(a.id));
+      // ĐÚNG ba khoá GIẢM DẦN của nguồn (`buildListOrderBy`: ngayDeXuat → sttSort → id, rỗng cuối). Lệch một
+      // khoá là đảo thứ tự trong nhóm cùng ngày, mà phần đuôi nhóm ấy có thể chưa được lấy về — dòng nhảy trang.
+      .sort(
+        (a, b) => moc(b) - moc(a) || so(b) - so(a) || b.id.localeCompare(a.id),
+      );
 
     return {
       data: gop.slice(offset, offset + limit),

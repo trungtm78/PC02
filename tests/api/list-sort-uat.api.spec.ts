@@ -73,12 +73,14 @@ function kiemGiamDanNullsCuoi(vals: (number | null)[], nhan: string) {
 
 // ── A. Thứ tự mặc định (COV-DEF-01..05) ──────────────────────────────────────
 test.describe('A. Thứ tự mặc định — mới nhất lên đầu theo ngày tiếp nhận', () => {
-  test('TC-001 [COV-DEF-01] Đơn thư mặc định giảm dần theo ngày nhận', async ({ request }) => {
+  // Oracle đổi 19/09/2026 (anh yêu cầu): ba màn mặc định giảm dần theo NGÀY ĐỀ XUẤT — cột ngày danh sách
+  // hiện. Bản 24/08 đo `receivedDate`, vốn lệch `ngayDeXuat` ở 29.026 đơn thư di trú.
+  test('TC-001 [COV-DEF-01] Đơn thư mặc định giảm dần theo ngày đề xuất', async ({ request }) => {
     const { status, body } = await list(request, '/petitions', { limit: 50 });
     expect(status).toBe(200);
     const rows = body.data as Record<string, unknown>[];
     expect(rows.length).toBeGreaterThan(0);
-    kiemGiamDanNullsCuoi(rows.map((r) => ts(r.receivedDate)), 'Đơn thư');
+    kiemGiamDanNullsCuoi(rows.map((r) => ts(r.ngayDeXuat)), 'Đơn thư');
   });
 
   test('TC-002 [COV-DEF-02] Vụ việc mặc định giảm dần theo ngày tiếp nhận', async ({ request }) => {
@@ -101,12 +103,12 @@ test.describe('A. Thứ tự mặc định — mới nhất lên đầu theo ng�
 
   test('TC-004 [COV-DEF-04] Mặc định KHÔNG phải ngày tạo', async ({ request }) => {
     // Oracle PLAN-AC2: ngày tạo bị loại vì hồ sơ di trú đều cùng một ngày.
-    // Nếu hệ thống vẫn sắp theo ngày tạo thì dãy ngày NHẬN sẽ lộn xộn.
+    // Nếu hệ thống vẫn sắp theo ngày tạo thì dãy ngày ĐỀ XUẤT sẽ lộn xộn.
     const { body } = await list(request, '/petitions', { limit: 50 });
-    const ngayNhan = (body.data as Record<string, unknown>[]).map((r) => ts(r.receivedDate));
-    const coNgay = ngayNhan.filter((v): v is number => v !== null);
+    const ngay = (body.data as Record<string, unknown>[]).map((r) => ts(r.ngayDeXuat));
+    const coNgay = ngay.filter((v): v is number => v !== null);
     const daSapGiam = coNgay.every((v, i) => i === 0 || v <= coNgay[i - 1]);
-    expect(daSapGiam, 'ngày nhận phải giảm dần ⇒ chứng tỏ không sắp theo ngày tạo').toBe(true);
+    expect(daSapGiam, 'ngày đề xuất phải giảm dần ⇒ chứng tỏ không sắp theo ngày tạo').toBe(true);
   });
 
   test('TC-005 [COV-DEF-05] UTDT dùng chung endpoint Vụ án cũng theo thứ tự mới', async ({ request }) => {
@@ -303,9 +305,9 @@ test.describe('H. Chế độ hỏng và bảo mật', () => {
       sortBy: 'sortReceivedDate', limit: 20,
     });
     expect(status).toBe(200);
-    // Rơi về mặc định ⇒ vẫn phải là thứ tự giảm dần hợp lệ.
+    // Rơi về mặc định (ngày đề xuất giảm dần) ⇒ vẫn phải là thứ tự giảm dần hợp lệ.
     kiemGiamDanNullsCuoi(
-      (body.data as Record<string, unknown>[]).map((r) => ts(r.receivedDate)),
+      (body.data as Record<string, unknown>[]).map((r) => ts(r.ngayDeXuat)),
       'rơi về mặc định',
     );
   });

@@ -38,6 +38,13 @@ export interface BuildListOrderByOptions {
    * Áp SAU khi kiểm danh sách trắng, nên cột thật không cần lộ ra giao diện.
    */
   fieldAliases?: Readonly<Record<string, string>>;
+  /**
+   * Khoá sắp THỨ HAI (tên người dùng, qua danh sách trắng + `fieldAliases` như khoá chính), đứng
+   * giữa khoá chính và `tieBreakField`, cùng chiều khoá chính. Dùng khi khoá chính trùng nhiều:
+   * ngày đề xuất nhập theo ngày, không theo giờ, nên cùng một ngày có hàng chục hồ sơ — chỉ có `id`
+   * (UUID) thì trong một ngày thứ tự là ngẫu nhiên với mắt người. Trùng khoá chính thì bị bỏ.
+   */
+  thenBy?: readonly string[];
   /** Khoá phụ giữ thứ tự ổn định khi trùng giá trị. Mặc định `'id'`. */
   tieBreakField?: string;
 }
@@ -49,9 +56,14 @@ export function buildListOrderBy({
   defaultField,
   nullableFields = [],
   fieldAliases = {},
+  thenBy = [],
   tieBreakField = 'id',
 }: BuildListOrderByOptions): Record<string, unknown>[] {
   const direction: ListSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+  const menhDe = (cot: string): Record<string, unknown> =>
+    nullableFields.includes(cot)
+      ? { [cot]: { sort: direction, nulls: 'last' } }
+      : { [cot]: direction };
 
   // Kiểm danh sách trắng theo tên NGƯỜI DÙNG gửi...
   const requested = sortBy && allowed.includes(sortBy) ? sortBy : defaultField;
@@ -59,12 +71,14 @@ export function buildListOrderBy({
   // ra giao diện, và vẫn nắn được cả trường mặc định.
   const field = fieldAliases[requested] ?? requested;
 
-  const primary: Record<string, unknown> = nullableFields.includes(field)
-    ? { [field]: { sort: direction, nulls: 'last' } }
-    : { [field]: direction };
-
+  const cot = [field];
+  for (const ten of thenBy) {
+    if (!allowed.includes(ten)) continue;
+    const that = fieldAliases[ten] ?? ten;
+    if (!cot.includes(that)) cot.push(that);
+  }
   // Sắp theo chính khoá phụ thì không lặp lại nó lần nữa.
-  if (field === tieBreakField) return [primary];
+  if (!cot.includes(tieBreakField)) cot.push(tieBreakField);
 
-  return [primary, { [tieBreakField]: direction }];
+  return cot.map((c) => (c === tieBreakField ? { [c]: direction } : menhDe(c)));
 }

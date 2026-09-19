@@ -2,10 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * CỔNG: cả ba danh sách sắp mặc định theo STT giảm dần, và bấm tiêu đề cột STT đổi được chiều.
+ * CỔNG: bấm tiêu đề cột STT đổi được chiều, và STT là khoá sắp THỨ HAI của thứ tự mặc định.
  *
- * Anh yêu cầu 27/08/2026. Trước đó ba màn sắp theo ngày, và cột STT không bấm được — cán bộ
- * quen hệ cũ mở danh sách ra thấy thứ tự khác hẳn.
+ * Anh yêu cầu 27/08/2026 mặc định sắp theo STT; 19/09/2026 đổi mặc định sang NGÀY ĐỀ XUẤT giảm dần
+ * ("ngày đề xuất phải được order by theo giảm dần"). STT lùi xuống làm khoá thứ hai: cùng một ngày
+ * thì hồ sơ số lớn đứng trước, không để `id` (UUID) xếp ngẫu nhiên.
  *
  * Ba mảnh phải khớp nhau, thiếu một là hỏng im lặng:
  *   • giao diện khai `sortKey: 'stt'` — thiếu thì bấm tiêu đề không gửi gì;
@@ -75,10 +76,12 @@ describe.each(BANG.map((m) => [m.ten, m] as const))(
       expect(khoiCotStt(man.shell)).toContain("sortKey: 'stt'");
     });
 
-    it('máy chủ nhận khoá sắp `stt` và mặc định sắp theo nó', () => {
+    it('máy chủ nhận khoá sắp `stt`; mặc định Ngày đề xuất, cùng ngày thì STT', () => {
       const khoi = khoiSapXep(man.service);
       expect(khoi).toContain("'stt'");
-      expect(khoi).toContain("defaultField: 'stt'");
+      expect(khoi).toContain("defaultField: 'ngayDeXuat'");
+      expect(khoi).toContain("thenBy: ['stt']");
+      expect(khoi).toMatch(/nullableFields:[^\]]*'ngayDeXuat'/);
     });
 
     it('sắp trên cột SỐ `sttSort`, không sắp trên chuỗi mã', () => {
@@ -211,5 +214,38 @@ describe('Bẫy đã trả giá một lần', () => {
 
   it('có lệnh bù `ngayDeXuat` cho hồ sơ cũ', () => {
     expect(sql).toMatch(/UPDATE\s+"petitions"\s+SET\s+"ngayDeXuat"/i);
+  });
+});
+
+/**
+ * Chỉ mục phải khớp ĐÚNG thứ tự mặc định mới, nếu không mỗi lần mở danh sách Postgres sắp lại cả bảng.
+ * Đơn thư trước 19/09/2026 KHÔNG có chỉ mục nào trên `ngayDeXuat`.
+ */
+describe('Chỉ mục cho thứ tự mặc định Ngày đề xuất → STT → id', () => {
+  const thuMuc = path.join(GOC, 'backend/prisma/migrations');
+  const sql = fs
+    .readdirSync(thuMuc)
+    .filter((d) => d.includes('sap_ngay_de_xuat_stt'))
+    .map((d) => fs.readFileSync(path.join(thuMuc, d, 'migration.sql'), 'utf8'))
+    .join('\n');
+
+  it.each(['petitions', 'incidents', 'cases'])(
+    '%s: chỉ mục (ngayDeXuat, sttSort, id) cùng chiều DESC NULLS LAST',
+    (bang) => {
+      const idx = (sql.match(/CREATE INDEX[^;]*;/g) ?? []).filter((i) =>
+        i.includes(`ON "${bang}"`),
+      );
+      expect(idx).toHaveLength(1);
+      expect(idx[0]).toMatch(
+        /"ngayDeXuat" DESC NULLS LAST,\s*"sttSort" DESC NULLS LAST,\s*"id" DESC/,
+      );
+      expect(idx[0]).toContain('WHERE "deletedAt" IS NULL');
+    },
+  );
+
+  it('không dùng CONCURRENTLY (Prisma chạy migration trong giao dịch — đã trả giá ở v0.40)', () => {
+    expect(sql.length).toBeGreaterThan(0);
+    const lenh = sql.replace(/--.*$/gm, '');
+    expect(lenh).not.toMatch(/CONCURRENTLY/i);
   });
 });
