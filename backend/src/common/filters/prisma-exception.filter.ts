@@ -18,8 +18,10 @@ import { Prisma } from '@prisma/client';
  *   P2025 (record not found)    → 404 RECORD_NOT_FOUND
  *   khác                        → 500 DATABASE_ERROR (log đầy đủ server-side)
  *
- * Phải register TRƯỚC GlobalExceptionFilter trong main.ts để NestJS resolve
- * specific filter trước catch-all (LIFO bubble order).
+ *   P2011/P2012 (thiếu giá trị bắt buộc) → 400 MISSING_REQUIRED_VALUE, `details` = tên trường
+ *   P2000 (giá trị quá dài)     → 400 VALUE_TOO_LONG, `details` = tên cột
+ *
+ * Thứ tự đăng ký: xem `dang-ky-bo-loc-loi.ts` — bộ này phải đăng ký SAU bộ bắt-tất-cả (Nest xét ngược).
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
@@ -33,8 +35,22 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     let status: number;
     let code: string;
     let message: string;
+    let details: string[] = [];
 
     switch (exception.code) {
+      case 'P2011':
+      case 'P2012':
+        status = HttpStatus.BAD_REQUEST;
+        code = 'MISSING_REQUIRED_VALUE';
+        message = 'Thiếu giá trị bắt buộc';
+        details = truongTrongMeta(exception.meta);
+        break;
+      case 'P2000':
+        status = HttpStatus.BAD_REQUEST;
+        code = 'VALUE_TOO_LONG';
+        message = 'Giá trị quá dài so với giới hạn của trường';
+        details = truongTrongMeta(exception.meta);
+        break;
       case 'P2003':
         status = HttpStatus.BAD_REQUEST;
         code = 'INVALID_REFERENCE';
@@ -62,9 +78,25 @@ export class PrismaExceptionFilter implements ExceptionFilter {
 
     response.status(status).json({
       success: false,
-      error: { code, message, details: [] },
+      error: { code, message, details },
       timestamp: new Date().toISOString(),
       path: request.url,
     });
   }
+}
+
+/**
+ * Tên trường trong `meta` của lỗi Prisma — khoá tuỳ mã lỗi và trình điều khiển (`constraint`, `target`,
+ * `column_name`, `path`). Chỉ nhận chuỗi / mảng chuỗi; không có thì rỗng (không đoán).
+ */
+function truongTrongMeta(meta: Record<string, unknown> | undefined): string[] {
+  for (const khoa of ['constraint', 'target', 'column_name', 'path']) {
+    const v = meta?.[khoa];
+    if (typeof v === 'string' && v) return [v];
+    if (Array.isArray(v)) {
+      const ds = v.filter((x): x is string => typeof x === 'string');
+      if (ds.length) return ds;
+    }
+  }
+  return [];
 }

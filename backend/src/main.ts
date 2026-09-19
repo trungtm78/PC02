@@ -4,8 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { useContainer } from 'class-validator';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { dangKyBoLocLoi } from './common/filters/dang-ky-bo-loc-loi';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -42,15 +41,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filters — standardized error responses.
-  // NestJS resolves filters in REGISTRATION ORDER for specific @Catch types first,
-  // catch-all (@Catch() no-arg) là fallback. PrismaExceptionFilter specific cho
-  // PrismaClientKnownRequestError → match trước GlobalExceptionFilter generic.
-  // UAT Round 1 (TC-484, TC-622): P2003 không còn bubble lên 500.
-  app.useGlobalFilters(
-    new PrismaExceptionFilter(),
-    new GlobalExceptionFilter(),
-  );
+  // Bộ lọc lỗi toàn cục — thứ tự đăng ký có nghĩa (Nest xét NGƯỢC); xem `dang-ky-bo-loc-loi.ts`.
+  dangKyBoLocLoi(app);
 
   // CORS: env CORS_ORIGIN overrides localhost defaults (required for production)
   const rawOrigins = (process.env.CORS_ORIGIN ?? '')
