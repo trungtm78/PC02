@@ -9,6 +9,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { loiXungDot } from "@/lib/api-errors";
 import { documentNumbersApi } from "@/features/document-numbers/api";
+import { BangChiXem } from "@/components/shared/BangChiXem";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -79,6 +80,10 @@ function CaseFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams(); // PR 3 v0.38.2.0 — URL param hydration
   const isEditMode = !!id;
+  // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
+  // Thiếu trường (máy chủ cũ) → như trước.
+  const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
+  const chiXem = isEditMode && quyenGhi === false;
 
   const returnPath = searchParams.get('returnPath');
   const safeReturn = ['/uy-thac-dieu-tra', '/cases'].includes(returnPath ?? '') ? returnPath! : '/cases';
@@ -230,6 +235,7 @@ function CaseFormPage() {
       .then((res) => {
         const d = res.data.data;
         if (!d) return;
+        setQuyenGhi(d.quyenGhi as boolean | undefined);
         // v0.37.2.5: extracted to mergeCaseApiToFormData helper. Now loads
         // caseProvenance + linkedPetitionId + linkedIncidentId + sourceDocumentNote
         // which were previously omitted (caused PUT 400 on EditMode submit).
@@ -309,6 +315,7 @@ function CaseFormPage() {
   };
 
   const beginSave = async () => {
+    if (chiXem) return; // chỉ xem: máy chủ sẽ 403 — không gửi
     if (!validateForm()) {
       if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -323,6 +330,7 @@ function CaseFormPage() {
 
   const handleConfirmSave = async () => {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
+    if (chiXem) return;
     savingRef.current = true;
     setIsSaving(true);
     // Thu thập mục bị loại khỏi danh sách đối tượng để báo lại sau khi lưu xong.
@@ -434,7 +442,7 @@ function CaseFormPage() {
       }
     },
     // Đồng bộ rule với danh sách: chỉ xóa khi trạng thái = Tiếp nhận (cases/row-actions.ts).
-    canDelete: isEditMode && formData.status === CaseStatus.TIEP_NHAN,
+    canDelete: isEditMode && !chiXem && formData.status === CaseStatus.TIEP_NHAN,
     onReset: () => {
       // EDIT → route tạo mới (tránh ghi đè bản ghi cũ + sót ĐTBS/vật chứng/media).
       // CREATE → xoá draft + reload để sạch mọi state phụ.
@@ -541,14 +549,14 @@ function CaseFormPage() {
               <X className="w-4 h-4 inline mr-2" />
               Hủy
             </button>
-            <button
+            {!chiXem && <button
               onClick={handleSaveDraft}
               className="px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               data-testid="btn-save-draft"
             >
               <Clock className="w-4 h-4 inline mr-2" />
               Lưu tạm
-            </button>
+            </button>}
             {isEditMode && id && (
               <button
                 onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
@@ -559,17 +567,19 @@ function CaseFormPage() {
                 In chứng từ
               </button>
             )}
-            <SaveSplitButton
+            {!chiXem && <SaveSplitButton
               onSave={handleSave}
               onSaveAndExport={handleSaveAndExport}
               isSubmitting={isSaving}
               label="Lưu hồ sơ"
               idPrefix="btn-save"
               mainTestId="btn-save"
-            />
+            />}
           </div>
         </div>
       </div>
+
+      {chiXem && <div className="mx-6 mt-4"><BangChiXem loai="Vụ án" /></div>}
 
       {/* v0.37.2.5 Decision 7A: top-level validation summary (aria-assertive) */}
       {Object.keys(errors).length > 0 && (
@@ -609,6 +619,7 @@ function CaseFormPage() {
             <TabSubjects
               {...tabProps}
               caseId={isEditMode ? id : undefined}
+              chiXem={chiXem}
               cheDoSua={isEditMode}
               mucDaCo={doiTuongDaCo}
               subjects={subjects}
@@ -638,7 +649,7 @@ function CaseFormPage() {
               }}
             />
           )}
-          {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} />}
+          {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} chiXem={chiXem} />}
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
           {activeTab === "media" && (
             <TabMedia
@@ -705,6 +716,7 @@ function CaseFormPage() {
       {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}
       {exportForId && (
         <DynamicExportDocumentsModal
+          chiXem={chiXem}
           entity="cases"
           entityId={exportForId}
           onClose={() => {

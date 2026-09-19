@@ -50,9 +50,12 @@ function formatBytes(bytes: number) {
 export function EntityDocumentsTab({
   entityKind,
   entityId,
+  chiXem = false,
 }: {
   entityKind: EntityKind;
   entityId?: string;
+  /** Chỉ xem (máy chủ trả `quyenGhi: false`): ẩn thao tác ghi — máy chủ vẫn chặn 403 như cũ (20/09/2026). */
+  chiXem?: boolean;
 }) {
   const copy = ENTITY_COPY[entityKind];
   // Danh mục ĐỘNG: loại tài liệu lấy từ Catalog Registry (DOCUMENT_TYPE → Directory, admin thêm runtime).
@@ -197,7 +200,7 @@ export function EntityDocumentsTab({
       <CardHeader
         title={copy.cardTitle}
         actions={
-          entityId ? (
+          entityId && !chiXem ? (
             <button
               type="button"
               onClick={() => {
@@ -402,14 +405,14 @@ export function EntityDocumentsTab({
                 >
                   <Download className="w-4 h-4" />
                 </button>
-                <button
+                {!chiXem && <button
                   type="button"
                   onClick={() => handleDelete(doc)}
                   className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
                   title="Xóa"
                 >
                   <Trash2 className="w-4 h-4" />
-                </button>
+                </button>}
               </div>
             </div>
           ))}
