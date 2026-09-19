@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Tag, Plus, Edit2, Trash2, X, Save, Loader2, Lock } from 'lucide-react';
 import { eventCategoriesApi, type EventCategory, type CreateCategoryPayload } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
+import { LoadErrorBanner } from '@/components/shared/LoadErrorBanner';
 import { usePermission } from '@/hooks/usePermission';
 
 const COLOR_PRESETS = ['#dc2626', '#1e40af', '#15803d', '#ea580c', '#7c3aed', '#0891b2', '#db2777', '#64748b'];
@@ -36,14 +37,19 @@ export function EventCategoriesModule() {
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [loiTai, setLoiTai] = useState('');
 
   const loadItems = useCallback(async () => {
     setLoading(true);
+    setLoiTai('');
     try {
       const res = await eventCategoriesApi.list();
       setItems(res.data);
-    } catch {
+    } catch (e: unknown) {
+      // Tải hỏng KHÁC rỗng: nuốt lỗi rồi vẽ "Chưa có danh mục" khiến quản trị kết luận MẤT DỮ LIỆU trong khi chỉ là
+      // tắt cờ tính năng / mất mạng (rà mã PR #447, 20/09/2026). Form tạo sự kiện chỉ thẳng người dùng vào đây.
       setItems([]);
+      setLoiTai(extractApiError(e, 'Không tải được danh mục sự kiện.').message);
     } finally {
       setLoading(false);
     }
@@ -141,6 +147,14 @@ export function EventCategoriesModule() {
         )}
       </div>
 
+      <LoadErrorBanner
+        error={loiTai}
+        onRetry={() => void loadItems()}
+        loading={loading}
+        what="danh mục sự kiện"
+        data-testid="loi-tai-danh-muc"
+      />
+
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <table className="w-full">
           <thead>
@@ -156,6 +170,9 @@ export function EventCategoriesModule() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr><td colSpan={6} className="py-8 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline mr-2" />Đang tải...</td></tr>
+            ) : loiTai ? (
+              // Tải hỏng: KHÔNG nói "chưa có" — đó là kết luận nghiệp vụ dựng trên một sự cố kỹ thuật.
+              <tr><td colSpan={6} className="py-8 text-center text-slate-400">Chưa hiện được danh sách — xem lý do ở trên.</td></tr>
             ) : items.length === 0 ? (
               <tr><td colSpan={6} className="py-8 text-center text-slate-400">Chưa có danh mục</td></tr>
             ) : items.map(item => (

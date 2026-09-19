@@ -116,3 +116,35 @@ describe('EventCategoriesModule', () => {
     expect((callArgs as any).slug).toBeUndefined();
   });
 });
+
+/**
+ * 20/09/2026: tải hỏng KHÁC rỗng. Trước đây `catch { setItems([]) }` rồi vẽ "Chưa có danh mục" — quản trị đọc thành
+ * MẤT DỮ LIỆU, trong khi thật ra chỉ là tắt cờ tính năng hoặc mất mạng. Form tạo sự kiện chỉ thẳng người dùng tới đây.
+ */
+describe('EventCategoriesModule — tải hỏng khác rỗng', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('gọi API lỗi → nói rõ tải hỏng, KHÔNG nói "Chưa có danh mục"', async () => {
+    vi.mocked(eventCategoriesApi.list).mockRejectedValue(new Error('Network Error'));
+    render(<EventCategoriesModule />);
+    expect(await screen.findByTestId('loi-tai-danh-muc')).toBeInTheDocument();
+    expect(screen.queryByText('Chưa có danh mục')).toBeNull();
+  });
+
+  it('bấm thử lại → gọi lại API, lấy được thì hết cảnh báo', async () => {
+    vi.mocked(eventCategoriesApi.list).mockRejectedValueOnce(new Error('Network Error'));
+    render(<EventCategoriesModule />);
+    const bang = await screen.findByTestId('loi-tai-danh-muc');
+    vi.mocked(eventCategoriesApi.list).mockResolvedValue({ data: fakeCategories } as never);
+    fireEvent.click(bang.querySelector('button')!);
+    await waitFor(() => expect(screen.queryByTestId('loi-tai-danh-muc')).toBeNull());
+    expect(screen.getByText('Quốc gia')).toBeInTheDocument();
+  });
+
+  it('đối chứng: danh mục RỖNG thật → vẫn nói "Chưa có danh mục", không cảnh báo lỗi', async () => {
+    vi.mocked(eventCategoriesApi.list).mockResolvedValue({ data: [] } as never);
+    render(<EventCategoriesModule />);
+    expect(await screen.findByText('Chưa có danh mục')).toBeInTheDocument();
+    expect(screen.queryByTestId('loi-tai-danh-muc')).toBeNull();
+  });
+});

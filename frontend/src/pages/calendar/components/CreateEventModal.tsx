@@ -66,7 +66,8 @@ export function CreateEventModal({ isOpen, onClose, defaultDate, onCreated }: Pr
           setLoiDanhMuc('Chưa có danh mục sự kiện nào. Nhờ quản trị viên khai danh mục ở Cấu hình hệ thống rồi thử lại.');
           return;
         }
-        if (!categoryId) setCategoryId(res.data[0].id);
+        // Danh mục đang chọn có thể ĐÃ BỊ XOÁ giữa hai lần mở — giữ nguyên thì ô "Loại" trắng và Lưu ra 400.
+        if (!res.data.some((c) => c.id === categoryId)) setCategoryId(res.data[0].id);
       })
       .catch(() => {
         setCategories([]);

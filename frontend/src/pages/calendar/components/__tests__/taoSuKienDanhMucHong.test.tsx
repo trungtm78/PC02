@@ -49,6 +49,20 @@ describe('Tạo sự kiện — không lấy được danh mục', () => {
     expect(screen.getByTestId('create-event-save')).toBeDisabled();
   });
 
+  it('danh mục đang chọn ĐÃ BỊ XOÁ giữa hai lần mở → chọn lại cái còn, không để ô Loại trắng', async () => {
+    danhSachDanhMuc.mockResolvedValueOnce({ data: [{ id: 'dm1', name: 'Họp' }] });
+    const r = mo();
+    await waitFor(() => expect(screen.getByTestId('create-event-category')).toHaveValue('dm1'));
+    r.rerender(
+      <CreateEventModal isOpen={false} onClose={vi.fn()} defaultDate="2026-09-20" onCreated={vi.fn()} />,
+    );
+    danhSachDanhMuc.mockResolvedValueOnce({ data: [{ id: 'dm2', name: 'Tập huấn' }] });
+    r.rerender(
+      <CreateEventModal isOpen onClose={vi.fn()} defaultDate="2026-09-20" onCreated={vi.fn()} />,
+    );
+    await waitFor(() => expect(screen.getByTestId('create-event-category')).toHaveValue('dm2'));
+  });
+
   it('đối chứng: lấy được danh mục → không có cảnh báo, Lưu dùng được', async () => {
     danhSachDanhMuc.mockResolvedValue({ data: [{ id: 'dm1', name: 'Họp' }] });
     taoSuKien.mockResolvedValue({ data: { id: 'sk1' } });
