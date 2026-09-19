@@ -6,9 +6,11 @@
  * setTokens and cached in sessionStorage. JWT only carries email/role/canDispatch.
  */
 
+import { TEN_SU_KIEN_DOI_TOKEN } from './auth-su-kien';
+
 const PROFILE_KEY = 'authProfile';
 /** Sự kiện token đổi (đăng nhập, đăng xuất, làm mới). Xuất ra để nơi khác cùng nghe. */
-export const TOKEN_EVENT = 'pc02:auth-token-changed';
+export const TOKEN_EVENT = TEN_SU_KIEN_DOI_TOKEN;
 
 export interface AuthTeam {
   teamId: string;
@@ -72,7 +74,7 @@ function parseJwtPayload(token: string): JwtAuthUser | null {
 }
 
 /** `sub` (id người dùng) của JWT; `null` nếu không đọc được. */
-function layChuToken(token: string): string | null {
+export function layChuToken(token: string): string | null {
   try {
     const phan = token.split('.');
     if (phan.length !== 3) return null;

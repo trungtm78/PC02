@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import { authStore } from '@/stores/auth.store';
+import { TEN_SU_KIEN_DOI_TOKEN } from '@/stores/auth-su-kien';
 import { ROLE_NAMES } from '@/shared/enums/roles';
 import {
   khoaQuyenMayChu,
@@ -17,6 +18,12 @@ export type { PermissionAction, PermissionResource };
  * tắt. Nạp xong là theo đúng quyền.
  */
 export function usePermission() {
+  // Vẽ lại khi token/hồ sơ đổi — màn vẽ trước khi /auth/me về vẫn chuyển sang đúng quyền ngay khi hồ sơ nạp xong.
+  const [, veLai] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    window.addEventListener(TEN_SU_KIEN_DOI_TOKEN, veLai);
+    return () => window.removeEventListener(TEN_SU_KIEN_DOI_TOKEN, veLai);
+  }, []);
   const user = authStore.getUser();
   const permissions =
     user && 'permissions' in user && Array.isArray(user.permissions) ? user.permissions : null;

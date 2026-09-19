@@ -49,3 +49,22 @@ describe('usePermission — quyền thật từ /auth/me', () => {
     expect(result.current.canDelete('cases')).toBe(true);
   });
 });
+
+/**
+ * Rà mã PR #435: màn vẽ trước khi /auth/me về thì nút vẫn theo chế độ "tạm cho hiện" tới lần vẽ lại kế tiếp — hook
+ * phải tự vẽ lại khi hồ sơ/token đổi (sự kiện của authStore).
+ */
+describe('usePermission — tự cập nhật khi hồ sơ nạp xong', () => {
+  it('trước khi có quyền: hiện; hồ sơ về (sự kiện auth-token-changed) → ẩn đúng quyền', async () => {
+    const { act } = await import('@testing-library/react');
+    const { TEN_SU_KIEN_DOI_TOKEN } = await import('@/stores/auth-su-kien');
+    vi.mocked(authStore.getUser).mockReturnValue({ email: 'a@b', role: 'OFFICER' });
+    const { result } = renderHook(() => usePermission());
+    expect(result.current.canDelete('cases')).toBe(true);
+    vi.mocked(authStore.getUser).mockReturnValue(hoSo(['read:Case']));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(TEN_SU_KIEN_DOI_TOKEN));
+    });
+    expect(result.current.canDelete('cases')).toBe(false);
+  });
+});

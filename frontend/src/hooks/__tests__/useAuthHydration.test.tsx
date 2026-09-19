@@ -14,6 +14,14 @@ const SAMPLE_PROFILE: AuthUser = {
   primaryTeam: { teamId: 't1', teamName: 'Đội 1' },
 };
 
+// JWT dạng thật (không cần chữ ký) — hydration chỉ ghi hồ sơ khi sub của token hiện hành khớp id hồ sơ.
+function fakeJwt(payload: Record<string, unknown>): string {
+  const b64 = (x: string) => btoa(x).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return `${b64(JSON.stringify({ alg: 'RS256' }))}.${b64(JSON.stringify(payload))}.sig`;
+}
+const TOKEN_U1 = fakeJwt({ sub: 'u1', email: 'a@b.com', role: 'OFFICER' });
+const TOKEN_U2 = fakeJwt({ sub: 'u2', email: 'c@d.com', role: 'OFFICER' });
+
 const meSpy = vi.fn();
 vi.mock('@/lib/api', () => ({
   authApi: {
@@ -40,7 +48,7 @@ describe('useAuthHydration', () => {
   });
 
   it('fetches /auth/me when token exists but no profile cached', async () => {
-    authStore.setTokens('A', 'R');
+    authStore.setTokens(TOKEN_U1, 'R');
     meSpy.mockResolvedValue({ data: SAMPLE_PROFILE });
 
     const useAuthHydration = await loadHook();
@@ -60,7 +68,7 @@ describe('useAuthHydration', () => {
   });
 
   it('does NOT fetch when profile already cached', async () => {
-    authStore.setTokens('A', 'R');
+    authStore.setTokens(TOKEN_U1, 'R');
     authStore.setProfile(SAMPLE_PROFILE);
 
     const useAuthHydration = await loadHook();
@@ -73,7 +81,7 @@ describe('useAuthHydration', () => {
   });
 
   it('leaves profile null on /auth/me error (graceful degrade)', async () => {
-    authStore.setTokens('A', 'R');
+    authStore.setTokens(TOKEN_U1, 'R');
     meSpy.mockRejectedValue(new Error('500'));
 
     const useAuthHydration = await loadHook();
@@ -93,9 +101,27 @@ describe('useAuthHydration', () => {
     expect(meSpy).not.toHaveBeenCalled();
 
     // Token gets set → triggers tokenSignal → hook re-runs hydrate
-    authStore.setTokens('A', 'R');
+    authStore.setTokens(TOKEN_U1, 'R');
 
     await waitFor(() => expect(meSpy).toHaveBeenCalledTimes(1));
     expect(authStore.getProfile()).toEqual(SAMPLE_PROFILE);
+  });
+
+  // Rà mã PR #435: /auth/me của A còn đang chạy thì B đăng nhập trong cùng tab → hồ sơ A về sau ghi đè phiên của B.
+  it('hồ sơ trả về KHÔNG khớp chủ token hiện hành → không ghi (tranh chấp khi đổi tài khoản)', async () => {
+    let traVeA!: (v: unknown) => void;
+    meSpy.mockReturnValueOnce(new Promise((r) => (traVeA = r)));
+    meSpy.mockResolvedValue({ data: { ...SAMPLE_PROFILE, id: 'u2' } });
+    authStore.setTokens(TOKEN_U1, 'R');
+
+    const useAuthHydration = await loadHook();
+    renderHook(() => useAuthHydration());
+    await waitFor(() => expect(meSpy).toHaveBeenCalledTimes(1));
+
+    authStore.setTokens(TOKEN_U2, 'R'); // B đăng nhập khi /me của A chưa về
+    await waitFor(() => expect(authStore.getProfile()?.id).toBe('u2'));
+    traVeA({ data: SAMPLE_PROFILE }); // /me của A về muộn
+    await new Promise((r) => setTimeout(r, 10));
+    expect(authStore.getProfile()?.id).toBe('u2');
   });
 });
