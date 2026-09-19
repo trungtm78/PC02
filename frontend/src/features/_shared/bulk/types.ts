@@ -47,7 +47,12 @@ export interface BulkAction<TRow = unknown, TResult = unknown> {
   key: string; // unique per adapter, vd 'export', 'assign'
   label: string; // Vietnamese ≤2 words, vd "Xuất Excel"
   variant: 'primary' | 'danger' | 'outline';
-  permission: { resource: PermissionResource; action: PermissionAction };
+  /**
+   * Quyền hiện nút — PHẢI khớp luật máy chủ của route bulk tương ứng (rà mã 20/09/2026):
+   *  - `{ resource, action }`: route dùng PermissionsGuard (@RequirePermissions).
+   *  - `{ dieuPhoi: true }`: route dùng DispatchGuard (quyền điều phối hoặc ADMIN) — phân công.
+   */
+  permission: { resource: PermissionResource; action: PermissionAction } | { dieuPhoi: true };
   requiresPreview: boolean;
   /**
    * Per-row eligibility check (vd Case status ≠ TIEP_NHAN khi delete).

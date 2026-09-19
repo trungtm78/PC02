@@ -62,7 +62,8 @@ const assignAction: BulkAction<CaseRow> = {
   key: 'assign',
   label: 'Phân công',
   variant: 'primary',
-  permission: { resource: 'cases', action: 'edit' },
+  // Máy chủ: bulk-assign dùng DispatchGuard (điều phối hoặc ADMIN), không đòi quyền sửa.
+  permission: { dieuPhoi: true },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey, params }) => {
@@ -118,13 +119,14 @@ const deleteAction: BulkAction<CaseRow> = {
 
 /**
  * v0.49 PR2 — Bulk-restore Cases (admin-only at backend).
- * Frontend permission gate dùng action 'edit' (mock layer); backend gate 'restore'.
+ * Nút hiện theo quyền 'restore:Case' — cùng quyền máy chủ đòi (từ 20/09/2026; trước đó gắn 'edit').
  */
 const restoreAction: BulkAction<CaseRow> = {
   key: 'restore',
   label: 'Khôi phục',
   variant: 'primary',
-  permission: { resource: 'cases', action: 'edit' },
+  // Máy chủ: bulk-restore đòi restore:<Subject>.
+  permission: { resource: 'cases', action: 'restore' },
   requiresPreview: true,
   allowsAllMatchingFilter: false,
   execute: async ({ ids, reason, idempotencyKey }) => {

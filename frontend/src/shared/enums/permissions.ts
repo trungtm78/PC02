@@ -25,6 +25,8 @@ export const PERMISSION_ACTION = {
   CREATE: 'create',
   EDIT: 'edit',
   DELETE: 'delete',
+  /** Khôi phục bản ghi đã xoá — máy chủ đòi `restore:<Subject>` (các route bulk-restore / :id/restore). */
+  RESTORE: 'restore',
 } as const;
 
 export type PermissionAction =
@@ -52,6 +54,6 @@ export const QUY_VE_QUYEN_MAY_CHU: Record<PermissionResource, { subject: string;
 export function khoaQuyenMayChu(resource: string, action: PermissionAction): string | null {
   const quy = QUY_VE_QUYEN_MAY_CHU[resource as PermissionResource];
   if (!quy) return null;
-  const hanhDong = { view: 'read', create: 'write', edit: quy.sua, delete: 'delete' }[action];
+  const hanhDong = { view: 'read', create: 'write', edit: quy.sua, delete: 'delete', restore: 'restore' }[action];
   return `${hanhDong}:${quy.subject}`;
 }
