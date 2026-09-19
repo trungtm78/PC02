@@ -20,6 +20,20 @@ export function getAuthToken(): string {
   return '';
 }
 
+/**
+ * Token của MỘT tài khoản thử (officer1, officer2, admin2…) do global-setup đăng nhập sẵn một lần. Ca kiểm dùng hàm này,
+ * KHÔNG tự gọi /auth/login: đăng nhập bị giới hạn tần suất, mỗi ca tự đăng nhập là tới ca thứ vài đã nhận 429 và đỏ oan
+ * (19/09/2026). Không có token → trả rỗng, ca gọi phải khẳng định có token thay vì bỏ qua lặng lẽ.
+ */
+export function getTokenTheoTaiKhoan(khoa: string): string {
+  const tep = path.resolve(__dirname, `../../test-results/.auth-token-${khoa}.txt`);
+  try {
+    return fs.readFileSync(tep, 'utf-8').trim();
+  } catch (_e) {
+    return '';
+  }
+}
+
 /** Inject token vào sessionStorage + navigate về page */
 export async function loginToPage(page: Page, targetPath: string = '/'): Promise<void> {
   const token = getAuthToken();

@@ -2075,7 +2075,10 @@ describe('IncidentsService.mergeInto — kiểm phạm vi cả vụ việc đíc
  * khỏi tìm theo mã và bản in trống ô số. Prod chưa có ca nào chỉ vì đường này chưa ai dùng.
  */
 describe('IncidentsService.prosecute — cấp mã vụ án', () => {
-  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới', async () => {
+  // Vụ án sinh từ chuyển/khởi tố cũng phải báo "vừa được tạo" như đường tạo thường (rà mã 19/09/2026).
+  const phatSuKien = { emit: jest.fn() };
+
+  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới, phát case.created', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         IncidentsService,
@@ -2084,7 +2087,7 @@ describe('IncidentsService.prosecute — cấp mã vụ án', () => {
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: SettingsService, useValue: mockSettings },
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
-        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: EventEmitter2, useValue: phatSuKien },
       ],
     }).compile();
     const service = moduleRef.get(IncidentsService);
@@ -2129,5 +2132,9 @@ describe('IncidentsService.prosecute — cấp mã vụ án', () => {
       where: { id: 'log-case' },
       data: { documentId: 'case-new' },
     });
+    expect(phatSuKien.emit).toHaveBeenCalledWith(
+      'case.created',
+      expect.objectContaining({ caseId: 'case-new', caseCode: '2026-11722' }),
+    );
   });
 });

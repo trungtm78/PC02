@@ -39,7 +39,10 @@ import { DeadlineRulesService } from '../deadline-rules/deadline-rules.service';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IncidentAssignedEvent } from '../notifications/events/notification.events';
+import {
+  IncidentAssignedEvent,
+  CaseCreatedEvent,
+} from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 import {
   chonCotXuat,
@@ -1588,6 +1591,13 @@ export class IncidentsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // Như đường tạo vụ án thường: báo "vụ án vừa được tạo" cho thủ trưởng (rà mã 19/09/2026 — trước đây vụ án sinh
+    // từ chuyển đơn thư / khởi tố vụ việc không có thông báo).
+    this.eventEmitter.emit(
+      'case.created',
+      new CaseCreatedEvent(result.id, result.caseCode ?? '', actorId),
+    );
 
     return {
       success: true,

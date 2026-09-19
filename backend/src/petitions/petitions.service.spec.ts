@@ -2650,7 +2650,10 @@ describe('PetitionsService.listAssignments — điều phối viên', () => {
  * mặc định, còn đường tạo vụ án thường cấp mã qua bộ đếm CASE. Vụ án không mã chìm cuối danh sách, rơi khỏi tìm theo mã.
  */
 describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
-  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới', async () => {
+  // Vụ án sinh từ chuyển/khởi tố cũng phải báo "vừa được tạo" như đường tạo thường (rà mã 19/09/2026).
+  const phatSuKien = { emit: jest.fn() };
+
+  it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới, phát case.created', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         PetitionsService,
@@ -2659,7 +2662,7 @@ describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
         { provide: SettingsService, useValue: mockSettings },
         { provide: DeadlineRulesService, useValue: mockDeadlineRules },
         { provide: DocumentNumbersService, useValue: mockDocNums },
-        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        { provide: EventEmitter2, useValue: phatSuKien },
       ],
     }).compile();
     const service = moduleRef.get(PetitionsService);
@@ -2707,5 +2710,9 @@ describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
       where: { id: 'log-case' },
       data: { documentId: 'case-new' },
     });
+    expect(phatSuKien.emit).toHaveBeenCalledWith(
+      'case.created',
+      expect.objectContaining({ caseId: 'case-new', caseCode: '2026-11722' }),
+    );
   });
 });

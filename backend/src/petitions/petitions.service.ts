@@ -67,6 +67,7 @@ import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { hoSoCodeVariants, maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CaseCreatedEvent } from '../notifications/events/notification.events';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
@@ -1304,6 +1305,13 @@ export class PetitionsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // Như đường tạo vụ án thường: báo "vụ án vừa được tạo" cho thủ trưởng (rà mã 19/09/2026 — trước đây vụ án sinh
+    // từ chuyển đơn thư / khởi tố vụ việc không có thông báo).
+    this.eventEmitter.emit(
+      'case.created',
+      new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
+    );
 
     return {
       success: true,
