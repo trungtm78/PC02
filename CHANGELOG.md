@@ -1078,12 +1078,14 @@ PR6 closes the v0.47 import pipeline. Materialises PR5 staging rows into Case/In
 - **`XlsxImportCommitService`** (`commit.service.ts`) — the orchestrator. State machine: `PARSED → PENDING_SECOND_CONFIRM → COMMITTED`; from COMMITTED → ROLLED_BACK. Same admin self-confirm → 409; admin B past 24h → 400 with `code: DUAL_CONFIRM_TTL_EXPIRED`.
 - **`payload-mapper.ts`** — best-effort header detection (recognises STT, Mã VA / Mã VV / Mã hồ sơ, Tên vụ án / Tên vụ việc / Tên, Tội danh, ngày tiếp nhận / ngày khởi tố, đối tượng, địa điểm) → skeleton mapping. Same mapper runs in dry-run and commit, so the preview snapshot equals the commit outcome.
 - **`commit.constants.ts`** — `DUAL_CONFIRM_TTL_MS=24h`, `DRYRUN_SAMPLE_ROWS_PER_SHEET=5`, `IMPORT_SOURCE_TAG='xlsx-phu-luc'`, `IMPORT_DEFAULT_CASE_PROVENANCE='TRANSFERRED'` (BLTTHS Đ.143 — these come from outside the system), status enum.
-- **Conflict detection** in dry-run (commit does NOT block — officers reconcile via existing Case/Incident edit UI in v0.48):
+- **Conflict detection** in dry-run (cập nhật 20/09/2026 — commit CHẶN với `duplicate_in_batch` và `missing_code`; `duplicate_id`/`unit_mismatch` thì cán bộ đối chiếu ở màn Vụ án/Vụ việc):
   - `duplicate_id` — staging caseCode/incidentCode matches an existing row
   - `unit_mismatch` — existing row's unit differs from `log.unitCodeDetected`
+  - `duplicate_in_batch` — mã trùng ngay trong cùng lần nhập (commit → 409 `DUPLICATE_IN_BATCH`)
+  - `missing_code` — hàng không có mã hồ sơ, chỉ xét sheet nhập được (commit → 409 `MISSING_CODE`)
 - **Materialisation rules**:
   - Case rows: `name` from "Tên" column or fallback "Imported row {rowIndex}", `caseProvenance: TRANSFERRED`, `caseCode` from staging if present, `metadata` = full original payload, all import audit fields set
-  - Incident rows: `name` from "Tên" column, `code` from "Mã VV" or deterministic `VV-IMP-{logId[0:8]}-{rowIndex}`, all import audit fields set
+  - Incident rows: `name` from "Tên" column, `code` from "Mã VV". 20/09/2026: bỏ mã tự đặt `VV-IMP-…` — hàng thiếu mã bị CHẶN cả lần nhập, vì mã hồ sơ là định danh (mã bịa in ra văn bản thành chuỗi rác, và đụng nhau giữa các phụ lục cùng loại)
   - Every materialised row carries `importLogId` FK (provenance invariant — unit-tested)
 
 ### Iron rules satisfied (Codex CRITICAL final review)

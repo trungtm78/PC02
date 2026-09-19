@@ -88,6 +88,21 @@ function detectHeaderMap(
   return { lookup: {}, headerRowIndex: -1 };
 }
 
+/**
+ * Giá trị một ô về dạng chuỗi DÙNG ĐƯỢC, hoặc chuỗi rỗng.
+ *
+ * Bẫy đã gặp: ô công thức không có `result` được parser giữ nguyên dạng object (xlsx-parser.service.ts) — prod
+ * 20/09/2026 có đúng 3 dòng staging như vậy. `String(object)` cho ra "[object Object]", và chuỗi đó lọt được vào
+ * làm MÃ HỒ SƠ (định danh). Ô toàn dấu cách cũng vậy. Chỉ nhận chuỗi/số/ngày, và cắt khoảng trắng hai đầu.
+ */
+function oChuoi(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (val instanceof Date) return val.toISOString();
+  return '';
+}
+
 export interface SkeletonRow {
   rowIndex: number;
   name: string;
@@ -118,11 +133,11 @@ export function mapSheetToSkeletons(
         metadata: r.payload,
       };
       for (const [colKey, fieldKey] of Object.entries(detection.lookup)) {
-        const val = r.payload[colKey];
-        if (val === null || val === undefined || val === '') continue;
-        if (fieldKey === 'name') skeleton.name = String(val);
+        const val = oChuoi(r.payload[colKey]);
+        if (!val) continue;
+        if (fieldKey === 'name') skeleton.name = val;
         else if (fieldKey === 'caseCode' || fieldKey === 'incidentCode')
-          skeleton.code = String(val);
+          skeleton.code = val;
       }
       // Fallback name — every Case/Incident needs a non-empty name.
       if (!skeleton.name) {
