@@ -95,7 +95,19 @@ function makeMockPrisma(initial: {
 /** Kiểu của bộ giả — khai tường minh để ca kiểm mới không dính no-unsafe-assignment. */
 type MockPrisma = {
   prisma: unknown;
-  state: { casesCreated: Array<Record<string, unknown>> };
+  state: {
+    casesCreated: Array<Record<string, unknown>>;
+    incidentsCreated: Array<Record<string, unknown>>;
+  };
+};
+
+/** Dòng staging dựng tay trong ca kiểm — payload là ô Excel tuỳ ý (kể cả ô công thức dạng object). */
+type DongStaging = {
+  rowIndex: number;
+  sheetName: string;
+  payload: Record<string, unknown>;
+  detectedType: string | null;
+  importLogId: string;
 };
 
 describe('XlsxImportCommitService', () => {
@@ -692,6 +704,133 @@ describe('XlsxImportCommitService', () => {
         response: expect.objectContaining({ code: 'MISSING_CODE' }) as unknown,
       });
       expect(gia.state.casesCreated).toHaveLength(0);
+    });
+
+    const dangCho = (staging: DongStaging[]) => {
+      const pending = {
+        ...logThieu,
+        id: 'log-c',
+        status: XLSX_IMPORT_STATUS.PENDING_SECOND_CONFIRM,
+        firstConfirmById: 'admin-a',
+        firstConfirmAt: new Date(Date.now() - 10 * 60 * 1000),
+      };
+      return makeMockPrisma({ log: pending, staging }) as MockPrisma;
+    };
+
+    it('sheet TRỘN: có dòng đủ mã, có dòng thiếu → chặn CẢ lần nhập (không lặng lẽ bỏ dòng thiếu)', async () => {
+      const gia = dangCho([
+        ...stagingThieu('log-c'),
+        {
+          rowIndex: 9,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 2, col2: 'Vụ án có mã' },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+      ]);
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'MISSING_CODE' }) as unknown,
+      });
+      expect(gia.state.casesCreated).toHaveLength(0);
+    });
+
+    it('Vụ việc thiếu mã cũng chặn (bỏ hẳn mã tự đặt VV-IMP cũ)', async () => {
+      const gia = dangCho([
+        {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 01',
+          payload: { col1: 'STT', col2: 'Tên vụ việc' },
+          detectedType: 'Incident',
+          importLogId: 'log-c',
+        },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 01',
+          payload: { col1: 1, col2: 'Vụ việc không mã' },
+          detectedType: 'Incident',
+          importLogId: 'log-c',
+        },
+      ]);
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MISSING_CODE',
+          sheetName: 'Phụ lục 01',
+        }) as unknown,
+      });
+      expect(gia.state.incidentsCreated).toHaveLength(0);
+    });
+
+    /**
+     * Ô công thức không có `result` được parser giữ nguyên dạng object — prod 20/09/2026 có đúng 3 dòng như vậy.
+     * `String(object)` ra "[object Object]"; ô toàn dấu cách cũng là chuỗi "có nội dung". Cả hai từng lọt vào làm MÃ.
+     */
+    it('ô mã là công thức/dấu cách → coi như KHÔNG có mã, bị chặn', async () => {
+      const gia = dangCho([
+        {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 'STT', col2: 'Mã VA', col3: 'Tên vụ án' },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 04',
+          payload: {
+            col1: 1,
+            col2: { formula: 'A1&B1' },
+            col3: 'Vụ án công thức',
+          },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+        {
+          rowIndex: 9,
+          sheetName: 'Phụ lục 04',
+          payload: { col1: 2, col2: '   ', col3: 'Vụ án dấu cách' },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+      ]);
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'MISSING_CODE',
+          rowIndexes: [8, 9],
+        }) as unknown,
+      });
+      expect(gia.state.casesCreated).toHaveLength(0);
+    });
+
+    it('nhiều sheet cùng thiếu mã → báo ĐỦ trong một lần', async () => {
+      const gia = dangCho([
+        ...stagingThieu('log-c'),
+        {
+          rowIndex: 7,
+          sheetName: 'Phụ lục 05',
+          payload: { col1: 'STT', col2: 'Tên vụ án' },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+        {
+          rowIndex: 8,
+          sheetName: 'Phụ lục 05',
+          payload: { col1: 1, col2: 'Vụ án không mã 2' },
+          detectedType: 'Case',
+          importLogId: 'log-c',
+        },
+      ]);
+      const svc = new XlsxImportCommitService(gia.prisma as never);
+      await expect(svc.commit('log-c', ADMIN_B)).rejects.toMatchObject({
+        response: expect.objectContaining({
+          sheets: [
+            { sheetName: 'Phụ lục 04', rowIndexes: [8] },
+            { sheetName: 'Phụ lục 05', rowIndexes: [8] },
+          ],
+        }) as unknown,
+      });
     });
 
     it('commit: CHẶN cả lần nhập, nói rõ sheet + dòng, không ghi hồ sơ nào', async () => {

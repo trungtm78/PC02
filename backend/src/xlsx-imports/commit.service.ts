@@ -335,6 +335,12 @@ export class XlsxImportCommitService {
         });
         bySheetCheck.set(row.sheetName, list);
       }
+      // Gom THIEU MA cua MOI sheet roi bao mot lan: bao tung sheet thi can bo sua xong sheet dau, upload lai moi
+      // biet sheet sau cung hong (ra ma PR #446).
+      const thieuMaTheoSheet: Array<{
+        sheetName: string;
+        rowIndexes: number[];
+      }> = [];
       for (const [sheetName, rows] of bySheetCheck.entries()) {
         const skeletons = mapSheetToSkeletons(rows);
         const seen = new Map<string, number>();
@@ -346,15 +352,7 @@ export class XlsxImportCommitService {
           .filter((sk) => !sk.code)
           .map((sk) => sk.rowIndex);
         if (rows[0]?.detectedType && thieuMa.length > 0) {
-          const dau = thieuMa.slice(0, 20).join(', ');
-          throw new ConflictException({
-            code: 'MISSING_CODE',
-            message:
-              `Sheet "${sheetName}" có ${thieuMa.length} dòng KHÔNG có mã hồ sơ (dòng ${dau}${thieuMa.length > 20 ? '…' : ''}). ` +
-              'Mã hồ sơ là định danh của hồ sơ — điền mã vào file rồi upload lại. Nếu file CÓ cột mã, kiểm lại dòng tiêu đề: không nhận ra tiêu đề thì không cột nào được ánh xạ.',
-            rowIndexes: thieuMa,
-            sheetName,
-          });
+          thieuMaTheoSheet.push({ sheetName, rowIndexes: thieuMa });
         }
 
         const dups = [...seen.entries()].filter(([, n]) => n > 1).map(([c]) => c);
@@ -366,6 +364,29 @@ export class XlsxImportCommitService {
             sheetName,
           });
         }
+      }
+
+      if (thieuMaTheoSheet.length > 0) {
+        const tong = thieuMaTheoSheet.reduce(
+          (n, t) => n + t.rowIndexes.length,
+          0,
+        );
+        const mota = thieuMaTheoSheet
+          .map((t) => {
+            const dau = t.rowIndexes.slice(0, 20).join(', ');
+            return `"${t.sheetName}" (dòng ${dau}${t.rowIndexes.length > 20 ? '…' : ''})`;
+          })
+          .join('; ');
+        throw new ConflictException({
+          code: 'MISSING_CODE',
+          message:
+            `Có ${tong} dòng KHÔNG có mã hồ sơ: ${mota}. ` +
+            'Mã hồ sơ là định danh của hồ sơ — điền mã vào file rồi upload lại. Nếu file CÓ cột mã, kiểm lại dòng tiêu đề: không nhận ra tiêu đề thì không cột nào được ánh xạ.',
+          sheets: thieuMaTheoSheet,
+          // Giữ hai khóa cũ cho nơi đã đọc: sheet ĐẦU TIÊN thiếu mã.
+          sheetName: thieuMaTheoSheet[0].sheetName,
+          rowIndexes: thieuMaTheoSheet[0].rowIndexes,
+        });
       }
     }
 
