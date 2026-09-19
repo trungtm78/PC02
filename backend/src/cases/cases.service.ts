@@ -1005,7 +1005,8 @@ export class CasesService {
     if (effectiveProvenance === CaseProvenance.FROM_PETITION) {
       // Build scope filter for Petition (DataScope): same OR conditions as petitions.service checkWriteScope
       const petitionScopeOR: Prisma.PetitionWhereInput[] = [];
-      if (dataScope && !dataScope.canDispatch) {
+      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+      if (dataScope) {
         if (dataScope.userIds.length > 0) {
           petitionScopeOR.push({ enteredById: { in: dataScope.userIds } });
         }
@@ -1024,7 +1025,14 @@ export class CasesService {
           where: {
             id: dto.linkedPetitionId!,
             deletedAt: null,
-            ...(petitionScopeOR.length > 0 ? { OR: petitionScopeOR } : {}),
+            ...(dataScope
+              ? {
+                  OR:
+                    petitionScopeOR.length > 0
+                      ? petitionScopeOR
+                      : [{ id: '__no_access__' }],
+                }
+              : {}),
           },
         });
         if (!petition) {
@@ -1095,7 +1103,8 @@ export class CasesService {
     // ── FROM_INCIDENT: link existing Incident (IDOR-safe + optimistic lock) ──
     if (effectiveProvenance === CaseProvenance.FROM_INCIDENT) {
       const incidentScopeOR: Prisma.IncidentWhereInput[] = [];
-      if (dataScope && !dataScope.canDispatch) {
+      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+      if (dataScope) {
         if (dataScope.userIds.length > 0) {
           incidentScopeOR.push({ investigatorId: { in: dataScope.userIds } });
         }
@@ -1115,7 +1124,14 @@ export class CasesService {
             id: dto.linkedIncidentId!,
             deletedAt: null,
             linkedCaseId: null,
-            ...(incidentScopeOR.length > 0 ? { OR: incidentScopeOR } : {}),
+            ...(dataScope
+              ? {
+                  OR:
+                    incidentScopeOR.length > 0
+                      ? incidentScopeOR
+                      : [{ id: '__no_access__' }],
+                }
+              : {}),
           },
         });
         if (!incident) {
@@ -2083,14 +2099,32 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // TDC BACKFILL
   // ─────────────────────────────────────────────
-  async tdcBackfill(id: string, lyDoTamDinhChiVuAn: string, userId: string) {
+  async tdcBackfill(
+    id: string,
+    lyDoTamDinhChiVuAn: string,
+    userId: string,
+    dataScope?: DataScope | null,
+  ) {
     const caseRecord = await this.prisma.case.findUnique({ where: { id } });
     if (!caseRecord) throw new NotFoundException('Case not found');
-    return this.prisma.case.update({
+    // Trước 19/09/2026 không kiểm phạm vi: có quyền `write Case` là sửa lý do TĐC của MỌI vụ án.
+    this.checkWriteScope(caseRecord, dataScope);
+    const sau = await this.prisma.case.update({
       where: { id },
       // PR-8: cột nay là mảng — wrap giá trị đơn vào mảng 1 phần tử.
       data: { lyDoTamDinhChiVuAn: [lyDoTamDinhChiVuAn] as any },
     });
+    await this.audit.log({
+      userId,
+      action: 'CASE_TDC_BACKFILLED',
+      subject: 'Case',
+      subjectId: id,
+      metadata: {
+        truoc: caseRecord.lyDoTamDinhChiVuAn ?? null,
+        sau: [lyDoTamDinhChiVuAn],
+      },
+    });
+    return sau;
   }
 
   // ─────────────────────────────────────────────

@@ -95,7 +95,7 @@ export class PetitionsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildPetitionScopeFilter(input.dataScope),
+            ...buildPetitionScopeFilter(input.dataScope, 'assign'),
           },
           select: { id: true },
         });
@@ -283,7 +283,11 @@ export class PetitionsBulkService {
       },
       preflight: async (ids) => {
         const inScope = await this.prisma.petition.findMany({
-          where: { id: { in: ids }, deletedAt: null, ...buildPetitionScopeFilter(input.dataScope) },
+          where: {
+            id: { in: ids },
+            deletedAt: null,
+            ...buildPetitionScopeFilter(input.dataScope, 'write'),
+          },
           select: { id: true },
         });
         const inScopeSet = new Set(inScope.map((p) => p.id));

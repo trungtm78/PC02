@@ -68,7 +68,7 @@ export class LawyersBulkService {
       },
       preflight: async (ids) => {
         // Scope check qua parent case (assertParentInScope pattern).
-        const scopeFilter = buildScopeFilter(input.dataScope);
+        const scopeFilter = buildScopeFilter(input.dataScope, 'write');
         const inScope = await this.prisma.lawyer.findMany({
           where: {
             id: { in: ids },

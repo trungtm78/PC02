@@ -24,6 +24,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PetitionsService } from './petitions.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -2526,5 +2527,76 @@ describe('PetitionsService', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty('role', 'LEAD');
     });
+  });
+});
+
+/**
+ * Phân công cán bộ cho đơn thư (thêm/bớt/xem) — trước 19/09/2026 KHÔNG kiểm phạm vi: ai có quyền `edit Petition`
+ * cũng thêm/bớt người được giao trên MỌI đơn thư (biết id là đủ). Quyết định anh 19/09/2026: phân công ngoài phạm
+ * vi chỉ dành cho điều phối viên; người khác chỉ trong phạm vi GHI; xem danh sách theo phạm vi ĐỌC.
+ */
+describe('PetitionsService — phạm vi phân công đơn thư', () => {
+  let service: PetitionsService;
+  const DON_NGOAI = {
+    ...mockPetition,
+    enteredById: 'u-khac',
+    assignedTeamId: 't-khac',
+  };
+  const THUONG: DataScope = {
+    userIds: ['u1'],
+    teamIds: ['t1'],
+    writableTeamIds: ['t1'],
+  };
+  const DIEU_PHOI: DataScope = { ...THUONG, canDispatch: true };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PetitionsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get<PetitionsService>(PetitionsService);
+    jest.clearAllMocks();
+    mockPrisma.petition.findFirst.mockResolvedValue(DON_NGOAI);
+    mockPrisma.petitionAssignment.findUnique.mockResolvedValue(null);
+    mockPrisma.petitionAssignment.create.mockResolvedValue({ id: 'pa1' });
+  });
+
+  it('người thường thêm cán bộ vào đơn NGOÀI phạm vi → 403, không ghi', async () => {
+    await expect(
+      service.addAssignment('petition-001', 'u9', 'SUPPORT', 'u1', THUONG),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.petitionAssignment.create).not.toHaveBeenCalled();
+  });
+
+  it('điều phối viên thêm cán bộ vào đơn ngoài phạm vi → được (phân công)', async () => {
+    await service.addAssignment(
+      'petition-001',
+      'u9',
+      'SUPPORT',
+      'u1',
+      DIEU_PHOI,
+    );
+    expect(mockPrisma.petitionAssignment.create).toHaveBeenCalled();
+  });
+
+  it('người thường bỏ cán bộ khỏi đơn ngoài phạm vi → 403, không xoá', async () => {
+    mockPrisma.petitionAssignment.findUnique.mockResolvedValue({ id: 'pa1' });
+    await expect(
+      service.removeAssignment('petition-001', 'u9', 'u1', THUONG),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.petitionAssignment.delete).not.toHaveBeenCalled();
+  });
+
+  it('xem danh sách phân công của đơn ngoài phạm vi ĐỌC → 403', async () => {
+    await expect(
+      service.listAssignments('petition-001', THUONG),
+    ).rejects.toThrow(ForbiddenException);
   });
 });

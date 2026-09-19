@@ -20,6 +20,25 @@ function recordDenial(resource: string): void {
 }
 
 /**
+ * Thao tác mà bộ lọc phục vụ. Quyết định của anh 19/09/2026 cho quyền ĐIỀU PHỐI (canDispatch): ngoài phạm vi của
+ * mình chỉ được XEM (`read`) và PHÂN CÔNG (`assign`); `write` (sửa nội dung, xoá, xoá hàng loạt, tạo bản ghi
+ * con) chỉ trong phạm vi GHI (`writableTeamIds` — không gồm tổ chỉ được cấp quyền xem).
+ */
+export type ThaoTacPhamVi = 'read' | 'write' | 'assign';
+
+/** Điều phối viên được bỏ qua phạm vi ở thao tác này không. */
+function dieuPhoiBoQua(scope: DataScope, op: ThaoTacPhamVi): boolean {
+  return !!scope.canDispatch && op !== 'write';
+}
+
+/** Tổ dùng để lọc: đọc theo `teamIds`; ghi và phân công (khi không được bỏ qua) theo `writableTeamIds`. */
+function toTheoThaoTac(scope: DataScope, op: ThaoTacPhamVi): string[] {
+  return op === 'read'
+    ? scope.teamIds
+    : (scope.writableTeamIds ?? scope.teamIds);
+}
+
+/**
  * Build Prisma where-clause filter for Case/Incident scope.
  * Uses investigatorId for ownership.
  *
@@ -28,20 +47,21 @@ function recordDenial(resource: string): void {
  */
 export function buildScopeFilter(
   scope: DataScope | null | undefined,
+  op: ThaoTacPhamVi = 'read',
 ): Record<string, unknown> | null {
   // null scope = admin, no filtering
   if (scope === null || scope === undefined) return null;
-  // dispatcher: full read access — sees all records regardless of team
-  if (scope.canDispatch) return null;
+  if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const teamIds = toTheoThaoTac(scope, op);
 
   if (scope.userIds.length > 0) {
     conditions.push({ investigatorId: { in: scope.userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake (unassigned records).
     // Cán bộ phường chỉ thấy records assignedTeamId IN ward team mình.
     // PC02 user (non-ward) vẫn thấy intake để claim/assign.
@@ -64,18 +84,20 @@ export function buildScopeFilter(
  */
 export function buildPetitionScopeFilter(
   scope: DataScope | null | undefined,
+  op: ThaoTacPhamVi = 'read',
 ): Record<string, unknown> | null {
   if (scope === null || scope === undefined) return null;
-  if (scope.canDispatch) return null;
+  if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
+  const teamIds = toTheoThaoTac(scope, op);
 
   if (scope.userIds.length > 0) {
     conditions.push({ enteredById: { in: scope.userIds } });
   }
 
-  if (scope.teamIds.length > 0) {
-    conditions.push({ assignedTeamId: { in: scope.teamIds } });
+  if (teamIds.length > 0) {
+    conditions.push({ assignedTeamId: { in: teamIds } });
     // v0.33.0.0 codex Crit 1: ward officer EXCLUDED từ intake — same as buildScopeFilter
     if (!scope.isWardOfficer) {
       conditions.push({ assignedTeamId: null });
@@ -101,7 +123,8 @@ export function assertParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   // P0-001 fix: null parent = orphan record (caseId+incidentId both null on Document/VKS/ActionPlan/Delegation).
   // Previously: silent pass → cross-tenant data leak. Now: deny by default. Admin (scope=null) bypassed above.
   if (!parent) {
@@ -137,7 +160,8 @@ export function assertPetitionParentInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   if (!parent) {
     recordDenial('petition-parent-null');
     throw new ForbiddenException(
@@ -172,7 +196,8 @@ export function assertCreatorInScope(
   operation: 'read' | 'write' = 'read',
 ): void {
   if (!scope) return;
-  if (scope.canDispatch) return;
+  // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
+  if (scope.canDispatch && operation === 'read') return;
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }

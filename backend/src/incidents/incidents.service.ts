@@ -367,7 +367,8 @@ export class IncidentsService {
       linkedCaseId: null,
     };
 
-    if (dataScope && !dataScope.canDispatch) {
+    // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+    if (dataScope) {
       const orConditions: Prisma.IncidentWhereInput[] = [];
       if (dataScope.userIds.length > 0) {
         orConditions.push({ investigatorId: { in: dataScope.userIds } });

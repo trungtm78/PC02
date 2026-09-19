@@ -200,8 +200,18 @@ describe('PetitionsController — delegation', () => {
 
   it('I-C3: removeAssignment() delegates to service.removeAssignment', async () => {
     mockService.removeAssignment.mockResolvedValue({ success: true });
-    await (controller as any).removeAssignment('petition-001', 'user-001', mockUser);
-    expect(mockService.removeAssignment).toHaveBeenCalledWith('petition-001', 'user-001', mockUser.id);
+    // Phạm vi dữ liệu PHẢI xuống service — trước 19/09/2026 không chuyển, service không kiểm được gì.
+    const nguoi = mockUser as AuthUser;
+    const req = makeReq({
+      dataScope: { userIds: ['u1'], teamIds: [], writableTeamIds: [] },
+    }) as ScopedRequest;
+    await controller.removeAssignment('petition-001', 'user-001', nguoi, req);
+    expect(mockService.removeAssignment).toHaveBeenCalledWith(
+      'petition-001',
+      'user-001',
+      nguoi.id,
+      req.dataScope,
+    );
   });
 
   // Xuất Excel theo bộ lọc (18/09/2026): controller chuyển ĐÚNG bộ lọc, phạm vi dữ liệu và người xuất

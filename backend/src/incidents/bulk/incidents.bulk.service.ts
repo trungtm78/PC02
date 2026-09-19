@@ -98,7 +98,7 @@ export class IncidentsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            ...buildScopeFilter(input.dataScope, 'assign'),
           },
           select: { id: true, status: true },
         });
@@ -329,7 +329,7 @@ export class IncidentsBulkService {
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...buildScopeFilter(input.dataScope),
+            ...buildScopeFilter(input.dataScope, 'write'),
           },
           include: {
             petitions: { where: { deletedAt: null }, select: { id: true } },

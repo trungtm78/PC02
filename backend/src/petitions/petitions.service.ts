@@ -388,7 +388,8 @@ export class PetitionsService {
     };
 
     // Scope filter: same OR pattern as cases.service.create (FROM_PETITION branch)
-    if (dataScope && !dataScope.canDispatch) {
+    // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
+    if (dataScope) {
       const orConditions: Prisma.PetitionWhereInput[] = [];
       if (dataScope.userIds.length > 0) {
         orConditions.push({ enteredById: { in: dataScope.userIds } });
@@ -433,6 +434,18 @@ export class PetitionsService {
     });
 
     return { data: rows };
+  }
+
+  /**
+   * Thêm/bớt cán bộ được giao là PHÂN CÔNG: điều phối viên được làm trên mọi đơn; người khác chỉ trong phạm vi GHI
+   * (quyết định 19/09/2026). Trước đó hai đường này không kiểm gì — có quyền `edit Petition` là phân công mọi đơn.
+   */
+  private kiemPhamViPhanCong(
+    record: { enteredById?: string | null; assignedTeamId?: string | null },
+    dataScope?: DataScope | null,
+  ) {
+    if (dataScope?.canDispatch) return;
+    this.checkWriteScope(record, dataScope);
   }
 
   private checkWriteScope(
@@ -2328,10 +2341,11 @@ export class PetitionsService {
     userId: string,
     role: 'LEAD' | 'SUPPORT',
     actorId: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2355,9 +2369,11 @@ export class PetitionsService {
     petitionId: string,
     userId: string,
     _actorId: string,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2372,10 +2388,11 @@ export class PetitionsService {
 
   async listAssignments(
     petitionId: string,
-    _dataScope?: DataScope | null,
+    dataScope?: DataScope | null,
   ) {
     const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
     if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    this.checkRecordInScope(petition, dataScope);
 
     return this.prisma.petitionAssignment.findMany({
       where: { petitionId },
