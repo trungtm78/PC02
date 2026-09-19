@@ -45,15 +45,22 @@ describe('Chi tiết vụ án — chỉ xem thì ẩn nút ghi', () => {
     dung(false);
     expect(await screen.findByTestId('nhan-chi-xem', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByTestId('btn-edit-case')).toBeNull();
+    // Rà mã PR #439: "Cập nhật tiến độ" (PUT /cases/:id) và "Điều tra bổ sung" (POST /investigation-supplements) cũng là ghi.
+    expect(screen.queryByTestId('btn-update-progress')).toBeNull();
     fireEvent.click(await screen.findByText(/Kết luận điều tra/));
     expect(screen.queryByTestId('btn-add-conclusion')).toBeNull();
+    fireEvent.click(await screen.findByText(/Tiến trình điều tra/));
+    expect(screen.queryByTestId('btn-supplement-investigation')).toBeNull();
   });
 
   it('quyenGhi = true → có Chỉnh sửa và Thêm kết luận, không có nhãn Chỉ xem', async () => {
     dung(true);
     expect(await screen.findByTestId('btn-edit-case', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByTestId('nhan-chi-xem')).toBeNull();
+    expect(screen.getByTestId('btn-update-progress')).toBeInTheDocument();
     fireEvent.click(await screen.findByText(/Kết luận điều tra/));
     expect(await screen.findByTestId('btn-add-conclusion')).toBeInTheDocument();
+    fireEvent.click(await screen.findByText(/Tiến trình điều tra/));
+    expect(await screen.findByTestId('btn-supplement-investigation')).toBeInTheDocument();
   });
 });
