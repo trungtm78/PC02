@@ -94,7 +94,12 @@ describe('CỔNG thứ tự guard cờ tính năng', () => {
       for (const f of fs.readdirSync(d)) {
         const p = path.join(d, f);
         if (fs.statSync(p).isDirectory()) duyet(p);
-        else if (f.endsWith('.controller.ts')) {
+        else if (
+          // MỌI tệp mã (không chỉ *.controller.ts): đã bỏ guard toàn cục, @FeatureFlag ở đâu thiếu guard là cờ không chặn.
+          f.endsWith('.ts') &&
+          !f.endsWith('.spec.ts') &&
+          !p.includes('feature-flag.decorator')
+        ) {
           const s = fs.readFileSync(p, 'utf8');
           if (!/@FeatureFlag\(/.test(s)) continue;
           so++;
