@@ -41,7 +41,7 @@ const O_TRONG: Omit<Supplement, "id"> = {
 const O_NHAP =
   "w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400";
 
-export function DTBSTable({ caseId }: { caseId?: string }) {
+export function DTBSTable({ caseId, chiXem = false }: { caseId?: string; /** Chỉ xem (máy chủ trả `quyenGhi: false`): ẩn thao tác ghi — máy chủ vẫn chặn 403 như cũ (20/09/2026). */ chiXem?: boolean }) {
   const qc = useQueryClient();
   const [dangThem, setDangThem] = useState(false);
   const [nhap, setNhap] = useState(O_TRONG);
@@ -100,7 +100,7 @@ export function DTBSTable({ caseId }: { caseId?: string }) {
     <div className="rounded-xl border border-slate-200 bg-white p-5" data-testid="dtbs-table">
       <div className="mb-3 flex items-center justify-between">
         <p className="font-medium text-slate-800">Danh sách điều tra bổ sung</p>
-        <button
+        {!chiXem && <button
           type="button"
           onClick={() => setDangThem((v) => !v)}
           className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
@@ -108,7 +108,7 @@ export function DTBSTable({ caseId }: { caseId?: string }) {
         >
           <Plus className="h-4 w-4" />
           Thêm
-        </button>
+        </button>}
       </div>
 
       <div className="overflow-x-auto">
@@ -145,7 +145,7 @@ export function DTBSTable({ caseId }: { caseId?: string }) {
                 <td className="px-2 py-2">{r.ngayTraHoSoVKS ? formatVNDate(r.ngayTraHoSoVKS) : "—"}</td>
                 <td className="px-2 py-2">{r.ngayTraHoSoToaAn ? formatVNDate(r.ngayTraHoSoToaAn) : "—"}</td>
                 <td className="px-2 py-2">
-                  <button
+                  {!chiXem && <button
                     type="button"
                     onClick={() => xoa.mutate(r.id)}
                     className="rounded p-1 text-red-600 hover:bg-red-50"
@@ -153,7 +153,7 @@ export function DTBSTable({ caseId }: { caseId?: string }) {
                     data-testid={`dtbs-xoa-${i}`}
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </button>}
                 </td>
               </tr>
             ))}

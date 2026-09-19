@@ -37,6 +37,8 @@ interface Props {
   onClose: () => void;
   /** Báo form cha refresh recordUpdatedAt + formData sau khi popup PUT bổ sung (tránh 409). */
   onEntityPatched?: (updatedAt: string | undefined, fields: Record<string, string>) => void;
+  /** Chỉ xem (máy chủ trả `quyenGhi: false`): ẩn thao tác ghi — máy chủ vẫn chặn 403 như cũ (20/09/2026). */
+  chiXem?: boolean;
 }
 
 interface ReadinessMissing { field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }
@@ -47,7 +49,7 @@ type ExportMode = 'separate' | 'merged' | 'zip';
 /** Chờ giữa 2 lần tải để trình duyệt không chặn "tải nhiều file". */
 const DOWNLOAD_GAP_MS = 300;
 
-export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntityPatched }: Props) {
+export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntityPatched, chiXem = false }: Props) {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [readiness, setReadiness] = useState<Record<string, ReadinessItem>>({});
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | undefined>(undefined);
@@ -180,7 +182,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
 
   // Lưu bổ sung: savable → PUT cột vào hồ sơ; non-savable → giữ trong fillValues (manualValues khi xuất).
   async function handleSaveFill() {
-    if (savingFill) return;
+    if (savingFill || chiXem) return;
     const putPayload: Record<string, string> = {};
     for (const [field, value] of Object.entries(fillValues)) {
       if (!value || !value.trim()) continue;
@@ -348,6 +350,7 @@ export function DynamicExportDocumentsModal({ entity, entityId, onClose, onEntit
                 idPrefix="dyn-export"
                 onSelectAll={chonTatCa}
                 onClearAll={boChonTatCa}
+                chiXem={chiXem}
               />
             </div>
 

@@ -10,6 +10,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { api } from '@/lib/api';
+import { authStore, type AuthUser } from '@/stores/auth.store';
 
 let quyenGhi: boolean | undefined;
 // Phím tắt form (F2 Lưu, F3 Xoá): bắt handler lần dựng gần nhất để gọi thẳng — useShortcut cần provider.
@@ -109,7 +110,7 @@ const FORM = [
       const { PetitionFormPage } = await import('@/pages/petitions/PetitionFormPage');
       return dung('/petitions/:id/edit', '/petitions/x1/edit', <PetitionFormPage />);
     },
-    nutGhi: ['btn-save-top-main', 'btn-save-main', 'btn-convert-petition'],
+    nutGhi: ['btn-save-top-main', 'btn-save-main', 'btn-convert-petition', 'section-phan-cong'],
     coForm: true,
   },
 ];
@@ -152,5 +153,18 @@ describe.each(FORM)('Form sửa $ten — chỉ xem', ({ mo, nutGhi, coForm }) =>
     await mo();
     await waitFor(() => expect(screen.getByTestId(nutGhi[0])).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.queryByTestId('bang-chi-xem')).toBeNull();
+  });
+});
+
+describe('Form sửa Đơn thư — điều phối viên chỉ xem vẫn phân công được', () => {
+  it('quyenGhi = false + điều phối → còn khối Phân công, không có nút Lưu', async () => {
+    sessionStorage.clear();
+    authStore.setProfile({ id: 'dp', email: 'dp@x', username: 'dp', role: 'OFFICER', canDispatch: true } as AuthUser);
+    quyenGhi = false;
+    await FORM[2].mo();
+    expect(await screen.findByTestId('bang-chi-xem', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByTestId('section-phan-cong')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-save-main')).toBeNull();
+    sessionStorage.clear();
   });
 });

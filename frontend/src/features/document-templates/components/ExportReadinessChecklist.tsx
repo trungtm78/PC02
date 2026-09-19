@@ -44,11 +44,13 @@ interface Props {
    */
   onSelectAll?: (keys: string[]) => void;
   onClearAll?: () => void;
+  /** Chỉ xem (máy chủ trả `quyenGhi: false`): ẩn thao tác ghi — máy chủ vẫn chặn 403 như cũ (20/09/2026). */
+  chiXem?: boolean;
 }
 
 export function ExportReadinessChecklist({
   templates, readiness, loading, selected, onToggle, fillValues, onFillChange, onSaveFill, saving, idPrefix,
-  onSelectAll, onClearAll,
+  onSelectAll, onClearAll, chiXem = false,
 }: Props) {
   // Một field còn thiếu được coi là CHƯA thoả nếu: savable (phải lưu vào hồ sơ qua "Lưu bổ sung")
   // HOẶC non-savable nhưng chưa nhập giá trị (non-savable = manualValues, chỉ cần nhập tại popup).
@@ -174,7 +176,11 @@ export function ExportReadinessChecklist({
           </div>
           {/* Chỉ hiện "Lưu bổ sung" khi có field SAVABLE (đơn thư: lưu vào hồ sơ). Dynamic toàn
               non-savable → nhập là đủ (manualValues khi xuất), không cần nút lưu. */}
-          {missingFields.some((m) => m.savable) ? (
+          {missingFields.some((m) => m.savable) && chiXem ? (
+            <p className="mt-2 text-xs text-slate-600" data-testid={`${idPrefix}-chi-xem`}>
+              Thông tin này phải lưu vào hồ sơ, mà bạn chỉ có quyền xem — nhờ tổ đang thụ lý bổ sung.
+            </p>
+          ) : missingFields.some((m) => m.savable) ? (
             <button
               type="button"
               data-testid={`${idPrefix}-save-fill`}

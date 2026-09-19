@@ -619,6 +619,7 @@ function CaseFormPage() {
             <TabSubjects
               {...tabProps}
               caseId={isEditMode ? id : undefined}
+              chiXem={chiXem}
               cheDoSua={isEditMode}
               mucDaCo={doiTuongDaCo}
               subjects={subjects}
@@ -648,7 +649,7 @@ function CaseFormPage() {
               }}
             />
           )}
-          {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} />}
+          {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} chiXem={chiXem} />}
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
           {activeTab === "media" && (
             <TabMedia
@@ -715,6 +716,7 @@ function CaseFormPage() {
       {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}
       {exportForId && (
         <DynamicExportDocumentsModal
+          chiXem={chiXem}
           entity="cases"
           entityId={exportForId}
           onClose={() => {

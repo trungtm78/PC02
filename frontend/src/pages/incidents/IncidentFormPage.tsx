@@ -771,7 +771,7 @@ export function IncidentFormPage() {
         </div>
         {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <EntityDocumentsTab entityKind="incident" entityId={id} />
+          <EntityDocumentsTab entityKind="incident" entityId={id} chiXem={chiXem} />
         </div>
 
         {/* Actions */}
@@ -819,6 +819,7 @@ export function IncidentFormPage() {
       {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}
       {exportForId && (
         <DynamicExportDocumentsModal
+          chiXem={chiXem}
           entity="incidents"
           entityId={exportForId}
           onClose={() => {

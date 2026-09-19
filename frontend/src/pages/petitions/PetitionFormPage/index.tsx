@@ -47,6 +47,7 @@ import { HUONG_XU_LY_OPTIONS, laHuongNoiBo, moTaHuong } from "@/shared/enums/huo
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { PetitionAssignmentSection } from "../PetitionAssignmentSection";
+import { usePermission } from "@/hooks/usePermission";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "../ConvertPetitionModal";
 
 import { computeFormErrors } from "./validate";
@@ -89,6 +90,8 @@ export function PetitionFormPage() {
   // Thiếu trường (máy chủ cũ) → như trước.
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
   const chiXem = isEditMode && quyenGhi === false;
+  // Phân công: điều phối viên được làm cả ngoài phạm vi ghi (quyết định 19/09/2026) — chỉ ẩn với người thường.
+  const { canDispatch } = usePermission();
   // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
@@ -984,7 +987,7 @@ export function PetitionFormPage() {
               Giữ stage suốt phiên create (kể cả sau createdId) để retry upload-fail không mất file. */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           {isEditMode ? (
-            <EntityDocumentsTab entityKind="petition" entityId={id} />
+            <EntityDocumentsTab entityKind="petition" entityId={id} chiXem={chiXem} />
           ) : (
             <PetitionCreateDocumentsStage ref={stageRef} />
           )}
@@ -1029,7 +1032,7 @@ export function PetitionFormPage() {
         </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
-        {isEditMode && id && (
+        {isEditMode && id && (!chiXem || canDispatch) && (
           <PetitionAssignmentSection petitionId={id} userOptions={userOptions} />
         )}
 
@@ -1108,6 +1111,7 @@ export function PetitionFormPage() {
       {/* Popup "Xuất chứng từ" sau "Lưu và xuất file" — đóng popup → về danh sách. */}
       {exportModalForId && (
         <DynamicExportDocumentsModal
+          chiXem={chiXem}
           entity="petitions"
           entityId={exportModalForId}
           onClose={() => {

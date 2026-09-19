@@ -1115,8 +1115,8 @@ function TabEvidenceBoSung({
 // v0.52 Cycle 8 — TabBusinessFiles is now a thin wrapper around EntityDocumentsTab.
 // All upload/list/download logic moved to components/documents/EntityDocumentsTab.tsx
 // for reuse by Petition + Incident tabs.
-export function TabBusinessFiles({ caseId }: { caseId?: string }) {
-  return <EntityDocumentsTab entityKind="case" entityId={caseId} />;
+export function TabBusinessFiles({ caseId, chiXem }: { caseId?: string; chiXem?: boolean }) {
+  return <EntityDocumentsTab entityKind="case" entityId={caseId} chiXem={chiXem} />;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1754,7 +1754,7 @@ export function TabCase(props: TabProps) {
 }
 
 export function TabSubjects(
-  props: Parameters<typeof TabSubjectsBoSung>[0] & TabProps & { caseId?: string },
+  props: Parameters<typeof TabSubjectsBoSung>[0] & TabProps & { caseId?: string; chiXem?: boolean },
 ) {
   return (
     <LegacyTabBody
@@ -1765,7 +1765,7 @@ export function TabSubjects(
       setErrors={props.setErrors}
       // Bảng "Danh sách điều tra bổ sung" là phần CHÍNH của tab ĐTBS ở hệ cũ, đứng dưới bốn
       // ô gương. Bảng đối tượng của hệ mới nằm trong khối gập.
-      afterLegacy={<DTBSTable caseId={props.caseId} />}
+      afterLegacy={<DTBSTable caseId={props.caseId} chiXem={props.chiXem} />}
     >
       <TabSubjectsBoSung {...props} />
     </LegacyTabBody>
