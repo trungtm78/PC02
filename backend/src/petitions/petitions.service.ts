@@ -67,6 +67,7 @@ import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { hoSoCodeVariants, maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CaseCreatedEvent } from '../notifications/events/notification.events';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
 import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
@@ -1223,11 +1224,16 @@ export class PetitionsService {
     }
 
     // Create Case and update Petition atomically in one transaction
-    let caseRecord;
+    let caseRecord: Prisma.CaseGetPayload<object>;
     try {
     [caseRecord] = await this.prisma.$transaction(async (tx) => {
+        // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
+        // trước đây vụ án chuyển từ đơn thư không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
+        const { number: caseCode, logId: caseCodeLogId } =
+          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
       const newCase = await tx.case.create({
         data: {
+            caseCode,
           name: dto.caseName,
           crime: dto.crime,
           unit: dto.jurisdiction,
@@ -1238,6 +1244,10 @@ export class PetitionsService {
           linkedPetitionId: petitionId,
         },
       });
+        await tx.documentNumberLog.update({
+          where: { id: caseCodeLogId },
+          data: { documentId: newCase.id },
+        });
 
       await tx.petition.update({
         where: {
@@ -1295,6 +1305,13 @@ export class PetitionsService {
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
+
+    // Như đường tạo vụ án thường: báo "vụ án vừa được tạo" cho thủ trưởng (rà mã 19/09/2026 — trước đây vụ án sinh
+    // từ chuyển đơn thư / khởi tố vụ việc không có thông báo).
+    this.eventEmitter.emit(
+      'case.created',
+      new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
+    );
 
     return {
       success: true,

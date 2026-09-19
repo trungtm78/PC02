@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { getAuthToken } from '../helpers/auth';
+import { getAuthToken, getTokenTheoTaiKhoan } from '../helpers/auth';
 
 /**
  * UAT tầng API — hai điểm cuối CHỈ ĐỌC mà form sửa vụ án dùng để hiện mục con ĐÃ CÓ (PR #430, 19/09/2026):
@@ -10,21 +10,18 @@ import { getAuthToken } from '../helpers/auth';
  * tượng của vụ án theo GET /subjects?caseId (lấy `total`), không cắt ở 100.
  *
  * CHỈ ĐỌC — chạy được trên prod:
- *   UAT_PROD=1 UAT_OFFICER_PASS=<mật khẩu officer1> BASE_URL=<gốc> npx playwright test --project=api \
+ *   UAT_PROD=1 BASE_URL=<gốc> npx playwright test --project=api \
  *     tests/api/muc-con-da-co-uat.api.spec.ts
  */
 const API = `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
-const OFFICER = process.env.UAT_OFFICER_USER ?? 'officer1@pc02.local';
+/** Token officer1 do global-setup đăng nhập sẵn — KHÔNG tự đăng nhập (giới hạn tần suất → 429 đỏ oan). */
+function tokenCanBo(): string {
+  const t = getTokenTheoTaiKhoan('officer1');
+  expect(t, 'global-setup phải đăng nhập được officer1').toBeTruthy();
+  return t;
+}
 const admin = () => ({ Authorization: `Bearer ${getAuthToken()}` });
 
-async function dangNhapCanBo(request: APIRequestContext): Promise<Record<string, string>> {
-  const matKhau = process.env.UAT_OFFICER_PASS;
-  expect(matKhau, 'thiếu UAT_OFFICER_PASS — ca này không được bỏ qua lặng lẽ').toBeTruthy();
-  const r = await request.post(`${API}/auth/login`, { data: { username: OFFICER, password: matKhau } });
-  expect(r.status()).toBeLessThan(300);
-  const b = await r.json();
-  return { Authorization: `Bearer ${b.accessToken ?? b.data?.accessToken}` };
-}
 
 test('M-1 Quản trị đọc được đủ đối tượng + vật chứng của vụ án', async ({ request }) => {
   const ds = await request.get(`${API}/cases?limit=50`, { headers: admin() });
@@ -46,7 +43,7 @@ test('M-1 Quản trị đọc được đủ đối tượng + vật chứng c�
 });
 
 test('M-2 Cán bộ KHÔNG đọc được mục con của vụ án ngoài phạm vi (403)', async ({ request }) => {
-  const canBo = await dangNhapCanBo(request);
+  const canBo = { Authorization: `Bearer ${tokenCanBo()}` };
   const ds = await request.get(`${API}/cases?limit=50`, { headers: admin() });
   let caseId: string | undefined;
   for (const c of ((await ds.json()).data ?? []) as Array<{ id: string }>) {

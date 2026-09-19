@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { getAuthToken } from '../helpers/auth';
+import { getAuthToken, getTokenTheoTaiKhoan } from '../helpers/auth';
 
 /**
  * UAT tầng API — cán bộ KHÔNG gắn được bản ghi con vào vụ án ngoài phạm vi của mình (tồn đọng PR #217/#220, sửa
@@ -16,25 +16,20 @@ import { getAuthToken } from '../helpers/auth';
  * Luật sư / Đối tượng: `officer1` không có quyền ghi Lawyer/Subject, nên cổng quyền đã chặn 403 ở CẢ hai bản — ca
  * HTTP ở đó không phân biệt được gì; hai module ấy được kiểm ở `tao-con-kiem-pham-vi-cha.spec.ts`.
  *
- *   UAT_PROD=1 UAT_OFFICER_PASS=<mật khẩu officer1> BASE_URL=<gốc> npx playwright test --project=api \
+ *   UAT_PROD=1 BASE_URL=<gốc> npx playwright test --project=api \
  *     tests/api/tao-con-pham-vi-uat.api.spec.ts
  */
 const API = `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
-const OFFICER = process.env.UAT_OFFICER_USER ?? 'officer1@pc02.local';
 const KHOA_KHONG_TON_TAI = 'uat-khong-ton-tai-khoa-ngoai';
 
+/** Token officer1 do global-setup đăng nhập sẵn — KHÔNG tự đăng nhập (giới hạn tần suất → 429 đỏ oan). */
+function tokenCanBo(): string {
+  const t = getTokenTheoTaiKhoan('officer1');
+  expect(t, 'global-setup phải đăng nhập được officer1').toBeTruthy();
+  return t;
+}
 const admin = () => ({ Authorization: `Bearer ${getAuthToken()}` });
 
-async function dangNhapCanBo(request: APIRequestContext): Promise<Record<string, string>> {
-  const matKhau = process.env.UAT_OFFICER_PASS;
-  expect(matKhau, 'thiếu UAT_OFFICER_PASS — ca này không được bỏ qua lặng lẽ').toBeTruthy();
-  const r = await request.post(`${API}/auth/login`, { data: { username: OFFICER, password: matKhau } });
-  expect(r.status(), 'cán bộ đăng nhập được').toBeLessThan(300);
-  const b = await r.json();
-  const token = b.accessToken ?? b.data?.accessToken;
-  expect(token, 'có accessToken').toBeTruthy();
-  return { Authorization: `Bearer ${token}` };
-}
 
 /** Vụ án mà cán bộ KHÔNG được xem — đo bằng chính điểm cuối chi tiết, không suy từ dữ liệu tổ. */
 async function vuAnNgoaiPhamVi(request: APIRequestContext, canBo: Record<string, string>): Promise<string> {
@@ -55,7 +50,7 @@ async function tong(request: APIRequestContext, url: string): Promise<number> {
 }
 
 test('P-1 Kết luận: không thêm được vào vụ án ngoài phạm vi (403, không ghi)', async ({ request }) => {
-  const canBo = await dangNhapCanBo(request);
+  const canBo = { Authorization: `Bearer ${tokenCanBo()}` };
   const caseId = await vuAnNgoaiPhamVi(request, canBo);
   const truoc = await tong(request, `${API}/conclusions?caseId=${caseId}`);
 
@@ -68,7 +63,7 @@ test('P-1 Kết luận: không thêm được vào vụ án ngoài phạm vi (40
 });
 
 test('P-2 Ủy thác: không gắn được vụ án ngoài phạm vi (403, không ghi)', async ({ request }) => {
-  const canBo = await dangNhapCanBo(request);
+  const canBo = { Authorization: `Bearer ${tokenCanBo()}` };
   const caseId = await vuAnNgoaiPhamVi(request, canBo);
   const truoc = await tong(request, `${API}/delegations?limit=1`);
 

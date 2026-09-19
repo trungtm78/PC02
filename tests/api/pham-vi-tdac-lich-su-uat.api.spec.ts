@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { getAuthToken } from '../helpers/auth';
+import { getAuthToken, getTokenTheoTaiKhoan } from '../helpers/auth';
 
 /**
  * UAT tầng API — soát IDOR 19/09/2026: lịch sử trạng thái vụ án + báo cáo TĐC theo phạm vi tổ.
@@ -11,27 +11,23 @@ import { getAuthToken } from '../helpers/auth';
  *    lý do; quản trị vẫn xem toàn đơn vị. Danh sách bản nháp của cán bộ không có tổ chỉ gồm bản do chính họ tạo.
  *
  * CHỈ ĐỌC — chạy được trên prod:
- *   UAT_PROD=1 UAT_OFFICER_PASS=<mật khẩu officer1> BASE_URL=<gốc> npx playwright test --project=api \
+ *   UAT_PROD=1 BASE_URL=<gốc> npx playwright test --project=api \
  *     tests/api/pham-vi-tdac-lich-su-uat.api.spec.ts
  */
 const API = `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
-const OFFICER = process.env.UAT_OFFICER_USER ?? 'officer1@pc02.local';
-const admin = () => ({ Authorization: `Bearer ${getAuthToken()}` });
-const KY = 'fromDate=2026-01-01&toDate=2026-06-30';
-
-async function dangNhapCanBo(request: APIRequestContext): Promise<{ h: Record<string, string>; id: string }> {
-  const matKhau = process.env.UAT_OFFICER_PASS;
-  expect(matKhau, 'thiếu UAT_OFFICER_PASS — ca này không được bỏ qua lặng lẽ').toBeTruthy();
-  const r = await request.post(`${API}/auth/login`, { data: { username: OFFICER, password: matKhau } });
-  expect(r.status()).toBeLessThan(300);
-  const b = await r.json();
-  const token = (b.accessToken ?? b.data?.accessToken) as string;
+/** officer1 do global-setup đăng nhập sẵn — KHÔNG tự đăng nhập (giới hạn tần suất → 429 đỏ oan). */
+function canBo(): { h: Record<string, string>; id: string } {
+  const token = getTokenTheoTaiKhoan('officer1');
+  expect(token, 'global-setup phải đăng nhập được officer1').toBeTruthy();
   const id = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).sub as string;
   return { h: { Authorization: `Bearer ${token}` }, id };
 }
+const admin = () => ({ Authorization: `Bearer ${getAuthToken()}` });
+const KY = 'fromDate=2026-01-01&toDate=2026-06-30';
+
 
 test('L-1 Lịch sử trạng thái vụ án ngoài phạm vi → 403; mã không tồn tại → 404', async ({ request }) => {
-  const { h } = await dangNhapCanBo(request);
+  const { h } = canBo();
   const ds = await request.get(`${API}/cases?limit=50`, { headers: admin() });
   let caseId: string | undefined;
   for (const c of ((await ds.json()).data ?? []) as Array<{ id: string }>) {
@@ -48,7 +44,7 @@ test('L-1 Lịch sử trạng thái vụ án ngoài phạm vi → 403; mã khôn
 });
 
 test('T-1 Báo cáo TĐC: cán bộ không thuộc tổ nào → 403 có lý do; quản trị xem được', async ({ request }) => {
-  const { h } = await dangNhapCanBo(request);
+  const { h } = canBo();
   for (const loai of ['vu-an', 'vu-viec']) {
     const r = await request.get(`${API}/reports/tdac/${loai}?${KY}`, { headers: h });
     expect(r.status(), `${loai} (cán bộ)`).toBe(403);
@@ -58,7 +54,7 @@ test('T-1 Báo cáo TĐC: cán bộ không thuộc tổ nào → 403 có lý do;
 });
 
 test('T-2 Danh sách bản nháp TĐC của cán bộ không có tổ chỉ gồm bản do chính họ tạo', async ({ request }) => {
-  const { h, id } = await dangNhapCanBo(request);
+  const { h, id } = canBo();
   const r = await request.get(`${API}/reports/tdac/drafts`, { headers: h });
   expect(r.status()).toBe(200);
   const ds = (await r.json()) as Array<{ createdById: string }>;
