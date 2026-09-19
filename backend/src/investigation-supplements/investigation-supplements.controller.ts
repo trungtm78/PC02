@@ -28,7 +28,12 @@ export class InvestigationSupplementsController {
   @Post()
   @RequirePermissions({ action: 'write', subject: 'Case' })
   create(@Body() dto: CreateInvestigationSupplementDto, @CurrentUser() user: AuthUser, @Req() req: ScopedRequest) {
-    return this.service.create(dto, user.id, { ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return this.service.create(
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Delete(':id')

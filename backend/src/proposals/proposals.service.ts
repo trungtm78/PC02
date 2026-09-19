@@ -16,6 +16,7 @@ import {
   assertCreatorInScope,
   buildScopeFilter,
 } from '../common/utils/scope-filter.util';
+import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { PROPOSAL_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
@@ -212,7 +213,12 @@ export class ProposalsService {
     dto: CreateProposalDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // Gắn vụ án liên quan thì vụ án ấy phải trong phạm vi GHI; không gắn thì bản ghi thuộc người tạo.
+    if (dto.relatedCaseId)
+      await kiemVuAnChaDeGhi(this.prisma, dto.relatedCaseId, dataScope);
+
     let resolvedProposalNumber: string | undefined = dto.proposalNumber;
 
     const record = await this.prisma.$transaction(async (tx: any) => {

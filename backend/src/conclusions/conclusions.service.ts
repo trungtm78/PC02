@@ -5,6 +5,7 @@ import { CreateConclusionDto } from './dto/create-conclusion.dto';
 import { ConclusionStatus, Prisma } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -65,7 +66,13 @@ export class ConclusionsService {
     return { success: true, data: record };
   }
 
-  async create(dto: CreateConclusionDto, actorId: string, meta?: { ipAddress?: string; userAgent?: string }) {
+  async create(
+    dto: CreateConclusionDto,
+    actorId: string,
+    meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
     const record = await this.prisma.conclusion.create({
       data: {
         caseId: dto.caseId,

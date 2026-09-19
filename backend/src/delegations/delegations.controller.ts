@@ -53,10 +53,12 @@ export class DelegationsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.delegationsService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
+    return this.delegationsService.create(
+      dto,
+      user.id,
+      { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
+      req.dataScope,
+    );
   }
 
   @Put(':id')

@@ -12,6 +12,7 @@ import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_DOI_TUONG } from '../common/tim-kiem/khai/doi-tuong.khai';
@@ -167,7 +168,11 @@ export class SubjectsService {
     dto: CreateSubjectDto,
     actorId: string,
     meta?: { ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
   ) {
+    // Vụ án cha phải tồn tại và nằm trong phạm vi GHI — trước mọi kiểm khác, để không lộ dữ liệu vụ án ngoài phạm vi.
+    await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
+
     // EC-04: Check duplicate idNumber within same type
     // Same person can be both VICTIM and WITNESS (different type records)
     // But cannot have duplicate idNumber+type combination
@@ -185,13 +190,6 @@ export class SubjectsService {
       }
     }
 
-    // Validate caseId
-    const caseRecord = await this.prisma.case.findFirst({
-      where: { id: dto.caseId, deletedAt: null },
-    });
-    if (!caseRecord) {
-      throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
-    }
 
     // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
     if (dto.crimeId) {
@@ -252,6 +250,10 @@ export class SubjectsService {
   ) {
     const { data: existing } = await this.getById(id, dataScope);
     assertParentInScope(existing.case, dataScope, 'write');
+    // Chuyển sang vụ án khác phải kiểm phạm vi GHI của vụ án ĐÍCH (kiểm ở trên chỉ là vụ án hiện tại).
+    if (dto.caseId && dto.caseId !== existing.caseId) {
+      await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
+    }
 
     // Check duplicate idNumber+type (exclude self) — EC-04
     const targetType = dto.type ?? existing.type;
@@ -263,16 +265,6 @@ export class SubjectsService {
         throw new ConflictException(
           `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
         );
-      }
-    }
-
-    // Validate caseId if provided
-    if (dto.caseId) {
-      const caseRecord = await this.prisma.case.findFirst({
-        where: { id: dto.caseId, deletedAt: null },
-      });
-      if (!caseRecord) {
-        throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
       }
     }
 
