@@ -143,8 +143,10 @@ export const TABLE_CELL_TRUNCATE =
 // dung). Chỉ an toàn khi đi cùng bề rộng tối thiểu của bảng = tổng bề rộng cột — `Table` tự đặt ở chế độ
 // này, nên chữ xuống dòng TRONG cột thay vì bảng co khít khung (bẫy 25/08 ở chú thích TABLE_CELL).
 // `break-words`: chuỗi liền không dấu cách (mã, địa chỉ email) dài hơn cột thì bẻ, không tràn đè cột bên.
+// `overflow-hidden`: xuống dòng lo CHỮ, không lo thứ không bẻ được (nút, huy hiệu) — thiếu nó thì nút ⋮ của cột
+// Thao tác tràn đè chữ cột bên (anh chụp 19/09/2026). Cùng luật #237 ở TABLE_CELL; menu ⋮ mở qua portal nên không bị cắt.
 export const TABLE_CELL_WRAP =
-  "px-4 py-3 text-sm text-slate-700 whitespace-normal break-words align-top";
+  "px-4 py-3 text-sm text-slate-700 whitespace-normal break-words align-top overflow-hidden";
 
 // ─── Modal Styles ───────────────────────────────────────────────────────────
 //

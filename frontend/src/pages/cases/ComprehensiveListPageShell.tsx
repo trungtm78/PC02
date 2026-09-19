@@ -16,6 +16,7 @@
  *
  * KHÔNG thay thế production ComprehensiveListPage — feature-flag swap ở PR3.
  */
+import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
@@ -579,7 +580,7 @@ export function ComprehensiveListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '10rem',
+        width: BE_RONG_COT_THAO_TAC,
         render: (r) => (
           <RowActions
             registry={comprehensiveRowActions}

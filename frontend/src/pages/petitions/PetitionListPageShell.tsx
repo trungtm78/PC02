@@ -12,6 +12,7 @@
  *
  * v0.56: ĐÃ thay thế production PetitionListPage (route /petitions trỏ vào Shell này).
  */
+import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -476,7 +477,7 @@ export function PetitionListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '9rem',
+        width: BE_RONG_COT_THAO_TAC,
         sticky: true,
         render: (r) => (
           <RowActions
