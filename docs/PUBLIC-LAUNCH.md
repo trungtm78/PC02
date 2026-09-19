@@ -191,7 +191,7 @@ curl -X POST https://<domain>/api/v1/documents \
    git clone --mirror git@github.com:trungtm78/PC02.git pc02-mirror
    cd pc02-mirror
    # Cài git-filter-repo: pip install git-filter-repo
-   echo '8buYJnZqMFUv3jWsdMaGvd5b==>***REDACTED***' > /tmp/redact.txt
+   echo '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>==>***REDACTED***' > /tmp/redact.txt
    git filter-repo --replace-text /tmp/redact.txt
    git push --force --all
    ```

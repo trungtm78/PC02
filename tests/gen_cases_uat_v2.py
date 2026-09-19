@@ -3378,13 +3378,13 @@ data = {
     "test_cases": tcs,
     "test_data": {
         "accounts": [
-            {"id":"U001","email":"admin@pc02.local","password":"Admin@2026!","role":"ADMIN","status":"Active","purpose":"Test ADMIN-only restore + listDeleted + bypass scope","notes":"Quyền cao nhất"},
-            {"id":"U002","email":"dispatcher@pc02.local","password":"Disp@2026!","role":"DISPATCHER","status":"Active","purpose":"Test PATCH /assign + canDispatch bypass","notes":"canDispatch=true"},
-            {"id":"U003","email":"dieuTra1@pc02.local","password":"DTV@2026!","role":"INVESTIGATOR","status":"Active","purpose":"Owner + same-team test, creator delete","notes":"Thuộc Team-Q1"},
-            {"id":"U004","email":"dieuTra2@pc02.local","password":"DTV@2026!","role":"INVESTIGATOR","status":"Active","purpose":"Same-team với U003 (Team-Q1)","notes":""},
-            {"id":"U005","email":"dieuTra3-Q3@pc02.local","password":"DTV@2026!","role":"INVESTIGATOR","status":"Active","purpose":"Different team (Team-Q3) — test scope reject","notes":""},
-            {"id":"U006","email":"wardOfficer1@pc02.local","password":"WO@2026!","role":"WARD_OFFICER","status":"Active","purpose":"Test isWardOfficer auto-set assignedTeamId override","notes":"Thuộc Team-WARD-01"},
-            {"id":"U007","email":"viewer@pc02.local","password":"View@2026!","role":"VIEWER","status":"Active","purpose":"Test 403 cho write/delete/restore","notes":"Chỉ read"},
+            {"id":"U001","email":"admin@pc02.local","password":"","role":"ADMIN","status":"Active","purpose":"Test ADMIN-only restore + listDeleted + bypass scope","notes":"Quyền cao nhất"},
+            {"id":"U002","email":"dispatcher@pc02.local","password":"","role":"DISPATCHER","status":"Active","purpose":"Test PATCH /assign + canDispatch bypass","notes":"canDispatch=true"},
+            {"id":"U003","email":"dieuTra1@pc02.local","password":"","role":"INVESTIGATOR","status":"Active","purpose":"Owner + same-team test, creator delete","notes":"Thuộc Team-Q1"},
+            {"id":"U004","email":"dieuTra2@pc02.local","password":"","role":"INVESTIGATOR","status":"Active","purpose":"Same-team với U003 (Team-Q1)","notes":""},
+            {"id":"U005","email":"dieuTra3-Q3@pc02.local","password":"","role":"INVESTIGATOR","status":"Active","purpose":"Different team (Team-Q3) — test scope reject","notes":""},
+            {"id":"U006","email":"wardOfficer1@pc02.local","password":"","role":"WARD_OFFICER","status":"Active","purpose":"Test isWardOfficer auto-set assignedTeamId override","notes":"Thuộc Team-WARD-01"},
+            {"id":"U007","email":"viewer@pc02.local","password":"","role":"VIEWER","status":"Active","purpose":"Test 403 cho write/delete/restore","notes":"Chỉ read"},
             {"id":"U008","email":"locked@pc02.local","password":"-","role":"INVESTIGATOR","status":"Locked","purpose":"Test JWT của user locked","notes":""}
         ],
         "boundary_values": [

@@ -25,6 +25,9 @@ async function globalSetup(_config: FullConfig): Promise<void> {
 
   const authDir = path.resolve(__dirname, '../test-results');
   fs.mkdirSync(authDir, { recursive: true });
+  // Xoá token của lượt trước (có khi của môi trường khác) — lượt này đăng nhập hỏng thì ca kiểm KHÔNG được dùng nhầm
+  // token cũ (rà mã 20/09/2026).
+  for (const f of fs.readdirSync(authDir)) if (/^\.auth-token.*\.txt$/.test(f)) fs.rmSync(path.join(authDir, f));
 
   const loginAs = async (user: string, pass: string): Promise<string> => {
     try {
@@ -48,7 +51,10 @@ async function globalSetup(_config: FullConfig): Promise<void> {
     if (token) {
       console.log(`[UAT global-setup] Admin login OK — token len=${token.length}`);
     } else {
-      console.warn('[UAT global-setup] Admin login failed — kiểm tra username/password field');
+      // Dừng RÕ: không có token quản trị thì cả bộ đỏ loạt 401 khó chẩn đoán, còn ca âm "thiếu JWT → 401" xanh giả.
+      throw new Error(
+        "[UAT global-setup] Đăng nhập quản trị HỎNG — đặt ADMIN_USERNAME/ADMIN_PASSWORD trong tests/.env.test (không commit)",
+      );
     }
 
     // Pre-fetch tokens cho 4 roles còn lại, lưu vào files riêng
@@ -63,10 +69,10 @@ async function globalSetup(_config: FullConfig): Promise<void> {
       if (t) {
         fs.writeFileSync(path.join(authDir, `.auth-token-${acc.key}.txt`), t, 'utf-8');
         console.log(`[UAT global-setup] ${acc.key} login OK — token len=${t.length}`);
+      } else {
+        console.warn(`[UAT global-setup] ${acc.key} đăng nhập HỎNG — ca kiểm cần vai này sẽ báo thiếu token`);
       }
     }
-  } catch (e: any) {
-    console.warn(`[UAT global-setup] Error: ${e.message}`);
   } finally {
     await ctx.dispose();
   }

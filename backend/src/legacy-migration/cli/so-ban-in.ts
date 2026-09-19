@@ -380,8 +380,9 @@ export async function dangNhapHeCu(): Promise<string> {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       act: 'act_dang_nhap',
-      email: process.env['LEGACY_USER'] ?? 'admin',
-      password: process.env['LEGACY_PASS'] ?? '123456@',
+      // Tài khoản hệ cũ CHỈ từ biến môi trường (20/09/2026: mật khẩu dự phòng viết cứng lộ qua repo PUBLIC).
+      email: batBuocMoiTruong('LEGACY_USER'),
+      password: batBuocMoiTruong('LEGACY_PASS'),
     }),
     redirect: 'manual',
   });
@@ -472,6 +473,13 @@ export function inBangHeMoi(
  * Đọc Mongo hệ cũ ở chế độ CHỈ ĐỌC. Không có `LEGACY_MONGO_URI` thì rơi về bản sao, kèm cảnh
  * báo — chứ không lặng lẽ so nhầm.
  */
+/** Biến môi trường bắt buộc — thiếu thì dừng rõ, không lặng lẽ dùng giá trị viết cứng. */
+function batBuocMoiTruong(ten: string): string {
+  const v = process.env[ten];
+  if (!v) throw new Error(`Thiếu biến môi trường ${ten}`);
+  return v;
+}
+
 async function docHoSo(url: string, ids: string[]): Promise<LegacyRecord[]> {
   const mongoUri = process.env['LEGACY_MONGO_URI'];
   if (mongoUri) {

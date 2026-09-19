@@ -85,9 +85,9 @@ let caseId = '';       // created in beforeAll — reused by FP-CASE-01..10
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('UAT Field-Parity (API)', () => {
   test.beforeAll(async ({ request }) => {
-    const localFpPass = 'UAT-Field-2026!';
-    const localDevPass = '0DJhDiGiRZZNhauhGjg2ktAC';
-    const localAdminPass = '8buYJnZqMFUv3jWsdMaGvd5b';
+    const localFpPass = '';
+    const localDevPass = '';
+    const localAdminPass = '';
 
     t1 = await tryTokenOrLogin(request, 'officer1-fp', 'officer1-fp@pc02.local', localFpPass)
       || await tryTokenOrLogin(request, 'officer1', 'officer1@pc02.local',

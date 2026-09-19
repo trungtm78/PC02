@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
 
 /**
  * CỔNG — không bí mật nào nằm trong repo (repo trungtm78/PC02 là PUBLIC).
@@ -24,11 +25,33 @@ function tepTheoDoi(): string[] {
     );
 }
 
-/** Mật khẩu có giá trị dự phòng viết cứng: `X_PASSWORD || 'abc'`, `X_PASS ?? "abc"`, `${ADMIN_PASSWORD:-abc}`. */
+/**
+ * Mật khẩu có giá trị dự phòng viết cứng: `X_PASSWORD || 'abc'`, `process.env['X_PASS'] ?? "abc"`, `${X_PASSWORD:-abc}`,
+ * Python `os.environ.get('X_PASSWORD', 'abc')`.
+ */
 const MAU = [
-  /\b[A-Z0-9_]*(PASSWORD|PASS|MAT_KHAU)\b\s*(\|\||\?\?)\s*(['"`])(?!\3)[^'"`\s]+\3/,
-  /\$\{[A-Z0-9_]*(PASSWORD|PASS)[A-Z0-9_]*:-[^}]+\}/,
+  /[A-Z0-9_]*(PASSWORD|PASS|MAT_KHAU)[A-Z0-9_]*(['"]\])?\s*(\|\||\?\?)\s*(['"`])(?!\4)[^'"`\s]+\4/,
+  /\$\{[A-Z0-9_]*(PASSWORD|PASS)[A-Z0-9_]*:?[-=][^}?]+\}/,
+  /environ\.get\(\s*['"][A-Z0-9_]*PASS\w*['"]\s*,\s*['"][^'"]+['"]/,
+  /getenv\(\s*['"][A-Z0-9_]*PASS\w*['"]\s*,\s*['"][^'"]+['"]/,
 ];
+
+/**
+ * SHA-256 của mọi mật khẩu từng lộ trong repo (20/09/2026) — lưu dạng băm, KHÔNG lưu chữ thật. Cổng cắt mọi chuỗi
+ * trong nháy ở MỌI tệp văn bản ra so băm, nên bắt được cả khi giá trị nằm trong .json/.md/.yml, không cần biết tên biến.
+ */
+const BAM_DA_LO = new Set<string>(
+  JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'mat-khau-da-lo.sha256.json'), 'utf8'),
+  ) as string[],
+);
+/** Mọi chuỗi nằm giữa cặp nháy đơn/kép/ngược (không xuống dòng), độ dài 6–200. */
+function chuoiTrongNhay(s: string): string[] {
+  const kq: string[] = [];
+  for (const m of s.matchAll(/(['"`])([^'"`\r\n]{6,200})\1/g)) kq.push(m[2]);
+  return kq;
+}
+const bam = (v: string) => createHash('sha256').update(v).digest('hex');
 
 describe('CỔNG không bí mật trong repo', () => {
   const tep = tepTheoDoi();
@@ -38,6 +61,8 @@ describe('CỔNG không bí mật trong repo', () => {
     "password: process.env.ADMIN_PASSWORD || 'Abc@123x',",
     'const P = process.env.OFFICER1_PASS ?? "q1w2e3r4";',
     'ADMIN_PASS="${ADMIN_PASSWORD:-Secret123}"',
+    "const p = process.env['ADMIN_PASSWORD'] ?? 'Abc@123x';",
+    "pw = os.environ.get('ADMIN_PASSWORD', 'Abc@123x')",
   ])('mẫu bắt được: %s', (dong) => {
     expect(MAU.some((m) => m.test(dong))).toBe(true);
   });
@@ -70,6 +95,31 @@ describe('CỔNG không bí mật trong repo', () => {
     expect(vi).toEqual([]);
   });
 
+  it('gieo lỗi băm: một giá trị đã lộ nằm trong chuỗi nháy thì bị bắt', () => {
+    const [mau] = [...BAM_DA_LO];
+    expect(mau).toMatch(/^[0-9a-f]{64}$/);
+    // Không giữ chữ thật ở đây — kiểm cơ chế bằng một giá trị tự băm.
+    const giaThu = 'gia-tri-thu-cong-bi-mat';
+    expect(new Set([bam(giaThu)]).has(bam(giaThu))).toBe(true);
+    expect(chuoiTrongNhay(`x = '${giaThu}'; y = "khac"`)).toContain(giaThu);
+  });
+
+  it('không tệp văn bản nào chứa mật khẩu từng lộ (so băm, mọi loại tệp)', () => {
+    const vi: string[] = [];
+    for (const f of tep) {
+      if (f.endsWith('mat-khau-da-lo.sha256.json')) continue;
+      let s: string;
+      try {
+        s = fs.readFileSync(path.join(GOC, f), 'utf8');
+      } catch {
+        continue;
+      }
+      if (s.length > 5_000_000) continue;
+      if (chuoiTrongNhay(s).some((v) => BAM_DA_LO.has(bam(v)))) vi.push(f);
+    }
+    expect(vi).toEqual([]);
+  });
+
   it('không theo dõi khoá riêng thật (thân PEM) hay khoá ADB', () => {
     const vi = tep.filter((f) => {
       if (/(^|\/)\.android\//.test(f) || /(^|\/)adbkey(\.pub)?$/.test(f))
@@ -77,7 +127,8 @@ describe('CỔNG không bí mật trong repo', () => {
       try {
         const s = fs.readFileSync(path.join(GOC, f), 'utf8');
         // Có thân khoá (dòng base64 dài ngay sau BEGIN) — tài liệu chỉ nhắc tên dạng "-----BEGIN ...----- ..." thì bỏ qua.
-        return /-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{40,}/.test(
+        // Cả dạng xuống dòng thật lẫn "\n" viết chữ trong JSON (vd tệp service-account).
+        return /-----BEGIN [A-Z ]*PRIVATE KEY-----(\r?\n|\\n)[A-Za-z0-9+/=]{40,}/.test(
           s,
         );
       } catch {

@@ -20,7 +20,7 @@ test.describe('UAT — Document Management', () => {
     // Login first
     await page.goto(`${BASE_URL}/login`);
     await page.locator('input[placeholder*="email"], input[id*="user"]').first().fill('admin@pc02.local');
-    await page.locator('input[type="password"]').first().fill('Admin@1234!');
+    await page.locator('input[type="password"]').first().fill('');
     await page.click('button:has-text("Đăng nhập")');
 
     // Wait for redirect and ensure we are logged in

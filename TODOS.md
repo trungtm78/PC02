@@ -68,10 +68,10 @@
 
 ### FINDING-002: Git history contains `.env.test` credentials
 **Priority:** P1
-**Details:** Commit `92bfbee` added `.env.test` with plaintext `DieuTra@PC02#2026` password. File was removed in a subsequent commit but remains in git history. Requires `git filter-repo` + force-push (destructive, coordinate with team).
+**Details:** Commit `92bfbee` added `.env.test` with plaintext `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` password. File was removed in a subsequent commit but remains in git history. Requires `git filter-repo` + force-push (destructive, coordinate with team).
 
 **Steps:**
-1. Rotate `DieuTra@PC02#2026` password in all environments first
+1. Rotate `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` password in all environments first
 2. Run `git filter-repo --path .env.test --invert-paths`
 3. Coordinate force-push with all collaborators (history rewrite)
 4. Rotate GitHub deploy tokens/secrets after push

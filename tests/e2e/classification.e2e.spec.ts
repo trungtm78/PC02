@@ -4,7 +4,7 @@
  *
  * Credentials from project_context.md:
  *   URL:      http://localhost:5173
- *   Admin:    admin@pc02.local / Admin@1234!
+ *   Admin:    admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>
  *   Role:     ADMIN
  */
 
@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5173';
 const API_URL = 'http://localhost:3000';
-const ADMIN = { email: 'admin@pc02.local', password: 'Admin@1234!' };
+const ADMIN = { email: 'admin@pc02.local', password: '' };
 
 async function loginAsAdmin(page: Page) {
   await page.goto(`${BASE_URL}/login`);

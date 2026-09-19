@@ -14,7 +14,7 @@
  *   EC-03: Số ủy thác trùng UT-XXX/YYYY (InvestigationDelegation)
  *   EC-04: Hướng dẫn không có số điện thoại (PetitionGuidance)
  *
- * Credentials: admin@pc02.local / Admin@1234!
+ * Credentials: admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>
  */
 
 import { test, expect, type Page } from '@playwright/test';

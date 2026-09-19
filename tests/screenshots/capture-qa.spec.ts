@@ -5,7 +5,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5173';
-const ADMIN = { email: 'admin@pc02.local', password: 'Admin@1234!' };
+const ADMIN = { email: 'admin@pc02.local', password: '' };
 
 async function loginAsAdmin(page: Page) {
   await page.goto(`${BASE_URL}/login`);

@@ -94,7 +94,7 @@ async function loginAsDTV(page: Page) {
     process.env['TEST_EMAIL_DTV'] ?? 'dtv@pc02.catp.gov.vn',
   );
   await page.getByPlaceholder('Nhập mật khẩu').fill(
-    process.env['TEST_PASS_DTV'] ?? 'DieuTra@PC02#2026',
+    process.env['TEST_PASS_DTV'] ?? '',
   );
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
   await page.waitForURL('**/dashboard', { timeout: 10000 });

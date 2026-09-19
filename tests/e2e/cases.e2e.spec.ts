@@ -4,7 +4,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5179';
 
 const ADMIN_CREDENTIALS = {
   email: 'admin@pc02.local',
-  password: 'Admin@1234!',
+  password: '',
 };
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {

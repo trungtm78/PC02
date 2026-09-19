@@ -8,13 +8,13 @@
  *   AC-03 → UAT-CL-03: Duplicate Petitions xử lý (So sánh/Hợp nhất)
  *   AC-04 → UAT-CL-04: Prosecutor Proposal xuất Excel đúng format
  *
- * Credentials: admin@pc02.local / Admin@1234! (from project_context.md)
+ * Credentials: admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu> (from project_context.md)
  */
 
 import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5173';
-const ADMIN = { email: 'admin@pc02.local', password: 'Admin@1234!' };
+const ADMIN = { email: 'admin@pc02.local', password: '' };
 
 async function loginAsAdmin(page: Page) {
   await page.goto(`${BASE_URL}/login`);

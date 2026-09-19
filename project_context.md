@@ -202,7 +202,7 @@ cd frontend && npm run dev
 | Field | Giá trị |
 |---|---|
 | Email | `admin@pc02.local` |
-| Password | `Admin@1234!` |
+| Password | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` |
 | Role | `ADMIN` |
 
 ---
