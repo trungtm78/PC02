@@ -23,6 +23,8 @@ const ADMIN: AuthUser = {
   canDispatch: true,
   teams: [],
   primaryTeam: null,
+  // Trang theo quyền restore thật (#442) — không có dòng này thì ca xanh nhờ nhánh "chưa biết quyền → tạm cho".
+  permissions: ['restore:Case', 'restore:Incident', 'restore:Petition'],
 };
 
 const CO_TAT_THE: FeatureFlag[] = [

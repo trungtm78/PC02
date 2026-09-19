@@ -12,6 +12,7 @@ const SAMPLE_PROFILE: AuthUser = {
   canDispatch: false,
   teams: [{ teamId: 't1', teamName: 'Đội 1', isLeader: true }],
   primaryTeam: { teamId: 't1', teamName: 'Đội 1' },
+  permissions: ['read:Case'],
 };
 
 // JWT dạng thật (không cần chữ ký) — hydration chỉ ghi hồ sơ khi sub của token hiện hành khớp id hồ sơ.
@@ -123,5 +124,39 @@ describe('useAuthHydration', () => {
     traVeA({ data: SAMPLE_PROFILE }); // /me của A về muộn
     await new Promise((r) => setTimeout(r, 10));
     expect(authStore.getProfile()?.id).toBe('u2');
+  });
+
+  /**
+   * Hồ sơ đệm từ TRƯỚC #435 (20/09/2026) không có `permissions` → usePermission coi là 'chưa biết, tạm cho hiện' mãi
+   * tới khi đóng tab. Hỏi lại /auth/me MỘT lần cho token đó — máy chủ cũ không trả permissions cũng không lặp vô hạn
+   * (setProfile phát sự kiện đổi token → hydrate chạy lại).
+   */
+  it('hồ sơ đệm thiếu permissions → hỏi lại /auth/me một lần và ghi hồ sơ mới', async () => {
+    authStore.setTokens(TOKEN_U1, 'R');
+    const cu: AuthUser = { ...SAMPLE_PROFILE };
+    delete cu.permissions;
+    authStore.setProfile(cu);
+    meSpy.mockResolvedValue({ data: SAMPLE_PROFILE });
+
+    const useAuthHydration = await loadHook();
+    renderHook(() => useAuthHydration());
+
+    await waitFor(() => expect(authStore.getProfile()?.permissions).toEqual(['read:Case']));
+    expect(meSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('máy chủ vẫn không trả permissions → không hỏi lặp', async () => {
+    authStore.setTokens(TOKEN_U1, 'R');
+    const cu: AuthUser = { ...SAMPLE_PROFILE };
+    delete cu.permissions;
+    authStore.setProfile(cu);
+    meSpy.mockResolvedValue({ data: cu });
+
+    const useAuthHydration = await loadHook();
+    renderHook(() => useAuthHydration());
+
+    await waitFor(() => expect(meSpy).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(meSpy).toHaveBeenCalledTimes(1);
   });
 });

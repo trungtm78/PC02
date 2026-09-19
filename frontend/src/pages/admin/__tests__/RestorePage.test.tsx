@@ -182,6 +182,16 @@ describe('RestorePage v0.32.0.0', () => {
     expect(screen.getByTestId('restore-non-admin-block')).toBeInTheDocument();
   });
 
+  it('FE-R8: mới có token, hồ sơ chưa nạp → không gọi danh sách (tránh 403 thừa + phản hồi cũ đè tab)', async () => {
+    const b64 = (x: string) => btoa(x).replace(/=+$/, '');
+    authStore.setTokens(`${b64('{"alg":"RS256"}')}.${b64('{"sub":"u2","role":"OFFICER"}')}.sig`, 'R');
+    const { api } = await import('@/lib/api');
+    await renderPage();
+    expect(screen.getByTestId('restore-unknown-profile')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
   it('FE-R7: chỉ có restore:Petition → mở thẳng tab Đơn thư', async () => {
     authStore.setProfile({ ...OFFICER_PROFILE, permissions: ['restore:Petition'] });
     const { api } = await import('@/lib/api');

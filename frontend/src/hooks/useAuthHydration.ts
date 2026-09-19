@@ -14,11 +14,20 @@ import { authApi } from '@/lib/api';
 export function useAuthHydration() {
   useEffect(() => {
     let cancelled = false;
+    // Token đã hỏi lại vì hồ sơ đệm thiếu `permissions` — chỉ hỏi MỘT lần mỗi token, không lặp vô hạn nếu máy chủ
+    // vẫn không trả (setProfile phát sự kiện đổi token → hydrate chạy lại).
+    let daHoiLaiChoToken: string | null = null;
 
     async function hydrate() {
       const token = authStore.getAccessToken();
       const profile = authStore.getProfile();
-      if (!token || profile) return;
+      if (!token) return;
+      if (profile) {
+        // Hồ sơ đệm từ trước #435 (20/09/2026) không có `permissions` → usePermission "tạm cho hiện" mãi tới khi
+        // đóng tab (rà mã PR #442). Hỏi lại một lần để giao diện theo đúng quyền thật.
+        if (Array.isArray(profile.permissions) || daHoiLaiChoToken === token) return;
+        daHoiLaiChoToken = token;
+      }
 
       try {
         const { data } = await authApi.me();

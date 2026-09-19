@@ -166,7 +166,8 @@ export default function RestorePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const fetchList = useCallback(async () => {
-    if (!coQuyenKhoiPhuc) return;
+    // Hồ sơ chưa nạp: usePermission tạm cho qua (chỉ có JWT) → không gọi, kẻo 403 thừa về sau đè tab đúng (rà mã #442).
+    if (chuaBietTaiKhoan || !coQuyenKhoiPhuc) return;
     setLoading(true);
     setLoadError("");
     try {
@@ -196,7 +197,7 @@ export default function RestorePage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, search, coQuyenKhoiPhuc, theBat, tkKey]);
+  }, [tab, search, chuaBietTaiKhoan, coQuyenKhoiPhuc, theBat, tkKey]);
 
   useEffect(() => {
     void fetchList();
