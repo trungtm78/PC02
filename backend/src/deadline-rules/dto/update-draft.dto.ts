@@ -7,10 +7,10 @@ import {
   IsOptional,
   MinLength,
   MaxLength,
-  IsDateString,
   IsUrl,
 } from 'class-validator';
 import { DOCUMENT_TYPES, DOCUMENT_ISSUERS } from './propose-rule.dto';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
  * UpdateDraftDto — edits an existing draft. All fields optional (proposer can
@@ -52,7 +52,7 @@ export class UpdateDraftDto {
   documentIssuer?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   documentDate?: string;
 
   @IsOptional()
@@ -81,6 +81,6 @@ export class UpdateDraftDto {
   reason?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   effectiveFrom?: string;
 }

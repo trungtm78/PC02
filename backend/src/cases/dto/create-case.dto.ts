@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsInt,
   IsBoolean,
-  IsDateString,
   IsObject,
   IsISO8601,
   IsNotEmpty,
@@ -19,6 +18,7 @@ import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { CaseStatisticDto } from './case-statistic.dto';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac };
 
@@ -42,7 +42,7 @@ export class CreateSubjectInlineDto {
   fullName: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   dateOfBirth?: string;
 
   @IsOptional()
@@ -124,7 +124,7 @@ export class CreateEvidenceInlineDto {
   storageLocation?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   receivedDate?: string;
 
   @IsOptional()
@@ -175,7 +175,7 @@ export class CreateCaseDto {
   investigatorId?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   deadline?: string;
 
   @IsOptional()
@@ -207,39 +207,39 @@ export class CreateCaseDto {
 
   // Ngày quyết định khởi tố vụ án
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayKhoiTo?: string;
 
   // ── Field-parity: số QĐ giai đoạn vụ án ──
   @IsOptional() @IsString() soQuyetDinhKhoiTo?: string;
   @IsOptional() @IsString() soQDNhapVuAn?: string;
-  @IsOptional() @IsDateString() ngayNhapVuAn?: string;
+  @IsOptional() @IsNgayThat() ngayNhapVuAn?: string;
   @IsOptional() @IsString() ghiChuNhapHoSo?: string;
   @IsOptional() @IsString() soQDTachVuAn?: string;
-  @IsOptional() @IsDateString() ngayTachVuAn?: string;
+  @IsOptional() @IsNgayThat() ngayTachVuAn?: string;
   @IsOptional() @IsString() soQDTachHanhVi?: string;
-  @IsOptional() @IsDateString() ngayTachHanhVi?: string;
+  @IsOptional() @IsNgayThat() ngayTachHanhVi?: string;
   @IsOptional() @IsString() soQDDinhChiVuAn?: string;
-  @IsOptional() @IsDateString() ngayDinhChiVuAn?: string;
+  @IsOptional() @IsNgayThat() ngayDinhChiVuAn?: string;
   @IsOptional() @IsString() chuyenVuAnChoCQK?: string;
   @IsOptional() @IsString() soBanAnCoHieuLuc?: string;
-  @IsOptional() @IsDateString() ngayBanAnCoHieuLuc?: string;
+  @IsOptional() @IsNgayThat() ngayBanAnCoHieuLuc?: string;
   @IsOptional() @IsString() canCuTamDinhChiVuAn?: string;
   @IsOptional() @IsString() canCuPhucHoiVuAn?: string;
   // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
   @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
-  @IsOptional() @IsDateString() ngayTamDinhChi?: string;
+  @IsOptional() @IsNgayThat() ngayTamDinhChi?: string;
   @IsOptional() @IsArray() @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
-  @IsOptional() @IsDateString() ngayHetThoiHieu?: string;
+  @IsOptional() @IsNgayThat() ngayHetThoiHieu?: string;
   @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
-  @IsOptional() @IsDateString() ngayPhucHoi?: string;
+  @IsOptional() @IsNgayThat() ngayPhucHoi?: string;
   @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucLyDoBienPhap?: string;
   @IsOptional() @IsString() @MaxLength(1000) tdcKhacPhucBienBan?: string;
   // Field-parity hệ thống cũ — KLĐT + QĐ điều tra lại
   @IsOptional() @IsString() soKLDT?: string;
-  @IsOptional() @IsDateString() ngayKLDT?: string;
+  @IsOptional() @IsNgayThat() ngayKLDT?: string;
   @IsOptional() @IsString() soQDDieuTraLai?: string;
-  @IsOptional() @IsDateString() ngayQDDieuTraLai?: string;
+  @IsOptional() @IsNgayThat() ngayQDDieuTraLai?: string;
   // PR-M2 — ghi chú tự do + tội danh khác cấp vụ án (multi crime id)
   @IsOptional() @IsString() @MaxLength(5000) ghiChuKhac?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) toiDanhKhacIds?: string[];
@@ -299,11 +299,11 @@ export class CreateCaseDto {
   soQuyetDinhUyThac?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTiepNhan?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   thoiHanUyThac?: string;
 
   @IsOptional()
@@ -315,7 +315,7 @@ export class CreateCaseDto {
   ketQuaUyThac?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTraKetQua?: string;
 
   @IsOptional()
@@ -355,13 +355,13 @@ export class CreateCaseDto {
   documentIds?: string[];
 
   // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ → cột typed Vụ án ──
-  @IsOptional() @IsDateString() ngayDeXuat?: string;
+  @IsOptional() @IsNgayThat() ngayDeXuat?: string;
   @IsOptional() @IsString() moTaChiTiet?: string;
   @IsOptional() @IsString() nguonDon?: string;
   @IsOptional() @IsString() tenCungCap?: string;
   @IsOptional() @IsString() sinhNamCungCap?: string;
   @IsOptional() @IsString() cccdCungCap?: string;
-  @IsOptional() @IsDateString() ngayCapCccd?: string;
+  @IsOptional() @IsNgayThat() ngayCapCccd?: string;
   @IsOptional() @IsString() noiCapCccd?: string;
   @IsOptional() @IsString() sdtCungCap?: string;
   @IsOptional() @IsString() diaChiCungCap?: string;
@@ -371,12 +371,12 @@ export class CreateCaseDto {
   @IsOptional() @IsString() phuongThucThuDoan?: string;
   @IsOptional() @IsString() ketQuaXuLyKhac?: string;
   @IsOptional() @IsString() soPhieuChuyen?: string;
-  @IsOptional() @IsDateString() ngayPhieuChuyen?: string;
+  @IsOptional() @IsNgayThat() ngayPhieuChuyen?: string;
   @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
-  @IsOptional() @IsDateString() ngayVietDon?: string;
+  @IsOptional() @IsNgayThat() ngayVietDon?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
-  @IsOptional() @IsDateString() ngayGiaoDonViGiaiQuyet?: string;
+  @IsOptional() @IsNgayThat() ngayGiaoDonViGiaiQuyet?: string;
   @IsOptional() @IsString() lanhDaoToTung?: string;
   @IsOptional() @IsString() dieuTraVien?: string;
   @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
@@ -388,13 +388,13 @@ export class CreateCaseDto {
   // Máy chủ bật `forbidNonWhitelisted`: thiếu một dòng ở đây thì cả lời gọi lưu bị từ chối
   // 400 chứ không phải bỏ qua field ấy — nghĩa là cán bộ không lưu được hồ sơ.
   @IsOptional() @IsString() phanLoaiNguonTinBanDau?: string;
-  @IsOptional() @IsDateString() ngayXayRa?: string;
+  @IsOptional() @IsNgayThat() ngayXayRa?: string;
   @IsOptional() @IsString() noiXayRaPhuongXa?: string;
   @IsOptional() @IsString() baoCaoBanGiamDocText?: string;
   @IsOptional() @IsString() soQDPhanCongNguonTin?: string;
-  @IsOptional() @IsDateString() ngayQDPhanCongNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayQDPhanCongNguonTin?: string;
   @IsOptional() @IsString() soQDKhongKhoiTo?: string;
-  @IsOptional() @IsDateString() ngayQDKhongKhoiTo?: string;
+  @IsOptional() @IsNgayThat() ngayQDKhongKhoiTo?: string;
   @IsOptional() @IsString() canCuKhongKhoiTo?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) lyDoKhongKhoiTo?: string[];
   @IsOptional() @IsString() chuyenVuViecDonViKhac?: string;
@@ -402,14 +402,14 @@ export class CreateCaseDto {
   @IsOptional() @IsString() phanLoaiDanSu?: string;
   @IsOptional() @IsBoolean() vuViecTamDungTruoc2015?: boolean;
   @IsOptional() @IsString() soQDTamDinhChiNguonTin?: string;
-  @IsOptional() @IsDateString() ngayQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayQDTamDinhChiNguonTin?: string;
   @IsOptional() @IsString() canCuTamDinhChiNguonTin?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) lyDoTamDinhChiNguonTin?: string[];
-  @IsOptional() @IsDateString() ngayHetThoiHieuVuViec?: string;
+  @IsOptional() @IsNgayThat() ngayHetThoiHieuVuViec?: string;
   @IsOptional() @IsString() khacPhucLyDoTDCVuViec?: string;
   @IsOptional() @IsString() tienDoKhacPhucTDCVuViec?: string;
   @IsOptional() @IsString() soPhucHoiNguonTin?: string;
-  @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayPhucHoiNguonTin?: string;
   @IsOptional() @IsString() vatChungMoTa?: string;
   @IsOptional() @IsString() lenhNhapKho?: string;
   @IsOptional() @IsString() noiLuuTruBaoQuan?: string;
@@ -441,9 +441,9 @@ export class CreateCaseDto {
   @IsOptional() @IsBoolean() laCongNgheCao?: boolean;
 
   // ── Consolidate epic: native metadata field → cột typed chính thức (plan A0 loại N) ──
-  @IsOptional() @IsDateString() reporterDateOfBirth?: string;
+  @IsOptional() @IsNgayThat() reporterDateOfBirth?: string;
   @IsOptional() @IsString() reporterDateOfBirthPrecision?: string;
-  @IsOptional() @IsDateString() receiveDate?: string;
+  @IsOptional() @IsNgayThat() receiveDate?: string;
   @IsOptional() @IsString() caseClassification?: string;
   @IsOptional() @IsString() tinhTrang?: string;
   @IsOptional() @IsString() toiDanhBanDau?: string;

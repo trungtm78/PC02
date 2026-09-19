@@ -15,6 +15,7 @@ import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { CASE_STATUS_GROUP_KEYS } from '../cases.constants';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export type TrangThaiPhanHoi =
   | 'DA_PHAN_HOI'
@@ -138,11 +139,11 @@ export class QueryCasesDto {
 
   // v0.44.3 — UTDT date range + investigator name search. @IsDateString → date sai format = 400.
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTiepNhanFrom?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTiepNhanTo?: string;
 
   @IsOptional()

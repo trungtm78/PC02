@@ -2,7 +2,6 @@ import {
   IsString,
   IsOptional,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsInt,
   Min,
@@ -11,6 +10,7 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export enum EventScopeDto {
   SYSTEM = 'SYSTEM',
@@ -40,11 +40,11 @@ export class CreateEventDto {
   @Length(1, 2000)
   description?: string;
 
-  @IsDateString()
+  @IsNgayThat()
   startDate!: string; // ISO date YYYY-MM-DD
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   endDate?: string;
 
   @IsBoolean()
@@ -90,7 +90,7 @@ export class CreateEventDto {
   recurrenceRule?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   recurrenceEndDate?: string;
 }
 

@@ -8,14 +8,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import {
-  IsInt,
-  IsOptional,
-  IsDateString,
-  IsString,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -23,6 +16,7 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interface';
 import { PhuLuc16Service } from './phu-luc-1-6.service';
 import { PhuLuc16ExportService } from './phu-luc-1-6-export.service';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DTO
@@ -36,11 +30,11 @@ class PhuLuc16QueryDto {
   loai!: number;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

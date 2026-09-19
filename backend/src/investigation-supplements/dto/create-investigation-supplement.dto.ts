@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateInvestigationSupplementDto {
   @IsString()
@@ -11,28 +12,28 @@ export class CreateInvestigationSupplementDto {
   decisionNumber: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   decisionDate?: string;
 
   @IsString()
   reason: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   deadline?: string;
 
   // ── Ba mốc ngày của bảng "Danh sách điều tra bổ sung" hệ cũ (26/08/2026) ──
   // Máy chủ bật `forbidNonWhitelisted`: thiếu ba dòng này thì gửi lên là cả lời gọi bị từ
   // chối 400, chứ không phải bỏ qua ba trường.
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTiepNhanDTBS?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTraHoSoVKS?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTraHoSoToaAn?: string;
 }

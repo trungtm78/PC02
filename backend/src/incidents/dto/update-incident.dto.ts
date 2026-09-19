@@ -1,7 +1,6 @@
 import {
   IsString,
   IsOptional,
-  IsDateString,
   IsEnum,
   IsBoolean,
   IsArray,
@@ -12,6 +11,7 @@ import {
 import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class UpdateIncidentDto {
   @IsOptional()
@@ -30,15 +30,15 @@ export class UpdateIncidentDto {
   description?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   deadline?: string;
 
   @IsOptional()
@@ -84,7 +84,7 @@ export class UpdateIncidentDto {
   donViGiaiQuyet?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayDeXuat?: string;
 
   @IsOptional()
@@ -125,7 +125,7 @@ export class UpdateIncidentDto {
   soQuyetDinh?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayQuyetDinh?: string;
 
   @IsOptional()
@@ -163,7 +163,7 @@ export class UpdateIncidentDto {
   cmndNguoiToGiac?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
 
   // Field-parity hệ thống cũ (giai đoạn nguồn tin) — phải khớp CreateIncidentDto
@@ -172,7 +172,7 @@ export class UpdateIncidentDto {
   soQDPhanCongNguonTin?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayQDPhanCongNguonTin?: string;
 
   @IsOptional()
@@ -194,7 +194,7 @@ export class UpdateIncidentDto {
   soQuyetDinhTamDinhChiVV?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTamDinhChiVV?: string;
 
   @IsOptional()
@@ -202,12 +202,12 @@ export class UpdateIncidentDto {
   soQuyetDinhPhucHoiVV?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayPhucHoiVV?: string;
 
   // Field-parity tab "Vụ việc TĐC" form cũ (old: ngay_thang_nam_het_thoi_hieu_vu_viec)
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayHetThoiHieuVV?: string;
 
   // Field khắc phục TĐC + CNC — form GỬI khi update, có trong whitelist service nhưng trước thiếu DTO → 400.
@@ -233,7 +233,7 @@ export class UpdateIncidentDto {
   soQDKhongKhoiTo?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayQDKhongKhoiTo?: string;
 
   @IsOptional()
@@ -242,15 +242,15 @@ export class UpdateIncidentDto {
 
   // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity): field intake hệ cũ Vụ việc ──
   @IsOptional() @IsString() nhanXet?: string;
-  @IsOptional() @IsDateString() ngayTiepNhanNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayTiepNhanNguonTin?: string;
   @IsOptional() @IsString() loaiThongTin?: string;
-  @IsOptional() @IsDateString() ngayVietDon?: string;
+  @IsOptional() @IsNgayThat() ngayVietDon?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
-  @IsOptional() @IsDateString() ngayGiaoDonViGiaiQuyet?: string;
+  @IsOptional() @IsNgayThat() ngayGiaoDonViGiaiQuyet?: string;
   @IsOptional() @IsString() toiDanhBanDau?: string;
   @IsOptional() @IsString() soPhieuChuyen?: string;
-  @IsOptional() @IsDateString() ngayPhieuChuyen?: string;
+  @IsOptional() @IsNgayThat() ngayPhieuChuyen?: string;
   @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
   @IsOptional() @IsString() phanLoaiToiPhamLinhVuc?: string;
   @IsOptional() @IsString() phanLoaiHoSoNoiBo?: string;
@@ -258,7 +258,7 @@ export class UpdateIncidentDto {
   @IsOptional() @IsString() dieuTraVien?: string;
   @IsOptional() @IsString() dieuTraVienPhuongXa?: string;
   @IsOptional() @IsString() noiCapCccd?: string;
-  @IsOptional() @IsDateString() ngayCapCccd?: string;
+  @IsOptional() @IsNgayThat() ngayCapCccd?: string;
   @IsOptional() @IsString() deXuat?: string;
   @IsOptional() @IsString() yeuCauBoSung?: string;
   @IsOptional() @IsString() ghiChuKhac?: string;

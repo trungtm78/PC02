@@ -6,7 +6,6 @@ import {
   Max,
   IsEnum,
   IsIn,
-  IsDateString,
   IsBoolean,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -14,6 +13,7 @@ import { LoaiDon } from '@prisma/client';
 import { PetitionStatus } from './create-petition.dto';
 import { PETITION_STATUS_GROUP_KEYS } from '../petitions.constants';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class QueryPetitionsDto {
   /** Ô tìm cũ — máy chủ quy về thẻ "tất cả các cột" (`*`). Giữ để đường dẫn cũ vẫn dùng được. */
@@ -53,11 +53,11 @@ export class QueryPetitionsDto {
   senderName?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

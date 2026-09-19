@@ -1,13 +1,14 @@
-import { IsEnum, IsDateString, IsArray, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsArray, IsOptional, IsString } from 'class-validator';
+import { IsNgayThat } from '../../../common/validators/is-ngay-that.validator';
 
 export class CreateDraftDto {
   @IsEnum(['VU_AN', 'VU_VIEC'])
   loaiBaoCao: string;
 
-  @IsDateString()
+  @IsNgayThat()
   fromDate: string;
 
-  @IsDateString()
+  @IsNgayThat()
   toDate: string;
 
   @IsArray()

@@ -2,18 +2,18 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsDateString,
   IsEnum,
   Matches,
 } from 'class-validator';
 import { SubjectStatus, SubjectType } from '@prisma/client';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateSubjectDto {
   @IsString()
   @IsNotEmpty({ message: 'Họ tên không được để trống' })
   fullName: string;
 
-  @IsDateString({}, { message: 'Ngày sinh không hợp lệ' })
+  @IsNgayThat({ message: 'Ngày sinh không hợp lệ' })
   @IsNotEmpty({ message: 'Ngày sinh không được để trống' })
   dateOfBirth: string;
 

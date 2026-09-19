@@ -1,5 +1,6 @@
-import { IsString, IsEnum, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsEnum, IsOptional } from 'class-validator';
 import { AccessLevel } from '@prisma/client';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateDataGrantDto {
   @IsString()
@@ -12,6 +13,6 @@ export class CreateDataGrantDto {
   accessLevel: AccessLevel;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   expiresAt?: string;
 }

@@ -6,13 +6,13 @@ import {
   Min,
   Max,
   IsEnum,
-  IsDateString,
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class QueryIncidentsDto {
   /**
@@ -130,11 +130,11 @@ export class QueryIncidentsDto {
   canBoNhapId?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   fromDateRange?: string; // Ngày đề xuất từ
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   toDateRange?: string; // Ngày đề xuất đến
 
   @IsOptional()

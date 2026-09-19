@@ -1,5 +1,6 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class ExportPetitionsQueryDto {
   /**
@@ -19,11 +20,11 @@ export class ExportPetitionsQueryDto {
   ids?: string; // comma-separated petition ids
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

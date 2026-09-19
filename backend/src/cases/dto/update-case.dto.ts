@@ -3,7 +3,6 @@ import { CreateCaseDto } from './create-case.dto';
 import {
   IsArray,
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsOptional,
   IsString,
@@ -11,10 +10,11 @@ import {
 } from 'class-validator';
 import { KetQuaPhucHoiVuAn, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   @IsOptional()
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
 
   // v0.37.2.6 — TAM_DINH_CHI fields (BLTTHS Điều 229).
@@ -41,7 +41,7 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   soQuyetDinhTamDinhChi?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'ngayTamDinhChi không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'ngayTamDinhChi không đúng định dạng ISO 8601' })
   ngayTamDinhChi?: string;
 
   // v0.37.2.6 — PHUC_HOI fields (rà soát + phục hồi vụ án).
@@ -51,7 +51,7 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
   daRaSoat?: boolean;
 
   @IsOptional()
-  @IsDateString({}, { message: 'ngayRaSoat không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'ngayRaSoat không đúng định dạng ISO 8601' })
   ngayRaSoat?: string;
 
   @IsOptional()
@@ -68,11 +68,11 @@ export class UpdateCaseDto extends PartialType(CreateCaseDto) {
 
   // Field-parity tab "Vụ án TĐC" form cũ — form GỬI khi EDIT, trước thiếu DTO → forbidNonWhitelisted 400.
   @IsOptional()
-  @IsDateString({}, { message: 'ngayPhucHoi không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'ngayPhucHoi không đúng định dạng ISO 8601' })
   ngayPhucHoi?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'ngayHetThoiHieu không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'ngayHetThoiHieu không đúng định dạng ISO 8601' })
   ngayHetThoiHieu?: string;
 
   @IsOptional()

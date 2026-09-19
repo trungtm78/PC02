@@ -11,7 +11,7 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import type { Response, Request } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
@@ -22,12 +22,13 @@ import { TdacExportService } from './tdac-export.service';
 import { CreateDraftDto, AdjustDraftDto, RejectDraftDto } from './dto/create-draft.dto';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import { chonToBaoCao, duocXemBanNhap, phamViTo } from './tdac-pham-vi';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 class QueryTdacDto {
-  @IsDateString()
+  @IsNgayThat()
   fromDate: string;
 
-  @IsDateString()
+  @IsNgayThat()
   toDate: string;
 
   @IsOptional()

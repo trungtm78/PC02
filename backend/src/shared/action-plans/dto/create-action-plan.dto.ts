@@ -1,15 +1,16 @@
-import { IsString, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { TienDoKhacPhuc } from '@prisma/client';
+import { IsNgayThat } from '../../../common/validators/is-ngay-that.validator';
 
 export class CreateActionPlanDto {
-  @IsDateString()
+  @IsNgayThat()
   ngayLap: string;
 
   @IsString()
   bienPhap: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   thoiHan?: string;
 
   @IsOptional()
