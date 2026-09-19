@@ -1,12 +1,12 @@
 import { type ReactNode } from 'react';
 import {
-  LABEL_BASE,
   ICON_INPUT_WRAPPER,
   ICON_INPUT_POSITION,
-  FIELD_ERROR_TEXT,
   getInputClass,
 } from '@/constants/styles';
 import { CurrencyInput } from '../inputs/CurrencyInput';
+import { FieldLabel, FieldError } from './FormField';
+import { useNoiNhanO } from './useNoiNhanO';
 
 interface FormCurrencyProps {
   label: string;
@@ -39,6 +39,8 @@ export function FormCurrency({
 }: FormCurrencyProps) {
   const hasIcon = !!icon;
   const inputClass = getInputClass(!!error, hasIcon);
+  // Nhãn nối với ô + aria bắt buộc/lỗi (trình đọc màn hình).
+  const { id, errorId, aria } = useNoiNhanO(required, error);
 
   const input = (
     <CurrencyInput
@@ -47,14 +49,14 @@ export function FormCurrency({
       className={inputClass}
       placeholder={placeholder}
       data-testid={dataTestId}
+      id={id}
+      {...aria}
     />
   );
 
   return (
     <div className={getColSpanClass(colSpan)}>
-      <label className={LABEL_BASE}>
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
+      <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
           <span className={ICON_INPUT_POSITION}>{icon}</span>
@@ -63,7 +65,7 @@ export function FormCurrency({
       ) : (
         input
       )}
-      {error && <p className={FIELD_ERROR_TEXT} data-testid="field-error">{error}</p>}
+      <FieldError error={error} id={errorId} />
     </div>
   );
 }
