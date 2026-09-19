@@ -119,7 +119,7 @@ const deleteAction: BulkAction<CaseRow> = {
 
 /**
  * v0.49 PR2 — Bulk-restore Cases (admin-only at backend).
- * Frontend permission gate dùng action 'edit' (mock layer); backend gate 'restore'.
+ * Nút hiện theo quyền 'restore:Case' — cùng quyền máy chủ đòi (từ 20/09/2026; trước đó gắn 'edit').
  */
 const restoreAction: BulkAction<CaseRow> = {
   key: 'restore',

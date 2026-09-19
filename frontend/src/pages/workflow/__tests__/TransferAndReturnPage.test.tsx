@@ -66,6 +66,19 @@ function thamSoCuoi(duong: string): URLSearchParams {
 }
 const ds = () => thamSoCuoi('/workflow/chuyen-tra?');
 
+/**
+ * Hồ sơ đăng nhập cho usePermission (đọc authStore → sessionStorage). Mặc định là ĐIỀU PHỐI VIÊN: nút "Chuyển đội"
+ * gọi PATCH /…/assign, máy chủ dùng DispatchGuard — chỉ điều phối viên / quản trị thấy nút (20/09/2026).
+ */
+function dangNhap(canDispatch: boolean) {
+  sessionStorage.setItem('accessToken', 'x.y.z');
+  sessionStorage.setItem(
+    'authProfile',
+    JSON.stringify({ id: 'u1', email: 'a@b', role: 'OFFICER', canDispatch, teams: [], primaryTeam: null }),
+  );
+}
+beforeEach(() => dangNhap(true));
+
 function dung(url = '/workflow/transfer', flags?: FeatureFlag[]) {
   const router = createMemoryRouter([{ path: '/workflow/transfer', element: <TransferAndReturnPage /> }], {
     initialEntries: [url],
@@ -232,5 +245,28 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     const o = await screen.findByTestId('quick-search-input');
     fireEvent.change(o, { target: { value: 'trom' } });
     await waitFor(() => expect(ds().get('search')).toBe('trom'));
+  });
+});
+
+describe('TransferAndReturnPage — nút Chuyển đội theo quyền điều phối', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    traDuLieu();
+  });
+
+  it('cán bộ KHÔNG có quyền điều phối → không thấy nút Chuyển đội (máy chủ sẽ 403)', async () => {
+    dangNhap(false);
+    dung();
+    await screen.findByTestId('chuyen-tra-row-c1');
+    expect(screen.queryByTestId('btn-chuyen-doi')).toBeNull();
+    // Trả hồ sơ là đổi trạng thái — theo quyền sửa, không theo quyền điều phối: vẫn còn.
+    expect(screen.getByTestId('btn-tra-ho-so')).toBeInTheDocument();
+  });
+
+  it('điều phối viên → thấy nút Chuyển đội', async () => {
+    dangNhap(true);
+    dung();
+    await screen.findByTestId('chuyen-tra-row-c1');
+    expect(screen.getByTestId('btn-chuyen-doi')).toBeInTheDocument();
   });
 });

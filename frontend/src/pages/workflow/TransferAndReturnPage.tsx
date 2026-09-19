@@ -37,6 +37,7 @@ import { TIM_KIEM_DON_THU } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
 import { CaseStatus, IncidentStatus } from '@/shared/enums/generated';
+import { usePermission } from '@/hooks/usePermission';
 import {
   CASE_STATUS_LABEL,
   INCIDENT_STATUS_LABEL,
@@ -135,6 +136,9 @@ interface FilterData {
 const BO_LOC_TRONG: FilterData = { quickSearch: '', loai: '', fromDate: '', toDate: '' };
 
 export default function TransferAndReturnPage() {
+  // "Chuyển đội" gọi PATCH /…/assign — máy chủ dùng DispatchGuard (điều phối viên hoặc quản trị). Cán bộ khác thấy nút
+  // rồi nhận 403 (rà mã 20/09/2026) → chỉ hiện với người có quyền điều phối.
+  const { canDispatch } = usePermission();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -391,6 +395,7 @@ export default function TransferAndReturnPage() {
           {loading ? 'Đang tải...' : `Đã chọn ${daChon.length} hồ sơ`}
         </p>
         <div className="flex flex-wrap items-center gap-3">
+          {canDispatch && (
           <button
             type="button"
             data-testid="btn-chuyen-doi"
@@ -400,6 +405,7 @@ export default function TransferAndReturnPage() {
           >
             <ArrowRightLeft className="w-4 h-4" /> Chuyển đội
           </button>
+          )}
           <div className="flex flex-col">
             <button
               type="button"
