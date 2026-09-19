@@ -124,3 +124,32 @@ describe('authStore', () => {
     });
   });
 });
+
+/**
+ * Hồ sơ cũ khi đăng nhập lại (tồn đọng PR #217, 19/09/2026): setTokens không xoá hồ sơ đệm, còn useAuthHydration bỏ qua
+ * khi đã có hồ sơ → đăng nhập tài khoản B trong cùng tab vẫn mang tổ/vai trò/quyền của A tới khi đóng tab.
+ */
+describe('authStore.setTokens — hồ sơ của NGƯỜI KHÁC không được giữ lại', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('token của người khác → xoá hồ sơ đệm (để nạp lại đúng người)', () => {
+    authStore.setProfile(SAMPLE_PROFILE); // hồ sơ của u1
+    authStore.setTokens(fakeJwt({ sub: 'u2', email: 'b@b.com', role: 'OFFICER' }), 'R');
+    expect(authStore.getProfile()).toBeNull();
+  });
+
+  it('làm mới token của CÙNG người → giữ hồ sơ (không nạp lại thừa)', () => {
+    authStore.setProfile(SAMPLE_PROFILE);
+    authStore.setTokens(fakeJwt({ sub: 'u1', email: 'a@b.com', role: 'OFFICER' }), 'R');
+    expect(authStore.getProfile()?.id).toBe('u1');
+  });
+
+  it('token không đọc được → xoá hồ sơ (an toàn hơn giữ nhầm người)', () => {
+    authStore.setProfile(SAMPLE_PROFILE);
+    authStore.setTokens('khong-phai-jwt', 'R');
+    expect(authStore.getProfile()).toBeNull();
+  });
+});

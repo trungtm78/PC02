@@ -45,7 +45,7 @@ const INITIAL_FORM: FormData = { code: "", name: "", order: 0 };
 
 export default function MasterClassPage() {
   const { canEdit } = usePermission();
-  const canEditRow = canEdit('settings');
+  const canEditRow = canEdit('directories');
   const [selectedType, setSelectedType] = useState(MASTER_CLASS_TYPE_LIST[0].code);
   const [entries, setEntries] = useState<MasterClassEntry[]>([]);
   /** Tổng máy chủ báo cho loại đang xem — lớn hơn số dòng đã tải là đang CẮT CỤT. */

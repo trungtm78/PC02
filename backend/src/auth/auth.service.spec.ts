@@ -658,6 +658,30 @@ describe('AuthService.getProfile', () => {
     };
   }
 
+  // 19/09/2026: giao diện ẩn/hiện nút theo QUYỀN THẬT của vai trò (trước đó MOCK_ALL_PERMISSIONS cho mọi người mọi
+  // quyền → cán bộ thấy nút rồi bấm mới nhận 403). Hồ sơ trả đúng danh sách 'action:subject' của vai trò, khớp
+  // PermissionsGuard (không ưu tiên riêng ADMIN — quản trị có đủ quyền qua bảng role_permissions).
+  it('trả quyền THẬT của vai trò dạng action:subject', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...userFixture(),
+      role: {
+        name: 'OFFICER',
+        permissions: [
+          { permission: { action: 'read', subject: 'Case' } },
+          { permission: { action: 'edit', subject: 'Petition' } },
+        ],
+      },
+    });
+    const profile = await service.getProfile('u1');
+    expect(profile.permissions).toEqual(['read:Case', 'edit:Petition']);
+    const arg = mockPrisma.user.findUnique.mock.calls[0][0] as {
+      include: { role: unknown };
+    };
+    expect(arg.include.role).toEqual({
+      include: { permissions: { include: { permission: true } } },
+    });
+  });
+
   it('returns leader team as primaryTeam when user has a leader role', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       userFixture({

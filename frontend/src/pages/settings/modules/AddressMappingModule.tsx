@@ -67,7 +67,7 @@ const TERMINAL_STATUSES: SeedJobStatus[] = ['completed', 'failed', 'cancelled'];
 
 export function AddressMappingModule() {
   const { canEdit } = usePermission();
-  const canEditRow = canEdit('settings');
+  const canEditRow = canEdit('directories');
   const [items, setItems] = useState<AddressMapping[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
