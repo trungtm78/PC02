@@ -20,6 +20,8 @@ import { TdacService } from './tdac.service';
 import { TdacDraftService } from './tdac-draft.service';
 import { TdacExportService } from './tdac-export.service';
 import { CreateDraftDto, AdjustDraftDto, RejectDraftDto } from './dto/create-draft.dto';
+import type { DataScope } from '../../auth/services/unit-scope.service';
+import { chonToBaoCao, duocXemBanNhap, phamViTo } from './tdac-pham-vi';
 
 class QueryTdacDto {
   @IsDateString()
@@ -34,11 +36,9 @@ class QueryTdacDto {
 }
 
 interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    canDispatch?: boolean;
-    teamIds?: string[];
-  };
+  user: { id: string };
+  /** Phạm vi dữ liệu do DataScopeInterceptor nạp từ CSDL (null = quản trị). */
+  dataScope?: DataScope | null;
 }
 
 @Controller('reports/tdac')
@@ -81,23 +81,30 @@ export class TdacController {
   @Post('drafts')
   @RequirePermissions({ action: 'write', subject: 'Report' })
   async createDraft(@Body() dto: CreateDraftDto, @Req() req: AuthenticatedRequest) {
-    this.validateTeamIdsAccess(dto.teamIds, req);
-    return this.draftService.create(dto, req.user.id);
+    const teamIds = chonToBaoCao(
+      dto.teamIds ?? [],
+      phamViTo(req.dataScope, 'write'),
+      'write',
+    );
+    return this.draftService.create({ ...dto, teamIds }, req.user.id);
   }
 
   @Get('drafts')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   async listDrafts(
+    @Req() req: AuthenticatedRequest,
     @Query('loaiBaoCao') loaiBaoCao?: string,
     @Query('status') status?: string,
   ) {
-    return this.draftService.findAll({ loaiBaoCao, status });
+    const phamVi = phamViTo(req.dataScope, 'read');
+    const ds = await this.draftService.findAll({ loaiBaoCao, status });
+    return ds.filter((d) => duocXemBanNhap(d, req.user.id, phamVi));
   }
 
   @Get('drafts/:id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  async getDraft(@Param('id') id: string) {
-    return this.draftService.findOne(id);
+  async getDraft(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return this.layBanNhap(id, req, 'read');
   }
 
   @Patch('drafts/:id')
@@ -107,6 +114,7 @@ export class TdacController {
     @Body() dto: AdjustDraftDto,
     @Req() req: AuthenticatedRequest,
   ) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.update(id, dto, req.user.id);
   }
 
@@ -117,12 +125,14 @@ export class TdacController {
   @Post('drafts/:id/submit-review')
   @RequirePermissions({ action: 'write', subject: 'Report' })
   async submitReview(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.submitReview(id, req.user.id);
   }
 
   @Post('drafts/:id/approve')
   @RequirePermissions({ action: 'approve', subject: 'Report' })
   async approve(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.approve(id, req.user.id);
   }
 
@@ -133,18 +143,21 @@ export class TdacController {
     @Body() dto: RejectDraftDto,
     @Req() req: AuthenticatedRequest,
   ) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.reject(id, req.user.id, dto.reason);
   }
 
   @Post('drafts/:id/reopen')
   @RequirePermissions({ action: 'write', subject: 'Report' })
   async reopen(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.reopen(id, req.user.id);
   }
 
   @Post('drafts/:id/finalize')
   @RequirePermissions({ action: 'approve', subject: 'Report' })
   async finalize(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.layBanNhap(id, req, 'write');
     return this.draftService.finalize(id, req.user.id);
   }
 
@@ -156,9 +169,10 @@ export class TdacController {
   @RequirePermissions({ action: 'read', subject: 'Case' })
   async exportDraft(
     @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ) {
-    const draft = await this.draftService.findOne(id);
+    const draft = await this.layBanNhap(id, req, 'read');
     return this.exportService.export(draft, res);
   }
 
@@ -167,29 +181,25 @@ export class TdacController {
   // ─────────────────────────────────────────────
 
   private parseTeamIds(teamIdsRaw: string | undefined, req: AuthenticatedRequest): string[] {
-    const requestedIds = teamIdsRaw
+    const yeuCau = teamIdsRaw
       ? teamIdsRaw
           .split(',')
-          .map(s => s.trim())
+          .map((x) => x.trim())
           .filter(Boolean)
       : [];
-
-    this.validateTeamIdsAccess(requestedIds, req);
-    return requestedIds;
+    return chonToBaoCao(yeuCau, phamViTo(req.dataScope, 'read'));
   }
 
-  private validateTeamIdsAccess(teamIds: string[], req: AuthenticatedRequest): void {
-    // canDispatch = admin/dispatch officer — bypass scope check
-    if (req.user?.canDispatch) return;
-
-    const allowedTeamIds: string[] = req.user?.teamIds ?? [];
-    if (allowedTeamIds.length === 0) return; // no restriction if no team scope
-
-    const forbidden = teamIds.filter(id => !allowedTeamIds.includes(id));
-    if (forbidden.length > 0) {
-      throw new ForbiddenException(
-        `You do not have access to team(s): ${forbidden.join(', ')}`,
-      );
+  /** Bản nháp ngoài phạm vi → 403 (đọc: tổ đọc được; ghi/chuyển trạng thái: tổ ghi được). */
+  private async layBanNhap(
+    id: string,
+    req: AuthenticatedRequest,
+    thaoTac: 'read' | 'write',
+  ) {
+    const draft = await this.draftService.findOne(id);
+    if (!duocXemBanNhap(draft, req.user.id, phamViTo(req.dataScope, thaoTac))) {
+      throw new ForbiddenException('Bạn không có quyền với bản báo cáo này');
     }
+    return draft;
   }
 }

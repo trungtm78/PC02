@@ -57,13 +57,21 @@ function makeReq(overrides: Partial<{
   canDispatch: boolean;
   teamIds: string[];
 }> = {}) {
+  // Phạm vi đọc từ req.dataScope (interceptor) từ 19/09/2026. Ca khai tổ / điều phối → có phạm vi; không khai →
+  // như quản trị (không giới hạn), giữ nghĩa cũ của các ca sẵn có.
+  const { id = USER_ID, canDispatch = false, teamIds = [] } = overrides;
+  const coPhamVi = canDispatch || teamIds.length > 0;
   return {
-    user: {
-      id: USER_ID,
-      canDispatch: false,
-      teamIds: [],
-      ...overrides,
-    },
+    user: { id },
+    dataScope: coPhamVi
+      ? {
+          teamIds,
+          writableTeamIds: teamIds,
+          userIds: [id],
+          writableUserIds: [id],
+          canDispatch,
+        }
+      : null,
   } as any;
 }
 
@@ -309,7 +317,7 @@ describe('TdacController', () => {
       const drafts = [makeDraft()];
       mockDraftService.findAll.mockResolvedValue(drafts);
 
-      const result = await controller.listDrafts('VU_AN', 'DRAFT');
+      const result = await controller.listDrafts(makeReq(), 'VU_AN', 'DRAFT');
 
       expect(mockDraftService.findAll).toHaveBeenCalledWith({ loaiBaoCao: 'VU_AN', status: 'DRAFT' });
       expect(result).toEqual(drafts);
@@ -318,7 +326,7 @@ describe('TdacController', () => {
     it('passes undefined filters when no query params provided', async () => {
       mockDraftService.findAll.mockResolvedValue([]);
 
-      await controller.listDrafts(undefined, undefined);
+      await controller.listDrafts(makeReq(), undefined, undefined);
 
       expect(mockDraftService.findAll).toHaveBeenCalledWith({ loaiBaoCao: undefined, status: undefined });
     });
@@ -384,5 +392,107 @@ describe('TdacController', () => {
       expect(mockDraftService.reopen).toHaveBeenCalledWith(DRAFT_ID, USER_ID);
       expect(result.status).toBe('DRAFT');
     });
+  });
+});
+
+/**
+ * Soát IDOR 19/09/2026 — phạm vi theo tổ đọc từ `req.dataScope` (interceptor), KHÔNG từ JWT.
+ * Trước bản vá: cán bộ (read:Case) liệt kê/mở/xuất MỌI bản nháp; không gửi teamIds = báo cáo TOÀN đơn vị.
+ */
+describe('TdacController — phạm vi theo tổ', () => {
+  let controller: TdacController;
+  const phamViCanBo = {
+    teamIds: ['t1', 't2'],
+    userIds: [USER_ID],
+    writableTeamIds: ['t1'],
+    writableUserIds: [USER_ID],
+    canDispatch: false,
+  };
+  const reqCanBo = () =>
+    ({ user: { id: USER_ID }, dataScope: phamViCanBo }) as any;
+  const banNhapTo = (teamIds: string[], createdById = 'nguoi-khac') =>
+    ({ ...makeDraft(), teamIds, createdById }) as any;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [TdacController],
+      providers: [
+        { provide: TdacService, useValue: mockTdacService },
+        { provide: TdacDraftService, useValue: mockDraftService },
+        { provide: TdacExportService, useValue: mockExportService },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionsGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
+    controller = module.get<TdacController>(TdacController);
+    jest.resetAllMocks();
+  });
+
+  it('tính báo cáo, cán bộ không gửi tổ → các tổ của mình, không phải toàn đơn vị', async () => {
+    await controller.getVuAn(
+      { fromDate: '2026-01-01', toDate: '2026-06-30' } as any,
+      reqCanBo(),
+    );
+    expect(mockTdacService.computeTdcVuAn).toHaveBeenCalledWith(
+      expect.any(Date),
+      expect.any(Date),
+      ['t1', 't2'],
+    );
+  });
+
+  it('tính báo cáo, cán bộ xin tổ ngoài phạm vi → 403', async () => {
+    await expect(
+      controller.getVuViec(
+        { fromDate: '2026-01-01', toDate: '2026-06-30', teamIds: 't9' } as any,
+        reqCanBo(),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockTdacService.computeTdcVuViec).not.toHaveBeenCalled();
+  });
+
+  it('danh sách bản nháp chỉ gồm bản trong phạm vi hoặc do mình tạo', async () => {
+    mockDraftService.findAll.mockResolvedValue([
+      banNhapTo(['t1']),
+      banNhapTo(['t9']),
+      banNhapTo([]),
+      banNhapTo(['t9'], USER_ID),
+    ]);
+    const kq = (await controller.listDrafts(reqCanBo())) as Array<{
+      teamIds: string[];
+      createdById: string;
+    }>;
+    expect(kq.map((d) => [d.teamIds.join(','), d.createdById])).toEqual([
+      ['t1', 'nguoi-khac'],
+      ['t9', USER_ID],
+    ]);
+  });
+
+  it('mở / xuất bản nháp tổ khác → 403, không xuất', async () => {
+    mockDraftService.findOne.mockResolvedValue(banNhapTo(['t9']));
+    await expect(controller.getDraft(DRAFT_ID, reqCanBo())).rejects.toThrow(
+      ForbiddenException,
+    );
+    await expect(
+      controller.exportDraft(DRAFT_ID, reqCanBo(), {} as any),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockExportService.export).not.toHaveBeenCalled();
+  });
+
+  it('sửa bản nháp của tổ chỉ ĐỌC được (không ghi được) → 403, không sửa', async () => {
+    mockDraftService.findOne.mockResolvedValue(banNhapTo(['t2']));
+    await expect(
+      controller.updateDraft(DRAFT_ID, {} as any, reqCanBo()),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockDraftService.update).not.toHaveBeenCalled();
+  });
+
+  it('bản nháp trong tổ ghi được → sửa được', async () => {
+    mockDraftService.findOne.mockResolvedValue(banNhapTo(['t1']));
+    mockDraftService.update.mockResolvedValue(banNhapTo(['t1']));
+    await controller.updateDraft(DRAFT_ID, {} as any, reqCanBo());
+    expect(mockDraftService.update).toHaveBeenCalled();
   });
 });
