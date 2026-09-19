@@ -59,6 +59,7 @@ const ADMIN_PROFILE: AuthUser = {
   lastName: 'Trị',
   role: 'ADMIN',
   canDispatch: true,
+  permissions: ['restore:Case', 'restore:Incident', 'restore:Petition'],
   teams: [],
   primaryTeam: null,
 };
@@ -68,6 +69,7 @@ const OFFICER_PROFILE: AuthUser = {
   id: 'u2',
   username: 'officer',
   role: 'OFFICER',
+  permissions: ['read:Case'],
 };
 
 async function renderPage() {
@@ -151,12 +153,52 @@ describe('RestorePage v0.32.0.0', () => {
     expect(screen.queryByText('Vụ án đã xóa test')).not.toBeInTheDocument();
   });
 
-  it('FE-R4: non-admin user sees block message, no API call', async () => {
+  it('FE-R4: không có quyền restore nào → chặn, không gọi API', async () => {
     authStore.setProfile(OFFICER_PROFILE);
     const { api } = await import('@/lib/api');
     await renderPage();
     expect(screen.getByTestId('restore-non-admin-block')).toBeInTheDocument();
     expect(screen.queryByTestId('restore-page')).not.toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 20/09/2026: trang theo QUYỀN THẬT `restore:<Subject>` (cùng nguồn PermissionsGuard), không theo tên vai trò. Trước
+   * đó vai trò khác ADMIN được cấp quyền khôi phục vẫn bị chặn, còn ADMIN bị gỡ quyền vẫn thấy trang rồi nhận 403.
+   */
+  it('FE-R5: cán bộ được cấp restore:Case → vào được, chỉ thấy tab Vụ án', async () => {
+    authStore.setProfile({ ...OFFICER_PROFILE, permissions: ['restore:Case'] });
+    await renderPage();
+    expect(screen.getByTestId('restore-page')).toBeInTheDocument();
+    expect(screen.getByTestId('tab-cases')).toBeInTheDocument();
+    expect(screen.queryByTestId('tab-incidents')).toBeNull();
+    expect(screen.queryByTestId('tab-petitions')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Vụ án đã xóa test')).toBeInTheDocument(), { timeout: 5000 });
+  });
+
+  it('FE-R6: vai trò ADMIN nhưng không có quyền restore → chặn (vai trò không phải nguồn quyền)', async () => {
+    authStore.setProfile({ ...ADMIN_PROFILE, permissions: ['read:Case'] });
+    await renderPage();
+    expect(screen.getByTestId('restore-non-admin-block')).toBeInTheDocument();
+  });
+
+  it('FE-R8: mới có token, hồ sơ chưa nạp → không gọi danh sách (tránh 403 thừa + phản hồi cũ đè tab)', async () => {
+    const b64 = (x: string) => btoa(x).replace(/=+$/, '');
+    authStore.setTokens(`${b64('{"alg":"RS256"}')}.${b64('{"sub":"u2","role":"OFFICER"}')}.sig`, 'R');
+    const { api } = await import('@/lib/api');
+    await renderPage();
+    expect(screen.getByTestId('restore-unknown-profile')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it('FE-R7: chỉ có restore:Petition → mở thẳng tab Đơn thư', async () => {
+    authStore.setProfile({ ...OFFICER_PROFILE, permissions: ['restore:Petition'] });
+    const { api } = await import('@/lib/api');
+    await renderPage();
+    expect(screen.getByTestId('tab-petitions')).toBeInTheDocument();
+    expect(screen.queryByTestId('tab-cases')).toBeNull();
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    for (const [url] of vi.mocked(api.get).mock.calls) expect(String(url)).not.toMatch(/^\/cases/);
   });
 });

@@ -80,7 +80,8 @@ describe('Khôi phục dữ liệu — lý do từ chối', () => {
   });
 
   it('biết tài khoản và KHÔNG phải admin → vẫn nói đúng là thiếu quyền', () => {
-    layHoSo.mockReturnValue({ role: 'OFFICER' });
+    // Hồ sơ /auth/me luôn kèm danh sách quyền (#435); trang xét quyền restore:<Subject>, không xét tên vai trò.
+    layHoSo.mockReturnValue({ role: 'OFFICER', permissions: ['read:Case'] });
     bao(<RestorePage />);
     expect(screen.getByTestId('restore-non-admin-block')).toBeInTheDocument();
     expect(screen.queryByTestId('restore-unknown-profile')).not.toBeInTheDocument();
