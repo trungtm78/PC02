@@ -313,6 +313,8 @@ export class ReportsController {
 
   // GET /api/v1/reports/monthly/export
   @Get('monthly/export')
+  // Cùng quyền với màn Báo cáo tháng — trước 20/09/2026 quên khai → ai đăng nhập cũng tải được tệp.
+  @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportMonthly(@Query() query: QueryMonthlyDto, @Res() res: Response) {
     kiemTraTuyChonKy(query, 'thang');
@@ -329,6 +331,7 @@ export class ReportsController {
 
   // GET /api/v1/reports/quarterly/export
   @Get('quarterly/export')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
     kiemTraTuyChonKy(query, 'quy');
@@ -344,6 +347,7 @@ export class ReportsController {
 
   // GET /api/v1/reports/stat48?fromDate=&toDate=&unit=&format=
   @Get('stat48')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   async getStat48(@Query() query: Stat48QueryDto, @Res() res: Response) {
     const data = await this.reportsService.getStat48(
