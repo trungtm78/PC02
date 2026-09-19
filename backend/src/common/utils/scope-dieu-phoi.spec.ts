@@ -22,6 +22,7 @@ const DIEU_PHOI = {
   userIds: ['u1'],
   teamIds: ['t-cua-minh', 't-chi-xem'],
   writableTeamIds: ['t-cua-minh'],
+  writableUserIds: ['u1'],
   canDispatch: true,
 };
 const THUONG = { ...DIEU_PHOI, canDispatch: false };
@@ -107,6 +108,42 @@ describe('assert*InScope — điều phối viên chỉ được bỏ qua phạm
   it('hồ sơ cha rỗng (mồ côi): đọc được với điều phối viên, ghi bị chặn', () => {
     expect(() => assertParentInScope(null, DIEU_PHOI, 'read')).not.toThrow();
     expect(() => assertParentInScope(null, DIEU_PHOI, 'write')).toThrow(
+      ForbiddenException,
+    );
+  });
+});
+
+/** Rà độc lập 19/09/2026 — quyền XEM một tổ không được thành quyền GHI qua người phụ trách hồ sơ. */
+describe('người phụ trách thuộc tổ CHỈ-XEM', () => {
+  const XEM_TO_X = {
+    userIds: ['u1', 'b-to-x'],
+    teamIds: ['t-minh', 't-x'],
+    writableTeamIds: ['t-minh'],
+    writableUserIds: ['u1'],
+  };
+  const HO_SO_TO_X = { investigatorId: 'b-to-x', assignedTeamId: 't-x' };
+
+  it('đọc được, GHI bị chặn (assertParentInScope)', () => {
+    expect(() =>
+      assertParentInScope(HO_SO_TO_X, XEM_TO_X, 'read'),
+    ).not.toThrow();
+    expect(() => assertParentInScope(HO_SO_TO_X, XEM_TO_X, 'write')).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('bộ lọc GHI không chứa người của tổ chỉ-xem', () => {
+    expect(JSON.stringify(buildScopeFilter(XEM_TO_X, 'write'))).not.toContain(
+      'b-to-x',
+    );
+    expect(JSON.stringify(buildScopeFilter(XEM_TO_X))).toContain('b-to-x');
+  });
+
+  it('người tạo thuộc tổ chỉ-xem: ghi bị chặn (assertCreatorInScope)', () => {
+    expect(() =>
+      assertCreatorInScope('b-to-x', XEM_TO_X, 'read'),
+    ).not.toThrow();
+    expect(() => assertCreatorInScope('b-to-x', XEM_TO_X, 'write')).toThrow(
       ForbiddenException,
     );
   });

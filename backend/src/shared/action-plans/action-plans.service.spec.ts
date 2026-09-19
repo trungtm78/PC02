@@ -50,12 +50,14 @@ const scopeTeamA: DataScope = {
   userIds: ['user-1'],
   teamIds: ['team-A'],
   writableTeamIds: ['team-A'],
+  writableUserIds: ['user-1'],
   canDispatch: false,
 };
 const scopeTeamB: DataScope = {
   userIds: ['user-2'],
   teamIds: ['team-B'],
   writableTeamIds: ['team-B'],
+  writableUserIds: ['user-2'],
   canDispatch: false,
 };
 

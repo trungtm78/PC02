@@ -23,7 +23,12 @@ const mockPrisma = {
   },
 };
 
-const PHAM_VI = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
+const PHAM_VI = {
+  userIds: ['u1'],
+  teamIds: ['t1'],
+  writableTeamIds: [],
+  writableUserIds: ['u1'],
+};
 
 /**
  * Màn Vụ án phường/xã (17/09/2026) chuyển tìm, lọc, phân trang xuống máy chủ. Trước đó màn tải 100 vụ

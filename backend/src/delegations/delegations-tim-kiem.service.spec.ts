@@ -69,6 +69,7 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
       userIds: ['u1'],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: ['u1'],
     });
     const where = whereList();
     expect(where.OR).toBeUndefined();
@@ -85,6 +86,7 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
         userIds: ['u1'],
         teamIds: ['t1'],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: true,
       } as never,
     );
@@ -94,6 +96,7 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     expect(JSON.stringify(whereList().AND)).toContain(
       '{"relatedCase":null,"createdById":{"not":null}}',
@@ -146,6 +149,7 @@ describe('DelegationsService — tìm kiếm dạng thẻ + thống kê phía m�
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     const call = mockPrisma.delegation.findMany.mock.calls[0][0];
     expect(JSON.stringify(call.where.AND)).toContain(

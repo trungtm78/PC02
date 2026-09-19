@@ -656,10 +656,18 @@ export class CasesService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds } = dataScope;
+    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
+    const {
+      writableUserIds: userIds,
+      writableTeamIds,
+      isWardOfficer,
+    } = dataScope;
     const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    // Cán bộ phường không ghi hồ sơ chưa giao tổ — khớp bộ lọc ghi dùng chung và checkWriteScope của đơn thư
+    // (trước 19/09/2026 sửa/xoá lẻ được, xoá hàng loạt thì bị chặn).
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -1007,8 +1015,10 @@ export class CasesService {
       const petitionScopeOR: Prisma.PetitionWhereInput[] = [];
       // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
       if (dataScope) {
-        if (dataScope.userIds.length > 0) {
-          petitionScopeOR.push({ enteredById: { in: dataScope.userIds } });
+        if (dataScope.writableUserIds.length > 0) {
+          petitionScopeOR.push({
+            enteredById: { in: dataScope.writableUserIds },
+          });
         }
         if (dataScope.writableTeamIds.length > 0) {
           petitionScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -1105,8 +1115,10 @@ export class CasesService {
       const incidentScopeOR: Prisma.IncidentWhereInput[] = [];
       // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
       if (dataScope) {
-        if (dataScope.userIds.length > 0) {
-          incidentScopeOR.push({ investigatorId: { in: dataScope.userIds } });
+        if (dataScope.writableUserIds.length > 0) {
+          incidentScopeOR.push({
+            investigatorId: { in: dataScope.writableUserIds },
+          });
         }
         if (dataScope.writableTeamIds.length > 0) {
           incidentScopeOR.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -2105,7 +2117,10 @@ export class CasesService {
     userId: string,
     dataScope?: DataScope | null,
   ) {
-    const caseRecord = await this.prisma.case.findUnique({ where: { id } });
+    // Bỏ qua vụ án đã xoá mềm (trước đây sửa được cả vụ án trong thùng rác).
+    const caseRecord = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!caseRecord) throw new NotFoundException('Case not found');
     // Trước 19/09/2026 không kiểm phạm vi: có quyền `write Case` là sửa lý do TĐC của MỌI vụ án.
     this.checkWriteScope(caseRecord, dataScope);

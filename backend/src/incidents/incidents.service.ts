@@ -370,8 +370,10 @@ export class IncidentsService {
     // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
     if (dataScope) {
       const orConditions: Prisma.IncidentWhereInput[] = [];
-      if (dataScope.userIds.length > 0) {
-        orConditions.push({ investigatorId: { in: dataScope.userIds } });
+      if (dataScope.writableUserIds.length > 0) {
+        orConditions.push({
+          investigatorId: { in: dataScope.writableUserIds },
+        });
       }
       if (dataScope.writableTeamIds.length > 0) {
         orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -417,10 +419,18 @@ export class IncidentsService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds } = dataScope;
+    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
+    const {
+      writableUserIds: userIds,
+      writableTeamIds,
+      isWardOfficer,
+    } = dataScope;
     const ownerMatch = record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0;
+    // Cán bộ phường không ghi hồ sơ chưa giao tổ — khớp bộ lọc ghi dùng chung và checkWriteScope của đơn thư
+    // (trước 19/09/2026 sửa/xoá lẻ được, xoá hàng loạt thì bị chặn).
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
@@ -1171,6 +1181,8 @@ export class IncidentsService {
     if (!source) throw new NotFoundException(`Vụ việc nguồn không tồn tại (id: ${id})`);
     if (!target) throw new NotFoundException(`Vụ việc đích không tồn tại (id: ${dto.targetId})`);
     this.checkWriteScope(source, dataScope);
+    // Gộp GHI lên cả vụ việc đích (nhận đơn thư, tài liệu nối sang) — trước 19/09/2026 chỉ kiểm nguồn.
+    this.checkWriteScope(target, dataScope);
 
     if (source.status === IncidentStatus.DA_NHAP_VU_KHAC) {
       throw new BadRequestException('Vụ việc này đã được nhập vào vụ khác');

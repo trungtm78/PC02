@@ -31,11 +31,21 @@ function dieuPhoiBoQua(scope: DataScope, op: ThaoTacPhamVi): boolean {
   return !!scope.canDispatch && op !== 'write';
 }
 
-/** Tổ dùng để lọc: đọc theo `teamIds`; ghi và phân công (khi không được bỏ qua) theo `writableTeamIds`. */
-function toTheoThaoTac(scope: DataScope, op: ThaoTacPhamVi): string[] {
+/**
+ * Tổ và người dùng để lọc: đọc theo `teamIds` / `userIds`; ghi và phân công (khi không được bỏ qua) theo
+ * `writableTeamIds` / `writableUserIds`. `userIds` gồm cả thành viên tổ chỉ được cấp quyền XEM — so thao tác ghi
+ * theo nó là quyền xem thành quyền ghi. Thiếu trường ghi → rỗng (dự phòng ĐÓNG, không lùi về phạm vi đọc).
+ */
+function phamViTheoThaoTac(
+  scope: DataScope,
+  op: ThaoTacPhamVi,
+): { teamIds: string[]; userIds: string[] } {
   return op === 'read'
-    ? scope.teamIds
-    : (scope.writableTeamIds ?? scope.teamIds);
+    ? { teamIds: scope.teamIds, userIds: scope.userIds }
+    : {
+        teamIds: scope.writableTeamIds ?? [],
+        userIds: scope.writableUserIds ?? [],
+      };
 }
 
 /**
@@ -54,10 +64,10 @@ export function buildScopeFilter(
   if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
-  const teamIds = toTheoThaoTac(scope, op);
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
 
-  if (scope.userIds.length > 0) {
-    conditions.push({ investigatorId: { in: scope.userIds } });
+  if (userIds.length > 0) {
+    conditions.push({ investigatorId: { in: userIds } });
   }
 
   if (teamIds.length > 0) {
@@ -90,10 +100,10 @@ export function buildPetitionScopeFilter(
   if (dieuPhoiBoQua(scope, op)) return null;
 
   const conditions: Record<string, unknown>[] = [];
-  const teamIds = toTheoThaoTac(scope, op);
+  const { teamIds, userIds } = phamViTheoThaoTac(scope, op);
 
-  if (scope.userIds.length > 0) {
-    conditions.push({ enteredById: { in: scope.userIds } });
+  if (userIds.length > 0) {
+    conditions.push({ enteredById: { in: userIds } });
   }
 
   if (teamIds.length > 0) {
@@ -133,8 +143,10 @@ export function assertParentInScope(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
   // v0.33.0.0 codex HIGH 5: ward officer KHÔNG được pass unassigned parent (same logic as buildScopeFilter)
@@ -168,8 +180,10 @@ export function assertPetitionParentInScope(
       operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
     );
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const ownerMatch = parent.enteredById ? userIds.includes(parent.enteredById) : false;
   const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
   const isWardOfficer = (scope as any).isWardOfficer === true;
@@ -201,8 +215,10 @@ export function assertCreatorInScope(
   if (!createdById) {
     throw new ForbiddenException(FORBIDDEN_MSG);
   }
-  const { userIds, teamIds, writableTeamIds } = scope;
-  const effectiveTeamIds = operation === 'write' ? (writableTeamIds ?? teamIds) : teamIds;
+  const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
+    scope,
+    operation,
+  );
   const isDenyAll = userIds.length === 0 && effectiveTeamIds.length === 0;
   if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
     recordDenial('creator');

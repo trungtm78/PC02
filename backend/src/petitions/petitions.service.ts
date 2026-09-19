@@ -391,8 +391,8 @@ export class PetitionsService {
     // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
     if (dataScope) {
       const orConditions: Prisma.PetitionWhereInput[] = [];
-      if (dataScope.userIds.length > 0) {
-        orConditions.push({ enteredById: { in: dataScope.userIds } });
+      if (dataScope.writableUserIds.length > 0) {
+        orConditions.push({ enteredById: { in: dataScope.writableUserIds } });
       }
       if (dataScope.writableTeamIds.length > 0) {
         orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
@@ -453,7 +453,12 @@ export class PetitionsService {
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return;
-    const { userIds, writableTeamIds, isWardOfficer } = dataScope;
+    // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
+    const {
+      writableUserIds: userIds,
+      writableTeamIds,
+      isWardOfficer,
+    } = dataScope;
     const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
     const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
     // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.

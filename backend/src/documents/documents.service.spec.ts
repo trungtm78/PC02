@@ -193,7 +193,12 @@ describe('DocumentsService', () => {
       mockPrismaService.document.findMany.mockResolvedValue([]);
       mockPrismaService.document.count.mockResolvedValue(0);
 
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      };
 
       await service.getList({}, scope as any);
 
@@ -224,6 +229,7 @@ describe('DocumentsService', () => {
         userIds: ['u1'],
         teamIds: ['t1'],
         writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
       };
       await service.getList({ search: 'bien ban' }, scope as never);
 
@@ -312,7 +318,12 @@ describe('DocumentsService', () => {
         case: { assignedTeamId: 'team-X', investigatorId: 'user-X' },
         incident: null,
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      };
       await expect(service.getById('doc-1', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
@@ -327,7 +338,12 @@ describe('DocumentsService', () => {
         incident: null,
         uploadedBy: { id: 'user-X', fullName: 'Original Uploader', username: 'uploader' },
       });
-      const scope = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      const scope = {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      };
       await expect(service.getById('orphan-doc-1', scope)).rejects.toThrow(
         'Bạn không có quyền truy cập bản ghi này',
       );
@@ -351,7 +367,12 @@ describe('DocumentsService', () => {
         case: null,
         incident: { assignedTeamId: 't1', investigatorId: null },
       });
-      const scope = { userIds: [], teamIds: ['t1'], writableTeamIds: ['t1'] };
+      const scope = {
+        userIds: [],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: [],
+      };
       const result = await service.getById('doc-1', scope);
       expect(result.success).toBe(true);
     });
@@ -482,6 +503,7 @@ describe('DocumentsService', () => {
           userIds: ['user-1'],
           teamIds: ['team-A'],
           writableTeamIds: ['team-A'],
+          writableUserIds: ['user-1'],
         };
 
         await expect(
@@ -541,7 +563,12 @@ describe('DocumentsService', () => {
           petition: { id: 'petition-1', stt: 'DT-2026-00001' },
           uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
         });
-        const scope = { userIds: ['user-1'], teamIds: ['team-A'], writableTeamIds: ['team-A'] };
+        const scope = {
+          userIds: ['user-1'],
+          teamIds: ['team-A'],
+          writableTeamIds: ['team-A'],
+          writableUserIds: ['user-1'],
+        };
 
         const result = await service.create(petitionDto, 'user-1', undefined, scope as any);
 

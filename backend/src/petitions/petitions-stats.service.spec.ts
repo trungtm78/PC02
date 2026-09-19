@@ -221,7 +221,12 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
     mockPrisma.petition.groupBy.mockResolvedValue([]);
     await service.getStats(
       {},
-      { userIds: ['user-001'], teamIds: ['team-a'], writableTeamIds: [] },
+      {
+        userIds: ['user-001'],
+        teamIds: ['team-a'],
+        writableTeamIds: [],
+        writableUserIds: ['user-001'],
+      },
     );
     const whereArg = mockPrisma.petition.groupBy.mock.calls[0][0].where;
     expect(whereArg.AND).toBeDefined();

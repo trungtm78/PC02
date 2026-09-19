@@ -203,7 +203,12 @@ describe('PetitionsController — delegation', () => {
     // Phạm vi dữ liệu PHẢI xuống service — trước 19/09/2026 không chuyển, service không kiểm được gì.
     const nguoi = mockUser as AuthUser;
     const req = makeReq({
-      dataScope: { userIds: ['u1'], teamIds: [], writableTeamIds: [] },
+      dataScope: {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      },
     }) as ScopedRequest;
     await controller.removeAssignment('petition-001', 'user-001', nguoi, req);
     expect(mockService.removeAssignment).toHaveBeenCalledWith(

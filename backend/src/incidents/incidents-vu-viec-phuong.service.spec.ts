@@ -23,7 +23,12 @@ const mockPrisma = {
   },
 };
 
-const PHAM_VI = { userIds: ['u1'], teamIds: ['t1'], writableTeamIds: [] };
+const PHAM_VI = {
+  userIds: ['u1'],
+  teamIds: ['t1'],
+  writableTeamIds: [],
+  writableUserIds: ['u1'],
+};
 
 const kyMacDinh = {
   ky: 'TAT_CA',

@@ -94,6 +94,7 @@ describe('CasesService — một nguồn điều kiện lọc cho danh sách, th
       teamIds: ['to-1'],
       userIds: ['u-1'],
       writableTeamIds: ['to-1'],
+      writableUserIds: ['u-1'],
     };
     await service.getList(
       { ...boLoc, status: CaseStatus.DANG_DIEU_TRA } as never,

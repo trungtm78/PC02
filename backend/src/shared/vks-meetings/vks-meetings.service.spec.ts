@@ -21,6 +21,7 @@ const scopeTeamA: DataScope = {
   userIds: ['user-1'],
   teamIds: ['team-A'],
   writableTeamIds: ['team-A'],
+  writableUserIds: ['user-1'],
   canDispatch: false,
 };
 

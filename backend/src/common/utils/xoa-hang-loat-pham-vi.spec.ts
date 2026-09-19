@@ -17,6 +17,7 @@ const DIEU_PHOI: DataScope = {
   userIds: ['u1'],
   teamIds: ['t-ghi', 't-chi-xem'],
   writableTeamIds: ['t-ghi'],
+  writableUserIds: ['u1'],
   canDispatch: true,
 };
 

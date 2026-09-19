@@ -6,8 +6,14 @@ import { ROLE_NAMES } from '../../common/constants/role.constants';
 
 export interface DataScope {
   teamIds: string[];        // All readable teams (own + READ grants + WRITE grants)
-  userIds: string[];
+  userIds: string[]; // Members of ALL readable teams (+ self) — READ ownership only
   writableTeamIds: string[]; // Writable teams (own + WRITE grants only) — GAP-9
+  /**
+   * Người mà hồ sơ của họ (điều tra viên / người nhập) được GHI: thành viên các tổ GHI được + chính mình.
+   * `userIds` gồm cả thành viên tổ chỉ được cấp quyền XEM — so thao tác ghi theo nó là quyền xem thành quyền
+   * ghi (rà độc lập 19/09/2026). Bắt buộc: mọi chỗ dựng phạm vi phải nói rõ ai được ghi.
+   */
+  writableUserIds: string[];
   canDispatch?: boolean;     // Supplementary: read all + assign/reassign any record
   // v0.33.0.0: true nếu user thuộc ≥1 Team có wardId set (= cán bộ phường).
   // Ward officer scope strict: KHÔNG thấy unassigned (intake) records — codex Crit 1.
@@ -92,6 +98,13 @@ export class UnitScopeService {
       userIds.push(userId);
     }
 
+    // Người mà hồ sơ của họ được GHI: thành viên các tổ ghi được (KHÔNG gồm tổ chỉ-xem) + chính mình.
+    const writableUserIds =
+      await this.teamsService.getUserIdsForTeams(allWriteTeamIds);
+    if (!writableUserIds.includes(userId)) {
+      writableUserIds.push(userId);
+    }
+
     // v0.33.0.0: detect ward team membership (Team.wardId != null)
     // userTeams already loaded with .team relation. Find first ward team.
     const wardTeamUt = userTeams.find((ut) => ut.team.wardId !== null);
@@ -102,6 +115,7 @@ export class UnitScopeService {
       teamIds: allReadTeamIds,
       userIds,
       writableTeamIds: allWriteTeamIds,
+      writableUserIds,
       canDispatch,
       isWardOfficer,
       wardTeamId,

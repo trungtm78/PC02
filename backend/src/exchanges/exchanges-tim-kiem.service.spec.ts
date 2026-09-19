@@ -69,6 +69,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
       userIds: ['u1'],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: ['u1'],
     });
     let chuoi = JSON.stringify(goiList().where.AND);
     expect(chuoi).toContain('"receiverUnitBd":{"contains":"doi 4"}');
@@ -80,6 +81,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: true,
       } as never,
     );
@@ -89,6 +91,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     chuoi = JSON.stringify(goiList().where.AND);
     expect(chuoi).toContain('"createdById":{"not":null}');
@@ -164,6 +167,7 @@ describe('ExchangesService — tìm kiếm dạng thẻ phía máy chủ', () =>
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
       }),
     ).rejects.toThrow(ForbiddenException);
     expect(mockPrisma.exchangeMessage.create).not.toHaveBeenCalled();
@@ -192,6 +196,7 @@ describe('ExchangesService.addMessage — điều phối viên', () => {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
+        writableUserIds: ['u1'],
         canDispatch: true,
       }),
     ).rejects.toThrow(ForbiddenException);

@@ -448,6 +448,7 @@ describe('PetitionsService', () => {
           teamIds: ['team-1'],
           userIds: ['u1'],
           writableTeamIds: ['team-1'],
+          writableUserIds: ['u1'],
         });
         const and = whereCuaLanGoi().AND as unknown[];
         expect(and).toContainEqual(dkNguoiGui('An', 'an'));
@@ -1577,6 +1578,7 @@ describe('PetitionsService', () => {
         userIds: ['user-002'],
         teamIds: ['team-001'],
         writableTeamIds: ['team-001'],
+        writableUserIds: ['user-002'],
         canDispatch: false,
       };
       mockPrisma.petition.findMany.mockResolvedValue([]);
@@ -1960,6 +1962,7 @@ describe('PetitionsService', () => {
         userIds: ['user-001'],
         teamIds: ['team-a'],
         writableTeamIds: ['team-a'],
+        writableUserIds: ['user-001'],
         canDispatch: false,
         isWardOfficer: false,
         wardTeamId: null,
@@ -2170,6 +2173,7 @@ describe('PetitionsService', () => {
         teamIds: ['team-1'],
         userIds: ['u1'],
         writableTeamIds: ['team-1'],
+        writableUserIds: ['u1'],
       });
 
       const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
@@ -2256,6 +2260,7 @@ describe('PetitionsService', () => {
         teamIds: ['team-1'],
         userIds: ['u1'],
         writableTeamIds: ['team-1'],
+        writableUserIds: ['u1'],
       });
 
       const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
@@ -2352,6 +2357,7 @@ describe('PetitionsService', () => {
           teamIds: ['team-1'],
           userIds: ['u1'],
           writableTeamIds: ['team-1'],
+          writableUserIds: ['u1'],
         },
       );
 
@@ -2371,6 +2377,7 @@ describe('PetitionsService', () => {
           teamIds: ['team-1'],
           userIds: ['u1'],
           writableTeamIds: ['team-1'],
+          writableUserIds: ['u1'],
         },
       );
 
@@ -2546,6 +2553,7 @@ describe('PetitionsService — phạm vi phân công đơn thư', () => {
     userIds: ['u1'],
     teamIds: ['t1'],
     writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
   };
   const DIEU_PHOI: DataScope = { ...THUONG, canDispatch: true };
 
@@ -2598,5 +2606,38 @@ describe('PetitionsService — phạm vi phân công đơn thư', () => {
     await expect(
       service.listAssignments('petition-001', THUONG),
     ).rejects.toThrow(ForbiddenException);
+  });
+});
+
+describe('PetitionsService.listAssignments — điều phối viên', () => {
+  it('đơn ngoài phạm vi: điều phối viên XEM được danh sách phân công', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PetitionsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DeadlineRulesService, useValue: mockDeadlineRules },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get<PetitionsService>(PetitionsService);
+    jest.clearAllMocks();
+    mockPrisma.petition.findFirst.mockResolvedValue({
+      ...mockPetition,
+      enteredById: 'u-khac',
+      assignedTeamId: 't-khac',
+    });
+    mockPrisma.petitionAssignment.findMany.mockResolvedValue([]);
+    await expect(
+      service.listAssignments('petition-001', {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+        canDispatch: true,
+      }),
+    ).resolves.toBeDefined();
   });
 });

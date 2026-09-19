@@ -252,3 +252,45 @@ describe('UnitScopeService', () => {
     });
   });
 });
+
+/**
+ * Rà độc lập 19/09/2026: `userIds` gồm thành viên của MỌI tổ đọc được — kể cả tổ chỉ được cấp quyền XEM. Thao tác
+ * ghi so theo `userIds` thì quyền xem tổ X thành quyền sửa/xoá hồ sơ do thành viên tổ X phụ trách. Người GHI được
+ * phải tính riêng từ các tổ ghi được.
+ */
+describe('UnitScopeService — writableUserIds', () => {
+  it('chỉ thành viên các tổ GHI được + chính mình; không gồm thành viên tổ chỉ được cấp quyền XEM', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UnitScopeService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: TeamsService, useValue: mockTeamsService },
+      ],
+    }).compile();
+    const service = module.get<UnitScopeService>(UnitScopeService);
+    jest.clearAllMocks();
+
+    mockPrisma.userTeam.findMany.mockResolvedValue([
+      { userId: 'u1', teamId: 't-minh', team: { id: 't-minh', wardId: null } },
+    ]);
+    mockTeamsService.getDescendantIds.mockResolvedValue([]);
+    mockPrisma.dataAccessGrant.findMany.mockResolvedValue([
+      { teamId: 't-chi-xem', accessLevel: 'READ' },
+    ]);
+    mockTeamsService.getUserIdsForTeams.mockImplementation((ids: string[]) =>
+      Promise.resolve(
+        ids.includes('t-chi-xem')
+          ? ['u1', 'b-to-chi-xem']
+          : ['u1', 'c-to-minh'],
+      ),
+    );
+
+    const scope = await service.resolveScope('u1', 'OFFICER');
+
+    expect(scope!.userIds).toEqual(['u1', 'b-to-chi-xem']);
+    expect(scope!.writableUserIds).toEqual(['u1', 'c-to-minh']);
+    expect(mockTeamsService.getUserIdsForTeams).toHaveBeenCalledWith([
+      't-minh',
+    ]);
+  });
+});

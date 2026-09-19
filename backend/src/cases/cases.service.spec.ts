@@ -552,6 +552,7 @@ describe('CasesService', () => {
             userIds: ['user-001'],
             teamIds: ['team-a'],
             writableTeamIds: ['team-a'],
+            writableUserIds: ['user-001'],
           } as never,
         );
         const json = JSON.stringify(whereCuaLanGoi().AND);
@@ -1686,7 +1687,8 @@ describe('CasesService', () => {
       // Scope excludes team-A and doesn't match investigator
       const restrictiveScope = {
         userIds: ['other-user'],
-        writableTeamIds: ['team-B'], // doesn't include team-A
+        writableTeamIds: ['team-B'],
+        writableUserIds: ['other-user'], // doesn't include team-A
       } as any;
       await expect(
         service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR, undefined, restrictiveScope),
@@ -2166,6 +2168,7 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
     userIds: ['u1'],
     teamIds: ['t1', 't-chi-xem'],
     writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
     canDispatch: true,
   };
 
@@ -2226,12 +2229,13 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
       userIds: [],
       teamIds: ['t-chi-xem'],
       writableTeamIds: [],
+      writableUserIds: [],
     });
     expect(where.OR).toEqual([{ id: '__no_access__' }]);
   });
 
   it('bù TĐC vụ án NGOÀI phạm vi ghi → 403, không ghi', async () => {
-    mockPrisma.case.findUnique.mockResolvedValue({
+    mockPrisma.case.findFirst.mockResolvedValue({
       id: 'c-ngoai',
       investigatorId: 'u-khac',
       assignedTeamId: 't-khac',
@@ -2243,7 +2247,7 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
   });
 
   it('bù TĐC trong phạm vi → ghi và ghi nhật ký', async () => {
-    mockPrisma.case.findUnique.mockResolvedValue({
+    mockPrisma.case.findFirst.mockResolvedValue({
       id: 'c1',
       investigatorId: 'u1',
       assignedTeamId: 't1',
@@ -2252,6 +2256,10 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
     mockPrisma.case.update.mockResolvedValue({ id: 'c1' });
     await service.tdcBackfill('c1', 'Lý do', 'u1', DIEU_PHOI as never);
     expect(mockPrisma.case.update).toHaveBeenCalled();
+    // Vụ án đã xoá mềm không được bù.
+    expect(mockPrisma.case.findFirst).toHaveBeenCalledWith({
+      where: { id: 'c1', deletedAt: null },
+    });
     expect(mockAudit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'CASE_TDC_BACKFILLED',
@@ -2259,5 +2267,38 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
         userId: 'u1',
       }),
     );
+  });
+});
+
+/** Cán bộ phường không GHI hồ sơ chưa giao tổ — khớp bộ lọc ghi dùng chung (rà độc lập 19/09/2026). */
+describe('CasesService — cán bộ phường và hồ sơ chưa giao tổ', () => {
+  it('bù TĐC vụ án chưa giao tổ bởi cán bộ phường → 403', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CasesService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: AuditService, useValue: mockAudit },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: DocumentNumbersService, useValue: mockDocNums },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
+    }).compile();
+    const service = module.get<CasesService>(CasesService);
+    jest.clearAllMocks();
+    mockPrisma.case.findFirst.mockResolvedValue({
+      id: 'c0',
+      investigatorId: null,
+      assignedTeamId: null,
+    });
+    await expect(
+      service.tdcBackfill('c0', 'Lý do', 'u1', {
+        userIds: ['u1'],
+        teamIds: ['t-phuong'],
+        writableTeamIds: ['t-phuong'],
+        writableUserIds: ['u1'],
+        isWardOfficer: true,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.case.update).not.toHaveBeenCalled();
   });
 });

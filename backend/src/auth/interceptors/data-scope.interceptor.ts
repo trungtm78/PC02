@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { UnitScopeService } from '../services/unit-scope.service';
+import type { DataScope } from '../services/unit-scope.service';
 
 @Injectable()
 export class DataScopeInterceptor implements NestInterceptor {
@@ -15,7 +16,10 @@ export class DataScopeInterceptor implements NestInterceptor {
     context: ExecutionContext,
     next: CallHandler,
   ): Promise<Observable<unknown>> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      user?: { id?: string; role?: string; canDispatch?: boolean };
+      dataScope?: DataScope | null;
+    }>();
     const user = request.user;
 
     if (user?.id && user?.role) {
@@ -27,7 +31,12 @@ export class DataScopeInterceptor implements NestInterceptor {
       request.dataScope = scope;
     } else if (user?.id && !user?.role) {
       // JWT without role claim — deny-all scope rather than defaulting to admin
-      request.dataScope = { teamIds: [], userIds: [], writableTeamIds: [] };
+      request.dataScope = {
+        teamIds: [],
+        userIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      };
     }
 
     return next.handle();

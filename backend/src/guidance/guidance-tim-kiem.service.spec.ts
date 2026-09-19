@@ -77,6 +77,7 @@ describe('GuidanceService — tìm kiếm dạng thẻ + thống kê phía máy 
       userIds: ['u1'],
       teamIds: [],
       writableTeamIds: [],
+      writableUserIds: ['u1'],
     });
     const where = whereList();
     const chuoi = JSON.stringify(where.AND);
