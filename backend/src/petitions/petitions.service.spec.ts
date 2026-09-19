@@ -312,12 +312,12 @@ describe('PetitionsService', () => {
       // Sắp theo `sortReceivedDate` (cột SINH) chứ không phải `receivedDate` trực tiếp:
       // 9 hồ sơ có ngày phi lý (năm 3023, 2925, 0225...) nhận NULL ở cột sinh nên chìm
       // xuống cuối thay vì chiếm trọn màn hình đầu. Cột hiển thị vẫn là receivedDate.
-      // 27/08/2026: anh yêu cầu ba màn mặc định sắp theo STT giảm dần. Sắp trên cột SỐ
-      // `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì `2026-9395` đứng sau
-      // `2026-11171` dù số nhỏ hơn.
-      expect(callArgs.orderBy[0]).toEqual({
-        sttSort: { sort: 'desc', nulls: 'last' },
-      });
+      // 19/09/2026: anh yêu cầu ba màn mặc định sắp theo NGÀY ĐỀ XUẤT giảm dần (thay mặc định STT
+      // của 27/08). Cùng ngày thì STT giảm dần (cột SỐ `sttSort`), rồi `id` để phân trang ổn định.
+      expect(callArgs.orderBy.slice(0, 2)).toEqual([
+        { ngayDeXuat: { sort: 'desc', nulls: 'last' } },
+        { sttSort: { sort: 'desc', nulls: 'last' } },
+      ]);
       expect(JSON.stringify(callArgs.orderBy)).not.toContain('createdAt');
     });
 
@@ -353,9 +353,9 @@ describe('PetitionsService', () => {
 
       const { orderBy } = mockPrisma.petition.findMany.mock.calls[0][0];
       expect(JSON.stringify(orderBy)).not.toContain('passwordHash');
-      // Rơi về mặc định, và mặc định vẫn được nắn sang cột sắp.
+      // Rơi về mặc định (Ngày đề xuất giảm dần).
       expect(orderBy[0]).toEqual({
-        sttSort: { sort: 'desc', nulls: 'last' },
+        ngayDeXuat: { sort: 'desc', nulls: 'last' },
       });
     });
 

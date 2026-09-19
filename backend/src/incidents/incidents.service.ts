@@ -298,10 +298,13 @@ export class IncidentsService {
         'createdAt', 'updatedAt', 'deadline', 'status', 'code', 'name',
         'ngayDeXuat', 'ngayTiepNhanNguonTin', 'stt',
       ],
-      // Anh yêu cầu 27/08/2026: danh sách mặc định sắp theo STT giảm dần, bấm tiêu đề đổi
-      // chiều. Sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi mã thì
-      // `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn.
-      defaultField: 'stt',
+      // Anh yêu cầu 19/09/2026: "ngày đề xuất phải được order by theo giảm dần" — thay mặc định STT
+      // của 27/08. Cùng một ngày (hệ cũ nhập theo ngày, không theo giờ) thì STT giảm dần làm khoá thứ
+      // hai, rồi mới tới `id`. STT sắp trên cột SỐ `sttSort` do trigger giữ — sắp thẳng trên chuỗi
+      // mã thì `2026-9395` đứng sau `2026-11171` dù số nhỏ hơn. Bấm tiêu đề cột STT vẫn đổi được.
+      // Chỉ mục khớp đúng thứ tự này: migration `*_sap_ngay_de_xuat_stt`.
+      defaultField: 'ngayDeXuat',
+      thenBy: ['stt'],
       nullableFields: ['ngayDeXuat', 'ngayTiepNhanNguonTin', 'deadline', 'sttSort'],
       fieldAliases: { stt: 'sttSort' },
     });

@@ -210,3 +210,61 @@ describe('buildListOrderBy — sắp theo STT', () => {
     ).toEqual([{ sttSort: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }]);
   });
 });
+
+/**
+ * Khoá sắp THỨ HAI (anh yêu cầu 19/09/2026: danh sách mặc định sắp theo Ngày đề xuất giảm dần).
+ *
+ * Nhiều hồ sơ chung một ngày đề xuất — hệ cũ nhập theo ngày, không theo giờ. Chỉ có `id` làm khoá phụ
+ * thì trong cùng một ngày thứ tự theo chuỗi UUID, tức ngẫu nhiên với mắt người. Khoá thứ hai `stt`
+ * giữ các hồ sơ cùng ngày theo số giảm dần, đúng thói quen đọc sổ.
+ */
+describe('buildListOrderBy — khoá sắp thứ hai (`thenBy`)', () => {
+  const CHO_PHEP = ['createdAt', 'stt', 'ngayDeXuat', 'status'];
+  const CHUNG = {
+    allowed: CHO_PHEP,
+    defaultField: 'ngayDeXuat',
+    nullableFields: ['ngayDeXuat', 'sttSort'],
+    fieldAliases: { stt: 'sttSort' },
+    thenBy: ['stt'],
+  } as const;
+
+  it('mặc định: ngày đề xuất giảm dần → STT giảm dần → id, rỗng chìm cuối', () => {
+    expect(buildListOrderBy({ ...CHUNG })).toEqual([
+      { ngayDeXuat: { sort: 'desc', nulls: 'last' } },
+      { sttSort: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+  });
+
+  it('khoá thứ hai đi CÙNG chiều khoá chính', () => {
+    expect(
+      buildListOrderBy({ ...CHUNG, sortBy: 'ngayDeXuat', sortOrder: 'asc' }),
+    ).toEqual([
+      { ngayDeXuat: { sort: 'asc', nulls: 'last' } },
+      { sttSort: { sort: 'asc', nulls: 'last' } },
+      { id: 'asc' },
+    ]);
+  });
+
+  it('người dùng sắp theo chính khoá thứ hai → không lặp khoá', () => {
+    expect(buildListOrderBy({ ...CHUNG, sortBy: 'stt' })).toEqual([
+      { sttSort: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+  });
+
+  it('sắp theo cột khác vẫn giữ khoá thứ hai trước `id`', () => {
+    expect(buildListOrderBy({ ...CHUNG, sortBy: 'status' })).toEqual([
+      { status: 'desc' },
+      { sttSort: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+  });
+
+  it('khoá thứ hai lạ (ngoài danh sách trắng) bị bỏ, không đi vào Prisma', () => {
+    expect(buildListOrderBy({ ...CHUNG, thenBy: ['passwordHash'] })).toEqual([
+      { ngayDeXuat: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+  });
+});
