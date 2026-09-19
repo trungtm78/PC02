@@ -750,6 +750,9 @@ export default function CaseDetailPage() {
 
   // Case data from API
   const [caseData, setCaseData] = useState<any>(null);
+  // Máy chủ trả `quyenGhi` theo đúng luật checkWriteScope (20/09/2026). false = chỉ xem được (vd điều phối viên xem vụ án
+  // tổ khác) → ẩn mọi nút ghi, không để cán bộ bấm rồi nhận 403. Thiếu trường (bản máy chủ cũ) → hiện như trước.
+  const chiXem = caseData?.quyenGhi === false;
   const [loadingCase, setLoadingCase] = useState(true);
 
   // Defendants state
@@ -1365,6 +1368,7 @@ export default function CaseDetailPage() {
     <div className="space-y-4" data-testid="tab-content-defendants">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-600">Tổng cộng: <span className="font-semibold text-slate-800">{defendants.length}</span> bị can{victims.length > 0 && <> · <span className="font-semibold text-slate-800">{victims.length}</span> bị hại</>}</p>
+        {!chiXem && (
         <button
           onClick={() => { setEditingDefendant(null); setShowDefendantModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -1373,6 +1377,7 @@ export default function CaseDetailPage() {
           <Plus className="w-4 h-4" />
           Thêm bị can
         </button>
+        )}
       </div>
 
       {defendants.length === 0 ? (
@@ -1409,6 +1414,7 @@ export default function CaseDetailPage() {
                   }`}>
                     {d.detentionStatus}
                   </span>
+                  {!chiXem && (<>
                   <button
                     onClick={() => { setEditingDefendant(d); setShowDefendantModal(true); }}
                     className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -1422,6 +1428,7 @@ export default function CaseDetailPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  </>)}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1506,6 +1513,7 @@ export default function CaseDetailPage() {
     <div className="space-y-4" data-testid="tab-content-lawyers">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-600">Tổng cộng: <span className="font-semibold text-slate-800">{lawyers.length}</span> luật sư</p>
+        {!chiXem && (
         <button
           onClick={() => { setEditingLawyer(null); setShowLawyerModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
@@ -1514,6 +1522,7 @@ export default function CaseDetailPage() {
           <Plus className="w-4 h-4" />
           Gán luật sư
         </button>
+        )}
       </div>
 
       {lawyers.length === 0 ? (
@@ -1535,6 +1544,7 @@ export default function CaseDetailPage() {
                     <p className="text-xs text-slate-500">Thẻ LS: {l.barNumber}</p>
                   </div>
                 </div>
+                {!chiXem && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setEditingLawyer(l); setShowLawyerModal(true); }}
@@ -1549,6 +1559,7 @@ export default function CaseDetailPage() {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+                )}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-600">
                 <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5" /><span>{l.phone || "—"}</span></div>
@@ -1651,6 +1662,7 @@ export default function CaseDetailPage() {
     <div className="space-y-4" data-testid="tab-content-conclusion">
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-600">Kết luận điều tra</p>
+        {!chiXem && (
         <button
           onClick={() => { setEditingConclusion(null); setShowConclusionModal(true); }}
           className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
@@ -1659,6 +1671,7 @@ export default function CaseDetailPage() {
           <Plus className="w-4 h-4" />
           Thêm kết luận
         </button>
+        )}
       </div>
 
       {conclusions.length === 0 ? (
@@ -1685,9 +1698,11 @@ export default function CaseDetailPage() {
                 }`}>
                   {c.status}
                 </span>
+                {!chiXem && (
                 <button onClick={() => { setEditingConclusion(c); setShowConclusionModal(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors">
                   <Edit className="w-4 h-4" />
                 </button>
+                )}
               </div>
             </div>
             <p className="text-sm text-slate-700 line-clamp-3">{c.content}</p>
@@ -1763,6 +1778,15 @@ export default function CaseDetailPage() {
                 {caseData?.assignedTeamId ? 'Phân công lại' : 'Phân công'}
               </button>
             )}
+            {chiXem ? (
+              <span
+                className="px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm"
+                data-testid="nhan-chi-xem"
+                title="Vụ án ngoài phạm vi ghi của bạn — chỉ xem (và phân công nếu có quyền điều phối)"
+              >
+                Chỉ xem
+              </span>
+            ) : (
             <button
               onClick={() => navigate(`/cases/${id}/edit`)}
               className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
@@ -1771,6 +1795,7 @@ export default function CaseDetailPage() {
               <Edit className="w-4 h-4 inline mr-1.5" />
               Chỉnh sửa
             </button>
+            )}
             <button
               onClick={handleOpenProgress}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
