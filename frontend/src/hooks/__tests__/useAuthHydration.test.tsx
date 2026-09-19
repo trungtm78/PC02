@@ -68,17 +68,31 @@ describe('useAuthHydration', () => {
     expect(meSpy).not.toHaveBeenCalled();
   });
 
-  it('does NOT fetch when profile already cached', async () => {
+  // Rà mã PR #443: hồ sơ đệm sống qua F5 (sessionStorage) → quản trị đổi quyền vai trò mà cán bộ tải lại trang vẫn
+  // thấy menu/nút theo quyền CŨ. Nay mỗi lần nạp ứng dụng hỏi lại /auth/me đúng MỘT lần.
+  it('đã có hồ sơ đệm → vẫn hỏi lại /auth/me ĐÚNG MỘT lần khi nạp, nhận quyền mới', async () => {
     authStore.setTokens(TOKEN_U1, 'R');
     authStore.setProfile(SAMPLE_PROFILE);
+    meSpy.mockResolvedValue({ data: { ...SAMPLE_PROFILE, permissions: ['read:Case', 'read:Subject'] } });
 
     const useAuthHydration = await loadHook();
-    meSpy.mockReset();
-    // Hook's initial call should observe existing profile and skip
     renderHook(() => useAuthHydration());
 
-    await new Promise((r) => setTimeout(r, 10));
-    expect(meSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(authStore.getProfile()?.permissions).toContain('read:Subject'));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(meSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('làm mới lúc nạp lỗi mạng → giữ hồ sơ đệm (không đăng xuất, không xoá quyền)', async () => {
+    authStore.setTokens(TOKEN_U1, 'R');
+    authStore.setProfile(SAMPLE_PROFILE);
+    meSpy.mockRejectedValue(new Error('Network Error'));
+
+    const useAuthHydration = await loadHook();
+    renderHook(() => useAuthHydration());
+
+    await waitFor(() => expect(meSpy).toHaveBeenCalledTimes(1));
+    expect(authStore.getProfile()?.permissions).toEqual(['read:Case']);
   });
 
   it('leaves profile null on /auth/me error (graceful degrade)', async () => {

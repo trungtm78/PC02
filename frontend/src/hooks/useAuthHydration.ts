@@ -17,17 +17,22 @@ export function useAuthHydration() {
     // Token đã hỏi lại vì hồ sơ đệm thiếu `permissions` — chỉ hỏi MỘT lần mỗi token, không lặp vô hạn nếu máy chủ
     // vẫn không trả (setProfile phát sự kiện đổi token → hydrate chạy lại).
     let daHoiLaiChoToken: string | null = null;
+    // Mỗi lần ứng dụng NẠP (kể cả F5) hỏi lại /auth/me một lần dù đã có hồ sơ đệm: hồ sơ nằm ở sessionStorage nên
+    // sống qua F5, mà thanh bên + nút ẩn/hiện theo `permissions` trong đó — quản trị đổi quyền vai trò thì cán bộ phải
+    // thấy ngay ở lần tải lại, không phải chờ đăng nhập lại (rà mã PR #443, 20/09/2026).
+    let daLamMoiLanNap = false;
 
     async function hydrate() {
       const token = authStore.getAccessToken();
       const profile = authStore.getProfile();
       if (!token) return;
       if (profile) {
-        // Hồ sơ đệm từ trước #435 (20/09/2026) không có `permissions` → usePermission "tạm cho hiện" mãi tới khi
-        // đóng tab (rà mã PR #442). Hỏi lại một lần để giao diện theo đúng quyền thật.
-        if (Array.isArray(profile.permissions) || daHoiLaiChoToken === token) return;
+        // Hồ sơ đệm từ trước #435 không có `permissions` → hỏi lại một lần mỗi token (rà mã PR #442).
+        const thieuQuyen = !Array.isArray(profile.permissions) && daHoiLaiChoToken !== token;
+        if (daLamMoiLanNap && !thieuQuyen) return;
         daHoiLaiChoToken = token;
       }
+      daLamMoiLanNap = true;
 
       try {
         const { data } = await authApi.me();

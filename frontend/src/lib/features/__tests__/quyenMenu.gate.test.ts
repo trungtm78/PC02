@@ -43,7 +43,6 @@ describe('CỔNG quyền thanh bên', () => {
     const KHONG_KHAI = new Set([
       '/reports/stat48',
       '/don-vi-hanh-chinh',
-      '/settings',
       '/admin/di-tru-du-lieu',
     ]);
     const sot = coDuong.filter((m) => !m.quyen?.length && !KHONG_KHAI.has(m.path!)).map((m) => `${m.id} ${m.path}`);
