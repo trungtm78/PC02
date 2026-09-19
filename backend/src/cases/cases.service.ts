@@ -1535,6 +1535,9 @@ export class CasesService {
         select: { id: true, firstName: true, lastName: true, username: true },
       },
     } as const;
+    // Khoá lạc quan: chỉ ghi khi vụ án chưa bị ai sửa từ lúc form mở (P2025 → 409 bên dưới).
+    const mocDaMo = dto.expectedUpdatedAt;
+    const khoaLacQuan = mocDaMo ? { updatedAt: new Date(mocDaMo) } : {};
     let record;
     try {
       record = await this.prisma.$transaction(async (tx) => {
@@ -1543,12 +1546,7 @@ export class CasesService {
             tx.case.findUnique({ where: { id }, include: chonDieuTraVien }),
           updateFn: () =>
             tx.case.update({
-              where: {
-                id,
-                ...(dto.expectedUpdatedAt
-                  ? { updatedAt: new Date(dto.expectedUpdatedAt) }
-                  : {}),
-              },
+              where: { id, ...khoaLacQuan },
               data: updateData,
               include: chonDieuTraVien,
             }),
@@ -2148,6 +2146,34 @@ export class CasesService {
       },
     });
     return sau;
+  }
+
+  /**
+   * Vật chứng của vụ án — CHỈ ĐỌC, cùng luật phạm vi với xem chi tiết. Form sửa vụ án hiện danh sách này để cán bộ
+   * thấy vật chứng đã có và không nhập lại (trước 19/09/2026 không nơi nào đọc được bảng `evidences`).
+   */
+  async getEvidences(id: string, dataScope?: DataScope | null) {
+    const vuAn = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, assignedTeamId: true, investigatorId: true },
+    });
+    if (!vuAn) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
+    this.checkRecordInScope(vuAn, dataScope);
+    const data = await this.prisma.evidence.findMany({
+      where: { caseId: id, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        quantity: true,
+        unit: true,
+        storageLocation: true,
+        status: true,
+      },
+    });
+    return { success: true, data };
   }
 
   // ─────────────────────────────────────────────

@@ -781,20 +781,54 @@ function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   );
 }
 
+/** Một mục con ĐÃ CÓ của vụ án, dạng hiển thị gọn (chỉ xem). */
+export interface MucDaCo {
+  id: string;
+  chinh: string;
+  phu?: string;
+}
+
 /**
- * Form SỬA: tab mục con chỉ chứa mục THÊM MỚI trong lần sửa này — form không nạp mục cũ vào tab, và máy chủ ghi
- * các mục gửi lên là mục THÊM (PUT /cases/:id, 19/09/2026). Không nói ra thì cán bộ thấy tab trống, tưởng mất dữ
- * liệu hoặc thêm lại lần nữa.
+ * Form SỬA: bảng của tab mục con chỉ chứa mục THÊM MỚI trong lần sửa này — máy chủ ghi các mục gửi lên là mục
+ * THÊM (PUT /cases/:id, 19/09/2026). Mục ĐÃ CÓ hiện ở danh sách chỉ-xem ngay trên bảng: rà mã độc lập 19/09/2026
+ * chỉ ra bản đầu bảo cán bộ "xem ở trang chi tiết", mà trang ấy không có vật chứng và không hiện nhân chứng — tìm
+ * không thấy thì cán bộ nhập lại, sinh bản ghi TRÙNG.
  */
-function GhiChuMucThemMoi({ loai }: { loai: string }) {
+/** `mucDaCo`: `undefined` = đang tải; `null` = tải hỏng; mảng = kết quả (có thể rỗng). */
+function MucConKhiSua({ loai, mucDaCo }: { loai: string; mucDaCo?: MucDaCo[] | null }) {
   return (
-    <p
-      className="mx-4 mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"
-      data-testid="ghi-chu-muc-them-moi"
-    >
-      Danh sách dưới đây chỉ gồm {loai} thêm mới trong lần sửa này, sẽ được lưu khi bấm Lưu. {loai[0].toUpperCase()}
-      {loai.slice(1)} đã có của vụ án xem và sửa ở trang chi tiết vụ án.
-    </p>
+    <div className="mx-4 mt-3 space-y-2">
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2" data-testid="muc-da-co">
+        <p className="text-sm font-medium text-slate-700">
+          Đã có trong vụ án{Array.isArray(mucDaCo) ? ` (${mucDaCo.length})` : ""}
+        </p>
+        {mucDaCo === undefined ? (
+          <p className="mt-1 text-sm text-slate-500">Đang tải…</p>
+        ) : mucDaCo === null ? (
+          <p className="mt-1 text-sm text-red-700">
+            Không tải được danh sách {loai} đã có. Tải lại trang trước khi thêm để tránh nhập trùng.
+          </p>
+        ) : mucDaCo.length > 0 ? (
+          <ul className="mt-1 space-y-0.5 text-sm text-slate-700">
+            {mucDaCo.map((m) => (
+              <li key={m.id}>
+                {m.chinh}
+                {m.phu ? <span className="text-slate-500"> — {m.phu}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-slate-500">Vụ án chưa có {loai} nào.</p>
+        )}
+      </div>
+      <p
+        className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"
+        data-testid="ghi-chu-muc-them-moi"
+      >
+        Bảng dưới chỉ gồm {loai} thêm mới trong lần sửa này, sẽ được lưu khi bấm Lưu. {loai[0].toUpperCase()}
+        {loai.slice(1)} đã có liệt kê ở trên, không cần nhập lại.
+      </p>
+    </div>
   );
 }
 
@@ -808,13 +842,16 @@ function TabSubjectsBoSung({
   onEdit,
   onDelete,
   cheDoSua,
+  mucDaCo,
 }: {
   subjects: Subject[];
   onAdd: () => void;
   onEdit: (subject: Subject) => void;
   onDelete: (id: string) => void;
-  /** Form đang SỬA vụ án có sẵn → danh sách chỉ là mục thêm mới. */
+  /** Form đang SỬA vụ án có sẵn → bảng chỉ là mục thêm mới. */
   cheDoSua?: boolean;
+  /** Mục đã có của vụ án (chỉ xem) — hiện khi `cheDoSua`. `null` = tải hỏng. */
+  mucDaCo?: MucDaCo[] | null;
 }) {
   const columns: ColumnDef<Subject>[] = [
     {
@@ -860,7 +897,7 @@ function TabSubjectsBoSung({
           </button>
         }
       />
-      {cheDoSua && <GhiChuMucThemMoi loai="đối tượng" />}
+      {cheDoSua && <MucConKhiSua loai="đối tượng" mucDaCo={mucDaCo} />}
       <DataTable
         columns={columns}
         data={subjects}
@@ -1000,13 +1037,16 @@ function TabEvidenceBoSung({
   onEdit,
   onDelete,
   cheDoSua,
+  mucDaCo,
 }: {
   evidences: Evidence[];
   onAdd: () => void;
   onEdit: (evidence: Evidence) => void;
   onDelete: (id: string) => void;
-  /** Form đang SỬA vụ án có sẵn → danh sách chỉ là mục thêm mới. */
+  /** Form đang SỬA vụ án có sẵn → bảng chỉ là mục thêm mới. */
   cheDoSua?: boolean;
+  /** Mục đã có của vụ án (chỉ xem) — hiện khi `cheDoSua`. `null` = tải hỏng. */
+  mucDaCo?: MucDaCo[] | null;
 }) {
   const columns: ColumnDef<Evidence>[] = [
     { key: "code", header: "Mã VC", cellClassName: "px-4 py-3 text-sm font-medium text-blue-600" },
@@ -1051,7 +1091,7 @@ function TabEvidenceBoSung({
           </button>
         }
       />
-      {cheDoSua && <GhiChuMucThemMoi loai="vật chứng" />}
+      {cheDoSua && <MucConKhiSua loai="vật chứng" mucDaCo={mucDaCo} />}
       <DataTable
         columns={columns}
         data={evidences}

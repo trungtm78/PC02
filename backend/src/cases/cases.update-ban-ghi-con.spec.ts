@@ -1,4 +1,8 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CasesService } from './cases.service';
 
 /**
@@ -163,5 +167,66 @@ describe('PUT /cases/:id — mục con thêm khi sửa', () => {
     await service.update('c1', { name: 'X' } as never, 'u1');
     expect(tx.subject.createMany).not.toHaveBeenCalled();
     expect(tx.evidence.createMany).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Form sửa hiện vật chứng ĐÃ CÓ (chỉ xem) để cán bộ không nhập lại — rà mã độc lập 19/09/2026: trước đây không nơi
+ * nào đọc được bảng `evidences`, ghi chú "xem ở trang chi tiết" là lời hứa rỗng dẫn tới nhập trùng.
+ */
+describe('GET /cases/:id/evidences', () => {
+  const canBo = {
+    teamIds: ['t1'],
+    userIds: ['u1'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
+    canDispatch: false,
+  };
+
+  function dungDoc(vuAn: Record<string, unknown> | null) {
+    const prisma = {
+      case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
+      evidence: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'e1', code: 'VC-1', name: 'Dao' }]),
+      },
+    };
+    const service = new CasesService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    return { service, prisma };
+  }
+
+  it('trả vật chứng chưa xoá của vụ án trong phạm vi', async () => {
+    const { service, prisma } = dungDoc(VU_AN);
+    const kq = await service.getEvidences('c1', canBo as never);
+    expect(kq.data).toEqual([{ id: 'e1', code: 'VC-1', name: 'Dao' }]);
+    expect(prisma.evidence.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { caseId: 'c1', deletedAt: null } }),
+    );
+  });
+
+  it('vụ án ngoài phạm vi → 403, không đọc vật chứng', async () => {
+    const { service, prisma } = dungDoc({
+      ...VU_AN,
+      assignedTeamId: 't-khac',
+      investigatorId: 'u-khac',
+    });
+    await expect(service.getEvidences('c1', canBo as never)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma.evidence.findMany).not.toHaveBeenCalled();
+  });
+
+  it('vụ án không có → 404', async () => {
+    const { service } = dungDoc(null);
+    await expect(
+      service.getEvidences('c-khong', canBo as never),
+    ).rejects.toThrow(NotFoundException);
   });
 });

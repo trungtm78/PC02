@@ -38,6 +38,8 @@ import { buildCreateCasePayload } from "./buildCreateCasePayload";
 import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
+import { taiMucConDaCo } from "./taiMucConDaCo";
+import type { MucDaCo } from "./tabs";
 import {
   TabInfo,
   TabIncident,
@@ -89,6 +91,18 @@ function CaseFormPage() {
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [evidences, setEvidences] = useState<Evidence[]>([]);
+  // Form SỬA: mục con ĐÃ CÓ của vụ án (chỉ xem). `subjects`/`evidences` ở trên chỉ là mục THÊM trong lần sửa này.
+  // undefined = đang tải, null = tải hỏng.
+  const [doiTuongDaCo, setDoiTuongDaCo] = useState<MucDaCo[] | null | undefined>(undefined);
+  const [vatChungDaCo, setVatChungDaCo] = useState<MucDaCo[] | null | undefined>(undefined);
+  const napMucConDaCo = (caseId: string) => {
+    setDoiTuongDaCo(undefined);
+    setVatChungDaCo(undefined);
+    void taiMucConDaCo(caseId).then((kq) => {
+      setDoiTuongDaCo(kq.doiTuong);
+      setVatChungDaCo(kq.vatChung);
+    });
+  };
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   // PR 3 v0.38.2.0 — Pre-save summary modal state
   const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
@@ -204,6 +218,10 @@ function CaseFormPage() {
   }, []);
 
   // ─── Fetch data in edit mode ────────────────────────────────────────────
+
+  useEffect(() => {
+    if (isEditMode && id) napMucConDaCo(id);
+  }, [id, isEditMode]);
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -345,6 +363,13 @@ function CaseFormPage() {
       // Refresh optimistic-lock baseline từ response → lưu lần 2 (sau "Lưu và xuất file" ở lại form)
       // không gửi recordUpdatedAt cũ gây 409 "đã được chỉnh sửa bởi người dùng khác".
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
+      // Sửa xong: mục vừa thêm đã thành mục ĐÃ CÓ. Xoá khỏi danh sách "thêm mới" và nạp lại danh sách đã có —
+      // nếu cán bộ ở lại form ("Lưu và xuất file") rồi lưu lần nữa, mục ấy không bị gửi lại thành bản TRÙNG.
+      if (isEditMode && id) {
+        setSubjects([]);
+        setEvidences([]);
+        napMucConDaCo(id);
+      }
       localStorage.removeItem('caseFormDraft');
       setShowPreSaveSummary(false);
       // Cảnh báo mục bị loại phải hiện ở CẢ HAI nhánh. Nhánh "Lưu và xuất file" thoát sớm
@@ -585,6 +610,7 @@ function CaseFormPage() {
               {...tabProps}
               caseId={isEditMode ? id : undefined}
               cheDoSua={isEditMode}
+              mucDaCo={doiTuongDaCo}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
               onEdit={(s) => { setEditingSubject(s); setShowSubjectModal(true); }}
@@ -601,6 +627,7 @@ function CaseFormPage() {
             <TabEvidence
               {...tabProps}
               cheDoSua={isEditMode}
+              mucDaCo={vatChungDaCo}
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
               onEdit={(e) => { setEditingEvidence(e); setShowEvidenceModal(true); }}

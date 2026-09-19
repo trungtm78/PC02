@@ -180,6 +180,13 @@ export class CasesController {
     return this.casesService.getStatusHistory(id);
   }
 
+  // GET /api/v1/cases/:id/evidences — Vật chứng đã có (chỉ đọc; form sửa hiện để khỏi nhập trùng)
+  @Get(':id/evidences')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getEvidences(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.casesService.getEvidences(id, req.dataScope);
+  }
+
   // GET /api/v1/cases/:id/journey — Hành trình hồ sơ (multi-entity timeline)
   @Get(':id/journey')
   @RequirePermissions({ action: 'read', subject: 'Case' })
