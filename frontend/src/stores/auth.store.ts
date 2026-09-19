@@ -42,6 +42,8 @@ export interface AuthUser {
   // v0.35a additive: missing fields → undefined, components use optional chaining
   isWardOfficer?: boolean;
   wardTeam?: AuthWardTeam | null;
+  /** Quyền THẬT của vai trò, dạng 'action:subject' (khớp PermissionsGuard). Thiếu = hồ sơ cũ chưa có trường này. */
+  permissions?: string[];
 }
 
 /** Minimal subset decoded from JWT — used as fallback when profile not yet hydrated. */
@@ -69,6 +71,18 @@ function parseJwtPayload(token: string): JwtAuthUser | null {
   }
 }
 
+/** `sub` (id người dùng) của JWT; `null` nếu không đọc được. */
+function layChuToken(token: string): string | null {
+  try {
+    const phan = token.split('.');
+    if (phan.length !== 3) return null;
+    const noiDung = JSON.parse(atob(phan[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: unknown };
+    return typeof noiDung.sub === 'string' ? noiDung.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 function dispatchTokenChanged() {
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent(TOKEN_EVENT));
@@ -77,6 +91,11 @@ function dispatchTokenChanged() {
 
 export const authStore = {
   setTokens(accessToken: string, refreshToken: string) {
+    // Hồ sơ đệm là của NGƯỜI KHÁC (đăng nhập tài khoản khác trong cùng tab) → bỏ, để useAuthHydration nạp lại đúng
+    // người. Trước 19/09/2026 hồ sơ cũ (tổ, vai trò, quyền của người trước) sống tới khi đóng tab. Làm mới token của
+    // cùng người thì giữ. Token không đọc được → bỏ (an toàn hơn giữ nhầm người).
+    const hoSo = this.getProfile();
+    if (hoSo && layChuToken(accessToken) !== hoSo.id) sessionStorage.removeItem(PROFILE_KEY);
     sessionStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     dispatchTokenChanged();
