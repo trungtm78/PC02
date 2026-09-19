@@ -7,18 +7,11 @@ import { ReportsExportService } from './reports-export.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import {
-  IsOptional,
-  IsInt,
-  IsString,
-  IsDateString,
-  IsIn,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsOptional, IsInt, IsString, IsIn, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EXPORT_FORMAT } from '../common/constants/export-format.constants';
 import { TheTimKiem } from '../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../common/validators/is-ngay-that.validator';
 
 class QueryMonthlyDto {
   @IsOptional()
@@ -53,20 +46,20 @@ class QueryMonthlyDto {
 
   /** Khoảng tự chọn cho KỲ ĐANG XEM — phải đủ cả hai đầu. */
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   tu?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   den?: string;
 
   /** Khoảng tự chọn cho KỲ NỀN, dùng với `soSanh=TUY_CHON`. */
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   nenTu?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   nenDen?: string;
 }
 
@@ -103,20 +96,20 @@ class QueryQuarterlyDto {
 
   /** Khoảng tự chọn cho KỲ ĐANG XEM — phải đủ cả hai đầu. */
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   tu?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   den?: string;
 
   /** Khoảng tự chọn cho KỲ NỀN, dùng với `soSanh=TUY_CHON`. */
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   nenTu?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   nenDen?: string;
 }
 
@@ -163,10 +156,10 @@ export class QueryOverdueDto {
 }
 
 class Stat48QueryDto {
-  @IsDateString()
+  @IsNgayThat()
   fromDate!: string;
 
-  @IsDateString()
+  @IsNgayThat()
   toDate!: string;
 
   @IsOptional()

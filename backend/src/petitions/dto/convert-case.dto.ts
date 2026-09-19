@@ -1,10 +1,5 @@
-import {
-  IsString,
-  IsOptional,
-  IsNotEmpty,
-  IsDateString,
-  MaxLength,
-} from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class ConvertToCaseDto {
   @IsString()
@@ -33,12 +28,12 @@ export class ConvertToCaseDto {
   prosecutionDecision?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   prosecutionDate?: string;
 
   // P1-002 fix: required (was optional) — prevents race when 2 user click convert simultaneously.
   // Frontend MUST send petition.updatedAt to enable optimistic lock at petitions.service.ts:705.
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   @IsNotEmpty({ message: 'expectedUpdatedAt là bắt buộc để chống race condition' })
   expectedUpdatedAt: string;
 }

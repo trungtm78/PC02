@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
  * DTO dùng cho API Phân công điều tra viên (AC-03)
@@ -17,10 +18,10 @@ export class AssignInvestigatorDto {
 
   // Hạn xử lý — bắt buộc khi phân công (UI_Specs Table 2.2.E)
   @IsOptional()
-  @IsDateString({}, { message: 'Hạn xử lý không đúng định dạng' })
+  @IsNgayThat({ message: 'Hạn xử lý không đúng định dạng' })
   deadline?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
 }

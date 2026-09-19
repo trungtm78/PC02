@@ -1,7 +1,8 @@
-import { IsString, IsDateString, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
+import { IsNgayThat } from '../../../common/validators/is-ngay-that.validator';
 
 export class CreateVksMeetingDto {
-  @IsDateString()
+  @IsNgayThat()
   ngayTrao: string;
 
   @IsString()

@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MaxLength, IsDateString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
  * ApproveRuleDto — checker confirms a submitted version.
@@ -14,7 +15,7 @@ import { IsOptional, IsString, MaxLength, IsDateString } from 'class-validator';
  */
 export class ApproveRuleDto {
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   effectiveFrom?: string;
 
   @IsOptional()

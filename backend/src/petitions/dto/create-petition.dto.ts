@@ -3,7 +3,6 @@ import {
   IsObject,
   IsOptional,
   IsEnum,
-  IsDateString,
   IsEmail,
   IsNotEmpty,
   MaxLength,
@@ -17,6 +16,7 @@ import { Transform } from 'class-transformer';
 import { PetitionStatus, LoaiDon, HuongXuLyDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 // Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
 // Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
@@ -49,7 +49,7 @@ export class CreatePetitionDto {
   stt?: string;
 
   // Ngày tiếp nhận — bắt buộc, không được là tương lai
-  @IsDateString()
+  @IsNgayThat()
   receivedDate: string;
 
   // Tên người gửi — bắt buộc khi tạo mới, TRỪ đơn nặc danh (khớp validate FE).
@@ -136,7 +136,7 @@ export class CreatePetitionDto {
   attachmentsNote?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   deadline?: string;
 
   @IsOptional()
@@ -191,7 +191,7 @@ export class CreatePetitionDto {
   baoCaoBanGiamDoc?: boolean;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   petitionDate?: string;
 
   @IsOptional()
@@ -237,7 +237,7 @@ export class CreatePetitionDto {
   senderIdNumber?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   senderIdIssueDate?: string;
 
   @IsOptional()
@@ -263,11 +263,11 @@ export class CreatePetitionDto {
   soPhieuChuyen?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayPhieuChuyen?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayTiepNhanNguonTin?: string;
 
   @IsOptional()
@@ -295,7 +295,7 @@ export class CreatePetitionDto {
   noiXayRaPhuongXa?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayXayRa?: string;
 
   @IsOptional()
@@ -311,7 +311,7 @@ export class CreatePetitionDto {
   phuongThucThuDoan?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayGiaoDonViGiaiQuyet?: string;
 
   @IsOptional()
@@ -332,12 +332,12 @@ export class CreatePetitionDto {
 
   // Field-parity hệ thống cũ — Ủy thác điều tra
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   thoiHanUTDT?: string;
 
   // ── Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26) ──
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   ngayDeXuat?: string;
 
   @IsOptional()
@@ -402,12 +402,12 @@ export class CreatePetitionDto {
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() baoCaoBanGiamDocText?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() tinhTrang?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDPhanCongNguonTin?: string;
-  @IsOptional() @IsDateString() ngayQDPhanCongNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayQDPhanCongNguonTin?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDTamDinhChiNguonTin?: string;
-  @IsOptional() @IsDateString() ngayQDTamDinhChiNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayQDTamDinhChiNguonTin?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() canCuTamDinhChiNguonTin?: string;
   @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soPhucHoiNguonTin?: string;
-  @IsOptional() @IsDateString() ngayPhucHoiNguonTin?: string;
+  @IsOptional() @IsNgayThat() ngayPhucHoiNguonTin?: string;
 
   /**
    * Ô hệ cũ CHƯA có cột riêng trên Đơn thư — máy chủ GỘP vào `metadata`.

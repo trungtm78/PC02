@@ -1,6 +1,7 @@
-import { IsEnum, IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { IncidentStatus, LyDoKhongKhoiTo } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class UpdateStatusDto {
   @IsEnum(IncidentStatus, { message: 'Trạng thái không hợp lệ' })
@@ -18,6 +19,6 @@ export class UpdateStatusDto {
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo;
 
   @IsOptional()
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
 }

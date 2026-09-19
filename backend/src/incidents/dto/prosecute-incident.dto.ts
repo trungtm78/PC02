@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
  * DTO dùng cho API Khởi tố vụ việc (AC-04)
@@ -18,7 +19,7 @@ export class ProsecuteIncidentDto {
 
   // Ngày quyết định khởi tố
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   prosecutionDate?: string;
 
   // Tội danh
@@ -28,6 +29,6 @@ export class ProsecuteIncidentDto {
   crime?: string;
 
   @IsOptional()
-  @IsDateString({}, { message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
+  @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;
 }

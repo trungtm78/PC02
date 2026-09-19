@@ -7,10 +7,10 @@ import {
   IsOptional,
   MinLength,
   MaxLength,
-  IsDateString,
   IsUrl,
 } from 'class-validator';
 import { DEADLINE_RULE_KEYS } from '../constants/deadline-rule-keys.constants';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export const DOCUMENT_TYPES = ['TT', 'NĐ', 'CV', 'QĐ', 'BLTTHS', 'Khác'] as const;
 export const DOCUMENT_ISSUERS = ['BCA', 'VKSNDTC', 'TANDTC', 'Chính phủ', 'Quốc hội', 'Khác'] as const;
@@ -56,7 +56,7 @@ export class ProposeRuleDto {
   documentIssuer!: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   documentDate?: string;
 
   @IsOptional()
@@ -98,6 +98,6 @@ export class ProposeRuleDto {
    * Validated in service to use server clock not client clock.
    */
   @IsOptional()
-  @IsDateString()
+  @IsNgayThat()
   effectiveFrom?: string;
 }
