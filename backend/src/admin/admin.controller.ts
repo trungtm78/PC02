@@ -123,6 +123,12 @@ export class AdminController {
     return this.adminService.getAllPermissions();
   }
 
+  @Get('roles/:id/permissions')
+  @RequirePermissions({ action: 'read', subject: 'User' })
+  getRolePermissions(@Param('id') roleId: string) {
+    return this.adminService.getRolePermissions(roleId);
+  }
+
   @Patch('roles/:id/permissions')
   @RequirePermissions({ action: 'write', subject: 'User' })
   updateRolePermissions(

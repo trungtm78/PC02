@@ -927,35 +927,18 @@ describe('AdminService', () => {
   // ── updateRolePermissions ─────────────────────────────────────────────────
 
   describe('updateRolePermissions', () => {
-    it('replaces role permissions atomically', async () => {
-      mockPrisma.role.findUnique
-        .mockResolvedValueOnce({ id: 'r1', name: 'Admin' }) // first check
-        .mockResolvedValueOnce({
-          id: 'r1',
-          name: 'Admin',
-          _count: { users: 1 },
-          permissions: [],
-        }); // getRoleById after
-      mockPrisma.permission.upsert.mockResolvedValue({ id: 'p1' });
-      mockPrisma.$transaction.mockResolvedValue([]);
-
-      await service.updateRolePermissions(
-        'r1',
-        { permissions: [{ action: 'read', subject: 'Case' }] },
-        'requester-1',
-      );
-      expect(mockPrisma.permission.upsert).toHaveBeenCalled();
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'ROLE_PERMISSIONS_UPDATED' }),
-      );
-    });
+    // Thay trọn bộ, danh mục, rỗng, tự khoá, nhật ký thêm/bớt: xem `vai-tro-quyen.spec.ts`. Ca cũ ở đây
+    // khẳng định `permission.upsert` được gọi — đúng hành vi lỗi (cặp lạ thành quyền mới) nên đã bỏ.
 
     it('throws NotFoundException when role not found', async () => {
       mockPrisma.role.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateRolePermissions('bad', { permissions: [] }, 'req'),
+        service.updateRolePermissions(
+          'bad',
+          { permissions: [], truocKhiSua: [] },
+          'req',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -976,6 +959,10 @@ describe('AdminService', () => {
 
   describe('deleteRole', () => {
     it('EC-01: throws BadRequestException when role has users', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'role-with-users',
+        name: 'TO_TAM',
+      });
       mockPrisma.user.count.mockResolvedValue(3);
 
       await expect(
@@ -984,11 +971,22 @@ describe('AdminService', () => {
     });
 
     it('deletes role when no users assigned', async () => {
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'empty-role',
+        name: 'TO_TAM',
+      });
       mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => unknown) =>
+          fn({ role: { delete: mockPrisma.role.delete } }),
+      );
       mockPrisma.role.delete.mockResolvedValue({});
 
       const result = await service.deleteRole('empty-role', 'req');
       expect(result.message).toContain('xóa role');
+      expect(mockPrisma.role.delete).toHaveBeenCalledWith({
+        where: { id: 'empty-role' },
+      });
     });
   });
 });

@@ -15,7 +15,7 @@ export class LegacyMigrationController {
   private assertAdmin(req: ReqUser): string {
     const role = req.user?.role;
     const id = req.user?.id;
-    if (role !== ROLE_NAMES.ADMIN && role !== 'SUPER_ADMIN') {
+    if (role !== ROLE_NAMES.ADMIN && role !== ROLE_NAMES.SUPER_ADMIN) {
       throw new ForbiddenException('Chỉ ADMIN được thực hiện di trú dữ liệu');
     }
     if (!id) {

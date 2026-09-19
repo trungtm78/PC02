@@ -25,7 +25,10 @@ import {
 import { QueryUsersDto } from './dto/query-users.dto';
 import { CreateDataGrantDto } from './dto/create-data-grant.dto';
 import { AccessLevel } from '@prisma/client';
-import { ROLE_NAMES } from '../common/constants/role.constants';
+import {
+  ROLE_NAMES,
+  VAI_TRO_HE_THONG,
+} from '../common/constants/role.constants';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_NGUOI_DUNG } from '../common/tim-kiem/khai/nguoi-dung.khai';
@@ -452,29 +455,86 @@ export class AdminService {
     return role;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  /** Các cặp (action, subject) của vai trò — nguồn cho ma trận ở màn "Vai trò & phân quyền". */
+  async getRolePermissions(id: string) {
+    const role = await this.getRoleById(id);
+    return role.permissions
+      .map(({ permission: p }) => ({ action: p.action, subject: p.subject }))
+      .sort(
+        (a, b) =>
+          a.subject.localeCompare(b.subject) ||
+          a.action.localeCompare(b.action),
+      );
+  }
+
   async updateRole(id: string, dto: UpdateRoleDto, requesterId: string) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
 
     if (dto.name && dto.name !== role.name) {
+      // Mã và seed so vai trò theo TÊN (`user.role === ROLE_NAMES.X`): đổi tên là gãy mọi phép so ấy.
+      if (VAI_TRO_HE_THONG.includes(role.name)) {
+        throw new BadRequestException(
+          `Không đổi tên được vai trò hệ thống "${role.name}"`,
+        );
+      }
+      // Chiếm tên hệ thống thì vai trò tự tạo được hưởng mọi đặc quyền mã dành cho tên ấy.
+      if (
+        VAI_TRO_HE_THONG.some(
+          (t) => t.toUpperCase() === dto.name!.toUpperCase(),
+        )
+      ) {
+        throw new ConflictException(
+          `Tên "${dto.name}" dành cho vai trò hệ thống`,
+        );
+      }
       const dup = await this.prisma.role.findFirst({
         where: { name: dto.name, id: { not: id } },
       });
       if (dup) throw new ConflictException(`Tên role "${dto.name}" đã tồn tại`);
     }
 
-    return this.prisma.role.update({
-      where: { id },
-      data: {
-        ...(dto.name && { name: dto.name }),
-        ...(dto.description !== undefined && { description: dto.description }),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const sau = await tx.role.update({
+        where: { id },
+        data: {
+          ...(dto.name && { name: dto.name }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
+        },
+      });
+      await this.audit.log(
+        {
+          userId: requesterId,
+          action: 'ROLE_UPDATED',
+          subject: 'Role',
+          subjectId: id,
+          metadata: {
+            truoc: { name: role.name, description: role.description },
+            sau: {
+              name: dto.name ?? role.name,
+              description:
+                dto.description !== undefined
+                  ? dto.description
+                  : role.description,
+            },
+          },
+        },
+        tx,
+      );
+      return sau;
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async deleteRole(id: string, requesterId: string) {
+    const role = await this.prisma.role.findUnique({ where: { id } });
+    if (!role) throw new NotFoundException(`Role #${id} không tồn tại`);
+    if (VAI_TRO_HE_THONG.includes(role.name)) {
+      throw new BadRequestException(
+        `Không xóa được vai trò hệ thống "${role.name}"`,
+      );
+    }
     // EC-01: Chặn xóa role đang có user
     const userCount = await this.prisma.user.count({ where: { roleId: id } });
     if (userCount > 0) {
@@ -482,7 +542,19 @@ export class AdminService {
         `Không thể xóa role này vì còn ${userCount} người dùng đang sử dụng. Hãy chuyển người dùng sang role khác trước.`,
       );
     }
-    await this.prisma.role.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.role.delete({ where: { id } });
+      await this.audit.log(
+        {
+          userId: requesterId,
+          action: 'ROLE_DELETED',
+          subject: 'Role',
+          subjectId: id,
+          metadata: { roleName: role.name, description: role.description },
+        },
+        tx,
+      );
+    });
     return { message: 'Đã xóa role thành công' };
   }
 
@@ -499,38 +571,114 @@ export class AdminService {
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException(`Role #${roleId} không tồn tại`);
 
-    // EC-05: Prevent admin from removing own critical permissions
-    // (Allow but audit clearly)
+    const khoa = (p: { action: string; subject: string }) =>
+      `${p.action}:${p.subject}`;
+    const yeuCau = [
+      ...new Map(dto.permissions.map((p) => [khoa(p), p])).values(),
+    ];
 
-    // Upsert all requested permissions
-    const permIds: string[] = [];
-    for (const p of dto.permissions) {
-      const perm = await this.prisma.permission.upsert({
-        where: { action_subject: { action: p.action, subject: p.subject } },
-        update: {},
-        create: { action: p.action, subject: p.subject },
-      });
-      permIds.push(perm.id);
+    // Rỗng = xoá SẠCH quyền — chỉ khi xác nhận rõ (màn cũ tải lỗi từng gửi rỗng mà không ai biết).
+    if (yeuCau.length === 0 && !dto.choPhepRong) {
+      throw new BadRequestException(
+        'Danh sách quyền rỗng sẽ xoá toàn bộ quyền của vai trò — cần xác nhận (choPhepRong)',
+      );
     }
 
-    // Replace all role-permission links atomically
-    await this.prisma.$transaction([
-      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
-      ...permIds.map((permissionId) =>
-        this.prisma.rolePermission.create({ data: { roleId, permissionId } }),
-      ),
-    ]);
+    // Chỉ nhận quyền CÓ trong danh mục. Trước đây `upsert` biến mọi cặp gõ sai thành quyền mới.
+    const danhMuc = yeuCau.length
+      ? await this.prisma.permission.findMany({
+          where: {
+            OR: yeuCau.map((p) => ({ action: p.action, subject: p.subject })),
+          },
+        })
+      : [];
+    const idTheoKhoa = new Map(danhMuc.map((p) => [khoa(p), p.id]));
+    const la = yeuCau.filter((p) => !idTheoKhoa.has(khoa(p))).map(khoa);
+    if (la.length) {
+      throw new BadRequestException(
+        `Quyền không có trong danh mục: ${la.join(', ')}`,
+      );
+    }
 
-    await this.audit.log({
-      userId: requesterId,
-      action: 'ROLE_PERMISSIONS_UPDATED',
-      subject: 'Role',
-      subjectId: roleId,
-      metadata: {
-        roleName: role.name,
-        permissionCount: dto.permissions.length,
-      },
-      ...meta,
+    // EC-05: không để mất đường quản trị — vai trò ADMIN, hay chính vai trò của người đang sửa, phải còn
+    // quyền xem và sửa người dùng/vai trò; thiếu là không ai (hoặc chính mình) mở lại được màn này.
+    const nguoiSua = await this.prisma.user.findUnique({
+      where: { id: requesterId },
+      select: { roleId: true },
+    });
+    if (role.name === ROLE_NAMES.ADMIN || nguoiSua?.roleId === roleId) {
+      const thieu = ['read:User', 'write:User'].filter(
+        (k) => !idTheoKhoa.has(k),
+      );
+      if (thieu.length) {
+        throw new BadRequestException(
+          `Không được bỏ ${thieu.join(', ')} khỏi vai trò này — sẽ mất quyền quản trị phân quyền`,
+        );
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Khoá dòng vai trò: hai lượt lưu cùng vai trò chạy NỐI TIẾP. Không khoá thì ở READ COMMITTED lượt sau
+      // không thấy dòng lượt trước vừa chèn → hai bộ quyền trộn vào nhau, hoặc trùng khoá chính → 500.
+      await tx.$queryRaw`SELECT id FROM "roles" WHERE id = ${roleId} FOR UPDATE`;
+      const truoc = await tx.rolePermission.findMany({
+        where: { roleId },
+        select: {
+          permissionId: true,
+          permission: { select: { action: true, subject: true } },
+        },
+      });
+      const khoaTruoc = new Set(truoc.map((r) => khoa(r.permission)));
+      const khoaSau = new Set(yeuCau.map(khoa));
+
+      // Dấu phiên bản: bộ client đã tải phải đúng bộ đang có. Lệch = người khác vừa lưu, hoặc client bản cũ.
+      const daTai = new Set(dto.truocKhiSua);
+      if (
+        daTai.size !== khoaTruoc.size ||
+        [...khoaTruoc].some((k) => !daTai.has(k))
+      ) {
+        throw new ConflictException(
+          'Phân quyền của vai trò vừa được thay đổi ở nơi khác — tải lại rồi sửa lại',
+        );
+      }
+
+      // Chỉ bỏ phần bị bỏ, chỉ thêm phần mới: quyền giữ nguyên không mất mốc `assignedAt`.
+      const bo = truoc.filter((r) => !khoaSau.has(khoa(r.permission)));
+      if (bo.length) {
+        await tx.rolePermission.deleteMany({
+          where: {
+            roleId,
+            permissionId: { in: bo.map((r) => r.permissionId) },
+          },
+        });
+      }
+      const them = yeuCau.filter((p) => !khoaTruoc.has(khoa(p)));
+      if (them.length) {
+        await tx.rolePermission.createMany({
+          data: them.map((p) => ({
+            roleId,
+            permissionId: idTheoKhoa.get(khoa(p))!,
+          })),
+        });
+      }
+
+      await this.audit.log(
+        {
+          userId: requesterId,
+          action: 'ROLE_PERMISSIONS_UPDATED',
+          subject: 'Role',
+          subjectId: roleId,
+          metadata: {
+            roleName: role.name,
+            truoc: khoaTruoc.size,
+            sau: khoaSau.size,
+            them: [...khoaSau].filter((k) => !khoaTruoc.has(k)).sort(),
+            bo: [...khoaTruoc].filter((k) => !khoaSau.has(k)).sort(),
+          },
+          ...meta,
+        },
+        tx,
+      );
     });
 
     return this.getRoleById(roleId);
