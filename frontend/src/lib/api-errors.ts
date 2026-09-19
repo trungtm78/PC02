@@ -77,3 +77,13 @@ export function extractApiError(err: unknown, fallback = DEFAULT_FALLBACK): Norm
 
   return { message: fallback, messages: [fallback] };
 }
+
+/**
+ * Lời hiện cho một lỗi 409. Máy chủ phân biệt từng trường hợp (trùng giá trị `DUPLICATE_VALUE`, hồ sơ vừa bị người
+ * khác sửa, …) và kèm lời đúng; form chỉ dùng câu dự phòng khi máy chủ không nói gì. Trước 19/09/2026 form Vụ án /
+ * Vụ việc coi MỌI 409 là "người khác vừa sửa, tải lại trang".
+ */
+export function loiXungDot(err: unknown, duPhong: string): string {
+  const { message } = extractApiError(err, '');
+  return message || duPhong;
+}

@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { extractApiError } from '../api-errors';
+import { extractApiError, loiXungDot } from '../api-errors';
 
 function axiosErrorWith(status: number, data: unknown): AxiosError {
   const err = new AxiosError('Request failed', String(status));
@@ -102,5 +102,38 @@ describe('extractApiError — network and non-axios errors', () => {
   it('returns fallback for unknown error type', () => {
     const result = extractApiError('weird');
     expect(result.message).toBe('Có lỗi xảy ra');
+  });
+});
+
+/**
+ * 19/09/2026: bộ lọc Prisma máy chủ nay THỰC SỰ chạy — trùng khoá (P2002) trả 409 DUPLICATE_VALUE. Form Vụ án /
+ * Vụ việc coi MỌI 409 là "người khác vừa sửa, tải lại trang" (câu viết cứng) → cán bộ trùng số quyết định lại được
+ * bảo tải lại trang. Máy chủ đã nói đúng từng trường hợp; form phải hiện lời của máy chủ.
+ */
+describe('loiXungDot — lời hiện cho 409', () => {
+  it('trùng giá trị → lời của máy chủ, không phải "người khác vừa sửa"', () => {
+    const err = axiosErrorWith(409, {
+      success: false,
+      error: { code: 'DUPLICATE_VALUE', message: 'Giá trị đã tồn tại — không thể trùng', details: [] },
+    });
+    expect(loiXungDot(err, 'Hồ sơ đã được chỉnh sửa bởi người dùng khác.')).toBe(
+      'Giá trị đã tồn tại — không thể trùng',
+    );
+  });
+
+  it('xung đột phiên bản → lời của máy chủ', () => {
+    const err = axiosErrorWith(409, {
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
+        details: [],
+      },
+    });
+    expect(loiXungDot(err, 'x')).toContain('đã được chỉnh sửa bởi người dùng khác');
+  });
+
+  it('máy chủ không kèm lời → câu dự phòng', () => {
+    expect(loiXungDot(axiosErrorWith(409, {}), 'Câu dự phòng')).toBe('Câu dự phòng');
   });
 });
