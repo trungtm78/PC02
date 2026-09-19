@@ -252,6 +252,10 @@ export class LawyersService {
         ...(dto.subjectId !== undefined && {
           subjectId: dto.subjectId ?? null,
         }),
+        // Đổi vụ án mà không chọn lại bị can → bỏ bị can của vụ án CŨ (bị can thuộc đúng một vụ án).
+        ...(dto.subjectId === undefined &&
+          dto.caseId &&
+          dto.caseId !== existing.caseId && { subjectId: null }),
       },
       include: {
         case: { select: { id: true, name: true, status: true } },

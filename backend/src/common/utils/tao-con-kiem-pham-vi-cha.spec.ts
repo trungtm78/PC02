@@ -34,6 +34,7 @@ const dieuPhoi: DataScope = { ...canBo, canDispatch: true } as DataScope;
 /** Prisma giả: `case.findFirst` trả vụ án theo id; mọi lệnh GHI được ghi lại để khẳng định KHÔNG xảy ra. */
 function taoPrisma(banGhiCon?: Record<string, unknown>) {
   const ghi: string[] = [];
+  const duLieu: Array<Record<string, unknown> | undefined> = [];
   const bang = new Map<string, Record<string, jest.Mock>>();
   const model = (ten: string) => {
     if (!bang.has(ten)) {
@@ -48,6 +49,7 @@ function taoPrisma(banGhiCon?: Record<string, unknown>) {
       ]) {
         m[hanh] = jest.fn((arg: { data?: Record<string, unknown> }) => {
           ghi.push(`${ten}.${hanh}`);
+          duLieu.push(arg?.data);
           return Promise.resolve({ id: 'moi', ...(arg?.data ?? {}) });
         });
       }
@@ -83,7 +85,7 @@ function taoPrisma(banGhiCon?: Record<string, unknown>) {
       },
     },
   );
-  return { prisma: prisma as never, ghi };
+  return { prisma: prisma as never, ghi, duLieu };
 }
 
 const audit = { log: jest.fn().mockResolvedValue(undefined) } as never;
@@ -244,5 +246,46 @@ describe('Chuyển bản ghi con sang vụ án khác phải kiểm phạm vi GHI
       ),
     ).rejects.toThrow(ForbiddenException);
     expect(ghi).toEqual([]);
+  });
+});
+
+/**
+ * Rà mã độc lập 19/09/2026: chuyển luật sư sang vụ án khác mà không gửi `subjectId` thì luật sư vẫn trỏ tới
+ * bị can của vụ án CŨ — bản ghi bào chữa cho người không có trong vụ án của nó.
+ */
+describe('Chuyển luật sư sang vụ án khác', () => {
+  const luatSu = {
+    id: 'ls1',
+    caseId: CA_TRONG.id,
+    subjectId: 'bi-can-vu-cu',
+    barNumber: 'B-1',
+    case: CA_TRONG,
+    deletedAt: null,
+  };
+
+  it('không gửi subjectId → bỏ liên kết bị can của vụ án cũ', async () => {
+    const { prisma, duLieu } = taoPrisma(luatSu);
+    await new LawyersService(prisma, audit).update(
+      'ls1',
+      { caseId: CA_NGOAI.id } as never,
+      'u1',
+      undefined,
+      null,
+    );
+    expect(duLieu[0]).toEqual(
+      expect.objectContaining({ caseId: CA_NGOAI.id, subjectId: null }),
+    );
+  });
+
+  it('không đổi vụ án → giữ nguyên bị can', async () => {
+    const { prisma, duLieu } = taoPrisma(luatSu);
+    await new LawyersService(prisma, audit).update(
+      'ls1',
+      { fullName: 'LS B' } as never,
+      'u1',
+      undefined,
+      null,
+    );
+    expect(duLieu[0]).not.toHaveProperty('subjectId');
   });
 });
