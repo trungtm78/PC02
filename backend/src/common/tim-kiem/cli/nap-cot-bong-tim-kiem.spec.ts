@@ -1,4 +1,8 @@
-import { napCotBongTimKiem } from './nap-cot-bong-tim-kiem';
+import {
+  kiemCotBongChuaNap,
+  maThoatKiem,
+  napCotBongTimKiem,
+} from './nap-cot-bong-tim-kiem';
 
 /**
  * CLI nạp cột bóng — prisma giả ở RANH GIỚI CSDL, câu SQL là câu thật của bộ sinh. Canh: chạy thử
@@ -10,6 +14,8 @@ import { napCotBongTimKiem } from './nap-cot-bong-tim-kiem';
 interface Bang {
   /** Kết quả các lần đếm dòng lệch, theo thứ tự. */
   lech: number[];
+  /** Còn dòng CHƯA TỪNG nạp (cột bóng NULL) — câu `chuaNap`. */
+  chuaNap?: boolean;
   /** Mọi id của bảng, đã sắp. */
   ids: string[];
   /** Số dòng câu nạp báo đã ghi, mỗi lần gọi (mặc định: cả lô). */
@@ -53,6 +59,9 @@ function gia(khai: Partial<Record<TenBang, Bang>>) {
   const prisma = {
     $queryRawUnsafe: jest.fn((sql: string, conTro?: string, lo?: number) => {
       const b = tenBang(sql);
+      if (sql.startsWith('SELECT EXISTS')) {
+        return Promise.resolve([{ co: bang(b).chuaNap ?? false }]);
+      }
       if (sql.startsWith('SELECT count')) {
         const i = lanDem[b] ?? 0;
         lanDem[b] = i + 1;
@@ -207,5 +216,43 @@ describe('napCotBongTimKiem', () => {
     expect(kq.every((k) => k.lechTruoc === 0)).toBe(true);
     expect(kq).toHaveLength(TEN_BANG.length);
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Chế độ `--kiem` cho deploy.sh (PR #391). Bản đầu của #391 gọi bản CHẠY THỬ và dựa vào mã thoát, nhưng
+ * chạy thử luôn thoát 0 dù còn dòng chưa nạp → cảnh báo không bao giờ bật; và nó tính lại f_bo_dau cả
+ * bảng (đo prod 19/09/2026: 1 phút 47 giây). Kiểm phải: rẻ, chỉ đọc, và mã thoát KHÁC 0 khi còn dòng chưa nạp.
+ */
+describe('kiemCotBongChuaNap', () => {
+  beforeEach(() =>
+    jest.spyOn(console, 'log').mockImplementation(() => undefined),
+  );
+  afterEach(() => jest.restoreAllMocks());
+
+  it('trả đúng các bảng còn dòng chưa nạp; không đếm lệch cả bảng, không lấy lô, không ghi', async () => {
+    const { prisma, layLoCalls } = gia({
+      petitions: { lech: [0], ids: [], chuaNap: true },
+      audit_logs: { lech: [0], ids: [], chuaNap: true },
+    });
+    expect(await kiemCotBongChuaNap(prisma as never)).toEqual([
+      'petitions',
+      'audit_logs',
+    ]);
+    expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+    expect(layLoCalls).toEqual([]);
+    const cau = prisma.$queryRawUnsafe.mock.calls.map((c) => c[0]);
+    expect(cau).toHaveLength(15);
+    expect(cau.every((q) => q.startsWith('SELECT EXISTS'))).toBe(true);
+  });
+
+  it('mọi bảng đã nạp → danh sách rỗng', async () => {
+    const { prisma } = gia({});
+    expect(await kiemCotBongChuaNap(prisma as never)).toEqual([]);
+  });
+
+  it('mã thoát: còn bảng chưa nạp → 2 (deploy báo đỏ); đủ → 0', () => {
+    expect(maThoatKiem(['petitions'])).toBe(2);
+    expect(maThoatKiem([])).toBe(0);
   });
 });

@@ -50,6 +50,24 @@ describe('GATE — deploy.sh kiểm cột bóng tìm kiếm sau migration', () =
     for (const l of dong) expect(l).not.toContain('--that');
   });
 
+  /**
+   * Bản đầu gọi CLI không cờ (chạy thử): thoát 0 dù còn dòng chưa nạp → `if ! node …` không bao giờ
+   * bật cờ, cảnh báo câm. Phải gọi chế độ `--kiem` — chế độ duy nhất thoát khác 0 khi còn dòng chưa nạp.
+   */
+  it('gọi đúng chế độ --kiem (thoát khác 0 khi còn dòng chưa nạp)', () => {
+    const dong = docDeploy()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(
+        (l) =>
+          l.includes('nap-cot-bong-tim-kiem') &&
+          !l.startsWith('#') &&
+          !l.startsWith('log '),
+      );
+    expect(dong.length).toBeGreaterThan(0);
+    for (const l of dong) expect(l).toContain('--kiem');
+  });
+
   it('lệch thì báo kèm đúng lệnh phải chạy tay (có --that)', () => {
     expect(docDeploy()).toContain('--that');
   });

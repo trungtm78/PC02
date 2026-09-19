@@ -15,6 +15,7 @@
  *   set -a && source .env && set +a
  *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js          # chạy thử: đếm dòng lệch
  *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that   # nạp thật
+ *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --kiem   # deploy.sh: còn dòng chưa nạp → thoát 2
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -85,13 +86,43 @@ export async function napCotBongTimKiem(
   return ketQua;
 }
 
+/**
+ * Kiểm lúc deploy: bảng nào còn dòng CHƯA TỪNG nạp (cột bóng NULL). Chỉ đọc.
+ *
+ * Không dùng câu `dem`: nó tính lại f_bo_dau trên mọi dòng — đo prod 19/09/2026 mất 1 phút 47 giây cho
+ * 15 bảng, tải nặng lên CSDL ở MỖI lần deploy. Deploy chỉ cần bắt đúng lớp hỏng migration để lại (cột mới
+ * NULL cho dữ liệu cũ); lệch do sửa tay biểu thức thì vẫn có bản chạy thử đầy đủ để đo.
+ */
+export async function kiemCotBongChuaNap(prisma: PrismaNap): Promise<string[]> {
+  const conThieu: string[] = [];
+  for (const { bang, cau } of sinhCacCauNap(KHAI_TIM_KIEM)) {
+    const [dong] = await prisma.$queryRawUnsafe<Array<{ co: boolean }>>(
+      cau.chuaNap,
+    );
+    const co = dong?.co === true;
+    console.log(`${bang}: ${co ? 'CÒN dòng chưa nạp cột bóng' : 'đã nạp đủ'}`);
+    if (co) conThieu.push(bang);
+  }
+  return conThieu;
+}
+
+/** 2 = còn bảng chưa nạp (deploy.sh báo đỏ); khác với 1 = lỗi chạy. */
+export function maThoatKiem(conThieu: readonly string[]): number {
+  return conThieu.length > 0 ? 2 : 0;
+}
+
 if (require.main === module) {
   const ghiThat = process.argv.includes('--that');
   // Prisma 7 bỏ trình điều khiển dựng sẵn: `new PrismaClient()` trần ném ngay lúc dựng.
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
   });
-  napCotBongTimKiem(prisma, ghiThat)
+  const viec: Promise<unknown> = process.argv.includes('--kiem')
+    ? kiemCotBongChuaNap(prisma).then((conThieu) => {
+        process.exitCode = maThoatKiem(conThieu);
+      })
+    : napCotBongTimKiem(prisma, ghiThat);
+  viec
     .catch((e) => {
       console.error(e);
       process.exitCode = 1;

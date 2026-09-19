@@ -542,6 +542,11 @@ export interface CauNap {
   layLo: string;
   /** Ghi cột bóng cho các id `$1` của lô, CHỈ dòng lệch. */
   nap: string;
+  /**
+   * Còn dòng CHƯA TỪNG nạp không (`co`: boolean) — cho kiểm lúc deploy. Rẻ hơn `dem` vì không tính
+   * f_bo_dau, và dừng ở dòng đầu tìm thấy (đo prod 19/09/2026: 15 bảng ~0,2 giây, `dem` 1 phút 47 giây).
+   */
+  chuaNap: string;
 }
 
 /**
@@ -557,10 +562,14 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
     .map((g) => `"${g.cotBong}" IS DISTINCT FROM ${bieu(g)}`)
     .join(' OR ');
   const set = gan.map((g) => `"${g.cotBong}" = ${bieu(g)}`).join(', ');
+  // Biểu thức cột bóng KHÔNG BAO GIỜ NULL (đo prod 19/09/2026: f_bo_dau(NULL) = '', nên dòng đã nạp mang
+  // ít nhất ' '). Cột bóng NULL vì thế đúng một nghĩa: dòng CHƯA TỪNG được nạp — không cần tính f_bo_dau.
+  const chuaNap = gan.map((g) => `"${g.cotBong}" IS NULL`).join(' OR ');
   return {
     dem: `SELECT count(*)::int AS n FROM "${bang}" WHERE ${lech}`,
     layLo: `SELECT id FROM "${bang}" WHERE id > $1 ORDER BY id LIMIT $2`,
     nap: `UPDATE "${bang}" SET ${set} WHERE id = ANY($1::text[]) AND (${lech})`,
+    chuaNap: `SELECT EXISTS (SELECT 1 FROM "${bang}" WHERE ${chuaNap} LIMIT 1) AS co`,
   };
 }
 

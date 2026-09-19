@@ -290,10 +290,14 @@ fi
 # kiểu hỏng im lặng mà tệp này đã ba lần tự cảnh báo ở trên.
 #
 # KHÔNG tự nạp: đo trên prod 16/09/2026, nạp thật quét lại cả bảng cũ nên rất lâu; nhét vào đây
-# là chặn cả lượt triển khai và chặn khởi động lại dịch vụ. Chỉ CHẠY THỬ (không ghi gì) rồi báo,
+# là chặn cả lượt triển khai và chặn khởi động lại dịch vụ. Chỉ KIỂM (không ghi gì) rồi báo,
 # đúng khuôn đang dùng với bộ canh cache.
-log "Kiểm cột bóng tìm kiếm (chạy thử, không ghi)..."
-if ! node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js; then
+#
+# Phải là `--kiem`, KHÔNG phải bản chạy thử trần: chạy thử luôn thoát 0 dù còn dòng chưa nạp (cờ
+# dưới không bao giờ bật), và nó tính lại f_bo_dau trên mọi dòng — đo prod 19/09/2026: 1 phút 47 giây.
+# `--kiem` chỉ tìm dòng có cột bóng NULL (chưa từng nạp), thoát 2 khi còn — mọi mã khác 0 đều bật cờ.
+log "Kiểm cột bóng tìm kiếm (chỉ đọc)..."
+if ! node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --kiem; then
     COT_BONG_LECH=1
 fi
 

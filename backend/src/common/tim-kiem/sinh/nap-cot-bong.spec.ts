@@ -13,7 +13,7 @@ import { sinhCauNapCotBong, sinhCauNapHoTen } from './sinh-tim-kiem';
  * phương). Con trỏ đi qua mỗi dòng đúng một lần.
  */
 describe('sinhCauNapCotBong', () => {
-  const { dem, layLo, nap } = sinhCauNapCotBong(KHAI_TIM_KIEM_DON_THU);
+  const { dem, layLo, nap, chuaNap } = sinhCauNapCotBong(KHAI_TIM_KIEM_DON_THU);
   const lech = `"sender_name_bd" IS DISTINCT FROM ' ' || f_bo_dau("senderName")`;
 
   it('biểu thức cột bóng giống hệt trigger, nhưng trên cột của dòng (không NEW.)', () => {
@@ -29,6 +29,22 @@ describe('sinhCauNapCotBong', () => {
       /^SELECT count\(\*\)::int AS n FROM "petitions" WHERE /,
     );
     expect(dem).toContain(lech);
+  });
+
+  /**
+   * Kiểm lúc deploy: câu `dem` tính lại f_bo_dau trên MỌI dòng — đo prod 19/09/2026 mất 1 phút 47 giây
+   * cho 15 bảng. Deploy chỉ cần biết "còn dòng CHƯA TỪNG nạp không": cột bóng NULL.
+   * Biểu thức cột bóng không bao giờ NULL (f_bo_dau(NULL) = '' → dòng đã nạp mang ít nhất ' '), nên cột
+   * bóng NULL đúng nghĩa "chưa từng nạp" — CÙNG tập mà `dem` đếm, không cần tính lại f_bo_dau.
+   */
+  it('chưa nạp: cột bóng NULL ở BẤT KỲ cột nào, không tính f_bo_dau, dừng ở dòng đầu tìm thấy', () => {
+    expect(chuaNap).toMatch(
+      /^SELECT EXISTS \(SELECT 1 FROM "petitions" WHERE .* LIMIT 1\) AS co$/,
+    );
+    expect(chuaNap).toContain('"sender_name_bd" IS NULL OR ');
+    expect(chuaNap).toContain('"tim_kiem_bd" IS NULL LIMIT 1');
+    expect(chuaNap).not.toContain('f_bo_dau');
+    expect(chuaNap).not.toContain('IS DISTINCT FROM');
   });
 
   it('lấy lô theo con trỏ id: id > $1, sắp theo id, giới hạn $2', () => {
