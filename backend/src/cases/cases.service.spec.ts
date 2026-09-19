@@ -161,6 +161,13 @@ describe('CasesService', () => {
 
     service = module.get<CasesService>(CasesService);
     jest.clearAllMocks();
+    // Mặc định giao dịch chạy thẳng trên chính mock (update vụ án đi qua $transaction từ 19/09/2026). Ca nào
+    // cần hành vi khác thì tự đặt lại.
+    mockPrisma.$transaction.mockImplementation((fn: unknown) =>
+      typeof fn === 'function'
+        ? (fn as (tx: unknown) => unknown)(mockPrisma)
+        : Promise.all(fn as unknown[]),
+    );
   });
 
   // ── getList ────────────────────────────────────────────────────────────────
@@ -1448,8 +1455,10 @@ describe('CasesService', () => {
         'actor-001',
       );
 
-      // No phantom Petition transaction should fire
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      // No phantom Petition. Từ 19/09/2026 bản thân lượt sửa vụ án chạy trong ĐÚNG MỘT giao dịch — không có
+      // giao dịch thứ hai nào để tạo đơn thư ma, và không lệnh tạo đơn thư nào.
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.petition.create).not.toHaveBeenCalled();
       // No PETITION_AUTO_CREATED audit
       expect(mockAudit.log).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: 'PETITION_AUTO_CREATED' }),

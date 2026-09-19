@@ -1,6 +1,7 @@
 import { lazy, type ReactElement } from 'react';
 import { Route } from 'react-router-dom';
 import { wrapRoute } from '@/lib/features/wrapRoute';
+import { DungLaiTheoId } from '@/lib/features/dungLaiTheoId';
 
 // F1 swap (v0.56): PetitionListPageShell (PR2 ListPageShell) replaces legacy.
 const PetitionListPage = lazy(() => import('@/pages/petitions/PetitionListPageShell'));
@@ -17,7 +18,7 @@ export function renderPetitionsRoutes(): ReactElement[] {
     // navigates to /petitions/:id → no route → catch-all `*` → redirect /login.
     // PetitionFormPage handles cả read+edit qua useParams id presence.
     <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<PetitionFormPage />)} />,
-    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<PetitionFormPage />)} />,
+    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
     <Route key="petitions-ward" path="/ward/petitions" element={wrapRoute(<WardPetitionsPage />)} />,
   ];
 }
