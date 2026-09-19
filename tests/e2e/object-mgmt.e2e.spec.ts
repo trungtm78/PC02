@@ -23,7 +23,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env.test') });
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5179';
 const ADMIN_EMAIL = process.env.TEST_EMAIL_DTV ?? 'dtv@pc02.catp.gov.vn';
-const ADMIN_PASS  = process.env.TEST_PASS_DTV  ?? 'DieuTra@PC02#2026';
+const ADMIN_PASS  = process.env.TEST_PASS_DTV  ?? '';
 
 // ─── Login helper (sessionStorage injection — bypasses backend dependency) ────
 // The authStore.isAuthenticated() checks sessionStorage.getItem('accessToken').

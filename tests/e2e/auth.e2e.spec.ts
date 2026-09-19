@@ -34,7 +34,7 @@ test.describe('Auth API - Login', () => {
     request,
   }) => {
     const response = await request.post(`${BASE_URL}/api/v1/auth/login`, {
-      data: { username: 'admin@pc02.local', password: 'Admin@1234!' },
+      data: { username: 'admin@pc02.local', password: '' },
     });
 
     expect(response.status()).toBe(200);
@@ -71,7 +71,7 @@ test.describe('Auth API - Login', () => {
   // v0.27 multi-field login — backend classify identifier shape
   test('POST /auth/login bằng username "admin" returns 200', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/api/v1/auth/login`, {
-      data: { username: 'admin', password: 'Admin@1234!' },
+      data: { username: 'admin', password: '' },
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -104,7 +104,7 @@ test.describe('Auth API - Refresh Token', () => {
   test('POST /api/v1/auth/refresh returns new accessToken', async ({ request }) => {
     // Step 1: login to get refreshToken
     const loginRes = await request.post(`${BASE_URL}/api/v1/auth/login`, {
-      data: { username: 'admin@pc02.local', password: 'Admin@1234!' },
+      data: { username: 'admin@pc02.local', password: '' },
     });
     const { refreshToken } = await loginRes.json();
 
@@ -132,7 +132,7 @@ test.describe('Audit Log - Login Action', () => {
   test('AC-STEP1-04: Login action is recorded in audit log', async ({ request }) => {
     // Perform login
     const loginRes = await request.post(`${BASE_URL}/api/v1/auth/login`, {
-      data: { username: 'admin@pc02.local', password: 'Admin@1234!' },
+      data: { username: 'admin@pc02.local', password: '' },
     });
     const { accessToken } = await loginRes.json();
 
@@ -165,7 +165,7 @@ test.describe('Frontend - Login UI', () => {
     await page.goto(`${FRONTEND_URL}/login`);
 
     await page.locator('input[type="email"], input[id="username"]').first().fill('admin@pc02.local');
-    await page.locator('input[type="password"]').first().fill('Admin@1234!');
+    await page.locator('input[type="password"]').first().fill('');
     await page.getByRole('button', { name: /sign in|login|đăng nhập/i }).click();
 
     // Should redirect to dashboard

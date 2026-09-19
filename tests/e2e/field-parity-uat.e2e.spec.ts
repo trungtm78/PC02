@@ -7,7 +7,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 const USERNAME = process.env.ADMIN_USERNAME || 'admin@pc02.local';
-const PASSWORD = process.env.ADMIN_PASSWORD || '68@Love2love68';
+const PASSWORD = process.env.ADMIN_PASSWORD || '';
 
 // Đăng nhập qua UI (KHÔNG call API trực tiếp) — thiết lập phiên trong browser.
 async function uiLogin(page: Page): Promise<void> {

@@ -273,7 +273,7 @@ TEST_EXECUTION_BY_PHASE:
 
 DEFECTS_FOUND_OR_FIXED:
   DEF-001: LOW | FIXED | E2E/UAT tests had wrong login credentials (admin@example.com)
-            → Fixed to admin@pc02.local / Admin@1234! consistent with project convention
+            → Fixed to admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu> consistent with project convention
   DEF-002: INFO | NOTED | Pre-existing Playwright failures in admin.e2e, cases.e2e,
             ObjectManagement.e2e, petitions.e2e — unrelated to this task's changes.
             Not introduced by TASK-2026-260216.

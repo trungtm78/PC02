@@ -90,13 +90,13 @@ File này được thiết kế để Claude Code đọc khi cần **fix bug** t
 
 | ID | Email | Mật khẩu | Vai trò | Trạng thái | Mục đích |
 |----|-------|----------|---------|------------|----------|
-| `U001` | `admin@pc02.local` | `Admin@2026!` | ADMIN | Active | Test ADMIN-only restore + listDeleted + bypass scope |
-| `U002` | `dispatcher@pc02.local` | `Disp@2026!` | DISPATCHER | Active | Test PATCH /assign + canDispatch bypass |
-| `U003` | `dieuTra1@pc02.local` | `DTV@2026!` | INVESTIGATOR | Active | Owner + same-team test, creator delete |
-| `U004` | `dieuTra2@pc02.local` | `DTV@2026!` | INVESTIGATOR | Active | Same-team với U003 (Team-Q1) |
-| `U005` | `dieuTra3-Q3@pc02.local` | `DTV@2026!` | INVESTIGATOR | Active | Different team (Team-Q3) — test scope reject |
-| `U006` | `wardOfficer1@pc02.local` | `WO@2026!` | WARD_OFFICER | Active | Test isWardOfficer auto-set assignedTeamId override |
-| `U007` | `viewer@pc02.local` | `View@2026!` | VIEWER | Active | Test 403 cho write/delete/restore |
+| `U001` | `admin@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | ADMIN | Active | Test ADMIN-only restore + listDeleted + bypass scope |
+| `U002` | `dispatcher@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | DISPATCHER | Active | Test PATCH /assign + canDispatch bypass |
+| `U003` | `dieuTra1@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | INVESTIGATOR | Active | Owner + same-team test, creator delete |
+| `U004` | `dieuTra2@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | INVESTIGATOR | Active | Same-team với U003 (Team-Q1) |
+| `U005` | `dieuTra3-Q3@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | INVESTIGATOR | Active | Different team (Team-Q3) — test scope reject |
+| `U006` | `wardOfficer1@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | WARD_OFFICER | Active | Test isWardOfficer auto-set assignedTeamId override |
+| `U007` | `viewer@pc02.local` | `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>` | VIEWER | Active | Test 403 cho write/delete/restore |
 | `U008` | `locked@pc02.local` | `-` | INVESTIGATOR | Locked | Test JWT của user locked |
 
 ### 2. Boundary Values (BVA)

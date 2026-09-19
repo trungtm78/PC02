@@ -79,10 +79,10 @@ test.describe('CASES — UAT API smoke layer', () => {
 
   test.beforeAll(async ({ request }) => {
     // Login all accounts
-    adminToken   = await loginAs(request, 'admin@pc02.local',    '68@Love2love68');
-    officerToken = await loginAs(request, 'officer1@pc02.local', '8I@&5c1gHmfy');
-    officer2Token= await loginAs(request, 'officer2@pc02.local', '4TMa3hq*x3$v');
-    approverToken= await loginAs(request, 'approver1@pc02.local','6!rrw@ILte62');
+    adminToken   = await loginAs(request, 'admin@pc02.local',    '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    officerToken = await loginAs(request, 'officer1@pc02.local', '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    officer2Token= await loginAs(request, 'officer2@pc02.local', '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    approverToken= await loginAs(request, 'approver1@pc02.local','<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
 
     // Fetch crimeId from directories
     const crRes = await request.get(url('/api/v1/directories?type=CRIME&limit=5'), {
@@ -865,10 +865,10 @@ test.describe('PETITIONS — UAT API smoke layer', () => {
   }
 
   test.beforeAll(async ({ request }) => {
-    adminToken   = await loginAs(request, 'admin@pc02.local',    '68@Love2love68');
-    officerToken = await loginAs(request, 'officer1@pc02.local', '8I@&5c1gHmfy');
-    officer2Token= await loginAs(request, 'officer2@pc02.local', '4TMa3hq*x3$v');
-    approverToken= await loginAs(request, 'approver1@pc02.local','6!rrw@ILte62');
+    adminToken   = await loginAs(request, 'admin@pc02.local',    '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    officerToken = await loginAs(request, 'officer1@pc02.local', '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    officer2Token= await loginAs(request, 'officer2@pc02.local', '<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
+    approverToken= await loginAs(request, 'approver1@pc02.local','<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>');
 
     // Create main petition fixture
     const pRes = await request.post(url('/api/v1/petitions'), {

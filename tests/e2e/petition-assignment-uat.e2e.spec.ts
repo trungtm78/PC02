@@ -23,19 +23,19 @@ const SCREENSHOTS = 'test-results/uat/screenshots/petition-assignment';
 const ACCOUNTS = {
   admin: {
     email: process.env.ADMIN_USERNAME || 'admin@pc02.local',
-    password: process.env.ADMIN_PASSWORD || '68@Love2love68',
+    password: process.env.ADMIN_PASSWORD || '',
   },
   officer1: {
     email: process.env.OFFICER1_USERNAME || 'officer1@pc02.local',
-    password: process.env.OFFICER1_PASSWORD || '8I@&5c1gHmfy',
+    password: process.env.OFFICER1_PASSWORD || '',
   },
   officer2: {
     email: process.env.OFFICER2_USERNAME || 'officer2@pc02.local',
-    password: process.env.OFFICER2_PASSWORD || '4TMa3hq*x3$v',
+    password: process.env.OFFICER2_PASSWORD || '',
   },
   approver1: {
     email: process.env.APPROVER1_USERNAME || 'approver1@pc02.local',
-    password: process.env.APPROVER1_PASSWORD || '6!rrw@ILte62',
+    password: process.env.APPROVER1_PASSWORD || '',
   },
 };
 

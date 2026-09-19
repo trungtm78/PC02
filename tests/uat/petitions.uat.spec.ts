@@ -80,7 +80,7 @@ async function loginAsDTV(page: Page) {
   const emailInput = page.locator('input[type="email"], input[placeholder*="email"], input[placeholder*="cán bộ"]').first();
   await emailInput.fill(process.env['TEST_EMAIL_DTV'] ?? 'dtv@pc02.catp.gov.vn');
   const passwordInput = page.getByLabel('Mật khẩu').or(page.locator('input[type="password"]').first());
-  await passwordInput.fill(process.env['TEST_PASS_DTV'] ?? 'DieuTra@PC02#2026');
+  await passwordInput.fill(process.env['TEST_PASS_DTV'] ?? '');
   await page.getByRole('button', { name: /Đăng nhập/i }).click();
   // Wait for redirect after login
   await page.waitForURL('**/dashboard', { timeout: 10000 });

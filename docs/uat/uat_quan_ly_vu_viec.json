@@ -14095,7 +14095,7 @@
       {
         "id": "U001",
         "email": "admin@pc02.local",
-        "password": "Admin@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "ADMIN",
         "status": "Active",
         "purpose": "Test ADMIN-only restore + listDeleted + bypass scope",
@@ -14104,7 +14104,7 @@
       {
         "id": "U002",
         "email": "dispatcher@pc02.local",
-        "password": "Disp@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "DISPATCHER",
         "status": "Active",
         "purpose": "Test PATCH /assign + canDispatch bypass",
@@ -14113,7 +14113,7 @@
       {
         "id": "U003",
         "email": "dieuTra1@pc02.local",
-        "password": "DTV@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "INVESTIGATOR",
         "status": "Active",
         "purpose": "Owner + same-team test, creator delete",
@@ -14122,7 +14122,7 @@
       {
         "id": "U004",
         "email": "dieuTra2@pc02.local",
-        "password": "DTV@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "INVESTIGATOR",
         "status": "Active",
         "purpose": "Same-team với U003 (Team-Q1)",
@@ -14131,7 +14131,7 @@
       {
         "id": "U005",
         "email": "dieuTra3-Q3@pc02.local",
-        "password": "DTV@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "INVESTIGATOR",
         "status": "Active",
         "purpose": "Different team (Team-Q3) — test scope reject",
@@ -14140,7 +14140,7 @@
       {
         "id": "U006",
         "email": "wardOfficer1@pc02.local",
-        "password": "WO@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "WARD_OFFICER",
         "status": "Active",
         "purpose": "Test isWardOfficer auto-set assignedTeamId override",
@@ -14149,7 +14149,7 @@
       {
         "id": "U007",
         "email": "viewer@pc02.local",
-        "password": "View@2026!",
+        "password": "<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>",
         "role": "VIEWER",
         "status": "Active",
         "purpose": "Test 403 cho write/delete/restore",

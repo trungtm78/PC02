@@ -4,7 +4,7 @@
  *
  * Credentials từ project_context.md:
  *   URL:      http://localhost:5173
- *   Admin:    admin@pc02.local / Admin@1234!
+ *   Admin:    admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>
  *   Role:     ADMIN
  */
 
@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5179';
 const API_URL  = 'http://localhost:3000';
-const ADMIN    = { email: 'admin@pc02.local', password: 'Admin@1234!' };
+const ADMIN    = { email: 'admin@pc02.local', password: '' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -169,7 +169,7 @@ test.describe('AC-01: User Management', () => {
     await page.locator('#field-workId').fill(`dup-${Date.now()}`);
     await page.locator('#field-email').fill(ADMIN.email); // email admin đã tồn tại
     await page.locator('#field-username').fill('admin');
-    await page.locator('#field-password').fill('Admin@1234!');
+    await page.locator('#field-password').fill('');
     await page.locator('#field-fullName').fill('Test Admin');
     await page.locator('#field-roleId').selectOption({ index: 1 });
     await page.getByRole('button', { name: /thêm mới|cập nhật/i }).last().click();

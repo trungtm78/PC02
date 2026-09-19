@@ -15,52 +15,76 @@ describe('LoginDto', () => {
 
   describe('username field — accept all 4 identifier shapes', () => {
     it('accepts email format', async () => {
-      expect(await valid({ username: 'admin@pc02.local', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({
+          username: 'admin@pc02.local',
+          password: 'MatKhauMau#2026',
+        }),
+      ).toEqual([]);
     });
 
     it('accepts workId format (XXX-XXX)', async () => {
-      expect(await valid({ username: '277-794', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({ username: '277-794', password: 'MatKhauMau#2026' }),
+      ).toEqual([]);
     });
 
     it('accepts legacy workId format (PC02-DTV-001)', async () => {
-      expect(await valid({ username: 'PC02-DTV-001', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({ username: 'PC02-DTV-001', password: 'MatKhauMau#2026' }),
+      ).toEqual([]);
     });
 
     it('accepts phone format', async () => {
-      expect(await valid({ username: '0934314279', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({ username: '0934314279', password: 'MatKhauMau#2026' }),
+      ).toEqual([]);
     });
 
     it('accepts username format', async () => {
-      expect(await valid({ username: 'admin', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({ username: 'admin', password: 'MatKhauMau#2026' }),
+      ).toEqual([]);
     });
   });
 
   describe('username field — bounds', () => {
     it('rejects empty string', async () => {
-      const errors = await valid({ username: '', password: 'Admin@1234!' });
+      const errors = await valid({ username: '', password: 'MatKhauMau#2026' });
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].property).toBe('username');
     });
 
     it('rejects string shorter than 3 chars', async () => {
-      const errors = await valid({ username: 'ab', password: 'Admin@1234!' });
+      const errors = await valid({
+        username: 'ab',
+        password: 'MatKhauMau#2026',
+      });
       expect(errors.length).toBeGreaterThan(0);
     });
 
     it('rejects string longer than 254 chars (RFC 5322 email cap)', async () => {
       const tooLong = 'a'.repeat(255);
-      const errors = await valid({ username: tooLong, password: 'Admin@1234!' });
+      const errors = await valid({
+        username: tooLong,
+        password: 'MatKhauMau#2026',
+      });
       expect(errors.length).toBeGreaterThan(0);
     });
 
     it('accepts string at boundary 254 chars', async () => {
       const at254 = 'a'.repeat(254);
-      const errors = await valid({ username: at254, password: 'Admin@1234!' });
+      const errors = await valid({
+        username: at254,
+        password: 'MatKhauMau#2026',
+      });
       expect(errors).toEqual([]);
     });
 
     it('accepts string at boundary 3 chars', async () => {
-      expect(await valid({ username: 'abc', password: 'Admin@1234!' })).toEqual([]);
+      expect(
+        await valid({ username: 'abc', password: 'MatKhauMau#2026' }),
+      ).toEqual([]);
     });
   });
 

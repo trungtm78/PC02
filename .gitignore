@@ -76,3 +76,6 @@ test-claude-hook.bat
 .stryker-tmp/
 backend/.stryker-tmp/
 backend/reports/mutation/
+
+# Khoá ADB cá nhân của máy dev — không đưa vào repo (20/09/2026)
+.android/

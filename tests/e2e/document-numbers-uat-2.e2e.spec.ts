@@ -7,9 +7,9 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const API  = process.env.API_BASE ?? `${BASE}/api/v1`;
 
 const ADMIN_EMAIL    = process.env.ADMIN_USERNAME ?? process.env.ADMIN_EMAIL ?? 'admin@pc02.local';
-const ADMIN_PASS     = process.env.ADMIN_PASSWORD ?? 'Admin@1234';
+const ADMIN_PASS     = process.env.ADMIN_PASSWORD ?? '';
 const OFFICER1_EMAIL = process.env.OFFICER1_USERNAME ?? process.env.OFFICER1_EMAIL ?? 'officer1@pc02.local';
-const OFFICER1_PASS  = process.env.OFFICER1_PASSWORD ?? 'Officer@1234';
+const OFFICER1_PASS  = process.env.OFFICER1_PASSWORD ?? '';
 
 async function loginAs(page: any, email: string, pass: string) {
   await page.goto(`${BASE}/login`);

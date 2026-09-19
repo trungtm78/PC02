@@ -10,7 +10,7 @@
  */
 import { test, expect, type APIRequestContext } from '@playwright/test';
 
-const API = process.env.API_BASE ?? 'https://new.pc02hcm.com/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 const USER = process.env.ADMIN_USERNAME ?? 'admin@pc02.local';
 const PASS = process.env.ADMIN_PASSWORD ?? '';
 

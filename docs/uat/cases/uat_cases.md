@@ -39,25 +39,25 @@
 
 ### `account.admin.primary`
 **Ref**: `_shared/test-accounts.json#account.admin.primary`
-**Setup**: login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'68@Love2love68'} → outputs.token = response.accessToken
+**Setup**: login: POST /api/v1/auth/login {email:'admin@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'} → outputs.token = response.accessToken
 **Cleanup**: logout (token invalidate optional)
 **Outputs**: `{"token": "$.accessToken", "userId": "$.user.id"}`
 
 ### `account.admin.secondary`
 **Ref**: `_shared/test-accounts.json#account.admin.secondary`
-**Setup**: login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'isP$sT4N@o71'}
+**Setup**: login: POST /api/v1/auth/login {email:'admin2@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}
 **Cleanup**: -
 **Outputs**: `{"token": "$.accessToken", "userId": "$.user.id"}`
 
 ### `account.officer.primary`
 **Ref**: `_shared/test-accounts.json#account.officer.primary`
-**Setup**: login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'8I@&5c1gHmfy'}
+**Setup**: login: POST /api/v1/auth/login {email:'officer1@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}
 **Cleanup**: -
 **Outputs**: `{"token": "$.accessToken", "userId": "$.user.id", "teamId": "$.user.primaryTeamId"}`
 
 ### `account.officer.secondary`
 **Ref**: `_shared/test-accounts.json#account.officer.secondary`
-**Setup**: login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'4TMa3hq*x3$v'}
+**Setup**: login: POST /api/v1/auth/login {email:'officer2@pc02.local', password:'<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>'}
 **Cleanup**: -
 **Outputs**: `{"token": "$.accessToken", "userId": "$.user.id", "teamId": "$.user.primaryTeamId"}`
 

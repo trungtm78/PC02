@@ -4,7 +4,7 @@ import { test, expect, Page } from '@playwright/test';
 
 const FRONTEND = process.env.FRONTEND_URL || process.env.BASE_URL || 'http://localhost:5173';
 const CREDS = {
-  admin: { email: process.env.ADMIN_EMAIL || 'admin@pc02.local', password: process.env.ADMIN_PASS || '68@Love2love68' },
+  admin: { email: process.env.ADMIN_EMAIL || 'admin@pc02.local', password: process.env.ADMIN_PASS || '' },
 };
 
 // Login helper

@@ -19,7 +19,7 @@ const SCREENSHOT_DIR = path.join(process.cwd(), 'test-results', 'uat', 'screensh
 
 const ADMIN = {
   email: 'admin@pc02.local',
-  password: 'Admin@1234!',
+  password: '',
 };
 
 // ─── Ensure screenshot directory exists ───────────────────────────────────────

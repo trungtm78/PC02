@@ -9,7 +9,7 @@ import { loginToPage, getAuthToken } from '../helpers/auth';
  *
  * Bài xoá sạch lựa chọn đã ghi ở cuối, kể cả khi có ca đỏ.
  */
-const API = process.env.API_BASE ?? 'http://171.244.40.245/api/v1';
+const API = process.env.API_BASE ?? `${process.env.BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
 /**
  * Bóc thân phản hồi ở ĐÚNG MỘT chỗ.

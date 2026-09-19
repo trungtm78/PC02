@@ -190,7 +190,7 @@ Thực hiện theo `A1_GLOBAL_GOVERNANCE_LAYER/A1_POST_EXECUTION_REVIEW_RUNNER_T
 4. **Unit tests for SubjectsService**: Existing 53 tests untouched. Recommend adding `subjects.service.spec.ts`.
 
 ### Test Credentials
-- Email: `admin@pc02.local` | Password: `Admin@1234!`
+- Email: `admin@pc02.local` | Password: `<mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>`
 - Navigate to: `http://localhost:5173/objects`
 
 ---

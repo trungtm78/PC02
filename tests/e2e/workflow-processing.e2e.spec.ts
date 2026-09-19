@@ -8,7 +8,7 @@
  *   SCR-PF-03: CaseExchange
  *   SCR-PF-04: InvestigationDelegation
  *
- * Credentials: admin@pc02.local / Admin@1234!
+ * Credentials: admin@pc02.local / <mật khẩu lấy từ biến môi trường — KHÔNG ghi vào tài liệu>
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -17,7 +17,7 @@ import * as fs from 'fs';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5175';
 const ADMIN = {
   email: process.env.TEST_USER || 'admin@pc02.local',
-  password: process.env.TEST_PASS || 'Admin@1234!',
+  password: process.env.TEST_PASS || '',
 };
 
 const SCREENSHOT_DIR = 'test-results/uat/screenshots';

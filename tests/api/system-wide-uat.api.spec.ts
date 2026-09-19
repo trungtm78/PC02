@@ -58,7 +58,7 @@ test.describe('SYSTEM-WIDE — Smoke Tests', () => {
       resp = await request.post(`${apiBase()}/api/v1/auth/login`, {
         data: {
           username: process.env.ADMIN_USERNAME || 'admin@pc02.local',
-          password: process.env.ADMIN_PASSWORD || '68@Love2love68',
+          password: process.env.ADMIN_PASSWORD || '',
         },
         timeout: 15_000,
         failOnStatusCode: false,
@@ -80,7 +80,7 @@ test.describe('SYSTEM-WIDE — Smoke Tests', () => {
       resp = await request.post(`${apiBase()}/api/v1/auth/login`, {
         data: {
           username: process.env.OFFICER1_USERNAME || 'officer1@pc02.local',
-          password: process.env.OFFICER1_PASSWORD || '8I@&5c1gHmfy',
+          password: process.env.OFFICER1_PASSWORD || '',
         },
         timeout: 15_000,
         failOnStatusCode: false,

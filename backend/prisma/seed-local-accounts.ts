@@ -25,7 +25,67 @@ interface AccountSpec {
   roleId: string;
 }
 
+/**
+ * Mật khẩu tài khoản cục bộ lấy từ biến môi trường SEED_MAT_KHAU_<TÀI KHOẢN> — KHÔNG viết cứng. 20/09/2026: mật khẩu
+ * viết cứng ở đây (và 23 tệp kiểm thử) lộ qua repo PUBLIC; 5 tài khoản cùng tên trên prod đã bị khoá.
+ */
+function matKhauTuMoiTruong(khoa: string): string {
+  const v = process.env[`SEED_MAT_KHAU_${khoa}`];
+  if (!v) throw new Error(`Thiếu biến môi trường SEED_MAT_KHAU_${khoa}`);
+  return v;
+}
+
+/**
+ * Seed này upsert mật khẩu — chạy nhầm lên prod là đặt lại mật khẩu tài khoản đã khoá. Chỉ cho CSDL máy cục bộ,
+ * và KHÔNG CHẮC thì chặn:
+ *  - đọc host bằng URL (kể cả tham số `?host=` ghi đè host của URL); không đọc được / không có host → chặn;
+ *  - host phải trong danh sách cục bộ (localhost, 127.0.0.1, ::1, tên dịch vụ docker db/postgres) hoặc SEED_LOCAL_HOSTS;
+ *  - sau khi nối: CSDL có hơn 50 người dùng → chặn (đường hầm SSH `localhost:15432` trỏ về prod vẫn lộ ra ở đây).
+ */
+const HOST_CUC_BO = [
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '[::1]',
+  'db',
+  'postgres',
+];
+function chanCsdlKhongPhaiCucBo(): void {
+  if (process.env['NODE_ENV'] === 'production')
+    throw new Error('seed-local-accounts không chạy khi NODE_ENV=production');
+  // Cùng mặc định với adapter ở đầu tệp: không đặt DATABASE_URL thì seed nối localhost.
+  const url =
+    process.env['DATABASE_URL'] ?? 'postgresql://localhost:5432/pc02_db';
+  let host = '';
+  try {
+    const u = new URL(url);
+    host = u.searchParams.get('host') || u.hostname;
+  } catch {
+    host = '';
+  }
+  const choPhep = [
+    ...HOST_CUC_BO,
+    ...(process.env['SEED_LOCAL_HOSTS'] ?? '').split(',').map((x) => x.trim()),
+  ];
+  if (!host || !choPhep.includes(host)) {
+    throw new Error(
+      `seed-local-accounts chỉ chạy trên CSDL máy cục bộ (host đọc được: "${host}")`,
+    );
+  }
+}
+
+async function chanCsdlCoDuLieuThat(): Promise<void> {
+  const soNguoiDung = await prisma.user.count();
+  if (soNguoiDung > 50) {
+    throw new Error(
+      `CSDL có ${soNguoiDung} người dùng — giống CSDL thật (hoặc đường hầm tới prod). Dừng.`,
+    );
+  }
+}
+
 async function main() {
+  chanCsdlKhongPhaiCucBo();
+  await chanCsdlCoDuLieuThat();
   const ADMIN_ROLE = 'cmm20w6rs0000ykm7974xz3ja';
   const OFFICER_ROLE = 'cmm20w6s20001ykm7cp76cwdw';
   const APPROVER_ROLE = 'role_deadline_approver';
@@ -37,7 +97,7 @@ async function main() {
       firstName: 'Super',
       lastName: 'Admin',
       workId: 'PC02-ADMIN-001',
-      password: '68@Love2love68',
+      password: matKhauTuMoiTruong('ADMIN'),
       roleId: ADMIN_ROLE,
     },
     {
@@ -46,7 +106,7 @@ async function main() {
       firstName: 'Admin',
       lastName: 'Hai',
       workId: 'PC02-ADMIN-002',
-      password: 'isP$sT4N@o71',
+      password: matKhauTuMoiTruong('ADMIN2'),
       roleId: ADMIN_ROLE,
     },
     {
@@ -55,7 +115,7 @@ async function main() {
       firstName: 'Điều Tra',
       lastName: 'Viên 1',
       workId: 'PC02-OFC-001',
-      password: '8I@&5c1gHmfy',
+      password: matKhauTuMoiTruong('OFFICER1'),
       roleId: OFFICER_ROLE,
     },
     {
@@ -64,7 +124,7 @@ async function main() {
       firstName: 'Điều Tra',
       lastName: 'Viên 2',
       workId: 'PC02-OFC-002',
-      password: '4TMa3hq*x3$v',
+      password: matKhauTuMoiTruong('OFFICER2'),
       roleId: OFFICER_ROLE,
     },
     {
@@ -73,7 +133,7 @@ async function main() {
       firstName: 'Phê Duyệt',
       lastName: 'Viên 1',
       workId: 'PC02-APV-001',
-      password: '6!rrw@ILte62',
+      password: matKhauTuMoiTruong('APPROVER1'),
       roleId: APPROVER_ROLE,
     },
   ];

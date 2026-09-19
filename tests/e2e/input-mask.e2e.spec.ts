@@ -15,7 +15,7 @@ import { test, expect } from '@playwright/test';
 const FRONTEND_URL = 'http://localhost:5179';
 const BACKEND_URL = 'http://localhost:3000';
 
-const TEST_USER = { username: 'admin@pc02.local', password: 'Admin@1234!' };
+const TEST_USER = { username: 'admin@pc02.local', password: '' };
 
 async function login(page: import('@playwright/test').Page) {
   await page.goto(FRONTEND_URL);

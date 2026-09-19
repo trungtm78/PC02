@@ -18,7 +18,7 @@ const BASE_URL = 'http://localhost:5173';
 
 const ADMIN = {
   email: 'admin@pc02.local',
-  password: 'Admin@1234!',
+  password: '',
 };
 
 // UI Element Map (BƯỚC 0.6)

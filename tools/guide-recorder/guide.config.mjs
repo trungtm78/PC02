@@ -63,8 +63,8 @@ export const APP = {
 
 // ── Tài khoản demo (khớp seed-local-accounts.ts / global-setup.ts) ─────────
 export const ACCOUNTS = {
-  admin: { username: process.env.GUIDE_ADMIN_USER || 'admin@pc02.local', password: process.env.GUIDE_ADMIN_PASS || '68@Love2love68' },
-  officer: { username: process.env.GUIDE_OFFICER_USER || 'officer1@pc02.local', password: process.env.GUIDE_OFFICER_PASS || '8I@&5c1gHmfy' },
+  admin: { username: process.env.GUIDE_ADMIN_USER || 'admin@pc02.local', password: process.env.GUIDE_ADMIN_PASS || '' },
+  officer: { username: process.env.GUIDE_OFFICER_USER || 'officer1@pc02.local', password: process.env.GUIDE_OFFICER_PASS || '' },
 };
 
 export const FFMPEG = resolveFfmpeg();
