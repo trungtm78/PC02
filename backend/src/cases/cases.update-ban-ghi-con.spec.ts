@@ -230,3 +230,56 @@ describe('GET /cases/:id/evidences', () => {
     ).rejects.toThrow(NotFoundException);
   });
 });
+
+/**
+ * Đối tượng ĐÃ CÓ cho form sửa — KHÔNG giới hạn 100 như GET /subjects (rà mã lần 2, 19/09/2026: vụ án 130 đối tượng
+ * thì 30 người cũ nhất biến khỏi danh sách "đã có", cán bộ nhập lại → trùng).
+ */
+describe('GET /cases/:id/subjects', () => {
+  const canBo = {
+    teamIds: ['t1'],
+    userIds: ['u1'],
+    writableTeamIds: ['t1'],
+    writableUserIds: ['u1'],
+    canDispatch: false,
+  };
+  function dungDoc(vuAn: Record<string, unknown> | null) {
+    const prisma = {
+      case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
+      subject: {
+        findMany: jest.fn().mockResolvedValue([{ id: 's1', fullName: 'A' }]),
+      },
+    };
+    const service = new CasesService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    return { service, prisma };
+  }
+
+  it('trả MỌI đối tượng chưa xoá của vụ án (không có take)', async () => {
+    const { service, prisma } = dungDoc(VU_AN);
+    const kq = await service.getSubjectsDaCo('c1', canBo as never);
+    expect(kq.data).toEqual([{ id: 's1', fullName: 'A' }]);
+    const [[arg]] = prisma.subject.findMany.mock.calls as unknown as [
+      [Record<string, unknown>],
+    ];
+    expect(arg.where).toEqual({ caseId: 'c1', deletedAt: null });
+    expect(arg).not.toHaveProperty('take');
+  });
+
+  it('vụ án ngoài phạm vi → 403, không đọc', async () => {
+    const { service, prisma } = dungDoc({
+      ...VU_AN,
+      assignedTeamId: 't-khac',
+      investigatorId: 'u-khac',
+    });
+    await expect(service.getSubjectsDaCo('c1', canBo as never)).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma.subject.findMany).not.toHaveBeenCalled();
+  });
+});

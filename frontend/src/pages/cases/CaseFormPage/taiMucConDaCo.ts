@@ -28,7 +28,7 @@ export async function taiMucConDaCo(
 ): Promise<{ doiTuong: MucDaCo[] | null; vatChung: MucDaCo[] | null }> {
   const [doiTuong, vatChung] = await Promise.all([
     api
-      .get<{ data: DoiTuongApi[] }>("/subjects", { params: { caseId, limit: 100 } })
+      .get<{ data: DoiTuongApi[] }>(`/cases/${caseId}/subjects`)
       .then((r) =>
         (r.data.data ?? []).map((s) => ({
           id: s.id,

@@ -2148,17 +2148,36 @@ export class CasesService {
     return sau;
   }
 
-  /**
-   * Vật chứng của vụ án — CHỈ ĐỌC, cùng luật phạm vi với xem chi tiết. Form sửa vụ án hiện danh sách này để cán bộ
-   * thấy vật chứng đã có và không nhập lại (trước 19/09/2026 không nơi nào đọc được bảng `evidences`).
-   */
-  async getEvidences(id: string, dataScope?: DataScope | null) {
+  /** Vụ án phải tồn tại (404) và nằm trong phạm vi XEM (403) — cùng luật với xem chi tiết. */
+  private async kiemXemVuAn(id: string, dataScope?: DataScope | null) {
     const vuAn = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       select: { id: true, assignedTeamId: true, investigatorId: true },
     });
     if (!vuAn) throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
     this.checkRecordInScope(vuAn, dataScope);
+  }
+
+  /**
+   * MỌI đối tượng chưa xoá của vụ án — CHỈ ĐỌC, cho form sửa hiện "đã có". KHÔNG giới hạn số dòng như GET /subjects
+   * (tối đa 100): danh sách "đã có" mà thiếu người thì cán bộ nhập lại, sinh bản trùng (rà mã 19/09/2026).
+   */
+  async getSubjectsDaCo(id: string, dataScope?: DataScope | null) {
+    await this.kiemXemVuAn(id, dataScope);
+    const data = await this.prisma.subject.findMany({
+      where: { caseId: id, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, fullName: true, type: true, idNumber: true },
+    });
+    return { success: true, data };
+  }
+
+  /**
+   * Vật chứng của vụ án — CHỈ ĐỌC, cùng luật phạm vi với xem chi tiết. Form sửa vụ án hiện danh sách này để cán bộ
+   * thấy vật chứng đã có và không nhập lại (trước 19/09/2026 không nơi nào đọc được bảng `evidences`).
+   */
+  async getEvidences(id: string, dataScope?: DataScope | null) {
+    await this.kiemXemVuAn(id, dataScope);
     const data = await this.prisma.evidence.findMany({
       where: { caseId: id, deletedAt: null },
       orderBy: { createdAt: 'asc' },

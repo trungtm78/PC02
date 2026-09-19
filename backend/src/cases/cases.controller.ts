@@ -180,6 +180,13 @@ export class CasesController {
     return this.casesService.getStatusHistory(id);
   }
 
+  // GET /api/v1/cases/:id/subjects — MỌI đối tượng của vụ án (chỉ đọc, không giới hạn 100 như GET /subjects)
+  @Get(':id/subjects')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  getSubjectsDaCo(@Param('id') id: string, @Req() req: ScopedRequest) {
+    return this.casesService.getSubjectsDaCo(id, req.dataScope);
+  }
+
   // GET /api/v1/cases/:id/evidences — Vật chứng đã có (chỉ đọc; form sửa hiện để khỏi nhập trùng)
   @Get(':id/evidences')
   @RequirePermissions({ action: 'read', subject: 'Case' })

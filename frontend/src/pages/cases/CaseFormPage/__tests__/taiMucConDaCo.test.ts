@@ -12,13 +12,14 @@ describe('taiMucConDaCo', () => {
   it('đọc đối tượng theo vụ án (kể cả nhân chứng) và vật chứng của vụ án', async () => {
     get.mockImplementation((url: string) =>
       Promise.resolve(
-        url === '/subjects'
+        url === '/cases/c1/subjects'
           ? { data: { data: [{ id: 's1', fullName: 'Nguyễn Văn A', type: 'WITNESS', idNumber: '0123' }] } }
           : { data: { data: [{ id: 'e1', code: 'VC-1', name: 'Dao', quantity: 2, unit: 'cái' }] } },
       ),
     );
     const kq = await taiMucConDaCo('c1');
-    expect(get).toHaveBeenCalledWith('/subjects', { params: { caseId: 'c1', limit: 100 } });
+    // Điểm cuối riêng của vụ án, KHÔNG giới hạn 100 như GET /subjects (thiếu người → cán bộ nhập lại → trùng).
+    expect(get).toHaveBeenCalledWith('/cases/c1/subjects');
     expect(get).toHaveBeenCalledWith('/cases/c1/evidences');
     expect(kq.doiTuong).toEqual([{ id: 's1', chinh: 'Nguyễn Văn A', phu: 'Nhân chứng · CCCD 0123' }]);
     expect(kq.vatChung).toEqual([{ id: 'e1', chinh: 'VC-1 · Dao', phu: '2 cái' }]);
@@ -26,7 +27,7 @@ describe('taiMucConDaCo', () => {
 
   it('một nguồn lỗi thì nguồn kia vẫn hiện; nguồn lỗi trả null (không giả là "chưa có")', async () => {
     get.mockImplementation((url: string) =>
-      url === '/subjects' ? Promise.reject(new Error('x')) : Promise.resolve({ data: { data: [] } }),
+      url === '/cases/c1/subjects' ? Promise.reject(new Error('x')) : Promise.resolve({ data: { data: [] } }),
     );
     const kq = await taiMucConDaCo('c1');
     expect(kq.doiTuong).toBeNull();

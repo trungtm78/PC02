@@ -1,6 +1,7 @@
 import { lazy, type ReactElement } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import { wrapRoute } from '@/lib/features/wrapRoute';
+import { DungLaiTheoId } from '@/lib/features/dungLaiTheoId';
 
 // F1 swap (v0.56): CaseListPageShell (PR1 ListPageShell) replaces legacy CaseListPage.
 // Legacy CaseListPage.tsx kept on disk for ref; delete after 2+ release soak.
@@ -32,7 +33,7 @@ export function renderCasesRoutes(): ReactElement[] {
     <Route
       key="cases-edit"
       path="/cases/:id/edit"
-      element={wrapRoute(<CaseFormPage />)}
+      element={wrapRoute(<DungLaiTheoId><CaseFormPage /></DungLaiTheoId>)}
     />,
     // v0.37.1: canonical path is /cases/new. Old /add-new-record redirects.
     // Keep 1-2 releases for bookmarks/links, then remove.
