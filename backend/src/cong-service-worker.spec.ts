@@ -106,7 +106,10 @@ describe('Cổng service worker', () => {
     expect(thoat).toBeGreaterThan(dat);
     // Phép thoát phải nằm SAU health check — nếu không thì nó vẫn là dừng giữa chừng.
     expect(thoat).toBeGreaterThan(deploySh.indexOf('Health check'));
-    expect(deploySh.slice(thoat, thoat + 1200)).toContain('exit 1');
+    // Đúng thân khối `if` báo đỏ (tới `fi` đóng ở đầu dòng) — không phải một cửa sổ ký tự đoán mò: khối
+    // dài thêm (19/09/2026 gộp cờ cột bóng) là cửa sổ cố định đỏ oan, còn khối khác chen vào thì xanh oan.
+    const khoi = deploySh.slice(thoat, deploySh.indexOf('\nfi\n', thoat));
+    expect(khoi).toContain('exit 1');
     // ...và phải nằm TRƯỚC bước dọn gói: thoát sau khi đã xoá gói thì lần chạy lại chính bản
     // ấy chết ngay vì "không thấy gói", tức phép báo đỏ tự chặn mất đường sửa của chính nó.
     expect(thoat).toBeLessThan(deploySh.indexOf('rm -f "$TARBALL"'));

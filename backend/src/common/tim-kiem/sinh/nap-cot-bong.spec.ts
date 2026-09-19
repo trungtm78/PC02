@@ -13,7 +13,9 @@ import { sinhCauNapCotBong, sinhCauNapHoTen } from './sinh-tim-kiem';
  * phương). Con trỏ đi qua mỗi dòng đúng một lần.
  */
 describe('sinhCauNapCotBong', () => {
-  const { dem, layLo, nap, chuaNap } = sinhCauNapCotBong(KHAI_TIM_KIEM_DON_THU);
+  const { dem, layLo, nap, chuaNap, lechMau } = sinhCauNapCotBong(
+    KHAI_TIM_KIEM_DON_THU,
+  );
   const lech = `"sender_name_bd" IS DISTINCT FROM ' ' || f_bo_dau("senderName")`;
 
   it('biểu thức cột bóng giống hệt trigger, nhưng trên cột của dòng (không NEW.)', () => {
@@ -45,6 +47,19 @@ describe('sinhCauNapCotBong', () => {
     expect(chuaNap).toContain('"tim_kiem_bd" IS NULL LIMIT 1');
     expect(chuaNap).not.toContain('f_bo_dau');
     expect(chuaNap).not.toContain('IS DISTINCT FROM');
+  });
+
+  /**
+   * Rà độc lập 19/09/2026: đổi biểu thức cột bóng ĐÃ CÓ mà không thêm cột → dòng cũ khác NULL nhưng sai;
+   * `chuaNap` không thấy. Mẫu 200 dòng CŨ NHẤT (id cuid tăng theo thời gian — dòng không ai sửa sau
+   * migration) so ĐỦ biểu thức như `dem`: rẻ mà lộ đúng lớp hỏng ấy.
+   */
+  it('lệch mẫu: so đủ biểu thức trên 200 dòng cũ nhất, dừng ở dòng đầu lệch', () => {
+    const dieuKien = dem.slice(dem.indexOf(' WHERE ') + ' WHERE '.length);
+    expect(lechMau).toBe(
+      `SELECT EXISTS (SELECT 1 FROM (SELECT * FROM "petitions" ORDER BY id LIMIT 200) m WHERE ${dieuKien} LIMIT 1) AS co`,
+    );
+    expect(lechMau).toContain(lech);
   });
 
   it('lấy lô theo con trỏ id: id > $1, sắp theo id, giới hạn $2', () => {

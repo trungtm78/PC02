@@ -85,4 +85,34 @@ describe('GATE — deploy.sh kiểm cột bóng tìm kiếm sau migration', () =
       src.indexOf('nap-cot-bong-tim-kiem'),
     );
   });
+
+  /**
+   * Rà độc lập 19/09/2026: gộp mọi mã khác 0 thành "chưa nạp" thì lỗi chạy (thiếu dist, sai mật khẩu CSDL)
+   * cũng in lời khuyên chạy `--that` — dẫn sai hướng. Mã 2 = lệch thật; mã khác = lỗi chạy, thông điệp riêng.
+   */
+  it('phân biệt mã 2 (lệch) với lỗi chạy, mỗi loại một cờ và một thông điệp', () => {
+    const src = docDeploy();
+    expect(src).toContain(
+      'nap-cot-bong-tim-kiem.js --kiem || KIEM_COT_BONG=$?',
+    );
+    expect(src).toContain('if [ "$KIEM_COT_BONG" = "2" ]; then');
+    expect(src).toContain('COT_BONG_LOI=1');
+    const khoiDo = src.slice(
+      src.lastIndexOf('if [ "${CANH_LECH:-0}" = "1" ] ||'),
+    );
+    expect(khoiDo).toContain('COT_BONG_LECH');
+    expect(khoiDo).toContain('COT_BONG_LOI');
+  });
+
+  /**
+   * Rà độc lập 19/09/2026 đề xuất dời báo đỏ xuống SAU bước dọn để khỏi để rác — KHÔNG làm: sau khi sửa tay,
+   * người vận hành chạy lại chính bản ấy, và xoá tarball trước là lần chạy lại chết ngay vì "không thấy gói"
+   * (cùng luật `cong-service-worker.spec.ts`). Cờ cột bóng đi chung khối báo đỏ ấy nên hưởng cùng thứ tự.
+   */
+  it('báo đỏ TRƯỚC khi xoá tarball — để còn chạy lại được chính bản ấy', () => {
+    const src = docDeploy();
+    const bao = src.indexOf('Mã ĐÃ lên máy');
+    expect(bao).toBeGreaterThan(src.indexOf('nap-cot-bong-tim-kiem.js --kiem'));
+    expect(bao).toBeLessThan(src.indexOf('rm -f "$TARBALL"'));
+  });
 });

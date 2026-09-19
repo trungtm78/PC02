@@ -295,10 +295,16 @@ fi
 #
 # Phải là `--kiem`, KHÔNG phải bản chạy thử trần: chạy thử luôn thoát 0 dù còn dòng chưa nạp (cờ
 # dưới không bao giờ bật), và nó tính lại f_bo_dau trên mọi dòng — đo prod 19/09/2026: 1 phút 47 giây.
-# `--kiem` chỉ tìm dòng có cột bóng NULL (chưa từng nạp), thoát 2 khi còn — mọi mã khác 0 đều bật cờ.
+# `--kiem` tìm cột bóng NULL + so đủ biểu thức trên 200 dòng cũ nhất mỗi bảng (đo prod 19/09: ~2 giây).
+# Mã 2 = cần nạp; mã khác 0 = kiểm KHÔNG chạy được (thiếu dist, sai kết nối) — hai việc khác nhau,
+# gộp lại là khuyên chạy `--that` cho một lỗi cấu hình.
 log "Kiểm cột bóng tìm kiếm (chỉ đọc)..."
-if ! node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --kiem; then
+KIEM_COT_BONG=0
+node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --kiem || KIEM_COT_BONG=$?
+if [ "$KIEM_COT_BONG" = "2" ]; then
     COT_BONG_LECH=1
+elif [ "$KIEM_COT_BONG" != "0" ]; then
+    COT_BONG_LOI=1
 fi
 
 # 9d. Bộ canh cache lệch thì KHÔNG được kết thúc xanh.
@@ -309,7 +315,7 @@ fi
 # Nhưng cũng KHÔNG dừng giữa chừng: mã mới đã lên, đã đổi liên kết, đã khởi động lại và qua
 # health. Bỏ dở ở giữa là để máy ở trạng thái nửa vời vì một lệch CẤU HÌNH, trong khi bản vá
 # khẩn có thể đang nằm trong chính lần triển khai ấy. Nên: ship xong, rồi báo đỏ.
-if [ "${CANH_LECH:-0}" = "1" ] || [ "${COT_BONG_LECH:-0}" = "1" ]; then
+if [ "${CANH_LECH:-0}" = "1" ] || [ "${COT_BONG_LECH:-0}" = "1" ] || [ "${COT_BONG_LOI:-0}" = "1" ]; then
     log "=========================================="
     log "Mã ĐÃ lên máy và qua health, NHƯNG có việc phải làm tay."
     if [ "${CANH_LECH:-0}" = "1" ]; then
@@ -317,10 +323,14 @@ if [ "${CANH_LECH:-0}" = "1" ] || [ "${COT_BONG_LECH:-0}" = "1" ]; then
         log "  Chạy bằng root: bash $NEW_DIR/scripts/deploy/install-nginx-cache-guard.sh"
     fi
     if [ "${COT_BONG_LECH:-0}" = "1" ]; then
-        log "• Cột bóng tìm kiếm CHƯA nạp cho dữ liệu cũ — tìm kiếm vẫn ĐÚNG (lùi về cột gốc)"
-        log "  nhưng KHÔNG dùng được chỉ mục GIN nên chậm hẳn trên bảng lớn."
+        log "• Cột bóng tìm kiếm CẦN NẠP (xem dòng 'CẦN NẠP' ở trên): cột bóng NULL thì tìm kiếm chậm"
+        log "  hẳn (không dùng được chỉ mục GIN); dòng cũ lệch biểu thức thì có thể SÓT kết quả."
         log "  Chạy: cd $CURRENT_SYMLINK/backend && set -a && source .env && set +a \\"
         log "        && node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that"
+    fi
+    if [ "${COT_BONG_LOI:-0}" = "1" ]; then
+        log "• KHÔNG kiểm được cột bóng tìm kiếm (mã thoát $KIEM_COT_BONG) — xem lỗi in ở trên"
+        log "  (thiếu dist? sai DATABASE_URL?). KHÔNG chạy --that khi chưa rõ nguyên nhân."
     fi
     log "Đánh dấu ĐỎ để không ai nhầm đây là lần triển khai sạch."
     log "=========================================="

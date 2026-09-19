@@ -1,4 +1,5 @@
 import {
+  chayCli,
   kiemCotBongChuaNap,
   maThoatKiem,
   napCotBongTimKiem,
@@ -16,6 +17,8 @@ interface Bang {
   lech: number[];
   /** Còn dòng CHƯA TỪNG nạp (cột bóng NULL) — câu `chuaNap`. */
   chuaNap?: boolean;
+  /** Mẫu các dòng CŨ NHẤT lệch biểu thức hiện hành (biểu thức đổi mà chưa nạp lại) — câu `lechMau`. */
+  lechMau?: boolean;
   /** Mọi id của bảng, đã sắp. */
   ids: string[];
   /** Số dòng câu nạp báo đã ghi, mỗi lần gọi (mặc định: cả lô). */
@@ -59,6 +62,12 @@ function gia(khai: Partial<Record<TenBang, Bang>>) {
   const prisma = {
     $queryRawUnsafe: jest.fn((sql: string, conTro?: string, lo?: number) => {
       const b = tenBang(sql);
+      if (
+        sql.startsWith('SELECT EXISTS') &&
+        sql.includes('ORDER BY id LIMIT')
+      ) {
+        return Promise.resolve([{ co: bang(b).lechMau ?? false }]);
+      }
       if (sql.startsWith('SELECT EXISTS')) {
         return Promise.resolve([{ co: bang(b).chuaNap ?? false }]);
       }
@@ -219,11 +228,6 @@ describe('napCotBongTimKiem', () => {
   });
 });
 
-/**
- * Chế độ `--kiem` cho deploy.sh (PR #391). Bản đầu của #391 gọi bản CHẠY THỬ và dựa vào mã thoát, nhưng
- * chạy thử luôn thoát 0 dù còn dòng chưa nạp → cảnh báo không bao giờ bật; và nó tính lại f_bo_dau cả
- * bảng (đo prod 19/09/2026: 1 phút 47 giây). Kiểm phải: rẻ, chỉ đọc, và mã thoát KHÁC 0 khi còn dòng chưa nạp.
- */
 describe('kiemCotBongChuaNap', () => {
   beforeEach(() =>
     jest.spyOn(console, 'log').mockImplementation(() => undefined),
@@ -242,8 +246,20 @@ describe('kiemCotBongChuaNap', () => {
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
     expect(layLoCalls).toEqual([]);
     const cau = prisma.$queryRawUnsafe.mock.calls.map((c) => c[0]);
-    expect(cau).toHaveLength(15);
     expect(cau.every((q) => q.startsWith('SELECT EXISTS'))).toBe(true);
+    expect(cau.some((q) => q.startsWith('SELECT count'))).toBe(false);
+  });
+
+  /**
+   * Rà độc lập 19/09/2026: đổi biểu thức cột bóng ĐÃ CÓ (thêm trường kiểu `ma` vào `tim_kiem_bd`) không thêm
+   * cột nào → dòng cũ giữ giá trị cũ, KHÁC NULL. Chỉ kiểm NULL thì deploy xanh trong khi thẻ "Tất cả các cột"
+   * trả thiếu kết quả. Mẫu các dòng CŨ NHẤT (không ai sửa sau migration) so đủ biểu thức sẽ lộ ra.
+   */
+  it('biểu thức đổi mà chưa nạp lại (mẫu dòng cũ nhất lệch) → báo bảng ấy dù không có cột bóng NULL', async () => {
+    const { prisma } = gia({ cases: { lech: [0], ids: [], lechMau: true } });
+    expect(await kiemCotBongChuaNap(prisma as never)).toEqual(['cases']);
+    const cau = prisma.$queryRawUnsafe.mock.calls.map((c) => c[0]);
+    expect(cau).toHaveLength(30);
   });
 
   it('mọi bảng đã nạp → danh sách rỗng', async () => {
@@ -254,5 +270,59 @@ describe('kiemCotBongChuaNap', () => {
   it('mã thoát: còn bảng chưa nạp → 2 (deploy báo đỏ); đủ → 0', () => {
     expect(maThoatKiem(['petitions'])).toBe(2);
     expect(maThoatKiem([])).toBe(0);
+  });
+});
+
+/** Nối dây dòng lệnh: cờ nào chạy việc nào, mã thoát ra sao, kết nối luôn được đóng. */
+describe('chayCli', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  const voiNgat = (prisma: object, ngat = jest.fn(() => Promise.resolve())) =>
+    Object.assign(prisma, { $disconnect: ngat }) as never;
+
+  it('--kiem: còn bảng chưa nạp → 2; không ghi; đóng kết nối', async () => {
+    const { prisma } = gia({
+      petitions: { lech: [0], ids: [], chuaNap: true },
+    });
+    const ngat = jest.fn(() => Promise.resolve());
+    expect(await chayCli(['--kiem'], voiNgat(prisma, ngat))).toBe(2);
+    expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+    expect(ngat).toHaveBeenCalledTimes(1);
+  });
+
+  it('--kiem: đủ → 0', async () => {
+    const { prisma } = gia({});
+    expect(await chayCli(['--kiem'], voiNgat(prisma))).toBe(0);
+  });
+
+  it('lỗi CSDL → 1 (không bao giờ 0), vẫn đóng kết nối', async () => {
+    const { prisma } = gia({});
+    prisma.$queryRawUnsafe.mockImplementation(
+      (): Promise<never> =>
+        Promise.reject(new Error('password authentication failed')),
+    );
+    const ngat = jest.fn(() => Promise.resolve());
+    expect(await chayCli(['--kiem'], voiNgat(prisma, ngat))).toBe(1);
+    expect(ngat).toHaveBeenCalledTimes(1);
+  });
+
+  it('đóng kết nối lỗi không đổi mã thoát của việc chính', async () => {
+    const { prisma } = gia({});
+    const ngat = jest.fn(() => Promise.reject(new Error('socket closed')));
+    expect(await chayCli(['--kiem'], voiNgat(prisma, ngat))).toBe(0);
+  });
+
+  it('không cờ = chạy thử (không ghi); --that mới ghi', async () => {
+    const a = gia({ petitions: { lech: [3, 0], ids: dayId('p', 3) } });
+    expect(await chayCli([], voiNgat(a.prisma))).toBe(0);
+    expect(a.prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+
+    const b = gia({ petitions: { lech: [3, 0], ids: dayId('p', 3) } });
+    expect(await chayCli(['--that'], voiNgat(b.prisma))).toBe(0);
+    expect(b.prisma.$executeRawUnsafe).toHaveBeenCalled();
   });
 });
