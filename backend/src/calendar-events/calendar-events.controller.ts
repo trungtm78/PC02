@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
+import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import { UnitScopeService } from '../auth/services/unit-scope.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CalendarEventsService, CurrentUser } from './calendar-events.service';
@@ -24,7 +25,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 
 @Controller('calendar-events')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('calendar_events_v2')
 export class CalendarEventsController {
   constructor(

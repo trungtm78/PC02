@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ExecutionContext } from '@nestjs/common';
+import {
+  NotFoundException,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureFlagGuard } from './feature-flag.guard';
 import { FeatureFlagsService } from '../feature-flags.service';
@@ -54,22 +58,17 @@ describe('FeatureFlagGuard', () => {
     );
   });
 
-  it('skips the flag check when request.user is null (anonymous)', async () => {
+  // 19/09/2026: guard này chạy SAU JwtAuthGuard (khai trong @UseGuards của controller). Tới đây mà không có user
+  // nghĩa là bị đặt sai chỗ (trước JWT, hoặc toàn cục) — 401 đồng nhất với JwtAuthGuard, KHÔNG cho qua. Bản cũ
+  // đăng ký APP_GUARD: guard toàn cục chạy TRƯỚC JWT nên user luôn rỗng → luôn cho qua → tắt tính năng không chặn API.
+  it.each([[{ user: null }], [{}]])(
+    'không có user → 401, không kiểm cờ, không cho qua (%j)',
+    async (req) => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
-    featureFlags.isEnabled.mockResolvedValue(false);
-    // No user on the request — should NOT 404, pass through so the
-    // downstream JwtAuthGuard can 401 uniformly. Otherwise anon callers
-    // can probe enabled vs disabled features by response code.
-    const ctx = mockContextWith({ user: null });
-    await expect(guard.canActivate(ctx)).resolves.toBe(true);
-    expect(featureFlags.isEnabled).not.toHaveBeenCalled();
-  });
-
-  it('skips the flag check when request.user is missing entirely', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue('cases');
-    featureFlags.isEnabled.mockResolvedValue(false);
-    const ctx = mockContextWith({});
-    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+      featureFlags.isEnabled.mockResolvedValue(true);
+      await expect(
+        guard.canActivate(mockContextWith(req)),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(featureFlags.isEnabled).not.toHaveBeenCalled();
   });
 
