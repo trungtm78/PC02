@@ -63,7 +63,7 @@ function getColSpanClass(colSpan?: 1 | 2 | 3): string {
  * trình đọc màn hình không biết nhãn ấy thuộc ô nào. Với form vụ án dài hơn 200 ô thì đó
  * không phải chi tiết nhỏ.
  */
-function FieldLabel({ label, required, htmlFor }: { label: string; required?: boolean; htmlFor: string }) {
+export function FieldLabel({ label, required, htmlFor }: { label: string; required?: boolean; htmlFor: string }) {
   return (
     <label className={LABEL_BASE} htmlFor={htmlFor}>
       {label} {required && <span className="text-red-500">*</span>}
@@ -73,7 +73,7 @@ function FieldLabel({ label, required, htmlFor }: { label: string; required?: bo
 
 // ─── Error Message ──────────────────────────────────────────────────────────
 
-function FieldError({ error, id }: { error?: string; id?: string }) {
+export function FieldError({ error, id }: { error?: string; id?: string }) {
   if (!error) return null;
   return (
     <p className={FIELD_ERROR_TEXT} id={id} data-testid="field-error">
