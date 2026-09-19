@@ -31,6 +31,13 @@ import { BulkImportWizard } from '@/components/BulkImportWizard';
 import { getRoleLabel } from '@/shared/enums/role-labels';
 import { hoTen, tachHoTen } from '@/lib/hoTen';
 import { thamSoDanhSachNguoiDung } from './thamSoDanhSachNguoiDung';
+import {
+  dungMaTran,
+  danhSachGui,
+  soSanhMaTran,
+  type MaTranQuyen,
+  type QuyenCap,
+} from './maTranQuyen';
 import { OTimKiemThe, DanhSachThe, useTheTimKiem } from '@/components/shared/ListPageShell';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_NGUOI_DUNG } from '@/shared/tim-kiem/generated';
@@ -85,11 +92,6 @@ type Role = {
   _count?: { users: number };
 };
 
-type PermRow = {
-  subject: string;
-  action: string;
-};
-
 type FormData = {
   workId: string;
   fullName: string;
@@ -106,16 +108,21 @@ type FormData = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ACTIONS = ['read', 'write', 'delete', 'export', 'approve'];
+// Hàng/cột của ma trận lấy từ DANH MỤC máy chủ (`maTranQuyen.ts`); đây chỉ là nhãn. Mã chưa có nhãn thì
+// hiện nguyên mã — thà xấu còn hơn giấu quyền đi.
 const ACTION_LABELS: Record<string, string> = {
   read: 'Xem',
   write: 'Thêm/Sửa',
+  edit: 'Sửa',
   delete: 'Xóa',
+  restore: 'Khôi phục',
   export: 'Xuất',
   approve: 'Duyệt',
+  request_changes: 'Yêu cầu sửa',
+  withdraw_own: 'Rút yêu cầu của mình',
+  review_reset_request: 'Duyệt mở khoá',
 };
 
-const SUBJECTS = ['User', 'Role', 'Directory', 'Case', 'Petition', 'Incident', 'Report', 'AuditLog'];
 const SUBJECT_LABELS: Record<string, string> = {
   User: 'Người dùng',
   Role: 'Vai trò',
@@ -125,6 +132,14 @@ const SUBJECT_LABELS: Record<string, string> = {
   Incident: 'Vụ việc',
   Report: 'Báo cáo',
   AuditLog: 'Nhật ký',
+  Calendar: 'Lịch',
+  DeadlineRuleVersion: 'Quy tắc thời hạn',
+  Document: 'Tài liệu',
+  EditWindowResetRequest: 'Mở khoá sửa hồ sơ',
+  Lawyer: 'Luật sư',
+  Setting: 'Cài đặt',
+  Subject: 'Đối tượng',
+  Team: 'Tổ/Nhóm',
 };
 
 const EMPTY_FORM: FormData = {
@@ -199,9 +214,17 @@ export default function UserManagementPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [permMatrix, setPermMatrix] = useState<Record<string, Record<string, boolean>>>({});
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  // `null` = CHƯA có lưới đáng tin (đang tải / tải lỗi) → không được lưu. Lưới rỗng do tải lỗi từng bị
+  // lưu thành "xoá sạch quyền vai trò" (đo prod 19/09/2026).
+  const [permMatrix, setPermMatrix] = useState<MaTranQuyen | null>(null);
+  const [permGoc, setPermGoc] = useState<MaTranQuyen | null>(null);
+  const [permLoading, setPermLoading] = useState(false);
+  const [permLoadError, setPermLoadError] = useState<string | null>(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [permSaving, setPermSaving] = useState(false);
+  const permDoi = permGoc && permMatrix ? soSanhMaTran(permGoc, permMatrix) : null;
+  const coThayDoi = !!permDoi && (permDoi.them.length > 0 || permDoi.bo.length > 0);
 
   // ─── Data loading ──────────────────────────────────────────────────────────
 
@@ -238,31 +261,41 @@ export default function UserManagementPage() {
 
   const loadRoles = useCallback(async () => {
     setRolesLoading(true);
+    setRolesError(null);
     try {
       const res = await api.get('/admin/roles');
       setRoles(res.data ?? []);
-    } catch {
-      // silently fail
+    } catch (e) {
+      setRolesError(
+        `Không tải được danh sách vai trò (${extractApiError(e, 'lỗi không rõ').message}).`,
+      );
     } finally {
       setRolesLoading(false);
     }
   }, []);
 
   const loadPermissions = useCallback(async (roleId: string) => {
+    setPermLoading(true);
+    setPermLoadError(null);
+    setPermMatrix(null);
+    setPermGoc(null);
     try {
-      const res = await api.get(`/admin/roles/${roleId}/permissions`);
-      const raw: PermRow[] = res.data ?? [];
-      const matrix: Record<string, Record<string, boolean>> = {};
-      SUBJECTS.forEach((s) => {
-        matrix[s] = {};
-        ACTIONS.forEach((a) => { matrix[s][a] = false; });
-      });
-      raw.forEach(({ subject, action }) => {
-        if (matrix[subject]) matrix[subject][action] = true;
-      });
-      setPermMatrix(matrix);
-    } catch {
-      // silently fail
+      const [danhMuc, cuaVaiTro] = await Promise.all([
+        api.get('/admin/permissions'),
+        api.get(`/admin/roles/${roleId}/permissions`),
+      ]);
+      const mt = dungMaTran(
+        (danhMuc.data ?? []) as QuyenCap[],
+        (cuaVaiTro.data ?? []) as QuyenCap[],
+      );
+      setPermGoc(mt);
+      setPermMatrix(structuredClone(mt));
+    } catch (e) {
+      setPermLoadError(
+        `Không tải được quyền của vai trò — chưa thể chỉnh sửa (${extractApiError(e, 'lỗi không rõ').message}).`,
+      );
+    } finally {
+      setPermLoading(false);
     }
   }, []);
 
@@ -437,24 +470,27 @@ export default function UserManagementPage() {
   };
 
   const handleTogglePerm = (subject: string, action: string) => {
-    setPermMatrix((prev) => ({
-      ...prev,
-      [subject]: { ...prev[subject], [action]: !prev[subject]?.[action] },
-    }));
+    setPermMatrix((prev) => {
+      const hienTai = prev?.o[subject]?.[action];
+      // Ô danh mục không có (`null`) không tích được; chưa có lưới thì không làm gì.
+      if (!prev || hienTai === null || hienTai === undefined) return prev;
+      return { ...prev, o: { ...prev.o, [subject]: { ...prev.o[subject], [action]: !hienTai } } };
+    });
   };
 
   const handleSavePermissions = async () => {
-    if (!selectedRole) return;
+    // Không bao giờ lưu từ lưới chưa tải được: đó chính là đường "lưới trống → xoá sạch quyền".
+    if (!selectedRole || !permMatrix) return;
     setPermSaving(true);
     try {
-      const permissions: { action: string; subject: string }[] = [];
-      SUBJECTS.forEach((s) => {
-        ACTIONS.forEach((a) => {
-          if (permMatrix[s]?.[a]) permissions.push({ action: a, subject: s });
-        });
-      });
-      await api.patch(`/admin/roles/${selectedRole.id}/permissions`, { permissions });
+      const permissions = danhSachGui(permMatrix);
+      await api.patch(
+        `/admin/roles/${selectedRole.id}/permissions`,
+        permissions.length ? { permissions } : { permissions, choPhepRong: true },
+      );
       setShowSaveConfirm(false);
+      void loadPermissions(selectedRole.id);
+      void loadRoles();
     } catch (err: unknown) {
       alert(extractApiError(err, 'Lỗi khi lưu phân quyền.').message);
     } finally {
@@ -768,6 +804,11 @@ export default function UserManagementPage() {
                 <Shield className="w-4 h-4 text-[#003973]" />
                 Danh sách vai trò
               </h3>
+              {rolesError && (
+                <div role="alert" className="mb-3 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800">
+                  {rolesError}
+                </div>
+              )}
               {rolesLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-[#003973]" />
@@ -808,48 +849,79 @@ export default function UserManagementPage() {
                     </h3>
                     <button
                       onClick={() => setShowSaveConfirm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#002a5c] transition-colors text-sm"
+                      disabled={!permMatrix || permLoading || !coThayDoi}
+                      title={!coThayDoi && permMatrix ? 'Chưa thay đổi ô nào' : undefined}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#003973] text-white rounded-lg hover:bg-[#002a5c] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Save className="w-4 h-4" />
                       Lưu thay đổi
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  {permLoadError && (
+                    <div role="alert" className="mb-4 p-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800 flex items-center justify-between gap-3">
+                      <span>{permLoadError}</span>
+                      <button
+                        type="button"
+                        onClick={() => void loadPermissions(selectedRole.id)}
+                        className="px-3 py-1 rounded border border-red-300 hover:bg-red-100"
+                      >
+                        Tải lại
+                      </button>
+                    </div>
+                  )}
+
+                  {permLoading && (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#003973]" />
+                    </div>
+                  )}
+
+                  {permMatrix && (
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                           <th className="text-left py-3 px-4 font-semibold text-slate-700 text-sm">
                             Module
                           </th>
-                          {ACTIONS.map((a) => (
+                          {permMatrix.actions.map((a) => (
                             <th key={a} className="text-center py-3 px-2 font-semibold text-slate-700 text-sm">
-                              {ACTION_LABELS[a]}
+                              {ACTION_LABELS[a] ?? a}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {SUBJECTS.map((subject) => (
+                        {permMatrix.subjects.map((subject) => (
                           <tr key={subject} className="border-b border-slate-200 hover:bg-slate-50">
                             <td className="py-3 px-4 font-medium text-slate-800 text-sm">
                               {SUBJECT_LABELS[subject] ?? subject}
                             </td>
-                            {ACTIONS.map((action) => (
-                              <td key={action} className="py-3 px-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={permMatrix[subject]?.[action] ?? false}
-                                  onChange={() => handleTogglePerm(subject, action)}
-                                  className="w-4 h-4 rounded border-slate-300 text-[#003973] focus:ring-2 focus:ring-[#003973] cursor-pointer"
-                                />
-                              </td>
-                            ))}
+                            {permMatrix.actions.map((action) => {
+                              const o = permMatrix.o[subject]?.[action];
+                              return (
+                                <td key={action} className="py-3 px-2 text-center">
+                                  {o === null || o === undefined ? (
+                                    <span className="text-slate-300" aria-hidden="true">—</span>
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`${SUBJECT_LABELS[subject] ?? subject} — ${ACTION_LABELS[action] ?? action}`}
+                                      checked={o}
+                                      onChange={() => handleTogglePerm(subject, action)}
+                                      className="w-4 h-4 rounded border-slate-300 text-[#003973] focus:ring-2 focus:ring-[#003973] cursor-pointer"
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  )}
 
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1126,18 +1198,36 @@ export default function UserManagementPage() {
       {/* ── Save Permissions Confirm Modal ── */}
       {showSaveConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="xac-nhan-luu-quyen"
+            className="bg-white rounded-lg w-full max-w-md"
+          >
             <div className="p-6">
               <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-6 h-6 text-amber-600" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
+              <h3 id="xac-nhan-luu-quyen" className="text-lg font-bold text-slate-800 text-center mb-2">
                 Xác nhận lưu thay đổi
               </h3>
-              <p className="text-slate-600 text-center mb-6">
-                Bạn có chắc chắn muốn lưu thay đổi phân quyền cho vai trò{' '}
-                <strong>{getRoleLabel(selectedRole?.name)}</strong>?
+              <p className="text-slate-600 text-center mb-3">
+                Lưu phân quyền cho vai trò <strong>{getRoleLabel(selectedRole?.name)}</strong> — áp dụng
+                ngay cho <strong>{selectedRole?._count?.users ?? 0} người dùng</strong>.
               </p>
+              {permDoi && (
+                <ul className="text-sm text-slate-700 mb-3 space-y-1">
+                  <li>Thêm {permDoi.them.length} quyền</li>
+                  <li>Bỏ {permDoi.bo.length} quyền</li>
+                </ul>
+              )}
+              {permMatrix && danhSachGui(permMatrix).length === 0 && (
+                <p className="mb-3 p-3 rounded border border-red-300 bg-red-50 text-sm text-red-800">
+                  Vai trò sẽ <strong>không còn quyền nào</strong> — mọi người dùng của vai trò này mất quyền
+                  truy cập các chức năng.
+                </p>
+              )}
+              <div className="mb-3" />
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSaveConfirm(false)}
