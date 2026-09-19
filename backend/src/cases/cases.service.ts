@@ -637,14 +637,16 @@ export class CasesService {
   ) {
     if (!dataScope) return; // admin or no scope = allow
     if (dataScope.canDispatch) return; // dispatcher: full read access
-    const { userIds, teamIds } = dataScope;
+    const { userIds, teamIds, isWardOfficer } = dataScope;
 
     const ownerMatch =
       record.investigatorId && userIds.includes(record.investigatorId);
     const teamMatch =
       record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
+    // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
     const unassignedMatch =
-      !record.assignedTeamId && teamIds.length > 0;
+      !record.assignedTeamId && teamIds.length > 0 && !isWardOfficer;
 
     if (!ownerMatch && !teamMatch && !unassignedMatch) {
       throw new ForbiddenException('Bạn không có quyền truy cập bản ghi này');

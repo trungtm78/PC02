@@ -18,16 +18,22 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
 const inUser = fc.constantFrom('u1', 'u2', 'u3');
 const inTeam = fc.constantFrom('t1', 't2', 't3');
 
+// Người GHI được luôn là tập con của người ĐỌC được (resolveScope) — bộ sinh phải giữ quan hệ ấy, không rút độc lập.
 const scopeArb = (over: Partial<Record<keyof DataScope, fc.Arbitrary<unknown>>> = {}): fc.Arbitrary<DataScope> =>
-  fc.record({
-    userIds: over.userIds ?? fc.uniqueArray(inUser, { maxLength: 3 }),
-    teamIds: over.teamIds ?? fc.uniqueArray(inTeam, { maxLength: 3 }),
-    writableTeamIds:
-      over.writableTeamIds ?? fc.uniqueArray(inTeam, { maxLength: 3 }),
-    writableUserIds: over.userIds ?? fc.uniqueArray(inUser, { maxLength: 3 }),
-    canDispatch: over.canDispatch ?? fc.constant(false),
-    isWardOfficer: over.isWardOfficer ?? fc.boolean(),
-  }) as unknown as fc.Arbitrary<DataScope>;
+  fc
+    .record({
+      userIds: over.userIds ?? fc.uniqueArray(inUser, { maxLength: 3 }),
+      teamIds: over.teamIds ?? fc.uniqueArray(inTeam, { maxLength: 3 }),
+      writableTeamIds:
+        over.writableTeamIds ?? fc.uniqueArray(inTeam, { maxLength: 3 }),
+      canDispatch: over.canDispatch ?? fc.constant(false),
+      isWardOfficer: over.isWardOfficer ?? fc.boolean(),
+    })
+    .chain((sc) =>
+      fc
+        .subarray((sc as { userIds: string[] }).userIds)
+        .map((writableUserIds) => ({ ...sc, writableUserIds })),
+    ) as unknown as fc.Arbitrary<DataScope>;
 
 // Scope KHÔNG rỗng (có ít nhất 1 user hoặc team) + không dispatch — scope "thường".
 const nonEmptyScopeArb = scopeArb({
