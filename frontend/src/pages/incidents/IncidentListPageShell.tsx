@@ -12,6 +12,7 @@
  * KHÔNG thay thế production IncidentListPage directly — swap qua feature flag
  * trong PR3 sau khi soak. PR2 ships shell-consumers alongside legacy pages.
  */
+import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -504,7 +505,7 @@ export function IncidentListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '9rem',
+        width: BE_RONG_COT_THAO_TAC,
         sticky: true,
         render: (r) => (
           <RowActions

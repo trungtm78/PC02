@@ -12,6 +12,7 @@
  * - Table state machine (loading/error/empty/empty-filtered/ready)
  * - Pagination 20 rows/page
  */
+import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -495,7 +496,7 @@ export function CaseListPageShell() {
       {
         key: 'actions',
         header: 'Thao tác',
-        width: '9rem',
+        width: BE_RONG_COT_THAO_TAC,
         sticky: true,
         render: (r) => (
           <RowActions
