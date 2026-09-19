@@ -107,6 +107,7 @@ describe('Ma trận phân quyền vai trò', () => {
           { action: 'read', subject: 'Case' },
           { action: 'restore', subject: 'Case' },
         ],
+        truocKhiSua: ['read:Case', 'read:Lawyer'],
       }),
     );
   });
@@ -125,6 +126,7 @@ describe('Ma trận phân quyền vai trò', () => {
       expect(m.patch).toHaveBeenCalledWith('/admin/roles/r-off/permissions', {
         permissions: [],
         choPhepRong: true,
+        truocKhiSua: ['read:Case', 'read:Lawyer'],
       }),
     );
   });
@@ -134,5 +136,53 @@ describe('Ma trận phân quyền vai trò', () => {
     await moMaTran();
     await screen.findByRole('checkbox', { name: 'Luật sư — Xem' });
     expect(nutLuu()).toBeDisabled();
+  });
+
+  /**
+   * Rà độc lập 19/09/2026: bấm vai trò A rồi B thật nhanh, kết quả của A về SAU → lưới là quyền của A dưới
+   * tiêu đề B; "Lưu" ghi quyền A lên B (vd 56 quyền ADMIN cho 248 cán bộ). Kết quả trễ phải bị bỏ.
+   */
+  it('đổi vai trò nhanh: kết quả tải TRỄ của vai trò trước bị bỏ, lưới là của vai trò đang chọn', async () => {
+    let traA: (v: unknown) => void = () => {};
+    const VAI_TRO_A = { ...VAI_TRO, id: 'r-adm', name: 'ADMIN', description: 'Quản trị' };
+    m.get.mockImplementation((url: string) => {
+      if (url === '/admin/users') return Promise.resolve({ data: { data: [], total: 0 } });
+      if (url === '/admin/roles') return Promise.resolve({ data: [VAI_TRO_A, VAI_TRO] });
+      if (url === '/admin/permissions') return Promise.resolve({ data: DANH_MUC });
+      if (url === '/admin/roles/r-adm/permissions') return new Promise((r) => (traA = r));
+      if (url === '/admin/roles/r-off/permissions')
+        return Promise.resolve({ data: [{ action: 'read', subject: 'Lawyer' }] });
+      return Promise.resolve({ data: { data: [] } });
+    });
+    const router = createMemoryRouter([{ path: '/', element: <UserManagementPage /> }]);
+    render(<RouterProvider router={router} />);
+    fireEvent.click(await screen.findByRole('tab', { name: /Vai trò & Phân quyền/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Quản trị/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Cán bộ/ }));
+    expect(await screen.findByRole('checkbox', { name: 'Luật sư — Xem' })).toBeChecked();
+
+    // Kết quả của ADMIN về muộn — KHÔNG được đè lưới của OFFICER.
+    traA({ data: DANH_MUC.map(({ action, subject }) => ({ action, subject })) });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getByRole('checkbox', { name: 'Vụ án — Xem' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Vụ án — Khôi phục' })).not.toBeChecked();
+  });
+
+  it('máy chủ trả 409 (vai trò vừa bị sửa ở nơi khác) → báo và TẢI LẠI lưới', async () => {
+    traDuLieu();
+    m.patch.mockRejectedValue({
+      response: { status: 409, data: { error: { message: 'Phân quyền của vai trò vừa được thay đổi ở nơi khác' } } },
+    });
+    const baoLoi = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    await moMaTran();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Vụ án — Khôi phục' }));
+    fireEvent.click(nutLuu());
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Xác nhận' }));
+
+    await waitFor(() => expect(baoLoi).toHaveBeenCalled());
+    const soLanTai = () =>
+      m.get.mock.calls.filter((c) => (c as [string])[0] === '/admin/roles/r-off/permissions').length;
+    await waitFor(() => expect(soLanTai()).toBe(2));
+    baoLoi.mockRestore();
   });
 });

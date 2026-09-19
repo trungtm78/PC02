@@ -3,8 +3,8 @@
  *
  * Trước 19/09/2026 màn này dùng lưới cứng 8 nhóm × 5 thao tác, trong khi danh mục prod có 16 nhóm × 9
  * thao tác: lưới chỉ phủ 22/56 quyền ADMIN, 11/17 OFFICER, 0/3 DEADLINE_APPROVER — "Lưu" gửi lại lưới là
- * xoá phần ngoài lưới. Nay: hàng/cột là đúng những gì danh mục có; quyền vai trò đang giữ mà danh mục
- * không liệt kê được mang nguyên khi lưu, không âm thầm bỏ.
+ * xoá phần ngoài lưới. Nay: hàng/cột là đúng những gì danh mục có (khoá ngoại role_permissions → permissions
+ * bảo đảm mọi quyền vai trò đang giữ đều nằm trong danh mục).
  */
 export interface QuyenCap {
   action: string;
@@ -16,22 +16,20 @@ export interface MaTranQuyen {
   subjects: string[];
   actions: string[];
   o: Record<string, Record<string, boolean | null>>;
-  /** Quyền vai trò đang giữ mà danh mục không có — giữ nguyên khi lưu. */
-  ngoaiDanhMuc: QuyenCap[];
 }
 
 /** Thứ tự cột quen mắt; thao tác mới của danh mục (chưa có ở đây) nối sau theo ABC. */
 const THU_TU_ACTION = [
-  'read',
-  'write',
-  'edit',
-  'delete',
-  'restore',
-  'approve',
-  'export',
-  'request_changes',
-  'withdraw_own',
-  'review_reset_request',
+  "read",
+  "write",
+  "edit",
+  "delete",
+  "restore",
+  "approve",
+  "export",
+  "request_changes",
+  "withdraw_own",
+  "review_reset_request",
 ];
 
 const khoa = (p: QuyenCap) => `${p.action}:${p.subject}`;
@@ -49,7 +47,7 @@ export function dungMaTran(
   const trongDanhMuc = new Set(danhMuc.map(khoa));
   const dangGiu = new Set(cuaVaiTro.map(khoa));
 
-  const o: MaTranQuyen['o'] = {};
+  const o: MaTranQuyen["o"] = {};
   for (const subject of subjects) {
     o[subject] = {};
     for (const action of actions) {
@@ -57,12 +55,7 @@ export function dungMaTran(
       o[subject][action] = trongDanhMuc.has(k) ? dangGiu.has(k) : null;
     }
   }
-  return {
-    subjects,
-    actions,
-    o,
-    ngoaiDanhMuc: cuaVaiTro.filter((p) => !trongDanhMuc.has(khoa(p))),
-  };
+  return { subjects, actions, o };
 }
 
 /** Bộ quyền gửi lên `PATCH /admin/roles/:id/permissions` — thay trọn bộ. */
@@ -73,7 +66,15 @@ export function danhSachGui(mt: MaTranQuyen): QuyenCap[] {
       if (mt.o[subject]?.[action] === true) ra.push({ action, subject });
     }
   }
-  return [...ra, ...mt.ngoaiDanhMuc];
+  return ra;
+}
+
+/**
+ * Dấu phiên bản gửi kèm khi lưu (`truocKhiSua`): bộ quyền đã TẢI. Máy chủ so với bộ hiện có, lệch → 409 —
+ * chặn hai người lưu chồng nhau và giao diện bản cũ trong bộ đệm.
+ */
+export function khoaCuaVaiTro(mt: MaTranQuyen): string[] {
+  return danhSachGui(mt).map(khoa);
 }
 
 /** Quyền được thêm / bị bỏ so với bản đã tải — để hộp xác nhận nói rõ hậu quả trước khi lưu. */

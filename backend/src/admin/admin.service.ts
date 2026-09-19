@@ -618,17 +618,44 @@ export class AdminService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Khoá dòng vai trò: hai lượt lưu cùng vai trò chạy NỐI TIẾP. Không khoá thì ở READ COMMITTED lượt sau
+      // không thấy dòng lượt trước vừa chèn → hai bộ quyền trộn vào nhau, hoặc trùng khoá chính → 500.
+      await tx.$queryRaw`SELECT id FROM "roles" WHERE id = ${roleId} FOR UPDATE`;
       const truoc = await tx.rolePermission.findMany({
         where: { roleId },
-        select: { permission: { select: { action: true, subject: true } } },
+        select: {
+          permissionId: true,
+          permission: { select: { action: true, subject: true } },
+        },
       });
       const khoaTruoc = new Set(truoc.map((r) => khoa(r.permission)));
       const khoaSau = new Set(yeuCau.map(khoa));
 
-      await tx.rolePermission.deleteMany({ where: { roleId } });
-      if (yeuCau.length) {
+      // Dấu phiên bản: bộ client đã tải phải đúng bộ đang có. Lệch = người khác vừa lưu, hoặc client bản cũ.
+      const daTai = new Set(dto.truocKhiSua);
+      if (
+        daTai.size !== khoaTruoc.size ||
+        [...khoaTruoc].some((k) => !daTai.has(k))
+      ) {
+        throw new ConflictException(
+          'Phân quyền của vai trò vừa được thay đổi ở nơi khác — tải lại rồi sửa lại',
+        );
+      }
+
+      // Chỉ bỏ phần bị bỏ, chỉ thêm phần mới: quyền giữ nguyên không mất mốc `assignedAt`.
+      const bo = truoc.filter((r) => !khoaSau.has(khoa(r.permission)));
+      if (bo.length) {
+        await tx.rolePermission.deleteMany({
+          where: {
+            roleId,
+            permissionId: { in: bo.map((r) => r.permissionId) },
+          },
+        });
+      }
+      const them = yeuCau.filter((p) => !khoaTruoc.has(khoa(p)));
+      if (them.length) {
         await tx.rolePermission.createMany({
-          data: yeuCau.map((p) => ({
+          data: them.map((p) => ({
             roleId,
             permissionId: idTheoKhoa.get(khoa(p))!,
           })),

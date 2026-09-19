@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   Shield,
@@ -34,6 +34,7 @@ import { thamSoDanhSachNguoiDung } from './thamSoDanhSachNguoiDung';
 import {
   dungMaTran,
   danhSachGui,
+  khoaCuaVaiTro,
   soSanhMaTran,
   type MaTranQuyen,
   type QuyenCap,
@@ -264,7 +265,11 @@ export default function UserManagementPage() {
     setRolesError(null);
     try {
       const res = await api.get('/admin/roles');
-      setRoles(res.data ?? []);
+      const ds: Role[] = res.data ?? [];
+      setRoles(ds);
+      // Vai trò đang chọn lấy bản MỚI (số người dùng trong hộp xác nhận không lệch). Đối tượng mới làm
+      // effect bên dưới tải lại lưới của CHÍNH vai trò đang chọn — không phải vai trò lúc bấm lưu.
+      setSelectedRole((cu) => (cu ? (ds.find((r) => r.id === cu.id) ?? null) : cu));
     } catch (e) {
       setRolesError(
         `Không tải được danh sách vai trò (${extractApiError(e, 'lỗi không rõ').message}).`,
@@ -274,7 +279,12 @@ export default function UserManagementPage() {
     }
   }, []);
 
+  // Mã lượt tải quyền MỚI NHẤT. Bấm A rồi B nhanh mà kết quả của A về sau thì lưới là quyền A dưới tiêu
+  // đề B, và "Lưu" ghi quyền A lên B (rà độc lập 19/09/2026) — kết quả của lượt đã cũ phải bị bỏ.
+  const luotTaiQuyen = useRef(0);
+
   const loadPermissions = useCallback(async (roleId: string) => {
+    const luot = ++luotTaiQuyen.current;
     setPermLoading(true);
     setPermLoadError(null);
     setPermMatrix(null);
@@ -284,6 +294,7 @@ export default function UserManagementPage() {
         api.get('/admin/permissions'),
         api.get(`/admin/roles/${roleId}/permissions`),
       ]);
+      if (luot !== luotTaiQuyen.current) return;
       const mt = dungMaTran(
         (danhMuc.data ?? []) as QuyenCap[],
         (cuaVaiTro.data ?? []) as QuyenCap[],
@@ -291,11 +302,12 @@ export default function UserManagementPage() {
       setPermGoc(mt);
       setPermMatrix(structuredClone(mt));
     } catch (e) {
+      if (luot !== luotTaiQuyen.current) return;
       setPermLoadError(
         `Không tải được quyền của vai trò — chưa thể chỉnh sửa (${extractApiError(e, 'lỗi không rõ').message}).`,
       );
     } finally {
-      setPermLoading(false);
+      if (luot === luotTaiQuyen.current) setPermLoading(false);
     }
   }, []);
 
@@ -480,19 +492,26 @@ export default function UserManagementPage() {
 
   const handleSavePermissions = async () => {
     // Không bao giờ lưu từ lưới chưa tải được: đó chính là đường "lưới trống → xoá sạch quyền".
-    if (!selectedRole || !permMatrix) return;
+    if (!selectedRole || !permMatrix || !permGoc) return;
+    const roleId = selectedRole.id;
     setPermSaving(true);
     try {
       const permissions = danhSachGui(permMatrix);
-      await api.patch(
-        `/admin/roles/${selectedRole.id}/permissions`,
-        permissions.length ? { permissions } : { permissions, choPhepRong: true },
-      );
+      await api.patch(`/admin/roles/${roleId}/permissions`, {
+        permissions,
+        ...(permissions.length ? {} : { choPhepRong: true }),
+        // Dấu phiên bản: bộ đã tải. Người khác vừa lưu (hoặc bản giao diện cũ) → máy chủ trả 409.
+        truocKhiSua: khoaCuaVaiTro(permGoc),
+      });
       setShowSaveConfirm(false);
-      void loadPermissions(selectedRole.id);
+      // Tải lại danh sách → vai trò đang chọn được thay bản mới → effect tải lại lưới của nó.
       void loadRoles();
     } catch (err: unknown) {
       alert(extractApiError(err, 'Lỗi khi lưu phân quyền.').message);
+      if ((err as { response?: { status?: number } })?.response?.status === 409) {
+        setShowSaveConfirm(false);
+        void loadPermissions(roleId);
+      }
     } finally {
       setPermSaving(false);
     }

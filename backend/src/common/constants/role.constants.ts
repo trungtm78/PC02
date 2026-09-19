@@ -19,6 +19,9 @@ export const ROLE_NAMES = {
   // được chúng dù mã và seed so theo tên.
   OFFICER: 'OFFICER',
   DEADLINE_APPROVER: 'DEADLINE_APPROVER',
+  // Không có trên prod, nhưng công cụ di trú và quản trị số văn bản cấp đặc quyền theo tên này — để ngoài
+  // danh sách là vai trò tự tạo đổi tên thành nó rồi hưởng đặc quyền (rà độc lập 19/09/2026).
+  SUPER_ADMIN: 'SUPER_ADMIN',
 } as const;
 
 export type RoleName = (typeof ROLE_NAMES)[keyof typeof ROLE_NAMES];

@@ -17,11 +17,12 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { DocumentNumbersService } from './document-numbers.service';
+import { ROLE_NAMES } from '../common/constants/role.constants';
 import { DraftNumberDto, CommitNumberDto } from './dto/draft-commit.dto';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
 
-const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
+const ADMIN_ROLES: string[] = [ROLE_NAMES.ADMIN, ROLE_NAMES.SUPER_ADMIN];
 
 @Controller('document-numbers')
 @UseGuards(JwtAuthGuard, PermissionsGuard)

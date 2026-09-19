@@ -934,7 +934,11 @@ describe('AdminService', () => {
       mockPrisma.role.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateRolePermissions('bad', { permissions: [] }, 'req'),
+        service.updateRolePermissions(
+          'bad',
+          { permissions: [], truocKhiSua: [] },
+          'req',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });

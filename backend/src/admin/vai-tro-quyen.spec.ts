@@ -9,6 +9,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { TeamsService } from '../teams/teams.service';
 import { EnrollmentService } from '../auth/services/enrollment.service';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 import {
   ROLE_NAMES,
   VAI_TRO_HE_THONG,
@@ -36,6 +39,7 @@ const idCua = (action: string, subject: string) =>
 
 function dungMoi() {
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     rolePermission: {
       findMany: jest.fn(),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -145,32 +149,40 @@ describe('getRolePermissions — điểm cuối màn hình gọi mà trước đ
 });
 
 describe('updateRolePermissions', () => {
+  /** Quyền vai trò ĐANG giữ trong CSDL (đọc trong giao dịch, sau khi khoá dòng vai trò). */
+  const dangGiu = (
+    m: ReturnType<typeof dungMoi>,
+    cap: Array<[string, string]>,
+  ) =>
+    m.tx.rolePermission.findMany.mockResolvedValue(
+      cap.map(([action, subject]) => ({
+        permissionId: idCua(action, subject),
+        permission: { action, subject },
+      })),
+    );
+
   it('danh sách RỖNG mà không xác nhận → 400, không ghi gì', async () => {
     const m = dungMoi();
     m.prisma.role.findUnique.mockResolvedValue(vaiTro('r1', 'OFFICER'));
     const s = await taoService(m);
     await expect(
-      s.updateRolePermissions('r1', { permissions: [] }, 'u1'),
+      s.updateRolePermissions('r1', { permissions: [], truocKhiSua: [] }, 'u1'),
     ).rejects.toThrow(BadRequestException);
     expect(m.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('rỗng CÓ xác nhận (choPhepRong) → cho phép với vai trò tự tạo', async () => {
+  it('rỗng CÓ xác nhận (choPhepRong) → bỏ đúng các quyền đang có, không tạo gì', async () => {
     const m = dungMoi();
-    m.prisma.role.findUnique.mockResolvedValue(
-      vaiTro('r9', 'TO_TAM', [['read', 'Case']]),
-    );
-    m.tx.rolePermission.findMany.mockResolvedValue([
-      { permission: { action: 'read', subject: 'Case' } },
-    ]);
+    m.prisma.role.findUnique.mockResolvedValue(vaiTro('r9', 'TO_TAM'));
+    dangGiu(m, [['read', 'Case']]);
     const s = await taoService(m);
     await s.updateRolePermissions(
       'r9',
-      { permissions: [], choPhepRong: true },
+      { permissions: [], choPhepRong: true, truocKhiSua: ['read:Case'] },
       'u1',
     );
     expect(m.tx.rolePermission.deleteMany).toHaveBeenCalledWith({
-      where: { roleId: 'r9' },
+      where: { roleId: 'r9', permissionId: { in: ['p-read-case'] } },
     });
     expect(m.tx.rolePermission.createMany).not.toHaveBeenCalled();
   });
@@ -186,6 +198,7 @@ describe('updateRolePermissions', () => {
           { action: 'read', subject: 'Case' },
           { action: 'fly', subject: 'Case' },
         ],
+        truocKhiSua: [],
       },
       'u1',
     );
@@ -202,7 +215,10 @@ describe('updateRolePermissions', () => {
     await expect(
       s.updateRolePermissions(
         'ra',
-        { permissions: [{ action: 'read', subject: 'User' }] },
+        {
+          permissions: [{ action: 'read', subject: 'User' }],
+          truocKhiSua: [],
+        },
         'u1',
       ),
     ).rejects.toThrow(/write:User/);
@@ -216,23 +232,70 @@ describe('updateRolePermissions', () => {
     await expect(
       s.updateRolePermissions(
         'r7',
-        { permissions: [{ action: 'read', subject: 'Case' }] },
+        {
+          permissions: [{ action: 'read', subject: 'Case' }],
+          truocKhiSua: [],
+        },
         'u1',
       ),
     ).rejects.toThrow(/write:User/);
   });
 
-  it('thay trọn bộ trong MỘT giao dịch bằng id danh mục; trùng lặp gộp; nhật ký thêm/bớt ghi trong cùng giao dịch', async () => {
+  /**
+   * Rà độc lập 19/09/2026: hai lần lưu cùng lúc (READ COMMITTED) trộn hai bộ quyền; và giao diện BẢN CŨ còn
+   * trong bộ đệm gửi lại lưới 8×5 — kể từ khi điểm cuối đọc quyền tồn tại, nó xoá quyền ngoài lưới. Cả hai
+   * chặn bằng MỘT dấu phiên bản: client gửi bộ quyền nó đã tải (`truocKhiSua`); khác bộ hiện có → 409.
+   */
+  it('bộ quyền đã đổi từ lúc tải (người khác vừa lưu) → 409, không ghi gì', async () => {
     const m = dungMoi();
-    m.prisma.role.findUnique.mockResolvedValue(
-      vaiTro('r1', 'OFFICER', [
-        ['read', 'Case'],
-        ['write', 'Case'],
-      ]),
+    m.prisma.role.findUnique.mockResolvedValue(vaiTro('r1', 'OFFICER'));
+    dangGiu(m, [
+      ['read', 'Case'],
+      ['write', 'Case'],
+    ]);
+    const s = await taoService(m);
+    await expect(
+      s.updateRolePermissions(
+        'r1',
+        {
+          permissions: [{ action: 'read', subject: 'Case' }],
+          truocKhiSua: ['read:Case'],
+        },
+        'u1',
+      ),
+    ).rejects.toThrow(ConflictException);
+    expect(m.tx.rolePermission.deleteMany).not.toHaveBeenCalled();
+    expect(m.tx.rolePermission.createMany).not.toHaveBeenCalled();
+    expect(m.audit.log).not.toHaveBeenCalled();
+  });
+
+  it('khoá dòng vai trò (FOR UPDATE) TRƯỚC khi đọc bộ quyền hiện có', async () => {
+    const m = dungMoi();
+    m.prisma.role.findUnique.mockResolvedValue(vaiTro('r1', 'OFFICER'));
+    dangGiu(m, [['read', 'Case']]);
+    const s = await taoService(m);
+    await s.updateRolePermissions(
+      'r1',
+      {
+        permissions: [{ action: 'read', subject: 'Case' }],
+        truocKhiSua: ['read:Case'],
+      },
+      'u1',
     );
-    m.tx.rolePermission.findMany.mockResolvedValue([
-      { permission: { action: 'read', subject: 'Case' } },
-      { permission: { action: 'write', subject: 'Case' } },
+    const khoa = m.tx.$queryRaw.mock.invocationCallOrder[0];
+    const doc = m.tx.rolePermission.findMany.mock.invocationCallOrder[0];
+    expect(khoa).toBeLessThan(doc);
+    const [manh] = m.tx.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+    const sql = manh.join('?');
+    expect(sql).toMatch(/FROM "roles" WHERE id = \? FOR UPDATE/);
+  });
+
+  it('chỉ bỏ phần bị bỏ, chỉ thêm phần mới (giữ mốc cấp của quyền không đổi); trùng lặp gộp; nhật ký trong cùng giao dịch', async () => {
+    const m = dungMoi();
+    m.prisma.role.findUnique.mockResolvedValue(vaiTro('r1', 'OFFICER'));
+    dangGiu(m, [
+      ['read', 'Case'],
+      ['write', 'Case'],
     ]);
     const s = await taoService(m);
     await s.updateRolePermissions(
@@ -243,19 +306,17 @@ describe('updateRolePermissions', () => {
           { action: 'restore', subject: 'Case' },
           { action: 'read', subject: 'Case' },
         ],
+        truocKhiSua: ['write:Case', 'read:Case'],
       },
       'u1',
       { ipAddress: '10.0.0.1' },
     );
 
     expect(m.tx.rolePermission.deleteMany).toHaveBeenCalledWith({
-      where: { roleId: 'r1' },
+      where: { roleId: 'r1', permissionId: { in: ['p-write-case'] } },
     });
     expect(m.tx.rolePermission.createMany).toHaveBeenCalledWith({
-      data: [
-        { roleId: 'r1', permissionId: 'p-read-case' },
-        { roleId: 'r1', permissionId: 'p-restore-case' },
-      ],
+      data: [{ roleId: 'r1', permissionId: 'p-restore-case' }],
     });
     const [ghi, txGhi] = nhatKy(m);
     expect(txGhi).toBe(m.tx);
@@ -272,6 +333,37 @@ describe('updateRolePermissions', () => {
       },
     });
     expect(m.prisma.permission.upsert).not.toHaveBeenCalled();
+  });
+});
+
+/** Hợp đồng DTO: client bản cũ (không gửi dấu phiên bản) bị từ chối ở lớp validate — trước khi chạm CSDL. */
+describe('UpdateRolePermissionsDto', () => {
+  const kiem = (body: object) =>
+    validate(plainToInstance(UpdateRolePermissionsDto, body));
+
+  it('thiếu truocKhiSua (giao diện bản cũ trong bộ đệm) → lỗi', async () => {
+    const loi = await kiem({
+      permissions: [{ action: 'read', subject: 'Case' }],
+    });
+    expect(loi.map((e) => e.property)).toContain('truocKhiSua');
+  });
+
+  it('quá 1.000 phần tử → lỗi (không dựng câu OR khổng lồ)', async () => {
+    const nhieu = Array.from({ length: 1001 }, (_, i) => ({
+      action: 'read',
+      subject: `S${i}`,
+    }));
+    const loi = await kiem({ permissions: nhieu, truocKhiSua: [] });
+    expect(loi.map((e) => e.property)).toContain('permissions');
+  });
+
+  it('đủ trường → hợp lệ', async () => {
+    expect(
+      await kiem({
+        permissions: [{ action: 'read', subject: 'Case' }],
+        truocKhiSua: ['read:Case'],
+      }),
+    ).toEqual([]);
   });
 });
 

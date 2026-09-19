@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsNotEmpty,
@@ -21,9 +22,20 @@ export class PermissionEntryDto {
 export class UpdateRolePermissionsDto {
   /** Full replacement of permission list for the role */
   @IsArray()
+  @ArrayMaxSize(1000)
   @ValidateNested({ each: true })
   @Type(() => PermissionEntryDto)
   permissions: PermissionEntryDto[];
+
+  /**
+   * Dấu phiên bản: bộ quyền (`action:subject`) client đã TẢI trước khi sửa. Khác bộ hiện có → 409.
+   * Bắt buộc — chặn cùng lúc hai lỗi (rà độc lập 19/09/2026): hai người lưu đồng thời trộn bộ quyền, và
+   * giao diện bản cũ trong bộ đệm gửi lại lưới 8×5 làm mất quyền ngoài lưới.
+   */
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @IsString({ each: true })
+  truocKhiSua: string[];
 
   /**
    * Danh sách rỗng xoá SẠCH quyền của vai trò — chỉ nhận khi người dùng xác nhận rõ. Không có cờ này thì
