@@ -72,5 +72,5 @@ Mọi tệp đã trả nguyên trạng sau mỗi lượt gieo (kiểm `git statu
 
 **Đề xuất GO** cho YC-1…YC-5 + font + mật độ dòng (0 lỗi mở, 46/46 dòng ledger PASS, 15/15 lỗi gieo bị bắt).
 **YC-6:** Kha Tử Thạnh ĐÃ ĐÓNG trên prod (lượt E, sao lưu `pre-cap-nhat-he-cu-20260919-0628.sql.gz`). Lê Nguyễn Yến Thanh ở
-Đơn thư ĐÃ ĐÓNG (lượt D, sao lưu `pre-bu-don-thu-lech-loai-20260919-0647.sql.gz`, E18 PASS prod); bù Cán bộ nhập 4.601 vụ việc chờ lượt C2. Chữ ký nghiệm thu là của anh
+Đơn thư ĐÃ ĐÓNG (lượt D, sao lưu `pre-bu-don-thu-lech-loai-20260919-0647.sql.gz`, E18 PASS prod); bù Cán bộ nhập 4.601 vụ việc ĐÃ CHẠY (lượt C2 19/09 06:58, sao lưu `pre-bu-can-bo-nhap-vu-viec-20260919-0657.sql.gz`; chạy lại 0; lọc Vụ việc theo Cán bộ nhập ra đúng 2.208 hồ sơ của Admin hệ cũ). Chữ ký nghiệm thu là của anh
 (AI không tự duyệt).
