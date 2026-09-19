@@ -542,7 +542,21 @@ export interface CauNap {
   layLo: string;
   /** Ghi cột bóng cho các id `$1` của lô, CHỈ dòng lệch. */
   nap: string;
+  /**
+   * Còn dòng CHƯA TỪNG nạp không (`co`: boolean) — cho kiểm lúc deploy. Rẻ hơn `dem` vì không tính
+   * f_bo_dau, và dừng ở dòng đầu tìm thấy (đo prod 19/09/2026: 15 bảng ~0,2 giây, `dem` 1 phút 47 giây).
+   */
+  chuaNap: string;
+  /**
+   * Mẫu 200 dòng CŨ NHẤT có dòng nào lệch biểu thức hiện hành không (`co`). Bắt lớp `chuaNap` không thấy:
+   * đổi biểu thức cột bóng ĐÃ CÓ mà không thêm cột → dòng cũ khác NULL nhưng sai (rà độc lập 19/09/2026).
+   * id cuid tăng theo thời gian nên dòng cũ nhất là dòng không ai sửa sau migration.
+   */
+  lechMau: string;
 }
+
+/** Cỡ mẫu `lechMau` — đủ để lộ biểu thức đổi mà chưa nạp, mà vẫn tính f_bo_dau trên rất ít dòng. */
+export const CO_MAU_LECH = 200;
 
 /**
  * Câu nạp cột bóng cho dữ liệu cũ — CÙNG biểu thức trigger, chỉ đổi `NEW."x"` thành `"x"`.
@@ -557,10 +571,16 @@ function cauNap(bang: string, gan: readonly Gan[]): CauNap {
     .map((g) => `"${g.cotBong}" IS DISTINCT FROM ${bieu(g)}`)
     .join(' OR ');
   const set = gan.map((g) => `"${g.cotBong}" = ${bieu(g)}`).join(', ');
+  // Biểu thức cột bóng KHÔNG BAO GIỜ NULL (đo prod 19/09/2026: f_bo_dau(NULL) = '', nên dòng đã nạp mang
+  // ít nhất ' '). Cột bóng NULL vì thế là dòng chưa có giá trị đúng: chưa từng nạp, HOẶC trigger rơi vào
+  // nhánh EXCEPTION, HOẶC đang tắt khẩn (`sinhSqlTatTimKiem`). Cả ba đều cần người xem — nên vẫn báo.
+  const chuaNap = gan.map((g) => `"${g.cotBong}" IS NULL`).join(' OR ');
   return {
     dem: `SELECT count(*)::int AS n FROM "${bang}" WHERE ${lech}`,
     layLo: `SELECT id FROM "${bang}" WHERE id > $1 ORDER BY id LIMIT $2`,
     nap: `UPDATE "${bang}" SET ${set} WHERE id = ANY($1::text[]) AND (${lech})`,
+    chuaNap: `SELECT EXISTS (SELECT 1 FROM "${bang}" WHERE ${chuaNap} LIMIT 1) AS co`,
+    lechMau: `SELECT EXISTS (SELECT 1 FROM (SELECT * FROM "${bang}" ORDER BY id LIMIT ${CO_MAU_LECH}) m WHERE ${lech} LIMIT 1) AS co`,
   };
 }
 

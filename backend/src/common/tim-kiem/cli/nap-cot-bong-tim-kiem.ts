@@ -15,6 +15,7 @@
  *   set -a && source .env && set +a
  *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js          # chạy thử: đếm dòng lệch
  *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --that   # nạp thật
+ *   node dist/src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.js --kiem   # deploy.sh: còn dòng chưa nạp → thoát 2
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -85,16 +86,67 @@ export async function napCotBongTimKiem(
   return ketQua;
 }
 
+async function co(prisma: PrismaNap, sql: string): Promise<boolean> {
+  const [dong] = await prisma.$queryRawUnsafe<Array<{ co: boolean }>>(sql);
+  return dong?.co === true;
+}
+
+/**
+ * Kiểm lúc deploy: bảng nào cột bóng chưa đúng. Chỉ đọc. Hai câu rẻ thay cho câu `dem` (đo prod 19/09/2026:
+ * `dem` tính lại f_bo_dau trên mọi dòng, 1 phút 47 giây cho 15 bảng — tải nặng ở MỖI lần deploy; hai câu
+ * này ~2 giây):
+ *  - `chuaNap`: còn cột bóng NULL ở bất kỳ dòng nào (migration thêm cột mới, dữ liệu cũ chưa nạp);
+ *  - `lechMau`: 200 dòng cũ nhất lệch biểu thức hiện hành (biểu thức cột ĐÃ CÓ đổi mà chưa nạp lại).
+ */
+export async function kiemCotBongChuaNap(prisma: PrismaNap): Promise<string[]> {
+  const conThieu: string[] = [];
+  for (const { bang, cau } of sinhCacCauNap(KHAI_TIM_KIEM)) {
+    const rong = await co(prisma, cau.chuaNap);
+    const lechMau = await co(prisma, cau.lechMau);
+    const lyDo = [
+      rong && 'còn cột bóng NULL',
+      lechMau && 'dòng cũ lệch biểu thức hiện hành',
+    ].filter(Boolean);
+    console.log(
+      `${bang}: ${lyDo.length ? `CẦN NẠP — ${lyDo.join('; ')}` : 'đúng'}`,
+    );
+    if (lyDo.length) conThieu.push(bang);
+  }
+  return conThieu;
+}
+
+/** 2 = còn bảng cần nạp (deploy.sh báo đỏ); khác với 1 = lỗi chạy. */
+export function maThoatKiem(conThieu: readonly string[]): number {
+  return conThieu.length > 0 ? 2 : 0;
+}
+
+/**
+ * Nối dây dòng lệnh — tách khỏi `require.main` để kiểm được: `--kiem` → 0/2; không cờ → chạy thử; `--that`
+ * → nạp thật; lỗi → 1 (không bao giờ 0). Kết nối LUÔN đóng, và đóng lỗi không đổi mã của việc chính.
+ */
+export async function chayCli(
+  argv: readonly string[],
+  prisma: PrismaNap & { $disconnect(): Promise<void> },
+): Promise<number> {
+  try {
+    if (argv.includes('--kiem'))
+      return maThoatKiem(await kiemCotBongChuaNap(prisma));
+    await napCotBongTimKiem(prisma, argv.includes('--that'));
+    return 0;
+  } catch (e) {
+    console.error(e);
+    return 1;
+  } finally {
+    await prisma.$disconnect().catch(() => undefined);
+  }
+}
+
 if (require.main === module) {
-  const ghiThat = process.argv.includes('--that');
   // Prisma 7 bỏ trình điều khiển dựng sẵn: `new PrismaClient()` trần ném ngay lúc dựng.
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
   });
-  napCotBongTimKiem(prisma, ghiThat)
-    .catch((e) => {
-      console.error(e);
-      process.exitCode = 1;
-    })
-    .finally(() => void prisma.$disconnect());
+  void chayCli(process.argv, prisma).then((ma) => {
+    process.exitCode = ma;
+  });
 }
