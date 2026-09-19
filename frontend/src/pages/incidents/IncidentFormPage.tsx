@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { extractApiError } from "@/lib/api-errors";
+import { extractApiError, loiXungDot } from "@/lib/api-errors";
 import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
@@ -288,7 +288,8 @@ export function IncidentFormPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
-        setErrors(["Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."]);
+        // Lời của máy chủ: trùng giá trị khác với "người khác vừa sửa" — không gộp làm một.
+        setErrors([loiXungDot(err, "Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa.")]);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         setErrors(extractApiError(err).messages);

@@ -7,6 +7,7 @@ import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
+import { loiXungDot } from "@/lib/api-errors";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
@@ -362,7 +363,8 @@ function CaseFormPage() {
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 409) {
-        alert("Hồ sơ đã được chỉnh sửa bởi người dùng khác.\nVui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa.");
+        // Lời của máy chủ: trùng giá trị khác với "người khác vừa sửa" — không gộp làm một.
+        alert(loiXungDot(err, "Hồ sơ đã được chỉnh sửa bởi người dùng khác.\nVui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."));
         return;
       }
       // v0.67.3 — surface client-side Errors (no `response` field) with their
