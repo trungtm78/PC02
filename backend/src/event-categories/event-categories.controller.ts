@@ -4,12 +4,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { FeatureFlag } from '../feature-flags/decorators/feature-flag.decorator';
+import { FeatureFlagGuard } from '../feature-flags/guards/feature-flag.guard';
 import { EventCategoriesService } from './event-categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Controller('event-categories')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, FeatureFlagGuard, PermissionsGuard)
 @FeatureFlag('event_categories_v2')
 export class EventCategoriesController {
   constructor(private readonly service: EventCategoriesService) {}

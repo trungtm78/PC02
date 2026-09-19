@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FEATURE_FLAG_KEY } from '../decorators/feature-flag.decorator';
@@ -24,17 +25,12 @@ export class FeatureFlagGuard implements CanActivate {
     // Route not gated on a feature flag → allow.
     if (!flagKey) return true;
 
-    // Security: skip the flag check when the request is unauthenticated.
-    // Otherwise an anonymous caller can probe which feature flags are
-    // enabled by comparing 404 (disabled) vs 401 (enabled) responses,
-    // and the response leaks out faster than the throttler's rate limit.
-    // Returning true here hands control back to the next guard in the
-    // chain (typically JwtAuthGuard) which will 401 uniformly regardless
-    // of flag state. Decouples from APP_GUARD registration order.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const request = context.switchToHttp().getRequest();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!request.user) return true;
+    // Guard này KHAI trong @UseGuards của controller, SAU JwtAuthGuard (cổng feature-flag.chan-that.spec.ts).
+    // Không có user = bị đặt sai chỗ → 401 đồng nhất với JwtAuthGuard (khách không dò được cờ nào đang bật), KHÔNG cho
+    // qua. Bản cũ là APP_GUARD: guard toàn cục chạy TRƯỚC JWT nên user luôn rỗng → luôn cho qua → tắt tính năng không
+    // chặn được API (tồn đọng PR #217, sửa 19/09/2026).
+    const request = context.switchToHttp().getRequest<{ user?: unknown }>();
+    if (!request.user) throw new UnauthorizedException();
 
     const enabled = await this.featureFlags.isEnabled(flagKey);
     if (!enabled) {
