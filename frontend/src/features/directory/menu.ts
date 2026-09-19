@@ -5,7 +5,7 @@ export const directoryMenu: FeatureMenuEntry[] = [
     section: 'system',
     id: 'directory',
     label: 'Danh mục tra cứu',
-    path: '/danh-muc',
+    path: '/danh-muc', quyen: ['read:Directory'],
     icon: 'FolderTree',
   },
 ];

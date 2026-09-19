@@ -6,6 +6,7 @@ export const documentNumbersMenu: FeatureMenuEntry[] = [
     id: 'document-numbers',
     label: 'Mã số chứng từ',
     path: '/settings/document-numbers',
+    quyen: ['read:Case'],
     icon: 'Hash',
   },
 ];

@@ -57,4 +57,10 @@ export interface FeatureMenuEntry {
    * the alphabetical default. Ties preserve registration order.
    */
   order?: number;
+  /**
+   * Quyền máy chủ ('action:Subject', vd 'restore:Case') mà trang cần để dùng được — có MỘT trong số là đủ. Tài khoản
+   * không có quyền nào thì thanh bên ẩn mục (20/09/2026). Không khai = mọi người đã đăng nhập. Khai theo đúng
+   * `@RequirePermissions` của lệnh GET chính mà trang gọi khi mở.
+   */
+  quyen?: readonly string[];
 }

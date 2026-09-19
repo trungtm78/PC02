@@ -7,8 +7,8 @@ export const uyThacDieuTraMenu: FeatureMenuEntry[] = [
     label: 'Ủy Thác Điều Tra',
     icon: 'ArrowRightLeft',
     children: [
-      { section: 'business', id: 'utdt-list', label: 'Danh sách ủy thác', path: '/uy-thac-dieu-tra' },
-      { section: 'business', id: 'utdt-new', label: 'Nhập ủy thác mới', path: '/uy-thac-dieu-tra/new' },
+      { section: 'business', id: 'utdt-list', label: 'Danh sách ủy thác', path: '/uy-thac-dieu-tra', quyen: ['read:Case'] },
+      { section: 'business', id: 'utdt-new', label: 'Nhập ủy thác mới', path: '/uy-thac-dieu-tra/new', quyen: ['write:Case'] },
     ],
   },
 ];

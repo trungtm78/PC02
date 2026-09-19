@@ -5,7 +5,7 @@ export const settingsMenu: FeatureMenuEntry[] = [
     section: 'system',
     id: 'settings',
     label: 'Cấu hình hệ thống',
-    path: '/settings',
+    path: '/settings', quyen: ['read:Directory', 'read:Calendar'],
     icon: 'Settings',
   },
 ];

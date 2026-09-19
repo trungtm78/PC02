@@ -7,10 +7,10 @@ export const incidentsMenu: FeatureMenuEntry[] = [
     label: 'Vụ việc',
     icon: 'FileWarning',
     children: [
-      { section: 'business', id: 'incidents-list', label: 'Danh sách vụ việc', path: '/vu-viec' },
-      { section: 'business', id: 'incidents-new', label: 'Thêm vụ việc mới', path: '/vu-viec/new' },
+      { section: 'business', id: 'incidents-list', label: 'Danh sách vụ việc', path: '/vu-viec', quyen: ['read:Incident'] },
+      { section: 'business', id: 'incidents-new', label: 'Thêm vụ việc mới', path: '/vu-viec/new', quyen: ['write:Incident'] },
       // v0.37.1: filter view moved from "Phân loại & Quản lý" — fix wrong placement.
-      { section: 'business', id: 'incidents-ward', label: 'Vụ việc theo phường/xã', path: '/ward/incidents' },
+      { section: 'business', id: 'incidents-ward', label: 'Vụ việc theo phường/xã', path: '/ward/incidents', quyen: ['read:Incident'] },
     ],
   },
 ];

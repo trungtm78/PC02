@@ -6,6 +6,7 @@ export const editWindowRequestsMenu: FeatureMenuEntry[] = [
     id: 'edit-window-requests',
     label: 'Yêu cầu reset thời hạn',
     path: '/admin/yeu-cau-reset',
+    quyen: ['review_reset_request:EditWindowResetRequest'],
     icon: 'Clock',
   },
 ];

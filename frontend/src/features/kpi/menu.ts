@@ -6,6 +6,6 @@ export const kpiMenu: FeatureMenuEntry[] = [
     id: 'kpi-dashboard',
     label: 'Chỉ tiêu KPI',
     icon: 'Target',
-    path: '/kpi',
+    path: '/kpi', quyen: ['read:Incident'],
   },
 ];

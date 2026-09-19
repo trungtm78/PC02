@@ -11,9 +11,9 @@ export const comprehensiveMenu: FeatureMenuEntry[] = [
     icon: 'LayoutDashboard',
     order: 10,
     children: [
-      { section: 'business', id: 'comprehensive-list', label: 'Danh sách tổng hợp', path: '/comprehensive-list' },
-      { section: 'business', id: 'comprehensive-initial', label: 'Hồ sơ mới tiếp nhận', path: '/initial-cases' },
-      { section: 'business', id: 'journey', label: 'Hành Trình Hồ Sơ', path: '/ho-so-journey' },
+      { section: 'business', id: 'comprehensive-list', label: 'Danh sách tổng hợp', path: '/comprehensive-list', quyen: ['read:Case', 'read:Incident', 'read:Petition'] },
+      { section: 'business', id: 'comprehensive-initial', label: 'Hồ sơ mới tiếp nhận', path: '/initial-cases', quyen: ['read:Case'] },
+      { section: 'business', id: 'journey', label: 'Hành Trình Hồ Sơ', path: '/ho-so-journey', quyen: ['read:Case', 'read:Incident', 'read:Petition'] },
     ],
   },
 ];
