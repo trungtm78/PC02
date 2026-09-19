@@ -9,7 +9,6 @@
  * - "Đánh dấu tất cả đã đọc" button
  * - "Xóa đã đọc" button
  * - Poll unread count mỗi 60 giây
- * - Auto-seed demo notifications nếu chưa có thông báo nào
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';

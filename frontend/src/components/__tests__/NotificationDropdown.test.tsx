@@ -76,7 +76,9 @@ describe('NotificationDropdown — handleNotificationClick', () => {
     renderDropdown();
     fireEvent.click(screen.getByTestId('notification-bell'));
     await waitFor(() => expect(vi.mocked(api.get)).toHaveBeenCalledWith('/notifications', expect.anything()));
-    expect(vi.mocked(api.post)).not.toHaveBeenCalledWith('/notifications/seed');
+    expect(vi.mocked(api.post)).not.toHaveBeenCalled();
+    // Chưa có thông báo nào → nói rõ là không có, không bịa ra.
+    expect(await screen.findByText('Không có thông báo')).toBeInTheDocument();
   });
 
   it('calls PATCH /notifications/:id/read when notification.isRead=false', async () => {
