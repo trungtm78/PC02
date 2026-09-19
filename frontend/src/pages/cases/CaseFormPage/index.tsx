@@ -584,6 +584,7 @@ function CaseFormPage() {
             <TabSubjects
               {...tabProps}
               caseId={isEditMode ? id : undefined}
+              cheDoSua={isEditMode}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
               onEdit={(s) => { setEditingSubject(s); setShowSubjectModal(true); }}
@@ -599,6 +600,7 @@ function CaseFormPage() {
           {activeTab === "evidence" && (
             <TabEvidence
               {...tabProps}
+              cheDoSua={isEditMode}
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
               onEdit={(e) => { setEditingEvidence(e); setShowEvidenceModal(true); }}

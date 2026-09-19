@@ -781,6 +781,23 @@ function TabCaseBoSung({ formData, setFormData, errors, setErrors }: TabProps) {
   );
 }
 
+/**
+ * Form SỬA: tab mục con chỉ chứa mục THÊM MỚI trong lần sửa này — form không nạp mục cũ vào tab, và máy chủ ghi
+ * các mục gửi lên là mục THÊM (PUT /cases/:id, 19/09/2026). Không nói ra thì cán bộ thấy tab trống, tưởng mất dữ
+ * liệu hoặc thêm lại lần nữa.
+ */
+function GhiChuMucThemMoi({ loai }: { loai: string }) {
+  return (
+    <p
+      className="mx-4 mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"
+      data-testid="ghi-chu-muc-them-moi"
+    >
+      Danh sách dưới đây chỉ gồm {loai} thêm mới trong lần sửa này, sẽ được lưu khi bấm Lưu. {loai[0].toUpperCase()}
+      {loai.slice(1)} đã có của vụ án xem và sửa ở trang chi tiết vụ án.
+    </p>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tab 4: ĐTBS
 // ═════════════════════════════════════════════════════════════════════════════
@@ -790,11 +807,14 @@ function TabSubjectsBoSung({
   onAdd,
   onEdit,
   onDelete,
+  cheDoSua,
 }: {
   subjects: Subject[];
   onAdd: () => void;
   onEdit: (subject: Subject) => void;
   onDelete: (id: string) => void;
+  /** Form đang SỬA vụ án có sẵn → danh sách chỉ là mục thêm mới. */
+  cheDoSua?: boolean;
 }) {
   const columns: ColumnDef<Subject>[] = [
     {
@@ -840,6 +860,7 @@ function TabSubjectsBoSung({
           </button>
         }
       />
+      {cheDoSua && <GhiChuMucThemMoi loai="đối tượng" />}
       <DataTable
         columns={columns}
         data={subjects}
@@ -978,11 +999,14 @@ function TabEvidenceBoSung({
   onAdd,
   onEdit,
   onDelete,
+  cheDoSua,
 }: {
   evidences: Evidence[];
   onAdd: () => void;
   onEdit: (evidence: Evidence) => void;
   onDelete: (id: string) => void;
+  /** Form đang SỬA vụ án có sẵn → danh sách chỉ là mục thêm mới. */
+  cheDoSua?: boolean;
 }) {
   const columns: ColumnDef<Evidence>[] = [
     { key: "code", header: "Mã VC", cellClassName: "px-4 py-3 text-sm font-medium text-blue-600" },
@@ -1027,6 +1051,7 @@ function TabEvidenceBoSung({
           </button>
         }
       />
+      {cheDoSua && <GhiChuMucThemMoi loai="vật chứng" />}
       <DataTable
         columns={columns}
         data={evidences}

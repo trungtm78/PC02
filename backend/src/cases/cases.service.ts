@@ -1526,36 +1526,46 @@ export class CasesService {
     // v0.30: CASE_UPDATED via wrapUpdate so audit captures full before/after for inline diff.
     // The fetchFn re-reads full Case (relations included); +1 SELECT/update — negligible.
     // P2025 try/catch wraps the whole wrapUpdate call to preserve optimistic-lock translation.
+    // MỘT giao dịch: vụ án + nhật ký sửa + mục con THÊM trong lúc sửa (đối tượng, vật chứng, tài liệu) + thống
+    // kê mở rộng. Trước 19/09/2026 `update` không đọc ba mảng mục con — form sửa báo "Cập nhật thành công" mà
+    // mục vừa thêm biến mất (tồn đọng PR #217/#220). Mảng trong PUT là mục THÊM MỚI: form sửa không nạp mục cũ
+    // vào tab nên không bao giờ gửi lại chúng. Hỏng một mục thì vụ án cũng không đổi.
+    const chonDieuTraVien = {
+      investigator: {
+        select: { id: true, firstName: true, lastName: true, username: true },
+      },
+    } as const;
     let record;
     try {
-      record = await this.audit.wrapUpdate({
-        fetchFn: () =>
-          this.prisma.case.findUnique({
-            where: { id },
-            include: {
-              investigator: {
-                select: { id: true, firstName: true, lastName: true, username: true },
+      record = await this.prisma.$transaction(async (tx) => {
+        const sau = await this.audit.wrapUpdate({
+          fetchFn: () =>
+            tx.case.findUnique({ where: { id }, include: chonDieuTraVien }),
+          updateFn: () =>
+            tx.case.update({
+              where: {
+                id,
+                ...(dto.expectedUpdatedAt
+                  ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+                  : {}),
               },
-            },
-          }),
-        updateFn: () =>
-          this.prisma.case.update({
-            where: {
-              id,
-              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
-            },
-            data: updateData,
-            include: {
-              investigator: {
-                select: { id: true, firstName: true, lastName: true, username: true },
-              },
-            },
-          }),
-        action: 'CASE_UPDATED',
-        subject: 'Case',
-        subjectId: id,
-        userId: actorId,
-        meta: { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent },
+              data: updateData,
+              include: chonDieuTraVien,
+            }),
+          action: 'CASE_UPDATED',
+          subject: 'Case',
+          subjectId: id,
+          userId: actorId,
+          meta: { ipAddress: meta?.ipAddress, userAgent: meta?.userAgent },
+          tx,
+        });
+        await this.createSubEntitiesInTransaction(
+          tx,
+          id,
+          dto as CreateCaseDto,
+          actorId,
+        );
+        return sau;
       });
     } catch (e) {
       if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
@@ -1564,16 +1574,6 @@ export class CasesService {
         );
       }
       throw e;
-    }
-
-    // Thống kê mở rộng (hybrid) — upsert bảng case_statistics khi có dto.statistic.
-    if (dto.statistic !== undefined) {
-      const statData = buildCaseStatisticData(dto.statistic);
-      await this.prisma.caseStatistic.upsert({
-        where: { caseId: id },
-        create: { caseId: id, ...statData },
-        update: statData,
-      });
     }
 
     // v0.37.2.5: Sync petitionType with EXISTING linked Petition only.
