@@ -1224,7 +1224,7 @@ export class PetitionsService {
     }
 
     // Create Case and update Petition atomically in one transaction
-    let caseRecord;
+    let caseRecord: Prisma.CaseGetPayload<object>;
     try {
     [caseRecord] = await this.prisma.$transaction(async (tx) => {
         // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —

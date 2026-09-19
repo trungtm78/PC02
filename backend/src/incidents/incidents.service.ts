@@ -1506,7 +1506,7 @@ export class IncidentsService {
     }
 
     // FIXED: wrap in transaction for atomicity
-    let result;
+    let result: Prisma.CaseGetPayload<object>;
     try {
     result = await this.prisma.$transaction(async (tx) => {
         // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
