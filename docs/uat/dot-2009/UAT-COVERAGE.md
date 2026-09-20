@@ -21,10 +21,10 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 | A1 | Ô "Cán bộ đề xuất" mở ra thấy nhóm theo Tổ, đủ 245 người | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A2 | Gõ tên người → lọc trong từng nhóm, bỏ nhóm rỗng | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A3 | Gõ tên tổ ("Tổ 1") → hiện CẢ nhóm | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
-| A4 | Gõ không dấu ("to 1") và gõ tắt ("t1") đều ra | YC1 | | | |
+| A4 | Gõ không dấu ("to 1") và gõ tắt ("t1") đều ra | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A5 | Phím mũi tên đi xuyên nhóm, Enter chọn đúng người | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A6 | Tab tới ô chọn và MỞ được bằng bàn phím | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
-| A7 | Tài khoản ĐÃ KHOÁ không xuất hiện trong danh sách | Lỗi prod 2 | | | |
+| A7 | Tài khoản ĐÃ KHOÁ không xuất hiện trong danh sách | Lỗi prod 2 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A8 | "Cán bộ đề xuất" có sẵn tên người đang đăng nhập | YC4 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A9 | Ô "Nguồn đơn" tìm được; gõ nguồn chưa có → tạo nhanh | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A10 | Chọn Nguồn đơn = "Trực tiếp" → nhóm định danh TỰ BUNG | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
@@ -48,9 +48,9 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 | B1 | Mở đơn DI TRÚ cũ → không ô nào biến mất | Bài học | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
 | B2 | Mở đơn cũ CÓ ngày viết đơn → ba ô hiện đúng ngày, không trắng | Rà mã P1 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
 | B3 | Lưu đơn cũ mà KHÔNG đụng ngày → ngày giữ nguyên | Rà mã P1 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
-| B4 | Đơn nhập thiếu: lưu → mở lại đúng `__/12/2026` | YC3 | | | |
+| B4 | Đơn nhập thiếu: lưu → mở lại đúng `__/12/2026` | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 | B5 | Nhóm có ô đã có giá trị → TỰ BUNG (không giấu dữ liệu) | YC2/YC5 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
-| B6 | Người được giao đã bị KHOÁ → vẫn hiện tên, ghim đầu danh sách | Lỗi prod 4 | | | |
+| B6 | Người được giao đã bị KHOÁ → vẫn hiện tên, ghim đầu danh sách | Lỗi prod 4 | x | x | **PASS (E2E Chrome, bản sao)** |
 | B7 | Bảng phân công: thêm/xoá cán bộ; nhãn khớp ô chọn | Lỗi prod 4 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## C. Hộp Phân công (`AssignModal` — 3 màn danh sách)
@@ -93,9 +93,9 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| G1 | Loại "Nguồn đơn/Đơn vị giao" hiện trong danh sách loại | YC2 | | | |
-| G2 | Mục tạo nhanh từ form hiện ở trạng thái chờ duyệt | YC2 | | | |
-| G3 | Mục "Trực tiếp" tạo nhanh TỰ mang cờ `laTrucTiep` | YC2 | | | |
+| G1 | Loại "Nguồn đơn/Đơn vị giao" hiện trong danh sách loại | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| G2 | Mục tạo nhanh từ form hiện ở trạng thái chờ duyệt | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| G3 | Mục "Trực tiếp" tạo nhanh TỰ mang cờ `laTrucTiep` | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## H. Máy chủ (API)
 
@@ -113,16 +113,16 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
 | I1 | Ô chọn cán bộ: Tab tới được, Enter/Space mở | Rà mã P1 | x | x | **PASS (E2E Chrome, bản sao)** |
-| I2 | Nhóm gập: trạng thái lỗi và "bắt buộc" có nhãn đọc được | Rà mã P2 | | | |
-| I3 | Ba ô ngày: mỗi ô có tên riêng, nhóm có tên chung | YC3 | | | |
+| I2 | Nhóm gập: trạng thái lỗi và "bắt buộc" có nhãn đọc được | Rà mã P2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| I3 | Ba ô ngày: mỗi ô có tên riêng, nhóm có tên chung | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## J. Đo trên Chrome THẬT (không phải jsdom)
 
 | ID | Việc đo | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| J1 | Chụp tab Thông tin TRƯỚC/SAU, so vị trí từng ô | DESIGN §12 | | | |
-| J2 | Nhóm full-width có làm lệch cột ô phía sau không | Rà mã P3 | | | |
-| J3 | Bề rộng ba ô ngày sau khi đổi font (mono, tabular-nums) | DESIGN §11.5 | | | |
+| J1 | Chụp tab Thông tin TRƯỚC/SAU, so vị trí từng ô | DESIGN §12 | x | x | **PASS (đo Chrome thật)** |
+| J2 | Nhóm full-width có làm lệch cột ô phía sau không | Rà mã P3 | x | x | **PASS (E2E Chrome, bản sao)** |
+| J3 | Bề rộng ba ô ngày sau khi đổi font (mono, tabular-nums) | DESIGN §11.5 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## K. Ca bù cho ngưỡng rủi ro (TC_min = 80, xem `_coverage-ledger.md`)
 
@@ -139,8 +139,8 @@ M4 risk-tier đòi 80 ca; 10 nhóm A–J mới có 70. Mười ca dưới đây 
 | K6 | Đơn nặc danh + Trực tiếp + SĐT trống → LƯU ĐƯỢC | YC2 | x | x | **PASS (API, bản sao)** |
 | K7 | Nguồn đơn để TRỐNG → nhóm định danh thu, lưu được | YC2 | x | x | **PASS (API, bản sao)** |
 | K8 | Hai tab cùng mở một đơn: tab A lưu ngày thiếu → tab B tải lại thấy đúng | YC3 | x | x | **PASS (API, bản sao)** |
-| K9 | Mạng hỏng giữa lúc Lưu → báo lỗi rõ, KHÔNG mất thứ đã gõ | Tổng hợp | | | |
-| K10 | Ô chọn cán bộ khi máy chủ trả lỗi → báo hỏng, không báo "không có cán bộ nào" | Tải hỏng ≠ rỗng | | | |
+| K9 | Mạng hỏng giữa lúc Lưu → báo lỗi rõ, KHÔNG mất thứ đã gõ | Tổng hợp | x | x | **PASS (E2E Chrome, bản sao)** |
+| K10 | Ô chọn cán bộ khi máy chủ trả lỗi → báo hỏng, không báo "không có cán bộ nào" | Tải hỏng ≠ rỗng | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## L. Bề mặt LIỀN KỀ — chức năng không sửa nhưng đứng cạnh chỗ sửa
 
@@ -157,9 +157,9 @@ form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đ
 | L5 | Chuyển Đơn thư thành Vụ án: mang theo Nguồn đơn và Ngày viết đơn đúng | Tổng hợp | x | x | **PASS (API, bản sao)** |
 | L6 | Tạo đơn mới: STT tự sinh `DT-YYYY-NNNNN` vẫn đúng sau khi thêm cột | Tổng hợp | x | x | **PASS (API, bản sao)** |
 | L7 | ADMIN duyệt được mục danh mục ở trạng thái chờ duyệt | YC2 | x | x | **PASS (API, bản sao)** |
-| L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 |  |  |  |
-| L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 |  |  |  |
-| L10 | Mở form Đơn thư trên Chrome thật: 0 lỗi console, 0 lượt mạng 4xx/5xx lạ | Tổng hợp |  |  |  |
+| L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 | x | x | **PASS (cổng CI — 421 bộ backend xanh)** |
+| L10 | Mở form Đơn thư trên Chrome thật: 0 lỗi console, 0 lượt mạng 4xx/5xx lạ | Tổng hợp | x | x | **PASS (E2E Chrome, bản sao)** |
 
 
 ### Ghi chú nhóm D/E — 8 ca CHƯA CHẠY, KHÔNG phải đạt

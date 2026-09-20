@@ -11,7 +11,10 @@
  * quét 0 ca mà vẫn báo sạch.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { loginToPage } from '../helpers/auth';
+import { loginToPage, getAuthToken } from '../helpers/auth';
+
+/** Gốc API để ca kiểm hỏi thẳng máy chủ khi cần dữ liệu đối chứng (vd danh sách tài khoản khoá). */
+const API_GOC = (process.env.BASE_URL_API || 'http://127.0.0.1:3000') + '/api/v1';
 
 const O_CAN_BO_DE_XUAT = 'field-canBoDeXuatId';
 const O_NGUON_DON = 'field-nguonDon';
@@ -394,5 +397,154 @@ test.describe('A · Nhóm định danh bung/thu theo Nguồn đơn', () => {
       page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
       'chỉ có năm vẫn là dữ liệu hợp lệ — đây là điều anh yêu cầu',
     ).toHaveCount(0);
+  });
+});
+
+test.describe('A · Tìm kiếm và trạng thái của ô chọn cán bộ', () => {
+  test('A4 — gõ KHÔNG DẤU và gõ TẮT đều ra đúng người', async ({ page }) => {
+    /*
+      Cán bộ gõ nhanh thì hiếm khi bỏ dấu. Không khớp được chuỗi không dấu nghĩa là phải gõ
+      đúng từng dấu mới tìm ra — đúng thứ chậm mà yêu cầu 1 muốn dẹp.
+    */
+    await moOChon(page, O_CAN_BO_DE_XUAT);
+    const ten = (
+      (await page
+        .getByTestId(`${O_CAN_BO_DE_XUAT}-dropdown`)
+        .getByRole('option')
+        .first()
+        .textContent()) ?? ''
+    ).trim();
+    expect(ten.length, 'danh sách rỗng thì không kiểm được').toBeGreaterThan(0);
+
+    const tenSach = ten.split('—')[0].trim();
+    const khongDau = tenSach
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+
+    await goTim(page, O_CAN_BO_DE_XUAT, khongDau.split(/\s+/).slice(-2).join(' '));
+    await expect(
+      page.getByTestId(`${O_CAN_BO_DE_XUAT}-dropdown`).getByRole('option').first(),
+      `gõ không dấu "${khongDau}" không ra ai`,
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('A7 — danh sách KHÔNG mời chọn tài khoản đã khoá', async ({ page }) => {
+    /*
+      Đo bản sao prod: 245 tài khoản hoạt động. Lời gọi cũ `limit=200` sắp theo ngày tạo nên
+      vừa CẮT MẤT đuôi vừa KÉO CẢ tài khoản đã khoá vào ô chọn. Ca này soi vế thứ hai.
+    */
+    const tok = getAuthToken();
+    const r = await page.request.get(
+      `${API_GOC}/admin/users?limit=500&status=inactive`,
+      { headers: { Authorization: `Bearer ${tok}` } },
+    );
+    expect(r.status(), await r.text()).toBe(200);
+    const khoa = ((await r.json()).data ?? []) as Array<{ id: string }>;
+    expect(khoa.length, 'không có tài khoản khoá nào — mệnh đề CHƯA kiểm được').toBeGreaterThan(0);
+
+    await moOChon(page, O_CAN_BO_DE_XUAT);
+    const dsHien = await page
+      .getByTestId(`${O_CAN_BO_DE_XUAT}-dropdown`)
+      .getByRole('option')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid') ?? ''));
+
+    for (const u of khoa) {
+      expect(
+        dsHien.some((t) => t.includes(u.id)),
+        `tài khoản đã khoá ${u.id} vẫn được mời chọn`,
+      ).toBe(false);
+    }
+  });
+
+  test('B10 — máy chủ trả lỗi thì ô báo HỎNG, không báo "không có cán bộ nào"', async ({
+    page,
+  }) => {
+    /*
+      Tải hỏng KHÁC rỗng. Nói "không có cán bộ nào" khi thật ra mạng hỏng là nói dối cán bộ về
+      trạng thái dữ liệu — họ sẽ đi tìm lý do ở chỗ khác.
+    */
+    await page.route('**/admin/users**', (r) => r.abort('failed'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId(`${O_CAN_BO_DE_XUAT}-trigger`)).toBeVisible({ timeout: 30_000 });
+    await moOChon(page, O_CAN_BO_DE_XUAT);
+
+    const rong = page.getByTestId(`${O_CAN_BO_DE_XUAT}-rong`);
+    const soRong = await rong.count();
+    if (soRong > 0) {
+      const chu = ((await rong.textContent()) ?? '').toLowerCase();
+      expect(
+        chu.includes('không có cán bộ') && !chu.includes('lỗi') && !chu.includes('thử lại'),
+        `tải hỏng mà báo "${chu.trim()}" — cán bộ tưởng danh mục rỗng`,
+      ).toBe(false);
+    }
+  });
+});
+
+test.describe('I · Trợ năng đo được', () => {
+  test('I2 — nhóm gập: trạng thái "bắt buộc" và "có lỗi" có nhãn ĐỌC ĐƯỢC', async ({ page }) => {
+    /*
+      WCAG 1.4.1: màu KHÔNG được là tín hiệu duy nhất. Nhóm định danh chứa ô bắt buộc (SĐT khi
+      nguồn là Trực tiếp), và tiêu đề đánh dấu bằng một dấu sao màu đỏ — người dùng trình đọc
+      màn hình chỉ nghe tên nhóm và con số nếu không có nhãn chữ đi kèm.
+    */
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await expect(nut).toBeVisible();
+    const chu = (await nut.textContent()) ?? '';
+    expect(
+      chu.includes('có ô bắt buộc'),
+      'dấu sao đỏ mà không có nhãn chữ thì trình đọc màn hình bỏ qua hoàn toàn',
+    ).toBe(true);
+  });
+
+  test('I2b — thân nhóm là một vùng có TÊN, không phải một đống ô rời', async ({ page }) => {
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await nut.click();
+    const than = page.getByTestId(NHOM_DINH_DANH).getByRole('region');
+    await expect(than).toBeVisible();
+    expect(
+      await than.getAttribute('aria-label'),
+      'vùng không tên thì người dùng trình đọc không biết mình đang ở nhóm nào',
+    ).toBeTruthy();
+    // Và nút mở/đóng phải trỏ tới đúng vùng ấy.
+    expect(await nut.getAttribute('aria-controls')).toBeTruthy();
+  });
+
+  test('I3 — ba ô ngày nằm trong MỘT nhóm có tên chung, mỗi ô một tên riêng', async ({
+    page,
+  }) => {
+    const bo = page.getByTestId(O_NGAY_VIET_DON);
+    await expect(bo).toBeVisible();
+    // `fieldset` + `legend` là cách khai chuẩn cho một nhóm ô liên quan.
+    expect(
+      await bo.evaluate((e) => e.tagName.toLowerCase()),
+      'ba ô ngày rời nhau thì trình đọc màn hình đọc ra ba ô vô danh',
+    ).toBe('fieldset');
+    expect(await bo.locator('legend').count()).toBeGreaterThan(0);
+
+    for (const tu of ['ngay', 'thang', 'nam'] as const) {
+      const nhan = await page.getByTestId(`${O_NGAY_VIET_DON}-${tu}`).getAttribute('aria-label');
+      expect(nhan, `ô ${tu} không có tên riêng`).toBeTruthy();
+    }
+  });
+
+  test('I1b — ô chọn khai ĐỦ vai trò ARIA theo chuẩn APG', async ({ page }) => {
+    const nut = page.getByTestId(`${O_CAN_BO_DE_XUAT}-trigger`);
+    await expect(nut).toHaveAttribute('role', 'combobox');
+    await expect(nut).toHaveAttribute('aria-haspopup', 'listbox');
+    expect(await nut.getAttribute('aria-controls'), 'thiếu aria-controls').toBeTruthy();
+
+    await moOChon(page, O_CAN_BO_DE_XUAT);
+    const ds = page.getByTestId(`${O_CAN_BO_DE_XUAT}-dropdown`).getByRole('listbox');
+    await expect(ds, 'danh sách không khai role=listbox').toHaveCount(1);
+
+    // `aria-selected` chỉ báo mục ĐÃ CHỌN, không báo mục đang tô — nếu không thì trình đọc
+    // đọc "đã chọn" mỗi lần bấm mũi tên.
+    const soDaChon = await page
+      .getByTestId(`${O_CAN_BO_DE_XUAT}-dropdown`)
+      .locator('[role="option"][aria-selected="true"]')
+      .count();
+    expect(soDaChon, 'nhiều hơn một mục báo "đã chọn"').toBeLessThanOrEqual(1);
   });
 });

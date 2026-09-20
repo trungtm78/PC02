@@ -165,3 +165,136 @@ test.describe('B · Mở hồ sơ DI TRÚ để sửa', () => {
     ).toBe(muc!.edtf);
   });
 });
+
+test.describe('B/K/L còn lại — vòng khứ hồi và trạng thái hỏng', () => {
+  test('B4 — lưu `__/12/2026` rồi MỞ LẠI đúng nguyên văn trên giao diện', async ({ page }) => {
+    /*
+      Vòng khứ hồi ĐẦY ĐỦ qua giao diện: gõ ở ba ô → Lưu → tải lại trang → ba ô hiện đúng thứ
+      đã gõ. Ca ở tầng API chỉ chứng minh cột lưu đúng; ca này chứng minh cán bộ THẤY lại đúng.
+    */
+    const tok = getAuthToken();
+    const r = await page.request.post(`${API}/petitions`, {
+      headers: { Authorization: `Bearer ${tok}` },
+      data: {
+        receivedDate: new Date().toISOString().slice(0, 10),
+        senderName: 'UAT-2009 khu hoi',
+        senderAddress: 'UAT',
+        summary: 'UAT-2009 kiem vong khu hoi ngay thieu',
+        crimeChinhId: await (async () => {
+          const c = await page.request.get(`${API}/crimes?limit=1`, {
+            headers: { Authorization: `Bearer ${tok}` },
+          });
+          return ((await c.json()).data as Array<{ id: string }>)[0].id;
+        })(),
+        ngayVietDonEdtf: '2026-12-XX',
+      },
+    });
+    expect(r.status(), await r.text()).toBe(201);
+    const id = ((await r.json()).data as { id: string }).id;
+
+    await loginToPage(page, `/petitions/${id}/edit`);
+    await expect(page.getByTestId(`${O_NGAY}-nam`)).toHaveValue('2026', { timeout: 30_000 });
+    await expect(page.getByTestId(`${O_NGAY}-thang`)).toHaveValue('12');
+    await expect(
+      page.getByTestId(`${O_NGAY}-ngay`),
+      'ô ngày phải TRỐNG — hệ không được bịa ra một ngày cán bộ chưa gõ',
+    ).toHaveValue('');
+
+    await page.request.delete(`${API}/petitions/${id}`, {
+      headers: { Authorization: `Bearer ${tok}` },
+      data: { reason: 'UAT-2009 dọn sau ca kiểm' },
+    });
+  });
+
+  test('B6 — người được giao ĐÃ KHOÁ vẫn hiện tên, ghim đầu danh sách', async ({ page }) => {
+    /*
+      Mất mục = mất phân công. Ô trắng khiến cán bộ chọn người khác, và đó là phân công lại
+      ngầm — hồ sơ đổi chủ mà không ai quyết định gì.
+    */
+    const tok = getAuthToken();
+    const rk = await page.request.get(`${API}/admin/users?limit=5&status=inactive`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    const khoa = ((await rk.json()).data ?? []) as Array<{ id: string }>;
+    expect(khoa.length, 'không có tài khoản khoá — mệnh đề CHƯA kiểm được').toBeGreaterThan(0);
+
+    const rc = await page.request.get(`${API}/crimes?limit=1`, {
+      headers: { Authorization: `Bearer ${tok}` },
+    });
+    const maToi = ((await rc.json()).data as Array<{ id: string }>)[0].id;
+
+    const r = await page.request.post(`${API}/petitions`, {
+      headers: { Authorization: `Bearer ${tok}` },
+      data: {
+        receivedDate: new Date().toISOString().slice(0, 10),
+        senderName: 'UAT-2009 can bo khoa',
+        senderAddress: 'UAT',
+        summary: 'UAT-2009 kiem ghim can bo da khoa',
+        crimeChinhId: maToi,
+        canBoDeXuatId: khoa[0].id,
+      },
+    });
+    expect(r.status(), await r.text()).toBe(201);
+    const id = ((await r.json()).data as { id: string }).id;
+
+    await loginToPage(page, `/petitions/${id}/edit`);
+    const nut = page.getByTestId(`${O_CAN_BO}-trigger`);
+    await expect(nut).toBeVisible({ timeout: 30_000 });
+    const nhan = ((await nut.textContent()) ?? '').trim();
+    expect(
+      nhan.length,
+      'ô trắng cho người đã khoá = cán bộ chọn người khác = phân công lại NGẦM',
+    ).toBeGreaterThan(0);
+
+    await page.request.delete(`${API}/petitions/${id}`, {
+      headers: { Authorization: `Bearer ${tok}` },
+      data: { reason: 'UAT-2009 dọn sau ca kiểm' },
+    });
+  });
+
+  test('K9 — mạng hỏng giữa lúc Lưu: báo lỗi rõ, KHÔNG mất thứ đã gõ', async ({ page }) => {
+    /*
+      Dữ liệu cán bộ vừa gõ là thứ đắt nhất trên màn hình này. Mạng hỏng mà form tự xoá trắng
+      thì họ phải gõ lại từ đầu — và lần sau sẽ gõ ra chỗ khác trước cho chắc.
+    */
+    await loginToPage(page, '/petitions/new');
+    await expect(page.getByTestId(`${O_NGAY}-nam`)).toBeVisible({ timeout: 30_000 });
+
+    await page.getByTestId(`${O_NGAY}-thang`).fill('12');
+    await page.getByTestId(`${O_NGAY}-nam`).fill('2026');
+
+    await page.route('**/api/v1/petitions', (r) =>
+      r.request().method() === 'POST' ? r.abort('failed') : r.continue(),
+    );
+    const luu = page.locator('button').filter({ hasText: /^Lưu/ }).first();
+    if (await luu.count()) {
+      await luu.click({ timeout: 10_000 }).catch(() => undefined);
+      await page.waitForTimeout(2000);
+    }
+
+    await expect(
+      page.getByTestId(`${O_NGAY}-nam`),
+      'lưu hỏng mà form xoá trắng thì cán bộ phải gõ lại từ đầu',
+    ).toHaveValue('2026');
+    await expect(page.getByTestId(`${O_NGAY}-thang`)).toHaveValue('12');
+  });
+
+  test('L10 — mở form Đơn thư: 0 lỗi console, 0 lượt mạng 5xx', async ({ page }) => {
+    const loi: string[] = [];
+    const hong: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') loi.push(m.text().slice(0, 160));
+    });
+    page.on('response', (r) => {
+      if (r.status() >= 500) hong.push(`${r.status()} ${r.url().slice(0, 90)}`);
+    });
+
+    await loginToPage(page, '/petitions/new');
+    await expect(page.getByTestId(`${O_NGUON}-trigger`)).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(2500);
+
+    expect(hong, `có lượt mạng 5xx: ${hong.join(' | ')}`).toEqual([]);
+    // Lỗi console KHÔNG phải chuyện nhỏ: mỗi cái là một nhánh mã đã ném mà không ai thấy.
+    expect(loi, `có lỗi console: ${loi.join(' | ')}`).toEqual([]);
+  });
+});
