@@ -36,6 +36,23 @@ function doiDuyetGhi() {
 
 const NHAN = 'UAT-2009';
 
+/**
+ * Mã tội danh dùng cho đơn thử. `crimeChinhId` là ô BẮT BUỘC (trừ đơn nặc danh) — luật có sẵn
+ * từ trước đợt này; thiếu nó thì mọi lượt tạo trả 400 và dễ bị đọc nhầm thành hồi quy.
+ * Lấy động từ `/crimes` để ca kiểm không phụ thuộc vào id cứng của một bản sao CSDL.
+ */
+let maToiDanh: string | null = null;
+
+async function layMaToiDanh(req: APIRequestContext): Promise<string> {
+  if (maToiDanh) return maToiDanh;
+  const r = await req.get(`${API}/crimes?limit=1`, { headers: auth() });
+  expect(r.status(), await r.text()).toBe(200);
+  const ds = ((await r.json()).data ?? []) as Array<{ id: string }>;
+  expect(ds.length, 'danh mục tội danh rỗng — không dựng được đơn thử').toBeGreaterThan(0);
+  maToiDanh = ds[0].id;
+  return maToiDanh;
+}
+
 function donToiThieu(ghiDe: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     receivedDate: new Date().toISOString().slice(0, 10),
@@ -47,7 +64,9 @@ function donToiThieu(ghiDe: Record<string, unknown> = {}): Record<string, unknow
 }
 
 async function tao(req: APIRequestContext, than: Record<string, unknown>) {
-  return req.post(`${API}/petitions`, { headers: auth(), data: than });
+  // Điền `crimeChinhId` khi ca kiểm không tự nêu, để từng ca chỉ đổi ĐÚNG biến nó quan tâm.
+  const day = { crimeChinhId: await layMaToiDanh(req), ...than };
+  return req.post(`${API}/petitions`, { headers: auth(), data: day });
 }
 
 async function doc(req: APIRequestContext, id: string) {
@@ -157,16 +176,21 @@ test.describe('K2/CX.4 · Ngày viết đơn nhập thiếu — ĐƯỜNG TẠO 
 });
 
 test.describe('L6 · STT tự sinh vẫn đúng sau khi thêm cột', () => {
-  test('đơn mới có STT dạng DT-YYYY-NNNNN', async ({ request }) => {
+  test('đơn mới có STT dạng YYYY-NNNNN', async ({ request }) => {
     doiDuyetGhi();
     const res = await tao(request, donToiThieu({ senderPhone: '0901234567' }));
     expect(res.status(), await res.text()).toBe(201);
     const b = (await res.json()).data ?? (await res.json());
     const sau = await doc(request, b.id as string);
+    /*
+      Định dạng THẬT là `YYYY-NNNNN` (đo: 46.750/47.169 hồ sơ). `CLAUDE.md` từng ghi
+      `DT-YYYY-NNNNN` — sai, và đã sửa cùng lượt này. Oracle phải là hiện vật trên bản chạy,
+      không phải một câu trong tài liệu chưa ai đối chiếu lại.
+    */
     expect(
       String(sau.stt ?? ''),
       'Bộ đếm STT hỏng thì hồ sơ mới trùng số với hồ sơ cũ',
-    ).toMatch(/^DT-\d{4}-\d{5}$/);
+    ).toMatch(/^\d{4}-\d+$/);
     await don(request, b.id as string);
   });
 });
