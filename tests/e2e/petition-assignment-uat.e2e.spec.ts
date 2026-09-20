@@ -127,7 +127,13 @@ async function deleteTestPetition(request: APIRequestContext, token: string, pet
 }
 
 async function getTeamMembers(request: APIRequestContext, token: string): Promise<{ id: string; username: string; displayName: string }[]> {
-  const res = await request.get(`${API_BASE}/users?limit=50`, {
+  /*
+    Điểm cuối là `/admin/users`, KHÔNG phải `/users` — `/users` trả 404, nên hàm này luôn trả
+    mảng rỗng và **12 ca kiểm dưới đây chưa bao giờ chạy một lần nào**, chỉ lặng lẽ `test.skip`
+    với lý do "Không có user nào trong hệ thống". Bảng kết quả nhìn sạch trong khi 12 mệnh đề
+    chưa có một bằng chứng nào. Đo 20/09/2026 trên bản sao prod có 245 tài khoản.
+  */
+  const res = await request.get(`${API_BASE}/admin/users?limit=50`, {
     headers: { Authorization: `Bearer ${token}` },
     failOnStatusCode: false,
   });
@@ -822,9 +828,16 @@ test.describe('A11Y — Accessibility', () => {
     const section = page.getByTestId('section-phan-cong');
     await expect(section.getByTestId('assignment-list')).toBeVisible({ timeout: 10_000 });
 
-    // Kết quả: có text "Chủ trì" và "Hỗ trợ" — không chỉ màu
-    await expect(section.locator('text=Chủ trì')).toBeVisible();
-    await expect(section.locator('text=Hỗ trợ')).toBeVisible();
+    /*
+      Kết quả: nhãn vai trò đọc được bằng CHỮ, không chỉ bằng màu (WCAG 1.4.1).
+
+      Thu hẹp vào đúng DANH SÁCH phân công: cả hai chữ ấy còn xuất hiện trong ô chọn vai trò ở
+      khối thêm mới, nên soi cả `section` thì bộ dò gặp 2 phần tử và đỏ vì "strict mode" — đỏ
+      vì phạm vi bộ dò, không vì mệnh đề sai.
+    */
+    const danhSach = section.getByTestId('assignment-list');
+    await expect(danhSach.getByText('Chủ trì').first()).toBeVisible();
+    await expect(danhSach.getByText('Hỗ trợ').first()).toBeVisible();
     await ss(page, 'tc239-a11y-badges');
 
     // Cleanup

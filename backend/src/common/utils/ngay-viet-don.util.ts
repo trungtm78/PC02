@@ -13,6 +13,12 @@ const KHUYET = 'XX';
 interface HoSoCoNgay {
   petitionDate?: Date | string | null;
   ngayVietDonEdtf?: string | null;
+  /**
+   * Bản THÔ hệ cũ. 4.435 hồ sơ prod có `ngay_viet_don` là CHỮ TỰ DO ("Không ghi ngày",
+   * "tháng 5/2026", "28/12/2023, 19/12/2023 (03 đơn)…") mà HAI CỘT đều rỗng — thông tin chỉ
+   * tồn tại ở đây.
+   */
+  legacyRaw?: Record<string, unknown> | null;
 }
 
 function hai(n: number): string {
@@ -36,8 +42,25 @@ export function ngayVietDonHienThi(r: HoSoCoNgay): string {
   }
   // Hồ sơ cũ chưa có cột EDTF thì vẫn in được từ cột ngày thật.
   const d = r.petitionDate ? new Date(r.petitionDate) : null;
-  if (!d || Number.isNaN(d.getTime())) return '';
-  return `${hai(d.getUTCDate())}/${hai(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+  if (d && !Number.isNaN(d.getTime())) {
+    return `${hai(d.getUTCDate())}/${hai(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
+  }
+
+  /*
+    ĐƯỜNG LÙI CUỐI CÙNG: bản thô hệ cũ.
+
+    4.435 hồ sơ prod có `ngay_viet_don` là chữ tự do mà hai cột đều rỗng, vì chuyển kiểu sang
+    DATE đã bào mất chúng lúc di trú. Không có nhánh này thì bản in ra TRỐNG — thông tin biến
+    mất trên một văn bản gửi ra ngoài ngành, và cán bộ vừa bấm In không hề biết.
+
+    Đứng SAU hai cột: cán bộ sửa ngày trên hệ mới thì thứ họ sửa phải thắng bản gốc chưa sửa.
+
+    Mẫu HE_CU_* đã tự đỡ ở `khoa-he-cu.ts` (bản thô thắng cả cột, vì bản in phải giống hệ cũ
+    từng chữ). Nhánh này là cho họ mẫu PC01 — chúng đi thẳng qua hàm dùng chung nên trước đây
+    cả họ bị hở.
+  */
+  const tho = (r.legacyRaw ?? {})['ngay_viet_don'];
+  return typeof tho === 'string' && tho.trim() ? tho.trim() : '';
 }
 
 /**

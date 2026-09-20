@@ -6,7 +6,7 @@ Internal case management system (NestJS backend + React frontend) for managing l
 ## Key Features
 - Auto-create Petition when creating a Case with petitionType (via metadata)
 - Bi-directional sync: update Case petitionType syncs to linked Petition
-- STT auto-generation for Petitions (format: DT-YYYY-NNNNN)
+- STT auto-generation for Petitions (format: `YYYY-NNNNN`, ví dụ `2026-11973` — đo 20/09/2026: 46.750/47.169 hồ sơ. Trước đây tài liệu ghi `DT-YYYY-NNNNN`, SAI)
 - Petition-to-Case conversion (convertToCase) with atomic transaction
 - Quản lý Vụ việc theo 4 giai đoạn BCA (TT28/2020/TT-BCA): Tiếp nhận, Xác minh, Kết quả, Tạm đình chỉ
 - 15 trạng thái vụ việc với transition map validation theo BLTTHS 2015

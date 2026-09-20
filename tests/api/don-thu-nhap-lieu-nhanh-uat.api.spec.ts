@@ -70,7 +70,9 @@ test.describe('H1 · GET /admin/users trả teams[] mà không phá consumer cũ
   });
 
   test('danh sách cán bộ hoạt động có ĐỦ người (prod 20/09: 245)', async ({ request }) => {
-    const res = await request.get(`${API}/admin/users?limit=500&status=ACTIVE`, {
+    // `status` chỉ nhận `active`/`inactive` chữ thường — gửi 'ACTIVE' máy chủ trả 400 kèm câu
+    // nói rõ giá trị hợp lệ (đã đo). Ca kiểm dùng đúng giá trị mà giao diện đang gửi.
+    const res = await request.get(`${API}/admin/users?limit=500&status=active`, {
       headers: auth(),
     });
     expect(res.status(), await res.text()).toBe(200);
@@ -136,12 +138,25 @@ test.describe('K4 · Máy chủ báo đúng bản đang chạy', () => {
     expect(res.status()).toBe(200);
     const b = await res.json();
     expect(b.status).toBe('ok');
-    expect(b.buildId, 'thiếu buildId thì không biết prod đang chạy bản nào').toMatch(
-      /^[0-9a-f]{7,40}$/,
-    );
     expect(b.version).toBeTruthy();
-    // In ra để đối chiếu tay với commit đã merge (ca CO.9 / K4 trong sổ mệnh đề)
-    console.log(`[K4] prod đang chạy buildId=${b.buildId} version=${b.version}`);
+    expect(b.buildId, 'thiếu buildId thì không biết máy chủ đang chạy bản nào').toBeTruthy();
+
+    /*
+      Bản dựng CỤC BỘ không nhúng mã commit nên `buildId` rơi về chuỗi phiên bản; trên prod nó
+      là mã commit. Vì vậy hình dạng của chuỗi KHÔNG phải mệnh đề cần khẳng định — mệnh đề thật
+      là "máy chủ đang chạy ĐÚNG bản vừa deploy".
+
+      Truyền `UAT_COMMIT=<sha>` để khẳng định điều ấy. Thiếu biến thì chỉ ghi lại giá trị, và ca
+      này KHÔNG được tính là bằng chứng cho mệnh đề CO.9 — xem `_coverage-ledger.md`.
+    */
+    const mongDoi = process.env.UAT_COMMIT;
+    if (mongDoi) {
+      expect(
+        b.buildId,
+        `Máy chủ chạy ${b.buildId} nhưng lượt deploy là ${mongDoi} — bản cũ còn sống.`,
+      ).toBe(mongDoi);
+    }
+    console.log(`[K4] buildId=${b.buildId} version=${b.version}`);
   });
 });
 
@@ -197,5 +212,41 @@ test.describe('L2 · Danh sách Đơn thư không vỡ khi có đơn ngày thi�
     expect(ds.length, 'prod có 47.488 đơn — 0 dòng là hỏng').toBeGreaterThan(0);
     // Không khẳng định giá trị: chỉ khẳng định không dòng nào NÉM LỖI khi có cột mới.
     for (const d of ds) expect(d).toHaveProperty('id');
+  });
+});
+
+test.describe('R1-GROUP · Máy chủ nói rõ tổ nào là tổ ĐỊA BÀN', () => {
+  /*
+    Đo prod 20/09: 241 cán bộ hoạt động trải trên 207 tổ CÓ NGƯỜI, nhưng 167 tổ trong đó là
+    công an phường/xã mỗi nơi ĐÚNG MỘT tài khoản. Thiếu cờ này thì ô chọn mọc ra 167 tiêu đề
+    nhóm một người — tính năng gom nhóm thành vô dụng mà mọi ca kiểm đơn vị vẫn xanh.
+  */
+  test('mỗi tổ mang cờ `laDiaBan` kiểu boolean', async ({ request }) => {
+    const res = await request.get(`${API}/admin/users?limit=500&status=active`, {
+      headers: auth(),
+    });
+    expect(res.status(), await res.text()).toBe(200);
+    const ds = ((await res.json()).data ?? []) as Array<Record<string, unknown>>;
+
+    const moiTo = ds.flatMap((u) => (u.teams ?? []) as Array<Record<string, unknown>>);
+    expect(moiTo.length, 'không ai có tổ thì phép gom nhóm không kiểm được gì').toBeGreaterThan(0);
+    for (const t of moiTo) {
+      expect(typeof t.laDiaBan, `tổ ${String(t.teamName)} thiếu cờ laDiaBan`).toBe('boolean');
+    }
+  });
+
+  test('có ÍT NHẤT một tổ địa bàn và một tổ chức năng — dữ liệu thật có cả hai', async ({
+    request,
+  }) => {
+    const res = await request.get(`${API}/admin/users?limit=500&status=active`, {
+      headers: auth(),
+    });
+    const ds = ((await res.json()).data ?? []) as Array<Record<string, unknown>>;
+    const moiTo = ds.flatMap((u) => (u.teams ?? []) as Array<{ laDiaBan?: boolean }>);
+
+    // Cả hai loại đều phải có mặt, nếu không thì cờ có thể đang trả cứng một giá trị mà
+    // ca kiểm vẫn xanh — đúng kiểu hỏng im lặng.
+    expect(moiTo.some((t) => t.laDiaBan === true), 'không tổ nào là địa bàn').toBe(true);
+    expect(moiTo.some((t) => t.laDiaBan === false), 'không tổ nào là chức năng').toBe(true);
   });
 });
