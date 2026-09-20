@@ -180,12 +180,31 @@ jobs:
           ssh-keyscan -p ${{ secrets.VM_PORT }} -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
+      # Treo HAI LẦN LIÊN TIẾP ngày 20/09/2026 ở đúng bước này: workflow báo `in_progress` 28
+      # phút, trong khi trên máy chủ tiến trình `rsync --server` chạy mà KHÔNG ghi được byte nào,
+      # và kết nối SSH vẫn "established" nhưng không có dữ liệu chạy — luồng TCP chết mà socket
+      # còn sống. Không có `--timeout` thì rsync đợi VÔ HẠN, và bước này ăn tới hạn 6 tiếng của
+      # GitHub. Cán bộ ngồi chờ bản vá, tưởng mã hỏng.
+      #
+      # Ba lớp: `--timeout` cắt luồng đứng im; keepalive của SSH phát hiện sớm hơn; `--partial`
+      # giữ phần đã nhận để lần thử lại đi tiếp (gói ~167 MB, truyền lại từ đầu là đắt).
       - name: rsync release tarball to VM
         run: |
-          rsync -avz --progress \
-            -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes" \
-            /tmp/pc02-${{ github.sha }}.tar.gz \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/
+          for lan in 1 2 3; do
+            echo "::group::rsync gói — lần $lan"
+            if rsync -avz --progress --partial --timeout=90 \
+              -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+              /tmp/pc02-${{ github.sha }}.tar.gz \
+              ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "lần $lan hỏng — chờ 20 giây rồi đi tiếp phần còn dở"
+            sleep 20
+          done
+          echo "Ba lần đều hỏng. Đây là lỗi ĐƯỜNG TRUYỀN tới máy chủ, không phải lỗi bản dựng."
+          exit 1
 
       # Kịch bản deploy phải đi TỪ KHO MÃ lên máy chủ.
       #
@@ -195,8 +214,8 @@ jobs:
       # trước deploy hỏng, 243/246 tệp là 0 byte, mà sửa trong kho mã thì không có hiệu lực.
       - name: rsync deploy.sh to VM
         run: |
-          rsync -avz \
-            -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes" \
+          rsync -avz --partial --timeout=90 \
+            -e "ssh -p ${{ secrets.VM_PORT }} -o StrictHostKeyChecking=yes -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
             scripts/deploy/deploy.sh \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/pc02/bin/deploy.sh
 

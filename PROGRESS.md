@@ -1,14 +1,11 @@
 STATUS: BLOCKED
-BLOCKED_REASON: Da lam het phan khong can anh. UAT 72/80 PASS, 8 ca ghi ro CHUA CHAY, 0 ca bo
-trong. Ba PR da len prod (#448, #449, #450 dang cho merge). Con DUNG HAI VIEC can anh:
-  (1) TAI KHOAN THU TREN PROD. Moi ca UAT tren day chay tren BAN SAO o may (pc02_uat2009), vi
-      5 TK thu cu da khoa 20/09 do mat khau lo repo PUBLIC. Can mot TK de xac nhan lai tren
-      ban that truoc khi ket luan.
+BLOCKED_REASON: Da lam het phan khong can anh. Con DUNG HAI VIEC can anh:
+  (1) TAI KHOAN THU TREN PROD. Moi ca UAT chay tren BAN SAO o may (pc02_uat2009). 5 TK thu cu da
+      khoa 20/09 vi mat khau lo repo PUBLIC. Em da thu tu bat lai admin2 nhung he thong CHAN dung
+      cho (ghi credential len production) — va em thay chan nhu vay la phai. Anh chon: gui em mat
+      khau admin2, hoac tu bat trong man Quan tri, hoac cho em quyen ghi SSH tren prod.
   (2) DUYET BANG GOP CSV (2.125 cach viet -> 1.426 muc, da gui anh) truoc khi chay
-      `nap-nguon-don --that` ghi vao prod. Ghi du lieu prod = muc 8c, phai co anh.
-Mot viec nua anh quyet: 38/43 nhom con lai trong o chon can bo la don vi cap quan dang khai la
-to CHUC NANG vi thieu `wardId`. Dat lai co ay dua danh sach tu 43 xuong ~5 nhom, nhung do la
-ghi du lieu to chuc cua anh.
+      `nap-nguon-don --that` ghi vao prod (muc 8c).
 
 # PROGRESS
 Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
@@ -225,6 +222,27 @@ Tám ca kiểm CỦA EM sai đã vá, không nới một assertion nào: `status
 `buildId` ở bản dựng cục bộ · STT `DT-YYYY-NNNNN` (CLAUDE.md ghi sai, đã sửa) · ngưỡng "dưới 30
 nhóm" tuỳ tiện · bộ đếm "đã nhập" khi nhóm rỗng · soi "có màu đỏ nào không" bắt nhầm dấu sao ·
 `choDuyet` nằm ngoài `.data` · thiếu `crimeChinhId` trong thân đơn tối thiểu.
+
+### Đợt vá theo báo lỗi của anh (20/09 chiều)
+
+Anh báo hai lỗi trên form Đơn thư; điều tra ra **ba việc** dưới một triệu chứng.
+
+| PR | Nội dung | Trạng thái |
+|---|---|---|
+| #451 | Ô "Đơn vị xử lý": 30.285/47.484 đơn (64%) hiện RỖNG dù CSDL có giá trị · 166 công an phường lấp danh sách 26 Tổ | PROD `b2a0cad6` |
+| #452 | Giao đơn + Trả đơn/Lưu đơn TẠO MỚI được (ghi vào danh mục đơn vị, không đẻ ra Tổ) · gộp primitive `optionsGiuGiaTriLa` | đã merge, đang deploy |
+
+**Đảo một quyết định:** sáng chốt "không cho tạo Tổ nội bộ, chỉ dẫn sang Chuyển đơn"; chiều anh
+báo lần hai là vẫn kẹt, nên đảo lại. Thực tế dùng thắng suy luận thiết kế. Vẫn giữ ranh giới:
+mục mới vào **danh mục**, không đẻ ra Tổ thật (Tổ gắn với thành viên, quyền, phạm vi dữ liệu).
+
+**"Lưu đơn không lưu được": KHÔNG có khiếm khuyết.** Cả ba hướng PUT 200, giá trị vào đúng cột.
+Bảng đỏ là trình duyệt chặn vì còn ô bắt buộc chưa điền; mọi ô bị báo đều nhìn thấy được và con
+trỏ nhảy đúng ô đầu tiên.
+
+**Bẫy vận hành mới:** deploy TREO 28 phút ở bước rsync (treo phía runner GitHub, VM không có
+tiến trình nào) làm anh tưởng bản vá hỏng. Đừng tin workflow báo `in_progress` — so `buildId`
+của `GET /health` với `git rev-parse origin/main`. Huỷ rồi chạy lại là xong.
 
 ### Hàng đợi task kế tiếp
 
