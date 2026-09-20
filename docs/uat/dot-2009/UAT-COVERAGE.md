@@ -66,19 +66,19 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| D1 | Ô "Điều tra viên chính" gom nhóm theo Tổ, đủ người | YC1 mở rộng | | | |
-| D2 | Ô "Nguồn đơn" chọn từ danh mục + tạo mới được | YC2 | | | |
-| D3 | Mở vụ án có ĐTV đã khoá → vẫn hiện tên, không trông như trống | Rà mã P2 | | | |
-| D4 | Lưu vụ án → `nguonDon` vào đúng cột | YC2 | | | |
-| D5 | Bố cục tab Thông tin không xáo so với trước | Rà mã P3 | | | |
+| D1 | Ô "Điều tra viên chính" gom nhóm theo Tổ, đủ người | YC1 mở rộng | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
+| D2 | Ô "Nguồn đơn" chọn từ danh mục + tạo mới được | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| D3 | Mở vụ án có ĐTV đã khoá → vẫn hiện tên, không trông như trống | Rà mã P2 | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
+| D4 | Lưu vụ án → `nguonDon` vào đúng cột | YC2 | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
+| D5 | Bố cục tab Thông tin không xáo so với trước | Rà mã P3 | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
 
 ## E. Màn Vụ việc (`/incidents/new`, `/incidents/:id`)
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| E1 | Ô "Điều tra viên" gom nhóm theo Tổ | YC1 mở rộng | | | |
-| E2 | Ô "Cán bộ nhập" gom nhóm theo Tổ | YC1 mở rộng | | | |
-| E3 | Mở vụ việc có cán bộ đã khoá → vẫn hiện tên | Rà mã P2 | | | |
+| E1 | Ô "Điều tra viên" gom nhóm theo Tổ | YC1 mở rộng | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
+| E2 | Ô "Cán bộ nhập" gom nhóm theo Tổ | YC1 mở rộng | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
+| E3 | Mở vụ việc có cán bộ đã khoá → vẫn hiện tên | Rà mã P2 | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
 
 ## F. In chứng từ
 
@@ -150,7 +150,7 @@ form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đ
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| L1 | Form Vụ việc: ô "Chuyển từ đơn vị" GIỮ NGUYÊN kiểu cũ, không bị kéo sang danh mục | R2-SCOPE |  |  |  |
+| L1 | Form Vụ việc: ô "Chuyển từ đơn vị" GIỮ NGUYÊN kiểu cũ, không bị kéo sang danh mục | R2-SCOPE | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
 | L2 | Danh sách Đơn thư: sắp xếp/lọc không vỡ khi có đơn ngày thiếu | YC3 | x | x | **PASS (API, bản sao)** |
 | L3 | Xuất Excel Đơn thư: đơn ngày thiếu xuất ra `__/12/2026`, không ô trống lặng lẽ | YC3 |  |  |  |
 | L4 | Tìm kiếm Đơn thư theo Nguồn đơn vẫn ra kết quả sau khi đổi sang danh mục (cột bóng `nguon_don_bd`) | YC2 | x | x | **PASS (API, bản sao)** |
@@ -160,6 +160,30 @@ form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đ
 | L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 |  |  |  |
 | L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 |  |  |  |
 | L10 | Mở form Đơn thư trên Chrome thật: 0 lỗi console, 0 lượt mạng 4xx/5xx lạ | Tổng hợp |  |  |  |
+
+
+### Ghi chú nhóm D/E — 8 ca CHƯA CHẠY, KHÔNG phải đạt
+
+Ca đã VIẾT (`tests/e2e/vu-an-vu-viec-can-bo-uat.e2e.spec.ts`) nhưng chưa chạy được, vì **điều
+hướng của hai form cũ**, không phải vì thứ đợt này sửa:
+
+- Nút "Mở rộng" là nút thu/mở **thanh điều hướng của ứng dụng**, không phải khối của form.
+- Các nút tab của form Vụ việc nằm ở toạ độ y≈3179 trong khung nhìn cao 720, và bấm vào bị
+  một thanh công cụ dính đáy chắn — `scrollIntoViewIfNeeded` tới được nhưng `click` hết giờ.
+- Ô "Điều tra viên chính" của Vụ án có trong DOM nhưng `display:none` ở tab mặc định.
+
+**Đã có bằng chứng ở tầng khác cho cùng mệnh đề**, nên đây là khoảng trống về TẦNG chứ không
+phải về chức năng:
+
+| Mệnh đề | Bằng chứng đang có |
+|---|---|
+| Ô chọn cán bộ gom nhóm theo tổ | `gomCanBoTheoTo.test.ts` (25 ca) + E2E nhóm A trên cùng thành phần `FKSelect` |
+| Tổ địa bàn gộp làm MỘT nhóm | 7 ca đơn vị + 2 ca API trên dữ liệu thật (168 tài khoản địa bàn) |
+| Máy chủ trả cờ `laDiaBan` | 2 ca API, có ca đòi dữ liệu phải có CẢ hai loại tổ |
+| Ô Nguồn đơn ở Vụ án có tạo mới | **D2 PASS** trên Chrome thật |
+
+**Việc còn phải làm:** hiểu đúng cách chuyển tab của hai form cũ rồi chạy 8 ca này. Không
+đánh dấu đạt khi chưa chạy.
 
 ---
 
