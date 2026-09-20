@@ -4,11 +4,11 @@ import { laHuongNoiBo } from "@/shared/enums/huong-xu-ly";
 /**
  * Câu chỉ đường khi ô "Đơn vị xử lý" đang ở nguồn NỘI BỘ.
  *
- * Không hứa điều ô này không làm được: ở đây KHÔNG tạo mới được, nên câu chữ phải nói cán bộ
- * đi đâu chứ không gợi ý gõ thêm.
+ * Nói ĐÚNG thứ xảy ra khi bấm Tạo mới: mục mới vào DANH MỤC đơn vị, KHÔNG đẻ ra một Tổ thật.
+ * Hứa "tạo Tổ" là hứa sai — Tổ gắn với thành viên, quyền và phạm vi dữ liệu.
  */
 export const CHI_DAN_NOI_BO =
-  "Danh sách này chỉ có Tổ/Nhóm trong đơn vị. Giao cho đơn vị ngoài thì chọn Chuyển đơn.";
+  "Danh sách là Tổ/Nhóm trong đơn vị. Đơn vị chưa có thì gõ tên rồi bấm Tạo mới — mục mới vào danh mục đơn vị, không tạo thêm Tổ.";
 
 /**
  * Vì sao cần câu này: ô "Đơn vị xử lý" đổi hẳn NGUỒN theo Hướng xử lý, nhưng nhãn ô giống hệt
@@ -36,3 +36,11 @@ export function ChiDanDonViXuLy({
     </p>
   );
 }
+
+/**
+ * Chú đi kèm giá trị "Đơn vị xử lý" không nằm trong danh sách Tổ/Nhóm.
+ *
+ * Đặt cạnh câu chỉ dẫn vì cùng một việc: nói rõ ranh giới của ô này. Dùng với
+ * `optionsGiuGiaTriLa(..., { ghimDau: true, nhanPhu: NHAN_NGOAI_DANH_SACH })`.
+ */
+export const NHAN_NGOAI_DANH_SACH = "ngoài danh sách — giá trị đang lưu";

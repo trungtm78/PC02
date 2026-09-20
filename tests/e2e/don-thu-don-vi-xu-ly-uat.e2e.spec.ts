@@ -38,11 +38,45 @@ test.describe('Đơn vị xử lý — hướng NỘI BỘ (Giao đơn)', () => 
       .toBe(0);
   });
 
-  test('có câu chỉ đường sang Chuyển đơn, KHÔNG hứa tạo mới', async ({ page }) => {
+  test('TẠO MỚI được ngay ở đây, và mục mới vào DANH MỤC chứ không đẻ ra Tổ', async ({
+    page,
+  }) => {
+    /*
+      Anh chốt lần hai ngày 20/09: phải tạo mới được ở cả Giao đơn và Trả đơn/Lưu đơn.
+
+      Mục mới ghi vào danh mục đơn vị (`DON_VI`), KHÔNG tạo một Tổ thật — Tổ gắn với thành viên,
+      quyền và phạm vi dữ liệu, nên tạo từ form đơn thư sẽ sinh ra tổ rỗng không ai thuộc về.
+    */
     const chi = page.getByTestId('chi-dan-don-vi-xu-ly');
     await expect(chi).toBeVisible();
-    await expect(chi).toContainText('Chuyển đơn');
-    await expect(page.getByTestId(`${O}-create-new`)).toHaveCount(0);
+    await expect(chi).toContainText('danh mục');
+
+    const ten = `Don vi thu nghiem ${Date.now()}`;
+    await page.getByTestId(`${O}-trigger`).click();
+    await page.getByTestId(`${O}-search`).fill(ten);
+    await expect(
+      page.getByTestId(`${O}-create-new`),
+      'không có lối tạo mới thì cán bộ kẹt đúng như anh báo',
+    ).toBeVisible({ timeout: 10_000 });
+
+    await page.getByTestId(`${O}-create-new`).click();
+    const hop = page.getByTestId('quick-create-directory-modal');
+    await expect(hop).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('quick-create-directory-name')).toHaveValue(ten);
+
+    await page.getByTestId('quick-create-directory-save').click();
+    await expect(hop).toBeHidden({ timeout: 15_000 });
+    await expect(
+      page.getByTestId(`${O}-trigger`),
+      'tạo xong phải chọn luôn, không bắt cán bộ đi tìm lại',
+    ).toContainText(ten);
+  });
+
+  test('Trả đơn/Lưu đơn cũng tạo mới được', async ({ page }) => {
+    await page.getByTestId('field-huongXuLy-TRA_LUU_DON').click();
+    await page.getByTestId(`${O}-trigger`).click();
+    await page.getByTestId(`${O}-search`).fill(`Don vi la ${Date.now()}`);
+    await expect(page.getByTestId(`${O}-create-new`)).toBeVisible({ timeout: 10_000 });
   });
 });
 
