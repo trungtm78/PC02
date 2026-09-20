@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T14:10:00+07:00 | Milestone: 8/9 (đợt Đơn thư nhập liệu nhanh) | Task: T7 XONG (rà mã T5/T6: 1 P1 + 8 lỗi đã vá); T8 kế tiếp
+Cập nhật: 2026-09-20T15:05:00+07:00 | Milestone: 9/9 MÃ XONG | Task: T8 + T9 XONG. Còn: rà mã T7/T8 + UAT (§9)
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -128,13 +128,24 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
   | P2 | nhóm không truyền được trạng thái lỗi và "bắt buộc" cho trình đọc màn hình; màu là tín hiệu DUY NHẤT (WCAG 1.4.1) | `aria-controls` + `role=region` + nhãn `sr-only` cho chấm đỏ và dấu `*` |
   | P3 | cổng liền-nhau không chặn ô LẶP trong cùng tab → tầng dựng sinh hai thẻ cùng khoá React | thêm mệnh đề đếm số lần xuất hiện |
 
+- [x] **T8 — ô chọn cán bộ có nhóm cho Vụ án + Vụ việc**
+  - `IncidentFormPage` (Điều tra viên, Cán bộ nhập) và `CaseFormPage` (`handlerGroups`) bỏ
+    lời gọi riêng `/admin/users?limit=200` — **CÙNG lỗi đã vá ở màn Đơn thư**: thiếu ~45 người
+    và lọt tài khoản đã khoá.
+  - Cổng `motNguonCanBoVuViec` chặn lời gọi thẳng mọc lại ở 4 thư mục.
+  - Các nơi còn gọi `/admin/users` đều là màn QUẢN TRỊ tài khoản — đúng chỗ phải gọi thẳng.
+  - **Món nợ T7 đã KIỂM và KHÔNG có thật:** `petitionDate` không nằm trong danh sách cột sắp
+    xếp được (`thuTuDanhSach.allowed`), và "Ngày viết đơn" không phải cột danh sách — nên
+    không có chuyện đơn nhập thiếu rơi vào rổ NULL. Ghi lại thay vì bịa việc.
+
+- [x] **T9 — `DESIGN.md` §12** (ô chọn cán bộ gom nhóm, nhóm ô gập, ngày thiếu thành phần,
+  chỉ dấu chuyển động tự động, Do/Don't)
+
 ### Đang làm dở
-Task: T8 — áp ô chọn cán bộ có nhóm cho Vụ án/Vụ việc + các hộp phân công
-BƯỚC TIẾP THEO: tìm các ô chọn cán bộ ở `pages/cases/`, `pages/incidents/` và các hộp phân
-công, đổi sang `FKSelect groups={gomCanBoTheoTo(...)}` như đã làm ở màn Đơn thư. Sau đó T9:
-`DESIGN.md` §12.
-CÒN NỢ của T7: sắp xếp/lọc danh sách Đơn thư theo `khoaSapXepNgayVietDon` (đơn nhập thiếu đang
-rơi vào rổ NULL khi sắp theo `petitionDate`) — làm cùng T8.
+Task: rà mã độc lập cho T7/T8, rồi UAT phủ 100% (§9)
+BƯỚC TIẾP THEO: gửi rà mã T7/T8, xử lý findings; sau đó lập `UAT-COVERAGE.md` liệt kê mọi màn
+hình và chức năng đụng tới trong đợt, chạy `/uat-test-writer` → `/uat-test-runner` từng dòng.
+**CHƯA push, CHƯA tạo PR** — chờ đủ rà mã + UAT.
 
 ### Hàng đợi task kế tiếp
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
@@ -165,7 +176,7 @@ rơi vào rổ NULL khi sắp theo `petitionDate`) — làm cùng T8.
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5852/5852 (418 suite)** · **frontend 3614/3614 (954 suite)** · tsc sạch
+Full suite: **backend 5852/5852 (418 suite)** · **frontend 3616/3616 (956 suite)** · tsc sạch
 · 0 lỗi lint mới
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng

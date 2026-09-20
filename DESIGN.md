@@ -458,3 +458,125 @@ xuống ô Tóm tắt qua `MatDoContext`.
 - **Don't:** zebra trên bảng xuống dòng (dòng cao thấp khác nhau làm mắt nhảy); hộp nhắc cập nhật; ô cắt chữ ở
   danh sách hồ sơ.
 
+
+---
+
+## 12. Form Đơn thư — ô chọn cán bộ, nhóm ô gập, ngày thiếu thành phần (20/09/2026)
+
+### 12.1 Ô chọn cán bộ gom nhóm theo Tổ
+
+`FKSelect` có chế độ nhóm: `groups={gomCanBoTheoTo(dsCanBo, ghimId?)}`.
+
+```tsx
+<FKSelect
+  label="Cán bộ đề xuất"
+  value={formData.canBoDeXuatId}
+  onChange={(v) => update("canBoDeXuatId", v)}
+  groups={nhomCanBoDeXuat}
+  loading={dangTaiCanBo}
+  searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
+  testId="field-canBoDeXuatId"
+/>
+```
+
+Tiêu đề nhóm dùng lại ngôn ngữ **§4.3**: `text-xs font-semibold uppercase tracking-wide
+text-slate-500`, nền `bg-slate-50`, kèm **chip đếm người** `bg-slate-200 rounded-full px-1.5`.
+
+Luật tìm: gõ **tên người** → lọc trong từng nhóm, bỏ nhóm rỗng; gõ **tên tổ** → giữ cả nhóm.
+Gõ không dấu (`to 1`) và gõ tắt (`t1`) đều ra.
+
+- Tiêu đề nhóm tổ **không bấm gập được**: nhóm ở đây để đọc và lọc, thêm một trạng thái đóng/mở
+  nữa vào danh sách đang lọc là hai mô hình tranh nhau.
+- Nhóm **"Chưa có tổ"** luôn cuối. Nhóm **"Đang chọn"** (ghim) luôn đầu — dành cho người hồ sơ
+  đang trỏ tới mà đã ngừng hoạt động.
+- Tổ sắp theo **SỐ** (`localeCompare(..., "vi", { numeric: true })`): tên tổ thật là
+  "Tổ CT số 4" … "Tổ CT số 10", so chuỗi thuần xếp 10 trước 4.
+- **MỘT nguồn cán bộ duy nhất:** `useOfficerOptions`. Cổng `motNguonCanBo` /
+  `motNguonCanBoVuViec` chặn mọi lời gọi `/admin/users` thẳng ở màn hồ sơ.
+
+**Trợ năng (WAI-ARIA APG Combobox/Listbox):** `role="combobox"` + `tabIndex={0}` +
+`aria-expanded` + `aria-controls` nằm ở **ô bấm mở** (thứ người ta Tab tới), không phải ô tìm
+bên trong hộp. Danh sách là `role="listbox"`, mỗi tổ là `role="group"` + `aria-label`, mỗi mục
+là `role="option"`. `aria-selected` nghĩa là **ĐÃ CHỌN**; mục đang tô do `aria-activedescendant`
+nói — gộp hai thứ thì trình đọc màn hình đọc "đã chọn" mỗi lần bấm mũi tên.
+
+### 12.2 Nhóm ô gập trong form — KHÁC §4.3
+
+§4.3 là tiêu đề cây điều hướng: nhỏ, hoa, xám nhạt. Nhóm ô nhập phải **nặng hơn** — nó chứa ô
+người ta gõ vào và có thể chứa ô chặn Lưu.
+
+```
+┌──────────────────────────────────────────────────────┐
+│ ▸ Thông tin định danh nguyên đơn *    5 ô · 2 đã nhập│  đóng
+└──────────────────────────────────────────────────────┘
+```
+
+- Vỏ: `rounded-lg border border-slate-200 bg-white`, `md:col-span-2`. Tiêu đề
+  `text-sm font-medium text-slate-700`, chevron trái.
+- **Bộ đếm "N ô · M đã nhập" là bắt buộc.** Thu gọn mà giấu mất dữ liệu ĐÃ CÓ là kiểu hỏng tệ
+  nhất của nhóm gập; bộ đếm làm dữ liệu ẩn vẫn nhìn thấy được.
+- Có ô bắt buộc → dấu `*` (kèm `<span className="sr-only"> (có ô bắt buộc)</span>`).
+- Có ô báo lỗi → viền `border-red-300` + chấm đỏ + `<span className="sr-only">Có ô chưa hợp lệ. </span>`.
+  Màu **không được** là tín hiệu duy nhất (WCAG 1.4.1).
+- Thân nhóm: `id` + `role="region"` + `aria-label`, gắn với `aria-controls` của nút.
+
+**Luật bung — ba điều kiện HOẶC, và bấm tay KHÔNG thắng lưới an toàn:**
+
+| Điều kiện | Vì sao |
+|---|---|
+| `moKhi(formData)` | luật riêng của nhóm, vd Nguồn đơn là nộp trực tiếp |
+| ô trong nhóm đã có giá trị | không giấu dữ liệu đã nhập, kể cả hồ sơ di trú |
+| ô trong nhóm đang báo lỗi | **áp đảo mọi thứ** — nhóm đang chặn Lưu thì KHÔNG đóng được |
+
+Trạng thái lỗi chỉ tính **sau lần bấm Lưu đầu tiên** (`daBamLuu`): không mắng trước khi ai làm
+gì sai, và phần còn lại của form cũng không báo lỗi trước khi bấm Lưu.
+
+**Ràng buộc bố cục:** ô trong một nhóm phải **LIỀN NHAU** trong đặc tả, và nhóm phải khai rõ
+`tab`. Bố cục là lưới phẳng hai cột đặt theo thứ tự DOM, nên gom một tập RỜI buộc ô xen giữa
+phải dời chỗ. Cổng `kiemNhomLienNhau` chặn — nó cũng chặn ô lặp và ô gõ nhầm tên.
+
+> Liền nhau chặn được việc **dời ô**, nhưng KHÔNG chặn được **lệch cột**: thẻ nhóm chiếm trọn
+> bề ngang, nên một nhóm có SỐ LẺ ô nửa-hàng vẫn làm mọi ô nửa-hàng phía sau đổi cột. Đo trên
+> Chrome thật trước khi chốt.
+
+### 12.3 Ô ngày cho phép thiếu thành phần
+
+**BA Ô PHÂN ĐOẠN** trong một `fieldset`, không phải một ô chữ có mặt nạ (NN/g,
+UX Patterns for Developers). Với ô mặt nạ, "để trống ngày" là ca biên phải rà con trỏ; với ba
+ô, bỏ trống ô ấy LÀ xong.
+
+```
+Ngày viết đơn
+┌────┐ ┌────┐ ┌──────┐
+│ __ │/│ 12 │/│ 2026 │
+└────┘ └────┘ └──────┘
+```
+
+- `font-mono tabular-nums` — chữ số cùng bề rộng nên ba ô không giật khi gõ (đúng thứ
+  `DateCell` đã dùng, §11.5). Rộng `w-12` / `w-12` / `w-16`.
+- `fieldset` + `legend` là nhãn chung; mỗi ô một `aria-label` riêng.
+- Gõ đủ số → tự nhảy ô; Backspace ở ô rỗng → lùi ô; mũi tên trái/phải đi lại; dán
+  "15/12/2026" tách ra ba ô; chỉ nhận chữ số.
+- **Validate ngày RÁP LẠI**, không validate từng ô: 31/02 phải đỏ dù từng ô đều trong khoảng.
+- Ba ô giữ **trạng thái riêng**: EDTF không biểu diễn được "ngày 15, chưa có năm", nên đọc
+  thẳng từ `value` là gõ ngày→tháng→năm thì ngày và tháng biến mất.
+
+Lưu theo **EDTF Level 1** (ISO 8601-2): `2026-12-15` · `2026-12-XX` · `2026-XX-XX`. Mọi nơi
+hiển thị đi qua `ngayVietDonHienThi`; cổng `moiNoiInNgayVietDon` chặn việc đọc thẳng cột ngày.
+**Không bao giờ bịa ngày 01.**
+
+### 12.4 Chỉ dấu cho chuyển động tự động
+
+Nhóm tự bung khi Nguồn đơn là nộp trực tiếp — một chuyển động không ai giải thích. Dưới ô Nguồn
+đơn có dòng chú `text-xs text-slate-500` nói vì sao.
+
+### Do / Don't
+
+- **Do:** đo nhóm gập **trên Chrome thật**. Lỗi lớn nhất của nhóm (thẻ full-width làm lệch cột
+  mọi ô nửa-hàng phía sau) **chỉ lộ ra khi có CSS thật** — vitest/jsdom không tính CSS.
+- **Do:** đo bề rộng ba ô ngày sau khi đổi font, đúng cách §11.5 đã đo `DateCell`.
+- **Don't:** dùng `<details>` cho nhóm ô nhập — nội dung vẫn nằm trong DOM khi đóng, nên ca
+  kiểm tìm thấy ô và báo xanh trong khi cán bộ không nhìn thấy gì.
+- **Don't:** thu gọn một nhóm mà không hiện bộ đếm "đã nhập".
+- **Don't:** để bấm tay đóng được một nhóm đang chặn Lưu — đó đúng là lỗi PR #248.
+- **Don't:** cho tiêu đề nhóm tổ trong dropdown gập được.

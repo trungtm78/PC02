@@ -149,7 +149,7 @@ export function CardNguonVuAn({ formData, errors, update }: {
   );
 }
 
-function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerGroups = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   // ── Administrative reform: 2-tier address (Province → Ward) ──
@@ -252,8 +252,9 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
             required
             value={formData.handler}
             onChange={(v) => update("handler", v)}
-            options={handlerOptions}
+            groups={handlerGroups}
             loading={handlerLoading}
+            searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
             error={errors.handler}
             placeholder="Tìm kiếm ĐTV..."
             canCreate={false}

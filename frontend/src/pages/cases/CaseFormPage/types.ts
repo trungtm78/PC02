@@ -364,7 +364,8 @@ export interface TabProps {
   errors: Record<string, string>;
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   /** Danh sách điều tra viên fetch từ API — dùng trong FKSelect handler */
-  handlerOptions?: { value: string; label: string }[];
+  /** Cán bộ gom nhóm theo Tổ — từ `useOfficerOptions` + `gomCanBoTheoTo`, nguồn duy nhất. */
+  handlerGroups?: { key: string; label: string; options: { value: string; label: string }[] }[];
   handlerLoading?: boolean;
   /** v0.42: loading state cho draft caseCode (DocNumberPreviewField) */
   isDraftCodeLoading?: boolean;
