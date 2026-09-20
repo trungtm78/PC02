@@ -19,17 +19,21 @@ export const NHOM_O_DON_THU: readonly NhomOKhai<PetitionFormData>[] = [
     nhan: "Thông tin định danh nguyên đơn",
     tab: "info",
     /*
-      Yêu cầu 2 của anh: bốn ô CCCD/SĐT rất ít được nhập, chỉ nhập khi nộp trực tiếp — gom
-      lại để cán bộ khỏi Tab qua mỗi lần nhập một đơn.
+      Yêu cầu 2 của anh: mấy ô CCCD rất ít được nhập, chỉ nhập khi nộp trực tiếp — gom lại để
+      cán bộ khỏi Tab qua mỗi lần nhập một đơn.
 
-      Dải này CỐ Ý gồm cả "Sinh năm" (`senderBirthYear`), tức trọn 5 ô LIỀN NHAU trong đặc tả
-      (167→171). Bỏ nó ra là gom một tập RỜI: bố cục là lưới phẳng hai cột đặt theo thứ tự
-      DOM, nên ô xen giữa buộc phải dời chỗ và thẻ nhóm chiếm trọn bề ngang còn làm lệch cột
-      mọi ô phía sau. "Sinh năm nguyên đơn" vốn cũng là thông tin định danh nên vào nhóm là
-      đúng nghĩa, không phải thủ thuật.
+      "Số điện thoại nguyên đơn" (`senderPhone`) ĐÃ RA KHỎI nhóm ngày 20/09/2026 theo yêu cầu
+      của anh: nó dùng thường xuyên hơn hẳn cụm CCCD, và nó là ô BẮT BUỘC có điều kiện — để
+      trong một khối gập là mời lại đúng lớp lỗi PR #248 (chặn Lưu bằng ô không nhìn thấy).
+      Cổng `__tests__/oBatBuocKhongTrongNhom.gate.test.ts` khoá điều đó lại.
+
+      Dải còn lại là 168→171 trong đặc tả — VẪN LIỀN NHAU, nên không ô nào phải dời chỗ và
+      cổng `nhomPhaiLienNhau` vẫn xanh. Vẫn CỐ Ý giữ "Sinh năm" (`senderBirthYear`, ô 168): bỏ
+      nó ra là gom một tập RỜI, mà bố cục là lưới phẳng hai cột đặt theo thứ tự DOM nên ô xen
+      giữa buộc phải dời và thẻ nhóm chiếm trọn bề ngang còn làm lệch cột mọi ô phía sau.
+      "Sinh năm nguyên đơn" vốn cũng là thông tin định danh nên vào nhóm là đúng nghĩa.
     */
     o: [
-      "senderPhone",
       "senderBirthYear",
       "senderIdNumber",
       "senderIdIssueDate",
