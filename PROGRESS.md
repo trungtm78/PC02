@@ -154,34 +154,56 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
   | **em tự bắt** | `2026-02-31` lọt qua regex EDTF xuống cột rồi lên bản in | validator `IsEdtfNgayThat` (máy chủ) + `loiEdtf` trong `validate.ts` (trình duyệt), cùng luật |
 
 ### Đang làm dở
-Task: UAT phủ 100% (§9) trên prod
-
-Anh chốt đường đi: **PR → CI → merge → deploy → UAT trên prod**.
+Task: UAT phủ 100% (§9) trên prod — **ĐANG BỊ CHẶN ở chỗ đăng nhập**
 
 | Bước | Trạng thái |
 |---|---|
-| PR #448 (`feat/don-thu-nhap-lieu-nhanh`, 11 commit) | ĐÃ MERGE → `2ab85bdf` trên `main` |
-| CI | XANH cả hai (Backend + Frontend) trên commit cuối `1a500028` |
-| Ma trận UAT + sổ đếm + domain pack (`docs/uat/dot-2009/`) | XONG — **80 ca / 12 nhóm A–L**, đúng TC_min tính theo 4 phương pháp |
-| Deploy + `prisma migrate deploy` (deploy.sh tự chạy) | ĐANG CHẠY |
-| Xác minh `buildId` khớp `2ab85bdf` | CHƯA |
-| Chạy `/uat-test-writer` → `/uat-test-runner` từng dòng | CHƯA |
+| PR #448 (11 commit) | ĐÃ MERGE → `2ab85bdf` |
+| Deploy + migration | XONG. `buildId` prod = `2ab85bdf...` khớp chính xác commit đã merge; cột `ngay_viet_don_edtf` đã có; migration `20260920120000` đã áp |
+| CLI `nap-nguon-don --csv` trên prod (CHỈ ĐỌC) | XONG — **không ghi dòng nào**. 2.125 cách viết → 1.426 mục (1.034 chờ duyệt). CSV đã gửi anh |
+| Ma trận UAT 80 ca (`docs/uat/dot-2009/`) | XONG |
+| 25 ca UAT tầng API | ĐÃ VIẾT, bộ chạy quét đúng 25 ca |
+| **Chạy 80 ca trên prod** | **CHẶN** — xem dưới |
 
-Đã kiểm trước rủi ro migration trên prod (chỉ đọc): cột `ngay_viet_don_edtf` chưa tồn tại,
-migration cuối đã áp là `20260919200000`, migration mới `20260920120000` đứng sau — không
-lệch thứ tự, không có migration treo.
+#### Hai việc tìm ra SAU khi deploy, đã vá — PR #449
 
-**CHỜI ANH (§8c — ghi dữ liệu prod):** sau deploy em chỉ chạy `nap-nguon-don --csv` (CHỈ ĐỌC),
-đưa anh bảng gộp 1.431 cách viết → ~972 mục. **Không ghi một dòng nào** cho tới khi anh duyệt.
+**(1) Hai cột ngày viết đơn trôi khỏi nhau.** Đo prod ngay sau deploy: một cán bộ
+bấm Lưu từ tab mở TRƯỚC deploy; gói giao diện cũ trong tab ấy chỉ gửi `petitionDate`.
+Đường tạo mới → bản ghi thiếu cột chữ. Đường SỬA nặng hơn: cột chữ giữ giá trị CŨ mà
+hiển thị đọc cột chữ trước ⇒ **bản in ra NGÀY CŨ**. Vá ở tầng dựng dữ liệu nên mọi
+đường ghi đều được bảo vệ (còn có bộ nạp hệ cũ, tự sinh đơn từ vụ án, API trực tiếp).
+
+**(2) 167 công an phường/xã đẻ ra 167 tiêu đề nhóm.** Đo prod: 241 cán bộ hoạt động
+trải trên **207 tổ có người**, nhưng chỉ 2 tổ là tổ công tác thật (PC02 18, Tổ công
+tác Số 2 13); 167 tổ còn lại là công an phường/xã mỗi nơi MỘT tài khoản. Và trong
+47.941 đơn thư chỉ 34 người từng được giao đơn, **không ai** thuộc tổ địa bàn. Yêu cầu
+1 khi gặp dữ liệu thật cho ra danh sách 200+ tiêu đề nhóm một người. Gộp tổ địa bàn
+vào MỘT nhóm, phân biệt bằng `Team.wardId` (có sẵn từ v0.33), không đoán theo tên.
+
+Ca kiểm dùng tên tổ THẬT nhưng chưa bao giờ đo PHÂN BỐ — nên toàn bộ xanh.
 
 ### Hàng đợi task kế tiếp
-T1–T9 ĐÃ XONG MÃ (10 commit trên nhánh). Còn lại đúng chuỗi giao hàng:
 
-1. CI PR #448 xanh → **merge**
-2. Deploy → xác minh `buildId` → `prisma migrate deploy`
-3. Chạy `nap-nguon-don --csv` trên prod (**chỉ đọc**) → đưa anh soát → DỪNG (§8c)
-4. UAT 70 ca theo `docs/uat/dot-2009/UAT-COVERAGE.md`, sửa tận gốc mọi ca đỏ
+1. CI PR #449 xanh → merge → deploy → xác minh `buildId`
+2. **CẦN ANH (chặn):** cấp một tài khoản thử trên prod để chạy 80 ca UAT. 5 tài khoản
+   thử cũ đã khoá ngày 20/09 vì mật khẩu lộ trong repo PUBLIC; token còn lưu trong máy
+   đã hết hiệu lực (gọi thử `/admin/users` trả 401). Không có tài khoản thì 79/80 ca
+   không chạy được — chỉ mỗi ca `/health` không cần đăng nhập.
+3. **CẦN ANH (chặn, §8c):** duyệt bảng gộp CSV (2.125 cách viết → 1.426 mục) trước khi
+   em chạy `--that`, rồi `--that --chuan-hoa` để ghi lại 47.941 hồ sơ về tên chuẩn.
+4. Chạy 80 ca theo `docs/uat/dot-2009/UAT-COVERAGE.md`, sửa tận gốc mọi ca đỏ
 5. Đối chiếu ngược 5 yêu cầu gốc → chỉ kết luận khi 100% PASS
+
+### Đã kiểm được mà KHÔNG cần đăng nhập (qua CSDL, chỉ đọc)
+
+| Mệnh đề | Kết quả |
+|---|---|
+| `buildId` prod khớp commit đã merge | ĐẠT — `2ab85bdf...` |
+| Migration EDTF đã áp, cột đã có | ĐẠT |
+| Backfill: mọi đơn có ngày thật đều có cột chữ | ĐẠT 42.482/42.483; 1 dòng lệch là tab cũ ghi vào, đã vá ở PR #449 |
+| Không đơn nào có EDTF sai cú pháp | ĐẠT — 0 dòng |
+| Hai cột không mâu thuẫn nhau | ĐẠT — 0 dòng |
+| Danh sách cán bộ hoạt động đủ người | ĐẠT — 241 (ngưỡng ≥200; lời gọi `limit=200` cũ cắt mất đuôi) |
 
 ### Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
