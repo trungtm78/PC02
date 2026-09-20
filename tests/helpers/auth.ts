@@ -39,7 +39,7 @@ export async function loginToPage(page: Page, targetPath: string = '/'): Promise
   const token = getAuthToken();
   if (!token) {
     console.warn('[auth] Không có token — E2E sẽ redirect về /login');
-    await page.goto(targetPath);
+    await page.goto(targetPath, { waitUntil: 'domcontentloaded' });
     return;
   }
 
@@ -51,8 +51,16 @@ export async function loginToPage(page: Page, targetPath: string = '/'): Promise
     } catch (_e) {}
   }, token);
 
-  await page.goto(targetPath);
-  await page.waitForLoadState('networkidle');
+  /*
+    KHÔNG dùng `networkidle`: ứng dụng giữ một kết nối SSE cho Trung tâm thông báo (v0.45) nên
+    mạng KHÔNG BAO GIỜ lắng — mỗi lượt gọi ăn trọn 30 giây rồi ném `Test timeout exceeded`, và
+    ca kiểm đỏ vì hạ tầng chứ không vì mệnh đề nào sai. Đo 20/09/2026: một bộ 17 ca mất 8,4 phút
+    và 14 ca đỏ, tất cả cùng một câu lỗi.
+
+    `domcontentloaded` là mốc đúng: phần chờ thứ gì đã sẵn sàng thuộc về từng ca kiểm, qua
+    `expect(...).toBeVisible()` — nó tự thử lại và nêu đích danh thứ không thấy.
+  */
+  await page.goto(targetPath, { waitUntil: 'domcontentloaded' });
 
   // Nếu vẫn bị redirect về /login, thử inject lại và reload
   if (page.url().includes('/login')) {
@@ -60,7 +68,6 @@ export async function loginToPage(page: Page, targetPath: string = '/'): Promise
       sessionStorage.setItem('accessToken', t);
       localStorage.setItem('refreshToken', t);
     }, token);
-    await page.goto(targetPath);
-    await page.waitForLoadState('networkidle');
+    await page.goto(targetPath, { waitUntil: 'domcontentloaded' });
   }
 }

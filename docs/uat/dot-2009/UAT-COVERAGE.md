@@ -18,27 +18,27 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| A1 | Ô "Cán bộ đề xuất" mở ra thấy nhóm theo Tổ, đủ 245 người | YC1 | | | |
-| A2 | Gõ tên người → lọc trong từng nhóm, bỏ nhóm rỗng | YC1 | | | |
-| A3 | Gõ tên tổ ("Tổ 1") → hiện CẢ nhóm | YC1 | | | |
+| A1 | Ô "Cán bộ đề xuất" mở ra thấy nhóm theo Tổ, đủ 245 người | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A2 | Gõ tên người → lọc trong từng nhóm, bỏ nhóm rỗng | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A3 | Gõ tên tổ ("Tổ 1") → hiện CẢ nhóm | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A4 | Gõ không dấu ("to 1") và gõ tắt ("t1") đều ra | YC1 | | | |
-| A5 | Phím mũi tên đi xuyên nhóm, Enter chọn đúng người | YC1 | | | |
-| A6 | Tab tới ô chọn và MỞ được bằng bàn phím | YC1 | | | |
+| A5 | Phím mũi tên đi xuyên nhóm, Enter chọn đúng người | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A6 | Tab tới ô chọn và MỞ được bằng bàn phím | YC1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A7 | Tài khoản ĐÃ KHOÁ không xuất hiện trong danh sách | Lỗi prod 2 | | | |
-| A8 | "Cán bộ đề xuất" có sẵn tên người đang đăng nhập | YC4 | | | |
-| A9 | Ô "Nguồn đơn" tìm được; gõ nguồn chưa có → tạo nhanh | YC2 | | | |
+| A8 | "Cán bộ đề xuất" có sẵn tên người đang đăng nhập | YC4 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A9 | Ô "Nguồn đơn" tìm được; gõ nguồn chưa có → tạo nhanh | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A10 | Chọn Nguồn đơn = "Trực tiếp" → nhóm định danh TỰ BUNG | YC2 | | | |
 | A11 | Đổi sang "Bưu điện" → nhóm THU lại | YC2 | | | |
 | A12 | "Bưu điện" + bỏ trống SĐT → **LƯU ĐƯỢC** | YC2 | | | |
 | A13 | "Trực tiếp" + bỏ trống SĐT → chặn Lưu, và ô SĐT NHÌN THẤY được | YC2 | | | |
 | A14 | Đóng nhóm bằng TAY rồi bấm Lưu → ô gây chặn vẫn hiện ra | Rà mã P1 | | | |
-| A15 | Chưa bấm Lưu thì nhóm KHÔNG viền đỏ (không mắng trước) | Rà mã P2 | | | |
-| A16 | Ngày viết đơn: nhập `__/12/2026` → lưu được | YC3 | | | |
+| A15 | Chưa bấm Lưu thì nhóm KHÔNG viền đỏ (không mắng trước) | Rà mã P2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A16 | Ngày viết đơn: nhập `__/12/2026` → lưu được | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A17 | Ngày viết đơn: nhập `__/__/2026` → lưu được | YC3 | | | |
-| A18 | Ngày viết đơn: nhập `31/02/2026` → bị chặn tại chỗ | YC3 | | | |
-| A19 | Ba ô ngày: gõ tự nhảy ô, Backspace lùi ô, dán "15/12/2026" tách ba ô | YC3 | | | |
-| A20 | Nhóm "Thông tin khác" thu gọn sẵn, bấm vào bung ra | YC5 | | | |
-| A21 | Tiêu đề nhóm hiện "N ô · M đã nhập" đúng số | YC5 | | | |
+| A18 | Ngày viết đơn: nhập `31/02/2026` → bị chặn tại chỗ | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A19 | Ba ô ngày: gõ tự nhảy ô, Backspace lùi ô, dán "15/12/2026" tách ba ô | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A20 | Nhóm "Thông tin khác" thu gọn sẵn, bấm vào bung ra | YC5 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A21 | Tiêu đề nhóm hiện "N ô · M đã nhập" đúng số | YC5 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A22 | Lưu một đơn ĐẦY ĐỦ → mở lại đúng mọi ô vừa nhập | Tổng hợp | | | |
 
 ## B. Màn Đơn thư — Chỉnh sửa (`/petitions/:id`)
@@ -101,18 +101,18 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| H1 | `GET /admin/users` trả `teams[]`, không vỡ consumer cũ | YC1 | | | |
-| H2 | Tạo đơn nguồn "Bưu điện" thiếu SĐT → 201 | YC2 | | | |
-| H3 | Tạo đơn nguồn "Trực tiếp" thiếu SĐT → 400, thông báo rõ | YC2 | | | |
-| H4 | Tạo đơn `ngayVietDonEdtf=2026-02-31` → 400 | Tự dò | | | |
-| H5 | Tạo đơn BÌNH THƯỜNG vẫn 201 (không 400 vì khoá form mới) | Rà mã P1 | | | |
-| H6 | `POST /directories/quick` type `NGUON_DON` → tạo được, chặn trùng | YC2 | | | |
+| H1 | `GET /admin/users` trả `teams[]`, không vỡ consumer cũ | YC1 | x | x | **PASS (API, bản sao)** |
+| H2 | Tạo đơn nguồn "Bưu điện" thiếu SĐT → 201 | YC2 | x | x | **PASS (API, bản sao)** |
+| H3 | Tạo đơn nguồn "Trực tiếp" thiếu SĐT → 400, thông báo rõ | YC2 | x | x | **PASS (API, bản sao)** |
+| H4 | Tạo đơn `ngayVietDonEdtf=2026-02-31` → 400 | Tự dò | x | x | **PASS (API, bản sao)** |
+| H5 | Tạo đơn BÌNH THƯỜNG vẫn 201 (không 400 vì khoá form mới) | Rà mã P1 | x | x | **PASS (API, bản sao)** |
+| H6 | `POST /directories/quick` type `NGUON_DON` → tạo được, chặn trùng | YC2 | x | x | **PASS (API, bản sao)** |
 
 ## I. Trợ năng (đo được)
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| I1 | Ô chọn cán bộ: Tab tới được, Enter/Space mở | Rà mã P1 | | | |
+| I1 | Ô chọn cán bộ: Tab tới được, Enter/Space mở | Rà mã P1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | I2 | Nhóm gập: trạng thái lỗi và "bắt buộc" có nhãn đọc được | Rà mã P2 | | | |
 | I3 | Ba ô ngày: mỗi ô có tên riêng, nhóm có tên chung | YC3 | | | |
 
@@ -131,13 +131,13 @@ M4 risk-tier đòi 80 ca; 10 nhóm A–J mới có 70. Mười ca dưới đây 
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| K1 | API: nguồn "Bưu điện" + SĐT `abc` → 400 | Rà mã `@ValidateIf` | | | |
-| K2 | API: tạo đơn `ngayVietDonEdtf=2026-12-XX` → đọc lại cột ngày thật RỖNG, cột chữ CÓ | Rà mã P1 | | | |
+| K1 | API: nguồn "Bưu điện" + SĐT `abc` → 400 | Rà mã `@ValidateIf` | x | x | **PASS (API, bản sao)** |
+| K2 | API: tạo đơn `ngayVietDonEdtf=2026-12-XX` → đọc lại cột ngày thật RỖNG, cột chữ CÓ | Rà mã P1 | x | x | **PASS (API, bản sao)** |
 | K3 | Sửa đơn cũ có cán bộ đề xuất khác mình → lưu → vẫn là người cũ | YC4 | | | |
-| K4 | `GET /health` sau deploy báo `buildId` khớp commit đã merge | OAT | | | |
+| K4 | `GET /health` sau deploy báo `buildId` khớp commit đã merge | OAT | x | x | **PASS trên PROD (buildId 71cfa19f khớp commit đã merge)** |
 | K5 | OFFICER (không phải ADMIN): chọn được cán bộ, tạo được mục danh mục | Lỗi prod cũ | | | |
-| K6 | Đơn nặc danh + Trực tiếp + SĐT trống → LƯU ĐƯỢC | YC2 | | | |
-| K7 | Nguồn đơn để TRỐNG → nhóm định danh thu, lưu được | YC2 | | | |
+| K6 | Đơn nặc danh + Trực tiếp + SĐT trống → LƯU ĐƯỢC | YC2 | x | x | **PASS (API, bản sao)** |
+| K7 | Nguồn đơn để TRỐNG → nhóm định danh thu, lưu được | YC2 | x | x | **PASS (API, bản sao)** |
 | K8 | Hai tab cùng mở một đơn: tab A lưu ngày thiếu → tab B tải lại thấy đúng | YC3 | | | |
 | K9 | Mạng hỏng giữa lúc Lưu → báo lỗi rõ, KHÔNG mất thứ đã gõ | Tổng hợp | | | |
 | K10 | Ô chọn cán bộ khi máy chủ trả lỗi → báo hỏng, không báo "không có cán bộ nào" | Tải hỏng ≠ rỗng | | | |
@@ -151,11 +151,11 @@ form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đ
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
 | L1 | Form Vụ việc: ô "Chuyển từ đơn vị" GIỮ NGUYÊN kiểu cũ, không bị kéo sang danh mục | R2-SCOPE |  |  |  |
-| L2 | Danh sách Đơn thư: sắp xếp/lọc không vỡ khi có đơn ngày thiếu | YC3 |  |  |  |
+| L2 | Danh sách Đơn thư: sắp xếp/lọc không vỡ khi có đơn ngày thiếu | YC3 | x | x | **PASS (API, bản sao)** |
 | L3 | Xuất Excel Đơn thư: đơn ngày thiếu xuất ra `__/12/2026`, không ô trống lặng lẽ | YC3 |  |  |  |
-| L4 | Tìm kiếm Đơn thư theo Nguồn đơn vẫn ra kết quả sau khi đổi sang danh mục (cột bóng `nguon_don_bd`) | YC2 |  |  |  |
+| L4 | Tìm kiếm Đơn thư theo Nguồn đơn vẫn ra kết quả sau khi đổi sang danh mục (cột bóng `nguon_don_bd`) | YC2 | x | x | **PASS (API, bản sao)** |
 | L5 | Chuyển Đơn thư thành Vụ án: mang theo Nguồn đơn và Ngày viết đơn đúng | Tổng hợp |  |  |  |
-| L6 | Tạo đơn mới: STT tự sinh `DT-YYYY-NNNNN` vẫn đúng sau khi thêm cột | Tổng hợp |  |  |  |
+| L6 | Tạo đơn mới: STT tự sinh `DT-YYYY-NNNNN` vẫn đúng sau khi thêm cột | Tổng hợp | x | x | **PASS (API, bản sao)** |
 | L7 | ADMIN duyệt được mục danh mục ở trạng thái chờ duyệt | YC2 |  |  |  |
 | L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 |  |  |  |
 | L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 |  |  |  |
