@@ -8,6 +8,13 @@ export interface ToCuaCanBo {
   teamName: string;
   /** Tổ trưởng. Ô chọn theo tổ xếp tổ trưởng lên đầu nhóm, nên cắt trường này đi là buộc hỏi lại. */
   isLeader: boolean;
+  /**
+   * Tổ ĐỊA BÀN (công an phường/xã) chứ không phải tổ công tác trong đơn vị.
+   *
+   * Máy chủ suy từ `Team.wardId`. Tầng dựng nhóm gộp toàn bộ tổ địa bàn vào MỘT nhóm — đo
+   * prod 20/09 thì 167/207 tổ có người là công an phường/xã, mỗi nơi một tài khoản.
+   */
+  laDiaBan: boolean;
 }
 
 export interface OfficerOption {
@@ -47,7 +54,12 @@ export function useOfficerOptions(enabled = true) {
         firstName?: string | null;
         lastName?: string | null;
         username?: string | null;
-        teams?: { teamId: string; teamName: string; isLeader?: boolean }[] | null;
+        teams?: {
+          teamId: string;
+          teamName: string;
+          isLeader?: boolean;
+          laDiaBan?: boolean;
+        }[] | null;
       };
       const tatCa: NguoiDung[] = [];
       const daCo = new Set<string>();
@@ -84,6 +96,7 @@ export function useOfficerOptions(enabled = true) {
               teamId: t.teamId,
               teamName: t.teamName,
               isLeader: t.isLeader ?? false,
+              laDiaBan: t.laDiaBan ?? false,
             })),
           };
         })

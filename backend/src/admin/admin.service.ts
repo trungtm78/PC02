@@ -41,6 +41,17 @@ export interface ToCuaCanBo {
   teamId: string;
   teamName: string;
   isLeader: boolean;
+  /**
+   * Tổ ĐỊA BÀN (công an phường/xã) hay tổ CHỨC NĂNG (tổ công tác trong đơn vị).
+   *
+   * Đo prod 20/09: 241 cán bộ hoạt động trải trên 207 tổ có người, nhưng 167 tổ trong đó là
+   * công an phường/xã mỗi nơi đúng MỘT tài khoản — và trong 47.941 đơn thư, không một tài
+   * khoản địa bàn nào từng được giao đơn. Không phân biệt hai loại thì ô chọn cán bộ mọc ra
+   * 167 tiêu đề nhóm một người.
+   *
+   * Suy từ `Team.wardId` (khai từ v0.33), KHÔNG đoán theo tên tổ — tên là thứ sửa được.
+   */
+  laDiaBan: boolean;
 }
 
 /**
@@ -53,7 +64,10 @@ function withTeams<T extends Record<string, unknown>>(
   user: T,
 ): Omit<T, 'userTeams'> & { teams: ToCuaCanBo[] } {
   const { userTeams, ...phanConLai } = user as T & {
-    userTeams?: { isLeader: boolean; team: { id: string; name: string } }[];
+    userTeams?: {
+      isLeader: boolean;
+      team: { id: string; name: string; wardId?: string | null };
+    }[];
   };
   return {
     ...(phanConLai as Omit<T, 'userTeams'>),
@@ -61,6 +75,7 @@ function withTeams<T extends Record<string, unknown>>(
       teamId: ut.team.id,
       teamName: ut.team.name,
       isLeader: ut.isLeader,
+      laDiaBan: ut.team.wardId != null,
     })),
   };
 }
@@ -128,7 +143,7 @@ export class AdminService {
           userTeams: {
             select: {
               isLeader: true,
-              team: { select: { id: true, name: true } },
+              team: { select: { id: true, name: true, wardId: true } },
             },
           },
         },
