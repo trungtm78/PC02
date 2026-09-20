@@ -12,7 +12,7 @@ import type { OfficerOption } from '@/hooks/useOfficerOptions';
  * Ba màn (Đơn thư, Vụ án, Vụ việc) đều phải truyền id đang giữ vào `gomCanBoTheoTo`.
  */
 const DS: OfficerOption[] = [
-  { value: 'a', label: 'Nguyễn Văn A', teams: [{ teamId: 't1', teamName: 'Tổ 1', isLeader: false }] },
+  { value: 'a', label: 'Nguyễn Văn A', teams: [{ teamId: 't1', teamName: 'Tổ 1', isLeader: false, laDiaBan: false }] },
 ];
 
 describe('Ghim cán bộ đã khoá mà hồ sơ đang trỏ tới', () => {

@@ -1,7 +1,7 @@
 # Đợt mới nhất — 20/09/2026: form Đơn thư nhập liệu nhanh
 
-→ **`docs/uat/dot-2009/UAT-COVERAGE.md`** — 70 ca trên 10 nhóm (A–J), phủ 5 yêu cầu UX nhập liệu
-+ 4 lỗi prod vá kèm. Trạng thái: CHƯA CHẠY (chờ merge PR #448 → deploy).
+→ **`docs/uat/dot-2009/UAT-COVERAGE.md`** — 80 ca trên 12 nhóm (A–L), phủ 5 yêu cầu UX nhập liệu
++ 4 lỗi prod vá kèm. Trạng thái: CHƯA CHẠY. PR #448 đã merge (`2ab85bdf`), đang chờ deploy xong để chạy trên prod.
 
 ---
 

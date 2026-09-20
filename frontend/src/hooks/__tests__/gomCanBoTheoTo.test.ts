@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { gomCanBoTheoTo, NHAN_CHUA_CO_TO, NHOM_CHUA_CO_TO, NHOM_GHIM } from '../gomCanBoTheoTo';
 import type { OfficerOption } from '../useOfficerOptions';
 
-const to = (teamId: string, teamName: string, isLeader = false) => ({ teamId, teamName, isLeader });
+const to = (teamId: string, teamName: string, isLeader = false) => ({
+  teamId,
+  teamName,
+  isLeader,
+  laDiaBan: false,
+});
 
 const A: OfficerOption = { value: 'a', label: 'Nguyễn Văn A', teams: [to('t1', 'Tổ 1')] };
 const B: OfficerOption = { value: 'b', label: 'Nguyễn Văn B', teams: [to('t1', 'Tổ 1')] };
@@ -66,7 +71,7 @@ describe('gomCanBoTheoTo — thứ tự tổ trên TÊN THẬT', () => {
   const nguoi = (id: string, teamId: string, teamName: string): OfficerOption => ({
     value: id,
     label: id,
-    teams: [{ teamId, teamName, isLeader: false }],
+    teams: [{ teamId, teamName, isLeader: false, laDiaBan: false }],
   });
 
   it('xếp theo SỐ, không theo chuỗi: 4 · 5 · 9 · 10', () => {
@@ -115,5 +120,96 @@ describe('gomCanBoTheoTo — ghim người đang chọn', () => {
 
   it('người ghim VẪN CÒN tổ thì để trong tổ của họ, không ghim thừa', () => {
     expect(gomCanBoTheoTo([A, E], 'a').some((n) => n.key === NHOM_GHIM)).toBe(false);
+  });
+});
+
+/*
+  Đo prod 20/09 — con số quyết định cách gom nhóm:
+
+  · 241 cán bộ hoạt động, trải trên **207 tổ có người**.
+  · Chỉ 2 tổ là tổ công tác thật (PC02 18 người, Tổ công tác Số 2 13 người).
+  · 167 tổ còn lại là công an phường/xã, mỗi nơi ĐÚNG MỘT tài khoản.
+  · Trong 47.941 đơn thư, chỉ 34 người từng được giao hoặc nhập đơn — và **không một ai**
+    thuộc tổ địa bàn.
+
+  Gom thẳng theo tổ thì ô chọn mọc ra 167 tiêu đề nhóm một người, chắn hết hai tổ thật. Đúng
+  thứ yêu cầu 1 muốn dẹp.
+
+  Cách xử lý: tổ ĐỊA BÀN gộp vào MỘT nhóm đặt gần cuối, mỗi người vẫn mang tên đơn vị mình nên
+  không ai biến mất và vẫn gõ tên phường ra được. KHÔNG bỏ họ khỏi danh sách — bỏ đi là quyết
+  thay anh rằng PC02 sẽ không bao giờ giao đơn cho công an phường.
+*/
+const diaBan = (teamId: string, teamName: string) => ({
+  teamId,
+  teamName,
+  isLeader: false,
+  laDiaBan: true,
+});
+
+const P1: OfficerOption = {
+  value: 'p1',
+  label: 'Trần Phường Một',
+  teams: [diaBan('w1', 'Công an Phường Chợ Quán')],
+};
+const P2: OfficerOption = {
+  value: 'p2',
+  label: 'Lý Phường Hai',
+  teams: [diaBan('w2', 'Công an Phường Tân Định')],
+};
+
+describe('gomCanBoTheoTo — tổ địa bàn gộp làm một nhóm', () => {
+  it('167 công an phường KHÔNG đẻ ra 167 tiêu đề nhóm', () => {
+    const nhom = gomCanBoTheoTo([A, P1, P2]);
+    const nhanDiaBan = nhom.filter((n) => n.label.includes('phường'));
+    expect(nhanDiaBan).toHaveLength(1);
+    expect(nhanDiaBan[0].options.map((o) => o.value).sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('nhóm địa bàn đứng SAU các tổ chức năng', () => {
+    const nhom = gomCanBoTheoTo([P1, A]);
+    const iChucNang = nhom.findIndex((n) => n.label === 'Tổ 1');
+    const iDiaBan = nhom.findIndex((n) => n.label.includes('phường'));
+    expect(iChucNang).toBeGreaterThanOrEqual(0);
+    expect(iDiaBan).toBeGreaterThan(iChucNang);
+  });
+
+  it('nhóm địa bàn đứng TRƯỚC "Chưa có tổ" — chưa có tổ vẫn là đáy', () => {
+    const nhom = gomCanBoTheoTo([P1, G]);
+    const iDiaBan = nhom.findIndex((n) => n.label.includes('phường'));
+    const iChuaCo = nhom.findIndex((n) => n.key === NHOM_CHUA_CO_TO);
+    expect(iDiaBan).toBeGreaterThanOrEqual(0);
+    expect(iChuaCo).toBeGreaterThan(iDiaBan);
+  });
+
+  it('mỗi người trong nhóm ấy vẫn mang TÊN ĐƠN VỊ để gõ tìm ra được', () => {
+    const nhom = gomCanBoTheoTo([P1, P2]);
+    const g = nhom.find((n) => n.label.includes('phường'))!;
+    const nhan = g.options.map((o) => o.label);
+    expect(nhan.some((l) => l.includes('Chợ Quán'))).toBe(true);
+    expect(nhan.some((l) => l.includes('Tân Định'))).toBe(true);
+  });
+
+  it('KHÔNG dựng nhóm địa bàn khi không có ai — nhóm rỗng là dòng tiêu đề vô nghĩa', () => {
+    const nhom = gomCanBoTheoTo([A, E]);
+    expect(nhom.some((n) => n.label.includes('phường'))).toBe(false);
+  });
+
+  it('người vừa ở tổ chức năng vừa ở tổ địa bàn hiện ở CẢ HAI', () => {
+    const caHai: OfficerOption = {
+      value: 'x',
+      label: 'Vũ Cả Hai',
+      teams: [to('t1', 'Tổ 1'), diaBan('w1', 'Công an Phường Chợ Quán')],
+    };
+    const nhom = gomCanBoTheoTo([caHai]);
+    expect(nhom.find((n) => n.label === 'Tổ 1')!.options.map((o) => o.value)).toContain('x');
+    expect(
+      nhom.find((n) => n.label.includes('phường'))!.options.map((o) => o.value),
+    ).toContain('x');
+  });
+
+  it('người GHIM vẫn đứng đầu, không bị nhóm địa bàn chen lên', () => {
+    const khoa: OfficerOption = { value: 'k', label: 'Đã khoá', teams: [] };
+    const nhom = gomCanBoTheoTo([P1, khoa], 'k');
+    expect(nhom[0].key).toBe(NHOM_GHIM);
   });
 });

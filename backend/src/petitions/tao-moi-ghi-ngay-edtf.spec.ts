@@ -49,4 +49,33 @@ describe('buildPetitionCreateData — ngày viết đơn', () => {
     >;
     expect(d.ngayVietDonEdtf ?? null).toBeNull();
   });
+
+  /*
+    Bất biến: **có `petitionDate` thì PHẢI có `ngayVietDonEdtf`** — hai cột không được trôi
+    khỏi nhau ở BẤT KỲ đường ghi nào.
+
+    Đo trên prod 20/09 lúc 13:09: một cán bộ mở form từ tab cũ (gói giao diện cũ còn trong
+    trình duyệt) rồi bấm Lưu vào máy chủ MỚI. Gói cũ không biết cột EDTF nên chỉ gửi
+    `petitionDate` — bản ghi ra đời với ngày thật mà cột chữ trống. Hiển thị vẫn đúng nhờ
+    đường lùi, nhưng bất biến đã vỡ, và mọi phép lọc/sắp xếp đọc THẲNG cột chữ sẽ bỏ sót
+    những dòng ấy.
+
+    Cùng lớp với client cũ: bộ nạp hệ cũ, tự sinh đơn từ vụ án, và mọi người gọi API trực tiếp.
+    Vá ở tầng dựng dữ liệu thì mọi đường ghi đều được bảo vệ, không phải đi vá từng nơi gọi.
+  */
+  it('gửi `petitionDate` mà KHÔNG gửi EDTF (gói giao diện cũ) → tự suy ra cột chữ', () => {
+    const d = buildPetitionCreateData(
+      toiThieu({ petitionDate: '2026-09-15' }),
+      CTX,
+    );
+    expect(d.ngayVietDonEdtf).toBe('2026-09-15');
+  });
+
+  it('EDTF gửi lên THẮNG, không bị ngày thật ghi đè', () => {
+    const d = buildPetitionCreateData(
+      toiThieu({ petitionDate: '2026-12-15', ngayVietDonEdtf: '2026-12-XX' }),
+      CTX,
+    );
+    expect(d.ngayVietDonEdtf).toBe('2026-12-XX');
+  });
 });

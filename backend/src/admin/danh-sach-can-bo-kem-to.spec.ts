@@ -49,7 +49,7 @@ describe('GET /admin/users trả kèm tổ của từng cán bộ', () => {
     expect(select.userTeams).toBeDefined();
   });
 
-  it('gộp `userTeams` thành `teams: [{teamId, teamName, isLeader}]`', async () => {
+  it('gộp `userTeams` thành `teams: [{teamId, teamName, isLeader, laDiaBan}]`', async () => {
     findMany.mockResolvedValue([
       {
         id: 'u1',
@@ -64,9 +64,10 @@ describe('GET /admin/users trả kèm tổ của từng cán bộ', () => {
 
     const res = await service.getUsers({} as never);
 
+    // `laDiaBan` false khi `wardId` rỗng — tổ chức năng là mặc định.
     expect(res.data[0].teams).toEqual([
-      { teamId: 't1', teamName: 'Tổ 1', isLeader: true },
-      { teamId: 't2', teamName: 'Tổ 2', isLeader: false },
+      { teamId: 't1', teamName: 'Tổ 1', isLeader: true, laDiaBan: false },
+      { teamId: 't2', teamName: 'Tổ 2', isLeader: false, laDiaBan: false },
     ]);
   });
 
@@ -93,5 +94,57 @@ describe('GET /admin/users trả kèm tổ của từng cán bộ', () => {
     const res = await service.getUsers({} as never);
 
     expect((res.data[0] as Record<string, unknown>).userTeams).toBeUndefined();
+  });
+
+  /*
+    Đo prod 20/09: 241 cán bộ hoạt động trải trên **207 tổ có người**. Nhưng chỉ 2 tổ là tổ
+    công tác thật (PC02 18 người, Tổ công tác Số 2 13 người); 167 tổ còn lại là công an
+    phường/xã, mỗi nơi ĐÚNG MỘT tài khoản.
+
+    Đo tiếp: trong 47.941 đơn thư, chỉ 34 người từng được giao hoặc nhập đơn, và **không một
+    ai** thuộc tổ địa bàn. Gom nhóm theo tổ mà không phân biệt hai loại thì ô chọn mọc ra 167
+    tiêu đề nhóm một người — đúng thứ yêu cầu 1 muốn dẹp.
+
+    Bảng `teams` đã có sẵn cột phân biệt từ v0.33: `wardId` rỗng là tổ CHỨC NĂNG, có giá trị
+    là tổ ĐỊA BÀN. Máy chủ nói ra điều đó, tầng dựng nhóm quyết định cách hiển thị — không
+    đoán theo tên tổ, vì tên là thứ người ta sửa được.
+  */
+  it('nói rõ tổ nào là tổ ĐỊA BÀN qua cờ `laDiaBan`', async () => {
+    findMany.mockResolvedValue([
+      {
+        id: 'u4',
+        username: 'd',
+        userTeams: [
+          { isLeader: false, team: { id: 't1', name: 'Tổ công tác Số 2', wardId: null } },
+          {
+            isLeader: false,
+            team: { id: 't9', name: 'Công an Phường Chợ Quán', wardId: 'w1' },
+          },
+        ],
+      },
+    ]);
+    count.mockResolvedValue(1);
+
+    const res = await service.getUsers({} as never);
+
+    expect(res.data[0].teams).toEqual([
+      { teamId: 't1', teamName: 'Tổ công tác Số 2', isLeader: false, laDiaBan: false },
+      {
+        teamId: 't9',
+        teamName: 'Công an Phường Chợ Quán',
+        isLeader: false,
+        laDiaBan: true,
+      },
+    ]);
+  });
+
+  it('`select` phải LẤY `wardId` — không lấy thì cờ luôn false và 167 nhóm quay lại', async () => {
+    findMany.mockResolvedValue([]);
+    count.mockResolvedValue(0);
+
+    await service.getUsers({} as never);
+
+    const chon = findMany.mock.calls[0][0].select as Record<string, unknown>;
+    expect(JSON.stringify(chon)).toContain('wardId');
   });
 });

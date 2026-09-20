@@ -156,10 +156,14 @@ describe('useOfficerOptions — tổ của cán bộ', () => {
 
     // Giữ NGUYÊN hình máy chủ trả, kể cả `isLeader`: ô chọn theo tổ cần biết ai là tổ trưởng
     // để xếp lên đầu nhóm. Cắt bớt ở đây là buộc tầng trên hỏi lại lần nữa.
+    // `laDiaBan` mặc định false khi máy chủ không gửi — tổ chức năng là mặc định an toàn:
+    // đoán nhầm thành địa bàn sẽ đẩy cả một tổ công tác thật xuống nhóm gộp.
     expect(result.current.data?.[0]).toEqual({
       value: 'u1',
       label: 'Nguyễn Văn A',
-      teams: [{ teamId: 't1', teamName: 'Tổ 1', isLeader: false }],
+      teams: [
+        { teamId: 't1', teamName: 'Tổ 1', isLeader: false, laDiaBan: false },
+      ],
     });
   });
 

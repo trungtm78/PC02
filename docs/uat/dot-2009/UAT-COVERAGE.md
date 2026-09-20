@@ -2,8 +2,9 @@
 
 Nhánh `feat/don-thu-nhap-lieu-nhanh` · PR #448 · 8 commit · 82 tệp (42 tệp sản phẩm).
 
-Ma trận này liệt kê **mọi màn hình và chức năng** đợt này đụng tới. Điều kiện kết thúc: 100%
-dòng PASS. Bỏ qua ≠ đạt.
+Ma trận này liệt kê **mọi màn hình và chức năng** đợt này đụng tới: **80 ca / 12 nhóm A–L**.
+Số 80 là TC_min tính theo 4 phương pháp ở `_coverage-ledger.md` (29119-4), không phải con số đặt ra. Điều kiện kết thúc: 100%
+dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 ## Quy ước
 
@@ -123,16 +124,53 @@ dòng PASS. Bỏ qua ≠ đạt.
 | J2 | Nhóm full-width có làm lệch cột ô phía sau không | Rà mã P3 | | | |
 | J3 | Bề rộng ba ô ngày sau khi đổi font (mono, tabular-nums) | DESIGN §11.5 | | | |
 
+## K. Ca bù cho ngưỡng rủi ro (TC_min = 80, xem `_coverage-ledger.md`)
+
+M4 risk-tier đòi 80 ca; 10 nhóm A–J mới có 70. Mười ca dưới đây chọn theo chỗ hỏng
+đắt nhất, không chọn cho đủ số.
+
+| ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
+|---|---|---|---|---|---|
+| K1 | API: nguồn "Bưu điện" + SĐT `abc` → 400 | Rà mã `@ValidateIf` | | | |
+| K2 | API: tạo đơn `ngayVietDonEdtf=2026-12-XX` → đọc lại cột ngày thật RỖNG, cột chữ CÓ | Rà mã P1 | | | |
+| K3 | Sửa đơn cũ có cán bộ đề xuất khác mình → lưu → vẫn là người cũ | YC4 | | | |
+| K4 | `GET /health` sau deploy báo `buildId` khớp commit đã merge | OAT | | | |
+| K5 | OFFICER (không phải ADMIN): chọn được cán bộ, tạo được mục danh mục | Lỗi prod cũ | | | |
+| K6 | Đơn nặc danh + Trực tiếp + SĐT trống → LƯU ĐƯỢC | YC2 | | | |
+| K7 | Nguồn đơn để TRỐNG → nhóm định danh thu, lưu được | YC2 | | | |
+| K8 | Hai tab cùng mở một đơn: tab A lưu ngày thiếu → tab B tải lại thấy đúng | YC3 | | | |
+| K9 | Mạng hỏng giữa lúc Lưu → báo lỗi rõ, KHÔNG mất thứ đã gõ | Tổng hợp | | | |
+| K10 | Ô chọn cán bộ khi máy chủ trả lỗi → báo hỏng, không báo "không có cán bộ nào" | Tải hỏng ≠ rỗng | | | |
+
+## L. Bề mặt LIỀN KỀ — chức năng không sửa nhưng đứng cạnh chỗ sửa
+
+Đợt này thêm một cột vào `petitions`, đổi kiểu ô `nguonDon`, và đổi nguồn cán bộ của ba
+form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đọc đúng những thứ ấy — hỏng ở
+đây là hỏng im lặng.
+
+| ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
+|---|---|---|---|---|---|
+| L1 | Form Vụ việc: ô "Chuyển từ đơn vị" GIỮ NGUYÊN kiểu cũ, không bị kéo sang danh mục | R2-SCOPE |  |  |  |
+| L2 | Danh sách Đơn thư: sắp xếp/lọc không vỡ khi có đơn ngày thiếu | YC3 |  |  |  |
+| L3 | Xuất Excel Đơn thư: đơn ngày thiếu xuất ra `__/12/2026`, không ô trống lặng lẽ | YC3 |  |  |  |
+| L4 | Tìm kiếm Đơn thư theo Nguồn đơn vẫn ra kết quả sau khi đổi sang danh mục (cột bóng `nguon_don_bd`) | YC2 |  |  |  |
+| L5 | Chuyển Đơn thư thành Vụ án: mang theo Nguồn đơn và Ngày viết đơn đúng | Tổng hợp |  |  |  |
+| L6 | Tạo đơn mới: STT tự sinh `DT-YYYY-NNNNN` vẫn đúng sau khi thêm cột | Tổng hợp |  |  |  |
+| L7 | ADMIN duyệt được mục danh mục ở trạng thái chờ duyệt | YC2 |  |  |  |
+| L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 |  |  |  |
+| L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 |  |  |  |
+| L10 | Mở form Đơn thư trên Chrome thật: 0 lỗi console, 0 lượt mạng 4xx/5xx lạ | Tổng hợp |  |  |  |
+
 ---
 
 ## Đối chiếu ngược với 5 yêu cầu gốc
 
 | Yêu cầu | Ca kiểm phủ |
 |---|---|
-| 1. Chọn cán bộ smartselect + gom nhóm theo Tổ | A1–A7, D1, E1–E2, I1 |
-| 2. Nguồn đơn thành danh mục + nhóm định danh bung/thu | A9–A15, D2, D4, G1–G3, H2–H3, H6 |
-| 3. Ngày viết đơn nhập thiếu | A16–A19, B4, F1–F4, H4, I3 |
-| 4. Cán bộ đề xuất mặc định = người đăng nhập | A8 |
-| 5. Nhóm "Thông tin khác" thu gọn | A20–A21, B5 |
+| 1. Chọn cán bộ smartselect + gom nhóm theo Tổ | A1–A7, C1–C4, D1, E1–E2, I1, K5, K10, L8 |
+| 2. Nguồn đơn thành danh mục + nhóm định danh bung/thu | A9–A15, D2, D4, G1–G3, H2–H3, H6, K1, K6, K7, L1, L4, L7 |
+| 3. Ngày viết đơn nhập thiếu | A16–A19, B2–B4, F1–F4, H4, I3, K2, K8, L2, L3 |
+| 4. Cán bộ đề xuất mặc định = người đăng nhập | A8, K3 |
+| 5. Nhóm "Thông tin khác" thu gọn | A20–A21, B5, J1–J2 |
 
 **Không yêu cầu nào thiếu ca kiểm.**
