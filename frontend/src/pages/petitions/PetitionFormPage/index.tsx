@@ -38,6 +38,8 @@ import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useTeamOptions } from "@/hooks/useTeamOptions";
+import { giuDonViDaChon } from "./donViDaChon";
+import { ChiDanDonViXuLy } from "./ChiDanDonViXuLy";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
@@ -753,7 +755,12 @@ export function PetitionFormPage() {
                   {laHuongNoiBo(formData.huongXuLy) ? (
                     <FKSelect
                       label="Đơn vị xử lý"
-                      options={teamOptions}
+                      /*
+                        GHIM giá trị đang lưu: 64% đơn thư (30.285/47.484) mang tên đơn vị hệ cũ
+                        không khớp tổ nội bộ nào. Không ghim thì ô hiện placeholder — trông như
+                        RỖNG — và cán bộ chọn tổ khác đè mất đơn vị gốc. Xem `giuDonViDaChon`.
+                      */
+                      options={giuDonViDaChon(teamOptions, formData.donViGiaiQuyet)}
                       value={formData.donViGiaiQuyet}
                       onChange={(v) => update("donViGiaiQuyet", v)}
                       placeholder="Chọn Tổ/Nhóm xử lý"
@@ -778,6 +785,9 @@ export function PetitionFormPage() {
                       }
                     />
                   )}
+                  {/* Ô này KHÔNG tạo mới được ở hướng nội bộ — nói rõ ranh giới và chỉ đường,
+                      thay vì để cán bộ tưởng hệ thống hỏng. Xem `ChiDanDonViXuLy`. */}
+                  <ChiDanDonViXuLy huong={formData.huongXuLy} />
                   <p className="mt-1 text-xs text-slate-500">{moTaHuong(formData.huongXuLy)}</p>
                 </div>
                 {/* Đề xuất — trước đây KHÔNG có ô nhập trên form, cán bộ chỉ sửa được qua popup
