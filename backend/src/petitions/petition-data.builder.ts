@@ -2,6 +2,7 @@ import { PetitionStatus } from '@prisma/client';
 import { machMocGiaiQuyet } from '../common/trang-thai/trang-thai-ket-thuc';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { suyThuocThamQuyen } from './huong-xu-ly.rule';
+import { edtfTuNgayThat } from '../common/utils/ngay-viet-don.util';
 
 export interface PetitionCreateCtx {
   stt: string;
@@ -70,7 +71,11 @@ export function buildPetitionCreateData(
     // Đường TẠO MỚI cũng phải ghi cột EDTF, không chỉ đường sửa. Bỏ quên nó là cán bộ gõ
     // `__/12/2026` rồi bấm Lưu và MẤT SẠCH ngày: `petitionDate` NULL (đúng, vì nhập thiếu) mà
     // cột EDTF cũng trống. Chỉ "chạy" nếu bấm Lưu lần thứ hai.
-    ngayVietDonEdtf: dto.ngayVietDonEdtf || null,
+    // Không gửi EDTF nhưng có gửi ngày thật thì SUY RA, giữ bất biến "có ngày thật ⇒ có cột
+    // chữ". Client cũ (tab chưa tải lại sau lượt deploy), bộ nạp hệ cũ và người gọi API trực
+    // tiếp đều rơi vào nhánh này — đo được một bản ghi như thế trên prod ngay sau deploy.
+    ngayVietDonEdtf:
+      dto.ngayVietDonEdtf || edtfTuNgayThat(toDate(dto.petitionDate)),
     nguonDon: dto.nguonDon,
     subTeamAssigned: dto.subTeamAssigned,
     lyDoChuyen: dto.lyDoChuyen,
@@ -137,4 +142,33 @@ export function buildPetitionCreateData(
     sttCu: dto.sttCu,
     ...(dto.metadata !== undefined && { metadata: dto.metadata as never }),
   };
+}
+
+/**
+ * Phần "ngày viết đơn" của một lượt SỬA — hàm thuần để kiểm được mà không cần dựng service.
+ *
+ * Giữ cùng bất biến với đường tạo mới: **cột chữ không được trôi khỏi cột ngày thật.**
+ *
+ * Ca nguy hiểm nhất là tab cũ (gói giao diện chưa tải lại sau lượt deploy) đổi ngày: nó chỉ
+ * gửi `petitionDate`, nên nếu để yên thì cột chữ GIỮ GIÁ TRỊ CŨ — mà `ngayVietDonHienThi` đọc
+ * cột chữ TRƯỚC, nên bản in ra NGÀY CŨ. Sai giá trị còn tệ hơn rỗng: rỗng thì người ta thấy,
+ * sai thì văn bản gửi ra ngoài ngành mang một ngày không ai kiểm lại.
+ */
+export function ngayVietDonKhiSua(dto: {
+  petitionDate?: string | Date | null;
+  ngayVietDonEdtf?: string | null;
+}): Record<string, unknown> {
+  const ra: Record<string, unknown> = {};
+  if (dto.petitionDate !== undefined) {
+    ra.petitionDate = dto.petitionDate ? new Date(dto.petitionDate) : null;
+  }
+  if (dto.ngayVietDonEdtf !== undefined) {
+    ra.ngayVietDonEdtf = dto.ngayVietDonEdtf || null;
+  } else if (dto.petitionDate !== undefined) {
+    // Client không biết cột chữ mà lại đổi ngày → suy lại, đừng để giá trị cũ đứng đó.
+    ra.ngayVietDonEdtf = edtfTuNgayThat(
+      dto.petitionDate ? new Date(dto.petitionDate) : null,
+    );
+  }
+  return ra;
 }

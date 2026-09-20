@@ -18,7 +18,10 @@ import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
 import { CreatePetitionDto } from './dto/create-petition.dto';
 import { UpdatePetitionDto } from './dto/update-petition.dto';
-import { buildPetitionCreateData } from './petition-data.builder';
+import {
+  buildPetitionCreateData,
+  ngayVietDonKhiSua,
+} from './petition-data.builder';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { QueryDuplicatesDto } from './dto/query-duplicates.dto';
@@ -923,12 +926,9 @@ export class PetitionsService {
       ...(dto.baoCaoBanGiamDoc !== undefined && {
         baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
       }),
-      ...(dto.petitionDate !== undefined && {
-        petitionDate: dto.petitionDate ? new Date(dto.petitionDate) : null,
-      }),
-      ...(dto.ngayVietDonEdtf !== undefined && {
-        ngayVietDonEdtf: dto.ngayVietDonEdtf || null,
-      }),
+      // Hai cột ngày viết đơn đi CÙNG NHAU qua một hàm thuần — xem
+      // `ngayVietDonKhiSua`. Ghép tay ở đây là mời chúng trôi khỏi nhau.
+      ...ngayVietDonKhiSua(dto),
       ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
       ...(dto.subTeamAssigned !== undefined && {
         subTeamAssigned: dto.subTeamAssigned,

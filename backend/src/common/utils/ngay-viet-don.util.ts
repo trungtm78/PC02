@@ -39,3 +39,22 @@ export function ngayVietDonHienThi(r: HoSoCoNgay): string {
   if (!d || Number.isNaN(d.getTime())) return '';
   return `${hai(d.getUTCDate())}/${hai(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
+
+/**
+ * Suy chuỗi EDTF từ một ngày THẬT đã đầy đủ: `2026-09-15`.
+ *
+ * Giữ bất biến **có `petitionDate` thì phải có `ngayVietDonEdtf`**. Không có nó thì mỗi client
+ * chỉ gửi ngày thật (gói giao diện cũ còn trong tab của cán bộ, bộ nạp hệ cũ, tự sinh đơn từ
+ * vụ án, người gọi API trực tiếp) lại đẻ ra một bản ghi hai cột lệch nhau — và mọi phép lọc
+ * hay sắp xếp đọc THẲNG cột chữ sẽ bỏ sót đúng những dòng ấy.
+ *
+ * Chỉ suy KHI ngày thật hợp lệ. Không bịa gì: ngày thật vốn đã đủ ba thành phần.
+ */
+export function edtfTuNgayThat(
+  ngay: Date | string | null | undefined,
+): string | null {
+  if (!ngay) return null;
+  const d = new Date(ngay);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCFullYear()}-${hai(d.getUTCMonth() + 1)}-${hai(d.getUTCDate())}`;
+}
