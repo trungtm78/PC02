@@ -244,6 +244,22 @@ trỏ nhảy đúng ô đầu tiên.
 tiến trình nào) làm anh tưởng bản vá hỏng. Đừng tin workflow báo `in_progress` — so `buildId`
 của `GET /health` với `git rev-parse origin/main`. Huỷ rồi chạy lại là xong.
 
+### Bẫy vận hành: deploy treo ở rsync (20/09 chiều)
+
+Treo HAI LẦN LIÊN TIẾP. Đo lúc đang treo: workflow báo `in_progress` 28 phút · trên máy chủ có
+`rsync --server` chạy nhưng **0 byte ghi được** (không tệp tạm nào trong `/tmp`) · kết nối SSH
+từ runner vẫn `established` mà không có dữ liệu chạy · đĩa còn 124 GB. Luồng TCP chết trong khi
+socket còn sống, và bước rsync không khai `--timeout` nên đợi VÔ HẠN.
+
+**Thiệt hại thật không phải deploy chậm** — anh tải lại trang, không thấy bản vá, kết luận mã
+hỏng. Mất gần một tiếng đi tìm nhầm chỗ.
+
+Đã vá ở **#453**: `--timeout=90` · keepalive SSH · `--partial` (gói ~167 MB nên truyền lại từ
+đầu là đắt) · thử 3 lần · ba lần hỏng thì in rõ "lỗi ĐƯỜNG TRUYỀN, không phải lỗi bản dựng".
+
+**Cách phát hiện sớm — dùng từ nay:** đừng tin workflow báo `in_progress`. So `buildId` của
+`GET /api/v1/health` với `git rev-parse origin/main`. Monitor phải neo theo `buildId`.
+
 ### Hàng đợi task kế tiếp
 
 1. CI PR #449 xanh → merge → deploy → xác minh `buildId`
