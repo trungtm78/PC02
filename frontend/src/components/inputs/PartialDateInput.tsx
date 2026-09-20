@@ -1,23 +1,33 @@
-import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useState } from "react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import {
+  hienThiEdtf,
   loiNgayTungPhan,
   sangEdtf,
-  tuEdtf,
-  type NgayTungPhan,
+  tuChuNhapTay,
 } from "@/shared/ngay-thieu/edtf";
 
 /**
  * Ô ngày cho phép THIẾU thành phần — `__/12/2026`, `__/__/2026`.
  *
- * BA Ô PHÂN ĐOẠN trong một `fieldset`, không phải một ô chữ có mặt nạ.
+ * MỘT Ô CHỮ, không phải ba ô phân đoạn.
  *
- * Đây là điểm quyết định, không phải chuyện hình thức: với ô mặt nạ, "để trống ngày" là một
- * ca biên — cán bộ phải rà con trỏ qua đúng hai ký tự rồi xoá, và mọi thao tác Backspace/dán
- * đều phải tự quản lý vị trí. Với ba ô, bỏ trống ô ấy LÀ xong. Đó cũng là khuyến nghị của
- * NN/g và UX Patterns for Developers cho ô ngày gõ tay.
+ * Bản đầu (19/09/2026) dùng ba ô, theo khuyến nghị của NN/g và UX Patterns for Developers cho
+ * ô ngày gõ tay: với ba ô, "để trống ngày" là bỏ trống một ô chứ không phải rà con trỏ qua
+ * đúng hai ký tự rồi xoá. Lý do ấy vẫn đúng — nhưng nó cân một thao tác HIẾM (bỏ trống) lên
+ * trên thao tác THƯỜNG XUYÊN, và anh chỉ ra điều đó sau một ngày dùng thật: cán bộ chép ngày
+ * từ đơn giấy hoặc từ Word và muốn DÁN MỘT LẦN. Ba ô buộc phải dán vào ô này rồi Tab sang ô
+ * kia, hoặc trông chờ vào luật tách chuỗi lúc dán.
  *
- * Giá trị đối ngoại là chuỗi EDTF (`2026-12-XX`) — xem `shared/ngay-thieu/edtf.ts`.
+ * Đổi sang một ô thì ba thứ phải giữ NGUYÊN, không được rơi cái nào:
+ *   1. Nhập thiếu vẫn lưu được — `12/2026`, `2026`.
+ *   2. Không bao giờ bịa ngày mồng 1 — thiếu ngày thì cột ngày thật để trống.
+ *   3. `31/02/2026` bị chặn TẠI CHỖ, không để máy chủ trả 400.
+ *
+ * Phần "đọc chữ" nằm ở `tuChuNhapTay`, phần "kiểm" vẫn là `loiNgayTungPhan` cũ — component này
+ * không tự khai một luật ngày nào.
+ *
+ * Giá trị đối ngoại vẫn là chuỗi EDTF (`2026-12-XX`) — xem `shared/ngay-thieu/edtf.ts`.
  */
 interface Props {
   label: string;
@@ -29,14 +39,6 @@ interface Props {
   testId?: string;
 }
 
-const DAI: Record<keyof NgayTungPhan, number> = { ngay: 2, thang: 2, nam: 4 };
-const NHAN: Record<keyof NgayTungPhan, string> = {
-  ngay: "Ngày",
-  thang: "Tháng",
-  nam: "Năm",
-};
-const THU_TU: (keyof NgayTungPhan)[] = ["ngay", "thang", "nam"];
-
 export function PartialDateInput({
   label,
   value,
@@ -46,112 +48,74 @@ export function PartialDateInput({
   testId,
 }: Props) {
   /**
-   * BA Ô giữ trạng thái RIÊNG, không suy lại từ `value` mỗi lần dựng.
+   * Giữ CHỮ THÔ, không suy lại từ `value` mỗi lần dựng.
    *
-   * EDTF không biểu diễn được trạng thái gõ dở "ngày 15, chưa có năm" (năm là phần bắt buộc
-   * của chuỗi). Nếu ô đọc thẳng từ `value` thì cán bộ gõ ngày → tháng → năm sẽ thấy ngày và
-   * tháng BIẾN MẤT, vì hai bước đầu báo lên `null` rồi `value` xoá sạch.
+   * EDTF không biểu diễn được trạng thái gõ dở — `15/12/20` chưa ra chuỗi nào cả. Ô mà đọc
+   * thẳng từ `value` thì cán bộ gõ tới đâu chữ biến mất tới đó.
    */
-  const [phan, setPhan] = useState<NgayTungPhan>(() => tuEdtf(value));
-  const oRef = useRef<Record<string, HTMLInputElement | null>>({});
+  const [chu, setChu] = useState(() => hienThiEdtf(value));
 
-  // Đồng bộ khi `value` đổi từ BÊN NGOÀI (nạp hồ sơ, đặt lại form) — so bằng chuỗi EDTF nên
-  // không đè lên thứ đang gõ dở.
+  /**
+   * Chỉ mắng SAU KHI rời ô.
+   *
+   * Báo ngay lúc đang gõ thì `15/12/20` bị gạch đỏ giữa chừng, trong khi người ta mới gõ được
+   * một nửa cái năm. Bấm Lưu cũng làm ô mất tiêu điểm nên lỗi hiện đúng lúc cần.
+   */
+  const [daRoiO, setDaRoiO] = useState(false);
+
   /*
-    Chỉnh trạng thái NGAY TRONG LƯỢT DỰNG khi `value` đổi từ bên ngoài — mẫu chính thức của
-    React ("You Might Not Need an Effect — Adjusting some state when a prop changes"). Không
-    dùng effect vì effect buộc phải khai `phan` là phụ thuộc, mà khai vào thì mỗi chữ số gõ
-    ra lại kéo ô về `value` cũ, xoá sạch thứ đang gõ dở.
+    Chỉnh trạng thái NGAY TRONG LƯỢT DỰNG khi `value` đổi từ bên ngoài (nạp hồ sơ, đặt lại
+    form) — mẫu chính thức của React ("You Might Not Need an Effect — Adjusting some state when
+    a prop changes"). So bằng chuỗi EDTF chứ không so chữ, nên không đè lên thứ đang gõ dở.
   */
   const [valueTruoc, setValueTruoc] = useState(value);
   if (value !== valueTruoc) {
     setValueTruoc(value);
-    if (sangEdtf(phan) !== (value ?? null)) setPhan(tuEdtf(value));
+    if (sangEdtf(tuChuNhapTay(chu)) !== (value ?? null)) {
+      setChu(hienThiEdtf(value));
+      setDaRoiO(false);
+    }
   }
 
-  const loiRapLai = loiNgayTungPhan(phan);
+  const loiTaiCho = loiNgayTungPhan(tuChuNhapTay(chu));
+  const loiHien = error ?? (daRoiO ? (loiTaiCho ?? undefined) : undefined);
 
-  const nhay = (tu: keyof NgayTungPhan, buoc: 1 | -1) => {
-    const i = THU_TU.indexOf(tu) + buoc;
-    if (i >= 0 && i < THU_TU.length) oRef.current[THU_TU[i]]?.focus();
+  const doi = (moi: string) => {
+    setChu(moi);
+    // Đẩy lên NGAY mỗi lần gõ, không chờ rời ô: bấm Lưu bằng phím tắt không đi qua `blur`, và
+    // chờ tới đó thì ký tự cuối cùng không kịp vào form.
+    onChange(sangEdtf(tuChuNhapTay(moi)));
   };
-
-  const bao = (moi: NgayTungPhan) => {
-    setPhan(moi);
-    onChange(sangEdtf(moi));
-  };
-
-  const doi = (tu: keyof NgayTungPhan, chu: string) => {
-    // Chỉ nhận chữ số: ô ngày mà gõ được chữ cái thì mọi luật bên dưới phải tự đỡ chuỗi rác.
-    const so = chu.replace(/\D/g, "").slice(0, DAI[tu]);
-    bao({ ...phan, [tu]: so });
-    if (so.length === DAI[tu]) nhay(tu, 1);
-  };
-
-  const phim = (tu: keyof NgayTungPhan, e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !phan[tu]) {
-      e.preventDefault();
-      nhay(tu, -1);
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      nhay(tu, -1);
-    } else if (e.key === "ArrowRight") {
-      e.preventDefault();
-      nhay(tu, 1);
-    }
-  };
-
-  /** Dán "15/12/2026" (hoặc "15-12-2026") vào bất kỳ ô nào → tách ra ba ô. */
-  const dan = (e: ClipboardEvent<HTMLInputElement>) => {
-    const chu = e.clipboardData?.getData("text") ?? "";
-    const m = /(\d{1,2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{4})/.exec(chu);
-    if (!m) return;
-    e.preventDefault();
-    bao({ ngay: m[1], thang: m[2], nam: m[3] });
-  };
-
-  const loiHien = error ?? loiRapLai ?? undefined;
 
   return (
-    <fieldset className="min-w-0" data-testid={testId}>
-      <legend className={LABEL_BASE}>
+    <div className="min-w-0">
+      <label className={LABEL_BASE} htmlFor={testId}>
         {label} {required && <span className="text-red-500">*</span>}
-      </legend>
-      <div className="flex items-center gap-1">
-        {THU_TU.map((tu, i) => (
-          <span key={tu} className="flex items-center gap-1">
-            {i > 0 && <span className="text-slate-400">/</span>}
-            <input
-              ref={(el) => {
-                oRef.current[tu] = el;
-              }}
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              aria-label={`${NHAN[tu]} (${label})`}
-              aria-invalid={loiHien ? true : undefined}
-              placeholder={"_".repeat(DAI[tu])}
-              value={phan[tu]}
-              onChange={(e) => doi(tu, e.target.value)}
-              onKeyDown={(e) => phim(tu, e)}
-              onPaste={dan}
-              /*
-                `font-mono` + `tabular-nums`: chữ số cùng bề rộng nên ba ô không giật khi gõ —
-                đúng thứ `DateCell` đã dùng cho mọi cột ngày (DESIGN.md §11.5).
-              */
-              className={`px-2 py-2.5 text-sm text-center font-mono tabular-nums border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                loiHien ? "border-red-300" : "border-slate-300"
-              } ${tu === "nam" ? "w-16" : "w-12"}`}
-              data-testid={testId ? `${testId}-${tu}` : undefined}
-            />
-          </span>
-        ))}
-      </div>
+      </label>
+      <input
+        id={testId}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        aria-invalid={loiHien ? true : undefined}
+        placeholder="15/12/2026 · 12/2026 · 2026"
+        value={chu}
+        onChange={(e) => doi(e.target.value)}
+        onBlur={() => setDaRoiO(true)}
+        /*
+          `font-mono` + `tabular-nums`: chữ số cùng bề rộng nên ô không giật khi gõ — đúng thứ
+          `DateCell` đã dùng cho mọi cột ngày (DESIGN.md §11.5).
+        */
+        className={`w-full px-4 py-2.5 text-sm font-mono tabular-nums border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+          loiHien ? "border-red-300" : "border-slate-300"
+        }`}
+        data-testid={testId}
+      />
       {loiHien && (
         <p className={FIELD_ERROR_TEXT} data-testid={testId ? `${testId}-loi` : undefined}>
           {loiHien}
         </p>
       )}
-    </fieldset>
+    </div>
   );
 }

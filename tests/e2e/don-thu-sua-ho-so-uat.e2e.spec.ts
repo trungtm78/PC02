@@ -49,19 +49,17 @@ test.describe('B · Mở hồ sơ DI TRÚ để sửa', () => {
     // Ba ô lõi của đợt này phải có mặt trên hồ sơ CŨ, không chỉ trên form trống.
     await expect(page.getByTestId(`${O_NGUON}-trigger`)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId(`${O_CAN_BO}-trigger`)).toBeVisible();
-    await expect(page.getByTestId(`${O_NGAY}-ngay`)).toBeVisible();
-    await expect(page.getByTestId(`${O_NGAY}-thang`)).toBeVisible();
-    await expect(page.getByTestId(`${O_NGAY}-nam`)).toBeVisible();
+    await expect(page.getByTestId(O_NGAY)).toBeVisible();
   });
 
-  test('B2 — hồ sơ cũ CÓ ngày: ba ô hiện đúng ngày, không trắng', async ({ page }) => {
+  test('B2 — hồ sơ cũ CÓ ngày: ô hiện đúng ngày, không trắng', async ({ page }) => {
     const tok = getAuthToken();
     const r = await page.request.get(`${API}/petitions?limit=100`, {
       headers: { Authorization: `Bearer ${tok}` },
     });
     const ds = ((await r.json()).data ?? []) as Array<{ id: string }>;
 
-    let coNgay: { id: string; nam: string; thang: string; ngay: string } | null = null;
+    let coNgay: { id: string; nam: string; thang: string; ngay: string; chu: string } | null = null;
     for (const p of ds) {
       const ct = await page.request.get(`${API}/petitions/${p.id}`, {
         headers: { Authorization: `Bearer ${tok}` },
@@ -70,19 +68,23 @@ test.describe('B · Mở hồ sơ DI TRÚ để sửa', () => {
       const d = (await ct.json()).data ?? {};
       const edtf: string | undefined = d.ngayVietDonEdtf ?? undefined;
       if (edtf && /^\d{4}-\d{2}-\d{2}$/.test(edtf)) {
-        coNgay = { id: p.id, nam: edtf.slice(0, 4), thang: edtf.slice(5, 7), ngay: edtf.slice(8, 10) };
+        coNgay = {
+          id: p.id,
+          nam: edtf.slice(0, 4),
+          thang: edtf.slice(5, 7),
+          ngay: edtf.slice(8, 10),
+          chu: `${edtf.slice(8, 10)}/${edtf.slice(5, 7)}/${edtf.slice(0, 4)}`,
+        };
         break;
       }
     }
     expect(coNgay, 'không có hồ sơ nào có ngày đầy đủ — mệnh đề CHƯA kiểm được').not.toBeNull();
 
     await loginToPage(page, `/petitions/${coNgay!.id}/edit`);
-    await expect(page.getByTestId(`${O_NGAY}-nam`)).toHaveValue(coNgay!.nam, { timeout: 30_000 });
-    await expect(page.getByTestId(`${O_NGAY}-thang`)).toHaveValue(coNgay!.thang);
     await expect(
-      page.getByTestId(`${O_NGAY}-ngay`),
+      page.getByTestId(O_NGAY),
       'ô ngày trắng nghĩa là mở hồ sơ cũ đã MẤT ngày ngay trước mắt cán bộ',
-    ).toHaveValue(coNgay!.ngay);
+    ).toHaveValue(coNgay!.chu, { timeout: 30_000 });
   });
 
   test('B5 — ô trong nhóm ĐÃ CÓ giá trị thì nhóm TỰ BUNG, không giấu dữ liệu', async ({
@@ -193,12 +195,10 @@ test.describe('B/K/L còn lại — vòng khứ hồi và trạng thái hỏng',
     const id = ((await r.json()).data as { id: string }).id;
 
     await loginToPage(page, `/petitions/${id}/edit`);
-    await expect(page.getByTestId(`${O_NGAY}-nam`)).toHaveValue('2026', { timeout: 30_000 });
-    await expect(page.getByTestId(`${O_NGAY}-thang`)).toHaveValue('12');
     await expect(
-      page.getByTestId(`${O_NGAY}-ngay`),
-      'ô ngày phải TRỐNG — hệ không được bịa ra một ngày cán bộ chưa gõ',
-    ).toHaveValue('');
+      page.getByTestId(O_NGAY),
+      'chỗ khuyết phải là `__` — hệ không được bịa ra một ngày cán bộ chưa gõ',
+    ).toHaveValue('__/12/2026', { timeout: 30_000 });
 
     await page.request.delete(`${API}/petitions/${id}`, {
       headers: { Authorization: `Bearer ${tok}` },
@@ -258,10 +258,9 @@ test.describe('B/K/L còn lại — vòng khứ hồi và trạng thái hỏng',
       thì họ phải gõ lại từ đầu — và lần sau sẽ gõ ra chỗ khác trước cho chắc.
     */
     await loginToPage(page, '/petitions/new');
-    await expect(page.getByTestId(`${O_NGAY}-nam`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(O_NGAY)).toBeVisible({ timeout: 30_000 });
 
-    await page.getByTestId(`${O_NGAY}-thang`).fill('12');
-    await page.getByTestId(`${O_NGAY}-nam`).fill('2026');
+    await page.getByTestId(O_NGAY).fill('12/2026');
 
     await page.route('**/api/v1/petitions', (r) =>
       r.request().method() === 'POST' ? r.abort('failed') : r.continue(),
@@ -273,10 +272,9 @@ test.describe('B/K/L còn lại — vòng khứ hồi và trạng thái hỏng',
     }
 
     await expect(
-      page.getByTestId(`${O_NGAY}-nam`),
+      page.getByTestId(O_NGAY),
       'lưu hỏng mà form xoá trắng thì cán bộ phải gõ lại từ đầu',
-    ).toHaveValue('2026');
-    await expect(page.getByTestId(`${O_NGAY}-thang`)).toHaveValue('12');
+    ).toHaveValue('12/2026');
   });
 
   test('L10 — mở form Đơn thư: 0 lỗi console, 0 lượt mạng 5xx', async ({ page }) => {

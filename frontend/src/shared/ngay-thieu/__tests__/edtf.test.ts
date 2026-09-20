@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   hienThiEdtf,
+  loiEdtf,
   loiNgayTungPhan,
   sangEdtf,
   sangNgayDayDu,
+  tuChuNhapTay,
   tuEdtf,
   type NgayTungPhan,
 } from '../edtf';
@@ -124,5 +126,101 @@ describe('loiNgayTungPhan — validate ngày RÁP LẠI, không validate từng 
 
   it('rỗng hoàn toàn → không lỗi (ô không bắt buộc)', () => {
     expect(loiNgayTungPhan(p('', '', ''))).toBeNull();
+  });
+});
+
+/**
+ * Năm PHẢI đủ 4 chữ số — và luật ấy phải nằm ở `loiNgayTungPhan`, không ở ô nhập.
+ *
+ * Ô ba phân đoạn che khuyết điểm này: ô năm hiện rõ `20` nên cán bộ tự thấy mình gõ thiếu.
+ * Ô một dòng thì `12/20` trông y như một ngày hoàn chỉnh, mà đoán hộ (2020? 1920?) là bịa.
+ *
+ * Quan trọng hơn: `loiEdtf` gọi thẳng hàm này, còn `validate.ts` gọi `loiEdtf` — nên đặt luật
+ * ở đây thì năm thiếu chữ số CHẶN ĐƯỢC nút Lưu. Đặt ở ô nhập thì chỉ hiện chữ đỏ rồi vẫn lưu,
+ * và cột nhận `0020-12-XX`.
+ */
+describe('loiNgayTungPhan — năm phải đủ 4 chữ số', () => {
+  it('năm 2 chữ số → báo lỗi (không đoán hộ thế kỷ)', () => {
+    expect(loiNgayTungPhan(p('', '12', '20'))).toBeTruthy();
+  });
+
+  it('năm 3 chữ số → báo lỗi', () => {
+    expect(loiNgayTungPhan(p('', '12', '202'))).toBeTruthy();
+  });
+
+  it('năm đủ 4 chữ số → không lỗi', () => {
+    expect(loiNgayTungPhan(p('', '12', '2026'))).toBeNull();
+  });
+
+  it('luật này CHẶN ĐƯỢC Lưu: loiEdtf thấy năm thiếu chữ số qua sangEdtf', () => {
+    // KHÔNG phải '0020-12-XX': đệm 0 cho năm là bịa ra một năm hợp lệ và mở khoá nút Lưu.
+    const edtf = sangEdtf(p('', '12', '20'));
+    expect(edtf).toBe('20-12-XX');
+    expect(loiEdtf(edtf)).toBeTruthy();
+  });
+});
+
+/**
+ * `tuChuNhapTay` — đọc chữ cán bộ gõ/dán vào MỘT ô.
+ *
+ * Anh yêu cầu bỏ ba ô phân đoạn để dán được một lần. Hàm này là toàn bộ phần "đọc"; mọi phép
+ * kiểm vẫn là `loiNgayTungPhan` cũ, không viết lại luật lần hai.
+ *
+ * Nguyên tắc: KHÔNG đoán hộ. Thiếu thì để trống và báo, không tự điền.
+ */
+describe('tuChuNhapTay — đọc chữ gõ tay thành ba phần', () => {
+  it('rỗng → ba phần rỗng, không lỗi', () => {
+    expect(tuChuNhapTay('')).toEqual(p('', '', ''));
+    expect(tuChuNhapTay('   ')).toEqual(p('', '', ''));
+  });
+
+  it.each(['15/12/2026', '15-12-2026', '15.12.2026', ' 15 / 12 / 2026 '])(
+    'đủ ba phần: %s',
+    (chu) => {
+      expect(tuChuNhapTay(chu)).toEqual(p('15', '12', '2026'));
+    },
+  );
+
+  it('hai phần → tháng + năm, KHÔNG bịa ngày', () => {
+    expect(tuChuNhapTay('12/2026')).toEqual(p('', '12', '2026'));
+  });
+
+  it('một phần → chỉ năm', () => {
+    expect(tuChuNhapTay('2026')).toEqual(p('', '', '2026'));
+  });
+
+  /**
+   * Khứ hồi với thứ ô IN RA: `hienThiEdtf` sinh `__/12/2026`, nên dán lại chính nó phải ra
+   * đúng thứ ban đầu. Không có mệnh đề này thì cán bộ chép ô này sang ô kia là mất dữ liệu.
+   */
+  it.each(['2026-12-15', '2026-12-XX', '2026-XX-XX'])(
+    'khứ hồi: dán lại đúng thứ hienThiEdtf in ra (%s)',
+    (edtf) => {
+      expect(sangEdtf(tuChuNhapTay(hienThiEdtf(edtf)))).toBe(edtf);
+    },
+  );
+
+  it('dãy chữ số liền: 8 số = ngày/tháng/năm, 6 số = tháng/năm, 4 số = năm', () => {
+    expect(tuChuNhapTay('15122026')).toEqual(p('15', '12', '2026'));
+    expect(tuChuNhapTay('122026')).toEqual(p('', '12', '2026'));
+    expect(tuChuNhapTay('2026')).toEqual(p('', '', '2026'));
+  });
+
+  it('năm thiếu chữ số KHÔNG bị đoán hộ — giữ nguyên để loiNgayTungPhan báo', () => {
+    expect(tuChuNhapTay('12/20')).toEqual(p('', '12', '20'));
+    expect(loiNgayTungPhan(tuChuNhapTay('12/20'))).toBeTruthy();
+  });
+
+  it('thiếu năm hẳn (15/12) → báo lỗi chứ không lặng lẽ bỏ', () => {
+    expect(loiNgayTungPhan(tuChuNhapTay('15/12'))).toBeTruthy();
+  });
+
+  it('ngày không có thật vẫn đọc ra ba phần để chặn tại chỗ', () => {
+    expect(tuChuNhapTay('31/02/2026')).toEqual(p('31', '02', '2026'));
+    expect(loiNgayTungPhan(tuChuNhapTay('31/02/2026'))).toBeTruthy();
+  });
+
+  it('thừa phân đoạn → KHÔNG lặng lẽ lấy ba cái đầu rồi báo hợp lệ', () => {
+    expect(loiNgayTungPhan(tuChuNhapTay('15/12/2026/99'))).toBeTruthy();
   });
 });
