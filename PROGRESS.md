@@ -1,4 +1,10 @@
-STATUS: IN_PROGRESS
+STATUS: BLOCKED
+BLOCKED_REASON: Milestone cuoi (UAT 100% tren prod) can anh hai viec, khong tu lam duoc:
+  (1) Mot tai khoan thu tren prod — 5 TK thu cu da khoa 20/09 vi mat khau lo repo PUBLIC,
+      token con luu da het hieu luc (401). Khong co TK thi 79/80 ca UAT khong chay duoc.
+  (2) Duyet bang gop CSV (2.125 cach viet -> 1.426 muc) truoc khi chay --that ghi prod (§8c).
+Da lam het phan khong can anh: PR #448 merge + deploy xac minh buildId, CSV chi-doc da gui,
+2 loi tim ra sau deploy da va o PR #449 (dang cho CI).
 # PROGRESS
 Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
