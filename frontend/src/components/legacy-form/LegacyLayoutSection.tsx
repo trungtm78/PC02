@@ -16,6 +16,7 @@ import { FormInput, FormSelect, FormTextarea } from "@/components/form";
 import { FKSelect } from "@/components/FKSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
 import { CatalogSelect } from "@/components/CatalogSelect";
+import { NhomOGap, type NhomOKhai } from "./NhomOGap";
 import {
   legacyCaptionOf,
   type LegacyFieldValue,
@@ -49,6 +50,21 @@ interface Props<TForm, TTab extends string, TField extends string> {
    * điền xong Nhận xét không thấy bước kế tiếp.
    */
   sauO?: Partial<Record<string, React.ReactNode>>;
+  /**
+   * Gom vài ô LIỀN NHAU của bố cục vào một nhóm gập được.
+   *
+   * Mặc định `undefined` → dựng y hệt như trước, nên Vụ án và Vụ việc không đổi một dòng.
+   * Chỉ Đơn thư khai nhóm (`features/petitions/nhom-o.def.ts`).
+   */
+  nhom?: readonly NhomOKhai<TForm>[];
+  /**
+   * Tên các ô ĐANG báo lỗi, dùng RIÊNG cho trạng thái nhóm (tự bung + viền đỏ).
+   *
+   * Tách khỏi `errorFor` vì form Đơn thư hiện lỗi bằng điều hướng ô chứ không in chữ lỗi dưới
+   * từng ô của bố cục hệ cũ. Nhóm vẫn phải biết, nếu không thì bấm Lưu bị chặn bởi một ô nằm
+   * trong nhóm đóng — đúng lỗi PR #248.
+   */
+  oDangLoi?: readonly string[];
 }
 
 export function LegacyLayoutSection<TForm, TTab extends string, TField extends string>({
@@ -60,42 +76,95 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
   onFieldTouched,
   renderOverride,
   sauO,
+  nhom,
+  oDangLoi,
 }: Props<TForm, TTab, TField>) {
   const ghi = (field: TField, value: LegacyFieldValue) => {
     setFormData((prev) => spec.write(prev, field, value));
     onFieldTouched?.(field);
   };
 
+  /** Ô nào thuộc nhóm nào — tra một lần, dùng lại trong vòng dựng. */
+  const nhomCuaO = new Map<string, NhomOKhai<TForm>>();
+  for (const n of nhom ?? []) for (const o of n.o) nhomCuaO.set(o, n);
+
+  /** Dựng đúng một ô (dùng chung cho ô lẻ và ô nằm trong nhóm). */
+  const veO = (item: (typeof items)[number], i: number) => {
+    const rieng = renderOverride?.[item.field];
+    // Khối chèn sau ô: chỉ gắn ở LẦN XUẤT HIỆN ĐẦU của ô, vì một ô lưu có thể có bản gương
+    // trong cùng tab — gắn cả hai lần sẽ dựng khối hai lần.
+    const chen = items.findIndex((x) => x.field === item.field) === i ? sauO?.[item.field] : undefined;
+    const o = rieng ? (
+      <div
+        className={item.span === "full" ? "md:col-span-2" : ""}
+        data-testid={`legacy-field-${item.field}`}
+      >
+        {rieng(legacyCaptionOf(item, spec.tabLabel))}
+      </div>
+    ) : (
+      <LegacyField
+        item={item as LegacyLayoutItem}
+        label={legacyCaptionOf(item, spec.tabLabel)}
+        value={spec.read(formData, item.field)}
+        error={errorFor?.(item.field)}
+        onChange={(v) => ghi(item.field, v)}
+      />
+    );
+    return (
+      <Fragment key={`${item.field}-${i}`}>
+        {o}
+        {chen ? <div className="md:col-span-2">{chen}</div> : null}
+      </Fragment>
+    );
+  };
+
+  /**
+   * Gom các ô liền nhau cùng nhóm thành một khối, giữ nguyên thứ tự bố cục.
+   *
+   * Ô của nhóm PHẢI liền nhau (cổng `nhomPhaiLienNhau`): bố cục là lưới phẳng hai cột đặt
+   * theo thứ tự DOM, nên gom một tập RỜI buộc ô xen giữa phải dời và làm lệch cột mọi ô sau.
+   */
+  const khoi: { nhom?: NhomOKhai<TForm>; o: { item: (typeof items)[number]; i: number }[] }[] = [];
+  items.forEach((item, i) => {
+    const n = nhomCuaO.get(item.field);
+    const cuoi = khoi[khoi.length - 1];
+    if (n && cuoi?.nhom === n) cuoi.o.push({ item, i });
+    else khoi.push({ nhom: n, o: [{ item, i }] });
+  });
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {items.map((item, i) => {
-        const rieng = renderOverride?.[item.field];
-        // Khối chèn sau ô: chỉ gắn ở LẦN XUẤT HIỆN ĐẦU của ô, vì một ô lưu có thể có bản gương
-        // trong cùng tab — gắn cả hai lần sẽ dựng khối hai lần.
-        const chen = items.findIndex((x) => x.field === item.field) === i ? sauO?.[item.field] : undefined;
-        const o = rieng ? (
-          <div
-            className={item.span === "full" ? "md:col-span-2" : ""}
-            data-testid={`legacy-field-${item.field}`}
-          >
-            {rieng(legacyCaptionOf(item, spec.tabLabel))}
-          </div>
-        ) : (
-          <LegacyField
-            item={item as LegacyLayoutItem}
-            label={legacyCaptionOf(item, spec.tabLabel)}
-            value={spec.read(formData, item.field)}
-            error={errorFor?.(item.field)}
-            onChange={(v) => ghi(item.field, v)}
-          />
+      {khoi.map((k, j) => {
+        if (!k.nhom) return <Fragment key={`le-${j}`}>{k.o.map((x) => veO(x.item, x.i))}</Fragment>;
+        const n = k.nhom;
+        const coGiaTri = (f: string) => {
+          const v = spec.read(formData, f as TField);
+          return Array.isArray(v) ? v.length > 0 : v !== "" && v !== false && v != null;
+        };
+        const coLoi = k.o.some(
+          (x) => !!errorFor?.(x.item.field) || (oDangLoi?.includes(x.item.field) ?? false),
         );
-        // Cùng một ô lưu có thể xuất hiện hai lần trong một tab (bản gốc và bản gương), nên
-        // khoá phải kèm vị trí, không thể chỉ dùng tên ô.
         return (
-          <Fragment key={`${item.field}-${i}`}>
-            {o}
-            {chen ? <div className="md:col-span-2">{chen}</div> : null}
-          </Fragment>
+          <NhomOGap
+            key={n.khoa}
+            khoa={n.khoa}
+            nhan={n.nhan}
+            soO={k.o.length}
+            soODaNhap={k.o.filter((x) => coGiaTri(x.item.field)).length}
+            coOBatBuoc={k.o.some((x) => x.item.required === true)}
+            coLoi={coLoi}
+            /*
+              Ba điều kiện HOẶC. Ô đã có giá trị và ô đang báo lỗi là hai lưới an toàn: giấu
+              dữ liệu đã nhập, hoặc chặn Lưu bằng một ô không nhìn thấy, đều là hỏng im lặng.
+            */
+            moSan={
+              (n.moKhi?.(formData) ?? false) ||
+              k.o.some((x) => coGiaTri(x.item.field)) ||
+              coLoi
+            }
+          >
+            {k.o.map((x) => veO(x.item, x.i))}
+          </NhomOGap>
         );
       })}
     </div>

@@ -14,6 +14,7 @@
 
 import { type ReactNode } from "react";
 import { LegacyLayoutSection } from "./LegacyLayoutSection";
+import type { NhomOKhai } from "./NhomOGap";
 import type { LegacyFormSpec } from "@/features/legacy-form/types";
 
 interface Props<TForm, TTab extends string, TField extends string> {
@@ -27,6 +28,13 @@ interface Props<TForm, TTab extends string, TField extends string> {
   renderOverride?: Partial<Record<string, (label: string) => React.ReactNode>>;
   /** Chèn một khối ngay SAU một ô của bố cục hệ cũ — xem LegacyLayoutSection. */
   sauO?: Partial<Record<string, ReactNode>>;
+  /**
+   * Nhóm ô gập được. Tự lọc theo `tab` của từng nhóm, nên chỗ gọi truyền nguyên bảng khai
+   * chứ không phải tự cắt — cắt tay ở mỗi chỗ gọi là mời chúng trôi khỏi nhau.
+   */
+  nhom?: readonly NhomOKhai<TForm>[];
+  /** Tên các ô đang báo lỗi — chỉ dùng cho trạng thái nhóm. */
+  oDangLoi?: readonly string[];
   /** Khối luôn hiện, đặt trên bố cục hệ cũ. Dùng cho ô bắt buộc của hệ mới. */
   pinnedTop?: ReactNode;
   /** Chèn giữa bố cục hệ cũ và khối gập — dùng cho bảng con của hệ cũ (vd ĐTBS). */
@@ -44,6 +52,8 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
   onFieldTouched,
   renderOverride,
   sauO,
+  nhom,
+  oDangLoi,
   pinnedTop,
   afterLegacy,
   children,
@@ -67,6 +77,8 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
           onFieldTouched={onFieldTouched}
           renderOverride={renderOverride}
           sauO={sauO}
+          nhom={nhom?.filter((n) => n.tab === undefined || n.tab === tabId)}
+          oDangLoi={oDangLoi}
         />
       </div>
 

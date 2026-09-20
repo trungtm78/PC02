@@ -128,6 +128,20 @@ async function renderForm() {
   );
 }
 
+
+/**
+ * Điền Số điện thoại nguyên đơn.
+ *
+ * Ô này nay nằm trong nhóm "Thông tin định danh nguyên đơn" thu gọn sẵn (20/09/2026) — nhóm
+ * chỉ tự bung khi Nguồn đơn là nộp trực tiếp. Mở nhóm ra như cán bộ thật; mệnh đề này cũng
+ * chứng minh ô vẫn ĐIỀN ĐƯỢC ở mọi nguồn, tức gom nhóm không lấy mất chỗ nhập.
+ */
+function dienSdtNguyenDon(so: string) {
+  const nut = screen.queryByTestId('nhom-dinh-danh-nguyen-don-nut');
+  if (nut && !screen.queryByTestId('field-senderPhone')) fireEvent.click(nut);
+  fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: so } });
+}
+
 describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
   beforeEach(() => {
     sessionStorage.clear();
@@ -163,7 +177,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
       target: { value: 'Khiếu nại (Quyết định tố tụng)' },
     });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
@@ -182,7 +196,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     // 5 field parity mới — input PHẢI tồn tại trên form (getByTestId throw nếu thiếu)
@@ -190,6 +204,10 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '2026-06-18' } });
     fireEvent.change(screen.getByTestId('field-ngayDeXuat'), { target: { value: '2026-06-20' } });
     fireEvent.change(screen.getByTestId('field-phanLoaiNguonTin'), { target: { value: 'don-cong-van-ban-dau' } });
+    // "Điều tra viên thụ lý" nay nằm trong nhóm "Thông tin khác" thu gọn sẵn (rất ít khi
+    // nhập). Mở nhóm ra như cán bộ thật — mệnh đề này cũng chứng minh ô vẫn ĐIỀN ĐƯỢC, tức
+    // gom nhóm không lấy mất chỗ nhập của cột `dieuTraVien`.
+    fireEvent.click(screen.getByTestId('nhom-thong-tin-khac-nut'));
     fireEvent.change(screen.getByTestId('field-dieuTraVien'), { target: { value: 'Nguyễn Văn A' } });
     fireEvent.change(screen.getByTestId('field-donViGiaiQuyet'), { target: { value: 'Đội 1 PC02' } });
 
@@ -220,7 +238,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     fireEvent.click(screen.getByTestId('field-loaiThongTin-tao-moi'));
@@ -244,7 +262,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'UAT Sender' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'UAT addr' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
@@ -262,7 +280,7 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'addr' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'detail' } });
     fireEvent.change(screen.getByTestId('field-priority'), { target: { value: 'Cao' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
 
     // Mở menu split-button (nút trên) → "Lưu và xuất file".
@@ -294,7 +312,7 @@ describe('PetitionFormPage — YC1/2/6 (đơn vị + thẩm quyền + auto-fill 
     fireEvent.change(await screen.findByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
     fireEvent.change(screen.getByTestId('field-detailContent'), { target: { value: 'Nội dung đầy đủ của đơn thư' } });
-    fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: '0901234567' } });
+    dienSdtNguyenDon('0901234567');
     fireEvent.change(screen.getByTestId('field-crimeChinhId'), { target: { value: 'crime-d173' } });
   }
 

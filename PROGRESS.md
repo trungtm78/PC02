@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T11:30:00+07:00 | Milestone: 5/9 (đợt Đơn thư nhập liệu nhanh) | Task: T4 XONG (rà mã T3: 13 lỗi đã vá hết); T5 kế tiếp
+Cập nhật: 2026-09-20T12:40:00+07:00 | Milestone: 7/9 (đợt Đơn thư nhập liệu nhanh) | Task: T5 + T6 XONG; T7 kế tiếp
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -85,14 +85,33 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
     cả hai đầu chấm chính mình trên nó, và cả hai bộ ca kiểm luật cũng lấy mẫu từ đó — không
     bên nào tự chọn mẫu dễ. Gieo lỗi (bỏ xử lý dấu câu ở bản trình duyệt) → cổng đỏ.
 
+- [x] **T5 — cơ chế nhóm ô gập + nhóm "Thông tin khác" (yêu cầu 5)**
+  - `NhomOGap` mới: vỏ thẻ riêng, **bộ đếm "N ô · M đã nhập"** (thu gọn mà giấu dữ liệu đã
+    nhập là kiểu hỏng tệ nhất), dấu `*` khi trong nhóm có ô bắt buộc, viền đỏ + chấm đỏ khi
+    có ô báo lỗi. Nội dung KHÔNG nằm trong DOM khi đóng (không dùng `<details>`).
+  - `LegacyLayoutSection` nhận prop `nhom` — mặc định `undefined` → dựng y hệt như trước, nên
+    **Vụ án và Vụ việc không đổi một dòng**, 3 cổng `moiOCoChoLuu` giữ nguyên.
+  - Bảng khai riêng `features/petitions/nhom-o.def.ts`, mỗi nhóm khai rõ `tab`.
+  - **Cổng #5** `kiemNhomLienNhau`: ô trong nhóm phải LIỀN NHAU, không trùng nhóm, không gõ
+    nhầm tên ô. Cộng mệnh đề **thứ tự DOM giữ nguyên thứ tự đặc tả**.
+  - Cổng bắt được lỗi thật ngay khi khai: tab `subjects` chỉ có 1 trong 2 ô → phải khai `tab`.
+
+- [x] **T6 — nhóm định danh nguyên đơn bung theo Nguồn đơn (yêu cầu 2, phần bung/thu)**
+  - Dải LIỀN MẠCH 5 ô (167→171): SĐT · Sinh năm · Số CCCD · Ngày cấp · Nơi cấp. Gồm cả
+    "Sinh năm" để dải liền mạch — **0 ô phải dời chỗ, 0 ô lệch cột**.
+  - Ba điều kiện HOẶC: `laNguonTrucTiep(nguonDon)` · ô đã có giá trị · ô đang báo lỗi.
+  - **Cổng #1** `oBatBuocKhongBiGiau`: bấm Lưu bị chặn thì ô gây chặn PHẢI nhìn thấy được —
+    đúng lỗi PR #248. Thêm `oDangLoi` dẫn tín hiệu lỗi xuống nhóm (form Đơn thư hiện lỗi bằng
+    điều hướng ô, không in chữ lỗi dưới ô bố cục hệ cũ).
+
 ### Đang làm dở
-Task: T5 — prop `nhom` cho `LegacyLayoutSection` + `nhom-o.def.ts` + nhóm "Thông tin khác"
-BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho prop `nhom` ở
-`frontend/src/components/legacy-form/LegacyLayoutSection.tsx` (mặc định `undefined` → hành vi
-y hệt hôm nay, nên Vụ án/Vụ việc không đổi một dòng), rồi khai nhóm "Thông tin khác"
-(Điều tra viên thụ lý + Lãnh đạo phụ trách tố tụng) ở `features/petitions/nhom-o.def.ts`.
-Ràng buộc: các ô trong một nhóm phải LIỀN NHAU trong đặc tả (cổng #5), và dùng
-`CollapsibleSection` chứ KHÔNG dùng `<details>`.
+Task: T7 — `PartialDateInput` + cột EDTF `ngayVietDonEdtf`
+BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho `PartialDateInput` (BA Ô PHÂN ĐOẠN trong `fieldset`, KHÔNG
+phải một ô mặt nạ — xem TK3 trong plan), rồi cột `ngayVietDonEdtf` + migration + TRỌN đường ống
+khoá form (`types.ts` → `buildPetitionPayload.ts` → `create-petition.dto.ts` → `petitions.service.ts`
+→ `schema.prisma`). Thiếu một mắt là 400 cho MỌI lượt tạo đơn (cổng
+`moi-khoa-form-gui-len-deu-duoc-nhan`). Cộng `ngayVietDonHienThi` dùng chung cho form, danh
+sách, xuất Excel, in chứng từ; và sắp xếp danh sách theo khoá gộp `COALESCE`.
 
 ### Hàng đợi task kế tiếp
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
@@ -123,7 +142,7 @@ Ràng buộc: các ô trong một nhóm phải LIỀN NHAU trong đặc tả (c�
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5839/5839 (416 suite)** · **frontend 3539/3539 (930 suite)** · tsc sạch
+Full suite: **backend 5839/5839 (416 suite)** · **frontend 3566/3566 (943 suite)** · tsc sạch
 · 0 lỗi lint mới
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng
@@ -134,9 +153,10 @@ Test fail: không
 - `admin.service.ts` có **19 lỗi lint prettier CÓ SẴN từ HEAD** (dòng 180, 206, 301–313, 399–431, 740, 846, 880–928) và 1 `no-unused-vars` (`AccessLevel` dòng 27). T1 không thêm lỗi nào. Dọn riêng một PR `chore(lint)` — gộp vào đây sẽ phình diff.
 - `admin.service.spec.ts` 35 lỗi lint có sẵn (khối `mockAudit.wrapUpdate` dùng `any`).
 - ĐÃ DỌN: `useOfficerOptions` nay gọi `hoTen()` dùng chung thay vì chép tay phép ghép.
-- **Bẫy đo đạc:** chạy `npx jest` (backend) và `npx vitest run` (frontend) SONG SONG làm 3 ca
-  xuất Excel (`incidents-vu-viec-phuong`, `cases-vu-an-phuong`) quá hạn 5s và báo đỏ giả. Chạy
-  riêng từng bộ thì 23/23 đạt, và đỏ y hệt trên HEAD khi chạy song song. Chạy LẦN LƯỢT.
+- **Bẫy đo đạc (gặp HAI lần):** chạy `npx jest` (backend) và `npx vitest run` (frontend) SONG
+  SONG gây hai kiểu đỏ GIẢ: (1) 3 ca xuất Excel quá hạn 5s vì đói CPU; (2) **hỏng kho đệm biến
+  đổi của jest** → 32 ca `two-fa.service.spec.ts` đỏ với lỗi `ScriptTransformer`, không phải
+  mệnh đề nào sai. `npx jest --clearCache` rồi chạy lại là 32/32 đạt. **Chạy LẦN LƯỢT.**
 
 
 ---

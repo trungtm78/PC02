@@ -21,7 +21,7 @@ import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
@@ -54,6 +54,7 @@ import { computeFormErrors } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
+import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -81,6 +82,15 @@ export function PetitionFormPage() {
   // Điều hướng ô lỗi: focus ô lỗi đầu khi lưu + phím "Lỗi tiếp theo" nhảy ô lỗi kế (YC3, hook chung).
   const { focusFirstError, handleFormKeyDown } = useFormErrorNavigation(
     () => computeFormErrors(formData, effectiveEdit).fields,
+  );
+  /**
+   * Ô đang báo lỗi, bỏ tiền tố `field-` của testid. Nhóm gập cần biết để tự bung và hiện viền
+   * đỏ — bấm Lưu mà bị chặn bởi một ô nằm trong nhóm đóng là cán bộ không có cách nào biết
+   * phải mở cái gì ra.
+   */
+  const oDangLoi = useMemo(
+    () => computeFormErrors(formData, effectiveEdit).fields.map((f) => f.replace(/^field-/, "")),
+    [formData, effectiveEdit],
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
@@ -855,6 +865,8 @@ export function PetitionFormPage() {
             formData={formData}
             setFormData={setFormData}
             renderOverride={oRieng}
+            nhom={NHOM_O_DON_THU}
+            oDangLoi={oDangLoi}
           />
         )}
 
@@ -867,6 +879,8 @@ export function PetitionFormPage() {
             formData={formData}
             setFormData={setFormData}
             renderOverride={oRieng}
+            nhom={NHOM_O_DON_THU}
+            oDangLoi={oDangLoi}
             // Khoá là tên ô SAU khi dịch sang Đơn thư (doiTab: nhanXet -> nhanThay), không phải tên hệ cũ.
             sauO={{ nhanThay: khoiNoiDungDeXuat }}
             pinnedTop={
