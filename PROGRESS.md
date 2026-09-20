@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T08:10:00+07:00 | Milestone: 1/9 (đợt Đơn thư nhập liệu nhanh) | Task: T1 đang chốt
+Cập nhật: 2026-09-20T09:40:00+07:00 | Milestone: 3/9 (đợt Đơn thư nhập liệu nhanh) | Task: T2 XONG (rà mã 7 lỗi đã vá hết); T3 đang làm
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -25,14 +25,47 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
   - Patch coverage: `admin.service.ts` dòng mới 100%; `useOfficerOptions.ts` 100% line / 87.5% branch
   - Lint: 0 lỗi mới (mốc HEAD `admin.service.ts` 19 = sau 19)
 
+- [x] **T2 — ô chọn cán bộ gom nhóm theo Tổ + chuẩn ARIA + mặc định cán bộ đề xuất (gộp T4)**
+  - `FKSelect` thêm `groups?: FKGroup[]`. Luật tìm: khớp TÊN NHÓM → giữ cả nhóm; khớp TÊN MỤC
+    → lọc trong nhóm, bỏ nhóm rỗng. Chỉ số phẳng `dsPhang` cho phím mũi tên đi xuyên nhóm.
+  - Chuẩn WAI-ARIA APG: `role=combobox` + `aria-activedescendant` ở ô nhập, `role=listbox`,
+    `role=group` + `aria-label` mỗi tổ, `role=option` + `aria-selected`. Trước đây `FKSelect`
+    KHÔNG có một thuộc tính `role`/`aria-` nào.
+  - `gomCanBoTheoTo`: tổ sắp theo tên, tổ trưởng đầu nhóm, người ở 2 tổ hiện ở cả hai,
+    "Chưa có tổ" luôn cuối và chỉ dựng khi có người.
+  - Áp cho cả 3 ô chọn cán bộ: `canBoDeXuatId`, `assignedToId`, `PetitionAssignmentSection`.
+  - **Bắt được 1 lỗi trong chính mã vừa viết:** ở chế độ nhóm, `FKSelect` tra nhãn đã chọn
+    trong `options` (rỗng) → ô KHÔNG BAO GIỜ hiện giá trị đã chọn. Sửa bằng `tatCaMuc`.
+  - **Rà mã độc lập bắt 7 lỗi, đã vá HẾT:**
+    | # | Lỗi | Cách vá |
+    |---|---|---|
+    | P1 | `highlightedIndex` là CHỈ SỐ, danh sách đổi dưới chân nó (hồ sơ về muộn) → Enter chọn NHẦM người | bỏ tô khi `khoaDanhSach` đổi, không chỉ khi chữ tìm đổi |
+    | P1 | ô bấm mở không có `tabIndex`/`role`/`onKeyDown` → bàn phím KHÔNG mở nổi; 3 ô vốn là `<select>` thật nên đây là LÙI | `role=combobox` + `tabIndex` + Enter/Space/↓ ở ô bấm mở; ô tìm bên trong bỏ `role` |
+    | P2 | cán bộ 2 tổ → 2 mục cùng `data-testid` → `getByTestId` nổ, Playwright hỏng trên dữ liệu thật | bản lặp mang thêm chỉ số |
+    | P2 | danh sách rỗng lúc ĐANG TẢI báo "không tìm thấy kết quả" → nói dối là "không có cán bộ nào" | tách 3 trạng thái: đang tải / rỗng / không tìm thấy; 3 chỗ gọi truyền `isLoading` |
+    | P2 | `localeCompare` thuần → "Tổ CT số 10" đứng TRƯỚC "Tổ CT số 4" (tên tổ THẬT ở `tmp-teams.txt`) | `{ numeric: true }` + ca kiểm trên tên thật |
+    | P2 | 4 ca UAT Playwright dùng `locator('option')` → 3 ca TỰ BỎ QUA, 1 ca xanh RỖNG | viết lại theo combobox; bỏ `test.skip` giả — danh sách rỗng LÀ lỗi |
+    | P3 | `aria-selected` đánh dấu người đang TÔ → trình đọc màn hình đọc "đã chọn" mỗi lần bấm mũi tên; 2 mục cùng `true` khi cán bộ ở 2 tổ | `aria-selected` chỉ theo giá trị ĐÃ CHỌN |
+    | P3 | Enter khi chưa tô tự lấy người ĐẦU danh sách → gõ để lọc rồi Enter là gán bừa, tên in lên Phiếu đề xuất | Enter chỉ chọn khi đang tô |
+    | P3 | người đã ngừng hoạt động rơi vào "Chưa có tổ" ở ĐÁY danh sách 245 người | nhóm GHIM "Đang chọn" đầu danh sách |
+    | P3 | 2 `useMemo` không bao giờ trúng (`giuCanBoDaChon` trả mảng mới) | bỏ |
+
+- [ ] **T3 — danh mục `NGUON_DON`** (đang làm)
+  - XONG: hàm thuần `laNguonTrucTiep` + `khoaNguonDon` (20 ca) · luật tạo nhanh `NGUON_DON`
+    (7 ca) · ô `nguonDon` trên form Đơn thư dùng `FKSelect directoryType="NGUON_DON" canCreate`
+    · câu chữ popup (`vi.ts`) · nhãn trang Danh mục
+  - CÒN: CLI `nap-nguon-don` (chạy thử → anh duyệt CSV → `--that`) · áp cho form Vụ án (`Case.nguonDon`)
+
 ### Đang làm dở
-Task: T1 — chốt cuối (chạy lại full suite → commit)
-BƯỚC TIẾP THEO: đọc kết quả `npx vitest run` toàn bộ; nếu xanh thì commit T1 rồi sang T2.
-File liên quan: xem §Đã hoàn thành T1.
+Task: T3 — danh mục `NGUON_DON`
+BƯỚC TIẾP THEO: viết CLI `backend/src/legacy-migration/cli/nap-nguon-don.ts` (+ `.util.ts`)
+theo khuôn `nap-loai-thong-tin.ts`: chạy thử mặc định, `--that` mới ghi, xuất CSV có BOM cho
+anh duyệt bảng gộp TRƯỚC khi ghi. Sau đó áp ô `nguonDon` cho form Vụ án.
+File liên quan: `backend/src/common/utils/nguon-don.util.ts`, `backend/src/directory/directory.service.ts`,
+`frontend/src/pages/petitions/PetitionFormPage/index.tsx`.
 
 ### Hàng đợi task kế tiếp
-1. **T2** — `FKSelect` chế độ nhóm theo Tổ + chuẩn ARIA APG + áp 3 ô form Đơn thư (ghép T4 mặc định cán bộ đề xuất)
-2. **T3** — danh mục `NGUON_DON` + ô tìm/tạo nhanh (Đơn thư + Vụ án) + hàm thuần `laNguonTrucTiep` + CLI seed
+1. **T3** — danh mục `NGUON_DON` + ô tìm/tạo nhanh (Đơn thư + Vụ án) + hàm thuần `laNguonTrucTiep` + CLI seed
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
 4. **T5** — prop `nhom` cho `LegacyLayoutSection` + `nhom-o.def.ts` + nhóm "Thông tin khác" *(làn song song)*
 5. **T6** — nhóm định danh (dải LIỀN MẠCH 167–171, gồm cả "Sinh năm") bung theo 3 điều kiện OR
@@ -49,23 +82,32 @@ File liên quan: xem §Đã hoàn thành T1.
 | 20/09 | Ngày thiếu lưu theo EDTF Level 1 (`2026-12-XX`) | Chuẩn ISO 8601-2; sắp xếp + lọc bằng tiền tố chuỗi chạy thẳng trên SQL | Lưu nguyên văn thì cột chết |
 | 20/09 | Ô ngày = BA Ô PHÂN ĐOẠN trong `fieldset`, không phải ô mặt nạ | NN/g + uxpatterns.dev; "để trống ngày" thành thao tác hạng nhất | Đổi tên `MaskedDateInput` → `PartialDateInput` |
 | 20/09 | `teams` là khoá THÊM ở `/admin/users`, không đổi khoá cũ | 3 trang danh sách + `AssignModal` đang đọc endpoint này | Không ai vỡ |
+| 20/09 | `gomCanBoTheoTo` trả thẳng hình `FKGroup` (`key`/`label`/`options`) | Một hình duy nhất, khỏi dịch qua lại ở chỗ gọi | Chỗ gọi truyền thẳng vào `FKSelect` |
+| 20/09 | Tiêu đề nhóm tổ trong dropdown KHÔNG gập được | Nhóm ở đây để đọc và lọc; thêm một trạng thái đóng/mở nữa vào danh sách đang lọc là hai mô hình tranh nhau | Chỉ có tiêu đề + chip đếm |
 
 ### Assumption đã tự quyết
 | Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
 |---|---|---|
 | Ngôn ngữ chú thích/tên ca kiểm | Tiếng Việt (định danh tiếng Anh) | CLAUDE.md giới hạn luật "chú thích tiếng Anh" cho `Lumina_Approve`; protocol §4 nói "convention repo thắng" — repo PC02 dùng tiếng Việt |
 | Nhãn cán bộ đã ngừng hoạt động | Giữ mục, ghi rõ "(không còn hoạt động)" | Mất mục = mất phân công; ô trắng khiến cán bộ chọn người khác = phân công lại ngầm |
+| Ca kiểm cũ soi `role="button"` cho mục danh sách | Đổi sang `role="option"` | Mục nay nằm trong `role="listbox"`; soi theo vai trò nút là soi đúng thứ chuẩn nói KHÔNG nên dùng |
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: backend 5737/5737 PASS (411 suite) · frontend đang chạy lại sau các bản vá rà mã
+Full suite: **backend 5764/5764 (413 suite)** · **frontend 3475/3475 (924 suite)** · tsc sạch
+· 0 lỗi lint mới
+Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
+→ cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng
 Patch coverage: 100% dòng mới (backend) · 100% line / 87.5% branch (`useOfficerOptions`)
 Test fail: không
 
 ### Nợ kỹ thuật / rủi ro
 - `admin.service.ts` có **19 lỗi lint prettier CÓ SẴN từ HEAD** (dòng 180, 206, 301–313, 399–431, 740, 846, 880–928) và 1 `no-unused-vars` (`AccessLevel` dòng 27). T1 không thêm lỗi nào. Dọn riêng một PR `chore(lint)` — gộp vào đây sẽ phình diff.
 - `admin.service.spec.ts` 35 lỗi lint có sẵn (khối `mockAudit.wrapUpdate` dùng `any`).
-- `useOfficerOptions` tự ghép họ tên thay vì gọi `hoTen()` — mà `hoTen` tự nhận là "NƠI DUY NHẤT quyết định thứ tự ấy". Có sẵn từ trước, chuỗi kết quả giống hệt. Gộp về một hàm ở T8.
+- ĐÃ DỌN: `useOfficerOptions` nay gọi `hoTen()` dùng chung thay vì chép tay phép ghép.
+- **Bẫy đo đạc:** chạy `npx jest` (backend) và `npx vitest run` (frontend) SONG SONG làm 3 ca
+  xuất Excel (`incidents-vu-viec-phuong`, `cases-vu-an-phuong`) quá hạn 5s và báo đỏ giả. Chạy
+  riêng từng bộ thì 23/23 đạt, và đỏ y hệt trên HEAD khi chạy song song. Chạy LẦN LƯỢT.
 
 
 ---

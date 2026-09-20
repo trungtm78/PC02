@@ -9,6 +9,12 @@ import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
 import { khoaDonVi } from '../common/utils/chuan-hoa-ten.util';
 import {
+  LOAI_DANH_MUC_NGUON_DON,
+  TIEN_TO_MA_NGUON_DON,
+  khoaNguonDon,
+  laNguonTrucTiep,
+} from '../common/utils/nguon-don.util';
+import {
   LOAI_DANH_MUC_LOAI_THONG_TIN,
   TIEN_TO_MA_LOAI_THONG_TIN,
   khoaLoaiThongTin,
@@ -53,6 +59,15 @@ const LUAT_TAO_NHANH: Readonly<Record<string, LuatTaoNhanh>> = {
     tienTo: TIEN_TO_MA_LOAI_THONG_TIN,
     khoa: khoaLoaiThongTin,
     metadataRieng: (ten) => ({ nhomHan: nhomHanTheoTen(ten) }),
+  },
+  // Mục mới phải mang cờ `laTrucTiep` ngay: cờ ấy quyết định nhóm thông tin định danh nguyên
+  // đơn có bung ra không VÀ Số điện thoại nguyên đơn có bắt buộc không. Suy từ TÊN nên cán bộ
+  // tạo nhanh "Trực tiếp" là cờ tự có — cờ lưu tay thì chỉ cần một mục thiếu cờ là luật bắt
+  // buộc biến mất im lặng.
+  [LOAI_DANH_MUC_NGUON_DON]: {
+    tienTo: TIEN_TO_MA_NGUON_DON,
+    khoa: khoaNguonDon,
+    metadataRieng: (ten) => ({ laTrucTiep: laNguonTrucTiep(ten) }),
   },
 };
 

@@ -26,8 +26,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import {
-  ArrowLeft, AlertCircle, Calendar, User,
-  FileText, MapPin, Phone, Mail, ChevronDown,
+  ArrowLeft, AlertCircle, Calendar,
+  FileText, MapPin, Phone, Mail,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
@@ -53,6 +53,7 @@ import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCase
 import { computeFormErrors } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
+import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -104,7 +105,7 @@ export function PetitionFormPage() {
    * lọc `status`. Hook dùng chung phân trang 500 và lọc `status: active`. Cổng
    * `motNguonCanBo.gate` chặn lời gọi thẳng mọc lại.
    */
-  const { data: dsCanBo = [] } = useOfficerOptions();
+  const { data: dsCanBo = [], isLoading: dangTaiCanBo } = useOfficerOptions();
   /**
    * Cán bộ mà hồ sơ ĐANG trỏ tới, lấy từ chính chi tiết đơn (`assignedTo`, `canBoDeXuat`).
    * Cần giữ riêng vì danh sách chọn chỉ nạp người đang hoạt động — xem `giuCanBoDaChon`.
@@ -117,6 +118,11 @@ export function PetitionFormPage() {
   /** Danh sách cho từng ô: luôn chứa người hồ sơ đang trỏ tới, kể cả khi người ấy đã ngừng hoạt động. */
   const dsNguoiDuocGiao = giuCanBoDaChon(dsCanBo, formData.assignedToId, canBoCuaHoSo.assignedTo);
   const dsCanBoDeXuat = giuCanBoDaChon(dsCanBo, formData.canBoDeXuatId, canBoCuaHoSo.canBoDeXuat);
+  // Không bọc `useMemo`: `giuCanBoDaChon` trả mảng MỚI mỗi lần dựng khi phải thêm người đã
+  // ngừng hoạt động, nên memo không bao giờ trúng — chỉ thêm chữ mà không tiết kiệm gì.
+  // Người đang chọn được GHIM đầu danh sách thay vì rơi xuống "Chưa có tổ" ở tận đáy.
+  const nhomNguoiDuocGiao = gomCanBoTheoTo(dsNguoiDuocGiao, formData.assignedToId);
+  const nhomCanBoDeXuat = gomCanBoTheoTo(dsCanBoDeXuat, formData.canBoDeXuatId);
   // Khai với app "đang sửa dở" khi dữ liệu khác bản đã lưu — app không tự lên bản mới lúc này.
   useDauHieuDangSua(!isLoadingData && JSON.stringify(formData) !== savedSnapshotRef.current);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
@@ -488,6 +494,34 @@ export function PetitionFormPage() {
    * hạ cấp năng lực.
    */
   const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    /**
+     * Nguồn đơn/Đơn vị giao — cùng khuôn "Loại thông tin".
+     *
+     * Hệ cũ để ô này là chữ tự do. Đo trên bản chạy thật 20/09/2026: 47.456 đơn có giá trị
+     * nhưng **1.431 cách viết** cho cùng vài chục nguồn (Bưu điện 14.758, Trực tiếp 10.656,
+     * "trực tiếp" 956). Vừa mất thời gian gõ, vừa làm thống kê theo nguồn vô nghĩa.
+     *
+     * Giá trị vẫn lưu là CHUỖI TÊN vào cột `nguonDon`, nên không phải di trú cột và cột bóng
+     * tìm kiếm `nguon_don_bd` không đổi.
+     */
+    nguonDon: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="NGUON_DON"
+        value={formData.nguonDon}
+        onChange={(v) => update("nguonDon", v)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-nguonDon"
+        canCreate={!!taoNhanh}
+        onCreateNew={(tenGoiY) =>
+          taoNhanh?.open({
+            type: "NGUON_DON",
+            tenGoiY,
+            onCreated: (ten) => update("nguonDon", ten),
+          })
+        }
+      />
+    ),
     // Một ô duy nhất hỏi loại, như hệ cũ (14/09/2026). Chọn từ danh mục để cùng một loại không
     // bị gõ thành nhiều biến thể; chưa có thì tạo nhanh. Nhóm hạn giải quyết do máy chủ suy từ
     // danh mục, form không gửi `petitionType`.
@@ -709,20 +743,16 @@ export function PetitionFormPage() {
                 {/* Cán bộ ĐỀ XUẤT — người ký mục "Cán bộ đề xuất" trên Phiếu đề xuất.
                     Mặc định người đang đăng nhập, cho phép chọn cán bộ khác (in hộ). */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Cán bộ đề xuất</label>
-                  <select
+                  <FKSelect
+                    label="Cán bộ đề xuất"
                     value={formData.canBoDeXuatId}
-                    onChange={(e) => update("canBoDeXuatId", e.target.value)}
-                    className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    data-testid="field-canBoDeXuatId"
-                  >
-                    <option value="">-- Chọn cán bộ --</option>
-                    {dsCanBoDeXuat.map((u) => (
-                      <option key={u.value} value={u.value}>
-                        {u.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => update("canBoDeXuatId", v)}
+                    groups={nhomCanBoDeXuat}
+                    loading={dangTaiCanBo}
+                    placeholder="-- Chọn cán bộ --"
+                    searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
+                    testId="field-canBoDeXuatId"
+                  />
                   <p className="mt-1 text-xs text-slate-500">
                     Tên in ở mục "Cán bộ đề xuất" của Phiếu đề xuất. Mặc định là bạn; đổi nếu lập hộ cán bộ khác.
                   </p>
@@ -1027,17 +1057,16 @@ export function PetitionFormPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Người được giao xử lý</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <select value={formData.assignedToId} onChange={(e) => update("assignedToId", e.target.value)} className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none" data-testid="field-assignedToId">
-                    <option value="">Chưa phân công</option>
-                    {dsNguoiDuocGiao.map((u) => (
-                      <option key={u.value} value={u.value}>{u.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
+                <FKSelect
+                  label="Người được giao xử lý"
+                  value={formData.assignedToId}
+                  onChange={(v) => update("assignedToId", v)}
+                  groups={nhomNguoiDuocGiao}
+                  loading={dangTaiCanBo}
+                  placeholder="Chưa phân công"
+                  searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
+                  testId="field-assignedToId"
+                />
               </div>
             </div>
             <div>
@@ -1052,7 +1081,7 @@ export function PetitionFormPage() {
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
         {isEditMode && id && (!chiXem || canDispatch) && (
-          <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} />
+          <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} dangTaiCanBo={dangTaiCanBo} />
         )}
 
         {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}

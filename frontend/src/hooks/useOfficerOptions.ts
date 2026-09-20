@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { hoTen } from '@/lib/hoTen';
 
 /** Tổ của một cán bộ — ĐÚNG hình `/auth/me` và `GET /admin/users` trả, kể cả `isLeader`. */
 export interface ToCuaCanBo {
@@ -64,14 +65,16 @@ export function useOfficerOptions(enabled = true) {
         if (trang.length < MOI_TRANG || tatCa.length >= tong) break;
       }
 
-      const hoTen = (u: NguoiDung) => `${u.lastName ?? ''} ${u.firstName ?? ''}`.trim() || (u.username ?? u.id);
+      // Dùng `hoTen` dùng chung, không chép tay phép ghép: tệp ấy tự nhận là "NƠI DUY NHẤT
+      // quyết định thứ tự HỌ-trước-TÊN-sau", và phép ghép này từng bị chép ở 19 chỗ rồi lệch nhau.
+      const tenHienThi = (u: NguoiDung) => hoTen(u, undefined) || u.id;
       // Trùng họ tên (13 cặp trên prod, vd tài khoản cũ + tài khoản `.doi2`) → ghi kèm tên đăng nhập, không thì hai
       // dòng y hệt và chọn nhầm là lọc ra 0.
       const soLan = new Map<string, number>();
-      for (const u of tatCa) soLan.set(hoTen(u), (soLan.get(hoTen(u)) ?? 0) + 1);
+      for (const u of tatCa) soLan.set(tenHienThi(u), (soLan.get(tenHienThi(u)) ?? 0) + 1);
       return tatCa
         .map((u) => {
-          const nhan = hoTen(u);
+          const nhan = tenHienThi(u);
           return {
             value: u.id,
             label: (soLan.get(nhan) ?? 0) > 1 ? `${nhan} (${u.username ?? u.id})` : nhan,

@@ -81,6 +81,7 @@ const DIRECTORY_TYPE_LABELS: Record<string, string> = {
   ORG:                'Tổ chức/Đơn vị',
   DON_VI:             'Đơn vị',
   LOAI_THONG_TIN:     'Loại thông tin',
+  NGUON_DON:          'Nguồn đơn/Đơn vị giao',
   // Legacy types still in DB
   LOCATION:           'Địa bàn (cũ)',
   STATUS:             'Trạng thái (cũ)',

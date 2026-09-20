@@ -6,7 +6,7 @@
  * Chạy: UAT_PROD=1 npx playwright test tests/e2e/petition-assignment-uat.e2e.spec.ts
  * Chạy local: BASE_URL=http://localhost:5173 npx playwright test tests/e2e/petition-assignment-uat.e2e.spec.ts --headed
  */
-import { test, expect, Page, APIRequestContext } from '@playwright/test';
+import { test, expect, Page, Locator, APIRequestContext } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -150,6 +150,34 @@ function ss(page: Page, name: string) {
 
 // ─── GREEN — Happy paths (P0) ──────────────────────────────────────────────────
 
+
+/**
+ * Ô chọn cán bộ đổi từ `<select>` gốc sang combobox tự dựng (tìm được + gom nhóm theo Tổ,
+ * 20/09/2026). `locator('option')` là bộ chọn theo THẺ: sau khi đổi, nó trả về 0 phần tử —
+ * nên `test.skip(options.length <= 1)` tự bỏ qua ca, và `expect([]).not.toContain(id)` xanh mà
+ * chẳng khẳng định gì. Bỏ qua KHÔNG phải là đạt, và xanh rỗng còn tệ hơn đỏ.
+ */
+async function moODaChonCanBo(section: Locator) {
+  await section.getByTestId('assignment-user-select-trigger').click();
+}
+
+/** Giá trị đang mời chọn — đọc từ `data-testid` của từng mục trong `role=listbox`. */
+async function idDangMoiChon(section: Locator): Promise<string[]> {
+  await moODaChonCanBo(section);
+  const muc = section.getByRole('option');
+  return (await muc.evaluateAll((els: HTMLElement[]) =>
+    els.map((e) => e.getAttribute('data-testid') ?? ''),
+  )).map((t) => t.replace(/^assignment-user-select-option-/, '').replace(/--\d+$/, ''));
+}
+
+/** Chọn cán bộ đầu tiên đang mời chọn; trả id đã chọn, hoặc null khi danh sách rỗng. */
+async function chonCanBoDauTien(section: Locator): Promise<string | null> {
+  const ds = await idDangMoiChon(section);
+  if (ds.length === 0) return null;
+  await section.getByRole('option').first().click();
+  return ds[0];
+}
+
 test.describe('GREEN — Happy paths', () => {
   let adminToken = '';
   let petitionId = '';
@@ -193,12 +221,11 @@ test.describe('GREEN — Happy paths', () => {
     await expect(section).toBeVisible({ timeout: 10_000 });
 
     // Các bước: chọn user → vai trò SUPPORT → thêm
-    const userSelect = section.getByTestId('assignment-user-select');
-    await expect(userSelect).toBeVisible();
-    const options = await userSelect.locator('option').allTextContents();
-    test.skip(options.length <= 1, 'Không có user trong dropdown');
-
-    await userSelect.selectOption({ index: 1 }); // chọn user đầu tiên
+    await expect(section.getByTestId('assignment-user-select-trigger')).toBeVisible();
+    const daChon = await chonCanBoDauTien(section);
+    // KHÔNG `test.skip`: danh sách cán bộ rỗng ở màn phân công LÀ một lỗi, không phải lý do
+    // để bỏ qua ca kiểm. Đúng lớp lỗi vừa vá ở `AssignModal` (hộp chết im lặng).
+    expect(daChon, 'Danh sách cán bộ rỗng — đây là lỗi, không phải lý do bỏ qua').toBeTruthy();
     const roleSelect = section.getByTestId('assignment-role-select');
     await roleSelect.selectOption('SUPPORT');
     await section.getByTestId('btn-add-assignment').click();
@@ -224,11 +251,8 @@ test.describe('GREEN — Happy paths', () => {
     const section = page.getByTestId('section-phan-cong');
     await expect(section).toBeVisible({ timeout: 10_000 });
 
-    const userSelect = section.getByTestId('assignment-user-select');
-    const options = await userSelect.locator('option').allTextContents();
-    test.skip(options.length <= 1, 'Không có user trong dropdown');
-
-    await userSelect.selectOption({ index: 1 });
+    const daChonLead = await chonCanBoDauTien(section);
+    expect(daChonLead, 'Danh sách cán bộ rỗng — đây là lỗi, không phải lý do bỏ qua').toBeTruthy();
     const roleSelect = section.getByTestId('assignment-role-select');
     await roleSelect.selectOption('LEAD');
     await section.getByTestId('btn-add-assignment').click();
@@ -301,10 +325,10 @@ test.describe('GREEN — Happy paths', () => {
     await expect(section.getByTestId('assignment-list')).toBeVisible({ timeout: 10_000 });
 
     // Kết quả: user đã assigned không có trong dropdown options
-    const userSelect = section.getByTestId('assignment-user-select');
-    const optionValues = await userSelect.locator('option').evaluateAll(
-      (opts: HTMLOptionElement[]) => opts.map(o => o.value)
-    );
+    const optionValues = await idDangMoiChon(section);
+    // Mệnh đề này từng xanh RỖNG: `locator('option')` trả [] nên `not.toContain` luôn đúng.
+    // Bắt danh sách phải có người trước, rồi mới khẳng định người đã giao không nằm trong đó.
+    expect(optionValues.length, 'Danh sách cán bộ rỗng — mệnh đề dưới sẽ xanh giả').toBeGreaterThan(0);
     expect(optionValues).not.toContain(userId);
 
     // Cleanup
@@ -434,17 +458,15 @@ test.describe('RED — Negative & error handling', () => {
     await expect(section).toBeVisible({ timeout: 10_000 });
 
     // Thêm user
-    const userSelect = section.getByTestId('assignment-user-select');
-    const options = await userSelect.locator('option').allTextContents();
-    test.skip(options.length <= 1, 'Không có user');
-
-    await userSelect.selectOption({ index: 1 });
+    const daChon = await chonCanBoDauTien(section);
+    expect(daChon, 'Danh sách cán bộ rỗng — đây là lỗi').toBeTruthy();
     await section.getByTestId('assignment-role-select').selectOption('LEAD');
     await section.getByTestId('btn-add-assignment').click();
     await expect(section.getByTestId('assignment-list')).toBeVisible({ timeout: 5_000 });
 
-    // Kết quả: dropdown user reset về ''
-    await expect(section.getByTestId('assignment-user-select')).toHaveValue('');
+    // Kết quả: ô chọn cán bộ về lại chữ gợi ý. `toHaveValue` chỉ dùng được với thẻ nhập;
+    // ô nay là combobox tự dựng nên đọc chữ đang hiện trên ô bấm mở.
+    await expect(section.getByTestId('assignment-user-select-trigger')).toContainText('-- Chọn cán bộ --');
 
     // Cleanup
     await section.locator('[data-testid^="btn-remove-assignment-"]').first().click();

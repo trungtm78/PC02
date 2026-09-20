@@ -41,6 +41,10 @@ vi.mock('@/features/_shared/modals/useQuickCreateDirectoryModal', () => ({
 const LUA_CHON_THEO_DANH_MUC: Record<string, string[]> = {
   UNIT: ['Đội 1 PC02', 'Đội 4', 'Đội 8'],
   LOAI_THONG_TIN: ['Tố giác', 'Khiếu nại (Quyết định tố tụng)', 'Đề nghị'],
+  // "Nguồn đơn/Đơn vị giao" đổi từ ô CHỮ sang ô chọn danh mục (20/09/2026). Bản giả phải
+  // biết loại này, nếu không `fireEvent.change` với tên nguồn chẳng chọn được gì và ca kiểm
+  // parity đỏ vì bản giả hẹp hơn thực tế — đúng bẫy đã ghi ở khối trên.
+  NGUON_DON: ['Công an phường 1', 'Bưu điện', 'Trực tiếp'],
 };
 // Ô "Đơn vị xử lý" ở nhánh nội bộ nhận `options={teamOptions}` (KHÔNG có directoryType), nên
 // bản giả rơi vào danh sách mặc định — phải có sẵn tên tổ, nếu không `fireEvent.change` với tên

@@ -62,6 +62,9 @@ function getSearchInput() {
 
 // ─── Keyboard Navigation Tests (8) ────────────────────────────────────────
 
+// Mục trong danh sách nay mang `role="option"` trong một `role="listbox"` (chuẩn WAI-ARIA
+// APG cho combobox). Trước đây chúng chỉ là `<button>` trần — soi theo vai trò nút là soi
+// đúng thứ chuẩn nói KHÔNG nên dùng.
 describe('FKSelect - Keyboard Navigation', () => {
   it('ArrowDown moves highlight to next option', () => {
     renderFKSelect();
@@ -70,7 +73,7 @@ describe('FKSelect - Keyboard Navigation', () => {
 
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     // First option should be highlighted (index 0)
-    const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+    const options = screen.getAllByRole('option');
     expect(options[0]).toHaveClass('bg-blue-100');
   });
 
@@ -84,7 +87,7 @@ describe('FKSelect - Keyboard Navigation', () => {
       fireEvent.keyDown(input, { key: 'ArrowDown' });
     }
     // Should wrap to first
-    const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+    const options = screen.getAllByRole('option');
     expect(options[0]).toHaveClass('bg-blue-100');
   });
 
@@ -98,7 +101,7 @@ describe('FKSelect - Keyboard Navigation', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'ArrowUp' });
 
-    const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+    const options = screen.getAllByRole('option');
     expect(options[0]).toHaveClass('bg-blue-100');
   });
 
@@ -110,7 +113,7 @@ describe('FKSelect - Keyboard Navigation', () => {
     // ArrowUp when no highlight should go to last
     fireEvent.keyDown(input, { key: 'ArrowUp' });
 
-    const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+    const options = screen.getAllByRole('option');
     expect(options[options.length - 1]).toHaveClass('bg-blue-100');
   });
 
@@ -125,14 +128,21 @@ describe('FKSelect - Keyboard Navigation', () => {
     expect(onChange).toHaveBeenCalledWith('opt1');
   });
 
-  it('Enter selects first option when no highlight', () => {
+  /**
+   * Đổi hành vi 20/09/2026: Enter khi CHƯA tô ai thì KHÔNG chọn gì.
+   *
+   * Bản cũ tự lấy mục đầu danh sách. Vô hại với một ô danh mục, nhưng ô chọn cán bộ dùng chung
+   * thành phần này, và tên người được chọn in thẳng lên Phiếu đề xuất: cán bộ gõ để LỌC rồi bấm
+   * Enter là bị gán bừa người đầu tiên. Một lựa chọn phải do người ta chỉ đích danh.
+   */
+  it('Enter khi chưa tô ai thì KHÔNG tự chọn mục đầu', () => {
     const { onChange } = renderFKSelect();
     openDropdown();
     const input = getSearchInput();
 
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(onChange).toHaveBeenCalledWith('opt1');
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('Escape closes the dropdown', () => {
@@ -160,7 +170,7 @@ describe('FKSelect - Keyboard Navigation', () => {
     // After typing, first filtered option should NOT have highlight class
     // (highlight resets to -1)
     await waitFor(() => {
-      const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+      const options = screen.getAllByRole('option');
       // None should have bg-blue-100 (highlight color), only hover/selected classes
       const highlighted = options.filter(o => o.classList.contains('bg-blue-100'));
       expect(highlighted).toHaveLength(0);
@@ -207,7 +217,7 @@ describe('FKSelect - Abbreviation Matching', () => {
     renderFKSelect();
     openDropdown();
 
-    const options = screen.getAllByRole('button').filter(b => b.getAttribute('data-option-index') !== null);
+    const options = screen.getAllByRole('option');
     expect(options).toHaveLength(TEST_OPTIONS.length);
   });
 });

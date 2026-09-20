@@ -3,8 +3,19 @@
  * Tests for multi-officer assignment section in PetitionFormPage edit mode.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render as renderRaw, screen, waitFor, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { PetitionAssignmentSection } from "../PetitionAssignmentSection";
+
+// Ô chọn cán bộ nay là `FKSelect` (tìm được + gom nhóm theo Tổ), mà `FKSelect` dùng
+// `useQuery`. Ứng dụng thật đã có `QueryClientProvider` ở gốc (`App.tsx`); ca kiểm phải dựng
+// lại đúng điều kiện ấy, không thì hỏng ở chỗ không liên quan gì tới thứ đang kiểm.
+Element.prototype.scrollIntoView = vi.fn();
+function render(node: ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderRaw(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+}
 
 const apiGet = vi.fn();
 const apiPost = vi.fn();
@@ -56,6 +67,21 @@ const mockAssignments = [
     assignedAt: "2026-06-08T01:00:00.000Z",
   },
 ];
+
+
+/** Chọn cán bộ qua ô combobox: mở ô rồi bấm đúng mục — đúng thao tác của cán bộ thật. */
+function chonCanBo(id: string) {
+  fireEvent.click(screen.getByTestId("assignment-user-select-trigger"));
+  fireEvent.click(screen.getByTestId(`assignment-user-select-option-${id}`));
+}
+
+/** Các giá trị đang mời chọn trong ô. */
+function idDangMoiChon(): string[] {
+  fireEvent.click(screen.getByTestId("assignment-user-select-trigger"));
+  return screen
+    .getAllByRole("option")
+    .map((o) => o.getAttribute("data-testid")?.replace("assignment-user-select-option-", "") ?? "");
+}
 
 describe("PetitionAssignmentSection", () => {
   beforeEach(() => {
@@ -118,7 +144,7 @@ describe("PetitionAssignmentSection", () => {
     render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("btn-add-assignment")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByTestId("assignment-user-select"), { target: { value: "user-3" } });
+    chonCanBo("user-3");
     fireEvent.click(screen.getByTestId("btn-add-assignment"));
 
     await waitFor(() => {
@@ -148,7 +174,7 @@ describe("PetitionAssignmentSection", () => {
     render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("assignment-user-select")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByTestId("assignment-user-select"), { target: { value: "user-1" } });
+    chonCanBo("user-1");
     fireEvent.change(screen.getByTestId("assignment-role-select"), { target: { value: "LEAD" } });
     fireEvent.click(screen.getByTestId("btn-add-assignment"));
 
@@ -187,8 +213,7 @@ describe("PetitionAssignmentSection", () => {
     render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("assignment-list")).toBeInTheDocument());
 
-    const select = screen.getByTestId("assignment-user-select") as HTMLSelectElement;
-    const options = Array.from(select.options).map((o) => o.value);
+    const options = idDangMoiChon();
     expect(options).not.toContain("user-1");
     expect(options).not.toContain("user-2");
     expect(options).toContain("user-3");
