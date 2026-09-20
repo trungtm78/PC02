@@ -35,6 +35,8 @@ interface Props<TForm, TTab extends string, TField extends string> {
   nhom?: readonly NhomOKhai<TForm>[];
   /** Tên các ô đang báo lỗi — chỉ dùng cho trạng thái nhóm. */
   oDangLoi?: readonly string[];
+  /** Tên các ô KHÔNG dựng — xem LegacyLayoutSection. Mặc định `undefined` → không lọc gì. */
+  oAn?: readonly string[];
   /** Khối luôn hiện, đặt trên bố cục hệ cũ. Dùng cho ô bắt buộc của hệ mới. */
   pinnedTop?: ReactNode;
   /** Chèn giữa bố cục hệ cũ và khối gập — dùng cho bảng con của hệ cũ (vd ĐTBS). */
@@ -54,6 +56,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
   sauO,
   nhom,
   oDangLoi,
+  oAn,
   pinnedTop,
   afterLegacy,
   children,
@@ -79,6 +82,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
           sauO={sauO}
           nhom={nhom?.filter((n) => n.tab === undefined || n.tab === tabId)}
           oDangLoi={oDangLoi}
+          oAn={oAn}
         />
       </div>
 

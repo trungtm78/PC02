@@ -65,11 +65,22 @@ interface Props<TForm, TTab extends string, TField extends string> {
    * trong nhóm đóng — đúng lỗi PR #248.
    */
   oDangLoi?: readonly string[];
+  /**
+   * Tên các ô KHÔNG dựng, lọc ngay trước khi gom khối.
+   *
+   * Mặc định `undefined` → dựng y hệt như trước, nên Vụ án và Vụ việc không đổi một dòng.
+   * Chỉ Đơn thư khai (`features/petitions/o-an.def.ts`).
+   *
+   * Ẩn ở ĐÂY chứ không gỡ khỏi đặc tả: đặc tả dùng chung cho ba form, và cột rơi khỏi
+   * `ownedColumns` thì panel "Thông tin nghiệp vụ bổ sung (di trú)" tự dựng lại chính ô ấy.
+   * Lọc ở tầng dựng thì dữ liệu cũ vẫn nằm nguyên trong payload, vẫn in, vẫn tìm được.
+   */
+  oAn?: readonly string[];
 }
 
 export function LegacyLayoutSection<TForm, TTab extends string, TField extends string>({
   spec,
-  items,
+  items: itemsGoc,
   formData,
   setFormData,
   errorFor,
@@ -78,7 +89,15 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
   sauO,
   nhom,
   oDangLoi,
+  oAn,
 }: Props<TForm, TTab, TField>) {
+  /*
+    Lọc TRƯỚC mọi thứ khác: nhóm gập, khối chèn `sauO` và phép dò "lần xuất hiện đầu" đều đếm
+    trên `items`, nên lọc sau sẽ để lại một khối trống hoặc một ô lẻ lệch cột.
+  */
+  const items = oAn?.length
+    ? itemsGoc.filter((i) => !oAn.includes(i.field as string))
+    : itemsGoc;
   const ghi = (field: TField, value: LegacyFieldValue) => {
     setFormData((prev) => spec.write(prev, field, value));
     onFieldTouched?.(field);

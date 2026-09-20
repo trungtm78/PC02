@@ -59,6 +59,7 @@ import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { sangNgayDayDu, tuEdtf } from "@/shared/ngay-thieu/edtf";
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
+import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -158,31 +159,19 @@ export function PetitionFormPage() {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const canConvert = isEditMode && !linkedIncidentId && !linkedCaseId;
 
-  // ── Nhóm V: Suspect search combobox ─────────────────────────────────────────
-  type SuspectResult = { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> };
+  /*
+    ── Nhóm V: ô tổ hợp tra đơn trùng ──────────────────────────────────────────
+
+    Ô tra TIỀN ÁN đi cùng ô "Tội danh cũ trước đây" (gỡ 20/09/2026 theo yêu cầu của anh). Giữ
+    lại phần dựng mà ô đã ẩn là để lại mã chết cùng một lượt gọi mạng không ai nhìn thấy kết
+    quả. Đầu API `/petitions/suspect-search` vẫn còn — đảo lại chỉ là dựng lại phần này.
+  */
   type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
 
-  const [suspectQuery, setSuspectQuery] = useState<string | null>(null);
-  const [suspectResults, setSuspectResults] = useState<SuspectResult[]>([]);
-  const [showSuspectDropdown, setShowSuspectDropdown] = useState(false);
   const [dupQuery, setDupQuery] = useState<string | null>(null);
   const [dupResults, setDupResults] = useState<DupResult[]>([]);
   const [showDupDropdown, setShowDupDropdown] = useState(false);
-  const suspectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleSuspectInput = useCallback((q: string) => {
-    setSuspectQuery(q);
-    if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
-    if (!q.trim()) { setSuspectResults([]); setShowSuspectDropdown(false); return; }
-    suspectTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await api.get<SuspectResult[]>("/petitions/suspect-search", { params: { q } });
-        setSuspectResults(Array.isArray(res.data) ? res.data : []);
-        setShowSuspectDropdown(true);
-      } catch { setSuspectResults([]); }
-    }, 300);
-  }, []);
 
   const handleDupInput = useCallback((q: string) => {
     setDupQuery(q);
@@ -199,13 +188,13 @@ export function PetitionFormPage() {
     }, 300);
   }, [id]);
 
-  useEffect(() => {
-
-  return () => {
-      if (suspectTimerRef.current) clearTimeout(suspectTimerRef.current);
+  // Dọn hẹn giờ khi rời màn — bỏ sót là một lượt gọi mạng chạy trên component đã tháo.
+  useEffect(
+    () => () => {
       if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
-    };
-  }, []);
+    },
+    [],
+  );
 
   const defaults = useFormDefaults();
 
@@ -613,53 +602,6 @@ export function PetitionFormPage() {
         </div>
       </>
     ),
-    toiDanhBanDau: (label) => (
-      <>
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-                      <div className="relative">
-        <input
-          type="text"
-          value={suspectQuery ?? formData.toiDanhBanDau}
-          onChange={(e) => {
-            const v = e.target.value;
-            handleSuspectInput(v);
-          }}
-          onFocus={() => suspectResults.length > 0 && setShowSuspectDropdown(true)}
-          onBlur={() => setTimeout(() => {
-            setShowSuspectDropdown(false);
-            if (suspectQuery !== null) {
-              update("toiDanhBanDau", suspectQuery);
-              setSuspectQuery(null);
-            }
-          }, 200)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Gõ tên/CCCD để tìm tiền án, hoặc nhập tự do"
-          data-testid="suspect-search-input"
-        />
-        {showSuspectDropdown && suspectResults.length > 0 && (
-          <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-            {suspectResults.map((r, i) => (
-              <button
-                key={`${r.idNumber}-${i}`}
-                type="button"
-                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
-                onMouseDown={() => {
-                  const crimes = r.crimes.join(", ");
-                  update("toiDanhBanDau", crimes);
-                  setSuspectQuery(null);
-                  setShowSuspectDropdown(false);
-                }}
-              >
-                <span className="font-medium">{r.name}</span>
-                {r.idNumber && <span className="text-slate-500 ml-2 text-xs">CCCD: {r.idNumber}</span>}
-                {r.crimes.length > 0 && <div className="text-slate-600 text-xs truncate">{r.crimes.join(", ")}</div>}
-              </button>
-            ))}
-          </div>
-        )}
-                      </div>
-      </>
-    ),
     raSoatTrung: (label) => (
       <>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
@@ -950,6 +892,7 @@ export function PetitionFormPage() {
             renderOverride={oRieng}
             nhom={NHOM_O_DON_THU}
             oDangLoi={oDangLoi}
+            oAn={O_AN_KHOI_DON_THU}
           />
         )}
 
@@ -964,6 +907,7 @@ export function PetitionFormPage() {
             renderOverride={oRieng}
             nhom={NHOM_O_DON_THU}
             oDangLoi={oDangLoi}
+            oAn={O_AN_KHOI_DON_THU}
             // Khoá là tên ô SAU khi dịch sang Đơn thư (doiTab: nhanXet -> nhanThay), không phải tên hệ cũ.
             sauO={{ nhanThay: khoiNoiDungDeXuat }}
             pinnedTop={
