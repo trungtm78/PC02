@@ -133,12 +133,12 @@ M4 risk-tier đòi 80 ca; 10 nhóm A–J mới có 70. Mười ca dưới đây 
 |---|---|---|---|---|---|
 | K1 | API: nguồn "Bưu điện" + SĐT `abc` → 400 | Rà mã `@ValidateIf` | x | x | **PASS (API, bản sao)** |
 | K2 | API: tạo đơn `ngayVietDonEdtf=2026-12-XX` → đọc lại cột ngày thật RỖNG, cột chữ CÓ | Rà mã P1 | x | x | **PASS (API, bản sao)** |
-| K3 | Sửa đơn cũ có cán bộ đề xuất khác mình → lưu → vẫn là người cũ | YC4 | | | |
+| K3 | Sửa đơn cũ có cán bộ đề xuất khác mình → lưu → vẫn là người cũ | YC4 | x | x | **PASS (API, bản sao)** |
 | K4 | `GET /health` sau deploy báo `buildId` khớp commit đã merge | OAT | x | x | **PASS trên PROD (buildId 71cfa19f khớp commit đã merge)** |
-| K5 | OFFICER (không phải ADMIN): chọn được cán bộ, tạo được mục danh mục | Lỗi prod cũ | | | |
+| K5 | OFFICER (không phải ADMIN): chọn được cán bộ, tạo được mục danh mục | Lỗi prod cũ | x | x | **PASS (API, bản sao)** |
 | K6 | Đơn nặc danh + Trực tiếp + SĐT trống → LƯU ĐƯỢC | YC2 | x | x | **PASS (API, bản sao)** |
 | K7 | Nguồn đơn để TRỐNG → nhóm định danh thu, lưu được | YC2 | x | x | **PASS (API, bản sao)** |
-| K8 | Hai tab cùng mở một đơn: tab A lưu ngày thiếu → tab B tải lại thấy đúng | YC3 | | | |
+| K8 | Hai tab cùng mở một đơn: tab A lưu ngày thiếu → tab B tải lại thấy đúng | YC3 | x | x | **PASS (API, bản sao)** |
 | K9 | Mạng hỏng giữa lúc Lưu → báo lỗi rõ, KHÔNG mất thứ đã gõ | Tổng hợp | | | |
 | K10 | Ô chọn cán bộ khi máy chủ trả lỗi → báo hỏng, không báo "không có cán bộ nào" | Tải hỏng ≠ rỗng | | | |
 
@@ -152,11 +152,11 @@ form. Mười chức năng dưới đây không nằm trong yêu cầu nhưng đ
 |---|---|---|---|---|---|
 | L1 | Form Vụ việc: ô "Chuyển từ đơn vị" GIỮ NGUYÊN kiểu cũ, không bị kéo sang danh mục | R2-SCOPE | x | - | **CHƯA CHẠY — xem ghi chú dưới bảng** |
 | L2 | Danh sách Đơn thư: sắp xếp/lọc không vỡ khi có đơn ngày thiếu | YC3 | x | x | **PASS (API, bản sao)** |
-| L3 | Xuất Excel Đơn thư: đơn ngày thiếu xuất ra `__/12/2026`, không ô trống lặng lẽ | YC3 |  |  |  |
+| L3 | Xuất Excel Đơn thư: đơn ngày thiếu xuất ra `__/12/2026`, không ô trống lặng lẽ | YC3 | x | x | **PASS (API, bản sao)** |
 | L4 | Tìm kiếm Đơn thư theo Nguồn đơn vẫn ra kết quả sau khi đổi sang danh mục (cột bóng `nguon_don_bd`) | YC2 | x | x | **PASS (API, bản sao)** |
-| L5 | Chuyển Đơn thư thành Vụ án: mang theo Nguồn đơn và Ngày viết đơn đúng | Tổng hợp |  |  |  |
+| L5 | Chuyển Đơn thư thành Vụ án: mang theo Nguồn đơn và Ngày viết đơn đúng | Tổng hợp | x | x | **PASS (API, bản sao)** |
 | L6 | Tạo đơn mới: STT tự sinh `DT-YYYY-NNNNN` vẫn đúng sau khi thêm cột | Tổng hợp | x | x | **PASS (API, bản sao)** |
-| L7 | ADMIN duyệt được mục danh mục ở trạng thái chờ duyệt | YC2 |  |  |  |
+| L7 | ADMIN duyệt được mục danh mục ở trạng thái chờ duyệt | YC2 | x | x | **PASS (API, bản sao)** |
 | L8 | Hộp Phân công dùng chung nguồn cán bộ mới: đủ người, không lọt tài khoản khoá | Lỗi prod 1+2 |  |  |  |
 | L9 | Cổng field-parity của Vụ án/Vụ việc vẫn xanh trên bản đã deploy | Đ0/Đ4 |  |  |  |
 | L10 | Mở form Đơn thư trên Chrome thật: 0 lỗi console, 0 lượt mạng 4xx/5xx lạ | Tổng hợp |  |  |  |
