@@ -1,10 +1,9 @@
-STATUS: BLOCKED
-BLOCKED_REASON: Milestone cuoi (UAT 100% tren prod) can anh hai viec, khong tu lam duoc:
-  (1) Mot tai khoan thu tren prod — 5 TK thu cu da khoa 20/09 vi mat khau lo repo PUBLIC,
-      token con luu da het hieu luc (401). Khong co TK thi 79/80 ca UAT khong chay duoc.
-  (2) Duyet bang gop CSV (2.125 cach viet -> 1.426 muc) truoc khi chay --that ghi prod (§8c).
-Da lam het phan khong can anh: PR #448 merge + deploy xac minh buildId, CSV chi-doc da gui,
-2 loi tim ra sau deploy da va o PR #449 (dang cho CI).
+STATUS: IN_PROGRESS
+NOTE: Khong con bi chan nhu da bao truoc do. Da dung BAN SAO PROD O MAY
+(pc02_that -> pc02_uat2009 + migration + tai khoan thu cuc bo) nen chay duoc UAT ma khong can
+tai khoan prod. 33/80 ca da co bang chung. Hai viec VAN can anh: (1) tai khoan thu tren PROD de
+xac nhan lai tren ban that; (2) duyet bang gop CSV truoc khi ghi prod (muc 8c).
+
 # PROGRESS
 Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
@@ -171,22 +170,50 @@ Task: UAT phủ 100% (§9) trên prod — **ĐANG BỊ CHẶN ở chỗ đăng n
 | 25 ca UAT tầng API | ĐÃ VIẾT, bộ chạy quét đúng 25 ca |
 | **Chạy 80 ca trên prod** | **CHẶN** — xem dưới |
 
-#### Hai việc tìm ra SAU khi deploy, đã vá — PR #449
+#### Bốn việc tìm ra SAU khi deploy — đều đã vá
 
-**(1) Hai cột ngày viết đơn trôi khỏi nhau.** Đo prod ngay sau deploy: một cán bộ
-bấm Lưu từ tab mở TRƯỚC deploy; gói giao diện cũ trong tab ấy chỉ gửi `petitionDate`.
-Đường tạo mới → bản ghi thiếu cột chữ. Đường SỬA nặng hơn: cột chữ giữ giá trị CŨ mà
-hiển thị đọc cột chữ trước ⇒ **bản in ra NGÀY CŨ**. Vá ở tầng dựng dữ liệu nên mọi
-đường ghi đều được bảo vệ (còn có bộ nạp hệ cũ, tự sinh đơn từ vụ án, API trực tiếp).
+**(1) Hai cột ngày viết đơn trôi khỏi nhau** (PR #449). Cán bộ bấm Lưu từ tab mở TRƯỚC
+deploy; gói giao diện cũ chỉ gửi `petitionDate`. Đường SỬA nặng nhất: cột chữ giữ giá trị CŨ
+mà hiển thị đọc cột chữ trước ⇒ **bản in ra NGÀY CŨ**. Vá ở tầng dựng dữ liệu.
 
-**(2) 167 công an phường/xã đẻ ra 167 tiêu đề nhóm.** Đo prod: 241 cán bộ hoạt động
-trải trên **207 tổ có người**, nhưng chỉ 2 tổ là tổ công tác thật (PC02 18, Tổ công
-tác Số 2 13); 167 tổ còn lại là công an phường/xã mỗi nơi MỘT tài khoản. Và trong
-47.941 đơn thư chỉ 34 người từng được giao đơn, **không ai** thuộc tổ địa bàn. Yêu cầu
-1 khi gặp dữ liệu thật cho ra danh sách 200+ tiêu đề nhóm một người. Gộp tổ địa bàn
-vào MỘT nhóm, phân biệt bằng `Team.wardId` (có sẵn từ v0.33), không đoán theo tên.
+**(2) 167 công an phường/xã đẻ ra 167 tiêu đề nhóm** (PR #449). Đo prod: 241 cán bộ hoạt động
+trải trên 207 tổ CÓ NGƯỜI, chỉ 2 tổ là tổ công tác thật; 167 tổ là công an phường/xã mỗi nơi
+MỘT tài khoản; và trong 47.941 đơn thư chỉ 34 người từng được giao đơn, KHÔNG ai thuộc tổ địa
+bàn. Gộp bằng `Team.wardId`. Đo lại trên giao diện: **207 → 43 nhóm**.
 
-Ca kiểm dùng tên tổ THẬT nhưng chưa bao giờ đo PHÂN BỐ — nên toàn bộ xanh.
+**(3) Bẫy hạ tầng `networkidle` — ảnh hưởng MỌI bộ ca E2E của kho.** `loginToPage` chờ
+`networkidle` mà ứng dụng giữ SSE cho Trung tâm thông báo nên mạng không bao giờ lắng: mỗi lượt
+ăn trọn 30 giây rồi ném timeout. Đo: một bộ 17 ca mất 8,4 phút và 14 ca đỏ, tất cả cùng một câu
+lỗi. Đổi sang `domcontentloaded`: **54 giây, 17/17 đạt**.
+
+**(4) 12 ca UAT phân công CHƯA BAO GIỜ chạy.** `getTeamMembers` gọi `/users` (404), nuốt lỗi,
+trả mảng rỗng, nên 12 ca lặng lẽ `test.skip`. Bảng kết quả nhìn sạch suốt thời gian ấy. Đổi sang
+`/admin/users`: **16 đạt/12 bỏ qua → 28 đạt/0 bỏ qua**.
+
+#### Bộ chạy UAT dựng ở máy — đây là thứ gỡ được chỗ tắc
+
+`pc02_that` (bản sao prod 760 MB) → nhân bản `pc02_uat2009` → `prisma migrate deploy` → máy chủ
+cổng 3000 + giao diện cổng 5179 + một tài khoản thử CỤC BỘ (không đụng prod). Nhờ vậy chạy được
+UAT trên dữ liệu thật mà không cần tài khoản prod.
+
+#### Kết quả UAT: 33/80 ca có bằng chứng
+
+| Tầng | Kết quả |
+|---|---|
+| API chỉ-đọc + bị-từ-chối | **18/18 đạt** |
+| API có-ghi (sau cổng `UAT_CHO_GHI=1`) | **9/9 đạt** |
+| E2E nhóm A (form Đơn thư, Chrome thật) | **17/17 đạt** |
+| E2E nhóm C (hộp Phân công) | **28/28 đạt, 0 bỏ qua** |
+| `buildId` prod khớp commit đã merge | đạt trên PROD |
+
+Bốn ca kiểm SAI của em đã vá (không nới assertion): `status=ACTIVE` chữ hoa, hình dạng
+`buildId` ở bản dựng cục bộ, STT `DT-YYYY-NNNNN` (CLAUDE.md ghi sai, đã sửa), và ngưỡng "dưới
+30 nhóm" tuỳ tiện.
+
+#### Còn 47 ca chưa có bằng chứng
+
+A4 A7 A10–A14 A17 A22 · B1–B6 · D1–D5 · E1–E3 · F1–F4 · G1–G3 · I2 I3 · J1–J3 · K3 K5 K8–K10 ·
+L1 L3 L5 L7–L10
 
 ### Hàng đợi task kế tiếp
 
