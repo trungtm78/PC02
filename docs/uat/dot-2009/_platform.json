@@ -1,0 +1,21 @@
+{
+  "platforms": ["WEB", "API"],
+  "evidence": {
+    "WEB": "frontend/vite.config.ts (React 19 + Vite + vite-plugin-pwa)",
+    "API": "backend/src/main.ts (NestJS), backend/prisma/schema.prisma"
+  },
+  "packages": [
+    { "name": "frontend", "platforms": ["WEB"] },
+    { "name": "backend", "platforms": ["API"] }
+  ],
+  "mobile": "N/A — đợt này chỉ đổi form web + API; mobile/ không có tệp nào trong diff 82 tệp",
+  "apiBaseUrl": {
+    "local": "http://localhost:5173/api/v1 (vite proxy → :3000)",
+    "prod": "http://171.244.40.245/api/v1"
+  },
+  "host": { "os": "Windows 11", "iosPossible": false },
+  "blockers": [
+    "Tài khoản thử: 5 TK cũ ĐÃ KHOÁ 20/09 (mật khẩu lộ repo PUBLIC) — chờ anh cấp TK mới. E2E prod phải dùng TK của anh.",
+    "Ghi dữ liệu prod: CLI nap-nguon-don CHỈ chạy --csv (chỉ đọc). Ca G1–G3 và D2/A9 kiểm trên danh mục RỖNG + mục tạo nhanh, không dựa vào lượt nạp."
+  ]
+}
