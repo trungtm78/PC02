@@ -124,3 +124,65 @@ describe('LegacyLayoutSection — nhóm ô gập', () => {
     expect(screen.queryByTestId('nhom-dinh-danh')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Lỗi lượt rà mã độc lập bắt được: bấm tay đóng nhóm rồi thì `moSan` CHẾT vĩnh viễn — luật
+ * tự-bung không giành lại được nữa, kể cả khi ô bên trong bắt đầu chặn Lưu.
+ *
+ * Hậu quả đúng bằng PR #248: cán bộ bấm Lưu, nhận thông báo cho một ô không có trên màn hình,
+ * và `focusFirstError` cũng im lặng vì `querySelector` trả `null`.
+ */
+describe('NhomOGap — bấm tay KHÔNG được thắng lưới an toàn', () => {
+  it('[P1] đóng tay rồi nhóm bắt đầu có LỖI → vẫn phải bung ra', () => {
+    function Khung() {
+      const [loi, setLoi] = useState<Record<string, string>>({});
+      const [fd, setFd] = useState<Form>({});
+      return (
+        <>
+          <button type="button" data-testid="gay-loi" onClick={() => setLoi({ noiCap: 'Bắt buộc' })}>
+            gây lỗi
+          </button>
+          <LegacyLayoutSection
+            spec={SPEC}
+            items={O}
+            formData={fd}
+            setFormData={setFd}
+            errorFor={(f) => loi[f]}
+            nhom={NHOM}
+          />
+        </>
+      );
+    }
+    render(<Khung />, { wrapper: boc });
+
+    // Mở ra xem rồi đóng lại — thao tác hoàn toàn bình thường.
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nut'));
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nut'));
+    expect(screen.queryByTestId('field-noiCap')).not.toBeInTheDocument();
+
+    // Giờ ô trong nhóm bắt đầu chặn Lưu.
+    fireEvent.click(screen.getByTestId('gay-loi'));
+    expect(screen.getByTestId('field-noiCap')).toBeInTheDocument();
+  });
+
+  it('[P1] nhóm đang có lỗi thì KHÔNG đóng lại được — đóng là giấu thứ đang chặn Lưu', () => {
+    render(<Khung loi={{ noiCap: 'Bắt buộc' }} />, { wrapper: boc });
+    expect(screen.getByTestId('field-noiCap')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nut'));
+    expect(screen.getByTestId('field-noiCap')).toBeInTheDocument();
+  });
+
+  it('[P3] nhóm KHÔNG có ô bắt buộc thì tiêu đề không có dấu *', () => {
+    render(
+      <LegacyLayoutSection
+        spec={SPEC}
+        items={O}
+        formData={{}}
+        setFormData={vi.fn()}
+        nhom={[{ khoa: 'khong-bb', nhan: 'Không bắt buộc', o: ['ten', 'cccd'] }]}
+      />,
+      { wrapper: boc },
+    );
+    expect(screen.getByTestId('nhom-khong-bb-nut').textContent).not.toContain('*');
+  });
+});

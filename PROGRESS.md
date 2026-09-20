@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T12:40:00+07:00 | Milestone: 7/9 (đợt Đơn thư nhập liệu nhanh) | Task: T5 + T6 XONG; T7 kế tiếp
+Cập nhật: 2026-09-20T14:10:00+07:00 | Milestone: 8/9 (đợt Đơn thư nhập liệu nhanh) | Task: T7 XONG (rà mã T5/T6: 1 P1 + 8 lỗi đã vá); T8 kế tiếp
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -104,14 +104,37 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
     đúng lỗi PR #248. Thêm `oDangLoi` dẫn tín hiệu lỗi xuống nhóm (form Đơn thư hiện lỗi bằng
     điều hướng ô, không in chữ lỗi dưới ô bố cục hệ cũ).
 
+- [x] **T7 — Ngày viết đơn nhập thiếu thành phần (yêu cầu 3)**
+  - `shared/ngay-thieu/edtf.ts`: EDTF Level 1 (`2026-12-XX`), 25 ca. Hàm thuần, kiểm khứ hồi.
+  - `PartialDateInput`: BA Ô phân đoạn trong `fieldset`, mỗi ô có tên đọc được, tự nhảy ô,
+    Backspace lùi ô, mũi tên đi lại, dán "15/12/2026" tách ra ba ô, chỉ nhận chữ số, validate
+    ngày RÁP LẠI (31/02 đỏ). Font mono + `tabular-nums` nên ba ô không giật khi gõ.
+    - **Ca kiểm bắt lỗi thiết kế thật:** ba ô phải giữ trạng thái RIÊNG — EDTF không biểu diễn
+      được "ngày 15, chưa có năm", nên đọc thẳng từ `value` là gõ ngày→tháng→năm thì ngày và
+      tháng BIẾN MẤT.
+  - Cột `ngayVietDonEdtf` + migration (bù dữ liệu: đơn đã có ngày đầy đủ được điền sẵn).
+  - **TRỌN đường ống khoá form** (types → payload → DTO → service → schema) — cổng
+    `moi-khoa-form-gui-len-deu-duoc-nhan` xanh. Thiếu một mắt là 400 cho MỌI lượt tạo đơn.
+  - `ngayVietDonHienThi` + `khoaSapXepNgayVietDon` dùng chung (11 ca) + **cổng #3**
+    `moiNoiInNgayVietDon`: catalog chứng từ không được đọc thẳng `r.petitionDate`. Gieo lỗi đỏ.
+  - **Không bao giờ bịa ngày 01** — có ca kiểm khẳng định `petitionDate` là `null` khi nhập thiếu.
+
+- [x] **Vá rà mã T5/T6 (1 P1 + 8 lỗi)**
+  | # | Lỗi | Cách vá |
+  |---|---|---|
+  | P1 | bấm tay đóng nhóm rồi thì `moSan` CHẾT vĩnh viễn → nhóm không bung lại kể cả khi ô bên trong chặn Lưu; `focusFirstError` cũng im lặng vì `querySelector` trả null → đúng PR #248 | `coLoi` ÁP ĐẢO (nhóm đang chặn Lưu không đóng được) + `moSan` false→true thì xoá lựa chọn tay |
+  | P2 | cổng #1 không thể đỏ vì `moKhi` đã mở nhóm sẵn — gỡ sạch đường `coLoi` vẫn xanh | viết lại: ĐÓNG NHÓM BẰNG TAY rồi mới bấm Lưu; gieo lỗi chứng minh cổng đỏ |
+  | P2 | báo lỗi TRƯỚC khi cán bộ làm gì sai — chọn "Trực tiếp" là viền đỏ ngay | `daBamLuu` gate; phần còn lại của form cũng không báo trước khi bấm Lưu |
+  | P2 | nhóm không truyền được trạng thái lỗi và "bắt buộc" cho trình đọc màn hình; màu là tín hiệu DUY NHẤT (WCAG 1.4.1) | `aria-controls` + `role=region` + nhãn `sr-only` cho chấm đỏ và dấu `*` |
+  | P3 | cổng liền-nhau không chặn ô LẶP trong cùng tab → tầng dựng sinh hai thẻ cùng khoá React | thêm mệnh đề đếm số lần xuất hiện |
+
 ### Đang làm dở
-Task: T7 — `PartialDateInput` + cột EDTF `ngayVietDonEdtf`
-BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho `PartialDateInput` (BA Ô PHÂN ĐOẠN trong `fieldset`, KHÔNG
-phải một ô mặt nạ — xem TK3 trong plan), rồi cột `ngayVietDonEdtf` + migration + TRỌN đường ống
-khoá form (`types.ts` → `buildPetitionPayload.ts` → `create-petition.dto.ts` → `petitions.service.ts`
-→ `schema.prisma`). Thiếu một mắt là 400 cho MỌI lượt tạo đơn (cổng
-`moi-khoa-form-gui-len-deu-duoc-nhan`). Cộng `ngayVietDonHienThi` dùng chung cho form, danh
-sách, xuất Excel, in chứng từ; và sắp xếp danh sách theo khoá gộp `COALESCE`.
+Task: T8 — áp ô chọn cán bộ có nhóm cho Vụ án/Vụ việc + các hộp phân công
+BƯỚC TIẾP THEO: tìm các ô chọn cán bộ ở `pages/cases/`, `pages/incidents/` và các hộp phân
+công, đổi sang `FKSelect groups={gomCanBoTheoTo(...)}` như đã làm ở màn Đơn thư. Sau đó T9:
+`DESIGN.md` §12.
+CÒN NỢ của T7: sắp xếp/lọc danh sách Đơn thư theo `khoaSapXepNgayVietDon` (đơn nhập thiếu đang
+rơi vào rổ NULL khi sắp theo `petitionDate`) — làm cùng T8.
 
 ### Hàng đợi task kế tiếp
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
@@ -142,7 +165,7 @@ sách, xuất Excel, in chứng từ; và sắp xếp danh sách theo khoá gộ
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5839/5839 (416 suite)** · **frontend 3566/3566 (943 suite)** · tsc sạch
+Full suite: **backend 5852/5852 (418 suite)** · **frontend 3614/3614 (954 suite)** · tsc sạch
 · 0 lỗi lint mới
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 /**
@@ -58,8 +58,25 @@ export function NhomOGap({
   children,
 }: Props) {
   const [nguoiDungMo, setNguoiDungMo] = useState<boolean | null>(null);
-  // Bấm tay thắng trong phiên; luật tự-bung giành lại khi điều kiện đổi (vd đổi Nguồn đơn).
-  const mo = nguoiDungMo ?? moSan;
+
+  /**
+   * Luật tự-bung phải GIÀNH LẠI được quyền, bấm tay không thắng nó.
+   *
+   * Bản đầu để `nguoiDungMo ?? moSan`: một khi cán bộ bấm tay thì `moSan` chết vĩnh viễn. Mở
+   * nhóm ra xem rồi đóng lại — thao tác hoàn toàn bình thường — là từ đó nhóm không bao giờ
+   * tự bung nữa, kể cả khi ô bên trong bắt đầu chặn Lưu. Cán bộ bấm Lưu, nhận thông báo cho
+   * một ô không có trên màn hình, và `focusFirstError` cũng im lặng vì `querySelector` trả
+   * `null`. Đúng bằng lỗi PR #248.
+   *
+   * Hai lớp:
+   *  1. `coLoi` ÁP ĐẢO mọi thứ — nhóm đang chặn Lưu thì không được phép đóng.
+   *  2. `moSan` đổi false→true (vd đổi Nguồn đơn sang Trực tiếp) thì xoá lựa chọn tay.
+   */
+  useEffect(() => {
+    if (moSan) setNguoiDungMo(null);
+  }, [moSan]);
+
+  const mo = coLoi || (nguoiDungMo ?? moSan);
 
   return (
     <div
@@ -70,8 +87,9 @@ export function NhomOGap({
     >
       <button
         type="button"
-        onClick={() => setNguoiDungMo(!mo)}
+        onClick={() => setNguoiDungMo(coLoi ? true : !mo)}
         aria-expanded={mo}
+        aria-controls={`nhom-${khoa}-than`}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors rounded-lg"
         data-testid={`nhom-${khoa}-nut`}
       >
@@ -81,9 +99,26 @@ export function NhomOGap({
           ) : (
             <ChevronRight className="w-4 h-4 text-slate-400" />
           )}
-          {coLoi && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
+          {/*
+            Màu KHÔNG được là tín hiệu duy nhất (WCAG 1.4.1): chấm đỏ và viền đỏ đi kèm một
+            nhãn đọc được, nếu không thì người dùng trình đọc màn hình chỉ nghe thấy tên nhóm
+            và con số — không có cách nào biết nhóm này đang chặn Lưu.
+          */}
+          {coLoi && (
+            <>
+              <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />
+              <span className="sr-only">Có ô chưa hợp lệ. </span>
+            </>
+          )}
           {nhan}
-          {coOBatBuoc && <span className="text-red-500">*</span>}
+          {coOBatBuoc && (
+            <>
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
+              <span className="sr-only"> (có ô bắt buộc)</span>
+            </>
+          )}
         </span>
         {/*
           Bộ đếm là phần quan trọng nhất của tiêu đề: thu gọn mà giấu mất dữ liệu ĐÃ CÓ là
@@ -94,7 +129,12 @@ export function NhomOGap({
         </span>
       </button>
       {mo && (
-        <div className="border-t border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          id={`nhom-${khoa}-than`}
+          role="region"
+          aria-label={nhan}
+          className="border-t border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
           {children}
         </div>
       )}

@@ -12,8 +12,10 @@ export function kiemNhomLienNhau<TForm>(
 ): string[] {
   const loi: string[] = [];
   const viTri = new Map<string, number>();
+  const soLan = new Map<string, number>();
   items.forEach((it, i) => {
     if (!viTri.has(it.field)) viTri.set(it.field, i);
+    soLan.set(it.field, (soLan.get(it.field) ?? 0) + 1);
   });
 
   const daThuocNhom = new Map<string, string>();
@@ -25,6 +27,11 @@ export function kiemNhomLienNhau<TForm>(
         // Gõ nhầm tên ô thì nhóm rỗng lặng lẽ — ô vẫn hiện ngoài nhóm, không ai biết sai.
         loi.push(`Nhóm "${n.khoa}": ô "${o}" không có trong bố cục`);
         continue;
+      }
+      // Bố cục hệ cũ cố ý hiện lại một ô ở nhiều chỗ. Gom một ô LẶP vào nhóm thì tầng dựng
+      // sinh hai thẻ nhóm cùng khoá React, còn cổng này chỉ soi lần xuất hiện ĐẦU — sai lặng.
+      if ((soLan.get(o) ?? 0) > 1) {
+        loi.push(`Nhóm "${n.khoa}": ô "${o}" xuất hiện ${soLan.get(o)} lần trong tab`);
       }
       const chu = daThuocNhom.get(o);
       if (chu) loi.push(`Ô "${o}" thuộc cả nhóm "${chu}" lẫn nhóm "${n.khoa}"`);

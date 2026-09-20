@@ -142,6 +142,14 @@ function dienSdtNguyenDon(so: string) {
   fireEvent.change(screen.getByTestId('field-senderPhone'), { target: { value: so } });
 }
 
+
+/** Điền "Ngày viết đơn" qua ba ô phân đoạn. */
+function dienNgayVietDon(ngay: string, thang: string, nam: string) {
+  fireEvent.change(screen.getByTestId('field-petitionDate-ngay'), { target: { value: ngay } });
+  fireEvent.change(screen.getByTestId('field-petitionDate-thang'), { target: { value: thang } });
+  fireEvent.change(screen.getByTestId('field-petitionDate-nam'), { target: { value: nam } });
+}
+
 describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
   beforeEach(() => {
     sessionStorage.clear();
@@ -201,7 +209,9 @@ describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {
 
     // 5 field parity mới — input PHẢI tồn tại trên form (getByTestId throw nếu thiếu)
     fireEvent.change(screen.getByTestId('field-nguonDon'), { target: { value: 'Công an phường 1' } });
-    fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '2026-06-18' } });
+    // "Ngày viết đơn" nay là BA Ô phân đoạn (cho nhập thiếu thành phần), không còn là một ô
+    // `<input type="date">`. Điền từng ô như cán bộ thật.
+    dienNgayVietDon('18', '06', '2026');
     fireEvent.change(screen.getByTestId('field-ngayDeXuat'), { target: { value: '2026-06-20' } });
     fireEvent.change(screen.getByTestId('field-phanLoaiNguonTin'), { target: { value: 'don-cong-van-ban-dau' } });
     // "Điều tra viên thụ lý" nay nằm trong nhóm "Thông tin khác" thu gọn sẵn (rất ít khi

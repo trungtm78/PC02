@@ -207,9 +207,25 @@ export class CreatePetitionDto {
   @IsBoolean()
   baoCaoBanGiamDoc?: boolean;
 
+  /** Ngày ghi trên đơn — chỉ có giá trị khi cán bộ nhập ĐỦ ba phần (xem `ngayVietDonEdtf`). */
   @IsOptional()
   @IsNgayThat()
   petitionDate?: string;
+
+  /**
+   * Ngày viết đơn theo EDTF Level 1 (ISO 8601-2) khi giấy tờ ghi THIẾU thành phần:
+   * `2026-12-15` · `2026-12-XX` · `2026-XX-XX`.
+   *
+   * Nhập đủ thì đi kèm `petitionDate`; nhập thiếu thì `petitionDate` để TRỐNG — không bao giờ
+   * bịa ngày 01. Chuỗi EDTF sắp xếp đúng thứ tự thời gian bằng so chuỗi, và lọc tháng chạy
+   * bằng tiền tố.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-(\d{2}|XX)-(\d{2}|XX)$/, {
+    message: 'Ngày viết đơn không đúng dạng EDTF (vd 2026-12-XX)',
+  })
+  ngayVietDonEdtf?: string;
 
   @IsOptional()
   @Transform(({ value }) => stripHtmlTags(value))

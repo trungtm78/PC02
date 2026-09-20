@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 
 import {
   khoaTheoTenHeCu,
@@ -132,7 +133,11 @@ export function rutGonTenTo(ten: string): string {
  * Phiếu chuyển nguồn tin có thêm VKSND và PC01. Một biến dùng chung cho cả ba sẽ in thừa hoặc
  * thiếu dòng ở hai trong ba nhóm.
  */
-function khoiNoiNhan(r: any, ctx: ResolveContext | undefined, giua: string[]): string {
+function khoiNoiNhan(
+  r: any,
+  ctx: ResolveContext | undefined,
+  giua: string[],
+): string {
   const to = resolveField('DON_THU', 'toNhanDon', r, ctx);
   const viet = resolveField('DON_THU', 'vietTatCanBo', r, ctx);
   return [
@@ -259,7 +264,6 @@ const SO_VAN_BAN: FieldDef = {
   resolve: (r) => soHoSoNhuHeCu(r),
 };
 
-
 /**
  * Tội danh của hồ sơ — quan hệ `crimeChinh` TRƯỚC, cột chữ tự do sau.
  *
@@ -320,7 +324,9 @@ function nhanDanhMuc(khoa: string, ma: unknown): string {
   const m = s(ma);
   if (!m) return '';
   try {
-    const e = getCatalogEntry(khoa) as { values?: Array<{ code: string; label: string }> };
+    const e = getCatalogEntry(khoa) as {
+      values?: Array<{ code: string; label: string }>;
+    };
     return e.values?.find((v) => v.code === m)?.label ?? m;
   } catch {
     return m;
@@ -329,52 +335,232 @@ function nhanDanhMuc(khoa: string, ma: unknown): string {
 
 /** Danh sách căn cứ (cột chọn-nhiều) gộp thành một dòng, đã đổi mã sang nhãn. */
 function gopDanhSach(v: unknown, khoaDanhMuc?: string): string {
-  const doi = (x: unknown) => (khoaDanhMuc ? nhanDanhMuc(khoaDanhMuc, x) : s(x));
+  const doi = (x: unknown) =>
+    khoaDanhMuc ? nhanDanhMuc(khoaDanhMuc, x) : s(x);
   if (Array.isArray(v)) return v.map(doi).filter(Boolean).join('; ');
   return doi(v);
 }
 
 // ── VU_AN (Case) — mirror caseMap cũ ─────────────────────────────────────────
 const VU_AN_FIELDS: FieldDef[] = [
-  { key: 'soVuAn', label: 'Số vụ án', group: 'Hồ sơ', resolve: (r) => s(r.caseCode) },
-  { key: 'tenVuAn', label: 'Tên vụ án', group: 'Hồ sơ', resolve: (r) => s(r.name) },
-  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => toiDanhCuaHoSo(r) },
-  { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
-  { key: 'hoTenBiCan', label: 'Họ tên bị can', group: 'Bị can', resolve: (r) => hoTenBiCan(r) },
-  { key: 'namSinh', label: 'Năm sinh bị can', group: 'Bị can', resolve: (r) => namSinhBiCan(r) },
-  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuAn ?? r.lyDoTamDinhChiText, 'LY_DO_TAM_DINH_CHI_VU_AN') },
-  { key: 'noiXayRa', label: 'Nơi xảy ra', group: 'Hồ sơ', resolve: (r) => s(r.noiXayRa) },
-  { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
-  { key: 'trangThai', label: 'Trạng thái', group: 'Hồ sơ', resolve: (r) => s(r.status) },
-  { key: 'ngayKhoiTo', label: 'Ngày khởi tố', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayKhoiTo) },
-  { key: 'soQuyetDinhKhoiTo', label: 'Số QĐ khởi tố', group: 'Văn bản', resolve: (r) => s(r.soQuyetDinhKhoiTo) },
-  { key: 'soKLDT', label: 'Số kết luận điều tra', group: 'Văn bản', resolve: (r) => s(r.soKLDT) },
-  { key: 'ngayKLDT', label: 'Ngày KLĐT', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayKLDT) },
-  { key: 'soQDDinhChiVuAn', label: 'Số QĐ đình chỉ vụ án', group: 'Văn bản', resolve: (r) => s(r.soQDDinhChiVuAn) },
-  { key: 'ngayDinhChiVuAn', label: 'Ngày đình chỉ vụ án', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayDinhChiVuAn) },
-  { key: 'dieuTraVien', label: 'Điều tra viên', group: 'Cán bộ', resolve: (r) => personName(r.investigator) },
-  { key: 'donVi', label: 'Đơn vị', group: 'Cán bộ', resolve: (r) => s(r.unitRef?.name ?? r.unit ?? '') },
+  {
+    key: 'soVuAn',
+    label: 'Số vụ án',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.caseCode),
+  },
+  {
+    key: 'tenVuAn',
+    label: 'Tên vụ án',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.name),
+  },
+  {
+    key: 'toiDanh',
+    label: 'Tội danh',
+    group: 'Hồ sơ',
+    resolve: (r) => toiDanhCuaHoSo(r),
+  },
+  {
+    key: 'dieuLuat',
+    label: 'Điều luật',
+    group: 'Hồ sơ',
+    resolve: (r) => dieuLuatCuaHoSo(r),
+  },
+  {
+    key: 'hoTenBiCan',
+    label: 'Họ tên bị can',
+    group: 'Bị can',
+    resolve: (r) => hoTenBiCan(r),
+  },
+  {
+    key: 'namSinh',
+    label: 'Năm sinh bị can',
+    group: 'Bị can',
+    resolve: (r) => namSinhBiCan(r),
+  },
+  {
+    key: 'lyDo',
+    label: 'Lý do/căn cứ',
+    group: 'Nghiệp vụ',
+    resolve: (r) =>
+      gopDanhSach(
+        r.lyDoTamDinhChiVuAn ?? r.lyDoTamDinhChiText,
+        'LY_DO_TAM_DINH_CHI_VU_AN',
+      ),
+  },
+  {
+    key: 'noiXayRa',
+    label: 'Nơi xảy ra',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.noiXayRa),
+  },
+  {
+    key: 'nguoiNhan',
+    label: 'Cán bộ nhập',
+    group: 'Cán bộ',
+    resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy),
+  },
+  {
+    key: 'trangThai',
+    label: 'Trạng thái',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.status),
+  },
+  {
+    key: 'ngayKhoiTo',
+    label: 'Ngày khởi tố',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.ngayKhoiTo),
+  },
+  {
+    key: 'soQuyetDinhKhoiTo',
+    label: 'Số QĐ khởi tố',
+    group: 'Văn bản',
+    resolve: (r) => s(r.soQuyetDinhKhoiTo),
+  },
+  {
+    key: 'soKLDT',
+    label: 'Số kết luận điều tra',
+    group: 'Văn bản',
+    resolve: (r) => s(r.soKLDT),
+  },
+  {
+    key: 'ngayKLDT',
+    label: 'Ngày KLĐT',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.ngayKLDT),
+  },
+  {
+    key: 'soQDDinhChiVuAn',
+    label: 'Số QĐ đình chỉ vụ án',
+    group: 'Văn bản',
+    resolve: (r) => s(r.soQDDinhChiVuAn),
+  },
+  {
+    key: 'ngayDinhChiVuAn',
+    label: 'Ngày đình chỉ vụ án',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.ngayDinhChiVuAn),
+  },
+  {
+    key: 'dieuTraVien',
+    label: 'Điều tra viên',
+    group: 'Cán bộ',
+    resolve: (r) => personName(r.investigator),
+  },
+  {
+    key: 'donVi',
+    label: 'Đơn vị',
+    group: 'Cán bộ',
+    resolve: (r) => s(r.unitRef?.name ?? r.unit ?? ''),
+  },
   SO_VAN_BAN,
 ];
 
 // ── VU_VIEC (Incident) — mirror incidentMap cũ ───────────────────────────────
 const VU_VIEC_FIELDS: FieldDef[] = [
-  { key: 'soVuViec', label: 'Số vụ việc', group: 'Hồ sơ', resolve: (r) => s(r.code) },
-  { key: 'tenVuViec', label: 'Tên vụ việc', group: 'Hồ sơ', resolve: (r) => s(r.name) },
-  { key: 'nguonTin', label: 'Nguồn tin', group: 'Hồ sơ', resolve: (r) => NGUON_PHAT_TIN_LABEL[s(r.nguonPhatTin)] ?? s(r.nguonPhatTin) },
-  { key: 'noiDung', label: 'Nội dung', group: 'Nội dung', resolve: (r) => s(r.description) },
-  { key: 'trangThai', label: 'Trạng thái', group: 'Hồ sơ', resolve: (r) => s(r.status) },
-  { key: 'ngayTiepNhan', label: 'Ngày tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayDeXuat) },
-  { key: 'donViGiaiQuyet', label: 'Đơn vị giải quyết', group: 'Cán bộ', resolve: (r) => s(r.donViGiaiQuyet) },
-  { key: 'nguoiQuyetDinh', label: 'Người quyết định', group: 'Cán bộ', resolve: (r) => s(r.nguoiQuyetDinh) },
-  { key: 'toiDanh', label: 'Tội danh', group: 'Hồ sơ', resolve: (r) => toiDanhCuaHoSo(r) },
-  { key: 'dieuLuat', label: 'Điều luật', group: 'Hồ sơ', resolve: (r) => dieuLuatCuaHoSo(r) },
-  { key: 'lyDo', label: 'Lý do/căn cứ', group: 'Nghiệp vụ', resolve: (r) => gopDanhSach(r.lyDoTamDinhChiVuViec ?? r.lyDoTamDinhChiText, 'LY_DO_TAM_DINH_CHI_VU_VIEC') },
-  { key: 'ketQua', label: 'Kết quả giải quyết', group: 'Nghiệp vụ', resolve: (r) => s(r.ketQuaXuLy) },
-  { key: 'nguoiNhan', label: 'Cán bộ nhập', group: 'Cán bộ', resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy) },
-  { key: 'soQuyetDinh', label: 'Số quyết định', group: 'Văn bản', resolve: (r) => s(r.soQuyetDinh) },
-  { key: 'ngayQuyetDinh', label: 'Ngày quyết định', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.ngayQuyetDinh) },
-  { key: 'dieuTraVien', label: 'Điều tra viên', group: 'Cán bộ', resolve: (r) => personName(r.investigator) },
+  {
+    key: 'soVuViec',
+    label: 'Số vụ việc',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.code),
+  },
+  {
+    key: 'tenVuViec',
+    label: 'Tên vụ việc',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.name),
+  },
+  {
+    key: 'nguonTin',
+    label: 'Nguồn tin',
+    group: 'Hồ sơ',
+    resolve: (r) =>
+      NGUON_PHAT_TIN_LABEL[s(r.nguonPhatTin)] ?? s(r.nguonPhatTin),
+  },
+  {
+    key: 'noiDung',
+    label: 'Nội dung',
+    group: 'Nội dung',
+    resolve: (r) => s(r.description),
+  },
+  {
+    key: 'trangThai',
+    label: 'Trạng thái',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.status),
+  },
+  {
+    key: 'ngayTiepNhan',
+    label: 'Ngày tiếp nhận',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.ngayDeXuat),
+  },
+  {
+    key: 'donViGiaiQuyet',
+    label: 'Đơn vị giải quyết',
+    group: 'Cán bộ',
+    resolve: (r) => s(r.donViGiaiQuyet),
+  },
+  {
+    key: 'nguoiQuyetDinh',
+    label: 'Người quyết định',
+    group: 'Cán bộ',
+    resolve: (r) => s(r.nguoiQuyetDinh),
+  },
+  {
+    key: 'toiDanh',
+    label: 'Tội danh',
+    group: 'Hồ sơ',
+    resolve: (r) => toiDanhCuaHoSo(r),
+  },
+  {
+    key: 'dieuLuat',
+    label: 'Điều luật',
+    group: 'Hồ sơ',
+    resolve: (r) => dieuLuatCuaHoSo(r),
+  },
+  {
+    key: 'lyDo',
+    label: 'Lý do/căn cứ',
+    group: 'Nghiệp vụ',
+    resolve: (r) =>
+      gopDanhSach(
+        r.lyDoTamDinhChiVuViec ?? r.lyDoTamDinhChiText,
+        'LY_DO_TAM_DINH_CHI_VU_VIEC',
+      ),
+  },
+  {
+    key: 'ketQua',
+    label: 'Kết quả giải quyết',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.ketQuaXuLy),
+  },
+  {
+    key: 'nguoiNhan',
+    label: 'Cán bộ nhập',
+    group: 'Cán bộ',
+    resolve: (r) => personName(r.canBoNhap ?? r.enteredBy ?? r.createdBy),
+  },
+  {
+    key: 'soQuyetDinh',
+    label: 'Số quyết định',
+    group: 'Văn bản',
+    resolve: (r) => s(r.soQuyetDinh),
+  },
+  {
+    key: 'ngayQuyetDinh',
+    label: 'Ngày quyết định',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.ngayQuyetDinh),
+  },
+  {
+    key: 'dieuTraVien',
+    label: 'Điều tra viên',
+    group: 'Cán bộ',
+    resolve: (r) => personName(r.investigator),
+  },
   SO_VAN_BAN,
 ];
 
@@ -390,7 +576,12 @@ const DON_THU_FIELDS: FieldDef[] = [
    * Bản trước đổ `assignedTeam.code` nên in ra MÃ NỘI BỘ (`DOI-4`, `TO-CT-02`, `PHUONG-THU-DUC`)
    * vào số hiệu văn bản gửi đi.
    */
-  { key: 'teamCode', label: 'Mã đơn vị phát hành', group: 'Đơn vị', resolve: () => 'Đ1' },
+  {
+    key: 'teamCode',
+    label: 'Mã đơn vị phát hành',
+    group: 'Đơn vị',
+    resolve: () => 'Đ1',
+  },
   /**
    * Tên đơn vị PHÁT HÀNH ở dòng "Ban chỉ huy …" và "… nhận được:".
    *
@@ -398,7 +589,12 @@ const DON_THU_FIELDS: FieldDef[] = [
    * Đội 1". Đó là Đội Tham mưu tổng hợp, nơi phát hành; cùng đơn vị với hậu tố `Đ1` của số
    * văn bản (xem `teamCode`).
    */
-  { key: 'tenDoi', label: 'Tên đơn vị phát hành', group: 'Đơn vị', resolve: () => DON_VI_PHAT_HANH },
+  {
+    key: 'tenDoi',
+    label: 'Tên đơn vị phát hành',
+    group: 'Đơn vị',
+    resolve: () => DON_VI_PHAT_HANH,
+  },
   /**
    * Cùng đơn vị với `tenDoi` nhưng VIẾT HOA, cho dòng chức danh trong khối ký.
    *
@@ -414,15 +610,30 @@ const DON_THU_FIELDS: FieldDef[] = [
     group: 'Đơn vị',
     resolve: () => DON_VI_PHAT_HANH.toUpperCase(),
   },
-  { key: 'tenDoiPhongBan', label: 'Tên phòng ban', group: 'Đơn vị', resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP' },
-  { key: 'diaDiem', label: 'Địa điểm', group: 'Đơn vị', resolve: () => 'Thành phố Hồ Chí Minh' },
+  {
+    key: 'tenDoiPhongBan',
+    label: 'Tên phòng ban',
+    group: 'Đơn vị',
+    resolve: () => 'ĐỘI THAM MƯU TỔNG HỢP',
+  },
+  {
+    key: 'diaDiem',
+    label: 'Địa điểm',
+    group: 'Đơn vị',
+    resolve: () => 'Thành phố Hồ Chí Minh',
+  },
   /**
    * Năm của HỒ SƠ cho dòng ký "Ngày … tháng … năm …".
    *
    * Mẫu Phiếu đề xuất ghi CỨNG "năm 2026" nên hồ sơ 2016 in ra 2026. Hệ cũ đổ thẳng năm của hồ
    * sơ. Dùng lại đúng hàm của bộ mẫu hệ cũ, không dựng bản thứ hai.
    */
-  { key: 'namHoSo', label: 'Năm của hồ sơ', group: 'Mốc thời gian', resolve: (r) => namHoSoNhuHeCu(r) },
+  {
+    key: 'namHoSo',
+    label: 'Năm của hồ sơ',
+    group: 'Mốc thời gian',
+    resolve: (r) => namHoSoNhuHeCu(r),
+  },
   /**
    * Dòng "Thành phố Hồ Chí Minh, …" ở đầu văn bản — NGÀY CỦA HỒ SƠ, không phải ngày in.
    *
@@ -435,8 +646,20 @@ const DON_THU_FIELDS: FieldDef[] = [
     group: 'Mốc thời gian',
     resolve: (r) => ngayThangNamNhuHeCu(r),
   },
-  { key: 'ngayNhan', label: 'Ngày nhận', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.receivedDate) },
-  { key: 'ngayDon', label: 'Ngày đơn', group: 'Mốc thời gian', resolve: (r) => fmtDate(r.petitionDate ?? r.receivedDate) },
+  {
+    key: 'ngayNhan',
+    label: 'Ngày nhận',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtDate(r.receivedDate),
+  },
+  {
+    key: 'ngayDon',
+    label: 'Ngày đơn',
+    group: 'Mốc thời gian',
+    // Qua `ngayVietDonHienThi` để đơn nhập THIẾU vẫn in ra "__/12/2026" thay vì rỗng — và
+    // tuyệt đối không bịa ngày 01. Không có ngày nào thì lùi về ngày tiếp nhận như trước.
+    resolve: (r) => ngayVietDonHienThi(r) || fmtDate(r.receivedDate),
+  },
   /**
    * Loại đơn — đã phân loại thì dùng nhãn hệ mới, CHƯA thì lấy `loaiThongTin` như hệ cũ in.
    *
@@ -451,15 +674,51 @@ const DON_THU_FIELDS: FieldDef[] = [
     // Loại thông tin TRƯỚC: từ 14/09/2026 `petitionType` là nhóm hạn suy ra (Tố giác → Phản ánh),
     // in nhãn nhóm hạn là in sai loại đơn cán bộ đã chọn.
     resolve: (r) =>
-      s(r.loaiThongTin) || (r.petitionType ? (LOAI_DON_LABEL[s(r.petitionType)] ?? '') : ''),
+      s(r.loaiThongTin) ||
+      (r.petitionType ? (LOAI_DON_LABEL[s(r.petitionType)] ?? '') : ''),
   },
-  { key: 'ghiTen', label: 'Họ tên người gửi', group: 'Người gửi', resolve: (r) => s(r.senderName) },
-  { key: 'namSinh', label: 'Năm sinh', group: 'Người gửi', resolve: (r) => s(r.senderBirthYear) },
-  { key: 'diaChi', label: 'Địa chỉ', group: 'Người gửi', resolve: (r) => s(r.senderAddress) },
-  { key: 'nguonDon', label: 'Nguồn đơn', group: 'Hồ sơ', resolve: (r) => s(r.nguonDon ?? r.unit ?? '') },
-  { key: 'noiDung', label: 'Nội dung', group: 'Nội dung', resolve: (r) => s(r.detailContent || r.summary || '') },
-  { key: 'dinhKem', label: 'Đính kèm', group: 'Nội dung', resolve: (r) => s(r.attachmentsNote) },
-  { key: 'raSoatTrung', label: 'Rà soát trùng', group: 'Nghiệp vụ', resolve: (r) => s(r.raSoatTrung ?? 'Không') },
+  {
+    key: 'ghiTen',
+    label: 'Họ tên người gửi',
+    group: 'Người gửi',
+    resolve: (r) => s(r.senderName),
+  },
+  {
+    key: 'namSinh',
+    label: 'Năm sinh',
+    group: 'Người gửi',
+    resolve: (r) => s(r.senderBirthYear),
+  },
+  {
+    key: 'diaChi',
+    label: 'Địa chỉ',
+    group: 'Người gửi',
+    resolve: (r) => s(r.senderAddress),
+  },
+  {
+    key: 'nguonDon',
+    label: 'Nguồn đơn',
+    group: 'Hồ sơ',
+    resolve: (r) => s(r.nguonDon ?? r.unit ?? ''),
+  },
+  {
+    key: 'noiDung',
+    label: 'Nội dung',
+    group: 'Nội dung',
+    resolve: (r) => s(r.detailContent || r.summary || ''),
+  },
+  {
+    key: 'dinhKem',
+    label: 'Đính kèm',
+    group: 'Nội dung',
+    resolve: (r) => s(r.attachmentsNote),
+  },
+  {
+    key: 'raSoatTrung',
+    label: 'Rà soát trùng',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.raSoatTrung ?? 'Không'),
+  },
   /**
    * Thuộc trường hợp báo cáo Ban giám đốc — in CHỮ, không in "Có"/"Không".
    *
@@ -474,9 +733,15 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'baoCaoBGD',
     label: 'Báo cáo BGĐ',
     group: 'Nghiệp vụ',
-    resolve: (r) => s(r.baoCaoBanGiamDocText) || (r.baoCaoBanGiamDoc ? 'Có' : ''),
+    resolve: (r) =>
+      s(r.baoCaoBanGiamDocText) || (r.baoCaoBanGiamDoc ? 'Có' : ''),
   },
-  { key: 'nhanThay', label: 'Nhận thấy', group: 'Nghiệp vụ', resolve: (r) => s(r.nhanThay) },
+  {
+    key: 'nhanThay',
+    label: 'Nhận thấy',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.nhanThay),
+  },
   /**
    * Đề xuất — chữ cán bộ viết; CHƯA viết thì ghép câu như mẫu hệ cũ.
    *
@@ -512,7 +777,10 @@ const DON_THU_FIELDS: FieldDef[] = [
       // Ô đơn vị là câu đề xuất, không phải tên đơn vị → chữ cứng của CẢ BA biến thể mẫu hệ cũ.
       // Ghép vào thì ra "- Ban chỉ huy Lưu đơn; Hướng dẫn khởi kiện tại TAND."
       if (laCauDeXuat(donVi)) {
-        return ['- Ban chỉ huy PC02;', `- Ban chỉ huy ${DON_VI_PHAT_HANH}.`].join(DAU_XUONG_DONG);
+        return [
+          '- Ban chỉ huy PC02;',
+          `- Ban chỉ huy ${DON_VI_PHAT_HANH}.`,
+        ].join(DAU_XUONG_DONG);
       }
       // Chuyển đơn: gửi thẳng đơn vị ngoài, đúng như Phiếu chuyển đơn hệ cũ vẫn làm.
       if (huong === 'CHUYEN_DON') return donVi ? `- ${donVi}.` : '';
@@ -557,12 +825,33 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'noiNhanNguonTin',
     label: 'Nơi nhận (Chuyển nguồn tin)',
     group: 'Văn bản',
-    resolve: (r, ctx) => khoiNoiNhan(r, ctx, ['- VKSND TP HCM;', '- PC01 CATP HCM;']),
+    resolve: (r, ctx) =>
+      khoiNoiNhan(r, ctx, ['- VKSND TP HCM;', '- PC01 CATP HCM;']),
   },
-  { key: 'lyDoChuyen', label: 'Lý do chuyển', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoChuyen) },
-  { key: 'canCuPhapLy', label: 'Căn cứ pháp lý', group: 'Nghiệp vụ', resolve: (r) => s(r.canCuPhapLy) },
-  { key: 'huongDanKhoiKien', label: 'Hướng dẫn khởi kiện', group: 'Nghiệp vụ', resolve: (r) => s(r.huongDanKhoiKien) },
-  { key: 'lyDoTraDon', label: 'Lý do trả đơn', group: 'Nghiệp vụ', resolve: (r) => s(r.lyDoTraDon) },
+  {
+    key: 'lyDoChuyen',
+    label: 'Lý do chuyển',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.lyDoChuyen),
+  },
+  {
+    key: 'canCuPhapLy',
+    label: 'Căn cứ pháp lý',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.canCuPhapLy),
+  },
+  {
+    key: 'huongDanKhoiKien',
+    label: 'Hướng dẫn khởi kiện',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.huongDanKhoiKien),
+  },
+  {
+    key: 'lyDoTraDon',
+    label: 'Lý do trả đơn',
+    group: 'Nghiệp vụ',
+    resolve: (r) => s(r.lyDoTraDon),
+  },
   // Người KÝ = người đang đăng nhập (bấm In). Fallback người tạo đơn khi không
   // có ngữ cảnh (vd kiểm tra readiness) để không bị rỗng.
   {
@@ -572,7 +861,8 @@ const DON_THU_FIELDS: FieldDef[] = [
     // Ưu tiên cán bộ ĐƯỢC CHỌN trên form → người đang in → người tạo hồ sơ.
     // Fallback theo GIÁ TRỊ (không theo object): người dùng có thể tồn tại nhưng
     // trống họ tên → vẫn phải lùi tiếp, tránh in dòng ký rỗng.
-    resolve: (r, ctx) => rankName(r.canBoDeXuat) || rankName(ctx?.actor) || rankName(r.enteredBy),
+    resolve: (r, ctx) =>
+      rankName(r.canBoDeXuat) || rankName(ctx?.actor) || rankName(r.enteredBy),
   },
   {
     key: 'tenNguoiIn',
@@ -583,7 +873,13 @@ const DON_THU_FIELDS: FieldDef[] = [
     // ô "Cán bộ đề xuất". Mẫu nào cần thì gắn {tenNguoiIn} thay {tenCanBoDeXuat}.
     resolve: (r, ctx) => rankName(ctx?.actor) || rankName(r.enteredBy),
   },
-  { key: 'tenPhoDoiTruong', label: 'Phó đội trưởng', group: 'Cán bộ', resolve: (r) => rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user) },
+  {
+    key: 'tenPhoDoiTruong',
+    label: 'Phó đội trưởng',
+    group: 'Cán bộ',
+    resolve: (r) =>
+      rankName(r.assignedTeam?.members?.find((m: any) => m.isLeader)?.user),
+  },
   /**
    * Dòng ký dưới "KT. TRƯỞNG PHÒNG" ở 5 mẫu có khối "Nơi nhận".
    *
@@ -617,15 +913,41 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'ngayDonNgan',
     label: 'Ngày viết đơn (d/M/yyyy)',
     group: 'Mốc thời gian',
-    resolve: (r) => fmtDateShort(r.petitionDate),
+    // Đơn nhập thiếu thành phần in ra "__/12/2026". In rỗng là mất thông tin cán bộ ĐÃ nhập.
+    resolve: (r) => ngayVietDonHienThi(r),
   },
-  { key: 'gioTiepNhan', label: 'Giờ tiếp nhận', group: 'Mốc thời gian', resolve: (r) => fmtGioPhut(r.receivedDate) },
+  {
+    key: 'gioTiepNhan',
+    label: 'Giờ tiếp nhận',
+    group: 'Mốc thời gian',
+    resolve: (r) => fmtGioPhut(r.receivedDate),
+  },
   // Giấy tờ tuỳ thân người gửi (Giấy biên nhận — Mẫu 214)
-  { key: 'soCCCD', label: 'Số CCCD người gửi', group: 'Người gửi', resolve: (r) => s(r.senderIdNumber) },
-  { key: 'ngayCapCCCD', label: 'Ngày cấp CCCD', group: 'Người gửi', resolve: (r) => fmtDateShort(r.senderIdIssueDate) },
-  { key: 'noiCapCCCD', label: 'Nơi cấp CCCD', group: 'Người gửi', resolve: (r) => s(r.senderIdIssuePlace) },
+  {
+    key: 'soCCCD',
+    label: 'Số CCCD người gửi',
+    group: 'Người gửi',
+    resolve: (r) => s(r.senderIdNumber),
+  },
+  {
+    key: 'ngayCapCCCD',
+    label: 'Ngày cấp CCCD',
+    group: 'Người gửi',
+    resolve: (r) => fmtDateShort(r.senderIdIssueDate),
+  },
+  {
+    key: 'noiCapCCCD',
+    label: 'Nơi cấp CCCD',
+    group: 'Người gửi',
+    resolve: (r) => s(r.senderIdIssuePlace),
+  },
   // Đơn vị nhận chuyển đơn (Phiếu chuyển / Thông báo)
-  { key: 'donViNhan', label: 'Đơn vị nhận chuyển', group: 'Đơn vị', resolve: (r) => donViCuaHoSo(r) },
+  {
+    key: 'donViNhan',
+    label: 'Đơn vị nhận chuyển',
+    group: 'Đơn vị',
+    resolve: (r) => donViCuaHoSo(r),
+  },
   /**
    * Tổ ở dòng "Lưu: PC02-Đ1 (Tổ 5), V.Huy." — tổ NHẬN ĐƠN, tức tổ của người đang đăng nhập.
    *
@@ -656,11 +978,24 @@ const DON_THU_FIELDS: FieldDef[] = [
      *
      * Hệ quả đã biết và chấp nhận: cùng một hồ sơ do hai người in ra hai dòng "Lưu:" khác nhau.
      */
-    resolve: (r, ctx) => abbrevName(ctx?.actor) || abbrevName(r.canBoDeXuat) || abbrevName(r.enteredBy),
+    resolve: (r, ctx) =>
+      abbrevName(ctx?.actor) ||
+      abbrevName(r.canBoDeXuat) ||
+      abbrevName(r.enteredBy),
   },
   // Hằng theo mẫu PC01 — sau này có thể chuyển sang SystemSetting
-  { key: 'chucVuCanBo', label: 'Chức danh/chức vụ cán bộ', group: 'Cán bộ', resolve: () => 'Cán bộ' },
-  { key: 'coQuan', label: 'Cơ quan', group: 'Đơn vị', resolve: () => 'Cơ quan CSĐT Công an TP Hồ Chí Minh' },
+  {
+    key: 'chucVuCanBo',
+    label: 'Chức danh/chức vụ cán bộ',
+    group: 'Cán bộ',
+    resolve: () => 'Cán bộ',
+  },
+  {
+    key: 'coQuan',
+    label: 'Cơ quan',
+    group: 'Đơn vị',
+    resolve: () => 'Cơ quan CSĐT Công an TP Hồ Chí Minh',
+  },
   {
     key: 'noiTiepNhan',
     label: 'Nơi tiếp nhận đơn',
@@ -681,13 +1016,28 @@ const DON_THU_FIELDS: FieldDef[] = [
  * Khoá hệ mới đứng TRƯỚC nên tên trùng thì bản cũ thắng: giữ nguyên hành vi đang chạy.
  */
 export const FIELD_CATALOG: Record<EntityType, FieldDef[]> = {
-  VU_AN: [...VU_AN_FIELDS, ...khoaTheoTenHeCu('case'), ...KHOA_HE_CU_NGOAI_PARITY],
-  VU_VIEC: [...VU_VIEC_FIELDS, ...khoaTheoTenHeCu('incident'), ...KHOA_HE_CU_NGOAI_PARITY],
-  DON_THU: [...DON_THU_FIELDS, ...khoaTheoTenHeCu('petition'), ...KHOA_HE_CU_NGOAI_PARITY],
+  VU_AN: [
+    ...VU_AN_FIELDS,
+    ...khoaTheoTenHeCu('case'),
+    ...KHOA_HE_CU_NGOAI_PARITY,
+  ],
+  VU_VIEC: [
+    ...VU_VIEC_FIELDS,
+    ...khoaTheoTenHeCu('incident'),
+    ...KHOA_HE_CU_NGOAI_PARITY,
+  ],
+  DON_THU: [
+    ...DON_THU_FIELDS,
+    ...khoaTheoTenHeCu('petition'),
+    ...KHOA_HE_CU_NGOAI_PARITY,
+  ],
 };
 
 /** Tra FieldDef theo key (null nếu không thuộc catalog). Dùng Map nội bộ tránh prototype-lookup. */
-function findField(entityType: EntityType, field: string): FieldDef | undefined {
+function findField(
+  entityType: EntityType,
+  field: string,
+): FieldDef | undefined {
   return FIELD_CATALOG[entityType]?.find((f) => f.key === field);
 }
 
@@ -703,8 +1053,14 @@ export function resolveField(
 }
 
 /** Danh mục {key,label,group} cho dropdown admin (KHÔNG kèm resolve). */
-export function listCatalog(entityType: EntityType): Array<{ key: string; label: string; group: string }> {
-  return (FIELD_CATALOG[entityType] ?? []).map(({ key, label, group }) => ({ key, label, group }));
+export function listCatalog(
+  entityType: EntityType,
+): Array<{ key: string; label: string; group: string }> {
+  return (FIELD_CATALOG[entityType] ?? []).map(({ key, label, group }) => ({
+    key,
+    label,
+    group,
+  }));
 }
 
 /** Tập key catalog của 1 entityType (gồm soVanBan). */
@@ -718,8 +1074,13 @@ export function isCatalogField(entityType: string, field: string): boolean {
 }
 
 /** Whitelist guard: field PHẢI thuộc catalog, ngược lại 400 (chống map field ngoài whitelist). */
-export function assertFieldInCatalog(entityType: EntityType, field: string): void {
+export function assertFieldInCatalog(
+  entityType: EntityType,
+  field: string,
+): void {
   if (!findField(entityType, field)) {
-    throw new BadRequestException(`Field "${field}" không thuộc danh mục trường của ${entityType}`);
+    throw new BadRequestException(
+      `Field "${field}" không thuộc danh mục trường của ${entityType}`,
+    );
   }
 }

@@ -71,6 +71,51 @@ describe('CỔNG: không chặn Lưu bằng ô nằm trong nhóm đang đóng', 
   });
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
+  /**
+   * Mệnh đề QUAN TRỌNG NHẤT: đi qua đúng trạng thái nguy hiểm.
+   *
+   * Bản đầu của cổng chỉ chọn Trực tiếp rồi bấm Lưu — mà `moKhi` đã mở nhóm ngay từ bước
+   * chọn, nên cổng không bao giờ chạm tới đường `coLoi` và vẫn xanh kể cả khi gỡ sạch đường
+   * ấy đi. Ở đây ĐÓNG NHÓM BẰNG TAY trước, rồi mới bấm Lưu.
+   */
+  it('đóng nhóm bằng TAY rồi bấm Lưu → ô gây chặn vẫn phải NHÌN THẤY được', async () => {
+    await moForm();
+    await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
+    fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
+    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
+
+    // Cán bộ mở ra xem rồi đóng lại — thao tác hoàn toàn bình thường.
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut'));
+    expect(screen.queryByTestId('field-senderPhone')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+
+    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
+  });
+
+  it('nhóm đang chặn Lưu thì KHÔNG đóng lại được — đóng là giấu thứ đang chặn', async () => {
+    await moForm();
+    await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
+    fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
+    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut'));
+    expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument();
+  });
+
+  it('CHƯA bấm Lưu thì KHÔNG mắng trước — chọn Trực tiếp không làm nhóm đỏ ngay', async () => {
+    await moForm();
+    await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
+    fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
+    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
+    expect(screen.getByTestId('nhom-dinh-danh-nguyen-don').className).not.toContain('border-red');
+  });
+
   it('Nguồn đơn = Trực tiếp + bấm Lưu khi thiếu SĐT → ô SĐT phải NHÌN THẤY được', async () => {
     await moForm();
     await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());

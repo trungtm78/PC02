@@ -53,6 +53,8 @@ import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCase
 import { computeFormErrors } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
+import { PartialDateInput } from "@/components/inputs/PartialDateInput";
+import { sangNgayDayDu, tuEdtf } from "@/shared/ngay-thieu/edtf";
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 export function PetitionFormPage() {
@@ -88,9 +90,20 @@ export function PetitionFormPage() {
    * đỏ — bấm Lưu mà bị chặn bởi một ô nằm trong nhóm đóng là cán bộ không có cách nào biết
    * phải mở cái gì ra.
    */
+  /**
+   * CHỈ tính sau khi cán bộ đã bấm Lưu một lần.
+   *
+   * Không có cổng này thì vừa chọn Nguồn đơn = Trực tiếp là nhóm định danh đã viền đỏ và có
+   * chấm đỏ, cho một số điện thoại người ta đang định gõ — mắng trước khi ai làm gì sai. Phần
+   * còn lại của form cũng không báo lỗi trước khi bấm Lưu, nên làm khác đi là lệch.
+   */
+  const [daBamLuu, setDaBamLuu] = useState(false);
   const oDangLoi = useMemo(
-    () => computeFormErrors(formData, effectiveEdit).fields.map((f) => f.replace(/^field-/, "")),
-    [formData, effectiveEdit],
+    () =>
+      daBamLuu
+        ? computeFormErrors(formData, effectiveEdit).fields.map((f) => f.replace(/^field-/, ""))
+        : [],
+    [formData, effectiveEdit, daBamLuu],
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Mở popup "Xuất chứng từ" sau "Lưu và xuất file" (giữ petitionId vừa lưu).
@@ -295,6 +308,7 @@ export function PetitionFormPage() {
           // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
           nguonDon: (d.nguonDon as string) ?? "",
           petitionDate: toDateInput(d.petitionDate as string | null | undefined),
+          ngayVietDonEdtf: (d.ngayVietDonEdtf as string) ?? "",
           ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
@@ -346,6 +360,8 @@ export function PetitionFormPage() {
   }, [id, isEditMode]);
 
   const validateForm = (): boolean => {
+    // Từ đây trở đi nhóm gập được phép hiện trạng thái lỗi — xem `daBamLuu`.
+    setDaBamLuu(true);
     // priority optional (backend @IsOptional); summary KHÔNG còn bắt buộc (đã ẩn — YC2).
     const { msgs } = computeFormErrors(formData, effectiveEdit);
     setErrors(msgs);
@@ -530,6 +546,29 @@ export function PetitionFormPage() {
             onCreated: (ten) => update("nguonDon", ten),
           })
         }
+      />
+    ),
+    /**
+     * Ngày viết đơn — BA Ô PHÂN ĐOẠN, cho phép thiếu thành phần.
+     *
+     * Giấy tờ nhiều khi chỉ ghi tháng/năm. Ô cũ là `<input type="date">` bắt buộc đủ ngày nên
+     * cán bộ đành để TRỐNG HẲN, mất luôn năm/tháng vốn đã biết.
+     *
+     * Nhập đủ → ghi cả `petitionDate` (cột ngày thật, để lọc/sắp xếp/in không đổi) lẫn chuỗi
+     * EDTF. Nhập thiếu → chỉ ghi EDTF, cột ngày để TRỐNG: không bao giờ bịa ngày 01.
+     */
+    petitionDate: (label) => (
+      <PartialDateInput
+        label={label}
+        value={formData.ngayVietDonEdtf || null}
+        onChange={(edtf) =>
+          setFormData((prev) => ({
+            ...prev,
+            ngayVietDonEdtf: edtf ?? "",
+            petitionDate: sangNgayDayDu(tuEdtf(edtf)) ?? "",
+          }))
+        }
+        testId="field-petitionDate"
       />
     ),
     // Một ô duy nhất hỏi loại, như hệ cũ (14/09/2026). Chọn từ danh mục để cùng một loại không
