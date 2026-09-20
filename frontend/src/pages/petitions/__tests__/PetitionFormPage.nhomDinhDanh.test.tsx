@@ -93,15 +93,36 @@ describe('Form Đơn thư — nhóm thông tin định danh nguyên đơn', () =
     await waitFor(() => expect(screen.queryByTestId('field-senderIdNumber')).not.toBeInTheDocument());
   });
 
-  it('nhóm gồm đủ bốn ô anh nêu + "Sinh năm"', async () => {
+  it('nhóm gồm ba ô CCCD + "Sinh năm" — SĐT đã ra ngoài', async () => {
     await moForm();
     await waitFor(() => expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut')).toBeInTheDocument());
-    expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut').textContent).toContain('5 ô');
+    expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut').textContent).toContain('4 ô');
   });
 
-  it('tiêu đề đánh dấu * — trong nhóm có ô bắt buộc (SĐT khi nộp trực tiếp)', async () => {
+  /*
+    Tiêu đề KHÔNG còn dấu `*`, và đó là điều ĐÚNG: dấu ấy nghĩa là "trong đây có ô có thể chặn
+    Lưu". Sau 20/09/2026 "Số điện thoại nguyên đơn" ra ngoài nhóm theo yêu cầu của anh, nên
+    trong nhóm không còn ô bắt buộc nào — để dấu `*` lại là nói dối cán bộ rằng mở ra mới lưu
+    được. Cổng `features/petitions/__tests__/oBatBuocKhongTrongNhom.gate.test.ts` giữ cho
+    trạng thái ấy không đảo ngược.
+  */
+  it('tiêu đề KHÔNG còn dấu * — trong nhóm không còn ô bắt buộc nào', async () => {
     await moForm();
     await waitFor(() => expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut')).toBeInTheDocument());
-    expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut').textContent).toContain('*');
+    expect(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut').textContent).not.toContain('*');
+  });
+
+  /*
+    SĐT phải NHÌN THẤY NGAY, không phụ thuộc nhóm có mở hay không — đó chính là điều anh yêu cầu
+    và cũng là lưới an toàn: nó là ô bắt buộc có điều kiện, để trong khối gập là mời lại lỗi #248.
+  */
+  it('ô SĐT nhìn thấy ngay khi mở form, và KHÔNG nằm trong nhóm', async () => {
+    await moForm();
+    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
+    const nhom = screen.getByTestId('nhom-dinh-danh-nguyen-don');
+    expect(
+      nhom.contains(screen.getByTestId('field-senderPhone')),
+      'SĐT nằm trong nhóm gập là chặn Lưu bằng ô có thể bị giấu',
+    ).toBe(false);
   });
 });

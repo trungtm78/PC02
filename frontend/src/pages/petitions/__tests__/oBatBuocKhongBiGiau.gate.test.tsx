@@ -55,8 +55,19 @@ async function moForm() {
  * đóng sẵn → cán bộ điền xong tab, bấm Lưu, nhận thông báo cho một ô KHÔNG nhìn thấy, và
  * không có cách nào biết phải mở cái gì ra.
  *
- * Gom nhóm làm lớp lỗi này sống lại, nên phải có cổng riêng — cổng này bắt cả ô bắt buộc
- * thêm vào nhóm về sau, không riêng ô đang có.
+ * ĐỔI 20/09/2026 — đọc kỹ trước khi thêm ca vào đây.
+ *
+ * Theo yêu cầu của anh, "Số điện thoại nguyên đơn" đã RA KHỎI nhóm định danh. Hệ quả: nhóm ấy
+ * còn bốn ô mà `validate.ts` KHÔNG có luật nào nhắm tới, nên trên form thật **nhóm không bao giờ
+ * đỏ được**. Ba ca cũ dựng trên trạng thái lỗi của nhóm ("đóng tay rồi bấm Lưu", "nhóm đang lỗi
+ * không đóng được", "tiêu đề hiện trạng thái lỗi") vì thế không còn DIỄN được nữa — giữ lại thì
+ * chúng xanh rỗng: đúng mà chẳng khẳng định gì, và đó là kiểu cổng tệ nhất.
+ *
+ * Phần chúng từng bảo vệ nay nằm ở hai chỗ, mỗi chỗ CÒN khẳng định được thật:
+ *  · Cấu trúc — `features/petitions/__tests__/oBatBuocKhongTrongNhom.gate.test.ts`: không ô
+ *    `required` nào được nằm trong bất kỳ nhóm nào. Đỏ ngay nếu ai đưa SĐT trở lại.
+ *  · Hành vi — `components/legacy-form/__tests__/nhomOGap.test.tsx`: tự bung khi có lỗi, và
+ *    nhóm đang lỗi thì không đóng lại được. Ở đó dựng được một ô lỗi tuỳ ý.
  */
 describe('CỔNG: không chặn Lưu bằng ô nằm trong nhóm đang đóng', () => {
   beforeEach(() => {
@@ -72,39 +83,31 @@ describe('CỔNG: không chặn Lưu bằng ô nằm trong nhóm đang đóng', 
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
   /**
-   * Mệnh đề QUAN TRỌNG NHẤT: đi qua đúng trạng thái nguy hiểm.
+   * Mệnh đề QUAN TRỌNG NHẤT nay là: ô chặn Lưu KHÔNG nằm trong một khối có thể đóng.
    *
-   * Bản đầu của cổng chỉ chọn Trực tiếp rồi bấm Lưu — mà `moKhi` đã mở nhóm ngay từ bước
-   * chọn, nên cổng không bao giờ chạm tới đường `coLoi` và vẫn xanh kể cả khi gỡ sạch đường
-   * ấy đi. Ở đây ĐÓNG NHÓM BẰNG TAY trước, rồi mới bấm Lưu.
+   * Mạnh hơn "nhìn thấy được": một ô đang nhìn thấy vì nhóm vô tình đang mở thì lần sau cán bộ
+   * đóng nhóm lại là hỏng. Ở đây khẳng định thẳng vào cấu trúc — SĐT không phải con của bất kỳ
+   * thẻ nhóm nào — nên đưa nó trở vào nhóm là ca này ĐỎ, dù nhóm có đang mở hay không.
    */
-  it('đóng nhóm bằng TAY rồi bấm Lưu → ô gây chặn vẫn phải NHÌN THẤY được', async () => {
-    await moForm();
+  it('ô chặn Lưu KHÔNG nằm trong bất kỳ nhóm gập nào', async () => {
+    const { container } = await moForm();
     await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
     fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
-    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
-
-    // Cán bộ mở ra xem rồi đóng lại — thao tác hoàn toàn bình thường.
-    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut'));
-    expect(screen.queryByTestId('field-senderPhone')).not.toBeInTheDocument();
-
     fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
 
-    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
-  });
+    const o = await waitFor(() => screen.getByTestId('field-senderPhone'));
+    const moiNhom = Array.from(
+      container.querySelectorAll('[data-testid^="nhom-"]'),
+    ).filter((e) => !(e.getAttribute('data-testid') ?? '').endsWith('-nut'));
+    expect(moiNhom.length, 'không có nhóm nào — cổng chạy trên tập rỗng').toBeGreaterThan(0);
 
-  it('nhóm đang chặn Lưu thì KHÔNG đóng lại được — đóng là giấu thứ đang chặn', async () => {
-    await moForm();
-    await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
-    fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
-    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
-    await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId('nhom-dinh-danh-nguyen-don-nut'));
-    expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument();
+    const trongNhom = moiNhom.filter((n) => n.contains(o)).map((n) => n.getAttribute('data-testid'));
+    expect(
+      trongNhom,
+      'ô chặn Lưu nằm trong khối gập thì có lúc cán bộ bị chặn bởi ô không nhìn thấy (PR #248)',
+    ).toEqual([]);
   });
 
   it('CHƯA bấm Lưu thì KHÔNG mắng trước — chọn Trực tiếp không làm nhóm đỏ ngay', async () => {
@@ -129,15 +132,4 @@ describe('CỔNG: không chặn Lưu bằng ô nằm trong nhóm đang đóng', 
     await waitFor(() => expect(screen.getByTestId('field-senderPhone')).toBeInTheDocument());
   });
 
-  it('nhóm có ô báo lỗi thì tiêu đề nhóm hiện trạng thái lỗi', async () => {
-    await moForm();
-    await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
-    fireEvent.click(screen.getByTestId('field-nguonDon-option-Trực tiếp'));
-    fireEvent.click(screen.getAllByRole('button', { name: /Lưu đơn thư/ })[0]);
-
-    await waitFor(() =>
-      expect(screen.getByTestId('nhom-dinh-danh-nguyen-don').className).toContain('border-red'),
-    );
-  });
 });
