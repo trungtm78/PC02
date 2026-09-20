@@ -224,3 +224,116 @@ describe('tuChuNhapTay — đọc chữ gõ tay thành ba phần', () => {
     expect(loiNgayTungPhan(tuChuNhapTay('15/12/2026/99'))).toBeTruthy();
   });
 });
+
+/**
+ * Lượt soát 20/09/2026 bắt được một lớp lỗi MẤT DỮ LIỆU mà cả hai bản ô (ba ô lẫn một ô) đều
+ * mắc, và ô một dòng làm nó dễ gặp hơn hẳn.
+ *
+ * `sangEdtf` VỨT phần ngày khi thiếu tháng, còn cổng Lưu lại kiểm chuỗi ĐÃ SUY chứ không kiểm
+ * chữ thô — nên thứ `sangEdtf` vứt đi thì không cổng nào còn thấy. Cán bộ gõ `15/__/2026`, ô
+ * hiện chữ đỏ, nhưng Lưu vẫn chạy và ngày 15 biến mất, máy chủ trả 200.
+ *
+ * Đây đúng "khe hở giữa bộ nạp và bộ đọc": một bên đọc, một bên kiểm, hai bên không nói
+ * chuyện với nhau. Sửa ở `sangEdtf`: giữ lại phần ngày để `loiEdtf` NHÌN THẤY mà chặn.
+ */
+describe('sangEdtf KHÔNG được lặng lẽ vứt phần đã nhập', () => {
+  it('có ngày mà thiếu tháng → chuỗi GIỮ phần ngày, không hoá 2026-XX-XX', () => {
+    const edtf = sangEdtf(p('15', '', '2026'));
+    expect(edtf).not.toBe('2026-XX-XX');
+    expect(edtf).toContain('15');
+  });
+
+  it('và chuỗi ấy CHẶN được nút Lưu — đây mới là điều quan trọng', () => {
+    expect(loiEdtf(sangEdtf(p('15', '', '2026')))).toBeTruthy();
+  });
+
+  it('máy chủ cũng từ chối chuỗi ấy — hai lớp, không chỉ một', () => {
+    // Cùng luật với `backend/src/common/validators/is-edtf-ngay-that.validator.ts`:
+    // tháng XX thì ngày BẮT BUỘC cũng XX.
+    const m = /^(\d{4})-(\d{2}|XX)-(\d{2}|XX)$/.exec(sangEdtf(p('15', '', '2026')) ?? '');
+    expect(m === null || (m[2] === 'XX' && m[3] !== 'XX')).toBe(true);
+  });
+});
+
+/**
+ * Dải năm hợp lý.
+ *
+ * Đo trên dữ liệu thật 20/09/2026: 41.820 đơn có ngày, năm nhỏ nhất **208**, lớn nhất **2925**,
+ * 7 hồ sơ nằm ngoài dải 1900..2027. Đúng loại rác mà
+ * `backend/src/legacy-migration/cli/sua-nam-ngay-tiep-nhan.ts` đã phải viết CLI đi dọn.
+ *
+ * Ô một dòng làm ca này dễ gặp hơn ba ô: gõ ngày+tháng liền tay rồi dừng (`1512`) là đúng bốn
+ * chữ số nên luật "đủ 4 chữ số" không thấy gì sai.
+ */
+describe('loiNgayTungPhan — năm phải nằm trong dải hợp lý', () => {
+  const namNay = new Date().getFullYear();
+
+  it('1512 (gõ ngày+tháng liền tay rồi dừng) → báo lỗi', () => {
+    expect(loiNgayTungPhan(p('', '', '1512'))).toBeTruthy();
+  });
+
+  it.each(['0208', '2925', '9999', '1899'])('năm %s ngoài dải → báo lỗi', (nam) => {
+    expect(loiNgayTungPhan(p('', '', nam))).toBeTruthy();
+  });
+
+  it('năm sang năm vẫn nhận — đơn đề ngày tới là chuyện có thật', () => {
+    expect(loiNgayTungPhan(p('', '', String(namNay + 1)))).toBeNull();
+  });
+
+  it('năm 1900 và năm nay đều nhận — biên dải không chặn nhầm', () => {
+    expect(loiNgayTungPhan(p('', '', '1900'))).toBeNull();
+    expect(loiNgayTungPhan(p('', '', String(namNay)))).toBeNull();
+  });
+});
+
+/**
+ * Ô này sinh ra ĐỂ DÁN. Nên mấy dạng dưới đây không phải ca biên, chúng là đường chính:
+ * dán từ cột hệ cũ (ISO), dán từ Word (gạch nối dài, có chữ dẫn, có dấu phẩy đuôi), dán ô có
+ * kèm giờ. Bản đầu đọc sai HẾT và đều báo "Năm phải đủ 4 chữ số" — cán bộ đi sửa năm trong khi
+ * năm họ gõ đã đủ bốn chữ số.
+ */
+describe('tuChuNhapTay — mấy dạng dán có thật', () => {
+  it('ISO từ cột hệ cũ: 2026-12-15 → đúng ngày 15/12/2026, không lộn ngày với năm', () => {
+    expect(tuChuNhapTay('2026-12-15')).toEqual(p('15', '12', '2026'));
+  });
+
+  it('ISO thiếu ngày: 2026-12 → tháng 12 năm 2026', () => {
+    expect(tuChuNhapTay('2026-12')).toEqual(p('', '12', '2026'));
+  });
+
+  it.each(['15–12–2026', '15—12—2026', '15−12−2026'])(
+    'gạch nối DÀI của Word (%s) cũng là dấu ngăn',
+    (chu) => {
+      expect(tuChuNhapTay(chu)).toEqual(p('15', '12', '2026'));
+    },
+  );
+
+  it('kèm giờ: "15/12/2026 10:30" → lấy phần ngày, bỏ phần giờ', () => {
+    expect(tuChuNhapTay('15/12/2026 10:30')).toEqual(p('15', '12', '2026'));
+  });
+
+  it('có chữ dẫn: "Ngày 15/12/2026" → vẫn ra đúng ngày', () => {
+    expect(tuChuNhapTay('Ngày 15/12/2026')).toEqual(p('15', '12', '2026'));
+  });
+
+  it('dấu phẩy đuôi: "15/12/2026," → không dính vào năm', () => {
+    expect(tuChuNhapTay('15/12/2026,')).toEqual(p('15', '12', '2026'));
+  });
+
+  /**
+   * Thao tác TỰ NHIÊN NHẤT trên ô này: đặt con trỏ đầu dòng `__/12/2026` rồi gõ đè lên chỗ
+   * khuyết, không bôi đen. Bản đầu đọc ra `15__` rồi báo "Ngày không hợp lệ"; tệ hơn, trên
+   * `__/__/2026` nó rơi thẳng vào lớp lỗi mất dữ liệu ở trên.
+   */
+  it('gõ ĐÈ lên chỗ khuyết: "15__/12/2026" → ngày 15', () => {
+    expect(tuChuNhapTay('15__/12/2026')).toEqual(p('15', '12', '2026'));
+  });
+
+  it('gõ đè trên ô chỉ có năm: "15__/__/2026" → có ngày mà thiếu tháng, phải BÁO', () => {
+    expect(loiNgayTungPhan(tuChuNhapTay('15__/__/2026'))).toBeTruthy();
+  });
+
+  it('vẫn KHÔNG nuốt phân đoạn ngày thừa: "15/12/2026/99" báo lỗi', () => {
+    expect(loiNgayTungPhan(tuChuNhapTay('15/12/2026/99'))).toBeTruthy();
+  });
+});

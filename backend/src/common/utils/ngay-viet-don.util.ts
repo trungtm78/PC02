@@ -79,5 +79,11 @@ export function edtfTuNgayThat(
   if (!ngay) return null;
   const d = new Date(ngay);
   if (Number.isNaN(d.getTime())) return null;
-  return `${d.getUTCFullYear()}-${hai(d.getUTCMonth() + 1)}-${hai(d.getUTCDate())}`;
+  /*
+    Năm phải ĐỆM 0 về bốn chữ số. Dữ liệu thật có ngày năm 208 (đo 20/09/2026), và đường này
+    KHÔNG đi qua `@IsEdtfNgayThat` nên `208-05-13` ghi thẳng xuống cột. Hồ sơ ấy sau đó không
+    bao giờ Lưu lại được từ form, mà ô ngày lại hiện RỖNG — cán bộ thấy lỗi trỏ vào một ô trắng.
+  */
+  const nam = String(d.getUTCFullYear()).padStart(4, '0');
+  return `${nam}-${hai(d.getUTCMonth() + 1)}-${hai(d.getUTCDate())}`;
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import {
   hienThiEdtf,
@@ -56,12 +56,22 @@ export function PartialDateInput({
   const [chu, setChu] = useState(() => hienThiEdtf(value));
 
   /**
-   * Chỉ mắng SAU KHI rời ô.
+   * Chỉ mắng SAU KHI rời ô — và mỗi lần gõ tiếp lại thôi mắng cho tới lần rời ô kế.
    *
    * Báo ngay lúc đang gõ thì `15/12/20` bị gạch đỏ giữa chừng, trong khi người ta mới gõ được
    * một nửa cái năm. Bấm Lưu cũng làm ô mất tiêu điểm nên lỗi hiện đúng lúc cần.
+   *
+   * Phần "gõ tiếp thì thôi mắng" là nửa còn lại, và là nửa dễ quên: giữ cờ này bật vĩnh viễn
+   * thì lần gõ ĐẦU tránh được gạch đỏ giữa chừng, còn lần SỬA LẠI thì không — mà lần sửa lại
+   * mới là lúc người ta đang bối rối nhất.
    */
   const [daRoiO, setDaRoiO] = useState(false);
+
+  // Nhãn phải gắn được vào ô kể cả khi nơi gọi không truyền `testId`; nếu không thì `htmlFor`
+  // và `id` cùng thành `undefined`, nhãn mồ côi, và không cổng nào bắt được.
+  const idTuSinh = useId();
+  const idO = testId ?? idTuSinh;
+  const idLoi = `${idO}-loi-mo-ta`;
 
   /*
     Chỉnh trạng thái NGAY TRONG LƯỢT DỰNG khi `value` đổi từ bên ngoài (nạp hồ sơ, đặt lại
@@ -82,6 +92,7 @@ export function PartialDateInput({
 
   const doi = (moi: string) => {
     setChu(moi);
+    setDaRoiO(false);
     // Đẩy lên NGAY mỗi lần gõ, không chờ rời ô: bấm Lưu bằng phím tắt không đi qua `blur`, và
     // chờ tới đó thì ký tự cuối cùng không kịp vào form.
     onChange(sangEdtf(tuChuNhapTay(moi)));
@@ -89,15 +100,21 @@ export function PartialDateInput({
 
   return (
     <div className="min-w-0">
-      <label className={LABEL_BASE} htmlFor={testId}>
+      <label className={LABEL_BASE} htmlFor={idO}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
-        id={testId}
+        id={idO}
         type="text"
-        inputMode="numeric"
+        /*
+          KHÔNG `inputMode="numeric"`: bàn phím số trên điện thoại không có `/` `.` `-`, nên ô
+          in ra `__/12/2026` mà cán bộ dùng điện thoại không gõ lại được chính nó. Hệ có bản
+          điện thoại (v0.46) nên đây là đường thật, không phải ca giả định. Gõ dãy số liền
+          (`15122026`) vẫn chạy, nên bàn phím đầy đủ chỉ thêm khả năng chứ không bớt gì.
+        */
         autoComplete="off"
         aria-invalid={loiHien ? true : undefined}
+        aria-describedby={loiHien ? idLoi : undefined}
         placeholder="15/12/2026 · 12/2026 · 2026"
         value={chu}
         onChange={(e) => doi(e.target.value)}
@@ -112,7 +129,12 @@ export function PartialDateInput({
         data-testid={testId}
       />
       {loiHien && (
-        <p className={FIELD_ERROR_TEXT} data-testid={testId ? `${testId}-loi` : undefined}>
+        <p
+          id={idLoi}
+          role="alert"
+          className={FIELD_ERROR_TEXT}
+          data-testid={testId ? `${testId}-loi` : undefined}
+        >
           {loiHien}
         </p>
       )}

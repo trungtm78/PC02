@@ -163,3 +163,45 @@ describe('PartialDateInput', () => {
     expect(o().value).toBe('29/02/2024');
   });
 });
+
+/**
+ * Lượt soát 20/09/2026 — ba khuyết ở chính ô nhập, không ở phép đọc.
+ */
+describe('PartialDateInput — sửa sau lượt soát', () => {
+  it('sửa lại sau khi bị mắng thì THÔI mắng cho tới lần rời ô kế', () => {
+    ve();
+    go('31/02/2026');
+    fireEvent.blur(o());
+    expect(screen.getByTestId('ngay-loi')).toBeInTheDocument();
+
+    // Bấm vào sửa: gõ tới đâu mắng tới đó là mắng người ta giữa chừng, đúng thứ luật rời-ô
+    // sinh ra để tránh — mà lần gõ đầu tiên thì tránh được, lần sửa lại thì không.
+    go('3');
+    expect(screen.queryByTestId('ngay-loi')).not.toBeInTheDocument();
+    fireEvent.blur(o());
+    expect(screen.getByTestId('ngay-loi')).toBeInTheDocument();
+  });
+
+  it('chữ lỗi được NỐI vào ô cho trình đọc màn hình, không chỉ hiện ra mắt', () => {
+    ve();
+    go('31/02/2026');
+    fireEvent.blur(o());
+    const idLoi = screen.getByTestId('ngay-loi').id;
+    expect(idLoi).toBeTruthy();
+    expect(o().getAttribute('aria-describedby')).toContain(idLoi);
+    expect(screen.getByTestId('ngay-loi')).toHaveAttribute('role', 'alert');
+  });
+
+  it('gõ được DẤU NGĂN trên điện thoại — ô hướng dẫn gõ `15/12/2026`', () => {
+    ve();
+    // `inputMode="numeric"` cho bàn phím số KHÔNG có `/` `.` `-`: ô in ra `__/12/2026` mà cán
+    // bộ dùng điện thoại không gõ lại được chính nó.
+    expect(o().getAttribute('inputMode')).not.toBe('numeric');
+  });
+
+  it('quên truyền testId thì nhãn vẫn gắn được vào ô, không mồ côi', () => {
+    render(<PartialDateInput label="Ngày viết đơn" value={null} onChange={() => {}} />);
+    const oKhongId = screen.getByLabelText(/Ngày viết đơn/) as HTMLInputElement;
+    expect(oKhongId.id).toBeTruthy();
+  });
+});

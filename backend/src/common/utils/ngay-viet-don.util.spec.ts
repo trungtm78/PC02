@@ -1,4 +1,4 @@
-import { ngayVietDonHienThi } from './ngay-viet-don.util';
+import { edtfTuNgayThat, ngayVietDonHienThi } from './ngay-viet-don.util';
 
 /**
  * Một nơi duy nhất quyết định "Ngày viết đơn" hiện thế nào.
@@ -104,5 +104,29 @@ describe('ngayVietDonHienThi — hồ sơ di trú chỉ có bản thô', () => {
 
   it('không có bản thô thì vẫn trả rỗng như cũ', () => {
     expect(ngayVietDonHienThi({ petitionDate: null, ngayVietDonEdtf: null })).toBe('');
+  });
+});
+
+/**
+ * Năm dưới 1000 phải ĐỆM 0 — bắt trong lượt soát 20/09/2026.
+ *
+ * Dữ liệu thật có ngày năm 208 (đo 20/09/2026: 41.820 đơn có ngày, năm nhỏ nhất 208, lớn nhất
+ * 2925). Không đệm thì hàm này đẻ ra `208-05-13`, và chuỗi ấy ghi THẲNG cột vì đường suy-từ-
+ * ngày-thật không đi qua `@IsEdtfNgayThat`. Hồ sơ ấy sau đó không bao giờ Lưu lại được từ
+ * form, mà ô ngày lại hiện RỖNG (`tuEdtf` đòi đúng bốn chữ số) — cán bộ thấy lỗi trỏ vào một
+ * ô trắng và không có cách nào sửa ngoài gõ lại nguyên ngày.
+ */
+describe('edtfTuNgayThat — năm dưới 1000', () => {
+  it('đệm 0 cho năm để chuỗi đúng hình dạng EDTF', () => {
+    expect(edtfTuNgayThat(new Date(Date.UTC(208, 4, 13)))).toBe('0208-05-13');
+  });
+
+  it('chuỗi sinh ra luôn qua được chính luật máy chủ dùng để kiểm', () => {
+    // Jest không nhận thông điệp ở `expect`, nên gom kết quả rồi so cả mảng — trượt là thấy
+    // ngay năm nào hỏng, thay vì chỉ thấy "một ca nào đó trong vòng lặp".
+    const ra = [208, 999, 1000, 2026].map(
+      (nam) => `${nam}: ${edtfTuNgayThat(new Date(Date.UTC(nam, 0, 5)))}`,
+    );
+    expect(ra).toEqual(['208: 0208-01-05', '999: 0999-01-05', '1000: 1000-01-05', '2026: 2026-01-05']);
   });
 });
