@@ -1,8 +1,14 @@
-STATUS: IN_PROGRESS
-NOTE: Khong con bi chan nhu da bao truoc do. Da dung BAN SAO PROD O MAY
-(pc02_that -> pc02_uat2009 + migration + tai khoan thu cuc bo) nen chay duoc UAT ma khong can
-tai khoan prod. 33/80 ca da co bang chung. Hai viec VAN can anh: (1) tai khoan thu tren PROD de
-xac nhan lai tren ban that; (2) duyet bang gop CSV truoc khi ghi prod (muc 8c).
+STATUS: BLOCKED
+BLOCKED_REASON: Da lam het phan khong can anh. UAT 72/80 PASS, 8 ca ghi ro CHUA CHAY, 0 ca bo
+trong. Ba PR da len prod (#448, #449, #450 dang cho merge). Con DUNG HAI VIEC can anh:
+  (1) TAI KHOAN THU TREN PROD. Moi ca UAT tren day chay tren BAN SAO o may (pc02_uat2009), vi
+      5 TK thu cu da khoa 20/09 do mat khau lo repo PUBLIC. Can mot TK de xac nhan lai tren
+      ban that truoc khi ket luan.
+  (2) DUYET BANG GOP CSV (2.125 cach viet -> 1.426 muc, da gui anh) truoc khi chay
+      `nap-nguon-don --that` ghi vao prod. Ghi du lieu prod = muc 8c, phai co anh.
+Mot viec nua anh quyet: 38/43 nhom con lai trong o chon can bo la don vi cap quan dang khai la
+to CHUC NANG vi thieu `wardId`. Dat lai co ay dua danh sach tu 43 xuong ~5 nhom, nhung do la
+ghi du lieu to chuc cua anh.
 
 # PROGRESS
 Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
@@ -196,24 +202,29 @@ trả mảng rỗng, nên 12 ca lặng lẽ `test.skip`. Bảng kết quả nhì
 cổng 3000 + giao diện cổng 5179 + một tài khoản thử CỤC BỘ (không đụng prod). Nhờ vậy chạy được
 UAT trên dữ liệu thật mà không cần tài khoản prod.
 
-#### Kết quả UAT: 33/80 ca có bằng chứng
+#### Kết quả UAT: 72/80 PASS · 8 CHƯA CHẠY · 0 ca bỏ trống
 
 | Tầng | Kết quả |
 |---|---|
-| API chỉ-đọc + bị-từ-chối | **18/18 đạt** |
-| API có-ghi (sau cổng `UAT_CHO_GHI=1`) | **9/9 đạt** |
-| E2E nhóm A (form Đơn thư, Chrome thật) | **17/17 đạt** |
-| E2E nhóm C (hộp Phân công) | **28/28 đạt, 0 bỏ qua** |
+| API chỉ-đọc + bị-từ-chối | **18/18** |
+| API có-ghi | **9/9** |
+| API bề mặt liền kề | **10/10** |
+| API bản in thật (đọc chữ trong .docx) | **5/5** |
+| E2E form Đơn thư (Chrome thật) | **29/29** |
+| E2E hồ sơ di trú + trạng thái hỏng | **8/8** |
+| E2E trang Danh mục + đo bố cục | **6/6** |
+| E2E hộp Phân công | **28/28, 0 bỏ qua** |
 | `buildId` prod khớp commit đã merge | đạt trên PROD |
 
-Bốn ca kiểm SAI của em đã vá (không nới assertion): `status=ACTIVE` chữ hoa, hình dạng
-`buildId` ở bản dựng cục bộ, STT `DT-YYYY-NNNNN` (CLAUDE.md ghi sai, đã sửa), và ngưỡng "dưới
-30 nhóm" tuỳ tiện.
+**8 ca CHƯA CHẠY** là nhóm D/E (Vụ án · Vụ việc), lý do ghi rõ trong sổ: điều hướng hai form
+cũ (nút tab ở y≈3179 bị thanh dính đáy chắn; ô ĐTV `display:none` ở tab mặc định). Cùng mệnh
+đề đã có bằng chứng ở tầng đơn vị và tầng API — khoảng trống về TẦNG, không phải về chức năng.
+**Không đánh dấu đạt khi chưa chạy.**
 
-#### Còn 47 ca chưa có bằng chứng
-
-A4 A7 A10–A14 A17 A22 · B1–B6 · D1–D5 · E1–E3 · F1–F4 · G1–G3 · I2 I3 · J1–J3 · K3 K5 K8–K10 ·
-L1 L3 L5 L7–L10
+Tám ca kiểm CỦA EM sai đã vá, không nới một assertion nào: `status=ACTIVE` chữ hoa · hình dạng
+`buildId` ở bản dựng cục bộ · STT `DT-YYYY-NNNNN` (CLAUDE.md ghi sai, đã sửa) · ngưỡng "dưới 30
+nhóm" tuỳ tiện · bộ đếm "đã nhập" khi nhóm rỗng · soi "có màu đỏ nào không" bắt nhầm dấu sao ·
+`choDuyet` nằm ngoài `.data` · thiếu `crimeChinhId` trong thân đơn tối thiểu.
 
 ### Hàng đợi task kế tiếp
 
