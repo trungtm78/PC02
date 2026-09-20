@@ -3,20 +3,13 @@ import { api } from '@/lib/api';
 import { extractApiError } from '@/lib/api-errors';
 import { Modal } from '@/components/shared/Modal';
 import { BTN_PRIMARY, BTN_SECONDARY } from '@/constants/styles';
-import { hoTen } from '@/lib/hoTen';
+import { useOfficerOptions } from '@/hooks/useOfficerOptions';
 
 export type AssignResourceType = 'cases' | 'incidents' | 'petitions';
 
 interface Team {
   id: string;
   name: string;
-}
-
-interface User {
-  id: string;
-  firstName?: string;
-  lastName?: string;
-  username: string;
 }
 
 interface AssignModalProps {
@@ -41,7 +34,15 @@ export function AssignModal({
   onSuccess,
 }: AssignModalProps) {
   const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  /**
+   * MỘT nguồn cán bộ duy nhất, rồi lọc theo tổ TẠI MÁY.
+   *
+   * Bản cũ hỏi `GET /admin/users?teamId=...`, nhưng `QueryUsersDto` KHÔNG khai `teamId` và
+   * máy chủ bật `forbidNonWhitelisted` → 400, bị `.catch` nuốt, ô cán bộ LUÔN RỖNG trên prod.
+   * Đúng lớp lỗi `isActive` bắt được ngày 09/09/2026. Lời gọi ấy còn dựa vào `limit` mặc định
+   * 20, nên kể cả có chạy thì tổ đông hơn 20 người vẫn bị cắt.
+   */
+  const { data: dsCanBo = [] } = useOfficerOptions(open);
   const [selectedTeamId, setSelectedTeamId] = useState(currentTeamId ?? '');
   const [selectedUserId, setSelectedUserId] = useState(currentInvestigatorId ?? '');
   const [deadline, setDeadline] = useState('');
@@ -50,19 +51,18 @@ export function AssignModal({
 
   useEffect(() => {
     if (!open) return;
-    api.get<{ data: Team[] }>('/teams').then((r) => setTeams(r.data.data ?? [])).catch(() => setTeams([]));
+    // `GET /teams` trả MẢNG THÔ, không bọc `{data}` — đọc `r.data.data` là luôn `undefined`,
+    // nên danh sách Tổ RỖNG trên prod mà không báo gì. Nhận cả hai hình cho chắc.
+    api
+      .get<Team[] | { data?: Team[] }>('/teams')
+      .then((r) => setTeams(Array.isArray(r.data) ? r.data : (r.data?.data ?? [])))
+      .catch(() => setTeams([]));
   }, [open]);
 
-  useEffect(() => {
-    if (!selectedTeamId) {
-      setUsers([]);
-      return;
-    }
-    api
-      .get<{ data: User[] }>('/admin/users', { params: { teamId: selectedTeamId } })
-      .then((r) => setUsers(r.data.data ?? []))
-      .catch(() => setUsers([]));
-  }, [selectedTeamId]);
+  /** Cán bộ của tổ đang chọn. Lọc tại máy vì máy chủ không nhận khoá `teamId` (xem trên). */
+  const users = selectedTeamId
+    ? dsCanBo.filter((u) => u.teams.some((t) => t.teamId === selectedTeamId))
+    : [];
 
   // Reset state when modal opens
   useEffect(() => {
@@ -153,8 +153,8 @@ export function AssignModal({
           >
             <option value="">-- Chọn cán bộ --</option>
             {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {hoTen(u) || u.username}
+              <option key={u.value} value={u.value}>
+                {u.label}
               </option>
             ))}
           </select>

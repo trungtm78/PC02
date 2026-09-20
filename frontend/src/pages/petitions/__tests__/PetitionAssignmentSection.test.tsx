@@ -24,6 +24,16 @@ const mockUsers = [
   { id: "user-3", firstName: "Lê", lastName: "Văn C", username: "levanc" },
 ];
 
+/**
+ * Ô chọn cán bộ nhận hình của `useOfficerOptions` (nguồn cán bộ duy nhất): nhãn đã dựng sẵn,
+ * kèm tổ. Hồ sơ phân công (`mockUsers`) vẫn là hình máy chủ trả — hai thứ khác nhau.
+ */
+const mockOfficerOptions = mockUsers.map((u) => ({
+  value: u.id,
+  label: `${u.lastName} ${u.firstName}`,
+  teams: [],
+}));
+
 const mockAssignments = [
   {
     id: "pa-1",
@@ -58,7 +68,7 @@ describe("PetitionAssignmentSection", () => {
 
   it("I-F1: renders section header và loads assignments on mount", async () => {
     apiGet.mockResolvedValue({ data: mockAssignments });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     expect(screen.getByTestId("section-phan-cong")).toBeInTheDocument();
     await waitFor(() => {
       expect(apiGet).toHaveBeenCalledWith("/petitions/petition-001/assignments");
@@ -67,7 +77,7 @@ describe("PetitionAssignmentSection", () => {
 
   it("I-F2: hiển thị danh sách phân công sau khi load", async () => {
     apiGet.mockResolvedValue({ data: mockAssignments });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => {
       expect(screen.getByTestId("assignment-list")).toBeInTheDocument();
     });
@@ -77,7 +87,7 @@ describe("PetitionAssignmentSection", () => {
 
   it("I-F3: hiển thị 'Chưa có cán bộ' khi danh sách rỗng", async () => {
     apiGet.mockResolvedValue({ data: [] });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => {
       expect(screen.getByText(/Chưa có cán bộ/)).toBeInTheDocument();
     });
@@ -87,7 +97,7 @@ describe("PetitionAssignmentSection", () => {
 
   it("I-F4: nút Thêm bị disable khi chưa chọn user", async () => {
     apiGet.mockResolvedValue({ data: [] });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("btn-add-assignment")).toBeInTheDocument());
     expect(screen.getByTestId("btn-add-assignment")).toBeDisabled();
   });
@@ -105,7 +115,7 @@ describe("PetitionAssignmentSection", () => {
       assignedAt: "2026-06-08T02:00:00.000Z",
     };
     apiPost.mockResolvedValue({ data: newAssignment });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("btn-add-assignment")).toBeInTheDocument());
 
     fireEvent.change(screen.getByTestId("assignment-user-select"), { target: { value: "user-3" } });
@@ -135,7 +145,7 @@ describe("PetitionAssignmentSection", () => {
       assignedAt: "2026-06-08T02:00:00.000Z",
     };
     apiPost.mockResolvedValue({ data: newAssignment });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("assignment-user-select")).toBeInTheDocument());
 
     fireEvent.change(screen.getByTestId("assignment-user-select"), { target: { value: "user-1" } });
@@ -155,7 +165,7 @@ describe("PetitionAssignmentSection", () => {
   it("I-F7: xóa phân công thành công → xóa khỏi danh sách", async () => {
     apiGet.mockResolvedValue({ data: mockAssignments });
     apiDelete.mockResolvedValue({ data: { success: true } });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => {
       expect(screen.getByTestId("btn-remove-assignment-user-1")).toBeInTheDocument();
     });
@@ -174,7 +184,7 @@ describe("PetitionAssignmentSection", () => {
 
   it("I-F8: user đã phân công không xuất hiện trong dropdown thêm", async () => {
     apiGet.mockResolvedValue({ data: mockAssignments });
-    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockUsers} />);
+    render(<PetitionAssignmentSection petitionId="petition-001" userOptions={mockOfficerOptions} />);
     await waitFor(() => expect(screen.getByTestId("assignment-list")).toBeInTheDocument());
 
     const select = screen.getByTestId("assignment-user-select") as HTMLSelectElement;

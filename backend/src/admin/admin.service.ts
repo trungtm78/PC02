@@ -36,6 +36,35 @@ import { KHAI_TIM_KIEM_NGUOI_DUNG } from '../common/tim-kiem/khai/nguoi-dung.kha
 /** `search` cũ → thẻ "tất cả các cột" (mã cán bộ, họ tên, email). */
 const THAM_SO_CU_NGUOI_DUNG = { search: KHOA_TAT_CA } as const;
 
+/** Hình "tổ của một người" — khai ĐÚNG như `/auth/me` trả, để cả ứng dụng chỉ có một hình. */
+export interface ToCuaCanBo {
+  teamId: string;
+  teamName: string;
+  isLeader: boolean;
+}
+
+/**
+ * Gộp `userTeams` (hình của Prisma) thành `teams` (hình của API), rồi bỏ bản thô đi.
+ *
+ * Trả cả hai là mời người đọc sau này bám vào bản thô, và bản thô lồng thêm một tầng
+ * `team` nữa nên mỗi nơi dùng lại phải tự mở — đúng kiểu lặp mà một hình duy nhất tránh được.
+ */
+function withTeams<T extends Record<string, unknown>>(
+  user: T,
+): Omit<T, 'userTeams'> & { teams: ToCuaCanBo[] } {
+  const { userTeams, ...phanConLai } = user as T & {
+    userTeams?: { isLeader: boolean; team: { id: string; name: string } }[];
+  };
+  return {
+    ...(phanConLai as Omit<T, 'userTeams'>),
+    teams: (userTeams ?? []).map((ut) => ({
+      teamId: ut.team.id,
+      teamName: ut.team.name,
+      isLeader: ut.isLeader,
+    })),
+  };
+}
+
 @Injectable()
 export class AdminService {
   private boTimKiem?: BoTimKiem;
@@ -94,6 +123,14 @@ export class AdminService {
           createdAt: true,
           updatedAt: true,
           role: { select: { id: true, name: true } },
+          // Tổ của cán bộ — ô chọn người trên form gom nhóm theo tổ. Không có nó thì trình
+          // duyệt phải hỏi thêm `GET /teams` rồi tự ghép, tức hai lần hỏi và một lần lệch.
+          userTeams: {
+            select: {
+              isLeader: true,
+              team: { select: { id: true, name: true } },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -102,7 +139,7 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    return { data, total, limit, offset };
+    return { data: data.map(withTeams), total, limit, offset };
   }
 
   async getUserById(id: string) {

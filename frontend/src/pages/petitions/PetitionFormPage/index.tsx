@@ -51,7 +51,8 @@ import { usePermission } from "@/hooks/usePermission";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "../ConvertPetitionModal";
 
 import { computeFormErrors } from "./validate";
-import { displayName, type UserOption } from "./userOption";
+import { useOfficerOptions } from "@/hooks/useOfficerOptions";
+import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -95,7 +96,27 @@ export function PetitionFormPage() {
   // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
-  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  /**
+   * MỘT nguồn cán bộ duy nhất cho cả ứng dụng.
+   *
+   * Bản cũ tự gọi `/admin/users?limit=200` ngay tại đây: prod có 245 tài khoản đang hoạt động
+   * nên ô chọn THIẾU ~45 người, lại còn kéo cả tài khoản đã khoá vào vì lời gọi riêng không
+   * lọc `status`. Hook dùng chung phân trang 500 và lọc `status: active`. Cổng
+   * `motNguonCanBo.gate` chặn lời gọi thẳng mọc lại.
+   */
+  const { data: dsCanBo = [] } = useOfficerOptions();
+  /**
+   * Cán bộ mà hồ sơ ĐANG trỏ tới, lấy từ chính chi tiết đơn (`assignedTo`, `canBoDeXuat`).
+   * Cần giữ riêng vì danh sách chọn chỉ nạp người đang hoạt động — xem `giuCanBoDaChon`.
+   */
+  const [canBoCuaHoSo, setCanBoCuaHoSo] = useState<{
+    assignedTo?: CanBoTuHoSo | null;
+    canBoDeXuat?: CanBoTuHoSo | null;
+  }>({});
+
+  /** Danh sách cho từng ô: luôn chứa người hồ sơ đang trỏ tới, kể cả khi người ấy đã ngừng hoạt động. */
+  const dsNguoiDuocGiao = giuCanBoDaChon(dsCanBo, formData.assignedToId, canBoCuaHoSo.assignedTo);
+  const dsCanBoDeXuat = giuCanBoDaChon(dsCanBo, formData.canBoDeXuatId, canBoCuaHoSo.canBoDeXuat);
   // Khai với app "đang sửa dở" khi dữ liệu khác bản đã lưu — app không tự lên bản mới lúc này.
   useDauHieuDangSua(!isLoadingData && JSON.stringify(formData) !== savedSnapshotRef.current);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
@@ -184,14 +205,6 @@ export function PetitionFormPage() {
       canBoDeXuatId:  prev.canBoDeXuatId  || defaults.userId           || "",
     }));
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName, defaults.userId]);
-
-  // Load users for FKSelect
-  useEffect(() => {
-    api
-      .get<{ success: boolean; data: UserOption[] }>("/admin/users", { params: { limit: 200 } })
-      .then((res) => setUserOptions(res.data.data ?? []))
-      .catch(() => setUserOptions([]));
-  }, []);
 
   // Load petition data in edit mode
   useEffect(() => {
@@ -292,6 +305,12 @@ export function PetitionFormPage() {
           sttCu: (d.sttCu as string) ?? "",
           // Ô hệ cũ chưa có cột riêng — nằm trong metadata của máy chủ.
           legacyExtra: metaTheoBoCuc,
+        });
+        // Giữ hồ sơ cán bộ mà đơn đang trỏ tới: danh sách chọn chỉ nạp người đang hoạt động,
+        // nên nếu người được giao đã nghỉ thì chỉ chỗ này còn biết tên họ.
+        setCanBoCuaHoSo({
+          assignedTo: (d.assignedTo as CanBoTuHoSo | null) ?? null,
+          canBoDeXuat: (d.canBoDeXuat as CanBoTuHoSo | null) ?? null,
         });
         setRecordUpdatedAt((d.updatedAt as string) ?? null);
         // Nhóm II: track linked IDs to show/hide convert button
@@ -698,9 +717,9 @@ export function PetitionFormPage() {
                     data-testid="field-canBoDeXuatId"
                   >
                     <option value="">-- Chọn cán bộ --</option>
-                    {userOptions.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {displayName(u)}
+                    {dsCanBoDeXuat.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
                       </option>
                     ))}
                   </select>
@@ -1013,8 +1032,8 @@ export function PetitionFormPage() {
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <select value={formData.assignedToId} onChange={(e) => update("assignedToId", e.target.value)} className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none" data-testid="field-assignedToId">
                     <option value="">Chưa phân công</option>
-                    {userOptions.map((u) => (
-                      <option key={u.id} value={u.id}>{displayName(u)}</option>
+                    {dsNguoiDuocGiao.map((u) => (
+                      <option key={u.value} value={u.value}>{u.label}</option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1033,7 +1052,7 @@ export function PetitionFormPage() {
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
         {isEditMode && id && (!chiXem || canDispatch) && (
-          <PetitionAssignmentSection petitionId={id} userOptions={userOptions} />
+          <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} />
         )}
 
         {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}

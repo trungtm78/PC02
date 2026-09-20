@@ -5,7 +5,8 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { UserPlus, Trash2 } from "lucide-react";
-import { hoTen } from '@/lib/hoTen';
+import type { OfficerOption } from '@/hooks/useOfficerOptions';
+import { nhanCanBo } from './PetitionFormPage/canBoDaChon';
 
 interface UserOption {
   id: string;
@@ -25,14 +26,10 @@ interface Assignment {
   assignedAt: string;
 }
 
-function displayName(u: UserOption): string {
-  const full = hoTen(u);
-  return full || u.username;
-}
-
 interface Props {
   petitionId: string;
-  userOptions: UserOption[];
+  /** Từ `useOfficerOptions` — nguồn cán bộ duy nhất, đã phân trang đủ và lọc tài khoản còn hoạt động. */
+  userOptions: OfficerOption[];
 }
 
 export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
@@ -88,7 +85,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
   };
 
   const availableUsers = userOptions.filter(
-    (u) => !assignments.some((a) => a.userId === u.id),
+    (u) => !assignments.some((a) => a.userId === u.value),
   );
 
   return (
@@ -119,7 +116,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
               >
                 <div className="flex items-center gap-3">
                   <span className="font-medium text-slate-800 text-sm">
-                    {displayName(a.user)}
+                    {nhanCanBo(userOptions, a.userId, a.user)}
                   </span>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -159,8 +156,8 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
             >
               <option value="">-- Chọn cán bộ --</option>
               {availableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {displayName(u)}
+                <option key={u.value} value={u.value}>
+                  {u.label}
                 </option>
               ))}
             </select>

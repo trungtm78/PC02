@@ -76,9 +76,9 @@ describe('useOfficerOptions', () => {
     const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
     await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.data).toEqual([
-      { value: 'u1', label: 'Bùi Thanh Trà (mrtea)' },
-      { value: 'u2', label: 'Bùi Thanh Trà (tra.buithanh.doi2)' },
-      { value: 'u3', label: 'Nguyễn An' },
+      { value: 'u1', label: 'Bùi Thanh Trà (mrtea)', teams: [] },
+      { value: 'u2', label: 'Bùi Thanh Trà (tra.buithanh.doi2)', teams: [] },
+      { value: 'u3', label: 'Nguyễn An', teams: [] },
     ]);
   });
 
@@ -119,9 +119,57 @@ describe('useOfficerOptions', () => {
     const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
 
     await waitFor(() => expect(result.current.data).toBeDefined());
+    // `teams: []` là khoá THÊM — máy chủ chưa gửi tổ thì quy về mảng rỗng ngay trong hook.
     expect(result.current.data).toEqual([
-      { value: 'u2', label: 'canbo2' },
-      { value: 'u1', label: 'Nguyễn An' },
+      { value: 'u2', label: 'canbo2', teams: [] },
+      { value: 'u1', label: 'Nguyễn An', teams: [] },
     ]);
+  });
+});
+
+/**
+ * Ô chọn cán bộ trên form gom nhóm theo TỔ, nên phần tử phải mang tổ của người ấy.
+ * `teams` là khoá THÊM: ba trang danh sách chỉ đọc `{value,label}` nên không ai vỡ.
+ */
+describe('useOfficerOptions — tổ của cán bộ', () => {
+  beforeEach(() => {
+    get.mockReset();
+  });
+
+  it('mang `teams` của máy chủ xuống từng phần tử', async () => {
+    get.mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: 'u1',
+            lastName: 'Nguyễn Văn',
+            firstName: 'A',
+            teams: [{ teamId: 't1', teamName: 'Tổ 1', isLeader: false }],
+          },
+        ],
+        total: 1,
+      },
+    });
+
+    const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    // Giữ NGUYÊN hình máy chủ trả, kể cả `isLeader`: ô chọn theo tổ cần biết ai là tổ trưởng
+    // để xếp lên đầu nhóm. Cắt bớt ở đây là buộc tầng trên hỏi lại lần nữa.
+    expect(result.current.data?.[0]).toEqual({
+      value: 'u1',
+      label: 'Nguyễn Văn A',
+      teams: [{ teamId: 't1', teamName: 'Tổ 1', isLeader: false }],
+    });
+  });
+
+  it('người chưa thuộc tổ nào ra `teams: []`, không phải undefined', async () => {
+    // Tầng dựng nhóm gom mảng rỗng vào "Chưa có tổ"; `undefined` làm nó nổ.
+    get.mockResolvedValue({ data: { data: [{ id: 'u2', username: 'b' }], total: 1 } });
+
+    const { result } = renderHook(() => useOfficerOptions(true), { wrapper: boc });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.[0].teams).toEqual([]);
   });
 });
