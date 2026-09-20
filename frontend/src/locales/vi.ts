@@ -129,6 +129,12 @@ const KHAI_TAO_NHANH_THEO_LOAI: Record<string, KhaiTaoNhanh> = {
     nhanTen: 'Tên loại thông tin',
     goiY: 'Ví dụ: Tố giác, Khiếu nại (Quyết định tố tụng)',
   },
+  NGUON_DON: {
+    danhTu: 'nguồn đơn',
+    tieuDe: 'Tạo nguồn đơn/đơn vị giao',
+    nhanTen: 'Tên nguồn đơn/đơn vị giao',
+    goiY: 'Ví dụ: Bưu điện, Trực tiếp, PC01 Công an TP. Hồ Chí Minh',
+  },
 };
 
 /** Câu chữ popup tạo nhanh cho một loại danh mục; loại chưa khai dùng câu chữ chung. */

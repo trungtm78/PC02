@@ -21,6 +21,8 @@ interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "
   children?: ReactNode;
   /** Chèn giữa bố cục hệ cũ và khối gập — dùng cho bảng con của hệ cũ (vd ĐTBS). */
   afterLegacy?: ReactNode;
+  /** Thay ô mặc định bằng ô riêng — vd "Nguồn đơn/Đơn vị giao" chọn từ danh mục. */
+  renderOverride?: Partial<Record<string, (label: string) => ReactNode>>;
 }
 
 export function LegacyTabBody({
@@ -31,6 +33,7 @@ export function LegacyTabBody({
   setErrors,
   pinnedTop,
   afterLegacy,
+  renderOverride,
   children,
 }: Props) {
   return (
@@ -45,6 +48,7 @@ export function LegacyTabBody({
       }}
       pinnedTop={pinnedTop}
       afterLegacy={afterLegacy}
+      renderOverride={renderOverride}
     >
       {children}
     </LegacyTabBodyChung>

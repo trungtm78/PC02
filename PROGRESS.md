@@ -1,12 +1,285 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-16 | Milestone: M7 | Task: M6 XONG (PR #381 → fe56bb07, deploy + nạp cột bóng + kiểm vàng + EXPLAIN trên prod đều xong); tài liệu hậu-M6 merge (PR #383 → 6da4f55b, CI + Deploy success, health buildId khớp). M7 đang làm phần KHÔNG cần UAT_PASS; 9 mệnh đề "cán bộ bấm thử" vẫn CHƯA CHẠY vì thiếu mật khẩu.
+Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
+Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
+Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
+
+<!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
+
+## ĐỢT 20/09 — Form Đơn thư nhập liệu nhanh (anh gửi 5 việc)
+
+Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một làn nối tiếp vì 4 PR cùng sửa
+`PetitionFormPage/index.tsx`; chỉ T5 chạy song song được.
+
+### Đã hoàn thành
+- [x] **T1 — Máy chủ trả tổ + form dùng một nguồn cán bộ duy nhất** — chưa commit
+  - `GET /admin/users` trả thêm `teams: [{teamId, teamName, isLeader}]` (helper `withTeams`)
+  - `useOfficerOptions` mang `teams` xuống từng mục (giữ cả `isLeader`)
+  - Form Đơn thư BỎ lời gọi riêng `/admin/users?limit=200` → dùng `useOfficerOptions`
+    (sửa lỗi thiếu ~45/245 cán bộ + lọt tài khoản đã khoá)
+  - `giuCanBoDaChon` + `nhanCanBo`: giữ người đã chọn khi họ đã ngừng hoạt động; một cách
+    dựng nhãn duy nhất cho cả ô chọn lẫn bảng phân công
+  - **Vá thêm 1 lỗi P1 prod phát hiện khi rà mã:** hộp `AssignModal` chết im lặng ở CẢ HAI ô
+  - Cổng mới: `motNguonCanBo.gate` (chặn lời gọi `/admin/users` thẳng ở màn Đơn thư)
+  - Xoá mã chết `PetitionFormPage/userOption.ts`
+  - Patch coverage: `admin.service.ts` dòng mới 100%; `useOfficerOptions.ts` 100% line / 87.5% branch
+  - Lint: 0 lỗi mới (mốc HEAD `admin.service.ts` 19 = sau 19)
+
+- [x] **T2 — ô chọn cán bộ gom nhóm theo Tổ + chuẩn ARIA + mặc định cán bộ đề xuất (gộp T4)**
+  - `FKSelect` thêm `groups?: FKGroup[]`. Luật tìm: khớp TÊN NHÓM → giữ cả nhóm; khớp TÊN MỤC
+    → lọc trong nhóm, bỏ nhóm rỗng. Chỉ số phẳng `dsPhang` cho phím mũi tên đi xuyên nhóm.
+  - Chuẩn WAI-ARIA APG: `role=combobox` + `aria-activedescendant` ở ô nhập, `role=listbox`,
+    `role=group` + `aria-label` mỗi tổ, `role=option` + `aria-selected`. Trước đây `FKSelect`
+    KHÔNG có một thuộc tính `role`/`aria-` nào.
+  - `gomCanBoTheoTo`: tổ sắp theo tên, tổ trưởng đầu nhóm, người ở 2 tổ hiện ở cả hai,
+    "Chưa có tổ" luôn cuối và chỉ dựng khi có người.
+  - Áp cho cả 3 ô chọn cán bộ: `canBoDeXuatId`, `assignedToId`, `PetitionAssignmentSection`.
+  - **Bắt được 1 lỗi trong chính mã vừa viết:** ở chế độ nhóm, `FKSelect` tra nhãn đã chọn
+    trong `options` (rỗng) → ô KHÔNG BAO GIỜ hiện giá trị đã chọn. Sửa bằng `tatCaMuc`.
+  - **Rà mã độc lập bắt 7 lỗi, đã vá HẾT:**
+    | # | Lỗi | Cách vá |
+    |---|---|---|
+    | P1 | `highlightedIndex` là CHỈ SỐ, danh sách đổi dưới chân nó (hồ sơ về muộn) → Enter chọn NHẦM người | bỏ tô khi `khoaDanhSach` đổi, không chỉ khi chữ tìm đổi |
+    | P1 | ô bấm mở không có `tabIndex`/`role`/`onKeyDown` → bàn phím KHÔNG mở nổi; 3 ô vốn là `<select>` thật nên đây là LÙI | `role=combobox` + `tabIndex` + Enter/Space/↓ ở ô bấm mở; ô tìm bên trong bỏ `role` |
+    | P2 | cán bộ 2 tổ → 2 mục cùng `data-testid` → `getByTestId` nổ, Playwright hỏng trên dữ liệu thật | bản lặp mang thêm chỉ số |
+    | P2 | danh sách rỗng lúc ĐANG TẢI báo "không tìm thấy kết quả" → nói dối là "không có cán bộ nào" | tách 3 trạng thái: đang tải / rỗng / không tìm thấy; 3 chỗ gọi truyền `isLoading` |
+    | P2 | `localeCompare` thuần → "Tổ CT số 10" đứng TRƯỚC "Tổ CT số 4" (tên tổ THẬT ở `tmp-teams.txt`) | `{ numeric: true }` + ca kiểm trên tên thật |
+    | P2 | 4 ca UAT Playwright dùng `locator('option')` → 3 ca TỰ BỎ QUA, 1 ca xanh RỖNG | viết lại theo combobox; bỏ `test.skip` giả — danh sách rỗng LÀ lỗi |
+    | P3 | `aria-selected` đánh dấu người đang TÔ → trình đọc màn hình đọc "đã chọn" mỗi lần bấm mũi tên; 2 mục cùng `true` khi cán bộ ở 2 tổ | `aria-selected` chỉ theo giá trị ĐÃ CHỌN |
+    | P3 | Enter khi chưa tô tự lấy người ĐẦU danh sách → gõ để lọc rồi Enter là gán bừa, tên in lên Phiếu đề xuất | Enter chỉ chọn khi đang tô |
+    | P3 | người đã ngừng hoạt động rơi vào "Chưa có tổ" ở ĐÁY danh sách 245 người | nhóm GHIM "Đang chọn" đầu danh sách |
+    | P3 | 2 `useMemo` không bao giờ trúng (`giuCanBoDaChon` trả mảng mới) | bỏ |
+
+- [x] **T3 — danh mục `NGUON_DON`**
+  - Hàm thuần `laNguonTrucTiep` + `khoaNguonDon` (20 ca) — suy cờ từ TÊN, không đọc CSDL
+  - Luật tạo nhanh `NGUON_DON` (7 ca): mục mới TỰ mang cờ `laTrucTiep`
+  - Ô `nguonDon` trên form **Đơn thư** và **Vụ án** dùng `FKSelect directoryType="NGUON_DON"`
+    (Vụ án cần dẫn `renderOverride` qua lớp bọc `CaseFormPage/LegacyTabBody`)
+  - Câu chữ popup (`vi.ts`) + nhãn trang Danh mục
+  - CLI `nap-nguon-don` (+ `.util`, 19 ca): đọc CẢ `petitions.nguonDon` lẫn `cases.nguonDon`,
+    gộp theo khoá, tên phổ biến nhất làm tên chuẩn, <3 hồ sơ → chờ duyệt, **chạy thử mặc định**,
+    `--csv` xuất bảng gộp có BOM, `--that` mới ghi, chạy lần hai ra 0 mục mới
+  - **CHỜ ANH (§8c — ghi prod):** chạy `--csv` trên prod → anh soát bảng gộp → rồi mới `--that`,
+    sau đó `--that --chuan-hoa` để đổi hồ sơ cũ về tên chuẩn
+  - **Rà mã độc lập bắt 13 lỗi, đã vá HẾT:**
+    | # | Lỗi | Cách vá |
+    |---|---|---|
+    | P1 | ô Nguồn đơn form Vụ án KHÔNG có "Tạo mới", mà danh mục đang RỖNG trên prod → deploy xong là ô chết | thêm `canCreate` + popup tạo nhanh, 4 ca kiểm thật (ca cũ chỉ soi nút mở nên khai sai vẫn xanh) |
+    | P1 | khoá chạy-lại chỉ là TÊN mục → quản trị đổi tên/tắt mục xong, lượt sau NẠP LẠI rác vừa dọn | đọc cả `metadata.bienThe` và cả mục đã tắt |
+    | P2 | `laNguonTrucTiep` khớp bừa cụm "trực tiếp" → "Không trực tiếp", "Đơn vị trực tiếp thụ lý" đều thành TRỰC TIẾP → cán bộ mở đơn cũ KHÔNG LƯU ĐƯỢC | luật bảo thủ: loại phủ định, đòi ngữ cảnh tiếp nhận; bộ tên chuẩn mở rộng 27 mẫu |
+    | P2 | `khoaNguonDon` dùng lại `khoaDonVi` → "Phòng 1"→"1", "Phòng chống tệ nạn"→"chống tệ nạn" | chuẩn hoá riêng, KHÔNG bỏ tiền tố "phòng"/"bch"; cổng cặp-phải-khác/phải-giống |
+    | P2 | báo "đã thêm N" trong khi máy chủ chèn 0 (hai lượt chồng nhau) | dùng `createMany.count` thật |
+    | P2 | bỏ sót `incidents.chuyenTuDonVi` — màn Vụ việc cũng phơi khái niệm này | đọc cả ba bảng |
+    | P2 | ca kiểm "mã nối tiếp" chạy với danh mục RỖNG nên không kiểm gì | truyền mã đã có, khẳng định `ND0008` |
+    | P3 | CSV không vô hiệu hoá công thức → Excel diễn giải `=`/`+`/`-`/`@` | chèn nháy đơn |
+    | P3 | `--csv --that` ghi bảng gộp ra tệp TÊN LÀ `--that` rồi vẫn ghi CSDL | kiểm đối số, thiếu tên tệp thì dừng |
+    | P3 | `order` đánh lại từ 0 mỗi lượt → mục lượt sau chen vào giữa | nối tiếp `order` lớn nhất đang có |
+    | P3 | **CLI chỉ dựng danh mục, 47.456 hồ sơ vẫn giữ 1.431 cách viết** → động cơ ban đầu chưa đạt | thêm `--chuan-hoa` ghi lại hồ sơ về tên chuẩn, sau cờ RIÊNG, chạy thử xem trước được |
+
+- [x] **T4 — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn**
+  - Máy chủ: validator riêng `SdtNguyenDonHopLe`. **KHÔNG dùng `@ValidateIf` + `@IsNotEmpty`** —
+    ca kiểm của chính em bắt được: `@ValidateIf` tắt MỌI validator của ô, nên nguồn "Bưu điện"
+    + số "abc" đi lọt thẳng xuống cột. Nới "bắt buộc" không được phép nới luôn "hợp lệ".
+  - Trình duyệt: `validate.ts` gọi ĐÚNG hàm thuần ấy.
+  - **Cổng hai đầu:** `frontend/src/shared/nguon-don/truc-tiep.corpus.json` là MỘT nguồn sự thật;
+    cả hai đầu chấm chính mình trên nó, và cả hai bộ ca kiểm luật cũng lấy mẫu từ đó — không
+    bên nào tự chọn mẫu dễ. Gieo lỗi (bỏ xử lý dấu câu ở bản trình duyệt) → cổng đỏ.
+
+- [x] **T5 — cơ chế nhóm ô gập + nhóm "Thông tin khác" (yêu cầu 5)**
+  - `NhomOGap` mới: vỏ thẻ riêng, **bộ đếm "N ô · M đã nhập"** (thu gọn mà giấu dữ liệu đã
+    nhập là kiểu hỏng tệ nhất), dấu `*` khi trong nhóm có ô bắt buộc, viền đỏ + chấm đỏ khi
+    có ô báo lỗi. Nội dung KHÔNG nằm trong DOM khi đóng (không dùng `<details>`).
+  - `LegacyLayoutSection` nhận prop `nhom` — mặc định `undefined` → dựng y hệt như trước, nên
+    **Vụ án và Vụ việc không đổi một dòng**, 3 cổng `moiOCoChoLuu` giữ nguyên.
+  - Bảng khai riêng `features/petitions/nhom-o.def.ts`, mỗi nhóm khai rõ `tab`.
+  - **Cổng #5** `kiemNhomLienNhau`: ô trong nhóm phải LIỀN NHAU, không trùng nhóm, không gõ
+    nhầm tên ô. Cộng mệnh đề **thứ tự DOM giữ nguyên thứ tự đặc tả**.
+  - Cổng bắt được lỗi thật ngay khi khai: tab `subjects` chỉ có 1 trong 2 ô → phải khai `tab`.
+
+- [x] **T6 — nhóm định danh nguyên đơn bung theo Nguồn đơn (yêu cầu 2, phần bung/thu)**
+  - Dải LIỀN MẠCH 5 ô (167→171): SĐT · Sinh năm · Số CCCD · Ngày cấp · Nơi cấp. Gồm cả
+    "Sinh năm" để dải liền mạch — **0 ô phải dời chỗ, 0 ô lệch cột**.
+  - Ba điều kiện HOẶC: `laNguonTrucTiep(nguonDon)` · ô đã có giá trị · ô đang báo lỗi.
+  - **Cổng #1** `oBatBuocKhongBiGiau`: bấm Lưu bị chặn thì ô gây chặn PHẢI nhìn thấy được —
+    đúng lỗi PR #248. Thêm `oDangLoi` dẫn tín hiệu lỗi xuống nhóm (form Đơn thư hiện lỗi bằng
+    điều hướng ô, không in chữ lỗi dưới ô bố cục hệ cũ).
+
+- [x] **T7 — Ngày viết đơn nhập thiếu thành phần (yêu cầu 3)**
+  - `shared/ngay-thieu/edtf.ts`: EDTF Level 1 (`2026-12-XX`), 25 ca. Hàm thuần, kiểm khứ hồi.
+  - `PartialDateInput`: BA Ô phân đoạn trong `fieldset`, mỗi ô có tên đọc được, tự nhảy ô,
+    Backspace lùi ô, mũi tên đi lại, dán "15/12/2026" tách ra ba ô, chỉ nhận chữ số, validate
+    ngày RÁP LẠI (31/02 đỏ). Font mono + `tabular-nums` nên ba ô không giật khi gõ.
+    - **Ca kiểm bắt lỗi thiết kế thật:** ba ô phải giữ trạng thái RIÊNG — EDTF không biểu diễn
+      được "ngày 15, chưa có năm", nên đọc thẳng từ `value` là gõ ngày→tháng→năm thì ngày và
+      tháng BIẾN MẤT.
+  - Cột `ngayVietDonEdtf` + migration (bù dữ liệu: đơn đã có ngày đầy đủ được điền sẵn).
+  - **TRỌN đường ống khoá form** (types → payload → DTO → service → schema) — cổng
+    `moi-khoa-form-gui-len-deu-duoc-nhan` xanh. Thiếu một mắt là 400 cho MỌI lượt tạo đơn.
+  - `ngayVietDonHienThi` + `khoaSapXepNgayVietDon` dùng chung (11 ca) + **cổng #3**
+    `moiNoiInNgayVietDon`: catalog chứng từ không được đọc thẳng `r.petitionDate`. Gieo lỗi đỏ.
+  - **Không bao giờ bịa ngày 01** — có ca kiểm khẳng định `petitionDate` là `null` khi nhập thiếu.
+
+- [x] **Vá rà mã T5/T6 (1 P1 + 8 lỗi)**
+  | # | Lỗi | Cách vá |
+  |---|---|---|
+  | P1 | bấm tay đóng nhóm rồi thì `moSan` CHẾT vĩnh viễn → nhóm không bung lại kể cả khi ô bên trong chặn Lưu; `focusFirstError` cũng im lặng vì `querySelector` trả null → đúng PR #248 | `coLoi` ÁP ĐẢO (nhóm đang chặn Lưu không đóng được) + `moSan` false→true thì xoá lựa chọn tay |
+  | P2 | cổng #1 không thể đỏ vì `moKhi` đã mở nhóm sẵn — gỡ sạch đường `coLoi` vẫn xanh | viết lại: ĐÓNG NHÓM BẰNG TAY rồi mới bấm Lưu; gieo lỗi chứng minh cổng đỏ |
+  | P2 | báo lỗi TRƯỚC khi cán bộ làm gì sai — chọn "Trực tiếp" là viền đỏ ngay | `daBamLuu` gate; phần còn lại của form cũng không báo trước khi bấm Lưu |
+  | P2 | nhóm không truyền được trạng thái lỗi và "bắt buộc" cho trình đọc màn hình; màu là tín hiệu DUY NHẤT (WCAG 1.4.1) | `aria-controls` + `role=region` + nhãn `sr-only` cho chấm đỏ và dấu `*` |
+  | P3 | cổng liền-nhau không chặn ô LẶP trong cùng tab → tầng dựng sinh hai thẻ cùng khoá React | thêm mệnh đề đếm số lần xuất hiện |
+
+- [x] **T8 — ô chọn cán bộ có nhóm cho Vụ án + Vụ việc**
+  - `IncidentFormPage` (Điều tra viên, Cán bộ nhập) và `CaseFormPage` (`handlerGroups`) bỏ
+    lời gọi riêng `/admin/users?limit=200` — **CÙNG lỗi đã vá ở màn Đơn thư**: thiếu ~45 người
+    và lọt tài khoản đã khoá.
+  - Cổng `motNguonCanBoVuViec` chặn lời gọi thẳng mọc lại ở 4 thư mục.
+  - Các nơi còn gọi `/admin/users` đều là màn QUẢN TRỊ tài khoản — đúng chỗ phải gọi thẳng.
+  - **Món nợ T7 đã KIỂM và KHÔNG có thật:** `petitionDate` không nằm trong danh sách cột sắp
+    xếp được (`thuTuDanhSach.allowed`), và "Ngày viết đơn" không phải cột danh sách — nên
+    không có chuyện đơn nhập thiếu rơi vào rổ NULL. Ghi lại thay vì bịa việc.
+
+- [x] **T9 — `DESIGN.md` §12** (ô chọn cán bộ gom nhóm, nhóm ô gập, ngày thiếu thành phần,
+  chỉ dấu chuyển động tự động, Do/Don't)
+
+- [x] **Vá rà mã T7/T8 (2 P1 + 4 lỗi), cộng 2 lỗi em tự bắt**
+  | # | Lỗi | Cách vá |
+  |---|---|---|
+  | P1 | **đường TẠO MỚI không ghi `ngayVietDonEdtf`** — chỉ vá đường sửa. Cán bộ gõ `__/12/2026` rồi Lưu: payload ĐÚNG nhưng cả hai cột rỗng, MẤT SẠCH ngày. Chỉ "chạy" nếu bấm Lưu lần hai | thêm vào `petition-data.builder.ts` + 3 ca kiểm ở tầng đó (ca FE dừng ở thân yêu cầu nên không bắt được) |
+  | P1 | **mẫu Word hệ cũ `{ngay_viet_don}` đọc thẳng cột ngày** → đơn nhập thiếu in ra CHỖ TRỐNG trên văn bản gửi ra ngoài ngành | qua hàm dùng chung; **nhưng DỮ LIỆU THÔ HỆ CŨ THẮNG** — 4.447 hồ sơ có ô này là chữ tự do ("tháng 5/2026", "không rõ"), chuẩn hoá là in ra trống |
+  | P2 | cổng #3 soi MỘT tệp, đòi hai chữ trên CÙNG một dòng → bỏ lọt `khoa-he-cu.ts` | quét cả thư mục, soi theo cửa sổ sau mỗi `resolve:`; gieo lỗi đỏ |
+  | P2 | `khoaSapXepNgayVietDon` KHÔNG có nơi nào gọi — mã chết | xoá cả hàm lẫn ca kiểm; sửa lý do trong migration cho đúng |
+  | P2 | **Vụ án/Vụ việc thiếu `ghimId`** → cán bộ đã khoá biến mất khỏi ô, ô trông như chưa chọn ai, người dùng chọn người khác = PHÂN CÔNG LẠI NGẦM | truyền id đang giữ; **cổng mới** chặn mọi lời gọi `gomCanBoTheoTo` một đối số |
+  | P3 | ca kiểm chập chờn `AssignModal` — xanh khi chạy riêng, đỏ ngẫu nhiên khi chạy cả bộ | nới mốc chờ; ca chập chờn làm CI đỏ ngẫu nhiên rồi người ta quen với màu đỏ |
+  | **em tự bắt** | mở đơn CŨ chỉ có cột ngày thật → ba ô hiện TRẮNG, gõ rồi xoá là mất luôn `petitionDate` | suy cột EDTF từ cột ngày thật lúc nạp |
+  | **em tự bắt** | `2026-02-31` lọt qua regex EDTF xuống cột rồi lên bản in | validator `IsEdtfNgayThat` (máy chủ) + `loiEdtf` trong `validate.ts` (trình duyệt), cùng luật |
+
+### Đang làm dở
+Task: UAT phủ 100% (§9) trên prod
+
+Anh chốt đường đi: **PR → CI → merge → deploy → UAT trên prod**.
+
+| Bước | Trạng thái |
+|---|---|
+| PR #448 (`feat/don-thu-nhap-lieu-nhanh`, 10 commit) | ĐÃ TẠO |
+| CI | Backend Tests xanh; đợt cuối đang chạy sau 2 commit tài liệu |
+| Ma trận UAT `docs/uat/dot-2009/UAT-COVERAGE.md` | XONG — 70 ca, 10 nhóm A–J, đối chiếu ngược đủ 5 yêu cầu |
+| Merge → deploy → `prisma migrate deploy` | CHƯA |
+| Chạy `/uat-test-writer` → `/uat-test-runner` từng dòng | CHƯA |
+
+Đã kiểm trước rủi ro migration trên prod (chỉ đọc): cột `ngay_viet_don_edtf` chưa tồn tại,
+migration cuối đã áp là `20260919200000`, migration mới `20260920120000` đứng sau — không
+lệch thứ tự, không có migration treo.
+
+**CHỜI ANH (§8c — ghi dữ liệu prod):** sau deploy em chỉ chạy `nap-nguon-don --csv` (CHỈ ĐỌC),
+đưa anh bảng gộp 1.431 cách viết → ~972 mục. **Không ghi một dòng nào** cho tới khi anh duyệt.
+
+### Hàng đợi task kế tiếp
+T1–T9 ĐÃ XONG MÃ (10 commit trên nhánh). Còn lại đúng chuỗi giao hàng:
+
+1. CI PR #448 xanh → **merge**
+2. Deploy → xác minh `buildId` → `prisma migrate deploy`
+3. Chạy `nap-nguon-don --csv` trên prod (**chỉ đọc**) → đưa anh soát → DỪNG (§8c)
+4. UAT 70 ca theo `docs/uat/dot-2009/UAT-COVERAGE.md`, sửa tận gốc mọi ca đỏ
+5. Đối chiếu ngược 5 yêu cầu gốc → chỉ kết luận khi 100% PASS
+
+### Quyết định kiến trúc
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 20/09 | Cơ chế nhóm khai RIÊNG cho Đơn thư (prop `nhom`), đặc tả `legacy-form-layout.def.ts` KHÔNG đổi | Đặc tả dùng chung cho 3 form (đã kiểm danh sách import) | Vụ án/Vụ việc không đổi; 3 cổng `moiOCoChoLuu` giữ nguyên, không phải nới |
+| 20/09 | Nhóm định danh lấy dải LIỀN MẠCH 167–171, thêm ô "Sinh năm" | `LegacyLayoutSection` là lưới phẳng 2 cột đặt theo thứ tự DOM; gom tập rời buộc ô xen giữa phải dời và làm lệch cột mọi ô sau | 0 ô phải dời; tăng scope 1 ô |
+| 20/09 | "Trực tiếp" = HÀM THUẦN suy từ tên chuẩn hoá, không đọc CSDL/metadata | `useDirectoryOptions` vứt `metadata`; validator DTO không chạm CSDL được | Chạy y hệt FE/BE; bịt lỗ tạo-nhanh-quên-cờ |
+| 20/09 | Ngày thiếu lưu theo EDTF Level 1 (`2026-12-XX`) | Chuẩn ISO 8601-2; sắp xếp + lọc bằng tiền tố chuỗi chạy thẳng trên SQL | Lưu nguyên văn thì cột chết |
+| 20/09 | Ô ngày = BA Ô PHÂN ĐOẠN trong `fieldset`, không phải ô mặt nạ | NN/g + uxpatterns.dev; "để trống ngày" thành thao tác hạng nhất | Đổi tên `MaskedDateInput` → `PartialDateInput` |
+| 20/09 | `teams` là khoá THÊM ở `/admin/users`, không đổi khoá cũ | 3 trang danh sách + `AssignModal` đang đọc endpoint này | Không ai vỡ |
+| 20/09 | `gomCanBoTheoTo` trả thẳng hình `FKGroup` (`key`/`label`/`options`) | Một hình duy nhất, khỏi dịch qua lại ở chỗ gọi | Chỗ gọi truyền thẳng vào `FKSelect` |
+| 20/09 | Tiêu đề nhóm tổ trong dropdown KHÔNG gập được | Nhóm ở đây để đọc và lọc; thêm một trạng thái đóng/mở nữa vào danh sách đang lọc là hai mô hình tranh nhau | Chỉ có tiêu đề + chip đếm |
+
+### Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+|---|---|---|
+| Ngôn ngữ chú thích/tên ca kiểm | Tiếng Việt (định danh tiếng Anh) | CLAUDE.md giới hạn luật "chú thích tiếng Anh" cho `Lumina_Approve`; protocol §4 nói "convention repo thắng" — repo PC02 dùng tiếng Việt |
+| Nhãn cán bộ đã ngừng hoạt động | Giữ mục, ghi rõ "(không còn hoạt động)" | Mất mục = mất phân công; ô trắng khiến cán bộ chọn người khác = phân công lại ngầm |
+| Ca kiểm cũ soi `role="button"` cho mục danh sách | Đổi sang `role="option"` | Mục nay nằm trong `role="listbox"`; soi theo vai trò nút là soi đúng thứ chuẩn nói KHÔNG nên dùng |
+| Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
+
+### Trạng thái test
+Full suite: **backend 5868/5868 (420 suite)** · **frontend 3629/3629 (962 suite)** · tsc sạch
+· 0 lỗi lint mới (prettier còn dọn bớt 10 lỗi có sẵn ở `khoa-he-cu.ts`: 29→19)
+Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
+→ cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng
+Patch coverage: 100% dòng mới (backend) · 100% line / 87.5% branch (`useOfficerOptions`)
+Test fail: không
+
+### Nợ kỹ thuật / rủi ro
+- `admin.service.ts` có **19 lỗi lint prettier CÓ SẴN từ HEAD** (dòng 180, 206, 301–313, 399–431, 740, 846, 880–928) và 1 `no-unused-vars` (`AccessLevel` dòng 27). T1 không thêm lỗi nào. Dọn riêng một PR `chore(lint)` — gộp vào đây sẽ phình diff.
+- `admin.service.spec.ts` 35 lỗi lint có sẵn (khối `mockAudit.wrapUpdate` dùng `any`).
+- ĐÃ DỌN: `useOfficerOptions` nay gọi `hoTen()` dùng chung thay vì chép tay phép ghép.
+- **Bẫy đo đạc (gặp HAI lần):** chạy `npx jest` (backend) và `npx vitest run` (frontend) SONG
+  SONG gây hai kiểu đỏ GIẢ: (1) 3 ca xuất Excel quá hạn 5s vì đói CPU; (2) **hỏng kho đệm biến
+  đổi của jest** → 32 ca `two-fa.service.spec.ts` đỏ với lỗi `ScriptTransformer`, không phải
+  mệnh đề nào sai. `npx jest --clearCache` rồi chạy lại là 32/32 đạt. **Chạy LẦN LƯỢT.**
+
+
+---
+
+# (Đợt trước — 18/09, còn CHỜ ANH)
+
+# PROGRESS
+Cập nhật: 2026-09-18 | Milestone: 6/6 + C2 + UAT (A→E→D→C→C2→B→F1→F2→UAT) | Task: MÃ + UAT XONG; lượt ghi E ĐÃ CHẠY prod 19/09 (anh duyệt). BLOCKED chờ anh (§8c): D 86 đơn gắn kèm, C2 4.601 vụ việc bù Cán bộ nhập (anh CHƯA duyệt) — rồi E18 trên prod; ký UAT_PASS. Chờ anh: 3 lượt ghi prod (E 26 hồ sơ, D 86 đơn gắn kèm, C2 4.601 vụ việc). Plan: ~/.claude/plans/gleaming-pondering-thacker.md · Spec: docs/superpowers/specs/2026-09-18-danh-sach-de-doc-tu-cap-nhat-design.md
 
 <!-- Dấu trạng thái kết thúc chỉ ghi ĐẦU DÒNG khi hoàn tất hoặc bị chặn — stop-guard.bat neo theo đầu dòng. -->
 
 Spec gốc:
 - M1: `docs/superpowers/specs/2026-09-14-loai-thong-tin-design.md`
 - M2–M6: `docs/superpowers/specs/2026-09-14-tim-kiem-dang-the-design.md` (đã qua /plan-eng-review, 22 phát hiện đã gộp)
+
+## Đợt 18/09 — danh sách dễ đọc + tự cập nhật + dữ liệu hệ cũ thiếu (anh gửi 6 việc)
+Plan đã qua /plan-eng-review (9 phát hiện + codex 6, đã gộp) và /design-consultation (bản C). Thứ tự: A → E → D → C → B → F.
+| PR | Nội dung | Trạng thái |
+|---|---|---|
+| A | Tự cập nhật im lặng: gỡ BanCuPrompt/PwaUpdatePrompt, cập nhật khi chuyển màn / tab rảnh / preloadError, sổ đăng ký form dở dang | DONE #408 → bf0d8ce1, deploy xanh buildId khớp, bundle prod không còn hộp nhắc. Rà mã P1 defaultValue React19 + P2 history.state; codex P2 ×3 (gỡ SW khi hỏng gói, ô tích/radio, tệp chờ tải) — đã vá. 277 tệp/3.247 ca FE xanh. |
+| E | Nạp 14 mới + 12 sửa hệ cũ; trùng số cùng loại → bộ đếm + sttCu (cần anh xác nhận trước ghi prod) | DONE #409 → afacaa72. GHI PROD 19/09 06:28 (anh duyệt): sao lưu pre-cap-nhat-he-cu-20260919-0628.sql.gz → nạp 26; 13 đơn 11729–11742 → 2026-11936…11948 (STT cũ 13/13); Kha Tử Thạnh 2026-11732; chạy lại 0; 0 số trùng; E17 PASS prod |
+| D | 86 hồ sơ loai=don_thu nằm ở Vụ án/Vụ việc → đơn gắn kèm nối 2 chiều (cần anh xác nhận trước ghi prod) | DONE #410 → 25f099e5. Dry prod: 86 (61 vụ án, 25 vụ việc). CHỜ ANH XÁC NHẬN: pg_dump → bu-don-thu-lech-loai --that |
+| C | Bộ lọc: dungWhereDanhSach chung list/stats/export; bộ xuất Excel chung keyset+stream; nút Xuất N dòng | DONE #411 → f1b3dbc2, deploy xanh buildId khớp; prod 3 điểm cuối export/danh-sach trả 401 khi chưa đăng nhập, bundle có nút. Rà mã 0 P1/P2, 3 P3 đã vá; codex sạch 2 lượt. E2E bản sao: danh sách = thẻ số = số dòng Excel ở cả 3 màn (645/2/37), trang in A4 ngang |
+| C2 | Vụ việc: "Người nhập" trắng + lọc Cán bộ nhập ra 0 (prod canBoNhapId 6/4.725) — bộ nạp ghi canBoNhapId, tạo mới mặc định người tạo, CLI bu-can-bo-nhap-vu-viec (cần anh xác nhận trước ghi prod) | DONE #412 → fdb62f1e, deploy xanh buildId khớp. Rà mã 2 P2 đã vá (đồng bộ hệ cũ đè người đã chọn; chuyển đơn/nhập Excel thiếu người nhập); codex sạch 2 lượt. Dry prod (chỉ đọc): 4.601 vụ việc sẽ bù. CHỜ ANH XÁC NHẬN: pg_dump → bu-can-bo-nhap-vu-viec --apply |
+| B | Bảng: Tóm tắt 5 dòng + Xem thêm tại chỗ, cột xuống dòng, thanh cuộn trên, DESIGN.md §11 | DONE #413 → 0815c706, deploy xanh buildId khớp, bundle prod có ThanhCuonNgangTren. Chrome thật 4 màn đạt (bắt lỗi `block` đè line-clamp jsdom không thấy). Rà mã 2 lượt: P2 tiếng vọng cuộn + 6 P3 đã vá. Codex sạch lượt nhánh; HẾT HẠN MỨC tới 20/09 18:50 → commit sửa rà bằng agent độc lập |
+| F | Font tự host + mật độ dòng nhớ theo cán bộ | DONE — F1 #414 → c4ef2987 (12 woff2/264KB, prod phục vụ font/woff2 immutable; DateCell một dòng; rà mã P2 mẫu in 59/60 đổi font → token font-doc riêng). F2 #415 → d85c81c1 (cột user_table_layouts.matDo đã có trên prod; Gọn/Đọc/Đầy đủ; rà mã 4 P3 đã vá). Chrome thật đạt cả hai. Codex hết hạn mức tới 20/09 → rà mã độc lập thay |
+| UAT | §9 UAT-COVERAGE đợt 18/09 | DONE — docs/uat/dot-1809/UAT-COVERAGE.md (#419). Prod API 18/18, E2E 23 PASS (E17/E18 chờ ghi prod); bản sao API 18/18, E2E 24 PASS. UAT bắt 4 lỗi thật, đã sửa + deploy: U1 Xem thêm mất sau khi nạp font + U2 lượt kiểm bản mới bị bỏ khi effect chạy lại (#416 → 995b095b); U3 ô Cán bộ nhập cắt 200/245 + U4 13 cặp trùng tên (#418 → 31a5cbcc). Gieo lỗi 15/15. Bản sao pc02_e2e_c đã xoá, tiến trình local đã dừng |
+Assumption: quy ước repo (định danh/chú thích tiếng Việt, chuỗi hiển thị viết thẳng như mọi màn hiện có) thắng §4 "tiếng Anh + i18n" vì protocol ghi "convention hiện có của repo thắng"; CLAUDE.md toàn cục cũng chỉ áp tiếng Anh cho Lumina_Approve.
+
+## Việc chen ngang 17/09 — tìm kiếm %like% (anh báo "STT: 78" không ra)
+Plan: ~/.claude/plans/gleaming-pondering-thacker.md. Nhánh `fix/tim-kiem-chuoi-con` (từ main 68661702), CHƯA đẩy.
+- 38a1deea PR1: mọi thẻ chữ/mã khớp chuỗi con hai phía; bảng bỏ dấu trình duyệt sinh từ máy chủ + cổng chạy thật.
+- 126924bf vá 3 phát hiện rà mã/Codex: bỏ biến thể năm (rò 2026-1→2025-126-1; prod 0 mã dạng ngắn); thẻ mã trình duyệt so nguyên văn như ILIKE; gỡ khoá STT số dòng ở 8 màn + cổng gieo lỗi. BE 5.281/5.281, FE 3.205/3.205, tsc 0, lint dòng mới 0.
+- BỊ CHẶN: `gh` token hết hạn → git push cũng hỏng ("could not read Username"). Cần anh chạy `gh auth login -h github.com`.
+- Sau khi đẩy: /review + codex lại trên 126924bf → PR → CI đúng SHA → merge → deploy → EXPLAIN prod + bấm thử "STT: 78". Rồi PR3a (Hướng dẫn đơn TRƯỚC: 441/541 hồ sơ không tìm ra).
+- Codex rà 126924bf: sạch.
+- Nhánh XẾP CHỒNG `fix/tim-kiem-huong-dan` (từ 126924bf): 6030e006 Hướng dẫn đơn tìm/phân trang/thống kê ở máy chủ + migration 20260917080606_tim_kiem_huong_dan (sau deploy PHẢI nạp cột bóng guidance_records bằng CLI). BE 5.291, FE 3.206 (trước refactor fetch), tsc 0, lint dòng mới 0. Chờ Codex.
+- ĐO PROD 17/09 (chỉ đọc) guidance_records 541 bản đều di trú: createdById NULL 541 (legacyRaw.__createdById khớp user 541/541) → cán bộ phạm vi userIds KHÔNG thấy bản nào; subject rỗng 539 (mapper lấy loai_thong_tin chỉ 2 bản); SĐT hệ cũ rỗng thật; (nam,stt) duy nhất 541. → PR SAU (ghi dữ liệu prod, theo quy trình): cột mã + bù createdById + sửa buildGuidance.
+- Rà mã độc lập 6030e006: 0 P1/P2, 3 P3 → vá ở 55c0425c (ngày gõ dở 400; nhớ trang cũ/kẹp trang; thẻ trangThai lệch thống kê). Codex 6030e006 sạch.
+- Nhánh RIÊNG `fix/di-tru-nguoi-nhap-tier3` (từ main 68661702, worktree C:/PC02/wt-nguoi-nhap): 2c24f5a0 mapper tier-3 gắn createdById + CLI bu-nguoi-nhap-tier3 (mặc định chỉ đọc). 247 OFFICER đang thấy 0 bản ghi ở Hướng dẫn/Trao đổi/Kiến nghị. Sau merge: chạy CLI chỉ-đọc trên prod, đọc mẫu, rồi --apply (ghi prod — theo quy trình xác nhận). BE 5.279/5.279, tsc 0.
+- SỰ CỐ LOCAL: set bị nuốt → 3 UPDATE bù người nhập tự commit trên pc02_that (local, 650 ô NULL→id đúng). Prod không bị đụng. pc02_that nay lệch prod ở đúng 650 ô này.
+- 17/09 gh auth đã sửa: đẩy 3 nhánh, mở PR #392 (%like%, base main), #393 (người nhập tier-3, base main), #394 (Hướng dẫn đơn, base fix/tim-kiem-chuoi-con). Chờ CI.
+- MERGED + DEPLOYED 17/09: #392 → a5dbb740 (EXPLAIN prod: stt ILIKE %78% 117 ms, tim_kiem_bd %an% 281 ms, audit 12 ms; STT:78 khớp 1.196 đơn); #393 → 63192969; #395 (thay #394 — cherry-pick tránh force-push) → 91261d91, nạp cột bóng guidance_records 541/541 (lua dao 216, Đội 4 362). Health buildId khớp từng lần.
+- Bù người nhập tier-3 trên prod: anh xác nhận 17/09 → --apply 541/76/33, chạy lại 0 trống. OFFICER tuananh nay thấy 396 hướng dẫn + 66 trao đổi, thanhhoai 17 kiến nghị (trước: 0). Hoàn tác: đặt lại NULL cho id đã bù.
+- Còn: nhánh remote fix/tim-kiem-chuoi-con, fix/tim-kiem-huong-dan, fix/di-tru-nguoi-nhap-tier3, fix/tim-kiem-huong-dan-v2 chưa xoá (§8c, chờ anh).
+- PR3a Kiến nghị VKS DONE: #396 → 3876c7e0 (máy chủ tìm/phân trang/thống kê/xuất Excel; vá where.OR phạm vi đè ô tìm; phạm vi khớp getById cho canDispatch + tổ trưởng; search cũ khớp tên vụ án). Codex + rà mã độc lập đã vá. Deploy xanh, nạp cột bóng proposals 42/42, prod tìm quận 12=3.
+- PR3a Ủy thác điều tra DONE: #397 → 12f2a21a (máy chủ tìm/phân trang/thống kê; vá where.OR; TẠO/SỬA ủy thác trước luôn 400/500 — gửi status chữ thường + khoá relatedCase, Partial DTO; nay UpdateDelegationDto + lưu Số/Ngày; tổ trưởng không thấy dòng 403 + sắp createdAt,id cho cả Kiến nghị). Deploy xanh, cột bóng delegations 10/10.
+- PR3a Trao đổi chuyên án DONE: #398 → 5b19eb5e (máy chủ tìm/phân trang; tìm kiếm nâng cao trước không lọc gì; tạo mới trước luôn 400; addMessage kiểm phạm vi; maHoSo năm-stt). Deploy xanh, cột bóng exchanges 76/76. CLI bu-ma-trao-doi: anh xác nhận → --apply 73, chạy lại 0 rỗng; 76/76 có mã, tìm 2025-573 ra 1.
+- PR3a Phân loại danh mục DONE: #399 → e87b401c — KHÔNG chuyển máy chủ (58 dòng, tải đủ, lọc tại chỗ đã %like%); thêm báo "Đang hiện N/M" khi total > số dòng tải.
+- PR3a Đơn thư phường DONE: #400 → 3509257b (tải 100/47.352 → máy chủ; petitionType param; bỏ cột Mức độ 0% dữ liệu; cột ngày = Ngày đề xuất; Tóm tắt = detailContent). PR3a HOÀN TẤT.
+- PR3b-1 Vụ án phường DONE: #401 → 6793b89d (máy chủ tìm/lọc/phân trang/KPI; bỏ phường gán cứng — non-admin trước 0 dòng; cột thật; khai tenVuAn + toiDanhChinh; tuỳ chọn tatCaGomQuanHe cho * (rà mã P2); nhãn kỳ thống kê ở Vụ án phường + Đơn thư phường (rà mã P2); xuất Excel dùng getList, phụ đề đúng kỳ). Codex 2 lượt sạch, CI xanh đúng SHA, deploy xanh buildId khớp. Nạp cột bóng crimes 317/317. Prod: tội danh chính trộm cắp 90 hồ sơ (ô chữ 7); * kèm quan hệ 19,6 ms. CÒN: xuất Excel Đơn thư phường chưa theo thẻ/trạng thái (có từ #400).
+- PR3b-2 Vụ việc phường — ĐO PROD 17/09 (chỉ đọc): 1.165 vụ việc tổ phường (4.725 tổng, 584 không tổ). incidentType 0%, unitId 0% (cột Phường hiện unitId → trắng), diaChiXayRa 6, "Địa điểm" đang hiện description (bịa), name≈description (bài toán "Tên trùng Tóm tắt" chờ anh), tội danh chính 1.009, benVu 1.112, code/ngayDeXuat 100%, status TIEP_NHAN 1.162 + DA_CHUYEN_VU_AN 3. Kế hoạch: bỏ cột Loại + Mức độ (0%), Địa điểm → bỏ (6/1.165), Phường = assignedTeam.ward, Tội danh chính (cần khai vu-viec toiDanhChinh), STT = code.
+- PR3b-2 Vụ việc phường DONE: #402 → a24aa6cf. Không migration (SQL sinh giống hệt #401). Rà mã P3 đã vá: chiToPhuong (helper dieuKienToPhuong — Vụ án/Vụ việc/Đơn thư phường chưa chọn phường chỉ lấy tổ CÓ phường; prod vụ việc 1.165/4.725, đơn 3.911/47.352), nhãn kỳ đúng khi tự chọn ngày (nhanKyApDung). Codex P2 đã vá: xuất Excel Đơn thư phường dùng getList (trước lọc donViGiaiQuyet=ID phường, createdAt, cắt 500). Để nguyên P3: * Vụ việc khớp cả tội danh chính ở màn chính (không có cột). Codex 3 lượt sạch, CI xanh đúng SHA, deploy xanh buildId khớp; cột bóng 0 lệch; * kèm tội danh 67 ms.
+- PR3b-3 Phân loại khác — CHỜ ANH QUYẾT (đọc mã hệ cũ Modules/PhanLoaiKhac: màn lọc ho_so_doi_1.loai="phan_loai_khac" — loại hồ sơ thứ tư; Mongo live đếm CHỈ ĐỌC = 0 bản; hệ mới không có chỗ lưu loại này). Màn mới đang hiện MỌI vụ án REGULAR với phân loại = tội danh (bịa). Phương án: (a) gỡ khỏi menu qua feature flag, (b) giữ màn nhưng trống thật + giải thích, (c) dựng loại hồ sơ mới. Tạm bỏ qua, làm màn kế.
+- Ghi chú đo 17/09: định nghĩa phường theo tổ khớp hệ cũ theo loai: vụ việc 1.090/1.102 vu_viec_phuong_xa nằm tổ phường (tổ phường 1.165); vụ án 294/294 vu_an_phuong_xa nằm tổ phường (tổ phường 368, chênh 43 gốc đơn thư + 23 gốc luật sư do tổ phường thụ lý).
+- PR3b-4 Hồ sơ mới tiếp nhận DONE: #403 → cabff2db. Máy chủ hoá + cột thật (API trả thêm caseProvenance); gỡ Mức độ/Hạn xử lý/thẻ Quá hạn+Khẩn (deadline 0/860), ô lọc quận gán cứng, case-provenance-mapper. Rà mã P2: XOÁ vụ án luôn 400 vì DeleteCaseDto bắt buộc reason — cả Hồ sơ mới lẫn Vụ án phường nay đi qua hộp xoá chuẩn (có ô lý do); hộp chuẩn đọc lỗi sai chỗ (data.message) nay dùng extractApiError. Codex P2: 4 màn tự dựng gửi thongKeTruongNgay=NGAY_TIEP_NHAN để lọc đúng cột Ngày đề xuất (admin đặt "theo Ngày tạo" thì máy chủ lọc createdAt). Codex 3 lượt sạch, CI xanh đúng SHA, deploy xanh.
+- PR3b-5 Đơn trùng DONE: #404 → d5e233d0. Migration don_trung_chuan_hoa (4 cột GENERATED giữ dấu thanh) + listDuplicates + GET /petitions/duplicates + xuất Excel dùng chung + màn viết lại theo nhóm. Rà mã: P2 cổng generated-columns thêm 4 cột; P2 xuất gọi listDuplicates MỘT lượt (trước ~150 lượt, 262 ms/lượt); P3 trần 20 đơn/nhóm + báo "Đang hiện N/M"; P3 nhận lại nhãn tiêu chí tiếng Việt. Codex 2 lượt sạch, CI xanh đúng SHA, deploy xanh. Prod: cột sinh đủ 47.352, gom 95 ms, 7.570 nhóm/29.605 đơn.
+- PR3b-6 Chuyển đội/Trả hồ sơ DONE: #405 → b4efeeb8. Gộp ba nguồn xuống MÁY CHỦ (module workflow mới, GET /workflow/chuyen-tra, sortBy=ngayDeXuat, trần 2.000 dòng báo rõ); cột thật; Chuyển đội dùng PATCH /:id/assign; Trả hồ sơ ghi trạng thái Đã chuyển đơn vị (Vụ việc qua PATCH /:id/status + PUT chuyenDenDonVi; Đơn thư không có trạng thái ấy → nút tắt kèm lý do); gỡ nút Xuất Excel không có API. Rà mã 4 P1 + codex 2 P1/P2 đã vá (limit>100 từ trang 6, sắp sai khoá, /teams trả mảng thô, UpdateIncidentDto không nhận status, thiếu thongKeTruongNgay ở DTO, khoá phụ id). CI xanh đúng SHA, deploy xanh.
+- PR3b-3 Phân loại khác DONE (anh chốt 18/09 "gỡ khỏi menu"): #407 → c3784b6d. Gỡ mục menu + route + màn + 2 ca kiểm cũ; cổng menu.test chốt không quay lại; Playwright e2e/uat CL-05 đổi thành "đã gỡ". #406 đóng vì nhánh còn commit trước squash của #405 (xung đột) — cherry-pick 3 commit sang nhánh mới từ main. CI xanh đúng SHA, deploy xanh buildId c3784b6d, bundle prod 0 chuỗi "Phân loại khác"/"classification/others".
+- PR3b HOÀN TẤT 6/6 → kế hoạch %like% (PR1, PR3a, PR3b) XONG.
+- CHỜ ANH: (1) UAT_PASS cho 9 mệnh đề bấm thử M7; (2) xoá nhánh remote đã merge (§8c, thêm fix/chuyen-tra-du-lieu-that, fix/go-phan-loai-khac); (3) hạ 3 TK .doi2 từ ADMIN về OFFICER; (4) PR ghi dữ liệu prod Hướng dẫn (cột Vấn đề rỗng 539/541, bù createdById); (5) sửa stop-guard.bat (^^STATUS).
+- Ghi chú: `?stt=` API cũ của Đơn thư (petitions.service.ts:148) vẫn so đúng biến thể — giao diện đã quy sang `tk`, để nguyên.
 
 ## Milestone
 | # | Nội dung | Nhánh |

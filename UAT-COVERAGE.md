@@ -1,3 +1,10 @@
+# Đợt mới nhất — 20/09/2026: form Đơn thư nhập liệu nhanh
+
+→ **`docs/uat/dot-2009/UAT-COVERAGE.md`** — 70 ca trên 10 nhóm (A–J), phủ 5 yêu cầu UX nhập liệu
++ 4 lỗi prod vá kèm. Trạng thái: CHƯA CHẠY (chờ merge PR #448 → deploy).
+
+---
+
 # Đợt mới nhất — 18/09/2026: danh sách dễ đọc + tự cập nhật + dữ liệu hệ cũ thiếu
 
 → **`docs/uat/dot-1809/UAT-COVERAGE.md`** — prod: API 18/18, E2E 23 PASS (2 chờ anh duyệt ghi dữ liệu); 4 lỗi UAT bắt

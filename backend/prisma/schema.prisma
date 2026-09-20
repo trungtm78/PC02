@@ -1168,6 +1168,11 @@ model Petition {
   raSoatTrung      String? // "Kết quả rà soát đơn/vụ trùng" — Phiếu đề xuất
   baoCaoBanGiamDoc Boolean   @default(false) // "Báo cáo Ban Giám đốc" — Phiếu đề xuất
   petitionDate     DateTime? // Ngày ghi trên đơn (khác receivedDate = ngày tiếp nhận)
+  /// Ngày viết đơn khi giấy tờ chỉ ghi THIẾU thành phần, theo EDTF Level 1 (ISO 8601-2):
+  /// `2026-12-15` · `2026-12-XX` · `2026-XX-XX`. Nhập đủ thì ghi cả cột này lẫn `petitionDate`;
+  /// nhập thiếu thì `petitionDate` để TRỐNG — không bao giờ bịa ngày 01.
+  /// Chuỗi EDTF sắp xếp đúng thứ tự thời gian bằng so chuỗi, và lọc tháng chạy bằng LIKE.
+  ngayVietDonEdtf  String?   @map("ngay_viet_don_edtf") @db.VarChar(10)
   nguonDon         String? // Nguồn đơn (Trại tạm giam X, công an phường Y...) — khác senderAddress
   subTeamAssigned  String? // "Tổ công tác Số X" (free text, có thể FK hóa sau)
   lyDoChuyen       String? // Lý do chuyển — Phiếu chuyển (#2, #3)

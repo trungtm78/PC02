@@ -1,0 +1,143 @@
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+
+/**
+ * Khai một nhóm ô gập được trong bố cục hệ cũ.
+ *
+ * `o` phải là các ô LIỀN NHAU trong đặc tả — cổng `nhomPhaiLienNhau` chặn điều này. Lý do:
+ * bố cục là một lưới phẳng hai cột đặt theo thứ tự DOM, nên gom một tập ô RỜI buộc ô xen giữa
+ * phải dời chỗ, và thẻ nhóm chiếm trọn bề ngang còn làm lệch cột của mọi ô phía sau.
+ */
+export interface NhomOKhai<TForm = unknown> {
+  khoa: string;
+  nhan: string;
+  o: readonly string[];
+  /**
+   * Chỉ áp cho tab này. Bắt buộc khai khi các ô có bản GƯƠNG ở tab khác: bố cục hệ cũ cố ý
+   * hiện lại một ô ở nhiều tab, và tab khác có thể chỉ có MỘT trong các ô của nhóm — gom ở
+   * đó là gom một tập không đầy đủ.
+   */
+  tab?: string;
+  /** Luật bung riêng của nhóm — vd "Nguồn đơn là nộp trực tiếp". */
+  moKhi?: (formData: TForm) => boolean;
+}
+
+interface Props {
+  nhan: string;
+  khoa: string;
+  /** Tổng số ô trong nhóm. */
+  soO: number;
+  /** Số ô đã có giá trị — hiện ngay trên tiêu đề để dữ liệu ẩn vẫn nhìn thấy được. */
+  soODaNhap: number;
+  /** Trong nhóm có ô bắt buộc — đánh dấu để cán bộ biết trong đó có thứ chặn Lưu. */
+  coOBatBuoc: boolean;
+  /** Trong nhóm có ô đang báo lỗi. */
+  coLoi: boolean;
+  /** Bung sẵn khi mở form (có dữ liệu, có lỗi, hoặc luật riêng). */
+  moSan: boolean;
+  children: ReactNode;
+}
+
+/**
+ * Nhóm ô gập được.
+ *
+ * KHÔNG dùng `<details>`: nội dung vẫn nằm trong DOM khi đóng, nên ca kiểm tìm thấy ô và báo
+ * xanh trong khi cán bộ không nhìn thấy gì — đã gặp thật.
+ *
+ * Nặng hơn tiêu đề nhóm của cây điều hướng (DESIGN.md §4.3): nhóm này chứa ô người ta gõ vào
+ * và có thể chứa ô chặn Lưu, nên có vỏ thẻ riêng, bộ đếm, và trạng thái lỗi nhìn thấy được.
+ */
+export function NhomOGap({
+  nhan,
+  khoa,
+  soO,
+  soODaNhap,
+  coOBatBuoc,
+  coLoi,
+  moSan,
+  children,
+}: Props) {
+  const [nguoiDungMo, setNguoiDungMo] = useState<boolean | null>(null);
+
+  /**
+   * Luật tự-bung phải GIÀNH LẠI được quyền, bấm tay không thắng nó.
+   *
+   * Bản đầu để `nguoiDungMo ?? moSan`: một khi cán bộ bấm tay thì `moSan` chết vĩnh viễn. Mở
+   * nhóm ra xem rồi đóng lại — thao tác hoàn toàn bình thường — là từ đó nhóm không bao giờ
+   * tự bung nữa, kể cả khi ô bên trong bắt đầu chặn Lưu. Cán bộ bấm Lưu, nhận thông báo cho
+   * một ô không có trên màn hình, và `focusFirstError` cũng im lặng vì `querySelector` trả
+   * `null`. Đúng bằng lỗi PR #248.
+   *
+   * Hai lớp:
+   *  1. `coLoi` ÁP ĐẢO mọi thứ — nhóm đang chặn Lưu thì không được phép đóng.
+   *  2. `moSan` đổi false→true (vd đổi Nguồn đơn sang Trực tiếp) thì xoá lựa chọn tay.
+   */
+  useEffect(() => {
+    if (moSan) setNguoiDungMo(null);
+  }, [moSan]);
+
+  const mo = coLoi || (nguoiDungMo ?? moSan);
+
+  return (
+    <div
+      className={`md:col-span-2 rounded-lg border bg-white ${
+        coLoi ? "border-red-300" : "border-slate-200"
+      }`}
+      data-testid={`nhom-${khoa}`}
+    >
+      <button
+        type="button"
+        onClick={() => setNguoiDungMo(coLoi ? true : !mo)}
+        aria-expanded={mo}
+        aria-controls={`nhom-${khoa}-than`}
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors rounded-lg"
+        data-testid={`nhom-${khoa}-nut`}
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          {mo ? (
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+          )}
+          {/*
+            Màu KHÔNG được là tín hiệu duy nhất (WCAG 1.4.1): chấm đỏ và viền đỏ đi kèm một
+            nhãn đọc được, nếu không thì người dùng trình đọc màn hình chỉ nghe thấy tên nhóm
+            và con số — không có cách nào biết nhóm này đang chặn Lưu.
+          */}
+          {coLoi && (
+            <>
+              <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />
+              <span className="sr-only">Có ô chưa hợp lệ. </span>
+            </>
+          )}
+          {nhan}
+          {coOBatBuoc && (
+            <>
+              <span className="text-red-500" aria-hidden>
+                *
+              </span>
+              <span className="sr-only"> (có ô bắt buộc)</span>
+            </>
+          )}
+        </span>
+        {/*
+          Bộ đếm là phần quan trọng nhất của tiêu đề: thu gọn mà giấu mất dữ liệu ĐÃ CÓ là
+          kiểu hỏng tệ nhất của nhóm gập. Có nó thì dữ liệu ẩn vẫn nhìn thấy được.
+        */}
+        <span className="text-xs text-slate-500">
+          {soO} ô{soODaNhap > 0 ? ` · ${soODaNhap} đã nhập` : ""}
+        </span>
+      </button>
+      {mo && (
+        <div
+          id={`nhom-${khoa}-than`}
+          role="region"
+          aria-label={nhan}
+          className="border-t border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}

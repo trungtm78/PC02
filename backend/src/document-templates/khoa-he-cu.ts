@@ -16,11 +16,16 @@
  * Thứ tự đọc: **cột typed trước, bản thô sau**. Hồ sơ tạo mới trên hệ mới không có `legacyRaw`;
  * hồ sơ di trú thì có đủ, nên bản thô là lưới an toàn cho trường chưa kịp thành cột.
  */
-import { PARITY, type Entity, type ParityCol } from '../legacy-migration/field-parity.def';
+import {
+  PARITY,
+  type Entity,
+  type ParityCol,
+} from '../legacy-migration/field-parity.def';
 import { parseLegacyDate } from '../legacy-migration/legacy-mapper';
 import type { FieldDef } from './field-catalog';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
 import { personName, tenNganNhuHeCu } from './ten-nguoi.util';
+import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 
 /** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
 const MOC_RONG = new Set([0, -25200]);
@@ -115,7 +120,8 @@ export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
   const soDienThoai = kieuHeCu === 'phone';
   const chiSo = (v: unknown): string => chuoi(v).replace(/\D/g, '');
 
-  const lechVai = !!kieuHeCu && kieuHeCu !== 'date' && (cot.type !== 'String' || soDienThoai);
+  const lechVai =
+    !!kieuHeCu && kieuHeCu !== 'date' && (cot.type !== 'String' || soDienThoai);
   const giuBanTho =
     lechVai &&
     coTho &&
@@ -126,7 +132,9 @@ export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
     // đứng yên. Cùng một giá trị thì giữ cách gõ cũ; khác giá trị nghĩa là vừa có người sửa.
     (soDienThoai
       ? !coTyped || chiSo(typed) === chiSo(tho)
-      : cot.type !== 'DateTime' || !coTyped || ngayViet(typed) === ngayViet(tho));
+      : cot.type !== 'DateTime' ||
+        !coTyped ||
+        ngayViet(typed) === ngayViet(tho));
   const v = giuBanTho ? tho : coTyped ? typed : tho;
 
   // Trường hệ cũ khai là `date` thật — vẫn đi qua bộ đọc mốc như trước.
@@ -155,39 +163,79 @@ export function giaTriTheoTenHeCu(record: unknown, cot: ParityCol): string {
 const CO_SAN_THEO_THUC_THE: Readonly<Record<Entity, readonly ParityCol[]>> = {
   petition: [
     { field: 'tom_tat_noi_dung', col: 'detailContent', type: 'String' },
-    { field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap', col: 'senderName', type: 'String' },
+    {
+      field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap',
+      col: 'senderName',
+      type: 'String',
+    },
     { field: 'so_dien_thoai_nguyen_don', col: 'senderPhone', type: 'String' },
     { field: 'sinh_nam_nguoi_to_giac', col: 'senderBirthYear', type: 'String' },
     { field: 'so_cccd_nguyen_don', col: 'senderIdNumber', type: 'String' },
-    { field: 'ngay_cap_cccd_nguyen_don', col: 'senderIdIssueDate', type: 'DateTime' },
-    { field: 'noi_cap_cccd_nguyen_don', col: 'senderIdIssuePlace', type: 'String' },
+    {
+      field: 'ngay_cap_cccd_nguyen_don',
+      col: 'senderIdIssueDate',
+      type: 'DateTime',
+    },
+    {
+      field: 'noi_cap_cccd_nguyen_don',
+      col: 'senderIdIssuePlace',
+      type: 'String',
+    },
     { field: 'nghi_van_doi_tuong', col: 'suspectedPerson', type: 'String' },
     { field: 'dia-chi-bi-hai', col: 'senderAddress', type: 'String' },
-    { field: 'do_vat_tai_lieu_kem_theo', col: 'attachmentsNote', type: 'String' },
+    {
+      field: 'do_vat_tai_lieu_kem_theo',
+      col: 'attachmentsNote',
+      type: 'String',
+    },
     { field: 'nguon_don', col: 'nguonDon', type: 'String' },
     { field: 'loai_thong_tin', col: 'loaiThongTin', type: 'String' },
     { field: 'so_phieu_chuyen', col: 'soPhieuChuyen', type: 'String' },
     { field: 'ngay_phieu_chuyen', col: 'ngayPhieuChuyen', type: 'DateTime' },
-    { field: 'ngay_tiep_nhan_nguon_tin', col: 'ngayTiepNhanNguonTin', type: 'DateTime' },
+    {
+      field: 'ngay_tiep_nhan_nguon_tin',
+      col: 'ngayTiepNhanNguonTin',
+      type: 'DateTime',
+    },
     { field: 'ngay_viet_don', col: 'petitionDate', type: 'DateTime' },
     { field: 'nhan_xet', col: 'nhanThay', type: 'String' },
     { field: 'ghi_chu_trung_don', col: 'raSoatTrung', type: 'String' },
     { field: 'noi_xay_ra', col: 'noiXayRa', type: 'String' },
-    { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLyKhac', type: 'String' },
+    {
+      field: 'ket_qua_xu_ly_giai_quyet_khac',
+      col: 'ketQuaXuLyKhac',
+      type: 'String',
+    },
     { field: 'lanh_dao_to_tung', col: 'lanhDaoToTung', type: 'String' },
-    { field: 'thoi_han_thuc_hien_uy_thac_dieu_tra', col: 'thoiHanUTDT', type: 'DateTime' },
+    {
+      field: 'thoi_han_thuc_hien_uy_thac_dieu_tra',
+      col: 'thoiHanUTDT',
+      type: 'DateTime',
+    },
     // `uy_thac_dieu_tra_mau.docx` in `${toi-danh-ban-dau}`. Mẫu ấy nay được mời in cả ở Đơn thư
     // (4 hồ sơ uỷ thác di trú thành Đơn thư), và cột đã có sẵn dữ liệu: 15.253/47.169 hồ sơ.
     { field: 'toi-danh-ban-dau', col: 'toiDanhBanDau', type: 'String' },
   ],
   incident: [
     { field: 'tom_tat_noi_dung', col: 'description', type: 'String' },
-    { field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap', col: 'benVu', type: 'String' },
+    {
+      field: 'ten_ca_nhan_co_quan_to_chuc_cung_cap',
+      col: 'benVu',
+      type: 'String',
+    },
     { field: 'nguon_don', col: 'chuyenTuDonVi', type: 'String' },
     { field: 'nghi_van_doi_tuong', col: 'doiTuongCaNhan', type: 'String' },
     { field: 'don_vi_giai_quyet', col: 'donViGiaiQuyet', type: 'String' },
-    { field: 'ket_qua_xu_ly_giai_quyet_khac', col: 'ketQuaXuLy', type: 'String' },
-    { field: 'so_dien_thoai_nguyen_don', col: 'sdtNguoiToGiac', type: 'String' },
+    {
+      field: 'ket_qua_xu_ly_giai_quyet_khac',
+      col: 'ketQuaXuLy',
+      type: 'String',
+    },
+    {
+      field: 'so_dien_thoai_nguyen_don',
+      col: 'sdtNguoiToGiac',
+      type: 'String',
+    },
     { field: 'ngay_de_xuat', col: 'ngayDeXuat', type: 'DateTime' },
     // `don_thu_mau.docx` in `${dia-chi-bi-hai}`. Mẫu ấy nay được mời in cả ở Vụ việc (25 hồ sơ
     // đơn thư di trú thành Vụ việc). Đơn thư khai ô này là `senderAddress` — người TỐ GIÁC, nên
@@ -231,7 +279,8 @@ export function cotInTheoTruongHeCu(entity: Entity): Map<string, ParityCol> {
   const ra = new Map<string, ParityCol>();
   for (const cot of [...CO_SAN_THEO_THUC_THE[entity], ...PARITY[entity]]) {
     const dang = ra.get(cot.field);
-    if (!dang || (dang.type !== 'String' && cot.type === 'String')) ra.set(cot.field, cot);
+    if (!dang || (dang.type !== 'String' && cot.type === 'String'))
+      ra.set(cot.field, cot);
   }
   return ra;
 }
@@ -250,7 +299,22 @@ export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
       key: cot.field,
       label: cot.field,
       group: 'Trường hệ cũ',
-      resolve: (record: unknown) => giaTriTheoTenHeCu(record, cot),
+      resolve: (record: unknown) => {
+          const thoHeCu = giaTriTheoTenHeCu(record, cot);
+          /*
+            DỮ LIỆU THÔ HỆ CŨ THẮNG. 4.447 hồ sơ có `ngay_viet_don` là CHỮ TỰ DO
+            ("tháng 5/2026", "không rõ") — chuẩn hoá chúng là in ra TRỐNG, mất hẳn thông tin
+            trên văn bản gửi đi.
+
+            Chỉ khi không có bản thô mới dùng hàm dùng chung: hồ sơ hệ mới nhập THIẾU thành
+            phần có `petitionDate` NULL theo đúng thiết kế, nên đọc thẳng cột cũng in ra trống.
+            Hai đường, hai lý do, cùng một hậu quả — nên phải đỡ cả hai.
+          */
+          if (thoHeCu) return thoHeCu;
+          return cot.field === 'ngay_viet_don'
+            ? ngayVietDonHienThi(record as Parameters<typeof ngayVietDonHienThi>[0])
+            : '';
+        },
     });
   }
   return ra;
@@ -306,7 +370,10 @@ function oDauVanBan(record: unknown, khoa: 'ngay' | 'thang' | 'nam'): string {
    * dòng ấy vẫn đọc trôi chảy. Hệ cũ đổ thẳng `$info[...]`: rỗng thì in rỗng.
    */
   const laHoSoDiTru =
-    coRaw && (['ngay', 'thang', 'nam'] as const).some((k) => raw[k] !== null && raw[k] !== undefined && raw[k] !== '');
+    coRaw &&
+    (['ngay', 'thang', 'nam'] as const).some(
+      (k) => raw[k] !== null && raw[k] !== undefined && raw[k] !== '',
+    );
 
   if (laHoSoDiTru) {
     const tho = raw[khoa];
@@ -345,7 +412,6 @@ export function ngayThangNamNhuHeCu(record: unknown): string {
   const nam = oDauVanBan(record, 'nam');
   return `ngày ${ngay} tháng ${thang} năm ${nam}`;
 }
-
 
 /** Ngày dùng cho dòng "ngày … tháng … năm …" khi hồ sơ không mang bản thô của hệ cũ. */
 function ngayKy(record: unknown): Date {
@@ -407,6 +473,7 @@ export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
     key: 'ten_ngan',
     label: 'Tên viết tắt cán bộ nhập',
     group: 'Trường hệ cũ',
-    resolve: (r) => tenNganNhuHeCu(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
+    resolve: (r) =>
+      tenNganNhuHeCu(r?.enteredBy ?? r?.canBoNhap ?? r?.createdBy),
   },
 ];

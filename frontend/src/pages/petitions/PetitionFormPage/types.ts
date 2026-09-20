@@ -45,6 +45,11 @@ export interface PetitionFormData {
   // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them
   nguonDon: string;
   petitionDate: string;
+  /**
+   * Ngày viết đơn theo EDTF Level 1 khi giấy tờ ghi THIẾU thành phần: `2026-12-XX`.
+   * `petitionDate` vẫn là cột ngày thật, chỉ có giá trị khi nhập ĐỦ ba phần.
+   */
+  ngayVietDonEdtf: string;
   ngayDeXuat: string;
   phanLoaiNguonTin: string;
   dieuTraVien: string;
@@ -100,7 +105,7 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
+  nguonDon: "", petitionDate: "", ngayVietDonEdtf: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
   huongXuLy: "", thuocThamQuyen: true,
   baoCaoBanGiamDocText: "", tinhTrang: "",

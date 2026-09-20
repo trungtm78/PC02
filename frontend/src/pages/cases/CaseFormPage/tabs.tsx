@@ -30,6 +30,8 @@ import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
+import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
+import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -148,7 +150,15 @@ export function CardNguonVuAn({ formData, errors, update }: {
   );
 }
 
-function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOptions = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+  /**
+   * GHIM người hồ sơ đang trỏ tới.
+   *
+   * `useOfficerOptions` lọc `status: active`, mà lời gọi cũ thì không — nên một điều tra viên
+   * ĐÃ BỊ KHOÁ trước đây vẫn hiện tên, giờ thì biến mất khỏi danh sách. Ô hiện chữ gợi ý,
+   * trông như chưa chọn ai, và cán bộ chọn người khác: đổi điều tra viên NGẦM.
+   */
+  const handlerGroups = gomCanBoTheoTo(dsCanBo, formData.handler);
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   // ── Administrative reform: 2-tier address (Province → Ward) ──
@@ -251,8 +261,9 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerOption
             required
             value={formData.handler}
             onChange={(v) => update("handler", v)}
-            options={handlerOptions}
+            groups={handlerGroups}
             loading={handlerLoading}
+            searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
             error={errors.handler}
             placeholder="Tìm kiếm ĐTV..."
             canCreate={false}
@@ -1703,9 +1714,45 @@ export function TabInfo(props: TabProps) {
     props.setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+  const taoNhanh = useQuickCreateDirectoryModalSafe();
+  /**
+   * "Nguồn đơn/Đơn vị giao" chọn từ danh mục `NGUON_DON` — CÙNG danh mục với Đơn thư.
+   *
+   * `cases.nguonDon` và `petitions.nguonDon` là một khái niệm: đơn chuyển thành vụ án vẫn
+   * mang nguồn ấy. Hai danh mục riêng là hai danh mục trôi khỏi nhau.
+   */
+  const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    nguonDon: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="NGUON_DON"
+        value={String(props.formData.nguonDon ?? "")}
+        onChange={(v) => update("nguonDon", v)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-nguonDon"
+        /*
+         * PHẢI có đường tạo mới, như ô bên Đơn thư.
+         *
+         * Danh mục `NGUON_DON` còn RỖNG trên bản đang chạy cho tới khi CLI nạp xong (đang
+         * chờ anh duyệt bảng gộp). Đổi ô chữ tự do thành ô chọn mà không có đường tạo mới
+         * nghĩa là một ô vốn điền được cho hàng nghìn vụ án bỗng KHÔNG điền được, và không
+         * có thông báo nào nói vì sao.
+         */
+        canCreate={!!taoNhanh}
+        onCreateNew={(tenGoiY) =>
+          taoNhanh?.open({
+            type: "NGUON_DON",
+            tenGoiY,
+            onCreated: (ten) => update("nguonDon", ten),
+          })
+        }
+      />
+    ),
+  };
   return (
     <LegacyTabBody
       tabId="info"
+      renderOverride={oRieng}
       formData={props.formData}
       setFormData={props.setFormData}
       errors={props.errors}

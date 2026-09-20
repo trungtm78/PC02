@@ -5,7 +5,10 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { UserPlus, Trash2 } from "lucide-react";
-import { hoTen } from '@/lib/hoTen';
+import type { OfficerOption } from '@/hooks/useOfficerOptions';
+import { FKSelect } from '@/components/FKSelect';
+import { gomCanBoTheoTo } from '@/hooks/gomCanBoTheoTo';
+import { nhanCanBo } from './PetitionFormPage/canBoDaChon';
 
 interface UserOption {
   id: string;
@@ -25,17 +28,15 @@ interface Assignment {
   assignedAt: string;
 }
 
-function displayName(u: UserOption): string {
-  const full = hoTen(u);
-  return full || u.username;
-}
-
 interface Props {
   petitionId: string;
-  userOptions: UserOption[];
+  /** Từ `useOfficerOptions` — nguồn cán bộ duy nhất, đã phân trang đủ và lọc tài khoản còn hoạt động. */
+  userOptions: OfficerOption[];
+  /** Danh sách cán bộ đang tải — để ô chọn nói "đang tải" thay vì "không tìm thấy". */
+  dangTaiCanBo?: boolean;
 }
 
-export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
+export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanBo }: Props) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [addUserId, setAddUserId] = useState("");
   const [addRole, setAddRole] = useState<"LEAD" | "SUPPORT">("SUPPORT");
@@ -88,8 +89,9 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
   };
 
   const availableUsers = userOptions.filter(
-    (u) => !assignments.some((a) => a.userId === u.id),
+    (u) => !assignments.some((a) => a.userId === u.value),
   );
+  const nhomCanBo = gomCanBoTheoTo(availableUsers);
 
   return (
     <div
@@ -119,7 +121,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
               >
                 <div className="flex items-center gap-3">
                   <span className="font-medium text-slate-800 text-sm">
-                    {displayName(a.user)}
+                    {nhanCanBo(userOptions, a.userId, a.user)}
                   </span>
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -150,20 +152,16 @@ export function PetitionAssignmentSection({ petitionId, userOptions }: Props) {
           data-testid="add-assignment-form"
         >
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Cán bộ</label>
-            <select
+            <FKSelect
+              label="Cán bộ"
               value={addUserId}
-              onChange={(e) => setAddUserId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              data-testid="assignment-user-select"
-            >
-              <option value="">-- Chọn cán bộ --</option>
-              {availableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {displayName(u)}
-                </option>
-              ))}
-            </select>
+              onChange={setAddUserId}
+              groups={nhomCanBo}
+              loading={dangTaiCanBo}
+              placeholder="-- Chọn cán bộ --"
+              searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
+              testId="assignment-user-select"
+            />
           </div>
           <div className="w-32">
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Vai trò</label>

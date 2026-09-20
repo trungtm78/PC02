@@ -1,0 +1,45 @@
+{
+  "_doc": "Bộ tên nguồn đơn chuẩn — MỘT nguồn sự thật cho CẢ hai đầu. Máy chủ (backend/src/common/utils/nguon-don.util.spec.ts) và trình duyệt (truc-tiep.test.ts) đều chấm bản cài đặt của mình trên chính tệp này. Bên nào trôi thì cổng của bên ấy đỏ.",
+  "_vi_sao_bao_thu": "Cờ này BẬT luật bắt buộc Số điện thoại nguyên đơn. Nhận NHẦM (false positive) nghĩa là cán bộ mở một đơn cũ và KHÔNG LƯU ĐƯỢC vì một ô không có dữ liệu để điền — hỏng nặng. Nhận SÓT chỉ làm nhóm không tự bung và SĐT không bắt buộc — nhẹ. Vì vậy luật đòi ngữ cảnh TIẾP NHẬN rõ ràng, không khớp bừa cụm 'trực tiếp' ở vai trạng từ.",
+  "truc_tiep": [
+    "Trực tiếp",
+    "trực tiếp",
+    "TRỰC TIẾP",
+    "  Trực tiếp  ",
+    "Nộp trực tiếp",
+    "Nộp trực tiếp tại trụ sở",
+    "Công dân trực tiếp đến",
+    "Trực-tiếp",
+    "Trực tiếp.",
+    "Phòng tiếp dân - trực tiếp",
+    "Người dân đến nộp trực tiếp",
+    "Tiếp nhận trực tiếp",
+    "Nộp tại trụ sở",
+    "Tiếp dân"
+  ],
+  "khong_truc_tiep": [
+    "Bưu điện",
+    "PC01 Công an TP.HCM",
+    "PC01 CA TP. Hồ Chí Minh",
+    "Trại tạm giam Chí Hòa",
+    "Công an phường Bàn Cờ",
+    "Gián tiếp qua bưu điện",
+    "Đơn vị khác chuyển đến",
+    "Không trực tiếp",
+    "Không nộp trực tiếp",
+    "Đơn vị trực tiếp thụ lý",
+    "Giám đốc trực tiếp chỉ đạo",
+    "Lãnh đạo trực tiếp phụ trách",
+    ""
+  ],
+  "_khoa_gop_phai_KHAC_nhau": [
+    ["Phòng 1", "Phòng 2"],
+    ["Phòng Tiếp công dân", "Tiếp công dân"],
+    ["Phòng chống tệ nạn xã hội", "Chống tệ nạn xã hội"]
+  ],
+  "_khoa_gop_phai_GIONG_nhau": [
+    ["Trực tiếp", "trực tiếp"],
+    ["PC01 CA TP.HCM", "PC01 CA TP. Hồ Chí Minh"],
+    ["Bưu điện", "  Bưu   điện  "]
+  ]
+}

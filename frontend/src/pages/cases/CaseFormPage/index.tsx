@@ -17,6 +17,7 @@ import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { CaseStatus } from "@/shared/enums/generated";
+import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import {
   X,
   Clock,
@@ -56,7 +57,6 @@ import {
 } from "./tabs";
 import { SubjectModal, EvidenceModal } from "./modals";
 import { formatVNDateTime, today } from "@/lib/dates";
-import { hoTen } from '@/lib/hoTen';
 
 // ─── Tab Configuration ──────────────────────────────────────────────────────
 
@@ -199,28 +199,15 @@ function CaseFormPage() {
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
 
-  // ─── Fetch danh sách điều tra viên từ API ──────────────────────────────
-  const [handlerOptions, setHandlerOptions] = useState<{ value: string; label: string }[]>([]);
-  const [handlerLoading, setHandlerLoading] = useState(false);
-
-  useEffect(() => {
-    setHandlerLoading(true);
-    api.get<{ success: boolean; data: { id: string; firstName?: string; lastName?: string; username: string }[] }>(
-      "/admin/users",
-      { params: { limit: 200 } },
-    )
-      .then((res) => {
-        const users = res.data.data ?? [];
-        setHandlerOptions(
-          users.map((u) => ({
-            value: u.id,
-            label: hoTen(u) || u.username,
-          }))
-        );
-      })
-      .catch(() => setHandlerOptions([]))
-      .finally(() => setHandlerLoading(false));
-  }, []);
+  /**
+   * MỘT nguồn cán bộ duy nhất cho cả ứng dụng, gom nhóm theo Tổ.
+   *
+   * Bản cũ tự gọi `/admin/users?limit=200` ngay tại đây — cùng lỗi đã vá ở màn Đơn thư và
+   * Vụ việc: prod có 245 tài khoản đang hoạt động nên ô chọn THIẾU ~45 người, lại kéo cả tài
+   * khoản đã khoá vào vì lời gọi riêng không lọc `status`. Hỏng im lặng.
+   * Cổng `motNguonCanBoVuViec` chặn lời gọi thẳng mọc lại.
+   */
+  const { data: dsCanBo = [], isLoading: handlerLoading } = useOfficerOptions();
 
   // ─── Fetch data in edit mode ────────────────────────────────────────────
 
@@ -505,7 +492,7 @@ function CaseFormPage() {
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 
-  const tabProps = { formData, setFormData, errors, setErrors, handlerOptions, handlerLoading, isDraftCodeLoading };
+  const tabProps = { formData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading };
 
   // ─── Render ────────────────────────────────────────────────────────────
 

@@ -117,7 +117,8 @@ describe('AdminService', () => {
 
       const result = await service.getUsers({});
 
-      expect(result.data).toEqual(fakeUsers);
+      // `teams` là khoá THÊM (danh sách cán bộ kèm tổ) — người chưa thuộc tổ nào ra mảng rỗng.
+      expect(result.data).toEqual([{ id: 'u1', username: 'admin', teams: [] }]);
       expect(result.total).toBe(1);
       expect(mockPrisma.user.findMany).toHaveBeenCalledTimes(1);
     });

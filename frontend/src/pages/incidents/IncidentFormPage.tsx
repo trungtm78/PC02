@@ -12,7 +12,9 @@ import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
-import { FKSelect, type FKOption } from "@/components/FKSelect";
+import { FKSelect } from "@/components/FKSelect";
+import { useOfficerOptions } from "@/hooks/useOfficerOptions";
+import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { CatalogSelect } from "@/components/CatalogSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
@@ -145,7 +147,23 @@ export function IncidentFormPage() {
   // Thiếu trường (máy chủ cũ) → như trước.
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
   const chiXem = isEditMode && quyenGhi === false;
-  const [userOptions, setUserOptions] = useState<FKOption[]>([]);
+  /**
+   * MỘT nguồn cán bộ duy nhất cho cả ứng dụng.
+   *
+   * Bản cũ tự gọi `/admin/users?limit=200` ngay tại đây — cùng lỗi đã vá ở màn Đơn thư: prod
+   * có 245 tài khoản đang hoạt động nên ô chọn THIẾU ~45 người, lại kéo cả tài khoản đã khoá
+   * vào vì lời gọi riêng không lọc `status`. Cổng `motNguonCanBoVuViec` chặn nó mọc lại.
+   */
+  const { data: dsCanBo = [], isLoading: dangTaiCanBo } = useOfficerOptions();
+  /**
+   * GHIM người hồ sơ đang trỏ tới.
+   *
+   * `useOfficerOptions` lọc `status: active`, mà lời gọi cũ thì không — nên một điều tra viên
+   * ĐÃ BỊ KHOÁ trước đây vẫn hiện tên, giờ thì biến mất khỏi danh sách. Ô hiện chữ gợi ý,
+   * trông như chưa phân công, và cán bộ chọn người khác: phân công lại NGẦM.
+   */
+  const nhomDieuTraVien = gomCanBoTheoTo(dsCanBo, formData.investigatorId);
+  const nhomCanBoNhap = gomCanBoTheoTo(dsCanBo, formData.canBoNhapId);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState('');
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
@@ -200,19 +218,6 @@ export function IncidentFormPage() {
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
 
   // Load users for investigator / canBoNhap pickers
-  useEffect(() => {
-    api
-      .get<{ success: boolean; data: { id: string; firstName: string; lastName: string }[] }>(
-        "/admin/users",
-        { params: { limit: 200 } },
-      )
-      .then((res) => {
-        const users = res.data.data ?? [];
-        setUserOptions(users.map((u) => ({ value: u.id, label: `${u.lastName} ${u.firstName}` })));
-      })
-      .catch(() => setUserOptions([]));
-  }, []);
-
   // Fetch existing data in edit mode
   useEffect(() => {
     if (!isEditMode || !id) return;
@@ -587,8 +592,10 @@ export function IncidentFormPage() {
                 label="Điều tra viên"
                 value={formData.investigatorId}
                 onChange={(v) => update("investigatorId", v)}
-                options={userOptions}
+                groups={nhomDieuTraVien}
+                loading={dangTaiCanBo}
                 placeholder="Chọn điều tra viên"
+                searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
                 testId="field-investigatorId"
               />
             </div>
@@ -607,8 +614,10 @@ export function IncidentFormPage() {
                 label="Cán bộ nhập"
                 value={formData.canBoNhapId}
                 onChange={(v) => update("canBoNhapId", v)}
-                options={userOptions}
+                groups={nhomCanBoNhap}
+                loading={dangTaiCanBo}
                 placeholder="Chọn cán bộ nhập"
+                searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
                 testId="field-canBoNhapId"
               />
             </div>

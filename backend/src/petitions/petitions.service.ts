@@ -65,12 +65,19 @@ import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constan
 import { resolveGroup, countByGroup } from '../common/status-groups.util';
 import { PETITION_STATUS_GROUPS } from './petitions.constants';
 import { hoSoCodeVariants, maHoSoNgan } from '../common/utils/ho-so-code.util';
-import { buildListOrderBy, type ListSortOrder } from '../common/utils/list-sort.util';
+import {
+  buildListOrderBy,
+  type ListSortOrder,
+} from '../common/utils/list-sort.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseCreatedEvent } from '../notifications/events/notification.events';
 import { PetitionAssignedEvent } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
-import { suyThuocThamQuyen, trangThaiTheoHuong, canDoiTrangThai } from './huong-xu-ly.rule';
+import {
+  suyThuocThamQuyen,
+  trangThaiTheoHuong,
+  canDoiTrangThai,
+} from './huong-xu-ly.rule';
 import {
   TRUY_VAN_DANH_MUC_LOAI_THONG_TIN,
   lapChiMucLoaiThongTin,
@@ -287,7 +294,11 @@ export class PetitionsService {
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -370,8 +381,10 @@ export class PetitionsService {
     if (!dataScope) return;
     if (dataScope.canDispatch) return; // dispatcher: full read access
     const { userIds, teamIds, isWardOfficer } = dataScope;
-    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch = record.assignedTeamId && teamIds.includes(record.assignedTeamId);
+    const ownerMatch =
+      record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch =
+      record.assignedTeamId && teamIds.includes(record.assignedTeamId);
     // Cán bộ phường KHÔNG thấy hồ sơ chưa giao tổ (luật v0.33 "Crit 1") — danh sách đã ẩn; trang chi tiết cũng
     // phải chặn, nếu không biết id là mở được (rà độc lập 19/09/2026).
     const unassignedMatch =
@@ -404,7 +417,9 @@ export class PetitionsService {
         orConditions.push({ enteredById: { in: dataScope.writableUserIds } });
       }
       if (dataScope.writableTeamIds.length > 0) {
-        orConditions.push({ assignedTeamId: { in: dataScope.writableTeamIds } });
+        orConditions.push({
+          assignedTeamId: { in: dataScope.writableTeamIds },
+        });
         if (!dataScope.isWardOfficer) {
           orConditions.push({ assignedTeamId: null });
         }
@@ -472,11 +487,14 @@ export class PetitionsService {
       writableTeamIds,
       isWardOfficer,
     } = dataScope;
-    const ownerMatch = record.enteredById && userIds.includes(record.enteredById);
-    const teamMatch = record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
+    const ownerMatch =
+      record.enteredById && userIds.includes(record.enteredById);
+    const teamMatch =
+      record.assignedTeamId && writableTeamIds.includes(record.assignedTeamId);
     // P2-001 fix: ward officer EXCLUDED from intake (unassigned) per scope-filter design intent.
     // Without this, WO could convert unassigned petition if they obtain ID (even though list filter hides it).
-    const unassignedMatch = !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
+    const unassignedMatch =
+      !record.assignedTeamId && writableTeamIds.length > 0 && !isWardOfficer;
     return Boolean(ownerMatch || teamMatch || unassignedMatch);
   }
 
@@ -592,7 +610,8 @@ export class PetitionsService {
   ) {
     // v0.33.0.0: ward officer auto-set assignedTeamId
     const effectiveAssignedTeamId =
-      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ?? dto.assignedTeamId;
+      (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ??
+      dto.assignedTeamId;
     // Validate receivedDate is not in the future
     const receivedDate = new Date(dto.receivedDate);
     const today = new Date();
@@ -605,8 +624,11 @@ export class PetitionsService {
 
     // Check manual stt uniqueness OUTSIDE tx (read-only, safe)
     if (dto.stt) {
-      const dup = await this.prisma.petition.findUnique({ where: { stt: dto.stt } });
-      if (dup) throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
+      const dup = await this.prisma.petition.findUnique({
+        where: { stt: dto.stt },
+      });
+      if (dup)
+        throw new ConflictException(`Số tiếp nhận "${dto.stt}" đã tồn tại`);
     }
 
     // Validate assignedToId if provided
@@ -684,7 +706,11 @@ export class PetitionsService {
       if (dto.stt) {
         resolvedStt = dto.stt;
       } else {
-        const { number, logId } = await this.docNums.commitWithTx('PETITION', { userId: actorId }, tx);
+        const { number, logId } = await this.docNums.commitWithTx(
+          'PETITION',
+          { userId: actorId },
+          tx,
+        );
         resolvedStt = number;
         const rec = await tx.petition.create({
           // Builder DUY NHẤT — gồm cả field v0.47 (trước bị rớt) + field-parity. Xem petition-data.builder.ts.
@@ -697,14 +723,27 @@ export class PetitionsService {
           }),
           include: {
             enteredBy: {
-              select: { id: true, firstName: true, lastName: true, username: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
             },
             assignedTo: {
-              select: { id: true, firstName: true, lastName: true, username: true },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
             },
           },
         });
-        await tx.documentNumberLog.update({ where: { id: logId }, data: { documentId: rec.id } });
+        await tx.documentNumberLog.update({
+          where: { id: logId },
+          data: { documentId: rec.id },
+        });
         return rec;
       }
       return tx.petition.create({
@@ -717,10 +756,20 @@ export class PetitionsService {
         }),
         include: {
           enteredBy: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
           assignedTo: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
         },
       });
@@ -735,7 +784,10 @@ export class PetitionsService {
         stt: record.stt,
         senderName: record.senderName,
         status: record.status,
-        ...(deadlineSettingKey !== undefined && { deadlineDays, deadlineSettingKey }),
+        ...(deadlineSettingKey !== undefined && {
+          deadlineDays,
+          deadlineSettingKey,
+        }),
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -855,9 +907,16 @@ export class PetitionsService {
       ...(dto.status !== undefined && { status: dto.status }),
       // Xem chú thích cùng nội dung ở cases.service.ts — cùng một luật cho cả ba thực thể.
       ...(dto.status !== undefined &&
-        machMocGiaiQuyet('petition', existing.status, dto.status, existing.ngayGiaiQuyet)),
+        machMocGiaiQuyet(
+          'petition',
+          existing.status,
+          dto.status,
+          existing.ngayGiaiQuyet,
+        )),
       // v0.47 PR3.1 — Nội dung phiếu đề xuất + cross-doc business fields
-      ...(dto.canBoDeXuatId !== undefined && { canBoDeXuatId: dto.canBoDeXuatId || null }),
+      ...(dto.canBoDeXuatId !== undefined && {
+        canBoDeXuatId: dto.canBoDeXuatId || null,
+      }),
       ...(dto.nhanThay !== undefined && { nhanThay: dto.nhanThay }),
       ...(dto.deXuat !== undefined && { deXuat: dto.deXuat }),
       ...(dto.raSoatTrung !== undefined && { raSoatTrung: dto.raSoatTrung }),
@@ -866,6 +925,9 @@ export class PetitionsService {
       }),
       ...(dto.petitionDate !== undefined && {
         petitionDate: dto.petitionDate ? new Date(dto.petitionDate) : null,
+      }),
+      ...(dto.ngayVietDonEdtf !== undefined && {
+        ngayVietDonEdtf: dto.ngayVietDonEdtf || null,
       }),
       ...(dto.nguonDon !== undefined && { nguonDon: dto.nguonDon }),
       ...(dto.subTeamAssigned !== undefined && {
@@ -878,43 +940,81 @@ export class PetitionsService {
       }),
       ...(dto.lyDoTraDon !== undefined && { lyDoTraDon: dto.lyDoTraDon }),
       // ── Field-parity hệ thống cũ (giai đoạn tiếp nhận) ──
-      ...(dto.senderIdNumber !== undefined && { senderIdNumber: dto.senderIdNumber }),
-      ...(dto.senderIdIssueDate !== undefined && {
-        senderIdIssueDate: dto.senderIdIssueDate ? new Date(dto.senderIdIssueDate) : null,
+      ...(dto.senderIdNumber !== undefined && {
+        senderIdNumber: dto.senderIdNumber,
       }),
-      ...(dto.senderIdIssuePlace !== undefined && { senderIdIssuePlace: dto.senderIdIssuePlace }),
-      ...(dto.senderIsAnonymous !== undefined && { senderIsAnonymous: dto.senderIsAnonymous }),
+      ...(dto.senderIdIssueDate !== undefined && {
+        senderIdIssueDate: dto.senderIdIssueDate
+          ? new Date(dto.senderIdIssueDate)
+          : null,
+      }),
+      ...(dto.senderIdIssuePlace !== undefined && {
+        senderIdIssuePlace: dto.senderIdIssuePlace,
+      }),
+      ...(dto.senderIsAnonymous !== undefined && {
+        senderIsAnonymous: dto.senderIsAnonymous,
+      }),
       ...(dto.loaiThongTin !== undefined && { loaiThongTin: dto.loaiThongTin }),
       // Sau ô gốc: tên chuẩn theo danh mục + nhóm hạn (nếu phải ghi) đè lên chữ client gửi.
       ...loaiVaNhomHan,
-      ...(dto.soPhieuChuyen !== undefined && { soPhieuChuyen: dto.soPhieuChuyen }),
+      ...(dto.soPhieuChuyen !== undefined && {
+        soPhieuChuyen: dto.soPhieuChuyen,
+      }),
       ...(dto.ngayPhieuChuyen !== undefined && {
-        ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null,
+        ngayPhieuChuyen: dto.ngayPhieuChuyen
+          ? new Date(dto.ngayPhieuChuyen)
+          : null,
       }),
       ...(dto.ngayTiepNhanNguonTin !== undefined && {
-        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : null,
+        ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin
+          ? new Date(dto.ngayTiepNhanNguonTin)
+          : null,
       }),
-      ...(dto.toiDanhBanDau !== undefined && { toiDanhBanDau: dto.toiDanhBanDau }),
-      ...(dto.crimeChinhId !== undefined && { crimeChinhId: dto.crimeChinhId || null }),
+      ...(dto.toiDanhBanDau !== undefined && {
+        toiDanhBanDau: dto.toiDanhBanDau,
+      }),
+      ...(dto.crimeChinhId !== undefined && {
+        crimeChinhId: dto.crimeChinhId || null,
+      }),
       ...(dto.noiXayRa !== undefined && { noiXayRa: dto.noiXayRa }),
-      ...(dto.noiXayRaPhuongXa !== undefined && { noiXayRaPhuongXa: dto.noiXayRaPhuongXa }),
+      ...(dto.noiXayRaPhuongXa !== undefined && {
+        noiXayRaPhuongXa: dto.noiXayRaPhuongXa,
+      }),
       ...(dto.ngayXayRa !== undefined && {
         ngayXayRa: dto.ngayXayRa ? new Date(dto.ngayXayRa) : null,
       }),
       ...(dto.loaiToiPham !== undefined && { loaiToiPham: dto.loaiToiPham }),
-      ...(dto.phuongThucThuDoan !== undefined && { phuongThucThuDoan: dto.phuongThucThuDoan }),
-      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
-        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null,
+      ...(dto.phuongThucThuDoan !== undefined && {
+        phuongThucThuDoan: dto.phuongThucThuDoan,
       }),
-      ...(dto.laCongNgheCao !== undefined && { laCongNgheCao: dto.laCongNgheCao }),
-      ...(dto.lanhDaoToTung !== undefined && { lanhDaoToTung: dto.lanhDaoToTung }),
-      ...(dto.ketQuaXuLyKhac !== undefined && { ketQuaXuLyKhac: dto.ketQuaXuLyKhac }),
-      ...(dto.thoiHanUTDT !== undefined && { thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null }),
+      ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && {
+        ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet
+          ? new Date(dto.ngayGiaoDonViGiaiQuyet)
+          : null,
+      }),
+      ...(dto.laCongNgheCao !== undefined && {
+        laCongNgheCao: dto.laCongNgheCao,
+      }),
+      ...(dto.lanhDaoToTung !== undefined && {
+        lanhDaoToTung: dto.lanhDaoToTung,
+      }),
+      ...(dto.ketQuaXuLyKhac !== undefined && {
+        ketQuaXuLyKhac: dto.ketQuaXuLyKhac,
+      }),
+      ...(dto.thoiHanUTDT !== undefined && {
+        thoiHanUTDT: dto.thoiHanUTDT ? new Date(dto.thoiHanUTDT) : null,
+      }),
       // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26).
-      ...(dto.ngayDeXuat !== undefined && { ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null }),
-      ...(dto.phanLoaiNguonTin !== undefined && { phanLoaiNguonTin: dto.phanLoaiNguonTin }),
+      ...(dto.ngayDeXuat !== undefined && {
+        ngayDeXuat: dto.ngayDeXuat ? new Date(dto.ngayDeXuat) : null,
+      }),
+      ...(dto.phanLoaiNguonTin !== undefined && {
+        phanLoaiNguonTin: dto.phanLoaiNguonTin,
+      }),
       ...(dto.dieuTraVien !== undefined && { dieuTraVien: dto.dieuTraVien }),
-      ...(dto.donViGiaiQuyet !== undefined && { donViGiaiQuyet: dto.donViGiaiQuyet }),
+      ...(dto.donViGiaiQuyet !== undefined && {
+        donViGiaiQuyet: dto.donViGiaiQuyet,
+      }),
       // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư).
       //
       // `huongXuLy` là ô thật trên form; `thuocThamQuyen` suy ra từ nó (cột cũ vẫn còn nhiều
@@ -922,7 +1022,9 @@ export class PetitionsService {
       ...(dto.huongXuLy !== undefined && { huongXuLy: dto.huongXuLy }),
       ...(suyThuocThamQuyen(dto.huongXuLy) !== undefined
         ? { thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) }
-        : dto.thuocThamQuyen !== undefined && { thuocThamQuyen: dto.thuocThamQuyen }),
+        : dto.thuocThamQuyen !== undefined && {
+            thuocThamQuyen: dto.thuocThamQuyen,
+          }),
       /**
        * Trạng thái theo hướng — CHỈ khi hướng thực sự đổi trong lần lưu này.
        *
@@ -942,22 +1044,50 @@ export class PetitionsService {
           ),
         }),
       // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
-      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && { phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc }),
-      ...(dto.phanLoaiHoSoNoiBo !== undefined && { phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo }),
+      ...(dto.phanLoaiToiPhamLinhVuc !== undefined && {
+        phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
+      }),
+      ...(dto.phanLoaiHoSoNoiBo !== undefined && {
+        phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,
+      }),
       ...(dto.ghiChuKhac !== undefined && { ghiChuKhac: dto.ghiChuKhac }),
       ...(dto.yeuCauBoSung !== undefined && { yeuCauBoSung: dto.yeuCauBoSung }),
-      ...(dto.soTienBiThietHai !== undefined && { soTienBiThietHai: dto.soTienBiThietHai }),
+      ...(dto.soTienBiThietHai !== undefined && {
+        soTienBiThietHai: dto.soTienBiThietHai,
+      }),
       ...(dto.soLuongBiHai !== undefined && { soLuongBiHai: dto.soLuongBiHai }),
       // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
-      ...(dto.baoCaoBanGiamDocText !== undefined && { baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText }),
+      ...(dto.baoCaoBanGiamDocText !== undefined && {
+        baoCaoBanGiamDocText: dto.baoCaoBanGiamDocText,
+      }),
       ...(dto.tinhTrang !== undefined && { tinhTrang: dto.tinhTrang }),
-      ...(dto.soQDPhanCongNguonTin !== undefined && { soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin }),
-      ...(dto.ngayQDPhanCongNguonTin !== undefined && { ngayQDPhanCongNguonTin: dto.ngayQDPhanCongNguonTin ? new Date(dto.ngayQDPhanCongNguonTin) : null }),
-      ...(dto.soQDTamDinhChiNguonTin !== undefined && { soQDTamDinhChiNguonTin: dto.soQDTamDinhChiNguonTin }),
-      ...(dto.ngayQDTamDinhChiNguonTin !== undefined && { ngayQDTamDinhChiNguonTin: dto.ngayQDTamDinhChiNguonTin ? new Date(dto.ngayQDTamDinhChiNguonTin) : null }),
-      ...(dto.canCuTamDinhChiNguonTin !== undefined && { canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin }),
-      ...(dto.soPhucHoiNguonTin !== undefined && { soPhucHoiNguonTin: dto.soPhucHoiNguonTin }),
-      ...(dto.ngayPhucHoiNguonTin !== undefined && { ngayPhucHoiNguonTin: dto.ngayPhucHoiNguonTin ? new Date(dto.ngayPhucHoiNguonTin) : null }),
+      ...(dto.soQDPhanCongNguonTin !== undefined && {
+        soQDPhanCongNguonTin: dto.soQDPhanCongNguonTin,
+      }),
+      ...(dto.ngayQDPhanCongNguonTin !== undefined && {
+        ngayQDPhanCongNguonTin: dto.ngayQDPhanCongNguonTin
+          ? new Date(dto.ngayQDPhanCongNguonTin)
+          : null,
+      }),
+      ...(dto.soQDTamDinhChiNguonTin !== undefined && {
+        soQDTamDinhChiNguonTin: dto.soQDTamDinhChiNguonTin,
+      }),
+      ...(dto.ngayQDTamDinhChiNguonTin !== undefined && {
+        ngayQDTamDinhChiNguonTin: dto.ngayQDTamDinhChiNguonTin
+          ? new Date(dto.ngayQDTamDinhChiNguonTin)
+          : null,
+      }),
+      ...(dto.canCuTamDinhChiNguonTin !== undefined && {
+        canCuTamDinhChiNguonTin: dto.canCuTamDinhChiNguonTin,
+      }),
+      ...(dto.soPhucHoiNguonTin !== undefined && {
+        soPhucHoiNguonTin: dto.soPhucHoiNguonTin,
+      }),
+      ...(dto.ngayPhucHoiNguonTin !== undefined && {
+        ngayPhucHoiNguonTin: dto.ngayPhucHoiNguonTin
+          ? new Date(dto.ngayPhucHoiNguonTin)
+          : null,
+      }),
       ...(dto.sttCu !== undefined && { sttCu: dto.sttCu }),
     };
     const petitionInclude = {
@@ -984,7 +1114,9 @@ export class PetitionsService {
           this.prisma.petition.update({
             where: {
               id,
-              ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+              ...(dto.expectedUpdatedAt
+                ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+                : {}),
             },
             data: petitionData,
             include: petitionInclude,
@@ -1009,13 +1141,22 @@ export class PetitionsService {
         where: { id: actorId },
         select: { firstName: true, lastName: true },
       });
-      const byUserName = actor ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim() : '';
+      const byUserName = actor
+        ? `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim()
+        : '';
       const petitionTitle = existing.senderName
         ? `${existing.petitionType} - ${existing.senderName}`
-        : (existing as any).stt ?? id;
-      this.eventEmitter.emit('petition.assigned', new PetitionAssignedEvent(
-        id, petitionTitle, dto.assignedToId, actorId, byUserName,
-      ));
+        : ((existing as any).stt ?? id);
+      this.eventEmitter.emit(
+        'petition.assigned',
+        new PetitionAssignedEvent(
+          id,
+          petitionTitle,
+          dto.assignedToId,
+          actorId,
+          byUserName,
+        ),
+      );
     }
 
     // Log separate PETITION_STATUS_CHANGED event for timeline queries
@@ -1141,7 +1282,9 @@ export class PetitionsService {
       await this.prisma.petition.update({
         where: {
           id: petitionId,
-          ...(dto.expectedUpdatedAt ? { updatedAt: new Date(dto.expectedUpdatedAt) } : {}),
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+            : {}),
         },
         data: {
           linkedIncidentId: incident.id,
@@ -1241,59 +1384,59 @@ export class PetitionsService {
     // Create Case and update Petition atomically in one transaction
     let caseRecord: Prisma.CaseGetPayload<object>;
     try {
-    [caseRecord] = await this.prisma.$transaction(async (tx) => {
+      [caseRecord] = await this.prisma.$transaction(async (tx) => {
         // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
         // trước đây vụ án chuyển từ đơn thư không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
         const { number: caseCode, logId: caseCodeLogId } =
           await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
-      const newCase = await tx.case.create({
-        data: {
+        const newCase = await tx.case.create({
+          data: {
             caseCode,
-          name: dto.caseName,
-          crime: dto.crime,
-          unit: dto.jurisdiction,
-          status: CaseStatus.TIEP_NHAN,
-          // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
-          // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
-          caseProvenance: 'FROM_PETITION' as const,
-          linkedPetitionId: petitionId,
-        },
-      });
+            name: dto.caseName,
+            crime: dto.crime,
+            unit: dto.jurisdiction,
+            status: CaseStatus.TIEP_NHAN,
+            // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
+            // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
+            caseProvenance: 'FROM_PETITION' as const,
+            linkedPetitionId: petitionId,
+          },
+        });
         await tx.documentNumberLog.update({
           where: { id: caseCodeLogId },
           data: { documentId: newCase.id },
         });
 
-      await tx.petition.update({
-        where: {
-          id: petitionId,
-          // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
-          updatedAt: new Date(dto.expectedUpdatedAt),
-        },
-        data: {
-          linkedCaseId: newCase.id,
-          status: PetitionStatus.DA_CHUYEN_VU_AN,
-          // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
-          // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
-          ...machMocGiaiQuyet(
-            'petition',
-            petition.status,
-            PetitionStatus.DA_CHUYEN_VU_AN,
-            petition.ngayGiaiQuyet,
-          ),
-        },
-      });
+        await tx.petition.update({
+          where: {
+            id: petitionId,
+            // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
+            updatedAt: new Date(dto.expectedUpdatedAt),
+          },
+          data: {
+            linkedCaseId: newCase.id,
+            status: PetitionStatus.DA_CHUYEN_VU_AN,
+            // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+            // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+            ...machMocGiaiQuyet(
+              'petition',
+              petition.status,
+              PetitionStatus.DA_CHUYEN_VU_AN,
+              petition.ngayGiaiQuyet,
+            ),
+          },
+        });
 
-      // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
-      // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
-      // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
-      await tx.document.updateMany({
-        where: { petitionId, deletedAt: null },
-        data: { caseId: newCase.id },
-      });
+        // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
+        // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
+        // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
+        await tx.document.updateMany({
+          where: { petitionId, deletedAt: null },
+          data: { caseId: newCase.id },
+        });
 
-      return [newCase];
-    });
+        return [newCase];
+      });
     } catch (e) {
       // P1-002: P2025 = row not found với updatedAt mismatch → race detected.
       // P2002 = unique constraint violation (partial index on linkedCaseId) → race detected at DB.
@@ -1359,12 +1502,16 @@ export class PetitionsService {
         },
       },
     });
-    if (!existing) throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
+    if (!existing)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${id})`);
 
     const team = await this.prisma.team.findFirst({
       where: { id: dto.assignedTeamId, isActive: true },
     });
-    if (!team) throw new BadRequestException(`Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`);
+    if (!team)
+      throw new BadRequestException(
+        `Tổ không tồn tại hoặc đã ngừng hoạt động (id: ${dto.assignedTeamId})`,
+      );
 
     // I.1: auto-assign to leader when assignedToId not provided
     let resolvedAssignedToId: string | null = dto.assignedToId ?? null;
@@ -1372,7 +1519,10 @@ export class PetitionsService {
       const member = await this.prisma.userTeam.findFirst({
         where: { userId: dto.assignedToId, teamId: dto.assignedTeamId },
       });
-      if (!member) throw new BadRequestException('Cán bộ xử lý không thuộc tổ được chỉ định');
+      if (!member)
+        throw new BadRequestException(
+          'Cán bộ xử lý không thuộc tổ được chỉ định',
+        );
     } else {
       // Auto-detect leader
       const members = await this.prisma.userTeam.findMany({
@@ -1383,7 +1533,9 @@ export class PetitionsService {
       if (leader) {
         resolvedAssignedToId = leader.userId;
       } else {
-        console.warn(`[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`);
+        console.warn(
+          `[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`,
+        );
       }
     }
 
@@ -1391,7 +1543,9 @@ export class PetitionsService {
       await this.prisma.petition.update({
         where: {
           id,
-          ...(dto.expectedUpdatedAt ? { updatedAt: dto.expectedUpdatedAt } : {}),
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: dto.expectedUpdatedAt }
+            : {}),
         },
         data: {
           assignedTeamId: dto.assignedTeamId,
@@ -1426,7 +1580,10 @@ export class PetitionsService {
 
     // v0.36.0.0: emit PETITION_ESCALATED_FROM_WARD khi ward team → non-ward team
     const existingWithTeam = existing as typeof existing & {
-      assignedTeam: { wardId: string | null; ward: { name: string } | null } | null;
+      assignedTeam: {
+        wardId: string | null;
+        ward: { name: string } | null;
+      } | null;
     };
     const wasInWardTeam = existingWithTeam.assignedTeam?.wardId != null;
     const isReassigning = dto.assignedTeamId !== existing.assignedTeamId;
@@ -1475,7 +1632,12 @@ export class PetitionsService {
     );
 
     if (query.ids) {
-      where.id = { in: query.ids.split(',').map((s) => s.trim()).filter(Boolean) };
+      where.id = {
+        in: query.ids
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
     }
     if (query.fromDate) {
       where.receivedDate = {
@@ -1496,14 +1658,22 @@ export class PetitionsService {
       where.donViGiaiQuyet = { contains: query.unit, mode: 'insensitive' };
     }
     if (query.status) {
-      where.status = query.status as Parameters<typeof buildPetitionScopeFilter>[0] extends never ? never : string as any;
+      where.status = query.status as Parameters<
+        typeof buildPetitionScopeFilter
+      >[0] extends never
+        ? never
+        : string as any;
     }
 
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
         scopeFilter as Prisma.PetitionWhereInput,
       ];
     }
@@ -1514,7 +1684,10 @@ export class PetitionsService {
       // Cùng thứ tự với DANH SÁCH trên màn hình: sắp theo cột sinh để 9 hồ sơ có ngày
       // phi lý (năm 3023, 2925...) chìm xuống cuối. Nếu xuất file mà thứ tự khác màn
       // hình thì cán bộ đối chiếu hai bên sẽ tưởng dữ liệu sai.
-      orderBy: [{ sortReceivedDate: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+      orderBy: [
+        { sortReceivedDate: { sort: 'desc', nulls: 'last' } },
+        { id: 'desc' },
+      ],
       select: {
         id: true,
         stt: true,
@@ -1534,14 +1707,29 @@ export class PetitionsService {
 
     const COL_COUNT = 10;
     const COLUMN_HEADERS = [
-      'STT', 'Mã đơn', 'Ngày tiếp nhận', 'Người gửi', 'Địa chỉ',
-      'Nội dung tóm tắt', 'Phân loại', 'Trạng thái', 'ĐTV phụ trách', 'Ghi chú',
+      'STT',
+      'Mã đơn',
+      'Ngày tiếp nhận',
+      'Người gửi',
+      'Địa chỉ',
+      'Nội dung tóm tắt',
+      'Phân loại',
+      'Trạng thái',
+      'ĐTV phụ trách',
+      'Ghi chú',
     ];
     const COLUMN_WIDTHS = [6, 18, 16, 20, 25, 40, 18, 20, 20, 25];
 
-    const fromStr = query.fromDate ? new Date(query.fromDate).toLocaleDateString('vi-VN') : '';
-    const toStr = query.toDate ? new Date(query.toDate).toLocaleDateString('vi-VN') : '';
-    const period = fromStr && toStr ? `Từ ngày ${fromStr} đến ngày ${toStr}` : 'Tất cả thời gian';
+    const fromStr = query.fromDate
+      ? new Date(query.fromDate).toLocaleDateString('vi-VN')
+      : '';
+    const toStr = query.toDate
+      ? new Date(query.toDate).toLocaleDateString('vi-VN')
+      : '';
+    const period =
+      fromStr && toStr
+        ? `Từ ngày ${fromStr} đến ngày ${toStr}`
+        : 'Tất cả thời gian';
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách đơn thư');
@@ -1584,12 +1772,23 @@ export class PetitionsService {
         action: 'PETITION_EXPORTED',
         subject: 'Petition',
         subjectId: 'bulk',
-        metadata: { count: records.length, filters: { fromDate: query.fromDate, toDate: query.toDate, unit: query.unit, status: query.status } },
+        metadata: {
+          count: records.length,
+          filters: {
+            fromDate: query.fromDate,
+            toDate: query.toDate,
+            unit: query.unit,
+            status: query.status,
+          },
+        },
       });
     }
 
     const filename = `DanhSachDonThu_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     try {
@@ -2012,7 +2211,10 @@ export class PetitionsService {
       petitionType?: string | null;
       summary?: string | null;
       status?: string | null;
-      assignedTo?: { firstName?: string | null; lastName?: string | null } | null;
+      assignedTo?: {
+        firstName?: string | null;
+        lastName?: string | null;
+      } | null;
     };
 
     const doc = new Document({
@@ -2038,7 +2240,9 @@ export class PetitionsService {
                 new TextRun({ text: 'Ngày tiếp nhận: ', bold: true }),
                 new TextRun(
                   petition.receivedDate
-                    ? new Date(petition.receivedDate).toLocaleDateString('vi-VN')
+                    ? new Date(petition.receivedDate).toLocaleDateString(
+                        'vi-VN',
+                      )
                     : '',
                 ),
               ],
@@ -2228,21 +2432,36 @@ export class PetitionsService {
         skip: offset,
         take: limit,
         include: {
-          enteredBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          enteredBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
         },
       }),
       this.prisma.petition.count({ where }),
     ]);
 
     const ids = data.map((c) => c.id);
-    const deleteAudits = ids.length > 0
-      ? await this.prisma.$queryRaw<Array<{ subjectId: string; userId: string | null; metadata: unknown; createdAt: Date }>>`
+    const deleteAudits =
+      ids.length > 0
+        ? await this.prisma.$queryRaw<
+            Array<{
+              subjectId: string;
+              userId: string | null;
+              metadata: unknown;
+              createdAt: Date;
+            }>
+          >`
           SELECT DISTINCT ON ("subjectId") "subjectId", "userId", metadata, "createdAt"
           FROM "audit_logs"
           WHERE action = 'PETITION_DELETED' AND "subjectId" = ANY(${ids})
           ORDER BY "subjectId", "createdAt" DESC
         `
-      : [];
+        : [];
     const audMap = new Map(deleteAudits.map((a) => [a.subjectId, a]));
 
     return {
@@ -2271,7 +2490,9 @@ export class PetitionsService {
       { boTrangThai: true },
     );
 
-    const byStatus: Record<PetitionStatus, number> = Object.values(PetitionStatus).reduce(
+    const byStatus: Record<PetitionStatus, number> = Object.values(
+      PetitionStatus,
+    ).reduce(
       (acc, status) => {
         acc[status] = 0;
         return acc;
@@ -2293,14 +2514,26 @@ export class PetitionsService {
 
     // byGroup sinh từ CÙNG `where` với danh sách → số trên thẻ khớp số dòng theo thiết kế.
     // Nhờ vậy frontend không cần biết nhóm gồm những trạng thái nào (chống trùng lặp).
-    return { total, byStatus, byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus), ky: kyThongKe };
+    return {
+      total,
+      byStatus,
+      byGroup: countByGroup(PETITION_STATUS_GROUPS, byStatus),
+      ky: kyThongKe,
+    };
   }
 
   // ── Nhóm V — Search nghi phạm theo tên/CCCD ────────────────────────────────
   async suspectSearch(
     q: string,
     dataScope?: DataScope | null,
-  ): Promise<Array<{ name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>> {
+  ): Promise<
+    Array<{
+      name: string;
+      idNumber: string;
+      crimes: string[];
+      sources: Array<{ type: string; stt: string }>;
+    }>
+  > {
     if (!q?.trim()) return [];
 
     // Thoát `%`/`_` (Prisma `contains` không tự thoát — `?q=%` từng khớp mọi đơn) và áp phạm vi
@@ -2326,11 +2559,24 @@ export class PetitionsService {
       orderBy: { receivedDate: 'desc' },
     });
 
-    const byKey = new Map<string, { name: string; idNumber: string; crimes: string[]; sources: Array<{ type: string; stt: string }> }>();
+    const byKey = new Map<
+      string,
+      {
+        name: string;
+        idNumber: string;
+        crimes: string[];
+        sources: Array<{ type: string; stt: string }>;
+      }
+    >();
     for (const p of petitions) {
       const key = p.senderIdNumber?.trim() || p.senderName;
       if (!byKey.has(key)) {
-        byKey.set(key, { name: p.senderName, idNumber: p.senderIdNumber ?? '', crimes: [], sources: [] });
+        byKey.set(key, {
+          name: p.senderName,
+          idNumber: p.senderIdNumber ?? '',
+          crimes: [],
+          sources: [],
+        });
       }
       const entry = byKey.get(key)!;
       if (p.toiDanhBanDau?.trim() && !entry.crimes.includes(p.toiDanhBanDau)) {
@@ -2347,7 +2593,15 @@ export class PetitionsService {
     q: string,
     excludeId?: string,
     dataScope?: DataScope | null,
-  ): Promise<Array<{ id: string; stt: string; senderName: string; receivedDate: Date; summary: string | null }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      stt: string;
+      senderName: string;
+      receivedDate: Date;
+      summary: string | null;
+    }>
+  > {
     if (!q?.trim()) return [];
 
     // GIỮ ĐÚNG ba cột cũ: đưa qua thẻ "tất cả các cột" sẽ mở rộng thứ dò được sang nội dung đơn và
@@ -2388,26 +2642,53 @@ export class PetitionsService {
     actorId: string,
     dataScope?: DataScope | null,
   ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
     });
-    if (existing) throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
+    if (existing)
+      throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
 
-    return this.prisma.petitionAssignment.create({
-      data: { petitionId, userId, role, assignedById: actorId },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-      },
-    }).catch((err: any) => {
-      if (err?.code === 'P2002') throw new ConflictException(`Cán bộ đã được phân công cho đơn thư này`);
-      if (err?.code === 'P2003') throw new NotFoundException(`Cán bộ không tồn tại (userId: ${userId})`);
-      throw err;
-    });
+    return this.prisma.petitionAssignment
+      .create({
+        data: { petitionId, userId, role, assignedById: actorId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              username: true,
+            },
+          },
+          assignedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
+        },
+      })
+      .catch((err: any) => {
+        if (err?.code === 'P2002')
+          throw new ConflictException(
+            `Cán bộ đã được phân công cho đơn thư này`,
+          );
+        if (err?.code === 'P2003')
+          throw new NotFoundException(
+            `Cán bộ không tồn tại (userId: ${userId})`,
+          );
+        throw err;
+      });
   }
 
   async removeAssignment(
@@ -2416,14 +2697,18 @@ export class PetitionsService {
     _actorId: string,
     dataScope?: DataScope | null,
   ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     this.kiemPhamViPhanCong(petition, dataScope);
 
     const existing = await this.prisma.petitionAssignment.findUnique({
       where: { petitionId_userId: { petitionId, userId } },
     });
-    if (!existing) throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
+    if (!existing)
+      throw new NotFoundException(`Cán bộ chưa được phân công cho đơn thư này`);
 
     await this.prisma.petitionAssignment.delete({
       where: { petitionId_userId: { petitionId, userId } },
@@ -2431,19 +2716,29 @@ export class PetitionsService {
     return { success: true };
   }
 
-  async listAssignments(
-    petitionId: string,
-    dataScope?: DataScope | null,
-  ) {
-    const petition = await this.prisma.petition.findFirst({ where: { id: petitionId, deletedAt: null } });
-    if (!petition) throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
+  async listAssignments(petitionId: string, dataScope?: DataScope | null) {
+    const petition = await this.prisma.petition.findFirst({
+      where: { id: petitionId, deletedAt: null },
+    });
+    if (!petition)
+      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
     this.checkRecordInScope(petition, dataScope);
 
     return this.prisma.petitionAssignment.findMany({
       where: { petitionId },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, username: true } },
-        assignedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            username: true,
+          },
+        },
+        assignedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
       orderBy: { assignedAt: 'asc' },
     });
