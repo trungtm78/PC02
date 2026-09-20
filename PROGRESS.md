@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T09:40:00+07:00 | Milestone: 3/9 (đợt Đơn thư nhập liệu nhanh) | Task: T2 XONG (rà mã 7 lỗi đã vá hết); T3 đang làm
+Cập nhật: 2026-09-20T10:25:00+07:00 | Milestone: 4/9 (đợt Đơn thư nhập liệu nhanh) | Task: T3 XONG; T4 kế tiếp
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -50,22 +50,27 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
     | P3 | người đã ngừng hoạt động rơi vào "Chưa có tổ" ở ĐÁY danh sách 245 người | nhóm GHIM "Đang chọn" đầu danh sách |
     | P3 | 2 `useMemo` không bao giờ trúng (`giuCanBoDaChon` trả mảng mới) | bỏ |
 
-- [ ] **T3 — danh mục `NGUON_DON`** (đang làm)
-  - XONG: hàm thuần `laNguonTrucTiep` + `khoaNguonDon` (20 ca) · luật tạo nhanh `NGUON_DON`
-    (7 ca) · ô `nguonDon` trên form Đơn thư dùng `FKSelect directoryType="NGUON_DON" canCreate`
-    · câu chữ popup (`vi.ts`) · nhãn trang Danh mục
-  - CÒN: CLI `nap-nguon-don` (chạy thử → anh duyệt CSV → `--that`) · áp cho form Vụ án (`Case.nguonDon`)
+- [x] **T3 — danh mục `NGUON_DON`**
+  - Hàm thuần `laNguonTrucTiep` + `khoaNguonDon` (20 ca) — suy cờ từ TÊN, không đọc CSDL
+  - Luật tạo nhanh `NGUON_DON` (7 ca): mục mới TỰ mang cờ `laTrucTiep`
+  - Ô `nguonDon` trên form **Đơn thư** và **Vụ án** dùng `FKSelect directoryType="NGUON_DON"`
+    (Vụ án cần dẫn `renderOverride` qua lớp bọc `CaseFormPage/LegacyTabBody`)
+  - Câu chữ popup (`vi.ts`) + nhãn trang Danh mục
+  - CLI `nap-nguon-don` (+ `.util`, 19 ca): đọc CẢ `petitions.nguonDon` lẫn `cases.nguonDon`,
+    gộp theo khoá, tên phổ biến nhất làm tên chuẩn, <3 hồ sơ → chờ duyệt, **chạy thử mặc định**,
+    `--csv` xuất bảng gộp có BOM, `--that` mới ghi, chạy lần hai ra 0 mục mới
+  - **CHỜ ANH (§8c — ghi prod):** chạy `--csv` trên prod → anh soát bảng gộp → rồi mới `--that`
 
 ### Đang làm dở
-Task: T3 — danh mục `NGUON_DON`
-BƯỚC TIẾP THEO: viết CLI `backend/src/legacy-migration/cli/nap-nguon-don.ts` (+ `.util.ts`)
-theo khuôn `nap-loai-thong-tin.ts`: chạy thử mặc định, `--that` mới ghi, xuất CSV có BOM cho
-anh duyệt bảng gộp TRƯỚC khi ghi. Sau đó áp ô `nguonDon` cho form Vụ án.
-File liên quan: `backend/src/common/utils/nguon-don.util.ts`, `backend/src/directory/directory.service.ts`,
-`frontend/src/pages/petitions/PetitionFormPage/index.tsx`.
+Task: T4 — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn
+BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho `backend/src/petitions/dto/create-petition.dto.ts:86`
+(`@IsNotEmpty` → `@ValidateIf((o) => laNguonTrucTiep(o.nguonDon))`) và
+`frontend/src/pages/petitions/PetitionFormPage/validate.ts:30` — MỘT luật, hai đầu gọi cùng
+hàm thuần `laNguonTrucTiep`. Kèm cổng đối xứng FE/BE (cổng mới #4).
+Vì sao phải làm TRƯỚC khi gom nhóm: SĐT là ô BẮT BUỘC, gom vào nhóm thu gọn mà không nới luật
+thì cán bộ bị chặn Lưu bởi một ô không nhìn thấy — đúng lỗi PR #248.
 
 ### Hàng đợi task kế tiếp
-1. **T3** — danh mục `NGUON_DON` + ô tìm/tạo nhanh (Đơn thư + Vụ án) + hàm thuần `laNguonTrucTiep` + CLI seed
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
 4. **T5** — prop `nhom` cho `LegacyLayoutSection` + `nhom-o.def.ts` + nhóm "Thông tin khác" *(làn song song)*
 5. **T6** — nhóm định danh (dải LIỀN MẠCH 167–171, gồm cả "Sinh năm") bung theo 3 điều kiện OR
@@ -94,7 +99,7 @@ File liên quan: `backend/src/common/utils/nguon-don.util.ts`, `backend/src/dire
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5764/5764 (413 suite)** · **frontend 3475/3475 (924 suite)** · tsc sạch
+Full suite: **backend 5784/5784 (415 suite)** · **frontend 3476/3476 (926 suite)** · tsc sạch
 · 0 lỗi lint mới
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng

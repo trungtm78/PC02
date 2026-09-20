@@ -40,17 +40,24 @@ describe('DirectoryService.taoNhanh — NGUON_DON', () => {
         findMany: jest.fn<Promise<MucDangCo[]>, []>().mockResolvedValue([]),
         create: jest
           .fn<Promise<unknown>, [DuLieuTao]>()
-          .mockImplementation(({ data }) => Promise.resolve({ id: 'moi', ...data })),
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ id: 'moi', ...data }),
+          ),
       },
     };
     const mod = await Test.createTestingModule({
-      providers: [DirectoryService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        DirectoryService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
     service = mod.get(DirectoryService);
   });
 
   it('nằm trong danh sách loại được tạo nhanh', () => {
-    expect(LOAI_TAO_NHANH_DUOC).toEqual(expect.arrayContaining([LOAI_DANH_MUC_NGUON_DON]));
+    expect(LOAI_TAO_NHANH_DUOC).toEqual(
+      expect.arrayContaining([LOAI_DANH_MUC_NGUON_DON]),
+    );
   });
 
   it('sinh mã mang tiền tố ND', async () => {
@@ -59,12 +66,18 @@ describe('DirectoryService.taoNhanh — NGUON_DON', () => {
   });
 
   it('mục tên "Trực tiếp" TỰ mang cờ laTrucTiep — không ai quên gắn được', async () => {
-    await service.taoNhanh({ type: LOAI_DANH_MUC_NGUON_DON, name: 'Trực tiếp' });
+    await service.taoNhanh({
+      type: LOAI_DANH_MUC_NGUON_DON,
+      name: 'Trực tiếp',
+    });
     expect(lanTaoCuoi().metadata).toMatchObject({ laTrucTiep: true });
   });
 
   it('biến thể "Nộp trực tiếp tại trụ sở" cũng mang cờ', async () => {
-    await service.taoNhanh({ type: LOAI_DANH_MUC_NGUON_DON, name: 'Nộp trực tiếp tại trụ sở' });
+    await service.taoNhanh({
+      type: LOAI_DANH_MUC_NGUON_DON,
+      name: 'Nộp trực tiếp tại trụ sở',
+    });
     expect(lanTaoCuoi().metadata).toMatchObject({ laTrucTiep: true });
   });
 
@@ -76,9 +89,18 @@ describe('DirectoryService.taoNhanh — NGUON_DON', () => {
 
   it('tên chỉ khác dấu/hoa thường thì KHÔNG tạo bản trùng', async () => {
     prisma.directory.findMany.mockResolvedValue([
-      { id: 'cu', type: LOAI_DANH_MUC_NGUON_DON, code: 'ND0001', name: 'Trực tiếp', isActive: true },
+      {
+        id: 'cu',
+        type: LOAI_DANH_MUC_NGUON_DON,
+        code: 'ND0001',
+        name: 'Trực tiếp',
+        isActive: true,
+      },
     ]);
-    const ra = await service.taoNhanh({ type: LOAI_DANH_MUC_NGUON_DON, name: 'trực tiếp' });
+    const ra = await service.taoNhanh({
+      type: LOAI_DANH_MUC_NGUON_DON,
+      name: 'trực tiếp',
+    });
     expect(ra.daCoSan).toBe(true);
     expect(prisma.directory.create).not.toHaveBeenCalled();
   });
@@ -93,7 +115,10 @@ describe('DirectoryService.taoNhanh — NGUON_DON', () => {
         isActive: true,
       },
     ]);
-    const ra = await service.taoNhanh({ type: LOAI_DANH_MUC_NGUON_DON, name: 'PC01 CA TP.HCM' });
+    const ra = await service.taoNhanh({
+      type: LOAI_DANH_MUC_NGUON_DON,
+      name: 'PC01 CA TP.HCM',
+    });
     expect(ra.daCoSan).toBe(true);
   });
 });

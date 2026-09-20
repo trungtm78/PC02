@@ -13,11 +13,15 @@ describe('khoaNguonDon — khoá gộp', () => {
   });
 
   it('gộp chữ dựng sẵn (NFC) với chữ gõ tổ hợp (NFD) — 2.162 dòng prod ở dạng NFD', () => {
-    expect(khoaNguonDon('Trực tiếp'.normalize('NFD'))).toBe(khoaNguonDon('Trực tiếp'.normalize('NFC')));
+    expect(khoaNguonDon('Trực tiếp'.normalize('NFD'))).toBe(
+      khoaNguonDon('Trực tiếp'.normalize('NFC')),
+    );
   });
 
   it('gộp biến thể dấu câu và viết tắt đơn vị', () => {
-    expect(khoaNguonDon('PC01 CA TP.HCM')).toBe(khoaNguonDon('PC01 CA TP. Hồ Chí Minh'));
+    expect(khoaNguonDon('PC01 CA TP.HCM')).toBe(
+      khoaNguonDon('PC01 CA TP. Hồ Chí Minh'),
+    );
   });
 
   it('rỗng/null ra chuỗi rỗng, không nổ', () => {

@@ -1703,9 +1703,28 @@ export function TabInfo(props: TabProps) {
     props.setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+  /**
+   * "Nguồn đơn/Đơn vị giao" chọn từ danh mục `NGUON_DON` — CÙNG danh mục với Đơn thư.
+   *
+   * `cases.nguonDon` và `petitions.nguonDon` là một khái niệm: đơn chuyển thành vụ án vẫn
+   * mang nguồn ấy. Hai danh mục riêng là hai danh mục trôi khỏi nhau.
+   */
+  const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    nguonDon: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="NGUON_DON"
+        value={String(props.formData.nguonDon ?? "")}
+        onChange={(v) => update("nguonDon", v)}
+        placeholder="Gõ để tìm nguồn đơn/đơn vị giao"
+        testId="field-nguonDon"
+      />
+    ),
+  };
   return (
     <LegacyTabBody
       tabId="info"
+      renderOverride={oRieng}
       formData={props.formData}
       setFormData={props.setFormData}
       errors={props.errors}
