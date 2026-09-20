@@ -118,3 +118,53 @@ describe('Form Đơn thư — Ngày viết đơn nhập thiếu', () => {
     expect(body.petitionDate).toBe('2026-12-15');
   });
 });
+
+/**
+ * Đường rủi ro nhất: mở một đơn CŨ chỉ có cột ngày thật, chưa có cột EDTF.
+ *
+ * Migration bù dữ liệu cho 47.456 hồ sơ lúc lên, nhưng hồ sơ tạo bằng đường KHÁC form (CLI
+ * di trú, API) sau đó vẫn có thể thiếu cột EDTF. Ba ô hiện RỖNG nghĩa là cán bộ thấy một đơn
+ * CÓ ngày mà ô lại trắng — và chỉ cần gõ rồi xoá là `petitionDate` bị xoá theo.
+ */
+describe('Mở đơn CŨ chưa có cột EDTF', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    apiGet.mockReset();
+    apiGet.mockImplementation((duong: string) => {
+      if (typeof duong === 'string' && duong.startsWith('/petitions/')) {
+        return Promise.resolve({
+          data: {
+            data: {
+              id: 'p9',
+              petitionDate: '2026-12-15T00:00:00.000Z',
+              senderName: 'A',
+              detailContent: 'N',
+              updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+          },
+        });
+      }
+      return Promise.resolve({ data: { success: true, data: [] } });
+    });
+    authStore.setProfile(TOI);
+  });
+  afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
+
+  it('suy ba ô từ cột ngày thật — KHÔNG hiện trắng', async () => {
+    const { PetitionFormPage } = await import('../PetitionFormPage');
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/petitions/p9']}>
+          <Routes><Route path="/petitions/:id" element={<PetitionFormPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect((screen.getByTestId('field-petitionDate-nam') as HTMLInputElement).value).toBe('2026'),
+    );
+    expect((screen.getByTestId('field-petitionDate-thang') as HTMLInputElement).value).toBe('12');
+    expect((screen.getByTestId('field-petitionDate-ngay') as HTMLInputElement).value).toBe('15');
+  });
+});

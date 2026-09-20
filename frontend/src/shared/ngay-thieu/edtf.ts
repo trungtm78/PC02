@@ -103,3 +103,16 @@ export function loiNgayTungPhan(p: NgayTungPhan): string | null {
   }
   return null;
 }
+
+/**
+ * Chuỗi EDTF có phải ngày CÓ THẬT không — dùng lúc Lưu, không chỉ hiện chữ đỏ dưới ô.
+ *
+ * Hình dạng đúng chưa đủ: `2026-02-31` khớp mẫu nhưng không tồn tại trên lịch. Chữ đỏ dưới ô
+ * mà vẫn Lưu được thì cán bộ bấm Lưu, máy chủ trả 400, và thông báo ấy khó hiểu hơn hẳn lỗi
+ * tại chỗ. Máy chủ kiểm cùng luật ở `is-edtf-ngay-that.validator.ts`.
+ */
+export function loiEdtf(edtf: string | null | undefined): string | null {
+  if (!edtf) return null;
+  if (!/^\d{4}-(\d{2}|XX)-(\d{2}|XX)$/.test(edtf)) return 'Ngày viết đơn không đúng dạng';
+  return loiNgayTungPhan(tuEdtf(edtf));
+}

@@ -18,7 +18,6 @@ import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
 import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
 import { CaseStatus } from "@/shared/enums/generated";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
-import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import {
   X,
   Clock,
@@ -209,7 +208,6 @@ function CaseFormPage() {
    * Cổng `motNguonCanBoVuViec` chặn lời gọi thẳng mọc lại.
    */
   const { data: dsCanBo = [], isLoading: handlerLoading } = useOfficerOptions();
-  const handlerGroups = gomCanBoTheoTo(dsCanBo);
 
   // ─── Fetch data in edit mode ────────────────────────────────────────────
 
@@ -494,7 +492,7 @@ function CaseFormPage() {
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 
-  const tabProps = { formData, setFormData, errors, setErrors, handlerGroups, handlerLoading, isDraftCodeLoading };
+  const tabProps = { formData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading };
 
   // ─── Render ────────────────────────────────────────────────────────────
 

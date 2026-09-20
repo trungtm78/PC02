@@ -1,7 +1,4 @@
-import {
-  khoaSapXepNgayVietDon,
-  ngayVietDonHienThi,
-} from './ngay-viet-don.util';
+import { ngayVietDonHienThi } from './ngay-viet-don.util';
 
 /**
  * Một nơi duy nhất quyết định "Ngày viết đơn" hiện thế nào.
@@ -47,39 +44,5 @@ describe('ngayVietDonHienThi', () => {
         petitionDate: new Date('2026-01-02T00:00:00Z'),
       }),
     ).toBe('02/01/2026');
-  });
-});
-
-describe('khoaSapXepNgayVietDon', () => {
-  it('sắp đúng thứ tự thời gian bằng SO CHUỖI, kể cả đơn nhập thiếu', () => {
-    const khoa = [
-      { ngayVietDonEdtf: '2026-12-XX' },
-      { ngayVietDonEdtf: '2025-01-05' },
-      { ngayVietDonEdtf: '2026-03-XX' },
-    ].map(khoaSapXepNgayVietDon);
-    expect([...khoa].sort()).toEqual([
-      '2025-01-05',
-      '2026-03-XX',
-      '2026-12-XX',
-    ]);
-  });
-
-  it('lọc theo tháng bằng TIỀN TỐ bắt được cả đơn nhập đủ lẫn nhập thiếu', () => {
-    const trongThang = [
-      { ngayVietDonEdtf: '2026-12-15' },
-      { ngayVietDonEdtf: '2026-12-XX' },
-      { ngayVietDonEdtf: '2026-11-30' },
-    ].filter((r) => khoaSapXepNgayVietDon(r)?.startsWith('2026-12'));
-    expect(trongThang).toHaveLength(2);
-  });
-
-  it('hồ sơ cũ chưa có EDTF vẫn có khoá — không rơi vào rổ NULL', () => {
-    expect(
-      khoaSapXepNgayVietDon({ petitionDate: new Date('2026-12-15T00:00:00Z') }),
-    ).toBe('2026-12-15');
-  });
-
-  it('không có gì → null', () => {
-    expect(khoaSapXepNgayVietDon({})).toBeNull();
   });
 });

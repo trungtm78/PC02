@@ -36,6 +36,15 @@ const DS_CAN_BO = [
   { id: 'u2', lastName: 'Nguyễn Văn', firstName: 'B', teams: [{ teamId: 't2', teamName: 'Tổ 2', isLeader: false }] },
 ];
 
+/**
+ * Mốc chờ rộng hơn mặc định 1s.
+ *
+ * Ca này từng đỏ NGẪU NHIÊN khi chạy cả bộ (962 tệp) mà xanh khi chạy riêng: hai lời gọi
+ * mạng giả phải giải quyết xong trước khi danh sách Tổ hiện ra, và dưới tải thì 1s không đủ.
+ * Một ca chập chờn làm CI đỏ ngẫu nhiên, rồi người ta quen với màu đỏ.
+ */
+const CHO = { timeout: 5000 };
+
 function dungMayChu() {
   get.mockImplementation((duong: string) => {
     if (duong === '/teams') return Promise.resolve({ data: DS_TO });
@@ -60,14 +69,14 @@ describe('AssignModal — hộp phân công', () => {
 
   it('hiện danh sách Tổ khi /teams trả MẢNG THÔ', async () => {
     render(<AssignModal {...props} />, { wrapper: boc });
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument(), CHO);
     expect(screen.getByRole('option', { name: 'Tổ 2' })).toBeInTheDocument();
   });
 
   it('KHÔNG gửi khoá `teamId` lên /admin/users — máy chủ không khai khoá ấy, gửi là 400', async () => {
     const nguoiDung = userEvent.setup();
     render(<AssignModal {...props} />, { wrapper: boc });
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument(), CHO);
     // Chọn tổ rồi mới soi: bản cũ CHỈ hỏi cán bộ sau khi có tổ, nên không chọn thì ca kiểm
     // xanh mà chẳng chứng minh gì.
     await nguoiDung.selectOptions(screen.getAllByRole('combobox')[0], 't1');
@@ -85,12 +94,13 @@ describe('AssignModal — hộp phân công', () => {
   it('chọn Tổ 1 thì chỉ hiện cán bộ của Tổ 1', async () => {
     const nguoiDung = userEvent.setup();
     render(<AssignModal {...props} />, { wrapper: boc });
-    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument(), CHO);
 
     await nguoiDung.selectOptions(screen.getAllByRole('combobox')[0], 't1');
 
-    await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Nguyễn Văn A' })).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByRole('option', { name: 'Nguyễn Văn A' })).toBeInTheDocument(),
+      CHO,
     );
     expect(screen.queryByRole('option', { name: 'Nguyễn Văn B' })).not.toBeInTheDocument();
   });

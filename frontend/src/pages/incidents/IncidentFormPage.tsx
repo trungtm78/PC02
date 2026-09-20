@@ -155,7 +155,15 @@ export function IncidentFormPage() {
    * vào vì lời gọi riêng không lọc `status`. Cổng `motNguonCanBoVuViec` chặn nó mọc lại.
    */
   const { data: dsCanBo = [], isLoading: dangTaiCanBo } = useOfficerOptions();
-  const nhomCanBo = gomCanBoTheoTo(dsCanBo);
+  /**
+   * GHIM người hồ sơ đang trỏ tới.
+   *
+   * `useOfficerOptions` lọc `status: active`, mà lời gọi cũ thì không — nên một điều tra viên
+   * ĐÃ BỊ KHOÁ trước đây vẫn hiện tên, giờ thì biến mất khỏi danh sách. Ô hiện chữ gợi ý,
+   * trông như chưa phân công, và cán bộ chọn người khác: phân công lại NGẦM.
+   */
+  const nhomDieuTraVien = gomCanBoTheoTo(dsCanBo, formData.investigatorId);
+  const nhomCanBoNhap = gomCanBoTheoTo(dsCanBo, formData.canBoNhapId);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState('');
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
@@ -584,7 +592,7 @@ export function IncidentFormPage() {
                 label="Điều tra viên"
                 value={formData.investigatorId}
                 onChange={(v) => update("investigatorId", v)}
-                groups={nhomCanBo}
+                groups={nhomDieuTraVien}
                 loading={dangTaiCanBo}
                 placeholder="Chọn điều tra viên"
                 searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
@@ -606,7 +614,7 @@ export function IncidentFormPage() {
                 label="Cán bộ nhập"
                 value={formData.canBoNhapId}
                 onChange={(v) => update("canBoNhapId", v)}
-                groups={nhomCanBo}
+                groups={nhomCanBoNhap}
                 loading={dangTaiCanBo}
                 placeholder="Chọn cán bộ nhập"
                 searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"

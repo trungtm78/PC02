@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T15:05:00+07:00 | Milestone: 9/9 MÃ XONG | Task: T8 + T9 XONG. Còn: rà mã T7/T8 + UAT (§9)
+Cập nhật: 2026-09-20T16:30:00+07:00 | Milestone: 9/9 MÃ XONG + rà mã T7/T8 đã vá | Task: còn UAT (§9)
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -141,11 +141,23 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
 - [x] **T9 — `DESIGN.md` §12** (ô chọn cán bộ gom nhóm, nhóm ô gập, ngày thiếu thành phần,
   chỉ dấu chuyển động tự động, Do/Don't)
 
+- [x] **Vá rà mã T7/T8 (2 P1 + 4 lỗi), cộng 2 lỗi em tự bắt**
+  | # | Lỗi | Cách vá |
+  |---|---|---|
+  | P1 | **đường TẠO MỚI không ghi `ngayVietDonEdtf`** — chỉ vá đường sửa. Cán bộ gõ `__/12/2026` rồi Lưu: payload ĐÚNG nhưng cả hai cột rỗng, MẤT SẠCH ngày. Chỉ "chạy" nếu bấm Lưu lần hai | thêm vào `petition-data.builder.ts` + 3 ca kiểm ở tầng đó (ca FE dừng ở thân yêu cầu nên không bắt được) |
+  | P1 | **mẫu Word hệ cũ `{ngay_viet_don}` đọc thẳng cột ngày** → đơn nhập thiếu in ra CHỖ TRỐNG trên văn bản gửi ra ngoài ngành | qua hàm dùng chung; **nhưng DỮ LIỆU THÔ HỆ CŨ THẮNG** — 4.447 hồ sơ có ô này là chữ tự do ("tháng 5/2026", "không rõ"), chuẩn hoá là in ra trống |
+  | P2 | cổng #3 soi MỘT tệp, đòi hai chữ trên CÙNG một dòng → bỏ lọt `khoa-he-cu.ts` | quét cả thư mục, soi theo cửa sổ sau mỗi `resolve:`; gieo lỗi đỏ |
+  | P2 | `khoaSapXepNgayVietDon` KHÔNG có nơi nào gọi — mã chết | xoá cả hàm lẫn ca kiểm; sửa lý do trong migration cho đúng |
+  | P2 | **Vụ án/Vụ việc thiếu `ghimId`** → cán bộ đã khoá biến mất khỏi ô, ô trông như chưa chọn ai, người dùng chọn người khác = PHÂN CÔNG LẠI NGẦM | truyền id đang giữ; **cổng mới** chặn mọi lời gọi `gomCanBoTheoTo` một đối số |
+  | P3 | ca kiểm chập chờn `AssignModal` — xanh khi chạy riêng, đỏ ngẫu nhiên khi chạy cả bộ | nới mốc chờ; ca chập chờn làm CI đỏ ngẫu nhiên rồi người ta quen với màu đỏ |
+  | **em tự bắt** | mở đơn CŨ chỉ có cột ngày thật → ba ô hiện TRẮNG, gõ rồi xoá là mất luôn `petitionDate` | suy cột EDTF từ cột ngày thật lúc nạp |
+  | **em tự bắt** | `2026-02-31` lọt qua regex EDTF xuống cột rồi lên bản in | validator `IsEdtfNgayThat` (máy chủ) + `loiEdtf` trong `validate.ts` (trình duyệt), cùng luật |
+
 ### Đang làm dở
-Task: rà mã độc lập cho T7/T8, rồi UAT phủ 100% (§9)
-BƯỚC TIẾP THEO: gửi rà mã T7/T8, xử lý findings; sau đó lập `UAT-COVERAGE.md` liệt kê mọi màn
-hình và chức năng đụng tới trong đợt, chạy `/uat-test-writer` → `/uat-test-runner` từng dòng.
-**CHƯA push, CHƯA tạo PR** — chờ đủ rà mã + UAT.
+Task: UAT phủ 100% (§9)
+BƯỚC TIẾP THEO: lập `UAT-COVERAGE.md` liệt kê mọi màn hình và chức năng đụng tới trong đợt,
+chạy `/uat-test-writer` → `/uat-test-runner` từng dòng, đối chiếu ngược với 5 yêu cầu gốc.
+**CHƯA push, CHƯA tạo PR** — chờ UAT xong.
 
 ### Hàng đợi task kế tiếp
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
@@ -176,8 +188,8 @@ hình và chức năng đụng tới trong đợt, chạy `/uat-test-writer` →
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5852/5852 (418 suite)** · **frontend 3616/3616 (956 suite)** · tsc sạch
-· 0 lỗi lint mới
+Full suite: **backend 5868/5868 (420 suite)** · **frontend 3629/3629 (962 suite)** · tsc sạch
+· 0 lỗi lint mới (prettier còn dọn bớt 10 lỗi có sẵn ở `khoa-he-cu.ts`: 29→19)
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng
 Patch coverage: 100% dòng mới (backend) · 100% line / 87.5% branch (`useOfficerOptions`)

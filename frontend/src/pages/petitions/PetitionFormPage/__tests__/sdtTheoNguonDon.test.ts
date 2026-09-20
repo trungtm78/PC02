@@ -58,3 +58,22 @@ describe('validate.ts — SĐT theo Nguồn đơn', () => {
     expect(loiSdt(co({ nguonDon: 'Trực tiếp', senderPhone: '0901234567' }))).toHaveLength(0);
   });
 });
+
+/**
+ * Ngày viết đơn ráp lại phải CÓ THẬT — chặn lúc Lưu, không chỉ hiện chữ đỏ dưới ô.
+ *
+ * Chữ đỏ dưới ô mà vẫn Lưu được thì cán bộ bấm Lưu, máy chủ trả 400, và thông báo ấy khó
+ * hiểu hơn hẳn lỗi tại chỗ.
+ */
+describe('validate.ts — Ngày viết đơn phải có thật', () => {
+  const loiNgay = (fd: PetitionFormData) =>
+    computeFormErrors(fd, false).fields.filter((f) => f === 'field-petitionDate');
+
+  it.each(['2026-02-31', '2026-13-01', '2025-02-29'])('CHẶN "%s"', (edtf) => {
+    expect(loiNgay(co({ ngayVietDonEdtf: edtf }))).toHaveLength(1);
+  });
+
+  it.each(['2026-12-15', '2026-12-XX', '2026-XX-XX', '2024-02-29', ''])('nhận "%s"', (edtf) => {
+    expect(loiNgay(co({ ngayVietDonEdtf: edtf }))).toHaveLength(0);
+  });
+});

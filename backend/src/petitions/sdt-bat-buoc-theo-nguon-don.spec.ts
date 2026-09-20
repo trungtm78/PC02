@@ -106,3 +106,37 @@ describe('senderPhone — bắt buộc theo Nguồn đơn', () => {
     ).toHaveLength(0);
   });
 });
+
+/**
+ * Ngày viết đơn dạng EDTF phải là ngày CÓ THẬT, không chỉ đúng hình dạng.
+ *
+ * Regex `^\d{4}-(\d{2}|XX)-(\d{2}|XX)$` nhận `2026-02-31` — đúng hình dạng, không có trên
+ * lịch. Trình duyệt đã chặn bằng `loiNgayTungPhan`, nhưng máy chủ nhận hồ sơ từ nhiều đường
+ * (CLI di trú, lời gọi API thẳng), và một ngày không có thật đi thẳng xuống cột rồi lên bản
+ * in chứng từ.
+ */
+describe('ngayVietDonEdtf — ngày phải CÓ THẬT', () => {
+  const loiEdtf = async (ngayVietDonEdtf: string) => {
+    const o = plainToInstance(CreatePetitionDto, { ...TOI_THIEU, ngayVietDonEdtf });
+    return (await validate(o)).filter((l) => l.property === 'ngayVietDonEdtf');
+  };
+
+  it.each(['2026-12-15', '2026-12-XX', '2026-XX-XX', '2024-02-29'])('nhận "%s"', async (v) => {
+    expect(await loiEdtf(v)).toHaveLength(0);
+  });
+
+  it.each(['2026-02-31', '2026-13-01', '2026-02-30', '2026-00-10', '2026-12-00'])(
+    'CHẶN "%s" — đúng hình dạng nhưng không có trên lịch',
+    async (v) => {
+      expect(await loiEdtf(v)).toHaveLength(1);
+    },
+  );
+
+  it('CHẶN "2025-02-29" — năm không nhuận', async () => {
+    expect(await loiEdtf('2025-02-29')).toHaveLength(1);
+  });
+
+  it('nhận "2024-02-29" — năm nhuận', async () => {
+    expect(await loiEdtf('2024-02-29')).toHaveLength(0);
+  });
+});

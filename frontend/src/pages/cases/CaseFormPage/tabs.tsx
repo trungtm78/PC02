@@ -30,6 +30,7 @@ import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
+import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
@@ -149,7 +150,15 @@ export function CardNguonVuAn({ formData, errors, update }: {
   );
 }
 
-function TabInfoBoSung({ formData, setFormData, errors, setErrors, handlerGroups = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+  /**
+   * GHIM người hồ sơ đang trỏ tới.
+   *
+   * `useOfficerOptions` lọc `status: active`, mà lời gọi cũ thì không — nên một điều tra viên
+   * ĐÃ BỊ KHOÁ trước đây vẫn hiện tên, giờ thì biến mất khỏi danh sách. Ô hiện chữ gợi ý,
+   * trông như chưa chọn ai, và cán bộ chọn người khác: đổi điều tra viên NGẦM.
+   */
+  const handlerGroups = gomCanBoTheoTo(dsCanBo, formData.handler);
   const update = useFieldUpdater(formData, setFormData, errors, setErrors);
 
   // ── Administrative reform: 2-tier address (Province → Ward) ──

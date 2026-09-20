@@ -1,3 +1,4 @@
+import type { OfficerOption } from "@/hooks/useOfficerOptions";
 // ─── Types for CaseForm ─────────────────────────────────────────────────────
 
 export type TabId =
@@ -364,8 +365,11 @@ export interface TabProps {
   errors: Record<string, string>;
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   /** Danh sách điều tra viên fetch từ API — dùng trong FKSelect handler */
-  /** Cán bộ gom nhóm theo Tổ — từ `useOfficerOptions` + `gomCanBoTheoTo`, nguồn duy nhất. */
-  handlerGroups?: { key: string; label: string; options: { value: string; label: string }[] }[];
+  /**
+   * Danh sách cán bộ THÔ từ `useOfficerOptions` (nguồn duy nhất). Tab tự gom nhóm để GHIM được
+   * người hồ sơ đang trỏ tới — chỉ tab mới biết ô nào đang giữ id nào.
+   */
+  dsCanBo?: OfficerOption[];
   handlerLoading?: boolean;
   /** v0.42: loading state cho draft caseCode (DocNumberPreviewField) */
   isDraftCodeLoading?: boolean;

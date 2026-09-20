@@ -17,6 +17,7 @@ import { PetitionStatus, LoaiDon, HuongXuLyDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
+import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import { SdtNguyenDonHopLe } from '../../common/validators/sdt-nguyen-don.validator';
 
 // Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
@@ -221,10 +222,7 @@ export class CreatePetitionDto {
    * bằng tiền tố.
    */
   @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}-(\d{2}|XX)-(\d{2}|XX)$/, {
-    message: 'Ngày viết đơn không đúng dạng EDTF (vd 2026-12-XX)',
-  })
+  @IsEdtfNgayThat()
   ngayVietDonEdtf?: string;
 
   @IsOptional()

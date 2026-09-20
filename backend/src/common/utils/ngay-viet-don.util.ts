@@ -39,18 +39,3 @@ export function ngayVietDonHienThi(r: HoSoCoNgay): string {
   if (!d || Number.isNaN(d.getTime())) return '';
   return `${hai(d.getUTCDate())}/${hai(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
-
-/**
- * Khoá SẮP XẾP và LỌC — chuỗi EDTF, hoặc suy từ cột ngày thật khi hồ sơ cũ chưa có.
- *
- * Sắp theo cột ngày thật thôi thì mọi đơn nhập thiếu rơi hết vào rổ NULL và cán bộ tưởng
- * chúng biến mất. Chuỗi EDTF so được bằng chuỗi nên sắp đúng thứ tự thời gian, và lọc
- * "tháng 12/2026" chạy bằng tiền tố `2026-12`.
- */
-export function khoaSapXepNgayVietDon(r: HoSoCoNgay): string | null {
-  const edtf = r.ngayVietDonEdtf?.trim();
-  if (edtf) return edtf;
-  const d = r.petitionDate ? new Date(r.petitionDate) : null;
-  if (!d || Number.isNaN(d.getTime())) return null;
-  return `${d.getUTCFullYear()}-${hai(d.getUTCMonth() + 1)}-${hai(d.getUTCDate())}`;
-}

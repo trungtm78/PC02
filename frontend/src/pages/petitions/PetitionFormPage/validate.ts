@@ -8,6 +8,7 @@
  */
 import { today } from "@/lib/dates";
 import { laNguonTrucTiep } from "@/shared/nguon-don/truc-tiep";
+import { loiEdtf } from "@/shared/ngay-thieu/edtf";
 import type { PetitionFormData } from "./types";
 
 /** Dinh dang email va so dien thoai Viet Nam (10 so, bat dau bang 0). */
@@ -44,5 +45,9 @@ export function computeFormErrors(
   if (!effectiveEdit && !anon && !fd.crimeChinhId)
     items.push({ msg: "Tội danh chính là bắt buộc (trừ đơn nặc danh)", testid: "field-crimeChinhId" });
   if (!fd.detailContent.trim()) items.push({ msg: "Nội dung là bắt buộc", testid: "field-detailContent" });
+  // Ngày viết đơn ráp lại phải CÓ THẬT. Chữ đỏ dưới ô mà vẫn Lưu được thì máy chủ trả 400,
+  // và thông báo ấy khó hiểu hơn hẳn lỗi tại chỗ.
+  const loiNgayDon = loiEdtf(fd.ngayVietDonEdtf);
+  if (loiNgayDon) items.push({ msg: `Ngày viết đơn: ${loiNgayDon}`, testid: "field-petitionDate" });
   return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };
 }

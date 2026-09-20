@@ -67,6 +67,10 @@ export function buildPetitionCreateData(
     raSoatTrung: dto.raSoatTrung,
     baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
     petitionDate: toDate(dto.petitionDate),
+    // Đường TẠO MỚI cũng phải ghi cột EDTF, không chỉ đường sửa. Bỏ quên nó là cán bộ gõ
+    // `__/12/2026` rồi bấm Lưu và MẤT SẠCH ngày: `petitionDate` NULL (đúng, vì nhập thiếu) mà
+    // cột EDTF cũng trống. Chỉ "chạy" nếu bấm Lưu lần thứ hai.
+    ngayVietDonEdtf: dto.ngayVietDonEdtf || null,
     nguonDon: dto.nguonDon,
     subTeamAssigned: dto.subTeamAssigned,
     lyDoChuyen: dto.lyDoChuyen,
@@ -109,7 +113,8 @@ export function buildPetitionCreateData(
     // `huongXuLy` là ô thật trên form; `thuocThamQuyen` suy ra từ nó. Đường gọi cũ chỉ gửi
     // `thuocThamQuyen` (bộ di trú, ca kiểm) vẫn chạy đúng như trước.
     huongXuLy: dto.huongXuLy,
-    thuocThamQuyen: suyThuocThamQuyen(dto.huongXuLy) ?? dto.thuocThamQuyen ?? true,
+    thuocThamQuyen:
+      suyThuocThamQuyen(dto.huongXuLy) ?? dto.thuocThamQuyen ?? true,
     // ── Field-parity ĐẦY ĐỦ (feat/legacy-field-parity) ──
     phanLoaiToiPhamLinhVuc: dto.phanLoaiToiPhamLinhVuc,
     phanLoaiHoSoNoiBo: dto.phanLoaiHoSoNoiBo,

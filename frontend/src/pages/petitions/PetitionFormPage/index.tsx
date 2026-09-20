@@ -308,7 +308,14 @@ export function PetitionFormPage() {
           // Field-parity bổ sung tab "Thông tin" form cũ /doi-1/Them (2026-06-26)
           nguonDon: (d.nguonDon as string) ?? "",
           petitionDate: toDateInput(d.petitionDate as string | null | undefined),
-          ngayVietDonEdtf: (d.ngayVietDonEdtf as string) ?? "",
+          /*
+            Hồ sơ CŨ chỉ có cột ngày thật (trước bản này, hoặc tạo bằng CLI di trú / API sau
+            đó): suy cột EDTF ra từ nó. Không suy thì ba ô hiện TRẮNG cho một đơn CÓ ngày, và
+            chỉ cần cán bộ gõ rồi xoá là `petitionDate` bị xoá theo.
+          */
+          ngayVietDonEdtf:
+            (d.ngayVietDonEdtf as string) ||
+            (d.petitionDate ? toDateInput(d.petitionDate as string) : ""),
           ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
