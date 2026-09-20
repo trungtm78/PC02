@@ -180,14 +180,21 @@ jobs:
           ssh-keyscan -p ${{ secrets.VM_PORT }} -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
-      # Treo HAI LẦN LIÊN TIẾP ngày 20/09/2026 ở đúng bước này: workflow báo `in_progress` 28
-      # phút, trong khi trên máy chủ tiến trình `rsync --server` chạy mà KHÔNG ghi được byte nào,
-      # và kết nối SSH vẫn "established" nhưng không có dữ liệu chạy — luồng TCP chết mà socket
-      # còn sống. Không có `--timeout` thì rsync đợi VÔ HẠN, và bước này ăn tới hạn 6 tiếng của
-      # GitHub. Cán bộ ngồi chờ bản vá, tưởng mã hỏng.
+      # Ngày 20/09/2026 bước này ngốn 41 phút, trong khi các lượt trước đó chỉ mất 6-7 phút.
       #
-      # Ba lớp: `--timeout` cắt luồng đứng im; keepalive của SSH phát hiện sớm hơn; `--partial`
-      # giữ phần đã nhận để lần thử lại đi tiếp (gói ~167 MB, truyền lại từ đầu là đắt).
+      # Đo lúc đang chạy: tệp tạm trên máy chủ tăng 524 KB trong 15 giây, tức ~35 KB/s, trong
+      # khi bình thường là ~400 KB/s. KHÔNG phải treo: dữ liệu vẫn chạy, chỉ là đường truyền từ
+      # runner tới máy chủ tụt tốc. Gói bản dựng nặng ~160 MB (61.339 tệp, phần lớn là
+      # node_modules), nên ở tốc độ ấy 40+ phút là ĐÚNG chứ không phải hỏng.
+      #
+      # Cảnh báo cho người đọc sau: đừng kết luận "treo" khi chưa ĐO. Tệp tạm của rsync mang
+      # đuôi ngẫu nhiên (.pc02-<sha>.tar.gz.XfVTTq) nên mẫu *.tar.gz KHÔNG khớp; tìm bằng mẫu
+      # sai rồi thấy "0 byte" là cách dễ nhất để chẩn đoán nhầm, và đã mắc đúng lỗi ấy.
+      #
+      # Ba cờ dưới đây KHÔNG làm truyền nhanh hơn. Chúng làm một lượt đứt giữa chừng không phải
+      # bắt đầu lại từ đầu: --partial giữ phần đã nhận, --timeout cắt luồng THẬT SỰ đứng im,
+      # keepalive giữ kết nối qua các đoạn chậm. Muốn deploy nhanh lại thì phải làm GÓI GỌN hơn
+      # (đừng đóng gói node_modules) - việc riêng, chưa làm trong lần này.
       - name: rsync release tarball to VM
         run: |
           for lan in 1 2 3; do
