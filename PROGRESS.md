@@ -154,18 +154,33 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
   | **em tự bắt** | `2026-02-31` lọt qua regex EDTF xuống cột rồi lên bản in | validator `IsEdtfNgayThat` (máy chủ) + `loiEdtf` trong `validate.ts` (trình duyệt), cùng luật |
 
 ### Đang làm dở
-Task: UAT phủ 100% (§9)
-BƯỚC TIẾP THEO: lập `UAT-COVERAGE.md` liệt kê mọi màn hình và chức năng đụng tới trong đợt,
-chạy `/uat-test-writer` → `/uat-test-runner` từng dòng, đối chiếu ngược với 5 yêu cầu gốc.
-**CHƯA push, CHƯA tạo PR** — chờ UAT xong.
+Task: UAT phủ 100% (§9) trên prod
+
+Anh chốt đường đi: **PR → CI → merge → deploy → UAT trên prod**.
+
+| Bước | Trạng thái |
+|---|---|
+| PR #448 (`feat/don-thu-nhap-lieu-nhanh`, 10 commit) | ĐÃ TẠO |
+| CI | Backend Tests xanh; đợt cuối đang chạy sau 2 commit tài liệu |
+| Ma trận UAT `docs/uat/dot-2009/UAT-COVERAGE.md` | XONG — 70 ca, 10 nhóm A–J, đối chiếu ngược đủ 5 yêu cầu |
+| Merge → deploy → `prisma migrate deploy` | CHƯA |
+| Chạy `/uat-test-writer` → `/uat-test-runner` từng dòng | CHƯA |
+
+Đã kiểm trước rủi ro migration trên prod (chỉ đọc): cột `ngay_viet_don_edtf` chưa tồn tại,
+migration cuối đã áp là `20260919200000`, migration mới `20260920120000` đứng sau — không
+lệch thứ tự, không có migration treo.
+
+**CHỜI ANH (§8c — ghi dữ liệu prod):** sau deploy em chỉ chạy `nap-nguon-don --csv` (CHỈ ĐỌC),
+đưa anh bảng gộp 1.431 cách viết → ~972 mục. **Không ghi một dòng nào** cho tới khi anh duyệt.
 
 ### Hàng đợi task kế tiếp
-3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
-4. **T5** — prop `nhom` cho `LegacyLayoutSection` + `nhom-o.def.ts` + nhóm "Thông tin khác" *(làn song song)*
-5. **T6** — nhóm định danh (dải LIỀN MẠCH 167–171, gồm cả "Sinh năm") bung theo 3 điều kiện OR
-6. **T7** — `PartialDateInput` 3 ô phân đoạn + cột EDTF `ngayVietDonEdtf` + TRỌN đường ống khoá form + sắp xếp danh sách
-7. **T8** — áp ô chọn cán bộ có nhóm cho Vụ án/Vụ việc + các hộp phân công
-8. **T9** — `DESIGN.md` §12 (TK1–TK4 + Do/Don't)
+T1–T9 ĐÃ XONG MÃ (10 commit trên nhánh). Còn lại đúng chuỗi giao hàng:
+
+1. CI PR #448 xanh → **merge**
+2. Deploy → xác minh `buildId` → `prisma migrate deploy`
+3. Chạy `nap-nguon-don --csv` trên prod (**chỉ đọc**) → đưa anh soát → DỪNG (§8c)
+4. UAT 70 ca theo `docs/uat/dot-2009/UAT-COVERAGE.md`, sửa tận gốc mọi ca đỏ
+5. Đối chiếu ngược 5 yêu cầu gốc → chỉ kết luận khi 100% PASS
 
 ### Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
