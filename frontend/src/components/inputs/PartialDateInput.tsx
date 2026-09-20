@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import {
   loiNgayTungPhan,
@@ -57,10 +57,17 @@ export function PartialDateInput({
 
   // Đồng bộ khi `value` đổi từ BÊN NGOÀI (nạp hồ sơ, đặt lại form) — so bằng chuỗi EDTF nên
   // không đè lên thứ đang gõ dở.
-  useEffect(() => {
+  /*
+    Chỉnh trạng thái NGAY TRONG LƯỢT DỰNG khi `value` đổi từ bên ngoài — mẫu chính thức của
+    React ("You Might Not Need an Effect — Adjusting some state when a prop changes"). Không
+    dùng effect vì effect buộc phải khai `phan` là phụ thuộc, mà khai vào thì mỗi chữ số gõ
+    ra lại kéo ô về `value` cũ, xoá sạch thứ đang gõ dở.
+  */
+  const [valueTruoc, setValueTruoc] = useState(value);
+  if (value !== valueTruoc) {
+    setValueTruoc(value);
     if (sangEdtf(phan) !== (value ?? null)) setPhan(tuEdtf(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
 
   const loiRapLai = loiNgayTungPhan(phan);
 
