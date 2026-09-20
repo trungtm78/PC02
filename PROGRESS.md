@@ -160,10 +160,11 @@ Anh chốt đường đi: **PR → CI → merge → deploy → UAT trên prod**.
 
 | Bước | Trạng thái |
 |---|---|
-| PR #448 (`feat/don-thu-nhap-lieu-nhanh`, 10 commit) | ĐÃ TẠO |
-| CI | Backend Tests xanh; đợt cuối đang chạy sau 2 commit tài liệu |
-| Ma trận UAT `docs/uat/dot-2009/UAT-COVERAGE.md` | XONG — 70 ca, 10 nhóm A–J, đối chiếu ngược đủ 5 yêu cầu |
-| Merge → deploy → `prisma migrate deploy` | CHƯA |
+| PR #448 (`feat/don-thu-nhap-lieu-nhanh`, 11 commit) | ĐÃ MERGE → `2ab85bdf` trên `main` |
+| CI | XANH cả hai (Backend + Frontend) trên commit cuối `1a500028` |
+| Ma trận UAT + sổ đếm + domain pack (`docs/uat/dot-2009/`) | XONG — **80 ca / 12 nhóm A–L**, đúng TC_min tính theo 4 phương pháp |
+| Deploy + `prisma migrate deploy` (deploy.sh tự chạy) | ĐANG CHẠY |
+| Xác minh `buildId` khớp `2ab85bdf` | CHƯA |
 | Chạy `/uat-test-writer` → `/uat-test-runner` từng dòng | CHƯA |
 
 Đã kiểm trước rủi ro migration trên prod (chỉ đọc): cột `ngay_viet_don_edtf` chưa tồn tại,
