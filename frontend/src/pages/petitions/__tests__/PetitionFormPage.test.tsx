@@ -179,37 +179,21 @@ describe('PetitionFormPage — Nhóm V combobox fields', () => {
     vi.clearAllMocks();
   });
 
-  it('V-FE1: renders suspect-search-input field with correct testid', async () => {
-    await renderForm();
-    const input = await screen.findByTestId('suspect-search-input');
-    expect(input).toBeInTheDocument();
-  });
+  /*
+    V-FE1 và V-FE3 (ô tra tiền án) gỡ ngày 20/09/2026 cùng ô "Tội danh cũ trước đây" — anh yêu
+    cầu bỏ ô ấy khỏi form Đơn thư. Hai ca ấy chạy trên thứ không còn tồn tại; giữ lại và đổi
+    thành "không tìm thấy" cũng chẳng khẳng định thêm gì, vì
+    `baOAnKhongDungNua.gate.test.tsx` đã canh việc ba ô không dựng ở BẤT KỲ tab nào, kèm phép
+    gieo lỗi chứng minh cổng ấy đỏ được.
+
+    Đầu API `/petitions/suspect-search` vẫn còn và vẫn có ca kiểm riêng ở máy chủ — chỉ phần
+    dựng trên form là bỏ.
+  */
 
   it('V-FE2: renders duplicate-search-input field with correct testid', async () => {
     await renderForm();
     const input = await screen.findByTestId('duplicate-search-input');
     expect(input).toBeInTheDocument();
-  });
-
-  it('V-FE3: suspect-search-input triggers API call on user input', async () => {
-    const { api } = await import('@/lib/api');
-    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
-      if (String(url).includes('suspect-search')) {
-        return Promise.resolve({ data: [{ name: 'Nguyễn Văn A', idNumber: '079088001234', crimes: ['Trộm cắp'], sources: [] }] });
-      }
-      return Promise.resolve({ data: { success: true, data: [] } });
-    });
-
-    await renderForm();
-    const input = await screen.findByTestId('suspect-search-input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Nguy' } });
-
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        expect.stringContaining('suspect-search'),
-        expect.objectContaining({ params: expect.objectContaining({ q: 'Nguy' }) }),
-      );
-    }, { timeout: 1500 });
   });
 
   it('V-FE4: duplicate-search-input triggers API call on user input', async () => {
