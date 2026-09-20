@@ -51,16 +51,16 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 | B4 | Đơn nhập thiếu: lưu → mở lại đúng `__/12/2026` | YC3 | | | |
 | B5 | Nhóm có ô đã có giá trị → TỰ BUNG (không giấu dữ liệu) | YC2/YC5 | | | |
 | B6 | Người được giao đã bị KHOÁ → vẫn hiện tên, ghim đầu danh sách | Lỗi prod 4 | | | |
-| B7 | Bảng phân công: thêm/xoá cán bộ; nhãn khớp ô chọn | Lỗi prod 4 | | | |
+| B7 | Bảng phân công: thêm/xoá cán bộ; nhãn khớp ô chọn | Lỗi prod 4 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## C. Hộp Phân công (`AssignModal` — 3 màn danh sách)
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| C1 | Mở hộp → danh sách **Tổ** có dữ liệu (trước đây LUÔN rỗng) | Lỗi prod 1 | | | |
-| C2 | Chọn Tổ → danh sách **Cán bộ** có dữ liệu (trước đây LUÔN rỗng) | Lỗi prod 1 | | | |
-| C3 | Cán bộ hiện ra đúng là người của tổ đã chọn | Lỗi prod 1 | | | |
-| C4 | Phân công thành công, hồ sơ cập nhật | Lỗi prod 1 | | | |
+| C1 | Mở hộp → danh sách **Tổ** có dữ liệu (trước đây LUÔN rỗng) | Lỗi prod 1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| C2 | Chọn Tổ → danh sách **Cán bộ** có dữ liệu (trước đây LUÔN rỗng) | Lỗi prod 1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| C3 | Cán bộ hiện ra đúng là người của tổ đã chọn | Lỗi prod 1 | x | x | **PASS (E2E Chrome, bản sao)** |
+| C4 | Phân công thành công, hồ sơ cập nhật | Lỗi prod 1 | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## D. Màn Vụ án (`/cases/new`, `/cases/:id`)
 
