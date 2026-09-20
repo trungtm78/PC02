@@ -769,8 +769,26 @@ export function PetitionFormPage() {
                       })}
                       value={formData.donViGiaiQuyet}
                       onChange={(v) => update("donViGiaiQuyet", v)}
-                      placeholder="Chọn Tổ/Nhóm xử lý"
+                      placeholder="Chọn Tổ/Nhóm xử lý, hoặc gõ tên đơn vị rồi Tạo mới"
                       testId="field-donViGiaiQuyet"
+                      /*
+                        Tạo mới ghi vào DANH MỤC đơn vị, KHÔNG đẻ ra một Tổ thật: Tổ gắn với
+                        thành viên, quyền và phạm vi dữ liệu, nên tạo từ form đơn thư sẽ sinh ra
+                        tổ rỗng không ai thuộc về và hồ sơ giao vào đó thì không ai nhìn thấy.
+
+                        Danh sách vẫn chỉ 26 Tổ/Nhóm, KHÔNG trộn 1.433 mục danh mục vào: ô chọn
+                        chỉ lọc tại chỗ trên 200 dòng đầu, nên trộn vào là cán bộ gõ đúng tên có
+                        thật mà không thấy rồi tạo bản trùng. Thay vào đó `POST /directories/quick`
+                        chặn trùng phía máy chủ — gõ tên đã có thì nó trả về mục cũ và chọn luôn.
+                      */
+                      canCreate={!!taoNhanh}
+                      onCreateNew={(tenGoiY) =>
+                        taoNhanh?.open({
+                          type: "DON_VI",
+                          tenGoiY,
+                          onCreated: (ten) => update("donViGiaiQuyet", ten),
+                        })
+                      }
                     />
                   ) : (
                     <FKSelect

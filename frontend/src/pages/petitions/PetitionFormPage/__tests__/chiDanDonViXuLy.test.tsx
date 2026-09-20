@@ -14,16 +14,18 @@ import { HuongXuLyDon } from '@/shared/enums/generated';
   phạm vi dữ liệu — tạo từ đây sẽ đẻ ra tổ rỗng không ai thuộc về), mà chỉ đường sang Chuyển đơn.
 */
 describe('ChiDanDonViXuLy', () => {
-  it('hướng NỘI BỘ: nói rõ đây là Tổ/Nhóm và chỉ đường sang Chuyển đơn', () => {
+  it('hướng NỘI BỘ: nói rõ danh sách là Tổ/Nhóm, và gõ tên mới thì vào DANH MỤC đơn vị', () => {
     render(<ChiDanDonViXuLy huong={HuongXuLyDon.GIAO_DON} />);
     const chu = screen.getByTestId('chi-dan-don-vi-xu-ly').textContent ?? '';
-    expect(chu).toContain('Chuyển đơn');
-    expect(chu.length).toBeGreaterThan(20);
+    expect(chu).toContain('Tổ/Nhóm');
+    // Anh chốt 20/09 (lần hai): PHẢI tạo mới được ngay ở đây. Câu chữ phải nói đúng thứ xảy ra
+    // — mục mới vào danh mục đơn vị, KHÔNG đẻ ra một Tổ thật.
+    expect(chu).toContain('danh mục');
   });
 
   it('hướng Trả đơn/Lưu đơn cũng là nội bộ nên cũng có chỉ dẫn', () => {
     render(<ChiDanDonViXuLy huong={HuongXuLyDon.TRA_LUU_DON} />);
-    expect(screen.getByTestId('chi-dan-don-vi-xu-ly').textContent).toContain('Chuyển đơn');
+    expect(screen.getByTestId('chi-dan-don-vi-xu-ly').textContent).toContain('danh mục');
   });
 
   it('CHƯA chọn hướng cũng là nội bộ — giữ đúng hành vi mặc định của ô', () => {
@@ -36,7 +38,9 @@ describe('ChiDanDonViXuLy', () => {
     expect(screen.queryByTestId('chi-dan-don-vi-xu-ly')).toBeNull();
   });
 
-  it('câu chỉ dẫn không hứa điều sai: không nói "gõ để tạo mới"', () => {
-    expect(CHI_DAN_NOI_BO.toLowerCase()).not.toContain('tạo mới');
+  it('câu chỉ dẫn KHÔNG hứa tạo ra một Tổ — mục mới chỉ vào danh mục', () => {
+    const c = CHI_DAN_NOI_BO.toLowerCase();
+    expect(c).toContain('danh mục');
+    expect(c, 'nói "tạo Tổ" là hứa sai — Tổ gắn với thành viên và quyền').not.toContain('tạo tổ');
   });
 });
