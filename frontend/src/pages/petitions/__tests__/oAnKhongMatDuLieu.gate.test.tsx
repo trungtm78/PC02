@@ -8,12 +8,14 @@ import { O_AN_KHOI_DON_THU } from '@/features/petitions/o-an.def';
 Element.prototype.scrollIntoView = vi.fn();
 
 const apiGet = vi.fn();
-const apiPut = vi.fn(() => Promise.resolve({ data: { success: true, data: { id: 'p1' } } }));
+const apiPut = vi.fn((_duong: string, _than: Record<string, unknown>) =>
+  Promise.resolve({ data: { success: true, data: { id: 'p1' } } }),
+);
 vi.mock('@/lib/api', () => ({
   api: {
     get: (...a: unknown[]) => apiGet(...a),
     post: vi.fn(() => Promise.resolve({ data: { success: true } })),
-    put: (...a: unknown[]) => apiPut(...(a as [])),
+    put: (duong: string, than: Record<string, unknown>) => apiPut(duong, than),
   },
   authApi: { me: vi.fn() },
 }));
@@ -98,7 +100,7 @@ describe('CỔNG: ẩn ô KHÔNG được làm mất dữ liệu của hồ sơ 
     fireEvent.click(screen.getAllByRole('button', { name: /Cập nhật/ })[0]);
     await waitFor(() => expect(apiPut).toHaveBeenCalled());
 
-    const body = apiPut.mock.calls[0][1] as Record<string, unknown>;
+    const body = apiPut.mock.calls[0][1];
     const daGui = Object.fromEntries(
       Object.keys(DANG_CO).map((k) => [k, body[k]]),
     );
