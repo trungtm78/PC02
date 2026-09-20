@@ -27,29 +27,29 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 | A7 | Tài khoản ĐÃ KHOÁ không xuất hiện trong danh sách | Lỗi prod 2 | | | |
 | A8 | "Cán bộ đề xuất" có sẵn tên người đang đăng nhập | YC4 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A9 | Ô "Nguồn đơn" tìm được; gõ nguồn chưa có → tạo nhanh | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
-| A10 | Chọn Nguồn đơn = "Trực tiếp" → nhóm định danh TỰ BUNG | YC2 | | | |
-| A11 | Đổi sang "Bưu điện" → nhóm THU lại | YC2 | | | |
-| A12 | "Bưu điện" + bỏ trống SĐT → **LƯU ĐƯỢC** | YC2 | | | |
-| A13 | "Trực tiếp" + bỏ trống SĐT → chặn Lưu, và ô SĐT NHÌN THẤY được | YC2 | | | |
-| A14 | Đóng nhóm bằng TAY rồi bấm Lưu → ô gây chặn vẫn hiện ra | Rà mã P1 | | | |
+| A10 | Chọn Nguồn đơn = "Trực tiếp" → nhóm định danh TỰ BUNG | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A11 | Đổi sang "Bưu điện" → nhóm THU lại | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A12 | "Bưu điện" + bỏ trống SĐT → **LƯU ĐƯỢC** | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A13 | "Trực tiếp" + bỏ trống SĐT → chặn Lưu, và ô SĐT NHÌN THẤY được | YC2 | x | x | **PASS (E2E Chrome, bản sao)** |
+| A14 | Đóng nhóm bằng TAY rồi bấm Lưu → ô gây chặn vẫn hiện ra | Rà mã P1 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A15 | Chưa bấm Lưu thì nhóm KHÔNG viền đỏ (không mắng trước) | Rà mã P2 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A16 | Ngày viết đơn: nhập `__/12/2026` → lưu được | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
-| A17 | Ngày viết đơn: nhập `__/__/2026` → lưu được | YC3 | | | |
+| A17 | Ngày viết đơn: nhập `__/__/2026` → lưu được | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A18 | Ngày viết đơn: nhập `31/02/2026` → bị chặn tại chỗ | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A19 | Ba ô ngày: gõ tự nhảy ô, Backspace lùi ô, dán "15/12/2026" tách ba ô | YC3 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A20 | Nhóm "Thông tin khác" thu gọn sẵn, bấm vào bung ra | YC5 | x | x | **PASS (E2E Chrome, bản sao)** |
 | A21 | Tiêu đề nhóm hiện "N ô · M đã nhập" đúng số | YC5 | x | x | **PASS (E2E Chrome, bản sao)** |
-| A22 | Lưu một đơn ĐẦY ĐỦ → mở lại đúng mọi ô vừa nhập | Tổng hợp | | | |
+| A22 | Lưu một đơn ĐẦY ĐỦ → mở lại đúng mọi ô vừa nhập | Tổng hợp | x | x | **PASS (E2E Chrome, bản sao)** |
 
 ## B. Màn Đơn thư — Chỉnh sửa (`/petitions/:id`)
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| B1 | Mở đơn DI TRÚ cũ → không ô nào biến mất | Bài học | | | |
-| B2 | Mở đơn cũ CÓ ngày viết đơn → ba ô hiện đúng ngày, không trắng | Rà mã P1 | | | |
-| B3 | Lưu đơn cũ mà KHÔNG đụng ngày → ngày giữ nguyên | Rà mã P1 | | | |
+| B1 | Mở đơn DI TRÚ cũ → không ô nào biến mất | Bài học | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
+| B2 | Mở đơn cũ CÓ ngày viết đơn → ba ô hiện đúng ngày, không trắng | Rà mã P1 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
+| B3 | Lưu đơn cũ mà KHÔNG đụng ngày → ngày giữ nguyên | Rà mã P1 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
 | B4 | Đơn nhập thiếu: lưu → mở lại đúng `__/12/2026` | YC3 | | | |
-| B5 | Nhóm có ô đã có giá trị → TỰ BUNG (không giấu dữ liệu) | YC2/YC5 | | | |
+| B5 | Nhóm có ô đã có giá trị → TỰ BUNG (không giấu dữ liệu) | YC2/YC5 | x | x | **PASS (E2E Chrome, hồ sơ di trú thật)** |
 | B6 | Người được giao đã bị KHOÁ → vẫn hiện tên, ghim đầu danh sách | Lỗi prod 4 | | | |
 | B7 | Bảng phân công: thêm/xoá cán bộ; nhãn khớp ô chọn | Lỗi prod 4 | x | x | **PASS (E2E Chrome, bản sao)** |
 
@@ -84,10 +84,10 @@ dòng PASS (80/80, TC_min tính ở `_coverage-ledger.md`). Bỏ qua ≠ đạt.
 
 | ID | Chức năng | Nguồn | Viết | Chạy | Kết quả |
 |---|---|---|---|---|---|
-| F1 | In đơn nhập ĐỦ ngày → bản in có ngày đúng | YC3 | | | |
-| F2 | In đơn nhập THIẾU → in `__/12/2026`, **không in trống** | Rà mã P1 | | | |
-| F3 | In đơn DI TRÚ có `ngay_viet_don` là chữ tự do → in NGUYÊN VĂN | Rà mã P1 | | | |
-| F4 | Không đơn nào in ra ngày BỊA (01/…) | YC3 | | | |
+| F1 | In đơn nhập ĐỦ ngày → bản in có ngày đúng | YC3 | x | x | **PASS (API bản in thật)** |
+| F2 | In đơn nhập THIẾU → in `__/12/2026`, **không in trống** | Rà mã P1 | x | x | **PASS (API bản in thật)** |
+| F3 | In đơn DI TRÚ có `ngay_viet_don` là chữ tự do → in NGUYÊN VĂN | Rà mã P1 | x | x | **PASS (API bản in thật)** |
+| F4 | Không đơn nào in ra ngày BỊA (01/…) | YC3 | x | x | **PASS (API bản in thật)** |
 
 ## G. Trang Danh mục (`/danh-muc`)
 

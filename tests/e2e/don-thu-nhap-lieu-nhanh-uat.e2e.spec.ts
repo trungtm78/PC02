@@ -306,3 +306,93 @@ test.describe('A · Ngày viết đơn nhập thiếu thành phần', () => {
     await expect(thang).toHaveValue('');
   });
 });
+
+/**
+ * Nhóm định danh nguyên đơn bung/thu theo Nguồn đơn — LÕI của yêu cầu 2, và là chỗ
+ * nguy hiểm nhất của cả đợt: một ô BẮT BUỘC nằm trong nhóm đang đóng thì cán bộ bấm Lưu,
+ * nhận thông báo cho một ô không có trên màn hình, và không biết phải làm gì. Đúng lỗi PR #248.
+ */
+async function chonNguonDon(page: Page, ten: string) {
+  await moOChon(page, O_NGUON_DON);
+  await goTim(page, O_NGUON_DON, ten);
+  const muc = page
+    .getByTestId(`${O_NGUON_DON}-dropdown`)
+    .getByRole('option')
+    .filter({ hasText: ten })
+    .first();
+  await expect(muc, `không tìm thấy mục "${ten}" trong danh mục`).toBeVisible({ timeout: 10_000 });
+  await muc.click();
+  await expect(page.getByTestId(`${O_NGUON_DON}-dropdown`)).toBeHidden();
+}
+
+test.describe('A · Nhóm định danh bung/thu theo Nguồn đơn', () => {
+  test('A10 — chọn "Trực tiếp" thì nhóm định danh TỰ BUNG', async ({ page }) => {
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await expect(nut).toHaveAttribute('aria-expanded', 'false');
+
+    await chonNguonDon(page, 'Trực tiếp');
+
+    await expect(
+      nut,
+      'nguồn Trực tiếp nghĩa là người nộp đứng trước mặt — phải hỏi định danh ngay',
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('A11 — đổi sang "Bưu điện" thì nhóm THU lại', async ({ page }) => {
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await chonNguonDon(page, 'Trực tiếp');
+    await expect(nut).toHaveAttribute('aria-expanded', 'true');
+
+    await chonNguonDon(page, 'Bưu điện');
+    await expect(nut, 'nguồn không phải Trực tiếp thì nhóm phải thu, đỡ Tab qua 5 ô').toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  test('A14 — đóng nhóm bằng TAY rồi đổi sang Trực tiếp: luật tự-bung GIÀNH LẠI quyền', async ({
+    page,
+  }) => {
+    /*
+      Đây là lỗi P1 bắt được khi rà mã: bản đầu để `nguoiDungMo ?? moSan`, nên một khi cán bộ
+      bấm tay thì `moSan` chết vĩnh viễn. Mở nhóm ra xem rồi đóng lại — thao tác bình thường —
+      là từ đó nhóm không bao giờ tự bung nữa, kể cả khi ô bên trong bắt đầu chặn Lưu.
+    */
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await nut.click();
+    await expect(nut).toHaveAttribute('aria-expanded', 'true');
+    await nut.click();
+    await expect(nut).toHaveAttribute('aria-expanded', 'false');
+
+    await chonNguonDon(page, 'Trực tiếp');
+    await expect(
+      nut,
+      'bấm tay không được phép giết luật tự-bung — nếu không thì Lưu bị chặn bởi ô ẩn',
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('A12/A13 — SĐT bắt buộc THEO NGUỒN, và ô gây chặn phải NHÌN THẤY được', async ({ page }) => {
+    // Trực tiếp + SĐT trống → chặn Lưu, và ô SĐT phải hiện ra (nhóm tự bung).
+    await chonNguonDon(page, 'Trực tiếp');
+    const nut = page.getByTestId(`${NHOM_DINH_DANH}-nut`);
+    await expect(nut).toHaveAttribute('aria-expanded', 'true');
+
+    const oSdt = page.getByTestId(NHOM_DINH_DANH).locator('input').first();
+    await expect(oSdt, 'ô SĐT phải nhìn thấy được thì cán bộ mới sửa được').toBeVisible();
+  });
+
+  test('A22/A17 — lưu đơn với ngày `__/__/2026` rồi mở lại vẫn đúng nguyên văn', async ({
+    page,
+  }) => {
+    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).fill('2026');
+    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).blur();
+
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-ngay`)).toHaveValue('');
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-thang`)).toHaveValue('');
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-nam`)).toHaveValue('2026');
+    await expect(
+      page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
+      'chỉ có năm vẫn là dữ liệu hợp lệ — đây là điều anh yêu cầu',
+    ).toHaveCount(0);
+  });
+});
