@@ -1,6 +1,6 @@
 STATUS: IN_PROGRESS
 # PROGRESS
-Cập nhật: 2026-09-20T10:25:00+07:00 | Milestone: 4/9 (đợt Đơn thư nhập liệu nhanh) | Task: T3 XONG; T4 kế tiếp
+Cập nhật: 2026-09-20T11:30:00+07:00 | Milestone: 5/9 (đợt Đơn thư nhập liệu nhanh) | Task: T4 XONG (rà mã T3: 13 lỗi đã vá hết); T5 kế tiếp
 Nhánh: `feat/don-thu-nhap-lieu-nhanh` (từ `origin/main` @ cec25c34)
 Plan: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (đã qua /plan-eng-review + /design-consultation)
 
@@ -59,16 +59,40 @@ Thứ tự: T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9. Một l�
   - CLI `nap-nguon-don` (+ `.util`, 19 ca): đọc CẢ `petitions.nguonDon` lẫn `cases.nguonDon`,
     gộp theo khoá, tên phổ biến nhất làm tên chuẩn, <3 hồ sơ → chờ duyệt, **chạy thử mặc định**,
     `--csv` xuất bảng gộp có BOM, `--that` mới ghi, chạy lần hai ra 0 mục mới
-  - **CHỜ ANH (§8c — ghi prod):** chạy `--csv` trên prod → anh soát bảng gộp → rồi mới `--that`
+  - **CHỜ ANH (§8c — ghi prod):** chạy `--csv` trên prod → anh soát bảng gộp → rồi mới `--that`,
+    sau đó `--that --chuan-hoa` để đổi hồ sơ cũ về tên chuẩn
+  - **Rà mã độc lập bắt 13 lỗi, đã vá HẾT:**
+    | # | Lỗi | Cách vá |
+    |---|---|---|
+    | P1 | ô Nguồn đơn form Vụ án KHÔNG có "Tạo mới", mà danh mục đang RỖNG trên prod → deploy xong là ô chết | thêm `canCreate` + popup tạo nhanh, 4 ca kiểm thật (ca cũ chỉ soi nút mở nên khai sai vẫn xanh) |
+    | P1 | khoá chạy-lại chỉ là TÊN mục → quản trị đổi tên/tắt mục xong, lượt sau NẠP LẠI rác vừa dọn | đọc cả `metadata.bienThe` và cả mục đã tắt |
+    | P2 | `laNguonTrucTiep` khớp bừa cụm "trực tiếp" → "Không trực tiếp", "Đơn vị trực tiếp thụ lý" đều thành TRỰC TIẾP → cán bộ mở đơn cũ KHÔNG LƯU ĐƯỢC | luật bảo thủ: loại phủ định, đòi ngữ cảnh tiếp nhận; bộ tên chuẩn mở rộng 27 mẫu |
+    | P2 | `khoaNguonDon` dùng lại `khoaDonVi` → "Phòng 1"→"1", "Phòng chống tệ nạn"→"chống tệ nạn" | chuẩn hoá riêng, KHÔNG bỏ tiền tố "phòng"/"bch"; cổng cặp-phải-khác/phải-giống |
+    | P2 | báo "đã thêm N" trong khi máy chủ chèn 0 (hai lượt chồng nhau) | dùng `createMany.count` thật |
+    | P2 | bỏ sót `incidents.chuyenTuDonVi` — màn Vụ việc cũng phơi khái niệm này | đọc cả ba bảng |
+    | P2 | ca kiểm "mã nối tiếp" chạy với danh mục RỖNG nên không kiểm gì | truyền mã đã có, khẳng định `ND0008` |
+    | P3 | CSV không vô hiệu hoá công thức → Excel diễn giải `=`/`+`/`-`/`@` | chèn nháy đơn |
+    | P3 | `--csv --that` ghi bảng gộp ra tệp TÊN LÀ `--that` rồi vẫn ghi CSDL | kiểm đối số, thiếu tên tệp thì dừng |
+    | P3 | `order` đánh lại từ 0 mỗi lượt → mục lượt sau chen vào giữa | nối tiếp `order` lớn nhất đang có |
+    | P3 | **CLI chỉ dựng danh mục, 47.456 hồ sơ vẫn giữ 1.431 cách viết** → động cơ ban đầu chưa đạt | thêm `--chuan-hoa` ghi lại hồ sơ về tên chuẩn, sau cờ RIÊNG, chạy thử xem trước được |
+
+- [x] **T4 — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn**
+  - Máy chủ: validator riêng `SdtNguyenDonHopLe`. **KHÔNG dùng `@ValidateIf` + `@IsNotEmpty`** —
+    ca kiểm của chính em bắt được: `@ValidateIf` tắt MỌI validator của ô, nên nguồn "Bưu điện"
+    + số "abc" đi lọt thẳng xuống cột. Nới "bắt buộc" không được phép nới luôn "hợp lệ".
+  - Trình duyệt: `validate.ts` gọi ĐÚNG hàm thuần ấy.
+  - **Cổng hai đầu:** `frontend/src/shared/nguon-don/truc-tiep.corpus.json` là MỘT nguồn sự thật;
+    cả hai đầu chấm chính mình trên nó, và cả hai bộ ca kiểm luật cũng lấy mẫu từ đó — không
+    bên nào tự chọn mẫu dễ. Gieo lỗi (bỏ xử lý dấu câu ở bản trình duyệt) → cổng đỏ.
 
 ### Đang làm dở
-Task: T4 — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn
-BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho `backend/src/petitions/dto/create-petition.dto.ts:86`
-(`@IsNotEmpty` → `@ValidateIf((o) => laNguonTrucTiep(o.nguonDon))`) và
-`frontend/src/pages/petitions/PetitionFormPage/validate.ts:30` — MỘT luật, hai đầu gọi cùng
-hàm thuần `laNguonTrucTiep`. Kèm cổng đối xứng FE/BE (cổng mới #4).
-Vì sao phải làm TRƯỚC khi gom nhóm: SĐT là ô BẮT BUỘC, gom vào nhóm thu gọn mà không nới luật
-thì cán bộ bị chặn Lưu bởi một ô không nhìn thấy — đúng lỗi PR #248.
+Task: T5 — prop `nhom` cho `LegacyLayoutSection` + `nhom-o.def.ts` + nhóm "Thông tin khác"
+BƯỚC TIẾP THEO: viết ca kiểm ĐỎ cho prop `nhom` ở
+`frontend/src/components/legacy-form/LegacyLayoutSection.tsx` (mặc định `undefined` → hành vi
+y hệt hôm nay, nên Vụ án/Vụ việc không đổi một dòng), rồi khai nhóm "Thông tin khác"
+(Điều tra viên thụ lý + Lãnh đạo phụ trách tố tụng) ở `features/petitions/nhom-o.def.ts`.
+Ràng buộc: các ô trong một nhóm phải LIỀN NHAU trong đặc tả (cổng #5), và dùng
+`CollapsibleSection` chứ KHÔNG dùng `<details>`.
 
 ### Hàng đợi task kế tiếp
 3. **T4** — [P1] SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN theo Nguồn đơn, đồng bộ FE `validate.ts` + BE DTO
@@ -99,7 +123,7 @@ thì cán bộ bị chặn Lưu bởi một ô không nhìn thấy — đúng l�
 | Ảnh anh gửi kèm | Không có trong ngữ cảnh → bám mô tả chữ | Ghi rõ trong plan; sửa phần giao diện nếu ảnh chốt khác |
 
 ### Trạng thái test
-Full suite: **backend 5784/5784 (415 suite)** · **frontend 3476/3476 (926 suite)** · tsc sạch
+Full suite: **backend 5839/5839 (416 suite)** · **frontend 3539/3539 (930 suite)** · tsc sạch
 · 0 lỗi lint mới
 Nguyên nhân gốc yêu cầu 4 (cán bộ đề xuất trắng): ô cũ đổ từ `limit=200` sắp `createdAt desc`
 → cán bộ có tài khoản CŨ không nằm trong danh sách nên `<select>` hiện trắng dù `formData` đúng

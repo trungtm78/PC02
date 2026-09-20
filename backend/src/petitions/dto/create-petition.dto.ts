@@ -17,6 +17,7 @@ import { PetitionStatus, LoaiDon, HuongXuLyDon } from '@prisma/client';
 import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
+import { SdtNguyenDonHopLe } from '../../common/validators/sdt-nguyen-don.validator';
 
 // Giá trị hợp lệ của discriminator "phân loại nguồn tin ban đầu" (khớp form cũ /doi-1/Them).
 // Bảo vệ integrity ở tầng API (FE đã giới hạn bằng <select>).
@@ -42,7 +43,9 @@ export class CreatePetitionDto {
   @IsOptional()
   @Transform(({ value }) => {
     const stripped = stripHtmlTags(value);
-    return typeof stripped === 'string' ? stripped.trim() || undefined : stripped;
+    return typeof stripped === 'string'
+      ? stripped.trim() || undefined
+      : stripped;
   })
   @IsString()
   @MaxLength(50)
@@ -81,12 +84,25 @@ export class CreatePetitionDto {
   @MaxLength(500)
   senderAddress?: string;
 
-  // Required khi TẠO MỚI (trừ đơn nặc danh). UpdatePetitionDto = PartialType → tự optional khi update.
-  @ValidateIf((o) => !o.senderIsAnonymous)
-  @IsNotEmpty({ message: 'Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)' })
-  @IsString()
-  @MaxLength(20)
-  @Matches(/^[0-9\s+-]*$/, { message: 'Số điện thoại không hợp lệ' })
+  /**
+   * Bắt buộc khi TẠO MỚI và CHỈ KHI nguồn đơn là nộp trực tiếp (trừ đơn nặc danh).
+   *
+   * Người nộp đứng trước mặt thì lấy được số; đơn đến bằng bưu điện hay do đơn vị khác chuyển
+   * thì không, nên ép nhập là ép cán bộ BỊA một số — dữ liệu rác mà vẫn tốn thời gian gõ.
+   *
+   * `laNguonTrucTiep` là hàm THUẦN trên tên đã chuẩn hoá, nên chạy được ngay trong `ValidateIf`
+   * (đồng bộ, không chạm cơ sở dữ liệu) và trình duyệt gọi ĐÚNG hàm ấy ở `validate.ts`. Một
+   * luật, một bản cài đặt, hai đầu không thể lệch nhau.
+   *
+   * Nới "bắt buộc" KHÔNG phải nới "hợp lệ": `@Matches` vẫn áp cho mọi nguồn.
+   *
+   * `UpdatePetitionDto = PartialType` → tự optional khi cập nhật.
+   */
+  /**
+   * KHÔNG `@IsOptional()`: nó bỏ qua mọi validator khi ô vắng mặt, mà "vắng mặt" CHÍNH LÀ
+   * trường hợp cần chặn khi nguồn đơn là nộp trực tiếp. Validator tự xử lý ô rỗng/vắng.
+   */
+  @SdtNguyenDonHopLe()
   senderPhone?: string;
 
   @IsOptional()
@@ -110,7 +126,8 @@ export class CreatePetitionDto {
   // từ danh mục (petitions/loai-thong-tin.rule.ts). Gửi thì vẫn phải thuộc danh mục.
   @IsOptional()
   @IsCatalogValue('LOAI_DON', {
-    message: 'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
+    message:
+      'Loại đơn thư không hợp lệ — chọn: Tố cáo, Khiếu nại, Kiến nghị hoặc Phản ánh',
   })
   petitionType: LoaiDon;
 
@@ -399,14 +416,32 @@ export class CreatePetitionDto {
   // ── Ô hệ cũ đưa về đúng vị trí trên form Đơn thư (26/08/2026) ──
   // Cột có trong lược đồ mà DTO không khai thì `forbidNonWhitelisted` đá CẢ lời gọi bằng 400,
   // chứ không bỏ qua lặng lẽ — cán bộ bấm Lưu và không lưu được gì, kể cả ô chẳng liên quan.
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() baoCaoBanGiamDocText?: string;
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() tinhTrang?: string;
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDPhanCongNguonTin?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  baoCaoBanGiamDocText?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  tinhTrang?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  soQDPhanCongNguonTin?: string;
   @IsOptional() @IsNgayThat() ngayQDPhanCongNguonTin?: string;
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soQDTamDinhChiNguonTin?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  soQDTamDinhChiNguonTin?: string;
   @IsOptional() @IsNgayThat() ngayQDTamDinhChiNguonTin?: string;
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() canCuTamDinhChiNguonTin?: string;
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() soPhucHoiNguonTin?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  canCuTamDinhChiNguonTin?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  soPhucHoiNguonTin?: string;
   @IsOptional() @IsNgayThat() ngayPhucHoiNguonTin?: string;
 
   /**
@@ -423,7 +458,11 @@ export class CreatePetitionDto {
    * đơn thư nào. Bấm thử trên máy thật 26/08/2026 mới lộ — ca kiểm không bắt được vì không
    * ca nào đối chiếu thân lời gọi với DTO.
    */
-  @IsOptional() @Transform(({ value }) => stripHtmlTags(value)) @IsString() @MaxLength(50) sttCu?: string;
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(50)
+  sttCu?: string;
 
   @IsOptional() @IsObject() metadata?: Record<string, unknown>;
 }

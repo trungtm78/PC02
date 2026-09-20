@@ -1,4 +1,5 @@
 import {
+  bangDoiTenChuan,
   gopNguonDon,
   NGUONG_CHO_DUYET,
   type GiaTriHeCu,
@@ -90,5 +91,38 @@ describe('gopNguonDon', () => {
 
   it('danh sách rỗng ra mảng rỗng', () => {
     expect(gopNguonDon([])).toEqual([]);
+  });
+});
+
+/**
+ * Dựng danh mục thôi chưa giải quyết động cơ ban đầu — 47.456 hồ sơ vẫn giữ 1.431 cách viết,
+ * nên báo cáo theo nguồn vẫn sai. Cần bảng đổi để ghi lại chính hồ sơ.
+ */
+describe('bangDoiTenChuan', () => {
+  it('chỉ trả cặp THẬT SỰ đổi — không đụng dòng vốn đã đúng', () => {
+    const muc = gopNguonDon([g('Trực tiếp', 10656), g('trực tiếp', 956)]);
+    expect(bangDoiTenChuan(muc)).toEqual([
+      { cu: 'trực tiếp', chuan: 'Trực tiếp' },
+    ]);
+  });
+
+  it('mục chỉ có một cách viết thì không sinh cặp nào', () => {
+    expect(bangDoiTenChuan(gopNguonDon([g('Bưu điện', 100)]))).toEqual([]);
+  });
+
+  it('gom mọi biến thể của cùng một mục', () => {
+    const muc = gopNguonDon([
+      g('Trực tiếp', 100),
+      g('trực tiếp', 50),
+      g('TRỰC TIẾP', 10),
+    ]);
+    expect(
+      bangDoiTenChuan(muc)
+        .map((c) => c.cu)
+        .sort(),
+    ).toEqual(['TRỰC TIẾP', 'trực tiếp']);
+    expect(bangDoiTenChuan(muc).every((c) => c.chuan === 'Trực tiếp')).toBe(
+      true,
+    );
   });
 });

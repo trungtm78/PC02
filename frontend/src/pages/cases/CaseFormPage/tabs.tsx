@@ -30,6 +30,7 @@ import { IntegerInput } from "@/components/inputs/IntegerInput";
 import { Card, CardHeader, EmptyState, DataTable, ActionButtons, StatusBadge } from "@/components/shared";
 import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
+import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
@@ -1703,6 +1704,7 @@ export function TabInfo(props: TabProps) {
     props.setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+  const taoNhanh = useQuickCreateDirectoryModalSafe();
   /**
    * "Nguồn đơn/Đơn vị giao" chọn từ danh mục `NGUON_DON` — CÙNG danh mục với Đơn thư.
    *
@@ -1716,8 +1718,24 @@ export function TabInfo(props: TabProps) {
         directoryType="NGUON_DON"
         value={String(props.formData.nguonDon ?? "")}
         onChange={(v) => update("nguonDon", v)}
-        placeholder="Gõ để tìm nguồn đơn/đơn vị giao"
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
         testId="field-nguonDon"
+        /*
+         * PHẢI có đường tạo mới, như ô bên Đơn thư.
+         *
+         * Danh mục `NGUON_DON` còn RỖNG trên bản đang chạy cho tới khi CLI nạp xong (đang
+         * chờ anh duyệt bảng gộp). Đổi ô chữ tự do thành ô chọn mà không có đường tạo mới
+         * nghĩa là một ô vốn điền được cho hàng nghìn vụ án bỗng KHÔNG điền được, và không
+         * có thông báo nào nói vì sao.
+         */
+        canCreate={!!taoNhanh}
+        onCreateNew={(tenGoiY) =>
+          taoNhanh?.open({
+            type: "NGUON_DON",
+            tenGoiY,
+            onCreated: (ten) => update("nguonDon", ten),
+          })
+        }
       />
     ),
   };

@@ -1,8 +1,14 @@
-/** `Directory.type` của danh mục Nguồn đơn/Đơn vị giao. */
-export const LOAI_DANH_MUC_NGUON_DON = 'NGUON_DON';
-
-/** Tiền tố mã mục — ô "Tạo mới" trên form và CLI nạp dữ liệu cũ PHẢI dùng chung một dãy mã. */
-export const TIEN_TO_MA_NGUON_DON = 'ND';
+/**
+ * Nguồn đơn có phải "nộp trực tiếp" không — BẢN TRÌNH DUYỆT.
+ *
+ * Bản máy chủ: `backend/src/common/utils/nguon-don.util.ts` (`laNguonTrucTiep`).
+ *
+ * Hai bản phải cho cùng kết quả: luật này quyết định nhóm thông tin định danh có tự bung
+ * không, và Số điện thoại nguyên đơn có bắt buộc không. Lệch nhau nghĩa là form cho Lưu còn
+ * máy chủ trả 400 — hoặc ngược lại, form chặn thứ máy chủ nhận.
+ *
+ * Cả hai đầu chấm chính mình trên `truc-tiep.corpus.json`. Bên nào trôi thì cổng bên ấy đỏ.
+ */
 
 /**
  * Bỏ dấu, hạ chữ thường, đổi dấu câu thành khoảng trắng, gom khoảng trắng.
@@ -30,8 +36,7 @@ const PHU_DINH = /\b(khong|gian tiep)\b/;
 const KENH_TIEP_NHAN = /\b(nop tai tru so|tiep dan|tiep cong dan)\b/;
 
 /** Động từ tiếp nhận cùng chuỗi — dấu hiệu "trực tiếp" nói về CÁCH NHẬN, không phải trạng từ. */
-const DONG_TU_TIEP_NHAN =
-  /\b(nop|den|gui|trao|mang|dua|tiep nhan|tiep dan|tiep cong dan)\b/;
+const DONG_TU_TIEP_NHAN = /\b(nop|den|gui|trao|mang|dua|tiep nhan|tiep dan|tiep cong dan)\b/;
 
 /**
  * Nguồn đơn có phải "nộp trực tiếp" không.
@@ -54,20 +59,4 @@ export function laNguonTrucTiep(ten: string | null | undefined): boolean {
   if (k === 'truc tiep') return true;
   if (KENH_TIEP_NHAN.test(k)) return true;
   return /\btruc tiep\b/.test(k) && DONG_TU_TIEP_NHAN.test(k);
-}
-
-/**
- * Khoá so trùng của một giá trị Nguồn đơn.
- *
- * Dùng CHUNG hàm chuẩn hoá với `laNguonTrucTiep` để hai luật không trôi khỏi nhau.
- *
- * KHÔNG dùng `khoaDonVi`: hàm ấy bỏ tiền tố "phòng"/"bch" theo ngữ pháp TÊN ĐƠN VỊ. Ở đây
- * điều đó sai và sai nguy hiểm — đo trên chính hàm ấy: "Phòng 1" → "1" và "Phòng 2" → "2"
- * (khoá rút còn một chữ số, va vào mọi chuỗi gõ nhầm chỉ có số trong 1.431 cách viết),
- * "Phòng Tiếp công dân" → "tiep cong dan" (gộp một ĐƠN VỊ với một KÊNH tiếp nhận),
- * "Phòng chống tệ nạn xã hội" → "chong te nan xa hoi" (cắt mất nửa từ ghép "phòng chống").
- */
-export function khoaNguonDon(giaTri: string | null | undefined): string {
-  if (!giaTri) return '';
-  return khoa(giaTri);
 }

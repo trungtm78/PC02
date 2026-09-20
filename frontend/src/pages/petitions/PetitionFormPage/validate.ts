@@ -7,6 +7,7 @@
  * Tach khoi than trang de kiem duoc ma khong phai dung ca trang 1.167 dong.
  */
 import { today } from "@/lib/dates";
+import { laNguonTrucTiep } from "@/shared/nguon-don/truc-tiep";
 import type { PetitionFormData } from "./types";
 
 /** Dinh dang email va so dien thoai Viet Nam (10 so, bat dau bang 0). */
@@ -27,8 +28,16 @@ export function computeFormErrors(
     items.push({ msg: "Ngày tiếp nhận không được là ngày tương lai", testid: "field-receivedDate" });
   if (!anon && !fd.senderName.trim()) items.push({ msg: "Tên người gửi là bắt buộc", testid: "field-senderName" });
   if (!anon && !fd.senderAddress.trim()) items.push({ msg: "Địa chỉ người gửi là bắt buộc", testid: "field-senderAddress" });
-  if (!effectiveEdit && !anon && !fd.senderPhone.trim())
-    items.push({ msg: "Số điện thoại nguyên đơn là bắt buộc (trừ đơn nặc danh)", testid: "field-senderPhone" });
+  // SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN: chỉ khi người nộp đứng trước mặt. Đơn đến bằng bưu
+  // điện hay do đơn vị khác chuyển thì không lấy được số, ép nhập là ép cán bộ BỊA.
+  //
+  // `laNguonTrucTiep` là ĐÚNG hàm máy chủ gọi ở `sdt-nguyen-don.validator.ts`, và cả hai đầu
+  // đều bị chấm trên `shared/nguon-don/truc-tiep.corpus.json` — không thể lệch nhau.
+  if (!effectiveEdit && !anon && laNguonTrucTiep(fd.nguonDon) && !fd.senderPhone.trim())
+    items.push({
+      msg: "Số điện thoại nguyên đơn là bắt buộc khi nguồn đơn là nộp trực tiếp",
+      testid: "field-senderPhone",
+    });
   else if (fd.senderPhone && !PHONE_RE.test(fd.senderPhone))
     items.push({ msg: "Số điện thoại không đúng định dạng (10 số, bắt đầu bằng 0)", testid: "field-senderPhone" });
   if (fd.senderEmail && !EMAIL_RE.test(fd.senderEmail)) items.push({ msg: "Email không đúng định dạng", testid: "field-senderEmail" });
