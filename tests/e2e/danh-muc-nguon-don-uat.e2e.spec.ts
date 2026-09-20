@@ -30,9 +30,9 @@ test.describe('G · Trang Danh mục', () => {
 });
 
 test.describe('J · Đo trên Chrome thật', () => {
-  test('J3 — ba ô ngày không giật khi gõ: chữ số cùng bề rộng', async ({ page }) => {
+  test('J3 — ô ngày không giật khi gõ: chữ số cùng bề rộng', async ({ page }) => {
     await loginToPage(page, '/petitions/new');
-    const nam = page.getByTestId('field-petitionDate-nam');
+    const nam = page.getByTestId('field-petitionDate');
     await expect(nam).toBeVisible({ timeout: 30_000 });
 
     const font = await nam.evaluate((e) => {

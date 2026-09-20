@@ -238,28 +238,31 @@ test.describe('A · Nguồn đơn và nhóm định danh', () => {
 });
 
 test.describe('A · Ngày viết đơn nhập thiếu thành phần', () => {
-  test('A19 — ba ô riêng, mỗi ô có tên, gõ đủ số thì tự nhảy ô', async ({ page }) => {
-    const ngay = page.getByTestId(`${O_NGAY_VIET_DON}-ngay`);
-    const thang = page.getByTestId(`${O_NGAY_VIET_DON}-thang`);
-    const nam = page.getByTestId(`${O_NGAY_VIET_DON}-nam`);
+  /**
+   * Anh đảo lại quyết định ba-ô sau một ngày dùng thật (20/09/2026): cán bộ chép ngày từ đơn
+   * giấy hoặc từ Word và muốn DÁN MỘT LẦN. Nhóm ca dưới đây canh đúng ba thứ không được rơi
+   * khi đổi sang một ô: nhập thiếu vẫn lưu được, không bịa ngày mồng 1, và ngày không có thật
+   * bị chặn TẠI CHỖ.
+   */
+  test('A19 — MỘT ô chữ có tên, không còn ba ô phân đoạn', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await expect(o).toBeVisible();
+    await expect(o).toHaveAttribute('type', 'text');
 
-    for (const o of [ngay, thang, nam]) {
-      await expect(o).toBeVisible();
-      const ten = (await o.getAttribute('aria-label')) ?? '';
-      expect(ten, 'ô ngày không có tên riêng thì trình đọc màn hình đọc ra ba ô vô danh').toBeTruthy();
-    }
+    for (const duoi of ['ngay', 'thang', 'nam'])
+      await expect(
+        page.getByTestId(`${O_NGAY_VIET_DON}-${duoi}`),
+        'ba ô phân đoạn phải biến mất hẳn, không để lại ô ẩn',
+      ).toHaveCount(0);
 
-    await ngay.click();
-    await page.keyboard.type('15');
-    await expect(thang, 'gõ đủ hai chữ số phải tự sang ô tháng').toBeFocused();
-    await page.keyboard.type('12');
-    await expect(nam).toBeFocused();
+    const ten = await page.locator(`label[for="${O_NGAY_VIET_DON}"]`).textContent();
+    expect(ten, 'ô không có nhãn gắn với nó thì trình đọc màn hình đọc ra một ô vô danh').toBeTruthy();
   });
 
-  test('A16 — nhập THIẾU ngày (`__/12/2026`) không bị chặn tại chỗ', async ({ page }) => {
-    await page.getByTestId(`${O_NGAY_VIET_DON}-thang`).fill('12');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).fill('2026');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).blur();
+  test('A16 — nhập THIẾU ngày (`12/2026`) không bị chặn tại chỗ', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.fill('12/2026');
+    await o.blur();
 
     await expect(
       page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
@@ -268,45 +271,61 @@ test.describe('A · Ngày viết đơn nhập thiếu thành phần', () => {
   });
 
   test('A18 — ngày KHÔNG CÓ THẬT (31/02/2026) bị chặn tại chỗ', async ({ page }) => {
-    await page.getByTestId(`${O_NGAY_VIET_DON}-ngay`).fill('31');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-thang`).fill('02');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).fill('2026');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).blur();
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.fill('31/02/2026');
+    await o.blur();
 
     await expect(
       page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
-      'validate phải chạy trên ngày RÁP LẠI, không phải từng ô rời',
+      'validate phải chạy trên ngày RÁP LẠI, không phải từng phần rời',
     ).toBeVisible();
   });
 
-  test('A19b — Backspace ở ô rỗng lùi về ô trước', async ({ page }) => {
-    const thang = page.getByTestId(`${O_NGAY_VIET_DON}-thang`);
-    await page.getByTestId(`${O_NGAY_VIET_DON}-ngay`).fill('15');
-    await thang.click();
-    await page.keyboard.press('Backspace');
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-ngay`)).toBeFocused();
+  test('A19b — đang gõ dở thì CHƯA mắng, rời ô mới báo', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.click();
+    await page.keyboard.type('31/02/2026');
+    await expect(
+      page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
+      'gạch đỏ giữa chừng là mắng người ta khi họ mới gõ được nửa cái năm',
+    ).toHaveCount(0);
+    await o.blur();
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-loi`)).toBeVisible();
   });
 
-  test('A19c — dán "15/12/2026" tách đúng ba ô', async ({ page }) => {
-    const ngay = page.getByTestId(`${O_NGAY_VIET_DON}-ngay`);
-    await ngay.click();
-    await page.evaluate(() => {
-      const dt = new DataTransfer();
-      dt.setData('text/plain', '15/12/2026');
-      document.activeElement?.dispatchEvent(
-        new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }),
-      );
-    });
-    await expect(ngay).toHaveValue('15');
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-thang`)).toHaveValue('12');
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-nam`)).toHaveValue('2026');
+  /**
+   * Mệnh đề LÕI của đợt này — anh yêu cầu DÁN MỘT LẦN.
+   *
+   * Dùng `insertText` (Input.insertText của CDP) chứ KHÔNG dựng `ClipboardEvent` bằng tay.
+   * Bản trước của ô có `onPaste` riêng nên sự kiện giả lập chạy được; ô một dòng để trình
+   * duyệt tự chèn rồi React nhận qua `input`, nên sự kiện giả lập KHÔNG chèn gì cả — nó sẽ
+   * báo đỏ oan mà sản phẩm vẫn đúng. Đã đo Ctrl+V thật trên Chrome (20/09/2026): ra đúng
+   * `15/12/2026`, và dán đè lên ngày cũ ra đúng `__/08/2024`.
+   */
+  test('A19c — DÁN MỘT LẦN "15/12/2026" vào ô là xong', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.click();
+    await page.keyboard.insertText('15/12/2026');
+    await expect(o).toHaveValue('15/12/2026');
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-loi`)).toHaveCount(0);
+
+    // Dán ĐÈ lên ngày đã có — cán bộ sửa lại ngày là thao tác thường, không phải ca biên.
+    await o.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.insertText('__/08/2024');
+    await o.blur();
+    await expect(o).toHaveValue('__/08/2024');
+    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-loi`)).toHaveCount(0);
   });
 
-  test('A19d — chỉ nhận chữ số', async ({ page }) => {
-    const thang = page.getByTestId(`${O_NGAY_VIET_DON}-thang`);
-    await thang.fill('');
-    await thang.pressSequentially('ab');
-    await expect(thang).toHaveValue('');
+  test('A19d — năm thiếu chữ số ("12/20") KHÔNG bị đoán hộ thế kỷ', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.fill('12/20');
+    await o.blur();
+    await expect(
+      page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
+      'đoán 12/20 thành 2020 là bịa; lặng lẽ ghi năm 20 còn tệ hơn',
+    ).toContainText('4 chữ số');
   });
 });
 
@@ -387,12 +406,12 @@ test.describe('A · Nhóm định danh bung/thu theo Nguồn đơn', () => {
   test('A22/A17 — lưu đơn với ngày `__/__/2026` rồi mở lại vẫn đúng nguyên văn', async ({
     page,
   }) => {
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).fill('2026');
-    await page.getByTestId(`${O_NGAY_VIET_DON}-nam`).blur();
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await o.fill('2026');
+    await o.blur();
 
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-ngay`)).toHaveValue('');
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-thang`)).toHaveValue('');
-    await expect(page.getByTestId(`${O_NGAY_VIET_DON}-nam`)).toHaveValue('2026');
+    // Ô hiện lại đúng thứ đã nhập, KHÔNG tự điền mồng 1 vào hai chỗ khuyết.
+    await expect(o).toHaveValue('__/__/2026');
     await expect(
       page.getByTestId(`${O_NGAY_VIET_DON}-loi`),
       'chỉ có năm vẫn là dữ liệu hợp lệ — đây là điều anh yêu cầu',
@@ -511,22 +530,24 @@ test.describe('I · Trợ năng đo được', () => {
     expect(await nut.getAttribute('aria-controls')).toBeTruthy();
   });
 
-  test('I3 — ba ô ngày nằm trong MỘT nhóm có tên chung, mỗi ô một tên riêng', async ({
-    page,
-  }) => {
-    const bo = page.getByTestId(O_NGAY_VIET_DON);
-    await expect(bo).toBeVisible();
-    // `fieldset` + `legend` là cách khai chuẩn cho một nhóm ô liên quan.
-    expect(
-      await bo.evaluate((e) => e.tagName.toLowerCase()),
-      'ba ô ngày rời nhau thì trình đọc màn hình đọc ra ba ô vô danh',
-    ).toBe('fieldset');
-    expect(await bo.locator('legend').count()).toBeGreaterThan(0);
+  test('I3 — ô ngày có tên trình đọc màn hình đọc được', async ({ page }) => {
+    const o = page.getByTestId(O_NGAY_VIET_DON);
+    await expect(o).toBeVisible();
 
-    for (const tu of ['ngay', 'thang', 'nam'] as const) {
-      const nhan = await page.getByTestId(`${O_NGAY_VIET_DON}-${tu}`).getAttribute('aria-label');
-      expect(nhan, `ô ${tu} không có tên riêng`).toBeTruthy();
-    }
+    /*
+      Một ô chữ thì cách khai chuẩn là `<label for>` trỏ vào `id` của ô — không phải `fieldset`
+      như hồi ba ô phân đoạn. Đo bằng tên MÁY TÍNH ĐỌC RA chứ không đo thẻ HTML: `aria-label`,
+      `aria-labelledby` hay `<label for>` đều hợp lệ, cái cần canh là ô không vô danh.
+    */
+    const ten = await o.evaluate((e) => {
+      const el = e as HTMLInputElement;
+      const nhan = el.id ? document.querySelector(`label[for="${el.id}"]`) : null;
+      return (
+        el.getAttribute('aria-label') ?? nhan?.textContent?.trim() ?? el.closest('label')?.textContent?.trim() ?? ''
+      );
+    });
+    expect(ten, 'ô ngày không có tên thì trình đọc màn hình đọc ra một ô vô danh').toBeTruthy();
+    expect(ten).toContain('Ngày viết đơn');
   });
 
   test('I1b — ô chọn khai ĐỦ vai trò ARIA theo chuẩn APG', async ({ page }) => {

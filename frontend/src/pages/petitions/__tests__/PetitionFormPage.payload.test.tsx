@@ -145,9 +145,9 @@ function dienSdtNguyenDon(so: string) {
 
 /** Điền "Ngày viết đơn" qua ba ô phân đoạn. */
 function dienNgayVietDon(ngay: string, thang: string, nam: string) {
-  fireEvent.change(screen.getByTestId('field-petitionDate-ngay'), { target: { value: ngay } });
-  fireEvent.change(screen.getByTestId('field-petitionDate-thang'), { target: { value: thang } });
-  fireEvent.change(screen.getByTestId('field-petitionDate-nam'), { target: { value: nam } });
+  fireEvent.change(screen.getByTestId('field-petitionDate'), {
+    target: { value: `${ngay}/${thang}/${nam}` },
+  });
 }
 
 describe('PetitionFormPage — petitionType payload (v0.37.2.4 P0 fix)', () => {

@@ -558,10 +558,13 @@ export function PetitionFormPage() {
       />
     ),
     /**
-     * Ngày viết đơn — BA Ô PHÂN ĐOẠN, cho phép thiếu thành phần.
+     * Ngày viết đơn — MỘT Ô CHỮ, cho phép thiếu thành phần.
      *
      * Giấy tờ nhiều khi chỉ ghi tháng/năm. Ô cũ là `<input type="date">` bắt buộc đủ ngày nên
      * cán bộ đành để TRỐNG HẲN, mất luôn năm/tháng vốn đã biết.
+     *
+     * Bản 19/09 dùng ba ô phân đoạn; anh đảo lại sau một ngày dùng thật vì thao tác thường
+     * xuyên là CHÉP ngày từ đơn giấy hay từ Word rồi dán một lần, mà ba ô làm việc ấy khó hơn.
      *
      * Nhập đủ → ghi cả `petitionDate` (cột ngày thật, để lọc/sắp xếp/in không đổi) lẫn chuỗi
      * EDTF. Nhập thiếu → chỉ ghi EDTF, cột ngày để TRỐNG: không bao giờ bịa ngày 01.

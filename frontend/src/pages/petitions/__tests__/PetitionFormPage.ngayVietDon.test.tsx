@@ -71,18 +71,24 @@ describe('Form Đơn thư — Ngày viết đơn nhập thiếu', () => {
   });
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
-  it('là BA Ô phân đoạn, không phải một ô ngày của trình duyệt', async () => {
+  /**
+   * Anh đảo lại quyết định ba-ô sau một ngày dùng thật (20/09/2026): cán bộ chép ngày từ đơn
+   * giấy hay từ Word và muốn DÁN MỘT LẦN. Ca này canh cả hai vế — đúng một ô, và không phải
+   * `<input type="date">` (ô ấy bắt buộc đủ ngày nên đơn chỉ ghi tháng/năm mất sạch).
+   */
+  it('là MỘT ô chữ, không phải ba ô phân đoạn và cũng không phải ô ngày của trình duyệt', async () => {
     await moForm();
-    await waitFor(() => expect(screen.getByTestId('field-petitionDate-ngay')).toBeInTheDocument());
-    expect(screen.getByTestId('field-petitionDate-thang')).toBeInTheDocument();
-    expect(screen.getByTestId('field-petitionDate-nam')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('field-petitionDate')).toBeInTheDocument());
+    expect(screen.getByTestId('field-petitionDate')).toHaveAttribute('type', 'text');
+    expect(screen.queryByTestId('field-petitionDate-ngay')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('field-petitionDate-thang')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('field-petitionDate-nam')).not.toBeInTheDocument();
   });
 
   it('bỏ trống ô ngày → payload gửi EDTF thiếu ngày và KHÔNG bịa petitionDate', async () => {
     await moForm();
-    await waitFor(() => expect(screen.getByTestId('field-petitionDate-nam')).toBeInTheDocument());
-    fireEvent.change(screen.getByTestId('field-petitionDate-thang'), { target: { value: '12' } });
-    fireEvent.change(screen.getByTestId('field-petitionDate-nam'), { target: { value: '2026' } });
+    await waitFor(() => expect(screen.getByTestId('field-petitionDate')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '12/2026' } });
 
     fireEvent.change(screen.getByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
@@ -100,10 +106,9 @@ describe('Form Đơn thư — Ngày viết đơn nhập thiếu', () => {
 
   it('nhập ĐỦ → gửi cả cột ngày thật lẫn EDTF, lọc/sắp xếp/in không đổi', async () => {
     await moForm();
-    await waitFor(() => expect(screen.getByTestId('field-petitionDate-nam')).toBeInTheDocument());
-    fireEvent.change(screen.getByTestId('field-petitionDate-ngay'), { target: { value: '15' } });
-    fireEvent.change(screen.getByTestId('field-petitionDate-thang'), { target: { value: '12' } });
-    fireEvent.change(screen.getByTestId('field-petitionDate-nam'), { target: { value: '2026' } });
+    await waitFor(() => expect(screen.getByTestId('field-petitionDate')).toBeInTheDocument());
+    // DÁN MỘT LẦN — đúng thao tác anh yêu cầu, một sự kiện mang trọn chuỗi.
+    fireEvent.change(screen.getByTestId('field-petitionDate'), { target: { value: '15/12/2026' } });
 
     fireEvent.change(screen.getByTestId('field-senderName'), { target: { value: 'Người gửi' } });
     fireEvent.change(screen.getByTestId('field-senderAddress'), { target: { value: 'Địa chỉ' } });
@@ -162,9 +167,7 @@ describe('Mở đơn CŨ chưa có cột EDTF', () => {
     );
 
     await waitFor(() =>
-      expect((screen.getByTestId('field-petitionDate-nam') as HTMLInputElement).value).toBe('2026'),
+      expect((screen.getByTestId('field-petitionDate') as HTMLInputElement).value).toBe('15/12/2026'),
     );
-    expect((screen.getByTestId('field-petitionDate-thang') as HTMLInputElement).value).toBe('12');
-    expect((screen.getByTestId('field-petitionDate-ngay') as HTMLInputElement).value).toBe('15');
   });
 });
