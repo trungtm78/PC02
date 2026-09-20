@@ -75,3 +75,47 @@ describe('Giữ giá trị ngoài danh sách', () => {
     expect(DS).toHaveLength(2);
   });
 });
+
+/*
+  Mở rộng primitive thay vì dựng hệ thứ hai.
+
+  Ô "Đơn vị xử lý" của Đơn thư cần ĐÚNG phép này (giữ giá trị ngoài danh sách), nhưng thêm hai
+  điều: ghim lên ĐẦU và nói rõ giá trị ấy nằm ngoài danh sách.
+
+  Vì sao cần nói rõ: ô Tình trạng có ~118 hồ sơ mang chữ lạ, người đọc hiểu ngay đó là chữ hệ
+  cũ. Ô Đơn vị xử lý thì 30.285/47.484 đơn (64%) mang tên KHÔNG phải một Tổ — để nó trần giữa
+  danh sách Tổ là mời cán bộ tưởng đó cũng là một Tổ.
+*/
+describe('optionsGiuGiaTriLa — ghim đầu và nhãn phụ', () => {
+  const ds = [
+    { value: 'Tổ 1', label: 'Tổ 1' },
+    { value: 'Tổ 2', label: 'Tổ 2' },
+  ];
+
+  it('mặc định vẫn nối vào CUỐI như trước — không đổi hành vi nơi đang dùng', () => {
+    expect(optionsGiuGiaTriLa(ds, 'Chữ lạ')).toEqual([...ds, { value: 'Chữ lạ', label: 'Chữ lạ' }]);
+  });
+
+  it('`ghimDau` đưa giá trị lạ lên ĐẦU danh sách', () => {
+    const ra = optionsGiuGiaTriLa(ds, 'Chữ lạ', { ghimDau: true });
+    expect(ra[0].value).toBe('Chữ lạ');
+    expect(ra).toHaveLength(3);
+  });
+
+  it('`nhanPhu` thêm chú vào nhãn, KHÔNG đụng giá trị lưu', () => {
+    const ra = optionsGiuGiaTriLa(ds, 'Phòng PC46', { nhanPhu: 'ngoài danh sách' });
+    const la = ra.find((o) => o.value === 'Phòng PC46')!;
+    expect(la.label).toBe('Phòng PC46 (ngoài danh sách)');
+    expect(la.value, 'đổi value là đổi thứ sẽ ghi xuống cột').toBe('Phòng PC46');
+  });
+
+  it('giá trị ĐÃ có trong danh sách thì không nhân đôi, dù bật cờ nào', () => {
+    expect(optionsGiuGiaTriLa(ds, 'Tổ 1', { ghimDau: true, nhanPhu: 'x' })).toEqual([...ds]);
+  });
+
+  it('so khớp bỏ qua khoảng trắng hai đầu của CẢ hai phía', () => {
+    // Dữ liệu hệ cũ nhiều dòng có khoảng trắng đuôi; không cắt thì danh sách hiện hai dòng
+    // nhìn giống hệt nhau.
+    expect(optionsGiuGiaTriLa([{ value: ' Tổ 1 ', label: 'Tổ 1' }], 'Tổ 1')).toHaveLength(1);
+  });
+});

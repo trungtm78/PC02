@@ -36,3 +36,11 @@ export function ChiDanDonViXuLy({
     </p>
   );
 }
+
+/**
+ * Chú đi kèm giá trị "Đơn vị xử lý" không nằm trong danh sách Tổ/Nhóm.
+ *
+ * Đặt cạnh câu chỉ dẫn vì cùng một việc: nói rõ ranh giới của ô này. Dùng với
+ * `optionsGiuGiaTriLa(..., { ghimDau: true, nhanPhu: NHAN_NGOAI_DANH_SACH })`.
+ */
+export const NHAN_NGOAI_DANH_SACH = "ngoài danh sách — giá trị đang lưu";

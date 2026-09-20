@@ -86,8 +86,33 @@ export const PHAN_LOAI_HO_SO_OPTIONS: TuyChon[] = [
  * Nhãn của giá trị lạ là chính nó: bịa một nhãn khác là che mất thứ đang nằm trong cơ sở dữ
  * liệu, mà đó chính là thứ người ta cần nhìn thấy để sửa cho đúng.
  */
-export function optionsGiuGiaTriLa(ds: readonly TuyChon[], giaTri: string | null | undefined): TuyChon[] {
+/**
+ * `ghimDau`: đưa giá trị lạ lên ĐẦU thay vì nối vào cuối.
+ * `nhanPhu`: chú thêm vào NHÃN để người đọc biết đây không phải một mục của danh sách.
+ *
+ * Hai cờ này sinh ra cho ô "Đơn vị xử lý" của Đơn thư: 30.285/47.484 đơn (64%) mang tên KHÔNG
+ * phải một Tổ, nên để giá trị ấy trần giữa danh sách Tổ là mời cán bộ tưởng nó cũng là một Tổ.
+ * Ô Tình trạng thì không cần — ~118 hồ sơ mang chữ hệ cũ, người đọc hiểu ngay.
+ */
+export interface CachGiuGiaTriLa {
+  ghimDau?: boolean;
+  nhanPhu?: string;
+}
+
+export function optionsGiuGiaTriLa(
+  ds: readonly TuyChon[],
+  giaTri: string | null | undefined,
+  cach: CachGiuGiaTriLa = {},
+): TuyChon[] {
   const v = (giaTri ?? '').trim();
-  if (!v || ds.some((o) => o.value === v)) return [...ds];
-  return [...ds, { value: v, label: v }];
+  // Cắt khoảng trắng ở CẢ HAI phía khi so: dữ liệu hệ cũ nhiều dòng có khoảng trắng đuôi, không
+  // cắt thì danh sách hiện hai dòng nhìn giống hệt nhau.
+  if (!v || ds.some((o) => o.value.trim() === v)) return [...ds];
+
+  // `value` giữ NGUYÊN chuỗi gốc — đó là thứ sẽ ghi xuống cột; chỉ `label` được chú thêm.
+  const la: TuyChon = {
+    value: giaTri as string,
+    label: cach.nhanPhu ? `${v} (${cach.nhanPhu})` : v,
+  };
+  return cach.ghimDau ? [la, ...ds] : [...ds, la];
 }
