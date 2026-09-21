@@ -48,9 +48,25 @@ function ngayHopLe(nam: number, thang: number, ngay: number): boolean {
  * (`09/2026`) hoặc một năm (`2026`). Tìm ngày luôn là KHOẢNG trên cột ngày thật — so chuỗi ngày lệch
  * một ngày với hồ sơ ghi lúc 00:00–07:00.
  */
-export function docKhoangNgay(
-  giaTri: string,
-): { gte: Date; lt: Date } | undefined {
+export interface KhoangNgay {
+  gte: Date;
+  lt: Date;
+  /**
+   * Tiền tố chuỗi EDTF ứng với ĐỘ CHÍNH XÁC người gõ: `2026-12-15` · `2026-12` · `2026`.
+   *
+   * Dùng cho hồ sơ chỉ có ngày THIẾU thành phần (`2026-12-XX`, cột ngày thật rỗng) — đo prod
+   * 21/09/2026: ~4.4k đơn thư như vậy, vô hình với mọi phép lọc ngày. Tiền tố phải là tiền tố
+   * THẬT của chuỗi hệ sinh ra, nếu không nhánh `startsWith` im lặng trả rỗng.
+   *
+   * Cố ý KHÔNG đối xứng: gõ đủ `15/12/2026` KHÔNG khớp `2026-12-XX`. Hệ không biết ngày ấy là
+   * ngày nào; coi như khớp là bịa, đúng thứ `ngay-viet-don.util.ts` đã cấm.
+   */
+  tienTo: string;
+}
+
+const hai = (n: number) => String(n).padStart(2, '0');
+
+export function docKhoangNgay(giaTri: string): KhoangNgay | undefined {
   const v = giaTri.trim();
   let m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v);
   if (m) return khoangNgay(Number(m[3]), Number(m[2]), Number(m[1]));
@@ -60,23 +76,69 @@ export function docKhoangNgay(
   if (m) {
     const [thang, nam] = [Number(m[1]), Number(m[2])];
     if (!ngayHopLe(nam, thang, 1)) return undefined;
-    return { gte: mocVN(nam, thang - 1, 1), lt: mocVN(nam, thang, 1) };
+    return {
+      gte: mocVN(nam, thang - 1, 1),
+      lt: mocVN(nam, thang, 1),
+      tienTo: `${nam}-${hai(thang)}`,
+    };
   }
   m = /^(\d{4})$/.exec(v);
   if (m) {
     const nam = Number(m[1]);
     if (!ngayHopLe(nam, 1, 1)) return undefined;
-    return { gte: mocVN(nam, 0, 1), lt: mocVN(nam + 1, 0, 1) };
+    return {
+      gte: mocVN(nam, 0, 1),
+      lt: mocVN(nam + 1, 0, 1),
+      tienTo: String(nam),
+    };
   }
   return undefined;
 }
 
-function khoangNgay(nam: number, thang: number, ngay: number) {
+function khoangNgay(
+  nam: number,
+  thang: number,
+  ngay: number,
+): KhoangNgay | undefined {
   if (!ngayHopLe(nam, thang, ngay)) return undefined;
   return {
     gte: mocVN(nam, thang - 1, ngay),
     lt: mocVN(nam, thang - 1, ngay + 1),
+    tienTo: `${nam}-${hai(thang)}-${hai(ngay)}`,
   };
+}
+
+/**
+ * Điều kiện cho MỘT giá trị ngày trên MỘT trường — dùng chung cho thẻ ngày riêng và cho thẻ
+ * "tất cả các cột".
+ *
+ * Một hàm, nên hai đường không bao giờ lệch nhau. Tách ra từ `case 'ngay'` ngày 21/09/2026.
+ *
+ * Hai nhánh RỜI NHAU nên không đếm trùng:
+ *   { cột ngày thật trong khoảng }                           ← hồ sơ có ngày đủ
+ *   { cột ngày thật NULL, cột EDTF bắt đầu bằng tiền tố }     ← hồ sơ chỉ có ngày THIẾU
+ *
+ * `tienTo` KHÔNG được lọt vào bộ lọc Prisma — nó là dữ liệu của ta, không phải toán tử của
+ * Prisma. Ca kiểm "ngày: khoảng [gte, lt) trên cột ngày thật" bắt đúng việc ấy.
+ */
+export function dieuKienNgay(
+  truong: TruongTimKiem,
+  cot: string,
+  giaTri: string,
+): DieuKien[] {
+  const khoang = docKhoangNgay(giaTri);
+  if (!khoang) return [];
+  const { gte, lt, tienTo } = khoang;
+  const theoNgayThat: DieuKien = { [cot]: { gte, lt } };
+  if (!truong.cotEdtf) return [theoNgayThat];
+  return [
+    {
+      OR: [
+        theoNgayThat,
+        { [cot]: null, [truong.cotEdtf]: { startsWith: tienTo } },
+      ],
+    },
+  ];
 }
 
 const timTruong = (khai: KhaiThucThe, key: string): TruongTimKiem | undefined =>
@@ -293,12 +355,7 @@ function dieuKienMotThe(
         }),
       );
     case 'ngay':
-      return hoac(
-        the.giaTri.flatMap((v) => {
-          const khoang = docKhoangNgay(v);
-          return khoang ? [{ [cot]: khoang }] : [];
-        }),
-      );
+      return hoac(the.giaTri.flatMap((v) => dieuKienNgay(truong, cot, v)));
     case 'chon': {
       const doi = truong.giaTriCot;
       // Cột enum/chuỗi: `in` (EnumFilter/StringFilter có `in`).

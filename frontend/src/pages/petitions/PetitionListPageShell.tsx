@@ -13,6 +13,7 @@
  * v0.56: ĐÃ thay thế production PetitionListPage (route /petitions trỏ vào Shell này).
  */
 import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
+import { hienThiEdtf } from '@/shared/ngay-thieu/edtf';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -139,6 +140,18 @@ interface PetitionRow {
   ketQuaXuLyKhac?: string | null;
   sttCu?: string | null;
   enteredBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
+  /*
+    Sáu cột ngày mở cho tìm kiếm ngày 21/09/2026 — đo trên 46.741 đơn thật, tất cả đều ĐẦY dữ
+    liệu mà trước đó không tìm được. Cột hiển thị ẩn sẵn; khai ở đây để cột render đọc được.
+  */
+  ngayTiepNhanNguonTin?: string | null;
+  /** Ngày viết đơn — CÓ THỂ rỗng khi hồ sơ chỉ biết ngày thiếu thành phần (xem dưới). */
+  petitionDate?: string | null;
+  /** Ngày viết đơn dạng EDTF (`2026-12-XX`) — ~4.4k đơn chỉ có thứ này, cột ngày thật rỗng. */
+  ngayVietDonEdtf?: string | null;
+  ngayGiaoDonViGiaiQuyet?: string | null;
+  ngayPhieuChuyen?: string | null;
+  senderIdIssueDate?: string | null;
 }
 
 interface KyDaGiaiFE {
@@ -642,6 +655,72 @@ export function PetitionListPageShell() {
             title="Ngày nhập vào hệ thống. Hồ sơ di trú đều là ngày chuyển dữ liệu."
           />
         ),
+      },
+
+      /*
+        Sáu cột ngày ĐẦY DỮ LIỆU mà trước 21/09/2026 không tìm được — đo trên 46.741 đơn thật.
+        Ẩn sẵn (`optional: 'hide'`) vì bảng đã đủ rộng; cán bộ bật được khi cần nhìn.
+
+        Khai cột ở đây KHÔNG phải thủ tục: cổng `timKiemCotKhai` đòi mọi trường tìm được phải có
+        một cột mang khoá ấy, và đòi hỏi ấy đúng — tìm theo một thứ không bao giờ xem được là
+        nửa vời. Nhờ cột có thật, cổng xanh mà KHÔNG bị nới một dòng nào.
+      */
+      {
+        key: 'receivedDate',
+        header: 'Ngày tiếp nhận',
+        timKiem: 'ngayTiepNhan',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.receivedDate} />,
+      },
+      {
+        key: 'ngayTiepNhanNguonTin',
+        header: 'Ngày tiếp nhận nguồn tin',
+        timKiem: 'ngayTiepNhanNguonTin',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayTiepNhanNguonTin} />,
+      },
+      {
+        key: 'petitionDate',
+        header: 'Ngày viết đơn',
+        timKiem: 'ngayVietDon',
+        width: '7rem',
+        optional: 'hide',
+        // ~4.4k đơn chỉ có ngày THIẾU thành phần: cột ngày thật rỗng, chữ nằm ở
+        // `ngayVietDonEdtf` (`__/12/2026`). Hiện chữ ấy thay vì ô trống.
+        render: (r) =>
+          r.petitionDate ? (
+            <DateCell value={r.petitionDate} />
+          ) : (
+            <span className="text-slate-500">
+              {hienThiEdtf(r.ngayVietDonEdtf) || '—'}
+            </span>
+          ),
+      },
+      {
+        key: 'ngayGiaoDonViGiaiQuyet',
+        header: 'Ngày giao đơn vị giải quyết',
+        timKiem: 'ngayGiaoDonViGiaiQuyet',
+        width: '8rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayGiaoDonViGiaiQuyet} />,
+      },
+      {
+        key: 'ngayPhieuChuyen',
+        header: 'Ngày phiếu chuyển',
+        timKiem: 'ngayPhieuChuyen',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayPhieuChuyen} />,
+      },
+      {
+        key: 'senderIdIssueDate',
+        header: 'Ngày cấp CCCD',
+        timKiem: 'ngayCapCCCD',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.senderIdIssueDate} />,
       },
     ],
     [actionCtx],

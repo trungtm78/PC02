@@ -75,8 +75,57 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       kieu: 'chu',
       cot: 'suspectedPerson',
     },
+    // Cột `deadline` RỖNG SẠCH trên dữ liệu thật (đo 21/09/2026: 0/46.741) nên thẻ này hiện
+    // khớp 0 hồ sơ. GIỮ vì gỡ khoá thẻ là vỡ đường dẫn đã lưu, và hạn tự tính sẽ điền cột ấy.
     { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline' },
     { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /*
+      Sáu cột ngày ĐẦY DỮ LIỆU mà trước 21/09/2026 không tìm được — đo trên 46.741 đơn thật:
+      Ngày tiếp nhận 46.741 · Ngày tiếp nhận nguồn tin 44.367 · Ngày viết đơn 41.820 ·
+      Ngày giao đơn vị 25.386 · Ngày phiếu chuyển 9.315 · Ngày cấp CCCD 2.168.
+
+      Mỗi khoá kèm một cột `optional: 'hide'` trên `PetitionListPageShell` để cổng
+      `timKiemCotKhai` vẫn xanh MÀ KHÔNG BỊ NỚI, và cán bộ bật được cột để nhìn thấy đúng thứ
+      mình vừa tìm.
+    */
+    {
+      key: 'ngayTiepNhan',
+      nhan: 'Ngày tiếp nhận',
+      kieu: 'ngay',
+      cot: 'receivedDate',
+    },
+    {
+      key: 'ngayTiepNhanNguonTin',
+      nhan: 'Ngày tiếp nhận nguồn tin',
+      kieu: 'ngay',
+      cot: 'ngayTiepNhanNguonTin',
+    },
+    {
+      key: 'ngayVietDon',
+      nhan: 'Ngày viết đơn',
+      kieu: 'ngay',
+      cot: 'petitionDate',
+      // ~4.4k đơn chỉ có ngày THIẾU thành phần (`2026-12-XX`), cột ngày thật rỗng.
+      cotEdtf: 'ngayVietDonEdtf',
+    },
+    {
+      key: 'ngayGiaoDonViGiaiQuyet',
+      nhan: 'Ngày giao đơn vị giải quyết',
+      kieu: 'ngay',
+      cot: 'ngayGiaoDonViGiaiQuyet',
+    },
+    {
+      key: 'ngayPhieuChuyen',
+      nhan: 'Ngày phiếu chuyển',
+      kieu: 'ngay',
+      cot: 'ngayPhieuChuyen',
+    },
+    {
+      key: 'ngayCapCCCD',
+      nhan: 'Ngày cấp CCCD',
+      kieu: 'ngay',
+      cot: 'senderIdIssueDate',
+    },
   ],
   // Không phải cột trên danh sách nhưng thẻ "tất cả các cột" phải tìm được: số hồ sơ hệ cũ để
   // truy nguyên (ô tìm cũ vẫn tìm cột này).

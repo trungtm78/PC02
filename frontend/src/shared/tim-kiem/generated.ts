@@ -17,6 +17,12 @@ export const TIM_KIEM_DON_THU = [
   { key: 'doiTuong', nhan: 'Đối tượng bị tố', kieu: 'chu' },
   { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay' },
+  { key: 'ngayTiepNhanNguonTin', nhan: 'Ngày tiếp nhận nguồn tin', kieu: 'ngay' },
+  { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay' },
+  { key: 'ngayGiaoDonViGiaiQuyet', nhan: 'Ngày giao đơn vị giải quyết', kieu: 'ngay' },
+  { key: 'ngayPhieuChuyen', nhan: 'Ngày phiếu chuyển', kieu: 'ngay' },
+  { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay' },
 ] as const;
 
 export const TIM_KIEM_VU_VIEC = [
