@@ -35,20 +35,35 @@ describe('OTimKiemThe — sửa thẻ của cột đang ẩn', () => {
     expect(onThem).toHaveBeenCalledWith('dieuTraVien', 'An');
   });
 
-  it('không sửa gì thì cột ẩn KHÔNG chen vào gợi ý', () => {
+  /**
+   * 21/09/2026: cột ẩn nay CÓ gợi ý — anh yêu cầu tìm được tất cả các cột, mà trước đây cột ẩn
+   * không có dòng nào để chọn.
+   *
+   * Mệnh đề còn nghĩa và được giữ: nó nằm trong nhóm "Cột khác" chứ không trộn vào nhóm cột
+   * đang hiện, và nó KHÔNG phải dòng mặc định của Enter khi cán bộ chưa sửa thẻ nào — nếu
+   * không thì Enter âm thầm đổi phạm vi tìm, đúng lỗi mà `uuTienKhoa` sinh ra để tránh.
+   */
+  it('không sửa gì thì cột ẩn nằm ở nhóm "Cột khác", KHÔNG là dòng mặc định', () => {
+    const onThem = vi.fn(() => true);
     render(
       <OTimKiemThe
         the={[]}
         truong={[KHAI[0]]}
         khai={KHAI}
-        onThem={vi.fn(() => true)}
+        onThem={onThem}
         onBoThe={vi.fn()}
         onBoGiaTri={vi.fn()}
       />,
     );
     const o = screen.getByRole('combobox', { name: 'Tìm kiếm trong danh sách' });
     fireEvent.change(o, { target: { value: 'An' } });
+
     const goiY = screen.getAllByRole('option').map((x) => x.textContent ?? '');
-    expect(goiY.some((t) => t.includes('Điều tra viên'))).toBe(false);
+    expect(goiY.some((t) => t.includes('Điều tra viên'))).toBe(true);
+    expect(screen.getByText(/Cột khác/)).toBeInTheDocument();
+
+    // Chưa sửa thẻ nào → Enter vẫn rơi vào "tất cả các cột", không rơi vào cột ẩn.
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(onThem).toHaveBeenCalledWith('*', 'An');
   });
 });

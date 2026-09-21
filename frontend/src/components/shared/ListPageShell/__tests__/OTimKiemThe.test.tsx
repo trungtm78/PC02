@@ -84,12 +84,19 @@ describe('<OTimKiemThe>', () => {
     expect(props.onThem).toHaveBeenCalledWith('*', 'nguye');
   });
 
-  it('cột ngày: chữ không phải ngày thì dòng ấy bị khoá và có hướng dẫn', () => {
+  /**
+   * 21/09/2026: dòng hướng dẫn ngày gộp thành MỘT cho mọi cột ngày, thay vì mỗi cột một dòng.
+   * Đơn thư sắp có chín cột ngày — chín dòng giống hệt nhau là chín dòng rác. Mệnh đề giữ
+   * nguyên: chữ không phải ngày thì không chọn được cột ngày, và có hướng dẫn dạng gõ.
+   */
+  it('cột ngày: chữ không phải ngày thì KHÔNG chọn được, có MỘT dòng hướng dẫn chung', () => {
     const { o } = dung();
     goChu(o, 'abc');
-    const dong = cacLuaChon().find((x) => x.textContent?.includes('Ngày đề xuất'))!;
-    expect(dong).toHaveAttribute('aria-disabled', 'true');
-    expect(dong).toHaveTextContent('12/09/2026');
+    expect(cacLuaChon().some((x) => x.textContent?.includes('Ngày đề xuất'))).toBe(false);
+    const huongDan = cacLuaChon().filter((x) => x.textContent?.includes('12/09/2026'));
+    expect(huongDan).toHaveLength(1);
+    expect(huongDan[0]).toHaveAttribute('aria-disabled', 'true');
+
     goChu(o, '09/2026');
     const dong2 = cacLuaChon().find((x) => x.textContent?.includes('Ngày đề xuất'))!;
     expect(dong2).not.toHaveAttribute('aria-disabled', 'true');
@@ -184,5 +191,110 @@ describe('<OTimKiemThe>', () => {
     goChu(o, 'abc');
     fireEvent.keyDown(o, { key: 'Enter' });
     expect((o as HTMLInputElement).value).toBe('abc');
+  });
+});
+
+/**
+ * Đợt 21/09/2026 — anh yêu cầu tìm được TẤT CẢ các cột.
+ *
+ * Gợi ý hiện chỉ suy từ cột ĐANG HIỆN trên bảng (`truongGoiY(visibleColumns, …)`), nên trường
+ * của cột đang ẩn không có dòng nào để chọn — cán bộ không có đường nào tìm theo chúng. Đơn thư
+ * ẩn sẵn ba cột, và đợt này sắp thêm sáu thẻ ngày cũng ở dạng ẩn.
+ */
+const KHAI_RONG = [
+  { key: 'stt', nhan: 'STT', kieu: 'ma' },
+  { key: 'nguoiGui', nhan: 'Người gửi', kieu: 'chu' },
+  { key: 'ngayDeXuat', nhan: 'Ngày đề xuất', kieu: 'ngay' },
+  { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
+  // Bốn trường dưới đây KHÔNG nằm trong `truong` (cột đang ẩn trên bảng).
+  { key: 'doiTuong', nhan: 'Đối tượng bị tố', kieu: 'chu' },
+  { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay' },
+  { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay' },
+] as const;
+
+const dungRong = (p: Partial<OTimKiemTheProps> = {}) =>
+  dung({ truong: KHAI, khai: KHAI_RONG, ...p });
+
+const chuCacLuaChon = () => cacLuaChon().map((l) => l.textContent ?? '');
+
+describe('<OTimKiemThe> — gợi ý cho cột đang ẩn (đợt 21/09/2026)', () => {
+  it('trường của cột ĐANG ẨN vẫn chọn được, nằm trong nhóm "Cột khác"', () => {
+    const { o } = dungRong();
+    goChu(o, 'nguyen');
+    const chu = chuCacLuaChon().join('\n');
+    expect(chu).toContain('Đối tượng bị tố');
+    expect(screen.getByText(/Cột khác/)).toBeInTheDocument();
+  });
+
+  it('cột đang HIỆN xếp trước cột ẩn — mạch đọc theo đúng thứ tự bảng', () => {
+    const { o } = dungRong();
+    goChu(o, 'nguyen');
+    const chu = chuCacLuaChon();
+    expect(chu.findIndex((c) => c.includes('Người gửi'))).toBeLessThan(
+      chu.findIndex((c) => c.includes('Đối tượng bị tố')),
+    );
+  });
+
+  /**
+   * Bốn cột ngày × một dòng hướng dẫn mỗi cột = bốn dòng rác giống hệt nhau. Đợt này Đơn thư lên
+   * chín cột ngày, tức chín dòng.
+   */
+  it('chữ không phải ngày → MỘT dòng hướng dẫn ngày chung, không phải mỗi cột một dòng', () => {
+    const { o } = dungRong();
+    goChu(o, 'nguyen');
+    const huongDan = chuCacLuaChon().filter((c) => c.includes('12/09/2026'));
+    expect(huongDan).toHaveLength(1);
+  });
+
+  it('chữ LÀ ngày → mỗi cột ngày một dòng chọn được, không còn dòng hướng dẫn', () => {
+    const { o } = dungRong();
+    goChu(o, '12/09/2026');
+    const chu = chuCacLuaChon();
+    expect(chu.filter((c) => c.includes('gõ 12/09/2026'))).toHaveLength(0);
+    for (const nhan of ['Ngày đề xuất', 'Hạn xử lý', 'Ngày tạo', 'Ngày viết đơn'])
+      expect(chu.join('\n')).toContain(nhan);
+  });
+
+  it('danh sách có TRẦN — không đổ 30 dòng ra màn hình', () => {
+    const nhieu = Array.from({ length: 30 }, (_, i) => ({
+      key: `c${i}`,
+      nhan: `Cột ${i}`,
+      kieu: 'chu' as const,
+    }));
+    const { o } = dung({ truong: KHAI, khai: [...KHAI, ...nhieu] });
+    goChu(o, 'nguyen');
+    expect(cacLuaChon().length).toBeLessThanOrEqual(14);
+    expect(screen.getByText(/còn \d+ cột khác/)).toBeInTheDocument();
+  });
+
+  /**
+   * Cú pháp `tên cột:giá trị` — cách DUY NHẤT với tới 30 trường mà không phải cuộn.
+   */
+  it('gõ "đối tượng:nguyen" → lọc đúng trường ấy, bỏ trần', () => {
+    const { o } = dungRong();
+    goChu(o, 'đối tượng:nguyen');
+    const chu = chuCacLuaChon();
+    expect(chu.join('\n')).toContain('Đối tượng bị tố');
+    expect(chu.filter((c) => c.includes('Người gửi'))).toHaveLength(0);
+  });
+
+  it('gõ KHÔNG DẤU cũng khớp tên cột: "doi tuong:nguyen"', () => {
+    const { o } = dungRong();
+    goChu(o, 'doi tuong:nguyen');
+    expect(chuCacLuaChon().join('\n')).toContain('Đối tượng bị tố');
+  });
+
+  it('cú pháp `tên:` gửi lên ĐÚNG giá trị sau dấu hai chấm, không gửi cả chuỗi', () => {
+    const { props, o } = dungRong();
+    goChu(o, 'doi tuong:nguyen');
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(props.onThem).toHaveBeenCalledWith('doiTuong', 'nguyen');
+  });
+
+  it('tên cột không khớp gì → KHÔNG im lặng trả rỗng, vẫn còn dòng "tất cả các cột"', () => {
+    const { o } = dungRong();
+    goChu(o, 'khongcocotnao:nguyen');
+    expect(chuCacLuaChon()[0]).toContain('tất cả các cột');
   });
 });
