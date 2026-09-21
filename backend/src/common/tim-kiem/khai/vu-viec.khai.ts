@@ -73,6 +73,39 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
     },
     { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline' },
     { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /*
+      Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 4.718 vụ việc thật:
+      Ngày tiếp nhận nguồn tin 3.039 · Ngày QĐ phân công 474 · Ngày giao đơn vị 365 ·
+      Ngày viết đơn 298 · Ngày phiếu chuyển 86 · Ngày cấp CCCD 37.
+
+      Danh sách này ĐO RIÊNG, không chép của Đơn thư: phân bố hai màn khác hẳn nhau.
+    */
+    {
+      key: 'ngayTiepNhanNguonTin',
+      nhan: 'Ngày tiếp nhận nguồn tin',
+      kieu: 'ngay',
+      cot: 'ngayTiepNhanNguonTin',
+    },
+    {
+      key: 'ngayQDPhanCongNguonTin',
+      nhan: 'Ngày QĐ phân công nguồn tin',
+      kieu: 'ngay',
+      cot: 'ngayQDPhanCongNguonTin',
+    },
+    {
+      key: 'ngayGiaoDonViGiaiQuyet',
+      nhan: 'Ngày giao đơn vị giải quyết',
+      kieu: 'ngay',
+      cot: 'ngayGiaoDonViGiaiQuyet',
+    },
+    { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay', cot: 'ngayVietDon' },
+    {
+      key: 'ngayPhieuChuyen',
+      nhan: 'Ngày phiếu chuyển',
+      kieu: 'ngay',
+      cot: 'ngayPhieuChuyen',
+    },
+    { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay', cot: 'ngayCapCccd' },
     // Màn Vụ việc phường/xã hiện tội danh chính (prod 17/09: 1.009/1.165 vụ việc tổ phường). Cột bóng
     // đích do khai Tội danh sinh.
     {

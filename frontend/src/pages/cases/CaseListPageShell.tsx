@@ -145,6 +145,15 @@ interface CaseRow {
   /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
   _count?: { subjects?: number } | null;
   createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
+  /*
+    Cột ngày mở cho tìm kiếm 21/09/2026 — cột hiển thị ẩn sẵn, nhưng kiểu dòng phải khai để
+    phần dựng đọc được, và máy chủ phải TRẢ VỀ (xem `select` của service).
+  */
+  receiveDate?: string | null;
+  ngayPhieuChuyen?: string | null;
+  ngayKhoiTo?: string | null;
+  ngayVietDon?: string | null;
+  ngayCapCccd?: string | null;
 }
 
 interface KyDaGiaiFE {
@@ -671,6 +680,54 @@ export function CaseListPageShell() {
         optional: 'hide',
         sortKey: 'createdAt',
         render: (r) => <DateCell value={r.createdAt} />,
+      },
+
+      /*
+        Cột ngày CÓ dữ liệu mở cho tìm kiếm ngày 21/09/2026 — đo riêng từng màn, không chép của
+        Đơn thư. Ẩn sẵn vì bảng đã đủ rộng; cán bộ bật được khi cần nhìn.
+
+        Cột phải CÓ THẬT: cổng `timKiemCotKhai` đòi mọi trường tìm được có một cột mang khoá ấy,
+        và đòi hỏi ấy đúng — tìm theo một thứ không bao giờ xem được là nửa vời.
+      */
+      {
+        key: 'receiveDate',
+        header: 'Ngày nhận',
+        timKiem: 'ngayNhan',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.receiveDate} />,
+      },
+      {
+        key: 'ngayPhieuChuyen',
+        header: 'Ngày phiếu chuyển',
+        timKiem: 'ngayPhieuChuyen',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayPhieuChuyen} />,
+      },
+      {
+        key: 'ngayKhoiTo',
+        header: 'Ngày khởi tố',
+        timKiem: 'ngayKhoiTo',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayKhoiTo} />,
+      },
+      {
+        key: 'ngayVietDon',
+        header: 'Ngày viết đơn',
+        timKiem: 'ngayVietDon',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayVietDon} />,
+      },
+      {
+        key: 'ngayCapCccd',
+        header: 'Ngày cấp CCCD',
+        timKiem: 'ngayCapCCCD',
+        width: '7rem',
+        optional: 'hide',
+        render: (r) => <DateCell value={r.ngayCapCccd} />,
       },
     ],
     [actionCtx],

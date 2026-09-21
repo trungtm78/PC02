@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { KhaiThucThe } from './sinh/sinh-tim-kiem';
 import {
   dieuKienNgay,
+  tienToEdtf,
   docKhoangNgay,
   docThe,
   dungDieuKienTimKiem,
@@ -431,7 +432,7 @@ describe('noiVaoWhere', () => {
  * `docKhoangNgay` nay trả thêm TIỀN TỐ EDTF để nhánh thứ hai dò được bằng `startsWith`, thay vì
  * dựng một hệ lọc ngày thứ hai.
  */
-describe('docKhoangNgay — tiền tố EDTF cho ngày thiếu thành phần', () => {
+describe('tienToEdtf — tiền tố EDTF cho ngày thiếu thành phần', () => {
   it.each([
     ['15/12/2026', '2026-12-15'],
     ['2026-12-15', '2026-12-15'],
@@ -439,17 +440,17 @@ describe('docKhoangNgay — tiền tố EDTF cho ngày thiếu thành phần', (
     ['1/2026', '2026-01'],
     ['2026', '2026'],
   ])('%s → tiền tố "%s"', (vao, tienTo) => {
-    expect(docKhoangNgay(vao)?.tienTo).toBe(tienTo);
+    expect(tienToEdtf(vao)).toBe(tienTo);
   });
 
   it('tiền tố luôn khớp đầu chuỗi EDTF mà hệ sinh ra', () => {
     // `sangEdtf` phía giao diện sinh `2026-12-XX` / `2026-XX-XX`; tiền tố phải là tiền tố THẬT
     // của chúng, nếu không nhánh `startsWith` im lặng trả rỗng.
-    expect('2026-12-XX'.startsWith(docKhoangNgay('12/2026')!.tienTo)).toBe(true);
-    expect('2026-XX-XX'.startsWith(docKhoangNgay('2026')!.tienTo)).toBe(true);
-    expect('2026-12-15'.startsWith(docKhoangNgay('15/12/2026')!.tienTo)).toBe(true);
+    expect('2026-12-XX'.startsWith(tienToEdtf('12/2026')!)).toBe(true);
+    expect('2026-XX-XX'.startsWith(tienToEdtf('2026')!)).toBe(true);
+    expect('2026-12-15'.startsWith(tienToEdtf('15/12/2026')!)).toBe(true);
     // Ngày ĐỦ không được khớp hồ sơ chỉ biết tháng: hệ không biết ngày ấy, bịa là sai.
-    expect('2026-12-XX'.startsWith(docKhoangNgay('15/12/2026')!.tienTo)).toBe(false);
+    expect('2026-12-XX'.startsWith(tienToEdtf('15/12/2026')!)).toBe(false);
   });
 });
 

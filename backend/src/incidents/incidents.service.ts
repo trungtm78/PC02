@@ -130,6 +130,17 @@ const CHON_DONG_DANH_SACH_VU_VIEC = {
     select: { id: true, name: true, ward: { select: { name: true } } },
   },
   crimeChinh: { select: { name: true } },
+  /*
+    Cột ngày mở cho tìm kiếm 21/09/2026 (đo riêng từng màn). Cột hiển thị ẩn sẵn trên bảng,
+    nhưng PHẢI trả về ở đây — cột hiện ra rỗng vì API không trả là lớp hỏng im lặng dự án đã
+    vấp nhiều lần.
+  */
+  ngayTiepNhanNguonTin: true,
+  ngayQDPhanCongNguonTin: true,
+  ngayGiaoDonViGiaiQuyet: true,
+  ngayVietDon: true,
+  ngayPhieuChuyen: true,
+  ngayCapCccd: true,
 } satisfies Prisma.IncidentSelect;
 
 /** Một dòng danh sách Vụ việc như `getList` trả. */

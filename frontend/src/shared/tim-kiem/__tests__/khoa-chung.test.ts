@@ -20,6 +20,11 @@ const KHOA_CHUNG_HO_SO = [
   'ketQuaXuLyKhac',
   'nguoiNhap',
   'ngayTao',
+  // Ba khoá thêm 21/09/2026 cùng đợt mở thẻ ngày. Chúng thành khoá CHUNG vì cả ba thực thể đều
+  // có cột ấy và đều có dữ liệu thật — hệ quả có chủ ý: màn Tổng hợp nay lọc được theo chúng.
+  'ngayVietDon',
+  'ngayPhieuChuyen',
+  'ngayCapCCCD',
 ];
 
 describe('khoaChung (giao diện)', () => {

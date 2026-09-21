@@ -114,6 +114,13 @@ describe('IncidentsService.xuatDanhSach', () => {
       'investigator',
       'deadline',
       'createdAt',
+      // Sáu cột ngày mở cho tìm kiếm 21/09/2026 — cột hiện được trên bảng phải xuất được.
+      'ngayTiepNhanNguonTin',
+      'ngayQDPhanCongNguonTin',
+      'ngayGiaoDonViGiaiQuyet',
+      'ngayVietDon',
+      'ngayPhieuChuyen',
+      'ngayCapCccd',
     ]);
   });
 

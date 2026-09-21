@@ -87,6 +87,46 @@ export const KHAI_COT_XUAT_VU_VIEC: readonly KhaiCotXuat<DongDanhSachVuViec>[] =
       rong: 13,
       doc: (d) => ngayVN(d.createdAt),
     },
+    /*
+      Cột ngày mở cho tìm kiếm 21/09/2026 — cột nào hiện được trên bảng thì cũng phải xuất
+      được, nếu không cán bộ lọc ra rồi xuất lại mất đúng cột vừa lọc.
+    */
+    {
+      key: 'ngayTiepNhanNguonTin',
+      tieuDe: 'Ngày tiếp nhận nguồn tin',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayTiepNhanNguonTin),
+    },
+    {
+      key: 'ngayQDPhanCongNguonTin',
+      tieuDe: 'Ngày QĐ phân công nguồn tin',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayQDPhanCongNguonTin),
+    },
+    {
+      key: 'ngayGiaoDonViGiaiQuyet',
+      tieuDe: 'Ngày giao đơn vị giải quyết',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayGiaoDonViGiaiQuyet),
+    },
+    {
+      key: 'ngayVietDon',
+      tieuDe: 'Ngày viết đơn',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayVietDon),
+    },
+    {
+      key: 'ngayPhieuChuyen',
+      tieuDe: 'Ngày phiếu chuyển',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayPhieuChuyen),
+    },
+    {
+      key: 'ngayCapCccd',
+      tieuDe: 'Ngày cấp CCCD',
+      rong: 13,
+      doc: (d) => ngayVN(d.ngayCapCccd),
+    },
   ];
 
 /**

@@ -81,6 +81,21 @@ export const KHAI_TIM_KIEM_VU_AN: KhaiThucThe = {
       quanHe: 'investigator',
     },
     { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /*
+      Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 3.381 vụ án thật:
+      Ngày nhận 3.339 · Ngày phiếu chuyển 1.717 · Ngày khởi tố 787 · Ngày viết đơn 338 ·
+      Ngày cấp CCCD 219. (`ngayTiepNhan` và `thoiHanUyThac` đã tìm được từ trước.)
+    */
+    { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay', cot: 'receiveDate' },
+    {
+      key: 'ngayPhieuChuyen',
+      nhan: 'Ngày phiếu chuyển',
+      kieu: 'ngay',
+      cot: 'ngayPhieuChuyen',
+    },
+    { key: 'ngayKhoiTo', nhan: 'Ngày khởi tố', kieu: 'ngay', cot: 'ngayKhoiTo' },
+    { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay', cot: 'ngayVietDon' },
+    { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay', cot: 'ngayCapCccd' },
     // ── Cột riêng màn Ủy thác điều tra ──
     {
       key: 'ngayTiepNhan',
