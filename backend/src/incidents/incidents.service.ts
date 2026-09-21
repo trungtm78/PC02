@@ -143,6 +143,10 @@ const CHON_DONG_DANH_SACH_VU_VIEC = {
   ngayQDPhanCongNguonTin: true,
   ngayGiaoDonViGiaiQuyet: true,
   ngayVietDon: true,
+  // Thiếu hai cột này thì hồ sơ chỉ có ngày THIẾU thành phần hoặc chỉ có chữ nguyên văn
+  // sẽ hiện trống ở cột "Ngày viết đơn" — mất im lặng ngay trên màn danh sách.
+  ngayVietDonEdtf: true,
+  ngayVietDonChu: true,
   ngayPhieuChuyen: true,
   ngayCapCccd: true,
 } satisfies Prisma.IncidentSelect;

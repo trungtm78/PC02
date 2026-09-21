@@ -71,6 +71,31 @@ const MIEN_TRU_THEO_MAN: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Nhãn ghi bằng NHIỀU cột — danh sách đọc cột nào trong bộ cũng đúng.
+ *
+ * "Ngày viết đơn" từ 21/09/2026 ghi vào BA cột: ngày thật (để lọc/sắp), EDTF (ngày thiếu thành
+ * phần `2026-XX-XX`), và chữ NGUYÊN VĂN (in ra Word đúng từng chữ — hồ sơ gộp nhiều đơn,
+ * "19/4/2021 (03 đơn), 20/4/2021 (9 đơn), …", đo prod 4.454/46.129 hồ sơ).
+ *
+ * Cổng KHÔNG nới lỏng: danh sách chỉ được đọc cột NẰM TRONG bộ, đọc cột ngoài bộ vẫn đỏ. Và
+ * ca kiểm ngay dưới còn đòi nó đọc đúng cột chữ nguyên văn TRƯỚC — đọc EDTF hay ngày thật
+ * trước là hồ sơ chỉ có chữ sẽ hiện trống.
+ */
+const BO_COT_CUNG_NHAN: Readonly<Record<string, readonly string[]>> = {
+  'Ngày viết đơn': [
+    'petitionDate',
+    'ngayVietDon',
+    'ngayVietDonEdtf',
+    'ngayVietDonChu',
+  ],
+};
+
+const cungBo = (nhan: string, a: string, b: string): boolean => {
+  const bo = BO_COT_CUNG_NHAN[nhan];
+  return !!bo && bo.includes(a) && bo.includes(b);
+};
+
+/**
  * Nhãn trên DANH SÁCH viết ngắn hơn nhãn trên FORM — hệ cũ cũng làm vậy.
  *
  * Cột danh sách chỉ rộng vài chữ nên hệ cũ rút "Ngày/Tháng/Năm đề xuất" thành "Ngày đề xuất".
@@ -151,8 +176,26 @@ describe.each(BANG.map((m) => [m.ten, m] as const))(
       const lech = cot
         .filter((c) => !(c.nhan in MIEN_TRU))
         .map((c) => ({ nhan: c.nhan, danhSach: c.doc, form: cotFormCuaNhan(man.thucThe, c.nhan) }))
-        .filter((c) => c.form !== null && c.danhSach !== c.form);
+        .filter(
+          (c) =>
+            c.form !== null &&
+            c.danhSach !== c.form &&
+            !cungBo(c.nhan, String(c.danhSach), String(c.form)),
+        );
       expect(lech).toEqual([]);
+    });
+
+    /*
+      Nhãn ghi bằng nhiều cột thì THỨ TỰ đọc là phần quan trọng nhất, và `cungBo` ở trên cố ý
+      không canh nó. Với "Ngày viết đơn": đọc EDTF hay ngày thật trước thì hồ sơ chỉ mang chữ
+      nguyên văn hiện TRỐNG trên danh sách — mất im lặng, đúng lớp lỗi đang vá.
+    */
+    it('nhãn ghi bằng nhiều cột thì danh sách đọc cột NGUYÊN VĂN trước', () => {
+      const sai = cot
+        .filter((c) => c.nhan in BO_COT_CUNG_NHAN)
+        .filter((c) => c.doc !== 'ngayVietDonChu')
+        .map((c) => ({ nhan: c.nhan, danhSach: c.doc }));
+      expect(sai).toEqual([]);
     });
   },
 );
