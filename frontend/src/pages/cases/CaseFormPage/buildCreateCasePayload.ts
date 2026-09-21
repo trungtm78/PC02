@@ -103,6 +103,8 @@ export interface CreateCasePayload {
   ngayPhieuChuyen?: string | null;
   doVatTaiLieuKemTheo?: string | null;
   ngayVietDon?: string | null;
+  ngayVietDonEdtf?: string | null;
+  ngayVietDonChu?: string | null;
   ghiChuTrungDon?: string | null;
   ngayGiaoDonViGiaiQuyet?: string | null;
   lanhDaoToTung?: string | null;
@@ -641,6 +643,8 @@ export function buildCreateCasePayload(
   payload.thoiHanUyThac = firstStr(formData.utdt_thoiHanUyThac) ?? null;
   payload.doVatTaiLieuKemTheo = oHeCu(formData.doVatTaiLieuKemTheo);
   payload.ngayVietDon = oHeCu(formData.ngayVietDon);
+  payload.ngayVietDonEdtf = oHeCu(formData.ngayVietDonEdtf);
+  payload.ngayVietDonChu = oHeCu(formData.ngayVietDonChu);
   payload.ghiChuTrungDon = oHeCu(formData.ghiChuTrungDon);
   payload.ngayGiaoDonViGiaiQuyet = oHeCu(formData.ngayGiaoDonViGiaiQuyet);
   payload.lanhDaoToTung = oHeCu(formData.lanhDaoToTung);

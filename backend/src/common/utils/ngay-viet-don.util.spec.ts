@@ -130,3 +130,60 @@ describe('edtfTuNgayThat — năm dưới 1000', () => {
     expect(ra).toEqual(['208: 0208-01-05', '999: 0999-01-05', '1000: 1000-01-05', '2026: 2026-01-05']);
   });
 });
+
+/*
+  Cột CHỮ NGUYÊN VĂN (21/09/2026) — `ngayVietDonChu`.
+
+  Cán bộ báo không nhập được `../../2026, 31/01/2026 (đơn không có chữ ký người đứng đơn)`.
+  Đo prod: 4.454/46.129 hồ sơ mang chữ không đọc ra được một ngày, vì đây là hồ sơ GỘP nhiều
+  đơn. Anh chốt: để nguyên chữ đã nhập và cho vào file Word.
+
+  Thứ tự ưu tiên là điểm mấu chốt. Chữ nguyên văn phải thắng CẢ hai cột suy ra, vì nó chính là
+  thứ ghi trên giấy — hai cột kia chỉ là bản hệ đọc hiểu được.
+*/
+describe('ngayVietDonHienThi — chữ nguyên văn', () => {
+  it('có chữ nguyên văn → in ĐÚNG chữ ấy, không dựng lại từ ngày', () => {
+    const chu = '../../2026, 31/01/2026 (đơn không có chữ ký người đứng đơn)';
+    expect(
+      ngayVietDonHienThi({
+        ngayVietDonChu: chu,
+        ngayVietDonEdtf: '2026-XX-XX',
+        petitionDate: '2026-01-31',
+      }),
+    ).toBe(chu);
+  });
+
+  it('không có chữ nguyên văn → giữ nguyên hành vi cũ (EDTF rồi ngày thật)', () => {
+    expect(
+      ngayVietDonHienThi({ ngayVietDonEdtf: '2026-12-XX', ngayVietDonChu: null }),
+    ).toBe('__/12/2026');
+    expect(
+      ngayVietDonHienThi({ petitionDate: '2026-01-31', ngayVietDonChu: null }),
+    ).toBe('31/01/2026');
+  });
+
+  /*
+    Chữ nguyên văn RỖNG hoặc chỉ khoảng trắng không được thắng — nếu không thì một ô bị xoá
+    trắng sẽ che mất ngày thật vẫn còn trong cột.
+  */
+  it('chữ rỗng/khoảng trắng KHÔNG che mất ngày thật', () => {
+    for (const chu of ['', '   ', null, undefined]) {
+      expect(ngayVietDonHienThi({ ngayVietDonChu: chu, petitionDate: '2026-01-31' })).toBe(
+        '31/01/2026',
+      );
+    }
+  });
+
+  /*
+    Cán bộ sửa trên hệ mới thì thứ họ sửa phải thắng bản thô hệ cũ chưa sửa — cùng lý lẽ đã
+    đặt cho hai cột suy ra.
+  */
+  it('chữ nguyên văn thắng bản thô hệ cũ', () => {
+    expect(
+      ngayVietDonHienThi({
+        ngayVietDonChu: 'Không ghi ngày',
+        legacyRaw: { ngay_viet_don: '28/12/2023, 19/12/2023 (03 đơn)' },
+      }),
+    ).toBe('Không ghi ngày');
+  });
+});

@@ -1,4 +1,5 @@
 import type { KhaiCotXuat } from '../common/xuat-danh-sach/xuat-danh-sach';
+import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 import { hoTenCanBo, ngayVN } from '../common/xuat-danh-sach/dinh-dang';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
@@ -119,7 +120,10 @@ export const KHAI_COT_XUAT_VU_AN: readonly KhaiCotXuat<DongDanhSachVuAn>[] = [
       key: 'ngayVietDon',
       tieuDe: 'Ngày viết đơn',
       rong: 13,
-      doc: (d) => ngayVN(d.ngayVietDon),
+      // Qua hàm dùng chung: hồ sơ chỉ có ngày THIẾU thành phần hoặc chỉ có chữ NGUYÊN VĂN
+      // (hồ sơ gộp nhiều đơn) thì đọc thẳng cột ngày là xuất ra TRỐNG đúng cột vừa lọc —
+      // lỗi đã xảy ra ba lần ở Đơn thư, không lặp lần thứ tư ở hai màn này.
+      doc: (d) => ngayVietDonHienThi(d),
     },
     {
       key: 'ngayCapCccd',

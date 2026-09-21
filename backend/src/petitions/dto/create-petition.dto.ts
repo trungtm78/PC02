@@ -225,6 +225,23 @@ export class CreatePetitionDto {
   @IsEdtfNgayThat()
   ngayVietDonEdtf?: string;
 
+  /**
+   * Ngày viết đơn GHI NGUYÊN VĂN như trên giấy.
+   *
+   * Không kiểm hình dạng, CÓ CHỦ Ý. Đo prod 21/09/2026: 4.454/46.129 hồ sơ mang giá trị không
+   * đọc ra được một ngày — hồ sơ GỘP nhiều đơn ("19/4/2021 (03 đơn), 20/4/2021 (9 đơn), …")
+   * hoặc ghi chú ("Không ghi ngày"). Đặt bất kỳ luật hình dạng nào ở đây là chặn lại đúng thứ
+   * cột này sinh ra để chứa.
+   *
+   * Vẫn chốt ĐỘ DÀI: chuỗi thật dài nhất đo được ~230 ký tự, nên 1.000 là rộng rãi mà không
+   * để ai nhét cả một tệp vào cột in ra chứng từ.
+   */
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  ngayVietDonChu?: string;
+
   @IsOptional()
   @Transform(({ value }) => stripHtmlTags(value))
   @IsString()

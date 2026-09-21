@@ -149,6 +149,7 @@ interface PetitionRow {
   petitionDate?: string | null;
   /** Ngày viết đơn dạng EDTF (`2026-12-XX`) — ~4.4k đơn chỉ có thứ này, cột ngày thật rỗng. */
   ngayVietDonEdtf?: string | null;
+  ngayVietDonChu?: string | null;
   ngayGiaoDonViGiaiQuyet?: string | null;
   ngayPhieuChuyen?: string | null;
   senderIdIssueDate?: string | null;
@@ -691,10 +692,18 @@ export function PetitionListPageShell() {
         timKiem: 'ngayVietDon',
         width: '7rem',
         optional: 'hide',
-        // ~4.4k đơn chỉ có ngày THIẾU thành phần: cột ngày thật rỗng, chữ nằm ở
-        // `ngayVietDonEdtf` (`__/12/2026`). Hiện chữ ấy thay vì ô trống.
+        /*
+          Ba nguồn, đúng thứ tự của hàm hiển thị dùng chung phía máy chủ:
+          chữ NGUYÊN VĂN → EDTF (`__/12/2026`) → ngày thật.
+
+          ~4.4k đơn chỉ có ngày thiếu thành phần, và từ 21/09/2026 còn có hồ sơ chỉ mang chữ
+          nguyên văn ("19/4/2021 (03 đơn), 20/4/2021 (9 đơn), …"). Bỏ nhánh đầu thì đúng những
+          hồ sơ ấy hiện `—` như thể trống — mất im lặng ngay trên màn danh sách.
+        */
         render: (r) =>
-          r.petitionDate ? (
+          r.ngayVietDonChu?.trim() ? (
+            <span className="text-slate-500">{r.ngayVietDonChu}</span>
+          ) : r.petitionDate ? (
             <DateCell value={r.petitionDate} />
           ) : (
             <span className="text-slate-500">

@@ -140,6 +140,8 @@ export function buildIncidentPayload(
     crimeChinhId: oHeCu(formData.crimeChinhId),
     doVatTaiLieuKemTheo: oHeCu(formData.doVatTaiLieuKemTheo),
     ngayVietDon: oHeCu(formData.ngayVietDon),
+    ngayVietDonEdtf: oHeCu(formData.ngayVietDonEdtf),
+    ngayVietDonChu: oHeCu(formData.ngayVietDonChu),
     nhanXet: oHeCu(formData.nhanXet),
     ghiChuTrungDon: oHeCu(formData.ghiChuTrungDon),
     baoCaoBanGiamDocText: oHeCu(formData.baoCaoBanGiamDocText),

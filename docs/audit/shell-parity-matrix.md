@@ -367,6 +367,49 @@ Ghim luôn cột Thao tác sẽ trọn vẹn hơn, nhưng vướng một lỗi s
 `bg-white`, nên trên hàng đang chọn (`bg-blue-50`) hay hàng quá hạn, ô ghim vẫn trắng trong
 khi phần còn lại của hàng đổi màu. Ghim thêm một cột nữa là nhân đôi lỗi ấy.
 
+### Ngày viết đơn: giữ NGUYÊN VĂN chữ cán bộ gõ (21/09/2026)
+
+Cán bộ gõ `../../2026, 31/01/2026 (đơn không có chữ ký người đứng đơn)` và bị chặn với "Năm
+phải đủ 4 chữ số" — trong khi năm đã đủ bốn chữ số.
+
+Đo bản sao prod, 47.169 đơn thư:
+
+| | Số hồ sơ |
+|---|---|
+| Có chữ ngày viết đơn từ hệ cũ | 46.129 |
+| Đọc ra được một ngày | 41.675 |
+| **Không đọc được — chữ tự do** | **4.454** |
+
+```
+11/02/2022, 25/10/2022, 26/10/2022 (02 đơn), 27/10/2022 (03 đơn), …
+19/4/2021 (03 đơn), 20/4/2021 (9 đơn), 21/4/2021, 22/4/2021 (04 đơn), …
+Không ghi ngày
+```
+
+Đây là **hồ sơ gộp**: một hồ sơ ôm hàng chục lá đơn viết rải nhiều ngày, kèm số lượng mỗi
+ngày. Ô này ở hệ cũ là ghi NGUYÊN VĂN như trên giấy, không phải một ngày. 4.454 hồ sơ ấy in
+ra đúng chỉ vì bộ di trú cất bản gốc vào `legacyRaw` — form hệ mới KHÔNG nhập nổi, tức hệ đọc
+được thứ nó không cho phép tạo ra.
+
+**Quyết (anh chốt):** để nguyên chữ đã nhập và cho vào file Word, trên **cả ba màn**.
+
+Một nhãn nay ghi bằng BA cột: ngày thật (lọc/sắp) · EDTF (ngày thiếu thành phần) · chữ nguyên
+văn (in ra Word đúng từng chữ). Thứ tự đọc ở mọi nơi hiển thị:
+
+    chữ NGUYÊN VĂN  →  EDTF  →  ngày thật  →  bản thô hệ cũ
+
+Vụ việc và Vụ án nhận THÊM cả cột EDTF: trước đó hai màn ấy chỉ có cột ngày trơn nên
+`../../2026` mất hẳn khi nhập — hỏng nặng hơn Đơn thư chứ không nhẹ hơn, chỉ là chưa ai báo.
+
+Ô nhập KHÔNG chặn nữa, nhưng NÓI RA hệ hiểu gì ("Hiểu là ?/?/2026 … Toàn bộ chữ vẫn được in
+nguyên văn"). Đọc thầm rồi giữ một phần là lớp mất-im-lặng đã phải vá hai lần ở chính ô này.
+
+Cổng `cotDanhSachPhaiTroDungCotForm` được NỚI ĐÚNG CHỖ chứ không nới lỏng: thêm
+`BO_COT_CUNG_NHAN` cho nhãn ghi bằng nhiều cột, và thêm một ca kiểm CHẶT HƠN đòi danh sách
+phải đọc cột nguyên văn TRƯỚC — đọc EDTF hay ngày thật trước là quay lại đúng con bug.
+
+Chưa làm: ô tìm kiếm "Ngày viết đơn" vẫn là thẻ kiểu ngày, gõ chữ vào đó trả 400.
+
 ### Cột Thao tác: bề rộng KHÔNG cho người dùng đặt (21/09/2026)
 
 Cán bộ báo mất nút "In chứng từ" ở danh sách Đơn thư. Đo trên prod bằng chính tài khoản ấy:

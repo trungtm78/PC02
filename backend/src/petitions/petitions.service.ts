@@ -171,6 +171,9 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   petitionDate: true,
   // ~4.4k đơn chỉ có ngày THIẾU thành phần: `petitionDate` rỗng, chữ nằm ở cột này.
   ngayVietDonEdtf: true,
+  // Thiếu cột này thì cột "Ngày viết đơn" ở danh sách và tệp Excel rỗng đúng với hồ sơ
+  // gộp nhiều đơn — lỗi đã xảy ra ba lần với cột EDTF, không lặp lại lần thứ tư.
+  ngayVietDonChu: true,
   ngayGiaoDonViGiaiQuyet: true,
   ngayPhieuChuyen: true,
   senderIdIssueDate: true,

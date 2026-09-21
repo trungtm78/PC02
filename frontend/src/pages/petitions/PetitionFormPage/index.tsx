@@ -56,7 +56,7 @@ import { computeFormErrors } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
-import { sangNgayDayDu, tuEdtf } from "@/shared/ngay-thieu/edtf";
+
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
@@ -307,6 +307,7 @@ export function PetitionFormPage() {
           ngayVietDonEdtf:
             (d.ngayVietDonEdtf as string) ||
             (d.petitionDate ? toDateInput(d.petitionDate as string) : ""),
+          ngayVietDonChu: (d.ngayVietDonChu as string) ?? "",
           ngayDeXuat: toDateInput(d.ngayDeXuat as string | null | undefined),
           phanLoaiNguonTin: (d.phanLoaiNguonTin as string) ?? "",
           dieuTraVien: (d.dieuTraVien as string) ?? "",
@@ -561,14 +562,29 @@ export function PetitionFormPage() {
     petitionDate: (label) => (
       <PartialDateInput
         label={label}
+        /*
+          CHỮ TỰ DO (21/09/2026). Ô này từng chặn mọi chữ không đọc ra một ngày, nên cán bộ gõ
+          `../../2026, 31/01/2026 (đơn không có chữ ký người đứng đơn)` là bị mắng "Năm phải đủ
+          4 chữ số" — trong khi năm đã đủ bốn chữ số.
+
+          Đo prod: 4.454/46.129 hồ sơ mang giá trị không đọc ra được một ngày, vì đây là hồ sơ
+          GỘP nhiều đơn. Hệ đọc được thứ nó không cho phép tạo ra.
+
+          Nay giữ nguyên văn để in đúng ra Word, và vẫn suy ra ngày khi đọc được để hồ sơ còn
+          lọc/sắp được. `onDoc` trả cả ba nên form không phải tự đoán lại lần nữa.
+        */
+        chuTuDo
         value={formData.ngayVietDonEdtf || null}
-        onChange={(edtf) =>
+        valueChu={formData.ngayVietDonChu || null}
+        onDoc={(ra) =>
           setFormData((prev) => ({
             ...prev,
-            ngayVietDonEdtf: edtf ?? "",
-            petitionDate: sangNgayDayDu(tuEdtf(edtf)) ?? "",
+            ngayVietDonEdtf: ra.edtf ?? "",
+            petitionDate: ra.ngayThat ?? "",
+            ngayVietDonChu: ra.chu ?? "",
           }))
         }
+        onChange={() => {}}
         testId="field-petitionDate"
       />
     ),

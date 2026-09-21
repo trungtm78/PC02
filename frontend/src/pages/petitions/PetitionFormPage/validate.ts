@@ -47,6 +47,15 @@ export function computeFormErrors(
   if (!fd.detailContent.trim()) items.push({ msg: "Nội dung là bắt buộc", testid: "field-detailContent" });
   // Ngày viết đơn ráp lại phải CÓ THẬT. Chữ đỏ dưới ô mà vẫn Lưu được thì máy chủ trả 400,
   // và thông báo ấy khó hiểu hơn hẳn lỗi tại chỗ.
+  /*
+    Phép kiểm này GIỮ NGUYÊN sau đợt chữ tự do 21/09/2026, và đó là chủ ý.
+
+    Đã thử nới ("có chữ nguyên văn thì thôi kiểm") rồi bỏ đi: gieo lỗi cho thấy nhánh nới KHÔNG
+    BAO GIỜ chạy. Bộ đọc mới chỉ trả EDTF hợp lệ hoặc rỗng, mà `loiEdtf('')` là null — nên chữ
+    tự do vốn đã qua được. Nhánh nới chỉ là mã chết đọc lên tưởng có canh gì đó.
+
+    Phép kiểm vẫn cần cho hồ sơ mang EDTF hỏng từ đường khác (bộ nạp hệ cũ, API gọi thẳng).
+  */
   const loiNgayDon = loiEdtf(fd.ngayVietDonEdtf);
   if (loiNgayDon) items.push({ msg: `Ngày viết đơn: ${loiNgayDon}`, testid: "field-petitionDate" });
   return { msgs: items.map((i) => i.msg), fields: items.map((i) => i.testid) };

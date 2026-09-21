@@ -1,3 +1,5 @@
+import { stripHtmlTags } from '../../common/utils/sanitize.util';
+import { Transform } from 'class-transformer';
 import {
   IsObject,
   IsString,
@@ -8,6 +10,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
@@ -258,6 +261,18 @@ export class CreateIncidentDto {
   @IsOptional() @IsNgayThat() ngayTiepNhanNguonTin?: string;
   @IsOptional() @IsString() loaiThongTin?: string;
   @IsOptional() @IsNgayThat() ngayVietDon?: string;
+  /** Ngày viết đơn thiếu thành phần (EDTF) — cùng quy ước Đơn thư, thêm 21/09/2026. */
+  @IsOptional() @IsEdtfNgayThat() ngayVietDonEdtf?: string;
+  /**
+   * Ngày viết đơn GHI NGUYÊN VĂN như trên giấy. KHÔNG kiểm hình dạng, có chủ ý: đặt luật nào
+   * ở đây là chặn lại đúng thứ cột này sinh ra để chứa (hồ sơ gộp nhiều đơn, "Không ghi ngày").
+   */
+  // Lọc HTML như Đơn thư: một cột, một luật làm sạch. Giá trị chảy vào CÙNG hàm in.
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  ngayVietDonChu?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
   @IsOptional() @IsNgayThat() ngayGiaoDonViGiaiQuyet?: string;

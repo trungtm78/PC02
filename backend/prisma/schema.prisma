@@ -729,6 +729,12 @@ model Case {
   ngayPhieuChuyen        DateTime? // old: ngay_phieu_chuyen
   doVatTaiLieuKemTheo    String? // old: do_vat_tai_lieu_kem_theo
   ngayVietDon            DateTime? // old: ngay_viet_don
+  /// Ngày viết đơn khi giấy chỉ ghi THIẾU thành phần, theo EDTF Level 1 — cùng quy ước Đơn thư
+  /// (`2026-12-15` · `2026-12-XX` · `2026-XX-XX`). Thêm 21/09/2026: trước đó màn này chỉ có cột
+  /// ngày trơn nên ngày thiếu thành phần MẤT HẲN khi nhập.
+  ngayVietDonEdtf        String?   @map("ngay_viet_don_edtf") @db.VarChar(10)
+  /// Ngày viết đơn GHI NGUYÊN VĂN như trên giấy — xem chú thích cùng tên ở model Petition.
+  ngayVietDonChu         String?   @map("ngay_viet_don_chu")
   ghiChuTrungDon         String? // old: ghi_chu_trung_don
   baoCaoBanGiamDoc       Boolean? // old: truong_hop_bao_cao_ban_giam_doc
   ngayGiaoDonViGiaiQuyet DateTime? // old: ngay_giao_don_vi_giai_quyet
@@ -1173,6 +1179,12 @@ model Petition {
   /// nhập thiếu thì `petitionDate` để TRỐNG — không bao giờ bịa ngày 01.
   /// Chuỗi EDTF sắp xếp đúng thứ tự thời gian bằng so chuỗi, và lọc tháng chạy bằng LIKE.
   ngayVietDonEdtf  String?   @map("ngay_viet_don_edtf") @db.VarChar(10)
+  /// Ngày viết đơn GHI NGUYÊN VĂN như trên giấy — giữ đúng chữ cán bộ gõ, in đúng chữ ấy ra Word.
+  /// Đo prod 21/09/2026: 4.454/46.129 hồ sơ có giá trị KHÔNG đọc ra được một ngày, vì đây là hồ
+  /// sơ GỘP nhiều đơn: "19/4/2021 (03 đơn), 20/4/2021 (9 đơn), 21/4/2021, …" hoặc "Không ghi ngày".
+  /// Trước 21/09 dạng ấy chỉ tồn tại được qua di trú (cất trong `legacyRaw`), form KHÔNG nhập nổi.
+  /// Trống khi chữ gõ đúng là một ngày — khi ấy hai cột trên đã dựng lại được y nguyên.
+  ngayVietDonChu   String?   @map("ngay_viet_don_chu")
   nguonDon         String? // Nguồn đơn (Trại tạm giam X, công an phường Y...) — khác senderAddress
   subTeamAssigned  String? // "Tổ công tác Số X" (free text, có thể FK hóa sau)
   lyDoChuyen       String? // Lý do chuyển — Phiếu chuyển (#2, #3)
@@ -1414,6 +1426,12 @@ model Incident {
   ngayTiepNhanNguonTin   DateTime? // old: ngay_tiep_nhan_nguon_tin
   loaiThongTin           String? // old: loai_thong_tin
   ngayVietDon            DateTime? // old: ngay_viet_don
+  /// Ngày viết đơn khi giấy chỉ ghi THIẾU thành phần, theo EDTF Level 1 — cùng quy ước Đơn thư
+  /// (`2026-12-15` · `2026-12-XX` · `2026-XX-XX`). Thêm 21/09/2026: trước đó màn này chỉ có cột
+  /// ngày trơn nên ngày thiếu thành phần MẤT HẲN khi nhập.
+  ngayVietDonEdtf        String?   @map("ngay_viet_don_edtf") @db.VarChar(10)
+  /// Ngày viết đơn GHI NGUYÊN VĂN như trên giấy — xem chú thích cùng tên ở model Petition.
+  ngayVietDonChu         String?   @map("ngay_viet_don_chu")
   ghiChuTrungDon         String? // old: ghi_chu_trung_don
   baoCaoBanGiamDoc       Boolean? // old: truong_hop_bao_cao_ban_giam_doc
   ngayGiaoDonViGiaiQuyet DateTime? // old: ngay_giao_don_vi_giai_quyet

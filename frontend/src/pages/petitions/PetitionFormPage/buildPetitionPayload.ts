@@ -150,6 +150,7 @@ export function buildPetitionPayload(
     // Ô rỗng phải gửi `null`, không phải bỏ khoá: bỏ khoá thì máy chủ giữ giá trị cũ và cán
     // bộ không xoá được ngày đã nhập nhầm (đường `oHeCu` lo việc này).
     ngayVietDonEdtf: oHeCu(formData.ngayVietDonEdtf),
+    ngayVietDonChu: oHeCu(formData.ngayVietDonChu),
     ngayDeXuat: oHeCu(formData.ngayDeXuat),
     phanLoaiNguonTin: oHeCu(formData.phanLoaiNguonTin),
     dieuTraVien: oHeCu(formData.dieuTraVien),

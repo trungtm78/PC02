@@ -12,6 +12,7 @@
  * KHÔNG thay thế production IncidentListPage directly — swap qua feature flag
  * trong PR3 sau khi soak. PR2 ships shell-consumers alongside legacy pages.
  */
+import { hienThiEdtf } from "@/shared/ngay-thieu/edtf";
 import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
@@ -165,6 +166,8 @@ interface IncidentRow {
   ngayQDPhanCongNguonTin?: string | null;
   ngayGiaoDonViGiaiQuyet?: string | null;
   ngayVietDon?: string | null;
+  ngayVietDonEdtf?: string | null;
+  ngayVietDonChu?: string | null;
   ngayPhieuChuyen?: string | null;
   ngayCapCccd?: string | null;
 }
@@ -718,7 +721,21 @@ export function IncidentListPageShell() {
         timKiem: 'ngayVietDon',
         width: '7rem',
         optional: 'hide',
-        render: (r) => <DateCell value={r.ngayVietDon} />,
+        /*
+          Ba nguồn, đúng thứ tự hàm hiển thị dùng chung: chữ NGUYÊN VĂN → EDTF → ngày thật.
+          Từ 21/09/2026 màn này nhập được cả hai dạng kia; đọc thẳng cột ngày là hồ sơ chỉ có
+          chữ hoặc chỉ có ngày thiếu sẽ hiện trống mà không ai biết.
+        */
+        render: (r) =>
+          r.ngayVietDonChu?.trim() ? (
+            <span className="text-slate-500">{r.ngayVietDonChu}</span>
+          ) : r.ngayVietDon ? (
+            <DateCell value={r.ngayVietDon} />
+          ) : (
+            <span className="text-slate-500">
+              {hienThiEdtf(r.ngayVietDonEdtf) || '—'}
+            </span>
+          ),
       },
       {
         key: 'ngayPhieuChuyen',

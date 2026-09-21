@@ -72,6 +72,10 @@ export interface IncidentFormData {
   crimeChinhId: string;
   doVatTaiLieuKemTheo: string;
   ngayVietDon: string;
+  /** Ngày viết đơn thiếu thành phần (EDTF) — thêm 21/09/2026, cùng quy ước Đơn thư. */
+  ngayVietDonEdtf: string;
+  /** Ngày viết đơn GHI NGUYÊN VĂN như trên giấy — trống khi chữ ấy đúng là một ngày. */
+  ngayVietDonChu: string;
   nhanXet: string;
   ghiChuTrungDon: string;
   baoCaoBanGiamDocText: string;
@@ -141,7 +145,7 @@ export const INITIAL_INCIDENT_FORM: IncidentFormData = {
   toiDanhBanDau: "",
   crimeChinhId: "",
   doVatTaiLieuKemTheo: "",
-  ngayVietDon: "",
+  ngayVietDon: "", ngayVietDonEdtf: "", ngayVietDonChu: "",
   nhanXet: "",
   ghiChuTrungDon: "",
   baoCaoBanGiamDocText: "",

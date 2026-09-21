@@ -143,6 +143,10 @@ const CHON_DONG_DANH_SACH_VU_VIEC = {
   ngayQDPhanCongNguonTin: true,
   ngayGiaoDonViGiaiQuyet: true,
   ngayVietDon: true,
+  // Thiếu hai cột này thì hồ sơ chỉ có ngày THIẾU thành phần hoặc chỉ có chữ nguyên văn
+  // sẽ hiện trống ở cột "Ngày viết đơn" — mất im lặng ngay trên màn danh sách.
+  ngayVietDonEdtf: true,
+  ngayVietDonChu: true,
   ngayPhieuChuyen: true,
   ngayCapCccd: true,
 } satisfies Prisma.IncidentSelect;
@@ -640,6 +644,9 @@ export class IncidentsService {
           ngayTiepNhanNguonTin: dto.ngayTiepNhanNguonTin ? new Date(dto.ngayTiepNhanNguonTin) : undefined,
           loaiThongTin: dto.loaiThongTin,
           ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : undefined,
+          // Hai cột chữ đi CÙNG cột ngày — xem chú thích ở nhánh update.
+          ngayVietDonEdtf: dto.ngayVietDonEdtf || undefined,
+          ngayVietDonChu: dto.ngayVietDonChu?.trim() || undefined,
           ghiChuTrungDon: dto.ghiChuTrungDon,
           baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc,
           ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : undefined,
@@ -764,6 +771,20 @@ export class IncidentsService {
         const val = (dto as Record<string, unknown>)[f] as string | null;
         updateData[f] = val ? new Date(val) : null;
       }
+    }
+
+    /*
+      Ngày viết đơn kiểu CHỮ — hai cột này KHÔNG đi qua `dateFields` được (chúng là chuỗi, và
+      vòng lặp ấy gọi `new Date`). Bỏ sót chúng là lỗi lượt soát bắt 21/09/2026: ô nhập ghi
+      `ngayVietDon = ""` khi chữ không đọc ra ngày, nên cán bộ mở hồ sơ CÓ ngày, gõ "Không ghi
+      ngày" rồi Lưu là ngày cũ bị xoá NULL còn chữ thay thế không được ghi. DTO đã khai hai cột
+      nên `forbidNonWhitelisted` cho qua — không 400, không log, chỉ mất.
+    */
+    if (dto.ngayVietDonEdtf !== undefined) {
+      updateData.ngayVietDonEdtf = dto.ngayVietDonEdtf || null;
+    }
+    if (dto.ngayVietDonChu !== undefined) {
+      updateData.ngayVietDonChu = dto.ngayVietDonChu?.trim() || null;
     }
 
     // Alias: form gửi `lyDoTamDinhChi` → cột `lyDoTamDinhChiText` (mirror create ~422).

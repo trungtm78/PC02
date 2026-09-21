@@ -19,6 +19,14 @@ interface HoSoCoNgay {
    * tồn tại ở đây.
    */
   legacyRaw?: Record<string, unknown> | null;
+  /**
+   * Ngày viết đơn GHI NGUYÊN VĂN như trên giấy — thứ cán bộ thật sự gõ.
+   *
+   * Đo prod 21/09/2026: 4.454/46.129 hồ sơ có giá trị không đọc ra được một ngày, vì đây là hồ
+   * sơ GỘP nhiều đơn ("19/4/2021 (03 đơn), 20/4/2021 (9 đơn), …") hoặc ghi chú ("Không ghi
+   * ngày"). Trước hôm nay dạng ấy chỉ tồn tại được qua di trú; form không nhập nổi.
+   */
+  ngayVietDonChu?: string | null;
 }
 
 function hai(n: number): string {
@@ -31,6 +39,21 @@ function hai(n: number): string {
  * KHÔNG BAO GIỜ bịa ngày: thiếu phần nào thì phần ấy là `__`.
  */
 export function ngayVietDonHienThi(r: HoSoCoNgay): string {
+  /*
+    CHỮ NGUYÊN VĂN thắng trước tiên — anh chốt 21/09/2026: "để nguyên text đã nhập và cho vào
+    file word".
+
+    Nó đứng trên CẢ hai cột suy ra, khác với bản thô hệ cũ (đứng cuối). Lý do khác nhau: bản
+    thô là thứ CHƯA ai sửa, còn cột này là thứ cán bộ VỪA gõ. Hai cột kia chỉ là bản hệ đọc
+    hiểu được từ chính chữ ấy, nên dựng lại chúng để in là sửa lời cán bộ — `tháng 5/2026`
+    thành `__/05/2026`.
+
+    Rỗng hoặc chỉ khoảng trắng thì KHÔNG thắng: một ô bị xoá trắng không được che mất ngày thật
+    vẫn còn trong cột.
+  */
+  const chu = r.ngayVietDonChu?.trim();
+  if (chu) return chu;
+
   const edtf = r.ngayVietDonEdtf?.trim();
   if (edtf) {
     const m = /^(\d{4})-(\d{2}|XX)-(\d{2}|XX)$/.exec(edtf);

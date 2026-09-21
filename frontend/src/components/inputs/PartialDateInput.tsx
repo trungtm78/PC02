@@ -6,6 +6,10 @@ import {
   sangEdtf,
   tuChuNhapTay,
 } from "@/shared/ngay-thieu/edtf";
+import {
+  docNgayVietDon,
+  type NgayVietDonDaDoc,
+} from "@/shared/ngay-thieu/ngay-viet-don";
 
 /**
  * Ô ngày cho phép THIẾU thành phần — `__/12/2026`, `__/__/2026`.
@@ -37,6 +41,22 @@ interface Props {
   required?: boolean;
   error?: string;
   testId?: string;
+  /**
+   * Cho gõ CHỮ TỰ DO — ô thôi chặn, giữ nguyên văn, và nói ra hệ hiểu được gì.
+   *
+   * Bật cho ô "Ngày viết đơn": đo prod 21/09/2026 có 4.454/46.129 hồ sơ mang giá trị không đọc
+   * ra được một ngày, vì đây là hồ sơ GỘP nhiều đơn ("19/4/2021 (03 đơn), 20/4/2021 (9 đơn),
+   * …") hoặc ghi chú ("Không ghi ngày"). Cán bộ gõ đúng dạng ấy thì bị mắng "Năm phải đủ 4 chữ
+   * số" trong khi năm đã đủ bốn chữ số.
+   *
+   * TẮT là mặc định: mọi ô ngày khác vẫn chặn như cũ. Mở rộng ô sẵn có chứ không dựng ô thứ
+   * hai — hai ô ngày song song cho cùng một việc là lỗi đã phải gỡ ở PR #233.
+   */
+  chuTuDo?: boolean;
+  /** Chế độ `chuTuDo`: chữ nguyên văn đã lưu, để mở hồ sơ cũ ra thấy ĐÚNG chữ ấy. */
+  valueChu?: string | null;
+  /** Chế độ `chuTuDo`: kết quả đọc đầy đủ (ngày thật + EDTF + nguyên văn + câu giải thích). */
+  onDoc?: (ra: NgayVietDonDaDoc) => void;
 }
 
 export function PartialDateInput({
@@ -46,6 +66,9 @@ export function PartialDateInput({
   required,
   error,
   testId,
+  chuTuDo,
+  valueChu,
+  onDoc,
 }: Props) {
   /**
    * Giữ CHỮ THÔ, không suy lại từ `value` mỗi lần dựng.
@@ -53,7 +76,9 @@ export function PartialDateInput({
    * EDTF không biểu diễn được trạng thái gõ dở — `15/12/20` chưa ra chuỗi nào cả. Ô mà đọc
    * thẳng từ `value` thì cán bộ gõ tới đâu chữ biến mất tới đó.
    */
-  const [chu, setChu] = useState(() => hienThiEdtf(value));
+  const [chu, setChu] = useState(() =>
+    chuTuDo && valueChu ? valueChu : hienThiEdtf(value),
+  );
 
   /**
    * Chỉ mắng SAU KHI rời ô — và mỗi lần gõ tiếp lại thôi mắng cho tới lần rời ô kế.
@@ -81,20 +106,40 @@ export function PartialDateInput({
   const [valueTruoc, setValueTruoc] = useState(value);
   if (value !== valueTruoc) {
     setValueTruoc(value);
-    if (sangEdtf(tuChuNhapTay(chu)) !== (value ?? null)) {
+    if (chuTuDo) {
+      // Chế độ chữ tự do: bản nguyên văn mới là nguồn, EDTF chỉ là thứ suy ra từ nó.
+      const moi = valueChu || hienThiEdtf(value);
+      if (moi !== chu) {
+        setChu(moi);
+        setDaRoiO(false);
+      }
+    } else if (sangEdtf(tuChuNhapTay(chu)) !== (value ?? null)) {
       setChu(hienThiEdtf(value));
       setDaRoiO(false);
     }
   }
 
-  const loiTaiCho = loiNgayTungPhan(tuChuNhapTay(chu));
+  /*
+    Chế độ chữ tự do KHÔNG mắng: chữ không đọc ra ngày vẫn là dữ liệu hợp lệ, và chặn nó chính
+    là con lỗi phải vá. Thay vào đó `hieuLa` nói ra hệ hiểu được gì — đọc thầm rồi giữ một phần
+    là lớp mất-im-lặng đã phải vá HAI lần ở chính ô này.
+  */
+  const daDoc = chuTuDo ? docNgayVietDon(chu) : null;
+  const loiTaiCho = chuTuDo ? null : loiNgayTungPhan(tuChuNhapTay(chu));
   const loiHien = error ?? (daRoiO ? (loiTaiCho ?? undefined) : undefined);
+  const hieuLa = daDoc?.hieuLa || '';
 
   const doi = (moi: string) => {
     setChu(moi);
     setDaRoiO(false);
     // Đẩy lên NGAY mỗi lần gõ, không chờ rời ô: bấm Lưu bằng phím tắt không đi qua `blur`, và
     // chờ tới đó thì ký tự cuối cùng không kịp vào form.
+    if (chuTuDo) {
+      const ra = docNgayVietDon(moi);
+      onDoc?.(ra);
+      onChange(ra.edtf);
+      return;
+    }
     onChange(sangEdtf(tuChuNhapTay(moi)));
   };
 
@@ -136,6 +181,21 @@ export function PartialDateInput({
           data-testid={testId ? `${testId}-loi` : undefined}
         >
           {loiHien}
+        </p>
+      )}
+      {/*
+        Câu "hệ hiểu được gì" — KHÔNG phải lỗi, nên không `role="alert"`, không màu đỏ.
+
+        Nó tồn tại vì chế độ chữ tự do giữ nguyên văn NHƯNG vẫn cố đọc ra một ngày để hồ sơ còn
+        lọc được. Đọc thầm là đúng lớp mất-im-lặng đã phải vá hai lần ở chính ô này, nên phần
+        hệ hiểu được phải hiện ra cho cán bộ đối chiếu.
+      */}
+      {!loiHien && hieuLa && (
+        <p
+          className="mt-1 text-xs text-slate-500"
+          data-testid={testId ? `${testId}-hieu-la` : undefined}
+        >
+          {hieuLa}
         </p>
       )}
     </div>
