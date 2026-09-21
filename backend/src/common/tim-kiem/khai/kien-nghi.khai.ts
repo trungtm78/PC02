@@ -28,7 +28,8 @@ export const KHAI_TIM_KIEM_KIEN_NGHI: KhaiThucThe = {
       cotNguonDich: ['name'],
     },
     { key: 'noiDung', nhan: 'Nội dung kiến nghị', kieu: 'chu', cot: 'content' },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Ngày nhập kiến nghị là mốc nghiệp vụ dùng thật trên màn. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: true },
     { key: 'donViVks', nhan: 'Đơn vị VKS', kieu: 'chu', cot: 'unit' },
     {
       key: 'trangThai',

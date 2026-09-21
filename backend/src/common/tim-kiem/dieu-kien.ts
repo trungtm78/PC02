@@ -273,6 +273,58 @@ function dieuKienNguoi(truong: TruongTimKiem, v: string): DieuKien {
   };
 }
 
+/**
+ * Mã của mọi giá trị mà NHÃN chứa chữ gõ (bỏ dấu, chuỗi con) — cùng luật khớp với cột chữ.
+ *
+ * Trả mảng RỖNG khi không nhãn nào khớp, và nơi gọi bỏ luôn nhánh: sinh `{ status: { in: [] } }`
+ * là một mệnh đề không bao giờ đúng, nó sẽ ăn mất nhánh chữ nếu ai đó AND nhầm về sau.
+ */
+function maKhopNhan(truong: TruongTimKiem, giaTri: string): string[] {
+  const mau = boDauTimKiem(giaTri);
+  if (!mau || !truong.nhanGiaTri) return [];
+  return Object.entries(truong.nhanGiaTri)
+    .filter(([, nhan]) => boDauTimKiem(nhan).includes(mau))
+    .map(([ma]) => ma);
+}
+
+/**
+ * Các nhánh KHÔNG đi qua cột ghép mà dòng "tất cả các cột" vẫn phải phủ: ngày và nhãn trạng thái.
+ *
+ * GIÁ PHẢI TRẢ, đo chứ không đoán (bản sao 47.271 đơn thư thật, `LIMIT 50`):
+ *
+ *   chữ KHÔNG phải ngày  — điều kiện y hệt trước đây: Bitmap Index Scan trên GIN trigram, ~1,5 ms
+ *   chữ ĐỌC RA ngày      — Seq Scan cả bảng: 20–230 ms (đo 5 ngày thật)
+ *
+ * Tức phần đông lượt tìm không đổi gì; chỉ chuỗi hình dạng ngày mới trả giá, và vẫn dưới ngưỡng
+ * 300 ms ghi ở `bo-tim-kiem.ts`.
+ *
+ * ĐÃ THỬ RỒI BỎ: 19 chỉ mục btree cho mọi cột ngày trong nhánh này. Đo lại 5 ngày ấy thì CÓ và
+ * KHÔNG có chỉ mục nằm cùng một dải (41–192 ms so với 19–230 ms) — bộ lập kế hoạch không hề chọn
+ * `BitmapOr`, vì `LIMIT 50` làm Seq Scan có chi phí khởi động bằng 0 trông rẻ hơn dựng bitmap.
+ * Ship 19 chỉ mục mà bộ lập kế hoạch bỏ qua là trả phí ghi để mua số không. Ngày nào ngưỡng thành
+ * vấn đề thì phải đổi HÌNH DẠNG câu hỏi, không phải thêm chỉ mục.
+ *
+ * Gọi lại ĐÚNG `dieuKienNgay` mà thẻ ngày riêng dùng. Dựng điều kiện ngày lần thứ hai ở đây là
+ * cách chắc chắn để hai đường trôi khỏi nhau — hệ này đã một lần có OR tìm kiếm chép tay ở bốn
+ * nơi và chúng nói bốn con số khác nhau.
+ */
+function nhanhNgoaiCotGhep(khai: KhaiThucThe, giaTri: string): DieuKien[] {
+  const ra: DieuKien[] = [];
+  for (const t of khai.truong) {
+    // `vaoTatCa: false` — cột ngày sổ sách (vd dấu thời gian di trú dùng chung cho cả kho). Thẻ
+    // RIÊNG của nó vẫn lọc được; chỉ gỡ khỏi `*`.
+    if (t.kieu === 'ngay' && t.cot && t.vaoTatCa !== false)
+      ra.push(...dieuKienNgay(t, t.cot, giaTri));
+    // `giaTriCot` nghĩa là cột KHÔNG phải chuỗi (boolean…). `BoolFilter` của Prisma chỉ có
+    // `equals`/`not` — gửi `{ in: [...] }` là Prisma từ chối tham số và CẢ danh sách 500.
+    else if (t.kieu === 'chon' && t.cot && t.nhanGiaTri && !t.giaTriCot) {
+      const ma = maKhopNhan(t, giaTri);
+      if (ma.length) ra.push({ [t.cot]: { in: ma } });
+    }
+  }
+  return ra;
+}
+
 function luaChonTatCa(
   khai: KhaiThucThe,
   giaTri: string,
@@ -291,6 +343,8 @@ function luaChonTatCa(
     else if (t?.kieu === 'doi-tuong')
       nguoi.push(...dieuKienDoiTuong(t, giaTri));
   }
+  // Ngày + nhãn trạng thái: anh em OR với nhánh chữ, không phụ thuộc cột ghép đã nạp hay chưa.
+  nguoi.push(...nhanhNgoaiCotGhep(khai, giaTri));
   const mau = mauBoDau(giaTri);
   if (mau === undefined) {
     return [

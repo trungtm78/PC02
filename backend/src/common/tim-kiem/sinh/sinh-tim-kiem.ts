@@ -73,6 +73,29 @@ export interface TruongTimKiem {
    * không bao giờ ra. Chỉ đổi điều kiện Prisma, KHÔNG cần sinh lại SQL.
    */
   cotEdtf?: string;
+  /**
+   * Kiểu `chon`: mã → NHÃN tiếng Việt hiện trên màn. Dòng "tất cả các cột" so chữ gõ với nhãn
+   * (bỏ dấu, chuỗi con) rồi lọc bằng MÃ.
+   *
+   * Nhãn KHÔNG đi vào cột ghép (D9): nó sống ở tầng ứng dụng, đổi một nhãn là phải ghi lại hàng
+   * chục nghìn dòng, quên ghi thì cột bóng lệch im lặng. Dựng lúc tạo câu hỏi thì đổi nhãn có
+   * hiệu lực ngay, và phép lọc vẫn là so bằng trên enum — chỉ mục nguyên vẹn.
+   *
+   * Chỉ dùng phía máy chủ; bộ sinh không xuất ra giao diện (giao diện đã có nhãn riêng).
+   */
+  nhanGiaTri?: Readonly<Record<string, string>>;
+  /**
+   * Kiểu `ngay`: trường này có vào nhánh ngày của dòng "tất cả các cột" không.
+   *
+   * Không suy được từ tên cột. `createdAt` của Nhật ký LÀ ngày nghiệp vụ — gõ ngày ra đúng dòng
+   * nhật ký hôm ấy. `createdAt` của Đơn thư thì không: 45.459 hồ sơ di trú mang CÙNG một giá trị
+   * (ngày chạy di trú), nên để nó trong nhánh `*` là gõ đúng tháng ấy trả về cả kho.
+   *
+   * Bỏ trống = vào (giữ hành vi cũ). Cổng `vao-tat-ca.gate.spec.ts` bắt buộc khai rõ với các cột
+   * sổ sách (`createdAt`/`updatedAt`/`deadline`) — quên khai là ĐỎ, không phải âm thầm nhận mặc
+   * định. Thẻ RIÊNG của trường luôn dùng được, `false` chỉ gỡ nó khỏi `*`.
+   */
+  vaoTatCa?: boolean;
 }
 
 /** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */

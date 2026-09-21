@@ -1,5 +1,6 @@
 import { PetitionStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
+import { PETITION_STATUS_LABEL } from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của danh sách Đơn thư — NGUỒN DUY NHẤT cho: cột bóng + trigger + chỉ mục
@@ -68,6 +69,9 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       cot: 'status',
       // Mã trạng thái lạ → 400; để lọt tới Prisma là 500 vì giá trị enum không hợp lệ.
       giaTriHopLe: Object.values(PetitionStatus),
+      // Nhãn tiếng Việt cho dòng "tất cả các cột": gõ "đang xử lý" phải ra đúng nhóm hồ sơ ấy.
+      // Lấy từ hằng số nhãn dùng chung — chép sang đây là hai bản sẽ trôi khỏi nhau.
+      nhanGiaTri: PETITION_STATUS_LABEL,
     },
     {
       key: 'doiTuong',
@@ -77,8 +81,10 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
     },
     // Cột `deadline` RỖNG SẠCH trên dữ liệu thật (đo 21/09/2026: 0/46.741) nên thẻ này hiện
     // khớp 0 hồ sơ. GIỮ vì gỡ khoá thẻ là vỡ đường dẫn đã lưu, và hạn tự tính sẽ điền cột ấy.
-    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline' },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Hạn xử lý là ngày TƯƠNG LAI phải làm xong, không phải ngày của sự việc: gõ một ngày mà ra hồ sơ "đến hạn hôm ấy" là kết quả không ai hỏi. Thẻ riêng vẫn lọc được. */
+    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline', vaoTatCa: false },
+    /* 45.459 hồ sơ di trú mang CÙNG một `createdAt` (ngày chạy di trú) — để trong `*` là gõ đúng tháng ấy trả về cả kho. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
     /*
       Sáu cột ngày ĐẦY DỮ LIỆU mà trước 21/09/2026 không tìm được — đo trên 46.741 đơn thật:
       Ngày tiếp nhận 46.741 · Ngày tiếp nhận nguồn tin 44.367 · Ngày viết đơn 41.820 ·

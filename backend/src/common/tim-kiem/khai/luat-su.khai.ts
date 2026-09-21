@@ -34,6 +34,7 @@ export const KHAI_TIM_KIEM_LUAT_SU: KhaiThucThe = {
       cotNguonDich: ['fullName'],
     },
     { key: 'sdt', nhan: 'SĐT', kieu: 'chu', cot: 'phone' },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Ngày nhập luật sư là mốc nghiệp vụ dùng thật trên màn. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: true },
   ],
 };

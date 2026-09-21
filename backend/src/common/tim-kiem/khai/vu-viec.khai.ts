@@ -1,5 +1,6 @@
 import { IncidentStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
+import { INCIDENT_STATUS_LABEL } from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của danh sách Vụ việc — nguồn duy nhất cho cột bóng + trigger + chỉ mục,
@@ -64,6 +65,9 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       kieu: 'chon',
       cot: 'status',
       giaTriHopLe: Object.values(IncidentStatus),
+      // Nhãn tiếng Việt cho dòng "tất cả các cột": gõ "tạm đình chỉ" phải ra đúng nhóm hồ sơ ấy.
+      // Lấy từ hằng số nhãn dùng chung — chép sang đây là hai bản sẽ trôi khỏi nhau.
+      nhanGiaTri: INCIDENT_STATUS_LABEL,
     },
     {
       key: 'dieuTraVien',
@@ -71,8 +75,10 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       kieu: 'nguoi',
       quanHe: 'investigator',
     },
-    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline' },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Như Đơn thư: hạn xử lý là ngày phải làm xong, không phải ngày của sự việc. */
+    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline', vaoTatCa: false },
+    /* Như Đơn thư: dấu thời gian di trú dùng chung. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
     /*
       Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 4.718 vụ việc thật:
       Ngày tiếp nhận nguồn tin 3.039 · Ngày QĐ phân công 474 · Ngày giao đơn vị 365 ·

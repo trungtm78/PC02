@@ -32,7 +32,8 @@ export const KHAI_TIM_KIEM_DOI_TUONG: KhaiThucThe = {
       cot: 'status',
       giaTriHopLe: Object.values(SubjectStatus),
     },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Ngày nhập đối tượng là mốc nghiệp vụ dùng thật trên màn. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: true },
   ],
   cotThemVaoTatCa: ['address', 'phone'],
 };

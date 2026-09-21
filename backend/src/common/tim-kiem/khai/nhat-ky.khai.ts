@@ -17,7 +17,8 @@ export const KHAI_TIM_KIEM_NHAT_KY: KhaiThucThe = {
   // đều là mã) mà ô tìm cũ hứa "tìm theo người thực hiện". 13k dòng — OR qua users không đáng kể.
   tatCaGomNguoi: true,
   truong: [
-    { key: 'thoiGian', nhan: 'Thời gian', kieu: 'ngay', cot: 'createdAt' },
+    /* Với Nhật ký thì đây LÀ ngày nghiệp vụ — gõ ngày phải ra đúng các dòng nhật ký hôm ấy. */
+    { key: 'thoiGian', nhan: 'Thời gian', kieu: 'ngay', cot: 'createdAt', vaoTatCa: true },
     {
       key: 'nguoiThucHien',
       nhan: 'Người thực hiện',
