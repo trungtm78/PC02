@@ -306,7 +306,24 @@ export function mergeCaseApiToFormData(
     doVatTaiLieuKemTheo:      cs('doVatTaiLieuKemTheo')      ?? meta.doVatTaiLieuKemTheo ?? prev.doVatTaiLieuKemTheo,
     ngayVietDon:              cd('ngayVietDon')              ?? prev.ngayVietDon,
     ngayVietDonEdtf:          cs('ngayVietDonEdtf')          ?? prev.ngayVietDonEdtf,
-    ngayVietDonChu:           cs('ngayVietDonChu')           ?? prev.ngayVietDonChu,
+    /*
+      Hồ sơ DI TRÚ: bản gốc nằm ở `legacyRaw.ngay_viet_don`, ba cột đều rỗng.
+      
+      Đo prod 21/09/2026: 4.454 đơn thư + 7 vụ việc + 15 vụ án rơi vào trạng thái ấy. Hàm hiển thị
+      phía máy chủ vẫn IN ra chữ gốc (đường lùi cuối), nhưng form mở ra thì ô TRỐNG — cán bộ không
+      nhìn thấy thứ hệ sắp in, nên không sửa được nó và cũng không biết nó tồn tại.
+      
+      Nạp vào ô: thấy được thì sửa được. Chữ chỉ được dùng khi ba cột kia đều rỗng, nên hồ sơ cán bộ
+      đã sửa trên hệ mới không bị bản gốc chưa sửa đè lên.
+    */
+    ngayVietDonChu:
+      cs('ngayVietDonChu') ??
+      (!cs('ngayVietDon') && !cs('ngayVietDonEdtf')
+        ? ((col.legacyRaw ?? {}) as Record<string, unknown>)['ngay_viet_don'] as
+            | string
+            | undefined
+        : undefined) ??
+      prev.ngayVietDonChu,
     ghiChuTrungDon:           cs('ghiChuTrungDon')           ?? meta.ghiChuTrungDon ?? prev.ghiChuTrungDon,
     // Cột `baoCaoBanGiamDoc` chỉ là CÓ/KHÔNG; nội dung chỉ đạo nằm ở cột chữ cạnh bên.
     baoCaoBanGiamDoc:         cs('baoCaoBanGiamDocText')     ?? meta.baoCaoBanGiamDoc ?? prev.baoCaoBanGiamDoc,
