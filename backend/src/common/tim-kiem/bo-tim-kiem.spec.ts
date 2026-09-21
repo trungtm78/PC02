@@ -194,3 +194,51 @@ describe('BoTimKiem.kyApDung', () => {
     expect(bo.kyApDung(ky, ['*~31/02/2026'])).toBe(ky);
   });
 });
+
+/*
+  Tiền giải tên cán bộ — ĐƯỜNG CHẠY THẬT.
+
+  `dieu-kien.spec.ts` kiểm hàm dựng điều kiện khi ĐÃ có id. Ở đây kiểm khâu đi lấy id: thiếu nó
+  thì mọi ca kiểm kia xanh mà người dùng vẫn gõ tên đồng nghiệp ra 0 hồ sơ.
+*/
+describe('BoTimKiem — tiền giải tên cán bộ cho thẻ "*"', () => {
+  /** Máy giả phân luồng theo câu SQL: câu hỏi "còn dòng chưa nạp" và câu hỏi `users` khác nhau. */
+  const may = (nguoi: () => Promise<unknown>) => ({
+    $queryRawUnsafe: jest.fn<Promise<unknown>, [string]>((sql) =>
+      sql.includes('"users"') ? nguoi() : Promise.resolve([{ co: false }]),
+    ),
+  });
+
+  it('hỏi users rồi lọc bằng khoá ngoại', async () => {
+    const p = may(() => Promise.resolve([{ id: 'u1' }, { id: 'u2' }]));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    expect(JSON.stringify(ra)).toContain('"investigatorId":{"in":["u1","u2"]}');
+    const sql = p.$queryRawUnsafe.mock.calls.map((c) => c[0]).join(' ');
+    expect(sql).toContain('"users"');
+    // Lấy dư MỘT dòng để BIẾT là quá ngưỡng, chứ không âm thầm cắt đúng ngưỡng.
+    expect(sql).toContain('LIMIT 201');
+  });
+
+  it('quá ngưỡng → rơi về nhánh quan hệ, KHÔNG cắt bớt id', async () => {
+    const nhieu = Array.from({ length: 201 }, (_, i) => ({ id: `u${i}` }));
+    const p = may(() => Promise.resolve(nhieu));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    const j = JSON.stringify(ra);
+    expect(j).toContain('hoTenBd');
+    expect(j).not.toContain('investigatorId');
+  });
+
+  it('hỏi lỗi → rơi về nhánh quan hệ, nhánh người KHÔNG biến mất', async () => {
+    const p = may(() => Promise.reject(new Error('mất kết nối')));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    expect(JSON.stringify(ra)).toContain('hoTenBd');
+  });
+
+  it('không có thẻ "*" → KHÔNG hỏi users (đừng tốn một lượt hỏi vô ích)', async () => {
+    const p = may(() => Promise.resolve([]));
+    await new BoTimKiem(p, KHAI).dieuKien({ tk: ['nguoiGui~An'] });
+    expect(
+      p.$queryRawUnsafe.mock.calls.filter((c) => c[0].includes('"users"')),
+    ).toEqual([]);
+  });
+});

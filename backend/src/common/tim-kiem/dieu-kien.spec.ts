@@ -152,7 +152,12 @@ describe('docKhoangNgay — khoảng theo giờ Việt Nam (+07:00)', () => {
 });
 
 describe('dungDieuKienTimKiem', () => {
-  const dk = (tk: string[]) => dungDieuKienTimKiem(docThe(tk, KHAI), KHAI);
+  const dk = (tk: string[]) =>
+    dungDieuKienTimKiem(docThe(tk, KHAI), KHAI, {
+      // Tiền giải trả RỖNG: không cán bộ nào mang tên này, nên nhánh người biến mất và ca kiểm
+      // giữ nguyên tiêu điểm là nhánh CHỮ. Không truyền thì nhánh người rơi về quan hệ.
+      idNguoi: new Map(tk.map((t) => [t.slice(t.indexOf('~') + 1), []])),
+    });
 
   it('chữ ≥3 ký tự: contains bỏ dấu trên cột bóng; cột bóng rỗng thì lùi về cột gốc', () => {
     expect(dk(['nguoiGui~Nguyễn Văn'])).toEqual([
@@ -324,7 +329,12 @@ describe('dungDieuKienTimKiem', () => {
    */
   describe('luiCotGoc: false — cột bóng đã nạp xong', () => {
     const dkNap = (tk: string[]) =>
-      dungDieuKienTimKiem(docThe(tk, KHAI), KHAI, { luiCotGoc: false });
+      dungDieuKienTimKiem(docThe(tk, KHAI), KHAI, {
+        luiCotGoc: false,
+        // Tiền giải trả RỖNG: không cán bộ nào mang tên này, nên nhánh người biến mất và ca
+        // kiểm giữ nguyên tiêu điểm là nhánh CHỮ. Không truyền thì nhánh người rơi về quan hệ.
+        idNguoi: new Map(tk.map((t) => [t.slice(t.indexOf('~') + 1), []])),
+      });
 
     it('chữ: chỉ cột bóng', () => {
       expect(dkNap(['nguoiGui~Nguyễn Văn'])).toEqual([
@@ -721,5 +731,61 @@ describe('nhánh "*" — hàng rào', () => {
         }),
       ),
     ).toContain('createdAt');
+  });
+});
+
+/*
+  PR4 — dòng "tất cả các cột" tìm CẢ tên người nhập.
+
+  Cán bộ gõ tên một đồng nghiệp vào dòng đầu và mong ra những hồ sơ người ấy nhập. Nay không ra:
+  tên người nằm ở bảng `users`, không nằm trong cột ghép của bảng hồ sơ.
+
+  Cách làm: TIỀN GIẢI — hỏi `users` trước (bảng nhỏ, có cột bóng `ho_ten_bd` + GIN) rồi lọc bằng
+  khoá ngoại. KHÔNG bật `tatCaGomNguoi`: nhánh OR qua quan hệ làm bộ lập kế hoạch bỏ chỉ mục GIN
+  của cột ghép, với bảng 47k dòng là quét cả bảng.
+*/
+describe('thẻ "*" gồm Người nhập (tiền giải)', () => {
+  const dk = (v: string, idNguoi?: Map<string, string[] | null>) =>
+    dungDieuKienTimKiem(docThe([`*~${v}`], KHAI), KHAI, {
+      luiCotGoc: false,
+      idNguoi,
+    });
+  const nhanh = (...a: Parameters<typeof dk>) => {
+    const ds = dk(...a);
+    const mot = ds.length === 1 ? (ds[0] as Record<string, unknown>) : undefined;
+    return mot && Object.keys(mot).length === 1 && Array.isArray(mot.OR)
+      ? (mot.OR as unknown[])
+      : ds;
+  };
+
+  it('có id tiền giải → lọc bằng khoá ngoại, không đụng quan hệ', () => {
+    const ds = nhanh('Nguyễn', new Map([['Nguyễn', ['u1', 'u2']]]));
+    expect(ds).toContainEqual({ enteredById: { in: ['u1', 'u2'] } });
+    expect(JSON.stringify(ds)).not.toContain('enteredBy"');
+  });
+
+  /*
+    Quá ngưỡng KHÔNG được cắt ngầm. Một họ phổ biến khớp hơn 200 cán bộ mà ta lấy 200 đầu là
+    danh sách thiếu hồ sơ trong im lặng — kiểu hỏng tệ nhất của tìm kiếm, vì kết quả trông
+    vẫn hợp lý. Rơi về nhánh quan hệ: đúng nhưng chậm.
+  */
+  it('quá ngưỡng (null) → rơi về nhánh quan hệ, KHÔNG trả thiếu', () => {
+    const ds = nhanh('Nguyễn', new Map([['Nguyễn', null]]));
+    expect(JSON.stringify(ds)).toContain('hoTenBd');
+    expect(JSON.stringify(ds)).not.toContain('enteredById');
+  });
+
+  it('không cán bộ nào khớp → KHÔNG sinh nhánh người (không lọc rỗng)', () => {
+    const ds = nhanh('Nguyễn', new Map([['Nguyễn', []]]));
+    expect(JSON.stringify(ds)).not.toContain('enteredById');
+    expect(JSON.stringify(ds)).not.toContain('hoTenBd');
+  });
+
+  /*
+    Nơi gọi KHÔNG tiền giải (ca kiểm cũ, đường đồng bộ) thì phải rơi về nhánh quan hệ — đúng
+    nhưng chậm — chứ tuyệt đối không âm thầm bỏ nhánh người.
+  */
+  it('không truyền idNguoi → nhánh quan hệ, không im lặng bỏ', () => {
+    expect(JSON.stringify(nhanh('Nguyễn'))).toContain('hoTenBd');
   });
 });
