@@ -13,6 +13,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
+import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import { Transform, Type } from 'class-transformer';
 import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { CaseStatisticDto } from './case-statistic.dto';
@@ -373,6 +374,13 @@ export class CreateCaseDto {
   @IsOptional() @IsNgayThat() ngayPhieuChuyen?: string;
   @IsOptional() @IsString() doVatTaiLieuKemTheo?: string;
   @IsOptional() @IsNgayThat() ngayVietDon?: string;
+  /** Ngày viết đơn thiếu thành phần (EDTF) — cùng quy ước Đơn thư, thêm 21/09/2026. */
+  @IsOptional() @IsEdtfNgayThat() ngayVietDonEdtf?: string;
+  /**
+   * Ngày viết đơn GHI NGUYÊN VĂN như trên giấy. KHÔNG kiểm hình dạng, có chủ ý: đặt luật nào
+   * ở đây là chặn lại đúng thứ cột này sinh ra để chứa (hồ sơ gộp nhiều đơn, "Không ghi ngày").
+   */
+  @IsOptional() @MaxLength(1000) @IsString() ngayVietDonChu?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
   @IsOptional() @IsNgayThat() ngayGiaoDonViGiaiQuyet?: string;

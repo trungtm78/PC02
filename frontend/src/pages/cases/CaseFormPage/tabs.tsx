@@ -17,6 +17,7 @@ import {
   Info,
   History,
 } from "lucide-react";
+import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -1722,6 +1723,30 @@ export function TabInfo(props: TabProps) {
    * mang nguồn ấy. Hai danh mục riêng là hai danh mục trôi khỏi nhau.
    */
   const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    /*
+      Ngày viết đơn — Ô CHỮ TỰ DO (21/09/2026), cùng hợp đồng với màn Đơn thư.
+
+      Trước hôm nay màn này dựng ô ngày TRƠN (`kind: "date"` trong bộ khai bố cục), nên ngày
+      thiếu thành phần (`../../2026`) mất hẳn khi nhập, và chữ ghi nguyên văn như trên giấy thì
+      không nhập nổi. Hỏng nặng hơn Đơn thư chứ không nhẹ hơn — chỉ là chưa ai báo.
+
+      Giữ nguyên chữ để in đúng ra Word; vẫn suy ra ngày khi đọc được để hồ sơ còn lọc.
+    */
+    ngayVietDon: (label) => (
+      <PartialDateInput
+        label={label}
+        chuTuDo
+        value={props.formData.ngayVietDonEdtf || null}
+        valueChu={props.formData.ngayVietDonChu || null}
+        onDoc={(ra) => {
+          update("ngayVietDon", ra.ngayThat ?? "");
+          update("ngayVietDonEdtf", ra.edtf ?? "");
+          update("ngayVietDonChu", ra.chu ?? "");
+        }}
+        onChange={() => {}}
+        testId="field-ngayVietDon"
+      />
+    ),
     nguonDon: (label) => (
       <FKSelect
         label={label}

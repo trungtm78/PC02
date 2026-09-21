@@ -103,6 +103,8 @@ export interface CaseFormData {
   diaChiCungCap: string;             // Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại
   doVatTaiLieuKemTheo: string;       // Đồ vật, tài liệu kèm theo
   ngayVietDon: string;               // Ngày viết đơn
+  ngayVietDonEdtf: string;           // Ngày viết đơn thiếu thành phần (EDTF) — 21/09/2026
+  ngayVietDonChu: string;            // Ngày viết đơn GHI NGUYÊN VĂN như trên giấy
   ghiChuTrungDon: string;            // Ghi chú trùng đơn
   baoCaoBanGiamDoc: string;          // Trường hợp báo cáo Ban Giám đốc (hệ cũ là ô chữ)
   ngayGiaoDonViGiaiQuyet: string;    // Ngày giao đơn vị giải quyết
@@ -419,7 +421,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   ngayTiepNhanNguonTin: "",
   diaChiCungCap: "",
   doVatTaiLieuKemTheo: "",
-  ngayVietDon: "",
+  ngayVietDon: "", ngayVietDonEdtf: "", ngayVietDonChu: "",
   ghiChuTrungDon: "",
   baoCaoBanGiamDoc: "",
   ngayGiaoDonViGiaiQuyet: "",

@@ -76,6 +76,10 @@ export function mergeIncidentApiToFormData(d: Record<string, unknown>): Incident
     crimeChinhId: (d.crimeChinhId as string) ?? "",
     doVatTaiLieuKemTheo: (d.doVatTaiLieuKemTheo as string) ?? "",
     ngayVietDon: toDateInput(d.ngayVietDon as string | null | undefined),
+    ngayVietDonEdtf:
+      (d.ngayVietDonEdtf as string) ||
+      (d.ngayVietDon ? toDateInput(d.ngayVietDon as string) : ""),
+    ngayVietDonChu: (d.ngayVietDonChu as string) ?? "",
     nhanXet: (d.nhanXet as string) ?? "",
     ghiChuTrungDon: (d.ghiChuTrungDon as string) ?? "",
     baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",

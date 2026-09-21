@@ -305,6 +305,8 @@ export function mergeCaseApiToFormData(
     diaChiCungCap:            cs('diaChiCungCap')            ?? meta.diaChiCungCap ?? prev.diaChiCungCap,
     doVatTaiLieuKemTheo:      cs('doVatTaiLieuKemTheo')      ?? meta.doVatTaiLieuKemTheo ?? prev.doVatTaiLieuKemTheo,
     ngayVietDon:              cd('ngayVietDon')              ?? prev.ngayVietDon,
+    ngayVietDonEdtf:          cs('ngayVietDonEdtf')          ?? prev.ngayVietDonEdtf,
+    ngayVietDonChu:           cs('ngayVietDonChu')           ?? prev.ngayVietDonChu,
     ghiChuTrungDon:           cs('ghiChuTrungDon')           ?? meta.ghiChuTrungDon ?? prev.ghiChuTrungDon,
     // Cột `baoCaoBanGiamDoc` chỉ là CÓ/KHÔNG; nội dung chỉ đạo nằm ở cột chữ cạnh bên.
     baoCaoBanGiamDoc:         cs('baoCaoBanGiamDocText')     ?? meta.baoCaoBanGiamDoc ?? prev.baoCaoBanGiamDoc,
