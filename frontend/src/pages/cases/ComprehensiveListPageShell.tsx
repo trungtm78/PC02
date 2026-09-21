@@ -581,6 +581,10 @@ export function ComprehensiveListPageShell() {
         key: 'actions',
         header: 'Thao tác',
         width: BE_RONG_COT_THAO_TAC,
+        // Bề rộng KHÔNG cho người dùng đặt: cột này chứa nút icon cỡ cố định, số lượng do ta
+        // quyết. Bề rộng lưu trước khi thêm một nút sẽ cắt mất nút mới và không tự sửa —
+        // ca hỏng thật 21/09/2026, ô lưu 113px cắt mất nút "In chứng từ" và nút ⋮.
+        khongDoiBeRong: true,
         render: (r) => (
           <RowActions
             registry={comprehensiveRowActions}

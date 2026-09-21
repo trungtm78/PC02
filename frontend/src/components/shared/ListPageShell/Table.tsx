@@ -67,6 +67,19 @@ export interface ColumnDef<TRow> {
   render(row: TRow): ReactNode;
   /** Column width hint (CSS value). */
   width?: string;
+  /**
+   * Bề rộng cột KHÔNG cho người dùng đặt: bỏ tay nắm kéo, và bỏ qua bề rộng đã lưu.
+   *
+   * Dành cho cột mà nội dung do TA quyết chứ không do dữ liệu — cụ thể là cột "Thao tác", chứa
+   * các nút icon cỡ cố định mà số lượng đổi mỗi lần thêm một hành động.
+   *
+   * Vì sao phải bỏ qua bề rộng ĐÃ LƯU chứ không chỉ khoá kéo: 21/09/2026 cán bộ báo mất nút
+   * "In chứng từ". Đo ra ô 113px trong khi mã khai 12rem — 113px là giá trị người ấy kéo từ
+   * TRƯỚC khi nút In tồn tại, lưu theo tài khoản, và không bao giờ tự cập nhật. Thêm một nút
+   * vào cột là âm thầm làm hỏng cho đúng những người đã từng tuỳ chỉnh, còn mã nguồn thì vẫn
+   * khai 12rem nên không cổng nào thấy.
+   */
+  khongDoiBeRong?: boolean;
   /** Header className override. */
   headerClassName?: string;
   /** Cell className override. */
@@ -450,7 +463,7 @@ export function Table<TRow, TId extends string | number = string>({
                     col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
                   }`.trim()}
                   keoGian={
-                    onKeoGian
+                    onKeoGian && !col.khongDoiBeRong
                       ? {
                           tenCot: col.key,
                           beRongHienTai: doBeRong(col.width),

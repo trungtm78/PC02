@@ -367,6 +367,39 @@ Ghim luôn cột Thao tác sẽ trọn vẹn hơn, nhưng vướng một lỗi s
 `bg-white`, nên trên hàng đang chọn (`bg-blue-50`) hay hàng quá hạn, ô ghim vẫn trắng trong
 khi phần còn lại của hàng đổi màu. Ghim thêm một cột nữa là nhân đôi lỗi ấy.
 
+### Cột Thao tác: bề rộng KHÔNG cho người dùng đặt (21/09/2026)
+
+Cán bộ báo mất nút "In chứng từ" ở danh sách Đơn thư. Đo trên prod bằng chính tài khoản ấy:
+
+| Màn | Ô Thao tác | Nút tràn khỏi ô |
+|---|---|---|
+| Đơn thư | **113px** | `btn-print`, `btn-action-menu` |
+| Vụ việc | 192px | không |
+| Vụ án | 192px | không |
+
+Chỉ một màn hỏng. `style` thẻ `th`: Đơn thư `113px`, Vụ việc `12rem`. Bố cục cột đã lưu của
+tài khoản ấy (`user_table_layouts`): `petitions -> actions: { width: 113 }` — bề rộng người
+ấy kéo TỪ TRƯỚC khi có nút In, đè lên `12rem` khai trong mã, không bao giờ tự cập nhật.
+
+Nội dung 5 nút chiếm 176px; `overflow: hidden` cắt hai nút cuối.
+
+**Quyết:** `ColumnDef.khongDoiBeRong` — cột khai cờ này bỏ tay nắm kéo VÀ bỏ qua bề rộng đã
+lưu. Đặt cho cột "Thao tác" ở **cả bốn** màn (Đơn thư · Vụ việc · Vụ án · Tổng hợp), không
+riêng màn đang hỏng: ba màn kia cùng cấu trúc, hôm nay lành chỉ vì chưa ai kéo ở đó.
+
+Cột này chứa nút icon cỡ cố định, số lượng do TA quyết chứ không do dữ liệu — nó không có lý
+do gì để người dùng đặt bề rộng, và mỗi lần ta thêm một hành động là bề rộng đã lưu lại sai.
+
+Bỏ QUA chứ không XOÁ dữ liệu: mọi người dùng tự lành ở lần tải kế tiếp, không cần lệnh vá dữ
+liệu cho từng tài khoản, và mọi tuỳ chỉnh khác của họ giữ nguyên.
+
+Xác minh trên prod (đưa cột về 12rem ngay trên trang đang chạy): 1920px 126→203px, 1366px
+113→192px, 1280px 113→192px — không nút nào tràn.
+
+Cổng: `cotThaoTacKhongNhanBeRongDaLuu.gate.test.ts` (hành vi + phạm vi bốn màn, cả hai gieo
+lỗi đều đỏ) và `tools/do-cot-thao-tac.mjs` (đo toạ độ thật trên prod — jsdom không dựng hình
+nên ca kiểm đơn vị không bao giờ thấy được lớp lỗi này).
+
 ### Bộ lọc bổ sung — khai vào registry `list-filters` sẵn có
 
 Bản đầu (24/08) dựng một thẻ lọc RIÊNG tên `LegacyFilterPanel` đặt cạnh bộ lọc nâng cao có
