@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { IncidentStatus, Prisma } from '@prisma/client';
@@ -213,7 +214,9 @@ export class IncidentsBulkService {
     };
     const scopeFilter = buildScopeFilter(input.dataScope);
     if (scopeFilter) {
-      where.AND = [scopeFilter as Prisma.IncidentWhereInput];
+      noiVaoWhere(where as Record<string, unknown>, [
+        scopeFilter as Prisma.IncidentWhereInput,
+      ]);
     }
 
     const records = await this.prisma.incident.findMany({

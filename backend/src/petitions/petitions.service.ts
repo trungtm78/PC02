@@ -425,16 +425,22 @@ export class PetitionsService {
       if (orConditions.length === 0) {
         return { data: [] };
       }
-      baseWhere.OR = orConditions;
+      /*
+        Phạm vi đặt THẲNG vào AND, không qua OR.
+
+        Bản cũ đặt vào `baseWhere.OR` rồi lát sau lại chuyển sang AND trước khi nối điều kiện
+        tìm — hai bước cho một việc, và bước một là phép GÁN ĐÈ chỉ đúng vì `baseWhere` vừa
+        dựng. `{ OR: [...] }` nằm trong AND mang đúng nghĩa cũ (và ... hoặc ...), nên đặt thẳng
+        vừa ngắn hơn vừa không còn chỗ nào đè được lên phạm vi.
+      */
+      noiVaoWhere(baseWhere as Record<string, unknown>, [
+        { OR: orConditions },
+      ]);
     }
 
     // Tìm qua CÙNG helper với danh sách chính (thẻ "tất cả các cột", bỏ dấu). Phạm vi đang nằm ở
     // OR phía trên được chuyển vào AND trước, để điều kiện tìm không đè lên nó.
     if (search.length > 0) {
-      if (baseWhere.OR) {
-        baseWhere.AND = [{ OR: baseWhere.OR }];
-        delete baseWhere.OR;
-      }
       noiVaoWhere(
         baseWhere as Record<string, unknown>,
         await this.timKiem.dieuKien({ search }),

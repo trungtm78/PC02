@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
 import { PetitionStatus, Prisma } from '@prisma/client';
@@ -183,7 +184,9 @@ export class PetitionsBulkService {
     // (buildScopeFilter chung sẽ inject investigatorId predicate không hợp lệ).
     const scopeFilter = buildPetitionScopeFilter(input.dataScope);
     if (scopeFilter) {
-      where.AND = [scopeFilter as Prisma.PetitionWhereInput];
+      noiVaoWhere(where as Record<string, unknown>, [
+        scopeFilter as Prisma.PetitionWhereInput,
+      ]);
     }
 
     const records = await this.prisma.petition.findMany({

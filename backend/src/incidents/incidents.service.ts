@@ -394,18 +394,27 @@ export class IncidentsService {
       if (orConditions.length === 0) {
         return { data: [] };
       }
-      baseWhere.OR = orConditions;
+      /*
+        Phạm vi đặt THẲNG vào AND, không qua OR.
+
+        Bản cũ đặt vào `baseWhere.OR` rồi lát sau lại chuyển sang AND trước khi nối điều kiện
+        tìm — hai bước cho một việc, và bước một là phép GÁN ĐÈ chỉ đúng vì `baseWhere` vừa
+        dựng. `{ OR: [...] }` nằm trong AND mang đúng nghĩa cũ (và ... hoặc ...), nên đặt thẳng
+        vừa ngắn hơn vừa không còn chỗ nào đè được lên phạm vi.
+      */
+      noiVaoWhere(baseWhere as Record<string, unknown>, [
+        { OR: orConditions },
+      ]);
     }
 
     // Tìm qua thẻ "tất cả các cột" — cùng luật bỏ dấu với danh sách. Phạm vi (OR) chuyển vào AND
     // TRƯỚC khi nối, để điều kiện tìm không bao giờ nới lỏng phạm vi. Cắt 200: ô chọn nhận chữ đang gõ.
     if (search.length > 0) {
       const dieuKienTim = await this.timKiem.dieuKienTatCa(search);
-      baseWhere.AND = [
-        ...(baseWhere.OR ? [{ OR: baseWhere.OR }] : []),
-        ...(dieuKienTim as Prisma.IncidentWhereInput[]),
-      ];
-      delete baseWhere.OR;
+      noiVaoWhere(
+        baseWhere as Record<string, unknown>,
+        dieuKienTim as Prisma.IncidentWhereInput[],
+      );
     }
 
     const rows = await this.prisma.incident.findMany({
