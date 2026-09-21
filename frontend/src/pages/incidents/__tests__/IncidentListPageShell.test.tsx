@@ -572,13 +572,25 @@ describe('IncidentListPageShell — ô tìm kiếm dạng thẻ', () => {
     await waitFor(() => expect(thamSoCuoi('/incidents/stats').tk).toEqual(['*~nguyen']));
   });
 
-  it('gợi ý theo CỘT ĐANG HIỆN: có Tóm tắt nội dung, không có cột ẩn sẵn Điều tra viên', async () => {
+  /**
+   * 21/09/2026: gợi ý nay phủ CẢ cột đang ẩn.
+   *
+   * Anh yêu cầu tìm được tất cả các cột, mà cột ẩn thì trước đây không có dòng nào để chọn —
+   * cán bộ không có đường nào tìm theo chúng. Mệnh đề còn nghĩa và được giữ: cột đang HIỆN xếp
+   * TRƯỚC, cột ẩn nằm trong nhóm "Cột khác".
+   */
+  it('gợi ý phủ cả cột ẩn, cột đang HIỆN xếp trước', async () => {
     renderWithRouter();
     const o = await oThe();
     fireEvent.change(o, { target: { value: 'abc' } });
     const goiY = (await screen.findAllByRole('option')).map((x) => x.textContent ?? '');
     expect(goiY).toContain('Tìm Tóm tắt nội dung: "abc"');
-    expect(goiY.some((t) => t.includes('Điều tra viên'))).toBe(false);
+
+    const iHien = goiY.findIndex((t) => t.includes('Tóm tắt nội dung'));
+    const iAn = goiY.findIndex((t) => t.includes('Điều tra viên'));
+    expect(iAn).toBeGreaterThan(-1);
+    expect(iHien).toBeLessThan(iAn);
+    expect(screen.getByText(/Cột khác/)).toBeInTheDocument();
   });
 
   it('đường dẫn cũ `q` + ô lọc Đơn vị → thẻ, có mặt NGAY ở lượt gọi API đầu tiên', async () => {
