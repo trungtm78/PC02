@@ -522,3 +522,138 @@ describe('dieuKienNgay — hai nhánh rời nhau, không đếm trùng', () => {
     expect(dieuKienNgay(truongCoEdtf, 'petitionDate', '31/02/2026')).toEqual([]);
   });
 });
+
+/*
+  PR3 — dòng "tất cả các cột" phải đọc được NGÀY và NHÃN TRẠNG THÁI.
+
+  Trước đợt này `*` chỉ chạm cột ghép chữ. Cán bộ gõ `12/09/2026` vào ô tìm thấy dòng đầu ghi
+  "Tìm trong tất cả các cột" rồi nhận 0 kết quả, trong khi mọi hồ sơ ngày ấy đang nằm đó. Nhãn nói
+  sai sự thật — đúng lớp hỏng im lặng: người dùng kết luận "hệ không có dữ liệu" chứ không kết luận
+  "ô tìm không đọc ngày".
+
+  Hai nhánh mới KHÔNG đi vào cột ghép (xem D9): nhãn trạng thái nằm ở tầng ứng dụng, đổi nhãn là
+  cột bóng lệch im lặng. Cả hai dựng lúc tạo câu hỏi.
+*/
+describe('thẻ "*" đọc ngày và nhãn trạng thái', () => {
+  const KHAI_DU: KhaiThucThe = {
+    ...KHAI,
+    truong: [
+      ...KHAI.truong.map((t) =>
+        t.key === 'trangThai'
+          ? {
+              ...t,
+              nhanGiaTri: {
+                MOI_TIEP_NHAN: 'Mới tiếp nhận',
+                DANG_XU_LY: 'Đang xử lý',
+              },
+            }
+          : t,
+      ),
+      {
+        key: 'ngayVietDon',
+        nhan: 'Ngày viết đơn',
+        kieu: 'ngay' as const,
+        cot: 'petitionDate',
+        cotEdtf: 'ngayVietDonEdtf',
+      },
+    ],
+  };
+  const dkDu = (tk: string[]) =>
+    dungDieuKienTimKiem(docThe(tk, KHAI_DU), KHAI_DU, { luiCotGoc: false });
+  /*
+    Các nhánh của `*` là anh em trong một OR — trả về danh sách nhánh để soi từng cái.
+
+    Một nhánh duy nhất thì `hoac()` để TRẦN, không bọc OR. Helper phải chịu được cả hai dạng,
+    nếu không ca "chữ thường không sinh nhánh ngày" đỏ vì helper chứ không vì sản phẩm.
+  */
+  const nhanh = (tk: string[]): unknown[] => {
+    const ds = dkDu(tk);
+    const mot = ds.length === 1 ? (ds[0] as Record<string, unknown>) : undefined;
+    return mot && Object.keys(mot).length === 1 && Array.isArray(mot.OR)
+      ? (mot.OR as unknown[])
+      : ds;
+  };
+
+  it('gõ ngày đủ → có nhánh khoảng ngày cho MỌI cột ngày, cạnh nhánh chữ', () => {
+    const ds = nhanh(['*~12/09/2026']);
+    expect(ds).toContainEqual({ timKiemBd: { contains: '12/09/2026' } });
+    // `ngayDeXuat` không khai `cotEdtf` → nhánh trần.
+    expect(ds).toContainEqual({
+      ngayDeXuat: {
+        gte: new Date('2026-09-11T17:00:00.000Z'),
+        lt: new Date('2026-09-12T17:00:00.000Z'),
+      },
+    });
+    // `ngayVietDon` có `cotEdtf` → khoảng ngày HOẶC hồ sơ ngày thiếu.
+    expect(ds).toContainEqual({
+      OR: [
+        {
+          petitionDate: {
+            gte: new Date('2026-09-11T17:00:00.000Z'),
+            lt: new Date('2026-09-12T17:00:00.000Z'),
+          },
+        },
+        { petitionDate: null, ngayVietDonEdtf: { startsWith: '2026-09-12' } },
+      ],
+    });
+  });
+
+  /*
+    D1 — ĐẢO quyết định đầu: bản trước chặn năm trần khỏi nhánh ngày vì sợ "khớp gần hết".
+    Phép đo giết lập luận ấy: trên 46.741 đơn thư, gõ `20` đã khớp 100% số dòng QUA NHÁNH CHỮ từ
+    trước, vì mã hồ sơ nào cũng bắt đầu bằng năm. Chặn năm không mua được gì, mà làm `*` không
+    đúng nghĩa "tất cả các cột".
+  */
+  it('gõ năm trần → vẫn mở nhánh ngày cả năm', () => {
+    const ds = nhanh(['*~2026']);
+    expect(ds).toContainEqual({
+      ngayDeXuat: {
+        gte: new Date('2025-12-31T17:00:00.000Z'),
+        lt: new Date('2026-12-31T17:00:00.000Z'),
+      },
+    });
+  });
+
+  it('gõ tháng/năm → nhánh EDTF dùng tiền tố tháng, KHÔNG rò khoảng ngày vào cột chữ', () => {
+    const ds = nhanh(['*~09/2026']);
+    const edtf = ds.find(
+      (x) => (x as { OR?: unknown[] }).OR,
+    ) as { OR: Record<string, unknown>[] };
+    expect(edtf.OR[1]).toEqual({
+      petitionDate: null,
+      ngayVietDonEdtf: { startsWith: '2026-09' },
+    });
+  });
+
+  it('chữ không phải ngày → KHÔNG sinh nhánh ngày nào', () => {
+    const ds = nhanh(['*~Nguyễn']);
+    expect(
+      ds.filter((x) => JSON.stringify(x).includes('ngayDeXuat')),
+    ).toEqual([]);
+  });
+
+  it('gõ nhãn trạng thái (không dấu, chuỗi con) → lọc bằng MÃ enum', () => {
+    expect(nhanh(['*~dang xu ly'])).toContainEqual({
+      status: { in: ['DANG_XU_LY'] },
+    });
+    // Chuỗi con khớp NHIỀU nhãn thì lấy hết — thiếu một mã là thiếu hồ sơ.
+    expect(nhanh(['*~tiep nhan'])).toContainEqual({
+      status: { in: ['MOI_TIEP_NHAN'] },
+    });
+  });
+
+  it('không khớp nhãn nào → KHÔNG sinh nhánh trạng thái (không lọc rỗng)', () => {
+    expect(
+      nhanh(['*~Nguyễn']).filter((x) => 'status' in (x as object)),
+    ).toEqual([]);
+  });
+
+  /*
+    Thẻ `ngayVietDon` riêng và nhánh ngày của `*` phải gọi CÙNG một hàm. Hai đường dựng điều kiện
+    riêng sẽ trôi khỏi nhau — đúng kiểu hỏng đã gặp với OR tìm kiếm chép tay ở bốn nơi.
+  */
+  it('thẻ ngày riêng và nhánh ngày của "*" cho ĐÚNG cùng một điều kiện', () => {
+    const rieng = dkDu(['ngayVietDon~12/09/2026']);
+    expect(nhanh(['*~12/09/2026'])).toContainEqual(rieng[0]);
+  });
+});

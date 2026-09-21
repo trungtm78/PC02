@@ -1,5 +1,6 @@
 import { PetitionStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
+import { PETITION_STATUS_LABEL } from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của danh sách Đơn thư — NGUỒN DUY NHẤT cho: cột bóng + trigger + chỉ mục
@@ -68,6 +69,9 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       cot: 'status',
       // Mã trạng thái lạ → 400; để lọt tới Prisma là 500 vì giá trị enum không hợp lệ.
       giaTriHopLe: Object.values(PetitionStatus),
+      // Nhãn tiếng Việt cho dòng "tất cả các cột": gõ "đang xử lý" phải ra đúng nhóm hồ sơ ấy.
+      // Lấy từ hằng số nhãn dùng chung — chép sang đây là hai bản sẽ trôi khỏi nhau.
+      nhanGiaTri: PETITION_STATUS_LABEL,
     },
     {
       key: 'doiTuong',

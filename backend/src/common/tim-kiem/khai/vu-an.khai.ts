@@ -1,5 +1,6 @@
 import { CaseStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
+import { CASE_STATUS_LABEL } from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của bảng `cases` — DÙNG CHUNG cho danh sách Vụ án (`CaseListPageShell.tsx`)
@@ -73,6 +74,9 @@ export const KHAI_TIM_KIEM_VU_AN: KhaiThucThe = {
       kieu: 'chon',
       cot: 'status',
       giaTriHopLe: Object.values(CaseStatus),
+      // Nhãn tiếng Việt cho dòng "tất cả các cột": gõ "đang điều tra" phải ra đúng nhóm hồ sơ ấy.
+      // Lấy từ hằng số nhãn dùng chung — chép sang đây là hai bản sẽ trôi khỏi nhau.
+      nhanGiaTri: CASE_STATUS_LABEL,
     },
     {
       key: 'dieuTraVien',

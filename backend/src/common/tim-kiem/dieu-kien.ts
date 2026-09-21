@@ -273,6 +273,39 @@ function dieuKienNguoi(truong: TruongTimKiem, v: string): DieuKien {
   };
 }
 
+/**
+ * Mã của mọi giá trị mà NHÃN chứa chữ gõ (bỏ dấu, chuỗi con) — cùng luật khớp với cột chữ.
+ *
+ * Trả mảng RỖNG khi không nhãn nào khớp, và nơi gọi bỏ luôn nhánh: sinh `{ status: { in: [] } }`
+ * là một mệnh đề không bao giờ đúng, nó sẽ ăn mất nhánh chữ nếu ai đó AND nhầm về sau.
+ */
+function maKhopNhan(truong: TruongTimKiem, giaTri: string): string[] {
+  const mau = boDauTimKiem(giaTri);
+  if (!mau || !truong.nhanGiaTri) return [];
+  return Object.entries(truong.nhanGiaTri)
+    .filter(([, nhan]) => boDauTimKiem(nhan).includes(mau))
+    .map(([ma]) => ma);
+}
+
+/**
+ * Các nhánh KHÔNG đi qua cột ghép mà dòng "tất cả các cột" vẫn phải phủ: ngày và nhãn trạng thái.
+ *
+ * Gọi lại ĐÚNG `dieuKienNgay` mà thẻ ngày riêng dùng. Dựng điều kiện ngày lần thứ hai ở đây là
+ * cách chắc chắn để hai đường trôi khỏi nhau — hệ này đã một lần có OR tìm kiếm chép tay ở bốn
+ * nơi và chúng nói bốn con số khác nhau.
+ */
+function nhanhNgoaiCotGhep(khai: KhaiThucThe, giaTri: string): DieuKien[] {
+  const ra: DieuKien[] = [];
+  for (const t of khai.truong) {
+    if (t.kieu === 'ngay' && t.cot) ra.push(...dieuKienNgay(t, t.cot, giaTri));
+    else if (t.kieu === 'chon' && t.cot && t.nhanGiaTri) {
+      const ma = maKhopNhan(t, giaTri);
+      if (ma.length) ra.push({ [t.cot]: { in: ma } });
+    }
+  }
+  return ra;
+}
+
 function luaChonTatCa(
   khai: KhaiThucThe,
   giaTri: string,
@@ -291,6 +324,8 @@ function luaChonTatCa(
     else if (t?.kieu === 'doi-tuong')
       nguoi.push(...dieuKienDoiTuong(t, giaTri));
   }
+  // Ngày + nhãn trạng thái: anh em OR với nhánh chữ, không phụ thuộc cột ghép đã nạp hay chưa.
+  nguoi.push(...nhanhNgoaiCotGhep(khai, giaTri));
   const mau = mauBoDau(giaTri);
   if (mau === undefined) {
     return [

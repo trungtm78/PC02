@@ -1,5 +1,6 @@
 import { IncidentStatus } from '@prisma/client';
 import type { KhaiThucThe } from '../sinh/sinh-tim-kiem';
+import { INCIDENT_STATUS_LABEL } from '../../constants/status-labels.constants';
 
 /**
  * Khai trường tìm được của danh sách Vụ việc — nguồn duy nhất cho cột bóng + trigger + chỉ mục,
@@ -64,6 +65,9 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       kieu: 'chon',
       cot: 'status',
       giaTriHopLe: Object.values(IncidentStatus),
+      // Nhãn tiếng Việt cho dòng "tất cả các cột": gõ "tạm đình chỉ" phải ra đúng nhóm hồ sơ ấy.
+      // Lấy từ hằng số nhãn dùng chung — chép sang đây là hai bản sẽ trôi khỏi nhau.
+      nhanGiaTri: INCIDENT_STATUS_LABEL,
     },
     {
       key: 'dieuTraVien',

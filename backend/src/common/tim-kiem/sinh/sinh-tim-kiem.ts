@@ -73,6 +73,17 @@ export interface TruongTimKiem {
    * không bao giờ ra. Chỉ đổi điều kiện Prisma, KHÔNG cần sinh lại SQL.
    */
   cotEdtf?: string;
+  /**
+   * Kiểu `chon`: mã → NHÃN tiếng Việt hiện trên màn. Dòng "tất cả các cột" so chữ gõ với nhãn
+   * (bỏ dấu, chuỗi con) rồi lọc bằng MÃ.
+   *
+   * Nhãn KHÔNG đi vào cột ghép (D9): nó sống ở tầng ứng dụng, đổi một nhãn là phải ghi lại hàng
+   * chục nghìn dòng, quên ghi thì cột bóng lệch im lặng. Dựng lúc tạo câu hỏi thì đổi nhãn có
+   * hiệu lực ngay, và phép lọc vẫn là so bằng trên enum — chỉ mục nguyên vẹn.
+   *
+   * Chỉ dùng phía máy chủ; bộ sinh không xuất ra giao diện (giao diện đã có nhãn riêng).
+   */
+  nhanGiaTri?: Readonly<Record<string, string>>;
 }
 
 /** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */
