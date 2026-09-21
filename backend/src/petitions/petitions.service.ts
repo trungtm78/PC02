@@ -296,14 +296,9 @@ export class PetitionsService {
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     return { where, ky };
@@ -1668,14 +1663,9 @@ export class PetitionsService {
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     const records = await this.prisma.petition.findMany({
@@ -1863,14 +1853,9 @@ export class PetitionsService {
     );
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     // Bước 1 — các giá trị xuất hiện từ 2 đơn trở lên. `notIn` loại cả NULL lẫn rỗng (Prisma 7 không
@@ -2544,7 +2529,8 @@ export class PetitionsService {
       OR: [{ senderName: chua }, { senderIdNumber: chua }],
     };
     const phamVi = buildPetitionScopeFilter(dataScope);
-    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+    if (phamVi)
+      noiVaoWhere(where as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
 
     const petitions = await this.prisma.petition.findMany({
       where,
@@ -2613,7 +2599,8 @@ export class PetitionsService {
       OR: [{ senderName: chua }, { stt: chua }, { summary: chua }],
     };
     const phamVi = buildPetitionScopeFilter(dataScope);
-    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+    if (phamVi)
+      noiVaoWhere(where as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
 
     if (excludeId) {
       where.id = { not: excludeId };

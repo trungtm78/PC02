@@ -232,15 +232,14 @@ export class IncidentsService {
     if (reporter) {
       // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
       // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         {
           OR: [
             { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
             { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
           ],
         },
-      ];
+      ]);
     }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
@@ -281,10 +280,9 @@ export class IncidentsService {
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.IncidentWhereInput,
-      ];
+      ]);
     }
 
     return { where, ky: kyThongKe };

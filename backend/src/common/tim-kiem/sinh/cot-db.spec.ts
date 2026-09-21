@@ -151,3 +151,69 @@ describe('cotDbLech — đối chiếu khai với @map trong schema.prisma', () 
     ]);
   });
 });
+
+/**
+ * `cotThemVaoTatCa` — LỖ HỔNG cùng loại, phát hiện 21/09/2026.
+ *
+ * `tenCotDb` chỉ tra `khai.truong`, còn `cotTatCa` nối THẲNG `cotThemVaoTatCa` vào biểu thức ghép.
+ * Nên một cột có `@map` đưa vào đường này sinh ra `NEW."tenCamelCase"` — tên không tồn tại.
+ *
+ * Và đây là chỗ nó khác hẳn một migration hỏng bình thường: plpgsql KHÔNG kiểm tên cột lúc
+ * `CREATE FUNCTION`. Lỗi nổ LÚC CHẠY, rơi vào `EXCEPTION WHEN OTHERS` rồi đặt cột bóng := NULL.
+ * Ghi vẫn "thành công". Mọi dòng mới có cột bóng NULL → `luiCotGoc` bật vĩnh viễn → cả hệ quét
+ * bảng mãi mãi, chỉ còn một `RAISE WARNING` trong log PostgreSQL mà không cổng nào đỏ.
+ */
+const KHAI_THEM: KhaiThucThe = {
+  ...KHAI,
+  cotThemVaoTatCa: [{ cot: 'ghiChuKhac', cotDb: 'ghi_chu_khac' }, 'soHoSoCu'],
+};
+
+describe('cotThemVaoTatCa — cũng phải đi qua cotDb', () => {
+  const sql = sinhMigrationTimKiem([KHAI_THEM]);
+
+  it('cột có @map trong danh sách thêm: biểu thức ghép dùng TÊN CỘT THẬT', () => {
+    expect(sql).toContain('NEW."ghi_chu_khac"');
+    expect(sql).not.toContain('NEW."ghiChuKhac"');
+  });
+
+  it('và cột ấy nằm trong `UPDATE OF` — thiếu là sửa hồ sơ xong tìm không ra', () => {
+    expect(sql).toMatch(/BEFORE INSERT OR UPDATE OF [^\n]*"ghi_chu_khac"/);
+  });
+
+  it('cột KHÔNG có @map trong danh sách thêm vẫn giữ nguyên tên', () => {
+    expect(sql).toContain('NEW."soHoSoCu"');
+  });
+
+  it('câu nạp lại cột bóng cũng dùng tên cột thật', () => {
+    const nap = sinhCauNapCotBong(KHAI_THEM);
+    expect(nap.nap).toContain('"ghi_chu_khac"');
+    expect(nap.nap).not.toContain('"ghiChuKhac"');
+  });
+
+  it('cotDbLech soi CẢ danh sách thêm, không chỉ `truong`', () => {
+    const schemaThem = [
+      'model Case {',
+      '  caseCode    String? @unique',
+      '  donViGiao   String? @map("don_vi_giao")',
+      '  moTaChiTiet String?',
+      '  ghiChuKhac  String? @map("ghi_chu_khac")',
+      '  soHoSoCu    String?',
+      '}',
+    ].join('\n');
+    expect(cotDbLech(schemaThem, [KHAI_THEM])).toEqual([]);
+
+    // Khai quên `cotDb` cho một cột CÓ @map — đúng kịch bản làm cột bóng NULL vĩnh viễn.
+    const quenCotDb: KhaiThucThe = {
+      ...KHAI,
+      cotThemVaoTatCa: ['ghiChuKhac'],
+    };
+    expect(cotDbLech(schemaThem, [quenCotDb])).toEqual([
+      {
+        model: 'Case',
+        field: 'ghiChuKhac',
+        khai: 'ghiChuKhac',
+        schema: 'ghi_chu_khac',
+      },
+    ]);
+  });
+});

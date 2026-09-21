@@ -359,10 +359,9 @@ export class CasesService {
     }
     if (trangThaiPhanHoi) {
       const stateFilter = buildTrangThaiFilter(trangThaiPhanHoi);
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         stateFilter,
-      ];
+      ]);
     }
 
     // v0.44.3 — UTDT date range by ngayTiepNhan
@@ -404,10 +403,9 @@ export class CasesService {
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
-      ];
+      ]);
     }
 
     return { where, ky: kyThongKe };
@@ -2383,10 +2381,9 @@ export class CasesService {
 
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.CaseWhereInput,
-      ];
+      ]);
     }
 
     const records = await this.prisma.case.findMany({
