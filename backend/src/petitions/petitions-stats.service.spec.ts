@@ -181,6 +181,12 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
       OR: [
         { timKiemBd: { contains: 'xyz' } },
         expect.objectContaining({ timKiemBd: null }),
+            /*
+              Nhánh THỨ BA từ 21/09/2026: tên người nhập. Máy giả ở ca kiểm này không trả được danh
+              sách cán bộ nên tiền giải id thất bại và nhánh rơi về quan hệ — đúng thiết kế "chậm mà
+              đúng, không bao giờ im lặng bỏ nhánh người".
+            */
+            expect.objectContaining({ enteredBy: expect.anything() }),
       ],
     });
   });

@@ -308,6 +308,48 @@ function maKhopNhan(truong: TruongTimKiem, giaTri: string): string[] {
  * cách chắc chắn để hai đường trôi khỏi nhau — hệ này đã một lần có OR tìm kiếm chép tay ở bốn
  * nơi và chúng nói bốn con số khác nhau.
  */
+/**
+ * Id cán bộ đã hỏi trước cho từng chữ gõ. `null` = khớp QUÁ ngưỡng, nơi gọi phải rơi về nhánh
+ * quan hệ chứ không được cắt bớt danh sách id.
+ */
+export type IdNguoiTienGiai = ReadonlyMap<string, readonly string[] | null>;
+
+/** Ngưỡng tiền giải — trên mức này thì nhánh `IN (...)` dài hơn là có hại, rơi về quan hệ. */
+export const NGUONG_TIEN_GIAI_NGUOI = 200;
+
+/**
+ * Nhánh "tên người" cho dòng "tất cả các cột".
+ *
+ * Tên cán bộ nằm ở bảng `users`, không nằm trong cột ghép của bảng hồ sơ — nên `*` phải hỏi
+ * riêng. Hai đường:
+ *
+ *   TIỀN GIẢI (mặc định) — hỏi `users` trước rồi lọc `{ <quanHe>Id: { in: [...] } }`. So bằng
+ *     trên khoá ngoại có chỉ mục, và cột ghép vẫn dùng được GIN.
+ *   QUA QUAN HỆ — chỉ cho bảng bật `tatCaGomNguoi` (bảng không có cột chữ nào chứa tên người,
+ *     vd Nhật ký), hoặc khi tiền giải vượt ngưỡng.
+ *
+ * KHÔNG cắt ngầm ở ngưỡng: một họ phổ biến khớp hơn 200 cán bộ mà ta lấy 200 đầu là trả thiếu
+ * hồ sơ trong im lặng, mà kết quả vẫn trông hợp lý. Chậm và đúng hơn nhanh và thiếu.
+ *
+ * Nơi gọi KHÔNG tiền giải (đường đồng bộ) cũng rơi về quan hệ — đúng nhưng chậm, chứ không
+ * âm thầm bỏ mất nhánh người.
+ */
+function nhanhNguoi(
+  truong: TruongTimKiem,
+  giaTri: string,
+  quaQuanHe: boolean,
+  idNguoi?: IdNguoiTienGiai,
+): DieuKien[] {
+  if (quaQuanHe) return [dieuKienNguoi(truong, giaTri)];
+  if (!idNguoi || !idNguoi.has(giaTri))
+    return [dieuKienNguoi(truong, giaTri)];
+  const id = idNguoi.get(giaTri);
+  if (id === null) return [dieuKienNguoi(truong, giaTri)];
+  // Rỗng = không cán bộ nào mang tên ấy. Bỏ hẳn nhánh; `{ in: [] }` là mệnh đề không bao giờ đúng.
+  if (!id || id.length === 0) return [];
+  return [{ [`${truong.quanHe as string}Id`]: { in: [...id] } }];
+}
+
 function nhanhNgoaiCotGhep(khai: KhaiThucThe, giaTri: string): DieuKien[] {
   const ra: DieuKien[] = [];
   for (const t of khai.truong) {
@@ -329,13 +371,11 @@ function luaChonTatCa(
   khai: KhaiThucThe,
   giaTri: string,
   luiCotGoc: boolean,
+  idNguoi?: IdNguoiTienGiai,
 ): DieuKien[] {
-  // `tatCaGomNguoi`: "*" HOẶC thêm tên người qua quan hệ (bảng không có cột chữ nào chứa tên người).
-  const nguoi = khai.tatCaGomNguoi
-    ? khai.truong
-        .filter((t) => t.kieu === 'nguoi')
-        .map((t) => dieuKienNguoi(t, giaTri))
-    : [];
+  const nguoi = khai.truong
+    .filter((t) => t.kieu === 'nguoi')
+    .flatMap((t) => nhanhNguoi(t, giaTri, khai.tatCaGomNguoi === true, idNguoi));
   // `tatCaGomQuanHe`: thêm các trường quan hệ đang hiện trên bảng (tội danh chính, bị can…).
   for (const k of khai.tatCaGomQuanHe ?? []) {
     const t = timTruong(khai, k);
@@ -376,11 +416,14 @@ function dieuKienMotThe(
   the: The,
   khai: KhaiThucThe,
   luiCotGoc: boolean,
+  idNguoi?: IdNguoiTienGiai,
 ): DieuKien[] {
   // Có nhánh lùi thì mỗi giá trị là một cặp "hoặc" — luôn bọc OR; không có thì một điều kiện để trần.
   const gop = luiCotGoc ? hoacLuon : hoac;
   if (the.key === KHOA_TAT_CA) {
-    return gop(the.giaTri.flatMap((v) => luaChonTatCa(khai, v, luiCotGoc)));
+    return gop(
+      the.giaTri.flatMap((v) => luaChonTatCa(khai, v, luiCotGoc, idNguoi)),
+    );
   }
   const truong = timTruong(khai, the.key);
   if (!truong) return [];
@@ -488,15 +531,20 @@ function dieuKienQuanHe(truong: TruongTimKiem, v: string): DieuKien {
 export interface TuyChonDieuKien {
   /** Còn dòng chưa nạp cột bóng → lùi về cột gốc cho dòng ấy. Mặc định BẬT (đúng trước, nhanh sau). */
   luiCotGoc?: boolean;
+  /**
+   * Id cán bộ đã hỏi trước, cho nhánh "tên người" của dòng "tất cả các cột". Không truyền thì
+   * nhánh ấy đi qua quan hệ — đúng nhưng chậm, chứ không biến mất.
+   */
+  idNguoi?: IdNguoiTienGiai;
 }
 
 /** Mỗi thẻ một phần tử (AND giữa các thẻ); nhiều giá trị cùng thẻ là OR bên trong phần tử. */
 export function dungDieuKienTimKiem(
   the: readonly The[],
   khai: KhaiThucThe,
-  { luiCotGoc = true }: TuyChonDieuKien = {},
+  { luiCotGoc = true, idNguoi }: TuyChonDieuKien = {},
 ): DieuKien[] {
-  return the.flatMap((t) => dieuKienMotThe(t, khai, luiCotGoc));
+  return the.flatMap((t) => dieuKienMotThe(t, khai, luiCotGoc, idNguoi));
 }
 
 /** Nối điều kiện thẻ vào `where.AND`, giữ nguyên điều kiện đã có (phạm vi dữ liệu…). */
