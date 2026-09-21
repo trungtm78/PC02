@@ -290,6 +290,20 @@ function maKhopNhan(truong: TruongTimKiem, giaTri: string): string[] {
 /**
  * Các nhánh KHÔNG đi qua cột ghép mà dòng "tất cả các cột" vẫn phải phủ: ngày và nhãn trạng thái.
  *
+ * GIÁ PHẢI TRẢ, đo chứ không đoán (bản sao 47.271 đơn thư thật, `LIMIT 50`):
+ *
+ *   chữ KHÔNG phải ngày  — điều kiện y hệt trước đây: Bitmap Index Scan trên GIN trigram, ~1,5 ms
+ *   chữ ĐỌC RA ngày      — Seq Scan cả bảng: 20–230 ms (đo 5 ngày thật)
+ *
+ * Tức phần đông lượt tìm không đổi gì; chỉ chuỗi hình dạng ngày mới trả giá, và vẫn dưới ngưỡng
+ * 300 ms ghi ở `bo-tim-kiem.ts`.
+ *
+ * ĐÃ THỬ RỒI BỎ: 19 chỉ mục btree cho mọi cột ngày trong nhánh này. Đo lại 5 ngày ấy thì CÓ và
+ * KHÔNG có chỉ mục nằm cùng một dải (41–192 ms so với 19–230 ms) — bộ lập kế hoạch không hề chọn
+ * `BitmapOr`, vì `LIMIT 50` làm Seq Scan có chi phí khởi động bằng 0 trông rẻ hơn dựng bitmap.
+ * Ship 19 chỉ mục mà bộ lập kế hoạch bỏ qua là trả phí ghi để mua số không. Ngày nào ngưỡng thành
+ * vấn đề thì phải đổi HÌNH DẠNG câu hỏi, không phải thêm chỉ mục.
+ *
  * Gọi lại ĐÚNG `dieuKienNgay` mà thẻ ngày riêng dùng. Dựng điều kiện ngày lần thứ hai ở đây là
  * cách chắc chắn để hai đường trôi khỏi nhau — hệ này đã một lần có OR tìm kiếm chép tay ở bốn
  * nơi và chúng nói bốn con số khác nhau.
@@ -297,8 +311,13 @@ function maKhopNhan(truong: TruongTimKiem, giaTri: string): string[] {
 function nhanhNgoaiCotGhep(khai: KhaiThucThe, giaTri: string): DieuKien[] {
   const ra: DieuKien[] = [];
   for (const t of khai.truong) {
-    if (t.kieu === 'ngay' && t.cot) ra.push(...dieuKienNgay(t, t.cot, giaTri));
-    else if (t.kieu === 'chon' && t.cot && t.nhanGiaTri) {
+    // `vaoTatCa: false` — cột ngày sổ sách (vd dấu thời gian di trú dùng chung cho cả kho). Thẻ
+    // RIÊNG của nó vẫn lọc được; chỉ gỡ khỏi `*`.
+    if (t.kieu === 'ngay' && t.cot && t.vaoTatCa !== false)
+      ra.push(...dieuKienNgay(t, t.cot, giaTri));
+    // `giaTriCot` nghĩa là cột KHÔNG phải chuỗi (boolean…). `BoolFilter` của Prisma chỉ có
+    // `equals`/`not` — gửi `{ in: [...] }` là Prisma từ chối tham số và CẢ danh sách 500.
+    else if (t.kieu === 'chon' && t.cot && t.nhanGiaTri && !t.giaTriCot) {
       const ma = maKhopNhan(t, giaTri);
       if (ma.length) ra.push({ [t.cot]: { in: ma } });
     }

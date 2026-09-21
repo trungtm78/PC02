@@ -24,6 +24,8 @@ export const KHAI_TIM_KIEM_TRAO_DOI: KhaiThucThe = {
       nhan: 'Thời gian khởi tạo',
       kieu: 'ngay',
       cot: 'createdAt',
+      // Thời gian khởi tạo trao đổi là mốc nghiệp vụ của chính dòng ấy.
+      vaoTatCa: true,
     },
     {
       key: 'trangThai',

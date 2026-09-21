@@ -40,6 +40,7 @@ export const KHAI_TIM_KIEM_TAI_LIEU: KhaiThucThe = {
       kieu: 'nguoi',
       quanHe: 'uploadedBy',
     },
-    { key: 'ngayTaiLen', nhan: 'Ngày upload', kieu: 'ngay', cot: 'createdAt' },
+    /* Ngày tải lên là ngày nghiệp vụ của tài liệu, và bảng này không qua di trú nên giá trị phân tán thật. */
+    { key: 'ngayTaiLen', nhan: 'Ngày upload', kieu: 'ngay', cot: 'createdAt', vaoTatCa: true },
   ],
 };

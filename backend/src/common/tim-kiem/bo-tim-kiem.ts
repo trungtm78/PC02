@@ -5,6 +5,7 @@ import {
   KHOA_TAT_CA,
   docThe,
   dungDieuKienTimKiem,
+  docKhoangNgay,
 } from './dieu-kien';
 import { sinhCauConChuaNap, type KhaiThucThe } from './sinh/sinh-tim-kiem';
 
@@ -127,6 +128,15 @@ export class BoTimKiem {
       const i = muc.indexOf('~');
       if (i <= 0 || !muc.slice(i + 1).trim()) return false;
       const khoa = muc.slice(0, i);
+      /*
+        Thẻ `*` cũng là thẻ ngày KHI chữ gõ đọc được ra ngày — nó mở nhánh ngày y như thẻ riêng.
+
+        Bỏ sót chỗ này thì kỳ mặc định "Tháng này" vẫn AND vào `ngayDeXuat`: gõ một ngày NGOÀI
+        tháng đang xem trả 0 dòng trong khi nhãn hứa tìm khắp nơi. Người thử gõ ngày hôm nay nên
+        không bao giờ thấy — đúng kiểu hỏng chỉ lộ ra với người dùng thật.
+      */
+      if (khoa === KHOA_TAT_CA)
+        return docKhoangNgay(muc.slice(i + 1).trim()) !== undefined;
       return this.khai.truong.some((t) => t.key === khoa && t.kieu === 'ngay');
     });
   }

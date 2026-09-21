@@ -84,7 +84,8 @@ export const KHAI_TIM_KIEM_VU_AN: KhaiThucThe = {
       kieu: 'nguoi',
       quanHe: 'investigator',
     },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Như Đơn thư: dấu thời gian di trú dùng chung. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
     /*
       Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 3.381 vụ án thật:
       Ngày nhận 3.339 · Ngày phiếu chuyển 1.717 · Ngày khởi tố 787 · Ngày viết đơn 338 ·

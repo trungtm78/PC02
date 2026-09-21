@@ -657,3 +657,69 @@ describe('thẻ "*" đọc ngày và nhãn trạng thái', () => {
     expect(nhanh(['*~12/09/2026'])).toContainEqual(rieng[0]);
   });
 });
+
+/*
+  Hai hàng rào cho nhánh mới của `*`, cả hai đều chặn một lỗi ĐÃ có đường đi tới.
+*/
+describe('nhánh "*" — hàng rào', () => {
+  const dung = (t: Partial<TruongTimKiem>[]): KhaiThucThe => ({
+    ...KHAI,
+    truong: [{ key: 'stt', nhan: 'STT', kieu: 'ma', cot: 'stt' }, ...t] as never,
+  });
+  const dk = (khai: KhaiThucThe, v: string) =>
+    JSON.stringify(
+      dungDieuKienTimKiem(docThe([`*~${v}`], khai), khai, { luiCotGoc: false }),
+    );
+
+  /*
+    Cột `chon` dùng `giaTriCot` là cột BOOLEAN. `BoolFilter` của Prisma chỉ có `equals`/`not`,
+    không có `in` — dựng `{ isActive: { in: ['active'] } }` là Prisma từ chối tham số và CẢ
+    danh sách 500. Đường đi tới lỗi đã mở sẵn: ngày ai đó thêm nhãn "Đang hoạt động" cho cột
+    ấy là nổ, mà không cổng nào đỏ.
+  */
+  it('cột chọn trên cột boolean (giaTriCot) KHÔNG vào nhánh "*"', () => {
+    const khai = dung([
+      {
+        key: 'hoatDong',
+        nhan: 'Hoạt động',
+        kieu: 'chon',
+        cot: 'isActive',
+        giaTriHopLe: ['active', 'inactive'],
+        giaTriCot: { active: true, inactive: false },
+        nhanGiaTri: { active: 'Đang hoạt động', inactive: 'Ngừng' },
+      },
+    ]);
+    expect(dk(khai, 'dang hoat dong')).not.toContain('isActive');
+  });
+
+  /*
+    `createdAt` của Đơn thư là DẤU THỜI GIAN DI TRÚ: 45.459 hồ sơ mang cùng một giá trị. Để nó
+    trong nhánh ngày của `*` thì gõ đúng tháng chạy di trú là trả về cả kho — người dùng thấy
+    một kết quả vô nghĩa mà không hiểu vì sao.
+
+    Với Nhật ký thì cùng cột ấy LẠI là ngày nghiệp vụ. Nên đây là quyết định từng trường, khai
+    bằng `vaoTatCa`, không phải luật suy từ tên cột.
+  */
+  it('trường ngày khai vaoTatCa:false KHÔNG vào nhánh "*" nhưng thẻ riêng vẫn dùng được', () => {
+    const khai = dung([
+      {
+        key: 'ngayTao',
+        nhan: 'Ngày tạo',
+        kieu: 'ngay',
+        cot: 'createdAt',
+        vaoTatCa: false,
+      },
+      { key: 'ngayDeXuat', nhan: 'Ngày đề xuất', kieu: 'ngay', cot: 'ngayDeXuat' },
+    ]);
+    expect(dk(khai, '12/09/2026')).not.toContain('createdAt');
+    expect(dk(khai, '12/09/2026')).toContain('ngayDeXuat');
+    // Thẻ riêng KHÔNG bị chặn — cán bộ vẫn lọc được cột ấy khi chủ động chọn.
+    expect(
+      JSON.stringify(
+        dungDieuKienTimKiem(docThe(['ngayTao~12/09/2026'], khai), khai, {
+          luiCotGoc: false,
+        }),
+      ),
+    ).toContain('createdAt');
+  });
+});

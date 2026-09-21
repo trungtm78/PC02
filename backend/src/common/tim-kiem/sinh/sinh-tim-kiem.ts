@@ -84,6 +84,18 @@ export interface TruongTimKiem {
    * Chỉ dùng phía máy chủ; bộ sinh không xuất ra giao diện (giao diện đã có nhãn riêng).
    */
   nhanGiaTri?: Readonly<Record<string, string>>;
+  /**
+   * Kiểu `ngay`: trường này có vào nhánh ngày của dòng "tất cả các cột" không.
+   *
+   * Không suy được từ tên cột. `createdAt` của Nhật ký LÀ ngày nghiệp vụ — gõ ngày ra đúng dòng
+   * nhật ký hôm ấy. `createdAt` của Đơn thư thì không: 45.459 hồ sơ di trú mang CÙNG một giá trị
+   * (ngày chạy di trú), nên để nó trong nhánh `*` là gõ đúng tháng ấy trả về cả kho.
+   *
+   * Bỏ trống = vào (giữ hành vi cũ). Cổng `vao-tat-ca.gate.spec.ts` bắt buộc khai rõ với các cột
+   * sổ sách (`createdAt`/`updatedAt`/`deadline`) — quên khai là ĐỎ, không phải âm thầm nhận mặc
+   * định. Thẻ RIÊNG của trường luôn dùng được, `false` chỉ gỡ nó khỏi `*`.
+   */
+  vaoTatCa?: boolean;
 }
 
 /** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */

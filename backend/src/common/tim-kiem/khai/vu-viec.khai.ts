@@ -75,8 +75,10 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       kieu: 'nguoi',
       quanHe: 'investigator',
     },
-    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline' },
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt' },
+    /* Như Đơn thư: hạn xử lý là ngày phải làm xong, không phải ngày của sự việc. */
+    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline', vaoTatCa: false },
+    /* Như Đơn thư: dấu thời gian di trú dùng chung. */
+    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
     /*
       Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 4.718 vụ việc thật:
       Ngày tiếp nhận nguồn tin 3.039 · Ngày QĐ phân công 474 · Ngày giao đơn vị 365 ·

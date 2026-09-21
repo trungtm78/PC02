@@ -169,4 +169,28 @@ describe('BoTimKiem.kyApDung', () => {
     expect(bo.kyApDung(ky, undefined)).toBe(ky);
     expect(bo.kyApDung(ky, 'khongDauNga')).toBe(ky);
   });
+
+  /*
+    Thẻ `*` cũng là thẻ ngày khi chữ gõ ĐỌC ĐƯỢC ra ngày.
+
+    Bỏ sót chỗ này là hỏng im lặng đúng kiểu tệ nhất: dòng "tất cả các cột" mở nhánh ngày, nhưng
+    kỳ mặc định "Tháng này" vẫn AND vào `ngayDeXuat`, nên gõ một ngày NGOÀI tháng hiện tại trả 0
+    dòng trong khi nhãn vẫn hứa tìm khắp nơi. Tính năng chỉ "chạy" đúng những ngày trong tháng
+    đang xem — và người thử sẽ gõ ngày hôm nay nên không bao giờ thấy.
+  */
+  it('thẻ "*" với chữ đọc được ra ngày → cũng gỡ kỳ mặc định', () => {
+    for (const v of ['12/08/2026', '08/2026', '2019']) {
+      expect(bo.kyApDung(ky, [`*~${v}`])).toEqual({
+        ...ky,
+        ky: 'TAT_CA',
+        tuNgay: null,
+        denNgay: null,
+      });
+    }
+  });
+
+  it('thẻ "*" với chữ KHÔNG phải ngày → giữ nguyên kỳ', () => {
+    expect(bo.kyApDung(ky, ['*~Nguyễn Văn An'])).toBe(ky);
+    expect(bo.kyApDung(ky, ['*~31/02/2026'])).toBe(ky);
+  });
 });
