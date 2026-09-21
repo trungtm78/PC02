@@ -232,15 +232,14 @@ export class IncidentsService {
     if (reporter) {
       // AND lồng OR, KHÔNG gộp vào `where.OR` sẵn có: `search` cũng dùng OR, gộp chung sẽ
       // biến "khớp tìm kiếm VÀ khớp người tố giác" thành "HOẶC" — nới lỏng bộ lọc.
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         {
           OR: [
             { cmndNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
             { sdtNguoiToGiac: { contains: reporter, mode: 'insensitive' } },
           ],
         },
-      ];
+      ]);
     }
     if (tinhTrangHoSo) where.tinhTrangHoSo = tinhTrangHoSo;
     if (tinhTrangThoiHieu) where.tinhTrangThoiHieu = tinhTrangThoiHieu;
@@ -281,10 +280,9 @@ export class IncidentsService {
     // Apply data scope filter
     const scopeFilter = buildScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.IncidentWhereInput,
-      ];
+      ]);
     }
 
     return { where, ky: kyThongKe };
@@ -396,18 +394,27 @@ export class IncidentsService {
       if (orConditions.length === 0) {
         return { data: [] };
       }
-      baseWhere.OR = orConditions;
+      /*
+        Phạm vi đặt THẲNG vào AND, không qua OR.
+
+        Bản cũ đặt vào `baseWhere.OR` rồi lát sau lại chuyển sang AND trước khi nối điều kiện
+        tìm — hai bước cho một việc, và bước một là phép GÁN ĐÈ chỉ đúng vì `baseWhere` vừa
+        dựng. `{ OR: [...] }` nằm trong AND mang đúng nghĩa cũ (và ... hoặc ...), nên đặt thẳng
+        vừa ngắn hơn vừa không còn chỗ nào đè được lên phạm vi.
+      */
+      noiVaoWhere(baseWhere as Record<string, unknown>, [
+        { OR: orConditions },
+      ]);
     }
 
     // Tìm qua thẻ "tất cả các cột" — cùng luật bỏ dấu với danh sách. Phạm vi (OR) chuyển vào AND
     // TRƯỚC khi nối, để điều kiện tìm không bao giờ nới lỏng phạm vi. Cắt 200: ô chọn nhận chữ đang gõ.
     if (search.length > 0) {
       const dieuKienTim = await this.timKiem.dieuKienTatCa(search);
-      baseWhere.AND = [
-        ...(baseWhere.OR ? [{ OR: baseWhere.OR }] : []),
-        ...(dieuKienTim as Prisma.IncidentWhereInput[]),
-      ];
-      delete baseWhere.OR;
+      noiVaoWhere(
+        baseWhere as Record<string, unknown>,
+        dieuKienTim as Prisma.IncidentWhereInput[],
+      );
     }
 
     const rows = await this.prisma.incident.findMany({

@@ -66,6 +66,15 @@ export interface TruongTimKiem {
   cotGhep?: readonly string[];
 }
 
+/** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */
+export type CotThem = string | { cot: string; cotDb?: string };
+
+/** Dạng chuẩn hoá của `cotThemVaoTatCa` — dùng chung cho mọi nơi đọc danh sách ấy. */
+export const chuanHoaCotThem = (
+  ds: readonly CotThem[] | undefined,
+): { cot: string; cotDb?: string }[] =>
+  (ds ?? []).map((c) => (typeof c === 'string' ? { cot: c } : c));
+
 export interface KhaiThucThe {
   thucThe: string;
   /** Tên bảng CSDL. */
@@ -73,8 +82,16 @@ export interface KhaiThucThe {
   /** Tên model Prisma. */
   model: string;
   truong: readonly TruongTimKiem[];
-  /** Cột không hiện trên danh sách nhưng thẻ "tất cả các cột" phải tìm được. */
-  cotThemVaoTatCa?: readonly string[];
+  /**
+   * Cột không hiện trên danh sách nhưng thẻ "tất cả các cột" phải tìm được.
+   *
+   * Cột có `@map` PHẢI khai dạng `{ cot, cotDb }`. Khai bằng chuỗi trần thì biểu thức ghép sinh ra
+   * `NEW."tenCamelCase"` — tên không tồn tại. Và plpgsql KHÔNG kiểm tên cột lúc `CREATE FUNCTION`,
+   * nên lỗi nổ LÚC CHẠY rồi rơi vào `EXCEPTION WHEN OTHERS` đặt cột bóng := NULL: ghi vẫn "thành
+   * công", mọi dòng mới có cột bóng rỗng, `luiCotGoc` bật vĩnh viễn, cả hệ quét bảng mãi mãi.
+   * Cổng `cotDbLech` (`tep-sinh.ts`) đối chiếu với `schema.prisma` và chặn đúng việc này.
+   */
+  cotThemVaoTatCa?: readonly CotThem[];
   /**
    * Cột có cột bóng riêng mà KHÔNG thành khoá thẻ trên bảng này — chỉ làm đích cho thẻ `quan-he` của
    * thực thể khác (vd cột "Vụ án" ở Đối tượng/Luật sư hiện `case.name`: lọc trên `cases.tim_kiem_bd`
@@ -152,7 +169,10 @@ function kiemKhai(khai: KhaiThucThe): void {
       for (const g of t.cotGhep) kiemTen(g, 'ghép');
     }
   }
-  for (const c of khai.cotThemVaoTatCa ?? []) kiemTen(c, 'thêm');
+  for (const c of chuanHoaCotThem(khai.cotThemVaoTatCa)) {
+    kiemTen(c.cot, 'thêm');
+    if (c.cotDb) kiemTen(c.cotDb, 'CSDL thêm');
+  }
   for (const c of khai.cotBongPhu ?? []) kiemTen(c, 'bóng phụ');
   if (khai.tatCaGomNguoi && !khai.truong.some((t) => t.kieu === 'nguoi')) {
     throw new Error(
@@ -191,12 +211,17 @@ const cotTatCa = (khai: KhaiThucThe) => [
         t.kieu === 'ma-thuong',
     )
     .flatMap((t) => (t.cotGhep ? [...t.cotGhep] : [t.cot as string])),
-  ...(khai.cotThemVaoTatCa ?? []),
+  ...chuanHoaCotThem(khai.cotThemVaoTatCa).map((c) => c.cot),
 ];
 
 /** Tên cột CSDL của một trường Prisma trong khai — `cotDb` nếu có `@map`, không thì chính tên trường. */
 const tenCotDb = (khai: KhaiThucThe, cot: string): string =>
-  khai.truong.find((t) => t.cot === cot && t.cotDb)?.cotDb ?? cot;
+  khai.truong.find((t) => t.cot === cot && t.cotDb)?.cotDb ??
+  // Danh sách "thêm vào tất cả các cột" cũng đi thẳng vào SQL thô, nên `@map` của nó cũng phải
+  // được tra ở đây — bỏ sót là sinh `NEW."tenCamelCase"` và trigger chết lặng.
+  chuanHoaCotThem(khai.cotThemVaoTatCa).find((c) => c.cot === cot && c.cotDb)
+    ?.cotDb ??
+  cot;
 
 /** Cột CSDL nguồn của cột bóng mang tên `cot`: các cột `cotGhep` nếu có, không thì chính cột ấy. */
 const nguonDb = (khai: KhaiThucThe, cot: string): string[] => {

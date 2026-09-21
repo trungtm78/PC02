@@ -296,14 +296,9 @@ export class PetitionsService {
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     return { where, ky };
@@ -430,16 +425,22 @@ export class PetitionsService {
       if (orConditions.length === 0) {
         return { data: [] };
       }
-      baseWhere.OR = orConditions;
+      /*
+        Phạm vi đặt THẲNG vào AND, không qua OR.
+
+        Bản cũ đặt vào `baseWhere.OR` rồi lát sau lại chuyển sang AND trước khi nối điều kiện
+        tìm — hai bước cho một việc, và bước một là phép GÁN ĐÈ chỉ đúng vì `baseWhere` vừa
+        dựng. `{ OR: [...] }` nằm trong AND mang đúng nghĩa cũ (và ... hoặc ...), nên đặt thẳng
+        vừa ngắn hơn vừa không còn chỗ nào đè được lên phạm vi.
+      */
+      noiVaoWhere(baseWhere as Record<string, unknown>, [
+        { OR: orConditions },
+      ]);
     }
 
     // Tìm qua CÙNG helper với danh sách chính (thẻ "tất cả các cột", bỏ dấu). Phạm vi đang nằm ở
     // OR phía trên được chuyển vào AND trước, để điều kiện tìm không đè lên nó.
     if (search.length > 0) {
-      if (baseWhere.OR) {
-        baseWhere.AND = [{ OR: baseWhere.OR }];
-        delete baseWhere.OR;
-      }
       noiVaoWhere(
         baseWhere as Record<string, unknown>,
         await this.timKiem.dieuKien({ search }),
@@ -1668,14 +1669,9 @@ export class PetitionsService {
     // Apply data scope filter
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     const records = await this.prisma.petition.findMany({
@@ -1863,14 +1859,9 @@ export class PetitionsService {
     );
     const scopeFilter = buildPetitionScopeFilter(dataScope);
     if (scopeFilter) {
-      where.AND = [
-        ...(Array.isArray(where.AND)
-          ? where.AND
-          : where.AND
-            ? [where.AND]
-            : []),
+      noiVaoWhere(where as Record<string, unknown>, [
         scopeFilter as Prisma.PetitionWhereInput,
-      ];
+      ]);
     }
 
     // Bước 1 — các giá trị xuất hiện từ 2 đơn trở lên. `notIn` loại cả NULL lẫn rỗng (Prisma 7 không
@@ -2544,7 +2535,8 @@ export class PetitionsService {
       OR: [{ senderName: chua }, { senderIdNumber: chua }],
     };
     const phamVi = buildPetitionScopeFilter(dataScope);
-    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+    if (phamVi)
+      noiVaoWhere(where as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
 
     const petitions = await this.prisma.petition.findMany({
       where,
@@ -2613,7 +2605,8 @@ export class PetitionsService {
       OR: [{ senderName: chua }, { stt: chua }, { summary: chua }],
     };
     const phamVi = buildPetitionScopeFilter(dataScope);
-    if (phamVi) where.AND = [phamVi as Prisma.PetitionWhereInput];
+    if (phamVi)
+      noiVaoWhere(where as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
 
     if (excludeId) {
       where.id = { not: excludeId };

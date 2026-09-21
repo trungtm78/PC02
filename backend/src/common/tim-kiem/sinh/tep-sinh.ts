@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { chuanHoaCotThem } from './sinh-tim-kiem';
 import type { KhaiThucThe, TruongPrisma } from './sinh-tim-kiem';
 
 /**
@@ -109,7 +110,8 @@ export function cotDbLech(
       }
       kiem(t.cot, t.cotDb ?? t.cot);
     }
-    for (const c of khai.cotThemVaoTatCa ?? []) kiem(c, c);
+    for (const c of chuanHoaCotThem(khai.cotThemVaoTatCa))
+      kiem(c.cot, c.cotDb ?? c.cot);
     for (const c of khai.cotBongPhu ?? []) kiem(c, c);
   }
   return ra;
