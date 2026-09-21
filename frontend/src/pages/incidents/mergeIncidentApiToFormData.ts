@@ -79,7 +79,22 @@ export function mergeIncidentApiToFormData(d: Record<string, unknown>): Incident
     ngayVietDonEdtf:
       (d.ngayVietDonEdtf as string) ||
       (d.ngayVietDon ? toDateInput(d.ngayVietDon as string) : ""),
-    ngayVietDonChu: (d.ngayVietDonChu as string) ?? "",
+    /*
+      Hồ sơ DI TRÚ: bản gốc nằm ở `legacyRaw.ngay_viet_don`, ba cột đều rỗng.
+      
+      Đo prod 21/09/2026: 4.454 đơn thư + 7 vụ việc + 15 vụ án rơi vào trạng thái ấy. Hàm hiển thị
+      phía máy chủ vẫn IN ra chữ gốc (đường lùi cuối), nhưng form mở ra thì ô TRỐNG — cán bộ không
+      nhìn thấy thứ hệ sắp in, nên không sửa được nó và cũng không biết nó tồn tại.
+      
+      Nạp vào ô: thấy được thì sửa được. Chữ chỉ được dùng khi ba cột kia đều rỗng, nên hồ sơ cán bộ
+      đã sửa trên hệ mới không bị bản gốc chưa sửa đè lên.
+    */
+    ngayVietDonChu:
+      (d.ngayVietDonChu as string) ||
+      (!d.ngayVietDon && !d.ngayVietDonEdtf
+        ? (((d.legacyRaw ?? {}) as Record<string, unknown>)["ngay_viet_don"] as string) ??
+          ""
+        : ""),
     nhanXet: (d.nhanXet as string) ?? "",
     ghiChuTrungDon: (d.ghiChuTrungDon as string) ?? "",
     baoCaoBanGiamDocText: (d.baoCaoBanGiamDocText as string) ?? "",
