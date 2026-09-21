@@ -54,6 +54,35 @@ sẵn trong cơ sở dữ liệu, chỉ là không được hiện.
 | Thao tác ở ĐẦU, ngay sau ô tick | ✅ | ✅ | ✅ | **CỐ Ý KHÁC hệ cũ** — xem ghi chú dưới |
 | Mã hồ sơ hiện dạng ngắn `26-11171` | ✅ | ✅ | ✅ | `formatHoSoCode` — chỉ đổi HIỂN THỊ, dữ liệu giữ nguyên |
 
+### Cột NGÀY mở cho tìm kiếm (21/09/2026)
+
+Anh nêu "hiện tại cũng không thể search theo ngày". Đo trên dữ liệu thật: mỗi màn chỉ có 3–4 thẻ
+ngày, mà thẻ "Hạn xử lý" của Đơn thư khớp **0 hồ sơ** (cột `deadline` rỗng sạch trên 46.741 đơn),
+trong khi các cột đầy dữ liệu lại không tìm được.
+
+Mỗi cột dưới đây khai **cả** một trường tìm kiếm **và** một cột bảng `optional: 'hide'` — cổng
+`timKiemCotKhai` đòi mọi trường tìm được phải có cột mang nó, và đòi hỏi ấy đúng: tìm theo một
+thứ không bao giờ xem được là nửa vời. Danh sách **đo riêng từng màn**, không chép của nhau.
+
+| Cột ngày | Cases | Incidents | Petitions | Số hồ sơ có dữ liệu (đo 21/09) |
+|---|---|---|---|---|
+| Ngày tiếp nhận (`receivedDate`) | — | — | ✅ THÊM MỚI | 46.741 |
+| Ngày tiếp nhận nguồn tin | — | ✅ THÊM MỚI | ✅ THÊM MỚI | 3.039 · 44.367 |
+| **Ngày viết đơn** | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | 338 · 298 · 41.820 |
+| Ngày giao đơn vị giải quyết | — | ✅ THÊM MỚI | ✅ THÊM MỚI | 365 · 25.386 |
+| Ngày phiếu chuyển | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | 1.717 · 86 · 9.315 |
+| Ngày cấp CCCD | ✅ THÊM MỚI | ✅ THÊM MỚI | ✅ THÊM MỚI | 219 · 37 · 2.168 |
+| Ngày QĐ phân công nguồn tin | — | ✅ THÊM MỚI | — | 474 |
+| Ngày nhận (`receiveDate`) | ✅ THÊM MỚI | — | — | 3.339 |
+| Ngày khởi tố | ✅ THÊM MỚI | — | — | 787 |
+
+**Hồ sơ ngày THIẾU thành phần**: ~4.400 đơn thư mang `ngayVietDonEdtf` = `2026-12-XX` với cột
+ngày thật rỗng. Khai `cotEdtf` thêm một nhánh OR rời nhau để gõ `12/2026` hay `2026` tìm ra
+chúng; gõ đủ `15/12/2026` thì KHÔNG khớp — hệ không biết ngày ấy, bịa là sai.
+
+**Ba khoá thành khoá CHUNG** (`ngayVietDon`, `ngayPhieuChuyen`, `ngayCapCCCD`) vì cả ba thực thể
+đều có: màn Tổng hợp nay lọc được theo chúng.
+
 #### Bảng cuộn ngang — vá 25/08/2026
 
 Anh báo "thiếu scroll ngang". Vùng cuộn không hề thiếu: `TABLE_WRAPPER` là `overflow-x-auto`

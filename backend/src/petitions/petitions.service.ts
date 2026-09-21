@@ -162,6 +162,18 @@ const CHON_DONG_DANH_SACH_DON_THU = {
     // ở mọi đơn); `ward.name` cho cột Phường/Xã của màn Đơn thư phường.
     select: { id: true, name: true, ward: { select: { name: true } } },
   },
+  /*
+    Sáu cột ngày mở cho tìm kiếm ngày 21/09/2026 (đo 46.741 đơn thật: tất cả đều ĐẦY dữ liệu mà
+    trước đó không tìm được). Cột hiển thị ẩn sẵn trên bảng, nhưng PHẢI trả về ở đây — cột hiện
+    ra rỗng vì API không trả là lớp hỏng im lặng dự án đã vấp nhiều lần.
+  */
+  ngayTiepNhanNguonTin: true,
+  petitionDate: true,
+  // ~4.4k đơn chỉ có ngày THIẾU thành phần: `petitionDate` rỗng, chữ nằm ở cột này.
+  ngayVietDonEdtf: true,
+  ngayGiaoDonViGiaiQuyet: true,
+  ngayPhieuChuyen: true,
+  senderIdIssueDate: true,
 } satisfies Prisma.PetitionSelect;
 
 /** Một dòng danh sách Đơn thư như `getList` trả. */

@@ -217,6 +217,16 @@ const CHON_DONG_DANH_SACH_VU_AN = {
   assignedTeam: {
     select: { id: true, name: true, ward: { select: { name: true } } },
   },
+  /*
+    Cột ngày mở cho tìm kiếm 21/09/2026 (đo riêng từng màn). Cột hiển thị ẩn sẵn trên bảng,
+    nhưng PHẢI trả về ở đây — cột hiện ra rỗng vì API không trả là lớp hỏng im lặng dự án đã
+    vấp nhiều lần.
+  */
+  receiveDate: true,
+  ngayPhieuChuyen: true,
+  ngayKhoiTo: true,
+  ngayVietDon: true,
+  ngayCapCccd: true,
 } satisfies Prisma.CaseSelect;
 
 /** Một dòng danh sách Vụ án như `getList` trả (trước khi gắn `trangThaiPhanHoi` cho UTDT). */

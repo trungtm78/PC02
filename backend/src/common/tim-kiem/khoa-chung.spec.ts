@@ -21,6 +21,16 @@ const HO_SO = [
   KHAI_TIM_KIEM_VU_AN,
 ] as const;
 
+/**
+ * Khoá có ở CẢ BA khai hồ sơ — màn Tổng hợp gửi cùng một khoá tới ba API.
+ *
+ * Ba khoá cuối thêm ngày 21/09/2026 cùng đợt mở thẻ ngày. Chúng thành khoá CHUNG vì cả ba thực
+ * thể đều có cột ấy và đều có dữ liệu thật (Đơn thư: Ngày viết đơn 41.820, Ngày phiếu chuyển
+ * 9.315, Ngày cấp CCCD 2.168; Vụ việc: 298 / 86 / 37; Vụ án: 338 / 1.717 / 219). Hệ quả có chủ
+ * ý: màn Tổng hợp nay lọc được theo ba cột ngày ấy.
+ *
+ * Thứ tự theo THỨ TỰ KHAI của Đơn thư, nên danh sách này đọc như gợi ý cán bộ nhìn thấy.
+ */
 const KHOA_CHUNG_HO_SO = [
   'stt',
   'sttCu',
@@ -32,6 +42,9 @@ const KHOA_CHUNG_HO_SO = [
   'ketQuaXuLyKhac',
   'nguoiNhap',
   'ngayTao',
+  'ngayVietDon',
+  'ngayPhieuChuyen',
+  'ngayCapCCCD',
 ];
 
 describe('khoaChung', () => {

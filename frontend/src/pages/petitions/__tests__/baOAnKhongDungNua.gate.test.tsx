@@ -61,34 +61,41 @@ describe('CỔNG: ba ô đã bỏ không dựng ở tab nào của Đơn thư', 
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
   /*
-    Hạn giờ rộng: ca này dựng form 10 tab rồi mở LẦN LƯỢT từng tab và chờ thân tab hiện ra.
-    Hạn 5 giây mặc định đủ khi chạy riêng nhưng không đủ khi chạy trọn bộ — và lúc ấy ca đỏ
-    với một lỗi hết-giờ không nói gì về sản phẩm, đúng kiểu đỏ oan làm người đọc mất lòng tin
-    vào cổng. Nới hạn giờ KHÔNG nới mệnh đề.
+    MỘT ca cho MỘT tab, thay vì một ca bấm qua cả mười tab.
+
+    Bản đầu gom cả mười tab vào một ca với hạn giờ 30 giây. Nó CHẬP CHỜN: dựng lại form mười
+    tab rồi chờ từng thân tab hiện ra, máy tải nặng là vượt hạn và đỏ với một lỗi hết-giờ không
+    nói gì về sản phẩm. Ca đỏ oan làm người đọc mất lòng tin vào cổng, rồi tới lúc nó đỏ THẬT
+    thì không ai buồn nhìn.
+
+    Tách ra thì mỗi tab có ngân sách riêng, đỏ ở tab nào là biết ngay tab ấy, và không ca nào
+    phải gánh công của chín ca khác. Mệnh đề KHÔNG đổi.
   */
-  it('mở LẦN LƯỢT mọi tab — không tab nào dựng ba ô ấy', { timeout: 30_000 }, async () => {
+  const TAB = Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[];
+
+  it.each(TAB)('tab "%s" không dựng ba ô đã bỏ', { timeout: 20_000 }, async (tab) => {
     await moForm();
     await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
 
-    const pham: string[] = [];
-    const daMo: string[] = [];
-    for (const tab of Object.keys(LEGACY_TAB_LABEL) as LegacyTabId[]) {
-      const nut = screen.queryByRole('button', { name: LEGACY_TAB_LABEL[tab] });
-      if (!nut) continue;
-      fireEvent.click(nut);
-      /*
-        CHỜ thân tab dựng xong rồi mới đo. Đo ngay sau cú bấm là đo một khoảnh khắc chưa có
-        gì — cổng sẽ xanh vì tab còn trống, chứ không phải vì ô đã ẩn. Đúng lớp "xanh rỗng".
-      */
-      await waitFor(() => expect(screen.getByTestId(`legacy-layout-${tab}`)).toBeInTheDocument());
-      daMo.push(tab);
-      for (const o of O_AN_KHOI_DON_THU)
-        if (screen.queryByTestId(`legacy-field-${o}`))
-          pham.push(`tab "${LEGACY_TAB_LABEL[tab]}" còn dựng ô "${o}"`);
-    }
-    // Mở được ít tab bất thường nghĩa là phép đo không chạm tới nơi — nói ra thay vì xanh rỗng.
-    expect(daMo.length, `chỉ mở được ${daMo.length} tab: ${daMo.join(', ')}`).toBeGreaterThan(5);
-    expect(pham, 'anh yêu cầu bỏ ba ô này khỏi màn Đơn thư').toEqual([]);
+    const nut = screen.queryByRole('button', { name: LEGACY_TAB_LABEL[tab] });
+    // Tab không có nút mở (vd tab mặc định) thì thân nó đã nằm sẵn trong cây.
+    if (nut) fireEvent.click(nut);
+    /*
+      CHỜ thân tab dựng xong rồi mới đo. Đo ngay sau cú bấm là đo một khoảnh khắc chưa có gì —
+      cổng sẽ xanh vì tab còn trống, chứ không phải vì ô đã ẩn. Đúng lớp "xanh rỗng".
+    */
+    await waitFor(() =>
+      expect(screen.getByTestId(`legacy-layout-${tab}`)).toBeInTheDocument(),
+    );
+
+    const pham = O_AN_KHOI_DON_THU.filter((o) =>
+      screen.queryByTestId(`legacy-field-${o}`),
+    );
+    expect(pham).toEqual([]);
+  });
+
+  it('mọi tab của Đơn thư đều được ca kiểm phủ — không tab nào rơi ra ngoài', () => {
+    expect(TAB.length).toBeGreaterThan(5);
   });
 
   /**

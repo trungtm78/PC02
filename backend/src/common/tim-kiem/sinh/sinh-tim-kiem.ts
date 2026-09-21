@@ -64,6 +64,15 @@ export interface TruongTimKiem {
    * ấy là tên gốc của cột bóng (`hoTen` → `ho_ten_bd` / `hoTenBd`), không phải cột thật.
    */
   cotGhep?: readonly string[];
+  /**
+   * Kiểu `ngay`: cột CHỮ giữ ngày THIẾU thành phần theo EDTF (`2026-12-XX`), dùng khi cột ngày
+   * thật rỗng.
+   *
+   * Đo prod 21/09/2026: 46.741 đơn thư, 41.820 có `petitionDate`, nên ~4.4k đơn chỉ mang
+   * `ngayVietDonEdtf`. Không khai cột này thì chúng vô hình với mọi phép lọc ngày — gõ `12/2026`
+   * không bao giờ ra. Chỉ đổi điều kiện Prisma, KHÔNG cần sinh lại SQL.
+   */
+  cotEdtf?: string;
 }
 
 /** Một cột thêm vào "tất cả các cột": chuỗi trần khi không có `@map`, object khi có. */

@@ -1,12 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import type { KhaiThucThe } from './sinh/sinh-tim-kiem';
 import {
+  dieuKienNgay,
+  tienToEdtf,
   docKhoangNgay,
   docThe,
   dungDieuKienTimKiem,
   noiVaoWhere,
   SO_THE_TOI_DA,
 } from './dieu-kien';
+import type { TruongTimKiem } from './sinh/sinh-tim-kiem';
 
 /**
  * Đọc thẻ tìm kiếm trên URL và dựng điều kiện Prisma — MỘT helper cho mọi đường đọc (danh sách,
@@ -416,5 +419,106 @@ describe('noiVaoWhere', () => {
     const where: Record<string, unknown> = { deletedAt: null };
     noiVaoWhere(where, []);
     expect(where).toEqual({ deletedAt: null });
+  });
+});
+
+/**
+ * Đợt 21/09/2026 — hồ sơ chỉ có NGÀY THIẾU THÀNH PHẦN phải tìm được.
+ *
+ * Đo prod: 46.741 đơn thư, 41.820 có `petitionDate` thật, nên ~4.4k đơn chỉ mang `ngayVietDonEdtf`
+ * dạng `2026-12-XX` với cột ngày thật RỖNG. Chúng vô hình với mọi phép lọc ngày — gõ `12/2026`
+ * không bao giờ ra.
+ *
+ * `docKhoangNgay` nay trả thêm TIỀN TỐ EDTF để nhánh thứ hai dò được bằng `startsWith`, thay vì
+ * dựng một hệ lọc ngày thứ hai.
+ */
+describe('tienToEdtf — tiền tố EDTF cho ngày thiếu thành phần', () => {
+  it.each([
+    ['15/12/2026', '2026-12-15'],
+    ['2026-12-15', '2026-12-15'],
+    ['12/2026', '2026-12'],
+    ['1/2026', '2026-01'],
+    ['2026', '2026'],
+  ])('%s → tiền tố "%s"', (vao, tienTo) => {
+    expect(tienToEdtf(vao)).toBe(tienTo);
+  });
+
+  it('tiền tố luôn khớp đầu chuỗi EDTF mà hệ sinh ra', () => {
+    // `sangEdtf` phía giao diện sinh `2026-12-XX` / `2026-XX-XX`; tiền tố phải là tiền tố THẬT
+    // của chúng, nếu không nhánh `startsWith` im lặng trả rỗng.
+    expect('2026-12-XX'.startsWith(tienToEdtf('12/2026')!)).toBe(true);
+    expect('2026-XX-XX'.startsWith(tienToEdtf('2026')!)).toBe(true);
+    expect('2026-12-15'.startsWith(tienToEdtf('15/12/2026')!)).toBe(true);
+    // Ngày ĐỦ không được khớp hồ sơ chỉ biết tháng: hệ không biết ngày ấy, bịa là sai.
+    expect('2026-12-XX'.startsWith(tienToEdtf('15/12/2026')!)).toBe(false);
+  });
+});
+
+/**
+ * Nhánh EDTF — hồ sơ chỉ có ngày THIẾU thành phần phải tìm được.
+ */
+describe('dieuKienNgay — hai nhánh rời nhau, không đếm trùng', () => {
+  const truongCoEdtf: TruongTimKiem = {
+    key: 'ngayVietDon',
+    nhan: 'Ngày viết đơn',
+    kieu: 'ngay',
+    cot: 'petitionDate',
+    cotEdtf: 'ngayVietDonEdtf',
+  };
+  const truongKhongEdtf: TruongTimKiem = {
+    key: 'ngayTao',
+    nhan: 'Ngày tạo',
+    kieu: 'ngay',
+    cot: 'createdAt',
+  };
+
+  it('không khai `cotEdtf` → giữ nguyên hình dạng cũ, chỉ khoảng trên cột ngày thật', () => {
+    const dk = dieuKienNgay(truongKhongEdtf, 'createdAt', '12/2026');
+    expect(dk).toHaveLength(1);
+    expect(Object.keys(dk[0])).toEqual(['createdAt']);
+    expect(dk[0]).not.toHaveProperty('OR');
+  });
+
+  it('có `cotEdtf` → OR hai nhánh: ngày thật trong khoảng, HOẶC ngày thật NULL + tiền tố', () => {
+    const dk = dieuKienNgay(truongCoEdtf, 'petitionDate', '12/2026');
+    expect(dk).toHaveLength(1);
+    const nhanh = (dk[0] as { OR: Record<string, unknown>[] }).OR;
+    expect(nhanh).toHaveLength(2);
+    expect(nhanh[0]).toEqual({
+      petitionDate: { gte: expect.any(Date), lt: expect.any(Date) },
+    });
+    expect(nhanh[1]).toEqual({
+      petitionDate: null,
+      ngayVietDonEdtf: { startsWith: '2026-12' },
+    });
+  });
+
+  /**
+   * Hai nhánh KHÔNG được chồng nhau: nhánh hai chỉ chạm hồ sơ có cột ngày thật RỖNG, nên một hồ
+   * sơ không bao giờ khớp cả hai. Đếm trùng ở đây là số liệu thống kê sai.
+   */
+  it('nhánh hai chỉ chạm hồ sơ có cột ngày thật RỖNG', () => {
+    const dk = dieuKienNgay(truongCoEdtf, 'petitionDate', '2026');
+    const nhanh = (dk[0] as { OR: Record<string, unknown>[] }).OR;
+    expect(nhanh[1]).toHaveProperty('petitionDate', null);
+  });
+
+  it('`tienTo` KHÔNG lọt vào bộ lọc Prisma — nó là dữ liệu của ta, không phải toán tử', () => {
+    const dk = dieuKienNgay(truongCoEdtf, 'petitionDate', '15/12/2026');
+    expect(JSON.stringify(dk)).not.toContain('tienTo');
+  });
+
+  it('ngày ĐỦ không khớp hồ sơ chỉ biết tháng — hệ không được bịa ngày', () => {
+    const dk = dieuKienNgay(truongCoEdtf, 'petitionDate', '15/12/2026');
+    const nhanh = (dk[0] as { OR: Record<string, unknown>[] }).OR;
+    const tienTo = (nhanh[1] as { ngayVietDonEdtf: { startsWith: string } })
+      .ngayVietDonEdtf.startsWith;
+    expect('2026-12-XX'.startsWith(tienTo)).toBe(false);
+    expect('2026-12-15'.startsWith(tienTo)).toBe(true);
+  });
+
+  it('chữ không phải ngày → rỗng, không dựng điều kiện rác', () => {
+    expect(dieuKienNgay(truongCoEdtf, 'petitionDate', 'abc')).toEqual([]);
+    expect(dieuKienNgay(truongCoEdtf, 'petitionDate', '31/02/2026')).toEqual([]);
   });
 });

@@ -17,6 +17,12 @@ export const TIM_KIEM_DON_THU = [
   { key: 'doiTuong', nhan: 'Đối tượng bị tố', kieu: 'chu' },
   { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay' },
+  { key: 'ngayTiepNhanNguonTin', nhan: 'Ngày tiếp nhận nguồn tin', kieu: 'ngay' },
+  { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay' },
+  { key: 'ngayGiaoDonViGiaiQuyet', nhan: 'Ngày giao đơn vị giải quyết', kieu: 'ngay' },
+  { key: 'ngayPhieuChuyen', nhan: 'Ngày phiếu chuyển', kieu: 'ngay' },
+  { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay' },
 ] as const;
 
 export const TIM_KIEM_VU_VIEC = [
@@ -33,6 +39,12 @@ export const TIM_KIEM_VU_VIEC = [
   { key: 'dieuTraVien', nhan: 'Điều tra viên', kieu: 'nguoi' },
   { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'ngayTiepNhanNguonTin', nhan: 'Ngày tiếp nhận nguồn tin', kieu: 'ngay' },
+  { key: 'ngayQDPhanCongNguonTin', nhan: 'Ngày QĐ phân công nguồn tin', kieu: 'ngay' },
+  { key: 'ngayGiaoDonViGiaiQuyet', nhan: 'Ngày giao đơn vị giải quyết', kieu: 'ngay' },
+  { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay' },
+  { key: 'ngayPhieuChuyen', nhan: 'Ngày phiếu chuyển', kieu: 'ngay' },
+  { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay' },
   { key: 'toiDanhChinh', nhan: 'Tội danh chính', kieu: 'quan-he' },
   { key: 'tenVuViec', nhan: 'Tên vụ việc', kieu: 'chu' },
 ] as const;
@@ -51,6 +63,11 @@ export const TIM_KIEM_VU_AN = [
   { key: 'trangThai', nhan: 'Trạng thái', kieu: 'chon' },
   { key: 'dieuTraVien', nhan: 'Điều tra viên', kieu: 'nguoi' },
   { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay' },
+  { key: 'ngayNhan', nhan: 'Ngày nhận', kieu: 'ngay' },
+  { key: 'ngayPhieuChuyen', nhan: 'Ngày phiếu chuyển', kieu: 'ngay' },
+  { key: 'ngayKhoiTo', nhan: 'Ngày khởi tố', kieu: 'ngay' },
+  { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay' },
+  { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay' },
   { key: 'ngayTiepNhan', nhan: 'Ngày tiếp nhận', kieu: 'ngay' },
   { key: 'donViGiao', nhan: 'Đơn vị giao', kieu: 'chu' },
   { key: 'soQuyetDinh', nhan: 'Số QĐ/Phiếu', kieu: 'chu' },

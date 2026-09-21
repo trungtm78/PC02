@@ -1,4 +1,5 @@
 import { PassThrough } from 'stream';
+import { KHAI_COT_XUAT_DON_THU } from './xuat-danh-sach-don-thu';
 import * as ExcelJS from 'exceljs';
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -158,5 +159,63 @@ describe('PetitionsService.xuatDanhSach', () => {
       service.xuatDanhSach({ cot: 'stt,matKhau' } as never, null, res as never),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.petition.count).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Lượt soát 21/09/2026 — P1: xuất Excel trả cột "Ngày viết đơn" RỖNG đúng với nhóm hồ sơ mà đợt
+ * này vừa mở cho tìm được.
+ *
+ * ~4.400 đơn chỉ có ngày THIẾU thành phần: `petitionDate` NULL, chữ nằm ở `ngayVietDonEdtf`
+ * (`2026-12-XX`). Màn hình đã hiện `__/12/2026` đúng, nhưng bộ xuất đọc thẳng `petitionDate` nên
+ * cán bộ lọc theo Ngày viết đơn rồi bấm Xuất là nhận một tệp trống trơn ĐÚNG cột vừa lọc.
+ *
+ * Tệp xuất trông bình thường — không lỗi, không cảnh báo. Đúng lớp hỏng im lặng.
+ */
+describe('Xuất Đơn thư — ngày viết đơn THIẾU thành phần', () => {
+  const cot = (k: string) => KHAI_COT_XUAT_DON_THU.find((c) => c.key === k)!;
+
+  it('hồ sơ chỉ có EDTF → xuất ra chữ `__/12/2026`, KHÔNG để trống', () => {
+    const ra = cot('petitionDate').doc({
+      petitionDate: null,
+      ngayVietDonEdtf: '2026-12-XX',
+    } as never);
+    expect(ra).toBe('__/12/2026');
+  });
+
+  it('hồ sơ có ngày ĐỦ → vẫn xuất ngày thật như cũ', () => {
+    const ra = cot('petitionDate').doc({
+      petitionDate: new Date('2026-12-15T00:00:00+07:00'),
+      ngayVietDonEdtf: '2026-12-15',
+    } as never);
+    expect(ra).toContain('15/12/2026');
+  });
+
+  /**
+   * Đơn thư THIẾU ca kiểm danh mục khoá xuất, trong khi Vụ án và Vụ việc đều có — nên sáu cột
+   * xuất mới của đợt này từng là 0 ca kiểm, gồm đúng cột dính lỗi trên.
+   */
+  it('danh mục khoá xuất đúng và đủ', () => {
+    expect(KHAI_COT_XUAT_DON_THU.map((c) => c.key)).toEqual([
+      'stt',
+      'ngayDeXuat',
+      'nguonDon',
+      'senderName',
+      'detailContent',
+      'donViGiaiQuyet',
+      'ketQuaXuLyKhac',
+      'enteredBy',
+      'status',
+      'suspectedPerson',
+      'deadline',
+      'createdAt',
+      // Sáu cột ngày mở cho tìm kiếm 21/09/2026.
+      'receivedDate',
+      'ngayTiepNhanNguonTin',
+      'petitionDate',
+      'ngayGiaoDonViGiaiQuyet',
+      'ngayPhieuChuyen',
+      'senderIdIssueDate',
+    ]);
   });
 });

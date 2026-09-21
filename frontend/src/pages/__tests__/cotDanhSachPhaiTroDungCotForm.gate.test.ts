@@ -47,11 +47,27 @@ const MIEN_TRU: Readonly<Record<string, string>> = {
   'Người nhập': 'quan hệ người dùng, đọc qua `enteredBy`/`canBoNhap`',
   'Hạn xử lý': 'thời hạn hệ mới tự tính, hệ cũ không có',
   'Ngày tạo': 'mốc kỹ thuật của hệ mới',
+
   'Đối tượng bị tố': 'cột ẩn của hệ mới, không nằm trong bộ cột hệ cũ',
   'Đối tượng bị can': 'danh sách bị can dựng từ quan hệ, không đọc một cột',
   STT: 'mã hồ sơ, mỗi thực thể một tên cột riêng (`stt`/`code`/`caseCode`)',
   'Tội danh':
     'cột ẩn của hệ mới (Vụ án) mang thẻ `toiDanh` trên cột chữ `crime`, thay ô lọc "Tội danh" đã gỡ — bố cục hệ cũ chỉ có "Tội danh cũ trước đây"/"Tội danh chính…" (cột khác)',
+};
+
+/**
+ * Miễn trừ khoá theo CẶP (màn, nhãn), không theo nhãn trần.
+ *
+ * Miễn trừ theo nhãn là TOÀN CỤC: mọi cột tương lai mang đúng nhãn ấy ở bất kỳ màn nào cũng
+ * thoát cổng, kể cả khi nó thật sự có ô form tương ứng và đang đọc sai cột. Hai cột dưới đây là
+ * mốc của HỆ MỚI, bố cục hệ cũ không có ô tương ứng — khác "Ngày tiếp nhận nguồn tin" vốn là ô
+ * hệ cũ. Mở cho tìm kiếm 21/09/2026 vì đầy dữ liệu: Đơn thư 46.741, Vụ án 3.339.
+ */
+const MIEN_TRU_THEO_MAN: Readonly<Record<string, string>> = {
+  'Đơn thư|Ngày tiếp nhận':
+    'mốc tiếp nhận của hệ mới (`receivedDate`), hệ cũ không có ô này',
+  'Vụ án|Ngày nhận':
+    'mốc nhận hồ sơ của hệ mới (`receiveDate`), hệ cũ không có ô này',
 };
 
 /**
@@ -63,6 +79,14 @@ const MIEN_TRU: Readonly<Record<string, string>> = {
  */
 const NHAN_FORM_CUA_NHAN_DANH_SACH: Readonly<Record<string, string>> = {
   'Ngày đề xuất': 'Ngày/Tháng/Năm đề xuất',
+  // Sáu cột ngày mở cho tìm kiếm 21/09/2026. Nhãn trên bảng rút gọn, nhãn trên form giữ
+  // nguyên văn hệ cũ — đúng cơ chế đã có cho "Ngày đề xuất".
+  'Ngày tiếp nhận nguồn tin':
+    'Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)',
+  'Ngày phiếu chuyển': 'Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra',
+  'Ngày QĐ phân công nguồn tin':
+    'Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm',
+  'Ngày khởi tố': 'Ngày ra Quyết định Khởi tố vụ án',
 };
 
 /** Cột form ứng với một nhãn trên danh sách. */
@@ -114,7 +138,12 @@ describe.each(BANG.map((m) => [m.ten, m] as const))(
     it('mọi nhãn đều hoặc có trong bố cục hệ cũ, hoặc được miễn trừ có lý do', () => {
       const la = cot
         .map((c) => c.nhan)
-        .filter((n) => !(n in MIEN_TRU) && cotFormCuaNhan(man.thucThe, n) === null);
+        .filter(
+          (n) =>
+            !(n in MIEN_TRU) &&
+            !(`${man.ten}|${n}` in MIEN_TRU_THEO_MAN) &&
+            cotFormCuaNhan(man.thucThe, n) === null,
+        );
       expect(la).toEqual([]);
     });
 

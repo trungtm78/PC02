@@ -108,6 +108,12 @@ describe('CasesService.xuatDanhSach', () => {
       'investigator',
       'crime',
       'createdAt',
+      // Năm cột ngày mở cho tìm kiếm 21/09/2026 — cột hiện được trên bảng phải xuất được.
+      'receiveDate',
+      'ngayPhieuChuyen',
+      'ngayKhoiTo',
+      'ngayVietDon',
+      'ngayCapCccd',
     ]);
   });
 
