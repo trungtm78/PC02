@@ -45,14 +45,18 @@ interface LuaChon {
   moNhomKhac?: boolean;
 }
 
-const SO_GIA_TRI_CHON_TOI_DA = 8;
+const SO_GIA_TRI_CHON_TOI_DA = 5;
 /**
  * Trần số dòng gợi ý.
  *
  * Đơn thư sắp có ~20 trường tìm được (6 thẻ ngày mới + các cột đang ẩn). Đổ hết ra là một danh
  * sách không đọc nổi và phải cuộn. Vượt trần thì cắt và chỉ đường sang cú pháp `tên cột:`.
+ *
+ * Trần theo TỪNG NHÓM: trần chung để nhóm "Cột khác" đứng sau nên một cột kiểu `chon` khớp
+ * nhiều giá trị là ăn hết suất, và cột ẩn — đúng thứ cần lộ diện — biến mất.
  */
-const TRAN_GOI_Y = 12;
+const TRAN_HIEN = 14;
+const TRAN_AN = 6;
 const KHONG_CO_GIA_TRI_CHON: BangGiaTriChon = {};
 const LY_DO_MAC_DINH = "Cột không còn tìm được";
 
@@ -213,96 +217,178 @@ export function OTimKiemThe({
   }, [q, khai]);
 
   const luaChon = useMemo<LuaChon[]>(() => {
-    const ds: LuaChon[] = [];
-    const themGiaTriChon = (t: TruongTimKiem, loc: string) => {
+    const themGiaTriChon = (ds2: LuaChon[], t: TruongTimKiem, loc: string) => {
       const khop = (giaTriChon[t.key] ?? []).filter((g) =>
         khopKhongDau(g.label, loc),
       );
       for (const g of khop.slice(0, SO_GIA_TRI_CHON_TOI_DA)) {
-        ds.push({
+        ds2.push({
           khoa: t.key,
           giaTri: g.value,
           nhan: `${t.nhan}: ${g.label}`,
         });
       }
     };
+
     if (!q) {
+      const ds: LuaChon[] = [];
       if (moRong)
-        for (const t of truongGoi) if (t.kieu === "chon") themGiaTriChon(t, "");
+        for (const t of truongGoi)
+          if (t.kieu === "chon") themGiaTriChon(ds, t, "");
       return ds;
     }
 
     const giaTri = locTheoTen?.giaTri ?? q;
     const laNgay = laGiaTriNgay(giaTri);
 
-    /** Dựng dòng cho một nhóm trường; trả về số dòng CHỌN ĐƯỢC đã thêm. */
-    const themNhom = (ds2: LuaChon[], truongs: readonly TruongTimKiem[]) => {
+    /**
+     * Dòng của một nhóm trường, trả mảng RIÊNG để cắt trần theo từng nhóm.
+     *
+     * Giá trị của cột kiểu `chon` xếp TRƯỚC dòng tìm chung. Đó là khớp CHÍNH XÁC một nhãn có
+     * thật ("Tạm đình chỉ"), giá trị cao hơn hẳn dòng "tìm chuỗi này trong cột kia"; và nếu xếp
+     * sau thì trần cắt mất chúng, vì cột Trạng thái khai cuối trong nhóm — đúng hồi quy mà bộ
+     * kiểm bắt được ngày 21/09/2026.
+     */
+    const dongCuaNhom = (truongs: readonly TruongTimKiem[]): LuaChon[] => {
+      const ds2: LuaChon[] = [];
       for (const t of truongs) {
-        if (t.kieu === "chon") themGiaTriChon(t, giaTri);
-        // Cột ngày mà chữ không phải ngày: KHÔNG dựng dòng riêng — một dòng hướng dẫn chung ở
-        // cuối là đủ. Chín cột ngày × một dòng giống hệt nhau là chín dòng rác.
+        if (t.kieu === "chon") themGiaTriChon(ds2, t, giaTri);
+        // Cột ngày mà chữ không phải ngày: KHÔNG dựng dòng riêng — một dòng hướng dẫn chung là
+        // đủ. Chín cột ngày × một dòng giống hệt nhau là chín dòng rác.
         else if (t.kieu === "ngay" && !laNgay) continue;
         else
           ds2.push({ khoa: t.key, giaTri, nhan: `Tìm ${t.nhan}: "${giaTri}"` });
       }
+      /*
+        GIỮ thứ tự khai: giá trị `chon` nằm đúng chỗ cột ấy được khai, không nhảy lên đầu.
+
+        Đã thử xếp chúng lên trước cho khỏi bị trần cắt — nhưng gõ "An" (tên người) thì "Đang xử
+        lý" nhảy lên trên "Người gửi", tức đổi thứ tự cán bộ đã quen để chữa một lỗi thuộc về
+        TRẦN. Sửa đúng chỗ: nới trần nhóm hiện (14) và hạ số giá trị `chon` tối đa (5), nên cột
+        Trạng thái khai CUỐI vẫn còn suất.
+      */
+      return ds2;
     };
 
-    const themTatCa = () =>
-      ds.push({
-        khoa: KHOA_TAT_CA,
-        giaTri,
-        nhan: `Tìm trong tất cả các cột: "${giaTri}"`,
-      });
+    const dongHuongDanNgay = (co: boolean): LuaChon[] =>
+      !laNgay && co
+        ? [
+            {
+              khoa: "",
+              giaTri,
+              nhan: "Tìm theo ngày: gõ 12/09/2026 · 09/2026 · 2026",
+              tat: true,
+            },
+          ]
+        : [];
 
+    /*
+      Nhánh "đã nói rõ tên cột".
+
+      Hai điều bắt buộc, cả hai đều do lượt soát 21/09/2026 chỉ ra:
+
+      1. Dòng "tất cả các cột" ở nhánh này mang NGUYÊN chuỗi `q`, không mang phần sau dấu hai
+         chấm. Gõ `Kết quả: đã chuyển VKS` thì "Kết quả" khớp tên một cột, nhưng rất có thể cán
+         bộ đang gõ một câu chứ không gõ tên cột — phải còn đường chọn nguyên câu, nếu không ta
+         âm thầm cắt mất hai chữ đầu.
+
+      2. Nếu không dựng được dòng CHỌN ĐƯỢC nào (vd `ngay:hom qua` — khớp toàn cột ngày mà chữ
+         lại không phải ngày) thì KHÔNG được coi là cú pháp tên cột. Trước bản vá, nhánh này trả
+         về đúng một dòng "tất cả các cột" mang giá trị ĐÃ BỊ CẮT, và Enter lặng lẽ tìm toàn
+         bảng với `"hom qua"`.
+    */
     if (locTheoTen) {
-      /*
-        Đã nói rõ tên cột thì cột ấy đứng TRƯỚC và "tất cả các cột" lùi xuống cuối: Enter phải
-        rơi vào đúng thứ cán bộ vừa gõ tên, không rơi vào phạm vi rộng hơn.
-        Không chia nhóm, không cắt trần.
-      */
-      themNhom(ds, locTheoTen.khop);
-      themTatCa();
-      return ds;
+      const dongCot = dongCuaNhom(locTheoTen.khop);
+      if (dongCot.length) {
+        return [
+          ...dongCot,
+          ...dongHuongDanNgay(locTheoTen.khop.some((t) => t.kieu === "ngay")),
+          {
+            khoa: KHOA_TAT_CA,
+            giaTri: q,
+            nhan: `Tìm trong tất cả các cột: "${q}"`,
+          },
+        ];
+      }
+      // Không chọn được gì → rơi xuống đường thường, dùng NGUYÊN `q`.
     }
 
-    themTatCa();
-
+    const chu = locTheoTen && !dongCuaNhom(locTheoTen.khop).length ? q : giaTri;
+    const laNgayChu = laGiaTriNgay(chu);
     const hien = truongGoi;
     const khoaHien = new Set(hien.map((t) => t.key));
     const an = khai.filter((t) => !khoaHien.has(t.key));
 
-    themNhom(ds, hien);
-    const truocKhac = ds.length;
-    themNhom(ds, an);
-    if (ds.length > truocKhac) ds[truocKhac].moNhomKhac = true;
+    const dongHien = chu === giaTri ? dongCuaNhom(hien) : [];
+    const dongAn = chu === giaTri ? dongCuaNhom(an) : [];
 
-    // Một dòng hướng dẫn CHUNG cho mọi cột ngày, thay cho mỗi cột một dòng.
-    if (!laNgay && [...hien, ...an].some((t) => t.kieu === "ngay")) {
+    /*
+      Trần theo TỪNG NHÓM, không phải trần chung.
+
+      Trần chung để nhóm "Cột khác" đứng sau nên một cột kiểu `chon` khớp nhiều giá trị (tới 8
+      dòng) là ăn hết suất, và cột ẩn — đúng thứ PR này sinh ra để lộ diện — biến mất. Lượt soát
+      đo được: gõ `"a"` trên Đơn thư đã vượt trần TRƯỚC khi tới cột ẩn đầu tiên.
+    */
+    const catHien = dongHien.slice(0, TRAN_HIEN);
+    const catAn = dongAn.slice(0, TRAN_AN);
+    if (catAn.length) catAn[0].moNhomKhac = true;
+
+    const ds: LuaChon[] = [
+      {
+        khoa: KHOA_TAT_CA,
+        giaTri: chu,
+        nhan: `Tìm trong tất cả các cột: "${chu}"`,
+      },
+      ...catHien,
+      ...catAn,
+      ...dongHuongDanNgay(
+        !laNgayChu && [...hien, ...an].some((t) => t.kieu === "ngay"),
+      ),
+    ];
+
+    // Đếm CỘT còn lại, không đếm dòng: dòng hướng dẫn ngày và các giá trị của một cột `chon`
+    // không phải "cột khác". Bản đầu đếm dòng nên in "còn 1 cột khác" khi không còn cột nào.
+    const conLai =
+      dongHien.length - catHien.length + (dongAn.length - catAn.length);
+    if (conLai > 0) {
       ds.push({
         khoa: "",
-        giaTri,
-        nhan: "Tìm theo ngày: gõ 12/09/2026 · 09/2026 · 2026",
+        giaTri: chu,
+        nhan: `… còn ${conLai} cột khác — gõ "tên cột:${chu}" để chọn`,
         tat: true,
       });
     }
-
-    if (ds.length <= TRAN_GOI_Y) return ds;
-    const cat = ds.slice(0, TRAN_GOI_Y);
-    cat.push({
-      khoa: "",
-      giaTri,
-      nhan: `… còn ${ds.length - TRAN_GOI_Y} cột khác — gõ "tên cột:${giaTri}" để chọn`,
-      tat: true,
-    });
-    return cat;
+    return ds;
   }, [q, moRong, truongGoi, giaTriChon, khai, locTheoTen]);
 
   const macDinh = Math.max(
     0,
     luaChon.findIndex((l) => l.khoa === uuTienKhoa && !l.tat),
   );
-  const dangChon = idx ?? macDinh;
+  /*
+    KẸP chỉ số vào mảng hiện tại.
+
+    `idx` chỉ được đặt lại khi cán bộ gõ; danh mục của cột kiểu `chon` nạp BẤT ĐỒNG BỘ nên danh
+    sách có thể co lại sau đó. Không kẹp thì `luaChon[dangChon]` là `undefined` — Enter lặng lẽ
+    rơi về "tất cả các cột", và `aria-activedescendant` trỏ vào một id không tồn tại.
+  */
+  const dangChon = Math.min(idx ?? macDinh, Math.max(0, luaChon.length - 1));
   const hienDanhSach = mo && luaChon.length > 0;
+
+  const idLuaChon = (i: number) => `${listId}-${i}`;
+
+  /*
+    Cuộn dòng đang chọn vào tầm nhìn.
+
+    Khung danh sách cao `max-h-80` ≈ 10 dòng, mà trần mới cho tới 16 dòng. Không cuộn thì bấm ↓
+    tới dòng 11 là ô sáng nằm ngoài khung: `aria-activedescendant` đúng nhưng mắt không thấy.
+  */
+  useEffect(() => {
+    if (!hienDanhSach) return;
+    document
+      .getElementById(idLuaChon(dangChon))
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [dangChon, hienDanhSach, listId]);
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -362,7 +448,15 @@ export function OTimKiemThe({
         e.preventDefault();
         const l = hienDanhSach ? luaChon[dangChon] : undefined;
         if (l) chon(l);
-        else if (q) chon({ khoa: KHOA_TAT_CA, giaTri: q, nhan: "" });
+        // Danh sách đang đóng (vd vừa bấm Escape): vẫn phải dùng đúng giá trị mà danh sách
+        // sẽ dùng. Trước bản vá dùng `q` trần, nên `doi tuong:nguyen` → Escape → Enter tạo thẻ
+        // "tất cả các cột" mang CẢ tiền tố tên cột vào giá trị tìm.
+        else if (q)
+          chon({
+            khoa: KHOA_TAT_CA,
+            giaTri: luaChon[0]?.giaTri ?? q,
+            nhan: "",
+          });
         return;
       }
       case "Escape":
@@ -389,7 +483,6 @@ export function OTimKiemThe({
     oRef.current?.focus();
   };
 
-  const idLuaChon = (i: number) => `${listId}-${i}`;
 
   return (
     <div className="relative" data-testid="o-tim-kiem-the">

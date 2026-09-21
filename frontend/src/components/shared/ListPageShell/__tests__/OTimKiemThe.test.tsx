@@ -218,6 +218,9 @@ const dungRong = (p: Partial<OTimKiemTheProps> = {}) =>
 
 const chuCacLuaChon = () => cacLuaChon().map((l) => l.textContent ?? '');
 
+/** Phải khớp `TRAN_AN` trong `OTimKiemThe.tsx` — đổi một bên mà quên bên kia là ca kiểm đỏ. */
+const TRAN_AN_MONG_DOI = 6;
+
 describe('<OTimKiemThe> — gợi ý cho cột đang ẩn (đợt 21/09/2026)', () => {
   it('trường của cột ĐANG ẨN vẫn chọn được, nằm trong nhóm "Cột khác"', () => {
     const { o } = dungRong();
@@ -231,9 +234,12 @@ describe('<OTimKiemThe> — gợi ý cho cột đang ẩn (đợt 21/09/2026)', 
     const { o } = dungRong();
     goChu(o, 'nguyen');
     const chu = chuCacLuaChon();
-    expect(chu.findIndex((c) => c.includes('Người gửi'))).toBeLessThan(
-      chu.findIndex((c) => c.includes('Đối tượng bị tố')),
-    );
+    const iHien = chu.findIndex((c) => c.includes('Người gửi'));
+    const iAn = chu.findIndex((c) => c.includes('Đối tượng bị tố'));
+    // Chốt TỒN TẠI trước khi so thứ tự: thiếu nó thì 'Người gửi' biến mất (-1) vẫn xanh.
+    expect(iHien).toBeGreaterThan(-1);
+    expect(iAn).toBeGreaterThan(-1);
+    expect(iHien).toBeLessThan(iAn);
   });
 
   /**
@@ -264,7 +270,22 @@ describe('<OTimKiemThe> — gợi ý cho cột đang ẩn (đợt 21/09/2026)', 
     }));
     const { o } = dung({ truong: KHAI, khai: [...KHAI, ...nhieu] });
     goChu(o, 'nguyen');
-    expect(cacLuaChon().length).toBeLessThanOrEqual(14);
+    /*
+      Siết theo CẤU TRÚC, không theo một con số khó đọc. `toBeLessThanOrEqual(14)` của bản đầu
+      nới được một dòng mà không ca nào đỏ — tức trần không thực sự bị cổng nào giữ.
+
+      Bộ mẫu: 4 cột hiện (chỉ `stt` và `nguoiGui` khớp chữ "nguyen") + 30 cột ẩn.
+    */
+    const chu = chuCacLuaChon();
+    const dongCot = chu.filter(
+      (c) =>
+        c.startsWith('Tìm ') &&
+        !c.includes('tất cả các cột') &&
+        !c.includes('gõ 12/09'),
+    );
+    const dongAn = dongCot.filter((c) => /Cột \d+/.test(c));
+    expect(dongAn).toHaveLength(TRAN_AN_MONG_DOI);
+    expect(dongCot).toHaveLength(2 + TRAN_AN_MONG_DOI);
     expect(screen.getByText(/còn \d+ cột khác/)).toBeInTheDocument();
   });
 
@@ -296,5 +317,111 @@ describe('<OTimKiemThe> — gợi ý cho cột đang ẩn (đợt 21/09/2026)', 
     const { o } = dungRong();
     goChu(o, 'khongcocotnao:nguyen');
     expect(chuCacLuaChon()[0]).toContain('tất cả các cột');
+  });
+});
+
+/**
+ * Bảy lỗi lượt soát bắt được ngày 21/09/2026, mỗi lỗi một ca kiểm.
+ */
+describe('<OTimKiemThe> — lỗi lượt soát bắt', () => {
+  /**
+   * P1: `ngay:hom qua` khớp TOÀN cột ngày, mà chữ lại không phải ngày nên không dựng được dòng
+   * nào. Bản đầu vẫn coi là cú pháp tên cột và trả về đúng một dòng "tất cả các cột" mang giá
+   * trị ĐÃ BỊ CẮT — Enter lặng lẽ tìm toàn bảng với `"hom qua"`.
+   */
+  it('tên cột khớp toàn cột NGÀY mà chữ không phải ngày → KHÔNG cắt mất tiền tố', () => {
+    const { props, o } = dungRong();
+    goChu(o, 'ngay:hom qua');
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(props.onThem).toHaveBeenCalledWith('*', 'ngay:hom qua');
+  });
+
+  /**
+   * P2: gõ một câu có dấu hai chấm mà phần đầu tình cờ khớp tên cột. Phải CÒN đường chọn nguyên
+   * câu, nếu không ta âm thầm cắt mất phần đầu.
+   */
+  it('câu có dấu hai chấm vẫn còn dòng "tất cả các cột" mang NGUYÊN câu', () => {
+    const { o } = dungRong();
+    goChu(o, 'người gửi: nguyen van a');
+    const chu = chuCacLuaChon();
+    expect(chu.join('\n')).toContain('"người gửi: nguyen van a"');
+  });
+
+  /**
+   * P1: trần chung để nhóm "Cột khác" đứng sau nên một cột kiểu `chon` khớp nhiều giá trị ăn
+   * hết suất, và cột ẩn biến mất — đúng thứ PR này sinh ra để lộ diện.
+   */
+  it('cột `chon` khớp nhiều giá trị KHÔNG được ăn hết suất của nhóm "Cột khác"', () => {
+    const { o } = dung({
+      truong: KHAI,
+      khai: KHAI_RONG,
+      giaTriChon: {
+        trangThai: Array.from({ length: 8 }, (_, i) => ({
+          value: `V${i}`,
+          label: `Đang xử lý ${i}`,
+        })),
+      },
+    });
+    goChu(o, 'dang');
+    expect(chuCacLuaChon().join('\n')).toContain('Đối tượng bị tố');
+  });
+
+  /** P2: nhãn tràn đếm CỘT, không đếm dòng. */
+  it('nhãn "còn N cột khác" đếm đúng số CỘT', () => {
+    const nhieu = Array.from({ length: 20 }, (_, i) => ({
+      key: `c${i}`,
+      nhan: `Cột ${i}`,
+      kieu: 'chu' as const,
+    }));
+    const { o } = dung({ truong: KHAI, khai: [...KHAI, ...nhieu] });
+    goChu(o, 'nguyen');
+    const nhan = chuCacLuaChon().find((c) => c.includes('còn')) ?? '';
+    // 20 cột ẩn, hiện 6 → còn 14. Bản đầu đếm dòng nên ra số khác.
+    expect(nhan).toContain('còn 14 cột khác');
+  });
+
+  /** P2: Escape đóng danh sách rồi Enter — vẫn phải dùng đúng giá trị. */
+  it('Escape rồi Enter KHÔNG đưa tiền tố tên cột vào giá trị tìm', () => {
+    const { props, o } = dungRong();
+    goChu(o, 'doi tuong:nguyen');
+    fireEvent.keyDown(o, { key: 'Escape' });
+    fireEvent.keyDown(o, { key: 'Enter' });
+    expect(props.onThem).toHaveBeenCalledWith('*', 'nguyen');
+  });
+
+  /** P3: bàn phím phải bỏ qua tiêu đề nhóm và dòng khoá. */
+  it('↓ đi qua đúng các dòng CHỌN ĐƯỢC, bỏ qua tiêu đề nhóm', () => {
+    const { o } = dungRong();
+    goChu(o, 'nguyen');
+    const tuyChon = cacLuaChon();
+    const id = (i: number) => tuyChon[i].id;
+    expect(o.getAttribute('aria-activedescendant')).toBe(id(0));
+    fireEvent.keyDown(o, { key: 'ArrowDown' });
+    expect(o.getAttribute('aria-activedescendant')).toBe(id(1));
+    // Tiêu đề nhóm không phải `option` nên không bao giờ là đích của aria-activedescendant.
+    expect(screen.getByText(/Cột khác/).getAttribute('role')).toBe('presentation');
+  });
+  /**
+   * Hồi quy 21/09/2026: cột Trạng thái khai CUỐI trong nhóm cột hiện, nên bản đầu của trần theo
+   * nhóm (8 dòng) cắt đúng các giá trị khớp của nó — gõ đúng tên một trạng thái mà không chọn
+   * được. Bộ kiểm màn danh sách bắt được; ca này chốt ngay tại component.
+   */
+  it('cột `chon` khai CUỐI vẫn còn suất trong trần nhóm hiện', () => {
+    const nhieuCot = Array.from({ length: 9 }, (_, i) => ({
+      key: `c${i}`,
+      nhan: `Cột ${i}`,
+      kieu: 'chu' as const,
+    }));
+    // Trạng thái đứng SAU 9 cột chữ — đúng hình dạng của Vụ việc/Đơn thư thật.
+    const truong = [...nhieuCot, KHAI[3]];
+    const { o } = dung({
+      truong,
+      khai: truong,
+      giaTriChon: {
+        trangThai: [{ value: 'TAM_DINH_CHI', label: 'Tạm đình chỉ' }],
+      },
+    });
+    goChu(o, 'tam dinh chi');
+    expect(chuCacLuaChon().join('\n')).toContain('Trạng thái: Tạm đình chỉ');
   });
 });
