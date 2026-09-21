@@ -76,6 +76,8 @@ export function buildPetitionCreateData(
     // tiếp đều rơi vào nhánh này — đo được một bản ghi như thế trên prod ngay sau deploy.
     ngayVietDonEdtf:
       dto.ngayVietDonEdtf || edtfTuNgayThat(toDate(dto.petitionDate)),
+    // Chữ nguyên văn đi thẳng, không suy ra từ đâu: nó LÀ thứ cán bộ gõ.
+    ngayVietDonChu: dto.ngayVietDonChu?.trim() || null,
     nguonDon: dto.nguonDon,
     subTeamAssigned: dto.subTeamAssigned,
     lyDoChuyen: dto.lyDoChuyen,
@@ -157,8 +159,16 @@ export function buildPetitionCreateData(
 export function ngayVietDonKhiSua(dto: {
   petitionDate?: string | Date | null;
   ngayVietDonEdtf?: string | null;
+  ngayVietDonChu?: string | null;
 }): Record<string, unknown> {
   const ra: Record<string, unknown> = {};
+  /*
+    Chữ nguyên văn: chỉ ghi khi client CÓ GỬI khoá. Không gửi = không đụng tới, đúng luật
+    "ô rỗng gửi null" của kho mã — bỏ khoá không được xoá dữ liệu người khác đã nhập.
+  */
+  if (dto.ngayVietDonChu !== undefined) {
+    ra.ngayVietDonChu = dto.ngayVietDonChu?.trim() || null;
+  }
   if (dto.petitionDate !== undefined) {
     ra.petitionDate = dto.petitionDate ? new Date(dto.petitionDate) : null;
   }

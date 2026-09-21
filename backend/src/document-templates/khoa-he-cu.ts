@@ -310,10 +310,24 @@ export function khoaTheoTenHeCu(entity: Entity): FieldDef[] {
             phần có `petitionDate` NULL theo đúng thiết kế, nên đọc thẳng cột cũng in ra trống.
             Hai đường, hai lý do, cùng một hậu quả — nên phải đỡ cả hai.
           */
-          if (thoHeCu) return thoHeCu;
-          return cot.field === 'ngay_viet_don'
-            ? ngayVietDonHienThi(record as Parameters<typeof ngayVietDonHienThi>[0])
-            : '';
+          /*
+            NGOẠI LỆ 21/09/2026 — chữ cán bộ VỪA GÕ thắng cả bản thô.
+
+            Luật "bản thô thắng" ở trên nói về hồ sơ CHƯA ai sửa: in lại đúng từng chữ như hệ
+            cũ. Nhưng từ hôm nay cán bộ gõ được nguyên văn vào `ngayVietDonChu`, và nếu bản
+            thô vẫn thắng thì họ sửa xong, bấm In, và thấy y nguyên chữ cũ — sửa mà không có
+            tác dụng, không báo gì.
+
+            Chỉ mở ngoại lệ cho ĐÚNG cột này. Mọi cột khác giữ nguyên luật cũ: đổi chúng là
+            đụng 41.675 bản in đã đối chiếu từng cặp với hệ cũ.
+          */
+          if (cot.field === 'ngay_viet_don') {
+            const r = record as Parameters<typeof ngayVietDonHienThi>[0];
+            const chu = r?.ngayVietDonChu?.trim();
+            if (chu) return chu;
+            return thoHeCu || ngayVietDonHienThi(r);
+          }
+          return thoHeCu || '';
         },
     });
   }
