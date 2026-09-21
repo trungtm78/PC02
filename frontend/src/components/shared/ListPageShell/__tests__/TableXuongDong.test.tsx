@@ -88,18 +88,9 @@ describe('<Table xuongDong>', () => {
     expect(thanh.compareDocumentPosition(screen.getByRole('table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  /*
-    ĐỔI HỢP ĐỒNG 21/09/2026 (hotfix nút In). Mệnh đề cũ là "không bật xuongDong → KHÔNG có bề
-    rộng tối thiểu" — và chính mệnh đề ấy là con bug: không có sàn thì `table-fixed` + `w-full`
-    co tỉ lệ mọi cột, ô "Thao tác" khai 12rem dựng ra 113px trên prod, nên nút "In chứng từ" và
-    nút ⋮ bị `overflow: hidden` cắt mất.
-
-    Phần còn lại của mệnh đề KHÔNG đổi: chế độ gọn vẫn `whitespace-nowrap`, vẫn không có thanh
-    cuộn ngang phía trên. Sửa đúng một điều đã đổi, giữ nguyên phần còn lại.
-  */
-  it('KHÔNG bật xuongDong → vẫn có SÀN bề rộng, ô vẫn không xuống dòng', () => {
+  it('KHÔNG bật xuongDong → bảng giữ nguyên như cũ (không bề rộng tối thiểu, ô không xuống dòng)', () => {
     ve();
-    expect(screen.getByRole('table').style.minWidth).not.toBe('');
+    expect(screen.getByRole('table').style.minWidth).toBe('');
     expect(screen.getByText('y').closest('td')!.className).toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.queryByTestId('thanh-cuon-ngang-tren')).not.toBeInTheDocument();
   });

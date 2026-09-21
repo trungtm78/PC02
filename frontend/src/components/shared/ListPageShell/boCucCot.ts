@@ -122,7 +122,16 @@ export function apDungBoCuc<TRow>(
   return sapXepCot(columns, boCuc)
     .filter((c) => cotDangHien(c, boCuc))
     .map((c) => {
-      const w = boCuc[c.key]?.width;
+      /*
+        `khongDoiBeRong`: bỏ qua bề rộng đã lưu. Cột "Thao tác" chứa nút icon cỡ cố định, số
+        lượng do ta quyết — một giá trị người dùng lưu trước khi ta thêm nút sẽ cắt mất nút mới
+        và không bao giờ tự sửa. Ca hỏng thật 21/09/2026: ô lưu 113px, mã khai 12rem, nút "In
+        chứng từ" và nút ⋮ nằm ngoài mép ô và bị `overflow: hidden` cắt.
+
+        Bỏ qua ở đây chứ không xoá dữ liệu: người dùng còn giữ nguyên mọi tuỳ chỉnh khác, và
+        không cần chạy lệnh vá dữ liệu trên máy chủ cho từng tài khoản.
+      */
+      const w = c.khongDoiBeRong ? undefined : boCuc[c.key]?.width;
       return w === undefined ? c : { ...c, width: `${w}px` };
     });
 }

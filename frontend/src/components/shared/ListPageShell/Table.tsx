@@ -67,6 +67,19 @@ export interface ColumnDef<TRow> {
   render(row: TRow): ReactNode;
   /** Column width hint (CSS value). */
   width?: string;
+  /**
+   * Bề rộng cột KHÔNG cho người dùng đặt: bỏ tay nắm kéo, và bỏ qua bề rộng đã lưu.
+   *
+   * Dành cho cột mà nội dung do TA quyết chứ không do dữ liệu — cụ thể là cột "Thao tác", chứa
+   * các nút icon cỡ cố định mà số lượng đổi mỗi lần thêm một hành động.
+   *
+   * Vì sao phải bỏ qua bề rộng ĐÃ LƯU chứ không chỉ khoá kéo: 21/09/2026 cán bộ báo mất nút
+   * "In chứng từ". Đo ra ô 113px trong khi mã khai 12rem — 113px là giá trị người ấy kéo từ
+   * TRƯỚC khi nút In tồn tại, lưu theo tài khoản, và không bao giờ tự cập nhật. Thêm một nút
+   * vào cột là âm thầm làm hỏng cho đúng những người đã từng tuỳ chỉnh, còn mã nguồn thì vẫn
+   * khai 12rem nên không cổng nào thấy.
+   */
+  khongDoiBeRong?: boolean;
   /** Header className override. */
   headerClassName?: string;
   /** Cell className override. */
@@ -402,25 +415,11 @@ export function Table<TRow, TId extends string | number = string>({
   const tongBeRong = onKeoGian && datTongBeRong ? tongKhai : undefined;
   // Chế độ xuống dòng: chưa kéo cột nào thì bảng vẫn `w-full` nhưng KHÔNG được hẹp hơn tổng bề rộng khai —
   // thiếu sàn này là chữ xuống dòng làm bảng co khít khung và mất thanh cuộn ngang (bẫy 25/08/2026).
-  /*
-    SÀN bề rộng — áp cho MỌI chế độ, không riêng "xuống dòng".
-    ─────────────────────────────────────────────────────────
-    HOTFIX 21/09/2026. `table-fixed` + `w-full` mà không có sàn thì trình duyệt co TỈ LỆ mọi cột
-    cho vừa màn hình: `width` khai thành gợi ý chứ không phải lệnh. Đo trên prod, ô "Thao tác"
-    khai 12rem = 192px nhưng dựng ra 113px ở 1280–1536px — mà nội dung là 5 nút cố định chiếm
-    176px, và ô đặt `overflow: hidden`. Kết quả: nút "In chứng từ" và nút ⋮ "Thao tác khác" bị
-    CẮT CỤT, không lỗi, không dấu hiệu, chỉ đơn giản không có ở đó.
-
-    Chế độ "xuống dòng" đã có sàn này từ 25/08/2026, đặt đúng cho lớp lỗi ấy. Chế độ "gọn"
-    thì không — mà "gọn" là mặc định, nên bản vá hôm ấy vá cho thiểu số.
-
-    Đánh đổi: bảng nào khai tổng rộng hơn màn hình nay cuộn ngang thay vì co lại. Đó là điều
-    thiết kế vốn giả định — cột "Thao tác" được GHIM (`sticky`) chính là để nó ở nguyên khi cuộn
-    ngang. Co khít màn hình bằng cách giấu nút mới là cái sai.
-  */
   const kieuBang = tongBeRong
     ? { width: tongBeRong, minWidth: '100%' }
-    : { minWidth: tongKhai };
+    : xuongDong
+      ? { minWidth: tongKhai }
+      : undefined;
   // Mật độ "Gọn": mỗi ô một dòng (TABLE_CELL cắt bằng dấu …) — cán bộ tự chọn để xem được nhiều hồ sơ.
   const oMacDinh = xuongDong && matDo !== 'gon' ? TABLE_CELL_WRAP : TABLE_CELL;
 
@@ -464,7 +463,7 @@ export function Table<TRow, TId extends string | number = string>({
                     col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
                   }`.trim()}
                   keoGian={
-                    onKeoGian
+                    onKeoGian && !col.khongDoiBeRong
                       ? {
                           tenCot: col.key,
                           beRongHienTai: doBeRong(col.width),
