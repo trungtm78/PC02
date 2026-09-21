@@ -168,6 +168,19 @@ export function ngayVietDonKhiSua(dto: {
   */
   if (dto.ngayVietDonChu !== undefined) {
     ra.ngayVietDonChu = dto.ngayVietDonChu?.trim() || null;
+  } else if (dto.petitionDate !== undefined) {
+    /*
+      Client ĐỔI NGÀY mà không biết cột nguyên văn → xoá chữ cũ đi.
+
+      Chú thích đầu hàm vốn viết cho cột EDTF. Từ 21/09/2026 có HAI cột chữ, và
+      `ngayVietDonHienThi` đọc cột NGUYÊN VĂN trước — nên để yên thì tab cũ đổi ngày xong, bản
+      in vẫn ra chữ CŨ và thắng cả ngày vừa sửa. Sai giá trị tệ hơn rỗng: rỗng thì người ta
+      thấy, sai thì văn bản gửi ra ngoài ngành mang một ngày không ai kiểm lại.
+
+      Chỉ xoá khi client CÓ đụng ngày. Không đụng thì không xoá — sửa một ô khác trên form
+      không được lặng lẽ lấy mất chữ người ta đã nhập.
+    */
+    ra.ngayVietDonChu = null;
   }
   if (dto.petitionDate !== undefined) {
     ra.petitionDate = dto.petitionDate ? new Date(dto.petitionDate) : null;

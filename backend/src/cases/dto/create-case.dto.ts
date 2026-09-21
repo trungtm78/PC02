@@ -1,3 +1,4 @@
+import { stripHtmlTags } from '../../common/utils/sanitize.util';
 import {
   IsString,
   IsOptional,
@@ -380,7 +381,12 @@ export class CreateCaseDto {
    * Ngày viết đơn GHI NGUYÊN VĂN như trên giấy. KHÔNG kiểm hình dạng, có chủ ý: đặt luật nào
    * ở đây là chặn lại đúng thứ cột này sinh ra để chứa (hồ sơ gộp nhiều đơn, "Không ghi ngày").
    */
-  @IsOptional() @MaxLength(1000) @IsString() ngayVietDonChu?: string;
+  // Lọc HTML như Đơn thư: một cột, một luật làm sạch. Giá trị chảy vào CÙNG hàm in.
+  @IsOptional()
+  @Transform(({ value }) => stripHtmlTags(value))
+  @IsString()
+  @MaxLength(1000)
+  ngayVietDonChu?: string;
   @IsOptional() @IsString() ghiChuTrungDon?: string;
   @IsOptional() @IsBoolean() baoCaoBanGiamDoc?: boolean;
   @IsOptional() @IsNgayThat() ngayGiaoDonViGiaiQuyet?: string;

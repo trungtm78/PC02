@@ -1021,6 +1021,16 @@ export class CasesService {
       ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null }),
       ...(dto.doVatTaiLieuKemTheo !== undefined && { doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo }),
       ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null }),
+      /*
+        Hai cột ngày viết đơn kiểu CHỮ — phải ghi cùng chỗ với cột ngày trơn, không tách ra.
+
+        Bỏ sót chúng ở đây là lỗi lượt soát bắt 21/09/2026, và nó không chỉ làm tính năng chết:
+        ô nhập ghi `ngayVietDon = ""` khi chữ không đọc ra ngày, nên cán bộ mở hồ sơ CÓ ngày,
+        gõ "Không ghi ngày" rồi Lưu là ngày cũ bị xoá NULL còn chữ thay thế không được ghi.
+        DTO đã khai hai cột nên `forbidNonWhitelisted` cho qua — không 400, không log, chỉ mất.
+      */
+      ...(dto.ngayVietDonEdtf !== undefined && { ngayVietDonEdtf: dto.ngayVietDonEdtf || null }),
+      ...(dto.ngayVietDonChu !== undefined && { ngayVietDonChu: dto.ngayVietDonChu?.trim() || null }),
       ...(dto.ghiChuTrungDon !== undefined && { ghiChuTrungDon: dto.ghiChuTrungDon }),
       ...(dto.baoCaoBanGiamDoc !== undefined && { baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc }),
       ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null }),
@@ -1509,6 +1519,16 @@ export class CasesService {
       ...(dto.ngayPhieuChuyen !== undefined && { ngayPhieuChuyen: dto.ngayPhieuChuyen ? new Date(dto.ngayPhieuChuyen) : null }),
       ...(dto.doVatTaiLieuKemTheo !== undefined && { doVatTaiLieuKemTheo: dto.doVatTaiLieuKemTheo }),
       ...(dto.ngayVietDon !== undefined && { ngayVietDon: dto.ngayVietDon ? new Date(dto.ngayVietDon) : null }),
+      /*
+        Hai cột ngày viết đơn kiểu CHỮ — phải ghi cùng chỗ với cột ngày trơn, không tách ra.
+
+        Bỏ sót chúng ở đây là lỗi lượt soát bắt 21/09/2026, và nó không chỉ làm tính năng chết:
+        ô nhập ghi `ngayVietDon = ""` khi chữ không đọc ra ngày, nên cán bộ mở hồ sơ CÓ ngày,
+        gõ "Không ghi ngày" rồi Lưu là ngày cũ bị xoá NULL còn chữ thay thế không được ghi.
+        DTO đã khai hai cột nên `forbidNonWhitelisted` cho qua — không 400, không log, chỉ mất.
+      */
+      ...(dto.ngayVietDonEdtf !== undefined && { ngayVietDonEdtf: dto.ngayVietDonEdtf || null }),
+      ...(dto.ngayVietDonChu !== undefined && { ngayVietDonChu: dto.ngayVietDonChu?.trim() || null }),
       ...(dto.ghiChuTrungDon !== undefined && { ghiChuTrungDon: dto.ghiChuTrungDon }),
       ...(dto.baoCaoBanGiamDoc !== undefined && { baoCaoBanGiamDoc: dto.baoCaoBanGiamDoc }),
       ...(dto.ngayGiaoDonViGiaiQuyet !== undefined && { ngayGiaoDonViGiaiQuyet: dto.ngayGiaoDonViGiaiQuyet ? new Date(dto.ngayGiaoDonViGiaiQuyet) : null }),

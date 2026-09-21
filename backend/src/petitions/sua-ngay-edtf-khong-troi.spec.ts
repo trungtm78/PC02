@@ -44,3 +44,38 @@ describe('ngayVietDonKhiSua', () => {
     expect(ra).toEqual({ ngayVietDonEdtf: '2026-XX-XX' });
   });
 });
+
+/*
+  Cột NGUYÊN VĂN cũng không được trôi khỏi cột ngày thật (21/09/2026).
+
+  Chú thích của hàm này vốn viết cho cột EDTF. Từ hôm nay có HAI cột chữ, và
+  `ngayVietDonHienThi` đọc cột NGUYÊN VĂN trước — nên rủi ro nó mô tả giờ đúng với cột mới, mà
+  chưa ai chặn: tab cũ (gói giao diện chưa tải lại sau lượt deploy) đổi ngày thì chỉ gửi
+  `petitionDate`, cột nguyên văn giữ giá trị CŨ và THẮNG khi in.
+
+  Sai giá trị tệ hơn rỗng: rỗng thì người ta thấy, sai thì văn bản gửi ra ngoài ngành mang một
+  ngày không ai kiểm lại.
+*/
+describe('ngayVietDonKhiSua — cột nguyên văn không trôi khỏi ngày thật', () => {
+  it('client chỉ gửi ngày thật → XOÁ cột nguyên văn cũ, đừng để nó thắng khi in', () => {
+    const ra = ngayVietDonKhiSua({ petitionDate: '2026-03-15' });
+    expect(ra.ngayVietDonChu).toBeNull();
+  });
+
+  it('client gửi cả hai → tôn trọng đúng thứ client gửi', () => {
+    const ra = ngayVietDonKhiSua({
+      petitionDate: '2026-03-15',
+      ngayVietDonChu: 'Không ghi ngày',
+    });
+    expect(ra.ngayVietDonChu).toBe('Không ghi ngày');
+  });
+
+  /*
+    KHÔNG đụng ngày thật thì KHÔNG đụng cột nguyên văn — sửa một ô khác trên form không được
+    lặng lẽ xoá chữ người ta đã nhập. Đây là luật "ô rỗng gửi null" của kho mã: bỏ khoá nghĩa
+    là không đổi, không phải xoá.
+  */
+  it('client không đụng ngày → KHÔNG đụng cột nguyên văn', () => {
+    expect('ngayVietDonChu' in ngayVietDonKhiSua({})).toBe(false);
+  });
+});
