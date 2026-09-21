@@ -50,6 +50,13 @@ export interface PetitionFormData {
    * `petitionDate` vẫn là cột ngày thật, chỉ có giá trị khi nhập ĐỦ ba phần.
    */
   ngayVietDonEdtf: string;
+  /**
+   * Ngày viết đơn GHI NGUYÊN VĂN như cán bộ gõ — trống khi chữ ấy đúng là một ngày.
+   *
+   * Đo prod 21/09/2026: 4.454/46.129 hồ sơ mang giá trị không đọc ra được một ngày (hồ sơ GỘP
+   * nhiều đơn, hoặc ghi chú "Không ghi ngày"). Anh chốt: để nguyên chữ đã nhập và in ra Word.
+   */
+  ngayVietDonChu: string;
   ngayDeXuat: string;
   phanLoaiNguonTin: string;
   dieuTraVien: string;
@@ -105,7 +112,7 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   crimeChinhId: "", noiXayRa: "", noiXayRaPhuongXa: "", ngayXayRa: "",
   loaiToiPham: "", phuongThucThuDoan: "", ngayGiaoDonViGiaiQuyet: "",
   laCongNgheCao: false, lanhDaoToTung: "", ketQuaXuLyKhac: "", thoiHanUTDT: "",
-  nguonDon: "", petitionDate: "", ngayVietDonEdtf: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
+  nguonDon: "", petitionDate: "", ngayVietDonEdtf: "", ngayVietDonChu: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
   huongXuLy: "", thuocThamQuyen: true,
   baoCaoBanGiamDocText: "", tinhTrang: "",
