@@ -12,8 +12,17 @@ import { join, relative } from 'node:path';
  * Bản đầu của cổng soi ĐÚNG MỘT tệp (`field-catalog.ts`) và đòi hai chữ trên CÙNG một dòng —
  * nên nó bỏ lọt `khoa-he-cu.ts` (mẫu Word hệ cũ, lỗi thật đã gặp) và thua một dòng xuống hàng.
  * Nay quét CẢ thư mục và soi theo khối.
+ *
+ * 21/09/2026 — LẦN THỨ BA cùng một nguyên nhân: phạm vi quá hẹp. Cổng chỉ quét
+ * `document-templates/` nên bỏ lọt `petitions/xuat-danh-sach-don-thu.ts`, và bộ XUẤT EXCEL trả
+ * cột "Ngày viết đơn" rỗng đúng với ~4.400 hồ sơ chỉ có ngày thiếu thành phần. Cán bộ lọc theo
+ * cột ấy rồi bấm Xuất là nhận tệp trống trơn đúng cột vừa lọc.
+ *
+ * Bài học: "in" không chỉ là chứng từ Word. Mọi nơi BIẾN ngày viết đơn thành CHỮ cho người đọc
+ * — chứng từ, Excel, giao diện — đều phải đi qua một hàm. Nay quét cả `petitions/`.
  */
 const THU_MUC = join(__dirname);
+const THU_MUC_QUET = [THU_MUC, join(__dirname, '..', 'petitions')];
 
 /** Bỏ chú thích — cổng kiểm MÃ, không kiểm lời văn giải thích. */
 function boChuThich(than: string): string {
@@ -29,10 +38,13 @@ function tepNguon(thuMuc: string): string[] {
 }
 
 describe('Mọi nơi in Ngày viết đơn đi qua một hàm', () => {
-  const tep = tepNguon(THU_MUC);
+  const tep = THU_MUC_QUET.flatMap(tepNguon);
 
   it('có tệp để quét — cổng quét 0 tệp mà vẫn xanh là cổng vô nghĩa', () => {
     expect(tep.length).toBeGreaterThan(3);
+    // Và phải quét CẢ hai thư mục: quét mỗi `document-templates/` là đúng phạm vi hẹp đã để
+    // lọt lỗi ba lần.
+    expect(tep.some((d) => d.includes('petitions'))).toBe(true);
   });
 
   it('không `resolve` nào đọc thẳng `petitionDate`', () => {
@@ -44,12 +56,23 @@ describe('Mọi nơi in Ngày viết đơn đi qua một hàm', () => {
     const pham: string[] = [];
     for (const duong of tep) {
       const than = boChuThich(readFileSync(duong, 'utf8'));
-      const mau = /resolve\s*:/g;
+      // `resolve:` (bộ khoá in chứng từ) và `doc:` (bộ khai cột xuất Excel) — hai tên khác
+      // nhau cho cùng một việc: biến cột thành CHỮ cho người đọc.
+      const mau = /(?:resolve|doc)\s*:/g;
       let m: RegExpExecArray | null;
       while ((m = mau.exec(than)) !== null) {
-        const cua = than.slice(m.index, m.index + 400);
+        /*
+          Cắt cửa sổ tại CUỐI biểu thức, không đếm 400 ký tự.
+
+          Trong tệp khai cột xuất, các cột nằm sát nhau nên cửa sổ đếm ký tự chạm sang khai
+          cột kế bên và báo nhầm: `doc: (d) => ngayVN(d.createdAt)` bị quy tội vì cột
+          `petitionDate` đứng ngay dưới. Một cổng báo nhầm sẽ bị người ta tắt đi.
+        */
+        const con = than.slice(m.index);
+        const het = con.search(/\n\s*\},/);
+        const cua = con.slice(0, het === -1 ? 400 : het);
         if (/petitionDate/.test(cua) && !/ngayVietDonHienThi/.test(cua)) {
-          pham.push(relative(THU_MUC, duong) + ': ' + cua.slice(0, 80));
+          pham.push(relative(join(__dirname, '..'), duong) + ': ' + cua.slice(0, 80));
         }
       }
     }

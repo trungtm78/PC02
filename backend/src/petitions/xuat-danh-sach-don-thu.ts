@@ -2,6 +2,7 @@ import type { KhaiCotXuat } from '../common/xuat-danh-sach/xuat-danh-sach';
 import { hoTenCanBo, ngayVN } from '../common/xuat-danh-sach/dinh-dang';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
+import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 import { LOAI_DON_LABEL_BE } from './petitions.constants';
 import type { DongDanhSachDonThu } from './petitions.service';
 
@@ -105,7 +106,15 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       key: 'petitionDate',
       tieuDe: 'Ngày viết đơn',
       rong: 13,
-      doc: (d) => ngayVN(d.petitionDate),
+      /*
+        `ngayVietDonHienThi`, KHÔNG phải `ngayVN(d.petitionDate)`.
+
+        ~4.400 đơn chỉ có ngày THIẾU thành phần: `petitionDate` NULL, chữ nằm ở
+        `ngayVietDonEdtf` (`2026-12-XX`). Đọc thẳng cột ngày thật thì cán bộ lọc theo Ngày viết
+        đơn rồi bấm Xuất sẽ nhận một tệp trống trơn ĐÚNG cột vừa lọc — tệp trông bình thường,
+        không lỗi, không cảnh báo.
+      */
+      doc: (d) => ngayVietDonHienThi(d),
     },
     {
       key: 'ngayGiaoDonViGiaiQuyet',
