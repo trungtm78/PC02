@@ -38,7 +38,12 @@ import {
 } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_UY_THAC } from '../common/tim-kiem/khai/uy-thac.khai';
 
-/** Ô tìm cũ → khối hoặc: mọi cột trên bảng + TÊN vụ án liên quan (thẻ `*` chỉ gồm cột trên bảng). */
+/*
+  Ô tìm cũ → khối hoặc: mọi cột trên bảng + TÊN vụ án liên quan.
+
+  Giữ khoá thứ hai: `hoSoLienQuan` là trường kiểu `quan-he`, mà thẻ `*` chỉ tự phủ trường kiểu
+  `nguoi` (tiền giải id) chứ không phủ quan hệ — trừ khi khai liệt kê ở `tatCaGomQuanHe`.
+*/
 const THAM_SO_CU_UY_THAC = { search: [KHOA_TAT_CA, 'hoSoLienQuan'] } as const;
 
 /** Khoá thẻ Trạng thái — thống kê bỏ thẻ này như bỏ tham số `status`. */

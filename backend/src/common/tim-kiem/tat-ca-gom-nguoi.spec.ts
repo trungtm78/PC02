@@ -62,13 +62,29 @@ describe('điều kiện — "*" gồm tên người (tatCaGomNguoi)', () => {
     expect(JSON.stringify(or)).toContain('"timKiemBd":null');
   });
 
-  it('không bật → "*" chỉ hỏi cột ghép (không đổi hành vi các khai khác)', () => {
+  /*
+    ĐỔI HỢP ĐỒNG 21/09/2026. Trước đây `tatCaGomNguoi: false` nghĩa là `*` KHÔNG chạm tên người
+    chút nào — và đó chính là lỗi anh nêu: gõ tên một cán bộ vào dòng "tất cả các cột" ra 0 hồ sơ
+    trong khi người ấy nhập hàng nghìn hồ sơ.
+
+    Nay cờ ấy chỉ còn quyết ĐƯỜNG ĐI, không quyết có hay không:
+      bật  → OR qua quan hệ (bảng không có cột chữ nào chứa tên người, vd Nhật ký)
+      tắt  → tiền giải id rồi lọc khoá ngoại; không tiền giải thì rơi về quan hệ
+
+    Ca kiểm này đổi theo hợp đồng mới, không phải sửa cho khớp mã.
+  */
+  it('không bật → "*" vẫn tìm tên người, nhưng qua tiền giải id', () => {
     const khong: KhaiThucThe = { ...NHAT_KY, tatCaGomNguoi: false };
     expect(
       dungDieuKienTimKiem([{ key: '*', giaTri: ['nguyen'] }], khong, {
         luiCotGoc: false,
+        idNguoi: new Map([['nguyen', ['u1']]]),
       }),
-    ).toEqual([{ timKiemBd: { contains: 'nguyen' } }]);
+    ).toEqual([
+      {
+        OR: [{ timKiemBd: { contains: 'nguyen' } }, { userId: { in: ['u1'] } }],
+      },
+    ]);
   });
 
   it('bật mà khai không có trường kiểu nguoi → khai sai, báo lỗi', () => {

@@ -1,6 +1,6 @@
 import { BoTimKiem } from './bo-tim-kiem';
-import { docThe, dungDieuKienTimKiem } from './dieu-kien';
-import type { KhaiThucThe } from './sinh/sinh-tim-kiem';
+import { KHOA_TAT_CA, docThe, dungDieuKienTimKiem } from './dieu-kien';
+import { COT_NGUON_HO_TEN, type KhaiThucThe } from './sinh/sinh-tim-kiem';
 
 /**
  * BoTimKiem — phần tìm kiếm dạng thẻ DÙNG CHUNG cho mọi service danh sách (Đơn thư, Vụ việc, Vụ án):
@@ -192,5 +192,126 @@ describe('BoTimKiem.kyApDung', () => {
   it('thẻ "*" với chữ KHÔNG phải ngày → giữ nguyên kỳ', () => {
     expect(bo.kyApDung(ky, ['*~Nguyễn Văn An'])).toBe(ky);
     expect(bo.kyApDung(ky, ['*~31/02/2026'])).toBe(ky);
+  });
+});
+
+/*
+  Tiền giải tên cán bộ — ĐƯỜNG CHẠY THẬT.
+
+  `dieu-kien.spec.ts` kiểm hàm dựng điều kiện khi ĐÃ có id. Ở đây kiểm khâu đi lấy id: thiếu nó
+  thì mọi ca kiểm kia xanh mà người dùng vẫn gõ tên đồng nghiệp ra 0 hồ sơ.
+*/
+describe('BoTimKiem — tiền giải tên cán bộ cho thẻ "*"', () => {
+  /** Máy giả phân luồng theo câu SQL: câu hỏi "còn dòng chưa nạp" và câu hỏi `users` khác nhau. */
+  const may = (nguoi: () => Promise<unknown>) => ({
+    $queryRawUnsafe: jest.fn<Promise<unknown>, [string]>((sql) =>
+      sql.includes('"users"') ? nguoi() : Promise.resolve([{ co: false }]),
+    ),
+  });
+
+  it('hỏi users rồi lọc bằng khoá ngoại', async () => {
+    const p = may(() => Promise.resolve([{ id: 'u1' }, { id: 'u2' }]));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    expect(JSON.stringify(ra)).toContain('"investigatorId":{"in":["u1","u2"]}');
+    const sql = p.$queryRawUnsafe.mock.calls.map((c) => c[0]).join(' ');
+    expect(sql).toContain('"users"');
+    // Lấy dư MỘT dòng để BIẾT là quá ngưỡng, chứ không âm thầm cắt đúng ngưỡng.
+    expect(sql).toContain('LIMIT 201');
+  });
+
+  it('quá ngưỡng → rơi về nhánh quan hệ, KHÔNG cắt bớt id', async () => {
+    const nhieu = Array.from({ length: 201 }, (_, i) => ({ id: `u${i}` }));
+    const p = may(() => Promise.resolve(nhieu));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    const j = JSON.stringify(ra);
+    expect(j).toContain('hoTenBd');
+    expect(j).not.toContain('investigatorId');
+  });
+
+  it('hỏi lỗi → rơi về nhánh quan hệ, nhánh người KHÔNG biến mất', async () => {
+    const p = may(() => Promise.reject(new Error('mất kết nối')));
+    const ra = await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~Nguyễn'] });
+    expect(JSON.stringify(ra)).toContain('hoTenBd');
+  });
+
+  it('không có thẻ "*" → KHÔNG hỏi users (đừng tốn một lượt hỏi vô ích)', async () => {
+    const p = may(() => Promise.resolve([]));
+    await new BoTimKiem(p, KHAI).dieuKien({ tk: ['nguoiGui~An'] });
+    expect(
+      p.$queryRawUnsafe.mock.calls.filter((c) => c[0].includes('"users"')),
+    ).toEqual([]);
+  });
+});
+
+/*
+  Năm hàng rào cho tiền giải, lượt soát đối kháng bắt được. Bốn cái đầu đều là hỏng im lặng.
+*/
+describe('BoTimKiem — hàng rào cho tiền giải tên cán bộ', () => {
+  const may = (nguoi: () => Promise<unknown>) => ({
+    $queryRawUnsafe: jest.fn<Promise<unknown>, [string]>((sql) =>
+      sql.includes('"users"') ? nguoi() : Promise.resolve([{ co: false }]),
+    ),
+  });
+
+  /*
+    Chữ bỏ dấu xong RỖNG (chỉ gồm dấu tổ hợp, `#`, `--`…) làm mẫu thành `%%` — khớp MỌI cán bộ.
+    Dưới ngưỡng thì trả về toàn bộ id và dòng "tất cả các cột" lọc ra gần cả bảng, trông như đã
+    lọc. Đường dựng điều kiện đã có rào này (`mauBoDau`), đường tiền giải thì chưa.
+  */
+  it('chữ bỏ dấu xong rỗng → KHÔNG hỏi users với mẫu %%', async () => {
+    const p = may(() => Promise.resolve([{ id: 'u1' }]));
+    await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~́'] });
+    expect(
+      p.$queryRawUnsafe.mock.calls.filter((c) => c[0].includes('"users"')),
+    ).toEqual([]);
+  });
+
+  /*
+    Tham số `search` cũ (GlobalSearchBar, ô chọn liên kết) đi đường `nhieuKhoa`, KHÔNG qua danh
+    sách thẻ. Không truyền id tiền giải ở đó thì nhánh người rơi về quan hệ — đúng cái quét cả
+    bảng mà PR này dựng ra để tránh.
+  */
+  it('tham số `search` cũ cũng được tiền giải, không rơi về quan hệ', async () => {
+    const p = may(() => Promise.resolve([{ id: 'u9' }]));
+    const bo = new BoTimKiem(p, KHAI, { search: [KHOA_TAT_CA] });
+    const ra = await bo.dieuKien({ search: 'Nguyễn' });
+    const j = JSON.stringify(ra);
+    expect(j).toContain('"investigatorId":{"in":["u9"]}');
+    expect(j).not.toContain('hoTenBd');
+  });
+
+  /** Nhiều giá trị → hỏi SONG SONG, không nối đuôi 20 lượt. */
+  it('nhiều giá trị "*" → một lượt hỏi cho mỗi giá trị, chạy song song', async () => {
+    let dangChay = 0;
+    let dinh = 0;
+    const p = may(async () => {
+      dinh = Math.max(dinh, ++dangChay);
+      await Promise.resolve();
+      dangChay--;
+      return [];
+    });
+    await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~An', '*~Bình', '*~Cường'] });
+    expect(dinh).toBeGreaterThan(1);
+  });
+
+  /** Hỏi lại cùng chữ trong thời gian nhớ → KHÔNG hỏi máy chủ lần nữa. */
+  it('nhớ kết quả: gõ lại cùng chữ không hỏi users lần hai', async () => {
+    const p = may(() => Promise.resolve([{ id: 'u1' }]));
+    const bo = new BoTimKiem(p, KHAI);
+    await bo.dieuKien({ tk: ['*~An'] });
+    await bo.dieuKien({ tk: ['*~An'] });
+    expect(
+      p.$queryRawUnsafe.mock.calls.filter((c) => c[0].includes('"users"')),
+    ).toHaveLength(1);
+  });
+
+  /** Cột nguồn họ tên lấy từ hằng số dùng chung, không chép tay trong SQL. */
+  it('câu hỏi users dựng từ COT_NGUON_HO_TEN', async () => {
+    const p = may(() => Promise.resolve([]));
+    await new BoTimKiem(p, KHAI).dieuKien({ tk: ['*~An'] });
+    const sql =
+      p.$queryRawUnsafe.mock.calls.find((c) => c[0].includes('"users"'))?.[0] ??
+      '';
+    for (const c of COT_NGUON_HO_TEN) expect(sql).toContain(`"${c}"`);
   });
 });
