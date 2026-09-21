@@ -60,12 +60,16 @@ import {
 /**
  * Tham số lọc chữ cũ của Vụ việc → khoá thẻ (đường dẫn cũ, GlobalSearchBar, ô chọn liên kết…).
  *
- * `search` cũ tìm cả cột trên bảng lẫn TÊN ĐIỀU TRA VIÊN; thẻ `*` chỉ gồm cột trên bảng nên quy về
- * MỘT khối "hoặc" với thẻ Điều tra viên. `stt`/`sttCu` đi qua thẻ cùng luật biến thể — nhờ vậy thống
- * kê cũng áp (trước đây getStats bỏ qua hai tham số này dù giao diện gửi).
+ * Từ 21/09/2026 thẻ `*` tự phủ mọi trường kiểu `nguoi` (cán bộ nhập VÀ điều tra viên) bằng tiền
+ * giải id, nên `search` quy về MỘT khoá. Trước đây phải ghép thêm thẻ `dieuTraVien` vì `*` chỉ gồm
+ * cột trên bảng; nay để lại khoá ấy là hỏi điều tra viên HAI lần trong cùng một điều kiện, và lần
+ * thứ hai đi qua quan hệ — đúng nhánh làm bộ lập kế hoạch bỏ chỉ mục GIN của cột ghép.
+ *
+ * `stt`/`sttCu` đi qua thẻ cùng luật biến thể — nhờ vậy thống kê cũng áp (trước đây getStats bỏ
+ * qua hai tham số này dù giao diện gửi).
  */
 const THAM_SO_CU_VU_VIEC = {
-  search: [KHOA_TAT_CA, 'dieuTraVien'],
+  search: KHOA_TAT_CA,
   donViGiaiQuyet: 'donViGiaiQuyet',
   stt: 'stt',
   sttCu: 'sttCu',

@@ -10,7 +10,16 @@ import {
   NGUONG_TIEN_GIAI_NGUOI,
   type IdNguoiTienGiai,
 } from './dieu-kien';
-import { sinhCauConChuaNap, type KhaiThucThe } from './sinh/sinh-tim-kiem';
+import {
+  COT_NGUON_HO_TEN,
+  sinhCauConChuaNap,
+  type KhaiThucThe,
+} from './sinh/sinh-tim-kiem';
+
+/** Nhớ id cán bộ theo chữ gõ — ô chọn liên kết gọi theo TỪNG phím, không nhớ là mỗi phím một lượt hỏi. */
+const NHO_NGUOI_MS = 60_000;
+/** Trần số chữ nhớ — quá thì xoá sạch, để bộ nhớ không phình theo số chữ người dùng từng gõ. */
+const TRAN_NHO_NGUOI = 200;
 
 /** Nhớ câu trả lời "còn dòng chưa nạp cột bóng" — tắt khẩn trigger thì chậm nhất chừng này mới lùi. */
 export const THOI_GIAN_NHO_CHUA_NAP_MS = 60_000;
@@ -45,6 +54,10 @@ export class BoTimKiem {
   private readonly logger = new Logger(BoTimKiem.name);
   private readonly cauChuaNap: string;
   private nho: { giaTri: boolean; het: number } | null = null;
+  private readonly nhoNguoi = new Map<
+    string,
+    { giaTri: readonly string[] | null; het: number }
+  >();
 
   constructor(
     private readonly prisma: PrismaHoiChuaNap,
@@ -100,12 +113,23 @@ export class BoTimKiem {
     if (the.length === 0 && nhieuKhoa.length === 0) return [];
 
     const luiCotGoc = await this.luiCotGoc();
-    const idNguoi = await this.tienGiaiNguoi(the);
+    /*
+      Gom giá trị `*` từ CẢ hai đường: danh sách thẻ, VÀ tham số `search` cũ (`nhieuKhoa`) mà
+      GlobalSearchBar cùng các ô chọn liên kết đang dùng. Bỏ đường thứ hai thì nhánh người ở đó
+      rơi về quan hệ — đúng cái quét cả bảng mà tiền giải dựng ra để tránh.
+    */
+    const idNguoi = await this.tienGiaiNguoi([
+      ...the,
+      ...nhieuKhoa
+        .filter(({ khoa }) => khoa.includes(KHOA_TAT_CA))
+        .map(({ giaTri }) => ({ key: KHOA_TAT_CA, giaTri: [giaTri] })),
+    ]);
     const ra = dungDieuKienTimKiem(the, this.khai, { luiCotGoc, idNguoi });
     for (const { khoa, giaTri } of nhieuKhoa) {
       const hoac = khoa.flatMap((k) =>
         dungDieuKienTimKiem([{ key: k, giaTri: [giaTri] }], this.khai, {
           luiCotGoc,
+          idNguoi,
         }),
       );
       if (hoac.length) ra.push({ OR: hoac });
@@ -151,43 +175,69 @@ export class BoTimKiem {
     ];
     if (giaTri.length === 0) return undefined;
 
-    const ra = new Map<string, readonly string[] | null>();
-    for (const v of giaTri) {
-      const mau = boDauTimKiem(v);
-      try {
-        const dong = (await this.prisma.$queryRawUnsafe(
-          `SELECT "id" FROM "users"
-             WHERE ("ho_ten_bd" IS NOT NULL AND "ho_ten_bd" LIKE $1)
-                OR ("ho_ten_bd" IS NULL AND (
-                      "lastName" ILIKE $2 OR "firstName" ILIKE $2 OR "username" ILIKE $2))
-             LIMIT ${NGUONG_TIEN_GIAI_NGUOI + 1}`,
-          `%${thoatLike(mau)}%`,
-          `%${thoatLike(v)}%`,
-        )) as unknown;
-        /*
-          KIỂM hình dạng trước khi tin. Máy chủ trả gì đó không phải danh sách `{id}` mà ta vẫn
-          `map(d => d.id)` thì được `[undefined]`, và `{ enteredById: { in: [undefined] } }` là
-          Prisma ném lỗi kiểu → CẢ danh sách 500. Không tin được thì coi như hỏi lỗi: rơi về quan
-          hệ, chậm mà đúng.
-        */
-        const hopLe =
-          Array.isArray(dong) &&
-          dong.every(
-            (d) =>
-              typeof (d as { id?: unknown })?.id === 'string' &&
-              (d as { id: string }).id !== '',
-          );
-        if (!hopLe) throw new Error('kết quả hỏi users không đúng hình dạng');
-        const id = (dong as { id: string }[]).map((d) => d.id);
-        ra.set(v, id.length > NGUONG_TIEN_GIAI_NGUOI ? null : id);
-      } catch (e) {
-        this.logger.warn(
-          `Không tiền giải được tên cán bộ cho "${v}" (${this.khai.thucThe}): ${e instanceof Error ? e.message : String(e)}`,
+    const cap = await Promise.all(
+      giaTri.map(async (v) => [v, await this.idCuaTen(v)] as const),
+    );
+    return new Map(cap);
+  }
+
+  /**
+   * Id cán bộ mang tên khớp MỘT chữ gõ — có nhớ, hỏi máy chủ nhiều nhất một lần mỗi chữ.
+   *
+   * `luiCotGoc` đã có bộ nhớ vì cùng lý do: ô chọn liên kết gọi theo từng phím gõ, và một lượt
+   * báo cáo dựng ba bộ tìm kiếm. Không nhớ thì mỗi lượt là một round-trip, mà chuỗi 1–2 ký tự
+   * còn không dùng được chỉ mục trigram nên mỗi lượt là quét cả bảng `users`.
+   */
+  private async idCuaTen(v: string): Promise<readonly string[] | null> {
+    const daNho = this.nhoNguoi.get(v);
+    if (daNho && daNho.het > this.bayGio()) return daNho.giaTri;
+
+    const giaTri = await this.hoiIdCuaTen(v);
+    // Chặn trần để bộ nhớ không phình theo số chữ người dùng từng gõ.
+    if (this.nhoNguoi.size >= TRAN_NHO_NGUOI) this.nhoNguoi.clear();
+    this.nhoNguoi.set(v, { giaTri, het: this.bayGio() + NHO_NGUOI_MS });
+    return giaTri;
+  }
+
+  private async hoiIdCuaTen(v: string): Promise<readonly string[] | null> {
+    const mau = boDauTimKiem(v);
+    /*
+      Bỏ dấu xong RỖNG (chỉ gồm dấu tổ hợp, `#`, `--`…) thì mẫu thành `%%` và khớp MỌI cán bộ.
+      Dưới ngưỡng thì ta trả về toàn bộ id, và dòng "tất cả các cột" lọc ra gần cả bảng trong
+      khi trông như đã lọc. Rơi về quan hệ: ở đó `mauBoDau` so nguyên chữ trên cột gốc, đúng.
+    */
+    if (!mau) return null;
+    const soSanhGoc = COT_NGUON_HO_TEN.map((c) => `"${c}" ILIKE $2`).join(' OR ');
+    try {
+      const dong = (await this.prisma.$queryRawUnsafe(
+        `SELECT "id" FROM "users"
+           WHERE ("ho_ten_bd" IS NOT NULL AND "ho_ten_bd" LIKE $1)
+              OR ("ho_ten_bd" IS NULL AND (${soSanhGoc}))
+           LIMIT ${NGUONG_TIEN_GIAI_NGUOI + 1}`,
+        `%${thoatLike(mau)}%`,
+        `%${thoatLike(v)}%`,
+      )) as unknown;
+      /*
+        KIỂM hình dạng trước khi tin. Máy chủ trả gì đó không phải danh sách `{id}` mà ta vẫn
+        `map(d => d.id)` thì được `[undefined]`, và `{ enteredById: { in: [undefined] } }` là
+        Prisma ném lỗi kiểu → CẢ danh sách 500.
+      */
+      const hopLe =
+        Array.isArray(dong) &&
+        dong.every(
+          (d) =>
+            typeof (d as { id?: unknown })?.id === 'string' &&
+            (d as { id: string }).id !== '',
         );
-        ra.set(v, null);
-      }
+      if (!hopLe) throw new Error('kết quả hỏi users không đúng hình dạng');
+      const id = (dong as { id: string }[]).map((d) => d.id);
+      return id.length > NGUONG_TIEN_GIAI_NGUOI ? null : id;
+    } catch (e) {
+      this.logger.warn(
+        `Không tiền giải được tên cán bộ cho "${v}" (${this.khai.thucThe}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
     }
-    return ra;
   }
 
   /**
