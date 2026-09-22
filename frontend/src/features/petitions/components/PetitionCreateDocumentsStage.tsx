@@ -24,10 +24,36 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(function PetitionCreateDocumentsStage(_props, ref) {
-  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
+export interface PetitionCreateDocumentsStageProps {
+  /**
+   * Tiền tố `data-testid`. Mặc định "stage" — giữ nguyên tên cũ cho khu tệp chung.
+   *
+   * Cần từ 22/09/2026, khi form tạo mới có HAI khu xếp hàng (tệp chung, và tệp nhận từ đơn vị
+   * xử lý): cùng một `testid` thì ca kiểm báo "Found multiple elements" — mà tệ hơn là cán bộ
+   * cũng không phân biệt được hai khu nếu chúng giống hệt nhau.
+   */
+  tienToTestId?: string;
+  /** Chỉ làm việc với các loại tài liệu này. Bỏ trống = mọi loại (hành vi cũ). */
+  chiLoai?: string[];
+  /** Loại chọn sẵn. Mặc định "VAN_BAN" như trước. */
+  loaiMacDinh?: string;
+  /** Đổi tiêu đề thẻ. */
+  tieuDe?: string;
+}
+
+export const PetitionCreateDocumentsStage = forwardRef<
+  PetitionStageHandle,
+  PetitionCreateDocumentsStageProps
+>(function PetitionCreateDocumentsStage(
+  { chiLoai, loaiMacDinh, tieuDe, tienToTestId = 'stage' },
+  ref,
+) {
+  const { options: moiLoai } = useCatalog("DOCUMENT_TYPE");
+  const docTypeOptions =
+    chiLoai && chiLoai.length ? moiLoai.filter((o) => chiLoai.includes(o.code)) : moiLoai;
+  const loaiBanDau = loaiMacDinh ?? chiLoai?.[0] ?? "VAN_BAN";
   const [title, setTitle] = useState("");
-  const [docType, setDocType] = useState("VAN_BAN");
+  const [docType, setDocType] = useState(loaiBanDau);
   const [description, setDescription] = useState("");
   const [queued, setQueued] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -108,8 +134,8 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
 
   return (
     <Card data-testid="petition-create-documents-stage">
-      <CardHeader title="Tài liệu đính kèm" />
-      <p className="text-xs text-amber-600 mb-3" data-testid="stage-hint">
+      <CardHeader title={tieuDe ?? "Tài liệu đính kèm"} />
+      <p className="text-xs text-amber-600 mb-3" data-testid={`${tienToTestId}-hint`}>
         Chọn file ngay khi tạo mới — hệ thống sẽ tự tải lên sau khi bấm Lưu đơn thư.
       </p>
 
@@ -121,7 +147,7 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-              data-testid="stage-title"
+              data-testid={`${tienToTestId}-title`}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="VD: Đơn tố cáo bản gốc"
             />
@@ -131,7 +157,7 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
             <select
               value={docType}
               onChange={(e) => setDocType(e.target.value)}
-              data-testid="stage-doctype"
+              data-testid={`${tienToTestId}-doctype`}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {docTypeOptions.map((o) => (
@@ -145,7 +171,7 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-              data-testid="stage-description"
+              data-testid={`${tienToTestId}-description`}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ghi chú về tài liệu..."
             />
@@ -161,14 +187,14 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
             disabled={uploading}
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.mp4,.mp3,.txt"
             className="hidden"
-            data-testid="stage-file-input"
+            data-testid={`${tienToTestId}-file-input`}
             onChange={addFiles}
           />
         </label>
         <p className="text-xs text-slate-400">Hỗ trợ: PDF, Word, Excel, Hình ảnh, Video, Audio — tối đa 10MB/file</p>
 
         {queued.length > 0 && (
-          <ul className="space-y-1" data-testid="stage-queued-list">
+          <ul className="space-y-1" data-testid={`${tienToTestId}-queued-list`}>
             {queued.map((f, i) => (
               <li key={f.name + i} className="flex items-center justify-between text-xs text-slate-700 bg-white px-2 py-1 rounded border border-slate-200">
                 <span className="truncate max-w-[260px]">{f.name}</span>
@@ -184,11 +210,11 @@ export const PetitionCreateDocumentsStage = forwardRef<PetitionStageHandle>(func
         )}
 
         {progress && (
-          <p className="text-xs text-blue-600" data-testid="stage-progress">Đang tải ({progress.current}/{progress.total})...</p>
+          <p className="text-xs text-blue-600" data-testid={`${tienToTestId}-progress`}>Đang tải ({progress.current}/{progress.total})...</p>
         )}
-        {error && <p className="text-sm text-red-600" data-testid="stage-error">{error}</p>}
+        {error && <p className="text-sm text-red-600" data-testid={`${tienToTestId}-error`}>{error}</p>}
         {hasFailure && queued.length > 0 && !uploading && (
-          <button type="button" onClick={retry} data-testid="stage-retry" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700">
+          <button type="button" onClick={retry} data-testid={`${tienToTestId}-retry`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700">
             <RotateCcw className="w-3.5 h-3.5" />
             Thử lại tải lên
           </button>

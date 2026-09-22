@@ -51,16 +51,37 @@ export function EntityDocumentsTab({
   entityKind,
   entityId,
   chiXem = false,
+  chiLoai,
+  loaiMacDinh,
+  tieuDe,
 }: {
   entityKind: EntityKind;
   entityId?: string;
   /** Chỉ xem (máy chủ trả `quyenGhi: false`): ẩn thao tác ghi — máy chủ vẫn chặn 403 như cũ (20/09/2026). */
   chiXem?: boolean;
+  /**
+   * Chỉ làm việc với các loại tài liệu này. Bỏ trống = mọi loại (hành vi cũ).
+   *
+   * BA CHỖ phải cùng nghe theo, thiếu một là hỏng theo kiểu khó thấy:
+   *  - danh sách tải về (`documentType` xuống API) — thiếu thì khu tệp mới hiện lẫn tệp cũ;
+   *  - ô chọn loại trong biểu mẫu tải lên — thiếu thì cán bộ chọn nhầm loại;
+   *  - giá trị khởi tạo VÀ giá trị sau mỗi lần tải lên — thiếu thì tệp thứ hai rơi về
+   *    "Văn bản" và biến mất khỏi chính khu vừa tải nó lên.
+   */
+  chiLoai?: string[];
+  /** Loại chọn sẵn trong biểu mẫu tải lên. Mặc định "VAN_BAN" như trước. */
+  loaiMacDinh?: string;
+  /** Đổi tiêu đề thẻ — khu tệp chuyên đề cần nói rõ nó chứa gì. */
+  tieuDe?: string;
 }) {
   const copy = ENTITY_COPY[entityKind];
   // Danh mục ĐỘNG: loại tài liệu lấy từ Catalog Registry (DOCUMENT_TYPE → Directory, admin thêm runtime).
-  const { options: docTypeOptions } = useCatalog("DOCUMENT_TYPE");
-  const docTypeLabel = Object.fromEntries(docTypeOptions.map((o) => [o.code, o.label]));
+  const { options: moiLoai } = useCatalog("DOCUMENT_TYPE");
+  // Ô chọn loại chỉ bày những loại khu này phụ trách. Nhãn thì vẫn tra trên TOÀN danh mục —
+  // tệp cũ mang loại ngoài `chiLoai` phải hiện đúng tên, không hiện mã trần.
+  const docTypeOptions =
+    chiLoai && chiLoai.length ? moiLoai.filter((o) => chiLoai.includes(o.code)) : moiLoai;
+  const docTypeLabel = Object.fromEntries(moiLoai.map((o) => [o.code, o.label]));
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -68,7 +89,8 @@ export function EntityDocumentsTab({
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
-  const [docType, setDocType] = useState("VAN_BAN");
+  const loaiBanDau = loaiMacDinh ?? chiLoai?.[0] ?? "VAN_BAN";
+  const [docType, setDocType] = useState(loaiBanDau);
   const [description, setDescription] = useState("");
   const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -78,7 +100,11 @@ export function EntityDocumentsTab({
     if (!entityId) return;
     setLoading(true);
     try {
-      const res = await api.get(`/documents?${copy.idKey}=${entityId}&limit=100`);
+      // Lọc NGAY TRÊN MÁY CHỦ: lọc ở trình duyệt thì `limit=100` có thể đã cắt mất tệp cần,
+      // và bộ đếm trên danh sách sẽ đếm khác thứ khu này hiện.
+      const loc =
+        chiLoai && chiLoai.length === 1 ? `&documentType=${encodeURIComponent(chiLoai[0])}` : "";
+      const res = await api.get(`/documents?${copy.idKey}=${entityId}&limit=100${loc}`);
       setDocs(res.data.data ?? []);
     } catch {
       setDocs([]);
@@ -152,7 +178,17 @@ export function EntityDocumentsTab({
       setError(failed[0]);
     } else {
       setTitle("");
-      setDocType("VAN_BAN");
+      /*
+        Về loại của KHU NÀY, không về "Văn bản".
+
+        Nói thẳng: dòng này THỪA — tải lên xong thì biểu mẫu đóng lại, và lần mở sau đã đặt lại
+        đúng loại rồi. Gieo lỗi chứng minh: đổi nó thành "VAN_BAN" mà không ca kiểm nào đỏ
+        được, vì trạng thái ấy không bao giờ quan sát được từ bên ngoài.
+
+        Giữ lại vì để nguyên "VAN_BAN" ở đây là một câu nói dối nằm sẵn trong mã, chờ ngày ai đó
+        bỏ phép đặt lại lúc mở biểu mẫu. Không giả vờ rằng nó có cổng canh.
+      */
+      setDocType(loaiBanDau);
       setDescription("");
       setShowForm(false);
       if (failed.length > 0) setError(`${failed.length} file thất bại: ${failed[0]}`);
@@ -198,7 +234,7 @@ export function EntityDocumentsTab({
   return (
     <Card data-testid={copy.testId}>
       <CardHeader
-        title={copy.cardTitle}
+        title={(tieuDe ?? copy.cardTitle)}
         actions={
           entityId && !chiXem ? (
             <button
@@ -208,7 +244,9 @@ export function EntityDocumentsTab({
                   if (v) {
                     setQueuedFiles([]);
                     setTitle("");
-                    setDocType("VAN_BAN");
+                    // Loại của KHU NÀY. Chỗ thứ ba rơi về "Văn bản" — mở biểu mẫu ra là
+                    // tệp đầu tiên đã sai loại, trước cả khi bấm tải lên.
+                    setDocType(loaiBanDau);
                     setDescription("");
                     if (fileRef.current) fileRef.current.value = "";
                     if (folderRef.current) folderRef.current.value = "";
@@ -217,6 +255,7 @@ export function EntityDocumentsTab({
                 });
                 setError("");
               }}
+              data-testid="btn-mo-tai-len"
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
@@ -247,6 +286,7 @@ export function EntityDocumentsTab({
               <select
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
+                data-testid="doc-type-select"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {docTypeOptions.map((o) => (
@@ -346,6 +386,7 @@ export function EntityDocumentsTab({
               type="button"
               onClick={handleUpload}
               disabled={uploading}
+              data-testid="btn-tai-len"
               className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
               <Upload className="w-3.5 h-3.5" />

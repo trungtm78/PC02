@@ -58,6 +58,7 @@ import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { ONhapGoiY } from "@/components/inputs/ONhapGoiY";
+import { LOAI_TEP_KET_QUA } from "@/features/petitions/loai-tep.def";
 
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
@@ -85,6 +86,8 @@ export function PetitionFormPage() {
   const effectiveId = id ?? createdId;
   const effectiveEdit = isEditMode || createdId !== null;
   const stageRef = useRef<PetitionStageHandle>(null);
+  // Hàng đợi RIÊNG cho khu tệp "Kết quả xử lý" — hai khu, hai hàng đợi, cả hai tải sau khi Lưu.
+  const stageKetQuaRef = useRef<PetitionStageHandle>(null);
   // Khoá submit ĐỒNG BỘ (ref, không đợi re-render) — chặn 2 click nhanh/Enter chạy saveOnly
   // song song trước khi createdId render → cả hai POST → tạo 2 đơn TRÙNG (Codex PR2).
   const savingRef = useRef(false);
@@ -441,9 +444,11 @@ export function PetitionFormPage() {
       // PR2: tạo mới có đính file → upload các file đã stage vào đơn vừa tạo (tuần tự).
       // Upload-fail một phần → GIỮ file lỗi trong stage để retry, KHÔNG mất; báo uploadFailed.
       let uploadFailed = 0;
-      if (savedId && stageRef.current?.hasStaged()) {
-        const r = await stageRef.current.uploadAll(savedId);
-        uploadFailed = r.failed.length;
+      for (const kho of [stageRef, stageKetQuaRef]) {
+        if (savedId && kho.current?.hasStaged()) {
+          const r = await kho.current.uploadAll(savedId);
+          uploadFailed += r.failed.length;
+        }
       }
       return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
@@ -651,6 +656,50 @@ export function PetitionFormPage() {
       25.818 cách viết tên khác nhau trên 47.169 hồ sơ, gõ `tran` ra 3.517 tên — nên gợi ý xếp
       theo TẦN SUẤT, để cán bộ nhập lại đúng cách viết đã dùng thay vì đẻ biến thể thứ 25.819.
     */
+    /*
+      "Kết quả xử lý, giải quyết khác" — anh yêu cầu 22/09/2026 thêm khu tải tệp NGAY CẠNH ô
+      này, cho tệp NHẬN VỀ từ các đơn vị xử lý.
+
+      Ô chữ giữ nguyên hình dạng cũ (textarea 4 dòng của bố cục hệ cũ); khu tệp đứng ngay dưới,
+      lọc đúng loại `KET_QUA_DON_VI_XU_LY` nên không lẫn tệp nghiệp vụ khác.
+
+      Chế độ SỬA dùng `EntityDocumentsTab` (tải lên thẳng, có id). Chế độ TẠO MỚI chưa có id nên
+      dùng `PetitionCreateDocumentsStage` — xếp hàng rồi tải sau khi Lưu, đúng khuôn khu tệp
+      chung đang chạy. Hai khu, hai hàng đợi riêng, cả hai đều được tải lên sau khi lưu.
+    */
+    ketQuaXuLyKhac: (label) => (
+      <>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+        <textarea
+          rows={4}
+          value={formData.ketQuaXuLyKhac}
+          onChange={(e) => update("ketQuaXuLyKhac", e.target.value)}
+          className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Các trường hợp xử lý giải quyết khác"
+          data-testid="field-ketQuaXuLyKhac"
+        />
+        <div className="mt-3" data-testid="khu-tep-ket-qua">
+          {effectiveId ? (
+            <EntityDocumentsTab
+              entityKind="petition"
+              entityId={effectiveId}
+              chiXem={chiXem}
+              chiLoai={[LOAI_TEP_KET_QUA]}
+              loaiMacDinh={LOAI_TEP_KET_QUA}
+              tieuDe="Tệp nhận từ đơn vị xử lý"
+            />
+          ) : (
+            <PetitionCreateDocumentsStage
+              ref={stageKetQuaRef}
+              tienToTestId="stage-ket-qua"
+              chiLoai={[LOAI_TEP_KET_QUA]}
+              loaiMacDinh={LOAI_TEP_KET_QUA}
+              tieuDe="Tệp nhận từ đơn vị xử lý"
+            />
+          )}
+        </div>
+      </>
+    ),
     senderName: (label) => (
       <>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
