@@ -5,7 +5,7 @@ Ma trận phủ theo §9. Một dòng = một chức năng kiểm được độ
 
 **Môi trường:** prod `http://171.244.40.245/`, `buildId` phải là `031cefa4…` trở lên.
 
-**Đã chạy được 3/45 dòng** (H1–H3) — ba dòng này kiểm bằng truy vấn chỉ-đọc trên máy thật,
+**Đã chạy được 4/46 dòng** (H1–H4) — ba dòng này kiểm bằng truy vấn chỉ-đọc trên máy thật,
 không cần đăng nhập. **42 dòng còn lại cần tài khoản.**
 
 Ba dòng ấy chứng minh chuỗi hạ tầng của đợt chạy đúng trên prod, chứ không chỉ trên máy:
@@ -76,7 +76,8 @@ thật rồi chết bằng danh sách rỗng hoặc bằng 403.
 | **H. Hạ tầng deploy** |
 | H1 | Prod: `directories` có `DOCUMENT_TYPE / KET_QUA_DON_VI_XU_LY` | ✅ | ✅ | **ĐẠT** 22/09 23:30 — 6/6 mã, có mã mới |
 | H2 | Prod: `permissions` có `export_full / Petition`, và ADMIN được cấp | ✅ | ✅ | **ĐẠT** 22/09 23:40 — 6/6 quyền Petition, `export_full` có mặt và đã cấp cho ADMIN |
-| H3 | `buildId` của `/api/v1/health` khớp `origin/main` | ✅ | ✅ | **ĐẠT** — prod `031cefa4` = `origin/main` |
+| H3 | `buildId` của `/api/v1/health` khớp `origin/main` | ✅ | ✅ | **ĐẠT** — prod `0f568a4e` = `origin/main` (đo lại 23/09 00:40) |
+| H4 | Prod: khoá `metadata` thật KHÔNG mang tiền tố `statistic.` | ✅ | ✅ | **ĐẠT** — 75 khoá thật, **0** mang tiền tố. Chứng minh lỗi 44 ô trống là thật, và khoá đã cắt tiền tố của #475 khớp đúng chỗ lưu |
 
 ## Đối chiếu ngược với 8 yêu cầu gốc
 
