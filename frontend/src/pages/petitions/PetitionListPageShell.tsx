@@ -129,6 +129,8 @@ interface PetitionRow {
   /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
   donViGiaiQuyet?: string | null;
   senderName: string;
+  /** "Loại thông tin" — lưu thẳng NHÃN ("Tố giác"), không lưu mã danh mục. */
+  loaiThongTin?: string | null;
   suspectedPerson?: string | null;
   status: PetitionStatus;
   deadline?: string | null;
@@ -547,6 +549,33 @@ export function PetitionListPageShell() {
         optional: 'show',
         sortKey: 'ngayDeXuat',
         render: (r) => <DateCell value={r.ngayDeXuat} />,
+      },
+
+      {
+        /*
+          Anh yêu cầu 22/09/2026: thêm "Loại thông tin", đứng ngay TRƯỚC "Nguồn đơn/Đơn vị giao".
+
+          Cột lưu thẳng NHÃN ("Tố giác", "Đề nghị"), không lưu mã danh mục — đo bản sao prod
+          22/09/2026: 46.721/47.169 hồ sơ (99,0%) có giá trị, giá trị khớp `directories.name`
+          của `LOAI_THONG_TIN`. Nên render là in thẳng chuỗi, không phải tra danh mục.
+        */
+        key: 'loaiThongTin',
+        header: 'Loại thông tin',
+        /*
+          KHÔNG khai `timKiem` — hoãn có chủ ý, không phải bỏ sót.
+
+          Khai một `truong` mới trong `khai/don-thu.khai.ts` với `kieu: 'chu'` là ghép cột ấy
+          vào biểu thức cột bóng (`sinh-tim-kiem.ts:236` `cotTatCa`), kéo theo migration đổi
+          trigger và nạp lại 47.169 dòng. Việc ấy thuộc đợt tìm kiếm đang dở trên nhánh
+          `wip/mo-rong-cot-ghep-tim-tat-ca`, nơi đã có thiết kế expand–migrate–contract để làm
+          mà không có cửa sổ suy giảm. Nhét vào đây là đổi một cột hiển thị thành một lượt
+          deploy có rủi ro dữ liệu.
+
+          Hiện trạng không xấu đi: cột này vốn đã không tìm được trước bản này.
+        */
+        width: '8rem',
+        optional: 'show',
+        render: (r) => r.loaiThongTin ?? '—',
       },
 
       {

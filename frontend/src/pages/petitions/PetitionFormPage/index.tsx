@@ -57,6 +57,7 @@ import { computeFormErrors } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
+import { ONhapGoiY } from "@/components/inputs/ONhapGoiY";
 
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
@@ -183,33 +184,26 @@ export function PetitionFormPage() {
   */
   type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
 
-  const [dupQuery, setDupQuery] = useState<string | null>(null);
-  const [dupResults, setDupResults] = useState<DupResult[]>([]);
-  const [showDupDropdown, setShowDupDropdown] = useState(false);
-  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Một dòng gợi ý tên người gửi: chữ + số lần đã dùng. */
+  type GoiYTen = { ten: string; soLan: number };
 
-  const handleDupInput = useCallback((q: string) => {
-    setDupQuery(q);
-    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
-    if (!q.trim()) { setDupResults([]); setShowDupDropdown(false); return; }
-    dupTimerRef.current = setTimeout(async () => {
-      try {
-        const params: Record<string, string> = { q };
-        if (id) params.excludeId = id;
-        const res = await api.get<DupResult[]>("/petitions/duplicate-search", { params });
-        setDupResults(Array.isArray(res.data) ? res.data : []);
-        setShowDupDropdown(true);
-      } catch { setDupResults([]); }
-    }, 300);
-  }, [id]);
-
-  // Dọn hẹn giờ khi rời màn — bỏ sót là một lượt gọi mạng chạy trên component đã tháo.
-  useEffect(
-    () => () => {
-      if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+  /** Tra đơn trùng cho ô "Ghi chú trùng đơn". Lỗi mạng → không có gợi ý, ô vẫn gõ được. */
+  const timDonTrung = useCallback(
+    async (q: string): Promise<DupResult[]> => {
+      const params: Record<string, string> = { q };
+      if (id) params.excludeId = id;
+      const res = await api.get<DupResult[]>("/petitions/duplicate-search", { params });
+      return Array.isArray(res.data) ? res.data : [];
     },
-    [],
+    [id],
   );
+
+  /** Tra tên người gửi đã dùng, xếp theo tần suất (anh yêu cầu 22/09/2026). */
+  const timTenNguoiGui = useCallback(async (q: string): Promise<GoiYTen[]> => {
+    const res = await api.get<GoiYTen[]>("/petitions/goi-y-ten-nguoi-gui", { params: { q } });
+    return Array.isArray(res.data) ? res.data : [];
+  }, []);
+
 
   const defaults = useFormDefaults();
 
@@ -649,53 +643,57 @@ export function PetitionFormPage() {
         </div>
       </>
     ),
+    /*
+      Ô "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" — anh yêu cầu 22/09/2026 cho tra lại
+      dữ liệu cũ trong khi gõ.
+
+      Vẫn là ô CHỮ TỰ DO: gõ một tên chưa từng có luôn phải lưu được. Đo bản sao prod cùng ngày:
+      25.818 cách viết tên khác nhau trên 47.169 hồ sơ, gõ `tran` ra 3.517 tên — nên gợi ý xếp
+      theo TẦN SUẤT, để cán bộ nhập lại đúng cách viết đã dùng thay vì đẻ biến thể thứ 25.819.
+    */
+    senderName: (label) => (
+      <>
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+        <ONhapGoiY<GoiYTen>
+          value={formData.senderName}
+          onChange={(v) => update("senderName", v)}
+          timGoiY={timTenNguoiGui}
+          khoa={(g) => g.ten}
+          nhan={(g) => g.ten}
+          hien={(g) => (
+            <>
+              <span className="font-medium">{g.ten}</span>
+              <span className="text-slate-500 text-xs ml-2">{g.soLan} đơn</span>
+            </>
+          )}
+          placeholder="Gõ tên để tra lại dữ liệu đã có, hoặc nhập tên mới"
+          testId="field-senderName"
+        />
+      </>
+    ),
     raSoatTrung: (label) => (
       <>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-        <div className="relative">
-          <input
-            type="text"
-            value={dupQuery ?? formData.raSoatTrung}
-            onChange={(e) => {
-              const v = e.target.value;
-              handleDupInput(v);
-            }}
-            onFocus={() => dupResults.length > 0 && setShowDupDropdown(true)}
-            onBlur={() => setTimeout(() => {
-              setShowDupDropdown(false);
-              if (dupQuery !== null) {
-                update("raSoatTrung", dupQuery);
-                setDupQuery(null);
-              }
-            }, 200)}
-            className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
-            data-testid="duplicate-search-input"
-          />
-          {showDupDropdown && dupResults.length > 0 && (
-            <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-              {dupResults.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
-                  onMouseDown={() => {
-                    const label = `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`;
-                    update("raSoatTrung", label);
-                    setDupQuery(null);
-                    setShowDupDropdown(false);
-                  }}
-                >
-                  <span className="font-medium">{r.stt}</span>
-                  <span className="text-slate-600 ml-2">{r.senderName}</span>
-                  {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
-                </button>
-              ))}
-            </div>
+        <ONhapGoiY<DupResult>
+          value={formData.raSoatTrung}
+          onChange={(v) => update("raSoatTrung", v)}
+          timGoiY={timDonTrung}
+          khoa={(r) => r.id}
+          nhan={(r) =>
+            `${r.stt} - ${r.senderName} (${new Date(r.receivedDate).toLocaleDateString('vi-VN')})`
+          }
+          hien={(r) => (
+            <>
+              <span className="font-medium">{r.stt}</span>
+              <span className="text-slate-600 ml-2">{r.senderName}</span>
+              {r.summary && <div className="text-slate-500 text-xs truncate">{r.summary}</div>}
+            </>
           )}
-        </div>
+          placeholder="Gõ tên/STT để tìm đơn trùng, hoặc nhập 'Không'"
+          testId="duplicate-search-input"
+        />
       </>
-    ),
+        ),
   };
 
   /**

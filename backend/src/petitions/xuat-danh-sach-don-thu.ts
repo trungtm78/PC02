@@ -27,6 +27,12 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
       doc: (d) => ngayVN(d.ngayDeXuat),
     },
     {
+      key: 'loaiThongTin',
+      tieuDe: 'Loại thông tin',
+      rong: 18,
+      doc: (d) => d.loaiThongTin ?? '',
+    },
+    {
       key: 'nguonDon',
       tieuDe: 'Nguồn đơn/Đơn vị giao',
       rong: 22,

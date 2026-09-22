@@ -574,7 +574,10 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
       .map((h) => (h.textContent ?? '').trim())
       .filter((t) => t.length > 0);
 
-    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
+    // Anh yêu cầu 22/09/2026: "Loại thông tin" đứng NGAY TRƯỚC "Nguồn đơn/Đơn vị giao".
+    // Vị trí là mệnh đề, không phải sự có mặt — cột đúng mà đứng sai chỗ thì cán bộ vẫn đọc sai
+    // bảng, và `toEqual` trên mảng có thứ tự là chỗ duy nhất giữ được điều đó.
+    expect(nhan).toEqual(['Thao tác', 'STT', 'Ngày đề xuất', 'Loại thông tin', 'Nguồn đơn/Đơn vị giao', 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', 'Tóm tắt nội dung', 'Đơn vị giải quyết', 'Kết quả xử lý, giải quyết khác', 'Người nhập', 'Trạng thái']);
   });
 
   it('cột hệ cũ KHÔNG có thì ẩn sẵn, bật lại được từ menu chọn cột', async () => {

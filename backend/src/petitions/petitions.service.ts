@@ -42,6 +42,7 @@ import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import { boDauTimKiem } from '../common/tim-kiem/bo-dau';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import {
   apDungKyVaoWhere,
@@ -108,6 +109,17 @@ const THAM_SO_CU_DON_THU = {
  * Cột một dòng danh sách Đơn thư — dùng CHUNG cho màn danh sách và tệp Excel xuất theo bộ lọc, để hai
  * nơi đọc đúng một bộ trường (18/09/2026).
  */
+/**
+ * Số gợi ý tên người gửi trả về mỗi lượt gõ.
+ *
+ * 10 là ngưỡng đọc hết được mà không phải cuộn: gõ `tran` khớp 3.517 tên, trả nhiều hơn chỉ đẩy
+ * cán bộ sang đọc lướt rồi bỏ qua cả danh sách.
+ */
+export const GOI_Y_TEN_TOI_DA = 10;
+
+/** Số ký tự tối thiểu mới hỏi gợi ý — xem chú thích trong `goiYTenNguoiGui`. */
+export const GOI_Y_TEN_TOI_THIEU = 2;
+
 const CHON_DONG_DANH_SACH_DON_THU = {
   id: true,
   stt: true,
@@ -132,6 +144,7 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   summary: true,
   // Ba cột hệ cũ hiển thị trên danh sách mà hệ mới chưa trả về. `summary` phủ
   // 99,99% đơn thư — thiếu nó thì cán bộ phải mở từng hồ sơ mới biết nội dung.
+  loaiThongTin: true,
   nguonDon: true,
   ketQuaXuLyKhac: true,
   sttCu: true,
@@ -2639,6 +2652,73 @@ export class PetitionsService {
       take: 20,
       orderBy: { receivedDate: 'desc' },
     });
+  }
+
+  /**
+   * Gợi ý tên người gửi theo dữ liệu đã có, xếp theo TẦN SUẤT.
+   *
+   * Anh yêu cầu 22/09/2026: ô "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại" cho tra lại dữ
+   * liệu cũ trong khi gõ. Đo bản sao prod 47.169 đơn thư: 25.818 cách viết tên khác nhau, gõ
+   * `tran` ra 3.517 tên. Xếp theo tần suất vừa đưa thứ hữu ích lên trước, vừa kéo dữ liệu về
+   * MỘT cách viết thay vì đẻ biến thể thứ 25.819.
+   *
+   * Dò qua cột bóng `senderNameBd` (đã bỏ dấu, có chỉ mục GIN trigram, nạp đủ 47.169/47.169)
+   * nên gõ không dấu vẫn ra tên có dấu.
+   *
+   * PHẠM VI DỮ LIỆU LÀ BẮT BUỘC, không phải tuỳ chọn: thiếu nó thì cán bộ tổ B gõ vài chữ cái
+   * là đọc được tên người tố giác của tổ A mà không cần mở hồ sơ nào. Đường `duplicateSearch`
+   * từng bỏ qua tham số phạm vi đúng kiểu ấy cho tới 15/09/2026.
+   *
+   * KHÔNG ép chọn ở phía giao diện: đây là ô chữ tự do, và dữ liệu thật có cả cụm dài như
+   * "Trần Thị Châu Giang (đại diện theo uỷ quyền Công ty TNHH MTV AG Việt Nam)".
+   */
+  async goiYTenNguoiGui(
+    q: string,
+    dataScope?: DataScope | null,
+  ): Promise<Array<{ ten: string; soLan: number }>> {
+    const chu = boDauTimKiem(q ?? '').trim();
+    /*
+      Dưới hai ký tự thì không hỏi máy chủ.
+
+      Một ký tự khớp gần như toàn bảng: không giúp được cán bộ (10 tên lấy ra từ 40.000 tên
+      khớp là 10 tên ngẫu nhiên), mà lại biến ô nhập thành công cụ dò tên — gõ lần lượt 26 chữ
+      cái là quét sạch danh sách tên trong phạm vi mình đọc được.
+    */
+    if (chu.length < GOI_Y_TEN_TOI_THIEU) return [];
+
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      /*
+        THOÁT ký tự đại diện. `contains` của Prisma dịch thẳng sang `LIKE %...%` và KHÔNG tự
+        thoát: gõ `%` là khớp mọi dòng có cột bóng khác NULL, tức toàn bộ phạm vi đọc được.
+        Cùng hàm `duplicateSearch` đang dùng.
+      */
+      senderNameBd: { contains: thoatLike(chu) },
+    };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi)
+      noiVaoWhere(where as Record<string, unknown>, [
+        phamVi as Prisma.PetitionWhereInput,
+      ]);
+
+    const nhom = await (
+      this.prisma.petition.groupBy as never as (
+        a: unknown,
+      ) => Promise<Array<Record<string, unknown>>>
+    )({
+      by: ['senderName'],
+      where,
+      _count: { _all: true },
+    });
+
+    return nhom
+      .map((g) => ({
+        ten: typeof g.senderName === 'string' ? g.senderName : '',
+        soLan: Number((g._count as { _all?: number } | undefined)?._all ?? 0),
+      }))
+      .filter((g) => g.ten.trim() !== '')
+      .sort((a, b) => b.soLan - a.soLan || a.ten.localeCompare(b.ten, 'vi'))
+      .slice(0, GOI_Y_TEN_TOI_DA);
   }
 
   // ── Nhóm I: PetitionAssignment CRUD ─────────────────────────────────────────

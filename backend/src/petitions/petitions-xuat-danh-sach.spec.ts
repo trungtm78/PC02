@@ -199,6 +199,8 @@ describe('Xuất Đơn thư — ngày viết đơn THIẾU thành phần', () =>
     expect(KHAI_COT_XUAT_DON_THU.map((c) => c.key)).toEqual([
       'stt',
       'ngayDeXuat',
+      // Anh yêu cầu 22/09/2026 — thứ tự phải KHỚP bảng trên màn: ngay trước "Nguồn đơn".
+      'loaiThongTin',
       'nguonDon',
       'senderName',
       'detailContent',

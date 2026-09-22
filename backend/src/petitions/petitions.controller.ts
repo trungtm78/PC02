@@ -251,6 +251,36 @@ export class PetitionsController {
     return this.petitionsService.duplicateSearch(query.q ?? '', query.excludeId, req.dataScope);
   }
 
+  /*
+    GET /api/v1/petitions/goi-y-ten-nguoi-gui?q= — gợi ý tên người gửi theo dữ liệu đã có.
+
+    Cùng khuôn `duplicate-search` ngay trên: quyền ĐỌC Đơn thư, throttle 5 lượt/60 giây, và
+    `req.dataScope` đi thẳng xuống service. Phạm vi dữ liệu ở đây không phải chi tiết kỹ thuật —
+    thiếu nó thì cán bộ tổ B gõ vài chữ cái là đọc được tên người tố giác của tổ A.
+
+    ĐẶT TRƯỚC `@Get(':id/journey')` và mọi route `:id`: Nest khớp route theo thứ tự khai, nên
+    một route tham số đứng trước sẽ nuốt đường dẫn tĩnh này và trả 404 "không tìm thấy đơn thư".
+  */
+  @Get('goi-y-ten-nguoi-gui')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  /*
+    Trần CAO hơn hẳn `duplicate-search` ngay trên — có chủ ý, không phải chép nhầm.
+
+    `duplicate-search` là thao tác cán bộ chủ động làm vài lần mỗi hồ sơ; ô gợi ý thì chạy theo
+    NHỊP GÕ. Một cái tên 20 ký tự gõ ngắt quãng đã bắn 5–10 lượt sau phép hoãn 300 ms, nên trần
+    5 lượt/60 giây làm gợi ý tắt ngóm ngay giữa lúc gõ — và tắt IM LẶNG, vì component nuốt lỗi
+    để không chặn nhập liệu.
+
+    Nặng hơn: `ThrottlerGuard` đếm theo ĐỊA CHỈ IP, mà cả đội ngồi sau một đường truyền. Năm
+    lượt ấy là năm lượt CHUNG cho toàn đơn vị.
+
+    Lượt gọi này đọc nhiều nhất 10 cái tên, đã lọc theo phạm vi dữ liệu và đòi ít nhất 2 ký tự.
+  */
+  @Throttle({ default: { ttl: 60000, limit: 120 } })
+  goiYTenNguoiGui(@Query() query: { q?: string }, @Req() req: ScopedRequest) {
+    return this.petitionsService.goiYTenNguoiGui(query.q ?? '', req.dataScope);
+  }
+
   // GET /api/v1/petitions/:id/journey — Hành trình đơn thư
   @Get(':id/journey')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
