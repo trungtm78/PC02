@@ -1,3 +1,21 @@
+STATUS: BLOCKED
+BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren production
+  (#467 #468 #469 #470 #471 #472/#473), buildId prod khop origin/main. Con DUNG MOT VIEC
+  can anh de dong §9:
+
+  (1) TAI KHOAN THU TREN PROD. 42/45 dong UAT-COVERAGE.md chua chay duoc. 5 TK thu cu khoa
+      tu 20/09 vi mat khau lo repo PUBLIC. Em da chay duoc 3 dong ha tang (H1-H3) bang truy
+      van chi-doc tren may that; 42 dong con lai deu can dang nhap. Can THEM mot TK OFFICER
+      thuoc TO KHAC de kiem dong D6 (goi y ten khong ro sang to khac) va F6 (nguoi chi-xem).
+      Em KHONG tu tao/mo khoa TK tren production (§8c).
+
+  Da lam het phan khong phu thuoc: ma + cong + gieo loi + CI + merge + xac minh deploy bang
+  buildId + do chi-doc tren prod + ma tran UAT 45 dong doi chieu nguoc 8 yeu cau.
+
+  KHONG PHAI BLOCKER (dang tu xu, khong can anh):
+  - Codex het han muc toi 00:00 ngay 23/09. Luot soat cheo #471 da HEN CHAY NEN luc 00:00.
+    Co phat hien thi em vá tiep, khong can hoi.
+
 # PROGRESS
 Cập nhật: 2026-09-22T22:45:00+07:00 | Milestone: PR3/4 mã XONG | Task: mở PR, chờ CI, gộp
 
