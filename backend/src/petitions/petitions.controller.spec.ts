@@ -20,6 +20,7 @@ const mockService = {
   assignPetition: jest.fn(),
   suspectSearch: jest.fn(),
   duplicateSearch: jest.fn(),
+  goiYTenNguoiGui: jest.fn(),
   listAssignments: jest.fn(),
   addAssignment: jest.fn(),
   removeAssignment: jest.fn(),
@@ -240,3 +241,48 @@ describe('PetitionsController — delegation', () => {
     );
   });
 });
+
+/**
+ * Cổng phía SERVICE chứng minh phép lọc đúng, nhưng không thấy được chuyện controller quên
+ * chuyển `req.dataScope` xuống. Bỏ tham số ấy đi là mọi ca kiểm service vẫn xanh trong khi gợi
+ * ý trả tên của mọi tổ. Lượt soát mô hình ngoài 22/09/2026 chỉ đúng khe hở này.
+ */
+describe('PetitionsController — gợi ý tên người gửi chuyển ĐÚNG phạm vi dữ liệu', () => {
+  let controller: PetitionsController;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module = await buildControllerModule(
+      PetitionsController,
+      PetitionsService,
+      mockService,
+      [
+        { token: PetitionsJourneyService, mock: mockJourneyService },
+        {
+          token: require('../document-templates/dynamic-export.service').DynamicExportService,
+          mock: mockDynamicExport,
+        },
+      ],
+    );
+    controller = module.get(PetitionsController);
+  });
+
+  it('chuyển q VÀ req.dataScope xuống service', () => {
+    const phamVi = {
+      teamIds: ['to-a'],
+      userIds: [],
+      writableTeamIds: ['to-a'],
+      writableUserIds: [],
+    };
+    const req = { ...makeReq(), dataScope: phamVi } as never;
+    controller.goiYTenNguoiGui({ q: 'tran' }, req);
+    expect(mockService.goiYTenNguoiGui).toHaveBeenCalledWith('tran', phamVi);
+  });
+
+  it('thiếu q → vẫn gọi với chuỗi rỗng, không ném', () => {
+    const req = { ...makeReq(), dataScope: null } as never;
+    controller.goiYTenNguoiGui({}, req);
+    expect(mockService.goiYTenNguoiGui).toHaveBeenCalledWith('', null);
+  });
+});
+

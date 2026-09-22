@@ -959,3 +959,40 @@ dịch bắt được ba shell quên nối, thay vì để nút im lặng không
 
 Hệ cũ có cột "STT cũ" riêng nhưng **đang bị chú thích tắt** (`doi_1_list.tpl:203`) — nó chỉ nằm
 ghép trong ô STT ở màn xem. Ghép vào cột sẵn có là đi theo hệ cũ, không phải rút gọn.
+
+---
+
+## v0.74 — Cột "Loại thông tin" trên màn Đơn thư (feat/don-thu-cot-loai-thong-tin-goi-y-ten)
+
+Anh yêu cầu 22/09/2026. Cột đứng **ngay trước** "Nguồn đơn/Đơn vị giao" — vị trí là một phần
+của yêu cầu, không phải chi tiết trình bày.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Cột "Loại thông tin" hiện mặc định | — | — | ✅ | 46.721/47.169 hồ sơ (99,0%) có giá trị, đo bản sao prod 22/09/2026 |
+| Đứng trước "Nguồn đơn/Đơn vị giao" | — | — | ✅ | `PetitionListPageShell.test.tsx` so **mảng có thứ tự**, không so tập hợp |
+| Có trong tệp Excel xuất ra | — | — | ✅ | `khaiCotXuat.gate` đòi tập cột xuất **bằng đúng** tập cột trên bảng |
+| Tìm được bằng thẻ riêng | — | — | ❌ | **hoãn có chủ ý** — xem dưới |
+
+**Chỉ Đơn thư.** Vụ việc và Vụ án không có cột này trong bố cục hệ cũ và anh chỉ nêu màn Đơn
+thư; thêm sang hai màn kia là tự mở scope trên dữ liệu chưa đo.
+
+**Vì sao chưa tìm được.** Khai một `truong` mới với `kieu: 'chu'` trong `khai/don-thu.khai.ts`
+là ghép cột ấy vào biểu thức cột bóng (`sinh-tim-kiem.ts:236` `cotTatCa`), kéo theo migration
+đổi trigger và nạp lại 47.169 dòng. Việc ấy thuộc đợt tìm kiếm đang dở trên nhánh
+`wip/mo-rong-cot-ghep-tim-tat-ca`, nơi đã có thiết kế expand–migrate–contract để làm mà không
+có cửa sổ suy giảm. Hiện trạng không xấu đi: cột này vốn đã không tìm được trước bản này.
+
+### Ô Tên gợi ý theo dữ liệu đã có
+
+Không phải năng lực của shell — ô nằm trên FORM — nhưng ghi ở đây vì cùng đợt và cùng chạm
+`PetitionListPageShell` qua cột `senderName`.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Gợi ý tên đã dùng, xếp theo tần suất | — | — | ✅ | `ONhapGoiY` + `GET /petitions/goi-y-ten-nguoi-gui` |
+| Vẫn là ô CHỮ TỰ DO | — | — | ✅ | gõ tên chưa từng có luôn lưu được; không ép chọn |
+| Lọc theo phạm vi dữ liệu | — | — | ✅ | thiếu nó là kênh rò tên người tố giác sang tổ khác |
+
+`ONhapGoiY` trích từ ô "Ghi chú trùng đơn" đang chạy — **mở rộng primitive sẵn có**, không dựng
+cơ chế gợi ý thứ hai. Hai ô nay dùng chung một cài đặt.

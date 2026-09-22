@@ -53,6 +53,10 @@ const COT_HE_CU: readonly string[] = [
 const HIEN_THEM_CO_LY_DO: Readonly<Record<string, string>> = {
   'Thao tác': 'nút bấm, hệ cũ cũng có, chỉ khác chỗ đứng',
   'Trạng thái': 'trạng thái hệ mới — thứ hệ cũ không quản được',
+  'Đơn thư|Loại thông tin':
+    'anh yêu cầu 22/09/2026 thêm cột này, đứng ngay trước "Nguồn đơn/Đơn vị giao". ' +
+    'Đo bản sao prod cùng ngày: 46.721/47.169 hồ sơ (99,0%) có giá trị — đủ dày để đứng ' +
+    'trong bộ mặc định, không phải cột trống chiếm chỗ.',
   'Vụ án|Đối tượng bị can':
     'màn `/VuAn` của hệ cũ có cột này và anh chốt 26/08/2026 lấy /VuAn làm chuẩn; ' +
     'màn `/doi-1/vu-an-da-phan-loai` thì tắt. Giữ cả hai vì cả hai đều có dữ liệu thật.',
