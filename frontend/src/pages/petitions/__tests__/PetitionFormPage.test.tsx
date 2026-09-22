@@ -148,14 +148,18 @@ describe('PetitionFormPage — create-mode defaults', () => {
   });
 
   /**
-   * MỐC ĐÚNG ĐÃ ĐỔI 26/08/2026 — form Đơn thư nay dựng theo bố cục hệ cũ, và hệ cũ gọi ô này
-   * là "Đồ vật, tài liệu kèm theo". Nhãn "Ghi chú tài liệu đính kèm" của hệ mới nhường chỗ:
-   * cán bộ đang dùng hệ cũ mở tab ra phải thấy đúng chữ họ quen.
+   * MỐC ĐÚNG ĐÃ ĐỔI LẦN HAI, 22/09/2026 — anh yêu cầu bỏ hẳn ô này khỏi form Đơn thư.
+   *
+   * Mốc cũ (26/08/2026) đòi ô mang nhãn hệ cũ "Đồ vật, tài liệu kèm theo". Nay ô không còn, nên
+   * mệnh đề đảo chiều. Đây là đổi YÊU CẦU, không phải sửa ca kiểm cho khớp mã sai: cột
+   * `attachmentsNote` vẫn giữ nguyên 11.591 hồ sơ và bản in vẫn đọc nó — xem
+   * `o-an.def.ts` và `baOAnKhongDungNua.gate.test.tsx`.
    */
-  it('bố cục hệ cũ: ô đính kèm mang nhãn "Đồ vật, tài liệu kèm theo"', async () => {
+  it('ô "Đồ vật, tài liệu kèm theo" đã bỏ khỏi form (yêu cầu 22/09/2026)', async () => {
     await renderForm();
-    expect(await screen.findByTestId('field-attachmentsNote')).toBeInTheDocument();
-    expect(screen.getAllByText(/Đồ vật, tài liệu kèm theo/i).length).toBeGreaterThan(0);
+    await screen.findByTestId('field-senderName');
+    expect(screen.queryByTestId('field-attachmentsNote')).toBeNull();
+    expect(screen.queryByText(/Đồ vật, tài liệu kèm theo/i)).toBeNull();
   });
 });
 

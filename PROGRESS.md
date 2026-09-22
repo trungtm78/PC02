@@ -1,4 +1,56 @@
-STATUS: BLOCKED
+# PROGRESS
+Cập nhật: 2026-09-22T19:40:00+07:00 | Milestone: PR1/4 | Task: 3/3 của PR1
+
+Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (phần "Đợt 22/09/2026", 4 PR).
+Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form).
+
+## Đã hoàn thành
+- [x] PR1-T1 `baoCaoBanGiamDoc` ba trạng thái + mặc định "Không" — nhánh `feat/don-thu-form-mac-dinh-an-o-chep-don`
+- [x] PR1-T2 Ẩn ô "Đồ vật, tài liệu kèm theo", giữ nguyên 11.591 hồ sơ dữ liệu + đường in
+- [x] PR1-T3 Nút "Tạo đơn mới từ đơn này" + phân loại chép/đặt-lại trọn ô
+
+## Đang làm dở
+Task: PR1 — checkpoint trước merge
+Đã làm: mã + cổng xong; frontend 3869/3869, backend 5957/5957, `tsc -b` sạch.
+BƯỚC TIẾP THEO: chạy `/review` rồi `codex exec` trên diff của nhánh; xử hết finding; mở PR, merge `--admin`, xác minh deploy bằng `buildId`; sang PR2.
+File liên quan: `frontend/src/pages/petitions/PetitionFormPage/{buildPetitionPayload,chepSangDonMoi,types,index}.ts(x)`, `frontend/src/features/petitions/o-an.def.ts`, `frontend/src/features/*/routes.tsx`
+
+## Hàng đợi task kế tiếp
+1. PR2 — cột "Loại thông tin" vào danh sách + ô Tên gợi ý theo dữ liệu cũ (có lọc `dataScope`)
+2. PR3 — loại tài liệu "Kết quả từ đơn vị xử lý", khu tải tệp cạnh "Kết quả xử lý", popup nhập nhanh trên danh sách, vá lệch phạm vi tệp hồ sơ đã chuyển Vụ án
+3. PR4 — nút "Xuất đầy đủ" (đường riêng + quyền riêng + cổng đo GIÁ TRỊ + trần đặt theo phép đo)
+
+## Quyết định kiến trúc
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 22/09 | `baoCaoBanGiamDoc` suy theo BA trạng thái, mặc định "Không" chỉ ở chế độ tạo mới | Gửi `false` mỗi lần lưu biến ~43.000 hồ sơ NULL ("chưa xác định") thành khẳng định sai | `buildPetitionPayload.suyBaoCaoBanGiamDoc` |
+| 22/09 | Chép đơn bằng danh sách CHO PHÉP, không phải loại trừ | `ngayDeXuat`/`deadline` không tự đặt lại theo `receivedDate` → đơn mới quá hạn từ lúc sinh | `chepSangDonMoi.ts` + cổng phân loại trọn ô |
+| 22/09 | Đặt lại mốc hồ sơ ở NƠI NHẬN (`/petitions/new`), không ở nút | Mọi đường vào form tạo mới đều đi qua đó; thêm đường mới sau này không lọt | `PetitionFormPage/index.tsx` |
+| 22/09 | Mở rộng `DungLaiTheoId` sang MỌI route form, không dựng cơ chế thứ hai | 5 route form cùng loại component dùng lại state của nhau | `features/{petitions,cases,incidents}/routes.tsx` |
+| 22/09 | Mốc cổng `moi-khoa-form-gui-len` đổi từ `'return {'` sang tên hàm | Thêm hàm phụ có `return {` làm mốc rơi nhầm chỗ | `moi-khoa-form-gui-len-deu-duoc-nhan.gate.spec.ts` |
+
+## Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
+|---|---|---|
+| "Bỏ mục Đồ vật, tài liệu kèm theo" — bỏ ô hay xoá dữ liệu? | Bỏ Ô, GIỮ dữ liệu và đường in | Tiền lệ anh chốt 20/09 (PR #457); 11.591 hồ sơ có dữ liệu |
+| Chép đơn có mang số CCCD người gửi không? | CÓ — số định danh người gửi là NỘI DUNG đơn | Anh chốt "Chép nội dung, đặt lại mốc hồ sơ" |
+| Ngày viết đơn có chép không? | KHÔNG — đơn mới là một lá đơn khác | Cùng lý do trên |
+
+## Trạng thái test
+Full suite: PASS | frontend 3869/3869 · backend 5957/5957 | `tsc -b` sạch | Test fail: không
+
+## Nợ kỹ thuật / rủi ro
+- Chưa bấm thử trên prod: 5 tài khoản thử khoá từ 20/09, anh chưa cấp tài khoản mới.
+- Hồ sơ tạo TỪ NAY in ô "Đồ vật, tài liệu kèm theo" trống (hệ quả đã nhận của yêu cầu bỏ ô).
+
+---
+
+# ─── LƯU TRỮ: đợt 20/09/2026 (form Đơn thư nhập liệu nhanh) ───
+
+> Giữ nguyên để tra cứu. HAI VIỆC CHỜ ANH ở đầu mục này VẪN CÒN HIỆU LỰC:
+> (1) tài khoản thử trên prod, (2) duyệt bảng gộp CSV Nguồn đơn trước khi ghi prod.
+
+STATUS-LUU-TRU: BLOCKED (đợt 20/09)
 BLOCKED_REASON: Da lam het phan khong can anh. Con DUNG HAI VIEC can anh:
   (1) TAI KHOAN THU TREN PROD. Moi ca UAT chay tren BAN SAO o may (pc02_uat2009). 5 TK thu cu da
       khoa 20/09 vi mat khau lo repo PUBLIC. Em da thu tu bat lai admin2 nhung he thong CHAN dung

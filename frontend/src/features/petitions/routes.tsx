@@ -13,11 +13,11 @@ const WardPetitionsPage = lazy(() => import('@/pages/petitions/WardPetitionsPage
 export function renderPetitionsRoutes(): ReactElement[] {
   return [
     <Route key="petitions-list" path="/petitions" element={wrapRoute(<PetitionListPage />)} />,
-    <Route key="petitions-new" path="/petitions/new" element={wrapRoute(<PetitionFormPage />)} />,
+    <Route key="petitions-new" path="/petitions/new" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
     // v0.67.1 fix: /petitions/:id alias. Without this, row click trên list shell
     // navigates to /petitions/:id → no route → catch-all `*` → redirect /login.
     // PetitionFormPage handles cả read+edit qua useParams id presence.
-    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<PetitionFormPage />)} />,
+    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
     <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
     <Route key="petitions-ward" path="/ward/petitions" element={wrapRoute(<WardPetitionsPage />)} />,
   ];

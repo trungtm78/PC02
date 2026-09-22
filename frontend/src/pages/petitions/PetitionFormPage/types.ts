@@ -115,7 +115,11 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   nguonDon: "", petitionDate: "", ngayVietDonEdtf: "", ngayVietDonChu: "", ngayDeXuat: today(), phanLoaiNguonTin: "",
   dieuTraVien: "", donViGiaiQuyet: "",
   huongXuLy: "", thuocThamQuyen: true,
-  baoCaoBanGiamDocText: "", tinhTrang: "",
+  // Anh chốt 22/09/2026: "Trường hợp báo cáo Ban Giám đốc" mặc định "Không".
+  // CHỈ ở đây — trạng thái khởi tạo của chế độ TẠO MỚI. Chế độ SỬA nạp thẳng từ máy chủ
+  // (`index.tsx`: `(d.baoCaoBanGiamDocText as string) ?? ""`), nên hồ sơ di trú vẫn mở ra
+  // RỖNG và `suyBaoCaoBanGiamDoc` giữ nguyên NULL cho nó.
+  baoCaoBanGiamDocText: "Không", tinhTrang: "",
   soQDPhanCongNguonTin: "", ngayQDPhanCongNguonTin: "",
   soQDTamDinhChiNguonTin: "", ngayQDTamDinhChiNguonTin: "",
   canCuTamDinhChiNguonTin: "", soPhucHoiNguonTin: "", ngayPhucHoiNguonTin: "",
@@ -123,3 +127,24 @@ export const INITIAL_PETITION_FORM: PetitionFormData = {
   soTienBiThietHai: "", soLuongBiHai: "", sttCu: "",
   legacyExtra: {},
 };
+
+/**
+ * Trạng thái form của một đơn thư MỚI — ba ô ngày tính LÚC GỌI, không lúc nạp mô-đun.
+ *
+ * `INITIAL_PETITION_FORM` là hằng mô-đun, nên `today()` trong nó chạy đúng MỘT lần khi trình
+ * duyệt nạp tệp. Cán bộ mở tab buổi chiều rồi tạo đơn sáng hôm sau là đơn mang ngày hôm qua —
+ * và `useFormDefaults` không cứu được, vì nó chỉ điền khi ô còn RỖNG (`prev.receivedDate ||`).
+ *
+ * Lượt soát mô hình ngoài 22/09/2026 bắt được qua đường chép đơn; lỗi vốn có sẵn ở cả đường
+ * tạo mới thường. Mọi chỗ dựng form trắng phải gọi hàm này, đừng dùng thẳng hằng.
+ */
+export function taoFormDonThuMoi(): PetitionFormData {
+  const homNay = today();
+  return {
+    ...INITIAL_PETITION_FORM,
+    receivedDate: homNay,
+    ngayTiepNhanNguonTin: homNay,
+    ngayDeXuat: homNay,
+    legacyExtra: {},
+  };
+}

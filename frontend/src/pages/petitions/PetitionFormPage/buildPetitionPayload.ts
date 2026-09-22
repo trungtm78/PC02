@@ -12,6 +12,7 @@
  * Cùng lớp lỗi đã vá cho Vụ án (PR #245). Máy chủ Đơn thư vốn đã đúng — lỗi hoàn toàn ở đây.
  */
 import { oHeCu } from '@/pages/cases/CaseFormPage/buildCreateCasePayload';
+import { boDau } from '@/lib/bo-dau';
 import type { PetitionFormData } from './types';
 
 /**
@@ -44,6 +45,38 @@ export interface BuildPetitionPayloadOptions {
  * `summary` tự cắt từ Nội dung, `stt` là số tự cấp.
  */
 export const O_KHONG_CO_CHO_NHAP = ['assignedTeamId', 'summary', 'stt'] as const;
+
+/**
+ * Suy cột Đúng/Sai `baoCaoBanGiamDoc` từ ô CHỮ `baoCaoBanGiamDocText` — BA trạng thái.
+ *
+ * Bố cục hệ cũ chỉ có ô chữ, không có ô bật/tắt, nên cột Đúng/Sai phải suy ra.
+ *
+ * ĐÍNH CHÍNH MỘT TIỀN ĐỀ SAI, đo 22/09/2026 trên bản sao prod 47.169 đơn thư. Bản trước của
+ * hàm này, và chú thích nó thay thế, đều nói "~43.000 hồ sơ NULL = chưa xác định" và vì thế
+ * KHÔNG BAO GIỜ gửi `false`. Số đo nói ngược:
+ *
+ *     petitions.baoCaoBanGiamDoc  →  NOT NULL DEFAULT false   ·  0 dòng NULL
+ *                                    43.084 false  ·  4.085 true
+ *     chữ đúng bằng "không"       →  2 dòng, cả hai đã là false
+ *
+ * Cột `Boolean?` thật sự cho phép NULL nằm ở Vụ án và Vụ việc, KHÔNG ở Đơn thư — chú thích cũ
+ * chép từ đó sang. Trên Đơn thư không có NULL nào để giữ, nên gửi `false` không làm hỏng gì, và
+ * "Không" của cán bộ phải ghi được thành `false` thay vì rơi vào im lặng.
+ *
+ *     rỗng          →  vắng khoá  (không nhắc tới thì máy chủ không ghi)
+ *     ≈ "không"     →  false
+ *     còn lại       →  true
+ *
+ * Mặc định "Không" chỉ nằm ở `taoFormDonThuMoi()` — chế độ SỬA nạp thẳng từ máy chủ
+ * (`index.tsx`: `(d.baoCaoBanGiamDocText as string) ?? ""`), nên hồ sơ cũ mở ra vẫn rỗng.
+ */
+export function suyBaoCaoBanGiamDoc(
+  chu: string | null | undefined,
+): { baoCaoBanGiamDoc?: boolean } {
+  const t = oHeCu(chu);
+  if (t === null) return {};
+  return { baoCaoBanGiamDoc: boDau(t) !== 'khong' };
+}
 
 export function buildPetitionPayload(
   formData: PetitionFormData,
@@ -99,11 +132,7 @@ export function buildPetitionPayload(
     nhanThay: oHeCu(formData.nhanThay),
     deXuat: oHeCu(formData.deXuat),
     raSoatTrung: oHeCu(formData.raSoatTrung),
-    // Cột `baoCaoBanGiamDoc` là ĐÚNG/SAI, nhưng bố cục hệ cũ chỉ có ô CHỮ. Từ khi form dựng
-    // theo hệ cũ, cán bộ không còn ô nào để bật/tắt nó — nên suy từ chữ, và KHÔNG BAO GIỜ gửi
-    // `false`: gửi `false` mỗi lần lưu sẽ biến NULL ("chưa xác định") thành `false` cho mọi hồ
-    // sơ chưa kịp bù cột chữ. Cùng cách đã làm cho Vụ án.
-    ...(oHeCu(formData.baoCaoBanGiamDocText) !== null ? { baoCaoBanGiamDoc: true } : {}),
+    ...suyBaoCaoBanGiamDoc(formData.baoCaoBanGiamDocText),
 
     senderIdNumber: oHeCu(formData.senderIdNumber),
     senderIdIssueDate: oHeCu(formData.senderIdIssueDate),

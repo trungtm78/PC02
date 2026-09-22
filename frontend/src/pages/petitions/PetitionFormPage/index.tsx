@@ -9,6 +9,7 @@ import { useDauHieuDangSua } from '@/lib/cap-nhat/formDoDang';
 // mà không phải nạp cả trang. Giữ tên cục bộ `FormData`/`INITIAL_FORM` cho phần còn lại.
 import {
   INITIAL_PETITION_FORM as INITIAL_FORM,
+  taoFormDonThuMoi,
   type PetitionFormData as FormData,
 } from "./types";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
@@ -22,11 +23,11 @@ import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import {
-  ArrowLeft, AlertCircle, Calendar,
+  ArrowLeft, AlertCircle, Calendar, CopyPlus,
   FileText, MapPin, Phone, Mail,
 } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
@@ -60,10 +61,22 @@ import { PartialDateInput } from "@/components/inputs/PartialDateInput";
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
+import { chepSangDonMoi } from "./chepSangDonMoi";
+import { lamTrongForm } from "./lamTrongForm";
 export function PetitionFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
+  /*
+    "Tạo đơn mới từ đơn này" — nút ở chế độ SỬA gửi NGUYÊN trạng thái form qua route tạo mới;
+    phép đặt lại mốc hồ sơ chạy Ở ĐÂY, tại nơi nhận.
+
+    Đặt lại ở nơi nhận chứ không ở nút, vì đây là chỗ duy nhất mọi đường vào form tạo mới đi
+    qua: thêm một đường điều hướng khác về sau mà quên gọi `chepSangDonMoi` thì vẫn không có
+    hồ sơ nào mang được mã số, hạn xử lý hay kết quả xử lý của đơn cũ sang.
+  */
+  const chepTu = (location.state as { chepTu?: FormData } | null)?.chepTu ?? null;
   // PR2 — tạo mới đơn thư có đính file: sau khi POST tạo đơn, giữ id mới ở createdId →
   // (1) lưu lần kế = PUT (không tạo đơn TRÙNG), (2) cho upload/retry file đã stage.
   // effectiveEdit/effectiveId dùng trong saveOnly + validateForm.
@@ -75,7 +88,9 @@ export function PetitionFormPage() {
   // song song trước khi createdId render → cả hai POST → tạo 2 đơn TRÙNG (Codex PR2).
   const savingRef = useRef(false);
 
-  const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
+  const [formData, setFormData] = useState<FormData>(() =>
+    !id && chepTu ? chepSangDonMoi(chepTu) : taoFormDonThuMoi(),
+  );
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
@@ -505,14 +520,14 @@ export function PetitionFormPage() {
       }
     },
     canDelete: isEditMode && !chiXem,
-    onReset: () => {
-      // Init màn hình: làm trống form, nhập lại từ đầu (form tạo mới sạch hoàn toàn).
-      // EDIT → sang route tạo mới (tránh ghi đè bản ghi cũ bằng dữ liệu trắng).
-      // CREATE → reload để xoá sạch mọi state phụ (kể cả file đã đính) — không sót như reset tay.
-      if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
-      if (isEditMode) navigate("/petitions/new");
-      else window.location.reload();
-    },
+    onReset: () =>
+      lamTrongForm({
+        isEditMode,
+        xacNhan: () =>
+          confirm('Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.'),
+        diToi: navigate,
+        taiLai: () => window.location.reload(),
+      }),
   });
 
   const update = (field: keyof FormData, value: string | boolean) =>
@@ -848,6 +863,17 @@ export function PetitionFormPage() {
           <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel-top">
             Hủy
           </button>
+          {isEditMode && id && !chiXem && (
+            <button
+              type="button"
+              onClick={() => navigate("/petitions/new", { state: { chepTu: formData } })}
+              className="flex items-center gap-2 px-4 py-2.5 border border-sky-300 text-sky-700 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors font-medium"
+              data-testid="btn-chep-don"
+              title="Chép nội dung đơn này sang một đơn mới; mã hồ sơ, ngày tháng và kết quả xử lý sẽ đặt lại"
+            >
+              <CopyPlus className="w-4 h-4" />Tạo đơn mới từ đơn này
+            </button>
+          )}
           {isEditMode && id && (
             <button
               type="button"

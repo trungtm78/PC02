@@ -45,7 +45,7 @@ const BANG: ThucThe[] = [
     payload: 'frontend/src/pages/petitions/PetitionFormPage/buildPetitionPayload.ts',
     ngoaiLe: { expectedUpdatedAt: 'UpdatePetitionDto — khoá chống ghi đè đồng thời' },
     khoaMoc: 'senderName',
-    neo: 'return {',
+    neo: 'export function buildPetitionPayload',
   },
   {
     ten: 'Vụ việc',
@@ -80,6 +80,11 @@ function khoaCuaDto(duong: string): Set<string> {
 
 /**
  * Khoá gán trong đối tượng payload của hàm dựng, tính từ mốc khai trong bảng.
+ *
+ * MỐC PHẢI LÀ TÊN HÀM, không phải `'return {'`. 22/09/2026: thêm một hàm phụ có `return {` vào
+ * đầu `buildPetitionPayload.ts` là mốc rơi vào hàm phụ ấy và cổng chỉ còn thấy MỘT khoá. Phép
+ * kiểm `> 20` ở trên bắt được — đó đúng là việc của nó — nhưng mốc theo tên hàm thì không có
+ * chỗ cho lớp lỗi ấy ngay từ đầu.
  *
  * Cắt theo ĐỘ SÂU NGOẶC chứ không đọc tới hết tệp: đọc quá cuối đối tượng thì nhặt luôn khoá
  * của những đối tượng đứng sau và cổng báo thiếu những khoá chưa bao giờ được gửi.
