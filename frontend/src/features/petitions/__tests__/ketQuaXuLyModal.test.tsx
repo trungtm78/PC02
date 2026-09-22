@@ -99,6 +99,13 @@ describe('Popup nhập nhanh "Kết quả xử lý"', () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 
+  it('KHÔNG gửi expectedUpdatedAt khi bảng không có mốc — vẫn lưu được', async () => {
+    mo({ updatedAt: undefined });
+    fireEvent.click(screen.getByTestId('btn-luu-ket-qua'));
+    await waitFor(() => expect(apiPut).toHaveBeenCalled());
+    expect('expectedUpdatedAt' in apiPut.mock.calls[0][1]).toBe(false);
+  });
+
   it('khu tệp trong popup CHỈ hỏi tệp của loại kết quả', async () => {
     mo();
     await waitFor(() => expect(apiGet).toHaveBeenCalled());

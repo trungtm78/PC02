@@ -1,5 +1,5 @@
 # PROGRESS
-Cập nhật: 2026-09-22T21:20:00+07:00 | Milestone: PR2/4 XONG | Task: chuẩn bị PR3
+Cập nhật: 2026-09-22T22:45:00+07:00 | Milestone: PR3/4 mã XONG | Task: mở PR, chờ CI, gộp
 
 Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` — phần "Đợt 22/09/2026", 4 PR.
 Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form).
@@ -12,12 +12,20 @@ Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form
 
 ## Đang làm dở
 Task: PR3 — tệp từ đơn vị xử lý + popup nhập nhanh trên danh sách
-Đã làm: chưa bắt đầu (PR2 vừa gộp).
-BƯỚC TIẾP THEO: `git checkout main && git pull && git checkout -b feat/don-thu-tep-don-vi-xu-ly`
-rồi làm theo §PR3 của kế hoạch, TDD đỏ trước từng mục a–e.
-File liên quan: `frontend/src/components/documents/EntityDocumentsTab.tsx`,
-`frontend/src/features/petitions/components/PetitionCreateDocumentsStage.tsx`,
-`backend/src/documents/documents.service.ts`, `frontend/src/features/_shared/row-actions/registry.ts`
+Nhánh: `feat/don-thu-tep-don-vi-xu-ly` (4 commit). Mã XONG cả năm mục a–e.
+Đã làm: mã danh mục `KET_QUA_DON_VI_XU_LY` · `EntityDocumentsTab` lọc theo loại (bốn chỗ) ·
+gắn ở cả hai chế độ (hai hàng đợi riêng) · vá lệch phạm vi tệp hai cha + chặn đơn thư đã xoá
+mềm · popup mở từ ô "Kết quả xử lý" kèm `expectedUpdatedAt` và giữ chữ khi 409.
+BƯỚC TIẾP THEO: `git push -u origin feat/don-thu-tep-don-vi-xu-ly` → `gh pr create` → chờ CI
+(nhớ ma trận parity, ĐÃ ghi) → `gh pr merge --squash --admin` → xác minh deploy bằng `buildId`
+→ sang PR4.
+File liên quan: `frontend/src/features/petitions/components/KetQuaXuLyModal.tsx`,
+`frontend/src/components/documents/EntityDocumentsTab.tsx`, `backend/src/documents/documents.service.ts`
+
+**LƯU Ý: Codex hết hạn mức lúc 22:40 ngày 22/09, mở lại 00:00 ngày 23/09.** Lượt soát chéo PR3
+chỉ chạy được một phần — nó kịp bắt MỘT lỗi thật (đơn thư cha đã xoá mềm mở khoá tệp vụ án
+ngoài phạm vi, đã vá ở commit `eb25ad76`). Phần còn lại của PR3 mới chỉ tự soát. **Chạy lại
+`codex exec` trên diff của PR3 sau 00:00 trước khi coi là đã soát đủ.**
 
 ## Hàng đợi task kế tiếp
 1. **PR3** — năm mục, đã rà bằng mã:

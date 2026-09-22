@@ -647,6 +647,14 @@ export function PetitionListPageShell() {
             vì hành vi. Tách biến ra cũng làm hàm dễ đọc hơn.
           */
           const chu = r.ketQuaXuLyKhac ?? '—';
+          /*
+            Không có quyền sửa thì hiện chữ trơn, không hiện thứ bấm được.
+
+            Máy chủ vẫn chặn 403 như cũ — nhưng mời một người chỉ-xem mở popup, gõ xong rồi mới
+            báo "không có quyền" là làm mất công người ta và làm họ tưởng hệ hỏng. Cùng luật với
+            `chiXem` trên form.
+          */
+          if (!canEdit('petitions')) return <span>{chu}</span>;
           return (
           <button
             type="button"
