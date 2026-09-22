@@ -47,6 +47,7 @@ import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
+import { KetQuaXuLyModal } from '@/features/petitions/components/KetQuaXuLyModal';
 import { resolveFilename, parseBlobError } from '@/features/document-templates/export.api';
 import { extractApiError } from '@/lib/api-errors';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
@@ -245,6 +246,19 @@ export function PetitionListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
+  /*
+    Popup nhập nhanh "Kết quả xử lý" — mở từ CHÍNH Ô ấy trên bảng.
+
+    Không thêm nút thứ sáu vào cột Thao tác: cột đang khai `12rem` cho 5 nút, và nút thứ sáu là
+    đúng hình học đã làm mất nút In trên prod hôm 21/09 (#464). Bấm vào ô để sửa chính ô ấy
+    cũng là thao tác tự nhiên hơn một icon không nhãn.
+  */
+  const [popupKetQua, setPopupKetQua] = useState<{
+    id: string;
+    stt: string;
+    giaTri: string;
+    updatedAt?: string;
+  } | null>(null);
   useListShortcuts({ onNew: () => navigate('/petitions/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [transientBanner, setTransientBanner] = useState<{
     kind: 'success' | 'error';
@@ -623,7 +637,38 @@ export function PetitionListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
-        render: (r) => r.ketQuaXuLyKhac ?? '—',
+        render: (r) => {
+          /*
+            Đọc cột hiển thị TRƯỚC mọi thứ khác.
+
+            Cổng `cotDanhSachPhaiTroDungCotForm` suy "cột này đọc gì" từ tham chiếu `r.` ĐẦU
+            TIÊN trong hàm dựng. Để `r.id` đứng trước (trong trình xử lý bấm) là cổng kết luận
+            cột "Kết quả xử lý" đang đọc cột `id` — nó đỏ đúng, chỉ là đỏ vì thứ tự chứ không
+            vì hành vi. Tách biến ra cũng làm hàm dễ đọc hơn.
+          */
+          const chu = r.ketQuaXuLyKhac ?? '—';
+          return (
+          <button
+            type="button"
+            onClick={(e) => {
+              // Bảng có hành vi bấm-dòng-để-mở-hồ-sơ; không chặn nổi bọt thì bấm để sửa ô lại
+              // nhảy sang màn sửa và popup không bao giờ hiện.
+              e.stopPropagation();
+              setPopupKetQua({
+                id: r.id,
+                stt: r.stt,
+                giaTri: r.ketQuaXuLyKhac ?? '',
+                updatedAt: r.updatedAt,
+              });
+            }}
+            className="w-full text-left hover:underline decoration-dotted underline-offset-2"
+            title="Bấm để nhập nhanh kết quả xử lý và tệp nhận từ đơn vị"
+            data-testid={`o-ket-qua-${r.id}`}
+          >
+            {chu}
+          </button>
+          );
+        },
       },
 
       {
@@ -1102,6 +1147,16 @@ export function PetitionListPageShell() {
           entityIds={wordExportIds}
           onClose={() => setWordExportIds(null)}
           onConfirm={handleBatchExportWord}
+        />
+      )}
+      {popupKetQua && (
+        <KetQuaXuLyModal
+          petitionId={popupKetQua.id}
+          stt={popupKetQua.stt}
+          giaTri={popupKetQua.giaTri}
+          updatedAt={popupKetQua.updatedAt}
+          onClose={() => setPopupKetQua(null)}
+          onSaved={() => setRefetchCounter((n) => n + 1)}
         />
       )}
     </ListPageShell>
