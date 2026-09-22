@@ -244,6 +244,17 @@ if ! npx ts-node prisma/seed-document-templates.ts; then
     log "WARN: document-templates seed failed — tiếp tục deploy (non-fatal)"
 fi
 
+# 7c2. Seed bang `permissions` + cap tron quyen cho ADMIN (HEP, idempotent, chi THEM).
+# Thieu mot dong permissions thi @RequirePermissions tra 403 cho MOI vai, ke ca ADMIN —
+# seed.ts cap quyen cho ADMIN bang findMany() tren nhung dong chua ton tai (ISSUE-001).
+# Ship mot tinh nang kem quyen moi ma khong seed quyen = tinh nang chet ngay khi len may that.
+log "Seeding permissions..."
+if ! npx ts-node prisma/seed-quyen.ts; then
+    log "ERROR: quyen seed failed — tinh nang moi se tra 403, abort deploy"
+    exit 1
+fi
+log "Permissions seed complete"
+
 # 7d. Seed danh muc DOCUMENT_TYPE (HEP, idempotent).
 # Bo seed danh muc DAY DU khong chay o day va khong nen chay: no con nhanh dat isActive=false
 # cho cac muc DISTRICT cu, tuc ghi de du lieu prod nam ngoai pham vi. Nhung thieu mot ma

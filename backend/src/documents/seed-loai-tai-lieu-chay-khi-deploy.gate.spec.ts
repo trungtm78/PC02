@@ -31,6 +31,47 @@ describe('CỔNG: seed DOCUMENT_TYPE chạy khi deploy', () => {
     expect(sh.slice(i, i + 300)).toContain('exit 1');
   });
 
+  /**
+   * Cùng lớp lỗi, khác bảng: thiếu một dòng `permissions` thì `@RequirePermissions` trả 403 cho
+   * MỌI vai, kể cả ADMIN — `seed.ts` cấp quyền cho ADMIN bằng `findMany()` trên những dòng chưa
+   * tồn tại. Ship một tính năng kèm quyền mới mà không seed quyền là tính năng chết ngay khi
+   * lên máy thật, và chết bằng 403 chứ không bằng lỗi nào đọc được.
+   */
+  it('deploy.sh CÓ gọi bộ seed quyền, và hỏng thì ABORT', () => {
+    expect(sh).toContain('prisma/seed-quyen.ts');
+    const i = sh.indexOf('prisma/seed-quyen.ts');
+    expect(sh.slice(i, i + 300)).toContain('exit 1');
+  });
+
+  it('mọi @RequirePermissions trong controller Đơn thư đều có dòng seed tương ứng', () => {
+    const ctl = fs.readFileSync(
+      path.join(GOC, 'backend', 'src', 'petitions', 'petitions.controller.ts'),
+      'utf8',
+    );
+    /*
+      BỎ dòng đã chú thích trước khi dò.
+
+      Bản đầu dò thẳng trên nguyên tệp, nên chú thích một dòng quyền lại rồi mà cổng vẫn xanh —
+      chuỗi vẫn còn nguyên trong tệp, chỉ là máy chủ không bao giờ đọc tới. Cổng đo sự có mặt
+      của một dòng CHỮ, không đo dòng quyền có thật hay không.
+    */
+    const seed = fs
+      .readFileSync(path.join(GOC, 'backend', 'prisma', 'seed-permissions.ts'), 'utf8')
+      .split(/\r?\n/)
+      .filter((d) => !d.trimStart().startsWith('//'))
+      .join(String.fromCharCode(10));
+    const can = [
+      ...ctl.matchAll(/action:\s*'([a-z_]+)'\s*,\s*subject:\s*'([A-Za-z]+)'/g),
+    ].map((m) => `${m[1]}|${m[2]}`);
+    expect(can.length).toBeGreaterThan(4);
+    const co = new Set(
+      [...seed.matchAll(/action:\s*'([a-z_]+)'\s*,\s*subject:\s*'([A-Za-z]+)'/g)].map(
+        (m) => `${m[1]}|${m[2]}`,
+      ),
+    );
+    expect([...new Set(can)].filter((k) => !co.has(k))).toEqual([]);
+  });
+
   it('hằng số danh mục không rỗng và có mã của khu tệp kết quả', () => {
     expect(LOAI_TAI_LIEU.length).toBeGreaterThanOrEqual(6);
     expect(LOAI_TAI_LIEU.map((m) => m.code)).toContain('KET_QUA_DON_VI_XU_LY');
