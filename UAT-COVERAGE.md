@@ -5,6 +5,9 @@ Ma trận phủ theo §9. Một dòng = một chức năng kiểm được độ
 
 **Môi trường:** prod `http://171.244.40.245/`, `buildId` phải là `031cefa4…` trở lên.
 
+**Đã chạy được 1/45 dòng** (H1) — ba dòng H kiểm bằng truy vấn chỉ-đọc trên máy thật, không
+cần đăng nhập. 42 dòng còn lại cần tài khoản.
+
 > **CHẶN:** 5 tài khoản thử khoá từ 20/09 (mật khẩu lộ repo công khai). Cột "Chạy" chỉ điền
 > được sau khi anh cấp tài khoản mới. Mọi dòng dưới đây hiện ở trạng thái **viết xong, chưa
 > chạy** — theo luật của dự án, ca bỏ qua là CHƯA KIỂM, không phải đạt.
@@ -66,9 +69,9 @@ Ma trận phủ theo §9. Một dòng = một chức năng kiểm được độ
 | G7 | Lọc ra > 5.000 dòng → báo "thu hẹp bộ lọc rồi xuất lại", không treo | ☐ | ☐ | — |
 | G8 | Nút cũ vẫn xuất đúng bộ cột đang hiện | ☐ | ☐ | — |
 | **H. Hạ tầng deploy** |
-| H1 | Prod: `directories` có `DOCUMENT_TYPE / KET_QUA_DON_VI_XU_LY` | ☐ | ☐ | — |
-| H2 | Prod: `permissions` có `export_full / Petition`, và ADMIN được cấp | ☐ | ☐ | — |
-| H3 | `buildId` của `/api/v1/health` khớp `origin/main` | ☐ | ☐ | — |
+| H1 | Prod: `directories` có `DOCUMENT_TYPE / KET_QUA_DON_VI_XU_LY` | ✅ | ✅ | **ĐẠT** 22/09 23:30 — 6/6 mã, có mã mới |
+| H2 | Prod: `permissions` có `export_full / Petition`, và ADMIN được cấp | ✅ | ☐ | chờ #471 deploy (đo 23:30: prod mới có 5 quyền Petition, chưa có `export_full` — đúng vì bản đang chạy là `4d96f8cf`) |
+| H3 | `buildId` của `/api/v1/health` khớp `origin/main` | ✅ | ☐ | prod `4d96f8cf`, đích `031cefa4` — đang deploy |
 
 ## Đối chiếu ngược với 8 yêu cầu gốc
 
