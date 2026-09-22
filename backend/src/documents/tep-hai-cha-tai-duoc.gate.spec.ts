@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
 
@@ -29,7 +29,7 @@ const TEP_HAI_CHA = {
   petitionId: 'p1',
   caseId: 'c1',
   incidentId: null,
-  petition: { id: 'p1', assignedTeamId: 'to-don-thu', enteredById: 'u1' },
+  petition: { id: 'p1', assignedTeamId: 'to-don-thu', enteredById: 'u1', deletedAt: null },
   case: { id: 'c1', assignedTeamId: 'to-vu-an', investigatorId: 'u9' },
   incident: null,
 };
@@ -89,6 +89,35 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
         writableUserIds: [],
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  /**
+   * Nới phép đọc chỉ được làm hai đường BẰNG NHAU, không được rộng hơn đường liệt kê.
+   *
+   * `findAll` loại tệp của đơn thư đã xoá mềm (`{ petition: { AND: [phamVi, { deletedAt: null }] } }`,
+   * chú thích "chain-of-custody bleeding prevention"). Bỏ sót điều đó ở đây thì XOÁ đơn thư
+   * lại thành cách mở khoá tệp của một vụ án mình không được đọc — lượt soát mô hình ngoài
+   * 22/09/2026 dựng đúng ca này.
+   */
+  it('đơn thư cha ĐÃ XOÁ MỀM: không cho qua, dù còn trong phạm vi', async () => {
+    const { svc } = dungService({
+      ...TEP_HAI_CHA,
+      petition: { ...TEP_HAI_CHA.petition, deletedAt: new Date() },
+    });
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  /** Chính tệp bị xoá mềm thì không tồn tại với mọi người, không phải chuyện phạm vi. */
+  it('chính TỆP bị xoá mềm: không tìm thấy', async () => {
+    const findFirst = jest.fn().mockImplementation(({ where }: { where: { deletedAt: unknown } }) =>
+      where.deletedAt === null ? null : TEP_HAI_CHA,
+    );
+    const svc = new DocumentsService(
+      { document: { findFirst } } as never,
+      {} as never,
+      {} as never,
+    );
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('tệp CHỈ có cha vụ án: luật cũ giữ nguyên', async () => {

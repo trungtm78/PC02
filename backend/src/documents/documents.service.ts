@@ -178,7 +178,8 @@ export class DocumentsService {
       include: {
         case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
         incident: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
-        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true } },
+        // `deletedAt` BẮT BUỘC có mặt — xem `chaDonThuChoQua` bên dưới.
+        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true, deletedAt: true } },
         uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
     });
@@ -199,8 +200,21 @@ export class DocumentsService {
       Nới ở đây KHÔNG mở rộng quyền: ai đọc được tệp qua danh sách thì nay tải được đúng tệp
       ấy. Ai không đọc được cha nào vẫn bị chặn — mệnh đề thứ hai của cổng giữ điều đó.
     */
+    /*
+      Đơn thư cha ĐÃ XOÁ MỀM thì KHÔNG cho qua.
+
+      Đường liệt kê ở `findAll` nói rõ điều này: `{ petition: { AND: [phamVi, { deletedAt: null }] } }`
+      kèm chú thích "chain-of-custody bleeding prevention". Bản đầu của phép nới này bỏ sót, và
+      lượt soát mô hình ngoài 22/09/2026 dựng đúng ca ấy: tệp hai cha, đơn thư TRONG phạm vi
+      nhưng đã xoá, vụ án NGOÀI phạm vi — nới xong là cho qua. Tức là xoá đơn thư đi lại thành
+      cách mở khoá tệp của một vụ án mình không được đọc.
+
+      Nới này chỉ được phép làm hai đường đọc BẰNG NHAU, không được rộng hơn đường liệt kê.
+    */
     const chaDonThuChoQua =
       record.petitionId !== null &&
+      record.petition != null &&
+      record.petition.deletedAt == null &&
       chaTrongPhamVi(() =>
         assertPetitionParentInScope(record.petition, dataScope),
       );
