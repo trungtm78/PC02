@@ -1,47 +1,85 @@
 # PROGRESS
-Cập nhật: 2026-09-22T19:40:00+07:00 | Milestone: PR1/4 | Task: 3/3 của PR1
+Cập nhật: 2026-09-22T22:45:00+07:00 | Milestone: PR3/4 mã XONG | Task: mở PR, chờ CI, gộp
 
-Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` (phần "Đợt 22/09/2026", 4 PR).
+Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` — phần "Đợt 22/09/2026", 4 PR.
 Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form).
 
 ## Đã hoàn thành
-- [x] PR1-T1 `baoCaoBanGiamDoc` ba trạng thái + mặc định "Không" — nhánh `feat/don-thu-form-mac-dinh-an-o-chep-don`
-- [x] PR1-T2 Ẩn ô "Đồ vật, tài liệu kèm theo", giữ nguyên 11.591 hồ sơ dữ liệu + đường in
-- [x] PR1-T3 Nút "Tạo đơn mới từ đơn này" + phân loại chép/đặt-lại trọn ô
+- [x] **PR1 — #467 trên main** (`4bbc3876`): mặc định "Không" ba trạng thái · bỏ ô "Đồ vật, tài
+      liệu kèm theo" · nút "Tạo đơn mới từ đơn này" · vá 5 route form thiếu `DungLaiTheoId`
+- [x] **PR2 — #468 trên main** (`e3c875f6`): cột "Loại thông tin" · ô Tên gợi ý (`ONhapGoiY` +
+      `GET /petitions/goi-y-ten-nguoi-gui`) · cổng thứ tự route
 
 ## Đang làm dở
-Task: PR1 — checkpoint trước merge
-Đã làm: mã + cổng xong; frontend 3869/3869, backend 5957/5957, `tsc -b` sạch.
-BƯỚC TIẾP THEO: chạy `/review` rồi `codex exec` trên diff của nhánh; xử hết finding; mở PR, merge `--admin`, xác minh deploy bằng `buildId`; sang PR2.
-File liên quan: `frontend/src/pages/petitions/PetitionFormPage/{buildPetitionPayload,chepSangDonMoi,types,index}.ts(x)`, `frontend/src/features/petitions/o-an.def.ts`, `frontend/src/features/*/routes.tsx`
+Task: PR3 — tệp từ đơn vị xử lý + popup nhập nhanh trên danh sách
+Nhánh: `feat/don-thu-tep-don-vi-xu-ly` (4 commit). Mã XONG cả năm mục a–e.
+Đã làm: mã danh mục `KET_QUA_DON_VI_XU_LY` · `EntityDocumentsTab` lọc theo loại (bốn chỗ) ·
+gắn ở cả hai chế độ (hai hàng đợi riêng) · vá lệch phạm vi tệp hai cha + chặn đơn thư đã xoá
+mềm · popup mở từ ô "Kết quả xử lý" kèm `expectedUpdatedAt` và giữ chữ khi 409.
+BƯỚC TIẾP THEO: `git push -u origin feat/don-thu-tep-don-vi-xu-ly` → `gh pr create` → chờ CI
+(nhớ ma trận parity, ĐÃ ghi) → `gh pr merge --squash --admin` → xác minh deploy bằng `buildId`
+→ sang PR4.
+File liên quan: `frontend/src/features/petitions/components/KetQuaXuLyModal.tsx`,
+`frontend/src/components/documents/EntityDocumentsTab.tsx`, `backend/src/documents/documents.service.ts`
+
+**LƯU Ý: Codex hết hạn mức lúc 22:40 ngày 22/09, mở lại 00:00 ngày 23/09.** Lượt soát chéo PR3
+chỉ chạy được một phần — nó kịp bắt MỘT lỗi thật (đơn thư cha đã xoá mềm mở khoá tệp vụ án
+ngoài phạm vi, đã vá ở commit `eb25ad76`). Phần còn lại của PR3 mới chỉ tự soát. **Chạy lại
+`codex exec` trên diff của PR3 sau 00:00 trước khi coi là đã soát đủ.**
 
 ## Hàng đợi task kế tiếp
-1. PR2 — cột "Loại thông tin" vào danh sách + ô Tên gợi ý theo dữ liệu cũ (có lọc `dataScope`)
-2. PR3 — loại tài liệu "Kết quả từ đơn vị xử lý", khu tải tệp cạnh "Kết quả xử lý", popup nhập nhanh trên danh sách, vá lệch phạm vi tệp hồ sơ đã chuyển Vụ án
-3. PR4 — nút "Xuất đầy đủ" (đường riêng + quyền riêng + cổng đo GIÁ TRỊ + trần đặt theo phép đo)
+1. **PR3** — năm mục, đã rà bằng mã:
+   - (a) thêm mã danh mục `DOCUMENT_TYPE` = `KET_QUA_DON_VI_XU_LY` qua seed (dữ liệu, KHÔNG
+     migration). Hiện có 5 mã: AM_THANH · HINH_ANH · KHAC · VAN_BAN · VIDEO. Bảng `documents`
+     đang có 1 tệp, 0 gắn đơn thư — không có dữ liệu cũ phải lo.
+   - (b) `EntityDocumentsTab` thêm prop `chiLoai?: string[]` + `loaiMacDinh?: string`, nối **ba**
+     chỗ: `:71` `useState("VAN_BAN")`, `:81` GET thiếu `documentType` (API đã nhận sẵn —
+     `documents.service.ts:86`), và GIỮ loại đã chọn sau mỗi lần tải lên.
+   - (c) gắn ở CẢ hai chế độ: `index.tsx:1106` chỉ gắn trong nhánh `isEditMode`; chế độ tạo mới
+     dùng `PetitionCreateDocumentsStage`, component khác, phải truyền prop riêng.
+   - (d) **vá lệch phạm vi tệp** `documents.service.ts:174`: hồ sơ mang CẢ `petitionId` lẫn
+     `caseId` (sinh ra khi chuyển Vụ án, `petitions.service.ts:1449`) thì đường LIỆT KÊ cho qua
+     theo phạm vi Đơn thư (`:93`) mà đường TẢI XUỐNG lại đòi phạm vi Vụ án → thấy tệp, bấm tải
+     nhận 403. Sửa: có cả hai cha thì MỘT trong hai phạm vi cho phép là đủ.
+   - (e) popup trên danh sách mở từ Ô "Kết quả xử lý" (**không** thêm nút thứ 6 vào cột Thao tác
+     — 12rem đang giữ 5 nút, nút thứ 6 là đúng hình học đã làm mất nút In hôm 21/09 ở #464).
+     Lưu bằng `PUT /petitions/:id` **kèm `expectedUpdatedAt`**: `petitions.service.ts:1132`
+     im lặng bỏ phép chống ghi đè khi thiếu khoá ấy. 409 phải GIỮ NGUYÊN chữ vừa gõ.
+     Móc 4 điểm: `registry.ts` → provider theo khuôn `PrintDocumentsModalProvider` →
+     `CompositeModalProvider` → `petitions/row-actions.ts` + `actionCtx`.
+2. **PR4** — nút "Xuất đầy đủ": đường riêng `GET /petitions/export/day-du` + quyền riêng
+   `export_full` (KHÔNG phải cờ `?dayDu=1`), bảng khai riêng, cổng đo **GIÁ TRỊ** trên hồ sơ
+   thật (đếm tiêu đề là cổng rỗng), trần riêng đặt theo phép đo trên bản sao.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
 |---|---|---|---|
-| 22/09 | `baoCaoBanGiamDoc` suy theo BA trạng thái, mặc định "Không" chỉ ở chế độ tạo mới | Gửi `false` mỗi lần lưu biến ~43.000 hồ sơ NULL ("chưa xác định") thành khẳng định sai | `buildPetitionPayload.suyBaoCaoBanGiamDoc` |
-| 22/09 | Chép đơn bằng danh sách CHO PHÉP, không phải loại trừ | `ngayDeXuat`/`deadline` không tự đặt lại theo `receivedDate` → đơn mới quá hạn từ lúc sinh | `chepSangDonMoi.ts` + cổng phân loại trọn ô |
-| 22/09 | Đặt lại mốc hồ sơ ở NƠI NHẬN (`/petitions/new`), không ở nút | Mọi đường vào form tạo mới đều đi qua đó; thêm đường mới sau này không lọt | `PetitionFormPage/index.tsx` |
-| 22/09 | Mở rộng `DungLaiTheoId` sang MỌI route form, không dựng cơ chế thứ hai | 5 route form cùng loại component dùng lại state của nhau | `features/{petitions,cases,incidents}/routes.tsx` |
-| 22/09 | Mốc cổng `moi-khoa-form-gui-len` đổi từ `'return {'` sang tên hàm | Thêm hàm phụ có `return {` làm mốc rơi nhầm chỗ | `moi-khoa-form-gui-len-deu-duoc-nhan.gate.spec.ts` |
+| 22/09 | `baoCaoBanGiamDoc` ba trạng thái; mặc định "Không" chỉ ở `taoFormDonThuMoi()` | Đo prod: cột NOT NULL, 0 NULL — chú thích cũ nói "43.000 NULL" là chép nhầm từ model Vụ án | `buildPetitionPayload.suyBaoCaoBanGiamDoc` |
+| 22/09 | Chép đơn bằng danh sách CHO PHÉP; `legacyExtra` đặt lại TRỌN | `ngayDeXuat`/`deadline` không tự đặt lại; 88 ô `legacyExtra` đều là quyết định xử lý | `chepSangDonMoi.ts` |
+| 22/09 | `DungLaiTheoId` mở sang MỌI route FormPage | 5 route cùng loại component dùng lại state của nhau | `features/*/routes.tsx` |
+| 22/09 | Cột "Loại thông tin" KHÔNG khai thẻ tìm kiếm | Khai `truong` kéo theo migration + nạp lại 47k dòng cột bóng; thuộc đợt tìm kiếm đang dở | `PetitionListPageShell.tsx` |
+| 22/09 | `ONhapGoiY` chốt theo TỪNG PHÍM, không chốt lúc rời ô | Gõ tên rồi bấm Lưu ngay là mất tên — 12 ca kiểm đỏ | `components/inputs/ONhapGoiY.tsx` |
+| 22/09 | Throttle gợi ý 120/60s (không phải 5/60s) | `ThrottlerGuard` đếm theo IP, cả đội chung một đường truyền | `petitions.controller.ts` |
 
 ## Assumption đã tự quyết
 | Điểm mơ hồ | Diễn giải đã chọn | Căn cứ |
 |---|---|---|
-| "Bỏ mục Đồ vật, tài liệu kèm theo" — bỏ ô hay xoá dữ liệu? | Bỏ Ô, GIỮ dữ liệu và đường in | Tiền lệ anh chốt 20/09 (PR #457); 11.591 hồ sơ có dữ liệu |
-| Chép đơn có mang số CCCD người gửi không? | CÓ — số định danh người gửi là NỘI DUNG đơn | Anh chốt "Chép nội dung, đặt lại mốc hồ sơ" |
-| Ngày viết đơn có chép không? | KHÔNG — đơn mới là một lá đơn khác | Cùng lý do trên |
+| "Bỏ mục Đồ vật, tài liệu kèm theo" | Bỏ Ô, GIỮ dữ liệu + đường in | Tiền lệ anh chốt 20/09 (#457); 11.591 hồ sơ có dữ liệu |
+| Chép đơn có mang CCCD người gửi? | CÓ — số định danh là NỘI DUNG đơn | Anh chốt "Chép nội dung, đặt lại mốc hồ sơ" |
+| Ngày viết đơn có chép không? | KHÔNG — đơn mới là lá đơn khác | Cùng lý do trên |
+| Icon popup đặt ở đâu? | Mở từ Ô "Kết quả xử lý", KHÔNG thêm nút thứ 6 | Nút thứ 6 ở cột 12rem là đúng lỗi #464 làm mất nút In |
 
 ## Trạng thái test
-Full suite: PASS | frontend 3869/3869 · backend 5957/5957 | `tsc -b` sạch | Test fail: không
+Full suite: PASS | frontend 3887/3887 · backend 5976/5976 | `tsc -b` + `tsc --noEmit` sạch
+Test fail: không | CI #467 và #468: xanh toàn bộ (Backend · Frontend · parity-check)
 
 ## Nợ kỹ thuật / rủi ro
-- Chưa bấm thử trên prod: 5 tài khoản thử khoá từ 20/09, anh chưa cấp tài khoản mới.
-- Hồ sơ tạo TỪ NAY in ô "Đồ vật, tài liệu kèm theo" trống (hệ quả đã nhận của yêu cầu bỏ ô).
+- **Chưa bấm thử trên prod**: 5 tài khoản thử khoá từ 20/09 (mật khẩu lộ repo công khai), anh
+  chưa cấp tài khoản mới. Mọi khẳng định về #467/#468 đều từ ca kiểm + phép đo trên bản sao.
+- Hồ sơ tạo TỪ NAY in ô "Đồ vật, tài liệu kèm theo" trống — hệ quả đã nhận của yêu cầu bỏ ô.
+- Cột "Loại thông tin" chưa tìm được bằng thẻ (xem quyết định ở trên).
+- `ts-jest` bỏ qua lỗi kiểu mà `tsc --noEmit` trong CI thì bắt — đã vấp một lần ở PR2 (số tham
+  số hàm khởi tạo). Chạy `tsc` sau lần sửa CUỐI, cả hai phía.
 
 ---
 

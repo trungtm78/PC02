@@ -23,6 +23,23 @@ import { KHAI_TIM_KIEM_TAI_LIEU } from '../common/tim-kiem/khai/tai-lieu.khai';
 /** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
 const THAM_SO_CU_TAI_LIEU = { search: KHOA_TAT_CA } as const;
 
+/**
+ * Chạy một phép khẳng định phạm vi và trả ĐÚNG/SAI thay vì ném.
+ *
+ * Hai hàm `assert*InScope` là hợp đồng dùng chung của cả kho mã và đều NÉM — đúng cho chỗ chỉ
+ * có một cha. Tệp hai cha cần hỏi "cha này có cho qua không?" rồi mới quyết, nên bọc lại ở đây
+ * thay vì chép logic phạm vi ra chỗ thứ hai: chép là hai bản luật rồi lệch nhau lúc nào không
+ * hay, mà lệch ở phía phân quyền thì im lặng.
+ */
+function chaTrongPhamVi(kiem: () => void): boolean {
+  try {
+    kiem();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class DocumentsService {
   private readonly uploadDir: string;
@@ -161,7 +178,8 @@ export class DocumentsService {
       include: {
         case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
         incident: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
-        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true } },
+        // `deletedAt` BẮT BUỘC có mặt — xem `chaDonThuChoQua` bên dưới.
+        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true, deletedAt: true } },
         uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
       },
     });
@@ -170,11 +188,47 @@ export class DocumentsService {
       throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
     }
 
-    // Petition-only document: dùng petition scope guard. Case/Incident: dùng parent guard cũ.
-    if (record.petitionId && !record.caseId && !record.incidentId) {
-      assertPetitionParentInScope(record.petition, dataScope);
-    } else {
-      assertParentInScope(record.case ?? record.incident, dataScope);
+    /*
+      MỘT trong các cha cho phép là đủ — đúng bằng luật của đường LIỆT KÊ ở `findAll` trên.
+
+      Chuyển đơn thư thành Vụ án thì `petitions.service.ts` GIỮ NGUYÊN `petitionId` và THÊM
+      `caseId`, nên tệp có HAI cha. Bản trước chỉ xét phạm vi Đơn thư khi KHÔNG có cha Vụ án,
+      còn lại rơi hết về phạm vi Vụ án — trong khi đường liệt kê lại nối hai phạm vi bằng OR.
+      Hai luật khác nhau trên cùng một tệp: cán bộ đọc được đơn nhưng không đọc được vụ án THẤY
+      tệp trong danh sách, bấm tải và nhận 403, không có lời giải thích nào.
+
+      Nới ở đây KHÔNG mở rộng quyền: ai đọc được tệp qua danh sách thì nay tải được đúng tệp
+      ấy. Ai không đọc được cha nào vẫn bị chặn — mệnh đề thứ hai của cổng giữ điều đó.
+    */
+    /*
+      Đơn thư cha ĐÃ XOÁ MỀM thì KHÔNG cho qua.
+
+      Đường liệt kê ở `findAll` nói rõ điều này: `{ petition: { AND: [phamVi, { deletedAt: null }] } }`
+      kèm chú thích "chain-of-custody bleeding prevention". Bản đầu của phép nới này bỏ sót, và
+      lượt soát mô hình ngoài 22/09/2026 dựng đúng ca ấy: tệp hai cha, đơn thư TRONG phạm vi
+      nhưng đã xoá, vụ án NGOÀI phạm vi — nới xong là cho qua. Tức là xoá đơn thư đi lại thành
+      cách mở khoá tệp của một vụ án mình không được đọc.
+
+      Nới này chỉ được phép làm hai đường đọc BẰNG NHAU, không được rộng hơn đường liệt kê.
+    */
+    const chaDonThuChoQua =
+      record.petitionId !== null &&
+      record.petition != null &&
+      record.petition.deletedAt == null &&
+      chaTrongPhamVi(() =>
+        assertPetitionParentInScope(record.petition, dataScope),
+      );
+    const chaVuAnChoQua =
+      (record.caseId !== null || record.incidentId !== null) &&
+      chaTrongPhamVi(() =>
+        assertParentInScope(record.case ?? record.incident, dataScope),
+      );
+
+    if (!chaDonThuChoQua && !chaVuAnChoQua) {
+      // Ném đúng lỗi của nhánh cha mà tệp thật sự có, để thông báo không lạc đề.
+      if (record.petitionId !== null && !record.caseId && !record.incidentId)
+        assertPetitionParentInScope(record.petition, dataScope);
+      else assertParentInScope(record.case ?? record.incident, dataScope);
     }
 
     return { success: true, data: record };

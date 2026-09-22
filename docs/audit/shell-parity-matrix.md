@@ -996,3 +996,35 @@ Không phải năng lực của shell — ô nằm trên FORM — nhưng ghi ở
 
 `ONhapGoiY` trích từ ô "Ghi chú trùng đơn" đang chạy — **mở rộng primitive sẵn có**, không dựng
 cơ chế gợi ý thứ hai. Hai ô nay dùng chung một cài đặt.
+
+---
+
+## v0.75 — Tệp từ đơn vị xử lý + popup nhập nhanh (feat/don-thu-tep-don-vi-xu-ly)
+
+Anh yêu cầu 22/09/2026. Hệ cũ **không có** hai năng lực này — đây là phần THÊM, cố ý khác bản
+cũ, cùng lý do đã đưa nút In lên cột Thao tác ở v0.73.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Bấm ô "Kết quả xử lý" để sửa nhanh | — | — | ✅ | mở từ chính Ô, **không** thêm nút vào cột Thao tác |
+| Tải / mở / tải xuống tệp ngay trong popup | — | — | ✅ | dùng lại `EntityDocumentsTab`, lọc loại `KET_QUA_DON_VI_XU_LY` |
+| Lưu kèm khoá chống ghi đè | — | — | ✅ | `expectedUpdatedAt`; thiếu là phép chống ghi đè im lặng tắt |
+| Xung đột 409 giữ nguyên chữ vừa gõ | — | — | ✅ | đóng popup lúc ấy là bắt gõ lại từ đầu |
+| Người chỉ-xem: ô là chữ trơn | — | — | ✅ | cùng luật `chiXem` trên form |
+
+**Cột Thao tác KHÔNG đổi**: vẫn `12rem`, vẫn đúng bộ nút cũ. Nút thứ sáu là đúng hình học đã
+làm mất nút In trên prod hôm 21/09 (#464) — ô bề rộng đã lưu của từng cán bộ cắt mất nút mới và
+không tự sửa. Đó là lý do popup mở từ Ô chứ không từ một icon.
+
+**Chỉ Đơn thư.** Vụ việc và Vụ án chưa có ô "Kết quả xử lý, giải quyết khác" tương đương trên
+danh sách, và anh chỉ nêu màn Đơn thư.
+
+### Khu tệp "Kết quả từ đơn vị xử lý" trên FORM
+
+Không phải năng lực của shell, ghi ở đây vì cùng đợt và cùng dùng một mã loại tài liệu.
+
+| Năng lực | Ghi chú |
+|---|---|
+| Khu tệp cạnh ô "Kết quả xử lý" | cả chế độ TẠO MỚI lẫn CẬP NHẬT |
+| Lọc loại trên MÁY CHỦ | lọc ở trình duyệt thì `limit=100` cắt mất tệp, và bộ đếm nói khác khu tệp |
+| Tạo mới: hàng đợi riêng | hai khu, hai hàng đợi, cả hai tải lên sau khi Lưu |

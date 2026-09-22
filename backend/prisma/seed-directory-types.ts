@@ -204,6 +204,10 @@ export const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'DOCUMENT_TYPE', code: 'VIDEO',     name: 'Video', order: 3 },
   { type: 'DOCUMENT_TYPE', code: 'AM_THANH',  name: 'Âm thanh', order: 4 },
   { type: 'DOCUMENT_TYPE', code: 'KHAC',      name: 'Khác', order: 5 },
+  // Anh yêu cầu 22/09/2026: tệp NHẬN VỀ từ các đơn vị xử lý, đi kèm ô "Kết quả xử lý, giải
+  // quyết khác". Tách loại riêng để khu tải tệp ấy chỉ hiện đúng tệp của nó, và để đếm được
+  // số tệp hiện trên cột danh sách mà không lẫn tệp nghiệp vụ khác.
+  { type: 'DOCUMENT_TYPE', code: 'KET_QUA_DON_VI_XU_LY', name: 'Kết quả từ đơn vị xử lý', order: 6 },
 
   // ── INCIDENT_LEVEL (Mức độ nghiêm trọng) ────────────────────────────────
   { type: 'INCIDENT_LEVEL', code: 'NHE',              name: 'Nhẹ', order: 1 },
