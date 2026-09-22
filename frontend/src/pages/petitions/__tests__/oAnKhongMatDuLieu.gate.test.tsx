@@ -40,6 +40,7 @@ const DANG_CO = {
   suspectedPerson: 'Nguyễn Văn A, sinh 1990',
   toiDanhBanDau: 'Trộm cắp tài sản',
   noiXayRa: 'Phường Bến Nghé, Quận 1',
+  attachmentsNote: 'Đơn tố giác 02 tờ, CCCD photo, USB 8GB',
 };
 
 const HO_SO = {
@@ -78,7 +79,7 @@ describe('CỔNG: ẩn ô KHÔNG được làm mất dữ liệu của hồ sơ 
   });
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
-  it('mở hồ sơ cũ → KHÔNG sửa gì → Lưu: ba ô đã ẩn đi nguyên vẹn lên máy chủ', async () => {
+  it('mở hồ sơ cũ → KHÔNG sửa gì → Lưu: mọi ô đã ẩn đi nguyên vẹn lên máy chủ', async () => {
     const { PetitionFormPage } = await import('../PetitionFormPage');
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -104,6 +105,6 @@ describe('CỔNG: ẩn ô KHÔNG được làm mất dữ liệu của hồ sơ 
     const daGui = Object.fromEntries(
       Object.keys(DANG_CO).map((k) => [k, body[k]]),
     );
-    expect(daGui, 'ẩn ô mà gửi rỗng đè lên là mất dữ liệu của 15.981 hồ sơ').toEqual(DANG_CO);
+    expect(daGui, 'ẩn ô mà gửi rỗng đè lên là mất dữ liệu của 27.572 hồ sơ').toEqual(DANG_CO);
   });
 });

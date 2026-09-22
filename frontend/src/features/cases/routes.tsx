@@ -40,7 +40,7 @@ export function renderCasesRoutes(): ReactElement[] {
     <Route
       key="cases-new"
       path="/cases/new"
-      element={wrapRoute(<CaseFormPage />)}
+      element={wrapRoute(<DungLaiTheoId><CaseFormPage /></DungLaiTheoId>)}
     />,
     <Route
       key="cases-new-legacy-redirect"

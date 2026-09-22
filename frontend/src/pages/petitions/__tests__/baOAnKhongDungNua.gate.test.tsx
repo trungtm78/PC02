@@ -109,6 +109,36 @@ describe('CỔNG: ba ô đã bỏ không dựng ở tab nào của Đơn thư', 
     );
   });
 
+  /**
+   * Mệnh đề này KHÔNG đọc `O_AN_KHOI_DON_THU` — cố ý.
+   *
+   * Hai cổng ở trên đều lặp trên chính mảng ẩn, nên thêm một ô vào mảng là chúng tự xanh: chúng
+   * chứng minh "mảng được tôn trọng", không chứng minh "ô anh yêu cầu bỏ đã biến mất". Thử
+   * bằng cách sửa ca kiểm trước khi sửa mã: cả hai vẫn xanh. Đó là cổng xanh rỗng.
+   *
+   * Yêu cầu của anh (22/09/2026) gọi TÊN một ô cụ thể, nên cổng phải gọi đúng tên ấy.
+   * Dữ liệu vẫn giữ: 11.591 hồ sơ có `attachmentsNote`, bản in vẫn đọc cột ấy
+   * (`field-catalog.ts:714`, `khoa-he-cu.ts:188`).
+   */
+  it('ô "Đồ vật, tài liệu kèm theo" KHÔNG còn trên form, gọi thẳng tên ô', async () => {
+    await moForm();
+    await waitFor(() =>
+      expect(screen.getByTestId('legacy-field-senderName')).toBeInTheDocument(),
+    );
+    for (const tab of TAB) {
+      const nut = screen.queryByRole('button', { name: LEGACY_TAB_LABEL[tab] });
+      if (nut) fireEvent.click(nut);
+      await waitFor(() =>
+        expect(screen.getByTestId(`legacy-layout-${tab}`)).toBeInTheDocument(),
+      );
+      expect(
+        screen.queryByTestId('legacy-field-attachmentsNote'),
+        `ô "Đồ vật, tài liệu kèm theo" vẫn dựng ở tab "${tab}"`,
+      ).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/Đồ vật, tài liệu kèm theo/)).not.toBeInTheDocument();
+  }, 30_000);
+
   it('ô tổ hợp tra tiền án đi theo ô "Tội danh cũ" — không để lại mã chết', async () => {
     await moForm();
     await waitFor(() => expect(screen.getByTestId('field-nguonDon-trigger')).toBeInTheDocument());
