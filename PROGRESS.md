@@ -12,9 +12,14 @@ BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren pr
   Da lam het phan khong phu thuoc: ma + cong + gieo loi + CI + merge + xac minh deploy bang
   buildId + do chi-doc tren prod + ma tran UAT 45 dong doi chieu nguoc 8 yeu cau.
 
-  KHONG PHAI BLOCKER (dang tu xu, khong can anh):
-  - Codex het han muc toi 00:00 ngay 23/09. Luot soat cheo #471 da HEN CHAY NEN luc 00:00.
-    Co phat hien thi em vá tiep, khong can hoi.
+  DA XONG (khong con cho):
+  - Luot soat cheo Codex cho #471 da chay luc 00:00 ngay 23/09. 4 phat hien, CA BON DUNG,
+    da va het o PR #475 (tren main, dang deploy):
+      * 44 truong xuat ra O TRONG vi doc metadata bang ten dac ta thay vi khoa luu
+      * tep "day du" thieu 3 o can bo nhin thay (huongXuLy, donViGiaiQuyet, deXuat)
+      * bo do chi nhan mot thu tu khoa trong literal
+      * cong gia tri chi doi "khac rong"; cong quyen khong bat duoc viec HA QUYEN route
+
 
 # PROGRESS
 Cập nhật: 2026-09-22T22:45:00+07:00 | Milestone: PR3/4 mã XONG | Task: mở PR, chờ CI, gộp
