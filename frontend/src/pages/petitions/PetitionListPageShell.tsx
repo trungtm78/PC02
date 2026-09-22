@@ -1033,7 +1033,8 @@ export function PetitionListPageShell() {
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
-            // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
+            <>
+            {/* Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện. */}
             <NutXuatTheoBoLoc
               duongDan="/petitions/export/danh-sach"
               thamSo={{
@@ -1048,6 +1049,34 @@ export function PetitionListPageShell() {
               onApply={listFilters.apply}
               tenDuPhong="danh-sach-don-thu.xlsx"
             />
+              {/*
+                Nút thứ hai — anh chốt 22/09/2026 THÊM chứ không thay: nút cũ xuất đúng bộ cột
+                đang thấy ("tệp xuất bằng cái tôi đang nhìn"), nút này xuất MỌI trường đăng ký
+                trên màn tạo/sửa.
+
+                Đường RIÊNG và quyền RIÊNG `export_full`: tệp mang 3.335 CCCD và 2.933 số điện
+                thoại. Ai không có quyền sẽ nhận 403 — nút vẫn hiện, vì giấu nút không phải là
+                phân quyền và người dùng cần biết năng lực ấy tồn tại để đi xin.
+              */}
+              <NutXuatTheoBoLoc
+                duongDan="/petitions/export/day-du"
+                thamSo={{
+                  ...baseQueryParams,
+                  ...(statusFilter && { status: statusFilter }),
+                  ...(groupFilter && { statusGroup: groupFilter }),
+                  ...sort.params,
+                }}
+                cot={[]}
+                boQuaCot
+                tong={tableState === 'loading' ? null : totalCount}
+                hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                onApply={listFilters.apply}
+                tenDuPhong="don-thu-day-du.xlsx"
+                nhanRieng="Xuất đầy đủ"
+                testId="btn-xuat-day-du"
+                goiY="Xuất MỌI trường đang đăng ký trên màn tạo/sửa đơn thư (127 trường). Tệp chứa số định danh và số điện thoại — cần quyền riêng."
+              />
+            </>
           }
           dynamicOptions={{
             enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],

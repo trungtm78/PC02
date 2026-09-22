@@ -5,27 +5,35 @@ Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` — phầ
 Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form).
 
 ## Đã hoàn thành
-- [x] **PR1 — #467 trên main** (`4bbc3876`): mặc định "Không" ba trạng thái · bỏ ô "Đồ vật, tài
-      liệu kèm theo" · nút "Tạo đơn mới từ đơn này" · vá 5 route form thiếu `DungLaiTheoId`
-- [x] **PR2 — #468 trên main** (`e3c875f6`): cột "Loại thông tin" · ô Tên gợi ý (`ONhapGoiY` +
-      `GET /petitions/goi-y-ten-nguoi-gui`) · cổng thứ tự route
+- [x] **PR1 — #467** (`4bbc3876`): mặc định "Không" ba trạng thái · bỏ ô "Đồ vật, tài liệu kèm
+      theo" · nút "Tạo đơn mới từ đơn này" · vá 5 route form thiếu `DungLaiTheoId`
+- [x] **PR2 — #468** (`e3c875f6`, **ĐÃ TRÊN PROD**): cột "Loại thông tin" · ô Tên gợi ý · cổng
+      thứ tự route
+- [x] **PR3 — #469** (`9268059e`): khu tệp "Kết quả từ đơn vị xử lý" hai chế độ · popup nhập
+      nhanh mở từ ô · vá lệch phạm vi tệp hai cha + chặn đơn thư đã xoá mềm
+- [x] **#470** (`4d96f8cf`): seed `DOCUMENT_TYPE` mỗi lần deploy — không có nó thì khu tệp của
+      PR3 mở ra RỖNG trên máy thật
 
 ## Đang làm dở
-Task: PR3 — tệp từ đơn vị xử lý + popup nhập nhanh trên danh sách
-Nhánh: `feat/don-thu-tep-don-vi-xu-ly` (4 commit). Mã XONG cả năm mục a–e.
-Đã làm: mã danh mục `KET_QUA_DON_VI_XU_LY` · `EntityDocumentsTab` lọc theo loại (bốn chỗ) ·
-gắn ở cả hai chế độ (hai hàng đợi riêng) · vá lệch phạm vi tệp hai cha + chặn đơn thư đã xoá
-mềm · popup mở từ ô "Kết quả xử lý" kèm `expectedUpdatedAt` và giữ chữ khi 409.
-BƯỚC TIẾP THEO: `git push -u origin feat/don-thu-tep-don-vi-xu-ly` → `gh pr create` → chờ CI
-(nhớ ma trận parity, ĐÃ ghi) → `gh pr merge --squash --admin` → xác minh deploy bằng `buildId`
-→ sang PR4.
-File liên quan: `frontend/src/features/petitions/components/KetQuaXuLyModal.tsx`,
-`frontend/src/components/documents/EntityDocumentsTab.tsx`, `backend/src/documents/documents.service.ts`
-
-**LƯU Ý: Codex hết hạn mức lúc 22:40 ngày 22/09, mở lại 00:00 ngày 23/09.** Lượt soát chéo PR3
-chỉ chạy được một phần — nó kịp bắt MỘT lỗi thật (đơn thư cha đã xoá mềm mở khoá tệp vụ án
-ngoài phạm vi, đã vá ở commit `eb25ad76`). Phần còn lại của PR3 mới chỉ tự soát. **Chạy lại
-`codex exec` trên diff của PR3 sau 00:00 trước khi coi là đã soát đủ.**
+Task: **PR4/4 — nút "Xuất đầy đủ"** (yêu cầu cuối của đợt)
+Nhánh: `feat/don-thu-xuat-day-du` (vừa tách từ `origin/main` @ `4d96f8cf`)
+Đã làm: chưa bắt đầu.
+BƯỚC TIẾP THEO: làm theo §PR4 của kế hoạch, năm mục a–e, TDD đỏ trước từng mục:
+  (a) đường RIÊNG `GET /petitions/export/day-du` + quyền RIÊNG `export_full`, KHÔNG phải cờ
+      `?dayDu=1`. Bảng mang 3.335 CCCD + 2.933 SĐT; nhật ký là pháp chứng, không phải phân
+      quyền. Seed quyền cho ĐÚNG các vai đang được xuất hôm nay, không mở rộng.
+      **Nhớ: route tĩnh phải khai TRƯỚC mọi route `:id`** (cổng `route-tinh-dung-truoc-id`).
+  (b) bảng khai RIÊNG `KHAI_COT_XUAT_DON_THU_DAY_DU` đặt SAU `KHAI_COT_XUAT_DON_THU`; `select`
+      riêng `CHON_DONG_XUAT_DAY_DU` để không làm nặng truy vấn danh sách.
+  (c) nguồn danh sách trường = FORM: `PETITION_LEGACY_LAYOUT` cho nhãn + thứ tự 10 tab,
+      `CO_COT_RIENG` cho ánh xạ cột thật, phần còn lại ở `legacyExtra`.
+  (d) **cổng phải đo GIÁ TRỊ, không đếm tiêu đề.** Khai ba thứ mỗi trường (khoá form → chỗ lưu
+      → bộ đọc), lấy mẫu hồ sơ THẬT, trường nào có dữ liệu trong kho mà ra ô trống là ĐỎ. Gieo
+      lỗi: đổi một bộ đọc thành `() => null` phải đỏ.
+  (e) trần RIÊNG `TRAN_XUAT_DAY_DU` đặt TỪ PHÉP ĐO trên bản sao `pc02_spike` (100 · 1.000 ·
+      5.000 · 20.000 dòng: thời gian, RSS đỉnh, dung lượng). `res.destroy()` đã bịt lớp "tệp
+      cụt mà HTTP 200", nên rủi ro là THỜI GIAN/BỘ NHỚ. Vượt `proxy_read_timeout` của nginx thì
+      HẠ TRẦN, không nới timeout.
 
 ## Hàng đợi task kế tiếp
 1. **PR3** — năm mục, đã rà bằng mã:

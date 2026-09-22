@@ -32,7 +32,9 @@
     "db:seed:admin-units": "ts-node prisma/seed-admin-units-runner.ts",
     "db:seed:events": "ts-node prisma/seed-vn-events-runner.ts",
     "db:seed:doc-templates": "ts-node prisma/seed-document-templates.ts",
-    "db:seed:loai-tai-lieu": "ts-node prisma/seed-loai-tai-lieu.ts"
+    "db:seed:loai-tai-lieu": "ts-node prisma/seed-loai-tai-lieu.ts",
+    "db:seed:quyen": "ts-node prisma/seed-quyen.ts",
+    "gen:khai-xuat-day-du": "ts-node scripts/gen-khai-xuat-day-du.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

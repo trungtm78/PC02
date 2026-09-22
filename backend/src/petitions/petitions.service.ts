@@ -43,6 +43,11 @@ import { Prisma, LoaiDon, PetitionStatus, CaseStatus } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import { buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
 import { boDauTimKiem } from '../common/tim-kiem/bo-dau';
+import {
+  KHAI_COT_XUAT_DON_THU_DAY_DU,
+  COT_CAN_CHO_XUAT_DAY_DU,
+  type DongXuatDayDu,
+} from './xuat-day-du-don-thu';
 import { dieuKienSttCu } from '../common/utils/stt-cu.util';
 import {
   apDungKyVaoWhere,
@@ -115,6 +120,25 @@ const THAM_SO_CU_DON_THU = {
  * 10 là ngưỡng đọc hết được mà không phải cuộn: gõ `tran` khớp 3.517 tên, trả nhiều hơn chỉ đẩy
  * cán bộ sang đọc lướt rồi bỏ qua cả danh sách.
  */
+/**
+ * Trần dòng của nút "Xuất đầy đủ" — THẤP hơn hẳn trần chung `TRAN_XUAT_DANH_SACH = 50.000`.
+ *
+ * ĐO THẬT trên bản sao prod 22/09/2026, cộng 39 cột riêng + khối `metadata`, 46.741 hồ sơ
+ * chưa xoá:
+ *
+ *     trung bình mỗi hồ sơ   2.492 byte chữ      (hồ sơ nặng nhất: 28.725 byte)
+ *     5.000 dòng             ~12 MB chữ
+ *     trọn bảng              ~111 MB chữ
+ *
+ * `res.destroy()` (`xuat-danh-sach.ts:133`) đã bịt lớp "tệp cụt mà HTTP 200", nên rủi ro còn
+ * lại là THỜI GIAN và BỘ NHỚ, không phải tệp hỏng âm thầm. 12 MB chữ qua bộ ghi luồng là chịu
+ * được; 111 MB thì không, và cũng không ai cần xuất trọn bảng từ một khung bộ lọc.
+ *
+ * Nút nằm trong bảng bộ lọc, nên ca dùng thật là MỘT KỲ báo cáo (~1–2 nghìn dòng). Vượt trần
+ * thì báo rõ "thu hẹp bộ lọc rồi xuất lại", đúng cách trần chung đang làm.
+ */
+export const TRAN_XUAT_DAY_DU = 5_000;
+
 export const GOI_Y_TEN_TOI_DA = 10;
 
 /** Số ký tự tối thiểu mới hỏi gợi ý — xem chú thích trong `goiYTenNguoiGui`. */
@@ -2123,6 +2147,68 @@ export class PetitionsService {
   // ─────────────────────────────────────────────
   // EXPORT DUPLICATES (Đơn trùng lặp)
   // ─────────────────────────────────────────────
+  /**
+   * Xuất Excel ĐẦY ĐỦ: mọi trường đang đăng ký trên màn tạo/sửa Đơn thư (anh yêu cầu 22/09/2026).
+   *
+   * Cùng bộ lọc và thứ tự với nút xuất thường — chỉ khác BẢNG CỘT. Dùng `select` riêng
+   * `COT_CAN_CHO_XUAT_DAY_DU` để truy vấn danh sách trên màn không phải gánh 39 cột nó không cần.
+   *
+   * TRẦN RIÊNG, thấp hơn hẳn trần chung: mỗi hồ sơ mang ~4.951 byte chữ (đo bản sao prod, đã bỏ
+   * khối thô hệ cũ), nên trọn bảng 47.169 dòng là ~223 MB — không phải thứ đi qua một lượt gọi
+   * HTTP. Nút này nằm trong bảng bộ lọc, nên ca dùng thật là MỘT KỲ báo cáo.
+   */
+  async xuatDayDu(
+    query: QueryPetitionsDto,
+    dataScope: DataScope | null | undefined,
+    res: Response,
+    actor?: { userId: string; ipAddress?: string; userAgent?: string },
+  ): Promise<void> {
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
+    const orderBy = this.thuTuDanhSach(
+      query.sortBy,
+      (query.sortOrder ?? 'desc') as ListSortOrder,
+    );
+    const chon = Object.fromEntries(
+      COT_CAN_CHO_XUAT_DAY_DU.map((c) => [c, true]),
+    ) as Record<string, boolean>;
+
+    const soDong = await xuatDanhSachExcel<DongXuatDayDu>({
+      res,
+      tenTep: `don-thu-day-du-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      tenSheet: 'Đơn thư (đầy đủ)',
+      tieuDe: 'DANH SÁCH ĐƠN THƯ — ĐẦY ĐỦ TRƯỜNG',
+      phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
+      cot: KHAI_COT_XUAT_DON_THU_DAY_DU,
+      tran: TRAN_XUAT_DAY_DU,
+      demTong: () => this.prisma.petition.count({ where }),
+      layIdTheoThuTu: async (toiDa) =>
+        (
+          await this.prisma.petition.findMany({
+            where,
+            orderBy,
+            select: { id: true },
+            take: toiDa,
+          })
+        ).map((d) => d.id),
+      layDong: (ids) =>
+        this.prisma.petition.findMany({
+          where: { id: { in: ids }, deletedAt: null },
+          select: chon,
+        }) as unknown as Promise<DongXuatDayDu[]>,
+    });
+
+    if (actor) {
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'PETITION_EXPORTED',
+        subject: 'Petition',
+        metadata: { format: 'xlsx', kind: 'day-du', filters: query, soDong },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+    }
+  }
+
   /**
    * Xuất nhóm đơn trùng — CÙNG nguồn với màn (`listDuplicates`), không dựng truy vấn gom riêng.
    *
