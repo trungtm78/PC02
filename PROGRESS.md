@@ -4,60 +4,30 @@ Cập nhật: 2026-09-22T22:45:00+07:00 | Milestone: PR3/4 mã XONG | Task: mở
 Kế hoạch gốc: `~/.claude/plans/th-c-hi-n-c-c-y-u-cosmic-yeti.md` — phần "Đợt 22/09/2026", 4 PR.
 Yêu cầu gốc: 8 việc anh nêu trên hai màn Đơn thư (danh sách + form).
 
-## Đã hoàn thành
-- [x] **PR1 — #467** (`4bbc3876`): mặc định "Không" ba trạng thái · bỏ ô "Đồ vật, tài liệu kèm
-      theo" · nút "Tạo đơn mới từ đơn này" · vá 5 route form thiếu `DungLaiTheoId`
-- [x] **PR2 — #468** (`e3c875f6`, **ĐÃ TRÊN PROD**): cột "Loại thông tin" · ô Tên gợi ý · cổng
-      thứ tự route
-- [x] **PR3 — #469** (`9268059e`): khu tệp "Kết quả từ đơn vị xử lý" hai chế độ · popup nhập
-      nhanh mở từ ô · vá lệch phạm vi tệp hai cha + chặn đơn thư đã xoá mềm
-- [x] **#470** (`4d96f8cf`): seed `DOCUMENT_TYPE` mỗi lần deploy — không có nó thì khu tệp của
-      PR3 mở ra RỖNG trên máy thật
+## Đã hoàn thành — TOÀN BỘ 8 YÊU CẦU CỦA ANH, 5 PR trên `main`
+| PR | Nội dung | Commit | Prod |
+|---|---|---|---|
+| #467 | mặc định "Không" ba trạng thái · bỏ ô "Đồ vật, tài liệu kèm theo" · nút chép đơn · vá 5 route form | `4bbc3876` | ✅ |
+| #468 | cột "Loại thông tin" · ô Tên gợi ý · cổng thứ tự route | `e3c875f6` | ✅ |
+| #469 | khu tệp "Kết quả từ đơn vị xử lý" hai chế độ · popup nhập nhanh · vá lệch phạm vi tệp hai cha | `9268059e` | ✅ |
+| #470 | seed `DOCUMENT_TYPE` mỗi lần deploy | `4d96f8cf` | ✅ |
+| #471 | nút "Xuất đầy đủ" (127 trường) + seed `permissions` mỗi lần deploy | `031cefa4` | đang deploy |
+
+Đối chiếu ngược với 8 yêu cầu gốc: **8/8 đã làm**.
+Danh sách: xuất đầy đủ · popup nhập nhanh + tệp · cột Loại thông tin · nút chép đơn · tệp cạnh
+Kết quả xử lý · mặc định Không · bỏ ô Đồ vật · ô Tên gợi ý kiểu Google.
 
 ## Đang làm dở
-Task: **PR4/4 — nút "Xuất đầy đủ"** (yêu cầu cuối của đợt)
-Nhánh: `feat/don-thu-xuat-day-du` (vừa tách từ `origin/main` @ `4d96f8cf`)
-Đã làm: chưa bắt đầu.
-BƯỚC TIẾP THEO: làm theo §PR4 của kế hoạch, năm mục a–e, TDD đỏ trước từng mục:
-  (a) đường RIÊNG `GET /petitions/export/day-du` + quyền RIÊNG `export_full`, KHÔNG phải cờ
-      `?dayDu=1`. Bảng mang 3.335 CCCD + 2.933 SĐT; nhật ký là pháp chứng, không phải phân
-      quyền. Seed quyền cho ĐÚNG các vai đang được xuất hôm nay, không mở rộng.
-      **Nhớ: route tĩnh phải khai TRƯỚC mọi route `:id`** (cổng `route-tinh-dung-truoc-id`).
-  (b) bảng khai RIÊNG `KHAI_COT_XUAT_DON_THU_DAY_DU` đặt SAU `KHAI_COT_XUAT_DON_THU`; `select`
-      riêng `CHON_DONG_XUAT_DAY_DU` để không làm nặng truy vấn danh sách.
-  (c) nguồn danh sách trường = FORM: `PETITION_LEGACY_LAYOUT` cho nhãn + thứ tự 10 tab,
-      `CO_COT_RIENG` cho ánh xạ cột thật, phần còn lại ở `legacyExtra`.
-  (d) **cổng phải đo GIÁ TRỊ, không đếm tiêu đề.** Khai ba thứ mỗi trường (khoá form → chỗ lưu
-      → bộ đọc), lấy mẫu hồ sơ THẬT, trường nào có dữ liệu trong kho mà ra ô trống là ĐỎ. Gieo
-      lỗi: đổi một bộ đọc thành `() => null` phải đỏ.
-  (e) trần RIÊNG `TRAN_XUAT_DAY_DU` đặt TỪ PHÉP ĐO trên bản sao `pc02_spike` (100 · 1.000 ·
-      5.000 · 20.000 dòng: thời gian, RSS đỉnh, dung lượng). `res.destroy()` đã bịt lớp "tệp
-      cụt mà HTTP 200", nên rủi ro là THỜI GIAN/BỘ NHỚ. Vượt `proxy_read_timeout` của nginx thì
-      HẠ TRẦN, không nới timeout.
+Task: **§9 — UAT phủ 100%**
+BƯỚC TIẾP THEO: dựng `UAT-COVERAGE.md` liệt kê mọi màn/chức năng của đợt, rồi
+`/uat-test-writer` → `/uat-test-runner` từng dòng.
 
-## Hàng đợi task kế tiếp
-1. **PR3** — năm mục, đã rà bằng mã:
-   - (a) thêm mã danh mục `DOCUMENT_TYPE` = `KET_QUA_DON_VI_XU_LY` qua seed (dữ liệu, KHÔNG
-     migration). Hiện có 5 mã: AM_THANH · HINH_ANH · KHAC · VAN_BAN · VIDEO. Bảng `documents`
-     đang có 1 tệp, 0 gắn đơn thư — không có dữ liệu cũ phải lo.
-   - (b) `EntityDocumentsTab` thêm prop `chiLoai?: string[]` + `loaiMacDinh?: string`, nối **ba**
-     chỗ: `:71` `useState("VAN_BAN")`, `:81` GET thiếu `documentType` (API đã nhận sẵn —
-     `documents.service.ts:86`), và GIỮ loại đã chọn sau mỗi lần tải lên.
-   - (c) gắn ở CẢ hai chế độ: `index.tsx:1106` chỉ gắn trong nhánh `isEditMode`; chế độ tạo mới
-     dùng `PetitionCreateDocumentsStage`, component khác, phải truyền prop riêng.
-   - (d) **vá lệch phạm vi tệp** `documents.service.ts:174`: hồ sơ mang CẢ `petitionId` lẫn
-     `caseId` (sinh ra khi chuyển Vụ án, `petitions.service.ts:1449`) thì đường LIỆT KÊ cho qua
-     theo phạm vi Đơn thư (`:93`) mà đường TẢI XUỐNG lại đòi phạm vi Vụ án → thấy tệp, bấm tải
-     nhận 403. Sửa: có cả hai cha thì MỘT trong hai phạm vi cho phép là đủ.
-   - (e) popup trên danh sách mở từ Ô "Kết quả xử lý" (**không** thêm nút thứ 6 vào cột Thao tác
-     — 12rem đang giữ 5 nút, nút thứ 6 là đúng hình học đã làm mất nút In hôm 21/09 ở #464).
-     Lưu bằng `PUT /petitions/:id` **kèm `expectedUpdatedAt`**: `petitions.service.ts:1132`
-     im lặng bỏ phép chống ghi đè khi thiếu khoá ấy. 409 phải GIỮ NGUYÊN chữ vừa gõ.
-     Móc 4 điểm: `registry.ts` → provider theo khuôn `PrintDocumentsModalProvider` →
-     `CompositeModalProvider` → `petitions/row-actions.ts` + `actionCtx`.
-2. **PR4** — nút "Xuất đầy đủ": đường riêng `GET /petitions/export/day-du` + quyền riêng
-   `export_full` (KHÔNG phải cờ `?dayDu=1`), bảng khai riêng, cổng đo **GIÁ TRỊ** trên hồ sơ
-   thật (đếm tiêu đề là cổng rỗng), trần riêng đặt theo phép đo trên bản sao.
+**HAI VIỆC CHẶN, cần anh:**
+1. **Tài khoản thử trên prod.** 5 TK cũ khoá từ 20/09 (mật khẩu lộ repo công khai). Không có
+   TK thì §9 chỉ viết được ca kiểm, KHÔNG chạy được — và mọi khẳng định về 5 PR này đều từ ca
+   kiểm + phép đo trên bản sao, CHƯA từ việc bấm thật.
+2. **Codex hết hạn mức** tới 00:00 ngày 23/09. Lượt soát chéo #469/#470/#471 mới chạy một phần.
+   Sau 00:00 chạy lại `codex exec` trên diff của ba PR ấy.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
