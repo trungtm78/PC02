@@ -1028,3 +1028,31 @@ Không phải năng lực của shell, ghi ở đây vì cùng đợt và cùng 
 | Khu tệp cạnh ô "Kết quả xử lý" | cả chế độ TẠO MỚI lẫn CẬP NHẬT |
 | Lọc loại trên MÁY CHỦ | lọc ở trình duyệt thì `limit=100` cắt mất tệp, và bộ đếm nói khác khu tệp |
 | Tạo mới: hàng đợi riêng | hai khu, hai hàng đợi, cả hai tải lên sau khi Lưu |
+
+---
+
+## v0.76 — Nút "Xuất đầy đủ" trên màn Đơn thư (feat/don-thu-xuat-day-du)
+
+Anh chốt 22/09/2026: **THÊM** nút thứ hai, giữ nguyên nút cũ.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Nút "Xuất N dòng Excel" (cột đang thấy) | ✅ | ✅ | ✅ | không đổi |
+| Nút "Xuất đầy đủ" (mọi trường form) | — | — | ✅ | 127 trường: 39 cột riêng + 88 trong `metadata` |
+| Đường riêng + quyền riêng | — | — | ✅ | `GET /petitions/export/day-du`, `export_full Petition` |
+| Trần riêng theo phép đo | — | — | ✅ | 5.000 dòng ≈ 12 MB chữ (đo 46.741 hồ sơ) |
+
+**Vì sao hai nút chứ không một cờ truy vấn.** Tệp xuất đầy đủ mang **3.335 số CCCD** và **2.933
+số điện thoại**. Gắn `?dayDu=1` vào đường cũ nghĩa là bất kỳ ai đọc được đơn thư đều rút được
+toàn bộ khối định danh ấy về máy, qua một tham số không ai nhìn và không cổng nào canh. Nhật ký
+là PHÁP CHỨNG, không phải phép phân quyền — nó nói ai đã lấy, sau khi họ đã lấy xong.
+
+**Danh sách trường được SINH** từ bố cục form (`npm run gen:khai-xuat-day-du`), không chép tay
+127 nhãn. Cổng chạy lại bộ sinh rồi so với bản đã commit: đổi bố cục mà quên chạy lại là đỏ.
+
+**Cổng đo GIÁ TRỊ, không đếm tiêu đề.** Đếm đủ 130 cột không chứng minh được gì — khoá form có
+thể trỏ vào `metadata`, và "Ngày viết đơn" cần bộ đọc ghép ba cột. Cổng dựng một hồ sơ có dữ
+liệu ở mọi trường rồi đòi mọi ô ra chữ khác rỗng.
+
+**Chỉ Đơn thư.** Vụ việc và Vụ án dùng chung bố cục hệ cũ nên mở rộng sang được, nhưng anh chỉ
+nêu màn Đơn thư và mỗi màn cần phép đo riêng về dung lượng.

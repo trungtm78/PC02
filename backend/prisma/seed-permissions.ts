@@ -117,6 +117,18 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'restore', subject: 'Incident', description: 'Khôi phục vụ việc đã xóa mềm' },
   { action: 'restore', subject: 'Petition', description: 'Khôi phục đơn thư đã xóa mềm' },
 
+  /*
+    Xuất ĐẦY ĐỦ mọi trường của đơn thư — quyền RIÊNG, không dùng chung `read`.
+
+    Tệp xuất ra mang 3.335 số CCCD và 2.933 số điện thoại (đo bản sao prod 22/09/2026). Đọc một
+    hồ sơ trên màn và rút trọn khối định danh của cả kỳ về máy là hai việc khác hẳn nhau về
+    mức rủi ro, nên phải là hai quyền khác nhau.
+
+    Gắn cho ADMIN qua khối grant-all trong `seed.ts`. Vai khác cấp bằng màn quản trị quyền —
+    cố ý KHÔNG tự mở rộng cho vai nào đang có `read`.
+  */
+  { action: 'export_full', subject: 'Petition', description: 'Xuất Excel đầy đủ mọi trường đơn thư (chứa CCCD, số điện thoại)' },
+
   // ── Edit window reset request review (v0.33.0.0 Phase 5b) ─────────────
   // ADMIN + HEAD_UNIT review reset requests. ADMIN auto-grant via seed.ts ALL block.
   // HEAD_UNIT grant via admin role-permission UI sau (defer per autoplan).

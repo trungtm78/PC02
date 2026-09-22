@@ -19,6 +19,14 @@ interface Props {
   onApply: () => void;
   /** Tên tệp dự phòng khi máy chủ không gửi Content-Disposition. */
   tenDuPhong: string;
+  /** Nhãn riêng (mặc định "Xuất N dòng Excel"). Dùng khi màn có hơn một nút xuất. */
+  nhanRieng?: string;
+  /** `data-testid` riêng — hai nút cùng một id thì ca kiểm mù và cán bộ cũng không phân biệt được. */
+  testId?: string;
+  /** Gợi ý khi rê chuột — nút xuất đầy đủ cần nói rõ nó khác nút thường ở đâu. */
+  goiY?: string;
+  /** KHÔNG gửi danh sách cột (đường xuất đầy đủ tự quyết bộ cột của nó). */
+  boQuaCot?: boolean;
 }
 
 /**
@@ -33,6 +41,10 @@ export function NutXuatTheoBoLoc({
   hasUnappliedChanges,
   onApply,
   tenDuPhong,
+  nhanRieng,
+  testId,
+  goiY,
+  boQuaCot,
 }: Props) {
   const [dangXuat, setDangXuat] = useState(false);
   const [loi, setLoi] = useState('');
@@ -47,7 +59,12 @@ export function NutXuatTheoBoLoc({
     setLoi('');
     try {
       const res = await api.get<Blob>(duongDan, {
-        params: { ...(JSON.parse(khoaThamSo) as Record<string, unknown>), cot: khoaCot },
+        params: {
+          ...(JSON.parse(khoaThamSo) as Record<string, unknown>),
+          // Đường xuất đầy đủ tự quyết bộ cột của nó; gửi `cot` lên chỉ để máy chủ bỏ qua, mà
+          // `CotXuatDto.cot` lại khai `@MaxLength(1000)` nên ~130 khoá là một lượt 400 vô cớ.
+          ...(boQuaCot ? {} : { cot: khoaCot }),
+        },
         responseType: 'blob',
       });
       triggerDownload(res, tenDuPhong);
@@ -58,7 +75,7 @@ export function NutXuatTheoBoLoc({
     } finally {
       setDangXuat(false);
     }
-  }, [duongDan, khoaThamSo, khoaCot, tenDuPhong]);
+  }, [duongDan, khoaThamSo, khoaCot, tenDuPhong, boQuaCot]);
 
   // Tham số đã áp dụng đổi (sau onApply) → `xuat` mới → chạy lượt xuất đang chờ.
   useEffect(() => {
@@ -78,21 +95,25 @@ export function NutXuatTheoBoLoc({
 
   // `tong` là số dòng của bộ lọc ĐANG áp dụng — còn thay đổi chưa áp dụng thì chưa biết số dòng sẽ xuất,
   // và bộ lọc cũ ra 0 dòng không có nghĩa bộ lọc mới cũng thế.
-  const nhan = hasUnappliedChanges
-    ? 'Áp dụng & xuất Excel'
-    : tong === null
-      ? 'Xuất Excel'
-      : `Xuất ${tong.toLocaleString('vi-VN')} dòng Excel`;
+  const nhan = nhanRieng
+    ? hasUnappliedChanges
+      ? `Áp dụng & ${nhanRieng.toLowerCase()}`
+      : nhanRieng
+    : hasUnappliedChanges
+      ? 'Áp dụng & xuất Excel'
+      : tong === null
+        ? 'Xuất Excel'
+        : `Xuất ${tong.toLocaleString('vi-VN')} dòng Excel`;
   const rong = tong === 0 && !hasUnappliedChanges;
 
   return (
     <div className="flex flex-col items-end">
       <button
         type="button"
-        data-testid="btn-xuat-excel-theo-bo-loc"
+        data-testid={testId ?? 'btn-xuat-excel-theo-bo-loc'}
         onClick={bam}
         disabled={dangXuat || rong}
-        title={rong ? 'Không có dữ liệu để xuất' : undefined}
+        title={rong ? 'Không có dữ liệu để xuất' : goiY}
         className={`${BTN_OUTLINE_BLUE} ${A11Y_FOCUS_RING} inline-flex items-center gap-2`}
       >
         {dangXuat ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}

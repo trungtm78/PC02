@@ -168,6 +168,35 @@ export class PetitionsController {
     await this.petitionsService.exportToExcel(query, req.dataScope, res, user?.id);
   }
 
+  /*
+    GET /api/v1/petitions/export/day-du — xuất MỌI trường đang đăng ký trên màn tạo/sửa.
+
+    ĐƯỜNG RIÊNG + QUYỀN RIÊNG, không phải một cờ truy vấn trên đường cũ.
+
+    Bảng này mang 3.335 số CCCD và 2.933 số điện thoại (đo bản sao prod 22/09/2026). Gắn
+    `?dayDu=1` vào đường cũ nghĩa là bất kỳ ai đọc được đơn thư đều rút được toàn bộ khối định
+    danh ấy về máy, qua một tham số không ai nhìn và không cổng nào canh. Nhật ký là PHÁP CHỨNG,
+    không phải phép phân quyền: nó nói ai đã lấy, sau khi họ đã lấy xong.
+
+    Trần thấp hơn nút thường và throttle chặt hơn — mỗi dòng nặng gấp nhiều lần.
+  */
+  @Get('export/day-du')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions({ action: 'export_full', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  async xuatDayDu(
+    @Query() query: XuatDanhSachDonThuDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.petitionsService.xuatDayDu(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
   // GET /api/v1/petitions/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách đơn thư.
   @Get('export/danh-sach')
   @HttpCode(HttpStatus.OK)
