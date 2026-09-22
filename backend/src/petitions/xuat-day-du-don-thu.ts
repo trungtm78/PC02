@@ -54,13 +54,13 @@ const LA_NGAY = (cot: string): boolean =>
  * GIÁ TRỊ cần: trường nào có dữ liệu trong kho mà ra ô trống là đỏ. Đếm tiêu đề cột thì không
  * chứng minh được gì (đã vấp lớp cổng rỗng ấy nhiều lần).
  */
-function docTruong(field: string, cot: string | null): (d: DongXuatDayDu) => string {
+function docTruong(khoaLuu: string, cot: string | null): (d: DongXuatDayDu) => string {
   // Ngày viết đơn: ba cột + bản thô hệ cũ, đã có bộ đọc chung.
   if (cot === 'petitionDate') return (d) => ngayVietDonHienThi(d as never) ?? '';
   if (cot === null) {
     return (d) => {
       const meta = (d.metadata ?? {}) as Record<string, unknown>;
-      const v = meta[field];
+      const v = meta[khoaLuu];
       if (v == null) return '';
       if (Array.isArray(v)) return v.join(', ');
       if (typeof v === 'boolean') return v ? 'Có' : 'Không';
@@ -89,9 +89,12 @@ export const KHAI_COT_XUAT_DON_THU_DAY_DU: readonly KhaiCotXuat<DongXuatDayDu>[]
     doc: (d) => PETITION_STATUS_LABEL[d.status as keyof typeof PETITION_STATUS_LABEL] ?? d.status,
   },
   ...TRUONG_FORM_DON_THU.map((t) => ({
-    key: t.cot ?? `meta.${t.field}`,
+    key: t.cot ?? `meta.${t.khoaLuu}`,
     tieuDe: t.caption,
     rong: 22,
-    doc: docTruong(t.field, t.cot),
+    // ĐỌC BẰNG `khoaLuu`, không bằng `field`: ô nhánh `statistic.` được cắt tiền tố trước khi
+    // lưu, nên đọc bằng tên đặc tả là đọc một khoá không tồn tại — 44 trường ra ô trống mà tệp
+    // vẫn đủ cột, đủ tiêu đề. Lượt soát mô hình ngoài 23/09/2026 bắt được.
+    doc: docTruong(t.khoaLuu, t.cot),
   })),
 ];

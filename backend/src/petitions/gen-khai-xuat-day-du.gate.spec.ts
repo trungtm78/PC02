@@ -48,6 +48,26 @@ describe('CỔNG: danh mục trường form sinh ra khớp nguồn', () => {
     }
   });
 
+  /**
+   * Bộ dò phải nhận CẢ HAI thứ tự khoá trong literal. Lượt soát mô hình ngoài 23/09/2026 chèn
+   * một ô hợp lệ với `field` đứng TRƯỚC `caption` — cả năm mệnh đề vẫn xanh, mà ô ấy biến mất
+   * khỏi tệp xuất. Bộ dò đọc HẸP hơn thực tế thì cổng của nó chỉ canh được đúng cách viết mình
+   * quen, còn cách viết hợp lệ khác thì lọt.
+   */
+  it('nhận ô viết theo thứ tự `field` trước `caption`', () => {
+    const them =
+      '  { field: "oThuNghiemThuTu", caption: "Ô thử thứ tự", kind: "text", span: "half" },';
+    const ds = docBoCuc(boCuc + String.fromCharCode(10) + them);
+    expect(ds.some((o) => o.field === 'oThuNghiemThuTu')).toBe(true);
+    expect(ds.find((o) => o.field === 'oThuNghiemThuTu')?.caption).toBe('Ô thử thứ tự');
+  });
+
+  it('khoá lưu của ô nhánh `statistic.` đã CẮT tiền tố', () => {
+    const coStatistic = TRUONG_FORM_DON_THU.filter((t) => t.field.startsWith('statistic.'));
+    expect(coStatistic.length).toBeGreaterThan(30);
+    for (const t of coStatistic) expect(t.khoaLuu).not.toContain('statistic.');
+  });
+
   it('tên ô KHÔNG trùng nhau', () => {
     const f = TRUONG_FORM_DON_THU.map((t) => t.field);
     expect(f.length).toBe(new Set(f).size);
