@@ -244,6 +244,18 @@ if ! npx ts-node prisma/seed-document-templates.ts; then
     log "WARN: document-templates seed failed — tiếp tục deploy (non-fatal)"
 fi
 
+# 7d. Seed danh muc DOCUMENT_TYPE (HEP, idempotent).
+# Bo seed danh muc DAY DU khong chay o day va khong nen chay: no con nhanh dat isActive=false
+# cho cac muc DISTRICT cu, tuc ghi de du lieu prod nam ngoai pham vi. Nhung thieu mot ma
+# DOCUMENT_TYPE thi khu tai tep chuyen de mo ra RONG va o chon loai khong co lua chon nao —
+# hong im lang, khong loi nao hien ra.
+log "Seeding DOCUMENT_TYPE catalog..."
+if ! npx ts-node prisma/seed-loai-tai-lieu.ts; then
+    log "ERROR: loai-tai-lieu seed failed — khu tai tep se rong, abort deploy"
+    exit 1
+fi
+log "DOCUMENT_TYPE seed complete"
+
 # 8. Restart backend service
 sudo systemctl restart pc02-backend
 log "pc02-backend restarted"

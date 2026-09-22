@@ -1,3 +1,12 @@
+export const LOAI_TAI_LIEU: { type: string; code: string; name: string; order: number }[] = [
+  { type: 'DOCUMENT_TYPE', code: 'VAN_BAN',   name: 'Văn bản', order: 1 },
+  { type: 'DOCUMENT_TYPE', code: 'HINH_ANH',  name: 'Hình ảnh', order: 2 },
+  { type: 'DOCUMENT_TYPE', code: 'VIDEO',     name: 'Video', order: 3 },
+  { type: 'DOCUMENT_TYPE', code: 'AM_THANH',  name: 'Âm thanh', order: 4 },
+  { type: 'DOCUMENT_TYPE', code: 'KHAC',      name: 'Khác', order: 5 },
+  { type: 'DOCUMENT_TYPE', code: 'KET_QUA_DON_VI_XU_LY', name: 'Kết quả từ đơn vị xử lý', order: 6 },
+];
+
 /**
  * Seed Directory Types — all FK selects (PROVINCE, WARD-types, INCIDENT_TYPE, etc.)
  * Run standalone: npx ts-node prisma/seed-directory-types.ts
@@ -198,16 +207,7 @@ export const DIRECTORY_DATA: DirectoryEntry[] = [
   { type: 'TDC_CASE_TYPE', code: 'CHUYEN_TU_VU_VIEC',  name: 'Chuyển từ vụ việc', order: 3 },
   { type: 'TDC_CASE_TYPE', code: 'KHAC',               name: 'Khác', order: 4 },
 
-  // ── DOCUMENT_TYPE (Loại tài liệu / hồ sơ) ───────────────────────────────
-  { type: 'DOCUMENT_TYPE', code: 'VAN_BAN',   name: 'Văn bản', order: 1 },
-  { type: 'DOCUMENT_TYPE', code: 'HINH_ANH',  name: 'Hình ảnh', order: 2 },
-  { type: 'DOCUMENT_TYPE', code: 'VIDEO',     name: 'Video', order: 3 },
-  { type: 'DOCUMENT_TYPE', code: 'AM_THANH',  name: 'Âm thanh', order: 4 },
-  { type: 'DOCUMENT_TYPE', code: 'KHAC',      name: 'Khác', order: 5 },
-  // Anh yêu cầu 22/09/2026: tệp NHẬN VỀ từ các đơn vị xử lý, đi kèm ô "Kết quả xử lý, giải
-  // quyết khác". Tách loại riêng để khu tải tệp ấy chỉ hiện đúng tệp của nó, và để đếm được
-  // số tệp hiện trên cột danh sách mà không lẫn tệp nghiệp vụ khác.
-  { type: 'DOCUMENT_TYPE', code: 'KET_QUA_DON_VI_XU_LY', name: 'Kết quả từ đơn vị xử lý', order: 6 },
+  ...LOAI_TAI_LIEU,
 
   // ── INCIDENT_LEVEL (Mức độ nghiêm trọng) ────────────────────────────────
   { type: 'INCIDENT_LEVEL', code: 'NHE',              name: 'Nhẹ', order: 1 },
@@ -291,6 +291,18 @@ export const DIRECTORY_DATA: DirectoryEntry[] = [
   // Khác
   { type: 'CRIME', code: 'KHAC',   name: 'Tội danh khác', order: 99 },
 ];
+
+/**
+ * Loại tài liệu (`DOCUMENT_TYPE`) — tách ra hằng RIÊNG, xuất khẩu.
+ *
+ * Bộ seed danh mục đầy đủ KHÔNG chạy khi deploy, và không nên chạy: nó còn một nhánh đặt
+ * `isActive=false` cho các mục DISTRICT cũ, tức ghi đè dữ liệu prod nằm ngoài phạm vi việc
+ * đang làm. Nhưng mã `DOCUMENT_TYPE` thì PHẢI có mặt, nếu không khu tải tệp chuyên đề mở ra
+ * rỗng trơn và ô chọn loại không có lựa chọn nào — hỏng im lặng, không lỗi nào hiện ra.
+ *
+ * Nên tách hẹp: `seed-loai-tai-lieu.ts` chỉ upsert đúng sáu dòng này và chạy mỗi lần deploy.
+ * Một nguồn sự thật, một phạm vi ghi nhỏ nhất có thể.
+ */
 
 export async function seedDirectoryTypes(prismaClient: PrismaClient): Promise<void> {
   console.log(`Seeding ${DIRECTORY_DATA.length} directory type entries...`);
