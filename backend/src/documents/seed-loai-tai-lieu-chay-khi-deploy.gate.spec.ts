@@ -72,6 +72,38 @@ describe('CỔNG: seed DOCUMENT_TYPE chạy khi deploy', () => {
     expect([...new Set(can)].filter((k) => !co.has(k))).toEqual([]);
   });
 
+  /**
+   * Cổng "mọi @RequirePermissions có dòng seed" KHÔNG bắt được việc HẠ QUYỀN: đổi
+   * `export_full` thành `read` thì `read|Petition` vẫn có trong seed, cổng vẫn xanh, mà đường
+   * xuất mang 3.335 CCCD + 2.933 số điện thoại vừa mở cho mọi người đọc được đơn thư.
+   * Lượt soát mô hình ngoài 23/09/2026 dựng đúng đột biến ấy.
+   *
+   * Nên neo TỪNG đường nhạy cảm vào ĐÚNG quyền của nó.
+   */
+  it('đường xuất ĐẦY ĐỦ đòi đúng quyền `export_full`, không phải `read`', () => {
+    const ctl = fs.readFileSync(
+      path.join(GOC, 'backend', 'src', 'petitions', 'petitions.controller.ts'),
+      'utf8',
+    );
+    const i = ctl.indexOf("@Get('export/day-du')");
+    expect(i).toBeGreaterThan(0);
+    // Khối decorator của route này: từ @Get tới thân hàm.
+    const khoi = ctl.slice(i, ctl.indexOf('async xuatDayDu', i));
+    expect(khoi).toContain("action: 'export_full'");
+    expect(khoi).toContain("subject: 'Petition'");
+    expect(khoi).not.toContain("action: 'read'");
+  });
+
+  it('đường xuất THƯỜNG vẫn chỉ đòi `read` — không siết nhầm', () => {
+    const ctl = fs.readFileSync(
+      path.join(GOC, 'backend', 'src', 'petitions', 'petitions.controller.ts'),
+      'utf8',
+    );
+    const i = ctl.indexOf("@Get('export/danh-sach')");
+    const khoi = ctl.slice(i, ctl.indexOf('async xuatDanhSach', i));
+    expect(khoi).toContain("action: 'read'");
+  });
+
   it('hằng số danh mục không rỗng và có mã của khu tệp kết quả', () => {
     expect(LOAI_TAI_LIEU.length).toBeGreaterThanOrEqual(6);
     expect(LOAI_TAI_LIEU.map((m) => m.code)).toContain('KET_QUA_DON_VI_XU_LY');

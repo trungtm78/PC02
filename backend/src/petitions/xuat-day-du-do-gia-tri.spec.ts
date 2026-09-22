@@ -33,7 +33,9 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
           ? new Date('2026-03-04T00:00:00+07:00')
           : `GIA-TRI-${t.cot}`;
       } else {
-        meta[t.field] = `META-${t.field}`;
+        // Khoá THẬT trong `metadata`, không phải tên ô đặc tả. Bản đầu của cổng lặp lại đúng
+        // khoá sai của mã nên che mất lỗi 44 trường xuất ra ô trống.
+        meta[t.khoaLuu] = `META-${t.khoaLuu}`;
       }
     }
     d.metadata = meta;
@@ -55,12 +57,49 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
     expect(trong).toEqual([]);
   });
 
+  /**
+   * "Khác rỗng" KHÔNG đủ. Lượt soát mô hình ngoài 23/09/2026 thay bộ đọc số điện thoại bằng
+   * hằng `"WRONG"` — cả tám mệnh đề vẫn xanh: tệp xuất ra đủ cột, đủ chữ, và sai giá trị ở mọi
+   * dòng. Cổng phải so ĐÚNG giá trị mong đợi, tính từ chỗ lưu.
+   */
+  it('mọi cột ra ĐÚNG giá trị của chỗ lưu, không chỉ khác rỗng', () => {
+    const lech: string[] = [];
+    for (const t of TRUONG_FORM_DON_THU) {
+      const khai = KHAI_COT_XUAT_DON_THU_DAY_DU.find(
+        (c) => c.key === (t.cot ?? `meta.${t.khoaLuu}`),
+      );
+      if (!khai) {
+        lech.push(`${t.khoaLuu}: thiếu khai cột`);
+        continue;
+      }
+      const ra = String(khai.doc(HO_SO) ?? '');
+      const mongDoi = t.cot
+        ? /^ngay[A-Z]/.test(t.cot) || t.cot.endsWith('Date') || t.cot === 'deadline' || t.cot === 'thoiHanUTDT'
+          ? '4/3/2026'
+          : `GIA-TRI-${t.cot}`
+        : `META-${t.khoaLuu}`;
+      // "Ngày viết đơn" dùng bộ đọc ghép — có mệnh đề riêng ở dưới.
+      if (t.cot === 'petitionDate') continue;
+      if (ra !== mongDoi) lech.push(`${khai.key}: ra "${ra}", mong "${mongDoi}"`);
+    }
+    expect(lech).toEqual([]);
+  });
+
+  /** Ba ô CHỈ Đơn thư mới có, không nằm trong bố cục hệ cũ — thiếu là tệp "đầy đủ" nói dối. */
+  it.each(['huongXuLy', 'donViGiaiQuyet', 'deXuat'])('có cột "%s"', (k) => {
+    expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(true);
+  });
+
+  it('KHÔNG khoá lưu nào còn tiền tố `statistic.`', () => {
+    expect(TRUONG_FORM_DON_THU.filter((t) => t.khoaLuu.includes('statistic.'))).toEqual([]);
+  });
+
   it('ô hệ cũ đọc từ `metadata`, không phải từ cột cùng tên', () => {
     const oMeta = TRUONG_FORM_DON_THU.filter((t) => !t.cot);
     expect(oMeta.length).toBeGreaterThan(50);
-    const khai = KHAI_COT_XUAT_DON_THU_DAY_DU.find((c) => c.key === `meta.${oMeta[0].field}`);
+    const khai = KHAI_COT_XUAT_DON_THU_DAY_DU.find((c) => c.key === `meta.${oMeta[0].khoaLuu}`);
     expect(khai).toBeDefined();
-    expect(khai!.doc(HO_SO)).toBe(`META-${oMeta[0].field}`);
+    expect(khai!.doc(HO_SO)).toBe(`META-${oMeta[0].khoaLuu}`);
     // Không có metadata thì ra rỗng, KHÔNG ném.
     expect(khai!.doc({ ...HO_SO, metadata: null })).toBe('');
   });
@@ -102,7 +141,7 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
   it('tiêu đề cột lấy NGUYÊN VĂN nhãn trên màn', () => {
     for (const t of TRUONG_FORM_DON_THU.slice(0, 20)) {
       const khai = KHAI_COT_XUAT_DON_THU_DAY_DU.find(
-        (c) => c.key === (t.cot ?? `meta.${t.field}`),
+        (c) => c.key === (t.cot ?? `meta.${t.khoaLuu}`),
       );
       expect(khai?.tieuDe).toBe(t.caption);
     }
