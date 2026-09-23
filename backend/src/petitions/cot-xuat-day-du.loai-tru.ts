@@ -1,11 +1,15 @@
 /**
  * Cột BỊ CẮT khỏi tệp "Xuất Excel (mọi trường)" — sinh từ PHÉP ĐO, không chép tay.
  *
- * Anh báo 23/09/2026: tệp xuất ra "rất nhiều field dư thừa". Đo trên bản sao prod cùng ngày,
- * 46.741 hồ sơ chưa xoá:
+ * Anh báo 23/09/2026 hai lần: lần đầu "rất nhiều field dư thừa", lần sau "rà soát lại nếu trường
+ * nào trong toàn bộ data không có thì không đưa field đó vào".
  *
- *     tổng cột trong tệp          130   (42 cột riêng + 88 khoá `metadata`)
- *     khoá `metadata` RỖNG        88/88  — không hồ sơ nào có dữ liệu
+ * Đo trên PROD, 47.626 hồ sơ chưa xoá (lần đầu đo trên bản sao và BỎ SÓT 42 cột riêng):
+ *
+ *     tổng trường của form        130   (42 cột riêng + 88 khoá `metadata`)
+ *     khoá `metadata` RỖNG        88/88
+ *     cột riêng RỖNG               3/42  — lanhDaoToTung · ngayXayRa · noiXayRaPhuongXa
+ *     còn lại trong tệp            42    (39 cột riêng + 3 cột định danh)
  *
  * Tức 68% tệp là cột trắng. Chúng là ô của giai đoạn **Vụ án / Vụ việc** (Quyết định khởi tố,
  * Tạm đình chỉ, Vật chứng, TK 48 trường…) — một đơn thư chưa chuyển thì không bao giờ đi tới
@@ -30,8 +34,18 @@
  * nhanh, không phải vì ô không quan trọng.
  */
 export interface CotLoaiTru {
-  /** Khoá trong `metadata` — khớp `khoaLuu` của bản sinh. */
+  /**
+   * Khoá của bản sinh. Ô `metadata` thì là khoá trong `metadata`; cột riêng thì chính là TÊN
+   * CỘT (bản sinh đặt `khoaLuu = cot` cho nhánh có cột riêng).
+   */
   khoaLuu: string;
+  /**
+   * Loại chỗ lưu — quyết định phép đo nào áp dụng.
+   *
+   * Đo nhầm loại thì kết quả LUÔN là 0 và cổng không bao giờ đỏ: đếm một cột riêng bằng
+   * `jsonb_each` trên `metadata` thì không đời nào thấy khoá ấy. Xanh rỗng.
+   */
+  loai: 'metadata' | 'cot';
   /** Lý do KÈM SỐ ĐO, không phải lý do viết sẵn. */
   lyDo: string;
   /** Ngày đo. Số đo cũ hơn một đợt di trú là số đo phải chạy lại. */
@@ -39,92 +53,107 @@ export interface CotLoaiTru {
 }
 
 export const COT_XUAT_DAY_DU_LOAI_TRU: readonly CotLoaiTru[] = [
-  { khoaLuu: 'vatChungMoTa', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'lenhNhapKho', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'noiLuuTruBaoQuan', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDangKyHoSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayDangKyHoSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'hoSoLuu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayNopLuuHoSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'donViBaoQuanHoSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDKhongKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayQDKhongKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'canCuKhongKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'lyDoKhongKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'chuyenVuViecDonViKhac', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'nhapVaoVuViecSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'phanLoaiDanSu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'capDoToiPham', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'toiDanhChinhKhoiToId', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'toiDanhKhacIds', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQuyetDinhKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayKhoiTo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDNhapVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayNhapVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ghiChuNhapHoSo', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDTachVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayTachVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDTachHanhVi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayTachHanhVi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soKLDT', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayKLDT', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDDieuTraLai', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayQDDieuTraLai', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQDDinhChiVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayDinhChiVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'chuyenVuAnChoCQK', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soBanAnCoHieuLuc', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayBanAnCoHieuLuc', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'vuViecTamDungTruoc2015', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'lyDoTamDinhChiNguonTin', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayHetThoiHieuVuViec', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'khacPhucLyDoTDCVuViec', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tienDoKhacPhucTDCVuViec', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQuyetDinhTamDinhChi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayTamDinhChi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'canCuTamDinhChiVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'lyDoTamDinhChiVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayHetThoiHieu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tdcKhacPhucBienBan', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tdcKhacPhucLyDoBienPhap', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQuyetDinhPhucHoi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayPhucHoi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'canCuPhucHoiVuAn', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayThongKe', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayPhanCongGiaiQuyetToGiac', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayTiepNhanTin', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayDauThu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayPhamToiQuaTang', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayBatKhanCap', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayPhatHienDauHieu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soTienThuHoi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDoiTuong', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDoiTuongDaBat', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDoiTuongBiBatVuAnKhac', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'dieuTraMoRong', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'suDungVuKhiNong', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soLuongNguoiChet', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soNguoiBiThuong', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'coBangNhom', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soBangNhomBatDuoc', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soSungThuHoi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soThuocNoThuHoi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'coVPHC', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDoiTuongVPHC', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soNguoiBiPhatTien', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tongTienPhatHanhChinh', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soDoiTuongSuuTraHiemNghi', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'coGhiAmGhiHinh', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tongSoBienBanGhiLoiKhai', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soBienBanGhiLoiKhaiCoGhiAm', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'laVuAnGhiAmGhiHinh', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tongSoBienBanHoiCung', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'tongSoBienBanHoiCungCoGhiAm', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soBiCanCoGhiAm', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'vksYeuCauGhiAm', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'soBiCanVksYeuCauGhiAm', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'vuAnDaDuocXetXu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'ghiAmGhiHinhDaDuocXetXu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'coSuDungKQGhiAmTrongXetXu', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
-  { khoaLuu: 'khongGAGHNhungToaYeuCau', lyDo: 'rỗng 0/46741 hồ sơ', doNgay: '2026-09-23' },
+  { khoaLuu: 'vatChungMoTa', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'lenhNhapKho', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'noiLuuTruBaoQuan', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDangKyHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayDangKyHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'hoSoLuu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayNopLuuHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'donViBaoQuanHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDKhongKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayQDKhongKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'canCuKhongKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'lyDoKhongKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'chuyenVuViecDonViKhac', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'nhapVaoVuViecSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'phanLoaiDanSu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'capDoToiPham', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'toiDanhChinhKhoiToId', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'toiDanhKhacIds', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQuyetDinhKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDNhapVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayNhapVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ghiChuNhapHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDTachVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayTachVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDTachHanhVi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayTachHanhVi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soKLDT', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayKLDT', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDDieuTraLai', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayQDDieuTraLai', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQDDinhChiVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayDinhChiVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'chuyenVuAnChoCQK', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soBanAnCoHieuLuc', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayBanAnCoHieuLuc', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'vuViecTamDungTruoc2015', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'lyDoTamDinhChiNguonTin', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayHetThoiHieuVuViec', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'khacPhucLyDoTDCVuViec', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tienDoKhacPhucTDCVuViec', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQuyetDinhTamDinhChi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayTamDinhChi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'canCuTamDinhChiVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'lyDoTamDinhChiVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayHetThoiHieu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tdcKhacPhucBienBan', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tdcKhacPhucLyDoBienPhap', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soQuyetDinhPhucHoi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayPhucHoi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'canCuPhucHoiVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayThongKe', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayPhanCongGiaiQuyetToGiac', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayTiepNhanTin', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayDauThu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayPhamToiQuaTang', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayBatKhanCap', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayPhatHienDauHieu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soTienThuHoi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDoiTuong', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDoiTuongDaBat', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDoiTuongBiBatVuAnKhac', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'dieuTraMoRong', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'suDungVuKhiNong', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soLuongNguoiChet', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soNguoiBiThuong', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'coBangNhom', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soBangNhomBatDuoc', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soSungThuHoi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soThuocNoThuHoi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'coVPHC', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDoiTuongVPHC', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soNguoiBiPhatTien', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tongTienPhatHanhChinh', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soDoiTuongSuuTraHiemNghi', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'coGhiAmGhiHinh', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tongSoBienBanGhiLoiKhai', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soBienBanGhiLoiKhaiCoGhiAm', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'laVuAnGhiAmGhiHinh', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tongSoBienBanHoiCung', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'tongSoBienBanHoiCungCoGhiAm', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soBiCanCoGhiAm', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'vksYeuCauGhiAm', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'soBiCanVksYeuCauGhiAm', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'vuAnDaDuocXetXu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ghiAmGhiHinhDaDuocXetXu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'coSuDungKQGhiAmTrongXetXu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'khongGAGHNhungToaYeuCau', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  /*
+    BA CỘT RIÊNG — thêm 23/09/2026 sau khi anh báo tệp vẫn còn cột rỗng.
+
+    Đợt trước em CHỈ đo khoá `metadata`, không đo 42 cột riêng: lúc ấy bản sao `pc02_spike`
+    thiếu cột mới (`huongXuLy`) nên truy vấn đổ, và em bỏ qua thay vì đo chỗ khác. Nay đo thẳng
+    trên prod 47.626 hồ sơ.
+
+    `lanhDaoToTung` ĐÍNH CHÍNH một câu em viết trong chính tệp này: "KHÔNG cắt 6 ô trong nhóm
+    gập vì chúng CÓ dữ liệu thật (3.335 hồ sơ có CCCĐ)". Đúng cho 5 ô, SAI cho ô này — nó rỗng
+    0/47.626. Em suy từ một ô ra cả nhóm thay vì đo từng ô. Nguyên tắc "gập không phải lý do để
+    cắt" vẫn đúng; ô này bị cắt vì RỖNG, một lý do khác hẳn.
+  */
+  { khoaLuu: 'lanhDaoToTung', loai: 'cot', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'ngayXayRa', loai: 'cot', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
+  { khoaLuu: 'noiXayRaPhuongXa', loai: 'cot', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
 ];

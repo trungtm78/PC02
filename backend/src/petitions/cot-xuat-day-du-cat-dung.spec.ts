@@ -47,10 +47,14 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
    * cách xử lý là XOÁ nó khỏi danh sách loại trừ — và cổng sẽ đỏ với "expected 45, received 46".
    * Cổng khoá cứng một con số thì mọi lần sửa đúng đều là đỏ.
    */
-  it('giữ TRỌN cột có chỗ lưu riêng — không cắt nhầm cột nào', () => {
-    const cotRieng = TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string);
-    expect(cotRieng.length).toBeGreaterThan(35);
-    const thieu = cotRieng.filter(
+  it('giữ TRỌN cột riêng CÓ dữ liệu — không cắt nhầm cột nào', () => {
+    const daCat = new Set(COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu));
+    // Chỉ đòi giữ cột KHÔNG nằm trong danh sách cắt. Đòi giữ trọn 42 cột là chặn đúng việc
+    // anh yêu cầu 23/09 (cắt cột rỗng) — cùng lớp lỗi "cổng chặn việc sửa đúng" đã vấp.
+    const conLai = TRUONG_FORM_DON_THU.filter((t) => t.cot && !daCat.has(t.cot))
+      .map((t) => t.cot as string);
+    expect(conLai.length).toBeGreaterThan(35);
+    const thieu = conLai.filter(
       (c) => !KHAI_COT_XUAT_DON_THU_DAY_DU.some((k) => k.key === c),
     );
     expect(thieu).toEqual([]);
@@ -79,13 +83,49 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
     expect(doc({ metadata: { soDangKyHoSo: [] } } as never)).toBe('');
   });
 
-  /** Sáu ô trong nhóm gập CÓ dữ liệu thật (3.335 hồ sơ có CCCĐ) — gập không phải lý do để cắt. */
-  it.each(['senderIdNumber', 'senderIdIssueDate', 'senderIdIssuePlace', 'senderBirthYear', 'dieuTraVien', 'lanhDaoToTung'])(
+  /**
+   * NĂM ô trong nhóm gập CÓ dữ liệu thật — gập không phải lý do để cắt.
+   *
+   * ĐÍNH CHÍNH 23/09/2026: bản đầu liệt kê SÁU ô, gồm `lanhDaoToTung`. Đo trên prod 47.626 hồ
+   * sơ thì ô ấy rỗng 0 — em suy từ một ô (CCCĐ 3.335 hồ sơ) ra cả nhóm thay vì đo từng ô. Nó
+   * bị cắt vì RỖNG, không phải vì gập.
+   */
+  it.each(['senderIdNumber', 'senderIdIssueDate', 'senderIdIssuePlace', 'senderBirthYear', 'dieuTraVien'])(
     'ô trong nhóm gập "%s" VẪN có trong tệp',
     (k) => {
       expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(true);
     },
   );
+
+  /**
+   * Anh chốt 23/09/2026: "trường nào trong toàn bộ data không có thì không đưa vào". Luật ấy
+   * áp cho CẢ HAI loại chỗ lưu, không riêng `metadata` — đợt trước em chỉ cắt metadata.
+   */
+  it('danh sách cắt gồm CẢ hai loại: metadata VÀ cột riêng', () => {
+    const theoLoai = (l: string) => COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => c.loai === l).length;
+    expect(theoLoai('metadata')).toBeGreaterThan(50);
+    // Chỉ cắt metadata là bỏ sót 42 cột riêng — đúng lỗi anh báo 23/09.
+    // (`expect` của Jest KHÔNG nhận tham số thông điệp như Vitest.)
+    expect(theoLoai('cot')).toBeGreaterThan(0);
+  });
+
+  it.each(['lanhDaoToTung', 'ngayXayRa', 'noiXayRaPhuongXa'])(
+    'cột riêng rỗng "%s" KHÔNG còn trong tệp',
+    (k) => {
+      expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(false);
+      expect(COT_XUAT_DAY_DU_LOAI_TRU.some((c) => c.khoaLuu === k && c.loai === 'cot')).toBe(true);
+    },
+  );
+
+  /** Mỗi dòng loại trừ phải khai ĐÚNG loại: đo nhầm loại thì kết quả luôn 0 và cổng xanh rỗng. */
+  it('loại khai khớp với chỗ lưu thật trong bản sinh', () => {
+    const theoKhoa = new Map(TRUONG_FORM_DON_THU.map((t) => [t.khoaLuu, t]));
+    const lech = COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => {
+      const t = theoKhoa.get(c.khoaLuu);
+      return !t || (t.cot ? c.loai !== 'cot' : c.loai !== 'metadata');
+    }).map((c) => `${c.khoaLuu}: khai '${c.loai}'`);
+    expect(lech).toEqual([]);
+  });
 
   it('`select` không đòi cột nào thừa sau khi cắt', () => {
     expect(COT_CAN_CHO_XUAT_DAY_DU).toContain('metadata');

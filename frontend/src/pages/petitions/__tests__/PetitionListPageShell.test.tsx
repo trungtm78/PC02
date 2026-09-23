@@ -949,3 +949,55 @@ describe('PetitionListPageShell — sửa nhanh ô ĐÃ CÓ kết quả xử lý
     expect(screen.queryByTestId('modal-ket-qua-xu-ly')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Anh báo 23/09/2026: hai nút xuất "đang lệch".
+ *
+ * Hàng nút của khung Bộ lọc là `flex items-center`; bọc dòng chữ + hai nút vào một khối dọc
+ * làm khối ấy CAO hơn hai nút bên cạnh, và căn giữa xong thì hai nút xuất tụt xuống.
+ *
+ * Đo bằng CÂY DOM, không đo bằng chuỗi lớp CSS: lớp CSS đổi tên là ca kiểm đỏ oan, mà bọc thêm
+ * một khối khác vẫn lọt. Thứ quyết định căn hàng là "có phải anh em ruột không".
+ */
+describe('PetitionListPageShell — hàng nút Bộ lọc căn thẳng', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions')
+        return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  it('số dòng và hai nút xuất là ANH EM RUỘT của Xóa lọc / Áp dụng', async () => {
+    renderWithRouter();
+    await waitFor(() =>
+      expect(screen.queryByTestId('list-page-shell-table-loading')).not.toBeInTheDocument(),
+    );
+
+    const xoaLoc = screen.getByTestId('btn-clear-filters');
+    const apDung = screen.getByTestId('btn-apply-filters');
+    const hang = xoaLoc.parentElement;
+    expect(hang).toBe(apDung.parentElement);
+
+    const soDong = screen.getByTestId('so-dong-khop-bo-loc');
+    const xuatThuong = screen.getByTestId('btn-xuat-excel-theo-bo-loc');
+    const xuatDayDu = screen.getByTestId('btn-xuat-day-du');
+
+    // Dòng chữ nằm THẲNG trong hàng nút.
+    expect(soDong.parentElement).toBe(hang);
+    // Hai nút nằm trong khối bọc riêng của chính chúng (nơi chứa thông báo lỗi), và khối ấy
+    // phải là con TRỰC TIẾP của hàng — không có tầng `flex-col` nào chen giữa.
+    expect(xuatThuong.parentElement?.parentElement).toBe(hang);
+    expect(xuatDayDu.parentElement?.parentElement).toBe(hang);
+  });
+
+  it('hàng nút cho xuống dòng khi màn hẹp', async () => {
+    renderWithRouter();
+    await waitFor(() =>
+      expect(screen.queryByTestId('list-page-shell-table-loading')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('btn-clear-filters').parentElement?.className).toContain('flex-wrap');
+  });
+});
