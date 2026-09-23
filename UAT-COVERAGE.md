@@ -57,7 +57,9 @@ thật rồi chết bằng danh sách rỗng hoặc bằng 403.
 | E6 | Mở / tải xuống tệp đã tải lên | ☐ | ☐ | — |
 | E7 | Hồ sơ ĐÃ CHUYỂN Vụ án: người đọc được đơn mà không đọc được vụ án vẫn TẢI XUỐNG được | ☐ | ☐ | — |
 | **F. Popup nhập nhanh trên danh sách** |
-| F1 | Bấm ô "Kết quả xử lý" → mở popup, không nhảy sang màn sửa | ☐ | ☐ | — |
+| F1 | Ô RỖNG hiện icon bút **kèm nhãn "Nhập kết quả"**, nhìn thấy ngay không cần rê chuột | ☐ | ☐ | sửa 23/09 (#478) |
+| F1b | Ô CÓ chữ: bấm **chữ** mở hồ sơ; bấm **icon** mở popup | ☐ | ☐ | sửa 23/09 — trước đó cả ô là nút |
+| F1c | Bấm hơi trượt icon vẫn trúng nút, không nhảy sang màn sửa (vùng chạm ≥24px) | ☐ | ☐ | sửa 23/09 |
 | F2 | Sửa chữ → Lưu → bảng hiện giá trị mới | ☐ | ☐ | — |
 | F3 | Xoá trắng ô → Lưu → cột rỗng thật (không còn chữ cũ) | ☐ | ☐ | — |
 | F4 | Tải/mở/tải xuống tệp ngay trong popup | ☐ | ☐ | — |
@@ -65,9 +67,11 @@ thật rồi chết bằng danh sách rỗng hoặc bằng 403.
 | F6 | Tài khoản chỉ-xem: ô là chữ trơn, không bấm được | ☐ | ☐ | — |
 | F7 | Cột Thao tác vẫn đủ 5 nút, không nút nào bị cắt (đo bằng `tools/do-cot-thao-tac.mjs`) | ☐ | ☐ | — |
 | **G. Nút "Xuất đầy đủ"** |
-| G1 | Khung bộ lọc có HAI nút; nút cũ giữ nguyên nhãn "Xuất N dòng Excel" | ☐ | ☐ | — |
+| G1 | Khung bộ lọc: **một dòng "N dòng khớp bộ lọc"** phía trên, hai nút `Xuất Excel (đang xem)` / `Xuất Excel (mọi trường)` | ☐ | ☐ | đổi tên 23/09 (#478) |
+| G1b | Tiêu đề in trong CẢ HAI tệp là `DANH SÁCH ĐƠN THƯ`, không có "ĐẦY ĐỦ TRƯỜNG" | ☐ | ☐ | sửa 23/09 |
 | G2 | Bấm "Xuất đầy đủ" → tệp tải về, mở được | ☐ | ☐ | — |
-| G3 | Tệp có ~130 cột, tiêu đề đúng nhãn trên form | ☐ | ☐ | — |
+| G3 | Tệp có **~45 cột** (không còn 130), tiêu đề đúng nhãn trên form | ☐ | ☐ | cắt 88 cột rỗng 23/09 |
+| G3b | **Không còn cột trắng** kiểu "Chuyển vụ án cho CQĐT khác", "Số bản án của toà án có hiệu lực" | ☐ | ☐ | đúng các cột trong ảnh anh gửi 23/09 |
 | G4 | **Dò tay vài ô `legacyExtra`** (vd "Số hồ sơ lưu") — có chữ, không trống | ☐ | ☐ | — |
 | G5 | Ô "Ngày viết đơn" in đúng chữ nguyên văn của hồ sơ GỘP | ☐ | ☐ | — |
 | G6 | Tài khoản chỉ có quyền `read` gọi thẳng `/petitions/export/day-du` → **403** | ☐ | ☐ | — |

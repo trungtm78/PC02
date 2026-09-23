@@ -9,6 +9,19 @@ BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren pr
       thuoc TO KHAC de kiem dong D6 (goi y ten khong ro sang to khac) va F6 (nguoi chi-xem).
       Em KHONG tu tao/mo khoa TK tren production (§8c).
 
+  DOT 23/09 (anh bao 4 viec tren man Danh sach don thu) — XONG, PR #478 tren prod
+  (buildId 7d8eec40 = origin/main):
+    * o sua nhanh KHONG co icon nao -> OSuaNhanh (Pencil, luon hien, o rong moi nhap)
+    * 2 nut xuat dat ten theo SO DONG trong khi chung khac nhau o SO COT -> "(dang xem)" /
+      "(moi truong)", so dong noi MOT lan phia tren
+    * tep xuat 130 cot ma 88 RONG tren ca 46.741 ho so -> cat con 45 cot, danh sach sinh tu
+      phep do, CLI kiem:cot-xuat-day-du do lai moi lan deploy
+    * tieu de in trong tep bo "— DAY DU TRUONG"
+  Luot soat cheo bat them 5 loi, da va het trong cung PR.
+
+  CHUA LAM (thuoc dot 23/09, can tai khoan): chup mot trang 50 dong cho anh xem muc on, va mo
+  tep xuat ra dem cot bang mat. Hai viec nay ghi trong ke hoach ma em bo qua.
+
   Da lam het phan khong phu thuoc: ma + cong + gieo loi + CI + merge + xac minh deploy bang
   buildId + do chi-doc tren prod + ma tran UAT 45 dong doi chieu nguoc 8 yeu cau.
 
