@@ -3,9 +3,9 @@ BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren pr
   (#467 #468 #469 #470 #471 #472/#473), buildId prod khop origin/main. Con DUNG MOT VIEC
   can anh de dong §9:
 
-  (1) TAI KHOAN THU TREN PROD. 42/45 dong UAT-COVERAGE.md chua chay duoc. 5 TK thu cu khoa
-      tu 20/09 vi mat khau lo repo PUBLIC. Em da chay duoc 3 dong ha tang (H1-H3) bang truy
-      van chi-doc tren may that; 42 dong con lai deu can dang nhap. Can THEM mot TK OFFICER
+  (1) TAI KHOAN THU TREN PROD. 134/136 ca docs/uat/dot-2309/ chua chay duoc. 5 TK thu cu khoa
+      tu 20/09 vi mat khau lo repo PUBLIC. Em da chay duoc 2 ca moc ban dung bang truy van
+      chi-doc tren may that; 134 ca con lai deu can dang nhap. Can THEM mot TK OFFICER
       thuoc TO KHAC de kiem dong D6 (goi y ten khong ro sang to khac) va F6 (nguoi chi-xem).
       Em KHONG tu tao/mo khoa TK tren production (§8c).
 
@@ -69,7 +69,8 @@ Kết quả xử lý · mặc định Không · bỏ ô Đồ vật · ô Tên g
 
 ## Đang làm dở
 Task: **§9 — UAT phủ 100%**
-BƯỚC TIẾP THEO: dựng `UAT-COVERAGE.md` liệt kê mọi màn/chức năng của đợt, rồi
+BƯỚC TIẾP THEO: ma trận đợt 22–23/09 đã dựng bằng `/uat-test-writer` tại
+`docs/uat/dot-2309/` (136 ca, TC_min=136 do máy tính). Còn lại là CHẠY, rồi
 `/uat-test-writer` → `/uat-test-runner` từng dòng.
 
 **HAI VIỆC CHẶN, cần anh:**
