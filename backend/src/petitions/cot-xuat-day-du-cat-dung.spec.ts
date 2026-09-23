@@ -4,7 +4,7 @@ import {
 } from './xuat-day-du-don-thu';
 import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
 import { COT_XUAT_DAY_DU_LOAI_TRU } from './cot-xuat-day-du.loai-tru';
-import { khoaCatNhamCoDuLieu } from './cli/kiem-cot-xuat-day-du';
+import { khoaCatNhamCoDuLieu, doCotRieng } from './cli/kiem-cot-xuat-day-du';
 import { docTruong } from './xuat-day-du-don-thu';
 
 /**
@@ -138,5 +138,79 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
     expect(khoaCatNhamCoDuLieu([{ khoaLuu: 'a', soHoSo: 1 }])).toEqual([
       { khoaLuu: 'a', soHoSo: 1 },
     ]);
+  });
+});
+
+/**
+ * CỔNG: phép đo cột riêng phải CHẠY, không chỉ được khai.
+ *
+ * Lượt soát mô hình ngoài 23/09/2026 thay `doCotRieng` bằng một hàm trả 0 vô điều kiện — cả 18
+ * mệnh đề vẫn xanh, vì chúng chỉ đọc danh sách khai báo. Thay thế ấy khôi phục đúng điểm mù mà
+ * cả đợt này sinh ra để bịt: cột có dữ liệu mà phép đo báo rỗng thì nó bị cắt, im lặng.
+ *
+ * Dựng một `prisma` giả bắt lấy câu SQL và trả về dòng đếm — đo được CÂU HỎI lẫn cách ĐỌC kết
+ * quả, mà không cần cơ sở dữ liệu.
+ */
+describe('CỔNG: phép đo cột riêng chạy thật', () => {
+  function prismaGia(tra: { key: string; n: bigint }[]) {
+    const cau: string[] = [];
+    return {
+      cau,
+      prisma: {
+        $queryRawUnsafe: (sql: string) => {
+          cau.push(sql);
+          return Promise.resolve(tra);
+        },
+      } as never,
+    };
+  }
+
+  it('đếm ĐÚNG số hồ sơ trả về, không phải luôn 0', async () => {
+    const { prisma } = prismaGia([{ key: 'dieuTraVien', n: 7n }]);
+    const ra = await doCotRieng(prisma, ['dieuTraVien', 'ketQuaXuLyKhac']);
+    expect(ra).toEqual([
+      { khoaLuu: 'dieuTraVien', soHoSo: 7 },
+      // Cột không có trong kết quả trả về → 0, không phải `undefined`.
+      { khoaLuu: 'ketQuaXuLyKhac', soHoSo: 0 },
+    ]);
+  });
+
+  it('câu hỏi loại hồ sơ đã xoá mềm và ô chỉ có khoảng trắng', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['dieuTraVien']);
+    expect(cau[0]).toContain('"deletedAt" IS NULL');
+    expect(cau[0]).toContain('btrim');
+  });
+
+  /**
+   * "Ngày viết đơn" đọc bằng `ngayVietDonHienThi` — ba cột theo thứ tự. Đếm theo mỗi cột vật lý
+   * thì một hồ sơ chỉ có chữ nguyên văn sẽ ra 0, trong khi tệp xuất IN RA chữ ấy.
+   */
+  it('cột có bộ đọc GHÉP đếm theo cả ba cột nguồn', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['petitionDate']);
+    for (const n of ['petitionDate', 'ngayVietDonEdtf', 'ngayVietDonChu'])
+      expect(cau[0]).toContain(`"${n}"`);
+    expect(cau[0]).toContain(' OR ');
+  });
+
+  it('cột thường KHÔNG bị ghép thêm cột nào', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['dieuTraVien']);
+    expect(cau[0]).not.toContain(' OR ');
+  });
+
+  /** Tên cột ghép thẳng vào SQL — phải có nguồn gốc trong bản sinh, không nhận từ ngoài. */
+  it('từ chối tên cột không có trong bản sinh', async () => {
+    const { prisma } = prismaGia([]);
+    await expect(doCotRieng(prisma, ['x"; DROP TABLE petitions; --'])).rejects.toThrow(
+      /không có trong bản sinh/,
+    );
+  });
+
+  it('danh sách rỗng thì KHÔNG hỏi cơ sở dữ liệu', async () => {
+    const { cau, prisma } = prismaGia([]);
+    expect(await doCotRieng(prisma, [])).toEqual([]);
+    expect(cau).toEqual([]);
   });
 });

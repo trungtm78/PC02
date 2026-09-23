@@ -38,16 +38,38 @@ export async function doCotRieng(
   cot: readonly string[],
 ): Promise<SoDoKhoa[]> {
   if (!cot.length) return [];
-  const hopLe = new Set(
-    TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string),
-  );
+  const hopLe = new Set([
+    ...TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string),
+    // Cột nguồn của bộ đọc ghép — không nằm trong bố cục form nhưng phép đo phải chạm tới.
+    'ngayVietDonEdtf',
+    'ngayVietDonChu',
+  ]);
   const la = cot.filter((c) => !hopLe.has(c));
   if (la.length) throw new Error(`Cột không có trong bản sinh: ${la.join(', ')}`);
+
+  /*
+    Cột có bộ đọc GHÉP phải đếm theo NGUỒN của bộ đọc, không theo cột vật lý.
+
+    `docTruong` đọc "Ngày viết đơn" bằng `ngayVietDonHienThi` — ba cột theo thứ tự, kèm bản thô
+    hệ cũ. Một hồ sơ chỉ có `ngayVietDonChu` ("19/4/2021 (03 đơn)") thì tệp xuất IN RA CHỮ ấy,
+    nhưng đếm theo `petitionDate` lại ra 0. Phép đo lệch nghĩa với bộ đọc thì `--sinh` sẽ khuyên
+    cắt một cột đang có dữ liệu — cắt xong không ai biết.
+
+    Lượt soát mô hình ngoài 23/09/2026 bắt được. Hôm nay `petitionDate` có dữ liệu nên chưa cắt
+    nhầm, nhưng phép đo sai vẫn là phép đo sai.
+  */
+  const NGUON_GHEP: Record<string, string[]> = {
+    petitionDate: ['petitionDate', 'ngayVietDonEdtf', 'ngayVietDonChu'],
+  };
+  const dieuKien = (c: string): string =>
+    (NGUON_GHEP[c] ?? [c])
+      .map((n) => `("${n}" IS NOT NULL AND btrim("${n}"::text) <> '')`)
+      .join(' OR ');
 
   const cau = cot
     .map(
       (c) =>
-        `SELECT '${c}' AS key, count(*) AS n FROM petitions WHERE "deletedAt" IS NULL AND "${c}" IS NOT NULL AND btrim("${c}"::text) <> ''`,
+        `SELECT '${c}' AS key, count(*) AS n FROM petitions WHERE "deletedAt" IS NULL AND (${dieuKien(c)})`,
     )
     .join(' UNION ALL ');
   const dong = await prisma.$queryRawUnsafe<{ key: string; n: bigint }[]>(cau);

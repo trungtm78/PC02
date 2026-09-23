@@ -118,7 +118,14 @@ export function NutXuatTheoBoLoc({
   const rong = tong === 0 && !hasUnappliedChanges;
 
   return (
-    <div className="flex flex-col items-end">
+    /*
+      `relative` + thông báo lỗi ĐẶT TUYỆT ĐỐI: khối này phải cao ĐÚNG BẰNG cái nút.
+
+      Hàng nút của khung Bộ lọc là `flex items-center`. Nếu khối lỗi làm khối này cao lên thì
+      nút bị đẩy lệch so với các nút bên cạnh — đúng lỗi anh báo 23/09/2026, chỉ khác là lần
+      này nó chỉ xảy ra khi một nút báo lỗi (vd nút "mọi trường" trả 403 vì thiếu quyền).
+    */
+    <div className="relative flex flex-col items-end">
       <button
         type="button"
         data-testid={testId ?? 'btn-xuat-excel-theo-bo-loc'}
@@ -131,7 +138,7 @@ export function NutXuatTheoBoLoc({
         {dangXuat ? 'Đang xuất…' : nhan}
       </button>
       {loi && (
-        <p role="alert" data-testid="loi-xuat-excel" className="mt-1 text-xs text-red-700 max-w-xs text-right">
+        <p role="alert" data-testid="loi-xuat-excel" className="absolute top-full right-0 mt-1 text-xs text-red-700 max-w-xs text-right">
           {loi}
         </p>
       )}
