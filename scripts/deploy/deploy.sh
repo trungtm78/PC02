@@ -267,6 +267,16 @@ if ! npx ts-node prisma/seed-loai-tai-lieu.ts; then
 fi
 log "DOCUMENT_TYPE seed complete"
 
+# 7e. Do lai cac cot DA CAT khoi tep xuat day du (CHI DOC, khong ghi gi).
+# "Rong" la su that cua HOM NAY. Ngay can bo bat dau nhap mot o da cat, tep xuat IM LANG thieu
+# cot ay — tep van ra, van du tieu de, chi thieu. NON-FATAL: day la canh bao ve DU LIEU, khong
+# phai loi cua ban dung; chan deploy vi no la chan mot ban va khong lien quan.
+log "Checking cut export columns..."
+if ! npx ts-node src/petitions/cli/kiem-cot-xuat-day-du.ts; then
+    log "WARN: co cot DA CAT nay CO du lieu — tep 'Xuat Excel (moi truong)' dang thieu cot."
+    log "WARN: chay 'npm run kiem:cot-xuat-day-du -- --sinh' va cap nhat cot-xuat-day-du.loai-tru.ts"
+fi
+
 # 8. Restart backend service
 sudo systemctl restart pc02-backend
 log "pc02-backend restarted"
