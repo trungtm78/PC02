@@ -59,12 +59,49 @@ describe('OSuaNhanh — ô sửa nhanh trong bảng', () => {
     expect(onRow, 'bấm chữ phải mở hồ sơ').toHaveBeenCalled();
   });
 
-  it('bấm NÚT: gọi sửa nhanh và CHẶN LAN — không nhảy sang màn sửa', () => {
-    const onSua = vi.fn();
-    const onRow = trongDong({ ...CHUNG, giaTri: null, onSua });
-    fireEvent.click(screen.getByTestId('o-ket-qua-p1'));
-    expect(onSua).toHaveBeenCalledTimes(1);
-    expect(onRow, 'không chặn lan thì popup mở xong màn cũng nhảy đi').not.toHaveBeenCalled();
+  /*
+    MỌI mệnh đề về nút chạy trên CẢ HAI trạng thái.
+
+    Anh hỏi 23/09/2026: "đã có kết quả xử lý rồi sửa nhanh bên ngoài danh sách cũng được luôn
+    phải không?". Hành vi thì đúng — hai nhánh dùng chung một đối tượng nút — nhưng bộ ca kiểm
+    khi ấy CHỈ bấm nút ở ô RỖNG. "Đúng vì mã chung" là suy luận, không phải phép đo, và mã
+    chung tách ra lúc nào không ai hay.
+
+    Anh phải hỏi mới biết, nghĩa là không có gì trong kho mã nói ra điều đó. Nên chạy theo
+    bảng: thêm trạng thái thứ ba về sau là tự phủ, không phải nhớ chép thêm ca.
+  */
+  const TRANG_THAI = [
+    { ten: 'ô RỖNG', giaTri: null as string | null, nhanMongDoi: 'Nhập kết quả' },
+    { ten: 'ô ĐÃ CÓ chữ', giaTri: 'Đã chuyển Công an phường', nhanMongDoi: 'Sửa nhanh' },
+  ];
+
+  it.each(TRANG_THAI)(
+    '$ten — bấm NÚT: gọi sửa nhanh và CHẶN LAN, không nhảy sang màn sửa',
+    ({ giaTri }) => {
+      const onSua = vi.fn();
+      const onRow = trongDong({ ...CHUNG, giaTri, onSua });
+      fireEvent.click(screen.getByTestId('o-ket-qua-p1'));
+      expect(onSua).toHaveBeenCalledTimes(1);
+      expect(onRow, 'không chặn lan thì popup mở xong màn cũng nhảy đi').not.toHaveBeenCalled();
+    },
+  );
+
+  /**
+   * Nhãn phải nói ĐÚNG việc sắp xảy ra. Ô đã có chữ mà nhãn ghi "Nhập kết quả" thì cán bộ
+   * tưởng bấm vào là nhập mới đè lên, nên không dám bấm — đúng thứ làm anh phải hỏi.
+   */
+  it.each(TRANG_THAI)('$ten — nhãn nút nói đúng việc ($nhanMongDoi)', ({ giaTri, nhanMongDoi }) => {
+    trongDong({ ...CHUNG, giaTri, onSua: vi.fn() });
+    const nut = screen.getByTestId('o-ket-qua-p1');
+    expect(nut.getAttribute('aria-label')).toContain(nhanMongDoi);
+    expect(nut.getAttribute('title')).toContain(nhanMongDoi);
+  });
+
+  it('ô ĐÃ CÓ chữ: nhãn KHÔNG được nói "Nhập kết quả"', () => {
+    trongDong({ ...CHUNG, giaTri: 'Đã chuyển Công an phường', onSua: vi.fn() });
+    expect(screen.getByTestId('o-ket-qua-p1').getAttribute('aria-label')).not.toContain(
+      'Nhập kết quả',
+    );
   });
 
   /** `SummaryCell.tsx:66` chặn cả hai chiều. Đi lệch nếp nhà là để sẵn bẫy cho ngày bảng nhận phím. */
