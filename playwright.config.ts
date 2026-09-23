@@ -48,6 +48,7 @@ export default defineConfig({
       testMatch: '**/tests/e2e/*-uat.e2e.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    },
   ],
   // webServer chi bat cho local dev — UAT_PROD=1 skip
   ...(isUatProd

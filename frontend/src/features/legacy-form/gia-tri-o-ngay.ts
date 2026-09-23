@@ -32,6 +32,15 @@ const NGAY_TRONG_THANG = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as con
  * chạm dữ liệu thật; sửa vì nó sai, không vì nó đang gây hại.
  */
 function coThatTrenLich(nam: number, thang: number, ngay: number): boolean {
+  // Nam >= 1: dac ta HTML doi chuoi ngay hop le mang nam LON HON 0. Cong engine bat duoc
+  // 24/09/2026 — truoc do ham cho `0000-01-01` di qua, roi Chromium TU CHOI (o ve rong) con
+  // WebKit GIU NGUYEN. Tuc ham sinh ra chuoi ma trinh duyet khong nuot; ca kiem jsdom khong
+  // bao gio thay duoc dieu do vi no chi do phep lam sach cua chinh no.
+  // Nam > 0 la LUAT HTML. Tran 9999 la gioi han NGHIEP VU cua ta, khong phai cua dac ta:
+  // HTML cho phep nam TU BON CHU SO TRO LEN, va ca hai engine deu nhan `10000-01-01`.
+  // Ta chan vi ho so vu an khong co nam nam chu so, va vi bieu thuc doc chuoi chi lay
+  // dung bon chu so — de tran cao hon thi hai nhanh (chuoi va Date) se lech nhau.
+  if (nam < 1 || nam > 9999) return false;
   if (thang < 1 || thang > 12 || ngay < 1) return false;
   const nhuan = (nam % 4 === 0 && nam % 100 !== 0) || nam % 400 === 0;
   const toiDa = thang === 2 && nhuan ? 29 : NGAY_TRONG_THANG[thang - 1];
@@ -53,7 +62,6 @@ export function giaTriONgay(v: unknown): string {
     const nam = v.getUTCFullYear();
     const thang = v.getUTCMonth() + 1;
     const ngay = v.getUTCDate();
-    if (nam < 1 || nam > 9999) return '';
     return coThatTrenLich(nam, thang, ngay) ? ghepNgay(nam, thang, ngay) : '';
   }
   if (typeof v !== 'string') return '';
