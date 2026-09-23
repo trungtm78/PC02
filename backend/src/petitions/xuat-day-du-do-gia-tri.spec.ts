@@ -3,7 +3,18 @@ import {
   COT_CAN_CHO_XUAT_DAY_DU,
   type DongXuatDayDu,
 } from './xuat-day-du-don-thu';
-import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
+import { TRUONG_FORM_DON_THU as MOI_TRUONG } from './khai-truong-form-don-thu.generated';
+import { COT_XUAT_DAY_DU_LOAI_TRU } from './cot-xuat-day-du.loai-tru';
+
+/**
+ * Chỉ những trường CÒN LẠI trong tệp xuất.
+ *
+ * Bản sinh giữ trọn 130 trường vì nó là sự thật về FORM; tệp xuất đã cắt 88 khoá đo được là
+ * rỗng (xem `cot-xuat-day-du.loai-tru.ts`). Cổng này đo TỆP XUẤT, nên phải lặp trên tập đã cắt
+ * — lặp trên cả 130 là đòi tệp có cột nó cố ý không mang.
+ */
+const DA_CAT = new Set(COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu));
+const TRUONG_FORM_DON_THU = MOI_TRUONG.filter((t) => !DA_CAT.has(t.khoaLuu));
 
 /**
  * CỔNG: bảng xuất đầy đủ phải ra CHỮ, không chỉ ra TIÊU ĐỀ.
@@ -16,6 +27,13 @@ import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
  * Nên dựng MỘT hồ sơ có dữ liệu ở MỌI trường rồi khẳng định: trường nào có dữ liệu trong kho mà
  * ra ô trống là ĐỎ.
  */
+/** Bộ đọc `metadata` dùng trong bảng xuất — chép đúng luật của `docTruong` cho nhánh metadata. */
+const docTruongMeta = (khoaLuu: string) => (d: DongXuatDayDu) => {
+  const meta = (d.metadata ?? {}) as Record<string, unknown>;
+  const v = meta[khoaLuu];
+  return v == null ? '' : String(v);
+};
+
 describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
   /** Hồ sơ có dữ liệu ở mọi trường — cột riêng đổ thẳng, ô hệ cũ nằm trong `metadata`. */
   const HO_SO: DongXuatDayDu = (() => {
@@ -27,7 +45,7 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
       legacyRaw: null,
     };
     const meta: Record<string, unknown> = {};
-    for (const t of TRUONG_FORM_DON_THU) {
+    for (const t of MOI_TRUONG) {
       if (t.cot) {
         d[t.cot] = /^ngay[A-Z]/.test(t.cot) || t.cot.endsWith('Date') || t.cot === 'deadline' || t.cot === 'thoiHanUTDT'
           ? new Date('2026-03-04T00:00:00+07:00')
@@ -45,7 +63,9 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
   })();
 
   it('danh mục trường không rỗng — cổng rỗng thì chẳng khẳng định được gì', () => {
-    expect(TRUONG_FORM_DON_THU.length).toBeGreaterThan(100);
+    expect(MOI_TRUONG.length).toBeGreaterThan(100);
+    expect(TRUONG_FORM_DON_THU.length).toBeGreaterThan(30);
+    // +3 cột định danh (stt, sttCu, status) không nằm trong bố cục form.
     expect(KHAI_COT_XUAT_DON_THU_DAY_DU.length).toBe(TRUONG_FORM_DON_THU.length + 3);
   });
 
@@ -94,9 +114,23 @@ describe('CỔNG: xuất đầy đủ đo GIÁ TRỊ', () => {
     expect(TRUONG_FORM_DON_THU.filter((t) => t.khoaLuu.includes('statistic.'))).toEqual([]);
   });
 
+  /**
+   * Sau khi cắt 88 khoá rỗng, tệp xuất còn ĐÚNG những ô `metadata` nào? Hôm nay là KHÔNG ô nào
+   * — mọi ô `metadata` của bố cục đều đo được là rỗng. Mệnh đề vẫn giữ để ngày một ô quay lại
+   * (CLI `kiem:cot-xuat-day-du` bắt được) thì đường đọc `metadata` vẫn đúng.
+   */
   it('ô hệ cũ đọc từ `metadata`, không phải từ cột cùng tên', () => {
     const oMeta = TRUONG_FORM_DON_THU.filter((t) => !t.cot);
-    expect(oMeta.length).toBeGreaterThan(50);
+    if (!oMeta.length) {
+      // Không còn ô metadata nào trong tệp — kiểm đường đọc bằng một ô của BẢN SINH đầy đủ.
+      const bk = MOI_TRUONG.find((t) => !t.cot);
+      // Bản sinh phải còn ô metadata; không còn nghĩa là bộ sinh hỏng.
+      // (`expect` của Jest KHÔNG nhận tham số thông điệp như Vitest.)
+      expect(bk).toBeDefined();
+      expect(docTruongMeta(bk!.khoaLuu)(HO_SO)).toBe(`META-${bk!.khoaLuu}`);
+      expect(docTruongMeta(bk!.khoaLuu)({ ...HO_SO, metadata: null })).toBe('');
+      return;
+    }
     const khai = KHAI_COT_XUAT_DON_THU_DAY_DU.find((c) => c.key === `meta.${oMeta[0].khoaLuu}`);
     expect(khai).toBeDefined();
     expect(khai!.doc(HO_SO)).toBe(`META-${oMeta[0].khoaLuu}`);

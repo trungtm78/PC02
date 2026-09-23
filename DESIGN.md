@@ -255,6 +255,7 @@ Icons from `lucide-react` only. Common icons used in this system:
 | `Copy` | Share/copy link |
 | `Printer` | Print |
 | `X` | Clear search |
+| `Pencil` | **Sửa / chỉnh sửa** — icon sửa chuẩn của dự án. `Edit2`/`Edit` chỉ còn ở màn cũ; `SquarePen`/`Edit3` KHÔNG dùng |
 
 ---
 
@@ -423,6 +424,20 @@ Bảng tự dựng (Đơn thư phường) gắn `ThanhCuonNgangTren` vào khung 
 Thứ tự nút bên phải: `Xóa lọc` (nhẹ) · `Xuất N dòng Excel` (viền xanh, icon bảng tính) · `Áp dụng` (đặc xanh).
 Nút xuất: đang xuất → khoá, "Đang xuất…"; còn thay đổi chưa áp dụng → "Áp dụng & xuất Excel" (không nói số dòng
 của bộ lọc cũ); 0 dòng mà không có thay đổi → khoá kèm lý do; máy chủ từ chối (vượt 50.000 dòng) → hiện nguyên câu.
+
+### 11.5 Ô sửa nhanh trong bảng (`OSuaNhanh`)
+
+> Nguồn: anh báo 23/09/2026 "icon edit nhanh rất khó nhìn". Đo lại: không có icon nào — chỗ bấm
+> là `hover:underline decoration-dotted`, chỉ lộ khi rê chuột.
+
+| Quy tắc | Cách làm | Vì sao |
+|---|---|---|
+| Luôn hiện, KHÔNG hover-only | icon `Pencil` + nhãn vẽ sẵn ở trạng thái nghỉ | Chuẩn vùng chạm WCAG 2.5.8 đã ghi ở `styles.ts:340` — hover không dùng được trên cảm ứng; và trên bảng 50 dòng không ai rê từng ô để khám phá |
+| Ô RỖNG mời nhập | `[✏ Nhập kết quả]`, KHÔNG hiện `—` | Đo cột "Kết quả xử lý" 23/09: **76% ô rỗng**. Ô rỗng là ca dùng CHÍNH, không phải ca "không có gì" |
+| Ô CÓ chữ: chữ không phải nút | chữ là `<span>`, chỉ icon là nút | Cùng luật §11.2: bấm vào CHỮ vẫn mở hồ sơ như mọi cột khác. Bọc cả ô làm cột này cư xử khác cả bảng |
+| Chặn lan hai chiều | `onClick` + `onKeyDown` cùng gọi `chanLan` | Ô nằm trong `<tr onClick>`; chép `SummaryCell.tsx:66` |
+| Không quyền ghi | chữ trơn / `—`, không nút | Mời người chỉ-xem gõ xong mới báo 403 là làm mất công họ |
+| `aria-label` nói rõ hồ sơ nào | `Nhập kết quả — kết quả xử lý đơn 2026-11973` | Một cột có 50 nút giống hệt nhau; "Sửa" không phân biệt được |
 
 ### 11.4 Cập nhật phiên bản
 

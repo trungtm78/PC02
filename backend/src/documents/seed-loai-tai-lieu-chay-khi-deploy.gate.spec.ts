@@ -104,6 +104,24 @@ describe('CỔNG: seed DOCUMENT_TYPE chạy khi deploy', () => {
     expect(khoi).toContain("action: 'read'");
   });
 
+  /**
+   * Danh sách cột đã cắt khỏi tệp xuất phải được ĐO LẠI mỗi lần deploy. Không đo thì nó mục:
+   * ngày một ô có dữ liệu trở lại, tệp xuất im lặng thiếu cột và không lỗi nào hiện ra.
+   *
+   * Khác hai bộ seed ở trên: chỗ này CẢNH BÁO chứ không abort — nó nói về DỮ LIỆU, không phải
+   * về bản dựng, nên chặn deploy vì nó là chặn một bản vá không liên quan.
+   */
+  it('deploy.sh CÓ đo lại cột đã cắt khỏi tệp xuất', () => {
+    expect(sh).toContain('kiem-cot-xuat-day-du.ts');
+  });
+
+  it('phép đo cột đã cắt chỉ CẢNH BÁO, không abort deploy', () => {
+    const i = sh.indexOf('kiem-cot-xuat-day-du.ts');
+    const khoi = sh.slice(i, i + 400);
+    expect(khoi).toContain('WARN');
+    expect(khoi).not.toContain('exit 1');
+  });
+
   it('hằng số danh mục không rỗng và có mã của khu tệp kết quả', () => {
     expect(LOAI_TAI_LIEU.length).toBeGreaterThanOrEqual(6);
     expect(LOAI_TAI_LIEU.map((m) => m.code)).toContain('KET_QUA_DON_VI_XU_LY');

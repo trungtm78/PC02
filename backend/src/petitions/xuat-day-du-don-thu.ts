@@ -4,6 +4,15 @@ import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 import { PETITION_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
+import { COT_XUAT_DAY_DU_LOAI_TRU } from './cot-xuat-day-du.loai-tru';
+
+/**
+ * Khoá đã CẮT khỏi tệp xuất — đo được là rỗng trên toàn bộ hồ sơ.
+ *
+ * Lọc ở ĐÂY chứ không xoá khỏi bản sinh: bản sinh là sự thật về FORM, tệp loại trừ là sự thật
+ * về TỆP XUẤT. Lẫn hai thứ thì ngày một ô có dữ liệu trở lại, không ai biết phải sửa chỗ nào.
+ */
+const DA_CAT = new Set(COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu));
 
 /**
  * Bảng xuất ĐẦY ĐỦ của Đơn thư — mọi trường đang đăng ký trên màn tạo/sửa.
@@ -27,6 +36,10 @@ export interface DongXuatDayDu {
 
 /** Cột của bảng `petitions` mà bảng xuất đầy đủ cần đọc. */
 export const COT_CAN_CHO_XUAT_DAY_DU: readonly string[] = [
+  // Khử trùng: `petitionDate` vừa nằm ở danh sách tường minh (bộ đọc ghép ngày viết đơn) vừa
+  // trong bảng trường. Prisma không đổ vì khoá trùng, nhưng danh sách có khoá lặp là danh sách
+  // không đếm được — và cổng đếm nó.
+  ...new Set([
   'id',
   'stt',
   'sttCu',
@@ -38,6 +51,7 @@ export const COT_CAN_CHO_XUAT_DAY_DU: readonly string[] = [
   'ngayVietDonChu',
   'legacyRaw',
   ...TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string),
+  ]),
 ];
 
 /** Cột kiểu ngày — in theo định dạng Việt Nam thay vì ISO. */
@@ -54,7 +68,10 @@ const LA_NGAY = (cot: string): boolean =>
  * GIÁ TRỊ cần: trường nào có dữ liệu trong kho mà ra ô trống là đỏ. Đếm tiêu đề cột thì không
  * chứng minh được gì (đã vấp lớp cổng rỗng ấy nhiều lần).
  */
-function docTruong(khoaLuu: string, cot: string | null): (d: DongXuatDayDu) => string {
+export function docTruong(
+  khoaLuu: string,
+  cot: string | null,
+): (d: DongXuatDayDu) => string {
   // Ngày viết đơn: ba cột + bản thô hệ cũ, đã có bộ đọc chung.
   if (cot === 'petitionDate') return (d) => ngayVietDonHienThi(d as never) ?? '';
   if (cot === null) {
@@ -88,7 +105,7 @@ export const KHAI_COT_XUAT_DON_THU_DAY_DU: readonly KhaiCotXuat<DongXuatDayDu>[]
     rong: 16,
     doc: (d) => PETITION_STATUS_LABEL[d.status as keyof typeof PETITION_STATUS_LABEL] ?? d.status,
   },
-  ...TRUONG_FORM_DON_THU.map((t) => ({
+  ...TRUONG_FORM_DON_THU.filter((t) => !DA_CAT.has(t.khoaLuu)).map((t) => ({
     key: t.cot ?? `meta.${t.khoaLuu}`,
     tieuDe: t.caption,
     rong: 22,

@@ -48,6 +48,7 @@ import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildPetitionsAdapter } from '@/features/_shared/bulk/adapters/petitions';
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
 import { KetQuaXuLyModal } from '@/features/petitions/components/KetQuaXuLyModal';
+import { OSuaNhanh } from '@/components/shared/ListPageShell/OSuaNhanh';
 import { resolveFilename, parseBlobError } from '@/features/document-templates/export.api';
 import { extractApiError } from '@/lib/api-errors';
 import type { BulkAction, BulkResult } from '@/features/_shared/bulk/types';
@@ -637,46 +638,28 @@ export function PetitionListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '10rem',
         optional: 'show',
-        render: (r) => {
+        render: (r) => (
           /*
-            Đọc cột hiển thị TRƯỚC mọi thứ khác.
-
-            Cổng `cotDanhSachPhaiTroDungCotForm` suy "cột này đọc gì" từ tham chiếu `r.` ĐẦU
-            TIÊN trong hàm dựng. Để `r.id` đứng trước (trong trình xử lý bấm) là cổng kết luận
-            cột "Kết quả xử lý" đang đọc cột `id` — nó đỏ đúng, chỉ là đỏ vì thứ tự chứ không
-            vì hành vi. Tách biến ra cũng làm hàm dễ đọc hơn.
+            `r.ketQuaXuLyKhac` phải là tham chiếu `r.` ĐẦU TIÊN trong hàm dựng: cổng
+            `cotDanhSachPhaiTroDungCotForm` suy "cột này đọc gì" từ đó, và đã đỏ một lần vì
+            `r.id` đứng trước (trong trình xử lý bấm).
           */
-          const chu = r.ketQuaXuLyKhac ?? '—';
-          /*
-            Không có quyền sửa thì hiện chữ trơn, không hiện thứ bấm được.
-
-            Máy chủ vẫn chặn 403 như cũ — nhưng mời một người chỉ-xem mở popup, gõ xong rồi mới
-            báo "không có quyền" là làm mất công người ta và làm họ tưởng hệ hỏng. Cùng luật với
-            `chiXem` trên form.
-          */
-          if (!canEdit('petitions')) return <span>{chu}</span>;
-          return (
-          <button
-            type="button"
-            onClick={(e) => {
-              // Bảng có hành vi bấm-dòng-để-mở-hồ-sơ; không chặn nổi bọt thì bấm để sửa ô lại
-              // nhảy sang màn sửa và popup không bao giờ hiện.
-              e.stopPropagation();
+          <OSuaNhanh
+            giaTri={r.ketQuaXuLyKhac}
+            nhanThem="Nhập kết quả"
+            moTa={`kết quả xử lý đơn ${r.stt}`}
+            chiXem={!canEdit('petitions')}
+            onSua={() =>
               setPopupKetQua({
                 id: r.id,
                 stt: r.stt,
                 giaTri: r.ketQuaXuLyKhac ?? '',
                 updatedAt: r.updatedAt,
-              });
-            }}
-            className="w-full text-left hover:underline decoration-dotted underline-offset-2"
-            title="Bấm để nhập nhanh kết quả xử lý và tệp nhận từ đơn vị"
-            data-testid={`o-ket-qua-${r.id}`}
-          >
-            {chu}
-          </button>
-          );
-        },
+              })
+            }
+            testId={`o-ket-qua-${r.id}`}
+          />
+        ),
       },
 
       {
@@ -1033,7 +1016,17 @@ export function PetitionListPageShell() {
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
-            <>
+            <div className="flex flex-col items-end gap-1">
+            {/*
+              Số dòng nói MỘT lần cho cả hai nút. Hai nút khác nhau ở PHẠM VI CỘT, không ở số
+              dòng — nhét "202 dòng" vào tên một nút là nói sai thứ cần nói (anh báo 23/09).
+            */}
+            {tableState !== 'loading' && totalCount !== null && (
+              <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+              </span>
+            )}
+            <div className="flex items-start gap-2">
             {/* Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện. */}
             <NutXuatTheoBoLoc
               duongDan="/petitions/export/danh-sach"
@@ -1048,6 +1041,7 @@ export function PetitionListPageShell() {
               hasUnappliedChanges={listFilters.hasUnappliedChanges}
               onApply={listFilters.apply}
               tenDuPhong="danh-sach-don-thu.xlsx"
+              nhanRieng="Xuất Excel (đang xem)"
             />
               {/*
                 Nút thứ hai — anh chốt 22/09/2026 THÊM chứ không thay: nút cũ xuất đúng bộ cột
@@ -1072,11 +1066,12 @@ export function PetitionListPageShell() {
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
                 tenDuPhong="don-thu-day-du.xlsx"
-                nhanRieng="Xuất đầy đủ"
+                nhanRieng="Xuất Excel (mọi trường)"
                 testId="btn-xuat-day-du"
                 goiY="Xuất MỌI trường đang đăng ký trên màn tạo/sửa đơn thư (127 trường). Tệp chứa số định danh và số điện thoại — cần quyền riêng."
               />
-            </>
+            </div>
+            </div>
           }
           dynamicOptions={{
             enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
