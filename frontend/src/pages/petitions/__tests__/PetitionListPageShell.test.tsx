@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { authStore } from '@/stores/auth.store';
 import { PetitionListPageShell } from '../PetitionListPageShell';
 import { PetitionStatus } from '@/shared/enums/generated';
 // Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
@@ -881,5 +882,70 @@ describe('PetitionListPageShell — ô tìm kiếm dạng thẻ', () => {
     expect(
       screen.queryByRole('combobox', { name: 'Tìm kiếm trong danh sách' }),
     ).not.toBeInTheDocument();
+  });
+});
+/**
+ * Anh hỏi 23/09/2026: "đã có kết quả xử lý rồi sửa nhanh bên ngoài danh sách cũng được luôn
+ * phải không?"
+ *
+ * Được — nhưng khi ấy KHÔNG cổng nào chứng minh. Mệnh đề này là chỗ duy nhất đo trọn đường:
+ * bảng có chữ → bấm icon → popup nhận ĐÚNG chữ ấy. Truyền chuỗi rỗng vào popup là cán bộ mở
+ * ra thấy ô trắng, gõ lại từ đầu, và bấm Lưu là XOÁ MẤT kết quả cũ — hỏng im lặng, không lỗi
+ * nào hiện ra.
+ */
+describe('PetitionListPageShell — sửa nhanh ô ĐÃ CÓ kết quả xử lý', () => {
+  const KET_QUA = 'Đã chuyển Công an phường Bến Nghé xử lý theo thẩm quyền';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    /*
+      PHẢI đặt hồ sơ người dùng: `usePermission.canEdit` trả `false` khi chưa có user
+      (`usePermission.ts:34`), nên ô rơi về nhánh `chiXem` và KHÔNG dựng nút nào.
+
+      Bản đầu của ca kiểm này quên, và mệnh đề "bấm chữ không mở popup" vẫn XANH — vì không có
+      nút nào để mà phân biệt. Đúng lớp cổng xanh rỗng.
+    */
+    authStore.setProfile({
+      id: 'u1',
+      email: 'a@b.c',
+      username: 'a',
+      firstName: 'A',
+      lastName: 'B',
+      role: 'ADMIN',
+    } as never);
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions')
+        return Promise.resolve({
+          data: { data: [{ ...sampleRow, ketQuaXuLyKhac: KET_QUA }], total: 1 },
+        });
+      if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
+      if (typeof url === 'string' && url.startsWith('/documents'))
+        return Promise.resolve({ data: { data: [] } });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  it('ô có chữ: bấm icon → popup mở ra với ĐÚNG chữ đang có, không phải ô trắng', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText(KET_QUA)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('o-ket-qua-petition-1'));
+
+    const o = await screen.findByTestId('o-ket-qua-xu-ly');
+    expect(
+      (o as HTMLTextAreaElement).value,
+      'popup mở ra ô trắng thì cán bộ gõ lại rồi Lưu là XOÁ MẤT kết quả cũ',
+    ).toBe(KET_QUA);
+  });
+
+  it('ô có chữ: bấm vào CHỮ thì mở hồ sơ, không mở popup', async () => {
+    renderWithRouter();
+    await waitFor(() => expect(screen.getByText(KET_QUA)).toBeInTheDocument());
+    // Chứng minh phép đo có chạm được thứ thật: nút PHẢI tồn tại thì "bấm chữ không mở popup"
+    // mới nói lên điều gì.
+    expect(screen.getByTestId('o-ket-qua-petition-1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(KET_QUA));
+    expect(screen.queryByTestId('modal-ket-qua-xu-ly')).not.toBeInTheDocument();
   });
 });
