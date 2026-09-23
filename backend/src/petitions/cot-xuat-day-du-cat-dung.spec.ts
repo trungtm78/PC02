@@ -5,6 +5,7 @@ import {
 import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
 import { COT_XUAT_DAY_DU_LOAI_TRU } from './cot-xuat-day-du.loai-tru';
 import { khoaCatNhamCoDuLieu } from './cli/kiem-cot-xuat-day-du';
+import { docTruong } from './xuat-day-du-don-thu';
 
 /**
  * CỔNG: tệp "Xuất Excel (mọi trường)" không được mang cột rỗng.
@@ -38,14 +39,44 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
     expect(con.map((c) => c.key)).toEqual([]);
   });
 
-  /** Cắt xong phải còn lại một tệp có ích, không phải cắt trụi. */
-  it('vẫn giữ trọn cột có chỗ lưu thật', () => {
-    const conLai = KHAI_COT_XUAT_DON_THU_DAY_DU.length;
-    const cotRieng = TRUONG_FORM_DON_THU.filter((t) => t.cot).length;
-    expect(conLai).toBe(cotRieng + 3); // +3 cột định danh (stt, sttCu, status)
-    expect(cotRieng).toBeGreaterThan(35);
+  /**
+   * Cắt xong phải còn lại một tệp có ích — nhưng KHÔNG khoá bằng một con số tổng.
+   *
+   * Bản đầu viết `expect(conLai).toBe(cotRieng + 3)`, tức đòi MỌI ô metadata phải còn bị cắt.
+   * Thế là chặn đúng việc mà cổng chống mục sinh ra để làm: khi CLI báo một ô đã có dữ liệu,
+   * cách xử lý là XOÁ nó khỏi danh sách loại trừ — và cổng sẽ đỏ với "expected 45, received 46".
+   * Cổng khoá cứng một con số thì mọi lần sửa đúng đều là đỏ.
+   */
+  it('giữ TRỌN cột có chỗ lưu riêng — không cắt nhầm cột nào', () => {
+    const cotRieng = TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string);
+    expect(cotRieng.length).toBeGreaterThan(35);
+    const thieu = cotRieng.filter(
+      (c) => !KHAI_COT_XUAT_DON_THU_DAY_DU.some((k) => k.key === c),
+    );
+    expect(thieu).toEqual([]);
     for (const k of ['senderName', 'detailContent', 'ketQuaXuLyKhac', 'loaiThongTin'])
       expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(true);
+  });
+
+  /** Và ô metadata KHÔNG nằm trong danh sách cắt thì PHẢI có trong tệp — đường đưa cột trở lại. */
+  it('ô metadata chưa bị cắt thì vẫn vào tệp', () => {
+    const daCat = new Set(COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu));
+    const conMeta = TRUONG_FORM_DON_THU.filter((t) => !t.cot && !daCat.has(t.khoaLuu));
+    for (const t of conMeta)
+      expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === `meta.${t.khoaLuu}`)).toBe(true);
+  });
+
+  /**
+   * Bộ đọc `metadata` phải là bộ đọc THẬT của tệp xuất, không phải bản chép trong ca kiểm.
+   * Lượt soát mô hình ngoài 23/09 tắt bộ đọc thật mà cả 25 mệnh đề vẫn xanh — vì ca kiểm đang
+   * đo chính bản chép của nó.
+   */
+  it('bộ đọc metadata THẬT đọc đúng khoá lưu', () => {
+    const doc = docTruong('soDangKyHoSo', null);
+    expect(doc({ metadata: { soDangKyHoSo: 'HS-1' } } as never)).toBe('HS-1');
+    expect(doc({ metadata: null } as never)).toBe('');
+    // Mảng rỗng ra CHUỖI RỖNG — phép đo của CLI phải cùng nghĩa này.
+    expect(doc({ metadata: { soDangKyHoSo: [] } } as never)).toBe('');
   });
 
   /** Sáu ô trong nhóm gập CÓ dữ liệu thật (3.335 hồ sơ có CCCĐ) — gập không phải lý do để cắt. */

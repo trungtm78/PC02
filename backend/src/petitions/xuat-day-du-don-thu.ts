@@ -68,7 +68,10 @@ const LA_NGAY = (cot: string): boolean =>
  * GIÁ TRỊ cần: trường nào có dữ liệu trong kho mà ra ô trống là đỏ. Đếm tiêu đề cột thì không
  * chứng minh được gì (đã vấp lớp cổng rỗng ấy nhiều lần).
  */
-function docTruong(khoaLuu: string, cot: string | null): (d: DongXuatDayDu) => string {
+export function docTruong(
+  khoaLuu: string,
+  cot: string | null,
+): (d: DongXuatDayDu) => string {
   // Ngày viết đơn: ba cột + bản thô hệ cũ, đã có bộ đọc chung.
   if (cot === 'petitionDate') return (d) => ngayVietDonHienThi(d as never) ?? '';
   if (cot === null) {

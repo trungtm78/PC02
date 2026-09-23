@@ -97,6 +97,29 @@ describe('OSuaNhanh — ô sửa nhanh trong bảng', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
+  /**
+   * Nút đúng bằng icon 14px thì bấm trượt KHÔNG phải là không có gì xảy ra: cú bấm rơi xuống
+   * `<tr onClick>` và nhảy sang màn sửa. Chú thích của chính component viện chuẩn vùng chạm
+   * WCAG 2.5.8 làm lý do cho "luôn hiện" — nút phải theo đúng chuẩn ấy.
+   */
+  it('nút có VÙNG CHẠM, không chỉ bằng cỡ icon', () => {
+    trongDong({ ...CHUNG, giaTri: 'Đã chuyển Công an phường', onSua: vi.fn() });
+    const l = screen.getByTestId('o-ket-qua-p1').className;
+    expect(l).toContain('min-w-6');
+    expect(l).toContain('min-h-6');
+  });
+
+  /**
+   * Chữ dài không ngắt được (mã hồ sơ, đường dẫn) có bề rộng tối thiểu tự nhiên lớn hơn cột
+   * 10rem; thiếu `min-w-0` thì nó đẩy nút ra ngoài và `overflow-hidden` của ô cắt mất chỗ bấm.
+   */
+  it('chữ dài KHÔNG đẩy nút ra khỏi cột', () => {
+    trongDong({ ...CHUNG, giaTri: 'A'.repeat(200), onSua: vi.fn() });
+    const nut = screen.getByTestId('o-ket-qua-p1');
+    expect(nut.className).toContain('flex-shrink-0');
+    expect(nut.previousElementSibling?.className).toContain('min-w-0');
+  });
+
   /** Cột có 50 nút giống hệt nhau; "Sửa" không nói được nút nào của hồ sơ nào. */
   it('nút có aria-label phân biệt được hồ sơ', () => {
     trongDong({ ...CHUNG, giaTri: null, onSua: vi.fn() });

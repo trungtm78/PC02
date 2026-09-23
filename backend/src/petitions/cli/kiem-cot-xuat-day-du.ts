@@ -28,11 +28,21 @@ export async function doKhoaMetadata(
   khoa: readonly string[],
 ): Promise<SoDoKhoa[]> {
   if (!khoa.length) return [];
+  /*
+    "Có dữ liệu" phải ĐÚNG BẰNG nghĩa của bộ đọc trong tệp xuất.
+
+    Toán tử #>> trên một mảng JSON cho ra chuỗi "[]" — khác rỗng. Nhưng bộ đọc (docTruong) trả
+    v.join(", "), tức CHUỖI RỖNG cho mảng rỗng. Lệch nhau thì một ô chọn-nhiều đã bị xoá trắng
+    vẫn làm phép đo báo "có dữ liệu", và cột ấy không bao giờ cắt được dù tệp xuất luôn in ô
+    trống. Hai nhánh loại trừ dưới đây kéo phép đo về đúng nghĩa ấy.
+  */
   const dong = await prisma.$queryRawUnsafe<{ key: string; n: bigint }[]>(
     `SELECT t.key AS key, count(*) AS n
        FROM petitions p, jsonb_each(p.metadata) t(key, value)
       WHERE p."deletedAt" IS NULL
         AND jsonb_typeof(p.metadata) = 'object'
+        AND NOT (jsonb_typeof(t.value) = 'array' AND jsonb_array_length(t.value) = 0)
+        AND jsonb_typeof(t.value) <> 'null'
         AND btrim(coalesce(t.value #>> '{}', '')) <> ''
         AND t.key = ANY($1::text[])
       GROUP BY t.key`,

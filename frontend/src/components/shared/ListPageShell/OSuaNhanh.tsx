@@ -70,7 +70,17 @@ export function OSuaNhanh({
       }}
       onKeyDown={chanLan}
       // Cùng bộ lớp nút của `SummaryCell.tsx:85-96` — một cách vẽ nút-trong-ô cho cả bảng.
-      className={`inline-flex items-center gap-1 rounded text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none ${A11Y_FOCUS_RING}`}
+      /*
+        `p-1` + `min-w-6 min-h-6` là VÙNG CHẠM, không phải trang trí.
+
+        Bản đầu để nút đúng bằng icon 14×14px — trong khi chú thích ngay trên lại viện chuẩn
+        vùng chạm WCAG 2.5.8 làm lý do cho "luôn hiện". Bấm trượt một nút 14px không phải là
+        không có gì xảy ra: nó rơi xuống `<tr onClick>` và NHẢY SANG MÀN SỬA.
+
+        `flex-shrink-0` để chữ dài không đẩy nút ra khỏi cột 10rem rồi bị `overflow-hidden` của
+        ô cắt mất — mất luôn chỗ bấm.
+      */
+      className={`inline-flex flex-shrink-0 items-center justify-center gap-1 min-w-6 min-h-6 p-1 -m-1 rounded text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none ${A11Y_FOCUS_RING}`}
       aria-label={chu ? `Sửa nhanh ${moTa}` : `${nhanThem} — ${moTa}`}
       title={chu ? `Sửa nhanh ${moTa}` : `${nhanThem} — ${moTa}`}
       data-testid={testId}
@@ -86,8 +96,10 @@ export function OSuaNhanh({
   if (!chu) return nut;
 
   return (
-    <span className="inline-flex items-start gap-1.5">
-      <span className="whitespace-pre-wrap break-words">{chu}</span>
+    // `min-w-0` trên ô chữ: chữ dài không ngắt được (mã hồ sơ, đường dẫn) có bề rộng tối
+    // thiểu TỰ NHIÊN lớn hơn cột, và `break-words` một mình không hạ nó xuống.
+    <span className="flex w-full items-start gap-1.5">
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{chu}</span>
       {nut}
     </span>
   );
