@@ -69,16 +69,28 @@ Kết quả xử lý · mặc định Không · bỏ ô Đồ vật · ô Tên g
 
 ## Đang làm dở
 Task: **§9 — UAT phủ 100%**
-BƯỚC TIẾP THEO: ma trận đợt 22–23/09 đã dựng bằng `/uat-test-writer` tại
-`docs/uat/dot-2309/` (140 ca, TC_min=140 do máy tính). Còn lại là CHẠY, rồi
-`/uat-test-writer` → `/uat-test-runner` từng dòng.
+BƯỚC TIẾP THEO: **chạy** bộ ca. Phần viết đã xong và đã qua cổng.
 
-**HAI VIỆC CHẶN, cần anh:**
-1. **Tài khoản thử trên prod.** 5 TK cũ khoá từ 20/09 (mật khẩu lộ repo công khai). Không có
-   TK thì §9 chỉ viết được ca kiểm, KHÔNG chạy được — và mọi khẳng định về 5 PR này đều từ ca
-   kiểm + phép đo trên bản sao, CHƯA từ việc bấm thật.
-2. **Codex hết hạn mức** tới 00:00 ngày 23/09. Lượt soát chéo #469/#470/#471 mới chạy một phần.
-   Sau 00:00 chạy lại `codex exec` trên diff của ba PR ấy.
+`docs/uat/dot-2309/` — 140 ca, `TC_min=140` do `coverage_calc.py` tính
+(`M1=140 · M2=120 đo bằng lizard · M3=33 · M4=CRITICAL 120`). Trước đó em viết tay 46 dòng
+ở gốc kho: sai chỗ (không cổng máy nào chạm tới) và số 46 là tự đặt, thiếu 94 ca.
+PR #483 + #484 trên `main`.
+
+Ba mục `self_audit` đánh dấu CẦN NGƯỜI — **đã đóng hai**:
+- Soát đối kháng: Codex bắt **7 lỗi thật** trong chính bộ vừa sinh, đã sửa (136 → 140 ca).
+- Gieo lỗi: `_fault-seeding.md`, 47 luật, 0 luật không ca nào bắt. Bảng ấy đo ngược lại được
+  lượt soát Codex: **4 lớp lỗi** mà bản 136 ca không cổng nào đỏ (`R6-KEEP` gửi rỗng đè dữ
+  liệu · `R5-SEED` seed rỗng 0=0 · `R3-DATA` 200 kèm mảng rỗng · `X6` nút "đang xem" rò tổ khác).
+- **Còn trống**: đánh giá trải nghiệm bằng người đóng vai thật — cần tài khoản prod.
+
+**HAI VIỆC CHẶN, cần anh** (không có thì 138/140 ca đứng yên):
+1. **Một tài khoản thử trên prod.** 5 TK cũ khoá từ 20/09 (mật khẩu lộ repo công khai).
+   Không có TK thì §9 chỉ viết được ca kiểm, KHÔNG chạy được — mọi khẳng định đều từ ca kiểm
+   và phép đo, CHƯA từ việc bấm thật.
+2. **Một tài khoản OFFICER thuộc TỔ KHÁC.** Bốn ca phạm vi dữ liệu (`COV-R7-SCOPE-2`,
+   `COV-X6-1/2/3`) không có TK thứ hai thì chỉ chứng minh được là mình thấy hồ sơ của mình.
+
+Em KHÔNG tự tạo/mở khoá tài khoản trên production (§8c).
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |
