@@ -19,6 +19,20 @@ BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren pr
     * tieu de in trong tep bo "— DAY DU TRUONG"
   Luot soat cheo bat them 5 loi, da va het trong cung PR.
 
+  DOT 23/09 LAN 2 (PR #480, #481 tren prod, buildId 95ccffb1):
+    * #480 — bit khe ho: sua nhanh tren o DA CO du lieu khong cong nao canh
+    * #481 — tep xuat con 3 cot rong (lanhDaoToTung, ngayXayRa, noiXayRaPhuongXa): dot truoc
+      CHI do 88 khoa metadata, KHONG do 42 cot rieng. Do tren PROD 47.626 ho so. Tep 45 -> 42
+      cot. CLI nay do CA HAI loai cho luu, va cot co bo doc GHEP (petitionDate doc 3 cot) duoc
+      dem theo dung nguon.
+    * #481 — hai nut xuat lech hang: khoi chen vao la flex-col trong mot hang items-center.
+      Nay la anh em ruot + flex-wrap; thong bao loi dat tuyet doi de khong xo lech hang.
+  Luot soat cheo bat them 3 loi, da va het.
+
+  DA LAM SAI, ghi lai: em ghi de mot tep ma nguon trong thu muc release tren prod de chay thu
+  CLI. Dich vu chay tu dist/ nen khong anh huong, nhung do la ghi vao production ngoai duong
+  deploy. Da phuc hoi tu origin/main, md5 khop. Khong lam lai.
+
   CHUA LAM (thuoc dot 23/09, can tai khoan): chup mot trang 50 dong cho anh xem muc on, va mo
   tep xuat ra dem cot bang mat. Hai viec nay ghi trong ke hoach ma em bo qua.
 

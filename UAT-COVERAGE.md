@@ -69,8 +69,12 @@ thật rồi chết bằng danh sách rỗng hoặc bằng 403.
 | **G. Nút "Xuất đầy đủ"** |
 | G1 | Khung bộ lọc: **một dòng "N dòng khớp bộ lọc"** phía trên, hai nút `Xuất Excel (đang xem)` / `Xuất Excel (mọi trường)` | ☐ | ☐ | đổi tên 23/09 (#478) |
 | G1b | Tiêu đề in trong CẢ HAI tệp là `DANH SÁCH ĐƠN THƯ`, không có "ĐẦY ĐỦ TRƯỜNG" | ☐ | ☐ | sửa 23/09 |
+| G1c | **Bốn nút cùng một đường căn** (Xóa lọc · hai nút xuất · Áp dụng), dòng "N dòng khớp bộ lọc" ở trên | ☐ | ☐ | sửa lệch 23/09 lần 2 |
+| G1d | Màn HẸP: hàng nút xuống dòng, không tràn khỏi khung | ☐ | ☐ | `flex-wrap` |
+| G1e | Nút "mọi trường" trả **403** với tài khoản thiếu quyền → hàng nút **không xô lệch** | ☐ | ☐ | thông báo lỗi đặt tuyệt đối |
 | G2 | Bấm "Xuất đầy đủ" → tệp tải về, mở được | ☐ | ☐ | — |
-| G3 | Tệp có **~45 cột** (không còn 130), tiêu đề đúng nhãn trên form | ☐ | ☐ | cắt 88 cột rỗng 23/09 |
+| G3 | Tệp có **42 cột** (không còn 130/45), tiêu đề đúng nhãn trên form | ☐ | ☐ | cắt 91 cột rỗng — đo trên prod 47.626 hồ sơ |
+| G3c | **Không còn 3 cột** `Lãnh đạo tố tụng` · `Ngày xảy ra` · `Nơi xảy ra (phường/xã)` | ☐ | ☐ | 3 cột riêng rỗng sạch, tìm ra 23/09 lần 2 |
 | G3b | **Không còn cột trắng** kiểu "Chuyển vụ án cho CQĐT khác", "Số bản án của toà án có hiệu lực" | ☐ | ☐ | đúng các cột trong ảnh anh gửi 23/09 |
 | G4 | **Dò tay vài ô `legacyExtra`** (vd "Số hồ sơ lưu") — có chữ, không trống | ☐ | ☐ | — |
 | G5 | Ô "Ngày viết đơn" in đúng chữ nguyên văn của hồ sơ GỘP | ☐ | ☐ | — |
