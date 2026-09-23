@@ -1056,3 +1056,35 @@ liệu ở mọi trường rồi đòi mọi ô ra chữ khác rỗng.
 
 **Chỉ Đơn thư.** Vụ việc và Vụ án dùng chung bố cục hệ cũ nên mở rộng sang được, nhưng anh chỉ
 nêu màn Đơn thư và mỗi màn cần phép đo riêng về dung lượng.
+
+---
+
+## v0.77 — Ô sửa nhanh nhìn thấy được + tên nút xuất (fix/o-sua-nhanh-va-xuat-excel)
+
+Anh báo 23/09/2026. **Không phải năng lực mới** — sửa lại đúng ba thứ v0.75/v0.76 làm sai.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Ô sửa nhanh có icon, luôn hiện | — | — | ✅ | `OSuaNhanh` + `Pencil`; trước đó KHÔNG có icon nào |
+| Ô rỗng mời nhập, không hiện `—` | — | — | ✅ | đo: **76% ô rỗng** — đó là ca dùng chính |
+| Bấm CHỮ vẫn mở hồ sơ | — | — | ✅ | trả lại đúng luật §11.2; v0.75 bọc cả ô trong một nút |
+| Nút có vùng chạm ≥24px | — | — | ✅ | bấm trượt nút 14px là rơi xuống `<tr>` và nhảy màn |
+| Hai nút xuất nói PHẠM VI CỘT | ✅ | ✅ | ✅ | `NutXuatTheoBoLoc` nhận `nhanRieng`; số dòng nói một lần |
+
+**`NutXuatTheoBoLoc` là component dùng chung ba màn**, nên `nhanRieng`/`testId`/`boQuaCot` có
+sẵn cho Vụ án và Vụ việc; hai màn ấy hiện vẫn một nút nên nhãn không đổi.
+
+Cột Thao tác **không đụng tới** (vẫn `12rem`, vẫn đúng bộ nút) — đó là lý do ô sửa nhanh mở từ
+chính Ô chứ không từ một nút thứ sáu (xem #464).
+
+### Tệp xuất "mọi trường" — cắt 88 cột rỗng
+
+Không phải năng lực shell, ghi ở đây vì cùng đợt và cùng chạm khung Bộ lọc của shell.
+
+| | |
+|---|---|
+| trước | 130 cột, **88 rỗng trên cả 46.741 hồ sơ** (68% tệp là cột trắng) |
+| sau | 45 cột, cắt theo **danh sách sinh từ phép đo** |
+| chống mục | CLI `kiem:cot-xuat-day-du` đo lại mỗi lần deploy, đỏ khi cột đã cắt có dữ liệu trở lại |
+
+Tiêu đề in trong tệp của **cả hai** nút nay là `DANH SÁCH ĐƠN THƯ` — một hằng dùng chung.
