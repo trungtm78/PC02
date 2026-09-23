@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "npx playwright test --reporter=list",
+    "test:engine": "npx playwright test --config=playwright.engine.config.ts",
     "guide": "node tools/guide-recorder/run-all.mjs",
     "guide:one": "node tools/guide-recorder/run-all.mjs --only",
     "guide:all": "node tools/guide-recorder/run-all.mjs"

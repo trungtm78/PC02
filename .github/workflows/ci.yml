@@ -59,3 +59,28 @@ jobs:
       - name: TypeScript type check
         # FE tsconfig là solution-file → `tsc --noEmit` là NO-OP (luôn pass). Phải `tsc -b` mới type-check thật.
         run: cd frontend && npx tsc -b
+
+  engine-gate:
+    name: Engine Gate (Chromium + WebKit)
+    runs-on: ubuntu-latest
+
+    # VI SAO CAN JOB RIENG: `<input type="date">` xu ly gia tri KHONG hop le khac nhau giua cac
+    # engine — do 23/09/2026, `value="undefined"` cho "" tren Chromium nhung GIU NGUYEN
+    # "undefined" tren WebKit (engine Safari). Chuoi rac song sot tren may macOS roi di len may
+    # chu luc bam Luu. jsdom hanh xu Y HET Chromium, nen ~3.960 ca vitest deu MU voi lop loi ay.
+    # Day la job DUY NHAT trong kho cham duoc toi hanh vi do.
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install Playwright + browsers
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run engine gate
+        run: npx playwright test --config=playwright.engine.config.ts
