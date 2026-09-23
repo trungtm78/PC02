@@ -234,4 +234,9 @@ Em KHÔNG ghi PASS cho ca chưa chạy, và KHÔNG suy PASS từ ca kiểm đơn
 
 ## Trần kết luận hiện tại
 
-`self_audit.py` → **SẴN SÀNG-KÈM-KHUYẾT**. Soát đối kháng đã chạy (Codex, 7 phát hiện, đã sửa). Còn trống hai phép đo máy không làm được: **gieo lỗi** và **đánh giá trải nghiệm bằng người đóng vai thật**.
+`self_audit.py` → **SẴN SÀNG-KÈM-KHUYẾT**. Hai trong ba mục CẦN NGƯỜI đã làm:
+
+- **Soát đối kháng** — Codex, 7 phát hiện, đã sửa trọn (136 → 140 ca).
+- **Gieo lỗi** — [`_fault-seeding.md`](_fault-seeding.md), 47 luật mỗi luật một lỗi giả định, 0 luật không ca nào bắt. Bảng ấy cũng chỉ ra 4 chỗ mà bản TRƯỚC lượt soát Codex gieo lỗi vào là không ca nào đỏ.
+
+Còn trống một mục: **đánh giá trải nghiệm bằng người đóng vai thật** — cần tài khoản prod.

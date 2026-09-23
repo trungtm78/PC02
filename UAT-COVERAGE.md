@@ -34,9 +34,9 @@ cả hai đều là lỗi quy trình chứ không phải lỗi nội dung:
 | Đã chạy | **2/140** — mốc bản dựng, đo 23/09 04:38, `buildId 290f65d17c` khớp `origin/main` |
 | Chưa chạy | **138/140** — chặn ở tài khoản thử prod |
 
-Soát đối kháng **đã chạy** — Codex bắt 7 lỗi thật, đã sửa trọn (bộ ca 136 → 140). Còn trống
-hai phép đo máy không làm được, và **không ai được tự tích thay**: gieo lỗi, đánh giá trải
-nghiệm bằng người đóng vai thật.
+Hai trong ba mục máy không đo được **đã làm**: soát đối kháng (Codex, 7 lỗi thật, đã sửa,
+bộ ca 136 → 140) và gieo lỗi (`_fault-seeding.md`, 47 luật, 0 luật không ca nào bắt).
+Còn trống **đánh giá trải nghiệm bằng người đóng vai thật** — cần tài khoản prod.
 
 ## Chặn ở anh
 
