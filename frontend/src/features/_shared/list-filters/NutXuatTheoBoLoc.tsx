@@ -95,9 +95,20 @@ export function NutXuatTheoBoLoc({
 
   // `tong` là số dòng của bộ lọc ĐANG áp dụng — còn thay đổi chưa áp dụng thì chưa biết số dòng sẽ xuất,
   // và bộ lọc cũ ra 0 dòng không có nghĩa bộ lọc mới cũng thế.
+  /*
+    Nhãn nói PHẠM VI CỘT, không nói số dòng.
+
+    Anh báo 23/09/2026: hai nút "rất khó hiểu". Đúng — chúng khác nhau ở SỐ CỘT, mà nhãn lại
+    nói SỐ DÒNG, thứ cả hai giống hệt nhau. Số dòng nay hiện MỘT lần ở dòng chữ phía trên cả
+    hai nút (xem `SoDongKhopBoLoc`).
+
+    Hạ chữ cái ĐẦU thôi khi ghép "Áp dụng & …": `toLowerCase()` cả chuỗi biến "Excel" thành
+    "excel".
+  */
+  const haChuDau = (v: string) => v.charAt(0).toLowerCase() + v.slice(1);
   const nhan = nhanRieng
     ? hasUnappliedChanges
-      ? `Áp dụng & ${nhanRieng.toLowerCase()}`
+      ? `Áp dụng & ${haChuDau(nhanRieng)}`
       : nhanRieng
     : hasUnappliedChanges
       ? 'Áp dụng & xuất Excel'

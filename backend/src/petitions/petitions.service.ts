@@ -137,6 +137,14 @@ const THAM_SO_CU_DON_THU = {
  * Nút nằm trong bảng bộ lọc, nên ca dùng thật là MỘT KỲ báo cáo (~1–2 nghìn dòng). Vượt trần
  * thì báo rõ "thu hẹp bộ lọc rồi xuất lại", đúng cách trần chung đang làm.
  */
+/**
+ * Tên văn bản in trên MỌI tệp Excel xuất từ màn Đơn thư.
+ *
+ * Một hằng cho cả hai đường xuất: hai chuỗi chép tay là hai chỗ để lệch nhau, và lệch ở đây là
+ * hai văn bản cùng nội dung mang hai cái tên khác nhau khi gửi trong ngành.
+ */
+export const TIEU_DE_XUAT_DON_THU = 'DANH SÁCH ĐƠN THƯ';
+
 export const TRAN_XUAT_DAY_DU = 5_000;
 
 export const GOI_Y_TEN_TOI_DA = 10;
@@ -2062,7 +2070,7 @@ export class PetitionsService {
       res,
       tenTep: `danh-sach-don-thu-${new Date().toISOString().slice(0, 10)}.xlsx`,
       tenSheet: 'Đơn thư',
-      tieuDe: 'DANH SÁCH ĐƠN THƯ',
+      tieuDe: TIEU_DE_XUAT_DON_THU,
       phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
       cot,
       demTong: () => this.prisma.petition.count({ where }),
@@ -2176,7 +2184,16 @@ export class PetitionsService {
       res,
       tenTep: `don-thu-day-du-${new Date().toISOString().slice(0, 10)}.xlsx`,
       tenSheet: 'Đơn thư (đầy đủ)',
-      tieuDe: 'DANH SÁCH ĐƠN THƯ — ĐẦY ĐỦ TRƯỜNG',
+      /*
+        CÙNG tên văn bản với nút xuất thường — anh yêu cầu 23/09/2026.
+
+        "Đầy đủ trường" là chuyện kỹ thuật của bảng cột, không phải tên văn bản. Tệp này in ra
+        dưới quốc hiệu "CÔNG AN THÀNH PHỐ HỒ CHÍ MINH / PHÒNG CẢNH SÁT HÌNH SỰ - PC02" và gửi
+        trong ngành; tên nó phải là tên nghiệp vụ. Hai lần xuất phân biệt nhau bằng TÊN TỆP
+        (`danh-sach-don-thu-…` / `don-thu-day-du-…`), không phải bằng chữ kỹ thuật trên đầu
+        văn bản.
+      */
+      tieuDe: TIEU_DE_XUAT_DON_THU,
       phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
       cot: KHAI_COT_XUAT_DON_THU_DAY_DU,
       tran: TRAN_XUAT_DAY_DU,

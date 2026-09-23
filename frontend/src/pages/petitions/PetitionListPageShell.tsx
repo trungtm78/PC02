@@ -1016,7 +1016,17 @@ export function PetitionListPageShell() {
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
-            <>
+            <div className="flex flex-col items-end gap-1">
+            {/*
+              Số dòng nói MỘT lần cho cả hai nút. Hai nút khác nhau ở PHẠM VI CỘT, không ở số
+              dòng — nhét "202 dòng" vào tên một nút là nói sai thứ cần nói (anh báo 23/09).
+            */}
+            {tableState !== 'loading' && totalCount !== null && (
+              <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+              </span>
+            )}
+            <div className="flex items-start gap-2">
             {/* Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện. */}
             <NutXuatTheoBoLoc
               duongDan="/petitions/export/danh-sach"
@@ -1031,6 +1041,7 @@ export function PetitionListPageShell() {
               hasUnappliedChanges={listFilters.hasUnappliedChanges}
               onApply={listFilters.apply}
               tenDuPhong="danh-sach-don-thu.xlsx"
+              nhanRieng="Xuất Excel (đang xem)"
             />
               {/*
                 Nút thứ hai — anh chốt 22/09/2026 THÊM chứ không thay: nút cũ xuất đúng bộ cột
@@ -1055,11 +1066,12 @@ export function PetitionListPageShell() {
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
                 tenDuPhong="don-thu-day-du.xlsx"
-                nhanRieng="Xuất đầy đủ"
+                nhanRieng="Xuất Excel (mọi trường)"
                 testId="btn-xuat-day-du"
                 goiY="Xuất MỌI trường đang đăng ký trên màn tạo/sửa đơn thư (127 trường). Tệp chứa số định danh và số điện thoại — cần quyền riêng."
               />
-            </>
+            </div>
+            </div>
           }
           dynamicOptions={{
             enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],

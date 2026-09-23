@@ -43,10 +43,23 @@ describe('Nút "Xuất đầy đủ"', () => {
     expect(screen.queryByTestId('btn-xuat-excel-theo-bo-loc')).not.toBeInTheDocument();
   });
 
-  it('nhãn riêng, KHÔNG hiện "Xuất 1.200 dòng Excel" của nút thường', () => {
-    dung();
-    expect(screen.getByTestId('btn-xuat-day-du')).toHaveTextContent('Xuất đầy đủ');
-    expect(screen.getByTestId('btn-xuat-day-du')).not.toHaveTextContent('1.200');
+  /**
+   * Anh báo 23/09/2026: hai nút "rất khó hiểu". Chúng khác nhau ở SỐ CỘT, mà nhãn lại nói SỐ
+   * DÒNG — thứ cả hai giống hệt nhau. Số dòng nay hiện MỘT lần phía trên cả hai nút.
+   */
+  it('nhãn nói PHẠM VI CỘT, không nói số dòng', () => {
+    dung({ nhanRieng: 'Xuất Excel (mọi trường)' });
+    const nut = screen.getByTestId('btn-xuat-day-du');
+    expect(nut).toHaveTextContent('Xuất Excel (mọi trường)');
+    expect(nut, 'số dòng nằm trong tên nút là nói sai thứ hai nút khác nhau').not.toHaveTextContent('1.200');
+  });
+
+  /** `toLowerCase()` cả chuỗi biến "Excel" thành "excel". Chỉ hạ chữ cái ĐẦU. */
+  it('nhánh "chưa áp dụng" giữ nguyên chữ hoa "Excel"', () => {
+    dung({ nhanRieng: 'Xuất Excel (mọi trường)', hasUnappliedChanges: true });
+    expect(screen.getByTestId('btn-xuat-day-du')).toHaveTextContent(
+      'Áp dụng & xuất Excel (mọi trường)',
+    );
   });
 
   /**
