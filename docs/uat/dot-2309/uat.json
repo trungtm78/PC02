@@ -77,7 +77,7 @@
     },
     {
       "tc_id": "TC-004",
-      "title": "Gập KHÔNG phải lý do loại cột",
+      "title": "Cột thuộc nhóm gập mà CÓ dữ liệu thì thật sự xuất hiện trong tệp",
       "type": "RED",
       "platform": "api",
       "persona": "P-QUAN-TRI",
@@ -87,7 +87,7 @@
       "oracle_type": "Claim",
       "rule_ref": "R1-HIDDEN",
       "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R1-HIDDEN",
-      "catches_bug": "cắt cột theo bố cục thay vì theo dữ liệu",
+      "catches_bug": "kiểm nhãn lý do loại trừ là cổng rỗng: bộ xuất vẫn có thể bỏ sạch cột gập miễn bảng lý do ghi chữ 'rỗng'",
       "coverage_ids": [
         "COV-R1-HIDDEN-2"
       ],
@@ -96,8 +96,8 @@
         "trace",
         "screenshot-final"
       ],
-      "steps": "Chạy cổng bộ cột; kiểm mọi dòng loại trừ đều mang lý do 'rỗng', không dòng nào mang lý do 'gập'",
-      "expected": "Không dòng loại trừ nào lấy lý do là ô thuộc nhóm gập"
+      "steps": "Liệt kê mọi ô thuộc nhóm gập đang có dữ liệu trên prod; dựng dòng xuất cho một hồ sơ mang đủ các ô ấy; đối chiếu từng cột trong tệp kết quả",
+      "expected": "Mỗi ô gập có dữ liệu đều có cột tương ứng trong tệp VÀ mang đúng giá trị"
     },
     {
       "tc_id": "TC-005",
@@ -341,7 +341,7 @@
     },
     {
       "tc_id": "TC-015",
-      "title": "Mọi cột trong tệp mang giá trị, không phải ô trống",
+      "title": "Từng ô trong tệp khớp dữ liệu nguồn, đối chiếu theo hồ sơ",
       "type": "GREEN",
       "platform": "web",
       "persona": "P-QUAN-TRI",
@@ -351,7 +351,7 @@
       "oracle_type": "Claim",
       "rule_ref": "R1-VALUE",
       "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R1-VALUE",
-      "catches_bug": "lỗi #475: 44 trường xuất ra ô trống vì đọc sai khoá lưu",
+      "catches_bug": "'mỗi cột có ít nhất một ô khác rỗng' vẫn xanh khi giá trị lệch hàng hoặc lệch cột; lỗi #475 là 44 trường ra ô trống, nhưng lớp lỗi anh em của nó là ra GIÁ TRỊ CỦA HỒ SƠ KHÁC",
       "coverage_ids": [
         "COV-R1-VALUE-1"
       ],
@@ -360,11 +360,35 @@
         "trace",
         "screenshot-final"
       ],
-      "steps": "Xuất tệp mọi trường cho 50 hồ sơ có dữ liệu phong phú; với mỗi cột, đếm ô có giá trị",
-      "expected": "Mỗi cột có ít nhất một ô mang giá trị trong tập 50 hồ sơ"
+      "steps": "Chọn 50 hồ sơ có dữ liệu phong phú; đọc giá trị gốc của chúng bằng đường độc lập (truy vấn thẳng CSDL, không qua đường xuất); xuất tệp; so TỪNG ô với giá trị gốc. Tập 50 phải gồm cả hồ sơ có và không có ketQuaXuLyKhac (prod: 24% có)",
+      "expected": "Mọi ô khớp giá trị gốc, kể cả ô rỗng phải rỗng đúng chỗ"
     },
     {
       "tc_id": "TC-016",
+      "title": "Tập 42 cột khớp ĐÚNG bộ cột chuẩn, không chỉ đúng số lượng",
+      "type": "BOUNDARY",
+      "platform": "web",
+      "persona": "P-QUAN-TRI",
+      "journey_ref": "J-DON-THU-XUAT",
+      "priority": "P0",
+      "severity_if_fail": "S2",
+      "oracle_type": "Claim",
+      "rule_ref": "R1-VALUE",
+      "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R1-VALUE",
+      "catches_bug": "đếm được 42 nhưng cắt nhầm một cột rồi thêm nhầm một cột khác thì phép đếm vẫn xanh",
+      "coverage_ids": [
+        "COV-R1-VALUE-4"
+      ],
+      "backend_policy": "live",
+      "evidence_required": [
+        "trace",
+        "screenshot-final"
+      ],
+      "steps": "Xuất tệp; lấy danh sách tên cột theo thứ tự; so bằng phép so TẬP với bộ 42 cột chuẩn đã chốt trong bảng khai",
+      "expected": "Hai tập trùng khít: 0 cột thừa, 0 cột thiếu, đúng thứ tự"
+    },
+    {
+      "tc_id": "TC-017",
       "title": "Khoá lưu đọc đúng cho cột riêng",
       "type": "GREEN",
       "platform": "api",
@@ -388,7 +412,7 @@
       "expected": "Mỗi cột riêng lấy đúng giá trị từ cột cùng tên"
     },
     {
-      "tc_id": "TC-017",
+      "tc_id": "TC-018",
       "title": "Khoá lưu đọc đúng cho khoá metadata",
       "type": "GREEN",
       "platform": "api",
@@ -412,7 +436,7 @@
       "expected": "Mỗi khoá metadata lấy đúng giá trị trong cột JSON"
     },
     {
-      "tc_id": "TC-018",
+      "tc_id": "TC-019",
       "title": "Cột đã cắt mà có dữ liệu thì phép đo báo ĐỎ",
       "type": "RED",
       "platform": "api",
@@ -436,7 +460,7 @@
       "expected": "CLI thoát khác 0 và nêu đúng tên cột ngayXayRa"
     },
     {
-      "tc_id": "TC-019",
+      "tc_id": "TC-020",
       "title": "Phép đo trong deploy chỉ cảnh báo, không chặn deploy",
       "type": "EDGE",
       "platform": "api",
@@ -460,7 +484,7 @@
       "expected": "Bản ghi deploy có dòng CẢNH BÁO, và deploy vẫn đi tiếp"
     },
     {
-      "tc_id": "TC-020",
+      "tc_id": "TC-021",
       "title": "Xuất đúng trần 5.000 dòng",
       "type": "BOUNDARY",
       "platform": "api",
@@ -484,7 +508,7 @@
       "expected": "Tệp có đủ 5.000 dòng dữ liệu"
     },
     {
-      "tc_id": "TC-021",
+      "tc_id": "TC-022",
       "title": "Quá trần thì cắt còn 5.000 và nói rõ đã cắt",
       "type": "BOUNDARY",
       "platform": "api",
@@ -508,7 +532,7 @@
       "expected": "Tệp có 5.000 dòng VÀ người dùng được báo là kết quả đã bị cắt"
     },
     {
-      "tc_id": "TC-022",
+      "tc_id": "TC-023",
       "title": "Ô RỖNG hiện nút có cả biểu tượng và nhãn chữ",
       "type": "GREEN",
       "platform": "web",
@@ -532,7 +556,7 @@
       "expected": "Ô ấy hiện một nút mang biểu tượng bút và nhãn chữ mời nhập"
     },
     {
-      "tc_id": "TC-023",
+      "tc_id": "TC-024",
       "title": "Bấm nút ở ô rỗng mở popup nhập",
       "type": "GREEN",
       "platform": "web",
@@ -556,7 +580,7 @@
       "expected": "Popup nhập Kết quả xử lý mở ra, ô nhập trống"
     },
     {
-      "tc_id": "TC-024",
+      "tc_id": "TC-025",
       "title": "Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh",
       "type": "GREEN",
       "platform": "web",
@@ -580,7 +604,7 @@
       "expected": "Ô ấy vẫn hiện nút sửa nhanh bên cạnh chữ"
     },
     {
-      "tc_id": "TC-025",
+      "tc_id": "TC-026",
       "title": "Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ",
       "type": "GREEN",
       "platform": "web",
@@ -604,7 +628,7 @@
       "expected": "Popup mở ra, ô nhập đã mang đúng nội dung đang hiển thị trên bảng"
     },
     {
-      "tc_id": "TC-026",
+      "tc_id": "TC-027",
       "title": "Sửa giá trị cũ rồi lưu thì giá trị mới thay thế",
       "type": "GREEN",
       "platform": "web",
@@ -628,7 +652,7 @@
       "expected": "Ô mang nội dung mới cả trước và sau khi tải lại trang"
     },
     {
-      "tc_id": "TC-027",
+      "tc_id": "TC-028",
       "title": "Bấm vào CHỮ mở hồ sơ, KHÔNG mở popup",
       "type": "RED",
       "platform": "web",
@@ -652,7 +676,7 @@
       "expected": "Trang chuyển sang hồ sơ đơn thư, popup KHÔNG mở"
     },
     {
-      "tc_id": "TC-028",
+      "tc_id": "TC-029",
       "title": "Ô rỗng thì nút chính là nội dung ô",
       "type": "EDGE",
       "platform": "web",
@@ -676,8 +700,8 @@
       "expected": "Bấm ngoài nút mở hồ sơ như mọi ô khác"
     },
     {
-      "tc_id": "TC-029",
-      "title": "Bấm chuột trên nút không lan ra dòng",
+      "tc_id": "TC-030",
+      "title": "Thành phần nút chặn lan sự kiện chuột trong khung dựng thử",
       "type": "STATE",
       "platform": "web",
       "persona": "P-CAN-BO",
@@ -704,8 +728,8 @@
       }
     },
     {
-      "tc_id": "TC-030",
-      "title": "Gõ Enter trên nút không lan ra dòng",
+      "tc_id": "TC-031",
+      "title": "Thành phần nút chặn lan sự kiện bàn phím trong khung dựng thử",
       "type": "STATE",
       "platform": "web",
       "persona": "P-CAN-BO",
@@ -732,7 +756,35 @@
       }
     },
     {
-      "tc_id": "TC-031",
+      "tc_id": "TC-032",
+      "title": "Trên BẢNG THẬT, Enter ở nút mở popup mà không chuyển sang hồ sơ",
+      "type": "STATE",
+      "platform": "web",
+      "persona": "P-CAN-BO",
+      "journey_ref": "J-DON-THU-SUA-NHANH",
+      "priority": "P0",
+      "severity_if_fail": "S2",
+      "oracle_type": "Claim",
+      "rule_ref": "R2-STOP",
+      "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R2-STOP",
+      "catches_bug": "hai ca đơn vị trên chỉ đếm bộ nghe giả trong khung dựng thử; chúng không chứng minh gì về bảng thật, nơi còn có bộ định tuyến và bộ nghe của dòng do thư viện bảng gắn",
+      "coverage_ids": [
+        "COV-R2-STOP-3"
+      ],
+      "backend_policy": "live",
+      "evidence_required": [
+        "trace",
+        "screenshot-final"
+      ],
+      "steps": "Trên Chrome thật: Tab tới nút sửa nhanh của một ô RỖNG, gõ Enter, đọc địa chỉ trang; lặp lại với một ô ĐÃ CÓ chữ",
+      "expected": "Cả hai lần: popup mở và địa chỉ trang KHÔNG đổi sang trang hồ sơ",
+      "transition": {
+        "from": "bang-danh-sach-that",
+        "to": "popup-sua-nhanh"
+      }
+    },
+    {
+      "tc_id": "TC-033",
       "title": "Biểu tượng là bút, cùng biểu tượng sửa của hệ",
       "type": "GREEN",
       "platform": "web",
@@ -756,7 +808,7 @@
       "expected": "Cùng một biểu tượng bút, không phải biểu tượng riêng của màn này"
     },
     {
-      "tc_id": "TC-032",
+      "tc_id": "TC-034",
       "title": "Vùng chạm của nút đạt tối thiểu WCAG 2.2",
       "type": "A11Y",
       "platform": "web",
@@ -780,7 +832,7 @@
       "expected": "Cả hai chiều tối thiểu 24 CSS pixel (WCAG 2.2 — 2.5.8 Target Size)"
     },
     {
-      "tc_id": "TC-033",
+      "tc_id": "TC-035",
       "title": "Tải tệp lên từ ngay trong danh sách",
       "type": "GREEN",
       "platform": "web",
@@ -804,7 +856,7 @@
       "expected": "Tệp gắn vào đúng hồ sơ ấy và thấy được sau khi tải lại"
     },
     {
-      "tc_id": "TC-034",
+      "tc_id": "TC-036",
       "title": "Tải tệp xuống từ ngay trong danh sách",
       "type": "GREEN",
       "platform": "web",
@@ -828,7 +880,7 @@
       "expected": "Tệp tải về đúng nội dung đã tải lên"
     },
     {
-      "tc_id": "TC-035",
+      "tc_id": "TC-037",
       "title": "Tên tệp tải về theo máy chủ, không bị ép tên",
       "type": "RED",
       "platform": "web",
@@ -852,7 +904,7 @@
       "expected": "Tên tệp đúng như máy chủ khai ở Content-Disposition"
     },
     {
-      "tc_id": "TC-036",
+      "tc_id": "TC-038",
       "title": "Nhãn đọc được nói rõ sửa ô nào của hồ sơ nào",
       "type": "A11Y",
       "platform": "web",
@@ -876,7 +928,7 @@
       "expected": "Nhãn nêu tên ô và mô tả nhận ra được hồ sơ, không phải chuỗi Sửa nhanh trơ trọi"
     },
     {
-      "tc_id": "TC-037",
+      "tc_id": "TC-039",
       "title": "Tới được nút bằng phím Tab",
       "type": "A11Y",
       "platform": "web",
@@ -900,7 +952,7 @@
       "expected": "Tiêu điểm dừng ở nút sửa nhanh và thấy rõ vòng tiêu điểm"
     },
     {
-      "tc_id": "TC-038",
+      "tc_id": "TC-040",
       "title": "Lưu xong bảng cập nhật ngay, không cần tải lại",
       "type": "GREEN",
       "platform": "web",
@@ -924,7 +976,7 @@
       "expected": "Ô hiện giá trị mới mà không phải tải lại trang"
     },
     {
-      "tc_id": "TC-039",
+      "tc_id": "TC-041",
       "title": "Lưu hỏng thì báo lỗi và KHÔNG mất chữ đã gõ",
       "type": "RED",
       "platform": "web",
@@ -948,7 +1000,7 @@
       "expected": "Popup báo lỗi rõ và giữ nguyên chữ đã gõ để thử lại"
     },
     {
-      "tc_id": "TC-040",
+      "tc_id": "TC-042",
       "title": "Cột Loại thông tin đứng ngay trước Nguồn đơn/Đơn vị giao",
       "type": "GREEN",
       "platform": "web",
@@ -972,7 +1024,7 @@
       "expected": "Loại thông tin nằm ngay sát bên trái Nguồn đơn/Đơn vị giao"
     },
     {
-      "tc_id": "TC-041",
+      "tc_id": "TC-043",
       "title": "Thứ tự cột giữ nguyên sau khi tải lại trang",
       "type": "STATE",
       "platform": "web",
@@ -1000,7 +1052,7 @@
       }
     },
     {
-      "tc_id": "TC-042",
+      "tc_id": "TC-044",
       "title": "Danh mục loại thông tin có mục để chọn",
       "type": "DATA",
       "platform": "web",
@@ -1028,8 +1080,8 @@
       }
     },
     {
-      "tc_id": "TC-043",
-      "title": "Danh mục rỗng thì báo hỏng, không im lặng",
+      "tc_id": "TC-045",
+      "title": "Máy chủ trả LỖI thì ô báo tải hỏng",
       "type": "RED",
       "platform": "web",
       "persona": "P-CAN-BO",
@@ -1048,11 +1100,35 @@
         "trace",
         "screenshot-final"
       ],
-      "steps": "Giả lập máy chủ trả lỗi cho danh mục; mở ô Loại thông tin",
-      "expected": "Ô báo tải hỏng, KHÔNG hiện chữ không có mục nào"
+      "steps": "Giả lập máy chủ trả mã lỗi cho danh mục; mở ô Loại thông tin",
+      "expected": "Ô báo TẢI HỎNG, KHÔNG hiện chữ không có mục nào"
     },
     {
-      "tc_id": "TC-044",
+      "tc_id": "TC-046",
+      "title": "Máy chủ trả THÀNH CÔNG với danh sách rỗng thì nói rõ là danh mục chưa có mục",
+      "type": "RED",
+      "platform": "web",
+      "persona": "P-CAN-BO",
+      "journey_ref": "J-DON-THU-TAO",
+      "priority": "P0",
+      "severity_if_fail": "S2",
+      "oracle_type": "Claim",
+      "rule_ref": "R3-DATA",
+      "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R3-DATA",
+      "catches_bug": "đây mới ĐÚNG dạng hỏng im lặng đã gặp ở #470: máy chủ trả 200 kèm mảng rỗng, không có lỗi nào để bắt; ca giả lập LỖI không chạm tới tình huống này",
+      "coverage_ids": [
+        "COV-R3-DATA-3"
+      ],
+      "backend_policy": "live",
+      "evidence_required": [
+        "trace",
+        "screenshot-final"
+      ],
+      "steps": "Giả lập máy chủ trả 200 kèm danh sách rỗng; mở ô Loại thông tin",
+      "expected": "Ô nói rõ danh mục chưa có mục và chỉ đường thêm mục, KHÔNG im lặng và KHÔNG báo tải hỏng"
+    },
+    {
+      "tc_id": "TC-047",
       "title": "Cột Loại thông tin có trong tệp xuất",
       "type": "GREEN",
       "platform": "web",
@@ -1076,7 +1152,7 @@
       "expected": "Cột có mặt và mang giá trị đúng hồ sơ"
     },
     {
-      "tc_id": "TC-045",
+      "tc_id": "TC-048",
       "title": "Nút hiện khi đang SỬA hồ sơ",
       "type": "GREEN",
       "platform": "web",
@@ -1100,7 +1176,7 @@
       "expected": "Có nút tạo đơn thư mới từ đơn này"
     },
     {
-      "tc_id": "TC-046",
+      "tc_id": "TC-049",
       "title": "Nút KHÔNG hiện khi đang tạo mới",
       "type": "RED",
       "platform": "web",
@@ -1124,7 +1200,7 @@
       "expected": "Không có nút tạo đơn mới từ đơn này"
     },
     {
-      "tc_id": "TC-047",
+      "tc_id": "TC-050",
       "title": "Đơn mới mang theo nội dung đơn cũ",
       "type": "GREEN",
       "platform": "web",
@@ -1148,7 +1224,7 @@
       "expected": "Các ô nghiệp vụ mang giá trị của đơn cũ"
     },
     {
-      "tc_id": "TC-048",
+      "tc_id": "TC-051",
       "title": "Đơn mới KHÔNG mang STT của đơn cũ",
       "type": "RED",
       "platform": "web",
@@ -1172,7 +1248,7 @@
       "expected": "Ô STT rỗng hoặc mang số mới, KHÁC STT đơn cũ"
     },
     {
-      "tc_id": "TC-049",
+      "tc_id": "TC-052",
       "title": "Đơn mới KHÔNG mang kết quả xử lý của đơn cũ",
       "type": "RED",
       "platform": "web",
@@ -1196,7 +1272,7 @@
       "expected": "Ô kết quả xử lý rỗng"
     },
     {
-      "tc_id": "TC-050",
+      "tc_id": "TC-053",
       "title": "Mọi tuyến form đều được gắn khoá dựng lại theo hồ sơ",
       "type": "REGRESSION",
       "platform": "web",
@@ -1220,7 +1296,7 @@
       "expected": "Không tuyến biểu mẫu nào đứng ngoài khoá dựng lại"
     },
     {
-      "tc_id": "TC-051",
+      "tc_id": "TC-054",
       "title": "Đi hồ sơ A rồi tạo mới rồi sang hồ sơ B không dính trạng thái",
       "type": "STATE",
       "platform": "web",
@@ -1248,7 +1324,7 @@
       }
     },
     {
-      "tc_id": "TC-052",
+      "tc_id": "TC-055",
       "title": "Lưu thì ra một hồ sơ MỚI",
       "type": "GREEN",
       "platform": "web",
@@ -1272,7 +1348,7 @@
       "expected": "Một hồ sơ mới được tạo, định danh khác đơn nguồn"
     },
     {
-      "tc_id": "TC-053",
+      "tc_id": "TC-056",
       "title": "Đơn cũ không đổi sau khi lưu đơn mới",
       "type": "REGRESSION",
       "platform": "api",
@@ -1296,7 +1372,7 @@
       "expected": "Đơn nguồn không đổi trường nào"
     },
     {
-      "tc_id": "TC-054",
+      "tc_id": "TC-057",
       "title": "Khu tải tệp nằm cạnh ô Kết quả xử lý",
       "type": "GREEN",
       "platform": "web",
@@ -1320,7 +1396,7 @@
       "expected": "Khu tải tệp nằm trong cùng nhóm với ô Kết quả xử lý"
     },
     {
-      "tc_id": "TC-055",
+      "tc_id": "TC-058",
       "title": "Tệp tải ở khu này mang đúng loại của khu",
       "type": "GREEN",
       "platform": "web",
@@ -1344,7 +1420,7 @@
       "expected": "Tệp mang loại tài liệu của khu kết quả xử lý"
     },
     {
-      "tc_id": "TC-056",
+      "tc_id": "TC-059",
       "title": "Loại KHÔNG rơi về Văn bản",
       "type": "RED",
       "platform": "web",
@@ -1368,7 +1444,7 @@
       "expected": "Ô chọn loại mang loại ban đầu của khu, không phải Văn bản"
     },
     {
-      "tc_id": "TC-057",
+      "tc_id": "TC-060",
       "title": "Hai khu tải tệp phân biệt được trên màn hình",
       "type": "UX",
       "platform": "web",
@@ -1392,7 +1468,7 @@
       "expected": "Hai khu có tiêu đề khác nhau nói rõ tệp nào thuộc khu nào"
     },
     {
-      "tc_id": "TC-058",
+      "tc_id": "TC-061",
       "title": "Hai khu có định danh kiểm thử riêng",
       "type": "GREEN",
       "platform": "web",
@@ -1416,7 +1492,7 @@
       "expected": "Mỗi khu một định danh riêng, không trùng"
     },
     {
-      "tc_id": "TC-059",
+      "tc_id": "TC-062",
       "title": "Danh mục loại tài liệu có mục sau khi deploy",
       "type": "DATA",
       "platform": "api",
@@ -1444,8 +1520,8 @@
       }
     },
     {
-      "tc_id": "TC-060",
-      "title": "Chạy seed lại lần nữa vẫn an toàn",
+      "tc_id": "TC-063",
+      "title": "Seed lần đầu TẠO ĐỦ mục, lần hai giữ nguyên định danh và nội dung",
       "type": "DATA",
       "platform": "api",
       "persona": "P-QUAN-TRI",
@@ -1455,7 +1531,7 @@
       "oracle_type": "Claim",
       "rule_ref": "R5-SEED",
       "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R5-SEED",
-      "catches_bug": "deploy chạy seed mỗi lượt; không idempotent là danh mục nhân đôi mỗi lần deploy",
+      "catches_bug": "chỉ đếm số mục giữa hai lượt thì một seed KHÔNG LÀM GÌ CẢ vẫn xanh vì 0 bằng 0; và seed xoá-rồi-tạo-lại cũng xanh trong khi id đổi hết, làm gãy mọi tham chiếu",
       "coverage_ids": [
         "COV-R5-SEED-2"
       ],
@@ -1464,15 +1540,15 @@
         "trace",
         "screenshot-final"
       ],
-      "steps": "Chạy seed loại tài liệu hai lần liên tiếp; đếm số mục sau mỗi lần",
-      "expected": "Số mục không tăng ở lần thứ hai",
+      "steps": "Xoá sạch danh mục trên bản sao; chạy seed lần 1 và ghi lại (id, mã, tên) từng mục; chạy seed lần 2; so nguyên bộ ba ấy",
+      "expected": "Lần 1 tạo đủ các mục bắt buộc đã khai; lần 2 giữ NGUYÊN id, mã và tên của từng mục",
       "db_assert": {
-        "query": "SELECT count(*) FROM directory_items WHERE type = 'DOCUMENT_TYPE'",
-        "expect": "khong doi giua hai luot"
+        "query": "SELECT id, code, name FROM directory_items WHERE type = 'DOCUMENT_TYPE' ORDER BY code",
+        "expect": "lan 1 tao du muc bat buoc; lan 2 tra ve y het lan 1"
       }
     },
     {
-      "tc_id": "TC-061",
+      "tc_id": "TC-064",
       "title": "Màn tạo mới: ô báo cáo Ban Giám đốc đã là Không",
       "type": "GREEN",
       "platform": "web",
@@ -1496,7 +1572,7 @@
       "expected": "Ô đã mang giá trị Không"
     },
     {
-      "tc_id": "TC-062",
+      "tc_id": "TC-065",
       "title": "Hồ sơ cũ có giá trị khác thì GIỮ, không đè Không",
       "type": "RED",
       "platform": "web",
@@ -1520,7 +1596,7 @@
       "expected": "Ô vẫn là Có"
     },
     {
-      "tc_id": "TC-063",
+      "tc_id": "TC-066",
       "title": "Ô Đồ vật, tài liệu kèm theo không còn trên form",
       "type": "GREEN",
       "platform": "web",
@@ -1544,7 +1620,7 @@
       "expected": "Ô không có trên cả hai màn"
     },
     {
-      "tc_id": "TC-064",
+      "tc_id": "TC-067",
       "title": "Mở hồ sơ cũ, KHÔNG sửa gì, Lưu: ô đã ẩn đi nguyên vẹn",
       "type": "REGRESSION",
       "platform": "web",
@@ -1568,7 +1644,7 @@
       "expected": "Mọi ô đã ẩn giữ nguyên giá trị cũ"
     },
     {
-      "tc_id": "TC-065",
+      "tc_id": "TC-068",
       "title": "Sửa một ô KHÁC rồi Lưu: ô đã ẩn vẫn nguyên",
       "type": "REGRESSION",
       "platform": "web",
@@ -1592,8 +1668,8 @@
       "expected": "Mọi ô đã ẩn giữ nguyên giá trị cũ"
     },
     {
-      "tc_id": "TC-066",
-      "title": "Gieo lỗi: bỏ ô khỏi thân lời gọi thì cổng phải ĐỎ",
+      "tc_id": "TC-069",
+      "title": "Gieo lỗi: gửi RỖNG đè lên ô đã ẩn thì cổng phải ĐỎ",
       "type": "RED",
       "platform": "web",
       "persona": "P-CAN-BO",
@@ -1603,7 +1679,7 @@
       "oracle_type": "Claim",
       "rule_ref": "R6-KEEP",
       "oracle_source": "docs/uat/dot-2309/_domain-pack.md §R6-KEEP",
-      "catches_bug": "cổng xanh trong khi không canh gì là thứ đã gặp 15 lần trong đợt này",
+      "catches_bug": "bỏ khoá khỏi thân lời gọi KHÔNG làm mất dữ liệu (máy chủ trộn theo khoá có mặt); gửi rỗng mới làm mất. Gieo đúng cái lỗi vô hại rồi kết luận cổng canh được là cổng rỗng",
       "coverage_ids": [
         "COV-R6-KEEP-3"
       ],
@@ -1612,11 +1688,11 @@
         "trace",
         "screenshot-final"
       ],
-      "steps": "Sửa hàm dựng thân lời gọi để bỏ một ô đã ẩn; chạy cổng giữ dữ liệu",
-      "expected": "Cổng thất bại và nêu đúng tên ô bị bỏ"
+      "steps": "Sửa hàm dựng thân lời gọi để một ô đã ẩn gửi lên chuỗi rỗng (rồi lặp lại với null) trong khi hồ sơ nguồn ĐANG CÓ dữ liệu ở ô ấy; chạy cổng giữ dữ liệu",
+      "expected": "Cổng thất bại ở CẢ HAI lần gieo và nêu đúng tên ô bị ghi đè"
     },
     {
-      "tc_id": "TC-067",
+      "tc_id": "TC-070",
       "title": "Gõ 2 ký tự trở lên thì hiện tên đã có trong dữ liệu",
       "type": "GREEN",
       "platform": "web",
@@ -1640,7 +1716,7 @@
       "expected": "Danh sách gợi ý hiện tên ấy"
     },
     {
-      "tc_id": "TC-068",
+      "tc_id": "TC-071",
       "title": "Khớp GIỮA chuỗi, không chỉ khớp đầu chuỗi",
       "type": "EP",
       "platform": "api",
@@ -1664,7 +1740,7 @@
       "expected": "Tên ấy có trong kết quả"
     },
     {
-      "tc_id": "TC-069",
+      "tc_id": "TC-072",
       "title": "Ký tự đặc biệt của mẫu tìm được thoát đúng",
       "type": "SECURITY",
       "platform": "api",
@@ -1700,7 +1776,7 @@
       }
     },
     {
-      "tc_id": "TC-070",
+      "tc_id": "TC-073",
       "title": "Một ký tự thì CHƯA gợi ý",
       "type": "BOUNDARY",
       "platform": "api",
@@ -1724,7 +1800,7 @@
       "expected": "Không trả gợi ý nào"
     },
     {
-      "tc_id": "TC-071",
+      "tc_id": "TC-074",
       "title": "Hai ký tự thì CÓ gợi ý",
       "type": "BOUNDARY",
       "platform": "api",
@@ -1748,7 +1824,7 @@
       "expected": "Trả về gợi ý"
     },
     {
-      "tc_id": "TC-072",
+      "tc_id": "TC-075",
       "title": "Nhiều kết quả thì cắt còn tối đa 10",
       "type": "BOUNDARY",
       "platform": "api",
@@ -1772,7 +1848,7 @@
       "expected": "Trả về nhiều nhất 10 mục"
     },
     {
-      "tc_id": "TC-073",
+      "tc_id": "TC-076",
       "title": "Gõ tên CHƯA CÓ rồi bấm Lưu NGAY thì tên được ghi",
       "type": "RED",
       "platform": "web",
@@ -1796,7 +1872,7 @@
       "expected": "Tên vừa gõ được ghi đúng nguyên văn"
     },
     {
-      "tc_id": "TC-074",
+      "tc_id": "TC-077",
       "title": "Gõ rồi rời ô rồi quay lại, chữ còn nguyên",
       "type": "STATE",
       "platform": "web",
@@ -1824,7 +1900,7 @@
       }
     },
     {
-      "tc_id": "TC-075",
+      "tc_id": "TC-078",
       "title": "Gợi ý chỉ lấy hồ sơ trong phạm vi người đăng nhập",
       "type": "SECURITY",
       "platform": "api",
@@ -1859,7 +1935,7 @@
       }
     },
     {
-      "tc_id": "TC-076",
+      "tc_id": "TC-079",
       "title": "Cán bộ tổ khác không thấy tên ngoài phạm vi",
       "type": "SECURITY",
       "platform": "api",
@@ -1893,7 +1969,7 @@
       }
     },
     {
-      "tc_id": "TC-077",
+      "tc_id": "TC-080",
       "title": "Hai nút có nhãn phân biệt được",
       "type": "UX",
       "platform": "web",
@@ -1917,7 +1993,7 @@
       "expected": "Hai nhãn khác nhau và nói rõ nút nào xuất gì"
     },
     {
-      "tc_id": "TC-078",
+      "tc_id": "TC-081",
       "title": "Nhãn nói rõ nút nào xuất đúng cột đang xem",
       "type": "UX",
       "platform": "web",
@@ -1941,7 +2017,7 @@
       "expected": "Nhãn tự nói được rằng nút ấy xuất đúng cột đang hiển thị"
     },
     {
-      "tc_id": "TC-079",
+      "tc_id": "TC-082",
       "title": "Tiêu đề trong tệp nút đang xem là DANH SÁCH ĐƠN THƯ",
       "type": "GREEN",
       "platform": "web",
@@ -1965,7 +2041,7 @@
       "expected": "Đúng chuỗi DANH SÁCH ĐƠN THƯ"
     },
     {
-      "tc_id": "TC-080",
+      "tc_id": "TC-083",
       "title": "Tiêu đề trong tệp nút mọi trường là DANH SÁCH ĐƠN THƯ",
       "type": "GREEN",
       "platform": "web",
@@ -1989,7 +2065,7 @@
       "expected": "Đúng chuỗi DANH SÁCH ĐƠN THƯ"
     },
     {
-      "tc_id": "TC-081",
+      "tc_id": "TC-084",
       "title": "Không còn hậu tố ĐẦY ĐỦ TRƯỜNG",
       "type": "RED",
       "platform": "web",
@@ -2013,7 +2089,7 @@
       "expected": "Không tệp nào chứa chuỗi ĐẦY ĐỦ TRƯỜNG"
     },
     {
-      "tc_id": "TC-082",
+      "tc_id": "TC-085",
       "title": "Một hằng số tiêu đề dùng cho cả hai đường xuất",
       "type": "GREEN",
       "platform": "api",
@@ -2037,7 +2113,7 @@
       "expected": "Cả hai đường đọc từ cùng một hằng số, 0 chuỗi viết thẳng"
     },
     {
-      "tc_id": "TC-083",
+      "tc_id": "TC-086",
       "title": "Bốn nút và dòng đếm nằm cùng một đường căn",
       "type": "UX",
       "platform": "web",
@@ -2061,7 +2137,7 @@
       "expected": "Chênh lệch tâm dọc giữa các phần tử trong ngưỡng 2 pixel"
     },
     {
-      "tc_id": "TC-084",
+      "tc_id": "TC-087",
       "title": "Nhóm hành động phụ không dựng khối bọc dọc",
       "type": "GREEN",
       "platform": "web",
@@ -2085,7 +2161,7 @@
       "expected": "Không có khối xếp dọc bọc ngoài hai nút xuất"
     },
     {
-      "tc_id": "TC-085",
+      "tc_id": "TC-088",
       "title": "Màn hẹp thì hàng nút xuống dòng, không tràn",
       "type": "COMPAT",
       "platform": "web",
@@ -2109,7 +2185,7 @@
       "expected": "Hàng nút nằm trọn trong khung, không có thanh cuộn ngang"
     },
     {
-      "tc_id": "TC-086",
+      "tc_id": "TC-089",
       "title": "Nhãn dài khi có thay đổi chưa áp dụng cũng không tràn",
       "type": "COMPAT",
       "platform": "web",
@@ -2133,7 +2209,7 @@
       "expected": "Vẫn nằm trọn trong khung"
     },
     {
-      "tc_id": "TC-087",
+      "tc_id": "TC-090",
       "title": "Nút đang báo LỖI không làm lệch hàng",
       "type": "RED",
       "platform": "web",
@@ -2157,7 +2233,7 @@
       "expected": "Bốn nút vẫn cùng một đường căn"
     },
     {
-      "tc_id": "TC-088",
+      "tc_id": "TC-091",
       "title": "Mở hồ sơ DI TRÚ thì không ô nào biến mất",
       "type": "REGRESSION",
       "platform": "web",
@@ -2181,7 +2257,7 @@
       "expected": "Mọi ô có dữ liệu đều hiển thị"
     },
     {
-      "tc_id": "TC-089",
+      "tc_id": "TC-092",
       "title": "Hồ sơ DI TRÚ không báo lỗi giả ở ngày viết đơn",
       "type": "REGRESSION",
       "platform": "web",
@@ -2205,7 +2281,7 @@
       "expected": "Ô hiện nguyên văn chữ cũ và KHÔNG báo lỗi"
     },
     {
-      "tc_id": "TC-090",
+      "tc_id": "TC-093",
       "title": "Nút đang xem xuất đúng cột đang nhìn",
       "type": "REGRESSION",
       "platform": "web",
@@ -2229,7 +2305,7 @@
       "expected": "Cột tệp khớp đúng cột đang hiển thị"
     },
     {
-      "tc_id": "TC-091",
+      "tc_id": "TC-094",
       "title": "Nút đang xem KHÔNG cắt cột theo dữ liệu",
       "type": "RED",
       "platform": "web",
@@ -2253,7 +2329,7 @@
       "expected": "Cột rỗng ấy VẪN có trong tệp"
     },
     {
-      "tc_id": "TC-092",
+      "tc_id": "TC-095",
       "title": "Tạo đơn thư bình thường vẫn thành công",
       "type": "REGRESSION",
       "platform": "api",
@@ -2277,7 +2353,7 @@
       "expected": "Trả về 201 và hồ sơ được tạo"
     },
     {
-      "tc_id": "TC-093",
+      "tc_id": "TC-096",
       "title": "Mọi khoá form gửi lên đều được máy chủ khai nhận",
       "type": "REGRESSION",
       "platform": "api",
@@ -2301,7 +2377,7 @@
       "expected": "Không khoá nào gửi lên mà máy chủ chưa khai"
     },
     {
-      "tc_id": "TC-094",
+      "tc_id": "TC-097",
       "title": "Cán bộ (không phải quản trị) lưu được đơn",
       "type": "PERMISSIONS",
       "platform": "web",
@@ -2336,7 +2412,7 @@
       }
     },
     {
-      "tc_id": "TC-095",
+      "tc_id": "TC-098",
       "title": "Cán bộ xuất được tệp mọi trường",
       "type": "PERMISSIONS",
       "platform": "web",
@@ -2371,7 +2447,7 @@
       }
     },
     {
-      "tc_id": "TC-096",
+      "tc_id": "TC-099",
       "title": "Máy chủ báo mã bản dựng khớp commit đã hợp nhất",
       "type": "GREEN",
       "platform": "api",
@@ -2395,7 +2471,7 @@
       "expected": "Hai giá trị khớp nhau"
     },
     {
-      "tc_id": "TC-097",
+      "tc_id": "TC-100",
       "title": "Cán bộ tổ khác không thấy hồ sơ ngoài phạm vi",
       "type": "SECURITY",
       "platform": "api",
@@ -2429,7 +2505,7 @@
       }
     },
     {
-      "tc_id": "TC-098",
+      "tc_id": "TC-101",
       "title": "Tệp xuất cũng lọc theo phạm vi dữ liệu",
       "type": "SECURITY",
       "platform": "api",
@@ -2463,7 +2539,42 @@
       }
     },
     {
-      "tc_id": "TC-099",
+      "tc_id": "TC-102",
+      "title": "Tệp của nút ĐANG XEM cũng lọc theo phạm vi dữ liệu",
+      "type": "SECURITY",
+      "platform": "api",
+      "persona": "P-CAN-BO-KHAC-TO",
+      "journey_ref": "J-DON-THU-XUAT",
+      "priority": "P0",
+      "severity_if_fail": "S1",
+      "oracle_type": "Claim",
+      "rule_ref": "X6",
+      "oracle_source": "docs/uat/dot-2309/_domain-pack.md §X6",
+      "catches_bug": "ca phạm vi hiện chỉ phủ nút xuất mọi trường; nút đang xem là đường ra thứ hai và chưa ai kiểm nó có rò hồ sơ tổ khác hay không",
+      "coverage_ids": [
+        "COV-X6-3"
+      ],
+      "backend_policy": "live",
+      "evidence_required": [
+        "trace",
+        "screenshot-final"
+      ],
+      "steps": "Dựng dữ liệu đối chứng: hồ sơ mốc của tổ A và hồ sơ mốc của tổ B; đăng nhập cán bộ tổ A; gọi đường xuất theo bộ lọc đang xem; đọc nội dung tệp",
+      "expected": "Tệp CÓ hồ sơ mốc của tổ A và KHÔNG có hồ sơ mốc của tổ B",
+      "access": {
+        "url": "/api/v1/petitions/xuat",
+        "allow": [
+          "ADMIN",
+          "OFFICER"
+        ],
+        "deny_status": 403,
+        "must_not_contain": [
+          "ho-so-moc-to-B"
+        ]
+      }
+    },
+    {
+      "tc_id": "TC-103",
       "title": "Thiếu quyền xuất đầy đủ thì bị từ chối",
       "type": "SECURITY",
       "platform": "api",
@@ -2498,7 +2609,7 @@
       }
     },
     {
-      "tc_id": "TC-100",
+      "tc_id": "TC-104",
       "title": "Sửa nhanh hồ sơ ngoài phạm vi bị chặn",
       "type": "SECURITY",
       "platform": "api",
@@ -2533,7 +2644,7 @@
       }
     },
     {
-      "tc_id": "TC-101",
+      "tc_id": "TC-105",
       "title": "Vai vô danh không gọi được đường xuất",
       "type": "SECURITY",
       "platform": "api",
@@ -2568,7 +2679,7 @@
       }
     },
     {
-      "tc_id": "TC-102",
+      "tc_id": "TC-106",
       "title": "Tệp ngoài danh sách loại cho phép bị từ chối",
       "type": "SECURITY",
       "platform": "api",
@@ -2603,7 +2714,7 @@
       }
     },
     {
-      "tc_id": "TC-103",
+      "tc_id": "TC-107",
       "title": "Tên tệp chứa ký tự đường dẫn bị vô hiệu hoá",
       "type": "SECURITY",
       "platform": "api",
@@ -2638,7 +2749,7 @@
       }
     },
     {
-      "tc_id": "TC-104",
+      "tc_id": "TC-108",
       "title": "Đóng popup rồi mở lại thì lấy giá trị từ máy chủ",
       "type": "STATE",
       "platform": "web",
@@ -2666,7 +2777,7 @@
       }
     },
     {
-      "tc_id": "TC-105",
+      "tc_id": "TC-109",
       "title": "Lưu xong rồi mở dòng KHÁC không mang giá trị dòng trước",
       "type": "STATE",
       "platform": "web",
@@ -2694,7 +2805,7 @@
       }
     },
     {
-      "tc_id": "TC-106",
+      "tc_id": "TC-110",
       "title": "Hai tab cùng mở, tab A sửa nhanh, tab B tải lại thấy đúng",
       "type": "STATE",
       "platform": "web",
@@ -2722,7 +2833,7 @@
       }
     },
     {
-      "tc_id": "TC-107",
+      "tc_id": "TC-111",
       "title": "Nút xuất: có bộ lọc, có quyền xuất đầy đủ",
       "type": "DECISION",
       "platform": "web",
@@ -2746,7 +2857,7 @@
       "expected": "Xuất được, tệp chỉ gồm hồ sơ khớp bộ lọc"
     },
     {
-      "tc_id": "TC-108",
+      "tc_id": "TC-112",
       "title": "Nút xuất: có bộ lọc, không quyền xuất đầy đủ",
       "type": "DECISION",
       "platform": "web",
@@ -2770,7 +2881,7 @@
       "expected": "Nút mọi trường không hiện; nút đang xem vẫn xuất được"
     },
     {
-      "tc_id": "TC-109",
+      "tc_id": "TC-113",
       "title": "Nút xuất: không bộ lọc, có quyền xuất đầy đủ",
       "type": "DECISION",
       "platform": "web",
@@ -2794,7 +2905,7 @@
       "expected": "Xuất được toàn bộ phạm vi, tôn trọng trần 5.000 dòng"
     },
     {
-      "tc_id": "TC-110",
+      "tc_id": "TC-114",
       "title": "Nút xuất: không bộ lọc, không quyền xuất đầy đủ",
       "type": "DECISION",
       "platform": "web",
@@ -2818,7 +2929,7 @@
       "expected": "Nút mọi trường không hiện; nút đang xem vẫn xuất được"
     },
     {
-      "tc_id": "TC-111",
+      "tc_id": "TC-115",
       "title": "Sửa nhanh: ô rỗng, có quyền sửa",
       "type": "DECISION",
       "platform": "web",
@@ -2842,7 +2953,7 @@
       "expected": "Ô rỗng hiện nút có biểu tượng và nhãn; bấm mở popup trống"
     },
     {
-      "tc_id": "TC-112",
+      "tc_id": "TC-116",
       "title": "Sửa nhanh: ô có chữ, có quyền sửa",
       "type": "DECISION",
       "platform": "web",
@@ -2866,7 +2977,7 @@
       "expected": "Ô có chữ hiện nút bên cạnh chữ; bấm mở popup mang giá trị cũ"
     },
     {
-      "tc_id": "TC-113",
+      "tc_id": "TC-117",
       "title": "Sửa nhanh: ô rỗng, không quyền sửa",
       "type": "DECISION",
       "platform": "web",
@@ -2890,7 +3001,7 @@
       "expected": "Ô rỗng KHÔNG hiện nút; ô trống và bấm vào ô mở hồ sơ"
     },
     {
-      "tc_id": "TC-114",
+      "tc_id": "TC-118",
       "title": "Sửa nhanh: ô có chữ, không quyền sửa",
       "type": "DECISION",
       "platform": "web",
@@ -2914,7 +3025,7 @@
       "expected": "Ô có chữ KHÔNG hiện nút; bấm vào chữ mở hồ sơ"
     },
     {
-      "tc_id": "TC-115",
+      "tc_id": "TC-119",
       "title": "Kết cặp nguồn đơn x loại thông tin x trạng thái trên tệp xuất",
       "type": "EP",
       "platform": "web",
@@ -2938,7 +3049,7 @@
       "expected": "Mỗi hồ sơ ra đúng bộ ba giá trị của nó"
     },
     {
-      "tc_id": "TC-116",
+      "tc_id": "TC-120",
       "title": "Đang xuất thì nút cho biết hệ đang chạy",
       "type": "UX",
       "platform": "web",
@@ -2962,7 +3073,7 @@
       "expected": "Nút chuyển trạng thái đang chạy và không nhận bấm tiếp"
     },
     {
-      "tc_id": "TC-117",
+      "tc_id": "TC-121",
       "title": "Nhãn nút dùng từ nghiệp vụ, không dùng từ kỹ thuật",
       "type": "UX",
       "platform": "web",
@@ -2986,7 +3097,7 @@
       "expected": "Không có từ kỹ thuật như trường, bản ghi, truy vấn"
     },
     {
-      "tc_id": "TC-118",
+      "tc_id": "TC-122",
       "title": "Popup sửa nhanh có lối thoát rõ ràng",
       "type": "UX",
       "platform": "web",
@@ -3010,7 +3121,7 @@
       "expected": "Có nút đóng thấy được và phím Esc cũng đóng được"
     },
     {
-      "tc_id": "TC-119",
+      "tc_id": "TC-123",
       "title": "Nút sửa nhanh nhất quán với chỗ sửa khác trong hệ",
       "type": "UX",
       "platform": "web",
@@ -3034,7 +3145,7 @@
       "expected": "Cùng biểu tượng và cùng quy ước màu"
     },
     {
-      "tc_id": "TC-120",
+      "tc_id": "TC-124",
       "title": "Vượt trần xuất thì báo trước, không để tải xong mới hỏng",
       "type": "UX",
       "platform": "web",
@@ -3058,7 +3169,7 @@
       "expected": "Hệ báo trước số dòng sẽ xuất và mời thu hẹp bộ lọc"
     },
     {
-      "tc_id": "TC-121",
+      "tc_id": "TC-125",
       "title": "Trạng thái rỗng của bảng phân biệt với tải hỏng",
       "type": "UX",
       "platform": "web",
@@ -3082,7 +3193,7 @@
       "expected": "Bảng nói TẢI HỎNG, không nói không có dữ liệu"
     },
     {
-      "tc_id": "TC-122",
+      "tc_id": "TC-126",
       "title": "Thông báo lỗi nói được cách khắc phục",
       "type": "UX",
       "platform": "web",
@@ -3106,7 +3217,7 @@
       "expected": "Thông báo nói rõ việc cần làm tiếp, không chỉ nêu mã lỗi"
     },
     {
-      "tc_id": "TC-123",
+      "tc_id": "TC-127",
       "title": "Sửa từ bảng ít thao tác hơn mở hồ sơ",
       "type": "UX",
       "platform": "web",
@@ -3130,7 +3241,7 @@
       "expected": "Đường từ bảng ít thao tác hơn rõ rệt"
     },
     {
-      "tc_id": "TC-124",
+      "tc_id": "TC-128",
       "title": "Popup có đủ trạng thái tải, rỗng, lỗi, khoá",
       "type": "UX",
       "platform": "web",
@@ -3154,7 +3265,7 @@
       "expected": "Mỗi trạng thái hiện khác nhau và đọc hiểu được"
     },
     {
-      "tc_id": "TC-125",
+      "tc_id": "TC-129",
       "title": "Tiêu điểm không bị che khi cuộn bảng",
       "type": "A11Y",
       "platform": "web",
@@ -3178,7 +3289,7 @@
       "expected": "Phần tử đang có tiêu điểm không bị hàng tiêu đề che (WCAG 2.2 — 2.4.11)"
     },
     {
-      "tc_id": "TC-126",
+      "tc_id": "TC-130",
       "title": "Không đòi nhập lại thông tin vừa nhập",
       "type": "A11Y",
       "platform": "web",
@@ -3202,7 +3313,7 @@
       "expected": "Không ô nào bắt gõ lại thứ đã có (WCAG 2.2 — 3.3.7)"
     },
     {
-      "tc_id": "TC-127",
+      "tc_id": "TC-131",
       "title": "Tương phản chữ trên nút đạt mức AA",
       "type": "A11Y",
       "platform": "web",
@@ -3226,7 +3337,7 @@
       "expected": "Tối thiểu 4.5:1 (WCAG 1.4.3)"
     },
     {
-      "tc_id": "TC-128",
+      "tc_id": "TC-132",
       "title": "Mọi nút có tên đọc được",
       "type": "A11Y",
       "platform": "web",
@@ -3250,7 +3361,7 @@
       "expected": "Không nút nào thiếu tên (WCAG 4.1.2)"
     },
     {
-      "tc_id": "TC-129",
+      "tc_id": "TC-133",
       "title": "Popup giữ tiêu điểm đúng cách và Esc thoát được",
       "type": "A11Y",
       "platform": "web",
@@ -3274,7 +3385,7 @@
       "expected": "Tiêu điểm quẩn trong popup và Esc đóng được (WCAG 2.1.2)"
     },
     {
-      "tc_id": "TC-130",
+      "tc_id": "TC-134",
       "title": "Thứ tự tiêu điểm theo thứ tự đọc",
       "type": "A11Y",
       "platform": "web",
@@ -3298,7 +3409,7 @@
       "expected": "Thứ tự trùng thứ tự nhìn thấy từ trái sang phải (WCAG 2.4.3)"
     },
     {
-      "tc_id": "TC-131",
+      "tc_id": "TC-135",
       "title": "Quét tự động không còn lỗi mức A/AA",
       "type": "A11Y",
       "platform": "web",
@@ -3322,7 +3433,7 @@
       "expected": "0 lỗi mức A và AA; các mục chưa kết luận được đã phân loại bằng tay"
     },
     {
-      "tc_id": "TC-132",
+      "tc_id": "TC-136",
       "title": "Chạy đúng trên Chrome",
       "type": "COMPAT",
       "platform": "web",
@@ -3346,7 +3457,7 @@
       "expected": "Cả hai luồng hoạt động và hàng nút không lệch"
     },
     {
-      "tc_id": "TC-133",
+      "tc_id": "TC-137",
       "title": "Chạy đúng trên Edge Chromium",
       "type": "COMPAT",
       "platform": "web",
@@ -3370,7 +3481,7 @@
       "expected": "Kết quả như trên Chrome"
     },
     {
-      "tc_id": "TC-134",
+      "tc_id": "TC-138",
       "title": "Bố cục đúng ở màn 1366x768",
       "type": "COMPAT",
       "platform": "web",
@@ -3394,7 +3505,7 @@
       "expected": "Hàng nút nằm trọn, không lệch, không cuộn ngang"
     },
     {
-      "tc_id": "TC-135",
+      "tc_id": "TC-139",
       "title": "Sau deploy, đường kiểm tra sức khoẻ trả mã bản dựng đúng",
       "type": "GREEN",
       "platform": "api",
@@ -3418,7 +3529,7 @@
       "expected": "Trả trạng thái tốt và mã bản dựng khớp commit vừa hợp nhất"
     },
     {
-      "tc_id": "TC-136",
+      "tc_id": "TC-140",
       "title": "Seed chạy trong deploy và deploy ĐỎ nếu seed hỏng",
       "type": "RED",
       "platform": "api",
@@ -3443,15 +3554,15 @@
     }
   ],
   "tc_min": {
-    "M1": 136,
+    "M1": 140,
     "M2": 120,
     "M3": 33,
     "M4": 120,
-    "max": 136,
+    "max": 140,
     "computed_by": "coverage_calc.py",
-    "coverage_pct": 95.6,
-    "items": 136,
-    "covered": 130,
+    "coverage_pct": 95.7,
+    "items": 140,
+    "covered": 134,
     "missing_inputs": [],
     "status": "ĐỦ ENSEMBLE"
   }

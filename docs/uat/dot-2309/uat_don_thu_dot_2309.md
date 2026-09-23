@@ -1,13 +1,13 @@
 # UAT Test Cases — don-thu-dot-2209-2309
 
-**Generated**: 23/09/2026 11:37  
+**Generated**: 23/09/2026 11:48  
 **Complexity**: `medium`  
-**Total TC**: 136  
+**Total TC**: 140  
 **Companion Excel**: file `.xlsx` cùng tên trong thư mục này
 
 ## 📊 TC_min — ENSEMBLE MAX (v9)
 
-M1 coverage-items=136 · M2 ΣV(G)=120 · M3 FP^1.2=33 · M4 risk-tier=120 → **TC_min=MAX=136** · Tổng TC thật=136 (≥ TC_min)
+M1 coverage-items=140 · M2 ΣV(G)=120 · M3 FP^1.2=33 · M4 risk-tier=120 → **TC_min=MAX=140** · Tổng TC thật=140 (≥ TC_min)
 
 ## 🤖 Hướng dẫn cho Claude Code
 
@@ -27,32 +27,32 @@ File này được thiết kế để Claude Code đọc khi cần **fix bug** t
 
 ## 🔍 Self-Audit
 
-**Tổng số TC**: 136
+**Tổng số TC**: 140
 
 **Phân bố loại**:
 - `GREEN`: 33
-- `RED`: 18
+- `RED`: 19
 - `UX`: 13
-- `SECURITY`: 10
+- `SECURITY`: 11
 - `A11Y`: 10
+- `STATE`: 9
 - `REGRESSION`: 9
-- `STATE`: 8
 - `EP`: 8
 - `DECISION`: 8
-- `BOUNDARY`: 6
+- `BOUNDARY`: 7
 - `COMPAT`: 5
 - `DATA`: 3
 - `EDGE`: 3
 - `PERMISSIONS`: 2
 
 **Phân bố priority**:
-- 🔴 `P0`: 46
+- 🔴 `P0`: 50
 - 🟠 `P1`: 70
 - 🟡 `P2`: 20
 
 **Phân bố severity nếu fail**:
--  `S2`: 30
--  `S1`: 28
+-  `S2`: 33
+-  `S1`: 29
 -  `S3`: 58
 -  `S4`: 20
 
@@ -70,50 +70,54 @@ File này được thiết kế để Claude Code đọc khi cần **fix bug** t
 | [TC-002](#tc-002) | 🔴 P0 | `BOUNDARY` |  | Số cột tệp mọi trường đếm được đúng 42 |  S2 |
 | [TC-005](#tc-005) | 🔴 P0 | `GREEN` |  | Cột rỗng sạch không có trong tệp |  S2 |
 | [TC-014](#tc-014) | 🔴 P0 | `GREEN` |  | Ba cột định danh stt, sttCu, status đều có mặt |  S2 |
-| [TC-015](#tc-015) | 🔴 P0 | `GREEN` |  | Mọi cột trong tệp mang giá trị, không phải ô trống |  S1 |
-| [TC-018](#tc-018) | 🔴 P0 | `RED` |  | Cột đã cắt mà có dữ liệu thì phép đo báo ĐỎ |  S2 |
-| [TC-022](#tc-022) | 🔴 P0 | `GREEN` |  | Ô RỖNG hiện nút có cả biểu tượng và nhãn chữ |  S2 |
-| [TC-023](#tc-023) | 🔴 P0 | `GREEN` |  | Bấm nút ở ô rỗng mở popup nhập |  S2 |
-| [TC-024](#tc-024) | 🔴 P0 | `GREEN` |  | Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh |  S2 |
-| [TC-025](#tc-025) | 🔴 P0 | `GREEN` |  | Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ |  S2 |
-| [TC-026](#tc-026) | 🔴 P0 | `GREEN` |  | Sửa giá trị cũ rồi lưu thì giá trị mới thay thế |  S1 |
-| [TC-027](#tc-027) | 🔴 P0 | `RED` |  | Bấm vào CHỮ mở hồ sơ, KHÔNG mở popup |  S2 |
-| [TC-033](#tc-033) | 🔴 P0 | `GREEN` |  | Tải tệp lên từ ngay trong danh sách |  S2 |
-| [TC-034](#tc-034) | 🔴 P0 | `GREEN` |  | Tải tệp xuống từ ngay trong danh sách |  S2 |
-| [TC-039](#tc-039) | 🔴 P0 | `RED` |  | Lưu hỏng thì báo lỗi và KHÔNG mất chữ đã gõ |  S1 |
-| [TC-042](#tc-042) | 🔴 P0 | `DATA` |  | Danh mục loại thông tin có mục để chọn |  S2 |
-| [TC-048](#tc-048) | 🔴 P0 | `RED` |  | Đơn mới KHÔNG mang STT của đơn cũ |  S1 |
-| [TC-049](#tc-049) | 🔴 P0 | `RED` |  | Đơn mới KHÔNG mang kết quả xử lý của đơn cũ |  S1 |
-| [TC-050](#tc-050) | 🔴 P0 | `REGRESSION` |  | Mọi tuyến form đều được gắn khoá dựng lại theo hồ sơ |  S1 |
-| [TC-051](#tc-051) | 🔴 P0 | `STATE` |  | Đi hồ sơ A rồi tạo mới rồi sang hồ sơ B không dính trạng thái |  S1 |
-| [TC-052](#tc-052) | 🔴 P0 | `GREEN` |  | Lưu thì ra một hồ sơ MỚI |  S2 |
-| [TC-053](#tc-053) | 🔴 P0 | `REGRESSION` |  | Đơn cũ không đổi sau khi lưu đơn mới |  S1 |
-| [TC-059](#tc-059) | 🔴 P0 | `DATA` |  | Danh mục loại tài liệu có mục sau khi deploy |  S1 |
-| [TC-062](#tc-062) | 🔴 P0 | `RED` |  | Hồ sơ cũ có giá trị khác thì GIỮ, không đè Không |  S1 |
-| [TC-064](#tc-064) | 🔴 P0 | `REGRESSION` |  | Mở hồ sơ cũ, KHÔNG sửa gì, Lưu: ô đã ẩn đi nguyên vẹn |  S1 |
-| [TC-065](#tc-065) | 🔴 P0 | `REGRESSION` |  | Sửa một ô KHÁC rồi Lưu: ô đã ẩn vẫn nguyên |  S1 |
-| [TC-066](#tc-066) | 🔴 P0 | `RED` |  | Gieo lỗi: bỏ ô khỏi thân lời gọi thì cổng phải ĐỎ |  S1 |
-| [TC-073](#tc-073) | 🔴 P0 | `RED` |  | Gõ tên CHƯA CÓ rồi bấm Lưu NGAY thì tên được ghi |  S1 |
-| [TC-075](#tc-075) | 🔴 P0 | `SECURITY` |  | Gợi ý chỉ lấy hồ sơ trong phạm vi người đăng nhập |  S1 |
-| [TC-076](#tc-076) | 🔴 P0 | `SECURITY` |  | Cán bộ tổ khác không thấy tên ngoài phạm vi |  S1 |
-| [TC-088](#tc-088) | 🔴 P0 | `REGRESSION` |  | Mở hồ sơ DI TRÚ thì không ô nào biến mất |  S1 |
-| [TC-089](#tc-089) | 🔴 P0 | `REGRESSION` |  | Hồ sơ DI TRÚ không báo lỗi giả ở ngày viết đơn |  S2 |
-| [TC-092](#tc-092) | 🔴 P0 | `REGRESSION` |  | Tạo đơn thư bình thường vẫn thành công |  S1 |
-| [TC-093](#tc-093) | 🔴 P0 | `REGRESSION` |  | Mọi khoá form gửi lên đều được máy chủ khai nhận |  S1 |
-| [TC-094](#tc-094) | 🔴 P0 | `PERMISSIONS` |  | Cán bộ (không phải quản trị) lưu được đơn |  S1 |
-| [TC-096](#tc-096) | 🔴 P0 | `GREEN` |  | Máy chủ báo mã bản dựng khớp commit đã hợp nhất |  S2 |
-| [TC-097](#tc-097) | 🔴 P0 | `SECURITY` |  | Cán bộ tổ khác không thấy hồ sơ ngoài phạm vi |  S1 |
-| [TC-098](#tc-098) | 🔴 P0 | `SECURITY` |  | Tệp xuất cũng lọc theo phạm vi dữ liệu |  S1 |
-| [TC-099](#tc-099) | 🔴 P0 | `SECURITY` |  | Thiếu quyền xuất đầy đủ thì bị từ chối |  S1 |
-| [TC-100](#tc-100) | 🔴 P0 | `SECURITY` |  | Sửa nhanh hồ sơ ngoài phạm vi bị chặn |  S1 |
-| [TC-101](#tc-101) | 🔴 P0 | `SECURITY` |  | Vai vô danh không gọi được đường xuất |  S1 |
-| [TC-105](#tc-105) | 🔴 P0 | `STATE` |  | Lưu xong rồi mở dòng KHÁC không mang giá trị dòng trước |  S1 |
-| [TC-121](#tc-121) | 🔴 P0 | `UX` |  | Trạng thái rỗng của bảng phân biệt với tải hỏng |  S2 |
-| [TC-132](#tc-132) | 🔴 P0 | `COMPAT` |  | Chạy đúng trên Chrome |  S2 |
-| [TC-135](#tc-135) | 🔴 P0 | `GREEN` |  | Sau deploy, đường kiểm tra sức khoẻ trả mã bản dựng đúng |  S1 |
-| [TC-136](#tc-136) | 🔴 P0 | `RED` |  | Seed chạy trong deploy và deploy ĐỎ nếu seed hỏng |  S1 |
+| [TC-015](#tc-015) | 🔴 P0 | `GREEN` |  | Từng ô trong tệp khớp dữ liệu nguồn, đối chiếu theo hồ sơ |  S1 |
+| [TC-016](#tc-016) | 🔴 P0 | `BOUNDARY` |  | Tập 42 cột khớp ĐÚNG bộ cột chuẩn, không chỉ đúng số lượng |  S2 |
+| [TC-019](#tc-019) | 🔴 P0 | `RED` |  | Cột đã cắt mà có dữ liệu thì phép đo báo ĐỎ |  S2 |
+| [TC-023](#tc-023) | 🔴 P0 | `GREEN` |  | Ô RỖNG hiện nút có cả biểu tượng và nhãn chữ |  S2 |
+| [TC-024](#tc-024) | 🔴 P0 | `GREEN` |  | Bấm nút ở ô rỗng mở popup nhập |  S2 |
+| [TC-025](#tc-025) | 🔴 P0 | `GREEN` |  | Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh |  S2 |
+| [TC-026](#tc-026) | 🔴 P0 | `GREEN` |  | Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ |  S2 |
+| [TC-027](#tc-027) | 🔴 P0 | `GREEN` |  | Sửa giá trị cũ rồi lưu thì giá trị mới thay thế |  S1 |
+| [TC-028](#tc-028) | 🔴 P0 | `RED` |  | Bấm vào CHỮ mở hồ sơ, KHÔNG mở popup |  S2 |
+| [TC-032](#tc-032) | 🔴 P0 | `STATE` |  | Trên BẢNG THẬT, Enter ở nút mở popup mà không chuyển sang hồ sơ |  S2 |
+| [TC-035](#tc-035) | 🔴 P0 | `GREEN` |  | Tải tệp lên từ ngay trong danh sách |  S2 |
+| [TC-036](#tc-036) | 🔴 P0 | `GREEN` |  | Tải tệp xuống từ ngay trong danh sách |  S2 |
+| [TC-041](#tc-041) | 🔴 P0 | `RED` |  | Lưu hỏng thì báo lỗi và KHÔNG mất chữ đã gõ |  S1 |
+| [TC-044](#tc-044) | 🔴 P0 | `DATA` |  | Danh mục loại thông tin có mục để chọn |  S2 |
+| [TC-046](#tc-046) | 🔴 P0 | `RED` |  | Máy chủ trả THÀNH CÔNG với danh sách rỗng thì nói rõ là danh mục chưa có mục |  S2 |
+| [TC-051](#tc-051) | 🔴 P0 | `RED` |  | Đơn mới KHÔNG mang STT của đơn cũ |  S1 |
+| [TC-052](#tc-052) | 🔴 P0 | `RED` |  | Đơn mới KHÔNG mang kết quả xử lý của đơn cũ |  S1 |
+| [TC-053](#tc-053) | 🔴 P0 | `REGRESSION` |  | Mọi tuyến form đều được gắn khoá dựng lại theo hồ sơ |  S1 |
+| [TC-054](#tc-054) | 🔴 P0 | `STATE` |  | Đi hồ sơ A rồi tạo mới rồi sang hồ sơ B không dính trạng thái |  S1 |
+| [TC-055](#tc-055) | 🔴 P0 | `GREEN` |  | Lưu thì ra một hồ sơ MỚI |  S2 |
+| [TC-056](#tc-056) | 🔴 P0 | `REGRESSION` |  | Đơn cũ không đổi sau khi lưu đơn mới |  S1 |
+| [TC-062](#tc-062) | 🔴 P0 | `DATA` |  | Danh mục loại tài liệu có mục sau khi deploy |  S1 |
+| [TC-065](#tc-065) | 🔴 P0 | `RED` |  | Hồ sơ cũ có giá trị khác thì GIỮ, không đè Không |  S1 |
+| [TC-067](#tc-067) | 🔴 P0 | `REGRESSION` |  | Mở hồ sơ cũ, KHÔNG sửa gì, Lưu: ô đã ẩn đi nguyên vẹn |  S1 |
+| [TC-068](#tc-068) | 🔴 P0 | `REGRESSION` |  | Sửa một ô KHÁC rồi Lưu: ô đã ẩn vẫn nguyên |  S1 |
+| [TC-069](#tc-069) | 🔴 P0 | `RED` |  | Gieo lỗi: gửi RỖNG đè lên ô đã ẩn thì cổng phải ĐỎ |  S1 |
+| [TC-076](#tc-076) | 🔴 P0 | `RED` |  | Gõ tên CHƯA CÓ rồi bấm Lưu NGAY thì tên được ghi |  S1 |
+| [TC-078](#tc-078) | 🔴 P0 | `SECURITY` |  | Gợi ý chỉ lấy hồ sơ trong phạm vi người đăng nhập |  S1 |
+| [TC-079](#tc-079) | 🔴 P0 | `SECURITY` |  | Cán bộ tổ khác không thấy tên ngoài phạm vi |  S1 |
+| [TC-091](#tc-091) | 🔴 P0 | `REGRESSION` |  | Mở hồ sơ DI TRÚ thì không ô nào biến mất |  S1 |
+| [TC-092](#tc-092) | 🔴 P0 | `REGRESSION` |  | Hồ sơ DI TRÚ không báo lỗi giả ở ngày viết đơn |  S2 |
+| [TC-095](#tc-095) | 🔴 P0 | `REGRESSION` |  | Tạo đơn thư bình thường vẫn thành công |  S1 |
+| [TC-096](#tc-096) | 🔴 P0 | `REGRESSION` |  | Mọi khoá form gửi lên đều được máy chủ khai nhận |  S1 |
+| [TC-097](#tc-097) | 🔴 P0 | `PERMISSIONS` |  | Cán bộ (không phải quản trị) lưu được đơn |  S1 |
+| [TC-099](#tc-099) | 🔴 P0 | `GREEN` |  | Máy chủ báo mã bản dựng khớp commit đã hợp nhất |  S2 |
+| [TC-100](#tc-100) | 🔴 P0 | `SECURITY` |  | Cán bộ tổ khác không thấy hồ sơ ngoài phạm vi |  S1 |
+| [TC-101](#tc-101) | 🔴 P0 | `SECURITY` |  | Tệp xuất cũng lọc theo phạm vi dữ liệu |  S1 |
+| [TC-102](#tc-102) | 🔴 P0 | `SECURITY` |  | Tệp của nút ĐANG XEM cũng lọc theo phạm vi dữ liệu |  S1 |
+| [TC-103](#tc-103) | 🔴 P0 | `SECURITY` |  | Thiếu quyền xuất đầy đủ thì bị từ chối |  S1 |
+| [TC-104](#tc-104) | 🔴 P0 | `SECURITY` |  | Sửa nhanh hồ sơ ngoài phạm vi bị chặn |  S1 |
+| [TC-105](#tc-105) | 🔴 P0 | `SECURITY` |  | Vai vô danh không gọi được đường xuất |  S1 |
+| [TC-109](#tc-109) | 🔴 P0 | `STATE` |  | Lưu xong rồi mở dòng KHÁC không mang giá trị dòng trước |  S1 |
+| [TC-125](#tc-125) | 🔴 P0 | `UX` |  | Trạng thái rỗng của bảng phân biệt với tải hỏng |  S2 |
+| [TC-136](#tc-136) | 🔴 P0 | `COMPAT` |  | Chạy đúng trên Chrome |  S2 |
+| [TC-139](#tc-139) | 🔴 P0 | `GREEN` |  | Sau deploy, đường kiểm tra sức khoẻ trả mã bản dựng đúng |  S1 |
+| [TC-140](#tc-140) | 🔴 P0 | `RED` |  | Seed chạy trong deploy và deploy ĐỎ nếu seed hỏng |  S1 |
 | [TC-003](#tc-003) | 🟠 P1 | `EDGE` |  | Ô nằm trong nhóm GẬP trên form vẫn được xuất |  S3 |
-| [TC-004](#tc-004) | 🟠 P1 | `RED` |  | Gập KHÔNG phải lý do loại cột |  S3 |
+| [TC-004](#tc-004) | 🟠 P1 | `RED` |  | Cột thuộc nhóm gập mà CÓ dữ liệu thì thật sự xuất hiện trong tệp |  S3 |
 | [TC-006](#tc-006) | 🟠 P1 | `EP` |  | 88 khoá metadata rỗng sạch đã bị cắt |  S3 |
 | [TC-007](#tc-007) | 🟠 P1 | `EP` |  | 3 cột riêng rỗng sạch đã bị cắt |  S3 |
 | [TC-008](#tc-008) | 🟠 P1 | `EP` |  | Rỗng kiểu NULL được tính là rỗng |  S3 |
@@ -122,86 +126,86 @@ File này được thiết kế để Claude Code đọc khi cần **fix bug** t
 | [TC-011](#tc-011) | 🟠 P1 | `EP` |  | Rỗng kiểu JSON null được tính là rỗng |  S3 |
 | [TC-012](#tc-012) | 🟠 P1 | `GREEN` |  | Hai lần xuất liên tiếp cho cùng bộ cột |  S3 |
 | [TC-013](#tc-013) | 🟠 P1 | `RED` |  | Bộ cột KHÔNG đo lại lúc xuất |  S3 |
-| [TC-016](#tc-016) | 🟠 P1 | `GREEN` |  | Khoá lưu đọc đúng cho cột riêng |  S2 |
-| [TC-017](#tc-017) | 🟠 P1 | `GREEN` |  | Khoá lưu đọc đúng cho khoá metadata |  S2 |
-| [TC-020](#tc-020) | 🟠 P1 | `BOUNDARY` |  | Xuất đúng trần 5.000 dòng |  S3 |
-| [TC-021](#tc-021) | 🟠 P1 | `BOUNDARY` |  | Quá trần thì cắt còn 5.000 và nói rõ đã cắt |  S3 |
-| [TC-029](#tc-029) | 🟠 P1 | `STATE` |  | Bấm chuột trên nút không lan ra dòng |  S2 |
-| [TC-030](#tc-030) | 🟠 P1 | `STATE` |  | Gõ Enter trên nút không lan ra dòng |  S2 |
-| [TC-032](#tc-032) | 🟠 P1 | `A11Y` |  | Vùng chạm của nút đạt tối thiểu WCAG 2.2 |  S3 |
-| [TC-035](#tc-035) | 🟠 P1 | `RED` |  | Tên tệp tải về theo máy chủ, không bị ép tên |  S3 |
-| [TC-036](#tc-036) | 🟠 P1 | `A11Y` |  | Nhãn đọc được nói rõ sửa ô nào của hồ sơ nào |  S3 |
-| [TC-037](#tc-037) | 🟠 P1 | `A11Y` |  | Tới được nút bằng phím Tab |  S3 |
-| [TC-038](#tc-038) | 🟠 P1 | `GREEN` |  | Lưu xong bảng cập nhật ngay, không cần tải lại |  S3 |
-| [TC-040](#tc-040) | 🟠 P1 | `GREEN` |  | Cột Loại thông tin đứng ngay trước Nguồn đơn/Đơn vị giao |  S3 |
-| [TC-043](#tc-043) | 🟠 P1 | `RED` |  | Danh mục rỗng thì báo hỏng, không im lặng |  S3 |
-| [TC-044](#tc-044) | 🟠 P1 | `GREEN` |  | Cột Loại thông tin có trong tệp xuất |  S3 |
-| [TC-045](#tc-045) | 🟠 P1 | `GREEN` |  | Nút hiện khi đang SỬA hồ sơ |  S3 |
-| [TC-047](#tc-047) | 🟠 P1 | `GREEN` |  | Đơn mới mang theo nội dung đơn cũ |  S3 |
-| [TC-054](#tc-054) | 🟠 P1 | `GREEN` |  | Khu tải tệp nằm cạnh ô Kết quả xử lý |  S3 |
-| [TC-055](#tc-055) | 🟠 P1 | `GREEN` |  | Tệp tải ở khu này mang đúng loại của khu |  S2 |
-| [TC-056](#tc-056) | 🟠 P1 | `RED` |  | Loại KHÔNG rơi về Văn bản |  S2 |
-| [TC-060](#tc-060) | 🟠 P1 | `DATA` |  | Chạy seed lại lần nữa vẫn an toàn |  S3 |
-| [TC-061](#tc-061) | 🟠 P1 | `GREEN` |  | Màn tạo mới: ô báo cáo Ban Giám đốc đã là Không |  S3 |
-| [TC-067](#tc-067) | 🟠 P1 | `GREEN` |  | Gõ 2 ký tự trở lên thì hiện tên đã có trong dữ liệu |  S3 |
-| [TC-068](#tc-068) | 🟠 P1 | `EP` |  | Khớp GIỮA chuỗi, không chỉ khớp đầu chuỗi |  S3 |
-| [TC-069](#tc-069) | 🟠 P1 | `SECURITY` |  | Ký tự đặc biệt của mẫu tìm được thoát đúng |  S3 |
-| [TC-074](#tc-074) | 🟠 P1 | `STATE` |  | Gõ rồi rời ô rồi quay lại, chữ còn nguyên |  S2 |
-| [TC-077](#tc-077) | 🟠 P1 | `UX` |  | Hai nút có nhãn phân biệt được |  S3 |
-| [TC-078](#tc-078) | 🟠 P1 | `UX` |  | Nhãn nói rõ nút nào xuất đúng cột đang xem |  S3 |
-| [TC-079](#tc-079) | 🟠 P1 | `GREEN` |  | Tiêu đề trong tệp nút đang xem là DANH SÁCH ĐƠN THƯ |  S3 |
-| [TC-080](#tc-080) | 🟠 P1 | `GREEN` |  | Tiêu đề trong tệp nút mọi trường là DANH SÁCH ĐƠN THƯ |  S3 |
-| [TC-081](#tc-081) | 🟠 P1 | `RED` |  | Không còn hậu tố ĐẦY ĐỦ TRƯỜNG |  S3 |
-| [TC-083](#tc-083) | 🟠 P1 | `UX` |  | Bốn nút và dòng đếm nằm cùng một đường căn |  S3 |
-| [TC-085](#tc-085) | 🟠 P1 | `COMPAT` |  | Màn hẹp thì hàng nút xuống dòng, không tràn |  S3 |
-| [TC-087](#tc-087) | 🟠 P1 | `RED` |  | Nút đang báo LỖI không làm lệch hàng |  S3 |
-| [TC-090](#tc-090) | 🟠 P1 | `REGRESSION` |  | Nút đang xem xuất đúng cột đang nhìn |  S3 |
-| [TC-091](#tc-091) | 🟠 P1 | `RED` |  | Nút đang xem KHÔNG cắt cột theo dữ liệu |  S3 |
-| [TC-095](#tc-095) | 🟠 P1 | `PERMISSIONS` |  | Cán bộ xuất được tệp mọi trường |  S2 |
-| [TC-102](#tc-102) | 🟠 P1 | `SECURITY` |  | Tệp ngoài danh sách loại cho phép bị từ chối |  S2 |
-| [TC-103](#tc-103) | 🟠 P1 | `SECURITY` |  | Tên tệp chứa ký tự đường dẫn bị vô hiệu hoá |  S2 |
-| [TC-104](#tc-104) | 🟠 P1 | `STATE` |  | Đóng popup rồi mở lại thì lấy giá trị từ máy chủ |  S2 |
-| [TC-106](#tc-106) | 🟠 P1 | `STATE` |  | Hai tab cùng mở, tab A sửa nhanh, tab B tải lại thấy đúng |  S2 |
-| [TC-107](#tc-107) | 🟠 P1 | `DECISION` |  | Nút xuất: có bộ lọc, có quyền xuất đầy đủ |  S3 |
-| [TC-108](#tc-108) | 🟠 P1 | `DECISION` |  | Nút xuất: có bộ lọc, không quyền xuất đầy đủ |  S3 |
-| [TC-109](#tc-109) | 🟠 P1 | `DECISION` |  | Nút xuất: không bộ lọc, có quyền xuất đầy đủ |  S3 |
-| [TC-110](#tc-110) | 🟠 P1 | `DECISION` |  | Nút xuất: không bộ lọc, không quyền xuất đầy đủ |  S3 |
-| [TC-111](#tc-111) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô rỗng, có quyền sửa |  S3 |
-| [TC-112](#tc-112) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô có chữ, có quyền sửa |  S3 |
-| [TC-113](#tc-113) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô rỗng, không quyền sửa |  S3 |
-| [TC-114](#tc-114) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô có chữ, không quyền sửa |  S3 |
-| [TC-116](#tc-116) | 🟠 P1 | `UX` |  | Đang xuất thì nút cho biết hệ đang chạy |  S3 |
-| [TC-118](#tc-118) | 🟠 P1 | `UX` |  | Popup sửa nhanh có lối thoát rõ ràng |  S3 |
-| [TC-120](#tc-120) | 🟠 P1 | `UX` |  | Vượt trần xuất thì báo trước, không để tải xong mới hỏng |  S3 |
-| [TC-122](#tc-122) | 🟠 P1 | `UX` |  | Thông báo lỗi nói được cách khắc phục |  S3 |
-| [TC-123](#tc-123) | 🟠 P1 | `UX` |  | Sửa từ bảng ít thao tác hơn mở hồ sơ |  S3 |
-| [TC-125](#tc-125) | 🟠 P1 | `A11Y` |  | Tiêu điểm không bị che khi cuộn bảng |  S3 |
-| [TC-127](#tc-127) | 🟠 P1 | `A11Y` |  | Tương phản chữ trên nút đạt mức AA |  S3 |
-| [TC-128](#tc-128) | 🟠 P1 | `A11Y` |  | Mọi nút có tên đọc được |  S3 |
-| [TC-129](#tc-129) | 🟠 P1 | `A11Y` |  | Popup giữ tiêu điểm đúng cách và Esc thoát được |  S3 |
-| [TC-131](#tc-131) | 🟠 P1 | `A11Y` |  | Quét tự động không còn lỗi mức A/AA |  S3 |
-| [TC-133](#tc-133) | 🟠 P1 | `COMPAT` |  | Chạy đúng trên Edge Chromium |  S3 |
-| [TC-134](#tc-134) | 🟠 P1 | `COMPAT` |  | Bố cục đúng ở màn 1366x768 |  S3 |
-| [TC-019](#tc-019) | 🟡 P2 | `EDGE` |  | Phép đo trong deploy chỉ cảnh báo, không chặn deploy |  S4 |
-| [TC-028](#tc-028) | 🟡 P2 | `EDGE` |  | Ô rỗng thì nút chính là nội dung ô |  S4 |
-| [TC-031](#tc-031) | 🟡 P2 | `GREEN` |  | Biểu tượng là bút, cùng biểu tượng sửa của hệ |  S4 |
-| [TC-041](#tc-041) | 🟡 P2 | `STATE` |  | Thứ tự cột giữ nguyên sau khi tải lại trang |  S4 |
-| [TC-046](#tc-046) | 🟡 P2 | `RED` |  | Nút KHÔNG hiện khi đang tạo mới |  S4 |
-| [TC-057](#tc-057) | 🟡 P2 | `UX` |  | Hai khu tải tệp phân biệt được trên màn hình |  S4 |
-| [TC-058](#tc-058) | 🟡 P2 | `GREEN` |  | Hai khu có định danh kiểm thử riêng |  S4 |
-| [TC-063](#tc-063) | 🟡 P2 | `GREEN` |  | Ô Đồ vật, tài liệu kèm theo không còn trên form |  S4 |
-| [TC-070](#tc-070) | 🟡 P2 | `BOUNDARY` |  | Một ký tự thì CHƯA gợi ý |  S4 |
-| [TC-071](#tc-071) | 🟡 P2 | `BOUNDARY` |  | Hai ký tự thì CÓ gợi ý |  S4 |
-| [TC-072](#tc-072) | 🟡 P2 | `BOUNDARY` |  | Nhiều kết quả thì cắt còn tối đa 10 |  S4 |
-| [TC-082](#tc-082) | 🟡 P2 | `GREEN` |  | Một hằng số tiêu đề dùng cho cả hai đường xuất |  S4 |
-| [TC-084](#tc-084) | 🟡 P2 | `GREEN` |  | Nhóm hành động phụ không dựng khối bọc dọc |  S4 |
-| [TC-086](#tc-086) | 🟡 P2 | `COMPAT` |  | Nhãn dài khi có thay đổi chưa áp dụng cũng không tràn |  S4 |
-| [TC-115](#tc-115) | 🟡 P2 | `EP` |  | Kết cặp nguồn đơn x loại thông tin x trạng thái trên tệp xuất |  S4 |
-| [TC-117](#tc-117) | 🟡 P2 | `UX` |  | Nhãn nút dùng từ nghiệp vụ, không dùng từ kỹ thuật |  S4 |
-| [TC-119](#tc-119) | 🟡 P2 | `UX` |  | Nút sửa nhanh nhất quán với chỗ sửa khác trong hệ |  S4 |
-| [TC-124](#tc-124) | 🟡 P2 | `UX` |  | Popup có đủ trạng thái tải, rỗng, lỗi, khoá |  S4 |
-| [TC-126](#tc-126) | 🟡 P2 | `A11Y` |  | Không đòi nhập lại thông tin vừa nhập |  S4 |
-| [TC-130](#tc-130) | 🟡 P2 | `A11Y` |  | Thứ tự tiêu điểm theo thứ tự đọc |  S4 |
+| [TC-017](#tc-017) | 🟠 P1 | `GREEN` |  | Khoá lưu đọc đúng cho cột riêng |  S2 |
+| [TC-018](#tc-018) | 🟠 P1 | `GREEN` |  | Khoá lưu đọc đúng cho khoá metadata |  S2 |
+| [TC-021](#tc-021) | 🟠 P1 | `BOUNDARY` |  | Xuất đúng trần 5.000 dòng |  S3 |
+| [TC-022](#tc-022) | 🟠 P1 | `BOUNDARY` |  | Quá trần thì cắt còn 5.000 và nói rõ đã cắt |  S3 |
+| [TC-030](#tc-030) | 🟠 P1 | `STATE` |  | Thành phần nút chặn lan sự kiện chuột trong khung dựng thử |  S2 |
+| [TC-031](#tc-031) | 🟠 P1 | `STATE` |  | Thành phần nút chặn lan sự kiện bàn phím trong khung dựng thử |  S2 |
+| [TC-034](#tc-034) | 🟠 P1 | `A11Y` |  | Vùng chạm của nút đạt tối thiểu WCAG 2.2 |  S3 |
+| [TC-037](#tc-037) | 🟠 P1 | `RED` |  | Tên tệp tải về theo máy chủ, không bị ép tên |  S3 |
+| [TC-038](#tc-038) | 🟠 P1 | `A11Y` |  | Nhãn đọc được nói rõ sửa ô nào của hồ sơ nào |  S3 |
+| [TC-039](#tc-039) | 🟠 P1 | `A11Y` |  | Tới được nút bằng phím Tab |  S3 |
+| [TC-040](#tc-040) | 🟠 P1 | `GREEN` |  | Lưu xong bảng cập nhật ngay, không cần tải lại |  S3 |
+| [TC-042](#tc-042) | 🟠 P1 | `GREEN` |  | Cột Loại thông tin đứng ngay trước Nguồn đơn/Đơn vị giao |  S3 |
+| [TC-045](#tc-045) | 🟠 P1 | `RED` |  | Máy chủ trả LỖI thì ô báo tải hỏng |  S3 |
+| [TC-047](#tc-047) | 🟠 P1 | `GREEN` |  | Cột Loại thông tin có trong tệp xuất |  S3 |
+| [TC-048](#tc-048) | 🟠 P1 | `GREEN` |  | Nút hiện khi đang SỬA hồ sơ |  S3 |
+| [TC-050](#tc-050) | 🟠 P1 | `GREEN` |  | Đơn mới mang theo nội dung đơn cũ |  S3 |
+| [TC-057](#tc-057) | 🟠 P1 | `GREEN` |  | Khu tải tệp nằm cạnh ô Kết quả xử lý |  S3 |
+| [TC-058](#tc-058) | 🟠 P1 | `GREEN` |  | Tệp tải ở khu này mang đúng loại của khu |  S2 |
+| [TC-059](#tc-059) | 🟠 P1 | `RED` |  | Loại KHÔNG rơi về Văn bản |  S2 |
+| [TC-063](#tc-063) | 🟠 P1 | `DATA` |  | Seed lần đầu TẠO ĐỦ mục, lần hai giữ nguyên định danh và nội dung |  S3 |
+| [TC-064](#tc-064) | 🟠 P1 | `GREEN` |  | Màn tạo mới: ô báo cáo Ban Giám đốc đã là Không |  S3 |
+| [TC-070](#tc-070) | 🟠 P1 | `GREEN` |  | Gõ 2 ký tự trở lên thì hiện tên đã có trong dữ liệu |  S3 |
+| [TC-071](#tc-071) | 🟠 P1 | `EP` |  | Khớp GIỮA chuỗi, không chỉ khớp đầu chuỗi |  S3 |
+| [TC-072](#tc-072) | 🟠 P1 | `SECURITY` |  | Ký tự đặc biệt của mẫu tìm được thoát đúng |  S3 |
+| [TC-077](#tc-077) | 🟠 P1 | `STATE` |  | Gõ rồi rời ô rồi quay lại, chữ còn nguyên |  S2 |
+| [TC-080](#tc-080) | 🟠 P1 | `UX` |  | Hai nút có nhãn phân biệt được |  S3 |
+| [TC-081](#tc-081) | 🟠 P1 | `UX` |  | Nhãn nói rõ nút nào xuất đúng cột đang xem |  S3 |
+| [TC-082](#tc-082) | 🟠 P1 | `GREEN` |  | Tiêu đề trong tệp nút đang xem là DANH SÁCH ĐƠN THƯ |  S3 |
+| [TC-083](#tc-083) | 🟠 P1 | `GREEN` |  | Tiêu đề trong tệp nút mọi trường là DANH SÁCH ĐƠN THƯ |  S3 |
+| [TC-084](#tc-084) | 🟠 P1 | `RED` |  | Không còn hậu tố ĐẦY ĐỦ TRƯỜNG |  S3 |
+| [TC-086](#tc-086) | 🟠 P1 | `UX` |  | Bốn nút và dòng đếm nằm cùng một đường căn |  S3 |
+| [TC-088](#tc-088) | 🟠 P1 | `COMPAT` |  | Màn hẹp thì hàng nút xuống dòng, không tràn |  S3 |
+| [TC-090](#tc-090) | 🟠 P1 | `RED` |  | Nút đang báo LỖI không làm lệch hàng |  S3 |
+| [TC-093](#tc-093) | 🟠 P1 | `REGRESSION` |  | Nút đang xem xuất đúng cột đang nhìn |  S3 |
+| [TC-094](#tc-094) | 🟠 P1 | `RED` |  | Nút đang xem KHÔNG cắt cột theo dữ liệu |  S3 |
+| [TC-098](#tc-098) | 🟠 P1 | `PERMISSIONS` |  | Cán bộ xuất được tệp mọi trường |  S2 |
+| [TC-106](#tc-106) | 🟠 P1 | `SECURITY` |  | Tệp ngoài danh sách loại cho phép bị từ chối |  S2 |
+| [TC-107](#tc-107) | 🟠 P1 | `SECURITY` |  | Tên tệp chứa ký tự đường dẫn bị vô hiệu hoá |  S2 |
+| [TC-108](#tc-108) | 🟠 P1 | `STATE` |  | Đóng popup rồi mở lại thì lấy giá trị từ máy chủ |  S2 |
+| [TC-110](#tc-110) | 🟠 P1 | `STATE` |  | Hai tab cùng mở, tab A sửa nhanh, tab B tải lại thấy đúng |  S2 |
+| [TC-111](#tc-111) | 🟠 P1 | `DECISION` |  | Nút xuất: có bộ lọc, có quyền xuất đầy đủ |  S3 |
+| [TC-112](#tc-112) | 🟠 P1 | `DECISION` |  | Nút xuất: có bộ lọc, không quyền xuất đầy đủ |  S3 |
+| [TC-113](#tc-113) | 🟠 P1 | `DECISION` |  | Nút xuất: không bộ lọc, có quyền xuất đầy đủ |  S3 |
+| [TC-114](#tc-114) | 🟠 P1 | `DECISION` |  | Nút xuất: không bộ lọc, không quyền xuất đầy đủ |  S3 |
+| [TC-115](#tc-115) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô rỗng, có quyền sửa |  S3 |
+| [TC-116](#tc-116) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô có chữ, có quyền sửa |  S3 |
+| [TC-117](#tc-117) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô rỗng, không quyền sửa |  S3 |
+| [TC-118](#tc-118) | 🟠 P1 | `DECISION` |  | Sửa nhanh: ô có chữ, không quyền sửa |  S3 |
+| [TC-120](#tc-120) | 🟠 P1 | `UX` |  | Đang xuất thì nút cho biết hệ đang chạy |  S3 |
+| [TC-122](#tc-122) | 🟠 P1 | `UX` |  | Popup sửa nhanh có lối thoát rõ ràng |  S3 |
+| [TC-124](#tc-124) | 🟠 P1 | `UX` |  | Vượt trần xuất thì báo trước, không để tải xong mới hỏng |  S3 |
+| [TC-126](#tc-126) | 🟠 P1 | `UX` |  | Thông báo lỗi nói được cách khắc phục |  S3 |
+| [TC-127](#tc-127) | 🟠 P1 | `UX` |  | Sửa từ bảng ít thao tác hơn mở hồ sơ |  S3 |
+| [TC-129](#tc-129) | 🟠 P1 | `A11Y` |  | Tiêu điểm không bị che khi cuộn bảng |  S3 |
+| [TC-131](#tc-131) | 🟠 P1 | `A11Y` |  | Tương phản chữ trên nút đạt mức AA |  S3 |
+| [TC-132](#tc-132) | 🟠 P1 | `A11Y` |  | Mọi nút có tên đọc được |  S3 |
+| [TC-133](#tc-133) | 🟠 P1 | `A11Y` |  | Popup giữ tiêu điểm đúng cách và Esc thoát được |  S3 |
+| [TC-135](#tc-135) | 🟠 P1 | `A11Y` |  | Quét tự động không còn lỗi mức A/AA |  S3 |
+| [TC-137](#tc-137) | 🟠 P1 | `COMPAT` |  | Chạy đúng trên Edge Chromium |  S3 |
+| [TC-138](#tc-138) | 🟠 P1 | `COMPAT` |  | Bố cục đúng ở màn 1366x768 |  S3 |
+| [TC-020](#tc-020) | 🟡 P2 | `EDGE` |  | Phép đo trong deploy chỉ cảnh báo, không chặn deploy |  S4 |
+| [TC-029](#tc-029) | 🟡 P2 | `EDGE` |  | Ô rỗng thì nút chính là nội dung ô |  S4 |
+| [TC-033](#tc-033) | 🟡 P2 | `GREEN` |  | Biểu tượng là bút, cùng biểu tượng sửa của hệ |  S4 |
+| [TC-043](#tc-043) | 🟡 P2 | `STATE` |  | Thứ tự cột giữ nguyên sau khi tải lại trang |  S4 |
+| [TC-049](#tc-049) | 🟡 P2 | `RED` |  | Nút KHÔNG hiện khi đang tạo mới |  S4 |
+| [TC-060](#tc-060) | 🟡 P2 | `UX` |  | Hai khu tải tệp phân biệt được trên màn hình |  S4 |
+| [TC-061](#tc-061) | 🟡 P2 | `GREEN` |  | Hai khu có định danh kiểm thử riêng |  S4 |
+| [TC-066](#tc-066) | 🟡 P2 | `GREEN` |  | Ô Đồ vật, tài liệu kèm theo không còn trên form |  S4 |
+| [TC-073](#tc-073) | 🟡 P2 | `BOUNDARY` |  | Một ký tự thì CHƯA gợi ý |  S4 |
+| [TC-074](#tc-074) | 🟡 P2 | `BOUNDARY` |  | Hai ký tự thì CÓ gợi ý |  S4 |
+| [TC-075](#tc-075) | 🟡 P2 | `BOUNDARY` |  | Nhiều kết quả thì cắt còn tối đa 10 |  S4 |
+| [TC-085](#tc-085) | 🟡 P2 | `GREEN` |  | Một hằng số tiêu đề dùng cho cả hai đường xuất |  S4 |
+| [TC-087](#tc-087) | 🟡 P2 | `GREEN` |  | Nhóm hành động phụ không dựng khối bọc dọc |  S4 |
+| [TC-089](#tc-089) | 🟡 P2 | `COMPAT` |  | Nhãn dài khi có thay đổi chưa áp dụng cũng không tràn |  S4 |
+| [TC-119](#tc-119) | 🟡 P2 | `EP` |  | Kết cặp nguồn đơn x loại thông tin x trạng thái trên tệp xuất |  S4 |
+| [TC-121](#tc-121) | 🟡 P2 | `UX` |  | Nhãn nút dùng từ nghiệp vụ, không dùng từ kỹ thuật |  S4 |
+| [TC-123](#tc-123) | 🟡 P2 | `UX` |  | Nút sửa nhanh nhất quán với chỗ sửa khác trong hệ |  S4 |
+| [TC-128](#tc-128) | 🟡 P2 | `UX` |  | Popup có đủ trạng thái tải, rỗng, lỗi, khoá |  S4 |
+| [TC-130](#tc-130) | 🟡 P2 | `A11Y` |  | Không đòi nhập lại thông tin vừa nhập |  S4 |
+| [TC-134](#tc-134) | 🟡 P2 | `A11Y` |  | Thứ tự tiêu điểm theo thứ tự đọc |  S4 |
 
 ## 📝 Test Cases chi tiết
 
@@ -445,20 +449,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R1-VALUE`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R1-VALUE
-- Catches_bug: lỗi #475: 44 trường xuất ra ô trống vì đọc sai khoá lưu
+- Catches_bug: 'mỗi cột có ít nhất một ô khác rỗng' vẫn xanh khi giá trị lệch hàng hoặc lệch cột; lỗi #475 là 44 trường ra ô trống, nhưng lớp lỗi anh em của nó là ra GIÁ TRỊ CỦA HỒ SƠ KHÁC
 
 **Runner contract**:
 - Coverage_ids: `COV-R1-VALUE-1`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Mọi cột trong tệp mang giá trị, không phải ô trống
+**Tiêu đề**: Từng ô trong tệp khớp dữ liệu nguồn, đối chiếu theo hồ sơ
 
 ### Các bước kiểm thử
-- [ ] Xuất tệp mọi trường cho 50 hồ sơ có dữ liệu phong phú; với mỗi cột, đếm ô có giá trị
+- [ ] Chọn 50 hồ sơ có dữ liệu phong phú; đọc giá trị gốc của chúng bằng đường độc lập (truy vấn thẳng CSDL, không qua đường xuất); xuất tệp; so TỪNG ô với giá trị gốc. Tập 50 phải gồm cả hồ sơ có và không có ketQuaXuLyKhac (prod: 24% có)
 
 ### Kết quả mong đợi
-- Mỗi cột có ít nhất một ô mang giá trị trong tập 50 hồ sơ
+- Mọi ô khớp giá trị gốc, kể cả ô rỗng phải rỗng đúng chỗ
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -482,7 +486,62 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-018
+## TC-016
+
+**Meta**:
+- Loại: `BOUNDARY`
+- Priority: `P0` 🔴
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S2` 
+- Platform: `web`
+- Persona: `P-QUAN-TRI`
+- Journey_ref: `J-DON-THU-XUAT`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R1-VALUE`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R1-VALUE
+- Catches_bug: đếm được 42 nhưng cắt nhầm một cột rồi thêm nhầm một cột khác thì phép đếm vẫn xanh
+
+**Runner contract**:
+- Coverage_ids: `COV-R1-VALUE-4`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Tập 42 cột khớp ĐÚNG bộ cột chuẩn, không chỉ đúng số lượng
+
+### Các bước kiểm thử
+- [ ] Xuất tệp; lấy danh sách tên cột theo thứ tự; so bằng phép so TẬP với bộ 42 cột chuẩn đã chốt trong bảng khai
+
+### Kết quả mong đợi
+- Hai tập trùng khít: 0 cột thừa, 0 cột thiếu, đúng thứ tự
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Validation rules: check min/max constraints trong schema/DTO
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-016
+severity: S2
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-019
 
 **Meta**:
 - Loại: `RED`
@@ -523,7 +582,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-018
+tc_id: TC-019
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -537,7 +596,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-022
+## TC-023
 
 **Meta**:
 - Loại: `GREEN`
@@ -578,7 +637,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-022
+tc_id: TC-023
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -592,7 +651,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-023
+## TC-024
 
 **Meta**:
 - Loại: `GREEN`
@@ -624,61 +683,6 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ### Kết quả mong đợi
 - Popup nhập Kết quả xử lý mở ra, ô nhập trống
-
-### 🔧 Fix Context (cho Claude Code khi TC này fail)
-
-**Khu vực có thể cần kiểm tra:**
-- Happy path flow: check business logic chính
-
-**Bug report template** (Claude Code fill khi TC này fail):
-```yaml
-bug_id: BUG-XXX
-tc_id: TC-023
-severity: S2
-module: 
-reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
-actual_behavior: |  # observed sau khi chạy
-root_cause: |       # Claude Code phân tích
-files_changed:
-  - path/to/file.ts
-fix_summary: |
-verified_by_retest: false  # đặt true sau khi chạy lại pass
-```
-
----
-
-## TC-024
-
-**Meta**:
-- Loại: `GREEN`
-- Priority: `P0` 🔴
-- Module: ``
-- Yêu cầu: ``
-- Kỹ thuật: ``
-- Risk: ``
-- Severity nếu fail: `S2` 
-- Platform: `web`
-- Persona: `P-CAN-BO`
-- Journey_ref: `J-DON-THU-SUA-NHANH`
-
-**Oracle**:
-- Oracle_type: `Claim`
-- Rule_ref: `R2-FILLED`
-- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-FILLED
-- Catches_bug: đây đúng câu anh hỏi: sửa nhanh chỉ chạy ở ô rỗng thì tính năng dùng được 24% số hồ sơ
-
-**Runner contract**:
-- Coverage_ids: `COV-R2-FILLED-1`
-- Backend_policy: `live`
-- Evidence_required: `trace`, `screenshot-final`
-
-**Tiêu đề**: Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh
-
-### Các bước kiểm thử
-- [ ] Tìm dòng có Kết quả xử lý khác đã có nội dung
-
-### Kết quả mong đợi
-- Ô ấy vẫn hiện nút sửa nhanh bên cạnh chữ
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -720,20 +724,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R2-FILLED`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-FILLED
-- Catches_bug: popup mở ra trống khiến cán bộ gõ lại từ đầu, hoặc lưu đè mất nội dung cũ
+- Catches_bug: đây đúng câu anh hỏi: sửa nhanh chỉ chạy ở ô rỗng thì tính năng dùng được 24% số hồ sơ
 
 **Runner contract**:
-- Coverage_ids: `COV-R2-FILLED-2`
+- Coverage_ids: `COV-R2-FILLED-1`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ
+**Tiêu đề**: Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh
 
 ### Các bước kiểm thử
-- [ ] Bấm nút sửa nhanh ở ô đã có nội dung
+- [ ] Tìm dòng có Kết quả xử lý khác đã có nội dung
 
 ### Kết quả mong đợi
-- Popup mở ra, ô nhập đã mang đúng nội dung đang hiển thị trên bảng
+- Ô ấy vẫn hiện nút sửa nhanh bên cạnh chữ
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -758,6 +762,61 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 ---
 
 ## TC-026
+
+**Meta**:
+- Loại: `GREEN`
+- Priority: `P0` 🔴
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S2` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-SUA-NHANH`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R2-FILLED`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-FILLED
+- Catches_bug: popup mở ra trống khiến cán bộ gõ lại từ đầu, hoặc lưu đè mất nội dung cũ
+
+**Runner contract**:
+- Coverage_ids: `COV-R2-FILLED-2`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ
+
+### Các bước kiểm thử
+- [ ] Bấm nút sửa nhanh ở ô đã có nội dung
+
+### Kết quả mong đợi
+- Popup mở ra, ô nhập đã mang đúng nội dung đang hiển thị trên bảng
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Happy path flow: check business logic chính
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-026
+severity: S2
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-027
 
 **Meta**:
 - Loại: `GREEN`
@@ -798,7 +857,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-026
+tc_id: TC-027
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -812,7 +871,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-027
+## TC-028
 
 **Meta**:
 - Loại: `RED`
@@ -853,7 +912,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-027
+tc_id: TC-028
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -867,7 +926,62 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-033
+## TC-032
+
+**Meta**:
+- Loại: `STATE`
+- Priority: `P0` 🔴
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S2` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-SUA-NHANH`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R2-STOP`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-STOP
+- Catches_bug: hai ca đơn vị trên chỉ đếm bộ nghe giả trong khung dựng thử; chúng không chứng minh gì về bảng thật, nơi còn có bộ định tuyến và bộ nghe của dòng do thư viện bảng gắn
+
+**Runner contract**:
+- Coverage_ids: `COV-R2-STOP-3`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Trên BẢNG THẬT, Enter ở nút mở popup mà không chuyển sang hồ sơ
+
+### Các bước kiểm thử
+- [ ] Trên Chrome thật: Tab tới nút sửa nhanh của một ô RỖNG, gõ Enter, đọc địa chỉ trang; lặp lại với một ô ĐÃ CÓ chữ
+
+### Kết quả mong đợi
+- Cả hai lần: popup mở và địa chỉ trang KHÔNG đổi sang trang hồ sơ
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Refer to source code structure cho module này
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-032
+severity: S2
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-035
 
 **Meta**:
 - Loại: `GREEN`
@@ -908,7 +1022,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-033
+tc_id: TC-035
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -922,7 +1036,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-034
+## TC-036
 
 **Meta**:
 - Loại: `GREEN`
@@ -963,7 +1077,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-034
+tc_id: TC-036
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -977,7 +1091,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-039
+## TC-041
 
 **Meta**:
 - Loại: `RED`
@@ -1018,7 +1132,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-039
+tc_id: TC-041
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1032,7 +1146,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-042
+## TC-044
 
 **Meta**:
 - Loại: `DATA`
@@ -1073,7 +1187,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-042
+tc_id: TC-044
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1087,7 +1201,62 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-048
+## TC-046
+
+**Meta**:
+- Loại: `RED`
+- Priority: `P0` 🔴
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S2` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-TAO`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R3-DATA`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R3-DATA
+- Catches_bug: đây mới ĐÚNG dạng hỏng im lặng đã gặp ở #470: máy chủ trả 200 kèm mảng rỗng, không có lỗi nào để bắt; ca giả lập LỖI không chạm tới tình huống này
+
+**Runner contract**:
+- Coverage_ids: `COV-R3-DATA-3`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Máy chủ trả THÀNH CÔNG với danh sách rỗng thì nói rõ là danh mục chưa có mục
+
+### Các bước kiểm thử
+- [ ] Giả lập máy chủ trả 200 kèm danh sách rỗng; mở ô Loại thông tin
+
+### Kết quả mong đợi
+- Ô nói rõ danh mục chưa có mục và chỉ đường thêm mục, KHÔNG im lặng và KHÔNG báo tải hỏng
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Error handling: check validation, exception handler
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-046
+severity: S2
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-051
 
 **Meta**:
 - Loại: `RED`
@@ -1128,7 +1297,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-048
+tc_id: TC-051
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1142,7 +1311,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-049
+## TC-052
 
 **Meta**:
 - Loại: `RED`
@@ -1183,7 +1352,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-049
+tc_id: TC-052
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1197,7 +1366,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-050
+## TC-053
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1238,7 +1407,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-050
+tc_id: TC-053
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1252,7 +1421,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-051
+## TC-054
 
 **Meta**:
 - Loại: `STATE`
@@ -1293,7 +1462,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-051
+tc_id: TC-054
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1307,7 +1476,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-052
+## TC-055
 
 **Meta**:
 - Loại: `GREEN`
@@ -1348,7 +1517,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-052
+tc_id: TC-055
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1362,7 +1531,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-053
+## TC-056
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1403,7 +1572,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-053
+tc_id: TC-056
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1417,7 +1586,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-059
+## TC-062
 
 **Meta**:
 - Loại: `DATA`
@@ -1458,7 +1627,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-059
+tc_id: TC-062
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1472,7 +1641,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-062
+## TC-065
 
 **Meta**:
 - Loại: `RED`
@@ -1513,7 +1682,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-062
+tc_id: TC-065
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1527,7 +1696,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-064
+## TC-067
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1568,7 +1737,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-064
+tc_id: TC-067
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1582,7 +1751,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-065
+## TC-068
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1623,7 +1792,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-065
+tc_id: TC-068
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1637,7 +1806,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-066
+## TC-069
 
 **Meta**:
 - Loại: `RED`
@@ -1655,20 +1824,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R6-KEEP`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R6-KEEP
-- Catches_bug: cổng xanh trong khi không canh gì là thứ đã gặp 15 lần trong đợt này
+- Catches_bug: bỏ khoá khỏi thân lời gọi KHÔNG làm mất dữ liệu (máy chủ trộn theo khoá có mặt); gửi rỗng mới làm mất. Gieo đúng cái lỗi vô hại rồi kết luận cổng canh được là cổng rỗng
 
 **Runner contract**:
 - Coverage_ids: `COV-R6-KEEP-3`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Gieo lỗi: bỏ ô khỏi thân lời gọi thì cổng phải ĐỎ
+**Tiêu đề**: Gieo lỗi: gửi RỖNG đè lên ô đã ẩn thì cổng phải ĐỎ
 
 ### Các bước kiểm thử
-- [ ] Sửa hàm dựng thân lời gọi để bỏ một ô đã ẩn; chạy cổng giữ dữ liệu
+- [ ] Sửa hàm dựng thân lời gọi để một ô đã ẩn gửi lên chuỗi rỗng (rồi lặp lại với null) trong khi hồ sơ nguồn ĐANG CÓ dữ liệu ở ô ấy; chạy cổng giữ dữ liệu
 
 ### Kết quả mong đợi
-- Cổng thất bại và nêu đúng tên ô bị bỏ
+- Cổng thất bại ở CẢ HAI lần gieo và nêu đúng tên ô bị ghi đè
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -1678,7 +1847,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-066
+tc_id: TC-069
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1692,7 +1861,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-073
+## TC-076
 
 **Meta**:
 - Loại: `RED`
@@ -1733,7 +1902,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-073
+tc_id: TC-076
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1747,7 +1916,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-075
+## TC-078
 
 **Meta**:
 - Loại: `SECURITY`
@@ -1789,7 +1958,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-075
+tc_id: TC-078
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1803,7 +1972,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-076
+## TC-079
 
 **Meta**:
 - Loại: `SECURITY`
@@ -1845,7 +2014,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-076
+tc_id: TC-079
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1859,7 +2028,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-088
+## TC-091
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1900,7 +2069,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-088
+tc_id: TC-091
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1914,7 +2083,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-089
+## TC-092
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -1955,7 +2124,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-089
+tc_id: TC-092
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -1969,7 +2138,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-092
+## TC-095
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -2010,7 +2179,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-092
+tc_id: TC-095
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2024,7 +2193,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-093
+## TC-096
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -2065,7 +2234,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-093
+tc_id: TC-096
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2079,7 +2248,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-094
+## TC-097
 
 **Meta**:
 - Loại: `PERMISSIONS`
@@ -2120,7 +2289,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-094
+tc_id: TC-097
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2134,7 +2303,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-096
+## TC-099
 
 **Meta**:
 - Loại: `GREEN`
@@ -2175,7 +2344,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-096
+tc_id: TC-099
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2189,7 +2358,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-097
+## TC-100
 
 **Meta**:
 - Loại: `SECURITY`
@@ -2231,7 +2400,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-097
+tc_id: TC-100
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2245,7 +2414,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-098
+## TC-101
 
 **Meta**:
 - Loại: `SECURITY`
@@ -2287,7 +2456,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-098
+tc_id: TC-101
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2301,7 +2470,63 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-099
+## TC-102
+
+**Meta**:
+- Loại: `SECURITY`
+- Priority: `P0` 🔴
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S1` 
+- Platform: `api`
+- Persona: `P-CAN-BO-KHAC-TO`
+- Journey_ref: `J-DON-THU-XUAT`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `X6`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §X6
+- Catches_bug: ca phạm vi hiện chỉ phủ nút xuất mọi trường; nút đang xem là đường ra thứ hai và chưa ai kiểm nó có rò hồ sơ tổ khác hay không
+
+**Runner contract**:
+- Coverage_ids: `COV-X6-3`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Tệp của nút ĐANG XEM cũng lọc theo phạm vi dữ liệu
+
+### Các bước kiểm thử
+- [ ] Dựng dữ liệu đối chứng: hồ sơ mốc của tổ A và hồ sơ mốc của tổ B; đăng nhập cán bộ tổ A; gọi đường xuất theo bộ lọc đang xem; đọc nội dung tệp
+
+### Kết quả mong đợi
+- Tệp CÓ hồ sơ mốc của tổ A và KHÔNG có hồ sơ mốc của tổ B
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Input sanitization: check ORM parameterization, escaping
+- Authentication/Authorization middleware
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-102
+severity: S1
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-103
 
 **Meta**:
 - Loại: `SECURITY`
@@ -2343,7 +2568,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-099
+tc_id: TC-103
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2357,7 +2582,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-100
+## TC-104
 
 **Meta**:
 - Loại: `SECURITY`
@@ -2399,7 +2624,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-100
+tc_id: TC-104
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2413,7 +2638,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-101
+## TC-105
 
 **Meta**:
 - Loại: `SECURITY`
@@ -2455,7 +2680,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-101
+tc_id: TC-105
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2469,7 +2694,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-105
+## TC-109
 
 **Meta**:
 - Loại: `STATE`
@@ -2510,7 +2735,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-105
+tc_id: TC-109
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2524,7 +2749,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-121
+## TC-125
 
 **Meta**:
 - Loại: `UX`
@@ -2565,7 +2790,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-121
+tc_id: TC-125
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2579,7 +2804,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-132
+## TC-136
 
 **Meta**:
 - Loại: `COMPAT`
@@ -2620,7 +2845,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-132
+tc_id: TC-136
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2634,7 +2859,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-135
+## TC-139
 
 **Meta**:
 - Loại: `GREEN`
@@ -2675,7 +2900,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-135
+tc_id: TC-139
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2689,7 +2914,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-136
+## TC-140
 
 **Meta**:
 - Loại: `RED`
@@ -2730,7 +2955,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-136
+tc_id: TC-140
 severity: S1
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -2817,20 +3042,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R1-HIDDEN`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R1-HIDDEN
-- Catches_bug: cắt cột theo bố cục thay vì theo dữ liệu
+- Catches_bug: kiểm nhãn lý do loại trừ là cổng rỗng: bộ xuất vẫn có thể bỏ sạch cột gập miễn bảng lý do ghi chữ 'rỗng'
 
 **Runner contract**:
 - Coverage_ids: `COV-R1-HIDDEN-2`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Gập KHÔNG phải lý do loại cột
+**Tiêu đề**: Cột thuộc nhóm gập mà CÓ dữ liệu thì thật sự xuất hiện trong tệp
 
 ### Các bước kiểm thử
-- [ ] Chạy cổng bộ cột; kiểm mọi dòng loại trừ đều mang lý do 'rỗng', không dòng nào mang lý do 'gập'
+- [ ] Liệt kê mọi ô thuộc nhóm gập đang có dữ liệu trên prod; dựng dòng xuất cho một hồ sơ mang đủ các ô ấy; đối chiếu từng cột trong tệp kết quả
 
 ### Kết quả mong đợi
-- Không dòng loại trừ nào lấy lý do là ô thuộc nhóm gập
+- Mỗi ô gập có dữ liệu đều có cột tương ứng trong tệp VÀ mang đúng giá trị
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -3294,7 +3519,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-016
+## TC-017
 
 **Meta**:
 - Loại: `GREEN`
@@ -3335,7 +3560,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-016
+tc_id: TC-017
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3349,7 +3574,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-017
+## TC-018
 
 **Meta**:
 - Loại: `GREEN`
@@ -3390,7 +3615,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-017
+tc_id: TC-018
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3404,7 +3629,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-020
+## TC-021
 
 **Meta**:
 - Loại: `BOUNDARY`
@@ -3445,7 +3670,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-020
+tc_id: TC-021
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3459,7 +3684,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-021
+## TC-022
 
 **Meta**:
 - Loại: `BOUNDARY`
@@ -3500,63 +3725,8 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-021
+tc_id: TC-022
 severity: S3
-module: 
-reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
-actual_behavior: |  # observed sau khi chạy
-root_cause: |       # Claude Code phân tích
-files_changed:
-  - path/to/file.ts
-fix_summary: |
-verified_by_retest: false  # đặt true sau khi chạy lại pass
-```
-
----
-
-## TC-029
-
-**Meta**:
-- Loại: `STATE`
-- Priority: `P1` 🟠
-- Module: ``
-- Yêu cầu: ``
-- Kỹ thuật: ``
-- Risk: ``
-- Severity nếu fail: `S2` 
-- Platform: `web`
-- Persona: `P-CAN-BO`
-- Journey_ref: `J-DON-THU-SUA-NHANH`
-
-**Oracle**:
-- Oracle_type: `Claim`
-- Rule_ref: `R2-STOP`
-- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-STOP
-- Catches_bug: mở popup đồng thời điều hướng sang hồ sơ
-
-**Runner contract**:
-- Coverage_ids: `COV-R2-STOP-1`
-- Backend_policy: `live`
-- Evidence_required: `trace`, `screenshot-final`
-
-**Tiêu đề**: Bấm chuột trên nút không lan ra dòng
-
-### Các bước kiểm thử
-- [ ] Dựng bảng có bộ nghe click trên dòng; bấm nút sửa nhanh; đếm số lần bộ nghe dòng chạy
-
-### Kết quả mong đợi
-- Bộ nghe trên dòng chạy 0 lần
-
-### 🔧 Fix Context (cho Claude Code khi TC này fail)
-
-**Khu vực có thể cần kiểm tra:**
-- Refer to source code structure cho module này
-
-**Bug report template** (Claude Code fill khi TC này fail):
-```yaml
-bug_id: BUG-XXX
-tc_id: TC-029
-severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
 actual_behavior: |  # observed sau khi chạy
@@ -3587,17 +3757,17 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R2-STOP`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-STOP
-- Catches_bug: chặn mỗi click thì người dùng bàn phím vẫn bị đẩy sang hồ sơ
+- Catches_bug: mở popup đồng thời điều hướng sang hồ sơ
 
 **Runner contract**:
-- Coverage_ids: `COV-R2-STOP-2`
+- Coverage_ids: `COV-R2-STOP-1`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Gõ Enter trên nút không lan ra dòng
+**Tiêu đề**: Thành phần nút chặn lan sự kiện chuột trong khung dựng thử
 
 ### Các bước kiểm thử
-- [ ] Đưa tiêu điểm vào nút bằng bàn phím; gõ Enter; đếm số lần bộ nghe keydown của dòng chạy
+- [ ] Dựng bảng có bộ nghe click trên dòng; bấm nút sửa nhanh; đếm số lần bộ nghe dòng chạy
 
 ### Kết quả mong đợi
 - Bộ nghe trên dòng chạy 0 lần
@@ -3624,7 +3794,62 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-032
+## TC-031
+
+**Meta**:
+- Loại: `STATE`
+- Priority: `P1` 🟠
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S2` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-SUA-NHANH`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R2-STOP`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-STOP
+- Catches_bug: chặn mỗi click thì người dùng bàn phím vẫn bị đẩy sang hồ sơ
+
+**Runner contract**:
+- Coverage_ids: `COV-R2-STOP-2`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Thành phần nút chặn lan sự kiện bàn phím trong khung dựng thử
+
+### Các bước kiểm thử
+- [ ] Đưa tiêu điểm vào nút bằng bàn phím; gõ Enter; đếm số lần bộ nghe keydown của dòng chạy
+
+### Kết quả mong đợi
+- Bộ nghe trên dòng chạy 0 lần
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Refer to source code structure cho module này
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-031
+severity: S2
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-034
 
 **Meta**:
 - Loại: `A11Y`
@@ -3666,7 +3891,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-032
+tc_id: TC-034
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3680,7 +3905,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-035
+## TC-037
 
 **Meta**:
 - Loại: `RED`
@@ -3721,7 +3946,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-035
+tc_id: TC-037
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3735,7 +3960,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-036
+## TC-038
 
 **Meta**:
 - Loại: `A11Y`
@@ -3777,7 +4002,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-036
+tc_id: TC-038
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3791,7 +4016,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-037
+## TC-039
 
 **Meta**:
 - Loại: `A11Y`
@@ -3833,7 +4058,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-037
+tc_id: TC-039
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3847,7 +4072,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-038
+## TC-040
 
 **Meta**:
 - Loại: `GREEN`
@@ -3888,7 +4113,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-038
+tc_id: TC-040
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3902,7 +4127,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-040
+## TC-042
 
 **Meta**:
 - Loại: `GREEN`
@@ -3943,7 +4168,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-040
+tc_id: TC-042
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -3957,7 +4182,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-043
+## TC-045
 
 **Meta**:
 - Loại: `RED`
@@ -3982,13 +4207,13 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Danh mục rỗng thì báo hỏng, không im lặng
+**Tiêu đề**: Máy chủ trả LỖI thì ô báo tải hỏng
 
 ### Các bước kiểm thử
-- [ ] Giả lập máy chủ trả lỗi cho danh mục; mở ô Loại thông tin
+- [ ] Giả lập máy chủ trả mã lỗi cho danh mục; mở ô Loại thông tin
 
 ### Kết quả mong đợi
-- Ô báo tải hỏng, KHÔNG hiện chữ không có mục nào
+- Ô báo TẢI HỎNG, KHÔNG hiện chữ không có mục nào
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -3998,7 +4223,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-043
+tc_id: TC-045
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4012,7 +4237,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-044
+## TC-047
 
 **Meta**:
 - Loại: `GREEN`
@@ -4053,7 +4278,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-044
+tc_id: TC-047
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4067,7 +4292,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-045
+## TC-048
 
 **Meta**:
 - Loại: `GREEN`
@@ -4108,7 +4333,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-045
+tc_id: TC-048
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4122,7 +4347,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-047
+## TC-050
 
 **Meta**:
 - Loại: `GREEN`
@@ -4163,7 +4388,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-047
+tc_id: TC-050
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4177,7 +4402,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-054
+## TC-057
 
 **Meta**:
 - Loại: `GREEN`
@@ -4218,7 +4443,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-054
+tc_id: TC-057
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4232,7 +4457,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-055
+## TC-058
 
 **Meta**:
 - Loại: `GREEN`
@@ -4273,7 +4498,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-055
+tc_id: TC-058
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4287,7 +4512,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-056
+## TC-059
 
 **Meta**:
 - Loại: `RED`
@@ -4328,7 +4553,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-056
+tc_id: TC-059
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4342,7 +4567,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-060
+## TC-063
 
 **Meta**:
 - Loại: `DATA`
@@ -4360,20 +4585,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R5-SEED`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R5-SEED
-- Catches_bug: deploy chạy seed mỗi lượt; không idempotent là danh mục nhân đôi mỗi lần deploy
+- Catches_bug: chỉ đếm số mục giữa hai lượt thì một seed KHÔNG LÀM GÌ CẢ vẫn xanh vì 0 bằng 0; và seed xoá-rồi-tạo-lại cũng xanh trong khi id đổi hết, làm gãy mọi tham chiếu
 
 **Runner contract**:
 - Coverage_ids: `COV-R5-SEED-2`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Chạy seed lại lần nữa vẫn an toàn
+**Tiêu đề**: Seed lần đầu TẠO ĐỦ mục, lần hai giữ nguyên định danh và nội dung
 
 ### Các bước kiểm thử
-- [ ] Chạy seed loại tài liệu hai lần liên tiếp; đếm số mục sau mỗi lần
+- [ ] Xoá sạch danh mục trên bản sao; chạy seed lần 1 và ghi lại (id, mã, tên) từng mục; chạy seed lần 2; so nguyên bộ ba ấy
 
 ### Kết quả mong đợi
-- Số mục không tăng ở lần thứ hai
+- Lần 1 tạo đủ các mục bắt buộc đã khai; lần 2 giữ NGUYÊN id, mã và tên của từng mục
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -4383,7 +4608,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-060
+tc_id: TC-063
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4397,7 +4622,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-061
+## TC-064
 
 **Meta**:
 - Loại: `GREEN`
@@ -4438,7 +4663,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-061
+tc_id: TC-064
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4452,7 +4677,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-067
+## TC-070
 
 **Meta**:
 - Loại: `GREEN`
@@ -4493,7 +4718,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-067
+tc_id: TC-070
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4507,7 +4732,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-068
+## TC-071
 
 **Meta**:
 - Loại: `EP`
@@ -4548,7 +4773,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-068
+tc_id: TC-071
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4562,7 +4787,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-069
+## TC-072
 
 **Meta**:
 - Loại: `SECURITY`
@@ -4604,7 +4829,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-069
+tc_id: TC-072
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4618,7 +4843,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-074
+## TC-077
 
 **Meta**:
 - Loại: `STATE`
@@ -4659,7 +4884,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-074
+tc_id: TC-077
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4673,7 +4898,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-077
+## TC-080
 
 **Meta**:
 - Loại: `UX`
@@ -4714,7 +4939,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-077
+tc_id: TC-080
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4728,7 +4953,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-078
+## TC-081
 
 **Meta**:
 - Loại: `UX`
@@ -4769,7 +4994,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-078
+tc_id: TC-081
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4783,7 +5008,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-079
+## TC-082
 
 **Meta**:
 - Loại: `GREEN`
@@ -4824,7 +5049,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-079
+tc_id: TC-082
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4838,7 +5063,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-080
+## TC-083
 
 **Meta**:
 - Loại: `GREEN`
@@ -4879,7 +5104,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-080
+tc_id: TC-083
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4893,7 +5118,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-081
+## TC-084
 
 **Meta**:
 - Loại: `RED`
@@ -4934,7 +5159,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-081
+tc_id: TC-084
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -4948,7 +5173,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-083
+## TC-086
 
 **Meta**:
 - Loại: `UX`
@@ -4989,7 +5214,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-083
+tc_id: TC-086
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5003,7 +5228,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-085
+## TC-088
 
 **Meta**:
 - Loại: `COMPAT`
@@ -5044,7 +5269,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-085
+tc_id: TC-088
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5058,7 +5283,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-087
+## TC-090
 
 **Meta**:
 - Loại: `RED`
@@ -5099,7 +5324,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-087
+tc_id: TC-090
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5113,7 +5338,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-090
+## TC-093
 
 **Meta**:
 - Loại: `REGRESSION`
@@ -5154,7 +5379,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-090
+tc_id: TC-093
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5168,7 +5393,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-091
+## TC-094
 
 **Meta**:
 - Loại: `RED`
@@ -5209,7 +5434,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-091
+tc_id: TC-094
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5223,7 +5448,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-095
+## TC-098
 
 **Meta**:
 - Loại: `PERMISSIONS`
@@ -5264,7 +5489,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-095
+tc_id: TC-098
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5278,7 +5503,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-102
+## TC-106
 
 **Meta**:
 - Loại: `SECURITY`
@@ -5320,7 +5545,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-102
+tc_id: TC-106
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5334,7 +5559,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-103
+## TC-107
 
 **Meta**:
 - Loại: `SECURITY`
@@ -5376,7 +5601,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-103
+tc_id: TC-107
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5390,7 +5615,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-104
+## TC-108
 
 **Meta**:
 - Loại: `STATE`
@@ -5431,7 +5656,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-104
+tc_id: TC-108
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5445,7 +5670,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-106
+## TC-110
 
 **Meta**:
 - Loại: `STATE`
@@ -5486,7 +5711,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-106
+tc_id: TC-110
 severity: S2
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5500,7 +5725,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-107
+## TC-111
 
 **Meta**:
 - Loại: `DECISION`
@@ -5541,7 +5766,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-107
+tc_id: TC-111
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5555,7 +5780,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-108
+## TC-112
 
 **Meta**:
 - Loại: `DECISION`
@@ -5596,7 +5821,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-108
+tc_id: TC-112
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5610,7 +5835,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-109
+## TC-113
 
 **Meta**:
 - Loại: `DECISION`
@@ -5651,7 +5876,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-109
+tc_id: TC-113
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5665,7 +5890,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-110
+## TC-114
 
 **Meta**:
 - Loại: `DECISION`
@@ -5706,7 +5931,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-110
+tc_id: TC-114
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5720,7 +5945,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-111
+## TC-115
 
 **Meta**:
 - Loại: `DECISION`
@@ -5761,7 +5986,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-111
+tc_id: TC-115
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5775,7 +6000,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-112
+## TC-116
 
 **Meta**:
 - Loại: `DECISION`
@@ -5816,7 +6041,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-112
+tc_id: TC-116
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5830,7 +6055,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-113
+## TC-117
 
 **Meta**:
 - Loại: `DECISION`
@@ -5871,7 +6096,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-113
+tc_id: TC-117
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5885,7 +6110,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-114
+## TC-118
 
 **Meta**:
 - Loại: `DECISION`
@@ -5926,7 +6151,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-114
+tc_id: TC-118
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -5940,7 +6165,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-116
+## TC-120
 
 **Meta**:
 - Loại: `UX`
@@ -5972,116 +6197,6 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ### Kết quả mong đợi
 - Nút chuyển trạng thái đang chạy và không nhận bấm tiếp
-
-### 🔧 Fix Context (cho Claude Code khi TC này fail)
-
-**Khu vực có thể cần kiểm tra:**
-- Refer to source code structure cho module này
-
-**Bug report template** (Claude Code fill khi TC này fail):
-```yaml
-bug_id: BUG-XXX
-tc_id: TC-116
-severity: S3
-module: 
-reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
-actual_behavior: |  # observed sau khi chạy
-root_cause: |       # Claude Code phân tích
-files_changed:
-  - path/to/file.ts
-fix_summary: |
-verified_by_retest: false  # đặt true sau khi chạy lại pass
-```
-
----
-
-## TC-118
-
-**Meta**:
-- Loại: `UX`
-- Priority: `P1` 🟠
-- Module: ``
-- Yêu cầu: ``
-- Kỹ thuật: ``
-- Risk: ``
-- Severity nếu fail: `S3` 
-- Platform: `web`
-- Persona: `P-CAN-BO`
-- Journey_ref: `J-DON-THU-SUA-NHANH`
-
-**Oracle**:
-- Oracle_type: `Claim`
-- Rule_ref: `R2-SAVE`
-- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-SAVE
-- Catches_bug: Nielsen 3: mở nhầm mà không thoát được là bẫy
-
-**Runner contract**:
-- Coverage_ids: `COV-UX-3`
-- Backend_policy: `live`
-- Evidence_required: `trace`, `screenshot-final`
-
-**Tiêu đề**: Popup sửa nhanh có lối thoát rõ ràng
-
-### Các bước kiểm thử
-- [ ] Mở popup; tìm cách đóng không lưu
-
-### Kết quả mong đợi
-- Có nút đóng thấy được và phím Esc cũng đóng được
-
-### 🔧 Fix Context (cho Claude Code khi TC này fail)
-
-**Khu vực có thể cần kiểm tra:**
-- Refer to source code structure cho module này
-
-**Bug report template** (Claude Code fill khi TC này fail):
-```yaml
-bug_id: BUG-XXX
-tc_id: TC-118
-severity: S3
-module: 
-reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
-actual_behavior: |  # observed sau khi chạy
-root_cause: |       # Claude Code phân tích
-files_changed:
-  - path/to/file.ts
-fix_summary: |
-verified_by_retest: false  # đặt true sau khi chạy lại pass
-```
-
----
-
-## TC-120
-
-**Meta**:
-- Loại: `UX`
-- Priority: `P1` 🟠
-- Module: ``
-- Yêu cầu: ``
-- Kỹ thuật: ``
-- Risk: ``
-- Severity nếu fail: `S3` 
-- Platform: `web`
-- Persona: `P-CAN-BO`
-- Journey_ref: `J-DON-THU-XUAT`
-
-**Oracle**:
-- Oracle_type: `Claim`
-- Rule_ref: `R1-CAP`
-- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R1-CAP
-- Catches_bug: Nielsen 5: ngăn lỗi rẻ hơn báo lỗi
-
-**Runner contract**:
-- Coverage_ids: `COV-UX-5`
-- Backend_policy: `live`
-- Evidence_required: `trace`, `screenshot-final`
-
-**Tiêu đề**: Vượt trần xuất thì báo trước, không để tải xong mới hỏng
-
-### Các bước kiểm thử
-- [ ] Đặt bộ lọc khớp hơn 5.000 hồ sơ; bấm xuất
-
-### Kết quả mong đợi
-- Hệ báo trước số dòng sẽ xuất và mời thu hẹp bộ lọc
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -6123,20 +6238,20 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - Oracle_type: `Claim`
 - Rule_ref: `R2-SAVE`
 - Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-SAVE
-- Catches_bug: Nielsen 9: thông báo không hành động được thì bằng không có
+- Catches_bug: Nielsen 3: mở nhầm mà không thoát được là bẫy
 
 **Runner contract**:
-- Coverage_ids: `COV-UX-7`
+- Coverage_ids: `COV-UX-3`
 - Backend_policy: `live`
 - Evidence_required: `trace`, `screenshot-final`
 
-**Tiêu đề**: Thông báo lỗi nói được cách khắc phục
+**Tiêu đề**: Popup sửa nhanh có lối thoát rõ ràng
 
 ### Các bước kiểm thử
-- [ ] Gây lỗi khi lưu popup; đọc thông báo
+- [ ] Mở popup; tìm cách đóng không lưu
 
 ### Kết quả mong đợi
-- Thông báo nói rõ việc cần làm tiếp, không chỉ nêu mã lỗi
+- Có nút đóng thấy được và phím Esc cũng đóng được
 
 ### 🔧 Fix Context (cho Claude Code khi TC này fail)
 
@@ -6160,7 +6275,117 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-123
+## TC-124
+
+**Meta**:
+- Loại: `UX`
+- Priority: `P1` 🟠
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S3` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-XUAT`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R1-CAP`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R1-CAP
+- Catches_bug: Nielsen 5: ngăn lỗi rẻ hơn báo lỗi
+
+**Runner contract**:
+- Coverage_ids: `COV-UX-5`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Vượt trần xuất thì báo trước, không để tải xong mới hỏng
+
+### Các bước kiểm thử
+- [ ] Đặt bộ lọc khớp hơn 5.000 hồ sơ; bấm xuất
+
+### Kết quả mong đợi
+- Hệ báo trước số dòng sẽ xuất và mời thu hẹp bộ lọc
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Refer to source code structure cho module này
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-124
+severity: S3
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-126
+
+**Meta**:
+- Loại: `UX`
+- Priority: `P1` 🟠
+- Module: ``
+- Yêu cầu: ``
+- Kỹ thuật: ``
+- Risk: ``
+- Severity nếu fail: `S3` 
+- Platform: `web`
+- Persona: `P-CAN-BO`
+- Journey_ref: `J-DON-THU-SUA-NHANH`
+
+**Oracle**:
+- Oracle_type: `Claim`
+- Rule_ref: `R2-SAVE`
+- Oracle_source: docs/uat/dot-2309/_domain-pack.md §R2-SAVE
+- Catches_bug: Nielsen 9: thông báo không hành động được thì bằng không có
+
+**Runner contract**:
+- Coverage_ids: `COV-UX-7`
+- Backend_policy: `live`
+- Evidence_required: `trace`, `screenshot-final`
+
+**Tiêu đề**: Thông báo lỗi nói được cách khắc phục
+
+### Các bước kiểm thử
+- [ ] Gây lỗi khi lưu popup; đọc thông báo
+
+### Kết quả mong đợi
+- Thông báo nói rõ việc cần làm tiếp, không chỉ nêu mã lỗi
+
+### 🔧 Fix Context (cho Claude Code khi TC này fail)
+
+**Khu vực có thể cần kiểm tra:**
+- Refer to source code structure cho module này
+
+**Bug report template** (Claude Code fill khi TC này fail):
+```yaml
+bug_id: BUG-XXX
+tc_id: TC-126
+severity: S3
+module: 
+reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
+actual_behavior: |  # observed sau khi chạy
+root_cause: |       # Claude Code phân tích
+files_changed:
+  - path/to/file.ts
+fix_summary: |
+verified_by_retest: false  # đặt true sau khi chạy lại pass
+```
+
+---
+
+## TC-127
 
 **Meta**:
 - Loại: `UX`
@@ -6201,7 +6426,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-123
+tc_id: TC-127
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6215,7 +6440,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-125
+## TC-129
 
 **Meta**:
 - Loại: `A11Y`
@@ -6257,7 +6482,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-125
+tc_id: TC-129
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6271,7 +6496,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-127
+## TC-131
 
 **Meta**:
 - Loại: `A11Y`
@@ -6313,7 +6538,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-127
+tc_id: TC-131
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6327,7 +6552,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-128
+## TC-132
 
 **Meta**:
 - Loại: `A11Y`
@@ -6369,7 +6594,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-128
+tc_id: TC-132
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6383,7 +6608,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-129
+## TC-133
 
 **Meta**:
 - Loại: `A11Y`
@@ -6425,7 +6650,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-129
+tc_id: TC-133
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6439,7 +6664,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-131
+## TC-135
 
 **Meta**:
 - Loại: `A11Y`
@@ -6481,7 +6706,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-131
+tc_id: TC-135
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6495,7 +6720,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-133
+## TC-137
 
 **Meta**:
 - Loại: `COMPAT`
@@ -6536,7 +6761,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-133
+tc_id: TC-137
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6550,7 +6775,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-134
+## TC-138
 
 **Meta**:
 - Loại: `COMPAT`
@@ -6591,7 +6816,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-134
+tc_id: TC-138
 severity: S3
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6605,7 +6830,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-019
+## TC-020
 
 **Meta**:
 - Loại: `EDGE`
@@ -6646,7 +6871,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-019
+tc_id: TC-020
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6660,7 +6885,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-028
+## TC-029
 
 **Meta**:
 - Loại: `EDGE`
@@ -6701,7 +6926,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-028
+tc_id: TC-029
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6715,7 +6940,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-031
+## TC-033
 
 **Meta**:
 - Loại: `GREEN`
@@ -6756,7 +6981,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-031
+tc_id: TC-033
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6770,7 +6995,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-041
+## TC-043
 
 **Meta**:
 - Loại: `STATE`
@@ -6811,7 +7036,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-041
+tc_id: TC-043
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6825,7 +7050,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-046
+## TC-049
 
 **Meta**:
 - Loại: `RED`
@@ -6866,7 +7091,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-046
+tc_id: TC-049
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6880,7 +7105,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-057
+## TC-060
 
 **Meta**:
 - Loại: `UX`
@@ -6921,7 +7146,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-057
+tc_id: TC-060
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6935,7 +7160,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-058
+## TC-061
 
 **Meta**:
 - Loại: `GREEN`
@@ -6976,7 +7201,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-058
+tc_id: TC-061
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -6990,7 +7215,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-063
+## TC-066
 
 **Meta**:
 - Loại: `GREEN`
@@ -7031,7 +7256,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-063
+tc_id: TC-066
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7045,7 +7270,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-070
+## TC-073
 
 **Meta**:
 - Loại: `BOUNDARY`
@@ -7086,7 +7311,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-070
+tc_id: TC-073
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7100,7 +7325,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-071
+## TC-074
 
 **Meta**:
 - Loại: `BOUNDARY`
@@ -7141,7 +7366,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-071
+tc_id: TC-074
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7155,7 +7380,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-072
+## TC-075
 
 **Meta**:
 - Loại: `BOUNDARY`
@@ -7196,7 +7421,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-072
+tc_id: TC-075
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7210,7 +7435,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-082
+## TC-085
 
 **Meta**:
 - Loại: `GREEN`
@@ -7251,7 +7476,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-082
+tc_id: TC-085
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7265,7 +7490,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-084
+## TC-087
 
 **Meta**:
 - Loại: `GREEN`
@@ -7306,7 +7531,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-084
+tc_id: TC-087
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7320,7 +7545,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-086
+## TC-089
 
 **Meta**:
 - Loại: `COMPAT`
@@ -7361,7 +7586,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-086
+tc_id: TC-089
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7375,7 +7600,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-115
+## TC-119
 
 **Meta**:
 - Loại: `EP`
@@ -7416,7 +7641,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-115
+tc_id: TC-119
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7430,7 +7655,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-117
+## TC-121
 
 **Meta**:
 - Loại: `UX`
@@ -7471,7 +7696,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-117
+tc_id: TC-121
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7485,7 +7710,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-119
+## TC-123
 
 **Meta**:
 - Loại: `UX`
@@ -7526,7 +7751,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-119
+tc_id: TC-123
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7540,7 +7765,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-124
+## TC-128
 
 **Meta**:
 - Loại: `UX`
@@ -7581,7 +7806,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-124
+tc_id: TC-128
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7595,7 +7820,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-126
+## TC-130
 
 **Meta**:
 - Loại: `A11Y`
@@ -7637,7 +7862,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-126
+tc_id: TC-130
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7651,7 +7876,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 
 ---
 
-## TC-130
+## TC-134
 
 **Meta**:
 - Loại: `A11Y`
@@ -7693,7 +7918,7 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 **Bug report template** (Claude Code fill khi TC này fail):
 ```yaml
 bug_id: BUG-XXX
-tc_id: TC-130
+tc_id: TC-134
 severity: S4
 module: 
 reproduce_steps: |  # copy từ Các bước kiểm thử ở trên
@@ -7749,50 +7974,54 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - [ ] **TC-002** [P0] Số cột tệp mọi trường đếm được đúng 42
 - [ ] **TC-005** [P0] Cột rỗng sạch không có trong tệp
 - [ ] **TC-014** [P0] Ba cột định danh stt, sttCu, status đều có mặt
-- [ ] **TC-015** [P0] Mọi cột trong tệp mang giá trị, không phải ô trống
-- [ ] **TC-018** [P0] Cột đã cắt mà có dữ liệu thì phép đo báo ĐỎ
-- [ ] **TC-022** [P0] Ô RỖNG hiện nút có cả biểu tượng và nhãn chữ
-- [ ] **TC-023** [P0] Bấm nút ở ô rỗng mở popup nhập
-- [ ] **TC-024** [P0] Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh
-- [ ] **TC-025** [P0] Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ
-- [ ] **TC-026** [P0] Sửa giá trị cũ rồi lưu thì giá trị mới thay thế
-- [ ] **TC-027** [P0] Bấm vào CHỮ mở hồ sơ, KHÔNG mở popup
-- [ ] **TC-033** [P0] Tải tệp lên từ ngay trong danh sách
-- [ ] **TC-034** [P0] Tải tệp xuống từ ngay trong danh sách
-- [ ] **TC-039** [P0] Lưu hỏng thì báo lỗi và KHÔNG mất chữ đã gõ
-- [ ] **TC-042** [P0] Danh mục loại thông tin có mục để chọn
-- [ ] **TC-048** [P0] Đơn mới KHÔNG mang STT của đơn cũ
-- [ ] **TC-049** [P0] Đơn mới KHÔNG mang kết quả xử lý của đơn cũ
-- [ ] **TC-050** [P0] Mọi tuyến form đều được gắn khoá dựng lại theo hồ sơ
-- [ ] **TC-051** [P0] Đi hồ sơ A rồi tạo mới rồi sang hồ sơ B không dính trạng thái
-- [ ] **TC-052** [P0] Lưu thì ra một hồ sơ MỚI
-- [ ] **TC-053** [P0] Đơn cũ không đổi sau khi lưu đơn mới
-- [ ] **TC-059** [P0] Danh mục loại tài liệu có mục sau khi deploy
-- [ ] **TC-062** [P0] Hồ sơ cũ có giá trị khác thì GIỮ, không đè Không
-- [ ] **TC-064** [P0] Mở hồ sơ cũ, KHÔNG sửa gì, Lưu: ô đã ẩn đi nguyên vẹn
-- [ ] **TC-065** [P0] Sửa một ô KHÁC rồi Lưu: ô đã ẩn vẫn nguyên
-- [ ] **TC-066** [P0] Gieo lỗi: bỏ ô khỏi thân lời gọi thì cổng phải ĐỎ
-- [ ] **TC-073** [P0] Gõ tên CHƯA CÓ rồi bấm Lưu NGAY thì tên được ghi
-- [ ] **TC-075** [P0] Gợi ý chỉ lấy hồ sơ trong phạm vi người đăng nhập
-- [ ] **TC-076** [P0] Cán bộ tổ khác không thấy tên ngoài phạm vi
-- [ ] **TC-088** [P0] Mở hồ sơ DI TRÚ thì không ô nào biến mất
-- [ ] **TC-089** [P0] Hồ sơ DI TRÚ không báo lỗi giả ở ngày viết đơn
-- [ ] **TC-092** [P0] Tạo đơn thư bình thường vẫn thành công
-- [ ] **TC-093** [P0] Mọi khoá form gửi lên đều được máy chủ khai nhận
-- [ ] **TC-094** [P0] Cán bộ (không phải quản trị) lưu được đơn
-- [ ] **TC-096** [P0] Máy chủ báo mã bản dựng khớp commit đã hợp nhất
-- [ ] **TC-097** [P0] Cán bộ tổ khác không thấy hồ sơ ngoài phạm vi
-- [ ] **TC-098** [P0] Tệp xuất cũng lọc theo phạm vi dữ liệu
-- [ ] **TC-099** [P0] Thiếu quyền xuất đầy đủ thì bị từ chối
-- [ ] **TC-100** [P0] Sửa nhanh hồ sơ ngoài phạm vi bị chặn
-- [ ] **TC-101** [P0] Vai vô danh không gọi được đường xuất
-- [ ] **TC-105** [P0] Lưu xong rồi mở dòng KHÁC không mang giá trị dòng trước
-- [ ] **TC-121** [P0] Trạng thái rỗng của bảng phân biệt với tải hỏng
-- [ ] **TC-132** [P0] Chạy đúng trên Chrome
-- [ ] **TC-135** [P0] Sau deploy, đường kiểm tra sức khoẻ trả mã bản dựng đúng
-- [ ] **TC-136** [P0] Seed chạy trong deploy và deploy ĐỎ nếu seed hỏng
+- [ ] **TC-015** [P0] Từng ô trong tệp khớp dữ liệu nguồn, đối chiếu theo hồ sơ
+- [ ] **TC-016** [P0] Tập 42 cột khớp ĐÚNG bộ cột chuẩn, không chỉ đúng số lượng
+- [ ] **TC-019** [P0] Cột đã cắt mà có dữ liệu thì phép đo báo ĐỎ
+- [ ] **TC-023** [P0] Ô RỖNG hiện nút có cả biểu tượng và nhãn chữ
+- [ ] **TC-024** [P0] Bấm nút ở ô rỗng mở popup nhập
+- [ ] **TC-025** [P0] Ô ĐÃ CÓ chữ vẫn có nút sửa nhanh
+- [ ] **TC-026** [P0] Bấm nút ở ô có chữ mở popup mang sẵn giá trị cũ
+- [ ] **TC-027** [P0] Sửa giá trị cũ rồi lưu thì giá trị mới thay thế
+- [ ] **TC-028** [P0] Bấm vào CHỮ mở hồ sơ, KHÔNG mở popup
+- [ ] **TC-032** [P0] Trên BẢNG THẬT, Enter ở nút mở popup mà không chuyển sang hồ sơ
+- [ ] **TC-035** [P0] Tải tệp lên từ ngay trong danh sách
+- [ ] **TC-036** [P0] Tải tệp xuống từ ngay trong danh sách
+- [ ] **TC-041** [P0] Lưu hỏng thì báo lỗi và KHÔNG mất chữ đã gõ
+- [ ] **TC-044** [P0] Danh mục loại thông tin có mục để chọn
+- [ ] **TC-046** [P0] Máy chủ trả THÀNH CÔNG với danh sách rỗng thì nói rõ là danh mục chưa có mục
+- [ ] **TC-051** [P0] Đơn mới KHÔNG mang STT của đơn cũ
+- [ ] **TC-052** [P0] Đơn mới KHÔNG mang kết quả xử lý của đơn cũ
+- [ ] **TC-053** [P0] Mọi tuyến form đều được gắn khoá dựng lại theo hồ sơ
+- [ ] **TC-054** [P0] Đi hồ sơ A rồi tạo mới rồi sang hồ sơ B không dính trạng thái
+- [ ] **TC-055** [P0] Lưu thì ra một hồ sơ MỚI
+- [ ] **TC-056** [P0] Đơn cũ không đổi sau khi lưu đơn mới
+- [ ] **TC-062** [P0] Danh mục loại tài liệu có mục sau khi deploy
+- [ ] **TC-065** [P0] Hồ sơ cũ có giá trị khác thì GIỮ, không đè Không
+- [ ] **TC-067** [P0] Mở hồ sơ cũ, KHÔNG sửa gì, Lưu: ô đã ẩn đi nguyên vẹn
+- [ ] **TC-068** [P0] Sửa một ô KHÁC rồi Lưu: ô đã ẩn vẫn nguyên
+- [ ] **TC-069** [P0] Gieo lỗi: gửi RỖNG đè lên ô đã ẩn thì cổng phải ĐỎ
+- [ ] **TC-076** [P0] Gõ tên CHƯA CÓ rồi bấm Lưu NGAY thì tên được ghi
+- [ ] **TC-078** [P0] Gợi ý chỉ lấy hồ sơ trong phạm vi người đăng nhập
+- [ ] **TC-079** [P0] Cán bộ tổ khác không thấy tên ngoài phạm vi
+- [ ] **TC-091** [P0] Mở hồ sơ DI TRÚ thì không ô nào biến mất
+- [ ] **TC-092** [P0] Hồ sơ DI TRÚ không báo lỗi giả ở ngày viết đơn
+- [ ] **TC-095** [P0] Tạo đơn thư bình thường vẫn thành công
+- [ ] **TC-096** [P0] Mọi khoá form gửi lên đều được máy chủ khai nhận
+- [ ] **TC-097** [P0] Cán bộ (không phải quản trị) lưu được đơn
+- [ ] **TC-099** [P0] Máy chủ báo mã bản dựng khớp commit đã hợp nhất
+- [ ] **TC-100** [P0] Cán bộ tổ khác không thấy hồ sơ ngoài phạm vi
+- [ ] **TC-101** [P0] Tệp xuất cũng lọc theo phạm vi dữ liệu
+- [ ] **TC-102** [P0] Tệp của nút ĐANG XEM cũng lọc theo phạm vi dữ liệu
+- [ ] **TC-103** [P0] Thiếu quyền xuất đầy đủ thì bị từ chối
+- [ ] **TC-104** [P0] Sửa nhanh hồ sơ ngoài phạm vi bị chặn
+- [ ] **TC-105** [P0] Vai vô danh không gọi được đường xuất
+- [ ] **TC-109** [P0] Lưu xong rồi mở dòng KHÁC không mang giá trị dòng trước
+- [ ] **TC-125** [P0] Trạng thái rỗng của bảng phân biệt với tải hỏng
+- [ ] **TC-136** [P0] Chạy đúng trên Chrome
+- [ ] **TC-139** [P0] Sau deploy, đường kiểm tra sức khoẻ trả mã bản dựng đúng
+- [ ] **TC-140** [P0] Seed chạy trong deploy và deploy ĐỎ nếu seed hỏng
 - [ ] **TC-003** [P1] Ô nằm trong nhóm GẬP trên form vẫn được xuất
-- [ ] **TC-004** [P1] Gập KHÔNG phải lý do loại cột
+- [ ] **TC-004** [P1] Cột thuộc nhóm gập mà CÓ dữ liệu thì thật sự xuất hiện trong tệp
 - [ ] **TC-006** [P1] 88 khoá metadata rỗng sạch đã bị cắt
 - [ ] **TC-007** [P1] 3 cột riêng rỗng sạch đã bị cắt
 - [ ] **TC-008** [P1] Rỗng kiểu NULL được tính là rỗng
@@ -7801,87 +8030,87 @@ verified_by_retest: false  # đặt true sau khi chạy lại pass
 - [ ] **TC-011** [P1] Rỗng kiểu JSON null được tính là rỗng
 - [ ] **TC-012** [P1] Hai lần xuất liên tiếp cho cùng bộ cột
 - [ ] **TC-013** [P1] Bộ cột KHÔNG đo lại lúc xuất
-- [ ] **TC-016** [P1] Khoá lưu đọc đúng cho cột riêng
-- [ ] **TC-017** [P1] Khoá lưu đọc đúng cho khoá metadata
-- [ ] **TC-020** [P1] Xuất đúng trần 5.000 dòng
-- [ ] **TC-021** [P1] Quá trần thì cắt còn 5.000 và nói rõ đã cắt
-- [ ] **TC-029** [P1] Bấm chuột trên nút không lan ra dòng
-- [ ] **TC-030** [P1] Gõ Enter trên nút không lan ra dòng
-- [ ] **TC-032** [P1] Vùng chạm của nút đạt tối thiểu WCAG 2.2
-- [ ] **TC-035** [P1] Tên tệp tải về theo máy chủ, không bị ép tên
-- [ ] **TC-036** [P1] Nhãn đọc được nói rõ sửa ô nào của hồ sơ nào
-- [ ] **TC-037** [P1] Tới được nút bằng phím Tab
-- [ ] **TC-038** [P1] Lưu xong bảng cập nhật ngay, không cần tải lại
-- [ ] **TC-040** [P1] Cột Loại thông tin đứng ngay trước Nguồn đơn/Đơn vị giao
-- [ ] **TC-043** [P1] Danh mục rỗng thì báo hỏng, không im lặng
-- [ ] **TC-044** [P1] Cột Loại thông tin có trong tệp xuất
-- [ ] **TC-045** [P1] Nút hiện khi đang SỬA hồ sơ
-- [ ] **TC-047** [P1] Đơn mới mang theo nội dung đơn cũ
-- [ ] **TC-054** [P1] Khu tải tệp nằm cạnh ô Kết quả xử lý
-- [ ] **TC-055** [P1] Tệp tải ở khu này mang đúng loại của khu
-- [ ] **TC-056** [P1] Loại KHÔNG rơi về Văn bản
-- [ ] **TC-060** [P1] Chạy seed lại lần nữa vẫn an toàn
-- [ ] **TC-061** [P1] Màn tạo mới: ô báo cáo Ban Giám đốc đã là Không
-- [ ] **TC-067** [P1] Gõ 2 ký tự trở lên thì hiện tên đã có trong dữ liệu
-- [ ] **TC-068** [P1] Khớp GIỮA chuỗi, không chỉ khớp đầu chuỗi
-- [ ] **TC-069** [P1] Ký tự đặc biệt của mẫu tìm được thoát đúng
-- [ ] **TC-074** [P1] Gõ rồi rời ô rồi quay lại, chữ còn nguyên
-- [ ] **TC-077** [P1] Hai nút có nhãn phân biệt được
-- [ ] **TC-078** [P1] Nhãn nói rõ nút nào xuất đúng cột đang xem
-- [ ] **TC-079** [P1] Tiêu đề trong tệp nút đang xem là DANH SÁCH ĐƠN THƯ
-- [ ] **TC-080** [P1] Tiêu đề trong tệp nút mọi trường là DANH SÁCH ĐƠN THƯ
-- [ ] **TC-081** [P1] Không còn hậu tố ĐẦY ĐỦ TRƯỜNG
-- [ ] **TC-083** [P1] Bốn nút và dòng đếm nằm cùng một đường căn
-- [ ] **TC-085** [P1] Màn hẹp thì hàng nút xuống dòng, không tràn
-- [ ] **TC-087** [P1] Nút đang báo LỖI không làm lệch hàng
-- [ ] **TC-090** [P1] Nút đang xem xuất đúng cột đang nhìn
-- [ ] **TC-091** [P1] Nút đang xem KHÔNG cắt cột theo dữ liệu
-- [ ] **TC-095** [P1] Cán bộ xuất được tệp mọi trường
-- [ ] **TC-102** [P1] Tệp ngoài danh sách loại cho phép bị từ chối
-- [ ] **TC-103** [P1] Tên tệp chứa ký tự đường dẫn bị vô hiệu hoá
-- [ ] **TC-104** [P1] Đóng popup rồi mở lại thì lấy giá trị từ máy chủ
-- [ ] **TC-106** [P1] Hai tab cùng mở, tab A sửa nhanh, tab B tải lại thấy đúng
-- [ ] **TC-107** [P1] Nút xuất: có bộ lọc, có quyền xuất đầy đủ
-- [ ] **TC-108** [P1] Nút xuất: có bộ lọc, không quyền xuất đầy đủ
-- [ ] **TC-109** [P1] Nút xuất: không bộ lọc, có quyền xuất đầy đủ
-- [ ] **TC-110** [P1] Nút xuất: không bộ lọc, không quyền xuất đầy đủ
-- [ ] **TC-111** [P1] Sửa nhanh: ô rỗng, có quyền sửa
-- [ ] **TC-112** [P1] Sửa nhanh: ô có chữ, có quyền sửa
-- [ ] **TC-113** [P1] Sửa nhanh: ô rỗng, không quyền sửa
-- [ ] **TC-114** [P1] Sửa nhanh: ô có chữ, không quyền sửa
-- [ ] **TC-116** [P1] Đang xuất thì nút cho biết hệ đang chạy
-- [ ] **TC-118** [P1] Popup sửa nhanh có lối thoát rõ ràng
-- [ ] **TC-120** [P1] Vượt trần xuất thì báo trước, không để tải xong mới hỏng
-- [ ] **TC-122** [P1] Thông báo lỗi nói được cách khắc phục
-- [ ] **TC-123** [P1] Sửa từ bảng ít thao tác hơn mở hồ sơ
-- [ ] **TC-125** [P1] Tiêu điểm không bị che khi cuộn bảng
-- [ ] **TC-127** [P1] Tương phản chữ trên nút đạt mức AA
-- [ ] **TC-128** [P1] Mọi nút có tên đọc được
-- [ ] **TC-129** [P1] Popup giữ tiêu điểm đúng cách và Esc thoát được
-- [ ] **TC-131** [P1] Quét tự động không còn lỗi mức A/AA
-- [ ] **TC-133** [P1] Chạy đúng trên Edge Chromium
-- [ ] **TC-134** [P1] Bố cục đúng ở màn 1366x768
-- [ ] **TC-019** [P2] Phép đo trong deploy chỉ cảnh báo, không chặn deploy
-- [ ] **TC-028** [P2] Ô rỗng thì nút chính là nội dung ô
-- [ ] **TC-031** [P2] Biểu tượng là bút, cùng biểu tượng sửa của hệ
-- [ ] **TC-041** [P2] Thứ tự cột giữ nguyên sau khi tải lại trang
-- [ ] **TC-046** [P2] Nút KHÔNG hiện khi đang tạo mới
-- [ ] **TC-057** [P2] Hai khu tải tệp phân biệt được trên màn hình
-- [ ] **TC-058** [P2] Hai khu có định danh kiểm thử riêng
-- [ ] **TC-063** [P2] Ô Đồ vật, tài liệu kèm theo không còn trên form
-- [ ] **TC-070** [P2] Một ký tự thì CHƯA gợi ý
-- [ ] **TC-071** [P2] Hai ký tự thì CÓ gợi ý
-- [ ] **TC-072** [P2] Nhiều kết quả thì cắt còn tối đa 10
-- [ ] **TC-082** [P2] Một hằng số tiêu đề dùng cho cả hai đường xuất
-- [ ] **TC-084** [P2] Nhóm hành động phụ không dựng khối bọc dọc
-- [ ] **TC-086** [P2] Nhãn dài khi có thay đổi chưa áp dụng cũng không tràn
-- [ ] **TC-115** [P2] Kết cặp nguồn đơn x loại thông tin x trạng thái trên tệp xuất
-- [ ] **TC-117** [P2] Nhãn nút dùng từ nghiệp vụ, không dùng từ kỹ thuật
-- [ ] **TC-119** [P2] Nút sửa nhanh nhất quán với chỗ sửa khác trong hệ
-- [ ] **TC-124** [P2] Popup có đủ trạng thái tải, rỗng, lỗi, khoá
-- [ ] **TC-126** [P2] Không đòi nhập lại thông tin vừa nhập
-- [ ] **TC-130** [P2] Thứ tự tiêu điểm theo thứ tự đọc
+- [ ] **TC-017** [P1] Khoá lưu đọc đúng cho cột riêng
+- [ ] **TC-018** [P1] Khoá lưu đọc đúng cho khoá metadata
+- [ ] **TC-021** [P1] Xuất đúng trần 5.000 dòng
+- [ ] **TC-022** [P1] Quá trần thì cắt còn 5.000 và nói rõ đã cắt
+- [ ] **TC-030** [P1] Thành phần nút chặn lan sự kiện chuột trong khung dựng thử
+- [ ] **TC-031** [P1] Thành phần nút chặn lan sự kiện bàn phím trong khung dựng thử
+- [ ] **TC-034** [P1] Vùng chạm của nút đạt tối thiểu WCAG 2.2
+- [ ] **TC-037** [P1] Tên tệp tải về theo máy chủ, không bị ép tên
+- [ ] **TC-038** [P1] Nhãn đọc được nói rõ sửa ô nào của hồ sơ nào
+- [ ] **TC-039** [P1] Tới được nút bằng phím Tab
+- [ ] **TC-040** [P1] Lưu xong bảng cập nhật ngay, không cần tải lại
+- [ ] **TC-042** [P1] Cột Loại thông tin đứng ngay trước Nguồn đơn/Đơn vị giao
+- [ ] **TC-045** [P1] Máy chủ trả LỖI thì ô báo tải hỏng
+- [ ] **TC-047** [P1] Cột Loại thông tin có trong tệp xuất
+- [ ] **TC-048** [P1] Nút hiện khi đang SỬA hồ sơ
+- [ ] **TC-050** [P1] Đơn mới mang theo nội dung đơn cũ
+- [ ] **TC-057** [P1] Khu tải tệp nằm cạnh ô Kết quả xử lý
+- [ ] **TC-058** [P1] Tệp tải ở khu này mang đúng loại của khu
+- [ ] **TC-059** [P1] Loại KHÔNG rơi về Văn bản
+- [ ] **TC-063** [P1] Seed lần đầu TẠO ĐỦ mục, lần hai giữ nguyên định danh và nội dung
+- [ ] **TC-064** [P1] Màn tạo mới: ô báo cáo Ban Giám đốc đã là Không
+- [ ] **TC-070** [P1] Gõ 2 ký tự trở lên thì hiện tên đã có trong dữ liệu
+- [ ] **TC-071** [P1] Khớp GIỮA chuỗi, không chỉ khớp đầu chuỗi
+- [ ] **TC-072** [P1] Ký tự đặc biệt của mẫu tìm được thoát đúng
+- [ ] **TC-077** [P1] Gõ rồi rời ô rồi quay lại, chữ còn nguyên
+- [ ] **TC-080** [P1] Hai nút có nhãn phân biệt được
+- [ ] **TC-081** [P1] Nhãn nói rõ nút nào xuất đúng cột đang xem
+- [ ] **TC-082** [P1] Tiêu đề trong tệp nút đang xem là DANH SÁCH ĐƠN THƯ
+- [ ] **TC-083** [P1] Tiêu đề trong tệp nút mọi trường là DANH SÁCH ĐƠN THƯ
+- [ ] **TC-084** [P1] Không còn hậu tố ĐẦY ĐỦ TRƯỜNG
+- [ ] **TC-086** [P1] Bốn nút và dòng đếm nằm cùng một đường căn
+- [ ] **TC-088** [P1] Màn hẹp thì hàng nút xuống dòng, không tràn
+- [ ] **TC-090** [P1] Nút đang báo LỖI không làm lệch hàng
+- [ ] **TC-093** [P1] Nút đang xem xuất đúng cột đang nhìn
+- [ ] **TC-094** [P1] Nút đang xem KHÔNG cắt cột theo dữ liệu
+- [ ] **TC-098** [P1] Cán bộ xuất được tệp mọi trường
+- [ ] **TC-106** [P1] Tệp ngoài danh sách loại cho phép bị từ chối
+- [ ] **TC-107** [P1] Tên tệp chứa ký tự đường dẫn bị vô hiệu hoá
+- [ ] **TC-108** [P1] Đóng popup rồi mở lại thì lấy giá trị từ máy chủ
+- [ ] **TC-110** [P1] Hai tab cùng mở, tab A sửa nhanh, tab B tải lại thấy đúng
+- [ ] **TC-111** [P1] Nút xuất: có bộ lọc, có quyền xuất đầy đủ
+- [ ] **TC-112** [P1] Nút xuất: có bộ lọc, không quyền xuất đầy đủ
+- [ ] **TC-113** [P1] Nút xuất: không bộ lọc, có quyền xuất đầy đủ
+- [ ] **TC-114** [P1] Nút xuất: không bộ lọc, không quyền xuất đầy đủ
+- [ ] **TC-115** [P1] Sửa nhanh: ô rỗng, có quyền sửa
+- [ ] **TC-116** [P1] Sửa nhanh: ô có chữ, có quyền sửa
+- [ ] **TC-117** [P1] Sửa nhanh: ô rỗng, không quyền sửa
+- [ ] **TC-118** [P1] Sửa nhanh: ô có chữ, không quyền sửa
+- [ ] **TC-120** [P1] Đang xuất thì nút cho biết hệ đang chạy
+- [ ] **TC-122** [P1] Popup sửa nhanh có lối thoát rõ ràng
+- [ ] **TC-124** [P1] Vượt trần xuất thì báo trước, không để tải xong mới hỏng
+- [ ] **TC-126** [P1] Thông báo lỗi nói được cách khắc phục
+- [ ] **TC-127** [P1] Sửa từ bảng ít thao tác hơn mở hồ sơ
+- [ ] **TC-129** [P1] Tiêu điểm không bị che khi cuộn bảng
+- [ ] **TC-131** [P1] Tương phản chữ trên nút đạt mức AA
+- [ ] **TC-132** [P1] Mọi nút có tên đọc được
+- [ ] **TC-133** [P1] Popup giữ tiêu điểm đúng cách và Esc thoát được
+- [ ] **TC-135** [P1] Quét tự động không còn lỗi mức A/AA
+- [ ] **TC-137** [P1] Chạy đúng trên Edge Chromium
+- [ ] **TC-138** [P1] Bố cục đúng ở màn 1366x768
+- [ ] **TC-020** [P2] Phép đo trong deploy chỉ cảnh báo, không chặn deploy
+- [ ] **TC-029** [P2] Ô rỗng thì nút chính là nội dung ô
+- [ ] **TC-033** [P2] Biểu tượng là bút, cùng biểu tượng sửa của hệ
+- [ ] **TC-043** [P2] Thứ tự cột giữ nguyên sau khi tải lại trang
+- [ ] **TC-049** [P2] Nút KHÔNG hiện khi đang tạo mới
+- [ ] **TC-060** [P2] Hai khu tải tệp phân biệt được trên màn hình
+- [ ] **TC-061** [P2] Hai khu có định danh kiểm thử riêng
+- [ ] **TC-066** [P2] Ô Đồ vật, tài liệu kèm theo không còn trên form
+- [ ] **TC-073** [P2] Một ký tự thì CHƯA gợi ý
+- [ ] **TC-074** [P2] Hai ký tự thì CÓ gợi ý
+- [ ] **TC-075** [P2] Nhiều kết quả thì cắt còn tối đa 10
+- [ ] **TC-085** [P2] Một hằng số tiêu đề dùng cho cả hai đường xuất
+- [ ] **TC-087** [P2] Nhóm hành động phụ không dựng khối bọc dọc
+- [ ] **TC-089** [P2] Nhãn dài khi có thay đổi chưa áp dụng cũng không tràn
+- [ ] **TC-119** [P2] Kết cặp nguồn đơn x loại thông tin x trạng thái trên tệp xuất
+- [ ] **TC-121** [P2] Nhãn nút dùng từ nghiệp vụ, không dùng từ kỹ thuật
+- [ ] **TC-123** [P2] Nút sửa nhanh nhất quán với chỗ sửa khác trong hệ
+- [ ] **TC-128** [P2] Popup có đủ trạng thái tải, rỗng, lỗi, khoá
+- [ ] **TC-130** [P2] Không đòi nhập lại thông tin vừa nhập
+- [ ] **TC-134** [P2] Thứ tự tiêu điểm theo thứ tự đọc
 
 ---
 
-_Generated by `uat-test-writer` skill on 23/09/2026 11:37_
+_Generated by `uat-test-writer` skill on 23/09/2026 11:48_
