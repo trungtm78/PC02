@@ -22,6 +22,61 @@ export interface SoDoKhoa {
   soHoSo: number;
 }
 
+/**
+ * Đếm số hồ sơ có giá trị khác rỗng ở từng CỘT RIÊNG của bảng `petitions`.
+ *
+ * Đợt trước chỉ đếm khoá `metadata`, nên 42 cột riêng chưa từng được đo — và anh báo 23/09 rằng
+ * tệp vẫn còn cột rỗng. Đo trên prod 47.626 hồ sơ thì có 3 cột rỗng sạch
+ * (`lanhDaoToTung`, `ngayXayRa`, `noiXayRaPhuongXa`). Thiếu nhánh này thì lần chuẩn hoá sau vẫn
+ * sót đúng chúng.
+ *
+ * Tên cột lấy TỪ BẢN SINH, không nhận từ đầu vào ngoài — chuỗi ghép vào SQL phải có nguồn gốc
+ * trong kho mã.
+ */
+export async function doCotRieng(
+  prisma: PrismaClient,
+  cot: readonly string[],
+): Promise<SoDoKhoa[]> {
+  if (!cot.length) return [];
+  const hopLe = new Set([
+    ...TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string),
+    // Cột nguồn của bộ đọc ghép — không nằm trong bố cục form nhưng phép đo phải chạm tới.
+    'ngayVietDonEdtf',
+    'ngayVietDonChu',
+  ]);
+  const la = cot.filter((c) => !hopLe.has(c));
+  if (la.length) throw new Error(`Cột không có trong bản sinh: ${la.join(', ')}`);
+
+  /*
+    Cột có bộ đọc GHÉP phải đếm theo NGUỒN của bộ đọc, không theo cột vật lý.
+
+    `docTruong` đọc "Ngày viết đơn" bằng `ngayVietDonHienThi` — ba cột theo thứ tự, kèm bản thô
+    hệ cũ. Một hồ sơ chỉ có `ngayVietDonChu` ("19/4/2021 (03 đơn)") thì tệp xuất IN RA CHỮ ấy,
+    nhưng đếm theo `petitionDate` lại ra 0. Phép đo lệch nghĩa với bộ đọc thì `--sinh` sẽ khuyên
+    cắt một cột đang có dữ liệu — cắt xong không ai biết.
+
+    Lượt soát mô hình ngoài 23/09/2026 bắt được. Hôm nay `petitionDate` có dữ liệu nên chưa cắt
+    nhầm, nhưng phép đo sai vẫn là phép đo sai.
+  */
+  const NGUON_GHEP: Record<string, string[]> = {
+    petitionDate: ['petitionDate', 'ngayVietDonEdtf', 'ngayVietDonChu'],
+  };
+  const dieuKien = (c: string): string =>
+    (NGUON_GHEP[c] ?? [c])
+      .map((n) => `("${n}" IS NOT NULL AND btrim("${n}"::text) <> '')`)
+      .join(' OR ');
+
+  const cau = cot
+    .map(
+      (c) =>
+        `SELECT '${c}' AS key, count(*) AS n FROM petitions WHERE "deletedAt" IS NULL AND (${dieuKien(c)})`,
+    )
+    .join(' UNION ALL ');
+  const dong = await prisma.$queryRawUnsafe<{ key: string; n: bigint }[]>(cau);
+  const dem = new Map(dong.map((d) => [d.key, Number(d.n)]));
+  return cot.map((c) => ({ khoaLuu: c, soHoSo: dem.get(c) ?? 0 }));
+}
+
 /** Đếm số hồ sơ có giá trị khác rỗng ở từng khoá `metadata` được hỏi. */
 export async function doKhoaMetadata(
   prisma: PrismaClient,
@@ -66,27 +121,50 @@ async function chay(): Promise<void> {
   const prisma = new PrismaClient({ adapter });
   try {
     if (process.argv.includes('--sinh')) {
-      const moiKhoa = TRUONG_FORM_DON_THU.filter((t) => !t.cot).map((t) => t.khoaLuu);
-      const soDo = await doKhoaMetadata(prisma, moiKhoa);
+      /*
+        Sinh CẢ HAI loại cột.
+
+        Đợt trước chỉ sinh khoá `metadata`, nên 42 cột riêng chưa từng được đo — anh báo
+        23/09/2026 rằng tệp vẫn còn cột rỗng, và đo trên prod thì đúng: 3 cột riêng rỗng sạch.
+      */
+      const khoaMeta = TRUONG_FORM_DON_THU.filter((t) => !t.cot).map((t) => t.khoaLuu);
+      const cotRieng = [
+        ...new Set(TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string)),
+      ];
+      const soDo = [
+        ...(await doKhoaMetadata(prisma, khoaMeta)).map((d) => ({ ...d, loai: 'metadata' })),
+        ...(await doCotRieng(prisma, cotRieng)).map((d) => ({ ...d, loai: 'cot' })),
+      ];
       const tong = await prisma.petition.count({ where: { deletedAt: null } });
       const ngay = new Date().toISOString().slice(0, 10);
       const rong = soDo.filter((d) => d.soHoSo === 0);
-      console.log(
-        rong
-          .map(
-            (d) =>
-              `  { khoaLuu: '${d.khoaLuu}', lyDo: 'rỗng 0/${tong} hồ sơ', doNgay: '${ngay}' },`,
-          )
-          .join('\n'),
+      const dong = rong.map(
+        (d) =>
+          "  { khoaLuu: '" + d.khoaLuu + "', loai: '" + d.loai +
+          "', lyDo: 'rong 0/" + tong + " ho so', doNgay: '" + ngay + "' },",
       );
-      console.error(`[sinh] ${rong.length}/${moiKhoa.length} khoá rỗng trên ${tong} hồ sơ.`);
+      console.log(dong.join(String.fromCharCode(10)));
+      console.error(
+        `[sinh] ${rong.length} cot rong tren ${tong} ho so ` +
+          `(${rong.filter((d) => d.loai === 'metadata').length} metadata, ` +
+          `${rong.filter((d) => d.loai === 'cot').length} cot rieng) / ` +
+          `${khoaMeta.length + cotRieng.length} cot khai.`,
+      );
       return;
     }
 
-    const soDo = await doKhoaMetadata(
-      prisma,
-      COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu),
-    );
+    // Mỗi loại một phép đo: `metadata` đếm qua `jsonb_each`, cột riêng đếm thẳng trên cột.
+    // Đo nhầm loại thì kết quả LUÔN là 0 và cổng không bao giờ đỏ — xanh rỗng.
+    const soDo = [
+      ...(await doKhoaMetadata(
+        prisma,
+        COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => c.loai !== 'cot').map((c) => c.khoaLuu),
+      )),
+      ...(await doCotRieng(
+        prisma,
+        COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => c.loai === 'cot').map((c) => c.khoaLuu),
+      )),
+    ];
     const pham = khoaCatNhamCoDuLieu(soDo);
     if (pham.length) {
       console.error(

@@ -1088,3 +1088,33 @@ Không phải năng lực shell, ghi ở đây vì cùng đợt và cùng chạm
 | chống mục | CLI `kiem:cot-xuat-day-du` đo lại mỗi lần deploy, đỏ khi cột đã cắt có dữ liệu trở lại |
 
 Tiêu đề in trong tệp của **cả hai** nút nay là `DANH SÁCH ĐƠN THƯ` — một hằng dùng chung.
+
+---
+
+## v0.78 — Chuẩn hoá bộ cột xuất + căn hàng nút Bộ lọc (fix/chuan-hoa-cot-xuat-va-can-nut)
+
+Anh nêu 23/09/2026. Cả hai đều sửa lại thứ v0.76/v0.77 làm chưa tới.
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Hàng nút Bộ lọc căn thẳng | ✅ | ✅ | ✅ | `Filters.tsx` thêm `flex-wrap`; dòng số liệu là ANH EM RUỘT của hàng, không bọc `flex-col` |
+| Nút xuất báo lỗi không xô lệch hàng | ✅ | ✅ | ✅ | thông báo lỗi đặt TUYỆT ĐỐI dưới nút — khối nút luôn cao bằng cái nút |
+| Hàng nút xuống dòng ở màn hẹp | ✅ | ✅ | ✅ | bốn nút + một dòng chữ, nhãn dài thêm khi chưa áp dụng |
+
+`Filters.tsx` và `NutXuatTheoBoLoc.tsx` **dùng chung ba màn**, nên hai sửa đổi trên áp cho cả
+Vụ án, Vụ việc và Tổng hợp — dù hai màn kia hiện chỉ có một nút xuất.
+
+### Tệp "mọi trường" — chuẩn hoá theo dữ liệu prod
+
+| | |
+|---|---|
+| trước | 45 cột, **3 cột riêng rỗng** trên cả 47.626 hồ sơ |
+| sau | **42 cột** |
+| cắt thêm | `lanhDaoToTung` · `ngayXayRa` · `noiXayRaPhuongXa` |
+
+Anh chốt: **chuẩn hoá một lần theo dữ liệu hiện tại**, bộ cột cố định cho mọi lần xuất sau —
+tệp giữ hình dạng ổn định để hai lần xuất còn đối chiếu được.
+
+CLI `kiem:cot-xuat-day-du` nay đo **cả hai loại chỗ lưu** (`metadata` qua `jsonb_each`, cột
+riêng đếm thẳng), và cột có bộ đọc GHÉP (`petitionDate` đọc ba cột) được đếm theo đúng nguồn
+của bộ đọc — không thì phép đo khuyên cắt một cột đang có dữ liệu.

@@ -4,7 +4,7 @@ import {
 } from './xuat-day-du-don-thu';
 import { TRUONG_FORM_DON_THU } from './khai-truong-form-don-thu.generated';
 import { COT_XUAT_DAY_DU_LOAI_TRU } from './cot-xuat-day-du.loai-tru';
-import { khoaCatNhamCoDuLieu } from './cli/kiem-cot-xuat-day-du';
+import { khoaCatNhamCoDuLieu, doCotRieng } from './cli/kiem-cot-xuat-day-du';
 import { docTruong } from './xuat-day-du-don-thu';
 
 /**
@@ -47,10 +47,14 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
    * cách xử lý là XOÁ nó khỏi danh sách loại trừ — và cổng sẽ đỏ với "expected 45, received 46".
    * Cổng khoá cứng một con số thì mọi lần sửa đúng đều là đỏ.
    */
-  it('giữ TRỌN cột có chỗ lưu riêng — không cắt nhầm cột nào', () => {
-    const cotRieng = TRUONG_FORM_DON_THU.filter((t) => t.cot).map((t) => t.cot as string);
-    expect(cotRieng.length).toBeGreaterThan(35);
-    const thieu = cotRieng.filter(
+  it('giữ TRỌN cột riêng CÓ dữ liệu — không cắt nhầm cột nào', () => {
+    const daCat = new Set(COT_XUAT_DAY_DU_LOAI_TRU.map((c) => c.khoaLuu));
+    // Chỉ đòi giữ cột KHÔNG nằm trong danh sách cắt. Đòi giữ trọn 42 cột là chặn đúng việc
+    // anh yêu cầu 23/09 (cắt cột rỗng) — cùng lớp lỗi "cổng chặn việc sửa đúng" đã vấp.
+    const conLai = TRUONG_FORM_DON_THU.filter((t) => t.cot && !daCat.has(t.cot))
+      .map((t) => t.cot as string);
+    expect(conLai.length).toBeGreaterThan(35);
+    const thieu = conLai.filter(
       (c) => !KHAI_COT_XUAT_DON_THU_DAY_DU.some((k) => k.key === c),
     );
     expect(thieu).toEqual([]);
@@ -79,13 +83,49 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
     expect(doc({ metadata: { soDangKyHoSo: [] } } as never)).toBe('');
   });
 
-  /** Sáu ô trong nhóm gập CÓ dữ liệu thật (3.335 hồ sơ có CCCĐ) — gập không phải lý do để cắt. */
-  it.each(['senderIdNumber', 'senderIdIssueDate', 'senderIdIssuePlace', 'senderBirthYear', 'dieuTraVien', 'lanhDaoToTung'])(
+  /**
+   * NĂM ô trong nhóm gập CÓ dữ liệu thật — gập không phải lý do để cắt.
+   *
+   * ĐÍNH CHÍNH 23/09/2026: bản đầu liệt kê SÁU ô, gồm `lanhDaoToTung`. Đo trên prod 47.626 hồ
+   * sơ thì ô ấy rỗng 0 — em suy từ một ô (CCCĐ 3.335 hồ sơ) ra cả nhóm thay vì đo từng ô. Nó
+   * bị cắt vì RỖNG, không phải vì gập.
+   */
+  it.each(['senderIdNumber', 'senderIdIssueDate', 'senderIdIssuePlace', 'senderBirthYear', 'dieuTraVien'])(
     'ô trong nhóm gập "%s" VẪN có trong tệp',
     (k) => {
       expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(true);
     },
   );
+
+  /**
+   * Anh chốt 23/09/2026: "trường nào trong toàn bộ data không có thì không đưa vào". Luật ấy
+   * áp cho CẢ HAI loại chỗ lưu, không riêng `metadata` — đợt trước em chỉ cắt metadata.
+   */
+  it('danh sách cắt gồm CẢ hai loại: metadata VÀ cột riêng', () => {
+    const theoLoai = (l: string) => COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => c.loai === l).length;
+    expect(theoLoai('metadata')).toBeGreaterThan(50);
+    // Chỉ cắt metadata là bỏ sót 42 cột riêng — đúng lỗi anh báo 23/09.
+    // (`expect` của Jest KHÔNG nhận tham số thông điệp như Vitest.)
+    expect(theoLoai('cot')).toBeGreaterThan(0);
+  });
+
+  it.each(['lanhDaoToTung', 'ngayXayRa', 'noiXayRaPhuongXa'])(
+    'cột riêng rỗng "%s" KHÔNG còn trong tệp',
+    (k) => {
+      expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === k)).toBe(false);
+      expect(COT_XUAT_DAY_DU_LOAI_TRU.some((c) => c.khoaLuu === k && c.loai === 'cot')).toBe(true);
+    },
+  );
+
+  /** Mỗi dòng loại trừ phải khai ĐÚNG loại: đo nhầm loại thì kết quả luôn 0 và cổng xanh rỗng. */
+  it('loại khai khớp với chỗ lưu thật trong bản sinh', () => {
+    const theoKhoa = new Map(TRUONG_FORM_DON_THU.map((t) => [t.khoaLuu, t]));
+    const lech = COT_XUAT_DAY_DU_LOAI_TRU.filter((c) => {
+      const t = theoKhoa.get(c.khoaLuu);
+      return !t || (t.cot ? c.loai !== 'cot' : c.loai !== 'metadata');
+    }).map((c) => `${c.khoaLuu}: khai '${c.loai}'`);
+    expect(lech).toEqual([]);
+  });
 
   it('`select` không đòi cột nào thừa sau khi cắt', () => {
     expect(COT_CAN_CHO_XUAT_DAY_DU).toContain('metadata');
@@ -98,5 +138,79 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
     expect(khoaCatNhamCoDuLieu([{ khoaLuu: 'a', soHoSo: 1 }])).toEqual([
       { khoaLuu: 'a', soHoSo: 1 },
     ]);
+  });
+});
+
+/**
+ * CỔNG: phép đo cột riêng phải CHẠY, không chỉ được khai.
+ *
+ * Lượt soát mô hình ngoài 23/09/2026 thay `doCotRieng` bằng một hàm trả 0 vô điều kiện — cả 18
+ * mệnh đề vẫn xanh, vì chúng chỉ đọc danh sách khai báo. Thay thế ấy khôi phục đúng điểm mù mà
+ * cả đợt này sinh ra để bịt: cột có dữ liệu mà phép đo báo rỗng thì nó bị cắt, im lặng.
+ *
+ * Dựng một `prisma` giả bắt lấy câu SQL và trả về dòng đếm — đo được CÂU HỎI lẫn cách ĐỌC kết
+ * quả, mà không cần cơ sở dữ liệu.
+ */
+describe('CỔNG: phép đo cột riêng chạy thật', () => {
+  function prismaGia(tra: { key: string; n: bigint }[]) {
+    const cau: string[] = [];
+    return {
+      cau,
+      prisma: {
+        $queryRawUnsafe: (sql: string) => {
+          cau.push(sql);
+          return Promise.resolve(tra);
+        },
+      } as never,
+    };
+  }
+
+  it('đếm ĐÚNG số hồ sơ trả về, không phải luôn 0', async () => {
+    const { prisma } = prismaGia([{ key: 'dieuTraVien', n: 7n }]);
+    const ra = await doCotRieng(prisma, ['dieuTraVien', 'ketQuaXuLyKhac']);
+    expect(ra).toEqual([
+      { khoaLuu: 'dieuTraVien', soHoSo: 7 },
+      // Cột không có trong kết quả trả về → 0, không phải `undefined`.
+      { khoaLuu: 'ketQuaXuLyKhac', soHoSo: 0 },
+    ]);
+  });
+
+  it('câu hỏi loại hồ sơ đã xoá mềm và ô chỉ có khoảng trắng', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['dieuTraVien']);
+    expect(cau[0]).toContain('"deletedAt" IS NULL');
+    expect(cau[0]).toContain('btrim');
+  });
+
+  /**
+   * "Ngày viết đơn" đọc bằng `ngayVietDonHienThi` — ba cột theo thứ tự. Đếm theo mỗi cột vật lý
+   * thì một hồ sơ chỉ có chữ nguyên văn sẽ ra 0, trong khi tệp xuất IN RA chữ ấy.
+   */
+  it('cột có bộ đọc GHÉP đếm theo cả ba cột nguồn', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['petitionDate']);
+    for (const n of ['petitionDate', 'ngayVietDonEdtf', 'ngayVietDonChu'])
+      expect(cau[0]).toContain(`"${n}"`);
+    expect(cau[0]).toContain(' OR ');
+  });
+
+  it('cột thường KHÔNG bị ghép thêm cột nào', async () => {
+    const { cau, prisma } = prismaGia([]);
+    await doCotRieng(prisma, ['dieuTraVien']);
+    expect(cau[0]).not.toContain(' OR ');
+  });
+
+  /** Tên cột ghép thẳng vào SQL — phải có nguồn gốc trong bản sinh, không nhận từ ngoài. */
+  it('từ chối tên cột không có trong bản sinh', async () => {
+    const { prisma } = prismaGia([]);
+    await expect(doCotRieng(prisma, ['x"; DROP TABLE petitions; --'])).rejects.toThrow(
+      /không có trong bản sinh/,
+    );
+  });
+
+  it('danh sách rỗng thì KHÔNG hỏi cơ sở dữ liệu', async () => {
+    const { cau, prisma } = prismaGia([]);
+    expect(await doCotRieng(prisma, [])).toEqual([]);
+    expect(cau).toEqual([]);
   });
 });

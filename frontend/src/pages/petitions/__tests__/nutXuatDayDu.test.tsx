@@ -99,4 +99,20 @@ describe('Nút "Xuất đầy đủ"', () => {
     const params = (apiGet.mock.calls[0][1] as { params: Record<string, unknown> }).params;
     expect(params.cot).toBe('stt,senderName');
   });
+
+  /**
+   * Thông báo lỗi KHÔNG được làm đổi chiều cao khối nút.
+   *
+   * Hàng nút của khung Bộ lọc là `flex items-center`. Khối nút cao lên vì có dòng lỗi thì nút
+   * bị đẩy lệch so với các nút bên cạnh — đúng lỗi anh báo 23/09/2026, chỉ khác là lần này chỉ
+   * xảy ra khi một nút báo lỗi (vd "mọi trường" trả 403 vì thiếu quyền).
+   */
+  it('nút báo LỖI vẫn không làm đổi chiều cao khối — lỗi đặt tuyệt đối', async () => {
+    apiGet.mockRejectedValue({ response: { status: 403 } });
+    dung();
+    fireEvent.click(screen.getByTestId('btn-xuat-day-du'));
+    const loi = await screen.findByTestId('loi-xuat-excel');
+    expect(loi.className).toContain('absolute');
+    expect(screen.getByTestId('btn-xuat-day-du').parentElement?.className).toContain('relative');
+  });
 });

@@ -1016,41 +1016,40 @@ export function PetitionListPageShell() {
           onReset={listFilters.reset}
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
-            <div className="flex flex-col items-end gap-1">
-            {/*
-              Số dòng nói MỘT lần cho cả hai nút. Hai nút khác nhau ở PHẠM VI CỘT, không ở số
-              dòng — nhét "202 dòng" vào tên một nút là nói sai thứ cần nói (anh báo 23/09).
-            */}
-            {tableState !== 'loading' && totalCount !== null && (
-              <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
-                {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
-              </span>
-            )}
-            <div className="flex items-start gap-2">
-            {/* Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện. */}
-            <NutXuatTheoBoLoc
-              duongDan="/petitions/export/danh-sach"
-              thamSo={{
-                ...baseQueryParams,
-                ...(statusFilter && { status: statusFilter }),
-                ...(groupFilter && { statusGroup: groupFilter }),
-                ...sort.params,
-              }}
-              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
-              tong={tableState === 'loading' ? null : totalCount}
-              hasUnappliedChanges={listFilters.hasUnappliedChanges}
-              onApply={listFilters.apply}
-              tenDuPhong="danh-sach-don-thu.xlsx"
-              nhanRieng="Xuất Excel (đang xem)"
-            />
-              {/*
-                Nút thứ hai — anh chốt 22/09/2026 THÊM chứ không thay: nút cũ xuất đúng bộ cột
-                đang thấy ("tệp xuất bằng cái tôi đang nhìn"), nút này xuất MỌI trường đăng ký
-                trên màn tạo/sửa.
+            /*
+              ANH EM RUỘT của hàng nút, KHÔNG bọc thêm một khối `flex-col`.
 
-                Đường RIÊNG và quyền RIÊNG `export_full`: tệp mang 3.335 CCCD và 2.933 số điện
-                thoại. Ai không có quyền sẽ nhận 403 — nút vẫn hiện, vì giấu nút không phải là
-                phân quyền và người dùng cần biết năng lực ấy tồn tại để đi xin.
+              Anh báo 23/09/2026 hai nút xuất "đang lệch". Hàng nút là `flex items-center`
+              (`Filters.tsx:73`); bọc dòng chữ + hai nút vào một khối dọc làm khối ấy CAO hơn
+              hai nút bên cạnh, và căn giữa xong thì hai nút xuất tụt xuống đúng nửa chiều cao
+              dòng chữ. Trả về anh em ruột thì mọi thứ cùng một đường căn.
+            */
+            <>
+              {tableState !== 'loading' && totalCount !== null && (
+                <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                  {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+                </span>
+              )}
+              {/* Xuất ĐÚNG bộ tham số của bảng và các cột đang hiện. */}
+              <NutXuatTheoBoLoc
+                duongDan="/petitions/export/danh-sach"
+                thamSo={{
+                  ...baseQueryParams,
+                  ...(statusFilter && { status: statusFilter }),
+                  ...(groupFilter && { statusGroup: groupFilter }),
+                  ...sort.params,
+                }}
+                cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+                tong={tableState === 'loading' ? null : totalCount}
+                hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                onApply={listFilters.apply}
+                tenDuPhong="danh-sach-don-thu.xlsx"
+                nhanRieng="Xuất Excel (đang xem)"
+              />
+              {/*
+                Nút thứ hai — anh chốt 22/09 THÊM chứ không thay. Đường RIÊNG và quyền RIÊNG
+                `export_full`: tệp mang số định danh và số điện thoại. Ai không có quyền nhận
+                403 — nút vẫn hiện, vì giấu nút không phải là phân quyền.
               */}
               <NutXuatTheoBoLoc
                 duongDan="/petitions/export/day-du"
@@ -1068,10 +1067,9 @@ export function PetitionListPageShell() {
                 tenDuPhong="don-thu-day-du.xlsx"
                 nhanRieng="Xuất Excel (mọi trường)"
                 testId="btn-xuat-day-du"
-                goiY="Xuất MỌI trường đang đăng ký trên màn tạo/sửa đơn thư (127 trường). Tệp chứa số định danh và số điện thoại — cần quyền riêng."
+                goiY="Xuất mọi trường đang đăng ký trên màn tạo/sửa đơn thư. Tệp chứa số định danh và số điện thoại — cần quyền riêng."
               />
-            </div>
-            </div>
+            </>
           }
           dynamicOptions={{
             enteredById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],

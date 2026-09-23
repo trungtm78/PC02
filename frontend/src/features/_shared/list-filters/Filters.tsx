@@ -70,7 +70,12 @@ export function Filters<TValue extends object>({
         ))}
       </div>
       {children}
-      <div className="mt-4 flex items-center justify-end gap-2">
+      {/*
+        `flex-wrap`: hàng này nay có thể mang tới bốn nút cộng một dòng chữ (màn Đơn thư), và
+        nhãn dài thêm khi còn thay đổi chưa áp dụng ("Áp dụng & xuất Excel (mọi trường)"). Không
+        cho xuống dòng thì màn hẹp bị tràn ra ngoài khung.
+      */}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
           data-testid="btn-clear-filters"
