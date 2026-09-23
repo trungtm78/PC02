@@ -1,0 +1,27 @@
+{
+  "platforms": ["WEB", "API"],
+  "evidence": {
+    "WEB": "frontend/vite.config.ts (React 19 + Vite + vite-plugin-pwa)",
+    "API": "backend/src/main.ts (NestJS), backend/prisma/schema.prisma"
+  },
+  "packages": [
+    { "name": "frontend", "platforms": ["WEB"] },
+    { "name": "backend", "platforms": ["API"] }
+  ],
+  "mobile": "N/A — đợt này chỉ đổi hai màn Đơn thư web + API; mobile/ không có tệp nào trong diff 54 tệp",
+  "apiBaseUrl": {
+    "local": "http://localhost:5173/api/v1 (vite proxy → :3000)",
+    "prod": "http://171.244.40.245/api/v1"
+  },
+  "host": { "os": "Windows 11", "iosPossible": false },
+  "scope": {
+    "prs": ["#467", "#468", "#469", "#470", "#471", "#472", "#473", "#474", "#475", "#478", "#480", "#481"],
+    "product_files": 54,
+    "prod_records": 47626
+  },
+  "blockers": [
+    "Tài khoản thử: 5 TK cũ ĐÃ KHOÁ 20/09 (mật khẩu lộ repo PUBLIC) — chờ anh cấp TK mới. Mọi ca E2E prod chặn ở đây.",
+    "Ca phạm vi dữ liệu (X6, R7-SCOPE) cần THÊM một TK OFFICER khác tổ — chưa có.",
+    "Ghi dữ liệu prod: chưa được duyệt. Ca cần ghi phải chạy trên bản sao, và phải ghi rõ tầng là bản sao chứ không phải prod."
+  ]
+}
