@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Database } from "lucide-react";
 import { LEGACY_PARITY_FIELDS, type ParityFieldDef } from "@/shared/legacy/legacyParityFields.generated";
 import { inMainForm } from "@/shared/legacy/shownFieldKeys";
 import { ownedColumnsFor } from "@/features/legacy-form/registry";
+import { giaTriONgay } from "@/features/legacy-form/gia-tri-o-ngay";
 
 /**
  * LegacyParityFields — ô nhập CHÍNH THỨC cho các CỘT typed field-parity (di trú hệ cũ).
@@ -16,14 +17,6 @@ import { ownedColumnsFor } from "@/features/legacy-form/registry";
  * lại thấy y nguyên thứ vừa xoá. Cùng lớp lỗi đã vá ở form Vụ án (#245), Đơn thư và Vụ việc —
  * panel này là chỗ cuối cùng còn sót, và nó dùng chung cho cả ba màn.
  */
-
-function dateInputValue(v: unknown): string {
-  if (!v) return "";
-  const s = String(v);
-  // ISO (2021-03-15T00:00:00.000Z) → YYYY-MM-DD cho <input type=date>
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : "";
-}
 
 export function LegacyParityFields({
   entity,
@@ -79,7 +72,7 @@ export function LegacyParityFields({
         <input
           type="date"
           className={base}
-          value={dateInputValue(v)}
+          value={giaTriONgay(v)}
           onChange={(e) => onChange(d.col, e.target.value || null)}
           data-testid={`parity-field-${d.col}`}
         />

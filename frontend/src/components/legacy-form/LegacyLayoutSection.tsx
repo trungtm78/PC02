@@ -17,6 +17,7 @@ import { FKSelect } from "@/components/FKSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
 import { CatalogSelect } from "@/components/CatalogSelect";
 import { NhomOGap, type NhomOKhai } from "./NhomOGap";
+import { giaTriONgay } from "@/features/legacy-form/gia-tri-o-ngay";
 import {
   legacyCaptionOf,
   type LegacyFieldValue,
@@ -328,20 +329,25 @@ function LegacyField({
     case "date":
     case "number":
     case "text":
-    default:
+    default: {
+      // Tính TRƯỚC khi vào JSX. Để `String(value)` nằm trong chính thẻ ô ngày thì cổng
+      // `oNgayKhongNhanChuoiTran` không phân biệt được nhánh nào chạy — và một cổng phải
+      // đọc được bằng máy thì mới canh được.
+      const giaTri = item.kind === "date" ? giaTriONgay(value) : String(value);
       return wrap(
         <FormInput
           label={label}
           required={item.required}
           error={error}
           type={item.kind === "date" ? "date" : item.kind === "number" ? "number" : "text"}
-          value={String(value)}
+          value={giaTri}
           onChange={onChange}
           placeholder={item.placeholder}
           colSpan={colSpan === 2 ? undefined : undefined}
           data-testid={oTestId}
         />,
       );
+    }
   }
 }
 
