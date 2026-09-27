@@ -1118,3 +1118,16 @@ tệp giữ hình dạng ổn định để hai lần xuất còn đối chiếu
 CLI `kiem:cot-xuat-day-du` nay đo **cả hai loại chỗ lưu** (`metadata` qua `jsonb_each`, cột
 riêng đếm thẳng), và cột có bộ đọc GHÉP (`petitionDate` đọc ba cột) được đếm theo đúng nguồn
 của bộ đọc — không thì phép đo khuyên cắt một cột đang có dữ liệu.
+
+
+## Petition all-column search - 2026-09-28
+
+| Capability | Cases | Incidents | Petitions | Evidence |
+|---|---|---|---|---|
+| Information-type search chip | Unchanged | Unchanged | Added loaiThongTin | Registry/schema parity and isolated API/UI UAT |
+| Global deadline and creation-date matching | Unchanged | Unchanged | Includes hanXuLy and ngayTao | Date and scope API/UAT cases |
+| Free-text petition-date global matching | Unchanged | Unchanged | Includes ngayVietDonChu | Raw-date API/UI UAT |
+| Hidden columns remain searchable | Unchanged | Unchanged | Verified | Hide-column browser scenario |
+| Enter/suggestion submission; chips; accent folding | Unchanged | Unchanged | Preserved | Isolated API-first UAT, 27/27 PASS in original workspace |
+
+The new migration rebuilds stale existing petition search shadows in the same transaction as trigger replacement. List, statistics and exports retain the same filters and access scope. The scope is list data columns, not every detail-form field. Exact release-tree CI is tracked in docs/uat/petition-all-column-search/RELEASE-STATUS.md.

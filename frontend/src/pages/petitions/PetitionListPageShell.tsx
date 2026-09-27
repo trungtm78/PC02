@@ -576,18 +576,7 @@ export function PetitionListPageShell() {
         */
         key: 'loaiThongTin',
         header: 'Loại thông tin',
-        /*
-          KHÔNG khai `timKiem` — hoãn có chủ ý, không phải bỏ sót.
-
-          Khai một `truong` mới trong `khai/don-thu.khai.ts` với `kieu: 'chu'` là ghép cột ấy
-          vào biểu thức cột bóng (`sinh-tim-kiem.ts:236` `cotTatCa`), kéo theo migration đổi
-          trigger và nạp lại 47.169 dòng. Việc ấy thuộc đợt tìm kiếm đang dở trên nhánh
-          `wip/mo-rong-cot-ghep-tim-tat-ca`, nơi đã có thiết kế expand–migrate–contract để làm
-          mà không có cửa sổ suy giảm. Nhét vào đây là đổi một cột hiển thị thành một lượt
-          deploy có rủi ro dữ liệu.
-
-          Hiện trạng không xấu đi: cột này vốn đã không tìm được trước bản này.
-        */
+        timKiem: 'loaiThongTin',
         width: '8rem',
         optional: 'show',
         render: (r) => r.loaiThongTin ?? '—',

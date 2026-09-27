@@ -7,6 +7,7 @@ export const TIM_KIEM_DON_THU = [
   { key: 'stt', nhan: 'STT', kieu: 'ma' },
   { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu' },
   { key: 'ngayDeXuat', nhan: 'Ngày đề xuất', kieu: 'ngay' },
+  { key: 'loaiThongTin', nhan: 'Loại thông tin', kieu: 'chu' },
   { key: 'nguonDon', nhan: 'Nguồn đơn/Đơn vị giao', kieu: 'chu' },
   { key: 'nguoiGui', nhan: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại', kieu: 'chu' },
   { key: 'tomTat', nhan: 'Tóm tắt nội dung', kieu: 'chu' },

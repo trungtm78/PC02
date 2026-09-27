@@ -17,6 +17,7 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
   thucThe: 'don-thu',
   bang: 'petitions',
   model: 'Petition',
+  refreshExisting: true,
   truong: [
     { key: 'stt', nhan: 'STT', kieu: 'ma', cot: 'stt' },
     { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu', cot: 'sttCu' },
@@ -25,6 +26,12 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       nhan: 'Ngày đề xuất',
       kieu: 'ngay',
       cot: 'ngayDeXuat',
+    },
+    {
+      key: 'loaiThongTin',
+      nhan: 'Loại thông tin',
+      kieu: 'chu',
+      cot: 'loaiThongTin',
     },
     {
       key: 'nguonDon',
@@ -81,10 +88,21 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
     },
     // Cột `deadline` RỖNG SẠCH trên dữ liệu thật (đo 21/09/2026: 0/46.741) nên thẻ này hiện
     // khớp 0 hồ sơ. GIỮ vì gỡ khoá thẻ là vỡ đường dẫn đã lưu, và hạn tự tính sẽ điền cột ấy.
-    /* Hạn xử lý là ngày TƯƠNG LAI phải làm xong, không phải ngày của sự việc: gõ một ngày mà ra hồ sơ "đến hạn hôm ấy" là kết quả không ai hỏi. Thẻ riêng vẫn lọc được. */
-    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline', vaoTatCa: false },
-    /* 45.459 hồ sơ di trú mang CÙNG một `createdAt` (ngày chạy di trú) — để trong `*` là gõ đúng tháng ấy trả về cả kho. */
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
+    // Global search includes every list date, including bookkeeping dates.
+    {
+      key: 'hanXuLy',
+      nhan: 'Hạn xử lý',
+      kieu: 'ngay',
+      cot: 'deadline',
+      vaoTatCa: true,
+    },
+    {
+      key: 'ngayTao',
+      nhan: 'Ngày tạo',
+      kieu: 'ngay',
+      cot: 'createdAt',
+      vaoTatCa: true,
+    },
     /*
       Sáu cột ngày ĐẦY DỮ LIỆU mà trước 21/09/2026 không tìm được — đo trên 46.741 đơn thật:
       Ngày tiếp nhận 46.741 · Ngày tiếp nhận nguồn tin 44.367 · Ngày viết đơn 41.820 ·
@@ -133,7 +151,9 @@ export const KHAI_TIM_KIEM_DON_THU: KhaiThucThe = {
       cot: 'senderIdIssueDate',
     },
   ],
-  // Không phải cột trên danh sách nhưng thẻ "tất cả các cột" phải tìm được: số hồ sơ hệ cũ để
-  // truy nguyên (ô tìm cũ vẫn tìm cột này).
-  cotThemVaoTatCa: ['soHoSoCu'],
+  // Preserve legacy identifiers and the free-text value rendered by the petition date column.
+  cotThemVaoTatCa: [
+    'soHoSoCu',
+    { cot: 'ngayVietDonChu', cotDb: 'ngay_viet_don_chu' },
+  ],
 };
