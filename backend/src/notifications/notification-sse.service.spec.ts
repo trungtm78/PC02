@@ -1,11 +1,13 @@
 import { TestingModule, Test } from '@nestjs/testing';
 import { NotificationSseService } from './notification-sse.service';
-import { firstValueFrom, take, toArray } from 'rxjs';
+import { Subscription, take } from 'rxjs';
 
 describe('NotificationSseService', () => {
   let service: NotificationSseService;
+  let subscriptions: Subscription;
 
   beforeEach(async () => {
+    subscriptions = new Subscription();
     const module: TestingModule = await Test.createTestingModule({
       providers: [NotificationSseService],
     }).compile();
@@ -13,6 +15,7 @@ describe('NotificationSseService', () => {
   });
 
   afterEach(() => {
+    subscriptions.unsubscribe();
     service.onModuleDestroy();
   });
 
@@ -39,18 +42,31 @@ describe('NotificationSseService', () => {
       }
     };
 
-    service.createStream('user-1').pipe(take(1)).subscribe({ next: onNext, error: done });
-    service.createStream('user-1').pipe(take(1)).subscribe({ next: onNext, error: done });
+    service
+      .createStream('user-1')
+      .pipe(take(1))
+      .subscribe({ next: onNext, error: done });
+    service
+      .createStream('user-1')
+      .pipe(take(1))
+      .subscribe({ next: onNext, error: done });
 
     service.notifyUser('user-1');
   });
 
   it('does not emit to a different user when notifyUser is called', (done) => {
     let user2Received = false;
-    service.createStream('user-2').pipe(take(1)).subscribe({
-      next: () => { user2Received = true; },
-      error: done,
-    });
+    subscriptions.add(
+      service
+        .createStream('user-2')
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            user2Received = true;
+          },
+          error: done,
+        }),
+    );
 
     service.notifyUser('user-1');
 
@@ -73,8 +89,8 @@ describe('NotificationSseService', () => {
   });
 
   it('completes all streams on module destroy without throwing', () => {
-    service.createStream('user-a').subscribe();
-    service.createStream('user-b').subscribe();
+    subscriptions.add(service.createStream('user-a').subscribe());
+    subscriptions.add(service.createStream('user-b').subscribe());
     expect(() => service.onModuleDestroy()).not.toThrow();
   });
 });

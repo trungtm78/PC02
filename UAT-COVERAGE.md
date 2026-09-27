@@ -1,3 +1,52 @@
+# UAT coverage ? petition all-column search
+
+Original spec: docs/superpowers/specs/2026-09-27-petition-all-column-search-design.md
+Evidence: docs/uat/petition-all-column-search/REPORT.md; isolated UAT 27/27 PASS, retries 0, 0 cached. Scope covers this feature, not historical whole-application UAT.
+
+| ID | M?n h?nh/Ch?c n?ng | Vi?t test | Ch?y test | K?t qu? |
+|---|---|---|---|---|
+| C01 | Danh s?ch ??n th?: stt | C? | API + E2E | PASS |
+| C02 | Danh s?ch ??n th?: sttCu | C? | API + E2E | PASS |
+| C03 | Danh s?ch ??n th?: loaiThongTin | C? | API + E2E | PASS |
+| C04 | Danh s?ch ??n th?: nguonDon | C? | API + E2E | PASS |
+| C05 | Danh s?ch ??n th?: nguoiGui | C? | API + E2E | PASS |
+| C06 | Danh s?ch ??n th?: tomTat | C? | API + E2E | PASS |
+| C07 | Danh s?ch ??n th?: donViGiaiQuyet | C? | API + E2E | PASS |
+| C08 | Danh s?ch ??n th?: ketQuaXuLyKhac | C? | API + E2E | PASS |
+| C09 | Danh s?ch ??n th?: nguoiNhap | C? | API + E2E | PASS |
+| C10 | Danh s?ch ??n th?: trangThai | C? | API + E2E | PASS |
+| C11 | Danh s?ch ??n th?: doiTuong | C? | API + E2E | PASS |
+| C12 | Danh s?ch ??n th?: hanXuLy | C? | API + E2E | PASS |
+| C13 | Danh s?ch ??n th?: ngayTao | C? | API + E2E | PASS |
+| C14 | Danh s?ch ??n th?: ngayDeXuat | C? | API + E2E | PASS |
+| C15 | Danh s?ch ??n th?: ngayTiepNhan | C? | API + E2E | PASS |
+| C16 | Danh s?ch ??n th?: ngayTiepNhanNguonTin | C? | API + E2E | PASS |
+| C17 | Danh s?ch ??n th?: ngayVietDon | C? | API + E2E | PASS |
+| C18 | Danh s?ch ??n th?: ngayGiaoDonViGiaiQuyet | C? | API + E2E | PASS |
+| C19 | Danh s?ch ??n th?: ngayPhieuChuyen | C? | API + E2E | PASS |
+| C20 | Danh s?ch ??n th?: ngayCapCCCD | C? | API + E2E | PASS |
+| C21 | Danh s?ch ??n th?: ngayVietDonChu | C? | API + E2E | PASS |
+| B01 | Enter, kh?ng t?m live khi g? | C? | E2E | PASS |
+| B02 | Ch?n g?i ? Lo?i th?ng tin | C? | E2E | PASS |
+| B03 | ?n c?t kh?ng ??i ph?m vi t?m | C? | E2E | PASS |
+| B04 | T?m kh?ng d?u | C? | API + E2E | PASS |
+| B05 | Chip Lo?i th?ng tin v? search c? | C? | API | PASS |
+| B06 | Ng?y ??y ??/th?ng/n?m | C? | API + E2E | PASS |
+| B07 | Giao b? l?c tr?ng th?i v? ph?n trang | C? | API | PASS |
+| B08 | Th?ng k? c?ng ?i?u ki?n | C? | API | PASS |
+| B09 | Ph?n quy?n v? t? ch?i kh?ng ??ng nh?p | C? | API | PASS |
+| B10 | Xu?t ??ng h? s? ?? t?m | C? | API + E2E | PASS |
+| B11 | Kh?ng c? k?t qu? | C? | API | PASS |
+| B12 | H? s? c? c? ch? m?c kh?ng r?ng ???c n?p l?i | C? | PostgreSQL integration | PASS |
+| B13 | S?a d? li?u c?p nh?t ch? m?c, kh?ng ??i ng?y khi n?p l?i | C? | PostgreSQL integration | PASS |
+
+Reverse alignment: every data column in the petition list registry appears above, including hidden columns and free-text petition dates. API and UI behavior rows map to persisted qa/petition-search tests; database rows map to the isolated fixture assertions. Overall protocol remains NOT DONE because full-repository lint, default Playwright fixtures and cross-model review have outstanding gates.
+
+
+---
+
+## Historical UAT guidance (preserved)
+
 # UAT-COVERAGE — đã chuyển về đúng chỗ
 
 Tệp này từng chứa một ma trận **46 dòng viết tay** cho đợt 22/09/2026. Nó sai ở hai điểm, và

@@ -55,16 +55,18 @@ END $$;
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_petitions() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  NEW."loai_thong_tin_bd" := ' ' || f_bo_dau(NEW."loaiThongTin");
   NEW."nguon_don_bd" := ' ' || f_bo_dau(NEW."nguonDon");
   NEW."sender_name_bd" := ' ' || f_bo_dau(NEW."senderName");
   NEW."detail_content_bd" := ' ' || f_bo_dau(NEW."detailContent");
   NEW."don_vi_giai_quyet_bd" := ' ' || f_bo_dau(NEW."donViGiaiQuyet");
   NEW."ket_qua_xu_ly_khac_bd" := ' ' || f_bo_dau(NEW."ketQuaXuLyKhac");
   NEW."suspected_person_bd" := ' ' || f_bo_dau(NEW."suspectedPerson");
-  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."stt", NEW."sttCu", NEW."nguonDon", NEW."senderName", NEW."detailContent", NEW."donViGiaiQuyet", NEW."ketQuaXuLyKhac", NEW."suspectedPerson", NEW."soHoSoCu"));
+  NEW."tim_kiem_bd" := ' ' || f_bo_dau(concat_ws(' ', NEW."stt", NEW."sttCu", NEW."loaiThongTin", NEW."nguonDon", NEW."senderName", NEW."detailContent", NEW."donViGiaiQuyet", NEW."ketQuaXuLyKhac", NEW."suspectedPerson", NEW."soHoSoCu", NEW."ngay_viet_don_chu"));
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'pc02_dat_tim_kiem_petitions: %', SQLERRM;
+  NEW."loai_thong_tin_bd" := NULL;
   NEW."nguon_don_bd" := NULL;
   NEW."sender_name_bd" := NULL;
   NEW."detail_content_bd" := NULL;

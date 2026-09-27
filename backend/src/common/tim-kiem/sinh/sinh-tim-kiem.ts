@@ -114,6 +114,8 @@ export interface KhaiThucThe {
   /** Tên model Prisma. */
   model: string;
   truong: readonly TruongTimKiem[];
+  /** Refresh stale shadows atomically when a search definition expands. */
+  refreshExisting?: boolean;
   /**
    * Cột không hiện trên danh sách nhưng thẻ "tất cả các cột" phải tìm được.
    *
@@ -448,9 +450,10 @@ export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
   const phan: string[] = [
     DONG_SINH_TU_DONG,
     '--',
-    '-- Cột bóng bỏ dấu cho ô tìm dạng thẻ. Migration KHÔNG điền dữ liệu cũ: đo 15/09/2026 trên 47.169',
-    '-- đơn thư, điền trong migration khoá bảng ~50 giây lúc deploy. Điền bằng CLI theo lô sau deploy;',
-    '-- trong lúc chưa điền, thẻ chữ lùi về cột gốc cho dòng có cột bóng rỗng.',
+    '-- Trigger replacement is atomic. Entities opting into refreshExisting also refresh stale shadows.',
+    '-- Schedule expanded-index migrations during a maintenance window: refreshing old rows takes locks.',
+    '',
+    'BEGIN;',
     '',
     'CREATE EXTENSION IF NOT EXISTS pg_trgm;',
     '',
@@ -459,6 +462,16 @@ export function sinhMigrationTimKiem(khais: readonly KhaiThucThe[]): string {
   for (const k of cacKhoiTrigger(khais)) {
     phan.push('', k.tieuDe, khoiBang(k.bang, k.gan, k.cotNguon));
   }
+  for (const khai of khais) {
+    if (khai.refreshExisting) {
+      const { nap } = sinhCauNapCotBong(khai);
+      phan.push(
+        '',
+        `${nap.replace('WHERE id = ANY($1::text[]) AND (', 'WHERE (')};`,
+      );
+    }
+  }
+  phan.push('', 'COMMIT;');
   return `${phan.join('\n')}\n`;
 }
 

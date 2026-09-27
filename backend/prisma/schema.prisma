@@ -1127,6 +1127,7 @@ model Petition {
   /// `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
   nguonDonBd        String? @map("nguon_don_bd")
   senderNameBd      String? @map("sender_name_bd")
+  loaiThongTinBd    String? @map("loai_thong_tin_bd")
   detailContentBd   String? @map("detail_content_bd")
   donViGiaiQuyetBd  String? @map("don_vi_giai_quyet_bd")
   ketQuaXuLyKhacBd  String? @map("ket_qua_xu_ly_khac_bd")
