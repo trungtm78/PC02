@@ -264,4 +264,73 @@ describe('DashboardService — badge theo kỳ thống kê', () => {
     expect(mockPrisma.petition.count.mock.calls[0][0].where.status.notIn).toBeDefined();
     expect(mockPrisma.incident.count.mock.calls[0][0].where.status.notIn).toBeDefined();
   });
+
+  /**
+   * Huy hiệu phải ĐẾM ĐÚNG THỨ NGƯỜI DÙNG MỞ ĐƯỢC.
+   *
+   * Đo prod 28/09/2026: OFFICER của "Tổ công tác Số 2" với tới 719/4.859 vụ việc và
+   * 12.599/48.180 đơn thư, nhưng thanh menu hiện 4.727 và 46.830 — con số của cả kho.
+   * Ba cán bộ báo "không tìm được dữ liệu" chính vì huy hiệu hứa một kho mà danh sách
+   * chỉ mở được một phần. ADMIN (`dataScope === null`) vẫn phải đếm toàn kho.
+   */
+  describe('phạm vi dữ liệu', () => {
+    const scopeTo2 = {
+      teamIds: ['team_ct02'],
+      userIds: ['u1', 'u2'],
+      writableTeamIds: ['team_ct02'],
+      writableUserIds: ['u1', 'u2'],
+    };
+
+    it('OFFICER có phạm vi → mỗi phép đếm mang điều kiện phạm vi', async () => {
+      await service.getBadgeCounts(scopeTo2);
+
+      expect(mockPrisma.case.count.mock.calls[0][0].where.AND).toBeDefined();
+      expect(mockPrisma.incident.count.mock.calls[0][0].where.AND).toBeDefined();
+      expect(mockPrisma.petition.count.mock.calls[0][0].where.AND).toBeDefined();
+      // Vụ án/vụ việc lọc theo điều tra viên; đơn thư theo người nhập.
+      expect(
+        JSON.stringify(mockPrisma.case.count.mock.calls[0][0].where),
+      ).toContain('investigatorId');
+      expect(
+        JSON.stringify(mockPrisma.petition.count.mock.calls[0][0].where),
+      ).toContain('enteredById');
+    });
+
+    /** Bị can thuộc phạm vi qua VỤ ÁN cha, y như `SubjectsService.getList`. */
+    it('bị can/bị cáo lọc qua vụ án cha, không đếm cả kho', async () => {
+      await service.getBadgeCounts(scopeTo2);
+
+      const where = mockPrisma.subject.count.mock.calls[0][0].where;
+      expect(JSON.stringify(where)).toContain('"case"');
+      expect(JSON.stringify(where)).toContain('investigatorId');
+    });
+
+    it('hồ sơ trễ hạn cũng theo phạm vi — không lọt phép đếm nào', async () => {
+      await service.getBadgeCounts(scopeTo2);
+
+      expect(mockPrisma.case.count.mock.calls[1][0].where.AND).toBeDefined();
+    });
+
+    it('ADMIN (dataScope null) → đếm toàn kho, không thêm điều kiện phạm vi', async () => {
+      await service.getBadgeCounts(null);
+
+      expect(mockPrisma.case.count.mock.calls[0][0].where.AND).toBeUndefined();
+      expect(
+        mockPrisma.petition.count.mock.calls[0][0].where.AND,
+      ).toBeUndefined();
+    });
+
+    it('phạm vi RỖNG → đếm ra 0, không lùi về toàn kho', async () => {
+      await service.getBadgeCounts({
+        teamIds: [],
+        userIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+      });
+
+      expect(
+        JSON.stringify(mockPrisma.case.count.mock.calls[0][0].where),
+      ).toContain('__no_access__');
+    });
+  });
 });
