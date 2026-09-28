@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp). Trước đó: 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-28 (Đơn thư: thêm bộ chọn ngày cạnh ô tìm kiếm dạng thẻ). Trước đó: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT), 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"), 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -82,6 +82,15 @@ chúng; gõ đủ `15/12/2026` thì KHÔNG khớp — hệ không biết ngày �
 
 **Ba khoá thành khoá CHUNG** (`ngayVietDon`, `ngayPhieuChuyen`, `ngayCapCCCD`) vì cả ba thực thể
 đều có: màn Tổng hợp nay lọc được theo chúng.
+
+### Chọn ngày trực tiếp trên danh sách Đơn thư (28/09/2026)
+
+| Năng lực | Cases | Incidents | Petitions | Ghi chú |
+|---|---|---|---|---|
+| Bộ chọn ngày cạnh ô tìm kiếm dạng thẻ | — | — | ✅ THÊM MỚI | Chọn ngày tạo thẻ tìm chung `*` bằng định dạng ISO mà API đã nhận; chỉ bật trong `PetitionListPageShell` |
+
+Gõ ngày đầy đủ, tháng hoặc năm trong ô chữ vẫn giữ hành vi cũ. Không đổi dữ liệu, bộ lọc
+API hay giao diện danh sách Vụ án/Vụ việc; cờ `TIM_KIEM_THE` tắt thì dùng ô tìm cũ.
 
 #### Bảng cuộn ngang — vá 25/08/2026
 
