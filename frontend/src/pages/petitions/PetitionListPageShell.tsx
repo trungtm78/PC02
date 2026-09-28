@@ -972,6 +972,7 @@ export function PetitionListPageShell() {
               truong={truongTimKiem}
               khai={TIM_KIEM_DON_THU}
               giaTriChon={GIA_TRI_CHON_DON_THU}
+              showDatePicker
               onThem={timKiem.them}
               onBoThe={timKiem.boThe}
               onBoGiaTri={timKiem.boGiaTri}

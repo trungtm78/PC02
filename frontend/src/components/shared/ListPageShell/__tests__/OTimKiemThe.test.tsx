@@ -102,6 +102,37 @@ describe('<OTimKiemThe>', () => {
     expect(dong2).not.toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('selects a calendar date and searches every column', () => {
+    const { props, o } = dung({ showDatePicker: true });
+    const dateInput = screen.getByLabelText('Chọn ngày tìm kiếm');
+    dateInput.focus();
+    fireEvent.click(dateInput);
+    expect(dateInput).toHaveFocus();
+    expect(o).not.toHaveFocus();
+    fireEvent.change(dateInput, { target: { value: '2026-09-28' } });
+    expect(props.onThem).toHaveBeenCalledWith('*', '2026-09-28');
+    expect(dateInput).toHaveValue('');
+  });
+
+  it('hides the date picker when the list has no date columns', () => {
+    dung({ showDatePicker: true, truong: [KHAI[0], KHAI[1]], khai: [KHAI[0], KHAI[1]] });
+    expect(screen.queryByLabelText('Chọn ngày tìm kiếm')).not.toBeInTheDocument();
+  });
+
+  it('does not show the date picker on other lists unless enabled', () => {
+    dung();
+    expect(screen.queryByLabelText('Chọn ngày tìm kiếm')).not.toBeInTheDocument();
+  });
+
+  it('keeps the selected date when the search chip is rejected', () => {
+    const onThem = vi.fn(() => false);
+    dung({ onThem, showDatePicker: true });
+    const dateInput = screen.getByLabelText('Chọn ngày tìm kiếm');
+    fireEvent.change(dateInput, { target: { value: '2026-09-28' } });
+    expect(onThem).toHaveBeenCalledWith('*', '2026-09-28');
+    expect(dateInput).toHaveValue('2026-09-28');
+  });
+
   it('cột chọn giá trị: gõ không dấu ra đúng giá trị, chọn gửi MÃ chứ không gửi nhãn', () => {
     const { props, o } = dung();
     goChu(o, 'dang xu');

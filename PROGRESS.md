@@ -1,3 +1,39 @@
+# PROGRESS
+Cập nhật: 2026-09-28T07:06:52+07:00 | Milestone: M1/1 | Task: 1/1
+
+## Đã hoàn thành
+- [ ] M1-T1: Thêm bộ chọn ngày cho tìm kiếm danh sách đơn thư — commit pending — patch line coverage 100% (các dòng thực thi mới trong OTimKiemThe.tsx); chờ đủ cổng release.
+
+## Đang làm dở
+Task: Release bản sửa tìm kiếm ngày tháng.
+Đã làm: Reproduce giao diện không có đường chọn ngày; TDD RED→GREEN, ô ngày chỉ bật ở PetitionListPageShell, UAT API→Chromium 27/27 PASS trên PostgreSQL riêng, backend 436 suite/6045 test PASS, frontend 352 file/3967 test PASS, build/type-check PASS. Full frontend lint còn 188 lỗi/29 cảnh báo đúng baseline trước sửa; backend lint script không tìm thấy pattern glob trên PowerShell. Cross-model review đang chạy.
+BƯỚC TIẾP THEO: Nhận kết quả review chéo, xử lý finding, commit + PR/CI, triển khai và kiểm tra buildId production.
+File liên quan: frontend/src/components/shared/ListPageShell/OTimKiemThe.tsx; frontend/src/pages/petitions/PetitionListPageShell.tsx; qa/petition-search/e2e/petition-search-uat.e2e.spec.ts.
+
+## Hàng đợi task kế tiếp
+1. Xác minh final full suite, lint, coverage và UAT.
+2. Review diff, PR/CI, merge/deploy, kiểm tra production.
+
+## Quyết định kiến trúc
+| Ngày | Quyết định | Lý do | Ảnh hưởng |
+|---|---|---|---|
+| 2026-09-28 | Bật date picker bằng prop chỉ trên danh sách đơn thư; gửi `tk=*~yyyy-mm-dd` | Backend hiện hỗ trợ ngày ISO và tìm chung; tránh thay đổi các danh sách khác | Không cần migration/API mới |
+
+## Assumption đã tự quyết
+| Điểm mơ hồ | Diễn giải đã chọn | Căn cứ trong spec |
+|---|---|---|
+| Người dùng không nêu chuỗi ngày đã gõ | Vấn đề là không có cách chọn ngày trực quan; giữ cách gõ ngày/tháng/năm hiện có | Yêu cầu “không có cách nào search” tại màn danh sách đơn thư |
+
+## Trạng thái test
+Full suite: backend PASS 6045/6045; frontend PASS 3967/3967 | Patch coverage: 100% dòng thực thi mới (component overall 97,04%) | Test fail: không.
+
+## Nợ kỹ thuật / rủi ro
+- Lint toàn repo có nợ sẵn từ trước: frontend 188 errors/29 warnings (khớp baseline cũ), backend `npm run lint` lỗi `No files matching the pattern "{src,apps,libs,test}/**/*.ts"`; lint trên các tệp sửa: 0 lỗi, 3 warning hook ở các dòng không đổi. Do đó gate lint sạch của protocol chưa đạt.
+- Chưa chạy tìm kiếm có đăng nhập trên production vì chưa có tài khoản kiểm thử được cấp cho agent; UAT có backend/PostgreSQL/Chromium thật ở môi trường riêng.
+
+---
+## Lịch sử tiến độ trước đợt sửa ngày tháng
+
 STATUS: BLOCKED
 BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren production
   (#467 #468 #469 #470 #471 #472/#473), buildId prod khop origin/main. Con DUNG MOT VIEC
