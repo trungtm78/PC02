@@ -311,6 +311,22 @@ describe('DashboardService — badge theo kỳ thống kê', () => {
       expect(mockPrisma.case.count.mock.calls[1][0].where.AND).toBeDefined();
     });
 
+    /** Gán đè `AND` là điều kiện của người sau biến mất mà không ai báo. */
+    it('nối vào AND sẵn có, không gán đè', () => {
+      const gop = (
+        service as unknown as {
+          gopPhamVi: (
+            w: Record<string, unknown>,
+            l: Record<string, unknown> | null,
+          ) => Record<string, unknown>;
+        }
+      ).gopPhamVi.bind(service);
+
+      const ra = gop({ AND: [{ a: 1 }] }, { b: 2 });
+
+      expect(ra.AND).toEqual([{ a: 1 }, { b: 2 }]);
+    });
+
     it('ADMIN (dataScope null) → đếm toàn kho, không thêm điều kiện phạm vi', async () => {
       await service.getBadgeCounts(null);
 

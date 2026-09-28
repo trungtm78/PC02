@@ -181,7 +181,11 @@ export class DashboardService {
     where: Record<string, unknown>,
     loc: Record<string, unknown> | null,
   ): Record<string, unknown> {
-    return loc ? { ...where, AND: [loc] } : where;
+    if (!loc) return where;
+    // NỐI vào `AND` sẵn có thay vì gán đè: người sau thêm một `AND` vào `where` gốc
+    // mà gán đè thì điều kiện phạm vi im lặng thay chỗ điều kiện của họ.
+    const daCo = Array.isArray(where.AND) ? (where.AND as unknown[]) : [];
+    return { ...where, AND: [...daCo, loc] };
   }
 
   // GET /api/v1/dashboard/badge-counts
