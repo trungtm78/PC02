@@ -29,9 +29,20 @@ describe('DashboardController — delegation', () => {
     expect(mockService.getCharts).toHaveBeenCalled();
   });
 
-  it('getBadgeCounts() delegates to service.getBadgeCounts', async () => {
+  /**
+   * Bộ nạp phạm vi chỉ có ích khi bộ đọc CHUYỂN nó xuống. Quên một tham số ở đây là
+   * dịch vụ đã lọc đúng mà huy hiệu vẫn đếm cả kho — đúng lớp lỗi đã bắt ngày 28/09.
+   */
+  it('getBadgeCounts() chuyển req.dataScope xuống dịch vụ', async () => {
     mockService.getBadgeCounts.mockResolvedValue({ data: {} });
-    await controller.getBadgeCounts();
-    expect(mockService.getBadgeCounts).toHaveBeenCalled();
+    const scope = { teamIds: ['t1'], userIds: ['u1'] };
+    await controller.getBadgeCounts({ dataScope: scope } as never);
+    expect(mockService.getBadgeCounts).toHaveBeenCalledWith(scope);
+  });
+
+  it('getBadgeCounts() quản trị (dataScope null) → truyền null', async () => {
+    mockService.getBadgeCounts.mockResolvedValue({ data: {} });
+    await controller.getBadgeCounts({ dataScope: null } as never);
+    expect(mockService.getBadgeCounts).toHaveBeenCalledWith(null);
   });
 });
