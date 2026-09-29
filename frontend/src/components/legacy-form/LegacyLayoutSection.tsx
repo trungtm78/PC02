@@ -77,6 +77,8 @@ interface Props<TForm, TTab extends string, TField extends string> {
    * Lọc ở tầng dựng thì dữ liệu cũ vẫn nằm nguyên trong payload, vẫn in, vẫn tìm được.
    */
   oAn?: readonly string[];
+  /** Khóa từng ô nhập; tiêu đề nhóm gập vẫn hoạt động ở chế độ xem. */
+  disabled?: boolean;
 }
 
 export function LegacyLayoutSection<TForm, TTab extends string, TField extends string>({
@@ -91,6 +93,7 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
   nhom,
   oDangLoi,
   oAn,
+  disabled = false,
 }: Props<TForm, TTab, TField>) {
   /*
     Lọc TRƯỚC mọi thứ khác: nhóm gập, khối chèn `sauO` và phép dò "lần xuất hiện đầu" đều đếm
@@ -132,8 +135,10 @@ export function LegacyLayoutSection<TForm, TTab extends string, TField extends s
     );
     return (
       <Fragment key={`${item.field}-${i}`}>
-        {o}
-        {chen ? <div className="md:col-span-2">{chen}</div> : null}
+        <fieldset disabled={disabled} className="contents">
+          {o}
+          {chen ? <div className="md:col-span-2">{chen}</div> : null}
+        </fieldset>
       </Fragment>
     );
   };

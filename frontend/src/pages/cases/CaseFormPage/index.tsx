@@ -4,23 +4,31 @@ import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generat
 import { LEGACY_FORM_OWNED_COLUMNS } from "@/features/cases/legacy-form-layout.def";
 import { inMainForm } from "@/shared/legacy/shownFieldKeys";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { applyCaseFormDefaults } from './case-form-defaults';
+import { caseDraftKey, clearCaseDraft, decodeCaseDraft, encodeCaseDraft, keepEditedCaseCode, legacyDraftMatches, LEGACY_CASE_DRAFT_KEY } from './draft-identity';
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { loiXungDot } from "@/lib/api-errors";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
+import { FormActionBar } from "@/components/shared/FormActionBar";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
+import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
+import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from "@/components/inputs/RecordDuplicateReview";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
-import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalContext";
 import { CaseStatus } from "@/shared/enums/generated";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
+import { usePermission } from "@/hooks/usePermission";
+import { PERMISSION_RESOURCE } from "@/shared/enums/permissions";
+import { caseForm as caseFormLabels } from "@/locales/vi";
+import { cloneCaseState, hasUnchangedClonedDecisionNumber, mapPersistedCaseChildren } from "./clone-case";
+import type { CaseCloneState, PersistedEvidence, PersistedSubject } from "./clone-case";
 import {
-  X,
-  Clock,
   FileText,
   AlertTriangle,
   Scale,
@@ -40,6 +48,7 @@ import { buildCreateCasePayload } from "./buildCreateCasePayload";
 import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
+import { loadCaseMediaDocuments, prepareMediaFile, uploadPendingMedia } from './media-upload';
 import { taiMucConDaCo } from "./taiMucConDaCo";
 import type { MucDaCo } from "./tabs";
 import {
@@ -77,9 +86,17 @@ const TABS: TabItem<TabId>[] = [
 
 function CaseFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { canCreate } = usePermission();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams(); // PR 3 v0.38.2.0 — URL param hydration
   const isEditMode = !!id;
+  const routeClone = (location.state as { cloneCase?: unknown } | null)?.cloneCase;
+  const cloneInput = !isEditMode && routeClone && typeof routeClone === 'object' && 'formData' in routeClone
+    ? routeClone as CaseCloneState
+    : null;
+  const draftProvenance = searchParams.get('caseProvenance');
+  const draftKey = caseDraftKey(draftProvenance);
   // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
   // Thiếu trường (máy chủ cũ) → như trước.
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
@@ -89,6 +106,8 @@ function CaseFormPage() {
   const safeReturn = ['/uy-thac-dieu-tra', '/cases'].includes(returnPath ?? '') ? returnPath! : '/cases';
 
   const [activeTab, setActiveTab] = useState<TabId>("info");
+  const [manualCaseCodeState, setManualCaseCodeState] = useState({ routeKey: location.key, manual: false });
+  const manualCaseCode = manualCaseCodeState.routeKey === location.key && manualCaseCodeState.manual;
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
@@ -109,9 +128,42 @@ function CaseFormPage() {
     });
   };
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [mediaError, setMediaError] = useState('');
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const documents = await loadCaseMediaDocuments(id, async (url) => {
+          const response = await api.get<{ data: Array<{ id: string; originalName: string; mimeType: string; size: number; createdAt: string; recordedAt?: string | null; uploadedBy?: { firstName?: string; lastName?: string } }>; total: number }>(url);
+          return response.data;
+        });
+        if (cancelled) return;
+        setMediaFiles(documents.map((doc) => ({
+          id: doc.id,
+          name: doc.originalName,
+          type: doc.mimeType,
+          size: `${(doc.size / 1024 / 1024).toFixed(2)} MB`,
+          uploadDate: formatVNDateTime(new Date(doc.createdAt)),
+          uploader: [doc.uploadedBy?.firstName, doc.uploadedBy?.lastName].filter(Boolean).join(' '),
+          recordDate: doc.recordedAt ?? undefined,
+        })));
+        setMediaError('');
+      } catch {
+        if (!cancelled) setMediaError(caseFormLabels.media.listFailed);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [id]);
   // PR 3 v0.38.2.0 — Pre-save summary modal state
   const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const documentStageRef = useRef<PetitionStageHandle>(null);
+  const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
   // Export chứng từ động (epic vụ việc/vụ án PR3) — id record để mở modal sau khi lưu / In trực tiếp.
   const [exportForId, setExportForId] = useState<string | null>(null);
   // Khi mở modal qua "Lưu và xuất file" → đóng modal thì điều hướng về danh sách;
@@ -124,6 +176,7 @@ function CaseFormPage() {
   const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
+  const manualCaseCodeInput = manualCaseCode || (isEditMode && !!formData.caseCode && !/^\d{4}-\d+$/.test(formData.caseCode));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
@@ -131,31 +184,61 @@ function CaseFormPage() {
 
   const defaults = useFormDefaults();
 
+  useEffect(() => {
+    if (!cloneInput) return;
+    setFormData(cloneInput.formData);
+    setParityState(cloneInput.parityState);
+    setMetaState(cloneInput.metaState);
+    setSubjects(cloneInput.subjects);
+    setEvidences(cloneInput.evidences);
+    setShowDraftBanner(false);
+  }, [cloneInput]);
+
   // v0.42 — Fetch draft caseCode preview on create mode mount.
-  // v0.68 — UTDT cases use 'UTDT' document type (separate counter + format UTDT-YYYY-NNNNN).
   useEffect(() => {
     if (isEditMode) return;
-    const isUtdt = searchParams.get('caseProvenance') === 'UY_THAC_DIEU_TRA';
-    const docType = isUtdt ? 'UTDT' : 'CASE';
     setIsDraftCodeLoading(true);
-    documentNumbersApi.draft(docType)
-      .then((r) => setFormData((prev) => ({ ...prev, caseCode: r.previewNumber })))
+    documentNumbersApi.draft('CASE')
+      .then((r) => setFormData((prev) => ({ ...prev, caseCode: keepEditedCaseCode(prev.caseCode, r.previewNumber) })))
       .catch((err) => console.error('draft fetch failed:', err))
       .finally(() => setIsDraftCodeLoading(false));
   }, [isEditMode, searchParams]);
 
   // Load draft from localStorage on mount (only when creating, not editing)
   useEffect(() => {
-    if (!isEditMode) {
+    if (!isEditMode && !cloneInput) {
       try {
-        const saved = localStorage.getItem('caseFormDraft');
+        const saved = localStorage.getItem(draftKey);
         if (saved) {
-          setFormData(JSON.parse(saved));
-          setShowDraftBanner(true);
+          const restored = decodeCaseDraft(saved);
+          if (restored) {
+            setFormData(restored.formData);
+            setParityState(restored.parityState);
+            setMetaState(restored.metaState);
+            setSubjects(restored.subjects);
+            setEvidences(restored.evidences);
+            setShowDraftBanner(true);
+          }
+        } else {
+          const legacy = localStorage.getItem(LEGACY_CASE_DRAFT_KEY);
+          if (legacy) {
+            const parsed: unknown = JSON.parse(legacy);
+            if (legacyDraftMatches(parsed, draftProvenance)) {
+              const restored = decodeCaseDraft(legacy);
+              if (restored) {
+                setFormData(restored.formData);
+                setParityState(restored.parityState);
+                setMetaState(restored.metaState);
+                setSubjects(restored.subjects);
+                setEvidences(restored.evidences);
+                setShowDraftBanner(true);
+              }
+            }
+          }
         }
-      } catch { /* ignore malformed draft */ }
+      } catch (error) { console.warn('Unable to restore case draft', error); }
     }
-  }, [isEditMode]);
+  }, [isEditMode, draftKey, draftProvenance, cloneInput]);
 
   // PR 3 v0.38.2.0 + Hotfix #112 — URL param hydration extracted to testable helper.
   // Entry path 2/3: button "Khởi tố thành vụ án" navigate với linkedIncidentId +
@@ -186,12 +269,11 @@ function CaseFormPage() {
   // `prev.x ||` guard preserves user keystrokes if they typed before profile loaded.
   useEffect(() => {
     if (isEditMode || !defaults.isLoaded) return;
-    setFormData((prev) => ({
-      ...prev,
-      receiveDate:     prev.receiveDate     || defaults.today,
-      handler:         prev.handler         || defaults.userId            || "",
-      supervisingUnit: prev.supervisingUnit || defaults.primaryTeamName   || "",
-      assignedTeamId:  prev.assignedTeamId  || defaults.primaryTeamId     || "",
+    setFormData((prev) => applyCaseFormDefaults(prev, {
+      today: defaults.today,
+      userId: defaults.userId,
+      primaryTeamName: defaults.primaryTeamName,
+      primaryTeamId: defaults.primaryTeamId,
     }));
   }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
@@ -257,6 +339,8 @@ function CaseFormPage() {
     linkedIncidentId: "select-case-provenance",
     caseTitle: "input-case-title",
     handler: "fk-handler",
+    utdt_donViGiao: "field-utdt_donViGiao",
+    utdt_soQuyetDinhUyThac: "field-utdt_soQuyetDinhUyThac",
   };
   // Lỗi + testid theo THỨ TỰ hiển thị → dùng chung msgs (banner) + điều hướng ô lỗi.
   const buildErrors = (): { errors: Record<string, string>; fields: string[] } => {
@@ -274,6 +358,11 @@ function CaseFormPage() {
     // v0.67.3 — UTDT requires donViGiao (field-specific message ở banner; field ở tab Ủy thác).
     if (formData.caseProvenance === 'UY_THAC_DIEU_TRA' && !formData.utdt_donViGiao?.trim())
       add("utdt_donViGiao", "Vui lòng nhập Đơn vị giao ủy thác (tab Thông tin Ủy thác)");
+    if (hasUnchangedClonedDecisionNumber(
+      formData.caseProvenance,
+      formData.utdt_soQuyetDinhUyThac ?? '',
+      cloneInput?.originalDecisionNumber,
+    )) add('utdt_soQuyetDinhUyThac', caseFormLabels.clone.decisionNumberRequired);
     const fields = [...new Set(order.map((k) => ERROR_FIELD_TESTID[k]).filter(Boolean))];
     return { errors: errs, fields };
   };
@@ -304,11 +393,22 @@ function CaseFormPage() {
   const beginSave = async () => {
     if (chiXem) return; // chỉ xem: máy chủ sẽ 403 — không gửi
     if (!validateForm()) {
+      const firstError = Object.keys(buildErrors().errors)[0];
+      if (firstError?.startsWith('utdt_') && activeTab !== 'uy-thac') {
+        setActiveTab('uy-thac');
+        const testId = ERROR_FIELD_TESTID[firstError];
+        requestAnimationFrame(() => {
+          const field = testId ? document.querySelector<HTMLElement>(`[data-testid="${testId}"]`) : null;
+          field?.focus();
+          field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        return;
+      }
       if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    // Skip pre-save modal in edit mode (avoid friction for quick edits)
-    if (isEditMode) {
+    // Reuse the saved record when an upload needs another attempt.
+    if (isEditMode || createdId) {
       await handleConfirmSave();
       return;
     }
@@ -323,30 +423,34 @@ function CaseFormPage() {
     // Thu thập mục bị loại khỏi danh sách đối tượng để báo lại sau khi lưu xong.
     const subjectBiLoai: string[] = [];
     try {
+      const duplicateReview = await duplicateReviewRef.current?.verify();
+      if (!duplicateReview?.ok) {
+        setShowPreSaveSummary(false);
+        return;
+      }
       // v0.37.2.3: payload helper extracted + tested.
-      // PR 1 v0.38.0.0: wire sub-entity arrays (subjects/evidences/mediaFiles → documentIds)
-      // để fix bug data-loss — atomic create với Case trong cùng transaction.
+      // Subjects and evidence are saved with the case; media bytes upload after the record exists.
       const payload = {
         ...buildCreateCasePayload(formData, {
           subjects,
           evidences,
+          includeFalseStatisticFlags: Boolean(id || createdId),
+          includeClearedArrays: Boolean(id || createdId),
+          manualCaseCode,
           // Mục nào không gửi lên được thì phải nói ra. Loại im lặng là cách chắc chắn nhất
           // để dữ liệu biến mất mà cán bộ vẫn tưởng đã lưu.
           onSubjectBiLoai: (ten, lyDo) => subjectBiLoai.push(`${ten} — ${lyDo}`),
           legacyMetadata: metaState, // gộp trường hệ cũ động (editable) — form field thắng, giữ phần còn lại
-          // HOTFIX (codex P1): documentIds disabled. MediaFile.id local-only,
-          // file chưa thực sự upload. Truyền fake IDs sẽ throw 400 ở backend.
-          // Future PR: implement actual upload trong handleUploadMedia.
-          // documentIds: mediaFiles.map((m) => m.id),
         }),
         // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
         ...parityState,
+        acknowledgedDuplicateIds: duplicateReview.acknowledgedIds,
       };
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
-      if (isEditMode) {
-        const res = await api.put(`/cases/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
-        savedId = id ?? null;
+      if (id || createdId) {
+        savedId = id ?? createdId;
+        const res = await api.put(`/cases/${savedId}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
         const res = await api.post("/cases", payload);
@@ -354,10 +458,35 @@ function CaseFormPage() {
         const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
+        if (savedId) {
+          setCreatedId(savedId);
+          setSubjects([]);
+          setEvidences([]);
+          napMucConDaCo(savedId);
+        }
       }
       // Refresh optimistic-lock baseline từ response → lưu lần 2 (sau "Lưu và xuất file" ở lại form)
       // không gửi recordUpdatedAt cũ gây 409 "đã được chỉnh sửa bởi người dùng khác".
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
+      const documentUploadFailed = savedId && documentStageRef.current?.hasStaged()
+        ? (await documentStageRef.current.uploadAll(savedId)).failed.length
+        : 0;
+      const mediaResult = savedId && mediaFiles.some((media) => media.file)
+        ? await uploadPendingMedia(savedId, mediaFiles, async (body) => {
+          const response = await api.post<{ data: { id: string } }>('/documents', body, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          return response.data.data;
+        })
+        : null;
+      if (mediaResult) setMediaFiles(mediaResult.files);
+      if (mediaResult) setMediaError(mediaResult.failed ? caseFormLabels.uploadFailed.replace('{count}', String(mediaResult.failed)) : '');
+      const uploadFailed = documentUploadFailed + (mediaResult?.failed ?? 0);
+      if (uploadFailed) {
+        setShowPreSaveSummary(false);
+        setErrors({ documents: caseFormLabels.uploadFailed.replace('{count}', String(uploadFailed)) });
+        return;
+      }
       // Sửa xong: mục vừa thêm đã thành mục ĐÃ CÓ. Xoá khỏi danh sách "thêm mới" và nạp lại danh sách đã có —
       // nếu cán bộ ở lại form ("Lưu và xuất file") rồi lưu lần nữa, mục ấy không bị gửi lại thành bản TRÙNG.
       if (isEditMode && id) {
@@ -365,7 +494,7 @@ function CaseFormPage() {
         setEvidences([]);
         napMucConDaCo(id);
       }
-      localStorage.removeItem('caseFormDraft');
+      clearCaseDraft(localStorage, formData.caseProvenance || draftProvenance);
       setShowPreSaveSummary(false);
       // Cảnh báo mục bị loại phải hiện ở CẢ HAI nhánh. Nhánh "Lưu và xuất file" thoát sớm
       // nên trước đây nuốt luôn cảnh báo — đúng thứ mà `onSubjectBiLoai` sinh ra để chặn.
@@ -381,7 +510,13 @@ function CaseFormPage() {
       alert(isEditMode ? "Cập nhật hồ sơ thành công!" : "Lưu hồ sơ thành công!");
       navigate(safeReturn);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const response = (err as { response?: { status?: number; data?: { code?: string } } })?.response;
+      const status = response?.status;
+      if (status === 409 && response?.data?.code === 'DUPLICATE_REVIEW_REQUIRED') {
+        setShowPreSaveSummary(false);
+        await duplicateReviewRef.current?.verify();
+        return;
+      }
       if (status === 409) {
         // Lời của máy chủ: trùng giá trị khác với "người khác vừa sửa" — không gộp làm một.
         alert(loiXungDot(err, "Hồ sơ đã được chỉnh sửa bởi người dùng khác.\nVui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa."));
@@ -404,8 +539,39 @@ function CaseFormPage() {
   };
 
   const handleSaveDraft = () => {
-    localStorage.setItem('caseFormDraft', JSON.stringify(formData));
+    localStorage.setItem(caseDraftKey(formData.caseProvenance || draftProvenance), encodeCaseDraft({ formData, parityState, metaState, subjects, evidences }));
     setShowDraftBanner(false);
+  };
+
+  const handleClone = async () => {
+    if (!id || !canCreate(PERMISSION_RESOURCE.CASES) || isCloning) return;
+    setCloneError(null);
+    setIsCloning(true);
+    try {
+      const [subjectResponse, evidenceResponse] = await Promise.all([
+        api.get<{ data: PersistedSubject[] }>(`/cases/${id}/subjects`),
+        api.get<{ data: PersistedEvidence[] }>(`/cases/${id}/evidences`),
+      ]);
+      const persisted = mapPersistedCaseChildren(
+        subjectResponse.data.data ?? [],
+        evidenceResponse.data.data ?? [],
+      );
+      const cloned = cloneCaseState({
+        formData,
+        metaState,
+        parityState,
+        subjects: [...persisted.subjects, ...subjects],
+        evidences: [...persisted.evidences, ...evidences],
+      }, (kind) => `${kind}-${crypto.randomUUID()}`);
+      navigate(`/cases/new?caseProvenance=${encodeURIComponent(formData.caseProvenance)}`, {
+        state: { cloneCase: cloned },
+      });
+    } catch (error) {
+      console.error('[CaseFormPage] Failed to load clone children', error);
+      setCloneError(caseFormLabels.clone.loadError);
+    } finally {
+      setIsCloning(false);
+    }
   };
 
   const handleCancel = () => {
@@ -435,7 +601,7 @@ function CaseFormPage() {
       // CREATE → xoá draft + reload để sạch mọi state phụ.
       if (!confirm("Làm trống form và nhập lại từ đầu? Dữ liệu chưa lưu sẽ mất.")) return;
       if (isEditMode) { navigate("/cases/new"); return; }
-      localStorage.removeItem("caseFormDraft");
+      clearCaseDraft(localStorage, draftProvenance);
       window.location.reload();
     },
   });
@@ -460,28 +626,32 @@ function CaseFormPage() {
     setEditingEvidence(null);
   };
 
-  const handleUploadMedia = (file: File) => {
+  const handleUploadMedia = (file: File, recordDate: string) => {
+    const prepared = prepareMediaFile(file);
     const newFile: MediaFile = {
-      id: `MF-${Date.now()}`,
-      name: file.name,
-      type: file.type,
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      id: `MF-${crypto.randomUUID()}`,
+      name: prepared.name,
+      type: prepared.type,
+      size: `${(prepared.size / 1024 / 1024).toFixed(2)} MB`,
       uploadDate: formatVNDateTime(new Date()),
       uploader: "Nguyễn Văn A",
-      recordDate: defaults.today,
+      recordDate,
+      file: prepared,
     };
-    setMediaFiles([...mediaFiles, newFile]);
+    setMediaFiles((previous) => [...previous, newFile]);
   };
 
   // ─── Dynamic tab list — UTDT tab inserted at position 2 when relevant ──
 
-  const visibleTabs: TabItem<TabId>[] = formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-    ? [
-        TABS[0],
-        { id: 'uy-thac' as TabId, label: 'Thông tin Ủy thác', icon: <ArrowRightLeft className="w-4 h-4" /> },
-        ...TABS.slice(1),
-      ]
-    : TABS;
+  const visibleTabs: TabItem<TabId>[] = useMemo(() => (
+    formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+      ? [
+          TABS[0],
+          { id: 'uy-thac' as TabId, label: 'Thông tin Ủy thác', icon: <ArrowRightLeft className="w-4 h-4" /> },
+          ...TABS.slice(1),
+        ]
+      : TABS
+  ), [formData.caseProvenance]);
 
   // Reset to "info" if UTDT tab becomes invisible (e.g. caseProvenance changed)
   useEffect(() => {
@@ -492,7 +662,7 @@ function CaseFormPage() {
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 
-  const tabProps = { formData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading };
+  const tabProps = { formData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading, isManualCaseCode: manualCaseCodeInput, onCaseCodeOverride: () => setManualCaseCodeState({ routeKey: location.key, manual: true }) };
 
   // ─── Render ────────────────────────────────────────────────────────────
 
@@ -506,65 +676,53 @@ function CaseFormPage() {
 
   return (
     <div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page" onKeyDown={handleFormKeyDown}>
+      {cloneInput && !isEditMode && (
+        <div role="status" className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-800" data-testid="case-clone-review">
+          {caseFormLabels.clone.reviewNotice}
+        </div>
+      )}
+      {cloneError && <div role="alert" className="bg-red-50 border-b border-red-200 px-6 py-3 text-sm text-red-700">{cloneError}</div>}
       {showDraftBanner && !isEditMode && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between">
           <span className="text-sm text-amber-800">Bản nháp được tìm thấy từ lần trước — dữ liệu đã được khôi phục.</span>
-          <button onClick={() => { localStorage.removeItem('caseFormDraft'); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
+          <button onClick={() => { clearCaseDraft(localStorage, draftProvenance); setFormData(INITIAL_FORM_DATA); setShowDraftBanner(false); }} className="text-xs text-amber-600 hover:text-amber-800 underline ml-4">Bỏ qua</button>
         </div>
       )}
       {/* Header — F4 inline (was <PageHeader /> wrapper, deleted in this PR) */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4" data-testid="page-header">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-                ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
-                : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">
-              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-                ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
-                : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              data-testid="btn-cancel"
-            >
-              <X className="w-4 h-4 inline mr-2" />
-              Hủy
-            </button>
-            {!chiXem && <button
-              onClick={handleSaveDraft}
-              className="px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-              data-testid="btn-save-draft"
-            >
-              <Clock className="w-4 h-4 inline mr-2" />
-              Lưu tạm
-            </button>}
-            {isEditMode && id && (
-              <button
-                onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
-                className="px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors font-medium"
-                data-testid="btn-print-docs"
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                In chứng từ
-              </button>
-            )}
-            {!chiXem && <SaveSplitButton
+      <FormActionBar
+        contained
+        title={formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+          ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
+          : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
+        subtitle={formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+          ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
+          : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
+        onBack={handleCancel}
+        onCancel={handleCancel}
+        cancelTestId="btn-cancel"
+        cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.CASES) ? {
+          label: caseFormLabels.clone.action,
+          loadingLabel: caseFormLabels.clone.loading,
+          loading: isCloning,
+          onClick: () => void handleClone(),
+          disabled: isCloning || isLoading,
+          testId: "btn-clone-case",
+        } : undefined}
+        printAction={isEditMode && id ? {
+          label: "In chứng từ",
+          onClick: () => { setExportNavigateOnClose(false); setExportForId(id); },
+          testId: "btn-print-docs",
+        } : undefined}
+        saveAction={!chiXem ? <SaveSplitButton
               onSave={handleSave}
               onSaveAndExport={handleSaveAndExport}
+              onSaveDraft={handleSaveDraft}
               isSubmitting={isSaving}
               label="Lưu hồ sơ"
               idPrefix="btn-save"
               mainTestId="btn-save"
-            />}
-          </div>
-        </div>
-      </div>
+            /> : undefined}
+      />
 
       {chiXem && <div className="mx-6 mt-4"><BangChiXem loai="Vụ án" /></div>}
 
@@ -594,10 +752,20 @@ function CaseFormPage() {
 
       {/* Tabs */}
       <TabBar tabs={visibleTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      {!chiXem && <div className="px-6 pt-4">
+        <RecordDuplicateReview
+          ref={duplicateReviewRef}
+          kind={formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'delegation' : 'case'}
+          name={formData.caseTitle}
+          decisionNumber={formData.utdt_soQuyetDinhUyThac}
+          excludeId={id}
+        />
+      </div>}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto min-w-0">
+          <fieldset disabled={chiXem} className="min-w-0 border-0 p-0">
           {activeTab === "info" && <TabInfo {...tabProps} />}
           {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
@@ -605,9 +773,9 @@ function CaseFormPage() {
           {activeTab === "subjects" && (
             <TabSubjects
               {...tabProps}
-              caseId={isEditMode ? id : undefined}
-              chiXem={chiXem}
-              cheDoSua={isEditMode}
+              caseId={id ?? createdId ?? undefined}
+              chiXem={chiXem || isSaving}
+              cheDoSua={!!(id || createdId)}
               mucDaCo={doiTuongDaCo}
               subjects={subjects}
               onAdd={() => { setEditingSubject(null); setShowSubjectModal(true); }}
@@ -624,7 +792,7 @@ function CaseFormPage() {
           {activeTab === "evidence" && (
             <TabEvidence
               {...tabProps}
-              cheDoSua={isEditMode}
+              cheDoSua={!!(id || createdId)}
               mucDaCo={vatChungDaCo}
               evidences={evidences}
               onAdd={() => { setEditingEvidence(null); setShowEvidenceModal(true); }}
@@ -636,34 +804,62 @@ function CaseFormPage() {
               }}
             />
           )}
-          {activeTab === "business-files" && <TabBusinessFiles caseId={isEditMode ? id : undefined} chiXem={chiXem} />}
+          {isEditMode ? (
+            activeTab === "business-files" && <TabBusinessFiles caseId={id} chiXem={chiXem} />
+          ) : (
+            <div className={activeTab === "business-files" ? "" : "hidden"}>
+              <PetitionCreateDocumentsStage ref={documentStageRef} entityKind="case" />
+            </div>
+          )}
           {activeTab === "statistics" && <TabStatistics {...tabProps} />}
           {activeTab === "media" && (
             <TabMedia
               {...tabProps}
               mediaFiles={mediaFiles}
               onUpload={handleUploadMedia}
-              onDelete={(id) => {
-                if (confirm("Bạn có chắc muốn xóa file này?")) {
-                  setMediaFiles(mediaFiles.filter((f) => f.id !== id));
+              chiXem={chiXem}
+              error={mediaError}
+              onDownload={(documentId) => {
+                void api.get<Blob>(`/documents/${documentId}/download`, { responseType: 'blob' })
+                  .then((response) => {
+                    const url = URL.createObjectURL(response.data);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = mediaFiles.find((item) => item.id === documentId)?.name ?? 'media';
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch(() => setMediaError(caseFormLabels.media.downloadFailed));
+              }}
+              onDelete={(documentId) => {
+                const media = mediaFiles.find((item) => item.id === documentId);
+                if (media?.file) {
+                  setMediaFiles((previous) => previous.filter((item) => item.id !== documentId));
+                  return;
                 }
+                void api.delete(`/documents/${documentId}`)
+                  .then(() => setMediaFiles((previous) => previous.filter((item) => item.id !== documentId)))
+                  .catch(() => setMediaError(caseFormLabels.media.deleteFailed));
               }}
             />
           )}
+          </fieldset>
           {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
-          {isEditMode && (
+          {(isEditMode || !!cloneInput || Object.keys(parityState).length > 0) && (
             <LegacyParityFields
               entity="case"
               values={parityState}
               onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
+              readOnly={chiXem}
             />
           )}
           {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
-          {isEditMode && (
+          {(isEditMode || !!cloneInput || Object.keys(metaState).length > 0) && (
             <DynamicLegacyFields
               entity="case"
               values={metaState}
               onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+              readOnly={chiXem}
             />
           )}
           {isEditMode && <LegacyRawPanel raw={legacyRaw} />}

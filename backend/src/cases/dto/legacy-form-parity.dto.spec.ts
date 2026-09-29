@@ -81,24 +81,33 @@ describe('CreateSubjectInlineDto — thêm đối tượng không làm hỏng c�
 
 describe('CreateCaseDto — ô hệ cũ đưa về đúng vị trí trên form', () => {
   it('nhận đủ mọi ô hệ cũ mới, không báo lỗi hợp lệ', async () => {
-    const errors = await validate(dto(O_HE_CU_MOI), { whitelist: true, forbidNonWhitelisted: true });
-    expect(errors.map((e) => e.property)).toEqual([]);
-  });
-
-  it.each(Object.keys(O_HE_CU_MOI))('khai field "%s" — thiếu là cán bộ không lưu được hồ sơ', (key) => {
-    // `forbidNonWhitelisted` chỉ chặn field KHÔNG khai; field đã khai luôn nằm trong
-    // instance sau khi biến đổi. Đây là cách chốt "DTO có biết field này" mà không phụ
-    // thuộc thứ tự thuộc tính.
-    const instance = dto({ [key]: O_HE_CU_MOI[key] }) as unknown as Record<string, unknown>;
-    expect(instance[key]).toBeDefined();
-  });
-
-  it('KHÔNG nhận caseCode — ô đó là số hiệu tự sinh, không phải ô nhập tay', async () => {
-    const errors = await validate(dto({ caseCode: '2026-9999' }), {
+    const errors = await validate(dto(O_HE_CU_MOI), {
       whitelist: true,
       forbidNonWhitelisted: true,
     });
-    expect(errors.map((e) => e.property)).toContain('caseCode');
+    expect(errors.map((e) => e.property)).toEqual([]);
+  });
+
+  it.each(Object.keys(O_HE_CU_MOI))(
+    'khai field "%s" — thiếu là cán bộ không lưu được hồ sơ',
+    (key) => {
+      // `forbidNonWhitelisted` chỉ chặn field KHÔNG khai; field đã khai luôn nằm trong
+      // instance sau khi biến đổi. Đây là cách chốt "DTO có biết field này" mà không phụ
+      // thuộc thứ tự thuộc tính.
+      const instance = dto({ [key]: O_HE_CU_MOI[key] }) as unknown as Record<
+        string,
+        unknown
+      >;
+      expect(instance[key]).toBeDefined();
+    },
+  );
+
+  it('accepts an explicitly entered caseCode while keeping strict DTO validation', async () => {
+    const errors = await validate(dto({ caseCode: 'CUSTOM-2026-1' }), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+    expect(errors.map((e) => e.property)).not.toContain('caseCode');
   });
 
   it('từ chối ngày sai định dạng thay vì nuốt lặng', async () => {
@@ -112,10 +121,10 @@ describe('CreateCaseDto — ô hệ cũ đưa về đúng vị trí trên form',
   });
 
   it('UpdateCaseDto kế thừa đủ — sửa hồ sơ cũ cũng lưu được', async () => {
-    const errors = await validate(
-      plainToInstance(UpdateCaseDto, O_HE_CU_MOI),
-      { whitelist: true, forbidNonWhitelisted: true },
-    );
+    const errors = await validate(plainToInstance(UpdateCaseDto, O_HE_CU_MOI), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
     expect(errors.map((e) => e.property)).toEqual([]);
   });
 });

@@ -2,7 +2,8 @@
  * v0.42 — TabInfo: caseCode field → DocNumberPreviewField (AUTO mode)
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { HTMLAttributes } from 'react';
 import { TabInfo } from '../tabs';
 import { INITIAL_FORM_DATA } from '../types';
 
@@ -21,7 +22,7 @@ vi.mock('@/components/form', () => ({
 vi.mock('@/components/inputs/CurrencyInput', () => ({ CurrencyInput: () => null }));
 vi.mock('@/components/inputs/IntegerInput', () => ({ IntegerInput: () => null }));
 vi.mock('@/components/shared', () => ({
-  Card: ({ children, ...p }: any) => <div {...p}>{children}</div>,
+  Card: ({ children, ...p }: HTMLAttributes<HTMLDivElement>) => <div {...p}>{children}</div>,
   CardHeader: ({ title }: { title: string }) => <h2>{title}</h2>,
   EmptyState: () => null,
   DataTable: () => null,
@@ -69,5 +70,37 @@ describe('TabInfo — caseCode DocNumberPreviewField (v0.42)', () => {
       />,
     );
     expect(screen.getByTestId('docnum-loading')).toBeInTheDocument();
+  });
+
+  it('allows a UTDT officer to override the generated case code', () => {
+    const setFormData = vi.fn();
+    const onCaseCodeOverride = vi.fn();
+    render(
+      <TabInfo
+        formData={{ ...INITIAL_FORM_DATA, caseProvenance: 'UY_THAC_DIEU_TRA', caseCode: '2026-1' }}
+        setFormData={setFormData}
+        errors={{}}
+        setErrors={vi.fn()}
+        onCaseCodeOverride={onCaseCodeOverride}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('docnum-override-btn'));
+    fireEvent.change(screen.getByPlaceholderText('UTDT-2026-00001'), { target: { value: 'CUSTOM-2026-1' } });
+    expect(onCaseCodeOverride).toHaveBeenCalled();
+    expect(setFormData).toHaveBeenCalled();
+  });
+
+  it('keeps the manual code editable when the Info tab remounts', () => {
+    render(
+      <TabInfo
+        formData={{ ...INITIAL_FORM_DATA, caseProvenance: 'UY_THAC_DIEU_TRA', caseCode: 'CUSTOM-2026-1' }}
+        setFormData={vi.fn()}
+        errors={{}}
+        setErrors={vi.fn()}
+        isManualCaseCode
+      />,
+    );
+    expect(screen.getByPlaceholderText('UTDT-2026-00001')).toHaveValue('CUSTOM-2026-1');
+    expect(screen.queryByTestId('docnum-auto-badge')).not.toBeInTheDocument();
   });
 });

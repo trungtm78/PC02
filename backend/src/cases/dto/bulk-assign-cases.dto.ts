@@ -23,7 +23,9 @@ import {
 export class BulkAssignCasesDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'Cần ít nhất 1 vụ án để phân công' })
-  @ArrayMaxSize(100, { message: 'Tối đa 100 vụ án mỗi đợt (chia thành nhiều đợt nếu nhiều hơn)' })
+  @ArrayMaxSize(100, {
+    message: 'Tối đa 100 vụ án mỗi đợt (chia thành nhiều đợt nếu nhiều hơn)',
+  })
   @IsString({ each: true })
   ids: string[];
 

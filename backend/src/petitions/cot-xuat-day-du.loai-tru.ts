@@ -7,9 +7,9 @@
  * Đo trên PROD, 47.626 hồ sơ chưa xoá (lần đầu đo trên bản sao và BỎ SÓT 42 cột riêng):
  *
  *     tổng trường của form        130   (42 cột riêng + 88 khoá `metadata`)
- *     khoá `metadata` RỖNG        88/88
+ *     khoá `metadata` RỖNG        85/88 — đo lại 29/09 khi 3 ô khởi tố bắt đầu có dữ liệu
  *     cột riêng RỖNG               3/42  — lanhDaoToTung · ngayXayRa · noiXayRaPhuongXa
- *     còn lại trong tệp            42    (39 cột riêng + 3 cột định danh)
+ *     còn lại trong tệp            45    (39 cột riêng + 3 cột định danh + 3 ô metadata)
  *
  * Tức 68% tệp là cột trắng. Chúng là ô của giai đoạn **Vụ án / Vụ việc** (Quyết định khởi tố,
  * Tạm đình chỉ, Vật chứng, TK 48 trường…) — một đơn thư chưa chuyển thì không bao giờ đi tới
@@ -69,10 +69,7 @@ export const COT_XUAT_DAY_DU_LOAI_TRU: readonly CotLoaiTru[] = [
   { khoaLuu: 'nhapVaoVuViecSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'phanLoaiDanSu', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'capDoToiPham', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
-  { khoaLuu: 'toiDanhChinhKhoiToId', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'toiDanhKhacIds', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
-  { khoaLuu: 'soQuyetDinhKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
-  { khoaLuu: 'ngayKhoiTo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'soQDNhapVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'ngayNhapVuAn', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },
   { khoaLuu: 'ghiChuNhapHoSo', loai: 'metadata', lyDo: 'rỗng 0/47.626 hồ sơ (prod)', doNgay: '2026-09-23' },

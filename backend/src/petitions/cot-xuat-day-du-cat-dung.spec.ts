@@ -70,6 +70,16 @@ describe('CỔNG: cắt cột rỗng khỏi tệp xuất đầy đủ', () => {
       expect(KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === `meta.${t.khoaLuu}`)).toBe(true);
   });
 
+  it.each(['toiDanhChinhKhoiToId', 'soQuyetDinhKhoiTo', 'ngayKhoiTo'])(
+    'đưa lại ô "%s" vào tệp ngay khi production có dữ liệu',
+    (k) => {
+      expect(COT_XUAT_DAY_DU_LOAI_TRU.some((c) => c.khoaLuu === k)).toBe(false);
+      expect(
+        KHAI_COT_XUAT_DON_THU_DAY_DU.some((c) => c.key === `meta.${k}`),
+      ).toBe(true);
+    },
+  );
+
   /**
    * Bộ đọc `metadata` phải là bộ đọc THẬT của tệp xuất, không phải bản chép trong ca kiểm.
    * Lượt soát mô hình ngoài 23/09 tắt bộ đọc thật mà cả 25 mệnh đề vẫn xanh — vì ca kiểm đang

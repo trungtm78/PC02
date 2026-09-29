@@ -27,6 +27,7 @@ export interface Subject {
   occupation?: string;
   criminalRecord?: string;
   detentionStatus?: string;
+  crimeId?: string;
 }
 
 export interface Evidence {
@@ -52,6 +53,7 @@ export interface MediaFile {
   uploadDate: string;
   uploader: string;
   recordDate?: string;
+  file?: File;
 }
 
 export interface CaseFormData {
@@ -375,6 +377,8 @@ export interface TabProps {
   handlerLoading?: boolean;
   /** v0.42: loading state cho draft caseCode (DocNumberPreviewField) */
   isDraftCodeLoading?: boolean;
+  onCaseCodeOverride?: () => void;
+  isManualCaseCode?: boolean;
 }
 
 export const INITIAL_FORM_DATA: CaseFormData = {

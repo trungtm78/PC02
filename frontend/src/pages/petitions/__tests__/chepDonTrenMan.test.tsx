@@ -3,16 +3,20 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { authStore, type AuthUser } from '@/stores/auth.store';
-import { today } from '@/lib/dates';
 import { DungLaiTheoId } from '@/lib/features/dungLaiTheoId';
 
 Element.prototype.scrollIntoView = vi.fn();
 
 const apiGet = vi.fn();
+const apiPost = vi.fn((path: string, body: unknown) => {
+  void path;
+  void body;
+  return Promise.resolve({ data: { success: true, data: { id: 'new-petition' } } });
+});
 vi.mock('@/lib/api', () => ({
   api: {
-    get: (...a: unknown[]) => apiGet(...a),
-    post: vi.fn(() => Promise.resolve({ data: { success: true } })),
+    get: apiGet,
+    post: apiPost,
     put: vi.fn(() => Promise.resolve({ data: { success: true } })),
   },
   authApi: { me: vi.fn() },
@@ -50,14 +54,22 @@ const HO_SO = {
   stt: '2024-00123',
   receivedDate: '2024-01-05',
   ngayDeXuat: '2024-01-06',
+  petitionDate: '2023-12-29',
+  ngayVietDonEdtf: '2023-12-29',
+  ngayVietDonChu: 'ngày 29 tháng 12 năm 2023',
   deadline: '2024-03-05',
   senderName: 'Nguyễn Văn A',
   senderAddress: 'Phường Bến Nghé, Quận 1',
+  senderPhone: '0901234567',
   senderIdNumber: '079000000001',
   detailContent: 'Nội dung tố giác cần chép sang đơn mới',
   toiDanhBanDau: 'Trộm cắp tài sản',
+  crimeChinhId: 'crime-1',
   ketQuaXuLyKhac: 'Đã chuyển Công an phường xử lý',
+  nhanThay: 'Nhận xét nghiệp vụ cần giữ nguyên',
   donViGiaiQuyet: 'Đội 2',
+  phanLoaiHoSoNoiBo: 'Nội bộ cần giữ',
+  metadata: { customLongTail: 'Giá trị metadata nghiệp vụ' },
   status: 'PENDING',
 };
 
@@ -81,7 +93,7 @@ describe('Chép đơn: bấm nút ở màn SỬA → sang màn TẠO MỚI', () 
   });
   afterEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 
-  it('chép nội dung, đặt lại mã hồ sơ / ngày tháng / kết quả xử lý', async () => {
+  it('chép toàn bộ dữ liệu người dùng nhập, chỉ đặt lại định danh và metadata hệ thống', async () => {
     const { PetitionFormPage } = await import('../PetitionFormPage');
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -120,17 +132,21 @@ describe('Chép đơn: bấm nút ở màn SỬA → sang màn TẠO MỚI', () 
     expect(o('senderIdNumber')).toBe('079000000001');
     expect(o('detailContent')).toBe('Nội dung tố giác cần chép sang đơn mới');
 
-    // Mốc hồ sơ — đặt lại.
+    // Chỉ mã hồ sơ do máy cấp được đặt lại.
     // Mã hồ sơ cũ KHÔNG được còn ở bất cứ đâu trên màn tạo mới — hai đơn cùng một mã.
     // Mã hồ sơ cũ KHÔNG được còn ở bất cứ đâu trên màn tạo mới — hai đơn sẽ cùng một mã.
     expect(document.body.textContent).not.toContain('2024-00123');
-    expect(
-      document.body.textContent,
-      'kết quả xử lý của đơn cũ theo sang đơn mới',
-    ).not.toContain('Đã chuyển Công an phường xử lý');
-    expect(o('receivedDate')).toBe(today());
-    expect(o('ngayDeXuat'), 'giữ ngày đề xuất cũ thì đơn mới rơi khỏi bộ lọc theo kỳ').toBe(today());
-    expect(o('deadline'), 'chép hạn cũ là đơn mới quá hạn từ lúc sinh ra').toBe('');
+    expect(document.body.textContent).toContain('Đã chuyển Công an phường xử lý');
+    expect(document.body.textContent).toContain('Nhận xét nghiệp vụ cần giữ nguyên');
+    expect(o('receivedDate')).toBe('2024-01-05');
+    expect(o('ngayDeXuat')).toBe('2024-01-06');
+    expect(o('deadline')).toBe('2024-03-05');
+
+    fireEvent.click(screen.getByTestId('btn-save-top-main'));
+    await waitFor(() => expect(apiPost).toHaveBeenCalled(), { timeout: 5000 });
+    const payload = apiPost.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload.metadata).toMatchObject({ customLongTail: 'Giá trị metadata nghiệp vụ' });
+    expect(payload.phanLoaiHoSoNoiBo).toBe('Nội bộ cần giữ');
 
     // Nút chép KHÔNG hiện ở màn tạo mới — chưa có đơn nào để chép.
     expect(screen.queryByTestId('btn-chep-don')).not.toBeInTheDocument();

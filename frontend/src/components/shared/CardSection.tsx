@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type HTMLAttributes, type ReactNode } from "react";
 import {
   CARD_BASE,
   CARD_HEADER,
@@ -8,13 +8,12 @@ import {
 
 // ─── Card ───────────────────────────────────────────────────────────────────
 
-interface CardProps {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  className?: string;
 }
 
-export function Card({ children, className = "" }: CardProps) {
-  return <div className={`${CARD_BASE} ${className}`}>{children}</div>;
+export function Card({ children, className = "", ...divProps }: CardProps) {
+  return <div {...divProps} className={`${CARD_BASE} ${className}`}>{children}</div>;
 }
 
 // ─── CardHeader ─────────────────────────────────────────────────────────────

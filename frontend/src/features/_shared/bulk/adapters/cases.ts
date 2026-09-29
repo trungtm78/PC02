@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { resolveFilename } from '@/features/document-templates/export.api';
+import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
 import type { BulkAdapter, BulkAction, BulkResult } from '../types';
 
 /**
@@ -27,7 +28,10 @@ interface CaseRow {
   deletedAt?: string | null;
 }
 
-const exportAction: BulkAction<CaseRow> = {
+function buildExportAction(
+  caseType?: 'REGULAR' | 'UY_THAC_DIEU_TRA',
+): BulkAction<CaseRow> {
+  return {
   key: 'export',
   label: 'Xuất Excel',
   variant: 'outline',
@@ -37,7 +41,7 @@ const exportAction: BulkAction<CaseRow> = {
   execute: async ({ ids }) => {
     const response = await api.post(
       '/cases/bulk-export',
-      { ids },
+      { ids, ...(caseType ? { caseType } : {}) },
       { responseType: 'blob' },
     );
     // Trigger download
@@ -56,7 +60,21 @@ const exportAction: BulkAction<CaseRow> = {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   },
-};
+  };
+}
+
+function buildExportWordAction(onPick: (ids: string[]) => void): BulkAction<CaseRow> {
+  return {
+    key: 'export-word',
+    label: fullExportMessages.wordLabel,
+    variant: 'outline',
+    permission: { resource: 'cases', action: 'view' },
+    requiresPreview: false,
+    allowsAllMatchingFilter: false,
+    skipConfirm: true,
+    execute: async ({ ids }) => { onPick(ids); },
+  };
+}
 
 const assignAction: BulkAction<CaseRow> = {
   key: 'assign',
@@ -147,8 +165,11 @@ export function buildCasesAdapter(opts?: {
   enableDelete?: boolean;
   /** Bật bulk-restore action (admin admin-deleted list page). */
   enableRestore?: boolean;
+  onExportWord?: (ids: string[]) => void;
+  caseType?: 'REGULAR' | 'UY_THAC_DIEU_TRA';
 }): BulkAdapter<CaseRow> {
-  const actions: BulkAction<CaseRow>[] = [exportAction];
+  const actions: BulkAction<CaseRow>[] = [buildExportAction(opts?.caseType)];
+  if (opts?.onExportWord) actions.push(buildExportWordAction(opts.onExportWord));
   if (opts?.enableAssign) actions.push(assignAction);
   if (opts?.enableDelete) actions.push(deleteAction);
   if (opts?.enableRestore) actions.push(restoreAction);

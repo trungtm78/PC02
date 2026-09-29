@@ -1,13 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { AssignModalProvider, useAssignModal } from '../AssignModalProvider';
+import { AssignModalProvider } from '../AssignModalProvider';
+import { useAssignModal } from '../AssignModalContext';
 
 vi.mock('@/components/AssignModal', () => ({
-  AssignModal: ({ open, recordId, resourceType, onClose }: {
+  AssignModal: ({ open, recordId, resourceType, onClose, onSuccess }: {
     open: boolean;
     recordId: string;
     resourceType: string;
     onClose: () => void;
+    onSuccess: (response: unknown) => void;
   }) =>
     open ? (
       <div data-testid="assign-modal-mock">
@@ -15,6 +17,9 @@ vi.mock('@/components/AssignModal', () => ({
         <span data-testid="assign-modal-record">{recordId}</span>
         <button data-testid="assign-modal-close" onClick={onClose}>
           Close
+        </button>
+        <button data-testid="assign-modal-success" onClick={() => onSuccess({ assignedTeamId: 'T2' })}>
+          Save
         </button>
       </div>
     ) : null,
@@ -63,6 +68,23 @@ describe('AssignModalProvider', () => {
     act(() => screen.getByTestId('open-trigger').click());
     expect(screen.getByTestId('assign-modal-mock')).toBeInTheDocument();
     act(() => screen.getByTestId('assign-modal-close').click());
+    expect(screen.queryByTestId('assign-modal-mock')).not.toBeInTheDocument();
+  });
+
+  it('forwards a successful assignment response and closes the modal', () => {
+    const onSuccess = vi.fn();
+    function SuccessConsumer() {
+      const modal = useAssignModal();
+      return <button data-testid="open-success" onClick={() => modal.open({
+        resourceType: 'incidents',
+        recordId: 'I1',
+        onSuccess,
+      })}>open</button>;
+    }
+    render(<AssignModalProvider><SuccessConsumer /></AssignModalProvider>);
+    act(() => screen.getByTestId('open-success').click());
+    act(() => screen.getByTestId('assign-modal-success').click());
+    expect(onSuccess).toHaveBeenCalledWith({ assignedTeamId: 'T2' });
     expect(screen.queryByTestId('assign-modal-mock')).not.toBeInTheDocument();
   });
 

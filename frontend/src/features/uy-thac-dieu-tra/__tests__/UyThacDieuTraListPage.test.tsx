@@ -12,26 +12,34 @@
  * - URL state: utdt_status filter passes to API as trangThaiPhanHoi
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const testQueryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
+import { authStore } from '@/stores/auth.store';
 
 // `vi.hoisted`: `vi.mock` được kéo lên đầu tệp, và `FeatureFlagsContext` (import tĩnh) nạp `@/lib/api`
 // ngay lúc import — biến khai thường lúc ấy chưa khởi tạo.
-const { mockApiGet, mockApiDelete } = vi.hoisted(() => ({
+const { mockApiGet, mockApiPut, mockApiDelete } = vi.hoisted(() => ({
   mockApiGet: vi.fn(),
+  mockApiPut: vi.fn(() => Promise.resolve({ data: { success: true } })),
   mockApiDelete: vi.fn(() => Promise.resolve({ data: { success: true } })),
 }));
 
 vi.mock('@/lib/api', () => ({
   api: {
     get: mockApiGet,
+    put: mockApiPut,
     delete: mockApiDelete,
   },
+}));
+
+vi.mock('@/features/document-templates/export.api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/document-templates/export.api')>()),
+  triggerDownload: vi.fn(),
 }));
 
 const SAMPLE_ROW = {
@@ -51,10 +59,15 @@ const SAMPLE_ROW = {
   investigator: null,
   createdBy: null,
   createdAt: new Date().toISOString(),
+  updatedAt: '2026-09-29T08:30:00.000Z',
+  quyenGhi: true,
 };
 
 function setupHappyFetch() {
   mockApiGet.mockImplementation((url: string) => {
+    if (url === '/cases/export/danh-sach') {
+      return Promise.resolve({ data: new Blob(['xlsx']), headers: {} });
+    }
     // F2: /cases/utdt-stats — UTDT chip count endpoint
     if (typeof url === 'string' && url.includes('/cases/utdt-stats')) {
       return Promise.resolve({
@@ -91,13 +104,21 @@ async function renderPage(initialEntry = '/uy-thac-dieu-tra', flags?: FeatureFla
           path="/uy-thac-dieu-tra/:id/edit"
           element={<div data-testid="utdt-edit-route">EDIT</div>}
         />
+        <Route
+          path="/cases/:id"
+          element={<div data-testid="utdt-detail-route">DETAIL</div>}
+        />
       </Routes>
     </MemoryRouter>
     </QueryClientProvider>
   );
-  return render(
-    flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
-  );
+  let rendered!: ReturnType<typeof render>;
+  await act(async () => {
+    rendered = render(
+      flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
+    );
+  });
+  return rendered;
 }
 
 const CO_TAT_THE: FeatureFlag[] = [
@@ -122,11 +143,44 @@ function thamSoGoiCuoi(duong: string): URLSearchParams {
 describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authStore.setProfile({
+      id: 'u-editor',
+      email: 'editor@pc02.local',
+      role: 'OFFICER',
+      teams: [],
+      primaryTeam: null,
+      permissions: [
+        'read:Case',
+        'write:Case',
+        'edit:Case',
+        'delete:Case',
+        'export_full:Case',
+      ],
+    });
     setupHappyFetch();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    sessionStorage.removeItem('authProfile');
+  });
+
+  it('shows full-field Excel only with Case export_full permission', async () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case', 'export_full:Case'] } as never);
+    await renderPage();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+  });
+
+  it('hides full-field Excel when Case export_full is missing', async () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case'] } as never);
+    await renderPage();
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+  });
+
+  it('hides full-field Excel without Case read permission', async () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['export_full:Case'] } as never);
+    await renderPage();
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
   });
 
   it('mounts → header "Ủy Thác Điều Tra" renders', async () => {
@@ -155,6 +209,100 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     await renderPage();
     await screen.findByText('PC02-UTDT-2026-00001');
     expect(screen.getAllByRole('tab')).toHaveLength(5);
+  });
+
+  it('updates only the delegation result fields from the inline editor', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+
+    fireEvent.click(screen.getByTestId('o-ket-qua-utdt-list-001'));
+    expect(await screen.findByTestId('modal-ket-qua-uy-thac')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Kết quả ủy thác' }), {
+      target: { value: 'Đã xác minh và trả lời đơn vị giao' },
+    });
+    fireEvent.change(screen.getByLabelText('Ngày trả kết quả'), {
+      target: { value: '2026-09-29' },
+    });
+    fireEvent.click(screen.getByTestId('btn-luu-ket-qua-uy-thac'));
+
+    await waitFor(() => {
+      expect(mockApiPut).toHaveBeenCalledWith('/cases/utdt-list-001', {
+        ketQuaUyThac: 'Đã xác minh và trả lời đơn vị giao',
+        ngayTraKetQua: '2026-09-29',
+        expectedUpdatedAt: '2026-09-29T08:30:00.000Z',
+      });
+    });
+    const firstPutCall = mockApiPut.mock.calls[0] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    const payload = firstPutCall[1];
+    expect(payload).not.toHaveProperty('status');
+    expect(payload).not.toHaveProperty('metadata');
+  });
+
+  it('renders the delegation result as read-only without edit permission', async () => {
+    authStore.setProfile({
+      id: 'u-readonly',
+      email: 'readonly@pc02.local',
+      role: 'OFFICER',
+      teams: [],
+      primaryTeam: null,
+      permissions: ['read:Case'],
+    });
+    mockApiGet.mockImplementation((url: string) => {
+      if (url.includes('/cases/utdt-stats')) {
+        return Promise.resolve({ data: { total: 1, byTrangThai: { DA_PHAN_HOI: 1, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 0 } } });
+      }
+      return Promise.resolve({
+        data: {
+          data: [{ ...SAMPLE_ROW, ketQuaUyThac: 'Kết quả chỉ đọc', quyenGhi: false }],
+          total: 1,
+        },
+      });
+    });
+
+    await renderPage();
+    expect(await screen.findByText('Kết quả chỉ đọc')).toBeInTheDocument();
+    expect(screen.queryByTestId('o-ket-qua-utdt-list-001')).not.toBeInTheDocument();
+  });
+
+  it('offers per-user column layout and row density like the case list', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+    expect(screen.getByRole('button', { name: /Cột/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Mật độ dòng')).toBeInTheDocument();
+  });
+
+  it('sends the chosen delegation sort to list and filtered export', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+    fireEvent.click(screen.getByTestId('sort-ngayTiepNhan'));
+    await waitFor(() => {
+      expect(thamSoGoiCuoi('/cases').get('sortBy')).toBe('ngayTiepNhan');
+      expect(thamSoGoiCuoi('/cases').get('sortOrder')).toBe('desc');
+    });
+  });
+
+  it('offers filtered Excel for the displayed delegation columns', async () => {
+    await act(async () => {
+      await renderPage('/uy-thac-dieu-tra?utdt_status=CHUA_PHAN_HOI');
+    });
+    await screen.findByText('PC02-UTDT-2026-00001');
+    const filteredExport = screen.getByTestId('btn-xuat-excel-theo-bo-loc');
+    expect(filteredExport).toBeInTheDocument();
+    fireEvent.click(filteredExport);
+    await waitFor(() => expect(mockApiGet).toHaveBeenCalledWith(
+      '/cases/export/danh-sach',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          caseType: 'UY_THAC_DIEU_TRA',
+          trangThaiPhanHoi: 'CHUA_PHAN_HOI',
+          cot: 'caseCode,ngayTiepNhan,donViGiao,soQuyetDinhUyThac,nghiVan,crime,investigator,thoiHanUyThac,ketQuaUyThac,status,createdBy',
+        }) as unknown,
+      }),
+    ));
   });
 
   it('clicking Trash button opens delete modal', async () => {
@@ -194,6 +342,50 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     await screen.findByText('PC02-UTDT-2026-00001');
     fireEvent.click(screen.getByTitle('Sửa ủy thác'));
     expect(await screen.findByTestId('utdt-edit-route')).toBeInTheDocument();
+  });
+
+  it('hides create, edit and delete actions when the role only has read permission', async () => {
+    authStore.setProfile({
+      id: 'u-readonly',
+      email: 'readonly@pc02.local',
+      role: 'OFFICER',
+      teams: [],
+      primaryTeam: null,
+      permissions: ['read:Case'],
+    });
+
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+
+    expect(screen.queryByTitle(/Sửa ủy thác/i)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/Xóa ủy thác/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Nhập ủy thác/i })).not.toBeInTheDocument();
+    expect(screen.getByTitle(/Xem chi tiết/i)).toBeInTheDocument();
+  });
+
+  it('uses row quyenGhi to keep an out-of-write-scope delegation read-only', async () => {
+    authStore.setProfile({
+      id: 'u-editor',
+      email: 'editor@pc02.local',
+      role: 'OFFICER',
+      teams: [],
+      primaryTeam: null,
+      permissions: ['read:Case', 'write:Case', 'edit:Case', 'delete:Case'],
+    });
+    mockApiGet.mockImplementation((url: string) => {
+      if (url.includes('/cases/utdt-stats')) {
+        return Promise.resolve({ data: { total: 1, byTrangThai: { DA_PHAN_HOI: 0, KHONG_THUC_HIEN_DUOC: 0, QUA_HAN: 0, CHUA_PHAN_HOI: 1 } } });
+      }
+      return Promise.resolve({ data: { data: [{ ...SAMPLE_ROW, quyenGhi: false }], total: 1 } });
+    });
+
+    await renderPage();
+    const codeCell = await screen.findByText('PC02-UTDT-2026-00001');
+
+    expect(screen.queryByTitle(/Sửa ủy thác/i)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/Xóa ủy thác/i)).not.toBeInTheDocument();
+    fireEvent.click(codeCell.closest('tr')!);
+    expect(await screen.findByTestId('utdt-detail-route')).toBeInTheDocument();
   });
 
   it('delete modal button disabled khi reason < 10 chars', async () => {
@@ -470,11 +662,9 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
       }
       return Promise.resolve({ data: { success: true, data: [SAMPLE_ROW], total: 20 } });
     });
-    let lastLocation = '';
     function LocationTracker() {
       const loc = useLocation();
-      lastLocation = loc.pathname + loc.search;
-      return null;
+      return <span data-testid="current-location">{loc.pathname + loc.search}</span>;
     }
     const { default: Page } = await import('../UyThacDieuTraListPage');
     render(
@@ -496,7 +686,7 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     );
     await waitFor(() => {
       // After totalCount=20 ≤ 1 page resolves, page clamps to 1
-      expect(lastLocation).toContain('utdt_page=1');
+      expect(screen.getByTestId('current-location')).toHaveTextContent('utdt_page=1');
     });
   });
 });

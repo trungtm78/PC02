@@ -76,12 +76,17 @@ export function CaseFormTab1UyThac({ formData, setFormData, errors, setErrors }:
             value={formData.utdt_donViGiao}
             onChange={(v) => update('utdt_donViGiao', v)}
             placeholder="PC01, CA quận X..."
+            required
+            error={errors.utdt_donViGiao}
+            data-testid="field-utdt_donViGiao"
           />
           <FormInput
             label="Số QĐ/Phiếu ủy thác (Mẫu 58)"
             value={formData.utdt_soQuyetDinhUyThac}
             onChange={(v) => update('utdt_soQuyetDinhUyThac', v)}
             placeholder="VD: 12/QĐ-PC01"
+            error={errors.utdt_soQuyetDinhUyThac}
+            data-testid="field-utdt_soQuyetDinhUyThac"
           />
           <FormInput
             label="Thời hạn thực hiện"

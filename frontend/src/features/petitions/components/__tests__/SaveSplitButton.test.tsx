@@ -18,6 +18,22 @@ describe('SaveSplitButton', () => {
     expect(onSaveAndExport).not.toHaveBeenCalled();
   });
 
+  it('renders the optional draft action inside the save menu', () => {
+    const onSaveDraft = vi.fn();
+    render(
+      <SaveSplitButton
+        onSave={vi.fn()}
+        onSaveAndExport={vi.fn()}
+        onSaveDraft={onSaveDraft}
+        isSubmitting={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tuỳ chọn lưu' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Lưu tạm' }));
+    expect(onSaveDraft).toHaveBeenCalledOnce();
+  });
+
   it('mở menu ▼ → "Lưu và xuất file" → onSaveAndExport (không gọi onSave)', () => {
     const onSave = vi.fn();
     const onSaveAndExport = vi.fn();

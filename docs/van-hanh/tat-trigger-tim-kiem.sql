@@ -86,6 +86,7 @@ BEGIN
   NEW."don_vi_giao_bd" := NULL;
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
+  NEW."ket_qua_uy_thac_bd" := NULL;
   NEW."crime_bd" := NULL;
   NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;

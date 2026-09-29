@@ -1,12 +1,19 @@
-import { buildControllerModule, makeReq, mockUser } from '../test-utils/controller-test-helpers';
+import {
+  buildControllerModule,
+  makeReq,
+  mockUser,
+} from '../test-utils/controller-test-helpers';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { BadRequestException } from '@nestjs/common';
 import * as fs from 'fs';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import type { CreateDocumentDto } from './dto/create-document.dto';
 
 jest.mock('fs', () => ({
-  ...jest.requireActual('fs'),
-  unlinkSync: jest.fn(),
+  ...jest.requireActual<typeof fs>('fs'),
+  rmSync: jest.fn(),
 }));
 
 const mockService = {
@@ -17,33 +24,43 @@ const mockService = {
   delete: jest.fn(),
   getDownloadInfo: jest.fn(),
 };
+const request = (): ScopedRequest => makeReq() as unknown as ScopedRequest;
+const user = mockUser as AuthUser;
 
 describe('DocumentsController — delegation', () => {
   let controller: DocumentsController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(DocumentsController, DocumentsService, mockService);
+    const module = await buildControllerModule(
+      DocumentsController,
+      DocumentsService,
+      mockService,
+    );
     controller = module.get(DocumentsController);
     jest.clearAllMocks();
   });
 
   it('getList() delegates to service.getList with query and dataScope', async () => {
     mockService.getList.mockResolvedValue({ data: [] });
-    const req = makeReq();
-    await controller.getList({} as any, req);
+    const req = request();
+    await controller.getList({}, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
   });
 
   // Sprint 1 / S1.3 — File upload throttle: chống abuse upload spam.
   // Verify metadata key trùng pattern @nestjs/throttler dùng (THROTTLER:LIMIT + name).
   it('upload endpoint has @Throttle({ default: { ttl: 60000, limit: 10 } })', () => {
-    const limit = Reflect.getMetadata(
+    const createMethod = Object.getOwnPropertyDescriptor(
+      DocumentsController.prototype,
+      'create',
+    )?.value as object;
+    const limit: unknown = Reflect.getMetadata(
       'THROTTLER:LIMITdefault',
-      DocumentsController.prototype.create,
+      createMethod,
     );
-    const ttl = Reflect.getMetadata(
+    const ttl: unknown = Reflect.getMetadata(
       'THROTTLER:TTLdefault',
-      DocumentsController.prototype.create,
+      createMethod,
     );
     expect(limit).toBe(10);
     expect(ttl).toBe(60000);
@@ -51,19 +68,19 @@ describe('DocumentsController — delegation', () => {
 
   it('getById() delegates to service.getById with id and dataScope', async () => {
     mockService.getById.mockResolvedValue({ data: {} });
-    const req = makeReq();
+    const req = request();
     await controller.getById('doc-1', req);
     expect(mockService.getById).toHaveBeenCalledWith('doc-1', req.dataScope);
   });
 
   it('update() delegates to service.update with id, dto, userId and audit info', async () => {
     mockService.update.mockResolvedValue({ data: {} });
-    const req = makeReq();
-    await controller.update('doc-1', {} as any, mockUser, req);
+    const req = request();
+    await controller.update('doc-1', {}, user, req);
     expect(mockService.update).toHaveBeenCalledWith(
       'doc-1',
       {},
-      mockUser.id,
+      user.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
       req.dataScope,
     );
@@ -71,11 +88,11 @@ describe('DocumentsController — delegation', () => {
 
   it('delete() delegates to service.delete with id, userId, audit, dataScope', async () => {
     mockService.delete.mockResolvedValue({ success: true });
-    const req = makeReq();
-    await controller.delete('doc-1', mockUser, req);
+    const req = request();
+    await controller.delete('doc-1', user, req);
     expect(mockService.delete).toHaveBeenCalledWith(
       'doc-1',
-      mockUser.id,
+      user.id,
       expect.objectContaining({ ipAddress: '127.0.0.1' }),
       req.dataScope,
     );
@@ -83,24 +100,54 @@ describe('DocumentsController — delegation', () => {
 
   // Cycle 6 — Multer cleanup khi service.create throw (P1 R5).
   // File đã ghi đĩa qua multer trước khi service validate.
-  // Validate fail → file rác trên disk. Controller phải fs.unlinkSync.
-  it('create() unlinks the multer file on service.create failure', async () => {
-    const unlinkSyncMock = fs.unlinkSync as jest.Mock;
-    unlinkSyncMock.mockClear();
-    mockService.create.mockRejectedValue(new BadRequestException('Đơn thư không tồn tại'));
-    const req = makeReq();
+  // A service error after multer writes the file must still remove it.
+  it('create() removes the multer file on service.create failure', async () => {
+    const removeMock = fs.rmSync as jest.Mock;
+    removeMock.mockClear();
+    mockService.create.mockRejectedValue(
+      new BadRequestException('Đơn thư không tồn tại'),
+    );
+    const req = request();
     const file = {
       filename: 'tmp-file.pdf',
-      originalname: 'test.pdf',
-      mimetype: 'text/plain',  // dùng text/plain để bypass magic-byte check
+      originalname: 'test.txt',
+      mimetype: 'text/plain',
       size: 100,
       path: '/uploads/documents/tmp-file.pdf',
     } as Express.Multer.File;
 
     await expect(
-      controller.create(file, { title: 'Test' } as any, mockUser, req),
+      controller.create(
+        file,
+        { title: 'Test' } as CreateDocumentDto,
+        user,
+        req,
+      ),
     ).rejects.toThrow(BadRequestException);
 
-    expect(unlinkSyncMock).toHaveBeenCalledWith('/uploads/documents/tmp-file.pdf');
+    expect(removeMock).toHaveBeenCalledWith('/uploads/documents/tmp-file.pdf', {
+      force: true,
+    });
+  });
+
+  it('removes a rejected file before calling the document service', async () => {
+    const removeMock = fs.rmSync as jest.Mock;
+    removeMock.mockClear();
+    const req = request();
+    const file = {
+      filename: 'tmp-file.pdf',
+      originalname: 'fake.pdf',
+      mimetype: 'text/plain',
+      size: 100,
+      path: '/uploads/documents/tmp-file.pdf',
+    } as Express.Multer.File;
+
+    await expect(
+      controller.create(file, { title: 'Fake' }, user, req),
+    ).rejects.toThrow(BadRequestException);
+    expect(mockService.create).not.toHaveBeenCalled();
+    expect(removeMock).toHaveBeenCalledWith('/uploads/documents/tmp-file.pdf', {
+      force: true,
+    });
   });
 });

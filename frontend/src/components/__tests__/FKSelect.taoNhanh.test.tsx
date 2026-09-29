@@ -196,5 +196,9 @@ describe('FKSelect — giữ được mục đã chọn khi danh sách đổi', 
       expect(screen.getByTestId('dv-trigger').textContent).toContain('PC01 Công an TP. HCM'),
     );
     expect(screen.getByTestId('dv-trigger').textContent).not.toContain('Chọn đơn vị');
+    fireEvent.click(screen.getByTestId('dv-trigger'));
+    expect(screen.getByRole('option', { selected: true })).toHaveTextContent(
+      'PC01 Công an TP. HCM',
+    );
   });
 });

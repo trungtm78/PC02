@@ -16,9 +16,20 @@ import type {
 
 // Allowlist of field names safe to expose in changedFields (no PII, no internal secrets)
 const SAFE_CHANGED_FIELDS = new Set([
-  'status', 'name', 'assignedTeamId', 'investigatorId', 'deadline',
-  'unit', 'caseProvenance', 'capDoToiPham', 'description', 'caseTitle',
-  'petitionType', 'petitionStatus', 'loaiDon', 'incidentType',
+  'status',
+  'name',
+  'assignedTeamId',
+  'investigatorId',
+  'deadline',
+  'unit',
+  'caseProvenance',
+  'capDoToiPham',
+  'description',
+  'caseTitle',
+  'petitionType',
+  'petitionStatus',
+  'loaiDon',
+  'incidentType',
 ]);
 
 // ─── Action → Event type mappings ────────────────────────────────────────────
@@ -65,15 +76,22 @@ const ENTITY_LABEL: Record<TimelineEntityType, string> = {
   PETITION: 'Đơn thư',
 };
 
-function buildActorName(user: { firstName: string | null; lastName: string | null } | null): string {
+function buildActorName(
+  user: { firstName: string | null; lastName: string | null } | null,
+): string {
   if (!user) return 'Hệ thống';
   const parts = [user.lastName, user.firstName].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : 'Hệ thống';
 }
 
-function buildStatusLabel(status: string, entityType: TimelineEntityType): string {
-  if (entityType === 'CASE') return (CASE_STATUS_LABEL as Record<string, string>)[status] ?? status;
-  if (entityType === 'INCIDENT') return (INCIDENT_STATUS_LABEL as Record<string, string>)[status] ?? status;
+function buildStatusLabel(
+  status: string,
+  entityType: TimelineEntityType,
+): string {
+  if (entityType === 'CASE')
+    return (CASE_STATUS_LABEL as Record<string, string>)[status] ?? status;
+  if (entityType === 'INCIDENT')
+    return (INCIDENT_STATUS_LABEL as Record<string, string>)[status] ?? status;
   return (PETITION_STATUS_LABEL as Record<string, string>)[status] ?? status;
 }
 
@@ -83,7 +101,11 @@ function buildAuditTitle(action: string, eventType: TimelineEventType): string {
   return 'Cập nhật';
 }
 
-const ENTITY_SORT_PRIORITY: Record<TimelineEntityType, number> = { INCIDENT: 0, CASE: 1, PETITION: 2 };
+const ENTITY_SORT_PRIORITY: Record<TimelineEntityType, number> = {
+  INCIDENT: 0,
+  CASE: 1,
+  PETITION: 2,
+};
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -101,14 +123,21 @@ export class CasesJourneyService {
     limit: number,
   ): Promise<{ success: true; data: JourneyResultDto }> {
     // Enforce DataScope — throws ForbiddenException if out of scope
-    const caseResult = await this.casesService.getById(caseId, dataScope ?? undefined);
+    const caseResult = await this.casesService.getById(
+      caseId,
+      dataScope ?? undefined,
+    );
     const caseRecord = caseResult.data as {
       id: string;
       stt?: string;
       name?: string;
       createdAt?: Date;
       petitions: Array<{ id: string; stt?: string }>;
-      investigator?: { id?: string; firstName: string | null; lastName: string | null } | null;
+      investigator?: {
+        id?: string;
+        firstName: string | null;
+        lastName: string | null;
+      } | null;
     };
 
     // Scope petition IDs: only include petitions the caller is authorized to see.
@@ -140,37 +169,66 @@ export class CasesJourneyService {
     const incidentId = incident?.id ?? null;
 
     // Parallel fetch (Promise.allSettled for graceful partial failure)
-    const [caseHistoryResult, incidentHistoryResult, auditResult] = await Promise.allSettled([
-      this.prisma.caseStatusHistory.findMany({
-        where: { caseId },
-        orderBy: { changedAt: 'asc' },
-        include: {
-          changedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
-        },
-      }),
-      incidentId
-        ? this.prisma.incidentStatusHistory.findMany({
-            where: { incidentId },
-            orderBy: { createdAt: 'asc' },
-            include: {
-              changedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+    const [caseHistoryResult, incidentHistoryResult, auditResult] =
+      await Promise.allSettled([
+        this.prisma.caseStatusHistory.findMany({
+          where: { caseId },
+          orderBy: { changedAt: 'asc' },
+          include: {
+            changedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
             },
-          })
-        : Promise.resolve([]),
-      this.prisma.auditLog.findMany({
-        where: {
-          subjectId: { in: [caseId, ...petitionIds, ...(incidentId ? [incidentId] : [])] },
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, firstName: true, lastName: true, username: true } },
-        },
-      }),
-    ]);
+          },
+        }),
+        incidentId
+          ? this.prisma.incidentStatusHistory.findMany({
+              where: { incidentId },
+              orderBy: { createdAt: 'asc' },
+              include: {
+                changedBy: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                  },
+                },
+              },
+            })
+          : Promise.resolve([]),
+        this.prisma.auditLog.findMany({
+          where: {
+            subjectId: {
+              in: [caseId, ...petitionIds, ...(incidentId ? [incidentId] : [])],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
+            },
+          },
+        }),
+      ]);
 
-    const caseHistory = caseHistoryResult.status === 'fulfilled' ? caseHistoryResult.value : [];
-    const incidentHistory = incidentHistoryResult.status === 'fulfilled' ? incidentHistoryResult.value : [];
-    const auditLogs = auditResult.status === 'fulfilled' ? auditResult.value : [];
+    const caseHistory =
+      caseHistoryResult.status === 'fulfilled' ? caseHistoryResult.value : [];
+    const incidentHistory =
+      incidentHistoryResult.status === 'fulfilled'
+        ? incidentHistoryResult.value
+        : [];
+    const auditLogs =
+      auditResult.status === 'fulfilled' ? auditResult.value : [];
 
     // Map CaseStatusHistory → TimelineEventDto
     const caseStatusEvents: TimelineEventDto[] = caseHistory.map((h) => {
@@ -197,42 +255,52 @@ export class CasesJourneyService {
     });
 
     // Map IncidentStatusHistory → TimelineEventDto
-    const incidentStatusEvents: TimelineEventDto[] = incidentHistory.map((h: any) => {
-      const from = buildStatusLabel(h.fromStatus, 'INCIDENT');
-      const to = buildStatusLabel(h.toStatus, 'INCIDENT');
-      return {
-        id: `incident-sh-${h.id}`,
-        entityType: 'INCIDENT' as TimelineEntityType,
-        entityId: incidentId!,
-        entityLabel: `Vụ án ${incident?.code ?? incidentId}`,
-        eventType: 'STATUS_CHANGE' as TimelineEventType,
-        title: `${from} → ${to}`,
-        detail: null,
-        actor: h.changedBy
-          ? { id: h.changedBy.id, name: buildActorName(h.changedBy) }
-          : null,
-        actedAt: h.createdAt,
-        metadata: {
-          hasDiff: false,
-          fromStatus: h.fromStatus,
-          toStatus: h.toStatus,
-        },
-      };
-    });
+    const incidentStatusEvents: TimelineEventDto[] = incidentId
+      ? incidentHistory.map((h) => {
+          const from = buildStatusLabel(h.fromStatus, 'INCIDENT');
+          const to = buildStatusLabel(h.toStatus, 'INCIDENT');
+          return {
+            id: `incident-sh-${h.id}`,
+            entityType: 'INCIDENT' as TimelineEntityType,
+            entityId: incidentId,
+            entityLabel: `Vụ án ${incident?.code ?? incidentId}`,
+            eventType: 'STATUS_CHANGE' as TimelineEventType,
+            title: `${from} → ${to}`,
+            detail: null,
+            actor: h.changedBy
+              ? { id: h.changedBy.id, name: buildActorName(h.changedBy) }
+              : null,
+            actedAt: h.createdAt,
+            metadata: {
+              hasDiff: false,
+              fromStatus: h.fromStatus,
+              toStatus: h.toStatus,
+            },
+          };
+        })
+      : [];
 
     // Pre-build petition lookup Map to avoid O(n*m) linear scan in the audit loop
     const petitionMap = new Map(caseRecord.petitions.map((p) => [p.id, p.stt]));
 
     // Map AuditLog → TimelineEventDto
     const auditEvents: TimelineEventDto[] = auditLogs
-      .map((log: any) => {
+      .filter(
+        (log): log is typeof log & { subjectId: string } =>
+          log.subjectId !== null,
+      )
+      .map((log) => {
         // Determine entity type from subject field or action prefix
         const entityType: TimelineEntityType =
           ACTION_TO_SUBJECT[log.action] ??
-          (log.subject === 'Case' ? 'CASE' :
-           log.subject === 'Incident' ? 'INCIDENT' : 'PETITION');
+          (log.subject === 'Case'
+            ? 'CASE'
+            : log.subject === 'Incident'
+              ? 'INCIDENT'
+              : 'PETITION');
 
-        const eventType: TimelineEventType = ACTION_TO_EVENT[log.action] ?? 'FIELD_UPDATE';
+        const eventType: TimelineEventType =
+          ACTION_TO_EVENT[log.action] ?? 'FIELD_UPDATE';
 
         // Determine which petition this belongs to (for label)
         let entityLabel = `${ENTITY_LABEL[entityType]}`;
@@ -241,28 +309,29 @@ export class CasesJourneyService {
         } else if (entityType === 'INCIDENT') {
           entityLabel = `Vụ án ${incident?.code ?? incidentId}`;
         } else {
-          const petStt = petitionMap.get(log.subjectId as string);
+          const petStt = petitionMap.get(log.subjectId);
           entityLabel = `Đơn thư ${petStt ?? log.subjectId}`;
         }
 
-        const meta = log.metadata as Record<string, any> | null;
-        const hasDiff = !!(meta?.before);
-        const changedFields = meta?.before
-          ? Object.keys(meta.before as Record<string, unknown>).filter((f) => SAFE_CHANGED_FIELDS.has(f))
+        const meta = log.metadata as Record<string, unknown> | null;
+        const before = meta?.before;
+        const hasDiff = typeof before === 'object' && before !== null;
+        const changedFields = hasDiff
+          ? Object.keys(before).filter((f) => SAFE_CHANGED_FIELDS.has(f))
           : undefined;
 
         return {
           id: `audit-${log.id}`,
           entityType,
-          entityId: log.subjectId as string,
+          entityId: log.subjectId,
           entityLabel,
           eventType,
-          title: buildAuditTitle(log.action as string, eventType),
+          title: buildAuditTitle(log.action, eventType),
           detail: null,
           actor: log.user
-            ? { id: (log.user as any).id, name: buildActorName(log.user as any) }
+            ? { id: log.user.id, name: buildActorName(log.user) }
             : null,
-          actedAt: log.createdAt as Date,
+          actedAt: log.createdAt,
           // Strip raw before/after — security: never expose field values
           metadata: {
             hasDiff,
@@ -286,7 +355,10 @@ export class CasesJourneyService {
         title: 'Được tạo',
         detail: null,
         actor: caseRecord.investigator
-          ? { id: caseRecord.investigator.id ?? '', name: buildActorName(caseRecord.investigator) }
+          ? {
+              id: caseRecord.investigator.id ?? '',
+              name: buildActorName(caseRecord.investigator),
+            }
           : null,
         actedAt: caseRecord.createdAt,
         metadata: { hasDiff: false },
@@ -302,9 +374,12 @@ export class CasesJourneyService {
 
     // Sort DESC by actedAt (newest first)
     allEvents.sort((a, b) => {
-      const diff = new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime();
+      const diff =
+        new Date(b.actedAt).getTime() - new Date(a.actedAt).getTime();
       if (diff !== 0) return diff;
-      return ENTITY_SORT_PRIORITY[a.entityType] - ENTITY_SORT_PRIORITY[b.entityType];
+      return (
+        ENTITY_SORT_PRIORITY[a.entityType] - ENTITY_SORT_PRIORITY[b.entityType]
+      );
     });
 
     const total = allEvents.length;

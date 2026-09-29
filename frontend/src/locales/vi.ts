@@ -61,6 +61,91 @@ export const common = {
 
 export type CommonKey = keyof typeof common;
 
+export const formActions = {
+  back: 'Quay lại',
+  cancel: 'Hủy',
+  printDocuments: 'In chứng từ',
+  saveDraft: 'Lưu tạm',
+} as const;
+
+export const petitionForm = {
+  clone: {
+    action: 'Tạo đơn mới từ đơn này',
+    description: 'Sao chép toàn bộ ô đã nhập sang một đơn mới.',
+    reviewNotice: 'Đã sao chép các ô đã nhập. Kiểm tra lại ngày, hạn xử lý, kết quả và phân công trước khi lưu.',
+  },
+} as const;
+
+export const caseForm = {
+  clone: {
+    action: 'Tạo mới từ hồ sơ này',
+    loading: 'Đang sao chép...',
+    loadError: 'Không thể tải đầy đủ đối tượng và vật chứng. Vui lòng thử lại.',
+    reviewNotice: 'Đã sao chép các ô đã nhập. Kiểm tra lại ngày, hạn xử lý, kết quả và phân công trước khi lưu.',
+    decisionNumberRequired: 'Số quyết định ủy thác mới phải khác hồ sơ gốc.',
+  },
+  uploadFailed: 'Đã lưu hồ sơ nhưng {count} file tải lên lỗi. Hãy thử lại tải lên.',
+  media: {
+    title: 'Tài liệu ghi âm, ghi hình',
+    hint: 'Tệp ghi âm, ghi hình là chứng cứ quan trọng. Tối đa 100 MB/tệp; MP3, MP4, AVI, WAV, MOV, WMV.',
+    recordingDate: 'Ngày ghi',
+    choose: 'Kéo thả tệp vào đây hoặc bấm để chọn',
+    empty: 'Chưa có tệp ghi âm, ghi hình',
+    staged: 'Chờ lưu hồ sơ để tải lên',
+    recorded: 'Ngày ghi',
+    invalidFormat: 'Định dạng tệp không được hỗ trợ',
+    tooLarge: 'Tệp vượt quá 100 MB',
+    invalidDate: 'Chọn ngày ghi hợp lệ trước khi thêm tệp',
+    download: 'Tải xuống',
+    remove: 'Xóa',
+    confirmDelete: 'Xóa tệp ghi âm, ghi hình này?',
+    downloadFailed: 'Không thể tải tệp xuống. Vui lòng thử lại.',
+    deleteFailed: 'Không thể xóa tệp. Vui lòng thử lại.',
+    listFailed: 'Không thể tải danh sách ghi âm, ghi hình. Vui lòng thử lại.',
+  },
+} as const;
+
+export const incidentForm = {
+  clone: {
+    action: 'Tạo mới từ vụ việc này',
+    reviewNotice: 'Đã sao chép các ô đã nhập. Kiểm tra lại ngày, hạn xử lý, kết quả và phân công trước khi lưu.',
+  },
+  uploadFailed: 'Đã lưu vụ việc nhưng {count} file tải lên lỗi. Hãy thử lại tải lên.',
+} as const;
+
+export const recordReview = {
+  reasons: {
+    NAME_MATCH: 'Trùng tên',
+    NAME_SIMILAR: 'Tên có phần tương tự',
+    DECISION_NUMBER_MATCH: 'Trùng số quyết định',
+    ID_NUMBER_MATCH: 'Trùng số CCCD',
+    PHONE_MATCH: 'Trùng số điện thoại',
+    CONTENT_MATCH: 'Nội dung tương tự',
+    DATE_MATCH: 'Trùng ngày liên quan',
+    LOCATION_MATCH: 'Trùng địa điểm',
+    OTHER: 'Thông tin tương tự',
+  },
+  namePlaceholder: 'Gõ để gợi ý tên đã có hoặc nhập tên mới',
+  usedCount: 'Đã dùng {count} lần',
+  sectionLabel: 'Rà soát hồ sơ có thể trùng',
+  reviewAction: 'Rà soát trùng',
+  reviewLoading: 'Đang rà soát...',
+  reviewUnavailable: 'Không thể rà soát hồ sơ trùng. Vui lòng thử lại trước khi lưu.',
+  noMatches: 'Chưa thấy hồ sơ trùng trong phạm vi được xem.',
+  highConfidence: 'Khả năng trùng cao',
+  possibleMatch: 'Có thể trùng',
+  acknowledgeAction: 'Đã rà soát các hồ sơ trùng',
+  acknowledged: 'Đã xác nhận rà soát.',
+} as const;
+
+export const documentStage = {
+  createHint: {
+    petition: 'Chọn file khi tạo mới; hệ thống tải lên sau khi lưu đơn thư.',
+    incident: 'Chọn file khi tạo mới; hệ thống tải lên sau khi lưu vụ việc.',
+    case: 'Chọn file khi tạo mới; hệ thống tải lên sau khi lưu hồ sơ.',
+  },
+} as const;
+
 // ── Navigation labels ─────────────────────────────────────────────────────────
 
 export const nav = {
@@ -212,4 +297,13 @@ export const mobileDownload = {
   placeholderAriaLabel: (platform: string) =>
     `Ứng dụng ${platform} chưa sẵn sàng`,
   qrErrorFallback: (url: string) => `Truy cập trực tiếp: ${url}`,
+} as const;
+
+export const incidentResult = {
+  title: (code: string) => `Kết quả xử lý — vụ việc ${code}`,
+  label: 'Kết quả xử lý, giải quyết khác',
+  close: 'Đóng',
+  save: 'Lưu',
+  saving: 'Đang lưu...',
+  saveError: 'Không lưu được kết quả. Vui lòng thử lại.',
 } as const;

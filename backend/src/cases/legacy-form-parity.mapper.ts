@@ -71,13 +71,19 @@ export const O_HE_CU_TREN_FORM: readonly string[] = [
  * Kiểu Update của Prisma cho phép dạng toán tử (`{ set: ... }`), nên spread nó vào dữ liệu
  * TẠO MỚI là lỗi kiểu. Khai riêng ở đây giữ được cả hai đường dùng chung một hàm.
  */
-export type LegacyFormParityData = Record<string, Date | string | string[] | boolean | null>;
+export type LegacyFormParityData = Record<
+  string,
+  Date | string | string[] | boolean | null
+>;
 
-export function legacyFormParityData(dto: Record<string, unknown>): LegacyFormParityData {
+export function legacyFormParityData(
+  dto: Record<string, unknown>,
+): LegacyFormParityData {
   const data: Record<string, unknown> = {};
 
   for (const k of O_NGAY) {
-    if (dto[k] !== undefined) data[k] = dto[k] ? new Date(dto[k] as string) : null;
+    if (dto[k] !== undefined)
+      data[k] = dto[k] ? new Date(dto[k] as string) : null;
   }
   for (const k of O_CHU) {
     if (dto[k] !== undefined) data[k] = (dto[k] as string | null) ?? null;

@@ -1,8 +1,24 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-28 (Đơn thư: thêm bộ chọn ngày cạnh ô tìm kiếm dạng thẻ). Trước đó: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT), 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"), 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-29 (đồng bộ tìm kiếm/xuất/thao tác hàng loạt cho Ủy thác điều tra và các shell dùng chung; đơn thư có bộ chọn ngày cạnh ô tìm kiếm dạng thẻ từ 28/09). Trước đó: 2026-09-16 (giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
+
+## v0.73.1.0 — Đồng bộ danh sách Vụ việc với Đơn thư
+
+`IncidentListPageShell` giữ nguyên các năng lực đã có và bổ sung các điểm đồng nhất sau:
+
+| Năng lực | Vụ việc | Quan hệ với Đơn thư |
+|---|---|---|
+| Thẻ giai đoạn và chip trạng thái | ✅ Một nguồn lọc; bỏ tab giai đoạn trùng chức năng | Cùng nhịp lọc và trạng thái URL |
+| Tìm kiếm mọi cột được phép, kể cả cột ẩn và ngày EDTF/chữ tự do | ✅ | Cùng `OTimKiemThe` và khai báo tìm kiếm máy chủ |
+| Danh sách, thống kê, Excel đang xem và Excel đầy đủ | ✅ Dùng cùng bộ điều kiện/kỳ thống kê | Cùng hợp đồng bộ lọc và quyền xuất |
+| Sửa nhanh kết quả | ✅ Endpoint hẹp, optimistic lock, chỉ khi dòng có `quyenGhi` | Giữ command nghiệp vụ cho chuyển trạng thái có side effect |
+| Capability theo từng dòng | ✅ Máy chủ trả `quyenGhi` | UI không suy quyền ghi từ quyền global |
+| Chọn cột, mật độ, loading/error/empty và thao tác hàng loạt | ✅ | Dùng cùng cấu hình/shell chung |
+| Word hàng loạt | ✅ Tối đa 100 hồ sơ, kiểm lại scope từng lô | Cùng manifest lỗi một phần |
+
+Không xóa năng lực danh sách cũ. Các thay đổi mở rộng cách tìm, xuất và cập nhật kết quả; quy tắc pháp lý riêng của Vụ việc vẫn đi qua command nghiệp vụ tương ứng.
 
 ## Status v0.66 (chain complete)
 
@@ -16,6 +32,28 @@
 `.github/workflows/shell-parity-gate.yml`:
 - Any PR modifying `*ListPageShell.tsx` MUST also update this matrix file.
 - Bypass: `[parity-skip]` in PR title for refactor-only changes.
+
+## v0.72.1.0 — Đồng bộ luồng danh sách và Ủy thác điều tra
+
+Các shell dùng chung được mở rộng để Ủy thác điều tra có cùng cách dùng với Đơn thư,
+Vụ việc và Vụ án. Các thay đổi trong bốn `ListPageShell` giữ một nguồn cấu hình chung cho
+tìm kiếm, lựa chọn hàng, xuất dữ liệu và thao tác hàng loạt.
+
+| Năng lực | Cases | Incidents | Petitions | Comprehensive | Ủy thác điều tra |
+|---|---|---|---|---|---|
+| Tìm kiếm theo cột và thẻ, lưu trong URL | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel theo phần đang xem | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel mọi trường có quyền | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Word hàng loạt | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Chọn hàng và thao tác hàng loạt | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Máy chủ ép đúng loại hồ sơ và phạm vi ghi/xuất | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Thống kê dùng cùng điều kiện với danh sách | ✅ | ✅ | ✅ | ✅ | ✅, 4 trạng thái phản hồi |
+
+Các thay đổi nhỏ trong `IncidentListPageShell`, `PetitionListPageShell` và
+`ComprehensiveListPageShell` nối hành động Word/Excel dùng chung; không xóa cột, bộ lọc hay
+hành động hiện có. `CaseListPageShell` bổ sung các tham số chung để danh sách và thống kê
+không lệch nhau. Màn Ủy thác vẫn buộc `caseType=UY_THAC_DIEU_TRA` tại máy chủ cho cả xem,
+ghi và xuất; màn Vụ án thường mặc định `caseType=REGULAR`.
 
 ## v0.72.0.0 — Sắp xếp danh sách (feat/list-sort-newest-first)
 
@@ -82,15 +120,6 @@ chúng; gõ đủ `15/12/2026` thì KHÔNG khớp — hệ không biết ngày �
 
 **Ba khoá thành khoá CHUNG** (`ngayVietDon`, `ngayPhieuChuyen`, `ngayCapCCCD`) vì cả ba thực thể
 đều có: màn Tổng hợp nay lọc được theo chúng.
-
-### Chọn ngày trực tiếp trên danh sách Đơn thư (28/09/2026)
-
-| Năng lực | Cases | Incidents | Petitions | Ghi chú |
-|---|---|---|---|---|
-| Bộ chọn ngày cạnh ô tìm kiếm dạng thẻ | — | — | ✅ THÊM MỚI | Chọn ngày tạo thẻ tìm chung `*` bằng định dạng ISO mà API đã nhận; chỉ bật trong `PetitionListPageShell` |
-
-Gõ ngày đầy đủ, tháng hoặc năm trong ô chữ vẫn giữ hành vi cũ. Không đổi dữ liệu, bộ lọc
-API hay giao diện danh sách Vụ án/Vụ việc; cờ `TIM_KIEM_THE` tắt thì dùng ô tìm cũ.
 
 #### Bảng cuộn ngang — vá 25/08/2026
 

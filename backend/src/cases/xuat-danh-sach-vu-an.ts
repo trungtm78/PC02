@@ -5,6 +5,7 @@ import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import { maHoSoNgan } from '../common/utils/ho-so-code.util';
 import { dinhDangDoiTuongBiCan } from './doi-tuong-bi-can';
 import type { DongDanhSachVuAn } from './cases.service';
+import type { TrangThaiPhanHoi } from './dto/query-cases.dto';
 
 /**
  * Cột xuất Excel của danh sách Vụ án. `key` TRÙNG khoá cột trên `CaseListPageShell` (trừ Thao tác),
@@ -94,44 +95,133 @@ export const KHAI_COT_XUAT_VU_AN: readonly KhaiCotXuat<DongDanhSachVuAn>[] = [
     rong: 13,
     doc: (d) => ngayVN(d.createdAt),
   },
-    /*
+  /*
       Cột ngày mở cho tìm kiếm 21/09/2026 — cột nào hiện được trên bảng thì cũng phải xuất
       được, nếu không cán bộ lọc ra rồi xuất lại mất đúng cột vừa lọc.
     */
-    {
-      key: 'receiveDate',
-      tieuDe: 'Ngày nhận',
-      rong: 13,
-      doc: (d) => ngayVN(d.receiveDate),
-    },
-    {
-      key: 'ngayPhieuChuyen',
-      tieuDe: 'Ngày phiếu chuyển',
-      rong: 13,
-      doc: (d) => ngayVN(d.ngayPhieuChuyen),
-    },
-    {
-      key: 'ngayKhoiTo',
-      tieuDe: 'Ngày khởi tố',
-      rong: 13,
-      doc: (d) => ngayVN(d.ngayKhoiTo),
-    },
-    {
-      key: 'ngayVietDon',
-      tieuDe: 'Ngày viết đơn',
-      rong: 13,
-      // Qua hàm dùng chung: hồ sơ chỉ có ngày THIẾU thành phần hoặc chỉ có chữ NGUYÊN VĂN
-      // (hồ sơ gộp nhiều đơn) thì đọc thẳng cột ngày là xuất ra TRỐNG đúng cột vừa lọc —
-      // lỗi đã xảy ra ba lần ở Đơn thư, không lặp lần thứ tư ở hai màn này.
-      doc: (d) => ngayVietDonHienThi(d),
-    },
-    {
-      key: 'ngayCapCccd',
-      tieuDe: 'Ngày cấp CCCD',
-      rong: 13,
-      doc: (d) => ngayVN(d.ngayCapCccd),
-    },
+  {
+    key: 'receiveDate',
+    tieuDe: 'Ngày nhận',
+    rong: 13,
+    doc: (d) => ngayVN(d.receiveDate),
+  },
+  {
+    key: 'ngayPhieuChuyen',
+    tieuDe: 'Ngày phiếu chuyển',
+    rong: 13,
+    doc: (d) => ngayVN(d.ngayPhieuChuyen),
+  },
+  {
+    key: 'ngayKhoiTo',
+    tieuDe: 'Ngày khởi tố',
+    rong: 13,
+    doc: (d) => ngayVN(d.ngayKhoiTo),
+  },
+  {
+    key: 'ngayVietDon',
+    tieuDe: 'Ngày viết đơn',
+    rong: 13,
+    // Qua hàm dùng chung: hồ sơ chỉ có ngày THIẾU thành phần hoặc chỉ có chữ NGUYÊN VĂN
+    // (hồ sơ gộp nhiều đơn) thì đọc thẳng cột ngày là xuất ra TRỐNG đúng cột vừa lọc —
+    // lỗi đã xảy ra ba lần ở Đơn thư, không lặp lần thứ tư ở hai màn này.
+    doc: (d) => ngayVietDonHienThi(d),
+  },
+  {
+    key: 'ngayCapCccd',
+    tieuDe: 'Ngày cấp CCCD',
+    rong: 13,
+    doc: (d) => ngayVN(d.ngayCapCccd),
+  },
 ];
+
+const UY_THAC_REPLY_LABEL: Record<TrangThaiPhanHoi, string> = {
+  CHUA_PHAN_HOI: 'Chưa phản hồi',
+  DA_PHAN_HOI: 'Đã phản hồi',
+  KHONG_THUC_HIEN_DUOC: 'Không thực hiện được',
+  QUA_HAN: 'Quá hạn',
+};
+
+/** Displayed columns on the Investigation Delegation list. */
+export function delegationExportColumns(
+  replyStatus: (row: DongDanhSachVuAn) => TrangThaiPhanHoi,
+): readonly KhaiCotXuat<DongDanhSachVuAn>[] {
+  return [
+    {
+      key: 'caseCode',
+      tieuDe: 'Mã hồ sơ',
+      rong: 20,
+      doc: (row) => row.caseCode ?? '',
+    },
+    {
+      key: 'ngayTiepNhan',
+      tieuDe: 'Ngày tiếp nhận',
+      rong: 16,
+      doc: (row) => ngayVN(row.ngayTiepNhan),
+    },
+    {
+      key: 'donViGiao',
+      tieuDe: 'Đơn vị giao',
+      rong: 28,
+      doc: (row) => row.donViGiao ?? '',
+    },
+    {
+      key: 'soQuyetDinhUyThac',
+      tieuDe: 'Số QĐ/Phiếu',
+      rong: 24,
+      doc: (row) => row.soQuyetDinhUyThac ?? '',
+    },
+    {
+      key: 'nghiVan',
+      tieuDe: 'Đối tượng nghi vấn',
+      rong: 30,
+      doc: (row) =>
+        row.nghiVanDoiTuong?.trim() ||
+        (typeof row.metadata === 'object' &&
+        row.metadata &&
+        !Array.isArray(row.metadata) &&
+        'nghiVanDoiTuong' in row.metadata &&
+        typeof row.metadata.nghiVanDoiTuong === 'string'
+          ? row.metadata.nghiVanDoiTuong
+          : ''),
+    },
+    {
+      key: 'crime',
+      tieuDe: 'Tội danh',
+      rong: 30,
+      doc: (row) => row.crime ?? '',
+    },
+    {
+      key: 'investigator',
+      tieuDe: 'Điều tra viên',
+      rong: 24,
+      doc: (row) => hoTenCanBo(row.investigator),
+    },
+    {
+      key: 'thoiHanUyThac',
+      tieuDe: 'Thời hạn',
+      rong: 16,
+      doc: (row) => ngayVN(row.thoiHanUyThac),
+    },
+    {
+      key: 'ketQuaUyThac',
+      tieuDe: 'Kết quả ủy thác',
+      rong: 42,
+      doc: (row) => row.ketQuaUyThac ?? '',
+    },
+    {
+      key: 'status',
+      tieuDe: 'Trạng thái',
+      rong: 24,
+      doc: (row) => UY_THAC_REPLY_LABEL[replyStatus(row)],
+    },
+    {
+      key: 'createdBy',
+      tieuDe: 'Người nhập',
+      rong: 24,
+      doc: (row) => hoTenCanBo(row.createdBy),
+    },
+  ];
+}
 
 /**
  * Cột tệp "Vụ án theo phường/xã" (`GET /cases/export/ward`) — GIỮ ĐÚNG các cột tệp này vẫn có trước

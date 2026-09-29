@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 
 export class CreateDocumentDto {
@@ -14,6 +14,11 @@ export class CreateDocumentDto {
   @IsCatalogValue('DOCUMENT_TYPE', { message: 'Loại tài liệu không hợp lệ' })
   @IsOptional()
   documentType?: string;
+
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsOptional()
+  recordedAt?: string;
 
   @IsString()
   @IsOptional()

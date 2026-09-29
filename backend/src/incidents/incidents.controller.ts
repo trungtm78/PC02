@@ -13,6 +13,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -38,6 +40,8 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { MergeIncidentDto } from './dto/merge-incident.dto';
 import { TransferIncidentDto } from './dto/transfer-incident.dto';
 import { DeleteIncidentDto } from './dto/delete-incident.dto';
+import { ReviewIncidentDuplicatesDto } from './dto/review-incident-duplicates.dto';
+import { UpdateIncidentResultDto } from './dto/update-incident-result.dto';
 import { RestoreIncidentDto } from './dto/restore-incident.dto'; // v0.32.0.0
 import { ListLinkableIncidentDto } from './dto/list-linkable.dto'; // v0.37.1.1 PROV-004
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
@@ -50,6 +54,49 @@ export class IncidentsController {
     private readonly incidentsJourneyService: IncidentsJourneyService,
     private readonly dynamicExport: DynamicExportService,
   ) {}
+
+  @Post('export-document-batch')
+  @Throttle({ default: { ttl: 60000, limit: 2 } })
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  async exportDocumentBatch(
+    @Body() body: { incidentIds: string[]; docTypes: string[] },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ids = body?.incidentIds;
+    const codes = body?.docTypes;
+    if (
+      !Array.isArray(ids) ||
+      ids.length < 1 ||
+      ids.length > 100 ||
+      ids.some((id) => typeof id !== 'string' || !id)
+    ) {
+      throw new BadRequestException(
+        'incidentIds phải có từ 1 đến 100 mã hồ sơ',
+      );
+    }
+    if (
+      !Array.isArray(codes) ||
+      !codes.length ||
+      codes.some((code) => typeof code !== 'string' || !code)
+    ) {
+      throw new BadRequestException(
+        'docTypes phải có ít nhất một mẫu chứng từ',
+      );
+    }
+    await this.dynamicExport.exportBatchByCodes(
+      'VU_VIEC',
+      codes,
+      ids,
+      async (id) => {
+        const loaded = await this.incidentsService.getById(id, req.dataScope);
+        return (loaded as { data?: unknown })?.data ?? loaded;
+      },
+      user.id,
+      res,
+    );
+  }
 
   // POST /api/v1/incidents/:id/export-documents — xuất chứng từ động (gộp/zip) cho vụ việc
   @Post(':id/export-documents')
@@ -107,7 +154,10 @@ export class IncidentsController {
   // Mirror of /petitions/linkable (PR-PICK).
   @Get('linkable')
   @RequirePermissions({ action: 'read', subject: 'Incident' })
-  listLinkable(@Query() query: ListLinkableIncidentDto, @Req() req: ScopedRequest) {
+  listLinkable(
+    @Query() query: ListLinkableIncidentDto,
+    @Req() req: ScopedRequest,
+  ) {
     return this.incidentsService.listLinkable(query, req.dataScope);
   }
 
@@ -126,6 +176,30 @@ export class IncidentsController {
     return this.incidentsService.getInvestigators(search);
   }
 
+  @Get('reporter-suggestions')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60000, limit: 120 } })
+  reporterSuggestions(@Query('q') query: string, @Req() req: ScopedRequest) {
+    return this.incidentsService.findReporterSuggestions(
+      query ?? '',
+      req.dataScope,
+    );
+  }
+
+  @Post('duplicate-review')
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  duplicateReview(
+    @Body() query: ReviewIncidentDuplicatesDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.incidentsService.findDuplicateCandidates(
+      query,
+      query.excludeId,
+      req.dataScope,
+    );
+  }
+
   // GET /api/v1/incidents/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách vụ việc.
   @Get('export/danh-sach')
   @HttpCode(HttpStatus.OK)
@@ -138,6 +212,26 @@ export class IncidentsController {
     @Res() res: Response,
   ): Promise<void> {
     await this.incidentsService.xuatDanhSach(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Get('export/day-du')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(
+    { action: 'read', subject: 'Incident' },
+    { action: 'export_full', subject: 'Incident' },
+  )
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  async xuatDayDu(
+    @Query() query: QueryIncidentsDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.incidentsService.xuatDayDu(query, req.dataScope, res, {
       userId: user.id,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
@@ -173,7 +267,12 @@ export class IncidentsController {
   ) {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
-    return this.incidentsJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
+    return this.incidentsJourneyService.getJourney(
+      id,
+      req.dataScope ?? null,
+      safePage,
+      safeLimit,
+    );
   }
 
   // GET /api/v1/incidents/:id/delete-preflight — v0.43 kiểm tra trước khi xóa
@@ -197,11 +296,18 @@ export class IncidentsController {
     @Body() dto: CreateIncidentDto,
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.incidentsService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope); // v0.33
+    return this.incidentsService.create(
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+      idempotencyKey,
+    ); // v0.33
   }
 
   // PUT /api/v1/incidents/:id — Cập nhật vụ việc
@@ -213,10 +319,36 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
+  }
+
+  @Patch(':id/result')
+  @RequirePermissions({ action: 'edit', subject: 'Incident' })
+  updateResult(
+    @Param('id') id: string,
+    @Body() dto: UpdateIncidentResultDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.incidentsService.updateResult(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // DELETE /api/v1/incidents/:id — Xóa vụ việc (soft delete, 6 business rules)
@@ -229,7 +361,6 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
     const dataScope = req.dataScope ?? null;
     return this.incidentsService.delete(
       id,
@@ -278,10 +409,16 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.updateStatus(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.updateStatus(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/incidents/:id/merge — Nhập vào vụ khác
@@ -293,10 +430,16 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.mergeInto(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.mergeInto(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/incidents/:id/transfer — Chuyển đơn vị
@@ -308,10 +451,16 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.transferUnit(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.transferUnit(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // PATCH /api/v1/incidents/:id/assign — Phân công điều tra viên (dispatcher only)
@@ -323,10 +472,16 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.assignInvestigator(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.assignInvestigator(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // POST /api/v1/incidents/:id/extend — Gia hạn thời hạn (Điều 147 khoản 2-3 BLTTHS)
@@ -355,9 +510,15 @@ export class IncidentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.incidentsService.prosecute(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.incidentsService.prosecute(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 }

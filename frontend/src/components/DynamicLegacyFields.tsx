@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { LEGACY_FIELD_LABELS } from "@/shared/legacy/legacyFieldLabels.generated";
 import { hasShownInput, type LegacyEntity } from "@/shared/legacy/shownFieldKeys";
+import { isSystemMetadataKey } from '@/shared/legacy/cloneMetadata';
 
 /**
  * DynamicLegacyFields — trường hệ cũ dạng ĐỘNG, CHỈNH SỬA ĐƯỢC (form động TruongTuyChinh).
@@ -9,14 +10,6 @@ import { hasShownInput, type LegacyEntity } from "@/shared/legacy/shownFieldKeys
  * chính thì KHÔNG lặp ở đây (dedup UI). Sửa → onChange(key, value) → payload.metadata (MERGE).
  * Dữ liệu KHÔNG mất: field đã có ô hiện ở form chính; field còn lại vẫn ở LegacyRawPanel.
  */
-
-function isSystemKey(k: string): boolean {
-  return (
-    /_search$/.test(k) ||
-    /^_/.test(k) ||
-    ["da_xoa", "da_nhan", "don_vi_id", "nguoi_them", "__v", "add_time", "update_time", "id", "loai"].includes(k)
-  );
-}
 
 function label(key: string): string {
   return LEGACY_FIELD_LABELS[key] ?? key.replace(/_/g, " ");
@@ -32,10 +25,12 @@ export function DynamicLegacyFields({
   entity,
   values,
   onChange,
+  readOnly = false,
 }: {
   entity: LegacyEntity;
   values: Record<string, unknown> | null | undefined;
   onChange: (key: string, value: string) => void;
+  readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   if (!values || typeof values !== "object") return null;
@@ -43,7 +38,7 @@ export function DynamicLegacyFields({
   // Field mảng/object (lich_su…) không sửa inline → chỉ hiện read-only trong panel; ở đây bỏ.
   // Bỏ field ĐÃ có ô nhập (cột/form chính) → chỉ giữ long-tail chưa có ô (dedup UI).
   const keys = Object.keys(values)
-    .filter((k) => !isSystemKey(k) && !hasShownInput(entity, k) && !Array.isArray(values[k]) && typeof values[k] !== "object")
+    .filter((k) => !isSystemMetadataKey(k) && !hasShownInput(entity, k) && !Array.isArray(values[k]) && typeof values[k] !== "object")
     .sort((a, b) => label(a).localeCompare(label(b), "vi"));
 
   if (!keys.length) return null;
@@ -69,6 +64,7 @@ export function DynamicLegacyFields({
                 type="text"
                 className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                 value={toText(values[k])}
+                disabled={readOnly}
                 onChange={(e) => onChange(k, e.target.value)}
                 data-testid={`legacy-field-${k}`}
               />

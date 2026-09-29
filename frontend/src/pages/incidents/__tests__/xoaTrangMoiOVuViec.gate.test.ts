@@ -19,7 +19,11 @@ import { INITIAL_INCIDENT_FORM, type IncidentFormData } from '../incident-form.t
 /** Đọc thẳng từ mã nguồn để cổng không phải liệt kê tay — thêm ô mới là tự được phủ. */
 const O_GUI_NULL: string[] = Array.from(
   nguonBuilder.matchAll(/(\w+): oHeCu\(formData\.(\w+)\)/g),
-).map((m) => m[1]);
+)
+  .map((m) => m[1])
+  // Phân công khi sửa phải đi qua command `/assign` có DispatchGuard. Hai trường này chỉ
+  // được gửi trong lần tạo đầu tiên nên không thuộc hợp đồng xoá trắng của generic PATCH.
+  .filter((khoa) => !['investigatorId', 'assignedTeamId'].includes(khoa));
 
 /**
  * MỌI ô lấy giá trị từ `formData`, không chỉ nhóm đi qua `oHeCu`.
@@ -72,6 +76,13 @@ describe('Xoá trắng một ô Vụ việc rồi lưu — giá trị cũ phải
     expect(p).toHaveProperty('laCongNgheCaoVV');
     expect(p.laCongNgheCaoVV).toBe(false);
   });
+
+  it.each(['investigatorId', 'assignedTeamId'])(
+    'không gửi trường phân công "%s" qua generic PATCH',
+    (khoa) => {
+      expect(payload({ [khoa]: '' } as Partial<IncidentFormData>)).not.toHaveProperty(khoa);
+    },
+  );
 });
 
 describe('Trang Vụ việc phải dùng hàm dựng payload đã vá', () => {

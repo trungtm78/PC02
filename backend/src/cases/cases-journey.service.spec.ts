@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * CasesJourneyService Unit Tests
  *
@@ -21,10 +19,16 @@ import { CasesJourneyService } from './cases-journey.service';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaseStatus } from '@prisma/client';
+import type { DataScope } from '../auth/services/unit-scope.service';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const mockUser = { id: 'user-001', firstName: 'Nguyễn', lastName: 'Văn A', username: 'nguyenvana' };
+const mockUser = {
+  id: 'user-001',
+  firstName: 'Nguyễn',
+  lastName: 'Văn A',
+  username: 'nguyenvana',
+};
 
 const mockCase = {
   id: 'case-001',
@@ -51,7 +55,12 @@ const makeStatusHistory = (id: string, date: string) => ({
   changedBy: mockUser,
 });
 
-const makeAuditLog = (id: string, date: string, subjectId = 'case-001', metadata: unknown = null) => ({
+const makeAuditLog = (
+  id: string,
+  date: string,
+  subjectId = 'case-001',
+  metadata: unknown = null,
+) => ({
   id,
   userId: 'user-001',
   action: 'CASE_UPDATED',
@@ -107,7 +116,10 @@ describe('CasesJourneyService', () => {
 
   describe('TC-J01: empty history — synthetic created event injected', () => {
     it('returns synthetic CREATED event from case.createdAt even when no audit/status history', async () => {
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
@@ -133,7 +145,10 @@ describe('CasesJourneyService', () => {
       const older = makeStatusHistory('sh-001', '2025-01-10T10:00:00Z');
       const newer = makeStatusHistory('sh-002', '2025-01-20T14:00:00Z');
       // Provide in ASC order (as DB would return) — service must sort DESC
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([older, newer]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
@@ -141,8 +156,12 @@ describe('CasesJourneyService', () => {
       const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
-      const caseEvents = result.data.events.filter((e) => e.entityType === 'CASE');
-      const statusEvents = caseEvents.filter((e) => e.eventType === 'STATUS_CHANGE');
+      const caseEvents = result.data.events.filter(
+        (e) => e.entityType === 'CASE',
+      );
+      const statusEvents = caseEvents.filter(
+        (e) => e.eventType === 'STATUS_CHANGE',
+      );
       expect(statusEvents).toHaveLength(2);
       // Newest first
       expect(new Date(statusEvents[0].actedAt).getTime()).toBeGreaterThan(
@@ -158,7 +177,10 @@ describe('CasesJourneyService', () => {
 
   describe('TC-J03: silently skip incident when none linked', () => {
     it('does not query incidentStatusHistory when no incident linked to case', async () => {
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
@@ -167,7 +189,9 @@ describe('CasesJourneyService', () => {
 
       expect(result.success).toBe(true);
       expect(mockPrisma.incidentStatusHistory.findMany).not.toHaveBeenCalled();
-      const incidentEvents = result.data.events.filter((e) => e.entityType === 'INCIDENT');
+      const incidentEvents = result.data.events.filter(
+        (e) => e.entityType === 'INCIDENT',
+      );
       expect(incidentEvents).toHaveLength(0);
     });
   });
@@ -178,18 +202,26 @@ describe('CasesJourneyService', () => {
     it('includes petition AuditLog events when petition linked to case', async () => {
       const caseWithPetition = {
         ...mockCase,
-        petitions: [{ id: 'petition-001', stt: 'DT-2025-00001', status: 'DANG_XU_LY' }],
+        petitions: [
+          { id: 'petition-001', stt: 'DT-2025-00001', status: 'DANG_XU_LY' },
+        ],
       };
       const petitionAudit = makeAuditLog(
         'audit-pet-001',
         '2025-01-15T09:00:00Z',
         'petition-001',
-        { before: { status: 'MOI_TIEP_NHAN' }, after: { status: 'DANG_XU_LY' } },
+        {
+          before: { status: 'MOI_TIEP_NHAN' },
+          after: { status: 'DANG_XU_LY' },
+        },
       );
       petitionAudit.action = 'PETITION_UPDATED';
       petitionAudit.subject = 'Petition';
 
-      mockCasesService.getById.mockResolvedValue({ success: true, data: caseWithPetition });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: caseWithPetition,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([petitionAudit]);
@@ -197,7 +229,9 @@ describe('CasesJourneyService', () => {
       const result = await service.getJourney('case-001', null, 1, 50);
 
       expect(result.success).toBe(true);
-      const petitionEvents = result.data.events.filter((e) => e.entityType === 'PETITION');
+      const petitionEvents = result.data.events.filter(
+        (e) => e.entityType === 'PETITION',
+      );
       expect(petitionEvents).toHaveLength(1);
       expect(petitionEvents[0].entityId).toBe('petition-001');
     });
@@ -211,10 +245,16 @@ describe('CasesJourneyService', () => {
         new ForbiddenException('Bạn không có quyền truy cập bản ghi này'),
       );
 
-      const outOfScope = { canDispatch: false, userIds: ['user-other'], teamIds: ['team-other'] };
+      const outOfScope: DataScope = {
+        canDispatch: false,
+        userIds: ['user-other'],
+        teamIds: ['team-other'],
+        writableTeamIds: [],
+        writableUserIds: [],
+      };
 
       await expect(
-        service.getJourney('case-001', outOfScope as any, 1, 50),
+        service.getJourney('case-001', outOfScope, 1, 50),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -223,9 +263,17 @@ describe('CasesJourneyService', () => {
 
   describe('TC-J06: graceful degrade when metadata.before missing', () => {
     it('includes FIELD_UPDATE event but does not expose diff when metadata is null', async () => {
-      const auditNoBefore = makeAuditLog('audit-nodiff', '2025-01-12T10:00:00Z', 'case-001', null);
+      const auditNoBefore = makeAuditLog(
+        'audit-nodiff',
+        '2025-01-12T10:00:00Z',
+        'case-001',
+        null,
+      );
 
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([auditNoBefore]);
@@ -255,7 +303,10 @@ describe('CasesJourneyService', () => {
         { before: { name: 'Cũ' }, after: { name: 'Mới' } },
       );
 
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue([]);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue([auditWithBefore]);
@@ -284,7 +335,10 @@ describe('CasesJourneyService', () => {
     it('caps results at limit=50 and sets hasNextPage=true when total > limit', async () => {
       // 25 status history + 26 audit log = 51 total events
       const manyHistory = Array.from({ length: 25 }, (_, i) =>
-        makeStatusHistory(`sh-${i}`, `2025-01-${String(i + 1).padStart(2, '0')}T10:00:00Z`),
+        makeStatusHistory(
+          `sh-${i}`,
+          `2025-01-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
+        ),
       );
       const manyAudit = Array.from({ length: 26 }, (_, i) =>
         makeAuditLog(
@@ -295,7 +349,10 @@ describe('CasesJourneyService', () => {
         ),
       );
 
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue(manyHistory);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);
@@ -311,7 +368,10 @@ describe('CasesJourneyService', () => {
 
     it('returns page 2 correctly', async () => {
       const manyHistory = Array.from({ length: 25 }, (_, i) =>
-        makeStatusHistory(`sh-${i}`, `2025-01-${String(i + 1).padStart(2, '0')}T10:00:00Z`),
+        makeStatusHistory(
+          `sh-${i}`,
+          `2025-01-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
+        ),
       );
       const manyAudit = Array.from({ length: 26 }, (_, i) =>
         makeAuditLog(
@@ -322,7 +382,10 @@ describe('CasesJourneyService', () => {
         ),
       );
 
-      mockCasesService.getById.mockResolvedValue({ success: true, data: mockCase });
+      mockCasesService.getById.mockResolvedValue({
+        success: true,
+        data: mockCase,
+      });
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue(manyHistory);
       mockPrisma.incident.findFirst.mockResolvedValue(null);
       mockPrisma.auditLog.findMany.mockResolvedValue(manyAudit);

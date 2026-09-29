@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
-import { CaseStatus, Prisma } from '@prisma/client';
+import { CaseStatus, CaseType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
@@ -29,6 +29,7 @@ import type { BulkResult, BulkSkippedItem } from '../../common/bulk/run-bulk';
  */
 export interface BulkExportCasesInput {
   ids: string[];
+  caseType?: CaseType;
   dataScope: DataScope | null | undefined;
   res: Response;
   actorId: string;
@@ -138,6 +139,7 @@ export class CasesBulkService {
     const where: Prisma.CaseWhereInput = {
       id: { in: input.ids },
       deletedAt: null,
+      ...(input.caseType ? { caseType: input.caseType } : {}),
     };
     const scopeFilter = buildScopeFilter(input.dataScope);
     if (scopeFilter) {
@@ -151,7 +153,10 @@ export class CasesBulkService {
       // Cùng thứ tự với DANH SÁCH trên màn hình (ngày tiếp nhận, mới→cũ). Trước đây
       // dùng `createdAt` — cột mà toàn bộ hồ sơ di trú đều mang cùng một giá trị, nên
       // thứ tự file xuất ra là ngẫu nhiên và không khớp thứ tự cán bộ vừa nhìn thấy.
-      orderBy: [{ ngayDeXuat: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+      orderBy: [
+        { ngayDeXuat: { sort: 'desc', nulls: 'last' } },
+        { id: 'desc' },
+      ],
       select: {
         id: true,
         caseCode: true,
@@ -202,7 +207,7 @@ export class CasesBulkService {
         rec.unit ?? '',
         investigatorName,
         rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        CASE_STATUS_LABEL[rec.status as CaseStatus] ?? rec.status ?? '',
+        CASE_STATUS_LABEL[rec.status] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });
@@ -216,7 +221,10 @@ export class CasesBulkService {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    input.res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    input.res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
 
     try {
       await workbook.xlsx.write(input.res);
@@ -344,7 +352,9 @@ export class CasesBulkService {
             message: 'Vụ án đã được chỉnh sửa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
 
     // 5) Complete header (COMPLETED + counts).
@@ -392,7 +402,9 @@ export class CasesBulkService {
     const result = await runBulk<{ caseId: string }, Prisma.TransactionClient>({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         // Single query: load all cases + linked counts + scope filter.
@@ -511,7 +523,9 @@ export class CasesBulkService {
             message: 'Vụ án đã được xóa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
 
     await this.audit.completeBulk(bulkOperationId, {
@@ -547,7 +561,9 @@ export class CasesBulkService {
     const result = await runBulk<{ caseId: string }, Prisma.TransactionClient>({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         const deleted = await this.prisma.case.findMany({
@@ -605,7 +621,9 @@ export class CasesBulkService {
             message: 'Vụ án đã được khôi phục bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
 
     await this.audit.completeBulk(bulkOperationId, {

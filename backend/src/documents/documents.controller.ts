@@ -33,23 +33,11 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
-// Max file size: 10MB
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-// Allowed MIME types
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'video/mp4',
-  'audio/mpeg',
-  'text/plain',
-];
+import {
+  ALLOWED_UPLOAD_MIMES,
+  MAX_MEDIA_BYTES,
+  validateUploadedDocument,
+} from './document-upload-policy';
 
 // Sprint 2 / S2.2 — Magic-byte MIME map cho file-type lib. file-type không
 // detect được text/plain (no magic bytes), nên text/plain bypass magic-byte
@@ -100,10 +88,10 @@ export class DocumentsController {
         },
       }),
       limits: {
-        fileSize: MAX_FILE_SIZE,
+        fileSize: MAX_MEDIA_BYTES,
       },
       fileFilter: (req, file, cb) => {
-        if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        if (ALLOWED_UPLOAD_MIMES.has(file.mimetype)) {
           cb(null, true);
         } else {
           cb(new BadRequestException('Loại file không được hỗ trợ'), false);
@@ -124,17 +112,14 @@ export class DocumentsController {
 
     // Sprint 2 / S2.2 — Magic-byte validation: Content-Type header attacker-controlled.
     // file-type đọc magic bytes thật, kháng MIME spoofing attack.
-    if (!MAGIC_BYTE_BYPASS.has(file.mimetype)) {
-      // ESM-only lib — dùng dynamic import vì backend là CommonJS
-      const { fileTypeFromFile } = await import('file-type');
-      const detected = await fileTypeFromFile(file.path);
-      if (!detected || !ALLOWED_MIME_TYPES.includes(detected.mime)) {
-        // Xoá file giả mạo khỏi disk để khỏi tốn storage + tránh leak path
-        try { fs.unlinkSync(file.path); } catch { /* swallow — file có thể đã bị xoá */ }
-        throw new BadRequestException(
-          `Magic-byte không khớp Content-Type (declared: ${file.mimetype}, detected: ${detected?.mime ?? 'unknown'})`,
-        );
-      }
+    try {
+      const detected = MAGIC_BYTE_BYPASS.has(file.mimetype)
+        ? undefined
+        : await (await import('file-type')).fileTypeFromFile(file.path);
+      validateUploadedDocument(file, detected?.mime, dto.documentType);
+    } catch (error) {
+      fs.rmSync(file.path, { force: true });
+      throw error;
     }
 
     // Populate file info from multer
@@ -151,12 +136,17 @@ export class DocumentsController {
     // Nếu service throw (petitionId không tồn tại, out-of-scope, quota đầy...)
     // → xoá file rác. Không re-throw từ catch (rethrow gốc) để giữ stack trace.
     try {
-      return await this.documentsService.create(documentDto, user.id, {
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      }, req.dataScope);
+      return await this.documentsService.create(
+        documentDto,
+        user.id,
+        {
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        },
+        req.dataScope,
+      );
     } catch (e) {
-      try { fs.unlinkSync(file.path); } catch { /* file có thể đã bị xoá */ }
+      fs.rmSync(file.path, { force: true });
       throw e;
     }
   }
@@ -170,10 +160,16 @@ export class DocumentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.documentsService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.documentsService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // DELETE /api/documents/:id — Xóa tài liệu (soft delete)
@@ -185,10 +181,15 @@ export class DocumentsController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.documentsService.delete(id, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.documentsService.delete(
+      id,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // GET /api/documents/:id/download — Tải xuống tài liệu
@@ -210,7 +211,10 @@ export class DocumentsController {
     const { filePath, originalName, mimeType } = result.data;
 
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(originalName)}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(originalName)}"`,
+    );
 
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);

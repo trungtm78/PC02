@@ -12,6 +12,11 @@ import { ForbiddenException } from '@nestjs/common';
 import { CasesController } from './cases.controller';
 import { CasesService } from './cases.service';
 import { CasesJourneyService } from './cases-journey.service';
+import { DynamicExportService } from '../document-templates/dynamic-export.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 
 const mockJourneyResult = {
   success: true,
@@ -39,14 +44,26 @@ const mockJourneyService = {
   getJourney: jest.fn(),
 };
 
-const makeReq = () => ({
-  ip: '127.0.0.1',
-  headers: { 'user-agent': 'jest-test' },
-  user: { id: 'user-001', email: 'test@pc02.local', role: 'OFFICER' },
-  dataScope: { teamIds: ['team-001'], userIds: ['user-001'], canDispatch: false },
-});
+const makeReq = (): ScopedRequest =>
+  ({
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'jest-test' },
+    user: { id: 'user-001', email: 'test@pc02.local', role: 'OFFICER' },
+    dataScope: {
+      teamIds: ['team-001'],
+      userIds: ['user-001'],
+      writableTeamIds: ['team-001'],
+      writableUserIds: ['user-001'],
+      canDispatch: false,
+    },
+  }) as unknown as ScopedRequest;
 
-const mockUser = { id: 'user-001', email: 'test@pc02.local', role: 'OFFICER', roleId: 'role-001' };
+const mockUser: AuthUser = {
+  id: 'user-001',
+  email: 'test@pc02.local',
+  role: 'OFFICER',
+  roleId: 'role-001',
+};
 
 describe('CasesController — journey endpoint', () => {
   let controller: CasesController;
@@ -58,14 +75,14 @@ describe('CasesController — journey endpoint', () => {
         { provide: CasesService, useValue: mockCasesService },
         { provide: CasesJourneyService, useValue: mockJourneyService },
         {
-          provide: require('../document-templates/dynamic-export.service').DynamicExportService,
+          provide: DynamicExportService,
           useValue: { exportEntityDocuments: jest.fn() },
         },
       ],
     })
-      .overrideGuard(require('../auth/guards/jwt-auth.guard').JwtAuthGuard)
+      .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(require('../auth/guards/permissions.guard').PermissionsGuard)
+      .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -79,7 +96,13 @@ describe('CasesController — journey endpoint', () => {
     mockJourneyService.getJourney.mockResolvedValue(mockJourneyResult);
     const req = makeReq();
 
-    const result = await controller.getJourney('case-001', mockUser as any, req as any, 1, 50);
+    const result = await controller.getJourney(
+      'case-001',
+      mockUser,
+      req,
+      1,
+      50,
+    );
 
     expect(mockJourneyService.getJourney).toHaveBeenCalledWith(
       'case-001',
@@ -99,7 +122,7 @@ describe('CasesController — journey endpoint', () => {
     const req = makeReq();
 
     await expect(
-      controller.getJourney('case-001', mockUser as any, req as any, 1, 50),
+      controller.getJourney('case-001', mockUser, req, 1, 50),
     ).rejects.toThrow(ForbiddenException);
   });
 });

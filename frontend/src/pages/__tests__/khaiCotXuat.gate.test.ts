@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
@@ -38,11 +39,24 @@ function khoaBang(src: string): string[] {
  * khai cột riêng cho tệp phường/xã — không thuộc danh sách chính.
  */
 function khoaXuat(src: string, ten: string): string[] {
-  const dau = src.indexOf(`export const ${ten}:`);
-  if (dau < 0) return [];
-  const sau = src.indexOf('export const ', dau + 1);
-  const khoi = src.slice(dau, sau < 0 ? undefined : sau);
-  return [...khoi.matchAll(/key: '(\w+)'/g)].map((m) => m[1]);
+  const source = ts.createSourceFile('registry.ts', src, ts.ScriptTarget.Latest, true);
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== ten) continue;
+      const value = declaration.initializer;
+      if (!value || !ts.isArrayLiteralExpression(value)) return [];
+      return value.elements.flatMap((element) => {
+        if (!ts.isObjectLiteralExpression(element)) return [];
+        const key = element.properties.find((property) =>
+          ts.isPropertyAssignment(property) && property.name.getText(source) === 'key',
+        );
+        if (!key || !ts.isPropertyAssignment(key) || !ts.isStringLiteral(key.initializer)) return [];
+        return [key.initializer.text];
+      });
+    }
+  }
+  return [];
 }
 
 describe('CỔNG khai cột xuất — khoá bảng ↔ khoá xuất', () => {

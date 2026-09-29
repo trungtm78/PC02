@@ -18,6 +18,7 @@ import {
   History,
 } from "lucide-react";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
+import { RecordNameSuggestions } from "@/components/inputs/RecordNameSuggestions";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -33,9 +34,11 @@ import type { ColumnDef } from "@/components/shared";
 import { FKSelect } from "@/components/FKSelect";
 import { gomCanBoTheoTo } from "@/hooks/gomCanBoTheoTo";
 import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
+import { usePermission } from "@/hooks/usePermission";
 import { ProvinceWardSelect } from "@/components/ProvinceWardSelect";
 import type { TabProps, Subject, Evidence, MediaFile } from "./types";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { caseForm as caseFormLabels } from "@/locales/vi";
 import {
   STATUS_OPTIONS,
   SUBJECT_TYPE_COLORS,
@@ -43,6 +46,8 @@ import {
 } from "./constants";
 import { CaseProvenancePicker } from "./CaseProvenancePicker";
 import { LegacyTabBody } from "./LegacyTabBody";
+import type { NhomOKhai } from "@/components/legacy-form/NhomOGap";
+import { laNguonTrucTiep } from "@/shared/nguon-don/truc-tiep";
 import { DTBSTable } from "./DTBSTable";
 import { LinkedIncidentCard } from "./LinkedIncidentCard";
 import { CaseProvenance } from "../../../shared/enums/generated";
@@ -123,6 +128,7 @@ export function CardNguonVuAn({ formData, errors, update }: {
               error={errors.caseProvenance}
               placeholder="-- Chọn nguồn --"
               data-testid="select-case-provenance"
+              disabled={formData.caseProvenance === 'UY_THAC_DIEU_TRA'}
             />
             {/* Conditional picker/textarea — sub-6 Decisions 2A/2B/2C 10/10 */}
             <div className="md:col-span-2">
@@ -151,7 +157,7 @@ export function CardNguonVuAn({ formData, errors, update }: {
   );
 }
 
-function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [], handlerLoading = false, isDraftCodeLoading = false }: TabProps) {
+function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [], handlerLoading = false, isDraftCodeLoading = false, onCaseCodeOverride, isManualCaseCode = false }: TabProps) {
   /**
    * GHIM người hồ sơ đang trỏ tới.
    *
@@ -185,8 +191,8 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [],
   const { data: districtOptions } = useQuery({
     queryKey: ["directories", "DISTRICT", "legacy"],
     queryFn: () =>
-      api.get("/directories?type=DISTRICT&isActive=false").then((r) =>
-        (r.data.data ?? []).map((d: any) => ({
+      api.get<{ data: Array<{ code: string; name: string; abolishedAt?: string | null }> }>("/directories?type=DISTRICT&isActive=false").then((r) =>
+        (r.data.data ?? []).map((d) => ({
           value: d.code,
           label: `${d.name} (trước ${d.abolishedAt ? new Date(d.abolishedAt).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", timeZone: "Asia/Ho_Chi_Minh" }) : "07/2025"})`,
         }))
@@ -206,9 +212,12 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [],
               {formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'Số ủy thác' : 'Mã hồ sơ'}
             </label>
             <DocNumberPreviewField
-              inputMode="AUTO"
+              inputMode={isManualCaseCode ? "MANUAL" : "AUTO_WITH_OVERRIDE"}
               value={formData.caseCode}
-              onChange={(v) => update("caseCode", v)}
+              onChange={(v) => {
+                update("caseCode", v);
+                onCaseCodeOverride?.();
+              }}
               loading={isDraftCodeLoading}
               placeholder={formData.caseProvenance === 'UY_THAC_DIEU_TRA' ? 'UTDT-2026-00001' : 'HS-2026-001'}
             />
@@ -270,15 +279,17 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [],
             canCreate={false}
             testId="fk-handler"
           />
-          <FKSelect
-            label="Đơn vị thụ lý"
-            value={formData.supervisingUnit}
-            onChange={(v) => update("supervisingUnit", v)}
-            directoryType="UNIT"
-            placeholder="-- Chọn đơn vị --"
-            canCreate={false}
-            testId="fk-unit"
-          />
+          {formData.caseProvenance !== 'UY_THAC_DIEU_TRA' && (
+            <FKSelect
+              label="Đơn vị thụ lý"
+              value={formData.supervisingUnit}
+              onChange={(v) => update("supervisingUnit", v)}
+              directoryType="UNIT"
+              placeholder="-- Chọn đơn vị --"
+              canCreate={false}
+              testId="fk-unit"
+            />
+          )}
           {/* v0.37.1: "Loại đơn thư" (petitionType LoaiDon) removed — now property of linked Petition record, not Case. Captured via Petition picker in Nguồn vụ án Card (sub-6). */}
         </div>
       </Card>
@@ -358,7 +369,14 @@ function TabInfoBoSung({ formData, setFormData, errors, setErrors, dsCanBo = [],
                 label="Thiệt hại ước tính (VNĐ)"
                 icon={<DollarSign className="w-4 h-4" />}
                 value={formData.damageAmount}
-                onChange={(v) => update("damageAmount", v)}
+                onChange={(v) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    damageAmount: v,
+                    statistic: { ...prev.statistic, soTienBiThietHai: v },
+                  }));
+                  if (errors.damageAmount) setErrors((prev) => ({ ...prev, damageAmount: "" }));
+                }}
                 placeholder="0"
               />
               <FormTextarea
@@ -590,6 +608,7 @@ function TabIncidentBoSung({ formData, setFormData, errors, setErrors }: TabProp
       <Card data-testid="tab-incident-bo-sung">
         <CardHeader title="Thông tin vụ việc (đã liên kết)" />
         <LinkedIncidentCard
+          key={(fromIncidentId || autoLinkedId) as string}
           incidentId={(fromIncidentId || autoLinkedId) as string}
           canUnlink={formData.caseProvenance === CaseProvenance.FROM_INCIDENT}
           onUnlink={() => {
@@ -1158,7 +1177,11 @@ function TabStatisticsBoSung({ formData, setFormData }: TabProps) {
   // Cập nhật field nested trong case_statistics (hybrid).
   const cs = formData.statistic;
   const updateStat = (field: keyof typeof cs, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, statistic: { ...prev.statistic, [field]: value } }));
+    setFormData((prev) => ({
+      ...prev,
+      statistic: { ...prev.statistic, [field]: value },
+      ...(field === "soTienBiThietHai" && typeof value === "string" && { damageAmount: value }),
+    }));
   };
 
   const filledCount = [
@@ -1597,52 +1620,67 @@ function TabStatisticsBoSung({ formData, setFormData }: TabProps) {
 // Tab 10: Ghi âm, ghi hình – upgraded với drag-drop từ Refs
 // ═════════════════════════════════════════════════════════════════════════════
 
-function TabMediaBoSung({
+export function TabMediaBoSung({
   mediaFiles,
   onUpload,
   onDelete,
+  onDownload,
+  chiXem,
+  error,
 }: {
   mediaFiles: MediaFile[];
-  onUpload: (file: File) => void;
+  onUpload: (file: File, recordDate: string) => void;
   onDelete: (id: string) => void;
+  onDownload?: (id: string) => void;
+  chiXem?: boolean;
+  error?: string;
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [recordDate, setRecordDate] = useState(today());
+  const [validationError, setValidationError] = useState('');
 
-  const allowedTypes = ["mp3", "mp4", "avi", "wav", "mov", "wmv"];
+  const allowedTypes = new Set(["mp3", "mp4", "avi", "wav", "mov", "wmv"]);
 
   const handleFiles = (files: File[]) => {
+    if (chiXem) return;
+    if (!recordDate || recordDate > today()) {
+      setValidationError(caseFormLabels.media.invalidDate);
+      return;
+    }
     files.forEach((file) => {
       const ext = file.name.split(".").pop()?.toLowerCase();
-      if (!ext || !allowedTypes.includes(ext)) {
-        alert(`File "${file.name}" không đúng định dạng. Chỉ nhận: ${allowedTypes.join(", ").toUpperCase()}`);
+      if (!ext || !allowedTypes.has(ext)) {
+        setValidationError(`${file.name}: ${caseFormLabels.media.invalidFormat}`);
         return;
       }
       if (file.size > 100 * 1024 * 1024) {
-        alert(`File "${file.name}" vượt quá 100MB`);
+        setValidationError(`${file.name}: ${caseFormLabels.media.tooLarge}`);
         return;
       }
-      onUpload(file);
+      setValidationError('');
+      onUpload(file, recordDate);
     });
   };
 
   return (
     <Card data-testid="tab-media-bo-sung">
-      <CardHeader title="Tài liệu ghi âm, ghi hình" />
+      <CardHeader title={caseFormLabels.media.title} />
 
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2 mb-4">
         <Video className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-800">File ghi âm/ghi hình là chứng cứ quan trọng. Dung lượng tối đa 100MB/file. Định dạng: MP3, MP4, AVI, WAV, MOV, WMV.</p>
+        <p className="text-sm text-blue-800">{caseFormLabels.media.hint}</p>
       </div>
 
       {/* Record date */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1.5">Ngày ghi <span className="text-red-500">*</span></label>
+        <label htmlFor="media-record-date" className="block text-sm font-medium text-slate-700 mb-1.5">{caseFormLabels.media.recordingDate} <span className="text-red-500">*</span></label>
         <div className="relative max-w-xs">
           <input
             type="date"
+            id="media-record-date"
             value={recordDate}
             max={today()}
+            disabled={chiXem}
             onChange={(e) => setRecordDate(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
@@ -1650,7 +1688,7 @@ function TabMediaBoSung({
       </div>
 
       {/* Drop zone */}
-      <div
+      {!chiXem && <div
         onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
         onDragOver={(e) => e.preventDefault()}
@@ -1671,12 +1709,15 @@ function TabMediaBoSung({
           data-testid="media-upload-input"
         />
         <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-        <p className="text-sm font-medium text-slate-700">Kéo thả file vào đây hoặc click để chọn</p>
+        <p className="text-sm font-medium text-slate-700">{caseFormLabels.media.choose}</p>
         <p className="text-xs text-slate-500 mt-1">MP3, MP4, AVI, WAV, MOV, WMV (Tối đa 100MB)</p>
-      </div>
+      </div>}
+
+      {validationError && <p role="alert" className="text-sm text-red-600 mb-3">{validationError}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 mb-3">{error}</p>}
 
       {mediaFiles.length === 0 ? (
-        <EmptyState icon={Video} message="Chưa có file ghi âm/ghi hình nào" subMessage='Tải lên file để bắt đầu' />
+        <EmptyState icon={Video} message={caseFormLabels.media.empty} />
       ) : (
         <div className="space-y-3">
           {mediaFiles.map((file) => (
@@ -1687,10 +1728,13 @@ function TabMediaBoSung({
                 </div>
                 <div>
                   <p className="font-medium text-slate-800">{file.name}</p>
-                  <p className="text-sm text-slate-600">{file.size} • Tải lên: {file.uploadDate} • {file.uploader}</p>
+                  <p className="text-sm text-slate-600">{file.size} • {caseFormLabels.media.recorded}: {file.recordDate || '—'}{file.file ? ` • ${caseFormLabels.media.staged}` : ''}</p>
                 </div>
               </div>
-              <ActionButtons onView={() => {}} onDownload={() => {}} onDelete={() => onDelete(file.id)} />
+              <div className="flex gap-2">
+                {!file.file && onDownload && <button type="button" onClick={() => onDownload(file.id)} className="text-blue-700 hover:underline">{caseFormLabels.media.download}</button>}
+                {!chiXem && <button type="button" onClick={() => { if (window.confirm(caseFormLabels.media.confirmDelete)) onDelete(file.id); }} className="text-red-700 hover:underline">{caseFormLabels.media.remove}</button>}
+              </div>
             </div>
           ))}
         </div>
@@ -1700,6 +1744,14 @@ function TabMediaBoSung({
 }
 
 export { CaseFormTab1UyThac as TabUyThac } from './CaseFormTab1UyThac';
+
+const NHOM_DINH_DANH_UY_THAC: readonly NhomOKhai<TabProps['formData']>[] = [{
+  khoa: 'dinh-danh-nguyen-don',
+  nhan: 'Thông tin định danh nguyên đơn',
+  tab: 'info',
+  o: ['sinhNamCungCap', 'cccdCungCap', 'ngayCapCccd', 'noiCapCccd'],
+  moKhi: (fd) => laNguonTrucTiep(fd.nguonDon),
+}];
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1711,11 +1763,19 @@ export { CaseFormTab1UyThac as TabUyThac } from './CaseFormTab1UyThac';
 // Chỉnh sửa. Giao diện hệ mới trước đây của từng tab giữ nguyên, chỉ chuyển xuống khối gập.
 
 export function TabInfo(props: TabProps) {
+  const laUyThac = props.formData.caseProvenance === 'UY_THAC_DIEU_TRA';
   const update = (field: string, value: string | string[] | boolean) => {
     props.setFormData((prev) => ({ ...prev, [field]: value }) as TabProps["formData"]);
     if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
   };
   const taoNhanh = useQuickCreateDirectoryModalSafe();
+  const { canCreate, canEdit } = usePermission();
+  const canQuickCreateDirectory = Boolean(
+    taoNhanh && (
+      canCreate('cases') || canEdit('cases') ||
+      canCreate('petitions') || canEdit('petitions')
+    ),
+  );
   /**
    * "Nguồn đơn/Đơn vị giao" chọn từ danh mục `NGUON_DON` — CÙNG danh mục với Đơn thư.
    *
@@ -1763,7 +1823,7 @@ export function TabInfo(props: TabProps) {
          * nghĩa là một ô vốn điền được cho hàng nghìn vụ án bỗng KHÔNG điền được, và không
          * có thông báo nào nói vì sao.
          */
-        canCreate={!!taoNhanh}
+        canCreate={canQuickCreateDirectory}
         onCreateNew={(tenGoiY) =>
           taoNhanh?.open({
             type: "NGUON_DON",
@@ -1773,11 +1833,30 @@ export function TabInfo(props: TabProps) {
         }
       />
     ),
+    ...(laUyThac ? {
+      supervisingUnit: (label: string) => (
+        <FKSelect
+          label={label}
+          directoryType="DON_VI"
+          value={props.formData.supervisingUnit}
+          onChange={(v) => update('supervisingUnit', v)}
+          placeholder="Gõ để tìm, không có thì tạo mới"
+          testId="field-supervisingUnit"
+          canCreate={canQuickCreateDirectory}
+          onCreateNew={(tenGoiY) => taoNhanh?.open({
+            type: 'DON_VI',
+            tenGoiY,
+            onCreated: (ten) => update('supervisingUnit', ten),
+          })}
+        />
+      ),
+    } : {}),
   };
   return (
     <LegacyTabBody
       tabId="info"
       renderOverride={oRieng}
+      nhom={laUyThac ? NHOM_DINH_DANH_UY_THAC : undefined}
       formData={props.formData}
       setFormData={props.setFormData}
       errors={props.errors}
@@ -1791,15 +1870,16 @@ export function TabInfo(props: TabProps) {
             sơ" cho một ô không nhìn thấy được. Cùng lý do đã ghim Nguồn vụ án lên trên.
           */}
           <Card>
-            <FormInput
-              label="Tiêu đề hồ sơ"
-              required
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="input-case-title">
+              Tiêu đề hồ sơ <span className="text-red-500">*</span>
+            </label>
+            <RecordNameSuggestions
+              kind={laUyThac ? 'delegation' : 'case'}
               value={props.formData.caseTitle}
-              onChange={(v) => update("caseTitle", v)}
-              error={props.errors.caseTitle}
-              placeholder="Nhập tiêu đề ngắn gọn về vụ án/vụ việc"
-              data-testid="input-case-title"
+              onChange={(value) => update('caseTitle', value)}
+              testId="input-case-title"
             />
+            {props.errors.caseTitle && <p className="mt-1 text-xs text-red-600">{props.errors.caseTitle}</p>}
           </Card>
         </>
       }

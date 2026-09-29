@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import DynamicExportDocumentsModal from '@/features/document-templates/components/DynamicExportDocumentsModal';
-import type { ExportEntity } from '@/features/document-templates/export.api';
+import { PrintDocumentsModalContext, type PrintDocumentsModalApi, type PrintDocumentsModalArgs } from './PrintDocumentsModalContext';
+export type { PrintDocumentsModalApi, PrintDocumentsModalArgs } from './PrintDocumentsModalContext';
 
 /**
  * Modal "In chứng từ" dùng chung, mở được từ BẤT KỲ ĐÂU — trước hết là từ một dòng danh sách.
@@ -15,19 +16,6 @@ import type { ExportEntity } from '@/features/document-templates/export.api';
  * Khuôn provider singleton chép từ `AssignModalProvider`: một thể hiện duy nhất ở gốc cây, mở
  * bằng lời gọi hàm. Gắn modal vào từng dòng là dựng lại nó vài chục lần trên mỗi trang.
  */
-export interface PrintDocumentsModalArgs {
-  entity: ExportEntity;
-  entityId: string;
-  /** Gọi sau khi modal vá các ô còn thiếu — danh sách nạp lại để số liệu không lạc hậu. */
-  onPatched?: () => void;
-}
-
-export interface PrintDocumentsModalApi {
-  open: (args: PrintDocumentsModalArgs) => void;
-}
-
-const PrintDocumentsModalContext = createContext<PrintDocumentsModalApi | null>(null);
-
 export function PrintDocumentsModalProvider({ children }: { children: ReactNode }) {
   const [args, setArgs] = useState<PrintDocumentsModalArgs | null>(null);
 
@@ -49,12 +37,4 @@ export function PrintDocumentsModalProvider({ children }: { children: ReactNode 
       )}
     </PrintDocumentsModalContext.Provider>
   );
-}
-
-export function usePrintDocumentsModal(): PrintDocumentsModalApi {
-  const ctx = useContext(PrintDocumentsModalContext);
-  if (!ctx) {
-    throw new Error('usePrintDocumentsModal must be used inside <PrintDocumentsModalProvider>');
-  }
-  return ctx;
 }

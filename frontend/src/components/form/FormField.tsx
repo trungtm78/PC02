@@ -36,6 +36,7 @@ interface SelectFieldProps extends BaseFieldProps {
   placeholder?: string;
   "data-testid"?: string;
   autoFocus?: boolean;
+  disabled?: boolean;
 }
 
 interface TextareaFieldProps extends BaseFieldProps {
@@ -154,6 +155,7 @@ export function FormSelect({
   colSpan,
   "data-testid": dataTestId,
   autoFocus,
+  disabled,
 }: SelectFieldProps) {
   const hasIcon = !!icon;
   const selectClass = getSelectClass(!!error, hasIcon);
@@ -175,6 +177,7 @@ export function FormSelect({
       onChange={(e) => onChange(e.target.value)}
       className={selectClass}
       data-testid={dataTestId}
+      disabled={disabled}
       {...aria}
       autoFocus={autoFocus}
     >

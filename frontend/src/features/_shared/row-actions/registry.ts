@@ -42,6 +42,12 @@ export interface ProsecuteOpenArgs {
   onSuccess?: (caseId: string) => void;
 }
 
+export interface MergeIncidentOpenArgs {
+  recordId: string;
+  currentUpdatedAt?: string;
+  onSuccess?: () => void;
+}
+
 /** Tham số mở màn in chứng từ. `entity` khớp `ExportEntity` của module document-templates. */
 export interface PrintModalOpenArgs {
   entity: 'cases' | 'incidents' | 'petitions';
@@ -67,6 +73,7 @@ export interface ActionContext {
    * if action targets transition/prosecute; otherwise undefined OK. */
   statusTransition?: { open: (args: StatusTransitionOpenArgs) => void };
   prosecute?: { open: (args: ProsecuteOpenArgs) => void };
+  mergeIncident?: { open: (args: MergeIncidentOpenArgs) => void };
 }
 
 export interface RowAction<TRow> {

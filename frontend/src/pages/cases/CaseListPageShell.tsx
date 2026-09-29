@@ -12,14 +12,24 @@
  * - Table state machine (loading/error/empty/empty-filtered/ready)
  * - Pagination 20 rows/page
  */
-import { hienThiEdtf } from "@/shared/ngay-thieu/edtf";
+import { hienThiEdtf } from '@/shared/ngay-thieu/edtf';
 import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
+import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
+import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
+import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { ShortcutHint } from '@/components/ShortcutCheatSheet';
-import { Folder, Plus, Clock, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
+import {
+  Folder,
+  Plus,
+  Clock,
+  CheckCircle,
+  XCircle,
+  PauseCircle,
+} from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -49,29 +59,36 @@ import {
   CASE_STATUS_BADGE,
 } from '@/shared/enums/status-labels';
 import { CaseStatus } from '@/shared/enums/generated';
+import { BTN_PRIMARY, A11Y_FOCUS_RING } from '@/constants/styles';
 import {
-  BTN_PRIMARY,
-  A11Y_FOCUS_RING,
-} from '@/constants/styles';
-import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+  StatsCardsStrip,
+  type StatCard,
+} from '@/components/shared/StatsCardsStrip';
 import { getCaseStatusIcon } from '@/shared/enums/status-icons';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
-import type { BulkAction, BulkResult, BulkAdapter } from '@/features/_shared/bulk/types';
+import type {
+  BulkAction,
+  BulkResult,
+  BulkAdapter,
+} from '@/features/_shared/bulk/types';
 import { AlertCircle, X } from 'lucide-react';
 // v0.63 PR1b — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
-import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
-import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
-import { casesListFilters, type CaseFilterValue } from '@/features/cases/list-filters';
+import {
+  casesListFilters,
+  type CaseFilterValue,
+} from '@/features/cases/list-filters';
 import { hoTen } from '@/lib/hoTen';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
@@ -109,10 +126,12 @@ const GIA_TRI_CHON_VU_AN = {
 function getVietnameseErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
     const status = e.response?.status;
-    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
+    if (status === 401)
+      return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
     if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
     if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
-    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
+    const serverMsg = (e.response?.data as { message?: string } | undefined)
+      ?.message;
     if (serverMsg) return serverMsg;
     if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
     return 'Không tải được danh sách vụ án';
@@ -130,7 +149,11 @@ interface CaseRow {
   status: CaseStatus;
   /** Đơn vị GIẢI QUYẾT (`don_vi_giai_quyet` hệ cũ) — khác `unit` = đơn vị tiếp nhận. */
   donViGiaiQuyet: string | null;
-  investigator: { firstName?: string; lastName?: string; username: string } | null;
+  investigator: {
+    firstName?: string;
+    lastName?: string;
+    username: string;
+  } | null;
   ngayDeXuat?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -145,7 +168,12 @@ interface CaseRow {
   subjects?: { id: string; fullName: string }[] | null;
   /** Server đếm, cùng điều kiện với danh sách tên. Dùng để tính phần dư "+N". */
   _count?: { subjects?: number } | null;
-  createdBy?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
+  createdBy?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    username?: string;
+  } | null;
   /*
     Cột ngày mở cho tìm kiếm 21/09/2026 — cột hiển thị ẩn sẵn, nhưng kiểu dòng phải khai để
     phần dựng đọc được, và máy chủ phải TRẢ VỀ (xem `select` của service).
@@ -204,7 +232,6 @@ function formatDoiTuongBiCan(r: Pick<CaseRow, 'subjects' | '_count'>): string {
  */
 const OTHER_FILTER_ACTIVE = '__other__';
 
-
 /**
  * Số trên thẻ lấy thẳng từ `stats.byGroup` do server đếm — không cộng tay ở client nữa.
  * `filterValue` = khoá nhóm ở backend (`CASE_STATUS_GROUPS`). Thẻ "Tổng" mang `null`.
@@ -213,11 +240,51 @@ function buildCasesCards(stats: CasesStatsResponse | null): StatCard[] {
   const g = stats?.byGroup;
   const at = (key: string) => (g ? (g[key] ?? 0) : null);
   return [
-    { label: 'Tổng vụ án', value: stats?.total ?? null, filterValue: null, icon: Folder, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Đang điều tra', value: at('dang-dieu-tra'), filterValue: 'dang-dieu-tra', icon: Clock, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
-    { label: 'Đã kết luận', value: at('da-ket-luan'), filterValue: 'da-ket-luan', icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Đình chỉ', value: at('dinh-chi'), filterValue: 'dinh-chi', icon: XCircle, iconBgClass: 'bg-red-100', iconColorClass: 'text-red-600', valueColorClass: 'text-red-600' },
-    { label: 'Tạm đình chỉ', value: at('tam-dinh-chi'), filterValue: 'tam-dinh-chi', icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+    {
+      label: 'Tổng vụ án',
+      value: stats?.total ?? null,
+      filterValue: null,
+      icon: Folder,
+      iconBgClass: 'bg-[#003973]/10',
+      iconColorClass: 'text-[#003973]',
+      valueColorClass: 'text-[#003973]',
+    },
+    {
+      label: 'Đang điều tra',
+      value: at('dang-dieu-tra'),
+      filterValue: 'dang-dieu-tra',
+      icon: Clock,
+      iconBgClass: 'bg-amber-100',
+      iconColorClass: 'text-amber-600',
+      valueColorClass: 'text-amber-600',
+    },
+    {
+      label: 'Đã kết luận',
+      value: at('da-ket-luan'),
+      filterValue: 'da-ket-luan',
+      icon: CheckCircle,
+      iconBgClass: 'bg-green-100',
+      iconColorClass: 'text-green-600',
+      valueColorClass: 'text-green-600',
+    },
+    {
+      label: 'Đình chỉ',
+      value: at('dinh-chi'),
+      filterValue: 'dinh-chi',
+      icon: XCircle,
+      iconBgClass: 'bg-red-100',
+      iconColorClass: 'text-red-600',
+      valueColorClass: 'text-red-600',
+    },
+    {
+      label: 'Tạm đình chỉ',
+      value: at('tam-dinh-chi'),
+      filterValue: 'tam-dinh-chi',
+      icon: PauseCircle,
+      iconBgClass: 'bg-slate-100',
+      iconColorClass: 'text-slate-600',
+      valueColorClass: 'text-slate-600',
+    },
   ];
 }
 
@@ -259,10 +326,13 @@ export function CaseListPageShell() {
   const [tableState, setTableState] = useState<TableState>('loading');
   const [error, setError] = useState<string | undefined>();
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/cases/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
+  useListShortcuts({
+    onNew: () => navigate('/cases/new'),
+    onRefresh: () => setRefetchCounter((n) => n + 1),
+  });
 
   // v0.63 PR1b — Action context (perms + modal openers).
-  const { canDispatch, canEdit, canDelete } = usePermission();
+  const { canDispatch, canEdit, canDelete, hasPermission } = usePermission();
   const assignModal = useAssignModal();
   const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
@@ -287,7 +357,7 @@ export function CaseListPageShell() {
           }),
       },
     }),
-    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+    [navigate, canDispatch, canEdit, canDelete, assignModal, printModal, deleteModal],
   );
 
   // v0.63 PR1b — Advanced filter state + URL sync.
@@ -316,7 +386,9 @@ export function CaseListPageShell() {
       ...(appliedFilters.toDate && { toDate: appliedFilters.toDate }),
       // Thiếu dòng này thì ô lọc chỉ ghi vào địa chỉ trang mà KHÔNG đi xuống API — người dùng
       // thấy ô lọc đổi còn danh sách đứng yên.
-      ...(appliedFilters.createdById && { createdById: appliedFilters.createdById }),
+      ...(appliedFilters.createdById && {
+        createdById: appliedFilters.createdById,
+      }),
       // `fromDate`/`toDate` đã khai ở trên — hai ô ngày là MỘT, dùng chung khoá. Khai lại
       // lần nữa ở đây là tàn dư của lúc màn hình còn hai mặt lọc.
       // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
@@ -336,7 +408,10 @@ export function CaseListPageShell() {
 
   const handleCardSelect = useCallback(
     (value: string | null) => {
-      url.setParams({ statusGroup: value, status: null, page: '1' }, { history: 'push' });
+      url.setParams(
+        { statusGroup: value, status: null, page: '1' },
+        { history: 'push' },
+      );
     },
     [url],
   );
@@ -368,7 +443,10 @@ export function CaseListPageShell() {
     };
 
     api
-      .get<{ data: CaseRow[]; total: number }>('/cases', { params, signal: ctrl.signal })
+      .get<{ data: CaseRow[]; total: number }>('/cases', {
+        params,
+        signal: ctrl.signal,
+      })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
         setRows(listRes.data.data);
@@ -377,10 +455,10 @@ export function CaseListPageShell() {
           setTableState(
             // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
             debouncedSearch ||
-            statusFilter ||
-            groupFilter ||
-            timKiem.the.length > 0 ||
-            Object.values(appliedFilters).some((v) => v)
+              statusFilter ||
+              groupFilter ||
+              timKiem.the.length > 0 ||
+              Object.values(appliedFilters).some((v) => v)
               ? 'empty-filtered'
               : 'empty',
           );
@@ -397,7 +475,15 @@ export function CaseListPageShell() {
 
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, groupFilter, page, baseQueryKey, refetchCounter, sort.sortBy, sort.sortOrder]);
+  }, [
+    statusFilter,
+    groupFilter,
+    page,
+    baseQueryKey,
+    refetchCounter,
+    sort.sortBy,
+    sort.sortOrder,
+  ]);
 
   // Stats dùng CHUNG baseQueryParams với danh sách (backend strip status/statusGroup).
   // Trước đây chỉ truyền `search` nên bật bộ lọc nâng cao là số trên thẻ lệch khỏi danh
@@ -406,7 +492,10 @@ export function CaseListPageShell() {
     const ctrl = new AbortController();
     const statsParams = baseQueryParams;
     api
-      .get<CasesStatsResponse>('/cases/stats', { params: statsParams, signal: ctrl.signal })
+      .get<CasesStatsResponse>('/cases/stats', {
+        params: statsParams,
+        signal: ctrl.signal,
+      })
       .then((statsRes) => {
         if (ctrl.signal.aborted) return;
         setStats(statsRes.data);
@@ -441,9 +530,15 @@ export function CaseListPageShell() {
     pageRows: rows,
     totalCountMatchingFilter: totalCount,
   });
+  const wordBatch = useWordBatchExport({ entity: 'cases', caseType: 'REGULAR' });
   const adapter = useMemo(
-    () => buildCasesAdapter({ enableDelete: true }),
-    [],
+    () =>
+      buildCasesAdapter({
+        enableDelete: true,
+        onExportWord: wordBatch.setIds,
+        caseType: 'REGULAR',
+      }),
+    [wordBatch.setIds],
   );
   // Clear stale selection on URL change (Codex PR4 P2 pattern).
   const selectionClearRef = useRef(selection.clear);
@@ -463,6 +558,7 @@ export function CaseListPageShell() {
         setTransientBanner({ kind: 'success', text: 'Đã xuất Excel' });
         return;
       }
+      if (action.key === 'export-word') return;
       if (result && typeof result === 'object') {
         const { succeeded, skipped, failed } = result;
         const parts: string[] = [];
@@ -544,7 +640,9 @@ export function CaseListPageShell() {
             {formatHoSoCode(r.caseCode)}
             {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
                 (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
-            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+            {r.sttCu?.trim() && (
+              <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>
+            )}
           </span>
         ),
       },
@@ -574,7 +672,9 @@ export function CaseListPageShell() {
         width: '11rem',
         optional: 'show',
         render: (r) => (
-          <span data-testid="cell-doi-tuong-bi-can">{formatDoiTuongBiCan(r)}</span>
+          <span data-testid="cell-doi-tuong-bi-can">
+            {formatDoiTuongBiCan(r)}
+          </span>
         ),
       },
 
@@ -599,7 +699,11 @@ export function CaseListPageShell() {
         // cùng nhãn trên form ghi vào. `name` là TÊN VỤ ÁN: cột đầy dữ liệu nên nhìn qua
         // tưởng đúng, nhưng khớp bản gốc 0%. Hệ cũ chỉ có 746/3.359 hồ sơ điền ô này — 2.613
         // dòng trống là ĐÚNG, không phải mất dữ liệu.
-        render: (r) => <span className="font-medium text-slate-800">{r.tenCungCap || '—'}</span>,
+        render: (r) => (
+          <span className="font-medium text-slate-800">
+            {r.tenCungCap || '—'}
+          </span>
+        ),
       },
 
       {
@@ -648,7 +752,9 @@ export function CaseListPageShell() {
         width: '9rem',
         optional: 'show',
         render: (r) => (
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${CASE_STATUS_BADGE[r.status]}`}>
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${CASE_STATUS_BADGE[r.status]}`}
+          >
             {getCaseStatusIcon(r.status)}
             {CASE_STATUS_LABEL[r.status]}
           </span>
@@ -772,7 +878,10 @@ export function CaseListPageShell() {
   const [matDo, datMatDo] = useMatDoDong('cases');
   // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý. Các trường
   // riêng Ủy thác điều tra (đơn vị giao, số QĐ…) gợi ý ở màn UTDT, nơi có cột mang chúng.
-  const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_AN), [visibleColumns]);
+  const truongTimKiem = useMemo(
+    () => truongGoiY(visibleColumns, TIM_KIEM_VU_AN),
+    [visibleColumns],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -798,7 +907,6 @@ export function CaseListPageShell() {
     [url],
   );
 
-
   // Danh sách cán bộ cho ô "Cán bộ nhập" — nạp lúc chạy nên truyền qua `dynamicOptions`
   // của mặt lọc chung, không khai cứng được trong registry.
   const { data: officerOptions } = useOfficerOptions();
@@ -809,7 +917,9 @@ export function CaseListPageShell() {
     url.clearAll();
   }, [url, listFilters]);
 
-  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
+  const appliedFilterCount = Object.values(appliedFilters).filter(
+    (v) => v && v !== '',
+  ).length;
   const activeFilterCount =
     (statusFilter ? 1 : 0) +
     (groupFilter ? 1 : 0) +
@@ -837,7 +947,15 @@ export function CaseListPageShell() {
       <StatsCardsStrip
         cards={buildCasesCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDate, appliedFilters.toDate) : null}
+        periodLabel={
+          stats?.ky
+            ? nhanKyApDung(
+                stats.ky,
+                appliedFilters.fromDate,
+                appliedFilters.toDate,
+              )
+            : null
+        }
         activeValue={groupFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={handleCardSelect}
       />
@@ -893,23 +1011,48 @@ export function CaseListPageShell() {
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
             // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
-            <NutXuatTheoBoLoc
-              duongDan="/cases/export/danh-sach"
-              thamSo={{
-                ...baseQueryParams,
-                ...(statusFilter && { status: statusFilter }),
-                ...(groupFilter && { statusGroup: groupFilter }),
-                ...sort.params,
-              }}
-              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
-              tong={tableState === 'loading' ? null : totalCount}
-              hasUnappliedChanges={listFilters.hasUnappliedChanges}
-              onApply={listFilters.apply}
-              tenDuPhong="danh-sach-vu-an.xlsx"
-            />
+            <>
+              <NutXuatTheoBoLoc
+                duongDan="/cases/export/danh-sach"
+                thamSo={{
+                  ...baseQueryParams,
+                  ...(statusFilter && { status: statusFilter }),
+                  ...(groupFilter && { statusGroup: groupFilter }),
+                  ...sort.params,
+                }}
+                cot={visibleColumns
+                  .map((c) => c.key)
+                  .filter((k) => k !== 'actions')}
+                tong={tableState === 'loading' ? null : totalCount}
+                hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                onApply={listFilters.apply}
+                tenDuPhong="danh-sach-vu-an.xlsx"
+              />
+              {hasPermission('cases', 'view') && hasPermission('cases', 'export_full') && <NutXuatTheoBoLoc
+                duongDan="/cases/export/day-du"
+                thamSo={{
+                  ...baseQueryParams,
+                  ...(statusFilter && { status: statusFilter }),
+                  ...(groupFilter && { statusGroup: groupFilter }),
+                  ...sort.params,
+                }}
+                cot={[]}
+                boQuaCot
+                tong={tableState === 'loading' ? null : totalCount}
+                hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                onApply={listFilters.apply}
+                tenDuPhong={fullExportMessages.caseFilename}
+                nhanRieng={fullExportMessages.label}
+                testId="btn-xuat-day-du"
+                goiY={fullExportMessages.hint}
+              />}
+            </>
           }
           dynamicOptions={{
-            createdById: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+            createdById: [
+              { value: '', label: 'Tất cả' },
+              ...(officerOptions ?? []),
+            ],
           }}
         >
           <DateRangePresets
@@ -1006,6 +1149,19 @@ export function CaseListPageShell() {
         onSuccess={handleBulkSuccess}
         onError={handleBulkError}
       />
+      {wordBatch.status && (
+        <div role="status" className={wordBatch.status.kind === 'error' ? 'text-red-700' : 'text-green-700'}>
+          {wordBatch.status.text}
+        </div>
+      )}
+      {wordBatch.ids && (
+        <BatchExportDocumentsModal
+          entity="cases"
+          entityIds={wordBatch.ids}
+          onClose={() => wordBatch.setIds(null)}
+          onConfirm={wordBatch.confirm}
+        />
+      )}
     </ListPageShell>
   );
 }
