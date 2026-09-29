@@ -28,6 +28,7 @@ vi.mock('@/hooks/usePermission', () => ({
   usePermission: () => ({
     permissions: [{ action: 'write', subject: 'Petition' }],
     canCreate: (resource: string) => resource === 'petitions' && petitionWrite.allowed,
+    canEdit: () => false,
   }),
 }));
 
