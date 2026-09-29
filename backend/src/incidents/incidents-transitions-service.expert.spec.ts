@@ -17,6 +17,11 @@ import { VALID_TRANSITIONS, TERMINAL_STATUSES } from './incidents.constants';
  * Cạnh hợp lệ phải đi được; MỌI cạnh còn lại phải bị từ chối bằng lỗi rõ ràng.
  */
 const MOI_TRANG_THAI = Object.values(IncidentStatus) as IncidentStatus[];
+const COMMAND_ONLY = new Set<IncidentStatus>([
+  IncidentStatus.DA_CHUYEN_VU_AN,
+  IncidentStatus.DA_NHAP_VU_KHAC,
+  IncidentStatus.DA_CHUYEN_DON_VI,
+]);
 
 function dungService(trangThaiHienTai: IncidentStatus) {
   const ban = {
@@ -29,23 +34,36 @@ function dungService(trangThaiHienTai: IncidentStatus) {
     unitId: null,
     metadata: {},
   };
-  const prisma: any = {
-    incident: {
-      findFirst: jest.fn().mockResolvedValue(ban),
-      update: jest.fn().mockImplementation((a: any) => Promise.resolve({ ...ban, ...a.data })),
-    },
-    incidentStatusHistory: { create: jest.fn().mockResolvedValue({}) },
-    $transaction: jest.fn().mockImplementation((ops: any) =>
-      Array.isArray(ops) ? Promise.all(ops) : ops(prisma),
-    ),
+  const incident = {
+    findFirst: jest.fn<Promise<typeof ban>, [unknown]>().mockResolvedValue(ban),
+    update: jest
+      .fn<Promise<typeof ban>, [{ data: Partial<typeof ban> }]>()
+      .mockImplementation((args) => Promise.resolve({ ...ban, ...args.data })),
   };
+  const incidentStatusHistory = {
+    create: jest
+      .fn<Promise<Record<string, never>>, [unknown]>()
+      .mockResolvedValue({}),
+  };
+  const transactionClient = { incident, incidentStatusHistory };
+  const transaction = jest.fn<
+    Promise<unknown>,
+    [Promise<unknown>[] | ((tx: typeof transactionClient) => unknown)]
+  >((operation) =>
+    Array.isArray(operation)
+      ? Promise.all(operation)
+      : Promise.resolve(operation(transactionClient)),
+  );
+  const prisma = { ...transactionClient, $transaction: transaction };
   const svc = new IncidentsService(
-    prisma,
-    { log: jest.fn().mockResolvedValue(undefined) } as any,
-    {} as any,
-    { getActive: jest.fn().mockResolvedValue({ id: 'r1', value: 20 }) } as any,
-    {} as any,
-    { emit: jest.fn() } as any,
+    prisma as never,
+    { log: jest.fn().mockResolvedValue(undefined) } as never,
+    {} as never,
+    {
+      getActive: jest.fn().mockResolvedValue({ id: 'r1', value: 20 }),
+    } as never,
+    {} as never,
+    { emit: jest.fn() } as never,
   );
   return { svc, prisma };
 }
@@ -53,7 +71,8 @@ function dungService(trangThaiHienTai: IncidentStatus) {
 /** Vài trạng thái đòi thêm trường bắt buộc — cấp sẵn để không nhầm lỗi thiếu trường với lỗi cạnh. */
 function dtoCho(den: IncidentStatus): Record<string, unknown> {
   const d: Record<string, unknown> = { status: den };
-  if (den === IncidentStatus.KHONG_KHOI_TO) d.lyDoKhongKhoiTo = 'Điều 157 khoản 1';
+  if (den === IncidentStatus.KHONG_KHOI_TO)
+    d.lyDoKhongKhoiTo = 'Điều 157 khoản 1';
   return d;
 }
 
@@ -63,14 +82,19 @@ describe('EXPERT — service chặn ĐÚNG ma trận transition (vét cạn 15×
   for (const tu of MOI_TRANG_THAI) {
     const duoc = VALID_TRANSITIONS[tu] ?? [];
     for (const den of MOI_TRANG_THAI) {
-      (duoc.includes(den) ? capHopLe : capTraiLuat).push([tu, den]);
+      (duoc.includes(den) && !COMMAND_ONLY.has(den)
+        ? capHopLe
+        : capTraiLuat
+      ).push([tu, den]);
     }
   }
 
   it('ma trận có đủ cả hai loại cạnh (ca kiểm này không rỗng)', () => {
     expect(capHopLe.length).toBeGreaterThan(0);
     expect(capTraiLuat.length).toBeGreaterThan(0);
-    expect(capHopLe.length + capTraiLuat.length).toBe(MOI_TRANG_THAI.length ** 2);
+    expect(capHopLe.length + capTraiLuat.length).toBe(
+      MOI_TRANG_THAI.length ** 2,
+    );
   });
 
   it.each(capHopLe)('cạnh HỢP LỆ %s → %s phải đi được', async (tu, den) => {
@@ -81,23 +105,31 @@ describe('EXPERT — service chặn ĐÚNG ma trận transition (vét cạn 15×
     expect(prisma.incident.update).toHaveBeenCalled();
   });
 
-  it.each(capTraiLuat)('cạnh TRÁI LUẬT %s → %s phải bị chặn Ở SERVICE', async (tu, den) => {
-    const { svc, prisma } = dungService(tu);
-    await expect(
-      svc.updateStatus('i1', dtoCho(den) as never, 'u1', undefined as never),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    // Chặn nghĩa là KHÔNG ghi gì — từ chối rồi vẫn ghi là tệ hơn không chặn.
-    expect(prisma.incident.update).not.toHaveBeenCalled();
-  });
+  it.each(capTraiLuat)(
+    'cạnh TRÁI LUẬT %s → %s phải bị chặn Ở SERVICE',
+    async (tu, den) => {
+      const { svc, prisma } = dungService(tu);
+      await expect(
+        svc.updateStatus('i1', dtoCho(den) as never, 'u1', undefined as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      // Chặn nghĩa là KHÔNG ghi gì — từ chối rồi vẫn ghi là tệ hơn không chặn.
+      expect(prisma.incident.update).not.toHaveBeenCalled();
+    },
+  );
 
   /** Trạng thái kết thúc: mọi lối ra đều phải bị chặn, không có ngoại lệ nào lọt. */
   it.each(TERMINAL_STATUSES.map((t) => [t]))(
     'trạng thái kết thúc %s không đi đâu được nữa',
     async (tu) => {
       for (const den of MOI_TRANG_THAI) {
-        const { svc } = dungService(tu as IncidentStatus);
+        const { svc } = dungService(tu);
         await expect(
-          svc.updateStatus('i1', dtoCho(den) as never, 'u1', undefined as never),
+          svc.updateStatus(
+            'i1',
+            dtoCho(den) as never,
+            'u1',
+            undefined as never,
+          ),
         ).rejects.toBeInstanceOf(BadRequestException);
       }
     },

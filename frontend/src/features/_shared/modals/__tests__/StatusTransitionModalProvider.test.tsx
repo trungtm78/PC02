@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import {
   StatusTransitionModalProvider,
-  useStatusTransitionModal,
 } from '../StatusTransitionModalProvider';
+import { useStatusTransitionModal } from '../StatusTransitionModalContext';
 
 // CatalogSelect (dùng trong modal) gọi useQuery → cần QueryClient (như app thật ở root).
 function renderWithQC(ui: ReactElement) {

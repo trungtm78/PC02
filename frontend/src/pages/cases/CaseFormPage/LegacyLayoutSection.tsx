@@ -15,7 +15,6 @@ import {
   type LegacyLayoutItem,
 } from "@/features/cases/legacy-form-layout.def";
 import type { CaseFormData, TabProps } from "./types";
-import type { LegacyFieldValue } from "@/features/legacy-form/types";
 
 interface Props {
   items: readonly LegacyLayoutItem[];
@@ -23,11 +22,6 @@ interface Props {
   setFormData: TabProps["setFormData"];
   errors: TabProps["errors"];
   setErrors: TabProps["setErrors"];
-}
-
-/** Đọc giá trị của một ô, kể cả ô nằm trong nhánh `statistic`. */
-export function readField(formData: CaseFormData, field: string): LegacyFieldValue {
-  return CASE_LEGACY_SPEC.read(formData, field as never);
 }
 
 export function LegacyLayoutSection({

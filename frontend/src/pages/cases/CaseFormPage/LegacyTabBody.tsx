@@ -10,8 +10,9 @@
 
 import { type ReactNode } from "react";
 import { LegacyTabBody as LegacyTabBodyChung } from "@/components/legacy-form/LegacyTabBody";
+import type { NhomOKhai } from "@/components/legacy-form/NhomOGap";
 import { CASE_LEGACY_SPEC, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
-import type { TabProps } from "./types";
+import type { CaseFormData, TabProps } from "./types";
 
 interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "setErrors"> {
   tabId: LegacyTabId;
@@ -23,6 +24,7 @@ interface Props extends Pick<TabProps, "formData" | "setFormData" | "errors" | "
   afterLegacy?: ReactNode;
   /** Thay ô mặc định bằng ô riêng — vd "Nguồn đơn/Đơn vị giao" chọn từ danh mục. */
   renderOverride?: Partial<Record<string, (label: string) => ReactNode>>;
+  nhom?: readonly NhomOKhai<CaseFormData>[];
 }
 
 export function LegacyTabBody({
@@ -34,6 +36,7 @@ export function LegacyTabBody({
   pinnedTop,
   afterLegacy,
   renderOverride,
+  nhom,
   children,
 }: Props) {
   return (
@@ -49,6 +52,7 @@ export function LegacyTabBody({
       pinnedTop={pinnedTop}
       afterLegacy={afterLegacy}
       renderOverride={renderOverride}
+      nhom={nhom}
     >
       {children}
     </LegacyTabBodyChung>

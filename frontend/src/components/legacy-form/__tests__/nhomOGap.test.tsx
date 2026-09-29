@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { LegacyLayoutSection } from '../LegacyLayoutSection';
+import { NhomOGap } from '../NhomOGap';
 import type { LegacyFormSpec, LegacyLayoutItem } from '@/features/legacy-form/types';
 
 function boc({ children }: { children: ReactNode }) {
@@ -133,6 +134,60 @@ describe('LegacyLayoutSection — nhóm ô gập', () => {
  * và `focusFirstError` cũng im lặng vì `querySelector` trả `null`.
  */
 describe('NhomOGap — bấm tay KHÔNG được thắng lưới an toàn', () => {
+  it('[P1] vẫn cho thu nhóm đang tự mở vì có dữ liệu', () => {
+    render(
+      <NhomOGap
+        nhan="Thông tin định danh"
+        khoa="dinh-danh-co-du-lieu"
+        soO={4}
+        soODaNhap={1}
+        coOBatBuoc={false}
+        coLoi={false}
+        moSan
+      >
+        <input data-testid="o-dinh-danh" />
+      </NhomOGap>,
+    );
+
+    expect(screen.getByTestId('o-dinh-danh')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-co-du-lieu-nut'));
+    expect(screen.queryByTestId('o-dinh-danh')).not.toBeInTheDocument();
+  });
+
+  it('[P1] tự mở lại khi điều kiện moSan chuyển từ false sang true', () => {
+    const { rerender } = render(
+      <NhomOGap
+        nhan="Thông tin định danh"
+        khoa="dinh-danh-doi-nguon"
+        soO={4}
+        soODaNhap={0}
+        coOBatBuoc={false}
+        coLoi={false}
+        moSan={false}
+      >
+        <input data-testid="o-doi-nguon" />
+      </NhomOGap>,
+    );
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-doi-nguon-nut'));
+    fireEvent.click(screen.getByTestId('nhom-dinh-danh-doi-nguon-nut'));
+
+    rerender(
+      <NhomOGap
+        nhan="Thông tin định danh"
+        khoa="dinh-danh-doi-nguon"
+        soO={4}
+        soODaNhap={0}
+        coOBatBuoc={false}
+        coLoi={false}
+        moSan
+      >
+        <input data-testid="o-doi-nguon" />
+      </NhomOGap>,
+    );
+
+    expect(screen.getByTestId('o-doi-nguon')).toBeInTheDocument();
+  });
+
   it('[P1] đóng tay rồi nhóm bắt đầu có LỖI → vẫn phải bung ra', () => {
     function Khung() {
       const [loi, setLoi] = useState<Record<string, string>>({});

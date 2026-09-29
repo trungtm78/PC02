@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import * as fs from 'fs';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
 
 // Mock fs module
@@ -11,7 +12,7 @@ jest.mock('fs');
 // Mock path module with specific implementations
 jest.mock('path', () => ({
   join: jest.fn((...args) => args.join('/')),
-  extname: jest.fn((filename) => {
+  extname: jest.fn((filename: string) => {
     const match = filename.match(/\.[^.]+$/);
     return match ? match[0] : '';
   }),
@@ -19,8 +20,6 @@ jest.mock('path', () => ({
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
-  let prismaService: PrismaService;
-  let auditService: AuditService;
 
   const mockPrismaService = {
     document: {
@@ -70,8 +69,6 @@ describe('DocumentsService', () => {
     }).compile();
 
     service = module.get<DocumentsService>(DocumentsService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    auditService = module.get<AuditService>(AuditService);
 
     // Clear mocks before each test
     jest.clearAllMocks();
@@ -91,7 +88,11 @@ describe('DocumentsService', () => {
           size: 1024,
           documentType: 'VAN_BAN',
           case: { id: 'case-1', name: 'Test Case' },
-          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+          uploadedBy: {
+            id: 'user-1',
+            fullName: 'Test User',
+            username: 'testuser',
+          },
         },
       ];
 
@@ -117,9 +118,24 @@ describe('DocumentsService', () => {
       );
     });
 
+    it('uses a stable ID tie-breaker when paging documents with the same timestamp', async () => {
+      mockPrismaService.document.findMany.mockResolvedValue([]);
+      mockPrismaService.document.count.mockResolvedValue(0);
+      await service.getList({
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        limit: 100,
+        offset: 100,
+      });
+      const call = mockPrismaService.document.findMany.mock.calls[0] as [
+        { orderBy: unknown },
+      ];
+      expect(call[0].orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+    });
+
     it('should filter documents by search query', async () => {
       const searchQuery = 'test';
-      
+
       mockPrismaService.document.findMany.mockResolvedValue([]);
       mockPrismaService.document.count.mockResolvedValue(0);
 
@@ -139,20 +155,16 @@ describe('DocumentsService', () => {
 
     it('should filter documents by caseId', async () => {
       const caseId = 'case-123';
-      
+
       mockPrismaService.document.findMany.mockResolvedValue([]);
       mockPrismaService.document.count.mockResolvedValue(0);
 
       await service.getList({ caseId });
 
-      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deletedAt: null,
-            caseId,
-          }),
-        }),
-      );
+      expect(whereCua(mockPrismaService.document.findMany)).toMatchObject({
+        deletedAt: null,
+        caseId,
+      });
     });
 
     it('should filter documents by documentType', async () => {
@@ -161,14 +173,10 @@ describe('DocumentsService', () => {
 
       await service.getList({ documentType: 'HINH_ANH' });
 
-      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deletedAt: null,
-            documentType: 'HINH_ANH',
-          }),
-        }),
-      );
+      expect(whereCua(mockPrismaService.document.findMany)).toMatchObject({
+        deletedAt: null,
+        documentType: 'HINH_ANH',
+      });
     });
 
     // Cycle 2 — filter by petitionId
@@ -178,14 +186,10 @@ describe('DocumentsService', () => {
 
       await service.getList({ petitionId: 'petition-1' });
 
-      expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deletedAt: null,
-            petitionId: 'petition-1',
-          }),
-        }),
-      );
+      expect(whereCua(mockPrismaService.document.findMany)).toMatchObject({
+        deletedAt: null,
+        petitionId: 'petition-1',
+      });
     });
 
     // Cycle 3 — petition soft-delete cascade
@@ -200,7 +204,7 @@ describe('DocumentsService', () => {
         writableUserIds: ['u1'],
       };
 
-      await service.getList({}, scope as any);
+      await service.getList({}, scope);
 
       // Phạm vi nằm trong AND (một phần tử `{ OR: [...] }`), không gán thẳng `where.OR`.
       const and = whereCua(mockPrismaService.document.findMany).AND as Array<
@@ -295,7 +299,11 @@ describe('DocumentsService', () => {
         originalName: 'test.pdf',
         case: { id: 'case-1', name: 'Test Case' },
         incident: null,
-        uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        uploadedBy: {
+          id: 'user-1',
+          fullName: 'Test User',
+          username: 'testuser',
+        },
       };
 
       mockPrismaService.document.findFirst.mockResolvedValue(mockDocument);
@@ -309,7 +317,9 @@ describe('DocumentsService', () => {
     it('should throw NotFoundException for non-existent document', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue(null);
 
-      await expect(service.getById('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.getById('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException when case is out of scope', async () => {
@@ -324,7 +334,9 @@ describe('DocumentsService', () => {
         writableTeamIds: ['t1'],
         writableUserIds: ['u1'],
       };
-      await expect(service.getById('doc-1', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+      await expect(service.getById('doc-1', scope)).rejects.toThrow(
+        'Bạn không có quyền truy cập bản ghi này',
+      );
     });
 
     it('P0-001: throws ForbiddenException khi orphan document (case=null AND incident=null) cho scoped user', async () => {
@@ -336,7 +348,11 @@ describe('DocumentsService', () => {
         title: 'Crown-jewel kết luận điều tra',
         case: null,
         incident: null,
-        uploadedBy: { id: 'user-X', fullName: 'Original Uploader', username: 'uploader' },
+        uploadedBy: {
+          id: 'user-X',
+          fullName: 'Original Uploader',
+          username: 'uploader',
+        },
       });
       const scope = {
         userIds: ['u1'],
@@ -399,7 +415,11 @@ describe('DocumentsService', () => {
         ...validDto,
         case: mockCase,
         incident: null,
-        uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        uploadedBy: {
+          id: 'user-1',
+          fullName: 'Test User',
+          username: 'testuser',
+        },
       };
 
       mockPrismaService.case.findFirst.mockResolvedValue(mockCase);
@@ -413,10 +433,51 @@ describe('DocumentsService', () => {
       expect(mockAuditService.log).toHaveBeenCalled();
     });
 
+    it('persists the recording date for case media', async () => {
+      mockPrismaService.case.findFirst.mockResolvedValue({ id: 'case-1' });
+      mockPrismaService.document.create.mockResolvedValue({ id: 'media-1' });
+
+      await service.create(
+        {
+          ...validDto,
+          documentType: 'VIDEO',
+          recordedAt: '2026-09-28',
+        },
+        'user-1',
+      );
+
+      const call = mockPrismaService.document.create.mock.calls[0] as [
+        { data: { recordedAt?: string } },
+      ];
+      expect(call[0].data.recordedAt).toBe('2026-09-28');
+      const auditCall = mockAuditService.log.mock.calls[0] as [
+        { metadata: { recordedAt?: string } },
+      ];
+      expect(auditCall[0].metadata.recordedAt).toBe('2026-09-28');
+    });
+
+    it('rejects impossible recording dates before storing media', async () => {
+      mockPrismaService.case.findFirst.mockResolvedValue({ id: 'case-1' });
+      await expect(
+        service.create({ ...validDto, recordedAt: '2026-02-30' }, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.document.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a future recording date supplied directly to the API', async () => {
+      mockPrismaService.case.findFirst.mockResolvedValue({ id: 'case-1' });
+      await expect(
+        service.create({ ...validDto, recordedAt: '2999-01-01' }, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.document.create).not.toHaveBeenCalled();
+    });
+
     it('should throw BadRequestException when caseId does not exist', async () => {
       mockPrismaService.case.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(validDto, 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.create(validDto, 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when incidentId does not exist', async () => {
@@ -424,13 +485,17 @@ describe('DocumentsService', () => {
       mockPrismaService.case.findFirst.mockResolvedValue({ id: 'case-1' });
       mockPrismaService.incident.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(dtoWithIncident, 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.create(dtoWithIncident, 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException when file info is missing', async () => {
       const invalidDto = { ...validDto, fileName: undefined };
 
-      await expect(service.create(invalidDto as any, 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(service.create(invalidDto, 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should create document without caseId', async () => {
@@ -440,7 +505,11 @@ describe('DocumentsService', () => {
         ...dtoWithoutCase,
         case: null,
         incident: null,
-        uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        uploadedBy: {
+          id: 'user-1',
+          fullName: 'Test User',
+          username: 'testuser',
+        },
       };
 
       mockPrismaService.document.create.mockResolvedValue(mockCreatedDoc);
@@ -472,7 +541,11 @@ describe('DocumentsService', () => {
           case: null,
           incident: null,
           petition: { id: 'petition-1', stt: 'DT-2026-00001' },
-          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+          uploadedBy: {
+            id: 'user-1',
+            fullName: 'Test User',
+            username: 'testuser',
+          },
         });
 
         const result = await service.create(petitionDto, 'user-1');
@@ -488,7 +561,9 @@ describe('DocumentsService', () => {
       it('should throw BadRequestException when petitionId does not exist', async () => {
         mockPrismaService.petition.findFirst.mockResolvedValue(null);
 
-        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(
+          BadRequestException,
+        );
       });
 
       it('should throw ForbiddenException when petition is out of scope (cross-team)', async () => {
@@ -507,7 +582,7 @@ describe('DocumentsService', () => {
         };
 
         await expect(
-          service.create(petitionDto, 'user-1', undefined, crossTeamScope as any),
+          service.create(petitionDto, 'user-1', undefined, crossTeamScope),
         ).rejects.toThrow(/quyền/);
       });
 
@@ -517,7 +592,9 @@ describe('DocumentsService', () => {
         // existence guard throws BadRequest before scope check runs.
         mockPrismaService.petition.findFirst.mockResolvedValue(null);
 
-        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(BadRequestException);
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(
+          BadRequestException,
+        );
         expect(mockPrismaService.petition.findFirst).toHaveBeenCalledWith(
           expect.objectContaining({
             where: { id: 'petition-1', deletedAt: null },
@@ -539,7 +616,9 @@ describe('DocumentsService', () => {
         // Simulate quota reached
         mockPrismaService.document.count.mockResolvedValue(50);
 
-        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(/giới hạn|quota|50/);
+        await expect(service.create(petitionDto, 'user-1')).rejects.toThrow(
+          /giới hạn|quota|50/,
+        );
 
         process.env.MAX_DOCUMENTS_PER_ENTITY = originalEnv;
       });
@@ -561,7 +640,11 @@ describe('DocumentsService', () => {
           case: null,
           incident: null,
           petition: { id: 'petition-1', stt: 'DT-2026-00001' },
-          uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+          uploadedBy: {
+            id: 'user-1',
+            fullName: 'Test User',
+            username: 'testuser',
+          },
         });
         const scope = {
           userIds: ['user-1'],
@@ -570,7 +653,12 @@ describe('DocumentsService', () => {
           writableUserIds: ['user-1'],
         };
 
-        const result = await service.create(petitionDto, 'user-1', undefined, scope as any);
+        const result = await service.create(
+          petitionDto,
+          'user-1',
+          undefined,
+          scope,
+        );
 
         expect(result.success).toBe(true);
       });
@@ -593,7 +681,11 @@ describe('DocumentsService', () => {
         ...updateDto,
         case: { id: 'case-1', name: 'Test Case' },
         incident: null,
-        uploadedBy: { id: 'user-1', fullName: 'Test User', username: 'testuser' },
+        uploadedBy: {
+          id: 'user-1',
+          fullName: 'Test User',
+          username: 'testuser',
+        },
       };
 
       mockPrismaService.document.findFirst.mockResolvedValue(existingDoc);
@@ -609,18 +701,18 @@ describe('DocumentsService', () => {
     it('should throw NotFoundException for non-existent document', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue(null);
 
-      await expect(service.update('non-existent', { title: 'New' }, 'user-1')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('non-existent', { title: 'New' }, 'user-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should validate new caseId when provided', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue(existingDoc);
       mockPrismaService.case.findFirst.mockResolvedValue(null);
 
-      await expect(service.update('doc-1', { caseId: 'invalid-case' }, 'user-1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.update('doc-1', { caseId: 'invalid-case' }, 'user-1'),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should validate new incidentId when provided', async () => {
@@ -657,23 +749,29 @@ describe('DocumentsService', () => {
       };
 
       mockPrismaService.document.findFirst.mockResolvedValue(existingDoc);
-      mockPrismaService.document.update.mockResolvedValue({ ...existingDoc, deletedAt: new Date() });
+      mockPrismaService.document.update.mockResolvedValue({
+        ...existingDoc,
+        deletedAt: new Date(),
+      });
 
       const result = await service.delete('doc-1', 'user-1');
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Xóa tài liệu thành công');
-      expect(mockPrismaService.document.update).toHaveBeenCalledWith({
-        where: { id: 'doc-1' },
-        data: { deletedAt: expect.any(Date) },
-      });
+      const call = mockPrismaService.document.update.mock.calls[0] as [
+        { where: { id: string }; data: { deletedAt: Date } },
+      ];
+      expect(call[0].where.id).toBe('doc-1');
+      expect(call[0].data.deletedAt).toBeInstanceOf(Date);
       expect(mockAuditService.log).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException for non-existent document', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue(null);
 
-      await expect(service.delete('non-existent', 'user-1')).rejects.toThrow(NotFoundException);
+      await expect(service.delete('non-existent', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -689,9 +787,7 @@ describe('DocumentsService', () => {
 
       mockPrismaService.document.findFirst.mockResolvedValue(mockDocument);
 
-      // Mock fs.existsSync to return true
-      const fs = require('fs');
-      fs.existsSync = jest.fn().mockReturnValue(true);
+      jest.mocked(fs.existsSync).mockReturnValue(true);
 
       const result = await service.getDownloadInfo('doc-1');
 
@@ -703,7 +799,9 @@ describe('DocumentsService', () => {
     it('should throw NotFoundException for non-existent document', async () => {
       mockPrismaService.document.findFirst.mockResolvedValue(null);
 
-      await expect(service.getDownloadInfo('non-existent')).rejects.toThrow(NotFoundException);
+      await expect(service.getDownloadInfo('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when file not found on disk', async () => {
@@ -717,11 +815,11 @@ describe('DocumentsService', () => {
 
       mockPrismaService.document.findFirst.mockResolvedValue(mockDocument);
 
-      // Mock fs.existsSync to return false
-      const fs = require('fs');
-      fs.existsSync = jest.fn().mockReturnValue(false);
+      jest.mocked(fs.existsSync).mockReturnValue(false);
 
-      await expect(service.getDownloadInfo('doc-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getDownloadInfo('doc-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

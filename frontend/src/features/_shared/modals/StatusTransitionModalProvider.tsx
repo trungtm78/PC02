@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useState,
   type ReactNode,
@@ -17,6 +15,7 @@ import {
   A11Y_FOCUS_RING,
 } from '@/constants/styles';
 import { useModalLifecycle } from './useModalLifecycle';
+import { StatusTransitionContext, type StatusTransitionArgs, type StatusTransitionModalApi } from './StatusTransitionModalContext';
 
 /**
  * v0.67 PR1 T4 — StatusTransitionModalProvider (Issue I1+I2+I4 applied).
@@ -26,27 +25,19 @@ import { useModalLifecycle } from './useModalLifecycle';
  * khi chọn KHONG_KHOI_TO (Điều 157 BLTTHS).
  */
 
-export interface StatusTransitionArgs {
-  recordId: string;
-  currentStatus: string;
-  currentUpdatedAt?: string;
-  onSuccess?: () => void;
-}
-
-export interface StatusTransitionModalApi {
-  open: (args: StatusTransitionArgs) => void;
-}
-
-const StatusTransitionContext = createContext<StatusTransitionModalApi | null>(null);
-
 const INPUT_BASE =
   'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100';
 const LABEL_BASE = 'block text-sm font-medium text-slate-700 mb-1';
 
 function getValidTransitions(currentStatus: string): string[] {
+  const commandOnly = new Set([
+    'DA_CHUYEN_VU_AN',
+    'DA_CHUYEN_DON_VI',
+    'DA_NHAP_VU_KHAC',
+  ]);
   return (
     (INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[currentStatus] ?? []
-  ).slice();
+  ).filter((status) => !commandOnly.has(status));
 }
 
 export function StatusTransitionModalProvider({ children }: { children: ReactNode }) {
@@ -244,14 +235,4 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
       )}
     </StatusTransitionContext.Provider>
   );
-}
-
-export function useStatusTransitionModal(): StatusTransitionModalApi {
-  const ctx = useContext(StatusTransitionContext);
-  if (!ctx) {
-    throw new Error(
-      'useStatusTransitionModal must be used inside <StatusTransitionModalProvider>',
-    );
-  }
-  return ctx;
 }

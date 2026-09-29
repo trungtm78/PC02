@@ -4,10 +4,6 @@
  * GET /api/v1/cases/stats — server-aggregated count by status, scoped to
  * active non-status filters. Used by <ListPageShell.StatusChips countsSource>.
  */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService } from './cases.service';
@@ -15,12 +11,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
-import { CaseStatus, CaseType } from '@prisma/client';
+import { CaseStatus, CaseType, Prisma } from '@prisma/client';
+
+type StatsArgs = { where: Prisma.CaseWhereInput };
 
 const mockPrisma = {
   case: {
-    groupBy: jest.fn(),
-    count: jest.fn(),
+    groupBy: jest.fn<Promise<unknown>, [StatsArgs]>(),
+    count: jest.fn<Promise<number>, [StatsArgs]>(),
   },
 };
 
@@ -96,11 +94,8 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
     ]);
     mockPrisma.case.count.mockResolvedValue(3);
 
-    // QueryCasesStatsDto rejects `status` field via OmitType — cast to any
-    // demonstrates: even nếu caller bypass type system (hoặc gửi qua HTTP),
-    // service layer doesn't read it (not in destructure).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await service.getStats({ investigatorId: 'inv-1' } as any, null);
+    // A non-status filter must still be applied to every status count.
+    await service.getStats({ investigatorId: 'inv-1' }, null);
 
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
     expect(whereArg.status).toBeUndefined();
@@ -194,7 +189,11 @@ describe('CasesService.getStats — status count aggregation (T15)', () => {
     await service.getStats({ overdue: true }, null);
 
     const whereArg = mockPrisma.case.groupBy.mock.calls[0][0].where;
-    expect(whereArg.status.notIn).toEqual(
+    const statusFilter = whereArg.status;
+    if (!statusFilter || typeof statusFilter === 'string') {
+      throw new Error('Expected an overdue status filter');
+    }
+    expect(statusFilter.notIn).toEqual(
       expect.arrayContaining([
         CaseStatus.DA_KET_LUAN,
         CaseStatus.DA_CHUYEN_DON_VI,

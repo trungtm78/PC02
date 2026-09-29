@@ -22,10 +22,12 @@ export function LegacyParityFields({
   entity,
   values,
   onChange,
+  readOnly = false,
 }: {
   entity: "petition" | "incident" | "case";
   values: Record<string, unknown>;
   onChange: (col: string, value: unknown) => void;
+  readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Bỏ cột đã có ô ở FORM CHÍNH → không hiện 2 ô.
@@ -62,6 +64,7 @@ export function LegacyParityFields({
           type="checkbox"
           className="w-4 h-4 mt-1"
           checked={v === true}
+          disabled={readOnly}
           onChange={(e) => onChange(d.col, e.target.checked)}
           data-testid={`parity-field-${d.col}`}
         />
@@ -73,6 +76,7 @@ export function LegacyParityFields({
           type="date"
           className={base}
           value={giaTriONgay(v)}
+          disabled={readOnly}
           onChange={(e) => onChange(d.col, e.target.value || null)}
           data-testid={`parity-field-${d.col}`}
         />
@@ -84,6 +88,7 @@ export function LegacyParityFields({
           type="number"
           className={base}
           value={v == null ? "" : String(v)}
+          disabled={readOnly}
           onChange={(e) => onChange(d.col, e.target.value === "" ? null : Number(e.target.value))}
           data-testid={`parity-field-${d.col}`}
         />
@@ -94,6 +99,7 @@ export function LegacyParityFields({
         type="text"
         className={base}
         value={v == null ? "" : String(v)}
+        disabled={readOnly}
         onChange={(e) => onChange(d.col, e.target.value || null)}
         data-testid={`parity-field-${d.col}`}
       />

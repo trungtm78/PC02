@@ -21,7 +21,7 @@ describe('sinhCauNapCotBong', () => {
   it('biểu thức cột bóng giống hệt trigger, nhưng trên cột của dòng (không NEW.)', () => {
     expect(nap).toContain(`"sender_name_bd" = ' ' || f_bo_dau("senderName")`);
     expect(nap).toContain(
-      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soHoSoCu"))`,
+      `"tim_kiem_bd" = ' ' || f_bo_dau(concat_ws(' ', "stt", "sttCu", "loaiThongTin", "nguonDon", "senderName", "detailContent", "donViGiaiQuyet", "ketQuaXuLyKhac", "suspectedPerson", "soHoSoCu", "ngay_viet_don_chu"))`,
     );
     expect(nap).not.toContain('NEW.');
   });
@@ -84,6 +84,7 @@ describe('sinhCauNapCotBong', () => {
     const phanSet = nap.slice(nap.indexOf(' SET ') + 5, nap.indexOf(' WHERE '));
     const cotBiSet = [...phanSet.matchAll(/"([a-z_]+)" = /g)].map((m) => m[1]);
     expect(cotBiSet).toEqual([
+      'loai_thong_tin_bd',
       'nguon_don_bd',
       'sender_name_bd',
       'detail_content_bd',

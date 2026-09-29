@@ -15,7 +15,7 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
 }
 
 describe('incidentsRowActions', () => {
-  it('registers View/Edit/Delete/Print/Assign/Transition/Prosecute in order', () => {
+  it('registers View/Edit/Delete/Print/Assign/Transition/Merge/Prosecute in order', () => {
     expect(incidentsRowActions.all().map((a) => a.key)).toEqual([
       'view',
       'edit',
@@ -25,8 +25,42 @@ describe('incidentsRowActions', () => {
       'print',
       'assign',
       'transition',
+      'merge',
       'prosecute',
     ]);
+  });
+
+  it('Merge uses the dedicated command modal only for a valid transition', () => {
+    const action = incidentsRowActions.all().find((item) => item.key === 'merge')!;
+    const open = vi.fn();
+    const context = makeCtx({ mergeIncident: { open } });
+    expect(action.visible?.({ id: 'I', status: 'DANG_XAC_MINH' }, context)).toBe(true);
+    expect(action.visible?.({ id: 'I', status: 'TIEP_NHAN' }, context)).toBe(false);
+    action.execute({ id: 'I', status: 'DANG_XAC_MINH', updatedAt: '2026-09-29T00:00:00Z' }, context);
+    expect(open).toHaveBeenCalledWith({ recordId: 'I', currentUpdatedAt: '2026-09-29T00:00:00Z' });
+  });
+
+  it('hides every write command when the row capability removes edit access', () => {
+    const context = makeCtx({
+      perms: { canDispatch: true, canEdit: false, canDelete: false },
+      statusTransition: { open: vi.fn() },
+      prosecute: { open: vi.fn() },
+      mergeIncident: { open: vi.fn() },
+    });
+    const row = { id: 'I', status: 'DANG_XAC_MINH' };
+    const visibleKeys = incidentsRowActions
+      .all()
+      .filter((action) => (action.visible ? action.visible(row, context) : true))
+      .map((action) => action.key);
+
+    expect(visibleKeys).toContain('view');
+    expect(visibleKeys).toContain('print');
+    expect(visibleKeys).toContain('assign');
+    expect(visibleKeys).not.toContain('edit');
+    expect(visibleKeys).not.toContain('delete');
+    expect(visibleKeys).not.toContain('transition');
+    expect(visibleKeys).not.toContain('merge');
+    expect(visibleKeys).not.toContain('prosecute');
   });
 
   it('Transition visible when statusTransition provided + status has valid transitions', () => {

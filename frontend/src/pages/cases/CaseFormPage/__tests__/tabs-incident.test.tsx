@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { HTMLAttributes } from 'react';
 import { TabIncident } from '../tabs';
 import { INITIAL_FORM_DATA } from '../types';
 import type { CaseFormData } from '../types';
@@ -26,7 +27,7 @@ vi.mock('@/components/form', () => ({
 vi.mock('@/components/inputs/CurrencyInput', () => ({ CurrencyInput: () => null }));
 vi.mock('@/components/inputs/IntegerInput', () => ({ IntegerInput: () => null }));
 vi.mock('@/components/shared', () => ({
-  Card: ({ children, ...p }: any) => <div {...p}>{children}</div>,
+  Card: ({ children, ...p }: HTMLAttributes<HTMLDivElement>) => <div {...p}>{children}</div>,
   CardHeader: ({ title }: { title: string }) => <h2>{title}</h2>,
   EmptyState: () => null,
   DataTable: () => null,

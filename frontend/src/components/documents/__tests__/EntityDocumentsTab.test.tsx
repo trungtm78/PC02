@@ -9,14 +9,16 @@ const apiPost = vi.fn();
 const apiDelete = vi.fn();
 vi.mock("@/lib/api", () => ({
   api: {
-    get: (...args: any[]) => apiGet(...args),
-    post: (...args: any[]) => apiPost(...args),
-    delete: (...args: any[]) => apiDelete(...args),
+    get: (...args: unknown[]) => apiGet(...args),
+    post: (...args: unknown[]) => apiPost(...args),
+    delete: (...args: unknown[]) => apiDelete(...args),
   },
 }));
 
 vi.mock("@/lib/api-errors", () => ({
-  extractApiError: (e: any, fallback: string) => ({ message: e?.message ?? fallback }),
+  extractApiError: (error: unknown, fallback: string) => ({
+    message: error instanceof Error ? error.message : fallback,
+  }),
 }));
 
 vi.mock("@/lib/dates", () => ({
@@ -39,7 +41,7 @@ vi.mock("@/hooks/useCatalog", () => ({
 
 // Mock FKSelect — tránh kéo theo dependency tree (react-query/useDirectoryOptions).
 vi.mock("@/components/FKSelect", () => ({
-  FKSelect: ({ value, onChange }: any) => (
+  FKSelect: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <select data-testid="fk-doc-type" value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="VAN_BAN">Văn bản</option>
       <option value="HINH_ANH">Hình ảnh</option>
@@ -99,6 +101,7 @@ describe("EntityDocumentsTab", () => {
 
   it("shows 'Tải lên tài liệu' button when entityId is provided", async () => {
     render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    await screen.findByText('Chưa có tài liệu nào');
     expect(screen.getByRole("button", { name: /Tải lên tài liệu/i })).toBeTruthy();
   });
 
@@ -106,9 +109,9 @@ describe("EntityDocumentsTab", () => {
   // Bug: EntityDocumentsTab nhúng trong <form onSubmit> của PetitionFormPage/IncidentFormPage,
   // nhấn Enter trong input → outer form submit → redirect. Fix: onKeyDown preventDefault.
   it("prevents Enter key from bubbling out of title input (no outer form submit)", async () => {
-    const outerSubmit = vi.fn((e: Event) => e.preventDefault());
+    const outerSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
     const { container } = render(
-      <form onSubmit={outerSubmit as any}>
+      <form onSubmit={outerSubmit}>
         <EntityDocumentsTab entityKind="petition" entityId="pet-1" />
       </form>,
       { wrapper },
@@ -126,9 +129,9 @@ describe("EntityDocumentsTab", () => {
   });
 
   it("prevents Enter key from bubbling out of description input", async () => {
-    const outerSubmit = vi.fn((e: Event) => e.preventDefault());
+    const outerSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
     render(
-      <form onSubmit={outerSubmit as any}>
+      <form onSubmit={outerSubmit}>
         <EntityDocumentsTab entityKind="incident" entityId="inc-1" />
       </form>,
       { wrapper },
@@ -187,6 +190,7 @@ describe("EntityDocumentsTab — multi-file + folder upload (G0)", () => {
 
   it("file input has multiple attribute for multi-select", async () => {
     render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    await screen.findByText('Chưa có tài liệu nào');
     fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     expect(fileInput.multiple).toBe(true);
@@ -194,6 +198,7 @@ describe("EntityDocumentsTab — multi-file + folder upload (G0)", () => {
 
   it("renders a 'Chọn thư mục' button to trigger folder upload", async () => {
     render(<EntityDocumentsTab entityKind="petition" entityId="pet-1" />, { wrapper });
+    await screen.findByText('Chưa có tài liệu nào');
     fireEvent.click(screen.getByRole("button", { name: /Tải lên tài liệu/i }));
     expect(screen.getByRole("button", { name: /Chọn thư mục/i })).toBeTruthy();
   });

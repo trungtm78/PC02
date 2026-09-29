@@ -3,10 +3,9 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { EntityDocumentsTab } from '../EntityDocumentsTab';
 
 const apiGet = vi.fn();
-const apiPost = vi.fn(
-  (_duong: string, _than: FormData, _tuyChon?: unknown) =>
-    Promise.resolve({ data: { success: true, data: { id: 'd9' } } }),
-);
+const apiPost = vi.fn<(path: string, body: FormData, options?: unknown) => Promise<{
+  data: { success: boolean; data: { id: string } };
+}>>(() => Promise.resolve({ data: { success: true, data: { id: 'd9' } } }));
 vi.mock('@/lib/api', () => ({
   api: {
     get: (...a: unknown[]) => apiGet(...a),

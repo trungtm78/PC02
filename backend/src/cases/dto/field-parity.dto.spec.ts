@@ -48,13 +48,20 @@ describe('CreateCaseDto — field-parity hệ thống cũ', () => {
       ngayQDDieuTraLai: '2026-06-01',
     });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'ngayQDDieuTraLai')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'ngayQDDieuTraLai'),
+    ).toBeUndefined();
   });
 
   it('all new fields are optional', async () => {
     const dto = plainToInstance(CreateCaseDto, { ...validBase });
     const errors = await validate(dto);
-    const newFields = ['soKLDT', 'ngayKLDT', 'soQDDieuTraLai', 'ngayQDDieuTraLai'];
+    const newFields = [
+      'soKLDT',
+      'ngayKLDT',
+      'soQDDieuTraLai',
+      'ngayQDDieuTraLai',
+    ];
     newFields.forEach((field) => {
       expect(errors.find((e) => e.property === field)).toBeUndefined();
     });
@@ -71,19 +78,27 @@ describe('CaseStatisticDto — field-parity hệ thống cũ (bị hại, thiệ
   it('accepts soNguoiBiThuong (Số người bị thương)', async () => {
     const dto = plainToInstance(CaseStatisticDto, { soNguoiBiThuong: 1 });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'soNguoiBiThuong')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soNguoiBiThuong'),
+    ).toBeUndefined();
   });
 
   it('accepts soLuongNguoiChet (Số lượng người chết)', async () => {
     const dto = plainToInstance(CaseStatisticDto, { soLuongNguoiChet: 0 });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'soLuongNguoiChet')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soLuongNguoiChet'),
+    ).toBeUndefined();
   });
 
   it('accepts soTienBiThietHai (Số tiền bị thiệt hại)', async () => {
-    const dto = plainToInstance(CaseStatisticDto, { soTienBiThietHai: 50000000 });
+    const dto = plainToInstance(CaseStatisticDto, {
+      soTienBiThietHai: 50000000,
+    });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'soTienBiThietHai')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soTienBiThietHai'),
+    ).toBeUndefined();
   });
 
   it('accepts soTienThuHoi (Số tiền thu hồi)', async () => {
@@ -95,7 +110,9 @@ describe('CaseStatisticDto — field-parity hệ thống cũ (bị hại, thiệ
   it('accepts vuAnDaDuocXetXu (Vụ án đã được xét xử)', async () => {
     const dto = plainToInstance(CaseStatisticDto, { vuAnDaDuocXetXu: true });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'vuAnDaDuocXetXu')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'vuAnDaDuocXetXu'),
+    ).toBeUndefined();
   });
 
   it('rejects negative soLuongBiHai', async () => {
@@ -108,8 +125,12 @@ describe('CaseStatisticDto — field-parity hệ thống cũ (bị hại, thiệ
     const dto = plainToInstance(CaseStatisticDto, {});
     const errors = await validate(dto);
     const newFields = [
-      'soLuongBiHai', 'soNguoiBiThuong', 'soLuongNguoiChet',
-      'soTienBiThietHai', 'soTienThuHoi', 'vuAnDaDuocXetXu',
+      'soLuongBiHai',
+      'soNguoiBiThuong',
+      'soLuongNguoiChet',
+      'soTienBiThietHai',
+      'soTienThuHoi',
+      'vuAnDaDuocXetXu',
     ];
     newFields.forEach((field) => {
       expect(errors.find((e) => e.property === field)).toBeUndefined();
@@ -128,29 +149,45 @@ describe('CaseStatisticDto — field-parity hệ thống cũ (bị hại, thiệ
   });
 
   it('reject giá trị không phải boolean cho 3 cờ xét-xử', async () => {
-    const dto = plainToInstance(CaseStatisticDto, { ghiAmGhiHinhDaDuocXetXu: 'yes' as any });
+    const dto = plainToInstance(CaseStatisticDto, {
+      ghiAmGhiHinhDaDuocXetXu: 'yes',
+    });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'ghiAmGhiHinhDaDuocXetXu')).toBeDefined();
+    expect(
+      errors.find((e) => e.property === 'ghiAmGhiHinhDaDuocXetXu'),
+    ).toBeDefined();
   });
 });
 
 describe('CreateCaseDto — PR-M2 ghiChuKhac + toiDanhKhacIds', () => {
-  const validBase = { name: 'Vụ án', caseProvenance: CaseProvenance.DIRECT_DISCOVERY };
+  const validBase = {
+    name: 'Vụ án',
+    caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+  };
 
   it('accepts ghiChuKhac (ghi chú tự do)', async () => {
-    const dto = plainToInstance(CreateCaseDto, { ...validBase, ghiChuKhac: 'Ghi chú' });
+    const dto = plainToInstance(CreateCaseDto, {
+      ...validBase,
+      ghiChuKhac: 'Ghi chú',
+    });
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'ghiChuKhac')).toBeUndefined();
   });
 
   it('accepts toiDanhKhacIds (mảng crime id)', async () => {
-    const dto = plainToInstance(CreateCaseDto, { ...validBase, toiDanhKhacIds: ['c1', 'c2'] });
+    const dto = plainToInstance(CreateCaseDto, {
+      ...validBase,
+      toiDanhKhacIds: ['c1', 'c2'],
+    });
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'toiDanhKhacIds')).toBeUndefined();
   });
 
   it('reject toiDanhKhacIds chứa phần tử không phải string', async () => {
-    const dto = plainToInstance(CreateCaseDto, { ...validBase, toiDanhKhacIds: [1, 2] as any });
+    const dto = plainToInstance(CreateCaseDto, {
+      ...validBase,
+      toiDanhKhacIds: [1, 2],
+    });
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'toiDanhKhacIds')).toBeDefined();
   });

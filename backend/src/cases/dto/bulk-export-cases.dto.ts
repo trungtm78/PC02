@@ -2,8 +2,11 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsEnum,
+  IsOptional,
   IsString,
 } from 'class-validator';
+import { CaseType } from '@prisma/client';
 
 /**
  * v0.48 PR1 B3b — DTO cho POST /cases/bulk-export.
@@ -23,4 +26,8 @@ export class BulkExportCasesDto {
   })
   @IsString({ each: true })
   ids: string[];
+
+  @IsOptional()
+  @IsEnum(CaseType)
+  caseType?: CaseType;
 }

@@ -13,6 +13,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseEnumPipe,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -37,11 +40,12 @@ import { AssignCaseDto } from './dto/assign-case.dto';
 import { DeleteCaseDto } from './dto/delete-case.dto'; // v0.31.0.2
 import { RestoreCaseDto } from './dto/restore-case.dto'; // v0.32.0.0
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
+import { CaseType, LyDoTamDinhChiVuAn } from '@prisma/client';
 
 class TdcBackfillDto {
   // PR-3 catalog: validate lý do TĐC vụ án qua danh mục (trước đây không có validation).
   @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN')
-  lyDoTamDinhChiVuAn: string;
+  lyDoTamDinhChiVuAn: LyDoTamDinhChiVuAn;
 }
 
 @Controller('cases')
@@ -52,6 +56,60 @@ export class CasesController {
     private readonly casesJourneyService: CasesJourneyService,
     private readonly dynamicExport: DynamicExportService,
   ) {}
+
+  @Post('export-document-batch')
+  @Throttle({ default: { ttl: 60000, limit: 2 } })
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  async exportDocumentBatch(
+    @Body() body: { caseIds: string[]; docTypes: string[]; caseType: CaseType },
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ids = body?.caseIds;
+    const codes = body?.docTypes;
+    if (
+      !Array.isArray(ids) ||
+      ids.length < 1 ||
+      ids.length > 100 ||
+      ids.some((id) => typeof id !== 'string' || !id)
+    ) {
+      throw new BadRequestException('caseIds phải có từ 1 đến 100 mã hồ sơ');
+    }
+    if (
+      !Array.isArray(codes) ||
+      !codes.length ||
+      codes.some((code) => typeof code !== 'string' || !code)
+    ) {
+      throw new BadRequestException(
+        'docTypes phải có ít nhất một mẫu chứng từ',
+      );
+    }
+    if (
+      body.caseType !== CaseType.REGULAR &&
+      body.caseType !== CaseType.UY_THAC_DIEU_TRA
+    ) {
+      throw new BadRequestException('caseType không hợp lệ');
+    }
+    await this.dynamicExport.exportBatchByCodes(
+      'VU_AN',
+      codes,
+      ids,
+      async (id) => {
+        const loaded = await this.casesService.getById(id, req.dataScope);
+        const record =
+          (loaded as { data?: { caseType?: CaseType } })?.data ?? loaded;
+        if ((record as { caseType?: CaseType }).caseType !== body.caseType) {
+          throw new NotFoundException(
+            `Hồ sơ không thuộc loại ${body.caseType}`,
+          );
+        }
+        return record;
+      },
+      user.id,
+      res,
+    );
+  }
 
   // POST /api/v1/cases/:id/export-documents — xuất chứng từ động (gộp/zip) cho vụ án
   @Post(':id/export-documents')
@@ -124,6 +182,40 @@ export class CasesController {
     return this.casesService.getUtdtStats(query, req.dataScope);
   }
 
+  @Get('name-suggestions')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 120 } })
+  nameSuggestions(
+    @Query('q') q: string,
+    @Query('caseType', new ParseEnumPipe(CaseType)) caseType: CaseType,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.casesService.findNameSuggestions(
+      q ?? '',
+      caseType,
+      req.dataScope,
+    );
+  }
+
+  @Get('duplicate-review')
+  @RequirePermissions({ action: 'read', subject: 'Case' })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  duplicateReview(
+    @Query('name') name: string,
+    @Query('caseType', new ParseEnumPipe(CaseType)) caseType: CaseType,
+    @Query('excludeId') excludeId: string | undefined,
+    @Query('decisionNumber') decisionNumber: string | undefined,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.casesService.findDuplicateCandidates(
+      name ?? '',
+      caseType,
+      excludeId,
+      req.dataScope,
+      decisionNumber,
+    );
+  }
+
   // GET /api/v1/cases/export/danh-sach — Xuất Excel đúng bộ lọc + thứ tự của màn Danh sách vụ án.
   @Get('export/danh-sach')
   @HttpCode(HttpStatus.OK)
@@ -136,6 +228,26 @@ export class CasesController {
     @Res() res: Response,
   ): Promise<void> {
     await this.casesService.xuatDanhSach(query, req.dataScope, res, {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Get('export/day-du')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(
+    { action: 'read', subject: 'Case' },
+    { action: 'export_full', subject: 'Case' },
+  )
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async xuatDayDu(
+    @Query() query: QueryCasesDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: ScopedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.casesService.xuatDayDu(query, req.dataScope, res, {
       userId: user.id,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
@@ -170,7 +282,11 @@ export class CasesController {
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    await this.casesService.exportOtherClassification(query, req.dataScope, res);
+    await this.casesService.exportOtherClassification(
+      query,
+      req.dataScope,
+      res,
+    );
   }
 
   // GET /api/v1/cases/:id/status-history — Lịch sử thay đổi trạng thái
@@ -206,7 +322,12 @@ export class CasesController {
   ) {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(200, Math.max(1, Number(limit) || 50));
-    return this.casesJourneyService.getJourney(id, req.dataScope ?? null, safePage, safeLimit);
+    return this.casesJourneyService.getJourney(
+      id,
+      req.dataScope ?? null,
+      safePage,
+      safeLimit,
+    );
   }
 
   // GET /api/v1/cases/:id — Chi tiết vụ án
@@ -224,10 +345,15 @@ export class CasesController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.casesService.create(dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope); // v0.33: pass dataScope cho ward officer auto-set assignedTeamId
+    return this.casesService.create(
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    ); // v0.33: pass dataScope cho ward officer auto-set assignedTeamId
   }
 
   // PUT /api/v1/cases/:id — Cập nhật vụ án
@@ -239,10 +365,16 @@ export class CasesController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.casesService.update(id, dto, user.id, {
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    }, req.dataScope);
+    return this.casesService.update(
+      id,
+      dto,
+      user.id,
+      {
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
   }
 
   // GET /api/v1/cases/:id/delete-preflight — v0.31.0.2 kiểm tra điều kiện xóa

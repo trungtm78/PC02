@@ -8,7 +8,9 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import {
+  ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY,
+  RequireAnyPermissions,
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -18,7 +20,7 @@ import { DispatchGuard } from '../auth/guards/dispatch.guard';
 jest.mock('otplib', () => ({}));
 
 /**
- * CỔNG: route nào đi qua PermissionsGuard thì PHẢI khai @RequirePermissions (20/09/2026).
+ * CỔNG: route nào đi qua PermissionsGuard thì PHẢI khai quyền bắt buộc hoặc quyền thay thế.
  *
  * PermissionsGuard không thấy metadata quyền thì CHO QUA mọi tài khoản đã đăng nhập (permissions.guard.ts). Nên một
  * route quên khai = mở toang, và không ca kiểm nào đỏ. Đo thật: GET /reports/stat48, /reports/monthly/export,
@@ -64,6 +66,8 @@ function routeThieuQuyenCuaLop(lop: Lop): string[] {
     []) as unknown[];
   const quyenLop = (Reflect.getMetadata(PERMISSIONS_KEY, lop) ??
     []) as unknown[];
+  const quyenThayTheLop = (Reflect.getMetadata(ANY_PERMISSIONS_KEY, lop) ??
+    []) as unknown[];
   const thieu: string[] = [];
   for (const [ten, ham] of moiPhuongThuc(lop)) {
     if (Reflect.getMetadata(METHOD_METADATA, ham) === undefined) continue; // không phải route
@@ -72,7 +76,15 @@ function routeThieuQuyenCuaLop(lop: Lop): string[] {
     if (![...guardLop, ...guardRieng].includes(PermissionsGuard)) continue;
     const quyen = (Reflect.getMetadata(PERMISSIONS_KEY, ham) ??
       []) as unknown[];
-    if (quyen.length > 0 || quyenLop.length > 0) continue;
+    const quyenThayThe = (Reflect.getMetadata(ANY_PERMISSIONS_KEY, ham) ??
+      []) as unknown[];
+    if (
+      quyen.length > 0 ||
+      quyenLop.length > 0 ||
+      quyenThayThe.length > 0 ||
+      quyenThayTheLop.length > 0
+    )
+      continue;
     if (guardRieng.some((g) => MIEN.includes(g))) continue;
     thieu.push(`${lop.name}.${ten}`);
   }
@@ -151,6 +163,17 @@ class MauQuyenLop {
   lay() {}
 }
 
+@Controller('mau-quyen-thay-the')
+@UseGuards(PermissionsGuard)
+class MauQuyenThayThe {
+  @Get()
+  @RequireAnyPermissions(
+    { action: 'read', subject: 'Petition' },
+    { action: 'read', subject: 'Case' },
+  )
+  lay() {}
+}
+
 describe('CỔNG route qua PermissionsGuard phải khai quyền', () => {
   jest.setTimeout(120_000);
 
@@ -182,5 +205,12 @@ describe('CỔNG route qua PermissionsGuard phải khai quyền', () => {
 
   it('quyền khai ở cấp lớp được tính (guard đọc cả lớp)', () => {
     expect(routeThieuQuyenCuaLop(MauQuyenLop)).toEqual([]);
+  });
+
+  it('quyền thay thế ở route được tính nhưng route không khai quyền vẫn bị bắt', () => {
+    expect(routeThieuQuyenCuaLop(MauQuyenThayThe)).toEqual([]);
+    expect(routeThieuQuyenCuaLop(MauThieuQuyen)).toContain(
+      'MauThieuQuyen.thieu',
+    );
   });
 });

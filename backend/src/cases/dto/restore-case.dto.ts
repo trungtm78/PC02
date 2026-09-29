@@ -8,7 +8,9 @@ import { Transform } from 'class-transformer';
  * UAT Round 1: Transform trim + IsNotEmpty để reject empty/whitespace.
  */
 export class RestoreCaseDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString({ message: 'Lý do khôi phục phải là chuỗi ký tự' })
   @IsNotEmpty({ message: 'Lý do khôi phục bắt buộc' })
   @MinLength(10, { message: 'Lý do khôi phục phải có ít nhất 10 ký tự' })

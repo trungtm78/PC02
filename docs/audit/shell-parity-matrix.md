@@ -1,8 +1,24 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp). Trước đó: 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-29 (v0.72.1.0, đồng bộ tìm kiếm/xuất/thao tác hàng loạt cho Ủy thác điều tra và các shell dùng chung). Trước đó: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
+
+## v0.73.1.0 — Đồng bộ danh sách Vụ việc với Đơn thư
+
+`IncidentListPageShell` giữ nguyên các năng lực đã có và bổ sung các điểm đồng nhất sau:
+
+| Năng lực | Vụ việc | Quan hệ với Đơn thư |
+|---|---|---|
+| Thẻ giai đoạn và chip trạng thái | ✅ Một nguồn lọc; bỏ tab giai đoạn trùng chức năng | Cùng nhịp lọc và trạng thái URL |
+| Tìm kiếm mọi cột được phép, kể cả cột ẩn và ngày EDTF/chữ tự do | ✅ | Cùng `OTimKiemThe` và khai báo tìm kiếm máy chủ |
+| Danh sách, thống kê, Excel đang xem và Excel đầy đủ | ✅ Dùng cùng bộ điều kiện/kỳ thống kê | Cùng hợp đồng bộ lọc và quyền xuất |
+| Sửa nhanh kết quả | ✅ Endpoint hẹp, optimistic lock, chỉ khi dòng có `quyenGhi` | Giữ command nghiệp vụ cho chuyển trạng thái có side effect |
+| Capability theo từng dòng | ✅ Máy chủ trả `quyenGhi` | UI không suy quyền ghi từ quyền global |
+| Chọn cột, mật độ, loading/error/empty và thao tác hàng loạt | ✅ | Dùng cùng cấu hình/shell chung |
+| Word hàng loạt | ✅ Tối đa 100 hồ sơ, kiểm lại scope từng lô | Cùng manifest lỗi một phần |
+
+Không xóa năng lực danh sách cũ. Các thay đổi mở rộng cách tìm, xuất và cập nhật kết quả; quy tắc pháp lý riêng của Vụ việc vẫn đi qua command nghiệp vụ tương ứng.
 
 ## Status v0.66 (chain complete)
 
@@ -16,6 +32,28 @@
 `.github/workflows/shell-parity-gate.yml`:
 - Any PR modifying `*ListPageShell.tsx` MUST also update this matrix file.
 - Bypass: `[parity-skip]` in PR title for refactor-only changes.
+
+## v0.72.1.0 — Đồng bộ luồng danh sách và Ủy thác điều tra
+
+Các shell dùng chung được mở rộng để Ủy thác điều tra có cùng cách dùng với Đơn thư,
+Vụ việc và Vụ án. Các thay đổi trong bốn `ListPageShell` giữ một nguồn cấu hình chung cho
+tìm kiếm, lựa chọn hàng, xuất dữ liệu và thao tác hàng loạt.
+
+| Năng lực | Cases | Incidents | Petitions | Comprehensive | Ủy thác điều tra |
+|---|---|---|---|---|---|
+| Tìm kiếm theo cột và thẻ, lưu trong URL | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel theo phần đang xem | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel mọi trường có quyền | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Word hàng loạt | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Chọn hàng và thao tác hàng loạt | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Máy chủ ép đúng loại hồ sơ và phạm vi ghi/xuất | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Thống kê dùng cùng điều kiện với danh sách | ✅ | ✅ | ✅ | ✅ | ✅, 4 trạng thái phản hồi |
+
+Các thay đổi nhỏ trong `IncidentListPageShell`, `PetitionListPageShell` và
+`ComprehensiveListPageShell` nối hành động Word/Excel dùng chung; không xóa cột, bộ lọc hay
+hành động hiện có. `CaseListPageShell` bổ sung các tham số chung để danh sách và thống kê
+không lệch nhau. Màn Ủy thác vẫn buộc `caseType=UY_THAC_DIEU_TRA` tại máy chủ cho cả xem,
+ghi và xuất; màn Vụ án thường mặc định `caseType=REGULAR`.
 
 ## v0.72.0.0 — Sắp xếp danh sách (feat/list-sort-newest-first)
 
@@ -1118,3 +1156,16 @@ tệp giữ hình dạng ổn định để hai lần xuất còn đối chiếu
 CLI `kiem:cot-xuat-day-du` nay đo **cả hai loại chỗ lưu** (`metadata` qua `jsonb_each`, cột
 riêng đếm thẳng), và cột có bộ đọc GHÉP (`petitionDate` đọc ba cột) được đếm theo đúng nguồn
 của bộ đọc — không thì phép đo khuyên cắt một cột đang có dữ liệu.
+
+
+## Petition all-column search - 2026-09-28
+
+| Capability | Cases | Incidents | Petitions | Evidence |
+|---|---|---|---|---|
+| Information-type search chip | Unchanged | Unchanged | Added loaiThongTin | Registry/schema parity and isolated API/UI UAT |
+| Global deadline and creation-date matching | Unchanged | Unchanged | Includes hanXuLy and ngayTao | Date and scope API/UAT cases |
+| Free-text petition-date global matching | Unchanged | Unchanged | Includes ngayVietDonChu | Raw-date API/UI UAT |
+| Hidden columns remain searchable | Unchanged | Unchanged | Verified | Hide-column browser scenario |
+| Enter/suggestion submission; chips; accent folding | Unchanged | Unchanged | Preserved | Isolated API-first UAT, 27/27 PASS in original workspace |
+
+The new migration rebuilds stale existing petition search shadows in the same transaction as trigger replacement. List, statistics and exports retain the same filters and access scope. The scope is list data columns, not every detail-form field. Exact release-tree CI is tracked in docs/uat/petition-all-column-search/RELEASE-STATUS.md.

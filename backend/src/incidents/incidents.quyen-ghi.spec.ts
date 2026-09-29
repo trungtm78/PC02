@@ -78,3 +78,46 @@ describe('GET /incidents/:id — quyenGhi', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 });
+
+describe('GET /incidents — quyenGhi trên từng dòng', () => {
+  it('trả capability theo đúng phạm vi ghi của từng hồ sơ', async () => {
+    const prisma = {
+      incident: {
+        findMany: jest.fn().mockResolvedValue([
+          { ...VU_VIEC, id: 'writable', assignedTeamId: 't1' },
+          {
+            ...VU_VIEC,
+            id: 'readonly',
+            assignedTeamId: 't2',
+            investigatorId: 'u-khac',
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(2),
+      },
+    };
+    const service = new IncidentsService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { emit: jest.fn() } as never,
+    );
+    jest.spyOn(service, 'dungWhereDanhSach').mockResolvedValue({
+      where: {},
+      ky: {
+        ky: 'TAT_CA',
+        truong: 'NGAY_TIEP_NHAN',
+        tuNgay: null,
+        denNgay: null,
+      },
+    });
+    const result = await service.getList({} as never, phamVi() as never);
+    expect(
+      result.data.map((row) => ({ id: row.id, quyenGhi: row.quyenGhi })),
+    ).toEqual([
+      { id: 'writable', quyenGhi: true },
+      { id: 'readonly', quyenGhi: false },
+    ]);
+  });
+});

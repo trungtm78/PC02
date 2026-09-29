@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
+import { inspect } from 'node:util';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -21,6 +22,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let code = 'INTERNAL_ERROR';
     let message = 'Internal server error';
     let details: unknown[] = [];
+    let candidateIds: string[] | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -30,9 +32,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      } else if (
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null
+      ) {
         const res = exceptionResponse as Record<string, unknown>;
         message = (res.message as string) || exception.message;
+
+        // Domain conflicts use a stable machine-readable code. Keep it both at
+        // the legacy top level (current clients) and inside `error` (envelope).
+        if (typeof res.code === 'string' && res.code.trim()) code = res.code;
+        if (
+          Array.isArray(res.candidateIds) &&
+          res.candidateIds.every((id): id is string => typeof id === 'string')
+        ) {
+          candidateIds = res.candidateIds;
+        }
 
         // Preserve validation error details from ValidationPipe
         if (Array.isArray(res.message)) {
@@ -44,12 +59,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // P1-004: log stack trace server-side for ALL non-HttpException + HttpException 5xx.
     // Stack NEVER leaked to client (response shape unchanged). Cause chain walked.
-    if (!(exception instanceof HttpException) || status >= 500) {
-      this.logger.error('Unhandled exception', this.formatErrorWithCauseChain(exception));
+    if (
+      !(exception instanceof HttpException) ||
+      status >= HttpStatus.INTERNAL_SERVER_ERROR
+    ) {
+      this.logger.error(
+        'Unhandled exception',
+        this.formatErrorWithCauseChain(exception),
+      );
     }
 
     response.status(status).json({
       success: false,
+      ...(code !== (HttpStatus[status] || 'UNKNOWN_ERROR') && { code }),
+      ...(candidateIds && { candidateIds }),
       error: {
         code,
         message,
@@ -74,10 +97,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     while (current !== undefined && current !== null && depth < MAX_DEPTH) {
       const prefix = depth === 0 ? '' : `Caused by: `;
       if (current instanceof Error) {
-        parts.push(`${prefix}${current.stack ?? `${current.name}: ${current.message}`}`);
+        parts.push(
+          `${prefix}${current.stack ?? `${current.name}: ${current.message}`}`,
+        );
         current = (current as Error & { cause?: unknown }).cause;
       } else {
-        parts.push(`${prefix}${String(current)}`);
+        parts.push(
+          `${prefix}${typeof current === 'string' ? current : inspect(current, { depth: 3 })}`,
+        );
         break;
       }
       depth++;

@@ -5,6 +5,7 @@ import { StatusTransitionModalProvider } from './StatusTransitionModalProvider';
 import { ProsecuteModalProvider } from './ProsecuteModalProvider';
 import { PrintDocumentsModalProvider } from './PrintDocumentsModalProvider';
 import { QuickCreateDirectoryModalProvider } from './QuickCreateDirectoryModalProvider';
+import { MergeIncidentModalProvider } from './MergeIncidentModalProvider';
 
 /**
  * v0.67 PR1 T3 — CompositeModalProvider (Issue I2 from /plan-eng-review).
@@ -24,11 +25,13 @@ export function CompositeModalProvider({ children }: { children: ReactNode }) {
       <DeleteResourceModalProvider>
         <StatusTransitionModalProvider>
           <ProsecuteModalProvider>
-            <PrintDocumentsModalProvider>
-              <QuickCreateDirectoryModalProvider>
-                {children}
-              </QuickCreateDirectoryModalProvider>
-            </PrintDocumentsModalProvider>
+            <MergeIncidentModalProvider>
+              <PrintDocumentsModalProvider>
+                <QuickCreateDirectoryModalProvider>
+                  {children}
+                </QuickCreateDirectoryModalProvider>
+              </PrintDocumentsModalProvider>
+            </MergeIncidentModalProvider>
           </ProsecuteModalProvider>
         </StatusTransitionModalProvider>
       </DeleteResourceModalProvider>

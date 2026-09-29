@@ -1,7 +1,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import fc from 'fast-check';
-import { congNgay, tinhThoiHan, tinhHanSauGiaHan, SO_NGAY_TOI_DA } from './tinh-thoi-han';
+import {
+  congNgay,
+  tinhThoiHan,
+  tinhHanSauGiaHan,
+  SO_NGAY_TOI_DA,
+} from './tinh-thoi-han';
 
 /**
  * EXPERT property-based — phép tính THỜI HẠN TỐ TỤNG.
@@ -21,9 +26,13 @@ const NGAY_HOP_LE = fc
 describe('EXPERT thời hạn — bất biến cơ bản', () => {
   it('PB-05 · hạn luôn SAU mốc với mọi số ngày dương', () => {
     fc.assert(
-      fc.property(NGAY_HOP_LE, fc.integer({ min: 1, max: SO_NGAY_TOI_DA }), (moc, n) => {
-        expect(tinhThoiHan(moc, n).getTime()).toBeGreaterThan(moc.getTime());
-      }),
+      fc.property(
+        NGAY_HOP_LE,
+        fc.integer({ min: 1, max: SO_NGAY_TOI_DA }),
+        (moc, n) => {
+          expect(tinhThoiHan(moc, n).getTime()).toBeGreaterThan(moc.getTime());
+        },
+      ),
       { numRuns: 300 },
     );
   });
@@ -51,12 +60,16 @@ describe('EXPERT thời hạn — bất biến cơ bản', () => {
 
   it('PB-08 · không bao giờ sinh ngày không tồn tại', () => {
     fc.assert(
-      fc.property(NGAY_HOP_LE, fc.integer({ min: 0, max: SO_NGAY_TOI_DA }), (moc, n) => {
-        const h = tinhThoiHan(moc, n);
-        expect(Number.isNaN(h.getTime())).toBe(false);
-        expect(h.getDate()).toBeGreaterThanOrEqual(1);
-        expect(h.getDate()).toBeLessThanOrEqual(31);
-      }),
+      fc.property(
+        NGAY_HOP_LE,
+        fc.integer({ min: 0, max: SO_NGAY_TOI_DA }),
+        (moc, n) => {
+          const h = tinhThoiHan(moc, n);
+          expect(Number.isNaN(h.getTime())).toBe(false);
+          expect(h.getDate()).toBeGreaterThanOrEqual(1);
+          expect(h.getDate()).toBeLessThanOrEqual(31);
+        },
+      ),
       { numRuns: 300 },
     );
   });
@@ -93,7 +106,9 @@ describe('EXPERT thời hạn — đơn điệu và cộng tính (metamorphic)',
         fc.integer({ min: 0, max: 500 }),
         fc.integer({ min: 0, max: 500 }),
         (moc, a, b) => {
-          expect(congNgay(congNgay(moc, a), b).getTime()).toBe(congNgay(moc, a + b).getTime());
+          expect(congNgay(congNgay(moc, a), b).getTime()).toBe(
+            congNgay(moc, a + b).getTime(),
+          );
         },
       ),
       { numRuns: 300 },
@@ -124,9 +139,9 @@ describe('EXPERT thời hạn — biên và đầu vào xấu', () => {
     ['31/01 sang tháng 2', new Date(2026, 0, 31), 1],
     ['30/04 sang tháng 5', new Date(2026, 3, 30), 1],
   ])('%s không sinh ngày lạ', (_ten, moc, n) => {
-    const h = congNgay(moc as Date, n as number);
+    const h = congNgay(moc, n);
     expect(Number.isNaN(h.getTime())).toBe(false);
-    expect(h.getTime()).toBeGreaterThan((moc as Date).getTime());
+    expect(h.getTime()).toBeGreaterThan(moc.getTime());
   });
 
   /** 31/01 + 1 phải là 01/02, không phải 31/02 (không tồn tại) hay 03/03 (tràn). */
@@ -152,7 +167,10 @@ describe('EXPERT thời hạn — biên và đầu vào xấu', () => {
     ['mốc không hợp lệ', () => congNgay(new Date('bịa'), 1)],
     ['số ngày âm', () => congNgay(new Date(2026, 0, 1), -1)],
     ['số ngày không nguyên', () => congNgay(new Date(2026, 0, 1), 1.5)],
-    ['số ngày vượt trần', () => congNgay(new Date(2026, 0, 1), SO_NGAY_TOI_DA + 1)],
+    [
+      'số ngày vượt trần',
+      () => congNgay(new Date(2026, 0, 1), SO_NGAY_TOI_DA + 1),
+    ],
   ])('chặn %s', (_ten, chay) => {
     expect(chay).toThrow();
   });
@@ -166,7 +184,9 @@ describe('EXPERT gia hạn — chỉ đẩy hạn RA XA', () => {
   it('PB-06b · hạn sau gia hạn luôn XA hơn hạn cũ', () => {
     fc.assert(
       fc.property(NGAY_HOP_LE, fc.integer({ min: 1, max: 365 }), (han, n) => {
-        expect(tinhHanSauGiaHan(han, n).getTime()).toBeGreaterThan(han.getTime());
+        expect(tinhHanSauGiaHan(han, n).getTime()).toBeGreaterThan(
+          han.getTime(),
+        );
       }),
       { numRuns: 300 },
     );

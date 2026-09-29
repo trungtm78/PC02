@@ -9,7 +9,9 @@ import { Transform } from 'class-transformer';
  * empty + whitespace-only payload trước khi MinLength chạy.
  */
 export class DeleteCaseDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString({ message: 'Lý do xóa phải là chuỗi ký tự' })
   @IsNotEmpty({ message: 'Lý do xóa bắt buộc' })
   @MinLength(10, { message: 'Lý do xóa phải có ít nhất 10 ký tự' })

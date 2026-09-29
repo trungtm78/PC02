@@ -49,6 +49,7 @@ END $$;
 CREATE OR REPLACE FUNCTION pc02_dat_tim_kiem_petitions() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  NEW."loai_thong_tin_bd" := NULL;
   NEW."nguon_don_bd" := NULL;
   NEW."sender_name_bd" := NULL;
   NEW."detail_content_bd" := NULL;
@@ -85,6 +86,7 @@ BEGIN
   NEW."don_vi_giao_bd" := NULL;
   NEW."so_quyet_dinh_uy_thac_bd" := NULL;
   NEW."nghi_van_doi_tuong_bd" := NULL;
+  NEW."ket_qua_uy_thac_bd" := NULL;
   NEW."crime_bd" := NULL;
   NEW."name_bd" := NULL;
   NEW."tim_kiem_bd" := NULL;

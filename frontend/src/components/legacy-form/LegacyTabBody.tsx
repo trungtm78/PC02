@@ -43,6 +43,8 @@ interface Props<TForm, TTab extends string, TField extends string> {
   afterLegacy?: ReactNode;
   /** Khối gập lại: giao diện hệ mới hiện có của tab. */
   children?: ReactNode;
+  /** Khóa các ô nhập nhưng vẫn cho phép đổi tab và mở/đóng nhóm ở component cha. */
+  disabled?: boolean;
 }
 
 export function LegacyTabBody<TForm, TTab extends string, TField extends string>({
@@ -60,6 +62,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
   pinnedTop,
   afterLegacy,
   children,
+  disabled = false,
 }: Props<TForm, TTab, TField>) {
   const items = spec.layout[tabId];
 
@@ -83,6 +86,7 @@ export function LegacyTabBody<TForm, TTab extends string, TField extends string>
           nhom={nhom?.filter((n) => n.tab === undefined || n.tab === tabId)}
           oDangLoi={oDangLoi}
           oAn={oAn}
+          disabled={disabled}
         />
       </div>
 

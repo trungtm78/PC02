@@ -20,7 +20,7 @@ interface AssignModalProps {
   currentUpdatedAt?: string;
   currentTeamId?: string | null;
   currentInvestigatorId?: string | null;
-  onSuccess: () => void;
+  onSuccess: (response: unknown) => void;
 }
 
 export function AssignModal({
@@ -88,8 +88,8 @@ export function AssignModal({
         ...(currentUpdatedAt && { expectedUpdatedAt: currentUpdatedAt }),
         ...(deadline && resourceType === 'petitions' && { deadline }),
       };
-      await api.patch(`/${resourceType}/${recordId}/assign`, body);
-      onSuccess();
+      const response = await api.patch(`/${resourceType}/${recordId}/assign`, body);
+      onSuccess(response.data);
       onClose();
     } catch (err: unknown) {
       setError(extractApiError(err, 'Phân công thất bại. Vui lòng thử lại.').message);

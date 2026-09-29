@@ -145,9 +145,14 @@ export function CaseProvenancePicker(props: CaseProvenancePickerProps) {
         nguonTruoc === CaseProvenance.FROM_PETITION
           ? 'Đơn thư gốc'
           : 'Vụ việc gốc';
-      setToast(`Đã bỏ lựa chọn ${source}. Có thể chọn lại nếu đổi nguồn về cũ.`);
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
+      const show = requestAnimationFrame(() => {
+        setToast(`Đã bỏ lựa chọn ${source}. Có thể chọn lại nếu đổi nguồn về cũ.`);
+      });
+      const clear = setTimeout(() => setToast(null), 4000);
+      return () => {
+        cancelAnimationFrame(show);
+        clearTimeout(clear);
+      };
     }
   }, [provenance]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -321,23 +326,27 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
   testIdPrefix: string;
 }) {
   const [search, setSearch] = useState('');
-  const [state, setState] = useState<PickerState<T>>({ kind: 'idle' });
+  const [state, setState] = useState<PickerState<T>>({ kind: 'loading' });
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const requestEpoch = useRef(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      if (search.length === 0 || search.length >= 2) {
+        setState({ kind: 'loading' });
+      }
+    }, 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchData = useCallback(async () => {
-    const currentAttempts =
-      state.kind === 'error' ? state.attempts : 0;
-
-    setState({ kind: 'loading' });
+  const fetchData = useCallback(async (currentAttempts: number) => {
+    const currentRequest = ++requestEpoch.current;
     try {
       const resp = await api.get(endpoint, {
         params: { search: debouncedSearch, limit: 50 },
       });
+      if (currentRequest !== requestEpoch.current) return;
       const rows: T[] = resp.data?.data ?? resp.data ?? [];
       if (rows.length === 0) {
         setState({ kind: 'empty' });
@@ -345,6 +354,7 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
         setState({ kind: 'ready', rows });
       }
     } catch (e) {
+      if (currentRequest !== requestEpoch.current) return;
       const message =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Lỗi tải danh sách. Vui lòng thử lại.';
@@ -355,18 +365,20 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
         setState({ kind: 'error', message, attempts: newAttempts });
       }
     }
-  }, [endpoint, debouncedSearch, state.kind === 'error' ? state.attempts : 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [endpoint, debouncedSearch]);
 
   useEffect(() => {
-    if (debouncedSearch.length === 0) {
-      // Pre-fetch first page for in-scope items immediately
-      fetchData();
-      return;
+    let cancelled = false;
+    if (debouncedSearch.length === 0 || debouncedSearch.length >= 2) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) return fetchData(0);
+      });
     }
-    if (debouncedSearch.length >= 2) {
-      fetchData();
-    }
-  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+      requestEpoch.current += 1;
+    };
+  }, [debouncedSearch, fetchData]);
 
   // Decision 2C fallback path — user types ID directly
   if (state.kind === 'fallback') {
@@ -419,7 +431,10 @@ function LinkableEntityPicker<T extends { id: string; updatedAt: string }>({
           </div>
           <button
             type="button"
-            onClick={fetchData}
+            onClick={() => {
+              setState({ kind: 'loading' });
+              void fetchData(state.attempts);
+            }}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-red-300 text-red-700 rounded hover:bg-red-100"
             data-testid={`${testIdPrefix}-retry`}
           >

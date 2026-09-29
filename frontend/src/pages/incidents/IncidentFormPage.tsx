@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
-import { useNavigate, useParams } from "react-router-dom";
+import { RecordNameSuggestions } from '@/components/inputs/RecordNameSuggestions';
+import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '@/components/inputs/RecordDuplicateReview';
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError, loiXungDot } from "@/lib/api-errors";
-import { ArrowLeft, AlertCircle, Calendar, FileText, Loader2, ChevronDown, ChevronRight, Target } from "lucide-react";
+import { AlertCircle, Calendar, Loader2, ChevronDown, ChevronRight, FileText, Target } from "lucide-react";
 import { DynamicLegacyFields } from "@/components/DynamicLegacyFields";
 import { LegacyParityFields } from "@/components/LegacyParityFields";
 import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generated";
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { BangChiXem } from "@/components/shared/BangChiXem";
+import { FormActionBar } from "@/components/shared/FormActionBar";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -24,23 +27,33 @@ import {
   LOAI_NGUON_TIN_OPTIONS,
   NGUON_PHAT_TIN_BY_LOAI,
   PHUONG_THUC_TIEP_NHAN_OPTIONS,
+  INCIDENT_STATUS_LABEL,
+  INCIDENT_STATUS_BADGE,
   getNguonPhatTinOptions,
 } from "@/shared/enums/status-labels";
 import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
+import { usePermission } from "@/hooks/usePermission";
+import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
-import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalContext";
 import { IncidentStatus } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
+import { PetitionCreateDocumentsStage, type PetitionStageHandle } from '@/features/petitions/components/PetitionCreateDocumentsStage';
 import { buildIncidentPayload } from './buildIncidentPayload';
 import { mergeIncidentApiToFormData } from './mergeIncidentApiToFormData';
 import { computeIncidentErrors } from './validate-incident';
 import { LegacyTabBody } from "@/components/legacy-form/LegacyTabBody";
 import { LEGACY_TAB_LABEL, type LegacyTabId } from "@/features/cases/legacy-form-layout.def";
 import { INCIDENT_LEGACY_SPEC, KHOA_NHANH_PHU } from "@/features/incidents/legacy-form-binding";
+import { NHOM_O_VU_VIEC } from '@/features/incidents/nhom-o.def';
 import { INITIAL_INCIDENT_FORM, type IncidentFormData } from './incident-form.types';
+import { cloneIncidentState, type IncidentCloneState } from './clone-incident';
 import { TINH_TRANG_OPTIONS, optionsGiuGiaTriLa } from '@/shared/legacy/tinhTrangOptions';
+import { incidentForm as incidentFormLabels } from '@/locales/vi';
+import { PERMISSION_RESOURCE } from '@/shared/enums/permissions';
+import { useAssignModalSafe } from '@/features/_shared/modals/AssignModalContext';
 
 
 function CollapsibleSection({
@@ -49,12 +62,16 @@ function CollapsibleSection({
   onToggle,
   children,
   testId,
+  disabled = false,
+  action,
 }: {
   title: string;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
   testId?: string;
+  disabled?: boolean;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm" data-testid={testId}>
@@ -70,15 +87,24 @@ function CollapsibleSection({
           <ChevronRight className="w-5 h-5 text-slate-500" />
         )}
       </button>
-      {expanded && <div className="p-6 space-y-4">{children}</div>}
+      {expanded && <fieldset disabled={disabled} className="border-0 p-6 space-y-4">{children}</fieldset>}
+      {expanded && action && <div className="px-6 pb-4">{action}</div>}
     </div>
   );
 }
 
-export function IncidentFormPage() {
+export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { canCreate, canEdit, canDispatch } = usePermission();
+  const assignModal = useAssignModalSafe();
+  const quickCreateDirectory = useQuickCreateDirectoryModalSafe();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
+  const routeClone = (location.state as { cloneIncident?: unknown } | null)?.cloneIncident;
+  const cloneInput = !isEditMode && routeClone && typeof routeClone === 'object' && 'formData' in routeClone
+    ? routeClone as IncidentCloneState
+    : null;
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
   const [metaState, setMetaState] = useState<Record<string, unknown>>({});
   // Cột typed field-parity (di trú hệ cũ) — đọc/ghi cột thật, khác metaState (metadata JSON).
@@ -95,6 +121,67 @@ export function IncidentFormPage() {
    * chúng đi để giống hệ cũ là hạ cấp năng lực; giữ đúng chỗ, đúng nhãn, chỉ đổi ruột.
    */
   const oRieng: Partial<Record<string, (label: string) => React.ReactNode>> = {
+    chuyenTuDonVi: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="NGUON_DON"
+        value={formData.chuyenTuDonVi}
+        onChange={(value) => update('chuyenTuDonVi', value)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-nguonDon"
+        canCreate={!!quickCreateDirectory}
+        onCreateNew={(suggestedName) => quickCreateDirectory?.open({
+          type: 'NGUON_DON',
+          tenGoiY: suggestedName,
+          onCreated: (name) => update('chuyenTuDonVi', name),
+        })}
+      />
+    ),
+    loaiThongTin: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="LOAI_THONG_TIN"
+        value={formData.loaiThongTin}
+        onChange={(value) => update('loaiThongTin', value)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-loaiThongTin"
+        canCreate={!!quickCreateDirectory}
+        onCreateNew={(suggestedName) => quickCreateDirectory?.open({
+          type: 'LOAI_THONG_TIN',
+          tenGoiY: suggestedName,
+          onCreated: (name) => update('loaiThongTin', name),
+        })}
+      />
+    ),
+    donViGiaiQuyet: (label) => (
+      <FKSelect
+        label={label}
+        directoryType="DON_VI"
+        value={formData.donViGiaiQuyet}
+        onChange={(value) => update('donViGiaiQuyet', value)}
+        placeholder="Gõ để tìm, không có thì nhấn Enter để tạo mới"
+        testId="field-supervisingUnit"
+        canCreate={!!quickCreateDirectory}
+        onCreateNew={(suggestedName) => quickCreateDirectory?.open({
+          type: 'DON_VI',
+          tenGoiY: suggestedName,
+          onCreated: (name) => update('donViGiaiQuyet', name),
+        })}
+      />
+    ),
+    benVu: (label) => (
+      <div>
+        <label className={labelClass}>{label}</label>
+        <RecordNameSuggestions
+          kind="incident"
+          incidentField="reporter"
+          value={formData.benVu}
+          onChange={(value) => update('benVu', value)}
+          testId="field-benVu"
+          className={inputClass}
+        />
+      </div>
+    ),
     /*
       Ngày viết đơn — Ô CHỮ TỰ DO (21/09/2026), cùng hợp đồng với màn Đơn thư.
 
@@ -171,7 +258,7 @@ export function IncidentFormPage() {
   // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
   // Thiếu trường (máy chủ cũ) → như trước.
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
-  const chiXem = isEditMode && quyenGhi === false;
+  const chiXem = isEditMode && (readOnly || quyenGhi === false);
   /**
    * MỘT nguồn cán bộ duy nhất cho cả ứng dụng.
    *
@@ -190,6 +277,11 @@ export function IncidentFormPage() {
   const nhomDieuTraVien = gomCanBoTheoTo(dsCanBo, formData.investigatorId);
   const nhomCanBoNhap = gomCanBoTheoTo(dsCanBo, formData.canBoNhapId);
   const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const effectiveId = id ?? createdId;
+  const createRequestKeyRef = useRef(globalThis.crypto.randomUUID());
+  const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
+  const documentStageRef = useRef<PetitionStageHandle>(null);
   const [draftIncidentCode, setDraftIncidentCode] = useState('');
   const [isDraftLoading, setIsDraftLoading] = useState(!isEditMode);
   // Export chứng từ động (epic vụ việc/vụ án PR3).
@@ -205,6 +297,13 @@ export function IncidentFormPage() {
   const [section4Open, setSection4Open] = useState(false);
 
   const defaults = useFormDefaults();
+
+  useEffect(() => {
+    if (!cloneInput) return;
+    setFormData(cloneInput.formData);
+    setMetaState(cloneInput.metaState);
+    setParityState(cloneInput.parityState);
+  }, [cloneInput]);
 
   // v0.42 — Fetch draft incident code preview on create mode mount.
   useEffect(() => {
@@ -231,7 +330,7 @@ export function IncidentFormPage() {
   // Apply defaults on create mode (today, current user, primary team).
   // `prev.x ||` guard preserves user typing if they type before profile loads.
   useEffect(() => {
-    if (isEditMode || !defaults.isLoaded) return;
+    if (isEditMode || cloneInput || !defaults.isLoaded) return;
     setFormData((prev) => ({
       ...prev,
       ngayDeXuat:     prev.ngayDeXuat     || defaults.today,
@@ -240,7 +339,7 @@ export function IncidentFormPage() {
       donViGiaiQuyet: prev.donViGiaiQuyet || defaults.primaryTeamName  || "",
       assignedTeamId: prev.assignedTeamId || defaults.primaryTeamId    || "",
     }));
-  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
+  }, [isEditMode, cloneInput, defaults.isLoaded, defaults.today, defaults.userId, defaults.primaryTeamId, defaults.primaryTeamName]);
 
   // Load users for investigator / canBoNhap pickers
   // Fetch existing data in edit mode
@@ -284,6 +383,9 @@ export function IncidentFormPage() {
 
   // Lỗi kèm testid theo THỨ TỰ hiển thị → dùng chung cho msgs + điều hướng ô lỗi.
   const buildErrors = () => computeIncidentErrors(formData);
+  const oDangLoi = errors.length > 0
+    ? buildErrors().fields.map((field) => field.replace(/^field-/, ''))
+    : [];
   const validateForm = (): boolean => {
     const { msgs } = buildErrors();
     setErrors(msgs);
@@ -294,36 +396,56 @@ export function IncidentFormPage() {
 
   // Tách phần LƯU (không điều hướng) → trả { ok, id } để onSave/onSaveAndExport
   // quyết định điều hướng hay mở popup xuất chứng từ động.
-  const doSave = async (): Promise<{ ok: boolean; id: string | null }> => {
+  const doSave = async (): Promise<{ ok: boolean; id: string | null; uploadFailed?: number }> => {
     if (savingRef.current) return { ok: false, id: null }; // chống lưu chồng lấn
     if (chiXem) return { ok: false, id: null }; // chỉ xem: máy chủ sẽ 403 — không gửi
     if (!validateForm()) { if (!focusFirstError()) window.scrollTo({ top: 0, behavior: "smooth" }); return { ok: false, id: null }; }
     savingRef.current = true;
     setIsSubmitting(true);
     try {
+      const duplicateReview = await duplicateReviewRef.current?.verify();
+      if (duplicateReview && !duplicateReview.ok) return { ok: false, id: null };
       const payload = buildIncidentPayload(formData, {
-        isEditMode,
+        isEditMode: !!effectiveId,
         metaState,
         parityState,
       });
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
-      if (isEditMode) {
-        const res = await api.put(`/incidents/${id}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
-        savedId = id ?? null;
+      if (effectiveId) {
+        const res = await api.put(`/incidents/${effectiveId}`, {
+          ...payload,
+          acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [],
+          expectedUpdatedAt: recordUpdatedAt ?? undefined,
+        });
+        savedId = effectiveId;
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
-        const res = await api.post('/incidents', payload);
+        const res = await api.post('/incidents', {
+          ...payload,
+          acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [],
+        }, {
+          headers: { 'Idempotency-Key': createRequestKeyRef.current },
+        });
         // Envelope {success, data:{id,updatedAt}} (incidents.service.create) → bắt id + updatedAt.
         const data = (res?.data as { data?: { id?: string; updatedAt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
+        if (savedId) setCreatedId(savedId);
       }
       // Refresh optimistic-lock baseline từ response → lưu lần 2 không gửi recordUpdatedAt cũ gây 409.
       if (savedUpdatedAt) setRecordUpdatedAt(savedUpdatedAt);
-      return { ok: true, id: savedId };
+      const uploadFailed = savedId && documentStageRef.current?.hasStaged()
+        ? (await documentStageRef.current.uploadAll(savedId)).failed.length
+        : 0;
+      return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const response = (err as { response?: { status?: number; data?: { code?: string } } })?.response;
+      const status = response?.status;
+      if (status === 409 && response?.data?.code === 'DUPLICATE_REVIEW_REQUIRED') {
+        await duplicateReviewRef.current?.verify();
+        return { ok: false, id: null };
+      }
       if (status === 409) {
         // Lời của máy chủ: trùng giá trị khác với "người khác vừa sửa" — không gộp làm một.
         setErrors([loiXungDot(err, "Vụ việc đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang để xem phiên bản mới nhất trước khi chỉnh sửa.")]);
@@ -338,6 +460,10 @@ export function IncidentFormPage() {
   // "Lưu" thường → lưu xong về danh sách (hành vi cũ).
   const onSave = async () => {
     const r = await doSave();
+    if (r.uploadFailed) {
+      setErrors([incidentFormLabels.uploadFailed.replace('{count}', String(r.uploadFailed))]);
+      return;
+    }
     if (r.ok) navigate("/vu-viec");
   };
 
@@ -345,6 +471,10 @@ export function IncidentFormPage() {
   const onSaveAndExport = async () => {
     const r = await doSave();
     if (!r.ok) return;
+    if (r.uploadFailed) {
+      setErrors([incidentFormLabels.uploadFailed.replace('{count}', String(r.uploadFailed))]);
+      return;
+    }
     if (r.id) { setExportNavigateOnClose(true); setExportForId(r.id); }
     else navigate("/vu-viec"); // không lấy được id → về danh sách (degrade an toàn)
   };
@@ -356,6 +486,13 @@ export function IncidentFormPage() {
   };
 
   const handleCancel = () => { if (confirm("Bạn có chắc muốn hủy? Dữ liệu chưa lưu sẽ mất.")) navigate("/vu-viec"); };
+
+  const handleClone = () => {
+    if (!id || !canCreate(PERMISSION_RESOURCE.INCIDENTS)) return;
+    navigate('/vu-viec/new', {
+      state: { cloneIncident: cloneIncidentState({ formData, metaState, parityState }) },
+    });
+  };
 
   // Phím tắt form: F2 Lưu, Esc Hủy, F4 In chứng từ, F3 Xóa (chỉ khi SỬA).
   const deleteModal = useDeleteResourceModalSafe();
@@ -399,36 +536,49 @@ export function IncidentFormPage() {
 
   return (
     <div className="p-6 space-y-6" data-testid="incident-form-page">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/vu-viec")} className="p-2 hover:bg-slate-100 rounded-lg" data-testid="btn-back"><ArrowLeft className="w-5 h-5 text-slate-600" /></button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">{isEditMode ? "Cập nhật Vụ việc" : "Thêm mới Vụ việc"}</h1>
-            <p className="text-slate-600 text-sm mt-1">{isEditMode ? `Chỉnh sửa vụ việc ${id}` : "Nhập thông tin vụ việc mới"}</p>
-          </div>
+      {cloneInput && !isEditMode ? (
+        <div role="status" data-testid="incident-clone-review" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {incidentFormLabels.clone.reviewNotice}
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel-top">Hủy</button>
-          {isEditMode && id && (
-            <button
-              type="button"
-              onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
-              className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 font-medium"
-              data-testid="btn-print-docs"
-            >
-              <FileText className="w-4 h-4" />In chứng từ
-            </button>
-          )}
-          {!chiXem && <SaveSplitButton
+      ) : null}
+      <FormActionBar
+        title={readOnly ? "Xem Vụ việc" : isEditMode ? "Cập nhật Vụ việc" : "Thêm mới Vụ việc"}
+        subtitle={readOnly ? `Thông tin vụ việc ${id}` : isEditMode ? `Chỉnh sửa vụ việc ${id}` : "Nhập thông tin vụ việc mới"}
+        onBack={handleCancel}
+        onCancel={handleCancel}
+        cancelTestId="btn-cancel-top"
+        editAction={readOnly && quyenGhi === true && canEdit(PERMISSION_RESOURCE.INCIDENTS) ? {
+          label: 'Chỉnh sửa',
+          onClick: () => navigate(`/vu-viec/${id}/edit`),
+          testId: 'btn-edit-incident',
+        } : undefined}
+        cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.INCIDENTS) ? {
+          label: incidentFormLabels.clone.action,
+          onClick: handleClone,
+          testId: 'btn-clone-incident',
+        } : undefined}
+        printAction={isEditMode && id ? {
+          label: "In chứng từ",
+          onClick: () => { setExportNavigateOnClose(false); setExportForId(id); },
+          testId: "btn-print-docs",
+        } : undefined}
+        saveAction={!chiXem ? <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
             idPrefix="btn-save-top"
             mainTestId="btn-save-top"
-          />}
+          /> : undefined}
+      />
+      {isEditMode && recordStatus ? (
+        <div className="flex items-center gap-2 text-sm" data-testid="incident-current-status">
+          <span className="font-medium text-slate-600">Trạng thái:</span>
+          <span className={`rounded-full px-2.5 py-1 font-medium ${INCIDENT_STATUS_BADGE[recordStatus as IncidentStatus] ?? 'bg-slate-100 text-slate-700'}`}>
+            {INCIDENT_STATUS_LABEL[recordStatus as IncidentStatus] ?? recordStatus}
+          </span>
         </div>
-      </div>
+      ) : null}
 
       {errors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid="validation-errors">
@@ -454,6 +604,19 @@ export function IncidentFormPage() {
         {/* Submit ẩn: giữ hành vi Enter-to-submit của <form> sau khi nút Lưu chuyển sang
             SaveSplitButton (type=button). Không hiển thị, không phá layout. */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} disabled={isSubmitting} />
+
+        {!chiXem && <RecordDuplicateReview
+          ref={duplicateReviewRef}
+          kind="incident"
+          name={formData.name}
+          reporter={formData.benVu}
+          idNumber={formData.cmndNguoiToGiac}
+          phone={formData.sdtNguoiToGiac}
+          content={formData.description}
+          date={formData.ngayDeXuat || formData.fromDate}
+          location={formData.diaChiXayRa}
+          excludeId={effectiveId ?? undefined}
+        />}
 
         {/* Thanh tab theo đúng bộ 10 tab của hệ cũ — đúng tên, đúng thứ tự.
             Hệ cũ dùng chung form `/doi-1/Them` cho Đơn thư, Vụ việc và Vụ án; đo lại
@@ -483,6 +646,9 @@ export function IncidentFormPage() {
             formData={formData}
             setFormData={setFormData}
             renderOverride={oRieng}
+            nhom={NHOM_O_VU_VIEC}
+            oDangLoi={oDangLoi}
+            disabled={chiXem}
           />
         )}
 
@@ -495,6 +661,9 @@ export function IncidentFormPage() {
             formData={formData}
             setFormData={setFormData}
             renderOverride={oRieng}
+            nhom={NHOM_O_VU_VIEC}
+            oDangLoi={oDangLoi}
+            disabled={chiXem}
           >
         {/* Section 1: Tiep nhan nguon tin */}
         <CollapsibleSection
@@ -502,6 +671,7 @@ export function IncidentFormPage() {
           expanded={section1Open}
           onToggle={() => setSection1Open(!section1Open)}
           testId="section-tiep-nhan"
+          disabled={chiXem}
         >
           {!isEditMode && (
             <div>
@@ -610,19 +780,56 @@ export function IncidentFormPage() {
           expanded={section2Open}
           onToggle={() => setSection2Open(!section2Open)}
           testId="section-phan-cong"
+          disabled={chiXem}
+          action={isEditMode && (
+            canDispatch && assignModal && id ? (
+              <button
+                type="button"
+                className="text-sm font-medium text-blue-700 hover:text-blue-800"
+                onClick={() => assignModal.open({
+                  resourceType: 'incidents',
+                  recordId: id,
+                  currentTeamId: formData.assignedTeamId || null,
+                  currentInvestigatorId: formData.investigatorId || null,
+                  currentUpdatedAt: recordUpdatedAt ?? undefined,
+                  onSuccess: (response) => {
+                    const envelope = response && typeof response === 'object'
+                      ? response as { data?: Record<string, unknown> }
+                      : null;
+                    const record = envelope?.data ?? (response as Record<string, unknown> | null);
+                    if (!record || typeof record !== 'object') return;
+                    setFormData((current) => ({
+                      ...current,
+                      assignedTeamId: typeof record.assignedTeamId === 'string' ? record.assignedTeamId : current.assignedTeamId,
+                      investigatorId: typeof record.investigatorId === 'string' ? record.investigatorId : '',
+                    }));
+                    if (typeof record.updatedAt === 'string') setRecordUpdatedAt(record.updatedAt);
+                    if (typeof record.status === 'string') setRecordStatus(record.status);
+                  },
+                })}
+                data-testid="btn-assign-incident-form"
+              >
+                Phân công lại qua quy trình điều phối
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500">Phân công chỉ được thay đổi bởi người có quyền điều phối.</p>
+            )
+          )}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <FKSelect
-                label="Điều tra viên"
-                value={formData.investigatorId}
-                onChange={(v) => update("investigatorId", v)}
-                groups={nhomDieuTraVien}
-                loading={dangTaiCanBo}
-                placeholder="Chọn điều tra viên"
-                searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
-                testId="field-investigatorId"
-              />
+              <fieldset disabled={isEditMode} className="contents">
+                <FKSelect
+                  label="Điều tra viên"
+                  value={formData.investigatorId}
+                  onChange={(v) => update("investigatorId", v)}
+                  groups={nhomDieuTraVien}
+                  loading={dangTaiCanBo}
+                  placeholder="Chọn điều tra viên"
+                  searchPlaceholder="Gõ tên cán bộ hoặc tên tổ"
+                  testId="field-investigatorId"
+                />
+              </fieldset>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -655,6 +862,7 @@ export function IncidentFormPage() {
           expanded={section3Open}
           onToggle={() => setSection3Open(!section3Open)}
           testId="section-ket-qua"
+          disabled={chiXem}
         >
           {/* Loại kết quả (chuẩn hóa enum) + Số quyết định */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -764,6 +972,7 @@ export function IncidentFormPage() {
           expanded={section4Open}
           onToggle={() => setSection4Open(!section4Open)}
           testId="section-tam-dinh-chi"
+          disabled={chiXem}
         >
           <div>
             <label className={labelClass}>Lý do tạm đình chỉ (ghi chú thêm)</label>
@@ -803,9 +1012,13 @@ export function IncidentFormPage() {
 
           </LegacyTabBody>
         </div>
-        {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
+        {/* Tài liệu: tạo mới giữ file tạm; hồ sơ đã có id tải trực tiếp. */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <EntityDocumentsTab entityKind="incident" entityId={id} chiXem={chiXem} />
+          {isEditMode && id ? (
+            <EntityDocumentsTab entityKind="incident" entityId={id} chiXem={chiXem} />
+          ) : (
+            <PetitionCreateDocumentsStage ref={documentStageRef} entityKind="incident" />
+          )}
         </div>
 
         {/* Actions */}
@@ -815,6 +1028,7 @@ export function IncidentFormPage() {
             entity="incident"
             values={parityState}
             onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
+            readOnly={chiXem}
           />
         )}
         {/* Trường hệ cũ chỉnh sửa được (mọi field cũ) + panel tham khảo đầy đủ */}
@@ -823,31 +1037,35 @@ export function IncidentFormPage() {
             entity="incident"
             values={metaState}
             onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+            readOnly={chiXem}
           />
         )}
         {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
 
-        <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <button type="button" onClick={handleCancel} className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50" data-testid="btn-cancel">Hủy</button>
-          {isEditMode && id && (
-            <button
-              type="button"
-              onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
-              className="flex items-center gap-2 px-6 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 font-medium"
-              data-testid="btn-print-docs-bottom"
-            >
-              <FileText className="w-4 h-4" />In chứng từ
-            </button>
-          )}
-          {!chiXem && <SaveSplitButton
+        <FormActionBar
+          actionsOnly
+          testId="form-action-bar-bottom"
+          onCancel={handleCancel}
+          cancelTestId="btn-cancel"
+          cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.INCIDENTS) ? {
+            label: incidentFormLabels.clone.action,
+            onClick: handleClone,
+            testId: 'btn-clone-incident-bottom',
+          } : undefined}
+          printAction={isEditMode && id ? {
+            label: "In chứng từ",
+            onClick: () => { setExportNavigateOnClose(false); setExportForId(id); },
+            testId: "btn-print-docs-bottom",
+          } : undefined}
+          saveAction={!chiXem ? <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu vụ việc"}
             idPrefix="btn-save"
             mainTestId="btn-save"
-          />}
-        </div>
+          /> : undefined}
+        />
       </form>
 
       {/* Epic vụ việc/vụ án PR3 — popup xuất chứng từ động (mẫu admin upload) */}

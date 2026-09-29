@@ -131,4 +131,19 @@ describe('useBulkSelection', () => {
     });
     expect(result.current.mode).toBe('page');
   });
+
+  it('clears selection when URL context changes before the next page loads', () => {
+    const { result, rerender } = renderHook(
+      ({ resetKey }: { resetKey: string }) =>
+        useBulkSelection<TestRow>({ rowKey: 'id', pageRows: rows, resetKey }),
+      { initialProps: { resetKey: 'page=1&q=old' } },
+    );
+
+    act(() => result.current.toggleOne('r1'));
+    expect(result.current.isSelected('r1')).toBe(true);
+
+    rerender({ resetKey: 'page=1&q=new' });
+    expect(result.current.selectedIds.size).toBe(0);
+    expect(result.current.mode).toBe('page');
+  });
 });
