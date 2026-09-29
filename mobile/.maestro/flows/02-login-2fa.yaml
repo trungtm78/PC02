@@ -46,7 +46,6 @@ env:
 - tapOn:
     id: "2fa-otp-field"
 - inputText: ${output.otp}
-- hideKeyboard
 
 # Phase C: After OTP verify, we should reach the dashboard.
 - extendedWaitUntil:

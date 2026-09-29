@@ -48,6 +48,10 @@ env:
 # Timeout generous because cold launch + login round-trip + dashboard fetch
 # can exceed 10s on emulator.
 - extendedWaitUntil:
+    visible: "Bật đăng nhập sinh trắc học?"
+    timeout: 15000
+- tapOn: "Để sau"
+- extendedWaitUntil:
     visible:
       id: "dashboard-scaffold"
     timeout: 15000

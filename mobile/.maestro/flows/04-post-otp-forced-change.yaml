@@ -51,7 +51,6 @@ env:
 - tapOn:
     id: "2fa-otp-field"
 - inputText: ${output.otp}
-- hideKeyboard
 
 # Phase C: After OTP verify, we MUST land on first-login screen, NOT
 # dashboard (Codex C2 regression assertion). Pre-fix this would either
