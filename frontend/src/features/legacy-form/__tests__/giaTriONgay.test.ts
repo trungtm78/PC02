@@ -63,6 +63,20 @@ describe('giaTriONgay — làm sạch giá trị trước khi vào <input type="
     expect(giaTriONgay(v)).toBe('');
   });
 
+  it.each([
+    ['năm 0000', '0000-01-01'],
+    ['năm 0000 tháng khác', '0000-12-31'],
+  ])('%s — đặc tả HTML đòi năm >= 1, phải trả rỗng', (_ten, v) => {
+    // Cổng engine bắt được 24/09/2026, ca kiểm jsdom thì không: hàm cho `0000-01-01` đi qua,
+    // nhưng Chromium TỪ CHỐI (ô về rỗng) còn WebKit GIỮ NGUYÊN. Tức hàm sinh ra chuỗi mà
+    // trình duyệt không nuốt — đúng lớp lỗi chỉ đo được trên trình duyệt thật.
+    expect(giaTriONgay(v)).toBe('');
+  });
+
+  it('năm 0001 là biên DƯỚI hợp lệ, không được chặn nhầm', () => {
+    expect(giaTriONgay('0001-01-01')).toBe('0001-01-01');
+  });
+
   // ─── Ba lỗi Codex bắt được 23/09/2026 trong chính bản vá này ───────────────────
   /** Năm 0 KHÔNG dựng được bằng `Date.UTC(0, …)` — hàm ấy đổi 0-99 thành 1900-1999. */
   const namNgoaiDai = (nam: number): Date => {
