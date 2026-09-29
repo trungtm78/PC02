@@ -1,6 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TotpEncryptionService } from '../auth/services/totp-encryption.service';
+import { SettingsModule } from '../settings/settings.module';
 import { TestFixturesController } from './test-fixtures.controller';
 import { TestFixturesService } from './test-fixtures.service';
 
@@ -26,7 +27,7 @@ export class TestFixturesModule {
     }
     return {
       module: TestFixturesModule,
-      imports: [PrismaModule],
+      imports: [PrismaModule, SettingsModule],
       controllers: [TestFixturesController],
       providers: [TestFixturesService, TotpEncryptionService],
     };
