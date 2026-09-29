@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.72.1.1] - 2026-09-29
+
+### Fixed
+- Đưa lại ba trường khởi tố vào Excel mọi trường ngay khi phép đo production phát hiện dữ liệu mới, tránh xuất thiếu dữ liệu vừa nhập.
+
 ## [0.72.1.0] - 2026-09-29
 
 ### Added
