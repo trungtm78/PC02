@@ -196,7 +196,13 @@ class _FirstLoginChangePasswordScreenState
                     labelText: 'Xác nhận mật khẩu',
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
-                    errorText: _mismatchError,
+                    error: _mismatchError == null
+                        ? null
+                        : Semantics(
+                            identifier: MaestroKeys.firstLoginMismatchText,
+                            liveRegion: true,
+                            child: Text(_mismatchError!),
+                          ),
                     suffixIcon: IconButton(
                       icon: Icon(_obscureConfirm
                           ? Icons.visibility
@@ -208,12 +214,6 @@ class _FirstLoginChangePasswordScreenState
                   onSubmitted: (_) => _submit(),
                 ),
               ),
-              if (_mismatchError != null)
-                Semantics(
-                  identifier: MaestroKeys.firstLoginMismatchText,
-                  liveRegion: true,
-                  child: const SizedBox.shrink(),
-                ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Semantics(

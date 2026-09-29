@@ -205,7 +205,7 @@ export class AuthService {
       };
     }
 
-    if (is2FAEnabled) {
+    if (is2FAEnabled || user.totpEnabled) {
       const jti = crypto.randomUUID();
       // Codex review round 2 #B: bind tokenVersion to twoFaToken so admin
       // password reset (which bumps tokenVersion) invalidates in-flight 2FA

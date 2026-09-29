@@ -14,7 +14,7 @@ across the auth flow.
 | `02-login-2fa.yaml` | Login → 2FA OTP → dashboard | FCM init after OTP (BUG-1) |
 | `03-first-login-change-password.yaml` | Login with temp pw → forced change → dashboard | **Codex C1 CRITICAL** — discriminated union for `pending: true` + `reason: 'MUST_CHANGE_PASSWORD'` |
 | `04-post-otp-forced-change.yaml` | Login + 2FA → forced change → dashboard | **Codex C2 CRITICAL** — `verify2fa()` result sealed type (pre-fix crashed on missing accessToken) |
-| `05-stale-token-409-superseded.yaml` | Admin re-resets mid-flow → 409 → toast + login | **Codex C7 + Claude F2** — stale token UX, no silent catch |
+| `05-stale-token-superseded.yaml` | Admin re-resets mid-flow → stale token rejected with 401 → toast + login | **Codex C7 + Claude F2** — stale token UX, no silent catch |
 
 ## Stable selectors over Vietnamese label matching
 
@@ -60,7 +60,7 @@ npm run start:dev
 
 ```bash
 # All flows in order
-export MAESTRO_API_BASE_URL=http://10.0.2.2:3000/api/v1
+export MAESTRO_FIXTURE_API_BASE_URL=http://127.0.0.1:3000/api/v1
 export MAESTRO_TEST_SEED_TOKEN="$TEST_SEED_TOKEN"
 maestro test mobile/.maestro/flows/
 
@@ -85,8 +85,8 @@ curl -X DELETE \
 `feat/mobile-**` branches and on PRs touching `mobile/` or `backend/src/auth/`
 + `backend/src/test-fixtures/`. The workflow:
 
-1. Spins up a PostgreSQL service container and applies Prisma migrations.
-2. Generates a fresh `TEST_SEED_TOKEN` per job (never reused, never leaked).
+1. Spins up a PostgreSQL service container and bootstraps its fresh Prisma schema.
+2. Generates fresh fixture credentials and an ephemeral RSA keypair per job.
 3. Starts the backend with `E2E_TEST_MODE=true`.
 4. Builds a debug APK with the right `API_BASE_URL`.
 5. Boots `api-level: 34` Android emulator via `reactivecircus/android-emulator-runner`.
@@ -118,7 +118,8 @@ Guard tests live at [`test-mode.guard.spec.ts`](../../backend/src/test-fixtures/
    grep for it.
 2. Reuse existing `MaestroKeys`. If a new screen needs identifiers, add them
    to that file with naming convention `<screen>-<element>`.
-3. Start flow with `evalScript` calling `/test/seed-user` to arrange state.
+3. Start the flow with `runScript: ../scripts/seed-user.js` and pass its fixture
+   parameters through `env`.
 4. Use `launchApp: clearState: true` so each flow starts isolated.
 5. Selectors: `id: "..."` (Semantics identifier), NOT `text: "..."`.
 6. Assertions: `assertVisible` + `assertNotVisible` — both prove the

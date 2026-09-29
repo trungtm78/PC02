@@ -163,6 +163,25 @@ describe('AuthService.login (mustChangePassword pending branch — C2)', () => {
     expect((result as any).twoFaToken).toBeDefined();
     expect((result as any).changePasswordToken).toBeUndefined();
   });
+
+  it('still challenges a user who enrolled TOTP when the global mandate is disabled', async () => {
+    mockSettingsService.getValue.mockResolvedValue('false');
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      totpEnabled: true,
+      twoFaSetupRequired: false,
+    });
+    bcryptCompare.mockResolvedValue(true);
+
+    const result = await service.login(
+      { username: 'cb@pc02.local', password: 'Temp@1234' } as any,
+      META,
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({ pending: true, twoFaToken: 'SIGNED_JWT_TOKEN' }),
+    );
+  });
 });
 
 describe('AuthService.firstLoginChangePassword (D1 / new endpoint)', () => {
@@ -1276,7 +1295,7 @@ describe('AuthService.login (multi-field identifier — post-/autoplan)', () => 
     failedLoginAttempts: 0,
     lockedUntil: null,
     lastFailedLoginAt: null,
-    totpEnabled: true, // skip 2FA setup mandate path
+    totpEnabled: false,
     twoFaSetupRequired: false,
   };
 

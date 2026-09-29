@@ -9,30 +9,17 @@ env:
 ---
 # Seed a user with 2FA enabled. Backend returns the current TOTP code so
 # Maestro can submit it without needing to compute TOTP client-side.
-- evalScript: |
-    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
-    const token = MAESTRO_TEST_SEED_TOKEN;
-    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
-    const r = http.post(apiBase + '/test/seed-user', {
-      headers: {
-        'x-test-seed-token': token,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
-        mustChangePassword: false,
-        twoFaEnabled: true,
-      }),
-    });
-    if (r.status !== 200) {
-      throw new Error('seed failed: ' + r.status + ' ' + r.body);
-    }
-    const data = json(r.body);
-    if (!data.currentTotpCode || data.currentTotpCode.length !== 6) {
-      throw new Error('seed response missing currentTotpCode');
-    }
-    output.otp = data.currentTotpCode;
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEST_PASSWORD}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'false'
+      FIXTURE_TWO_FA_ENABLED: 'true'
+      FIXTURE_BUMP_TOKEN_VERSION: 'false'
+      FIXTURE_REQUIRE_OTP: 'true'
 
 - launchApp:
     appId: vn.gov.pc02.mobile
@@ -51,19 +38,18 @@ env:
 - tapOn:
     id: "login-submit-button"
 
-# Phase B: 2FA screen should be visible. Auto-submit on 6th digit, but we
-# also tap the submit button for determinism (avoids onChanged race).
-- assertVisible:
-    id: "2fa-otp-field"
+# Phase B: 2FA screen auto-submits when the sixth digit is entered.
+- extendedWaitUntil:
+    visible:
+      id: "2fa-otp-field"
     timeout: 10000
 - tapOn:
     id: "2fa-otp-field"
 - inputText: ${output.otp}
 - hideKeyboard
-- tapOn:
-    id: "2fa-submit-button"
 
 # Phase C: After OTP verify, we should reach the dashboard.
-- assertVisible:
-    id: "dashboard-scaffold"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-scaffold"
     timeout: 15000
