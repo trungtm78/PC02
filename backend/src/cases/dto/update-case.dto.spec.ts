@@ -56,7 +56,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'soQuyetDinhTamDinhChi')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soQuyetDinhTamDinhChi'),
+    ).toBeUndefined();
     expect(errors.find((e) => e.property === 'ngayTamDinhChi')).toBeUndefined();
   });
 
@@ -70,7 +72,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'daRaSoat')).toBeUndefined();
     expect(errors.find((e) => e.property === 'ngayRaSoat')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'soQuyetDinhPhucHoi')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'soQuyetDinhPhucHoi'),
+    ).toBeUndefined();
   });
 
   it('accepts ketQuaPhucHoiVuAn enum', async () => {
@@ -79,7 +83,9 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
       caseProvenance: 'DIRECT_DISCOVERY',
     });
     const errors = await validate(dto);
-    expect(errors.find((e) => e.property === 'ketQuaPhucHoiVuAn')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'ketQuaPhucHoiVuAn'),
+    ).toBeUndefined();
   });
 
   // PR-3 (2026-06-26) — 4 field TĐC vụ án còn sót: form GỬI khi EDIT → trước 400 (forbidNonWhitelisted).
@@ -93,9 +99,15 @@ describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', 
     });
     const errors = await validate(dto);
     expect(errors.find((e) => e.property === 'ngayPhucHoi')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'ngayHetThoiHieu')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'tdcKhacPhucLyDoBienPhap')).toBeUndefined();
-    expect(errors.find((e) => e.property === 'tdcKhacPhucBienBan')).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'ngayHetThoiHieu'),
+    ).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'tdcKhacPhucLyDoBienPhap'),
+    ).toBeUndefined();
+    expect(
+      errors.find((e) => e.property === 'tdcKhacPhucBienBan'),
+    ).toBeUndefined();
   });
 
   it('rejects invalid ketQuaPhucHoiVuAn enum value', async () => {

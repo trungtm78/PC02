@@ -12,7 +12,7 @@
  * includes all 4 provenance fields (+ 2 optimistic-lock tokens when relevant).
  */
 import { describe, it, expect } from 'vitest';
-import { buildCreateCasePayload } from '../buildCreateCasePayload';
+import { buildCreateCasePayload, buildStatisticPayload } from '../buildCreateCasePayload';
 import { INITIAL_FORM_DATA } from '../types';
 import type { CaseFormData } from '../types';
 
@@ -328,6 +328,36 @@ describe('buildCreateCasePayload — PR-M2 ghiChuKhac/toiDanhKhacIds + 3 cờ x�
     expect(stat.ghiAmGhiHinhDaDuocXetXu).toBe(true);
     expect(stat.khongGAGHNhungToaYeuCau).toBe(true);
     expect('coSuDungKQGhiAmTrongXetXu' in stat).toBe(false); // false không gửi (giữ nullable)
+  });
+
+  it('sends false statistic flags when updating an existing record', () => {
+    const result = buildStatisticPayload({
+      coGhiAmGhiHinh: false,
+      coSuDungKQGhiAmTrongXetXu: false,
+    }, true);
+
+    expect(result.coGhiAmGhiHinh).toBe(false);
+    expect(result.coSuDungKQGhiAmTrongXetXu).toBe(false);
+  });
+
+  it('sends cleared catalog arrays when updating an existing record', () => {
+    const payload = buildCreateCasePayload({
+      ...baseValid,
+      lyDoTamDinhChiVuAn: [],
+      toiDanhKhacIds: [],
+    }, { includeClearedArrays: true });
+
+    expect(payload.lyDoTamDinhChiVuAn).toEqual([]);
+    expect(payload.toiDanhKhacIds).toEqual([]);
+  });
+
+  it('sends caseCode only when an officer explicitly overrides it', () => {
+    const automatic = buildCreateCasePayload({ ...baseValid, caseCode: '2026-1' });
+    const manual = buildCreateCasePayload({ ...baseValid, caseCode: 'CUSTOM-2026-1' }, {
+      manualCaseCode: true,
+    });
+    expect(automatic.caseCode).toBeUndefined();
+    expect(manual.caseCode).toBe('CUSTOM-2026-1');
   });
 
   // ── Consolidate epic: field promoted → cột typed TOP-LEVEL ──

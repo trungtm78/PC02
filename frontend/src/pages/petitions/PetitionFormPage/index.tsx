@@ -43,7 +43,7 @@ import { ChiDanDonViXuLy, NHAN_NGOAI_DANH_SACH } from "./ChiDanDonViXuLy";
 import { optionsGiuGiaTriLa } from "@/shared/legacy/tinhTrangOptions";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
-import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalContext";
 import { useQuickCreateDirectoryModalSafe } from "@/features/_shared/modals/useQuickCreateDirectoryModal";
 import { today, toDateInput } from "@/lib/dates";
 import { HUONG_XU_LY_OPTIONS, laHuongNoiBo, moTaHuong } from "@/shared/enums/huong-xu-ly";

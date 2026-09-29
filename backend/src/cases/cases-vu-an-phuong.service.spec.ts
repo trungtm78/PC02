@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseStatus, CaseType } from '@prisma/client';
@@ -213,12 +212,14 @@ describe('CasesService — màn Vụ án phường/xã', () => {
       });
       mockPrisma.case.count.mockResolvedValue(650);
       mockPrisma.case.findMany.mockImplementation(
-        (a: { where: { id?: { in: string[] } } }) =>
-          Promise.resolve(
-            a.where.id
-              ? a.where.id.in.map((id) => dong(Number(id.slice(1))))
+        (a: { where: { AND?: Array<{ id?: { in: string[] } }> } }) => {
+          const selectedIds = a.where.AND?.find((part) => part.id?.in)?.id?.in;
+          return Promise.resolve(
+            selectedIds
+              ? selectedIds.map((id) => dong(Number(id.slice(1))))
               : Array.from({ length: 650 }, (_, k) => ({ id: `c${k}` })),
-          ),
+          );
+        },
       );
       try {
         const phan: Buffer[] = [];

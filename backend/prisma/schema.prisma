@@ -681,6 +681,7 @@ model Case {
   donViGiaoBd         String? @map("don_vi_giao_bd")
   soQuyetDinhUyThacBd String? @map("so_quyet_dinh_uy_thac_bd")
   nghiVanDoiTuongBd   String? @map("nghi_van_doi_tuong_bd")
+  ketQuaUyThacBd      String? @map("ket_qua_uy_thac_bd")
   crimeBd             String? @map("crime_bd")
   /// CHỈ ĐỌC — cột bóng TÊN vụ án, đích của thẻ "Vụ án" ở Đối tượng/Luật sư (`cotBongPhu` trong vu-an.khai.ts).
   nameBd              String? @map("name_bd")
@@ -702,6 +703,8 @@ model Case {
   thoiHanUyThac     DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
   loaiUyThac        LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)
   ketQuaUyThac      String?     @map("ket_qua_uy_thac") // Kết quả điều tra
+  utdtHasFailureReason Boolean? @map("utdt_has_failure_reason")
+  utdtHasReplyResult   Boolean? @map("utdt_has_reply_result")
   ngayTraKetQua     DateTime?   @map("ngay_tra_ket_qua") // Ngày trả kết quả về đơn vị ủy thác
   loaiThongTin      String?     @map("loai_thong_tin") // Tố giác / Trình báo / Đề nghị / Kiến nghị...
 
@@ -1617,6 +1620,7 @@ model Document {
   size         Int // Kích thước file (bytes)
   filePath     String // Đường dẫn file (local storage)
   documentType String  @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
+  recordedAt   String? // Local recording date (YYYY-MM-DD), independent of upload timezone
 
   // Liên kết
   caseId       String? // FK → cases (nullable)

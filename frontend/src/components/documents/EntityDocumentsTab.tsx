@@ -12,6 +12,17 @@ import { useCatalog } from "@/hooks/useCatalog";
 
 export type EntityKind = "case" | "incident" | "petition";
 
+interface EntityDocument {
+  id: string;
+  title: string;
+  documentType: string;
+  mimeType?: string | null;
+  originalName?: string | null;
+  size?: number | null;
+  createdAt?: string | null;
+  description?: string | null;
+}
+
 // Loại tài liệu (DOCUMENT_TYPE) nay là danh mục ĐỘNG — options + nhãn lấy từ Catalog Registry
 // qua useCatalog (không hardcode). Xem migration 20260627000001_document_type_to_dynamic.
 
@@ -82,7 +93,7 @@ export function EntityDocumentsTab({
   const docTypeOptions =
     chiLoai && chiLoai.length ? moiLoai.filter((o) => chiLoai.includes(o.code)) : moiLoai;
   const docTypeLabel = Object.fromEntries(moiLoai.map((o) => [o.code, o.label]));
-  const [docs, setDocs] = useState<any[]>([]);
+  const [docs, setDocs] = useState<EntityDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -104,7 +115,7 @@ export function EntityDocumentsTab({
       // và bộ đếm trên danh sách sẽ đếm khác thứ khu này hiện.
       const loc =
         chiLoai && chiLoai.length === 1 ? `&documentType=${encodeURIComponent(chiLoai[0])}` : "";
-      const res = await api.get(`/documents?${copy.idKey}=${entityId}&limit=100${loc}`);
+      const res = await api.get<{ data: EntityDocument[] }>(`/documents?${copy.idKey}=${entityId}&limit=100${loc}`);
       setDocs(res.data.data ?? []);
     } catch {
       setDocs([]);
@@ -196,9 +207,9 @@ export function EntityDocumentsTab({
     }
   };
 
-  const handleOpen = async (doc: any) => {
+  const handleOpen = async (doc: EntityDocument) => {
     try {
-      const res = await api.get(`/documents/${doc.id}/download`, { responseType: "blob" });
+      const res = await api.get<Blob>(`/documents/${doc.id}/download`, { responseType: "blob" });
       const url = URL.createObjectURL(new Blob([res.data], { type: doc.mimeType ?? res.data.type }));
       window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -207,9 +218,9 @@ export function EntityDocumentsTab({
     }
   };
 
-  const handleDownload = async (doc: any) => {
+  const handleDownload = async (doc: EntityDocument) => {
     try {
-      const res = await api.get(`/documents/${doc.id}/download`, { responseType: "blob" });
+      const res = await api.get<Blob>(`/documents/${doc.id}/download`, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
       a.href = url;
@@ -221,7 +232,7 @@ export function EntityDocumentsTab({
     }
   };
 
-  const handleDelete = async (doc: any) => {
+  const handleDelete = async (doc: EntityDocument) => {
     if (!confirm(`Xóa tài liệu "${doc.title}"?`)) return;
     try {
       await api.delete(`/documents/${doc.id}`);

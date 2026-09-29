@@ -13,6 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { ComprehensiveListPageShell } from '../ComprehensiveListPageShell';
@@ -31,10 +32,12 @@ vi.mock('@/lib/api', () => ({
 }));
 
 function renderWithRouter(initialEntries: string[] = ['/comprehensive'], flags?: FeatureFlag[]) {
-  let lastLocation = '';
+  const location = { current: '' };
   function LocationTracker() {
     const loc = useLocation();
-    lastLocation = loc.pathname + loc.search;
+    useEffect(() => {
+      location.current = loc.pathname + loc.search;
+    }, [loc.pathname, loc.search]);
     return null;
   }
   const trang = (
@@ -60,7 +63,7 @@ function renderWithRouter(initialEntries: string[] = ['/comprehensive'], flags?:
   const result = render(
     flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
-  return { ...result, getLocation: () => lastLocation };
+  return { ...result, getLocation: () => location.current };
 }
 
 const caseRow = {

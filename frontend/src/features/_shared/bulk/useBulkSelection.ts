@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 /**
  * v0.48 PR1 F1 — Bulk selection hook.
@@ -20,6 +20,8 @@ export type BulkSelectionPageState = 'none' | 'some' | 'all';
 export interface UseBulkSelectionOptions<TRow> {
   rowKey: keyof TRow;
   pageRows: TRow[];
+  /** Reset selection as soon as the list URL context changes, before new rows arrive. */
+  resetKey?: string;
   /** Total bản ghi khớp filter hiện tại (để hiển thị banner "select all matching"). */
   totalCountMatchingFilter?: number;
   /** Async fetch tất cả id khớp filter. Required nếu user gọi `selectAllMatchingFilter`. */
@@ -44,26 +46,24 @@ export interface UseBulkSelectionResult {
 export function useBulkSelection<TRow>(
   opts: UseBulkSelectionOptions<TRow>,
 ): UseBulkSelectionResult {
-  const { rowKey, pageRows } = opts;
+  const { rowKey, pageRows, fetchAllIdsMatchingFilter, resetKey } = opts;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [mode, setMode] = useState<BulkSelectionMode>('page');
 
   // Auto-clear khi pageRows id-set thay đổi (filter/sort/page change).
   // Tránh stale selection chứa id không còn trong page hiện tại.
-  const pageRowIdsRef = useRef<string>('');
   const currentPageIds = useMemo(
     () => pageRows.map((r) => String(r[rowKey])).sort().join('|'),
     [pageRows, rowKey],
   );
 
-  useEffect(() => {
-    // Skip first render (ref empty → initial).
-    if (pageRowIdsRef.current !== '' && pageRowIdsRef.current !== currentPageIds) {
-      setSelectedIds(new Set());
-      setMode('page');
-    }
-    pageRowIdsRef.current = currentPageIds;
-  }, [currentPageIds]);
+  const selectionKey = JSON.stringify([currentPageIds, resetKey]);
+  const [previousSelectionKey, setPreviousSelectionKey] = useState(selectionKey);
+  if (previousSelectionKey !== selectionKey) {
+    setPreviousSelectionKey(selectionKey);
+    setSelectedIds(new Set());
+    setMode('page');
+  }
 
   const isSelected = useCallback((id: string) => selectedIds.has(id), [selectedIds]);
 
@@ -112,13 +112,13 @@ export function useBulkSelection<TRow>(
   }, [pageIds]);
 
   const selectAllMatchingFilter = useCallback(async () => {
-    if (!opts.fetchAllIdsMatchingFilter) {
+    if (!fetchAllIdsMatchingFilter) {
       throw new Error('fetchAllIdsMatchingFilter required for all-matching-filter mode');
     }
-    const allIds = await opts.fetchAllIdsMatchingFilter();
+    const allIds = await fetchAllIdsMatchingFilter();
     setSelectedIds(new Set(allIds));
     setMode('all-matching-filter');
-  }, [opts.fetchAllIdsMatchingFilter]);
+  }, [fetchAllIdsMatchingFilter]);
 
   const clear = useCallback(() => {
     setSelectedIds(new Set());

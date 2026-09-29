@@ -1,4 +1,7 @@
-import { legacyFormParityData, O_HE_CU_TREN_FORM } from './legacy-form-parity.mapper';
+import {
+  legacyFormParityData,
+  O_HE_CU_TREN_FORM,
+} from './legacy-form-parity.mapper';
 
 describe('legacyFormParityData — ô hệ cũ trên form → cột Vụ án', () => {
   it('bỏ qua ô lời gọi không nhắc tới, không ghi đè bằng null', () => {
@@ -6,22 +9,34 @@ describe('legacyFormParityData — ô hệ cũ trên form → cột Vụ án', (
   });
 
   it('chuyển ngày dạng chuỗi thành Date', () => {
-    const data = legacyFormParityData({ ngayXayRa: '2026-08-01T00:00:00.000Z' });
+    const data = legacyFormParityData({
+      ngayXayRa: '2026-08-01T00:00:00.000Z',
+    });
     expect(data.ngayXayRa).toBeInstanceOf(Date);
-    expect((data.ngayXayRa as Date).toISOString()).toBe('2026-08-01T00:00:00.000Z');
+    expect((data.ngayXayRa as Date).toISOString()).toBe(
+      '2026-08-01T00:00:00.000Z',
+    );
   });
 
   it('ngày rỗng nghĩa là người dùng xoá trắng ô — ghi null, không bỏ qua', () => {
-    expect(legacyFormParityData({ ngayXayRa: '' })).toEqual({ ngayXayRa: null });
+    expect(legacyFormParityData({ ngayXayRa: '' })).toEqual({
+      ngayXayRa: null,
+    });
   });
 
   it('mảng rỗng nghĩa là bỏ chọn hết — cột String[] không nhận null', () => {
-    expect(legacyFormParityData({ lyDoKhongKhoiTo: [] })).toEqual({ lyDoKhongKhoiTo: [] });
-    expect(legacyFormParityData({ lyDoKhongKhoiTo: null })).toEqual({ lyDoKhongKhoiTo: [] });
+    expect(legacyFormParityData({ lyDoKhongKhoiTo: [] })).toEqual({
+      lyDoKhongKhoiTo: [],
+    });
+    expect(legacyFormParityData({ lyDoKhongKhoiTo: null })).toEqual({
+      lyDoKhongKhoiTo: [],
+    });
   });
 
   it('giữ nguyên mảng lý do đã chọn', () => {
-    expect(legacyFormParityData({ lyDoTamDinhChiNguonTin: ['chua_co_giam_dinh'] })).toEqual({
+    expect(
+      legacyFormParityData({ lyDoTamDinhChiNguonTin: ['chua_co_giam_dinh'] }),
+    ).toEqual({
       lyDoTamDinhChiNguonTin: ['chua_co_giam_dinh'],
     });
   });
@@ -43,7 +58,10 @@ describe('legacyFormParityData — ô hệ cũ trên form → cột Vụ án', (
   it('phụ trách đủ 30 ô hệ cũ, không sót', () => {
     expect(O_HE_CU_TREN_FORM).toHaveLength(30);
     const day: Record<string, unknown> = {};
-    for (const k of O_HE_CU_TREN_FORM) day[k] = k.startsWith('ngay') ? '2026-08-01' : 'x';
-    expect(Object.keys(legacyFormParityData(day)).sort()).toEqual([...O_HE_CU_TREN_FORM].sort());
+    for (const k of O_HE_CU_TREN_FORM)
+      day[k] = k.startsWith('ngay') ? '2026-08-01' : 'x';
+    expect(Object.keys(legacyFormParityData(day)).sort()).toEqual(
+      [...O_HE_CU_TREN_FORM].sort(),
+    );
   });
 });

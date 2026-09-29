@@ -56,9 +56,9 @@ import { formatVNDate } from '@/lib/dates';
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
-import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
-import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { comprehensiveRowActions } from '@/features/comprehensive/row-actions';
@@ -355,7 +355,7 @@ export function ComprehensiveListPageShell() {
           }),
       },
     }),
-    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+    [navigate, canDispatch, canEdit, canDelete, assignModal, printModal, deleteModal],
   );
   const listFilters = useListFilters<ComprehensiveFilterValue>({
     // CÙNG tiền tố với `useListPageUrlState('comp')`. Trước 15/09/2026 là 'comprehensive', nên
@@ -371,8 +371,11 @@ export function ComprehensiveListPageShell() {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setTableState('loading');
-    setError(undefined);
+    queueMicrotask(() => {
+      if (ctrl.signal.aborted) return;
+      setTableState('loading');
+      setError(undefined);
+    });
 
     const searchParam = thamSoTimKiem(debouncedSearch, theBat, JSON.parse(tkKey) as string[]);
     // Tìm kiếm + khoảng ngày của mặt lọc, theo tên tham số từng API.
@@ -501,7 +504,6 @@ export function ComprehensiveListPageShell() {
 
     void fetchAll();
     return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, page, debouncedSearch, theBat, tkKey, coThe, refetchCounter, appliedFilters]);
 
   // Stats fan-out CHỈ khi typeFilter được chọn — single-type mode cần stats endpoint

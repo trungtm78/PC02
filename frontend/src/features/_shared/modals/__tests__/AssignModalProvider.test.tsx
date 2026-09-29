@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { AssignModalProvider, useAssignModal } from '../AssignModalProvider';
+import { AssignModalProvider } from '../AssignModalProvider';
+import { useAssignModal } from '../AssignModalContext';
 
 vi.mock('@/components/AssignModal', () => ({
   AssignModal: ({ open, recordId, resourceType, onClose }: {

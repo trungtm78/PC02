@@ -73,6 +73,7 @@ export const TIM_KIEM_VU_AN = [
   { key: 'donViGiao', nhan: 'Đơn vị giao', kieu: 'chu' },
   { key: 'soQuyetDinh', nhan: 'Số QĐ/Phiếu', kieu: 'chu' },
   { key: 'doiTuongNghiVan', nhan: 'Đối tượng nghi vấn', kieu: 'chu' },
+  { key: 'ketQuaUyThac', nhan: 'Kết quả ủy thác', kieu: 'chu' },
   { key: 'toiDanh', nhan: 'Tội danh', kieu: 'chu' },
   { key: 'toiDanhChinh', nhan: 'Tội danh chính', kieu: 'quan-he' },
   { key: 'thoiHan', nhan: 'Thời hạn', kieu: 'ngay' },

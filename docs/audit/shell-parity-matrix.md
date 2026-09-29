@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp). Trước đó: 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT). Trước đó: 2026-08-29 (chip đếm có trạng thái "chưa hỏi được"). Trước đó: 2026-08-25 (v0.73.0.0, danh sách theo bố cục hệ cũ), 2026-08-24 (v0.72), 2026-05-30 (v0.66).
+**Updated**: 2026-09-29 (v0.72.1.0, đồng bộ tìm kiếm/xuất/thao tác hàng loạt cho Ủy thác điều tra và các shell dùng chung). Trước đó: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
@@ -16,6 +16,28 @@
 `.github/workflows/shell-parity-gate.yml`:
 - Any PR modifying `*ListPageShell.tsx` MUST also update this matrix file.
 - Bypass: `[parity-skip]` in PR title for refactor-only changes.
+
+## v0.72.1.0 — Đồng bộ luồng danh sách và Ủy thác điều tra
+
+Các shell dùng chung được mở rộng để Ủy thác điều tra có cùng cách dùng với Đơn thư,
+Vụ việc và Vụ án. Các thay đổi trong bốn `ListPageShell` giữ một nguồn cấu hình chung cho
+tìm kiếm, lựa chọn hàng, xuất dữ liệu và thao tác hàng loạt.
+
+| Năng lực | Cases | Incidents | Petitions | Comprehensive | Ủy thác điều tra |
+|---|---|---|---|---|---|
+| Tìm kiếm theo cột và thẻ, lưu trong URL | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel theo phần đang xem | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Excel mọi trường có quyền | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Word hàng loạt | ✅ | ✅ | ✅ | theo từng loại | ✅ THÊM MỚI |
+| Chọn hàng và thao tác hàng loạt | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Máy chủ ép đúng loại hồ sơ và phạm vi ghi/xuất | ✅ | ✅ | ✅ | ✅ | ✅ THÊM MỚI |
+| Thống kê dùng cùng điều kiện với danh sách | ✅ | ✅ | ✅ | ✅ | ✅, 4 trạng thái phản hồi |
+
+Các thay đổi nhỏ trong `IncidentListPageShell`, `PetitionListPageShell` và
+`ComprehensiveListPageShell` nối hành động Word/Excel dùng chung; không xóa cột, bộ lọc hay
+hành động hiện có. `CaseListPageShell` bổ sung các tham số chung để danh sách và thống kê
+không lệch nhau. Màn Ủy thác vẫn buộc `caseType=UY_THAC_DIEU_TRA` tại máy chủ cho cả xem,
+ghi và xuất; màn Vụ án thường mặc định `caseType=REGULAR`.
 
 ## v0.72.0.0 — Sắp xếp danh sách (feat/list-sort-newest-first)
 

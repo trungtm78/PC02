@@ -8,7 +8,7 @@ import { TemplateFormModal } from '../components/TemplateFormModal';
 import { DropdownMenu, DropdownItem } from '@/components/shared/DropdownMenu';
 import { Button } from '@/components/ui/button';
 import { BTN_ICON_BLUE, BTN_ICON_SLATE } from '@/constants/styles';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 
 /**
  * Nhãn vòng đời. Nháp và Đã thu hồi KHÔNG hiện trong popup In chứng từ của cán bộ — chỉ `active`

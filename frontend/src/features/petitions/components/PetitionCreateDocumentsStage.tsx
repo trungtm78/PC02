@@ -10,6 +10,8 @@ import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
 import { Card, CardHeader } from "@/components/shared";
 import { useCatalog } from "@/hooks/useCatalog";
+import { documentStage } from "@/locales/vi";
+import type { EntityKind } from "@/components/documents/EntityDocumentsTab";
 
 export interface PetitionStageHandle {
   /** Có file đang chờ upload không. */
@@ -25,6 +27,7 @@ function formatBytes(bytes: number) {
 }
 
 export interface PetitionCreateDocumentsStageProps {
+  entityKind?: EntityKind;
   /**
    * Tiền tố `data-testid`. Mặc định "stage" — giữ nguyên tên cũ cho khu tệp chung.
    *
@@ -45,9 +48,10 @@ export const PetitionCreateDocumentsStage = forwardRef<
   PetitionStageHandle,
   PetitionCreateDocumentsStageProps
 >(function PetitionCreateDocumentsStage(
-  { chiLoai, loaiMacDinh, tieuDe, tienToTestId = 'stage' },
+  { entityKind = 'petition', chiLoai, loaiMacDinh, tieuDe, tienToTestId = 'stage' },
   ref,
 ) {
+  const idKey = { petition: 'petitionId', incident: 'incidentId', case: 'caseId' }[entityKind];
   const { options: moiLoai } = useCatalog("DOCUMENT_TYPE");
   const docTypeOptions =
     chiLoai && chiLoai.length ? moiLoai.filter((o) => chiLoai.includes(o.code)) : moiLoai;
@@ -98,7 +102,7 @@ export const PetitionCreateDocumentsStage = forwardRef<
         fd.append("file", file);
         fd.append("title", fileTitle);
         fd.append("documentType", docType);
-        fd.append("petitionId", petitionId);
+        fd.append(idKey, petitionId);
         if (description) fd.append("description", description);
         await api.post("/documents", fd, { headers: { "Content-Type": "multipart/form-data" } });
       } catch (e: unknown) {
@@ -133,10 +137,10 @@ export const PetitionCreateDocumentsStage = forwardRef<
   };
 
   return (
-    <Card data-testid="petition-create-documents-stage">
+    <Card data-testid={`${entityKind}-create-documents-stage`}>
       <CardHeader title={tieuDe ?? "Tài liệu đính kèm"} />
       <p className="text-xs text-amber-600 mb-3" data-testid={`${tienToTestId}-hint`}>
-        Chọn file ngay khi tạo mới — hệ thống sẽ tự tải lên sau khi bấm Lưu đơn thư.
+        {documentStage.createHint[entityKind]}
       </p>
 
       <div className="mb-4 p-4 border border-blue-200 bg-blue-50 rounded-lg space-y-3">

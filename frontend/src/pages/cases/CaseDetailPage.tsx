@@ -98,6 +98,66 @@ interface Conclusion {
   status: ConclusionStatusLabel;
 }
 
+interface SubjectApi {
+  id: string;
+  fullName: string;
+  idNumber?: string | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  crimeId?: string | null;
+  crime?: { name: string } | null;
+  status?: string | null;
+  notes?: string | null;
+}
+
+interface LawyerApi {
+  id: string;
+  fullName: string;
+  barNumber: string;
+  phone?: string | null;
+  lawFirm?: string | null;
+  subject?: { fullName: string } | null;
+}
+
+interface StatusHistoryApi {
+  id: string;
+  toStatus: string | null;
+  changedAt: string;
+  changedBy?: { firstName?: string | null; lastName?: string | null; username: string } | null;
+}
+
+interface ConclusionApi {
+  id: string;
+  type: string;
+  createdAt: string;
+  content: string;
+  author?: { firstName?: string | null; lastName?: string | null } | null;
+  approvedBy?: { firstName?: string | null; lastName?: string | null } | null;
+  status: ConclusionStatus;
+}
+
+interface CaseDetailRecord {
+  quyenGhi?: boolean;
+  caseCode?: string | null;
+  stt?: string;
+  name?: string;
+  status?: string;
+  deadline?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  assignedTeamId?: string | null;
+  investigatorId?: string | null;
+  investigator?: { firstName?: string | null; lastName?: string | null; username: string } | null;
+  unit?: string | null;
+  crime?: string | null;
+  crimeChinh?: { name: string } | null;
+  subjectsCount?: number | null;
+  tinhTrang?: string | null;
+  metadata?: Record<string, unknown> | null;
+  petitions?: Array<{ id: string; stt: string; petitionType?: string; status: string; senderName: string; receivedDate: string }>;
+}
+
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, Defendant["detentionStatus"]> = {
@@ -107,7 +167,7 @@ const STATUS_MAP: Record<string, Defendant["detentionStatus"]> = {
   WANTED: "Tự do",
 };
 
-function subjectToDefendant(s: any): Defendant {
+function subjectToDefendant(s: SubjectApi): Defendant {
   return {
     id: s.id,
     name: s.fullName,
@@ -117,7 +177,7 @@ function subjectToDefendant(s: any): Defendant {
     phone: s.phone ?? "",
     chargesAgainst: s.crimeId ?? "",
     chargesLabel: s.crime?.name ?? s.crimeId ?? "",
-    detentionStatus: STATUS_MAP[s.status] ?? "Đang điều tra",
+    detentionStatus: (s.status ? STATUS_MAP[s.status] : undefined) ?? "Đang điều tra",
     detentionLocation: undefined,
     detentionDate: undefined,
     detentionExpiry: undefined,
@@ -126,7 +186,7 @@ function subjectToDefendant(s: any): Defendant {
   };
 }
 
-function lawyerApiToLocal(l: any): Lawyer {
+function lawyerApiToLocal(l: LawyerApi): Lawyer {
   return {
     id: l.id,
     name: l.fullName,
@@ -170,7 +230,7 @@ const STATUS_TO_EVENT_TYPE: Record<string, "info" | "warning" | "success" | "dan
   DA_KET_THUC:    "success",
 };
 
-function historyRowToTimeline(row: any): TimelineEvent {
+function historyRowToTimeline(row: StatusHistoryApi): TimelineEvent {
   const statusName = STATUS_LABEL[row.toStatus as string] ?? row.toStatus ?? "—";
   const eventType = STATUS_TO_EVENT_TYPE[row.toStatus as string] ?? "info";
   const actor = row.changedBy
@@ -214,7 +274,7 @@ function supplementToTimeline(s: InvestigationSupplement): TimelineEvent {
   };
 }
 
-function conclusionApiToLocal(c: any): Conclusion {
+function conclusionApiToLocal(c: ConclusionApi): Conclusion {
   return {
     id: c.id,
     type: c.type,
@@ -749,7 +809,7 @@ export default function CaseDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Case data from API
-  const [caseData, setCaseData] = useState<any>(null);
+  const [caseData, setCaseData] = useState<CaseDetailRecord | null>(null);
   // Máy chủ trả `quyenGhi` theo đúng luật checkWriteScope (20/09/2026). false = chỉ xem được (vd điều phối viên xem vụ án
   // tổ khác) → ẩn mọi nút ghi, không để cán bộ bấm rồi nhận 403. Thiếu trường (bản máy chủ cũ) → hiện như trước.
   const chiXem = caseData?.quyenGhi === false;
@@ -826,7 +886,7 @@ export default function CaseDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoadingCase(true);
-    api.get(`/cases/${id}`)
+    api.get<{ data: CaseDetailRecord }>(`/cases/${id}`)
       .then((res) => setCaseData(res.data.data))
       .catch(() => setCaseData(null))
       .finally(() => setLoadingCase(false));
@@ -860,7 +920,7 @@ export default function CaseDetailPage() {
     try {
       // Master Crime (toàn bộ 316 điều) thay Directory(type=CRIME) cũ chỉ 47 điều.
       const res = await api.get("/crimes?pc02Only=false&isActive=true&limit=1000");
-      setCrimes((res.data.data ?? []).map((d: any) => ({ id: d.id, name: d.name, code: d.code ?? "" })));
+      setCrimes((res.data.data ?? []).map((d: CrimeOption) => ({ id: d.id, name: d.name, code: d.code ?? "" })));
     } catch {
       setCrimes([]);
     } finally {
@@ -891,7 +951,7 @@ export default function CaseDetailPage() {
         api.get(`/cases/${id}/status-history`),
         api.get(`/investigation-supplements?caseId=${id}&limit=50`),
       ]);
-      const historyRows: any[] = historyRes.data.data ?? [];
+      const historyRows: StatusHistoryApi[] = historyRes.data.data ?? [];
       const supplementRows: InvestigationSupplement[] = supplementsRes.data.data ?? [];
       const historyEvents = Array.isArray(historyRows) ? historyRows.map(historyRowToTimeline) : [];
       const supplementEvents = supplementRows.map(supplementToTimeline);
@@ -2112,7 +2172,7 @@ export default function CaseDetailPage() {
           onSuccess={() => {
             setShowAssignModal(false);
             // Re-fetch case data
-            api.get(`/cases/${id}`).then((r: any) => setCaseData(r.data.data)).catch(() => {});
+            api.get<{ data: CaseDetailRecord }>(`/cases/${id}`).then((r) => setCaseData(r.data.data)).catch(() => {});
           }}
         />
       )}

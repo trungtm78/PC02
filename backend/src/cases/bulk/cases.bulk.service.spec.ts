@@ -4,6 +4,43 @@ import { CasesBulkService } from './cases.bulk.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
+import type { Response } from 'express';
+
+type MockTransaction = {
+  case: { update: jest.Mock };
+  $executeRaw: jest.Mock;
+};
+
+type TransactionCallback = (tx: MockTransaction) => Promise<unknown>;
+
+type MockBulkAudit = {
+  logBulkHeader: jest.Mock;
+  logBulkItem: jest.Mock;
+  completeBulk: jest.Mock;
+  log?: jest.Mock;
+};
+
+type MockBulkPrisma = {
+  case: { findMany: jest.Mock };
+  $executeRaw: jest.Mock;
+  $transaction: jest.Mock;
+  team?: { findFirst: jest.Mock };
+  userTeam?: { findFirst: jest.Mock };
+};
+
+type MockExportResponse = {
+  setHeader: jest.Mock;
+  status: jest.Mock;
+  json: jest.Mock;
+  destroy: jest.Mock;
+  headersSent: boolean;
+  write: jest.Mock;
+  end: jest.Mock;
+  on: jest.Mock;
+  once: jest.Mock;
+  emit: jest.Mock;
+  writableEnded: boolean;
+};
 
 /**
  * B3a — CasesBulkService.bulkAssign tests.
@@ -14,8 +51,11 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
  */
 describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   let service: CasesBulkService;
-  let mockPrisma: any;
-  let mockAudit: any;
+  let mockPrisma: MockBulkPrisma & {
+    team: { findFirst: jest.Mock };
+    userTeam: { findFirst: jest.Mock };
+  };
+  let mockAudit: MockBulkAudit;
 
   // Admin-equivalent scope: canDispatch=true → buildScopeFilter trả null (no filter).
   // Tests scope-skip behavior dùng mock case.findMany trả subset trực tiếp.
@@ -41,24 +81,32 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     // Default mocks: team exists, investigator on team, all cases in scope, all updates succeed.
     mockPrisma = {
       team: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'team-A', isActive: true }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'team-A', isActive: true }),
       },
       userTeam: {
-        findFirst: jest.fn().mockResolvedValue({ userId: 'inv-1', teamId: 'team-A' }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ userId: 'inv-1', teamId: 'team-A' }),
       },
       case: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 'case-1' },
-          { id: 'case-2' },
-          { id: 'case-3' },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'case-1' },
+            { id: 'case-2' },
+            { id: 'case-3' },
+          ]),
       },
       $executeRaw: jest.fn().mockResolvedValue(1),
-      $transaction: jest.fn(async (cb: (tx: any) => Promise<unknown>) => {
+      $transaction: jest.fn((cb: TransactionCallback) => {
         // Mock tx exposes case.update + $executeRaw cho audit.logBulkItem.
         const tx = {
           case: {
-            update: jest.fn().mockResolvedValue({ id: 'mocked', assignedTeamId: 'team-A' }),
+            update: jest
+              .fn()
+              .mockResolvedValue({ id: 'mocked', assignedTeamId: 'team-A' }),
           },
           $executeRaw: jest.fn().mockResolvedValue(1),
         };
@@ -110,7 +158,9 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   it('rejects with 400 BadRequest khi team không tồn tại (validate ONCE before loop)', async () => {
     mockPrisma.team.findFirst.mockResolvedValue(null);
 
-    await expect(service.bulkAssign(baseInput)).rejects.toThrow(BadRequestException);
+    await expect(service.bulkAssign(baseInput)).rejects.toThrow(
+      BadRequestException,
+    );
     // KHÔNG được tạo bulk_operations header nếu validation chung fail.
     expect(mockAudit.logBulkHeader).not.toHaveBeenCalled();
   });
@@ -118,7 +168,9 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   it('rejects với 400 khi investigator không thuộc team (validate ONCE)', async () => {
     mockPrisma.userTeam.findFirst.mockResolvedValue(null);
 
-    await expect(service.bulkAssign(baseInput)).rejects.toThrow(BadRequestException);
+    await expect(service.bulkAssign(baseInput)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(mockAudit.logBulkHeader).not.toHaveBeenCalled();
   });
 
@@ -132,25 +184,26 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     const result = await service.bulkAssign(baseInput);
 
     expect(result.succeeded.map((s) => s.id)).toEqual(['case-1', 'case-2']);
-    expect(result.skipped).toEqual([
-      { id: 'case-3', reason: 'PERMISSION' },
-    ]);
+    expect(result.skipped).toEqual([{ id: 'case-3', reason: 'PERMISSION' }]);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it('P2025 optimistic lock fail → item skipped CONCURRENT_MODIFICATION (plan eng E-H2)', async () => {
     // case-2 update throws P2025 → caught + classified as CONCURRENT_MODIFICATION, không fail batch.
-    mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+    mockPrisma.$transaction.mockImplementation((cb: TransactionCallback) => {
       const tx = {
         case: {
-          update: jest.fn().mockImplementation(({ where }: any) => {
-            if (where.id === 'case-2') {
-              const err: any = new Error('Record not found');
-              err.code = 'P2025';
-              throw err;
-            }
-            return Promise.resolve({ id: where.id });
-          }),
+          update: jest
+            .fn()
+            .mockImplementation(({ where }: { where: { id: string } }) => {
+              if (where.id === 'case-2') {
+                const err = Object.assign(new Error('Record not found'), {
+                  code: 'P2025',
+                });
+                throw err;
+              }
+              return Promise.resolve({ id: where.id });
+            }),
         },
         $executeRaw: jest.fn().mockResolvedValue(1),
       };
@@ -159,12 +212,15 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
 
     const result = await service.bulkAssign({
       ...baseInput,
-      expectedUpdatedAtByCaseId: { 'case-2': new Date('2026-01-01') } as any,
+      expectedUpdatedAtByCaseId: { 'case-2': new Date('2026-01-01') },
     });
 
     expect(result.succeeded.map((s) => s.id)).toEqual(['case-1', 'case-3']);
     expect(result.skipped).toContainEqual(
-      expect.objectContaining({ id: 'case-2', reason: 'CONCURRENT_MODIFICATION' }),
+      expect.objectContaining({
+        id: 'case-2',
+        reason: 'CONCURRENT_MODIFICATION',
+      }),
     );
   });
 
@@ -184,17 +240,12 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   });
 
   it('writes audit item INSIDE each per-item tx (plan eng E-H3 atomicity)', async () => {
-    let txAuditCalls = 0;
-    mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+    mockPrisma.$transaction.mockImplementation((cb: TransactionCallback) => {
       const tx = {
         case: { update: jest.fn().mockResolvedValue({ id: 'x' }) },
-        $executeRaw: jest.fn().mockImplementation(() => {
-          txAuditCalls++;
-          return Promise.resolve(1);
-        }),
+        $executeRaw: jest.fn().mockResolvedValue(1),
       };
-      const result = await cb(tx);
-      return result;
+      return cb(tx);
     });
 
     await service.bulkAssign(baseInput);
@@ -202,13 +253,16 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     // Audit phải gọi VÀO tx (qua mockAudit.logBulkItem nhận tx).
     expect(mockAudit.logBulkItem).toHaveBeenCalledTimes(3);
     // Mỗi call phải có tx parameter (truyền vào để rollback đồng bộ).
-    for (const call of mockAudit.logBulkItem.mock.calls) {
+    for (const call of mockAudit.logBulkItem.mock.calls as unknown[][]) {
       expect(call[1]).toBeDefined(); // tx param
     }
   });
 
   it('passes idempotencyKey to logBulkHeader for retry safety (plan eng E-H10)', async () => {
-    await service.bulkAssign({ ...baseInput, idempotencyKey: 'client-req-abc' });
+    await service.bulkAssign({
+      ...baseInput,
+      idempotencyKey: 'client-req-abc',
+    });
 
     expect(mockAudit.logBulkHeader).toHaveBeenCalledWith(
       expect.objectContaining({ idempotencyKey: 'client-req-abc' }),
@@ -221,9 +275,9 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
 // ───────────────────────────────────────────────
 describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
   let service: CasesBulkService;
-  let mockPrisma: any;
-  let mockAudit: any;
-  let mockRes: any;
+  let mockPrisma: Pick<MockBulkPrisma, 'case' | '$executeRaw'>;
+  let mockAudit: MockBulkAudit & { log: jest.Mock };
+  let mockRes: MockExportResponse;
 
   const adminScope: DataScope = {
     userIds: [],
@@ -276,11 +330,11 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
       destroy: jest.fn(),
       headersSent: false,
       // ExcelJS workbook.xlsx.write(stream) gọi write + end. Mock như Writable.
-      write: jest.fn((_chunk: any, cb?: any) => {
+      write: jest.fn((_chunk: unknown, cb?: () => void) => {
         if (cb) cb();
         return true;
       }),
-      end: jest.fn((cb?: any) => {
+      end: jest.fn((cb?: () => void) => {
         if (cb) cb();
       }),
       on: jest.fn(),
@@ -304,25 +358,40 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
     await service.bulkExport({
       ids: ['case-1', 'case-2'],
       dataScope: adminScope,
-      res: mockRes as any,
+      res: mockRes as unknown as Response,
       actorId: 'user-1',
     });
 
-    expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: { in: ['case-1', 'case-2'] },
-          deletedAt: null,
-        }),
-      }),
-    );
+    const firstCall = (mockPrisma.case.findMany.mock.calls as unknown[][])[0];
+    expect(firstCall[0]).toMatchObject({
+      where: { id: { in: ['case-1', 'case-2'] }, deletedAt: null },
+    });
+  });
+
+  it('constrains a delegation bulk export to delegation records on the server', async () => {
+    await service.bulkExport({
+      ids: ['case-1', 'case-2'],
+      caseType: 'UY_THAC_DIEU_TRA' as never,
+      dataScope: adminScope,
+      res: mockRes as unknown as Response,
+      actorId: 'user-1',
+    });
+
+    const firstCall = (mockPrisma.case.findMany.mock.calls as unknown[][])[0];
+    expect(firstCall[0]).toMatchObject({
+      where: {
+        id: { in: ['case-1', 'case-2'] },
+        deletedAt: null,
+        caseType: 'UY_THAC_DIEU_TRA',
+      },
+    });
   });
 
   it('writes xlsx Content-Type header + filename to Response', async () => {
     await service.bulkExport({
       ids: ['case-1'],
       dataScope: adminScope,
-      res: mockRes as any,
+      res: mockRes as unknown as Response,
       actorId: 'user-1',
     });
 
@@ -332,10 +401,11 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
     // Content-Disposition phải có attachment + filename .xlsx.
-    const dispositionCall = mockRes.setHeader.mock.calls.find(
-      (c: any[]) => c[0] === 'Content-Disposition',
+    const dispositionCall = (mockRes.setHeader.mock.calls as unknown[][]).find(
+      (call: unknown[]) => call[0] === 'Content-Disposition',
     );
     expect(dispositionCall).toBeDefined();
+    if (!dispositionCall) throw new Error('Content-Disposition header missing');
     expect(dispositionCall[1]).toMatch(/attachment; filename=".*\.xlsx"/);
   });
 
@@ -343,24 +413,20 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
     await service.bulkExport({
       ids: ['case-1', 'case-2', 'case-3'],
       dataScope: adminScope,
-      res: mockRes as any,
+      res: mockRes as unknown as Response,
       actorId: 'user-actor',
       meta: { ipAddress: '10.0.0.1', userAgent: 'Mozilla/5.0' },
     });
 
-    expect(mockAudit.log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-actor',
-        action: 'CASE_BULK_EXPORTED',
-        subject: 'Case',
-        metadata: expect.objectContaining({
-          idsRequested: 3,
-          format: 'xlsx',
-        }),
-        ipAddress: '10.0.0.1',
-        userAgent: 'Mozilla/5.0',
-      }),
-    );
+    const auditCall = (mockAudit.log.mock.calls as unknown[][])[0];
+    expect(auditCall[0]).toMatchObject({
+      userId: 'user-actor',
+      action: 'CASE_BULK_EXPORTED',
+      subject: 'Case',
+      metadata: { idsRequested: 3, format: 'xlsx' },
+      ipAddress: '10.0.0.1',
+      userAgent: 'Mozilla/5.0',
+    });
   });
 
   it('rejects empty ids array (must have at least 1)', async () => {
@@ -368,7 +434,7 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
       service.bulkExport({
         ids: [],
         dataScope: adminScope,
-        res: mockRes as any,
+        res: mockRes as unknown as Response,
         actorId: 'user-1',
       }),
     ).rejects.toThrow(BadRequestException);
@@ -381,7 +447,7 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
       service.bulkExport({
         ids: tooMany,
         dataScope: adminScope,
-        res: mockRes as any,
+        res: mockRes as unknown as Response,
         actorId: 'user-1',
       }),
     ).rejects.toThrow(BadRequestException);
@@ -394,8 +460,8 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
 // ───────────────────────────────────────────────
 describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
   let service: CasesBulkService;
-  let mockPrisma: any;
-  let mockAudit: any;
+  let mockPrisma: MockBulkPrisma;
+  let mockAudit: MockBulkAudit & { log: jest.Mock };
 
   const adminScope: DataScope = {
     userIds: [],
@@ -412,10 +478,10 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
     status: 'TIEP_NHAN',
     createdById,
     createdAt: new Date(Date.now() - 1_000 * 60 * 60), // 1h ago
-    subjects: [],
-    lawyers: [],
-    conclusions: [],
-    documents: [],
+    subjects: [] as Array<{ id: string }>,
+    lawyers: [] as Array<{ id: string }>,
+    conclusions: [] as Array<{ id: string }>,
+    documents: [] as Array<{ id: string }>,
     name: `Vụ ${id}`,
   });
 
@@ -427,15 +493,17 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
           .mockResolvedValue([eligibleCase('case-1'), eligibleCase('case-2')]),
       },
       $executeRaw: jest.fn().mockResolvedValue(1),
-      $transaction: jest.fn(async (cb: any) => {
-        return cb({
+      $transaction: jest.fn((cb: TransactionCallback) =>
+        cb({
           case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
           $executeRaw: jest.fn().mockResolvedValue(1),
-        });
-      }),
+        }),
+      ),
     };
     mockAudit = {
-      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'bulk-del-1' }),
+      logBulkHeader: jest
+        .fn()
+        .mockResolvedValue({ bulkOperationId: 'bulk-del-1' }),
       logBulkItem: jest.fn().mockResolvedValue(undefined),
       completeBulk: jest.fn().mockResolvedValue(undefined),
       log: jest.fn().mockResolvedValue(undefined),
@@ -470,33 +538,32 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
   it('skips cases status ≠ TIEP_NHAN với INELIGIBLE (match single-delete invariant)', async () => {
     const inProgress = eligibleCase('case-2');
     inProgress.status = 'XAC_MINH';
-    mockPrisma.case.findMany.mockResolvedValue([eligibleCase('case-1'), inProgress]);
+    mockPrisma.case.findMany.mockResolvedValue([
+      eligibleCase('case-1'),
+      inProgress,
+    ]);
 
     const result = await service.bulkDelete(baseInput);
     expect(result.succeeded.map((s) => s.id)).toEqual(['case-1']);
-    expect(result.skipped).toContainEqual(
-      expect.objectContaining({
-        id: 'case-2',
-        reason: 'INELIGIBLE',
-        message: expect.stringContaining('Tiếp nhận'),
-      }),
-    );
+    expect(result.skipped[0]).toMatchObject({
+      id: 'case-2',
+      reason: 'INELIGIBLE',
+    });
+    expect(result.skipped[0].message).toContain('Tiếp nhận');
   });
 
   it('skips cases có linked subjects/lawyers/conclusions/documents với INELIGIBLE', async () => {
     const withSubject = eligibleCase('case-1');
-    withSubject.subjects = [{ id: 's-1' }] as any;
+    withSubject.subjects = [{ id: 's-1' }];
     mockPrisma.case.findMany.mockResolvedValue([withSubject]);
 
     const result = await service.bulkDelete({ ...baseInput, ids: ['case-1'] });
     expect(result.succeeded).toHaveLength(0);
-    expect(result.skipped[0]).toEqual(
-      expect.objectContaining({
-        id: 'case-1',
-        reason: 'INELIGIBLE',
-        message: expect.stringContaining('đối tượng'),
-      }),
-    );
+    expect(result.skipped[0]).toMatchObject({
+      id: 'case-1',
+      reason: 'INELIGIBLE',
+    });
+    expect(result.skipped[0].message).toContain('đối tượng');
   });
 
   it('non-admin actor: skip case của user khác với INELIGIBLE', async () => {
@@ -504,13 +571,11 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
       eligibleCase('case-1', 'other-user'),
     ]);
     const result = await service.bulkDelete({ ...baseInput, ids: ['case-1'] });
-    expect(result.skipped[0]).toEqual(
-      expect.objectContaining({
-        id: 'case-1',
-        reason: 'INELIGIBLE',
-        message: expect.stringContaining('người tạo'),
-      }),
-    );
+    expect(result.skipped[0]).toMatchObject({
+      id: 'case-1',
+      reason: 'INELIGIBLE',
+    });
+    expect(result.skipped[0].message).toContain('người tạo');
   });
 
   it('ADMIN actor bypass creator check', async () => {
@@ -540,8 +605,8 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
   it('audit item INSIDE per-item tx với action CASE_DELETED', async () => {
     await service.bulkDelete(baseInput);
     expect(mockAudit.logBulkItem).toHaveBeenCalledTimes(2);
-    for (const call of mockAudit.logBulkItem.mock.calls) {
-      expect(call[0]).toEqual(expect.objectContaining({ action: 'CASE_DELETED' }));
+    for (const call of mockAudit.logBulkItem.mock.calls as unknown[][]) {
+      expect(call[0]).toMatchObject({ action: 'CASE_DELETED' });
       expect(call[1]).toBeDefined();
     }
   });
@@ -549,27 +614,37 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
 
 describe('CasesBulkService.bulkRestore — v0.49 PR2', () => {
   let service: CasesBulkService;
-  let mockPrisma: any;
-  let mockAudit: any;
+  let mockPrisma: MockBulkPrisma;
+  let mockAudit: MockBulkAudit;
 
   beforeEach(async () => {
     mockPrisma = {
       case: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'case-1', deletedAt: new Date(Date.now() - 60_000), name: 'V1' },
-          { id: 'case-2', deletedAt: new Date(Date.now() - 60_000), name: 'V2' },
+          {
+            id: 'case-1',
+            deletedAt: new Date(Date.now() - 60_000),
+            name: 'V1',
+          },
+          {
+            id: 'case-2',
+            deletedAt: new Date(Date.now() - 60_000),
+            name: 'V2',
+          },
         ]),
       },
       $executeRaw: jest.fn().mockResolvedValue(1),
-      $transaction: jest.fn(async (cb: any) => {
-        return cb({
+      $transaction: jest.fn((cb: TransactionCallback) =>
+        cb({
           case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
           $executeRaw: jest.fn().mockResolvedValue(1),
-        });
-      }),
+        }),
+      ),
     };
     mockAudit = {
-      logBulkHeader: jest.fn().mockResolvedValue({ bulkOperationId: 'bulk-r-1' }),
+      logBulkHeader: jest
+        .fn()
+        .mockResolvedValue({ bulkOperationId: 'bulk-r-1' }),
       logBulkItem: jest.fn().mockResolvedValue(undefined),
       completeBulk: jest.fn().mockResolvedValue(undefined),
     };

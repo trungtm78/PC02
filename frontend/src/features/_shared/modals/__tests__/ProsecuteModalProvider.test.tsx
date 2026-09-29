@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import {
   ProsecuteModalProvider,
-  useProsecuteModal,
 } from '../ProsecuteModalProvider';
+import { useProsecuteModal } from '../ProsecuteModalContext';
 
 const postMock = vi.fn();
 vi.mock('@/lib/api', () => ({
@@ -60,6 +60,22 @@ describe('ProsecuteModalProvider', () => {
     act(() => screen.getByTestId('open-prosecute').click());
     const caseNameInput = screen.getByTestId('field-case-name') as HTMLInputElement;
     expect(caseNameInput.value).toBe('Vụ việc HS-2026-007');
+  });
+
+  it('resets unsaved fields when the modal opens again', () => {
+    render(
+      <ProsecuteModalProvider>
+        <Consumer />
+      </ProsecuteModalProvider>,
+    );
+    act(() => screen.getByTestId('open-prosecute').click());
+    fireEvent.change(screen.getByTestId('field-case-name'), { target: { value: 'Edited' } });
+    fireEvent.change(screen.getByTestId('field-prosecution-decision'), { target: { value: 'QĐ 123' } });
+    act(() => screen.getByTestId('btn-cancel-prosecute').click());
+    act(() => screen.getByTestId('open-prosecute').click());
+
+    expect(screen.getByTestId('field-case-name')).toHaveValue('Vụ việc HS-2026-007');
+    expect(screen.getByTestId('field-prosecution-decision')).toHaveValue('');
   });
 
   it('blocks submit when caseName or prosecutionDecision empty', () => {

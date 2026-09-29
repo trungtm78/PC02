@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -15,7 +14,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, assertPetitionParentInScope, buildScopeFilter, buildPetitionScopeFilter } from '../common/utils/scope-filter.util';
+import {
+  assertParentInScope,
+  assertPetitionParentInScope,
+  buildScopeFilter,
+  buildPetitionScopeFilter,
+} from '../common/utils/scope-filter.util';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_TAI_LIEU } from '../common/tim-kiem/khai/tai-lieu.khai';
@@ -142,6 +146,7 @@ export class DocumentsService {
           size: true,
           filePath: true,
           documentType: true,
+          recordedAt: true,
           caseId: true,
           incidentId: true,
           petitionId: true,
@@ -151,9 +156,16 @@ export class DocumentsService {
           case: { select: { id: true, name: true } },
           incident: { select: { id: true, name: true } },
           petition: { select: { id: true, stt: true, senderName: true } },
-          uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+          uploadedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
+          },
         },
-        orderBy: { [orderByField]: sortOrder },
+        orderBy: [{ [orderByField]: sortOrder }, { id: 'desc' }],
         take: limit,
         skip: offset,
       }),
@@ -176,11 +188,39 @@ export class DocumentsService {
     const record = await this.prisma.document.findFirst({
       where: { id, deletedAt: null },
       include: {
-        case: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
-        incident: { select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true } },
+        case: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
+        incident: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
+        },
         // `deletedAt` BẮT BUỘC có mặt — xem `chaDonThuChoQua` bên dưới.
-        petition: { select: { id: true, stt: true, senderName: true, status: true, assignedTeamId: true, enteredById: true, deletedAt: true } },
-        uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        petition: {
+          select: {
+            id: true,
+            stt: true,
+            senderName: true,
+            status: true,
+            assignedTeamId: true,
+            enteredById: true,
+            deletedAt: true,
+          },
+        },
+        uploadedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
     });
 
@@ -250,7 +290,9 @@ export class DocumentsService {
         select: { id: true, assignedTeamId: true, investigatorId: true },
       });
       if (!caseRecord) {
-        throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
+        throw new BadRequestException(
+          `Vụ án không tồn tại (id: ${dto.caseId})`,
+        );
       }
       assertParentInScope(caseRecord, dataScope, 'write');
     }
@@ -262,7 +304,9 @@ export class DocumentsService {
         select: { id: true, assignedTeamId: true, investigatorId: true },
       });
       if (!incidentRecord) {
-        throw new BadRequestException(`Vụ việc không tồn tại (id: ${dto.incidentId})`);
+        throw new BadRequestException(
+          `Vụ việc không tồn tại (id: ${dto.incidentId})`,
+        );
       }
       assertParentInScope(incidentRecord, dataScope, 'write');
     }
@@ -274,7 +318,9 @@ export class DocumentsService {
         select: { id: true, assignedTeamId: true, enteredById: true },
       });
       if (!petitionRecord) {
-        throw new BadRequestException(`Đơn thư không tồn tại (id: ${dto.petitionId})`);
+        throw new BadRequestException(
+          `Đơn thư không tồn tại (id: ${dto.petitionId})`,
+        );
       }
       assertPetitionParentInScope(petitionRecord, dataScope, 'write');
     }
@@ -303,13 +349,51 @@ export class DocumentsService {
     }
 
     // Validate file upload fields
-    if (!dto.fileName || !dto.originalName || !dto.mimeType || !dto.size || !dto.filePath) {
+    if (
+      !dto.fileName ||
+      !dto.originalName ||
+      !dto.mimeType ||
+      !dto.size ||
+      !dto.filePath
+    ) {
       throw new BadRequestException('Thông tin file không đầy đủ');
     }
 
     // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
-    if (dto.documentType && !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))) {
-      throw new BadRequestException('Loại tài liệu không thuộc danh mục DOCUMENT_TYPE');
+    if (
+      dto.documentType &&
+      !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))
+    ) {
+      throw new BadRequestException(
+        'Loại tài liệu không thuộc danh mục DOCUMENT_TYPE',
+      );
+    }
+
+    if (dto.recordedAt) {
+      const parsedDate = new Date(`${dto.recordedAt}T00:00:00.000Z`);
+      if (
+        Number.isNaN(parsedDate.getTime()) ||
+        parsedDate.toISOString().slice(0, 10) !== dto.recordedAt
+      ) {
+        throw new BadRequestException('Ngày ghi không hợp lệ');
+      }
+      const bangkokParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+        .formatToParts(new Date())
+        .reduce<Record<string, string>>((parts, part) => {
+          parts[part.type] = part.value;
+          return parts;
+        }, {});
+      const todayBangkok = `${bangkokParts.year}-${bangkokParts.month}-${bangkokParts.day}`;
+      if (dto.recordedAt > todayBangkok) {
+        throw new BadRequestException(
+          'Ngày ghi không được lớn hơn ngày hiện tại',
+        );
+      }
     }
 
     const record = await this.prisma.document.create({
@@ -322,6 +406,7 @@ export class DocumentsService {
         size: dto.size,
         filePath: dto.filePath,
         documentType: dto.documentType || 'VAN_BAN', // '' (chuỗi rỗng) → default, không lưu rác
+        recordedAt: dto.recordedAt ?? null,
         caseId: dto.caseId ?? null,
         incidentId: dto.incidentId ?? null,
         petitionId: dto.petitionId ?? null,
@@ -331,7 +416,9 @@ export class DocumentsService {
         case: { select: { id: true, name: true } },
         incident: { select: { id: true, name: true } },
         petition: { select: { id: true, stt: true } },
-        uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        uploadedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
     });
 
@@ -344,6 +431,7 @@ export class DocumentsService {
         title: record.title,
         originalName: record.originalName,
         size: record.size,
+        recordedAt: dto.recordedAt ?? null,
         caseId: record.caseId,
         incidentId: record.incidentId,
         petitionId: record.petitionId,
@@ -352,7 +440,11 @@ export class DocumentsService {
       userAgent: meta?.userAgent,
     });
 
-    return { success: true, data: record, message: 'Upload tài liệu thành công' };
+    return {
+      success: true,
+      data: record,
+      message: 'Upload tài liệu thành công',
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -369,7 +461,11 @@ export class DocumentsService {
     if (existing.petitionId && !existing.caseId && !existing.incidentId) {
       assertPetitionParentInScope(existing.petition, dataScope, 'write');
     } else {
-      assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+      assertParentInScope(
+        existing.case ?? existing.incident,
+        dataScope,
+        'write',
+      );
     }
 
     // Validate caseId if provided
@@ -378,7 +474,9 @@ export class DocumentsService {
         where: { id: dto.caseId, deletedAt: null },
       });
       if (!caseRecord) {
-        throw new BadRequestException(`Vụ án không tồn tại (id: ${dto.caseId})`);
+        throw new BadRequestException(
+          `Vụ án không tồn tại (id: ${dto.caseId})`,
+        );
       }
     }
 
@@ -388,13 +486,20 @@ export class DocumentsService {
         where: { id: dto.incidentId, deletedAt: null },
       });
       if (!incidentRecord) {
-        throw new BadRequestException(`Vụ việc không tồn tại (id: ${dto.incidentId})`);
+        throw new BadRequestException(
+          `Vụ việc không tồn tại (id: ${dto.incidentId})`,
+        );
       }
     }
 
     // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
-    if (dto.documentType && !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))) {
-      throw new BadRequestException('Loại tài liệu không thuộc danh mục DOCUMENT_TYPE');
+    if (
+      dto.documentType &&
+      !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))
+    ) {
+      throw new BadRequestException(
+        'Loại tài liệu không thuộc danh mục DOCUMENT_TYPE',
+      );
     }
 
     const record = await this.prisma.document.update({
@@ -402,14 +507,19 @@ export class DocumentsService {
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.documentType !== undefined && dto.documentType !== '' && { documentType: dto.documentType }),
+        ...(dto.documentType !== undefined &&
+          dto.documentType !== '' && { documentType: dto.documentType }),
         ...(dto.caseId !== undefined && { caseId: dto.caseId ?? null }),
-        ...(dto.incidentId !== undefined && { incidentId: dto.incidentId ?? null }),
+        ...(dto.incidentId !== undefined && {
+          incidentId: dto.incidentId ?? null,
+        }),
       },
       include: {
         case: { select: { id: true, name: true } },
         incident: { select: { id: true, name: true } },
-        uploadedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+        uploadedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
       },
     });
 
@@ -418,7 +528,10 @@ export class DocumentsService {
       action: 'DOCUMENT_UPDATED',
       subject: 'Document',
       subjectId: id,
-      metadata: { before: { title: existing.title, documentType: existing.documentType }, after: dto },
+      metadata: {
+        before: { title: existing.title, documentType: existing.documentType },
+        after: dto,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
     });
@@ -443,7 +556,11 @@ export class DocumentsService {
     if (existing.petitionId && !existing.caseId && !existing.incidentId) {
       assertPetitionParentInScope(existing.petition, dataScope, 'write');
     } else {
-      assertParentInScope(existing.case ?? existing.incident, dataScope, 'write');
+      assertParentInScope(
+        existing.case ?? existing.incident,
+        dataScope,
+        'write',
+      );
     }
 
     await this.prisma.document.update({
@@ -459,7 +576,7 @@ export class DocumentsService {
       metadata: {
         title: existing.title,
         originalName: existing.originalName,
-        softDelete: true
+        softDelete: true,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,

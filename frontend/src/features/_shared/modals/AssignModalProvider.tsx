@@ -1,5 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { AssignModal, type AssignResourceType } from '@/components/AssignModal';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { AssignModal } from '@/components/AssignModal';
+import { AssignModalContext, type AssignModalApi, type AssignModalArgs } from './AssignModalContext';
+export type { AssignModalApi, AssignModalArgs } from './AssignModalContext';
 
 /**
  * v0.62 PR1a — Singleton AssignModal provider.
@@ -9,21 +11,6 @@ import { AssignModal, type AssignResourceType } from '@/components/AssignModal';
  *
  * Per Claude eng review #2: closure stability + no per-row remount.
  */
-
-export interface AssignModalArgs {
-  resourceType: AssignResourceType;
-  recordId: string;
-  currentTeamId?: string | null;
-  currentInvestigatorId?: string | null;
-  currentUpdatedAt?: string;
-  onSuccess?: () => void;
-}
-
-export interface AssignModalApi {
-  open: (args: AssignModalArgs) => void;
-}
-
-const AssignModalContext = createContext<AssignModalApi | null>(null);
 
 export function AssignModalProvider({ children }: { children: ReactNode }) {
   const [args, setArgs] = useState<AssignModalArgs | null>(null);
@@ -58,14 +45,4 @@ export function AssignModalProvider({ children }: { children: ReactNode }) {
       )}
     </AssignModalContext.Provider>
   );
-}
-
-export function useAssignModal(): AssignModalApi {
-  const ctx = useContext(AssignModalContext);
-  if (!ctx) {
-    throw new Error(
-      'useAssignModal must be used inside <AssignModalProvider>',
-    );
-  }
-  return ctx;
 }

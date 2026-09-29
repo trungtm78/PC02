@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import {
   DeleteResourceModalProvider,
-  useDeleteResourceModal,
-  type DeleteResourceType,
 } from '../DeleteResourceModalProvider';
+import { useDeleteResourceModal, type DeleteResourceType } from '../DeleteResourceModalContext';
 import { api } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({ api: { delete: vi.fn() } }));

@@ -64,12 +64,12 @@ import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
-import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
-import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
-import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalProvider';
-import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalProvider';
+import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalContext';
+import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalContext';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
@@ -316,6 +316,7 @@ export function IncidentListPageShell() {
       canEdit,
       canDelete,
       assignModal,
+      printModal,
       deleteModal,
       statusTransitionModal,
       prosecuteModal,

@@ -13,8 +13,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { authStore } from '@/stores/auth.store';
 import { CaseListPageShell } from '../CaseListPageShell';
 import { CaseStatus } from '@/shared/enums/generated';
 // Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
@@ -32,10 +34,12 @@ vi.mock('@/lib/api', () => ({
 }));
 
 function renderWithRouter(initialEntries: string[] = ['/cases'], flags?: FeatureFlag[]) {
-  let lastLocation = '';
+  const location = { current: '' };
   function LocationTracker() {
     const loc = useLocation();
-    lastLocation = loc.pathname + loc.search;
+    useEffect(() => {
+      location.current = loc.pathname + loc.search;
+    }, [loc.pathname, loc.search]);
     return null;
   }
   const trang = (
@@ -56,7 +60,7 @@ function renderWithRouter(initialEntries: string[] = ['/cases'], flags?: Feature
   const result = render(
     flags ? <FeatureFlagsProvider initialFlags={flags}>{trang}</FeatureFlagsProvider> : trang,
   );
-  return { ...result, getLocation: () => lastLocation };
+  return { ...result, getLocation: () => location.current };
 }
 
 const CO_TAT_THE: FeatureFlag[] = [
@@ -129,6 +133,27 @@ describe('CaseListPageShell — initial mount + ready state', () => {
     await waitFor(() => expect(screen.queryByTestId('list-page-shell-table-loading')).not.toBeInTheDocument());
     expect(screen.getByText('Nguyễn Thị Cung Cấp')).toBeInTheDocument();
     expect(screen.getByText('PC02-001')).toBeInTheDocument();
+  });
+
+  it('offers a separate full-field Excel action', () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case', 'export_full:Case'] } as never);
+    renderWithRouter();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+    sessionStorage.removeItem('authProfile');
+  });
+
+  it('hides full-field export without the separate permission', () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case'] } as never);
+    renderWithRouter();
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+    sessionStorage.removeItem('authProfile');
+  });
+
+  it('hides full-field export without Case read permission', () => {
+    authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['export_full:Case'] } as never);
+    renderWithRouter();
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+    sessionStorage.removeItem('authProfile');
   });
 
   it('header render "Danh sách vụ án" title', async () => {

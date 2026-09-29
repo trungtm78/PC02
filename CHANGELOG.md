@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.72.1.0] - 2026-09-29
+
+### Added
+- Đồng bộ màn hình tạo/sửa Ủy thác điều tra với Đơn thư: chọn và tạo nhanh danh mục, nhóm thông tin CCCD, gợi ý tên, rà soát trùng, bản nháp theo loại hồ sơ và tạo mới từ hồ sơ hiện tại.
+- Tải tệp đính kèm thật sau khi lưu hồ sơ, giữ lại tệp lỗi để thử lại; bổ sung xuất Excel theo bộ lọc, Excel đầy đủ và Word hàng loạt theo đúng phạm vi quyền.
+- Bốn trạng thái phản hồi Ủy thác điều tra, cập nhật nhanh kết quả và bộ đếm dùng chung với điều kiện tìm kiếm của danh sách.
+
+### Changed
+- Danh sách Ủy thác điều tra dùng cùng mô hình tìm kiếm theo cột, bộ lọc URL, sắp xếp, chọn hàng và thao tác hàng loạt như các danh sách nghiệp vụ chính.
+- Đơn vị giải quyết dùng danh mục `DON_VI`, hỗ trợ tìm kiếm phía máy chủ, tạo nhanh và giữ tên cũ khi cập nhật.
+- Mã hồ sơ nhập tay tham gia transaction khóa bộ đếm chung, ngăn xung đột với lượt cấp số tự động đồng thời.
+
+### Fixed
+- Sao chép đầy đủ dữ liệu người dùng đã nhập khi chọn “Tạo mới từ hồ sơ này”, bao gồm nhận xét, ngày văn bản, đối tượng, vật chứng và dữ liệu mở rộng.
+- Giới hạn mọi thao tác ghi và xuất hàng loạt theo loại hồ sơ cùng phạm vi quyền ở máy chủ.
+
 ## [0.72.0.0] - 2026-08-24
 
 ### Changed

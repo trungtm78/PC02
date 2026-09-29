@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { resolveFilename } from '@/features/document-templates/export.api';
+import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
 import type { BulkAdapter, BulkAction, BulkResult } from '../types';
 
 interface AssignParams {
@@ -42,6 +43,19 @@ const exportAction: BulkAction<IncidentRow> = {
     URL.revokeObjectURL(url);
   },
 };
+
+function buildExportWordAction(onPick: (ids: string[]) => void): BulkAction<IncidentRow> {
+  return {
+    key: 'export-word',
+    label: fullExportMessages.wordLabel,
+    variant: 'outline',
+    permission: { resource: 'incidents', action: 'view' },
+    requiresPreview: false,
+    allowsAllMatchingFilter: false,
+    skipConfirm: true,
+    execute: async ({ ids }) => { onPick(ids); },
+  };
+}
 
 const assignAction: BulkAction<IncidentRow> = {
   key: 'assign',
@@ -109,8 +123,10 @@ export function buildIncidentsAdapter(opts?: {
   enableAssign?: boolean;
   enableDelete?: boolean;
   enableRestore?: boolean;
+  onExportWord?: (ids: string[]) => void;
 }): BulkAdapter<IncidentRow> {
   const actions: BulkAction<IncidentRow>[] = [exportAction];
+  if (opts?.onExportWord) actions.push(buildExportWordAction(opts.onExportWord));
   if (opts?.enableAssign) actions.push(assignAction);
   if (opts?.enableDelete) actions.push(deleteAction);
   if (opts?.enableRestore) actions.push(restoreAction);

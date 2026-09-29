@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { CompositeModalProvider } from '../CompositeModalProvider';
-import { useAssignModal } from '../AssignModalProvider';
-import { useDeleteResourceModal } from '../DeleteResourceModalProvider';
-import { useStatusTransitionModal } from '../StatusTransitionModalProvider';
-import { useProsecuteModal } from '../ProsecuteModalProvider';
+import { useAssignModal } from '../AssignModalContext';
+import { useDeleteResourceModal } from '../DeleteResourceModalContext';
+import { useStatusTransitionModal } from '../StatusTransitionModalContext';
+import { useProsecuteModal } from '../ProsecuteModalContext';
 
 describe('CompositeModalProvider', () => {
   it('provides all 4 modal contexts to children', () => {

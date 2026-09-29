@@ -221,6 +221,9 @@ export function buildCreateCasePayload(
     evidences?: Evidence[];
     documentIds?: string[];
     legacyMetadata?: Record<string, unknown>;
+    includeFalseStatisticFlags?: boolean;
+    includeClearedArrays?: boolean;
+    manualCaseCode?: boolean;
     /**
      * Gọi lại khi một mục trong danh sách đối tượng KHÔNG gửi lên được.
      *
@@ -231,6 +234,7 @@ export function buildCreateCasePayload(
   },
 ): CreateCasePayload {
   const payload: CreateCasePayload = {
+    ...(options?.manualCaseCode && { caseCode: formData.caseCode.trim() }),
     name: formData.caseTitle,
     crime: formData.criminalType || null,
     crimeChinhId: formData.crimeChinhId || null, // FK master Crime — tội danh chính
@@ -434,7 +438,9 @@ export function buildCreateCasePayload(
   // PR-3 — tab "Vụ án TĐC" (chỉ gửi khi có giá trị; tránh ghi đè workflow auto-set)
   payload.soQuyetDinhTamDinhChi =   oHeCu(formData.soQuyetDinhTamDinhChi);
   payload.ngayTamDinhChi =          oHeCu(formData.ngayTamDinhChi);
-  if (formData.lyDoTamDinhChiVuAn && formData.lyDoTamDinhChiVuAn.length > 0) payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn;
+  if (formData.lyDoTamDinhChiVuAn?.length || options?.includeClearedArrays) {
+    payload.lyDoTamDinhChiVuAn = formData.lyDoTamDinhChiVuAn ?? [];
+  }
   payload.ngayHetThoiHieu =         oHeCu(formData.ngayHetThoiHieu);
   payload.soQuyetDinhPhucHoi =      oHeCu(formData.soQuyetDinhPhucHoi);
   payload.ngayPhucHoi =             oHeCu(formData.ngayPhucHoi);
@@ -442,7 +448,9 @@ export function buildCreateCasePayload(
   payload.tdcKhacPhucBienBan =      oHeCu(formData.tdcKhacPhucBienBan);
   // PR-M2: ghi chú tự do + tội danh khác (multi)
   payload.ghiChuKhac =                       oHeCu(formData.ghiChuKhac);
-  if (formData.toiDanhKhacIds && formData.toiDanhKhacIds.length > 0) payload.toiDanhKhacIds = formData.toiDanhKhacIds;
+  if (formData.toiDanhKhacIds?.length || options?.includeClearedArrays) {
+    payload.toiDanhKhacIds = formData.toiDanhKhacIds ?? [];
+  }
 
   // PR 1 v0.38.0.0 — Wire sub-entity arrays vào payload (atomic create)
   //
@@ -509,16 +517,13 @@ export function buildCreateCasePayload(
     }));
   }
 
-  // HOTFIX: documentIds disabled — MediaFile.id local-only ("MF-${Date.now()}"),
-  // file chưa được upload to backend. Linking fake IDs sẽ throw 400.
-  // Future PR cần: 1) actual upload trên handleUploadMedia, 2) lưu real Document.id
-  // vào MediaFile state. Regression tested: buildCreateCasePayload.test.ts.
-  // if (options?.documentIds && options.documentIds.length > 0) {
-  //   payload.documentIds = options.documentIds;
-  // }
+  // Media is uploaded to /documents after a Case ID exists; client IDs never enter this payload.
 
   // Thống kê mở rộng (hybrid) → payload.statistic (case_statistics). Chỉ gửi key có giá trị.
-  const stat = buildStatisticPayload(formData.statistic as unknown as Record<string, unknown>);
+  const stat = buildStatisticPayload(
+    formData.statistic as unknown as Record<string, unknown>,
+    options?.includeFalseStatisticFlags,
+  );
   if (Object.keys(stat).length > 0) payload.statistic = stat;
 
   // ── Consolidate epic: field promoted → cột typed (TOP-LEVEL, backend map→cột) ──
@@ -626,9 +631,7 @@ export function buildCreateCasePayload(
   payload.vuViecTamDungTruoc2015 = formData.vuViecTamDungTruoc2015 === true;
   // `soHoSoCu` trước nay hiện trên form nhưng KHÔNG có đường lên máy chủ: sửa xong là mất.
   //
-  // `caseCode` thì KHÔNG gửi: ô ấy là số hiệu tự sinh (DocNumberPreviewField ở chế độ AUTO),
-  // cán bộ không nhập tay. Gửi lên chỉ mở đường cho xung đột mã trùng mà không đổi lại điều
-  // gì trên màn hình.
+  // Send the top-level code only after an explicit manual override.
   payload.soHoSoCu = oHeCu(formData.soHoSoCu);
   // "Trường hợp báo cáo Ban Giám đốc": hệ cũ là ô CHỮ, cột hệ mới là ĐÚNG/SAI (di trú suy từ
   // chữ). Gửi cả hai — mất chữ là mất chỉ đạo của Ban Giám đốc, 34.931 hồ sơ đang có nội dung.
@@ -683,11 +686,14 @@ const STAT_BOOL_FIELDS = new Set([
   'ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau',
 ]);
 
-export function buildStatisticPayload(s: Record<string, unknown>): Record<string, unknown> {
+export function buildStatisticPayload(
+  s: Record<string, unknown>,
+  includeFalseFlags = false,
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(s)) {
     if (STAT_BOOL_FIELDS.has(k)) {
-      if (v === true) out[k] = true; // chỉ gửi khi true (mặc định false ở DB)
+      if (v === true || (includeFalseFlags && v === false)) out[k] = v;
     } else if (STAT_NUM_FIELDS.has(k)) {
       if (v !== '' && v != null) {
         const n = Number(v);

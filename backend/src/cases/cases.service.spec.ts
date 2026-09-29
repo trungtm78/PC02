@@ -17,16 +17,32 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService } from './cases.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
-import { CaseStatus, PetitionStatus, CapDoToiPham, Prisma, SubjectType } from '@prisma/client';
+import {
+  CaseStatus,
+  PetitionStatus,
+  CapDoToiPham,
+  CaseProvenance,
+  CaseType,
+  LyDoTamDinhChiVuAn,
+  Prisma,
+  SubjectType,
+} from '@prisma/client';
 import { ROLE_NAMES } from '../common/constants/role.constants';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { LIST_SUSPECT_NAMES_LIMIT } from './cases.constants';
+import type { DataScope } from '../auth/services/unit-scope.service';
+import type { CreateCaseDto } from './dto/create-case.dto';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -69,9 +85,10 @@ const mockPetition = {
 const mockPrisma = {
   case: {
     findMany: jest.fn(),
+    groupBy: jest.fn(),
     count: jest.fn(),
     findFirst: jest.fn(),
-    findUnique: jest.fn(),
+    findUnique: jest.fn().mockResolvedValue(mockCase),
     create: jest.fn(),
     update: jest.fn(),
   },
@@ -118,29 +135,63 @@ const mockSettings = {
 
 // DocumentNumbersService mock — auto-generate codes for cases + auto-incidents
 const mockDocNums = {
-  commit: jest.fn().mockResolvedValue({ number: 'HS-2026-001', logId: 'log-case-001', changed: false }),
-  commitWithTx: jest.fn().mockResolvedValue({ number: 'HS-2026-001', logId: 'log-case-001', changed: false }),
+  commit: jest.fn().mockResolvedValue({
+    number: 'HS-2026-001',
+    logId: 'log-case-001',
+    changed: false,
+  }),
+  commitWithTx: jest.fn().mockResolvedValue({
+    number: 'HS-2026-001',
+    logId: 'log-case-001',
+    changed: false,
+  }),
   updateLogDocumentId: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockAudit = {
   log: jest.fn().mockResolvedValue(undefined),
   // v0.30: CASE_UPDATED now uses wrapUpdate to capture full before/after.
-  wrapUpdate: jest.fn(async (opts: any) => {
-    await opts.fetchFn();
-    const after = await opts.updateFn();
-    await mockAudit.log({
-      userId: opts.userId,
-      action: opts.action,
-      subject: opts.subject,
-      subjectId: opts.subjectId,
-      metadata: { before: {}, after: {} },
-      ipAddress: opts.meta?.ipAddress,
-      userAgent: opts.meta?.userAgent,
-    });
-    return after;
-  }),
+  wrapUpdate: jest.fn(
+    async (opts: {
+      fetchFn: () => Promise<unknown>;
+      updateFn: () => Promise<unknown>;
+      userId: string;
+      action: string;
+      subject: string;
+      subjectId: string;
+      meta?: { ipAddress?: string; userAgent?: string };
+    }) => {
+      await opts.fetchFn();
+      const after = await opts.updateFn();
+      await mockAudit.log({
+        userId: opts.userId,
+        action: opts.action,
+        subject: opts.subject,
+        subjectId: opts.subjectId,
+        metadata: { before: {}, after: {} },
+        ipAddress: opts.meta?.ipAddress,
+        userAgent: opts.meta?.userAgent,
+      });
+      return after;
+    },
+  ),
 };
+
+function findAuditAction(
+  action: string,
+): { action: string; metadata: unknown } | undefined {
+  const calls = mockAudit.log.mock.calls as unknown[][];
+  return calls
+    .map((call) => call[0])
+    .find(
+      (entry): entry is { action: string; metadata: unknown } =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'action' in entry &&
+        entry.action === action &&
+        'metadata' in entry,
+    );
+}
 
 // ─── Test Suite ───────────────────────────────────────────────────────────────
 
@@ -168,6 +219,178 @@ describe('CasesService', () => {
         ? (fn as (tx: unknown) => unknown)(mockPrisma)
         : Promise.all(fn as unknown[]),
     );
+  });
+
+  describe('record review', () => {
+    it('shows every high-confidence match when more than twenty share the same delegation identity', async () => {
+      mockPrisma.case.findMany.mockResolvedValue(
+        Array.from({ length: 21 }, (_, index) => ({
+          id: `delegation-${index}`,
+          name: 'Ủy thác Trần Văn An',
+          caseCode: `UTDT-${index}`,
+          status: CaseStatus.TIEP_NHAN,
+        })),
+      );
+      const candidates = await service.findDuplicateCandidates(
+        'Ủy thác Trần Văn An',
+        CaseType.UY_THAC_DIEU_TRA,
+      );
+      expect(candidates).toHaveLength(21);
+      expect(
+        candidates.every((candidate) => candidate.confidence === 'HIGH'),
+      ).toBe(true);
+    });
+
+    it('rechecks delegation duplicates before creating a new record', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        {
+          id: 'existing-1',
+          name: 'Ủy thác Trần Văn An',
+          caseCode: 'UTDT-1',
+          status: CaseStatus.TIEP_NHAN,
+        },
+      ]);
+      await expect(
+        service.create(
+          {
+            name: 'Ủy thác Trần Văn An',
+            caseType: CaseType.UY_THAC_DIEU_TRA,
+            caseProvenance: CaseProvenance.UY_THAC_DIEU_TRA,
+          } as CreateCaseDto,
+          'actor-001',
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'DUPLICATE_REVIEW_REQUIRED',
+        }),
+      });
+      expect(mockPrisma.case.create).not.toHaveBeenCalled();
+    });
+
+    it('applies the actor read scope to delegation duplicate candidates', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      const scope = {
+        teamIds: ['delegation-team'],
+        userIds: [],
+        writableTeamIds: [],
+        writableUserIds: [],
+        isWardOfficer: true,
+        canDispatch: false,
+      } as DataScope;
+      await service.findDuplicateCandidates(
+        'Ủy thác A',
+        CaseType.UY_THAC_DIEU_TRA,
+        undefined,
+        scope,
+      );
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [{ OR: [{ assignedTeamId: { in: ['delegation-team'] } }] }],
+          }),
+        }),
+      );
+    });
+
+    it.each([CaseType.REGULAR, CaseType.UY_THAC_DIEU_TRA])(
+      'keeps %s suggestions within the requested case type',
+      async (caseType) => {
+        mockPrisma.case.groupBy.mockResolvedValue([
+          { name: 'Trần Văn An', _count: { _all: 2 } },
+        ]);
+        const result = await service.findNameSuggestions('tran', caseType);
+        expect(result).toEqual([{ name: 'Trần Văn An', count: 2 }]);
+        expect(mockPrisma.case.groupBy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              deletedAt: null,
+              caseType,
+              nameBd: { contains: 'tran' },
+            }),
+          }),
+        );
+      },
+    );
+
+    it('excludes the edited delegation and never mixes regular cases', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([]);
+      await service.findDuplicateCandidates(
+        'Ủy thác A',
+        CaseType.UY_THAC_DIEU_TRA,
+        'case-current',
+      );
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            deletedAt: null,
+            caseType: CaseType.UY_THAC_DIEU_TRA,
+            id: { not: 'case-current' },
+          }),
+          take: 20,
+        }),
+      );
+    });
+
+    it('flags an exact delegation decision number even when the names differ', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        {
+          id: 'existing-delegation',
+          name: 'Different subject',
+          caseCode: 'UTDT-002',
+          soQuyetDinhUyThac: '58/QD-2026',
+          status: CaseStatus.TIEP_NHAN,
+        },
+      ]);
+      const result = await service.findDuplicateCandidates(
+        'Another subject',
+        CaseType.UY_THAC_DIEU_TRA,
+        undefined,
+        undefined,
+        '58/QD-2026',
+      );
+      expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            caseType: CaseType.UY_THAC_DIEU_TRA,
+            OR: [
+              { nameBd: { contains: 'another subject' } },
+              { soQuyetDinhUyThac: '58/QD-2026' },
+            ],
+          }),
+        }),
+      );
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: 'existing-delegation',
+          confidence: 'HIGH',
+          reasons: ['DECISION_NUMBER_MATCH'],
+        }),
+      ]);
+    });
+
+    it('returns an older exact case before newer partial-name candidates', async () => {
+      mockPrisma.case.findMany.mockImplementation(
+        ({ where }: { where: { nameBd?: { equals?: string } } }) =>
+          Promise.resolve(
+            where.nameBd?.equals
+              ? [{ id: 'exact-older', name: 'Trần Văn An', caseCode: 'VA-OLD' }]
+              : Array.from({ length: 20 }, (_, index) => ({
+                  id: `partial-${index}`,
+                  name: `Vụ Trần Văn An ${index}`,
+                  caseCode: `VA-${index}`,
+                })),
+          ),
+      );
+      const candidates = await service.findDuplicateCandidates(
+        'Trần Văn An',
+        CaseType.REGULAR,
+      );
+      expect(candidates[0]).toMatchObject({
+        id: 'exact-older',
+        confidence: 'HIGH',
+      });
+      expect(candidates).toHaveLength(20);
+    });
   });
 
   // ── getList ────────────────────────────────────────────────────────────────
@@ -267,7 +490,9 @@ describe('CasesService', () => {
       // Tổng số bị can phải ĐẾM ĐÚNG cùng điều kiện, không mượn cột `subjectsCount` — cột ấy
       // do cán bộ tự nhập và đếm cả bị hại lẫn nhân chứng.
       expect(select._count).toEqual({
-        select: { subjects: { where: { type: SubjectType.SUSPECT, deletedAt: null } } },
+        select: {
+          subjects: { where: { type: SubjectType.SUSPECT, deletedAt: null } },
+        },
       });
     });
 
@@ -314,6 +539,33 @@ describe('CasesService', () => {
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);
       expect(result.pageSize).toBe(20);
+    });
+
+    it('returns quyenGhi for every list row from the same write-scope rule as detail', async () => {
+      mockPrisma.case.findMany.mockResolvedValue([
+        mockCase,
+        {
+          ...mockCase,
+          id: 'case-read-only',
+          investigator: { ...mockCase.investigator, id: 'other-user' },
+        },
+      ]);
+      mockPrisma.case.count.mockResolvedValue(2);
+      const scope: DataScope = {
+        userIds: ['user-001', 'other-user'],
+        teamIds: [],
+        writableUserIds: ['user-001'],
+        writableTeamIds: [],
+      };
+
+      const result = await service.getList({}, scope);
+
+      expect(
+        result.data.map((row) => ({ id: row.id, quyenGhi: row.quyenGhi })),
+      ).toEqual([
+        { id: 'case-001', quyenGhi: true },
+        { id: 'case-read-only', quyenGhi: false },
+      ]);
     });
 
     /** `search` cũ đi qua thẻ "tất cả các cột" (cột ghép bỏ dấu) — không còn `where.OR` chép tay. */
@@ -363,11 +615,16 @@ describe('CasesService', () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
-      await service.getList({ statusGroup: 'dinh-chi', status: CaseStatus.DANG_DIEU_TRA });
+      await service.getList({
+        statusGroup: 'dinh-chi',
+        status: CaseStatus.DANG_DIEU_TRA,
+      });
 
       expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ status: { in: [CaseStatus.DINH_CHI] } }),
+          where: expect.objectContaining({
+            status: { in: [CaseStatus.DINH_CHI] },
+          }),
         }),
       );
     });
@@ -419,7 +676,10 @@ describe('CasesService', () => {
       mockPrisma.case.findMany.mockResolvedValue([]);
       mockPrisma.case.count.mockResolvedValue(0);
 
-      await service.getList({ overdue: true, status: CaseStatus.DANG_DIEU_TRA });
+      await service.getList({
+        overdue: true,
+        status: CaseStatus.DANG_DIEU_TRA,
+      });
 
       const where = mockPrisma.case.findMany.mock.calls[0][0].where;
       expect(where.status.equals).toBe(CaseStatus.DANG_DIEU_TRA);
@@ -622,7 +882,9 @@ describe('CasesService', () => {
       const { data } = mockPrisma.case.update.mock.calls.at(-1)![0];
 
       expect(data.soQDKhongKhoiTo).toBe('05/QĐ-KKT');
-      expect(data.ngayQDKhongKhoiTo).toEqual(new Date('2026-08-03T00:00:00.000Z'));
+      expect(data.ngayQDKhongKhoiTo).toEqual(
+        new Date('2026-08-03T00:00:00.000Z'),
+      );
       expect(data.lyDoKhongKhoiTo).toEqual(['khong_co_su_viec']);
       expect(data.vuViecTamDungTruoc2015).toBe(true);
       expect(data.vatChungMoTa).toBe('01 điện thoại iPhone 13');
@@ -643,17 +905,24 @@ describe('CasesService', () => {
     it('should create case without petition when no petitionType', async () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(mockCase) },
-        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       const result = await service.create(
         {
           name: 'Vụ án test',
           crime: 'Tham nhũng',
           unit: 'Công an Quận 1',
-          caseProvenance: 'DIRECT_DISCOVERY' as any, // v0.37.2 required
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY, // v0.37.2 required
         },
         'actor-001',
       );
@@ -681,7 +950,11 @@ describe('CasesService', () => {
 
       await expect(
         service.create(
-          { name: 'Test', investigatorId: 'invalid-user', caseProvenance: 'DIRECT_DISCOVERY' as any },
+          {
+            name: 'Test',
+            investigatorId: 'invalid-user',
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+          },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -690,12 +963,22 @@ describe('CasesService', () => {
     it('should set default status to TIEP_NHAN', async () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(mockCase) },
-        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
-      await service.create({ name: 'Test', caseProvenance: 'DIRECT_DISCOVERY' as any }, 'actor-001');
+      await service.create(
+        { name: 'Test', caseProvenance: CaseProvenance.DIRECT_DISCOVERY },
+        'actor-001',
+      );
 
       expect(tx.case.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -720,14 +1003,29 @@ describe('CasesService', () => {
      */
     it('dùng docType CASE cho ủy thác — một không gian mã thì một bộ đếm', async () => {
       const tx = {
-        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'UY_THAC_DIEU_TRA' }) },
-        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        case: {
+          create: jest.fn().mockResolvedValue({
+            ...mockCase,
+            caseProvenance: 'UY_THAC_DIEU_TRA',
+          }),
+        },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       await service.create(
-        { name: 'Ủy thác điều tra test', caseProvenance: 'UY_THAC_DIEU_TRA' as any },
+        {
+          name: 'Ủy thác điều tra test',
+          caseProvenance: CaseProvenance.UY_THAC_DIEU_TRA,
+        },
         'actor-001',
       );
 
@@ -746,13 +1044,23 @@ describe('CasesService', () => {
     it('uses CASE docType for non-UTDT provenance', async () => {
       const tx = {
         case: { create: jest.fn().mockResolvedValue(mockCase) },
-        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       await service.create(
-        { name: 'Vụ án bình thường', caseProvenance: 'DIRECT_DISCOVERY' as any },
+        {
+          name: 'Vụ án bình thường',
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+        },
         'actor-001',
       );
 
@@ -779,24 +1087,33 @@ describe('CasesService', () => {
         linkedCaseId: null,
         updatedAt: petitionUpdatedAt,
       };
-      const newCase = { ...mockCase, id: 'case-new', linkedPetitionId: 'pet-source' };
+      const newCase = {
+        ...mockCase,
+        id: 'case-new',
+        linkedPetitionId: 'pet-source',
+      };
 
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: { create: jest.fn().mockResolvedValue(newCase) },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(existingPetition),
-            update: jest.fn().mockResolvedValue({ ...existingPetition, linkedCaseId: 'case-new' }),
-          },
-          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-        };
-        return fn(tx);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            case: { create: jest.fn().mockResolvedValue(newCase) },
+            petition: {
+              findFirst: jest.fn().mockResolvedValue(existingPetition),
+              update: jest.fn().mockResolvedValue({
+                ...existingPetition,
+                linkedCaseId: 'case-new',
+              }),
+            },
+            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+          };
+          return fn(tx);
+        },
+      );
 
       const result = await service.create(
         {
           ...baseProvenanceDto,
-          caseProvenance: 'FROM_PETITION' as any,
+          caseProvenance: CaseProvenance.FROM_PETITION,
           linkedPetitionId: 'pet-source',
           expectedPetitionUpdatedAt: petitionUpdatedAt.toISOString(),
         },
@@ -815,23 +1132,25 @@ describe('CasesService', () => {
     });
 
     it('FROM_PETITION: throws NotFoundException when Petition not found or out of scope', async () => {
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: { create: jest.fn() },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(null), // not found OR out of scope
-            update: jest.fn(),
-          },
-          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-        };
-        return fn(tx);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            case: { create: jest.fn() },
+            petition: {
+              findFirst: jest.fn().mockResolvedValue(null), // not found OR out of scope
+              update: jest.fn(),
+            },
+            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+          };
+          return fn(tx);
+        },
+      );
 
       await expect(
         service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'FROM_PETITION' as any,
+            caseProvenance: CaseProvenance.FROM_PETITION,
             linkedPetitionId: 'pet-out-of-scope',
             expectedPetitionUpdatedAt: new Date().toISOString(),
           },
@@ -841,27 +1160,40 @@ describe('CasesService', () => {
     });
 
     it('FROM_PETITION: throws ConflictException on stale expectedPetitionUpdatedAt (P2025)', async () => {
-      const existingPetition = { ...mockPetition, id: 'pet-source', linkedCaseId: null, updatedAt: new Date() };
+      const existingPetition = {
+        ...mockPetition,
+        id: 'pet-source',
+        linkedCaseId: null,
+        updatedAt: new Date(),
+      };
 
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-        const tx = {
-          case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'case-new' }) },
-          petition: {
-            findFirst: jest.fn().mockResolvedValue(existingPetition),
-            update: jest.fn().mockRejectedValue(
-              Object.assign(new Error('Record to update not found'), { code: 'P2025' }),
-            ),
-          },
-          documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-        };
-        return fn(tx);
-      });
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => {
+          const tx = {
+            case: {
+              create: jest
+                .fn()
+                .mockResolvedValue({ ...mockCase, id: 'case-new' }),
+            },
+            petition: {
+              findFirst: jest.fn().mockResolvedValue(existingPetition),
+              update: jest.fn().mockRejectedValue(
+                Object.assign(new Error('Record to update not found'), {
+                  code: 'P2025',
+                }),
+              ),
+            },
+            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+          };
+          return fn(tx);
+        },
+      );
 
       await expect(
         service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'FROM_PETITION' as any,
+            caseProvenance: CaseProvenance.FROM_PETITION,
             linkedPetitionId: 'pet-source',
             expectedPetitionUpdatedAt: '2020-01-01T00:00:00.000Z', // stale
           },
@@ -872,7 +1204,12 @@ describe('CasesService', () => {
 
     it('DIRECT_DISCOVERY: creates Case via $transaction (now atomic)', async () => {
       const tx = {
-        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        case: {
+          create: jest.fn().mockResolvedValue({
+            ...mockCase,
+            caseProvenance: 'DIRECT_DISCOVERY',
+          }),
+        },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
           findUnique: jest.fn().mockResolvedValue(null),
@@ -881,12 +1218,14 @@ describe('CasesService', () => {
         },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       const result = await service.create(
         {
           ...baseProvenanceDto,
-          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
         },
         'actor-001',
       );
@@ -905,7 +1244,12 @@ describe('CasesService', () => {
     // PR-M2: field-parity Case mới (ghiChuKhac/toiDanhKhacIds) + fix rớt-data soKLDT/soQDDieuTraLai ở create.
     it('persists ghiChuKhac/toiDanhKhacIds + KLĐT/điều-tra-lại fields khi create (chống rớt-data)', async () => {
       const tx = {
-        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        case: {
+          create: jest.fn().mockResolvedValue({
+            ...mockCase,
+            caseProvenance: 'DIRECT_DISCOVERY',
+          }),
+        },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
           findUnique: jest.fn().mockResolvedValue(null),
@@ -914,19 +1258,21 @@ describe('CasesService', () => {
         },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       await service.create(
         {
           ...baseProvenanceDto,
-          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
           ghiChuKhac: 'Ghi chú tự do từ hệ cũ',
           toiDanhKhacIds: ['crime-1', 'crime-2'],
           soKLDT: 'KLĐT-2026-01',
           ngayKLDT: '2026-06-01',
           soQDDieuTraLai: 'QĐ-ĐTL-2026-01',
           ngayQDDieuTraLai: '2026-06-02',
-        } as any,
+        },
         'actor-001',
       );
 
@@ -947,7 +1293,12 @@ describe('CasesService', () => {
     // Consolidate epic: CREATE phải map field-parity intake + cột native N (trước đây RỚT ở create).
     it('persists field-parity intake + cột native N khi create (P1 chống rớt-data)', async () => {
       const tx = {
-        case: { create: jest.fn().mockResolvedValue({ ...mockCase, caseProvenance: 'DIRECT_DISCOVERY' }) },
+        case: {
+          create: jest.fn().mockResolvedValue({
+            ...mockCase,
+            caseProvenance: 'DIRECT_DISCOVERY',
+          }),
+        },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
           findUnique: jest.fn().mockResolvedValue(null),
@@ -956,12 +1307,14 @@ describe('CasesService', () => {
         },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       await service.create(
         {
           ...baseProvenanceDto,
-          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
           tenCungCap: 'Nguyễn Văn A',
           cccdCungCap: '079123456789',
           noiXayRa: 'Phường 1, Quận 3',
@@ -973,7 +1326,7 @@ describe('CasesService', () => {
           caseClassification: 'Hình sự',
           tinhTrang: 'Đang xử lý',
           toiDanhBanDau: 'Trộm cắp tài sản',
-        } as any,
+        },
         'actor-001',
       );
 
@@ -1002,11 +1355,21 @@ describe('CasesService', () => {
 
       function buildBranch3Tx(caseOverrides: Record<string, any> = {}) {
         return {
-          case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'new-case-id', ...caseOverrides }) },
+          case: {
+            create: jest.fn().mockResolvedValue({
+              ...mockCase,
+              id: 'new-case-id',
+              ...caseOverrides,
+            }),
+          },
           incident: {
             findFirst: jest.fn().mockResolvedValue(null),
             findUnique: jest.fn().mockResolvedValue(null),
-            create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: mockCase.name }),
+            create: jest.fn().mockResolvedValue({
+              id: 'auto-inc-id',
+              code: `VV-${year}-00001`,
+              name: mockCase.name,
+            }),
             update: jest.fn().mockResolvedValue({}),
           },
           documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
@@ -1015,12 +1378,14 @@ describe('CasesService', () => {
 
       it('should auto-create when DIRECT_DISCOVERY + incidentDate present', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         const result = await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1032,12 +1397,14 @@ describe('CasesService', () => {
 
       it('should auto-create when TRANSFERRED + incidentType present', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         const result = await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'TRANSFERRED' as any,
+            caseProvenance: CaseProvenance.TRANSFERRED,
             metadata: { incidentType: 'Trộm cắp' } as any,
           },
           'actor-001',
@@ -1049,12 +1416,14 @@ describe('CasesService', () => {
 
       it('should NOT auto-create when Tab Vụ việc is empty (no incident fields)', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
           },
           'actor-001',
         );
@@ -1064,26 +1433,40 @@ describe('CasesService', () => {
 
       it('should NOT auto-create for FROM_PETITION provenance even with incident fields', async () => {
         const petitionUpdatedAt = new Date('2026-05-22T10:00:00.000Z');
-        const existingPetition = { ...mockPetition, id: 'pet-source', linkedCaseId: null, updatedAt: petitionUpdatedAt };
+        const existingPetition = {
+          ...mockPetition,
+          id: 'pet-source',
+          linkedCaseId: null,
+          updatedAt: petitionUpdatedAt,
+        };
         const incidentCreate = jest.fn();
 
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-          const tx = {
-            case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'new-case-id' }) },
-            petition: {
-              findFirst: jest.fn().mockResolvedValue(existingPetition),
-              update: jest.fn().mockResolvedValue({ ...existingPetition, linkedCaseId: 'new-case-id' }),
-            },
-            incident: { create: incidentCreate, update: jest.fn() },
-            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-          };
-          return fn(tx);
-        });
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => {
+            const tx = {
+              case: {
+                create: jest
+                  .fn()
+                  .mockResolvedValue({ ...mockCase, id: 'new-case-id' }),
+              },
+              petition: {
+                findFirst: jest.fn().mockResolvedValue(existingPetition),
+                update: jest.fn().mockResolvedValue({
+                  ...existingPetition,
+                  linkedCaseId: 'new-case-id',
+                }),
+              },
+              incident: { create: incidentCreate, update: jest.fn() },
+              documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+            };
+            return fn(tx);
+          },
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'FROM_PETITION' as any,
+            caseProvenance: CaseProvenance.FROM_PETITION,
             linkedPetitionId: 'pet-source',
             expectedPetitionUpdatedAt: petitionUpdatedAt.toISOString(),
             metadata: { incidentDate: '2026-01-15' } as any,
@@ -1096,22 +1479,34 @@ describe('CasesService', () => {
 
       it('should prepend "Vụ việc - " when case name < 5 chars', async () => {
         const tx = {
-          case: { create: jest.fn().mockResolvedValue({ ...mockCase, id: 'new-case-id', name: 'AB' }) },
+          case: {
+            create: jest.fn().mockResolvedValue({
+              ...mockCase,
+              id: 'new-case-id',
+              name: 'AB',
+            }),
+          },
           incident: {
             findFirst: jest.fn().mockResolvedValue(null),
             findUnique: jest.fn().mockResolvedValue(null),
-            create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: 'Vụ việc - AB' }),
+            create: jest.fn().mockResolvedValue({
+              id: 'auto-inc-id',
+              code: `VV-${year}-00001`,
+              name: 'Vụ việc - AB',
+            }),
             update: jest.fn().mockResolvedValue({}),
           },
           documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             name: 'AB',
             unit: 'Công an Quận 1',
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1125,25 +1520,33 @@ describe('CasesService', () => {
       });
 
       it('should rollback when $transaction callback throws', async () => {
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-          const tx = {
-            case: { create: jest.fn().mockRejectedValue(new Error('DB error')) },
-            incident: {
-              findFirst: jest.fn().mockResolvedValue(null),
-              findUnique: jest.fn().mockResolvedValue(null),
-              create: jest.fn().mockResolvedValue({ id: 'auto-inc-id', code: `VV-${year}-00001`, name: mockCase.name }),
-              update: jest.fn(),
-            },
-            documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-          };
-          return fn(tx);
-        });
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => {
+            const tx = {
+              case: {
+                create: jest.fn().mockRejectedValue(new Error('DB error')),
+              },
+              incident: {
+                findFirst: jest.fn().mockResolvedValue(null),
+                findUnique: jest.fn().mockResolvedValue(null),
+                create: jest.fn().mockResolvedValue({
+                  id: 'auto-inc-id',
+                  code: `VV-${year}-00001`,
+                  name: mockCase.name,
+                }),
+                update: jest.fn(),
+              },
+              documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
+            };
+            return fn(tx);
+          },
+        );
 
         await expect(
           service.create(
             {
               ...baseProvenanceDto,
-              caseProvenance: 'DIRECT_DISCOVERY' as any,
+              caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
               metadata: { incidentDate: '2026-01-15' } as any,
             },
             'actor-001',
@@ -1153,12 +1556,14 @@ describe('CasesService', () => {
 
       it('should set Incident.investigatorId = actorId (scope fix)', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1173,12 +1578,14 @@ describe('CasesService', () => {
 
       it('should set Incident.assignedTeamId from dto (scope fix)', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             assignedTeamId: 'team-42',
             metadata: { incidentDate: '2026-01-15' } as any,
           },
@@ -1194,12 +1601,14 @@ describe('CasesService', () => {
 
       it('should set canBoNhapId and createdById = actorId', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1217,12 +1626,14 @@ describe('CasesService', () => {
 
       it('should update Incident.linkedCaseId after Case creation', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1238,12 +1649,14 @@ describe('CasesService', () => {
 
       it('should emit audit INCIDENT_AUTO_CREATED outside transaction', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
             metadata: { incidentDate: '2026-01-15' } as any,
           },
           'actor-001',
@@ -1256,12 +1669,14 @@ describe('CasesService', () => {
 
       it('should NOT emit audit INCIDENT_AUTO_CREATED when no incident fields', async () => {
         const tx = buildBranch3Tx();
-        mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+        );
 
         await service.create(
           {
             ...baseProvenanceDto,
-            caseProvenance: 'DIRECT_DISCOVERY' as any,
+            caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
           },
           'actor-001',
         );
@@ -1280,7 +1695,7 @@ describe('CasesService', () => {
           {
             ...baseProvenanceDto,
             metadata: { petitionType: 'Tố cáo', reporter: 'Test' },
-          } as any,
+          } as unknown as CreateCaseDto,
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -1408,10 +1823,17 @@ describe('CasesService', () => {
 
     it('[CONTRACT] after TIEP_NHAN→DANG_DIEU_TRA, status history records the fromStatus', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(mockCase); // status = TIEP_NHAN
-      mockPrisma.case.update.mockResolvedValue({ ...mockCase, status: CaseStatus.DANG_DIEU_TRA });
+      mockPrisma.case.update.mockResolvedValue({
+        ...mockCase,
+        status: CaseStatus.DANG_DIEU_TRA,
+      });
       mockPrisma.caseStatusHistory.create.mockResolvedValue({});
 
-      await service.update('case-001', { status: CaseStatus.DANG_DIEU_TRA }, 'actor-001');
+      await service.update(
+        'case-001',
+        { status: CaseStatus.DANG_DIEU_TRA },
+        'actor-001',
+      );
 
       expect(mockPrisma.caseStatusHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -1512,10 +1934,14 @@ describe('CasesService', () => {
                 documents: baseCase.documents.length,
               },
             }),
-            update: jest.fn().mockResolvedValue({ ...baseCase, deletedAt: new Date() }),
+            update: jest
+              .fn()
+              .mockResolvedValue({ ...baseCase, deletedAt: new Date() }),
           },
           incident: {
-            updateMany: jest.fn().mockResolvedValue({ count: (baseCase.linkedIncidents as any[]).length }),
+            updateMany: jest.fn().mockResolvedValue({
+              count: (baseCase.linkedIncidents as any[]).length,
+            }),
           },
         };
         await cb(tx);
@@ -1526,13 +1952,21 @@ describe('CasesService', () => {
 
     it('BE-10: soft deletes case + audit logged in transaction with reason', async () => {
       setupBasicCase();
-      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      const result = await service.delete(
+        'case-001',
+        REASON,
+        ACTOR_ID,
+        ROLE_NAMES.INVESTIGATOR,
+      );
       expect(result.success).toBe(true);
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'CASE_DELETED',
-          metadata: expect.objectContaining({ reason: REASON, softDelete: true }),
+          metadata: expect.objectContaining({
+            reason: REASON,
+            softDelete: true,
+          }),
         }),
         expect.anything(),
       );
@@ -1541,7 +1975,12 @@ describe('CasesService', () => {
     it('throws NotFoundException khi case không tồn tại', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
       await expect(
-        service.delete('nonexistent', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR),
+        service.delete(
+          'nonexistent',
+          REASON,
+          ACTOR_ID,
+          ROLE_NAMES.INVESTIGATOR,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1592,8 +2031,15 @@ describe('CasesService', () => {
         },
         incident: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => { await cb(innerTx); });
-      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => {
+        await cb(innerTx);
+      });
+      const result = await service.delete(
+        'case-001',
+        REASON,
+        ACTOR_ID,
+        ROLE_NAMES.INVESTIGATOR,
+      );
       expect(result.success).toBe(true);
       // Both writes must be INSIDE the transaction (innerTx, not mockPrisma directly)
       expect(innerTx.incident.updateMany).toHaveBeenCalledWith(
@@ -1616,12 +2062,21 @@ describe('CasesService', () => {
         },
         incident: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       };
-      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => { await cb(innerTx); });
-      const result = await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => {
+        await cb(innerTx);
+      });
+      const result = await service.delete(
+        'case-001',
+        REASON,
+        ACTOR_ID,
+        ROLE_NAMES.INVESTIGATOR,
+      );
       expect(result.success).toBe(true);
       // Clear Case.linkedIncidentId must happen INSIDE the transaction
       expect(innerTx.case.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ linkedIncidentId: null }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ linkedIncidentId: null }),
+        }),
       );
       // SetNull incidents also runs (even when empty — unconditional)
       expect(innerTx.incident.updateMany).toHaveBeenCalled();
@@ -1642,7 +2097,7 @@ describe('CasesService', () => {
     });
 
     it('BE-8: throws BadRequest khi quá window và không phải admin', async () => {
-      const oldCase = setupBasicCase({
+      setupBasicCase({
         createdAt: new Date(Date.now() - 100 * 3_600_000), // 100h ago
       });
       mockSettings.getNumericValue.mockResolvedValueOnce(72);
@@ -1657,7 +2112,12 @@ describe('CasesService', () => {
         createdAt: new Date(Date.now() - 500 * 3_600_000),
       });
       mockSettings.getNumericValue.mockResolvedValueOnce(72);
-      const result = await service.delete('case-001', REASON, 'admin-id', ROLE_NAMES.ADMIN);
+      const result = await service.delete(
+        'case-001',
+        REASON,
+        'admin-id',
+        ROLE_NAMES.ADMIN,
+      );
       expect(result.success).toBe(true);
     });
 
@@ -1694,21 +2154,37 @@ describe('CasesService', () => {
     });
 
     it('BE-12: DataScope deny → ForbiddenException via checkWriteScope', async () => {
-      setupBasicCase({ assignedTeamId: 'team-A', investigatorId: 'someone-else' });
+      setupBasicCase({
+        assignedTeamId: 'team-A',
+        investigatorId: 'someone-else',
+      });
       // Scope excludes team-A and doesn't match investigator
-      const restrictiveScope = {
+      const restrictiveScope: DataScope = {
         userIds: ['other-user'],
+        teamIds: ['team-B'],
         writableTeamIds: ['team-B'],
         writableUserIds: ['other-user'], // doesn't include team-A
-      } as any;
+      };
       await expect(
-        service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR, undefined, restrictiveScope),
+        service.delete(
+          'case-001',
+          REASON,
+          ACTOR_ID,
+          ROLE_NAMES.INVESTIGATOR,
+          undefined,
+          restrictiveScope,
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('BE: only counts ACTIVE linked subjects (deletedAt:null filter) + linkedIncidents fetched cho SetNull', async () => {
       setupBasicCase();
-      await service.delete('case-001', REASON, ACTOR_ID, ROLE_NAMES.INVESTIGATOR);
+      await service.delete(
+        'case-001',
+        REASON,
+        ACTOR_ID,
+        ROLE_NAMES.INVESTIGATOR,
+      );
       expect(mockPrisma.case.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           include: expect.objectContaining({
@@ -1716,7 +2192,10 @@ describe('CasesService', () => {
             lawyers: { where: { deletedAt: null }, select: { id: true } },
             conclusions: { where: { deletedAt: null }, select: { id: true } },
             documents: { where: { deletedAt: null }, select: { id: true } },
-            linkedIncidents: { where: { deletedAt: null }, select: { id: true } },
+            linkedIncidents: {
+              where: { deletedAt: null },
+              select: { id: true },
+            },
           }),
         }),
       );
@@ -1729,15 +2208,23 @@ describe('CasesService', () => {
     it('BE-13a: returns canDelete=true với no blockers; linkedIncidents trong willUnlink (không phải blockers)', async () => {
       mockPrisma.case.findFirst.mockResolvedValue({
         ...mockCase,
-        subjects: [], lawyers: [], conclusions: [], documents: [],
-        linkedIncidents: [{ id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' }],
+        subjects: [],
+        lawyers: [],
+        conclusions: [],
+        documents: [],
+        linkedIncidents: [
+          { id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' },
+        ],
       });
       const result = await service.previewDelete('case-001');
       expect(result.canDelete).toBe(true);
       expect(result.reasonsIfBlocked).toEqual([]);
       // linkedIncidents KHÔNG phải blocker
       expect(result.blockers).toEqual({
-        subjects: 0, lawyers: 0, conclusions: 0, documents: 0,
+        subjects: 0,
+        lawyers: 0,
+        conclusions: 0,
+        documents: 0,
       });
       // linkedIncidents nằm trong willUnlink
       expect(result.willUnlink.incidents).toHaveLength(1);
@@ -1752,23 +2239,33 @@ describe('CasesService', () => {
         lawyers: [],
         conclusions: [{ id: 'c1' }],
         documents: [],
-        linkedIncidents: [{ id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' }],
+        linkedIncidents: [
+          { id: 'i1', code: 'VV-2026-00001', name: 'Vu viec A' },
+        ],
       });
       const result = await service.previewDelete('case-001');
       expect(result.canDelete).toBe(false);
       expect(result.blockers.subjects).toBe(2);
       expect(result.blockers.conclusions).toBe(1);
       expect(result.reasonsIfBlocked.length).toBeGreaterThanOrEqual(3); // status + subjects + conclusions
-      expect(result.reasonsIfBlocked.some((r) => /Tiếp nhận/.test(r))).toBe(true);
-      expect(result.reasonsIfBlocked.some((r) => /2 đối tượng/.test(r))).toBe(true);
+      expect(result.reasonsIfBlocked.some((r) => /Tiếp nhận/.test(r))).toBe(
+        true,
+      );
+      expect(result.reasonsIfBlocked.some((r) => /2 đối tượng/.test(r))).toBe(
+        true,
+      );
       // linkedIncidents không phải reason blocker
-      expect(result.reasonsIfBlocked.some((r) => /vụ việc/.test(r))).toBe(false);
+      expect(result.reasonsIfBlocked.some((r) => /vụ việc/.test(r))).toBe(
+        false,
+      );
       expect(result.willUnlink.incidents).toHaveLength(1);
     });
 
     it('throws NotFoundException khi case không tồn tại', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
-      await expect(service.previewDelete('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.previewDelete('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -1783,7 +2280,12 @@ describe('CasesService', () => {
           fromStatus: CaseStatus.TIEP_NHAN,
           toStatus: CaseStatus.DANG_DIEU_TRA,
           changedAt: new Date(),
-          changedBy: { id: 'user-001', firstName: 'Test', lastName: 'User', username: 'testuser' },
+          changedBy: {
+            id: 'user-001',
+            firstName: 'Test',
+            lastName: 'User',
+            username: 'testuser',
+          },
         },
       ];
       mockPrisma.caseStatusHistory.findMany.mockResolvedValue(mockHistory);
@@ -1801,20 +2303,30 @@ describe('CasesService', () => {
 
   describe('create — capDoToiPham (GAP-5)', () => {
     it('creates case with capDoToiPham field stored', async () => {
-      const withSeverity = { ...mockCase, capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG };
+      const withSeverity = {
+        ...mockCase,
+        capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
+      };
       const tx = {
         case: { create: jest.fn().mockResolvedValue(withSeverity) },
-        incident: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+        incident: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
+      mockPrisma.$transaction.mockImplementation(
+        (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
+      );
 
       const result = await service.create(
         {
           name: 'Vụ án rất nghiêm trọng',
           capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
-          caseProvenance: 'DIRECT_DISCOVERY' as any,
+          caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
         },
         'actor-001',
       );
@@ -1823,14 +2335,19 @@ describe('CasesService', () => {
       expect(result.data.capDoToiPham).toBe(CapDoToiPham.RAT_NGHIEM_TRONG);
       expect(tx.case.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG }),
+          data: expect.objectContaining({
+            capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
+          }),
         }),
       );
     });
 
     it('update sets capDoToiPham on existing case', async () => {
       const existing = { ...mockCase, capDoToiPham: null };
-      const updated = { ...mockCase, capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG };
+      const updated = {
+        ...mockCase,
+        capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG,
+      };
       mockPrisma.case.findFirst.mockResolvedValue(existing);
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
       mockPrisma.case.update.mockResolvedValue(updated);
@@ -1844,7 +2361,9 @@ describe('CasesService', () => {
       expect(result.success).toBe(true);
       expect(mockPrisma.case.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG }),
+          data: expect.objectContaining({
+            capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG,
+          }),
         }),
       );
     });
@@ -1857,19 +2376,33 @@ describe('CasesService', () => {
         mockPrisma.case.update.mockRejectedValue({ code: 'P2025' });
 
         await expect(
-          service.update('case-001', { name: 'Edited', expectedUpdatedAt: stalestamp }, 'actor-001'),
+          service.update(
+            'case-001',
+            { name: 'Edited', expectedUpdatedAt: stalestamp },
+            'actor-001',
+          ),
         ).rejects.toThrow(ConflictException);
       });
 
       it('passes updatedAt in where clause when expectedUpdatedAt provided', async () => {
         mockPrisma.case.findFirst.mockResolvedValue(mockCase);
-        mockPrisma.case.update.mockResolvedValue({ ...mockCase, name: 'Edited' });
+        mockPrisma.case.update.mockResolvedValue({
+          ...mockCase,
+          name: 'Edited',
+        });
 
-        await service.update('case-001', { name: 'Edited', expectedUpdatedAt: stalestamp }, 'actor-001');
+        await service.update(
+          'case-001',
+          { name: 'Edited', expectedUpdatedAt: stalestamp },
+          'actor-001',
+        );
 
         expect(mockPrisma.case.update).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: expect.objectContaining({ id: 'case-001', updatedAt: new Date(stalestamp) }),
+            where: expect.objectContaining({
+              id: 'case-001',
+              updatedAt: new Date(stalestamp),
+            }),
           }),
         );
       });
@@ -1908,8 +2441,15 @@ describe('CasesService', () => {
     it('assigns case and logs audit with from/to metadata', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(existingCase);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
-      mockPrisma.userTeam.findFirst.mockResolvedValue({ userId: 'user-001', teamId: 'team-001' });
-      mockPrisma.case.update.mockResolvedValue({ ...existingCase, assignedTeamId: 'team-001', investigatorId: 'user-001' });
+      mockPrisma.userTeam.findFirst.mockResolvedValue({
+        userId: 'user-001',
+        teamId: 'team-001',
+      });
+      mockPrisma.case.update.mockResolvedValue({
+        ...existingCase,
+        assignedTeamId: 'team-001',
+        investigatorId: 'user-001',
+      });
 
       const result = await service.assignCase(
         'case-001',
@@ -1936,7 +2476,11 @@ describe('CasesService', () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.assignCase('bad-id', { assignedTeamId: 'team-001' }, 'dispatcher-001'),
+        service.assignCase(
+          'bad-id',
+          { assignedTeamId: 'team-001' },
+          'dispatcher-001',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -1945,7 +2489,11 @@ describe('CasesService', () => {
       mockPrisma.team.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.assignCase('case-001', { assignedTeamId: 'bad-team' }, 'dispatcher-001'),
+        service.assignCase(
+          'case-001',
+          { assignedTeamId: 'bad-team' },
+          'dispatcher-001',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1955,7 +2503,11 @@ describe('CasesService', () => {
       mockPrisma.userTeam.findFirst.mockResolvedValue(null); // not a member
 
       await expect(
-        service.assignCase('case-001', { assignedTeamId: 'team-001', investigatorId: 'other-user' }, 'dispatcher-001'),
+        service.assignCase(
+          'case-001',
+          { assignedTeamId: 'team-001', investigatorId: 'other-user' },
+          'dispatcher-001',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1967,16 +2519,27 @@ describe('CasesService', () => {
       mockPrisma.case.update.mockRejectedValue({ code: 'P2025' });
 
       await expect(
-        service.assignCase('case-001', { assignedTeamId: 'team-001', expectedUpdatedAt: new Date() }, 'dispatcher-001'),
+        service.assignCase(
+          'case-001',
+          { assignedTeamId: 'team-001', expectedUpdatedAt: new Date() },
+          'dispatcher-001',
+        ),
       ).rejects.toThrow(ConflictException);
     });
 
     it('assigns without investigatorId (team-only assignment)', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(existingCase);
       mockPrisma.team.findFirst.mockResolvedValue(mockTeam);
-      mockPrisma.case.update.mockResolvedValue({ ...existingCase, assignedTeamId: 'team-001' });
+      mockPrisma.case.update.mockResolvedValue({
+        ...existingCase,
+        assignedTeamId: 'team-001',
+      });
 
-      await service.assignCase('case-001', { assignedTeamId: 'team-001' }, 'dispatcher-001');
+      await service.assignCase(
+        'case-001',
+        { assignedTeamId: 'team-001' },
+        'dispatcher-001',
+      );
 
       expect(mockPrisma.userTeam.findFirst).not.toHaveBeenCalled();
       expect(mockAudit.log).toHaveBeenCalledWith(
@@ -1997,13 +2560,20 @@ describe('CasesService', () => {
         },
       };
       const pc02Team = { id: 'team-pc02-doi1', isActive: true, wardId: null };
-      const otherWardTeam = { id: 'team-ward-td', isActive: true, wardId: 'ward-td' };
+      const otherWardTeam = {
+        id: 'team-ward-td',
+        isActive: true,
+        wardId: 'ward-td',
+      };
 
       it('BE-ESC1: emits CASE_ESCALATED_FROM_WARD when ward team → non-ward (PC02) team', async () => {
         mockPrisma.case.findFirst.mockResolvedValue(wardCase);
         mockPrisma.team.findFirst.mockResolvedValue(pc02Team); // assignment target
         mockPrisma.team.findUnique.mockResolvedValue({ wardId: null }); // escalation check
-        mockPrisma.case.update.mockResolvedValue({ ...wardCase, assignedTeamId: 'team-pc02-doi1' });
+        mockPrisma.case.update.mockResolvedValue({
+          ...wardCase,
+          assignedTeamId: 'team-pc02-doi1',
+        });
 
         await service.assignCase(
           'case-001',
@@ -2011,9 +2581,9 @@ describe('CasesService', () => {
           'dispatcher-001',
         );
 
-        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
-        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        const escalation = findAuditAction('CASE_ESCALATED_FROM_WARD');
         expect(escalation).toBeDefined();
+        if (!escalation) throw new Error('Escalation audit record missing');
         expect(escalation.metadata).toEqual(
           expect.objectContaining({
             oldTeamId: 'team-ward-bn',
@@ -2028,7 +2598,10 @@ describe('CasesService', () => {
         mockPrisma.case.findFirst.mockResolvedValue(wardCase);
         mockPrisma.team.findFirst.mockResolvedValue(otherWardTeam);
         mockPrisma.team.findUnique.mockResolvedValue({ wardId: 'ward-td' });
-        mockPrisma.case.update.mockResolvedValue({ ...wardCase, assignedTeamId: 'team-ward-td' });
+        mockPrisma.case.update.mockResolvedValue({
+          ...wardCase,
+          assignedTeamId: 'team-ward-td',
+        });
 
         await service.assignCase(
           'case-001',
@@ -2036,8 +2609,7 @@ describe('CasesService', () => {
           'dispatcher-001',
         );
 
-        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
-        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        const escalation = findAuditAction('CASE_ESCALATED_FROM_WARD');
         expect(escalation).toBeUndefined();
       });
 
@@ -2050,7 +2622,10 @@ describe('CasesService', () => {
         mockPrisma.case.findFirst.mockResolvedValue(pc02Case);
         mockPrisma.team.findFirst.mockResolvedValue(pc02Team);
         mockPrisma.team.findUnique.mockResolvedValue({ wardId: null });
-        mockPrisma.case.update.mockResolvedValue({ ...pc02Case, assignedTeamId: 'team-pc02-doi1' });
+        mockPrisma.case.update.mockResolvedValue({
+          ...pc02Case,
+          assignedTeamId: 'team-pc02-doi1',
+        });
 
         await service.assignCase(
           'case-001',
@@ -2058,8 +2633,7 @@ describe('CasesService', () => {
           'dispatcher-001',
         );
 
-        const auditCalls = (mockAudit.log as jest.Mock).mock.calls.map((c) => c[0]);
-        const escalation = auditCalls.find((c: any) => c.action === 'CASE_ESCALATED_FROM_WARD');
+        const escalation = findAuditAction('CASE_ESCALATED_FROM_WARD');
         expect(escalation).toBeUndefined();
       });
     });
@@ -2071,10 +2645,19 @@ describe('CasesService', () => {
     const ACTOR_ID = 'admin-001';
 
     const setupDeletedCase = () => {
-      const deleted = { ...mockCase, deletedAt: new Date(Date.now() - 24 * 3_600_000) };
+      const deleted = {
+        ...mockCase,
+        deletedAt: new Date(Date.now() - 24 * 3_600_000),
+      };
       mockPrisma.case.findFirst.mockResolvedValue(deleted);
       mockPrisma.$transaction.mockImplementation(async (cb: any) => {
-        const tx = { case: { update: jest.fn().mockResolvedValue({ ...deleted, deletedAt: null }) } };
+        const tx = {
+          case: {
+            update: jest
+              .fn()
+              .mockResolvedValue({ ...deleted, deletedAt: null }),
+          },
+        };
         await cb(tx);
       });
       return deleted;
@@ -2082,12 +2665,16 @@ describe('CasesService', () => {
 
     it('BE-R1: throws NotFound khi record không tồn tại', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
-      await expect(service.restore('nope', REASON, ACTOR_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.restore('nope', REASON, ACTOR_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('BE-R2: findFirst filter deletedAt:{not:null} — chưa bị xóa thì coi như không tìm thấy', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
-      await expect(service.restore('case-001', REASON, ACTOR_ID)).rejects.toThrow(/chưa bị xóa/);
+      await expect(
+        service.restore('case-001', REASON, ACTOR_ID),
+      ).rejects.toThrow(/chưa bị xóa/);
       expect(mockPrisma.case.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'case-001', deletedAt: { not: null } },
@@ -2102,7 +2689,10 @@ describe('CasesService', () => {
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'CASE_RESTORED',
-          metadata: expect.objectContaining({ reason: REASON, hoursAfterDeletion: expect.any(Number) }),
+          metadata: expect.objectContaining({
+            reason: REASON,
+            hoursAfterDeletion: expect.any(Number),
+          }),
         }),
         expect.anything(),
       );
@@ -2115,7 +2705,9 @@ describe('CasesService', () => {
         { code: 'P2025', clientVersion: '7.8.0' },
       );
       mockPrisma.$transaction.mockRejectedValueOnce(p2025);
-      await expect(service.restore('case-001', REASON, ACTOR_ID)).rejects.toThrow(/đã được khôi phục/);
+      await expect(
+        service.restore('case-001', REASON, ACTOR_ID),
+      ).rejects.toThrow(/đã được khôi phục/);
     });
   });
 
@@ -2126,13 +2718,20 @@ describe('CasesService', () => {
       mockPrisma.case.findMany.mockResolvedValue([deleted]);
       mockPrisma.case.count.mockResolvedValue(1);
       (mockPrisma as any).$queryRaw = jest.fn().mockResolvedValue([
-        { subjectId: 'case-001', userId: 'u1', metadata: { reason: 'Test xóa' }, createdAt: new Date() },
+        {
+          subjectId: 'case-001',
+          userId: 'u1',
+          metadata: { reason: 'Test xóa' },
+          createdAt: new Date(),
+        },
       ]);
       const result = await service.listDeleted({ limit: 20, offset: 0 });
       expect(result.success).toBe(true);
       expect(result.total).toBe(1);
       expect(result.data[0].deleteAudit).toBeTruthy();
-      expect(result.data[0].deleteAudit?.metadata).toMatchObject({ reason: 'Test xóa' });
+      expect(result.data[0].deleteAudit?.metadata).toMatchObject({
+        reason: 'Test xóa',
+      });
     });
 
     it('BE-R6: search filter applied', async () => {
@@ -2214,7 +2813,7 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
         {
           name: 'Vụ án',
           unit: 'CA',
-          caseProvenance: 'FROM_PETITION' as any,
+          caseProvenance: CaseProvenance.FROM_PETITION,
           linkedPetitionId: 'pet-ngoai',
           expectedPetitionUpdatedAt: new Date().toISOString(),
         },
@@ -2253,7 +2852,12 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
       assignedTeamId: 't-khac',
     });
     await expect(
-      service.tdcBackfill('c-ngoai', 'Lý do', 'u1', DIEU_PHOI as never),
+      service.tdcBackfill(
+        'c-ngoai',
+        LyDoTamDinhChiVuAn.BAT_KHA_KHANG,
+        'u1',
+        DIEU_PHOI as never,
+      ),
     ).rejects.toThrow(ForbiddenException);
     expect(mockPrisma.case.update).not.toHaveBeenCalled();
   });
@@ -2266,7 +2870,12 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
       lyDoTamDinhChiVuAn: [],
     });
     mockPrisma.case.update.mockResolvedValue({ id: 'c1' });
-    await service.tdcBackfill('c1', 'Lý do', 'u1', DIEU_PHOI as never);
+    await service.tdcBackfill(
+      'c1',
+      LyDoTamDinhChiVuAn.BAT_KHA_KHANG,
+      'u1',
+      DIEU_PHOI as never,
+    );
     expect(mockPrisma.case.update).toHaveBeenCalled();
     // Vụ án đã xoá mềm không được bù.
     expect(mockPrisma.case.findFirst).toHaveBeenCalledWith({
@@ -2303,7 +2912,7 @@ describe('CasesService — cán bộ phường và hồ sơ chưa giao tổ', ()
       assignedTeamId: null,
     });
     await expect(
-      service.tdcBackfill('c0', 'Lý do', 'u1', {
+      service.tdcBackfill('c0', LyDoTamDinhChiVuAn.BAT_KHA_KHANG, 'u1', {
         userIds: ['u1'],
         teamIds: ['t-phuong'],
         writableTeamIds: ['t-phuong'],
