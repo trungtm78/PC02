@@ -10,12 +10,25 @@ Element.prototype.scrollIntoView = vi.fn();
 
 const { moTaoNhanh, permissionState } = vi.hoisted(() => ({
   moTaoNhanh: vi.fn(),
-  permissionState: { canCreate: true },
+  permissionState: {
+    createPetitions: false,
+    editPetitions: false,
+    createCases: true,
+    editCases: false,
+  },
 }));
 vi.mock('@/hooks/usePermission', () => ({
   usePermission: () => ({
-    canCreate: (resource: string) => resource === 'petitions' && permissionState.canCreate,
-    permissions: permissionState.canCreate ? ['write:Petition'] : [],
+    canCreate: (resource: string) => resource === 'cases'
+      ? permissionState.createCases
+      : resource === 'petitions' && permissionState.createPetitions,
+    canEdit: (resource: string) => resource === 'cases'
+      ? permissionState.editCases
+      : resource === 'petitions' && permissionState.editPetitions,
+    permissions: [
+      ...(permissionState.createPetitions ? ['write:Petition'] : []),
+      ...(permissionState.createCases ? ['write:Case'] : []),
+    ],
   }),
 }));
 vi.mock('@/features/_shared/modals/useQuickCreateDirectoryModal', () => ({
@@ -64,14 +77,36 @@ function chonNguon(ten: string) {
 }
 
 describe('Ủy thác điều tra — tương tác như Đơn thư', () => {
-  it('hides directory quick creation when the actor cannot write petitions', () => {
-    permissionState.canCreate = false;
+  it('cho phép cán bộ có quyền tạo Vụ án tạo nhanh đơn vị dù không có quyền tạo Đơn thư', () => {
+    permissionState.createPetitions = false;
+    permissionState.createCases = true;
+    hien();
+    fireEvent.click(screen.getByTestId('field-supervisingUnit-trigger'));
+    expect(screen.getByTestId('field-supervisingUnit-create-new')).toBeInTheDocument();
+  });
+
+  it('ẩn tạo nhanh khi cán bộ không có quyền tạo hồ sơ liên quan', () => {
+    permissionState.createPetitions = false;
+    permissionState.createCases = false;
     try {
       hien();
       fireEvent.click(screen.getByTestId('field-supervisingUnit-trigger'));
       expect(screen.queryByTestId('field-supervisingUnit-create-new')).not.toBeInTheDocument();
     } finally {
-      permissionState.canCreate = true;
+      permissionState.createCases = true;
+    }
+  });
+
+  it('cho phép tạo nhanh khi cập nhật hồ sơ với quyền sửa Vụ án', () => {
+    permissionState.createCases = false;
+    permissionState.editCases = true;
+    try {
+      hien();
+      fireEvent.click(screen.getByTestId('field-supervisingUnit-trigger'));
+      expect(screen.getByTestId('field-supervisingUnit-create-new')).toBeInTheDocument();
+    } finally {
+      permissionState.createCases = true;
+      permissionState.editCases = false;
     }
   });
 

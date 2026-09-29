@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.72.1.2] - 2026-09-29
+
+### Fixed
+- Ô **Đơn vị giải quyết** của Ủy thác điều tra cho phép cán bộ tìm kiếm danh mục `DON_VI` và tạo nhanh đơn vị mới trong cả chế độ tạo và cập nhật, kể cả vai trò chỉ được cấp quyền Vụ án.
+
 ## [0.72.1.1] - 2026-09-29
 
 ### Fixed
