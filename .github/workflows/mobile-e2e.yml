@@ -86,9 +86,9 @@ jobs:
           java-version: '17'
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@e938fdf56512cc96ef2f59a7f2a2a23b5f9f3eea # v2.16.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: '3.27.x'
+          flutter-version: '3.38.10'
           channel: 'stable'
 
       - name: Install backend deps + generate Prisma client
