@@ -20,6 +20,10 @@ NEXT_STEP: Tạo MR sạch, chờ CI xanh, merge và deploy web production
 
 ## Lịch sử trước phiên 29/09/2026
 
+### PR #489 — bộ chọn ngày tìm kiếm đơn thư (28/09/2026)
+
+Bổ sung ô ngày cạnh tìm kiếm dạng thẻ chỉ trên danh sách đơn thư; chọn ngày tạo thẻ tìm chung hiện có. Trước khi cập nhật nhánh: frontend 3.967 test, backend 6.045 test và UAT API/Chromium 27/27 ca đạt; ba CI của PR đạt. Việc merge trước đây bị chặn bởi yêu cầu review và xung đột tài liệu với tiến độ ngày 29/09.
+
 STATUS_OLD: BLOCKED
 BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren production
   (#467 #468 #469 #470 #471 #472/#473), buildId prod khop origin/main. Con DUNG MOT VIEC

@@ -24,6 +24,14 @@ test('user finds every list column using global search and Enter', async ({ page
       await expect(page.getByRole('row').filter({ hasText: 'Searchsender' })).toHaveCount(1);
     });
   }
+  await test.step('calendar date selection searches petition dates', async () => {
+    await page.goto('/petitions');
+    const dateInput = page.getByLabel('Chọn ngày tìm kiếm');
+    await expect(dateInput).toBeVisible();
+    await dateInput.fill('2026-04-14');
+    await expect(page.getByTestId('the-tim-kiem')).toContainText('2026-04-14');
+    await expect(page.getByRole('row').filter({ hasText: 'Searchsender' })).toHaveCount(1);
+  });
   await test.step('information-type suggestion and hidden-column search', async () => {
     await page.goto('/petitions');
     const search = page.getByRole('combobox', { name: 'Tìm kiếm trong danh sách' });

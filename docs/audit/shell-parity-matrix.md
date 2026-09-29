@@ -1,6 +1,6 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
-**Updated**: 2026-09-29 (v0.72.1.0, đồng bộ tìm kiếm/xuất/thao tác hàng loạt cho Ủy thác điều tra và các shell dùng chung). Trước đó: 2026-09-16 (ghi rõ giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT).
+**Updated**: 2026-09-29 (đồng bộ tìm kiếm/xuất/thao tác hàng loạt cho Ủy thác điều tra và các shell dùng chung; đơn thư có bộ chọn ngày cạnh ô tìm kiếm dạng thẻ từ 28/09). Trước đó: 2026-09-16 (giới hạn khi tắt cờ `TIM_KIEM_THE` ở Đơn thư + Tổng hợp), 2026-09-15 (ô tìm kiếm dạng thẻ, M2–M6), 2026-09-09 (nút In trên cột Thao tác + STT cũ trong cột STT).
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 

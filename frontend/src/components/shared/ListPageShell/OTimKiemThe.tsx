@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react";
 import { A11Y_FOCUS_RING } from "@/constants/styles";
 import { Fragment } from "react";
 import { khopKhongDau } from "@/lib/bo-dau";
+import { SEARCH_MESSAGES } from "@/shared/tim-kiem/messages";
 import {
   KHOA_TAT_CA,
   laGiaTriNgay,
@@ -32,6 +33,7 @@ export interface OTimKiemTheProps {
   onBoThe(khoa: string): void;
   onBoGiaTri(khoa: string, giaTri: string): void;
   placeholder?: string;
+  showDatePicker?: boolean;
   /** Lý do thẻ đỏ — màn tự nói đúng lý do của mình (vd Tổng hợp: chưa chọn loại hồ sơ). */
   lyDoKhongHopLe?: string;
 }
@@ -177,6 +179,7 @@ export function OTimKiemThe({
   onBoThe,
   onBoGiaTri,
   placeholder = "Tìm kiếm…",
+  showDatePicker = false,
   lyDoKhongHopLe,
 }: OTimKiemTheProps) {
   const [chu, setChu] = useState("");
@@ -189,6 +192,7 @@ export function OTimKiemThe({
   const listId = useId();
 
   const q = chu.trim();
+  const hasDateFields = khai.some((field) => field.kieu === "ngay");
 
   /**
    * Đang sửa một thẻ mà cột của nó không nằm trong gợi ý (cột đang ẩn, hoặc thẻ đến từ đường dẫn cũ):
@@ -530,6 +534,28 @@ export function OTimKiemThe({
           onBlur={dong}
           className="flex-1 min-w-[10rem] py-1 text-sm bg-transparent outline-none"
         />
+        {showDatePicker && hasDateFields && (
+          <label
+            className="flex items-center gap-1.5 border-l border-slate-200 pl-2 text-xs text-slate-600"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span>{SEARCH_MESSAGES.list.dateLabel}</span>
+            <input
+              type="date"
+              aria-label={SEARCH_MESSAGES.list.dateInputLabel}
+              min="1900-01-01"
+              max="2100-12-31"
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (value && onThem(KHOA_TAT_CA, value)) {
+                  event.currentTarget.value = "";
+                  dong();
+                }
+              }}
+              className="max-w-[9rem] bg-transparent text-sm text-slate-700"
+            />
+          </label>
+        )}
       </div>
       {hienDanhSach && (
         <div className="absolute left-0 right-0 top-full mt-1 z-40 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
