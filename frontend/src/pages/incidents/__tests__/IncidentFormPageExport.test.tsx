@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
+import { renderAsync } from '@/test-utils/renderAsync';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -38,7 +39,7 @@ beforeEach(() => {
 async function renderEdit() {
   const { IncidentFormPage } = await import('../IncidentFormPage');
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  return renderAsync(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/vu-viec/inc-1/edit']}>
         <Routes>

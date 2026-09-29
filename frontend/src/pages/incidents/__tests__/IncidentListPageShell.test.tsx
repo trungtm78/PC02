@@ -24,18 +24,31 @@ import { IncidentStatus } from '@/shared/enums/generated';
 import { CompositeModalProvider } from '@/features/_shared/modals/CompositeModalProvider';
 import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
+import { useEffect } from 'react';
 
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
+    patch: vi.fn(),
   },
+}));
+
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: () => ({
+    canDispatch: true,
+    canEdit: () => true,
+    canDelete: () => true,
+    hasPermission: () => true,
+  }),
 }));
 
 function renderWithRouter(initialEntries: string[] = ['/incidents'], flags?: FeatureFlag[]) {
   let lastLocation = '';
   function LocationTracker() {
     const loc = useLocation();
-    lastLocation = loc.pathname + loc.search;
+    useEffect(() => {
+      lastLocation = loc.pathname + loc.search;
+    }, [loc.pathname, loc.search]);
     return null;
   }
   const trang = (
@@ -71,6 +84,8 @@ const sampleRow = {
   donViGiaiQuyet: 'PC02',
   createdAt: '2026-05-20T00:00:00Z',
   updatedAt: '2026-05-21T00:00:00Z',
+  ketQuaXuLy: 'Đã tiếp nhận',
+  quyenGhi: true,
 };
 
 // Exhaustive byStatus matching backend contract — 15 IncidentStatus keys.
@@ -132,17 +147,13 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: /Danh sách vụ việc/i }),
     ).toBeInTheDocument();
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
   });
 
-  it('phase tabs render 4 phases + "Tất cả giai đoạn" trong tablist riêng', () => {
+  it('không lặp lại bộ lọc giai đoạn bên dưới các thẻ thống kê', async () => {
     renderWithRouter();
-    const phaseTablist = screen.getByRole('tablist', { name: 'Giai đoạn xử lý' });
-    const phaseTabs = phaseTablist.querySelectorAll('[role="tab"]');
-    expect(phaseTabs).toHaveLength(5); // "Tất cả" + 4 phases
-    expect(phaseTablist).toHaveTextContent('Tiếp nhận');
-    expect(phaseTablist).toHaveTextContent('Xác minh');
-    expect(phaseTablist).toHaveTextContent('Kết quả');
-    expect(phaseTablist).toHaveTextContent('Tạm đình chỉ');
+    expect(screen.queryByRole('tablist', { name: 'Giai đoạn xử lý' })).not.toBeInTheDocument();
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
   });
 
   it('StatusChips render 15 IncidentStatus + "Tất cả" = 16 chips', async () => {
@@ -159,6 +170,32 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
     const chipBar = screen.getByRole('tablist', { name: /lọc theo trạng thái/i });
     expect(within(chipBar).getByText('35')).toBeInTheDocument(); // total
     expect(within(chipBar).getByText('12')).toBeInTheDocument(); // DANG_XAC_MINH count
+  });
+});
+
+describe('IncidentListPageShell — export parity', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/incidents') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
+      if (url === '/incidents/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL: ' + url));
+    });
+  });
+
+  it('shows current-view and permission-gated full-field Excel exports', async () => {
+    renderWithRouter();
+    await screen.findByText('VV-2026-00001');
+    expect(screen.getByText('Xuất Excel (đang xem)')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+  });
+
+  it('offers Word batch export after selecting a writable row', async () => {
+    renderWithRouter();
+    await screen.findByText('VV-2026-00001');
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[checkboxes.length - 1]);
+    expect(await screen.findByText('Xuất Word')).toBeInTheDocument();
   });
 });
 
@@ -189,19 +226,56 @@ describe('IncidentListPageShell — interactions', () => {
     });
   });
 
-  it('click phase tab → URL state cập nhật với incidents_phase', async () => {
+  it('click thẻ thống kê giai đoạn → URL state cập nhật với incidents_phase', async () => {
     const { getLocation } = renderWithRouter();
     await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
-    const phaseTablist = screen.getByRole('tablist', { name: 'Giai đoạn xử lý' });
-    const xacMinhTab = Array.from(phaseTablist.querySelectorAll('[role="tab"]')).find(
-      (t) => t.textContent === 'Xác minh',
-    );
-    expect(xacMinhTab).toBeDefined();
-    fireEvent.click(xacMinhTab!);
+    fireEvent.click(screen.getByRole('button', { name: /^Xác minh/ }));
     await waitFor(() => {
       // Backend slug — see PHASE_STATUSES keys in incidents.constants.ts
       expect(getLocation()).toContain('incidents_phase=xac-minh');
     });
+  });
+
+  it('sửa nhanh kết quả chỉ xuất hiện khi dòng có quyền ghi và gọi endpoint chuyên biệt', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ data: { data: { updatedAt: '2026-09-02T00:00:00Z' } } });
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Lê Văn Báo Tin'));
+    fireEvent.click(screen.getByTestId('o-ket-qua-incident-1'));
+    fireEvent.change(screen.getByTestId('incident-result-input'), { target: { value: 'Đã xác minh xong' } });
+    fireEvent.click(screen.getByTestId('incident-result-save'));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/incidents/incident-1/result', {
+      ketQuaXuLy: 'Đã xác minh xong',
+      expectedUpdatedAt: '2026-05-21T00:00:00Z',
+    }));
+  });
+
+  it('dòng chỉ đọc chỉ giữ thao tác đọc và phân công theo quyền điều phối', async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/incidents') {
+        return Promise.resolve({
+          data: {
+            data: [{ ...sampleRow, status: 'DANG_XAC_MINH', quyenGhi: false }],
+            total: 1,
+          },
+        });
+      }
+      if (url === '/incidents/stats') return Promise.resolve({ data: sampleStats });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderWithRouter();
+    await screen.findByText('VV-2026-00001');
+
+    expect(screen.getByTestId('btn-view-incident-1')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-print-incident-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-edit-incident-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-delete-incident-1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('btn-action-menu-incident-1'));
+    expect(await screen.findByTestId('btn-assign-incident-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-transition-incident-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-merge-incident-incident-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-prosecute-incident-1')).not.toBeInTheDocument();
   });
 
   it('row click → navigate detail', async () => {

@@ -70,6 +70,7 @@ import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResource
 import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransitionModalContext';
 import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalContext';
+import { useMergeIncidentModal } from '@/features/_shared/modals/MergeIncidentModalContext';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
@@ -78,6 +79,11 @@ import { hoTen } from '@/lib/hoTen';
 import { TIM_KIEM_VU_VIEC } from '@/shared/tim-kiem/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
+import { OSuaNhanh } from '@/components/shared/ListPageShell/OSuaNhanh';
+import { IncidentResultModal } from '@/features/incidents/components/IncidentResultModal';
+import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
+import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
+import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
 
 // Trust boundary — URL `?incidents_status=__proto__` must not land in lookups.
 const INCIDENT_STATUS_VALUES = new Set<string>(Object.values(IncidentStatus));
@@ -111,12 +117,6 @@ const GIA_TRI_CHON_VU_VIEC = {
 // looks up keys directly, never throws on miss.
 const PHASE_VALUES = ['tiep-nhan', 'xac-minh', 'ket-qua', 'tam-dinh-chi'] as const;
 type IncidentPhase = (typeof PHASE_VALUES)[number];
-const PHASE_LABEL: Record<IncidentPhase, string> = {
-  'tiep-nhan': 'Tiếp nhận',
-  'xac-minh': 'Xác minh',
-  'ket-qua': 'Kết quả',
-  'tam-dinh-chi': 'Tạm đình chỉ',
-};
 const PHASE_VALUE_SET = new Set<string>(PHASE_VALUES);
 function isValidPhase(value: string | null): value is IncidentPhase {
   return value != null && PHASE_VALUE_SET.has(value);
@@ -170,6 +170,7 @@ interface IncidentRow {
   ngayVietDonChu?: string | null;
   ngayPhieuChuyen?: string | null;
   ngayCapCccd?: string | null;
+  quyenGhi?: boolean;
 }
 
 interface KyDaGiaiFE {
@@ -257,17 +258,24 @@ export function IncidentListPageShell() {
   const [refetchCounter, setRefetchCounter] = useState(0);
   useListShortcuts({ onNew: () => navigate('/vu-viec/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
   const [error, setError] = useState<string | undefined>();
+  const [resultModal, setResultModal] = useState<{
+    id: string;
+    code: string;
+    value: string;
+    updatedAt: string;
+  } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
 
   // v0.64 PR2 — Action context (perms + modal openers).
   // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
-  const { canDispatch, canEdit, canDelete } = usePermission();
+  const { canDispatch, canEdit, canDelete, hasPermission } = usePermission();
   const assignModal = useAssignModal();
   const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
   const statusTransitionModal = useStatusTransitionModal();
   const prosecuteModal = useProsecuteModal();
+  const mergeIncidentModal = useMergeIncidentModal();
   const actionCtx: ActionContext = useMemo(
     () => ({
       navigate,
@@ -309,6 +317,15 @@ export function IncidentListPageShell() {
             },
           }),
       },
+      mergeIncident: {
+        open: (args) => mergeIncidentModal.open({
+          ...args,
+          onSuccess: () => {
+            args.onSuccess?.();
+            setRefetchCounter((n) => n + 1);
+          },
+        }),
+      },
     }),
     [
       navigate,
@@ -320,6 +337,7 @@ export function IncidentListPageShell() {
       deleteModal,
       statusTransitionModal,
       prosecuteModal,
+      mergeIncidentModal,
     ],
   );
 
@@ -414,6 +432,7 @@ export function IncidentListPageShell() {
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
     const ctrl = new AbortController();
+    setStats(null);
     // KHÔNG gửi `phase`: thẻ phải đếm toàn bộ, nếu lọc theo giai đoạn đang chọn thì 3 thẻ
     // kia về 0 và hết chỗ bấm sang. Backend cũng đã chặn `phase` ở DTO stats.
     // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
@@ -426,7 +445,7 @@ export function IncidentListPageShell() {
       })
       .catch((e: unknown) => {
         if (ctrl.signal.aborted || axios.isCancel(e)) return;
-        // Non-blocking: chips chỉ ẩn counts khi stats fail.
+        setStats(null);
       });
 
     return () => ctrl.abort();
@@ -453,7 +472,11 @@ export function IncidentListPageShell() {
     pageRows: rows,
     totalCountMatchingFilter: totalCount,
   });
-  const adapter = useMemo(() => buildIncidentsAdapter({ enableDelete: true }), []);
+  const wordBatch = useWordBatchExport({ entity: 'incidents' });
+  const adapter = useMemo(
+    () => buildIncidentsAdapter({ enableDelete: true, onExportWord: wordBatch.setIds }),
+    [wordBatch.setIds],
+  );
   const selectionClearRef = useRef(selection.clear);
   selectionClearRef.current = selection.clear;
   useEffect(() => {
@@ -470,6 +493,7 @@ export function IncidentListPageShell() {
         setTransientBanner({ kind: 'success', text: 'Đã xuất Excel' });
         return;
       }
+      if (action.key === 'export-word') return;
       if (result && typeof result === 'object') {
         const { succeeded, skipped, failed } = result;
         const parts: string[] = [];
@@ -534,7 +558,14 @@ export function IncidentListPageShell() {
               name: r.name,
               updatedAt: r.updatedAt,
             }}
-            ctx={actionCtx}
+            ctx={{
+              ...actionCtx,
+              perms: {
+                ...actionCtx.perms,
+                canEdit: actionCtx.perms.canEdit === true && r.quyenGhi !== false,
+                canDelete: actionCtx.perms.canDelete === true && r.quyenGhi !== false,
+              },
+            }}
           />
         ),
       },
@@ -620,7 +651,21 @@ export function IncidentListPageShell() {
         timKiem: 'ketQuaXuLyKhac',
         width: '11rem',
         optional: 'show',
-        render: (r) => r.ketQuaXuLy ?? '—',
+        render: (r) => (
+          <OSuaNhanh
+            giaTri={r.ketQuaXuLy}
+            nhanThem="Nhập kết quả"
+            moTa={`kết quả xử lý vụ việc ${r.code}`}
+            chiXem={!canEdit('incidents') || r.quyenGhi === false}
+            onSua={() => setResultModal({
+              id: r.id,
+              code: r.code,
+              value: r.ketQuaXuLy ?? '',
+              updatedAt: r.updatedAt ?? '',
+            })}
+            testId={`o-ket-qua-${r.id}`}
+          />
+        ),
       },
 
       {
@@ -755,7 +800,7 @@ export function IncidentListPageShell() {
         render: (r) => <DateCell value={r.ngayCapCccd} />,
       },
     ],
-    [actionCtx],
+    [actionCtx, canEdit],
   );
 
   // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do
@@ -853,42 +898,6 @@ export function IncidentListPageShell() {
         activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />
-      {/* Phase tabs render giữa Header + StatusChips theo plan PR2 compound API */}
-      <div
-        role="tablist"
-        aria-label="Giai đoạn xử lý"
-        className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-200 overflow-x-auto"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={phaseFilter === null}
-          onClick={() => handlePhaseChange(null)}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${A11Y_FOCUS_RING} ${
-            phaseFilter === null
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          Tất cả giai đoạn
-        </button>
-        {PHASE_VALUES.map((p) => (
-          <button
-            key={p}
-            type="button"
-            role="tab"
-            aria-selected={phaseFilter === p}
-            onClick={() => handlePhaseChange(p)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${A11Y_FOCUS_RING} ${
-              phaseFilter === p
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {PHASE_LABEL[p]}
-          </button>
-        ))}
-      </div>
       <ListPageShell.StatusChips
         options={chipOptions}
         activeValue={statusFilter}
@@ -941,20 +950,43 @@ export function IncidentListPageShell() {
           hasUnappliedChanges={listFilters.hasUnappliedChanges}
           hanhDongPhu={
             // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
-            <NutXuatTheoBoLoc
-              duongDan="/incidents/export/danh-sach"
-              thamSo={{
-                ...baseQueryParams,
-                ...(statusFilter && { status: statusFilter }),
-                ...(phaseFilter && { phase: phaseFilter }),
-                ...sort.params,
-              }}
-              cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
-              tong={tableState === 'loading' ? null : totalCount}
-              hasUnappliedChanges={listFilters.hasUnappliedChanges}
-              onApply={listFilters.apply}
-              tenDuPhong="danh-sach-vu-viec.xlsx"
-            />
+            <>
+              <NutXuatTheoBoLoc
+                duongDan="/incidents/export/danh-sach"
+                thamSo={{
+                  ...baseQueryParams,
+                  ...(statusFilter && { status: statusFilter }),
+                  ...(phaseFilter && { phase: phaseFilter }),
+                  ...sort.params,
+                }}
+                cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+                tong={tableState === 'loading' ? null : totalCount}
+                hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                onApply={listFilters.apply}
+                tenDuPhong="danh-sach-vu-viec.xlsx"
+                nhanRieng="Xuất Excel (đang xem)"
+              />
+              {hasPermission('incidents', 'view') && hasPermission('incidents', 'export_full') && (
+                <NutXuatTheoBoLoc
+                  duongDan="/incidents/export/day-du"
+                  thamSo={{
+                    ...baseQueryParams,
+                    ...(statusFilter && { status: statusFilter }),
+                    ...(phaseFilter && { phase: phaseFilter }),
+                    ...sort.params,
+                  }}
+                  cot={[]}
+                  boQuaCot
+                  tong={tableState === 'loading' ? null : totalCount}
+                  hasUnappliedChanges={listFilters.hasUnappliedChanges}
+                  onApply={listFilters.apply}
+                  tenDuPhong="vu-viec-day-du.xlsx"
+                  nhanRieng={fullExportMessages.label}
+                  testId="btn-xuat-day-du"
+                  goiY={fullExportMessages.hint}
+                />
+              )}
+            </>
           }
           dynamicOptions={{
             canBoNhapId: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
@@ -1055,6 +1087,27 @@ export function IncidentListPageShell() {
         onSuccess={handleBulkSuccess}
         onError={handleBulkError}
       />
+      {resultModal && (
+        <IncidentResultModal
+          incidentId={resultModal.id}
+          code={resultModal.code}
+          value={resultModal.value}
+          updatedAt={resultModal.updatedAt}
+          onClose={() => setResultModal(null)}
+          onSaved={() => setRefetchCounter((value) => value + 1)}
+        />
+      )}
+      {wordBatch.ids && (
+        <BatchExportDocumentsModal
+          entity="incidents"
+          entityIds={wordBatch.ids}
+          onClose={() => wordBatch.setIds(null)}
+          onConfirm={wordBatch.confirm}
+        />
+      )}
+      {wordBatch.status && (
+        <div role="status" className="sr-only">{wordBatch.status.text}</div>
+      )}
     </ListPageShell>
   );
 }

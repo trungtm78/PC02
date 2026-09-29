@@ -3,7 +3,6 @@ import { Transform } from 'class-transformer';
 import {
   IsString,
   IsOptional,
-  IsEnum,
   IsBoolean,
   IsArray,
   IsObject,
@@ -11,12 +10,23 @@ import {
   MinLength,
 } from 'class-validator';
 import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
-import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
+import {
+  LoaiNguonTin,
+  LyDoKhongKhoiTo,
+  LyDoTamDinhChiVuViec,
+  NguonPhatTin,
+  PhuongThucTiepNhan,
+} from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class UpdateIncidentDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acknowledgedDuplicateIds?: string[];
+
   @IsOptional()
   @IsString()
   @MinLength(5, { message: 'Tên vụ việc phải có ít nhất 5 ký tự' })
@@ -63,18 +73,23 @@ export class UpdateIncidentDto {
   doiTuongToChuc?: string;
 
   @IsOptional()
-  @IsCatalogValue('LOAI_NGUON_TIN', { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
+  @IsCatalogValue('LOAI_NGUON_TIN', {
+    message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO',
+  })
   loaiDonVu?: LoaiNguonTin;
 
   // v0.31.0.0 — cùng pattern với create-dto (catalog + cascade validator).
   @IsOptional()
-  @IsCatalogValue('NGUON_PHAT_TIN', { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
+  @IsCatalogValue('NGUON_PHAT_TIN', {
+    message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)',
+  })
   @IsNguonPhatTinMatchLoaiDonVu()
   nguonPhatTin?: NguonPhatTin;
 
   @IsOptional()
   @IsCatalogValue('PHUONG_THUC_TIEP_NHAN', {
-    message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
+    message:
+      'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
   })
   phuongThucTiepNhan?: PhuongThucTiepNhan;
 
@@ -135,7 +150,8 @@ export class UpdateIncidentDto {
   @IsArray()
   @IsCatalogValue('LY_DO_KHONG_KHOI_TO', {
     each: true,
-    message: 'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
+    message:
+      'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
   })
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
 
@@ -148,6 +164,10 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsString()
   lyDoTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoTamDinhChiText?: string;
 
   @IsOptional()
   @IsString()

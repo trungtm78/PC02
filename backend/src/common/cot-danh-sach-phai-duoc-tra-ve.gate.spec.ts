@@ -47,6 +47,8 @@ const BANG: Man[] = [
       'createdBy',
       'linkedCase',
       'mergedInto',
+      // IncidentsService derives this row capability from DataScope after the Prisma query.
+      'quyenGhi',
     ],
   },
   {

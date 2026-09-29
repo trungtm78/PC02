@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssignModal } from '../AssignModal';
 
 const get = vi.fn();
+const patchAssignment = vi.fn();
 vi.mock('@/lib/api', () => ({
-  api: { get: (...a: unknown[]) => get(...a), patch: vi.fn() },
+  api: { get: (...a: unknown[]) => get(...a), patch: (...a: unknown[]) => patchAssignment(...a) },
 }));
 
 function boc({ children }: { children: ReactNode }) {
@@ -64,6 +65,8 @@ const props = {
 describe('AssignModal — hộp phân công', () => {
   beforeEach(() => {
     get.mockReset();
+    patchAssignment.mockReset();
+    patchAssignment.mockResolvedValue({ data: { data: { assignedTeamId: 't1', investigatorId: 'u1' } } });
     dungMayChu();
   });
 
@@ -103,5 +106,20 @@ describe('AssignModal — hộp phân công', () => {
       CHO,
     );
     expect(screen.queryByRole('option', { name: 'Nguyễn Văn B' })).not.toBeInTheDocument();
+  });
+
+  it('returns the assignment response to the caller after a successful save', async () => {
+    const nguoiDung = userEvent.setup();
+    const onSuccess = vi.fn();
+    render(<AssignModal {...props} onSuccess={onSuccess} />, { wrapper: boc });
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Tổ 1' })).toBeInTheDocument(), CHO);
+    await nguoiDung.selectOptions(screen.getAllByRole('combobox')[0], 't1');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Nguyễn Văn A' })).toBeInTheDocument(), CHO);
+    await nguoiDung.selectOptions(screen.getAllByRole('combobox')[1], 'u1');
+    await nguoiDung.click(screen.getByRole('button', { name: 'Phân công' }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith({
+      data: { assignedTeamId: 't1', investigatorId: 'u1' },
+    }));
   });
 });

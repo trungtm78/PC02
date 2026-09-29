@@ -30,9 +30,14 @@ const INPUT_BASE =
 const LABEL_BASE = 'block text-sm font-medium text-slate-700 mb-1';
 
 function getValidTransitions(currentStatus: string): string[] {
+  const commandOnly = new Set([
+    'DA_CHUYEN_VU_AN',
+    'DA_CHUYEN_DON_VI',
+    'DA_NHAP_VU_KHAC',
+  ]);
   return (
     (INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[currentStatus] ?? []
-  ).slice();
+  ).filter((status) => !commandOnly.has(status));
 }
 
 export function StatusTransitionModalProvider({ children }: { children: ReactNode }) {

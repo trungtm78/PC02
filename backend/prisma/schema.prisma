@@ -1421,8 +1421,10 @@ model Incident {
   diaChiXayRa             String? // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết
   sdtNguoiToGiac          String? // SĐT người tố giác
+  sdtNguoiToGiacNorm      String? @map("sdt_nguoi_to_giac_norm")
   diaChiNguoiToGiac       String? // Địa chỉ người tố giác
   cmndNguoiToGiac         String? // CCCD/CMND người tố giác
+  cmndNguoiToGiacNorm     String? @map("cmnd_nguoi_to_giac_norm")
   sinhNamNguoiToGiac      String? // Sinh năm người tố giác/cung cấp (hệ cũ) — trước KHÔNG map
 
   // Field-parity đầy đủ (feat/legacy-field-parity): field intake hệ cũ Vụ việc trước CHỈ ở legacyRaw.
@@ -1504,6 +1506,10 @@ model Incident {
   createdById String?
   createdBy   User?   @relation("IncidentCreatedBy", fields: [createdById], references: [id])
 
+  // Stable key for retrying a create request after a lost response.
+  createRequestKey  String?
+  createRequestHash String?
+
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -1565,6 +1571,7 @@ model Incident {
   renderLogs       DocumentRenderLog[]
 
   @@unique([legacySourceId]) // Codex P1#2: unique để upsert thật theo khóa gốc
+  @@unique([createdById, createRequestKey])
   @@index([status])
   @@index([deletedAt])
   @@index([assignedTeamId])

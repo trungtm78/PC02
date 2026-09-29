@@ -82,6 +82,19 @@ describe('Ô hệ cũ chưa có cột phải lưu được ngay từ màn TẠO 
   });
 });
 
+describe('Phân công chỉ đi qua command chuyên biệt', () => {
+  it('tạo mới gửi phân công mặc định ban đầu', () => {
+    const p = payload({ investigatorId: 'officer-1', assignedTeamId: 'team-1' }, false);
+    expect(p).toMatchObject({ investigatorId: 'officer-1', assignedTeamId: 'team-1' });
+  });
+
+  it('cập nhật thường không gửi điều tra viên hoặc tổ phụ trách', () => {
+    const p = payload({ investigatorId: 'officer-2', assignedTeamId: 'team-2' }, true);
+    expect(p).not.toHaveProperty('investigatorId');
+    expect(p).not.toHaveProperty('assignedTeamId');
+  });
+});
+
 describe('Tên vụ việc phải vừa hạn của máy chủ', () => {
   /**
    * Hệ cũ có MỘT ô nội dung, và bộ di trú đổ nguyên chữ ấy vào cả `name` lẫn `description`.
