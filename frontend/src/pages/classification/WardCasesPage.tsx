@@ -42,7 +42,7 @@ import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 
 interface WardCaseRow {
   id: string;
@@ -170,6 +170,7 @@ export default function WardCasesPage() {
   const [lanTai, setLanTai] = useState(0);
 
   const taiDuLieu = useCallback(async () => {
+    void lanTai;
     const luot = ++luotTai.current;
     const danhSach = new URLSearchParams(thamSoLoc);
     if (filters.status) danhSach.set('status', filters.status);

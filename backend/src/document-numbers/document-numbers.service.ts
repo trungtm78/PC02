@@ -20,6 +20,11 @@ interface GetLogsFilter {
 interface CommitOptions {
   draftPreview?: string;
   documentId?: string;
+  /**
+   * A user supplied number that must participate in the same locked counter
+   * transaction as automatically generated numbers.
+   */
+  suppliedNumber?: string;
 }
 
 @Injectable()
@@ -241,6 +246,28 @@ export class DocumentNumbersService {
       nextValue = dbMax + 1;
     }
 
+    // Manual numbers share the same unique namespace as automatic numbers. Keep
+    // the counter lock for the whole transaction and advance it to a supplied
+    // number in the current period. This closes the race where an automatic
+    // create could otherwise allocate the same number before the manual insert
+    // commits. Custom/legacy formats still consume one sequence value so every
+    // creator remains serialized behind this lock.
+    const suppliedNumber = options.suppliedNumber?.trim();
+    if (suppliedNumber) {
+      const belongsToPeriod =
+        suppliedNumber.startsWith(`${periodKey}-`) ||
+        suppliedNumber.includes(`-${periodKey}-`);
+      const suffix = suppliedNumber.match(/(\d+)$/)?.[1];
+      const suppliedValue = belongsToPeriod && suffix ? Number(suffix) : null;
+      if (
+        suppliedValue != null &&
+        Number.isSafeInteger(suppliedValue) &&
+        suppliedValue >= nextValue
+      ) {
+        nextValue = suppliedValue;
+      }
+    }
+
     if (nextValue > config.maxValue) {
       if (config.resetPeriod === 'MAX_NUMBER') {
         nextValue = config.minValue;
@@ -257,7 +284,7 @@ export class DocumentNumbersService {
       nextValue,
       config.padding,
     );
-    const number = renderedSegments.join(template.separator);
+    const number = suppliedNumber || renderedSegments.join(template.separator);
 
     await tx.documentNumberCounter.update({
       where: { templateId_periodKey: { templateId: template.id, periodKey } },

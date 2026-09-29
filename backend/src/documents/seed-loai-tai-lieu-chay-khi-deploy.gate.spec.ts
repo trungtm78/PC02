@@ -56,7 +56,10 @@ describe('CỔNG: seed DOCUMENT_TYPE chạy khi deploy', () => {
       của một dòng CHỮ, không đo dòng quyền có thật hay không.
     */
     const seed = fs
-      .readFileSync(path.join(GOC, 'backend', 'prisma', 'seed-permissions.ts'), 'utf8')
+      .readFileSync(
+        path.join(GOC, 'backend', 'prisma', 'seed-permissions.ts'),
+        'utf8',
+      )
       .split(/\r?\n/)
       .filter((d) => !d.trimStart().startsWith('//'))
       .join(String.fromCharCode(10));
@@ -65,9 +68,11 @@ describe('CỔNG: seed DOCUMENT_TYPE chạy khi deploy', () => {
     ].map((m) => `${m[1]}|${m[2]}`);
     expect(can.length).toBeGreaterThan(4);
     const co = new Set(
-      [...seed.matchAll(/action:\s*'([a-z_]+)'\s*,\s*subject:\s*'([A-Za-z]+)'/g)].map(
-        (m) => `${m[1]}|${m[2]}`,
-      ),
+      [
+        ...seed.matchAll(
+          /action:\s*'([a-z_]+)'\s*,\s*subject:\s*'([A-Za-z]+)'/g,
+        ),
+      ].map((m) => `${m[1]}|${m[2]}`),
     );
     expect([...new Set(can)].filter((k) => !co.has(k))).toEqual([]);
   });

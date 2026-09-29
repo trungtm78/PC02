@@ -299,6 +299,42 @@ describe('DocumentNumbersService', () => {
       );
     });
 
+    it('reserves a supplied current-period number under the shared counter lock', async () => {
+      const year = new Date().getFullYear();
+      const suppliedNumber = `${year}-42`;
+      const mockTx = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        $queryRaw: jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 'counter-001' }])
+          .mockResolvedValueOnce([{ max_suffix: 5 }]),
+        documentNumberCounter: {
+          findUnique: jest.fn().mockResolvedValue({ currentValue: 5 }),
+          update: jest.fn().mockResolvedValue({ currentValue: 42 }),
+        },
+        documentNumberLog: {
+          create: jest.fn().mockResolvedValue({ id: 'log-manual' }),
+        },
+      };
+      mockPrisma.documentNumberTemplate.findFirst.mockResolvedValue(mockTemplate);
+
+      const result = await service.commitWithTx('INCIDENT', ctx, mockTx, {
+        suppliedNumber,
+      });
+
+      expect(result.number).toBe(suppliedNumber);
+      expect(mockTx.documentNumberCounter.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ currentValue: 42 }),
+        }),
+      );
+      expect(mockTx.documentNumberLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ generatedNumber: suppliedNumber }),
+        }),
+      );
+    });
+
     it('returns changed=true when final number differs from draftPreview', async () => {
       const mockTx = {
         $executeRaw: jest.fn().mockResolvedValue(1),

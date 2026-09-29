@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useState,
   type ReactNode,
@@ -10,6 +8,7 @@ import { Trash2, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useDauHieuDangSua } from '@/lib/cap-nhat/formDoDang';
 import { extractApiError } from '@/lib/api-errors';
+import { DeleteResourceContext, type DeleteResourceArgs, type DeleteResourceType, type DeleteResourceModalApi } from './DeleteResourceModalContext';
 import {
   BTN_DANGER,
   BTN_OUTLINE_SLATE,
@@ -28,27 +27,6 @@ import {
  * CaseListPage.tsx:460-700. For now simple confirm + delete (matches
  * Lawyers/Subjects v0.51 pattern).
  */
-
-export type DeleteResourceType =
-  | 'cases'
-  | 'incidents'
-  | 'petitions'
-  | 'lawyers'
-  | 'subjects'
-  | 'document-templates';
-
-export interface DeleteResourceArgs {
-  resourceType: DeleteResourceType;
-  recordId: string;
-  recordLabel?: string;
-  onSuccess?: () => void;
-}
-
-export interface DeleteResourceModalApi {
-  open: (args: DeleteResourceArgs) => void;
-}
-
-const DeleteResourceContext = createContext<DeleteResourceModalApi | null>(null);
 
 /**
  * Tài nguyên mà máy chủ BẮT BUỘC kèm lý do khi xóa.
@@ -194,23 +172,4 @@ export function DeleteResourceModalProvider({ children }: { children: ReactNode 
       )}
     </DeleteResourceContext.Provider>
   );
-}
-
-export function useDeleteResourceModal(): DeleteResourceModalApi {
-  const ctx = useContext(DeleteResourceContext);
-  if (!ctx) {
-    throw new Error(
-      'useDeleteResourceModal must be used inside <DeleteResourceModalProvider>',
-    );
-  }
-  return ctx;
-}
-
-/**
- * Biến thể KHÔNG ném lỗi — trả null nếu chưa có Provider.
- * Dùng ở nơi tính năng là tùy chọn (vd phím tắt Xóa trên form) để component vẫn render
- * được trong test/context không bọc Provider.
- */
-export function useDeleteResourceModalSafe(): DeleteResourceModalApi | null {
-  return useContext(DeleteResourceContext);
 }

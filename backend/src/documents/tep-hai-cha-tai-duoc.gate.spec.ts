@@ -29,7 +29,12 @@ const TEP_HAI_CHA = {
   petitionId: 'p1',
   caseId: 'c1',
   incidentId: null,
-  petition: { id: 'p1', assignedTeamId: 'to-don-thu', enteredById: 'u1', deletedAt: null },
+  petition: {
+    id: 'p1',
+    assignedTeamId: 'to-don-thu',
+    enteredById: 'u1',
+    deletedAt: null,
+  },
   case: { id: 'c1', assignedTeamId: 'to-vu-an', investigatorId: 'u9' },
   incident: null,
 };
@@ -60,7 +65,9 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
       writableTeamIds: ['to-khac'],
       writableUserIds: [],
     };
-    await expect(svc.getById('d1', nguoiLa)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.getById('d1', nguoiLa)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('đọc được VỤ ÁN cha cũng đủ — không phá luật cũ', async () => {
@@ -71,7 +78,9 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
       writableTeamIds: ['to-vu-an'],
       writableUserIds: [],
     };
-    await expect(svc.getById('d1', toVuAn)).resolves.toMatchObject({ success: true });
+    await expect(svc.getById('d1', toVuAn)).resolves.toMatchObject({
+      success: true,
+    });
   });
 
   it('tệp CHỈ có cha đơn thư: luật cũ giữ nguyên', async () => {
@@ -80,7 +89,9 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
       caseId: null,
       case: null,
     });
-    await expect(svc.getById('d1', PHAM_VI_DON_THU)).resolves.toMatchObject({ success: true });
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).resolves.toMatchObject({
+      success: true,
+    });
     await expect(
       svc.getById('d1', {
         teamIds: ['to-khac'],
@@ -104,20 +115,26 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
       ...TEP_HAI_CHA,
       petition: { ...TEP_HAI_CHA.petition, deletedAt: new Date() },
     });
-    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   /** Chính tệp bị xoá mềm thì không tồn tại với mọi người, không phải chuyện phạm vi. */
   it('chính TỆP bị xoá mềm: không tìm thấy', async () => {
-    const findFirst = jest.fn().mockImplementation(({ where }: { where: { deletedAt: unknown } }) =>
-      where.deletedAt === null ? null : TEP_HAI_CHA,
-    );
+    const findFirst = jest
+      .fn()
+      .mockImplementation(({ where }: { where: { deletedAt: unknown } }) =>
+        where.deletedAt === null ? null : TEP_HAI_CHA,
+      );
     const svc = new DocumentsService(
       { document: { findFirst } } as never,
       {} as never,
       {} as never,
     );
-    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('tệp CHỈ có cha vụ án: luật cũ giữ nguyên', async () => {
@@ -126,6 +143,8 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
       petitionId: null,
       petition: null,
     });
-    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(svc.getById('d1', PHAM_VI_DON_THU)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 });

@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -74,7 +83,7 @@ export class CasesBulkController {
       reason: dto.reason,
       idempotencyKey: dto.idempotencyKey,
       actorId: user.id,
-      actorRole: (user as any).role ?? '',
+      actorRole: user.role,
       dataScope: req.dataScope,
       meta: { ipAddress: req.ip, userAgent: req.headers['user-agent'] },
     });
@@ -115,6 +124,7 @@ export class CasesBulkController {
   ): Promise<void> {
     await this.bulkService.bulkExport({
       ids: dto.ids,
+      caseType: dto.caseType,
       dataScope: req.dataScope,
       res,
       actorId: user.id,

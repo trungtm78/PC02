@@ -16,6 +16,7 @@ import { CasesService } from './cases.service';
  */
 const VU_AN = {
   id: 'c1',
+  name: 'Tên ban đầu',
   status: 'TIEP_NHAN',
   assignedTeamId: 't1',
   investigatorId: 'u1',
@@ -54,6 +55,7 @@ function dung() {
     case: {
       findFirst: jest.fn().mockResolvedValue(VU_AN),
       findUnique: jest.fn().mockResolvedValue(VU_AN),
+      findMany: jest.fn().mockResolvedValue([]),
       // Ghi NGOÀI giao dịch là sai — ca kiểm khẳng định không ai gọi.
       update: jest.fn(() => {
         nhatKy.push('NGOAI.case.update');
@@ -207,7 +209,15 @@ describe('GET /cases/:id/evidences', () => {
     const kq = await service.getEvidences('c1', canBo as never);
     expect(kq.data).toEqual([{ id: 'e1', code: 'VC-1', name: 'Dao' }]);
     expect(prisma.evidence.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { caseId: 'c1', deletedAt: null } }),
+      expect.objectContaining({
+        where: { caseId: 'c1', deletedAt: null },
+        select: expect.objectContaining({
+          receivedDate: true,
+          evidenceType: true,
+          entryOrder: true,
+          warehouseReceipt: true,
+        }) as Record<string, unknown>,
+      }),
     );
   });
 
@@ -269,6 +279,18 @@ describe('GET /cases/:id/subjects', () => {
     ];
     expect(arg.where).toEqual({ caseId: 'c1', deletedAt: null });
     expect(arg).not.toHaveProperty('take');
+    expect(arg.select).toMatchObject({
+      fullName: true,
+      dateOfBirth: true,
+      gender: true,
+      idNumber: true,
+      address: true,
+      phone: true,
+      occupationId: true,
+      nationalityId: true,
+      crimeId: true,
+      notes: true,
+    });
   });
 
   it('vụ án ngoài phạm vi → 403, không đọc', async () => {

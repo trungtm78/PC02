@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import {
   PrintDocumentsModalProvider,
-  usePrintDocumentsModal,
 } from '../PrintDocumentsModalProvider';
+import { usePrintDocumentsModal } from '../PrintDocumentsModalContext';
 
 /**
  * Modal in chứng từ dùng chung — mở được từ một dòng danh sách.

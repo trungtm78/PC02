@@ -70,9 +70,9 @@ import { RowActions } from '@/features/_shared/row-actions/RowActions';
 import { Filters } from '@/features/_shared/list-filters/Filters';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
-import { useAssignModal } from '@/features/_shared/modals/AssignModalProvider';
-import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalProvider';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
+import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { petitionsRowActions } from '@/features/petitions/row-actions';
@@ -294,7 +294,7 @@ export function PetitionListPageShell() {
           }),
       },
     }),
-    [navigate, canDispatch, canEdit, canDelete, assignModal, deleteModal],
+    [navigate, canDispatch, canEdit, canDelete, assignModal, printModal, deleteModal],
   );
   const listFilters = useListFilters<PetitionFilterValue>({
     prefix: 'petitions',
@@ -790,7 +790,7 @@ export function PetitionListPageShell() {
         render: (r) => <DateCell value={r.senderIdIssueDate} />,
       },
     ],
-    [actionCtx],
+    [actionCtx, canEdit],
   );
 
   // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do

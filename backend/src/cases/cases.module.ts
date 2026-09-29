@@ -10,7 +10,12 @@ import { DocumentNumbersModule } from '../document-numbers/document-numbers.modu
 import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 
 @Module({
-  imports: [AuditModule, SettingsModule, DocumentNumbersModule, DocumentTemplatesModule], // v0.69: DocumentTemplatesModule (xuất chứng từ động)
+  imports: [
+    AuditModule,
+    SettingsModule,
+    DocumentNumbersModule,
+    DocumentTemplatesModule,
+  ], // v0.69: DocumentTemplatesModule (xuất chứng từ động)
   providers: [CasesService, CasesJourneyService, CasesBulkService],
   controllers: [CasesController, CasesBulkController],
   exports: [CasesService, CasesJourneyService],

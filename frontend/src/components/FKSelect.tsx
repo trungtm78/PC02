@@ -55,7 +55,7 @@ interface FKSelectProps {
   onCreateNew?: (tenGoiY?: string) => void;
   loading?: boolean;
   testId?: string;
-  'data-testid'?: string;
+  "data-testid"?: string;
   resource?: string;
   searchPlaceholder?: string;
   /** Auto-fetch options from Directory API by type */
@@ -80,8 +80,7 @@ export function FKSelect({
   onCreateNew,
   loading: loadingProp = false,
   testId,
-  'data-testid': dataTestId,
-  resource: _resource,
+  "data-testid": dataTestId,
   searchPlaceholder,
   directoryType,
   masterClassType,
@@ -124,7 +123,10 @@ export function FKSelect({
     : directoryType
       ? (directoryOptions ?? [])
       : (optionsProp ?? []);
-  const loading = loadingProp || (directoryType ? directoryLoading : false) || (masterClassType ? masterClassLoading : false);
+  const loading =
+    loadingProp ||
+    (directoryType ? directoryLoading : false) ||
+    (masterClassType ? masterClassLoading : false);
 
   /**
    * Mọi mục có thể chọn, KHÔNG lọc.
@@ -133,7 +135,9 @@ export function FKSelect({
    * `options` là luôn không thấy — ô hiện chữ gợi ý và trông như chưa chọn gì, trong khi giá
    * trị đã nằm trong form. Đúng lớp lỗi mà `nhanDaChon` bên dưới sinh ra để chặn.
    */
-  const tatCaMuc: FKOption[] = groups ? groups.flatMap((g) => g.options) : options;
+  const tatCaMuc: FKOption[] = groups
+    ? groups.flatMap((g) => g.options)
+    : options;
 
   // Find selected option label
   const selectedOption = tatCaMuc.find((o) => o.value === value);
@@ -149,7 +153,8 @@ export function FKSelect({
    * Với `directoryType`, `value` chính là TÊN (xem `useDirectoryOptions`), nên dùng thẳng nó
    * làm nhãn là đúng. Với danh sách truyền tay, `value` có thể là id nên không lùi về nó.
    */
-  const nhanDaChon = selectedOption?.label ?? (directoryType && value ? value : "");
+  const nhanDaChon =
+    selectedOption?.label ?? (directoryType && value ? value : "");
 
   /**
    * Lọc tại máy CHỈ khi danh sách vốn đã đầy đủ ở đây (options truyền vào, danh mục nhỏ).
@@ -157,8 +162,16 @@ export function FKSelect({
    * Với `directoryType`, máy chủ đã lọc rồi — lọc lại tại máy sẽ cắt bớt kết quả máy chủ vừa
    * trả về đúng lúc chữ gõ và độ trễ chưa khớp nhau, làm danh sách nhấp nháy rỗng.
    */
+  const selectedOutsideDirectoryPage =
+    directoryType && value && !options.some((option) => option.value === value)
+      ? { value, label: value }
+      : null;
+  const directoryPageOptions =
+    selectedOutsideDirectoryPage && !searchQuery.trim()
+      ? [selectedOutsideDirectoryPage, ...options]
+      : options;
   const filteredOptions = directoryType
-    ? options
+    ? directoryPageOptions
     : options.filter((o) => smartMatch(o.label, searchQuery));
 
   /**
@@ -172,7 +185,10 @@ export function FKSelect({
     .map((g) =>
       smartMatch(g.label, searchQuery)
         ? g
-        : { ...g, options: g.options.filter((o) => smartMatch(o.label, searchQuery)) },
+        : {
+            ...g,
+            options: g.options.filter((o) => smartMatch(o.label, searchQuery)),
+          },
     )
     .filter((g) => g.options.length > 0);
 
@@ -181,10 +197,13 @@ export function FKSelect({
    *
    * Không có nó thì mỗi nhóm phải tự đếm chỉ số, và mũi tên sẽ nhảy cóc ở ranh giới nhóm.
    */
-  const dsPhang: FKOption[] = groups ? nhomHienThi.flatMap((g) => g.options) : filteredOptions;
+  const dsPhang: FKOption[] = groups
+    ? nhomHienThi.flatMap((g) => g.options)
+    : filteredOptions;
 
   /** Đang ở trạng thái "gõ rồi mà không ra gì" — điều kiện để mời tạo mới. */
-  const khongCoKetQua = !loading && dsPhang.length === 0 && searchQuery.trim().length > 0;
+  const khongCoKetQua =
+    !loading && dsPhang.length === 0 && searchQuery.trim().length > 0;
 
   /**
    * Bỏ tô mỗi khi DANH SÁCH NHÌN THẤY đổi, không chỉ khi chữ tìm đổi.
@@ -202,7 +221,10 @@ export function FKSelect({
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
         setSearchQuery("");
         setHighlightedIndex(-1);
@@ -234,7 +256,7 @@ export function FKSelect({
       setSearchQuery("");
       setHighlightedIndex(-1);
     },
-    [onChange]
+    [onChange],
   );
 
   const handleClear = useCallback(
@@ -243,7 +265,7 @@ export function FKSelect({
       onChange("");
       setSearchQuery("");
     },
-    [onChange]
+    [onChange],
   );
 
   const toggleDropdown = useCallback(() => {
@@ -255,17 +277,14 @@ export function FKSelect({
   }, [isOpen]);
 
   /** Bàn phím trên ô bấm mở: Enter / Space / mũi tên xuống đều mở hộp, Escape đóng. */
-  const handleTriggerKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-        e.preventDefault();
-        setIsOpen(true);
-      } else if (e.key === "Escape") {
-        setIsOpen(false);
-      }
-    },
-    [],
-  );
+  const handleTriggerKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -277,7 +296,8 @@ export function FKSelect({
        * không đặt cờ ấy.
        */
       const dangGoDau =
-        (e.nativeEvent as KeyboardEvent).isComposing || (e.nativeEvent as KeyboardEvent).keyCode === 229;
+        (e.nativeEvent as KeyboardEvent).isComposing ||
+        (e.nativeEvent as KeyboardEvent).keyCode === 229;
       if (dangGoDau) return;
 
       if (dsPhang.length === 0) {
@@ -301,11 +321,15 @@ export function FKSelect({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setHighlightedIndex((prev) => (prev < dsPhang.length - 1 ? prev + 1 : 0));
+          setHighlightedIndex((prev) =>
+            prev < dsPhang.length - 1 ? prev + 1 : 0,
+          );
           break;
         case "ArrowUp":
           e.preventDefault();
-          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : dsPhang.length - 1));
+          setHighlightedIndex((prev) =>
+            prev > 0 ? prev - 1 : dsPhang.length - 1,
+          );
           break;
         case "Enter":
           e.preventDefault();
@@ -323,7 +347,15 @@ export function FKSelect({
           break;
       }
     },
-    [dsPhang, highlightedIndex, handleSelect, canCreate, onCreateNew, khongCoKetQua, searchQuery]
+    [
+      dsPhang,
+      highlightedIndex,
+      handleSelect,
+      canCreate,
+      onCreateNew,
+      khongCoKetQua,
+      searchQuery,
+    ],
   );
 
   /** Mã DOM của một mục theo chỉ số phẳng — `aria-activedescendant` trỏ vào đây. */
@@ -383,13 +415,13 @@ export function FKSelect({
 
       {/* Trigger button */}
       {/**
-        * Ô bấm mở LÀ combobox theo chuẩn APG: nó là thứ người ta Tab tới và mở bằng bàn phím.
-        *
-        * Trước đây đây chỉ là một `div` có `onClick` — không `tabIndex`, không `role`, không
-        * `onKeyDown`. Ba ô chọn cán bộ vốn là `<select>` thật (Tab tới được) nên đổi sang đây
-        * là LÙI: người dùng bàn phím hoặc trình đọc màn hình không mở nổi ô. Còn `role` đặt ở
-        * ô tìm BÊN TRONG hộp thì chỉ tồn tại sau khi hộp đã mở — tả một thứ không ai với tới.
-        */}
+       * Ô bấm mở LÀ combobox theo chuẩn APG: nó là thứ người ta Tab tới và mở bằng bàn phím.
+       *
+       * Trước đây đây chỉ là một `div` có `onClick` — không `tabIndex`, không `role`, không
+       * `onKeyDown`. Ba ô chọn cán bộ vốn là `<select>` thật (Tab tới được) nên đổi sang đây
+       * là LÙI: người dùng bàn phím hoặc trình đọc màn hình không mở nổi ô. Còn `role` đặt ở
+       * ô tìm BÊN TRONG hộp thì chỉ tồn tại sau khi hộp đã mở — tả một thứ không ai với tới.
+       */}
       <div
         onClick={toggleDropdown}
         onKeyDown={handleTriggerKeyDown}
@@ -406,7 +438,9 @@ export function FKSelect({
         } ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""} bg-white`}
         data-testid={testId ? `${testId}-trigger` : undefined}
       >
-        <span className={`text-sm ${nhanDaChon ? "text-slate-800" : "text-slate-400"}`}>
+        <span
+          className={`text-sm ${nhanDaChon ? "text-slate-800" : "text-slate-400"}`}
+        >
           {nhanDaChon || placeholder}
         </span>
         <div className="flex items-center gap-1">
@@ -420,7 +454,9 @@ export function FKSelect({
               <X className="w-3.5 h-3.5 text-slate-400" />
             </button>
           )}
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          />
         </div>
       </div>
 
@@ -429,7 +465,10 @@ export function FKSelect({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden" data-testid={testId ? `${testId}-dropdown` : undefined}>
+        <div
+          className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden"
+          data-testid={testId ? `${testId}-dropdown` : undefined}
+        >
           {/* Search input */}
           <div className="p-2 border-b border-slate-200">
             <div className="relative">

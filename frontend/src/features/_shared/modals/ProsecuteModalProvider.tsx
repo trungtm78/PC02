@@ -1,10 +1,7 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useState,
-  useEffect,
   type ReactNode,
 } from 'react';
 import { AlertTriangle, AlertCircle, X } from 'lucide-react';
@@ -15,6 +12,7 @@ import {
   A11Y_FOCUS_RING,
 } from '@/constants/styles';
 import { useModalLifecycle } from './useModalLifecycle';
+import { ProsecuteContext, type ProsecuteArgs, type ProsecuteModalApi } from './ProsecuteModalContext';
 
 /**
  * v0.67 PR1 T5 — ProsecuteModalProvider.
@@ -27,19 +25,6 @@ import { useModalLifecycle } from './useModalLifecycle';
  * onSuccess callback nhận `caseId` để caller (consumer) navigate sang
  * /cases/:caseId.
  */
-
-export interface ProsecuteArgs {
-  recordId: string;
-  incidentName: string;
-  currentUpdatedAt?: string;
-  onSuccess?: (caseId: string) => void;
-}
-
-export interface ProsecuteModalApi {
-  open: (args: ProsecuteArgs) => void;
-}
-
-const ProsecuteContext = createContext<ProsecuteModalApi | null>(null);
 
 const INPUT_BASE =
   'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100';
@@ -75,12 +60,10 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
       expectedUpdatedAt?: string;
     }
   >({
-    // @ts-expect-error TS2719: tsc -b (composite) sinh 2 định danh ProsecuteArgs của cùng module → báo "unrelated".
-    // Type thực tế khớp, runtime đúng (đã verify test). Quirk type-checker, không phải lỗi logic.
     submitFn: async (args, payload) => {
       const response = await api.post(`/incidents/${args.recordId}/prosecute`, payload);
-      const data = response.data as { data?: ProsecuteResponse } | ProsecuteResponse;
-      return ('data' in data ? data.data : data) ?? {};
+      const data = response.data as { data: ProsecuteResponse } | ProsecuteResponse;
+      return 'data' in data ? data.data : data;
     },
     onSuccess: (result, args) => {
       const caseId = result?.case?.id;
@@ -88,18 +71,12 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Pre-fill caseName from incidentName when modal opens
-  useEffect(() => {
-    if (lifecycle.args) {
-      setCaseName(lifecycle.args.incidentName ?? '');
+  const open = useCallback(
+    (args: ProsecuteArgs) => {
+      setCaseName(args.incidentName ?? '');
       setProsecutionDecision('');
       setProsecutionDate(todayIso());
       setCrime('');
-    }
-  }, [lifecycle.args]);
-
-  const open = useCallback(
-    (args: ProsecuteArgs) => {
       lifecycle.open(args);
     },
     [lifecycle],
@@ -259,14 +236,4 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
       )}
     </ProsecuteContext.Provider>
   );
-}
-
-export function useProsecuteModal(): ProsecuteModalApi {
-  const ctx = useContext(ProsecuteContext);
-  if (!ctx) {
-    throw new Error(
-      'useProsecuteModal must be used inside <ProsecuteModalProvider>',
-    );
-  }
-  return ctx;
 }

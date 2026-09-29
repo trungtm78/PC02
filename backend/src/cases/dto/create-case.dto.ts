@@ -13,10 +13,18 @@ import {
   ArrayMaxSize,
   Min,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham, CaseProvenance, CaseType, LoaiUyThac, LyDoTamDinhChiVuAn } from '@prisma/client';
+import {
+  CaseStatus,
+  CapDoToiPham,
+  CaseProvenance,
+  CaseType,
+  LoaiUyThac,
+  LyDoTamDinhChiVuAn,
+} from '@prisma/client';
 import { CaseStatisticDto } from './case-statistic.dto';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
@@ -118,7 +126,6 @@ export class CreateEvidenceInlineDto {
   @MaxLength(50)
   unit?: string;
 
-
   @IsOptional()
   @IsString()
   @MaxLength(255)
@@ -150,9 +157,16 @@ export class CreateEvidenceInlineDto {
 }
 
 export class CreateCaseDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acknowledgedDuplicateIds?: string[];
+
   // BUG-001/002/004 (UAT 2026-05-23): trim + reject empty/whitespace-only.
   // Transform chạy trước validator → IsNotEmpty thấy chuỗi đã trim.
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @IsNotEmpty({ message: 'Tên vụ án bắt buộc' })
   @MaxLength(500)
@@ -202,7 +216,8 @@ export class CreateCaseDto {
   // Mức độ tội phạm (BLHS 2015 Điều 9) — dùng cho KPI-4
   @IsOptional()
   @IsCatalogValue('CAP_DO_TOI_PHAM', {
-    message: 'capDoToiPham phải là IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG hoặc DAC_BIET_NGHIEM_TRONG',
+    message:
+      'capDoToiPham phải là IT_NGHIEM_TRONG, NGHIEM_TRONG, RAT_NGHIEM_TRONG hoặc DAC_BIET_NGHIEM_TRONG',
   })
   capDoToiPham?: CapDoToiPham;
 
@@ -230,7 +245,10 @@ export class CreateCaseDto {
   // PR-3 — field tab "Vụ án TĐC" form cũ /doi-1/Them (cho phép nhập lúc tạo, tránh CREATE 400)
   @IsOptional() @IsString() soQuyetDinhTamDinhChi?: string;
   @IsOptional() @IsNgayThat() ngayTamDinhChi?: string;
-  @IsOptional() @IsArray() @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', { each: true }) lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
+  @IsOptional()
+  @IsArray()
+  @IsCatalogValue('LY_DO_TAM_DINH_CHI_VU_AN', { each: true })
+  lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[];
   @IsOptional() @IsNgayThat() ngayHetThoiHieu?: string;
   @IsOptional() @IsString() soQuyetDinhPhucHoi?: string;
   @IsOptional() @IsNgayThat() ngayPhucHoi?: string;
@@ -251,29 +269,42 @@ export class CreateCaseDto {
   // @IsNotEmpty giữ tính bắt buộc (@IsCatalogValue pass undefined) — bài học PR-6 LoaiDon.
   @IsNotEmpty({ message: 'caseProvenance là bắt buộc (BLTTHS Đ.143)' })
   @IsCatalogValue('CASE_PROVENANCE', {
-    message: 'caseProvenance bắt buộc — chọn FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE (BLTTHS Đ.143)',
+    message:
+      'caseProvenance bắt buộc — chọn FROM_PETITION / FROM_INCIDENT / DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE (BLTTHS Đ.143)',
   })
   caseProvenance: CaseProvenance;
 
   // Required when caseProvenance === FROM_PETITION
-  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)
+  @ValidateIf(
+    (o: CreateCaseDto) => o.caseProvenance === CaseProvenance.FROM_PETITION,
+  )
   @IsString()
-  @IsNotEmpty({ message: 'linkedPetitionId required when caseProvenance is FROM_PETITION' })
+  @IsNotEmpty({
+    message: 'linkedPetitionId required when caseProvenance is FROM_PETITION',
+  })
   linkedPetitionId?: string;
 
   // Required when caseProvenance === FROM_INCIDENT
-  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_INCIDENT)
+  @ValidateIf(
+    (o: CreateCaseDto) => o.caseProvenance === CaseProvenance.FROM_INCIDENT,
+  )
   @IsString()
-  @IsNotEmpty({ message: 'linkedIncidentId required when caseProvenance is FROM_INCIDENT' })
+  @IsNotEmpty({
+    message: 'linkedIncidentId required when caseProvenance is FROM_INCIDENT',
+  })
   linkedIncidentId?: string;
 
   // Required when caseProvenance === FROM_PETITION (for optimistic lock on Petition.updatedAt)
-  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_PETITION)
+  @ValidateIf(
+    (o: CreateCaseDto) => o.caseProvenance === CaseProvenance.FROM_PETITION,
+  )
   @IsNgayThat()
   expectedPetitionUpdatedAt?: string;
 
   // Required when caseProvenance === FROM_INCIDENT
-  @ValidateIf((o) => o.caseProvenance === CaseProvenance.FROM_INCIDENT)
+  @ValidateIf(
+    (o: CreateCaseDto) => o.caseProvenance === CaseProvenance.FROM_INCIDENT,
+  )
   @IsNgayThat()
   expectedIncidentUpdatedAt?: string;
 
@@ -287,8 +318,12 @@ export class CreateCaseDto {
   @IsCatalogValue('CASE_TYPE')
   caseType?: CaseType;
 
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @ValidateIf((o: { caseType?: CaseType }) => o.caseType === CaseType.UY_THAC_DIEU_TRA)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @ValidateIf(
+    (o: { caseType?: CaseType }) => o.caseType === CaseType.UY_THAC_DIEU_TRA,
+  )
   @IsNotEmpty({ message: 'Đơn vị giao là bắt buộc cho ủy thác điều tra' })
   @IsString()
   @MaxLength(200)
@@ -417,7 +452,10 @@ export class CreateCaseDto {
   @IsOptional() @IsString() soQDTamDinhChiNguonTin?: string;
   @IsOptional() @IsNgayThat() ngayQDTamDinhChiNguonTin?: string;
   @IsOptional() @IsString() canCuTamDinhChiNguonTin?: string;
-  @IsOptional() @IsArray() @IsString({ each: true }) lyDoTamDinhChiNguonTin?: string[];
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  lyDoTamDinhChiNguonTin?: string[];
   @IsOptional() @IsNgayThat() ngayHetThoiHieuVuViec?: string;
   @IsOptional() @IsString() khacPhucLyDoTDCVuViec?: string;
   @IsOptional() @IsString() tienDoKhacPhucTDCVuViec?: string;
@@ -427,8 +465,14 @@ export class CreateCaseDto {
   @IsOptional() @IsString() lenhNhapKho?: string;
   @IsOptional() @IsString() noiLuuTruBaoQuan?: string;
   @IsOptional() @IsString() toiDanhChinhKhoiToId?: string;
-  // `caseCode` KHÔNG khai ở đây: ô trên form là số hiệu tự sinh, cán bộ không nhập tay.
-  // Mở nó ra chỉ tạo đường cho mã trùng mà không đổi được gì trên màn hình.
+  // Officers can explicitly override the shared CASE number; otherwise the service allocates it.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @Matches(/\S/, {
+    message: 'caseCode must contain a non-whitespace character',
+  })
+  caseCode?: string;
   @IsOptional() @IsString() @MaxLength(50) soHoSoCu?: string;
   /**
    * STT cũ hơn (trường `stt_cu` của hệ cũ) — form Vụ án CÓ ô này và vẫn gửi lên.

@@ -174,7 +174,9 @@ describe('CasesService.xuatDanhSach', () => {
         { where: Record<string, unknown> },
       ]
     )[0].where;
-    expect(whereDong.deletedAt).toBeNull();
+    expect(whereDong).toEqual({
+      AND: [whereDem, { id: { in: ['b', 'a'] }, deletedAt: null }],
+    });
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'CASE_EXPORTED',
@@ -197,5 +199,134 @@ describe('CasesService.xuatDanhSach', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.case.count).not.toHaveBeenCalled();
+  });
+
+  it('exports the displayed delegation columns without mixing regular cases', async () => {
+    mockPrisma.case.count.mockResolvedValue(1);
+    mockPrisma.case.findMany
+      .mockResolvedValueOnce([{ id: 'delegation-1' }])
+      .mockResolvedValueOnce([
+        {
+          ...dong('delegation-1', 'UTDT-001', 'Người cung cấp'),
+          donViGiao: 'PC01',
+          soQuyetDinhUyThac: '58/QD-2026',
+          ketQuaUyThac: 'Đã xác minh địa chỉ đối tượng',
+          ngayTraKetQua: new Date('2026-09-29T00:00:00.000Z'),
+          thoiHanUyThac: null,
+          metadata: {},
+        },
+      ]);
+    const { res, docSheet } = resGia();
+    await service.xuatDanhSach(
+      {
+        caseType: 'UY_THAC_DIEU_TRA',
+        cot: 'caseCode,donViGiao,soQuyetDinhUyThac,ketQuaUyThac,status',
+      } as never,
+      null,
+      res as never,
+    );
+    const sheet = await docSheet();
+    expect(sheet.getRow(7).values).toEqual([
+      undefined,
+      'STT',
+      'Mã hồ sơ',
+      'Đơn vị giao',
+      'Số QĐ/Phiếu',
+      'Kết quả ủy thác',
+      'Trạng thái',
+    ]);
+    expect((sheet.getRow(8).values as unknown[]).slice(1)).toEqual([
+      1,
+      'UTDT-001',
+      'PC01',
+      '58/QD-2026',
+      'Đã xác minh địa chỉ đối tượng',
+      'Đã phản hồi',
+    ]);
+    const where = (
+      mockPrisma.case.findMany.mock.calls[1] as [
+        { where: { AND: [{ caseType: string }, unknown] } },
+      ]
+    )[0].where;
+    expect(where.AND[0].caseType).toBe('UY_THAC_DIEU_TRA');
+  });
+
+  it('exports full UTDT fields with a scoped and type-constrained hydration query', async () => {
+    mockPrisma.case.count.mockResolvedValue(1);
+    mockPrisma.case.findMany
+      .mockResolvedValueOnce([{ id: 'delegation-1' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'delegation-1',
+          caseType: 'UY_THAC_DIEU_TRA',
+          name: 'Ủy thác mẫu',
+          metadata: { ghiChu: 'Giữ nguyên' },
+          legacyRaw: { maCu: 'OLD-1' },
+          subjects: [{ fullName: 'Nguyễn A' }],
+          evidences: [{ description: 'Vật chứng' }],
+          statistic: { soTienBiThietHai: 100 },
+          documents: [{ originalName: 'van-ban.pdf' }],
+        },
+      ]);
+    const { res, docSheet } = resGia();
+    await service.xuatDayDu(
+      { caseType: 'UY_THAC_DIEU_TRA', createdById: 'owner-1' } as never,
+      null,
+      res as never,
+      { userId: 'actor' },
+    );
+    const sheet = await docSheet();
+    const headers = sheet.getRow(7).values as unknown[];
+    const row = sheet.getRow(8).values as unknown[];
+    expect(row[headers.indexOf('metadata')]).toBe('{"ghiChu":"Giữ nguyên"}');
+    expect(row[headers.indexOf('legacyRaw')]).toBe('{"maCu":"OLD-1"}');
+    expect(row[headers.indexOf('subjects')]).toBe('[{"fullName":"Nguyễn A"}]');
+    expect(row[headers.indexOf('statistic')]).toBe('{"soTienBiThietHai":100}');
+    const countWhere = (
+      mockPrisma.case.count.mock.calls[0] as unknown as [
+        { where: Record<string, unknown> },
+      ]
+    )[0].where;
+    expect(countWhere).toMatchObject({
+      caseType: 'UY_THAC_DIEU_TRA',
+      createdById: 'owner-1',
+    });
+    const hydrate = (
+      mockPrisma.case.findMany.mock.calls[1] as unknown as [
+        { where: { AND: unknown[] }; select: Record<string, boolean> },
+      ]
+    )[0];
+    expect(hydrate.where.AND).toEqual([
+      countWhere,
+      {
+        id: { in: ['delegation-1'] },
+        deletedAt: null,
+        caseType: 'UY_THAC_DIEU_TRA',
+      },
+    ]);
+    expect(hydrate.select).toMatchObject({ metadata: true, legacyRaw: true });
+    const auditCall = (
+      audit.log.mock.calls[0] as unknown as [
+        { action: string; metadata: { kind: string; soDong: number } },
+      ]
+    )[0];
+    expect(auditCall.action).toBe('CASE_EXPORTED');
+    expect(auditCall.metadata).toMatchObject({ kind: 'day-du', soDong: 1 });
+  });
+
+  it('keeps the documented 50,000-row cap for full UTDT exports', async () => {
+    mockPrisma.case.count.mockResolvedValue(5_001);
+    mockPrisma.case.findMany.mockResolvedValueOnce([]);
+    const { res } = resGia();
+
+    await service.xuatDayDu(
+      { caseType: 'UY_THAC_DIEU_TRA' } as never,
+      null,
+      res as never,
+    );
+
+    expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50_000 }),
+    );
   });
 });

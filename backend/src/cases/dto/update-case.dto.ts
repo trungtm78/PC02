@@ -3,7 +3,6 @@ import { CreateCaseDto } from './create-case.dto';
 import {
   IsArray,
   IsBoolean,
-  IsEnum,
   IsOptional,
   IsString,
   MaxLength,

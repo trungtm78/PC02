@@ -5,10 +5,6 @@
  * TrangThaiPhanHoi state. Mirrors pattern of /cases/stats + /incidents/stats +
  * /petitions/stats but adapts for computed (not stored) grouping field.
  */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CasesService } from './cases.service';
@@ -16,11 +12,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
+import { LoaiUyThac, Prisma } from '@prisma/client';
+
+type CountArgs = { where: Prisma.CaseWhereInput };
+type CountMock = jest.Mock<Promise<number>, [CountArgs]>;
+const mockCaseCount: CountMock = jest.fn<Promise<number>, [CountArgs]>();
 
 const mockPrisma = {
   case: {
-    count: jest.fn(),
+    count: mockCaseCount,
   },
+  $transaction: jest.fn(
+    (callback: (tx: { case: { count: CountMock } }) => Promise<unknown>) =>
+      callback({ case: { count: mockCaseCount } }),
+  ),
 };
 
 describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () => {
@@ -83,6 +88,10 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
 
     const result = await service.getUtdtStats({}, null);
     expect(result.total).toBe(10);
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ isolationLevel: 'RepeatableRead' }),
+    );
   });
 
   it('forces caseType=UY_THAC_DIEU_TRA on all 4 queries', async () => {
@@ -111,7 +120,11 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
   it('donViGiao + loaiUyThac + ngayTiepNhanFrom filters pass-through', async () => {
     mockPrisma.case.count.mockResolvedValue(0);
     await service.getUtdtStats(
-      { donViGiao: 'PC01', loaiUyThac: 'UY_THAC_DIEU_TRA' as any, ngayTiepNhanFrom: '2026-01-01' },
+      {
+        donViGiao: 'PC01',
+        loaiUyThac: LoaiUyThac.UY_THAC_DIEU_TRA,
+        ngayTiepNhanFrom: '2026-01-01',
+      },
       null,
     );
     const callArg = mockPrisma.case.count.mock.calls[0][0];
@@ -196,6 +209,27 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
       expect(callArg.where.AND).toBeDefined();
       expect(Array.isArray(callArg.where.AND)).toBe(true);
     }
+  });
+
+  it('uses the complete list predicate before applying each response state', async () => {
+    mockPrisma.case.count.mockResolvedValue(0);
+    const query = {
+      search: 'PC01',
+      createdById: 'creator-1',
+      wardId: 'ward-1',
+      ngayTiepNhanFrom: '2026-09-01',
+    };
+    const { where: listWhere } = await service.dungWhereDanhSach(
+      { ...query, caseType: 'UY_THAC_DIEU_TRA' as const },
+      null,
+      { boTrangThai: true },
+    );
+    await service.getUtdtStats(query, null);
+    const statsWhere = mockPrisma.case.count.mock.calls[0][0].where;
+    const { AND: statsAnd, ...statsBase } = statsWhere;
+    const { AND: listAnd, ...listBase } = listWhere;
+    expect(statsBase).toEqual(listBase);
+    expect((statsAnd as unknown[]).slice(0, -1)).toEqual(listAnd ?? []);
   });
 
   it('zero results — all counts 0', async () => {

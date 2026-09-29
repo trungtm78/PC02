@@ -36,7 +36,7 @@ import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
 import { CaseStatus } from '@/shared/enums/generated';
 import { CASE_PROVENANCE_OPTIONS } from './CaseFormPage/constants';
-import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalProvider';
+import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 
 interface HoSoMoi {
   id: string;
@@ -169,11 +169,11 @@ function InitialCasesPage() {
     } finally {
       if (luot === luotTai.current) setLoading(false);
     }
-  }, [thamSoLoc, page, lanTai]);
+  }, [thamSoLoc, page]);
 
   useEffect(() => {
     void taiDuLieu();
-  }, [taiDuLieu]);
+  }, [taiDuLieu, lanTai]);
 
   const handleResetFilters = () => {
     timKiem.xoaHet();

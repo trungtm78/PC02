@@ -18,17 +18,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
-import { Pencil, FileSignature, Plus, Trash2, Eye, Clock, CheckCircle, XCircle, AlertTriangle, AlertCircle, X } from 'lucide-react';
+import {
+  Pencil,
+  FileSignature,
+  Plus,
+  Trash2,
+  Eye,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  AlertCircle,
+  X,
+} from 'lucide-react';
 import axios from 'axios';
 import { useBulkSelection } from '@/features/_shared/bulk/useBulkSelection';
 import { BulkActionBar } from '@/features/_shared/bulk/BulkActionBar';
 import { buildCasesAdapter } from '@/features/_shared/bulk/adapters/cases';
-import type { BulkAction, BulkResult, BulkAdapter } from '@/features/_shared/bulk/types';
+import type {
+  BulkAction,
+  BulkResult,
+  BulkAdapter,
+} from '@/features/_shared/bulk/types';
 import { api } from '@/lib/api';
 import { formatVNDate } from '@/lib/dates';
 import {
   ListPageShell,
   useListPageUrlState,
+  ColumnPicker,
+  useBoCucCot,
+  ChonMatDo,
+  useMatDoDong,
+  useListSort,
   type ColumnDef,
   type TableState,
   OTimKiemThe,
@@ -55,12 +76,23 @@ import {
   BTN_SECONDARY,
   OVERDUE_ROW_HIGHLIGHT,
 } from '@/constants/styles';
-import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+import {
+  StatsCardsStrip,
+  type StatCard,
+} from '@/components/shared/StatsCardsStrip';
 import { useOChuDongBo } from '@/components/shared/ListPageShell/useOChuDongBo';
+import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
+import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
+import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
+import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
+import { usePermission } from '@/hooks/usePermission';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { nhanKyThongKe } from '@/constants/thongKeSettings';
+import { OSuaNhanh } from '@/components/shared/ListPageShell/OSuaNhanh';
+import { KetQuaUyThacModal } from './KetQuaUyThacModal';
+import { utdtMessages } from './utdt.messages';
 
 // Backend DeleteCaseDto enforces same minimum. Drift detection: search this
 // constant across repo if changing — see CLAUDE.md WIRE FORMAT pattern.
@@ -93,16 +125,29 @@ interface UyThacFromApi {
   /** Nghi vấn đối tượng — cột typed, cũng là cột thẻ `doiTuongNghiVan` lọc. */
   nghiVanDoiTuong?: string | null;
   trangThaiPhanHoi?: TrangThaiPhanHoi;
-  investigator: { id: string; firstName?: string; lastName?: string; username: string } | null;
+  investigator: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    username: string;
+  } | null;
   createdBy: { id: string; firstName?: string; lastName?: string } | null;
   createdAt: string;
+  updatedAt?: string;
+  /** Máy chủ tính từ cùng luật phạm vi ghi dùng cho form chi tiết. */
+  quyenGhi?: boolean;
 }
 
 interface UtdtStatsResponse {
   total: number;
   byTrangThai: Record<TrangThaiPhanHoi, number>;
   /** Kỳ MÁY CHỦ thật sự đã áp — cùng kỳ với danh sách UTDT. Nhãn thanh thẻ lấy từ đây. */
-  ky?: { ky: string; truong: string; tuNgay: string | null; denNgay: string | null };
+  ky?: {
+    ky: string;
+    truong: string;
+    tuNgay: string | null;
+    denNgay: string | null;
+  };
 }
 
 // ─── Tìm kiếm dạng thẻ ──────────────────────────────────────────────
@@ -131,7 +176,13 @@ const GIA_TRI_CHON_UTDT = {
  */
 function ganTimKiem(
   params: URLSearchParams,
-  o: { theBat: boolean; tk: readonly string[]; search: string; donViGiao: string; dieuTraVien: string },
+  o: {
+    theBat: boolean;
+    tk: readonly string[];
+    search: string;
+    donViGiao: string;
+    dieuTraVien: string;
+  },
 ) {
   if (o.theBat) {
     for (const v of o.tk) params.append('tk', v);
@@ -149,13 +200,16 @@ function computeTrangThai(row: UyThacFromApi): TrangThaiPhanHoi {
   const meta = row.metadata as Record<string, unknown> | null;
   if (meta?.lyDoKhongThucHienDuoc) return 'KHONG_THUC_HIEN_DUOC';
   if (row.ketQuaUyThac && row.ngayTraKetQua) return 'DA_PHAN_HOI';
-  if (row.thoiHanUyThac && new Date() > new Date(row.thoiHanUyThac)) return 'QUA_HAN';
+  if (row.thoiHanUyThac && new Date() > new Date(row.thoiHanUyThac))
+    return 'QUA_HAN';
   return 'CHUA_PHAN_HOI';
 }
 
 function getInvestigatorName(inv: UyThacFromApi['investigator']): string {
   if (!inv) return '—';
-  return [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username;
+  return (
+    [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username
+  );
 }
 
 function getNghiVan(row: UyThacFromApi): string | null {
@@ -166,10 +220,12 @@ function getNghiVan(row: UyThacFromApi): string | null {
 function getVietnameseErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
     const status = e.response?.status;
-    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
+    if (status === 401)
+      return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
     if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
     if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
-    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
+    const serverMsg = (e.response?.data as { message?: string } | undefined)
+      ?.message;
     if (serverMsg) return serverMsg;
     if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
     return 'Không tải được danh sách ủy thác';
@@ -201,23 +257,71 @@ function sanitizeDateParam(v: string | null): string {
   if (v == null || !ISO_DATE_RE.test(v)) return '';
   // Reject calendar-invalid like 2026-02-30
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? '' : v;
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v
+    ? ''
+    : v;
 }
 function sanitizeStringParam(v: string | null, maxLen = 100): string {
   if (v == null) return '';
   // Strip control chars + cap length. Trust boundary for free-text URL fields.
-  return v.replace(/[ -]/g, '').slice(0, maxLen);
+  return Array.from(v)
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    })
+    .join('')
+    .slice(0, maxLen);
 }
 
 const PAGE_SIZE = 20;
 
-function buildUtdtCards(stats: { total: number; byTrangThai: Record<TrangThaiPhanHoi, number> } | null): StatCard[] {
+function buildUtdtCards(
+  stats: {
+    total: number;
+    byTrangThai: Record<TrangThaiPhanHoi, number>;
+  } | null,
+): StatCard[] {
   return [
-    { label: 'Tổng UTDT', value: stats?.total ?? null, icon: FileSignature, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Chưa phản hồi', value: stats?.byTrangThai.CHUA_PHAN_HOI ?? null, icon: Clock, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
-    { label: 'Đã phản hồi', value: stats?.byTrangThai.DA_PHAN_HOI ?? null, icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Không thực hiện', value: stats?.byTrangThai.KHONG_THUC_HIEN_DUOC ?? null, icon: XCircle, iconBgClass: 'bg-red-100', iconColorClass: 'text-red-600', valueColorClass: 'text-red-600' },
-    { label: 'Quá hạn', value: stats?.byTrangThai.QUA_HAN ?? null, icon: AlertTriangle, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
+    {
+      label: 'Tổng UTDT',
+      value: stats?.total ?? null,
+      icon: FileSignature,
+      iconBgClass: 'bg-[#003973]/10',
+      iconColorClass: 'text-[#003973]',
+      valueColorClass: 'text-[#003973]',
+    },
+    {
+      label: 'Chưa phản hồi',
+      value: stats?.byTrangThai.CHUA_PHAN_HOI ?? null,
+      icon: Clock,
+      iconBgClass: 'bg-slate-100',
+      iconColorClass: 'text-slate-600',
+      valueColorClass: 'text-slate-600',
+    },
+    {
+      label: 'Đã phản hồi',
+      value: stats?.byTrangThai.DA_PHAN_HOI ?? null,
+      icon: CheckCircle,
+      iconBgClass: 'bg-green-100',
+      iconColorClass: 'text-green-600',
+      valueColorClass: 'text-green-600',
+    },
+    {
+      label: 'Không thực hiện',
+      value: stats?.byTrangThai.KHONG_THUC_HIEN_DUOC ?? null,
+      icon: XCircle,
+      iconBgClass: 'bg-red-100',
+      iconColorClass: 'text-red-600',
+      valueColorClass: 'text-red-600',
+    },
+    {
+      label: 'Quá hạn',
+      value: stats?.byTrangThai.QUA_HAN ?? null,
+      icon: AlertTriangle,
+      iconBgClass: 'bg-amber-100',
+      iconColorClass: 'text-amber-600',
+      valueColorClass: 'text-amber-600',
+    },
   ];
 }
 
@@ -225,7 +329,12 @@ function buildUtdtCards(stats: { total: number; byTrangThai: Record<TrangThaiPha
 
 export default function UyThacDieuTraListPage() {
   const navigate = useNavigate();
+  const { hasPermission, canCreate, canEdit, canDelete } = usePermission();
+  const canCreateCase = canCreate('cases');
+  const canEditCase = canEdit('cases');
+  const canDeleteCase = canDelete('cases');
   const url = useListPageUrlState('utdt');
+  const sort = useListSort('utdt');
 
   // Primary status filter (4-state response status)
   const rawTrangThai = url.getParam('status');
@@ -235,7 +344,10 @@ export default function UyThacDieuTraListPage() {
   // ALL pass through trust-boundary sanitizers (/codex P2 fix) — invalid enums
   // or malformed dates from tampered URLs degrade gracefully to "no filter".
   const caseStatus = sanitizeEnumParam(url.getParam('cs'), CASE_STATUS_VALUES);
-  const loaiUyThac = sanitizeEnumParam(url.getParam('lut'), LOAI_UY_THAC_VALUES);
+  const loaiUyThac = sanitizeEnumParam(
+    url.getParam('lut'),
+    LOAI_UY_THAC_VALUES,
+  );
   const donViGiao = sanitizeStringParam(url.getParam('dv'));
   const ngayTiepNhanFrom = sanitizeDateParam(url.getParam('tnf'));
   const ngayTiepNhanTo = sanitizeDateParam(url.getParam('tnt'));
@@ -260,9 +372,13 @@ export default function UyThacDieuTraListPage() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  const [debouncedInvestigator, setDebouncedInvestigator] = useState(investigatorSearch);
+  const [debouncedInvestigator, setDebouncedInvestigator] =
+    useState(investigatorSearch);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedInvestigator(investigatorSearch), 300);
+    const t = setTimeout(
+      () => setDebouncedInvestigator(investigatorSearch),
+      300,
+    );
     return () => clearTimeout(t);
   }, [investigatorSearch]);
 
@@ -272,7 +388,12 @@ export default function UyThacDieuTraListPage() {
   const [error, setError] = useState<string | undefined>();
   const abortRef = useRef<AbortController | null>(null);
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/uy-thac-dieu-tra/new'), onRefresh: () => setRefetchCounter((c) => c + 1) });
+  useListShortcuts({
+    onNew: () => {
+      if (canCreateCase) navigate('/uy-thac-dieu-tra/new');
+    },
+    onRefresh: () => setRefetchCounter((c) => c + 1),
+  });
 
   // Bulk selection
   const selection = useBulkSelection<UyThacFromApi>({
@@ -280,30 +401,51 @@ export default function UyThacDieuTraListPage() {
     pageRows: rows,
     totalCountMatchingFilter: totalCount,
   });
+  const wordBatch = useWordBatchExport({ entity: 'cases', caseType: 'UY_THAC_DIEU_TRA' });
   const adapter = useMemo(() => {
-    const base = buildCasesAdapter({ enableDelete: true });
+    const base = buildCasesAdapter({
+      enableDelete: true,
+      onExportWord: wordBatch.setIds,
+      caseType: 'UY_THAC_DIEU_TRA',
+    });
     return { ...base, resourceLabel: 'ủy thác' };
-  }, []);
+  }, [wordBatch.setIds]);
 
   // Clear selection khi filter/page thay đổi (tránh stale ids).
   const selectionClearRef = useRef(selection.clear);
   selectionClearRef.current = selection.clear;
   useEffect(() => {
     selectionClearRef.current();
-  }, [trangThai, caseStatus, loaiUyThac, donViGiao, ngayTiepNhanFrom, ngayTiepNhanTo, debouncedInvestigator, page, debouncedSearch, tkKey]);
+  }, [
+    trangThai,
+    caseStatus,
+    loaiUyThac,
+    donViGiao,
+    ngayTiepNhanFrom,
+    ngayTiepNhanTo,
+    debouncedInvestigator,
+    page,
+    debouncedSearch,
+    tkKey,
+  ]);
 
   // Transient banner (bulk result feedback)
-  const [transientBanner, setTransientBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [transientBanner, setTransientBanner] = useState<{
+    kind: 'success' | 'error';
+    text: string;
+  } | null>(null);
   const handleBulkSuccess = useCallback(
     (result: BulkResult | void, action: BulkAction<UyThacFromApi>) => {
       if (action.key === 'export') {
         setTransientBanner({ kind: 'success', text: 'Đã xuất Excel' });
         return;
       }
+      if (action.key === 'export-word') return;
       if (result && typeof result === 'object') {
         const { succeeded, skipped, failed } = result;
         const parts: string[] = [];
-        if (succeeded?.length) parts.push(`Đã xử lý ${succeeded.length} ủy thác`);
+        if (succeeded?.length)
+          parts.push(`Đã xử lý ${succeeded.length} ủy thác`);
         if (skipped?.length) parts.push(`Bỏ qua ${skipped.length}`);
         if (failed?.length) parts.push(`Lỗi ${failed.length}`);
         setTransientBanner({
@@ -335,6 +477,8 @@ export default function UyThacDieuTraListPage() {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [quickResultTarget, setQuickResultTarget] =
+    useState<UyThacFromApi | null>(null);
 
   const fetchData = useCallback(() => {
     abortRef.current?.abort();
@@ -347,6 +491,10 @@ export default function UyThacDieuTraListPage() {
     params.set('caseType', CaseType.UY_THAC_DIEU_TRA);
     params.set('offset', String((page - 1) * PAGE_SIZE));
     params.set('limit', String(PAGE_SIZE));
+    if (sort.sortBy) {
+      params.set('sortBy', sort.sortBy);
+      params.set('sortOrder', sort.sortOrder);
+    }
     ganTimKiem(params, {
       theBat,
       tk: JSON.parse(tkKey) as string[],
@@ -361,9 +509,12 @@ export default function UyThacDieuTraListPage() {
     if (ngayTiepNhanTo) params.set('ngayTiepNhanTo', ngayTiepNhanTo);
 
     api
-      .get<{ data: UyThacFromApi[]; total: number }>(`/cases?${params.toString()}`, {
-        signal: ctrl.signal,
-      })
+      .get<{ data: UyThacFromApi[]; total: number }>(
+        `/cases?${params.toString()}`,
+        {
+          signal: ctrl.signal,
+        },
+      )
       .then((res) => {
         if (ctrl.signal.aborted) return;
         const data = res.data?.data ?? [];
@@ -400,7 +551,8 @@ export default function UyThacDieuTraListPage() {
     ngayTiepNhanTo,
     debouncedInvestigator,
     page,
-    refetchCounter,
+    sort.sortBy,
+    sort.sortOrder,
     theBat,
     tkKey,
   ]);
@@ -408,7 +560,7 @@ export default function UyThacDieuTraListPage() {
   useEffect(() => {
     fetchData();
     return () => abortRef.current?.abort();
-  }, [fetchData]);
+  }, [fetchData, refetchCounter]);
 
   // /codex P2 fix: clamp out-of-range URL page. Scenarios:
   // 1. User bookmarks ?utdt_page=999 then visits — total=5, totalPages=1
@@ -444,10 +596,9 @@ export default function UyThacDieuTraListPage() {
     if (ngayTiepNhanTo) params.set('ngayTiepNhanTo', ngayTiepNhanTo);
 
     api
-      .get<UtdtStatsResponse>(
-        `/cases/utdt-stats?${params.toString()}`,
-        { signal: ctrl.signal },
-      )
+      .get<UtdtStatsResponse>(`/cases/utdt-stats?${params.toString()}`, {
+        signal: ctrl.signal,
+      })
       .then((res) => {
         if (ctrl.signal.aborted) return;
         setUtdtStats(res.data);
@@ -500,70 +651,87 @@ export default function UyThacDieuTraListPage() {
             >
               <Eye className="w-4 h-4" />
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/uy-thac-dieu-tra/${r.id}/edit`);
-              }}
-              className={`p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors ${A11Y_FOCUS_RING}`}
-              title="Sửa ủy thác"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget(r);
-                setDeleteReason('');
-                setDeleteError(null);
-              }}
-              className={`p-2 text-red-600 hover:bg-red-50 rounded transition-colors ${A11Y_FOCUS_RING}`}
-              title="Xóa ủy thác"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {canEditCase && r.quyenGhi !== false && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/uy-thac-dieu-tra/${r.id}/edit`);
+                }}
+                className={`p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors ${A11Y_FOCUS_RING}`}
+                title="Sửa ủy thác"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
+            {canDeleteCase && r.quyenGhi !== false && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(r);
+                  setDeleteReason('');
+                  setDeleteError(null);
+                }}
+                className={`p-2 text-red-600 hover:bg-red-50 rounded transition-colors ${A11Y_FOCUS_RING}`}
+                title="Xóa ủy thác"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ),
       },
       {
         key: 'caseCode',
         header: 'Mã hồ sơ',
+        sortKey: 'stt',
         timKiem: ['stt', 'sttCu'],
         render: (r) => (
-          <span className="font-mono text-xs text-blue-700">{r.caseCode ?? '—'}</span>
+          <span className="font-mono text-xs text-blue-700">
+            {r.caseCode ?? '—'}
+          </span>
         ),
       },
       {
         key: 'ngayTiepNhan',
         header: 'Ngày tiếp nhận',
+        sortKey: 'ngayTiepNhan',
+        optional: 'show',
         timKiem: 'ngayTiepNhan',
         render: (r) => (r.ngayTiepNhan ? formatVNDate(r.ngayTiepNhan) : '—'),
       },
       {
         key: 'donViGiao',
         header: 'Đơn vị giao',
+        optional: 'show',
         timKiem: 'donViGiao',
         render: (r) => (
-          <span className="font-medium text-slate-800">{r.donViGiao ?? '—'}</span>
+          <span className="font-medium text-slate-800">
+            {r.donViGiao ?? '—'}
+          </span>
         ),
       },
       {
         key: 'soQuyetDinhUyThac',
         header: 'Số QĐ/Phiếu',
+        optional: 'show',
         timKiem: 'soQuyetDinh',
         render: (r) => r.soQuyetDinhUyThac ?? '—',
       },
       {
         key: 'nghiVan',
         header: 'Đối tượng nghi vấn',
+        optional: 'show',
         timKiem: 'doiTuongNghiVan',
         render: (r) => {
           // Cột typed trước — CÙNG cột thẻ tìm kiếm lọc; metadata chỉ đỡ hồ sơ cũ chưa chuẩn hoá.
           const nghiVan = r.nghiVanDoiTuong?.trim() || getNghiVan(r);
           return (
-            <span className="block max-w-[180px] truncate" title={nghiVan ?? undefined}>
+            <span
+              className="block max-w-[180px] truncate"
+              title={nghiVan ?? undefined}
+            >
               {nghiVan ?? '—'}
             </span>
           );
@@ -572,9 +740,13 @@ export default function UyThacDieuTraListPage() {
       {
         key: 'crime',
         header: 'Tội danh',
+        optional: 'show',
         timKiem: 'toiDanh',
         render: (r) => (
-          <span className="block max-w-[140px] truncate" title={r.crime ?? undefined}>
+          <span
+            className="block max-w-[140px] truncate"
+            title={r.crime ?? undefined}
+          >
             {r.crime ?? '—'}
           </span>
         ),
@@ -582,26 +754,50 @@ export default function UyThacDieuTraListPage() {
       {
         key: 'investigator',
         header: 'Điều tra viên',
+        optional: 'show',
         timKiem: 'dieuTraVien',
         render: (r) => getInvestigatorName(r.investigator),
       },
       {
         key: 'thoiHanUyThac',
         header: 'Thời hạn',
+        optional: 'show',
         timKiem: 'thoiHan',
         render: (r) => {
           if (!r.thoiHanUyThac) return '—';
           const overdue = computeTrangThai(r) === 'QUA_HAN';
           return (
-            <span className={overdue ? 'text-red-700 font-semibold' : 'text-slate-700'}>
+            <span
+              className={
+                overdue ? 'text-red-700 font-semibold' : 'text-slate-700'
+              }
+            >
               {formatVNDate(r.thoiHanUyThac)}
             </span>
           );
         },
       },
       {
+        key: 'ketQuaUyThac',
+        header: 'Kết quả ủy thác',
+        width: '12rem',
+        optional: 'show',
+        timKiem: 'ketQuaUyThac',
+        render: (r) => (
+          <OSuaNhanh
+            giaTri={r.ketQuaUyThac}
+            nhanThem={utdtMessages.quickResult.add}
+            moTa={`kết quả ủy thác ${r.caseCode ?? r.id}`}
+            chiXem={!canEditCase || r.quyenGhi === false}
+            onSua={() => setQuickResultTarget(r)}
+            testId={`o-ket-qua-${r.id}`}
+          />
+        ),
+      },
+      {
         key: 'status',
         header: 'Trạng thái',
+        optional: 'show',
         timKiem: 'trangThai',
         render: (r) => {
           const trangThaiVal = computeTrangThai(r);
@@ -612,18 +808,22 @@ export default function UyThacDieuTraListPage() {
               </span>
               {r.loaiUyThac && (
                 <span className="text-xs text-slate-500">
-                  {LOAI_UY_THAC_LABEL[r.loaiUyThac as keyof typeof LOAI_UY_THAC_LABEL] ??
-                    r.loaiUyThac}
+                  {LOAI_UY_THAC_LABEL[
+                    r.loaiUyThac as keyof typeof LOAI_UY_THAC_LABEL
+                  ] ?? r.loaiUyThac}
                 </span>
               )}
               {r.status && (
                 <span
                   className={`text-xs border rounded px-1 py-0.5 w-fit ${
-                    CASE_STATUS_BADGE[r.status as keyof typeof CASE_STATUS_BADGE] ??
-                    'bg-slate-100 text-slate-600 border-slate-200'
+                    CASE_STATUS_BADGE[
+                      r.status as keyof typeof CASE_STATUS_BADGE
+                    ] ?? 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}
                 >
-                  {CASE_STATUS_LABEL[r.status as keyof typeof CASE_STATUS_LABEL] ?? r.status}
+                  {CASE_STATUS_LABEL[
+                    r.status as keyof typeof CASE_STATUS_LABEL
+                  ] ?? r.status}
                 </span>
               )}
             </div>
@@ -633,24 +833,61 @@ export default function UyThacDieuTraListPage() {
       {
         key: 'createdBy',
         header: 'Người nhập',
+        optional: 'show',
         timKiem: 'nguoiNhap',
         render: (r) =>
           r.createdBy
-            ? [r.createdBy.firstName, r.createdBy.lastName].filter(Boolean).join(' ') || '—'
+            ? [r.createdBy.firstName, r.createdBy.lastName]
+                .filter(Boolean)
+                .join(' ') || '—'
             : '—',
       },
     ],
-    [navigate],
+    [navigate, canEditCase, canDeleteCase],
   );
 
-  // Màn này chưa có menu chọn cột nên mọi cột đều hiện; gợi ý = các cột khai `timKiem`, đúng thứ tự.
-  const truongTimKiem = useMemo(() => truongGoiY(columns, TIM_KIEM_VU_AN), [columns]);
+  const {
+    coGhiDeBeRong,
+    visibleColumns,
+    toggleableColumns,
+    isVisible,
+    batTat: toggleColumn,
+    datBeRong: resizeColumn,
+    xoaBeRong: resetColumnWidth,
+    doiCho: moveColumn,
+    datLai: resetColumns,
+  } = useBoCucCot('utdt', columns);
+  const [rowDensity, setRowDensity] = useMatDoDong('utdt');
+
+  // Hidden columns remain available for searching within the actor's read scope.
+  const truongTimKiem = useMemo(
+    () => truongGoiY(columns, TIM_KIEM_VU_AN),
+    [columns],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const exportParams = {
+    caseType: CaseType.UY_THAC_DIEU_TRA,
+    ...(theBat
+      ? { tk: JSON.parse(tkKey) as string[] }
+      : {
+          ...(debouncedSearch && { search: debouncedSearch }),
+          ...(donViGiao && { donViGiao }),
+          ...(debouncedInvestigator && {
+            investigatorName: debouncedInvestigator,
+          }),
+        }),
+    ...(trangThai && { trangThaiPhanHoi: trangThai }),
+    ...(caseStatus && { status: caseStatus }),
+    ...(loaiUyThac && { loaiUyThac }),
+    ...(ngayTiepNhanFrom && { ngayTiepNhanFrom }),
+    ...(ngayTiepNhanTo && { ngayTiepNhanTo }),
+    ...sort.params,
+  };
 
   const handleStatusChange = useCallback(
     (value: string | null) => {
-      url.setParams({ status: value, page: '1' });
+      url.setParams({ status: value, page: '1' }, { history: 'push' });
     },
     [url],
   );
@@ -681,13 +918,17 @@ export default function UyThacDieuTraListPage() {
     (ngayTiepNhanTo ? 1 : 0) +
     (theBat
       ? timKiem.the.length
-      : (donViGiao ? 1 : 0) + (investigatorSearch ? 1 : 0) + (searchQuery ? 1 : 0));
+      : (donViGiao ? 1 : 0) +
+        (investigatorSearch ? 1 : 0) +
+        (searchQuery ? 1 : 0));
 
   async function confirmDelete() {
     if (!deleteTarget) return;
     const reason = deleteReason.trim();
     if (reason.length < AUDIT_REASON_MIN_LENGTH) {
-      setDeleteError(`Lý do xóa cần tối thiểu ${AUDIT_REASON_MIN_LENGTH} ký tự (audit trail BLTTHS Đ.46).`);
+      setDeleteError(
+        `Lý do xóa cần tối thiểu ${AUDIT_REASON_MIN_LENGTH} ký tự (audit trail BLTTHS Đ.46).`,
+      );
       return;
     }
     setDeleting(true);
@@ -711,7 +952,7 @@ export default function UyThacDieuTraListPage() {
           icon={FileSignature}
           title="Ủy Thác Điều Tra"
           subtitle="Điều 171 BLTTHS 2015 — TT 119/2021/TT-BCA"
-          actions={
+          actions={canCreateCase ? (
             <button
               type="button"
               onClick={() => navigate('/uy-thac-dieu-tra/new')}
@@ -720,14 +961,18 @@ export default function UyThacDieuTraListPage() {
               <Plus className="w-4 h-4" />
               <span>Nhập ủy thác</span>
             </button>
-          }
+          ) : undefined}
         />
         <StatsCardsStrip
           cards={buildUtdtCards(utdtStats)}
           loading={utdtStats == null}
           periodLabel={
             utdtStats?.ky
-              ? nhanKyThongKe(utdtStats.ky.ky, utdtStats.ky.tuNgay, utdtStats.ky.denNgay)
+              ? nhanKyThongKe(
+                  utdtStats.ky.ky,
+                  utdtStats.ky.tuNgay,
+                  utdtStats.ky.denNgay,
+                )
               : null
           }
         />
@@ -760,6 +1005,18 @@ export default function UyThacDieuTraListPage() {
           activeFilterCount={activeFilterCount}
           onResetFilters={handleResetFilters}
           cardStyle
+          columnPicker={
+            <div className="flex items-center gap-2">
+              <ChonMatDo giaTri={rowDensity} onDoi={setRowDensity} />
+              <ColumnPicker
+                columns={toggleableColumns}
+                isVisible={isVisible}
+                onToggle={toggleColumn}
+                onReset={resetColumns}
+                onDoiCho={moveColumn}
+              />
+            </div>
+          }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <FilterSelect
@@ -805,6 +1062,32 @@ export default function UyThacDieuTraListPage() {
               onChange={(v) => url.setParams({ tnt: v, page: '1' })}
             />
           </div>
+          <div className="mt-4 flex justify-end">
+            <NutXuatTheoBoLoc
+              duongDan="/cases/export/danh-sach"
+              thamSo={exportParams}
+              cot={visibleColumns
+                .filter((column) => column.key !== 'actions')
+                .map((column) => column.key)}
+              tong={tableState === 'loading' ? null : totalCount}
+              hasUnappliedChanges={false}
+              onApply={() => undefined}
+              tenDuPhong="danh-sach-uy-thac.xlsx"
+            />
+            {hasPermission('cases', 'view') && hasPermission('cases', 'export_full') && <NutXuatTheoBoLoc
+              duongDan="/cases/export/day-du"
+              thamSo={{ ...exportParams, caseType: 'UY_THAC_DIEU_TRA' }}
+              cot={[]}
+              boQuaCot
+              tong={tableState === 'loading' ? null : totalCount}
+              hasUnappliedChanges={false}
+              onApply={() => undefined}
+              tenDuPhong={fullExportMessages.delegationFilename}
+              nhanRieng={fullExportMessages.label}
+              testId="btn-xuat-day-du"
+              goiY={fullExportMessages.hint}
+            />}
+          </div>
         </ListPageShell.Toolbar>
         {transientBanner && (
           <div
@@ -831,8 +1114,17 @@ export default function UyThacDieuTraListPage() {
           </div>
         )}
         <ListPageShell.Table<UyThacFromApi>
+          fixedLayout
+          xuongDong
+          matDo={rowDensity}
+          onKeoGian={resizeColumn}
+          datTongBeRong={coGhiDeBeRong}
+          onVeMacDinhCot={resetColumnWidth}
+          sortBy={sort.sortBy}
+          sortOrder={sort.sortOrder}
+          onSort={sort.onSort}
           state={tableState}
-          columns={columns}
+          columns={visibleColumns}
           data={rows}
           rowKey={(r) => r.id}
           title="Danh sách Ủy Thác Điều Tra"
@@ -842,8 +1134,10 @@ export default function UyThacDieuTraListPage() {
           emptyState={{
             title: 'Chưa có ủy thác điều tra nào',
             description: 'Tạo ủy thác đầu tiên theo Điều 171 BLTTHS 2015.',
-            actionLabel: 'Nhập ủy thác mới',
-            onAction: () => navigate('/uy-thac-dieu-tra/new'),
+            actionLabel: canCreateCase ? 'Nhập ủy thác mới' : undefined,
+            onAction: canCreateCase
+              ? () => navigate('/uy-thac-dieu-tra/new')
+              : undefined,
           }}
           emptyFilteredState={{
             onClearFilters: handleResetFilters,
@@ -863,7 +1157,13 @@ export default function UyThacDieuTraListPage() {
           getRowClassName={(r) =>
             computeTrangThai(r) === 'QUA_HAN' ? OVERDUE_ROW_HIGHLIGHT : ''
           }
-          onRowClick={(r) => navigate(`/uy-thac-dieu-tra/${r.id}/edit`)}
+          onRowClick={(r) =>
+            navigate(
+              canEditCase && r.quyenGhi !== false
+                ? `/uy-thac-dieu-tra/${r.id}/edit`
+                : `/cases/${r.id}`,
+            )
+          }
           bulkSelection={selection}
           bulkRowsLabel="ủy thác"
           bulkRowLabel={(r) => `ủy thác ${r.caseCode ?? r.id}`}
@@ -881,7 +1181,33 @@ export default function UyThacDieuTraListPage() {
           onSuccess={handleBulkSuccess}
           onError={handleBulkError}
         />
+        {wordBatch.status && (
+          <div role="status" className={wordBatch.status.kind === 'error' ? 'text-red-700' : 'text-green-700'}>
+            {wordBatch.status.text}
+          </div>
+        )}
       </ListPageShell>
+
+      {wordBatch.ids && (
+        <BatchExportDocumentsModal
+          entity="cases"
+          entityIds={wordBatch.ids}
+          onClose={() => wordBatch.setIds(null)}
+          onConfirm={wordBatch.confirm}
+        />
+      )}
+
+      {quickResultTarget && (
+        <KetQuaUyThacModal
+          caseId={quickResultTarget.id}
+          caseCode={quickResultTarget.caseCode ?? quickResultTarget.id}
+          result={quickResultTarget.ketQuaUyThac}
+          replyDate={quickResultTarget.ngayTraKetQua}
+          updatedAt={quickResultTarget.updatedAt}
+          onClose={() => setQuickResultTarget(null)}
+          onSaved={() => setRefetchCounter((count) => count + 1)}
+        />
+      )}
 
       {/* Delete modal — replaces window.confirm(). Reason ≥ 10 chars enforced
           client-side (also backend DeleteCaseDto). */}
@@ -913,7 +1239,9 @@ export default function UyThacDieuTraListPage() {
             <button
               type="button"
               onClick={() => void confirmDelete()}
-              disabled={deleting || deleteReason.trim().length < AUDIT_REASON_MIN_LENGTH}
+              disabled={
+                deleting || deleteReason.trim().length < AUDIT_REASON_MIN_LENGTH
+              }
               className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} bg-red-600 hover:bg-red-700 disabled:opacity-50`}
               title="Xóa ủy thác"
             >
@@ -976,7 +1304,9 @@ function FilterSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-slate-700 mb-1">
+        {label}
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -1010,7 +1340,9 @@ function FilterInput({
   const o = useOChuDongBo(value, onChange);
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-slate-700 mb-1">
+        {label}
+      </label>
       <input
         type={type}
         value={o.value}

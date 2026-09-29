@@ -30,7 +30,7 @@ import type { LoaiNguonTin, NguonPhatTin } from "@/shared/enums/generated";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
 import { useFormShortcuts } from "@/hooks/useFormShortcuts";
 import { useFormErrorNavigation } from "@/hooks/useFormErrorNavigation";
-import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalProvider";
+import { useDeleteResourceModalSafe } from "@/features/_shared/modals/DeleteResourceModalContext";
 import { IncidentStatus } from "@/shared/enums/generated";
 import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { buildIncidentPayload } from './buildIncidentPayload';
@@ -804,9 +804,11 @@ export function IncidentFormPage() {
           </LegacyTabBody>
         </div>
         {/* Tài liệu — luôn hiển thị; EntityDocumentsTab tự guard khi chưa có incidentId */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <EntityDocumentsTab entityKind="incident" entityId={id} chiXem={chiXem} />
-        </div>
+        {id && (
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+            <EntityDocumentsTab entityKind="incident" entityId={id} chiXem={chiXem} />
+          </div>
+        )}
 
         {/* Actions */}
         {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}

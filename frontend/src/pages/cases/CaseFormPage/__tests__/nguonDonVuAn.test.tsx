@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -20,9 +20,20 @@ vi.mock('@/hooks/useDirectoryOptions', () => ({
 }));
 
 const moPopupTaoNhanh = vi.hoisted(() => vi.fn());
+const petitionWrite = vi.hoisted(() => ({ allowed: true }));
 vi.mock('@/features/_shared/modals/useQuickCreateDirectoryModal', () => ({
   useQuickCreateDirectoryModalSafe: () => ({ open: moPopupTaoNhanh }),
 }));
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: () => ({
+    permissions: [{ action: 'write', subject: 'Petition' }],
+    canCreate: (resource: string) => resource === 'petitions' && petitionWrite.allowed,
+  }),
+}));
+
+beforeEach(() => {
+  petitionWrite.allowed = true;
+});
 
 function boc({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -80,5 +91,12 @@ describe('Form Vụ án — ô "Nguồn đơn/Đơn vị giao" chọn từ danh 
     expect(moPopupTaoNhanh).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'NGUON_DON' }),
     );
+  });
+
+  it('hides quick creation without Petition write permission', () => {
+    petitionWrite.allowed = false;
+    render(<Khung />, { wrapper: boc });
+    fireEvent.click(screen.getByTestId('field-nguonDon-trigger'));
+    expect(screen.queryByTestId('field-nguonDon-create-new')).not.toBeInTheDocument();
   });
 });

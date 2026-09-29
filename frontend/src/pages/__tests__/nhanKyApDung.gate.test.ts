@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import ts from 'typescript';
 import donThu from '../petitions/PetitionListPageShell.tsx?raw';
 import vuAn from '../cases/CaseListPageShell.tsx?raw';
 import vuViec from '../incidents/IncidentListPageShell.tsx?raw';
@@ -18,15 +19,31 @@ const MAN = [
   ['Danh sách vụ việc', vuViec, 'fromDateRange', 'toDateRange'],
 ] as const;
 
-/** Dòng `periodLabel=` phải gọi `nhanKyApDung(stats.ky, <từ ngày đã áp>, <đến ngày đã áp>)`. */
+/** The period label must use the applied date range, regardless of JSX formatting. */
 function nhanDungKyApDung(src: string, tu: string, den: string): boolean {
-  const dong = src.split('\n').find((l) => l.includes('periodLabel='));
-  if (!dong) return false;
-  return (
-    dong.includes('nhanKyApDung(') &&
-    dong.includes(`appliedFilters.${tu}`) &&
-    dong.includes(`appliedFilters.${den}`)
-  );
+  const file = ts.createSourceFile('list.tsx', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const isAppliedField = (node: ts.Node | undefined, field: string) =>
+    !!node && ts.isPropertyAccessExpression(node) &&
+    ts.isIdentifier(node.expression) && node.expression.text === 'appliedFilters' &&
+    node.name.text === field;
+  let matches = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && node.name.text === 'periodLabel' &&
+        node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
+      const visitExpression = (expression: ts.Node) => {
+        if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression) &&
+            expression.expression.text === 'nhanKyApDung' && expression.arguments.length >= 3 &&
+            isAppliedField(expression.arguments[1], tu) && isAppliedField(expression.arguments[2], den)) {
+          matches = true;
+        }
+        ts.forEachChild(expression, visitExpression);
+      };
+      visitExpression(node.initializer.expression);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return matches;
 }
 
 describe('CỔNG nhãn kỳ — 3 màn danh sách chính', () => {
@@ -36,7 +53,7 @@ describe('CỔNG nhãn kỳ — 3 màn danh sách chính', () => {
 
   it('gieo lỗi: đọc thẳng stats.ky như bản cũ → cổng bắt được', () => {
     const cu =
-      'periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null}';
+      '<StatsCardsStrip periodLabel={stats?.ky ? nhanKyThongKe(stats.ky.ky, stats.ky.tuNgay, stats.ky.denNgay) : null} />';
     expect(nhanDungKyApDung(cu, 'fromDate', 'toDate')).toBe(false);
   });
 

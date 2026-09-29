@@ -29,13 +29,25 @@ const BANG: Man[] = [
     ten: 'Đơn thư',
     service: 'backend/src/petitions/petitions.service.ts',
     shell: 'frontend/src/pages/petitions/PetitionListPageShell.tsx',
-    ngoaiLe: ['enteredBy', 'assignedTo', 'linkedCase', 'linkedIncident', 'crimeChinh'],
+    ngoaiLe: [
+      'enteredBy',
+      'assignedTo',
+      'linkedCase',
+      'linkedIncident',
+      'crimeChinh',
+    ],
   },
   {
     ten: 'Vụ việc',
     service: 'backend/src/incidents/incidents.service.ts',
     shell: 'frontend/src/pages/incidents/IncidentListPageShell.tsx',
-    ngoaiLe: ['investigator', 'canBoNhap', 'createdBy', 'linkedCase', 'mergedInto'],
+    ngoaiLe: [
+      'investigator',
+      'canBoNhap',
+      'createdBy',
+      'linkedCase',
+      'mergedInto',
+    ],
   },
   {
     ten: 'Vụ án',
@@ -58,7 +70,9 @@ const BANG: Man[] = [
     ten: 'Ủy thác điều tra',
     service: 'backend/src/cases/cases.service.ts',
     shell: 'frontend/src/features/uy-thac-dieu-tra/UyThacDieuTraListPage.tsx',
-    ngoaiLe: ['investigator', 'createdBy'],
+    // `quyenGhi` được CasesService tính theo DataScope sau truy vấn; đây không
+    // phải cột Prisma và vẫn được trả trên từng dòng danh sách.
+    ngoaiLe: ['investigator', 'createdBy', 'quyenGhi'],
   },
 ];
 
@@ -99,7 +113,9 @@ function khoiSelect(than: string, dau: number): Set<string> {
     }
   }
   const khoi = than.slice(dau, cuoi);
-  return new Set(Array.from(khoi.matchAll(/^\s*(\w+):\s*true/gm)).map((m) => m[1]));
+  return new Set(
+    Array.from(khoi.matchAll(/^\s*(\w+):\s*true/gm)).map((m) => m[1]),
+  );
 }
 
 /** Trường mà các cột danh sách đọc từ bản ghi (`r.<trường>`). */
@@ -145,6 +161,6 @@ describe('Hai cột từng rỗng phải nằm trong truy vấn', () => {
     ['Vụ án', 'backend/src/cases/cases.service.ts', 'donViGiaiQuyet'],
     ['Vụ việc', 'backend/src/incidents/incidents.service.ts', 'chuyenTuDonVi'],
   ])('%s: truy vấn trả về đúng cột', (_ten, service, cot) => {
-    expect(truongTraVe(path.join(GOC, service)).has(cot as string)).toBe(true);
+    expect(truongTraVe(path.join(GOC, service)).has(cot)).toBe(true);
   });
 });
