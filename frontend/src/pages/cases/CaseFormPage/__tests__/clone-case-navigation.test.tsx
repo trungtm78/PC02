@@ -50,7 +50,7 @@ vi.mock("@/lib/api", () => ({
   authApi: { me: vi.fn() },
 }));
 vi.mock("@/hooks/usePermission", () => ({
-  usePermission: () => ({ canCreate: () => true }),
+  usePermission: () => ({ canCreate: () => true, canEdit: () => true }),
 }));
 vi.mock("@/hooks/useOfficerOptions", () => ({
   useOfficerOptions: () => ({ data: [], isLoading: false }),

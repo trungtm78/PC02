@@ -1769,9 +1769,12 @@ export function TabInfo(props: TabProps) {
     if (props.errors[field]) props.setErrors((prev) => ({ ...prev, [field]: "" }));
   };
   const taoNhanh = useQuickCreateDirectoryModalSafe();
-  const { canCreate, permissions } = usePermission();
+  const { canCreate, canEdit } = usePermission();
   const canQuickCreateDirectory = Boolean(
-    taoNhanh && permissions && canCreate('petitions'),
+    taoNhanh && (
+      canCreate('cases') || canEdit('cases') ||
+      canCreate('petitions') || canEdit('petitions')
+    ),
   );
   /**
    * "Nguồn đơn/Đơn vị giao" chọn từ danh mục `NGUON_DON` — CÙNG danh mục với Đơn thư.

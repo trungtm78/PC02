@@ -14,7 +14,10 @@ import {
 import { DirectoryService } from './directory.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermissions,
+  RequirePermissions,
+} from '../auth/decorators/permissions.decorator';
 import { CreateDirectoryDto } from './dto/create-directory.dto';
 import { QueryDirectoryDto } from './dto/query-directory.dto';
 import { QuickCreateDirectoryDto } from './dto/quick-create-directory.dto';
@@ -25,7 +28,12 @@ export class DirectoryController {
   constructor(private readonly directoryService: DirectoryService) {}
 
   @Get()
-  @RequirePermissions({ action: 'read', subject: 'Directory' })
+  @RequireAnyPermissions(
+    { action: 'read', subject: 'Directory' },
+    { action: 'read', subject: 'Petition' },
+    { action: 'read', subject: 'Incident' },
+    { action: 'read', subject: 'Case' },
+  )
   findAll(@Query() query: QueryDirectoryDto) {
     return this.directoryService.findAll(query);
   }
@@ -57,13 +65,19 @@ export class DirectoryController {
   /**
    * Tạo nhanh đơn vị xử lý ngay trên ô tìm của form Đơn thư.
    *
-   * Quyền `write:Petition` chứ KHÔNG phải `write:Directory`: đo 09/09/2026, chỉ ADMIN có
-   * `write:Directory` (OFFICER: 0), nên cán bộ bấm "Tạo mới" sẽ nhận 403 — đúng lớp lỗi
-   * "không lưu được đơn thư" từng xảy ra. Đổi lại, dịch vụ tự giới hạn danh sách loại được
-   * tạo (`LOAI_TAO_NHANH_DUOC`), nên cửa này không mở ra danh mục pháp lý.
+   * Người dùng được tạo nhanh khi có quyền tạo ít nhất một loại hồ sơ sử dụng ô này. Dịch vụ
+   * vẫn giới hạn chặt danh sách loại (`LOAI_TAO_NHANH_DUOC`), nên cửa này không mở quyền sửa
+   * các danh mục pháp lý hoặc quyền quản trị danh mục.
    */
   @Post('quick')
-  @RequirePermissions({ action: 'write', subject: 'Petition' })
+  @RequireAnyPermissions(
+    { action: 'write', subject: 'Petition' },
+    { action: 'edit', subject: 'Petition' },
+    { action: 'write', subject: 'Incident' },
+    { action: 'edit', subject: 'Incident' },
+    { action: 'write', subject: 'Case' },
+    { action: 'edit', subject: 'Case' },
+  )
   taoNhanh(@Body() dto: QuickCreateDirectoryDto) {
     return this.directoryService.taoNhanh(dto);
   }
