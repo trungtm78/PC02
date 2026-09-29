@@ -13,6 +13,7 @@ interface RecordNameSuggestionsProps {
   testId: string;
   className?: string;
   disabled?: boolean;
+  incidentField?: 'title' | 'reporter';
 }
 
 export function RecordNameSuggestions({
@@ -22,15 +23,18 @@ export function RecordNameSuggestions({
   testId,
   className,
   disabled,
+  incidentField = 'title',
 }: RecordNameSuggestionsProps) {
   const findSuggestions = useCallback(async (q: string): Promise<NameSuggestion[]> => {
     const params = kind === 'incident'
       ? { q }
       : { q, caseType: kind === 'delegation' ? 'UY_THAC_DIEU_TRA' : 'REGULAR' };
-    const path = kind === 'incident' ? '/incidents/name-suggestions' : '/cases/name-suggestions';
+    const path = kind === 'incident'
+      ? incidentField === 'reporter' ? '/incidents/reporter-suggestions' : '/incidents/name-suggestions'
+      : '/cases/name-suggestions';
     const response = await api.get<NameSuggestion[]>(path, { params });
     return Array.isArray(response.data) ? response.data : [];
-  }, [kind]);
+  }, [incidentField, kind]);
 
   return (
     <ONhapGoiY<NameSuggestion>

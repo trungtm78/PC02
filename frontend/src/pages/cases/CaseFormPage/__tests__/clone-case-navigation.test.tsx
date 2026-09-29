@@ -101,6 +101,28 @@ function CloneStateProbe() {
 }
 
 describe("CaseFormPage clone navigation", () => {
+  it("keeps the form open when the user cancels the back confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { default: CaseFormPage } = await import("../index");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/cases/case-source/edit"]}>
+          <Routes>
+            <Route path="/cases/:id/edit" element={<CaseFormPage />} />
+            <Route path="/cases" element={<div data-testid="case-list" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByTestId("btn-back"));
+
+    expect(window.confirm).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("btn-back")).toBeInTheDocument();
+    expect(screen.queryByTestId("case-list")).not.toBeInTheDocument();
+  });
+
   it("loads persisted children and carries full editable state to the matching create route", async () => {
     const { default: CaseFormPage } = await import("../index");
     const queryClient = new QueryClient({

@@ -68,14 +68,18 @@ export class IncidentsBulkService {
         where: { id: input.investigatorId, isActive: true },
       });
       if (!investigator) {
-        throw new BadRequestException('Điều tra viên không tồn tại hoặc đã ngừng hoạt động');
+        throw new BadRequestException(
+          'Điều tra viên không tồn tại hoặc đã ngừng hoạt động',
+        );
       }
       if (input.assignedTeamId) {
         const member = await this.prisma.userTeam.findFirst({
           where: { userId: input.investigatorId, teamId: input.assignedTeamId },
         });
         if (!member) {
-          throw new BadRequestException('Điều tra viên không thuộc tổ được chỉ định');
+          throw new BadRequestException(
+            'Điều tra viên không thuộc tổ được chỉ định',
+          );
         }
       }
     }
@@ -87,10 +91,15 @@ export class IncidentsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ incidentId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { incidentId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         // Codex post-deploy P2: preflight phải lấy status để skip TERMINAL_STATUSES
@@ -116,7 +125,8 @@ export class IncidentsBulkService {
             skipped.push({
               id,
               reason: 'INELIGIBLE',
-              message: 'Không thể phân công điều tra viên cho vụ việc đã kết thúc',
+              message:
+                'Không thể phân công điều tra viên cho vụ việc đã kết thúc',
             });
             continue;
           }
@@ -133,11 +143,17 @@ export class IncidentsBulkService {
               ...(expectedAt ? { updatedAt: expectedAt } : {}),
             },
             data: {
-              ...(input.assignedTeamId ? { assignedTeamId: input.assignedTeamId } : {}),
-              ...(input.investigatorId ? { investigatorId: input.investigatorId } : {}),
+              ...(input.assignedTeamId
+                ? { assignedTeamId: input.assignedTeamId }
+                : {}),
+              ...(input.investigatorId
+                ? { investigatorId: input.investigatorId }
+                : {}),
               // Codex post-deploy P2: khi assign investigator → transition DANG_XAC_MINH
               // (match single-assign invariant ở incidents.service.ts:1127).
-              ...(input.investigatorId ? { status: IncidentStatus.DANG_XAC_MINH } : {}),
+              ...(input.investigatorId
+                ? { status: IncidentStatus.DANG_XAC_MINH }
+                : {}),
             },
           });
         } catch (e) {
@@ -179,7 +195,9 @@ export class IncidentsBulkService {
             message: 'Vụ việc đã được chỉnh sửa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
 
     await this.audit.completeBulk(bulkOperationId, {
@@ -224,7 +242,10 @@ export class IncidentsBulkService {
       // Cùng thứ tự với DANH SÁCH trên màn hình (ngày tiếp nhận, mới→cũ). Trước đây
       // dùng `createdAt` — cột mà toàn bộ hồ sơ di trú đều mang cùng một giá trị, nên
       // thứ tự file xuất ra là ngẫu nhiên và không khớp thứ tự cán bộ vừa nhìn thấy.
-      orderBy: [{ ngayDeXuat: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+      orderBy: [
+        { ngayDeXuat: { sort: 'desc', nulls: 'last' } },
+        { id: 'desc' },
+      ],
       select: {
         id: true,
         code: true,
@@ -273,7 +294,7 @@ export class IncidentsBulkService {
         rec.unitId ?? '',
         investigatorName,
         rec.createdAt ? rec.createdAt.toLocaleDateString('vi-VN') : '',
-        INCIDENT_STATUS_LABEL[rec.status as IncidentStatus] ?? rec.status ?? '',
+        INCIDENT_STATUS_LABEL[rec.status] ?? rec.status ?? '',
       ]);
       BcaExcelHelper.styleDataRow(dataRow, idx % 2 === 1, COL_COUNT);
     });
@@ -287,7 +308,10 @@ export class IncidentsBulkService {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
-    input.res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    input.res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
 
     try {
       await workbook.xlsx.write(input.res);
@@ -311,9 +335,13 @@ export class IncidentsBulkService {
    * - 0 linked documents → có → INELIGIBLE
    * - dataScope filter → out-of-scope = PERMISSION skip
    */
-  async bulkDelete(input: BulkDeleteIncidentsInput): Promise<BulkResult<{ incidentId: string }>> {
-    if (input.ids.length === 0) throw new BadRequestException('Cần ít nhất 1 vụ việc để xóa');
-    if (input.ids.length > 100) throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
+  async bulkDelete(
+    input: BulkDeleteIncidentsInput,
+  ): Promise<BulkResult<{ incidentId: string }>> {
+    if (input.ids.length === 0)
+      throw new BadRequestException('Cần ít nhất 1 vụ việc để xóa');
+    if (input.ids.length > 100)
+      throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
 
     const { bulkOperationId } = await this.audit.logBulkHeader({
       actorId: input.actorId,
@@ -322,10 +350,15 @@ export class IncidentsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ incidentId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { incidentId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         const inScope = await this.prisma.incident.findMany({
@@ -405,7 +438,10 @@ export class IncidentsBulkService {
       },
     });
 
-    const reclassified = reclassifyConcurrent(result, 'Vụ việc đã được xóa bởi người khác');
+    const reclassified = reclassifyConcurrent(
+      result,
+      'Vụ việc đã được xóa bởi người khác',
+    );
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,
       skipped: reclassified.skipped.length,
@@ -417,9 +453,13 @@ export class IncidentsBulkService {
   /**
    * v0.50 PR3 — Bulk restore Incidents (admin-only at controller layer).
    */
-  async bulkRestore(input: BulkRestoreIncidentsInput): Promise<BulkResult<{ incidentId: string }>> {
-    if (input.ids.length === 0) throw new BadRequestException('Cần ít nhất 1 vụ việc để khôi phục');
-    if (input.ids.length > 100) throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
+  async bulkRestore(
+    input: BulkRestoreIncidentsInput,
+  ): Promise<BulkResult<{ incidentId: string }>> {
+    if (input.ids.length === 0)
+      throw new BadRequestException('Cần ít nhất 1 vụ việc để khôi phục');
+    if (input.ids.length > 100)
+      throw new BadRequestException('Tối đa 100 vụ việc mỗi đợt');
 
     const { bulkOperationId } = await this.audit.logBulkHeader({
       actorId: input.actorId,
@@ -428,10 +468,15 @@ export class IncidentsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ incidentId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { incidentId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
       prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+        $transaction: <R>(
+          cb: (tx: Prisma.TransactionClient) => Promise<R>,
+        ) => Promise<R>;
       },
       preflight: async (ids) => {
         const deleted = await this.prisma.incident.findMany({
@@ -477,7 +522,10 @@ export class IncidentsBulkService {
       },
     });
 
-    const reclassified = reclassifyConcurrent(result, 'Vụ việc đã được khôi phục bởi người khác');
+    const reclassified = reclassifyConcurrent(
+      result,
+      'Vụ việc đã được khôi phục bởi người khác',
+    );
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,
       skipped: reclassified.skipped.length,

@@ -26,15 +26,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { extractApiError } from "@/lib/api-errors";
-import {
-  ArrowLeft, AlertCircle, Calendar, CopyPlus,
-  FileText, MapPin, Phone, Mail,
-} from "lucide-react";
+import { AlertCircle, Calendar, MapPin, Phone, Mail } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
+import { FormActionBar } from "@/components/shared/FormActionBar";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -51,6 +49,7 @@ import { EntityDocumentsTab } from "@/components/documents/EntityDocumentsTab";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
 import { PetitionAssignmentSection } from "../PetitionAssignmentSection";
 import { usePermission } from "@/hooks/usePermission";
+import { PERMISSION_RESOURCE } from "@/shared/enums/permissions";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "../ConvertPetitionModal";
 
 import { computeFormErrors } from "./validate";
@@ -65,6 +64,14 @@ import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
 import { chepSangDonMoi } from "./chepSangDonMoi";
 import { lamTrongForm } from "./lamTrongForm";
+import { cloneUserMetadata } from '@/shared/legacy/cloneMetadata';
+
+interface PetitionCloneState {
+  formData: FormData;
+  metaState: Record<string, unknown>;
+  parityState: Record<string, unknown>;
+}
+
 export function PetitionFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,7 +85,16 @@ export function PetitionFormPage() {
     qua: thêm một đường điều hướng khác về sau mà quên gọi `chepSangDonMoi` thì vẫn không có
     hồ sơ nào mang được mã số, hạn xử lý hay kết quả xử lý của đơn cũ sang.
   */
-  const chepTu = (location.state as { chepTu?: FormData } | null)?.chepTu ?? null;
+  const cloneInput = useMemo(() => {
+    const routeState = location.state as {
+      clonePetition?: PetitionCloneState;
+      /** Tương thích lịch sử điều hướng cũ; không còn được tạo bởi UI hiện tại. */
+      chepTu?: FormData;
+    } | null;
+    return routeState?.clonePetition ?? (routeState?.chepTu
+      ? { formData: routeState.chepTu, metaState: {}, parityState: {} }
+      : null);
+  }, [location.state]);
   // PR2 — tạo mới đơn thư có đính file: sau khi POST tạo đơn, giữ id mới ở createdId →
   // (1) lưu lần kế = PUT (không tạo đơn TRÙNG), (2) cho upload/retry file đã stage.
   // effectiveEdit/effectiveId dùng trong saveOnly + validateForm.
@@ -93,11 +109,15 @@ export function PetitionFormPage() {
   const savingRef = useRef(false);
 
   const [formData, setFormData] = useState<FormData>(() =>
-    !id && chepTu ? chepSangDonMoi(chepTu) : taoFormDonThuMoi(),
+    !id && cloneInput ? chepSangDonMoi(cloneInput.formData) : taoFormDonThuMoi(),
   );
   const [legacyRaw, setLegacyRaw] = useState<Record<string, unknown> | null>(null);
-  const [metaState, setMetaState] = useState<Record<string, unknown>>({});
-  const [parityState, setParityState] = useState<Record<string, unknown>>({});
+  const [metaState, setMetaState] = useState<Record<string, unknown>>(() =>
+    !id && cloneInput ? cloneUserMetadata(cloneInput.metaState) : {},
+  );
+  const [parityState, setParityState] = useState<Record<string, unknown>>(() =>
+    !id && cloneInput ? structuredClone(cloneInput.parityState) : {},
+  );
   const [errors, setErrors] = useState<string[]>([]);
   // Tab đang mở. Hệ cũ dùng đúng bộ 10 tab này cho cả Đơn thư, Vụ việc và Vụ án.
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
@@ -138,7 +158,7 @@ export function PetitionFormPage() {
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
   const chiXem = isEditMode && quyenGhi === false;
   // Phân công: điều phối viên được làm cả ngoài phạm vi ghi (quyết định 19/09/2026) — chỉ ẩn với người thường.
-  const { canDispatch } = usePermission();
+  const { canDispatch, canCreate } = usePermission();
   // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
@@ -226,7 +246,7 @@ export function PetitionFormPage() {
   // assignedToId intentionally NOT defaulted — petition assignment is a dispatcher decision,
   // pre-filling self bypasses the workflow.
   useEffect(() => {
-    if (isEditMode || !defaults.isLoaded) return;
+    if (isEditMode || cloneInput || !defaults.isLoaded) return;
     setFormData((prev) => ({
       ...prev,
       receivedDate:   prev.receivedDate   || defaults.today,
@@ -236,7 +256,7 @@ export function PetitionFormPage() {
       // phân công là quyết định của điều phối, còn đề xuất là người tự ký).
       canBoDeXuatId:  prev.canBoDeXuatId  || defaults.userId           || "",
     }));
-  }, [isEditMode, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName, defaults.userId]);
+  }, [isEditMode, cloneInput, defaults.isLoaded, defaults.today, defaults.primaryTeamId, defaults.primaryTeamName, defaults.userId]);
 
   // Load petition data in edit mode
   useEffect(() => {
@@ -498,6 +518,18 @@ export function PetitionFormPage() {
 
   const handleCancel = () => {
     if (confirm("Bạn có chắc chắn muốn hủy? Dữ liệu chưa lưu sẽ bị mất.")) navigate("/petitions");
+  };
+
+  const handleClone = () => {
+    navigate('/petitions/new', {
+      state: {
+        clonePetition: {
+          formData,
+          metaState: cloneUserMetadata(metaState),
+          parityState: structuredClone(parityState),
+        } satisfies PetitionCloneState,
+      },
+    });
   };
 
   // Phím tắt form: F2 Lưu, Esc Hủy, F4 Xuất/In chứng từ, F3 Xóa (chỉ khi SỬA).
@@ -892,54 +924,31 @@ export function PetitionFormPage() {
 
   return (
     <div className="p-6 space-y-6" data-testid="petition-form-page">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/petitions")} className="p-2 hover:bg-slate-100 rounded-lg transition-colors" data-testid="btn-back">
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              {isEditMode ? "Cập nhật Đơn thư" : "Thêm mới Đơn thư"}
-            </h1>
-            <p className="text-slate-600 text-sm mt-1">
-              {isEditMode ? `Chỉnh sửa thông tin đơn thư ${id}` : "Nhập thông tin đơn thư mới"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleCancel} className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel-top">
-            Hủy
-          </button>
-          {isEditMode && id && !chiXem && (
-            <button
-              type="button"
-              onClick={() => navigate("/petitions/new", { state: { chepTu: formData } })}
-              className="flex items-center gap-2 px-4 py-2.5 border border-sky-300 text-sky-700 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors font-medium"
-              data-testid="btn-chep-don"
-              title="Chép nội dung đơn này sang một đơn mới; mã hồ sơ, ngày tháng và kết quả xử lý sẽ đặt lại"
-            >
-              <CopyPlus className="w-4 h-4" />Tạo đơn mới từ đơn này
-            </button>
-          )}
-          {isEditMode && id && (
-            <button
-              type="button"
-              onClick={() => { setExportNavigateOnClose(false); setExportModalForId(id); }}
-              className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors font-medium"
-              data-testid="btn-print-docs"
-            >
-              <FileText className="w-4 h-4" />In chứng từ
-            </button>
-          )}
-          {!chiXem && <SaveSplitButton
+      <FormActionBar
+        title={isEditMode ? "Cập nhật Đơn thư" : "Thêm mới Đơn thư"}
+        subtitle={isEditMode ? `Chỉnh sửa thông tin đơn thư ${id}` : "Nhập thông tin đơn thư mới"}
+        onBack={handleCancel}
+        onCancel={handleCancel}
+        cancelTestId="btn-cancel-top"
+        cloneAction={isEditMode && id && canCreate(PERMISSION_RESOURCE.PETITIONS) ? {
+          label: "Tạo đơn mới từ đơn này",
+          onClick: handleClone,
+          testId: "btn-chep-don",
+          title: "Chép toàn bộ dữ liệu người dùng đã nhập sang một đơn mới; chỉ định danh và metadata hệ thống được đặt lại",
+        } : undefined}
+        printAction={isEditMode && id ? {
+          label: "In chứng từ",
+          onClick: () => { setExportNavigateOnClose(false); setExportModalForId(id); },
+          testId: "btn-print-docs",
+        } : undefined}
+        saveAction={!chiXem ? <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save-top"
-          />}
-        </div>
-      </div>
+          /> : undefined}
+      />
 
       {errors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid="validation-errors">
@@ -1236,6 +1245,7 @@ export function PetitionFormPage() {
             entity="petition"
             values={parityState}
             onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
+            readOnly={chiXem}
           />
         )}
         {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
@@ -1244,21 +1254,36 @@ export function PetitionFormPage() {
             entity="petition"
             values={metaState}
             onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+            readOnly={chiXem}
           />
         )}
         {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
 
-        <div className="flex items-center justify-end gap-3 bg-white rounded-lg border border-slate-200 shadow-sm p-4 sm:p-6 flex-wrap">
-          <button type="button" onClick={handleCancel} className="px-4 sm:px-6 py-2.5 min-h-[44px] border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors" data-testid="btn-cancel">
-            Hủy
-          </button>
-          {!chiXem && <SaveSplitButton
+        <FormActionBar
+          actionsOnly
+          testId="form-action-bar-bottom"
+          onCancel={handleCancel}
+          cancelTestId="btn-cancel"
+          cloneAction={isEditMode && id && canCreate(PERMISSION_RESOURCE.PETITIONS) ? {
+            label: "Tạo đơn mới từ đơn này",
+            onClick: handleClone,
+            testId: "btn-chep-don-bottom",
+            title: "Chép toàn bộ dữ liệu người dùng đã nhập sang một đơn mới; chỉ định danh và metadata hệ thống được đặt lại",
+          } : undefined}
+          printAction={isEditMode && id ? {
+            label: "In chứng từ",
+            onClick: () => { setExportNavigateOnClose(false); setExportModalForId(id); },
+            testId: "btn-print-docs-bottom",
+          } : undefined}
+          saveAction={!chiXem ? <SaveSplitButton
             onSave={onSave}
             onSaveAndExport={onSaveAndExport}
             isSubmitting={isSubmitting}
             label={isEditMode ? "Cập nhật" : "Lưu đơn thư"}
             idPrefix="btn-save"
-          />}
+          /> : undefined}
+        />
+        <div className="flex items-center justify-end gap-3 flex-wrap">
           {(linkedCaseId || linkedIncidentId) && (
             // Đơn đã chuyển (kể cả đơn gắn kèm hồ sơ hệ cũ lệch loại, 18/09/2026): mở thẳng hồ sơ đích.
             <Link

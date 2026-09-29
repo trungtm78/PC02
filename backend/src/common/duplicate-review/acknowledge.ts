@@ -7,16 +7,16 @@ export function assertReviewedCandidates(
   acknowledgedIds: readonly string[] = [],
 ): string[] {
   const acknowledged = new Set(acknowledgedIds);
-  const confirmedIds = candidates
+  const highConfidenceIds = candidates
     .filter((candidate) => candidate.confidence === 'HIGH')
     .map((candidate) => candidate.id);
-  const missing = confirmedIds.filter((id) => !acknowledged.has(id));
+  const missing = highConfidenceIds.filter((id) => !acknowledged.has(id));
   if (missing.length > 0) {
     throw new ConflictException({
       code: 'DUPLICATE_REVIEW_REQUIRED',
-      message: 'Cần rà soát hồ sơ có tên trùng trước khi lưu',
+      message: 'Cần rà soát hồ sơ có khả năng trùng trước khi lưu',
       candidateIds: missing,
     });
   }
-  return confirmedIds;
+  return highConfidenceIds;
 }

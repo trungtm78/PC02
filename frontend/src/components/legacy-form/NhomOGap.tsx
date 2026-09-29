@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 /**
@@ -57,7 +57,20 @@ export function NhomOGap({
   moSan,
   children,
 }: Props) {
-  const [nguoiDungMo, setNguoiDungMo] = useState<boolean | null>(null);
+  const [dieuKhien, setDieuKhien] = useState<{
+    moSanTruoc: boolean;
+    nguoiDungMo: boolean | null;
+  }>({ moSanTruoc: moSan, nguoiDungMo: null });
+
+  // Khi luật tự mở vừa chuyển false -> true (ví dụ đổi nguồn sang "Trực tiếp"),
+  // bỏ lựa chọn đóng cũ. Điều chỉnh ngay trong render giúp tránh effect cập nhật state
+  // và React sẽ render lại tức thì với trạng thái đã đồng bộ.
+  if (dieuKhien.moSanTruoc !== moSan) {
+    setDieuKhien({
+      moSanTruoc: moSan,
+      nguoiDungMo: moSan && !dieuKhien.moSanTruoc ? null : dieuKhien.nguoiDungMo,
+    });
+  }
 
   /**
    * Luật tự-bung phải GIÀNH LẠI được quyền, bấm tay không thắng nó.
@@ -72,11 +85,9 @@ export function NhomOGap({
    *  1. `coLoi` ÁP ĐẢO mọi thứ — nhóm đang chặn Lưu thì không được phép đóng.
    *  2. `moSan` đổi false→true (vd đổi Nguồn đơn sang Trực tiếp) thì xoá lựa chọn tay.
    */
-  useEffect(() => {
-    if (moSan) setNguoiDungMo(null);
-  }, [moSan]);
-
-  const mo = coLoi || (nguoiDungMo ?? moSan);
+  const dangBatDauTuMo = moSan && !dieuKhien.moSanTruoc;
+  const luaChonNguoiDung = dangBatDauTuMo ? null : dieuKhien.nguoiDungMo;
+  const mo = coLoi || (luaChonNguoiDung ?? moSan);
 
   return (
     <div
@@ -87,7 +98,12 @@ export function NhomOGap({
     >
       <button
         type="button"
-        onClick={() => setNguoiDungMo(coLoi ? true : !mo)}
+        onClick={() =>
+          setDieuKhien((hienTai) => ({
+            ...hienTai,
+            nguoiDungMo: coLoi ? true : !mo,
+          }))
+        }
         aria-expanded={mo}
         aria-controls={`nhom-${khoa}-than`}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors rounded-lg"

@@ -31,14 +31,17 @@ const m = vi.mocked(api) as unknown as Record<'get' | 'patch' | 'put', ReturnTyp
 const GOP = [
   {
     id: 'c1', loai: 'Vụ án', ma: '2026-11171', ten: 'Trộm cắp xe máy', trangThai: 'DANG_DIEU_TRA',
+    updatedAt: '2026-09-29T08:00:00.000Z',
     ngayDeXuat: '2026-09-01T00:00:00.000Z', toId: 't1', toTen: 'Đội 2', nguoiPhuTrach: 'Nguyễn Văn A',
   },
   {
     id: 'i1', loai: 'Vụ việc', ma: '2026-9706', ten: 'Mất trộm xe', trangThai: 'TIEP_NHAN',
+    updatedAt: '2026-09-29T09:00:00.000Z',
     ngayDeXuat: '2026-08-01T00:00:00.000Z', toId: 't2', toTen: 'Tổ 3', nguoiPhuTrach: '',
   },
   {
     id: 'p1', loai: 'Đơn thư', ma: '2026-1', ten: 'Đơn tố giác', trangThai: 'MOI_TIEP_NHAN',
+    updatedAt: '2026-09-29T10:00:00.000Z',
     ngayDeXuat: '2026-07-01T00:00:00.000Z', toId: 't1', toTen: 'Đội 2', nguoiPhuTrach: '',
   },
 ];
@@ -185,9 +188,12 @@ describe('TransferAndReturnPage — dữ liệu thật, lọc ở máy chủ', (
     fireEvent.change(await screen.findByTestId('tra-don-vi-nhan'), { target: { value: 'Công an Quận 1' } });
     fireEvent.click(screen.getByTestId('btn-xac-nhan-tra'));
     await waitFor(() =>
-      expect(m.patch).toHaveBeenCalledWith('/incidents/i1/status', { status: 'DA_CHUYEN_DON_VI' }),
+      expect(m.patch).toHaveBeenCalledWith('/incidents/i1/transfer', {
+        donViMoi: 'Công an Quận 1',
+        expectedUpdatedAt: '2026-09-29T09:00:00.000Z',
+      }),
     );
-    expect(m.put).toHaveBeenCalledWith('/incidents/i1', { chuyenDenDonVi: 'Công an Quận 1' });
+    expect(m.put).not.toHaveBeenCalledWith('/incidents/i1', expect.anything());
   });
 
   it('KHÔNG còn nút Xuất Excel (không có API phía sau)', async () => {

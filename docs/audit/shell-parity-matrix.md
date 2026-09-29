@@ -4,6 +4,22 @@
 **Truth-of-record**: legacy commit `2cbdd90` (parent of `a8016b6` v0.57.0.0 deletion).
 **Method**: testid extraction + registry inspection.
 
+## v0.73.1.0 — Đồng bộ danh sách Vụ việc với Đơn thư
+
+`IncidentListPageShell` giữ nguyên các năng lực đã có và bổ sung các điểm đồng nhất sau:
+
+| Năng lực | Vụ việc | Quan hệ với Đơn thư |
+|---|---|---|
+| Thẻ giai đoạn và chip trạng thái | ✅ Một nguồn lọc; bỏ tab giai đoạn trùng chức năng | Cùng nhịp lọc và trạng thái URL |
+| Tìm kiếm mọi cột được phép, kể cả cột ẩn và ngày EDTF/chữ tự do | ✅ | Cùng `OTimKiemThe` và khai báo tìm kiếm máy chủ |
+| Danh sách, thống kê, Excel đang xem và Excel đầy đủ | ✅ Dùng cùng bộ điều kiện/kỳ thống kê | Cùng hợp đồng bộ lọc và quyền xuất |
+| Sửa nhanh kết quả | ✅ Endpoint hẹp, optimistic lock, chỉ khi dòng có `quyenGhi` | Giữ command nghiệp vụ cho chuyển trạng thái có side effect |
+| Capability theo từng dòng | ✅ Máy chủ trả `quyenGhi` | UI không suy quyền ghi từ quyền global |
+| Chọn cột, mật độ, loading/error/empty và thao tác hàng loạt | ✅ | Dùng cùng cấu hình/shell chung |
+| Word hàng loạt | ✅ Tối đa 100 hồ sơ, kiểm lại scope từng lô | Cùng manifest lỗi một phần |
+
+Không xóa năng lực danh sách cũ. Các thay đổi mở rộng cách tìm, xuất và cập nhật kết quả; quy tắc pháp lý riêng của Vụ việc vẫn đi qua command nghiệp vụ tương ứng.
+
 ## Status v0.66 (chain complete)
 
 - ✅ Cases (v0.63 PR1b): 8 actions + 5 filters via casesRowActions + casesListFilters.

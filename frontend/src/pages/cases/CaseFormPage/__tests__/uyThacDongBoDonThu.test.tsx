@@ -4,6 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { TabInfo } from '../tabs';
 import { INITIAL_FORM_DATA, type CaseFormData } from '../types';
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    get: vi.fn().mockResolvedValue({ data: { data: [] } }),
+    post: vi.fn().mockResolvedValue({ data: { data: {} } }),
+    put: vi.fn().mockResolvedValue({ data: { data: {} } }),
+  },
+}));
 import { buildCreateCasePayload } from '../buildCreateCasePayload';
 
 Element.prototype.scrollIntoView = vi.fn();

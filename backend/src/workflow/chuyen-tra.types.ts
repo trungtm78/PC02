@@ -15,6 +15,8 @@ export interface DongChuyenTra {
   /** Khoá sắp thứ hai của nguồn (STT dạng số) — phép gộp cần nó để sắp ĐÚNG như từng nguồn. */
   sttSort: number | null;
   trangThai: string;
+  /** Mốc khóa lạc quan gửi lại cho các command ghi từ màn hình gộp. */
+  updatedAt: Date | string;
 }
 
 /**

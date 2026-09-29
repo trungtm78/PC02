@@ -1,4 +1,26 @@
-STATUS: BLOCKED
+STATUS: IN_PROGRESS
+ACTIVE_WORK: feat/incident-parity-web-20260929 — đồng bộ Vụ việc và thanh thao tác hồ sơ
+UPDATED_AT: 2026-09-29T22:56:00+07:00
+SPEC: docs/superpowers/specs/2026-09-29-incident-parity-and-action-bar.md
+PROTOCOL: docs/protocols/AUTONOMOUS-EXECUTION-PROTOCOL-2026-09-29.md
+NEXT_STEP: Tạo MR sạch, chờ CI xanh, merge và deploy web production
+
+## Phiên 29/09/2026 — Vụ việc / thanh thao tác hồ sơ
+
+- Worktree sạch: `C:\PC02\pc02-case-management-incident-parity`
+- Nhánh: `feat/incident-parity-web-20260929`
+- Đã triển khai phần chính: danh mục Nguồn đơn/Đơn vị giải quyết, nhóm CCCD, gợi ý `benVu`, rà trùng nhiều tín hiệu, sao chép dữ liệu người dùng, idempotency, upload retry, capability từng dòng, sửa nhanh kết quả và thanh thao tác chung.
+- UAT trình duyệt/API thật PASS: tạo hồ sơ, idempotency/409, sửa nguồn trực tiếp và CCCD, tạo nhanh Đơn vị giải quyết, sao chép, xác nhận trùng, lưu/tải lại, tìm kiếm danh sách và Excel.
+- Cổng mới nhất: Backend 443/443 suite, 6.135/6.135 test PASS; Frontend 374/374 tệp, 3.995/3.995 test PASS; type-check/build PASS; lint toàn bộ frontend và lint phần backend thay đổi PASS.
+- Patch line coverage trên checkout sạch: Frontend 203/221 = 91,86%; Backend 319/354 = 90,11%; không còn production file thiếu dữ liệu coverage.
+- Astra review hợp nhất và review lại sau sửa finding: PASS, không còn finding P0–P3 trong snapshot 96 tệp.
+- MR / production: CHƯA THỰC HIỆN.
+
+---
+
+## Lịch sử trước phiên 29/09/2026
+
+STATUS_OLD: BLOCKED
 BLOCKED_REASON: Da lam het phan khong can anh — 8/8 yeu cau xong, 6 PR tren production
   (#467 #468 #469 #470 #471 #472/#473), buildId prod khop origin/main. Con DUNG MOT VIEC
   can anh de dong §9:
