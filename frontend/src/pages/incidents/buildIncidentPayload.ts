@@ -54,7 +54,7 @@ export function buildIncidentPayload(
   formData: IncidentFormData,
   opts: BuildIncidentPayloadOptions,
 ): Record<string, unknown> {
-  const { metaState, parityState } = opts;
+  const { isEditMode, metaState, parityState } = opts;
   return {
 
     // Trường hệ cũ động (editable) → backend MERGE vào metadata.
@@ -83,7 +83,7 @@ export function buildIncidentPayload(
     fromDate: oHeCu(formData.fromDate),
     toDate: oHeCu(formData.toDate),
     deadline: oHeCu(formData.deadline),
-    investigatorId: oHeCu(formData.investigatorId),
+    ...(!isEditMode ? { investigatorId: oHeCu(formData.investigatorId) } : {}),
     canBoNhapId: oHeCu(formData.canBoNhapId),
     doiTuongCaNhan: oHeCu(formData.doiTuongCaNhan),
     doiTuongToChuc: oHeCu(formData.doiTuongToChuc),
@@ -92,7 +92,7 @@ export function buildIncidentPayload(
     phuongThucTiepNhan: oHeCu(formData.phuongThucTiepNhan),
     benVu: oHeCu(formData.benVu),
     donViGiaiQuyet: oHeCu(formData.donViGiaiQuyet),
-    assignedTeamId: oHeCu(formData.assignedTeamId),
+    ...(!isEditMode ? { assignedTeamId: oHeCu(formData.assignedTeamId) } : {}),
     ngayDeXuat: oHeCu(formData.ngayDeXuat),
     sdtNguoiToGiac: oHeCu(formData.sdtNguoiToGiac),
     diaChiNguoiToGiac: oHeCu(formData.diaChiNguoiToGiac),

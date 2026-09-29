@@ -24,12 +24,16 @@ interface RecordDuplicateReviewProps {
   decisionNumber?: string;
   idNumber?: string;
   phone?: string;
+  reporter?: string;
+  content?: string;
+  date?: string;
+  location?: string;
 }
 
 export const RecordDuplicateReview = forwardRef<
   RecordDuplicateReviewHandle,
   RecordDuplicateReviewProps
->(function RecordDuplicateReview({ kind, name, excludeId, decisionNumber, idNumber, phone }, ref) {
+>(function RecordDuplicateReview({ kind, name, excludeId, decisionNumber, idNumber, phone, reporter, content, date, location }, ref) {
   const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
   const [checked, setChecked] = useState(false);
   const [checkedKey, setCheckedKey] = useState('');
@@ -38,12 +42,14 @@ export const RecordDuplicateReview = forwardRef<
   const [errorKey, setErrorKey] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const acceptedRef = useRef<{ key: string; ids: string[] } | null>(null);
-  const currentKey = `${kind}:${name.trim()}:${excludeId ?? ''}:${kind === 'delegation' ? decisionNumber?.trim() ?? '' : ''}:${kind === 'petition' ? `${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}` : ''}`;
+  const incidentSignals = `${reporter?.trim() ?? ''}:${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}:${content?.trim() ?? ''}:${date?.trim() ?? ''}:${location?.trim() ?? ''}`;
+  const currentKey = `${kind}:${name.trim()}:${excludeId ?? ''}:${kind === 'delegation' ? decisionNumber?.trim() ?? '' : ''}:${kind === 'petition' ? `${idNumber?.trim() ?? ''}:${phone?.trim() ?? ''}` : kind === 'incident' ? incidentSignals : ''}`;
   const latestKeyRef = useRef(currentKey);
   latestKeyRef.current = currentKey;
 
   const verify = async (): Promise<{ ok: boolean; acknowledgedIds: string[] }> => {
-    if (name.trim().length < 2 && !(kind === 'delegation' && decisionNumber?.trim()) && !(kind === 'petition' && (idNumber?.trim() || phone?.trim()))) {
+    const hasIncidentSignal = kind === 'incident' && [reporter, idNumber, phone, content, date, location].some((value) => value?.trim());
+    if (name.trim().length < 2 && !(kind === 'delegation' && decisionNumber?.trim()) && !(kind === 'petition' && (idNumber?.trim() || phone?.trim())) && !hasIncidentSignal) {
       return { ok: true, acknowledgedIds: [] };
     }
     setLoading(true);
@@ -52,7 +58,7 @@ export const RecordDuplicateReview = forwardRef<
       const params = kind === 'petition'
         ? { name, idNumber: idNumber?.trim(), phone: phone?.trim(), excludeId }
         : kind === 'incident'
-        ? { name, excludeId }
+        ? { name, reporter, idNumber, phone, content, date, location, excludeId }
         : {
           name,
           excludeId,
@@ -60,7 +66,9 @@ export const RecordDuplicateReview = forwardRef<
           ...(kind === 'delegation' && { decisionNumber: decisionNumber?.trim() }),
         };
       const path = kind === 'petition' ? '/petitions/duplicate-review' : kind === 'incident' ? '/incidents/duplicate-review' : '/cases/duplicate-review';
-      const response = await api.get<DuplicateCandidate[]>(path, { params });
+      const response = kind === 'incident'
+        ? await api.post<DuplicateCandidate[]>(path, params)
+        : await api.get<DuplicateCandidate[]>(path, { params });
       if (latestKeyRef.current !== currentKey) return { ok: false, acknowledgedIds: [] };
       const matches = Array.isArray(response.data) ? response.data : [];
       const highIds = matches.filter((item) => item.confidence === 'HIGH').map((item) => item.id);
@@ -100,7 +108,7 @@ export const RecordDuplicateReview = forwardRef<
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-3" aria-label={recordReview.sectionLabel}>
-      <button type="button" onClick={() => void verify()} disabled={loading || (name.trim().length < 2 && !(kind === 'delegation' && decisionNumber?.trim()) && !(kind === 'petition' && (idNumber?.trim() || phone?.trim())))}
+      <button type="button" onClick={() => void verify()} disabled={loading || (name.trim().length < 2 && !(kind === 'delegation' && decisionNumber?.trim()) && !(kind === 'petition' && (idNumber?.trim() || phone?.trim())) && !(kind === 'incident' && [reporter, idNumber, phone, content, date, location].some((value) => value?.trim())))}
         className="text-sm font-medium text-blue-700 hover:underline disabled:text-slate-400">
         {loading ? recordReview.reviewLoading : recordReview.reviewAction}
       </button>

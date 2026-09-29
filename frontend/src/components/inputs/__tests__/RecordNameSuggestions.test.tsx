@@ -32,4 +32,16 @@ describe('RecordNameSuggestions', () => {
     }));
     expect(await screen.findByText('Trần Văn An')).toBeInTheDocument();
   });
+
+  it('uses the reporter endpoint for the incident person field', async () => {
+    const Reporter = () => {
+      const [value, setValue] = useState('');
+      return <RecordNameSuggestions kind="incident" incidentField="reporter" value={value} onChange={setValue} testId="reporter" />;
+    };
+    render(<Reporter />);
+    fireEvent.change(screen.getByTestId('reporter'), { target: { value: 'nguyen' } });
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/incidents/reporter-suggestions', {
+      params: { q: 'nguyen' },
+    }));
+  });
 });

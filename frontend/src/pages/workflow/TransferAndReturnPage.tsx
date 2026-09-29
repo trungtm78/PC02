@@ -55,10 +55,8 @@ interface NguonHoSo {
   nhanTrangThai: Record<string, string>;
   /** Trạng thái "đã chuyển đơn vị khác" — Đơn thư KHÔNG có, nên không trả hồ sơ được. */
   trangThaiTra: string | null;
-  /** Cột ghi đơn vị nhận khi trả (chỉ Vụ việc có). */
-  cotDonViNhan?: string;
-  /** Đường đổi trạng thái riêng (Vụ việc: PATCH `/:id/status`); bỏ trống = gửi `status` trong PUT. */
-  duongDoiTrangThai?: string;
+  /** Command nghiệp vụ chuyển đơn vị (chỉ Vụ việc có). */
+  duongTra?: '/transfer';
   mauNhan: string;
 }
 
@@ -79,8 +77,7 @@ const NGUON: NguonHoSo[] = [
     denNgay: 'toDateRange',
     nhanTrangThai: INCIDENT_STATUS_LABEL,
     trangThaiTra: IncidentStatus.DA_CHUYEN_DON_VI,
-    cotDonViNhan: 'chuyenDenDonVi',
-    duongDoiTrangThai: '/status',
+    duongTra: '/transfer',
     mauNhan: 'bg-purple-100 text-purple-700',
   },
   {
@@ -106,6 +103,7 @@ interface DongHoSo {
   nguoiPhuTrach: string;
   ngayDeXuat: string | null;
   trangThai: string;
+  updatedAt: string;
 }
 
 interface KetQuaChuyenTra {
@@ -213,11 +211,12 @@ export default function TransferAndReturnPage() {
     } finally {
       if (luot === luotTai.current) setLoading(false);
     }
-  }, [thamSoLoc, filters.loai, filters.fromDate, filters.toDate, page, khoaLoc, lanTai]);
+  }, [thamSoLoc, filters.loai, filters.fromDate, filters.toDate, page, khoaLoc]);
 
   useEffect(() => {
+    void lanTai;
     void taiDuLieu();
-  }, [taiDuLieu]);
+  }, [taiDuLieu, lanTai]);
 
   // Chọn chỉ gồm dòng ĐANG THẤY: giữ id của dòng đã rời bảng là thao tác lên hồ sơ cán bộ không nhìn thấy.
   const idsDangThay = rows.map((r) => r.id).join('|');
@@ -731,17 +730,14 @@ function HopTraHoSo({
       const n = nguonCua(r.loai);
       if (!n.trangThaiTra) continue;
       try {
-        // Vụ việc đổi trạng thái qua đường RIÊNG: `UpdateIncidentDto` đã gỡ `status` và máy chủ bật
-        // `forbidNonWhitelisted`, nên gửi kèm trong PUT là 400. Vụ án thì PUT nhận `status`.
-        if (n.duongDoiTrangThai) {
-          await api.patch(`${n.duong}/${r.id}${n.duongDoiTrangThai}`, { status: n.trangThaiTra });
-          if (n.cotDonViNhan && donViNhan.trim()) {
-            await api.put(`${n.duong}/${r.id}`, { [n.cotDonViNhan]: donViNhan.trim() });
-          }
+        if (n.duongTra) {
+          await api.patch(`${n.duong}/${r.id}${n.duongTra}`, {
+            donViMoi: donViNhan.trim(),
+            expectedUpdatedAt: r.updatedAt,
+          });
         } else {
           await api.put(`${n.duong}/${r.id}`, {
             status: n.trangThaiTra,
-            ...(n.cotDonViNhan && donViNhan.trim() ? { [n.cotDonViNhan]: donViNhan.trim() } : {}),
           });
         }
         xong.push(formatHoSoCode(r.ma) || r.id);
@@ -755,7 +751,7 @@ function HopTraHoSo({
     setKetQua({ xong, hong });
   };
 
-  const coCotDonVi = hoSo.some((r) => nguonCua(r.loai).cotDonViNhan);
+  const coCotDonVi = hoSo.some((r) => nguonCua(r.loai).duongTra);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="return-modal">
@@ -811,7 +807,7 @@ function HopTraHoSo({
             <button
               type="button"
               data-testid="btn-xac-nhan-tra"
-              disabled={dangGui}
+              disabled={dangGui || (coCotDonVi && !donViNhan.trim())}
               onClick={() => void guiDi()}
               className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium disabled:opacity-50"
             >

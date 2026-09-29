@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Save, FileText } from "lucide-react";
+import { ChevronDown, Save, FileText, Clock } from "lucide-react";
+import { formActions } from "@/locales/vi";
 
 /**
  * Nút lưu kiểu split-button cho form đơn thư.
@@ -10,6 +11,7 @@ import { ChevronDown, Save, FileText } from "lucide-react";
 interface Props {
   onSave: () => void;
   onSaveAndExport: () => void;
+  onSaveDraft?: () => void;
   isSubmitting: boolean;
   label?: string;
   /** Prefix data-testid để nhiều instance (nút trên/dưới form) không trùng. */
@@ -18,16 +20,19 @@ interface Props {
   mainTestId?: string;
   /** Override testid nút mũi tên ▼. */
   caretTestId?: string;
+  draftLabel?: string;
 }
 
 export function SaveSplitButton({
   onSave,
   onSaveAndExport,
+  onSaveDraft,
   isSubmitting,
   label = "Lưu",
   idPrefix = "btn-save-split",
   mainTestId,
   caretTestId,
+  draftLabel = formActions.saveDraft,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,7 +78,7 @@ export function SaveSplitButton({
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200 rounded-lg shadow-lg z-30 overflow-hidden"
+          className="absolute left-0 top-full mt-2 w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-30 sm:left-auto sm:right-0"
           data-testid={`${idPrefix}-menu`}
         >
           <button
@@ -89,6 +94,21 @@ export function SaveSplitButton({
             <Save className="w-4 h-4 text-slate-500 flex-shrink-0" />
             {label}
           </button>
+          {onSaveDraft ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-testid={`${idPrefix}-item-draft`}
+              onClick={() => {
+                setIsOpen(false);
+                onSaveDraft();
+              }}
+              className="w-full border-t border-slate-100 px-4 py-3 text-left text-sm text-slate-800 transition-colors hover:bg-blue-50 flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4 shrink-0 text-blue-600" />
+              {draftLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

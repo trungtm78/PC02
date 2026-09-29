@@ -19,6 +19,7 @@ interface HoSoTho {
   detailContent?: string | null;
   summary?: string | null;
   status: string;
+  updatedAt: Date;
   ngayDeXuat?: Date | null;
   sttSort?: number | null;
   assignedTeam?: { id?: string | null; name?: string | null } | null;
@@ -131,6 +132,7 @@ export class WorkflowService {
             ngayDeXuat: r.ngayDeXuat ?? null,
             sttSort: r.sttSort ?? null,
             trangThai: r.status,
+            updatedAt: r.updatedAt,
           })),
         };
       }),

@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '../RecordDuplicateReview';
 
 const get = vi.fn();
-vi.mock('@/lib/api', () => ({ api: { get: (...args: unknown[]) => get(...args) } }));
+const post = vi.fn();
+vi.mock('@/lib/api', () => ({
+  api: {
+    get: (...args: unknown[]) => get(...args),
+    post: (...args: unknown[]) => post(...args),
+  },
+}));
 
 function Harness() {
   const [name, setName] = useState('Ủy thác Trần Văn An');
@@ -27,7 +33,9 @@ function Harness() {
 describe('RecordDuplicateReview', () => {
   beforeEach(() => {
     get.mockReset();
+    post.mockReset();
     get.mockResolvedValue({ data: [{ id: 'old-1', caseCode: 'UTDT-001', name: 'Ủy thác Trần Văn An', confidence: 'HIGH', reasons: ['NAME_MATCH'] }] });
+    post.mockResolvedValue({ data: [{ id: 'old-1', code: 'VV-001', name: 'Vụ việc cũ', confidence: 'HIGH', reasons: ['PHONE_MATCH'] }] });
   });
 
   it('reviews a petition by name and identity and explains the matching reasons', async () => {
@@ -38,6 +46,32 @@ describe('RecordDuplicateReview', () => {
     expect(screen.getByText(/Trùng số CCCD/i)).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('/petitions/duplicate-review', {
       params: { name: 'Nguyễn Văn A', idNumber: '012345678901', phone: '0901234567', excludeId: 'current' },
+    });
+  });
+
+  it('sends all incident duplicate signals and explains location matches', async () => {
+    post.mockResolvedValue({ data: [{
+      id: 'incident-1', code: 'VV-001', name: 'Vụ việc cũ', confidence: 'HIGH',
+      reasons: ['PHONE_MATCH', 'LOCATION_MATCH'],
+    }] });
+    render(<RecordDuplicateReview
+      kind="incident"
+      name="Vụ việc mới"
+      reporter="Nguyễn Văn A"
+      idNumber="012345678901"
+      phone="0901234567"
+      content="Nội dung tố giác"
+      date="2026-09-01"
+      location="Phường Bến Thành"
+      excludeId="current"
+    />);
+    fireEvent.click(screen.getByRole('button', { name: /Rà soát trùng/i }));
+    expect(await screen.findByText('VV-001')).toBeInTheDocument();
+    expect(screen.getByText(/Trùng địa điểm/i)).toBeInTheDocument();
+    expect(post).toHaveBeenCalledWith('/incidents/duplicate-review', {
+      name: 'Vụ việc mới', reporter: 'Nguyễn Văn A', idNumber: '012345678901',
+      phone: '0901234567', content: 'Nội dung tố giác', date: '2026-09-01',
+      location: 'Phường Bến Thành', excludeId: 'current',
     });
   });
 

@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { loiXungDot } from "@/lib/api-errors";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
+import { FormActionBar } from "@/components/shared/FormActionBar";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
@@ -28,8 +29,6 @@ import { caseForm as caseFormLabels } from "@/locales/vi";
 import { cloneCaseState, hasUnchangedClonedDecisionNumber, mapPersistedCaseChildren } from "./clone-case";
 import type { CaseCloneState, PersistedEvidence, PersistedSubject } from "./clone-case";
 import {
-  X,
-  Clock,
   FileText,
   AlertTriangle,
   Scale,
@@ -40,7 +39,6 @@ import {
   Video,
   Shield,
   ArrowRightLeft,
-  CopyPlus,
 } from "lucide-react";
 import { TabBar } from "@/components/shared/TabBar";
 import type { TabItem } from "@/components/shared/TabBar";
@@ -691,70 +689,40 @@ function CaseFormPage() {
         </div>
       )}
       {/* Header — F4 inline (was <PageHeader /> wrapper, deleted in this PR) */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4" data-testid="page-header">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-                ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
-                : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
-            </h1>
-            <p className="text-sm text-slate-600 mt-1">
-              {formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-                ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
-                : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {isEditMode && canCreate(PERMISSION_RESOURCE.CASES) && (
-              <button
-                type="button"
-                onClick={() => void handleClone()}
-                disabled={isCloning || isLoading}
-                className="px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors"
-                data-testid="btn-clone-case"
-              >
-                <CopyPlus className="w-4 h-4 inline mr-2" />
-                {isCloning ? caseFormLabels.clone.loading : caseFormLabels.clone.action}
-              </button>
-            )}
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              data-testid="btn-cancel"
-            >
-              <X className="w-4 h-4 inline mr-2" />
-              Hủy
-            </button>
-            {!chiXem && <button
-              onClick={handleSaveDraft}
-              className="px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-              data-testid="btn-save-draft"
-            >
-              <Clock className="w-4 h-4 inline mr-2" />
-              Lưu tạm
-            </button>}
-            {isEditMode && id && (
-              <button
-                onClick={() => { setExportNavigateOnClose(false); setExportForId(id); }}
-                className="px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors font-medium"
-                data-testid="btn-print-docs"
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                In chứng từ
-              </button>
-            )}
-            {!chiXem && <SaveSplitButton
+      <FormActionBar
+        contained
+        title={formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+          ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
+          : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
+        subtitle={formData.caseProvenance === 'UY_THAC_DIEU_TRA'
+          ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
+          : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
+        onBack={handleCancel}
+        onCancel={handleCancel}
+        cancelTestId="btn-cancel"
+        cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.CASES) ? {
+          label: caseFormLabels.clone.action,
+          loadingLabel: caseFormLabels.clone.loading,
+          loading: isCloning,
+          onClick: () => void handleClone(),
+          disabled: isCloning || isLoading,
+          testId: "btn-clone-case",
+        } : undefined}
+        printAction={isEditMode && id ? {
+          label: "In chứng từ",
+          onClick: () => { setExportNavigateOnClose(false); setExportForId(id); },
+          testId: "btn-print-docs",
+        } : undefined}
+        saveAction={!chiXem ? <SaveSplitButton
               onSave={handleSave}
               onSaveAndExport={handleSaveAndExport}
+              onSaveDraft={handleSaveDraft}
               isSubmitting={isSaving}
               label="Lưu hồ sơ"
               idPrefix="btn-save"
               mainTestId="btn-save"
-            />}
-          </div>
-        </div>
-      </div>
+            /> : undefined}
+      />
 
       {chiXem && <div className="mx-6 mt-4"><BangChiXem loai="Vụ án" /></div>}
 
@@ -796,7 +764,8 @@ function CaseFormPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <fieldset disabled={chiXem} className="max-w-6xl mx-auto min-w-0 border-0 p-0">
+        <div className="max-w-6xl mx-auto min-w-0">
+          <fieldset disabled={chiXem} className="min-w-0 border-0 p-0">
           {activeTab === "info" && <TabInfo {...tabProps} />}
           {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
@@ -874,12 +843,14 @@ function CaseFormPage() {
               }}
             />
           )}
+          </fieldset>
           {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
           {(isEditMode || !!cloneInput || Object.keys(parityState).length > 0) && (
             <LegacyParityFields
               entity="case"
               values={parityState}
               onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
+              readOnly={chiXem}
             />
           )}
           {/* Dữ liệu gốc hệ cũ — đầy đủ, tham khảo (pháp lý: không sót field) */}
@@ -888,10 +859,11 @@ function CaseFormPage() {
               entity="case"
               values={metaState}
               onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
+              readOnly={chiXem}
             />
           )}
           {isEditMode && <LegacyRawPanel raw={legacyRaw} />}
-        </fieldset>
+        </div>
       </div>
 
       {/* Modals */}

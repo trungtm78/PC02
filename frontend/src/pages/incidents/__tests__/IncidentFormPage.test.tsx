@@ -39,15 +39,27 @@ async function renderForm() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/vu-viec/new']}>
-        <Routes>
-          <Route path="/vu-viec/new" element={<IncidentFormPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  let result: ReturnType<typeof render> | undefined;
+  await act(async () => {
+    result = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/vu-viec/new']}>
+          <Routes>
+            <Route path="/vu-viec/new" element={<IncidentFormPage />} />
+            <Route path="/vu-viec" element={<div>Danh sách vụ việc</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await Promise.resolve();
+  });
+  return result!;
+}
+
+function getCreateIncidentCall() {
+  const call = vi.mocked(api.post).mock.calls.find(([url]) => url === '/incidents');
+  expect(call, 'expected POST /incidents after duplicate review').toBeDefined();
+  return call!;
 }
 
 // PR-1 catalog: lyDoKhongKhoiTo render qua CatalogSelect (1 component dùng chung),
@@ -142,8 +154,9 @@ describe('IncidentFormPage — loaiDonVu enum dropdown (v0.30.0.3 regression)', 
       fireEvent.click(screen.getByTestId('btn-save'));
     });
 
-    await waitFor(() => expect(api.post).toHaveBeenCalled());
-    const [url, payload] = (api.post as any).mock.calls[0];
+    await waitFor(() => expect(getCreateIncidentCall()).toBeDefined());
+    const [url, rawPayload] = getCreateIncidentCall();
+    const payload = rawPayload as Record<string, unknown>;
     expect(url).toBe('/incidents');
     expect(payload.loaiDonVu).toBe('TO_GIAC');
     // Negative assertion: payload must NOT contain the Vietnamese label.
@@ -170,8 +183,9 @@ describe('IncidentFormPage — loaiDonVu enum dropdown (v0.30.0.3 regression)', 
     });
     fireEvent.click(screen.getByTestId('btn-save-top'));
 
-    await waitFor(() => expect(api.post).toHaveBeenCalled());
-    const [, payload] = (api.post as any).mock.calls[0];
+    await waitFor(() => expect(getCreateIncidentCall()).toBeDefined());
+    const [, rawPayload] = getCreateIncidentCall();
+    const payload = rawPayload as Record<string, unknown>;
     expect(payload).toHaveProperty('loaiDonVu');
     expect(payload.loaiDonVu).toBeNull();
   });
@@ -272,14 +286,15 @@ describe('IncidentFormPage — nguonPhatTin cascading + phuongThucTiepNhan (v0.3
       fireEvent.click(screen.getByTestId('btn-save-top'));
     });
 
-    await waitFor(() => expect(api.post).toHaveBeenCalled());
-    const [, payload] = (api.post as any).mock.calls[0];
+    await waitFor(() => expect(getCreateIncidentCall()).toBeDefined());
+    const [, rawPayload] = getCreateIncidentCall();
+    const payload = rawPayload as Record<string, unknown>;
     expect(payload.phuongThucTiepNhan).toBe('DIEN_THOAI');
   });
 
   it('Test 7 — edit-mode load preserves both nguonPhatTin and phuongThucTiepNhan from DB', async () => {
     // Mock GET /incidents/:id to return existing record with both fields set.
-    (api.get as any).mockImplementation((url: string) => {
+    vi.mocked(api.get).mockImplementation((url: string) => {
       if (url === '/incidents/inc-edit-1') {
         return Promise.resolve({
           data: {

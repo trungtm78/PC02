@@ -14,6 +14,7 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
   thucThe: 'vu-viec',
   bang: 'incidents',
   model: 'Incident',
+  refreshExisting: true,
   truong: [
     { key: 'stt', nhan: 'STT', kieu: 'ma', cot: 'code' },
     { key: 'sttCu', nhan: 'STT cũ', kieu: 'ma-cu', cot: 'sttCu' },
@@ -76,9 +77,21 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       quanHe: 'investigator',
     },
     /* Như Đơn thư: hạn xử lý là ngày phải làm xong, không phải ngày của sự việc. */
-    { key: 'hanXuLy', nhan: 'Hạn xử lý', kieu: 'ngay', cot: 'deadline', vaoTatCa: false },
+    {
+      key: 'hanXuLy',
+      nhan: 'Hạn xử lý',
+      kieu: 'ngay',
+      cot: 'deadline',
+      vaoTatCa: true,
+    },
     /* Như Đơn thư: dấu thời gian di trú dùng chung. */
-    { key: 'ngayTao', nhan: 'Ngày tạo', kieu: 'ngay', cot: 'createdAt', vaoTatCa: false },
+    {
+      key: 'ngayTao',
+      nhan: 'Ngày tạo',
+      kieu: 'ngay',
+      cot: 'createdAt',
+      vaoTatCa: true,
+    },
     /*
       Cột ngày CÓ dữ liệu mà trước 21/09/2026 không tìm được — đo trên 4.718 vụ việc thật:
       Ngày tiếp nhận nguồn tin 3.039 · Ngày QĐ phân công 474 · Ngày giao đơn vị 365 ·
@@ -104,14 +117,25 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
       kieu: 'ngay',
       cot: 'ngayGiaoDonViGiaiQuyet',
     },
-    { key: 'ngayVietDon', nhan: 'Ngày viết đơn', kieu: 'ngay', cot: 'ngayVietDon' },
+    {
+      key: 'ngayVietDon',
+      nhan: 'Ngày viết đơn',
+      kieu: 'ngay',
+      cot: 'ngayVietDon',
+      cotEdtf: 'ngayVietDonEdtf',
+    },
     {
       key: 'ngayPhieuChuyen',
       nhan: 'Ngày phiếu chuyển',
       kieu: 'ngay',
       cot: 'ngayPhieuChuyen',
     },
-    { key: 'ngayCapCCCD', nhan: 'Ngày cấp CCCD', kieu: 'ngay', cot: 'ngayCapCccd' },
+    {
+      key: 'ngayCapCCCD',
+      nhan: 'Ngày cấp CCCD',
+      kieu: 'ngay',
+      cot: 'ngayCapCccd',
+    },
     // Màn Vụ việc phường/xã hiện tội danh chính (prod 17/09: 1.009/1.165 vụ việc tổ phường). Cột bóng
     // đích do khai Tội danh sinh.
     {
@@ -129,7 +153,12 @@ export const KHAI_TIM_KIEM_VU_VIEC: KhaiThucThe = {
   ],
   // Ô tìm cũ tìm cả đối tượng bị tố giác (cá nhân/tổ chức) và số hồ sơ hệ cũ — thẻ "tất cả các cột"
   // phải tìm được đủ (tên vụ việc đã là trường `tenVuViec` ở trên).
-  cotThemVaoTatCa: ['doiTuongCaNhan', 'doiTuongToChuc', 'soHoSoCu'],
+  cotThemVaoTatCa: [
+    'doiTuongCaNhan',
+    'doiTuongToChuc',
+    'soHoSoCu',
+    { cot: 'ngayVietDonChu', cotDb: 'ngay_viet_don_chu' },
+  ],
   // Tên tội danh chính đang HIỆN trên cột (Vụ việc phường/xã) nhưng nằm ở bảng `crimes`.
   tatCaGomQuanHe: ['toiDanhChinh'],
   // Đích của thẻ "Vụ việc" ở màn Tài liệu: cột ấy hiện TÊN vụ việc, lọc phải đúng tên chứ không phải

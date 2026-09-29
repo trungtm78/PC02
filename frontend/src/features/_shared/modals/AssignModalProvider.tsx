@@ -21,8 +21,8 @@ export function AssignModalProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => setArgs(null), []);
 
-  const handleSuccess = useCallback(() => {
-    args?.onSuccess?.();
+  const handleSuccess = useCallback((response: unknown) => {
+    args?.onSuccess?.(response);
     close();
   }, [args, close]);
 

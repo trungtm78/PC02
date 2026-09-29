@@ -4,19 +4,29 @@ import {
   IsObject,
   IsString,
   IsOptional,
-  IsEnum,
   IsBoolean,
   IsArray,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { IsEdtfNgayThat } from '../../common/validators/is-edtf-ngay-that.validator';
-import { LoaiNguonTin, LyDoKhongKhoiTo, LyDoTamDinhChiVuViec, NguonPhatTin, PhuongThucTiepNhan } from '@prisma/client';
+import {
+  LoaiNguonTin,
+  LyDoKhongKhoiTo,
+  LyDoTamDinhChiVuViec,
+  NguonPhatTin,
+  PhuongThucTiepNhan,
+} from '@prisma/client';
 import { IsNguonPhatTinMatchLoaiDonVu } from '../../common/validators/nguon-phat-tin-match.validator';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class CreateIncidentDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acknowledgedDuplicateIds?: string[];
+
   // Tên vụ việc — bắt buộc, 5–255 ký tự (Table 2.2.A)
   @IsString()
   @MinLength(5, { message: 'Tên vụ việc phải có ít nhất 5 ký tự' })
@@ -74,20 +84,25 @@ export class CreateIncidentDto {
   doiTuongToChuc?: string;
 
   @IsOptional()
-  @IsCatalogValue('LOAI_NGUON_TIN', { message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO' })
+  @IsCatalogValue('LOAI_NGUON_TIN', {
+    message: 'loaiDonVu phải là TO_GIAC, TIN_BAO hoặc KIEN_NGHI_KHOI_TO',
+  })
   loaiDonVu?: LoaiNguonTin;
 
   // v0.31.0.0 — Nguồn phát tin (Đ.144 BLTTHS): cascading từ loaiDonVu.
   // @IsCatalogValue kiểm thuộc danh mục; @IsNguonPhatTinMatchLoaiDonVu kiểm quan hệ cha-con (cùng nguồn registry).
   @IsOptional()
-  @IsCatalogValue('NGUON_PHAT_TIN', { message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)' })
+  @IsCatalogValue('NGUON_PHAT_TIN', {
+    message: 'nguonPhatTin không hợp lệ (Đ.144 BLTTHS)',
+  })
   @IsNguonPhatTinMatchLoaiDonVu()
   nguonPhatTin?: NguonPhatTin;
 
   // v0.31.0.0 — Phương thức tiếp nhận (TT 28/2020/TT-BCA Đ.6): 5 phương thức.
   @IsOptional()
   @IsCatalogValue('PHUONG_THUC_TIEP_NHAN', {
-    message: 'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
+    message:
+      'phuongThucTiepNhan phải là một trong 5 phương thức TT 28/2020/TT-BCA Đ.6',
   })
   phuongThucTiepNhan?: PhuongThucTiepNhan;
 
@@ -149,7 +164,8 @@ export class CreateIncidentDto {
   @IsArray()
   @IsCatalogValue('LY_DO_KHONG_KHOI_TO', {
     each: true,
-    message: 'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
+    message:
+      'lyDoKhongKhoiTo phải là căn cứ thuộc danh mục theo Điều 157 BLTTHS 2015',
   })
   lyDoKhongKhoiTo?: LyDoKhongKhoiTo[];
 
@@ -162,6 +178,10 @@ export class CreateIncidentDto {
   @IsOptional()
   @IsString()
   lyDoTamDinhChi?: string;
+
+  @IsOptional()
+  @IsString()
+  lyDoTamDinhChiText?: string;
 
   @IsOptional()
   @IsString()

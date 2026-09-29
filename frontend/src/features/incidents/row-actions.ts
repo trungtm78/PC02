@@ -1,4 +1,4 @@
-import { UserCheck, ArrowRightLeft, Scale, Printer } from 'lucide-react';
+import { UserCheck, ArrowRightLeft, Scale, Printer, Combine } from 'lucide-react';
 import {
   createRowActionRegistry,
   type RowAction,
@@ -70,7 +70,7 @@ const menuActions: RowAction<IncidentRowForActions>[] = [
     icon: ArrowRightLeft,
     position: 'menu',
     visible: (row, ctx) =>
-      Boolean(ctx.statusTransition) && hasValidTransitions(row.status),
+      ctx.perms.canEdit === true && Boolean(ctx.statusTransition) && hasValidTransitions(row.status),
     execute: (row, ctx) =>
       ctx.statusTransition?.open({
         recordId: row.id,
@@ -80,12 +80,25 @@ const menuActions: RowAction<IncidentRowForActions>[] = [
     testid: 'btn-transition',
   },
   {
+    key: 'merge',
+    label: 'Nhập vào vụ việc khác',
+    icon: Combine,
+    position: 'menu',
+    visible: (row, ctx) => Boolean(ctx.mergeIncident) && ctx.perms.canEdit === true
+      && ((INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[row.status] ?? []).includes('DA_NHAP_VU_KHAC'),
+    execute: (row, ctx) => ctx.mergeIncident?.open({
+      recordId: row.id,
+      currentUpdatedAt: row.updatedAt,
+    }),
+    testid: 'btn-merge-incident',
+  },
+  {
     key: 'prosecute',
     label: 'Khởi tố',
     icon: Scale,
     position: 'menu',
     visible: (row, ctx) =>
-      Boolean(ctx.prosecute) && PROSECUTE_STATUSES.has(row.status),
+      ctx.perms.canEdit === true && Boolean(ctx.prosecute) && PROSECUTE_STATUSES.has(row.status),
     execute: (row, ctx) =>
       ctx.prosecute?.open({
         recordId: row.id,

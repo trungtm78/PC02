@@ -61,6 +61,13 @@ export const common = {
 
 export type CommonKey = keyof typeof common;
 
+export const formActions = {
+  back: 'Quay lại',
+  cancel: 'Hủy',
+  printDocuments: 'In chứng từ',
+  saveDraft: 'Lưu tạm',
+} as const;
+
 export const petitionForm = {
   clone: {
     action: 'Tạo đơn mới từ đơn này',
@@ -113,6 +120,9 @@ export const recordReview = {
     DECISION_NUMBER_MATCH: 'Trùng số quyết định',
     ID_NUMBER_MATCH: 'Trùng số CCCD',
     PHONE_MATCH: 'Trùng số điện thoại',
+    CONTENT_MATCH: 'Nội dung tương tự',
+    DATE_MATCH: 'Trùng ngày liên quan',
+    LOCATION_MATCH: 'Trùng địa điểm',
     OTHER: 'Thông tin tương tự',
   },
   namePlaceholder: 'Gõ để gợi ý tên đã có hoặc nhập tên mới',
@@ -287,4 +297,13 @@ export const mobileDownload = {
   placeholderAriaLabel: (platform: string) =>
     `Ứng dụng ${platform} chưa sẵn sàng`,
   qrErrorFallback: (url: string) => `Truy cập trực tiếp: ${url}`,
+} as const;
+
+export const incidentResult = {
+  title: (code: string) => `Kết quả xử lý — vụ việc ${code}`,
+  label: 'Kết quả xử lý, giải quyết khác',
+  close: 'Đóng',
+  save: 'Lưu',
+  saving: 'Đang lưu...',
+  saveError: 'Không lưu được kết quả. Vui lòng thử lại.',
 } as const;
