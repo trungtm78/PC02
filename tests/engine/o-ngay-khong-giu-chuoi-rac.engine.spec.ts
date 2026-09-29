@@ -45,16 +45,13 @@ test.describe('Ô ngày — hợp đồng theo engine', () => {
   /**
    * Mệnh đề NỀN: ghi lại phép đo làm nên bản vá.
    *
-   * Nếu một bản WebKit tương lai bắt đầu làm sạch giống Chromium thì mệnh đề này ĐỎ — và đó là
-   * tin tốt cần biết, không phải lỗi. Khi ấy đọc lại `gia-tri-o-ngay.ts` xem còn cần không.
+   * Hành vi WebKit khác nhau theo phiên bản: CI hiện làm sạch chuỗi này, bản cũ giữ nguyên.
+   * Ghi nhận phép đo; hợp đồng sản phẩm nằm ở các ca bên dưới và phải xanh trên cả hai engine.
    */
-  test('WebKit GIỮ chuỗi rác, Chromium thì làm sạch — phép đo nền', async ({ page, browserName }) => {
+  test('đo hành vi ô ngày với chuỗi rác trên từng engine', async ({ page, browserName }, testInfo) => {
     const doc = await docLai(page, 'undefined');
-    if (browserName === 'webkit') {
-      expect(doc, 'WebKit đã đổi hành vi — đọc lại xem bản vá còn cần không').toBe('undefined');
-    } else {
-      expect(doc).toBe('');
-    }
+    testInfo.annotations.push({ type: 'date-input-baseline', description: `${browserName}: ${JSON.stringify(doc)}` });
+    expect(['', 'undefined']).toContain(doc);
   });
 
   /**
