@@ -7,6 +7,7 @@ const ActivityLogPage = lazy(() => import('@/pages/reports/ActivityLogPage'));
 const OverdueRecordsPage = lazy(() => import('@/pages/reports/OverdueRecordsPage'));
 const DistrictStatisticsPage = lazy(() => import('@/pages/reports/DistrictStatisticsPage'));
 const MonthlyReportPage = lazy(() => import('@/pages/reports/MonthlyReportPage'));
+const MonthlyReportWorkspacePage = lazy(() => import('@/pages/reports/MonthlyReportWorkspacePage'));
 const QuarterlyReportPage = lazy(() => import('@/pages/reports/QuarterlyReportPage'));
 const TdacReportPage = lazy(() => import('@/pages/reports/TdacReportPage'));
 const TdacDraftsPage = lazy(() => import('@/pages/reports/TdacDraftsPage'));
@@ -18,7 +19,8 @@ const PhuLuc16Page = lazy(() => import('@/pages/reports/PhuLuc16Page'));
 export function renderReportsRoutes(): ReactElement[] {
   return [
     <Route key="reports-export" path="/export-reports" element={wrapRoute(<ExportReportsPage />)} />,
-    <Route key="reports-monthly" path="/reports/monthly" element={wrapRoute(<MonthlyReportPage />)} />,
+    <Route key="reports-monthly" path="/reports/monthly" element={wrapRoute(<MonthlyReportWorkspacePage />)} />,
+    <Route key="reports-monthly-overview" path="/reports/monthly/overview" element={wrapRoute(<MonthlyReportPage />)} />,
     <Route key="reports-quarterly" path="/reports/quarterly" element={wrapRoute(<QuarterlyReportPage />)} />,
     <Route key="reports-district" path="/statistics/district" element={wrapRoute(<DistrictStatisticsPage />)} />,
     <Route key="reports-overdue" path="/settings/overdue-records" element={wrapRoute(<OverdueRecordsPage />)} />,
