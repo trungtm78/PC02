@@ -48,6 +48,17 @@ env:
     visible:
       id: "2fa-otp-field"
     timeout: 10000
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEMP_PASSWORD}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'true'
+      FIXTURE_TWO_FA_ENABLED: 'true'
+      FIXTURE_BUMP_TOKEN_VERSION: 'false'
+      FIXTURE_REQUIRE_OTP: 'true'
 - tapOn:
     id: "2fa-otp-field"
 - inputText: ${output.otp}

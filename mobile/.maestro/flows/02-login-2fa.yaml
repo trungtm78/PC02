@@ -43,6 +43,19 @@ env:
     visible:
       id: "2fa-otp-field"
     timeout: 10000
+# Slow emulator text entry may cross the TOTP window. Refresh the test-only
+# user code now; bumpTokenVersion=false keeps the pending challenge valid.
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEST_PASSWORD}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'false'
+      FIXTURE_TWO_FA_ENABLED: 'true'
+      FIXTURE_BUMP_TOKEN_VERSION: 'false'
+      FIXTURE_REQUIRE_OTP: 'true'
 - tapOn:
     id: "2fa-otp-field"
 - inputText: ${output.otp}
