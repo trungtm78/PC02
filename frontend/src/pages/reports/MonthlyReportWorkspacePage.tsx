@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -166,6 +166,7 @@ export default function MonthlyReportWorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [downloading, setDownloading] = useState<"detail" | "summary" | "verification" | null>(null);
+  const downloadMenuRef = useRef<HTMLDetailsElement>(null);
   const [error, setError] = useState("");
   const [drawer, setDrawer] = useState<{
     appendix: string;
@@ -178,6 +179,24 @@ export default function MonthlyReportWorkspacePage() {
   const [issueAppendix, setIssueAppendix] = useState("ALL");
   const [issueSeverity, setIssueSeverity] = useState("ALL");
   const activeCode = params.get("appendix") ?? "PL01";
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (!downloadMenuRef.current?.contains(event.target as Node)) {
+        if (downloadMenuRef.current) downloadMenuRef.current.open = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !downloadMenuRef.current?.open) return;
+      downloadMenuRef.current.open = false;
+      downloadMenuRef.current.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -272,6 +291,10 @@ export default function MonthlyReportWorkspacePage() {
     setDrawer({ appendix: activeCode, metric, cellKey, entityId });
   const download = async (kind: "detail" | "summary" | "verification") => {
     if (!report || downloading) return;
+    if (downloadMenuRef.current) {
+      downloadMenuRef.current.open = false;
+      downloadMenuRef.current.querySelector("summary")?.focus();
+    }
     setDownloading(kind);
     setError("");
     try {
@@ -456,8 +479,14 @@ export default function MonthlyReportWorkspacePage() {
                 </button>
               )}
               {report && (
-                <details className="relative">
-                  <summary className="list-none cursor-pointer rounded-lg border border-[#9BAFBA] bg-white px-4 py-2.5 text-sm font-semibold">
+                <details ref={downloadMenuRef} className="relative">
+                  <summary
+                    onClick={(event) => {
+                      if (downloading) event.preventDefault();
+                    }}
+                    aria-busy={!!downloading}
+                    className="list-none cursor-pointer rounded-lg border border-[#9BAFBA] bg-white px-4 py-2.5 text-sm font-semibold"
+                  >
                     {downloading ? "Đang chuẩn bị tệp…" : "Tải xuống"}
                   </summary>
                   <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-lg border bg-white shadow-xl">
