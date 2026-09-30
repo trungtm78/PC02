@@ -165,6 +165,7 @@ export default function MonthlyReportWorkspacePage() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [downloading, setDownloading] = useState<"detail" | "summary" | "verification" | null>(null);
   const [error, setError] = useState("");
   const [drawer, setDrawer] = useState<{
     appendix: string;
@@ -270,20 +271,31 @@ export default function MonthlyReportWorkspacePage() {
   const openDrill = (metric: Metric, cellKey?: string, entityId?: string) =>
     setDrawer({ appendix: activeCode, metric, cellKey, entityId });
   const download = async (kind: "detail" | "summary" | "verification") => {
-    if (!report) return;
-    const response = await api.get(
-      `/reports/monthly-packages/${report.id}/${kind === "verification" ? "verification" : `export/${kind}`}`,
-      { responseType: "blob" },
-    );
-    const url = URL.createObjectURL(response.data);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download =
-      kind === "verification"
-        ? "goi-kiem-chung.json"
-        : `bao-cao-thang-${kind}.xlsx`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    if (!report || downloading) return;
+    setDownloading(kind);
+    setError("");
+    try {
+      const response = await api.get(
+        `/reports/monthly-packages/${report.id}/${kind === "verification" ? "verification" : `export/${kind}`}`,
+        { responseType: "blob" },
+      );
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download =
+        kind === "verification"
+          ? `kiem-chung-${month}-v${report.version}.json`
+          : `bao-cao-${month}-v${report.version}-${kind}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Mobile browsers can consume the blob after the click handler returns.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setError("Không tải được tệp báo cáo. Vui lòng thử lại.");
+    } finally {
+      setDownloading(null);
+    }
   };
 
   const active = report?.snapshot.appendices.find(
@@ -446,23 +458,26 @@ export default function MonthlyReportWorkspacePage() {
               {report && (
                 <details className="relative">
                   <summary className="list-none cursor-pointer rounded-lg border border-[#9BAFBA] bg-white px-4 py-2.5 text-sm font-semibold">
-                    Tải xuống
+                    {downloading ? "Đang chuẩn bị tệp…" : "Tải xuống"}
                   </summary>
                   <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-lg border bg-white shadow-xl">
                     <button
                       onClick={() => download("detail")}
+                      disabled={!!downloading}
                       className="block w-full px-4 py-3 text-left text-sm hover:bg-[#EEF3F6]"
                     >
                       Workbook phụ lục 01–06
                     </button>
                     <button
                       onClick={() => download("summary")}
+                      disabled={!!downloading}
                       className="block w-full px-4 py-3 text-left text-sm hover:bg-[#EEF3F6]"
                     >
                       Workbook phụ lục 07–08
                     </button>
                     <button
                       onClick={() => download("verification")}
+                      disabled={!!downloading}
                       className="block w-full px-4 py-3 text-left text-sm hover:bg-[#EEF3F6]"
                     >
                       Gói kiểm chứng dữ liệu
