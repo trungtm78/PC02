@@ -29,10 +29,12 @@ import { extractApiError } from "@/lib/api-errors";
 import { AlertCircle, Calendar, MapPin, Phone, Mail } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '@/components/inputs/RecordDuplicateReview';
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
 import { FormActionBar } from "@/components/shared/FormActionBar";
+import { formatHoSoCode } from "@/components/shared/ListPageShell/hoSoCode";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { useFormDefaults } from "@/hooks/useFormDefaults";
@@ -102,6 +104,8 @@ export function PetitionFormPage() {
   const effectiveId = id ?? createdId;
   const effectiveEdit = isEditMode || createdId !== null;
   const stageRef = useRef<PetitionStageHandle>(null);
+  const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
+  const duplicateReviewContainerRef = useRef<HTMLDivElement>(null);
   // Hàng đợi RIÊNG cho khu tệp "Kết quả xử lý" — hai khu, hai hàng đợi, cả hai tải sau khi Lưu.
   const stageKetQuaRef = useRef<PetitionStageHandle>(null);
   // Khoá submit ĐỒNG BỘ (ref, không đợi re-render) — chặn 2 click nhanh/Enter chạy saveOnly
@@ -434,6 +438,11 @@ export function PetitionFormPage() {
     savingRef.current = true;
     setIsSubmitting(true);
     try {
+      const duplicateReview = await duplicateReviewRef.current?.verify();
+      if (duplicateReview && !duplicateReview.ok) {
+        duplicateReviewContainerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        return { ok: false, id: null };
+      }
       const payload = buildPetitionPayload(formData, {
         effectiveEdit,
         parityState,
@@ -442,11 +451,11 @@ export function PetitionFormPage() {
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
       if (effectiveEdit) {
-        const res = await api.put(`/petitions/${effectiveId}`, { ...payload, expectedUpdatedAt: recordUpdatedAt ?? undefined });
+        const res = await api.put(`/petitions/${effectiveId}`, { ...payload, acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [], expectedUpdatedAt: recordUpdatedAt ?? undefined });
         savedId = effectiveId ?? null;
         savedUpdatedAt = (res?.data as { data?: { updatedAt?: string } } | undefined)?.data?.updatedAt;
       } else {
-        const res = await api.post("/petitions", payload);
+        const res = await api.post("/petitions", { ...payload, acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [] });
         // Envelope {success, data:{id,updatedAt,stt}} — không auto-unwrap (xem lib/api).
         const data = (res?.data as { data?: { id?: string; updatedAt?: string; stt?: string } } | undefined)?.data;
         savedId = data?.id ?? null;
@@ -472,6 +481,12 @@ export function PetitionFormPage() {
       }
       return { ok: true, id: savedId, uploadFailed };
     } catch (err: unknown) {
+      const response = (err as { response?: { status?: number; data?: { code?: string } } })?.response;
+      if (response?.status === 409 && response.data?.code === 'DUPLICATE_REVIEW_REQUIRED') {
+        await duplicateReviewRef.current?.verify();
+        duplicateReviewContainerRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        return { ok: false, id: null };
+      }
       // Luôn hiển thị MESSAGE THẬT của backend: phân biệt đúng "đã được chỉnh sửa bởi người dùng
       // khác" (optimistic-lock P2025) vs "Số tiếp nhận đã tồn tại" (trùng số P2002) — không gán
       // cứng 1 message cho mọi 409 (bug cũ làm tạo-mới hiểu nhầm thành optimistic-lock).
@@ -926,7 +941,7 @@ export function PetitionFormPage() {
     <div className="p-6 space-y-6" data-testid="petition-form-page">
       <FormActionBar
         title={isEditMode ? "Cập nhật Đơn thư" : "Thêm mới Đơn thư"}
-        subtitle={isEditMode ? `Chỉnh sửa thông tin đơn thư ${id}` : "Nhập thông tin đơn thư mới"}
+        subtitle={isEditMode ? `Chỉnh sửa thông tin đơn thư${formData.stt ? ` · STT ${formatHoSoCode(formData.stt)}` : ""}` : "Nhập thông tin đơn thư mới"}
         onBack={handleCancel}
         onCancel={handleCancel}
         cancelTestId="btn-cancel-top"
@@ -969,6 +984,18 @@ export function PetitionFormPage() {
       {chiXem && <BangChiXem loai="Đơn thư" />}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
+        {!chiXem && (
+          <div ref={duplicateReviewContainerRef}>
+            <RecordDuplicateReview
+              ref={duplicateReviewRef}
+              kind="petition"
+              name={formData.senderName}
+              idNumber={formData.senderIdNumber}
+              phone={formData.senderPhone}
+              excludeId={effectiveId ?? undefined}
+            />
+          </div>
+        )}
         {/* Truy nguyên hệ cũ — STT + STT cũ (đơn thư di trú) */}
         {isEditMode && legacyRaw && Boolean(legacyRaw.stt || legacyRaw.stt_cu) && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-800">

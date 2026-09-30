@@ -210,6 +210,47 @@ describe('PetitionsService', () => {
     mockPrisma.directory.findMany.mockResolvedValue([]);
   });
 
+  describe('duplicate review before saving', () => {
+    it('returns scoped candidates with STT and reasons, excluding the current petition', async () => {
+      mockPrisma.petition.findMany.mockResolvedValue([{
+        id: 'old-1', stt: 'DT-001', senderName: 'Nguyễn Văn A',
+        senderIdNumber: '012345678901', senderPhone: '0901234567',
+        receivedDate: new Date('2026-09-01'), summary: 'Nội dung cũ',
+      }]);
+      const scope = {
+        teamIds: ['team-1'], userIds: ['u1'],
+        writableTeamIds: ['team-1'], writableUserIds: ['u1'],
+        isWardOfficer: false,
+      } as DataScope;
+      const result = await service.findDuplicateCandidates(
+        { name: 'Nguyễn Văn A', idNumber: '012345678901', phone: '0901234567' },
+        'current', scope,
+      );
+      expect(result).toEqual([expect.objectContaining({
+        id: 'old-1', stt: 'DT-001', confidence: 'HIGH',
+        reasons: ['NAME_MATCH', 'ID_NUMBER_MATCH', 'PHONE_MATCH'],
+      })]);
+      const where = mockPrisma.petition.findMany.mock.calls[0][0].where;
+      expect(where).toMatchObject({ deletedAt: null, id: { not: 'current' } });
+      expect(where.AND).toContainEqual({ OR: expect.arrayContaining([
+        { enteredById: { in: ['u1'] } },
+      ]) });
+    });
+
+    it('rejects create and update when a strong match has not been acknowledged', async () => {
+      jest.spyOn(service, 'findDuplicateCandidates').mockResolvedValue([
+        { id: 'old-1', stt: 'DT-001', name: 'Nguyễn Văn A', confidence: 'HIGH', reasons: ['ID_NUMBER_MATCH'], receivedDate: '2026-09-01', summary: null },
+      ]);
+      await expect(service.create({ senderName: 'Nguyễn Văn A' } as CreatePetitionDto, 'actor'))
+        .rejects.toMatchObject({ response: { code: 'DUPLICATE_REVIEW_REQUIRED' } });
+      mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      await expect(service.update('current', { senderName: 'Nguyễn Văn A' }, 'actor'))
+        .rejects.toMatchObject({ response: { code: 'DUPLICATE_REVIEW_REQUIRED' } });
+      expect(mockPrisma.petition.create).not.toHaveBeenCalled();
+      expect(mockPrisma.petition.update).not.toHaveBeenCalled();
+    });
+  });
+
   // ── getList ────────────────────────────────────────────────────────────────
 
   describe('getList', () => {

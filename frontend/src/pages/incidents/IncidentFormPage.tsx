@@ -12,6 +12,7 @@ import { LEGACY_PARITY_FIELDS } from "@/shared/legacy/legacyParityFields.generat
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
 import { BangChiXem } from "@/components/shared/BangChiXem";
 import { FormActionBar } from "@/components/shared/FormActionBar";
+import { formatHoSoCode } from "@/components/shared/ListPageShell/hoSoCode";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
@@ -110,6 +111,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
   // Cột typed field-parity (di trú hệ cũ) — đọc/ghi cột thật, khác metaState (metadata JSON).
   const [parityState, setParityState] = useState<Record<string, unknown>>({});
   const [formData, setFormData] = useState<IncidentFormData>(INITIAL_INCIDENT_FORM);
+  const [recordCode, setRecordCode] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [tabDangMo, setTabDangMo] = useState<LegacyTabId>("info");
 
@@ -350,6 +352,7 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
       .then((res) => {
         const d = res.data.data;
         if (d) {
+          setRecordCode(typeof d.code === "string" ? d.code : "");
           setQuyenGhi(d.quyenGhi as boolean | undefined);
           setLegacyRaw((d.legacyRaw as Record<string, unknown>) ?? null);
           // Tach doi metadata: khoa nao bo cuc he cu da co o trong tab thi thuoc `legacyExtra`,
@@ -543,7 +546,9 @@ export function IncidentFormPage({ readOnly = false }: { readOnly?: boolean }) {
       ) : null}
       <FormActionBar
         title={readOnly ? "Xem Vụ việc" : isEditMode ? "Cập nhật Vụ việc" : "Thêm mới Vụ việc"}
-        subtitle={readOnly ? `Thông tin vụ việc ${id}` : isEditMode ? `Chỉnh sửa vụ việc ${id}` : "Nhập thông tin vụ việc mới"}
+        subtitle={readOnly
+          ? `Thông tin vụ việc${recordCode ? ` · STT ${formatHoSoCode(recordCode)}` : ""}`
+          : isEditMode ? `Chỉnh sửa vụ việc${recordCode ? ` · STT ${formatHoSoCode(recordCode)}` : ""}` : "Nhập thông tin vụ việc mới"}
         onBack={handleCancel}
         onCancel={handleCancel}
         cancelTestId="btn-cancel-top"

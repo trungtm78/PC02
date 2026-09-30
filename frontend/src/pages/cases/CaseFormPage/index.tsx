@@ -13,6 +13,7 @@ import { loiXungDot } from "@/lib/api-errors";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
 import { FormActionBar } from "@/components/shared/FormActionBar";
+import { formatHoSoCode } from "@/components/shared/ListPageShell/hoSoCode";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
 import { DynamicExportDocumentsModal } from "@/features/document-templates/components/DynamicExportDocumentsModal";
 import { PetitionCreateDocumentsStage, type PetitionStageHandle } from "@/features/petitions/components/PetitionCreateDocumentsStage";
@@ -695,8 +696,8 @@ function CaseFormPage() {
           ? (isEditMode ? "Chỉnh sửa ủy thác điều tra" : "Ủy thác điều tra — Tạo mới")
           : (isEditMode ? "Chỉnh sửa vụ án" : "Khởi tố vụ án mới")}
         subtitle={formData.caseProvenance === 'UY_THAC_DIEU_TRA'
-          ? (isEditMode ? "Cập nhật thông tin ủy thác điều tra" : "Nhập thông tin theo Điều 171 BLTTHS 2015")
-          : (isEditMode ? "Cập nhật thông tin vụ án" : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
+          ? (isEditMode ? `Cập nhật thông tin ủy thác điều tra${formData.caseCode ? ` · STT ${formatHoSoCode(formData.caseCode)}` : ""}` : "Nhập thông tin theo Điều 171 BLTTHS 2015")
+          : (isEditMode ? `Cập nhật thông tin vụ án${formData.caseCode ? ` · STT ${formatHoSoCode(formData.caseCode)}` : ""}` : "Nhập đầy đủ thông tin vụ án — chọn Nguồn vụ án (BLTTHS Đ.143) trước")}
         onBack={handleCancel}
         onCancel={handleCancel}
         cancelTestId="btn-cancel"

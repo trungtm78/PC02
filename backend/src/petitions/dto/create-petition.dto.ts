@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsArray,
   IsObject,
   IsOptional,
   IsEnum,
@@ -40,6 +41,10 @@ export const PHAN_LOAI_NGUON_TIN_VALUES = [
 export { PetitionStatus, LoaiDon };
 
 export class CreatePetitionDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acknowledgedDuplicateIds?: string[];
   // Số tiếp nhận — unique. Optional: engine sinh khi không cung cấp
   @IsOptional()
   @Transform(({ value }) => {

@@ -33,6 +33,7 @@ import { UpdatePetitionDto } from './dto/update-petition.dto';
 import { QueryPetitionsDto } from './dto/query-petitions.dto';
 import { QueryPetitionsStatsDto } from './dto/query-petitions-stats.dto';
 import { QueryDuplicatesDto } from './dto/query-duplicates.dto';
+import { ReviewPetitionDuplicatesDto } from './dto/review-petition-duplicates.dto';
 import { ExportPetitionsQueryDto } from './dto/export-petitions-query.dto';
 import { ConvertToIncidentDto } from './dto/convert-incident.dto';
 import { ConvertToCaseDto } from './dto/convert-case.dto';
@@ -270,6 +271,16 @@ export class PetitionsController {
   }
 
   // GET /api/v1/petitions/duplicate-search?q=&excludeId= — Nhóm V: search trùng đơn
+  @Get('duplicate-review')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  duplicateReview(
+    @Query() query: ReviewPetitionDuplicatesDto,
+    @Req() req: ScopedRequest,
+  ) {
+    return this.petitionsService.findDuplicateCandidates(query, query.excludeId, req.dataScope);
+  }
+
   @Get('duplicate-search')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })

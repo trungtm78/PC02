@@ -80,6 +80,11 @@ describe('PetitionFormPage — stt field DocNumberPreviewField (v0.42)', () => {
     });
   });
 
+  it('shows duplicate review while creating a petition', async () => {
+    await renderForm();
+    expect(screen.getByRole('button', { name: /Rà soát trùng/i })).toBeInTheDocument();
+  });
+
   it('stt field renders as DocNumberPreviewField (AUTO mode) with draft number', async () => {
     await renderForm();
     await waitFor(() => {
