@@ -9,6 +9,11 @@
         "include": "../templates/xlsx/*.xlsx",
         "outDir": "dist/templates",
         "watchAssets": true
+      },
+      {
+        "include": "../templates/xlsx/monthly-reports/**/*.xlsx",
+        "outDir": "dist/templates",
+        "watchAssets": true
       }
     ]
   }

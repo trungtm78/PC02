@@ -27,6 +27,7 @@ const FORM_CHI_TRONG_HOP_THOAI: Record<string, string> = {
   '/admin/deadline-rules/version/:id': 'lý do rút/yêu cầu sửa nhập trong ReasonRequiredModal',
   '/calendar': 'tạo/sửa sự kiện trong CreateEventModal / Modal',
   '/documents': 'tải tài liệu trong hộp role="dialog"',
+  '/reports/monthly': 'tìm nguồn số liệu trong ngăn drill down role="dialog"',
   '/to-nhom': 'thêm/sửa tổ trong hộp "Form Modal"',
 };
 

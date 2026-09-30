@@ -3151,3 +3151,104 @@ model LegacyStatusInference {
   @@index([hoSoId])
   @@map("legacy_status_inferences")
 }
+
+enum MonthlyReportStatus {
+  DRAFT
+  NEEDS_VERIFICATION
+  REVIEWING
+  APPROVED
+  FINALIZED
+  REJECTED
+
+  @@map("monthly_report_status")
+}
+
+/// Một phiên bản báo cáo tháng bất biến sau khi chốt. Snapshot là nguồn duy nhất
+/// cho giao diện, drill down và hai workbook chính thức.
+model MonthlyReportPackage {
+  id                    String              @id @default(cuid())
+  periodStart           DateTime
+  periodEnd             DateTime
+  unitCode              String?
+  scopeKey              String
+  unitName              String
+  teamIds               String[]
+  version               Int                 @default(1)
+  lockVersion           Int                 @default(0)
+  templateVersion       String
+  status                MonthlyReportStatus @default(DRAFT)
+  snapshot              Json
+  checks                Json
+  summary               Json
+  detailWorkbook        Bytes?
+  summaryWorkbook       Bytes?
+  detailWorkbookSha256  String?
+  summaryWorkbookSha256 String?
+  parentId              String?
+  createdById           String
+  reviewedById          String?
+  approvedById          String?
+  finalizedById         String?
+  rejectionReason       String?
+  submittedAt           DateTime?
+  approvedAt            DateTime?
+  finalizedAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  parent        MonthlyReportPackage?  @relation("MonthlyReportVersions", fields: [parentId], references: [id], onDelete: Restrict)
+  revisions     MonthlyReportPackage[] @relation("MonthlyReportVersions")
+  contributions MonthlyReportContribution[]
+  adjustments   MonthlyReportAdjustment[]
+
+  @@unique([periodStart, periodEnd, scopeKey, version])
+  @@index([periodStart, periodEnd, status])
+  @@index([createdById])
+  @@map("monthly_report_packages")
+}
+
+/// Dòng nguồn giải thích một hồ sơ/bị can/sự kiện đã cộng hoặc trừ vào ô nào.
+model MonthlyReportContribution {
+  id         String   @id @default(cuid())
+  reportId   String
+  appendix   String
+  metricKey  String
+  cellKey    String?
+  entityType String
+  entityId   String
+  entityCode String?
+  label      String
+  eventAt    DateTime?
+  value      Int
+  ruleCode   String
+  snapshot   Json?
+  createdAt  DateTime @default(now())
+
+  report MonthlyReportPackage @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, appendix, metricKey])
+  @@index([entityType, entityId])
+  @@map("monthly_report_contributions")
+}
+
+/// Điều chỉnh có kiểm soát; số lượng bắt buộc gắn hồ sơ/sự kiện và chứng cứ.
+model MonthlyReportAdjustment {
+  id            String   @id @default(cuid())
+  reportId      String
+  appendix      String
+  targetKey     String
+  issueCode     String?
+  entityId      String?
+  operation     String
+  previousValue Json?
+  newValue      Json
+  reason        String
+  evidence      Json
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  report MonthlyReportPackage @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, appendix, targetKey])
+  @@map("monthly_report_adjustments")
+}

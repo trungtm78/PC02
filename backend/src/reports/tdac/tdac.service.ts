@@ -11,12 +11,11 @@ interface CacheEntry {
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Query timeout: ${label}`)), ms),
-    ),
-  ]);
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Query timeout: ${label}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 @Injectable()
