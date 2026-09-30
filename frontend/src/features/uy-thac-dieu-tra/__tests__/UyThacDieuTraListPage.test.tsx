@@ -165,16 +165,16 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     sessionStorage.removeItem('authProfile');
   });
 
-  it('shows full-field Excel only with Case export_full permission', async () => {
+  it('shows full-field Excel with both Case read and legacy export permission', async () => {
     authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case', 'export_full:Case'] } as never);
     await renderPage();
     expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
   });
 
-  it('hides full-field Excel when Case export_full is missing', async () => {
+  it('shows full-field Excel with Case read permission', async () => {
     authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case'] } as never);
     await renderPage();
-    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
   });
 
   it('hides full-field Excel without Case read permission', async () => {
@@ -317,16 +317,24 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     });
   });
 
-  // v0.67.4 — row click navigates to edit form. Was the missing pattern that
-  // tricked anh into thinking UTDT had no Edit (Actions column overflowed
-  // off-viewport on narrow screens). Mirrors Cases/Incidents/Petitions list.
-  it('click row → navigates to /uy-thac-dieu-tra/:id/edit', async () => {
+  it('click row → opens detail; edit remains an explicit action', async () => {
     await renderPage();
     const codeCell = await screen.findByText('PC02-UTDT-2026-00001');
     const row = codeCell.closest('tr');
     expect(row).toBeTruthy();
     fireEvent.click(row!);
-    expect(await screen.findByTestId('utdt-edit-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('utdt-detail-route')).toBeInTheDocument();
+  });
+
+  it('applies advanced filters only after pressing Apply', async () => {
+    await renderPage();
+    await screen.findByText('PC02-UTDT-2026-00001');
+    const before = mockApiGet.mock.calls.filter(([url]) => String(url).startsWith('/cases?')).length;
+    fireEvent.change(screen.getByLabelText('Loại ủy thác'), { target: { value: 'UY_THAC_GIAI_QUYET' } });
+    expect(screen.getByTestId('btn-apply-filters')).toBeEnabled();
+    expect(mockApiGet.mock.calls.filter(([url]) => String(url).startsWith('/cases?'))).toHaveLength(before);
+    fireEvent.click(screen.getByTestId('btn-apply-filters'));
+    await waitFor(() => expect(thamSoGoiCuoi('/cases').get('loaiUyThac')).toBe('UY_THAC_GIAI_QUYET'));
   });
 
   it('click Trash icon does NOT navigate edit (stopPropagation guard)', async () => {
@@ -342,6 +350,13 @@ describe('UyThacDieuTraListPage — PR3 shell refactor', () => {
     await screen.findByText('PC02-UTDT-2026-00001');
     fireEvent.click(screen.getByTitle('Sửa ủy thác'));
     expect(await screen.findByTestId('utdt-edit-route')).toBeInTheDocument();
+  });
+
+  it('opens the detail page when clicking a delegation row', async () => {
+    await renderPage();
+    const code = await screen.findByText('PC02-UTDT-2026-00001');
+    fireEvent.click(code.closest('tr')!);
+    expect(await screen.findByTestId('utdt-detail-route')).toBeInTheDocument();
   });
 
   it('hides create, edit and delete actions when the role only has read permission', async () => {

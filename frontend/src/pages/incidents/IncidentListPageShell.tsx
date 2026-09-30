@@ -951,6 +951,11 @@ export function IncidentListPageShell() {
           hanhDongPhu={
             // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
             <>
+              {tableState !== 'loading' && (
+                <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                  {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+                </span>
+              )}
               <NutXuatTheoBoLoc
                 duongDan="/incidents/export/danh-sach"
                 thamSo={{
@@ -966,7 +971,7 @@ export function IncidentListPageShell() {
                 tenDuPhong="danh-sach-vu-viec.xlsx"
                 nhanRieng="Xuất Excel (đang xem)"
               />
-              {hasPermission('incidents', 'view') && hasPermission('incidents', 'export_full') && (
+              {hasPermission('incidents', 'view') && (
                 <NutXuatTheoBoLoc
                   duongDan="/incidents/export/day-du"
                   thamSo={{

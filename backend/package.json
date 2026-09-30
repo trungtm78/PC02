@@ -35,6 +35,7 @@
     "db:seed:loai-tai-lieu": "ts-node prisma/seed-loai-tai-lieu.ts",
     "db:seed:quyen": "ts-node prisma/seed-quyen.ts",
     "gen:khai-xuat-day-du": "ts-node scripts/gen-khai-xuat-day-du.ts",
+    "gen:khai-xuat-ho-so": "ts-node scripts/gen-khai-xuat-ho-so.ts",
     "kiem:cot-xuat-day-du": "ts-node src/petitions/cli/kiem-cot-xuat-day-du.ts"
   },
   "dependencies": {

@@ -236,10 +236,7 @@ export class CasesController {
 
   @Get('export/day-du')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions(
-    { action: 'read', subject: 'Case' },
-    { action: 'export_full', subject: 'Case' },
-  )
+  @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   async xuatDayDu(
     @Query() query: QueryCasesDto,

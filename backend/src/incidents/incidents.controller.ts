@@ -220,10 +220,7 @@ export class IncidentsController {
 
   @Get('export/day-du')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions(
-    { action: 'read', subject: 'Incident' },
-    { action: 'export_full', subject: 'Incident' },
-  )
+  @RequirePermissions({ action: 'read', subject: 'Incident' })
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   async xuatDayDu(
     @Query() query: QueryIncidentsDto,
