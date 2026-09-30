@@ -126,6 +126,63 @@ const METRIC_LABELS: Record<string, string> = {
   "5.case": "Tồn cuối kỳ · số vụ",
   "5.subject": "Tồn cuối kỳ · số bị can",
 };
+const DETAIL_FIELD_LABELS: Record<string, string> = {
+  crime: "Tội danh, loại vụ việc",
+  receivedDate: "Ngày tiếp nhận",
+  reporter: "Người cung cấp tin",
+  summary: "Nội dung vụ việc",
+  assignment: "Phân công giải quyết",
+  processing: "Kết quả xử lý",
+  notProsecuted: "Quyết định không khởi tố",
+  transferred: "Chuyển đơn vị",
+  evidence: "Vật chứng, tài liệu",
+  storage: "Nơi bảo quản",
+  officer: "Điều tra viên",
+  registration: "Số đăng ký hồ sơ",
+  newOfficer: "Điều tra viên mới",
+  note: "Ghi chú",
+  suspensionDecision: "Quyết định tạm đình chỉ",
+  suspensionReason: "Lý do tạm đình chỉ",
+  expiryDate: "Ngày hết thời hiệu",
+  recordState: "Tình trạng hồ sơ",
+  archiveNumber: "Số lưu trữ hồ sơ",
+  archiveUnit: "Đơn vị bảo quản hồ sơ",
+  crimeLevel: "Mức độ tội phạm",
+  location: "Địa điểm xảy ra",
+  prosecutor: "Kiểm sát viên",
+  suspect: "Đối tượng nghi vấn",
+  remediationMinutes: "Biên bản khắc phục",
+  remediationProgress: "Tiến độ khắc phục",
+  recoveryDecision: "Quyết định phục hồi",
+  result: "Kết quả phục hồi",
+  relatedContent: "Nội dung hồ sơ liên quan",
+  relatedRegistration: "Số đăng ký liên quan",
+  prosecutionDecision: "Quyết định khởi tố",
+  investigating: "Tình trạng điều tra",
+  conclusion: "Kết luận điều tra",
+  dismissal: "Quyết định đình chỉ",
+  subjectDecision: "Quyết định khởi tố bị can",
+  subjectSuspension: "Quyết định tạm đình chỉ bị can",
+  subjectName: "Họ tên bị can",
+  birthYear: "Năm sinh",
+  address: "Địa chỉ",
+  caseDismissal: "Quyết định đình chỉ vụ án",
+  subjectDismissal: "Quyết định đình chỉ bị can",
+};
+const RULE_LABELS: Record<string, string> = {
+  ROW_WITH_FIELDS_AT_CUTOFF: "Hồ sơ và các trường tại kỳ báo cáo",
+  FIELD_AT_CUTOFF: "Trường hồ sơ tại kỳ báo cáo",
+  MEMBER_AT_CUTOFF: "Hồ sơ thuộc phụ lục tại kỳ báo cáo",
+  TDC_AT_PERIOD_START: "Tạm đình chỉ đầu kỳ",
+  TDC_EVENT_IN_PERIOD: "Tạm đình chỉ trong kỳ",
+  RECOVERY_IN_PERIOD: "Phục hồi trong kỳ",
+  DISMISSAL_IN_PERIOD: "Đình chỉ trong kỳ",
+  TDC_AT_PERIOD_END: "Tạm đình chỉ cuối kỳ",
+  SUMMARY_BREAKDOWN: "Phân loại chỉ tiêu thống kê",
+};
+function fieldLabel(key: string) {
+  return DETAIL_FIELD_LABELS[key] ?? "Trường hồ sơ";
+}
 
 function monthValue(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -139,7 +196,7 @@ function period(month: string) {
   };
 }
 function titlePeriod(value: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("vi-VN", {
     month: "2-digit",
     year: "numeric",
     timeZone: "Asia/Ho_Chi_Minh",
@@ -154,6 +211,10 @@ function display(value: unknown) {
 
 export default function MonthlyReportWorkspacePage() {
   const [params, setParams] = useSearchParams();
+  const setParamsRef = useRef(setParams);
+  useEffect(() => {
+    setParamsRef.current = setParams;
+  }, [setParams]);
   const [month, setMonth] = useState(params.get("month") ?? monthValue());
   const [unitName, setUnitName] = useState("PC02");
   const [teamIds, setTeamIds] = useState("");
@@ -165,7 +226,9 @@ export default function MonthlyReportWorkspacePage() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
-  const [downloading, setDownloading] = useState<"detail" | "summary" | "verification" | null>(null);
+  const [downloading, setDownloading] = useState<
+    "detail" | "summary" | "verification" | null
+  >(null);
   const downloadMenuRef = useRef<HTMLDetailsElement>(null);
   const [error, setError] = useState("");
   const [drawer, setDrawer] = useState<{
@@ -178,7 +241,9 @@ export default function MonthlyReportWorkspacePage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [issueAppendix, setIssueAppendix] = useState("ALL");
   const [issueSeverity, setIssueSeverity] = useState("ALL");
+  const [visibleIssueCount, setVisibleIssueCount] = useState(50);
   const activeCode = params.get("appendix") ?? "PL01";
+  const selectedReportId = params.get("reportId");
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
       if (!downloadMenuRef.current?.contains(event.target as Node)) {
@@ -202,7 +267,7 @@ export default function MonthlyReportWorkspacePage() {
     setLoading(true);
     setError("");
     try {
-      let id = params.get("reportId");
+      let id = selectedReportId;
       if (!id) {
         const list = await api.get("/reports/monthly-packages");
         setReportList(list.data ?? []);
@@ -214,17 +279,14 @@ export default function MonthlyReportWorkspacePage() {
       if (id) {
         const response = await api.get(`/reports/monthly-packages/${id}`);
         setReport(response.data);
-        setMonth(
-          new Intl.DateTimeFormat("en-CA", {
-            year: "numeric",
-            month: "2-digit",
-            timeZone: "Asia/Ho_Chi_Minh",
-          }).format(new Date(response.data.periodStart)),
-        );
+        const [reportMonth, reportYear] = titlePeriod(
+          response.data.periodStart,
+        ).split("/");
+        setMonth(`${reportYear}-${reportMonth}`);
         setUnitName(response.data.unitName);
         setTeamIds((response.data.teamIds ?? []).join(","));
-        if (params.get("reportId") !== id)
-          setParams(
+        if (selectedReportId !== id)
+          setParamsRef.current(
             (current) => {
               current.set("reportId", id!);
               return current;
@@ -239,7 +301,7 @@ export default function MonthlyReportWorkspacePage() {
     } finally {
       setLoading(false);
     }
-  }, [params, setParams]);
+  }, [selectedReportId]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -431,8 +493,8 @@ export default function MonthlyReportWorkspacePage() {
                 >
                   {reportList.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {titlePeriod(item.periodStart)} · v{item.version} ·{" "}
-                      {STATUS[item.status].label}
+                      {titlePeriod(item.periodStart)} · phiên bản {item.version}{" "}
+                      · {STATUS[item.status].label}
                     </option>
                   ))}
                 </select>
@@ -495,14 +557,14 @@ export default function MonthlyReportWorkspacePage() {
                       disabled={!!downloading}
                       className="block w-full px-4 py-3 text-left text-sm hover:bg-[#EEF3F6]"
                     >
-                      Workbook phụ lục 01–06
+                      Tệp Excel phụ lục 01–06
                     </button>
                     <button
                       onClick={() => download("summary")}
                       disabled={!!downloading}
                       className="block w-full px-4 py-3 text-left text-sm hover:bg-[#EEF3F6]"
                     >
-                      Workbook phụ lục 07–08
+                      Tệp Excel phụ lục 07–08
                     </button>
                     <button
                       onClick={() => download("verification")}
@@ -522,15 +584,43 @@ export default function MonthlyReportWorkspacePage() {
           aria-label="Kỳ báo cáo"
           className="mt-4 grid gap-3 border border-[#D8DEE2] bg-white p-3 shadow-[0_1px_0_rgba(0,57,115,.05)] sm:grid-cols-2 lg:grid-cols-[180px_1fr_1fr_auto]"
         >
-          <label className="text-xs font-semibold text-[#52616B]">
-            Tháng
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-[#BCC8CE] px-3 py-2 text-sm"
-            />
-          </label>
+          <div className="text-xs font-semibold text-[#52616B]">
+            Tháng báo cáo
+            <div className="mt-1 flex gap-2">
+              <select
+                aria-label="Chọn tháng báo cáo"
+                value={Number(month.split("-")[1])}
+                onChange={(event) =>
+                  setMonth(
+                    `${month.split("-")[0]}-${String(event.target.value).padStart(2, "0")}`,
+                  )
+                }
+                className="min-w-0 flex-1 rounded-md border border-[#BCC8CE] px-2 py-2 text-sm"
+              >
+                {Array.from({ length: 12 }, (_, index) => (
+                  <option key={index + 1} value={index + 1}>
+                    Tháng {String(index + 1).padStart(2, "0")}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Chọn năm báo cáo"
+                value={Number(month.split("-")[0])}
+                onChange={(event) =>
+                  setMonth(`${event.target.value}-${month.split("-")[1]}`)
+                }
+                className="w-20 rounded-md border border-[#BCC8CE] px-1 py-2 text-sm"
+              >
+                {Array.from({ length: 101 }, (_, index) => 2000 + index).map(
+                  (year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
+          </div>
           <label className="text-xs font-semibold text-[#52616B]">
             Đơn vị
             <input
@@ -676,7 +766,7 @@ export default function MonthlyReportWorkspacePage() {
                       {APPENDICES.find(([code]) => code === activeCode)?.[1]}
                     </h2>
                     <p className="text-xs text-[#6A7880]">
-                      Số liệu từ snapshot của phiên bản {report.version}
+                      Số liệu đã lưu của phiên bản {report.version}
                     </p>
                   </div>
                   <span className="rounded bg-[#EEF3F6] px-2 py-1 text-xs font-semibold text-[#003973]">
@@ -713,7 +803,10 @@ export default function MonthlyReportWorkspacePage() {
                     Phụ lục
                     <select
                       value={issueAppendix}
-                      onChange={(event) => setIssueAppendix(event.target.value)}
+                      onChange={(event) => {
+                        setIssueAppendix(event.target.value);
+                        setVisibleIssueCount(50);
+                      }}
                       className="mt-1 w-full rounded border px-2 py-1.5 text-xs font-normal"
                     >
                       <option value="ALL">Tất cả</option>
@@ -728,7 +821,10 @@ export default function MonthlyReportWorkspacePage() {
                     Mức độ
                     <select
                       value={issueSeverity}
-                      onChange={(event) => setIssueSeverity(event.target.value)}
+                      onChange={(event) => {
+                        setIssueSeverity(event.target.value);
+                        setVisibleIssueCount(50);
+                      }}
                       className="mt-1 w-full rounded border px-2 py-1.5 text-xs font-normal"
                     >
                       <option value="ALL">Tất cả</option>
@@ -748,30 +844,43 @@ export default function MonthlyReportWorkspacePage() {
                       Không có vấn đề khớp bộ lọc.
                     </p>
                   ) : (
-                    filteredIssues.map((issue, index) => (
-                      <button
-                        key={`${issue.appendix}-${issue.target}-${index}`}
-                        onClick={() => {
-                          setParams((current) => {
-                            current.set("appendix", issue.appendix);
-                            return current;
-                          });
-                          setSelectedIssue(issue);
-                        }}
-                        className="mb-2 flex w-full gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-left"
-                      >
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                        <span>
-                          <strong className="block text-sm">
-                            {issue.appendix} · {issue.target}
-                          </strong>
-                          <span className="text-xs text-amber-900">
-                            {issue.message ?? issue.code}
+                    filteredIssues
+                      .slice(0, visibleIssueCount)
+                      .map((issue, index) => (
+                        <button
+                          key={`${issue.appendix}-${issue.target}-${index}`}
+                          onClick={() => {
+                            setParams((current) => {
+                              current.set("appendix", issue.appendix);
+                              return current;
+                            });
+                            setSelectedIssue(issue);
+                          }}
+                          className="mb-2 flex w-full gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-left"
+                        >
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                          <span>
+                            <strong className="block text-sm">
+                              {issue.appendix} · {issue.target}
+                            </strong>
+                            <span className="text-xs text-amber-900">
+                              {issue.message ?? "Vấn đề dữ liệu cần xác minh"}
+                            </span>
                           </span>
-                        </span>
-                        <ChevronRight className="ml-auto h-4 w-4" />
-                      </button>
-                    ))
+                          <ChevronRight className="ml-auto h-4 w-4" />
+                        </button>
+                      ))
+                  )}
+                  {filteredIssues.length > visibleIssueCount && (
+                    <button
+                      onClick={() =>
+                        setVisibleIssueCount((count) => count + 50)
+                      }
+                      className="w-full rounded-md border border-[#BCC8CE] px-3 py-2 text-sm font-semibold text-[#003973] hover:bg-[#EEF3F6]"
+                    >
+                      Xem thêm vấn đề (
+                      {filteredIssues.length - visibleIssueCount} còn lại)
+                    </button>
                   )}
                 </div>
               </aside>
@@ -891,7 +1000,7 @@ function VerificationDialog({
         </header>
         <div className="space-y-4 p-4">
           <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">
-            {issue.message ?? issue.code}
+            {issue.message ?? "Vấn đề dữ liệu cần xác minh"}
           </p>
           {rebuildRequired && (
             <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
@@ -947,7 +1056,7 @@ function VerificationDialog({
           )}
           {issue.kind === "ROW" && issue.field && !rebuildRequired && (
             <label className="block text-sm font-semibold">
-              Giá trị đúng tại kỳ của trường “{issue.field}”
+              Giá trị đúng tại kỳ của trường “{fieldLabel(issue.field)}”
               <input
                 value={replacement}
                 onChange={(event) => setReplacement(event.target.value)}
@@ -958,7 +1067,7 @@ function VerificationDialog({
           {!rebuildRequired && (
             <>
               <label className="block text-sm font-semibold">
-                Mã hồ sơ hoặc ID nguồn
+                Mã hồ sơ hoặc mã nguồn
                 <input
                   value={entityId}
                   onChange={(e) => setEntityId(e.target.value)}
@@ -1141,7 +1250,7 @@ function DetailTable({
               </th>
               {columns.map((column) => (
                 <th key={column} className="min-w-[170px] border-b px-3 py-3">
-                  {column}
+                  {fieldLabel(column)}
                 </th>
               ))}
             </tr>
@@ -1188,7 +1297,7 @@ function DetailTable({
                 onClick={() => onOpen(row, column)}
                 className="mt-2 block w-full text-left text-sm"
               >
-                <span className="text-[#64747D]">{column}: </span>
+                <span className="text-[#64747D]">{fieldLabel(column)}: </span>
                 {display(row.cells[column])}
               </button>
             ))}
@@ -1334,12 +1443,13 @@ function DrilldownDrawer({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-[#527080]">
-                {appendix} / {cellKey ?? metric.key} / Kỳ {periodLabel}
+                {appendix} / {cellKey ? fieldLabel(cellKey) : metric.key} / Kỳ{" "}
+                {periodLabel}
               </p>
               <h2 className="mt-1 text-xl font-bold">Nguồn tạo số liệu</h2>
               <p className="mt-1 text-sm text-[#62727B]">
                 {cellKey
-                  ? `Trường ${cellKey}`
+                  ? fieldLabel(cellKey)
                   : (METRIC_LABELS[metric.key] ??
                     `Chỉ tiêu ${metric.key}`)}{" "}
                 ={" "}
@@ -1448,7 +1558,7 @@ function DrilldownDrawer({
           <footer className="mt-5 border-t pt-4 text-xs text-[#647680]">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-600" /> Tổng đóng góp được
-              đối chiếu với giá trị của snapshot.
+              đối chiếu với số liệu đã lưu của phiên bản.
             </div>
           </footer>
         </div>
@@ -1490,7 +1600,7 @@ function ContributionCard({ item }: { item: Contribution }) {
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#657680]">
-        <span>{item.ruleCode}</span>
+        <span>{RULE_LABELS[item.ruleCode] ?? "Nguồn số liệu đã lưu"}</span>
         {item.eventAt && (
           <span>
             Ngày nghiệp vụ: {new Date(item.eventAt).toLocaleDateString("vi-VN")}

@@ -142,4 +142,58 @@ describe("MonthlyReportWorkspacePage", () => {
       ),
     );
   });
+
+  it("switches appendices without refetching the report or flashing the loading screen", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={["/reports/monthly?reportId=r1&appendix=PL01"]}
+      >
+        <MonthlyReportWorkspacePage />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText("Tội danh, loại vụ việc"),
+    ).toBeInTheDocument();
+    const callsBefore = vi.mocked(api.get).mock.calls.length;
+    await user.click(screen.getByRole("button", { name: /Phụ lục 04:/ }));
+    expect(
+      screen.getByText("Hồ sơ vụ án hiện hành", { selector: "h2" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Đang mở báo cáo")).not.toBeInTheDocument();
+    expect(vi.mocked(api.get).mock.calls.length).toBe(callsBefore);
+  });
+
+  it("renders large issue lists in small batches", async () => {
+    const manyIssues = structuredClone(report);
+    (manyIssues.snapshot.appendices[0].rows[0] as any).issues = Array.from(
+      { length: 120 },
+      (_, index) => ({
+        code: `ISSUE_${index}`,
+        severity: "ERROR",
+        message: `Vấn đề ${index}`,
+      }),
+    );
+    vi.mocked(api.get).mockImplementation(
+      async (url: string) =>
+        ({
+          data:
+            url === "/reports/monthly-packages"
+              ? [{ ...manyIssues, snapshot: undefined }]
+              : manyIssues,
+        }) as any,
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter
+        initialEntries={["/reports/monthly?reportId=r1&appendix=PL01"]}
+      >
+        <MonthlyReportWorkspacePage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("Vấn đề 0")).toBeInTheDocument();
+    expect(screen.queryByText("Vấn đề 100")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Xem thêm vấn đề/ }));
+    expect(screen.getByText("Vấn đề 50")).toBeInTheDocument();
+  });
 });

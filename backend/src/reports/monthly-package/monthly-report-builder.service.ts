@@ -259,27 +259,18 @@ export class MonthlyReportBuilderService {
         const cells = Object.fromEntries(
           (DETAIL_COLUMNS[code] ?? []).map((key) => [key, allCells[key] ?? '']),
         );
-        contributions.push(
-          this.contribution(code, 'ROW', record, 1, 'MEMBER_AT_CUTOFF', cutoff),
+        const membership = this.contribution(
+          code,
+          'ROW',
+          record,
+          1,
+          'ROW_WITH_FIELDS_AT_CUTOFF',
+          cutoff,
         );
-        Object.entries(cells).forEach(([cellKey, value]) =>
-          contributions.push({
-            ...this.contribution(
-              code,
-              'ROW',
-              record,
-              1,
-              'FIELD_AT_CUTOFF',
-              cutoff,
-            ),
-            cellKey,
-            snapshot: {
-              field: cellKey,
-              valueAtPeriod: value,
-              currentValue: value,
-            },
-          }),
-        );
+        contributions.push({
+          ...membership,
+          snapshot: { ...(membership.snapshot as object), cells },
+        });
         return {
           recordId: record.id,
           recordCode: record.code ?? record.caseCode ?? record.soHoSoCu,
