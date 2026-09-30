@@ -195,17 +195,29 @@ export class MonthlyReportPackageService {
       reportId: id,
       appendix: query.appendix,
       metricKey: query.metricKey,
-      ...(query.cellKey ? { cellKey: query.cellKey } : {}),
       ...(query.entityId ? { entityId: query.entityId } : {}),
-      ...(query.q
-        ? {
-            OR: [
-              { entityCode: { contains: query.q, mode: 'insensitive' } },
-              { label: { contains: query.q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
     };
+    const conditions: any[] = [];
+    if (query.cellKey && query.metricKey === 'ROW')
+      conditions.push({
+        OR: [
+          { ruleCode: 'FIELD_AT_CUTOFF', cellKey: query.cellKey },
+          { ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF' },
+        ],
+      });
+    else if (query.cellKey) conditions.push({ cellKey: query.cellKey });
+    else if (query.metricKey === 'ROW')
+      conditions.push({
+        ruleCode: { in: ['MEMBER_AT_CUTOFF', 'ROW_WITH_FIELDS_AT_CUTOFF'] },
+      });
+    if (query.q)
+      conditions.push({
+        OR: [
+          { entityCode: { contains: query.q, mode: 'insensitive' } },
+          { label: { contains: query.q, mode: 'insensitive' } },
+        ],
+      });
+    if (conditions.length) where.AND = conditions;
     const [items, total] = await this.prisma.$transaction([
       this.prisma.monthlyReportContribution.findMany({
         where,
@@ -234,7 +246,22 @@ export class MonthlyReportPackageService {
       page,
       limit,
       total,
-      items,
+      items: items.map((item) => {
+        if (item.ruleCode !== 'ROW_WITH_FIELDS_AT_CUTOFF' || !query.cellKey)
+          return item;
+        const source = item.snapshot as any;
+        const correction = source?.corrections?.[query.cellKey];
+        return {
+          ...item,
+          cellKey: query.cellKey,
+          snapshot: {
+            field: query.cellKey,
+            valueAtPeriod: source?.cells?.[query.cellKey],
+            currentValue: source?.cells?.[query.cellKey],
+            ...correction,
+          },
+        };
+      }),
     };
   }
 
@@ -472,29 +499,69 @@ export class MonthlyReportPackageService {
         input.entityId &&
         input.targetKey !== '__confirm_snapshot__'
       ) {
-        const lineage = await tx.monthlyReportContribution.updateMany({
+        const compact = await tx.monthlyReportContribution.findFirst({
           where: {
             reportId: id,
             appendix: input.appendix,
             metricKey: 'ROW',
             entityId: input.entityId,
-            cellKey: input.targetKey,
-            ruleCode: 'FIELD_AT_CUTOFF',
+            ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF',
           },
-          data: {
-            snapshot: {
-              field: input.targetKey,
-              valueAtPeriod: input.newValue,
-              previousValue: input.previousValue,
-              evidence: input.evidence,
-              correctedBy: actorId,
-            } as any,
-          },
+          select: { id: true, snapshot: true },
         });
-        if (lineage.count !== 1)
-          throw new BadRequestException(
-            'Không tìm thấy nguồn trường cần điều chỉnh',
-          );
+        if (compact) {
+          const source = compact.snapshot as any;
+          if (
+            !Object.prototype.hasOwnProperty.call(
+              source?.cells ?? {},
+              input.targetKey,
+            )
+          )
+            throw new BadRequestException(
+              'Không tìm thấy nguồn trường cần điều chỉnh',
+            );
+          await tx.monthlyReportContribution.update({
+            where: { id: compact.id },
+            data: {
+              snapshot: {
+                ...source,
+                cells: { ...source.cells, [input.targetKey]: input.newValue },
+                corrections: {
+                  ...source.corrections,
+                  [input.targetKey]: {
+                    previousValue: input.previousValue,
+                    evidence: input.evidence,
+                    correctedBy: actorId,
+                  },
+                },
+              },
+            },
+          });
+        } else {
+          const lineage = await tx.monthlyReportContribution.updateMany({
+            where: {
+              reportId: id,
+              appendix: input.appendix,
+              metricKey: 'ROW',
+              entityId: input.entityId,
+              cellKey: input.targetKey,
+              ruleCode: 'FIELD_AT_CUTOFF',
+            },
+            data: {
+              snapshot: {
+                field: input.targetKey,
+                valueAtPeriod: input.newValue,
+                previousValue: input.previousValue,
+                evidence: input.evidence,
+                correctedBy: actorId,
+              } as any,
+            },
+          });
+          if (lineage.count !== 1)
+            throw new BadRequestException(
+              'Không tìm thấy nguồn trường cần điều chỉnh',
+            );
+        }
       }
       const changed = await tx.monthlyReportPackage.updateMany({
         where: { id, status: report.status, lockVersion: report.lockVersion },
@@ -626,15 +693,33 @@ export class MonthlyReportPackageService {
         `Chỉ tiêu thiếu nguồn đóng góp: ${missing.slice(0, 10).join(', ')}`,
       );
     const fields = await this.prisma.monthlyReportContribution.findMany({
-      where: { reportId: id, ruleCode: 'FIELD_AT_CUTOFF' },
-      select: { appendix: true, entityId: true, cellKey: true, snapshot: true },
+      where: {
+        reportId: id,
+        ruleCode: { in: ['FIELD_AT_CUTOFF', 'ROW_WITH_FIELDS_AT_CUTOFF'] },
+      },
+      select: {
+        appendix: true,
+        entityId: true,
+        cellKey: true,
+        ruleCode: true,
+        snapshot: true,
+      },
     });
-    const fieldSources = new Map(
-      fields.map((item) => [
-        `${item.appendix}:${item.entityId}:${item.cellKey}`,
-        (item.snapshot as { valueAtPeriod?: unknown } | null)?.valueAtPeriod,
-      ]),
-    );
+    const fieldSources = new Map<string, unknown>();
+    for (const item of fields) {
+      if (item.ruleCode === 'ROW_WITH_FIELDS_AT_CUTOFF') {
+        const cells = (item.snapshot as any)?.cells ?? {};
+        for (const [cellKey, value] of Object.entries(cells))
+          fieldSources.set(
+            `${item.appendix}:${item.entityId}:${cellKey}`,
+            value,
+          );
+      } else
+        fieldSources.set(
+          `${item.appendix}:${item.entityId}:${item.cellKey}`,
+          (item.snapshot as { valueAtPeriod?: unknown } | null)?.valueAtPeriod,
+        );
+    }
     const missingFields = snapshot.appendices.flatMap((appendix) =>
       appendix.rows.flatMap((row) =>
         Object.entries(row.cells)

@@ -242,9 +242,13 @@ describe('MonthlyReportBuilderService recovery cohorts', () => {
     );
     const row = appendices.find((item: any) => item.code === 'PL04').rows[0];
     expect(row.cells).not.toHaveProperty('reporter');
-    expect(Object.keys(row.cells)).toHaveLength(
-      lineage.filter((item) => item.appendix === 'PL04' && item.cellKey).length,
-    );
+    const rowLineage = lineage.filter((item) => item.appendix === 'PL04');
+    expect(rowLineage).toHaveLength(1);
+    expect(rowLineage[0]).toMatchObject({
+      entityId: record.id,
+      ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF',
+      snapshot: { cells: row.cells },
+    });
   });
 
   it('fills detail cells from normalized crime, evidence and investigator records', () => {

@@ -24,9 +24,11 @@ describe('MonthlyReportPackageService', () => {
     },
     monthlyReportContribution: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
       createMany: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
       groupBy: jest.fn(),
     },
@@ -44,6 +46,7 @@ describe('MonthlyReportPackageService', () => {
     prisma.monthlyReportPackage.findMany.mockResolvedValue([]);
     prisma.monthlyReportContribution.groupBy.mockResolvedValue([]);
     prisma.monthlyReportContribution.findMany.mockResolvedValue([]);
+    prisma.monthlyReportContribution.findFirst.mockResolvedValue(null);
     prisma.monthlyReportContribution.updateMany.mockResolvedValue({ count: 1 });
     prisma.monthlyReportPackage.updateMany.mockResolvedValue({ count: 1 });
     service = new MonthlyReportPackageService(prisma, builder, exporter);
@@ -143,6 +146,81 @@ describe('MonthlyReportPackageService', () => {
 
     expect(result).toMatchObject({ total: 1, items: [{ entityId: 'i1' }] });
     expect(builder.build).not.toHaveBeenCalled();
+  });
+
+  it('drills into a compact detail row while preserving field-level values', async () => {
+    prisma.monthlyReportPackage.findUnique.mockResolvedValue({
+      id: 'r1',
+      snapshot,
+      checks: [],
+    });
+    prisma.monthlyReportContribution.findMany.mockResolvedValue([
+      {
+        id: 'row1',
+        entityId: 'i1',
+        ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF',
+        snapshot: { cells: { crime: 'Trộm cắp', note: 'Ghi chú' } },
+        value: 1,
+      },
+    ]);
+    prisma.monthlyReportContribution.count.mockResolvedValue(1);
+
+    const result = await service.drilldown('r1', {
+      appendix: 'PL01',
+      metricKey: 'ROW',
+      cellKey: 'crime',
+      entityId: 'i1',
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0].snapshot).toMatchObject({
+      field: 'crime',
+      valueAtPeriod: 'Trộm cắp',
+    });
+    expect(prisma.monthlyReportContribution.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({ OR: expect.any(Array) }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('verifies every field in a compact row before finalization', async () => {
+    const reportSnapshot = structuredClone(snapshot);
+    reportSnapshot.appendices[0].rows = [
+      {
+        recordId: 'i1',
+        recordCode: 'VV-1',
+        cells: { crime: 'Trộm cắp', note: 'Ghi chú' },
+        issues: [],
+      },
+    ];
+    prisma.monthlyReportContribution.findMany.mockResolvedValue([
+      {
+        appendix: 'PL01',
+        entityId: 'i1',
+        ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF',
+        snapshot: { cells: { crime: 'Trộm cắp', note: 'Ghi chú' } },
+      },
+    ]);
+
+    await expect(
+      (service as any).assertCompleteLineage('r1', reportSnapshot),
+    ).resolves.toBeUndefined();
+    prisma.monthlyReportContribution.findMany.mockResolvedValue([
+      {
+        appendix: 'PL01',
+        entityId: 'i1',
+        ruleCode: 'ROW_WITH_FIELDS_AT_CUTOFF',
+        snapshot: { cells: { crime: 'Trộm cắp', note: 'Sai giá trị' } },
+      },
+    ]);
+    await expect(
+      (service as any).assertCompleteLineage('r1', reportSnapshot),
+    ).rejects.toThrow('PL01/VV-1/note');
   });
 
   it('finalizes from the approved snapshot and stores immutable workbook bytes and hashes', async () => {
@@ -376,6 +454,72 @@ describe('MonthlyReportPackageService', () => {
         },
       }),
     );
+  });
+
+  it('updates a compact detail source and retains correction evidence', async () => {
+    const adjustedSnapshot = structuredClone(snapshot);
+    adjustedSnapshot.appendices[0].rows = [
+      {
+        recordId: 'i1',
+        recordCode: 'VV-1',
+        cells: { crime: 'Giá trị cũ', note: 'Ghi chú' },
+        issues: [
+          {
+            code: 'HISTORICAL_VALUE_UNKNOWN',
+            severity: 'ERROR',
+            field: 'crime',
+          },
+        ],
+      },
+    ];
+    prisma.monthlyReportPackage.findUnique.mockResolvedValue({
+      id: 'r1',
+      status: 'NEEDS_VERIFICATION',
+      lockVersion: 0,
+      createdById: 'u1',
+      snapshot: adjustedSnapshot,
+      adjustments: [],
+    });
+    prisma.monthlyReportContribution.findFirst.mockResolvedValue({
+      id: 'source1',
+      snapshot: {
+        status: 'OPEN',
+        cells: { crime: 'Giá trị cũ', note: 'Ghi chú' },
+      },
+    });
+    prisma.monthlyReportAdjustment.create.mockResolvedValue({ id: 'a4' });
+
+    await service.addAdjustment(
+      'r1',
+      {
+        appendix: 'PL01',
+        targetKey: 'crime',
+        entityId: 'i1',
+        operation: 'REPLACE',
+        newValue: 'Giá trị tại kỳ',
+        issueCode: 'HISTORICAL_VALUE_UNKNOWN',
+        reason: 'Đối chiếu hồ sơ giấy',
+        evidence: { document: 'BB-04' },
+      },
+      'u2',
+    );
+
+    expect(prisma.monthlyReportContribution.update).toHaveBeenCalledWith({
+      where: { id: 'source1' },
+      data: {
+        snapshot: expect.objectContaining({
+          cells: { crime: 'Giá trị tại kỳ', note: 'Ghi chú' },
+          corrections: {
+            crime: expect.objectContaining({
+              previousValue: 'Giá trị cũ',
+              correctedBy: 'u2',
+              evidence: { document: 'BB-04' },
+            }),
+          },
+        }),
+      },
+    });
+    expect(prisma.monthlyReportContribution.updateMany).not.toHaveBeenCalled();
   });
 
   it('does not clear a field-specific historical issue without the value at the report cutoff', async () => {
