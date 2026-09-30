@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 // Prisma returns two record graphs; cutoff rules validate fields before they enter a snapshot.
 import { Injectable } from '@nestjs/common';
+import { DETAIL_COLUMNS } from './monthly-report-export.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   MonthlyAppendixCode,
@@ -70,6 +71,7 @@ export class MonthlyReportBuilderService {
       : {};
     const [incidents, cases] = await Promise.all([
       this.prisma.incident.findMany({
+        omit: { legacyRaw: true },
         where: {
           createdAt: { lte: end },
           OR: [{ deletedAt: null }, { deletedAt: { gt: start } }],
@@ -82,10 +84,15 @@ export class MonthlyReportBuilderService {
           },
           actionPlans: true,
           vksMeetings: true,
+          crimeChinh: { select: { name: true } },
+          investigator: {
+            select: { firstName: true, lastName: true, updatedAt: true },
+          },
         },
         orderBy: [{ createdAt: 'asc' }, { code: 'asc' }],
       }),
       this.prisma.case.findMany({
+        omit: { legacyRaw: true },
         where: {
           createdAt: { lte: end },
           OR: [{ deletedAt: null }, { deletedAt: { gt: start } }],
@@ -106,6 +113,23 @@ export class MonthlyReportBuilderService {
           },
           actionPlans: true,
           vksMeetings: true,
+          statistic: { select: { soDangKyHoSo: true, donViBaoQuanHoSo: true } },
+          crimeChinh: { select: { name: true } },
+          investigator: {
+            select: { firstName: true, lastName: true, updatedAt: true },
+          },
+          evidences: {
+            where: {
+              createdAt: { lte: end },
+              OR: [{ deletedAt: null }, { deletedAt: { gt: end } }],
+            },
+            select: {
+              name: true,
+              storageLocation: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
         },
         orderBy: [{ createdAt: 'asc' }, { caseCode: 'asc' }],
       }),
@@ -231,7 +255,10 @@ export class MonthlyReportBuilderService {
             message:
               'Thiếu ngày hết thời hiệu điều tra; chưa thể xác định chính xác phụ lục hết/còn thời hiệu',
           });
-        const cells = this.detailCells(record, cutoff);
+        const allCells = this.detailCells(record, cutoff);
+        const cells = Object.fromEntries(
+          (DETAIL_COLUMNS[code] ?? []).map((key) => [key, allCells[key] ?? '']),
+        );
         contributions.push(
           this.contribution(code, 'ROW', record, 1, 'MEMBER_AT_CUTOFF', cutoff),
         );
@@ -276,8 +303,14 @@ export class MonthlyReportBuilderService {
     const issueKeys = new Map<string, MonthlyReportIssue[]>();
     const flag = (key: string, issue: MonthlyReportIssue) =>
       issueKeys.set(key, [...(issueKeys.get(key) ?? []), issue]);
-    const add = (key: string, record: any) =>
-      buckets.set(key, [...(buckets.get(key) ?? []), record]);
+    const add = (key: string, record: any) => {
+      let bucket = buckets.get(key);
+      if (!bucket) {
+        bucket = [];
+        buckets.set(key, bucket);
+      }
+      bucket.push(record);
+    };
     const reasonOrder =
       code === 'PL08'
         ? [
@@ -599,11 +632,17 @@ export class MonthlyReportBuilderService {
                 this.eventForMetric(key, record, start, end),
               ),
               entityType: 'SUBJECT',
-              entityCode: subject.identityNumber ?? subject.id,
+              entityCode: subject.idNumber ?? subject.id,
               label: subjectValueUnknown
                 ? 'Bị can cần xác minh'
                 : (subject.fullName ?? subject.name ?? 'Bị can'),
-              snapshot: { caseId: record.id, current: subject },
+              snapshot: {
+                caseId: record.id,
+                status: subject.status ?? null,
+                fullName: subject.fullName ?? null,
+                idNumber: subject.idNumber ?? null,
+                updatedAt: subject.updatedAt ?? null,
+              },
             };
             contributions.push(item);
             subjectIds.push(this.contributionIdentity(item));
@@ -700,6 +739,22 @@ export class MonthlyReportBuilderService {
       record.metadata && typeof record.metadata === 'object'
         ? record.metadata
         : {};
+    const evidences = record.evidences ?? [];
+    const evidenceText = (field: 'name' | 'storageLocation') =>
+      evidences
+        .map((item: any) =>
+          new Date(item.updatedAt) > cutoff ? 'Cần xác minh' : item[field],
+        )
+        .filter(Boolean)
+        .join('; ');
+    const investigator =
+      record.investigator && new Date(record.investigator.updatedAt) <= cutoff
+        ? [record.investigator.lastName, record.investigator.firstName]
+            .filter(Boolean)
+            .join(' ')
+        : record.investigator
+          ? 'Cần xác minh'
+          : undefined;
     const incident = !!record.code;
     const suspensionNumber = incident
       ? record.soQuyetDinhTamDinhChiVV
@@ -712,15 +767,23 @@ export class MonthlyReportBuilderService {
       : record.soQuyetDinhPhucHoi;
     const recoveryDate = incident ? record.ngayPhucHoiVV : record.ngayPhucHoi;
     return {
-      crime: record.crime ?? record.toiDanhBanDau ?? record.incidentType,
+      crime:
+        record.crime ??
+        record.toiDanhBanDau ??
+        record.crimeChinh?.name ??
+        record.incidentType,
       receivedDate: this.date(
-        record.ngayTiepNhanNguonTin ??
+        record.receiveDate ??
           record.ngayDeXuat ??
           record.fromDate ??
           record.createdAt,
       ),
-      reporter: record.benVu ?? metadata.nguoiBaoTin ?? metadata.nguoiToGiac,
-      summary: record.description ?? record.name,
+      reporter:
+        record.benVu ??
+        record.tenCungCap ??
+        metadata.nguoiBaoTin ??
+        metadata.nguoiToGiac,
+      summary: record.moTaChiTiet ?? record.description ?? record.name,
       assignment: incident
         ? [
             record.soQDPhanCongNguonTin,
@@ -728,15 +791,18 @@ export class MonthlyReportBuilderService {
           ]
             .filter(Boolean)
             .join(' - ')
-        : (record.unit ?? record.assignedTeamId),
-      processing: record.status,
+        : (record.donViGiaiQuyet ?? record.unit),
+      processing: record.ketQuaXuLy ?? record.ketQuaXuLyKhac ?? record.status,
       notProsecuted: [
         record.soQDKhongKhoiTo,
         this.date(record.ngayQDKhongKhoiTo),
       ]
         .filter(Boolean)
         .join(' - '),
-      transferred: record.chuyenDenDonVi ?? record.chuyenVuAnChoCQK,
+      transferred:
+        record.chuyenDenDonVi ??
+        record.chuyenVuViecDonViKhac ??
+        record.chuyenVuAnChoCQK,
       suspensionDecision: [suspensionNumber, this.date(suspensionDate)]
         .filter(Boolean)
         .join(' - '),
@@ -771,17 +837,33 @@ export class MonthlyReportBuilderService {
           : subject.birthYear,
       ),
       address: subjectValues((subject: any) => subject.address),
-      suspect: metadata.nghiCan ?? metadata.doiTuong,
-      evidence: metadata.vatChung,
-      storage: metadata.noiBaoQuan,
-      officer: record.investigatorId,
-      registration: record.code ?? record.caseCode ?? record.soHoSoCu,
-      recordState: record.status,
+      suspect:
+        record.nghiVanDoiTuong ??
+        record.doiTuongCaNhan ??
+        metadata.nghiCan ??
+        metadata.doiTuong,
+      evidence:
+        record.vatChungMoTa ||
+        evidenceText('name') ||
+        record.doVatTaiLieuKemTheo ||
+        metadata.vatChung,
+      storage:
+        record.noiLuuTruBaoQuan ||
+        evidenceText('storageLocation') ||
+        metadata.noiBaoQuan,
+      officer: record.dieuTraVien ?? investigator ?? metadata.dieuTraVien,
+      registration: record.soHoSoCu ?? record.code ?? record.caseCode,
+      recordState: record.tinhTrangHoSo ?? record.tinhTrang ?? record.status,
+      archiveNumber: record.statistic?.soDangKyHoSo ?? metadata.soDangKyHoSo,
+      archiveUnit:
+        record.statistic?.donViBaoQuanHoSo ?? metadata.donViBaoQuanHoSo,
+      relatedContent: record.nhapVaoVuViecSo ?? record.ghiChuNhapHoSo,
+      relatedRegistration: record.sttCu,
       newOfficer: metadata.dieuTraVienMoi,
       crimeLevel: record.capDoToiPham,
-      location: metadata.diaDiem,
+      location: record.noiXayRa ?? record.noiXayRaPhuongXa ?? metadata.diaDiem,
       prosecutor: metadata.kiemSatVien,
-      note: metadata.ghiChu,
+      note: record.ghiChuKhac ?? metadata.ghiChu,
       remediationMinutes: record.tdcKhacPhucBienBan,
       remediationProgress: record.tdcKhacPhucLyDoBienPhap,
       recoveryDecision: [recoveryNumber, this.date(recoveryDate)]
@@ -818,7 +900,13 @@ export class MonthlyReportBuilderService {
       eventAt,
       value,
       ruleCode,
-      snapshot: { status: record.status, updatedAt: record.updatedAt, record },
+      snapshot: {
+        status: record.status ?? null,
+        updatedAt: record.updatedAt ?? null,
+        eventAt: eventAt ?? null,
+        caseCode: record.caseCode ?? null,
+        soHoSoCu: record.soHoSoCu ?? null,
+      },
     };
   }
 

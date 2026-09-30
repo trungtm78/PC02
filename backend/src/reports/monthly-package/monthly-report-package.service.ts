@@ -70,30 +70,47 @@ export class MonthlyReportPackageService {
         select: { id: true, version: true },
       });
       try {
-        return await this.prisma.monthlyReportPackage.create({
-          data: {
-            periodStart,
-            periodEnd,
-            unitCode: input.unitCode ?? null,
-            scopeKey,
-            unitName: input.unitName,
-            teamIds: input.teamIds,
-            version: (previous[0]?.version ?? 0) + 1,
-            parentId: previous[0]?.id,
-            templateVersion: built.snapshot.templateVersion,
-            status,
-            snapshot: built.snapshot as any,
-            checks: checks as any,
-            summary: summary as any,
-            createdById: actorId,
-            contributions: {
-              create: built.contributions.map((item) => ({
-                ...item,
-                snapshot: item.snapshot as any,
-              })),
-            },
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const report = await tx.monthlyReportPackage.create({
+              data: {
+                periodStart,
+                periodEnd,
+                unitCode: input.unitCode ?? null,
+                scopeKey,
+                unitName: input.unitName,
+                teamIds: input.teamIds,
+                version: (previous[0]?.version ?? 0) + 1,
+                parentId: previous[0]?.id,
+                templateVersion: built.snapshot.templateVersion,
+                status,
+                snapshot: built.snapshot as any,
+                checks: checks as any,
+                summary: summary as any,
+                createdById: actorId,
+              },
+            });
+            // A nested create generates one enormous Prisma query for a real unit.
+            // Keep the report and all lineage atomic while bounding each insert.
+            for (
+              let offset = 0;
+              offset < built.contributions.length;
+              offset += 500
+            ) {
+              await tx.monthlyReportContribution.createMany({
+                data: built.contributions
+                  .slice(offset, offset + 500)
+                  .map((item) => ({
+                    ...item,
+                    reportId: report.id,
+                    snapshot: item.snapshot as any,
+                  })),
+              });
+            }
+            return report;
           },
-        });
+          { timeout: 120_000 },
+        );
       } catch (error: any) {
         if (error?.code !== 'P2002' || attempt === 2) throw error;
       }
@@ -131,8 +148,28 @@ export class MonthlyReportPackageService {
     return report;
   }
 
+  async getAccess(id: string) {
+    const report = await this.prisma.monthlyReportPackage.findUnique({
+      where: { id },
+      select: { id: true, teamIds: true, createdById: true },
+    });
+    if (!report)
+      throw new NotFoundException('Không tìm thấy gói báo cáo tháng');
+    return report;
+  }
+
   async appendix(id: string, code: string) {
-    const report = await this.get(id);
+    const report = await this.prisma.monthlyReportPackage.findUnique({
+      where: { id },
+      select: {
+        snapshot: true,
+        status: true,
+        periodStart: true,
+        periodEnd: true,
+      },
+    });
+    if (!report)
+      throw new NotFoundException('Không tìm thấy gói báo cáo tháng');
     const snapshot = report.snapshot as unknown as MonthlyReportSnapshot;
     const appendix = snapshot.appendices.find((item) => item.code === code);
     if (!appendix) throw new NotFoundException('Không tìm thấy phụ lục');
@@ -146,7 +183,12 @@ export class MonthlyReportPackageService {
   }
 
   async drilldown(id: string, query: DrilldownQuery) {
-    const report = await this.get(id);
+    const report = await this.prisma.monthlyReportPackage.findUnique({
+      where: { id },
+      select: { snapshot: true, checks: true },
+    });
+    if (!report)
+      throw new NotFoundException('Không tìm thấy gói báo cáo tháng');
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 20));
     const where: any = {
@@ -229,10 +271,9 @@ export class MonthlyReportPackageService {
       Object.assign(data, { rejectionReason: reason.trim() });
     }
     if (next === 'FINALIZED') {
-      const snapshot = report.snapshot as unknown as MonthlyReportSnapshot;
       const [detailWorkbook, summaryWorkbook] = await Promise.all([
-        this.exporter.render('DETAIL', snapshot),
-        this.exporter.render('SUMMARY', snapshot),
+        this.workbook(id, 'DETAIL'),
+        this.workbook(id, 'SUMMARY'),
       ]);
       Object.assign(data, {
         detailWorkbook,
@@ -462,6 +503,10 @@ export class MonthlyReportPackageService {
           checks: checks as any,
           summary: summary as any,
           status: nextStatus,
+          detailWorkbook: null,
+          summaryWorkbook: null,
+          detailWorkbookSha256: null,
+          summaryWorkbookSha256: null,
           lockVersion: { increment: 1 },
         },
       });
@@ -478,20 +523,49 @@ export class MonthlyReportPackageService {
     });
   }
 
-  async workbook(id: string, kind: 'DETAIL' | 'SUMMARY') {
-    const report = await this.prisma.monthlyReportPackage.findUnique({
-      where: { id },
-      select: { snapshot: true, detailWorkbook: true, summaryWorkbook: true },
-    });
+  async workbook(
+    id: string,
+    kind: 'DETAIL' | 'SUMMARY',
+    retry = 0,
+  ): Promise<Buffer> {
+    if (retry >= 3)
+      throw new BadRequestException('Báo cáo đang thay đổi; hãy thử tải lại');
+    const column = kind === 'DETAIL' ? 'detailWorkbook' : 'summaryWorkbook';
+    const report =
+      kind === 'DETAIL'
+        ? await this.prisma.monthlyReportPackage.findUnique({
+            where: { id },
+            select: { snapshot: true, lockVersion: true, detailWorkbook: true },
+          })
+        : await this.prisma.monthlyReportPackage.findUnique({
+            where: { id },
+            select: {
+              snapshot: true,
+              lockVersion: true,
+              summaryWorkbook: true,
+            },
+          });
     if (!report)
       throw new NotFoundException('Không tìm thấy gói báo cáo tháng');
     const stored =
-      kind === 'DETAIL' ? report.detailWorkbook : report.summaryWorkbook;
+      'detailWorkbook' in report
+        ? report.detailWorkbook
+        : report.summaryWorkbook;
     if (stored) return Buffer.from(stored);
-    return this.exporter.render(
+    const rendered = await this.exporter.render(
       kind,
       report.snapshot as unknown as MonthlyReportSnapshot,
     );
+    const saved = await this.prisma.monthlyReportPackage.updateMany({
+      where:
+        kind === 'DETAIL'
+          ? { id, lockVersion: report.lockVersion, detailWorkbook: null }
+          : { id, lockVersion: report.lockVersion, summaryWorkbook: null },
+      data: { [column]: rendered },
+    });
+    if (saved.count === 1) return rendered;
+    // A concurrent edit/finalization may have replaced the snapshot.
+    return this.workbook(id, kind, retry + 1);
   }
 
   async verification(id: string) {

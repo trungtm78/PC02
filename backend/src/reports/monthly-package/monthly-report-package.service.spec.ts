@@ -26,6 +26,7 @@ describe('MonthlyReportPackageService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       updateMany: jest.fn(),
       groupBy: jest.fn(),
     },
@@ -83,11 +84,44 @@ describe('MonthlyReportPackageService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           createdById: 'u1',
-          contributions: { create: expect.any(Array) },
         }),
       }),
     );
+    expect(prisma.monthlyReportContribution.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ reportId: 'r1', entityId: 'i1' })],
+    });
     expect(result.id).toBe('r1');
+  });
+
+  it('reads only the requested workbook and reuses a draft export', async () => {
+    const bytes = Buffer.from('workbook');
+    prisma.monthlyReportPackage.findUnique
+      .mockResolvedValueOnce({ snapshot, lockVersion: 2, detailWorkbook: null })
+      .mockResolvedValueOnce({ detailWorkbook: bytes });
+    exporter.render.mockResolvedValue(bytes);
+
+    expect(await service.workbook('r1', 'DETAIL')).toEqual(bytes);
+    expect(await service.workbook('r1', 'DETAIL')).toEqual(bytes);
+    expect(exporter.render).toHaveBeenCalledTimes(1);
+    expect(
+      prisma.monthlyReportPackage.findUnique.mock.calls[0][0].select,
+    ).toEqual({ snapshot: true, lockVersion: true, detailWorkbook: true });
+  });
+
+  it('returns the newer workbook if the report changes while rendering', async () => {
+    const newer = Buffer.from('new-version');
+    prisma.monthlyReportPackage.findUnique
+      .mockResolvedValueOnce({ snapshot, lockVersion: 2, detailWorkbook: null })
+      .mockResolvedValueOnce({
+        snapshot,
+        lockVersion: 3,
+        detailWorkbook: newer,
+      });
+    prisma.monthlyReportPackage.updateMany.mockResolvedValue({ count: 0 });
+    exporter.render.mockResolvedValue(Buffer.from('stale-version'));
+
+    expect(await service.workbook('r1', 'DETAIL')).toEqual(newer);
+    expect(exporter.render).toHaveBeenCalledTimes(1);
   });
 
   it('drills down only from persisted contributions and paginates them', async () => {
@@ -115,6 +149,7 @@ describe('MonthlyReportPackageService', () => {
     const report = {
       id: 'r1',
       status: 'APPROVED',
+      lockVersion: 0,
       createdById: 'u1',
       snapshot,
     };
@@ -123,6 +158,8 @@ describe('MonthlyReportPackageService', () => {
       .mockResolvedValueOnce(Buffer.from('six'))
       .mockResolvedValueOnce(Buffer.from('two'));
     prisma.monthlyReportPackage.findUnique
+      .mockResolvedValueOnce(report)
+      .mockResolvedValueOnce(report)
       .mockResolvedValueOnce(report)
       .mockResolvedValueOnce({
         ...report,
@@ -198,6 +235,8 @@ describe('MonthlyReportPackageService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           snapshot: expect.objectContaining({ appendices: expect.any(Array) }),
+          detailWorkbook: null,
+          summaryWorkbook: null,
         }),
       }),
     );

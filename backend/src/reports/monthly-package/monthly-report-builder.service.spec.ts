@@ -200,6 +200,84 @@ describe('MonthlyReportBuilderService recovery cohorts', () => {
     expect(cells.subjectName).toBe('Còn hiệu lực');
   });
 
+  it('uses persisted form fields and keeps report lineage compact', () => {
+    const record = {
+      ...base,
+      id: 'c-real',
+      code: undefined,
+      caseCode: 'VA-REAL',
+      name: 'Vụ án thực',
+      tenCungCap: 'Người cung cấp',
+      vatChungMoTa: 'Dao',
+      noiLuuTruBaoQuan: 'Kho A',
+      dieuTraVien: 'Đồng chí A',
+      metadata: { vatChung: 'Giá trị cũ' },
+      legacyRaw: { huge: 'x'.repeat(10000) },
+      subjects: [],
+    };
+    const cells = (builder as any).detailCells(record, end);
+    expect(cells).toMatchObject({
+      reporter: 'Người cung cấp',
+      evidence: 'Dao',
+      storage: 'Kho A',
+      officer: 'Đồng chí A',
+    });
+    const contribution = (builder as any).contribution(
+      'PL04',
+      'ROW',
+      record,
+      1,
+      'MEMBER_AT_CUTOFF',
+      end,
+    );
+    expect(JSON.stringify(contribution.snapshot)).not.toContain('huge');
+    expect(contribution.snapshot.record).toBeUndefined();
+    const lineage: any[] = [];
+    const appendices = (builder as any).buildDetails(
+      [],
+      [record],
+      end,
+      lineage,
+      false,
+    );
+    const row = appendices.find((item: any) => item.code === 'PL04').rows[0];
+    expect(row.cells).not.toHaveProperty('reporter');
+    expect(Object.keys(row.cells)).toHaveLength(
+      lineage.filter((item) => item.appendix === 'PL04' && item.cellKey).length,
+    );
+  });
+
+  it('fills detail cells from normalized crime, evidence and investigator records', () => {
+    const cells = (builder as any).detailCells(
+      {
+        ...base,
+        code: undefined,
+        crime: null,
+        crimeChinh: { name: 'Tội danh đã chọn' },
+        investigator: {
+          lastName: 'Nguyễn',
+          firstName: 'An',
+          updatedAt: new Date('2026-08-01'),
+        },
+        evidences: [
+          {
+            name: 'Vật chứng A',
+            storageLocation: 'Kho số 1',
+            updatedAt: new Date('2026-08-01'),
+          },
+        ],
+        subjects: [],
+      },
+      end,
+    );
+    expect(cells).toMatchObject({
+      crime: 'Tội danh đã chọn',
+      evidence: 'Vật chứng A',
+      storage: 'Kho số 1',
+      officer: 'Nguyễn An',
+    });
+  });
+
   it('does not present subject values changed after cutoff as historical detail values', () => {
     const record = {
       ...base,

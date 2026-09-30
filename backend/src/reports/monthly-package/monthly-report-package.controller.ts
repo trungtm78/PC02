@@ -105,8 +105,9 @@ export class MonthlyReportPackageController {
     { action: 'read', subject: 'Case' },
     { action: 'read', subject: 'Incident' },
   )
-  get(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    return this.authorized(id, req, 'read');
+  async get(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    await this.authorized(id, req, 'read');
+    return this.service.get(id);
   }
 
   @Get(':id/appendices/:code')
@@ -277,7 +278,7 @@ export class MonthlyReportPackageController {
     req: AuthenticatedRequest,
     mode: 'read' | 'write',
   ) {
-    const report = await this.service.get(id);
+    const report = await this.service.getAccess(id);
     if (!duocXemBanNhap(report, req.user.id, phamViTo(req.dataScope, mode)))
       throw new ForbiddenException('Bạn không có quyền với gói báo cáo này');
     return report;

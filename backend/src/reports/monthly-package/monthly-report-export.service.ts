@@ -15,7 +15,7 @@ const TEMPLATE_FILES: Record<WorkbookKind, string> = {
   SUMMARY: 'MAU_BAO_CAO_THANG_PHU_LUC_07_08.xlsx',
 };
 
-const DETAIL_COLUMNS: Record<string, string[]> = {
+export const DETAIL_COLUMNS: Record<string, string[]> = {
   PL01: [
     'crime',
     'receivedDate',
@@ -313,8 +313,15 @@ export class MonthlyReportExportService {
   ): void {
     if (required <= placeholders) return;
     const templateRow = sheet.getRow(startRow + placeholders - 1);
-    for (let i = 0; i < required - placeholders; i += 1) {
-      const inserted = sheet.insertRow(startRow + placeholders + i, []);
+    const extra = required - placeholders;
+    // Shift signature/formula rows once; repeated insertRow shifts the entire
+    // remaining sheet for every record and becomes quadratic on large reports.
+    sheet.insertRows(
+      startRow + placeholders,
+      Array.from({ length: extra }, () => []),
+    );
+    for (let i = 0; i < extra; i += 1) {
+      const inserted = sheet.getRow(startRow + placeholders + i);
       inserted.height = templateRow.height;
       templateRow.eachCell({ includeEmpty: true }, (cell, column) => {
         inserted.getCell(column).style = { ...cell.style };
