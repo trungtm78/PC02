@@ -62,6 +62,30 @@ function getCreateIncidentCall() {
   return call!;
 }
 
+describe('IncidentFormPage edit header', () => {
+  it('shows the visible STT instead of the technical ID', async () => {
+    vi.mocked(api.get).mockImplementation((url: string) => Promise.resolve({
+      data: { success: true, data: url === '/incidents/inc-1'
+        ? { id: 'inc-1', code: '2026-18', name: 'Nguồn tin thử', metadata: {} }
+        : [] },
+    }));
+    const { IncidentFormPage } = await import('../IncidentFormPage');
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/vu-viec/inc-1/edit']}>
+          <Routes><Route path="/vu-viec/:id/edit" element={<IncidentFormPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Chỉnh sửa vụ việc · STT 26-18')).toBeInTheDocument();
+    expect(screen.queryByText(/Chỉnh sửa vụ việc.*inc-1/)).not.toBeInTheDocument();
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: [] } });
+  });
+});
+
 // PR-1 catalog: lyDoKhongKhoiTo render qua CatalogSelect (1 component dùng chung),
 // testid mỗi option là `cat-{code}`, nhãn lấy từ registry (đúng pháp lý Đ.157).
 describe('IncidentFormPage — lý do không khởi tố qua CatalogSelect (PR-1)', () => {

@@ -116,6 +116,9 @@ describe("CaseFormPage clone navigation", () => {
       </QueryClientProvider>,
     );
 
+    expect(await screen.findByText('Cập nhật thông tin ủy thác điều tra · STT OLD-001')).toBeInTheDocument();
+    expect(screen.queryByText(/Cập nhật thông tin ủy thác điều tra.*case-source/)).not.toBeInTheDocument();
+
     fireEvent.click(await screen.findByTestId("btn-back"));
 
     expect(window.confirm).toHaveBeenCalledOnce();

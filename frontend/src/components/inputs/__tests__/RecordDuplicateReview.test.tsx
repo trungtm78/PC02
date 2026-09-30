@@ -49,6 +49,27 @@ describe('RecordDuplicateReview', () => {
     });
   });
 
+  it('opens candidate details from STT and lets the user collapse the review to continue the form', async () => {
+    get.mockResolvedValue({ data: [{
+      id: 'petition-1', stt: 'DT-001', name: 'Nguyễn Văn A',
+      confidence: 'HIGH', reasons: ['ID_NUMBER_MATCH'],
+      receivedDate: '2026-09-01', summary: 'Nội dung đã tiếp nhận',
+    }] });
+    render(<>
+      <input aria-label="Nội dung đang nhập" defaultValue="Chưa lưu" />
+      <RecordDuplicateReview kind="petition" name="Nguyễn Văn A" idNumber="012345678901" />
+    </>);
+    fireEvent.click(screen.getByRole('button', { name: /Rà soát trùng/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Thông tin hồ sơ cần rà soát: DT-001/i }));
+    expect(screen.getByRole('dialog', { name: /Thông tin hồ sơ cần rà soát/i })).toHaveTextContent('Nội dung đã tiếp nhận');
+    fireEvent.click(screen.getByRole('button', { name: /Thu nhỏ và tiếp tục nhập/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Thông tin hồ sơ cần rà soát: DT-001/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Nội dung đang nhập' })).toHaveValue('Chưa lưu');
+    fireEvent.click(screen.getByRole('button', { name: /Mở lại kết quả rà soát/i }));
+    expect(screen.getByRole('button', { name: /Thông tin hồ sơ cần rà soát: DT-001/i })).toBeInTheDocument();
+  });
+
   it('sends all incident duplicate signals and explains location matches', async () => {
     post.mockResolvedValue({ data: [{
       id: 'incident-1', code: 'VV-001', name: 'Vụ việc cũ', confidence: 'HIGH',
@@ -84,6 +105,8 @@ describe('RecordDuplicateReview', () => {
       params: { name: 'Ủy thác Trần Văn An', excludeId: 'current', caseType: 'UY_THAC_DIEU_TRA', decisionNumber: '58/QD-2026' },
     });
     fireEvent.click(screen.getByRole('button', { name: /đã rà soát/i }));
+    expect(screen.getByRole('button', { name: /Mở lại kết quả rà soát/i })).toBeInTheDocument();
+    expect(screen.getByText(/Có thể tiếp tục nhập thông tin hoặc lưu hồ sơ/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Lưu' }));
     await waitFor(() => expect(screen.getByTestId('saved')).toHaveTextContent('old-1'));
   });

@@ -136,6 +136,19 @@ export const recordReview = {
   possibleMatch: 'Có thể trùng',
   acknowledgeAction: 'Đã rà soát các hồ sơ trùng',
   acknowledged: 'Đã xác nhận rà soát.',
+  continueForm: 'Có thể tiếp tục nhập thông tin hoặc lưu hồ sơ.',
+  collapseAction: 'Thu nhỏ kết quả rà soát',
+  expandAction: 'Mở lại kết quả rà soát',
+  candidateDetails: 'Thông tin hồ sơ cần rà soát',
+  closeDetails: 'Đóng thông tin hồ sơ',
+  minimizeDetails: 'Thu nhỏ và tiếp tục nhập',
+  recordNumber: 'STT/Mã hồ sơ',
+  candidateName: 'Tên',
+  confidence: 'Mức độ',
+  reason: 'Lý do',
+  candidateCount: 'Có {count} hồ sơ cần xem',
+  receivedDate: 'Ngày tiếp nhận',
+  summary: 'Tóm tắt nội dung',
 } as const;
 
 export const documentStage = {

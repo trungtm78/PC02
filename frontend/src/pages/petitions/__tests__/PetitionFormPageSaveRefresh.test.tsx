@@ -28,7 +28,7 @@ vi.mock('@/lib/api', () => ({
       if (/^\/petitions\/[^/]+$/.test(url)) {
         // Đơn nặc danh + đủ field bắt buộc → validateForm pass; updatedAt khởi đầu = OLD-UA.
         return Promise.resolve({ data: { success: true, data: {
-          id: 'pet-1', senderIsAnonymous: true, receivedDate: '2026-06-01',
+          id: 'pet-1', stt: '2026-17', senderIsAnonymous: true, receivedDate: '2026-06-01',
           petitionType: 'TO_CAO', summary: 'x', detailContent: 'y', updatedAt: 'OLD-UA',
         } } });
       }
@@ -82,10 +82,14 @@ describe('PetitionFormPage — regression 409 optimistic-lock (PR1)', () => {
     await renderEdit();
     // nút "Cập nhật" (onSave → navigate no-op nên form ở lại sau khi lưu)
     const luu = await screen.findByTestId('btn-save-top-main');
+    expect(screen.getByText('Chỉnh sửa thông tin đơn thư · STT 26-17')).toBeInTheDocument();
+    expect(screen.queryByText(/Chỉnh sửa thông tin đơn thư.*pet-1/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Rà soát trùng/i })).toBeInTheDocument();
 
     // Lần 1: PUT#1 dùng OLD-UA (giá trị load ban đầu)
     fireEvent.click(luu);
     await waitFor(() => expect(putBodies.length).toBe(1));
+    expect(vi.mocked(api.put).mock.calls[0][1]).toMatchObject({ acknowledgedDuplicateIds: [] });
     expect(putBodies[0].expectedUpdatedAt).toBe('OLD-UA');
     // đã lưu thành công → navigate no-op (mock) → form vẫn còn
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/petitions'));
@@ -94,5 +98,34 @@ describe('PetitionFormPage — regression 409 optimistic-lock (PR1)', () => {
     fireEvent.click(screen.getByTestId('btn-save-top-main'));
     await waitFor(() => expect(putBodies.length).toBe(2));
     expect(putBodies[1].expectedUpdatedAt).toBe('NEW-UA');
+  });
+
+  it('blocks update until a strong petition match is reviewed, then sends acknowledged IDs', async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/petitions/duplicate-review') {
+        return Promise.resolve({ data: [{
+          id: 'old-1', stt: 'DT-001', name: 'Nguyễn Văn A',
+          confidence: 'HIGH', reasons: ['ID_NUMBER_MATCH'],
+        }] });
+      }
+      if (url === '/petitions/pet-1') {
+        return Promise.resolve({ data: { success: true, data: {
+          id: 'pet-1', senderName: 'Nguyễn Văn A', senderAddress: 'Quận 1',
+          senderIdNumber: '012345678901', senderPhone: '0901234567',
+          receivedDate: '2026-06-01', petitionType: 'TO_CAO',
+          summary: 'x', detailContent: 'y', updatedAt: 'OLD-UA',
+        } } });
+      }
+      return Promise.resolve({ data: { success: true, data: [] } });
+    });
+    await renderEdit();
+    const save = await screen.findByTestId('btn-save-top-main');
+    fireEvent.click(save);
+    expect(await screen.findByText('DT-001')).toBeInTheDocument();
+    expect(putBodies).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: /đã rà soát/i }));
+    fireEvent.click(save);
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(vi.mocked(api.put).mock.calls[0][1]).toMatchObject({ acknowledgedDuplicateIds: ['old-1'] });
   });
 });

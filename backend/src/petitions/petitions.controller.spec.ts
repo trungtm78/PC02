@@ -20,6 +20,7 @@ const mockService = {
   assignPetition: jest.fn(),
   suspectSearch: jest.fn(),
   duplicateSearch: jest.fn(),
+  findDuplicateCandidates: jest.fn(),
   goiYTenNguoiGui: jest.fn(),
   listAssignments: jest.fn(),
   addAssignment: jest.fn(),
@@ -59,6 +60,14 @@ describe('PetitionsController — delegation', () => {
     const req = makeReq();
     await controller.getList({} as any, req);
     expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+  });
+
+  it('duplicateReview() delegates with the caller data scope', async () => {
+    const query = { name: 'Nguyễn Văn A', idNumber: '012345678901', excludeId: 'current' };
+    const req = makeReq();
+    mockService.findDuplicateCandidates.mockResolvedValue([]);
+    await controller.duplicateReview(query, req);
+    expect(mockService.findDuplicateCandidates).toHaveBeenCalledWith(query, 'current', req.dataScope);
   });
 
   describe('In chứng từ ĐỘNG (PR3)', () => {

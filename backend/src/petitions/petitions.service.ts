@@ -98,6 +98,7 @@ import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHAI_TIM_KIEM_DON_THU } from '../common/tim-kiem/khai/don-thu.khai';
 import { thoatLike } from '../common/tim-kiem/bo-dau';
+import { assertReviewedCandidates } from '../common/duplicate-review/acknowledge';
 
 /**
  * Tham số lọc chữ cũ của Đơn thư → khoá thẻ. Đường dẫn cũ và các ô tìm cũ (GlobalSearchBar, trang
@@ -672,6 +673,12 @@ export class PetitionsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    const duplicateCandidates = await this.findDuplicateCandidates(
+      { name: dto.senderName, idNumber: dto.senderIdNumber, phone: dto.senderPhone },
+      undefined,
+      dataScope,
+    );
+    const reviewedDuplicateIds = assertReviewedCandidates(duplicateCandidates, dto.acknowledgedDuplicateIds);
     // v0.33.0.0: ward officer auto-set assignedTeamId
     const effectiveAssignedTeamId =
       (dataScope?.isWardOfficer ? dataScope.wardTeamId : null) ??
@@ -848,6 +855,7 @@ export class PetitionsService {
         stt: record.stt,
         senderName: record.senderName,
         status: record.status,
+        reviewedDuplicateIds,
         ...(deadlineSettingKey !== undefined && {
           deadlineDays,
           deadlineSettingKey,
@@ -899,6 +907,17 @@ export class PetitionsService {
     }
 
     this.checkWriteScope(existing, dataScope);
+
+    const duplicateCandidates = await this.findDuplicateCandidates(
+      {
+        name: dto.senderName ?? existing.senderName,
+        idNumber: dto.senderIdNumber ?? existing.senderIdNumber ?? undefined,
+        phone: dto.senderPhone ?? existing.senderPhone ?? undefined,
+      },
+      id,
+      dataScope,
+    );
+    const reviewedDuplicateIds = assertReviewedCandidates(duplicateCandidates, dto.acknowledgedDuplicateIds);
 
     // Validate receivedDate if updating
     if (dto.receivedDate) {
@@ -1195,6 +1214,18 @@ export class PetitionsService {
         );
       }
       throw e;
+    }
+
+    if (reviewedDuplicateIds.length > 0) {
+      await this.audit.log({
+        userId: actorId,
+        action: 'PETITION_DUPLICATE_REVIEWED',
+        subject: 'Petition',
+        subjectId: id,
+        metadata: { reviewedDuplicateIds },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      });
     }
 
     if (dto.assignedToId && dto.assignedToId !== existing.assignedToId) {
@@ -2712,6 +2743,65 @@ export class PetitionsService {
   }
 
   // ── Nhóm V — Search trùng đơn theo tên/STT/nội dung ───────────────────────
+  async findDuplicateCandidates(
+    input: { name?: string; idNumber?: string; phone?: string },
+    excludeId?: string,
+    dataScope?: DataScope | null,
+  ) {
+    const name = boDauTimKiem(input.name ?? '').trim();
+    const idNumber = (input.idNumber ?? '').replace(/[^0-9A-Za-z]/g, '');
+    const phone = (input.phone ?? '').replace(/\D/g, '');
+    const exactSignals: Prisma.PetitionWhereInput[] = [];
+    if (idNumber.length >= 9) exactSignals.push({ senderIdNumber: idNumber });
+    if (phone.length >= 8) exactSignals.push({ senderPhoneChuan: { endsWith: phone.slice(-8) } });
+    const nameSignal: Prisma.PetitionWhereInput[] = name.length >= 4
+      ? [{ senderNameBd: { contains: thoatLike(name) } }]
+      : [];
+    if (exactSignals.length === 0 && nameSignal.length === 0) return [];
+
+    const scope = buildPetitionScopeFilter(dataScope);
+    const scopedWhere = (signals: Prisma.PetitionWhereInput[]): Prisma.PetitionWhereInput => {
+      const where: Prisma.PetitionWhereInput = {
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+        OR: signals,
+      };
+      if (scope) noiVaoWhere(where as Record<string, unknown>, [scope as Prisma.PetitionWhereInput]);
+      return where;
+    };
+    const select = {
+      id: true, stt: true, senderName: true, senderIdNumber: true,
+      senderPhone: true, receivedDate: true, summary: true,
+    } satisfies Prisma.PetitionSelect;
+    const [exactRows, nameRows] = await Promise.all([
+      exactSignals.length
+        ? this.prisma.petition.findMany({ where: scopedWhere(exactSignals), select, take: 200, orderBy: { updatedAt: 'desc' } })
+        : Promise.resolve([]),
+      nameSignal.length
+        ? this.prisma.petition.findMany({ where: scopedWhere(nameSignal), select, take: 50, orderBy: { updatedAt: 'desc' } })
+        : Promise.resolve([]),
+    ]);
+    const rows = [...new Map([...exactRows, ...nameRows].map((row) => [row.id, row])).values()];
+    return rows.map((row) => {
+      const reasons: string[] = [];
+      const sameName = name.length >= 4 && boDauTimKiem(row.senderName).trim() === name;
+      const sameId = idNumber.length >= 9 && row.senderIdNumber?.replace(/[^0-9A-Za-z]/g, '') === idNumber;
+      const samePhone = phone.length >= 8 && (row.senderPhone ?? '').replace(/\D/g, '').endsWith(phone.slice(-8));
+      if (sameName) reasons.push('NAME_MATCH');
+      if (sameId) reasons.push('ID_NUMBER_MATCH');
+      if (samePhone) reasons.push('PHONE_MATCH');
+      return {
+        id: row.id,
+        stt: row.stt,
+        name: row.senderName,
+        receivedDate: row.receivedDate.toISOString().slice(0, 10),
+        summary: row.summary,
+        confidence: sameId || (samePhone && sameName) ? 'HIGH' as const : 'MEDIUM' as const,
+        reasons: reasons.length ? reasons : ['NAME_SIMILAR'],
+      };
+    }).sort((a, b) => Number(b.confidence === 'HIGH') - Number(a.confidence === 'HIGH'));
+  }
+
   async duplicateSearch(
     q: string,
     excludeId?: string,
