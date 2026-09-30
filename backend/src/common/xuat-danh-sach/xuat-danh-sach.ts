@@ -9,6 +9,8 @@ export const TRAN_XUAT_DANH_SACH = 50_000;
 const LO_MAC_DINH = 1_000;
 /** Hàng tiêu đề cột trong mẫu BCA (`BcaExcelHelper.addHeader` chiếm hàng 1–6). */
 const HANG_TIEU_DE_COT = 7;
+// Reserve two rows for the standard footer after the final data row.
+const TRAN_DONG_SHEET_EXCEL = 1_048_576 - HANG_TIEU_DE_COT - 2;
 
 /**
  * Một cột xuất. `key` TRÙNG khoá cột trên bảng giao diện, để "xuất các cột đang hiện" nói đúng một
@@ -19,6 +21,14 @@ export interface KhaiCotXuat<T> {
   tieuDe: string;
   rong: number;
   doc: (dong: T) => string | number | null;
+}
+
+export interface SheetLienQuan<T> {
+  ten: string;
+  cot: readonly KhaiCotXuat<Record<string, unknown>>[];
+  layDong: (hoSo: T) => readonly Record<string, unknown>[] | null | undefined;
+  /** Count with the same scope as layDong, before any response bytes are sent. */
+  demDong: (ids: string[]) => Promise<number>;
 }
 
 /** Cột theo thứ tự người dùng đang xem; không chọn thì mọi cột khai. Cột lạ → 400. */
@@ -56,6 +66,7 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
   tieuDe: string;
   phuDe: string;
   cot: readonly KhaiCotXuat<T>[];
+  sheetLienQuan?: readonly SheetLienQuan<T>[];
   demTong: () => Promise<number>;
   layIdTheoThuTu: (toiDa: number) => Promise<string[]>;
   layDong: (ids: string[]) => Promise<T[]>;
@@ -80,6 +91,17 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
     );
   }
   const ids = await o.layIdTheoThuTu(tran);
+  if (ids.length > TRAN_DONG_SHEET_EXCEL) {
+    throw new BadRequestException('Sheet chính vượt giới hạn dòng Excel.');
+  }
+  for (const lienQuan of o.sheetLienQuan ?? []) {
+    const soDong = await lienQuan.demDong(ids);
+    if (soDong > TRAN_DONG_SHEET_EXCEL) {
+      throw new BadRequestException(
+        `Sheet ${lienQuan.ten} có ${soVN(soDong)} dòng, vượt giới hạn Excel.`,
+      );
+    }
+  }
 
   o.res.setHeader(
     'Content-Type',
@@ -111,6 +133,20 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
     );
     sheet.getRow(HANG_TIEU_DE_COT).commit();
 
+    const sheetsPhu = (o.sheetLienQuan ?? []).map((khai) => {
+      const child = workbook.addWorksheet(khai.ten, {
+        pageSetup: BcaExcelHelper.printSetup(),
+      }) as unknown as ExcelJS.Worksheet;
+      BcaExcelHelper.addHeader(child, khai.cot.length + 1, khai.ten, o.phuDe);
+      BcaExcelHelper.addColumnHeaders(
+        child.getRow(HANG_TIEU_DE_COT),
+        ['STT', ...khai.cot.map((c) => c.tieuDe)],
+        [7, ...khai.cot.map((c) => c.rong)],
+      );
+      child.getRow(HANG_TIEU_DE_COT).commit();
+      return { khai, child, daGhi: 0 };
+    });
+
     for (let i = 0; i < ids.length; i += lo) {
       const phan = ids.slice(i, i + lo);
       const theoId = new Map((await o.layDong(phan)).map((d) => [d.id, d]));
@@ -125,10 +161,37 @@ export async function xuatDanhSachExcel<T extends { id: string }>(o: {
         BcaExcelHelper.styleDataRow(hang, daGhi % 2 === 1, soCot);
         hang.commit();
         daGhi++;
+        for (const phu of sheetsPhu) {
+          for (const banGhi of phu.khai.layDong(dong) ?? []) {
+            if (phu.daGhi >= TRAN_DONG_SHEET_EXCEL) {
+              throw new BadRequestException(
+                `Sheet ${phu.khai.ten} vượt giới hạn Excel.`,
+              );
+            }
+            const hangPhu = phu.child.addRow([
+              phu.daGhi + 1,
+              ...phu.khai.cot.map((c) => c.doc(banGhi) ?? ''),
+            ]);
+            BcaExcelHelper.styleDataRow(
+              hangPhu,
+              phu.daGhi % 2 === 1,
+              phu.khai.cot.length + 1,
+            );
+            hangPhu.commit();
+            phu.daGhi++;
+          }
+        }
       }
     }
 
     BcaExcelHelper.addFooter(sheet, HANG_TIEU_DE_COT + daGhi + 2, soCot);
+    for (const phu of sheetsPhu) {
+      BcaExcelHelper.addFooter(
+        phu.child,
+        HANG_TIEU_DE_COT + phu.daGhi + 2,
+        phu.khai.cot.length + 1,
+      );
+    }
     await workbook.commit();
   } catch (loi) {
     console.error('[xuatDanhSachExcel] lỗi giữa lúc ghi tệp, huỷ luồng:', loi);

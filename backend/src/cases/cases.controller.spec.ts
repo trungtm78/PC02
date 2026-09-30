@@ -109,7 +109,7 @@ describe('CasesController — delegation', () => {
     await expect(loadRecord('c1')).rejects.toThrow();
   });
 
-  it('requires separate full export permission and rejects oversized Word batches', async () => {
+  it('allows full export with read permission and rejects oversized Word batches', async () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       CasesController.prototype,
       'xuatDayDu',
@@ -119,7 +119,6 @@ describe('CasesController — delegation', () => {
     }
     expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual([
       { action: 'read', subject: 'Case' },
-      { action: 'export_full', subject: 'Case' },
     ]);
     await expect(
       controller.exportDocumentBatch(

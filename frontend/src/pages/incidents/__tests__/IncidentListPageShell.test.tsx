@@ -26,6 +26,8 @@ import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
 import { useEffect } from 'react';
 
+const mockHasPermission = vi.hoisted(() => vi.fn(() => true));
+
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn(),
@@ -38,7 +40,7 @@ vi.mock('@/hooks/usePermission', () => ({
     canDispatch: true,
     canEdit: () => true,
     canDelete: () => true,
-    hasPermission: () => true,
+    hasPermission: mockHasPermission,
   }),
 }));
 
@@ -123,6 +125,8 @@ const sampleStats = {
 describe('IncidentListPageShell — initial mount + ready state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockImplementation(() => true);
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/incidents') {
         return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
@@ -176,6 +180,8 @@ describe('IncidentListPageShell — initial mount + ready state', () => {
 describe('IncidentListPageShell — export parity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockImplementation(() => true);
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/incidents') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
       if (url === '/incidents/stats') return Promise.resolve({ data: sampleStats });
@@ -188,6 +194,20 @@ describe('IncidentListPageShell — export parity', () => {
     await screen.findByText('VV-2026-00001');
     expect(screen.getByText('Xuất Excel (đang xem)')).toBeInTheDocument();
     expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+  });
+
+  it('shows full-field Excel with Incident view permission alone', async () => {
+    mockHasPermission.mockImplementation((_feature: string, action: string) => action === 'view');
+    renderWithRouter();
+    await screen.findByText('VV-2026-00001');
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
+  });
+
+  it('hides full-field Excel without Incident view permission', async () => {
+    mockHasPermission.mockReturnValue(false);
+    renderWithRouter();
+    await screen.findByText('VV-2026-00001');
+    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
   });
 
   it('offers Word batch export after selecting a writable row', async () => {

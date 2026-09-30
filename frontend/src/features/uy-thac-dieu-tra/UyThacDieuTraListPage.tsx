@@ -63,10 +63,8 @@ import {
   TRANG_THAI_PHAN_HOI_BADGE,
   TRANG_THAI_PHAN_HOI_CHIPS,
   LOAI_UY_THAC_LABEL,
-  LOAI_UY_THAC_OPTIONS,
   CASE_STATUS_LABEL,
   CASE_STATUS_BADGE,
-  CASE_STATUS_OPTIONS,
   type TrangThaiPhanHoi,
 } from '@/shared/enums/status-labels';
 import { CaseType, CaseStatus, LoaiUyThac } from '@/shared/enums/generated';
@@ -80,9 +78,12 @@ import {
   StatsCardsStrip,
   type StatCard,
 } from '@/components/shared/StatsCardsStrip';
-import { useOChuDongBo } from '@/components/shared/ListPageShell/useOChuDongBo';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
+import { Filters } from '@/features/_shared/list-filters/Filters';
+import { DateRangePresets } from '@/features/_shared/list-filters/DateRangePresets';
+import { useListFilters } from '@/features/_shared/list-filters/useListFilters';
 import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMessages';
+import { uyThacListFilters, uyThacLegacyListFilters, type UyThacFilterValue } from './list-filters';
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
 import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
 import { usePermission } from '@/hooks/usePermission';
@@ -211,7 +212,6 @@ function getInvestigatorName(inv: UyThacFromApi['investigator']): string {
     [inv.firstName, inv.lastName].filter(Boolean).join(' ') || inv.username
   );
 }
-
 function getNghiVan(row: UyThacFromApi): string | null {
   const meta = row.metadata as Record<string, unknown> | null;
   return (meta?.nghiVanDoiTuong as string | undefined) ?? null;
@@ -335,6 +335,12 @@ export default function UyThacDieuTraListPage() {
   const canDeleteCase = canDelete('cases');
   const url = useListPageUrlState('utdt');
   const sort = useListSort('utdt');
+  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
+  const listFilters = useListFilters<UyThacFilterValue>({
+    prefix: 'utdt',
+    registry: theBat ? uyThacListFilters : uyThacLegacyListFilters,
+  });
+  const appliedFilters = listFilters.applied;
 
   // Primary status filter (4-state response status)
   const rawTrangThai = url.getParam('status');
@@ -343,19 +349,18 @@ export default function UyThacDieuTraListPage() {
   // Secondary filters — kept in URL for bookmark/back-button restore.
   // ALL pass through trust-boundary sanitizers (/codex P2 fix) — invalid enums
   // or malformed dates from tampered URLs degrade gracefully to "no filter".
-  const caseStatus = sanitizeEnumParam(url.getParam('cs'), CASE_STATUS_VALUES);
+  const caseStatus = sanitizeEnumParam(appliedFilters.caseStatus ?? null, CASE_STATUS_VALUES);
   const loaiUyThac = sanitizeEnumParam(
-    url.getParam('lut'),
+    appliedFilters.loaiUyThac ?? null,
     LOAI_UY_THAC_VALUES,
   );
-  const donViGiao = sanitizeStringParam(url.getParam('dv'));
-  const ngayTiepNhanFrom = sanitizeDateParam(url.getParam('tnf'));
-  const ngayTiepNhanTo = sanitizeDateParam(url.getParam('tnt'));
-  const investigatorSearch = sanitizeStringParam(url.getParam('inv'));
+  const donViGiao = sanitizeStringParam(appliedFilters.donViGiao ?? url.getParam('dv'));
+  const ngayTiepNhanFrom = sanitizeDateParam(appliedFilters.ngayTiepNhanFrom ?? null);
+  const ngayTiepNhanTo = sanitizeDateParam(appliedFilters.ngayTiepNhanTo ?? null);
+  const investigatorSearch = sanitizeStringParam(appliedFilters.investigatorSearch ?? url.getParam('inv'));
   const page = Math.max(1, url.getNumberParam('page', 1));
   const searchQuery = sanitizeStringParam(url.getParam('q'), 200);
   // Ô tìm kiếm dạng thẻ. Cờ `TIM_KIEM_THE` tắt → trở lại ô chữ `q` + hai ô lọc chữ cũ, không deploy.
-  const theBat = useFeatureBatMacDinh('TIM_KIEM_THE');
   const timKiem = useTheTimKiem({
     prefix: 'utdt',
     khai: TIM_KIEM_VU_AN,
@@ -1018,51 +1023,19 @@ export default function UyThacDieuTraListPage() {
             </div>
           }
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <FilterSelect
-              label="Trạng thái Vụ án"
-              value={caseStatus}
-              onChange={(v) => url.setParams({ cs: v, page: '1' })}
-              options={CASE_STATUS_OPTIONS}
-            />
-            <FilterSelect
-              label="Loại ủy thác"
-              value={loaiUyThac}
-              onChange={(v) => url.setParams({ lut: v, page: '1' })}
-              options={LOAI_UY_THAC_OPTIONS}
-            />
-            {/* Hai ô chữ này là thẻ `donViGiao` / `dieuTraVien` khi ô thẻ bật — để cả hai là hai lối
-                vào một bộ lọc. Chỉ hiện lại khi cờ `TIM_KIEM_THE` tắt (công tắc khẩn). */}
-            {!theBat && (
-              <>
-                <FilterInput
-                  label="Đơn vị giao"
-                  placeholder="PC01, CA quận X..."
-                  value={donViGiao}
-                  onChange={(v) => url.setParams({ dv: v, page: '1' })}
-                />
-                <FilterInput
-                  label="Điều tra viên"
-                  placeholder="Tên điều tra viên..."
-                  value={investigatorSearch}
-                  onChange={(v) => url.setParams({ inv: v, page: '1' })}
-                />
-              </>
+          <Filters<UyThacFilterValue>
+            registry={theBat ? uyThacListFilters : uyThacLegacyListFilters}
+            value={listFilters.draft}
+            onChange={listFilters.setField}
+            onApply={listFilters.apply}
+            onReset={listFilters.reset}
+            hasUnappliedChanges={listFilters.hasUnappliedChanges}
+            hanhDongPhu={<>
+            {tableState !== 'loading' && (
+              <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+              </span>
             )}
-            <FilterInput
-              type="date"
-              label="Ngày tiếp nhận từ"
-              value={ngayTiepNhanFrom}
-              onChange={(v) => url.setParams({ tnf: v, page: '1' })}
-            />
-            <FilterInput
-              type="date"
-              label="Ngày tiếp nhận đến"
-              value={ngayTiepNhanTo}
-              onChange={(v) => url.setParams({ tnt: v, page: '1' })}
-            />
-          </div>
-          <div className="mt-4 flex justify-end">
             <NutXuatTheoBoLoc
               duongDan="/cases/export/danh-sach"
               thamSo={exportParams}
@@ -1070,24 +1043,31 @@ export default function UyThacDieuTraListPage() {
                 .filter((column) => column.key !== 'actions')
                 .map((column) => column.key)}
               tong={tableState === 'loading' ? null : totalCount}
-              hasUnappliedChanges={false}
-              onApply={() => undefined}
+              hasUnappliedChanges={listFilters.hasUnappliedChanges}
+              onApply={listFilters.apply}
               tenDuPhong="danh-sach-uy-thac.xlsx"
+              nhanRieng="Xuất Excel (đang xem)"
             />
-            {hasPermission('cases', 'view') && hasPermission('cases', 'export_full') && <NutXuatTheoBoLoc
+            {hasPermission('cases', 'view') && <NutXuatTheoBoLoc
               duongDan="/cases/export/day-du"
               thamSo={{ ...exportParams, caseType: 'UY_THAC_DIEU_TRA' }}
               cot={[]}
               boQuaCot
               tong={tableState === 'loading' ? null : totalCount}
-              hasUnappliedChanges={false}
-              onApply={() => undefined}
+              hasUnappliedChanges={listFilters.hasUnappliedChanges}
+              onApply={listFilters.apply}
               tenDuPhong={fullExportMessages.delegationFilename}
               nhanRieng={fullExportMessages.label}
               testId="btn-xuat-day-du"
               goiY={fullExportMessages.hint}
             />}
-          </div>
+            </>}
+          >
+            <DateRangePresets onPick={(range) => {
+              listFilters.setField('ngayTiepNhanFrom', range.fromDate);
+              listFilters.setField('ngayTiepNhanTo', range.toDate);
+            }} />
+          </Filters>
         </ListPageShell.Toolbar>
         {transientBanner && (
           <div
@@ -1157,13 +1137,7 @@ export default function UyThacDieuTraListPage() {
           getRowClassName={(r) =>
             computeTrangThai(r) === 'QUA_HAN' ? OVERDUE_ROW_HIGHLIGHT : ''
           }
-          onRowClick={(r) =>
-            navigate(
-              canEditCase && r.quyenGhi !== false
-                ? `/uy-thac-dieu-tra/${r.id}/edit`
-                : `/cases/${r.id}`,
-            )
-          }
+          onRowClick={(r) => navigate(`/cases/${r.id}`)}
           bulkSelection={selection}
           bulkRowsLabel="ủy thác"
           bulkRowLabel={(r) => `ủy thác ${r.caseCode ?? r.id}`}
@@ -1286,72 +1260,5 @@ export default function UyThacDieuTraListPage() {
         )}
       </Modal>
     </>
-  );
-}
-
-// ─── Inline filter primitives ──────────────────────────────────────
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: ReadonlyArray<{ value: string; label: string }>;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-700 mb-1">
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
-      >
-        <option value="">— Tất cả —</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function FilterInput({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: 'text' | 'date';
-}) {
-  // `value` đọc từ URL (utdt_dv, utdt_inv…) và về trễ — ràng thẳng thì gõ bể chữ. Xem `useOChuDongBo`.
-  const o = useOChuDongBo(value, onChange);
-  return (
-    <div>
-      <label className="block text-xs font-medium text-slate-700 mb-1">
-        {label}
-      </label>
-      <input
-        type={type}
-        value={o.value}
-        placeholder={placeholder}
-        onChange={o.onChange}
-        onCompositionStart={o.onCompositionStart}
-        onCompositionEnd={o.onCompositionEnd}
-        className={`w-full text-sm border border-slate-300 rounded-md py-1.5 px-2 ${A11Y_FOCUS_RING}`}
-      />
-    </div>
   );
 }

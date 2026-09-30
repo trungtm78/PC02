@@ -47,6 +47,7 @@ const mockPrisma = {
     count: jest.fn(),
     findMany: jest.fn(),
   },
+  document: { count: jest.fn().mockResolvedValue(0) },
 };
 const audit = { log: jest.fn() };
 
@@ -55,11 +56,11 @@ function resGia() {
   const phan: Buffer[] = [];
   luong.on('data', (c: Buffer) => phan.push(c));
   const res = Object.assign(luong, { setHeader: jest.fn() });
-  const docSheet = async () => {
+  const docSheet = async (index = 0) => {
     await new Promise((r) => setImmediate(r));
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(Buffer.concat(phan) as never);
-    return wb.worksheets[0];
+    return wb.worksheets[index];
   };
   return { res, docSheet };
 }
@@ -175,7 +176,9 @@ describe('IncidentsService.xuatDanhSach', () => {
         { where: Record<string, unknown> },
       ]
     )[0].where;
-    expect(whereDong.deletedAt).toBeNull();
+    expect(whereDong).toEqual({
+      AND: [whereDem, { id: { in: ['b', 'a'] }, deletedAt: null }],
+    });
     const whereId = (
       mockPrisma.incident.findMany.mock.calls[0] as [
         { where: Record<string, unknown> },
@@ -204,5 +207,57 @@ describe('IncidentsService.xuatDanhSach', () => {
       ),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.incident.count).not.toHaveBeenCalled();
+  });
+
+  it('exports full fields and rechecks list scope during hydration', async () => {
+    mockPrisma.incident.count.mockResolvedValue(1);
+    mockPrisma.incident.findMany
+      .mockResolvedValueOnce([{ id: 'incident-1' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'incident-1',
+          name: 'Vụ việc mẫu',
+          metadata: { ghiChu: 'Giữ nguyên' },
+          legacyRaw: { maCu: 'OLD-1' },
+          documents: [{ incidentId: 'incident-1', title: 'Biên bản' }],
+        },
+      ]);
+    const { res, docSheet } = resGia();
+    await service.xuatDayDu(
+      { canBoNhapId: 'owner-1' } as never,
+      null,
+      res as never,
+      { userId: 'actor' },
+    );
+    const sheet = await docSheet();
+    const headers = sheet.getRow(7).values as unknown[];
+    const row = sheet.getRow(8).values as unknown[];
+    expect(row[headers.indexOf('Mã định danh')]).toBe('incident-1');
+    expect(headers).not.toEqual(expect.arrayContaining(['metadata', 'legacyRaw', 'documents']));
+    expect((await docSheet(1)).name).toBe('Tài liệu');
+    expect((await docSheet(1)).getRow(8).getCell(2).value).toBe('incident-1');
+    const countWhere = (
+      mockPrisma.incident.count.mock.calls[0] as unknown as [
+        { where: Record<string, unknown> },
+      ]
+    )[0].where;
+    expect(countWhere).toMatchObject({ canBoNhapId: 'owner-1' });
+    const hydrate = (
+      mockPrisma.incident.findMany.mock.calls[1] as unknown as [
+        { where: { AND: unknown[] }; select: Record<string, boolean> },
+      ]
+    )[0];
+    expect(hydrate.where.AND).toEqual([
+      countWhere,
+      { id: { in: ['incident-1'] }, deletedAt: null },
+    ]);
+    expect(hydrate.select).toMatchObject({ metadata: true, documents: { where: { deletedAt: null } } });
+    const auditCall = (
+      audit.log.mock.calls[0] as unknown as [
+        { action: string; metadata: { kind: string; soDong: number } },
+      ]
+    )[0];
+    expect(auditCall.action).toBe('INCIDENT_EXPORTED');
+    expect(auditCall.metadata).toMatchObject({ kind: 'day-du', soDong: 1 });
   });
 });

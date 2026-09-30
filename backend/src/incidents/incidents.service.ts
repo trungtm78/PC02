@@ -70,6 +70,7 @@ import { boDauTimKiem, thoatLike } from '../common/tim-kiem/bo-dau';
 import { assertReviewedCandidates } from '../common/duplicate-review/acknowledge';
 import {
   COT_CAN_CHO_XUAT_DAY_DU_VU_VIEC,
+  COT_TAI_LIEU_VU_VIEC,
   KHAI_COT_XUAT_VU_VIEC_DAY_DU,
 } from './xuat-day-du-vu-viec';
 import type { DongXuatDayDuModel } from '../common/xuat-danh-sach/xuat-day-du-model';
@@ -2520,7 +2521,7 @@ export class IncidentsService {
         ).map((d) => d.id),
       layDong: (ids) =>
         this.prisma.incident.findMany({
-          where: { id: { in: ids }, deletedAt: null },
+          where: { AND: [where, { id: { in: ids }, deletedAt: null }] },
           select: CHON_DONG_DANH_SACH_VU_VIEC,
         }),
     });
@@ -2559,6 +2560,18 @@ export class IncidentsService {
         'Ngày đề xuất',
       ),
       cot: KHAI_COT_XUAT_VU_VIEC_DAY_DU,
+      sheetLienQuan: [
+        {
+          ten: 'Tài liệu',
+          cot: COT_TAI_LIEU_VU_VIEC,
+          demDong: (ids) =>
+            this.prisma.document.count({
+              where: { incidentId: { in: ids }, deletedAt: null },
+            }),
+          layDong: (row) =>
+            row.documents as Record<string, unknown>[] | undefined,
+        },
+      ],
       demTong: () => this.prisma.incident.count({ where }),
       layIdTheoThuTu: async (toiDa) =>
         (

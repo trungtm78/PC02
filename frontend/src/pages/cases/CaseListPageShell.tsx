@@ -1012,6 +1012,11 @@ export function CaseListPageShell() {
           hanhDongPhu={
             // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
             <>
+              {tableState !== 'loading' && (
+                <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                  {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
+                </span>
+              )}
               <NutXuatTheoBoLoc
                 duongDan="/cases/export/danh-sach"
                 thamSo={{
@@ -1027,8 +1032,9 @@ export function CaseListPageShell() {
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
                 tenDuPhong="danh-sach-vu-an.xlsx"
+                nhanRieng="Xuất Excel (đang xem)"
               />
-              {hasPermission('cases', 'view') && hasPermission('cases', 'export_full') && <NutXuatTheoBoLoc
+              {hasPermission('cases', 'view') && <NutXuatTheoBoLoc
                 duongDan="/cases/export/day-du"
                 thamSo={{
                   ...baseQueryParams,

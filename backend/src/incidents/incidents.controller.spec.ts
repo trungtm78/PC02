@@ -6,6 +6,7 @@ import {
 import type { Response } from 'express';
 import { IncidentsController } from './incidents.controller';
 import { IncidentsService } from './incidents.service';
+import { PERMISSIONS_KEY } from '../auth/decorators/permissions.decorator';
 import { IncidentsJourneyService } from './incidents-journey.service';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
 import type { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
@@ -61,6 +62,16 @@ describe('IncidentsController — delegation', () => {
     );
     controller = module.get(IncidentsController);
     jest.clearAllMocks();
+  });
+
+  it('allows full Excel export with Incident read permission', () => {
+    const handler = Object.getOwnPropertyDescriptor(
+      IncidentsController.prototype,
+      'xuatDayDu',
+    )?.value;
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual([
+      { action: 'read', subject: 'Incident' },
+    ]);
   });
 
   it('exportDocuments() load incident (scope) rồi delegate dynamicExport (VU_VIEC)', async () => {

@@ -8,35 +8,30 @@ export interface DongXuatDayDuModel {
   [key: string]: unknown;
 }
 
-const SEARCH_SHADOW_FIELDS = new Set(['timKiemBd', 'sttSort']);
-
-function isSearchShadow(name: string): boolean {
-  return SEARCH_SHADOW_FIELDS.has(name) || name.endsWith('Bd');
-}
-
-function readValue(value: unknown): string {
+export function readValue(value: unknown): string | number {
   if (value == null) return '';
   if (value instanceof Date) return ngayVN(value);
   if (typeof value === 'boolean') return value ? 'Có' : 'Không';
-  if (typeof value === 'object') return JSON.stringify(value) ?? '';
-  if (
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'bigint'
-  ) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object')
+    return escapeXlsxCell(JSON.stringify(value) ?? '');
+  if (typeof value === 'string' || typeof value === 'bigint') {
     return escapeXlsxCell(String(value));
   }
   return '';
 }
 
-/**
- * Prisma's scalar model is the storage contract for form fields. Keeping this
- * registry derived from the model makes new typed fields visible in the full
- * export; JSON fields preserve every metadata and legacy key without loss.
- */
-export function buildFullModelExport(
+export interface TruongFormHoSo {
+  key: string;
+  caption: string;
+  source: 'scalar' | 'metadata' | 'statistic';
+  path: string;
+}
+
+/** The form layout is generated into a backend manifest at build time. */
+export function buildFormExport(
   modelName: 'Case' | 'Incident',
-  relationNames: readonly string[] = [],
+  fields: readonly TruongFormHoSo[],
 ): {
   columns: readonly KhaiCotXuat<DongXuatDayDuModel>[];
   select: Readonly<Record<string, true>>;
@@ -45,24 +40,34 @@ export function buildFullModelExport(
     (item) => item.name === modelName,
   );
   if (!model) throw new Error(`Missing Prisma model: ${modelName}`);
-  const relations = new Set(relationNames);
-  const fields = model.fields.filter((field) =>
-    field.kind === 'object'
-      ? relations.has(field.name)
-      : !isSearchShadow(field.name),
+  const scalars = new Set(
+    model.fields.filter((f) => f.kind !== 'object').map((f) => f.name),
   );
-  for (const relation of relations) {
-    if (!fields.some((field) => field.name === relation)) {
-      throw new Error(`Missing ${modelName} export relation: ${relation}`);
-    }
+  const selected = new Set<string>(['id']);
+  for (const field of fields) {
+    if (field.source === 'scalar') {
+      if (!scalars.has(field.path))
+        throw new Error(`Missing ${modelName}.${field.path}`);
+      selected.add(field.path);
+    } else if (field.source === 'statistic') {
+      if (modelName !== 'Case')
+        throw new Error('Incident has no statistic relation');
+      selected.add('statistic');
+    } else selected.add('metadata');
   }
   return {
     columns: fields.map((field) => ({
-      key: field.name,
-      tieuDe: field.name,
-      rong: 22,
-      doc: (row) => readValue(row[field.name]),
+      key: field.key,
+      tieuDe: field.caption,
+      rong: 24,
+      doc: (row) => {
+        const container =
+          field.source === 'scalar'
+            ? row
+            : (row[field.source] as Record<string, unknown> | null);
+        return readValue(container?.[field.path]);
+      },
     })),
-    select: Object.fromEntries(fields.map((field) => [field.name, true])),
+    select: Object.fromEntries([...selected].map((key) => [key, true])),
   };
 }

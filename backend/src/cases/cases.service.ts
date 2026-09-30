@@ -86,6 +86,9 @@ import {
 } from './xuat-danh-sach-vu-an';
 import {
   COT_CAN_CHO_XUAT_DAY_DU_VU_AN,
+  COT_DOI_TUONG,
+  COT_VAT_CHUNG,
+  COT_TAI_LIEU,
   KHAI_COT_XUAT_VU_AN_DAY_DU,
 } from './xuat-day-du-vu-an';
 import type { DongXuatDayDuModel } from '../common/xuat-danh-sach/xuat-day-du-model';
@@ -3144,6 +3147,38 @@ export class CasesService {
           : 'DANH SÁCH VỤ ÁN',
       phuDe: phuDeKyXuat(ky, query.fromDate, query.toDate, 'Ngày đề xuất'),
       cot: KHAI_COT_XUAT_VU_AN_DAY_DU,
+      sheetLienQuan: [
+        {
+          ten: 'Đối tượng',
+          cot: COT_DOI_TUONG,
+          demDong: (ids) =>
+            this.prisma.subject.count({
+              where: { caseId: { in: ids }, deletedAt: null },
+            }),
+          layDong: (row) =>
+            row.subjects as Record<string, unknown>[] | undefined,
+        },
+        {
+          ten: 'Vật chứng',
+          cot: COT_VAT_CHUNG,
+          demDong: (ids) =>
+            this.prisma.evidence.count({
+              where: { caseId: { in: ids }, deletedAt: null },
+            }),
+          layDong: (row) =>
+            row.evidences as Record<string, unknown>[] | undefined,
+        },
+        {
+          ten: 'Tài liệu',
+          cot: COT_TAI_LIEU,
+          demDong: (ids) =>
+            this.prisma.document.count({
+              where: { caseId: { in: ids }, deletedAt: null },
+            }),
+          layDong: (row) =>
+            row.documents as Record<string, unknown>[] | undefined,
+        },
+      ],
       demTong: () => this.prisma.case.count({ where }),
       layIdTheoThuTu: async (toiDa) =>
         (
