@@ -21,6 +21,14 @@ export interface SeededTestUser {
   totpSecret?: string;
 }
 
+type PersistedTestUser = {
+  id: string;
+  email: string | null;
+  mustChangePassword: boolean;
+  totpEnabled: boolean;
+  tokenVersion: number;
+};
+
 /**
  * Idempotent test fixture: upsert a single test user matching the e2e+*
  * email pattern, set its state (force-change / 2FA / tokenVersion bump),
@@ -44,13 +52,13 @@ export class TestFixturesService {
       throw new NotFoundException('e2e email pattern mismatch');
     }
 
-    const investigatorRole = await this.prisma.role.findFirst({
-      where: { name: ROLE_NAMES.INVESTIGATOR },
+    const officerRole = await this.prisma.role.findFirst({
+      where: { name: ROLE_NAMES.OFFICER },
       select: { id: true },
     });
-    if (!investigatorRole) {
+    if (!officerRole) {
       throw new NotFoundException(
-        'Investigator role not seeded — run npm run db:seed first',
+        'Officer role not seeded — run npm run db:seed first',
       );
     }
 
@@ -72,7 +80,7 @@ export class TestFixturesService {
       select: { id: true, tokenVersion: true },
     });
 
-    let user;
+    let user: PersistedTestUser;
     if (existing) {
       // Bump tokenVersion when caller requests OR when password changes,
       // so any previously-issued JWT is rejected. Mirrors auth.service
@@ -87,6 +95,7 @@ export class TestFixturesService {
           passwordHash,
           tokenVersion: newTokenVersion,
           mustChangePassword: dto.mustChangePassword ?? false,
+          twoFaSetupRequired: false,
           totpEnabled: dto.twoFaEnabled ?? false,
           totpSecret: encryptedTotpSecret,
           totpSetupPending: false,
@@ -110,8 +119,9 @@ export class TestFixturesService {
           passwordHash,
           firstName: 'E2E',
           lastName: 'Test',
-          roleId: investigatorRole.id,
+          roleId: officerRole.id,
           mustChangePassword: dto.mustChangePassword ?? false,
+          twoFaSetupRequired: false,
           totpEnabled: dto.twoFaEnabled ?? false,
           totpSecret: encryptedTotpSecret,
           tokenVersion: 0,
@@ -129,7 +139,7 @@ export class TestFixturesService {
 
     return {
       userId: user.id,
-      email: user.email,
+      email: user.email ?? dto.email,
       mustChangePassword: user.mustChangePassword,
       twoFaEnabled: user.totpEnabled,
       tokenVersion: user.tokenVersion,

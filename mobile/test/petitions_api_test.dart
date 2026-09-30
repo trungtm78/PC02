@@ -41,7 +41,7 @@ void main() {
 
     test('passes status filter', () async {
       when(() => mockDio.get('/petitions',
-              queryParameters: {'status': 'CHO_XU_LY', 'offset': 0, 'limit': 20}))
+              queryParameters: {'status': 'CHO_XU_LY', 'offset': 0, 'limit': 50}))
           .thenAnswer((_) async => Response(
                 data: {'data': []},
                 statusCode: 200,

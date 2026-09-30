@@ -9,25 +9,17 @@ env:
 ---
 # Step 1: Seed a fresh test user without forced-change or 2FA.
 # Idempotent — re-running this flow upserts the same user.
-- evalScript: |
-    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
-    const token = MAESTRO_TEST_SEED_TOKEN;
-    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
-    const r = http.post(apiBase + '/test/seed-user', {
-      headers: {
-        'x-test-seed-token': token,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEST_PASSWORD,
-        mustChangePassword: false,
-        twoFaEnabled: false,
-      }),
-    });
-    if (r.status !== 200) {
-      throw new Error('seed failed: ' + r.status + ' ' + r.body);
-    }
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEST_PASSWORD}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'false'
+      FIXTURE_TWO_FA_ENABLED: 'false'
+      FIXTURE_BUMP_TOKEN_VERSION: 'false'
+      FIXTURE_REQUIRE_OTP: 'false'
 
 # Step 2: Launch app fresh — clears any previously stored access token.
 - launchApp:
@@ -55,8 +47,13 @@ env:
 # Step 5: Verify we reached the dashboard (post-auth shell scaffold).
 # Timeout generous because cold launch + login round-trip + dashboard fetch
 # can exceed 10s on emulator.
-- assertVisible:
-    id: "dashboard-scaffold"
+- extendedWaitUntil:
+    visible: "Bật đăng nhập sinh trắc học?"
+    timeout: 15000
+- tapOn: "Để sau"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-scaffold"
     timeout: 15000
 
 # Step 6: Sanity — login screen is gone (no double-render or race).

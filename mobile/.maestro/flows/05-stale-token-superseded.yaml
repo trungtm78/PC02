@@ -1,5 +1,5 @@
 appId: vn.gov.pc02.mobile
-name: "05 — Admin re-reset password mid-flow returns 409 (Codex C7)"
+name: "05 — Admin re-reset supersedes the pending password token (Codex C7)"
 tags:
   - auth
   - first-login
@@ -11,24 +11,17 @@ env:
   NEW_PASSWORD: NewStr0ngPw!
 ---
 # Seed user with mustChangePassword=true and the FIRST temp password.
-- evalScript: |
-    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
-    const token = MAESTRO_TEST_SEED_TOKEN;
-    if (!token) { throw new Error('MAESTRO_TEST_SEED_TOKEN env not set'); }
-    const r = http.post(apiBase + '/test/seed-user', {
-      headers: {
-        'x-test-seed-token': token,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEMP_PASSWORD_V1,
-        mustChangePassword: true,
-      }),
-    });
-    if (r.status !== 200) {
-      throw new Error('seed v1 failed: ' + r.status + ' ' + r.body);
-    }
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEMP_PASSWORD_V1}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'true'
+      FIXTURE_TWO_FA_ENABLED: 'false'
+      FIXTURE_BUMP_TOKEN_VERSION: 'false'
+      FIXTURE_REQUIRE_OTP: 'false'
 
 - launchApp:
     appId: vn.gov.pc02.mobile
@@ -47,32 +40,27 @@ env:
 - hideKeyboard
 - tapOn:
     id: "login-submit-button"
-- assertVisible:
-    id: "first-login-instruction-banner"
+- extendedWaitUntil:
+    visible:
+      id: "first-login-instruction-banner"
     timeout: 10000
 
 # SIMULATE ADMIN ACTION: re-seed user with new temp pw AND bump tokenVersion.
 # This invalidates the changePasswordToken mobile is currently holding.
-- evalScript: |
-    const apiBase = MAESTRO_API_BASE_URL || 'http://10.0.2.2:3000/api/v1';
-    const token = MAESTRO_TEST_SEED_TOKEN;
-    const r = http.post(apiBase + '/test/seed-user', {
-      headers: {
-        'x-test-seed-token': token,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: TEST_EMAIL,
-        password: TEMP_PASSWORD_V2,
-        mustChangePassword: true,
-        bumpTokenVersion: true,
-      }),
-    });
-    if (r.status !== 200) {
-      throw new Error('re-seed failed: ' + r.status + ' ' + r.body);
-    }
+- runScript:
+    file: ../scripts/seed-user.js
+    env:
+      FIXTURE_API_BASE_URL: ${MAESTRO_FIXTURE_API_BASE_URL}
+      FIXTURE_TOKEN: ${MAESTRO_TEST_SEED_TOKEN}
+      FIXTURE_EMAIL: ${TEST_EMAIL}
+      FIXTURE_PASSWORD: ${TEMP_PASSWORD_V2}
+      FIXTURE_MUST_CHANGE_PASSWORD: 'true'
+      FIXTURE_TWO_FA_ENABLED: 'false'
+      FIXTURE_BUMP_TOKEN_VERSION: 'true'
+      FIXTURE_REQUIRE_OTP: 'false'
 
-# User (oblivious) tries to submit the form. Backend returns 409.
+# User (oblivious) tries to submit the form. The guard rejects the superseded
+# token with 401 before the password-change service can run.
 # Mobile MUST: show toast, clear pending state, route back to /login.
 - tapOn:
     id: "first-login-new-password-field"
@@ -86,8 +74,9 @@ env:
     id: "first-login-submit-button"
 
 # Assertion: we're back on login screen, not stuck on first-login or dashboard.
-- assertVisible:
-    id: "login-email-field"
+- extendedWaitUntil:
+    visible:
+      id: "login-email-field"
     timeout: 10000
 - assertNotVisible:
     id: "first-login-instruction-banner"
@@ -105,8 +94,9 @@ env:
 - hideKeyboard
 - tapOn:
     id: "login-submit-button"
-- assertVisible:
-    id: "first-login-instruction-banner"
+- extendedWaitUntil:
+    visible:
+      id: "first-login-instruction-banner"
     timeout: 10000
 
 # This time submit succeeds.
@@ -120,6 +110,7 @@ env:
 - hideKeyboard
 - tapOn:
     id: "first-login-submit-button"
-- assertVisible:
-    id: "dashboard-scaffold"
+- extendedWaitUntil:
+    visible:
+      id: "dashboard-scaffold"
     timeout: 15000

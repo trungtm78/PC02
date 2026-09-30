@@ -28,6 +28,7 @@ import 'shared/theme/app_theme.dart';
 // also break the Maestro selector tree.
 // ignore: unused_element
 SemanticsHandle? _semanticsHandle;
+bool _firebaseReady = false;
 
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,7 @@ void main() async {
   await initializeDateFormatting('vi_VN', null);
   try {
     await Firebase.initializeApp().timeout(const Duration(seconds: 3));
+    _firebaseReady = true;
   } catch (e, st) {
     // BUG-4: Firebase init failure is non-fatal (the app still works without
     // FCM) but absolutely worth a debug log — otherwise silently-broken
@@ -75,7 +77,7 @@ class PC02App extends ConsumerWidget {
     // BUG-2: wire FCM deep-link handler so tapping a push notification while
     // app is backgrounded routes to /cases/:id (or whatever `link` payload
     // the server sent) instead of dropping the user on the dashboard.
-    NotificationRouter.init(router);
+    if (_firebaseReady) NotificationRouter.init(router);
     return MaterialApp.router(
       title: 'PC02 Quản lý',
       theme: appTheme,
