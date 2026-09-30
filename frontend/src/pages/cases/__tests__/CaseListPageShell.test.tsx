@@ -142,10 +142,10 @@ describe('CaseListPageShell — initial mount + ready state', () => {
     sessionStorage.removeItem('authProfile');
   });
 
-  it('hides full-field export without the separate permission', () => {
+  it('shows full-field export with Case read permission', () => {
     authStore.setProfile({ id: 'u1', email: 'u@pc02.local', role: 'OFFICER', permissions: ['read:Case'] } as never);
     renderWithRouter();
-    expect(screen.queryByTestId('btn-xuat-day-du')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-xuat-day-du')).toBeInTheDocument();
     sessionStorage.removeItem('authProfile');
   });
 

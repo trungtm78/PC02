@@ -44,6 +44,9 @@ const mockPrisma = {
     count: jest.fn(),
     findMany: jest.fn(),
   },
+  subject: { count: jest.fn().mockResolvedValue(0) },
+  evidence: { count: jest.fn().mockResolvedValue(0) },
+  document: { count: jest.fn().mockResolvedValue(0) },
 };
 const audit = { log: jest.fn() };
 
@@ -52,11 +55,11 @@ function resGia() {
   const phan: Buffer[] = [];
   luong.on('data', (c: Buffer) => phan.push(c));
   const res = Object.assign(luong, { setHeader: jest.fn() });
-  const docSheet = async () => {
+  const docSheet = async (index = 0) => {
     await new Promise((r) => setImmediate(r));
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(Buffer.concat(phan) as never);
-    return wb.worksheets[0];
+    return wb.worksheets[index];
   };
   return { res, docSheet };
 }
@@ -262,10 +265,10 @@ describe('CasesService.xuatDanhSach', () => {
           name: 'Ủy thác mẫu',
           metadata: { ghiChu: 'Giữ nguyên' },
           legacyRaw: { maCu: 'OLD-1' },
-          subjects: [{ fullName: 'Nguyễn A' }],
-          evidences: [{ description: 'Vật chứng' }],
+          subjects: [{ caseId: 'delegation-1', fullName: 'Nguyễn A' }],
+          evidences: [{ caseId: 'delegation-1', description: 'Vật chứng' }],
           statistic: { soTienBiThietHai: 100 },
-          documents: [{ originalName: 'van-ban.pdf' }],
+          documents: [{ caseId: 'delegation-1', originalName: 'van-ban.pdf' }],
         },
       ]);
     const { res, docSheet } = resGia();
@@ -278,10 +281,20 @@ describe('CasesService.xuatDanhSach', () => {
     const sheet = await docSheet();
     const headers = sheet.getRow(7).values as unknown[];
     const row = sheet.getRow(8).values as unknown[];
-    expect(row[headers.indexOf('metadata')]).toBe('{"ghiChu":"Giữ nguyên"}');
-    expect(row[headers.indexOf('legacyRaw')]).toBe('{"maCu":"OLD-1"}');
-    expect(row[headers.indexOf('subjects')]).toBe('[{"fullName":"Nguyễn A"}]');
-    expect(row[headers.indexOf('statistic')]).toBe('{"soTienBiThietHai":100}');
+    expect(row[headers.indexOf('Mã định danh')]).toBe('delegation-1');
+    expect(headers).not.toEqual(expect.arrayContaining(['metadata', 'legacyRaw', 'subjects']));
+    expect((await docSheet(1)).name).toBe('Đối tượng');
+    const subjectSheet = await docSheet(1);
+    const subjectHeaders = subjectSheet.getRow(7).values as unknown[];
+    const subjectRow = subjectSheet.getRow(8).values as unknown[];
+    expect(subjectRow[subjectHeaders.indexOf('Họ tên đối tượng')]).toBeTruthy();
+    expect(subjectRow[subjectHeaders.indexOf('Mã định danh hồ sơ')]).toBe('delegation-1');
+    const evidenceSheet = await docSheet(2);
+    expect(evidenceSheet.getRow(8).getCell(2).value).toBe('delegation-1');
+    const documentSheet = await docSheet(3);
+    expect(documentSheet.getRow(8).getCell(2).value).toBe('delegation-1');
+    expect((await docSheet(2)).name).toBe('Vật chứng');
+    expect((await docSheet(3)).name).toBe('Tài liệu');
     const countWhere = (
       mockPrisma.case.count.mock.calls[0] as unknown as [
         { where: Record<string, unknown> },
@@ -304,7 +317,7 @@ describe('CasesService.xuatDanhSach', () => {
         caseType: 'UY_THAC_DIEU_TRA',
       },
     ]);
-    expect(hydrate.select).toMatchObject({ metadata: true, legacyRaw: true });
+    expect(hydrate.select).toMatchObject({ metadata: true, subjects: { where: { deletedAt: null } } });
     const auditCall = (
       audit.log.mock.calls[0] as unknown as [
         { action: string; metadata: { kind: string; soDong: number } },

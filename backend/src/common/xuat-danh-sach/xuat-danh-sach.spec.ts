@@ -170,4 +170,24 @@ describe('xuatDanhSachExcel', () => {
     expect(huy).toHaveBeenCalled();
     baoLoi.mockRestore();
   });
+
+  it('checks each related sheet limit before sending headers', async () => {
+    const { res, headers } = resGia();
+    const layDong = jest.fn();
+    await expect(xuatDanhSachExcel<Dong>({
+      res: res as never,
+      tenTep: 'x.xlsx', tenSheet: 'Vụ án', tieuDe: 'Vụ án', phuDe: '',
+      cot: KHAI,
+      demTong: async () => 1,
+      layIdTheoThuTu: async () => ['a'],
+      layDong,
+      sheetLienQuan: [{
+        ten: 'Đối tượng', cot: KHAI as never,
+        demDong: async () => 1_048_570,
+        layDong: () => [],
+      }],
+    })).rejects.toThrow(BadRequestException);
+    expect(headers['content-disposition']).toBeUndefined();
+    expect(layDong).not.toHaveBeenCalled();
+  });
 });
