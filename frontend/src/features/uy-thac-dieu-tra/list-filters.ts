@@ -1,4 +1,4 @@
-import { createListFilterRegistry } from "@/features/_shared/list-filters/registry";
+import { createListFilterRegistry, type FilterField } from "@/features/_shared/list-filters/registry";
 import {
   CASE_STATUS_OPTIONS,
   LOAI_UY_THAC_OPTIONS,
@@ -44,7 +44,7 @@ const common = [
     urlKey: "tnt",
     testid: "filter-to-date",
   },
-] as const;
+] satisfies FilterField<UyThacFilterValue>[];
 
 const legacyText = [
   {
@@ -63,7 +63,7 @@ const legacyText = [
     testid: "filter-investigator",
     placeholder: "Tên điều tra viên...",
   },
-] as const;
+] satisfies FilterField<UyThacFilterValue>[];
 
 export const uyThacListFilters =
   createListFilterRegistry<UyThacFilterValue>().registerMany([...common]);

@@ -26,7 +26,7 @@ import { FeatureFlagsProvider } from '@/lib/features/FeatureFlagsContext';
 import type { FeatureFlag } from '@/lib/features/types';
 import { useEffect } from 'react';
 
-const mockHasPermission = vi.hoisted(() => vi.fn(() => true));
+const mockHasPermission = vi.hoisted(() => vi.fn((_feature: string, _action: string) => true));
 
 vi.mock('@/lib/api', () => ({
   api: {
