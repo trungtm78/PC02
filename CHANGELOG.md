@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.73.0.0] - 2026-10-06
+
+### Added
+- Tiếp nhận/phân loại, chuyển đội, chờ nhận và xác nhận nhận vụ việc trên cùng hồ sơ; giữ mã hồ sơ, ngày đề xuất và thời hạn.
+- Bộ lọc tình trạng, trường bỏ trống và lịch sử nghiệp vụ dùng chung cho danh sách, thống kê và Excel.
+
+### Changed
+- Vụ việc đã phục hồi có thể trực tiếp không khởi tố, chuyển đơn vị, khởi tố hoặc tạm đình chỉ với thông tin quyết định phù hợp.
+
+### Fixed
+- Giữ đầy đủ thông tin nguồn, số/ngày quyết định và liên kết khi khởi tố vụ án; lịch sử và audit được lưu cùng giao dịch.
+- Sửa ô Đề xuất của Vụ án bị dữ liệu bổ sung cũ ghi đè khi lưu; giữ thông tin đơn vị chuyển đến ban đầu khi chuyển đơn vị.
+- Chặn thao tác ghi/hàng loạt dùng dữ liệu cũ sau giao nhận, khởi tố hoặc phát sinh tài liệu; giữ chống tạo lặp và khóa nhập vụ việc hiện có.
+
 ## [0.72.1.2] - 2026-09-29
 
 ### Fixed

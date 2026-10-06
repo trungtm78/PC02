@@ -12,14 +12,23 @@
  * KHÔNG thay thế production IncidentListPage directly — swap qua feature flag
  * trong PR3 sau khi soak. PR2 ships shell-consumers alongside legacy pages.
  */
-import { hienThiEdtf } from "@/shared/ngay-thieu/edtf";
+import { hienThiEdtf } from '@/shared/ngay-thieu/edtf';
 import { BE_RONG_COT_THAO_TAC } from '@/components/shared/ListPageShell/cotThaoTac';
 import { NutXuatTheoBoLoc } from '@/features/_shared/list-filters/NutXuatTheoBoLoc';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { ShortcutHint } from '@/components/ShortcutCheatSheet';
-import { FileSearch, Plus, AlertCircle, X, Inbox, Search as SearchIcon, CheckCircle, PauseCircle } from 'lucide-react';
+import {
+  FileSearch,
+  Plus,
+  AlertCircle,
+  X,
+  Inbox,
+  Search as SearchIcon,
+  CheckCircle,
+  PauseCircle,
+} from 'lucide-react';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import {
@@ -58,7 +67,10 @@ import {
   A11Y_FOCUS_RING,
   OVERDUE_ROW_HIGHLIGHT,
 } from '@/constants/styles';
-import { StatsCardsStrip, type StatCard } from '@/components/shared/StatsCardsStrip';
+import {
+  StatsCardsStrip,
+  type StatCard,
+} from '@/components/shared/StatsCardsStrip';
 import { getIncidentStatusIcon } from '@/shared/enums/status-icons';
 // v0.64 PR2 — registry-driven row actions + advanced filters
 import { RowActions } from '@/features/_shared/row-actions/RowActions';
@@ -74,7 +86,10 @@ import { useMergeIncidentModal } from '@/features/_shared/modals/MergeIncidentMo
 import { usePermission } from '@/hooks/usePermission';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
-import { incidentsListFilters, type IncidentFilterValue } from '@/features/incidents/list-filters';
+import {
+  incidentsListFilters,
+  type IncidentFilterValue,
+} from '@/features/incidents/list-filters';
 import { hoTen } from '@/lib/hoTen';
 import { TIM_KIEM_VU_VIEC } from '@/shared/tim-kiem/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
@@ -115,7 +130,12 @@ const GIA_TRI_CHON_VU_VIEC = {
 // backend/src/incidents/incidents.constants.ts:4-17 (kebab-case lowercase).
 // /codex review found that UPPER_SNAKE_CASE silently no-ops because backend
 // looks up keys directly, never throws on miss.
-const PHASE_VALUES = ['tiep-nhan', 'xac-minh', 'ket-qua', 'tam-dinh-chi'] as const;
+const PHASE_VALUES = [
+  'tiep-nhan',
+  'xac-minh',
+  'ket-qua',
+  'tam-dinh-chi',
+] as const;
 type IncidentPhase = (typeof PHASE_VALUES)[number];
 const PHASE_VALUE_SET = new Set<string>(PHASE_VALUES);
 function isValidPhase(value: string | null): value is IncidentPhase {
@@ -125,10 +145,12 @@ function isValidPhase(value: string | null): value is IncidentPhase {
 function getVietnameseErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
     const status = e.response?.status;
-    if (status === 401) return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
+    if (status === 401)
+      return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
     if (status === 403) return 'Bạn không có quyền xem dữ liệu này';
     if (status && status >= 500) return 'Lỗi máy chủ, vui lòng thử lại sau';
-    const serverMsg = (e.response?.data as { message?: string } | undefined)?.message;
+    const serverMsg = (e.response?.data as { message?: string } | undefined)
+      ?.message;
     if (serverMsg) return serverMsg;
     if (e.code === 'ECONNABORTED') return 'Quá thời gian chờ, vui lòng thử lại';
     return 'Không tải được danh sách vụ việc';
@@ -145,7 +167,11 @@ interface IncidentRow {
   benVu?: string | null;
   status: IncidentStatus;
   deadline?: string | null;
-  investigator?: { firstName?: string; lastName?: string; username: string } | null;
+  investigator?: {
+    firstName?: string;
+    lastName?: string;
+    username: string;
+  } | null;
   donViGiaiQuyet?: string | null;
   /** Nguồn đơn / đơn vị giao — cột thứ ba của danh sách hệ cũ. */
   chuyenTuDonVi?: string | null;
@@ -157,7 +183,12 @@ interface IncidentRow {
   ketQuaXuLy?: string | null;
   sttCu?: string | null;
   doiTuongCaNhan?: string | null;
-  canBoNhap?: { id: string; firstName?: string | null; lastName?: string | null; username?: string } | null;
+  canBoNhap?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    username?: string;
+  } | null;
   /*
     Cột ngày mở cho tìm kiếm 21/09/2026 — cột hiển thị ẩn sẵn, nhưng kiểu dòng phải khai để
     phần dựng đọc được, và máy chủ phải TRẢ VỀ (xem `select` của service).
@@ -201,7 +232,6 @@ const PAGE_SIZE = 20;
  */
 const OTHER_FILTER_ACTIVE = '__other__';
 
-
 /**
  * 4 thẻ trạng thái của Vụ việc trùng KHÍT 4 giai đoạn BCA (`PHASE_STATUSES`), nên
  * `filterValue` dùng luôn khoá giai đoạn — không cần param lọc mới, tái dùng `phase`
@@ -211,11 +241,51 @@ function buildIncidentsCards(stats: IncidentsStatsResponse | null): StatCard[] {
   const g = stats?.byGroup;
   const at = (key: string) => (g ? (g[key] ?? 0) : null);
   return [
-    { label: 'Tổng vụ việc', value: stats?.total ?? null, filterValue: null, icon: FileSearch, iconBgClass: 'bg-[#003973]/10', iconColorClass: 'text-[#003973]', valueColorClass: 'text-[#003973]' },
-    { label: 'Tiếp nhận', value: at('tiep-nhan'), filterValue: 'tiep-nhan', icon: Inbox, iconBgClass: 'bg-blue-100', iconColorClass: 'text-blue-600', valueColorClass: 'text-blue-600' },
-    { label: 'Xác minh', value: at('xac-minh'), filterValue: 'xac-minh', icon: SearchIcon, iconBgClass: 'bg-amber-100', iconColorClass: 'text-amber-600', valueColorClass: 'text-amber-600' },
-    { label: 'Kết quả', value: at('ket-qua'), filterValue: 'ket-qua', icon: CheckCircle, iconBgClass: 'bg-green-100', iconColorClass: 'text-green-600', valueColorClass: 'text-green-600' },
-    { label: 'Tạm đình chỉ', value: at('tam-dinh-chi'), filterValue: 'tam-dinh-chi', icon: PauseCircle, iconBgClass: 'bg-slate-100', iconColorClass: 'text-slate-600', valueColorClass: 'text-slate-600' },
+    {
+      label: 'Tổng vụ việc',
+      value: stats?.total ?? null,
+      filterValue: null,
+      icon: FileSearch,
+      iconBgClass: 'bg-[#003973]/10',
+      iconColorClass: 'text-[#003973]',
+      valueColorClass: 'text-[#003973]',
+    },
+    {
+      label: 'Tiếp nhận',
+      value: at('tiep-nhan'),
+      filterValue: 'tiep-nhan',
+      icon: Inbox,
+      iconBgClass: 'bg-blue-100',
+      iconColorClass: 'text-blue-600',
+      valueColorClass: 'text-blue-600',
+    },
+    {
+      label: 'Xác minh',
+      value: at('xac-minh'),
+      filterValue: 'xac-minh',
+      icon: SearchIcon,
+      iconBgClass: 'bg-amber-100',
+      iconColorClass: 'text-amber-600',
+      valueColorClass: 'text-amber-600',
+    },
+    {
+      label: 'Kết quả',
+      value: at('ket-qua'),
+      filterValue: 'ket-qua',
+      icon: CheckCircle,
+      iconBgClass: 'bg-green-100',
+      iconColorClass: 'text-green-600',
+      valueColorClass: 'text-green-600',
+    },
+    {
+      label: 'Tạm đình chỉ',
+      value: at('tam-dinh-chi'),
+      filterValue: 'tam-dinh-chi',
+      icon: PauseCircle,
+      iconBgClass: 'bg-slate-100',
+      iconColorClass: 'text-slate-600',
+      valueColorClass: 'text-slate-600',
+    },
   ];
 }
 
@@ -224,7 +294,9 @@ function isOverdue(deadline?: string | null): boolean {
   return new Date(deadline) < new Date(new Date().setHours(0, 0, 0, 0));
 }
 
-export function IncidentListPageShell() {
+export function IncidentListPageShell({
+  view = 'management',
+}: { view?: 'management' | 'intake' } = {}) {
   const navigate = useNavigate();
   const url = useListPageUrlState('incidents');
   const sort = useListSort('incidents');
@@ -256,7 +328,11 @@ export function IncidentListPageShell() {
   const [stats, setStats] = useState<IncidentsStatsResponse | null>(null);
   const [tableState, setTableState] = useState<TableState>('loading');
   const [refetchCounter, setRefetchCounter] = useState(0);
-  useListShortcuts({ onNew: () => navigate('/vu-viec/new'), onRefresh: () => setRefetchCounter((n) => n + 1) });
+  useListShortcuts({
+    onNew: () =>
+      navigate(view === 'intake' ? '/vu-viec/tiep-nhan/new' : '/vu-viec/new'),
+    onRefresh: () => setRefetchCounter((n) => n + 1),
+  });
   const [error, setError] = useState<string | undefined>();
   const [resultModal, setResultModal] = useState<{
     id: string;
@@ -318,13 +394,14 @@ export function IncidentListPageShell() {
           }),
       },
       mergeIncident: {
-        open: (args) => mergeIncidentModal.open({
-          ...args,
-          onSuccess: () => {
-            args.onSuccess?.();
-            setRefetchCounter((n) => n + 1);
-          },
-        }),
+        open: (args) =>
+          mergeIncidentModal.open({
+            ...args,
+            onSuccess: () => {
+              args.onSuccess?.();
+              setRefetchCounter((n) => n + 1);
+            },
+          }),
       },
     }),
     [
@@ -361,6 +438,22 @@ export function IncidentListPageShell() {
 
   const baseQueryParams = useMemo(
     () => ({
+      view,
+      ...(appliedFilters.tinhTrangHoSo && {
+        tinhTrangHoSo: appliedFilters.tinhTrangHoSo,
+      }),
+      ...(appliedFilters.tinhTrangThoiHieu && {
+        tinhTrangThoiHieu: appliedFilters.tinhTrangThoiHieu,
+      }),
+      ...(appliedFilters.emptyField && {
+        emptyField: appliedFilters.emptyField,
+      }),
+      ...(appliedFilters.historyStatus && {
+        historyStatus: appliedFilters.historyStatus,
+      }),
+      ...(appliedFilters.intakeStage && {
+        intakeStage: appliedFilters.intakeStage,
+      }),
       // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
       ...(theBat
         ? timKiem.tkGui.length > 0 && { tk: timKiem.tkGui }
@@ -369,15 +462,21 @@ export function IncidentListPageShell() {
       ...(appliedFilters.reporter && { reporter: appliedFilters.reporter }),
       // Thiếu dòng này thì ô lọc chỉ ghi vào địa chỉ trang mà KHÔNG đi xuống API — người dùng
       // thấy ô lọc đổi còn danh sách đứng yên.
-      ...(appliedFilters.canBoNhapId && { canBoNhapId: appliedFilters.canBoNhapId }),
-      ...(appliedFilters.fromDateRange && { fromDateRange: appliedFilters.fromDateRange }),
-      ...(appliedFilters.toDateRange && { toDateRange: appliedFilters.toDateRange }),
+      ...(appliedFilters.canBoNhapId && {
+        canBoNhapId: appliedFilters.canBoNhapId,
+      }),
+      ...(appliedFilters.fromDateRange && {
+        fromDateRange: appliedFilters.fromDateRange,
+      }),
+      ...(appliedFilters.toDateRange && {
+        toDateRange: appliedFilters.toDateRange,
+      }),
       // Cán bộ đổi TẠM kỳ tính theo ngày nào; rỗng thì máy chủ dùng cấu hình hệ thống.
       ...(appliedFilters.thongKeTruongNgay && {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
     }),
-    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
+    [view, theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
   );
   const baseQueryKey = JSON.stringify(baseQueryParams);
 
@@ -398,7 +497,10 @@ export function IncidentListPageShell() {
     };
 
     api
-      .get<{ data: IncidentRow[]; total: number }>('/incidents', { params, signal: ctrl.signal })
+      .get<{ data: IncidentRow[]; total: number }>('/incidents', {
+        params,
+        signal: ctrl.signal,
+      })
       .then((listRes) => {
         if (ctrl.signal.aborted) return;
         setRows(listRes.data.data);
@@ -407,10 +509,10 @@ export function IncidentListPageShell() {
           setTableState(
             // Có lọc ở mặt lọc (ngày, cán bộ nhập…) cũng là "lọc không ra" — không mời tạo hồ sơ đầu tiên.
             debouncedSearch ||
-            statusFilter ||
-            phaseFilter ||
-            timKiem.the.length > 0 ||
-            Object.values(appliedFilters).some((v) => v)
+              statusFilter ||
+              phaseFilter ||
+              timKiem.the.length > 0 ||
+              Object.values(appliedFilters).some((v) => v)
               ? 'empty-filtered'
               : 'empty',
           );
@@ -427,7 +529,15 @@ export function IncidentListPageShell() {
     return () => ctrl.abort();
     // refetchCounter forces refetch after bulk action success (declared below for hoisting OK at runtime)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, phaseFilter, page, baseQueryKey, refetchCounter, sort.sortBy, sort.sortOrder]);
+  }, [
+    statusFilter,
+    phaseFilter,
+    page,
+    baseQueryKey,
+    refetchCounter,
+    sort.sortBy,
+    sort.sortOrder,
+  ]);
 
   // Stats fetch: search + phase pass-through, status purposely stripped.
   useEffect(() => {
@@ -438,7 +548,10 @@ export function IncidentListPageShell() {
     // Nhưng PHẢI gửi các bộ lọc còn lại, nếu không số trên thẻ lệch khỏi danh sách.
     const statsParams = baseQueryParams;
     api
-      .get<IncidentsStatsResponse>('/incidents/stats', { params: statsParams, signal: ctrl.signal })
+      .get<IncidentsStatsResponse>('/incidents/stats', {
+        params: statsParams,
+        signal: ctrl.signal,
+      })
       .then((statsRes) => {
         if (ctrl.signal.aborted) return;
         setStats(statsRes.data);
@@ -474,7 +587,11 @@ export function IncidentListPageShell() {
   });
   const wordBatch = useWordBatchExport({ entity: 'incidents' });
   const adapter = useMemo(
-    () => buildIncidentsAdapter({ enableDelete: true, onExportWord: wordBatch.setIds }),
+    () =>
+      buildIncidentsAdapter({
+        enableDelete: true,
+        onExportWord: wordBatch.setIds,
+      }),
     [wordBatch.setIds],
   );
   const selectionClearRef = useRef(selection.clear);
@@ -497,7 +614,8 @@ export function IncidentListPageShell() {
       if (result && typeof result === 'object') {
         const { succeeded, skipped, failed } = result;
         const parts: string[] = [];
-        if (succeeded?.length) parts.push(`Đã xử lý ${succeeded.length} vụ việc`);
+        if (succeeded?.length)
+          parts.push(`Đã xử lý ${succeeded.length} vụ việc`);
         if (skipped?.length) parts.push(`Bỏ qua ${skipped.length}`);
         if (failed?.length) parts.push(`Lỗi ${failed.length}`);
         setTransientBanner({
@@ -562,8 +680,10 @@ export function IncidentListPageShell() {
               ...actionCtx,
               perms: {
                 ...actionCtx.perms,
-                canEdit: actionCtx.perms.canEdit === true && r.quyenGhi !== false,
-                canDelete: actionCtx.perms.canDelete === true && r.quyenGhi !== false,
+                canEdit:
+                  actionCtx.perms.canEdit === true && r.quyenGhi !== false,
+                canDelete:
+                  actionCtx.perms.canDelete === true && r.quyenGhi !== false,
               },
             }}
           />
@@ -584,7 +704,9 @@ export function IncidentListPageShell() {
             {formatHoSoCode(r.code)}
             {/* STT cũ ghép ngay sau, đúng chữ và kiểu nghiêng-đỏ của hệ cũ
                 (`doi_1_xem.tpl:44`). Vắng hẳn khi hồ sơ không có số cũ. */}
-            {r.sttCu?.trim() && <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>}
+            {r.sttCu?.trim() && (
+              <em className="italic text-red-600">{phanSttCu(r.sttCu)}</em>
+            )}
           </span>
         ),
       },
@@ -610,7 +732,9 @@ export function IncidentListPageShell() {
         timKiem: 'nguonDon',
         width: '10rem',
         optional: 'show',
-        render: (r) => <span className="text-slate-700">{r.chuyenTuDonVi || '—'}</span>,
+        render: (r) => (
+          <span className="text-slate-700">{r.chuyenTuDonVi || '—'}</span>
+        ),
       },
 
       {
@@ -624,7 +748,9 @@ export function IncidentListPageShell() {
         // (`nghi_van_doi_tuong`) — người khác hẳn: khớp bản gốc 0%, trong khi `benVu` khớp
         // 4.265/4.265. Bỏ luôn dự phòng `|| r.name`: rơi về tên vụ việc là bịa dữ liệu vào
         // một ô mà hệ cũ để trống.
-        render: (r) => <span className="font-medium text-slate-800">{r.benVu || '—'}</span>,
+        render: (r) => (
+          <span className="font-medium text-slate-800">{r.benVu || '—'}</span>
+        ),
       },
 
       {
@@ -657,12 +783,14 @@ export function IncidentListPageShell() {
             nhanThem="Nhập kết quả"
             moTa={`kết quả xử lý vụ việc ${r.code}`}
             chiXem={!canEdit('incidents') || r.quyenGhi === false}
-            onSua={() => setResultModal({
-              id: r.id,
-              code: r.code,
-              value: r.ketQuaXuLy ?? '',
-              updatedAt: r.updatedAt ?? '',
-            })}
+            onSua={() =>
+              setResultModal({
+                id: r.id,
+                code: r.code,
+                value: r.ketQuaXuLy ?? '',
+                updatedAt: r.updatedAt ?? '',
+              })
+            }
             testId={`o-ket-qua-${r.id}`}
           />
         ),
@@ -688,7 +816,9 @@ export function IncidentListPageShell() {
         width: '9rem',
         optional: 'show',
         render: (r) => (
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${INCIDENT_STATUS_BADGE[r.status]}`}>
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${INCIDENT_STATUS_BADGE[r.status]}`}
+          >
             {getIncidentStatusIcon(r.status)}
             {INCIDENT_STATUS_LABEL[r.status]}
           </span>
@@ -716,7 +846,10 @@ export function IncidentListPageShell() {
         optional: 'hide',
         sortKey: 'deadline',
         render: (r) => (
-          <DateCell value={r.deadline} quaHan={!!r.deadline && isOverdue(r.deadline)} />
+          <DateCell
+            value={r.deadline}
+            quaHan={!!r.deadline && isOverdue(r.deadline)}
+          />
         ),
       },
 
@@ -820,7 +953,10 @@ export function IncidentListPageShell() {
   } = useBoCucCot('incidents', columns);
   const [matDo, datMatDo] = useMatDoDong('incidents');
   // Gợi ý của ô thẻ = cột đang hiện, đúng thứ tự; ẩn cột là cột ấy rời khỏi gợi ý.
-  const truongTimKiem = useMemo(() => truongGoiY(visibleColumns, TIM_KIEM_VU_VIEC), [visibleColumns]);
+  const truongTimKiem = useMemo(
+    () => truongGoiY(visibleColumns, TIM_KIEM_VU_VIEC),
+    [visibleColumns],
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -836,7 +972,10 @@ export function IncidentListPageShell() {
   const handlePhaseChange = useCallback(
     (value: IncidentPhase | null) => {
       // history push để nút Back quay lại được giai đoạn trước (thẻ thống kê cũng gọi hàm này).
-      url.setParams({ phase: value, status: null, page: '1' }, { history: 'push' });
+      url.setParams(
+        { phase: value, status: null, page: '1' },
+        { history: 'push' },
+      );
     },
     [url],
   );
@@ -855,7 +994,6 @@ export function IncidentListPageShell() {
     [url],
   );
 
-
   // Danh sách cán bộ cho ô "Cán bộ nhập" — nạp lúc chạy nên truyền qua `dynamicOptions`
   // của mặt lọc chung, không khai cứng được trong registry.
   const { data: officerOptions } = useOfficerOptions();
@@ -866,7 +1004,9 @@ export function IncidentListPageShell() {
     url.clearAll();
   }, [url, listFilters]);
 
-  const appliedFilterCount = Object.values(appliedFilters).filter((v) => v && v !== '').length;
+  const appliedFilterCount = Object.values(appliedFilters).filter(
+    (v) => v && v !== '',
+  ).length;
   const activeFilterCount =
     (statusFilter ? 1 : 0) +
     (phaseFilter ? 1 : 0) +
@@ -877,12 +1017,20 @@ export function IncidentListPageShell() {
     <ListPageShell>
       <ListPageShell.Header
         icon={FileSearch}
-        title="Danh sách vụ việc"
+        title={
+          view === 'intake'
+            ? 'Tiếp nhận / Phân loại vụ việc'
+            : 'Danh sách vụ việc'
+        }
         subtitle="Nguồn tin tội phạm (Đ.144 BLTTHS) — tiếp nhận, xác minh, kết quả"
         actions={
           <button
             type="button"
-            onClick={() => navigate('/incidents/new')}
+            onClick={() =>
+              navigate(
+                view === 'intake' ? '/vu-viec/tiep-nhan/new' : '/incidents/new',
+              )
+            }
             className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING} flex items-center gap-2`}
           >
             <Plus className="w-4 h-4" />
@@ -891,10 +1039,28 @@ export function IncidentListPageShell() {
           </button>
         }
       />
+      {appliedFilters.historyStatus && (
+        <p
+          role="status"
+          className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          Kết quả chỉ gồm nghiệp vụ có lịch sử được ghi nhận trong phạm vi được
+          xem. Lịch sử hồ sơ cũ chưa xác minh hoặc thiếu sự kiện không chứng
+          minh nghiệp vụ chưa từng xảy ra.
+        </p>
+      )}
       <StatsCardsStrip
         cards={buildIncidentsCards(stats)}
         loading={stats == null}
-        periodLabel={stats?.ky ? nhanKyApDung(stats.ky, appliedFilters.fromDateRange, appliedFilters.toDateRange) : null}
+        periodLabel={
+          stats?.ky
+            ? nhanKyApDung(
+                stats.ky,
+                appliedFilters.fromDateRange,
+                appliedFilters.toDateRange,
+              )
+            : null
+        }
         activeValue={phaseFilter ?? (statusFilter ? OTHER_FILTER_ACTIVE : null)}
         onCardSelect={(v) => handlePhaseChange(v as IncidentPhase | null)}
       />
@@ -952,7 +1118,10 @@ export function IncidentListPageShell() {
             // Xuất ĐÚNG bộ tham số của bảng (thẻ, trạng thái, ngày, cán bộ, sắp xếp) và các cột đang hiện.
             <>
               {tableState !== 'loading' && (
-                <span className="text-xs text-slate-500" data-testid="so-dong-khop-bo-loc">
+                <span
+                  className="text-xs text-slate-500"
+                  data-testid="so-dong-khop-bo-loc"
+                >
                   {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
                 </span>
               )}
@@ -964,7 +1133,9 @@ export function IncidentListPageShell() {
                   ...(phaseFilter && { phase: phaseFilter }),
                   ...sort.params,
                 }}
-                cot={visibleColumns.map((c) => c.key).filter((k) => k !== 'actions')}
+                cot={visibleColumns
+                  .map((c) => c.key)
+                  .filter((k) => k !== 'actions')}
                 tong={tableState === 'loading' ? null : totalCount}
                 hasUnappliedChanges={listFilters.hasUnappliedChanges}
                 onApply={listFilters.apply}
@@ -994,7 +1165,10 @@ export function IncidentListPageShell() {
             </>
           }
           dynamicOptions={{
-            canBoNhapId: [{ value: '', label: 'Tất cả' }, ...(officerOptions ?? [])],
+            canBoNhapId: [
+              { value: '', label: 'Tất cả' },
+              ...(officerOptions ?? []),
+            ],
           }}
         >
           <DateRangePresets
@@ -1048,7 +1222,11 @@ export function IncidentListPageShell() {
         columns={visibleColumns}
         data={rows}
         rowKey={(r) => r.id}
-        title="Danh sách vụ việc"
+        title={
+          view === 'intake'
+            ? 'Tiếp nhận / Phân loại vụ việc'
+            : 'Danh sách vụ việc'
+        }
         sectionTitle="Danh sách vụ việc"
         totalCount={totalCount}
         error={error}
@@ -1056,7 +1234,10 @@ export function IncidentListPageShell() {
           title: 'Chưa có vụ việc nào',
           description: 'Tạo vụ việc đầu tiên để bắt đầu xác minh nguồn tin.',
           actionLabel: 'Tạo vụ việc mới',
-          onAction: () => navigate('/incidents/new'),
+          onAction: () =>
+            navigate(
+              view === 'intake' ? '/vu-viec/tiep-nhan/new' : '/incidents/new',
+            ),
         }}
         emptyFilteredState={{
           onClearFilters: handleResetFilters,
@@ -1074,7 +1255,9 @@ export function IncidentListPageShell() {
             ) : undefined,
         }}
         onRowClick={(r) => navigate(`/incidents/${r.id}`)}
-        getRowClassName={(r) => (isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : '')}
+        getRowClassName={(r) =>
+          isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : ''
+        }
         bulkSelection={selection}
         bulkRowsLabel="vụ việc"
         bulkRowLabel={(r) => `vụ việc ${r.code}`}
@@ -1111,7 +1294,9 @@ export function IncidentListPageShell() {
         />
       )}
       {wordBatch.status && (
-        <div role="status" className="sr-only">{wordBatch.status.text}</div>
+        <div role="status" className="sr-only">
+          {wordBatch.status.text}
+        </div>
       )}
     </ListPageShell>
   );

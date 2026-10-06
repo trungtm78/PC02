@@ -23,6 +23,11 @@ import {
 } from '../common/utils/list-sort.util';
 import { dieuKienToPhuong } from '../common/utils/to-phuong.util';
 import { AuditService } from '../audit/audit.service';
+import {
+  validateIncidentProsecution,
+  incidentSourceToCase,
+  incidentSourceSnapshot,
+} from '../incidents/incident-prosecution-contract';
 import { buildCaseStatisticData } from './case-statistic.builder';
 import { SettingsService } from '../settings/settings.service';
 import { CreateCaseDto } from './dto/create-case.dto';
@@ -34,6 +39,7 @@ import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.re
 import {
   Prisma,
   CaseStatus,
+  IncidentStatus,
   PetitionStatus,
   LoaiDon,
   LyDoTamDinhChiVuAn,
@@ -1655,8 +1661,31 @@ export class CasesService {
             );
           }
 
+          validateIncidentProsecution(
+            incident,
+            dto.soQuyetDinhKhoiTo,
+            dto.ngayKhoiTo,
+          );
+
           const newCase = await tx.case.create({
-            data: { ...baseCaseData, caseCode, linkedIncidentId: incident.id },
+            data: {
+              ...incidentSourceToCase(incident),
+              ...baseCaseData,
+              // Undefined Case form fields retain their verified source values.
+              moTaChiTiet: dto.moTaChiTiet ?? incident.description,
+              crimeChinhId: dto.crimeChinhId ?? incident.crimeChinhId,
+              assignedTeamId:
+                effectiveAssignedTeamId ?? incident.assignedTeamId,
+              investigatorId: dto.investigatorId ?? incident.investigatorId,
+              donViGiaiQuyet: dto.donViGiaiQuyet ?? incident.donViGiaiQuyet,
+              metadata: {
+                ...(dto.metadata ?? {}),
+                incidentSourceSnapshot: incidentSourceSnapshot(incident),
+              },
+              soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo!.trim(),
+              caseCode,
+              linkedIncidentId: incident.id,
+            },
             include: caseInclude,
           });
 
@@ -1678,8 +1707,23 @@ export class CasesService {
               where: {
                 id: incident.id,
                 updatedAt: new Date(dto.expectedIncidentUpdatedAt!),
+                linkedCaseId: null,
+                deletedAt: null,
+                intakeStage: incident.intakeStage,
+                status: incident.status,
+                assignedTeamId: incident.assignedTeamId,
+                investigatorId: incident.investigatorId,
               },
-              data: { linkedCaseId: newCase.id },
+              data: {
+                linkedCaseId: newCase.id,
+                status: IncidentStatus.DA_CHUYEN_VU_AN,
+                ...machMocGiaiQuyet(
+                  'incident',
+                  incident.status,
+                  IncidentStatus.DA_CHUYEN_VU_AN,
+                  incident.ngayGiaiQuyet,
+                ),
+              },
             });
           } catch (e) {
             const code = (e as { code?: string })?.code;
@@ -1691,6 +1735,44 @@ export class CasesService {
             throw e;
           }
 
+          await tx.incidentStatusHistory.create({
+            data: {
+              incidentId: incident.id,
+              fromStatus: incident.status,
+              toStatus: IncidentStatus.DA_CHUYEN_VU_AN,
+              changedById: actorId,
+              note: `Khởi tố thành vụ án: ${newCase.name}`,
+            },
+          });
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'INCIDENT_PROSECUTED',
+              subject: 'Incident',
+              subjectId: incident.id,
+              metadata: { caseId: newCase.id, caseName: newCase.name },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'CASE_CREATED',
+              subject: 'Case',
+              subjectId: newCase.id,
+              metadata: {
+                name: newCase.name,
+                status: newCase.status,
+                caseProvenance: effectiveProvenance,
+                linkedIncidentId: incident.id,
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
           return newCase;
         })
         .catch((error: unknown) => {
@@ -1699,21 +1781,6 @@ export class CasesService {
           }
           throw error;
         });
-
-      await this.audit.log({
-        userId: actorId,
-        action: 'CASE_CREATED',
-        subject: 'Case',
-        subjectId: caseRecord.id,
-        metadata: {
-          name: caseRecord.name,
-          status: caseRecord.status,
-          caseProvenance: effectiveProvenance,
-          linkedIncidentId: dto.linkedIncidentId,
-        },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      });
 
       this.eventEmitter.emit(
         'case.created',

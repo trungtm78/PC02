@@ -79,6 +79,11 @@ describe('IncidentsService.updateResult', () => {
       where: {
         id: 'incident-1',
         updatedAt: new Date('2026-09-01T00:00:00.000Z'),
+        deletedAt: null,
+        intakeStage: undefined,
+        status: undefined,
+        assignedTeamId: 'team-1',
+        investigatorId: 'user-1',
       },
       data: { ketQuaXuLy: 'Đã xác minh' },
       select: { id: true, ketQuaXuLy: true, updatedAt: true },

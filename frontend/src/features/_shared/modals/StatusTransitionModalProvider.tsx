@@ -1,21 +1,20 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import { AlertCircle, X } from 'lucide-react';
-import { api } from '@/lib/api';
-import { INCIDENT_VALID_TRANSITIONS } from '@/shared/enums/incident-transitions.generated';
-import { INCIDENT_STATUS_LABEL } from '@/shared/enums/status-labels';
-import { CatalogSelect } from '@/components/CatalogSelect';
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { AlertCircle, X } from "lucide-react";
+import { api } from "@/lib/api";
+import { INCIDENT_VALID_TRANSITIONS } from "@/shared/enums/incident-transitions.generated";
+import { INCIDENT_STATUS_LABEL } from "@/shared/enums/status-labels";
+import { CatalogSelect } from "@/components/CatalogSelect";
 import {
   BTN_PRIMARY,
   BTN_OUTLINE_SLATE,
   A11Y_FOCUS_RING,
-} from '@/constants/styles';
-import { useModalLifecycle } from './useModalLifecycle';
-import { StatusTransitionContext, type StatusTransitionArgs, type StatusTransitionModalApi } from './StatusTransitionModalContext';
+} from "@/constants/styles";
+import { useModalLifecycle } from "./useModalLifecycle";
+import {
+  StatusTransitionContext,
+  type StatusTransitionArgs,
+  type StatusTransitionModalApi,
+} from "./StatusTransitionModalContext";
 
 /**
  * v0.67 PR1 T4 — StatusTransitionModalProvider (Issue I1+I2+I4 applied).
@@ -26,24 +25,31 @@ import { StatusTransitionContext, type StatusTransitionArgs, type StatusTransiti
  */
 
 const INPUT_BASE =
-  'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100';
-const LABEL_BASE = 'block text-sm font-medium text-slate-700 mb-1';
+  "block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100";
+const LABEL_BASE = "block text-sm font-medium text-slate-700 mb-1";
 
 function getValidTransitions(currentStatus: string): string[] {
-  const commandOnly = new Set([
-    'DA_CHUYEN_VU_AN',
-    'DA_CHUYEN_DON_VI',
-    'DA_NHAP_VU_KHAC',
-  ]);
+  const commandOnly = new Set(["DA_CHUYEN_VU_AN", "DA_NHAP_VU_KHAC"]);
   return (
-    (INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[currentStatus] ?? []
+    (INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[
+      currentStatus
+    ] ?? []
   ).filter((status) => !commandOnly.has(status));
 }
 
-export function StatusTransitionModalProvider({ children }: { children: ReactNode }) {
-  const [targetStatus, setTargetStatus] = useState<string>('');
-  const [note, setNote] = useState<string>('');
-  const [lyDoKhongKhoiTo, setLyDoKhongKhoiTo] = useState<string>('');
+export function StatusTransitionModalProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [targetStatus, setTargetStatus] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [lyDoKhongKhoiTo, setLyDoKhongKhoiTo] = useState<string>("");
+  const [decisionNumber, setDecisionNumber] = useState("");
+  const [decisionDate, setDecisionDate] = useState("");
+  const [canCu, setCanCu] = useState("");
+  const [tdcReasons, setTdcReasons] = useState<string[]>([]);
+  const [transferUnit, setTransferUnit] = useState("");
 
   const lifecycle = useModalLifecycle<
     StatusTransitionArgs,
@@ -53,10 +59,24 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
       note?: string;
       lyDoKhongKhoiTo?: string;
       expectedUpdatedAt?: string;
+      decisionNumber?: string;
+      decisionDate?: string;
+      canCu?: string;
+      lyDoTamDinhChiVuViec?: string[];
+      donViMoi?: string;
     }
   >({
     submitFn: async (args, payload) => {
-      const response = await api.patch(`/incidents/${args.recordId}/status`, payload);
+      const transferring = payload.status === "DA_CHUYEN_DON_VI";
+      const response = await api.patch(
+        `/incidents/${args.recordId}/${transferring ? "transfer" : "status"}`,
+        transferring
+          ? {
+              donViMoi: payload.donViMoi,
+              expectedUpdatedAt: payload.expectedUpdatedAt,
+            }
+          : payload,
+      );
       return (response.data as { success: boolean }) ?? { success: true };
     },
     onSuccess: (_, args) => {
@@ -65,9 +85,14 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
   });
 
   const reset = useCallback(() => {
-    setTargetStatus('');
-    setNote('');
-    setLyDoKhongKhoiTo('');
+    setTargetStatus("");
+    setNote("");
+    setLyDoKhongKhoiTo("");
+    setDecisionNumber("");
+    setDecisionDate("");
+    setCanCu("");
+    setTdcReasons([]);
+    setTransferUnit("");
   }, []);
 
   const open = useCallback(
@@ -85,17 +110,39 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
 
   const apiObj = useMemo<StatusTransitionModalApi>(() => ({ open }), [open]);
 
-  const requiresLyDo = targetStatus === 'KHONG_KHOI_TO';
+  const requiresLyDo = targetStatus === "KHONG_KHOI_TO";
+  const requiresDecision = [
+    "DA_PHAN_CONG",
+    "KHONG_KHOI_TO",
+    "TAM_DINH_CHI",
+    "PHUC_HOI_NGUON_TIN",
+  ].includes(targetStatus);
   const canSubmit =
-    targetStatus !== '' && (!requiresLyDo || lyDoKhongKhoiTo !== '');
+    targetStatus !== "" &&
+    (targetStatus !== "DA_CHUYEN_DON_VI" || transferUnit.trim() !== "") &&
+    (!requiresLyDo || lyDoKhongKhoiTo !== "") &&
+    (!requiresDecision ||
+      (decisionNumber.trim() !== "" && decisionDate !== "")) &&
+    (targetStatus !== "TAM_DINH_CHI" || tdcReasons.length > 0);
 
   const handleSubmit = async () => {
     if (!lifecycle.args || !canSubmit) return;
     await lifecycle.submit({
       status: targetStatus,
+      ...(targetStatus === "DA_CHUYEN_DON_VI" && {
+        donViMoi: transferUnit.trim(),
+      }),
       note: note || undefined,
       lyDoKhongKhoiTo: requiresLyDo ? lyDoKhongKhoiTo : undefined,
       expectedUpdatedAt: lifecycle.args.currentUpdatedAt,
+      ...(requiresDecision && {
+        decisionNumber: decisionNumber.trim(),
+        decisionDate,
+      }),
+      ...(canCu.trim() && { canCu: canCu.trim() }),
+      ...(targetStatus === "TAM_DINH_CHI" && {
+        lyDoTamDinhChiVuViec: tdcReasons,
+      }),
     });
   };
 
@@ -115,7 +162,9 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
         >
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900">Chuyển trạng thái Vụ việc</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Chuyển trạng thái Vụ việc
+              </h2>
               <button
                 type="button"
                 onClick={close}
@@ -127,31 +176,105 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
               </button>
             </div>
             <p className="mt-1 text-xs text-slate-600">
-              Trạng thái hiện tại:{' '}
+              Trạng thái hiện tại:{" "}
               <strong>
                 {INCIDENT_STATUS_LABEL[
-                  lifecycle.args.currentStatus as keyof typeof INCIDENT_STATUS_LABEL
+                  lifecycle.args
+                    .currentStatus as keyof typeof INCIDENT_STATUS_LABEL
                 ] ?? lifecycle.args.currentStatus}
               </strong>
             </p>
 
             <div className="mt-4 space-y-3">
+              {targetStatus === "DA_CHUYEN_DON_VI" && (
+                <label className={LABEL_BASE}>
+                  Đơn vị nhận *
+                  <input
+                    className={INPUT_BASE}
+                    data-testid="transition-transfer-unit"
+                    value={transferUnit}
+                    onChange={(e) => setTransferUnit(e.target.value)}
+                    disabled={lifecycle.isLoading}
+                  />
+                </label>
+              )}
+              {requiresDecision && (
+                <>
+                  <label className={LABEL_BASE}>
+                    Số quyết định *
+                    <input
+                      data-testid="transition-decision-number"
+                      className={INPUT_BASE}
+                      value={decisionNumber}
+                      onChange={(e) => setDecisionNumber(e.target.value)}
+                      maxLength={100}
+                      disabled={lifecycle.isLoading}
+                    />
+                  </label>
+                  <label className={LABEL_BASE}>
+                    Ngày quyết định *
+                    <input
+                      data-testid="transition-decision-date"
+                      type="date"
+                      className={INPUT_BASE}
+                      value={decisionDate}
+                      onChange={(e) => setDecisionDate(e.target.value)}
+                      disabled={lifecycle.isLoading}
+                    />
+                  </label>
+                  <label className={LABEL_BASE}>
+                    Căn cứ / nội dung quyết định
+                    <textarea
+                      className={INPUT_BASE}
+                      value={canCu}
+                      onChange={(e) => setCanCu(e.target.value)}
+                      maxLength={2000}
+                      disabled={lifecycle.isLoading}
+                    />
+                  </label>
+                </>
+              )}
+              {targetStatus === "TAM_DINH_CHI" && (
+                <CatalogSelect
+                  catalogKey="LY_DO_TAM_DINH_CHI_VU_VIEC"
+                  multi
+                  value={tdcReasons}
+                  onChange={(v) =>
+                    setTdcReasons(Array.isArray(v) ? v : v ? [v] : [])
+                  }
+                  disabled={lifecycle.isLoading}
+                  data-testid="transition-tdc-reasons"
+                />
+              )}
               <div>
-                <label className={LABEL_BASE} htmlFor="transition-status-select">
+                <label
+                  className={LABEL_BASE}
+                  htmlFor="transition-status-select"
+                >
                   Chuyển sang trạng thái <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="transition-status-select"
                   data-testid="status-transition-select"
                   value={targetStatus}
-                  onChange={(e) => setTargetStatus(e.target.value)}
+                  onChange={(e) => {
+                    setTargetStatus(e.target.value);
+                    setTransferUnit("");
+                    setDecisionNumber("");
+                    setDecisionDate("");
+                    setCanCu("");
+                    setTdcReasons([]);
+                    setLyDoKhongKhoiTo("");
+                  }}
                   className={INPUT_BASE}
                   disabled={lifecycle.isLoading}
                 >
                   <option value="">— Chọn trạng thái —</option>
                   {validOptions.map((s) => (
                     <option key={s} value={s}>
-                      {INCIDENT_STATUS_LABEL[s as keyof typeof INCIDENT_STATUS_LABEL] ?? s}
+                      {INCIDENT_STATUS_LABEL[
+                        s as keyof typeof INCIDENT_STATUS_LABEL
+                      ] ?? s}
                     </option>
                   ))}
                 </select>
@@ -166,7 +289,10 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
                 <div data-testid="field-ly-do-khong-khoi-to">
                   <label className={LABEL_BASE} htmlFor="ly-do-select">
                     Lý do không khởi tố <span className="text-red-500">*</span>
-                    <span className="text-xs text-slate-500"> (Điều 157 BLTTHS)</span>
+                    <span className="text-xs text-slate-500">
+                      {" "}
+                      (Điều 157 BLTTHS)
+                    </span>
                   </label>
                   {/* PR-1 catalog: 1 component dùng chung, hiển thị nhãn pháp lý (không phải code thô). */}
                   <CatalogSelect
@@ -227,7 +353,7 @@ export function StatusTransitionModalProvider({ children }: { children: ReactNod
                 onClick={handleSubmit}
                 disabled={!canSubmit || lifecycle.isLoading}
               >
-                {lifecycle.isLoading ? 'Đang xử lý...' : 'Xác nhận'}
+                {lifecycle.isLoading ? "Đang xử lý..." : "Xác nhận"}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, Matches } from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
@@ -18,9 +18,9 @@ export class ProsecuteIncidentDto {
   prosecutionDecision: string;
 
   // Ngày quyết định khởi tố
-  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   @IsNgayThat()
-  prosecutionDate?: string;
+  prosecutionDate: string;
 
   // Tội danh
   @IsOptional()

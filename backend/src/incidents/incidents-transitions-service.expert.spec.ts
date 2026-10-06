@@ -71,6 +71,19 @@ function dungService(trangThaiHienTai: IncidentStatus) {
 /** Vài trạng thái đòi thêm trường bắt buộc — cấp sẵn để không nhầm lỗi thiếu trường với lỗi cạnh. */
 function dtoCho(den: IncidentStatus): Record<string, unknown> {
   const d: Record<string, unknown> = { status: den };
+  if (
+    [
+      IncidentStatus.DA_PHAN_CONG,
+      IncidentStatus.KHONG_KHOI_TO,
+      IncidentStatus.TAM_DINH_CHI,
+      IncidentStatus.PHUC_HOI_NGUON_TIN,
+    ].includes(den as never)
+  ) {
+    d.decisionNumber = 'QD-MATRIX';
+    d.decisionDate = '2026-10-06';
+  }
+  if (den === IncidentStatus.TAM_DINH_CHI)
+    d.lyDoTamDinhChiVuViec = ['CHUA_CO_KET_QUA_GIAM_DINH'];
   if (den === IncidentStatus.KHONG_KHOI_TO)
     d.lyDoKhongKhoiTo = 'Điều 157 khoản 1';
   return d;

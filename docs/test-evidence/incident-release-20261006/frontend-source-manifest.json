@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-10-06T03:15:22.132Z",
+  "lintExit": 0,
+  "files": [
+    {
+      "file": "frontend/src/features/_shared/modals/ProsecuteModalProvider.tsx",
+      "sha256": "a8e5e19a4192f2cf10b016c5a227159745e4f5e0ed45292ea995de892333c2b1"
+    },
+    {
+      "file": "frontend/src/features/_shared/modals/StatusTransitionModalProvider.tsx",
+      "sha256": "e610b6f3e5392d174d74b545a0dee501a2a598da709354c325d36a6610e24d5f"
+    },
+    {
+      "file": "frontend/src/features/_shared/modals/__tests__/StatusTransitionModalProvider.test.tsx",
+      "sha256": "750226786fe599636e4ecfd2444e302ac2b2d66ce5d2aa4763709ba14cc9f76f"
+    },
+    {
+      "file": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "sha256": "02a67023e8dde61c4fff7b06b4c7e72b0e60a066f071c92ba25ff9a33cc0f325"
+    },
+    {
+      "file": "frontend/src/features/incidents/__tests__/registrations.test.ts",
+      "sha256": "7502bf281ddbdbf9c5ac61114da3cb6be3619df50c0462947162b48b100a7a68"
+    },
+    {
+      "file": "frontend/src/features/incidents/list-filters.ts",
+      "sha256": "561a63eedbed16fd799b58e340d9d55c5c87d26ce409660385533c7cc3e59442"
+    },
+    {
+      "file": "frontend/src/features/incidents/menu.ts",
+      "sha256": "d71397f08967e392af82cc7441c11074d9096465d9afaf3ccb132042f1967b3b"
+    },
+    {
+      "file": "frontend/src/features/incidents/routes.tsx",
+      "sha256": "9e1f61b104a5c8a9ccb88944628d957675372428bdc91f0345d45b2a2deca4c8"
+    },
+    {
+      "file": "frontend/src/features/incidents/row-actions.ts",
+      "sha256": "0c5e201edbf7f0d426cb439c9ba148416a67df0437036a19d7d10c4122546a12"
+    },
+    {
+      "file": "frontend/src/features/legacy-form/registry.ts",
+      "sha256": "9599b5bebebf6abfe1d54e5d637779647087b51690695393c562a7e48fd34ad2"
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentFormPage.tsx",
+      "sha256": "6d47b977e62aa7005a47eef5de1f5e5831141ffdb17b299558fa5562b7a5abf1"
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentListPageShell.tsx",
+      "sha256": "4e73aa810a148a6647d8509812324155e5fa45435a834ebcdb8e623459cdc80b"
+    },
+    {
+      "file": "frontend/src/features/incidents/IncidentHandoffPanel.tsx",
+      "sha256": "4b06e0fa6797133663ee54ddad61f78c5ce43d675fc1f8b90cef36bec093e3b9"
+    },
+    {
+      "file": "frontend/src/features/incidents/__tests__/IncidentHandoffPanel.test.tsx",
+      "sha256": "884eac4577f3e82bc3966bad3083f508fc13da3dddf1b1b7afab9c0dce2e4d6b"
+    },
+    {
+      "file": "frontend/src/features/incidents/__tests__/case-ownership-release.test.ts",
+      "sha256": "f7caa6bda17c38d792b78ac03c5e2f741f9ec1c03678fd4cf30a26128a955ca4"
+    },
+    {
+      "file": "frontend/src/features/incidents/__tests__/incident-business-readiness.test.ts",
+      "sha256": "f6e0a9f68f752cd19e05e8a84179caf024df13b2d3d2d4ffd6e969937dc91f64"
+    },
+    {
+      "file": "frontend/src/features/incidents/incident-business-readiness.ts",
+      "sha256": "c22d6694477ce896c9b8f0adb8adab8e2da02099c6da5ac68004f66324fe76af"
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentInboxPage.tsx",
+      "sha256": "d5ec6da8886c34bf95abea80104666cb6aa606aeccd63dc6f8cbf93544a434ab"
+    },
+    {
+      "file": "frontend/src/pages/incidents/__tests__/incident-inbox.test.tsx",
+      "sha256": "0085c0348462394f1e10c97ce135632b33b5404e3213ad36570838b7d1ff5036"
+    }
+  ]
+}

@@ -1,11 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
-import { incidentsRowActions, type IncidentRowForActions } from '../row-actions';
-import { incidentsListFilters } from '../list-filters';
-import type { ActionContext } from '@/features/_shared/row-actions/registry';
+import { describe, it, expect, vi } from "vitest";
+import {
+  incidentsRowActions,
+  type IncidentRowForActions,
+} from "../row-actions";
+import { incidentsListFilters } from "../list-filters";
+import type { ActionContext } from "@/features/_shared/row-actions/registry";
 
 function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
   return {
-    navigate: vi.fn() as unknown as ActionContext['navigate'],
+    navigate: vi.fn() as unknown as ActionContext["navigate"],
     perms: { canDispatch: true, canEdit: true, canDelete: true },
     assignModal: { open: vi.fn() },
     deleteModal: { open: vi.fn() },
@@ -14,159 +17,244 @@ function makeCtx(overrides: Partial<ActionContext> = {}): ActionContext {
   };
 }
 
-describe('incidentsRowActions', () => {
-  it('registers View/Edit/Delete/Print/Assign/Transition/Merge/Prosecute in order', () => {
+describe("incidentsRowActions", () => {
+  it("release: pending/intake commands stay blocked while restored received source can prosecute", () => {
+    const context = makeCtx({
+      statusTransition: { open: vi.fn() },
+      prosecute: { open: vi.fn() },
+      mergeIncident: { open: vi.fn() },
+    });
+    for (const intakeStage of ["PHAN_LOAI", "CHO_NHAN"]) {
+      const row = {
+        id: "I",
+        status: "DANG_XAC_MINH",
+        intakeStage,
+      } as IncidentRowForActions;
+      for (const key of ["assign", "transition", "merge", "prosecute"]) {
+        expect(
+          incidentsRowActions
+            .all()
+            .find((action) => action.key === key)!
+            .visible?.(row, context),
+        ).toBe(false);
+      }
+    }
+    expect(
+      incidentsRowActions
+        .all()
+        .find((action) => action.key === "prosecute")!
+        .visible?.(
+          {
+            id: "I",
+            status: "PHUC_HOI_NGUON_TIN",
+            intakeStage: "DA_NHAN",
+          } as IncidentRowForActions,
+          context,
+        ),
+    ).toBe(true);
+  });
+  it("registers View/Edit/Delete/Print/Assign/Transition/Merge/Prosecute in order", () => {
     expect(incidentsRowActions.all().map((a) => a.key)).toEqual([
-      'view',
-      'edit',
-      'delete',
+      "view",
+      "edit",
+      "delete",
       // 'print' đứng ngay sau nhóm chung: nó là nút INLINE trên cột Thao tác (anh yêu cầu
       // 09/09/2026), không phải mục trong menu ⋮.
-      'print',
-      'assign',
-      'transition',
-      'merge',
-      'prosecute',
+      "print",
+      "assign",
+      "transition",
+      "merge",
+      "prosecute",
     ]);
   });
 
-  it('Merge uses the dedicated command modal only for a valid transition', () => {
-    const action = incidentsRowActions.all().find((item) => item.key === 'merge')!;
+  it("Merge uses the dedicated command modal only for a valid transition", () => {
+    const action = incidentsRowActions
+      .all()
+      .find((item) => item.key === "merge")!;
     const open = vi.fn();
     const context = makeCtx({ mergeIncident: { open } });
-    expect(action.visible?.({ id: 'I', status: 'DANG_XAC_MINH' }, context)).toBe(true);
-    expect(action.visible?.({ id: 'I', status: 'TIEP_NHAN' }, context)).toBe(false);
-    action.execute({ id: 'I', status: 'DANG_XAC_MINH', updatedAt: '2026-09-29T00:00:00Z' }, context);
-    expect(open).toHaveBeenCalledWith({ recordId: 'I', currentUpdatedAt: '2026-09-29T00:00:00Z' });
+    expect(
+      action.visible?.({ id: "I", status: "DANG_XAC_MINH" }, context),
+    ).toBe(true);
+    expect(action.visible?.({ id: "I", status: "TIEP_NHAN" }, context)).toBe(
+      false,
+    );
+    action.execute(
+      { id: "I", status: "DANG_XAC_MINH", updatedAt: "2026-09-29T00:00:00Z" },
+      context,
+    );
+    expect(open).toHaveBeenCalledWith({
+      recordId: "I",
+      currentUpdatedAt: "2026-09-29T00:00:00Z",
+    });
   });
 
-  it('hides every write command when the row capability removes edit access', () => {
+  it("hides every write command when the row capability removes edit access", () => {
     const context = makeCtx({
       perms: { canDispatch: true, canEdit: false, canDelete: false },
       statusTransition: { open: vi.fn() },
       prosecute: { open: vi.fn() },
       mergeIncident: { open: vi.fn() },
     });
-    const row = { id: 'I', status: 'DANG_XAC_MINH' };
+    const row = { id: "I", status: "DANG_XAC_MINH" };
     const visibleKeys = incidentsRowActions
       .all()
-      .filter((action) => (action.visible ? action.visible(row, context) : true))
+      .filter((action) =>
+        action.visible ? action.visible(row, context) : true,
+      )
       .map((action) => action.key);
 
-    expect(visibleKeys).toContain('view');
-    expect(visibleKeys).toContain('print');
-    expect(visibleKeys).toContain('assign');
-    expect(visibleKeys).not.toContain('edit');
-    expect(visibleKeys).not.toContain('delete');
-    expect(visibleKeys).not.toContain('transition');
-    expect(visibleKeys).not.toContain('merge');
-    expect(visibleKeys).not.toContain('prosecute');
+    expect(visibleKeys).toContain("view");
+    expect(visibleKeys).toContain("print");
+    expect(visibleKeys).toContain("assign");
+    expect(visibleKeys).not.toContain("edit");
+    expect(visibleKeys).not.toContain("delete");
+    expect(visibleKeys).not.toContain("transition");
+    expect(visibleKeys).not.toContain("merge");
+    expect(visibleKeys).not.toContain("prosecute");
   });
 
-  it('Transition visible when statusTransition provided + status has valid transitions', () => {
-    const action = incidentsRowActions.all().find((a) => a.key === 'transition')!;
+  it("Transition visible when statusTransition provided + status has valid transitions", () => {
+    const action = incidentsRowActions
+      .all()
+      .find((a) => a.key === "transition")!;
     const ctxWith = makeCtx({ statusTransition: { open: vi.fn() } });
-    expect(action.visible?.({ id: 'I', status: 'TIEP_NHAN' }, ctxWith)).toBe(true);
-    expect(action.visible?.({ id: 'I', status: 'DA_CHUYEN_VU_AN' }, ctxWith)).toBe(false);
-    expect(action.visible?.({ id: 'I', status: 'TIEP_NHAN' }, makeCtx())).toBe(false);
+    expect(action.visible?.({ id: "I", status: "TIEP_NHAN" }, ctxWith)).toBe(
+      true,
+    );
+    expect(
+      action.visible?.({ id: "I", status: "DA_CHUYEN_VU_AN" }, ctxWith),
+    ).toBe(false);
+    expect(action.visible?.({ id: "I", status: "TIEP_NHAN" }, makeCtx())).toBe(
+      false,
+    );
   });
 
-  it('Transition execute opens statusTransition modal', () => {
-    const action = incidentsRowActions.all().find((a) => a.key === 'transition')!;
+  it("Transition execute opens statusTransition modal", () => {
+    const action = incidentsRowActions
+      .all()
+      .find((a) => a.key === "transition")!;
     const open = vi.fn();
     const ctx = makeCtx({ statusTransition: { open } });
     action.execute(
-      { id: 'I3', status: 'DANG_XAC_MINH', updatedAt: '2026-01-01T00:00:00Z' },
+      { id: "I3", status: "DANG_XAC_MINH", updatedAt: "2026-01-01T00:00:00Z" },
       ctx,
     );
     expect(open).toHaveBeenCalledWith({
-      recordId: 'I3',
-      currentStatus: 'DANG_XAC_MINH',
-      currentUpdatedAt: '2026-01-01T00:00:00Z',
+      recordId: "I3",
+      currentStatus: "DANG_XAC_MINH",
+      currentUpdatedAt: "2026-01-01T00:00:00Z",
     });
   });
 
-  it('Prosecute visible only when status ∈ {DANG_XAC_MINH, DA_PHAN_CONG} + provider', () => {
-    const action = incidentsRowActions.all().find((a) => a.key === 'prosecute')!;
+  it("Prosecute visible only when status ∈ {DANG_XAC_MINH, DA_PHAN_CONG} + provider", () => {
+    const action = incidentsRowActions
+      .all()
+      .find((a) => a.key === "prosecute")!;
     const ctxWith = makeCtx({ prosecute: { open: vi.fn() } });
-    expect(action.visible?.({ id: 'I', status: 'DANG_XAC_MINH' }, ctxWith)).toBe(true);
-    expect(action.visible?.({ id: 'I', status: 'DA_PHAN_CONG' }, ctxWith)).toBe(true);
-    expect(action.visible?.({ id: 'I', status: 'TIEP_NHAN' }, ctxWith)).toBe(false);
-    expect(action.visible?.({ id: 'I', status: 'DANG_XAC_MINH' }, makeCtx())).toBe(false);
+    expect(
+      action.visible?.({ id: "I", status: "DANG_XAC_MINH" }, ctxWith),
+    ).toBe(true);
+    expect(action.visible?.({ id: "I", status: "DA_PHAN_CONG" }, ctxWith)).toBe(
+      true,
+    );
+    expect(action.visible?.({ id: "I", status: "TIEP_NHAN" }, ctxWith)).toBe(
+      false,
+    );
+    expect(
+      action.visible?.({ id: "I", status: "DANG_XAC_MINH" }, makeCtx()),
+    ).toBe(false);
   });
 
-  it('Prosecute execute opens prosecute modal with incident name', () => {
-    const action = incidentsRowActions.all().find((a) => a.key === 'prosecute')!;
+  it("Prosecute execute opens prosecute modal with incident name", () => {
+    const action = incidentsRowActions
+      .all()
+      .find((a) => a.key === "prosecute")!;
     const open = vi.fn();
     const ctx = makeCtx({ prosecute: { open } });
     action.execute(
       {
-        id: 'I4',
-        status: 'DANG_XAC_MINH',
-        name: 'Vụ việc HS-2026-007',
-        updatedAt: '2026-05-01T00:00:00Z',
+        id: "I4",
+        status: "DANG_XAC_MINH",
+        name: "Vụ việc HS-2026-007",
+        updatedAt: "2026-05-01T00:00:00Z",
       },
       ctx,
     );
     expect(open).toHaveBeenCalledWith({
-      recordId: 'I4',
-      incidentName: 'Vụ việc HS-2026-007',
-      currentUpdatedAt: '2026-05-01T00:00:00Z',
+      recordId: "I4",
+      incidentName: "Vụ việc HS-2026-007",
+      currentUpdatedAt: "2026-05-01T00:00:00Z",
     });
   });
 
-  it('View navigates to /vu-viec/:id', () => {
+  it("View navigates to /vu-viec/:id", () => {
     const ctx = makeCtx();
-    const view = incidentsRowActions.all().find((a) => a.key === 'view')!;
-    view.execute({ id: 'I1', status: 'TIEP_NHAN' }, ctx);
-    expect(ctx.navigate).toHaveBeenCalledWith('/vu-viec/I1');
+    const view = incidentsRowActions.all().find((a) => a.key === "view")!;
+    view.execute({ id: "I1", status: "TIEP_NHAN" }, ctx);
+    expect(ctx.navigate).toHaveBeenCalledWith("/vu-viec/I1");
   });
 
-  it('Phân công requires canDispatch, opens AssignModal with resourceType=incidents', () => {
-    const assign = incidentsRowActions.all().find((a) => a.key === 'assign')!;
-    expect(assign.visible?.({ id: 'I', status: 'X' }, makeCtx({ perms: { canDispatch: false } }))).toBe(false);
+  it("Phân công requires canDispatch, opens AssignModal with resourceType=incidents", () => {
+    const assign = incidentsRowActions.all().find((a) => a.key === "assign")!;
+    expect(
+      assign.visible?.(
+        { id: "I", status: "X" },
+        makeCtx({ perms: { canDispatch: false } }),
+      ),
+    ).toBe(false);
     const ctx = makeCtx();
     const row: IncidentRowForActions = {
-      id: 'I2',
-      status: 'TIEP_NHAN',
-      assignedTeamId: 'T9',
-      updatedAt: '2026-01-02T00:00:00Z',
+      id: "I2",
+      status: "TIEP_NHAN",
+      assignedTeamId: "T9",
+      updatedAt: "2026-01-02T00:00:00Z",
     };
     assign.execute(row, ctx);
     expect(ctx.assignModal.open).toHaveBeenCalledWith({
-      resourceType: 'incidents',
-      recordId: 'I2',
-      currentTeamId: 'T9',
-      currentUpdatedAt: '2026-01-02T00:00:00Z',
+      resourceType: "incidents",
+      recordId: "I2",
+      currentTeamId: "T9",
+      currentUpdatedAt: "2026-01-02T00:00:00Z",
     });
   });
 
-  it('Delete TIEP_NHAN-only', () => {
-    const del = incidentsRowActions.all().find((a) => a.key === 'delete')!;
-    expect(del.disabled?.({ id: 'I', status: 'TIEP_NHAN' }, makeCtx())).toBeNull();
-    expect(del.disabled?.({ id: 'I', status: 'DANG_XAC_MINH' }, makeCtx())).toContain('Tiếp nhận');
+  it("Delete TIEP_NHAN-only", () => {
+    const del = incidentsRowActions.all().find((a) => a.key === "delete")!;
+    expect(
+      del.disabled?.({ id: "I", status: "TIEP_NHAN" }, makeCtx()),
+    ).toBeNull();
+    expect(
+      del.disabled?.({ id: "I", status: "DANG_XAC_MINH" }, makeCtx()),
+    ).toContain("Tiếp nhận");
   });
 });
 
-describe('incidentsListFilters', () => {
-  it('registers 6 fields — ô lọc chữ theo cột đã thành thẻ tìm kiếm', () => {
+describe("incidentsListFilters", () => {
+  it("registers existing fields plus the approved intake/history/empty-field filters", () => {
     // Vụ việc trước đây KHÔNG có ô ngày nào trong registry, nên Từ/Đến ngày ở đây là ô
     // mới thật, không phải trùng với ô sẵn có như ở Đơn thư và Vụ án.
     // 15/09/2026: Đơn vị / STT / STT cũ chuyển sang ô tìm kiếm dạng thẻ. `reporter` Ở LẠI: nó tra
     // CCCD/SĐT người tố giác — không cột nào trên danh sách mang nó nên không thành thẻ được.
     expect(incidentsListFilters.all().map((f) => f.key)).toEqual([
-      'loaiDonVu',
-      'reporter',
-      'fromDateRange',
-      'toDateRange',
-      'canBoNhapId',
+      "tinhTrangHoSo",
+      "tinhTrangThoiHieu",
+      "intakeStage",
+      "emptyField",
+      "historyStatus",
+      "loaiDonVu",
+      "reporter",
+      "fromDateRange",
+      "toDateRange",
+      "canBoNhapId",
       // Ô "Tính theo" (25/08/2026): cán bộ đổi TẠM kỳ thống kê tính theo ngày tiếp nhận hay
       // ngày tạo; để trống thì theo cấu hình admin đặt trong Cài đặt hệ thống.
-      'thongKeTruongNgay',
+      "thongKeTruongNgay",
     ]);
   });
 
-  it('khoá địa chỉ trang không trùng nhau', () => {
+  it("khoá địa chỉ trang không trùng nhau", () => {
     const keys = incidentsListFilters.all().map((f) => f.urlKey);
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -178,25 +266,36 @@ describe('incidentsListFilters', () => {
    * param này KHÔNG có trong `QueryIncidentsDto` — mà backend bật `forbidNonWhitelisted`
    * nên gửi lên là 400. Tức là dùng bộ lọc đó đang làm mất trắng danh sách.
    */
-  it('KHÔNG còn field keyword (trùng ô tìm kiếm + gây 400)', () => {
-    expect(incidentsListFilters.all().find((f) => f.key === 'keyword')).toBeUndefined();
+  it("KHÔNG còn field keyword (trùng ô tìm kiếm + gây 400)", () => {
+    expect(
+      incidentsListFilters.all().find((f) => f.key === "keyword"),
+    ).toBeUndefined();
   });
 
-  it('loaiDonVu is enumSelect with 3 options', () => {
-    const f = incidentsListFilters.all().find((x) => x.key === 'loaiDonVu')!;
-    expect(f.type).toBe('enumSelect');
+  it("loaiDonVu is enumSelect with 3 options", () => {
+    const f = incidentsListFilters.all().find((x) => x.key === "loaiDonVu")!;
+    expect(f.type).toBe("enumSelect");
     expect(f.options).toHaveLength(3);
-    expect(f.options?.map((o) => o.value)).toEqual(['TO_GIAC', 'TIN_BAO', 'KIEN_NGHI_KHOI_TO']);
+    expect(f.options?.map((o) => o.value)).toEqual([
+      "TO_GIAC",
+      "TIN_BAO",
+      "KIEN_NGHI_KHOI_TO",
+    ]);
   });
 
-  it('legacy testid pattern preserved', () => {
+  it("legacy testid pattern preserved", () => {
     expect(incidentsListFilters.all().map((f) => f.testid)).toEqual([
-      'filter-loai-don-vu',
-      'filter-reporter',
-      'filter-from-date',
-      'filter-to-date',
-      'filter-can-bo-nhap',
-      'filter-tinh-theo',
+      "filter-tinh-trang-ho-so",
+      "filter-thoi-hieu",
+      "filter-intake-stage",
+      "filter-empty-field",
+      "filter-history-status",
+      "filter-loai-don-vu",
+      "filter-reporter",
+      "filter-from-date",
+      "filter-to-date",
+      "filter-can-bo-nhap",
+      "filter-tinh-theo",
     ]);
   });
 });
@@ -210,24 +309,24 @@ describe('incidentsListFilters', () => {
  * Mở đúng modal sẵn có (`DynamicExportDocumentsModal`) qua provider dùng chung, KHÔNG dựng
  * màn in thứ hai: modal ấy chỉ cần `{entity, entityId}` và tự gọi API lấy phần còn lại.
  */
-describe('incidentsRowActions — in chứng từ từ danh sách', () => {
-  it('có hành động in, nằm NGAY TRÊN cột Thao tác chứ không nấp trong menu', () => {
-    const inChungTu = incidentsRowActions.all().find((a) => a.key === 'print');
+describe("incidentsRowActions — in chứng từ từ danh sách", () => {
+  it("có hành động in, nằm NGAY TRÊN cột Thao tác chứ không nấp trong menu", () => {
+    const inChungTu = incidentsRowActions.all().find((a) => a.key === "print");
 
     expect(inChungTu).toBeDefined();
     // Nấp trong menu ⋮ là vẫn tốn hai lần bấm — đúng thứ anh yêu cầu bỏ đi.
-    expect(inChungTu!.position).toBe('inline');
+    expect(inChungTu!.position).toBe("inline");
   });
 
-  it('bấm in mở modal với ĐÚNG thực thể và id của dòng', () => {
+  it("bấm in mở modal với ĐÚNG thực thể và id của dòng", () => {
     const ctx = makeCtx();
-    const inChungTu = incidentsRowActions.all().find((a) => a.key === 'print')!;
+    const inChungTu = incidentsRowActions.all().find((a) => a.key === "print")!;
 
-    inChungTu.execute({ id: 'I9', status: 'TIEP_NHAN' }, ctx);
+    inChungTu.execute({ id: "I9", status: "TIEP_NHAN" }, ctx);
 
     expect(ctx.printModal.open).toHaveBeenCalledWith({
-      entity: 'incidents',
-      entityId: 'I9',
+      entity: "incidents",
+      entityId: "I9",
     });
   });
 });

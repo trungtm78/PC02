@@ -535,20 +535,20 @@ enum CaseStatus {
   DANG_TRUY_TO // Đang truy tố
   DANG_XET_XU // Đang xét xử
   DA_LUU_TRU // Đã lưu trữ
-
-  @@map("case_status")
   // 22 vụ án hệ cũ ghi "chuyển…" — IncidentStatus đã có giá trị này, CaseStatus thì không.
   DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác
   DA_NHAP_VU_KHAC // Đã nhập vào vụ khác
   CHUYEN_XPHC // Chuyển xử phạt vi phạm hành chính
+
+  @@map("case_status")
 }
 
 model Case {
-  id                  String        @id @default(cuid())
-  name                String
-  crime               String? // tội danh (text tự do — giữ tương thích cũ)
-  crimeChinhId        String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
-  status              CaseStatus    @default(TIEP_NHAN)
+  id           String     @id @default(cuid())
+  name         String
+  crime        String? // tội danh (text tự do — giữ tương thích cũ)
+  crimeChinhId String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
+  status       CaseStatus @default(TIEP_NHAN)
 
   /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
   ///
@@ -559,7 +559,7 @@ model Case {
   ///
   /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
   /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
-  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
+  ngayGiaiQuyet       DateTime?     @map("ngay_giai_quyet")
   investigatorId      String? // FK → users (nullable)
   deadline            DateTime?
   unit                String?
@@ -665,10 +665,10 @@ model Case {
   actionPlans     SuspensionActionPlan[]
 
   // v0.44 — Ủy Thác Điều Tra fields (nullable, chỉ relevant khi caseType = UY_THAC_DIEU_TRA)
-  caseType          CaseType    @default(REGULAR) @map("case_type")
-  legacySourceId    String? // Khóa gốc hệ thống cũ — idempotent di trú
-  soHoSoCu          String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên (hiển thị + tìm kiếm)
-  sttCu             String? // STT cũ hơn (trường `stt_cu`) — hiển thị + tìm kiếm
+  caseType       CaseType @default(REGULAR) @map("case_type")
+  legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
+  soHoSoCu       String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên (hiển thị + tìm kiếm)
+  sttCu          String? // STT cũ hơn (trường `stt_cu`) — hiển thị + tìm kiếm
 
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM (' ' || f_bo_dau(cột gốc)), trigger `pc02_tim_kiem_cases` giữ.
   /// Không ghi từ ứng dụng. Danh sách cột sinh từ `src/common/tim-kiem/khai/vu-an.khai.ts`
@@ -684,9 +684,9 @@ model Case {
   ketQuaUyThacBd      String? @map("ket_qua_uy_thac_bd")
   crimeBd             String? @map("crime_bd")
   /// CHỈ ĐỌC — cột bóng TÊN vụ án, đích của thẻ "Vụ án" ở Đối tượng/Luật sư (`cotBongPhu` trong vu-an.khai.ts).
-  nameBd              String? @map("name_bd")
+  nameBd               String?     @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ án, số hồ sơ cũ — thẻ "tất cả các cột".
-  timKiemBd           String? @map("tim_kiem_bd")
+  timKiemBd            String?     @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
   /// dữ liệu giữ nó, định nghĩa thật nằm ở migration 20260827160000_stt_sort. Mã là chuỗi
   /// "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
@@ -694,19 +694,19 @@ model Case {
   /// KIỂU `Int`, KHÔNG PHẢI `BigInt`: `BigInt` của Prisma ra `bigint` của JavaScript, mà
   /// `JSON.stringify` ném lỗi với kiểu ấy. Các endpoint chi tiết dùng `include` nên cột
   /// này lọt vào phản hồi — mở một hồ sơ có mã hợp lệ là lỗi 500.
-  sttSort          Int?
-  legacyId          Int? // id số gốc hệ cũ (kèm legacyCollection vì id trùng giữa collection)
-  legacyCollection  String? // collection gốc: ho_so | ho_so_doi_1
-  donViGiao         String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
-  soQuyetDinhUyThac String?     @unique @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021) — unique (NULL cho phép trùng theo chuẩn PG)
-  ngayTiepNhan      DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
-  thoiHanUyThac     DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
-  loaiUyThac        LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)
-  ketQuaUyThac      String?     @map("ket_qua_uy_thac") // Kết quả điều tra
-  utdtHasFailureReason Boolean? @map("utdt_has_failure_reason")
-  utdtHasReplyResult   Boolean? @map("utdt_has_reply_result")
-  ngayTraKetQua     DateTime?   @map("ngay_tra_ket_qua") // Ngày trả kết quả về đơn vị ủy thác
-  loaiThongTin      String?     @map("loai_thong_tin") // Tố giác / Trình báo / Đề nghị / Kiến nghị...
+  sttSort              Int?
+  legacyId             Int? // id số gốc hệ cũ (kèm legacyCollection vì id trùng giữa collection)
+  legacyCollection     String? // collection gốc: ho_so | ho_so_doi_1
+  donViGiao            String?     @map("don_vi_giao") // Tên CQĐT/đơn vị ủy thác (PC01, CA quận X...)
+  soQuyetDinhUyThac    String?     @unique @map("so_quyet_dinh_uy_thac") // Số QĐ/Phiếu ủy thác từ đơn vị giao (Mẫu 58 TT119/2021) — unique (NULL cho phép trùng theo chuẩn PG)
+  ngayTiepNhan         DateTime?   @map("ngay_tiep_nhan") // Ngày tiếp nhận theo biên bản
+  thoiHanUyThac        DateTime?   @map("thoi_han_uy_thac") // Thời hạn thực hiện do đơn vị giao yêu cầu
+  loaiUyThac           LoaiUyThac? @map("loai_uy_thac") // Loại ủy thác (closed-set enum)
+  ketQuaUyThac         String?     @map("ket_qua_uy_thac") // Kết quả điều tra
+  utdtHasFailureReason Boolean?    @map("utdt_has_failure_reason")
+  utdtHasReplyResult   Boolean?    @map("utdt_has_reply_result")
+  ngayTraKetQua        DateTime?   @map("ngay_tra_ket_qua") // Ngày trả kết quả về đơn vị ủy thác
+  loaiThongTin         String?     @map("loai_thong_tin") // Tố giác / Trình báo / Đề nghị / Kiến nghị...
 
   // Field-parity hệ thống cũ (PR-M2): ghi chú tự do + tội danh khác cấp vụ án (multi).
   ghiChuKhac     String?  @map("ghi_chu_khac") // old: ghi_chu_khac
@@ -952,11 +952,11 @@ model Subject {
   deletedAt     DateTime? // Soft delete
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(fullName)), trigger `pc02_tim_kiem_subjects`
   /// giữ. Thẻ "Đối tượng bị can" của Vụ án lọc qua quan hệ: subjects: { some: { fullNameBd } }.
-  fullNameBd    String?   @map("full_name_bd")
+  fullNameBd    String?       @map("full_name_bd")
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM CCCD, cùng trigger `pc02_tim_kiem_subjects` giữ (khai doi-tuong.khai.ts).
-  idNumberBd    String?   @map("id_number_bd")
+  idNumberBd    String?       @map("id_number_bd")
   /// CHỈ ĐỌC — ghép họ tên, CCCD, địa chỉ, SĐT cho thẻ "tất cả các cột" của danh sách Đối tượng.
-  timKiemBd     String?   @map("tim_kiem_bd")
+  timKiemBd     String?       @map("tim_kiem_bd")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -984,23 +984,23 @@ model Subject {
 // ─────────────────────────────────────────────
 
 model Lawyer {
-  id        String    @id @default(cuid())
-  fullName  String
-  lawFirm   String? // Văn phòng luật sư
-  barNumber String    @unique // Số thẻ luật sư
-  phone     String?
-  caseId    String // FK → cases (required)
-  subjectId String? // FK → subjects (nullable — one lawyer can defend multiple)
-  deletedAt DateTime? // Soft delete
+  id          String    @id @default(cuid())
+  fullName    String
+  lawFirm     String? // Văn phòng luật sư
+  barNumber   String    @unique // Số thẻ luật sư
+  phone       String?
+  caseId      String // FK → cases (required)
+  subjectId   String? // FK → subjects (nullable — one lawyer can defend multiple)
+  deletedAt   DateTime? // Soft delete
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_lawyers` giữ (khai luat-su.khai.ts).
-  fullNameBd  String? @map("full_name_bd")
-  barNumberBd String? @map("bar_number_bd")
-  lawFirmBd   String? @map("law_firm_bd")
-  phoneBd     String? @map("phone_bd")
+  fullNameBd  String?   @map("full_name_bd")
+  barNumberBd String?   @map("bar_number_bd")
+  lawFirmBd   String?   @map("law_firm_bd")
+  phoneBd     String?   @map("phone_bd")
   /// CHỈ ĐỌC — ghép họ tên, số thẻ, văn phòng, SĐT cho thẻ "tất cả các cột" của danh sách Luật sư.
-  timKiemBd   String? @map("tim_kiem_bd")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  timKiemBd   String?   @map("tim_kiem_bd")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Di trú (Codex P1#3): idempotent + raw
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
@@ -1027,8 +1027,6 @@ enum PetitionStatus {
   DA_GIAI_QUYET // Đã giải quyết
   DA_CHUYEN_VU_VIEC // Đã chuyển thành Vụ việc
   DA_CHUYEN_VU_AN // Đã chuyển thành Vụ án
-
-  @@map("petition_status")
   // ── Kết quả xử lý mà hệ cũ CÓ GHI nhưng hệ mới chưa có chỗ chứa ──
   //
   // Đo trên máy thật 30/08/2026: 5.094 đơn thư mang một trong sáu kết quả dưới đây ở ô
@@ -1047,6 +1045,8 @@ enum PetitionStatus {
   DA_NHAP_HO_SO_KHAC // Đã nhập vào hồ sơ khác
   DINH_CHI // Đình chỉ giải quyết (khác TẠM đình chỉ)
   CHUYEN_XPHC // Chuyển xử phạt vi phạm hành chính
+
+  @@map("petition_status")
 }
 
 /// Hướng xử lý đơn thư — quyết định BA thứ cùng lúc trên Phiếu đề xuất:
@@ -1122,35 +1122,35 @@ model Petition {
   ///
   /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
   /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
-  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
+  ngayGiaiQuyet        DateTime? @map("ngay_giai_quyet")
   /// ── Cột bóng TÌM KIẾM — CHỈ ĐỌC, KHÔNG BAO GIỜ ghi từ mã ứng dụng ──
   /// Trigger `pc02_tim_kiem_petitions` giữ chúng = ' ' || f_bo_dau(<cột nguồn>) (bỏ dấu, chữ thường,
   /// gộp khoảng trắng; khoảng trắng đầu để khớp đầu từ). Định nghĩa SINH TỰ ĐỘNG từ
   /// `src/common/tim-kiem/khai/don-thu.khai.ts` (`npm run gen:tim-kiem`); cổng
   /// `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
-  nguonDonBd        String? @map("nguon_don_bd")
-  senderNameBd      String? @map("sender_name_bd")
-  loaiThongTinBd    String? @map("loai_thong_tin_bd")
-  detailContentBd   String? @map("detail_content_bd")
-  donViGiaiQuyetBd  String? @map("don_vi_giai_quyet_bd")
-  ketQuaXuLyKhacBd  String? @map("ket_qua_xu_ly_khac_bd")
-  suspectedPersonBd String? @map("suspected_person_bd")
+  nguonDonBd           String?   @map("nguon_don_bd")
+  senderNameBd         String?   @map("sender_name_bd")
+  loaiThongTinBd       String?   @map("loai_thong_tin_bd")
+  detailContentBd      String?   @map("detail_content_bd")
+  donViGiaiQuyetBd     String?   @map("don_vi_giai_quyet_bd")
+  ketQuaXuLyKhacBd     String?   @map("ket_qua_xu_ly_khac_bd")
+  suspectedPersonBd    String?   @map("suspected_person_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + số hồ sơ cũ — thẻ "tất cả các cột".
-  timKiemBd         String? @map("tim_kiem_bd")
+  timKiemBd            String?   @map("tim_kiem_bd")
   /// CHỈ ĐỌC — cột SINH TỰ ĐỘNG của CSDL (migration `don_trung_chuan_hoa`), dùng để gom nhóm ở màn Đơn
   /// trùng. Giữ dấu thanh, chỉ quy một dạng Unicode + một cách đặt dấu + không hoa thường; số điện thoại
   /// chỉ giữ chữ số. KHÔNG ghi vào các cột này (PostgreSQL từ chối).
-  senderNameChuan      String? @map("sender_name_chuan")
-  senderAddressChuan   String? @map("sender_address_chuan")
-  suspectedPersonChuan String? @map("suspected_person_chuan")
-  senderPhoneChuan     String? @map("sender_phone_chuan")
+  senderNameChuan      String?   @map("sender_name_chuan")
+  senderAddressChuan   String?   @map("sender_address_chuan")
+  suspectedPersonChuan String?   @map("suspected_person_chuan")
+  senderPhoneChuan     String?   @map("sender_phone_chuan")
   // Liên kết sau khi chuyển đổi
-  linkedCaseId     String? // FK → cases (sau khi chuyển thành Vụ án)
-  linkedIncidentId String? // FK → incidents (sau khi chuyển thành Vụ việc)
+  linkedCaseId         String? // FK → cases (sau khi chuyển thành Vụ án)
+  linkedIncidentId     String? // FK → incidents (sau khi chuyển thành Vụ việc)
   // Soft delete
-  deletedAt        DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  deletedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   enteredBy      User?     @relation("PetitionEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
   assignedTo     User?     @relation("PetitionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
@@ -1245,13 +1245,11 @@ model Petition {
   // Field-parity hệ thống cũ — giai đoạn Ủy thác điều tra
   thoiHanUTDT              DateTime? // Thời hạn thực hiện Ủy thác điều tra (old: thoi_han_thuc_hien_uy_thac_dieu_tra)
   // Thẩm quyền & đơn vị xử lý (form đăng ký đơn thư)
-  thuocThamQuyen           Boolean   @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
+  thuocThamQuyen           Boolean       @default(true) // Đơn thuộc thẩm quyền → xử lý nội bộ theo Tổ/Nhóm (assignedTeamId); false → chuyển đơn vị xử lý ngoài
   /**
    * KHÔNG DÙNG NỮA từ 10/09/2026 — form Đơn thư gộp còn MỘT ô, ghi vào `donViGiaiQuyet`.
-   *
    * Giữ cột chứ không xoá: nó chưa từng có dữ liệu (0/46.741 hồ sơ đo ngày gộp) nên xoá chẳng
    * lợi gì, mà migration xoá cột là việc một chiều. Không đường ghi nào còn chạm vào đây.
-   *
    * Vì sao cột thắng là `donViGiaiQuyet`: nó chứa 46.723/46.741 hồ sơ, là cột của hệ cũ, và
    * danh sách / bộ lọc theo đơn vị / thẻ thống kê / xuất Excel của Đơn thư CHỈ đọc cột ấy.
    */
@@ -1337,24 +1335,41 @@ enum IncidentStatus {
   DA_CHUYEN_DON_VI // Đã chuyển đơn vị khác
   DA_NHAP_VU_KHAC // Đã nhập vào vụ việc khác
   PHAN_LOAI_DAN_SU // Phân loại dân sự
-
-  @@map("incident_status")
   // Hệ cũ ghi "đình chỉ" (không phải TẠM đình chỉ) cho một số vụ việc — hai việc khác nhau.
   DINH_CHI // Đình chỉ giải quyết
+
+  @@map("incident_status")
+}
+
+enum IncidentIntakeStage {
+  PHAN_LOAI
+  CHO_NHAN
+  DA_NHAN
+}
+
+enum IncidentHandoffState {
+  PENDING
+  ACCEPTED
+  CANCELLED
 }
 
 model Incident {
-  id               String         @id @default(cuid())
-  code             String         @unique // VV-{YEAR}-{SEQ}
-  name             String
-  incidentType     String? // Loại vụ việc
-  description      String?
-  fromDate         DateTime? // Ngày bắt đầu vụ việc
-  toDate           DateTime? // Ngày xảy ra/kết thúc vụ việc
-  deadline         DateTime? // Hạn xử lý
-  unitId           String? // ID đơn vị thụ lý
-  investigatorId   String? // ID Điều tra viên thụ lý
-  status           IncidentStatus @default(TIEP_NHAN)
+  id                String               @id @default(cuid())
+  code              String               @unique // VV-{YEAR}-{SEQ}
+  name              String
+  incidentType      String? // Loại vụ việc
+  description       String?
+  fromDate          DateTime? // Ngày bắt đầu vụ việc
+  toDate            DateTime? // Ngày xảy ra/kết thúc vụ việc
+  deadline          DateTime? // Hạn xử lý
+  unitId            String? // ID đơn vị thụ lý
+  investigatorId    String? // ID Điều tra viên thụ lý
+  status            IncidentStatus       @default(TIEP_NHAN)
+  intakeStage       IncidentIntakeStage?
+  handledIncidentId String?              @unique
+  handledIncident   Incident?            @relation("IncidentIntakeHandled", fields: [handledIncidentId], references: [id], onDelete: Restrict)
+  intakeSource      Incident?            @relation("IncidentIntakeHandled")
+  handoffs          IncidentHandoff[]
 
   /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
   ///
@@ -1365,7 +1380,7 @@ model Incident {
   ///
   /// Đặt khi trạng thái CHUYỂN VÀO một trạng thái kết thúc, xoá khi chuyển ra. Hồ sơ đã ở trạng
   /// thái kết thúc từ trước mà chưa có mốc thì để RỖNG — bịa một ngày là bịa số liệu báo cáo.
-  ngayGiaiQuyet    DateTime?  @map("ngay_giai_quyet")
+  ngayGiaiQuyet    DateTime? @map("ngay_giai_quyet")
   sourcePetitionId String? // Nguồn gốc nếu từ đơn thư
 
   // Thông tin nguồn tin (Đ.144 BLTTHS 2015)
@@ -1449,8 +1464,8 @@ model Incident {
   // Tội danh chính — Đơn thư và Vụ án đều có cột này từ lâu, riêng Vụ việc thì chưa, nên
   // 1.114 hồ sơ mang mã tội danh cũ không có chỗ ở và tra cứu theo tội danh sót hẳn một
   // giai đoạn tố tụng.
-  crimeChinhId           String? // 1.114
-  crimeChinh             Crime?    @relation("IncidentCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
+  crimeChinhId String? // 1.114
+  crimeChinh   Crime?  @relation("IncidentCrimeChinh", fields: [crimeChinhId], references: [id], onDelete: SetNull)
 
   // Phân loại ban đầu — ô thứ hai của tab Thông tin bên hệ cũ, và là ô quyết định hồ sơ nằm
   // ở danh sách nào. Không có cột thì mở hồ sơ di trú ra ô ấy trắng.
@@ -1533,23 +1548,23 @@ model Incident {
   tienDoKhacPhucTDC       String? // Tiến độ khắc phục TĐC (old: tien_do_khac_phuc_tdc)
 
   // v0.47 — Import audit (Track B xlsx import) — per-row provenance per Codex #3
-  importedFrom     String?
-  legacySourceId   String? // Khóa gốc hệ thống cũ — idempotent di trú
-  soHoSoCu         String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
-  sttCu            String? // STT cũ hơn (trường `stt_cu`)
+  importedFrom   String?
+  legacySourceId String? // Khóa gốc hệ thống cũ — idempotent di trú
+  soHoSoCu       String? // STT thụ lý hệ cũ (trường `stt`) — truy nguyên
+  sttCu          String? // STT cũ hơn (trường `stt_cu`)
 
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM (' ' || f_bo_dau(cột gốc)), trigger `pc02_tim_kiem_incidents` giữ.
   /// Không ghi từ ứng dụng. Danh sách cột sinh từ `src/common/tim-kiem/khai/vu-viec.khai.ts`
   /// (`npm run gen:tim-kiem`); cổng `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
-  chuyenTuDonViBd  String? @map("chuyen_tu_don_vi_bd")
-  benVuBd          String? @map("ben_vu_bd")
-  descriptionBd    String? @map("description_bd")
-  donViGiaiQuyetBd String? @map("don_vi_giai_quyet_bd")
-  ketQuaXuLyBd     String? @map("ket_qua_xu_ly_bd")
+  chuyenTuDonViBd  String?             @map("chuyen_tu_don_vi_bd")
+  benVuBd          String?             @map("ben_vu_bd")
+  descriptionBd    String?             @map("description_bd")
+  donViGiaiQuyetBd String?             @map("don_vi_giai_quyet_bd")
+  ketQuaXuLyBd     String?             @map("ket_qua_xu_ly_bd")
   /// CHỈ ĐỌC — cột bóng TÊN vụ việc, đích của thẻ "Vụ việc" ở màn Tài liệu (`cotBongPhu` trong vu-viec.khai.ts).
-  nameBd           String? @map("name_bd")
+  nameBd           String?             @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ việc, đối tượng, số hồ sơ cũ — thẻ "tất cả các cột".
-  timKiemBd        String? @map("tim_kiem_bd")
+  timKiemBd        String?             @map("tim_kiem_bd")
   /// Số suy từ mã hồ sơ để SẮP danh sách. Cột CHỈ ĐỌC với mã ứng dụng — trigger của cơ sở
   /// dữ liệu giữ nó, định nghĩa thật nằm ở migration 20260827160000_stt_sort. Mã là chuỗi
   /// "2026-11171" nên sắp thẳng trên nó ra sai thứ tự.
@@ -1592,6 +1607,32 @@ model Incident {
 // ─────────────────────────────────────────────
 // Incident Status History
 // ─────────────────────────────────────────────
+
+model IncidentHandoff {
+  id               String               @id @default(cuid())
+  incidentId       String
+  incident         Incident             @relation(fields: [incidentId], references: [id], onDelete: Restrict)
+  fromTeamId       String?
+  toTeamId         String
+  toTeam           Team                 @relation("IncidentHandoffTarget", fields: [toTeamId], references: [id], onDelete: Restrict)
+  priorIntakeStage IncidentIntakeStage?
+  state            IncidentHandoffState @default(PENDING)
+  sentById         String
+  sentAt           DateTime             @default(now())
+  receivedById     String?
+  receivedAt       DateTime?
+  cancelledById    String?
+  cancelledAt      DateTime?
+  reason           String?
+  requestKey       String
+  requestHash      String
+  updatedAt        DateTime             @updatedAt
+
+  @@unique([sentById, requestKey])
+  @@index([toTeamId, state, sentAt, id])
+  @@index([incidentId, sentAt, id])
+  @@map("incident_handoffs")
+}
 
 model IncidentStatusHistory {
   id          String         @id @default(cuid())
@@ -2178,12 +2219,13 @@ model Team {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  members           UserTeam[]
-  casesAssigned     Case[]            @relation("CaseTeam")
-  petitionsAssigned Petition[]        @relation("PetitionTeam")
-  incidentsAssigned Incident[]        @relation("IncidentTeam")
-  grantsForUnit     DataAccessGrant[] @relation("GrantUnit")
-  calendarEvents    CalendarEvent[] // Calendar Events v2 (PR 1)
+  members                  UserTeam[]
+  casesAssigned            Case[]            @relation("CaseTeam")
+  petitionsAssigned        Petition[]        @relation("PetitionTeam")
+  incidentsAssigned        Incident[]        @relation("IncidentTeam")
+  incidentHandoffsReceived IncidentHandoff[] @relation("IncidentHandoffTarget")
+  grantsForUnit            DataAccessGrant[] @relation("GrantUnit")
+  calendarEvents           CalendarEvent[] // Calendar Events v2 (PR 1)
 
   @@index([parentId])
   @@index([level])
@@ -2983,32 +3025,32 @@ model XlsxImportStaging {
 /// Mẫu chứng từ động (.docx) cho vụ việc/vụ án/đơn thư — admin upload, không cần deploy.
 /// File lưu DB (Bytes) tránh footgun bundling asset lúc deploy. Biến auto-detect khi upload.
 model DocumentTemplate {
-  id             String    @id @default(cuid())
-  code           String // unique theo (entityType, code) — xem @@unique
-  name           String
-  entityType     String // VU_VIEC | VU_AN | DON_THU
-  category       String // Quyết định | Biên bản | Lệnh | Thông báo | Giấy chứng nhận | Khác
-  fileBytes      Bytes
-  fileSha        String
-  fileName       String
-  variables      Json      @default("[]") // [{name, label, source:'auto'|'manual', field?, required?}]
-  format         String    @default("DOCX") // DOCX nay; mở XLSX/PDF sau (multi-format)
-  delimStart     String    @default("{") // ký tự mở placeholder (admin chọn lúc upload)
-  delimEnd       String    @default("}") // ký tự đóng placeholder
-  needsNumber    Boolean   @default(false)
+  id                String    @id @default(cuid())
+  code              String // unique theo (entityType, code) — xem @@unique
+  name              String
+  entityType        String // VU_VIEC | VU_AN | DON_THU
+  category          String // Quyết định | Biên bản | Lệnh | Thông báo | Giấy chứng nhận | Khác
+  fileBytes         Bytes
+  fileSha           String
+  fileName          String
+  variables         Json      @default("[]") // [{name, label, source:'auto'|'manual', field?, required?}]
+  format            String    @default("DOCX") // DOCX nay; mở XLSX/PDF sau (multi-format)
+  delimStart        String    @default("{") // ký tự mở placeholder (admin chọn lúc upload)
+  delimEnd          String    @default("}") // ký tự đóng placeholder
+  needsNumber       Boolean   @default(false)
   // Mẫu có được TÍCH SẴN ở popup In chứng từ không.
   //
   // Mặc định TẮT. Popup vốn tích sẵn MỌI mẫu đủ điều kiện, mà Đơn thư có 14 mẫu đang bật (đo
   // 28/08/2026) — mỗi lần bấm xuất ra 14 tệp Word, trong đó có mẫu in ra tờ trắng. Nay cán bộ
   // tích đúng thứ cần; admin bật sẵn nhóm hay dùng ở màn Quản lý mẫu chứng từ.
-  selectedByDefault Boolean @default(false)
-  numberSeriesId String? // FK lỏng tới DocumentNumberTemplate (cấp số khi needsNumber)
-  status         String    @default("active")
-  sortOrder      Int       @default(0)
-  createdById    String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  selectedByDefault Boolean   @default(false)
+  numberSeriesId    String? // FK lỏng tới DocumentNumberTemplate (cấp số khi needsNumber)
+  status            String    @default("active")
+  sortOrder         Int       @default(0)
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
 
   // [codex P2] unique (entityType,code) là PARTIAL index WHERE deletedAt IS NULL (xem migration) —
   // cho phép tái tạo mã sau khi soft-delete. Prisma không express partial unique nên để raw trong migration.
@@ -3128,7 +3170,7 @@ model LegacyFieldDiagnostic {
 /// Không ghi vào `metadata` của hồ sơ: bảng riêng thì tra được "đã đổi những gì, vì câu chữ
 /// nào", đảo ngược được, và chính nó LÀ danh sách để đưa khách hàng xác nhận.
 model LegacyStatusInference {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   runId        String
   thucThe      String
   hoSoId       String
@@ -3143,8 +3185,8 @@ model LegacyStatusInference {
   ngaySuy      DateTime?
   /// Nguyên văn câu hệ cũ — để đối chiếu phán đoán, không phải để hiển thị.
   nguyenVan    String
-  daApDung     Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  daApDung     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
 
   @@index([runId])
   @@index([sttCu])

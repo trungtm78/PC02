@@ -1464,14 +1464,14 @@ describe('IncidentsService', () => {
         );
       });
 
-      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+      it('uses checked server version when optional client version is absent', async () => {
         mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
         mockPrisma.incident.update.mockResolvedValue(mockIncident);
 
         await service.update('inc-001', { name: 'Edited' } as any, 'actor-001');
 
         const callArgs = mockPrisma.incident.update.mock.calls[0][0];
-        expect(callArgs.where).not.toHaveProperty('updatedAt');
+        expect(callArgs.where.updatedAt).toEqual(mockIncident.updatedAt);
       });
     });
   });
@@ -1508,7 +1508,15 @@ describe('IncidentsService', () => {
       expect(result.success).toBe(true);
       expect(result.message).toMatch(/xóa/i);
       expect(mockPrisma.incident.update).toHaveBeenCalledWith({
-        where: { id: 'inc-001' },
+        where: {
+          id: 'inc-001',
+          deletedAt: null,
+          updatedAt: mockIncident.updatedAt,
+          status: mockIncident.status,
+          intakeStage: undefined,
+          assignedTeamId: mockIncident.assignedTeamId,
+          investigatorId: mockIncident.investigatorId,
+        },
         data: { deletedAt: expect.any(Date), linkedCaseId: null },
       });
       expect(mockAudit.log).toHaveBeenCalledWith(
@@ -1767,7 +1775,10 @@ describe('IncidentsService', () => {
         ...mockIncident,
         status: IncidentStatus.DANG_XAC_MINH,
       };
-      mockPrisma.$transaction.mockResolvedValue([updatedIncident, {}]);
+      mockPrisma.incident.update.mockResolvedValue(updatedIncident);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       const result = await service.updateStatus(
         'inc-001',
@@ -1778,10 +1789,11 @@ describe('IncidentsService', () => {
       expect(result.success).toBe(true);
       expect(result.data.status).toBe(IncidentStatus.DANG_XAC_MINH);
       expect(mockPrisma.$transaction).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.anything()]),
+        expect.any(Function),
       );
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_STATUS_CHANGED' }),
+        mockPrisma,
       );
     });
 
@@ -1791,11 +1803,19 @@ describe('IncidentsService', () => {
         status: IncidentStatus.DANG_XAC_MINH,
       });
       const updated = { ...mockIncident, status: IncidentStatus.TAM_DINH_CHI };
-      mockPrisma.$transaction.mockResolvedValue([updated, {}]);
+      mockPrisma.incident.update.mockResolvedValue(updated);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       const result = await service.updateStatus(
         'inc-001',
-        { status: IncidentStatus.TAM_DINH_CHI },
+        {
+          status: IncidentStatus.TAM_DINH_CHI,
+          decisionNumber: 'QD-TDC',
+          decisionDate: '2026-10-06',
+          lyDoTamDinhChiVuViec: ['CHUA_CO_KET_QUA_GIAM_DINH'],
+        },
         'actor-001',
       );
 
@@ -1812,11 +1832,18 @@ describe('IncidentsService', () => {
         ...mockIncident,
         status: IncidentStatus.PHUC_HOI_NGUON_TIN,
       };
-      mockPrisma.$transaction.mockResolvedValue([updated, {}]);
+      mockPrisma.incident.update.mockResolvedValue(updated);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       const result = await service.updateStatus(
         'inc-001',
-        { status: IncidentStatus.PHUC_HOI_NGUON_TIN },
+        {
+          status: IncidentStatus.PHUC_HOI_NGUON_TIN,
+          decisionNumber: 'QD-PH',
+          decisionDate: '2026-10-06',
+        },
         'actor-001',
       );
 
@@ -1924,13 +1951,18 @@ describe('IncidentsService', () => {
         status: IncidentStatus.KHONG_KHOI_TO,
         lyDoKhongKhoiTo: 'KHONG_CO_SU_VIEC',
       };
-      mockPrisma.$transaction.mockResolvedValue([updated, {}]);
+      mockPrisma.incident.update.mockResolvedValue(updated);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       const result = await service.updateStatus(
         'inc-001',
         {
           status: IncidentStatus.KHONG_KHOI_TO,
           lyDoKhongKhoiTo: 'KHONG_CO_SU_VIEC' as any,
+          decisionNumber: 'QD-NOKT',
+          decisionDate: '2026-10-06',
         },
         'actor-001',
       );
@@ -1939,6 +1971,7 @@ describe('IncidentsService', () => {
       expect(result.data.status).toBe(IncidentStatus.KHONG_KHOI_TO);
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_STATUS_CHANGED' }),
+        mockPrisma,
       );
     });
   });
@@ -2050,7 +2083,9 @@ describe('IncidentsService', () => {
   describe('transferUnit', () => {
     it('should transfer incident to new unit successfully', async () => {
       mockPrisma.incident.findFirst.mockResolvedValue(mockIncident);
-      mockPrisma.$transaction.mockResolvedValue([{}, {}]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       const result = await service.transferUnit(
         'inc-001',
@@ -2061,10 +2096,11 @@ describe('IncidentsService', () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain('unit-new');
       expect(mockPrisma.$transaction).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.anything()]),
+        expect.any(Function),
       );
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_TRANSFERRED' }),
+        mockPrisma,
       );
     });
 
@@ -2074,7 +2110,9 @@ describe('IncidentsService', () => {
         unitId: null,
         donViGiaiQuyet: 'DV-fallback',
       });
-      mockPrisma.$transaction.mockResolvedValue([{}, {}]);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) =>
+        fn(mockPrisma),
+      );
 
       await service.transferUnit(
         'inc-001',
@@ -2089,6 +2127,7 @@ describe('IncidentsService', () => {
         expect.objectContaining({
           metadata: expect.objectContaining({ donViCu: 'DV-fallback' }),
         }),
+        mockPrisma,
       );
     });
 
@@ -2323,6 +2362,7 @@ describe('IncidentsService', () => {
         {
           caseName: 'Vu an moi',
           prosecutionDecision: 'QD-001',
+          prosecutionDate: '2026-10-06',
           crime: 'Hinh su',
         },
         'actor-001',
@@ -2334,6 +2374,11 @@ describe('IncidentsService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'INCIDENT_PROSECUTED' }),
+        expect.objectContaining({
+          incidentStatusHistory: expect.objectContaining({
+            create: expect.any(Function),
+          }),
+        }),
       );
     });
 
@@ -2356,7 +2401,12 @@ describe('IncidentsService', () => {
 
       const result = await service.prosecute(
         'inc-001',
-        { caseName: 'Vu an', prosecutionDecision: 'QD-001', crime: 'Hinh su' },
+        {
+          caseName: 'Vu an',
+          prosecutionDecision: 'QD-001',
+          prosecutionDate: '2026-10-06',
+          crime: 'Hinh su',
+        },
         'actor-001',
       );
 
@@ -2372,7 +2422,12 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
+          {
+            caseName: 'Test',
+            prosecutionDecision: 'QD-001',
+            prosecutionDate: '2026-10-06',
+            crime: 'Test',
+          },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -2387,7 +2442,12 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'inc-001',
-          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
+          {
+            caseName: 'Test',
+            prosecutionDecision: 'QD-001',
+            prosecutionDate: '2026-10-06',
+            crime: 'Test',
+          },
           'actor-001',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -2399,7 +2459,12 @@ describe('IncidentsService', () => {
       await expect(
         service.prosecute(
           'nonexistent',
-          { caseName: 'Test', prosecutionDecision: 'QD-001', crime: 'Test' },
+          {
+            caseName: 'Test',
+            prosecutionDecision: 'QD-001',
+            prosecutionDate: '2026-10-06',
+            crime: 'Test',
+          },
           'actor-001',
         ),
       ).rejects.toThrow(NotFoundException);
@@ -2865,7 +2930,12 @@ describe('IncidentsService.prosecute — cấp mã vụ án', () => {
 
     await service.prosecute(
       'inc-001',
-      { caseName: 'VA', prosecutionDecision: 'QD', crime: 'X' } as any,
+      {
+        caseName: 'VA',
+        prosecutionDecision: 'QD',
+        prosecutionDate: '2026-10-06',
+        crime: 'X',
+      } as any,
       'actor-001',
     );
 

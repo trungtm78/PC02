@@ -1,8 +1,9 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, Matches } from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class TransferIncidentDto {
   @IsString({ message: 'Tên đơn vị mới không được để trống' })
+  @Matches(/\S/, { message: 'Tên đơn vị mới không được để trống' })
   donViMoi: string;
 
   @IsOptional()

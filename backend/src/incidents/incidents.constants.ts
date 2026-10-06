@@ -1,19 +1,35 @@
 import { IncidentStatus } from '@prisma/client';
 import { TRANG_THAI_KET_THUC } from '../common/trang-thai/trang-thai-ket-thuc';
 
+// Cạnh nghiệp vụ vẫn hợp lệ, nhưng phải qua handler tạo/kiểm entity đích.
+export const BUSINESS_RESULT_STATUSES: ReadonlySet<IncidentStatus> = new Set([
+  IncidentStatus.DA_CHUYEN_VU_AN,
+  IncidentStatus.DA_NHAP_VU_KHAC,
+  IncidentStatus.DA_CHUYEN_DON_VI,
+]);
+
 // 4 BCA workflow phases (TT28/2020/TT-BCA)
 export const PHASE_STATUSES: Record<string, IncidentStatus[]> = {
   'tiep-nhan': [IncidentStatus.TIEP_NHAN],
-  'xac-minh': [IncidentStatus.DANG_XAC_MINH, IncidentStatus.DA_PHAN_CONG, IncidentStatus.QUA_HAN],
+  'xac-minh': [
+    IncidentStatus.DANG_XAC_MINH,
+    IncidentStatus.DA_PHAN_CONG,
+    IncidentStatus.QUA_HAN,
+  ],
   'ket-qua': [
-    IncidentStatus.DA_CHUYEN_VU_AN, IncidentStatus.KHONG_KHOI_TO,
-    IncidentStatus.CHUYEN_XPHC, IncidentStatus.PHAN_LOAI_DAN_SU,
-    IncidentStatus.DA_CHUYEN_DON_VI, IncidentStatus.DA_NHAP_VU_KHAC,
+    IncidentStatus.DA_CHUYEN_VU_AN,
+    IncidentStatus.KHONG_KHOI_TO,
+    IncidentStatus.CHUYEN_XPHC,
+    IncidentStatus.PHAN_LOAI_DAN_SU,
+    IncidentStatus.DA_CHUYEN_DON_VI,
+    IncidentStatus.DA_NHAP_VU_KHAC,
     IncidentStatus.DA_GIAI_QUYET, // Legacy catch-all terminal
   ],
   'tam-dinh-chi': [
-    IncidentStatus.TAM_DINH_CHI, IncidentStatus.PHUC_HOI_NGUON_TIN,
-    IncidentStatus.TDC_HET_THOI_HIEU, IncidentStatus.TDC_HTH_KHONG_KT,
+    IncidentStatus.TAM_DINH_CHI,
+    IncidentStatus.PHUC_HOI_NGUON_TIN,
+    IncidentStatus.TDC_HET_THOI_HIEU,
+    IncidentStatus.TDC_HTH_KHONG_KT,
   ],
 };
 
@@ -65,6 +81,10 @@ export const VALID_TRANSITIONS: Record<string, IncidentStatus[]> = {
   [IncidentStatus.PHUC_HOI_NGUON_TIN]: [
     IncidentStatus.DANG_XAC_MINH,
     IncidentStatus.DA_PHAN_CONG,
+    IncidentStatus.KHONG_KHOI_TO,
+    IncidentStatus.DA_CHUYEN_DON_VI,
+    IncidentStatus.DA_CHUYEN_VU_AN,
+    IncidentStatus.TAM_DINH_CHI,
   ],
   [IncidentStatus.QUA_HAN]: [
     IncidentStatus.DANG_XAC_MINH,

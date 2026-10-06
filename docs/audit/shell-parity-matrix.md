@@ -1,5 +1,18 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
+## 2026-10-06 — v0.73.0.0: Tiếp nhận và quản lý Vụ việc
+
+| Năng lực của IncidentListPageShell | Hành vi trong release | Bằng chứng |
+|---|---|---|
+| Hai view tiếp nhận/phân loại và quản lý | Reuse shell/form/Incident; management gồm hồ sơ đã nhận và legacy chưa xác minh, loại bản source có handled link | Predicate 4/4, HTTP/DB và form UAT |
+| Giao và nhận riêng | Inbox chờ nhận, nhận giữ ID/STT/legal status/ngày đề xuất/hạn | DB 16/16, browser handoff; sai tổ/READ/stale/replay được kiểm |
+| Thẻ giai đoạn, lọc/URL, tìm kiếm và xuất | Giữ bộ cột/STT/sort/density/shell hiện hữu; thêm stage, lịch sử sự kiện và trường bỏ trống vào cùng predicate list/stats/Excel | Full backend/frontend; HTTP 10/10, history URL/Back UAT |
+| Row actions | Giữ result/merge/edit/assign/Word; pending và chưa nhận chặn hành động nghiệp vụ; khởi tố/transfer dùng command chuyên biệt | Modal 9/9; amendment browser 5/5 |
+| Bulk assign/delete | Snapshot server ràng buộc ownership/status/stage/version; delete kiểm lại tài liệu/đơn liên quan | Race unit + controlled DB handoff/document races |
+| History thiếu dữ kiện | Thông báo kết quả chỉ dựa trên event thật, không suy từ trạng thái hiện tại | History DB và browser/HTTP |
+
+Phạm vi kiểm chứng là release Incident và các mapping/command liên quan. Backfill legacy và nghiệm thu toàn bộ ledger parity bốn thực thể được theo dõi riêng. Bằng chứng: `docs/releases/incident-workflow-0.73.0.0.md`, `docs/reviews/incident-production-release-review.md`.
+
 ## 2026-09-30 — Bộ lọc và Excel mọi trường
 
 | Cách dùng | Đơn thư | Vụ án | Vụ việc | Ủy thác điều tra |

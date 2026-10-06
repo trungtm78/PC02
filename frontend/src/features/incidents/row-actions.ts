@@ -1,10 +1,17 @@
-import { UserCheck, ArrowRightLeft, Scale, Printer, Combine } from 'lucide-react';
+import {
+  UserCheck,
+  ArrowRightLeft,
+  Scale,
+  Printer,
+  Combine,
+} from "lucide-react";
 import {
   createRowActionRegistry,
   type RowAction,
-} from '@/features/_shared/row-actions/registry';
-import { commonResourceActions } from '@/features/_shared/row-actions/commonResourceActions';
-import { INCIDENT_VALID_TRANSITIONS } from '@/shared/enums/incident-transitions.generated';
+} from "@/features/_shared/row-actions/registry";
+import { commonResourceActions } from "@/features/_shared/row-actions/commonResourceActions";
+import { INCIDENT_VALID_TRANSITIONS } from "@/shared/enums/incident-transitions.generated";
+import { canProsecuteIncident } from "./incident-business-readiness";
 
 /**
  * v0.64 PR2 — Incidents per-row actions registration.
@@ -20,17 +27,16 @@ import { INCIDENT_VALID_TRANSITIONS } from '@/shared/enums/incident-transitions.
 export interface IncidentRowForActions {
   id: string;
   status: string;
+  intakeStage?: string | null;
   caseCode?: string | null;
   name?: string;
   updatedAt?: string;
   assignedTeamId?: string | null;
 }
 
-const TIEP_NHAN = 'TIEP_NHAN';
+const TIEP_NHAN = "TIEP_NHAN";
 
 const incidents = createRowActionRegistry<IncidentRowForActions>();
-
-const PROSECUTE_STATUSES = new Set(['DANG_XAC_MINH', 'DA_PHAN_CONG']);
 
 function hasValidTransitions(status: string): boolean {
   const map = INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>;
@@ -38,84 +44,112 @@ function hasValidTransitions(status: string): boolean {
 }
 
 const inChungTu: RowAction<IncidentRowForActions> = {
-  key: 'print',
-  label: 'In chứng từ',
+  key: "print",
+  label: "In chứng từ",
   icon: Printer,
   // INLINE chứ không nấp trong menu ⋮: in là việc cán bộ làm liên tục, mà từ danh sách hiện
   // giờ KHÔNG in được — phải mở hồ sơ ra mới có nút. Chôn vào menu là vẫn tốn hai lần bấm.
-  position: 'inline',
-  execute: (row, ctx) => ctx.printModal.open({ entity: 'incidents', entityId: row.id }),
-  testid: 'btn-print',
+  position: "inline",
+  execute: (row, ctx) =>
+    ctx.printModal.open({ entity: "incidents", entityId: row.id }),
+  testid: "btn-print",
 };
 
 const menuActions: RowAction<IncidentRowForActions>[] = [
   {
-    key: 'assign',
-    label: 'Phân công',
+    key: "assign",
+    label: "Phân công",
     icon: UserCheck,
-    position: 'menu',
-    visible: (_row, ctx) => ctx.perms.canDispatch === true,
+    position: "menu",
+    visible: (row, ctx) =>
+      (!row.intakeStage || row.intakeStage === "DA_NHAN") &&
+      ctx.perms.canDispatch === true,
     execute: (row, ctx) =>
       ctx.assignModal.open({
-        resourceType: 'incidents',
+        resourceType: "incidents",
         recordId: row.id,
         currentTeamId: row.assignedTeamId ?? null,
         currentUpdatedAt: row.updatedAt,
       }),
-    testid: 'btn-assign',
+    testid: "btn-assign",
   },
   {
-    key: 'transition',
-    label: 'Chuyển trạng thái',
+    key: "transition",
+    label: "Chuyển trạng thái",
     icon: ArrowRightLeft,
-    position: 'menu',
+    position: "menu",
     visible: (row, ctx) =>
-      ctx.perms.canEdit === true && Boolean(ctx.statusTransition) && hasValidTransitions(row.status),
+      (!row.intakeStage || row.intakeStage === "DA_NHAN") &&
+      ctx.perms.canEdit === true &&
+      Boolean(ctx.statusTransition) &&
+      hasValidTransitions(row.status),
     execute: (row, ctx) =>
       ctx.statusTransition?.open({
         recordId: row.id,
         currentStatus: row.status,
         currentUpdatedAt: row.updatedAt,
       }),
-    testid: 'btn-transition',
+    testid: "btn-transition",
   },
   {
-    key: 'merge',
-    label: 'Nhập vào vụ việc khác',
+    key: "merge",
+    label: "Nhập vào vụ việc khác",
     icon: Combine,
-    position: 'menu',
-    visible: (row, ctx) => Boolean(ctx.mergeIncident) && ctx.perms.canEdit === true
-      && ((INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[row.status] ?? []).includes('DA_NHAP_VU_KHAC'),
-    execute: (row, ctx) => ctx.mergeIncident?.open({
-      recordId: row.id,
-      currentUpdatedAt: row.updatedAt,
-    }),
-    testid: 'btn-merge-incident',
+    position: "menu",
+    visible: (row, ctx) =>
+      (!row.intakeStage || row.intakeStage === "DA_NHAN") &&
+      Boolean(ctx.mergeIncident) &&
+      ctx.perms.canEdit === true &&
+      (
+        (INCIDENT_VALID_TRANSITIONS as Record<string, readonly string[]>)[
+          row.status
+        ] ?? []
+      ).includes("DA_NHAP_VU_KHAC"),
+    execute: (row, ctx) =>
+      ctx.mergeIncident?.open({
+        recordId: row.id,
+        currentUpdatedAt: row.updatedAt,
+      }),
+    testid: "btn-merge-incident",
   },
   {
-    key: 'prosecute',
-    label: 'Khởi tố',
+    key: "prosecute",
+    label: "Khởi tố",
     icon: Scale,
-    position: 'menu',
+    position: "menu",
     visible: (row, ctx) =>
-      ctx.perms.canEdit === true && Boolean(ctx.prosecute) && PROSECUTE_STATUSES.has(row.status),
+      ctx.perms.canEdit === true &&
+      Boolean(ctx.prosecute) &&
+      canProsecuteIncident(row),
     execute: (row, ctx) =>
       ctx.prosecute?.open({
         recordId: row.id,
-        incidentName: row.name ?? '',
+        incidentName: row.name ?? "",
         currentUpdatedAt: row.updatedAt,
       }),
-    testid: 'btn-prosecute',
+    testid: "btn-prosecute",
   },
 ];
 
 incidents.registerMany([
   ...commonResourceActions<IncidentRowForActions>({
-    basePath: '/vu-viec',
-    resourceType: 'incidents',
+    basePath: "/vu-viec",
+    resourceType: "incidents",
     canDelete: (row) =>
-      row.status === TIEP_NHAN ? null : 'Chỉ xóa được khi trạng thái = Tiếp nhận',
-  }),
+      row.intakeStage === "CHO_NHAN"
+        ? "Hồ sơ đang chờ nhận"
+        : row.status === TIEP_NHAN
+          ? null
+          : "Chỉ xóa được khi trạng thái = Tiếp nhận",
+  }).map((action) =>
+    action.key === "edit"
+      ? {
+          ...action,
+          disabled: (row: IncidentRowForActions) =>
+            row.intakeStage === "CHO_NHAN" ? "Hồ sơ đang chờ nhận" : null,
+        }
+      : action,
+  ),
   inChungTu,
   ...menuActions,
 ]);
