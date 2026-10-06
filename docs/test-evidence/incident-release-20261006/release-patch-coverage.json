@@ -1,0 +1,337 @@
+{
+  "timestamp": "2026-10-06T03:11:54.817Z",
+  "baseline": "actual live commit 1b09ff08",
+  "method": "normalized baseline; full statement/function/branch spans with conservative overlapping minimum; oracle6/6; Istanbul full + additional targeted suites on the same product source",
+  "inputs": [
+    "C:\\PC02\\pc02-case-management\\docs\\test-evidence\\incident-intake\\production-preflight\\backend-release-coverage\\coverage-final.json",
+    "C:\\PC02\\pc02-case-management\\docs\\test-evidence\\incident-intake\\production-preflight\\backend-extra-coverage\\coverage-final.json",
+    "C:\\PC02\\pc02-case-management\\docs\\test-evidence\\incident-intake\\production-preflight\\frontend-release-coverage\\coverage-final.json",
+    "C:\\PC02\\pc02-case-management\\docs\\test-evidence\\incident-intake\\production-preflight\\frontend-extra-coverage\\coverage-final.json"
+  ],
+  "total": 1380,
+  "covered": 1254,
+  "percent": 90.8695652173913,
+  "missing": [],
+  "verdict": "PASS",
+  "rows": [
+    {
+      "file": "backend/src/cases/cases.service.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 63,
+      "covered": 63,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk.service.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 50,
+      "covered": 47,
+      "uncovered": [
+        132,
+        157,
+        450
+      ]
+    },
+    {
+      "file": "backend/src/incidents/dto/prosecute-incident.dto.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 2,
+      "covered": 2,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/dto/query-incidents.dto.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 7,
+      "covered": 6,
+      "uncovered": [
+        45
+      ]
+    },
+    {
+      "file": "backend/src/incidents/dto/transfer-incident.dto.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 1,
+      "covered": 1,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/dto/update-status.dto.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 6,
+      "covered": 6,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/incidents.constants.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 8,
+      "covered": 8,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/incidents.module.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 2,
+      "covered": 2,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 254,
+      "covered": 232,
+      "uncovered": [
+        1277,
+        1278,
+        1279,
+        1280,
+        1281,
+        1282,
+        1283,
+        1284,
+        1285,
+        1286,
+        1828,
+        1829,
+        1904,
+        2197,
+        2277,
+        2312,
+        2313,
+        2314,
+        2396,
+        2711,
+        2763,
+        2851
+      ]
+    },
+    {
+      "file": "frontend/src/features/_shared/modals/ProsecuteModalProvider.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 6,
+      "covered": 6,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/features/_shared/modals/StatusTransitionModalProvider.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 107,
+      "covered": 93,
+      "uncovered": [
+        126,
+        142,
+        143,
+        144,
+        230,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        245,
+        246,
+        247
+      ]
+    },
+    {
+      "file": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 3,
+      "covered": 3,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/features/incidents/list-filters.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 45,
+      "covered": 45,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/features/incidents/menu.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 10,
+      "covered": 10,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/features/incidents/routes.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 20,
+      "covered": 19,
+      "uncovered": [
+        14
+      ]
+    },
+    {
+      "file": "frontend/src/features/incidents/row-actions.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 18,
+      "covered": 16,
+      "uncovered": [
+        140,
+        149
+      ]
+    },
+    {
+      "file": "frontend/src/features/legacy-form/registry.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 1,
+      "covered": 1,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentFormPage.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 48,
+      "covered": 32,
+      "uncovered": [
+        514,
+        696,
+        707,
+        708,
+        709,
+        710,
+        711,
+        712,
+        713,
+        714,
+        715,
+        716,
+        717,
+        720,
+        721,
+        722
+      ]
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentListPageShell.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 39,
+      "covered": 15,
+      "uncovered": [
+        333,
+        442,
+        443,
+        445,
+        446,
+        448,
+        449,
+        451,
+        452,
+        454,
+        455,
+        1022,
+        1031,
+        1043,
+        1044,
+        1045,
+        1046,
+        1047,
+        1048,
+        1049,
+        1050,
+        1227,
+        1238,
+        1239
+      ]
+    },
+    {
+      "file": "backend/src/incidents/dto/incident-handoff.dto.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 11,
+      "covered": 11,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/incident-prosecution-contract.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 44,
+      "covered": 44,
+      "uncovered": []
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.controller.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 74,
+      "covered": 64,
+      "uncovered": [
+        30,
+        31,
+        37,
+        38,
+        42,
+        43,
+        49,
+        68,
+        84,
+        95
+      ]
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.service.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 295,
+      "covered": 264,
+      "uncovered": [
+        31,
+        32,
+        50,
+        53,
+        59,
+        60,
+        83,
+        155,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        199,
+        200,
+        201,
+        203,
+        204,
+        206,
+        227,
+        228,
+        336,
+        348,
+        380,
+        386,
+        387
+      ]
+    },
+    {
+      "file": "frontend/src/features/incidents/IncidentHandoffPanel.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 135,
+      "covered": 133,
+      "uncovered": [
+        44,
+        117
+      ]
+    },
+    {
+      "file": "frontend/src/features/incidents/incident-business-readiness.ts",
+      "coverageAvailable": true,
+      "changedExecutable": 8,
+      "covered": 8,
+      "uncovered": []
+    },
+    {
+      "file": "frontend/src/pages/incidents/IncidentInboxPage.tsx",
+      "coverageAvailable": true,
+      "changedExecutable": 123,
+      "covered": 123,
+      "uncovered": []
+    }
+  ]
+}

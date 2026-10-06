@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
 import * as ExcelJS from 'exceljs';
-import { IncidentStatus, Prisma } from '@prisma/client';
+import { IncidentStatus, Prisma, type Incident } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
@@ -12,6 +12,10 @@ import { INCIDENT_STATUS_LABEL } from '../../common/constants/status-labels.cons
 import { TERMINAL_STATUSES } from '../incidents.constants';
 import { runBulk } from '../../common/bulk/run-bulk';
 import type { BulkResult, BulkSkippedItem } from '../../common/bulk/run-bulk';
+type IncidentWriteSnapshot = Pick<
+  Incident,
+  'updatedAt' | 'status' | 'intakeStage' | 'assignedTeamId' | 'investigatorId'
+>;
 
 export interface BulkAssignIncidentsInput {
   ids: string[];
@@ -91,6 +95,7 @@ export class IncidentsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
+    const snapshots = new Map<string, IncidentWriteSnapshot>();
     const result = await runBulk<
       { incidentId: string },
       Prisma.TransactionClient
@@ -110,9 +115,22 @@ export class IncidentsBulkService {
             deletedAt: null,
             ...buildScopeFilter(input.dataScope, 'assign'),
           },
-          select: { id: true, status: true },
+          select: {
+            id: true,
+            status: true,
+            intakeStage: true,
+            updatedAt: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
         });
+        for (const row of inScope) snapshots.set(row.id, row);
         const inScopeMap = new Map(inScope.map((c) => [c.id, c.status]));
+        const pendingIds = new Set(
+          inScope
+            .filter((c) => c.intakeStage && c.intakeStage !== 'DA_NHAN')
+            .map((c) => c.id),
+        );
         const skipped: BulkSkippedItem[] = [];
         const validIds: string[] = [];
         for (const id of ids) {
@@ -121,12 +139,12 @@ export class IncidentsBulkService {
             skipped.push({ id, reason: 'PERMISSION' });
             continue;
           }
-          if (TERMINAL_STATUSES.includes(status)) {
+          if (TERMINAL_STATUSES.includes(status) || pendingIds.has(id)) {
             skipped.push({
               id,
               reason: 'INELIGIBLE',
               message:
-                'Không thể phân công điều tra viên cho vụ việc đã kết thúc',
+                'Không thể phân công cho vụ việc đã kết thúc hoặc chưa xác nhận nhận',
             });
             continue;
           }
@@ -135,12 +153,25 @@ export class IncidentsBulkService {
         return { validIds, skipped };
       },
       executeOne: async (id, tx) => {
-        const expectedAt = input.expectedUpdatedAtByIncidentId?.[id];
+        const snapshot = snapshots.get(id);
+        if (!snapshot) throw new ConcurrentModificationError(id);
+        const expectedAt =
+          input.expectedUpdatedAtByIncidentId?.[id] ?? snapshot.updatedAt;
         try {
           await tx.incident.update({
             where: {
               id,
-              ...(expectedAt ? { updatedAt: expectedAt } : {}),
+              deletedAt: null,
+              updatedAt: expectedAt,
+              status: snapshot.status,
+              intakeStage: snapshot.intakeStage,
+              assignedTeamId: snapshot.assignedTeamId,
+              investigatorId: snapshot.investigatorId,
+              AND: [
+                {
+                  OR: [{ intakeStage: null }, { intakeStage: 'DA_NHAN' }],
+                },
+              ],
             },
             data: {
               ...(input.assignedTeamId
@@ -350,6 +381,7 @@ export class IncidentsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
+    const snapshots = new Map<string, IncidentWriteSnapshot>();
     const result = await runBulk<
       { incidentId: string },
       Prisma.TransactionClient
@@ -373,6 +405,7 @@ export class IncidentsBulkService {
           },
         });
         const inScopeMap = new Map(inScope.map((i) => [i.id, i]));
+        for (const row of inScope) snapshots.set(row.id, row);
         const skipped: BulkSkippedItem[] = [];
         const validIds: string[] = [];
         for (const id of ids) {
@@ -381,7 +414,10 @@ export class IncidentsBulkService {
             skipped.push({ id, reason: 'PERMISSION' });
             continue;
           }
-          if (inc.status !== IncidentStatus.TIEP_NHAN) {
+          if (
+            inc.intakeStage === 'CHO_NHAN' ||
+            inc.status !== IncidentStatus.TIEP_NHAN
+          ) {
             skipped.push({
               id,
               reason: 'INELIGIBLE',
@@ -410,9 +446,29 @@ export class IncidentsBulkService {
         return { validIds, skipped };
       },
       executeOne: async (id, tx) => {
+        const snapshot = snapshots.get(id);
+        if (!snapshot) throw new ConcurrentModificationError(id);
         try {
           await tx.incident.update({
-            where: { id, deletedAt: null },
+            where: {
+              id,
+              deletedAt: null,
+              updatedAt: snapshot.updatedAt,
+              status: snapshot.status,
+              intakeStage: snapshot.intakeStage,
+              assignedTeamId: snapshot.assignedTeamId,
+              investigatorId: snapshot.investigatorId,
+              documents: { none: { deletedAt: null } },
+              petitions: { none: { deletedAt: null } },
+              AND: [
+                {
+                  OR: [
+                    { intakeStage: null },
+                    { intakeStage: { not: 'CHO_NHAN' } },
+                  ],
+                },
+              ],
+            },
             data: { deletedAt: new Date() },
           });
         } catch (e) {

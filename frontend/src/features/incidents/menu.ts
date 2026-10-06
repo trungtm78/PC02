@@ -1,16 +1,48 @@
-import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
+import type { FeatureMenuEntry } from "@/lib/features/moduleTypes";
 
 export const incidentsMenu: FeatureMenuEntry[] = [
   {
-    section: 'business',
-    id: 'incidents',
-    label: 'Vụ việc',
-    icon: 'FileWarning',
+    section: "business",
+    id: "incidents",
+    label: "Vụ việc",
+    icon: "FileWarning",
     children: [
-      { section: 'business', id: 'incidents-list', label: 'Danh sách vụ việc', path: '/vu-viec', quyen: ['read:Incident'] },
-      { section: 'business', id: 'incidents-new', label: 'Thêm vụ việc mới', path: '/vu-viec/new', quyen: ['write:Incident'] },
+      {
+        section: "business",
+        id: "incidents-intake",
+        label: "Tiếp nhận / Phân loại vụ việc",
+        path: "/vu-viec/tiep-nhan",
+        quyen: ["read:Incident"],
+      },
+      {
+        section: "business",
+        id: "incidents-inbox",
+        label: "Vụ việc chờ nhận",
+        path: "/vu-viec/cho-nhan",
+        quyen: ["read:Incident"],
+      },
+      {
+        section: "business",
+        id: "incidents-list",
+        label: "Danh sách vụ việc",
+        path: "/vu-viec",
+        quyen: ["read:Incident"],
+      },
+      {
+        section: "business",
+        id: "incidents-new",
+        label: "Thêm vụ việc mới",
+        path: "/vu-viec/new",
+        quyen: ["write:Incident"],
+      },
       // v0.37.1: filter view moved from "Phân loại & Quản lý" — fix wrong placement.
-      { section: 'business', id: 'incidents-ward', label: 'Vụ việc theo phường/xã', path: '/ward/incidents', quyen: ['read:Incident'] },
+      {
+        section: "business",
+        id: "incidents-ward",
+        label: "Vụ việc theo phường/xã",
+        path: "/ward/incidents",
+        quyen: ["read:Incident"],
+      },
     ],
   },
 ];

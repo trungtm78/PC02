@@ -1,18 +1,17 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import { AlertTriangle, AlertCircle, X } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { AlertTriangle, AlertCircle, X } from "lucide-react";
+import { api } from "@/lib/api";
 import {
   BTN_PRIMARY,
   BTN_OUTLINE_SLATE,
   A11Y_FOCUS_RING,
-} from '@/constants/styles';
-import { useModalLifecycle } from './useModalLifecycle';
-import { ProsecuteContext, type ProsecuteArgs, type ProsecuteModalApi } from './ProsecuteModalContext';
+} from "@/constants/styles";
+import { useModalLifecycle } from "./useModalLifecycle";
+import {
+  ProsecuteContext,
+  type ProsecuteArgs,
+  type ProsecuteModalApi,
+} from "./ProsecuteModalContext";
 
 /**
  * v0.67 PR1 T5 — ProsecuteModalProvider.
@@ -27,14 +26,14 @@ import { ProsecuteContext, type ProsecuteArgs, type ProsecuteModalApi } from './
  */
 
 const INPUT_BASE =
-  'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100';
-const LABEL_BASE = 'block text-sm font-medium text-slate-700 mb-1';
+  "block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100";
+const LABEL_BASE = "block text-sm font-medium text-slate-700 mb-1";
 
 function todayIso(): string {
   const d = new Date();
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
@@ -44,10 +43,10 @@ interface ProsecuteResponse {
 }
 
 export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
-  const [caseName, setCaseName] = useState<string>('');
-  const [prosecutionDecision, setProsecutionDecision] = useState<string>('');
+  const [caseName, setCaseName] = useState<string>("");
+  const [prosecutionDecision, setProsecutionDecision] = useState<string>("");
   const [prosecutionDate, setProsecutionDate] = useState<string>(todayIso());
-  const [crime, setCrime] = useState<string>('');
+  const [crime, setCrime] = useState<string>("");
 
   const lifecycle = useModalLifecycle<
     ProsecuteArgs,
@@ -55,15 +54,19 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
     {
       caseName: string;
       prosecutionDecision: string;
-      prosecutionDate?: string;
+      prosecutionDate: string;
       crime?: string;
       expectedUpdatedAt?: string;
     }
   >({
     submitFn: async (args, payload) => {
-      const response = await api.post(`/incidents/${args.recordId}/prosecute`, payload);
-      const data = response.data as { data: ProsecuteResponse } | ProsecuteResponse;
-      return 'data' in data ? data.data : data;
+      const response = await api.post(
+        `/incidents/${args.recordId}/prosecute`,
+        payload,
+      );
+      const data = response.data as
+        { data: ProsecuteResponse } | ProsecuteResponse;
+      return "data" in data ? data.data : data;
     },
     onSuccess: (result, args) => {
       const caseId = result?.case?.id;
@@ -73,10 +76,10 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback(
     (args: ProsecuteArgs) => {
-      setCaseName(args.incidentName ?? '');
-      setProsecutionDecision('');
+      setCaseName(args.incidentName ?? "");
+      setProsecutionDecision("");
       setProsecutionDate(todayIso());
-      setCrime('');
+      setCrime("");
       lifecycle.open(args);
     },
     [lifecycle],
@@ -89,14 +92,16 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
   const apiObj = useMemo<ProsecuteModalApi>(() => ({ open }), [open]);
 
   const canSubmit =
-    caseName.trim().length > 0 && prosecutionDecision.trim().length > 0;
+    caseName.trim().length > 0 &&
+    prosecutionDecision.trim().length > 0 &&
+    prosecutionDate.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!lifecycle.args || !canSubmit) return;
     await lifecycle.submit({
       caseName: caseName.trim(),
       prosecutionDecision: prosecutionDecision.trim(),
-      prosecutionDate: prosecutionDate || undefined,
+      prosecutionDate,
       crime: crime.trim() || undefined,
       expectedUpdatedAt: lifecycle.args.currentUpdatedAt,
     });
@@ -114,7 +119,9 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
         >
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900">Khởi tố Vụ án</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                Khởi tố Vụ án
+              </h2>
               <button
                 type="button"
                 onClick={close}
@@ -129,7 +136,7 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
             <div className="mt-3 flex items-start gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <div>
-                Vụ việc sẽ được chuyển thành Vụ án và{' '}
+                Vụ việc sẽ được chuyển thành Vụ án và{" "}
                 <strong>không thể hoàn tác</strong>.
               </div>
             </div>
@@ -154,7 +161,8 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL_BASE} htmlFor="prosecute-decision">
-                    Số quyết định khởi tố <span className="text-red-500">*</span>
+                    Số quyết định khởi tố{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="prosecute-decision"
@@ -228,7 +236,7 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
                 onClick={handleSubmit}
                 disabled={!canSubmit || lifecycle.isLoading}
               >
-                {lifecycle.isLoading ? 'Đang khởi tố...' : 'Khởi tố'}
+                {lifecycle.isLoading ? "Đang khởi tố..." : "Khởi tố"}
               </button>
             </div>
           </div>

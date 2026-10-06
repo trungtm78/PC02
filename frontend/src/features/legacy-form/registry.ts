@@ -8,10 +8,13 @@
  *
  * Tra bảng thay cho rẽ nhánh: thêm một thực thể vào đây là mọi nơi tự đúng theo.
  */
-import { CASE_LEGACY_SPEC } from '@/features/cases/legacy-form-layout.def';
-import { INCIDENT_LEGACY_SPEC } from '@/features/incidents/legacy-form-binding';
-import { PETITION_LEGACY_SPEC } from '@/features/petitions/legacy-form-binding';
-import { columnForCaption, ownedColumns, type LegacyEntity } from './types';
+import {
+  CASE_LEGACY_SPEC,
+  LEGACY_FORM_OWNED_COLUMNS,
+} from "@/features/cases/legacy-form-layout.def";
+import { INCIDENT_LEGACY_SPEC } from "@/features/incidents/legacy-form-binding";
+import { PETITION_LEGACY_SPEC } from "@/features/petitions/legacy-form-binding";
+import { columnForCaption, ownedColumns, type LegacyEntity } from "./types";
 
 const KHONG_CO: ReadonlySet<string> = new Set();
 
@@ -27,7 +30,10 @@ const DAC_TA_THEO_THUC_THE = {
  *
  * Thực thể chưa dựng theo đặc tả trả về tập rỗng — panel giữ nguyên đường cũ.
  */
-export function ownedColumnsFor(entity: LegacyEntity | string): ReadonlySet<string> {
+export function ownedColumnsFor(
+  entity: LegacyEntity | string,
+): ReadonlySet<string> {
+  if (entity === "case") return LEGACY_FORM_OWNED_COLUMNS;
   const spec = (DAC_TA_THEO_THUC_THE as Record<string, unknown>)[entity];
   return spec ? ownedColumns(spec as never) : KHONG_CO;
 }
@@ -38,7 +44,10 @@ export function ownedColumnsFor(entity: LegacyEntity | string): ReadonlySet<stri
  * Cổng "cột danh sách phải trỏ đúng cột form" tra bảng này cho MỌI nhãn, thay vì chốt từng
  * nhãn một như bản đầu (chỉ gác được "Đơn vị giải quyết", nên ba nhãn khác lệch mà vẫn lọt).
  */
-export function cotTheoNhan(entity: LegacyEntity | string, nhan: string): string | null {
+export function cotTheoNhan(
+  entity: LegacyEntity | string,
+  nhan: string,
+): string | null {
   const spec = (DAC_TA_THEO_THUC_THE as Record<string, unknown>)[entity];
   return spec ? columnForCaption(spec as never, nhan) : null;
 }

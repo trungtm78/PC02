@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-10-06T03:17:01.684Z",
+  "verdict": "PASS",
+  "baselineMigrations": 126,
+  "releaseMigrations": 127,
+  "checks": [
+    "All prior deployed checksums retained",
+    "Exactly one additive migration applied",
+    "Unknown legacy stage and link remain NULL",
+    "Synthetic original identity/proposal/version unchanged"
+  ],
+  "data": "schema-only production baseline with private synthetic sentinel; no real dossiers"
+}

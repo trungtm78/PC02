@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
+import { IncidentsHandoffService } from './incidents-handoff.service';
+import { IncidentsHandoffController } from './incidents-handoff.controller';
 import { IncidentsJourneyService } from './incidents-journey.service';
 import { IncidentsController } from './incidents.controller';
 import { IncidentsBulkController } from './bulk/incidents.bulk.controller';
@@ -11,9 +13,24 @@ import { DocumentNumbersModule } from '../document-numbers/document-numbers.modu
 import { DocumentTemplatesModule } from '../document-templates/document-templates.module';
 
 @Module({
-  imports: [AuditModule, SettingsModule, DeadlineRulesModule, DocumentNumbersModule, DocumentTemplatesModule],
-  controllers: [IncidentsController, IncidentsBulkController],
-  providers: [IncidentsService, IncidentsJourneyService, IncidentsBulkService],
+  imports: [
+    AuditModule,
+    SettingsModule,
+    DeadlineRulesModule,
+    DocumentNumbersModule,
+    DocumentTemplatesModule,
+  ],
+  controllers: [
+    IncidentsController,
+    IncidentsHandoffController,
+    IncidentsBulkController,
+  ],
+  providers: [
+    IncidentsService,
+    IncidentsJourneyService,
+    IncidentsBulkService,
+    IncidentsHandoffService,
+  ],
   exports: [IncidentsService],
 })
 export class IncidentsModule {}

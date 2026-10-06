@@ -1,0 +1,106 @@
+{
+  "timestamp": "2026-10-06T03:15:40.202Z",
+  "lintExit": 0,
+  "files": [
+    {
+      "file": "backend/src/cases/cases.service.ts",
+      "sha256": "415b409b821bed8705b6b85e471ec0ba40390853b5ac637b11056efade3c75bb"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk.service.ts",
+      "sha256": "8edd680265d9655f062f7cfb4d1804634de65153eb3147124de0f46ab63c6fc8"
+    },
+    {
+      "file": "backend/src/incidents/dto/prosecute-incident.dto.ts",
+      "sha256": "249d61545d37af7ddd758d51b08acd0a1336da0adef54d695858c5247ed0cac4"
+    },
+    {
+      "file": "backend/src/incidents/dto/query-incidents.dto.ts",
+      "sha256": "6ea041fba3c61efc2185fac1e4508d9e5bedf595bfaf63be9a4c461e0b97d207"
+    },
+    {
+      "file": "backend/src/incidents/dto/transfer-incident.dto.ts",
+      "sha256": "75fb9b5834111d4fb5a4e01e99b21730d3c7e872652870a353e4573541095172"
+    },
+    {
+      "file": "backend/src/incidents/dto/update-status.dto.ts",
+      "sha256": "16a534f0db796b16e704161d0019608932b413723c9105fd66de781f2913b28e"
+    },
+    {
+      "file": "backend/src/incidents/incidents-result.service.spec.ts",
+      "sha256": "083b1168a2cc41612c5dc2d1a9a2212e27cb03d0239325d51ecaf8cc86304a16"
+    },
+    {
+      "file": "backend/src/incidents/incidents-transitions-service.expert.spec.ts",
+      "sha256": "64eabbccd722797c61b62fba28ad375320b03ba41173db524f725a82970d2180"
+    },
+    {
+      "file": "backend/src/incidents/incidents.constants.ts",
+      "sha256": "6222c32b16d0f944dd116e510f4fb3127a4dcbad0845b7ae7e012d9b1b3cd554"
+    },
+    {
+      "file": "backend/src/incidents/incidents.module.ts",
+      "sha256": "4c024ff1e47f3ed89260999c5ba45b56d54307c772eb4c02a3d9d0f32007d713"
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.spec.ts",
+      "sha256": "f9f414e40c749f4cb0c672976f0f55a0d3d3ffa71e34031328f367679fb6458e"
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.ts",
+      "sha256": "49d0dbeb0b802cd58435ad6da34548e207994c3e02e0a99eb3450d36fc9ae11e"
+    },
+    {
+      "file": "backend/src/cases/cases-incident-prosecution.spec.ts",
+      "sha256": "88a48c797a3678f01c8e41451173ce2029b8344da78dc170e393622e7a5d7bf9"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk-race.spec.ts",
+      "sha256": "93ebe38b61563cde568f3c8c01b81dc8f584cffd84bb7c73fcad9e0f3465469b"
+    },
+    {
+      "file": "backend/src/incidents/dto/incident-handoff.dto.ts",
+      "sha256": "120272159271d5300f3991c28102ea8ef83601ca3998ee5d761b8a488281ba1a"
+    },
+    {
+      "file": "backend/src/incidents/dto/transfer-incident.dto.spec.ts",
+      "sha256": "c7c60f53914ce9071d8f80c76e6462a379005d1f17f413baf0dc153428916635"
+    },
+    {
+      "file": "backend/src/incidents/incident-prosecution-contract.ts",
+      "sha256": "fff5a20a58327a615fc8ff3a83ded24b05e3eb4f8b550ddc11fa36101dd70dec"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.controller.spec.ts",
+      "sha256": "bebe8a980396616366bd8cbe784b0dc6fc925302046345e4a62cf9b7fb2836a4"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.controller.ts",
+      "sha256": "0b7cd1de5c8cc4db4ff83a8a533dfb68093f9a239bfd223db75c2fc4800375e5"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.integration.spec.ts",
+      "sha256": "a63e637d249128789c59d3cfabd524fb5d675985ede06c2c7a09759ae8a0178c"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.service.spec.ts",
+      "sha256": "014366d619c7a507399099516d48a19d43660cde60caf0233ecb91e2e3c7d810"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.service.ts",
+      "sha256": "58dbc76dc65d2bbba4004c1d6b0ffd026e13fdb6f17f0848ef34372f86248b25"
+    },
+    {
+      "file": "backend/src/incidents/incidents-prosecution-integrity.spec.ts",
+      "sha256": "b70088a5d0fddc78eecaec1208b39c22affbbf0c1f94b2b4dc4c552d9dc130fa"
+    },
+    {
+      "file": "backend/src/incidents/incidents-release-compatibility.spec.ts",
+      "sha256": "ec91a577bbb7166a453b44c91723cad7d094774a7e5391e4edba2e1f6c1674ee"
+    },
+    {
+      "file": "backend/src/incidents/incidents-view-predicates.spec.ts",
+      "sha256": "90a8bed04b9b177ef72bfcb2357bb9667f211805e4b1eb42f12cd3db6866d23e"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import {
   Max,
   IsEnum,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { IncidentStatus, LoaiNguonTin } from '@prisma/client';
@@ -15,6 +16,33 @@ import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class QueryIncidentsDto {
+  @IsOptional() @IsIn(['management', 'intake']) view?: 'management' | 'intake';
+  @IsOptional() @IsIn(['PHAN_LOAI', 'CHO_NHAN', 'DA_NHAN']) intakeStage?:
+    | 'PHAN_LOAI'
+    | 'CHO_NHAN'
+    | 'DA_NHAN';
+  @IsOptional()
+  @IsIn([
+    'ngayTiepNhanNguonTin',
+    'soQDPhanCongNguonTin',
+    'soQuyetDinhTamDinhChiVV',
+    'soQuyetDinhPhucHoiVV',
+    'benVu',
+    'donViGiaiQuyet',
+    'crimeChinhId',
+  ])
+  emptyField?: string;
+  @IsOptional()
+  @IsIn([
+    'TAM_DINH_CHI',
+    'PHUC_HOI_NGUON_TIN',
+    'KHONG_KHOI_TO',
+    'DA_CHUYEN_VU_AN',
+    'DA_NHAP_VU_KHAC',
+    'DA_CHUYEN_DON_VI',
+    'DA_PHAN_CONG',
+  ])
+  historyStatus?: IncidentStatus;
   /**
    * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và giá
    * trị kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chặn yêu cầu quá cỡ.
