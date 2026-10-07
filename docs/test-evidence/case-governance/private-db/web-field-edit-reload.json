@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-10-07T23:22:40.588Z",
+  "environment": "private synthetic loopback web",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "touched": 124,
+  "verified": 124,
+  "missing": [
+    "crimeChinhId",
+    "laCongNgheCao",
+    "lyDoKhongKhoiTo",
+    "lyDoTamDinhChiNguonTin",
+    "lyDoTamDinhChiVuAn",
+    "nguonDon",
+    "supervisingUnit",
+    "toiDanhChinhKhoiToId"
+  ],
+  "errors": [],
+  "failedApi": [],
+  "verdict": "PASS"
+}

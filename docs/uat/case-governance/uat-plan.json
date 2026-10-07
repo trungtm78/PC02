@@ -13967,8 +13967,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-STATE",
@@ -14029,8 +14032,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-DATA",
@@ -14091,8 +14097,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-AUTHORITY",
@@ -14153,8 +14162,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-REVISION",
@@ -14215,8 +14227,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-REPLAY",
@@ -14277,8 +14292,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-ATOMICITY",
@@ -14339,8 +14357,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A01-RULE",
@@ -14401,8 +14422,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-EXECUTE",
@@ -14463,8 +14487,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-STATE",
@@ -14525,8 +14552,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-DATA",
@@ -14587,8 +14617,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-AUTHORITY",
@@ -14649,8 +14682,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-REVISION",
@@ -14711,8 +14747,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-REPLAY",
@@ -14773,8 +14812,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-ATOMICITY",
@@ -14835,8 +14877,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A02-RULE",
@@ -14897,8 +14942,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-EXECUTE",
@@ -14959,8 +15007,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-STATE",
@@ -15021,8 +15072,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-DATA",
@@ -15083,8 +15137,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-AUTHORITY",
@@ -15145,8 +15202,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-REVISION",
@@ -15207,8 +15267,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-REPLAY",
@@ -15269,8 +15332,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-ATOMICITY",
@@ -15331,8 +15397,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A03-RULE",
@@ -15393,8 +15462,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-EXECUTE",
@@ -15455,8 +15527,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-STATE",
@@ -15517,8 +15592,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-DATA",
@@ -15579,8 +15657,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-AUTHORITY",
@@ -15641,8 +15722,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-REVISION",
@@ -15703,8 +15787,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-REPLAY",
@@ -15765,8 +15852,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-ATOMICITY",
@@ -15827,8 +15917,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A04-RULE",
@@ -15889,8 +15982,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-EXECUTE",
@@ -15951,8 +16047,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-STATE",
@@ -16013,8 +16112,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-DATA",
@@ -16075,8 +16177,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-AUTHORITY",
@@ -16137,8 +16242,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-REVISION",
@@ -16199,8 +16307,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-REPLAY",
@@ -16261,8 +16372,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-ATOMICITY",
@@ -16323,8 +16437,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A05-RULE",
@@ -16385,8 +16502,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-EXECUTE",
@@ -16448,8 +16568,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-STATE",
@@ -16511,8 +16634,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-DATA",
@@ -16574,8 +16700,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-AUTHORITY",
@@ -16637,8 +16766,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-REVISION",
@@ -16700,8 +16832,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-REPLAY",
@@ -16763,8 +16898,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-ATOMICITY",
@@ -16826,8 +16964,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A06-RULE",
@@ -16889,8 +17030,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-EXECUTE",
@@ -16951,8 +17095,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-STATE",
@@ -17013,8 +17160,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-DATA",
@@ -17075,8 +17225,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-AUTHORITY",
@@ -17137,8 +17290,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-REVISION",
@@ -17199,8 +17355,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-REPLAY",
@@ -17261,8 +17420,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-ATOMICITY",
@@ -17323,8 +17485,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A07-RULE",
@@ -17385,8 +17550,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-EXECUTE",
@@ -17447,8 +17615,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-STATE",
@@ -17509,8 +17680,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-DATA",
@@ -17571,8 +17745,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-AUTHORITY",
@@ -17633,8 +17810,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-REVISION",
@@ -17695,8 +17875,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-REPLAY",
@@ -17757,8 +17940,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-ATOMICITY",
@@ -17819,8 +18005,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A08-RULE",
@@ -17881,8 +18070,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-EXECUTE",
@@ -17943,8 +18135,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-STATE",
@@ -18005,8 +18200,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-DATA",
@@ -18067,8 +18265,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-AUTHORITY",
@@ -18129,8 +18330,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-REVISION",
@@ -18191,8 +18395,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-REPLAY",
@@ -18253,8 +18460,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-ATOMICITY",
@@ -18315,8 +18525,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A09-RULE",
@@ -18377,8 +18590,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-EXECUTE",
@@ -18439,8 +18655,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-STATE",
@@ -18501,8 +18720,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-DATA",
@@ -18563,8 +18785,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-AUTHORITY",
@@ -18625,8 +18850,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-REVISION",
@@ -18687,8 +18915,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-REPLAY",
@@ -18749,8 +18980,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-ATOMICITY",
@@ -18811,8 +19045,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A10-RULE",
@@ -18873,8 +19110,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-EXECUTE",
@@ -18936,8 +19176,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-STATE",
@@ -18999,8 +19242,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-DATA",
@@ -19062,8 +19308,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-AUTHORITY",
@@ -19125,8 +19374,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-REVISION",
@@ -19188,8 +19440,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-REPLAY",
@@ -19251,8 +19506,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-ATOMICITY",
@@ -19314,8 +19572,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A11-RULE",
@@ -19377,8 +19638,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-EXECUTE",
@@ -19439,8 +19703,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-STATE",
@@ -19501,8 +19768,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-DATA",
@@ -19563,8 +19833,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-AUTHORITY",
@@ -19625,8 +19898,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-REVISION",
@@ -19687,8 +19963,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-REPLAY",
@@ -19749,8 +20028,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-ATOMICITY",
@@ -19811,8 +20093,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A12-RULE",
@@ -19873,8 +20158,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-EXECUTE",
@@ -19935,8 +20223,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-STATE",
@@ -19997,8 +20288,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-DATA",
@@ -20059,8 +20353,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-AUTHORITY",
@@ -20121,8 +20418,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-REVISION",
@@ -20183,8 +20483,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-REPLAY",
@@ -20245,8 +20548,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-ATOMICITY",
@@ -20307,8 +20613,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A13-RULE",
@@ -20369,8 +20678,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-EXECUTE",
@@ -20431,8 +20743,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-STATE",
@@ -20493,8 +20808,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-DATA",
@@ -20555,8 +20873,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-AUTHORITY",
@@ -20617,8 +20938,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-REVISION",
@@ -20679,8 +21003,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-REPLAY",
@@ -20741,8 +21068,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-ATOMICITY",
@@ -20803,8 +21133,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A14-RULE",
@@ -20865,8 +21198,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-EXECUTE",
@@ -20927,8 +21263,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-STATE",
@@ -20989,8 +21328,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-DATA",
@@ -21051,8 +21393,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-AUTHORITY",
@@ -21113,8 +21458,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-REVISION",
@@ -21175,8 +21523,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-REPLAY",
@@ -21237,8 +21588,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-ATOMICITY",
@@ -21299,8 +21653,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A15-RULE",
@@ -21361,8 +21718,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-EXECUTE",
@@ -21423,8 +21783,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-STATE",
@@ -21485,8 +21848,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-DATA",
@@ -21547,8 +21913,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-AUTHORITY",
@@ -21609,8 +21978,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-REVISION",
@@ -21671,8 +22043,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-REPLAY",
@@ -21733,8 +22108,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-ATOMICITY",
@@ -21795,8 +22173,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A16-RULE",
@@ -21857,8 +22238,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-EXECUTE",
@@ -21919,8 +22303,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-STATE",
@@ -21981,8 +22368,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-DATA",
@@ -22043,8 +22433,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-AUTHORITY",
@@ -22105,8 +22498,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-REVISION",
@@ -22167,8 +22563,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-REPLAY",
@@ -22229,8 +22628,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-ATOMICITY",
@@ -22291,8 +22693,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A17-RULE",
@@ -22353,8 +22758,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-EXECUTE",
@@ -22415,8 +22823,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-STATE",
@@ -22477,8 +22888,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-DATA",
@@ -22539,8 +22953,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-AUTHORITY",
@@ -22601,8 +23018,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-REVISION",
@@ -22663,8 +23083,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-REPLAY",
@@ -22725,8 +23148,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-ATOMICITY",
@@ -22787,8 +23213,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A18-RULE",
@@ -22849,8 +23278,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-EXECUTE",
@@ -22911,8 +23343,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-STATE",
@@ -22973,8 +23408,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-DATA",
@@ -23035,8 +23473,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-AUTHORITY",
@@ -23097,8 +23538,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-REVISION",
@@ -23159,8 +23603,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-REPLAY",
@@ -23221,8 +23668,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-ATOMICITY",
@@ -23283,8 +23733,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A19-RULE",
@@ -23345,8 +23798,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-EXECUTE",
@@ -23407,8 +23863,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-STATE",
@@ -23469,8 +23928,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-DATA",
@@ -23531,8 +23993,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-AUTHORITY",
@@ -23593,8 +24058,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-REVISION",
@@ -23655,8 +24123,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-REPLAY",
@@ -23717,8 +24188,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-ATOMICITY",
@@ -23779,8 +24253,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A20-RULE",
@@ -23841,8 +24318,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-EXECUTE",
@@ -23903,8 +24383,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-STATE",
@@ -23965,8 +24448,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-DATA",
@@ -24027,8 +24513,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-AUTHORITY",
@@ -24089,8 +24578,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-REVISION",
@@ -24151,8 +24643,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-REPLAY",
@@ -24213,8 +24708,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-ATOMICITY",
@@ -24275,8 +24773,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG04-A21-RULE",
@@ -24337,8 +24838,11 @@
           "same-key retry one commit"
         ]
       },
-      "status": "NOT_RUN",
-      "evidence": []
+      "status": "PASS",
+      "evidence": [
+        "docs/test-evidence/case-governance/private-db/legal-workflow-uat.json"
+      ],
+      "actual": "Private PostgreSQL/HTTP UAT passed for the frozen action catalog: per-action execution, target state/data and replay; shared workflow evidence verifies authority, exact revision, published rule and atomic rollback."
     },
     {
       "id": "CG-UAT-PRINCIPAL-MODE",
