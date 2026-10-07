@@ -11,6 +11,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
   BadRequestException,
@@ -19,6 +20,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsService } from './petitions.service';
+import { CaseGraphPolicyInterceptor } from '../case-child-access/case-graph.interceptor';
 import { QueryDaXoaDto } from '../common/dto/query-da-xoa.dto';
 import { PetitionsJourneyService } from './petitions-journey.service';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
@@ -43,6 +45,7 @@ import { ListLinkableDto } from './dto/list-linkable.dto'; // v0.37.1
 import { XuatDanhSachDonThuDto } from './dto/xuat-danh-sach-don-thu.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 @Controller('petitions')
+@UseInterceptors(CaseGraphPolicyInterceptor)
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PetitionsController {
   constructor(

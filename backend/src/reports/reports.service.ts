@@ -1,3 +1,5 @@
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from './graph-access/case-graph-access.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { TRANG_THAI_KET_THUC } from '../common/trang-thai/trang-thai-ket-thuc';
 import {
@@ -73,33 +75,69 @@ const STAT_GROUPS = [
   {
     name: 'Nhóm 1: Nguồn tin',
     fields: [
-      'Loại nguồn tin', 'Nguồn gốc', 'Loại người báo tin', 'Hình thức tiếp nhận',
-      'Mức độ khẩn', 'Đơn vị tiếp báo', 'Ngày xảy ra vụ việc', 'Giờ xảy ra vụ việc',
-      'Tỉnh/Thành phố', 'Quận/Huyện', 'Phường/Xã', 'Phân loại ban đầu',
+      'Loại nguồn tin',
+      'Nguồn gốc',
+      'Loại người báo tin',
+      'Hình thức tiếp nhận',
+      'Mức độ khẩn',
+      'Đơn vị tiếp báo',
+      'Ngày xảy ra vụ việc',
+      'Giờ xảy ra vụ việc',
+      'Tỉnh/Thành phố',
+      'Quận/Huyện',
+      'Phường/Xã',
+      'Phân loại ban đầu',
     ],
   },
   {
     name: 'Nhóm 2: Tội phạm',
     fields: [
-      'Tội danh chính', 'Tội danh phụ', 'Lĩnh vực', 'Phương thức thủ đoạn',
-      'Thiệt hại (VNĐ)', 'Đã thu hồi (VNĐ)', 'Số bị hại', 'Số người chết',
-      'Số người bị thương', 'Thiệt hại tài sản', 'Tội phạm có tổ chức', 'Tái phạm',
+      'Tội danh chính',
+      'Tội danh phụ',
+      'Lĩnh vực',
+      'Phương thức thủ đoạn',
+      'Thiệt hại (VNĐ)',
+      'Đã thu hồi (VNĐ)',
+      'Số bị hại',
+      'Số người chết',
+      'Số người bị thương',
+      'Thiệt hại tài sản',
+      'Tội phạm có tổ chức',
+      'Tái phạm',
     ],
   },
   {
     name: 'Nhóm 3: Đối tượng',
     fields: [
-      'Số đối tượng', 'Đã bắt giữ', 'Đã tạm giam', 'Giới tính',
-      'Độ tuổi', 'Dân tộc', 'Quốc tịch', 'Nghề nghiệp',
-      'Trình độ học vấn', 'Tiền án tiền sự', 'Liên quan ma túy', 'Sử dụng vũ khí',
+      'Số đối tượng',
+      'Đã bắt giữ',
+      'Đã tạm giam',
+      'Giới tính',
+      'Độ tuổi',
+      'Dân tộc',
+      'Quốc tịch',
+      'Nghề nghiệp',
+      'Trình độ học vấn',
+      'Tiền án tiền sự',
+      'Liên quan ma túy',
+      'Sử dụng vũ khí',
     ],
   },
   {
     name: 'Nhóm 4: Kết quả',
     fields: [
-      'Trạng thái xử lý', 'Kết quả điều tra', 'Kết quả truy tố', 'Kết quả xét xử',
-      'Mức án', 'Ngày kết thúc', 'Số ngày xử lý', 'Chứng cứ thu thập',
-      'Số nhân chứng', 'Tài sản thu giữ', 'Chuyển vụ án', 'Đã báo cáo',
+      'Trạng thái xử lý',
+      'Kết quả điều tra',
+      'Kết quả truy tố',
+      'Kết quả xét xử',
+      'Mức án',
+      'Ngày kết thúc',
+      'Số ngày xử lý',
+      'Chứng cứ thu thập',
+      'Số nhân chứng',
+      'Tài sản thu giữ',
+      'Chuyển vụ án',
+      'Đã báo cáo',
     ],
   },
 ];
@@ -133,7 +171,8 @@ function chonKy(
   tuyChon: TuyChonKy | undefined,
   dungTheoSo: (nam: number, so: number) => Ky,
 ): Ky {
-  if (tuyChon?.tu && tuyChon?.den) return kyTuyChon(new Date(tuyChon.tu), new Date(tuyChon.den));
+  if (tuyChon?.tu && tuyChon?.den)
+    return kyTuyChon(new Date(tuyChon.tu), new Date(tuyChon.den));
   if (tuyChon?.luyKeDenThang) return kyLuyKe(nam, tuyChon.luyKeDenThang);
   // Không chọn tháng/quý nghĩa là đang xem CẢ NĂM — kỳ nền phải là cả năm trước, không phải
   // tháng 12 hay quý 4 năm trước.
@@ -156,7 +195,6 @@ export interface TuyChonKy {
   nenTu?: string;
   nenDen?: string;
 }
-
 
 @Injectable()
 export class ReportsService {
@@ -191,7 +229,7 @@ export class ReportsService {
     ));
   }
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(GRAPH_PRISMA) private readonly prisma: PrismaService) {}
 
   /**
    * Đếm bốn chỉ tiêu trong một khoảng bất kỳ.
@@ -221,9 +259,15 @@ export class ReportsService {
       // nào. Chúng được đếm riêng ở `daGiaiQuyetChuaRoNgay` và hiện trên màn — bịa một ngày cho
       // chúng là bịa đúng con số mà cả đợt này đi sửa.
       Promise.all([
-        this.prisma.case.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
-        this.prisma.incident.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
-        this.prisma.petition.count({ where: { deletedAt: null, ngayGiaiQuyet: trongKy } }),
+        this.prisma.case.count({
+          where: { deletedAt: null, ngayGiaiQuyet: trongKy },
+        }),
+        this.prisma.incident.count({
+          where: { deletedAt: null, ngayGiaiQuyet: trongKy },
+        }),
+        this.prisma.petition.count({
+          where: { deletedAt: null, ngayGiaiQuyet: trongKy },
+        }),
       ]).then(([c, i, p]) => c + i + p),
     ]);
     return { donThu, vuViec, vuAn, daGiaiQuyet };
@@ -248,7 +292,11 @@ export class ReportsService {
   private async demDaGiaiQuyetChuaRoNgay() {
     const [vuAn, vuViec, donThu] = await Promise.all([
       this.prisma.case.count({
-        where: { deletedAt: null, ngayGiaiQuyet: null, status: { in: TRANG_THAI_KET_THUC.case } },
+        where: {
+          deletedAt: null,
+          ngayGiaiQuyet: null,
+          status: { in: TRANG_THAI_KET_THUC.case },
+        },
       }),
       this.prisma.incident.count({
         where: {
@@ -278,26 +326,40 @@ export class ReportsService {
   private async namCoDuLieu() {
     const [p, i, c] = await Promise.all([
       this.prisma.petition.aggregate({
-        where: { deletedAt: null, receivedDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        where: {
+          deletedAt: null,
+          receivedDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi },
+        },
         _min: { receivedDate: true },
         _max: { receivedDate: true },
       }),
       this.prisma.incident.aggregate({
-        where: { deletedAt: null, ngayDeXuat: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        where: {
+          deletedAt: null,
+          ngayDeXuat: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi },
+        },
         _min: { ngayDeXuat: true },
         _max: { ngayDeXuat: true },
       }),
       this.prisma.case.aggregate({
-        where: { deletedAt: null, receiveDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi } },
+        where: {
+          deletedAt: null,
+          receiveDate: { gte: MOC_NAM_HOP_LE.dau, lte: MOC_NAM_HOP_LE.cuoi },
+        },
         _min: { receiveDate: true },
         _max: { receiveDate: true },
       }),
     ]);
     const nams = [
-      p._min.receivedDate, p._max.receivedDate,
-      i._min.ngayDeXuat, i._max.ngayDeXuat,
-      c._min.receiveDate, c._max.receiveDate,
-    ].filter((d): d is Date => d instanceof Date).map((d) => d.getFullYear());
+      p._min.receivedDate,
+      p._max.receivedDate,
+      i._min.ngayDeXuat,
+      i._max.ngayDeXuat,
+      c._min.receiveDate,
+      c._max.receiveDate,
+    ]
+      .filter((d): d is Date => d instanceof Date)
+      .map((d) => d.getFullYear());
     const nayNam = new Date().getFullYear();
     if (!nams.length) return { tu: nayNam, den: nayNam };
     // KHÔNG cho chọn năm TƯƠNG LAI. Đo trên máy thật: có hồ sơ mang ngày tới tận 2036 — ngày gõ
@@ -372,7 +434,6 @@ export class ReportsService {
       })),
     );
 
-
     const ky = kyChon;
     // Tổng đếm THẲNG trên kỳ đang chọn, không cộng dồn các ô của biểu đồ.
     //
@@ -397,11 +458,13 @@ export class ReportsService {
         : undefined,
     );
 
-    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all([
-      this.demKhongCoNgayTiepNhan(),
-      this.demDaGiaiQuyetChuaRoNgay(),
-      this.namCoDuLieu(),
-    ]);
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all(
+      [
+        this.demKhongCoNgayTiepNhan(),
+        this.demDaGiaiQuyetChuaRoNgay(),
+        this.namCoDuLieu(),
+      ],
+    );
     return {
       success: true,
       data,
@@ -436,7 +499,6 @@ export class ReportsService {
       })),
     );
 
-
     const ky = kyChon;
     // Xem chú thích cùng nội dung ở `getMonthly`.
     const totals = await this.demTrongKhoang(ky.tu, ky.den);
@@ -457,11 +519,13 @@ export class ReportsService {
         : undefined,
     );
 
-    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all([
-      this.demKhongCoNgayTiepNhan(),
-      this.demDaGiaiQuyetChuaRoNgay(),
-      this.namCoDuLieu(),
-    ]);
+    const [khongCoNgay, daGiaiQuyetChuaRoNgay, namCoDuLieu] = await Promise.all(
+      [
+        this.demKhongCoNgayTiepNhan(),
+        this.demDaGiaiQuyetChuaRoNgay(),
+        this.namCoDuLieu(),
+      ],
+    );
     return {
       success: true,
       data,
@@ -480,8 +544,14 @@ export class ReportsService {
   // GET /api/v1/reports/district-stats?fromDate=&toDate=&district=
   // Lưu ý: district = tên phường/xã (cải cách hành chính 2025 — không còn cấp quận/huyện)
   // ─────────────────────────────────────────────
-  async getDistrictStats(fromDate?: string, toDate?: string, district?: string) {
-    const from = fromDate ? new Date(fromDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  async getDistrictStats(
+    fromDate?: string,
+    toDate?: string,
+    district?: string,
+  ) {
+    const from = fromDate
+      ? new Date(fromDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const to = toDate ? new Date(toDate + 'T23:59:59.999Z') : new Date();
 
     // Ward filter: Case stores province/ward in metadata JSON field
@@ -491,7 +561,9 @@ export class ReportsService {
       : {};
 
     // Daily breakdown for date range
-    const dayCount = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    const dayCount = Math.ceil(
+      (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
+    );
     const limitDays = Math.min(dayCount, 31); // max 31 days for chart
 
     const dailyData = await Promise.all(
@@ -504,11 +576,17 @@ export class ReportsService {
 
         const [petitions, incidents, cases] = await Promise.all([
           this.prisma.petition.count({
-            where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            where: {
+              deletedAt: null,
+              createdAt: { gte: dayStart, lte: dayEnd },
+            },
             // Note: Petition has no direct ward field — not filtered by ward yet
           }),
           this.prisma.incident.count({
-            where: { deletedAt: null, createdAt: { gte: dayStart, lte: dayEnd } },
+            where: {
+              deletedAt: null,
+              createdAt: { gte: dayStart, lte: dayEnd },
+            },
             // Note: Incident has no direct ward field — not filtered by ward yet
           }),
           this.prisma.case.count({
@@ -521,7 +599,10 @@ export class ReportsService {
         ]);
 
         return {
-          date: dayStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+          date: dayStart.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+          }),
           count: petitions + incidents + cases,
           details: { petitions, incidents, cases },
         };
@@ -572,7 +653,14 @@ export class ReportsService {
       DA_XAC_MINH: 'Đã xác minh',
     };
 
-    const COLORS = ['#1B2B4E', '#D4AF37', '#64748B', '#10B981', '#F59E0B', '#EF4444'];
+    const COLORS = [
+      '#1B2B4E',
+      '#D4AF37',
+      '#64748B',
+      '#10B981',
+      '#F59E0B',
+      '#EF4444',
+    ];
 
     return {
       success: true,
@@ -589,7 +677,11 @@ export class ReportsService {
           color: COLORS[idx % COLORS.length],
         })),
       },
-      filters: { fromDate: from.toISOString(), toDate: to.toISOString(), district },
+      filters: {
+        fromDate: from.toISOString(),
+        toDate: to.toISOString(),
+        district,
+      },
     };
   }
 
@@ -716,8 +808,11 @@ export class ReportsService {
 
     const toOverdueRecord = (item: any, type: string) => {
       const deadline = new Date(item.deadline);
-      const daysOverdue = Math.floor((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
-      const computedPriority = daysOverdue > 30 ? 'critical' : daysOverdue > 14 ? 'high' : 'medium';
+      const daysOverdue = Math.floor(
+        (now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const computedPriority =
+        daysOverdue > 30 ? 'critical' : daysOverdue > 14 ? 'high' : 'medium';
 
       return {
         id: item.id,
@@ -727,11 +822,15 @@ export class ReportsService {
         assignedTo: item.investigator
           ? `${item.investigator.firstName ?? ''} ${item.investigator.lastName ?? ''}`.trim()
           : item.assignedTo
-          ? `${item.assignedTo.firstName ?? ''} ${item.assignedTo.lastName ?? ''}`.trim()
-          : 'Chưa phân công',
+            ? `${item.assignedTo.firstName ?? ''} ${item.assignedTo.lastName ?? ''}`.trim()
+            : 'Chưa phân công',
         unit: item.unit ?? item.unitId ?? '',
         dueDate: deadline.toISOString(),
-        receivedDate: (item.createdAt ?? item.receivedDate ?? new Date()).toISOString(),
+        receivedDate: (
+          item.createdAt ??
+          item.receivedDate ??
+          new Date()
+        ).toISOString(),
         daysOverdue,
         status: item.status,
         priority: item.priority ?? computedPriority,
@@ -801,7 +900,9 @@ export class ReportsService {
         const values = cases
           .map((c) => {
             const meta = c.metadata as Record<string, unknown> | null;
-            const stat48 = meta?.['stat48'] as Record<string, unknown> | undefined;
+            const stat48 = meta?.['stat48'] as
+              | Record<string, unknown>
+              | undefined;
             return stat48?.[field];
           })
           .filter((v) => v != null && v !== '');

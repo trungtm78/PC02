@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-10-06T06:29:30.081Z",
+  "kind": "Local technical rendering smoke on work-in-progress source; not functional UAT or final certification",
+  "synthetic": true,
+  "results": [
+    {
+      "viewport": "desktop",
+      "urlPath": "/cases/cmuwairc6001v64m72rszlwm3",
+      "title": "PC02 Case Management",
+      "bodyCharacters": 2507,
+      "pageErrors": [],
+      "failedApi": [],
+      "screenshot": "desktop.png"
+    },
+    {
+      "viewport": "mobile",
+      "urlPath": "/cases/cmuwairc6001v64m72rszlwm3",
+      "title": "PC02 Case Management",
+      "bodyCharacters": 2290,
+      "pageErrors": [],
+      "failedApi": [],
+      "screenshot": "mobile.png"
+    }
+  ]
+}

@@ -4,6 +4,9 @@
  */
 import { useState } from 'react';
 import { X, ArrowRight, FileSearch, Scale } from 'lucide-react';
+import { SourceCaseFields } from '@/features/cases/SourceCaseFields';
+import { extractApiError } from '@/lib/api-errors';
+import { sourceCaseFieldErrors, type SourceCaseFieldState } from '@/features/cases/source-case-fields';
 
 export type ConvertTarget = 'incident' | 'case';
 
@@ -16,6 +19,7 @@ export interface ConvertToIncidentPayload {
 }
 
 export interface ConvertToCasePayload {
+  caseCustomFields?: Record<string, unknown>;
   caseName: string;
   crime: string;
   jurisdiction: string;
@@ -52,6 +56,8 @@ export function ConvertPetitionModal({
   const [crime, setCrime] = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
   const [suspect, setSuspect] = useState('');
+  const [caseCustomFields, setCaseCustomFields] = useState<Record<string, unknown>>({});
+  const [fieldState, setFieldState] = useState<SourceCaseFieldState>({ schema: null, loading: true, error: '' });
 
   const handleSubmitIncident = async () => {
     const errs: string[] = [];
@@ -68,8 +74,8 @@ export function ConvertPetitionModal({
         description: incidentDesc.trim() || undefined,
         expectedUpdatedAt: petitionUpdatedAt ?? undefined,
       });
-    } catch (e: any) {
-      setErrors([e?.response?.data?.message || e?.message || 'Có lỗi xảy ra khi chuyển đổi']);
+    } catch (e: unknown) {
+      setErrors(extractApiError(e, 'Có lỗi xảy ra khi chuyển đổi').messages);
     } finally {
       setIsSubmitting(false);
     }
@@ -81,6 +87,7 @@ export function ConvertPetitionModal({
     if (!crime.trim()) errs.push('Tội danh là bắt buộc');
     if (!jurisdiction.trim()) errs.push('Thẩm quyền là bắt buộc');
     if (!petitionUpdatedAt) errs.push('Không thể xác định phiên bản đơn thư');
+    errs.push(...sourceCaseFieldErrors(fieldState, caseCustomFields));
     if (errs.length) { setErrors(errs); return; }
 
     setIsSubmitting(true);
@@ -92,9 +99,10 @@ export function ConvertPetitionModal({
         jurisdiction: jurisdiction.trim(),
         suspect: suspect.trim() || undefined,
         expectedUpdatedAt: petitionUpdatedAt!,
+        ...(Object.keys(caseCustomFields).length && { caseCustomFields }),
       });
-    } catch (e: any) {
-      setErrors([e?.response?.data?.message || e?.message || 'Có lỗi xảy ra khi chuyển đổi']);
+    } catch (e: unknown) {
+      setErrors(extractApiError(e, 'Có lỗi xảy ra khi chuyển đổi').messages);
     } finally {
       setIsSubmitting(false);
     }
@@ -290,6 +298,7 @@ export function ConvertPetitionModal({
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <SourceCaseFields values={caseCustomFields} onChange={setCaseCustomFields} onState={setFieldState} />
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">
                 Hủy
@@ -297,7 +306,7 @@ export function ConvertPetitionModal({
               <button
                 type="button"
                 data-testid="convert-submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || fieldState.loading || !!fieldState.error}
                 onClick={handleSubmitCase}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 disabled:opacity-50"
               >

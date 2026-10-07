@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 import { Test } from '@nestjs/testing';
 import { ConclusionsService } from './conclusions.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,7 +16,7 @@ describe('ConclusionsService — scope enforcement', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) }, 
         ConclusionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -26,18 +28,26 @@ describe('ConclusionsService — scope enforcement', () => {
 
   it('returns conclusion when found (no scope)', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue(FAKE_CONCLUSION);
-    const result = await service.getById('con-001');
+    setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getById('con-001');
     expect(result.success).toBe(true);
   });
 
   it('throws NotFoundException when not found', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue(null);
-    await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
+    setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
   });
 
   it('throws ForbiddenException when parent case is out of scope', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue({ ...FAKE_CONCLUSION, case: { assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma, {
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['u1'],
+      });
+await expect(
       service.getById('con-001', {
         userIds: ['u1'],
         teamIds: ['t1'],
@@ -49,7 +59,13 @@ describe('ConclusionsService — scope enforcement', () => {
 
   it('passes when parent case team matches scope', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue(FAKE_CONCLUSION);
-    const result = await service.getById('con-001', {
+    setOrdinaryCurrentScope(mockPrisma, {
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: ['t1'],
+      writableUserIds: [],
+    });
+const result = await service.getById('con-001', {
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: ['t1'],
@@ -60,7 +76,8 @@ describe('ConclusionsService — scope enforcement', () => {
 
   it('passes with null scope (admin bypass)', async () => {
     mockPrisma.conclusion.findFirst.mockResolvedValue({ ...FAKE_CONCLUSION, case: { assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-    const result = await service.getById('con-001', null);
+    setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getById('con-001', null);
     expect(result.success).toBe(true);
   });
 });

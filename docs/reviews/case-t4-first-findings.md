@@ -1,0 +1,9 @@
+# T4 first read-only findings — FAIL, review still open
+
+No fixes made in this review. Root reviewed the concrete UI/backend boundary independently of the frontend writer; fresh reviewer activation is infrastructure-limited. This is not a whole55file PASS or runtime UAT claim.
+
+- **T4-R1 MAJOR** `EvidencePanel.tsx:376–385`: custody receipt/location/condition/correction facts read directly from the row. Backend `evidence-governance.service.ts:1099–1104` stores them under `payload.facts`; actual history omits those facts. Render the real nested DTO, distinguishing unknown legacy data, with a regression using backend-shaped payload and actual holder/receipt/source details.
+- **T4-R2 MAJOR** `shared.ts` helper `can()` requires `canEdit !== false`, reused by `HandoffPanel` send/accept/return/cancel/assignment. Backend `canCaseEdit` returns false while CHO_NHAN freezes ordinary Case edits, and dispatch assignment can legitimately have no ordinary Case.edit. Thus authorized business handoff controls disable themselves. Separate business-command gates from basic information editing; require actual operate/dispatch/current principal/recipient constraints, preserve backend checks. Negative tests must use actual pending capabilities (`canEdit:false`), not an unrealistic true fixture.
+- **T4-R3 MAJOR** the same helper requires enabled=true even for existing pending handoff return/cancel. Backend intentionally permits authorized clearing while the feature is OFF. Enable only those clearing commands under the real business/current-version guards; new sends/assignments/accepts stay gated according to backend behavior. Prove wrong recipient and missing capability remain disabled.
+
+Closure: focused RED→GREEN, changed-source review, fresh affected/types/lint/build and actual executable patch coverage. Other T4 interfaces, full browser workflows and overall release gates remain open.

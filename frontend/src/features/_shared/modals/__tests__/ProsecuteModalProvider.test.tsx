@@ -8,6 +8,7 @@ import { useProsecuteModal } from '../ProsecuteModalContext';
 const postMock = vi.fn();
 vi.mock('@/lib/api', () => ({
   api: {
+    get: vi.fn().mockResolvedValue({ data: { data: null } }),
     post: (...args: unknown[]) => postMock(...args),
   },
 }));
@@ -109,6 +110,7 @@ describe('ProsecuteModalProvider', () => {
     fireEvent.change(screen.getByTestId('field-crime'), {
       target: { value: 'Trộm cắp tài sản' },
     });
+    await waitFor(() => expect(screen.getByTestId('btn-confirm-prosecute')).toBeEnabled());
     await act(async () => {
       screen.getByTestId('btn-confirm-prosecute').click();
     });
@@ -141,6 +143,8 @@ describe('ProsecuteModalProvider', () => {
     fireEvent.change(screen.getByTestId('field-prosecution-decision'), {
       target: { value: 'QĐ-1' },
     });
+    await waitFor(() => expect(screen.getByTestId('source-case-fields')).toHaveAttribute('aria-busy', 'false'));
+    await waitFor(() => expect(screen.getByTestId('btn-confirm-prosecute')).toBeEnabled());
     await act(async () => {
       screen.getByTestId('btn-confirm-prosecute').click();
     });

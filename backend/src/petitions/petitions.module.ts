@@ -1,3 +1,5 @@
+import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
+import { CaseEvidenceGovernanceModule } from '../cases/evidence-governance/evidence-governance.module';
 import { Module } from '@nestjs/common';
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
@@ -12,17 +14,15 @@ import { DocumentTemplatesModule } from '../document-templates/document-template
 
 @Module({
   imports: [
+    CaseChildAccessModule,
+    CaseEvidenceGovernanceModule,
     AuditModule,
     SettingsModule,
     DeadlineRulesModule,
     DocumentNumbersModule,
     DocumentTemplatesModule,
   ],
-  providers: [
-    PetitionsService,
-    PetitionsJourneyService,
-    PetitionsBulkService,
-  ],
+  providers: [PetitionsService, PetitionsJourneyService, PetitionsBulkService],
   controllers: [PetitionsController, PetitionsBulkController],
   exports: [PetitionsService],
 })

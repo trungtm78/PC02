@@ -1,0 +1,15 @@
+# CG01/CG14 field policy integration finding
+
+Read-only source assessment2026-10-06, reported before corrections. User approved field sensitivity/access across Case detail, search/count, attachments/export/batch and audit; existing132 keys must have governed access/validation/search/export mapping.
+
+MAJOR CG-FP01: current `governance/case-field-schema.service.ts` validates and filters sensitivity only for `definition.fields` stored in metadata._customFields; current canonical132-field registry covers labels/types/columns but no published access policy for native fields. Whole-Case RESTRICTED visibility is useful but does not provide per-native-field protection within an otherwise readable Case. Arbitrary native-key collision is rightly forbidden for custom storage; it must not prevent separate read/write/export policy definitions on existing keys.
+
+Acceptance: preserve immutable canonical storage/keys and add safe optional published `fieldPolicies` on registered canonical keys, separate from custom field declarations. Shared server policy removes forbidden column/metadata aliases/statistic paths from serialization, rejects unauthorized actual value changes and blocks inference through forbidden token/empty/sort/count/export paths. Broad all-column search must use only permitted fields or explicit governed rejection when it cannot safely evaluate; never search hidden fields then merely redact output. Apply policy to basic/governance replay responses and existing export hydration. Existing unconfigured records keep scoped legacy protocols. Add negative fixtures for sensitive native phone/ID fields and statistic values, raw legacy aliases, search/count/export/batch and metadata spoofing; no technical ADMIN bypass without explicit business capability.
+
+This closes approved scope rather than changing it; no role grant, source mutation or production access in this assessment. T1b owns published policy DTO/evaluation/field-schema module, T1a owns ordinary Case boundary integrations, T4 consumes capability/field policies only after backend enforcement.
+# CG-FP02 — Preserve authorized search with native policies
+
+Read-only integration follow-up, MAJOR OPEN: `case-field-schema.service.ts` assertQueryReadable rejects any nonempty q/search whenever any readable Case has a forbidden native field. That is an interim confidentiality guard, but CG15 also requires existing Vietnamese/all-column search to remain useful over authorized fields. Its recursive string scan treats literal values `all` or `*` as field selectors without parser context, risking unrelated permitted-field rejection.
+
+Closure: policy-aware authorized search predicates must omit protected field branches for each pinned schema/case grant while permitting visible-field matches, with identical counts/export sets. Explicit forbidden field selectors may reject safely. Add regressions for visible-only match, secret-only exclusion, mixed schema/grant scope, literal text matching selector words, negation/empty/sort/count and revoked authority. No data leak may be reintroduced to restore usability. Coordinate backend query ownership with the core writer.
+

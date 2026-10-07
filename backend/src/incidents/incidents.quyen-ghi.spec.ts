@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { ForbiddenException } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 
@@ -24,7 +28,7 @@ function dung(vuViec: Record<string, unknown>) {
     {} as never,
     {} as never,
     {} as never,
-    { emit: jest.fn() } as never,
+    { emit: jest.fn() } as never, ordinarySourceFixture(prisma as never), ordinaryChildFixture(prisma as never) as never
   );
 }
 const phamVi = (o: Record<string, unknown> = {}) => ({
@@ -101,7 +105,7 @@ describe('GET /incidents — quyenGhi trên từng dòng', () => {
       {} as never,
       {} as never,
       {} as never,
-      { emit: jest.fn() } as never,
+      { emit: jest.fn() } as never, ordinarySourceFixture(prisma as never), ordinaryChildFixture(prisma as never) as never
     );
     jest.spyOn(service, 'dungWhereDanhSach').mockResolvedValue({
       where: {},

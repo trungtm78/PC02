@@ -13,6 +13,7 @@ import { TeamsService } from '../teams/teams.service';
 import { EnrollmentService } from '../auth/services/enrollment.service';
 import { UserStatus } from './dto/create-user.dto';
 import { STRONG_PASSWORD_REGEX } from '../auth/constants/password.constants';
+import { authorityFixtureTx } from './test-authority-fixture';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,7 @@ describe('AdminService', () => {
 
     service = module.get<AdminService>(AdminService);
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(authorityFixtureTx(mockPrisma)));
   });
 
   // ── getUsers ──────────────────────────────────────────────────────────────
@@ -253,7 +255,7 @@ describe('AdminService', () => {
         username: 'newuser',
         email: 'new@pc02.local',
       });
-      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(authorityFixtureTx(mockPrisma)));
       mockEnrollmentService.generateEnrollmentLink.mockClear();
       mockEnrollmentService.generateEnrollmentLink.mockResolvedValue({
         url: 'http://prod.test/auth/enroll?token=fake-token&uid=new-id',
@@ -488,7 +490,7 @@ describe('AdminService', () => {
       const result = await service.deleteUser('u2', 'requester-1');
       expect(result.message).toContain('xóa');
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'USER_DELETED' }),
+        expect.objectContaining({ action: 'USER_DELETED' }), expect.anything(),
       );
     });
 
@@ -553,7 +555,7 @@ describe('AdminService', () => {
   // ── updateUser ────────────────────────────────────────────────────────────
 
   describe('updateUser', () => {
-    const existingUser = {
+    const existingUser = { updatedAt: new Date(0),
       id: 'u1',
       username: 'existing',
       email: 'old@pc02.local',
@@ -577,7 +579,7 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
-        fn(mockPrisma),
+        fn(authorityFixtureTx(mockPrisma)),
       );
 
       const result = (await service.updateUser(
@@ -613,7 +615,7 @@ describe('AdminService', () => {
         role: { id: 'r1', name: 'Admin' },
       });
       mockPrisma.$transaction.mockImplementation(async (fn: any) =>
-        fn(mockPrisma),
+        fn(authorityFixtureTx(mockPrisma)),
       );
 
       await service.updateUser(
@@ -682,7 +684,7 @@ describe('AdminService', () => {
         mockPrisma.user.findFirst.mockResolvedValue(null);
         mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
         mockPrisma.$transaction.mockImplementation(async (fn: any) =>
-          fn(mockPrisma),
+          fn(authorityFixtureTx(mockPrisma)),
         );
       });
 
@@ -979,7 +981,7 @@ describe('AdminService', () => {
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.$transaction.mockImplementation(
         (fn: (tx: unknown) => unknown) =>
-          fn({ role: { delete: mockPrisma.role.delete } }),
+          fn(authorityFixtureTx({ ...mockPrisma, role: { delete: mockPrisma.role.delete } })),
       );
       mockPrisma.role.delete.mockResolvedValue({});
 

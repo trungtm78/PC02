@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, AlertCircle, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { SourceCaseFields } from '@/features/cases/SourceCaseFields';
+import { sourceCaseFieldErrors, type SourceCaseFieldState } from '@/features/cases/source-case-fields';
 import {
   BTN_PRIMARY,
   BTN_OUTLINE_SLATE,
@@ -47,6 +49,9 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
   const [prosecutionDecision, setProsecutionDecision] = useState<string>("");
   const [prosecutionDate, setProsecutionDate] = useState<string>(todayIso());
   const [crime, setCrime] = useState<string>("");
+  const [caseCustomFields, setCaseCustomFields] = useState<Record<string, unknown>>({});
+  const [fieldState, setFieldState] = useState<SourceCaseFieldState>({ schema: null, loading: true, error: '' });
+  const [fieldErrors, setFieldErrors] = useState<string[]>([]);
 
   const lifecycle = useModalLifecycle<
     ProsecuteArgs,
@@ -57,6 +62,7 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
       prosecutionDate: string;
       crime?: string;
       expectedUpdatedAt?: string;
+      caseCustomFields?: Record<string, unknown>;
     }
   >({
     submitFn: async (args, payload) => {
@@ -80,6 +86,7 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
       setProsecutionDecision("");
       setProsecutionDate(todayIso());
       setCrime("");
+      setCaseCustomFields({}); setFieldState({ schema: null, loading: true, error: '' }); setFieldErrors([]);
       lifecycle.open(args);
     },
     [lifecycle],
@@ -98,12 +105,15 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
 
   const handleSubmit = async () => {
     if (!lifecycle.args || !canSubmit) return;
+    const validation = sourceCaseFieldErrors(fieldState, caseCustomFields);
+    setFieldErrors(validation); if (validation.length) return;
     await lifecycle.submit({
       caseName: caseName.trim(),
       prosecutionDecision: prosecutionDecision.trim(),
       prosecutionDate,
       crime: crime.trim() || undefined,
       expectedUpdatedAt: lifecycle.args.currentUpdatedAt,
+      ...(Object.keys(caseCustomFields).length && { caseCustomFields }),
     });
   };
 
@@ -217,6 +227,8 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
                   <span>{lifecycle.error}</span>
                 </div>
               )}
+              <SourceCaseFields values={caseCustomFields} onChange={setCaseCustomFields} onState={setFieldState} />
+              {fieldErrors.map(error => <p role="alert" key={error} className="text-sm text-red-700">{error}</p>)}
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -234,7 +246,7 @@ export function ProsecuteModalProvider({ children }: { children: ReactNode }) {
                 data-testid="btn-confirm-prosecute"
                 className={`${BTN_PRIMARY} ${A11Y_FOCUS_RING}`}
                 onClick={handleSubmit}
-                disabled={!canSubmit || lifecycle.isLoading}
+                disabled={!canSubmit || lifecycle.isLoading || fieldState.loading || !!fieldState.error}
               >
                 {lifecycle.isLoading ? "Đang khởi tố..." : "Khởi tố"}
               </button>

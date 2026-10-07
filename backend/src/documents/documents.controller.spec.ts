@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import type { CreateDocumentDto } from './dto/create-document.dto';
+import { PassThrough, Readable } from 'node:stream';
 
 jest.mock('fs', () => ({
   ...jest.requireActual<typeof fs>('fs'),
@@ -23,11 +24,50 @@ const mockService = {
   update: jest.fn(),
   delete: jest.fn(),
   getDownloadInfo: jest.fn(),
+  openDownload: jest.fn(),
 };
 const request = (): ScopedRequest => makeReq() as unknown as ScopedRequest;
-const user = mockUser as AuthUser;
+const user: AuthUser = mockUser;
 
 describe('DocumentsController — delegation', () => {
+  it('download transmits only service-verified bytes and preserves authenticated audit context', async () => {
+    const bytes = Buffer.from('verified immutable snapshot'),
+      response = Object.assign(new PassThrough(), { setHeader: jest.fn() }),
+      chunks: Buffer[] = [];
+    response.on('data', (chunk: Buffer) => chunks.push(chunk));
+    const finished = new Promise<void>((resolve) =>
+      response.once('finish', resolve),
+    );
+    mockService.openDownload.mockResolvedValue({
+      data: {
+        stream: Readable.from(bytes),
+        originalName: 'reviewed public.pdf',
+        mimeType: 'application/pdf',
+      },
+    });
+    const req = request();
+    await controller.download('doc', user, req, response as never);
+    await finished;
+    expect(Buffer.concat(chunks)).toEqual(bytes);
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/pdf',
+    );
+    expect(response.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="reviewed%20public.pdf"',
+    );
+    expect(mockService.openDownload).toHaveBeenCalledWith(
+      'doc',
+      {
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
+    expect(mockService.getDownloadInfo).not.toHaveBeenCalled();
+  });
   let controller: DocumentsController;
 
   beforeEach(async () => {
@@ -43,8 +83,12 @@ describe('DocumentsController — delegation', () => {
   it('getList() delegates to service.getList with query and dataScope', async () => {
     mockService.getList.mockResolvedValue({ data: [] });
     const req = request();
-    await controller.getList({}, req);
-    expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+    await controller.getList({}, req, user);
+    expect(mockService.getList).toHaveBeenCalledWith(
+      {},
+      req.dataScope,
+      user.id,
+    );
   });
 
   // Sprint 1 / S1.3 — File upload throttle: chống abuse upload spam.
@@ -69,8 +113,12 @@ describe('DocumentsController — delegation', () => {
   it('getById() delegates to service.getById with id and dataScope', async () => {
     mockService.getById.mockResolvedValue({ data: {} });
     const req = request();
-    await controller.getById('doc-1', req);
-    expect(mockService.getById).toHaveBeenCalledWith('doc-1', req.dataScope);
+    await controller.getById('doc-1', req, user);
+    expect(mockService.getById).toHaveBeenCalledWith(
+      'doc-1',
+      req.dataScope,
+      user.id,
+    );
   });
 
   it('update() delegates to service.update with id, dto, userId and audit info', async () => {

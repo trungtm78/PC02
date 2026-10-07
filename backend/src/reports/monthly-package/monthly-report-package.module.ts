@@ -1,3 +1,4 @@
+import { CaseGraphAccessModule } from '../graph-access/case-graph-access.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../../auth/auth.module';
 import { AuditModule } from '../../audit/audit.module';
@@ -8,7 +9,7 @@ import { MonthlyReportPackageController } from './monthly-report-package.control
 import { MonthlyReportPackageService } from './monthly-report-package.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditModule],
+  imports: [CaseGraphAccessModule, PrismaModule, AuthModule, AuditModule],
   controllers: [MonthlyReportPackageController],
   providers: [
     MonthlyReportBuilderService,

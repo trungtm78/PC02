@@ -1,0 +1,753 @@
+{
+  "timestamp": "2026-10-06T10:31:22.113Z",
+  "status": "FROZEN_FOR_ROOT_INDEPENDENT_READ_ONLY_REVIEW",
+  "productCount": 45,
+  "testFixtureCount": 79,
+  "sourceOwnership": "Exact product45 manifest + changed owned test/fixture files. Common test-only and bounded Cases/governance files explicitly transferred by root; no other owner source included.",
+  "rows": [
+    {
+      "file": "backend/src/admin/admin.service.ts",
+      "sha256": "a25f02e7bb2d2ada48f11cf12c8bf34c02c16ef02c02024c1e626cabdbee4695",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\admin.service.ts"
+    },
+    {
+      "file": "backend/src/admin/case-authority.guard.ts",
+      "sha256": "657d6551268df20237af4598b0f278be433c294a068af61dac1e09c8e6571dbf",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\case-authority.guard.ts"
+    },
+    {
+      "file": "backend/src/admin/bulk/bulk-import.service.ts",
+      "sha256": "54fb36cd699536d3ec13f572be0284b257df6345e5d760d7961ba7fe560a872c",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\bulk\\bulk-import.service.ts"
+    },
+    {
+      "file": "backend/src/admin/bulk/bulk-import.processor.ts",
+      "sha256": "890154028aa351176d2d3df014190f6d2ecf6e330daf48e3713356d6f29d9aa4",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\bulk\\bulk-import.processor.ts"
+    },
+    {
+      "file": "backend/src/auth/services/enrollment.service.ts",
+      "sha256": "f0e198dc11ccc833b9d084cbdf1b0d69b3598f57a7fe13d8285a99b138525b38",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\auth\\services\\enrollment.service.ts"
+    },
+    {
+      "file": "backend/src/subjects/subjects.service.ts",
+      "sha256": "8110ccf67888f594c04bf9ccfc5a64319b63721f1b32888c29ff50a7097437c7",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\subjects.service.ts"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.service.ts",
+      "sha256": "6c0ec50e41cbb61ccdf0ac489fff2f06ed285e64270112911f44a5bd66411bf9",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\lawyers.service.ts"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.service.ts",
+      "sha256": "9b9e12603ad5159dd75d067c8e5a89f5942e7c54ea58799b4b590f24ebc33ab5",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\conclusions.service.ts"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.service.ts",
+      "sha256": "444a362110ed0cb2509b05c5cdad9b2d709565e4da13f196068863cbc5d3cf93",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\investigation-supplements\\investigation-supplements.service.ts"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.service.ts",
+      "sha256": "791b1e5be4d4090b6614a5ff45944ef4b32a3caab16cb6dead2056bb9c945119",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-child-access.service.ts"
+    },
+    {
+      "file": "backend/src/case-child-access/case-source-creation.service.ts",
+      "sha256": "40052f577183a0dd0e7d6a94f01f110a51f48b4591edf9cfa6a865f7ffedafc4",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-source-creation.service.ts"
+    },
+    {
+      "file": "backend/src/cases/governance/case-field-schema.service.ts",
+      "sha256": "a57c9330579d49e308fdb2b3c8a8b5b1f7acde96c052121a12ad2f1be7096741",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-field-schema.service.ts"
+    },
+    {
+      "file": "backend/src/cases/governance/legal-action.validation.ts",
+      "sha256": "973a915050f04f92555fb0d9487abccae7f072b9ea6c515e6f46d107cd80587e",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\legal-action.validation.ts"
+    },
+    {
+      "file": "backend/src/cases/governance/case-operations.service.ts",
+      "sha256": "4e678b1162b4f5e939e58fa76054ca238afd026d95580d44ceb29cbd49d1a9c8",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-operations.service.ts"
+    },
+    {
+      "file": "backend/src/cases/governance/case-civil-day.ts",
+      "sha256": "9935ebb2a2bb6eb18d8811fe9a22dff2ace9d7fd2de56c88efd121ef0583c3cd",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-civil-day.ts"
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.ts",
+      "sha256": "78f45e74c4208ef49ae8e342fea2be0ad4c347c3cb45afb695848f6e95611113",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.service.ts"
+    },
+    {
+      "file": "backend/src/petitions/petitions.service.ts",
+      "sha256": "c767d84b2f197bb3f59411a4a7b006cba44e471c446f726f6aa7b1a556a43839",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.service.ts"
+    },
+    {
+      "file": "backend/src/subjects/bulk/subjects.bulk.service.ts",
+      "sha256": "bbbd1c0d84d3a438d3a64580614e08f40a8f022f80e34da99c895430ccef18c7",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\bulk\\subjects.bulk.service.ts"
+    },
+    {
+      "file": "backend/src/lawyers/bulk/lawyers.bulk.service.ts",
+      "sha256": "9caa7a96bf9dd9f929253275b10037313e1ea6f373cc05b5804e72b2aedb6b0e",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\bulk\\lawyers.bulk.service.ts"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk.service.ts",
+      "sha256": "f4741ad57a1fc16c5d9ea6e9b1e2a1b1dd414d3a0556c943c04ec48198e37269",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\bulk\\incidents.bulk.service.ts"
+    },
+    {
+      "file": "backend/src/petitions/bulk/petitions.bulk.service.ts",
+      "sha256": "2569245f74422092ac7607ea4175759c3f13b32fc8247f4bcb14a95741d3630f",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\bulk\\petitions.bulk.service.ts"
+    },
+    {
+      "file": "backend/src/proposals/proposals.service.ts",
+      "sha256": "3bef85cad6ee93eb010b0cf10378efb7380ae220b466ba72d392693ff7c8ed6c",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals.service.ts"
+    },
+    {
+      "file": "backend/src/delegations/delegations.service.ts",
+      "sha256": "730fbd959d1ac51e02b830c19419da43d87cdc42b17c7e9cd0d9e3a7a4a52f11",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations.service.ts"
+    },
+    {
+      "file": "backend/src/case-child-access/case-graph.interceptor.ts",
+      "sha256": "3ef103e6ccf9833d7905ee4223defb3c7c6d44d2874d5081b68e1e07a420862c",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-graph.interceptor.ts"
+    },
+    {
+      "file": "backend/src/cases/cases.service.ts",
+      "sha256": "c25fbe0345794512ec0b65c85e812de74a8beb37016b3b3b5261d9c7d3ac4114",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\cases.service.ts"
+    },
+    {
+      "file": "backend/src/cases/bulk/cases.bulk.service.ts",
+      "sha256": "46bc5c6579ee393ca34388b128d9b43a93b9bc27c3d4ea74621f277a72edaaa8",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\bulk\\cases.bulk.service.ts"
+    },
+    {
+      "file": "backend/src/incidents/dto/prosecute-incident.dto.ts",
+      "sha256": "58aa95b969e84148df907d2a1fb82d10c01c3080b1dfb412f21583b599740521",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\dto\\prosecute-incident.dto.ts"
+    },
+    {
+      "file": "backend/src/petitions/dto/convert-case.dto.ts",
+      "sha256": "3394c0465d6733a9e3a27516664c7e22b77826a2c0f673a4505a7c41559b79bd",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\dto\\convert-case.dto.ts"
+    },
+    {
+      "file": "backend/src/subjects/subjects.controller.ts",
+      "sha256": "068013d8e2f1e35ce0772f570eea887f5b79391f28742e11be2431b575b4fc4e",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\subjects.controller.ts"
+    },
+    {
+      "file": "backend/src/subjects/subjects.module.ts",
+      "sha256": "48b33f20e92d719507a1738b39f7799b8c4cdc4ecf7365238be53060141c392a",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\subjects.module.ts"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.controller.ts",
+      "sha256": "16a322e39936de78aa452b1a6a7a327588cb2a5d7090102d503b720df64bc827",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\lawyers.controller.ts"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.module.ts",
+      "sha256": "90fec956b771f9c65c12123291d083877778d71754956f4abf1ee130caff6e1e",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\lawyers.module.ts"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.controller.ts",
+      "sha256": "0fef4d325dd9517802c0ef32894d2c32b5588391129db91c2fa231fd6cfe9daf",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\conclusions.controller.ts"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.module.ts",
+      "sha256": "c3bbc891cfa9421725e99863826fd684b7c66dc67cc3741af42d0a18a478c1b8",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\conclusions.module.ts"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.controller.ts",
+      "sha256": "43f4ae30dffd34aeee1e04d644ee828dfb3f2d2b2dd759fc20c4204eaba6b8d6",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\investigation-supplements\\investigation-supplements.controller.ts"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.module.ts",
+      "sha256": "6e89931cfbdf22ef89a09a0889ff1d6eb7238b01d140dbb88503dfb289ee18c9",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\investigation-supplements\\investigation-supplements.module.ts"
+    },
+    {
+      "file": "backend/src/proposals/proposals.controller.ts",
+      "sha256": "6b815ecc0062a1c16d9f42b0f5af3306a6c662ffbe270d887eb95fae735ad8cc",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals.controller.ts"
+    },
+    {
+      "file": "backend/src/proposals/proposals.module.ts",
+      "sha256": "f7f53d12a46b571e202484d2bd11d04bd101995f1ec3a7d10616f912d65c8f77",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals.module.ts"
+    },
+    {
+      "file": "backend/src/delegations/delegations.controller.ts",
+      "sha256": "d3694501a4857e9766929fa4736dd1ba0716a970b9826a9f77cb239f48cf87a9",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations.controller.ts"
+    },
+    {
+      "file": "backend/src/delegations/delegations.module.ts",
+      "sha256": "d08088643df39e4589725a2a66515027edf1d4ea368d385f119cff315212d2b2",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations.module.ts"
+    },
+    {
+      "file": "backend/src/incidents/incidents.controller.ts",
+      "sha256": "3ac4c6e72f624d43e722682cbfac0053baf0776dca9220ad272fd3f7d68d83f1",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.controller.ts"
+    },
+    {
+      "file": "backend/src/incidents/incidents.module.ts",
+      "sha256": "c365af59e67d06fe5504d9271bbfd95b376e3350f4e07ae68ed222dd164f633a",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.module.ts"
+    },
+    {
+      "file": "backend/src/petitions/petitions.controller.ts",
+      "sha256": "3745212ce367e7f9811e4da49724ddbf3e29039e209e05d1ba8269173500e92a",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.controller.ts"
+    },
+    {
+      "file": "backend/src/petitions/petitions.module.ts",
+      "sha256": "6ab52dde177a6a5ce730e8a264fa3938d53d0faea4710399b07a1885f67491ac",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.module.ts"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.module.ts",
+      "sha256": "4558daa954e29b9f6defead47db65f2b8149552098095c035f949b2a2483d73d",
+      "kind": "product",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-child-access.module.ts"
+    },
+    {
+      "file": "backend/src/admin/admin.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\admin.service.spec.ts",
+      "sha256": "862aff21a1152c7d85d55e78e81f8d64958582b3c2a52ef2ebcbac6930921c66"
+    },
+    {
+      "file": "backend/src/admin/bulk/case-business-job-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\bulk\\case-business-job-access.spec.ts",
+      "sha256": "0e91e7c9978a6c88043b7371555382c42438cae5f46014dfc2890299f9e5bb0f"
+    },
+    {
+      "file": "backend/src/admin/bulk/case-business-worker-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\bulk\\case-business-worker-access.spec.ts",
+      "sha256": "ad71d747bb3d89eeee4e8e46f43e5b970cf2afdf0f2b66667246ab1d9916aeb2"
+    },
+    {
+      "file": "backend/src/admin/business-credential-acquisition.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\business-credential-acquisition.spec.ts",
+      "sha256": "f438ab07ab5b5cd3a4f9e5544a781a7bcfdd4913ca1ffccc5c4e9f27c1dd04eb"
+    },
+    {
+      "file": "backend/src/admin/case-authority.guard.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\case-authority.guard.spec.ts",
+      "sha256": "468b7a163bbeec4337623d55e62a7ee41174f67d5d7d44d364ca5afce272fedb"
+    },
+    {
+      "file": "backend/src/admin/case-authority.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\case-authority.spec.ts",
+      "sha256": "bbdab5ecc1d3fc158bfced62b8058b6d57be61e9ff7203bdbcc6110cca2edfcb"
+    },
+    {
+      "file": "backend/src/admin/mo-khoa-tai-khoan.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\mo-khoa-tai-khoan.spec.ts",
+      "sha256": "cd347247df866f5b8f0337e3a28f09efb9763f8a43eef3319ad51c3be7b7bf8f"
+    },
+    {
+      "file": "backend/src/admin/test-authority-fixture.ts",
+      "kind": "fixture",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\test-authority-fixture.ts",
+      "sha256": "3577d4c8d8885ccf01c39ad8840936070db17ca7e5a8759fd3bdfefe51d09543"
+    },
+    {
+      "file": "backend/src/admin/vai-tro-quyen.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\admin\\vai-tro-quyen.spec.ts",
+      "sha256": "5ba1346ed126970f22a645d1602d3fe8a21a1a55ef86aa3a00a709562e9f52f5"
+    },
+    {
+      "file": "backend/src/auth/services/enrollment.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\auth\\services\\enrollment.service.spec.ts",
+      "sha256": "7f22dfe2b1bb94d401f8bff191c195a5c12489d8e47c77b1efc912d957ca3b7d"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.database.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-child-access.database.spec.ts",
+      "sha256": "5ce2224058bbbba1761391fc047bf0fecd9a4d7b1f2d1ddf65d18e03155f7f84"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-child-access.service.spec.ts",
+      "sha256": "6a93ec66b5ce6ba678e0e2e912a681a19f9bb3284cb2b8a311358bd897f0bb41"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-module.integration.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-child-module.integration.spec.ts",
+      "sha256": "e6068bc45314f347dba425bc1c964d01be6083543bd2b29bec11ab8df2debca9"
+    },
+    {
+      "file": "backend/src/case-child-access/case-direct-mutation-protocol.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-direct-mutation-protocol.spec.ts",
+      "sha256": "e27a45be71ec77bf98292008cd9b7c05079fd28cdd76a6a04ec48cc0f3903922"
+    },
+    {
+      "file": "backend/src/case-child-access/case-graph.interceptor.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-graph.interceptor.spec.ts",
+      "sha256": "c972095dca80bf9db0c9d0eee0b4f406ed0ab8115f2be9b0f19a0d02940382e3"
+    },
+    {
+      "file": "backend/src/case-child-access/case-source-creation.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-source-creation.service.spec.ts",
+      "sha256": "bb9e34202539cda8663a2b83479a602ea3f98c7fdab7527d3a196a163d2f1269"
+    },
+    {
+      "file": "backend/src/case-child-access/case-source-merge-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-source-merge-access.spec.ts",
+      "sha256": "16ff8035bf25ad626065f396744b2194efbfc5b5d7209dc3775a7b39ccd199b8"
+    },
+    {
+      "file": "backend/src/case-child-access/case-source-transport.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\case-source-transport.spec.ts",
+      "sha256": "ce0477364efc13b56fac1c1f9907d598ae4dd3a709f785306a6751dcfa9aa0fe"
+    },
+    {
+      "file": "backend/src/case-child-access/default-required-field.integration.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\default-required-field.integration.spec.ts",
+      "sha256": "b031d30cbb3ef1780dc64b02c206db4aa16fc3df98e15490a141ffd423d91b87"
+    },
+    {
+      "file": "backend/src/case-child-access/test-child-access-fixture.ts",
+      "kind": "fixture",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\test-child-access-fixture.ts",
+      "sha256": "cb7948985aa3afec1791c524cb9eb621fd0c7d62315e34460741696e00678a62"
+    },
+    {
+      "file": "backend/src/case-child-access/test-source-creation-fixture.ts",
+      "kind": "fixture",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\case-child-access\\test-source-creation-fixture.ts",
+      "sha256": "e32c3cd7831c3bf119bc5b3fbfd0139469e1bc0691190a5db24f190e1c23fbbf"
+    },
+    {
+      "file": "backend/src/cases/bulk/bulk-assignment-authority.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\bulk\\bulk-assignment-authority.spec.ts",
+      "sha256": "7150c9a03c75187456aa80128603ab6f83dc7b1939f36d32feede70c636359bd"
+    },
+    {
+      "file": "backend/src/cases/bulk/cases.bulk.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\bulk\\cases.bulk.service.spec.ts",
+      "sha256": "df64a304cb36ed23d34741085643dddb4642e15de0a994eb47655cabb368079f"
+    },
+    {
+      "file": "backend/src/cases/cases-civil-overdue.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\cases-civil-overdue.spec.ts",
+      "sha256": "1528f5c5564f10697624e0453619597fa66adf720ec41d1d278744c1626f605f"
+    },
+    {
+      "file": "backend/src/cases/governance/case-field-schema.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-field-schema.service.spec.ts",
+      "sha256": "3f24477d97c81ab1efc1b4c8d90db6836b689e35b9cf692723e77cc1e7f3e148"
+    },
+    {
+      "file": "backend/src/cases/governance/case-operations.filters.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-operations.filters.spec.ts",
+      "sha256": "5cf64f0ef42ae6e481d5b85f1cbe12a5550b34140174d706cccb43b6c601c825"
+    },
+    {
+      "file": "backend/src/cases/governance/case-operations.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-operations.service.spec.ts",
+      "sha256": "f4ff1eed09d95316cb7c54f6523f48532e63f3a2518086a2b7e153f913e49767"
+    },
+    {
+      "file": "backend/src/cases/governance/legal-action.validation.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\legal-action.validation.spec.ts",
+      "sha256": "e15ffb016c6c0e21624ee9e175b1a237795736943267abfe0dcf58bce3845bd1"
+    },
+    {
+      "file": "backend/src/common/utils/tao-con-kiem-pham-vi-cha.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\utils\\tao-con-kiem-pham-vi-cha.spec.ts",
+      "sha256": "ece2037512639f765ddf2885af51bee617ce38885182e9e18b92592e3e58b1ff"
+    },
+    {
+      "file": "backend/src/common/utils/xoa-hang-loat-pham-vi.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\utils\\xoa-hang-loat-pham-vi.spec.ts",
+      "sha256": "f86decc26705f2249f17f9b26bfe2e8cbe983e7de078c28e6120504138b890aa"
+    },
+    {
+      "file": "backend/src/conclusions/case-child-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\case-child-access.spec.ts",
+      "sha256": "fcf9cff1965688689364703ed6a23a6474a8456748924bbf3a194dcb5c4b4ac2"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\conclusions.controller.spec.ts",
+      "sha256": "483e6f5ef14331ac5663ccca1f830d5c5af5791575d0d2ee80a89868d2ce8d67"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\conclusions\\conclusions.service.spec.ts",
+      "sha256": "36a83d815d87bafb2628f3287adda9dc8e0e1e9610ad01a52e033b8a244b4524"
+    },
+    {
+      "file": "backend/src/delegations/delegations-tim-kiem.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations-tim-kiem.service.spec.ts",
+      "sha256": "77b40be7d27e5fbe073adc49e09f1e276b983c68efa1ba8e1731a640532ef5ce"
+    },
+    {
+      "file": "backend/src/delegations/delegations-update.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations-update.service.spec.ts",
+      "sha256": "12b6c79d98377ac501b73e5091a79972c295ecd56c06f43e901c39329017d124"
+    },
+    {
+      "file": "backend/src/delegations/delegations.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations.controller.spec.ts",
+      "sha256": "04f7f5d513026110e76da1e977ce26eec9c567377b81c110fc373f3d95481fbc"
+    },
+    {
+      "file": "backend/src/delegations/delegations.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\delegations\\delegations.service.spec.ts",
+      "sha256": "2811d38e3421597358f8c30342c80f14fe0cdf331e9320ac016ddaea16f8e56e"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk-race.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\bulk\\incidents.bulk-race.spec.ts",
+      "sha256": "eb8f7fb182989ffe43e34fb5b609dc47b95a3b7f511363718492cc08c3f245ab"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\bulk\\incidents.bulk.service.spec.ts",
+      "sha256": "69af422742b07748547e41fb1af4114e7b90fd6473664c73503a7ccba320ee93"
+    },
+    {
+      "file": "backend/src/incidents/case-source-creation-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\case-source-creation-access.spec.ts",
+      "sha256": "8b193a88f2d4d044aa4655fb41facaea205ca3fe9bd9f49d64bb72d279799fee"
+    },
+    {
+      "file": "backend/src/incidents/incidents-handoff.integration.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-handoff.integration.spec.ts",
+      "sha256": "c9193242d4d120dfb2d9c32c8423a9b621e3eea93cb2e5f97e576c64024c65b3"
+    },
+    {
+      "file": "backend/src/incidents/incidents-ky-thong-ke.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-ky-thong-ke.service.spec.ts",
+      "sha256": "87d64fbc148b36faee7b724d1acd03bf5ad23b03082560591846afe75e3b7b61"
+    },
+    {
+      "file": "backend/src/incidents/incidents-mot-where.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-mot-where.spec.ts",
+      "sha256": "5465c7c5753887580be021b40c31e2cdf9d8999901a00bd33884ca781d915099"
+    },
+    {
+      "file": "backend/src/incidents/incidents-prosecution-integrity.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-prosecution-integrity.spec.ts",
+      "sha256": "629ed07b61c18d35054197a704eaa9c1c8570a5e701aadb4394bf453e63cbcc2"
+    },
+    {
+      "file": "backend/src/incidents/incidents-release-compatibility.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-release-compatibility.spec.ts",
+      "sha256": "6d341fc438dc5c23426973fb77f2ed217722ab6f8993ed1cc77281f214085f13"
+    },
+    {
+      "file": "backend/src/incidents/incidents-result.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-result.service.spec.ts",
+      "sha256": "bcb945eb1e3cee317244eaec61392188fc9fafdbee22cd8153fec5ebf8e54644"
+    },
+    {
+      "file": "backend/src/incidents/incidents-stats.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-stats.service.spec.ts",
+      "sha256": "6c26825b3ed02429950dbf01f90d2ea28bb8ebabc4d736760f44dd79c248c937"
+    },
+    {
+      "file": "backend/src/incidents/incidents-transitions-service.expert.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-transitions-service.expert.spec.ts",
+      "sha256": "357517fcdd927e5c72df7ea5d7a784bd7072cfa49cf280f31bbe35ab47372dec"
+    },
+    {
+      "file": "backend/src/incidents/incidents-view-predicates.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-view-predicates.spec.ts",
+      "sha256": "1470f32208611acba4591ae0e9084307f4e1206143e2f3b8a8b0b5eb17c2f0ab"
+    },
+    {
+      "file": "backend/src/incidents/incidents-vu-viec-phuong.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-vu-viec-phuong.service.spec.ts",
+      "sha256": "119634f36db428beee6aae0d4aba141638609c6146eea683e9c6a76720c789c8"
+    },
+    {
+      "file": "backend/src/incidents/incidents-xuat-danh-sach.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents-xuat-danh-sach.spec.ts",
+      "sha256": "dbcea5e493c90b7f23e44805ecf58a1bb1ea15f8c4fb8cbf713bbc1258b40229"
+    },
+    {
+      "file": "backend/src/incidents/incidents.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.controller.spec.ts",
+      "sha256": "2ee5695856813d234a91c43f4f8c37359f96e2e28fa11c7e12133e84b02aaf80"
+    },
+    {
+      "file": "backend/src/incidents/incidents.quyen-ghi.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.quyen-ghi.spec.ts",
+      "sha256": "d2734b8e980f980750d4884c3f72ec150806165d9b7aef64c2551e2edb0a6cba"
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\incidents\\incidents.service.spec.ts",
+      "sha256": "ebdb84a91e254a2c1b5f022dca7598284f1665df54455f1dfaf69d7825e1c322"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\investigation-supplements\\investigation-supplements.controller.spec.ts",
+      "sha256": "3d7d777470ea1a25429ca75054de5d33b5c21575b28920f21924402602b69197"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\investigation-supplements\\investigation-supplements.service.spec.ts",
+      "sha256": "347780c4843c75bcf61d013e4092044d621c401449165bdfeb5273ab1e6688c7"
+    },
+    {
+      "file": "backend/src/lawyers/bulk/lawyers.bulk.export.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\bulk\\lawyers.bulk.export.spec.ts",
+      "sha256": "783f0816aa0d7246fad02b5e14f25ecc42359c139f30c21a226ab30f2ef7dc7a"
+    },
+    {
+      "file": "backend/src/lawyers/bulk/lawyers.bulk.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\bulk\\lawyers.bulk.service.spec.ts",
+      "sha256": "5936c516701b2539e5388be600ac5f9b01436a517b90ac2fc6ee14de56ae51d0"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\lawyers.controller.spec.ts",
+      "sha256": "da3d306f1380be99773dea19c26be5b2c36040c22e07575bd9f2d7f3f6771997"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\lawyers\\lawyers.service.spec.ts",
+      "sha256": "57c02e81517cb2d7a2d2c51e22c17e4fa4606ec616272fcc5e2b9832d25aa362"
+    },
+    {
+      "file": "backend/src/petitions/bulk/petitions.bulk.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\bulk\\petitions.bulk.service.spec.ts",
+      "sha256": "89ca590419cf3519e56a576f8865477debb278c139cb5b04229aa9aab0c68106"
+    },
+    {
+      "file": "backend/src/petitions/goi-y-ten-nguoi-gui.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\goi-y-ten-nguoi-gui.spec.ts",
+      "sha256": "79437c40224bfad8451d7b7c4aeb1a019baf20e6b6d102fdc7a6a08c77ad467f"
+    },
+    {
+      "file": "backend/src/petitions/petitions-don-trung.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions-don-trung.service.spec.ts",
+      "sha256": "c4c39903eb8ec43428d818ff7686a0afd36a9177465e327ea84e9bc603f3cd86"
+    },
+    {
+      "file": "backend/src/petitions/petitions-loai-don.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions-loai-don.service.spec.ts",
+      "sha256": "2195cc3fc79d24495ae66630c730254861b3b409e369c0ba57d784ba8401f453"
+    },
+    {
+      "file": "backend/src/petitions/petitions-mot-where.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions-mot-where.spec.ts",
+      "sha256": "030a87ca3bac1f46e7ddf40908175cd242559df648912e3041edc92a0d752be4"
+    },
+    {
+      "file": "backend/src/petitions/petitions-stats.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions-stats.service.spec.ts",
+      "sha256": "143410b00bf44bcbe8d2d5f13a54d5cb9aa934888a49734f0470b8239569bd70"
+    },
+    {
+      "file": "backend/src/petitions/petitions-xuat-danh-sach.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions-xuat-danh-sach.spec.ts",
+      "sha256": "2b0230997c617bbc616fae429a7e22958d6ce375a06f24b4e4e12e469c9ceb8e"
+    },
+    {
+      "file": "backend/src/petitions/petitions.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.controller.spec.ts",
+      "sha256": "7c1f707b4d0894fb72dbcd87ca66d62157e878828efa6b5fd948b38acee9eeec"
+    },
+    {
+      "file": "backend/src/petitions/petitions.quyen-ghi.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.quyen-ghi.spec.ts",
+      "sha256": "ab40c536f23063116d76cfbe606e6cca3b4318d3d60f7bd9699491e06cf0eb5a"
+    },
+    {
+      "file": "backend/src/petitions/petitions.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\petitions\\petitions.service.spec.ts",
+      "sha256": "8c5bd28d92e151a60be45c1d6fd39acba9c40481e31e09a9e7e0ec68374e541f"
+    },
+    {
+      "file": "backend/src/proposals/optional-case-parent-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\optional-case-parent-access.spec.ts",
+      "sha256": "eca4035f79ecbb13d106e272bbd517cb0e6e8a92a3269911ff2f7af5b3b5d0ce"
+    },
+    {
+      "file": "backend/src/proposals/proposals-tim-kiem.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals-tim-kiem.service.spec.ts",
+      "sha256": "a57e3e2843c8468cc6b9ac08c96c3778ed215fbef936db8b437e7c79a18fc9d0"
+    },
+    {
+      "file": "backend/src/proposals/proposals.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals.controller.spec.ts",
+      "sha256": "30b3b5b623e45d5d83775291c35a115c202567a16e0ddc7240937d2acf556ad3"
+    },
+    {
+      "file": "backend/src/proposals/proposals.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\proposals\\proposals.service.spec.ts",
+      "sha256": "5a7668e2c06c42a96ec4a9978cbc76b749cb47fe764df46d6eb135036771e339"
+    },
+    {
+      "file": "backend/src/subjects/bulk/case-child-bulk-access.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\bulk\\case-child-bulk-access.spec.ts",
+      "sha256": "d1cb9b4b4d9574aec080d485bbc3086438d4fa11eb660f7ae92ca06e5b895d34"
+    },
+    {
+      "file": "backend/src/subjects/bulk/subjects.bulk.export.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\bulk\\subjects.bulk.export.spec.ts",
+      "sha256": "d45e692d9ed36e77095a8e8486448765012c677e436061c7d4baeb216c7da223"
+    },
+    {
+      "file": "backend/src/subjects/bulk/subjects.bulk.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\bulk\\subjects.bulk.service.spec.ts",
+      "sha256": "8b1693c8cb02fc49f0de0d6f27a9ed83d7280cf0689098db6cc97b8b38e80f30"
+    },
+    {
+      "file": "backend/src/subjects/subjects.controller.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\subjects.controller.spec.ts",
+      "sha256": "44f649c8be7561ec70c6239265dfb843c2c469cfbfcf6baa1132bc467e9ae7b0"
+    },
+    {
+      "file": "backend/src/subjects/subjects.service.spec.ts",
+      "kind": "test",
+      "absolutePath": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\subjects\\subjects.service.spec.ts",
+      "sha256": "4a72eb2e97f236937cd92e0b6d311b98f1bd47572b2bd1aae0ef8737e60c2c32"
+    }
+  ]
+}

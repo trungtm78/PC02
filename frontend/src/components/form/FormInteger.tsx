@@ -1,3 +1,4 @@
+import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { type ReactNode } from 'react';
 import {
   ICON_INPUT_WRAPPER,
@@ -61,7 +62,7 @@ export function FormInteger({
   );
 
   return (
-    <div className={getColSpanClass(colSpan)}>
+    <CasePolicyField label={label} testId={dataTestId}><div className={getColSpanClass(colSpan)}>
       <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
@@ -72,6 +73,6 @@ export function FormInteger({
         input
       )}
       <FieldError error={error} id={errorId} />
-    </div>
+    </div></CasePolicyField>
   );
 }

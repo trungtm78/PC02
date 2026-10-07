@@ -29,21 +29,33 @@ export class DelegationsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryDelegationsDto, @Req() req: ScopedRequest) {
-    return this.delegationsService.getList(query, req.dataScope);
+  getList(
+    @Query() query: QueryDelegationsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.delegationsService.getList(query, req.dataScope, user.id);
   }
 
   /** Thẻ thống kê — cùng thẻ/ngày/phạm vi với danh sách. Khai TRƯỚC `:id` để 'stats' không bị đọc thành id. */
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getStats(@Query() query: QueryDelegationsDto, @Req() req: ScopedRequest) {
-    return this.delegationsService.getStats(query, req.dataScope);
+  getStats(
+    @Query() query: QueryDelegationsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.delegationsService.getStats(query, req.dataScope, user.id);
   }
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.delegationsService.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.delegationsService.getById(id, req.dataScope, user.id);
   }
 
   @Post()

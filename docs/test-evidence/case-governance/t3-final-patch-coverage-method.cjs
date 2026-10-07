@@ -1,0 +1,11 @@
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const root='C:/PC02/pc02-case-management/.worktrees/case-governance-20261006';
+const coverage=JSON.parse(fs.readFileSync(path.join(root,'backend/src/coverage-t3-final/coverage-final.json'),'utf8'));
+const files=['backend/src/documents/documents.controller.ts','backend/src/documents/documents.service.ts','backend/src/documents/documents.module.ts','backend/src/xlsx-imports/commit.service.ts','backend/src/legacy-migration/legacy-migration.service.ts','backend/src/legacy-migration/cli/seed-ho-so-di-tru-mau.ts','backend/src/legacy-migration/cli/verify-backfill-parity.ts'];
+const diff=cp.execFileSync('git',['diff','--unified=0','10030bed','--',...files],{cwd:root,encoding:'utf8'});
+const added=new Map();let current,line=0;
+for(const row of diff.split(/\r?\n/)){if(row.startsWith('+++ b/')){current=row.slice(6);added.set(current,new Set());}else if(row.startsWith('@@')){line=Number(row.match(/\+(\d+)/)[1]);}else if(row.startsWith('+')&&!row.startsWith('+++')){added.get(current)?.add(line++);}else if(row.startsWith(' ')&&!row.startsWith('---'))line++;}
+const results=[];let total=0,hit=0;
+for(const file of files){const key=Object.keys(coverage).find(key=>key.replaceAll('\\','/').endsWith('/'+file));const item=coverage[key];const executable=new Map();if(item)for(const [id,location]of Object.entries(item.statementMap)){const n=location.start.line;executable.set(n,Math.max(executable.get(n)||0,item.s[id]));}const changed=[...(added.get(file)||[])].filter(n=>executable.has(n));const covered=changed.filter(n=>executable.get(n)>0);total+=changed.length;hit+=covered.length;results.push({file,covered:covered.length,executableChangedLines:changed.length,percent:changed.length?100*covered.length/changed.length:null,uncovered:changed.filter(n=>!covered.includes(n)),cliNotExecuted:file.includes('/cli/')});}
+const output={method:'Added executable statement-start lines from git diff10030bed; per-line hit=max statement count; no exclusions of missed executable lines',covered:hit,executableChangedLines:total,percent:100*hit/total,files:results};
+fs.writeFileSync(path.join(root,'docs/test-evidence/case-governance/t3-final-patch-coverage.json'),JSON.stringify(output,null,2));process.stdout.write(JSON.stringify(output));

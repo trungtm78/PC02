@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { authorityFixtureTx } from './test-authority-fixture';
 
 /**
  * Mở khoá tài khoản bị khoá vì đăng nhập sai nhiều lần.
@@ -27,6 +28,7 @@ describe('AdminService.moKhoaTaiKhoan', () => {
         update: jest.fn().mockImplementation((a: any) => Promise.resolve({ id: 'u1', ...a.data })),
       },
     };
+    prisma.$transaction = jest.fn(async (fn: any) => fn(authorityFixtureTx(prisma)));
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
     // Hai phụ thuộc cuối không tham gia luồng mở khoá — truyền rỗng cho rõ ý.
     const svc = new AdminService(prisma, audit as any, {} as any, {} as any);
@@ -62,6 +64,7 @@ describe('AdminService.moKhoaTaiKhoan', () => {
         action: 'ADMIN_UNLOCK_ACCOUNT',
         subjectId: 'u1',
       }),
+      expect.anything(),
     );
   });
 

@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../reports/graph-access/case-graph-access.interceptor';
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { CalendarService } from './calendar.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,6 +24,7 @@ class QueryCalendarDto {
   month?: number;
 }
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('calendar')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CalendarController {

@@ -13,6 +13,7 @@ interface Props {
   onSaveAndExport: () => void;
   onSaveDraft?: () => void;
   isSubmitting: boolean;
+  disabled?: boolean;
   label?: string;
   /** Prefix data-testid để nhiều instance (nút trên/dưới form) không trùng. */
   idPrefix?: string;
@@ -28,6 +29,7 @@ export function SaveSplitButton({
   onSaveAndExport,
   onSaveDraft,
   isSubmitting,
+  disabled = false,
   label = "Lưu",
   idPrefix = "btn-save-split",
   mainTestId,
@@ -56,7 +58,7 @@ export function SaveSplitButton({
         type="button"
         data-testid={mainTestId ?? `${idPrefix}-main`}
         onClick={onSave}
-        disabled={isSubmitting}
+        disabled={isSubmitting || disabled}
         className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-l-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
       >
         <Save className="w-4 h-4" />
@@ -66,7 +68,7 @@ export function SaveSplitButton({
         type="button"
         data-testid={caretTestId ?? `${idPrefix}-caret`}
         onClick={() => setIsOpen((v) => !v)}
-        disabled={isSubmitting}
+        disabled={isSubmitting || disabled}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Tuỳ chọn lưu"

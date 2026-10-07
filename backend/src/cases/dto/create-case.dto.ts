@@ -158,6 +158,16 @@ export class CreateEvidenceInlineDto {
 
 export class CreateCaseDto {
   @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  cloneSourceCaseId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  expectedCloneSourceUpdatedAt?: string;
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   acknowledgedDuplicateIds?: string[];

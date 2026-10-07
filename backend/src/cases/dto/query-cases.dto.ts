@@ -10,7 +10,13 @@ import {
   Max,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { CaseStatus, CapDoToiPham, CaseType, LoaiUyThac } from '@prisma/client';
+import {
+  CaseStatus,
+  CapDoToiPham,
+  CaseType,
+  LoaiUyThac,
+  CaseInvestigationPhase,
+} from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { CASE_STATUS_GROUP_KEYS } from '../cases.constants';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
@@ -24,6 +30,47 @@ export type TrangThaiPhanHoi =
 export { CaseType, LoaiUyThac };
 
 export class QueryCasesDto {
+  @IsOptional()
+  @IsIn([...Object.values(CaseInvestigationPhase), 'UNKNOWN'])
+  investigationPhase?: CaseInvestigationPhase | 'UNKNOWN';
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  actionCode?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  decisionNumber?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  decisionType?: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  decisionSourceDocumentId?: string;
+  @IsOptional()
+  @IsNgayThat()
+  decisionDateFrom?: string;
+  @IsOptional()
+  @IsNgayThat()
+  decisionDateTo?: string;
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === true || value === 'true'
+      ? true
+      : value === false || value === 'false'
+        ? false
+        : value,
+  )
+  @IsBoolean()
+  missingData?: boolean;
+  @IsOptional()
+  @IsIn(['pending', 'assigned', 'missing', 'review', 'due', 'overdue'])
+  governanceQueue?: string;
+  @IsOptional()
+  @IsNgayThat()
+  governanceClock?: string;
   /**
    * Thẻ của ô tìm dạng thẻ: `khoá~giá trị`, lặp được (`?tk=nguoiGui~An&tk=stt~2026-1`). Khoá và giá
    * trị kiểm ở `common/tim-kiem/dieu-kien.ts` (khoá lạ → 400). Giới hạn ở đây chặn yêu cầu quá cỡ.

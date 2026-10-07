@@ -1,3 +1,4 @@
+import { ordinaryCaseAuthorityFixture } from './governance/case-ordinary-test.fixture';
 /**
  * Cases UTDT stats endpoint tests (F2).
  *
@@ -19,6 +20,7 @@ type CountMock = jest.Mock<Promise<number>, [CountArgs]>;
 const mockCaseCount: CountMock = jest.fn<Promise<number>, [CountArgs]>();
 
 const mockPrisma = {
+  ...ordinaryCaseAuthorityFixture(),
   case: {
     count: mockCaseCount,
   },
@@ -157,7 +159,16 @@ describe('CasesService.getUtdtStats — UTDT chip count aggregation (F2)', () =>
     const result = await service.getUtdtStats({}, null);
 
     const callArg = mockPrisma.case.count.mock.calls[0][0];
-    expect(callArg.where.ngayDeXuat).toBeDefined();
+    // Date filtering now belongs to the authorized policy partition, shared
+    // with list/export, rather than the outer Case predicate.
+    expect(JSON.stringify(callArg.where)).toContain(
+      JSON.stringify({
+        ngayDeXuat: {
+          gte: new Date('2026-09-01T00:00:00'),
+          lte: new Date('2026-09-30T23:59:59.999'),
+        },
+      }),
+    );
     expect(result.ky).toEqual(ky);
   });
 

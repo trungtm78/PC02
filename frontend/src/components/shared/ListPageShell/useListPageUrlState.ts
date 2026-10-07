@@ -33,7 +33,7 @@ export interface ListPageUrlState {
   getNumberParam(key: string, defaultValue: number): number;
   setParam(key: string, value: string | null, options?: UrlWriteOptions): void;
   setParams(updates: Record<string, string | null>, options?: UrlWriteOptions): void;
-  clearAll(): void;
+  clearAll(extraKeys?: readonly string[]): void;
 }
 
 export function useListPageUrlState(prefix: string): ListPageUrlState {
@@ -95,7 +95,7 @@ export function useListPageUrlState(prefix: string): ListPageUrlState {
     [setSearchParams, fullKey],
   );
 
-  const clearAll = useCallback(() => {
+  const clearAll = useCallback((extraKeys: readonly string[] = []) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -103,7 +103,7 @@ export function useListPageUrlState(prefix: string): ListPageUrlState {
         // Snapshot keys vì delete iterate destructive trong URLSearchParams.
         const keysToDelete: string[] = [];
         next.forEach((_v, k) => {
-          if (k.startsWith(prefixDot)) keysToDelete.push(k);
+          if (k.startsWith(prefixDot) || extraKeys.includes(k)) keysToDelete.push(k);
         });
         keysToDelete.forEach((k) => next.delete(k));
         return next;

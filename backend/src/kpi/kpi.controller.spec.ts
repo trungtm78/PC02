@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from '../reports/graph-access/case-graph-access.service';
 import {
   buildControllerModule,
   makeReq,
@@ -20,7 +21,7 @@ describe('KpiController — delegation', () => {
       KpiController,
       KpiService,
       mockService,
-    );
+    [{token:CaseGraphAccessService,mock:{}}]);
     controller = module.get(KpiController);
     jest.clearAllMocks();
   });

@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import {
   Injectable,
   NotFoundException,
@@ -221,6 +223,8 @@ export class IncidentsService {
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly caseCreation: CaseSourceCreationService,
+    private readonly caseBoundary: CaseChildAccessService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1646,21 +1650,45 @@ export class IncidentsService {
     // 7+8. Atomic transaction: SetNull + soft delete
     // v0.43: multi-write must be atomic — wrap in $transaction
     try {
-      await this.prisma.$transaction(async (tx) => {
-        // Clear Case.linkedIncidentId for Cases sourced from this Incident (Branch-2 direction).
-        // Run unconditionally — no-op if no Case has linkedIncidentId = id.
-        // Two FK directions are independent: don't guard on existing.linkedCaseId.
-        await tx.case.updateMany({
-          where: { linkedIncidentId: id },
-          data: { linkedIncidentId: null },
-        });
+      await this.caseBoundary.sourceDeletion(
+        'Incident',
+        id,
+        actorId,
+        async (tx) => {
+          // Clear Case.linkedIncidentId for Cases sourced from this Incident (Branch-2 direction).
+          // Run unconditionally — no-op if no Case has linkedIncidentId = id.
+          // Two FK directions are independent: don't guard on existing.linkedCaseId.
+          await tx.case.updateMany({
+            where: { linkedIncidentId: id },
+            data: { linkedIncidentId: null },
+          });
 
-        // Soft delete Incident; also clear linkedCaseId on the tombstone for data hygiene
-        await tx.incident.update({
-          where: this.guardedWrite(existing),
-          data: { deletedAt: new Date(), linkedCaseId: null },
-        });
-      });
+          // Soft delete Incident; also clear linkedCaseId on the tombstone for data hygiene
+          await tx.incident.update({
+            where: this.guardedWrite(existing),
+            data: { deletedAt: new Date(), linkedCaseId: null },
+          });
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'INCIDENT_DELETED',
+              subject: 'Incident',
+              subjectId: id,
+              metadata: {
+                code: existing.code,
+                name: existing.name,
+                reason,
+                softDelete: true,
+                hoursAfterCreation: Math.round(hoursElapsed),
+                unlinkedCaseId: existing.linkedCaseId ?? null,
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+        },
+      );
     } catch (e) {
       const code = (e as { code?: string })?.code;
       if (code === 'P2025') {
@@ -1672,22 +1700,6 @@ export class IncidentsService {
     }
 
     // Audit log outside transaction (audit failure should not rollback delete)
-    await this.audit.log({
-      userId: actorId,
-      action: 'INCIDENT_DELETED',
-      subject: 'Incident',
-      subjectId: id,
-      metadata: {
-        code: existing.code,
-        name: existing.name,
-        reason,
-        softDelete: true,
-        hoursAfterCreation: Math.round(hoursElapsed),
-        unlinkedCaseId: existing.linkedCaseId ?? null,
-      },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
 
     return {
       success: true,
@@ -2098,7 +2110,10 @@ export class IncidentsService {
     }
 
     try {
-      const result = await this.prisma.$transaction(
+      const result = await this.caseBoundary.sourceMerge(
+        id,
+        dto.targetId,
+        actorId,
         async (tx: Prisma.TransactionClient) => {
           // Khóa theo thứ tự cố định để hai lệnh đồng thời A→B và B→A không tạo vòng.
           const lockIds = [id, dto.targetId].sort();
@@ -2490,6 +2505,7 @@ export class IncidentsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    void dataScope;
     if (!dto.caseName?.trim() || !dto.prosecutionDecision?.trim()) {
       throw new BadRequestException(
         'Tên vụ án và số quyết định khởi tố không được để trống',
@@ -2505,117 +2521,128 @@ export class IncidentsService {
       );
     }
     const prosecutionDate = new Date(dto.prosecutionDate);
-    const existing = await this.prisma.incident.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!existing)
-      throw new NotFoundException(`Vụ việc không tồn tại (id: ${id})`);
-    this.checkWriteScope(existing, dataScope);
-
-    this.checkReceivedForBusiness(existing);
-
-    if (!canProsecuteIncidentStatus(existing.status)) {
-      throw new BadRequestException(
-        'Chỉ có thể khởi tố vụ việc đang ở trạng thái ĐANG XÁC MINH, ĐÃ PHÂN CÔNG hoặc PHỤC HỒI NGUỒN TIN',
-      );
-    }
-
     // FIXED: wrap in transaction for atomicity
     let result: Prisma.CaseGetPayload<object>;
+    let replayed = false;
     try {
-      result = await this.prisma.$transaction(async (tx) => {
-        // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
-        // trước đây vụ án khởi tố từ vụ việc không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
-        const { number: caseCode, logId: caseCodeLogId } =
-          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
-        let caseRecord: Prisma.CaseGetPayload<object>;
-        try {
-          caseRecord = await tx.case.create({
+      const creation = await this.caseCreation.execute(
+        {
+          kind: 'Incident',
+          sourceId: id,
+          expectedUpdatedAt: dto.expectedUpdatedAt,
+          requestKey: dto.requestKey,
+          payload: { ...dto },
+        },
+        actorId,
+        async (tx, currentSource, context) => {
+          const existing = currentSource as Incident;
+          this.checkWriteScope(existing, context.scope);
+
+          this.checkReceivedForBusiness(existing);
+
+          if (!canProsecuteIncidentStatus(existing.status)) {
+            throw new BadRequestException(
+              'Chỉ có thể khởi tố vụ việc đang ở trạng thái ĐANG XÁC MINH, ĐÃ PHÂN CÔNG hoặc PHỤC HỒI NGUỒN TIN',
+            );
+          }
+
+          // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
+          // trước đây vụ án khởi tố từ vụ việc không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
+          const { number: caseCode, logId: caseCodeLogId } =
+            await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+          let caseRecord: Prisma.CaseGetPayload<object>;
+          try {
+            caseRecord = await tx.case.create({
+              data: await context.prepare({
+                caseCode,
+                name: dto.caseName,
+                crime: dto.crime,
+                soQuyetDinhKhoiTo: dto.prosecutionDecision.trim(),
+                ngayKhoiTo: prosecutionDate,
+                ...incidentSourceToCase(existing),
+                createdById: actorId,
+                metadata: {
+                  incidentSourceSnapshot: incidentSourceSnapshot(existing),
+                },
+                status: 'TIEP_NHAN',
+                investigatorId: existing.investigatorId,
+                // v0.37.1 PR-INC — provenance gap fix per eng review HIGH finding:
+                // Incident prosecution path was creating Case without caseProvenance,
+                // which would fail the NOT NULL constraint in PR-PROV-2 (Contract).
+                caseProvenance: 'FROM_INCIDENT' as const,
+                linkedIncidentId: id,
+              }),
+            });
+          } catch (err: unknown) {
+            if (
+              err instanceof Prisma.PrismaClientKnownRequestError &&
+              err.code === 'P2002'
+            ) {
+              throw new ConflictException(
+                'Mã vụ án bị trùng, vui lòng thử lại',
+              );
+            }
+            throw err;
+          }
+          await tx.documentNumberLog.update({
+            where: { id: caseCodeLogId },
+            data: { documentId: caseRecord.id },
+          });
+
+          await tx.incident.update({
+            where: {
+              id,
+              status: existing.status,
+              linkedCaseId: null,
+              ...(dto.expectedUpdatedAt || existing.updatedAt
+                ? {
+                    updatedAt: dto.expectedUpdatedAt
+                      ? new Date(dto.expectedUpdatedAt)
+                      : existing.updatedAt,
+                  }
+                : {}),
+            },
             data: {
-              caseCode,
-              name: dto.caseName,
-              crime: dto.crime,
-              soQuyetDinhKhoiTo: dto.prosecutionDecision.trim(),
-              ngayKhoiTo: prosecutionDate,
-              ...incidentSourceToCase(existing),
-              createdById: actorId,
-              metadata: {
-                incidentSourceSnapshot: incidentSourceSnapshot(existing),
-              },
-              status: 'TIEP_NHAN',
-              investigatorId: existing.investigatorId,
-              // v0.37.1 PR-INC — provenance gap fix per eng review HIGH finding:
-              // Incident prosecution path was creating Case without caseProvenance,
-              // which would fail the NOT NULL constraint in PR-PROV-2 (Contract).
-              caseProvenance: 'FROM_INCIDENT' as const,
-              linkedIncidentId: id,
+              status: IncidentStatus.DA_CHUYEN_VU_AN,
+              // Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải bỏ dở — đóng mốc.
+              ...machMocGiaiQuyet(
+                'incident',
+                existing.status,
+                IncidentStatus.DA_CHUYEN_VU_AN,
+                existing.ngayGiaiQuyet,
+              ),
+              linkedCaseId: caseRecord.id,
             },
           });
-        } catch (err: unknown) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
-            throw new ConflictException('Mã vụ án bị trùng, vui lòng thử lại');
-          }
-          throw err;
-        }
-        await tx.documentNumberLog.update({
-          where: { id: caseCodeLogId },
-          data: { documentId: caseRecord.id },
-        });
 
-        await tx.incident.update({
-          where: {
-            id,
-            status: existing.status,
-            linkedCaseId: null,
-            ...(dto.expectedUpdatedAt || existing.updatedAt
-              ? {
-                  updatedAt: dto.expectedUpdatedAt
-                    ? new Date(dto.expectedUpdatedAt)
-                    : existing.updatedAt,
-                }
-              : {}),
-          },
-          data: {
-            status: IncidentStatus.DA_CHUYEN_VU_AN,
-            // Khởi tố là KẾT QUẢ của việc giải quyết nguồn tin, không phải bỏ dở — đóng mốc.
-            ...machMocGiaiQuyet(
-              'incident',
-              existing.status,
-              IncidentStatus.DA_CHUYEN_VU_AN,
-              existing.ngayGiaiQuyet,
-            ),
-            linkedCaseId: caseRecord.id,
-          },
-        });
+          await tx.incidentStatusHistory.create({
+            data: {
+              incidentId: id,
+              fromStatus: existing.status,
+              toStatus: IncidentStatus.DA_CHUYEN_VU_AN,
+              changedById: actorId,
+              note: `Khởi tố thành vụ án: ${caseRecord.name}`,
+            },
+          });
 
-        await tx.incidentStatusHistory.create({
-          data: {
-            incidentId: id,
-            fromStatus: existing.status,
-            toStatus: IncidentStatus.DA_CHUYEN_VU_AN,
-            changedById: actorId,
-            note: `Khởi tố thành vụ án: ${caseRecord.name}`,
-          },
-        });
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'INCIDENT_PROSECUTED',
+              subject: 'Incident',
+              subjectId: id,
+              metadata: { caseId: caseRecord.id, caseName: caseRecord.name },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
 
-        await this.audit.log(
-          {
-            userId: actorId,
-            action: 'INCIDENT_PROSECUTED',
-            subject: 'Incident',
-            subjectId: id,
-            metadata: { caseId: caseRecord.id, caseName: caseRecord.name },
-            ipAddress: meta?.ipAddress,
-            userAgent: meta?.userAgent,
-          },
-          tx,
-        );
-
-        return caseRecord;
-      });
+          return caseRecord;
+        },
+      );
+      result = creation.caseRecord;
+      replayed = creation.replayed;
     } catch (e) {
       if ((e as { code?: string })?.code === 'P2025') {
         throw new ConflictException(
@@ -2627,10 +2654,11 @@ export class IncidentsService {
 
     // Như đường tạo vụ án thường: báo "vụ án vừa được tạo" cho thủ trưởng (rà mã 19/09/2026 — trước đây vụ án sinh
     // từ chuyển đơn thư / khởi tố vụ việc không có thông báo).
-    this.eventEmitter.emit(
-      'case.created',
-      new CaseCreatedEvent(result.id, result.caseCode ?? '', actorId),
-    );
+    if (!replayed)
+      this.eventEmitter.emit(
+        'case.created',
+        new CaseCreatedEvent(result.id, result.caseCode ?? '', actorId),
+      );
 
     return {
       success: true,

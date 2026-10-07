@@ -1,0 +1,157 @@
+[rtk] /!\ No hook installed — run `rtk init -g` for automatic token savings
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\calendar\calendar.service.ts
+  159:13  error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  161:25  error  Unsafe member access .id on an `any` value                @typescript-eslint/no-unsafe-member-access
+  162:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  162:19  error  Unsafe member access .shortTitle on an `any` value        @typescript-eslint/no-unsafe-member-access
+  162:36  error  Unsafe member access .title on an `any` value             @typescript-eslint/no-unsafe-member-access
+  165:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  165:25  error  Unsafe member access .description on an `any` value       @typescript-eslint/no-unsafe-member-access
+  166:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  166:30  error  Unsafe member access .isOfficialDayOff on an `any` value  @typescript-eslint/no-unsafe-member-access
+  167:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  167:26  error  Unsafe member access .category on an `any` value          @typescript-eslint/no-unsafe-member-access
+  168:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  168:26  error  Unsafe member access .category on an `any` value          @typescript-eslint/no-unsafe-member-access
+  169:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  169:27  error  Unsafe member access .category on an `any` value          @typescript-eslint/no-unsafe-member-access
+  170:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  170:19  error  Unsafe member access .scope on an `any` value             @typescript-eslint/no-unsafe-member-access
+  172:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  172:20  error  Unsafe member access .allDay on an `any` value            @typescript-eslint/no-unsafe-member-access
+  173:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  173:23  error  Unsafe member access .startTime on an `any` value         @typescript-eslint/no-unsafe-member-access
+  174:9   error  Unsafe assignment of an `any` value                       @typescript-eslint/no-unsafe-assignment
+  174:21  error  Unsafe member access .endTime on an `any` value           @typescript-eslint/no-unsafe-member-access
+  175:25  error  Unsafe member access .recurrenceRule on an `any` value    @typescript-eslint/no-unsafe-member-access
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\document-templates\dynamic-export.service.ts
+  134:66  error    Insert `␍⏎·········`                                                                     prettier/prettier
+  371:71  error    Replace `·string` with `␍⏎············|·string␍⏎···········`                             prettier/prettier
+  428:65  error    Replace `·string` with `␍⏎··········|·string␍⏎·········`                                 prettier/prettier
+  486:56  error    Insert `␍⏎······`                                                                        prettier/prettier
+  487:1   error    Replace `······` with `········`                                                         prettier/prettier
+  488:7   error    Insert `··`                                                                              prettier/prettier
+  489:1   error    Insert `··`                                                                              prettier/prettier
+  490:11  error    Insert `··`                                                                              prettier/prettier
+  491:1   error    Insert `··`                                                                              prettier/prettier
+  492:13  error    Insert `··`                                                                              prettier/prettier
+  493:13  error    Insert `··`                                                                              prettier/prettier
+  494:1   error    Replace `············` with `··············`                                             prettier/prettier
+  495:13  error    Insert `··`                                                                              prettier/prettier
+  496:1   error    Replace `············` with `··············`                                             prettier/prettier
+  497:1   error    Insert `··`                                                                              prettier/prettier
+  498:13  error    Insert `··`                                                                              prettier/prettier
+  499:11  error    Insert `··`                                                                              prettier/prettier
+  500:1   error    Replace `········` with `··········`                                                     prettier/prettier
+  501:7   error    Insert `··`                                                                              prettier/prettier
+  502:1   error    Insert `··`                                                                              prettier/prettier
+  503:7   error    Insert `··`                                                                              prettier/prettier
+  504:1   error    Insert `··`                                                                              prettier/prettier
+  505:9   error    Insert `··`                                                                              prettier/prettier
+  506:9   error    Insert `··`                                                                              prettier/prettier
+  507:1   error    Insert `··`                                                                              prettier/prettier
+  508:1   error    Insert `··`                                                                              prettier/prettier
+  509:13  error    Insert `··`                                                                              prettier/prettier
+  510:9   error    Insert `··`                                                                              prettier/prettier
+  511:11  error    Insert `··`                                                                              prettier/prettier
+  512:1   error    Insert `··`                                                                              prettier/prettier
+  513:11  error    Replace `singleName:` with `··singleName:␍⏎·············`                                prettier/prettier
+  514:9   error    Insert `··`                                                                              prettier/prettier
+  515:1   error    Insert `··`                                                                              prettier/prettier
+  516:7   error    Insert `··`                                                                              prettier/prettier
+  517:1   error    Replace `········` with `··········`                                                     prettier/prettier
+  518:9   error    Insert `··`                                                                              prettier/prettier
+  519:1   error    Replace `········` with `··········`                                                     prettier/prettier
+  520:7   error    Insert `··`                                                                              prettier/prettier
+  521:1   error    Replace `····}` with `······},␍⏎····`                                                    prettier/prettier
+  619:44  error    Unsafe member access .code on an `any` value                                             @typescript-eslint/no-unsafe-member-access
+  638:43  error    Unsafe member access .code on an `any` value                                             @typescript-eslint/no-unsafe-member-access
+  726:15  error    Unsafe assignment of an `any` value                                                      @typescript-eslint/no-unsafe-assignment
+  727:50  warning  Unsafe argument of type `any` assigned to a parameter of type `Record<string, unknown>`  @typescript-eslint/no-unsafe-argument
+  728:50  error    Insert `␍⏎··········`                                                                    prettier/prettier
+  729:11  error    Insert `··`                                                                              prettier/prettier
+  730:1   error    Insert `··`                                                                              prettier/prettier
+  731:13  error    Insert `··`                                                                              prettier/prettier
+  732:1   error    Insert `··`                                                                              prettier/prettier
+  733:13  error    Insert `··`                                                                              prettier/prettier
+  733:13  warning  Unsafe argument of type `any` assigned to a parameter of type `Record<string, unknown>`  @typescript-eslint/no-unsafe-argument
+  734:1   error    Insert `··`                                                                              prettier/prettier
+  735:13  error    Insert `··`                                                                              prettier/prettier
+  736:1   error    Insert `··`                                                                              prettier/prettier
+  737:13  error    Insert `··`                                                                              prettier/prettier
+  738:1   error    Insert `··`                                                                              prettier/prettier
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.ts
+  127:3  error  Async method 'onCaseStatusChanged' has no 'await' expression  @typescript-eslint/require-await
+  132:3  error  Async method 'onPetitionReceived' has no 'await' expression   @typescript-eslint/require-await
+  137:3  error  Async method 'onIncidentCreated' has no 'await' expression    @typescript-eslint/require-await
+  166:9  error  Unsafe assignment of an `any` value                           @typescript-eslint/no-unsafe-assignment
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\graph-access\case-graph-access.interceptor.ts
+  17:28  error  Replace `⏎······.switchToHttp()⏎······` with `.switchToHttp()`  prettier/prettier
+  20:1   error  Delete `··`                                                     prettier/prettier
+  21:1   error  Delete `··`                                                     prettier/prettier
+  22:7   error  Delete `··`                                                     prettier/prettier
+  23:7   error  Delete `··`                                                     prettier/prettier
+  24:1   error  Delete `··`                                                     prettier/prettier
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\graph-access\case-graph-access.service.ts
+  273:20  error  Replace `target,·(tx:·PrismaService)·=>·handler(this.wrap(tx)),·options` with `␍⏎··············target,␍⏎··············(tx:·PrismaService)·=>·handler(this.wrap(tx)),␍⏎··············options,␍⏎············`  prettier/prettier
+  280:16  error  Replace `value·as·(...args:·unknown[])·=>·unknown).bind(target)·as·unknown` with `(value·as·(...args:·unknown[])·=>·unknown).bind(␍⏎················target,␍⏎··············)·as·unknown)`                    prettier/prettier
+  347:30  error  Replace `await·invoke.call(db,·input` with `(await·invoke.call(db,·input)`                                                                                                                                   prettier/prettier
+  374:29  error  Insert `␍`                                                                                                                                                                                                   prettier/prettier
+  375:41  error  Insert `␍`                                                                                                                                                                                                   prettier/prettier
+  376:32  error  Insert `␍`                                                                                                                                                                                                   prettier/prettier
+  377:58  error  Insert `␍`                                                                                                                                                                                                   prettier/prettier
+  378:38  error  Insert `␍`                                                                                                                                                                                                   prettier/prettier
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\phu-luc-1-6\phu-luc-1-6.controller.ts
+  60:58  error  '_req' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\reports.controller.ts
+  354:51  warning  Unsafe argument of type `any` assigned to a parameter of type `MonthlyData`    @typescript-eslint/no-unsafe-argument
+  378:53  warning  Unsafe argument of type `any` assigned to a parameter of type `QuarterlyData`  @typescript-eslint/no-unsafe-argument
+  392:52  warning  Unsafe argument of type `any` assigned to a parameter of type `Stat48Data`     @typescript-eslint/no-unsafe-argument
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\reports.service.ts
+  810:33  warning  Unsafe argument of type `any` assigned to a parameter of type `string | number | Date`  @typescript-eslint/no-unsafe-argument
+  810:38  error    Unsafe member access .deadline on an `any` value                                        @typescript-eslint/no-unsafe-member-access
+  818:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  818:18  error    Unsafe member access .id on an `any` value                                              @typescript-eslint/no-unsafe-member-access
+  821:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  821:21  error    Unsafe member access .name on an `any` value                                            @typescript-eslint/no-unsafe-member-access
+  821:34  error    Unsafe member access .summary on an `any` value                                         @typescript-eslint/no-unsafe-member-access
+  821:61  error    Unsafe member access .stt on an `any` value                                             @typescript-eslint/no-unsafe-member-access
+  822:26  error    Unsafe member access .investigator on an `any` value                                    @typescript-eslint/no-unsafe-member-access
+  823:21  error    Unsafe member access .investigator on an `any` value                                    @typescript-eslint/no-unsafe-member-access
+  823:58  error    Unsafe member access .investigator on an `any` value                                    @typescript-eslint/no-unsafe-member-access
+  824:18  error    Unsafe member access .assignedTo on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  825:23  error    Unsafe member access .assignedTo on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  825:58  error    Unsafe member access .assignedTo on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  827:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  827:20  error    Unsafe member access .unit on an `any` value                                            @typescript-eslint/no-unsafe-member-access
+  827:33  error    Unsafe member access .unitId on an `any` value                                          @typescript-eslint/no-unsafe-member-access
+  829:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  829:23  error    Unsafe call of an `any` typed value                                                     @typescript-eslint/no-unsafe-call
+  830:16  error    Unsafe member access .createdAt on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+  831:16  error    Unsafe member access .receivedDate on an `any` value                                    @typescript-eslint/no-unsafe-member-access
+  833:11  error    Unsafe member access .toISOString on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  835:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  835:22  error    Unsafe member access .status on an `any` value                                          @typescript-eslint/no-unsafe-member-access
+  836:9   error    Unsafe assignment of an `any` value                                                     @typescript-eslint/no-unsafe-assignment
+  836:24  error    Unsafe member access .priority on an `any` value                                        @typescript-eslint/no-unsafe-member-access
+
+C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\reports\tdac\tdac-draft.service.ts
+   21:9   error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+   39:15  error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+   41:32  error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+   58:5   error  '_userId' is defined but never used  @typescript-eslint/no-unused-vars
+   68:15  error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+  133:28  error  '_userId' is defined but never used  @typescript-eslint/no-unused-vars
+  151:30  error  '_userId' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 134 problems (128 errors, 6 warnings)
+  64 errors and 0 warnings potentially fixable with the `--fix` option.
+

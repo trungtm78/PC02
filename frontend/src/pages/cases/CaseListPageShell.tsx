@@ -19,7 +19,11 @@ import { fullExportMessages } from '@/features/_shared/list-filters/fullExportMe
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
 import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CaseGovernanceFilters } from '@/features/cases/governance/CaseGovernanceFilters';
+import { governanceFilterParams, governanceFilterKeys } from '@/features/cases/governance/governance-filters';
+import { useCaseCapabilities } from '@/features/cases/useCaseCapabilities';
+import { caseSummaryColumns } from '@/features/cases/governance/case-summary-columns';
 import { useListShortcuts } from '@/hooks/useListShortcuts';
 import { ShortcutHint } from '@/components/ShortcutCheatSheet';
 import {
@@ -333,6 +337,10 @@ export function CaseListPageShell() {
 
   // v0.63 PR1b — Action context (perms + modal openers).
   const { canDispatch, canEdit, canDelete, hasPermission } = usePermission();
+  const governanceAccess = useCaseCapabilities();
+  const representationOnly = governanceAccess.capabilities.caseAccessMode === 'REPRESENTATION_ONLY';
+  const canGeneralExport = governanceAccess.capabilities.canExport !== false && !representationOnly;
+  const activeRowActions = useMemo(() => ({ ...casesRowActions, all: () => casesRowActions.all().filter(action => representationOnly ? action.key === 'view' : canGeneralExport || action.key !== 'print') }), [representationOnly, canGeneralExport]);
   const assignModal = useAssignModal();
   const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
@@ -340,11 +348,12 @@ export function CaseListPageShell() {
     () => ({
       navigate,
       perms: {
-        canDispatch,
+        canDispatch: governanceAccess.capabilities.enabled === true ? governanceAccess.capabilities.canDispatch === true : canDispatch,
+        caseGovernanceEnabled: governanceAccess.capabilities.enabled === true,
         canEdit: canEdit('cases'),
         canDelete: canDelete('cases'),
       },
-      assignModal,
+      assignModal: { open: args => governanceAccess.capabilities.enabled === true ? navigate(`/cases/${args.recordId}/governance?tab=handoff`) : assignModal.open(args) },
       printModal,
       deleteModal: {
         open: (args) =>
@@ -357,7 +366,7 @@ export function CaseListPageShell() {
           }),
       },
     }),
-    [navigate, canDispatch, canEdit, canDelete, assignModal, printModal, deleteModal],
+    [navigate, canDispatch, canEdit, canDelete, assignModal, printModal, deleteModal, governanceAccess.capabilities.enabled, governanceAccess.capabilities.canDispatch],
   );
 
   // v0.63 PR1b — Advanced filter state + URL sync.
@@ -366,6 +375,8 @@ export function CaseListPageShell() {
     registry: casesListFilters,
   });
   const appliedFilters = listFilters.applied;
+  const [governanceParams] = useSearchParams();
+  const governanceQueryKey = JSON.stringify(governanceFilterParams(governanceParams));
 
   /**
    * Param dùng CHUNG cho cả request danh sách lẫn request thống kê — một nguồn duy nhất
@@ -377,6 +388,7 @@ export function CaseListPageShell() {
 
   const baseQueryParams = useMemo(
     () => ({
+      ...JSON.parse(governanceQueryKey),
       // Thẻ đi xuống CẢ danh sách lẫn thống kê qua object này — số trên thẻ thống kê khớp dòng.
       // Các ô lọc chữ cũ (đơn vị, điều tra viên, tội danh, STT, STT cũ) nay là thẻ, không gửi riêng.
       ...(theBat
@@ -396,7 +408,7 @@ export function CaseListPageShell() {
         thongKeTruongNgay: appliedFilters.thongKeTruongNgay,
       }),
     }),
-    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters],
+    [theBat, timKiem.tkGui, debouncedSearch, appliedFilters, governanceQueryKey],
   );
 
   /**
@@ -532,13 +544,15 @@ export function CaseListPageShell() {
   });
   const wordBatch = useWordBatchExport({ entity: 'cases', caseType: 'REGULAR' });
   const adapter = useMemo(
-    () =>
-      buildCasesAdapter({
+    () => {
+      const result = buildCasesAdapter({
         enableDelete: true,
         onExportWord: wordBatch.setIds,
         caseType: 'REGULAR',
-      }),
-    [wordBatch.setIds],
+      });
+      return { ...result, actions: result.actions.filter(action => representationOnly ? false : canGeneralExport || !['export', 'export-word'].includes(action.key)) };
+    },
+    [wordBatch.setIds, representationOnly, canGeneralExport],
   );
   // Clear stale selection on URL change (Codex PR4 P2 pattern).
   const selectionClearRef = useRef(selection.clear);
@@ -612,7 +626,7 @@ export function CaseListPageShell() {
         sticky: true,
         render: (r) => (
           <RowActions
-            registry={casesRowActions}
+            registry={activeRowActions}
             row={{
               id: r.id,
               status: r.status as unknown as string,
@@ -857,7 +871,7 @@ export function CaseListPageShell() {
         render: (r) => <DateCell value={r.ngayCapCccd} />,
       },
     ],
-    [actionCtx],
+    [actionCtx, activeRowActions],
   );
 
   // Chọn cột hiển thị kiểu treeview Odoo. Cột nào vào menu và tích sẵn hay không là do
@@ -914,7 +928,7 @@ export function CaseListPageShell() {
   const handleResetFilters = useCallback(() => {
     // Thứ tự có nghĩa — `clearAll` phải là lần ghi URL cuối. Xem cổng xoaLocGhiUrlCuoi.gate.test.ts.
     listFilters.reset();
-    url.clearAll();
+    url.clearAll(governanceFilterKeys);
   }, [url, listFilters]);
 
   const appliedFilterCount = Object.values(appliedFilters).filter(
@@ -932,7 +946,7 @@ export function CaseListPageShell() {
         icon={Folder}
         title="Danh sách vụ án"
         subtitle="Quản lý toàn bộ vụ án trong hệ thống"
-        actions={
+        actions={!representationOnly && governanceAccess.capabilities.canWrite !== false ?
           <button
             type="button"
             onClick={() => navigate('/cases/new')}
@@ -941,7 +955,7 @@ export function CaseListPageShell() {
             <Plus className="w-4 h-4" />
             <span>Tạo mới</span>
             <ShortcutHint action="newRecord" className="ml-1" />
-          </button>
+          </button> : undefined
         }
       />
       <StatsCardsStrip
@@ -1017,7 +1031,7 @@ export function CaseListPageShell() {
                   {totalCount.toLocaleString('vi-VN')} dòng khớp bộ lọc
                 </span>
               )}
-              <NutXuatTheoBoLoc
+              {canGeneralExport && <NutXuatTheoBoLoc
                 duongDan="/cases/export/danh-sach"
                 thamSo={{
                   ...baseQueryParams,
@@ -1033,8 +1047,8 @@ export function CaseListPageShell() {
                 onApply={listFilters.apply}
                 tenDuPhong="danh-sach-vu-an.xlsx"
                 nhanRieng="Xuất Excel (đang xem)"
-              />
-              {hasPermission('cases', 'view') && <NutXuatTheoBoLoc
+              />}
+              {canGeneralExport && hasPermission('cases', 'view') && <NutXuatTheoBoLoc
                 duongDan="/cases/export/day-du"
                 thamSo={{
                   ...baseQueryParams,
@@ -1061,6 +1075,7 @@ export function CaseListPageShell() {
             ],
           }}
         >
+          <CaseGovernanceFilters />
           <DateRangePresets
             onPick={(khoang) => {
               // Ghi vào ĐÚNG hai ô ngày của mặt lọc này — không tạo trạng thái thứ hai.
@@ -1109,7 +1124,7 @@ export function CaseListPageShell() {
         sortOrder={sort.sortOrder}
         onSort={sort.onSort}
         state={tableState}
-        columns={visibleColumns}
+        columns={representationOnly ? caseSummaryColumns<CaseRow>() : visibleColumns}
         data={rows}
         rowKey={(r) => r.id}
         title="Danh sách vụ án"
@@ -1119,8 +1134,10 @@ export function CaseListPageShell() {
         emptyState={{
           title: 'Chưa có vụ án nào',
           description: 'Tạo vụ án đầu tiên để bắt đầu.',
-          actionLabel: 'Tạo vụ án mới',
-          onAction: () => navigate('/cases/new'),
+          ...(!representationOnly && governanceAccess.capabilities.canWrite !== false && {
+            actionLabel: 'Tạo vụ án mới',
+            onAction: () => navigate('/cases/new'),
+          }),
         }}
         emptyFilteredState={{
           onClearFilters: handleResetFilters,
@@ -1138,7 +1155,7 @@ export function CaseListPageShell() {
             ) : undefined,
         }}
         onRowClick={(r) => navigate(`/cases/${r.id}`)}
-        bulkSelection={selection}
+        bulkSelection={representationOnly ? undefined : selection}
         bulkRowsLabel="vụ án"
         bulkRowLabel={(r) => `vụ án ${r.caseCode ?? r.name}`}
       />
@@ -1148,13 +1165,13 @@ export function CaseListPageShell() {
         totalCount={totalCount}
         onPageChange={handlePageChange}
       />
-      <BulkActionBar<CaseRow>
+      {!representationOnly && <BulkActionBar<CaseRow>
         selection={selection}
         adapter={adapter as unknown as BulkAdapter<CaseRow>}
         pageRows={rows}
         onSuccess={handleBulkSuccess}
         onError={handleBulkError}
-      />
+      />}
       {wordBatch.status && (
         <div role="status" className={wordBatch.status.kind === 'error' ? 'text-red-700' : 'text-green-700'}>
           {wordBatch.status.text}

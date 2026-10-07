@@ -1,3 +1,4 @@
+import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
 import { Module } from '@nestjs/common';
 import { LawyersController } from './lawyers.controller';
 import { LawyersService } from './lawyers.service';
@@ -6,7 +7,7 @@ import { LawyersBulkService } from './bulk/lawyers.bulk.service';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [AuditModule],
+  imports: [CaseChildAccessModule, AuditModule],
   controllers: [LawyersController, LawyersBulkController],
   providers: [LawyersService, LawyersBulkService],
   exports: [LawyersService],

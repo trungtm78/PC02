@@ -86,7 +86,7 @@ const menuActions: RowAction<CaseRowForActions>[] = [
     icon: ArrowRightLeft,
     position: 'menu',
     execute: (row, ctx) =>
-      ctx.navigate(`/transfer-return?caseId=${row.id}`),
+      ctx.navigate(ctx.perms.caseGovernanceEnabled ? `/cases/${row.id}/governance?tab=legal` : `/transfer-return?caseId=${row.id}`),
     testid: 'btn-transfer',
   },
 ];

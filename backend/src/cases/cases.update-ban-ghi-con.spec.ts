@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture,ordinaryCaseParentFixture} from './governance/case-ordinary-test.fixture';
 import {
   ConflictException,
   ForbiddenException,
@@ -15,7 +16,7 @@ import { CasesService } from './cases.service';
  * Mục con phải ghi CÙNG giao dịch với vụ án: hỏng một mục thì vụ án cũng không đổi, không có trạng thái nửa vời.
  */
 const VU_AN = {
-  id: 'c1',
+  id: 'c1',sensitivity:'NORMAL',
   name: 'Tên ban đầu',
   status: 'TIEP_NHAN',
   assignedTeamId: 't1',
@@ -28,8 +29,9 @@ const VU_AN = {
 
 function dung() {
   const nhatKy: string[] = [];
-  const tx = {
+  const tx = {...ordinaryCaseAuthorityFixture(),
     case: {
+      findFirst:jest.fn().mockResolvedValue(VU_AN),
       findUnique: jest.fn().mockResolvedValue(VU_AN),
       update: jest.fn(() => {
         nhatKy.push('tx.case.update');
@@ -51,7 +53,7 @@ function dung() {
     document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     caseStatistic: { upsert: jest.fn().mockResolvedValue({}) },
   };
-  const prisma = {
+  const prisma = {...ordinaryCaseAuthorityFixture(),
     case: {
       findFirst: jest.fn().mockResolvedValue(VU_AN),
       findUnique: jest.fn().mockResolvedValue(VU_AN),
@@ -69,7 +71,7 @@ function dung() {
       }),
     },
     petition: { findFirst: jest.fn().mockResolvedValue(null) },
-    user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1' }) },
+    user: { findUnique: jest.fn().mockResolvedValue(ordinaryCaseActorFixture('u1')) },
     $transaction: jest.fn((fn: (t: typeof tx) => Promise<unknown>) => {
       nhatKy.push('$transaction');
       return fn(tx);
@@ -186,7 +188,7 @@ describe('GET /cases/:id/evidences', () => {
   };
 
   function dungDoc(vuAn: Record<string, unknown> | null) {
-    const prisma = {
+    const prisma = {...ordinaryCaseAuthorityFixture(),
       case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
       evidence: {
         findMany: jest
@@ -254,7 +256,7 @@ describe('GET /cases/:id/subjects', () => {
     canDispatch: false,
   };
   function dungDoc(vuAn: Record<string, unknown> | null) {
-    const prisma = {
+    const prisma = {...ordinaryCaseAuthorityFixture(),
       case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
       subject: {
         findMany: jest.fn().mockResolvedValue([{ id: 's1', fullName: 'A' }]),
@@ -319,7 +321,7 @@ describe('GET /cases/:id/status-history', () => {
     canDispatch: false,
   };
   function dungDoc(vuAn: Record<string, unknown> | null) {
-    const prisma = {
+    const prisma = {...ordinaryCaseAuthorityFixture(),
       case: { findFirst: jest.fn().mockResolvedValue(vuAn) },
       caseStatusHistory: { findMany: jest.fn().mockResolvedValue([]) },
     };
@@ -366,7 +368,7 @@ describe('GET /cases/:id/status-history', () => {
  */
 describe('GET /cases/:id — quyenGhi', () => {
   function dungDoc(vuAn: Record<string, unknown>) {
-    const prisma = {
+    const prisma = {...ordinaryCaseAuthorityFixture(),
       case: {
         findFirst: jest
           .fn()

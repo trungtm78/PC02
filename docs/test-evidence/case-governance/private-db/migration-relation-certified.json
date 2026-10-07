@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-10-06T06:30:47.387Z",
+  "verdict": "PASS",
+  "target": "ownloopback55441/pc02_case_governance_uat",
+  "baselineMigrations": 127,
+  "releaseMigrations": 129,
+  "newChecksum": "1513d3d638ea771e476a7bd46fb2951524a92d80d4f90ebd471d770d73af001d",
+  "relationChecksum": "c204177f3802fbd330c44fe82d109f993f1bc45165661483930f4825cbf161c3",
+  "sentinelUnchanged": true,
+  "unknownStagePhaseRemainNull": true,
+  "initialFlagOff": true,
+  "currentTestFlagEnabled": true,
+  "sharedTestFlagUnchanged": true
+}

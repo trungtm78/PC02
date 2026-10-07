@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.74.0.0] - 2026-10-08
+
+### Added
+- Quản trị Vụ án theo phiên bản với bàn giao, quyết định, phê duyệt, quan hệ nhập/tách/chuyển, thời hạn và nhật ký nghiệp vụ có thể truy nguyên.
+- Quản trị chứng cứ và gói cung cấp hồ sơ với checksum, dòng nguồn, custody, legal hold, phạm vi đại diện và chính sách lưu giữ.
+- Danh mục 21 hành động nghiệp vụ, cấu hình trường có phiên bản, hàng đợi điều hành và kiểm soát quyền theo hồ sơ, đơn vị, phân công và mức nhạy cảm.
+
+### Changed
+- Form, chi tiết, danh sách, tìm kiếm và xuất Vụ án dùng chung dữ liệu chuẩn; bảo toàn dữ liệu legacy chưa xác minh và hỗ trợ xóa giá trị tường minh.
+- Các thao tác tạo từ Đơn thư/Vụ việc, phân công và cập nhật hàng loạt đi qua cùng kiểm tra quyền, phiên bản, transaction và idempotency.
+
+### Fixed
+- Không còn lỗi HTTP 500 khi form gửi các cờ thống kê chưa chọn dưới dạng `null`; các cờ bắt buộc được chuẩn hóa thành `false`, còn cờ nullable vẫn giữ trạng thái chưa xác minh.
+- Audit, lịch sử, sự kiện nghiệp vụ và thay đổi hồ sơ rollback cùng nhau khi một bước ghi thất bại.
+
 ## [0.73.0.0] - 2026-10-06
 
 ### Added

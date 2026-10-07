@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-10-06T05:51:14.122Z",
+  "verdict": "PASS",
+  "target": "ownloopback55441/pc02_case_governance_uat",
+  "baselineMigrations": 127,
+  "releaseMigrations": 128,
+  "newChecksum": "1513d3d638ea771e476a7bd46fb2951524a92d80d4f90ebd471d770d73af001d",
+  "sentinelUnchanged": true,
+  "unknownStagePhaseRemainNull": true,
+  "initialFlagOff": true
+}

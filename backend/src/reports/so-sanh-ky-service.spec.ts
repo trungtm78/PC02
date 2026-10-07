@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from './graph-access/case-graph-access.service';
 import { Test } from '@nestjs/testing';
 import { ReportsService } from './reports.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,7 +47,8 @@ describe('ReportsService — khối so sánh kỳ', () => {
     } as unknown as PrismaService;
 
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     svc = mod.get(ReportsService);
   });
@@ -167,7 +169,8 @@ describe('ReportsService — đếm theo NGÀY TIẾP NHẬN, không phải ngà
       case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     svc = mod.get(ReportsService);
   });
@@ -242,7 +245,8 @@ describe('ReportsService — tổng phải theo KỲ ĐANG CHỌN', () => {
       case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     svc = mod.get(ReportsService);
   });
@@ -295,7 +299,8 @@ describe('ReportsService — ô biểu đồ và nhãn kỳ đi theo kỳ đang 
       case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     svc = mod.get(ReportsService);
   });
@@ -371,7 +376,8 @@ describe('ReportsService — ô biểu đồ CẮT theo kỳ, không đếm tr�
       case: { count: dem, aggregate: aggGia },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     svc = mod.get(ReportsService);
   });
@@ -446,7 +452,8 @@ describe('ReportsService — dải năm cho ô chọn', () => {
       case: { count: dem, aggregate: agg },
     } as unknown as PrismaService;
     const mod = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },ReportsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
     return mod.get(ReportsService) as ReportsService;
   }

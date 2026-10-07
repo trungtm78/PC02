@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationType, Prisma } from '@prisma/client';
@@ -24,6 +26,7 @@ export class NotificationEventService {
     private readonly prisma: PrismaService,
     private readonly sse: NotificationSseService,
     private readonly recipients: RecipientResolverService,
+    @Optional() private readonly casePolicy?: CaseNotificationPolicyService,
   ) {}
 
   @OnEvent('case.assigned', { async: true })
@@ -77,7 +80,9 @@ export class NotificationEventService {
   @OnEvent('utdt.assigned', { async: true })
   async onUydtAssigned(event: UydtAssignedEvent): Promise<void> {
     try {
-      const targets = [event.toUserId, ...event.toLeaderUserIds].filter(Boolean);
+      const targets = [event.toUserId, ...event.toLeaderUserIds].filter(
+        Boolean,
+      );
       await Promise.all(
         targets.map((uid) =>
           this.sendInApp({
@@ -143,6 +148,11 @@ export class NotificationEventService {
     link: string;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
+    const policy =
+      this.casePolicy ?? new CaseNotificationPolicyService(this.prisma);
+    const allowed = await policy.serialize(payload.toUserId, payload);
+    if (!allowed) return;
+    payload = allowed;
     const pref = await this.getPref(payload.toUserId, payload.type);
     if (!pref.inApp) return;
 

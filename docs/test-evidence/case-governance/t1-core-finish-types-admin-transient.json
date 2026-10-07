@@ -1,0 +1,8 @@
+﻿{
+    "exitCode":  2,
+    "gate":  "types",
+    "command":  "rtk proxy npx tsc --noEmit",
+    "startedAt":  "2026-10-06T08:23:56.9027071Z",
+    "completedAt":  "2026-10-06T08:24:55.7630381Z",
+    "log":  "t1-core-finish-types.log"
+}

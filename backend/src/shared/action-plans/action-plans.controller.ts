@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../../reports/graph-access/case-graph-access.interceptor';
 import {
   Controller,
   Get,
@@ -19,6 +21,7 @@ import type { ScopedRequest } from '../../auth/interfaces/scoped-request.interfa
 import { ActionPlansService } from './action-plans.service';
 import { CreateActionPlanDto } from './dto/create-action-plan.dto';
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('cases/:caseId/action-plans')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CaseActionPlansController {
@@ -27,7 +30,11 @@ export class CaseActionPlansController {
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
   findAll(@Param('caseId') caseId: string, @Req() req: ScopedRequest) {
-    return this.actionPlansService.findAllForCase(caseId, req.dataScope);
+    return this.actionPlansService.findAllForCase(
+      caseId,
+      req.dataScope,
+      (req.user as unknown as AuthUser | undefined)?.id,
+    );
   }
 
   @Post()
@@ -38,17 +45,27 @@ export class CaseActionPlansController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForCase(caseId, dto, user.id, req.dataScope);
+    return this.actionPlansService.createForCase(
+      caseId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
   delete(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.actionPlansService.delete(id, req.dataScope);
+    return this.actionPlansService.delete(
+      id,
+      req.dataScope,
+      (req.user as unknown as AuthUser | undefined)?.id,
+    );
   }
 }
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('incidents/:incidentId/action-plans')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidentActionPlansController {
@@ -57,7 +74,10 @@ export class IncidentActionPlansController {
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
   findAll(@Param('incidentId') incidentId: string, @Req() req: ScopedRequest) {
-    return this.actionPlansService.findAllForIncident(incidentId, req.dataScope);
+    return this.actionPlansService.findAllForIncident(
+      incidentId,
+      req.dataScope,
+    );
   }
 
   @Post()
@@ -68,13 +88,22 @@ export class IncidentActionPlansController {
     @CurrentUser() user: AuthUser,
     @Req() req: ScopedRequest,
   ) {
-    return this.actionPlansService.createForIncident(incidentId, dto, user.id, req.dataScope);
+    return this.actionPlansService.createForIncident(
+      incidentId,
+      dto,
+      user.id,
+      req.dataScope,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions({ action: 'write', subject: 'Case' })
   delete(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.actionPlansService.delete(id, req.dataScope);
+    return this.actionPlansService.delete(
+      id,
+      req.dataScope,
+      (req.user as unknown as AuthUser | undefined)?.id,
+    );
   }
 }

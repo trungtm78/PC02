@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
@@ -36,7 +38,7 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
   beforeEach(async () => {
     jest.clearAllMocks();
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         ProposalsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
@@ -47,26 +49,30 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
   });
 
   it('thẻ `*` → cột bóng tổng, bỏ dấu; `search` cũ quy về `*`', async () => {
-    await service.getList({ tk: ['*~Lừa đảo'] } as never, null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.getList({ tk: ['*~Lừa đảo'] } as never, null);
     expect(JSON.stringify(whereList().AND)).toContain(
       '"timKiemBd":{"contains":"lua dao"}',
     );
     jest.clearAllMocks();
-    await service.getList({ search: 'Quận 12' } as never, null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.getList({ search: 'Quận 12' } as never, null);
     expect(JSON.stringify(whereList().AND)).toContain(
       '"timKiemBd":{"contains":"quan 12"}',
     );
   });
 
   it('khoá lạ → 400, không truy vấn', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.getList({ tk: ['khongCo~x'] } as never, null),
     ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.proposal.findMany).not.toHaveBeenCalled();
   });
 
   it('[P1] phạm vi KHÔNG đè điều kiện tìm: cả hai nằm trong AND, list và count cùng where', async () => {
-    await service.getList({ tk: ['donViVks~quan 12'] } as never, PHAM_VI);
+    setOrdinaryCurrentScope(mockPrisma,PHAM_VI);
+await service.getList({ tk: ['donViVks~quan 12'] } as never, PHAM_VI);
     const where = whereList();
     expect(where.OR).toBeUndefined();
     const chuoi = JSON.stringify(where.AND);
@@ -76,7 +82,8 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
   });
 
   it('thẻ Hồ sơ liên quan lọc theo TÊN vụ án đang hiện (cột bóng của đích)', async () => {
-    await service.getList({ tk: ['hoSoLienQuan~trom cap'] } as never, null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.getList({ tk: ['hoSoLienQuan~trom cap'] } as never, null);
     expect(JSON.stringify(whereList().AND)).toContain('"relatedCase"');
     expect(JSON.stringify(whereList().AND)).toContain(
       '"nameBd":{"contains":"trom cap"}',
@@ -84,10 +91,12 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
   });
 
   it('trạng thái lạ → 400; từ/đến ngày lọc theo ngày Việt Nam, gồm trọn ngày cuối', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.getList({ status: 'X' } as never, null),
     ).rejects.toThrow(BadRequestException);
-    await service.getList(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.getList(
       { fromDate: '2025-08-01', toDate: '2025-08-31' } as never,
       null,
     );
@@ -102,7 +111,8 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
       { status: ProposalStatus.CHO_GUI, _count: { _all: 30 } },
       { status: ProposalStatus.DA_GUI, _count: { _all: 3 } },
     ]);
-    const res = await service.getStats(
+    setOrdinaryCurrentScope(mockPrisma,PHAM_VI);
+const res = await service.getStats(
       {
         tk: ['trangThai~DA_GUI', 'donViVks~quan 8'],
         status: 'DA_GUI',
@@ -126,7 +136,8 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
    * phải tìm cả mọi cột lẫn Hồ sơ liên quan (Codex rà 226abee2 bắt).
    */
   it('`search` cũ tìm CẢ mọi cột lẫn tên vụ án liên quan (một khối hoặc)', async () => {
-    await service.getList({ search: 'trom cap' } as never, null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.getList({ search: 'trom cap' } as never, null);
     const chuoi = JSON.stringify(whereList().AND);
     expect(chuoi).toContain('"timKiemBd":{"contains":"trom cap"}');
     expect(chuoi).toContain('"nameBd":{"contains":"trom cap"}');
@@ -138,7 +149,14 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
    * mà màn chi tiết vẫn cho xem.
    */
   it('người điều phối (canDispatch): KHÔNG thêm điều kiện phạm vi', async () => {
-    await service.getList(
+    setOrdinaryCurrentScope(mockPrisma,{
+        userIds: ['u1'],
+        teamIds: ['t1'],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+        canDispatch: true,
+      } as never);
+await service.getList(
       {} as never,
       {
         userIds: ['u1'],
@@ -149,11 +167,17 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
       } as never,
     );
     expect(JSON.stringify(whereList())).not.toContain('createdById');
-    expect(JSON.stringify(whereList())).not.toContain('relatedCase');
+    expect(whereList()).toEqual(expect.objectContaining({ AND: expect.arrayContaining([{ OR: [{ relatedCase: null },{ relatedCase: {} }] }]) }));
   });
 
   it('tổ trưởng (userIds rỗng, có tổ): thấy kiến nghị không gắn hồ sơ', async () => {
-    await service.getList({} as never, {
+    setOrdinaryCurrentScope(mockPrisma,{
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+      writableUserIds: [],
+    });
+await service.getList({} as never, {
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],
@@ -164,7 +188,13 @@ describe('ProposalsService — tìm kiếm dạng thẻ + thống kê phía máy
   });
 
   it('tổ trưởng: chỉ bản không gắn hồ sơ CÓ người tạo; sắp theo createdAt rồi id', async () => {
-    await service.getList({} as never, {
+    setOrdinaryCurrentScope(mockPrisma,{
+      userIds: [],
+      teamIds: ['t1'],
+      writableTeamIds: [],
+      writableUserIds: [],
+    });
+await service.getList({} as never, {
       userIds: [],
       teamIds: ['t1'],
       writableTeamIds: [],

@@ -8,13 +8,16 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../reports/graph-access/case-graph-access.interceptor';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {

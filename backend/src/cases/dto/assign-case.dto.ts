@@ -1,7 +1,17 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  MaxLength,
+  IsDate,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignCaseDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  requestKey?: string;
   @IsString()
   @IsNotEmpty()
   assignedTeamId: string;
@@ -12,5 +22,6 @@ export class AssignCaseDto {
 
   @IsOptional()
   @Type(() => Date)
+  @IsDate()
   expectedUpdatedAt?: Date;
 }

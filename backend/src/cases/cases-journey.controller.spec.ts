@@ -109,6 +109,7 @@ describe('CasesController — journey endpoint', () => {
       req.dataScope,
       1,
       50,
+      mockUser.id,
     );
     expect(result).toEqual(mockJourneyResult);
   });

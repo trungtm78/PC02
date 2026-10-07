@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 import { Test } from '@nestjs/testing';
 import { ProposalsService } from './proposals.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,7 +35,7 @@ describe('ProposalsService — create()', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         ProposalsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -51,7 +53,8 @@ describe('ProposalsService — create()', () => {
     mockPrisma.documentNumberLog.update.mockResolvedValue({});
     mockPrisma.proposal.create.mockResolvedValue(fakeRecord);
 
-    const result = await service.create({ content: 'test' } as any, 'u1');
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.create({ content: 'test' } as any, 'u1');
 
     expect(mockDocNums.commitWithTx).toHaveBeenCalledWith('PROPOSAL', { userId: 'u1' }, mockPrisma);
     expect(result.data.proposalNumber).toBe('DX-2026-00001');
@@ -63,7 +66,8 @@ describe('ProposalsService — create()', () => {
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
     mockPrisma.proposal.create.mockResolvedValue(fakeRecord);
 
-    const result = await service.create({ proposalNumber: 'DX-MANUAL-001', content: 'test' } as any, 'u1');
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.create({ proposalNumber: 'DX-MANUAL-001', content: 'test' } as any, 'u1');
 
     expect(mockDocNums.commitWithTx).not.toHaveBeenCalled();
     expect(result.data.proposalNumber).toBe('DX-MANUAL-001');
@@ -73,7 +77,8 @@ describe('ProposalsService — create()', () => {
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
     mockPrisma.proposal.create.mockRejectedValue(new Error('DB error'));
 
-    await expect(service.create({ content: 'test' } as any, 'u1')).rejects.toThrow('DB error');
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(service.create({ content: 'test' } as any, 'u1')).rejects.toThrow('DB error');
     expect(mockPrisma.documentNumberLog.update).not.toHaveBeenCalled();
   });
 });
@@ -83,7 +88,7 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         ProposalsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -96,13 +101,20 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
 
   it('throws NotFoundException when not found', async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue(null);
-    await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
   });
 
   describe('case-linked proposal', () => {
     it('passes when relatedCase is in scope (teamId match)', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue(FAKE_PROPOSAL_WITH_CASE);
-      const result = await service.getById('prop-001', {
+      setOrdinaryCurrentScope(mockPrisma,{
+        userIds: [],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: [],
+      });
+const result = await service.getById('prop-001', {
         userIds: [],
         teamIds: ['t1'],
         writableTeamIds: ['t1'],
@@ -113,7 +125,13 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
 
     it('throws ForbiddenException when relatedCase is out of scope', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue({ ...FAKE_PROPOSAL_WITH_CASE, relatedCase: { ...FAKE_PROPOSAL_WITH_CASE.relatedCase, assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma,{
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        });
+await expect(
         service.getById('prop-001', {
           userIds: ['u1'],
           teamIds: ['t1'],
@@ -127,7 +145,13 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
   describe('orphan proposal (no case)', () => {
     it('passes when createdById matches scope userIds', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue(FAKE_PROPOSAL_ORPHAN);
-      const result = await service.getById('prop-002', {
+      setOrdinaryCurrentScope(mockPrisma,{
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      });
+const result = await service.getById('prop-002', {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -138,7 +162,13 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
 
     it('throws ForbiddenException when createdById not in scope userIds', async () => {
       mockPrisma.proposal.findFirst.mockResolvedValue({ ...FAKE_PROPOSAL_ORPHAN, createdById: 'other' });
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma,{
+          userIds: ['u1'],
+          teamIds: [],
+          writableTeamIds: [],
+          writableUserIds: ['u1'],
+        });
+await expect(
         service.getById('prop-002', {
           userIds: ['u1'],
           teamIds: [],
@@ -151,7 +181,8 @@ describe('ProposalsService — scope enforcement (dual-path logic)', () => {
 
   it('passes with null scope (admin bypass)', async () => {
     mockPrisma.proposal.findFirst.mockResolvedValue({ ...FAKE_PROPOSAL_WITH_CASE, relatedCase: { ...FAKE_PROPOSAL_WITH_CASE.relatedCase, assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-    const result = await service.getById('prop-001', null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.getById('prop-001', null);
     expect(result.success).toBe(true);
   });
 });

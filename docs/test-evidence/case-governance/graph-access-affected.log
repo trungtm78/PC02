@@ -1,0 +1,203 @@
+[rtk] /!\ No hook installed — run `rtk init -g` for automatic token savings
+PASS src/reports/monthly-package/monthly-report-export.service.spec.ts (14.592 s)
+PASS src/reports/tdac/tdac.controller.spec.ts
+[Nest] 24840  - 10/07/2026, 11:11:37 PM   ERROR [DynamicExportService] Lỗi hệ thống khi xuất chứng từ BIEN_NHAN cho hồ sơ p2: DB connection lost
+PASS src/document-templates/dynamic-export.service.spec.ts
+PASS src/reports/reports.controller.spec.ts
+PASS src/reports/monthly-package/monthly-report-package.service.spec.ts
+PASS src/document-templates/ban-in-de-xuat-that.spec.ts
+PASS src/document-templates/document-templates.controller.spec.ts
+PASS src/document-templates/petition-templates-render.spec.ts
+PASS src/reports/so-sanh-ky-service.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6.controller.spec.ts
+PASS src/calendar/calendar.service.spec.ts
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] onCaseAssigned failed
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:102:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] onIncidentAssigned failed
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:154:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] onUydtAssigned failed
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:225:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] onCaseCreated failed
+[Nest] 24840  - 10/07/2026, 11:11:42 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:258:56)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/notifications/notification-event.service.spec.ts
+PASS src/reports/reports.service.spec.ts
+PASS src/shared/vks-meetings/vks-meetings.controller.spec.ts
+PASS src/reports/query-overdue.dto.spec.ts
+PASS src/document-templates/khoa-to-tung.spec.ts
+PASS src/shared/action-plans/action-plans.controller.spec.ts
+PASS src/reports/tdac/tdac.service.spec.ts
+PASS src/kpi/kpi.service.spec.ts
+PASS src/kpi/kpi.expert.spec.ts
+PASS src/calendar-events/calendar-events.service.spec.ts
+PASS src/notifications/notifications.service.spec.ts
+PASS src/shared/action-plans/action-plans.service.spec.ts
+PASS src/reports/monthly-package/monthly-report-builder.service.spec.ts
+PASS src/reports/tdac/tdac-draft.service.spec.ts
+PASS src/document-templates/case-dynamic-access.spec.ts
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n-fail
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM unavailable
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:124:47)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n-exhaust
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM unavailable
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:148:47)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n1
+[Nest] 24840  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM error
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:168:30)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/notifications/notification-push.scheduler.spec.ts
+PASS src/document-templates/field-catalog.spec.ts
+PASS src/calendar/case-calendar-access.spec.ts
+PASS src/notifications/recipient-resolver.service.spec.ts
+PASS src/kpi/kpi.controller.spec.ts
+PASS src/notifications/notifications.controller.spec.ts
+PASS src/cases/governance/case-outbox.retry.spec.ts
+[Nest] 24840  - 10/07/2026, 11:11:47 PM    WARN [CaseOutboxWorker] Internal Case outbox poll failed; retained for retry
+[Nest] 24840  - 10/07/2026, 11:11:47 PM    WARN [CaseOutboxWorker] Internal Case outbox poll failed; retained for retry
+PASS src/document-templates/tich-san-khi-in.spec.ts
+PASS src/shared/vks-meetings/vks-meetings.service.spec.ts
+PASS src/document-templates/fuzz-docx.expert.spec.ts
+PASS src/cases/governance/case-outbox.worker.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6-export.service.spec.ts
+PASS src/calendar/calendar.controller.spec.ts
+PASS src/document-templates/dynamic-export.readiness.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6.service.spec.ts
+PASS src/document-templates/document-templates.service.spec.ts
+PASS src/document-templates/cho-dien-mau-he-cu.gate.spec.ts
+PASS src/notifications/notification-sse.service.spec.ts
+PASS src/document-templates/petition-seed.spec.ts
+PASS src/document-templates/vong-doi-mau.spec.ts
+PASS src/document-templates/bien-mau-don-thu.gate.spec.ts
+PASS src/document-templates/renderers/docx.renderer.spec.ts
+PASS src/kpi/pham-vi-don-vi.expert.spec.ts
+PASS src/reports/so-sanh-ky/so-sanh.spec.ts
+PASS src/document-templates/entity-placeholders.spec.ts
+PASS src/document-templates/huong-xu-ly.spec.ts
+PASS src/document-templates/o-rong-khong-duoc-xoa-trang.spec.ts
+PASS src/reports/monthly-package/monthly-report.rules.spec.ts
+PASS src/document-templates/bien-cu-khong-chan-luu.spec.ts
+PASS src/reports/tdac/tdac-export.service.spec.ts
+PASS src/reports/reports-export.service.spec.ts
+PASS src/document-templates/field-catalog.hoten.spec.ts
+PASS src/shared/action-plans/case-plan-access.spec.ts
+PASS src/document-templates/popup-va-form-phai-ghi-cung-cot.gate.spec.ts
+PASS src/reports/tdac/tdac-pham-vi.spec.ts
+PASS src/document-templates/khong-gian-chu-khi-xuong-dong.gate.spec.ts
+PASS src/document-templates/renderers/ngat-doan-he-cu.spec.ts
+PASS src/reports/so-sanh-ky/ky-bao-cao.spec.ts
+PASS src/reports/graph-access/case-graph-access.service.spec.ts
+PASS src/document-templates/chon-can-bo-in.gate.spec.ts
+PASS src/document-templates/docx-normalize.util.spec.ts
+PASS src/document-templates/in-nhu-he-cu.spec.ts
+PASS src/reports/so-sanh-ky/dung-so-sanh.spec.ts
+PASS src/document-templates/docx-variables.util.spec.ts
+PASS src/document-templates/khoa-he-cu.spec.ts
+PASS src/notifications/work-hours.util.spec.ts
+PASS src/document-templates/moiNoiInNgayVietDon.gate.spec.ts
+PASS src/reports/so-sanh-ky/chi-tieu.spec.ts
+PASS src/reports/so-sanh-ky/ngay-nghiep-vu.spec.ts
+PASS src/document-templates/kieu-xuong-dong.gate.spec.ts
+PASS src/document-templates/inNgayVietDonThieu.spec.ts
+
+Test Suites: 1 skipped, 77 passed, 77 of 78 total
+Tests:       7 skipped, 1047 passed, 1054 total
+Snapshots:   0 total
+Time:        34.658 s
+Test results written to: ..\docs\test-evidence\case-governance\graph-access-affected.json

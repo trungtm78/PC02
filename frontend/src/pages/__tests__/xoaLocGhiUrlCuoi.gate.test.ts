@@ -36,7 +36,7 @@ function thanXoaLoc(src: string): string {
 function viTriSai(src: string): string | null {
   const than = thanXoaLoc(src);
   const reset = than.indexOf('listFilters.reset()');
-  const clear = than.indexOf('url.clearAll()');
+  const clear = than.search(/url\.clearAll\((?:governanceFilterKeys)?\)/);
   if (reset < 0 || clear < 0) return 'thiếu một trong hai lời gọi';
   return reset < clear ? null : '`url.clearAll()` không phải lần ghi cuối';
 }

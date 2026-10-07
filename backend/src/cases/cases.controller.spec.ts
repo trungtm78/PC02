@@ -102,7 +102,7 @@ describe('CasesController — delegation', () => {
       data: { id: 'c1', caseType: CaseType.UY_THAC_DIEU_TRA },
     });
     await expect(loadRecord('c1')).resolves.toMatchObject({ id: 'c1' });
-    expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope);
+    expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope,mockUser.id,'export');
     mockService.getById.mockResolvedValue({
       data: { id: 'c1', caseType: CaseType.REGULAR },
     });
@@ -154,7 +154,7 @@ describe('CasesController — delegation', () => {
       res,
       mockUser,
     );
-    expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope);
+    expect(mockService.getById).toHaveBeenCalledWith('c1', req.dataScope,mockUser.id,'export');
     // record được UNWRAP (.data) trước khi truyền dynamicExport (codex P1).
     expect(mockDynamicExport.exportEntityDocuments).toHaveBeenCalledWith(
       'VU_AN',
@@ -201,14 +201,14 @@ describe('CasesController — delegation', () => {
     mockService.getList.mockResolvedValue({ data: [] });
     const req = makeReq();
     await controller.getList({}, req);
-    expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+    expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope,mockUser.id);
   });
 
   it('getStats() delegates to service.getStats with query and dataScope', async () => {
     mockService.getStats.mockResolvedValue({ total: 0, byStatus: {} });
     const req = makeReq();
     await controller.getStats({}, req);
-    expect(mockService.getStats).toHaveBeenCalledWith({}, req.dataScope);
+    expect(mockService.getStats).toHaveBeenCalledWith({}, req.dataScope,mockUser.id);
   });
 
   it('getStats() requires read:Case permission (RBAC metadata)', () => {
@@ -266,6 +266,7 @@ describe('CasesController — delegation', () => {
     expect(mockService.getStatusHistory).toHaveBeenCalledWith(
       'case-1',
       req.dataScope,
+      mockUser.id,
     );
   });
 

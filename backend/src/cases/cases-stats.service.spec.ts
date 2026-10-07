@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture} from './governance/case-ordinary-test.fixture';
 /**
  * Cases stats endpoint tests (PR1/T15).
  *
@@ -15,7 +16,7 @@ import { CaseStatus, CaseType, Prisma } from '@prisma/client';
 
 type StatsArgs = { where: Prisma.CaseWhereInput };
 
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
   case: {
     groupBy: jest.fn<Promise<unknown>, [StatsArgs]>(),
     count: jest.fn<Promise<number>, [StatsArgs]>(),

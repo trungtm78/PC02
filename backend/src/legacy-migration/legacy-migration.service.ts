@@ -2,10 +2,18 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { laKetThuc } from '../common/trang-thai/trang-thai-ket-thuc';
-import { decomposeLegacyRecord, legacyKey, type LegacyRecord } from './legacy-mapper';
+import {
+  decomposeLegacyRecord,
+  legacyKey,
+  type LegacyRecord,
+} from './legacy-mapper';
 import { buildMigrationReport, type MigrationReport } from './migration-report';
 import { HuongXuLyDon, PetitionStatus, Prisma } from '@prisma/client';
-import { huongTheoTrangThai, huongTheoNoiDungDonVi } from '../petitions/huong-xu-ly.rule';
+import {
+  huongTheoTrangThai,
+  huongTheoNoiDungDonVi,
+} from '../petitions/huong-xu-ly.rule';
+import { assertCasePreservation } from '../cases/evidence-governance/case-preservation';
 import {
   TRUY_VAN_DANH_MUC_LOAI_THONG_TIN,
   lapChiMucLoaiThongTin,
@@ -20,7 +28,6 @@ const IMPORTED = (actorId: string) => ({
   importedAt: new Date(),
   importedById: actorId,
 });
-
 
 /**
  * Đổi khoá ngoại dạng số sang dạng `connect` cho Vụ việc/Vụ án.
@@ -43,13 +50,16 @@ const FK_RELATIONS: Record<string, string> = {
   crimeChinhId: 'crimeChinh',
 };
 
-function toRelationConnect(data: Record<string, unknown>): Record<string, unknown> {
+function toRelationConnect(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = { ...data };
   for (const [scalar, relation] of Object.entries(FK_RELATIONS)) {
     if (!(scalar in out)) continue;
     const id = out[scalar];
     delete out[scalar];
-    if (typeof id === 'string' && id.trim()) out[relation] = { connect: { id } };
+    if (typeof id === 'string' && id.trim())
+      out[relation] = { connect: { id } };
   }
   return out;
 }
@@ -149,16 +159,25 @@ export function chuanHoaLoaiThongTinKhiNap(
 
 export function ganHuongXuLyKhiTrong(
   data: Record<string, unknown>,
-  danCo: { huongXuLy?: unknown; status?: unknown; donViGiaiQuyet?: unknown } | null,
+  danCo: {
+    huongXuLy?: unknown;
+    status?: unknown;
+    donViGiaiQuyet?: unknown;
+  } | null,
 ): void {
   if (danCo?.huongXuLy) return;
-  const trangThai = (data.status ?? danCo?.status ?? PetitionStatus.MOI_TIEP_NHAN) as string;
+  const trangThai = (data.status ??
+    danCo?.status ??
+    PetitionStatus.MOI_TIEP_NHAN) as string;
   const theoTrangThai = huongTheoTrangThai(trangThai);
   if (theoTrangThai !== HuongXuLyDon.GIAO_DON) {
     data.huongXuLy = theoTrangThai;
     return;
   }
-  const donVi = (data.donViGiaiQuyet ?? danCo?.donViGiaiQuyet) as string | null | undefined;
+  const donVi = (data.donViGiaiQuyet ?? danCo?.donViGiaiQuyet) as
+    | string
+    | null
+    | undefined;
   data.huongXuLy = huongTheoNoiDungDonVi(donVi) ?? theoTrangThai;
 }
 
@@ -176,7 +195,11 @@ export class LegacyMigrationService {
 
   // Resolve crimeChinhLegacyValue → crimeChinhId qua master Crime (theo legacyValue).
   // tx phải được truyền từ $transaction để đảm bảo đọc trong cùng boundary.
-  private async resolveCrime(tx: any, data: Record<string, unknown>, target: 'petition' | 'case' | 'incident' = 'petition'): Promise<void> {
+  private async resolveCrime(
+    tx: any,
+    data: Record<string, unknown>,
+    target: 'petition' | 'case' | 'incident' = 'petition',
+  ): Promise<void> {
     const lv = data.crimeChinhLegacyValue as number | undefined;
     delete data.crimeChinhLegacyValue;
     // Cả ba thực thể nay đều có cột `crimeChinhId` (FK master Crime) → resolve chung.
@@ -195,7 +218,10 @@ export class LegacyMigrationService {
   }
 
   // Commit: upsert theo legacySourceId (idempotent re-run). Mỗi record 1 transaction nhỏ; lỗi 1 record không chặn record khác.
-  async commit(records: LegacyRecord[], actorId: string): Promise<CommitResult> {
+  async commit(
+    records: LegacyRecord[],
+    actorId: string,
+  ): Promise<CommitResult> {
     const created = {
       petitions: 0,
       incidents: 0,
@@ -229,7 +255,8 @@ export class LegacyMigrationService {
         if (d.petition && !(d.petition.receivedDate instanceof Date)) {
           errors.push({
             legacyId,
-            message: 'MISSING_REQUIRED_DATE: receivedDate — không parse được ngày tiếp nhận, bỏ qua để không bịa ngày',
+            message:
+              'MISSING_REQUIRED_DATE: receivedDate — không parse được ngày tiếp nhận, bỏ qua để không bịa ngày',
           });
           continue;
         }
@@ -248,7 +275,15 @@ export class LegacyMigrationService {
         // Đếm delta CỤC BỘ trong tx, chỉ cộng vào tổng SAU khi tx commit thành công (Codex P1):
         // nếu bước sau rollback, counter/audit không báo nhầm "đã tạo".
         const delta = await this.prisma.$transaction(async (tx: any) => {
-          const d2 = { petitions: 0, incidents: 0, cases: 0, guidance: 0, exchanges: 0, proposals: 0, lawyers: 0 };
+          const d2 = {
+            petitions: 0,
+            incidents: 0,
+            cases: 0,
+            guidance: 0,
+            exchanges: 0,
+            proposals: 0,
+            lawyers: 0,
+          };
           // Theo dõi id petition/incident tạo trong CÙNG record → linking provenance (Codex P1#4).
           let linkedPetitionId: string | undefined;
           let linkedIncidentId: string | undefined;
@@ -269,14 +304,19 @@ export class LegacyMigrationService {
             // Doi ma toi danh cu -> khoa ngoai. Khong goi thi khoa trung gian
             // `crimeChinhLegacyValue` con nguyen trong lenh ghi va Prisma tu choi CA ban ghi.
             await this.resolveCrime(tx, data, 'incident');
-            const existing = await tx.incident.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.incident.findFirst({
+              where: { legacySourceId: legacyId },
+            });
             if (existing) {
               // Cán bộ nhập là ô cán bộ CHỌN trên form — đồng bộ lại không đè khi đã có (18/09/2026).
               giuChuCanBoDaGo(
                 data,
                 existing as unknown as Record<string, unknown>,
               );
-              await tx.incident.update({ where: { id: existing.id }, data: toRelationConnect(data) });
+              await tx.incident.update({
+                where: { id: existing.id },
+                data: toRelationConnect(data),
+              });
               linkedIncidentId = existing.id;
             } else {
               const row = await tx.incident.create({
@@ -326,14 +366,20 @@ export class LegacyMigrationService {
               // động bởi enrich-totung) — nếu không, mỗi lần re-import lại xoá thầm lặng
               // 619 ngày khởi tố / 634 chuyển vụ án cho tới khi chạy lại enrich.
               const cu = toRelationConnect(data) as Record<string, unknown>;
-              const oldMeta = (existing.metadata ?? {}) as Record<string, unknown>;
+              const oldMeta = (existing.metadata ?? {}) as Record<
+                string,
+                unknown
+              >;
               const newMeta = (cu.metadata ?? {}) as Record<string, unknown>;
               if (oldMeta.trichTuDong && !newMeta.trichTuDong) {
                 cu.metadata = { ...newMeta, trichTuDong: oldMeta.trichTuDong };
               }
               // Chạy lại di trú không được đè lên thứ cán bộ đã sửa (codex bắt 27/08/2026).
               // `receiveDate` là ô form ĐÒI, nên nó là ô cán bộ chắc chắn có động vào.
-              giuChuCanBoDaGo(cu, existing as unknown as Record<string, unknown>);
+              giuChuCanBoDaGo(
+                cu,
+                existing as unknown as Record<string, unknown>,
+              );
               caseRow = await tx.case.update({
                 where: { id: existing.id },
                 data: { caseProvenance, ...link, ...cu },
@@ -384,9 +430,14 @@ export class LegacyMigrationService {
           // ── Tier ③ — idempotent upsert theo legacySourceId (Codex P1#3) ──
           if (d.guidance) {
             const data = { ...d.guidance };
-            const existing = await tx.guidanceRecord.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.guidanceRecord.findFirst({
+              where: { legacySourceId: legacyId },
+            });
             if (existing) {
-              await tx.guidanceRecord.update({ where: { id: existing.id }, data });
+              await tx.guidanceRecord.update({
+                where: { id: existing.id },
+                data,
+              });
             } else {
               await tx.guidanceRecord.create({ data });
               d2.guidance++;
@@ -394,7 +445,9 @@ export class LegacyMigrationService {
           }
           if (d.exchange) {
             const data = { ...d.exchange };
-            const existing = await tx.exchange.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.exchange.findFirst({
+              where: { legacySourceId: legacyId },
+            });
             if (existing) {
               await tx.exchange.update({ where: { id: existing.id }, data });
             } else {
@@ -404,24 +457,34 @@ export class LegacyMigrationService {
           }
           if (d.proposal) {
             const data = { ...d.proposal };
-            const existing = await tx.proposal.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.proposal.findFirst({
+              where: { legacySourceId: legacyId },
+            });
             if (existing) {
               await tx.proposal.update({ where: { id: existing.id }, data });
             } else {
               // proposalNumber @unique NOT NULL → sinh deterministic để idempotent.
-              await tx.proposal.create({ data: { proposalNumber: `DX-LEGACY-${legacyId}`, ...data } });
+              await tx.proposal.create({
+                data: { proposalNumber: `DX-LEGACY-${legacyId}`, ...data },
+              });
               d2.proposals++;
             }
           }
           if (d.lawyer && caseRow?.id) {
             const data = { ...d.lawyer };
-            const existing = await tx.lawyer.findFirst({ where: { legacySourceId: legacyId } });
+            const existing = await tx.lawyer.findFirst({
+              where: { legacySourceId: legacyId },
+            });
             if (existing) {
               await tx.lawyer.update({ where: { id: existing.id }, data });
             } else {
               // caseId (FK NOT NULL) = host Case; barNumber @unique NOT NULL → deterministic.
               await tx.lawyer.create({
-                data: { caseId: caseRow.id, barNumber: `LS-LEGACY-${legacyId}`, ...data },
+                data: {
+                  caseId: caseRow.id,
+                  barNumber: `LS-LEGACY-${legacyId}`,
+                  ...data,
+                },
               });
               d2.lawyers++;
             }
@@ -601,22 +664,49 @@ export class LegacyMigrationService {
   }
 
   // Rollback: xóa entity đã di trú theo danh sách legacySourceId (chỉ record do di trú tạo).
-  async rollback(legacyIds: string[], actorId: string): Promise<{ deleted: number }> {
+  async rollback(
+    legacyIds: string[],
+    actorId: string,
+  ): Promise<{ deleted: number }> {
     let deleted: number;
     try {
-      deleted = await this.prisma.$transaction(async (tx: any) => {
-        const where = { where: { legacySourceId: { in: legacyIds } } };
-        // Thứ tự FK: lawyer (lawyer.caseId → cases Restrict) trước case; case (linkedPetition/
-        // linkedIncident Restrict) trước petition/incident. Guidance/Exchange/Proposal độc lập.
-        const lw = await tx.lawyer.deleteMany(where);
-        const c = await tx.case.deleteMany(where);
-        const p = await tx.petition.deleteMany(where);
-        const i = await tx.incident.deleteMany(where);
-        const g = await tx.guidanceRecord.deleteMany(where);
-        const e = await tx.exchange.deleteMany(where);
-        const pr = await tx.proposal.deleteMany(where);
-        return lw.count + c.count + p.count + i.count + g.count + e.count + pr.count;
-      });
+      deleted = await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const where = { where: { legacySourceId: { in: legacyIds } } };
+          const cases = await tx.case.findMany({
+            ...where,
+            select: { id: true },
+          });
+          const lawyers = await tx.lawyer.findMany({
+            ...where,
+            select: { caseId: true },
+          });
+          const preservedCaseIds = new Set<string>([
+            ...cases.map((record: { id: string }) => record.id),
+            ...lawyers.map((record: { caseId: string }) => record.caseId),
+          ]);
+          for (const caseId of [...preservedCaseIds].sort())
+            await assertCasePreservation(tx, caseId, 'LEGACY_ROLLBACK');
+          // Thứ tự FK: lawyer (lawyer.caseId → cases Restrict) trước case; case (linkedPetition/
+          // linkedIncident Restrict) trước petition/incident. Guidance/Exchange/Proposal độc lập.
+          const lw = await tx.lawyer.deleteMany(where);
+          const c = await tx.case.deleteMany(where);
+          const p = await tx.petition.deleteMany(where);
+          const i = await tx.incident.deleteMany(where);
+          const g = await tx.guidanceRecord.deleteMany(where);
+          const e = await tx.exchange.deleteMany(where);
+          const pr = await tx.proposal.deleteMany(where);
+          return (
+            lw.count +
+            c.count +
+            p.count +
+            i.count +
+            g.count +
+            e.count +
+            pr.count
+          );
+        },
+      );
     } catch (e) {
       const msg = (e as Error).message ?? '';
       if (msg.includes('Foreign key constraint') || msg.includes('P2003')) {

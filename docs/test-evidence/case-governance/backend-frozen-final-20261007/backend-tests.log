@@ -1,0 +1,986 @@
+PASS src/auth/auth.service.spec.ts
+PASS src/common/tim-kiem/dieu-kien.spec.ts
+PASS src/deadline-rules/deadline-rules.service.spec.ts
+PASS src/document-numbers/document-numbers.service.spec.ts
+PASS src/legacy-migration/legacy-mapper.golden.spec.ts
+PASS src/auth/services/two-fa.service.spec.ts
+PASS src/directory/directory.service.spec.ts
+PASS src/scheduler/deadline.scheduler.spec.ts
+PASS src/legacy-migration/legacy-mapper.expert.spec.ts
+PASS src/legacy-migration/legacy-mapper.mongo.spec.ts
+PASS src/legacy-migration/legacy-mapper.spec.ts
+PASS src/legacy-migration/cli/so-ban-in.spec.ts
+PASS src/legacy-migration/ma-o-chon-he-cu.spec.ts
+PASS src/dashboard/dashboard.service.spec.ts
+PASS src/legacy-migration/cli/don-ma-o-chon.spec.ts
+PASS src/common/tim-kiem/bo-tim-kiem.spec.ts
+[Nest] 30196  - 10/07/2026, 11:12:55 PM    WARN [BoTimKiem] Không hỏi được trạng thái nạp cột bóng incidents: Error: mất kết nối
+[Nest] 30196  - 10/07/2026, 11:12:55 PM    WARN [BoTimKiem] Không tiền giải được tên cán bộ cho "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (vu-viec): kết quả hỏi users không đúng hình dạng
+[Nest] 30196  - 10/07/2026, 11:12:55 PM    WARN [BoTimKiem] Không tiền giải được tên cán bộ cho "Nguyễn" (vu-viec): mất kết nối
+PASS src/teams/teams.service.spec.ts
+  ● Console
+
+    console.error
+      Audit log failed for TEAM_MEMBER_ADDED: Error: audit down
+          at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\teams\teams.service.spec.ts:277:43)
+          at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+          at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+          at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+          at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+          at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+          at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+          at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+          at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+          at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+
+      178 |       });
+      179 |     } catch (err) {
+    > 180 |       console.error('Audit log failed for TEAM_MEMBER_ADDED:', err);
+          |               ^
+      181 |     }
+      182 |
+      183 |     return member;
+
+      at TeamsService.addMember (teams/teams.service.ts:180:15)
+      at Object.<anonymous> (teams/teams.service.spec.ts:279:22)
+
+    console.error
+      Audit log failed for TEAM_MEMBER_REMOVED: Error: audit down
+          at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\teams\teams.service.spec.ts:314:43)
+          at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+          at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+          at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+          at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+          at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+          at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+          at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+          at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+          at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+          at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+
+      206 |       });
+      207 |     } catch (err) {
+    > 208 |       console.error('Audit log failed for TEAM_MEMBER_REMOVED:', err);
+          |               ^
+      209 |     }
+      210 |
+      211 |     return { success: true };
+
+      at TeamsService.removeMember (teams/teams.service.ts:208:15)
+      at Object.<anonymous> (teams/teams.service.spec.ts:316:22)
+
+PASS src/event-reminders/event-reminders.service.spec.ts
+PASS src/legacy-migration/cli/nap-loai-thong-tin.util.spec.ts
+PASS src/auth/services/unit-scope.service.spec.ts
+PASS src/common/tim-kiem/cli/nap-cot-bong-tim-kiem.spec.ts
+PASS src/xlsx-imports/hostile-xlsx-guard.spec.ts
+PASS src/legacy-migration/cli/bu-ma-trung-he-moi.spec.ts
+PASS src/legacy-migration/cli/nap-nguon-don.spec.ts
+PASS src/legacy-migration/don-thu-gan-kem.spec.ts
+PASS src/cong-service-worker.spec.ts
+PASS src/address-mapping/address-mapping.service.spec.ts
+PASS src/deadline-rules/deadline-rules.controller.spec.ts
+PASS src/common/utils/list-sort.util.spec.ts
+PASS src/document-numbers/document-numbers.expert.spec.ts
+PASS src/legacy-migration/legacy-form-parity.migration.spec.ts
+PASS src/legacy-migration/trang-thai/ap-trang-thai-he-cu.spec.ts
+PASS src/common/sap-xep-theo-stt.gate.spec.ts
+PASS src/common/tim-kiem/sinh/sinh-tim-kiem.spec.ts
+PASS src/common/trang-thai/cong-dong-moc.spec.ts
+PASS src/legacy-migration/cli/nap-loai-thong-tin.spec.ts
+PASS src/common/o-form-va-cot-danh-sach-phai-trung-cot.gate.spec.ts
+PASS src/document-numbers/document-numbers.controller.spec.ts
+PASS src/workflow/workflow.service.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:00 PM   ERROR [FeatureFlagsService] Feature flag refresh failed, serving stale cache: db blip
+[Nest] 30196  - 10/07/2026, 11:13:00 PM   ERROR [FeatureFlagsService] Feature flag refresh failed, serving stale cache: down
+PASS src/feature-flags/feature-flags.service.spec.ts
+PASS src/legacy-migration/cli/don-so-dien-thoai-donthu.spec.ts
+PASS src/common/utils/thong-ke-ky.util.spec.ts
+PASS src/user-shortcuts/user-shortcuts.service.spec.ts
+PASS src/common/trang-thai/trang-thai-ket-thuc.spec.ts
+PASS prisma/seed-legacy-templates.spec.ts
+PASS src/abbreviations/abbreviations.service.spec.ts
+PASS src/legacy-migration/cli/org-mapper.spec.ts
+PASS src/common/utils/filename.util.spec.ts
+PASS src/common/utils/ngay-viet-don.util.spec.ts
+PASS src/legacy-migration/cli/nap-ten-ngan-can-bo.spec.ts
+PASS src/guidance/guidance-tim-kiem.service.spec.ts
+PASS src/exchanges/exchanges-tim-kiem.service.spec.ts
+PASS src/legacy-migration/trang-thai/suy-trang-thai-he-cu.spec.ts
+PASS prisma/seed-document-numbers.spec.ts
+PASS src/common/cong-route-co-quyen.spec.ts
+PASS src/legacy-migration/cli/subject-extract.spec.ts
+PASS src/auth/guards/two-fa-setup-token.guard.spec.ts
+PASS src/settings/settings.service.spec.ts
+PASS src/directory/tao-nhanh-loai-thong-tin.spec.ts
+PASS src/common/tim-kiem/sinh/cot-db.spec.ts
+PASS src/event-categories/event-categories.service.spec.ts
+PASS src/common/tim-kiem/bo-dau.spec.ts
+PASS src/legacy-migration/donthu-khong-thieu-field.gate.spec.ts
+PASS src/legacy-migration/cli/parity-classify.spec.ts
+PASS src/common/cot-danh-sach-phai-duoc-tra-ve.gate.spec.ts
+PASS src/legacy-migration/migration-report.spec.ts
+PASS src/auth/guards/change-password-pending.guard.spec.ts
+PASS src/documents/seed-loai-tai-lieu-chay-khi-deploy.gate.spec.ts
+PASS src/common/filters/dang-ky-bo-loc-loi.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:08 PM   ERROR [GlobalExceptionFilter] Unhandled exception
+Error: Something broke
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\common\filters\http-exception.filter.spec.ts:57:23)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/common/filters/http-exception.filter.spec.ts
+PASS src/common/tim-kiem/tim-kiem-khong-pha-pham-vi.gate.spec.ts
+PASS src/common/utils/nguon-don.util.spec.ts
+PASS src/legacy-migration/cli/bu-noi-dung-donthu.spec.ts
+PASS src/legacy-migration/cli/unit-alias.spec.ts
+PASS src/master-class/master-class.service.spec.ts
+PASS src/legacy-migration/cli/bu-ngay-tiep-nhan-vuan.spec.ts
+PASS src/user-export-preferences/user-export-preferences.service.spec.ts
+PASS src/common/cong-khong-bi-mat-trong-repo.spec.ts
+PASS src/common/bulk/run-bulk.spec.ts
+PASS src/legacy-migration/cli/bson-reader.spec.ts
+PASS src/common/tim-kiem/sinh/nap-cot-bong.spec.ts
+PASS src/document-numbers/source-resolver.spec.ts
+PASS src/auth/strategies/jwt.strategy.spec.ts
+PASS src/cong-nap-cot-bong-sau-deploy.spec.ts
+PASS src/common/utils/__tests__/generated-columns.guard.spec.ts
+PASS src/auth/utils/identifier-classifier.spec.ts
+PASS src/legacy-migration/cli/cap-ban-in.spec.ts
+  ● Console
+
+    console.log
+      HE_CU_DON_THU · hồ sơ 1: 0 dòng chữ lệch, 0 đoạn lệch định dạng, 0 chỗ lệch kiểu chữ
+
+      at chayVoi (legacy-migration/cli/cap-ban-in.ts:271:15)
+
+    console.error
+      HE_CU_HUONG_DAN · hồ sơ 2: KHÔNG LẤY ĐƯỢC — ThrottlerException: Too Many Requests
+
+      275 |     } catch (e) {
+      276 |       hong.push({ maMau: khai.code, legacyId: g.legacyId, loi: (e as Error).message });
+    > 277 |       console.error(`${khai.code} · hồ sơ ${g.legacyId}: KHÔNG LẤY ĐƯỢC — ${(e as Error).message}`);
+          |               ^
+      278 |     }
+      279 |   }
+      280 |
+
+      at chayVoi (legacy-migration/cli/cap-ban-in.ts:277:15)
+      at Object.<anonymous> (legacy-migration/cli/cap-ban-in.spec.ts:107:16)
+
+    console.log
+      HE_CU_TRA_HO_SO · hồ sơ 3: 0 dòng chữ lệch, 0 đoạn lệch định dạng, 0 chỗ lệch kiểu chữ
+
+      at chayVoi (legacy-migration/cli/cap-ban-in.ts:271:15)
+
+PASS src/legacy-migration/giu-chu-can-bo-da-go.spec.ts
+PASS src/phien-ban-dang-chay.spec.ts
+PASS src/user-table-layouts/bo-cuc-cot.util.spec.ts
+PASS prisma/seed-document-templates.spec.ts
+PASS src/legacy-migration/field-parity.gate.spec.ts
+PASS src/user-table-layouts/user-table-layouts.service.spec.ts
+PASS src/common/tim-kiem/cli/gen-tim-kiem.spec.ts
+PASS src/legacy-migration/cli/nap-don-vi-xu-ly.util.spec.ts
+PASS src/legacy-migration/cli/nap-nguon-don.util.spec.ts
+PASS src/xlsx-imports/xlsx-parser.service.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-1 rows=2 sheets=1 truncated=0 formulaStripped=3
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-2 rows=1 sheets=1 truncated=0 formulaStripped=0
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-3 rows=1 sheets=1 truncated=0 formulaStripped=0
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-4 rows=1 sheets=1 truncated=0 formulaStripped=0
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-5 rows=2 sheets=1 truncated=0 formulaStripped=0
+[Nest] 30196  - 10/07/2026, 11:13:12 PM     LOG [XlsxParserService] xlsx parsed: importLogId=log-6 rows=2 sheets=2 truncated=0 formulaStripped=0
+PASS src/catalog/catalog.registry.spec.ts
+PASS src/directory/tao-nhanh-don-vi.spec.ts
+PASS src/legacy-migration/cli/preflight-checks.spec.ts
+PASS src/legacy-migration/khoa-ngoai-phai-doi-sang-connect.spec.ts
+PASS src/common/tim-kiem/ghep-phai-nam-trong-update-of.gate.spec.ts
+PASS src/document-numbers/period-key.util.spec.ts
+PASS src/legacy-migration/cli/text-extract.spec.ts
+PASS src/push/devices.service.spec.ts
+PASS src/common/tim-kiem/tim-kiem-sinh-khop.gate.spec.ts
+PASS src/seed/permissions-coverage.spec.ts
+PASS src/common/utils/ngayVietDonGhiDuBaCot.gate.spec.ts
+PASS src/auth/auth.controller.spec.ts
+PASS src/legacy-migration/cli/cap-nhat-tu-he-cu.spec.ts
+PASS src/user-table-layouts/mat-do-dong.spec.ts
+PASS src/common/tim-kiem/cli/kiem-vang-bo-dau.spec.ts
+PASS src/auth/guards/sse-jwt.guard.spec.ts
+PASS src/directory/tao-nhanh-nguon-don.spec.ts
+PASS src/common/tim-kiem/tat-ca-gom-nguoi.spec.ts
+PASS src/common/utils/incident-factory.util.spec.ts
+PASS src/common/tim-kiem/vao-tat-ca.gate.spec.ts
+PASS src/legacy-migration/cli/sua-ngay-tdc-vu-viec.spec.ts
+PASS src/common/tim-kiem/quan-he.spec.ts
+FAIL src/common/__tests__/khongBoQuaMaNguon.spec.ts
+  ● Danh sách bỏ qua của git không được nuốt mã nguồn › không tệp .ts/.tsx nào dưới src/ bị git bỏ qua
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 5
+
+    - Array []
+    + Array [
+    +   "backend/src/coverage/t3-evidence/lcov-report/block-navigation.js",
+    +   "backend/src/coverage/t3-evidence/lcov-report/prettify.js",
+    +   "backend/src/coverage/t3-evidence/lcov-report/sorter.js",
+    + ]
+
+      53 | describe('Danh sách bỏ qua của git không được nuốt mã nguồn', () => {
+      54 |   it('không tệp .ts/.tsx nào dưới src/ bị git bỏ qua', () => {
+    > 55 |     expect(maNguonBiBoQua()).toEqual([]);
+         |                              ^
+      56 |   });
+      57 |
+      58 |   /**
+
+      at Object.<anonymous> (common/__tests__/khongBoQuaMaNguon.spec.ts:55:30)
+
+PASS src/user-export-preferences/chuan-hoa-lua-chon.util.spec.ts
+PASS src/common/tim-kiem/sinh/cot-ghep.spec.ts
+PASS src/common/utils/khoa-loai-thong-tin.util.spec.ts
+PASS src/common/tim-kiem/sinh/gop-theo-bang.spec.ts
+PASS src/legacy-migration/cli/chon-ho-so-can-cap-nhat.spec.ts
+PASS src/legacy-migration/legacy-migration.controller.spec.ts
+PASS src/feature-flags/guards/feature-flag.chan-that.spec.ts
+PASS src/feature-flags/feature-registry.spec.ts
+PASS src/common/utils/chuan-hoa-ten.util.spec.ts
+PASS src/address-mapping/address-mapping.controller.spec.ts
+PASS src/notification-preferences/notification-preferences.service.spec.ts
+PASS src/feature-flags/guards/feature-flag.guard.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:16 PM   ERROR [PrismaExceptionFilter] Unhandled Prisma error P9999
+PrismaClientKnownRequestError: Unknown error
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\common\filters\prisma-exception.filter.spec.ts:70:17)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/common/filters/prisma-exception.filter.spec.ts
+PASS src/legacy-migration/legacy-mapper.parity.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:16 PM    WARN [PrismaExceptionFilter] P2003 undefined /api/v1/test → 400 {}
+[Nest] 30196  - 10/07/2026, 11:13:16 PM    WARN [PrismaExceptionFilter] P2002 undefined /api/v1/test → 409 {}
+[Nest] 30196  - 10/07/2026, 11:13:16 PM    WARN [PrismaExceptionFilter] P2025 undefined /api/v1/test → 404 {}
+[Nest] 30196  - 10/07/2026, 11:13:16 PM    WARN [PrismaExceptionFilter] P2003 undefined /api/v1/test → 400 {}
+PASS src/legacy-migration/loai-thong-tin-khi-nap.spec.ts
+PASS src/legacy-migration/cli/sua-nam-ngay-tiep-nhan.spec.ts
+PASS src/document-numbers/dto/create-template.dto.spec.ts
+PASS src/auth/services/otp-code.service.spec.ts
+PASS src/common/tim-kiem/sinh/doi-tuong.spec.ts
+PASS src/legacy-migration/bootstrap-fresh-db.spec.ts
+PASS src/legacy-migration/cli/bu-can-bo-nhap-vu-viec.spec.ts
+PASS src/exchanges/exchanges.service.spec.ts
+PASS src/guidance/guidance.service.spec.ts
+PASS src/push/push.service.spec.ts
+PASS src/legacy-migration/cli/stage.spec.ts
+PASS src/common/tim-kiem/sinh/kieu-cot.spec.ts
+PASS src/auth/guards/two-fa-token.guard.spec.ts
+PASS src/legacy-migration/cli/infer-class.spec.ts
+PASS src/test-fixtures/guards/test-mode.guard.spec.ts
+PASS src/common/tim-kiem/bo-dau-trinh-duyet.gate.spec.ts
+PASS src/auth/dto/login.dto.spec.ts
+PASS src/app.bootstrap.spec.ts
+PASS src/legacy-migration/cli/backfill-consolidate.spec.ts
+PASS src/directory/directory.controller.spec.ts
+PASS src/common/tim-kiem/khoa-chung.spec.ts
+PASS src/auth/luat-token-trung-nhau.gate.spec.ts
+PASS src/seed/seed-permissions.spec.ts
+PASS src/common/validators/__tests__/nguon-phat-tin-match.validator.spec.ts
+PASS src/common/tim-kiem/sinh/sinh-sql-van-hanh.spec.ts
+PASS src/crimes/crimes.service.spec.ts
+PASS src/legacy-migration/cli/builder-targets.spec.ts
+PASS src/common/status-groups.util.spec.ts
+PASS src/auth/two-fa.controller.spec.ts
+FAIL src/common/validators/__tests__/is-ngay-that.spec.ts
+  ● CỔNG ô ngày › mọi ô ngày dùng @IsNgayThat, không dùng @IsDateString / @IsISO8601 trần
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+    - Array []
+    + Array [
+    +   "cases\\dto\\query-cases.dto.ts",
+    +   "cases\\governance\\case-principal-access.controller.ts",
+    + ]
+
+      84 |     };
+      85 |     duyet(goc);
+    > 86 |     expect(vi).toEqual([]);
+         |                ^
+      87 |   });
+      88 | });
+      89 |
+
+      at Object.<anonymous> (common/validators/__tests__/is-ngay-that.spec.ts:86:16)
+
+PASS src/notification-preferences/notification-preferences.controller.spec.ts
+PASS src/common/tim-kiem/sinh/cot-bong-phu.spec.ts
+PASS prisma/lib/__tests__/checksum.spec.ts
+PASS src/legacy-migration/cli/du-doan-trung-so.spec.ts
+PASS prisma/crime-catalog.spec.ts
+PASS src/legacy-migration/cli/bu-nguoi-nhap-tier3.spec.ts
+PASS src/legacy-migration/huong-xu-ly-khi-nap.spec.ts
+PASS src/auth/interceptors/data-scope.interceptor.spec.ts
+PASS src/common/utils/phuong-xem-chua-giao.spec.ts
+PASS src/legacy-migration/cli/build-field-catalog.util.spec.ts
+PASS src/xlsx-imports/upload-storage.service.spec.ts
+PASS prisma/duong-dan-mau.spec.ts
+PASS src/legacy-migration/backfill-statistic.util.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:23 PM   DEBUG [UploadStorageService] xlsx import dedupe hit — sha=15bbe85aac45…
+PASS src/legacy-migration/cli/enrich-totung.spec.ts
+PASS src/legacy-migration/ngay-tiep-nhan-tdc.spec.ts
+PASS src/common/tim-kiem/the-tim-kiem.decorator.spec.ts
+PASS src/legacy-migration/cli/cap-nhat-phai-bu-ma.gate.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:23 PM   ERROR [EmailService] Failed to send 2FA OTP email
+[Nest] 30196  - 10/07/2026, 11:13:23 PM   ERROR [EmailService] Error: SMTP connect failed
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\email\email.service.spec.ts:42:50)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/email/email.service.spec.ts
+PASS src/common/tim-kiem/chon-gia-tri-cot.spec.ts
+PASS src/common/tim-kiem/ma-thuong.spec.ts
+PASS src/seed/seed-vn-events.spec.ts
+PASS src/common/tim-kiem/cot-bong-khong-lot-payload.gate.spec.ts
+PASS src/legacy-migration/cli/backfill-ma-ho-so.spec.ts
+PASS src/legacy-migration/o-so-rong-la-chua-co-so-lieu.spec.ts
+PASS src/common/tim-kiem/sinh/tep-sinh.spec.ts
+PASS src/common/utils/xlsx-formula-escape.util.spec.ts
+PASS src/legacy-migration/so-dien-thoai-he-cu.spec.ts
+PASS src/legacy-migration/cli/mongo-export.util.spec.ts
+PASS src/common/tim-kiem/khoa-ngoai-nguoi.gate.spec.ts
+PASS src/legacy-migration/cli/chon-toi-danh.spec.ts
+PASS src/common/dto/query-da-xoa.dto.spec.ts
+PASS src/exchanges/exchanges.controller.spec.ts
+PASS src/common/utils/ho-so-code.util.spec.ts
+PASS prisma/seed-directory-types.spec.ts
+PASS src/common/tim-kiem/dieu-kien-doi-tuong.spec.ts
+PASS src/common/utils/stt-cu.util.spec.ts
+PASS src/common/utils/to-phuong.util.spec.ts
+PASS src/abbreviations/abbreviations.controller.spec.ts
+PASS prisma/tu-dien-moi-thuc-the.gate.spec.ts
+PASS src/auth/services/totp-encryption.service.spec.ts
+PASS src/legacy-migration/cli/bu-ma-trao-doi.spec.ts
+PASS src/user-shortcuts/user-shortcuts.controller.spec.ts
+PASS src/legacy-migration/cli/ban-goc-anh-em.spec.ts
+PASS src/auth/utils/__tests__/temp-password.util.spec.ts
+PASS src/legacy-migration/vuviec-toi-danh.spec.ts
+PASS src/documents/document-upload-policy.spec.ts
+PASS src/document-numbers/formula-engine.spec.ts
+PASS src/common/tim-kiem/dieu-kien-ky-tu-dac-biet.spec.ts
+PASS src/teams/teams.controller.spec.ts
+PASS src/master-class/master-class.controller.spec.ts
+PASS src/dashboard/dashboard.controller.spec.ts
+PASS src/metrics/metrics.guard.spec.ts
+PASS src/common/tim-kiem/petition-all-columns.spec.ts
+PASS src/user-table-layouts/user-table-layouts.controller.spec.ts
+PASS src/legacy-migration/vu-viec-can-bo-nhap.spec.ts
+PASS src/common/constants/settings-keys.spec.ts
+PASS src/auth/guards/permissions.guard.spec.ts
+PASS src/auth/quyen-can-bo-doc-danh-muc.gate.spec.ts
+PASS src/settings/settings.controller.spec.ts
+PASS src/legacy-migration/noi-dung-khong-duoc-trang.spec.ts
+PASS src/legacy-migration/cli/prisma-phai-co-adapter.gate.spec.ts
+PASS src/catalog/catalog.service.spec.ts
+PASS src/legacy-migration/cli/enrich-status.spec.ts
+PASS src/legacy-migration/don-so-khong.util.spec.ts
+PASS src/test-fixtures/test-fixtures.service.spec.ts
+PASS src/common/utils/sanitize.util.spec.ts
+PASS src/auth/utils/__tests__/password-hash.util.spec.ts
+PASS src/guidance/guidance.controller.spec.ts
+PASS prisma/phan-bo-thuc-the-he-cu.gate.spec.ts
+PASS src/documents/dto/query-documents.dto.spec.ts
+PASS src/auth/jwt-wire-format.spec.ts
+PASS src/directory/dto/query-directory.dto.spec.ts
+PASS src/common/validators/__tests__/is-catalog-value.validator.spec.ts
+PASS src/address-mapping/dto/query-address-mapping.dto.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:28 PM   ERROR [DeadlineRuleActivatorScheduler] DeadlineRuleActivator failed: Error: db down
+PASS src/deadline-rules/schedulers/deadline-rule-activator.scheduler.spec.ts
+PASS src/push/devices.controller.spec.ts
+PASS src/common/utils/incident-code.util.spec.ts
+PASS src/common/duplicate-review/acknowledge.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:29 PM   ERROR [DeadlineRuleStaleNotifierScheduler] DeadlineRuleStaleNotifier failed: Error: notif fail
+PASS src/deadline-rules/schedulers/deadline-rule-stale-notifier.scheduler.spec.ts
+PASS src/crimes/crimes.controller.spec.ts
+PASS src/legacy-migration/cli/backfill-case-code.spec.ts
+PASS src/legacy-migration/cli/bu-don-thu-lech-loai.spec.ts
+PASS src/auth/guards/dispatch.guard.spec.ts
+PASS src/test-fixtures/test-fixtures.module.spec.ts
+PASS src/feature-flags/feature-flags.controller.spec.ts
+PASS src/app.controller.spec.ts
+PASS src/legacy-migration/cli/backfill-crime-chinh.spec.ts
+PASS src/common/legacy-metadata.spec.ts
+PASS src/legacy-migration/legacy-migration.service.spec.ts
+PASS src/reports/monthly-package/monthly-report-export.service.spec.ts (11.387 s)
+PASS src/documents/documents.service.spec.ts
+PASS src/common/utils/xoa-hang-loat-pham-vi.spec.ts
+PASS src/cases/governance/case-active-relation-schema.spec.ts
+PASS src/cases/evidence-governance/evidence-governance.controller.spec.ts
+PASS src/cases/governance/case-governance.service.spec.ts
+PASS src/documents/tep-hai-cha-tai-duoc.gate.spec.ts
+PASS src/xlsx-imports/commit.service.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:43 PM     LOG [XlsxImportCommitService] xlsx import first-confirm — logId=log-c admin=admin-a (awaiting second)
+[Nest] 30196  - 10/07/2026, 11:13:43 PM     LOG [XlsxImportCommitService] xlsx import COMMITTED — logId=log-c firstAdmin=admin-a secondAdmin=admin-b cases=2 incidents=1
+[Nest] 30196  - 10/07/2026, 11:13:43 PM     LOG [XlsxImportCommitService] xlsx import COMMITTED — logId=log-c firstAdmin=admin-a secondAdmin=admin-b cases=0 incidents=1
+[Nest] 30196  - 10/07/2026, 11:13:43 PM     LOG [XlsxImportCommitService] xlsx import ROLLED_BACK — logId=log-force admin=admin-a cases=0 incidents=0 staging=0 force=true
+[Nest] 30196  - 10/07/2026, 11:13:43 PM     LOG [XlsxImportCommitService] xlsx import ROLLED_BACK — logId=log-r admin=admin-a cases=2 incidents=0 staging=1 force=false
+PASS src/cases/cases.service.spec.ts
+PASS src/cases/evidence-governance/evidence-governance.service.spec.ts
+PASS src/cases/evidence-governance/evidence-file-integrity.spec.ts
+PASS src/cases/evidence-governance/case-preservation.spec.ts
+PASS src/cases/evidence-governance/document-parent-preservation.spec.ts
+PASS src/proposals/proposals.service.spec.ts
+PASS src/documents/documents-module-integrity.spec.ts
+PASS src/reports/tdac/tdac.controller.spec.ts
+PASS src/cases/evidence-governance/preservation-entrypoints.spec.ts
+PASS src/documents/document-governance.spec.ts
+PASS src/cases/evidence-governance/evidence-lifecycle.spec.ts
+PASS src/common/utils/scope-filter.util.expert.spec.ts
+PASS src/cases/cases-vu-an-phuong.service.spec.ts
+PASS src/common/utils/tao-con-kiem-pham-vi-cha.spec.ts
+PASS src/documents/document-hydration.spec.ts
+PASS src/cases/cases-xuat-danh-sach.spec.ts
+PASS src/cases/evidence-governance/disclosure-manifest.spec.ts
+PASS src/cases/cases-journey.service.spec.ts
+PASS src/cases/evidence-governance/legacy-byte-eligibility.spec.ts
+PASS src/cases/governance/foundation-integration.spec.ts
+PASS src/admin/admin.service.spec.ts
+PASS src/cases/cases.controller.spec.ts
+PASS src/cases/cases-utdt.service.spec.ts
+PASS src/cases/cases-incident-prosecution.spec.ts
+PASS src/cases/evidence-governance/custody-facts.spec.ts
+PASS src/cases/cases-utdt-stats.service.spec.ts
+PASS src/cases/cases.update-ban-ghi-con.spec.ts
+PASS src/audit/audit.service.spec.ts
+[Nest] 30196  - 10/07/2026, 11:13:54 PM   ERROR [DynamicExportService] Lỗi hệ thống khi xuất chứng từ BIEN_NHAN cho hồ sơ p2: DB connection lost
+PASS src/document-templates/dynamic-export.service.spec.ts
+PASS src/cases/cases-stats.service.spec.ts
+PASS src/petitions/petitions.controller.spec.ts
+PASS src/cases/case-canonical-fields.spec.ts
+PASS src/lawyers/lawyers.service.spec.ts
+PASS src/cases/cases-mot-where.spec.ts
+PASS src/cases/cases-journey.controller.spec.ts
+PASS src/petitions/petitions.service.spec.ts
+  ● Console
+
+    console.warn
+      [PetitionsService] assignPetition: team team-001 has no leader — assignedToId left null
+
+      1682 |         resolvedAssignedToId = leader.userId;
+      1683 |       } else {
+    > 1684 |         console.warn(
+           |                 ^
+      1685 |           `[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`,
+      1686 |         );
+      1687 |       }
+
+      at PetitionsService.assignPetition (petitions/petitions.service.ts:1684:17)
+      at Object.<anonymous> (petitions/petitions.service.spec.ts:1841:7)
+
+    console.warn
+      [PetitionsService] assignPetition: team team-001 has no leader — assignedToId left null
+
+      1682 |         resolvedAssignedToId = leader.userId;
+      1683 |       } else {
+    > 1684 |         console.warn(
+           |                 ^
+      1685 |           `[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`,
+      1686 |         );
+      1687 |       }
+
+      at PetitionsService.assignPetition (petitions/petitions.service.ts:1684:17)
+      at Object.<anonymous> (petitions/petitions.service.spec.ts:1872:22)
+
+    console.warn
+      [PetitionsService] assignPetition: team team-001 has no leader — assignedToId left null
+
+      1682 |         resolvedAssignedToId = leader.userId;
+      1683 |       } else {
+    > 1684 |         console.warn(
+           |                 ^
+      1685 |           `[PetitionsService] assignPetition: team ${dto.assignedTeamId} has no leader — assignedToId left null`,
+      1686 |         );
+      1687 |       }
+
+      at PetitionsService.assignPetition (petitions/petitions.service.ts:1684:17)
+      at Object.<anonymous> (petitions/petitions.service.spec.ts:2512:22)
+
+PASS src/documents/documents.controller.spec.ts
+PASS src/reports/reports.controller.spec.ts
+PASS src/common/xuat-danh-sach/xuat-danh-sach.spec.ts
+PASS src/cases/dto/field-parity.dto.spec.ts
+PASS src/common/xuat-danh-sach/khai-cot-xuat.spec.ts
+PASS src/admin/bulk/case-business-worker-access.spec.ts
+PASS src/document-templates/document-templates.controller.spec.ts
+PASS src/proposals/optional-case-parent-access.spec.ts
+PASS src/conclusions/conclusions.service.spec.ts
+PASS src/incidents/incidents.service.spec.ts
+PASS src/proposals/proposals.controller.spec.ts
+PASS src/reports/monthly-package/monthly-report-package.service.spec.ts
+PASS src/incidents/incidents-vu-viec-phuong.service.spec.ts
+PASS src/cases/date-null-guard.gate.spec.ts
+PASS src/cases/bulk/cases.bulk.service.spec.ts
+PASS src/document-templates/ban-in-de-xuat-that.spec.ts
+PASS src/cases/governance/legal-deadline-integration.spec.ts
+PASS src/legacy-migration/cli/maintenance-preservation.spec.ts
+PASS src/audit/audit.controller.spec.ts
+PASS src/incidents/incidents-transitions-service.expert.spec.ts
+PASS src/case-child-access/case-direct-mutation-protocol.spec.ts
+PASS src/petitions/bulk/petitions.bulk.service.spec.ts
+PASS src/incidents/incidents-xuat-danh-sach.spec.ts
+PASS src/subjects/subjects.service.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6.controller.spec.ts
+PASS src/cases/governance/case-deadline-effect.spec.ts
+PASS src/cases/dto/update-case.dto.spec.ts
+PASS src/petitions/petitions-stats.service.spec.ts
+PASS src/petitions/petitions-don-trung.service.spec.ts
+PASS src/case-child-access/case-child-access.service.spec.ts
+PASS src/incidents/incidents-journey.service.spec.ts
+PASS src/delegations/delegations.service.spec.ts
+PASS src/cases/dto/legacy-form-parity.dto.spec.ts
+PASS src/document-templates/petition-templates-render.spec.ts
+PASS src/cases/cases-civil-overdue.spec.ts
+PASS src/incidents/incidents-ky-thong-ke.service.spec.ts
+PASS src/petitions/petitions-xuat-danh-sach.spec.ts
+PASS src/incidents/case-source-creation-access.spec.ts
+PASS src/common/utils/scope-dieu-phoi.spec.ts
+PASS src/case-child-access/case-source-merge-access.spec.ts
+PASS src/common/utils/scope-filter.util.spec.ts
+PASS src/petitions/petitions-journey.service.spec.ts
+PASS src/petitions/goi-y-ten-nguoi-gui.spec.ts
+PASS src/incidents/incidents-stats.service.spec.ts
+PASS src/proposals/proposals-tim-kiem.service.spec.ts
+PASS src/petitions/petitions-loai-don.service.spec.ts
+PASS src/incidents/incidents-mot-where.spec.ts
+PASS src/cases/dto/create-case.dto.spec.ts
+PASS src/incidents/incidents-release-compatibility.spec.ts
+PASS src/admin/vai-tro-quyen.spec.ts
+PASS src/cases/governance/legal-workflow.service.spec.ts
+PASS src/cases/governance/legal-classification.spec.ts
+PASS src/admin/dto/query-users.dto.spec.ts
+PASS src/investigation-supplements/investigation-supplements.service.spec.ts
+PASS src/subjects/bulk/subjects.bulk.export.spec.ts
+PASS src/incidents/bulk/incidents.bulk.service.spec.ts
+PASS src/incidents/incidents-result.service.spec.ts
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n-fail
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM unavailable
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:124:47)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n-exhaust
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM unavailable
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:148:47)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Push failed for notification n1
+[Nest] 30196  - 06/02/2026, 10:00:00 AM   ERROR [NotificationPushScheduler] Error: FCM error
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-push.scheduler.spec.ts:168:30)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/notifications/notification-push.scheduler.spec.ts
+PASS src/petitions/petitions.quyen-ghi.spec.ts
+PASS src/incidents/incidents-handoff.controller.spec.ts
+PASS src/incidents/incidents.quyen-ghi.spec.ts
+PASS src/incidents/incidents.controller.spec.ts
+PASS src/petitions/tieu-de-xuat-mot-ten.spec.ts
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] onCaseAssigned failed
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:102:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] onIncidentAssigned failed
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:154:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] onUydtAssigned failed
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:225:70)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] onCaseCreated failed
+[Nest] 30196  - 10/07/2026, 11:14:19 PM   ERROR [NotificationEventService] Error: DB down
+    at Object.<anonymous> (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\src\notifications\notification-event.service.spec.ts:258:56)
+    at Promise.finally.completed (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1557:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1497:10)
+    at _callCircusTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1007:40)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at processImmediate (node:internal/timers:472:9)
+    at _runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:947:3)
+    at C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:849:7
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:862:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at _runTestsForDescribeBlock (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:857:11)
+    at run (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:761:3)
+    at runAndTransformResultsToJestFormat (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\jestAdapterInit.js:1918:21)
+    at jestAdapter (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-circus\build\runner.js:101:19)
+    at runTestInternal (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:275:16)
+    at runTest (C:\PC02\pc02-case-management\.worktrees\case-governance-20261006\backend\node_modules\jest-runner\build\index.js:343:7)
+PASS src/notifications/notification-event.service.spec.ts
+PASS src/cases/governance/legal-split-source.spec.ts
+PASS src/cases/governance/legal-relation-revision.spec.ts
+PASS src/admin/case-authority.guard.spec.ts
+PASS src/admin/admin.controller.spec.ts
+PASS src/admin/bulk/case-business-job-access.spec.ts
+PASS src/reports/reports.service.spec.ts
+PASS src/incidents/incidents-view-predicates.spec.ts
+PASS src/conclusions/conclusions.controller.spec.ts
+PASS src/kpi/kpi.expert.spec.ts
+PASS src/petitions/petitions-mot-where.spec.ts
+PASS src/calendar-events/calendar-events.service.spec.ts
+PASS src/incidents/incidents-prosecution-integrity.spec.ts
+PASS src/cases/governance/case-configuration.service.spec.ts
+PASS src/shared/vks-meetings/vks-meetings.controller.spec.ts
+PASS src/admin/mo-khoa-tai-khoan.spec.ts
+PASS src/reports/query-overdue.dto.spec.ts
+PASS src/delegations/delegations.controller.spec.ts
+PASS src/document-templates/tich-san-khi-in.spec.ts
+PASS src/reports/so-sanh-ky-service.spec.ts
+PASS src/subjects/bulk/subjects.bulk.service.spec.ts
+PASS src/delegations/delegations-tim-kiem.service.spec.ts
+PASS src/cases/bulk/bulk-assignment-authority.spec.ts
+PASS src/admin/danh-sach-can-bo-kem-to.spec.ts
+PASS src/common/bca-excel-footer.spec.ts
+PASS src/calendar/calendar.service.spec.ts
+PASS src/cases/governance/case-principal-access.service.spec.ts
+PASS src/document-templates/khoa-to-tung.spec.ts
+PASS src/subjects/subjects.controller.spec.ts
+PASS src/lawyers/lawyers.controller.spec.ts
+PASS src/investigation-supplements/investigation-supplements.controller.spec.ts
+PASS src/documents/document-immutable-storage.spec.ts
+PASS src/admin/mo-khoa-hien-thi.spec.ts
+PASS src/lawyers/bulk/lawyers.bulk.export.spec.ts
+PASS src/cases/governance/split-allocation.service.spec.ts
+PASS src/admin/business-credential-acquisition.spec.ts
+PASS src/petitions/do-dai-that-phai-luu-duoc.spec.ts
+PASS src/admin-units/admin-units.service.spec.ts
+PASS src/cases/governance/legal-action.capabilities.spec.ts
+PASS src/case-child-access/case-child-module.integration.spec.ts
+PASS src/reports/monthly-package/monthly-report-builder.service.spec.ts
+PASS src/delegations/delegations-update.service.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6-export.service.spec.ts
+PASS src/admin/case-authority.spec.ts
+PASS src/incidents/bulk/incidents.bulk-race.spec.ts
+PASS src/notifications/notifications.controller.spec.ts
+PASS src/incidents/incidents-handoff.service.spec.ts
+PASS src/petitions/cot-he-cu-ghi-duoc.spec.ts
+PASS src/kpi/kpi.controller.spec.ts
+PASS src/kpi/kpi.service.spec.ts
+PASS src/shared/action-plans/action-plans.controller.spec.ts
+PASS src/calendar/calendar.controller.spec.ts
+PASS src/delegations/dto/update-delegation.dto.spec.ts
+PASS src/audit/dto/query-audit-logs.dto.spec.ts
+PASS src/conclusions/case-child-access.spec.ts
+PASS src/notifications/notification-sse.service.spec.ts
+PASS src/incidents/tinh-thoi-han.expert.spec.ts
+PASS src/auth/services/enrollment.service.spec.ts
+PASS src/notifications/notifications.service.spec.ts
+PASS src/document-templates/document-templates.service.spec.ts
+PASS src/petitions/dto/null-xoa-duoc.spec.ts
+PASS src/document-templates/case-dynamic-access.spec.ts
+PASS src/admin/bulk/bulk-import.parser.spec.ts
+PASS src/lawyers/bulk/lawyers.bulk.service.spec.ts
+PASS src/audit/case-audit-policy.spec.ts
+PASS src/case-child-access/default-required-field.integration.spec.ts
+PASS src/shared/vks-meetings/vks-meetings.service.spec.ts
+PASS src/petitions/docx-merge.service.spec.ts
+PASS src/reports/tdac/tdac-draft.service.spec.ts
+PASS src/cases/governance/configuration.validation.spec.ts
+PASS src/subjects/bulk/case-child-bulk-access.spec.ts
+PASS src/shared/action-plans/action-plans.service.spec.ts
+PASS src/cases/governance/representation-policy-search.spec.ts
+[Nest] 30196  - 10/07/2026, 11:14:34 PM    WARN [BoTimKiem] Không tiền giải được tên cán bộ cho "all" (vu-an): kết quả hỏi users không đúng hình dạng
+[Nest] 30196  - 10/07/2026, 11:14:34 PM    WARN [BoTimKiem] Không tiền giải được tên cán bộ cho "summary" (vu-an): kết quả hỏi users không đúng hình dạng
+[Nest] 30196  - 10/07/2026, 11:14:34 PM    WARN [BoTimKiem] Không tiền giải được tên cán bộ cho "summary" (vu-an): kết quả hỏi users không đúng hình dạng
+PASS src/document-templates/dynamic-export.readiness.spec.ts
+PASS src/kpi/pham-vi-don-vi.expert.spec.ts
+PASS src/reports/tdac/tdac.service.spec.ts
+PASS src/cases/governance/case-operations.filters.spec.ts
+PASS src/cases/governance/legal-workflow.validation.spec.ts
+PASS src/document-templates/cho-dien-mau-he-cu.gate.spec.ts
+PASS src/cases/governance/case-native-field-policy.spec.ts
+PASS src/cases/dto/delete-case.dto.spec.ts
+PASS src/cases/case-statistic.builder.spec.ts
+PASS src/case-child-access/case-source-creation.service.spec.ts
+PASS src/audit/audit.utils.spec.ts
+PASS src/petitions/dto/export-petitions-query.dto.spec.ts
+PASS src/calendar/case-calendar-access.spec.ts
+PASS src/reports/phu-luc-1-6/phu-luc-1-6.service.spec.ts
+PASS src/incidents/incidents-transitions.expert.spec.ts
+PASS src/cases/governance/case-outbox.worker.spec.ts
+PASS src/cases/governance/case-governance.contract.spec.ts
+PASS src/subjects/dto/query-subjects.dto.spec.ts
+PASS src/petitions/dto/query-petitions.dto.spec.ts
+PASS src/document-templates/fuzz-docx.expert.spec.ts
+PASS src/cases/governance/legal-action.validation.spec.ts
+PASS src/notifications/recipient-resolver.service.spec.ts
+PASS src/cases/governance/case-policy-search.spec.ts
+PASS src/reports/graph-access/case-graph-access.service.spec.ts
+PASS src/incidents/dto/update-incident.dto.spec.ts
+PASS src/cases/dto/restore-case.dto.spec.ts
+PASS src/cases/governance/case-outbox.retry.spec.ts
+[Nest] 30196  - 10/07/2026, 11:14:38 PM    WARN [CaseOutboxWorker] Internal Case outbox poll failed; retained for retry
+[Nest] 30196  - 10/07/2026, 11:14:38 PM    WARN [CaseOutboxWorker] Internal Case outbox poll failed; retained for retry
+PASS src/cases/governance/case-field-schema.service.spec.ts
+PASS src/document-templates/field-catalog.spec.ts
+PASS src/lawyers/dto/query-lawyers.dto.spec.ts
+PASS src/incidents/dto/transfer-incident.dto.spec.ts
+PASS src/cases/governance/legal-validation.boundaries.spec.ts
+PASS src/reports/so-sanh-ky/so-sanh.spec.ts
+PASS src/case-child-access/case-source-transport.spec.ts
+PASS src/document-templates/entity-placeholders.spec.ts
+PASS src/document-templates/bien-cu-khong-chan-luu.spec.ts
+PASS src/cases/governance/case-operations.service.spec.ts
+PASS src/case-child-access/case-graph.interceptor.spec.ts
+PASS src/petitions/sdt-bat-buoc-theo-nguon-don.spec.ts
+PASS src/document-templates/bien-mau-don-thu.gate.spec.ts
+PASS src/document-templates/huong-xu-ly.spec.ts
+PASS src/incidents/dto/field-parity.dto.spec.ts
+PASS src/document-templates/renderers/docx.renderer.spec.ts
+PASS src/document-templates/vong-doi-mau.spec.ts
+PASS src/petitions/huong-theo-noi-dung-don-vi.spec.ts
+PASS src/petitions/dto/create-petition.dto.spec.ts
+PASS src/document-templates/petition-seed.spec.ts
+PASS src/document-templates/o-rong-khong-duoc-xoa-trang.spec.ts
+PASS src/shared/action-plans/case-plan-access.spec.ts
+PASS src/petitions/cot-xuat-day-du-cat-dung.spec.ts
+PASS src/document-templates/popup-va-form-phai-ghi-cung-cot.gate.spec.ts
+PASS src/document-templates/field-catalog.hoten.spec.ts
+PASS src/investigation-supplements/dtbs-moc-ngay.spec.ts
+PASS src/reports/tdac/tdac-pham-vi.spec.ts
+PASS src/reports/tdac/tdac-export.service.spec.ts
+PASS src/reports/monthly-package/monthly-report.rules.spec.ts
+PASS src/reports/reports-export.service.spec.ts
+PASS src/petitions/dto/field-parity.dto.spec.ts
+PASS src/proposals/dto/create-proposal.dto.spec.ts
+PASS src/seed/case-governance-permissions.spec.ts
+  ● Console
+
+    console.log
+      [seed-quyen] 67 quyền khai, thêm mới 0; cấp thêm cho ADMIN 1.
+
+      at seedQuyen (../prisma/seed-quyen.ts:59:11)
+
+    console.log
+      [seed-quyen] 67 quyền khai, thêm mới 0; cấp thêm cho ADMIN 0.
+
+      at seedQuyen (../prisma/seed-quyen.ts:59:11)
+
+PASS src/admin/dto/create-user.dto.spec.ts
+PASS src/cases/xuat-day-du-vu-an.spec.ts
+PASS src/document-templates/khong-gian-chu-khi-xuong-dong.gate.spec.ts
+PASS src/petitions/tao-moi-ghi-ngay-edtf.spec.ts
+PASS src/legacy-migration/cli/enrich-subjects.spec.ts
+PASS src/reports/so-sanh-ky/ky-bao-cao.spec.ts
+PASS src/cases/governance/schema-contract.spec.ts
+PASS src/petitions/xuat-day-du-do-gia-tri.spec.ts
+PASS src/petitions/loai-thong-tin.rule.spec.ts
+PASS src/document-templates/docx-normalize.util.spec.ts
+PASS src/document-templates/renderers/ngat-doan-he-cu.spec.ts
+PASS src/petitions/petition-data.builder.spec.ts
+PASS src/petitions/huong-xu-ly.rule.spec.ts
+PASS src/reports/so-sanh-ky/dung-so-sanh.spec.ts
+PASS src/document-templates/in-nhu-he-cu.spec.ts
+PASS src/cases/legacy-form-parity.mapper.spec.ts
+PASS src/petitions/sua-ngay-edtf-khong-troi.spec.ts
+PASS src/document-templates/chon-can-bo-in.gate.spec.ts
+PASS src/petitions/moi-khoa-form-gui-len-deu-duoc-nhan.gate.spec.ts
+PASS src/document-templates/khoa-he-cu.spec.ts
+PASS prisma/seed-admin-units-runner.spec.ts
+PASS src/document-templates/docx-variables.util.spec.ts
+PASS src/petitions/gen-khai-xuat-day-du.gate.spec.ts
+PASS src/document-templates/moiNoiInNgayVietDon.gate.spec.ts
+PASS src/reports/so-sanh-ky/ngay-nghiep-vu.spec.ts
+PASS src/petitions/route-tinh-dung-truoc-id.gate.spec.ts
+PASS src/cases/doi-tuong-bi-can.spec.ts
+PASS src/cases/governance/legal-action.catalog.spec.ts
+PASS src/notifications/work-hours.util.spec.ts
+PASS src/document-templates/inNgayVietDonThieu.spec.ts
+PASS src/incidents/xuat-day-du-vu-viec.spec.ts
+PASS src/reports/so-sanh-ky/chi-tieu.spec.ts
+PASS src/document-templates/kieu-xuong-dong.gate.spec.ts
+PASS prisma/seed-admin-units-helpers.spec.ts
+
+Summary of all failing tests
+FAIL common/__tests__/khongBoQuaMaNguon.spec.ts
+  ● Danh sách bỏ qua của git không được nuốt mã nguồn › không tệp .ts/.tsx nào dưới src/ bị git bỏ qua
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 5
+
+    - Array []
+    + Array [
+    +   "backend/src/coverage/t3-evidence/lcov-report/block-navigation.js",
+    +   "backend/src/coverage/t3-evidence/lcov-report/prettify.js",
+    +   "backend/src/coverage/t3-evidence/lcov-report/sorter.js",
+    + ]
+
+      53 | describe('Danh sách bỏ qua của git không được nuốt mã nguồn', () => {
+      54 |   it('không tệp .ts/.tsx nào dưới src/ bị git bỏ qua', () => {
+    > 55 |     expect(maNguonBiBoQua()).toEqual([]);
+         |                              ^
+      56 |   });
+      57 |
+      58 |   /**
+
+      at Object.<anonymous> (common/__tests__/khongBoQuaMaNguon.spec.ts:55:30)
+
+FAIL common/validators/__tests__/is-ngay-that.spec.ts
+  ● CỔNG ô ngày › mọi ô ngày dùng @IsNgayThat, không dùng @IsDateString / @IsISO8601 trần
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+    - Array []
+    + Array [
+    +   "cases\\dto\\query-cases.dto.ts",
+    +   "cases\\governance\\case-principal-access.controller.ts",
+    + ]
+
+      84 |     };
+      85 |     duyet(goc);
+    > 86 |     expect(vi).toEqual([]);
+         |                ^
+      87 |   });
+      88 | });
+      89 |
+
+      at Object.<anonymous> (common/validators/__tests__/is-ngay-that.spec.ts:86:16)
+
+
+Test Suites: 2 failed, 7 skipped, 525 passed, 527 of 534 total
+Tests:       2 failed, 89 skipped, 7252 passed, 7343 total
+Snapshots:   0 total
+Time:        117.072 s, estimated 309 s
+Ran all test suites.
+Test results written to: ..\docs\test-evidence\case-governance\backend-frozen-final-20261007\backend-tests.json
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.

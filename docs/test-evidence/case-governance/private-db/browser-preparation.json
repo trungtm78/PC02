@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-10-06T06:21:09.246Z",
+  "namespace": "case-browser-635cbadd-5d7f-4f5f-82a5-9eb855784b63",
+  "database": "loopback55441/pc02_case_governance_uat",
+  "actors": 7,
+  "cases": 2,
+  "synthetic": true,
+  "publishedConfiguration": false,
+  "tokens": "private runtime only",
+  "verdict": "PREPARED_NOT_UAT_PASS"
+}

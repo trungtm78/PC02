@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -6,14 +8,21 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly casePolicy?: CaseNotificationPolicyService,
+  ) {}
+  private get policy() {
+    return this.casePolicy ?? new CaseNotificationPolicyService(this.prisma);
+  }
 
   // ── GET LIST ────────────────────────────────────────────────────────────
   async getList(userId: string, query: QueryNotificationsDto) {
     const { unreadOnly, limit = 20, offset = 0 } = query;
 
+    const visible = await this.policy.where(userId);
     const where: Prisma.NotificationWhereInput = {
-      userId,
+      ...visible,
       ...(unreadOnly ? { isRead: false } : {}),
     };
 
@@ -25,12 +34,16 @@ export class NotificationsService {
         skip: offset,
       }),
       this.prisma.notification.count({ where }),
-      this.prisma.notification.count({ where: { userId, isRead: false } }),
+      this.prisma.notification.count({
+        where: { ...(await this.policy.where(userId)), isRead: false },
+      }),
     ]);
 
     return {
       success: true,
-      data,
+      data: (
+        await Promise.all(data.map((row) => this.policy.serialize(userId, row)))
+      ).filter((row) => row !== null),
       total,
       unreadCount,
       limit,
@@ -41,7 +54,7 @@ export class NotificationsService {
   // ── GET UNREAD COUNT ─────────────────────────────────────────────────────
   async getUnreadCount(userId: string) {
     const count = await this.prisma.notification.count({
-      where: { userId, isRead: false },
+      where: { ...(await this.policy.where(userId)), isRead: false },
     });
     return { success: true, unreadCount: count };
   }
@@ -49,7 +62,7 @@ export class NotificationsService {
   // ── MARK ONE AS READ ─────────────────────────────────────────────────────
   async markAsRead(id: string, userId: string) {
     const notification = await this.prisma.notification.findFirst({
-      where: { id, userId },
+      where: { id, ...(await this.policy.where(userId)) },
     });
     if (!notification) {
       return { success: false, message: 'Notification not found' };
@@ -63,8 +76,12 @@ export class NotificationsService {
       where: { id },
       data: {
         isRead: true,
-        readAt: (notification as Record<string, unknown>).readAt as Date | null ?? now,
-        acknowledgedAt: (notification as Record<string, unknown>).acknowledgedAt as Date | null ?? now,
+        readAt:
+          ((notification as Record<string, unknown>).readAt as Date | null) ??
+          now,
+        acknowledgedAt:
+          ((notification as Record<string, unknown>)
+            .acknowledgedAt as Date | null) ?? now,
         pushNextRetryAt: null,
       },
     });
@@ -74,8 +91,13 @@ export class NotificationsService {
   // ── MARK ALL AS READ ─────────────────────────────────────────────────────
   async markAllAsRead(userId: string) {
     const result = await this.prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true, readAt: new Date(), acknowledgedAt: new Date(), pushNextRetryAt: null },
+      where: { ...(await this.policy.where(userId)), isRead: false },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+        acknowledgedAt: new Date(),
+        pushNextRetryAt: null,
+      },
     });
     return { success: true, updatedCount: result.count };
   }
@@ -83,7 +105,7 @@ export class NotificationsService {
   // ── DELETE ONE ───────────────────────────────────────────────────────────
   async deleteOne(id: string, userId: string) {
     const notification = await this.prisma.notification.findFirst({
-      where: { id, userId },
+      where: { id, ...(await this.policy.where(userId)) },
     });
     if (!notification) {
       return { success: false, message: 'Notification not found' };
@@ -95,13 +117,16 @@ export class NotificationsService {
   // ── DELETE ALL READ ──────────────────────────────────────────────────────
   async deleteAllRead(userId: string) {
     const result = await this.prisma.notification.deleteMany({
-      where: { userId, isRead: true },
+      where: { ...(await this.policy.where(userId)), isRead: true },
     });
     return { success: true, deletedCount: result.count };
   }
 
   // ── CREATE (internal use — called by other services) ─────────────────────
   async create(dto: CreateNotificationDto) {
+    const allowed = await this.policy.serialize(dto.userId, dto);
+    if (!allowed) return null;
+    dto = allowed;
     const notification = await this.prisma.notification.create({
       data: {
         userId: dto.userId,
@@ -109,7 +134,7 @@ export class NotificationsService {
         title: dto.title,
         message: dto.message,
         link: dto.link,
-        metadata: dto.metadata as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        metadata: (dto.metadata as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       },
     });
     return notification;

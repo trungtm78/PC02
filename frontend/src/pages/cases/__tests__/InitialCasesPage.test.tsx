@@ -23,9 +23,9 @@ const CO_TAT_THE: FeatureFlag[] = [
   { key: 'TIM_KIEM_THE', label: 'Tìm kiếm dạng thẻ', description: null, enabled: false, domain: null, rolloutPct: 100 },
 ];
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
+vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), put: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ canEdit: () => true }) }));
-const m = vi.mocked(api) as unknown as Record<'get' | 'put' | 'delete', ReturnType<typeof vi.fn>>;
+const m = vi.mocked(api) as unknown as Record<'get' | 'put' | 'post' | 'delete', ReturnType<typeof vi.fn>>;
 
 const HO_SO = [
   {
@@ -50,6 +50,8 @@ let tongDanhSach = 2;
 
 function traDuLieu() {
   m.get.mockImplementation((url: string) => {
+    if (url === '/cases/c1/governance') return Promise.resolve({ data: { data: { caseId: 'c1', updatedAt: '2026-10-06T00:00:00.000Z', handoffs: [{ id: 'h1', state: 'PENDING', updatedAt: '2026-10-05T00:00:00.000Z' }], events: [] } } });
+    if (url.endsWith('/capabilities')) return Promise.resolve({ data: { data: { enabled: true, operate: true, canEdit: true, actorId: 'recipient', caseAccessMode: 'INTERNAL' } } });
     if (url.startsWith('/cases/stats')) return Promise.resolve({ data: THONG_KE });
     if (url.startsWith('/cases?')) {
       return Promise.resolve({ data: { data: rong ? [] : HO_SO, total: rong ? 0 : tongDanhSach } });
@@ -193,22 +195,25 @@ describe('InitialCasesPage — dữ liệu thật, lọc ở máy chủ', () => 
     expect(screen.getByTestId('delete-confirm-modal')).toBeInTheDocument();
   });
 
-  it('Nhận xử lý → PUT trạng thái rồi tải lại; hỏng thì nói lý do', async () => {
-    m.put.mockResolvedValueOnce({ data: {} });
+  it('Nhận xử lý → lệnh tiếp nhận độc lập giữ trạng thái, hai phiên bản; hỏng vẫn giữ hộp và nói lý do', async () => {
+    m.post.mockResolvedValueOnce({ data: { data: { id: 'h1' } } });
     dung();
     await screen.findByTestId('initial-row-c1');
     const truoc = goi('/cases?').length;
     fireEvent.click(screen.getByTestId('btn-assign-c1'));
-    fireEvent.click(await screen.findByTestId('btn-confirm-assign'));
-    await waitFor(() => expect(m.put).toHaveBeenCalledWith('/cases/c1', { status: 'DANG_DIEU_TRA' }));
+    await waitFor(() => expect(screen.getByTestId('btn-confirm-assign')).toBeEnabled());
+    fireEvent.click(screen.getByTestId('btn-confirm-assign'));
+    await waitFor(() => expect(m.post).toHaveBeenCalledWith('/cases/c1/handoffs/h1/accept', expect.objectContaining({ expectedUpdatedAt: '2026-10-06T00:00:00.000Z', expectedAggregateUpdatedAt: '2026-10-05T00:00:00.000Z', requestKey: expect.any(String) })));
+    expect(m.put).not.toHaveBeenCalled();
     await waitFor(() => expect(goi('/cases?').length).toBeGreaterThan(truoc));
 
-    m.put.mockRejectedValueOnce({
+    m.post.mockRejectedValueOnce({
       isAxiosError: true,
       response: { status: 409, data: { success: false, error: { code: 'X', message: 'Hồ sơ đã đổi', details: [] } } },
     });
     fireEvent.click(await screen.findByTestId('btn-assign-c1'));
-    fireEvent.click(await screen.findByTestId('btn-confirm-assign'));
+    await waitFor(() => expect(screen.getByTestId('btn-confirm-assign')).toBeEnabled());
+    fireEvent.click(screen.getByTestId('btn-confirm-assign'));
     expect(await screen.findByTestId('initial-assign-error')).toHaveTextContent('Hồ sơ đã đổi');
   });
 });

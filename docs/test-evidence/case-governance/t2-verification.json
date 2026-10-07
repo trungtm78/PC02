@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-10-06T06:08:40.009Z",
+  "productHashesUnchanged": true,
+  "changedPaths": [],
+  "frontendFinalFull": {
+    "exitCode": 0,
+    "success": true,
+    "totalTests": 4322,
+    "passedTests": 4322,
+    "failedTests": 0,
+    "testFiles": 381
+  },
+  "frontendBuild": {
+    "exitCode": 0,
+    "modules": 3042
+  },
+  "frontendTypecheck": {
+    "exitCode": 0
+  },
+  "frontendScopedLint": {
+    "exitCode": 0
+  },
+  "backendFocused": {
+    "exitCode": 0,
+    "passedTests": 269
+  },
+  "backendScopedLint": {
+    "exitCode": 0
+  }
+}

@@ -10,6 +10,8 @@ import { buildScopeFilter } from '../../common/utils/scope-filter.util';
 import { BcaExcelHelper } from '../../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../../common/constants/status-labels.constants';
 import { ROLE_NAMES } from '../../common/constants/role.constants';
+import { CaseFieldSchemaService } from '../governance/case-field-schema.service';
+import { CaseGovernanceService } from '../governance/case-governance.service';
 import { runBulk } from '../../common/bulk/run-bulk';
 import type { BulkResult, BulkSkippedItem } from '../../common/bulk/run-bulk';
 
@@ -122,6 +124,19 @@ export class CasesBulkService {
       );
     }
 
+    await new CaseFieldSchemaService(
+      this.prisma,
+      new CaseGovernanceService(this.prisma),
+    ).assertQueryReadable(
+      this.prisma,
+      { actorId: input.actorId },
+      { caseType: input.caseType },
+      'export',
+    );
+    await new CaseGovernanceService(this.prisma).assertGeneralExport(
+      this.prisma,
+      { actorId: input.actorId },
+    );
     // Audit PII export trail — match exportWardCases (cases.service.ts:1568).
     await this.audit.log({
       userId: input.actorId,
@@ -148,6 +163,12 @@ export class CasesBulkService {
       ]);
     }
 
+    noiVaoWhere(where as Record<string, unknown>, [
+      await new CaseGovernanceService(this.prisma).readableCaseWhere(
+        this.prisma,
+        { actorId: input.actorId },
+      ),
+    ]);
     const records = await this.prisma.case.findMany({
       where,
       // Cùng thứ tự với DANH SÁCH trên màn hình (ngày tiếp nhận, mới→cũ). Trước đây
@@ -172,6 +193,16 @@ export class CasesBulkService {
     // ───── XLSX assembly (BCA-branded, match exportWardCases style) ─────
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Vụ án');
+    for (let index = 0; index < records.length; index++)
+      records[index] = await new CaseFieldSchemaService(
+        this.prisma,
+        new CaseGovernanceService(this.prisma),
+      ).filterCustomFields(
+        records[index],
+        { actorId: input.actorId },
+        this.prisma,
+        'export',
+      );
     const COL_COUNT = 8;
     const HEADERS = [
       'STT',
@@ -273,18 +304,23 @@ export class CasesBulkService {
     // 3) runBulk: preflight scope-filter + per-item tx assign.
     const result = await runBulk<{ caseId: string }, Prisma.TransactionClient>({
       ids: input.ids,
-      prisma: this.prisma as unknown as {
-        $transaction: <R>(
-          cb: (tx: Prisma.TransactionClient) => Promise<R>,
-        ) => Promise<R>;
+      prisma: {
+        $transaction: (cb) =>
+          this.prisma.$transaction(cb, {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          }),
       },
       preflight: async (ids) => {
+        const visibility = await new CaseGovernanceService(
+          this.prisma,
+        ).readableCaseWhere(this.prisma, { actorId: input.actorId });
         // Scope filter: caller submit ids ngoài dataScope → silent PERMISSION skip.
         // KHÔNG enumerate (mirror existing 404 pattern, E-H4).
         const inScope = await this.prisma.case.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
+            AND: [visibility],
             ...buildScopeFilter(input.dataScope, 'assign'),
           },
           select: { id: true },
@@ -296,16 +332,104 @@ export class CasesBulkService {
         return { validIds: ids.filter((id) => inScopeSet.has(id)), skipped };
       },
       executeOne: async (id, tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id=${input.actorId} FOR SHARE`;
+        const actorRole = await tx.user.findUnique({
+          where: { id: input.actorId },
+          select: { roleId: true },
+        });
+        if (!actorRole)
+          throw new ForbiddenException('Current dispatcher required');
+        await tx.$queryRaw`SELECT id FROM roles WHERE id=${actorRole.roleId} FOR SHARE`;
+        const core = new CaseGovernanceService(this.prisma);
+        if (
+          (await core.accessProfile(tx, { actorId: input.actorId }))
+            .caseAccessMode !== 'INTERNAL'
+        )
+          throw new ForbiddenException('Internal staff dispatch required');
+        await tx.$queryRaw`SELECT id FROM cases WHERE id=${id} FOR UPDATE`;
+        const snapshot = await new CaseGovernanceService(
+          this.prisma,
+        ).assertCaseAssignable(tx, id, { actorId: input.actorId });
         const expectedAt = input.expectedUpdatedAtByCaseId?.[id];
+        await core.validateAssignmentTarget(
+          tx,
+          input.assignedTeamId,
+          input.investigatorId ?? null,
+        );
+        const flag = await tx.featureFlag.findUnique({
+          where: { key: 'CASE_GOVERNANCE_V1' },
+        });
+        const governed = !!(
+          flag?.enabled ||
+          snapshot.governanceRuleVersionId ||
+          snapshot.fieldDefinitionVersionId ||
+          snapshot.governanceRevision > 0
+        );
+        let operationId: string | undefined;
+        if (governed) {
+          await core.ensureEnabled(tx);
+          if (!(await core.hasCapability(tx, input.actorId, 'operate')))
+            throw new ForbiddenException(
+              'Explicit governance operate capability required',
+            );
+          const payload = {
+            assignedTeamId: input.assignedTeamId,
+            investigatorId: input.investigatorId ?? null,
+            reason: input.reason,
+          };
+          const contentHash = mutationHash(
+            {
+              caseId: id,
+              operation: 'BULK_ASSIGN',
+              expectedUpdatedAt: expectedAt?.toISOString(),
+              payload,
+            },
+            input.actorId,
+          );
+          const requestKey = input.idempotencyKey ?? 'derived-' + contentHash;
+          operationId =
+            'case-bulk-assign-' +
+            createHash('sha256')
+              .update(`${input.actorId}:${id}:${requestKey}`)
+              .digest('hex');
+          const replay = await tx.caseGovernanceOperation.findUnique({
+            where: { id: operationId },
+          });
+          if (replay) {
+            if (replay.contentHash !== contentHash)
+              throw new BadRequestException(
+                'Bulk assignment request key content conflict',
+              );
+            return { caseId: id };
+          }
+          if (!expectedAt || !Number.isFinite(new Date(expectedAt).getTime()))
+            throw new BadRequestException(
+              'Bulk assignment requires an expected version for every Case',
+            );
+          if (
+            snapshot.assignedTeamId &&
+            snapshot.assignedTeamId !== input.assignedTeamId
+          )
+            throw new BadRequestException(
+              'Use handoff to transfer a Case to another team',
+            );
+        }
         try {
           await tx.case.update({
             where: {
               id,
-              ...(expectedAt ? { updatedAt: expectedAt } : {}),
+              updatedAt: expectedAt ?? snapshot.updatedAt,
+              status: snapshot.status,
+              intakeStage: snapshot.intakeStage,
+              governanceRevision: snapshot.governanceRevision,
+              assignedTeamId: snapshot.assignedTeamId,
+              investigatorId: snapshot.investigatorId,
+              deletedAt: null,
             },
             data: {
               assignedTeamId: input.assignedTeamId,
               investigatorId: input.investigatorId ?? null,
+              ...(governed ? { governanceRevision: { increment: 1 } } : {}),
             },
           });
         } catch (e) {
@@ -316,6 +440,46 @@ export class CasesBulkService {
             throw new ConcurrentModificationError(id);
           }
           throw e;
+        }
+        if (operationId) {
+          const payload = {
+            toTeamId: input.assignedTeamId,
+            toInvestigatorId: input.investigatorId ?? null,
+            reason: input.reason,
+          };
+          const contentHash = mutationHash(
+            {
+              caseId: id,
+              operation: 'BULK_ASSIGN',
+              expectedUpdatedAt: expectedAt?.toISOString(),
+              payload: {
+                assignedTeamId: input.assignedTeamId,
+                investigatorId: input.investigatorId ?? null,
+                reason: input.reason,
+              },
+            },
+            input.actorId,
+          );
+          await tx.caseGovernanceOperation.create({
+            data: {
+              id: operationId,
+              actorId: input.actorId,
+              caseId: id,
+              operation: 'BULK_ASSIGN',
+              requestKey: input.idempotencyKey ?? 'derived-' + contentHash,
+              contentHash,
+              result: { caseId: id },
+            },
+          });
+          await tx.caseGovernanceEvent.create({
+            data: {
+              caseId: id,
+              operationId,
+              actorId: input.actorId,
+              type: 'ASSIGNED',
+              payload,
+            },
+          });
         }
         // Audit inside SAME tx — rollback đồng bộ nếu post-audit step fail.
         await this.audit.logBulkItem(
@@ -407,11 +571,15 @@ export class CasesBulkService {
         ) => Promise<R>;
       },
       preflight: async (ids) => {
+        const visibility = await new CaseGovernanceService(
+          this.prisma,
+        ).readableCaseWhere(this.prisma, { actorId: input.actorId });
         // Single query: load all cases + linked counts + scope filter.
         const inScope = await this.prisma.case.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
+            AND: [visibility],
             ...buildScopeFilter(input.dataScope, 'write'),
           },
           include: {
@@ -483,9 +651,30 @@ export class CasesBulkService {
         return { validIds, skipped };
       },
       executeOne: async (id, tx) => {
+        await tx.$queryRaw`SELECT id FROM cases WHERE id=${id} FOR UPDATE`;
+        const snapshot = await new CaseGovernanceService(
+          this.prisma,
+        ).assertCaseWritable(tx, id, { actorId: input.actorId });
+        if (
+          await tx.caseEvidenceHold.count({
+            where: { caseId: id, releasedAt: null },
+          })
+        )
+          throw new BadRequestException(
+            'Active evidence hold protects this case',
+          );
         try {
           await tx.case.update({
-            where: { id, deletedAt: null },
+            where: {
+              id,
+              deletedAt: null,
+              updatedAt: snapshot.updatedAt,
+              status: CaseStatus.TIEP_NHAN,
+              intakeStage: snapshot.intakeStage,
+              governanceRevision: snapshot.governanceRevision,
+              assignedTeamId: snapshot.assignedTeamId,
+              investigatorId: snapshot.investigatorId,
+            },
             data: { deletedAt: new Date() },
           });
         } catch (e) {
@@ -566,8 +755,19 @@ export class CasesBulkService {
         ) => Promise<R>;
       },
       preflight: async (ids) => {
+        const visibility = await new CaseGovernanceService(
+          this.prisma,
+        ).readableCaseWhere(
+          this.prisma,
+          { actorId: input.actorId },
+          { includeDeleted: true },
+        );
         const deleted = await this.prisma.case.findMany({
-          where: { id: { in: ids }, deletedAt: { not: null } },
+          where: {
+            id: { in: ids },
+            deletedAt: { not: null },
+            AND: [visibility],
+          },
           select: { id: true },
         });
         const deletedSet = new Set(deleted.map((c) => c.id));
@@ -581,9 +781,19 @@ export class CasesBulkService {
         return { validIds: ids.filter((id) => deletedSet.has(id)), skipped };
       },
       executeOne: async (id, tx) => {
+        await tx.$queryRaw`SELECT id FROM cases WHERE id=${id} FOR UPDATE`;
+        const snapshot = await new CaseGovernanceService(
+          this.prisma,
+        ).assertCaseRestorable(tx, id, { actorId: input.actorId });
         try {
           await tx.case.update({
-            where: { id, deletedAt: { not: null } },
+            where: {
+              id,
+              deletedAt: { not: null },
+              updatedAt: snapshot.updatedAt,
+              intakeStage: snapshot.intakeStage,
+              governanceRevision: snapshot.governanceRevision,
+            },
             data: { deletedAt: null },
           });
         } catch (e) {
@@ -645,3 +855,6 @@ class ConcurrentModificationError extends Error {
     this.name = 'ConcurrentModificationError';
   }
 }
+import { createHash } from 'node:crypto';
+import { mutationHash } from '../governance/case-governance.contract';
+import { ForbiddenException } from '@nestjs/common';

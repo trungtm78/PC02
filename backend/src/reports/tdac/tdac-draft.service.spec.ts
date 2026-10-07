@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
 /**
  * TdacDraftService Unit Tests
  *
@@ -88,6 +89,7 @@ describe('TdacDraftService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },
         TdacDraftService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

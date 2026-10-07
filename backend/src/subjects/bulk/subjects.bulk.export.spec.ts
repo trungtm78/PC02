@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../../case-child-access/test-child-access-fixture';
 /**
  * SubjectsBulkService.bulkExport — F5 tests.
  */
@@ -39,7 +41,7 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         SubjectsBulkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -49,13 +51,15 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
   });
 
   it('throws BadRequestException when ids empty', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.bulkExport({ ids: [], dataScope: null, res: mockRes(), actorId: 'u1' }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('throws BadRequestException when ids > 1000', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.bulkExport({
         ids: Array.from({ length: 1001 }, (_, i) => `subj-${i}`),
         dataScope: null,
@@ -66,7 +70,8 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
   });
 
   it('audits SUBJECT_BULK_EXPORTED', async () => {
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.bulkExport({
       ids: ['subj-1'],
       dataScope: null,
       res: mockRes(),
@@ -82,7 +87,13 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
   });
 
   it('scope filter applied', async () => {
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,{
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      });
+await service.bulkExport({
       ids: ['subj-1'],
       dataScope: {
         userIds: ['u1'],
@@ -99,7 +110,8 @@ describe('SubjectsBulkService.bulkExport — F5', () => {
 
   it('sets xlsx headers', async () => {
     const res = mockRes();
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.bulkExport({
       ids: ['subj-1'],
       dataScope: null,
       res,

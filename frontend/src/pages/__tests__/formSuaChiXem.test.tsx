@@ -28,6 +28,7 @@ vi.mock('@/hooks/useFormShortcuts', () => ({
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
+      if (url.endsWith('/field-schema')) return Promise.resolve({ data: { data: null } });
       if (/^\/(cases|incidents|petitions)\/[^/]+$/.test(url)) {
         return Promise.resolve({
           data: {

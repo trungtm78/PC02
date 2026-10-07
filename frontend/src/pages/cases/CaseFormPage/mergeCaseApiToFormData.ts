@@ -1,6 +1,7 @@
 import type { CaseFormData, CaseStatisticForm } from './types';
 import { INITIAL_CASE_STATISTIC } from './types';
 import { toDateInput } from '@/lib/dates';
+import { hydrateCanonicalCaseFields } from '@/features/cases/canonical-fields';
 
 const STAT_DATE_KEYS = new Set([
   'ngayDangKyHoSo', 'ngayNopLuuHoSo', 'ngayThongKe', 'ngayPhanCongGiaiQuyetToGiac',
@@ -47,7 +48,7 @@ type ApiCaseRecord = {
   linkedIncidentId?: string | null;
   sourceDocumentNote?: string | null;
   autoLinkedIncident?: { id: string; code?: string; name?: string } | null;
-  metadata?: Record<string, string> | null;
+  metadata?: Record<string, unknown> | null;
   [k: string]: unknown;
 };
 
@@ -75,7 +76,7 @@ export function mergeCaseApiToFormData(
     const v = col[k];
     return v ? toDateInput(v as string) : undefined;
   };
-  return {
+  return hydrateCanonicalCaseFields(apiData, {
     ...prev,
     caseTitle:             apiData.name                  ?? prev.caseTitle,
     criminalType:          apiData.crime                 ?? prev.criminalType,
@@ -358,5 +359,5 @@ export function mergeCaseApiToFormData(
     lenhNhapKho:              cs('lenhNhapKho')              ?? meta.lenhNhapKho ?? prev.lenhNhapKho,
     noiLuuTruBaoQuan:         cs('noiLuuTruBaoQuan')         ?? meta.noiLuuTruBaoQuan ?? prev.noiLuuTruBaoQuan,
     toiDanhChinhKhoiToId:     cs('toiDanhChinhKhoiToId')     ?? meta.toiDanhChinhKhoiToId ?? prev.toiDanhChinhKhoiToId,
-  };
+  });
 }

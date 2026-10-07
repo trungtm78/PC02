@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-10-06T05:29:35.194Z",
+  "side": "backend",
+  "label": "baseline",
+  "command": [
+    "C:\\Program Files\\nodejs\\node.exe",
+    "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest\\bin\\jest.js",
+    "--runInBand",
+    "--json",
+    "--outputFile=C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\docs\\test-evidence\\case-governance\\baseline\\backend-tests.json"
+  ],
+  "exit": 0,
+  "elapsedMs": 410853,
+  "passed": 6271,
+  "failed": 0,
+  "pending": 16,
+  "total": 6287,
+  "failures": []
+}

@@ -1,3 +1,4 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
@@ -56,6 +57,7 @@ export class IncidentsBulkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly caseBoundary: CaseChildAccessService,
   ) {}
 
   async bulkAssign(
@@ -387,10 +389,9 @@ export class IncidentsBulkService {
       Prisma.TransactionClient
     >({
       ids: input.ids,
-      prisma: this.prisma as unknown as {
-        $transaction: <R>(
-          cb: (tx: Prisma.TransactionClient) => Promise<R>,
-        ) => Promise<R>;
+      prisma: {
+        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) =>
+          this.caseBoundary.transaction(cb),
       },
       preflight: async (ids) => {
         const inScope = await this.prisma.incident.findMany({
@@ -445,53 +446,60 @@ export class IncidentsBulkService {
         }
         return { validIds, skipped };
       },
-      executeOne: async (id, tx) => {
-        const snapshot = snapshots.get(id);
-        if (!snapshot) throw new ConcurrentModificationError(id);
-        try {
-          await tx.incident.update({
-            where: {
-              id,
-              deletedAt: null,
-              updatedAt: snapshot.updatedAt,
-              status: snapshot.status,
-              intakeStage: snapshot.intakeStage,
-              assignedTeamId: snapshot.assignedTeamId,
-              investigatorId: snapshot.investigatorId,
-              documents: { none: { deletedAt: null } },
-              petitions: { none: { deletedAt: null } },
-              AND: [
-                {
-                  OR: [
-                    { intakeStage: null },
-                    { intakeStage: { not: 'CHO_NHAN' } },
+      executeOne: async (id, tx) =>
+        this.caseBoundary.sourceDeletion(
+          'Incident',
+          id,
+          input.actorId,
+          async (tx) => {
+            const snapshot = snapshots.get(id);
+            if (!snapshot) throw new ConcurrentModificationError(id);
+            try {
+              await tx.incident.update({
+                where: {
+                  id,
+                  deletedAt: null,
+                  updatedAt: snapshot.updatedAt,
+                  status: snapshot.status,
+                  intakeStage: snapshot.intakeStage,
+                  assignedTeamId: snapshot.assignedTeamId,
+                  investigatorId: snapshot.investigatorId,
+                  documents: { none: { deletedAt: null } },
+                  petitions: { none: { deletedAt: null } },
+                  AND: [
+                    {
+                      OR: [
+                        { intakeStage: null },
+                        { intakeStage: { not: 'CHO_NHAN' } },
+                      ],
+                    },
                   ],
                 },
-              ],
-            },
-            data: { deletedAt: new Date() },
-          });
-        } catch (e) {
-          if ((e as { code?: string })?.code === 'P2025') {
-            throw new ConcurrentModificationError(id);
-          }
-          throw e;
-        }
-        await this.audit.logBulkItem(
-          {
-            bulkOperationId,
-            userId: input.actorId,
-            action: 'INCIDENT_DELETED',
-            subject: 'Incident',
-            subjectId: id,
-            metadata: { reason: input.reason },
-            ipAddress: input.meta?.ipAddress,
-            userAgent: input.meta?.userAgent,
+                data: { deletedAt: new Date() },
+              });
+            } catch (e) {
+              if ((e as { code?: string })?.code === 'P2025') {
+                throw new ConcurrentModificationError(id);
+              }
+              throw e;
+            }
+            await this.audit.logBulkItem(
+              {
+                bulkOperationId,
+                userId: input.actorId,
+                action: 'INCIDENT_DELETED',
+                subject: 'Incident',
+                subjectId: id,
+                metadata: { reason: input.reason },
+                ipAddress: input.meta?.ipAddress,
+                userAgent: input.meta?.userAgent,
+              },
+              tx,
+            );
+            return { incidentId: id };
           },
           tx,
-        );
-        return { incidentId: id };
-      },
+        ),
     });
 
     const reclassified = reclassifyConcurrent(

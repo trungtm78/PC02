@@ -1,0 +1,934 @@
+{
+  "timestamp": "2026-10-07T16:53:15.759Z",
+  "kind": "API CREATE stage only; visible-detail/form/export/access/clone and action UAT still NOT_RUN",
+  "namespace": "case-fields-uat-a946c3f1-2004-4d5b-b13a-056e1f49d32f",
+  "caseId": "cmuycisxo0000lom7gybhjcfx",
+  "sourceFreeze": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\docs\\test-evidence\\case-governance\\final-source-freeze.json",
+  "results": [
+    {
+      "id": "CG01-F001-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "baoCaoBanGiamDoc",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F002-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "canCuKhongKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F003-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "canCuPhucHoiVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F004-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "canCuTamDinhChiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F005-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "canCuTamDinhChiVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F006-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "capDoToiPham",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F007-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "cccdCungCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F008-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "chuyenVuAnChoCQK",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F009-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "chuyenVuViecDonViKhac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F010-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "crimeChinhId",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F011-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "description",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F012-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "diaChiCungCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F013-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "dieuTraVienText",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F014-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "doVatTaiLieuKemTheo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F015-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ghiChuKhac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F016-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ghiChuNhapHoSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F017-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ghiChuTrungDon",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F018-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ketQuaXuLyKhac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F019-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "khacPhucLyDoTDCVuViec",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F020-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "laCongNgheCao",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F021-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "lanhDaoToTung",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F022-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "lenhNhapKho",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F023-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "loaiThongTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F024-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "lyDoKhongKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F025-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "lyDoTamDinhChiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F026-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "lyDoTamDinhChiVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F027-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayBanAnCoHieuLuc",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F028-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayCapCccd",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F029-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayDeXuat",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F030-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayDinhChiVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F031-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayGiaoDonViGiaiQuyet",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F032-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayHetThoiHieu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F033-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayHetThoiHieuVuViec",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F034-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F035-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayKLDT",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F036-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayNhapVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F037-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayPhieuChuyen",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F038-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayPhucHoi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F039-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayPhucHoiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F040-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayQDDieuTraLai",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F041-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayQDKhongKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F042-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayQDPhanCongNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F043-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayQDTamDinhChiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F044-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayTachHanhVi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F045-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayTachVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F046-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayTamDinhChi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F047-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayTiepNhanNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F048-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayVietDon",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F049-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "ngayXayRa",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F050-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "nghiVanDoiTuong",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F051-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "nguonDon",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F052-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "nhanXet",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F053-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "nhapVaoVuViecSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F054-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "noiCapCccd",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F055-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "noiLuuTruBaoQuan",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F056-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "noiXayRa",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F057-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "noiXayRaPhuongXa",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F058-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "phanLoaiDanSu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F059-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "phanLoaiNguonTinBanDau",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F060-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "phuongThucThuDoan",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F061-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "sdtCungCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F062-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "sinhNamCungCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F063-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soBanAnCoHieuLuc",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F064-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soKLDT",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F065-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soPhieuChuyen",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F066-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soPhucHoiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F067-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDDieuTraLai",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F068-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDDinhChiVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F069-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDKhongKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F070-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDNhapVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F071-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDPhanCongNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F072-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDTachHanhVi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F073-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDTachVuAn",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F074-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQDTamDinhChiNguonTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F075-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQuyetDinhKhoiTo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F076-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQuyetDinhPhucHoi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F077-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "soQuyetDinhTamDinhChi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F078-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.coBangNhom",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F079-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.coGhiAmGhiHinh",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F080-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.coSuDungKQGhiAmTrongXetXu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F081-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.coVPHC",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F082-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.dieuTraMoRong",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F083-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.donViBaoQuanHoSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F084-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ghiAmGhiHinhDaDuocXetXu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F085-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.hoSoLuu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F086-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.khongGAGHNhungToaYeuCau",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F087-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.laVuAnGhiAmGhiHinh",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F088-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayBatKhanCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F089-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayDangKyHoSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F090-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayDauThu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F091-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayNopLuuHoSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F092-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayPhamToiQuaTang",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F093-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayPhanCongGiaiQuyetToGiac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F094-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayPhatHienDauHieu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F095-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayThongKe",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F096-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.ngayTiepNhanTin",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F097-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soBangNhomBatDuoc",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F098-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soBiCanCoGhiAm",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F099-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soBiCanVksYeuCauGhiAm",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F100-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F101-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDangKyHoSo",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F102-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDoiTuong",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F103-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDoiTuongBiBatVuAnKhac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F104-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDoiTuongDaBat",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F105-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDoiTuongSuuTraHiemNghi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F106-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soDoiTuongVPHC",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F107-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soLuongBiHai",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F108-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soLuongNguoiChet",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F109-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soNguoiBiPhatTien",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F110-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soNguoiBiThuong",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F111-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soSungThuHoi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F112-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soThuocNoThuHoi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F113-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soTienBiThietHai",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F114-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.soTienThuHoi",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F115-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.suDungVuKhiNong",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F116-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.tongSoBienBanGhiLoiKhai",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F117-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.tongSoBienBanHoiCung",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F118-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.tongSoBienBanHoiCungCoGhiAm",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F119-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.tongTienPhatHanhChinh",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F120-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.vksYeuCauGhiAm",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F121-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "statistic.vuAnDaDuocXetXu",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F122-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "supervisingUnit",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F123-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "tdcKhacPhucBienBan",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F124-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "tdcKhacPhucLyDoBienPhap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F125-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "tenCungCap",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F126-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "tienDoKhacPhucTDCVuViec",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F127-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "toiDanhBanDau",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F128-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "toiDanhChinhKhoiToId",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F129-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "toiDanhKhacIds",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F130-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "utdt_thoiHanUyThac",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F131-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "vatChungMoTa",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    },
+    {
+      "id": "CG01-F132-CREATE",
+      "stage": "API_TYPED_VALUE_PERSISTENCE",
+      "field": "vuViecTamDungTruoc2015",
+      "status": "PASS",
+      "fullCriticalUatStatus": "NOT_RUN"
+    }
+  ],
+  "verdict": "API_STAGE_PASS_NOT_FULL_UAT"
+}

@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from '../reports/graph-access/case-graph-access.service';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -48,6 +49,7 @@ describe('KpiService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },
         KpiService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

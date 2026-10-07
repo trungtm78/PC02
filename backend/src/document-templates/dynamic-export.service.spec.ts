@@ -1,3 +1,4 @@
+import { CaseGovernanceService } from '../cases/governance/case-governance.service';
 import { Writable } from 'stream';
 import PizZip from 'pizzip';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
@@ -29,12 +30,15 @@ const T_NUM = { id: 't1', code: 'QD-KTVA', entityType: 'VU_AN', status: 'active'
 const T_NONUM = { id: 't2', code: 'BB-KN', entityType: 'VU_AN', status: 'active', needsNumber: false, numberSeriesId: null, fileSha: 'sha2', fileBytes: makeDocx('Bien ban {tenVuAn}') };
 
 describe('DynamicExportService', () => {
+  afterEach(()=>jest.restoreAllMocks());
   let svc: DynamicExportService;
   let prisma: any;
   let docNums: any;
   let docxMerge: any;
 
   beforeEach(() => {
+    jest.spyOn(CaseGovernanceService.prototype,'assertGeneralExport').mockResolvedValue(undefined);
+    jest.spyOn(DynamicExportService.prototype as never,'authorizedRecord' as never).mockImplementation(((_type:unknown,_id:unknown,record:unknown)=>Promise.resolve(record)) as never);
     prisma = {
       documentTemplate: { findMany: jest.fn() },
       documentRenderLog: { create: jest.fn().mockResolvedValue({}) },

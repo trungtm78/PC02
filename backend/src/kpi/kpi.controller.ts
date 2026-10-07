@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../reports/graph-access/case-graph-access.interceptor';
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { KpiService } from './kpi.service';
 import { QueryKpiDto } from './dto/query-kpi.dto';
@@ -6,6 +8,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('kpi')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class KpiController {

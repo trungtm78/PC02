@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture,ordinaryCaseParentFixture} from './governance/case-ordinary-test.fixture';
 /**
  * UTDT (Ủy Thác Điều Tra) — CasesService tests
  * Phase 3 TDD: RED first, then GREEN in cases.service.ts
@@ -38,7 +39,7 @@ import {
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
-const mockPrismaCore = {
+const mockPrismaCore = {...ordinaryCaseAuthorityFixture(),
   case: {
     create: jest.fn(),
     findMany: jest.fn(),
@@ -48,7 +49,7 @@ const mockPrismaCore = {
     count: jest.fn(),
   },
   petition: { create: jest.fn(), findFirst: jest.fn() },
-  user: { findUnique: jest.fn() },
+  user: { findUnique: jest.fn().mockResolvedValue(ordinaryCaseActorFixture()) },
   team: { findUnique: jest.fn() },
   caseStatusHistory: { create: jest.fn() },
   documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
@@ -57,7 +58,7 @@ const mockPrismaCore = {
   document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
   $queryRaw: jest.fn().mockResolvedValue([]),
 };
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
   ...mockPrismaCore,
   $transaction: jest.fn((cb: (tx: unknown) => Promise<unknown>) =>
     cb(mockPrismaCore),
@@ -83,7 +84,7 @@ const mockDocNumbers = {
 };
 
 const baseCase = {
-  id: 'case-utdt-001',
+  id: 'case-utdt-001',sensitivity:'NORMAL',
   name: 'Ủy thác test',
   crime: null,
   status: CaseStatus.TIEP_NHAN,
@@ -123,6 +124,7 @@ describe('UTDT — CasesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(ordinaryCaseActorFixture());
     mockPrisma.case.findMany.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -158,7 +160,7 @@ describe('UTDT — CasesService', () => {
     });
 
     it('(a) stores caseType=UY_THAC_DIEU_TRA and caseProvenance=UY_THAC_DIEU_TRA', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({
+      mockPrisma.user.findUnique.mockResolvedValue({...ordinaryCaseActorFixture(),
         id: 'user-001',
         teams: [],
       });

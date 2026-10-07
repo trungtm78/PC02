@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IncidentsService } from './incidents.service';
@@ -35,7 +39,7 @@ describe('IncidentsService — kỳ thống kê áp giống nhau cho thống kê
     const settings = { getValue: jest.fn(), getKyThongKe: jest.fn().mockResolvedValue(ky) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
@@ -87,7 +91,7 @@ describe('IncidentsService — kỳ thống kê áp giống nhau cho thống kê
     const settings = { getValue: jest.fn(), getKyThongKe: jest.fn().mockResolvedValue(ky) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },

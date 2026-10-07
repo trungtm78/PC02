@@ -1,4 +1,10 @@
-import { IsString, IsOptional, MaxLength, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /**
@@ -7,6 +13,13 @@ import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
  * EC-01: Mã vụ án trùng → hệ thống trả về lỗi hợp lệ
  */
 export class ProsecuteIncidentDto {
+  @IsOptional()
+  @IsObject()
+  caseCustomFields?: Record<string, unknown>;
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  requestKey?: string;
   // Tên vụ án — bắt buộc (FRD: copy sang Case Management)
   @IsString()
   @MaxLength(500)

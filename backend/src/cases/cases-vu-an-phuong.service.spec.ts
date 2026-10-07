@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture,ordinaryCaseParentFixture} from './governance/case-ordinary-test.fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
@@ -14,8 +15,9 @@ import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
 import * as ExcelJSDoc from 'exceljs';
 import { PassThrough } from 'stream';
 
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
   case: {
+    findFirst:ordinaryCaseParentFixture(),
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),
     groupBy: jest.fn().mockResolvedValue([]),

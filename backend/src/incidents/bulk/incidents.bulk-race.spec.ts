@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../../case-child-access/test-child-access-fixture';
 import { IncidentsBulkService } from './incidents.bulk.service';
 
 interface RaceWrite {
@@ -55,7 +57,7 @@ describe('PR01: completed handoff/status change after bulk preflight', () => {
     };
     const result = await new IncidentsBulkService(
       db as never,
-      audit as never,
+      audit as never, ordinaryChildFixture(db as never) as never
     ).bulkDelete({
       ids: ['i1'],
       actorId: 'actor',
@@ -115,7 +117,7 @@ describe('PR01: completed handoff/status change after bulk preflight', () => {
         logBulkItem: jest.fn(),
         completeBulk: jest.fn(),
       };
-      const service = new IncidentsBulkService(db as never, audit as never);
+      const service = new IncidentsBulkService(db as never, audit as never, ordinaryChildFixture(db as never) as never);
       const base = {
         ids: ['i1'],
         actorId: 'actor',
@@ -185,7 +187,7 @@ describe('PR01: completed handoff/status change after bulk preflight', () => {
     };
     const result = await new IncidentsBulkService(
       db as never,
-      audit as never,
+      audit as never, ordinaryChildFixture(db as never) as never
     ).bulkAssign({
       ids: ['i1'],
       actorId: 'actor',

@@ -11,6 +11,7 @@ afterEach(() => vi.restoreAllMocks());
 vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn((path: string) => {
+      if (path.endsWith('/field-schema')) return Promise.resolve({ data: { data: null } });
       if (path.endsWith("/subjects"))
         return Promise.resolve({
           data: {
@@ -282,12 +283,14 @@ describe("CaseFormPage clone navigation", () => {
     fireEvent.change(screen.getByTestId("stage-file-input"), {
       target: { files: [new File(["file"], "delegation.pdf", { type: "application/pdf" })] },
     });
+    await waitFor(() => expect(screen.getByTestId("btn-save")).toBeEnabled());
     fireEvent.click(screen.getByTestId("btn-save"));
     fireEvent.click(await screen.findByTestId("confirm-case-save"));
     expect(await screen.findByTestId("stage-retry")).toBeInTheDocument();
     expect(vi.mocked(api.post).mock.calls.filter(([path]) => path === "/cases")).toHaveLength(1);
     fireEvent.click(screen.getByTestId("stage-retry"));
     await waitFor(() => expect(screen.queryByTestId("stage-retry")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("btn-save")).toBeEnabled());
     fireEvent.click(screen.getByTestId("btn-save"));
     await waitFor(() => expect(vi.mocked(api.put)).toHaveBeenCalledWith("/cases/case-created", expect.anything()));
     expect(vi.mocked(api.post).mock.calls.filter(([path]) => path === "/cases")).toHaveLength(1);

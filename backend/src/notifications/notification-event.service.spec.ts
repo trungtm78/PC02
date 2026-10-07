@@ -1,3 +1,4 @@
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationEventService } from './notification-event.service';
 import { NotificationSseService } from './notification-sse.service';
@@ -37,7 +38,7 @@ describe('NotificationEventService', () => {
     mockPrisma.notificationPreference.findUnique.mockResolvedValue(null); // default prefs
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{provide:CaseNotificationPolicyService,useValue:{where:jest.fn((userId:string)=>Promise.resolve({userId})),serialize:jest.fn((_actor:string,row:unknown)=>Promise.resolve(row))}},
         NotificationEventService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: NotificationSseService, useValue: mockSse },

@@ -30,8 +30,16 @@ function makeMockPrisma(initial: {
     detectedType: string | null;
     importLogId: string;
   }>;
-  existingCases?: Array<{ id: string; caseCode: string | null; unit?: string | null }>;
-  existingIncidents?: Array<{ id: string; code: string; unitId?: string | null }>;
+  existingCases?: Array<{
+    id: string;
+    caseCode: string | null;
+    unit?: string | null;
+  }>;
+  existingIncidents?: Array<{
+    id: string;
+    code: string;
+    unitId?: string | null;
+  }>;
 }) {
   const state = {
     log: initial.log,
@@ -59,8 +67,19 @@ function makeMockPrisma(initial: {
     },
     case: {
       findMany: jest.fn(
-        async ({ where }: { where: { caseCode: { in: string[] } } }) =>
-          state.existingCases.filter((c) => where.caseCode.in.includes(c.caseCode ?? '')),
+        async ({
+          where,
+        }: {
+          where: { caseCode?: { in: string[] }; importLogId?: string };
+        }) =>
+          where.importLogId
+            ? state.casesCreated.map((record, index) => ({
+                id: `c-${index + 1}`,
+                ...record,
+              }))
+            : state.existingCases.filter((c) =>
+                where.caseCode!.in.includes(c.caseCode ?? ''),
+              ),
       ),
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         state.casesCreated.push(data);
@@ -79,14 +98,35 @@ function makeMockPrisma(initial: {
         state.incidentsCreated.push(data);
         return { id: `i-${state.incidentsCreated.length}`, ...data };
       }),
-      deleteMany: jest.fn(async () => ({ count: state.incidentsCreated.length })),
+      deleteMany: jest.fn(async () => ({
+        count: state.incidentsCreated.length,
+      })),
       count: jest.fn(async () => 0),
       fields: { importedAt: 'importedAt' },
     },
     subject: { count: jest.fn(async () => 0) },
     lawyer: { count: jest.fn(async () => 0) },
     evidence: { count: jest.fn(async () => 0) },
-    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
+    caseAssetVersion: { count: jest.fn(async () => 0) },
+    caseCustodyEvent: { count: jest.fn(async () => 0) },
+    caseDisclosurePacket: { count: jest.fn(async () => 0) },
+    caseEvidenceHold: { count: jest.fn(async () => 0) },
+    caseRepresentationGrant: { count: jest.fn(async () => 0) },
+    caseRetentionPolicy: { count: jest.fn(async () => 0) },
+    caseDispositionRequest: { count: jest.fn(async () => 0) },
+    caseDecision: { count: jest.fn(async () => 0) },
+    caseRelation: { count: jest.fn(async () => 0) },
+    caseHandoff: { count: jest.fn(async () => 0) },
+    caseActionRequest: { count: jest.fn(async () => 0) },
+    caseGovernanceEvent: { count: jest.fn(async () => 0) },
+    caseGovernanceOperation: { count: jest.fn(async () => 0) },
+    caseGovernanceTask: { count: jest.fn(async () => 0) },
+    caseGovernanceOutbox: { count: jest.fn(async () => 0) },
+    caseGovernanceGrant: { count: jest.fn(async () => 0) },
+    $queryRaw: jest.fn(),
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    ),
   };
 
   return { prisma, state };
@@ -116,17 +156,23 @@ describe('XlsxImportCommitService', () => {
     it('rejects non-admin on dryRun', async () => {
       const { prisma } = makeMockPrisma({ log: null });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.dryRun('log-1', INVESTIGATOR)).rejects.toThrow(/quản trị viên/i);
+      await expect(svc.dryRun('log-1', INVESTIGATOR)).rejects.toThrow(
+        /quản trị viên/i,
+      );
     });
     it('rejects non-admin on commit', async () => {
       const { prisma } = makeMockPrisma({ log: null });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.commit('log-1', INVESTIGATOR)).rejects.toThrow(/quản trị viên/i);
+      await expect(svc.commit('log-1', INVESTIGATOR)).rejects.toThrow(
+        /quản trị viên/i,
+      );
     });
     it('rejects non-admin on rollback', async () => {
       const { prisma } = makeMockPrisma({ log: null });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.rollback('log-1', INVESTIGATOR)).rejects.toThrow(/quản trị viên/i);
+      await expect(svc.rollback('log-1', INVESTIGATOR)).rejects.toThrow(
+        /quản trị viên/i,
+      );
     });
   });
 
@@ -135,7 +181,9 @@ describe('XlsxImportCommitService', () => {
     it('throws 404 when log not found', async () => {
       const { prisma } = makeMockPrisma({ log: null });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.dryRun('missing', ADMIN_A)).rejects.toThrow(/không tồn tại/);
+      await expect(svc.dryRun('missing', ADMIN_A)).rejects.toThrow(
+        /không tồn tại/,
+      );
     });
 
     it('groups staging rows by sheet and returns sample per sheet', async () => {
@@ -275,7 +323,9 @@ describe('XlsxImportCommitService', () => {
         status: XLSX_IMPORT_STATUS.PENDING_SECOND_CONFIRM,
         requiresSecondConfirm: true,
       });
-      expect((state.log as { firstConfirmById: string }).firstConfirmById).toBe('admin-a');
+      expect((state.log as { firstConfirmById: string }).firstConfirmById).toBe(
+        'admin-a',
+      );
       expect(state.casesCreated).toHaveLength(0);
       expect(state.incidentsCreated).toHaveLength(0);
     });
@@ -289,7 +339,9 @@ describe('XlsxImportCommitService', () => {
       };
       const { prisma } = makeMockPrisma({ log: pending });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.commit('log-c', ADMIN_A)).rejects.toThrow(/tự xác nhận lần 2/);
+      await expect(svc.commit('log-c', ADMIN_A)).rejects.toThrow(
+        /tự xác nhận lần 2/,
+      );
     });
 
     it('different admin B within 24h materialises staging and sets COMMITTED', async () => {
@@ -357,7 +409,9 @@ describe('XlsxImportCommitService', () => {
       expect(state.incidentsCreated).toHaveLength(1);
       expect(state.incidentsCreated[0].createdById).toBe('admin-b');
       expect(state.incidentsCreated[0].canBoNhapId).toBe('admin-b');
-      expect((state.log as { secondConfirmById: string }).secondConfirmById).toBe('admin-b');
+      expect(
+        (state.log as { secondConfirmById: string }).secondConfirmById,
+      ).toBe('admin-b');
     });
 
     it('admin B past 24h rejects with TTL_EXPIRED', async () => {
@@ -385,7 +439,9 @@ describe('XlsxImportCommitService', () => {
       const failed = { ...baseLog, status: XLSX_IMPORT_STATUS.FAILED };
       const { prisma } = makeMockPrisma({ log: failed });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.commit('log-c', ADMIN_A)).rejects.toThrow(/Parser thất bại/);
+      await expect(svc.commit('log-c', ADMIN_A)).rejects.toThrow(
+        /Parser thất bại/,
+      );
     });
 
     it('rejects commit on ROLLED_BACK log', async () => {
@@ -468,7 +524,9 @@ describe('XlsxImportCommitService', () => {
       const { prisma } = makeMockPrisma({ log, staging });
       const svc = new XlsxImportCommitService(prisma as never);
       const result = await svc.dryRun('log-dup', ADMIN_A);
-      const dupBatch = result.conflicts.filter((c) => c.reason === 'duplicate_in_batch');
+      const dupBatch = result.conflicts.filter(
+        (c) => c.reason === 'duplicate_in_batch',
+      );
       expect(dupBatch.length).toBeGreaterThanOrEqual(2);
       expect(dupBatch[0].candidateCode).toBe('VA-100');
     });
@@ -577,7 +635,10 @@ describe('XlsxImportCommitService', () => {
         ],
       });
       // Pretend prior commit already materialised 2 cases
-      state.casesCreated.push({ importLogId: 'log-r' }, { importLogId: 'log-r' });
+      state.casesCreated.push(
+        { importLogId: 'log-r' },
+        { importLogId: 'log-r' },
+      );
 
       const svc = new XlsxImportCommitService(prisma as never);
       const result = await svc.rollback('log-r', ADMIN_A);
@@ -588,21 +649,27 @@ describe('XlsxImportCommitService', () => {
       expect(prisma.incident.deleteMany).toHaveBeenCalledWith({
         where: { importLogId: 'log-r' },
       });
-      expect((state.log as { rolledBackById: string }).rolledBackById).toBe('admin-a');
+      expect((state.log as { rolledBackById: string }).rolledBackById).toBe(
+        'admin-a',
+      );
     });
 
     it('rejects rollback on already-ROLLED_BACK log', async () => {
       const rolled = { ...baseLog, status: XLSX_IMPORT_STATUS.ROLLED_BACK };
       const { prisma } = makeMockPrisma({ log: rolled });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.rollback('log-r', ADMIN_A)).rejects.toThrow(/đã rollback rồi/);
+      await expect(svc.rollback('log-r', ADMIN_A)).rejects.toThrow(
+        /đã rollback rồi/,
+      );
     });
 
     it('rejects rollback on FAILED log', async () => {
       const failed = { ...baseLog, status: XLSX_IMPORT_STATUS.FAILED };
       const { prisma } = makeMockPrisma({ log: failed });
       const svc = new XlsxImportCommitService(prisma as never);
-      await expect(svc.rollback('log-r', ADMIN_A)).rejects.toThrow(/Parser thất bại/);
+      await expect(svc.rollback('log-r', ADMIN_A)).rejects.toThrow(
+        /Parser thất bại/,
+      );
     });
   });
 

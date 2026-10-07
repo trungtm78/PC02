@@ -1,0 +1,142 @@
+﻿[
+    {
+        "path":  "backend/src/cases/evidence-governance/case-preservation.spec.ts",
+        "sha256":  "9418523b0d2b582044fd87d47f39227ddd723ca5f972484fb105fe239f123b5c"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/case-preservation.ts",
+        "sha256":  "f0076c2b3dd8f314258e244145b41ccfe3aa6f7540aa74f19b3b7a6e5dc72663"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/custody-facts.spec.ts",
+        "sha256":  "fa590b11ce354ca26572c77ff4aa3c27a33863e3ded94bc31708ece95784bcde"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/custody-facts.ts",
+        "sha256":  "6d65880015b98f6caf93a0b3b9d3bb22022ad3910bbe6a9b398096e3b30df972"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/disclosure-manifest.spec.ts",
+        "sha256":  "18d9eb2fabfa64a7c753635a3fdd2da6a7d89c55c9244b030e0901185322ae63"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/disclosure-manifest.ts",
+        "sha256":  "01e08f99d08f77976026f4a8877781968189e150181aeb418fc356db0e85ef79"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/document-parent-preservation.spec.ts",
+        "sha256":  "22d7d00c89479f7d001f35fd9a8e735c296b018778d49599960188d1183ed0cd"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-file-integrity.spec.ts",
+        "sha256":  "e2c62cdb98c26f592b7d39da94602e60ca002486246a7abbb233d1c302b8da31"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-file-integrity.ts",
+        "sha256":  "0a748caf5816e4d6e9b9b8e51bb882246fccdacb679a8467d6c4abb9a0851789"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-governance.controller.spec.ts",
+        "sha256":  "fdd97abd13ba4b5a3f763a52c5a63aa182bea7f9f5e3288e46aa4a8bb3351701"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-governance.controller.ts",
+        "sha256":  "3bf3f87210737d7b07d5281cd2fd9e3a958056b33177d86bf2a364d6fb441255"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-governance.module.ts",
+        "sha256":  "d51357cd6166ea40233d90ba7f8840f2dc18fd5f0eb77c5e8d97503c824c6d53"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-governance.service.spec.ts",
+        "sha256":  "275a1ccbba6a8e3573965537282e006dadd977cec953acbb85d3200c573f92e0"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-governance.service.ts",
+        "sha256":  "7133fc3306b20691044a3c0e3f8b0409ad049c8dee10a0124963dbd052fa1e35"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-lifecycle.spec.ts",
+        "sha256":  "3fab7acf52fc20068eaea0a10b42896ee1db23445f384706fa50df5520924ce2"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/evidence-private-db.spec.ts",
+        "sha256":  "f173687ffd980154610ed544933bc184d587419443e898db723616b1b9058a75"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/legacy-byte-eligibility.spec.ts",
+        "sha256":  "b70020cf1eaa455c639db1e6d09c2c6dce2bd745ea319d387f89b33ba7522bcd"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/legacy-byte-eligibility.ts",
+        "sha256":  "8f4b46847a32c383fd8c00a3f18ca4a5087ac49e2f648822db68c53448359f60"
+    },
+    {
+        "path":  "backend/src/cases/evidence-governance/preservation-entrypoints.spec.ts",
+        "sha256":  "9b0b94201aa9c38c19dddbf5d693e0386bc354f8d9a760fb37ca2949745804bc"
+    },
+    {
+        "path":  "backend/src/documents/document-governance.spec.ts",
+        "sha256":  "8af91d0032d22268004e98fd19424a1fd042cf59e9a16edb7754e475705cc61d"
+    },
+    {
+        "path":  "backend/src/documents/document-hydration.spec.ts",
+        "sha256":  "c9302a3fabcf34a18115437a35b80b44aab015a774ae1808b16595323e032da2"
+    },
+    {
+        "path":  "backend/src/documents/document-immutable-storage.spec.ts",
+        "sha256":  "07ccdd129550b564c179da9e1875a8728e677182b8c4e32a7a8a33660bdcbfb0"
+    },
+    {
+        "path":  "backend/src/documents/document-immutable-storage.ts",
+        "sha256":  "22f200d04d43191db32981f5dee96825a046dff0201773f337594e9ccc8264bd"
+    },
+    {
+        "path":  "backend/src/documents/documents.controller.spec.ts",
+        "sha256":  "546ca1b81b6d354c69ac2e0eaafc58d2cef507dfc212969173999dda53059bfb"
+    },
+    {
+        "path":  "backend/src/documents/documents.controller.ts",
+        "sha256":  "4d7c684389f5fa3b653d9e35d5c0a3c11d449305984717b708516beffc3ccfb9"
+    },
+    {
+        "path":  "backend/src/documents/documents.module.ts",
+        "sha256":  "fd99368b4bf72a415c3303bc619cd15202a2f7287252e029402a2730e42d5e63"
+    },
+    {
+        "path":  "backend/src/documents/documents.service.spec.ts",
+        "sha256":  "64eb0e9c1c4b841876a060142be07037c8d9b8ad3dedb5b1a5dfdd17e0e9ae15"
+    },
+    {
+        "path":  "backend/src/documents/documents.service.ts",
+        "sha256":  "5c9e195de009d05d71ddf9e9b9f9aea552abb6d9de3f67cc2a82276209f574a0"
+    },
+    {
+        "path":  "backend/src/documents/tep-hai-cha-tai-duoc.gate.spec.ts",
+        "sha256":  "9490969a71183a794a161175ee86dcb097d59c7daa8b027bccc03dfc9a024298"
+    },
+    {
+        "path":  "backend/src/legacy-migration/cli/seed-ho-so-di-tru-mau.ts",
+        "sha256":  "f3307d361d5e4f05e9517867ab294f717652a327b2b468fe0cf76c736ccad01f"
+    },
+    {
+        "path":  "backend/src/legacy-migration/cli/verify-backfill-parity.ts",
+        "sha256":  "e13c1938f26904692009175679bc75354b8cc8e170dc74ed74a202319b1e06f7"
+    },
+    {
+        "path":  "backend/src/legacy-migration/legacy-migration.service.spec.ts",
+        "sha256":  "990ba82358ee749e763f45c9a4b39ba908a4bb4fa0aa46dfade12d6c50a42db5"
+    },
+    {
+        "path":  "backend/src/legacy-migration/legacy-migration.service.ts",
+        "sha256":  "f05d2c121189dedc378cc1e2771f378239d4b484ffe0cfae8daaaf604c8d4afe"
+    },
+    {
+        "path":  "backend/src/xlsx-imports/commit.service.spec.ts",
+        "sha256":  "4c37a4a1febc3b6a31d6280c925e38ac7cfb1cca31d6142940f00b1c81a2d03e"
+    },
+    {
+        "path":  "backend/src/xlsx-imports/commit.service.ts",
+        "sha256":  "a14bb9c5b25ff73a8c65186a623672d2a48d6713cde6946a85e84ecd1b7215b0"
+    }
+]

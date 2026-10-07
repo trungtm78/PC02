@@ -8,6 +8,7 @@ export const casesMenu: FeatureMenuEntry[] = [
     icon: 'Briefcase',
     children: [
       { section: 'business', id: 'cases-list', label: 'Danh sách vụ án', path: '/cases', quyen: ['read:Case'] },
+      { section: 'business', id: 'cases-governance', label: 'Tiếp nhận và công việc vụ án', path: '/cases/governance', quyen: ['read:Case'] },
       // v0.37.1: route now canonical /cases/new (legacy /add-new-record redirects).
       { section: 'business', id: 'cases-new', label: 'Khởi tố vụ án mới', path: '/cases/new', quyen: ['write:Case'] },
       // v0.37.1: filter view moved from "Phân loại & Quản lý" — fix wrong placement.

@@ -1,4 +1,13 @@
-import { BadRequestException, Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from './graph-access/case-graph-access.interceptor';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { demO, type KieuSoSanh } from './so-sanh-ky';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -224,10 +233,14 @@ function kiemTraTuyChonKy(
   }
 
   if ((q.tu && !q.den) || (!q.tu && q.den)) {
-    throw new BadRequestException('Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.');
+    throw new BadRequestException(
+      'Khoảng thời gian tự chọn phải có đủ ngày đầu và ngày cuối.',
+    );
   }
   if (q.tu && q.den && new Date(q.den) < new Date(q.tu)) {
-    throw new BadRequestException('Ngày cuối của khoảng tự chọn không được trước ngày đầu.');
+    throw new BadRequestException(
+      'Ngày cuối của khoảng tự chọn không được trước ngày đầu.',
+    );
   }
   if (q.tu && q.den) {
     // Đếm bằng CHÍNH hàm sinh ô. Bản đầu dùng `Math.ceil(soThang / 3)`, và với khoảng không
@@ -248,11 +261,14 @@ function kiemTraTuyChonKy(
       );
     }
     if (new Date(q.nenDen) < new Date(q.nenTu)) {
-      throw new BadRequestException('Ngày cuối của kỳ nền không được trước ngày đầu.');
+      throw new BadRequestException(
+        'Ngày cuối của kỳ nền không được trước ngày đầu.',
+      );
     }
   }
 }
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('reports')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ReportsController {
@@ -295,7 +311,11 @@ export class ReportsController {
   @Get('district-stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getDistrictStats(@Query() query: QueryDistrictStatsDto) {
-    return this.reportsService.getDistrictStats(query.fromDate, query.toDate, query.district);
+    return this.reportsService.getDistrictStats(
+      query.fromDate,
+      query.toDate,
+      query.district,
+    );
   }
 
   // GET /api/v1/reports/overdue
@@ -321,11 +341,16 @@ export class ReportsController {
     const year = query.year ?? new Date().getFullYear();
     // Tuỳ chọn kỳ phải đi theo tệp xuất. Không truyền thì tệp mang tên "lũy kế 8 tháng" mà nội
     // dung là cả năm — người nhận tệp không có màn hình để đối chiếu.
-    const data = await this.reportsService.getMonthly(year, query.month, 'KHONG', {
-      luyKeDenThang: query.luyKeDenThang,
-      tu: query.tu,
-      den: query.den,
-    });
+    const data = await this.reportsService.getMonthly(
+      year,
+      query.month,
+      'KHONG',
+      {
+        luyKeDenThang: query.luyKeDenThang,
+        tu: query.tu,
+        den: query.den,
+      },
+    );
     await this.reportsExportService.exportMonthly(data as any, res);
   }
 
@@ -333,15 +358,23 @@ export class ReportsController {
   @Get('quarterly/export')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  async exportQuarterly(@Query() query: QueryQuarterlyDto, @Res() res: Response) {
+  async exportQuarterly(
+    @Query() query: QueryQuarterlyDto,
+    @Res() res: Response,
+  ) {
     kiemTraTuyChonKy(query, 'quy');
     const year = query.year ?? new Date().getFullYear();
     // Xem chú thích ở `exportMonthly`.
-    const data = await this.reportsService.getQuarterly(year, query.quarter, 'KHONG', {
-      luyKeDenThang: query.luyKeDenThang,
-      tu: query.tu,
-      den: query.den,
-    });
+    const data = await this.reportsService.getQuarterly(
+      year,
+      query.quarter,
+      'KHONG',
+      {
+        luyKeDenThang: query.luyKeDenThang,
+        tu: query.tu,
+        den: query.den,
+      },
+    );
     await this.reportsExportService.exportQuarterly(data as any, res);
   }
 

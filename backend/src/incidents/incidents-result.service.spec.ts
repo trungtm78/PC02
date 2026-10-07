@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 
@@ -47,7 +51,7 @@ function makeService(
     {} as never,
     {} as never,
     {} as never,
-    { emit: jest.fn() } as never,
+    { emit: jest.fn() } as never, ordinarySourceFixture(prisma as never), ordinaryChildFixture(prisma as never) as never
   );
   return { service, prisma, transactionClient, audit };
 }

@@ -9,8 +9,12 @@ const bcryptCompare = bcrypt.compare as jest.Mock;
 const ENROLLMENT_TTL_MS = 72 * 60 * 60 * 1000;
 
 const mockTx = {
-  user: { update: jest.fn() },
-  enrollmentTokenAudit: { updateMany: jest.fn() },
+  caseGovernanceGrant: { findFirst: jest.fn().mockResolvedValue(null) },
+  caseRepresentationGrant: { findFirst: jest.fn().mockResolvedValue(null) },
+  $queryRaw: jest.fn().mockResolvedValue([]),
+  rolePermission: { findMany: jest.fn().mockResolvedValue([]) },
+  user: { findUnique: jest.fn(async ({ where }: { where: { id: string } }) => ({ id: where.id, isActive: true, roleId: 'ordinary' })), update: jest.fn() },
+  enrollmentTokenAudit: { create: jest.fn(), updateMany: jest.fn() },
 };
 const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn() },
@@ -73,9 +77,9 @@ describe('EnrollmentService.generateEnrollmentLink', () => {
 
   it('persists hash + expiry trên user record', async () => {
     await service.generateEnrollmentLink('u1', 'admin1');
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'u1' },
+        where: expect.objectContaining({ id: 'u1' }),
         data: expect.objectContaining({
           enrollmentTokenHash: '$2b$12$hashed',
           enrollmentExpiresAt: new Date(NOW.getTime() + ENROLLMENT_TTL_MS),
@@ -86,7 +90,7 @@ describe('EnrollmentService.generateEnrollmentLink', () => {
 
   it('creates EnrollmentTokenAudit row với generator + channel hint', async () => {
     await service.generateEnrollmentLink('u1', 'admin1', 'zalo_personal');
-    expect(mockPrisma.enrollmentTokenAudit.create).toHaveBeenCalledWith(
+    expect(mockTx.enrollmentTokenAudit.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           userId: 'u1',
@@ -106,6 +110,7 @@ describe('EnrollmentService.generateEnrollmentLink', () => {
         action: 'ENROLLMENT_TOKEN_GENERATED',
         subjectId: 'u1',
       }),
+      mockTx,
     );
   });
 
@@ -125,6 +130,8 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
     enrollmentTokenHash: '$2b$12$validhash',
     enrollmentExpiresAt: new Date(NOW.getTime() + 60 * 60 * 1000), // +1h
     tokenVersion: 0,
+    roleId: 'ordinary-role',
+    updatedAt: new Date(0),
   };
 
   beforeEach(() => {
@@ -189,6 +196,12 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
       service.consumeEnrollmentToken('u1', 'token', 'short', META),
     ).rejects.toThrow(BadRequestException);
   });
+  it('binds consumption to the exact pre-promotion token, role and account version', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseUser);
+    bcryptCompare.mockResolvedValue(true);
+    await service.consumeEnrollmentToken('u1','valid-token','StrongPass1!',META);
+    expect(mockTx.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'u1', roleId: 'ordinary-role', tokenVersion: 0, enrollmentTokenHash: baseUser.enrollmentTokenHash, updatedAt: baseUser.updatedAt }) }));
+  });
 
   it('on success: clears token, sets new password hash, bumps tokenVersion, marks audit consumed', async () => {
     mockPrisma.user.findUnique.mockResolvedValue(baseUser);
@@ -198,7 +211,7 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
 
     expect(mockTx.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'u1' },
+        where: { id: 'u1', isActive: true, roleId: 'ordinary-role', tokenVersion: 0, updatedAt: baseUser.updatedAt, enrollmentTokenHash: baseUser.enrollmentTokenHash, enrollmentExpiresAt: { gt: NOW } },
         data: expect.objectContaining({
           passwordHash: '$2b$12$newpasswordhash',
           enrollmentTokenHash: null,
@@ -233,6 +246,7 @@ describe('EnrollmentService.consumeEnrollmentToken', () => {
         userId: 'u1',
         action: 'ENROLLMENT_COMPLETED',
       }),
+      mockTx,
     );
   });
 

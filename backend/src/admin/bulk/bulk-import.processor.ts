@@ -1,3 +1,4 @@
+import { authorityTransaction } from '../case-authority.guard';
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -100,7 +101,13 @@ export class BulkImportProcessor {
           error: row.errors.join('; '),
         });
         errorCount++;
-        await this.updateProgress(jobId, i + 1, successCount, errorCount, outcomes);
+        await this.updateProgress(
+          jobId,
+          i + 1,
+          successCount,
+          errorCount,
+          outcomes,
+        );
         continue;
       }
       try {
@@ -116,7 +123,7 @@ export class BulkImportProcessor {
           roleId: row.roleId!,
           status: UserStatus.ACTIVE,
         };
-        const user = await this.prisma.$transaction((tx) =>
+        const user = await authorityTransaction(this.prisma, (tx) =>
           this.adminService.createUserCore(dto, actorId, tx),
         );
         const enrollment = await this.enrollmentService.generateEnrollmentLink(
@@ -132,17 +139,28 @@ export class BulkImportProcessor {
         });
         successCount++;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Lỗi không xác định';
+        const message =
+          err instanceof Error ? err.message : 'Lỗi không xác định';
         outcomes.push({ rowIndex: row.rowIndex, error: message });
         errorCount++;
       }
-      await this.updateProgress(jobId, i + 1, successCount, errorCount, outcomes);
+      await this.updateProgress(
+        jobId,
+        i + 1,
+        successCount,
+        errorCount,
+        outcomes,
+      );
     }
 
     // Gen enriched file
     try {
       const originalBuffer = await fs.readFile(originalFilePath);
-      const enrichedBuffer = await buildEnrichedFile(originalBuffer, outcomes, originalFormat);
+      const enrichedBuffer = await buildEnrichedFile(
+        originalBuffer,
+        outcomes,
+        originalFormat,
+      );
       const enrichedPath = path.join(
         TEMP_DIR,
         `${jobId}-enriched.${originalFormat}`,
@@ -153,7 +171,10 @@ export class BulkImportProcessor {
         data: { enrichedFilePath: enrichedPath, originalFilePath },
       });
     } catch (err) {
-      this.logger.error(`Enriched file gen failed jobId=${jobId}`, err as Error);
+      this.logger.error(
+        `Enriched file gen failed jobId=${jobId}`,
+        err as Error,
+      );
     }
 
     // Gen PDF ZIP (optional, blocking but acceptable)

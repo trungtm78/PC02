@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../graph-access/case-graph-access.interceptor';
 import {
   Controller,
   Get,
@@ -19,7 +21,11 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { TdacService } from './tdac.service';
 import { TdacDraftService } from './tdac-draft.service';
 import { TdacExportService } from './tdac-export.service';
-import { CreateDraftDto, AdjustDraftDto, RejectDraftDto } from './dto/create-draft.dto';
+import {
+  CreateDraftDto,
+  AdjustDraftDto,
+  RejectDraftDto,
+} from './dto/create-draft.dto';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import { chonToBaoCao, duocXemBanNhap, phamViTo } from './tdac-pham-vi';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
@@ -42,6 +48,7 @@ interface AuthenticatedRequest extends Request {
   dataScope?: DataScope | null;
 }
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('reports/tdac')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TdacController {
@@ -62,7 +69,11 @@ export class TdacController {
     @Req() req: AuthenticatedRequest,
   ) {
     const teamIds = this.parseTeamIds(query.teamIds, req);
-    return this.tdacService.computeTdcVuAn(new Date(query.fromDate), new Date(query.toDate), teamIds);
+    return this.tdacService.computeTdcVuAn(
+      new Date(query.fromDate),
+      new Date(query.toDate),
+      teamIds,
+    );
   }
 
   @Get('vu-viec')
@@ -72,7 +83,11 @@ export class TdacController {
     @Req() req: AuthenticatedRequest,
   ) {
     const teamIds = this.parseTeamIds(query.teamIds, req);
-    return this.tdacService.computeTdcVuViec(new Date(query.fromDate), new Date(query.toDate), teamIds);
+    return this.tdacService.computeTdcVuViec(
+      new Date(query.fromDate),
+      new Date(query.toDate),
+      teamIds,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -81,7 +96,10 @@ export class TdacController {
 
   @Post('drafts')
   @RequirePermissions({ action: 'write', subject: 'Report' })
-  async createDraft(@Body() dto: CreateDraftDto, @Req() req: AuthenticatedRequest) {
+  async createDraft(
+    @Body() dto: CreateDraftDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const teamIds = chonToBaoCao(
       dto.teamIds ?? [],
       phamViTo(req.dataScope, 'write'),
@@ -125,7 +143,10 @@ export class TdacController {
 
   @Post('drafts/:id/submit-review')
   @RequirePermissions({ action: 'write', subject: 'Report' })
-  async submitReview(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  async submitReview(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     await this.layBanNhap(id, req, 'write');
     return this.draftService.submitReview(id, req.user.id);
   }
@@ -181,7 +202,10 @@ export class TdacController {
   // Helpers
   // ─────────────────────────────────────────────
 
-  private parseTeamIds(teamIdsRaw: string | undefined, req: AuthenticatedRequest): string[] {
+  private parseTeamIds(
+    teamIdsRaw: string | undefined,
+    req: AuthenticatedRequest,
+  ): string[] {
     const yeuCau = teamIdsRaw
       ? teamIdsRaw
           .split(',')

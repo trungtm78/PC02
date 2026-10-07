@@ -30,15 +30,23 @@ export class SubjectsController {
   // GET /api/subjects — Danh sách đối tượng (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Subject' })
-  getList(@Query() query: QuerySubjectsDto, @Req() req: ScopedRequest) {
-    return this.subjectsService.getList(query, req.dataScope);
+  getList(
+    @Query() query: QuerySubjectsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.subjectsService.getList(query, req.dataScope, user.id);
   }
 
   // GET /api/subjects/:id — Chi tiết đối tượng
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Subject' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.subjectsService.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.subjectsService.getById(id, req.dataScope, user.id);
   }
 
   // POST /api/subjects — Tạo đối tượng mới

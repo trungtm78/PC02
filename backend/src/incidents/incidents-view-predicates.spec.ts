@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { BadRequestException } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 import type { QueryIncidentsDto } from './dto/query-incidents.dto';
@@ -16,7 +20,7 @@ describe('Approved intake/management/history/empty-field filter contracts', () =
     } as never,
     {} as never,
     {} as never,
-    {} as never,
+    {} as never, ordinarySourceFixture({} as never), ordinaryChildFixture({} as never) as never
   );
 
   it('intake retains explicit staged records and original legacy intake sources', async () => {

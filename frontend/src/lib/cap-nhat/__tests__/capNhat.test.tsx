@@ -86,6 +86,11 @@ describe('trangDangRanh — chỉ tự tải khi không có gì để mất', ()
     expect(trangDangRanh(document, '/cases/abc/edit')).toBe(false);
     expect(trangDangRanh(document, '/add-new-record')).toBe(false);
   });
+    it.each(['/cases/governance', '/cases/governance/configuration', '/cases/abc/governance'])('protects governance form route %s from automatic reload', (route) => {
+      expect(trangDangRanh(document, route)).toBe(false);
+      expect(trangDangRanh(document, '/cases')).toBe(true);
+      expect(trangDangRanh(document, '/cases/abc')).toBe(true);
+    });
   it('có hộp thoại đang mở (vd hộp xoá có ô lý do) thì KHÔNG rảnh', () => {
     document.body.innerHTML = '<div role="dialog"><textarea></textarea></div>';
     expect(trangDangRanh(document, '/petitions')).toBe(false);

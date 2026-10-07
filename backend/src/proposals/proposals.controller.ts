@@ -32,15 +32,23 @@ export class ProposalsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryProposalsDto, @Req() req: ScopedRequest) {
-    return this.proposalsService.getList(query, req.dataScope);
+  getList(
+    @Query() query: QueryProposalsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.proposalsService.getList(query, req.dataScope, user.id);
   }
 
   /** Thẻ thống kê — cùng thẻ/ngày/phạm vi với danh sách. Khai TRƯỚC `:id` để 'stats' không bị đọc thành id. */
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getStats(@Query() query: QueryProposalsDto, @Req() req: ScopedRequest) {
-    return this.proposalsService.getStats(query, req.dataScope);
+  getStats(
+    @Query() query: QueryProposalsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.proposalsService.getStats(query, req.dataScope, user.id);
   }
 
   @Get('export')
@@ -52,13 +60,22 @@ export class ProposalsController {
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ): Promise<void> {
-    await this.proposalsService.exportToExcel(query, req.dataScope, res);
+    await this.proposalsService.exportToExcel(
+      query,
+      req.dataScope,
+      res,
+      (req.user as AuthUser).id,
+    );
   }
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.proposalsService.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.proposalsService.getById(id, req.dataScope, user.id);
   }
 
   @Post()

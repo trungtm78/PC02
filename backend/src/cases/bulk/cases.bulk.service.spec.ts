@@ -6,8 +6,73 @@ import { AuditService } from '../../audit/audit.service';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import type { Response } from 'express';
 
+const snapshotDate = new Date('2026-10-06T00:00:00Z');
+function governanceFixture() {
+  return {
+    featureFlag: { findUnique: async () => ({ enabled: false }) },
+    team: { findFirst: jest.fn().mockResolvedValue({ id: 'team-A', isActive: true }) },
+    userTeam: {
+      findFirst: jest.fn().mockResolvedValue({ userId: 'inv-1', teamId: 'team-A' }),
+    },
+    caseFieldDefinitionVersion: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    caseGovernanceGrant: { findFirst: jest.fn().mockResolvedValue(null) },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'user-actor',
+        isActive: true,
+        canDispatch: true,
+        role: {
+          name: 'ADMIN',
+          permissions: [
+            {
+              permission: {
+                subject: 'Case',
+                action: 'read',
+                conditions: null,
+              },
+            },
+            {
+              permission: {
+                subject: 'Case',
+                action: 'edit',
+                conditions: null,
+              },
+            },
+            {
+              permission: {
+                subject: 'Case',
+                action: 'restore',
+                conditions: null,
+              },
+            },
+          ],
+        },
+      }),
+    },
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    caseHandoff: { findFirst: jest.fn().mockResolvedValue(null) },
+    caseEvidenceHold: { count: jest.fn().mockResolvedValue(0) },
+  };
+}
+function parentFixture() {
+  return jest.fn(async ({ where }: { where: { id: string } }) => ({
+    id: where.id,
+    status: 'TIEP_NHAN',
+    sensitivity: 'NORMAL',
+    metadata: null,
+    deletedAt: null,
+    intakeStage: null,
+    governanceRevision: 0,
+    assignedTeamId: null,
+    investigatorId: null,
+    updatedAt: snapshotDate,
+  }));
+}
 type MockTransaction = {
-  case: { update: jest.Mock };
+  case: { update: jest.Mock; findFirst?: jest.Mock };
   $executeRaw: jest.Mock;
 };
 
@@ -21,7 +86,9 @@ type MockBulkAudit = {
 };
 
 type MockBulkPrisma = {
-  case: { findMany: jest.Mock };
+  case: { findMany: jest.Mock; findFirst?: jest.Mock };
+  user: { findUnique: jest.Mock };
+  $queryRaw: jest.Mock;
   $executeRaw: jest.Mock;
   $transaction: jest.Mock;
   team?: { findFirst: jest.Mock };
@@ -80,6 +147,7 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   beforeEach(async () => {
     // Default mocks: team exists, investigator on team, all cases in scope, all updates succeed.
     mockPrisma = {
+      ...governanceFixture(),
       team: {
         findFirst: jest
           .fn()
@@ -91,6 +159,7 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
           .mockResolvedValue({ userId: 'inv-1', teamId: 'team-A' }),
       },
       case: {
+        findFirst: parentFixture(),
         findMany: jest
           .fn()
           .mockResolvedValue([
@@ -103,7 +172,9 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
       $transaction: jest.fn((cb: TransactionCallback) => {
         // Mock tx exposes case.update + $executeRaw cho audit.logBulkItem.
         const tx = {
+          ...governanceFixture(),
           case: {
+            findFirst: parentFixture(),
             update: jest
               .fn()
               .mockResolvedValue({ id: 'mocked', assignedTeamId: 'team-A' }),
@@ -154,6 +225,35 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     // Per-item tx: $transaction called once per id.
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
   });
+  it('flag-on bulk assignment rejects cross-team transfer and omitted Case versions before update', async () => {
+    const update = jest.fn();
+    mockPrisma.$transaction.mockImplementation((cb: any) =>
+      cb({
+        ...governanceFixture(),
+        featureFlag: { findUnique: async () => ({ enabled: true }) },
+        team: mockPrisma.team,
+        userTeam: mockPrisma.userTeam,
+        case: {
+          findFirst: async () => ({
+            ...(await parentFixture()({ where: { id: 'case-1' } })),
+            assignedTeamId: 'old-team',
+          }),
+          update,
+        },
+      }),
+    );
+    const result = await service.bulkAssign({ ...baseInput, ids: ['case-1'] });
+    expect(result.succeeded).toHaveLength(0);
+    expect(result.failed).toHaveLength(1);
+    expect(update).not.toHaveBeenCalled();
+    const supplied = await service.bulkAssign({
+      ...baseInput,
+      ids: ['case-1'],
+      expectedUpdatedAtByCaseId: { 'case-1': snapshotDate },
+    });
+    expect(supplied.succeeded).toHaveLength(0);
+    expect(update).not.toHaveBeenCalled();
+  });
 
   it('rejects with 400 BadRequest khi team không tồn tại (validate ONCE before loop)', async () => {
     mockPrisma.team.findFirst.mockResolvedValue(null);
@@ -192,7 +292,9 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
     // case-2 update throws P2025 → caught + classified as CONCURRENT_MODIFICATION, không fail batch.
     mockPrisma.$transaction.mockImplementation((cb: TransactionCallback) => {
       const tx = {
+        ...governanceFixture(),
         case: {
+          findFirst: parentFixture(),
           update: jest
             .fn()
             .mockImplementation(({ where }: { where: { id: string } }) => {
@@ -242,7 +344,11 @@ describe('CasesBulkService.bulkAssign — v0.48 B3a', () => {
   it('writes audit item INSIDE each per-item tx (plan eng E-H3 atomicity)', async () => {
     mockPrisma.$transaction.mockImplementation((cb: TransactionCallback) => {
       const tx = {
-        case: { update: jest.fn().mockResolvedValue({ id: 'x' }) },
+        ...governanceFixture(),
+        case: {
+          findFirst: parentFixture(),
+          update: jest.fn().mockResolvedValue({ id: 'x' }),
+        },
         $executeRaw: jest.fn().mockResolvedValue(1),
       };
       return cb(tx);
@@ -290,7 +396,9 @@ describe('CasesBulkService.bulkExport — v0.48 B3b', () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      ...governanceFixture(),
       case: {
+        findFirst: parentFixture(),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'case-1',
@@ -487,7 +595,9 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      ...governanceFixture(),
       case: {
+        findFirst: parentFixture(),
         findMany: jest
           .fn()
           .mockResolvedValue([eligibleCase('case-1'), eligibleCase('case-2')]),
@@ -495,7 +605,11 @@ describe('CasesBulkService.bulkDelete — v0.49 PR2', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn((cb: TransactionCallback) =>
         cb({
-          case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          ...governanceFixture(),
+          case: {
+            findFirst: parentFixture(),
+            update: jest.fn().mockResolvedValue({ id: 'mocked' }),
+          },
           $executeRaw: jest.fn().mockResolvedValue(1),
         }),
       ),
@@ -619,7 +733,9 @@ describe('CasesBulkService.bulkRestore — v0.49 PR2', () => {
 
   beforeEach(async () => {
     mockPrisma = {
+      ...governanceFixture(),
       case: {
+        findFirst: parentFixture(),
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'case-1',
@@ -636,7 +752,11 @@ describe('CasesBulkService.bulkRestore — v0.49 PR2', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn((cb: TransactionCallback) =>
         cb({
-          case: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          ...governanceFixture(),
+          case: {
+            findFirst: parentFixture(),
+            update: jest.fn().mockResolvedValue({ id: 'mocked' }),
+          },
           $executeRaw: jest.fn().mockResolvedValue(1),
         }),
       ),

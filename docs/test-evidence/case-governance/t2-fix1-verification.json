@@ -1,0 +1,44 @@
+{
+  "round": 1,
+  "verifiedAt": "2026-10-06T07:02:23.784Z",
+  "productHashesUnchanged": true,
+  "changedPaths": [],
+  "frontendFull": {
+    "exitCode": 0,
+    "success": true,
+    "tests": 4340,
+    "passed": 4340,
+    "failed": 0,
+    "files": 383
+  },
+  "frontendAffected": {
+    "exitCode": 0,
+    "tests": 696,
+    "files": 42
+  },
+  "backendFocused": {
+    "exitCode": 0,
+    "tests": 278
+  },
+  "frontendBuild": {
+    "exitCode": 0,
+    "modules": 3042
+  },
+  "frontendTypes": {
+    "exitCode": 0
+  },
+  "frontendScopedLint": {
+    "exitCode": 0
+  },
+  "backendScopedLint": {
+    "exitCode": 0
+  },
+  "patchCoverage": {
+    "executableLines": 238,
+    "coveredLines": 234,
+    "changedBranchOutcomes": 364,
+    "coveredBranchOutcomes": 339,
+    "lineCoverage": 98.31932773109244,
+    "branchCoverage": 93.13186813186813
+  }
+}

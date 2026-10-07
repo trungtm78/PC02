@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-10-06T06:01:49.679Z",
+  "sha256": {
+    "backend/src/cases/case-canonical-fields.ts": "40a1a2dda00ca2e8a7390c86613db89be0a4c4e9a19d16790ae70ed17dadd296",
+    "backend/src/cases/case-canonical-field-registry.generated.ts": "c3726d4db274fa4dc4e878110b6ff855bbb1b17fab08105ce4dde157eb971281",
+    "frontend/src/features/cases/canonical-fields.ts": "271269e502c1f79768c44f661a03f4115bcf73d81cb7dd52f9f7d06fe01685a2",
+    "frontend/src/features/cases/CaseInformationTabs.tsx": "734b3495f2df207d814304c9fea49cb0971560ea86a73b88dfcf58fa6b232187",
+    "frontend/src/features/cases/CaseCustomFields.tsx": "2f5636b49aaca93a75c5a0f257e029f5cf1c9ea6ba099240ab917ac8524e721d",
+    "frontend/src/features/cases/CaseNullableBooleanField.tsx": "9c18773e51095d6627932f0c832847e4ac55f864ed3181a784284416eb55afe7",
+    "frontend/src/features/cases/useCaseFieldSchema.ts": "43289609261f812b713d296bd1514c3288b228718f558fe6581c69c904097a0c",
+    "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts": "1bf25b423aee619b4478c65b94aa1ed3d3d10dd605389d55838bb6e88937fa6a",
+    "frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts": "b93a369b5414a7989389533ba33130e932bb4509e1d5ffb74ee6ef00796ebbdf",
+    "frontend/src/pages/cases/CaseFormPage/index.tsx": "23ca559e7798da6e900fda9d8dae83dfb5f8b5154dde67cb698b86f1e37ac113",
+    "frontend/src/pages/cases/CaseFormPage/LegacyTabBody.tsx": "4c642a874665054714c67ead0515dfb3dc73e24e4c87e0b476296e08d0f56ccf",
+    "frontend/src/pages/cases/CaseFormPage/types.ts": "7e5aef8cc31c7fe86ac2ccf25d26b1789005ad63e3d6794e975a06077dd4b2e7",
+    "frontend/src/pages/cases/CaseFormPage/tabs.tsx": "16f22910b2c46e1b656b9c60a21f6873139521e0a7bc8d7bd857cc34ee11dc1c",
+    "frontend/src/pages/cases/CaseDetailPage.tsx": "12311cda4d561d1dcea63de63b555836117a4606c51f23409def3a3f87256a98"
+  }
+}

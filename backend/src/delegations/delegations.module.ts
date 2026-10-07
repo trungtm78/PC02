@@ -1,3 +1,4 @@
+import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
 import { Module } from '@nestjs/common';
 import { DelegationsController } from './delegations.controller';
 import { DelegationsService } from './delegations.service';
@@ -7,7 +8,13 @@ import { AuditModule } from '../audit/audit.module';
 import { DocumentNumbersModule } from '../document-numbers/document-numbers.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditModule, DocumentNumbersModule],
+  imports: [
+    CaseChildAccessModule,
+    PrismaModule,
+    AuthModule,
+    AuditModule,
+    DocumentNumbersModule,
+  ],
   controllers: [DelegationsController],
   providers: [DelegationsService],
 })

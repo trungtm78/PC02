@@ -1,3 +1,5 @@
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../../case-child-access/test-child-access-fixture';
+function scopedChild(db: never, scope: DataScope | null) { setOrdinaryCurrentScope(db, scope); return ordinaryChildFixture(db) as never; }
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConclusionsService } from '../../conclusions/conclusions.service';
 import { InvestigationSupplementsService } from '../../investigation-supplements/investigation-supplements.service';
@@ -103,7 +105,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Kết luận',
     (p, caseId, s) =>
-      new ConclusionsService(p, audit).create(
+      new ConclusionsService(p, audit, scopedChild(p, s)).create(
         { caseId, type: 'KET_LUAN_DIEU_TRA', content: 'x' } as never,
         'u1',
         undefined,
@@ -113,7 +115,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Điều tra bổ sung',
     (p, caseId, s) =>
-      new InvestigationSupplementsService(p, audit).create(
+      new InvestigationSupplementsService(p, audit, scopedChild(p, s)).create(
         { caseId, type: 'VKS_TRA' } as never,
         'u1',
         undefined,
@@ -123,7 +125,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Luật sư',
     (p, caseId, s) =>
-      new LawyersService(p, audit).create(
+      new LawyersService(p, audit, scopedChild(p, s)).create(
         { caseId, fullName: 'LS A', barNumber: 'B-1' } as never,
         'u1',
         undefined,
@@ -133,7 +135,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Đối tượng',
     (p, caseId, s) =>
-      new SubjectsService(p, audit).create(
+      new SubjectsService(p, audit, scopedChild(p, s)).create(
         { caseId, fullName: 'Nguyễn Văn A', type: 'SUSPECT' } as never,
         'u1',
         undefined,
@@ -143,7 +145,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Ủy thác',
     (p, caseId, s) =>
-      new DelegationsService(p, audit, docNums, emitter).create(
+      new DelegationsService(p, audit, scopedChild(p,s), docNums, emitter).create(
         {
           relatedCaseId: caseId,
           receivingUnit: 'CA Q1',
@@ -157,7 +159,7 @@ const TAO: Array<[string, Tao]> = [
   [
     'Đề xuất',
     (p, caseId, s) =>
-      new ProposalsService(p, audit, docNums).create(
+      new ProposalsService(p, audit, scopedChild(p,s), docNums).create(
         { relatedCaseId: caseId, content: 'x' } as never,
         'u1',
         undefined,
@@ -215,7 +217,7 @@ describe('Chuyển bản ghi con sang vụ án khác phải kiểm phạm vi GHI
     };
     const { prisma, ghi } = taoPrisma(luatSu);
     await expect(
-      new LawyersService(prisma, audit).update(
+      new LawyersService(prisma, audit, scopedChild(prisma, canBo)).update(
         'ls1',
         { caseId: CA_NGOAI.id } as never,
         'u1',
@@ -237,7 +239,7 @@ describe('Chuyển bản ghi con sang vụ án khác phải kiểm phạm vi GHI
     };
     const { prisma, ghi } = taoPrisma(doiTuong);
     await expect(
-      new SubjectsService(prisma, audit).update(
+      new SubjectsService(prisma, audit, scopedChild(prisma, canBo)).update(
         'dt1',
         { caseId: CA_NGOAI.id } as never,
         'u1',
@@ -265,7 +267,7 @@ describe('Chuyển luật sư sang vụ án khác', () => {
 
   it('không gửi subjectId → bỏ liên kết bị can của vụ án cũ', async () => {
     const { prisma, duLieu } = taoPrisma(luatSu);
-    await new LawyersService(prisma, audit).update(
+    await new LawyersService(prisma, audit, scopedChild(prisma, null)).update(
       'ls1',
       { caseId: CA_NGOAI.id } as never,
       'u1',
@@ -279,7 +281,7 @@ describe('Chuyển luật sư sang vụ án khác', () => {
 
   it('không đổi vụ án → giữ nguyên bị can', async () => {
     const { prisma, duLieu } = taoPrisma(luatSu);
-    await new LawyersService(prisma, audit).update(
+    await new LawyersService(prisma, audit, scopedChild(prisma, null)).update(
       'ls1',
       { fullName: 'LS B' } as never,
       'u1',

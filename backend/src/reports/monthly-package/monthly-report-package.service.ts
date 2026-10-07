@@ -1,3 +1,5 @@
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 // Prisma JSON columns cross the snapshot boundary here and are checked by report rules and lineage gates.
 import {
@@ -34,7 +36,7 @@ export interface DrilldownQuery {
 @Injectable()
 export class MonthlyReportPackageService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(GRAPH_PRISMA) private readonly prisma: PrismaService,
     private readonly builder: MonthlyReportBuilderService,
     private readonly exporter: MonthlyReportExportService,
   ) {}

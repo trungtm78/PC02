@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -213,7 +217,7 @@ describe('IncidentsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -1523,7 +1527,7 @@ describe('IncidentsService', () => {
         expect.objectContaining({
           action: 'INCIDENT_DELETED',
           metadata: expect.objectContaining({ reason }),
-        }),
+        }), expect.anything()
       );
     });
 
@@ -2357,7 +2361,8 @@ describe('IncidentsService', () => {
         return fn(tx);
       });
 
-      const result = await service.prosecute(
+      setSourceFixtureScope(mockPrisma, null);
+const result = await service.prosecute(
         'inc-001',
         {
           caseName: 'Vu an moi',
@@ -2399,7 +2404,8 @@ describe('IncidentsService', () => {
         return fn(tx);
       });
 
-      const result = await service.prosecute(
+      setSourceFixtureScope(mockPrisma, null);
+const result = await service.prosecute(
         'inc-001',
         {
           caseName: 'Vu an',
@@ -2419,7 +2425,8 @@ describe('IncidentsService', () => {
         status: IncidentStatus.TIEP_NHAN,
       });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.prosecute(
           'inc-001',
           {
@@ -2439,7 +2446,8 @@ describe('IncidentsService', () => {
         status: IncidentStatus.DA_GIAI_QUYET,
       });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.prosecute(
           'inc-001',
           {
@@ -2456,7 +2464,8 @@ describe('IncidentsService', () => {
     it('should throw NotFoundException when incident not found', async () => {
       mockPrisma.incident.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.prosecute(
           'nonexistent',
           {
@@ -2830,7 +2839,7 @@ describe('IncidentsService', () => {
 describe('IncidentsService.mergeInto — kiểm phạm vi cả vụ việc đích', () => {
   it('đích ngoài phạm vi ghi → 403, không ghi', async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -2896,7 +2905,7 @@ describe('IncidentsService.prosecute — cấp mã vụ án', () => {
 
   it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới, phát case.created', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -2928,7 +2937,8 @@ describe('IncidentsService.prosecute — cấp mã vụ án', () => {
     };
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
-    await service.prosecute(
+    setSourceFixtureScope(mockPrisma, null);
+await service.prosecute(
       'inc-001',
       {
         caseName: 'VA',

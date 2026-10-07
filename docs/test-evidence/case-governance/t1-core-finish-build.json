@@ -1,0 +1,8 @@
+﻿{
+    "exitCode":  0,
+    "gate":  "build",
+    "command":  "rtk proxy npm run build",
+    "startedAt":  "2026-10-06T08:21:16.7446213Z",
+    "completedAt":  "2026-10-06T08:21:55.7040685Z",
+    "log":  "t1-core-finish-build.log"
+}

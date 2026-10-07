@@ -1,0 +1,278 @@
+{
+  "timestamp": "2026-10-07T16:08:52.857Z",
+  "method": "Fresh ESLint whole-owned-file JSON; diagnostics intersect exact added hunks from recorded owned baselines. Unchanged legacy diagnostics separately retained.",
+  "scopedErrors": 0,
+  "scopedWarnings": 0,
+  "rows": [
+    {
+      "file": "admin/admin.service.ts",
+      "totalErrors": 1,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "admin/bulk/bulk-import.processor.ts",
+      "totalErrors": 6,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "admin/bulk/bulk-import.service.ts",
+      "totalErrors": 14,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "admin/case-authority.guard.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "auth/services/enrollment.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "case-child-access/case-child-access.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "case-child-access/case-child-access.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "case-child-access/case-graph.interceptor.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "case-child-access/case-source-creation.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/bulk/cases.bulk.service.ts",
+      "totalErrors": 303,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/cases.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/governance/case-civil-day.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/governance/case-field-schema.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/governance/case-operations.service.ts",
+      "totalErrors": 1,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "cases/governance/legal-action.validation.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "conclusions/conclusions.controller.ts",
+      "totalErrors": 5,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "conclusions/conclusions.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "conclusions/conclusions.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "delegations/delegations.controller.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "delegations/delegations.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "delegations/delegations.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "incidents/bulk/incidents.bulk.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "incidents/dto/prosecute-incident.dto.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "incidents/incidents.controller.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "incidents/incidents.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "incidents/incidents.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "investigation-supplements/investigation-supplements.controller.ts",
+      "totalErrors": 3,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "investigation-supplements/investigation-supplements.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "investigation-supplements/investigation-supplements.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "lawyers/bulk/lawyers.bulk.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "lawyers/lawyers.controller.ts",
+      "totalErrors": 8,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "lawyers/lawyers.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "lawyers/lawyers.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "petitions/bulk/petitions.bulk.service.ts",
+      "totalErrors": 13,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "petitions/dto/convert-case.dto.ts",
+      "totalErrors": 1,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "petitions/petitions.controller.ts",
+      "totalErrors": 36,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "petitions/petitions.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "petitions/petitions.service.ts",
+      "totalErrors": 59,
+      "totalWarnings": 1,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "proposals/proposals.controller.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "proposals/proposals.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "proposals/proposals.service.ts",
+      "totalErrors": 2,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "subjects/bulk/subjects.bulk.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "subjects/subjects.controller.ts",
+      "totalErrors": 8,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "subjects/subjects.module.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    },
+    {
+      "file": "subjects/subjects.service.ts",
+      "totalErrors": 0,
+      "totalWarnings": 0,
+      "changedDiagnostics": []
+    }
+  ]
+}

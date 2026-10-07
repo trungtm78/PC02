@@ -1,3 +1,4 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { noiVaoWhere } from '../../common/tim-kiem/dieu-kien';
 import type { Response } from 'express';
@@ -64,6 +65,7 @@ export class PetitionsBulkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly caseBoundary: CaseChildAccessService,
   ) {}
 
   async bulkAssign(
@@ -268,9 +270,13 @@ export class PetitionsBulkService {
     input.res.end();
   }
 
-  async bulkDelete(input: BulkDeletePetitionsInput): Promise<BulkResult<{ petitionId: string }>> {
-    if (input.ids.length === 0) throw new BadRequestException('Cần ít nhất 1 đơn thư để xóa');
-    if (input.ids.length > 100) throw new BadRequestException('Tối đa 100 đơn thư mỗi đợt');
+  async bulkDelete(
+    input: BulkDeletePetitionsInput,
+  ): Promise<BulkResult<{ petitionId: string }>> {
+    if (input.ids.length === 0)
+      throw new BadRequestException('Cần ít nhất 1 đơn thư để xóa');
+    if (input.ids.length > 100)
+      throw new BadRequestException('Tối đa 100 đơn thư mỗi đợt');
 
     const { bulkOperationId } = await this.audit.logBulkHeader({
       actorId: input.actorId,
@@ -279,10 +285,14 @@ export class PetitionsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ petitionId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { petitionId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
-      prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
+      prisma: {
+        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) =>
+          this.caseBoundary.transaction(cb),
       },
       preflight: async (ids) => {
         const inScope = await this.prisma.petition.findMany({
@@ -299,31 +309,39 @@ export class PetitionsBulkService {
           .map((id) => ({ id, reason: 'PERMISSION' as const }));
         return { validIds: ids.filter((id) => inScopeSet.has(id)), skipped };
       },
-      executeOne: async (id, tx) => {
-        try {
-          await tx.petition.update({
-            where: { id, deletedAt: null },
-            data: { deletedAt: new Date() },
-          });
-        } catch (e) {
-          if ((e as { code?: string })?.code === 'P2025') throw new ConcurrentModificationError(id);
-          throw e;
-        }
-        await this.audit.logBulkItem(
-          {
-            bulkOperationId,
-            userId: input.actorId,
-            action: 'PETITION_DELETED',
-            subject: 'Petition',
-            subjectId: id,
-            metadata: { reason: input.reason },
-            ipAddress: input.meta?.ipAddress,
-            userAgent: input.meta?.userAgent,
+      executeOne: async (id, tx) =>
+        this.caseBoundary.sourceDeletion(
+          'Petition',
+          id,
+          input.actorId,
+          async (tx) => {
+            try {
+              await tx.petition.update({
+                where: { id, deletedAt: null },
+                data: { deletedAt: new Date() },
+              });
+            } catch (e) {
+              if ((e as { code?: string })?.code === 'P2025')
+                throw new ConcurrentModificationError(id);
+              throw e;
+            }
+            await this.audit.logBulkItem(
+              {
+                bulkOperationId,
+                userId: input.actorId,
+                action: 'PETITION_DELETED',
+                subject: 'Petition',
+                subjectId: id,
+                metadata: { reason: input.reason },
+                ipAddress: input.meta?.ipAddress,
+                userAgent: input.meta?.userAgent,
+              },
+              tx,
+            );
+            return { petitionId: id };
           },
           tx,
-        );
-        return { petitionId: id };
-      },
+        ),
     });
 
     const reclassified: BulkResult<{ petitionId: string }> = {
@@ -338,7 +356,9 @@ export class PetitionsBulkService {
             message: 'Đơn thư đã được xóa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,

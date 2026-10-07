@@ -1,3 +1,4 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import {
   BadRequestException,
   Injectable,
@@ -50,16 +51,25 @@ export class ProposalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly childAccess: CaseChildAccessService,
     private readonly docNums: DocumentNumbersService,
   ) {}
 
-  async getList(query: QueryProposalsDto, dataScope?: DataScope | null) {
+  async getList(
+    query: QueryProposalsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Case', 'read', actorId, db);
+
     const { status, limit = 20, offset = 0 } = query;
-    const where = await this.dungWhere(query, dataScope);
+    const where = await this.dungWhere(query, dataScope, actorId, db);
     if (status) where.status = this.trangThai(status);
 
     const [data, total] = await Promise.all([
-      this.prisma.proposal.findMany({
+      db.proposal.findMany({
         where,
         include: {
           createdBy: {
@@ -77,12 +87,18 @@ export class ProposalsService {
         take: limit,
         skip: offset,
       }),
-      this.prisma.proposal.count({ where }),
+      db.proposal.count({ where }),
     ]);
 
     return {
       success: true,
-      data,
+      data: await Promise.all(
+        data.map(async (row) =>
+          row.relatedCaseId
+            ? this.childAccess.serialize(row.relatedCaseId, row, actorId, db)
+            : row,
+        ),
+      ),
       total,
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
@@ -94,12 +110,20 @@ export class ProposalsService {
    * trạng thái (tham số lẫn thẻ): thẻ "Đã gửi" không được về 0 khi đang xem "Chờ gửi". Trước đây màn đếm
    * trên phần đã tải.
    */
-  async getStats(query: QueryProposalsDto, dataScope?: DataScope | null) {
+  async getStats(
+    query: QueryProposalsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Case', 'read', actorId, db);
+
     const tk = (
       Array.isArray(query.tk) ? query.tk : query.tk ? [query.tk] : []
     ).filter((t) => !t.startsWith(`${KHOA_TRANG_THAI}~`));
     const where = await this.dungWhere({ ...query, tk }, dataScope);
-    const nhom = await this.prisma.proposal.groupBy({
+    const nhom = await db.proposal.groupBy({
       by: ['status'],
       where,
       _count: { _all: true },
@@ -121,9 +145,17 @@ export class ProposalsService {
   private async dungWhere(
     query: QueryProposalsDto,
     dataScope?: DataScope | null,
-  ): Promise<Prisma.ProposalWhereInput> {
-    const dieuKien = (await this.timKiem.dieuKien(
-      query,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Case', 'read', actorId, db);
+
+    const dieuKien = (await this.childAccess.policyQuery(
+      await this.timKiem.dieuKien(query),
+      'relatedCase',
+      actorId,
+      db,
     )) as Prisma.ProposalWhereInput[];
     const where: Prisma.ProposalWhereInput = { deletedAt: null };
 
@@ -160,6 +192,12 @@ export class ProposalsService {
         dieuKien.push({ OR: phamVi });
       }
     }
+    dieuKien.push({
+      OR: [
+        { relatedCase: null },
+        { relatedCase: await this.childAccess.listWhere(actorId, db) },
+      ],
+    });
     if (dieuKien.length) where.AND = dieuKien;
     return where;
   }
@@ -182,8 +220,16 @@ export class ProposalsService {
     return giaTri as ProposalStatus;
   }
 
-  async getById(id: string, dataScope?: DataScope | null) {
-    const record = await this.prisma.proposal.findFirst({
+  async getById(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Case', 'read', actorId, db);
+
+    const record = await db.proposal.findFirst({
       where: { id, deletedAt: null },
       include: {
         createdBy: {
@@ -203,10 +249,21 @@ export class ProposalsService {
       throw new NotFoundException(`Đề xuất không tồn tại (id: ${id})`);
     if (record.relatedCase) {
       assertParentInScope(record.relatedCase, dataScope);
+      await this.childAccess.read(record.relatedCaseId!, actorId, db);
     } else {
       assertCreatorInScope(record.createdById, dataScope);
     }
-    return { success: true, data: record };
+    return {
+      success: true,
+      data: record.relatedCaseId
+        ? await this.childAccess.serialize(
+            record.relatedCaseId,
+            record,
+            actorId,
+            db,
+          )
+        : record,
+    };
   }
 
   async create(
@@ -215,81 +272,106 @@ export class ProposalsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    // Gắn vụ án liên quan thì vụ án ấy phải trong phạm vi GHI; không gắn thì bản ghi thuộc người tạo.
-    if (dto.relatedCaseId)
-      await kiemVuAnChaDeGhi(this.prisma, dto.relatedCaseId, dataScope);
+    return this.childAccess.write(
+      [...(dto.relatedCaseId ? [dto.relatedCaseId] : [])],
+      actorId,
+      'Case',
+      'write',
+      async (tx) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
+        // Gắn vụ án liên quan thì vụ án ấy phải trong phạm vi GHI; không gắn thì bản ghi thuộc người tạo.
+        if (dto.relatedCaseId)
+          await kiemVuAnChaDeGhi(tx, dto.relatedCaseId, dataScope);
 
-    let resolvedProposalNumber: string | undefined = dto.proposalNumber;
+        let resolvedProposalNumber: string | undefined = dto.proposalNumber;
 
-    const record = await this.prisma.$transaction(async (tx: any) => {
-      if (!resolvedProposalNumber) {
-        const { number, logId } = await this.docNums.commitWithTx(
-          'PROPOSAL',
-          { userId: actorId },
+        const record = await (async () => {
+          if (!resolvedProposalNumber) {
+            const { number, logId } = await this.docNums.commitWithTx(
+              'PROPOSAL',
+              { userId: actorId },
+              tx,
+            );
+            resolvedProposalNumber = number;
+            const rec = await tx.proposal.create({
+              data: {
+                proposalNumber: resolvedProposalNumber,
+                relatedCaseId: dto.relatedCaseId,
+                caseType: dto.caseType,
+                content: dto.content,
+                unit: dto.unit,
+                createdById: actorId,
+                status: dto.status ?? ProposalStatus.CHO_GUI,
+                sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
+                response: dto.response,
+                responseDate: dto.responseDate
+                  ? new Date(dto.responseDate)
+                  : undefined,
+                notes: dto.notes,
+              },
+              include: {
+                createdBy: {
+                  select: { id: true, firstName: true, lastName: true },
+                },
+              },
+            });
+            await tx.documentNumberLog.update({
+              where: { id: logId },
+              data: { documentId: rec.id },
+            });
+            return rec;
+          }
+          return tx.proposal.create({
+            data: {
+              proposalNumber: resolvedProposalNumber,
+              relatedCaseId: dto.relatedCaseId,
+              caseType: dto.caseType,
+              content: dto.content,
+              unit: dto.unit,
+              createdById: actorId,
+              status: dto.status ?? ProposalStatus.CHO_GUI,
+              sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
+              response: dto.response,
+              responseDate: dto.responseDate
+                ? new Date(dto.responseDate)
+                : undefined,
+              notes: dto.notes,
+            },
+            include: {
+              createdBy: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
+          });
+        })();
+
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'PROPOSAL_CREATED',
+            subject: 'Proposal',
+            subjectId: record.id,
+            metadata: { proposalNumber: record.proposalNumber },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
           tx,
         );
-        resolvedProposalNumber = number;
-        const rec = await tx.proposal.create({
-          data: {
-            proposalNumber: resolvedProposalNumber,
-            relatedCaseId: dto.relatedCaseId,
-            caseType: dto.caseType,
-            content: dto.content,
-            unit: dto.unit,
-            createdById: actorId,
-            status: dto.status ?? ProposalStatus.CHO_GUI,
-            sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
-            response: dto.response,
-            responseDate: dto.responseDate
-              ? new Date(dto.responseDate)
-              : undefined,
-            notes: dto.notes,
-          },
-          include: {
-            createdBy: {
-              select: { id: true, firstName: true, lastName: true },
-            },
-          },
-        });
-        await tx.documentNumberLog.update({
-          where: { id: logId },
-          data: { documentId: rec.id },
-        });
-        return rec;
-      }
-      return tx.proposal.create({
-        data: {
-          proposalNumber: resolvedProposalNumber,
-          relatedCaseId: dto.relatedCaseId,
-          caseType: dto.caseType,
-          content: dto.content,
-          unit: dto.unit,
-          createdById: actorId,
-          status: dto.status ?? ProposalStatus.CHO_GUI,
-          sentDate: dto.sentDate ? new Date(dto.sentDate) : undefined,
-          response: dto.response,
-          responseDate: dto.responseDate
-            ? new Date(dto.responseDate)
-            : undefined,
-          notes: dto.notes,
-        },
-        include: {
-          createdBy: { select: { id: true, firstName: true, lastName: true } },
-        },
-      });
-    });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'PROPOSAL_CREATED',
-      subject: 'Proposal',
-      subjectId: record.id,
-      metadata: { proposalNumber: record.proposalNumber },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return { success: true, data: record, message: 'Tạo đề xuất thành công' };
+        return {
+          success: true,
+          data: record.relatedCaseId
+            ? await this.childAccess.serialize(
+                record.relatedCaseId,
+                record,
+                actorId,
+                tx,
+              )
+            : record,
+          message: 'Tạo đề xuất thành công',
+        };
+      },
+    );
   }
 
   async update(
@@ -299,51 +381,83 @@ export class ProposalsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    if (existing.relatedCase) {
-      assertParentInScope(existing.relatedCase, dataScope, 'write');
-    } else {
-      assertCreatorInScope(existing.createdById, dataScope, 'write');
-    }
+    const { data: existing } = await this.getById(id, dataScope, actorId);
+    return this.childAccess.write(
+      [
+        ...(existing.relatedCaseId ? [existing.relatedCaseId] : []),
+        ...(dto.relatedCaseId ? [dto.relatedCaseId] : []),
+      ],
+      actorId,
+      'Case',
+      'edit',
+      async (tx, parents) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
+        if (existing.relatedCaseId) {
+          assertParentInScope(
+            this.childAccess.parent(parents, existing.relatedCaseId),
+            dataScope,
+            'write',
+          );
+        } else {
+          assertCreatorInScope(existing.createdById, dataScope, 'write');
+        }
 
-    const record = await this.prisma.proposal.update({
-      where: { id },
-      data: {
-        ...(dto.content !== undefined && { content: dto.content }),
-        ...(dto.status !== undefined && {
-          status: dto.status,
-        }),
-        ...(dto.sentDate !== undefined && {
-          sentDate: dto.sentDate ? new Date(dto.sentDate) : null,
-        }),
-        ...(dto.response !== undefined && { response: dto.response }),
-        ...(dto.responseDate !== undefined && {
-          responseDate: dto.responseDate ? new Date(dto.responseDate) : null,
-        }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.unit !== undefined && { unit: dto.unit }),
-        ...(dto.caseType !== undefined && { caseType: dto.caseType }),
+        const record = await tx.proposal.update({
+          where: {
+            id,
+            relatedCaseId: existing.relatedCaseId,
+            updatedAt: existing.updatedAt,
+          },
+          data: {
+            ...(dto.content !== undefined && { content: dto.content }),
+            ...(dto.status !== undefined && {
+              status: dto.status,
+            }),
+            ...(dto.sentDate !== undefined && {
+              sentDate: dto.sentDate ? new Date(dto.sentDate) : null,
+            }),
+            ...(dto.response !== undefined && { response: dto.response }),
+            ...(dto.responseDate !== undefined && {
+              responseDate: dto.responseDate
+                ? new Date(dto.responseDate)
+                : null,
+            }),
+            ...(dto.notes !== undefined && { notes: dto.notes }),
+            ...(dto.unit !== undefined && { unit: dto.unit }),
+            ...(dto.caseType !== undefined && { caseType: dto.caseType }),
+          },
+        });
+
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'PROPOSAL_UPDATED',
+            subject: 'Proposal',
+            subjectId: id,
+            metadata: {
+              before: { status: existing.status, content: existing.content },
+              after: dto,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+
+        return {
+          success: true,
+          data: record.relatedCaseId
+            ? await this.childAccess.serialize(
+                record.relatedCaseId,
+                record,
+                actorId,
+                tx,
+              )
+            : record,
+          message: 'Cập nhật đề xuất thành công',
+        };
       },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'PROPOSAL_UPDATED',
-      subject: 'Proposal',
-      subjectId: id,
-      metadata: {
-        before: { status: existing.status, content: existing.content },
-        after: dto,
-      },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return {
-      success: true,
-      data: record,
-      message: 'Cập nhật đề xuất thành công',
-    };
+    );
   }
 
   async delete(
@@ -352,29 +466,49 @@ export class ProposalsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    if (existing.relatedCase) {
-      assertParentInScope(existing.relatedCase, dataScope, 'write');
-    } else {
-      assertCreatorInScope(existing.createdById, dataScope, 'write');
-    }
+    const { data: existing } = await this.getById(id, dataScope, actorId);
+    return this.childAccess.write(
+      [...(existing.relatedCaseId ? [existing.relatedCaseId] : [])],
+      actorId,
+      'Case',
+      'delete',
+      async (tx, parents) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
+        if (existing.relatedCaseId) {
+          assertParentInScope(
+            this.childAccess.parent(parents, existing.relatedCaseId),
+            dataScope,
+            'write',
+          );
+        } else {
+          assertCreatorInScope(existing.createdById, dataScope, 'write');
+        }
 
-    await this.prisma.proposal.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+        await tx.proposal.update({
+          where: {
+            id,
+            relatedCaseId: existing.relatedCaseId,
+            updatedAt: existing.updatedAt,
+          },
+          data: { deletedAt: new Date() },
+        });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'PROPOSAL_DELETED',
-      subject: 'Proposal',
-      subjectId: id,
-      metadata: { proposalNumber: existing.proposalNumber },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'PROPOSAL_DELETED',
+            subject: 'Proposal',
+            subjectId: id,
+            metadata: { proposalNumber: existing.proposalNumber },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
 
-    return { success: true, message: 'Xóa đề xuất thành công' };
+        return { success: true, message: 'Xóa đề xuất thành công' };
+      },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -384,12 +518,19 @@ export class ProposalsService {
     query: QueryProposalsDto,
     dataScope: DataScope | null | undefined,
     res: Response,
-  ): Promise<void> {
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    await this.childAccess.assertExport('Case', actorId!);
+
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Case', 'read', actorId, db);
+
     // CÙNG điều kiện với danh sách (thẻ, ngày, phạm vi) — tệp xuất ra đúng những dòng cán bộ đang thấy.
-    const where = await this.dungWhere(query, dataScope);
+    const where = await this.dungWhere(query, dataScope, actorId, db);
     if (query.status) where.status = this.trangThai(query.status);
 
-    const records = await this.prisma.proposal.findMany({
+    const rawRecords = await db.proposal.findMany({
       where,
       take: 500,
       orderBy: { createdAt: 'desc' },
@@ -424,6 +565,19 @@ export class ProposalsService {
         ? `Từ ngày ${fromStr} đến ngày ${toStr}`
         : 'Tất cả thời gian';
 
+    const records = await Promise.all(
+      rawRecords.map(async (row) =>
+        row.relatedCaseId
+          ? this.childAccess.serialize(
+              row.relatedCaseId,
+              row,
+              actorId,
+              db,
+              'export',
+            )
+          : row,
+      ),
+    );
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Danh sách kiến nghị VKS');
 

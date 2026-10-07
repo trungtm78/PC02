@@ -1,7 +1,20 @@
-import { IsString, IsOptional, IsNotEmpty, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class ConvertToCaseDto {
+  @IsOptional()
+  @IsObject()
+  caseCustomFields?: Record<string, unknown>;
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  requestKey?: string;
   @IsString()
   @IsNotEmpty({ message: 'Tên vụ án là bắt buộc' })
   @MaxLength(500)

@@ -1,10 +1,11 @@
+import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, X, Loader2 } from 'lucide-react';
 import { LABEL_BASE, FIELD_ERROR_TEXT } from '@/constants/styles';
 import { useCrimeOptions } from '@/hooks/useCrimeOptions';
 import { visibleCrimes, type CrimeOption } from './crime-select-utils';
 
-export function crimeLabel(c: CrimeOption): string {
+function crimeLabel(c: CrimeOption): string {
   return `Điều ${c.articleNo} · ${c.name}`;
 }
 
@@ -34,7 +35,7 @@ export function CrimeSelect({
   // Giá trị mặc định của tham số CHỈ chạy khi dữ liệu là `undefined`. Máy chủ (và bản giả
   // trong ca kiểm) có thể trả `null` hoặc một hình dạng khác — khi ấy `all` là null và
   // `all.find` làm trắng nguyên trang. Ép về mảng ngay tại đây, không dựa vào mặc định.
-  const all = Array.isArray(crimesRaw) ? crimesRaw : [];
+  const all = useMemo(() => Array.isArray(crimesRaw) ? crimesRaw : [], [crimesRaw]);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -70,7 +71,7 @@ export function CrimeSelect({
   };
 
   return (
-    <div ref={containerRef} className="relative" data-testid={testId}>
+    <CasePolicyField label={label} testId={testId}><div ref={containerRef} className="relative" data-testid={testId}>
       <label className={LABEL_BASE}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -182,6 +183,6 @@ export function CrimeSelect({
           </div>
         </div>
       )}
-    </div>
+    </div></CasePolicyField>
   );
 }

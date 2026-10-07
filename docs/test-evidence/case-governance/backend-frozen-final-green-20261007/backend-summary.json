@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-10-07T16:17:34.952Z",
+  "side": "backend",
+  "label": "backend-frozen-final-green-20261007",
+  "command": [
+    "C:\\Program Files\\nodejs\\node.exe",
+    "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest\\bin\\jest.js",
+    "--runInBand",
+    "--json",
+    "--outputFile=C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\docs\\test-evidence\\case-governance\\backend-frozen-final-green-20261007\\backend-tests.json"
+  ],
+  "exit": 0,
+  "processExit": 0,
+  "signal": null,
+  "elapsedMs": 132870,
+  "passed": 7254,
+  "failed": 0,
+  "pending": 89,
+  "total": 7343,
+  "failures": []
+}

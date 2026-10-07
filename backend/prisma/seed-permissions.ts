@@ -133,4 +133,14 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   // ADMIN + HEAD_UNIT review reset requests. ADMIN auto-grant via seed.ts ALL block.
   // HEAD_UNIT grant via admin role-permission UI sau (defer per autoplan).
   { action: 'review_reset_request', subject: 'EditWindowResetRequest', description: 'Duyệt/từ chối yêu cầu reset bộ đếm sửa dữ liệu cấp phường' },
+  { action: 'read', subject: 'CaseGovernance', description: 'Read governed records' },
+  { action: 'read_sensitive', subject: 'CaseGovernance', description: 'Read explicitly classified restricted cases' },
+  { action: 'operate', subject: 'CaseGovernance', description: 'Operate case governance' },
+  { action: 'review', subject: 'CaseGovernance', description: 'Independently review case governance' },
+  { action: 'publish', subject: 'CaseGovernance', description: 'Publish reviewed case governance configuration' },
+  { action: 'share', subject: 'CaseGovernance', description: 'Disclose approved case evidence' },
+  { action: 'download', subject: 'CaseGovernance', description: 'Download authorized registered evidence' },
+  { action: 'manage_access', subject: 'CaseGovernance', description: 'Manage explicit Case principal access profiles' },
+  { action: 'custody', subject: 'CaseGovernance', description: 'Record evidence custody' },
+  { action: 'dispose', subject: 'CaseGovernance', description: 'Review governed disposition' },
 ];

@@ -1,0 +1,222 @@
+[
+  {
+    "path": "frontend/src/components/CrimeSelect.tsx",
+    "sha256": "79e416fdc3a98f15a6502524c30f035f7235d8610c8f886e83a3f6b03c6b8aa7"
+  },
+  {
+    "path": "frontend/src/components/FKSelect.tsx",
+    "sha256": "2c6233893c1ed7ab8e77fd84e75cb9fa9f6dc4c059f01ecf2a3ae03689f08f06"
+  },
+  {
+    "path": "frontend/src/components/form/FormCurrency.tsx",
+    "sha256": "65d98659c3f41891f4575fd73b70de0e325bf9a9263568c62cf9dc7390769587"
+  },
+  {
+    "path": "frontend/src/components/form/FormField.tsx",
+    "sha256": "d767b2a8631e3da5396b3825969529a5f56a950fa6b5a15dfeefc56f32dcfd91"
+  },
+  {
+    "path": "frontend/src/components/form/FormInteger.tsx",
+    "sha256": "cfdc801dc05f02dcf7475ed657c93ca3769e1ce0e0e92592066e3fa1f30f9979"
+  },
+  {
+    "path": "frontend/src/components/form/FormPhone.tsx",
+    "sha256": "486a09b6e8f5ac274874951a21a25181879191b326ba3479798089645265be42"
+  },
+  {
+    "path": "frontend/src/components/shared/ListPageShell/useListPageUrlState.ts",
+    "sha256": "7c17e985251398809909afd38866933ba2847a0a391e1967bff5581df9c2bc01"
+  },
+  {
+    "path": "frontend/src/features/_shared/modals/ProsecuteModalProvider.tsx",
+    "sha256": "0cf75e0babc317a5d9c10e059d3131a32aa8828d7166ce12d211cd17c4b09567"
+  },
+  {
+    "path": "frontend/src/features/_shared/row-actions/registry.ts",
+    "sha256": "632357ae73d3ed7dd1a6d73f7e29e9a1fd82059c2f155a0ffdfbff95f8dfa67d"
+  },
+  {
+    "path": "frontend/src/features/cases/CaseCustomFields.tsx",
+    "sha256": "e4e5b71a4caefd6da9fef58aa3a127ce9ec8175d5db0f76624e2569f57ba054a"
+  },
+  {
+    "path": "frontend/src/features/cases/CaseInformationTabs.tsx",
+    "sha256": "724dd099f9abb0f3c47cf4ad0c42e353d6adb8a5aa2ea1e1231f6ac31753928a"
+  },
+  {
+    "path": "frontend/src/features/cases/CaseNullableBooleanField.tsx",
+    "sha256": "9c18773e51095d6627932f0c832847e4ac55f864ed3181a784284416eb55afe7"
+  },
+  {
+    "path": "frontend/src/features/cases/SourceCaseFields.tsx",
+    "sha256": "921e8f984c8c9cab6c4b2ca4a33d9ece1a4692d3ca25ca3c784216e3282ade09"
+  },
+  {
+    "path": "frontend/src/features/cases/canonical-fields.ts",
+    "sha256": "0b4257b9c7dd332f052a64f5f455941069843db523981d2c6543aee3d217f706"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/AccessPanel.tsx",
+    "sha256": "3a02b88abda63045c17ba27dd8cadde3e1b7aa2828071d1c9a368feade13c382"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/CaseConfigurationPage.tsx",
+    "sha256": "eb8c3cf9f55a164ef5ecf7b3fcd78dfd4945e76f3c6ba684cfb47c3cc9fee9fb"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/CaseGovernanceFilters.tsx",
+    "sha256": "a3f6e93263cc3ee333480624eca7076ed58c53c67dededb0dd010ae1dfa42386"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/CaseGovernancePage.tsx",
+    "sha256": "2a524c72f243921fe5bab1464f32237694d4263fabab71dad956675faf809efc"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/CaseGovernanceWorkspace.tsx",
+    "sha256": "2016c53b66bf4c6f2539aa2ed5b4f11e2a47e3340a390807e584812e835884d5"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/CaseOperationsPage.tsx",
+    "sha256": "f153145392b3bec52bbb5697ef8aa76a02d06a439262d78e66e5b034bf621961"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/ConfigurationEditors.tsx",
+    "sha256": "3fbe898e9542f99b42bfa72a32570dae065830357f1eaad29ae4219e1c706bd2"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/DisclosurePanel.tsx",
+    "sha256": "9143d83be08b07a7fe284c3bfb827456b79299b16998dacffcca50058e14d123"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/DisclosureVerifier.tsx",
+    "sha256": "340f119660d2acd06655f3fab62ff5d358e668345fd4108923ba0ea91002c9cf"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/EvidencePanel.tsx",
+    "sha256": "489ebd837b0402cad677635e8c7d56619cc1f854a9ab8d469092bf67e3bf4451"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/HandoffPanel.tsx",
+    "sha256": "6b5514b88672ed43b8b1ed95bd5d587518b8f67f232d7dc9fbb4574e050abc2d"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/HandoffReceiptModal.tsx",
+    "sha256": "e0fae3e91721cfeb7d83468bdac99354804c49b68130dbdc27faa4b7435a9778"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/LegalActionsPanel.tsx",
+    "sha256": "79ee00ba80265fd999df0b650b978a99259e3850665a977bd9dcc6f56cbb9627"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/PreservationPanel.tsx",
+    "sha256": "79f957ed89fd53f4af30956ff1f44546d83b0a8b48dbfabb8324c49e9759c72d"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/ReceiptChecklist.tsx",
+    "sha256": "e5afabfa678885c3f1f2d99f2d89d3c32128aef5881467abf9bacd97fe4dd34e"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/SchemaAdoptionPanel.tsx",
+    "sha256": "d60d5760d2acb7b00efa37d357e9ca7422d22ae0abe3802b983bebfb333b4a6e"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/TasksPanel.tsx",
+    "sha256": "5b3c77ef9608a106ef10edd30ffc594fadea9b3cb2aef0cbdfd5e49ac5cbfa0f"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/disclosure-verifier.ts",
+    "sha256": "83e34745e93c861b45e5e77de64d07844f4a4a4c3dc3865a86213c6bdf9ae65a"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/governance-filters.ts",
+    "sha256": "bd872667a279ec59e4ee0aadb9d5f92c48e813c93ec421afc7ea5a8f7fa066d6"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/shared-ui.tsx",
+    "sha256": "a6a9679bf7388dcd4dfd352921b66f6ef17dc1fdcc8db313888f8d658c747823"
+  },
+  {
+    "path": "frontend/src/features/cases/governance/shared.ts",
+    "sha256": "1974e9c83ae3677a0f67b9a8f9cd91d8a61cb08991356d9b4942f80cff9b4b82"
+  },
+  {
+    "path": "frontend/src/features/cases/menu.ts",
+    "sha256": "7e2659b1985b2406b70fd1038aa864945367a45f4a383fad05dbccf26559bccc"
+  },
+  {
+    "path": "frontend/src/features/cases/native-field-components.tsx",
+    "sha256": "b5d2db763ed31099a918dcc0fb7c0a28dc4312ac0fee52735606c4a03d766adc"
+  },
+  {
+    "path": "frontend/src/features/cases/native-field-policy.ts",
+    "sha256": "4ab2aa4106932278a55abe7944659d4ab2819a7316ce7b90f25503fc273cb7cf"
+  },
+  {
+    "path": "frontend/src/features/cases/routes.tsx",
+    "sha256": "342a61430715d3be0a466f21c2c908c20e2034c2f7d015297f101bee0d1dcd03"
+  },
+  {
+    "path": "frontend/src/features/cases/row-actions.ts",
+    "sha256": "5678d2aceb530bc60fb9d614ce0ce55faa358f789dede1002daa91d8ead5630c"
+  },
+  {
+    "path": "frontend/src/features/cases/source-case-fields.ts",
+    "sha256": "493cc985fb6b871ccea9f6eae1177044e779c03e8b83c1da4d1f413d76af973d"
+  },
+  {
+    "path": "frontend/src/features/cases/useCaseCapabilities.ts",
+    "sha256": "0c7f7eeafaf4526d19b59bc77c22cad0ec8bb69b99684b90a2e63b507a28b231"
+  },
+  {
+    "path": "frontend/src/features/cases/useCaseFieldSchema.ts",
+    "sha256": "05bee20b4609239fd676c2c8130ca1c3d2bb7c5e64122aa645c318cd16e2287e"
+  },
+  {
+    "path": "frontend/src/features/petitions/components/SaveSplitButton.tsx",
+    "sha256": "69f9500275b97d058e7db36f773005ce5aa05bd1aa74bc908c635348e4d0bf2a"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseDetailPage.tsx",
+    "sha256": "571e90185678682994def325bbd4a4da80c13f25d16114ecc08741e1e9a8e949"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/LegacyTabBody.tsx",
+    "sha256": "21efbb6f0002862fbc2c38f1987fb104c89de6f0c4e8c9404d5da84200e54e72"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+    "sha256": "cf0ba4b097f0edf800a5eef79d7ffdba995c2bf3555a107080550d0f81e14b3e"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/clone-case.ts",
+    "sha256": "b8ce144388f9293c331b7d0e72948ca7fafc1ad05421789b89a05cef3a0ac16c"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+    "sha256": "af4e2e2cd0f9aad06fe8e463ff1edcd210c4b66db3deb970e58273fe48c1763c"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts",
+    "sha256": "b93a369b5414a7989389533ba33130e932bb4509e1d5ffb74ee6ef00796ebbdf"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+    "sha256": "8c550ac3b5ee9ceb2200db975b65d3896f7df5325b3931455609c873b7dceade"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseFormPage/types.ts",
+    "sha256": "4d502a12ae2702d3ef3ebb717695d9d75a0457410c67ecdd0d71327e46708efc"
+  },
+  {
+    "path": "frontend/src/pages/cases/CaseListPageShell.tsx",
+    "sha256": "e2d65e8236162821efd18ea7391a0b3b0b7e2d268919ec7129056c8ea7b32d4c"
+  },
+  {
+    "path": "frontend/src/pages/cases/InitialCasesPage.tsx",
+    "sha256": "704c14d1f26a8d5a61e43501f0d2671af16c51d766a5d341e0d9b5d9f5ec3180"
+  },
+  {
+    "path": "frontend/src/pages/petitions/ConvertPetitionModal.tsx",
+    "sha256": "eb75ec39e8d8940e364cfd769cecc1c8ce5352e437786435792473ee3450730e"
+  }
+]

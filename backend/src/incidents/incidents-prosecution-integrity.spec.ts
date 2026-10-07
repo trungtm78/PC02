@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- Jest asymmetric matchers have an any return type. */
 import { Test } from '@nestjs/testing';
 import { BadRequestException, ConflictException } from '@nestjs/common';
@@ -116,7 +120,7 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
     tx.incident.findFirst.mockResolvedValue(source);
     audit.log.mockResolvedValue(undefined);
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(db) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(db) },
         IncidentsService,
         { provide: PrismaService, useValue: db },
         { provide: AuditService, useValue: audit },
@@ -165,7 +169,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   });
 
   it('lưu số/ngày quyết định, tổ và các thông tin nguồn trong Case', async () => {
-    await service.prosecute(source.id, input, 'actor-1');
+    setSourceFixtureScope(db, null);
+await service.prosecute(source.id, input, 'actor-1');
     expect(tx.case.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -199,7 +204,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
       intakeStage: 'DA_NHAN',
       status: IncidentStatus.PHUC_HOI_NGUON_TIN,
     });
-    await service.prosecute(source.id, input, 'actor-1');
+    setSourceFixtureScope(db, null);
+await service.prosecute(source.id, input, 'actor-1');
     expect(tx.incidentStatusHistory.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -347,7 +353,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   );
 
   it('giữ snapshot nguồn, không lấy hạn nguồn tin làm hạn vụ án', async () => {
-    await service.prosecute(source.id, input, 'actor-1');
+    setSourceFixtureScope(db, null);
+await service.prosecute(source.id, input, 'actor-1');
     const call = tx.case.create.mock.calls[0] as unknown as [
       { data: Record<string, unknown> },
     ];
@@ -367,7 +374,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   it.each(['', '   ', undefined])(
     'từ chối ngày quyết định thiếu (%s) trước transaction',
     async (date) => {
-      await expect(
+      setSourceFixtureScope(db, null);
+await expect(
         service.prosecute(
           source.id,
           { ...input, prosecutionDate: date } as ProsecuteIncidentDto,
@@ -381,7 +389,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   it.each(['2026-02-30', 'not-a-date'])(
     'từ chối ngày quyết định không thật (%s)',
     async (date) => {
-      await expect(
+      setSourceFixtureScope(db, null);
+await expect(
         service.prosecute(
           source.id,
           { ...input, prosecutionDate: date } as ProsecuteIncidentDto,
@@ -393,7 +402,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   );
 
   it.each(['', '   '])('từ chối số quyết định rỗng (%s)', async (decision) => {
-    await expect(
+    setSourceFixtureScope(db, null);
+await expect(
       service.prosecute(
         source.id,
         { ...input, prosecutionDecision: decision },
@@ -404,7 +414,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   });
 
   it('audit khởi tố dùng cùng transaction client', async () => {
-    await service.prosecute(source.id, input, 'actor-1');
+    setSourceFixtureScope(db, null);
+await service.prosecute(source.id, input, 'actor-1');
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'INCIDENT_PROSECUTED' }),
       tx,
@@ -420,7 +431,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
           clientVersion: 'test',
         }),
       );
-      await expect(
+      setSourceFixtureScope(db, null);
+await expect(
         service.prosecute(
           source.id,
           { ...input, expectedUpdatedAt: timestamp },
@@ -444,7 +456,8 @@ describe('AC-04/05: khởi tố và liên kết hồ sơ', () => {
   it('audit thất bại không trả khởi tố thành công', async () => {
     const error = new Error('Audit unavailable');
     audit.log.mockRejectedValueOnce(error);
-    await expect(service.prosecute(source.id, input, 'actor-1')).rejects.toBe(
+    setSourceFixtureScope(db, null);
+await expect(service.prosecute(source.id, input, 'actor-1')).rejects.toBe(
       error,
     );
   });

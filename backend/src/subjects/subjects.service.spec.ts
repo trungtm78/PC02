@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Test, TestingModule } from '@nestjs/testing';
 import {
@@ -79,7 +81,7 @@ describe('SubjectsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) }, 
         SubjectsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -97,7 +99,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([FAKE_SUBJECT]);
       mockPrisma.subject.count.mockResolvedValue(1);
 
-      const result = await service.getList({});
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getList({});
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual([FAKE_SUBJECT]);
@@ -106,7 +109,7 @@ describe('SubjectsService', () => {
       expect(result.pageSize).toBe(20);
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null },
+          where: { deletedAt: null, AND: [{ case: {} }] },
           take: 20,
           skip: 0,
         }),
@@ -126,7 +129,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'Nguyễn' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ search: 'Nguyễn' });
 
       const where = whereCua(mockPrisma.subject.findMany);
       expect(where.OR).toBeUndefined();
@@ -144,7 +148,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ tk: ['hoTen~Tran Thi Binh'] } as never);
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ tk: ['hoTen~Tran Thi Binh'] } as never);
 
       const json = JSON.stringify(whereCua(mockPrisma.subject.findMany).AND);
       expect(json).toContain('"fullNameBd":{"contains":"tran thi binh"}');
@@ -158,7 +163,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
 
       const where = whereCua(mockPrisma.subject.findMany);
       expect(JSON.stringify(where.AND)).toContain(
@@ -167,7 +173,8 @@ describe('SubjectsService', () => {
     });
 
     it('khoá thẻ lạ → 400, không truy vấn', async () => {
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.getList({ tk: ['khongCo~x'] } as never),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.subject.findMany).not.toHaveBeenCalled();
@@ -181,7 +188,13 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList(
+      setOrdinaryCurrentScope(mockPrisma, {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        } as never);
+await service.getList(
         { tk: ['vuAn~A'] } as never,
         {
           userIds: ['u1'],
@@ -210,7 +223,13 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'x y z', caseId: 'c1' }, {
+      setOrdinaryCurrentScope(mockPrisma, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      } as never);
+await service.getList({ search: 'x y z', caseId: 'c1' }, {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -231,7 +250,13 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({}, {
+      setOrdinaryCurrentScope(mockPrisma, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      } as never);
+await service.getList({}, {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -248,7 +273,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ status: SubjectStatus.DETAINED });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ status: SubjectStatus.DETAINED });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -261,7 +287,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ caseId: 'case-xyz' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ caseId: 'case-xyz' });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -274,7 +301,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ districtId: 'd-01', wardId: 'w-01' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ districtId: 'd-01', wardId: 'w-01' });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -287,7 +315,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ fromDate: '2026-01-01', toDate: '2026-12-31' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ fromDate: '2026-01-01', toDate: '2026-12-31' });
 
       const callArg = mockPrisma.subject.findMany.mock.calls[0][0];
       expect(callArg.where.createdAt).toMatchObject({
@@ -300,7 +329,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ sortBy: 'injectedField' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ sortBy: 'injectedField' });
 
       const callArg = mockPrisma.subject.findMany.mock.calls[0][0];
       expect(callArg.orderBy).toEqual({ createdAt: 'desc' });
@@ -310,7 +340,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(100);
 
-      const result = await service.getList({ limit: 20, offset: 40 });
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getList({ limit: 20, offset: 40 });
 
       expect(result.page).toBe(3);
     });
@@ -322,7 +353,8 @@ describe('SubjectsService', () => {
     it('returns subject when found', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
 
-      const result = await service.getById('sub-001');
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getById('sub-001');
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(FAKE_SUBJECT);
@@ -336,7 +368,8 @@ describe('SubjectsService', () => {
     it('throws NotFoundException when subject not found', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await expect(service.getById('nonexistent')).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.getById('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -344,7 +377,8 @@ describe('SubjectsService', () => {
     it('throws NotFoundException with subject id in message', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await expect(service.getById('bad-id')).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.getById('bad-id')).rejects.toThrow(
         /bad-id/,
       );
     });
@@ -360,7 +394,8 @@ describe('SubjectsService', () => {
         writableTeamIds: ['t1'],
         writableUserIds: ['u1'],
       };
-      await expect(service.getById('sub-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+      setOrdinaryCurrentScope(mockPrisma, scope);
+await expect(service.getById('sub-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
     it('passes scope check when parent case team matches', async () => {
@@ -374,7 +409,8 @@ describe('SubjectsService', () => {
         writableTeamIds: ['t1'],
         writableUserIds: [],
       };
-      const result = await service.getById('sub-001', scope);
+      setOrdinaryCurrentScope(mockPrisma, scope);
+const result = await service.getById('sub-001', scope);
       expect(result.success).toBe(true);
     });
   });
@@ -390,7 +426,8 @@ describe('SubjectsService', () => {
     });
 
     it('creates subject successfully', async () => {
-      const result = await service.create(BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(BASE_CREATE_DTO, 'actor-1');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('thành công');
@@ -398,8 +435,27 @@ describe('SubjectsService', () => {
       expect(mockPrisma.subject.create).toHaveBeenCalledTimes(1);
     });
 
+    it('masks protected parent fields in the create response', async () => {
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_SUBJECT) => ({
+        ...row,
+        case: { id: row.case.id },
+      }));
+      setOrdinaryCurrentScope(mockPrisma, null);
+
+      const result = await service.create(BASE_CREATE_DTO, 'actor-1');
+
+      expect(result.data.case).toEqual({ id: 'case-001' });
+      expect(result.data.case).not.toHaveProperty('name');
+      expect(result.data.case).not.toHaveProperty('status');
+      expect(childAccess.serialize).toHaveBeenCalledWith(
+        'case-001', FAKE_SUBJECT, 'actor-1', mockPrisma,
+      );
+    });
+
     it('logs SUBJECT_CREATED audit event', async () => {
-      await service.create(BASE_CREATE_DTO, 'actor-1', {
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(BASE_CREATE_DTO, 'actor-1', {
         ipAddress: '127.0.0.1',
         userAgent: 'jest',
       });
@@ -411,14 +467,15 @@ describe('SubjectsService', () => {
           userId: 'actor-1',
           ipAddress: '127.0.0.1',
           userAgent: 'jest',
-        }),
+        }), mockPrisma
       );
     });
 
     it('EC-04: throws ConflictException on duplicate idNumber', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT); // dup found
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.create(BASE_CREATE_DTO, 'actor-1'),
       ).rejects.toThrow(ConflictException);
     });
@@ -426,7 +483,8 @@ describe('SubjectsService', () => {
     it('EC-04: ConflictException message contains idNumber', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.create({ ...BASE_CREATE_DTO, idNumber: '012345678901' }, 'actor-1'),
       ).rejects.toThrow(/012345678901/);
     });
@@ -434,7 +492,8 @@ describe('SubjectsService', () => {
     it('throws BadRequestException when case does not exist', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.create(BASE_CREATE_DTO, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
     });
@@ -445,20 +504,23 @@ describe('SubjectsService', () => {
         status: 'TAM_DINH_CHI', // suspended/archived case
       });
 
-      const result = await service.create(BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(BASE_CREATE_DTO, 'actor-1');
       expect(result.success).toBe(true);
     });
 
     it('throws BadRequestException when crime not found in master', async () => {
       mockPrisma.crime.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.create(BASE_CREATE_DTO, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('defaults status to INVESTIGATING when not provided', async () => {
-      await service.create(BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(BASE_CREATE_DTO, 'actor-1');
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -470,7 +532,8 @@ describe('SubjectsService', () => {
     });
 
     it('uses provided status when given', async () => {
-      await service.create(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(
         { ...BASE_CREATE_DTO, status: SubjectStatus.WANTED },
         'actor-1',
       );
@@ -486,7 +549,8 @@ describe('SubjectsService', () => {
       const dto = { ...BASE_CREATE_DTO };
       delete (dto as Partial<typeof dto>).gender;
 
-      await service.create(dto as typeof BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(dto as typeof BASE_CREATE_DTO, 'actor-1');
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -512,7 +576,8 @@ describe('SubjectsService', () => {
         districtName: 'Quận 1',
       });
 
-      const result = await service.create(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(
         { ...BASE_CREATE_DTO, districtId: 'Q1', districtName: 'Quận 1' },
         'actor-1',
       );
@@ -528,7 +593,8 @@ describe('SubjectsService', () => {
     it('stores null districtName when not provided', async () => {
       mockPrisma.subject.create.mockResolvedValue({ ...FAKE_SUBJECT, districtName: null });
 
-      await service.create(BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(BASE_CREATE_DTO, 'actor-1');
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -552,7 +618,8 @@ describe('SubjectsService', () => {
     });
 
     it('updates subject successfully', async () => {
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { fullName: 'Tên mới' },
         'actor-1',
@@ -563,8 +630,48 @@ describe('SubjectsService', () => {
       expect(mockPrisma.subject.update).toHaveBeenCalledTimes(1);
     });
 
+    it('masks protected parent fields in the update response', async () => {
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_SUBJECT) => ({
+        ...row,
+        case: { id: row.case.id },
+      }));
+      setOrdinaryCurrentScope(mockPrisma, null);
+
+      const result = await service.update('sub-001', { fullName: 'Tên mới' }, 'actor-1');
+
+      expect(result.data.case).toEqual({ id: 'case-001' });
+      expect(result.data.case).not.toHaveProperty('name');
+      expect(result.data.case).not.toHaveProperty('status');
+      expect(childAccess.serialize).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses authoritative parent facts when masked ownership headers are unreadable', async () => {
+      mockPrisma.subject.findFirst.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        case: { ...FAKE_SUBJECT.case, assignedTeamId: 't1', investigatorId: null },
+      });
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_SUBJECT) => ({
+        ...row,
+        case: { id: row.case.id },
+      }));
+      childAccess.parents.mockResolvedValue([{ id: 'case-001', assignedTeamId: 't1', investigatorId: null }]);
+      const scope = {
+        userIds: ['actor-1'],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: ['actor-1'],
+        isWardOfficer: true,
+      };
+      setOrdinaryCurrentScope(mockPrisma, scope);
+
+      await expect(service.update('sub-001', { notes: 'Đã xác minh' }, 'actor-1', undefined, scope)).resolves.toMatchObject({ success: true });
+    });
+
     it('logs SUBJECT_UPDATED audit event', async () => {
-      await service.update('sub-001', { fullName: 'Tên mới' }, 'actor-1', {
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.update('sub-001', { fullName: 'Tên mới' }, 'actor-1', {
         ipAddress: '10.0.0.1',
         userAgent: 'jest',
       });
@@ -575,14 +682,15 @@ describe('SubjectsService', () => {
           subject: 'Subject',
           subjectId: 'sub-001',
           userId: 'actor-1',
-        }),
+        }), mockPrisma
       );
     });
 
     it('throws NotFoundException when subject not found', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('nonexistent', { fullName: 'X' }, 'actor-1'),
       ).rejects.toThrow(NotFoundException);
     });
@@ -594,7 +702,8 @@ describe('SubjectsService', () => {
         .mockResolvedValueOnce({ ...FAKE_SUBJECT, idNumber: 'OLD_NUMBER' })
         .mockResolvedValueOnce({ id: 'other', idNumber: '999888777666' });
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('sub-001', { idNumber: '999888777666' }, 'actor-1'),
       ).rejects.toThrow(ConflictException);
     });
@@ -603,7 +712,8 @@ describe('SubjectsService', () => {
       // dto.idNumber === existing.idNumber => skip dup check
       mockPrisma.subject.findFirst.mockResolvedValueOnce(FAKE_SUBJECT);
 
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { idNumber: FAKE_SUBJECT.idNumber },
         'actor-1',
@@ -617,7 +727,8 @@ describe('SubjectsService', () => {
     it('throws BadRequestException when new caseId does not exist', async () => {
       mockPrisma.case.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('sub-001', { caseId: 'bad-case' }, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
     });
@@ -625,13 +736,15 @@ describe('SubjectsService', () => {
     it('throws BadRequestException when new crimeId does not exist', async () => {
       mockPrisma.crime.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('sub-001', { crimeId: 'bad-crime' }, 'actor-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('only applies fields present in dto (partial update)', async () => {
-      await service.update('sub-001', { notes: 'Ghi chú mới' }, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.update('sub-001', { notes: 'Ghi chú mới' }, 'actor-1');
 
       const callArg = mockPrisma.subject.update.mock.calls[0][0];
       expect(callArg.data).toHaveProperty('notes', 'Ghi chú mới');
@@ -639,7 +752,8 @@ describe('SubjectsService', () => {
     });
 
     it('converts dateOfBirth string to Date object', async () => {
-      await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.update(
         'sub-001',
         { dateOfBirth: '1995-06-15' },
         'actor-1',
@@ -659,21 +773,37 @@ describe('SubjectsService', () => {
     });
 
     it('soft-deletes subject (sets deletedAt, does not hard delete)', async () => {
-      const result = await service.delete('sub-001', 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.delete('sub-001', 'actor-1');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('thành công');
 
       expect(mockPrisma.subject.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'sub-001' },
+          where: { id: 'sub-001', caseId: FAKE_SUBJECT.caseId, updatedAt: FAKE_SUBJECT.updatedAt },
           data: { deletedAt: expect.any(Date) },
         }),
       );
     });
 
+    it('deletes using authoritative parent facts when response ownership headers are masked', async () => {
+      mockPrisma.subject.findFirst.mockResolvedValue({
+        ...FAKE_SUBJECT,
+        case: { ...FAKE_SUBJECT.case, assignedTeamId: 't1', investigatorId: null },
+      });
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_SUBJECT) => ({ ...row, case: { id: row.case.id } }));
+      childAccess.parents.mockResolvedValue([{ id: 'case-001', assignedTeamId: 't1', investigatorId: null }]);
+      const scope = { userIds: ['actor-1'], teamIds: ['t1'], writableTeamIds: ['t1'], writableUserIds: ['actor-1'], isWardOfficer: true };
+      setOrdinaryCurrentScope(mockPrisma, scope);
+
+      await expect(service.delete('sub-001', 'actor-1', undefined, scope)).resolves.toMatchObject({ success: true });
+    });
+
     it('logs SUBJECT_DELETED audit event', async () => {
-      await service.delete('sub-001', 'actor-1', {
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.delete('sub-001', 'actor-1', {
         ipAddress: '192.168.1.1',
         userAgent: 'test-agent',
       });
@@ -686,27 +816,29 @@ describe('SubjectsService', () => {
           userId: 'actor-1',
           metadata: expect.objectContaining({ softDelete: true }),
           ipAddress: '192.168.1.1',
-        }),
+        }), mockPrisma
       );
     });
 
     it('throws NotFoundException when subject not found', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent', 'actor-1')).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.delete('nonexistent', 'actor-1')).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('includes fullName in audit metadata', async () => {
-      await service.delete('sub-001', 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.delete('sub-001', 'actor-1');
 
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           metadata: expect.objectContaining({
             fullName: FAKE_SUBJECT.fullName,
           }),
-        }),
+        }), mockPrisma
       );
     });
   });
@@ -725,7 +857,8 @@ describe('SubjectsService', () => {
     });
 
     it('updates districtName correctly', async () => {
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { districtName: 'Quận 3' },
         'actor-1',
@@ -747,7 +880,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ type: 'SUSPECT' as any });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ type: 'SUSPECT' as any });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -760,7 +894,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ type: 'VICTIM' as any });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ type: 'VICTIM' as any });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -773,7 +908,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({ type: 'WITNESS' as any });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ type: 'WITNESS' as any });
 
       expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -786,7 +922,8 @@ describe('SubjectsService', () => {
       mockPrisma.subject.findMany.mockResolvedValue([]);
       mockPrisma.subject.count.mockResolvedValue(0);
 
-      await service.getList({});
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({});
 
       const callArg = mockPrisma.subject.findMany.mock.calls[0][0] as { where: Record<string, unknown> };
       expect(callArg.where).not.toHaveProperty('type');
@@ -809,7 +946,8 @@ describe('SubjectsService', () => {
         type: 'SUSPECT',
       });
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.create({ ...BASE_CREATE_DTO, type: 'SUSPECT' as any }, 'actor-1'),
       ).rejects.toThrow(ConflictException);
     });
@@ -818,7 +956,8 @@ describe('SubjectsService', () => {
       // No duplicate for VICTIM+same idNumber
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      const result = await service.create(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(
         { ...BASE_CREATE_DTO, idNumber: '012345678901', type: 'VICTIM' as any },
         'actor-1',
       );
@@ -829,7 +968,8 @@ describe('SubjectsService', () => {
     it('EC-04: stamps correct type on created record', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await service.create({ ...BASE_CREATE_DTO, type: 'VICTIM' as any }, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create({ ...BASE_CREATE_DTO, type: 'VICTIM' as any }, 'actor-1');
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -841,7 +981,8 @@ describe('SubjectsService', () => {
     it('EC-04: defaults type to SUSPECT when not provided', async () => {
       mockPrisma.subject.findFirst.mockResolvedValue(null);
 
-      await service.create(BASE_CREATE_DTO, 'actor-1');
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(BASE_CREATE_DTO, 'actor-1');
 
       expect(mockPrisma.subject.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -861,7 +1002,8 @@ describe('SubjectsService', () => {
         status: SubjectStatus.DETAINED,
       });
 
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { status: SubjectStatus.DETAINED },
         'actor-1',
@@ -877,7 +1019,8 @@ describe('SubjectsService', () => {
         status: SubjectStatus.WANTED,
       });
 
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { status: SubjectStatus.WANTED },
         'actor-1',
@@ -893,7 +1036,8 @@ describe('SubjectsService', () => {
         status: SubjectStatus.RELEASED,
       });
 
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'sub-001',
         { status: SubjectStatus.RELEASED },
         'actor-1',
