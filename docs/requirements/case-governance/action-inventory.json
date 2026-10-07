@@ -1,0 +1,998 @@
+{
+  "timestamp": "2026-10-06T05:25:34.801Z",
+  "source": "NghiepVu.bson snapshot2026-07-22",
+  "sourceSha256": "8de693521613391d69c35df38b04467c25843e96670dbf325afd2d52905656f1",
+  "count": 21,
+  "status": "Semantic catalog frozen, legal rules NOT automatically published",
+  "rows": [
+    {
+      "legacyId": 26,
+      "code": "CONCLUDE_INITIAL",
+      "label": "Kết luận điều tra đề nghị truy tố",
+      "legacyFrom": "0",
+      "legacyTo": "2",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "INITIAL"
+      },
+      "target": {
+        "status": "DA_KET_LUAN",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 27,
+      "code": "SUSPEND_INITIAL",
+      "label": "Tạm đình chỉ điều tra vụ án",
+      "legacyFrom": "0",
+      "legacyTo": "5",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "INITIAL"
+      },
+      "target": {
+        "status": "TAM_DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 28,
+      "code": "DISCONTINUE_INITIAL",
+      "label": "Đình chỉ điều tra vụ án",
+      "legacyFrom": "0",
+      "legacyTo": "8",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "INITIAL"
+      },
+      "target": {
+        "status": "DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 29,
+      "code": "MERGE_INITIAL",
+      "label": "Nhập vào vụ án khác",
+      "legacyFrom": "0",
+      "legacyTo": "10",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "INITIAL"
+      },
+      "target": {
+        "status": "DA_NHAP_VU_KHAC",
+        "phase": null
+      },
+      "resultType": "MERGE",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 30,
+      "code": "TRANSFER_INITIAL",
+      "label": "Chuyển vụ án cho cơ quan khác",
+      "legacyFrom": "0",
+      "legacyTo": "9",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "INITIAL"
+      },
+      "target": {
+        "status": "DA_CHUYEN_DON_VI",
+        "phase": null
+      },
+      "resultType": "TRANSFER",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 31,
+      "code": "REVIEW_EXPIRY",
+      "label": "Vụ án tạm đình chỉ hết thời hiệu",
+      "legacyFrom": "5",
+      "legacyTo": "6",
+      "source": {
+        "status": "TAM_DINH_CHI",
+        "phase": null
+      },
+      "target": {
+        "status": "TAM_DINH_CHI",
+        "phase": null,
+        "expirationEvaluation": "EXPIRED_VERIFIED"
+      },
+      "resultType": "EVALUATION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 32,
+      "code": "RESTORE_SUSPENDED",
+      "label": "Phục hồi vụ án từ vụ án tạm đình chỉ",
+      "legacyFrom": "5",
+      "legacyTo": "11",
+      "source": {
+        "status": "TAM_DINH_CHI",
+        "phase": null
+      },
+      "target": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 33,
+      "code": "SUPPLEMENT_AFTER_CONCLUSION",
+      "label": "Điều tra bổ sung vụ án",
+      "legacyFrom": "2",
+      "legacyTo": "3",
+      "source": {
+        "status": "DA_KET_LUAN",
+        "phase": null
+      },
+      "target": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "SUPPLEMENTARY"
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 34,
+      "code": "REINVESTIGATE_AFTER_CONCLUSION",
+      "label": "Huỷ án điều tra để điều tra lại",
+      "legacyFrom": "2",
+      "legacyTo": "4",
+      "source": {
+        "status": "DA_KET_LUAN",
+        "phase": null
+      },
+      "target": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 35,
+      "code": "REINVESTIGATE_AFTER_SUPPLEMENT",
+      "label": "Huỷ án điều tra bổ sung để điều tra lại",
+      "legacyFrom": "3",
+      "legacyTo": "4",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "SUPPLEMENTARY"
+      },
+      "target": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 36,
+      "code": "DISCONTINUE_EXPIRED",
+      "label": "Ra QĐ đình chỉ đối với vụ án tạm đình chỉ hết thời hiệu",
+      "legacyFrom": "6",
+      "legacyTo": "7",
+      "source": {
+        "status": "TAM_DINH_CHI",
+        "phase": null,
+        "expirationEvaluation": "EXPIRED_VERIFIED"
+      },
+      "target": {
+        "status": "DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 37,
+      "code": "CONCLUDE_RESTORED",
+      "label": "Kết luận điều tra đối với vụ án phục hồi",
+      "legacyFrom": "11",
+      "legacyTo": "2",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "target": {
+        "status": "DA_KET_LUAN",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 38,
+      "code": "SUSPEND_RESTORED",
+      "label": "Tạm đình chỉ đối với vụ án phục hồi",
+      "legacyFrom": "11",
+      "legacyTo": "5",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "target": {
+        "status": "TAM_DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 39,
+      "code": "DISCONTINUE_RESTORED",
+      "label": "Đình chỉ vụ án đối với vụ án phục hồi",
+      "legacyFrom": "11",
+      "legacyTo": "8",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "target": {
+        "status": "DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 40,
+      "code": "TRANSFER_RESTORED",
+      "label": "Chuyển vụ án phục hồi cho đơn vị khác",
+      "legacyFrom": "11",
+      "legacyTo": "9",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "target": {
+        "status": "DA_CHUYEN_DON_VI",
+        "phase": null
+      },
+      "resultType": "TRANSFER",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 41,
+      "code": "MERGE_RESTORED",
+      "label": "Nhập vụ án phục hồi vào vụ án khác",
+      "legacyFrom": "11",
+      "legacyTo": "10",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "RESTORED"
+      },
+      "target": {
+        "status": "DA_NHAP_VU_KHAC",
+        "phase": null
+      },
+      "resultType": "MERGE",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 42,
+      "code": "CONCLUDE_REINVESTIGATION",
+      "label": "Kết luận điều tra vụ án đối với án điều tra lại",
+      "legacyFrom": "4",
+      "legacyTo": "2",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "target": {
+        "status": "DA_KET_LUAN",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 43,
+      "code": "SUSPEND_REINVESTIGATION",
+      "label": "Tạm đình chỉ vụ án đối với án điều tra lại",
+      "legacyFrom": "4",
+      "legacyTo": "5",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "target": {
+        "status": "TAM_DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 44,
+      "code": "DISCONTINUE_REINVESTIGATION",
+      "label": "Đình chỉ vụ án đối với án điều tra lại",
+      "legacyFrom": "4",
+      "legacyTo": "8",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "target": {
+        "status": "DINH_CHI",
+        "phase": null
+      },
+      "resultType": "DECISION",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 45,
+      "code": "TRANSFER_REINVESTIGATION",
+      "label": "Chuyển vụ án điều tra lại cho đơn vị khác",
+      "legacyFrom": "4",
+      "legacyTo": "9",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "target": {
+        "status": "DA_CHUYEN_DON_VI",
+        "phase": null
+      },
+      "resultType": "TRANSFER",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    },
+    {
+      "legacyId": 46,
+      "code": "MERGE_REINVESTIGATION",
+      "label": "Nhập vụ án điều tra lại vào vụ án khác",
+      "legacyFrom": "4",
+      "legacyTo": "10",
+      "source": {
+        "status": "DANG_DIEU_TRA",
+        "phase": "REINVESTIGATION"
+      },
+      "target": {
+        "status": "DA_NHAP_VU_KHAC",
+        "phase": null
+      },
+      "resultType": "MERGE",
+      "required": [
+        "decision.number",
+        "decision.date",
+        "decision.issuer",
+        "decision.signatory",
+        "decision.legalBasis",
+        "decision.sourceDocumentId",
+        "expectedUpdatedAt",
+        "requestKey"
+      ],
+      "legalSource": {
+        "instrument": "17/VBHN-VPQH 2026-02-12",
+        "url": "https://congbao.cdnchinhphu.vn/180507251028987904/2026/3/5/cong-bao-so-132-ngay-28-02-47031_1772691369_signed.pdf",
+        "validation": "UNPUBLISHED_REQUIRES_PER_ACTION_SOURCE_AND_AUTHORITY_REVIEW"
+      },
+      "requirements": [
+        "CG04",
+        "CG05",
+        "CG06",
+        "CG07",
+        "CG10"
+      ],
+      "oracles": [
+        "allowed exact source state/phase",
+        "reject invalid state/phase",
+        "reject missing or partial date/basis/document",
+        "reject wrongscope or unauthorized reviewer",
+        "reject stale or changed approval revision",
+        "rollback audit/history fault",
+        "same-key retry one commit"
+      ]
+    }
+  ]
+}
