@@ -9,9 +9,24 @@ import { BANG_HOP_LE } from './user-table-layouts.service';
  * flips instantly) but nothing is ever saved: the column layout and the row density snap back on the next load. Found by
  * the monkey run of 09/10/2026 on the "Ủy thác điều tra" list (`utdt`): every density click was a 400.
  *
+ * The scan needs LITERAL keys, so a call whose key is a variable / template string is itself a failure: it would hide an
+ * unlisted key from this gate.
+ *
  * Reads the frontend as text: the two are separate TypeScript projects.
  */
 const GOC = path.resolve(__dirname, '../../..', 'frontend', 'src');
+
+/** A call of either hook, with an optional generic argument list, up to the opening parenthesis. */
+const LOI_GOI = /\buse(?:BoCucCot|MatDoDong)\s*(?:<[^>()]*>)?\(/g;
+/** The same call when its first argument is a plain string literal. */
+const GOI_HANG = /\buse(?:BoCucCot|MatDoDong)\s*(?:<[^>()]*>)?\(\s*(['"])([^'"`$\\]+)\1/g;
+
+export function quetKhoaBang(chu: string): { khoa: string[]; khongPhaiHang: number } {
+  const khoa = [...chu.matchAll(GOI_HANG)].map((m) => m[2]);
+  // Declarations (`function useMatDoDong(tableKey: string)`) are not calls.
+  const goi = [...chu.matchAll(LOI_GOI)].filter((m) => !/\bfunction\s+$/.test(chu.slice(Math.max(0, (m.index ?? 0) - 12), m.index)));
+  return { khoa, khongPhaiHang: goi.length - khoa.length };
+}
 
 function tepNguon(dir: string): string[] {
   const ra: string[] = [];
@@ -27,24 +42,51 @@ function tepNguon(dir: string): string[] {
   return ra;
 }
 
-/** Literal keys passed to the two hooks, with the file that passes them. */
-function khoaDangDung(): { khoa: string; tep: string }[] {
-  const ra: { khoa: string; tep: string }[] = [];
-  const re = /use(?:BoCucCot|MatDoDong)\(\s*['"]([^'"]+)['"]/g;
-  for (const f of tepNguon(GOC)) {
-    const chu = fs.readFileSync(f, 'utf8');
-    for (const m of chu.matchAll(re)) ra.push({ khoa: m[1], tep: path.relative(GOC, f).replace(/\\/g, '/') });
-  }
-  return ra;
+interface Dung {
+  khoa: string;
+  tep: string;
 }
 
+function duyetFrontend(): { dung: Dung[]; khongPhaiHang: string[] } {
+  const dung: Dung[] = [];
+  const khongPhaiHang: string[] = [];
+  for (const f of tepNguon(GOC)) {
+    const tep = path.relative(GOC, f).replace(/\\/g, '/');
+    const r = quetKhoaBang(fs.readFileSync(f, 'utf8'));
+    for (const k of r.khoa) dung.push({ khoa: k, tep });
+    if (r.khongPhaiHang > 0) khongPhaiHang.push(`${tep} (${r.khongPhaiHang})`);
+  }
+  return { dung, khongPhaiHang };
+}
+
+describe('the scanner itself (a gate that cannot go red proves nothing)', () => {
+  it('reads literal keys, with or without a generic argument', () => {
+    expect(quetKhoaBang(`const a = useBoCucCot('cases', columns); const [m, d] = useMatDoDong("utdt");`).khoa).toEqual(['cases', 'utdt']);
+    expect(quetKhoaBang(`useBoCucCot<Row>('petitions', cols)`).khoa).toEqual(['petitions']);
+  });
+
+  it('flags a variable key, a template string and a call with no literal', () => {
+    expect(quetKhoaBang(`useBoCucCot(key, columns)`).khongPhaiHang).toBe(1);
+    expect(quetKhoaBang('useMatDoDong(`x-${id}`)').khongPhaiHang).toBe(1);
+    expect(quetKhoaBang(`useBoCucCot(TABLE_KEY, c); useMatDoDong('ok')`).khongPhaiHang).toBe(1);
+  });
+
+  it('does not mistake the hook declaration for a call', () => {
+    expect(quetKhoaBang(`export function useMatDoDong(tableKey: string): [MatDo] { return x; }`)).toEqual({ khoa: [], khongPhaiHang: 0 });
+  });
+});
+
 describe('every table key used by the frontend is accepted by the server', () => {
-  const dung = khoaDangDung();
+  const { dung, khongPhaiHang } = duyetFrontend();
 
   it('the scan sees the known screens (a scan that sees nothing proves nothing)', () => {
     const khoa = new Set(dung.map((d) => d.khoa));
     for (const k of ['petitions', 'incidents', 'cases', 'comprehensive', 'utdt']) expect(khoa.has(k)).toBe(true);
     expect(dung.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('no call passes a key the scan cannot read (variable / template string)', () => {
+    expect(khongPhaiHang).toEqual([]);
   });
 
   it.each([...new Set(dung.map((d) => d.khoa))])('"%s" is in BANG_HOP_LE', (khoa) => {
@@ -54,7 +96,6 @@ describe('every table key used by the frontend is accepted by the server', () =>
 
   it('the allow-list has no entry the frontend never uses (stale keys hide typos)', () => {
     const dungSet = new Set(dung.map((d) => d.khoa));
-    const thua = [...BANG_HOP_LE].filter((k) => !dungSet.has(k));
-    expect(thua).toEqual([]);
+    expect([...BANG_HOP_LE].filter((k) => !dungSet.has(k))).toEqual([]);
   });
 });
