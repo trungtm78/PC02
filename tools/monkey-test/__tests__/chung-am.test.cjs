@@ -268,6 +268,10 @@ test('BẤT BIẾN gio_tiep_nhan_dinh_dang: chữ lọt vào ô / giá trị h�
   // GIEO LỖI: chữ cái lọt vào ô, hoặc dài quá 5 ký tự
   assert.ok(await kiem({ co: true, giaTri: 'ab:30', baoLoi: true }), 'chữ cái lọt vào ô phải bị bắt kể cả khi có báo lỗi');
   assert.ok(await kiem({ co: true, giaTri: '08:300', baoLoi: true }), 'quá 5 ký tự phải bị bắt');
+  assert.ok(await kiem({ co: true, giaTri: '0:3:0', baoLoi: true }), 'hai dấu ":" phải bị bắt');
+  // Codex 09/10: chuỗi toàn chữ số mà ô đang báo lỗi thì đạt (luật hợp lệ quyết định ở bước sau), không báo lỗi thì bị bắt
+  assert.equal(await kiem({ co: true, giaTri: '0830', baoLoi: true }), null);
+  assert.ok(await kiem({ co: true, giaTri: '0830', baoLoi: false }), '"0830" còn nguyên mà im lặng phải bị bắt');
   // không thấy ô → CHƯA KIỂM, không phải đạt
   const r2 = await kiem({ co: false, giaTri: '', baoLoi: false });
   assert.ok(r2 && r2.khongDoDuoc === true);

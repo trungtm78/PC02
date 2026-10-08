@@ -213,7 +213,9 @@ const BAT_BIEN = {
         };
       });
       if (!r.co) return { khongDoDuoc: true, chiTiet: 'không thấy ô field-gioTiepNhan' };
-      if (!/^\d{0,2}(:\d{0,2})?$/.test(r.giaTri) || r.giaTri.length > 5) {
+      // Structure only: digits and at most one ":" in 5 chars. Whether the value is valid is decided below, so a leftover
+      // digit-only value such as "0830" with a visible error is still allowed by the invariant.
+      if (!/^[\d:]{0,5}$/.test(r.giaTri) || (r.giaTri.match(/:/g) || []).length > 1) {
         return { chiTiet: `ô giờ chứa "${r.giaTri}" sau khi gõ "${hd.gio}" — chỉ được chữ số và một dấu ":"` };
       }
       const hopLe = r.giaTri === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(r.giaTri);
