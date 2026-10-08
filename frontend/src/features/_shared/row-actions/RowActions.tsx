@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { ActionMenuPortal } from '@/components/ActionMenuPortal';
 import { BangThaoTacDuoi } from '@/components/BangThaoTacDuoi';
@@ -31,6 +31,7 @@ export function RowActions<TRow extends { id: string }>({
 }: RowActionsProps<TRow>) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [bangMo, setBangMo] = useState(false);
+  const nutBangRef = useRef<HTMLButtonElement | null>(null);
   const dienThoai = useDienThoai();
   // Xoay màn hình / đổi cỡ cửa sổ qua ngưỡng 767px: dựng lại nhánh khác thì bảng/menu đang mở phải ĐÓNG hẳn. Giữ cờ mở
   // thì xoay ngang rồi xoay dọc lại làm bảng tự bật lên không ai bấm (Codex bắt 08/10/2026). Đặt lại ngay lúc dựng (không
@@ -55,6 +56,7 @@ export function RowActions<TRow extends { id: string }>({
     return (
       <div className="inline-flex items-center" onClick={(e) => e.stopPropagation()}>
         <button
+          ref={nutBangRef}
           type="button"
           data-testid={`btn-action-menu-${row.id}`}
           title="Thao tác"
@@ -69,7 +71,7 @@ export function RowActions<TRow extends { id: string }>({
         >
           <MoreVertical className="w-5 h-5" />
         </button>
-        <BangThaoTacDuoi mo={bangMo} onDong={() => setBangMo(false)} tieuDe={tieuDe ?? 'Thao tác'}>
+        <BangThaoTacDuoi mo={bangMo} onDong={() => setBangMo(false)} tieuDe={tieuDe ?? 'Thao tác'} nutMo={nutBangRef}>
           {thuong.map((action) => (
             <MucBangDuoi
               key={action.key}

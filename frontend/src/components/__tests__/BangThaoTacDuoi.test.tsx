@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BangThaoTacDuoi } from '../BangThaoTacDuoi';
 
 function Mau({ onDong }: { onDong?: () => void }) {
@@ -70,6 +70,38 @@ describe('BangThaoTacDuoi', () => {
     expect(screen.queryByTestId('bang-thao-tac-duoi')).not.toBeInTheDocument();
     expect(document.activeElement).toBe(nut);
     expect(document.body.style.overflow).toBe('');
+  });
+
+  it('SAFARI: nút bấm xong KHÔNG giữ tiêu điểm (activeElement = body) → vẫn trả tiêu điểm về nút đã mở qua nutMo', () => {
+    function MauSafari() {
+      const [mo, setMo] = useState(false);
+      const ref = useRef<HTMLButtonElement | null>(null);
+      return (
+        <div>
+          <button
+            ref={ref}
+            data-testid="mo-safari"
+            onClick={() => {
+              // Mô phỏng Safari/macOS: bấm nút không đưa tiêu điểm vào nút.
+              (document.activeElement as HTMLElement | null)?.blur();
+              setMo(true);
+            }}
+          >
+            mở
+          </button>
+          <BangThaoTacDuoi mo={mo} onDong={() => setMo(false)} tieuDe="T" nutMo={ref}>
+            <button>a</button>
+          </BangThaoTacDuoi>
+        </div>
+      );
+    }
+    render(<MauSafari />);
+    const nut = screen.getByTestId('mo-safari');
+    nut.focus();
+    fireEvent.click(nut);
+    expect(document.activeElement).not.toBe(nut);
+    fireEvent.keyDown(screen.getByTestId('bang-thao-tac-duoi'), { key: 'Escape' });
+    expect(document.activeElement).toBe(nut);
   });
 
   it('bấm nền mờ đóng; bấm trong bảng KHÔNG đóng', () => {
