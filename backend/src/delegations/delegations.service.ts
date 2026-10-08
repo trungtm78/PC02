@@ -27,6 +27,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { IsNgayThat } from '../common/validators/is-ngay-that.validator';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UydtAssignedEvent } from '../notifications/events/notification.events';
@@ -70,9 +71,9 @@ export class QueryDelegationsDto {
   /** Mã `DelegationStatus` — lạ → 400 ở service. */
   @IsOptional() @IsString() status?: string;
   /** `yyyy-mm-dd` theo ngày Việt Nam, lọc Ngày ủy thác. */
-  @IsOptional() @IsString() fromDate?: string;
+  @IsOptional() @IsNgayThat() fromDate?: string;
   /** `yyyy-mm-dd`, gồm trọn ngày này. */
-  @IsOptional() @IsString() toDate?: string;
+  @IsOptional() @IsNgayThat() toDate?: string;
   @IsOptional() @IsInt() @Min(1) @Max(200) @Type(() => Number) limit?: number =
     20;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) offset?: number = 0;

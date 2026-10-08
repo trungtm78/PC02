@@ -23,6 +23,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { IsNgayThat } from '../common/validators/is-ngay-that.validator';
 import { UpdateExchangeDto } from './dto/update-exchange.dto';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import {
@@ -57,9 +58,9 @@ export class QueryExchangesDto {
   /** Mã `ExchangeStatus` — lạ → 400 ở service. */
   @IsOptional() @IsString() status?: string;
   /** `yyyy-mm-dd` theo ngày Việt Nam, lọc Thời gian khởi tạo. */
-  @IsOptional() @IsString() fromDate?: string;
+  @IsOptional() @IsNgayThat() fromDate?: string;
   /** `yyyy-mm-dd`, gồm trọn ngày này. */
-  @IsOptional() @IsString() toDate?: string;
+  @IsOptional() @IsNgayThat() toDate?: string;
   @IsOptional() @IsInt() @Min(1) @Max(200) @Type(() => Number) limit?: number =
     20;
   @IsOptional() @IsInt() @Min(0) @Type(() => Number) offset?: number = 0;

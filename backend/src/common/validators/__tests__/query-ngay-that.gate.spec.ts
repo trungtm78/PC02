@@ -49,12 +49,14 @@ describe.each(DTO)('%s: ô ngày lọc danh sách chỉ nhận ngày có thật'
 });
 
 /**
- * Text scan so a SEVENTH query DTO cannot repeat this: every property of a `*query*.dto.ts` file whose name says it is a
- * date bound must carry `@IsNgayThat()` right above it.
+ * Text scan so a further query DTO cannot repeat this: every `string` property whose name says it is a date bound, in ANY
+ * source file (not only `query*.dto.ts` — two query DTOs live in their services), must carry `@IsNgayThat()` above it or
+ * inline before it.
  */
 describe('mọi DTO truy vấn có ô cận ngày đều dùng @IsNgayThat', () => {
   const GOC = path.resolve(__dirname, '../../..');
-  const TEN_CAN_NGAY = /^\s+((?:from|to)Date(?:Range)?|ngay\w*(?:From|To)|\w*(?:Tu|Den)Ngay)\??:\s*string/;
+  // Anywhere on the line, so `@IsOptional() @IsString() fromDate?: string;` (decorators inline) is read too.
+  const TEN_CAN_NGAY = /(?:^|\s)((?:from|to)Date(?:Range)?|ngay\w*(?:From|To)|\w*(?:Tu|Den)Ngay)\??:\s*string/;
 
   function tepDto(dir: string): string[] {
     const ra: string[] = [];
@@ -62,7 +64,8 @@ describe('mọi DTO truy vấn có ô cận ngày đều dùng @IsNgayThat', () 
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name !== 'node_modules') ra.push(...tepDto(p));
-      } else if (/query.*\.dto\.ts$/.test(e.name)) {
+      } else if (/\.ts$/.test(e.name) && !/\.(spec|test)\.ts$/.test(e.name) && !/\.d\.ts$/.test(e.name)) {
+        // Every source file, not only `query*.dto.ts`: `QueryDelegationsDto` / `QueryExchangesDto` live in their services.
         ra.push(p);
       }
     }
@@ -77,7 +80,7 @@ describe('mọi DTO truy vấn có ô cận ngày đều dùng @IsNgayThat', () 
       const m = TEN_CAN_NGAY.exec(d);
       if (!m) return;
       let j = i - 1;
-      const khoi: string[] = [];
+      const khoi: string[] = [d.slice(0, m.index)]; // decorators written on the same line, before the property
       while (j >= 0 && /^\s*(@|\/\/|\/\*|\*)/.test(dong[j])) khoi.unshift(dong[j--]);
       if (!khoi.some((x) => /@IsNgayThat\(/.test(x))) ra.push(m[1]);
     });
@@ -91,10 +94,13 @@ describe('mọi DTO truy vấn có ô cận ngày đều dùng @IsNgayThat', () 
     expect(thieu('  @IsOptional()\n  @IsString()\n  ngayTiepNhanTo?: string;')).toEqual(['ngayTiepNhanTo']);
   });
 
-  it('không DTO truy vấn nào còn ô cận ngày trần', () => {
+  it('không nơi nào còn ô cận ngày trần', () => {
     const tep = tepDto(GOC);
-    expect(tep.length).toBeGreaterThanOrEqual(8);
-    const sai = tep.flatMap((f) => thieu(fs.readFileSync(f, 'utf8')).map((t) => `${path.relative(GOC, f).replace(/\\/g, '/')}: ${t}`));
+    expect(tep.length).toBeGreaterThanOrEqual(300); // the scan walks the real source tree
+    // Only files that declare validated classes: elsewhere `fromDate?: string` is a plain function parameter.
+    const dtoFiles = tep.filter((f) => /from 'class-validator'/.test(fs.readFileSync(f, 'utf8')));
+    expect(dtoFiles.length).toBeGreaterThanOrEqual(100);
+    const sai = dtoFiles.flatMap((f) => thieu(fs.readFileSync(f, 'utf8')).map((t) => `${path.relative(GOC, f).replace(/\\/g, '/')}: ${t}`));
     expect(sai).toEqual([]);
   });
 });
