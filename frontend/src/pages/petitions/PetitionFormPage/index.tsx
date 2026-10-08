@@ -66,6 +66,7 @@ import { NHOM_O_DON_THU } from "@/features/petitions/nhom-o.def";
 import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
 import { chepSangDonMoi } from "./chepSangDonMoi";
 import { lamTrongForm } from "./lamTrongForm";
+import { phanNapLaiSauKhiTao, type PhanHoiTaoDon } from "./ketQuaTao";
 import { cloneUserMetadata } from '@/shared/legacy/cloneMetadata';
 
 interface PetitionCloneState {
@@ -457,13 +458,15 @@ export function PetitionFormPage() {
       } else {
         const res = await api.post("/petitions", { ...payload, acknowledgedDuplicateIds: duplicateReview?.acknowledgedIds ?? [] });
         // Envelope {success, data:{id,updatedAt,stt}} — không auto-unwrap (xem lib/api).
-        const data = (res?.data as { data?: { id?: string; updatedAt?: string; stt?: string } } | undefined)?.data;
+        const data = (res?.data as { data?: PhanHoiTaoDon } | undefined)?.data;
         savedId = data?.id ?? null;
         savedUpdatedAt = data?.updatedAt;
         // PR2: chuyển sang "effective edit" để lưu lần kế = PUT (không tạo đơn trùng).
         if (savedId) setCreatedId(savedId);
-        // Hiển thị SỐ TIẾP NHẬN THẬT do backend cấp (khác preview draft) để form khỏi lệch.
-        if (data?.stt) setFormData((p) => ({ ...p, stt: data.stt as string }));
+        // Nạp lại giá trị do backend cấp để form khỏi lệch: SỐ TIẾP NHẬN THẬT (khác preview draft) và HẠN
+        // giải quyết vừa tính — thiếu hạn thì lần lưu kế (PUT) gửi null và xoá nó (xem `ketQuaTao.ts`).
+        const napLai = phanNapLaiSauKhiTao(data);
+        if (Object.keys(napLai).length > 0) setFormData((p) => ({ ...p, ...napLai }));
       }
       // Refresh optimistic-lock baseline từ response: nếu không, lưu lần 2 (vd sau "Lưu và xuất
       // file" ở lại form) gửi recordUpdatedAt CŨ → BE P2025 → 409 "đã được chỉnh sửa bởi người
