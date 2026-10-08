@@ -202,3 +202,52 @@ describe('GioPhutInput — chế độ xem của form', () => {
     expect(o().value).toBe('09:30');
   });
 });
+
+describe('GioPhutInput — Codex 09/10/2026', () => {
+  const dan = (chu: string) => fireEvent.paste(o(), { clipboardData: { getData: () => chu } });
+
+  it('dán đè MỘT PHẦN đang bôi: chọn "34" trong "12:34" rồi dán "45" → "12:45"', () => {
+    render(<Khung dau="12:34" />);
+    o().setSelectionRange(3, 5);
+    dan('45');
+    expect(o().value).toBe('12:45');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('dán đè phần GIỜ: chọn "12" trong "12:34" rồi dán "08" → "08:34"', () => {
+    render(<Khung dau="12:34" />);
+    o().setSelectionRange(0, 2);
+    dan('08');
+    expect(o().value).toBe('08:34');
+  });
+
+  it('dán đè phần sai thì BÁO LỖI, không đoán lại: chọn "34" trong "12:34" rồi dán "75" → "12:75" + lỗi phút', () => {
+    render(<Khung dau="12:34" />);
+    o().setSelectionRange(3, 5);
+    dan('75');
+    expect(o().value).toBe('12:75');
+    expect(screen.getByRole('alert')).toHaveTextContent('Phút phải từ 00 đến 59');
+  });
+
+  it('bôi HẾT hoặc không bôi gì: nội dung dán THAY cả giá trị', () => {
+    render(<Khung dau="10:15" />);
+    o().setSelectionRange(0, 5);
+    dan('0830');
+    expect(o().value).toBe('08:30');
+    o().setSelectionRange(5, 5); // con trỏ ở cuối, không bôi
+    dan('1745');
+    expect(o().value).toBe('17:45');
+  });
+
+  it('LỖI CỤC BỘ không sống sót khi giá trị bị đổi từ BÊN NGOÀI (nạp hồ sơ khác / chép đơn)', () => {
+    const { rerender } = render(<GioPhutInput value="" onValueChange={() => {}} />);
+    dan('25:30'); // GioPhutInput không có state giá trị: chỉ tạo lỗi cục bộ cho giá trị "25:30"
+    // Cha không cập nhật value → lỗi gắn với "25:30" không hiện trên giá trị rỗng.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    rerender(<GioPhutInput value="25:30" onValueChange={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Giờ phải từ 00 đến 23'); // đúng giá trị đã tính lỗi → hiện
+    rerender(<GioPhutInput value="09:30" onValueChange={() => {}} />); // hồ sơ khác nạp vào
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(o().getAttribute('aria-invalid')).toBeNull();
+  });
+});

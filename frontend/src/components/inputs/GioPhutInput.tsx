@@ -32,31 +32,37 @@ export function GioPhutInput({
   'data-testid': testId = 'field-gioTiepNhan',
 }: GioPhutInputProps) {
   const chiXem = useCheDoXem();
-  const [loiRiengCuaO, setLoi] = useState<string | null>(null);
+  // Lỗi RIÊNG của ô gắn với đúng GIÁ TRỊ nó được tính cho. Giá trị bị đổi từ bên ngoài (nạp hồ sơ khác, "Tạo đơn mới từ đơn
+  // này", nút "Bây giờ" của cha…) thì lỗi cũ tự mất — không còn viền đỏ trên một giá trị hợp lệ (Codex 09/10/2026).
+  const [loiLuu, setLoiLuu] = useState<{ loi: string; giaTri: string } | null>(null);
+  const loiRiengCuaO = loiLuu && loiLuu.giaTri === value ? loiLuu.loi : null;
   const loi = loiRiengCuaO ?? loiNgoai ?? null;
   const khoa = chiXem || !!disabled;
 
-  const doi = (s: string) => {
-    setLoi(null);
+  const doi = (s: string, loiMoi: string | null = null) => {
+    setLoiLuu(loiMoi ? { loi: loiMoi, giaTri: s } : null);
     onValueChange(s);
   };
 
   const khiDoi = (e: ChangeEvent<HTMLInputElement>) => doi(dinhDangKhiGo(e.target.value));
 
-  // Dán: chặn mặc định và tự chuẩn hoá toàn bộ nội dung dán ("8h30", "08.30", "0830"…) — dán chồng lên vùng đang bôi được.
+  // Dán: chặn mặc định và tự chuẩn hoá ("8h30", "08.30", "0830"…).
+  //  - đang bôi MỘT PHẦN giá trị (vd chọn "34" trong "12:34" rồi dán "45") → thay đúng phần đó → "12:45";
+  //  - không bôi gì hoặc bôi hết → nội dung dán THAY cả giá trị (ô chỉ chứa một giờ, dán một giờ vào là muốn đổi giờ).
   const khiDan = (e: ClipboardEvent<HTMLInputElement>) => {
     const chu = e.clipboardData.getData('text');
     if (!chu) return;
     e.preventDefault();
-    const r = chuanHoaKhiRoiO(chu);
-    doi(r.giaTri);
-    if (r.loi) setLoi(r.loi);
+    const dau = e.currentTarget.selectionStart ?? 0;
+    const cuoi = e.currentTarget.selectionEnd ?? 0;
+    const boiMotPhan = cuoi > dau && !(dau === 0 && cuoi >= value.length);
+    const r = chuanHoaKhiRoiO(boiMotPhan ? `${value.slice(0, dau)}${chu}${value.slice(cuoi)}` : chu);
+    doi(r.giaTri, r.loi);
   };
 
   const khiRoiO = () => {
     const r = chuanHoaKhiRoiO(value);
-    onValueChange(r.giaTri);
-    setLoi(r.loi);
+    doi(r.giaTri, r.loi);
   };
 
   const khiBamPhim = (e: KeyboardEvent<HTMLInputElement>) => {
