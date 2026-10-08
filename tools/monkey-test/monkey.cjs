@@ -35,7 +35,18 @@ function laTrangUngDung(url, coSo) {
     return false;
   }
 }
-function laNhieuHuyYeuCau(msg) {
+/** Window after a navigation in which a cancelled request can still surface as an error of the dying page. */
+const MS_SAU_DOI_TRANG = 4000;
+/**
+ * Is this error just a request cancelled by a navigation? Only when the text matches AND a navigation happened within
+ * `MS_SAU_DOI_TRANG`: the same text long after any navigation is a real network / CORS failure of the app and must be reported.
+ */
+/** A history step (back/forward) past the first entry lands on about:blank / a browser error page: not a defect of the app. */
+function boQuaManTrang(url, coSo, tenHanhDong) {
+  return tenHanhDong === 'lui-tien' && !laTrangUngDung(url, coSo) && /^(about:blank|chrome-error:)/.test(String(url || ''));
+}
+function laNhieuHuyYeuCau(msg, msKeTuDoiTrang) {
+  if (typeof msKeTuDoiTrang !== 'number' || msKeTuDoiTrang > MS_SAU_DOI_TRANG) return false;
   return NHIEU_HUY_YEU_CAU.test(String(msg || '').trim());
 }
 const LOI_CHUYEN_TRANG =/Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
@@ -275,7 +286,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   });
 
   const page = await ctx.newPage();
-  const tt = { tabMoi: [], dauVao: null };
+  const tt = { tabMoi: [], dauVao: null, lucDoiTrang: 0, truoc: null };
   let duongHienTai = '/';
   let buoc = 0;
   const phatHien = (loai, chiTiet, extra = {}) => {
@@ -303,11 +314,15 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   };
   const bao = async (loai, chiTiet, extra) => chupAnh(phatHien(loai, chiTiet, extra));
 
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) tt.lucDoiTrang = Date.now();
+  });
+  const msKeTuDoiTrang = () => (tt.lucDoiTrang ? Date.now() - tt.lucDoiTrang : undefined);
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const t = m.text();
     if (LOI_CONSOLE_BO_QUA.test(t)) return;
-    if (laNhieuHuyYeuCau(t)) {
+    if (laNhieuHuyYeuCau(t, msKeTuDoiTrang())) {
       kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
       return;
     }
@@ -316,7 +331,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   page.on('pageerror', (e) => {
     // WebKit reports a request cancelled by navigation as an uncaught rejection of the dying page. Counted (never silent) so the
     // summary shows how many were set aside; any other page error is a finding.
-    if (laNhieuHuyYeuCau(e.message)) {
+    if (laNhieuHuyYeuCau(e.message, msKeTuDoiTrang())) {
       kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
       return;
     }
@@ -420,6 +435,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
         if (!LOI_CHUYEN_TRANG.test(String(e.message))) await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
       }
       kq.soThaoTac += 1;
+      tt.truoc = hd ? hanhDong.ten : null; // only an action that really ran counts as "the previous action"
       if (['go', 'dan', 'go-ten-nguoi-gui', 'go-gio-tiep-nhan'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       if (!hd) continue;
       await page.waitForTimeout(cfg.nhipMs ?? 260);
@@ -436,7 +452,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       tt.tabMoi = [];
 
       const chu = await docChuOnDinh(page);
-      if (chu.length < 60 && laTrangUngDung(page.url(), cfg.coSo)) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd, url: page.url() });
+      if (chu.length < 60 && !boQuaManTrang(page.url(), cfg.coSo, hanhDong.ten)) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd, url: page.url() });
       if (MAN_LOI.test(chu)) await bao('màn lỗi sau thao tác', `${hanhDong.ten}: ${chu.slice(0, 120)}`, { hanhDong: hd });
 
       // Thao tác lùi/tiến hoặc bấm có thể đưa sang màn khác: kéo lại đúng đường để mỗi lượt đo đúng chỗ hồ sơ khai.
@@ -545,6 +561,6 @@ function maThoat(kq) {
   return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, layPhien };
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, boQuaManTrang, layPhien };
 
 if (require.main === module) void main();

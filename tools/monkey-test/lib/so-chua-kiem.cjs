@@ -28,4 +28,21 @@ function taoSoChuaKiem() {
   };
 }
 
-module.exports = { taoSoChuaKiem };
+/**
+ * Invariants a profile asks for that never ran even once in the whole run (trigger never fired, route never reached): that is
+ * CHƯA KIỂM, not a silent pass. `daKiem` maps invariant name -> times it ran.
+ */
+function batBienChuaChayLanNao(hoSo, daKiem) {
+  const ra = [];
+  const thay = new Set();
+  for (const h of hoSo) {
+    for (const ten of h.batBien || []) {
+      if ((daKiem[ten] || 0) > 0 || thay.has(ten)) continue;
+      thay.add(ten);
+      ra.push({ luot: '(tổng)', batBien: ten, duong: '(cả lượt tổng)', chiTiet: `bất biến "${ten}" của hồ sơ "${h.ten}" chưa chạy lần nào trong cả lượt tổng` });
+    }
+  }
+  return ra;
+}
+
+module.exports = { taoSoChuaKiem, batBienChuaChayLanNao };

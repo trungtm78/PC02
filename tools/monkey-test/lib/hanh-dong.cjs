@@ -208,7 +208,7 @@ const HANH_DONG = [
     ten: 'mo-bang-thao-tac',
     trongSo: 5,
     dieuKien: ({ vp }) => vp.width <= 767,
-    async chay({ page }) {
+    async chay({ page, tt }) {
       // A sheet left open by an earlier random action is modal: forcing focus onto a button BEHIND it is a state no user can
       // reach (the sheet traps focus), and Escape then rightly does nothing. Close it the way a user does and skip this turn.
       if ((await page.getByRole('dialog').count()) > 0) {
@@ -237,9 +237,9 @@ const HANH_DONG = [
         return null;
       }
       // After a MIDDLE click on a row, Chromium (Windows) is in auto-scroll mode and swallows the next click just to leave it
-      // (reproduced by hand 09/10/2026: the click after a middle click does nothing, the one after opens the sheet). A real
-      // defect fails BOTH clicks, so one retry hides nothing.
-      if (mo === 0) {
+      // (reproduced by hand 09/10/2026). Retry ONLY in that known case: any other time, a sheet that needs two clicks to open
+      // is a real defect and must be reported.
+      if (mo === 0 && tt && tt.truoc === 'bam-giua') {
         await nut.focus().catch(() => {});
         const lanHai = await bam();
         if (lanHai === null) {

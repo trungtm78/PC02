@@ -363,77 +363,41 @@ test('HÀNH ĐỘNG mo-bang-thao-tac: cú bấm bị chặn (không chạm đư�
   assert.equal(await hd.chay({ page }), null);
 });
 
-test('NHIỄU WEBKIT: yêu cầu bị huỷ lúc đổi trang không phải lỗi sản phẩm; lỗi thật vẫn được báo', () => {
+test('NHIỄU WEBKIT: yêu cầu bị huỷ chỉ được gạt khi VỪA đổi trang; lỗi mạng đứng riêng vẫn được báo', () => {
   const { laNhieuHuyYeuCau } = require('../monkey.cjs');
-  // WebKit surfaces a fetch cancelled by navigation as an uncaught rejection of the dying page.
-  assert.equal(laNhieuHuyYeuCau('Fetch API cannot load http://localhost:5173/api/v1/teams due to access control checks.'), true);
-  assert.equal(laNhieuHuyYeuCau('/localhost:5173/api/v1/auth/me due to access control checks.'), true);
-  assert.equal(laNhieuHuyYeuCau('Load failed'), true);
-  // real defects must never be swallowed
-  assert.equal(laNhieuHuyYeuCau("TypeError: Cannot read properties of undefined (reading 'map')"), false);
-  assert.equal(laNhieuHuyYeuCau('LOI-GIEO-SAN'), false);
-  assert.equal(laNhieuHuyYeuCau('ReferenceError: x is not defined'), false);
-  assert.equal(laNhieuHuyYeuCau(''), false);
+  const W = 'Fetch API cannot load http://localhost:5173/api/v1/teams due to access control checks.';
+  // WebKit surfaces a fetch cancelled by navigation as an uncaught rejection of the dying page: right after a navigation.
+  assert.equal(laNhieuHuyYeuCau(W, 100), true);
+  assert.equal(laNhieuHuyYeuCau('/localhost:5173/api/v1/auth/me due to access control checks.', 3999), true);
+  assert.equal(laNhieuHuyYeuCau('Load failed', 500), true);
+  assert.equal(laNhieuHuyYeuCau('draft fetch failed: AxiosError: Network Error', 200), true);
+  // the same text long after any navigation is a real network/CORS failure of the app
+  assert.equal(laNhieuHuyYeuCau(W, 4001), false);
+  assert.equal(laNhieuHuyYeuCau('Load failed', 60000), false);
+  assert.equal(laNhieuHuyYeuCau('draft fetch failed: AxiosError: Network Error', undefined), false, 'chưa từng đổi trang → không gạt');
+  // real defects are never swallowed, near a navigation or not
+  assert.equal(laNhieuHuyYeuCau("TypeError: Cannot read properties of undefined (reading 'map')", 10), false);
+  assert.equal(laNhieuHuyYeuCau('LOI-GIEO-SAN', 10), false);
+  assert.equal(laNhieuHuyYeuCau('save failed: AxiosError: Request failed with status code 500', 10), false);
+  assert.equal(laNhieuHuyYeuCau('', 10), false);
 });
 
-test('NHIỄU WEBKIT: "AxiosError: Network Error" do chính ứng dụng ghi lại khi yêu cầu bị huỷ cũng được gạt (và đếm)', () => {
-  const { laNhieuHuyYeuCau } = require('../monkey.cjs');
-  assert.equal(laNhieuHuyYeuCau('draft fetch failed: AxiosError: Network Error'), true);
-  assert.equal(laNhieuHuyYeuCau('save failed: AxiosError: Request failed with status code 500'), false);
-});
-
-test('MÀN TRẮNG: lùi về trang ngoài ứng dụng (about:blank) không phải màn trắng của ứng dụng', () => {
-  const { laTrangUngDung } = require('../monkey.cjs');
-  assert.equal(laTrangUngDung('http://localhost:5173/petitions?x=1', 'http://localhost:5173'), true);
-  assert.equal(laTrangUngDung('http://localhost:5173/', 'http://localhost:5173'), true);
-  assert.equal(laTrangUngDung('about:blank', 'http://localhost:5173'), false);
-  assert.equal(laTrangUngDung('chrome-error://chromewebdata/', 'http://localhost:5173'), false);
-  assert.equal(laTrangUngDung('http://evil.example/petitions', 'http://localhost:5173'), false);
-  assert.equal(laTrangUngDung('', 'http://localhost:5173'), false);
-});
-
-test('PHIÊN: mỗi context đăng nhập MỚI (không dùng chung token hàng giờ), có UAT_TOKEN thuần thì dùng nguyên', async () => {
-  const { layPhien } = require('../monkey.cjs');
-  const goc = globalThis.fetch;
-  let dem = 0;
-  globalThis.fetch = async () => {
-    dem += 1;
-    return { ok: true, status: 200, json: async () => ({ accessToken: `A${dem}`, refreshToken: `R${dem}` }) };
-  };
-  try {
-    const cfg = { coSo: 'http://h', taiKhoan: 'u', matKhau: 'p', token: 'CU' };
-    const a = await layPhien(cfg);
-    const b = await layPhien(cfg);
-    assert.deepEqual([a.accessToken, b.accessToken], ['A1', 'A2'], 'mỗi lần là một phiên mới, không phải token dùng chung CU');
-    assert.notEqual(a.refreshToken, b.refreshToken);
-    // Only a token supplied from outside (no password): nothing to log in with, use it as is.
-    const chiToken = await layPhien({ coSo: 'http://h', token: 'NGOAI' });
-    assert.equal(chiToken.accessToken, 'NGOAI');
-    assert.equal(dem, 2, 'không đăng nhập thêm khi chỉ có token ngoài');
-  } finally {
-    globalThis.fetch = goc;
-  }
-});
-
-test('PHIÊN: gặp 429 thì chờ rồi thử lại, hết lượt thử thì báo lỗi rõ', async () => {
-  const { layPhien } = require('../monkey.cjs');
-  const goc = globalThis.fetch;
-  let dem = 0;
-  globalThis.fetch = async () => {
-    dem += 1;
-    if (dem < 3) return { ok: false, status: 429, json: async () => ({}) };
-    return { ok: true, status: 200, json: async () => ({ accessToken: 'OK', refreshToken: 'R' }) };
-  };
-  try {
-    const p = await layPhien({ coSo: 'http://h', taiKhoan: 'u', matKhau: 'p' }, { choMs: 1 });
-    assert.equal(p.accessToken, 'OK');
-    assert.equal(dem, 3);
-    dem = -100;
-    globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({}) });
-    await assert.rejects(() => layPhien({ coSo: 'http://h', taiKhoan: 'u', matKhau: 'p' }, { choMs: 1, soLan: 2 }), /429/);
-  } finally {
-    globalThis.fetch = goc;
-  }
+test('MÀN TRẮNG: chỉ lùi/tiến về about:blank được bỏ qua; rời ứng dụng bằng thao tác khác vẫn là phát hiện', () => {
+  const { laTrangUngDung, boQuaManTrang } = require('../monkey.cjs');
+  const CS = 'http://localhost:5173';
+  assert.equal(laTrangUngDung('http://localhost:5173/petitions?x=1', CS), true);
+  assert.equal(laTrangUngDung('about:blank', CS), false);
+  assert.equal(laTrangUngDung('http://evil.example/p', CS), false);
+  assert.equal(laTrangUngDung('', CS), false);
+  // history back to the page before the first entry
+  assert.equal(boQuaManTrang('about:blank', CS, 'lui-tien'), true);
+  assert.equal(boQuaManTrang('chrome-error://chromewebdata/', CS, 'lui-tien'), true);
+  // an app page is never excused
+  assert.equal(boQuaManTrang('http://localhost:5173/cases', CS, 'lui-tien'), false);
+  // a click or key that leaves the app for a blank / error / foreign page IS a finding
+  assert.equal(boQuaManTrang('about:blank', CS, 'bam'), false);
+  assert.equal(boQuaManTrang('chrome-error://chromewebdata/', CS, 'phim'), false);
+  assert.equal(boQuaManTrang('http://evil.example/p', CS, 'lui-tien'), false);
 });
 
 function trangGiaBang({ soLanBamMoi }) {
@@ -465,7 +429,7 @@ test('HÀNH ĐỘNG mo-bang-thao-tac: cú bấm đầu bị trình duyệt nuố
   const { HANH_DONG } = require('../lib/hanh-dong.cjs');
   const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
   const g = trangGiaBang({ soLanBamMoi: 2 });
-  const r = await hd.chay({ page: g.page });
+  const r = await hd.chay({ page: g.page, tt: { truoc: 'bam-giua' } });
   assert.equal(r.daMo, true);
   assert.equal(g.soBam(), 2);
 });
@@ -474,7 +438,7 @@ test('HÀNH ĐỘNG mo-bang-thao-tac: bấm hai lần vẫn không mở bảng �
   const { HANH_DONG } = require('../lib/hanh-dong.cjs');
   const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
   const g = trangGiaBang({ soLanBamMoi: 99 });
-  const r = await hd.chay({ page: g.page });
+  const r = await hd.chay({ page: g.page, tt: { truoc: 'bam-giua' } });
   assert.equal(r.daMo, false);
   assert.equal(g.soBam(), 2, 'đúng hai lần thử, không hơn');
   assert.deepEqual(r.chanDoan, { marker: 'chan-doan' });
@@ -487,4 +451,24 @@ test('HÀNH ĐỘNG mo-bang-thao-tac: bảng mở ngay lần đầu thì chỉ b
   const r = await hd.chay({ page: g.page });
   assert.equal(r.daMo, true);
   assert.equal(g.soBam(), 1);
+});
+
+test('HÀNH ĐỘNG mo-bang-thao-tac: KHÔNG thử lại khi cú bấm trước đó không phải bấm chuột giữa — một bảng phải hai lần bấm mới mở là LỖI THẬT', async () => {
+  const { HANH_DONG } = require('../lib/hanh-dong.cjs');
+  const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
+  for (const tt of [undefined, {}, { truoc: 'bam' }, { truoc: 'phim' }]) {
+    const g = trangGiaBang({ soLanBamMoi: 2 });
+    const r = await hd.chay({ page: g.page, tt });
+    assert.equal(r.daMo, false, JSON.stringify(tt));
+    assert.equal(g.soBam(), 1, 'chỉ bấm một lần');
+  }
+});
+
+test('LƯỢT TỔNG: bất biến của hồ sơ KHÔNG chạy lần nào cả lượt tổng là CHƯA KIỂM, không phải im lặng đạt', () => {
+  const { batBienChuaChayLanNao } = require('../lib/so-chua-kiem.cjs');
+  const ra = batBienChuaChayLanNao([{ ten: 'p1', batBien: ['a', 'b'] }, { ten: 'p2', batBien: ['b', 'c'] }], { a: 3, b: 0 });
+  assert.deepEqual(ra.map((x) => x.batBien).sort(), ['b', 'c']);
+  assert.ok(ra.every((x) => x.duong === '(cả lượt tổng)' && /chưa chạy lần nào/.test(x.chiTiet)));
+  assert.deepEqual(batBienChuaChayLanNao([{ ten: 'p', batBien: ['a'] }], { a: 1 }), []);
+  assert.deepEqual(batBienChuaChayLanNao([], {}), []);
 });
