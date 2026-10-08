@@ -26,6 +26,7 @@ import type { FieldDef } from './field-catalog';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
 import { personName, tenNganNhuHeCu } from './ten-nguoi.util';
 import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
+import { laGioPhutHopLe } from '../common/utils/thoi-gian-vn.util';
 
 /** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
 const MOC_RONG = new Set([0, -25200]);
@@ -440,6 +441,14 @@ function ngayKy(record: unknown): Date {
   return new Date();
 }
 
+/** `[giờ, phút]` từ cột `gioTiepNhan`; `null` khi hồ sơ không có hoặc giá trị sai định dạng. */
+function gioPhutHeCu(record: unknown): [string, string] | null {
+  const v = (record as Record<string, unknown> | null | undefined)?.gioTiepNhan;
+  if (typeof v !== 'string' || !laGioPhutHopLe(v)) return null;
+  const [g, p] = v.split(':');
+  return [g, p];
+}
+
 /**
  * Biến mẫu hệ cũ dùng mà KHÔNG nằm trong bảng parity.
  *
@@ -473,6 +482,20 @@ export const KHOA_HE_CU_NGOAI_PARITY: FieldDef[] = [
     label: 'Năm (đầu văn bản)',
     group: 'Trường hệ cũ',
     resolve: (r) => oDauVanBan(r, 'nam'),
+  },
+  {
+    // "Hồi ${gio} giờ ${phut} ngày …" của Giấy biên nhận. Lấy từ cột `gioTiepNhan` (giờ khai, "HH:mm" giờ VN); hồ sơ
+    // thiếu hoặc hỏng giờ thì để trống đúng như bản giấy — KHÔNG đoán giờ trên văn bản tố tụng.
+    key: 'gio',
+    label: 'Giờ tiếp nhận (giờ)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => gioPhutHeCu(r)?.[0] ?? '',
+  },
+  {
+    key: 'phut',
+    label: 'Giờ tiếp nhận (phút)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => gioPhutHeCu(r)?.[1] ?? '',
   },
   {
     // Hệ cũ tra `nguoi_them` sang bảng `thanh_vien` rồi in tên — nên hai biến này KHÔNG có
