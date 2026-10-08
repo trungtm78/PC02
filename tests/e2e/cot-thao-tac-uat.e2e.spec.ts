@@ -87,6 +87,17 @@ for (const [rong, cao] of [
             if (r.width < 43.5 || r.height < 43.5) loi.push(`nút ⋮ ${Math.round(r.width)}×${Math.round(r.height)} (<44px)`);
             const khung = o.getBoundingClientRect();
             if (r.left < khung.left - 0.5 || r.right > khung.right + 0.5) loi.push('nút ⋮ tràn khỏi ô');
+            // Anh yêu cầu 08/10/2026: cột Thao tác trên điện thoại chỉ rộng bằng dấu ⋮, nhường chỗ cho dữ liệu.
+            if (khung.width > 60) loi.push(`ô Thao tác rộng ${Math.round(khung.width)}px (>60px)`);
+          }
+          // Tiêu đề: không còn chữ "Thao tác" nhìn thấy, ô tiêu đề cũng hẹp.
+          const th = [...document.querySelectorAll('thead th')].find((t) => (t.textContent ?? '').trim() === 'Thao tác');
+          if (!th) loi.push('không thấy ô tiêu đề Thao tác');
+          else {
+            if (th.getBoundingClientRect().width > 60) loi.push(`ô tiêu đề Thao tác rộng ${Math.round(th.getBoundingClientRect().width)}px (>60px)`);
+            const chu = th.querySelector('[class~="max-md:sr-only"]');
+            const rc = chu?.getBoundingClientRect();
+            if (!chu || (rc && (rc.width > 1.5 || rc.height > 1.5))) loi.push('chữ tiêu đề "Thao tác" vẫn hiện trên điện thoại');
           }
           const tran = document.documentElement.scrollWidth - document.documentElement.clientWidth;
           return { soO, loi, tran };

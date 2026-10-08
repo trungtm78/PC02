@@ -371,3 +371,37 @@ describe('<ListPageShell.Table> — bề rộng cột', () => {
     expect(screen.getByRole('table').className).not.toContain('table-fixed');
   });
 });
+
+describe('<ListPageShell.Table> — cột thu gọn trên điện thoại', () => {
+  const COT_THU_GON: ColumnDef<Row>[] = [
+    { key: 'actions', header: 'Thao tác', width: '3.5rem', thuGonTrenDienThoai: true, render: () => <button>⋮</button> },
+    { key: 'name', header: 'Tên vụ', render: (r) => r.name },
+  ];
+
+  it('cột khai thuGonTrenDienThoai: lề ô max-md:px-1 ở tiêu đề và ô, chữ tiêu đề ẩn trên điện thoại nhưng còn trong DOM', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COT_THU_GON} data={ROWS} rowKey={(r) => r.id} />
+      </ListPageShell>,
+    );
+    const th = screen.getByRole('columnheader', { name: 'Thao tác' });
+    expect(th.className).toContain('max-md:px-1');
+    const chu = within(th).getByText('Thao tác');
+    expect(chu.className).toContain('max-md:sr-only');
+    const o = screen.getAllByRole('cell')[0];
+    expect(o.className).toContain('max-md:px-1');
+  });
+
+  it('cột thường KHÔNG bị đổi lề và chữ tiêu đề không bị ẩn', () => {
+    render(
+      <ListPageShell>
+        <Table state="ready" columns={COT_THU_GON} data={ROWS} rowKey={(r) => r.id} />
+      </ListPageShell>,
+    );
+    const th = screen.getByRole('columnheader', { name: 'Tên vụ' });
+    expect(th.className).not.toContain('max-md:px-1');
+    expect(th.querySelector('[class~="max-md:sr-only"]')).toBeNull();
+    expect(screen.getAllByRole('cell')[1].className).not.toContain('max-md:px-1');
+  });
+});
+

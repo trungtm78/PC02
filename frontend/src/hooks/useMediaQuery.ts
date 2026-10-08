@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * Điện thoại = khung nhìn ≤767px. Khớp `@media (max-width: 767px)` của `--be-rong-cot-thao-tac` ở `index.css`
- * (lệch nhau thì cột Thao tác rộng 12rem mà chỉ có một nút ⋮, hoặc 5rem mà còn 5 nút).
+ * (lệch nhau thì cột Thao tác rộng 12rem mà chỉ có một nút ⋮, hoặc 3.5rem mà còn 5 nút).
  */
 export const MAN_HINH_DIEN_THOAI = '(max-width: 767px)';
 

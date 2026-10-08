@@ -13,6 +13,11 @@ interface BangThaoTacDuoiProps {
    * WebKit thật 08/10/2026). Không truyền thì lùi về phần tử có tiêu điểm lúc mở.
    */
   nutMo?: RefObject<HTMLElement | null>;
+  /**
+   * `false` khi bảng đóng vì một thao tác ĐÃ giao tiêu điểm cho nơi khác (mở hộp thoại In/Phân công/Xoá): trả tiêu điểm
+   * về nút ⋮ lúc ấy sẽ giành tiêu điểm của hộp thoại vừa mở (Codex 08/10/2026). Mặc định `true`.
+   */
+  traTieuDiem?: boolean;
 }
 
 const DIEM_DUNG_TIEU_DIEM =
@@ -31,11 +36,13 @@ const DIEM_DUNG_TIEU_DIEM =
  *  - khoá cuộn nền khi mở và MỞ KHOÁ khi đóng/gỡ (kể cả khi bảng bị gỡ lúc đang mở, vd danh sách tải lại),
  *  - chừa vùng an toàn đáy (tai thỏ / thanh home của iPhone).
  */
-export function BangThaoTacDuoi({ mo, onDong, tieuDe, children, nutMo }: BangThaoTacDuoiProps) {
+export function BangThaoTacDuoi({ mo, onDong, tieuDe, children, nutMo, traTieuDiem = true }: BangThaoTacDuoiProps) {
   const bangRef = useRef<HTMLDivElement | null>(null);
   // Giữ onDong mới nhất mà không buộc effect chạy lại (và cướp tiêu điểm) mỗi lần cha dựng lại.
   const onDongRef = useRef(onDong);
   onDongRef.current = onDong;
+  const traTieuDiemRef = useRef(traTieuDiem);
+  traTieuDiemRef.current = traTieuDiem;
 
   useEffect(() => {
     if (!mo) return;
@@ -49,6 +56,7 @@ export function BangThaoTacDuoi({ mo, onDong, tieuDe, children, nutMo }: BangTha
 
     return () => {
       document.body.style.overflow = overflowCu;
+      if (!traTieuDiemRef.current) return;
       const dich = nutMo?.current ?? truoc;
       if (dich && document.contains(dich)) dich.focus();
     };

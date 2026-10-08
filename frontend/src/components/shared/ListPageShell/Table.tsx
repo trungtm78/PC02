@@ -51,6 +51,9 @@ import { xuLyAuxClickDong, xuLyClickDong, xuLyDoubleClickDong } from './bamDong'
  * mọi lần sau đọc thẳng số ấy.
  */
 const PX_MOI_REM = 16;
+/** Lề ô của cột thu gọn trên điện thoại: `px-1` (0.25rem) thay `px-4`. Phải khớp phép tính ở `index.css` (--be-rong-cot-thao-tac). */
+const LOP_THU_GON_DIEN_THOAI = 'max-md:px-1';
+
 /** Bề rộng ô tick chọn nhiều dòng — khớp `w-10` ở `BulkSelectionColumn`. */
 const BE_RONG_O_TICK = '2.5rem';
 function doBeRong(w?: string): number {
@@ -68,6 +71,11 @@ export interface ColumnDef<TRow> {
   render(row: TRow): ReactNode;
   /** Column width hint (CSS value). */
   width?: string;
+  /**
+   * Cột chỉ chứa nút icon (vd Thao tác). Trên điện thoại (≤767px): ẩn chữ tiêu đề và thu lề ô từ 1rem xuống 0.25rem để
+   * cột chỉ rộng bằng nút — nhường chỗ cho dữ liệu (anh yêu cầu 08/10/2026: cột Thao tác còn dấu ⋮ mà vẫn rộng).
+   */
+  thuGonTrenDienThoai?: boolean;
   /**
    * Bề rộng cột KHÔNG cho người dùng đặt: bỏ tay nắm kéo, và bỏ qua bề rộng đã lưu.
    *
@@ -470,9 +478,10 @@ export function Table<TRow, TId extends string | number = string>({
                   sort={{ sortBy, sortOrder: sortOrder ?? 'desc' }}
                   onSort={onSort ?? (() => {})}
                   width={col.width}
+                  anNhanTrenDienThoai={col.thuGonTrenDienThoai}
                   className={`${col.headerClassName ?? TABLE_HEADER_CELL} ${
                     col.sticky ? `${LOP_GHIM} ${TABLE_HEADER_STICKY_BG}` : ''
-                  }`.trim()}
+                  } ${col.thuGonTrenDienThoai ? LOP_THU_GON_DIEN_THOAI : ''}`.trim()}
                   keoGian={
                     onKeoGian && !col.khongDoiBeRong
                       ? {
@@ -548,7 +557,7 @@ export function Table<TRow, TId extends string | number = string>({
                       key={col.key}
                       className={`${col.cellClassName ?? oMacDinh} ${
                         col.sticky ? `${LOP_GHIM} ${NEN_O_GHIM}` : ''
-                      }`.trim()}
+                      } ${col.thuGonTrenDienThoai ? LOP_THU_GON_DIEN_THOAI : ''}`.trim()}
                     >
                       <MatDoContext.Provider value={matDo}>{col.render(row)}</MatDoContext.Provider>
                     </td>

@@ -191,6 +191,45 @@ describe('RowActions — điện thoại', () => {
     expect(screen.queryByRole('menuitem', { name: /Phân công/ })).not.toBeInTheDocument();
   });
 
+  it('chọn thao tác mở hộp thoại: tiêu điểm ở lại HỘP THOẠI, không bị trả về nút ⋮ (Codex P2)', () => {
+    datManHinh(true);
+    const reg = createRowActionRegistry<Row>();
+    reg.register({
+      key: 'print',
+      label: 'In chứng từ',
+      icon: Printer,
+      position: 'inline',
+      // Mô phỏng thao tác mở hộp thoại và đưa tiêu điểm vào ô của nó.
+      execute: () => document.getElementById('o-trong-hop-thoai')?.focus(),
+      testid: 'btn-print',
+    });
+    render(
+      <div>
+        <RowActions registry={reg} row={HANG} ctx={ctx()} />
+        <input id="o-trong-hop-thoai" />
+      </div>,
+    );
+    fireEvent.click(screen.getByTestId('btn-action-menu-r1'));
+    fireEvent.click(screen.getByTestId('btn-print-r1'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement?.id).toBe('o-trong-hop-thoai');
+  });
+
+  it('đóng bảng bằng Escape/Huỷ (không chọn thao tác) thì VẪN trả tiêu điểm về nút ⋮', () => {
+    datManHinh(true);
+    render(<RowActions registry={dangKy()} row={HANG} ctx={ctx()} />);
+    const nut = screen.getByTestId('btn-action-menu-r1');
+    fireEvent.click(nut);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(document.activeElement).toBe(nut);
+    // Mở lại sau một lần chọn thao tác: cờ trả tiêu điểm phải được đặt lại.
+    fireEvent.click(nut);
+    fireEvent.click(screen.getByTestId('btn-view-r1'));
+    fireEvent.click(nut);
+    fireEvent.click(screen.getByTestId('bang-thao-tac-duoi-huy'));
+    expect(document.activeElement).toBe(nut);
+  });
+
   it('đối chứng — MÁY TÍNH: giữ nguyên nút nhanh, KHÔNG có bảng đáy', () => {
     datManHinh(false);
     render(<RowActions registry={dangKy()} row={HANG} ctx={ctx()} />);

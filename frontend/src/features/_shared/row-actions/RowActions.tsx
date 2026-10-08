@@ -31,6 +31,8 @@ export function RowActions<TRow extends { id: string }>({
 }: RowActionsProps<TRow>) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [bangMo, setBangMo] = useState(false);
+  // Đóng bảng vì chọn một thao tác (có thể mở hộp thoại) thì KHÔNG trả tiêu điểm về nút ⋮ — xem `traTieuDiem`.
+  const [traTieuDiem, setTraTieuDiem] = useState(true);
   const nutBangRef = useRef<HTMLButtonElement | null>(null);
   const dienThoai = useDienThoai();
   // Xoay màn hình / đổi cỡ cửa sổ qua ngưỡng 767px: dựng lại nhánh khác thì bảng/menu đang mở phải ĐÓNG hẳn. Giữ cờ mở
@@ -66,19 +68,23 @@ export function RowActions<TRow extends { id: string }>({
           className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           onClick={(e) => {
             e.stopPropagation();
+            setTraTieuDiem(true);
             setBangMo(true);
           }}
         >
           <MoreVertical className="w-5 h-5" />
         </button>
-        <BangThaoTacDuoi mo={bangMo} onDong={() => setBangMo(false)} tieuDe={tieuDe ?? 'Thao tác'} nutMo={nutBangRef}>
+        <BangThaoTacDuoi mo={bangMo} onDong={() => setBangMo(false)} tieuDe={tieuDe ?? 'Thao tác'} nutMo={nutBangRef} traTieuDiem={traTieuDiem}>
           {thuong.map((action) => (
             <MucBangDuoi
               key={action.key}
               action={action}
               row={row}
               ctx={ctx}
-              onAfterExecute={() => setBangMo(false)}
+              onAfterExecute={() => {
+                setTraTieuDiem(false);
+                setBangMo(false);
+              }}
             />
           ))}
           {nguyHiem.length > 0 && thuong.length > 0 && <hr className="my-1 border-slate-100" />}
@@ -88,7 +94,10 @@ export function RowActions<TRow extends { id: string }>({
               action={action}
               row={row}
               ctx={ctx}
-              onAfterExecute={() => setBangMo(false)}
+              onAfterExecute={() => {
+                setTraTieuDiem(false);
+                setBangMo(false);
+              }}
             />
           ))}
         </BangThaoTacDuoi>
