@@ -26,6 +26,7 @@ import type { FieldDef } from './field-catalog';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
 import { personName, tenNganNhuHeCu } from './ten-nguoi.util';
 import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
+import { laGioPhutHopLe } from '../common/utils/thoi-gian-vn.util';
 
 /** Mốc rỗng của hệ cũ: `0` và `-25200` (GMT+7 lúc 0 giờ) — in ra thành ngày 1970 là sai. */
 const MOC_RONG = new Set([0, -25200]);
@@ -438,6 +439,36 @@ function ngayKy(record: unknown): Date {
     }
   }
   return new Date();
+}
+
+/**
+ * Biến CHỈ Đơn thư có cột để điền — không khai chung cho Vụ việc / Vụ án (hai thực thể ấy không có `gioTiepNhan`,
+ * khai chung là mẫu dùng `${gio}` ở đó in trống im lặng thay vì lộ ra là biến chưa nối dữ liệu; Codex 09/10/2026).
+ *
+ * "Hồi ${gio} giờ ${phut} ngày …" của Giấy biên nhận hệ cũ. Giờ khai "HH:mm" giờ VN; hồ sơ thiếu hoặc hỏng giờ thì
+ * để trống đúng như bản giấy — KHÔNG đoán giờ trên văn bản tố tụng.
+ */
+export const KHOA_HE_CU_RIENG_DON_THU: FieldDef[] = [
+  {
+    key: 'gio',
+    label: 'Giờ tiếp nhận (giờ)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => gioPhutHeCu(r)?.[0] ?? '',
+  },
+  {
+    key: 'phut',
+    label: 'Giờ tiếp nhận (phút)',
+    group: 'Trường hệ cũ',
+    resolve: (r) => gioPhutHeCu(r)?.[1] ?? '',
+  },
+];
+
+/** `[giờ, phút]` từ cột `gioTiepNhan`; `null` khi hồ sơ không có hoặc giá trị sai định dạng. */
+function gioPhutHeCu(record: unknown): [string, string] | null {
+  const v = (record as Record<string, unknown> | null | undefined)?.gioTiepNhan;
+  if (typeof v !== 'string' || !laGioPhutHopLe(v)) return null;
+  const [g, p] = v.split(':');
+  return [g, p];
 }
 
 /**

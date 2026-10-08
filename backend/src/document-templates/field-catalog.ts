@@ -8,6 +8,7 @@ import {
   ngayThangNamNhuHeCu,
   soHoSoNhuHeCu,
   KHOA_HE_CU_NGOAI_PARITY,
+  KHOA_HE_CU_RIENG_DON_THU,
 } from './khoa-he-cu';
 import { getCatalogEntry } from '../catalog/catalog.registry';
 import { laCauDeXuat } from '../petitions/huong-xu-ly.rule';
@@ -1027,6 +1028,7 @@ export const FIELD_CATALOG: Record<EntityType, FieldDef[]> = {
     ...DON_THU_FIELDS,
     ...khoaTheoTenHeCu('petition'),
     ...KHOA_HE_CU_NGOAI_PARITY,
+    ...KHOA_HE_CU_RIENG_DON_THU,
   ],
 };
 
