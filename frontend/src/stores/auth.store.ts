@@ -103,6 +103,15 @@ export const authStore = {
     dispatchTokenChanged();
   },
 
+  /**
+   * Chỉ ghi token truy cập của TAB NÀY (nhận từ tab khác qua `chiaSePhien`). Không đụng refresh token: nó vốn dùng
+   * chung ở `localStorage`, và tab nhận phiên không được phép "đăng nhập lại" thay người dùng.
+   */
+  setAccessToken(accessToken: string) {
+    sessionStorage.setItem('accessToken', accessToken);
+    dispatchTokenChanged();
+  },
+
   clearTokens() {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem(PROFILE_KEY);
