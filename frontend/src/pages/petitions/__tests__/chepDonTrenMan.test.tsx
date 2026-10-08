@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { today } from '@/lib/dates';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -138,15 +139,20 @@ describe('Chép đơn: bấm nút ở màn SỬA → sang màn TẠO MỚI', () 
     expect(document.body.textContent).not.toContain('2024-00123');
     expect(document.body.textContent).toContain('Đã chuyển Công an phường xử lý');
     expect(document.body.textContent).toContain('Nhận xét nghiệp vụ cần giữ nguyên');
-    expect(o('receivedDate')).toBe('2024-01-05');
-    expect(o('ngayDeXuat')).toBe('2024-01-06');
-    expect(o('deadline')).toBe('2024-03-05');
+    // Ngày của đơn MỚI là hôm nay (không chép ngày đơn cũ); hạn giải quyết để trống cho máy chủ tính lại.
+    expect(o('receivedDate')).toBe(today());
+    expect(o('ngayDeXuat')).toBe(today());
+    expect(o('deadline')).toBe('');
 
     fireEvent.click(screen.getByTestId('btn-save-top-main'));
     await waitFor(() => expect(apiPost).toHaveBeenCalled(), { timeout: 5000 });
     const payload = apiPost.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(payload.metadata).toMatchObject({ customLongTail: 'Giá trị metadata nghiệp vụ' });
     expect(payload.phanLoaiHoSoNoiBo).toBe('Nội bộ cần giữ');
+    expect(payload.receivedDate).toBe(today());
+    expect(payload.ngayDeXuat).toBe(today());
+    // Hạn rỗng thì không gửi lên — máy chủ tính theo ngày tiếp nhận MỚI.
+    expect(payload.deadline ?? null).toBeNull();
 
     // Nút chép KHÔNG hiện ở màn tạo mới — chưa có đơn nào để chép.
     expect(screen.queryByTestId('btn-chep-don')).not.toBeInTheDocument();
