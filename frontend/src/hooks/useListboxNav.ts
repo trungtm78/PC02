@@ -78,6 +78,10 @@ export function useListboxNav({
    * ấy đã là -1, và không còn effect nào để chạy sai thứ tự.
    */
   const [trang, setTrang] = useState({ chiSo: -1, khoa: resetKey });
+  // Khoá đổi thì HUỶ hẳn chỉ số đã lưu ngay trong lượt vẽ này (mẫu "điều chỉnh state lúc vẽ" của React:
+  // vẽ lại tức thì, không có lượt trung gian được commit). Chỉ che chứ không huỷ thì khoá quay về giá trị
+  // cũ (A -> B -> A: mở/đóng/mở lại hộp, gõ rồi xoá bộ lọc) làm dòng tô cũ SỐNG LẠI — Codex bắt được.
+  if (trang.khoa !== resetKey) setTrang({ chiSo: -1, khoa: resetKey });
   const activeIndex = trang.khoa === resetKey ? trang.chiSo : -1;
 
   const setActiveIndex = useCallback(

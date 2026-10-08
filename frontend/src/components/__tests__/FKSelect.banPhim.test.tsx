@@ -73,4 +73,30 @@ describe('FKSelect — bàn phím mở rộng (dùng chung useListboxNav)', () =
       document.removeEventListener('keydown', ngoai);
     }
   });
+
+  it('mở -> tô -> Escape -> mở lại -> Enter: không chọn dòng đã tô lúc trước', () => {
+    const onChange = vi.fn();
+    renderFK({ onChange });
+    moHop();
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    fireEvent.keyDown(o(), { key: 'Escape' });
+    moHop();
+    expect(o().getAttribute('aria-activedescendant')).toBeNull();
+    fireEvent.keyDown(o(), { key: 'Enter' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('tô -> gõ lọc -> xoá bộ lọc về rỗng -> Enter: dòng tô cũ không sống lại', () => {
+    const onChange = vi.fn();
+    renderFK({ onChange });
+    moHop();
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    fireEvent.change(o(), { target: { value: 'Br' } });
+    fireEvent.change(o(), { target: { value: '' } });
+    expect(o().getAttribute('aria-activedescendant')).toBeNull();
+    fireEvent.keyDown(o(), { key: 'Enter' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

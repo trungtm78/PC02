@@ -232,4 +232,34 @@ describe('useListboxNav', () => {
     act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
     expect(h.result.current.activeIndex).toBe(0);
   });
+
+  /**
+   * Codex bắt: che chỉ số cũ bằng so khớp khoá thì chưa đủ — khoá quay về giá trị trước (A -> B -> A) làm
+   * dòng tô cũ SỐNG LẠI (mở/đóng/mở lại hộp, gõ rồi xoá bộ lọc) và Enter chọn nhầm. Phải huỷ hẳn.
+   */
+  it('khoá đi A -> B -> A: dòng tô cũ KHÔNG sống lại', () => {
+    const h = renderHook((p: { k: string }) => useListboxNav({ count: 3, resetKey: p.k, onSelect: vi.fn() }), {
+      initialProps: { k: 'a' },
+    });
+    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
+    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
+    expect(h.result.current.activeIndex).toBe(1);
+    h.rerender({ k: 'b' });
+    expect(h.result.current.activeIndex).toBe(-1);
+    h.rerender({ k: 'a' });
+    expect(h.result.current.activeIndex).toBe(-1);
+    expect(h.result.current.activeDescendantId).toBeUndefined();
+  });
+
+  it('khoá đi A -> B -> A: Enter không chọn dòng đã bị bỏ tô', () => {
+    const onSelect = vi.fn();
+    const h = renderHook((p: { k: string }) => useListboxNav({ count: 3, resetKey: p.k, onSelect }), {
+      initialProps: { k: 'a' },
+    });
+    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
+    h.rerender({ k: 'b' });
+    h.rerender({ k: 'a' });
+    act(() => h.result.current.onKeyDown(phim('Enter').e));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });
