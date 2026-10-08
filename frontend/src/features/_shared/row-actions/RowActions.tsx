@@ -49,7 +49,7 @@ export function RowActions<TRow extends { id: string }>({
   const inline = visible.filter((a) => a.position === 'inline');
   const menu = visible.filter((a) => a.position === 'menu');
 
-  // Điện thoại (≤767px): cột Thao tác chỉ còn MỘT nút ⋮ cỡ 44px; mọi thao tác nằm trong bảng trượt từ đáy.
+  // Điện thoại (≤767px): cột Thao tác chỉ còn MỘT nút ⋮ cỡ 32px (anh yêu cầu thu nhỏ 08/10/2026; WCAG 2.2 AA đòi tối thiểu 24px); mọi thao tác nằm trong bảng trượt từ đáy.
   // Thứ tự: thao tác thường (nhanh rồi phụ) │ nguy hiểm (xoá) ở cuối, cách bằng đường kẻ.
   if (dienThoai) {
     if (visible.length === 0) return null;
@@ -65,14 +65,14 @@ export function RowActions<TRow extends { id: string }>({
           aria-label="Thao tác"
           aria-haspopup="dialog"
           aria-expanded={bangMo}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           onClick={(e) => {
             e.stopPropagation();
             setTraTieuDiem(true);
             setBangMo(true);
           }}
         >
-          <MoreVertical className="w-5 h-5" />
+          <MoreVertical className="w-4 h-4" />
         </button>
         <BangThaoTacDuoi mo={bangMo} onDong={() => setBangMo(false)} tieuDe={tieuDe ?? 'Thao tác'} nutMo={nutBangRef} traTieuDiem={traTieuDiem}>
           {thuong.map((action) => (
