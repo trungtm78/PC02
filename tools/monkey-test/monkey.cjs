@@ -18,10 +18,38 @@ const path = require('path');
 const { taoPrng, hatCon } = require('./lib/prng.cjs');
 const { chonHanhDong } = require('./lib/hanh-dong.cjs');
 const { BAT_BIEN, chupGiaTriOnhap } = require('./lib/bat-bien.cjs');
+const { taoSoChuaKiem } = require('./lib/so-chua-kiem.cjs');
 
 const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|due to access control checks|Failed to load resource/i;
 // Lỗi do chính thao tác của bộ chạy làm trang đang chuyển đi giữa chừng — không phải lỗi sản phẩm.
-const LOI_CHUYEN_TRANG = /Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
+/** WebKit's wording for a fetch/XHR cancelled while the page navigates away (surfaces as a `pageerror`, unlike Chromium). */
+const NHIEU_HUY_YEU_CAU = /due to access control checks|^Load failed$|AxiosError: Network Error/i;
+/**
+ * Is `url` a page of the app under test? A history step back from the first entry lands on `about:blank` (or a browser error
+ * page): zero characters there say nothing about the app, and the route is pulled back right after.
+ */
+function laTrangUngDung(url, coSo) {
+  try {
+    return !!url && new URL(url).origin === new URL(coSo).origin;
+  } catch {
+    return false;
+  }
+}
+/** Window after a navigation in which a cancelled request can still surface as an error of the dying page. */
+const MS_SAU_DOI_TRANG = 4000;
+/**
+ * Is this error just a request cancelled by a navigation? Only when the text matches AND a navigation happened within
+ * `MS_SAU_DOI_TRANG`: the same text long after any navigation is a real network / CORS failure of the app and must be reported.
+ */
+/** A history step (back/forward) past the first entry lands on about:blank / a browser error page: not a defect of the app. */
+function boQuaManTrang(url, coSo, tenHanhDong) {
+  return tenHanhDong === 'lui-tien' && !laTrangUngDung(url, coSo) && /^(about:blank|chrome-error:)/.test(String(url || ''));
+}
+function laNhieuHuyYeuCau(msg, msKeTuDoiTrang) {
+  if (typeof msKeTuDoiTrang !== 'number' || msKeTuDoiTrang > MS_SAU_DOI_TRANG) return false;
+  return NHIEU_HUY_YEU_CAU.test(String(msg || '').trim());
+}
+const LOI_CHUYEN_TRANG =/Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
 const MAN_LOI = /something went wrong|đã xảy ra lỗi|unexpected error/i;
 
 function laMayLocal(url) {
@@ -100,6 +128,7 @@ function layPlaywright() {
 async function dangNhap(page, cfg) {
   if (cfg.khongDangNhap) return null;
   if (cfg.token) {
+    const phien = await layPhien(cfg); // fresh session for this context (see layPhien)
     await page.addInitScript(
       ([t, r]) => {
         try {
@@ -109,9 +138,9 @@ async function dangNhap(page, cfg) {
           /* trang chưa có storage */
         }
       },
-      [cfg.token, process.env.UAT_REFRESH || cfg.token],
+      [phien.accessToken, phien.refreshToken || phien.accessToken],
     );
-    return cfg.token;
+    return phien.accessToken;
   }
   await page.goto(`${cfg.coSo}/login`, { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(cfg.taiKhoan);
@@ -139,7 +168,7 @@ async function giaiDuong(duong, cfg, token, boNho) {
     } catch {
       id = null;
     }
-    boNho.set(nhan, id);
+    if (id) boNho.set(nhan, id); // a failed lookup is never cached: one transient error must not blank the route for the whole run
   }
   const id = boNho.get(nhan);
   return id ? duong.replace(m[0], id) : null;
@@ -155,6 +184,35 @@ async function dangNhapApi(cfg) {
   const j = await r.json();
   if (!r.ok || !j.accessToken) throw new Error(`Đăng nhập API hỏng (${r.status}): ${JSON.stringify(j).slice(0, 160)}`);
   return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
+}
+
+/**
+ * A session for ONE browser context.
+ *
+ * With a password: a FRESH API login every time. A single session shared for hours dies — the access token expires and the
+ * refresh token rotates, so a later context holding the original refresh token is thrown to /login (every phone-profile route of
+ * the 09/10/2026 run ended on /login and came out "blank" / "no ⋮ buttons"). 429 (login rate limit) is waited out and retried.
+ * With only an externally supplied UAT_TOKEN there is nothing to log in with, so it is used as is.
+ */
+async function layPhien(cfg, { choMs = 2000, soLan = 5 } = {}) {
+  if (!cfg.matKhau) return { accessToken: cfg.token || null, refreshToken: process.env.UAT_REFRESH || cfg.token || null };
+  let loi = '';
+  for (let i = 0; i < soLan; i += 1) {
+    const r = await fetch(`${cfg.coSo}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: cfg.taiKhoan, password: cfg.matKhau }),
+    });
+    if (r.status === 429) {
+      loi = 'HTTP 429';
+      await new Promise((xong) => setTimeout(xong, choMs * (i + 1)));
+      continue;
+    }
+    const j = await r.json();
+    if (!r.ok || !j.accessToken) throw new Error(`Đăng nhập API hỏng (${r.status}): ${JSON.stringify(j).slice(0, 160)}`);
+    return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
+  }
+  throw new Error(`Đăng nhập API bị giới hạn tần suất sau ${soLan} lần thử (${loi})`);
 }
 
 /**
@@ -196,6 +254,7 @@ async function chayMotHoSo(args) {
 const PHUONG_THUC_GHI = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, boNho }) {
+  let tokenCuaLuot = token;
   const nhanLuot = `${engine}@${vp.width}x${vp.height}/${hoSo.ten}`;
   const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
   const thuGhi = [];
@@ -227,7 +286,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   });
 
   const page = await ctx.newPage();
-  const tt = { tabMoi: [], dauVao: null };
+  const tt = { tabMoi: [], dauVao: null, lucDoiTrang: 0, truoc: null };
   let duongHienTai = '/';
   let buoc = 0;
   const phatHien = (loai, chiTiet, extra = {}) => {
@@ -255,13 +314,29 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   };
   const bao = async (loai, chiTiet, extra) => chupAnh(phatHien(loai, chiTiet, extra));
 
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) tt.lucDoiTrang = Date.now();
+  });
+  const msKeTuDoiTrang = () => (tt.lucDoiTrang ? Date.now() - tt.lucDoiTrang : undefined);
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const t = m.text();
     if (LOI_CONSOLE_BO_QUA.test(t)) return;
+    if (laNhieuHuyYeuCau(t, msKeTuDoiTrang())) {
+      kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
+      return;
+    }
     phatHien('console', t);
   });
-  page.on('pageerror', (e) => phatHien('pageerror', e.message));
+  page.on('pageerror', (e) => {
+    // WebKit reports a request cancelled by navigation as an uncaught rejection of the dying page. Counted (never silent) so the
+    // summary shows how many were set aside; any other page error is a finding.
+    if (laNhieuHuyYeuCau(e.message, msKeTuDoiTrang())) {
+      kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
+      return;
+    }
+    phatHien('pageerror', e.message);
+  });
   page.on('response', (r) => {
     if (!r.url().includes('/api/')) return;
     const st = r.status();
@@ -279,14 +354,21 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   });
 
   try {
-    await dangNhap(page, cfg);
+    tokenCuaLuot = (await dangNhap(page, cfg)) || token;
   } catch (e) {
     throw new Error(`Đăng nhập hỏng (${nhanLuot}): ${e.message}`);
   }
 
   const batBienHoSo = (hoSo.batBien || []).map((ten) => ({ ten, ...BAT_BIEN[ten] }));
+  const soChuaKiem = taoSoChuaKiem();
+  const chotChuaKiem = () => {
+    for (const c of soChuaKiem.chot()) {
+      kq.chuaKiem.push(c);
+      console.log(`  ? CHƯA KIỂM [${c.luot}] ${c.batBien} @ ${c.duong}: ${c.chiTiet}`);
+    }
+  };
   const ktra = async (khiNao, boiCanh) => {
-    for (const b of batBienHoSo.filter((x) => x.khiNao === khiNao)) {
+    for (const b of batBienHoSo.filter((x) => [].concat(x.khiNao).includes(khiNao))) {
       // Đếm số lần bất biến THỰC SỰ được kiểm: "0 phát hiện" chỉ có nghĩa khi con số này lớn hơn 0.
       kq.daKiem[b.ten] = (kq.daKiem[b.ten] || 0) + 1;
       let r;
@@ -295,15 +377,13 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       } catch (e) {
         r = { khongDoDuoc: true, chiTiet: `bất biến lỗi: ${e.message}` };
       }
-      if (!r) continue;
-      if (r.khongDoDuoc) {
-        const co = kq.chuaKiem.some((x) => x.luot === nhanLuot && x.batBien === b.ten && x.duong === duongHienTai);
-        if (co) continue;
-        kq.chuaKiem.push({ luot: nhanLuot, batBien: b.ten, duong: duongHienTai, chiTiet: r.chiTiet });
-        console.log(`  ? CHƯA KIỂM [${nhanLuot}] ${b.ten} @ ${duongHienTai}: ${r.chiTiet}`);
-      } else {
-        await bao(`bất biến: ${b.ten}`, r.chiTiet);
+      if (r && r.khongDoDuoc) {
+        // Not conclusive yet: only a route where NO step measured becomes CHƯA KIỂM (see lib/so-chua-kiem.cjs).
+        soChuaKiem.khongDo(nhanLuot, b.ten, duongHienTai, r.chiTiet);
+        continue;
       }
+      soChuaKiem.daDo(nhanLuot, b.ten, duongHienTai);
+      if (r) await bao(`bất biến: ${b.ten}`, r.chiTiet);
     }
   };
 
@@ -318,7 +398,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       .filter(Boolean);
   }
   for (const d of tuyen) {
-    const thuc = await giaiDuong(d, cfg, token, boNho);
+    const thuc = await giaiDuong(d, cfg, tokenCuaLuot, boNho);
     if (thuc) duongs.push(thuc);
     else kq.chuaKiem.push({ luot: nhanLuot, batBien: '(đường)', duong: d, chiTiet: 'không giải được mã thật cho đường này (CSDL chưa có bản ghi?)' });
   }
@@ -355,6 +435,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
         if (!LOI_CHUYEN_TRANG.test(String(e.message))) await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
       }
       kq.soThaoTac += 1;
+      tt.truoc = hd ? hanhDong.ten : null; // only an action that really ran counts as "the previous action"
       if (['go', 'dan', 'go-ten-nguoi-gui', 'go-gio-tiep-nhan'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       if (!hd) continue;
       await page.waitForTimeout(cfg.nhipMs ?? 260);
@@ -371,7 +452,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       tt.tabMoi = [];
 
       const chu = await docChuOnDinh(page);
-      if (chu.length < 60) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd });
+      if (chu.length < 60 && !boQuaManTrang(page.url(), cfg.coSo, hanhDong.ten)) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd, url: page.url() });
       if (MAN_LOI.test(chu)) await bao('màn lỗi sau thao tác', `${hanhDong.ten}: ${chu.slice(0, 120)}`, { hanhDong: hd });
 
       // Thao tác lùi/tiến hoặc bấm có thể đưa sang màn khác: kéo lại đúng đường để mỗi lượt đo đúng chỗ hồ sơ khai.
@@ -390,7 +471,9 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       }
     }
     await ktra('cuoi-duong', { page, route: d, vp, tt, cfg });
+    chotChuaKiem();
   }
+  chotChuaKiem(); // routes left early (navigation failure) still report what they never measured
 
   if (hoSo.camGhi && thuGhi.length) {
     await bao('thử ghi ở chế độ chỉ đọc', `${thuGhi.length} lời gọi ghi (${cfg.choGhi ? 'đã cho qua' : 'đã chặn'}): ${[...new Set(thuGhi)].slice(0, 4).join(', ')}`);
@@ -416,6 +499,7 @@ async function chay(cfg) {
     chuaKiem: [],
     daKiem: {},
     http429: 0,
+    boQuaNhieuHuy: 0,
     ghiRaNgoai: [],
   };
   console.log(`monkey: seed=${cfg.hat} engines=${cfg.engines.join(',')} khungNhin=${cfg.khungNhin.map((v) => `${v.width}x${v.height}`).join(',')} hoSo=${kq.hoSo.join(',')} choGhi=${cfg.choGhi}`);
@@ -477,6 +561,6 @@ function maThoat(kq) {
   return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat };
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, boQuaManTrang, layPhien };
 
 if (require.main === module) void main();

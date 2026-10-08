@@ -208,17 +208,71 @@ const HANH_DONG = [
     ten: 'mo-bang-thao-tac',
     trongSo: 5,
     dieuKien: ({ vp }) => vp.width <= 767,
-    async chay({ page }) {
+    async chay({ page, tt }) {
+      // A sheet left open by an earlier random action is modal: forcing focus onto a button BEHIND it is a state no user can
+      // reach (the sheet traps focus), and Escape then rightly does nothing. Close it the way a user does and skip this turn.
+      if ((await page.getByRole('dialog').count()) > 0) {
+        await page.locator('[data-testid="bang-thao-tac-duoi-huy"]').first().click({ timeout: 2000 }).catch(() => {});
+        await page.waitForTimeout(250);
+        return null;
+      }
       const nut = page.locator('tbody tr [data-testid^="btn-action-menu-"]').first();
       if (!(await nut.count())) return null;
       await nut.scrollIntoViewIfNeeded().catch(() => {});
       await nut.focus().catch(() => {});
-      await nut.click({ timeout: 4000 }).catch(() => {});
-      await page.waitForTimeout(250);
-      const mo = await page.getByRole('dialog').count();
+      // A click Playwright could not land (button covered by another panel, scrolled under a sticky header) says nothing about
+      // the product: only a click that LANDED and opened no sheet is a finding.
+      const bam = async () => {
+        let cham = true;
+        await nut.click({ timeout: 4000 }).catch(() => {
+          cham = false;
+        });
+        if (!cham) return null;
+        await page.waitForTimeout(250);
+        return page.getByRole('dialog').count();
+      };
+      let mo = await bam();
+      if (mo === null) {
+        await page.keyboard.press('Escape');
+        return null;
+      }
+      // After a MIDDLE click on a row, Chromium (Windows) is in auto-scroll mode and swallows the next click just to leave it
+      // (reproduced by hand 09/10/2026). Retry ONLY in that known case: any other time, a sheet that needs two clicks to open
+      // is a real defect and must be reported.
+      if (mo === 0 && tt && tt.truoc === 'bam-giua') {
+        await nut.focus().catch(() => {});
+        const lanHai = await bam();
+        if (lanHai === null) {
+          await page.keyboard.press('Escape');
+          return null;
+        }
+        mo = lanHai;
+      }
+      // State at the moment the sheet failed to open, so the finding can be replayed by hand instead of guessed at.
+      const chanDoan =
+        mo > 0
+          ? null
+          : await page
+              .evaluate(() => {
+                const nut = document.querySelector('tbody tr [data-testid^="btn-action-menu-"]');
+                const rc = nut ? nut.getBoundingClientRect() : null;
+                const diem = rc ? document.elementFromPoint(rc.left + rc.width / 2, rc.top + rc.height / 2) : null;
+                return {
+                  url: location.pathname + location.search,
+                  hopThoai: document.querySelectorAll('[role="dialog"]').length,
+                  vungBang: !!document.querySelector('[data-testid="bang-thao-tac-duoi-vung"]'),
+                  khoaCuon: document.body.style.overflow,
+                  tieuDiem: (document.activeElement && (document.activeElement.getAttribute('data-testid') || document.activeElement.tagName)) || null,
+                  nutToaDo: rc ? [Math.round(rc.left), Math.round(rc.top), Math.round(rc.width), Math.round(rc.height)] : null,
+                  phanTuTaiDiem: diem ? (diem.getAttribute('data-testid') || diem.tagName) : null,
+                  nutCuaDong: !!(diem && nut && (diem === nut || nut.contains(diem))),
+                  soDong: document.querySelectorAll('tbody tr').length,
+                };
+              })
+              .catch(() => null);
       await page.keyboard.press('Escape');
       await page.waitForTimeout(250);
-      return { ten: 'mo-bang-thao-tac', daMo: mo > 0 };
+      return { ten: 'mo-bang-thao-tac', daMo: mo > 0, chanDoan };
     },
   },
   {

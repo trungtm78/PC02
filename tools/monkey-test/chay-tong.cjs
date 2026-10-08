@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chay, docCauHinh, dangNhapApi, maThoat } = require('./monkey.cjs');
+const { batBienChuaChayLanNao } = require('./lib/so-chua-kiem.cjs');
 
 async function main() {
   const env = { ...process.env };
@@ -49,6 +50,7 @@ async function main() {
     chuaKiem: [],
     daKiem: {},
     http429: 0,
+    boQuaNhieuHuy: 0,
     ghiRaNgoai: [],
   };
   for (const hs of goc.hoSo) {
@@ -58,6 +60,7 @@ async function main() {
       tong.soMan += kq.soMan;
       tong.soThaoTac += kq.soThaoTac;
       tong.http429 += kq.http429;
+      tong.boQuaNhieuHuy += kq.boQuaNhieuHuy || 0;
       tong.ghiRaNgoai.push(...kq.ghiRaNgoai);
       tong.phatHien.push(...kq.phatHien);
       tong.chuaKiem.push(...kq.chuaKiem);
@@ -66,8 +69,11 @@ async function main() {
       fs.writeFileSync(goc.ra, JSON.stringify(tong, null, 1), 'utf8'); // ghi dần: bộ chạy chết giữa chừng vẫn còn kết quả
     }
   }
+  // An invariant a profile asked for that never ran once in the whole run is CHƯA KIỂM, never a silent pass.
+  tong.chuaKiem.push(...batBienChuaChayLanNao(goc.hoSo, tong.daKiem));
+  fs.writeFileSync(goc.ra, JSON.stringify(tong, null, 1), 'utf8');
   console.log(`\n=== TỔNG: ${tong.luot.length} lượt · ${tong.soMan} màn · ${tong.soThaoTac} thao tác · ${tong.phatHien.length} chỗ đáng ngờ · ${tong.chuaKiem.length} CHƯA KIỂM ===`);
-  console.log('Số lần mỗi bất biến ĐÃ kiểm:', JSON.stringify(tong.daKiem), '· 429 (giới hạn tần suất, không tính lỗi):', tong.http429);
+  console.log('Số lần mỗi bất biến ĐÃ kiểm:', JSON.stringify(tong.daKiem), '· 429 (giới hạn tần suất, không tính lỗi):', tong.http429, '· yêu cầu WebKit bị huỷ lúc đổi trang (đã gạt, không tính lỗi):', tong.boQuaNhieuHuy);
   for (const l of tong.luot) console.log(`  ${l.hoSo} seed=${l.hat}: ${l.soMan} màn, ${l.soThaoTac} thao tác, ${l.phatHien} đáng ngờ, ${l.chuaKiem} chưa kiểm`);
   if (tong.chuaKiem.length) console.log('CHƯA KIỂM — KHÔNG phải đạt (thoát 1):', tong.chuaKiem.length, 'mục');
   process.exit(maThoat(tong));

@@ -70,9 +70,12 @@ const BAT_BIEN = {
    * trọn trong ô, ô Thao tác hẹp (≤44px: nút 32px + lề 2×4px).
    */
   mot_nut_menu_moi_dong: {
-    khiNao: 'buoc',
-    async kiem({ page, vp }) {
+    // Also at the START of a route: random steps often switch a tab/filter first and leave a legitimately empty list, which
+    // would otherwise leave the whole route unmeasured.
+    khiNao: ['dau-duong', 'buoc'],
+    async kiem({ page, vp, hd }) {
       if (vp.width > 767) return null;
+      if (!hd) await page.waitForSelector('tbody tr [data-testid^="btn-action-menu-"]', { timeout: 6000 }).catch(() => {});
       const do_ = () =>
         page.evaluate(() => {
         const loi = [];
@@ -118,7 +121,7 @@ const BAT_BIEN = {
   bang_dong_tra_tieu_diem: {
     khiNao: 'mo-bang',
     async kiem({ page, hd }) {
-      if (!hd.daMo) return { chiTiet: 'bấm ⋮ không mở bảng thao tác' };
+      if (!hd.daMo) return { chiTiet: `bấm ⋮ không mở bảng thao tác${hd.chanDoan ? ` — trạng thái: ${JSON.stringify(hd.chanDoan)}` : ''}` };
       const r = await page.evaluate(() => ({
         conHopThoai: !!document.querySelector('[role="dialog"]'),
         tieuDiemLaNutMenu: !!document.activeElement && document.activeElement.matches('[data-testid^="btn-action-menu-"]'),
