@@ -325,6 +325,22 @@ export class PetitionsController {
   }
 
   // GET /api/v1/petitions/:id/journey — Hành trình đơn thư
+  /*
+    GET /api/v1/petitions/goi-y-don-theo-ten?q= — gợi ý TỪNG ĐƠN theo tên người gửi, kèm Tóm tắt nội dung.
+
+    Cùng khuôn `goi-y-ten-nguoi-gui` ngay trên: quyền ĐỌC Đơn thư, trần 120 lượt/60 giây (ô chạy theo NHỊP
+    GÕ, và ThrottlerGuard đếm theo IP nên cả đội dùng chung một trần), `req.dataScope` đi thẳng xuống service.
+    Endpoint này trả cả NỘI DUNG tố giác nên phạm vi dữ liệu và quyền đọc không được bớt.
+
+    ĐẶT TRƯỚC mọi route `:id` (cổng `route-tinh-dung-truoc-id.gate.spec.ts` canh).
+  */
+  @Get('goi-y-don-theo-ten')
+  @RequirePermissions({ action: 'read', subject: 'Petition' })
+  @Throttle({ default: { ttl: 60000, limit: 120 } })
+  goiYDonTheoTen(@Query() query: { q?: string }, @Req() req: ScopedRequest) {
+    return this.petitionsService.goiYDonTheoTen(query.q ?? '', req.dataScope);
+  }
+
   @Get(':id/journey')
   @RequirePermissions({ action: 'read', subject: 'Petition' })
   getJourney(

@@ -23,6 +23,7 @@ const mockService = {
   duplicateSearch: jest.fn(),
   findDuplicateCandidates: jest.fn(),
   goiYTenNguoiGui: jest.fn(),
+  goiYDonTheoTen: jest.fn(),
   listAssignments: jest.fn(),
   addAssignment: jest.fn(),
   removeAssignment: jest.fn(),
@@ -296,5 +297,22 @@ describe('PetitionsController — gợi ý tên người gửi chuyển ĐÚNG p
     controller.goiYTenNguoiGui({}, req);
     expect(mockService.goiYTenNguoiGui).toHaveBeenCalledWith('', null);
   });
-});
 
+  it('goi-y-don-theo-ten: chuyển q VÀ req.dataScope xuống service (endpoint này trả cả NỘI DUNG tố giác)', () => {
+    const phamVi = {
+      teamIds: ['to-a'],
+      userIds: [],
+      writableTeamIds: ['to-a'],
+      writableUserIds: [],
+    };
+    const req = { ...makeReq(), dataScope: phamVi } as never;
+    controller.goiYDonTheoTen({ q: 'tran' }, req);
+    expect(mockService.goiYDonTheoTen).toHaveBeenCalledWith('tran', phamVi);
+  });
+
+  it('goi-y-don-theo-ten: thiếu q → vẫn gọi với chuỗi rỗng, không ném', () => {
+    const req = { ...makeReq(), dataScope: null } as never;
+    controller.goiYDonTheoTen({}, req);
+    expect(mockService.goiYDonTheoTen).toHaveBeenCalledWith('', null);
+  });
+});

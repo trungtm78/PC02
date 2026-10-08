@@ -207,4 +207,38 @@ describe('ONhapGoiY — bàn phím', () => {
       document.removeEventListener('keydown', ngoai);
     }
   });
+
+  it('mỗi hàng nhận biết mình có đang được TÔ không (hien(g, { dangTo })), để hàng tự bung khi tô bằng phím', async () => {
+    function ChuHien() {
+      const [v, setV] = useState('');
+      return (
+        <ONhapGoiY<G>
+          value={v}
+          onChange={setV}
+          timGoiY={async () => GOI_Y}
+          khoa={(g) => g.ten}
+          nhan={(g) => g.ten}
+          hien={(g, ngu) => (
+            <span data-testid={`hang-${g.ten}`} data-dang-to={String(ngu.dangTo)}>
+              {g.ten}
+            </span>
+          )}
+          testId="o"
+          doTre={5}
+        />
+      );
+    }
+    render(<ChuHien />);
+    await gonVaMoDanhSach();
+    expect(screen.getByTestId('hang-Trần Thị A')).toHaveAttribute('data-dang-to', 'false');
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    expect(screen.getByTestId('hang-Trần Thị A')).toHaveAttribute('data-dang-to', 'true');
+    expect(screen.getByTestId('hang-Trần Văn B')).toHaveAttribute('data-dang-to', 'false');
+  });
+
+  it('hàng gợi ý là <div role=option> (không phải <button>) để chứa được nút/liên kết bên trong cho hợp lệ', async () => {
+    render(<Chu />);
+    await gonVaMoDanhSach();
+    for (const opt of screen.getAllByRole('option')) expect(opt.tagName).toBe('DIV');
+  });
 });

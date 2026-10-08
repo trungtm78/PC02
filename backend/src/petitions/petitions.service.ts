@@ -157,6 +157,16 @@ export const GOI_Y_TEN_TOI_DA = 10;
 /** Số ký tự tối thiểu mới hỏi gợi ý — xem chú thích trong `goiYTenNguoiGui`. */
 export const GOI_Y_TEN_TOI_THIEU = 2;
 
+/** Chuỗi gõ dài hơn số này thì không hỏi (tên người/cơ quan thật không dài tới vậy; chặn dò bằng chuỗi lớn). */
+export const GOI_Y_DON_TOI_DA_KY_TU_GO = 100;
+/** Mỗi tên lấy tối đa bấy nhiêu đơn MỚI NHẤT để cán bộ nhận ra đúng người/đúng việc. */
+export const GOI_Y_DON_MOI_TEN = 3;
+/** Tổng số hàng gợi ý (đơn) trả về. */
+export const GOI_Y_DON_TOI_DA_HANG = 12;
+/** Tóm tắt nội dung dài hơn số ký tự này bị cắt (kèm …) — một hàng gợi ý không kéo cả nghìn chữ. */
+export const GOI_Y_DON_TOI_DA_TOM_TAT = 1500;
+
+
 const CHON_DONG_DANH_SACH_DON_THU = {
   id: true,
   stt: true,
@@ -2968,6 +2978,116 @@ export class PetitionsService {
       .filter((g) => g.ten.trim() !== '')
       .sort((a, b) => b.soLan - a.soLan || a.ten.localeCompare(b.ten, 'vi'))
       .slice(0, GOI_Y_TEN_TOI_DA);
+  }
+
+  /**
+   * Gợi ý TỪNG ĐƠN theo tên người gửi, kèm Tóm tắt nội dung (anh yêu cầu 08/10/2026).
+   *
+   * Endpoint cũ `goiYTenNguoiGui` chỉ trả {ten, soLan}: cán bộ thấy "Trần Thị A — 29 đơn" mà không biết đó là
+   * Trần Thị A nào. Nay mỗi tên kèm tối đa 3 đơn mới nhất (STT, ngày tiếp nhận, trạng thái, tóm tắt) để nhận ra
+   * đúng người hoặc đúng việc đã gửi trước đó.
+   *
+   * Hai bước, cả hai ÁP PHẠM VI DỮ LIỆU:
+   *  1. Nhóm theo tên, SẮP THEO TẦN SUẤT VÀ CẮT 10 TÊN NGAY TRONG CƠ SỞ DỮ LIỆU. Bản cũ lấy mọi nhóm rồi sắp
+   *     trong bộ nhớ (gõ `tran` ra 3.517 nhóm); nay chỉ 10 nhóm quay về.
+   *  2. Mỗi tên lấy 3 đơn mới nhất qua chỉ mục `senderName`, chạy song song.
+   *
+   * Phạm vi ở bước 2 là bắt buộc, không phải thừa: hai đơn cùng một tên có thể nằm ở hai tổ, nên lọc ở bước 1
+   * mà quên bước 2 thì NỘI DUNG tố giác của tổ khác vẫn lọt ra cùng cái tên đã lọc.
+   */
+  async goiYDonTheoTen(
+    q: string,
+    dataScope?: DataScope | null,
+  ): Promise<
+    Array<{
+      id: string;
+      stt: string;
+      ten: string;
+      ngayTiepNhan: string;
+      tomTat: string | null;
+      trangThai: string;
+      soDonCungTen: number;
+    }>
+  > {
+    const chu = boDauTimKiem(q ?? '').trim();
+    if (chu.length < GOI_Y_TEN_TOI_THIEU || chu.length > GOI_Y_DON_TOI_DA_KY_TU_GO) return [];
+
+    const where: Prisma.PetitionWhereInput = {
+      deletedAt: null,
+      // Thoát `%` `_` (Prisma `contains` không tự thoát) — xem `goiYTenNguoiGui`.
+      senderNameBd: { contains: thoatLike(chu) },
+    };
+    const phamVi = buildPetitionScopeFilter(dataScope);
+    if (phamVi) noiVaoWhere(where as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
+
+    const nhom = await (
+      this.prisma.petition.groupBy as never as (a: unknown) => Promise<Array<Record<string, unknown>>>
+    )({
+      by: ['senderName'],
+      where,
+      _count: { _all: true },
+      orderBy: [{ _count: { senderName: 'desc' } }, { senderName: 'asc' }],
+      take: GOI_Y_TEN_TOI_DA,
+    });
+
+    const cacTen = nhom
+      .map((g) => ({
+        ten: typeof g.senderName === 'string' ? g.senderName : '',
+        soDon: Number((g._count as { _all?: number } | undefined)?._all ?? 0),
+      }))
+      .filter((g) => g.ten.trim() !== '');
+
+    const theoTen = await Promise.all(
+      cacTen.map(async (g) => {
+        const dieuKien: Prisma.PetitionWhereInput = { deletedAt: null, senderName: g.ten };
+        if (phamVi) noiVaoWhere(dieuKien as Record<string, unknown>, [phamVi as Prisma.PetitionWhereInput]);
+        const dong = await this.prisma.petition.findMany({
+          where: dieuKien,
+          select: {
+            id: true,
+            stt: true,
+            senderName: true,
+            receivedDate: true,
+            detailContent: true,
+            status: true,
+          },
+          orderBy: { receivedDate: 'desc' },
+          take: GOI_Y_DON_MOI_TEN,
+        });
+        return { g, dong };
+      }),
+    );
+
+    const ra: Array<{
+      id: string;
+      stt: string;
+      ten: string;
+      ngayTiepNhan: string;
+      tomTat: string | null;
+      trangThai: string;
+      soDonCungTen: number;
+    }> = [];
+    for (const { g, dong } of theoTen) {
+      for (const d of dong) {
+        if (ra.length >= GOI_Y_DON_TOI_DA_HANG) return ra;
+        const noiDung = (d.detailContent ?? '').trim();
+        ra.push({
+          id: d.id,
+          stt: d.stt,
+          ten: d.senderName,
+          ngayTiepNhan: d.receivedDate.toISOString().slice(0, 10),
+          tomTat:
+            noiDung === ''
+              ? null
+              : noiDung.length > GOI_Y_DON_TOI_DA_TOM_TAT
+                ? `${noiDung.slice(0, GOI_Y_DON_TOI_DA_TOM_TAT)}…`
+                : noiDung,
+          trangThai: String(d.status),
+          soDonCungTen: g.soDon,
+        });
+      }
+    }
+    return ra;
   }
 
   // ── Nhóm I: PetitionAssignment CRUD ─────────────────────────────────────────

@@ -67,6 +67,7 @@ import { O_AN_KHOI_DON_THU } from "@/features/petitions/o-an.def";
 import { chepSangDonMoi } from "./chepSangDonMoi";
 import { lamTrongForm } from "./lamTrongForm";
 import { phanNapLaiSauKhiTao, type PhanHoiTaoDon } from "./ketQuaTao";
+import { GoiYDonThu, type GoiYDon } from "./GoiYDonThu";
 import { cloneUserMetadata } from '@/shared/legacy/cloneMetadata';
 
 interface PetitionCloneState {
@@ -212,9 +213,6 @@ export function PetitionFormPage() {
   */
   type DupResult = { id: string; stt: string; senderName: string; receivedDate: string; summary: string | null };
 
-  /** Một dòng gợi ý tên người gửi: chữ + số lần đã dùng. */
-  type GoiYTen = { ten: string; soLan: number };
-
   /** Tra đơn trùng cho ô "Ghi chú trùng đơn". Lỗi mạng → không có gợi ý, ô vẫn gõ được. */
   const timDonTrung = useCallback(
     async (q: string): Promise<DupResult[]> => {
@@ -226,9 +224,12 @@ export function PetitionFormPage() {
     [id],
   );
 
-  /** Tra tên người gửi đã dùng, xếp theo tần suất (anh yêu cầu 22/09/2026). */
-  const timTenNguoiGui = useCallback(async (q: string): Promise<GoiYTen[]> => {
-    const res = await api.get<GoiYTen[]>("/petitions/goi-y-ten-nguoi-gui", { params: { q } });
+  /**
+   * Tra các đơn đã có theo tên người gửi, xếp theo tần suất của tên (anh yêu cầu 22/09/2026), nay kèm từng
+   * đơn với STT, ngày, trạng thái và Tóm tắt nội dung (anh yêu cầu 08/10/2026) để nhận ra đúng người, đúng việc.
+   */
+  const timDonTheoTen = useCallback(async (q: string): Promise<GoiYDon[]> => {
+    const res = await api.get<GoiYDon[]>("/petitions/goi-y-don-theo-ten", { params: { q } });
     return Array.isArray(res.data) ? res.data : [];
   }, []);
 
@@ -753,18 +754,14 @@ export function PetitionFormPage() {
     senderName: (label) => (
       <>
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-        <ONhapGoiY<GoiYTen>
+        <ONhapGoiY<GoiYDon>
           value={formData.senderName}
           onChange={(v) => update("senderName", v)}
-          timGoiY={timTenNguoiGui}
-          khoa={(g) => g.ten}
+          timGoiY={timDonTheoTen}
+          // Mỗi hàng là MỘT ĐƠN: khoá theo mã đơn (cùng một tên xuất hiện nhiều hàng), chọn thì điền tên.
+          khoa={(g) => g.id}
           nhan={(g) => g.ten}
-          hien={(g) => (
-            <>
-              <span className="font-medium">{g.ten}</span>
-              <span className="text-slate-500 text-xs ml-2">{g.soLan} đơn</span>
-            </>
-          )}
+          hien={(g, ngu) => <GoiYDonThu don={g} dangTo={ngu.dangTo} />}
           placeholder="Gõ tên để tra lại dữ liệu đã có, hoặc nhập tên mới"
           testId="field-senderName"
         />
