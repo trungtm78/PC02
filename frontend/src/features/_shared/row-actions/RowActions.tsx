@@ -32,6 +32,15 @@ export function RowActions<TRow extends { id: string }>({
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [bangMo, setBangMo] = useState(false);
   const dienThoai = useDienThoai();
+  // Xoay màn hình / đổi cỡ cửa sổ qua ngưỡng 767px: dựng lại nhánh khác thì bảng/menu đang mở phải ĐÓNG hẳn. Giữ cờ mở
+  // thì xoay ngang rồi xoay dọc lại làm bảng tự bật lên không ai bấm (Codex bắt 08/10/2026). Đặt lại ngay lúc dựng (không
+  // dùng effect) để không có khung hình nào còn cờ cũ.
+  const [dienThoaiTruoc, setDienThoaiTruoc] = useState(dienThoai);
+  if (dienThoaiTruoc !== dienThoai) {
+    setDienThoaiTruoc(dienThoai);
+    setBangMo(false);
+    setMenuAnchor(null);
+  }
 
   const visible = registry.all().filter((a) => (a.visible ? a.visible(row, ctx) : true));
   const inline = visible.filter((a) => a.position === 'inline');

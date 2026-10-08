@@ -3,7 +3,7 @@
  * Máy tính giữ nguyên hành vi cũ (nút nhanh + ⋮) — hợp đồng hồi quy ở RowActions.test.tsx.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { Eye, Pencil, Trash2, Users, Printer } from 'lucide-react';
 import { RowActions } from '../RowActions';
 import { createRowActionRegistry, type ActionContext } from '../registry';
@@ -145,6 +145,50 @@ describe('RowActions — điện thoại', () => {
     });
     const { container } = render(<RowActions registry={reg} row={HANG} ctx={ctx()} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('xoay qua ngưỡng rồi xoay lại KHÔNG làm bảng tự mở lại (Codex P2)', () => {
+    const nguoiNghe = new Set<() => void>();
+    const mql = {
+      matches: true,
+      addEventListener: (_: string, f: () => void) => nguoiNghe.add(f),
+      removeEventListener: (_: string, f: () => void) => nguoiNghe.delete(f),
+    };
+    Object.defineProperty(window, 'matchMedia', { value: () => mql, configurable: true, writable: true });
+    const doi = (matches: boolean) =>
+      act(() => {
+        mql.matches = matches;
+        nguoiNghe.forEach((f) => f());
+      });
+    render(<RowActions registry={dangKy()} row={HANG} ctx={ctx()} />);
+    fireEvent.click(screen.getByTestId('btn-action-menu-r1'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    doi(false); // xoay ngang: sang bố cục máy tính
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    doi(true); // xoay dọc lại
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('btn-action-menu-r1')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('menu nổi của máy tính đang mở rồi thu hẹp xuống điện thoại và nới lại: không tự mở lại', () => {
+    const nguoiNghe = new Set<() => void>();
+    const mql = {
+      matches: false,
+      addEventListener: (_: string, f: () => void) => nguoiNghe.add(f),
+      removeEventListener: (_: string, f: () => void) => nguoiNghe.delete(f),
+    };
+    Object.defineProperty(window, 'matchMedia', { value: () => mql, configurable: true, writable: true });
+    const doi = (matches: boolean) =>
+      act(() => {
+        mql.matches = matches;
+        nguoiNghe.forEach((f) => f());
+      });
+    render(<RowActions registry={dangKy()} row={HANG} ctx={ctx()} />);
+    fireEvent.click(screen.getByTestId('btn-action-menu-r1'));
+    expect(screen.getByRole('menuitem', { name: /Phân công/ })).toBeInTheDocument();
+    doi(true);
+    doi(false);
+    expect(screen.queryByRole('menuitem', { name: /Phân công/ })).not.toBeInTheDocument();
   });
 
   it('đối chứng — MÁY TÍNH: giữ nguyên nút nhanh, KHÔNG có bảng đáy', () => {
