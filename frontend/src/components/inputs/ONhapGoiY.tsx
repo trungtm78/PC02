@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useListboxNav } from '@/hooks/useListboxNav';
 
 /**
  * Ô chữ TỰ DO có gợi ý theo dữ liệu đã có.
@@ -7,6 +8,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
  * danh sách xổ xuống, chọn thì điền) đã chạy trên prod nhưng nằm nhúng thẳng trong một trang
  * 1.300 dòng, không tái dùng và không đo được. Anh yêu cầu 22/09/2026 thêm gợi ý cho ô "Tên cá
  * nhân, cơ quan, tổ chức cung cấp, bị hại"; mở rộng primitive sẵn có thay vì dựng hệ thứ hai.
+ *
+ * Bàn phím (↑ ↓ Home End PgUp PgDn, Enter, Esc, Tab) dùng `useListboxNav` chung với FKSelect và
+ * CrimeSelect. Riêng Enter: CHƯA tô gợi ý nào thì Enter đi tiếp như trước (gửi form), vì đây là ô chữ
+ * tự do — chỉ khi cán bộ đã chỉ đích danh một gợi ý bằng mũi tên thì Enter mới chọn và bị chặn.
  *
  * BA ĐIỂM LÀ HỢP ĐỒNG, không phải chi tiết:
  *
@@ -62,6 +67,51 @@ export function ONhapGoiY<T>({
   const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Chỉ nhận kết quả của lượt gõ MỚI NHẤT: lượt cũ về sau sẽ đè danh sách đúng bằng danh sách cũ.
   const luot = useRef(0);
+  const maGoc = useId().replace(/:/g, '');
+  const maDanhSach = `${maGoc}-ds`;
+  const dangMo = moXo && goiY.length > 0;
+
+  const chon = useCallback(
+    (g: T) => {
+      // Huỷ lượt đang bay: chọn xong mà kết quả cũ về sau sẽ mở lại danh sách.
+      luot.current++;
+      if (hen.current) clearTimeout(hen.current);
+      onChange(nhan(g));
+      setGoiY([]);
+      setMoXo(false);
+    },
+    [onChange, nhan],
+  );
+
+  // Gợi ý mới về (khác bộ khoá) thì bỏ tô, để Enter không chọn nhầm dòng cũ.
+  const khoaDanhSach = useMemo(() => goiY.map(khoa).join('\u0001'), [goiY, khoa]);
+
+  const nav = useListboxNav({
+    count: goiY.length,
+    resetKey: khoaDanhSach,
+    idPrefix: maGoc,
+    chanEnterKhiChuaTo: false,
+    onSelect: (i) => {
+      const g = goiY[i];
+      if (g !== undefined) chon(g);
+    },
+    onEscape: () => setMoXo(false),
+    onTab: () => setMoXo(false),
+  });
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    const ne = e.nativeEvent as { isComposing?: boolean; keyCode?: number };
+    if (ne.isComposing || ne.keyCode === 229) return;
+    if (!dangMo) {
+      // Danh sách đã đóng nhưng còn gợi ý: ↓ mở lại. Mọi phím khác đi tiếp bình thường.
+      if (e.key === 'ArrowDown' && goiY.length > 0) {
+        e.preventDefault();
+        setMoXo(true);
+      }
+      return;
+    }
+    nav.onKeyDown(e);
+  };
 
   useEffect(
     () => () => {
@@ -109,6 +159,12 @@ export function ONhapGoiY<T>({
         value={value}
         disabled={disabled}
         onChange={(e) => goPhim(e.target.value)}
+        onKeyDown={onKeyDown}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={dangMo}
+        aria-controls={dangMo ? maDanhSach : undefined}
+        aria-activedescendant={dangMo ? nav.activeDescendantId : undefined}
         onFocus={() => goiY.length > 0 && setMoXo(true)}
         // Hoãn để cú bấm vào một dòng gợi ý kịp chạy trước khi danh sách đóng. Không chốt giá
         // trị ở đây — giá trị đã được chốt từng phím ở `goPhim`.
@@ -120,24 +176,26 @@ export function ONhapGoiY<T>({
         placeholder={placeholder}
         data-testid={testId}
       />
-      {moXo && goiY.length > 0 && (
+      {dangMo && (
         <div
+          id={maDanhSach}
+          role="listbox"
           className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto"
           data-testid={testId ? `${testId}-goi-y` : undefined}
         >
-          {goiY.map((g) => (
+          {goiY.map((g, i) => (
             <button
               key={khoa(g)}
+              id={nav.optionId(i)}
               type="button"
-              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm"
-              onMouseDown={() => {
-                // Huỷ lượt đang bay: chọn xong mà kết quả cũ về sau sẽ mở lại danh sách.
-                luot.current++;
-                if (hen.current) clearTimeout(hen.current);
-                onChange(nhan(g));
-                setGoiY([]);
-                setMoXo(false);
-              }}
+              role="option"
+              tabIndex={-1}
+              aria-selected={false}
+              data-active={i === nav.activeIndex ? 'true' : undefined}
+              className={`w-full text-left px-4 py-2 text-sm ${
+                i === nav.activeIndex ? 'bg-blue-100 text-blue-800' : 'hover:bg-slate-50'
+              }`}
+              onMouseDown={() => chon(g)}
             >
               {hien(g)}
             </button>

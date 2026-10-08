@@ -51,7 +51,7 @@ describe('ONhapGoiY — ô chữ tự do có gợi ý', () => {
     render(<Chu tim={async () => [{ ten: 'Trần Thị A', soLan: 29 }]} />);
     fireEvent.change(screen.getByTestId('o'), { target: { value: 'tran' } });
     await waitFor(() => expect(screen.getByTestId('o-goi-y')).toBeInTheDocument());
-    fireEvent.mouseDown(screen.getByRole('button', { name: /Trần Thị A/ }));
+    fireEvent.mouseDown(screen.getByRole('option', { name: /Trần Thị A/ }));
     expect(screen.getByTestId('cha')).toHaveTextContent('Trần Thị A');
   });
 
@@ -120,7 +120,7 @@ describe('ONhapGoiY — ô chữ tự do có gợi ý', () => {
     render(<Chu tim={tim} />);
     fireEvent.change(screen.getByTestId('o'), { target: { value: 'tran' } });
     await waitFor(() => expect(screen.getByTestId('o-goi-y')).toBeInTheDocument());
-    fireEvent.mouseDown(screen.getByRole('button', { name: /T1/ }));
+    fireEvent.mouseDown(screen.getByRole('option', { name: /T1/ }));
     expect(screen.queryByTestId('o-goi-y')).not.toBeInTheDocument();
     await new Promise((r) => setTimeout(r, 150));
     expect(screen.queryByTestId('o-goi-y')).not.toBeInTheDocument();
