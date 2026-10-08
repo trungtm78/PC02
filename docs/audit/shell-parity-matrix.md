@@ -1,5 +1,15 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
+## 2026-10-08 — Bấm vào dòng danh sách do admin cấu hình
+
+| Năng lực của các shell danh sách (Đơn thư, Vụ việc, Vụ án, Tổng hợp, Ủy thác, Đơn thư phường/xã, Đơn trùng) | Hành vi trong release | Bằng chứng |
+|---|---|---|
+| Hành động khi bấm vào dòng | Không còn cứng `navigate`: đọc cấu hình `BAM_DONG_*` (Không làm gì / Xem / Xem bấm đúp / Sửa / Sửa bấm đúp) qua `useBamDong`. Mặc định: 3 màn Đơn thư = không làm gì (để bôi chữ chép dữ liệu), 4 màn còn lại = xem như trước. Cấu hình Sửa mà không có quyền sửa → rơi về xem | `useBamDong.test.tsx`, `PetitionListPageShell.test.tsx`, cổng `bamDongMoiManPhaiQuaHook.gate.test.ts` |
+| Bôi chữ trên dòng | Đang bôi chữ trong dòng thì không chuyển trang; bấm nút/liên kết con không mở dòng | `bamDong.test.tsx` (có gieo lỗi) |
+| Mở tab mới | Ctrl/⌘+bấm và nút giữa mở đích ở tab mới khi dòng có đích | `bamDong.test.tsx` |
+| Nút Xem ở Đơn thư phường/xã và Đơn trùng | Mở trang xem `/petitions/:id` (trước đây mở thẳng form sửa) | `WardPetitionsPage.test.tsx` |
+| Cài đặt hệ thống | Nhóm "Hành vi danh sách", ô chọn đủ 5 giá trị, lưu xong màn đang mở nhận giá trị mới | `SettingsPage.bamDong.test.tsx`, `giao-dien.spec.ts`, migration `20261008090000_bam_dong_settings` |
+
 ## 2026-10-06 — v0.73.0.0: Tiếp nhận và quản lý Vụ việc
 
 | Năng lực của IncidentListPageShell | Hành vi trong release | Bằng chứng |
