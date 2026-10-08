@@ -692,6 +692,7 @@ export function IncidentListPageShell({
                   actionCtx.perms.canDelete === true && r.quyenGhi !== false,
               },
             }}
+            tieuDe={`Vụ việc ${r.name}`}
           />
         ),
       },

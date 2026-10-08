@@ -530,6 +530,7 @@ export function PetitionListPageShell() {
               updatedAt: r.updatedAt,
             }}
             ctx={actionCtx}
+            tieuDe={`Đơn thư ${r.stt}`}
           />
         ),
       },

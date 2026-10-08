@@ -8,4 +8,12 @@
  * Thêm/bớt nút nhanh trong `row-actions.ts` → đo lại và sửa ở đây. Ca UAT `tests/e2e/cot-thao-tac-uat.e2e.spec.ts`
  * đo toạ độ từng nút trên cả bốn màn và đỏ khi có nút vượt khỏi ô.
  */
-export const BE_RONG_COT_THAO_TAC = '12rem';
+export const BE_RONG_COT_THAO_TAC = 'var(--be-rong-cot-thao-tac)';
+
+/**
+ * Biến CSS khai ở `index.css`: 12rem trên máy tính, 3.5rem ở ≤767px (điện thoại chỉ còn một nút ⋮ cỡ 44px — xem
+ * `RowActions`). Dùng `var()` chứ không đọc `matchMedia` ở đây: cột đổi bề rộng ngay khi xoay màn hình mà không cần dựng
+ * lại bảng, và `calc()` tổng bề rộng của `Table` nhận `var()` nguyên vẹn. Cột Thao tác `khongDoiBeRong` nên
+ * `doBeRong()` (chỉ phân tích px/rem) không bao giờ đọc giá trị này.
+ */
+export const BIEN_CSS_BE_RONG_COT_THAO_TAC = '--be-rong-cot-thao-tac';
