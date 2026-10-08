@@ -118,6 +118,9 @@ export function useListboxNav({
           }
           return;
         case 'Escape':
+          // Tiêu thụ: hộp đang mở thì Escape chỉ đóng hộp, không được lọt ra đóng luôn cửa sổ chứa ô này.
+          // (Hook chỉ nhận phím khi hộp mở; ô đang đóng thì Escape đi tiếp để cửa sổ tự đóng.)
+          e.stopPropagation();
           onEscape?.();
           return;
         case 'Tab':

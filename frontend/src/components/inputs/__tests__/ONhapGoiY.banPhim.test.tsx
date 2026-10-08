@@ -151,4 +151,60 @@ describe('ONhapGoiY — bàn phím', () => {
     fireEvent.mouseDown(screen.getAllByRole('option')[1]);
     expect(screen.getByTestId('cha')).toHaveTextContent('Trần Văn B');
   });
+
+  /**
+   * LỖI do Codex bắt: tô một gợi ý, gõ sang tên khác rồi bấm Enter trước khi lượt tìm mới (hoãn 300 ms)
+   * trả về — gợi ý cũ ghi đè chữ vừa gõ và chặn gửi form. Phải bỏ tô NGAY khi chữ đổi.
+   */
+  it('tô gợi ý rồi gõ tên khác, Enter khi lượt tìm mới chưa về: giữ chữ vừa gõ, không bị gợi ý cũ ghi đè', async () => {
+    const tim = vi.fn(
+      (q: string) => new Promise<G[]>((r) => setTimeout(() => r(q === 'tran' ? GOI_Y : []), q === 'tran' ? 0 : 200)),
+    );
+    render(<Chu tim={tim} />);
+    await gonVaMoDanhSach('tran');
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    expect(o().getAttribute('aria-activedescendant')).not.toBeNull();
+    fireEvent.change(o(), { target: { value: 'Lê Hoàng' } });
+    const khongBiChan = fireEvent.keyDown(o(), { key: 'Enter' });
+    expect(screen.getByTestId('cha')).toHaveTextContent('Lê Hoàng');
+    // Không còn gợi ý nào đang tô nên Enter đi tiếp (gửi form) như với mọi ô chữ tự do.
+    expect(khongBiChan).toBe(true);
+  });
+
+  it('cùng bộ gợi ý trả về sau khi gõ thêm chữ: dòng tô cũ cũng đã bị bỏ', async () => {
+    render(<Chu />);
+    await gonVaMoDanhSach('tran');
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    fireEvent.change(o(), { target: { value: 'tran ' } });
+    await waitFor(() => expect(screen.getByTestId('o-goi-y')).toBeInTheDocument());
+    expect(o().getAttribute('aria-activedescendant')).toBeNull();
+    fireEvent.keyDown(o(), { key: 'Enter' });
+    expect(screen.getByTestId('cha')).toHaveTextContent('tran');
+  });
+
+  it('Escape khi danh sách đang mở KHÔNG lọt ra ngoài (không đóng cửa sổ chứa ô)', async () => {
+    const ngoai = vi.fn();
+    document.addEventListener('keydown', ngoai);
+    try {
+      render(<Chu />);
+      await gonVaMoDanhSach();
+      fireEvent.keyDown(o(), { key: 'Escape' });
+      expect(screen.queryByTestId('o-goi-y')).not.toBeInTheDocument();
+      expect(ngoai).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener('keydown', ngoai);
+    }
+  });
+
+  it('Escape khi danh sách ĐÃ đóng đi tiếp bình thường (để cửa sổ chứa ô tự đóng)', async () => {
+    const ngoai = vi.fn();
+    document.addEventListener('keydown', ngoai);
+    try {
+      render(<Chu />);
+      fireEvent.keyDown(o(), { key: 'Escape' });
+      expect(ngoai).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener('keydown', ngoai);
+    }
+  });
 });

@@ -123,6 +123,9 @@ export function ONhapGoiY<T>({
   const goPhim = useCallback(
     (q: string) => {
       onChange(q);
+      // Bỏ tô NGAY, không đợi gợi ý mới về: chữ đã đổi thì dòng tô trước đó không còn là điều cán bộ chỉ
+      // tới. Để tới lúc gợi ý về mới bỏ thì Enter trong khoảng hoãn sẽ ghi đè chữ vừa gõ bằng gợi ý cũ.
+      nav.reset();
       if (hen.current) clearTimeout(hen.current);
       /*
         TĂNG SỐ LƯỢT TRƯỚC mọi nhánh, kể cả nhánh xoá trắng.
@@ -149,7 +152,7 @@ export function ONhapGoiY<T>({
         }
       }, doTre);
     },
-    [onChange, timGoiY, doTre],
+    [onChange, timGoiY, doTre, nav.reset],
   );
 
   return (

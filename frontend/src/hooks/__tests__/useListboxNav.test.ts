@@ -7,12 +7,14 @@ Element.prototype.scrollIntoView = vi.fn();
 
 function phim(key: string, extra: { isComposing?: boolean; keyCode?: number } = {}) {
   const preventDefault = vi.fn();
+  const stopPropagation = vi.fn();
   const e = {
     key,
     preventDefault,
+    stopPropagation,
     nativeEvent: { isComposing: extra.isComposing ?? false, keyCode: extra.keyCode ?? 0 },
   } as unknown as ReactKeyboardEvent;
-  return { e, preventDefault };
+  return { e, preventDefault, stopPropagation };
 }
 
 function dung(count: number, over: Partial<Parameters<typeof useListboxNav>[0]> = {}) {
@@ -183,5 +185,18 @@ describe('useListboxNav', () => {
     const p2 = bam(h, 'Enter');
     expect(p2.preventDefault).toHaveBeenCalled();
     expect(h.onSelect).toHaveBeenCalledWith(0);
+  });
+
+  it('Escape khi hộp đang mở bị "tiêu thụ" (stopPropagation) để không đóng luôn cửa sổ chứa ô này', () => {
+    const h = dung(3);
+    const p = bam(h, 'Escape');
+    expect(h.onEscape).toHaveBeenCalledTimes(1);
+    expect(p.stopPropagation).toHaveBeenCalled();
+  });
+
+  it('phím khác Escape không bị chặn lan truyền', () => {
+    const h = dung(3);
+    expect(bam(h, 'ArrowDown').stopPropagation).not.toHaveBeenCalled();
+    expect(bam(h, 'Tab').stopPropagation).not.toHaveBeenCalled();
   });
 });

@@ -89,7 +89,9 @@ export function CrimeSelect({
       dong();
       triggerRef.current?.focus();
     },
-    onTab: dong,
+    // Không có onTab: Tab phải đi tiếp tự nhiên (ô tìm → nút "Hiện tất cả" → ô kế tiếp). Đóng hộp ngay lúc
+    // bấm Tab sẽ gỡ luôn ô tìm đang giữ tiêu điểm, tiêu điểm rơi về <body> và nút "Hiện tất cả" không tới được.
+    // Hộp tự đóng khi tiêu điểm thật sự sang phần tử ngoài ô (xem onBlur bên dưới).
   });
 
   useEffect(() => {
@@ -107,7 +109,17 @@ export function CrimeSelect({
   }, [isOpen]);
 
   return (
-    <CasePolicyField label={label} testId={testId}><div ref={containerRef} className="relative" data-testid={testId}>
+    <CasePolicyField label={label} testId={testId}><div
+      ref={containerRef}
+      className="relative"
+      data-testid={testId}
+      onBlur={(e) => {
+        // Chỉ đóng khi tiêu điểm sang một phần tử CỤ THỂ ngoài ô. relatedTarget rỗng (bấm vào vùng không
+        // nhận tiêu điểm trong hộp, thanh cuộn…) thì giữ nguyên — bấm ra ngoài đã có onClickOutside lo.
+        const sang = e.relatedTarget as Node | null;
+        if (sang && containerRef.current && !containerRef.current.contains(sang)) dong();
+      }}
+    >
       <label id={maNhan} className={LABEL_BASE}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -169,6 +181,14 @@ export function CrimeSelect({
         <div
           className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden"
           data-testid={`${testId}-dropdown`}
+          onKeyDown={(e) => {
+            // Escape khi tiêu điểm ở nút "Hiện tất cả" (ô tìm đã tự xử lý Escape của nó rồi).
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              dong();
+              triggerRef.current?.focus();
+            }
+          }}
         >
           <div className="p-2 border-b border-slate-200">
             <div className="relative">
@@ -177,7 +197,10 @@ export function CrimeSelect({
                 ref={inputRef}
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  nav.reset();
+                }}
                 onKeyDown={nav.onKeyDown}
                 aria-label={`Tìm trong ${label}`}
                 aria-controls={maDanhSach}

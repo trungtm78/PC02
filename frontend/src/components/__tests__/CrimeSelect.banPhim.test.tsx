@@ -177,12 +177,64 @@ describe('CrimeSelect — bàn phím', () => {
       expect(document.activeElement).toBe(trigger());
     });
 
-    it('Tab đóng hộp mà KHÔNG chặn mặc định (tiêu điểm đi tiếp)', () => {
+    it('Escape trong hộp KHÔNG lọt ra ngoài: cửa sổ (Modal) chứa ô này không bị đóng theo', () => {
+      const ngoai = vi.fn();
+      document.addEventListener('keydown', ngoai);
+      try {
+        render(<CrimeSelect label="Tội danh" value="" onChange={() => {}} />);
+        moHop();
+        fireEvent.keyDown(search(), { key: 'Escape' });
+        expect(screen.queryByTestId('crime-select-dropdown')).toBeNull();
+        expect(ngoai).not.toHaveBeenCalled();
+      } finally {
+        document.removeEventListener('keydown', ngoai);
+      }
+    });
+
+    it('Escape khi tiêu điểm đang ở nút "Hiện tất cả" cũng đóng hộp và trả tiêu điểm về nút mở', () => {
       render(<CrimeSelect label="Tội danh" value="" onChange={() => {}} />);
       moHop();
-      const khongBiChan = fireEvent.keyDown(search(), { key: 'Tab' });
-      expect(khongBiChan).toBe(true);
+      const bat = screen.getByTestId('crime-select-toggle-all');
+      bat.focus();
+      fireEvent.keyDown(bat, { key: 'Escape' });
       expect(screen.queryByTestId('crime-select-dropdown')).toBeNull();
+      expect(document.activeElement).toBe(trigger());
+    });
+
+    it('Tab đi tiếp tự nhiên: ô tìm → nút "Hiện tất cả" (hộp còn mở) → ô kế tiếp (hộp đóng), tiêu điểm không rơi về BODY', async () => {
+      render(
+        <>
+          <CrimeSelect label="Tội danh" value="" onChange={() => {}} />
+          <input data-testid="o-ke" />
+        </>,
+      );
+      moHop();
+      expect(document.activeElement).toBe(search());
+      await userEvent.tab();
+      expect(document.activeElement).toBe(screen.getByTestId('crime-select-toggle-all'));
+      expect(screen.getByTestId('crime-select-dropdown')).toBeTruthy();
+      await userEvent.tab();
+      expect(document.activeElement).toBe(screen.getByTestId('o-ke'));
+      expect(screen.queryByTestId('crime-select-dropdown')).toBeNull();
+    });
+
+    it('bấm "Hiện tất cả" bằng bàn phím (Enter) thì hiện cả tội ngoài PC02 mà không đóng hộp', async () => {
+      render(<CrimeSelect label="Tội danh" value="" onChange={() => {}} />);
+      moHop();
+      await userEvent.tab();
+      await userEvent.keyboard('{Enter}');
+      expect(screen.getByTestId('crime-select-option-D251')).toBeTruthy();
+    });
+
+    it('gõ vào ô tìm bỏ tô ngay: Enter không chọn dòng tô trước đó', () => {
+      const onChange = vi.fn();
+      render(<CrimeSelect label="Tội danh" value="" onChange={onChange} />);
+      moHop();
+      fireEvent.keyDown(search(), { key: 'ArrowDown' });
+      // Gõ thêm một ký tự mà tập kết quả không đổi: dòng tô cũ vẫn còn trong danh sách.
+      fireEvent.change(search(), { target: { value: 'T' } });
+      fireEvent.keyDown(search(), { key: 'Enter' });
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it('mục đã chọn mang aria-selected, mục đang tô thì không bị gộp với "đã chọn"', () => {
