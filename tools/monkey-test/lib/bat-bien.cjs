@@ -65,7 +65,10 @@ const BAT_BIEN = {
     },
   },
 
-  /** Điện thoại: mỗi dòng đúng MỘT nút ⋮ cỡ ≥44px nằm trọn trong ô, ô và tiêu đề Thao tác hẹp. */
+  /**
+   * Điện thoại: mỗi dòng đúng MỘT nút ⋮ cỡ ≥32px (anh yêu cầu thu nhỏ 08/10/2026 từ 44px; WCAG 2.2 AA đòi ≥24px) nằm
+   * trọn trong ô, ô Thao tác hẹp (≤44px: nút 32px + lề 2×4px).
+   */
   mot_nut_menu_moi_dong: {
     khiNao: 'buoc',
     async kiem({ page, vp }) {
@@ -82,10 +85,10 @@ const BAT_BIEN = {
           const soNut = o ? o.querySelectorAll('button').length : 0;
           if (soNut !== 1) loi.push(`ô có ${soNut} nút (phải 1)`);
           const rc = nut.getBoundingClientRect();
-          if (rc.width < 43.5 || rc.height < 43.5) loi.push(`nút ⋮ ${Math.round(rc.width)}×${Math.round(rc.height)} (<44px)`);
+          if (rc.width < 31.5 || rc.height < 31.5) loi.push(`nút ⋮ ${Math.round(rc.width)}×${Math.round(rc.height)} (<32px)`);
           const kh = o.getBoundingClientRect();
           if (rc.left < kh.left - 0.5 || rc.right > kh.right + 0.5) loi.push('nút ⋮ tràn khỏi ô');
-          if (kh.width > 60) loi.push(`ô Thao tác rộng ${Math.round(kh.width)}px (>60px)`);
+          if (kh.width > 44) loi.push(`ô Thao tác rộng ${Math.round(kh.width)}px (>44px)`);
         }
         return { loi: [...new Set(loi)], so };
         });
@@ -156,10 +159,16 @@ const BAT_BIEN = {
     },
   },
 
-  /** "Tạo đơn mới từ đơn này": ngày tiếp nhận = hôm nay ngay sau khi chép. Chạy một lần ở đầu đường. */
+  /**
+   * "Tạo đơn mới từ đơn này": ngày tiếp nhận = hôm nay VÀ giờ tiếp nhận = giờ hiện tại (±3 phút) ngay sau khi chép. Chạy một
+   * lần ở đầu đường. Giờ chép từ đơn nguồn (khác giờ hiện tại) là lỗi: Giấy biên nhận sẽ ghi một giờ không bao giờ xảy ra.
+   */
   chep_don_ngay_hom_nay: {
     khiNao: 'dau-duong',
-    async kiem({ page }) {
+    async kiem({ page, route }) {
+      // Chỉ có nghĩa ở màn XEM một đơn (`/petitions/<mã>`); các màn khác của cùng hồ sơ (tạo mới, sửa) không áp dụng — bỏ qua,
+      // KHÔNG tính là "chưa kiểm".
+      if (!/^\/petitions\/[^/?]+$/.test(route.split('?')[0]) || route.startsWith('/petitions/new')) return null;
       const nut = page.locator('[data-testid="btn-chep-don"]').first();
       if (!(await nut.count())) return { khongDoDuoc: true, chiTiet: 'không thấy nút btn-chep-don trên màn này' };
       await nut.click({ timeout: 6000 }).catch(() => {});
@@ -167,7 +176,51 @@ const BAT_BIEN = {
       const o = page.locator('[data-testid="field-receivedDate"]').first();
       if (!(await o.count())) return { khongDoDuoc: true, chiTiet: 'sau khi chép không thấy ô field-receivedDate' };
       const [giaTri, homNay] = await Promise.all([o.inputValue(), page.evaluate(() => new Date().toLocaleDateString('en-CA'))]);
-      return giaTri === homNay ? null : { chiTiet: `ngày tiếp nhận sau khi chép = ${giaTri || '(rỗng)'}, phải là hôm nay ${homNay}` };
+      if (giaTri !== homNay) return { chiTiet: `ngày tiếp nhận sau khi chép = ${giaTri || '(rỗng)'}, phải là hôm nay ${homNay}` };
+      const g = page.locator('[data-testid="field-gioTiepNhan"]').first();
+      if (!(await g.count())) return { khongDoDuoc: true, chiTiet: 'sau khi chép không thấy ô field-gioTiepNhan' };
+      const gio = await g.inputValue();
+      const lech = await page.evaluate((v) => {
+        const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+          .formatToParts(new Date())
+          .reduce((m, x) => ({ ...m, [x.type]: x.value }), {});
+        const bayGio = Number(p.hour) * 60 + Number(p.minute);
+        const khai = Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
+        // vòng quanh nửa đêm: 23:59 so với 00:01 chỉ lệch 2 phút
+        const d = Math.abs(khai - bayGio);
+        return Math.min(d, 1440 - d);
+      }, gio);
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(gio) && lech <= 3
+        ? null
+        : { chiTiet: `giờ tiếp nhận sau khi chép = ${gio || '(rỗng)'}, phải là giờ hiện tại VN (±3 phút)` };
+    },
+  },
+
+  /**
+   * Ô Giờ tiếp nhận: sau khi gõ chuỗi bất kỳ rồi rời ô, giá trị phải LUÔN là một trong ba: rỗng, "HH:mm" hợp lệ, hoặc chữ
+   * đang báo lỗi tại ô (không bao giờ im lặng giữ giá trị hỏng). Trong lúc gõ chỉ chứa chữ số và một dấu ":" (≤5 ký tự) —
+   * ô không để lọt chữ cái hay chuỗi dài.
+   */
+  gio_tiep_nhan_dinh_dang: {
+    khiNao: 'go-gio',
+    async kiem({ page, hd }) {
+      const r = await page.evaluate(() => {
+        const o = document.querySelector('[data-testid="field-gioTiepNhan"]');
+        return {
+          co: !!o,
+          giaTri: o ? o.value : '',
+          baoLoi: !!document.querySelector('[data-testid="field-gioTiepNhan-loi"]'),
+        };
+      });
+      if (!r.co) return { khongDoDuoc: true, chiTiet: 'không thấy ô field-gioTiepNhan' };
+      if (!/^\d{0,2}(:\d{0,2})?$/.test(r.giaTri) || r.giaTri.length > 5) {
+        return { chiTiet: `ô giờ chứa "${r.giaTri}" sau khi gõ "${hd.gio}" — chỉ được chữ số và một dấu ":"` };
+      }
+      const hopLe = r.giaTri === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(r.giaTri);
+      if (!hopLe && !r.baoLoi) {
+        return { chiTiet: `ô giờ giữ "${r.giaTri}" (không hợp lệ) sau khi rời ô mà KHÔNG báo lỗi — gõ "${hd.gio}"` };
+      }
+      return null;
     },
   },
 };

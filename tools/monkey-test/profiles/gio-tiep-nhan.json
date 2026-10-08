@@ -1,0 +1,6 @@
+{
+  "ten": "gio-tiep-nhan",
+  "moTa": "Ô Giờ tiếp nhận của form Đơn thư: gõ chuỗi bất kỳ bằng phím thật rồi rời ô — luôn rỗng, HH:mm hợp lệ hoặc có báo lỗi tại ô; chép đơn cho giờ hiện tại.",
+  "tuyen": ["/petitions/new", "/petitions/{DON_THU}/edit", "/petitions/{DON_THU}"],
+  "batBien": ["gio_tiep_nhan_dinh_dang", "chep_don_ngay_hom_nay"]
+}

@@ -67,11 +67,12 @@ từ chối ngay lúc đọc cấu hình (thoát 2); tên miền kiểu `localho
 | Hồ sơ | Màn | Bất biến |
 |---|---|---|
 | `phim-chon` | form Đơn thư / Vụ án / Vụ việc | không kẹt hộp chọn sau Escape |
-| `chep-don` | `/petitions/:id` → "Tạo đơn mới từ đơn này" | ngày tiếp nhận = hôm nay ngay sau khi chép |
+| `chep-don` | `/petitions/:id` → "Tạo đơn mới từ đơn này" | ngày tiếp nhận = hôm nay và giờ tiếp nhận = giờ hiện tại ngay sau khi chép |
 | `xem-don-thu` | `/petitions/:id` (chỉ xem) | gõ/dán/xoá không đổi ô nào; 0 lời gọi ghi |
 | `bam-dong` | 8 danh sách + `/admin/settings` | bôi chữ không đổi URL; Ctrl/⌘+bấm, nút giữa mở tab mới không bắt đăng nhập lại |
 | `dien-thoai` | 4 danh sách, 390×844 và 360×640 | mỗi dòng đúng 1 nút ⋮ ≥32px trong ô ≤44px; không tràn ngang; bảng đáy đóng trả tiêu điểm |
 | `goi-y-ten` | `/petitions/new` ô tên người gửi | không gợi ý <2 hoặc >100 ký tự; ≤12 dòng; không 5xx |
+| `gio-tiep-nhan` | form Đơn thư, ô Giờ tiếp nhận | gõ chuỗi bất kỳ bằng phím thật rồi rời ô: luôn rỗng / `HH:mm` hợp lệ / có báo lỗi tại ô; chép đơn cho ngày = hôm nay và giờ = giờ hiện tại VN (±3 phút) |
 | `tong-quat` | mọi đường trong `duong-mac-dinh.txt` | chỉ bất biến chung |
 
 Bất biến **chung** (mọi hồ sơ): không `pageerror`, không lỗi console, không 5xx từ `/api/`, không màn hình trắng

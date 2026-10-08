@@ -348,14 +348,14 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       tt.tabMoi = [];
       const hanhDong = chonHanhDong(rng, { vp, route: d, hoSo });
       let hd = null;
-      if (['go', 'dan', 'go-ten-nguoi-gui'].includes(hanhDong.ten)) tt.luc_go = Date.now();
+      if (['go', 'dan', 'go-ten-nguoi-gui', 'go-gio-tiep-nhan'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       try {
         hd = await hanhDong.chay({ page, ctx, rng, cfg, vp, tt, route: d });
       } catch (e) {
         if (!LOI_CHUYEN_TRANG.test(String(e.message))) await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
       }
       kq.soThaoTac += 1;
-      if (['go', 'dan', 'go-ten-nguoi-gui'].includes(hanhDong.ten)) tt.luc_go = Date.now();
+      if (['go', 'dan', 'go-ten-nguoi-gui', 'go-gio-tiep-nhan'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       if (!hd) continue;
       await page.waitForTimeout(cfg.nhipMs ?? 260);
 
@@ -366,6 +366,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       if (hd.moTabMoi && tt.tabMoi.length) await ktra('tab-moi', { page, route: d, vp, tt, hd, cfg });
       if (hd.ten === 'mo-bang-thao-tac') await ktra('mo-bang', { page, route: d, vp, tt, hd, cfg });
       if (hd.ten === 'go-ten-nguoi-gui') await ktra('go-ten', { page, route: d, vp, tt, hd, cfg });
+      if (hd.ten === 'go-gio-tiep-nhan') await ktra('go-gio', { page, route: d, vp, tt, hd, cfg });
       for (const p of tt.tabMoi) await p.close().catch(() => {});
       tt.tabMoi = [];
 
