@@ -1,0 +1,12 @@
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'../../..');
+const product=require('./child-source-hashes.json').rows;
+const scopes=['admin','case-child-access','subjects','lawyers','conclusions','investigation-supplements','proposals','delegations','incidents','petitions'].map(module=>'backend/src/'+module);
+const extras=['backend/src/auth/services/enrollment.service.spec.ts','backend/src/common/utils/tao-con-kiem-pham-vi-cha.spec.ts','backend/src/common/utils/xoa-hang-loat-pham-vi.spec.ts','backend/src/cases/bulk/cases.bulk.service.spec.ts','backend/src/cases/bulk/bulk-assignment-authority.spec.ts','backend/src/cases/governance/case-field-schema.service.spec.ts','backend/src/cases/governance/legal-action.validation.spec.ts','backend/src/cases/governance/case-operations.service.spec.ts','backend/src/cases/governance/case-operations.filters.spec.ts','backend/src/cases/cases-civil-overdue.spec.ts'];
+const status=cp.spawnSync('rtk',['proxy','git','-c','core.quotepath=false','status','--porcelain','--untracked-files=all','--',...scopes,...extras],{cwd:root,encoding:'utf8',windowsHide:true});
+const changed=status.stdout.split(/\r?\n/).filter(line=>/^[ MARCUD?!]{2} /.test(line)).map(line=>line.slice(3));
+const testFiles=[...new Set(changed.filter(file=>file.endsWith('.spec.ts')||/test-.*fixture\.ts$/.test(file)))].sort();
+const rows=[...product.map(row=>({...row,kind:'product'})),...testFiles.map(file=>({file,kind:file.endsWith('.spec.ts')?'test':'fixture'}))].map(row=>({...row,absolutePath:path.resolve(root,row.file),sha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(root,row.file))).digest('hex')}));
+const result={timestamp:new Date().toISOString(),status:'FROZEN_FOR_ROOT_INDEPENDENT_READ_ONLY_REVIEW',productCount:product.length,testFixtureCount:testFiles.length,sourceOwnership:'Exact product45 manifest + changed owned test/fixture files. Common test-only and bounded Cases/governance files explicitly transferred by root; no other owner source included.',rows};
+fs.writeFileSync(path.join(__dirname,'child-review-impact-manifest.json'),JSON.stringify(result,null,2));
+console.log(JSON.stringify({product:result.productCount,testsFixtures:result.testFixtureCount,manifest:path.join(__dirname,'child-review-impact-manifest.json')}));

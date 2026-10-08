@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from '../reports/graph-access/case-graph-access.service';
 import { buildControllerModule } from '../test-utils/controller-test-helpers';
 import { CalendarController } from './calendar.controller';
 import { CalendarService } from './calendar.service';
@@ -10,7 +11,7 @@ describe('CalendarController — delegation', () => {
   let controller: CalendarController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(CalendarController, CalendarService, mockService);
+    const module = await buildControllerModule(CalendarController, CalendarService, mockService, [{token:CaseGraphAccessService,mock:{}}]);
     controller = module.get(CalendarController);
     jest.clearAllMocks();
   });

@@ -1,3 +1,8 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 /**
  * Petitions stats endpoint tests (PR2/T2).
  *
@@ -32,7 +37,7 @@ describe('PetitionsService.getStats — status count aggregation (PR2/T2)', () =
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },

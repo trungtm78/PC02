@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { PassThrough } from 'stream';
 import * as ExcelJS from 'exceljs';
 import { BadRequestException } from '@nestjs/common';
@@ -71,7 +75,7 @@ describe('IncidentsService.xuatDanhSach', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         IncidentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: audit },

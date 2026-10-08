@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../../case-child-access/test-child-access-fixture';
 /**
  * LawyersBulkService.bulkExport — F5 tests.
  *
@@ -45,7 +47,7 @@ describe('LawyersBulkService.bulkExport — F5', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         LawyersBulkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -55,7 +57,8 @@ describe('LawyersBulkService.bulkExport — F5', () => {
   });
 
   it('throws BadRequestException when ids empty', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.bulkExport({
         ids: [],
         dataScope: null,
@@ -66,7 +69,8 @@ describe('LawyersBulkService.bulkExport — F5', () => {
   });
 
   it('throws BadRequestException when ids > 1000', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(
       service.bulkExport({
         ids: Array.from({ length: 1001 }, (_, i) => `lawyer-${i}`),
         dataScope: null,
@@ -78,7 +82,8 @@ describe('LawyersBulkService.bulkExport — F5', () => {
 
   it('audits LAWYER_BULK_EXPORTED before findMany', async () => {
     const res = mockRes();
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.bulkExport({
       ids: ['lawyer-1'],
       dataScope: null,
       res,
@@ -95,7 +100,13 @@ describe('LawyersBulkService.bulkExport — F5', () => {
 
   it('applies scope filter qua case parent when dataScope non-null', async () => {
     const res = mockRes();
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,{
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      });
+await service.bulkExport({
       ids: ['lawyer-1'],
       dataScope: {
         userIds: ['u1'],
@@ -112,7 +123,8 @@ describe('LawyersBulkService.bulkExport — F5', () => {
 
   it('sets xlsx content-type + filename header', async () => {
     const res = mockRes();
-    await service.bulkExport({
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.bulkExport({
       ids: ['lawyer-1'],
       dataScope: null,
       res,

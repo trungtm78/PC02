@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-10-07T16:50:14.661Z",
+  "kind": "Technical local runtime smoke, not full UAT or final source certification",
+  "host": "127.0.0.1",
+  "synthetic": true,
+  "results": [
+    {
+      "id": "health",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 94,
+      "passed": true
+    },
+    {
+      "id": "current-auth-profile",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 177,
+      "passed": true
+    },
+    {
+      "id": "normal-detail",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 293,
+      "passed": true
+    },
+    {
+      "id": "restricted-denied",
+      "status": 403,
+      "expected": [
+        403,
+        404
+      ],
+      "elapsedMs": 46,
+      "passed": true
+    },
+    {
+      "id": "restricted-authorized",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 112,
+      "passed": true
+    },
+    {
+      "id": "governance-route",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 38,
+      "passed": true
+    },
+    {
+      "id": "capabilities-route",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 113,
+      "passed": true
+    },
+    {
+      "id": "catalog-route",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 22,
+      "passed": true
+    },
+    {
+      "id": "evidence-route",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 130,
+      "passed": true
+    },
+    {
+      "id": "inactive-token-denied",
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "elapsedMs": 8,
+      "passed": true
+    },
+    {
+      "id": "frontend-shell",
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "elapsedMs": 60,
+      "passed": true
+    }
+  ],
+  "verdict": "PASS"
+}

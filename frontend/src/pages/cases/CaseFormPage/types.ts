@@ -57,6 +57,8 @@ export interface MediaFile {
 }
 
 export interface CaseFormData {
+  /** Client source snapshots, not a server verification or approval flag. */
+  _canonicalFallbacks?: Record<string, { column: string; source: string; value: unknown; original: unknown; storage?: 'flat' | 'nested' }>;
   // ── Tab 1: Thông tin chung ──────────────────────────────────────────────
   // Thông tin hồ sơ
   caseCode: string;           // Mã hồ sơ (bắt buộc, unique, HS-YYYY-NNN)
@@ -127,7 +129,7 @@ export interface CaseFormData {
   phanLoaiDanSu: string;             // Phân loại dân sự
 
   // ── Tab Vụ việc TĐC hệ cũ ────────────────────────────────────────────────
-  vuViecTamDungTruoc2015: boolean;   // Vụ việc tạm dừng giải quyết (trước năm 2015)
+  vuViecTamDungTruoc2015: boolean | null;   // null = chưa xác minh
   soQDTamDinhChiNguonTin: string;    // Quyết định Tạm đình chỉ nguồn tin
   ngayQDTamDinhChiNguonTin: string;
   canCuTamDinhChiNguonTin: string;
@@ -343,7 +345,7 @@ export interface CaseStatisticForm {
   soLuongBiHai: string; soNguoiBiThuong: string; soLuongNguoiChet: string;
   soTienBiThietHai: string; soTienThuHoi: string; vuAnDaDuocXetXu: boolean;
   // PR-M2 (Codex P1#9): 3 cờ xét-xử RIÊNG
-  ghiAmGhiHinhDaDuocXetXu: boolean; coSuDungKQGhiAmTrongXetXu: boolean; khongGAGHNhungToaYeuCau: boolean;
+  ghiAmGhiHinhDaDuocXetXu: boolean | null; coSuDungKQGhiAmTrongXetXu: boolean | null; khongGAGHNhungToaYeuCau: boolean | null;
   ngayThongKe: string; ngayPhanCongGiaiQuyetToGiac: string; ngayTiepNhanTin: string; ngayDauThu: string;
   ngayPhamToiQuaTang: string; ngayBatKhanCap: string; ngayPhatHienDauHieu: string;
 }
@@ -358,7 +360,7 @@ export const INITIAL_CASE_STATISTIC: CaseStatisticForm = {
   coBangNhom: false, soBangNhom: "", soBangNhomBatDuoc: "", soSungThuHoi: "", soThuocNoThuHoi: "", soDoiTuongSuuTraHiemNghi: "",
   soLuongBiHai: "", soNguoiBiThuong: "", soLuongNguoiChet: "",
   soTienBiThietHai: "", soTienThuHoi: "", vuAnDaDuocXetXu: false,
-  ghiAmGhiHinhDaDuocXetXu: false, coSuDungKQGhiAmTrongXetXu: false, khongGAGHNhungToaYeuCau: false,
+  ghiAmGhiHinhDaDuocXetXu: null, coSuDungKQGhiAmTrongXetXu: null, khongGAGHNhungToaYeuCau: null,
   ngayThongKe: "", ngayPhanCongGiaiQuyetToGiac: "", ngayTiepNhanTin: "", ngayDauThu: "",
   ngayPhamToiQuaTang: "", ngayBatKhanCap: "", ngayPhatHienDauHieu: "",
 };
@@ -442,7 +444,7 @@ export const INITIAL_FORM_DATA: CaseFormData = {
   chuyenVuViecDonViKhac: "",
   nhapVaoVuViecSo: "",
   phanLoaiDanSu: "",
-  vuViecTamDungTruoc2015: false,
+  vuViecTamDungTruoc2015: null,
   soQDTamDinhChiNguonTin: "",
   ngayQDTamDinhChiNguonTin: "",
   canCuTamDinhChiNguonTin: "",

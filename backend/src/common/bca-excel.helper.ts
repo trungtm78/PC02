@@ -118,8 +118,12 @@ export class BcaExcelHelper {
     colCount: number,
   ): void {
     const lastCol = BcaExcelHelper._colLetter(colCount);
-    const midCol = BcaExcelHelper._colLetter(Math.max(1, Math.floor(colCount / 2)));
-    const rightStart = BcaExcelHelper._colLetter(Math.max(1, colCount - 1));
+    const midCol = BcaExcelHelper._colLetter(
+      Math.max(1, Math.floor(colCount / 2)),
+    );
+    const rightStart = BcaExcelHelper._colLetter(
+      Math.max(Math.floor(colCount / 2) + 1, colCount - 1),
+    );
 
     // Row startRow: date line right-aligned
     sheet.mergeCells(`A${startRow}:${lastCol}${startRow}`);
@@ -128,6 +132,34 @@ export class BcaExcelHelper {
     dateCell.font = { italic: true, size: 11, name: 'Times New Roman' };
     dateCell.alignment = { horizontal: 'right', vertical: 'middle' };
     sheet.getRow(startRow).height = 18;
+
+    // One printable column needs stacked signature blocks. Wider selections
+    // retain the existing two-column signature layout without overlapping merges.
+    if (colCount === 1) {
+      for (const [offset, title] of [
+        [1, 'NGƯỜI LẬP BẢNG'],
+        [7, 'THỦ TRƯỞNG ĐƠN VỊ'],
+      ] as const) {
+        const titleRow = startRow + offset;
+        const titleCell = sheet.getCell(`A${titleRow}`);
+        titleCell.value = title;
+        titleCell.font = { bold: true, size: 11, name: 'Times New Roman' };
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(titleRow).height = 18;
+        const hintCell = sheet.getCell(`A${titleRow + 1}`);
+        hintCell.value = '(Ký, ghi rõ họ tên)';
+        hintCell.font = { italic: true, size: 10, name: 'Times New Roman' };
+        hintCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(titleRow + 1).height = 16;
+        sheet.getRow(titleRow + 2).height = 18;
+        sheet.getRow(titleRow + 3).height = 18;
+        const nameCell = sheet.getCell(`A${titleRow + 4}`);
+        nameCell.font = { bold: true, size: 11, name: 'Times New Roman' };
+        nameCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(titleRow + 4).height = 18;
+      }
+      return;
+    }
 
     // Row startRow+1: two sig titles
     const sigTitleRow = startRow + 1;
@@ -215,10 +247,7 @@ export class BcaExcelHelper {
   // ─────────────────────────────────────────────────────────────────────
   // setPrintSetup — A4 landscape, fit to 1 page wide
   // ─────────────────────────────────────────────────────────────────────
-  static setPrintSetup(
-    sheet: ExcelJS.Worksheet,
-    landscape = true,
-  ): void {
+  static setPrintSetup(sheet: ExcelJS.Worksheet, landscape = true): void {
     sheet.pageSetup = BcaExcelHelper.printSetup(landscape);
   }
 
@@ -234,7 +263,7 @@ export class BcaExcelHelper {
       fitToWidth: 1,
       fitToHeight: 0,
       margins: {
-        left: 0.39,  // ~1 cm
+        left: 0.39, // ~1 cm
         right: 0.39,
         top: 0.39,
         bottom: 0.39,

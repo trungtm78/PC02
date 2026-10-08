@@ -1,3 +1,5 @@
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CaseStatus, IncidentStatus } from '@prisma/client';
@@ -52,7 +54,7 @@ const CASE_ACTIVE_EXCLUDED: CaseStatus[] = [
 
 @Injectable()
 export class PhuLuc16Service {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(GRAPH_PRISMA) private readonly prisma: PrismaService) {}
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 

@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../graph-access/case-graph-access.interceptor';
 import {
   Body,
   Controller,
@@ -59,6 +61,7 @@ interface AuthenticatedRequest extends Request {
   dataScope?: DataScope | null;
 }
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('reports/monthly-packages')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class MonthlyReportPackageController {

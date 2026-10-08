@@ -48,7 +48,8 @@ export interface PreviewResult {
 
 const TEMP_DIR = process.env.BULK_IMPORT_TEMP_DIR || '/tmp/pc02-bulk';
 const MAX_ROWS = Number(process.env.BULK_IMPORT_MAX_ROWS || 100);
-const MAX_FILE_SIZE_BYTES = Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES =
+  Number(process.env.BULK_IMPORT_MAX_FILE_SIZE_MB || 2) * 1024 * 1024;
 const PREVIEW_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 phút
 const JOB_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
@@ -316,13 +317,49 @@ export class BulkImportService {
   }
 
   async getJob(jobId: string, actorId: string, isAdmin: boolean) {
-    const job = await this.prisma.bulkImportJob.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('Job không tồn tại');
-    // IDOR fix: only generator can read job. Admin role không bypass (E6).
-    if (job.generatedBy !== actorId && !isAdmin) {
-      throw new ForbiddenException('Bạn không có quyền xem job này');
-    }
-    return job;
+    return authorityTransaction(this.prisma, async (tx) => {
+      const actor = await tx.user.findUnique({
+        where: { id: actorId },
+        include: {
+          role: { include: { permissions: { include: { permission: true } } } },
+        },
+      });
+      if (
+        !actor?.isActive ||
+        !actor.role.permissions.some(
+          ({ permission }) =>
+            permission.subject === 'User' &&
+            permission.action === 'read' &&
+            permission.conditions === null,
+        )
+      )
+        throw new ForbiddenException(
+          'Current account read permission required',
+        );
+      const job = await tx.bulkImportJob.findUnique({ where: { id: jobId } });
+      if (!job) throw new NotFoundException('Job không tồn tại');
+      // IDOR fix: only generator can read job. Admin role không bypass (E6).
+      if (
+        job.generatedBy !== actorId &&
+        !(isAdmin && actor.role.name === ROLE_NAMES.ADMIN)
+      ) {
+        throw new ForbiddenException('Bạn không có quyền xem job này');
+      }
+      const outcomes = Array.isArray(job.rowOutcomes) ? job.rowOutcomes : [];
+      const principals = new Set(
+        outcomes.flatMap((row) =>
+          row &&
+          typeof row === 'object' &&
+          !Array.isArray(row) &&
+          typeof row.userId === 'string'
+            ? [row.userId]
+            : [],
+        ),
+      );
+      for (const targetUserId of [...principals].sort())
+        await guardCaseAuthority(tx, actorId, { targetUserId });
+      return job;
+    });
   }
 
   async incrementDownloadCount(jobId: string) {
@@ -339,3 +376,7 @@ export class BulkImportService {
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 }
+import {
+  authorityTransaction,
+  guardCaseAuthority,
+} from '../case-authority.guard';

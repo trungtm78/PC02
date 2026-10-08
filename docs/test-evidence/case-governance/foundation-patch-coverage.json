@@ -1,0 +1,225 @@
+{
+  "baseline": "10030bed",
+  "measuredAt": "2026-10-06T08:26:03.896Z",
+  "method": "12 owned executable boundary products (original 11 plus newly authorized BCA Excel helper); added files fully included, tracked files git added hunks; Istanbul statement-start line max hits and intersecting branch outcomes. Controllers/modules/DTO/decorators/seed declarations outside this executable measure remain type/lint/schema/permission tests.",
+  "total": {
+    "executableLines": 852,
+    "coveredLines": 769,
+    "changedBranchOutcomes": 934,
+    "coveredBranchOutcomes": 749,
+    "lineCoverage": 90.25821596244131,
+    "branchCoverage": 80.19271948608137
+  },
+  "rows": [
+    {
+      "filename": "backend/src/cases/governance/case-governance.service.ts",
+      "addedFile": true,
+      "changedLines": 1444,
+      "executableLines": 411,
+      "coveredLines": 375,
+      "changedBranchOutcomes": 446,
+      "coveredBranchOutcomes": 368,
+      "uncoveredLines": [
+        106,
+        220,
+        240,
+        263,
+        314,
+        347,
+        418,
+        421,
+        425,
+        628,
+        630,
+        656,
+        658,
+        722,
+        742,
+        744,
+        750,
+        771,
+        785,
+        796,
+        920,
+        992,
+        1044,
+        1097,
+        1114,
+        1124,
+        1193,
+        1228,
+        1231,
+        1262,
+        1265,
+        1266,
+        1311,
+        1322,
+        1330,
+        1405
+      ]
+    },
+    {
+      "filename": "backend/src/cases/governance/case-governance.contract.ts",
+      "addedFile": true,
+      "changedLines": 95,
+      "executableLines": 31,
+      "coveredLines": 29,
+      "changedBranchOutcomes": 30,
+      "coveredBranchOutcomes": 28,
+      "uncoveredLines": [
+        21,
+        34
+      ]
+    },
+    {
+      "filename": "backend/src/cases/governance/case-principal-access.service.ts",
+      "addedFile": true,
+      "changedLines": 213,
+      "executableLines": 58,
+      "coveredLines": 55,
+      "changedBranchOutcomes": 57,
+      "coveredBranchOutcomes": 53,
+      "uncoveredLines": [
+        42,
+        47,
+        176
+      ]
+    },
+    {
+      "filename": "backend/src/cases/cases.service.ts",
+      "addedFile": false,
+      "changedLines": 885,
+      "executableLines": 216,
+      "coveredLines": 181,
+      "changedBranchOutcomes": 254,
+      "coveredBranchOutcomes": 188,
+      "uncoveredLines": [
+        377,
+        386,
+        389,
+        411,
+        416,
+        422,
+        477,
+        632,
+        633,
+        900,
+        925,
+        926,
+        1242,
+        1255,
+        1473,
+        1481,
+        2278,
+        2651,
+        2657,
+        2764,
+        2766,
+        2770,
+        2773,
+        2778,
+        2779,
+        2780,
+        2801,
+        3041,
+        3300,
+        3390,
+        4012,
+        4013,
+        4019,
+        4020,
+        4039
+      ]
+    },
+    {
+      "filename": "backend/src/cases/bulk/cases.bulk.service.ts",
+      "addedFile": false,
+      "changedLines": 122,
+      "executableLines": 26,
+      "coveredLines": 25,
+      "changedBranchOutcomes": 20,
+      "coveredBranchOutcomes": 17,
+      "uncoveredLines": [
+        571
+      ]
+    },
+    {
+      "filename": "backend/src/cases/case-statistic.builder.ts",
+      "addedFile": false,
+      "changedLines": 5,
+      "executableLines": 1,
+      "coveredLines": 1,
+      "changedBranchOutcomes": 6,
+      "coveredBranchOutcomes": 6,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "backend/src/audit/case-audit-policy.service.ts",
+      "addedFile": true,
+      "changedLines": 149,
+      "executableLines": 43,
+      "coveredLines": 40,
+      "changedBranchOutcomes": 33,
+      "coveredBranchOutcomes": 25,
+      "uncoveredLines": [
+        59,
+        119,
+        137
+      ]
+    },
+    {
+      "filename": "backend/src/audit/audit.service.ts",
+      "addedFile": false,
+      "changedLines": 54,
+      "executableLines": 19,
+      "coveredLines": 19,
+      "changedBranchOutcomes": 16,
+      "coveredBranchOutcomes": 12,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "backend/src/audit/audit.controller.ts",
+      "addedFile": false,
+      "changedLines": 57,
+      "executableLines": 13,
+      "coveredLines": 10,
+      "changedBranchOutcomes": 31,
+      "coveredBranchOutcomes": 13,
+      "uncoveredLines": [
+        112,
+        118,
+        136
+      ]
+    },
+    {
+      "filename": "backend/src/common/utils/scope-filter.util.ts",
+      "addedFile": false,
+      "changedLines": 50,
+      "executableLines": 12,
+      "coveredLines": 12,
+      "changedBranchOutcomes": 38,
+      "coveredBranchOutcomes": 36,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "backend/src/common/utils/kiem-vu-an-cha.ts",
+      "addedFile": false,
+      "changedLines": 13,
+      "executableLines": 0,
+      "coveredLines": 0,
+      "changedBranchOutcomes": 0,
+      "coveredBranchOutcomes": 0,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "backend/src/common/bca-excel.helper.ts",
+      "addedFile": false,
+      "changedLines": 36,
+      "executableLines": 22,
+      "coveredLines": 22,
+      "changedBranchOutcomes": 3,
+      "coveredBranchOutcomes": 3,
+      "uncoveredLines": []
+    }
+  ]
+}

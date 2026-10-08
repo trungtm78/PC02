@@ -1,0 +1,16 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const {spawnSync}=require('node:child_process');
+const root=path.resolve(__dirname,'../..');
+const side=process.argv[2],label=process.argv[3]||'verification';
+if(!['backend','frontend'].includes(side)||!/^[a-z0-9-]+$/.test(label))throw Error('Expected side and safe label');
+const workers=process.argv[4]||'4';if(!/^[1-4]$/.test(workers))throw Error('Expected worker count1-4');
+const out=path.join(root,'docs/test-evidence/case-governance',label);fs.mkdirSync(out,{recursive:true});
+const report=path.join(out,side+'-tests.json');
+const command=side==='backend'?[path.join(root,'backend/node_modules/jest/bin/jest.js'),'--runInBand','--json','--outputFile='+report]:[path.join(root,'frontend/node_modules/vitest/vitest.mjs'),'run','--maxWorkers='+workers,'--reporter=json','--outputFile='+report];
+const log=fs.openSync(path.join(out,side+'-tests.log'),'w');const start=Date.now();
+const result=spawnSync(process.execPath,command,{cwd:path.join(root,side),env:process.env,stdio:['ignore',log,log],windowsHide:true});fs.closeSync(log);
+const data=fs.existsSync(report)?JSON.parse(fs.readFileSync(report,'utf8').trimStart()):{};
+const exitCode=result.status===0&&Number.isSafeInteger(data.numTotalTests)&&data.numTotalTests>0&&data.numFailedTests===0?0:result.status||1;
+const summary={timestamp:new Date().toISOString(),side,label,command:[process.execPath,...command],exit:exitCode,processExit:result.status,signal:result.signal,elapsedMs:Date.now()-start,passed:data.numPassedTests,failed:data.numFailedTests,pending:data.numPendingTests,total:data.numTotalTests,failures:(data.testResults||[]).flatMap(t=>(t.assertionResults||[]).filter(a=>a.status==='failed').map(a=>({file:t.name,name:a.fullName,message:a.failureMessages?.join('\n').slice(0,1500)})))};
+fs.writeFileSync(path.join(out,side+'-summary.json'),JSON.stringify(summary,null,2));console.log(JSON.stringify(summary));process.exitCode=exitCode;

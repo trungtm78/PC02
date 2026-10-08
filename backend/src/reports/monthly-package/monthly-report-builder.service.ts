@@ -1,3 +1,6 @@
+import { withCaseGraphInputs } from '../graph-access/case-graph-access.service';
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 // Prisma returns two record graphs; cutoff rules validate fields before they enter a snapshot.
 import { Injectable } from '@nestjs/common';
@@ -58,7 +61,7 @@ const CASE_CLOSED = new Set([
 
 @Injectable()
 export class MonthlyReportBuilderService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(GRAPH_PRISMA) private readonly prisma: PrismaService) {}
 
   async build(input: BuildMonthlyReportInput): Promise<{
     snapshot: MonthlyReportSnapshot;
@@ -91,48 +94,152 @@ export class MonthlyReportBuilderService {
         },
         orderBy: [{ createdAt: 'asc' }, { code: 'asc' }],
       }),
-      this.prisma.case.findMany({
-        omit: { legacyRaw: true },
-        where: {
-          createdAt: { lte: end },
-          OR: [{ deletedAt: null }, { deletedAt: { gt: start } }],
-          caseType: 'REGULAR',
-          ...teamWhere,
-        },
-        include: {
-          statusHistory: {
-            where: { changedAt: { lte: end } },
-            orderBy: { changedAt: 'asc' },
-          },
-          subjects: {
+      withCaseGraphInputs(
+        [
+          'actionPlans',
+          'appendix',
+          'benVu',
+          'capDoToiPham',
+          'caseCode',
+          'caseProvenance',
+          'changedAt',
+          'chuyenDenDonVi',
+          'chuyenTuDonVi',
+          'chuyenVuAnChoCQK',
+          'chuyenVuViecDonViKhac',
+          'code',
+          'createdAt',
+          'crime',
+          'crimeChinh',
+          'daRaSoat',
+          'daRaSoatVV',
+          'deletedAt',
+          'description',
+          'dieuTraVien',
+          'doVatTaiLieuKemTheo',
+          'doiTuongCaNhan',
+          'donViGiaiQuyet',
+          'entityId',
+          'entityType',
+          'evidences',
+          'fromDate',
+          'fullName',
+          'ghiChuKhac',
+          'ghiChuNhapHoSo',
+          'id',
+          'incidentType',
+          'indexOf',
+          'investigator',
+          'ketQuaPhucHoiVuAn',
+          'ketQuaPhucHoiVuViec',
+          'ketQuaXuLy',
+          'ketQuaXuLyKhac',
+          'laCongNgheCao',
+          'laCongNgheCaoVV',
+          'length',
+          'lyDoKhongKhoiTo',
+          'lyDoTamDinhChiVuAn',
+          'lyDoTamDinhChiVuViec',
+          'map',
+          'metadata',
+          'metricKey',
+          'moTaChiTiet',
+          'name',
+          'ngayDeXuat',
+          'ngayDinhChiVuAn',
+          'ngayHetThoiHieu',
+          'ngayHetThoiHieuVV',
+          'ngayKLDT',
+          'ngayKhoiTo',
+          'ngayLap',
+          'ngayPhucHoi',
+          'ngayPhucHoiVV',
+          'ngayQDKhongKhoiTo',
+          'ngayQDPhanCongNguonTin',
+          'ngayTamDinhChi',
+          'ngayTamDinhChiVV',
+          'ngayTrao',
+          'nghiVanDoiTuong',
+          'nhapVaoVuViecSo',
+          'noiLuuTruBaoQuan',
+          'noiXayRa',
+          'noiXayRaPhuongXa',
+          'receiveDate',
+          'soHoSoCu',
+          'soKLDT',
+          'soQDDinhChiVuAn',
+          'soQDKhongKhoiTo',
+          'soQDPhanCongNguonTin',
+          'soQuyetDinhKhoiTo',
+          'soQuyetDinhPhucHoi',
+          'soQuyetDinhPhucHoiVV',
+          'soQuyetDinhTamDinhChi',
+          'soQuyetDinhTamDinhChiVV',
+          'statistic',
+          'status',
+          'statusHistory',
+          'sttCu',
+          'subjects',
+          'tdcKhacPhucBienBan',
+          'tdcKhacPhucLyDoBienPhap',
+          'tenCungCap',
+          'tienDo',
+          'tinhTrang',
+          'tinhTrangHoSo',
+          'toStatus',
+          'toiDanhBanDau',
+          'unit',
+          'updatedAt',
+          'vatChungMoTa',
+          'vksMeetings',
+          'xacDinhVuViecTamDung',
+        ],
+        () =>
+          this.prisma.case.findMany({
+            omit: { legacyRaw: true },
             where: {
-              type: 'SUSPECT',
               createdAt: { lte: end },
               OR: [{ deletedAt: null }, { deletedAt: { gt: start } }],
+              caseType: 'REGULAR',
+              ...teamWhere,
             },
-          },
-          actionPlans: true,
-          vksMeetings: true,
-          statistic: { select: { soDangKyHoSo: true, donViBaoQuanHoSo: true } },
-          crimeChinh: { select: { name: true } },
-          investigator: {
-            select: { firstName: true, lastName: true, updatedAt: true },
-          },
-          evidences: {
-            where: {
-              createdAt: { lte: end },
-              OR: [{ deletedAt: null }, { deletedAt: { gt: end } }],
+            include: {
+              statusHistory: {
+                where: { changedAt: { lte: end } },
+                orderBy: { changedAt: 'asc' },
+              },
+              subjects: {
+                where: {
+                  type: 'SUSPECT',
+                  createdAt: { lte: end },
+                  OR: [{ deletedAt: null }, { deletedAt: { gt: start } }],
+                },
+              },
+              actionPlans: true,
+              vksMeetings: true,
+              statistic: {
+                select: { soDangKyHoSo: true, donViBaoQuanHoSo: true },
+              },
+              crimeChinh: { select: { name: true } },
+              investigator: {
+                select: { firstName: true, lastName: true, updatedAt: true },
+              },
+              evidences: {
+                where: {
+                  createdAt: { lte: end },
+                  OR: [{ deletedAt: null }, { deletedAt: { gt: end } }],
+                },
+                select: {
+                  name: true,
+                  storageLocation: true,
+                  createdAt: true,
+                  updatedAt: true,
+                },
+              },
             },
-            select: {
-              name: true,
-              storageLocation: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          },
-        },
-        orderBy: [{ createdAt: 'asc' }, { caseCode: 'asc' }],
-      }),
+            orderBy: [{ createdAt: 'asc' }, { caseCode: 'asc' }],
+          }),
+      ),
     ]);
 
     const contributions: MonthlyContributionInput[] = [];
@@ -834,14 +941,18 @@ export class MonthlyReportBuilderService {
         metadata.nghiCan ??
         metadata.doiTuong,
       evidence:
-        record.vatChungMoTa ||
-        evidenceText('name') ||
-        record.doVatTaiLieuKemTheo ||
-        metadata.vatChung,
+        record.evidenceAuthorization === 'UNAVAILABLE'
+          ? 'Không đủ quyền xem vật chứng'
+          : record.vatChungMoTa ||
+            evidenceText('name') ||
+            record.doVatTaiLieuKemTheo ||
+            metadata.vatChung,
       storage:
-        record.noiLuuTruBaoQuan ||
-        evidenceText('storageLocation') ||
-        metadata.noiBaoQuan,
+        record.evidenceAuthorization === 'UNAVAILABLE'
+          ? 'Không đủ quyền xem nơi bảo quản'
+          : record.noiLuuTruBaoQuan ||
+            evidenceText('storageLocation') ||
+            metadata.noiBaoQuan,
       officer: record.dieuTraVien ?? investigator ?? metadata.dieuTraVien,
       registration: record.soHoSoCu ?? record.code ?? record.caseCode,
       recordState: record.tinhTrangHoSo ?? record.tinhTrang ?? record.status,

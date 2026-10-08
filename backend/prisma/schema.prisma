@@ -57,43 +57,78 @@ model RolePermission {
 // ─────────────────────────────────────────────
 
 model User {
-  id                  String    @id @default(cuid())
+  caseHandoffsDesignated CaseHandoff[] @relation("HandoffDesignatedRecipient")
+  caseAccessMode CaseAccessMode @default(INTERNAL)
+  caseAccessRevision Int @default(0)
+  caseRelationsRevoked CaseRelation[] @relation("RevokedCaseRelation")
+  dispositionsExecuted CaseDispositionRequest[] @relation("DispositionExecutedBy")
+  caseGovernanceOperation_actor         CaseGovernanceOperation[]    @relation("CaseGovernanceOperation_actor")
+  caseHandoff_sentBy                    CaseHandoff[]                @relation("CaseHandoff_sentBy")
+  caseHandoff_resolvedBy                CaseHandoff[]                @relation("CaseHandoff_resolvedBy")
+  caseRuleVersion_author                CaseRuleVersion[]            @relation("CaseRuleVersion_author")
+  caseRuleVersion_reviewedBy            CaseRuleVersion[]            @relation("CaseRuleVersion_reviewedBy")
+  caseFieldDefinitionVersion_author     CaseFieldDefinitionVersion[] @relation("CaseFieldDefinitionVersion_author")
+  caseFieldDefinitionVersion_reviewedBy CaseFieldDefinitionVersion[] @relation("CaseFieldDefinitionVersion_reviewedBy")
+  caseActionRequest_author              CaseActionRequest[]          @relation("CaseActionRequest_author")
+  caseActionRequest_reviewedBy          CaseActionRequest[]          @relation("CaseActionRequest_reviewedBy")
+  caseDecision_createdBy                CaseDecision[]               @relation("CaseDecision_createdBy")
+  caseRelation_createdBy                CaseRelation[]               @relation("CaseRelation_createdBy")
+  caseGovernanceEvent_actor             CaseGovernanceEvent[]        @relation("CaseGovernanceEvent_actor")
+  caseGovernanceTask_assignee           CaseGovernanceTask[]         @relation("CaseGovernanceTask_assignee")
+  caseGovernanceOutbox_recipient        CaseGovernanceOutbox[]       @relation("CaseGovernanceOutbox_recipient")
+  caseGovernanceGrant_grantee           CaseGovernanceGrant[]        @relation("CaseGovernanceGrant_grantee")
+  caseGovernanceGrant_createdBy         CaseGovernanceGrant[]        @relation("CaseGovernanceGrant_createdBy")
+  caseAssetVersion_createdBy            CaseAssetVersion[]           @relation("CaseAssetVersion_createdBy")
+  caseCustodyEvent_actor                CaseCustodyEvent[]           @relation("CaseCustodyEvent_actor")
+  caseDisclosurePacket_author           CaseDisclosurePacket[]       @relation("CaseDisclosurePacket_author")
+  caseDisclosurePacket_recipient        CaseDisclosurePacket[]       @relation("CaseDisclosurePacket_recipient")
+  caseDisclosurePacket_reviewedBy       CaseDisclosurePacket[]       @relation("CaseDisclosurePacket_reviewedBy")
+  caseEvidenceHold_createdBy            CaseEvidenceHold[]           @relation("CaseEvidenceHold_createdBy")
+  caseEvidenceHold_releasedBy           CaseEvidenceHold[]           @relation("CaseEvidenceHold_releasedBy")
+  caseRepresentationGrant_grantee       CaseRepresentationGrant[]    @relation("CaseRepresentationGrant_grantee")
+  caseRepresentationGrant_createdBy     CaseRepresentationGrant[]    @relation("CaseRepresentationGrant_createdBy")
+  caseRepresentationGrant_revokedBy     CaseRepresentationGrant[]    @relation("CaseRepresentationGrant_revokedBy")
+  caseRetentionPolicy_author            CaseRetentionPolicy[]        @relation("CaseRetentionPolicy_author")
+  caseRetentionPolicy_reviewedBy        CaseRetentionPolicy[]        @relation("CaseRetentionPolicy_reviewedBy")
+  caseDispositionRequest_author         CaseDispositionRequest[]     @relation("CaseDispositionRequest_author")
+  caseDispositionRequest_reviewedBy     CaseDispositionRequest[]     @relation("CaseDispositionRequest_reviewedBy")
+  id                                    String                       @id @default(cuid())
   // Magic link enrollment (post-/autoplan): email nullable cho user không có email.
   // Login lookup multi-field qua regex disambiguator (auth.service.ts) — workId/phone/email/username.
-  email               String?   @unique
-  username            String    @unique
+  email                                 String?                      @unique
+  username                              String                       @unique
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(họ tên đệm tên username)), trigger
   /// `pc02_tim_kiem_users` giữ. Thẻ "Người nhập" lọc qua quan hệ: enteredBy: { is: { hoTenBd } }.
-  hoTenBd             String?   @map("ho_ten_bd")
+  hoTenBd                               String?                      @map("ho_ten_bd")
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM email; và ghép mã cán bộ, họ tên, email cho thẻ "tất cả các cột" của
   /// màn Quản lý người dùng (khai nguoi-dung.khai.ts, cùng trigger `pc02_tim_kiem_users`).
-  emailBd             String?   @map("email_bd")
-  timKiemBd           String?   @map("tim_kiem_bd")
-  passwordHash        String
-  firstName           String?
-  lastName            String?
-  workId              String?   @unique // Mã cán bộ (XXX-XXX) — partial unique cho non-null
-  phone               String? // KHÔNG @unique (vợ chồng share — CEO finding #10)
+  emailBd                               String?                      @map("email_bd")
+  timKiemBd                             String?                      @map("tim_kiem_bd")
+  passwordHash                          String
+  firstName                             String?
+  lastName                              String?
+  workId                                String?                      @unique // Mã cán bộ (XXX-XXX) — partial unique cho non-null
+  phone                                 String? // KHÔNG @unique (vợ chồng share — CEO finding #10)
   // Magic link enrollment fields. Token bcrypt-hash + TTL 72h. NULL sau khi user consume.
-  enrollmentTokenHash String?
-  enrollmentExpiresAt DateTime?
-  departmentId        String? // ID đơn vị từ danh mục
-  isActive            Boolean   @default(true)
-  roleId              String
-  refreshTokenHash    String? // hashed refresh token for rotation
-  tokenVersion        Int       @default(0) // incremented on password change to invalidate existing JWTs
+  enrollmentTokenHash                   String?
+  enrollmentExpiresAt                   DateTime?
+  departmentId                          String? // ID đơn vị từ danh mục
+  isActive                              Boolean                      @default(true)
+  roleId                                String
+  refreshTokenHash                      String? // hashed refresh token for rotation
+  tokenVersion                          Int                          @default(0) // incremented on password change to invalidate existing JWTs
   // Sprint 1 / S1.2 — account lockout: counter tăng theo mỗi lần fail password,
   // reset về 0 khi login success. Khi đạt MAX_FAILED_LOGIN_ATTEMPTS thì set
   // lockedUntil = now + LOCKOUT_DURATION_MS. Locked user bị reject ở login
   // gate trước khi bcrypt.compare chạy.
-  failedLoginAttempts Int       @default(0)
-  lockedUntil         DateTime?
-  lastFailedLoginAt   DateTime?
-  canDispatch         Boolean   @default(false) // supplementary permission: read all + assign/reassign any record
-  lastLoginAt         DateTime?
+  failedLoginAttempts                   Int                          @default(0)
+  lockedUntil                           DateTime?
+  lastFailedLoginAt                     DateTime?
+  canDispatch                           Boolean                      @default(false) // supplementary permission: read all + assign/reassign any record
+  lastLoginAt                           DateTime?
   // v0.47 — quân hàm để render trên Phiếu đề xuất + 5 doc khác (Nghị định 30/2020)
   // Single source of truth for officer rank; previously denormalized on Team (superseded F4).
-  rank                String? // "Trung tá" | "Thượng tá" | "Đại úy" | ...
+  rank                                  String? // "Trung tá" | "Thượng tá" | "Đại úy" | ...
   // Chữ viết tắt cán bộ TỰ ĐẶT, in ở dòng "Lưu:" cuối mọi chứng từ (hệ cũ: `thanh_vien.ten_ngan`).
   //
   // KHÔNG suy ra được từ họ tên. Đo 28/08/2026 trên 238 cán bộ: quy tắc "chữ đệm cuối + tên gọi"
@@ -105,28 +140,28 @@ model User {
   //   • chuỗi rỗng → in TRỐNG (16 cán bộ cố ý để trống)
   //   • NULL      → in HỌ TÊN ĐẦY ĐỦ
   // Nên cột này nullable, và chuỗi rỗng KHÁC null — đừng gộp hai cái làm một.
-  shortName           String?
+  shortName                             String?
   // 2FA fields
-  totpSecret          String? // AES-256-GCM encrypted base32 secret
-  totpEnabled         Boolean   @default(false)
+  totpSecret                            String? // AES-256-GCM encrypted base32 secret
+  totpEnabled                           Boolean                      @default(false)
   // Sprint 2 / S2.4 — buộc user setup 2FA trước khi dùng app.
   // Default true cho user MỚI (login đầu tiên redirect setup). Existing users
   // được seed false để không break flow hiện tại; admin có thể bật cho ai cần.
-  twoFaSetupRequired  Boolean   @default(true)
-  totpSetupPending    Boolean   @default(false)
-  totpSetupPendingAt  DateTime?
-  backupCodes         String[]
-  backupCodeSalts     String[]
-  lastTotpCode        String? // replay protection — last used TOTP code in current window
-  twoFaSetupAt        DateTime?
-  twoFaUsedAt         DateTime? // OV-002: marks twoFaToken as consumed, survives restart
+  twoFaSetupRequired                    Boolean                      @default(true)
+  totpSetupPending                      Boolean                      @default(false)
+  totpSetupPendingAt                    DateTime?
+  backupCodes                           String[]
+  backupCodeSalts                       String[]
+  lastTotpCode                          String? // replay protection — last used TOTP code in current window
+  twoFaSetupAt                          DateTime?
+  twoFaUsedAt                           DateTime? // OV-002: marks twoFaToken as consumed, survives restart
   // Force first-login password change (D1+F1): set true when admin creates user OR resets password.
   // Cleared when user completes /auth/first-login-change-password.
   // Used as state-derived single-use marker for the change_password_pending token (per H1 review).
-  mustChangePassword  Boolean   @default(false)
-  passwordChangedAt   DateTime? // last successful password change (admin reset or user-initiated)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  mustChangePassword                    Boolean                      @default(false)
+  passwordChangedAt                     DateTime? // last successful password change (admin reset or user-initiated)
+  createdAt                             DateTime                     @default(now())
+  updatedAt                             DateTime                     @updatedAt
 
   role                            Role                      @relation(fields: [roleId], references: [id])
   auditLogs                       AuditLog[]
@@ -203,6 +238,11 @@ model User {
   petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
 
   @@map("users")
+}
+
+enum CaseAccessMode {
+  INTERNAL
+  REPRESENTATION_ONLY
 }
 
 // Magic link enrollment audit (post-/autoplan).
@@ -544,11 +584,36 @@ enum CaseStatus {
 }
 
 model Case {
-  id           String     @id @default(cuid())
-  name         String
-  crime        String? // tội danh (text tự do — giữ tương thích cũ)
-  crimeChinhId String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
-  status       CaseStatus @default(TIEP_NHAN)
+  fieldDefinitionVersionId String?
+  fieldDefinitionVersion CaseFieldDefinitionVersion? @relation("PinnedCaseFields", fields: [fieldDefinitionVersionId], references: [id], onDelete: Restrict)
+  intakeStage                  CaseIntakeStage?
+  investigationPhase           CaseInvestigationPhase?
+  governanceRevision           Int                       @default(0)
+  governanceRuleVersionId      String?
+  governanceRuleVersion        CaseRuleVersion?          @relation("PinnedCaseRule", fields: [governanceRuleVersionId], references: [id], onDelete: Restrict)
+  sensitivity                  CaseSensitivity           @default(NORMAL)
+  caseGovernanceOperation_case CaseGovernanceOperation[] @relation("CaseGovernanceOperation_case")
+  caseHandoff_case             CaseHandoff[]             @relation("CaseHandoff_case")
+  caseActionRequest_case       CaseActionRequest[]       @relation("CaseActionRequest_case")
+  caseDecision_case            CaseDecision[]            @relation("CaseDecision_case")
+  caseRelation_sourceCase      CaseRelation[]            @relation("CaseRelation_sourceCase")
+  caseRelation_targetCase      CaseRelation[]            @relation("CaseRelation_targetCase")
+  caseGovernanceEvent_case     CaseGovernanceEvent[]     @relation("CaseGovernanceEvent_case")
+  caseGovernanceTask_case      CaseGovernanceTask[]      @relation("CaseGovernanceTask_case")
+  caseGovernanceOutbox_case    CaseGovernanceOutbox[]    @relation("CaseGovernanceOutbox_case")
+  caseGovernanceGrant_case     CaseGovernanceGrant[]     @relation("CaseGovernanceGrant_case")
+  caseAssetVersion_case        CaseAssetVersion[]        @relation("CaseAssetVersion_case")
+  caseCustodyEvent_case        CaseCustodyEvent[]        @relation("CaseCustodyEvent_case")
+  caseDisclosurePacket_case    CaseDisclosurePacket[]    @relation("CaseDisclosurePacket_case")
+  caseEvidenceHold_case        CaseEvidenceHold[]        @relation("CaseEvidenceHold_case")
+  caseRepresentationGrant_case CaseRepresentationGrant[] @relation("CaseRepresentationGrant_case")
+  caseRetentionPolicy_case     CaseRetentionPolicy[]     @relation("CaseRetentionPolicy_case")
+  caseDispositionRequest_case  CaseDispositionRequest[]  @relation("CaseDispositionRequest_case")
+  id                           String                    @id @default(cuid())
+  name                         String
+  crime                        String? // tội danh (text tự do — giữ tương thích cũ)
+  crimeChinhId                 String? // FK → crimes (master Tội danh BLHS 2015) — chuẩn như Petition
+  status                       CaseStatus                @default(TIEP_NHAN)
 
   /// Ngày hồ sơ được GIẢI QUYẾT — mốc nghiệp vụ, khác `updatedAt` (lần chạm bản ghi gần nhất).
   ///
@@ -673,16 +738,16 @@ model Case {
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM (' ' || f_bo_dau(cột gốc)), trigger `pc02_tim_kiem_cases` giữ.
   /// Không ghi từ ứng dụng. Danh sách cột sinh từ `src/common/tim-kiem/khai/vu-an.khai.ts`
   /// (`npm run gen:tim-kiem`); cổng `tim-kiem-sinh-khop.gate.spec.ts` đỏ nếu thiếu field ở đây.
-  nguonDonBd          String? @map("nguon_don_bd")
-  tenCungCapBd        String? @map("ten_cung_cap_bd")
-  moTaChiTietBd       String? @map("mo_ta_chi_tiet_bd")
-  donViGiaiQuyetBd    String? @map("don_vi_giai_quyet_bd")
-  ketQuaXuLyKhacBd    String? @map("ket_qua_xu_ly_khac_bd")
-  donViGiaoBd         String? @map("don_vi_giao_bd")
-  soQuyetDinhUyThacBd String? @map("so_quyet_dinh_uy_thac_bd")
-  nghiVanDoiTuongBd   String? @map("nghi_van_doi_tuong_bd")
-  ketQuaUyThacBd      String? @map("ket_qua_uy_thac_bd")
-  crimeBd             String? @map("crime_bd")
+  nguonDonBd           String?     @map("nguon_don_bd")
+  tenCungCapBd         String?     @map("ten_cung_cap_bd")
+  moTaChiTietBd        String?     @map("mo_ta_chi_tiet_bd")
+  donViGiaiQuyetBd     String?     @map("don_vi_giai_quyet_bd")
+  ketQuaXuLyKhacBd     String?     @map("ket_qua_xu_ly_khac_bd")
+  donViGiaoBd          String?     @map("don_vi_giao_bd")
+  soQuyetDinhUyThacBd  String?     @map("so_quyet_dinh_uy_thac_bd")
+  nghiVanDoiTuongBd    String?     @map("nghi_van_doi_tuong_bd")
+  ketQuaUyThacBd       String?     @map("ket_qua_uy_thac_bd")
+  crimeBd              String?     @map("crime_bd")
   /// CHỈ ĐỌC — cột bóng TÊN vụ án, đích của thẻ "Vụ án" ở Đối tượng/Luật sư (`cotBongPhu` trong vu-an.khai.ts).
   nameBd               String?     @map("name_bd")
   /// Ghép mọi cột chữ + mã hồ sơ + tên vụ án, số hồ sơ cũ — thẻ "tất cả các cột".
@@ -930,35 +995,36 @@ enum SubjectType {
 }
 
 model Subject {
-  id            String        @id @default(cuid())
-  fullName      String
+  caseRepresentationGrant_subject CaseRepresentationGrant[] @relation("CaseRepresentationGrant_subject")
+  id                              String                    @id @default(cuid())
+  fullName                        String
   // Nullable: dữ liệu cũ nhiều nghi can/bị hại CHỈ có tên (không SN/CCCD/địa chỉ). "Có gì điền đó" —
   // để trống trung thực hơn bịa. Form nhập tay vẫn bắt buộc qua create-subject.dto.ts.
-  dateOfBirth   DateTime?
-  gender        String        @default("MALE") // "MALE" | "FEMALE" | "OTHER"
-  idNumber      String? // CCCD/CMND 9 or 12 digits (unique per type per case khi có giá trị)
-  address       String?
-  phone         String?
-  occupationId  String? // FK → directories (type=OCCUPATION)
-  nationalityId String? // FK → directories (type=NATIONALITY)
-  districtId    String? // FK → directories (type=DISTRICT) — legacy only
-  wardId        String? // FK → directories (type=WARD)
-  districtName  String? // denormalized: "Quận 1" — preserved at creation time for post-reform display
-  caseId        String // FK → cases (required)
-  crimeId       String? // FK → crimes (master Tội danh) — optional: nhân chứng/bị hại không cần tội danh
-  type          SubjectType   @default(SUSPECT) // TASK-2026-261225
-  status        SubjectStatus @default(INVESTIGATING)
-  notes         String?
-  deletedAt     DateTime? // Soft delete
+  dateOfBirth                     DateTime?
+  gender                          String                    @default("MALE") // "MALE" | "FEMALE" | "OTHER"
+  idNumber                        String? // CCCD/CMND 9 or 12 digits (unique per type per case khi có giá trị)
+  address                         String?
+  phone                           String?
+  occupationId                    String? // FK → directories (type=OCCUPATION)
+  nationalityId                   String? // FK → directories (type=NATIONALITY)
+  districtId                      String? // FK → directories (type=DISTRICT) — legacy only
+  wardId                          String? // FK → directories (type=WARD)
+  districtName                    String? // denormalized: "Quận 1" — preserved at creation time for post-reform display
+  caseId                          String // FK → cases (required)
+  crimeId                         String? // FK → crimes (master Tội danh) — optional: nhân chứng/bị hại không cần tội danh
+  type                            SubjectType               @default(SUSPECT) // TASK-2026-261225
+  status                          SubjectStatus             @default(INVESTIGATING)
+  notes                           String?
+  deletedAt                       DateTime? // Soft delete
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM họ tên (' ' || f_bo_dau(fullName)), trigger `pc02_tim_kiem_subjects`
   /// giữ. Thẻ "Đối tượng bị can" của Vụ án lọc qua quan hệ: subjects: { some: { fullNameBd } }.
-  fullNameBd    String?       @map("full_name_bd")
+  fullNameBd                      String?                   @map("full_name_bd")
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM CCCD, cùng trigger `pc02_tim_kiem_subjects` giữ (khai doi-tuong.khai.ts).
-  idNumberBd    String?       @map("id_number_bd")
+  idNumberBd                      String?                   @map("id_number_bd")
   /// CHỈ ĐỌC — ghép họ tên, CCCD, địa chỉ, SĐT cho thẻ "tất cả các cột" của danh sách Đối tượng.
-  timKiemBd     String?       @map("tim_kiem_bd")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  timKiemBd                       String?                   @map("tim_kiem_bd")
+  createdAt                       DateTime                  @default(now())
+  updatedAt                       DateTime                  @updatedAt
 
   // Truy nguyên di trú (nghi can/bị hại bóc từ ho_so_doi_1.nghi_van_doi_tuong)
   legacySourceId   String? // Khóa gốc hệ cũ (idempotent)
@@ -984,23 +1050,24 @@ model Subject {
 // ─────────────────────────────────────────────
 
 model Lawyer {
-  id          String    @id @default(cuid())
-  fullName    String
-  lawFirm     String? // Văn phòng luật sư
-  barNumber   String    @unique // Số thẻ luật sư
-  phone       String?
-  caseId      String // FK → cases (required)
-  subjectId   String? // FK → subjects (nullable — one lawyer can defend multiple)
-  deletedAt   DateTime? // Soft delete
+  caseRepresentationGrant_lawyer CaseRepresentationGrant[] @relation("CaseRepresentationGrant_lawyer")
+  id                             String                    @id @default(cuid())
+  fullName                       String
+  lawFirm                        String? // Văn phòng luật sư
+  barNumber                      String                    @unique // Số thẻ luật sư
+  phone                          String?
+  caseId                         String // FK → cases (required)
+  subjectId                      String? // FK → subjects (nullable — one lawyer can defend multiple)
+  deletedAt                      DateTime? // Soft delete
   /// CHỈ ĐỌC — cột bóng TÌM KIẾM bỏ dấu, trigger `pc02_tim_kiem_lawyers` giữ (khai luat-su.khai.ts).
-  fullNameBd  String?   @map("full_name_bd")
-  barNumberBd String?   @map("bar_number_bd")
-  lawFirmBd   String?   @map("law_firm_bd")
-  phoneBd     String?   @map("phone_bd")
+  fullNameBd                     String?                   @map("full_name_bd")
+  barNumberBd                    String?                   @map("bar_number_bd")
+  lawFirmBd                      String?                   @map("law_firm_bd")
+  phoneBd                        String?                   @map("phone_bd")
   /// CHỈ ĐỌC — ghép họ tên, số thẻ, văn phòng, SĐT cho thẻ "tất cả các cột" của danh sách Luật sư.
-  timKiemBd   String?   @map("tim_kiem_bd")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  timKiemBd                      String?                   @map("tim_kiem_bd")
+  createdAt                      DateTime                  @default(now())
+  updatedAt                      DateTime                  @updatedAt
 
   // Di trú (Codex P1#3): idempotent + raw
   legacySourceId String? @unique // Khóa gốc hệ thống cũ — idempotent
@@ -1436,10 +1503,10 @@ model Incident {
   diaChiXayRa             String? // Địa điểm xảy ra sự việc
   // Thông tin người tố giác/báo tin chi tiết
   sdtNguoiToGiac          String? // SĐT người tố giác
-  sdtNguoiToGiacNorm      String? @map("sdt_nguoi_to_giac_norm")
+  sdtNguoiToGiacNorm      String?                @map("sdt_nguoi_to_giac_norm")
   diaChiNguoiToGiac       String? // Địa chỉ người tố giác
   cmndNguoiToGiac         String? // CCCD/CMND người tố giác
-  cmndNguoiToGiacNorm     String? @map("cmnd_nguoi_to_giac_norm")
+  cmndNguoiToGiacNorm     String?                @map("cmnd_nguoi_to_giac_norm")
   sinhNamNguoiToGiac      String? // Sinh năm người tố giác/cung cấp (hệ cũ) — trước KHÔNG map
 
   // Field-parity đầy đủ (feat/legacy-field-parity): field intake hệ cũ Vụ việc trước CHỈ ở legacyRaw.
@@ -1659,16 +1726,19 @@ model IncidentStatusHistory {
 // (migration 20260627000001_document_type_to_dynamic chuyển enum → TEXT).
 
 model Document {
-  id           String  @id @default(cuid())
-  title        String // Tiêu đề tài liệu
-  description  String? // Mô tả
-  fileName     String // Tên file lưu trữ
-  originalName String // Tên file gốc
-  mimeType     String // MIME type
-  size         Int // Kích thước file (bytes)
-  filePath     String // Đường dẫn file (local storage)
-  documentType String  @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
-  recordedAt   String? // Local recording date (YYYY-MM-DD), independent of upload timezone
+  custodySourceEvents CaseCustodyEvent[] @relation("CustodySourceDocument")
+  caseDecision_sourceDocument CaseDecision[]     @relation("CaseDecision_sourceDocument")
+  caseAssetVersion_document   CaseAssetVersion[] @relation("CaseAssetVersion_document")
+  id                          String             @id @default(cuid())
+  title                       String // Tiêu đề tài liệu
+  description                 String? // Mô tả
+  fileName                    String // Tên file lưu trữ
+  originalName                String // Tên file gốc
+  mimeType                    String // MIME type
+  size                        Int // Kích thước file (bytes)
+  filePath                    String // Đường dẫn file (local storage)
+  documentType                String             @default("VAN_BAN") // danh mục động DOCUMENT_TYPE (Directory)
+  recordedAt                  String? // Local recording date (YYYY-MM-DD), independent of upload timezone
 
   // Liên kết
   caseId       String? // FK → cases (nullable)
@@ -1689,13 +1759,14 @@ model Document {
   timKiemBd      String? @map("tim_kiem_bd")
 
   // Relations
-  case                    Case?                 @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  case                    Case?                 @relation(fields: [caseId], references: [id], onDelete: Restrict)
   incident                Incident?             @relation(fields: [incidentId], references: [id], onDelete: SetNull)
   // v0.52: Restrict (không SetNull như Case/Incident) — evidence integrity cho đơn thư.
   // Petition soft-delete (deletedAt) bình thường; hard-delete bị chặn nếu còn Document.
   petition                Petition?             @relation(fields: [petitionId], references: [id], onDelete: Restrict)
   uploadedBy              User                  @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   deadlineRuleAttachments DeadlineRuleVersion[] @relation("DeadlineRuleAttachment")
+  dispositionReceipts CaseDispositionRequest[] @relation("DispositionReceiptDocument")
 
   @@index([caseId])
   @@index([incidentId])
@@ -1714,24 +1785,25 @@ model Document {
 // ─────────────────────────────────────────────
 
 model Evidence {
-  id               String    @id @default(cuid())
-  code             String // Mã vật chứng (vd "VC-2026-001")
-  name             String // Tên vật chứng (vd "Dao Thái Lan dài 30cm")
-  description      String? // Mô tả chi tiết
-  quantity         Int       @default(1)
-  unit             String    @default("cái") // Đơn vị (cái, kg, gram, ...)
-  storageLocation  String? // Nơi lưu trữ
-  receivedDate     DateTime? // Ngày thu giữ
-  status           String    @default("THU_GIU") // THU_GIU | DA_GIAM_DINH | TRA_LAI | TIEU_HUY
-  evidenceType     String? // Loại vật chứng (vũ khí / tang vật / tài liệu / ...)
-  entryOrder       String? // Số thứ tự nhập kho
-  warehouseReceipt String? // Số biên bản nhập kho
-  caseId           String // FK → cases (required)
-  case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  createdById      String? // FK → users (nullable for legacy backfill)
-  deletedAt        DateTime? // Soft delete
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  caseCustodyEvent_evidence CaseCustodyEvent[] @relation("CaseCustodyEvent_evidence")
+  id                        String             @id @default(cuid())
+  code                      String // Mã vật chứng (vd "VC-2026-001")
+  name                      String // Tên vật chứng (vd "Dao Thái Lan dài 30cm")
+  description               String? // Mô tả chi tiết
+  quantity                  Int                @default(1)
+  unit                      String             @default("cái") // Đơn vị (cái, kg, gram, ...)
+  storageLocation           String? // Nơi lưu trữ
+  receivedDate              DateTime? // Ngày thu giữ
+  status                    String             @default("THU_GIU") // THU_GIU | DA_GIAM_DINH | TRA_LAI | TIEU_HUY
+  evidenceType              String? // Loại vật chứng (vũ khí / tang vật / tài liệu / ...)
+  entryOrder                String? // Số thứ tự nhập kho
+  warehouseReceipt          String? // Số biên bản nhập kho
+  caseId                    String // FK → cases (required)
+  case                      Case               @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  createdById               String? // FK → users (nullable for legacy backfill)
+  deletedAt                 DateTime? // Soft delete
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
 
   @@index([caseId])
   @@index([status])
@@ -2202,22 +2274,24 @@ model MasterClass {
 // ─────────────────────────────────────────────
 
 model Team {
-  id              String     @id @default(cuid())
-  name            String     @unique
-  code            String     @unique
-  level           Int        @default(0)
-  parentId        String?
-  parent          Team?      @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children        Team[]     @relation("TeamHierarchy")
-  order           Int        @default(0)
-  isActive        Boolean    @default(true)
+  caseHandoff_fromTeam CaseHandoff[] @relation("CaseHandoff_fromTeam")
+  caseHandoff_toTeam   CaseHandoff[] @relation("CaseHandoff_toTeam")
+  id                   String        @id @default(cuid())
+  name                 String        @unique
+  code                 String        @unique
+  level                Int           @default(0)
+  parentId             String?
+  parent               Team?         @relation("TeamHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             Team[]        @relation("TeamHierarchy")
+  order                Int           @default(0)
+  isActive             Boolean       @default(true)
   // v0.33.0.0: Hybrid ward scoping — Team có thể là functional (wardId=null) hoặc geographic (wardId set)
-  wardId          String?
-  ward            Directory? @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
+  wardId               String?
+  ward                 Directory?    @relation("TeamWard", fields: [wardId], references: [id], onDelete: SetNull)
   // v0.33.0.0: per-team override cho edit window (giờ). NULL = dùng SystemSetting THOI_HAN_EDIT_VU_VAN default.
-  editWindowHours Int?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  editWindowHours      Int?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   members                  UserTeam[]
   casesAssigned            Case[]            @relation("CaseTeam")
@@ -3238,8 +3312,8 @@ model MonthlyReportPackage {
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
-  parent        MonthlyReportPackage?  @relation("MonthlyReportVersions", fields: [parentId], references: [id], onDelete: Restrict)
-  revisions     MonthlyReportPackage[] @relation("MonthlyReportVersions")
+  parent        MonthlyReportPackage?       @relation("MonthlyReportVersions", fields: [parentId], references: [id], onDelete: Restrict)
+  revisions     MonthlyReportPackage[]      @relation("MonthlyReportVersions")
   contributions MonthlyReportContribution[]
   adjustments   MonthlyReportAdjustment[]
 
@@ -3251,7 +3325,7 @@ model MonthlyReportPackage {
 
 /// Dòng nguồn giải thích một hồ sơ/bị can/sự kiện đã cộng hoặc trừ vào ô nào.
 model MonthlyReportContribution {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   reportId   String
   appendix   String
   metricKey  String
@@ -3264,7 +3338,7 @@ model MonthlyReportContribution {
   value      Int
   ruleCode   String
   snapshot   Json?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   report MonthlyReportPackage @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
@@ -3293,4 +3367,496 @@ model MonthlyReportAdjustment {
 
   @@index([reportId, appendix, targetKey])
   @@map("monthly_report_adjustments")
+}
+
+enum CaseIntakeStage {
+  PHAN_LOAI
+  CHO_NHAN
+  DA_NHAN
+}
+
+enum CaseInvestigationPhase {
+  INITIAL
+  SUPPLEMENTARY
+  REINVESTIGATION
+  RESTORED
+}
+
+enum CaseSensitivity {
+  NORMAL
+  RESTRICTED
+}
+
+model CaseGovernanceOperation {
+  caseGovernanceEvent_operation  CaseGovernanceEvent[]  @relation("CaseGovernanceEvent_operation")
+  caseGovernanceOutbox_operation CaseGovernanceOutbox[] @relation("CaseGovernanceOutbox_operation")
+  id                             String                 @id @default(uuid())
+  actorId                        String
+  caseId                         String
+  operation                      String
+  requestKey                     String
+  contentHash                    String
+  result                         Json?
+  createdAt                      DateTime               @default(now())
+  actor                          User                   @relation("CaseGovernanceOperation_actor", fields: [actorId], references: [id], onDelete: Restrict)
+  case                           Case                   @relation("CaseGovernanceOperation_case", fields: [caseId], references: [id], onDelete: Restrict)
+
+  @@unique([actorId, caseId, operation, requestKey])
+  @@map("case_governance_operations")
+}
+
+model CaseHandoff {
+  recipientId String?
+  recipient User? @relation("HandoffDesignatedRecipient",fields:[recipientId],references:[id],onDelete:Restrict)
+  receiptFacts Json?
+  resolutionFacts Json?
+  id               String           @id @default(uuid())
+  caseId           String
+  fromTeamId       String?
+  toTeamId         String
+  sentById         String
+  resolvedById     String?
+  state            String           @default("PENDING")
+  priorIntakeStage CaseIntakeStage?
+  reason           String?
+  resolutionReason String?
+  sentAt           DateTime         @default(now())
+  resolvedAt       DateTime?
+  updatedAt        DateTime         @updatedAt
+  case             Case             @relation("CaseHandoff_case", fields: [caseId], references: [id], onDelete: Restrict)
+  fromTeam         Team?            @relation("CaseHandoff_fromTeam", fields: [fromTeamId], references: [id], onDelete: Restrict)
+  toTeam           Team             @relation("CaseHandoff_toTeam", fields: [toTeamId], references: [id], onDelete: Restrict)
+  sentBy           User             @relation("CaseHandoff_sentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  resolvedBy       User?            @relation("CaseHandoff_resolvedBy", fields: [resolvedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, state])
+  @@index([toTeamId, state])
+  @@map("case_handoffs")
+}
+
+model CaseRuleVersion {
+  pinnedCases                   Case[]              @relation("PinnedCaseRule")
+  caseActionRequest_ruleVersion CaseActionRequest[] @relation("CaseActionRequest_ruleVersion")
+  caseDecision_ruleVersion      CaseDecision[]      @relation("CaseDecision_ruleVersion")
+  id                            String              @id @default(uuid())
+  code                          String
+  revision                      Int                 @default(1)
+  status                        String              @default("DRAFT")
+  definition                    Json
+  contentHash                   String
+  authorId                      String
+  reviewedById                  String?
+  reviewedAt                    DateTime?
+  approvedHash                  String?
+  approvedRevision              Int?
+  legalSources                  Json
+  sourceVerified                Boolean             @default(false)
+  effectiveFrom                 DateTime?
+  effectiveTo                   DateTime?
+  publishedAt                   DateTime?
+  createdAt                     DateTime            @default(now())
+  updatedAt                     DateTime            @updatedAt
+  author                        User                @relation("CaseRuleVersion_author", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy                    User?               @relation("CaseRuleVersion_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@unique([code, revision])
+  @@map("case_rule_versions")
+}
+
+model CaseFieldDefinitionVersion {
+  disclosureItems CaseDisclosurePacketItem[] @relation("DisclosureFieldPolicy")
+  cases Case[] @relation("PinnedCaseFields")
+  id               String    @id @default(uuid())
+  code             String
+  revision         Int       @default(1)
+  status           String    @default("DRAFT")
+  definition       Json
+  contentHash      String
+  authorId         String
+  reviewedById     String?
+  approvedHash     String?
+  approvedRevision Int?
+  reviewedAt       DateTime?
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  author           User      @relation("CaseFieldDefinitionVersion_author", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy       User?     @relation("CaseFieldDefinitionVersion_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@unique([code, revision])
+  @@map("case_field_definition_versions")
+}
+
+model CaseActionRequest {
+  caseDecision_request CaseDecision[]  @relation("CaseDecision_request")
+  id                   String          @id @default(uuid())
+  caseId               String
+  actionCode           String
+  ruleVersionId        String
+  revision             Int             @default(1)
+  status               String          @default("DRAFT")
+  payload              Json
+  contentHash          String
+  authorId             String
+  submittedAt          DateTime?
+  reviewedById         String?
+  reviewedAt           DateTime?
+  approvedRevision     Int?
+  approvedHash         String?
+  reviewNote           String?
+  executedAt           DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  case                 Case            @relation("CaseActionRequest_case", fields: [caseId], references: [id], onDelete: Restrict)
+  ruleVersion          CaseRuleVersion @relation("CaseActionRequest_ruleVersion", fields: [ruleVersionId], references: [id], onDelete: Restrict)
+  author               User            @relation("CaseActionRequest_author", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy           User?           @relation("CaseActionRequest_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, status])
+  @@map("case_action_requests")
+}
+
+model CaseDecision {
+  caseRelation_decision CaseRelation[]    @relation("CaseRelation_decision")
+  id                    String            @id @default(uuid())
+  caseId                String
+  requestId             String            @unique
+  ruleVersionId         String
+  type                  String
+  number                String
+  date                  DateTime          @db.Date
+  issuer                String
+  signatory             String
+  legalBasis            String
+  effectiveDate         DateTime          @db.Date
+  sourceDocumentId      String
+  facts                 Json
+  contentHash           String
+  createdById           String
+  createdAt             DateTime          @default(now())
+  case                  Case              @relation("CaseDecision_case", fields: [caseId], references: [id], onDelete: Restrict)
+  request               CaseActionRequest @relation("CaseDecision_request", fields: [requestId], references: [id], onDelete: Restrict)
+  ruleVersion           CaseRuleVersion   @relation("CaseDecision_ruleVersion", fields: [ruleVersionId], references: [id], onDelete: Restrict)
+  sourceDocument        Document          @relation("CaseDecision_sourceDocument", fields: [sourceDocumentId], references: [id], onDelete: Restrict)
+  createdBy             User              @relation("CaseDecision_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@map("case_decisions")
+}
+
+model CaseRelation {
+  revision Int @default(1)
+  revokedAt DateTime?
+  deletedAt DateTime?
+  revokedById String?
+  revokedBy User? @relation("RevokedCaseRelation",fields:[revokedById],references:[id],onDelete:Restrict)
+  disclosurePacketItems CaseDisclosurePacketItem[] @relation("DisclosureItemRelation")
+  id           String        @id @default(uuid())
+  sourceCaseId String
+  targetCaseId String
+  type         String
+  decisionId   String?
+  payload      Json?
+  createdById  String
+  createdAt    DateTime      @default(now())
+  sourceCase   Case          @relation("CaseRelation_sourceCase", fields: [sourceCaseId], references: [id], onDelete: Restrict)
+  targetCase   Case          @relation("CaseRelation_targetCase", fields: [targetCaseId], references: [id], onDelete: Restrict)
+  decision     CaseDecision? @relation("CaseRelation_decision", fields: [decisionId], references: [id], onDelete: Restrict)
+  createdBy    User          @relation("CaseRelation_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  // Active-only uniqueness is enforced by additive migration133's partial index.
+  @@index([sourceCaseId, targetCaseId, type])
+  @@index([targetCaseId])
+  @@map("case_relations")
+}
+
+model CaseGovernanceEvent {
+  id          String                  @id @default(uuid())
+  caseId      String
+  operationId String
+  actorId     String
+  type        String
+  payload     Json
+  createdAt   DateTime                @default(now())
+  case        Case                    @relation("CaseGovernanceEvent_case", fields: [caseId], references: [id], onDelete: Restrict)
+  operation   CaseGovernanceOperation @relation("CaseGovernanceEvent_operation", fields: [operationId], references: [id], onDelete: Restrict)
+  actor       User                    @relation("CaseGovernanceEvent_actor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+  @@map("case_governance_events")
+}
+
+model CaseGovernanceTask {
+  id         String    @id @default(uuid())
+  caseId     String
+  assigneeId String?
+  type       String
+  status     String    @default("OPEN")
+  sourceId   String
+  payload    Json
+  dueAt      DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  case       Case      @relation("CaseGovernanceTask_case", fields: [caseId], references: [id], onDelete: Restrict)
+  assignee   User?     @relation("CaseGovernanceTask_assignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+
+  @@unique([caseId, type, sourceId])
+  @@index([status, dueAt])
+  @@map("case_governance_tasks")
+}
+
+model CaseGovernanceOutbox {
+  id             String                  @id @default(uuid())
+  caseId         String
+  operationId    String
+  event          Json
+  recipientId    String
+  status         String                  @default("PENDING")
+  attempts       Int                     @default(0)
+  leaseToken     String?
+  leaseUntil     DateTime?
+  nextAttemptAt  DateTime                @default(now())
+  deliveredAt    DateTime?
+  notificationId String?                 @unique
+  createdAt      DateTime                @default(now())
+  case           Case                    @relation("CaseGovernanceOutbox_case", fields: [caseId], references: [id], onDelete: Restrict)
+  operation      CaseGovernanceOperation @relation("CaseGovernanceOutbox_operation", fields: [operationId], references: [id], onDelete: Restrict)
+  recipient      User                    @relation("CaseGovernanceOutbox_recipient", fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@unique([operationId, recipientId])
+  @@index([status, nextAttemptAt])
+  @@map("case_governance_outbox")
+}
+
+model CaseGovernanceGrant {
+  id           String    @id @default(uuid())
+  caseId       String
+  granteeId    String
+  capabilities Json
+  startsAt     DateTime
+  expiresAt    DateTime?
+  createdById  String
+  revokedAt    DateTime?
+  revision     Int       @default(1)
+  createdAt    DateTime  @default(now())
+  case         Case      @relation("CaseGovernanceGrant_case", fields: [caseId], references: [id], onDelete: Restrict)
+  grantee      User      @relation("CaseGovernanceGrant_grantee", fields: [granteeId], references: [id], onDelete: Restrict)
+  createdBy    User      @relation("CaseGovernanceGrant_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, granteeId])
+  @@map("case_governance_grants")
+}
+
+model CaseAssetVersion {
+  retiredAt DateTime?
+  dispositionId String?
+  disposition CaseDispositionRequest? @relation("AssetDisposition", fields: [dispositionId], references: [id], onDelete: Restrict)
+  caseAssetVersion_parentVersion        CaseAssetVersion[]         @relation("CaseAssetVersion_parentVersion")
+  caseCustodyEvent_assetVersion         CaseCustodyEvent[]         @relation("CaseCustodyEvent_assetVersion")
+  caseDisclosurePacketItem_assetVersion CaseDisclosurePacketItem[] @relation("CaseDisclosurePacketItem_assetVersion")
+  caseEvidenceHold_assetVersion         CaseEvidenceHold[]         @relation("CaseEvidenceHold_assetVersion")
+  id                                    String                     @id @default(uuid())
+  caseId                                String
+  documentId                            String                     @unique
+  parentVersionId                       String?
+  kind                                  String
+  sha256                                String
+  byteLength                            Int
+  documentUpdatedAt                     DateTime
+  parentSha256                          String?
+  tool                                  String?
+  toolVersion                           String?
+  sourceHash                            String?
+  createdById                           String
+  createdAt                             DateTime                   @default(now())
+  case                                  Case                       @relation("CaseAssetVersion_case", fields: [caseId], references: [id], onDelete: Restrict)
+  document                              Document                   @relation("CaseAssetVersion_document", fields: [documentId], references: [id], onDelete: Restrict)
+  parentVersion                         CaseAssetVersion?          @relation("CaseAssetVersion_parentVersion", fields: [parentVersionId], references: [id], onDelete: Restrict)
+  createdBy                             User                       @relation("CaseAssetVersion_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@map("case_asset_versions")
+}
+
+model CaseCustodyEvent {
+  sourceDocumentId String?
+  sourceDocumentUpdatedAt DateTime?
+  sourceDocument Document? @relation("CustodySourceDocument",fields:[sourceDocumentId],references:[id],onDelete:Restrict)
+  caseCustodyEvent_correctsEvent CaseCustodyEvent[] @relation("CaseCustodyEvent_correctsEvent")
+  id                             String             @id @default(uuid())
+  caseId                         String
+  evidenceId                     String?
+  assetVersionId                 String?
+  correctsEventId                String?
+  actorId                        String
+  eventType                      String
+  occurredAt                     DateTime
+  payload                        Json
+  createdAt                      DateTime           @default(now())
+  case                           Case               @relation("CaseCustodyEvent_case", fields: [caseId], references: [id], onDelete: Restrict)
+  evidence                       Evidence?          @relation("CaseCustodyEvent_evidence", fields: [evidenceId], references: [id], onDelete: Restrict)
+  assetVersion                   CaseAssetVersion?  @relation("CaseCustodyEvent_assetVersion", fields: [assetVersionId], references: [id], onDelete: Restrict)
+  correctsEvent                  CaseCustodyEvent?  @relation("CaseCustodyEvent_correctsEvent", fields: [correctsEventId], references: [id], onDelete: Restrict)
+  actor                          User               @relation("CaseCustodyEvent_actor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@map("case_custody_events")
+}
+
+model CaseDisclosurePacket {
+  deltaOfPacketId String?
+  deltaOfPacket CaseDisclosurePacket? @relation("DisclosureDelta",fields:[deltaOfPacketId],references:[id],onDelete:Restrict)
+  deltaPackets CaseDisclosurePacket[] @relation("DisclosureDelta")
+  caseDisclosurePacketItem_packet CaseDisclosurePacketItem[] @relation("CaseDisclosurePacketItem_packet")
+  id                              String                     @id @default(uuid())
+  caseId                          String
+  authorId                        String
+  recipientId                     String
+  recipientPolicy                 Json?
+  purpose                         String
+  basis                           String
+  expiresAt                       DateTime
+  revision                        Int                        @default(1)
+  status                          String                     @default("DRAFT")
+  contentHash                     String
+  approvedRevision                Int?
+  approvedHash                    String?
+  reviewedById                    String?
+  reviewedAt                      DateTime?
+  revokedAt                       DateTime?
+  revocationReason                String?
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  case                            Case                       @relation("CaseDisclosurePacket_case", fields: [caseId], references: [id], onDelete: Restrict)
+  author                          User                       @relation("CaseDisclosurePacket_author", fields: [authorId], references: [id], onDelete: Restrict)
+  recipient                       User                       @relation("CaseDisclosurePacket_recipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  reviewedBy                      User?                      @relation("CaseDisclosurePacket_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, status])
+  @@map("case_disclosure_packets")
+}
+
+model CaseDisclosurePacketItem {
+  fieldDefinitionVersionId String?
+  fieldDefinitionVersion CaseFieldDefinitionVersion? @relation("DisclosureFieldPolicy",fields:[fieldDefinitionVersionId],references:[id],onDelete:Restrict)
+  relationId String?
+  relationRevision Int?
+  relation CaseRelation? @relation("DisclosureItemRelation",fields:[relationId],references:[id],onDelete:Restrict)
+  id             String               @id @default(uuid())
+  packetId       String
+  assetVersionId String
+  sha256         String
+  redaction      Json?
+  lineage        Json
+  createdAt      DateTime             @default(now())
+  packet         CaseDisclosurePacket @relation("CaseDisclosurePacketItem_packet", fields: [packetId], references: [id], onDelete: Restrict)
+  assetVersion   CaseAssetVersion     @relation("CaseDisclosurePacketItem_assetVersion", fields: [assetVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([packetId, assetVersionId])
+  @@map("case_disclosure_packet_items")
+}
+
+model CaseEvidenceHold {
+  id             String            @id @default(uuid())
+  caseId         String
+  assetVersionId String?
+  reason         String
+  basis          String
+  createdById    String
+  createdAt      DateTime          @default(now())
+  releasedById   String?
+  releasedAt     DateTime?
+  releaseReason  String?
+  case           Case              @relation("CaseEvidenceHold_case", fields: [caseId], references: [id], onDelete: Restrict)
+  assetVersion   CaseAssetVersion? @relation("CaseEvidenceHold_assetVersion", fields: [assetVersionId], references: [id], onDelete: Restrict)
+  createdBy      User              @relation("CaseEvidenceHold_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+  releasedBy     User?             @relation("CaseEvidenceHold_releasedBy", fields: [releasedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, releasedAt])
+  @@map("case_evidence_holds")
+}
+
+model CaseRepresentationGrant {
+  id           String    @id @default(uuid())
+  caseId       String
+  lawyerId     String
+  subjectId    String?
+  granteeId    String
+  capabilities Json
+  startsAt     DateTime
+  expiresAt    DateTime
+  createdById  String
+  createdAt    DateTime  @default(now())
+  revokedById  String?
+  revokedAt    DateTime?
+  revision     Int       @default(1)
+  case         Case      @relation("CaseRepresentationGrant_case", fields: [caseId], references: [id], onDelete: Restrict)
+  lawyer       Lawyer    @relation("CaseRepresentationGrant_lawyer", fields: [lawyerId], references: [id], onDelete: Restrict)
+  subject      Subject?  @relation("CaseRepresentationGrant_subject", fields: [subjectId], references: [id], onDelete: Restrict)
+  grantee      User      @relation("CaseRepresentationGrant_grantee", fields: [granteeId], references: [id], onDelete: Restrict)
+  createdBy    User      @relation("CaseRepresentationGrant_createdBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy    User?     @relation("CaseRepresentationGrant_revokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, granteeId])
+  @@map("case_representation_grants")
+}
+
+model CaseRetentionPolicy {
+  caseDispositionRequest_policy CaseDispositionRequest[] @relation("CaseDispositionRequest_policy")
+  id                            String                   @id @default(uuid())
+  caseId                        String
+  authorId                      String
+  status                        String                   @default("DRAFT")
+  revision                      Int                      @default(1)
+  preserveUntil                 DateTime
+  basis                         String
+  contentHash                   String
+  reviewedById                  String?
+  approvedHash                  String?
+  approvedRevision              Int?
+  publishedAt                   DateTime?
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  case                          Case                     @relation("CaseRetentionPolicy_case", fields: [caseId], references: [id], onDelete: Restrict)
+  author                        User                     @relation("CaseRetentionPolicy_author", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy                    User?                    @relation("CaseRetentionPolicy_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, status])
+  @@map("case_retention_policies")
+}
+
+model CaseDispositionRequest {
+  executedById String?
+  executedAt DateTime?
+  receipt Json?
+  receiptDocumentId String?
+  receiptDocumentUpdatedAt DateTime?
+  receiptSha256 String?
+  receiptByteLength Int?
+  receiptDocument Document? @relation("DispositionReceiptDocument", fields: [receiptDocumentId], references: [id], onDelete: Restrict)
+  outcome String?
+  executedBy User? @relation("DispositionExecutedBy", fields: [executedById], references: [id], onDelete: Restrict)
+  retiredAssets CaseAssetVersion[] @relation("AssetDisposition")
+  id               String              @id @default(uuid())
+  caseId           String
+  policyId         String
+  authorId         String
+  status           String              @default("DRAFT")
+  revision         Int                 @default(1)
+  assetVersionIds  Json
+  purpose          String
+  contentHash      String
+  approvedHash     String?
+  approvedRevision Int?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  case             Case                @relation("CaseDispositionRequest_case", fields: [caseId], references: [id], onDelete: Restrict)
+  policy           CaseRetentionPolicy @relation("CaseDispositionRequest_policy", fields: [policyId], references: [id], onDelete: Restrict)
+  author           User                @relation("CaseDispositionRequest_author", fields: [authorId], references: [id], onDelete: Restrict)
+  reviewedBy       User?               @relation("CaseDispositionRequest_reviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, status])
+  @@map("case_disposition_requests")
 }

@@ -1,6 +1,14 @@
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from '../reports/graph-access/case-graph-access.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { IncidentStatus, CaseStatus, CapDoToiPham, CaseType, Prisma } from '@prisma/client';
+import {
+  IncidentStatus,
+  CaseStatus,
+  CapDoToiPham,
+  CaseType,
+  Prisma,
+} from '@prisma/client';
 import { QueryKpiDto } from './dto/query-kpi.dto';
 
 // ─── KPI constants ────────────────────────────────────────────────────────────
@@ -86,7 +94,11 @@ function buildDateRange(
   return { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
 }
 
-function deriveKpiStatus(value: number, target: number, warningThreshold: number): KpiStatus {
+function deriveKpiStatus(
+  value: number,
+  target: number,
+  warningThreshold: number,
+): KpiStatus {
   if (value >= target) return 'PASS';
   if (value >= warningThreshold) return 'WARNING';
   return 'FAIL';
@@ -101,12 +113,10 @@ function safePercent(numerator: number, denominator: number): number {
 
 @Injectable()
 export class KpiService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(GRAPH_PRISMA) private readonly prisma: PrismaService) {}
 
   // ── KPI-1: Tỷ lệ thụ lý tố giác/tin báo (target: 100%) ──────────────────
-  async calculateKpi1(
-    query: QueryKpiDto,
-  ): Promise<KpiResult> {
+  async calculateKpi1(query: QueryKpiDto): Promise<KpiResult> {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
@@ -143,9 +153,7 @@ export class KpiService {
   }
 
   // ── KPI-2: Tỷ lệ giải quyết tố giác/tin báo (target: >90%) ──────────────
-  async calculateKpi2(
-    query: QueryKpiDto,
-  ): Promise<KpiResult> {
+  async calculateKpi2(query: QueryKpiDto): Promise<KpiResult> {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
@@ -185,9 +193,7 @@ export class KpiService {
   }
 
   // ── KPI-3: Tỷ lệ điều tra khám phá án (target: >80%) ─────────────────────
-  async calculateKpi3(
-    query: QueryKpiDto,
-  ): Promise<KpiResult> {
+  async calculateKpi3(query: QueryKpiDto): Promise<KpiResult> {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
@@ -241,7 +247,10 @@ export class KpiService {
       target,
       warningThreshold,
       value,
-      status: ngoaiPhamVi || noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
+      status:
+        ngoaiPhamVi || noData
+          ? 'N_A'
+          : deriveKpiStatus(value, target, warningThreshold),
       numerator: khamPha,
       denominator: total,
       noData: ngoaiPhamVi ? true : noData,
@@ -250,9 +259,7 @@ export class KpiService {
   }
 
   // ── KPI-4: Tỷ lệ khám phá án rất/đặc biệt nghiêm trọng (target: >95%) ───
-  async calculateKpi4(
-    query: QueryKpiDto,
-  ): Promise<KpiResult> {
+  async calculateKpi4(query: QueryKpiDto): Promise<KpiResult> {
     const year = query.year ?? new Date().getFullYear();
     const dateRange = buildDateRange(year, query.quarter, query.month);
 
@@ -286,7 +293,9 @@ export class KpiService {
       caseType: CaseType.REGULAR, // v0.44: exclude UTDT records from KPI
       createdAt: dateRange,
       ...(query.teamId ? { assignedTeamId: query.teamId } : {}),
-      capDoToiPham: { in: [CapDoToiPham.RAT_NGHIEM_TRONG, CapDoToiPham.DAC_BIET_NGHIEM_TRONG] },
+      capDoToiPham: {
+        in: [CapDoToiPham.RAT_NGHIEM_TRONG, CapDoToiPham.DAC_BIET_NGHIEM_TRONG],
+      },
     };
 
     const [total, khamPha] = await Promise.all([
@@ -307,7 +316,10 @@ export class KpiService {
       target,
       warningThreshold,
       value,
-      status: ngoaiPhamVi || noData ? 'N_A' : deriveKpiStatus(value, target, warningThreshold),
+      status:
+        ngoaiPhamVi || noData
+          ? 'N_A'
+          : deriveKpiStatus(value, target, warningThreshold),
       numerator: khamPha,
       denominator: total,
       noData: ngoaiPhamVi ? true : noData,
@@ -363,10 +375,7 @@ export class KpiService {
   }
 
   // ── getKpiByTeam: KPI theo từng Tổ (level 1) ─────────────────────────────
-  async getKpiByTeam(
-    query: QueryKpiDto,
-    allowedTeamIds?: string[] | null,
-  ) {
+  async getKpiByTeam(query: QueryKpiDto, allowedTeamIds?: string[] | null) {
     const where: Prisma.TeamWhereInput = { isActive: true, level: 1 };
     if (allowedTeamIds !== null && allowedTeamIds !== undefined) {
       where.id = { in: allowedTeamIds };

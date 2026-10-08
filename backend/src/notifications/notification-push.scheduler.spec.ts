@@ -1,3 +1,4 @@
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationPushScheduler } from './notification-push.scheduler';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +30,7 @@ describe('NotificationPushScheduler', () => {
     mockPush.sendToUser.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{provide:CaseNotificationPolicyService,useValue:{where:jest.fn((userId:string)=>Promise.resolve({userId})),serialize:jest.fn((_actor:string,row:unknown)=>Promise.resolve(row))}},
         NotificationPushScheduler,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PushService, useValue: mockPush },

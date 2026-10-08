@@ -1,3 +1,6 @@
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
+import { CaseGraphAccessModule } from '../reports/graph-access/case-graph-access.module';
+import { CaseEvidenceGovernanceModule } from '../cases/evidence-governance/evidence-governance.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { NotificationsController } from './notifications.controller';
@@ -14,12 +17,15 @@ import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
+    CaseEvidenceGovernanceModule,
+    CaseGraphAccessModule,
     PrismaModule,
     PushModule,
     JwtModule.register({ signOptions: { algorithm: 'RS256' } }),
   ],
   controllers: [NotificationsController, SseController],
   providers: [
+    CaseNotificationPolicyService,
     NotificationsService,
     NotificationSseService,
     NotificationEventService,

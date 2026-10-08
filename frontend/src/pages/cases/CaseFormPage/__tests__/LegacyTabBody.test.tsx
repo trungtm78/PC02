@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import { LegacyTabBody } from "../LegacyTabBody";
 import { INITIAL_FORM_DATA, type CaseFormData } from "../types";
@@ -23,8 +23,8 @@ vi.mock("@/components/FKSelect", () => ({
  * `CatalogSelect` thay vì một nhóm ô tích RỖNG — nhóm rỗng nghĩa là cán bộ nhìn thấy ô mà
  * không nhập được gì. `CatalogSelect` tra danh mục nên cần bộ truy vấn.
  */
-function Host({ tabId, extra }: { tabId: LegacyTabId; extra?: React.ReactNode }) {
-  const [formData, setFormData] = useState<CaseFormData>(INITIAL_FORM_DATA);
+function Host({ tabId, extra, initial = INITIAL_FORM_DATA }: { tabId: LegacyTabId; extra?: React.ReactNode; initial?: CaseFormData }) {
+  const [formData, setFormData] = useState<CaseFormData>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [qc] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
   return (
@@ -39,6 +39,23 @@ function Host({ tabId, extra }: { tabId: LegacyTabId; extra?: React.ReactNode })
 const TAB_IDS = Object.keys(LEGACY_FORM_LAYOUT) as LegacyTabId[];
 
 describe("LegacyTabBody", () => {
+  it('shows the original partial date beside the blank native input until the date is corrected', () => {
+    render(<Host tabId="info" initial={{ ...INITIAL_FORM_DATA, ngayVietDon: '198X' }} />);
+    expect(screen.getByTestId('legacy-date-source-ngayVietDon')).toHaveTextContent('198X');
+    const input = screen.getByTestId('legacy-field-ngayVietDon').querySelector('input');
+    expect(input).toHaveValue('');
+    fireEvent.change(input!, { target: { value: '1981-10-05' } });
+    expect(screen.queryByTestId('legacy-date-source-ngayVietDon')).toBeNull();
+  });
+  it('keeps the nullable checkbox mixed in the shared layout until an explicit officer choice', () => {
+    render(<Host tabId="media" initial={{ ...INITIAL_FORM_DATA, statistic: { ...INITIAL_FORM_DATA.statistic, ghiAmGhiHinhDaDuocXetXu: null } }} />);
+    const field = screen.getByTestId('legacy-field-statistic.ghiAmGhiHinhDaDuocXetXu');
+    expect(within(field).getByRole('checkbox')).toHaveAttribute('aria-checked', 'mixed');
+    fireEvent.click(within(field).getByRole('button', { name: 'Không' }));
+    expect(within(field).getByRole('checkbox')).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(within(field).getByRole('button', { name: 'Chưa xác minh' }));
+    expect(within(field).getByRole('checkbox')).toHaveAttribute('aria-checked', 'mixed');
+  });
   describe.each(TAB_IDS)("tab %s", (tabId) => {
     it("dựng đủ ô hệ cũ, đúng thứ tự, nhãn nguyên văn", () => {
       render(<Host tabId={tabId} />);

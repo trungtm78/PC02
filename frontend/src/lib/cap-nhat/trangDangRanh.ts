@@ -5,7 +5,7 @@ import { coFormDoDang } from './formDoDang';
  * `/admin/deadline-rules/:key/propose`, `/cases/tdac-backfill`…
  * Cổng `congDuongDanForm.gate.test.ts` bắt mọi route có `<form`/`onSubmit` mà luật này bỏ sót.
  */
-export const DUONG_DAN_FORM = /(^|\/)(new|edit|add-new-record|propose|[a-z-]*backfill)(\/|$)/i;
+export const DUONG_DAN_FORM = /(^|\/)(new|edit|add-new-record|propose|[a-z-]*backfill)(\/|$)|^\/cases\/(?:governance(?:\/configuration)?|[^/]+\/governance)\/?$/i;
 
 /** Hộp thoại đang mở, kể cả hộp tự dựng không khai `role` (lớp phủ `fixed inset-0`). */
 const HOP_THOAI = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog[open], .fixed.inset-0';

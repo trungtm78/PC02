@@ -22,15 +22,15 @@ describe('ConclusionsController — delegation', () => {
   it('getList() delegates to service.getList with query and dataScope', async () => {
     mockService.getList.mockResolvedValue({ data: [] });
     const req = makeReq();
-    await controller.getList({} as any, req);
-    expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope);
+    await controller.getList({} as any, req, req.user as never);
+    expect(mockService.getList).toHaveBeenCalledWith({}, req.dataScope, (req.user as { id: string }).id);
   });
 
   it('getById() delegates to service.getById with id and dataScope', async () => {
     mockService.getById.mockResolvedValue({ data: {} });
     const req = makeReq();
-    await controller.getById('con-1', req);
-    expect(mockService.getById).toHaveBeenCalledWith('con-1', req.dataScope);
+    await controller.getById('con-1', req, req.user as never);
+    expect(mockService.getById).toHaveBeenCalledWith('con-1', req.dataScope, (req.user as { id: string }).id);
   });
 
   it('create() delegates to service.create with dto, userId, audit info and dataScope', async () => {

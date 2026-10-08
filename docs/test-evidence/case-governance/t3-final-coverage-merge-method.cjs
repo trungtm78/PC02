@@ -1,0 +1,15 @@
+const fs=require('node:fs'),path=require('node:path');
+const root='C:/PC02/pc02-case-management/.worktrees/case-governance-20261006';
+const coverageLib=require(path.join(root,'backend/node_modules/istanbul-lib-coverage'));
+const basePath=path.join(root,'backend/src/coverage-t3-final/coverage-final.json');
+const original=JSON.parse(fs.readFileSync(basePath,'utf8'));
+const seams=JSON.parse(fs.readFileSync(path.join(root,'backend/src/coverage-t3-seams/coverage-final.json'),'utf8'));
+for(const [file,item]of Object.entries(seams))original[file]=item;
+const evidenceCurrent=JSON.parse(fs.readFileSync(path.join(root,'backend/src/coverage-t3-evidence-current/coverage-final.json'),'utf8'));
+for(const [file,item]of Object.entries(evidenceCurrent))original[file]=item;
+fs.writeFileSync(basePath,JSON.stringify(original));
+const all=coverageLib.createCoverageMap(original).getCoverageSummary().toJSON();
+const evidence=coverageLib.createCoverageMap(Object.fromEntries(Object.entries(original).filter(([file])=>file.replaceAll('\\','/').includes('/cases/evidence-governance/')))).getCoverageSummary().toJSON();
+const summary={provenance:'22 suites427 PASS corpus + focused4 suites21 PASS + current evidence11 suites226 PASS; changed CLI/evidence maps replaced, unchanged product maps retained; default CLI never executed; constituent LCOV reports retained separately',all,evidence};
+fs.writeFileSync(path.join(root,'docs/test-evidence/case-governance/t3-final-coverage-summary.json'),JSON.stringify(summary,null,2));
+process.stdout.write(JSON.stringify(summary));

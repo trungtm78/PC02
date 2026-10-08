@@ -11,6 +11,7 @@
  *      same `mapSheetToSkeletons` runs in both paths.
  */
 
+import { assertCasePreservation } from '../cases/evidence-governance/case-preservation';
 import {
   Injectable,
   Logger,
@@ -136,7 +137,9 @@ export class XlsxImportCommitService {
       // Conflict detection — duplicate caseCode/incidentCode against existing rows
       // PLUS intra-batch dedupe (PR6 review P0-1).
       const skeletons = mapSheetToSkeletons(rows);
-      const codes = skeletons.map((s) => s.code).filter((c): c is string => !!c);
+      const codes = skeletons
+        .map((s) => s.code)
+        .filter((c): c is string => !!c);
 
       // Intra-batch — flag duplicate codes within the same upload BEFORE
       // they hit the P2002 path on commit.
@@ -247,14 +250,20 @@ export class XlsxImportCommitService {
   }> {
     this.requireAdmin(actor);
 
-    const log = await this.prisma.xlsxImportLog.findUnique({ where: { id: logId } });
+    const log = await this.prisma.xlsxImportLog.findUnique({
+      where: { id: logId },
+    });
     if (!log) throw new NotFoundException('Import log không tồn tại.');
 
     if (log.status === XLSX_IMPORT_STATUS.COMMITTED) {
-      throw new ConflictException('Import này đã commit. Dùng rollback nếu cần huỷ.');
+      throw new ConflictException(
+        'Import này đã commit. Dùng rollback nếu cần huỷ.',
+      );
     }
     if (log.status === XLSX_IMPORT_STATUS.ROLLED_BACK) {
-      throw new ConflictException('Import này đã rollback — không thể commit lại. Upload lại file.');
+      throw new ConflictException(
+        'Import này đã rollback — không thể commit lại. Upload lại file.',
+      );
     }
     if (log.status === XLSX_IMPORT_STATUS.FAILED) {
       throw new ConflictException(
@@ -355,7 +364,9 @@ export class XlsxImportCommitService {
           thieuMaTheoSheet.push({ sheetName, rowIndexes: thieuMa });
         }
 
-        const dups = [...seen.entries()].filter(([, n]) => n > 1).map(([c]) => c);
+        const dups = [...seen.entries()]
+          .filter(([, n]) => n > 1)
+          .map(([c]) => c);
         if (dups.length > 0) {
           throw new ConflictException({
             code: 'DUPLICATE_IN_BATCH',
@@ -523,7 +534,9 @@ export class XlsxImportCommitService {
   }> {
     this.requireAdmin(actor);
 
-    const log = await this.prisma.xlsxImportLog.findUnique({ where: { id: logId } });
+    const log = await this.prisma.xlsxImportLog.findUnique({
+      where: { id: logId },
+    });
     if (!log) throw new NotFoundException('Import log không tồn tại.');
 
     if (log.status === XLSX_IMPORT_STATUS.ROLLED_BACK) {
@@ -560,11 +573,23 @@ export class XlsxImportCommitService {
     let deletedStaging = 0;
 
     await this.prisma.$transaction(async (tx) => {
-      const caseDel = await tx.case.deleteMany({ where: { importLogId: logId } });
+      const preservedCases = await tx.case.findMany({
+        where: { importLogId: logId },
+        select: { id: true },
+      });
+      for (const record of preservedCases)
+        await assertCasePreservation(tx, record.id, 'XLSX_ROLLBACK');
+      const caseDel = await tx.case.deleteMany({
+        where: { importLogId: logId },
+      });
       deletedCases = caseDel.count;
-      const incidentDel = await tx.incident.deleteMany({ where: { importLogId: logId } });
+      const incidentDel = await tx.incident.deleteMany({
+        where: { importLogId: logId },
+      });
       deletedIncidents = incidentDel.count;
-      const stagingDel = await tx.xlsxImportStaging.deleteMany({ where: { importLogId: logId } });
+      const stagingDel = await tx.xlsxImportStaging.deleteMany({
+        where: { importLogId: logId },
+      });
       deletedStaging = stagingDel.count;
 
       await tx.xlsxImportLog.update({
@@ -599,24 +624,43 @@ export class XlsxImportCommitService {
     editedCases: number;
     editedIncidents: number;
   }> {
-    const [subjects, lawyers, evidence, editedCases, editedIncidents] = await Promise.all([
-      this.prisma.subject.count({ where: { case: { importLogId: logId } } }),
-      this.prisma.lawyer.count({ where: { case: { importLogId: logId } } }),
-      this.prisma.evidence.count({ where: { case: { importLogId: logId } } }),
-      // Edited after import — updatedAt > importedAt+small grace window
-      this.prisma.case.count({
-        where: {
-          importLogId: logId,
-          AND: [{ importedAt: { not: null } }, { updatedAt: { gt: this.prisma.case.fields.importedAt as never } }],
-        },
-      }).catch(() => 0), // fallback to 0 if Prisma can't express the field-vs-field predicate cleanly
-      this.prisma.incident.count({
-        where: {
-          importLogId: logId,
-          AND: [{ importedAt: { not: null } }, { updatedAt: { gt: this.prisma.incident.fields.importedAt as never } }],
-        },
-      }).catch(() => 0),
-    ]);
+    const [subjects, lawyers, evidence, editedCases, editedIncidents] =
+      await Promise.all([
+        this.prisma.subject.count({ where: { case: { importLogId: logId } } }),
+        this.prisma.lawyer.count({ where: { case: { importLogId: logId } } }),
+        this.prisma.evidence.count({ where: { case: { importLogId: logId } } }),
+        // Edited after import — updatedAt > importedAt+small grace window
+        this.prisma.case
+          .count({
+            where: {
+              importLogId: logId,
+              AND: [
+                { importedAt: { not: null } },
+                {
+                  updatedAt: {
+                    gt: this.prisma.case.fields.importedAt as never,
+                  },
+                },
+              ],
+            },
+          })
+          .catch(() => 0), // fallback to 0 if Prisma can't express the field-vs-field predicate cleanly
+        this.prisma.incident
+          .count({
+            where: {
+              importLogId: logId,
+              AND: [
+                { importedAt: { not: null } },
+                {
+                  updatedAt: {
+                    gt: this.prisma.incident.fields.importedAt as never,
+                  },
+                },
+              ],
+            },
+          })
+          .catch(() => 0),
+      ]);
     return { subjects, lawyers, evidence, editedCases, editedIncidents };
   }
 }

@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-10-08T01:10:50.225Z",
+  "environment": {
+    "database": "pc02_case_governance_uat",
+    "host": "127.0.0.1",
+    "port": 55441,
+    "api": 3001,
+    "frontend": 5280,
+    "production": false
+  },
+  "sourceRequirements": [
+    "docs/requirements/FRD.md",
+    "docs/requirements/acceptance-criteria.md",
+    "docs/requirements/case-governance/field-inventory.json",
+    "docs/requirements/case-governance/action-inventory.json"
+  ],
+  "fieldCases": 660,
+  "legalActionCases": 168,
+  "compositeCases": 28,
+  "counts": {
+    "PASS": 856
+  },
+  "backend": {
+    "passed": 7254,
+    "failed": 0
+  },
+  "frontend": {
+    "passed": 4473,
+    "failed": 0
+  },
+  "legalPrivate": {
+    "passed": 30,
+    "failed": 0
+  },
+  "load": {
+    "requests": 100,
+    "p95Ms": 337.34060000000045,
+    "errorRate": 0
+  },
+  "verdict": "PASS"
+}

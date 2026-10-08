@@ -1196,3 +1196,16 @@ của bộ đọc — không thì phép đo khuyên cắt một cột đang có 
 | Enter/suggestion submission; chips; accent folding | Unchanged | Unchanged | Preserved | Isolated API-first UAT, 27/27 PASS in original workspace |
 
 The new migration rebuilds stale existing petition search shadows in the same transaction as trigger replacement. List, statistics and exports retain the same filters and access scope. The scope is list data columns, not every detail-form field. Exact release-tree CI is tracked in docs/uat/petition-all-column-search/RELEASE-STATUS.md.
+## Case Governance parity — v0.74.0.0 (08/10/2026)
+
+`CaseListPageShell` bổ sung các điều khiển quản trị Vụ án nhưng vẫn dùng chung nguồn tham số cho danh sách và thống kê:
+
+| Hành vi | Danh sách Vụ án | API/nguồn dùng chung | Trạng thái |
+|---|---|---|---|
+| Bộ lọc giai đoạn, bàn giao, quyết định và dữ liệu thiếu | `CaseGovernanceFilters`; giữ trên URL và được xóa cùng thao tác “Xóa lọc” | `governanceFilterParams` được nhập vào `baseQueryParams`, dùng cho danh sách và `/cases/stats` | DONE |
+| Chuyển/phân công khi governance bật | Điều hướng đến tab bàn giao của hồ sơ | Capability từ backend quyết định `canDispatch`; đường cũ giữ nguyên khi cờ tắt | DONE |
+| Tài khoản chỉ đại diện | Chỉ cột tóm tắt; ẩn tạo mới, chọn hàng, bulk, in và export chung | `useCaseCapabilities` trả `caseAccessMode`, `canWrite`, `canExport`; backend vẫn kiểm tra từng API/file/export | DONE |
+| Export khi có quyền | Export danh sách, đầy đủ và Word nhận cùng `baseQueryParams` | Không tạo bộ lọc thứ hai ở client | DONE |
+| Feature flag | Cờ `CASE_GOVERNANCE_V1` mặc định OFF | Migration tạo cờ với `enabled=false`, `rolloutPct=0` | DONE |
+
+Kiểm chứng liên quan: test `CaseListPageShell`, test capability/field policy, backend scope/export tests và UAT Case Governance. UAT tổng vẫn là cổng release độc lập; cập nhật ma trận này không tự cấp GO production.

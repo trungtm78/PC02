@@ -1,0 +1,16 @@
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: Window's alert() method
+Not implemented: Window's alert() method
+Not implemented: Window's alert() method
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+12:27:23 PM [vite] (client) warning: invalid import "../../../../${duong}?raw". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+  Plugin: vite:dynamic-import-vars
+  File: C:/PC02/pc02-case-management/.worktrees/case-governance-20261006/frontend/src/features/petitions/components/__tests__/chongBamHaiLan.test.tsx
+JSON report written to C:/PC02/pc02-case-management/.worktrees/case-governance-20261006/docs/test-evidence/case-governance/baseline/frontend-tests.json

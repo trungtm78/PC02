@@ -1,3 +1,8 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -120,7 +125,7 @@ const mockPrisma = {
     delete: jest.fn(),
   },
   documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
-  document: {
+  document: {findMany: jest.fn().mockResolvedValue([]),
     updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   // export chứng từ: row lock + audit render log
@@ -192,7 +197,7 @@ describe('PetitionsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -1376,7 +1381,8 @@ describe('PetitionsService', () => {
         status: PetitionStatus.DA_CHUYEN_VU_AN,
       });
 
-      const result = await service.convertToCase(
+      setSourceFixtureScope(mockPrisma, null);
+const result = await service.convertToCase(
         'petition-001',
         validCaseDto,
         'user-001',
@@ -1389,7 +1395,8 @@ describe('PetitionsService', () => {
     it('EC-01: should throw BadRequestException when caseName missing', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase(
           'petition-001',
           { caseName: '', crime: 'Test', jurisdiction: 'Test', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
@@ -1401,7 +1408,8 @@ describe('PetitionsService', () => {
     it('EC-01: should throw BadRequestException when crime missing', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase(
           'petition-001',
           { caseName: 'Test', crime: '', jurisdiction: 'Test', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
@@ -1413,7 +1421,8 @@ describe('PetitionsService', () => {
     it('EC-01: should throw BadRequestException when jurisdiction missing', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase(
           'petition-001',
           { caseName: 'Test', crime: 'Test', jurisdiction: '', expectedUpdatedAt: '2026-05-22T10:00:00.000Z' },
@@ -1428,7 +1437,8 @@ describe('PetitionsService', () => {
         linkedCaseId: 'existing-case',
       });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase('petition-001', validCaseDto, 'user-001'),
       ).rejects.toThrow(BadRequestException);
     });
@@ -1439,7 +1449,8 @@ describe('PetitionsService', () => {
         linkedIncidentId: 'existing-incident',
       });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase('petition-001', validCaseDto, 'user-001'),
       ).rejects.toThrow(BadRequestException);
     });
@@ -1447,7 +1458,8 @@ describe('PetitionsService', () => {
     it('should throw NotFoundException when petition not found', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase('nonexistent', validCaseDto, 'user-001'),
       ).rejects.toThrow(NotFoundException);
     });
@@ -1466,19 +1478,21 @@ describe('PetitionsService', () => {
               status: PetitionStatus.DA_CHUYEN_VU_AN,
             }),
           },
-          document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          document: {findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
           documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
 
-      await service.convertToCase('petition-001', validCaseDto, 'user-001');
+      setSourceFixtureScope(mockPrisma, null);
+await service.convertToCase('petition-001', validCaseDto, 'user-001');
 
       // Audit log should be called
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PETITION_CONVERTED_TO_CASE',
         }),
+        expect.anything(),
       );
     });
 
@@ -1495,13 +1509,14 @@ describe('PetitionsService', () => {
         const tx = {
           case: { create: jest.fn().mockResolvedValue(mockCase) },
           petition: { update: updateMock },
-          document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          document: {findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
           documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
 
-      await service.convertToCase(
+      setSourceFixtureScope(mockPrisma, null);
+await service.convertToCase(
         'petition-001',
         { ...validCaseDto, expectedUpdatedAt: stamp },
         'user-001',
@@ -1523,7 +1538,8 @@ describe('PetitionsService', () => {
       // Simulate 2nd concurrent call: tx commits but Prisma throws P2002 from partial unique index
       mockPrisma.$transaction.mockRejectedValue({ code: 'P2002' });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase(
           'petition-001',
           { ...validCaseDto, expectedUpdatedAt: stamp },
@@ -1537,7 +1553,8 @@ describe('PetitionsService', () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
       mockPrisma.$transaction.mockRejectedValue({ code: 'P2025' });
 
-      await expect(
+      setSourceFixtureScope(mockPrisma, null);
+await expect(
         service.convertToCase(
           'petition-001',
           { ...validCaseDto, expectedUpdatedAt: staleStamp },
@@ -1549,6 +1566,7 @@ describe('PetitionsService', () => {
     // Cycle 4 — document handoff to new Case in same transaction
     it('hands off petition documents to new Case via tx.document.updateMany', async () => {
       mockPrisma.petition.findFirst.mockResolvedValue(mockPetition);
+      const sourceDocuments = [{ id: 'source-document-1', updatedAt: new Date(0) },{ id: 'source-document-2', updatedAt: new Date(0) }];
       const updateManyMock = jest.fn().mockResolvedValue({ count: 2 });
       mockPrisma.$transaction.mockImplementation(async (fn: any) => {
         const tx = {
@@ -1558,18 +1576,22 @@ describe('PetitionsService', () => {
             linkedCaseId: 'case-001',
             status: PetitionStatus.DA_CHUYEN_VU_AN,
           }) },
-          document: { updateMany: updateManyMock },
+          document: {findMany: jest.fn().mockResolvedValue(sourceDocuments), updateMany: updateManyMock },
           documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx);
       });
 
-      await service.convertToCase('petition-001', validCaseDto, 'user-001');
+      setSourceFixtureScope(mockPrisma, null);
+await service.convertToCase('petition-001', validCaseDto, 'user-001');
 
       expect(updateManyMock).toHaveBeenCalledWith({
-        where: { petitionId: 'petition-001', deletedAt: null },
+        where: { petitionId: 'petition-001', deletedAt: null, id: { in: sourceDocuments.map(document => document.id) }, OR: sourceDocuments.map(document => ({ id: document.id, updatedAt: document.updatedAt })) },
         data: { caseId: 'case-001' },
       });
+      const guarded = service as unknown as { caseEvidence: { assertDocumentCanChangeParent: jest.Mock } };
+      expect(guarded.caseEvidence.assertDocumentCanChangeParent).toHaveBeenCalledTimes(2);
+      for (const document of sourceDocuments) expect(guarded.caseEvidence.assertDocumentCanChangeParent).toHaveBeenCalledWith(expect.anything(),document.id,{ actorId: 'user-001' },'case-001',{ targetCreatedInTransaction: true });
     });
   });
 
@@ -1606,7 +1628,7 @@ describe('PetitionsService', () => {
       await service.delete('petition-001', 'user-001');
 
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'PETITION_DELETED' }),
+        expect.objectContaining({ action: 'PETITION_DELETED' }), expect.anything()
       );
     });
   });
@@ -2615,7 +2637,7 @@ describe('PetitionsService — phạm vi phân công đơn thư', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -2668,7 +2690,7 @@ describe('PetitionsService — phạm vi phân công đơn thư', () => {
 describe('PetitionsService.listAssignments — điều phối viên', () => {
   it('đơn ngoài phạm vi: điều phối viên XEM được danh sách phân công', async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -2708,7 +2730,7 @@ describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
 
   it('cấp mã qua bộ đếm CASE trong CÙNG giao dịch và gắn nhật ký số với vụ án mới, phát case.created', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -2733,12 +2755,13 @@ describe('PetitionsService.convertToCase — cấp mã vụ án', () => {
           .mockResolvedValue({ id: 'case-new', caseCode: '2026-11722' }),
       },
       petition: { update: jest.fn().mockResolvedValue({}) },
-      document: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      document: {findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
     };
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(tx));
 
-    await service.convertToCase(
+    setSourceFixtureScope(mockPrisma, null);
+await service.convertToCase(
       'petition-001',
       {
         caseName: 'VA',

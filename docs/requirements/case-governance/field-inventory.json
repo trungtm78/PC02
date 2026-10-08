@@ -1,0 +1,3094 @@
+{
+  "timestamp": "2026-10-06T05:27:06.042Z",
+  "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+  "uniqueKeys": 132,
+  "placements": 181,
+  "tabCount": 10,
+  "rows": [
+    {
+      "key": "baoCaoBanGiamDoc",
+      "labels": [
+        "Trường hợp báo cáo Ban Giám đốc"
+      ],
+      "placements": [
+        471
+      ],
+      "kind": "text",
+      "column": "baoCaoBanGiamDocText",
+      "storage": "Case.baoCaoBanGiamDocText",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "canCuKhongKhoiTo",
+      "labels": [
+        "Căn cứ để ra Quyết định Không khởi tố"
+      ],
+      "placements": [
+        277,
+        590
+      ],
+      "kind": "text",
+      "column": "canCuKhongKhoiTo",
+      "storage": "Case.canCuKhongKhoiTo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "canCuPhucHoiVuAn",
+      "labels": [
+        "Căn cứ ra quyết định Phục hồi điều tra vụ án"
+      ],
+      "placements": [
+        1102
+      ],
+      "kind": "text",
+      "column": "canCuPhucHoiVuAn",
+      "storage": "Case.canCuPhucHoiVuAn",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "canCuTamDinhChiNguonTin",
+      "labels": [
+        "Căn cứ Tạm đình chỉ nguồn tin"
+      ],
+      "placements": [
+        929
+      ],
+      "kind": "text",
+      "column": "canCuTamDinhChiNguonTin",
+      "storage": "Case.canCuTamDinhChiNguonTin",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "canCuTamDinhChiVuAn",
+      "labels": [
+        "Căn cứ tạm đình chỉ vụ án"
+      ],
+      "placements": [
+        1052
+      ],
+      "kind": "text",
+      "column": "canCuTamDinhChiVuAn",
+      "storage": "Case.canCuTamDinhChiVuAn",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "capDoToiPham",
+      "labels": [
+        "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)"
+      ],
+      "placements": [
+        636,
+        1182
+      ],
+      "kind": "select",
+      "column": "capDoToiPham",
+      "storage": "Case.capDoToiPham",
+      "type": "CapDoToiPham?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "cccdCungCap",
+      "labels": [
+        "Số căn cước công dân"
+      ],
+      "placements": [
+        367
+      ],
+      "kind": "text",
+      "column": "cccdCungCap",
+      "storage": "Case.cccdCungCap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "chuyenVuAnChoCQK",
+      "labels": [
+        "Đã chuyển vụ án cho CQĐT khác"
+      ],
+      "placements": [
+        780
+      ],
+      "kind": "text",
+      "column": "chuyenVuAnChoCQK",
+      "storage": "Case.chuyenVuAnChoCQK",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "chuyenVuViecDonViKhac",
+      "labels": [
+        "Chuyển vụ việc cho đơn vị khác"
+      ],
+      "placements": [
+        604
+      ],
+      "kind": "text",
+      "column": "chuyenVuViecDonViKhac",
+      "storage": "Case.chuyenVuViecDonViKhac",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "crimeChinhId",
+      "labels": [
+        "Tội danh chính - BLHS 2015 (nhận định ban đầu)"
+      ],
+      "placements": [
+        411,
+        548,
+        652,
+        885,
+        1002
+      ],
+      "kind": "crime",
+      "column": "crimeChinhId",
+      "storage": "Case.crimeChinhId",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "description",
+      "labels": [
+        "Tóm tắt nội dung"
+      ],
+      "placements": [
+        432,
+        556,
+        660,
+        813,
+        893,
+        1010,
+        1233
+      ],
+      "kind": "textarea",
+      "column": "moTaChiTiet",
+      "storage": "Case.moTaChiTiet",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "diaChiCungCap",
+      "labels": [
+        "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại"
+      ],
+      "placements": [
+        387
+      ],
+      "kind": "text",
+      "column": "diaChiCungCap",
+      "storage": "Case.diaChiCungCap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "dieuTraVienText",
+      "labels": [
+        "Điều tra viên thụ lý"
+      ],
+      "placements": [
+        231,
+        499,
+        835
+      ],
+      "kind": "text",
+      "column": "dieuTraVien",
+      "storage": "Case.dieuTraVien",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "doVatTaiLieuKemTheo",
+      "labels": [
+        "Đồ vật, tài liệu kèm theo"
+      ],
+      "placements": [
+        440
+      ],
+      "kind": "textarea",
+      "column": "doVatTaiLieuKemTheo",
+      "storage": "Case.doVatTaiLieuKemTheo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ghiChuKhac",
+      "labels": [
+        "Ghi chú khác"
+      ],
+      "placements": [
+        521,
+        982
+      ],
+      "kind": "textarea",
+      "column": "ghiChuKhac",
+      "storage": "Case.ghiChuKhac",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ghiChuNhapHoSo",
+      "labels": [
+        "Ghi chú nhập vào hồ sơ nào"
+      ],
+      "placements": [
+        707
+      ],
+      "kind": "textarea",
+      "column": "ghiChuNhapHoSo",
+      "storage": "Case.ghiChuNhapHoSo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ghiChuTrungDon",
+      "labels": [
+        "Ghi chú trùng đơn"
+      ],
+      "placements": [
+        464
+      ],
+      "kind": "text",
+      "column": "ghiChuTrungDon",
+      "storage": "Case.ghiChuTrungDon",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ketQuaXuLyKhac",
+      "labels": [
+        "Kết quả xử lý, giải quyết khác"
+      ],
+      "placements": [
+        513
+      ],
+      "kind": "textarea",
+      "column": "ketQuaXuLyKhac",
+      "storage": "Case.ketQuaXuLyKhac",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "khacPhucLyDoTDCVuViec",
+      "labels": [
+        "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ việc"
+      ],
+      "placements": [
+        949
+      ],
+      "kind": "textarea",
+      "column": "khacPhucLyDoTDCVuViec",
+      "storage": "Case.khacPhucLyDoTDCVuViec",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "laCongNgheCao",
+      "labels": [
+        "Bấm chọn nếu xác định đây là tội phạm công nghệ cao"
+      ],
+      "placements": [
+        493,
+        901,
+        1018
+      ],
+      "kind": "toggle",
+      "column": "laCongNgheCao",
+      "storage": "Case.laCongNgheCao",
+      "type": "Boolean",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "lanhDaoToTung",
+      "labels": [
+        "Lãnh đạo phụ trách tố tụng"
+      ],
+      "placements": [
+        238,
+        506
+      ],
+      "kind": "text",
+      "column": "lanhDaoToTung",
+      "storage": "Case.lanhDaoToTung",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "lenhNhapKho",
+      "labels": [
+        "Lệnh nhập, phiếu nhập kho"
+      ],
+      "placements": [
+        176,
+        1125
+      ],
+      "kind": "text",
+      "column": "lenhNhapKho",
+      "storage": "Case.lenhNhapKho",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "loaiThongTin",
+      "labels": [
+        "Loại thông tin"
+      ],
+      "placements": [
+        318
+      ],
+      "kind": "text",
+      "column": "loaiThongTin",
+      "storage": "Case.loaiThongTin",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "lyDoKhongKhoiTo",
+      "labels": [
+        "Lý do ra Quyết định không khởi tố vụ án"
+      ],
+      "placements": [
+        284,
+        597
+      ],
+      "kind": "multiselect",
+      "column": "lyDoKhongKhoiTo",
+      "storage": "Case.lyDoKhongKhoiTo",
+      "type": "String[]",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "lyDoTamDinhChiNguonTin",
+      "labels": [
+        "Lý do tạm đình chỉ"
+      ],
+      "placements": [
+        936
+      ],
+      "kind": "multiselect",
+      "column": "lyDoTamDinhChiNguonTin",
+      "storage": "Case.lyDoTamDinhChiNguonTin",
+      "type": "String[]",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "lyDoTamDinhChiVuAn",
+      "labels": [
+        "Lý do tạm đình chỉ vụ án"
+      ],
+      "placements": [
+        1059
+      ],
+      "kind": "multiselect",
+      "column": "lyDoTamDinhChiVuAn",
+      "storage": "Case.lyDoTamDinhChiVuAn",
+      "type": "LyDoTamDinhChiVuAn[]",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayBanAnCoHieuLuc",
+      "labels": [
+        "Ngày tháng năm bản án của toà án có hiệu lực"
+      ],
+      "placements": [
+        799
+      ],
+      "kind": "date",
+      "column": "ngayBanAnCoHieuLuc",
+      "storage": "Case.ngayBanAnCoHieuLuc",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayCapCccd",
+      "labels": [
+        "Ngày cấp CCCD"
+      ],
+      "placements": [
+        374
+      ],
+      "kind": "date",
+      "column": "ngayCapCccd",
+      "storage": "Case.ngayCapCccd",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayDeXuat",
+      "labels": [
+        "Ngày/Tháng/Năm đề xuất"
+      ],
+      "placements": [
+        297
+      ],
+      "kind": "date",
+      "column": "ngayDeXuat",
+      "storage": "Case.ngayDeXuat",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayDinhChiVuAn",
+      "labels": [
+        "Ngày Quyết định đình chỉ vụ án"
+      ],
+      "placements": [
+        774
+      ],
+      "kind": "date",
+      "column": "ngayDinhChiVuAn",
+      "storage": "Case.ngayDinhChiVuAn",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayGiaoDonViGiaiQuyet",
+      "labels": [
+        "Ngày giao đơn vị giải quyết"
+      ],
+      "placements": [
+        486
+      ],
+      "kind": "date",
+      "column": "ngayGiaoDonViGiaiQuyet",
+      "storage": "Case.ngayGiaoDonViGiaiQuyet",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayHetThoiHieu",
+      "labels": [
+        "Ngày hết thời hiệu truy cứu TNHS vụ án"
+      ],
+      "placements": [
+        1066
+      ],
+      "kind": "date",
+      "column": "ngayHetThoiHieu",
+      "storage": "Case.ngayHetThoiHieu",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayHetThoiHieuVuViec",
+      "labels": [
+        "Ngày tháng năm hết thời hiệu truy cứu TNHS"
+      ],
+      "placements": [
+        943
+      ],
+      "kind": "date",
+      "column": "ngayHetThoiHieuVuViec",
+      "storage": "Case.ngayHetThoiHieuVuViec",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayKhoiTo",
+      "labels": [
+        "Ngày ra Quyết định Khởi tố vụ án"
+      ],
+      "placements": [
+        688,
+        1032,
+        1309
+      ],
+      "kind": "date",
+      "column": "ngayKhoiTo",
+      "storage": "Case.ngayKhoiTo",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayKLDT",
+      "labels": [
+        "Ngày Kết luận điều tra vụ án"
+      ],
+      "placements": [
+        748,
+        828
+      ],
+      "kind": "date",
+      "column": "ngayKLDT",
+      "storage": "Case.ngayKLDT",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayNhapVuAn",
+      "labels": [
+        "Ngày tháng năm nhập vụ án"
+      ],
+      "placements": [
+        701
+      ],
+      "kind": "date",
+      "column": "ngayNhapVuAn",
+      "storage": "Case.ngayNhapVuAn",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayPhieuChuyen",
+      "labels": [
+        "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra"
+      ],
+      "placements": [
+        333
+      ],
+      "kind": "date",
+      "column": "ngayPhieuChuyen",
+      "storage": "Case.ngayPhieuChuyen",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayPhucHoi",
+      "labels": [
+        "Ngày Quyết định phục hồi điều tra vụ án"
+      ],
+      "placements": [
+        1096
+      ],
+      "kind": "date",
+      "column": "ngayPhucHoi",
+      "storage": "Case.ngayPhucHoi",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayPhucHoiNguonTin",
+      "labels": [
+        "Ngày Phục hồi nguồn tin tội phạm"
+      ],
+      "placements": [
+        973
+      ],
+      "kind": "date",
+      "column": "ngayPhucHoiNguonTin",
+      "storage": "Case.ngayPhucHoiNguonTin",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayQDDieuTraLai",
+      "labels": [
+        "Ngày Quyết định điều tra lại"
+      ],
+      "placements": [
+        761
+      ],
+      "kind": "date",
+      "column": "ngayQDDieuTraLai",
+      "storage": "Case.ngayQDDieuTraLai",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayQDKhongKhoiTo",
+      "labels": [
+        "Ngày ra Quyết định Không khởi tố"
+      ],
+      "placements": [
+        270,
+        584
+      ],
+      "kind": "date",
+      "column": "ngayQDKhongKhoiTo",
+      "storage": "Case.ngayQDKhongKhoiTo",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayQDPhanCongNguonTin",
+      "labels": [
+        "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm"
+      ],
+      "placements": [
+        256,
+        571
+      ],
+      "kind": "date",
+      "column": "ngayQDPhanCongNguonTin",
+      "storage": "Case.ngayQDPhanCongNguonTin",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayQDTamDinhChiNguonTin",
+      "labels": [
+        "Ngày ra Quyết định Tạm đình chỉ nguồn tin"
+      ],
+      "placements": [
+        923,
+        1295
+      ],
+      "kind": "date",
+      "column": "ngayQDTamDinhChiNguonTin",
+      "storage": "Case.ngayQDTamDinhChiNguonTin",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayTachHanhVi",
+      "labels": [
+        "Ngày Quyết định tách hành vi"
+      ],
+      "placements": [
+        735
+      ],
+      "kind": "date",
+      "column": "ngayTachHanhVi",
+      "storage": "Case.ngayTachHanhVi",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayTachVuAn",
+      "labels": [
+        "Ngày Quyết định tách hồ sơ"
+      ],
+      "placements": [
+        722
+      ],
+      "kind": "date",
+      "column": "ngayTachVuAn",
+      "storage": "Case.ngayTachVuAn",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayTamDinhChi",
+      "labels": [
+        "Ngày Quyết định tạm đình chỉ vụ án"
+      ],
+      "placements": [
+        1046
+      ],
+      "kind": "date",
+      "column": "ngayTamDinhChi",
+      "storage": "Case.ngayTamDinhChi",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayTiepNhanNguonTin",
+      "labels": [
+        "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)"
+      ],
+      "placements": [
+        339,
+        534,
+        857
+      ],
+      "kind": "date",
+      "column": "ngayTiepNhan",
+      "storage": "Case.ngayTiepNhan",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayVietDon",
+      "labels": [
+        "Ngày viết đơn"
+      ],
+      "placements": [
+        449
+      ],
+      "kind": "date",
+      "column": "ngayVietDon",
+      "storage": "Case.ngayVietDon",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "ngayXayRa",
+      "labels": [
+        "Ngày tội phạm xảy ra"
+      ],
+      "placements": [
+        1255
+      ],
+      "kind": "date",
+      "column": "ngayXayRa",
+      "storage": "Case.ngayXayRa",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "nghiVanDoiTuong",
+      "labels": [
+        "Nghi vấn đối tượng hoặc bị can"
+      ],
+      "placements": [
+        395,
+        871
+      ],
+      "kind": "text",
+      "column": "nghiVanDoiTuong",
+      "storage": "Case.nghiVanDoiTuong",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "nguonDon",
+      "labels": [
+        "Nguồn đơn/Đơn vị giao"
+      ],
+      "placements": [
+        311
+      ],
+      "kind": "text",
+      "column": "nguonDon",
+      "storage": "Case.nguonDon",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "nhanXet",
+      "labels": [
+        "Nhận xét"
+      ],
+      "placements": [
+        455
+      ],
+      "kind": "textarea",
+      "column": "nhanXet",
+      "storage": "Case.nhanXet",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "nhapVaoVuViecSo",
+      "labels": [
+        "Nhập vào vụ việc hồ sơ khác"
+      ],
+      "placements": [
+        612
+      ],
+      "kind": "text",
+      "column": "nhapVaoVuViecSo",
+      "storage": "Case.nhapVaoVuViecSo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "noiCapCccd",
+      "labels": [
+        "Nơi cấp CCCD"
+      ],
+      "placements": [
+        380
+      ],
+      "kind": "text",
+      "column": "noiCapCccd",
+      "storage": "Case.noiCapCccd",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "noiLuuTruBaoQuan",
+      "labels": [
+        "Nơi lưu trữ, bảo quản, kê biên, phong tỏa"
+      ],
+      "placements": [
+        183,
+        1132
+      ],
+      "kind": "text",
+      "column": "noiLuuTruBaoQuan",
+      "storage": "Case.noiLuuTruBaoQuan",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "noiXayRa",
+      "labels": [
+        "Nơi xảy ra tội phạm"
+      ],
+      "placements": [
+        419
+      ],
+      "kind": "text",
+      "column": "noiXayRa",
+      "storage": "Case.noiXayRa",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "noiXayRaPhuongXa",
+      "labels": [
+        "Nơi xảy ra (cấp phường/xã)"
+      ],
+      "placements": [
+        1280
+      ],
+      "kind": "text",
+      "column": "noiXayRaPhuongXa",
+      "storage": "Case.noiXayRaPhuongXa",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "phanLoaiDanSu",
+      "labels": [
+        "Phân loại dân sự"
+      ],
+      "placements": [
+        619
+      ],
+      "kind": "text",
+      "column": "phanLoaiDanSu",
+      "storage": "Case.phanLoaiDanSu",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "phanLoaiNguonTinBanDau",
+      "labels": [
+        "Phân loại ban đầu"
+      ],
+      "placements": [
+        303
+      ],
+      "kind": "select",
+      "column": "phanLoaiNguonTinBanDau",
+      "storage": "Case.phanLoaiNguonTinBanDau",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "phuongThucThuDoan",
+      "labels": [
+        "Phương thức thủ đoạn"
+      ],
+      "placements": [
+        1273
+      ],
+      "kind": "text",
+      "column": "phuongThucThuDoan",
+      "storage": "Case.phuongThucThuDoan",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "sdtCungCap",
+      "labels": [
+        "Số điện thoại nguyên đơn"
+      ],
+      "placements": [
+        352
+      ],
+      "kind": "text",
+      "column": "sdtCungCap",
+      "storage": "Case.sdtCungCap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "sinhNamCungCap",
+      "labels": [
+        "Sinh năm"
+      ],
+      "placements": [
+        360
+      ],
+      "kind": "text",
+      "column": "sinhNamCungCap",
+      "storage": "Case.sinhNamCungCap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soBanAnCoHieuLuc",
+      "labels": [
+        "Số bản án của toà án có hiệu lực"
+      ],
+      "placements": [
+        792
+      ],
+      "kind": "text",
+      "column": "soBanAnCoHieuLuc",
+      "storage": "Case.soBanAnCoHieuLuc",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soKLDT",
+      "labels": [
+        "Số KLĐT đề nghị truy tố"
+      ],
+      "placements": [
+        741,
+        821
+      ],
+      "kind": "text",
+      "column": "soKLDT",
+      "storage": "Case.soKLDT",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soPhieuChuyen",
+      "labels": [
+        "Số phiếu chuyển/ Công văn/ Ủy thác điều tra"
+      ],
+      "placements": [
+        326
+      ],
+      "kind": "text",
+      "column": "soPhieuChuyen",
+      "storage": "Case.soPhieuChuyen",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soPhucHoiNguonTin",
+      "labels": [
+        "Số Phục hồi nguồn tin tội phạm"
+      ],
+      "placements": [
+        966
+      ],
+      "kind": "text",
+      "column": "soPhucHoiNguonTin",
+      "storage": "Case.soPhucHoiNguonTin",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDDieuTraLai",
+      "labels": [
+        "Số Quyết định điều tra lại"
+      ],
+      "placements": [
+        754
+      ],
+      "kind": "text",
+      "column": "soQDDieuTraLai",
+      "storage": "Case.soQDDieuTraLai",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDDinhChiVuAn",
+      "labels": [
+        "Số Quyết định đình chỉ vụ án"
+      ],
+      "placements": [
+        767
+      ],
+      "kind": "text",
+      "column": "soQDDinhChiVuAn",
+      "storage": "Case.soQDDinhChiVuAn",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDKhongKhoiTo",
+      "labels": [
+        "Quyết định Không khởi tố"
+      ],
+      "placements": [
+        263,
+        577
+      ],
+      "kind": "text",
+      "column": "soQDKhongKhoiTo",
+      "storage": "Case.soQDKhongKhoiTo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDNhapVuAn",
+      "labels": [
+        "Số Quyết định nhập vụ án"
+      ],
+      "placements": [
+        694
+      ],
+      "kind": "text",
+      "column": "soQDNhapVuAn",
+      "storage": "Case.soQDNhapVuAn",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDPhanCongNguonTin",
+      "labels": [
+        "Quyết định phân công giải quyết nguồn tin tội phạm"
+      ],
+      "placements": [
+        249,
+        564
+      ],
+      "kind": "text",
+      "column": "soQDPhanCongNguonTin",
+      "storage": "Case.soQDPhanCongNguonTin",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDTachHanhVi",
+      "labels": [
+        "Số Quyết định tách hành vi"
+      ],
+      "placements": [
+        728
+      ],
+      "kind": "text",
+      "column": "soQDTachHanhVi",
+      "storage": "Case.soQDTachHanhVi",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDTachVuAn",
+      "labels": [
+        "Số Quyết định tách vụ án"
+      ],
+      "placements": [
+        715
+      ],
+      "kind": "text",
+      "column": "soQDTachVuAn",
+      "storage": "Case.soQDTachVuAn",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQDTamDinhChiNguonTin",
+      "labels": [
+        "Quyết định Tạm đình chỉ nguồn tin"
+      ],
+      "placements": [
+        916,
+        1288
+      ],
+      "kind": "text",
+      "column": "soQDTamDinhChiNguonTin",
+      "storage": "Case.soQDTamDinhChiNguonTin",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQuyetDinhKhoiTo",
+      "labels": [
+        "Số Quyết định Khởi tố vụ án"
+      ],
+      "placements": [
+        681,
+        1025,
+        1302
+      ],
+      "kind": "text",
+      "column": "soQuyetDinhKhoiTo",
+      "storage": "Case.soQuyetDinhKhoiTo",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQuyetDinhPhucHoi",
+      "labels": [
+        "Số Quyết định Phục hồi Vụ án"
+      ],
+      "placements": [
+        1089
+      ],
+      "kind": "text",
+      "column": "soQuyetDinhPhucHoi",
+      "storage": "Case.soQuyetDinhPhucHoi",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "soQuyetDinhTamDinhChi",
+      "labels": [
+        "Số Quyết định Tạm đình chỉ vụ án"
+      ],
+      "placements": [
+        1039
+      ],
+      "kind": "text",
+      "column": "soQuyetDinhTamDinhChi",
+      "storage": "Case.soQuyetDinhTamDinhChi",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.coBangNhom",
+      "labels": [
+        "Xác nhận có băng nhóm"
+      ],
+      "placements": [
+        1365
+      ],
+      "kind": "toggle",
+      "column": "statistic.coBangNhom",
+      "storage": "CaseStatistic.coBangNhom",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.coGhiAmGhiHinh",
+      "labels": [
+        "Bấm xác nhận nếu là nguồn tin có sử dụng Ghi âm, Ghi hình"
+      ],
+      "placements": [
+        1424
+      ],
+      "kind": "toggle",
+      "column": "statistic.coGhiAmGhiHinh",
+      "storage": "CaseStatistic.coGhiAmGhiHinh",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.coSuDungKQGhiAmTrongXetXu",
+      "labels": [
+        "Xác nhận trong đó: Vụ án có sử dụng kết quả Ghi âm ghi hình trong xét xử"
+      ],
+      "placements": [
+        1491
+      ],
+      "kind": "toggle",
+      "column": "statistic.coSuDungKQGhiAmTrongXetXu",
+      "storage": "CaseStatistic.coSuDungKQGhiAmTrongXetXu",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.coVPHC",
+      "labels": [
+        "Xác nhận vụ việc có vi phạm hành chính"
+      ],
+      "placements": [
+        1389
+      ],
+      "kind": "toggle",
+      "column": "statistic.coVPHC",
+      "storage": "CaseStatistic.coVPHC",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.dieuTraMoRong",
+      "labels": [
+        "Điều tra mở rộng"
+      ],
+      "placements": [
+        1334
+      ],
+      "kind": "number",
+      "column": "statistic.dieuTraMoRong",
+      "storage": "CaseStatistic.dieuTraMoRong",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.donViBaoQuanHoSo",
+      "labels": [
+        "Đơn vị lưu giữ, bảo quản hồ sơ"
+      ],
+      "placements": [
+        221,
+        1170
+      ],
+      "kind": "text",
+      "column": "statistic.donViBaoQuanHoSo",
+      "storage": "CaseStatistic.donViBaoQuanHoSo",
+      "type": "text",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ghiAmGhiHinhDaDuocXetXu",
+      "labels": [
+        "Xác nhận Trong đó: Số vụ án tiến hành Ghi âm, Ghi hình đã được xét xử"
+      ],
+      "placements": [
+        1484
+      ],
+      "kind": "toggle",
+      "column": "statistic.ghiAmGhiHinhDaDuocXetXu",
+      "storage": "CaseStatistic.ghiAmGhiHinhDaDuocXetXu",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.hoSoLuu",
+      "labels": [
+        "Số hồ sơ lưu"
+      ],
+      "placements": [
+        207,
+        1157
+      ],
+      "kind": "text",
+      "column": "statistic.hoSoLuu",
+      "storage": "CaseStatistic.hoSoLuu",
+      "type": "text",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.khongGAGHNhungToaYeuCau",
+      "labels": [
+        "Xác nhận trong đó: Vụ án không ghi âm ghi hình nhưng Tòa án yêu cầu cung cấp ghi âm ghi hình"
+      ],
+      "placements": [
+        1498
+      ],
+      "kind": "toggle",
+      "column": "statistic.khongGAGHNhungToaYeuCau",
+      "storage": "CaseStatistic.khongGAGHNhungToaYeuCau",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.laVuAnGhiAmGhiHinh",
+      "labels": [
+        "Xác nhận nếu là Vụ án có sử dụng Ghi âm, Ghi hình"
+      ],
+      "placements": [
+        1442
+      ],
+      "kind": "toggle",
+      "column": "statistic.laVuAnGhiAmGhiHinh",
+      "storage": "CaseStatistic.laVuAnGhiAmGhiHinh",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayBatKhanCap",
+      "labels": [
+        "Ngày Người phạm tội bị giữ trong các trường hợp khẩn cấp"
+      ],
+      "placements": [
+        1221
+      ],
+      "kind": "date",
+      "column": "statistic.ngayBatKhanCap",
+      "storage": "CaseStatistic.ngayBatKhanCap",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayDangKyHoSo",
+      "labels": [
+        "Ngày đăng ký hồ sơ nghiệp vụ"
+      ],
+      "placements": [
+        200,
+        1151
+      ],
+      "kind": "date",
+      "column": "statistic.ngayDangKyHoSo",
+      "storage": "CaseStatistic.ngayDangKyHoSo",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayDauThu",
+      "labels": [
+        "Ngày người phạm tội đầu thú, tự thú"
+      ],
+      "placements": [
+        1209
+      ],
+      "kind": "date",
+      "column": "statistic.ngayDauThu",
+      "storage": "CaseStatistic.ngayDauThu",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayNopLuuHoSo",
+      "labels": [
+        "Ngày nộp lưu hồ sơ"
+      ],
+      "placements": [
+        214,
+        1164
+      ],
+      "kind": "date",
+      "column": "statistic.ngayNopLuuHoSo",
+      "storage": "CaseStatistic.ngayNopLuuHoSo",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayPhamToiQuaTang",
+      "labels": [
+        "Ngày người phạm tội bị bắt quả tang"
+      ],
+      "placements": [
+        1215
+      ],
+      "kind": "date",
+      "column": "statistic.ngayPhamToiQuaTang",
+      "storage": "CaseStatistic.ngayPhamToiQuaTang",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayPhanCongGiaiQuyetToGiac",
+      "labels": [
+        "Ngày Thời điểm phân công giải quyết tố giác, tin báo"
+      ],
+      "placements": [
+        1197
+      ],
+      "kind": "date",
+      "column": "statistic.ngayPhanCongGiaiQuyetToGiac",
+      "storage": "CaseStatistic.ngayPhanCongGiaiQuyetToGiac",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayPhatHienDauHieu",
+      "labels": [
+        "Ngày CQCSĐT trực tiếp phát hiện có dấu hiệu tội phạm"
+      ],
+      "placements": [
+        1227
+      ],
+      "kind": "date",
+      "column": "statistic.ngayPhatHienDauHieu",
+      "storage": "CaseStatistic.ngayPhatHienDauHieu",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayThongKe",
+      "labels": [
+        "Ngày tổng hợp thống kê"
+      ],
+      "placements": [
+        1191
+      ],
+      "kind": "date",
+      "column": "statistic.ngayThongKe",
+      "storage": "CaseStatistic.ngayThongKe",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.ngayTiepNhanTin",
+      "labels": [
+        "Ngày tiếp nhận tin khi đơn vị nhận được"
+      ],
+      "placements": [
+        1203
+      ],
+      "kind": "date",
+      "column": "statistic.ngayTiepNhanTin",
+      "storage": "CaseStatistic.ngayTiepNhanTin",
+      "type": "date",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soBangNhomBatDuoc",
+      "labels": [
+        "Bắt được bao nhiêu băng nhóm"
+      ],
+      "placements": [
+        1371
+      ],
+      "kind": "number",
+      "column": "statistic.soBangNhomBatDuoc",
+      "storage": "CaseStatistic.soBangNhomBatDuoc",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soBiCanCoGhiAm",
+      "labels": [
+        "Số lượng bị can có ghi âm ghi hình"
+      ],
+      "placements": [
+        1460
+      ],
+      "kind": "number",
+      "column": "statistic.soBiCanCoGhiAm",
+      "storage": "CaseStatistic.soBiCanCoGhiAm",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soBiCanVksYeuCauGhiAm",
+      "labels": [
+        "Số lượng bị can VKS yêu cầu ghi âm ghi hình"
+      ],
+      "placements": [
+        1472
+      ],
+      "kind": "number",
+      "column": "statistic.soBiCanVksYeuCauGhiAm",
+      "storage": "CaseStatistic.soBiCanVksYeuCauGhiAm",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "labels": [
+        "Số lượng biên bản ghi lời khai có ghi âm ghi hình"
+      ],
+      "placements": [
+        1436
+      ],
+      "kind": "number",
+      "column": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "storage": "CaseStatistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDangKyHoSo",
+      "labels": [
+        "Số đăng ký hồ sơ nghiệp vụ"
+      ],
+      "placements": [
+        193,
+        1144
+      ],
+      "kind": "text",
+      "column": "statistic.soDangKyHoSo",
+      "storage": "CaseStatistic.soDangKyHoSo",
+      "type": "text",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDoiTuong",
+      "labels": [
+        "Số đối tượng phạm tội"
+      ],
+      "placements": [
+        1316
+      ],
+      "kind": "number",
+      "column": "statistic.soDoiTuong",
+      "storage": "CaseStatistic.soDoiTuong",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDoiTuongBiBatVuAnKhac",
+      "labels": [
+        "Số đối tượng bị bắt trong vụ án khác"
+      ],
+      "placements": [
+        1328
+      ],
+      "kind": "number",
+      "column": "statistic.soDoiTuongBiBatVuAnKhac",
+      "storage": "CaseStatistic.soDoiTuongBiBatVuAnKhac",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDoiTuongDaBat",
+      "labels": [
+        "Số đối tượng bắt được"
+      ],
+      "placements": [
+        1322
+      ],
+      "kind": "number",
+      "column": "statistic.soDoiTuongDaBat",
+      "storage": "CaseStatistic.soDoiTuongDaBat",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDoiTuongSuuTraHiemNghi",
+      "labels": [
+        "Số đối tượng sưu tra/hiềm nghi"
+      ],
+      "placements": [
+        1413
+      ],
+      "kind": "number",
+      "column": "statistic.soDoiTuongSuuTraHiemNghi",
+      "storage": "CaseStatistic.soDoiTuongSuuTraHiemNghi",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soDoiTuongVPHC",
+      "labels": [
+        "Số đối tượng vi phạm hành chính"
+      ],
+      "placements": [
+        1395
+      ],
+      "kind": "number",
+      "column": "statistic.soDoiTuongVPHC",
+      "storage": "CaseStatistic.soDoiTuongVPHC",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soLuongBiHai",
+      "labels": [
+        "Số lượng người bị hại"
+      ],
+      "placements": [
+        1347
+      ],
+      "kind": "number",
+      "column": "statistic.soLuongBiHai",
+      "storage": "CaseStatistic.soLuongBiHai",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soLuongNguoiChet",
+      "labels": [
+        "Số người chết"
+      ],
+      "placements": [
+        1353
+      ],
+      "kind": "number",
+      "column": "statistic.soLuongNguoiChet",
+      "storage": "CaseStatistic.soLuongNguoiChet",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soNguoiBiPhatTien",
+      "labels": [
+        "Số người bị phạt tiền"
+      ],
+      "placements": [
+        1401
+      ],
+      "kind": "number",
+      "column": "statistic.soNguoiBiPhatTien",
+      "storage": "CaseStatistic.soNguoiBiPhatTien",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soNguoiBiThuong",
+      "labels": [
+        "Số người bị thương"
+      ],
+      "placements": [
+        1359
+      ],
+      "kind": "number",
+      "column": "statistic.soNguoiBiThuong",
+      "storage": "CaseStatistic.soNguoiBiThuong",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soSungThuHoi",
+      "labels": [
+        "Số lượng súng thu hồi"
+      ],
+      "placements": [
+        1377
+      ],
+      "kind": "number",
+      "column": "statistic.soSungThuHoi",
+      "storage": "CaseStatistic.soSungThuHoi",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soThuocNoThuHoi",
+      "labels": [
+        "Số lượng thuốc nổ thu hồi"
+      ],
+      "placements": [
+        1383
+      ],
+      "kind": "number",
+      "column": "statistic.soThuocNoThuHoi",
+      "storage": "CaseStatistic.soThuocNoThuHoi",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soTienBiThietHai",
+      "labels": [
+        "Số tiền bị thiệt hại (triệu Việt nam Đồng)"
+      ],
+      "placements": [
+        1261
+      ],
+      "kind": "number",
+      "column": "statistic.soTienBiThietHai",
+      "storage": "CaseStatistic.soTienBiThietHai",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.soTienThuHoi",
+      "labels": [
+        "Số tiền thu hồi được (triệu Việt Nam Đồng)"
+      ],
+      "placements": [
+        1267
+      ],
+      "kind": "number",
+      "column": "statistic.soTienThuHoi",
+      "storage": "CaseStatistic.soTienThuHoi",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.suDungVuKhiNong",
+      "labels": [
+        "Sử dụng vũ khí nóng"
+      ],
+      "placements": [
+        1341
+      ],
+      "kind": "text",
+      "column": "statistic.suDungVuKhiNong",
+      "storage": "CaseStatistic.suDungVuKhiNong",
+      "type": "text",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.tongSoBienBanGhiLoiKhai",
+      "labels": [
+        "Tổng số biên bản ghi lời khai"
+      ],
+      "placements": [
+        1430
+      ],
+      "kind": "number",
+      "column": "statistic.tongSoBienBanGhiLoiKhai",
+      "storage": "CaseStatistic.tongSoBienBanGhiLoiKhai",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCung",
+      "labels": [
+        "Tổng số biên bản hỏi cung bị can"
+      ],
+      "placements": [
+        1448
+      ],
+      "kind": "number",
+      "column": "statistic.tongSoBienBanHoiCung",
+      "storage": "CaseStatistic.tongSoBienBanHoiCung",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCungCoGhiAm",
+      "labels": [
+        "Tổng số biên bản hỏi cung có ghi âm ghi hình"
+      ],
+      "placements": [
+        1454
+      ],
+      "kind": "number",
+      "column": "statistic.tongSoBienBanHoiCungCoGhiAm",
+      "storage": "CaseStatistic.tongSoBienBanHoiCungCoGhiAm",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.tongTienPhatHanhChinh",
+      "labels": [
+        "Tổng số tiền phạt hành chính (triệu Việt Nam Đồng)"
+      ],
+      "placements": [
+        1407
+      ],
+      "kind": "number",
+      "column": "statistic.tongTienPhatHanhChinh",
+      "storage": "CaseStatistic.tongTienPhatHanhChinh",
+      "type": "number",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.vksYeuCauGhiAm",
+      "labels": [
+        "Bấm xác nhận nếu VKS yêu cầu ghi âm ghi hình"
+      ],
+      "placements": [
+        1466
+      ],
+      "kind": "toggle",
+      "column": "statistic.vksYeuCauGhiAm",
+      "storage": "CaseStatistic.vksYeuCauGhiAm",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "statistic.vuAnDaDuocXetXu",
+      "labels": [
+        "Xác nhận vụ án đã được xét xử"
+      ],
+      "placements": [
+        1478
+      ],
+      "kind": "toggle",
+      "column": "statistic.vuAnDaDuocXetXu",
+      "storage": "CaseStatistic.vuAnDaDuocXetXu",
+      "type": "toggle",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "supervisingUnit",
+      "labels": [
+        "Đơn vị giải quyết"
+      ],
+      "placements": [
+        478
+      ],
+      "kind": "fk",
+      "column": "donViGiaiQuyet",
+      "storage": "Case.donViGiaiQuyet",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "tdcKhacPhucBienBan",
+      "labels": [
+        "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ án"
+      ],
+      "placements": [
+        1072
+      ],
+      "kind": "textarea",
+      "column": "tdcKhacPhucBienBan",
+      "storage": "Case.tdcKhacPhucBienBan",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "tdcKhacPhucLyDoBienPhap",
+      "labels": [
+        "Biện pháp, tiến độ khắc phục lý do TĐC vụ án"
+      ],
+      "placements": [
+        1081
+      ],
+      "kind": "textarea",
+      "column": "tdcKhacPhucLyDoBienPhap",
+      "storage": "Case.tdcKhacPhucLyDoBienPhap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "tenCungCap",
+      "labels": [
+        "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại"
+      ],
+      "placements": [
+        345,
+        541,
+        645,
+        864
+      ],
+      "kind": "text",
+      "column": "tenCungCap",
+      "storage": "Case.tenCungCap",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "tienDoKhacPhucTDCVuViec",
+      "labels": [
+        "Tiến độ khắc phục TĐC vụ việc"
+      ],
+      "placements": [
+        958
+      ],
+      "kind": "textarea",
+      "column": "tienDoKhacPhucTDCVuViec",
+      "storage": "Case.tienDoKhacPhucTDCVuViec",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "toiDanhBanDau",
+      "labels": [
+        "Tội danh cũ trước đây"
+      ],
+      "placements": [
+        403,
+        878,
+        995
+      ],
+      "kind": "text",
+      "column": "toiDanhBanDau",
+      "storage": "Case.toiDanhBanDau",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "toiDanhChinhKhoiToId",
+      "labels": [
+        "Tội danh chính khi khởi tố"
+      ],
+      "placements": [
+        668,
+        1241
+      ],
+      "kind": "crime",
+      "column": "toiDanhChinhKhoiToId",
+      "storage": "Case.toiDanhChinhKhoiToId",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "toiDanhKhacIds",
+      "labels": [
+        "Tội danh phụ khi khởi tố"
+      ],
+      "placements": [
+        675,
+        1248
+      ],
+      "kind": "multiselect",
+      "column": "toiDanhKhacIds",
+      "storage": "Case.toiDanhKhacIds",
+      "type": "String[]",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "utdt_thoiHanUyThac",
+      "labels": [
+        "Thời hạn thực hiện Uỷ thác điều tra"
+      ],
+      "placements": [
+        426
+      ],
+      "kind": "date",
+      "column": "thoiHanUyThac",
+      "storage": "Case.thoiHanUyThac",
+      "type": "DateTime?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "vatChungMoTa",
+      "labels": [
+        "Loại, đặc điểm đồ vật, tài liệu, vật chứng"
+      ],
+      "placements": [
+        168,
+        1117
+      ],
+      "kind": "textarea",
+      "column": "vatChungMoTa",
+      "storage": "Case.vatChungMoTa",
+      "type": "String?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    },
+    {
+      "key": "vuViecTamDungTruoc2015",
+      "labels": [
+        "Xác định vụ việc này là vụ việc tạm dừng giải quyết (trước năm 2015)"
+      ],
+      "placements": [
+        909
+      ],
+      "kind": "toggle",
+      "column": "vuViecTamDungTruoc2015",
+      "storage": "Case.vuViecTamDungTruoc2015",
+      "type": "Boolean?",
+      "canonicalClear": "explicit clear wins; metadata legacy fallback only when canonical is unmapped/unverified and not explicitly cleared",
+      "source": "frontend/src/features/cases/legacy-form-layout.def.ts",
+      "requirement": "CG01",
+      "uat": [
+        "create/read",
+        "edit/read",
+        "explicit-clear/read",
+        "clone",
+        "relevant search/export/detail consistency"
+      ]
+    }
+  ]
+}

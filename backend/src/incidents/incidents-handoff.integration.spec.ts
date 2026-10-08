@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { randomUUID } from 'node:crypto';
 import {
   IncidentStatus,
@@ -261,7 +265,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
       {} as never,
       {} as never,
       {} as never,
-      new EventEmitter2(),
+      new EventEmitter2(), ordinarySourceFixture(db), ordinaryChildFixture(db) as never
     );
     await expect(
       incidents.updateStatus(
@@ -310,7 +314,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
       {} as never,
       {} as never,
       {} as never,
-      new EventEmitter2(),
+      new EventEmitter2(), ordinarySourceFixture(db), ordinaryChildFixture(db) as never
     );
     await expect(
       incidents.update(
@@ -343,7 +347,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
         {} as never,
         {} as never,
         {} as never,
-        new EventEmitter2(),
+        new EventEmitter2(), ordinarySourceFixture(db), ordinaryChildFixture(db) as never
       );
       // The service awaits this delegate. This test adapter models the awaited
       // result instead of Prisma's fluent relation-client methods.
@@ -528,7 +532,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
       {} as never,
       {} as never,
       {} as never,
-      new EventEmitter2(),
+      new EventEmitter2(), ordinarySourceFixture(db), ordinaryChildFixture(db) as never
     );
     const spy = jest
       .spyOn(audit, 'log')
@@ -643,7 +647,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
           return checked;
         }) as never);
       try {
-        const bulk = new IncidentsBulkService(db, audit);
+        const bulk = new IncidentsBulkService(db, audit, ordinaryChildFixture(db) as never);
         const input = {
           ids: [ready.id],
           actorId: sender,
@@ -715,7 +719,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
       return checked;
     }) as never);
     try {
-      const result = await new IncidentsBulkService(db, audit).bulkDelete({
+      const result = await new IncidentsBulkService(db, audit, ordinaryChildFixture(db) as never).bulkDelete({
         ids: [ready.id],
         actorId: sender,
         dataScope: sendScope,
@@ -761,7 +765,7 @@ suite('DB integration: giao/nhận/rollback/concurrency trên UAT cô lập', ()
       } as never,
       {} as never,
       {} as never,
-      new EventEmitter2(),
+      new EventEmitter2(), ordinarySourceFixture(db), ordinaryChildFixture(db) as never
     );
     await incidents.updateStatus(
       source.id,

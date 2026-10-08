@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ConvertPetitionModal } from '../ConvertPetitionModal';
+vi.mock('@/lib/api', () => ({ api: { get: vi.fn().mockResolvedValue({ data: { data: null } }) } }));
 
 // ─── Nhóm II: ConvertPetitionModal (direct component tests) ──────────────────
 
@@ -90,6 +91,7 @@ describe('ConvertPetitionModal', () => {
     fireEvent.change(screen.getByTestId('convert-case-name'), { target: { value: 'Vụ án cướp tài sản' } });
     fireEvent.change(screen.getByTestId('convert-case-crime'), { target: { value: 'Cướp tài sản' } });
     fireEvent.change(screen.getByTestId('convert-case-jurisdiction'), { target: { value: 'PC02 - TP.HCM' } });
+    await waitFor(() => expect(screen.getByTestId('convert-submit')).toBeEnabled());
     fireEvent.click(screen.getByTestId('convert-submit'));
     await waitFor(() => {
       expect(defaultProps.onSubmitCase).toHaveBeenCalledWith(

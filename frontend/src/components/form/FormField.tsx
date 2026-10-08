@@ -1,3 +1,4 @@
+import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useId, type ReactNode } from "react";
 import {
   LABEL_BASE,
@@ -126,7 +127,7 @@ export function FormInput({
   );
 
   return (
-    <div className={getColSpanClass(colSpan)}>
+    <CasePolicyField label={label} testId={dataTestId}><div className={getColSpanClass(colSpan)}>
       <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
@@ -137,7 +138,7 @@ export function FormInput({
         input
       )}
       <FieldError error={error} id={errorId} />
-    </div>
+    </div></CasePolicyField>
   );
 }
 
@@ -191,7 +192,7 @@ export function FormSelect({
   );
 
   return (
-    <div className={getColSpanClass(colSpan)}>
+    <CasePolicyField label={label} testId={dataTestId}><div className={getColSpanClass(colSpan)}>
       <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
@@ -202,7 +203,7 @@ export function FormSelect({
         select
       )}
       <FieldError error={error} id={errorId} />
-    </div>
+    </div></CasePolicyField>
   );
 }
 
@@ -233,7 +234,7 @@ export function FormTextarea({
   } as const;
 
   return (
-    <div className={getColSpanClass(colSpan)}>
+    <CasePolicyField label={label} testId={dataTestId}><div className={getColSpanClass(colSpan)}>
       <FieldLabel label={label} required={required} htmlFor={id} />
       {hasIcon ? (
         <div className={ICON_INPUT_WRAPPER}>
@@ -262,6 +263,6 @@ export function FormTextarea({
         />
       )}
       <FieldError error={error} id={errorId} />
-    </div>
+    </div></CasePolicyField>
   );
 }

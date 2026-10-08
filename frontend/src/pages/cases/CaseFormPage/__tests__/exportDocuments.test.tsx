@@ -27,6 +27,7 @@ vi.mock('../tabs', () => {
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
+      if (url.endsWith('/field-schema')) return Promise.resolve({ data: { data: null } });
       if (url.startsWith('/cases/')) {
         return Promise.resolve({ data: { data: { name: 'Vụ án test', caseProvenance: 'DIRECT_DISCOVERY', updatedAt: '2026-06-27T00:00:00Z', metadata: {} } } });
       }

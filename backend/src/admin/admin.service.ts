@@ -32,6 +32,12 @@ import {
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_NGUOI_DUNG } from '../common/tim-kiem/khai/nguoi-dung.khai';
+import {
+  guardCaseAuthority,
+  authorityTransaction,
+  businessCapabilities,
+  businessCredentialInvalidation,
+} from './case-authority.guard';
 
 /** `search` cũ → thẻ "tất cả các cột" (mã cán bộ, họ tên, email). */
 const THAM_SO_CU_NGUOI_DUNG = { search: KHOA_TAT_CA } as const;
@@ -195,7 +201,19 @@ export class AdminService {
     requesterId: string,
     tx: Prisma.TransactionClient,
     meta: { ipAddress?: string; userAgent?: string } = {},
-  ): Promise<{ id: string; username: string; email: string | null; firstName: string | null; lastName: string | null; workId: string | null; phone: string | null; isActive: boolean; role: { id: string; name: string }; createdAt: Date }> {
+  ): Promise<{
+    id: string;
+    username: string;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    workId: string | null;
+    phone: string | null;
+    isActive: boolean;
+    role: { id: string; name: string };
+    createdAt: Date;
+  }> {
+    await guardCaseAuthority(tx, requesterId, { nextRoleId: dto.roleId });
     // Defensive: workId bắt buộc (DTO validator đã enforce, đây là safety net).
     if (!dto.workId) {
       throw new BadRequestException('Mã cán bộ (workId) là bắt buộc.');
@@ -221,7 +239,9 @@ export class AdminService {
       );
     }
 
-    const dupWorkId = await tx.user.findFirst({ where: { workId: dto.workId } });
+    const dupWorkId = await tx.user.findFirst({
+      where: { workId: dto.workId },
+    });
     if (dupWorkId) {
       throw new ConflictException(`Số hiệu ngành "${dto.workId}" đã tồn tại`);
     }
@@ -293,7 +313,7 @@ export class AdminService {
   ) {
     // Magic link enrollment (v0.24.0.0, NIST SP 800-63B compliant).
     // createUserCore extract pattern (autoplan Eng E4) — enrollment outside tx.
-    const user = await this.prisma.$transaction((tx) =>
+    const user = await authorityTransaction(this.prisma, (tx) =>
       this.createUserCore(dto, requesterId, tx, meta),
     );
 
@@ -316,19 +336,24 @@ export class AdminService {
     if (!user) throw new NotFoundException(`User #${id} không tồn tại`);
 
     // v0.27 canonicalize email + phone (nếu provided) cho consistency.
-    const canonicalEmail = dto.email !== undefined
-      ? (dto.email?.trim().toLowerCase() || null)
-      : undefined;
-    const canonicalPhone = dto.phone !== undefined
-      ? (dto.phone ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, '')) : null)
-      : undefined;
+    const canonicalEmail =
+      dto.email !== undefined
+        ? dto.email?.trim().toLowerCase() || null
+        : undefined;
+    const canonicalPhone =
+      dto.phone !== undefined
+        ? dto.phone
+          ? canonicalizeVietnamPhone(dto.phone.replace(/[\s.-]/g, ''))
+          : null
+        : undefined;
 
     // EC-02: Check uniqueness on change
     if (canonicalEmail && canonicalEmail !== user.email) {
       const dup = await this.prisma.user.findFirst({
         where: { email: canonicalEmail, id: { not: id } },
       });
-      if (dup) throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
+      if (dup)
+        throw new ConflictException(`Email "${canonicalEmail}" đã tồn tại`);
     }
     if (dto.username && dto.username !== user.username) {
       const dup = await this.prisma.user.findFirst({
@@ -403,8 +428,36 @@ export class AdminService {
       role: { select: { id: true, name: true } },
       updatedAt: true,
     } as const;
-    const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.resetPassword) {
+    let requiresBusinessEnrollment = false;
+    let requiresReauthentication = false;
+    const updated = await authorityTransaction(this.prisma, async (tx) => {
+      const { target, rolePermissions } = await guardCaseAuthority(
+        tx,
+        requesterId,
+        { targetUserId: id, nextRoleId: dto.roleId },
+      );
+      if (target!.updatedAt.getTime() !== user.updatedAt.getTime()) {
+        throw new ConflictException('Account changed; reload before updating');
+      }
+      if (dto.roleId && dto.roleId !== target!.roleId) {
+        const oldCaps = businessCapabilities(
+          rolePermissions.get(target!.roleId) ?? [],
+        );
+        const newCaps = businessCapabilities(
+          rolePermissions.get(dto.roleId) ?? [],
+        );
+        requiresBusinessEnrollment = [...newCaps].some(
+          (cap) => !oldCaps.has(cap),
+        );
+        requiresReauthentication = oldCaps.size > 0 || newCaps.size > 0;
+        if (requiresReauthentication)
+          Object.assign(
+            data,
+            await businessCredentialInvalidation(requiresBusinessEnrollment),
+          );
+        if (requiresBusinessEnrollment) tempPassword = undefined;
+      }
+      if (dto.resetPassword && !requiresBusinessEnrollment) {
         const result = await tx.user.updateMany({
           where: { id, tokenVersion: expectedVersion },
           data,
@@ -414,7 +467,10 @@ export class AdminService {
             'User vừa được admin khác cập nhật hoặc reset lại — vui lòng tải lại trang và thử lại',
           );
         }
-        const u = await tx.user.findUnique({ where: { id }, select: userSelect });
+        const u = await tx.user.findUnique({
+          where: { id },
+          select: userSelect,
+        });
         if (!u) {
           throw new NotFoundException(`User #${id} không tồn tại`);
         }
@@ -438,17 +494,33 @@ export class AdminService {
       // v0.30: non-reset branch — wrapUpdate captures full before/after for diff UI.
       return this.audit.wrapUpdate({
         tx,
-        fetchFn: () => tx.user.findUnique({ where: { id }, select: userSelect }) as Promise<unknown>,
+        fetchFn: () =>
+          tx.user.findUnique({
+            where: { id },
+            select: userSelect,
+          }) as Promise<unknown>,
         updateFn: () =>
-          tx.user.update({ where: { id }, data, select: userSelect }) as unknown as Promise<unknown>,
+          tx.user.update({
+            where: { id },
+            data,
+            select: userSelect,
+          }) as unknown as Promise<unknown>,
         action: 'USER_UPDATED',
         subject: 'User',
         subjectId: id,
         userId: requesterId,
         meta,
-      }) as unknown as typeof userSelect extends never ? never : Awaited<ReturnType<typeof tx.user.findUnique>>;
+      }) as unknown as typeof userSelect extends never
+        ? never
+        : Awaited<ReturnType<typeof tx.user.findUnique>>;
     });
 
+    if (requiresReauthentication)
+      return {
+        ...updated,
+        requiresBusinessEnrollment,
+        requiresReauthentication,
+      };
     return tempPassword ? { ...updated, tempPassword } : updated;
   }
 
@@ -467,15 +539,20 @@ export class AdminService {
       );
     }
 
-    await this.prisma.user.delete({ where: { id } });
-
-    await this.audit.log({
-      userId: requesterId,
-      action: 'USER_DELETED',
-      subject: 'User',
-      subjectId: id,
-      metadata: { deletedUsername: user.username },
-      ...meta,
+    await authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, requesterId, { targetUserId: id });
+      await tx.user.delete({ where: { id } });
+      await this.audit.log(
+        {
+          userId: requesterId,
+          action: 'USER_DELETED',
+          subject: 'User',
+          subjectId: id,
+          metadata: { deletedUsername: user.username },
+          ...meta,
+        },
+        tx,
+      );
     });
 
     return { message: 'Đã xóa người dùng thành công' };
@@ -546,7 +623,8 @@ export class AdminService {
       if (dup) throw new ConflictException(`Tên role "${dto.name}" đã tồn tại`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, requesterId, { roleId: id });
       const sau = await tx.role.update({
         where: { id },
         data: {
@@ -594,7 +672,8 @@ export class AdminService {
         `Không thể xóa role này vì còn ${userCount} người dùng đang sử dụng. Hãy chuyển người dùng sang role khác trước.`,
       );
     }
-    await this.prisma.$transaction(async (tx) => {
+    await authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, requesterId, { roleId: id });
       await tx.role.delete({ where: { id } });
       await this.audit.log(
         {
@@ -669,10 +748,16 @@ export class AdminService {
       }
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    let requiresBusinessEnrollment = false;
+    let affectedPrincipalCount = 0;
+    let requiresReauthentication = false;
+    await authorityTransaction(this.prisma, async (tx) => {
       // Khoá dòng vai trò: hai lượt lưu cùng vai trò chạy NỐI TIẾP. Không khoá thì ở READ COMMITTED lượt sau
       // không thấy dòng lượt trước vừa chèn → hai bộ quyền trộn vào nhau, hoặc trùng khoá chính → 500.
-      await tx.$queryRaw`SELECT id FROM "roles" WHERE id = ${roleId} FOR UPDATE`;
+      await guardCaseAuthority(tx, requesterId, {
+        roleId,
+        nextPermissions: yeuCau,
+      });
       const truoc = await tx.rolePermission.findMany({
         where: { roleId },
         select: {
@@ -713,6 +798,21 @@ export class AdminService {
           })),
         });
       }
+      requiresBusinessEnrollment = them.some(
+        (p) => p.subject === 'CaseGovernance',
+      );
+      requiresReauthentication =
+        requiresBusinessEnrollment ||
+        bo.some((row) => row.permission.subject === 'CaseGovernance');
+      if (requiresReauthentication) {
+        const invalidated = await tx.user.updateMany({
+          where: { roleId },
+          data: await businessCredentialInvalidation(
+            requiresBusinessEnrollment,
+          ),
+        });
+        affectedPrincipalCount = invalidated.count;
+      }
 
       await this.audit.log(
         {
@@ -726,6 +826,9 @@ export class AdminService {
             sau: khoaSau.size,
             them: [...khoaSau].filter((k) => !khoaTruoc.has(k)).sort(),
             bo: [...khoaTruoc].filter((k) => !khoaSau.has(k)).sort(),
+            requiresBusinessEnrollment,
+            requiresReauthentication,
+            affectedPrincipalCount,
           },
           ...meta,
         },
@@ -733,7 +836,15 @@ export class AdminService {
       );
     });
 
-    return this.getRoleById(roleId);
+    const result = await this.getRoleById(roleId);
+    return requiresReauthentication
+      ? {
+          ...result,
+          requiresBusinessEnrollment,
+          requiresReauthentication,
+          affectedPrincipalCount,
+        }
+      : result;
   }
 
   async getAllPermissions() {
@@ -751,85 +862,96 @@ export class AdminService {
     granterId: string,
     meta: { ipAddress?: string; userAgent?: string } = {},
   ) {
-    // Validate grantee exists
-    const grantee = await this.prisma.user.findUnique({
-      where: { id: dto.granteeId },
-    });
-    if (!grantee) throw new NotFoundException('Người được cấp quyền không tồn tại');
+    return authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, granterId, {
+        targetUserId: dto.granteeId,
+        destinationTeamId: dto.teamId,
+      });
 
-    // Validate team exists
-    const team = await this.prisma.team.findUnique({
-      where: { id: dto.teamId },
-    });
-    if (!team) throw new NotFoundException('Tổ/nhóm không tồn tại');
+      // Validate grantee exists
+      const grantee = await tx.user.findUnique({
+        where: { id: dto.granteeId },
+      });
+      if (!grantee)
+        throw new NotFoundException('Người được cấp quyền không tồn tại');
 
-    // Check granter is leader of the team or an ancestor team
-    const granterTeams = await this.prisma.userTeam.findMany({
-      where: { userId: granterId, isLeader: true },
-      include: { team: true },
-    });
+      // Validate team exists
+      const team = await tx.team.findUnique({
+        where: { id: dto.teamId },
+      });
+      if (!team) throw new NotFoundException('Tổ/nhóm không tồn tại');
 
-    let isAuthorized = false;
-    for (const ut of granterTeams) {
-      if (ut.teamId === dto.teamId) {
-        isAuthorized = true;
-        break;
+      // Check granter is leader of the team or an ancestor team
+      const granterTeams = await tx.userTeam.findMany({
+        where: { userId: granterId, isLeader: true },
+        include: { team: true },
+      });
+
+      let isAuthorized = false;
+      for (const ut of granterTeams) {
+        if (ut.teamId === dto.teamId) {
+          isAuthorized = true;
+          break;
+        }
+        // Check if team is a descendant of a team the granter leads
+        const descendants = await this.teamsService.getDescendantIds(ut.teamId);
+        if (descendants.includes(dto.teamId)) {
+          isAuthorized = true;
+          break;
+        }
       }
-      // Check if team is a descendant of a team the granter leads
-      const descendants = await this.teamsService.getDescendantIds(ut.teamId);
-      if (descendants.includes(dto.teamId)) {
-        isAuthorized = true;
-        break;
+
+      // Also allow admin role
+      const granterUser = await tx.user.findUnique({
+        where: { id: granterId },
+        include: { role: true },
+      });
+      if (granterUser?.role?.name === ROLE_NAMES.ADMIN) isAuthorized = true;
+
+      if (!isAuthorized) {
+        throw new ForbiddenException(
+          'Bạn không có quyền cấp quyền truy cập cho tổ/nhóm này',
+        );
       }
-    }
 
-    // Also allow admin role
-    const granterUser = await this.prisma.user.findUnique({
-      where: { id: granterId },
-      include: { role: true },
-    });
-    if (granterUser?.role?.name === ROLE_NAMES.ADMIN) isAuthorized = true;
+      const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
 
-    if (!isAuthorized) {
-      throw new ForbiddenException(
-        'Bạn không có quyền cấp quyền truy cập cho tổ/nhóm này',
-      );
-    }
-
-    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
-
-    const grant = await this.prisma.dataAccessGrant.upsert({
-      where: {
-        granteeId_teamId_accessLevel: {
+      const grant = await tx.dataAccessGrant.upsert({
+        where: {
+          granteeId_teamId_accessLevel: {
+            granteeId: dto.granteeId,
+            teamId: dto.teamId,
+            accessLevel: dto.accessLevel,
+          },
+        },
+        update: { grantedById: granterId, expiresAt },
+        create: {
           granteeId: dto.granteeId,
           teamId: dto.teamId,
           accessLevel: dto.accessLevel,
+          grantedById: granterId,
+          expiresAt,
         },
-      },
-      update: { grantedById: granterId, expiresAt },
-      create: {
-        granteeId: dto.granteeId,
-        teamId: dto.teamId,
-        accessLevel: dto.accessLevel,
-        grantedById: granterId,
-        expiresAt,
-      },
-    });
+      });
 
-    await this.audit.log({
-      userId: granterId,
-      action: 'DATA_GRANT_CREATED',
-      subject: 'DataAccessGrant',
-      subjectId: grant.id,
-      metadata: {
-        granteeId: dto.granteeId,
-        teamId: dto.teamId,
-        accessLevel: dto.accessLevel,
-      },
-      ...meta,
-    });
+      await this.audit.log(
+        {
+          userId: granterId,
+          action: 'DATA_GRANT_CREATED',
+          subject: 'DataAccessGrant',
+          subjectId: grant.id,
+          metadata: {
+            granteeId: dto.granteeId,
+            teamId: dto.teamId,
+            accessLevel: dto.accessLevel,
+          },
+          ...meta,
+        },
+        tx,
+      );
 
-    return grant;
+      return grant;
+    });
   }
 
   async revokeDataAccessGrant(
@@ -837,45 +959,56 @@ export class AdminService {
     revokerId: string,
     meta: { ipAddress?: string; userAgent?: string } = {},
   ) {
-    const grant = await this.prisma.dataAccessGrant.findUnique({
-      where: { id: grantId },
-    });
-    if (!grant) throw new NotFoundException('Quyền truy cập không tồn tại');
-
-    // Allow revoker if they are the granter or a team leader
-    const isGranter = grant.grantedById === revokerId;
-
-    let isLeader = false;
-    if (!isGranter) {
-      const leaderCheck = await this.prisma.userTeam.findFirst({
-        where: { userId: revokerId, teamId: grant.teamId, isLeader: true },
+    return authorityTransaction(this.prisma, async (tx) => {
+      const grant = await tx.dataAccessGrant.findUnique({
+        where: { id: grantId },
       });
-      isLeader = !!leaderCheck;
-    }
+      if (!grant) throw new NotFoundException('Quyền truy cập không tồn tại');
+      await guardCaseAuthority(tx, revokerId, {
+        targetUserId: grant.granteeId,
+        destinationTeamId: grant.teamId,
+      });
 
-    // Also allow admin
-    const revokerUser = await this.prisma.user.findUnique({
-      where: { id: revokerId },
-      include: { role: true },
+      // Allow revoker if they are the granter or a team leader
+      const isGranter = grant.grantedById === revokerId;
+
+      let isLeader = false;
+      if (!isGranter) {
+        const leaderCheck = await tx.userTeam.findFirst({
+          where: { userId: revokerId, teamId: grant.teamId, isLeader: true },
+        });
+        isLeader = !!leaderCheck;
+      }
+
+      // Also allow admin
+      const revokerUser = await tx.user.findUnique({
+        where: { id: revokerId },
+        include: { role: true },
+      });
+      const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;
+
+      if (!isGranter && !isLeader && !isAdmin) {
+        throw new ForbiddenException(
+          'Bạn không có quyền thu hồi quyền truy cập này',
+        );
+      }
+
+      await tx.dataAccessGrant.delete({ where: { id: grantId } });
+
+      await this.audit.log(
+        {
+          userId: revokerId,
+          action: 'DATA_GRANT_REVOKED',
+          subject: 'DataAccessGrant',
+          subjectId: grantId,
+          metadata: { granteeId: grant.granteeId, teamId: grant.teamId },
+          ...meta,
+        },
+        tx,
+      );
+
+      return { message: 'Thu hồi quyền truy cập thành công' };
     });
-    const isAdmin = revokerUser?.role?.name === ROLE_NAMES.ADMIN;
-
-    if (!isGranter && !isLeader && !isAdmin) {
-      throw new ForbiddenException('Bạn không có quyền thu hồi quyền truy cập này');
-    }
-
-    await this.prisma.dataAccessGrant.delete({ where: { id: grantId } });
-
-    await this.audit.log({
-      userId: revokerId,
-      action: 'DATA_GRANT_REVOKED',
-      subject: 'DataAccessGrant',
-      subjectId: grantId,
-      metadata: { granteeId: grant.granteeId, teamId: grant.teamId },
-      ...meta,
-    });
-
-    return { message: 'Thu hồi quyền truy cập thành công' };
   }
 
   async listDataAccessGrants() {
@@ -895,29 +1028,34 @@ export class AdminService {
 
   // ── 2FA Admin Reset ────────────────────────────────────────────────────────
   async adminResetTwoFa(targetUserId: string, adminUserId: string) {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!target) throw new NotFoundException('User không tồn tại');
+    await authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, adminUserId, { targetUserId });
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          totpSecret: null,
+          totpEnabled: false,
+          totpSetupPending: false,
+          totpSetupPendingAt: null,
+          backupCodes: [],
+          backupCodeSalts: [],
+          lastTotpCode: null,
+          twoFaSetupAt: null,
+          tokenVersion: { increment: 1 },
+          refreshTokenHash: null,
+        },
+      });
 
-    await this.prisma.user.update({
-      where: { id: targetUserId },
-      data: {
-        totpSecret: null,
-        totpEnabled: false,
-        totpSetupPending: false,
-        totpSetupPendingAt: null,
-        backupCodes: [],
-        backupCodeSalts: [],
-        lastTotpCode: null,
-        twoFaSetupAt: null,
-      },
-    });
-
-    await this.audit.log({
-      userId: adminUserId,
-      action: 'ADMIN_2FA_RESET',
-      subject: 'User',
-      subjectId: targetUserId,
-      metadata: { targetUserId },
+      await this.audit.log(
+        {
+          userId: adminUserId,
+          action: 'ADMIN_2FA_RESET',
+          subject: 'User',
+          subjectId: targetUserId,
+          metadata: { targetUserId },
+        },
+        tx,
+      );
     });
 
     return { success: true, message: 'Đã reset 2FA cho user thành công' };
@@ -938,20 +1076,29 @@ export class AdminService {
    * Xoá CẢ HAI: chỉ gỡ mốc khoá mà để bộ đếm ở 5 thì lần gõ sai kế tiếp khoá lại ngay.
    */
   async moKhoaTaiKhoan(targetUserId: string, adminUserId: string) {
-    const target = await this.prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!target) throw new NotFoundException('User không tồn tại');
+    await authorityTransaction(this.prisma, async (tx) => {
+      const { target } = await guardCaseAuthority(tx, adminUserId, {
+        targetUserId,
+      });
+      await tx.user.update({
+        where: { id: targetUserId },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastFailedLoginAt: null,
+        },
+      });
 
-    await this.prisma.user.update({
-      where: { id: targetUserId },
-      data: { failedLoginAttempts: 0, lockedUntil: null, lastFailedLoginAt: null },
-    });
-
-    await this.audit.log({
-      userId: adminUserId,
-      action: 'ADMIN_UNLOCK_ACCOUNT',
-      subject: 'User',
-      subjectId: targetUserId,
-      metadata: { targetUserId, username: target.username },
+      await this.audit.log(
+        {
+          userId: adminUserId,
+          action: 'ADMIN_UNLOCK_ACCOUNT',
+          subject: 'User',
+          subjectId: targetUserId,
+          metadata: { targetUserId, username: target!.username },
+        },
+        tx,
+      );
     });
 
     return { success: true, message: 'Đã mở khoá tài khoản' };

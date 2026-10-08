@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../../case-child-access/test-child-access-fixture';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { SubjectsBulkService } from './subjects.bulk.service';
@@ -30,7 +32,7 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
       $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn(async (cb: any) =>
         cb({
-          subject: { update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
+          subject: { findFirst: jest.fn().mockResolvedValue({ id: 'child', caseId: 'case', updatedAt: new Date(0) }), update: jest.fn().mockResolvedValue({ id: 'mocked' }) },
           $executeRaw: jest.fn().mockResolvedValue(1),
         }),
       ),
@@ -41,7 +43,7 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
       completeBulk: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         SubjectsBulkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -51,7 +53,8 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
   });
 
   it('deletes 2 subjects với BULK_DELETE header', async () => {
-    const result = await service.bulkDelete({
+    setOrdinaryCurrentScope(mockPrisma,adminScope);
+const result = await service.bulkDelete({
       ids: ['s-1', 's-2'],
       reason: 'gỡ trùng lặp',
       actorId: 'actor',
@@ -65,7 +68,8 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
 
   it('skips out-of-scope với PERMISSION', async () => {
     mockPrisma.subject.findMany.mockResolvedValue([{ id: 's-1', fullName: 'A' }]);
-    const result = await service.bulkDelete({
+    setOrdinaryCurrentScope(mockPrisma,adminScope);
+const result = await service.bulkDelete({
       ids: ['s-1', 's-2'],
       reason: 'gỡ trùng lặp',
       actorId: 'actor',
@@ -77,10 +81,12 @@ describe('SubjectsBulkService.bulkDelete — v0.51', () => {
   });
 
   it('rejects empty + > 100', async () => {
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,adminScope);
+await expect(
       service.bulkDelete({ ids: [], reason: 'ok 10 chars', actorId: 'a', dataScope: adminScope }),
     ).rejects.toThrow(BadRequestException);
-    await expect(
+    setOrdinaryCurrentScope(mockPrisma,adminScope);
+await expect(
       service.bulkDelete({
         ids: Array.from({ length: 101 }, (_, i) => `s-${i}`),
         reason: 'ok 10 chars',

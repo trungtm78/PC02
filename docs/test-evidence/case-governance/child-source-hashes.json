@@ -1,0 +1,186 @@
+{
+  "timestamp": "2026-10-06T10:29:48.660Z",
+  "status": "FROZEN_IMPLEMENTATION_PENDING_INDEPENDENT_REVIEW_AND_UAT",
+  "rows": [
+    {
+      "file": "backend/src/admin/admin.service.ts",
+      "sha256": "a25f02e7bb2d2ada48f11cf12c8bf34c02c16ef02c02024c1e626cabdbee4695"
+    },
+    {
+      "file": "backend/src/admin/case-authority.guard.ts",
+      "sha256": "657d6551268df20237af4598b0f278be433c294a068af61dac1e09c8e6571dbf"
+    },
+    {
+      "file": "backend/src/admin/bulk/bulk-import.service.ts",
+      "sha256": "54fb36cd699536d3ec13f572be0284b257df6345e5d760d7961ba7fe560a872c"
+    },
+    {
+      "file": "backend/src/admin/bulk/bulk-import.processor.ts",
+      "sha256": "890154028aa351176d2d3df014190f6d2ecf6e330daf48e3713356d6f29d9aa4"
+    },
+    {
+      "file": "backend/src/auth/services/enrollment.service.ts",
+      "sha256": "f0e198dc11ccc833b9d084cbdf1b0d69b3598f57a7fe13d8285a99b138525b38"
+    },
+    {
+      "file": "backend/src/subjects/subjects.service.ts",
+      "sha256": "8110ccf67888f594c04bf9ccfc5a64319b63721f1b32888c29ff50a7097437c7"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.service.ts",
+      "sha256": "6c0ec50e41cbb61ccdf0ac489fff2f06ed285e64270112911f44a5bd66411bf9"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.service.ts",
+      "sha256": "9b9e12603ad5159dd75d067c8e5a89f5942e7c54ea58799b4b590f24ebc33ab5"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.service.ts",
+      "sha256": "444a362110ed0cb2509b05c5cdad9b2d709565e4da13f196068863cbc5d3cf93"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.service.ts",
+      "sha256": "791b1e5be4d4090b6614a5ff45944ef4b32a3caab16cb6dead2056bb9c945119"
+    },
+    {
+      "file": "backend/src/case-child-access/case-source-creation.service.ts",
+      "sha256": "40052f577183a0dd0e7d6a94f01f110a51f48b4591edf9cfa6a865f7ffedafc4"
+    },
+    {
+      "file": "backend/src/cases/governance/case-field-schema.service.ts",
+      "sha256": "a57c9330579d49e308fdb2b3c8a8b5b1f7acde96c052121a12ad2f1be7096741"
+    },
+    {
+      "file": "backend/src/cases/governance/legal-action.validation.ts",
+      "sha256": "973a915050f04f92555fb0d9487abccae7f072b9ea6c515e6f46d107cd80587e"
+    },
+    {
+      "file": "backend/src/cases/governance/case-operations.service.ts",
+      "sha256": "4e678b1162b4f5e939e58fa76054ca238afd026d95580d44ceb29cbd49d1a9c8"
+    },
+    {
+      "file": "backend/src/cases/governance/case-civil-day.ts",
+      "sha256": "9935ebb2a2bb6eb18d8811fe9a22dff2ace9d7fd2de56c88efd121ef0583c3cd"
+    },
+    {
+      "file": "backend/src/incidents/incidents.service.ts",
+      "sha256": "78f45e74c4208ef49ae8e342fea2be0ad4c347c3cb45afb695848f6e95611113"
+    },
+    {
+      "file": "backend/src/petitions/petitions.service.ts",
+      "sha256": "c767d84b2f197bb3f59411a4a7b006cba44e471c446f726f6aa7b1a556a43839"
+    },
+    {
+      "file": "backend/src/subjects/bulk/subjects.bulk.service.ts",
+      "sha256": "bbbd1c0d84d3a438d3a64580614e08f40a8f022f80e34da99c895430ccef18c7"
+    },
+    {
+      "file": "backend/src/lawyers/bulk/lawyers.bulk.service.ts",
+      "sha256": "9caa7a96bf9dd9f929253275b10037313e1ea6f373cc05b5804e72b2aedb6b0e"
+    },
+    {
+      "file": "backend/src/incidents/bulk/incidents.bulk.service.ts",
+      "sha256": "f4741ad57a1fc16c5d9ea6e9b1e2a1b1dd414d3a0556c943c04ec48198e37269"
+    },
+    {
+      "file": "backend/src/petitions/bulk/petitions.bulk.service.ts",
+      "sha256": "2569245f74422092ac7607ea4175759c3f13b32fc8247f4bcb14a95741d3630f"
+    },
+    {
+      "file": "backend/src/proposals/proposals.service.ts",
+      "sha256": "3bef85cad6ee93eb010b0cf10378efb7380ae220b466ba72d392693ff7c8ed6c"
+    },
+    {
+      "file": "backend/src/delegations/delegations.service.ts",
+      "sha256": "730fbd959d1ac51e02b830c19419da43d87cdc42b17c7e9cd0d9e3a7a4a52f11"
+    },
+    {
+      "file": "backend/src/case-child-access/case-graph.interceptor.ts",
+      "sha256": "3ef103e6ccf9833d7905ee4223defb3c7c6d44d2874d5081b68e1e07a420862c"
+    },
+    {
+      "file": "backend/src/cases/cases.service.ts",
+      "sha256": "c25fbe0345794512ec0b65c85e812de74a8beb37016b3b3b5261d9c7d3ac4114"
+    },
+    {
+      "file": "backend/src/cases/bulk/cases.bulk.service.ts",
+      "sha256": "46bc5c6579ee393ca34388b128d9b43a93b9bc27c3d4ea74621f277a72edaaa8"
+    },
+    {
+      "file": "backend/src/incidents/dto/prosecute-incident.dto.ts",
+      "sha256": "58aa95b969e84148df907d2a1fb82d10c01c3080b1dfb412f21583b599740521"
+    },
+    {
+      "file": "backend/src/petitions/dto/convert-case.dto.ts",
+      "sha256": "3394c0465d6733a9e3a27516664c7e22b77826a2c0f673a4505a7c41559b79bd"
+    },
+    {
+      "file": "backend/src/subjects/subjects.controller.ts",
+      "sha256": "068013d8e2f1e35ce0772f570eea887f5b79391f28742e11be2431b575b4fc4e"
+    },
+    {
+      "file": "backend/src/subjects/subjects.module.ts",
+      "sha256": "48b33f20e92d719507a1738b39f7799b8c4cdc4ecf7365238be53060141c392a"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.controller.ts",
+      "sha256": "16a322e39936de78aa452b1a6a7a327588cb2a5d7090102d503b720df64bc827"
+    },
+    {
+      "file": "backend/src/lawyers/lawyers.module.ts",
+      "sha256": "90fec956b771f9c65c12123291d083877778d71754956f4abf1ee130caff6e1e"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.controller.ts",
+      "sha256": "0fef4d325dd9517802c0ef32894d2c32b5588391129db91c2fa231fd6cfe9daf"
+    },
+    {
+      "file": "backend/src/conclusions/conclusions.module.ts",
+      "sha256": "c3bbc891cfa9421725e99863826fd684b7c66dc67cc3741af42d0a18a478c1b8"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.controller.ts",
+      "sha256": "43f4ae30dffd34aeee1e04d644ee828dfb3f2d2b2dd759fc20c4204eaba6b8d6"
+    },
+    {
+      "file": "backend/src/investigation-supplements/investigation-supplements.module.ts",
+      "sha256": "6e89931cfbdf22ef89a09a0889ff1d6eb7238b01d140dbb88503dfb289ee18c9"
+    },
+    {
+      "file": "backend/src/proposals/proposals.controller.ts",
+      "sha256": "6b815ecc0062a1c16d9f42b0f5af3306a6c662ffbe270d887eb95fae735ad8cc"
+    },
+    {
+      "file": "backend/src/proposals/proposals.module.ts",
+      "sha256": "f7f53d12a46b571e202484d2bd11d04bd101995f1ec3a7d10616f912d65c8f77"
+    },
+    {
+      "file": "backend/src/delegations/delegations.controller.ts",
+      "sha256": "d3694501a4857e9766929fa4736dd1ba0716a970b9826a9f77cb239f48cf87a9"
+    },
+    {
+      "file": "backend/src/delegations/delegations.module.ts",
+      "sha256": "d08088643df39e4589725a2a66515027edf1d4ea368d385f119cff315212d2b2"
+    },
+    {
+      "file": "backend/src/incidents/incidents.controller.ts",
+      "sha256": "3ac4c6e72f624d43e722682cbfac0053baf0776dca9220ad272fd3f7d68d83f1"
+    },
+    {
+      "file": "backend/src/incidents/incidents.module.ts",
+      "sha256": "c365af59e67d06fe5504d9271bbfd95b376e3350f4e07ae68ed222dd164f633a"
+    },
+    {
+      "file": "backend/src/petitions/petitions.controller.ts",
+      "sha256": "3745212ce367e7f9811e4da49724ddbf3e29039e209e05d1ba8269173500e92a"
+    },
+    {
+      "file": "backend/src/petitions/petitions.module.ts",
+      "sha256": "6ab52dde177a6a5ce730e8a264fa3938d53d0faea4710399b07a1885f67491ac"
+    },
+    {
+      "file": "backend/src/case-child-access/case-child-access.module.ts",
+      "sha256": "4558daa954e29b9f6defead47db65f2b8149552098095c035f949b2a2483d73d"
+    }
+  ]
+}

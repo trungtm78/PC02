@@ -1,0 +1,162 @@
+{
+  "baseline": "10030bed",
+  "measuredAt": "2026-10-06T06:55:11.705Z",
+  "method": "All 14 owned products; new files fully included, tracked files git hunks; Istanbul executable statement-start lines and intersecting changed branch outcomes. Unchanged existing code is not patch coverage.",
+  "total": {
+    "executableLines": 238,
+    "coveredLines": 234,
+    "changedBranchOutcomes": 364,
+    "coveredBranchOutcomes": 339,
+    "lineCoverage": 98.31932773109244,
+    "branchCoverage": 93.13186813186813
+  },
+  "rows": [
+    {
+      "filename": "backend/src/cases/case-canonical-fields.ts",
+      "addedFile": true,
+      "changedLines": 152,
+      "executableLines": 57,
+      "coveredLines": 57,
+      "changedBranchOutcomes": 55,
+      "coveredBranchOutcomes": 54,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "backend/src/cases/case-canonical-field-registry.generated.ts",
+      "addedFile": true,
+      "changedLines": 938,
+      "executableLines": 1,
+      "coveredLines": 1,
+      "changedBranchOutcomes": 0,
+      "coveredBranchOutcomes": 0,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/features/cases/canonical-fields.ts",
+      "addedFile": true,
+      "changedLines": 149,
+      "executableLines": 90,
+      "coveredLines": 89,
+      "changedBranchOutcomes": 122,
+      "coveredBranchOutcomes": 120,
+      "uncoveredLines": [
+        72
+      ]
+    },
+    {
+      "filename": "frontend/src/features/cases/CaseInformationTabs.tsx",
+      "addedFile": true,
+      "changedLines": 34,
+      "executableLines": 11,
+      "coveredLines": 11,
+      "changedBranchOutcomes": 28,
+      "coveredBranchOutcomes": 25,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/features/cases/CaseCustomFields.tsx",
+      "addedFile": true,
+      "changedLines": 40,
+      "executableLines": 20,
+      "coveredLines": 19,
+      "changedBranchOutcomes": 59,
+      "coveredBranchOutcomes": 54,
+      "uncoveredLines": [
+        31
+      ]
+    },
+    {
+      "filename": "frontend/src/features/cases/CaseNullableBooleanField.tsx",
+      "addedFile": true,
+      "changedLines": 15,
+      "executableLines": 5,
+      "coveredLines": 5,
+      "changedBranchOutcomes": 8,
+      "coveredBranchOutcomes": 8,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/features/cases/useCaseFieldSchema.ts",
+      "addedFile": true,
+      "changedLines": 19,
+      "executableLines": 10,
+      "coveredLines": 10,
+      "changedBranchOutcomes": 12,
+      "coveredBranchOutcomes": 10,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+      "addedFile": false,
+      "changedLines": 20,
+      "executableLines": 13,
+      "coveredLines": 13,
+      "changedBranchOutcomes": 36,
+      "coveredBranchOutcomes": 36,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts",
+      "addedFile": false,
+      "changedLines": 4,
+      "executableLines": 1,
+      "coveredLines": 1,
+      "changedBranchOutcomes": 0,
+      "coveredBranchOutcomes": 0,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "addedFile": false,
+      "changedLines": 8,
+      "executableLines": 3,
+      "coveredLines": 3,
+      "changedBranchOutcomes": 10,
+      "coveredBranchOutcomes": 7,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/LegacyTabBody.tsx",
+      "addedFile": false,
+      "changedLines": 26,
+      "executableLines": 16,
+      "coveredLines": 16,
+      "changedBranchOutcomes": 10,
+      "coveredBranchOutcomes": 10,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/types.ts",
+      "addedFile": false,
+      "changedLines": 6,
+      "executableLines": 0,
+      "coveredLines": 0,
+      "changedBranchOutcomes": 0,
+      "coveredBranchOutcomes": 0,
+      "uncoveredLines": []
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "addedFile": false,
+      "changedLines": 7,
+      "executableLines": 4,
+      "coveredLines": 2,
+      "changedBranchOutcomes": 0,
+      "coveredBranchOutcomes": 0,
+      "uncoveredLines": [
+        1587,
+        1589
+      ]
+    },
+    {
+      "filename": "frontend/src/pages/cases/CaseDetailPage.tsx",
+      "addedFile": false,
+      "changedLines": 36,
+      "executableLines": 7,
+      "coveredLines": 7,
+      "changedBranchOutcomes": 24,
+      "coveredBranchOutcomes": 15,
+      "uncoveredLines": []
+    }
+  ]
+}

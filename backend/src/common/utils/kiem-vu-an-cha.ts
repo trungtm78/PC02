@@ -7,11 +7,17 @@ interface CongVuAn {
   case: {
     findFirst(args: {
       where: { id: string; deletedAt: null };
-      select: { id: true; assignedTeamId: true; investigatorId: true };
+      select: {
+        id: true;
+        assignedTeamId: true;
+        investigatorId: true;
+        intakeStage: true;
+      };
     }): Promise<{
       id: string;
       assignedTeamId: string | null;
       investigatorId: string | null;
+      intakeStage?: string | null;
     } | null>;
   };
 }
@@ -33,7 +39,12 @@ export async function kiemVuAnChaDeGhi(
 ) {
   const vuAn = await prisma.case.findFirst({
     where: { id: caseId, deletedAt: null },
-    select: { id: true, assignedTeamId: true, investigatorId: true },
+    select: {
+      id: true,
+      assignedTeamId: true,
+      investigatorId: true,
+      intakeStage: true,
+    },
   });
   if (!vuAn)
     throw new BadRequestException(`Vụ án không tồn tại (id: ${caseId})`);

@@ -1,0 +1,8 @@
+﻿{
+    "exitCode":  0,
+    "gate":  "lint",
+    "command":  "rtk proxy npx eslint src/cases/governance/case-governance.service.ts src/cases/governance/case-governance.contract.ts src/cases/governance/case-governance.controller.ts src/cases/governance/case-global-capabilities.controller.ts src/cases/governance/case-governance.module.ts src/cases/governance/case-governance-foundation.module.ts src/cases/governance/case-field-policy.module.ts src/cases/governance/case-principal-access.service.ts src/cases/governance/case-principal-access.controller.ts src/cases/cases.service.ts src/cases/cases.controller.ts src/cases/cases.module.ts src/cases/cases-journey.service.ts src/cases/case-statistic.builder.ts src/cases/bulk/cases.bulk.service.ts src/audit/audit.service.ts src/audit/audit.controller.ts src/audit/audit.module.ts src/audit/case-audit-policy.service.ts src/common/utils/scope-filter.util.ts src/common/utils/kiem-vu-an-cha.ts src/common/bca-excel.helper.ts src/common/bca-excel-footer.spec.ts src/cases/governance/case-governance.service.spec.ts src/cases/governance/foundation-integration.spec.ts src/cases/governance/foundation.database.spec.ts src/cases/cases-utdt-stats.service.spec.ts src/cases/governance/schema-contract.spec.ts",
+    "startedAt":  "2026-10-06T08:23:56.8794585Z",
+    "completedAt":  "2026-10-06T08:24:30.2646643Z",
+    "log":  "t1-core-finish-lint.log"
+}

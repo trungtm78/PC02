@@ -1,0 +1,675 @@
+{
+  "timestamp": "2026-10-08T00:57:00.150Z",
+  "environment": "private synthetic loopback web",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "initialPrimaryCrime": null,
+  "results": [
+    {
+      "key": "baoCaoBanGiamDoc",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "canCuKhongKhoiTo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "canCuPhucHoiVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "canCuTamDinhChiNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "canCuTamDinhChiVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "capDoToiPham",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "cccdCungCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "chuyenVuAnChoCQK",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "chuyenVuViecDonViKhac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "crimeChinhId",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "description",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "diaChiCungCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "dieuTraVienText",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "doVatTaiLieuKemTheo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ghiChuKhac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ghiChuNhapHoSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ghiChuTrungDon",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ketQuaXuLyKhac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "khacPhucLyDoTDCVuViec",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "laCongNgheCao",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "lanhDaoToTung",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "lenhNhapKho",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "loaiThongTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "lyDoKhongKhoiTo",
+      "status": "PASS",
+      "actual": []
+    },
+    {
+      "key": "lyDoTamDinhChiNguonTin",
+      "status": "PASS",
+      "actual": []
+    },
+    {
+      "key": "lyDoTamDinhChiVuAn",
+      "status": "PASS",
+      "actual": []
+    },
+    {
+      "key": "ngayBanAnCoHieuLuc",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayCapCccd",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayDeXuat",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayDinhChiVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayGiaoDonViGiaiQuyet",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayHetThoiHieu",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayHetThoiHieuVuViec",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayKhoiTo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayKLDT",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayNhapVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayPhieuChuyen",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayPhucHoi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayPhucHoiNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayQDDieuTraLai",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayQDKhongKhoiTo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayQDPhanCongNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayQDTamDinhChiNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayTachHanhVi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayTachVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayTamDinhChi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayTiepNhanNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayVietDon",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "ngayXayRa",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "nghiVanDoiTuong",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "nguonDon",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "nhanXet",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "nhapVaoVuViecSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "noiCapCccd",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "noiLuuTruBaoQuan",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "noiXayRa",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "noiXayRaPhuongXa",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "phanLoaiDanSu",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "phanLoaiNguonTinBanDau",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "phuongThucThuDoan",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "sdtCungCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "sinhNamCungCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soBanAnCoHieuLuc",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soKLDT",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soPhieuChuyen",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soPhucHoiNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDDieuTraLai",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDDinhChiVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDKhongKhoiTo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDNhapVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDPhanCongNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDTachHanhVi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDTachVuAn",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQDTamDinhChiNguonTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQuyetDinhKhoiTo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQuyetDinhPhucHoi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "soQuyetDinhTamDinhChi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.coBangNhom",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.coGhiAmGhiHinh",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.coSuDungKQGhiAmTrongXetXu",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.coVPHC",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.dieuTraMoRong",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.donViBaoQuanHoSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ghiAmGhiHinhDaDuocXetXu",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.hoSoLuu",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.khongGAGHNhungToaYeuCau",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.laVuAnGhiAmGhiHinh",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.ngayBatKhanCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayDangKyHoSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayDauThu",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayNopLuuHoSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayPhamToiQuaTang",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayPhanCongGiaiQuyetToGiac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayPhatHienDauHieu",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayThongKe",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.ngayTiepNhanTin",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soBangNhomBatDuoc",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soBiCanCoGhiAm",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soBiCanVksYeuCauGhiAm",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDangKyHoSo",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDoiTuong",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDoiTuongBiBatVuAnKhac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDoiTuongDaBat",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDoiTuongSuuTraHiemNghi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soDoiTuongVPHC",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soLuongBiHai",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soLuongNguoiChet",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soNguoiBiPhatTien",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soNguoiBiThuong",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soSungThuHoi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soThuocNoThuHoi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soTienBiThietHai",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.soTienThuHoi",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.suDungVuKhiNong",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.tongSoBienBanGhiLoiKhai",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCung",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCungCoGhiAm",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.tongTienPhatHanhChinh",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "statistic.vksYeuCauGhiAm",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "statistic.vuAnDaDuocXetXu",
+      "status": "PASS",
+      "actual": false
+    },
+    {
+      "key": "supervisingUnit",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "tdcKhacPhucBienBan",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "tdcKhacPhucLyDoBienPhap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "tenCungCap",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "tienDoKhacPhucTDCVuViec",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "toiDanhBanDau",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "toiDanhChinhKhoiToId",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "toiDanhKhacIds",
+      "status": "PASS",
+      "actual": []
+    },
+    {
+      "key": "utdt_thoiHanUyThac",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "vatChungMoTa",
+      "status": "PASS",
+      "actual": null
+    },
+    {
+      "key": "vuViecTamDungTruoc2015",
+      "status": "PASS",
+      "actual": null
+    }
+  ],
+  "detailClearCount": 132,
+  "errors": [],
+  "failedApi": [],
+  "dialogs": [
+    "Cập nhật hồ sơ thành công!"
+  ],
+  "verdict": "PASS"
+}

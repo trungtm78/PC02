@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
@@ -83,6 +84,7 @@ describe('PhuLuc16Service', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },
         PhuLuc16Service,
         { provide: PrismaService, useValue: mockPrisma },
       ],

@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture,ordinaryCaseParentFixture} from './governance/case-ordinary-test.fixture';
 import { PassThrough } from 'stream';
 import * as ExcelJS from 'exceljs';
 import { BadRequestException } from '@nestjs/common';
@@ -39,8 +40,9 @@ const dong = (id: string, caseCode: string, tenCungCap: string) => ({
   createdAt: new Date('2026-09-10T00:00:00Z'),
 });
 
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
   case: {
+    findFirst:ordinaryCaseParentFixture(),
     count: jest.fn(),
     findMany: jest.fn(),
   },

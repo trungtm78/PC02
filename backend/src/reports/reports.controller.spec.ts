@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from './graph-access/case-graph-access.service';
 import { Test } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { ReportsController } from './reports.controller';
@@ -24,7 +25,7 @@ describe('ReportsController — delegation', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [ReportsController],
-      providers: [
+      providers: [{provide:CaseGraphAccessService,useValue:{}},
         { provide: ReportsService, useValue: mockReportsService },
         { provide: ReportsExportService, useValue: mockReportsExportService },
       ],

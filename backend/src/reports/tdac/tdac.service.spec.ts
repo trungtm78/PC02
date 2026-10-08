@@ -1,3 +1,5 @@
+import { GRAPH_PRISMA } from '../graph-access/case-graph-access.service';
+import { CaseGraphAccessService } from '../graph-access/case-graph-access.service';
 /**
  * TdacService Unit Tests
  *
@@ -78,8 +80,10 @@ describe('TdacService', () => {
   let service: TdacService;
 
   beforeEach(async () => {
+    jest.spyOn(CaseGraphAccessService.prototype,'ids').mockResolvedValue(['case-1']);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },
         TdacService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

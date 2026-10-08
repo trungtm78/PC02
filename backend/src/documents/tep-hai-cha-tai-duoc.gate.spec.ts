@@ -1,6 +1,8 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import type { DataScope } from '../auth/services/unit-scope.service';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { DocumentsController } from './documents.controller';
 
 /**
  * CỔNG: tệp của hồ sơ ĐÃ CHUYỂN Vụ án — nhìn thấy thì phải tải xuống được.
@@ -42,7 +44,12 @@ const TEP_HAI_CHA = {
 function dungService(ban: unknown) {
   const findFirst = jest.fn().mockResolvedValue(ban);
   const svc = new DocumentsService(
-    { document: { findFirst } } as never,
+    {
+      document: { findFirst },
+      caseAssetVersion: { findUnique: jest.fn().mockResolvedValue(null) },
+    } as never,
+    {} as never,
+    {} as never,
     {} as never,
     {} as never,
   );
@@ -50,6 +57,60 @@ function dungService(ban: unknown) {
 }
 
 describe('CỔNG: tệp có hai cha — thấy được thì tải được', () => {
+  it('R2 authenticated controller retains NORMAL petition parent access and redacts hidden Case identity', async () => {
+    const record = {
+      ...TEP_HAI_CHA,
+      case: { ...TEP_HAI_CHA.case, name: 'hidden Case name' },
+      title: 'visible petition attachment',
+    };
+    const database = {
+      document: {
+        findFirst: jest.fn().mockResolvedValue(record),
+        findMany: jest.fn().mockResolvedValue([{ caseId: 'c1' }]),
+      },
+      caseAssetVersion: { findUnique: jest.fn().mockResolvedValue(null) },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          isActive: true,
+          caseAccessMode: 'INTERNAL',
+          caseAccessRevision: 0,
+        }),
+      },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([{ id: 'c1', fieldDefinitionVersionId: null }]),
+    };
+    const core = {
+      assertCaseReadable: jest
+        .fn()
+        .mockRejectedValue(new ForbiddenException('hidden')),
+      currentActorScope: jest.fn().mockResolvedValue(PHAM_VI_DON_THU),
+      hasEntityPermission: jest.fn().mockResolvedValue(true),
+      readableCaseWhere: jest.fn().mockResolvedValue({ id: { in: [] } }),
+    };
+    const evidence = new CaseEvidenceGovernanceService(
+      database as never,
+      core as never,
+      {} as never,
+    );
+    const service = new DocumentsService(
+      database as never,
+      {} as never,
+      {} as never,
+      core as never,
+      evidence,
+    );
+    const response = await new DocumentsController(service).getById(
+      'd1',
+      { dataScope: null } as never,
+      { id: 'u1' } as never,
+    );
+    expect(response).toMatchObject({
+      success: true,
+      data: { id: 'd1', caseId: null, case: null, petitionId: 'p1' },
+    });
+    expect(JSON.stringify(response)).not.toContain('hidden Case name');
+  });
   it('đọc được ĐƠN THƯ cha là đủ để mở tệp, dù không đọc được vụ án', async () => {
     const { svc } = dungService(TEP_HAI_CHA);
     await expect(svc.getById('d1', PHAM_VI_DON_THU)).resolves.toMatchObject({
@@ -128,7 +189,12 @@ describe('CỔNG: tệp có hai cha — thấy được thì tải được', ()
         where.deletedAt === null ? null : TEP_HAI_CHA,
       );
     const svc = new DocumentsService(
-      { document: { findFirst } } as never,
+      {
+        document: { findFirst },
+        caseAssetVersion: { findUnique: jest.fn().mockResolvedValue(null) },
+      } as never,
+      {} as never,
+      {} as never,
       {} as never,
       {} as never,
     );

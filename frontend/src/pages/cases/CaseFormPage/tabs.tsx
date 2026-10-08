@@ -1,3 +1,5 @@
+import { CaseNullableBooleanField } from '@/features/cases/CaseNullableBooleanField';
+import { confirmCaseFallback } from '@/features/cases/canonical-fields';
 import {
   Hash,
   Calendar,
@@ -1176,9 +1178,9 @@ function TabStatisticsBoSung({ formData, setFormData }: TabProps) {
   };
   // Cập nhật field nested trong case_statistics (hybrid).
   const cs = formData.statistic;
-  const updateStat = (field: keyof typeof cs, value: string | boolean) => {
+  const updateStat = (field: keyof typeof cs, value: string | boolean | null) => {
     setFormData((prev) => ({
-      ...prev,
+      ...confirmCaseFallback(prev, `statistic.${field}`),
       statistic: { ...prev.statistic, [field]: value },
       ...(field === "soTienBiThietHai" && typeof value === "string" && { damageAmount: value }),
     }));
@@ -1582,9 +1584,9 @@ function TabStatisticsBoSung({ formData, setFormData }: TabProps) {
               <CSNum label="Tiền bị thiệt hại (VNĐ)" v={cs.soTienBiThietHai} on={(x)=>updateStat("soTienBiThietHai",x)} t="cs-soTienBiThietHai" />
               <CSNum label="Tiền thu hồi (VNĐ)" v={cs.soTienThuHoi} on={(x)=>updateStat("soTienThuHoi",x)} t="cs-soTienThuHoi" />
               <CSBool label="Vụ án đã được xét xử" v={cs.vuAnDaDuocXetXu} on={(x)=>updateStat("vuAnDaDuocXetXu",x)} t="cs-vuAnDaDuocXetXu" />
-              <CSBool label="Ghi âm-ghi hình đã được xét xử" v={cs.ghiAmGhiHinhDaDuocXetXu} on={(x)=>updateStat("ghiAmGhiHinhDaDuocXetXu",x)} t="cs-ghiAmGhiHinhDaDuocXetXu" />
-              <CSBool label="Có sử dụng KQ ghi âm trong xét xử" v={cs.coSuDungKQGhiAmTrongXetXu} on={(x)=>updateStat("coSuDungKQGhiAmTrongXetXu",x)} t="cs-coSuDungKQGhiAmTrongXetXu" />
-              <CSBool label="Không GAGH nhưng tòa yêu cầu" v={cs.khongGAGHNhungToaYeuCau} on={(x)=>updateStat("khongGAGHNhungToaYeuCau",x)} t="cs-khongGAGHNhungToaYeuCau" />
+              <CaseNullableBooleanField label="Ghi âm-ghi hình đã được xét xử" value={cs.ghiAmGhiHinhDaDuocXetXu} onChange={(x)=>updateStat("ghiAmGhiHinhDaDuocXetXu",x)} testId="cs-ghiAmGhiHinhDaDuocXetXu" />
+              <CaseNullableBooleanField label="Có sử dụng KQ ghi âm trong xét xử" value={cs.coSuDungKQGhiAmTrongXetXu} onChange={(x)=>updateStat("coSuDungKQGhiAmTrongXetXu",x)} testId="cs-coSuDungKQGhiAmTrongXetXu" />
+              <CaseNullableBooleanField label="Không GAGH nhưng tòa yêu cầu" value={cs.khongGAGHNhungToaYeuCau} onChange={(x)=>updateStat("khongGAGHNhungToaYeuCau",x)} testId="cs-khongGAGHNhungToaYeuCau" />
             </div>
           </fieldset>
           {/* Mốc thời gian thống kê */}

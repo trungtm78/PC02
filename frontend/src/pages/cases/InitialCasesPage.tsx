@@ -19,7 +19,6 @@ import {
   Filter,
   RotateCcw,
   FileText,
-  X,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -34,6 +33,7 @@ import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { laGiaTriNgay } from '@/shared/tim-kiem/the';
 import { nhanKyApDung, TRUONG_NGAY_DE_XUAT } from '@/constants/thongKeSettings';
+import { HandoffReceiptModal } from '@/features/cases/governance/HandoffReceiptModal';
 import { CaseStatus } from '@/shared/enums/generated';
 import { CASE_PROVENANCE_OPTIONS } from './CaseFormPage/constants';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
@@ -183,27 +183,7 @@ function InitialCasesPage() {
 
   // ── Nhận xử lý ──────────────────────────────────────
   const [selectedCase, setSelectedCase] = useState<HoSoMoi | null>(null);
-  const [assignLoading, setAssignLoading] = useState(false);
-  const [assignError, setAssignError] = useState('');
-  const moHopNhan = (hs: HoSoMoi) => {
-    setAssignError('');
-    setSelectedCase(hs);
-  };
-  const confirmAssign = async () => {
-    if (!selectedCase) return;
-    setAssignLoading(true);
-    setAssignError('');
-    try {
-      await api.put(`/cases/${selectedCase.id}`, { status: CaseStatus.DANG_DIEU_TRA });
-      setSelectedCase(null);
-      setLanTai((n) => n + 1);
-    } catch (e) {
-      // Giữ hộp mở kèm lý do: đóng hộp khi máy chủ từ chối thì cán bộ tưởng đã nhận xong.
-      setAssignError(extractApiError(e, 'Nhận xử lý thất bại. Vui lòng thử lại.').messages.join(', '));
-    } finally {
-      setAssignLoading(false);
-    }
-  };
+  const moHopNhan = (hs: HoSoMoi) => setSelectedCase(hs);
 
   // ── Xoá qua hộp xoá CHUẨN ───────────────────────────
   // Máy chủ bắt buộc lý do (DeleteCaseDto, 10–500 ký tự). Hộp riêng cũ gọi DELETE không thân → 400 với mọi hồ
@@ -493,61 +473,7 @@ function InitialCasesPage() {
         )}
       </div>
 
-      {selectedCase && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="assign-modal">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-800">Xác nhận nhận xử lý</h3>
-                <button type="button" onClick={() => setSelectedCase(null)} className="p-1 hover:bg-slate-100 rounded transition-colors">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-medium text-blue-900">
-                  STT: <span className="font-bold">{formatHoSoCode(selectedCase.caseCode)}</span>
-                </p>
-                <p className="text-sm text-blue-800 mt-1">Tên vụ án: {selectedCase.name}</p>
-              </div>
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800">
-                  <strong>Lưu ý:</strong> Sau khi nhận, vụ án chuyển sang trạng thái Đang điều tra.
-                </p>
-              </div>
-              {assignError && (
-                <div
-                  data-testid="initial-assign-error"
-                  role="alert"
-                  className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
-                >
-                  <strong className="font-medium">Chưa nhận được. </strong>
-                  {assignError}
-                </div>
-              )}
-            </div>
-            <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedCase(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmAssign()}
-                disabled={assignLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                data-testid="btn-confirm-assign"
-              >
-                {assignLoading ? 'Đang xử lý...' : 'Xác nhận nhận xử lý'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedCase && <HandoffReceiptModal key={selectedCase.id} caseId={selectedCase.id} name={selectedCase.name} onClose={() => setSelectedCase(null)} onAccepted={() => { setSelectedCase(null); setLanTai(value => value + 1); }} />}
 
     </div>
   );

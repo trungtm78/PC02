@@ -1,3 +1,4 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Response } from 'express';
@@ -49,6 +50,7 @@ export class SubjectsBulkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly childAccess: CaseChildAccessService,
   ) {}
 
   async bulkDelete(
@@ -59,6 +61,7 @@ export class SubjectsBulkService {
     if (input.ids.length > 100)
       throw new BadRequestException('Tối đa 100 đối tượng mỗi đợt');
 
+    await this.childAccess.entity('Subject', 'delete', input.actorId);
     const { bulkOperationId } = await this.audit.logBulkHeader({
       actorId: input.actorId,
       resource: 'Subject',
@@ -66,18 +69,28 @@ export class SubjectsBulkService {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const result = await runBulk<{ subjectId: string }, Prisma.TransactionClient>({
+    const result = await runBulk<
+      { subjectId: string },
+      Prisma.TransactionClient
+    >({
       ids: input.ids,
-      prisma: this.prisma as unknown as {
-        $transaction: <R>(cb: (tx: Prisma.TransactionClient) => Promise<R>) => Promise<R>;
-      },
+      prisma: { $transaction: (cb) => this.childAccess.transaction(cb) },
       preflight: async (ids) => {
-        const scopeFilter = buildScopeFilter(input.dataScope, 'write');
+        const scopeFilter = buildScopeFilter(
+          await this.childAccess.scope(input.actorId),
+          'write',
+        );
+        const visibility = await this.childAccess.listWhere(input.actorId);
         const inScope = await this.prisma.subject.findMany({
           where: {
             id: { in: ids },
             deletedAt: null,
-            ...(scopeFilter ? { case: scopeFilter as Prisma.CaseWhereInput } : {}),
+            case: {
+              AND: [
+                visibility,
+                ...(scopeFilter ? [scopeFilter as Prisma.CaseWhereInput] : []),
+              ],
+            },
           },
           select: { id: true },
         });
@@ -88,30 +101,49 @@ export class SubjectsBulkService {
         return { validIds: ids.filter((id) => inScopeSet.has(id)), skipped };
       },
       executeOne: async (id, tx) => {
-        try {
-          await tx.subject.update({
-            where: { id, deletedAt: null },
-            data: { deletedAt: new Date() },
-          });
-        } catch (e) {
-          if ((e as { code?: string })?.code === 'P2025')
-            throw new ConcurrentModificationError(id);
-          throw e;
-        }
-        await this.audit.logBulkItem(
-          {
-            bulkOperationId,
-            userId: input.actorId,
-            action: 'SUBJECT_DELETED',
-            subject: 'Subject',
-            subjectId: id,
-            metadata: { reason: input.reason, softDelete: true },
-            ipAddress: input.meta?.ipAddress,
-            userAgent: input.meta?.userAgent,
-          },
+        const existing = await tx.subject.findFirst({
+          where: { id, deletedAt: null },
+          select: { id: true, caseId: true, updatedAt: true },
+        });
+        if (!existing) throw new ConcurrentModificationError(id);
+        return this.childAccess.writeInTransaction(
           tx,
+          [existing.caseId],
+          input.actorId,
+          'Subject',
+          'delete',
+          async (currentTx) => {
+            try {
+              await currentTx.subject.update({
+                where: {
+                  id,
+                  deletedAt: null,
+                  caseId: existing.caseId,
+                  updatedAt: existing.updatedAt,
+                },
+                data: { deletedAt: new Date() },
+              });
+            } catch (e) {
+              if ((e as { code?: string })?.code === 'P2025')
+                throw new ConcurrentModificationError(id);
+              throw e;
+            }
+            await this.audit.logBulkItem(
+              {
+                bulkOperationId,
+                userId: input.actorId,
+                action: 'SUBJECT_DELETED',
+                subject: 'Subject',
+                subjectId: id,
+                metadata: { reason: input.reason, softDelete: true },
+                ipAddress: input.meta?.ipAddress,
+                userAgent: input.meta?.userAgent,
+              },
+              currentTx,
+            );
+            return { subjectId: id };
+          },
         );
-        return { subjectId: id };
       },
     });
 
@@ -127,7 +159,9 @@ export class SubjectsBulkService {
             message: 'Đối tượng đã được xóa bởi người khác',
           })),
       ],
-      failed: result.failed.filter((f) => !f.error.startsWith(CONCURRENT_PREFIX)),
+      failed: result.failed.filter(
+        (f) => !f.error.startsWith(CONCURRENT_PREFIX),
+      ),
     };
     await this.audit.completeBulk(bulkOperationId, {
       succeeded: reclassified.succeeded.length,
@@ -151,6 +185,7 @@ export class SubjectsBulkService {
       );
     }
 
+    await this.childAccess.assertExport('Subject', input.actorId);
     await this.audit.log({
       userId: input.actorId,
       action: 'SUBJECT_BULK_EXPORTED',
@@ -164,16 +199,20 @@ export class SubjectsBulkService {
       id: { in: input.ids },
       deletedAt: null,
     };
-    const scopeFilter = buildScopeFilter(input.dataScope);
+    const scopeFilter = buildScopeFilter(
+      await this.childAccess.scope(input.actorId),
+    );
     if (scopeFilter) {
       where.case = scopeFilter as Prisma.CaseWhereInput;
     }
 
-    const records = await this.prisma.subject.findMany({
+    where.AND = [{ case: await this.childAccess.listWhere(input.actorId) }];
+    const rawRecords = await this.prisma.subject.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        caseId: true,
         fullName: true,
         type: true,
         status: true,
@@ -187,6 +226,17 @@ export class SubjectsBulkService {
       },
     });
 
+    const records = await Promise.all(
+      rawRecords.map((record) =>
+        this.childAccess.serialize(
+          record.caseId,
+          record,
+          input.actorId,
+          this.prisma,
+          'export',
+        ),
+      ),
+    );
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Đối tượng');
     sheet.columns = [
@@ -217,7 +267,9 @@ export class SubjectsBulkService {
         type: SUBJECT_TYPE_LABEL[rec.type] ?? rec.type,
         status: rec.status,
         idNumber: rec.idNumber ?? '',
-        dateOfBirth: rec.dateOfBirth ? rec.dateOfBirth.toISOString().slice(0, 10) : '',
+        dateOfBirth: rec.dateOfBirth
+          ? rec.dateOfBirth.toISOString().slice(0, 10)
+          : '',
         gender: rec.gender,
         phone: rec.phone ?? '',
         address: rec.address ?? '',

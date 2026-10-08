@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import type { Petition } from '@prisma/client';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
 import {
   Injectable,
   NotFoundException,
@@ -241,6 +245,9 @@ export class PetitionsService {
     private readonly deadlineRules: DeadlineRulesService,
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly caseCreation: CaseSourceCreationService,
+    private readonly caseBoundary: CaseChildAccessService,
+    private readonly caseEvidence: CaseEvidenceGovernanceService,
   ) {}
 
   private boTimKiem?: BoTimKiem;
@@ -1289,21 +1296,34 @@ export class PetitionsService {
 
     this.checkWriteScope(existing, dataScope);
 
-    await this.prisma.petition.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await this.caseBoundary.sourceDeletion(
+      'Petition',
+      id,
+      actorId,
+      async (tx) => {
+        await tx.petition.update({
+          where: {
+            id,
+            updatedAt: existing.updatedAt,
+            linkedCaseId: existing.linkedCaseId,
+          },
+          data: { deletedAt: new Date() },
+        });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'PETITION_DELETED',
-      subject: 'Petition',
-      subjectId: id,
-      metadata: { stt: existing.stt, softDelete: true },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'PETITION_DELETED',
+            subject: 'Petition',
+            subjectId: id,
+            metadata: { stt: existing.stt, softDelete: true },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+      },
+    );
     return { success: true, message: 'Xóa đơn thư thành công' };
   }
 
@@ -1444,91 +1464,141 @@ export class PetitionsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const petition = await this.prisma.petition.findFirst({
-      where: { id: petitionId, deletedAt: null },
-    });
-
-    if (!petition) {
-      throw new NotFoundException(`Đơn thư không tồn tại (id: ${petitionId})`);
-    }
-
-    this.checkWriteScope(petition, dataScope);
-
-    // Prevent re-conversion
-    if (petition.linkedCaseId) {
-      throw new BadRequestException(
-        'Đơn thư này đã được chuyển thành Vụ án trước đó',
-      );
-    }
-    if (petition.linkedIncidentId) {
-      throw new BadRequestException(
-        'Đơn thư này đã được chuyển thành Vụ việc, không thể chuyển thành Vụ án',
-      );
-    }
-
-    // Validate required fields (EC-01, AC-03)
-    if (!dto.caseName || !dto.crime || !dto.jurisdiction) {
-      throw new BadRequestException(
-        'Tên vụ án, Tội danh và Thẩm quyền là bắt buộc khi chuyển đổi',
-      );
-    }
-
+    void dataScope;
     // Create Case and update Petition atomically in one transaction
     let caseRecord: Prisma.CaseGetPayload<object>;
+    let replayed = false;
     try {
-      [caseRecord] = await this.prisma.$transaction(async (tx) => {
-        // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
-        // trước đây vụ án chuyển từ đơn thư không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
-        const { number: caseCode, logId: caseCodeLogId } =
-          await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
-        const newCase = await tx.case.create({
-          data: {
-            caseCode,
-            name: dto.caseName,
-            crime: dto.crime,
-            unit: dto.jurisdiction,
-            status: CaseStatus.TIEP_NHAN,
-            // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
-            // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
-            caseProvenance: 'FROM_PETITION' as const,
-            linkedPetitionId: petitionId,
-          },
-        });
-        await tx.documentNumberLog.update({
-          where: { id: caseCodeLogId },
-          data: { documentId: newCase.id },
-        });
+      const creation = await this.caseCreation.execute(
+        {
+          kind: 'Petition',
+          sourceId: petitionId,
+          expectedUpdatedAt: dto.expectedUpdatedAt,
+          requestKey: dto.requestKey,
+          payload: { ...dto },
+        },
+        actorId,
+        async (tx, currentSource, context) => {
+          const petition = currentSource as Petition;
+          this.checkWriteScope(petition, context.scope);
 
-        await tx.petition.update({
-          where: {
-            id: petitionId,
-            // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
-            updatedAt: new Date(dto.expectedUpdatedAt),
-          },
-          data: {
-            linkedCaseId: newCase.id,
-            status: PetitionStatus.DA_CHUYEN_VU_AN,
-            // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
-            // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
-            ...machMocGiaiQuyet(
-              'petition',
-              petition.status,
-              PetitionStatus.DA_CHUYEN_VU_AN,
-              petition.ngayGiaiQuyet,
-            ),
-          },
-        });
+          // Prevent re-conversion
+          if (petition.linkedCaseId) {
+            throw new BadRequestException(
+              'Đơn thư này đã được chuyển thành Vụ án trước đó',
+            );
+          }
+          if (petition.linkedIncidentId) {
+            throw new BadRequestException(
+              'Đơn thư này đã được chuyển thành Vụ việc, không thể chuyển thành Vụ án',
+            );
+          }
 
-        // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
-        // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
-        // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
-        await tx.document.updateMany({
-          where: { petitionId, deletedAt: null },
-          data: { caseId: newCase.id },
-        });
+          // Validate required fields (EC-01, AC-03)
+          if (!dto.caseName || !dto.crime || !dto.jurisdiction) {
+            throw new BadRequestException(
+              'Tên vụ án, Tội danh và Thẩm quyền là bắt buộc khi chuyển đổi',
+            );
+          }
 
-        return [newCase];
-      });
+          // Mã vụ án cấp qua CHÍNH bộ đếm CASE của đường tạo vụ án thường, cùng giao dịch (BUG-010, 19/09/2026 —
+          // trước đây vụ án chuyển từ đơn thư không có mã: chìm cuối danh sách, rơi khỏi tìm theo mã, bản in trống số).
+          const { number: caseCode, logId: caseCodeLogId } =
+            await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
+          const newCase = await tx.case.create({
+            data: await context.prepare({
+              caseCode,
+              name: dto.caseName,
+              crime: dto.crime,
+              unit: dto.jurisdiction,
+              status: CaseStatus.TIEP_NHAN,
+              // v0.37.1 PR-AUDIT — close provenance gap: convertToCase was creating Case
+              // without caseProvenance, which would fail NOT NULL contract in PR-PROV-2.
+              caseProvenance: 'FROM_PETITION' as const,
+              linkedPetitionId: petitionId,
+            }),
+          });
+          await tx.documentNumberLog.update({
+            where: { id: caseCodeLogId },
+            data: { documentId: newCase.id },
+          });
+
+          await tx.petition.update({
+            where: {
+              id: petitionId,
+              // P1-002 fix: always-lock (was conditional). DTO requires expectedUpdatedAt.
+              updatedAt: new Date(dto.expectedUpdatedAt),
+              linkedCaseId: null,
+              linkedIncidentId: null,
+            },
+            data: {
+              linkedCaseId: newCase.id,
+              status: PetitionStatus.DA_CHUYEN_VU_AN,
+              // Chuyển đơn thư lên vụ việc/vụ án LÀ một kết quả xử lý — đóng mốc, nếu không
+              // thì đơn đã chuyển mãi mãi nằm ở ô "đã xong nhưng chưa rõ ngày".
+              ...machMocGiaiQuyet(
+                'petition',
+                petition.status,
+                PetitionStatus.DA_CHUYEN_VU_AN,
+                petition.ngayGiaiQuyet,
+              ),
+            },
+          });
+
+          // v0.52 Cycle 4 — Document handoff: petition-linked tài liệu re-link sang case mới
+          // trong CÙNG transaction. petitionId giữ làm provenance, caseId set để Case tab
+          // "Tài liệu" hiển thị evidence của đơn gốc. Soft-deleted documents bỏ qua.
+          const sourceDocuments = await tx.document.findMany({
+            where: { petitionId, deletedAt: null },
+            select: { id: true, updatedAt: true },
+          });
+          for (const document of sourceDocuments)
+            await this.caseEvidence.assertDocumentCanChangeParent(
+              tx,
+              document.id,
+              { actorId },
+              newCase.id,
+              { targetCreatedInTransaction: true },
+            );
+          const moved = await tx.document.updateMany({
+            where: {
+              petitionId,
+              deletedAt: null,
+              id: { in: sourceDocuments.map((document) => document.id) },
+              OR: sourceDocuments.map((document) => ({
+                id: document.id,
+                updatedAt: document.updatedAt,
+              })),
+            },
+            data: { caseId: newCase.id },
+          });
+          if (moved.count !== sourceDocuments.length)
+            throw new ConflictException(
+              'Source Documents changed during Case conversion',
+            );
+
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'PETITION_CONVERTED_TO_CASE',
+              subject: 'Petition',
+              subjectId: petitionId,
+              metadata: {
+                caseId: newCase.id,
+                caseName: newCase.name,
+                crime: dto.crime,
+                jurisdiction: dto.jurisdiction,
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+          return newCase;
+        },
+      );
+      caseRecord = creation.caseRecord;
+      replayed = creation.replayed;
     } catch (e) {
       // P1-002: P2025 = row not found với updatedAt mismatch → race detected.
       // P2002 = unique constraint violation (partial index on linkedCaseId) → race detected at DB.
@@ -1541,27 +1611,13 @@ export class PetitionsService {
       throw e;
     }
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'PETITION_CONVERTED_TO_CASE',
-      subject: 'Petition',
-      subjectId: petitionId,
-      metadata: {
-        caseId: caseRecord.id,
-        caseName: caseRecord.name,
-        crime: dto.crime,
-        jurisdiction: dto.jurisdiction,
-      },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
     // Như đường tạo vụ án thường: báo "vụ án vừa được tạo" cho thủ trưởng (rà mã 19/09/2026 — trước đây vụ án sinh
     // từ chuyển đơn thư / khởi tố vụ việc không có thông báo).
-    this.eventEmitter.emit(
-      'case.created',
-      new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
-    );
+    if (!replayed)
+      this.eventEmitter.emit(
+        'case.created',
+        new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
+      );
 
     return {
       success: true,

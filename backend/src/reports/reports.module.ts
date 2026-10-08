@@ -1,3 +1,4 @@
+import { CaseGraphAccessModule } from './graph-access/case-graph-access.module';
 import { Module } from '@nestjs/common';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
@@ -9,6 +10,7 @@ import { MonthlyReportPackageModule } from './monthly-package/monthly-report-pac
 
 @Module({
   imports: [
+    CaseGraphAccessModule,
     PrismaModule,
     AuthModule,
     PhuLuc16Module,

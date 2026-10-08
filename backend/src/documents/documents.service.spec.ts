@@ -5,18 +5,30 @@ import { AuditService } from '../audit/audit.service';
 import * as fs from 'fs';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CatalogService } from '../catalog/catalog.service';
+import { CaseGovernanceService } from '../cases/governance/case-governance.service';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+
+// This suite replaces fs for storage tests; keep the unrelated native bcrypt
+// credential helper outside that mocked module graph.
+jest.mock('../admin/case-authority.guard', () => ({
+  businessCredentialInvalidation: jest.fn(),
+}));
 
 // Mock fs module
 jest.mock('fs');
 
 // Mock path module with specific implementations
-jest.mock('path', () => ({
-  join: jest.fn((...args) => args.join('/')),
-  extname: jest.fn((filename: string) => {
-    const match = filename.match(/\.[^.]+$/);
-    return match ? match[0] : '';
-  }),
-}));
+jest.mock('path', () => {
+  const actual = jest.requireActual<typeof import('path')>('path');
+  return {
+    ...actual,
+    join: jest.fn((...args) => args.join('/')),
+    extname: jest.fn((filename: string) => {
+      const match = filename.match(/\.[^.]+$/);
+      return match ? match[0] : '';
+    }),
+  };
+});
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -38,6 +50,13 @@ describe('DocumentsService', () => {
     petition: {
       findFirst: jest.fn(),
     },
+    caseAssetVersion: { findUnique: jest.fn().mockResolvedValue(null) },
+    caseDecision: { findFirst: jest.fn().mockResolvedValue(null) },
+    caseDispositionRequest: { findFirst: jest.fn().mockResolvedValue(null) },
+    caseCustodyEvent: { findFirst: jest.fn().mockResolvedValue(null) },
+    caseEvidenceHold: { findFirst: jest.fn().mockResolvedValue(null) },
+    $queryRaw: jest.fn(),
+    $transaction: jest.fn(async (fn: any) => fn(mockPrismaService)),
   };
 
   const mockAuditService = {
@@ -64,6 +83,32 @@ describe('DocumentsService', () => {
         {
           provide: CatalogService,
           useValue: mockCatalogService,
+        },
+        {
+          provide: CaseGovernanceService,
+          useValue: {
+            assertCaseWritable: jest.fn(),
+            assertCaseReadable: jest.fn(),
+          },
+        },
+        {
+          provide: CaseEvidenceGovernanceService,
+          useValue: {
+            documentVisibilityWhere: jest
+              .fn()
+              .mockResolvedValue({ caseAssetVersion_document: { none: {} } }),
+            authorizeAsset: jest.fn(),
+            authorizeLegacyDocumentRead: jest
+              .fn()
+              .mockResolvedValue({
+                scope: null,
+                caseVisible: true,
+                fieldDefinitionVersionId: null,
+              }),
+            filterDocumentCase: jest.fn((record: unknown) =>
+              Promise.resolve(record),
+            ),
+          },
         },
       ],
     }).compile();
@@ -111,7 +156,10 @@ describe('DocumentsService', () => {
       expect(result.pageSize).toBe(20);
       expect(mockPrismaService.document.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null },
+          where: {
+            deletedAt: null,
+            AND: [{ caseAssetVersion_document: { none: {} } }],
+          },
           take: 20,
           skip: 0,
         }),
@@ -668,6 +716,7 @@ describe('DocumentsService', () => {
   describe('update', () => {
     const existingDoc = {
       id: 'doc-1',
+      updatedAt: new Date('2026-10-06T00:00:00Z'),
       title: 'Old Title',
       caseId: 'case-1',
       incidentId: null,

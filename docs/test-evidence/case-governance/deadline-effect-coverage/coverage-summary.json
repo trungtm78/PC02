@@ -1,0 +1,3 @@
+{"total": {"lines":{"total":209,"covered":206,"skipped":0,"pct":98.56},"statements":{"total":241,"covered":228,"skipped":0,"pct":94.6},"functions":{"total":35,"covered":34,"skipped":0,"pct":97.14},"branches":{"total":237,"covered":224,"skipped":0,"pct":94.51},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
+,"C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\cases\\governance\\case-deadline-effect.ts": {"lines":{"total":209,"covered":206,"skipped":0,"pct":98.56},"functions":{"total":35,"covered":34,"skipped":0,"pct":97.14},"statements":{"total":241,"covered":228,"skipped":0,"pct":94.6},"branches":{"total":237,"covered":224,"skipped":0,"pct":94.51}}
+}

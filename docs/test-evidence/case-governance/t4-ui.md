@@ -1,0 +1,60 @@
+# T4 Case governance UI — implementation handoff
+
+Worktree: `.worktrees/case-governance-20261006`. Approved scope: task-T4-brief, CASE_GOVERNANCE architecture, frozen T1b HTTP and T3 controller contracts. Source baseline `10030bed`; inherited T2 changes retained. No commits, index changes, push, deployment, production access, external messages or actual dossiers.
+
+Implemented routes `/cases/governance`, `/cases/governance/configuration`, `/cases/:id/governance`, navigation and the existing Case screen integrations. Existing information tabs, six specialized detail tabs, Vietnamese search and Word/Excel flows are preserved. The original receive action now posts an independent handoff acceptance with both versions, rather than changing legal status.
+
+| Journey | Implementation/evidence |
+|---|---|
+| Receipt and assignment | Sender/recipient/team, owned-document revision checklist, shortcomings; send/accept/return/cancel and dedicated assignment; history and inbox |
+| Legal governance | All 21 frozen actions plus phase verification, split, correction, related/source link and classification; real decision/source inputs; draft/revise/submit/review/reject/execute; server readiness and as-of selection |
+| Configuration | Structured sources, conditions, typed fields, basic-header and legacy-132 policy groups, civil-period anchors/durations/calendar, validate/review/publish/replacement/history/preview |
+| Native/custom fields | Actual policy hide/readonly/omit, owned aliases, nested statistics, clears/date provenance, protected mandatory-name skip, malformed/loading/error schema write blocking; one atomic Case metadata save; explicit schema adoption |
+| Source conversion | Both Incident prosecution and Petition conversion load authorized default typed Case fields; required/type validation; false/0 retained; actual returned source version preserved |
+| Provenance | Authorized source/target pickers, selected concrete split parts and field allocations; server snapshots stripped on revision; no phantom source creation |
+| Evidence | Owned original/derivative registration, immutable parent SHA/tool version, byte verification; structured physical receipt/custody facts and correction/history |
+| Disclosure | Exact item versions, recipient/expiry/purpose/basis, derivative redaction descriptions, per-item public-content policy, submit/review/revise/export/revoke/delta and hidden-source approval blocking; trusted-hash offline verifier |
+| Preservation/access/work | Holds, retention/disposition lifecycle and actual receipt/outcome, scoped representation/grant expiry/revoke, authoritative principal mode, tasks, queues/dashboard, shared authorized list/count/export URL query and Back/Forward |
+
+## Fresh gates
+
+- Final affected coverage run: `rtk proxy npm test -- src/features/cases src/pages/cases src/components/form src/components/__tests__/FKSelect.test.tsx src/components/__tests__/CrimeSelect.test.tsx src/features/_shared/modals/__tests__/ProsecuteModalProvider.test.tsx src/pages/petitions/__tests__/ConvertPetitionModal.test.tsx src/components/shared/ListPageShell/__tests__/useListPageUrlState.test.ts src/pages/__tests__/xoaLocGhiUrlCuoi.gate.test.ts --maxWorkers=2` with coverage includes matching those changed product surfaces and JSON reporters: **1004 PASS, 0 FAIL, exit 0**. Raw artifacts: `t4-final-tests.json`, `t4-final-coverage/coverage-final.json` and summary.
+- Final lint cleanup affected CrimeSelect memo/helper declaration and source-conversion error normalization only. Fresh targeted delta: CrimeSelect ordinary/null-data plus Petition conversion **17 PASS, 0 FAIL, exit 0**, `t4-final-delta-tests.json` and raw delta coverage. Delta coverage replaces those two file entries when computing the final patch gate.
+- `rtk proxy npx eslint` over Case features/pages, shared form/FK/Crime selectors, URL state, row-action registry, source prosecution/Petition conversion and SaveSplitButton: **exit 0**; `t4-final-lint.json`.
+- `rtk proxy npx tsc -b --pretty false`: **exit 0**. Final `rtk proxy npm run build` (includes typecheck): **exit 0**, Vite3068 modules. Existing >500 kB main chunk and old Browserslist-data warnings remain; no dependency upgrade performed.
+- `rtk git diff --check -- frontend/src`: **exit 0** after preserving the FKSelect LF baseline rather than a whole-file CRLF rewrite.
+- `rtk proxy python scripts/case-governance-ui-evidence.py`: **5791/6054 mapped executable changed lines =95.6558%**, baseline10030bed including inherited T2 changes and existing modified CaseForm/Detail/list/source/transport surfaces. No missing instrumented product files. Full numerator/denominator, per-file misses and algorithm are in `t4-patch-coverage.json`; all55 product source hashes in `t4-source-hashes.json`. Pure type/interface declarations have no execution counters.
+- Earlier isolated new-governance-module run: **113 PASS, exit0; 802/880 lines =91.13%**. Lower per-module metrics remain transparent in raw JSON, including editor/legal/disclosure modules; this is not a claim that every individual module independently exceeds90%.
+
+## RED → GREEN and fixture history
+
+Observed failures before fixes: protected native Detail value; actual legacy and duplicate supplemental control exposure; dedicated handoff/legal/evidence/preservation/packet/grant/tasks/configuration/adoption controls absent; first physical custody facts absent; per-item disclosure policy absent; offline manifest/byte verification absent; list/stats governance URL parameters omitted; receive action still PUT legal status; retry key changed after authorized CAS refresh; malformed non-null schema accepted as unconfigured; required source fields absent in both conversions. Matching targeted suites subsequently passed.
+
+The first affected sweep was958 PASS/4 FAIL. Existing URL final-write/order oracle was retained while recognizing the explicit extra governance clear-key argument. Three old fake API fixtures returned a Case/array as a schema; they now explicitly return the contracted null unconfigured response. Tests wait for genuinely enabled buttons before clicking during policy loading; no assertions were removed. SaveSplitButton uses a separate disabled flag to retain its business label. Source no-schema fixtures similarly return null; new integration tests exercise the actual schema hook and typed false/0 transport. Existing synchronous source-modal presentation tests can emit React act warnings; these are reported, not suppressed.
+
+## Remaining gates and limits
+
+First independent T4 review and actual backend/API/browser UAT remain the parent's T5 gates. Runtime3001/5280 was intentionally stopped for private DB writers; no browser screenshots or live workflow PASS is claimed here. No measured10/10 or whole-release completion claim. Server authorization/CAS/source verification remains authoritative; UI holds preserve data and do not automatically embargo reads. Revocation prevents new online access and cannot recall downloaded copies. Hash verification does not authenticate legal signatures.
+
+## First-review repair round (T4-R1–R3)
+
+The first read-only findings are recorded in `docs/reviews/case-t4-first-findings.md`; the parent retained the before-fix source snapshot. This round changes only custody history, dedicated handoff business gates, their regressions and evidence. The shared ordinary-edit gate remains unchanged.
+
+- R1: render actual `payload.facts` holder identities, locations, condition/note, receipt identity/reference and correction reason; render pinned `payload.sourceSnapshot` version/hash. Legacy missing facts explicitly show unverified data.
+- R2: dedicated handoff gates require current Case/aggregate versions, INTERNAL principal, operate authority, dispatch for new sends/assignments and designated recipient for accept/return. Ordinary `canEdit:false` no longer disables authorized handoff commands. Submission handlers enforce the same UI gates.
+- R3: existing pending return/cancel can clear while the feature is OFF; send/assignment/accept remain OFF-gated. Missing operate authority, representation-only mode, wrong recipient, stale/missing versions and resolved state remain blocked.
+
+RED: focused existing plus new regressions produced **8 failures / 12 passes, exit 1** before implementation. GREEN: **21 passes / 0 failures, exit 0** after implementation. The initial history assertion found the receipt ID twice because both facts and source snapshot render it; the corrected oracle explicitly requires both occurrences. The workspace capability fixture now includes the actual server-supplied actor ID; business assertions were retained.
+
+Final round evidence:
+
+- One affected run (same prior scope plus CrimeSelect null-data regression): **1,011 PASS / 2 FAIL / 1,013 total, exit 1**, `t4-round1-tests.json`. The unchanged split and configuration-editor journeys failed under concurrent verification load; the initial JSON contained only STACK_TRACE_ERROR. The targeted five-suite retry was **69 PASS / 1 FAIL, exit 1**, `t4-round1-delta-tests.json`; split passed, and the editor failure explicitly reported the unchanged 20-second timeout. An isolated editor retry without coverage was **8 PASS / 0 FAIL, exit 0**, `t4-round1-editor-retry-tests.json`; that journey took 11.24 seconds. No timeout or business assertion was changed. These passing reruns close the two observed failures; they do not relabel the earlier affected run as a single green run.
+- Fresh repair/workspace coverage: `rtk proxy npm test -- src/features/cases/governance/__tests__/workflow-controls.test.tsx src/features/cases/governance/__tests__/evidence-workflows.test.tsx src/features/cases/governance/__tests__/workspace.test.tsx --maxWorkers=1 --coverage` with coverage includes restricted to shared.ts/HandoffPanel.tsx/EvidencePanel.tsx and JSON reporters: **33 PASS / 0 FAIL, exit 0**. Raw results: `t4-round1-repair-tests.json`, `t4-round1-coverage/coverage-final.json`, and summary. Fresh restricted Istanbul line coverage is **159/185 =85.94%**; its limited utility coverage is disclosed rather than excluded from the patch gate.
+- Scoped changed-source/regression lint **exit 0**, `t4-round1-lint.json`; the actor-ID fixture delta lint **exit 0**, `t4-round1-fixture-lint.json`. `rtk proxy npx tsc -b --pretty false` **exit 0**. `rtk proxy npm run build` **exit 0**, 3,068 modules; prior bundle-size/Browserslist warnings remain. Diff whitespace check **exit 0**.
+- `rtk proxy python scripts/case-governance-ui-evidence.py t4-round1-coverage`: whole executable patch **5,851/6,118 =95.6358%**, baseline10030bed including inherited T2. All **55** source hashes were verified against current bytes. Fresh coverage covers all three changed product modules; **52 unchanged** modules reuse previous raw counters only after matching their frozen SHA-256 from `t4-first-review-source-hashes.json`. The patch artifact lists those reused sources explicitly. Lower mapped module metrics remain visible: EvidencePanel401/406, HandoffPanel227/233, shared234/272. No product module lacks instrumentation.
+
+R1–R3 are implemented and ready for independent closure review. Browser UAT and the remaining whole-feature/release review gates remain open.
+
+## Full-frontend regression repair round2
+
+Latest frozen-source evidence is in `t4-regression-round2.md`: the coordinator's seven full-suite failures were reproduced, corrected with retained legacy/readonly/navigation/idempotency oracles, and verified with259 focused+affected tests passing. Types, scoped lint, diff check and build exit0. Current executable whole-patch coverage5,838/6,080=96.0197%;60 source hashes verified,33 unchanged-source maps reused only by exact frozen hashes. Fresh restricted raw lines88.93% remain disclosed. The approved typed representation summary keeps accurate Case fields separately from unchanged default INTERNAL legacy columns; cached officer assignment and guarded inactive-inclusive principal management use their distinct contracts. No whole4,458 rerun or browser UAT PASS is asserted here.

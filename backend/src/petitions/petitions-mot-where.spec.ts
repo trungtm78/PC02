@@ -1,3 +1,8 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PetitionStatus } from '@prisma/client';
@@ -34,7 +39,7 @@ describe('PetitionsService — một nguồn điều kiện lọc cho danh sách
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },{ provide: CaseEvidenceGovernanceService, useValue: { assertDocumentCanChangeParent: jest.fn().mockResolvedValue(undefined) } },{ provide: CaseSourceCreationService, useValue: ordinarySourceFixture(mockPrisma) },
         PetitionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },

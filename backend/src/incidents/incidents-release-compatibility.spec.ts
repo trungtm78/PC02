@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 
@@ -41,7 +45,7 @@ function factory() {
         .fn()
         .mockResolvedValue({ number: 'VV1', logId: 'log1' }),
     } as never,
-    { emit: jest.fn() } as never,
+    { emit: jest.fn() } as never, ordinarySourceFixture(db as never), ordinaryChildFixture(db as never) as never
   );
   const create = service.create.bind(service) as (
     ...args: unknown[]

@@ -1,0 +1,8 @@
+{
+  "timestamp": "2026-10-06T05:43:15.834Z",
+  "verdict": "PASS",
+  "target": "loopback55441/pc02_case_governance_uat",
+  "baselineMigrations": 127,
+  "data": "schema-only from own prior compatible UAT DB, no business rows copied",
+  "syntheticSentinel": true
+}

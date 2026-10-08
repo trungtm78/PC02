@@ -1,0 +1,48 @@
+src/admin/admin.service.ts 777ms
+src/admin/case-authority.guard.ts 133ms
+src/admin/bulk/bulk-import.service.ts 183ms
+src/admin/bulk/bulk-import.processor.ts 103ms
+src/auth/services/enrollment.service.ts 67ms
+src/subjects/subjects.service.ts 115ms
+src/lawyers/lawyers.service.ts 95ms
+src/conclusions/conclusions.service.ts 105ms
+src/investigation-supplements/investigation-supplements.service.ts 64ms
+src/case-child-access/case-child-access.service.ts 129ms
+src/case-child-access/case-source-creation.service.ts 60ms
+src/cases/governance/case-field-schema.service.ts 217ms
+src/cases/governance/legal-action.validation.ts 19ms (unchanged)
+src/cases/governance/case-operations.service.ts 122ms
+src/cases/governance/case-civil-day.ts 19ms
+src/incidents/incidents.service.ts 691ms
+src/petitions/petitions.service.ts 641ms
+src/subjects/bulk/subjects.bulk.service.ts 90ms
+src/lawyers/bulk/lawyers.bulk.service.ts 81ms
+src/incidents/bulk/incidents.bulk.service.ts 247ms
+src/petitions/bulk/petitions.bulk.service.ts 139ms
+src/proposals/proposals.service.ts 124ms
+src/delegations/delegations.service.ts 126ms
+src/case-child-access/case-graph.interceptor.ts 13ms
+src/cases/bulk/cases.bulk.service.ts 212ms
+src/incidents/dto/prosecute-incident.dto.ts 13ms
+src/petitions/dto/convert-case.dto.ts 11ms
+src/subjects/subjects.controller.ts 24ms
+src/subjects/subjects.module.ts 8ms (unchanged)
+src/lawyers/lawyers.controller.ts 28ms
+src/lawyers/lawyers.module.ts 5ms (unchanged)
+src/conclusions/conclusions.controller.ts 26ms
+src/conclusions/conclusions.module.ts 9ms (unchanged)
+src/investigation-supplements/investigation-supplements.controller.ts 19ms
+src/investigation-supplements/investigation-supplements.module.ts 7ms (unchanged)
+src/proposals/proposals.controller.ts 31ms
+src/proposals/proposals.module.ts 6ms
+src/delegations/delegations.controller.ts 19ms
+src/delegations/delegations.module.ts 6ms
+src/incidents/incidents.controller.ts 80ms (unchanged)
+src/incidents/incidents.module.ts 7ms
+src/petitions/petitions.controller.ts 104ms
+src/petitions/petitions.module.ts 6ms
+src/case-child-access/case-child-access.module.ts 4ms
+
+[rtk] /!\ No hook installed — run `rtk init -g` for automatic token savings
+
+Exit: 0

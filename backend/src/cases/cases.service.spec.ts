@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture} from './governance/case-ordinary-test.fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -43,11 +44,16 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
 import { LIST_SUSPECT_NAMES_LIMIT } from './cases.constants';
 import type { DataScope } from '../auth/services/unit-scope.service';
 import type { CreateCaseDto } from './dto/create-case.dto';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// Ordinary Case unit fixtures carry real active actor/Case permissions; governance capabilities remain absent.
+const currentActor={id:'actor-001',isActive:true,canDispatch:true,role:{name:'ADMIN',permissions:[{permission:{subject:'Case',action:'write',conditions:null}},{permission:{subject:'Case',action:'restore',conditions:null}},{permission:{subject:'Case',action:'read',conditions:null}},{permission:{subject:'Case',action:'edit',conditions:null}}]}};
 const mockCase = {
   id: 'case-001',
+  sensitivity:'NORMAL',
+  intakeStage:null,governanceRevision:0,
   name: 'Vụ án tham nhũng',
   crime: 'Tham nhũng',
   status: CaseStatus.TIEP_NHAN,
@@ -82,7 +88,11 @@ const mockPetition = {
   updatedAt: new Date(),
 };
 
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
+  $queryRaw:jest.fn().mockResolvedValue([]),
+  featureFlag:{findUnique:jest.fn().mockResolvedValue({enabled:false})},
+  caseHandoff:{findFirst:jest.fn().mockResolvedValue(null)},
+  caseEvidenceHold:{count:jest.fn().mockResolvedValue(0)},
   case: {
     findMany: jest.fn(),
     groupBy: jest.fn(),
@@ -177,6 +187,36 @@ const mockAudit = {
   ),
 };
 
+const mockCaseSourceCreation = {
+  execute: jest.fn(
+    async (
+      input: { kind: 'Incident' | 'Petition'; sourceId: string },
+      _actorId: string,
+      handler: (
+        tx: typeof mockPrisma,
+        source: Record<string, unknown>,
+        context: {
+          enabled: boolean;
+          scope: DataScope | null;
+          prepare(data: Prisma.CaseUncheckedCreateInput): Promise<Prisma.CaseUncheckedCreateInput>;
+        },
+      ) => Promise<Record<string, unknown>>,
+    ) =>
+      mockPrisma.$transaction(async (tx: typeof mockPrisma) => {
+        const source = await tx[
+          input.kind === 'Incident' ? 'incident' : 'petition'
+        ].findFirst({ where: { id: input.sourceId, deletedAt: null } });
+        if (!source) throw new NotFoundException('Source not found');
+        const caseRecord = await handler(tx, source, {
+          enabled: false,
+          scope: null,
+          prepare: async (data) => data,
+        });
+        return { caseRecord, replayed: false };
+      }),
+  ),
+};
+
 function findAuditAction(
   action: string,
 ): { action: string; metadata: unknown } | undefined {
@@ -207,11 +247,19 @@ describe('CasesService', () => {
         { provide: SettingsService, useValue: mockSettings }, // v0.31.0.2
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        {
+          provide: CaseSourceCreationService,
+          useValue: mockCaseSourceCreation,
+        },
       ],
     }).compile();
 
     service = module.get<CasesService>(CasesService);
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(currentActor);
+    mockPrisma.team.findFirst.mockResolvedValue({id:'team-001',isActive:true});
+    mockPrisma.userTeam.findFirst.mockResolvedValue({teamId:'team-001',userId:'user-001'});
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     // Mặc định giao dịch chạy thẳng trên chính mock (update vụ án đi qua $transaction từ 19/09/2026). Ca nào
     // cần hành vi khác thì tự đặt lại.
     mockPrisma.$transaction.mockImplementation((fn: unknown) =>
@@ -242,6 +290,7 @@ describe('CasesService', () => {
     });
 
     it('rechecks delegation duplicates before creating a new record', async () => {
+      mockPrisma.case.findFirst.mockResolvedValue({...mockCase,id:'existing-1',sensitivity:'NORMAL'});
       mockPrisma.case.findMany.mockResolvedValue([
         {
           id: 'existing-1',
@@ -286,7 +335,7 @@ describe('CasesService', () => {
       expect(mockPrisma.case.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            AND: [{ OR: [{ assignedTeamId: { in: ['delegation-team'] } }] }],
+            AND: [{ OR: [{ assignedTeamId: { in: ['delegation-team'] } }] },{sensitivity:'NORMAL',id:{notIn:[]}}],
           }),
         }),
       );
@@ -437,7 +486,7 @@ describe('CasesService', () => {
       expect(where.caseCode).toBeUndefined();
       expect(where.sttCu).toBeUndefined();
       expect(where.createdById).toBeUndefined();
-      expect(where.AND).toBeUndefined();
+      expect(where.AND).toEqual([{sensitivity:'NORMAL',id:{notIn:[]}}]);
     });
 
     it('trả về tóm tắt nội dung — cột hệ cũ mà danh sách Vụ án đang thiếu', async () => {
@@ -904,6 +953,7 @@ describe('CasesService', () => {
   describe('create', () => {
     it('should create case without petition when no petitionType', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: { create: jest.fn().mockResolvedValue(mockCase) },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
@@ -946,7 +996,7 @@ describe('CasesService', () => {
     // STT generation moved out of cases.service.create flow; generateStt() still exists for direct Petition creation.
 
     it('should throw BadRequestException for invalid investigatorId', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findUnique.mockImplementation(async({where}:any)=>where.id==='invalid-user'?null:ordinaryCaseActorFixture('actor-001'));
 
       await expect(
         service.create(
@@ -962,6 +1012,7 @@ describe('CasesService', () => {
 
     it('should set default status to TIEP_NHAN', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: { create: jest.fn().mockResolvedValue(mockCase) },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
@@ -1003,6 +1054,7 @@ describe('CasesService', () => {
      */
     it('dùng docType CASE cho ủy thác — một không gian mã thì một bộ đếm', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: {
           create: jest.fn().mockResolvedValue({
             ...mockCase,
@@ -1043,6 +1095,7 @@ describe('CasesService', () => {
 
     it('uses CASE docType for non-UTDT provenance', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: { create: jest.fn().mockResolvedValue(mockCase) },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
@@ -1096,6 +1149,7 @@ describe('CasesService', () => {
       mockPrisma.$transaction.mockImplementation(
         (fn: (tx: unknown) => Promise<unknown>) => {
           const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
             case: { create: jest.fn().mockResolvedValue(newCase) },
             petition: {
               findFirst: jest.fn().mockResolvedValue(existingPetition),
@@ -1121,9 +1175,15 @@ describe('CasesService', () => {
       );
 
       expect(result.success).toBe(true);
+      expect(mockCaseSourceCreation.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'Petition', sourceId: 'pet-source' }),
+        'actor-001',
+        expect.any(Function),
+      );
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CASE_CREATED' }),
+        expect.anything(),
       );
       // Critically: should NOT log PETITION_AUTO_CREATED — no phantom Petition
       expect(mockAudit.log).not.toHaveBeenCalledWith(
@@ -1135,6 +1195,7 @@ describe('CasesService', () => {
       mockPrisma.$transaction.mockImplementation(
         (fn: (tx: unknown) => Promise<unknown>) => {
           const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
             case: { create: jest.fn() },
             petition: {
               findFirst: jest.fn().mockResolvedValue(null), // not found OR out of scope
@@ -1170,6 +1231,7 @@ describe('CasesService', () => {
       mockPrisma.$transaction.mockImplementation(
         (fn: (tx: unknown) => Promise<unknown>) => {
           const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
             case: {
               create: jest
                 .fn()
@@ -1202,8 +1264,9 @@ describe('CasesService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('DIRECT_DISCOVERY: creates Case via $transaction (now atomic)', async () => {
+    it('DIRECT_DISCOVERY: terminal historical registration preserves an unknown resolution date', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: {
           create: jest.fn().mockResolvedValue({
             ...mockCase,
@@ -1226,6 +1289,7 @@ describe('CasesService', () => {
         {
           ...baseProvenanceDto,
           caseProvenance: CaseProvenance.DIRECT_DISCOVERY,
+          status: CaseStatus.DINH_CHI,
         },
         'actor-001',
       );
@@ -1239,11 +1303,15 @@ describe('CasesService', () => {
           data: expect.objectContaining({ caseProvenance: 'DIRECT_DISCOVERY' }),
         }),
       );
+      expect(tx.case.create.mock.calls[0][0].data).not.toHaveProperty(
+        'ngayGiaiQuyet',
+      );
     });
 
     // PR-M2: field-parity Case mới (ghiChuKhac/toiDanhKhacIds) + fix rớt-data soKLDT/soQDDieuTraLai ở create.
     it('persists ghiChuKhac/toiDanhKhacIds + KLĐT/điều-tra-lại fields khi create (chống rớt-data)', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: {
           create: jest.fn().mockResolvedValue({
             ...mockCase,
@@ -1293,6 +1361,7 @@ describe('CasesService', () => {
     // Consolidate epic: CREATE phải map field-parity intake + cột native N (trước đây RỚT ở create).
     it('persists field-parity intake + cột native N khi create (P1 chống rớt-data)', async () => {
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: {
           create: jest.fn().mockResolvedValue({
             ...mockCase,
@@ -1350,11 +1419,13 @@ describe('CasesService', () => {
     });
 
     // ── auto-create Incident from Case Tab Vụ việc (v0.40) ──────────────────
-    describe('auto-create Incident from Case Tab Vụ việc', () => {
+    describe('CG09 ordinary tab saves preserve source input without implicit Incident', () => {
       const year = new Date().getFullYear();
 
       function buildBranch3Tx(caseOverrides: Record<string, any> = {}) {
         return {
+          team:mockPrisma.team,userTeam:mockPrisma.userTeam,
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,
           case: {
             create: jest.fn().mockResolvedValue({
               ...mockCase,
@@ -1376,7 +1447,7 @@ describe('CasesService', () => {
         };
       }
 
-      it('should auto-create when DIRECT_DISCOVERY + incidentDate present', async () => {
+      it('creates no Incident when DIRECT_DISCOVERY + incidentDate present', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1392,10 +1463,11 @@ describe('CasesService', () => {
         );
 
         expect(result.success).toBe(true);
-        expect(tx.incident.create).toHaveBeenCalled();
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
-      it('should auto-create when TRANSFERRED + incidentType present', async () => {
+      it('creates no Incident when TRANSFERRED + incidentType present', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1411,7 +1483,8 @@ describe('CasesService', () => {
         );
 
         expect(result.success).toBe(true);
-        expect(tx.incident.create).toHaveBeenCalled();
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
       it('should NOT auto-create when Tab Vụ việc is empty (no incident fields)', async () => {
@@ -1444,6 +1517,7 @@ describe('CasesService', () => {
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => {
             const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
               case: {
                 create: jest
                   .fn()
@@ -1477,8 +1551,9 @@ describe('CasesService', () => {
         expect(incidentCreate).not.toHaveBeenCalled();
       });
 
-      it('should prepend "Vụ việc - " when case name < 5 chars', async () => {
+      it('keeps short Case name without synthesizing a prefixed Incident', async () => {
         const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
           case: {
             create: jest.fn().mockResolvedValue({
               ...mockCase,
@@ -1512,17 +1587,15 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(tx.incident.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: expect.objectContaining({ name: 'Vụ việc - AB' }),
-          }),
-        );
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
       it('should rollback when $transaction callback throws', async () => {
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => {
             const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
               case: {
                 create: jest.fn().mockRejectedValue(new Error('DB error')),
               },
@@ -1554,7 +1627,7 @@ describe('CasesService', () => {
         ).rejects.toThrow('DB error');
       });
 
-      it('should set Incident.investigatorId = actorId (scope fix)', async () => {
+      it('does not assign an implicit Incident owner', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1569,14 +1642,11 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(tx.incident.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: expect.objectContaining({ investigatorId: 'actor-001' }),
-          }),
-        );
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
-      it('should set Incident.assignedTeamId from dto (scope fix)', async () => {
+      it('does not assign an implicit Incident team', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1592,14 +1662,11 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(tx.incident.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: expect.objectContaining({ assignedTeamId: 'team-42' }),
-          }),
-        );
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
-      it('should set canBoNhapId and createdById = actorId', async () => {
+      it('does not manufacture Incident authorship', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1614,17 +1681,11 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(tx.incident.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: expect.objectContaining({
-              canBoNhapId: 'actor-001',
-              createdById: 'actor-001',
-            }),
-          }),
-        );
+        expect(tx.incident.create).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
-      it('should update Incident.linkedCaseId after Case creation', async () => {
+      it('does not infer an Incident link from ordinary Case creation', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1639,15 +1700,11 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(tx.incident.update).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: { id: 'auto-inc-id' },
-            data: expect.objectContaining({ linkedCaseId: 'new-case-id' }),
-          }),
-        );
+        expect(tx.incident.update).not.toHaveBeenCalled();
+        expect(mockDocNums.commitWithTx).not.toHaveBeenCalledWith('INCIDENT',expect.anything(),expect.anything());
       });
 
-      it('should emit audit INCIDENT_AUTO_CREATED outside transaction', async () => {
+      it('does not emit phantom Incident creation audit', async () => {
         const tx = buildBranch3Tx();
         mockPrisma.$transaction.mockImplementation(
           (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
@@ -1662,7 +1719,7 @@ describe('CasesService', () => {
           'actor-001',
         );
 
-        expect(mockAudit.log).toHaveBeenCalledWith(
+        expect(mockAudit.log).not.toHaveBeenCalledWith(
           expect.objectContaining({ action: 'INCIDENT_AUTO_CREATED' }),
         );
       });
@@ -1785,6 +1842,7 @@ describe('CasesService', () => {
       });
       expect(mockAudit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CASE_STATUS_CHANGED' }),
+        mockPrisma,
       );
     });
 
@@ -1925,8 +1983,10 @@ describe('CasesService', () => {
         // v0.31.0.2 codex P1 fix: tx.case.findFirst returns _count for in-tx re-check
         // v0.43: linkedIncidents removed from in-tx count (SetNull, not blocker)
         const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
           case: {
             findFirst: jest.fn().mockResolvedValue({
+              ...baseCase,
               _count: {
                 subjects: baseCase.subjects.length,
                 lawyers: baseCase.lawyers.length,
@@ -2022,9 +2082,10 @@ describe('CasesService', () => {
     it('BE-6: linkedIncidents không còn là blocker — xóa Case thành công + SetNull INSIDE $transaction', async () => {
       setupBasicCase({ linkedIncidents: [{ id: 'i1' }] });
       // Override $transaction with distinct innerTx to verify writes happen INSIDE transaction
-      const innerTx = {
+      const innerTx = {...mockPrisma,
         case: {
           findFirst: jest.fn().mockResolvedValue({
+            ...mockCase,
             _count: { subjects: 0, lawyers: 0, conclusions: 0, documents: 0 },
           }),
           update: jest.fn().mockResolvedValue({}),
@@ -2053,9 +2114,10 @@ describe('CasesService', () => {
 
     it('BE-6b: Case có linkedIncidentId (Branch-2) — clear Case.linkedIncidentId INSIDE transaction', async () => {
       setupBasicCase({ linkedIncidentId: 'inc-src-001', linkedIncidents: [] });
-      const innerTx = {
+      const innerTx = {...mockPrisma,
         case: {
           findFirst: jest.fn().mockResolvedValue({
+            ...mockCase,
             _count: { subjects: 0, lawyers: 0, conclusions: 0, documents: 0 },
           }),
           update: jest.fn().mockResolvedValue({}),
@@ -2126,8 +2188,10 @@ describe('CasesService', () => {
       setupBasicCase();
       mockPrisma.$transaction.mockImplementationOnce(async (cb: any) => {
         const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
           case: {
             findFirst: jest.fn().mockResolvedValue({
+              ...mockCase,
               _count: { subjects: 2, lawyers: 0, conclusions: 0, documents: 0 },
             }),
             update: jest.fn(),
@@ -2308,6 +2372,7 @@ describe('CasesService', () => {
         capDoToiPham: CapDoToiPham.RAT_NGHIEM_TRONG,
       };
       const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
         case: { create: jest.fn().mockResolvedValue(withSeverity) },
         incident: {
           findFirst: jest.fn().mockResolvedValue(null),
@@ -2317,7 +2382,7 @@ describe('CasesService', () => {
         },
         documentNumberLog: { update: jest.fn().mockResolvedValue({}) },
       };
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
+      mockPrisma.user.findUnique.mockResolvedValue({...currentActor, id: 'user-001' });
       mockPrisma.$transaction.mockImplementation(
         (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
       );
@@ -2349,7 +2414,7 @@ describe('CasesService', () => {
         capDoToiPham: CapDoToiPham.DAC_BIET_NGHIEM_TRONG,
       };
       mockPrisma.case.findFirst.mockResolvedValue(existing);
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-001' });
+      mockPrisma.user.findUnique.mockResolvedValue({...currentActor, id: 'user-001' });
       mockPrisma.case.update.mockResolvedValue(updated);
 
       const result = await service.update(
@@ -2407,23 +2472,23 @@ describe('CasesService', () => {
         );
       });
 
-      it('does NOT add updatedAt to where clause when expectedUpdatedAt absent (backward compat)', async () => {
+      it('CG10 pins server snapshot even without legacy transport updatedAt', async () => {
         mockPrisma.case.findFirst.mockResolvedValue(mockCase);
         mockPrisma.case.update.mockResolvedValue(mockCase);
 
         await service.update('case-001', { name: 'Edited' }, 'actor-001');
 
         const callArgs = mockPrisma.case.update.mock.calls[0][0];
-        expect(callArgs.where).not.toHaveProperty('updatedAt');
+        expect(callArgs.where).toMatchObject({updatedAt:mockCase.updatedAt,status:mockCase.status,deletedAt:null});
       });
 
-      it('re-throws P2025 as-is when expectedUpdatedAt absent (no stale-version check intended)', async () => {
+      it('CG10 translates stale server snapshot P2025 to 409 without transport version', async () => {
         mockPrisma.case.findFirst.mockResolvedValue(mockCase);
         mockPrisma.case.update.mockRejectedValue({ code: 'P2025' });
 
         await expect(
           service.update('case-001', { name: 'Edited' }, 'actor-001'),
-        ).rejects.toMatchObject({ code: 'P2025' });
+        ).rejects.toMatchObject({ status:409 });
       });
     });
   });
@@ -2469,6 +2534,7 @@ describe('CasesService', () => {
             dispatchedBy: 'dispatcher-001',
           }),
         }),
+        mockPrisma,
       );
     });
 
@@ -2546,6 +2612,7 @@ describe('CasesService', () => {
         expect.objectContaining({
           metadata: expect.objectContaining({ toInvestigatorId: null }),
         }),
+        mockPrisma,
       );
     });
 
@@ -2652,7 +2719,9 @@ describe('CasesService', () => {
       mockPrisma.case.findFirst.mockResolvedValue(deleted);
       mockPrisma.$transaction.mockImplementation(async (cb: any) => {
         const tx = {
+          user:mockPrisma.user,caseFieldDefinitionVersion:mockPrisma.caseFieldDefinitionVersion,caseGovernanceGrant:mockPrisma.caseGovernanceGrant,$queryRaw:mockPrisma.$queryRaw,featureFlag:mockPrisma.featureFlag,caseHandoff:mockPrisma.caseHandoff,caseEvidenceHold:mockPrisma.caseEvidenceHold,
           case: {
+            findFirst:jest.fn().mockResolvedValue(deleted),
             update: jest
               .fn()
               .mockResolvedValue({ ...deleted, deletedAt: null }),
@@ -2792,10 +2861,18 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
         { provide: SettingsService, useValue: mockSettings },
         { provide: DocumentNumbersService, useValue: mockDocNums },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+        {
+          provide: CaseSourceCreationService,
+          useValue: mockCaseSourceCreation,
+        },
       ],
     }).compile();
     service = module.get<CasesService>(CasesService);
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(currentActor);
+    mockPrisma.team.findFirst.mockResolvedValue({id:'team-001',isActive:true});
+    mockPrisma.userTeam.findFirst.mockResolvedValue({teamId:'team-001',userId:'user-001'});
+    mockPrisma.$queryRaw.mockResolvedValue([]);
   });
 
   const taoTuDon = async (dataScope: unknown) => {
@@ -2822,27 +2899,24 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
         dataScope as never,
       ),
     ).rejects.toThrow(NotFoundException);
-    const [doiSo] = timDon.mock.calls[0] as [{ where: { OR: unknown } }];
-    return doiSo.where;
+    return mockCaseSourceCreation.execute.mock.calls.at(-1)?.[0];
   };
 
-  it('tạo vụ án từ đơn: điều phối viên cũng bị giới hạn theo phạm vi GHI (tổ chỉ-xem không tính)', async () => {
-    const where = await taoTuDon(DIEU_PHOI);
-    expect(where.OR).toEqual([
-      { enteredById: { in: ['u1'] } },
-      { assignedTeamId: { in: ['t1'] } },
-      { assignedTeamId: null },
-    ]);
+  it('tạo vụ án từ đơn: ủy quyền cho ranh giới nguồn dùng quyền hiện tại', async () => {
+    const command = await taoTuDon(DIEU_PHOI);
+    expect(command).toEqual(
+      expect.objectContaining({ kind: 'Petition', sourceId: 'pet-ngoai' }),
+    );
   });
 
-  it('phạm vi RỖNG (không người, không tổ ghi) → không được lấy đơn nào (không phải "không lọc")', async () => {
-    const where = await taoTuDon({
+  it('phạm vi truyền từ controller không thể đi vòng ranh giới quyền nguồn', async () => {
+    const command = await taoTuDon({
       userIds: [],
       teamIds: ['t-chi-xem'],
       writableTeamIds: [],
       writableUserIds: [],
     });
-    expect(where.OR).toEqual([{ id: '__no_access__' }]);
+    expect(command).not.toHaveProperty('dataScope');
   });
 
   it('bù TĐC vụ án NGOÀI phạm vi ghi → 403, không ghi', async () => {
@@ -2864,7 +2938,7 @@ describe('CasesService — điều phối viên chỉ xem + phân công', () => 
 
   it('bù TĐC trong phạm vi → ghi và ghi nhật ký', async () => {
     mockPrisma.case.findFirst.mockResolvedValue({
-      id: 'c1',
+      id: 'c1',sensitivity:'NORMAL',
       investigatorId: 'u1',
       assignedTeamId: 't1',
       lyDoTamDinhChiVuAn: [],
@@ -2906,6 +2980,10 @@ describe('CasesService — cán bộ phường và hồ sơ chưa giao tổ', ()
     }).compile();
     const service = module.get<CasesService>(CasesService);
     jest.clearAllMocks();
+    mockPrisma.user.findUnique.mockResolvedValue(currentActor);
+    mockPrisma.team.findFirst.mockResolvedValue({id:'team-001',isActive:true});
+    mockPrisma.userTeam.findFirst.mockResolvedValue({teamId:'team-001',userId:'user-001'});
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.case.findFirst.mockResolvedValue({
       id: 'c0',
       investigatorId: null,

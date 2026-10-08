@@ -18,6 +18,7 @@ export interface ToCuaCanBo {
 }
 
 export interface OfficerOption {
+  caseAccessMode?: 'INTERNAL' | 'REPRESENTATION_ONLY';
   value: string; // User.id
   label: string; // Họ và tên, lùi về username khi thiếu
   /** Tổ của cán bộ. RỖNG (không phải undefined) khi chưa thuộc tổ nào — tầng dựng nhóm gom vào "Chưa có tổ". */
@@ -50,6 +51,7 @@ export function useOfficerOptions(enabled = true) {
       // Tải THEO TRANG tới khi đủ `total` (UAT prod 19/09/2026: 245 tài khoản đang hoạt động mà bản cũ cắt ở 200 →
       // ~45 cán bộ không lọc được). Máy chủ cho tối đa 500 dòng mỗi trang.
       type NguoiDung = {
+        caseAccessMode?: 'INTERNAL' | 'REPRESENTATION_ONLY';
         id: string;
         firstName?: string | null;
         lastName?: string | null;
@@ -88,6 +90,7 @@ export function useOfficerOptions(enabled = true) {
         .map((u) => {
           const nhan = tenHienThi(u);
           return {
+            ...(u.caseAccessMode && { caseAccessMode: u.caseAccessMode }),
             value: u.id,
             label: (soLan.get(nhan) ?? 0) > 1 ? `${nhan} (${u.username ?? u.id})` : nhan,
             // Máy chủ cũ (trước khi trả tổ) gửi `undefined` — quy về mảng rỗng ngay tại đây để

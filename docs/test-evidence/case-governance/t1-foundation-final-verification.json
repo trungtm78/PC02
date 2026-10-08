@@ -1,0 +1,12 @@
+{
+  "status": "DONE_WITH_CONCERNS_NOT_T1_COMPLETE",
+  "sourceManifest": "t1-foundation-source-hashes.json",
+  "types": {"command":"rtk proxy npx tsc --noEmit","exit":0,"observedCompletedAt":"2026-10-06T07:57:56Z"},
+  "lint": {"command":"rtk proxy npx eslint (owned core/principal/Case/Audit sources and documented mock fixtures) --fix","exit":0,"timestampQualification":"Passed before source freeze; precise process exit instant was not separately recorded."},
+  "build": {"command":"rtk proxy npm run build","exit":0,"startedAt":"2026-10-06T07:58:09Z","observedCompletedAt":"2026-10-06T07:59:25Z"},
+  "affected": {"exit":0,"startedAt":"2026-10-06T07:57:31.258Z","lastSuiteEndedAt":"2026-10-06T07:57:55.851Z","passedSuites":69,"passed":1236,"failed":0,"skipped":45,"json":"foundation-affected.json"},
+  "privateDatabase": {"guard":"127.0.0.1:55441/pc02_case_governance_uat","exit":0,"passed":7,"elapsedSeconds":10.729,"flagMutation":false},
+  "rawPatchCoverage": {"measuredAt":"2026-10-06T07:58:22.956Z","coveredLines":710,"executableLines":826,"lineCoverage":85.95641646489103,"coveredBranchOutcomes":705,"changedBranchOutcomes":929,"branchCoverage":75.8880516684607,"requiredLineCoverage":90,"gate":"PENDING"},
+  "remaining": ["T1b/core implicit configured reporting-period hidden-date partition integration","raw patch coverage below90%","Case child namespace ACL and established custody-state legacy mutator closure by separate writer","independent review and full feature regression/UAT/recovery/release gates"],
+  "productionActions": false
+}

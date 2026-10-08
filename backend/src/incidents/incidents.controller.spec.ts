@@ -5,6 +5,7 @@ import {
 } from '../test-utils/controller-test-helpers';
 import type { Response } from 'express';
 import { IncidentsController } from './incidents.controller';
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import { IncidentsService } from './incidents.service';
 import { PERMISSIONS_KEY } from '../auth/decorators/permissions.decorator';
 import { IncidentsJourneyService } from './incidents-journey.service';
@@ -56,6 +57,7 @@ describe('IncidentsController — delegation', () => {
       IncidentsService,
       mockService,
       [
+        { token: CaseChildAccessService,mock: { redactCaseLinks: jest.fn(async value => value) } },
         { token: IncidentsJourneyService, mock: mockJourneyService },
         { token: DynamicExportService, mock: mockDynamicExport },
       ],

@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -23,6 +25,10 @@ import {
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_TAI_LIEU } from '../common/tim-kiem/khai/tai-lieu.khai';
+import { CaseGovernanceService } from '../cases/governance/case-governance.service';
+import { CaseEvidenceGovernanceService } from '../cases/evidence-governance/evidence-governance.service';
+import { openEvidenceFile } from '../cases/evidence-governance/evidence-file-integrity';
+import { Readable } from 'node:stream';
 
 /** `search` cũ (đường dẫn cũ) → thẻ "tất cả các cột". */
 const THAM_SO_CU_TAI_LIEU = { search: KHOA_TAT_CA } as const;
@@ -48,6 +54,25 @@ function chaTrongPhamVi(kiem: () => void): boolean {
 export class DocumentsService {
   private readonly uploadDir: string;
   private boTimKiem?: BoTimKiem;
+  private async documentMutation<T>(
+    handler: (tx: Prisma.TransactionClient) => Promise<T>,
+    options: { isolationLevel: Prisma.TransactionIsolationLevel },
+  ): Promise<T> {
+    try {
+      return await this.prisma.$transaction(handler, options);
+    } catch (error) {
+      const failure = error as { code?: string; meta?: { code?: string } };
+      if (
+        ['P2025', 'P2034', 'P2002'].includes(failure.code ?? '') ||
+        (failure.code === 'P2010' &&
+          ['40001', '40P01'].includes(failure.meta?.code ?? ''))
+      )
+        throw new ConflictException(
+          'Document or parent changed; reload and retry',
+        );
+      throw error;
+    }
+  }
 
   private get timKiem(): BoTimKiem {
     return (this.boTimKiem ??= new BoTimKiem(
@@ -61,6 +86,8 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly catalog: CatalogService,
+    private readonly governance: CaseGovernanceService,
+    private readonly evidenceGovernance: CaseEvidenceGovernanceService,
   ) {
     // Set up upload directory (local storage)
     this.uploadDir = path.join(process.cwd(), 'uploads', 'documents');
@@ -76,7 +103,11 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QueryDocumentsDto, dataScope?: DataScope | null) {
+  async getList(
+    query: QueryDocumentsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
     const {
       caseId,
       incidentId,
@@ -94,20 +125,48 @@ export class DocumentsService {
     // Tìm kiếm và phạm vi là HAI điều kiện riêng trong AND. Trước đây cả hai cùng gán `where.OR`, nên
     // khối phạm vi chạy sau đè mất khối tìm — cán bộ có phạm vi gõ gì cũng ra mọi tài liệu.
     const dieuKien: Prisma.DocumentWhereInput[] = [];
+    dieuKien.push(
+      await this.evidenceGovernance.documentVisibilityWhere(
+        actorId ? { actorId } : undefined,
+      ),
+    );
 
     // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, chọn cột, khoá lạ → 400; cùng luật với mọi màn
     // danh sách. Trước đây `contains` thường trên ba cột: gõ "bien ban" không ra "Biên bản".
-    dieuKien.push(
-      ...((await this.timKiem.dieuKien(query)) as Prisma.DocumentWhereInput[]),
-    );
+    const searchConditions = await this.timKiem.dieuKien(query);
+    if (actorId && searchConditions.length) {
+      const visibleCaseSearch =
+        await this.evidenceGovernance.documentCaseSearchWhere({ actorId });
+      const protect = (value: unknown): unknown => {
+        if (Array.isArray(value)) return value.map(protect);
+        if (!value || typeof value !== 'object') return value;
+        const row = value as Record<string, unknown>,
+          result: Record<string, unknown> = {};
+        for (const [key, condition] of Object.entries(row)) {
+          if (key === 'case' && condition && typeof condition === 'object') {
+            const relation = condition as Record<string, unknown>;
+            result.case = Object.hasOwn(relation, 'is')
+              ? { ...relation, is: { AND: [relation.is, visibleCaseSearch] } }
+              : { AND: [condition, visibleCaseSearch] };
+          } else result[key] = protect(condition);
+        }
+        return result;
+      };
+      dieuKien.push(
+        ...(protect(searchConditions) as Prisma.DocumentWhereInput[]),
+      );
+    } else dieuKien.push(...(searchConditions as Prisma.DocumentWhereInput[]));
 
     if (caseId) where.caseId = caseId;
     if (incidentId) where.incidentId = incidentId;
     if (petitionId) where.petitionId = petitionId;
     if (documentType) where.documentType = documentType;
 
-    const caseScope = buildScopeFilter(dataScope);
-    const petitionScope = buildPetitionScopeFilter(dataScope);
+    const currentScope = actorId
+      ? await this.governance.currentActorScope(this.prisma, { actorId })
+      : dataScope;
+    const caseScope = buildScopeFilter(currentScope);
+    const petitionScope = buildPetitionScopeFilter(currentScope);
     if (caseScope || petitionScope) {
       dieuKien.push({
         OR: [
@@ -174,7 +233,13 @@ export class DocumentsService {
 
     return {
       success: true,
-      data,
+      data: actorId
+        ? await Promise.all(
+            data.map((record) =>
+              this.evidenceGovernance.filterDocumentCase(record, { actorId }),
+            ),
+          )
+        : data,
       total,
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
@@ -184,8 +249,15 @@ export class DocumentsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string, dataScope?: DataScope | null) {
-    const record = await this.prisma.document.findFirst({
+  async getById(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    transaction?: Prisma.TransactionClient,
+  ) {
+    const database = transaction ?? this.prisma;
+    let currentScope = dataScope;
+    const record = await database.document.findFirst({
       where: { id, deletedAt: null },
       include: {
         case: {
@@ -227,6 +299,30 @@ export class DocumentsService {
     if (!record) {
       throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
     }
+    const asset = await database.caseAssetVersion.findUnique({
+      where: { documentId: id },
+    });
+    if (asset) {
+      if (!actorId)
+        throw new ForbiddenException(
+          'Registered asset requires current authenticated actor',
+        );
+      await this.evidenceGovernance.authorizeAsset(
+        database,
+        asset.caseId,
+        asset.id,
+        { actorId },
+        'view',
+      );
+    }
+    if (actorId)
+      currentScope = (
+        await this.evidenceGovernance.authorizeLegacyDocumentRead(
+          database,
+          id,
+          { actorId },
+        )
+      ).scope;
 
     /*
       MỘT trong các cha cho phép là đủ — đúng bằng luật của đường LIỆT KÊ ở `findAll` trên.
@@ -256,22 +352,36 @@ export class DocumentsService {
       record.petition != null &&
       record.petition.deletedAt == null &&
       chaTrongPhamVi(() =>
-        assertPetitionParentInScope(record.petition, dataScope),
+        assertPetitionParentInScope(record.petition, currentScope),
       );
     const chaVuAnChoQua =
-      (record.caseId !== null || record.incidentId !== null) &&
-      chaTrongPhamVi(() =>
-        assertParentInScope(record.case ?? record.incident, dataScope),
-      );
+      (record.caseId !== null &&
+        record.case != null &&
+        chaTrongPhamVi(() => assertParentInScope(record.case, currentScope))) ||
+      (record.incidentId !== null &&
+        record.incident != null &&
+        chaTrongPhamVi(() =>
+          assertParentInScope(record.incident, currentScope),
+        ));
 
     if (!chaDonThuChoQua && !chaVuAnChoQua) {
       // Ném đúng lỗi của nhánh cha mà tệp thật sự có, để thông báo không lạc đề.
       if (record.petitionId !== null && !record.caseId && !record.incidentId)
-        assertPetitionParentInScope(record.petition, dataScope);
-      else assertParentInScope(record.case ?? record.incident, dataScope);
+        assertPetitionParentInScope(record.petition, currentScope);
+      else assertParentInScope(record.case ?? record.incident, currentScope);
     }
 
-    return { success: true, data: record };
+    return {
+      success: true,
+      data:
+        actorId && !transaction
+          ? await this.evidenceGovernance.filterDocumentCase(
+              record,
+              { actorId },
+              database,
+            )
+          : record,
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -396,49 +506,81 @@ export class DocumentsService {
       }
     }
 
-    const record = await this.prisma.document.create({
-      data: {
-        title: dto.title,
-        description: dto.description ?? null,
-        fileName: dto.fileName,
-        originalName: dto.originalName,
-        mimeType: dto.mimeType,
-        size: dto.size,
-        filePath: dto.filePath,
-        documentType: dto.documentType || 'VAN_BAN', // '' (chuỗi rỗng) → default, không lưu rác
-        recordedAt: dto.recordedAt ?? null,
-        caseId: dto.caseId ?? null,
-        incidentId: dto.incidentId ?? null,
-        petitionId: dto.petitionId ?? null,
-        uploadedById: actorId,
-      },
-      include: {
-        case: { select: { id: true, name: true } },
-        incident: { select: { id: true, name: true } },
-        petition: { select: { id: true, stt: true } },
-        uploadedBy: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-      },
-    });
+    if (
+      /[\\/:]/.test(dto.fileName) ||
+      dto.fileName.includes('\0') ||
+      dto.fileName === '.' ||
+      dto.fileName === '..'
+    )
+      throw new BadRequestException('Invalid server filename');
+    const record = await this.documentMutation(
+      async (tx) => {
+        if (dto.caseId) {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT id FROM cases WHERE id = ${dto.caseId} FOR UPDATE`,
+          );
+          await this.governance.assertCaseWritable(
+            tx,
+            dto.caseId,
+            { actorId },
+            dataScope,
+          );
+        }
+        const record = await tx.document.create({
+          data: {
+            title: dto.title,
+            description: dto.description ?? null,
+            fileName: dto.fileName!,
+            originalName: dto.originalName!,
+            mimeType: dto.mimeType!,
+            size: dto.size!,
+            filePath: path.join(this.uploadDir, dto.fileName!),
+            documentType: dto.documentType || 'VAN_BAN', // '' (chuỗi rỗng) → default, không lưu rác
+            recordedAt: dto.recordedAt ?? null,
+            caseId: dto.caseId ?? null,
+            incidentId: dto.incidentId ?? null,
+            petitionId: dto.petitionId ?? null,
+            uploadedById: actorId,
+          },
+          include: {
+            case: { select: { id: true, name: true } },
+            incident: { select: { id: true, name: true } },
+            petition: { select: { id: true, stt: true } },
+            uploadedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
+            },
+          },
+        });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'DOCUMENT_CREATED',
-      subject: 'Document',
-      subjectId: record.id,
-      metadata: {
-        title: record.title,
-        originalName: record.originalName,
-        size: record.size,
-        recordedAt: dto.recordedAt ?? null,
-        caseId: record.caseId,
-        incidentId: record.incidentId,
-        petitionId: record.petitionId,
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'DOCUMENT_CREATED',
+            subject: 'Document',
+            subjectId: record.id,
+            metadata: {
+              title: record.title,
+              originalName: record.originalName,
+              size: record.size,
+              recordedAt: dto.recordedAt ?? null,
+              caseId: record.caseId,
+              incidentId: record.incidentId,
+              petitionId: record.petitionId,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+        return record;
       },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     return {
       success: true,
@@ -457,90 +599,181 @@ export class DocumentsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    if (existing.petitionId && !existing.caseId && !existing.incidentId) {
-      assertPetitionParentInScope(existing.petition, dataScope, 'write');
-    } else {
-      assertParentInScope(
-        existing.case ?? existing.incident,
-        dataScope,
-        'write',
-      );
-    }
-
-    // Validate caseId if provided
-    if (dto.caseId) {
-      const caseRecord = await this.prisma.case.findFirst({
-        where: { id: dto.caseId, deletedAt: null },
-      });
-      if (!caseRecord) {
-        throw new BadRequestException(
-          `Vụ án không tồn tại (id: ${dto.caseId})`,
+    return this.documentMutation(
+      async (tx) => {
+        const { data: existing } = await this.getById(
+          id,
+          dataScope,
+          actorId,
+          tx,
         );
-      }
-    }
+        const parentIds = [existing.caseId, dto.caseId]
+          .filter((value): value is string => !!value)
+          .sort();
+        for (const caseId of [...new Set(parentIds)]) {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT id FROM cases WHERE id = ${caseId} FOR UPDATE`,
+          );
+          await this.governance.assertCaseWritable(
+            tx,
+            caseId,
+            { actorId },
+            dataScope,
+          );
+        }
+        const current = await tx.document.findFirst({
+          where: { id, deletedAt: null },
+        });
+        if (
+          !current ||
+          current.caseId !== existing.caseId ||
+          current.incidentId !== existing.incidentId ||
+          current.updatedAt.getTime() !== existing.updatedAt.getTime()
+        )
+          throw new ConflictException('Document ownership changed');
+        const registered = await tx.caseAssetVersion.findUnique({
+          where: { documentId: id },
+        });
+        if (
+          await tx.caseDecision.findFirst({ where: { sourceDocumentId: id } })
+        )
+          throw new ConflictException(
+            'Legal decision source must be preserved',
+          );
+        if (
+          await tx.caseCustodyEvent.findFirst({
+            where: { sourceDocumentId: id },
+          })
+        )
+          throw new ConflictException(
+            'Custody source receipt must be preserved',
+          );
+        if (
+          await tx.caseDispositionRequest.findFirst({
+            where: { receiptDocumentId: id },
+          })
+        )
+          throw new ConflictException(
+            'Disposition receipt source must be preserved',
+          );
+        if (registered)
+          throw new ConflictException(
+            'Registered original is immutable; register a derivative instead',
+          );
+        const changesParent =
+          (dto.caseId !== undefined &&
+            (dto.caseId || null) !== existing.caseId) ||
+          (dto.incidentId !== undefined &&
+            (dto.incidentId || null) !== existing.incidentId);
+        if (
+          changesParent &&
+          existing.caseId &&
+          (await tx.caseEvidenceHold.findFirst({
+            where: { caseId: existing.caseId, releasedAt: null },
+          }))
+        )
+          throw new ConflictException('Active hold protects document parent');
+        if (existing.petitionId && !existing.caseId && !existing.incidentId) {
+          assertPetitionParentInScope(existing.petition, dataScope, 'write');
+        } else {
+          assertParentInScope(
+            existing.case ?? existing.incident,
+            dataScope,
+            'write',
+          );
+        }
 
-    // Validate incidentId if provided
-    if (dto.incidentId) {
-      const incidentRecord = await this.prisma.incident.findFirst({
-        where: { id: dto.incidentId, deletedAt: null },
-      });
-      if (!incidentRecord) {
-        throw new BadRequestException(
-          `Vụ việc không tồn tại (id: ${dto.incidentId})`,
+        // Validate caseId if provided
+        if (dto.caseId) {
+          const caseRecord = await tx.case.findFirst({
+            where: { id: dto.caseId, deletedAt: null },
+          });
+          if (!caseRecord) {
+            throw new BadRequestException(
+              `Vụ án không tồn tại (id: ${dto.caseId})`,
+            );
+          }
+          assertParentInScope(caseRecord, dataScope, 'write');
+        }
+
+        // Validate incidentId if provided
+        if (dto.incidentId) {
+          const incidentRecord = await tx.incident.findFirst({
+            where: { id: dto.incidentId, deletedAt: null },
+          });
+          if (!incidentRecord) {
+            throw new BadRequestException(
+              `Vụ việc không tồn tại (id: ${dto.incidentId})`,
+            );
+          }
+          assertParentInScope(incidentRecord, dataScope, 'write');
+        }
+
+        // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
+        if (
+          dto.documentType &&
+          !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))
+        ) {
+          throw new BadRequestException(
+            'Loại tài liệu không thuộc danh mục DOCUMENT_TYPE',
+          );
+        }
+
+        const record = await tx.document.update({
+          where: { id, updatedAt: existing.updatedAt },
+          data: {
+            ...(dto.title !== undefined && { title: dto.title }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
+            ...(dto.documentType !== undefined &&
+              dto.documentType !== '' && { documentType: dto.documentType }),
+            ...(dto.caseId !== undefined && { caseId: dto.caseId || null }),
+            ...(dto.incidentId !== undefined && {
+              incidentId: dto.incidentId || null,
+            }),
+          },
+          include: {
+            case: { select: { id: true, name: true } },
+            incident: { select: { id: true, name: true } },
+            uploadedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                username: true,
+              },
+            },
+          },
+        });
+
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'DOCUMENT_UPDATED',
+            subject: 'Document',
+            subjectId: id,
+            metadata: {
+              before: {
+                title: existing.title,
+                documentType: existing.documentType,
+              },
+              after: dto,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
         );
-      }
-    }
 
-    // Danh mục động: validate documentType tồn tại trong DOCUMENT_TYPE (Directory).
-    if (
-      dto.documentType &&
-      !(await this.catalog.isValid('DOCUMENT_TYPE', dto.documentType))
-    ) {
-      throw new BadRequestException(
-        'Loại tài liệu không thuộc danh mục DOCUMENT_TYPE',
-      );
-    }
-
-    const record = await this.prisma.document.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined && { title: dto.title }),
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.documentType !== undefined &&
-          dto.documentType !== '' && { documentType: dto.documentType }),
-        ...(dto.caseId !== undefined && { caseId: dto.caseId ?? null }),
-        ...(dto.incidentId !== undefined && {
-          incidentId: dto.incidentId ?? null,
-        }),
+        return {
+          success: true,
+          data: record,
+          message: 'Cập nhật tài liệu thành công',
+        };
       },
-      include: {
-        case: { select: { id: true, name: true } },
-        incident: { select: { id: true, name: true } },
-        uploadedBy: {
-          select: { id: true, firstName: true, lastName: true, username: true },
-        },
-      },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'DOCUMENT_UPDATED',
-      subject: 'Document',
-      subjectId: id,
-      metadata: {
-        before: { title: existing.title, documentType: existing.documentType },
-        after: dto,
-      },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return {
-      success: true,
-      data: record,
-      message: 'Cập nhật tài liệu thành công',
-    };
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -552,37 +785,100 @@ export class DocumentsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    if (existing.petitionId && !existing.caseId && !existing.incidentId) {
-      assertPetitionParentInScope(existing.petition, dataScope, 'write');
-    } else {
-      assertParentInScope(
-        existing.case ?? existing.incident,
-        dataScope,
-        'write',
-      );
-    }
+    return this.documentMutation(
+      async (tx) => {
+        const { data: existing } = await this.getById(
+          id,
+          dataScope,
+          actorId,
+          tx,
+        );
+        if (existing.caseId) {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT id FROM cases WHERE id = ${existing.caseId} FOR UPDATE`,
+          );
+          await this.governance.assertCaseWritable(
+            tx,
+            existing.caseId,
+            { actorId },
+            dataScope,
+          );
+        }
+        const registered = await tx.caseAssetVersion.findUnique({
+          where: { documentId: id },
+        });
+        if (
+          await tx.caseDecision.findFirst({ where: { sourceDocumentId: id } })
+        )
+          throw new ConflictException(
+            'Legal decision source must be preserved',
+          );
+        if (
+          await tx.caseCustodyEvent.findFirst({
+            where: { sourceDocumentId: id },
+          })
+        )
+          throw new ConflictException(
+            'Custody source receipt must be preserved',
+          );
+        if (
+          await tx.caseDispositionRequest.findFirst({
+            where: { receiptDocumentId: id },
+          })
+        )
+          throw new ConflictException(
+            'Disposition receipt source must be preserved',
+          );
+        if (registered)
+          throw new ConflictException('Registered original must be preserved');
+        if (
+          existing.caseId &&
+          (await tx.caseEvidenceHold.findFirst({
+            where: { caseId: existing.caseId, releasedAt: null },
+          }))
+        )
+          throw new ConflictException('Active hold protects document');
+        if (existing.petitionId && !existing.caseId && !existing.incidentId) {
+          assertPetitionParentInScope(existing.petition, dataScope, 'write');
+        } else {
+          assertParentInScope(
+            existing.case ?? existing.incident,
+            dataScope,
+            'write',
+          );
+        }
 
-    await this.prisma.document.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+        await tx.document.update({
+          where: {
+            id,
+            updatedAt: existing.updatedAt,
+            caseId: existing.caseId,
+            incidentId: existing.incidentId,
+          },
+          data: { deletedAt: new Date() },
+        });
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'DOCUMENT_DELETED',
-      subject: 'Document',
-      subjectId: id,
-      metadata: {
-        title: existing.title,
-        originalName: existing.originalName,
-        softDelete: true,
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'DOCUMENT_DELETED',
+            subject: 'Document',
+            subjectId: id,
+            metadata: {
+              title: existing.title,
+              originalName: existing.originalName,
+              softDelete: true,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+
+        return { success: true, message: 'Xóa tài liệu thành công' };
       },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return { success: true, message: 'Xóa tài liệu thành công' };
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -602,6 +898,22 @@ export class DocumentsService {
     if (!record) {
       throw new NotFoundException(`Tài liệu không tồn tại (id: ${id})`);
     }
+    if (
+      !record.fileName ||
+      /[\\/:]/.test(record.fileName) ||
+      record.fileName.includes('\0') ||
+      record.fileName === '.' ||
+      record.fileName === '..'
+    )
+      throw new BadRequestException('Invalid server filename');
+    if (
+      await this.prisma.caseAssetVersion.findUnique({
+        where: { documentId: id },
+      })
+    )
+      throw new ForbiddenException(
+        'Registered original requires verified download hydration',
+      );
 
     const fullPath = path.join(this.uploadDir, record.fileName);
 
@@ -648,5 +960,152 @@ export class DocumentsService {
 
   getUploadDir(): string {
     return this.uploadDir;
+  }
+  private async downloadRecord(
+    id: string,
+    actorId: string,
+    dataScope?: DataScope | null,
+  ) {
+    const record = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!record) throw new NotFoundException('Document not found');
+    const registered = await this.prisma.caseAssetVersion.findUnique({
+      where: { documentId: id },
+    });
+    let principal: { mode: string; revision: number };
+    if (registered)
+      principal = await this.evidenceGovernance.authorizeDocumentDownload(
+        this.prisma,
+        record.caseId,
+        id,
+        { actorId },
+      );
+    else {
+      const access = await this.evidenceGovernance.authorizeLegacyDocumentRead(
+        this.prisma,
+        id,
+        { actorId },
+      );
+      if (record.caseId && access.caseVisible)
+        principal = await this.evidenceGovernance.authorizeDocumentDownload(
+          this.prisma,
+          record.caseId,
+          id,
+          { actorId },
+        );
+      else {
+        const profile = await this.governance.accessProfile(this.prisma, {
+          actorId,
+        });
+        if (profile.caseAccessMode !== 'INTERNAL')
+          throw new ForbiddenException(
+            'Representation bytes require exact approved registered disclosure',
+          );
+        principal = {
+          mode: profile.caseAccessMode,
+          revision: profile.caseAccessRevision,
+        };
+      }
+    }
+    if (registered)
+      await this.evidenceGovernance.authorizeAsset(
+        this.prisma,
+        registered.caseId,
+        registered.id,
+        { actorId },
+        'download',
+      );
+    if (!registered) {
+      const latest = await this.getById(id, dataScope, actorId);
+      if (
+        latest.data.updatedAt.getTime() !== record.updatedAt.getTime() ||
+        latest.data.fileName !== record.fileName
+      )
+        throw new ConflictException(
+          'Document changed during parent authorization',
+        );
+    }
+    return { record, principal };
+  }
+  async openDownload(
+    id: string,
+    actor: { userId: string; ipAddress?: string; userAgent?: string },
+    dataScope?: DataScope | null,
+  ) {
+    const { record: before, principal: beforePrincipal } =
+      await this.downloadRecord(id, actor.userId, dataScope);
+    const asset = await this.prisma.caseAssetVersion.findUnique({
+      where: { documentId: id },
+    });
+    const file = asset
+      ? await this.evidenceGovernance.verifiedAsset(
+          asset.caseId,
+          asset.id,
+          { actorId: actor.userId },
+          'download',
+        )
+      : await openEvidenceFile(this.uploadDir, before.fileName);
+    try {
+      const chunks: Buffer[] = [];
+      const hash = crypto.createHash('sha256');
+      let byteLength = 0;
+      for await (const chunk of file.handle.createReadStream({
+        start: 0,
+        autoClose: false,
+      })) {
+        chunks.push(chunk as Buffer);
+        hash.update(chunk as Buffer);
+        byteLength += (chunk as Buffer).length;
+      }
+      if (hash.digest('hex') !== file.sha256 || byteLength !== before.size)
+        throw new ConflictException(
+          'Document integrity changed during hydration',
+        );
+      const { record: after, principal: afterPrincipal } =
+        await this.downloadRecord(id, actor.userId, dataScope);
+      if (
+        after.updatedAt.getTime() !== before.updatedAt.getTime() ||
+        after.caseId !== before.caseId ||
+        after.incidentId !== before.incidentId ||
+        after.petitionId !== before.petitionId ||
+        after.fileName !== before.fileName ||
+        afterPrincipal.mode !== beforePrincipal.mode ||
+        afterPrincipal.revision !== beforePrincipal.revision
+      )
+        throw new ConflictException('Document authorization snapshot changed');
+      if (asset)
+        await this.evidenceGovernance.authorizeAsset(
+          this.prisma,
+          asset.caseId,
+          asset.id,
+          { actorId: actor.userId },
+          'download',
+        );
+      await this.audit.log({
+        userId: actor.userId,
+        action: 'DOCUMENT_DOWNLOADED',
+        subject: 'Document',
+        subjectId: id,
+        metadata: {
+          assetVersionId: asset?.id ?? null,
+          sha256: file.sha256,
+          size: byteLength,
+        },
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      });
+      // Serve the verified byte snapshot: later in-place disk tamper cannot change these bytes.
+      return {
+        success: true,
+        data: {
+          stream: Readable.from(Buffer.concat(chunks)),
+          originalName: before.originalName,
+          mimeType: before.mimeType,
+        },
+      };
+    } finally {
+      await file.handle.close();
+    }
   }
 }

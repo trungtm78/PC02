@@ -1,3 +1,5 @@
+import { Optional } from '@nestjs/common';
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,6 +14,7 @@ export class NotificationPushScheduler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly push: PushService,
+    @Optional() private readonly casePolicy?: CaseNotificationPolicyService,
   ) {}
 
   @Cron(CronExpression.EVERY_5_MINUTES)
@@ -38,7 +41,17 @@ export class NotificationPushScheduler {
       take: 100,
     });
 
-    for (const notif of pending) {
+    for (const original of pending) {
+      const policy =
+        this.casePolicy ?? new CaseNotificationPolicyService(this.prisma);
+      const notif = await policy.serialize(original.userId, original);
+      if (!notif) {
+        await this.prisma.notification.update({
+          where: { id: original.id },
+          data: { pushNextRetryAt: null },
+        });
+        continue;
+      }
       try {
         await this.push.sendToUser(notif.userId, {
           title: notif.title,

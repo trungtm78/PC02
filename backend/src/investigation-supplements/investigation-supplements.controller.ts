@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
-import { InvestigationSupplementsService, QueryInvestigationSupplementsDto } from './investigation-supplements.service';
+import {
+  InvestigationSupplementsService,
+  QueryInvestigationSupplementsDto,
+} from './investigation-supplements.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -15,14 +30,22 @@ export class InvestigationSupplementsController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getList(@Query() query: QueryInvestigationSupplementsDto, @Req() req: ScopedRequest) {
-    return this.service.getList(query, req.dataScope);
+  getList(
+    @Query() query: QueryInvestigationSupplementsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.getList(query, req.dataScope, user.id);
   }
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.service.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.service.getById(id, req.dataScope, user.id);
   }
 
   @Post()

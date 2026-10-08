@@ -1,3 +1,7 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../case-child-access/test-child-access-fixture';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
+import { ordinarySourceFixture, setSourceFixtureScope } from '../case-child-access/test-source-creation-fixture';
 import { BadRequestException } from '@nestjs/common';
 import { IncidentStatus } from '@prisma/client';
 import { IncidentsService } from './incidents.service';
@@ -63,7 +67,7 @@ function dungService(trangThaiHienTai: IncidentStatus) {
       getActive: jest.fn().mockResolvedValue({ id: 'r1', value: 20 }),
     } as never,
     {} as never,
-    { emit: jest.fn() } as never,
+    { emit: jest.fn() } as never, ordinarySourceFixture(prisma as never), ordinaryChildFixture(prisma as never) as never
   );
   return { svc, prisma };
 }

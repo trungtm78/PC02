@@ -1,3 +1,4 @@
+import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
 import { Module } from '@nestjs/common';
 import { InvestigationSupplementsController } from './investigation-supplements.controller';
 import { InvestigationSupplementsService } from './investigation-supplements.service';
@@ -6,7 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditModule],
+  imports: [CaseChildAccessModule, PrismaModule, AuthModule, AuditModule],
   controllers: [InvestigationSupplementsController],
   providers: [InvestigationSupplementsService],
   exports: [InvestigationSupplementsService],

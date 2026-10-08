@@ -30,15 +30,23 @@ export class LawyersController {
   // GET /api/lawyers — Danh sách luật sư (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Lawyer' })
-  getList(@Query() query: QueryLawyersDto, @Req() req: ScopedRequest) {
-    return this.lawyersService.getList(query, req.dataScope);
+  getList(
+    @Query() query: QueryLawyersDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.lawyersService.getList(query, req.dataScope, user.id);
   }
 
   // GET /api/lawyers/:id — Chi tiết luật sư
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Lawyer' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.lawyersService.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.lawyersService.getById(id, req.dataScope, user.id);
   }
 
   // POST /api/lawyers — Tạo luật sư mới

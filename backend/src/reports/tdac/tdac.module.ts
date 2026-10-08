@@ -1,3 +1,4 @@
+import { CaseGraphAccessModule } from '../graph-access/case-graph-access.module';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../../auth/auth.module';
@@ -7,7 +8,7 @@ import { TdacDraftService } from './tdac-draft.service';
 import { TdacExportService } from './tdac-export.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [CaseGraphAccessModule, PrismaModule, AuthModule],
   controllers: [TdacController],
   providers: [TdacService, TdacDraftService, TdacExportService],
   exports: [TdacService],

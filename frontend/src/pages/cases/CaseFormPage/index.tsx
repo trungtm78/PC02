@@ -46,6 +46,11 @@ import type { TabItem } from "@/components/shared/TabBar";
 import type { TabId, Subject, Evidence, MediaFile, CaseFormData } from "./types";
 import { INITIAL_FORM_DATA } from "./types";
 import { buildCreateCasePayload } from "./buildCreateCasePayload";
+import { normalizeCanonicalCasePayload, preserveUnchangedCaseFallbacks } from '@/features/cases/canonical-fields';
+import { CaseCustomFields } from '@/features/cases/CaseCustomFields';
+import { useCaseFieldSchema } from '@/features/cases/useCaseFieldSchema';
+import { useCaseCapabilities } from '@/features/cases/useCaseCapabilities';
+import { CaseFieldPolicyProvider, nativeFieldAllowed, omitDeniedNativeFields, type NativeFieldPolicy } from '@/features/cases/native-field-policy';
 import { hydrateFormFromUrl } from "./hydrateFormFromUrl"; // PR 3 + hotfix #112
 import { PreSaveSummaryModal } from "./PreSaveSummaryModal"; // PR 3 v0.38.2.0
 import { mergeCaseApiToFormData } from "./mergeCaseApiToFormData";
@@ -161,6 +166,9 @@ function CaseFormPage() {
   const [showPreSaveSummary, setShowPreSaveSummary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const customFieldSchema = useCaseFieldSchema(id ?? createdId ?? cloneInput?.cloneSourceCaseId ?? undefined);
+  const governanceAccess = useCaseCapabilities(id ?? createdId ?? undefined);
+  const nativePolicies: NativeFieldPolicy[] = [...(customFieldSchema.schema?.definition.fieldPolicies ?? []), ...(isEditMode && governanceAccess.capabilities.enabled === true ? ['handler', 'assignedTeamId', 'status'].map(key => ({ key, sensitivity: 'NORMAL', readable: true, writable: false })) : [])];
   const documentStageRef = useRef<PetitionStageHandle>(null);
   const duplicateReviewRef = useRef<RecordDuplicateReviewHandle>(null);
   const [isCloning, setIsCloning] = useState(false);
@@ -347,7 +355,7 @@ function CaseFormPage() {
   const buildErrors = (): { errors: Record<string, string>; fields: string[] } => {
     const errs: Record<string, string> = {};
     const order: string[] = [];
-    const add = (key: string, msg: string) => { errs[key] = msg; order.push(key); };
+    const add = (key: string, msg: string) => { if (!nativeFieldAllowed(nativePolicies, key, 'writable')) return; errs[key] = msg; order.push(key); };
     if (!formData.receiveDate) add("receiveDate", "Vui lòng chọn ngày tiếp nhận");
     else if (formData.receiveDate > today()) add("receiveDate", "Ngày tiếp nhận không được ở tương lai");
     // v0.37.1 Decision 7A 10/10 — validation 10/10 (multi-channel error display)
@@ -393,6 +401,10 @@ function CaseFormPage() {
 
   const beginSave = async () => {
     if (chiXem) return; // chỉ xem: máy chủ sẽ 403 — không gửi
+    if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) {
+      setErrors({ governance: customFieldSchema.error || governanceAccess.error || 'Đang xác minh chính sách trường và quyền ghi. Vui lòng tải lại hồ sơ trước khi lưu.' });
+      return;
+    }
     if (!validateForm()) {
       const firstError = Object.keys(buildErrors().errors)[0];
       if (firstError?.startsWith('utdt_') && activeTab !== 'uy-thac') {
@@ -419,6 +431,7 @@ function CaseFormPage() {
   const handleConfirmSave = async () => {
     if (savingRef.current) return; // chống lưu chồng lấn (codex P2)
     if (chiXem) return;
+    if (customFieldSchema.loading || customFieldSchema.error || governanceAccess.error || governanceAccess.capabilities.canEdit === false) return;
     savingRef.current = true;
     setIsSaving(true);
     // Thu thập mục bị loại khỏi danh sách đối tượng để báo lại sau khi lưu xong.
@@ -431,7 +444,7 @@ function CaseFormPage() {
       }
       // v0.37.2.3: payload helper extracted + tested.
       // Subjects and evidence are saved with the case; media bytes upload after the record exists.
-      const payload = {
+      const payload = omitDeniedNativeFields(normalizeCanonicalCasePayload(preserveUnchangedCaseFallbacks({
         ...buildCreateCasePayload(formData, {
           subjects,
           evidences,
@@ -446,7 +459,12 @@ function CaseFormPage() {
         // Cột typed field-parity (di trú) → ghi thẳng cột (top-level)
         ...parityState,
         acknowledgedDuplicateIds: duplicateReview.acknowledgedIds,
-      };
+      }, formData)), nativePolicies);
+      if (payload.metadata._customFields && customFieldSchema.schema) {
+        const allowedKeys = new Set(customFieldSchema.schema.definition.fields.filter(field => field.readable !== false && field.writable !== false).map(field => field.key));
+        payload.metadata._customFields = Object.fromEntries(Object.entries(payload.metadata._customFields as Record<string, unknown>).filter(([key]) => allowedKeys.has(key)));
+      }
+      if (cloneInput?.cloneSourceCaseId && cloneInput.expectedCloneSourceUpdatedAt) Object.assign(payload, { cloneSourceCaseId: cloneInput.cloneSourceCaseId, expectedCloneSourceUpdatedAt: cloneInput.expectedCloneSourceUpdatedAt });
       let savedId: string | null;
       let savedUpdatedAt: string | undefined;
       if (id || createdId) {
@@ -546,6 +564,7 @@ function CaseFormPage() {
 
   const handleClone = async () => {
     if (!id || !canCreate(PERMISSION_RESOURCE.CASES) || isCloning) return;
+    if (governanceAccess.capabilities.canClone === false || governanceAccess.loading || governanceAccess.error || !recordUpdatedAt) { setCloneError('Chưa xác minh được quyền sao chép và phiên bản nguồn. Vui lòng tải lại hồ sơ.'); return; }
     setCloneError(null);
     setIsCloning(true);
     try {
@@ -557,13 +576,13 @@ function CaseFormPage() {
         subjectResponse.data.data ?? [],
         evidenceResponse.data.data ?? [],
       );
-      const cloned = cloneCaseState({
+      const cloned = { ...cloneCaseState({
         formData,
         metaState,
         parityState,
         subjects: [...persisted.subjects, ...subjects],
         evidences: [...persisted.evidences, ...evidences],
-      }, (kind) => `${kind}-${crypto.randomUUID()}`);
+      }, (kind) => `${kind}-${crypto.randomUUID()}`), cloneSourceCaseId: id, expectedCloneSourceUpdatedAt: recordUpdatedAt ?? undefined };
       navigate(`/cases/new?caseProvenance=${encodeURIComponent(formData.caseProvenance)}`, {
         state: { cloneCase: cloned },
       });
@@ -663,7 +682,8 @@ function CaseFormPage() {
 
   // ─── Shared tab props ──────────────────────────────────────────────────
 
-  const tabProps = { formData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading, isManualCaseCode: manualCaseCodeInput, onCaseCodeOverride: () => setManualCaseCodeState({ routeKey: location.key, manual: true }) };
+  const readableFormData = { ...INITIAL_FORM_DATA, ...omitDeniedNativeFields(formData as unknown as Record<string, unknown>, nativePolicies, 'readable') } as CaseFormData;
+  const tabProps = { formData: readableFormData, setFormData, errors, setErrors, dsCanBo, handlerLoading, isDraftCodeLoading, isManualCaseCode: manualCaseCodeInput, onCaseCodeOverride: () => setManualCaseCodeState({ routeKey: location.key, manual: true }) };
 
   // ─── Render ────────────────────────────────────────────────────────────
 
@@ -676,7 +696,7 @@ function CaseFormPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page" onKeyDown={handleFormKeyDown}>
+    <CaseFieldPolicyProvider policies={nativePolicies}><div className="h-full flex flex-col bg-slate-50" data-testid="case-form-page" onKeyDown={handleFormKeyDown}>
       {cloneInput && !isEditMode && (
         <div role="status" className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-800" data-testid="case-clone-review">
           {caseFormLabels.clone.reviewNotice}
@@ -701,15 +721,15 @@ function CaseFormPage() {
         onBack={handleCancel}
         onCancel={handleCancel}
         cancelTestId="btn-cancel"
-        cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.CASES) ? {
+        cloneAction={isEditMode && canCreate(PERMISSION_RESOURCE.CASES) && governanceAccess.capabilities.canClone !== false ? {
           label: caseFormLabels.clone.action,
           loadingLabel: caseFormLabels.clone.loading,
           loading: isCloning,
           onClick: () => void handleClone(),
-          disabled: isCloning || isLoading,
+          disabled: isCloning || isLoading || governanceAccess.loading || !!governanceAccess.error,
           testId: "btn-clone-case",
         } : undefined}
-        printAction={isEditMode && id ? {
+        printAction={isEditMode && id && governanceAccess.capabilities.canExport !== false ? {
           label: "In chứng từ",
           onClick: () => { setExportNavigateOnClose(false); setExportForId(id); },
           testId: "btn-print-docs",
@@ -719,6 +739,7 @@ function CaseFormPage() {
               onSaveAndExport={handleSaveAndExport}
               onSaveDraft={handleSaveDraft}
               isSubmitting={isSaving}
+              disabled={customFieldSchema.loading || !!customFieldSchema.error || governanceAccess.capabilities.canEdit === false}
               label="Lưu hồ sơ"
               idPrefix="btn-save"
               mainTestId="btn-save"
@@ -768,6 +789,8 @@ function CaseFormPage() {
         <div className="max-w-6xl mx-auto min-w-0">
           <fieldset disabled={chiXem} className="min-w-0 border-0 p-0">
           {activeTab === "info" && <TabInfo {...tabProps} />}
+          {customFieldSchema.error && activeTab === 'info' && <p role="alert" className="text-sm text-amber-700">{customFieldSchema.error}</p>}
+          {customFieldSchema.schema && <CaseCustomFields schema={customFieldSchema.schema} tab={activeTab} values={{ ...customFieldSchema.schema.values, ...((metaState._customFields as Record<string, unknown> | undefined) ?? {}) }} readOnly={chiXem} onChange={values => setMetaState(previous => ({ ...previous, _customFields: values }))} />}
           {activeTab === "uy-thac" && <TabUyThac {...tabProps} />}
           {activeTab === "incident" && <TabIncident {...tabProps} />}
           {activeTab === "case" && <TabCase {...tabProps} />}
@@ -849,7 +872,7 @@ function CaseFormPage() {
           {(isEditMode || !!cloneInput || Object.keys(parityState).length > 0) && (
             <LegacyParityFields
               entity="case"
-              values={parityState}
+              values={omitDeniedNativeFields(parityState, nativePolicies, 'readable')}
               onChange={(col, v) => setParityState((prev) => ({ ...prev, [col]: v }))}
               readOnly={chiXem}
             />
@@ -858,7 +881,7 @@ function CaseFormPage() {
           {(isEditMode || !!cloneInput || Object.keys(metaState).length > 0) && (
             <DynamicLegacyFields
               entity="case"
-              values={metaState}
+              values={omitDeniedNativeFields({ metadata: metaState }, nativePolicies, 'readable').metadata}
               onChange={(k, v) => setMetaState((prev) => ({ ...prev, [k]: v }))}
               readOnly={chiXem}
             />
@@ -909,7 +932,7 @@ function CaseFormPage() {
           }}
         />
       )}
-    </div>
+    </div></CaseFieldPolicyProvider>
   );
 }
 

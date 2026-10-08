@@ -11,10 +11,16 @@ const CaseDetailPage = lazy(() => import('@/pages/cases/CaseDetailPage'));
 // v0.37.1: ComprehensiveListPage + InitialCasesPage routes moved to features/comprehensive/routes.tsx
 const CaseTdcBackfillPage = lazy(() => import('@/pages/cases/CaseTdcBackfillPage'));
 const CaseJourneyStandalonePage = lazy(() => import('@/pages/cases/CaseJourneyStandalonePage'));
+const CaseGovernancePage = lazy(() => import('./governance/CaseGovernancePage'));
+const CaseOperationsPage = lazy(() => import('./governance/CaseOperationsPage'));
+const CaseConfigurationPage = lazy(() => import('./governance/CaseConfigurationPage'));
 
 
 export function renderCasesRoutes(): ReactElement[] {
   return [
+    <Route key="case-governance-work" path="/cases/governance" element={wrapRoute(<CaseOperationsPage />)} />,
+    <Route key="case-governance-configuration" path="/cases/governance/configuration" element={wrapRoute(<CaseConfigurationPage />)} />,
+    <Route key="case-governance-record" path="/cases/:id/governance" element={wrapRoute(<CaseGovernancePage />)} />,
     <Route
       key="cases-list"
       path="/cases"

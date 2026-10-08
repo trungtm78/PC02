@@ -1,0 +1,9 @@
+# CG-CL01 — Official clone must preserve classification
+
+First pass read-only. MAJOR OPEN, CG01/CG14/CG15 and acceptance1/9.
+
+Evidence: CaseFormPage/index.tsx handleClone passes only form/parity/metadata/children into cloneCaseState and navigates to the ordinary create flow. create-case.dto.ts has no authenticated clone source/version binding; cases.service.ts ordinary create uses current default field schema and Case.sensitivity default NORMAL. There is no server relationship between the copied authorized source and its published pinned field policy/classification.
+
+Risk: the official clone flow can lose an older pinned field restriction or fail on legacy restricted metadata; silently stripping that metadata could also declassify copied values. Source visibility alone does not authorize broader disclosure by creating a NORMAL dossier. Identity/history/source reset must not erase classification or field confidentiality.
+
+Closure: preserve an explicit authenticated source ID/version for the official clone, check current source visibility and destination authority, inherit source classification/pinned field policy server-side during the same create transaction, omit inaccessible values and retain unknown/provenance semantics. Never accept client-assigned sensitivity/schema authority or automatically widen case-specific grants. A scope-limited sensitive reader without authority to create/access an equally restricted destination must receive an actionable denial rather than an ordinary declassified copy. Reset identifiers, source legal relationships, legal histories and attachment identities as before; audit copy provenance without widening graph access. Add regressions and integrate frontend transport through T4. This is an official clone control, not a claim to prevent manual copying outside the application.

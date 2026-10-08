@@ -1,11 +1,6 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { UseInterceptors } from '@nestjs/common';
+import { CaseGraphAccessInterceptor } from '../graph-access/case-graph-access.interceptor';
+import { Controller, Get, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
@@ -46,6 +41,7 @@ class PhuLuc16QueryDto {
 // Controller
 // ─────────────────────────────────────────────────────────────────────────────
 
+@UseInterceptors(CaseGraphAccessInterceptor)
 @Controller('reports/phu-luc-1-6')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PhuLuc16Controller {
@@ -61,10 +57,7 @@ export class PhuLuc16Controller {
    */
   @Get('preview')
   @RequirePermissions({ action: 'read', subject: 'Case' })
-  async preview(
-    @Query() query: PhuLuc16QueryDto,
-    @Req() _req: ScopedRequest,
-  ) {
+  async preview(@Query() query: PhuLuc16QueryDto, @Req() _req: ScopedRequest) {
     return this.phuLuc16Service.getForLoai(query.loai, {
       loai: query.loai,
       fromDate: query.fromDate,

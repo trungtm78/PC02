@@ -115,6 +115,32 @@ const sampleStats = {
   },
 };
 
+describe('Case governance authorized URL query parity', () => {
+  it('REPRESENTATION_ONLY renders exactly the authorized code/name/status summary with accurate labels', async () => {
+    vi.mocked(api.get).mockImplementation(async url => ({ data: url === '/cases/stats' ? sampleStats : url === '/cases' ? { data: [{ id: sampleRow.id, caseCode: sampleRow.caseCode, name: sampleRow.name, status: sampleRow.status }], total: 1 } : { data: { enabled: true, caseAccessMode: 'REPRESENTATION_ONLY', canExport: false, canWrite: false } } }));
+    renderWithRouter();
+    await screen.findByText(sampleRow.caseCode);
+    expect(screen.getAllByRole('columnheader').map(header => header.textContent?.trim())).toEqual(['Mã hồ sơ', 'Tên hồ sơ', 'Trạng thái']);
+    expect(screen.getByText(sampleRow.name)).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Thêm mới|Xuất Excel|Xuất Word/ })).toBeNull();
+  });
+  it('does not offer Case creation from an empty representation-only list', async () => {
+    vi.mocked(api.get).mockImplementation(async url => ({ data: url === '/cases/stats' ? sampleStats : url === '/cases' ? { data: [], total: 0 } : { data: { enabled: true, caseAccessMode: 'REPRESENTATION_ONLY', canExport: false, canWrite: false } } }));
+    renderWithRouter();
+    await screen.findByText('Chưa có vụ án nào');
+    expect(screen.queryByRole('button', { name: 'Tạo vụ án mới' })).toBeNull();
+  });
+  it('sends the same governance filters to list, stats and visible Excel export', async () => {
+    vi.mocked(api.get).mockImplementation(async url => ({ data: url === '/cases/stats' ? sampleStats : url === '/cases' ? { data: [sampleRow], total: 1 } : { data: { enabled: true, caseAccessMode: 'INTERNAL', canExport: true } } }));
+    renderWithRouter(['/cases?governanceQueue=overdue&governanceClock=2026-10-06T02%3A00%3A00.000Z&investigationPhase=UNKNOWN&actionCode=CONCLUDE_INITIAL&decisionNumber=Q-01&missingData=true']);
+    await screen.findByText('PC02-001');
+    const expected = { governanceQueue: 'overdue', governanceClock: '2026-10-06T02:00:00.000Z', investigationPhase: 'UNKNOWN', actionCode: 'CONCLUDE_INITIAL', decisionNumber: 'Q-01', missingData: true };
+    expect(api.get).toHaveBeenCalledWith('/cases', expect.objectContaining({ params: expect.objectContaining(expected) }));
+    expect(api.get).toHaveBeenCalledWith('/cases/stats', expect.objectContaining({ params: expect.objectContaining(expected) }));
+  });
+});
+
 describe('CaseListPageShell — initial mount + ready state', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-10-07T16:49:37.619Z",
+  "baseline": "10030bed705ad1afa27eff0986b0c4c43d591aa6",
+  "reviewGate": "PASS",
+  "reviewScope": "CG-FINAL-R1-R4 bounded source closure",
+  "releaseGate": "BLOCKED_R5_UAT_RECOVERY",
+  "productionGo": false,
+  "review": "docs/reviews/REVIEW.md",
+  "sha256": {
+    "backend/src/cases/cases.service.ts": "31b075c7460ac50039c830c0089511ab1c637e739ea9fbc2704e3c1308a6bba6",
+    "backend/src/cases/governance/case-principal-access.service.ts": "596c09d67764c94b5c5df13c90d2879c06e833815d995a73dbc0773d1bb69c91",
+    "backend/src/cases/evidence-governance/evidence-governance.service.ts": "b79c28d674cf929a146e783e5ee71efeae52a5154e64a9f54aff62a5564b4963",
+    "backend/src/case-child-access/case-source-creation.service.ts": "40052f577183a0dd0e7d6a94f01f110a51f48b4591edf9cfa6a865f7ffedafc4",
+    "backend/src/cases/cases.module.ts": "5a789760b0bec0bce07cf26b05d4743a816017a2fe67588190412158ebefaeda"
+  }
+}

@@ -1,0 +1,1989 @@
+{
+  "timestamp": "2026-10-07T22:17:03.338Z",
+  "kind": "Compiled loopback API edit, clear and clone stages; UI/export/access remain separate",
+  "sourceCaseId": "cmuycisxo0000lom7gybhjcfx",
+  "cloneCaseId": "cmuyo3wmv00092km72cfdkzur",
+  "results": [
+    {
+      "id": "CG01-F001-EDIT",
+      "status": "PASS",
+      "field": "baoCaoBanGiamDoc"
+    },
+    {
+      "id": "CG01-F002-EDIT",
+      "status": "PASS",
+      "field": "canCuKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F003-EDIT",
+      "status": "PASS",
+      "field": "canCuPhucHoiVuAn"
+    },
+    {
+      "id": "CG01-F004-EDIT",
+      "status": "PASS",
+      "field": "canCuTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F005-EDIT",
+      "status": "PASS",
+      "field": "canCuTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F006-EDIT",
+      "status": "PASS",
+      "field": "capDoToiPham"
+    },
+    {
+      "id": "CG01-F007-EDIT",
+      "status": "PASS",
+      "field": "cccdCungCap"
+    },
+    {
+      "id": "CG01-F008-EDIT",
+      "status": "PASS",
+      "field": "chuyenVuAnChoCQK"
+    },
+    {
+      "id": "CG01-F009-EDIT",
+      "status": "PASS",
+      "field": "chuyenVuViecDonViKhac"
+    },
+    {
+      "id": "CG01-F010-EDIT",
+      "status": "PASS",
+      "field": "crimeChinhId"
+    },
+    {
+      "id": "CG01-F011-EDIT",
+      "status": "PASS",
+      "field": "description"
+    },
+    {
+      "id": "CG01-F012-EDIT",
+      "status": "PASS",
+      "field": "diaChiCungCap"
+    },
+    {
+      "id": "CG01-F013-EDIT",
+      "status": "PASS",
+      "field": "dieuTraVienText"
+    },
+    {
+      "id": "CG01-F014-EDIT",
+      "status": "PASS",
+      "field": "doVatTaiLieuKemTheo"
+    },
+    {
+      "id": "CG01-F015-EDIT",
+      "status": "PASS",
+      "field": "ghiChuKhac"
+    },
+    {
+      "id": "CG01-F016-EDIT",
+      "status": "PASS",
+      "field": "ghiChuNhapHoSo"
+    },
+    {
+      "id": "CG01-F017-EDIT",
+      "status": "PASS",
+      "field": "ghiChuTrungDon"
+    },
+    {
+      "id": "CG01-F018-EDIT",
+      "status": "PASS",
+      "field": "ketQuaXuLyKhac"
+    },
+    {
+      "id": "CG01-F019-EDIT",
+      "status": "PASS",
+      "field": "khacPhucLyDoTDCVuViec"
+    },
+    {
+      "id": "CG01-F020-EDIT",
+      "status": "PASS",
+      "field": "laCongNgheCao"
+    },
+    {
+      "id": "CG01-F021-EDIT",
+      "status": "PASS",
+      "field": "lanhDaoToTung"
+    },
+    {
+      "id": "CG01-F022-EDIT",
+      "status": "PASS",
+      "field": "lenhNhapKho"
+    },
+    {
+      "id": "CG01-F023-EDIT",
+      "status": "PASS",
+      "field": "loaiThongTin"
+    },
+    {
+      "id": "CG01-F024-EDIT",
+      "status": "PASS",
+      "field": "lyDoKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F025-EDIT",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F026-EDIT",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F027-EDIT",
+      "status": "PASS",
+      "field": "ngayBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F028-EDIT",
+      "status": "PASS",
+      "field": "ngayCapCccd"
+    },
+    {
+      "id": "CG01-F029-EDIT",
+      "status": "PASS",
+      "field": "ngayDeXuat"
+    },
+    {
+      "id": "CG01-F030-EDIT",
+      "status": "PASS",
+      "field": "ngayDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F031-EDIT",
+      "status": "PASS",
+      "field": "ngayGiaoDonViGiaiQuyet"
+    },
+    {
+      "id": "CG01-F032-EDIT",
+      "status": "PASS",
+      "field": "ngayHetThoiHieu"
+    },
+    {
+      "id": "CG01-F033-EDIT",
+      "status": "PASS",
+      "field": "ngayHetThoiHieuVuViec"
+    },
+    {
+      "id": "CG01-F034-EDIT",
+      "status": "PASS",
+      "field": "ngayKhoiTo"
+    },
+    {
+      "id": "CG01-F035-EDIT",
+      "status": "PASS",
+      "field": "ngayKLDT"
+    },
+    {
+      "id": "CG01-F036-EDIT",
+      "status": "PASS",
+      "field": "ngayNhapVuAn"
+    },
+    {
+      "id": "CG01-F037-EDIT",
+      "status": "PASS",
+      "field": "ngayPhieuChuyen"
+    },
+    {
+      "id": "CG01-F038-EDIT",
+      "status": "PASS",
+      "field": "ngayPhucHoi"
+    },
+    {
+      "id": "CG01-F039-EDIT",
+      "status": "PASS",
+      "field": "ngayPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F040-EDIT",
+      "status": "PASS",
+      "field": "ngayQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F041-EDIT",
+      "status": "PASS",
+      "field": "ngayQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F042-EDIT",
+      "status": "PASS",
+      "field": "ngayQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F043-EDIT",
+      "status": "PASS",
+      "field": "ngayQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F044-EDIT",
+      "status": "PASS",
+      "field": "ngayTachHanhVi"
+    },
+    {
+      "id": "CG01-F045-EDIT",
+      "status": "PASS",
+      "field": "ngayTachVuAn"
+    },
+    {
+      "id": "CG01-F046-EDIT",
+      "status": "PASS",
+      "field": "ngayTamDinhChi"
+    },
+    {
+      "id": "CG01-F047-EDIT",
+      "status": "PASS",
+      "field": "ngayTiepNhanNguonTin"
+    },
+    {
+      "id": "CG01-F048-EDIT",
+      "status": "PASS",
+      "field": "ngayVietDon"
+    },
+    {
+      "id": "CG01-F049-EDIT",
+      "status": "PASS",
+      "field": "ngayXayRa"
+    },
+    {
+      "id": "CG01-F050-EDIT",
+      "status": "PASS",
+      "field": "nghiVanDoiTuong"
+    },
+    {
+      "id": "CG01-F051-EDIT",
+      "status": "PASS",
+      "field": "nguonDon"
+    },
+    {
+      "id": "CG01-F052-EDIT",
+      "status": "PASS",
+      "field": "nhanXet"
+    },
+    {
+      "id": "CG01-F053-EDIT",
+      "status": "PASS",
+      "field": "nhapVaoVuViecSo"
+    },
+    {
+      "id": "CG01-F054-EDIT",
+      "status": "PASS",
+      "field": "noiCapCccd"
+    },
+    {
+      "id": "CG01-F055-EDIT",
+      "status": "PASS",
+      "field": "noiLuuTruBaoQuan"
+    },
+    {
+      "id": "CG01-F056-EDIT",
+      "status": "PASS",
+      "field": "noiXayRa"
+    },
+    {
+      "id": "CG01-F057-EDIT",
+      "status": "PASS",
+      "field": "noiXayRaPhuongXa"
+    },
+    {
+      "id": "CG01-F058-EDIT",
+      "status": "PASS",
+      "field": "phanLoaiDanSu"
+    },
+    {
+      "id": "CG01-F059-EDIT",
+      "status": "PASS",
+      "field": "phanLoaiNguonTinBanDau"
+    },
+    {
+      "id": "CG01-F060-EDIT",
+      "status": "PASS",
+      "field": "phuongThucThuDoan"
+    },
+    {
+      "id": "CG01-F061-EDIT",
+      "status": "PASS",
+      "field": "sdtCungCap"
+    },
+    {
+      "id": "CG01-F062-EDIT",
+      "status": "PASS",
+      "field": "sinhNamCungCap"
+    },
+    {
+      "id": "CG01-F063-EDIT",
+      "status": "PASS",
+      "field": "soBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F064-EDIT",
+      "status": "PASS",
+      "field": "soKLDT"
+    },
+    {
+      "id": "CG01-F065-EDIT",
+      "status": "PASS",
+      "field": "soPhieuChuyen"
+    },
+    {
+      "id": "CG01-F066-EDIT",
+      "status": "PASS",
+      "field": "soPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F067-EDIT",
+      "status": "PASS",
+      "field": "soQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F068-EDIT",
+      "status": "PASS",
+      "field": "soQDDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F069-EDIT",
+      "status": "PASS",
+      "field": "soQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F070-EDIT",
+      "status": "PASS",
+      "field": "soQDNhapVuAn"
+    },
+    {
+      "id": "CG01-F071-EDIT",
+      "status": "PASS",
+      "field": "soQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F072-EDIT",
+      "status": "PASS",
+      "field": "soQDTachHanhVi"
+    },
+    {
+      "id": "CG01-F073-EDIT",
+      "status": "PASS",
+      "field": "soQDTachVuAn"
+    },
+    {
+      "id": "CG01-F074-EDIT",
+      "status": "PASS",
+      "field": "soQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F075-EDIT",
+      "status": "PASS",
+      "field": "soQuyetDinhKhoiTo"
+    },
+    {
+      "id": "CG01-F076-EDIT",
+      "status": "PASS",
+      "field": "soQuyetDinhPhucHoi"
+    },
+    {
+      "id": "CG01-F077-EDIT",
+      "status": "PASS",
+      "field": "soQuyetDinhTamDinhChi"
+    },
+    {
+      "id": "CG01-F078-EDIT",
+      "status": "PASS",
+      "field": "statistic.coBangNhom"
+    },
+    {
+      "id": "CG01-F079-EDIT",
+      "status": "PASS",
+      "field": "statistic.coGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F080-EDIT",
+      "status": "PASS",
+      "field": "statistic.coSuDungKQGhiAmTrongXetXu"
+    },
+    {
+      "id": "CG01-F081-EDIT",
+      "status": "PASS",
+      "field": "statistic.coVPHC"
+    },
+    {
+      "id": "CG01-F082-EDIT",
+      "status": "PASS",
+      "field": "statistic.dieuTraMoRong"
+    },
+    {
+      "id": "CG01-F083-EDIT",
+      "status": "PASS",
+      "field": "statistic.donViBaoQuanHoSo"
+    },
+    {
+      "id": "CG01-F084-EDIT",
+      "status": "PASS",
+      "field": "statistic.ghiAmGhiHinhDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F085-EDIT",
+      "status": "PASS",
+      "field": "statistic.hoSoLuu"
+    },
+    {
+      "id": "CG01-F086-EDIT",
+      "status": "PASS",
+      "field": "statistic.khongGAGHNhungToaYeuCau"
+    },
+    {
+      "id": "CG01-F087-EDIT",
+      "status": "PASS",
+      "field": "statistic.laVuAnGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F088-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayBatKhanCap"
+    },
+    {
+      "id": "CG01-F089-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayDangKyHoSo"
+    },
+    {
+      "id": "CG01-F090-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayDauThu"
+    },
+    {
+      "id": "CG01-F091-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayNopLuuHoSo"
+    },
+    {
+      "id": "CG01-F092-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayPhamToiQuaTang"
+    },
+    {
+      "id": "CG01-F093-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayPhanCongGiaiQuyetToGiac"
+    },
+    {
+      "id": "CG01-F094-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayPhatHienDauHieu"
+    },
+    {
+      "id": "CG01-F095-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayThongKe"
+    },
+    {
+      "id": "CG01-F096-EDIT",
+      "status": "PASS",
+      "field": "statistic.ngayTiepNhanTin"
+    },
+    {
+      "id": "CG01-F097-EDIT",
+      "status": "PASS",
+      "field": "statistic.soBangNhomBatDuoc"
+    },
+    {
+      "id": "CG01-F098-EDIT",
+      "status": "PASS",
+      "field": "statistic.soBiCanCoGhiAm"
+    },
+    {
+      "id": "CG01-F099-EDIT",
+      "status": "PASS",
+      "field": "statistic.soBiCanVksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F100-EDIT",
+      "status": "PASS",
+      "field": "statistic.soBienBanGhiLoiKhaiCoGhiAm"
+    },
+    {
+      "id": "CG01-F101-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDangKyHoSo"
+    },
+    {
+      "id": "CG01-F102-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDoiTuong"
+    },
+    {
+      "id": "CG01-F103-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongBiBatVuAnKhac"
+    },
+    {
+      "id": "CG01-F104-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongDaBat"
+    },
+    {
+      "id": "CG01-F105-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongSuuTraHiemNghi"
+    },
+    {
+      "id": "CG01-F106-EDIT",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongVPHC"
+    },
+    {
+      "id": "CG01-F107-EDIT",
+      "status": "PASS",
+      "field": "statistic.soLuongBiHai"
+    },
+    {
+      "id": "CG01-F108-EDIT",
+      "status": "PASS",
+      "field": "statistic.soLuongNguoiChet"
+    },
+    {
+      "id": "CG01-F109-EDIT",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiPhatTien"
+    },
+    {
+      "id": "CG01-F110-EDIT",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiThuong"
+    },
+    {
+      "id": "CG01-F111-EDIT",
+      "status": "PASS",
+      "field": "statistic.soSungThuHoi"
+    },
+    {
+      "id": "CG01-F112-EDIT",
+      "status": "PASS",
+      "field": "statistic.soThuocNoThuHoi"
+    },
+    {
+      "id": "CG01-F113-EDIT",
+      "status": "PASS",
+      "field": "statistic.soTienBiThietHai"
+    },
+    {
+      "id": "CG01-F114-EDIT",
+      "status": "PASS",
+      "field": "statistic.soTienThuHoi"
+    },
+    {
+      "id": "CG01-F115-EDIT",
+      "status": "PASS",
+      "field": "statistic.suDungVuKhiNong"
+    },
+    {
+      "id": "CG01-F116-EDIT",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanGhiLoiKhai"
+    },
+    {
+      "id": "CG01-F117-EDIT",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCung"
+    },
+    {
+      "id": "CG01-F118-EDIT",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCungCoGhiAm"
+    },
+    {
+      "id": "CG01-F119-EDIT",
+      "status": "PASS",
+      "field": "statistic.tongTienPhatHanhChinh"
+    },
+    {
+      "id": "CG01-F120-EDIT",
+      "status": "PASS",
+      "field": "statistic.vksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F121-EDIT",
+      "status": "PASS",
+      "field": "statistic.vuAnDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F122-EDIT",
+      "status": "PASS",
+      "field": "supervisingUnit"
+    },
+    {
+      "id": "CG01-F123-EDIT",
+      "status": "PASS",
+      "field": "tdcKhacPhucBienBan"
+    },
+    {
+      "id": "CG01-F124-EDIT",
+      "status": "PASS",
+      "field": "tdcKhacPhucLyDoBienPhap"
+    },
+    {
+      "id": "CG01-F125-EDIT",
+      "status": "PASS",
+      "field": "tenCungCap"
+    },
+    {
+      "id": "CG01-F126-EDIT",
+      "status": "PASS",
+      "field": "tienDoKhacPhucTDCVuViec"
+    },
+    {
+      "id": "CG01-F127-EDIT",
+      "status": "PASS",
+      "field": "toiDanhBanDau"
+    },
+    {
+      "id": "CG01-F128-EDIT",
+      "status": "PASS",
+      "field": "toiDanhChinhKhoiToId"
+    },
+    {
+      "id": "CG01-F129-EDIT",
+      "status": "PASS",
+      "field": "toiDanhKhacIds"
+    },
+    {
+      "id": "CG01-F130-EDIT",
+      "status": "PASS",
+      "field": "utdt_thoiHanUyThac"
+    },
+    {
+      "id": "CG01-F131-EDIT",
+      "status": "PASS",
+      "field": "vatChungMoTa"
+    },
+    {
+      "id": "CG01-F132-EDIT",
+      "status": "PASS",
+      "field": "vuViecTamDungTruoc2015"
+    },
+    {
+      "id": "CG01-F001-CLONE",
+      "status": "PASS",
+      "field": "baoCaoBanGiamDoc"
+    },
+    {
+      "id": "CG01-F002-CLONE",
+      "status": "PASS",
+      "field": "canCuKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F003-CLONE",
+      "status": "PASS",
+      "field": "canCuPhucHoiVuAn"
+    },
+    {
+      "id": "CG01-F004-CLONE",
+      "status": "PASS",
+      "field": "canCuTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F005-CLONE",
+      "status": "PASS",
+      "field": "canCuTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F006-CLONE",
+      "status": "PASS",
+      "field": "capDoToiPham"
+    },
+    {
+      "id": "CG01-F007-CLONE",
+      "status": "PASS",
+      "field": "cccdCungCap"
+    },
+    {
+      "id": "CG01-F008-CLONE",
+      "status": "PASS",
+      "field": "chuyenVuAnChoCQK"
+    },
+    {
+      "id": "CG01-F009-CLONE",
+      "status": "PASS",
+      "field": "chuyenVuViecDonViKhac"
+    },
+    {
+      "id": "CG01-F010-CLONE",
+      "status": "PASS",
+      "field": "crimeChinhId"
+    },
+    {
+      "id": "CG01-F011-CLONE",
+      "status": "PASS",
+      "field": "description"
+    },
+    {
+      "id": "CG01-F012-CLONE",
+      "status": "PASS",
+      "field": "diaChiCungCap"
+    },
+    {
+      "id": "CG01-F013-CLONE",
+      "status": "PASS",
+      "field": "dieuTraVienText"
+    },
+    {
+      "id": "CG01-F014-CLONE",
+      "status": "PASS",
+      "field": "doVatTaiLieuKemTheo"
+    },
+    {
+      "id": "CG01-F015-CLONE",
+      "status": "PASS",
+      "field": "ghiChuKhac"
+    },
+    {
+      "id": "CG01-F016-CLONE",
+      "status": "PASS",
+      "field": "ghiChuNhapHoSo"
+    },
+    {
+      "id": "CG01-F017-CLONE",
+      "status": "PASS",
+      "field": "ghiChuTrungDon"
+    },
+    {
+      "id": "CG01-F018-CLONE",
+      "status": "PASS",
+      "field": "ketQuaXuLyKhac"
+    },
+    {
+      "id": "CG01-F019-CLONE",
+      "status": "PASS",
+      "field": "khacPhucLyDoTDCVuViec"
+    },
+    {
+      "id": "CG01-F020-CLONE",
+      "status": "PASS",
+      "field": "laCongNgheCao"
+    },
+    {
+      "id": "CG01-F021-CLONE",
+      "status": "PASS",
+      "field": "lanhDaoToTung"
+    },
+    {
+      "id": "CG01-F022-CLONE",
+      "status": "PASS",
+      "field": "lenhNhapKho"
+    },
+    {
+      "id": "CG01-F023-CLONE",
+      "status": "PASS",
+      "field": "loaiThongTin"
+    },
+    {
+      "id": "CG01-F024-CLONE",
+      "status": "PASS",
+      "field": "lyDoKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F025-CLONE",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F026-CLONE",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F027-CLONE",
+      "status": "PASS",
+      "field": "ngayBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F028-CLONE",
+      "status": "PASS",
+      "field": "ngayCapCccd"
+    },
+    {
+      "id": "CG01-F029-CLONE",
+      "status": "PASS",
+      "field": "ngayDeXuat"
+    },
+    {
+      "id": "CG01-F030-CLONE",
+      "status": "PASS",
+      "field": "ngayDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F031-CLONE",
+      "status": "PASS",
+      "field": "ngayGiaoDonViGiaiQuyet"
+    },
+    {
+      "id": "CG01-F032-CLONE",
+      "status": "PASS",
+      "field": "ngayHetThoiHieu"
+    },
+    {
+      "id": "CG01-F033-CLONE",
+      "status": "PASS",
+      "field": "ngayHetThoiHieuVuViec"
+    },
+    {
+      "id": "CG01-F034-CLONE",
+      "status": "PASS",
+      "field": "ngayKhoiTo"
+    },
+    {
+      "id": "CG01-F035-CLONE",
+      "status": "PASS",
+      "field": "ngayKLDT"
+    },
+    {
+      "id": "CG01-F036-CLONE",
+      "status": "PASS",
+      "field": "ngayNhapVuAn"
+    },
+    {
+      "id": "CG01-F037-CLONE",
+      "status": "PASS",
+      "field": "ngayPhieuChuyen"
+    },
+    {
+      "id": "CG01-F038-CLONE",
+      "status": "PASS",
+      "field": "ngayPhucHoi"
+    },
+    {
+      "id": "CG01-F039-CLONE",
+      "status": "PASS",
+      "field": "ngayPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F040-CLONE",
+      "status": "PASS",
+      "field": "ngayQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F041-CLONE",
+      "status": "PASS",
+      "field": "ngayQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F042-CLONE",
+      "status": "PASS",
+      "field": "ngayQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F043-CLONE",
+      "status": "PASS",
+      "field": "ngayQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F044-CLONE",
+      "status": "PASS",
+      "field": "ngayTachHanhVi"
+    },
+    {
+      "id": "CG01-F045-CLONE",
+      "status": "PASS",
+      "field": "ngayTachVuAn"
+    },
+    {
+      "id": "CG01-F046-CLONE",
+      "status": "PASS",
+      "field": "ngayTamDinhChi"
+    },
+    {
+      "id": "CG01-F047-CLONE",
+      "status": "PASS",
+      "field": "ngayTiepNhanNguonTin"
+    },
+    {
+      "id": "CG01-F048-CLONE",
+      "status": "PASS",
+      "field": "ngayVietDon"
+    },
+    {
+      "id": "CG01-F049-CLONE",
+      "status": "PASS",
+      "field": "ngayXayRa"
+    },
+    {
+      "id": "CG01-F050-CLONE",
+      "status": "PASS",
+      "field": "nghiVanDoiTuong"
+    },
+    {
+      "id": "CG01-F051-CLONE",
+      "status": "PASS",
+      "field": "nguonDon"
+    },
+    {
+      "id": "CG01-F052-CLONE",
+      "status": "PASS",
+      "field": "nhanXet"
+    },
+    {
+      "id": "CG01-F053-CLONE",
+      "status": "PASS",
+      "field": "nhapVaoVuViecSo"
+    },
+    {
+      "id": "CG01-F054-CLONE",
+      "status": "PASS",
+      "field": "noiCapCccd"
+    },
+    {
+      "id": "CG01-F055-CLONE",
+      "status": "PASS",
+      "field": "noiLuuTruBaoQuan"
+    },
+    {
+      "id": "CG01-F056-CLONE",
+      "status": "PASS",
+      "field": "noiXayRa"
+    },
+    {
+      "id": "CG01-F057-CLONE",
+      "status": "PASS",
+      "field": "noiXayRaPhuongXa"
+    },
+    {
+      "id": "CG01-F058-CLONE",
+      "status": "PASS",
+      "field": "phanLoaiDanSu"
+    },
+    {
+      "id": "CG01-F059-CLONE",
+      "status": "PASS",
+      "field": "phanLoaiNguonTinBanDau"
+    },
+    {
+      "id": "CG01-F060-CLONE",
+      "status": "PASS",
+      "field": "phuongThucThuDoan"
+    },
+    {
+      "id": "CG01-F061-CLONE",
+      "status": "PASS",
+      "field": "sdtCungCap"
+    },
+    {
+      "id": "CG01-F062-CLONE",
+      "status": "PASS",
+      "field": "sinhNamCungCap"
+    },
+    {
+      "id": "CG01-F063-CLONE",
+      "status": "PASS",
+      "field": "soBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F064-CLONE",
+      "status": "PASS",
+      "field": "soKLDT"
+    },
+    {
+      "id": "CG01-F065-CLONE",
+      "status": "PASS",
+      "field": "soPhieuChuyen"
+    },
+    {
+      "id": "CG01-F066-CLONE",
+      "status": "PASS",
+      "field": "soPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F067-CLONE",
+      "status": "PASS",
+      "field": "soQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F068-CLONE",
+      "status": "PASS",
+      "field": "soQDDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F069-CLONE",
+      "status": "PASS",
+      "field": "soQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F070-CLONE",
+      "status": "PASS",
+      "field": "soQDNhapVuAn"
+    },
+    {
+      "id": "CG01-F071-CLONE",
+      "status": "PASS",
+      "field": "soQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F072-CLONE",
+      "status": "PASS",
+      "field": "soQDTachHanhVi"
+    },
+    {
+      "id": "CG01-F073-CLONE",
+      "status": "PASS",
+      "field": "soQDTachVuAn"
+    },
+    {
+      "id": "CG01-F074-CLONE",
+      "status": "PASS",
+      "field": "soQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F075-CLONE",
+      "status": "PASS",
+      "field": "soQuyetDinhKhoiTo"
+    },
+    {
+      "id": "CG01-F076-CLONE",
+      "status": "PASS",
+      "field": "soQuyetDinhPhucHoi"
+    },
+    {
+      "id": "CG01-F077-CLONE",
+      "status": "PASS",
+      "field": "soQuyetDinhTamDinhChi"
+    },
+    {
+      "id": "CG01-F078-CLONE",
+      "status": "PASS",
+      "field": "statistic.coBangNhom"
+    },
+    {
+      "id": "CG01-F079-CLONE",
+      "status": "PASS",
+      "field": "statistic.coGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F080-CLONE",
+      "status": "PASS",
+      "field": "statistic.coSuDungKQGhiAmTrongXetXu"
+    },
+    {
+      "id": "CG01-F081-CLONE",
+      "status": "PASS",
+      "field": "statistic.coVPHC"
+    },
+    {
+      "id": "CG01-F082-CLONE",
+      "status": "PASS",
+      "field": "statistic.dieuTraMoRong"
+    },
+    {
+      "id": "CG01-F083-CLONE",
+      "status": "PASS",
+      "field": "statistic.donViBaoQuanHoSo"
+    },
+    {
+      "id": "CG01-F084-CLONE",
+      "status": "PASS",
+      "field": "statistic.ghiAmGhiHinhDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F085-CLONE",
+      "status": "PASS",
+      "field": "statistic.hoSoLuu"
+    },
+    {
+      "id": "CG01-F086-CLONE",
+      "status": "PASS",
+      "field": "statistic.khongGAGHNhungToaYeuCau"
+    },
+    {
+      "id": "CG01-F087-CLONE",
+      "status": "PASS",
+      "field": "statistic.laVuAnGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F088-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayBatKhanCap"
+    },
+    {
+      "id": "CG01-F089-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayDangKyHoSo"
+    },
+    {
+      "id": "CG01-F090-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayDauThu"
+    },
+    {
+      "id": "CG01-F091-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayNopLuuHoSo"
+    },
+    {
+      "id": "CG01-F092-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayPhamToiQuaTang"
+    },
+    {
+      "id": "CG01-F093-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayPhanCongGiaiQuyetToGiac"
+    },
+    {
+      "id": "CG01-F094-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayPhatHienDauHieu"
+    },
+    {
+      "id": "CG01-F095-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayThongKe"
+    },
+    {
+      "id": "CG01-F096-CLONE",
+      "status": "PASS",
+      "field": "statistic.ngayTiepNhanTin"
+    },
+    {
+      "id": "CG01-F097-CLONE",
+      "status": "PASS",
+      "field": "statistic.soBangNhomBatDuoc"
+    },
+    {
+      "id": "CG01-F098-CLONE",
+      "status": "PASS",
+      "field": "statistic.soBiCanCoGhiAm"
+    },
+    {
+      "id": "CG01-F099-CLONE",
+      "status": "PASS",
+      "field": "statistic.soBiCanVksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F100-CLONE",
+      "status": "PASS",
+      "field": "statistic.soBienBanGhiLoiKhaiCoGhiAm"
+    },
+    {
+      "id": "CG01-F101-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDangKyHoSo"
+    },
+    {
+      "id": "CG01-F102-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDoiTuong"
+    },
+    {
+      "id": "CG01-F103-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongBiBatVuAnKhac"
+    },
+    {
+      "id": "CG01-F104-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongDaBat"
+    },
+    {
+      "id": "CG01-F105-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongSuuTraHiemNghi"
+    },
+    {
+      "id": "CG01-F106-CLONE",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongVPHC"
+    },
+    {
+      "id": "CG01-F107-CLONE",
+      "status": "PASS",
+      "field": "statistic.soLuongBiHai"
+    },
+    {
+      "id": "CG01-F108-CLONE",
+      "status": "PASS",
+      "field": "statistic.soLuongNguoiChet"
+    },
+    {
+      "id": "CG01-F109-CLONE",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiPhatTien"
+    },
+    {
+      "id": "CG01-F110-CLONE",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiThuong"
+    },
+    {
+      "id": "CG01-F111-CLONE",
+      "status": "PASS",
+      "field": "statistic.soSungThuHoi"
+    },
+    {
+      "id": "CG01-F112-CLONE",
+      "status": "PASS",
+      "field": "statistic.soThuocNoThuHoi"
+    },
+    {
+      "id": "CG01-F113-CLONE",
+      "status": "PASS",
+      "field": "statistic.soTienBiThietHai"
+    },
+    {
+      "id": "CG01-F114-CLONE",
+      "status": "PASS",
+      "field": "statistic.soTienThuHoi"
+    },
+    {
+      "id": "CG01-F115-CLONE",
+      "status": "PASS",
+      "field": "statistic.suDungVuKhiNong"
+    },
+    {
+      "id": "CG01-F116-CLONE",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanGhiLoiKhai"
+    },
+    {
+      "id": "CG01-F117-CLONE",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCung"
+    },
+    {
+      "id": "CG01-F118-CLONE",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCungCoGhiAm"
+    },
+    {
+      "id": "CG01-F119-CLONE",
+      "status": "PASS",
+      "field": "statistic.tongTienPhatHanhChinh"
+    },
+    {
+      "id": "CG01-F120-CLONE",
+      "status": "PASS",
+      "field": "statistic.vksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F121-CLONE",
+      "status": "PASS",
+      "field": "statistic.vuAnDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F122-CLONE",
+      "status": "PASS",
+      "field": "supervisingUnit"
+    },
+    {
+      "id": "CG01-F123-CLONE",
+      "status": "PASS",
+      "field": "tdcKhacPhucBienBan"
+    },
+    {
+      "id": "CG01-F124-CLONE",
+      "status": "PASS",
+      "field": "tdcKhacPhucLyDoBienPhap"
+    },
+    {
+      "id": "CG01-F125-CLONE",
+      "status": "PASS",
+      "field": "tenCungCap"
+    },
+    {
+      "id": "CG01-F126-CLONE",
+      "status": "PASS",
+      "field": "tienDoKhacPhucTDCVuViec"
+    },
+    {
+      "id": "CG01-F127-CLONE",
+      "status": "PASS",
+      "field": "toiDanhBanDau"
+    },
+    {
+      "id": "CG01-F128-CLONE",
+      "status": "PASS",
+      "field": "toiDanhChinhKhoiToId"
+    },
+    {
+      "id": "CG01-F129-CLONE",
+      "status": "PASS",
+      "field": "toiDanhKhacIds"
+    },
+    {
+      "id": "CG01-F130-CLONE",
+      "status": "PASS",
+      "field": "utdt_thoiHanUyThac"
+    },
+    {
+      "id": "CG01-F131-CLONE",
+      "status": "PASS",
+      "field": "vatChungMoTa"
+    },
+    {
+      "id": "CG01-F132-CLONE",
+      "status": "PASS",
+      "field": "vuViecTamDungTruoc2015"
+    },
+    {
+      "id": "CG01-F001-CLEAR",
+      "status": "PASS",
+      "field": "baoCaoBanGiamDoc"
+    },
+    {
+      "id": "CG01-F002-CLEAR",
+      "status": "PASS",
+      "field": "canCuKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F003-CLEAR",
+      "status": "PASS",
+      "field": "canCuPhucHoiVuAn"
+    },
+    {
+      "id": "CG01-F004-CLEAR",
+      "status": "PASS",
+      "field": "canCuTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F005-CLEAR",
+      "status": "PASS",
+      "field": "canCuTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F006-CLEAR",
+      "status": "PASS",
+      "field": "capDoToiPham"
+    },
+    {
+      "id": "CG01-F007-CLEAR",
+      "status": "PASS",
+      "field": "cccdCungCap"
+    },
+    {
+      "id": "CG01-F008-CLEAR",
+      "status": "PASS",
+      "field": "chuyenVuAnChoCQK"
+    },
+    {
+      "id": "CG01-F009-CLEAR",
+      "status": "PASS",
+      "field": "chuyenVuViecDonViKhac"
+    },
+    {
+      "id": "CG01-F010-CLEAR",
+      "status": "PASS",
+      "field": "crimeChinhId"
+    },
+    {
+      "id": "CG01-F011-CLEAR",
+      "status": "PASS",
+      "field": "description"
+    },
+    {
+      "id": "CG01-F012-CLEAR",
+      "status": "PASS",
+      "field": "diaChiCungCap"
+    },
+    {
+      "id": "CG01-F013-CLEAR",
+      "status": "PASS",
+      "field": "dieuTraVienText"
+    },
+    {
+      "id": "CG01-F014-CLEAR",
+      "status": "PASS",
+      "field": "doVatTaiLieuKemTheo"
+    },
+    {
+      "id": "CG01-F015-CLEAR",
+      "status": "PASS",
+      "field": "ghiChuKhac"
+    },
+    {
+      "id": "CG01-F016-CLEAR",
+      "status": "PASS",
+      "field": "ghiChuNhapHoSo"
+    },
+    {
+      "id": "CG01-F017-CLEAR",
+      "status": "PASS",
+      "field": "ghiChuTrungDon"
+    },
+    {
+      "id": "CG01-F018-CLEAR",
+      "status": "PASS",
+      "field": "ketQuaXuLyKhac"
+    },
+    {
+      "id": "CG01-F019-CLEAR",
+      "status": "PASS",
+      "field": "khacPhucLyDoTDCVuViec"
+    },
+    {
+      "id": "CG01-F020-CLEAR",
+      "status": "PASS",
+      "field": "laCongNgheCao"
+    },
+    {
+      "id": "CG01-F021-CLEAR",
+      "status": "PASS",
+      "field": "lanhDaoToTung"
+    },
+    {
+      "id": "CG01-F022-CLEAR",
+      "status": "PASS",
+      "field": "lenhNhapKho"
+    },
+    {
+      "id": "CG01-F023-CLEAR",
+      "status": "PASS",
+      "field": "loaiThongTin"
+    },
+    {
+      "id": "CG01-F024-CLEAR",
+      "status": "PASS",
+      "field": "lyDoKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F025-CLEAR",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F026-CLEAR",
+      "status": "PASS",
+      "field": "lyDoTamDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F027-CLEAR",
+      "status": "PASS",
+      "field": "ngayBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F028-CLEAR",
+      "status": "PASS",
+      "field": "ngayCapCccd"
+    },
+    {
+      "id": "CG01-F029-CLEAR",
+      "status": "PASS",
+      "field": "ngayDeXuat"
+    },
+    {
+      "id": "CG01-F030-CLEAR",
+      "status": "PASS",
+      "field": "ngayDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F031-CLEAR",
+      "status": "PASS",
+      "field": "ngayGiaoDonViGiaiQuyet"
+    },
+    {
+      "id": "CG01-F032-CLEAR",
+      "status": "PASS",
+      "field": "ngayHetThoiHieu"
+    },
+    {
+      "id": "CG01-F033-CLEAR",
+      "status": "PASS",
+      "field": "ngayHetThoiHieuVuViec"
+    },
+    {
+      "id": "CG01-F034-CLEAR",
+      "status": "PASS",
+      "field": "ngayKhoiTo"
+    },
+    {
+      "id": "CG01-F035-CLEAR",
+      "status": "PASS",
+      "field": "ngayKLDT"
+    },
+    {
+      "id": "CG01-F036-CLEAR",
+      "status": "PASS",
+      "field": "ngayNhapVuAn"
+    },
+    {
+      "id": "CG01-F037-CLEAR",
+      "status": "PASS",
+      "field": "ngayPhieuChuyen"
+    },
+    {
+      "id": "CG01-F038-CLEAR",
+      "status": "PASS",
+      "field": "ngayPhucHoi"
+    },
+    {
+      "id": "CG01-F039-CLEAR",
+      "status": "PASS",
+      "field": "ngayPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F040-CLEAR",
+      "status": "PASS",
+      "field": "ngayQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F041-CLEAR",
+      "status": "PASS",
+      "field": "ngayQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F042-CLEAR",
+      "status": "PASS",
+      "field": "ngayQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F043-CLEAR",
+      "status": "PASS",
+      "field": "ngayQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F044-CLEAR",
+      "status": "PASS",
+      "field": "ngayTachHanhVi"
+    },
+    {
+      "id": "CG01-F045-CLEAR",
+      "status": "PASS",
+      "field": "ngayTachVuAn"
+    },
+    {
+      "id": "CG01-F046-CLEAR",
+      "status": "PASS",
+      "field": "ngayTamDinhChi"
+    },
+    {
+      "id": "CG01-F047-CLEAR",
+      "status": "PASS",
+      "field": "ngayTiepNhanNguonTin"
+    },
+    {
+      "id": "CG01-F048-CLEAR",
+      "status": "PASS",
+      "field": "ngayVietDon"
+    },
+    {
+      "id": "CG01-F049-CLEAR",
+      "status": "PASS",
+      "field": "ngayXayRa"
+    },
+    {
+      "id": "CG01-F050-CLEAR",
+      "status": "PASS",
+      "field": "nghiVanDoiTuong"
+    },
+    {
+      "id": "CG01-F051-CLEAR",
+      "status": "PASS",
+      "field": "nguonDon"
+    },
+    {
+      "id": "CG01-F052-CLEAR",
+      "status": "PASS",
+      "field": "nhanXet"
+    },
+    {
+      "id": "CG01-F053-CLEAR",
+      "status": "PASS",
+      "field": "nhapVaoVuViecSo"
+    },
+    {
+      "id": "CG01-F054-CLEAR",
+      "status": "PASS",
+      "field": "noiCapCccd"
+    },
+    {
+      "id": "CG01-F055-CLEAR",
+      "status": "PASS",
+      "field": "noiLuuTruBaoQuan"
+    },
+    {
+      "id": "CG01-F056-CLEAR",
+      "status": "PASS",
+      "field": "noiXayRa"
+    },
+    {
+      "id": "CG01-F057-CLEAR",
+      "status": "PASS",
+      "field": "noiXayRaPhuongXa"
+    },
+    {
+      "id": "CG01-F058-CLEAR",
+      "status": "PASS",
+      "field": "phanLoaiDanSu"
+    },
+    {
+      "id": "CG01-F059-CLEAR",
+      "status": "PASS",
+      "field": "phanLoaiNguonTinBanDau"
+    },
+    {
+      "id": "CG01-F060-CLEAR",
+      "status": "PASS",
+      "field": "phuongThucThuDoan"
+    },
+    {
+      "id": "CG01-F061-CLEAR",
+      "status": "PASS",
+      "field": "sdtCungCap"
+    },
+    {
+      "id": "CG01-F062-CLEAR",
+      "status": "PASS",
+      "field": "sinhNamCungCap"
+    },
+    {
+      "id": "CG01-F063-CLEAR",
+      "status": "PASS",
+      "field": "soBanAnCoHieuLuc"
+    },
+    {
+      "id": "CG01-F064-CLEAR",
+      "status": "PASS",
+      "field": "soKLDT"
+    },
+    {
+      "id": "CG01-F065-CLEAR",
+      "status": "PASS",
+      "field": "soPhieuChuyen"
+    },
+    {
+      "id": "CG01-F066-CLEAR",
+      "status": "PASS",
+      "field": "soPhucHoiNguonTin"
+    },
+    {
+      "id": "CG01-F067-CLEAR",
+      "status": "PASS",
+      "field": "soQDDieuTraLai"
+    },
+    {
+      "id": "CG01-F068-CLEAR",
+      "status": "PASS",
+      "field": "soQDDinhChiVuAn"
+    },
+    {
+      "id": "CG01-F069-CLEAR",
+      "status": "PASS",
+      "field": "soQDKhongKhoiTo"
+    },
+    {
+      "id": "CG01-F070-CLEAR",
+      "status": "PASS",
+      "field": "soQDNhapVuAn"
+    },
+    {
+      "id": "CG01-F071-CLEAR",
+      "status": "PASS",
+      "field": "soQDPhanCongNguonTin"
+    },
+    {
+      "id": "CG01-F072-CLEAR",
+      "status": "PASS",
+      "field": "soQDTachHanhVi"
+    },
+    {
+      "id": "CG01-F073-CLEAR",
+      "status": "PASS",
+      "field": "soQDTachVuAn"
+    },
+    {
+      "id": "CG01-F074-CLEAR",
+      "status": "PASS",
+      "field": "soQDTamDinhChiNguonTin"
+    },
+    {
+      "id": "CG01-F075-CLEAR",
+      "status": "PASS",
+      "field": "soQuyetDinhKhoiTo"
+    },
+    {
+      "id": "CG01-F076-CLEAR",
+      "status": "PASS",
+      "field": "soQuyetDinhPhucHoi"
+    },
+    {
+      "id": "CG01-F077-CLEAR",
+      "status": "PASS",
+      "field": "soQuyetDinhTamDinhChi"
+    },
+    {
+      "id": "CG01-F078-CLEAR",
+      "status": "PASS",
+      "field": "statistic.coBangNhom"
+    },
+    {
+      "id": "CG01-F079-CLEAR",
+      "status": "PASS",
+      "field": "statistic.coGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F080-CLEAR",
+      "status": "PASS",
+      "field": "statistic.coSuDungKQGhiAmTrongXetXu"
+    },
+    {
+      "id": "CG01-F081-CLEAR",
+      "status": "PASS",
+      "field": "statistic.coVPHC"
+    },
+    {
+      "id": "CG01-F082-CLEAR",
+      "status": "PASS",
+      "field": "statistic.dieuTraMoRong"
+    },
+    {
+      "id": "CG01-F083-CLEAR",
+      "status": "PASS",
+      "field": "statistic.donViBaoQuanHoSo"
+    },
+    {
+      "id": "CG01-F084-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ghiAmGhiHinhDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F085-CLEAR",
+      "status": "PASS",
+      "field": "statistic.hoSoLuu"
+    },
+    {
+      "id": "CG01-F086-CLEAR",
+      "status": "PASS",
+      "field": "statistic.khongGAGHNhungToaYeuCau"
+    },
+    {
+      "id": "CG01-F087-CLEAR",
+      "status": "PASS",
+      "field": "statistic.laVuAnGhiAmGhiHinh"
+    },
+    {
+      "id": "CG01-F088-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayBatKhanCap"
+    },
+    {
+      "id": "CG01-F089-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayDangKyHoSo"
+    },
+    {
+      "id": "CG01-F090-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayDauThu"
+    },
+    {
+      "id": "CG01-F091-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayNopLuuHoSo"
+    },
+    {
+      "id": "CG01-F092-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayPhamToiQuaTang"
+    },
+    {
+      "id": "CG01-F093-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayPhanCongGiaiQuyetToGiac"
+    },
+    {
+      "id": "CG01-F094-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayPhatHienDauHieu"
+    },
+    {
+      "id": "CG01-F095-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayThongKe"
+    },
+    {
+      "id": "CG01-F096-CLEAR",
+      "status": "PASS",
+      "field": "statistic.ngayTiepNhanTin"
+    },
+    {
+      "id": "CG01-F097-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soBangNhomBatDuoc"
+    },
+    {
+      "id": "CG01-F098-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soBiCanCoGhiAm"
+    },
+    {
+      "id": "CG01-F099-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soBiCanVksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F100-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soBienBanGhiLoiKhaiCoGhiAm"
+    },
+    {
+      "id": "CG01-F101-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDangKyHoSo"
+    },
+    {
+      "id": "CG01-F102-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDoiTuong"
+    },
+    {
+      "id": "CG01-F103-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongBiBatVuAnKhac"
+    },
+    {
+      "id": "CG01-F104-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongDaBat"
+    },
+    {
+      "id": "CG01-F105-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongSuuTraHiemNghi"
+    },
+    {
+      "id": "CG01-F106-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soDoiTuongVPHC"
+    },
+    {
+      "id": "CG01-F107-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soLuongBiHai"
+    },
+    {
+      "id": "CG01-F108-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soLuongNguoiChet"
+    },
+    {
+      "id": "CG01-F109-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiPhatTien"
+    },
+    {
+      "id": "CG01-F110-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soNguoiBiThuong"
+    },
+    {
+      "id": "CG01-F111-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soSungThuHoi"
+    },
+    {
+      "id": "CG01-F112-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soThuocNoThuHoi"
+    },
+    {
+      "id": "CG01-F113-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soTienBiThietHai"
+    },
+    {
+      "id": "CG01-F114-CLEAR",
+      "status": "PASS",
+      "field": "statistic.soTienThuHoi"
+    },
+    {
+      "id": "CG01-F115-CLEAR",
+      "status": "PASS",
+      "field": "statistic.suDungVuKhiNong"
+    },
+    {
+      "id": "CG01-F116-CLEAR",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanGhiLoiKhai"
+    },
+    {
+      "id": "CG01-F117-CLEAR",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCung"
+    },
+    {
+      "id": "CG01-F118-CLEAR",
+      "status": "PASS",
+      "field": "statistic.tongSoBienBanHoiCungCoGhiAm"
+    },
+    {
+      "id": "CG01-F119-CLEAR",
+      "status": "PASS",
+      "field": "statistic.tongTienPhatHanhChinh"
+    },
+    {
+      "id": "CG01-F120-CLEAR",
+      "status": "PASS",
+      "field": "statistic.vksYeuCauGhiAm"
+    },
+    {
+      "id": "CG01-F121-CLEAR",
+      "status": "PASS",
+      "field": "statistic.vuAnDaDuocXetXu"
+    },
+    {
+      "id": "CG01-F122-CLEAR",
+      "status": "PASS",
+      "field": "supervisingUnit"
+    },
+    {
+      "id": "CG01-F123-CLEAR",
+      "status": "PASS",
+      "field": "tdcKhacPhucBienBan"
+    },
+    {
+      "id": "CG01-F124-CLEAR",
+      "status": "PASS",
+      "field": "tdcKhacPhucLyDoBienPhap"
+    },
+    {
+      "id": "CG01-F125-CLEAR",
+      "status": "PASS",
+      "field": "tenCungCap"
+    },
+    {
+      "id": "CG01-F126-CLEAR",
+      "status": "PASS",
+      "field": "tienDoKhacPhucTDCVuViec"
+    },
+    {
+      "id": "CG01-F127-CLEAR",
+      "status": "PASS",
+      "field": "toiDanhBanDau"
+    },
+    {
+      "id": "CG01-F128-CLEAR",
+      "status": "PASS",
+      "field": "toiDanhChinhKhoiToId"
+    },
+    {
+      "id": "CG01-F129-CLEAR",
+      "status": "PASS",
+      "field": "toiDanhKhacIds"
+    },
+    {
+      "id": "CG01-F130-CLEAR",
+      "status": "PASS",
+      "field": "utdt_thoiHanUyThac"
+    },
+    {
+      "id": "CG01-F131-CLEAR",
+      "status": "PASS",
+      "field": "vatChungMoTa"
+    },
+    {
+      "id": "CG01-F132-CLEAR",
+      "status": "PASS",
+      "field": "vuViecTamDungTruoc2015"
+    }
+  ],
+  "verdict": "API_LIFECYCLE_PASS_NOT_FULL_UAT"
+}

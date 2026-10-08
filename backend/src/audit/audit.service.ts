@@ -1,8 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { CaseAuditPolicyService } from './case-audit-policy.service';
+import { CaseGovernanceService } from '../cases/governance/case-governance.service';
+import { CaseFieldSchemaService } from '../cases/governance/case-field-schema.service';
+import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { sanitizePII, computeFieldDiff, ChangedField, sanitizeMetadataRecursive } from './audit.utils';
+import {
+  sanitizePII,
+  computeFieldDiff,
+  ChangedField,
+  sanitizeMetadataRecursive,
+} from './audit.utils';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
 import { KHAI_TIM_KIEM_NHAT_KY } from '../common/tim-kiem/khai/nhat-ky.khai';
@@ -55,7 +63,19 @@ export class AuditService {
     ));
   }
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly injectedCasePolicy?: CaseAuditPolicyService,
+  ) {}
+  private get casePolicy(): CaseAuditPolicyService {
+    if (this.injectedCasePolicy) return this.injectedCasePolicy;
+    const core = new CaseGovernanceService(this.prisma);
+    return new CaseAuditPolicyService(
+      this.prisma,
+      core,
+      new CaseFieldSchemaService(this.prisma, core),
+    );
+  }
 
   async log(
     input: AuditLogCreateInput,
@@ -162,10 +182,7 @@ export class AuditService {
       // P2002 = Prisma unique constraint violation. UNIQUE (actorId, idempotencyKey)
       // → caller retry trên cùng request → trả lại bulkOperationId hiện có.
       // KHÔNG có idempotencyKey → bug thực sự, rethrow.
-      if (
-        input.idempotencyKey &&
-        (e as { code?: string })?.code === 'P2002'
-      ) {
+      if (input.idempotencyKey && (e as { code?: string })?.code === 'P2002') {
         const existing = await this.prisma.$queryRaw<{ id: string }[]>`
           SELECT id FROM "bulk_operations"
           WHERE "actorId" = ${input.actorId}
@@ -249,15 +266,8 @@ export class AuditService {
     `;
   }
 
-  async findAll(params: FindAllParams) {
-    const {
-      action,
-      userId,
-      subjectId,
-      subject,
-      dateFrom,
-      dateTo,
-    } = params;
+  async findAll(params: FindAllParams, actorId?: string) {
+    const { action, userId, subjectId, subject, dateFrom, dateTo } = params;
 
     // v0.29: clamp limit. Public list path: [LIMIT_MIN, LIMIT_MAX=100].
     // Export path (forExport=true): up to LIMIT_EXPORT_MAX=10k for CSV bulk download.
@@ -289,12 +299,20 @@ export class AuditService {
       await this.timKiem.dieuKien(params),
     );
 
+    noiVaoWhere(where as Record<string, unknown>, [
+      await this.casePolicy.predicate(actorId),
+    ]);
     const [rawData, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,
         include: {
           user: {
-            select: { id: true, firstName: true, lastName: true, username: true },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+            },
           },
         },
         // v0.29: bug fix — DESC để newest first (audit log convention)
@@ -305,6 +323,12 @@ export class AuditService {
       this.prisma.auditLog.count({ where }),
     ]);
 
+    for (let index = 0; index < rawData.length; index++)
+      rawData[index] = await this.casePolicy.sanitize(
+        rawData[index],
+        actorId,
+        params.forExport ? 'export' : 'read',
+      );
     // v0.29: compute changedFields per row from metadata.before/after.
     // Strip raw before/after from list response to reduce payload (detail endpoint returns raw).
     const data = rawData.map((row) => {
@@ -318,6 +342,8 @@ export class AuditService {
       }
       // Strip before/after, keep other metadata keys.
       const { before: _b, after: _a, ...restMeta } = meta ?? {};
+      void _b;
+      void _a;
       return {
         ...row,
         metadata: Object.keys(restMeta).length > 0 ? restMeta : null,
@@ -331,9 +357,9 @@ export class AuditService {
   /**
    * v0.29: detail endpoint — returns raw sanitized metadata (full before/after).
    */
-  async findById(id: string) {
-    const row = await this.prisma.auditLog.findUnique({
-      where: { id },
+  async findById(id: string, actorId?: string) {
+    let row = await this.prisma.auditLog.findUnique({
+      where: { id, AND: [await this.casePolicy.predicate(actorId)] },
       include: {
         user: {
           select: { id: true, firstName: true, lastName: true, username: true },
@@ -341,6 +367,7 @@ export class AuditService {
       },
     });
     if (!row) return null;
+    row = await this.casePolicy.sanitize(row, actorId);
     const meta = (row.metadata ?? null) as Record<string, unknown> | null;
     let changedFields: ChangedField[] = [];
     if (meta && (meta.before || meta.after)) {
@@ -355,8 +382,9 @@ export class AuditService {
   /**
    * v0.29: distinct action names for filter dropdown.
    */
-  async distinctActions(): Promise<string[]> {
+  async distinctActions(actorId?: string): Promise<string[]> {
     const rows = await this.prisma.auditLog.findMany({
+      where: { AND: [await this.casePolicy.predicate(actorId)] },
       select: { action: true },
       distinct: ['action'],
       orderBy: { action: 'asc' },
@@ -367,11 +395,14 @@ export class AuditService {
   /**
    * v0.29: distinct subject types for filter dropdown.
    */
-  async distinctSubjects(): Promise<string[]> {
+  async distinctSubjects(actorId?: string): Promise<string[]> {
     const rows = await this.prisma.auditLog.findMany({
       select: { subject: true },
       distinct: ['subject'],
-      where: { subject: { not: null } },
+      where: {
+        subject: { not: null },
+        AND: [await this.casePolicy.predicate(actorId)],
+      },
       orderBy: { subject: 'asc' },
     });
     return rows.map((r) => r.subject!).filter(Boolean);

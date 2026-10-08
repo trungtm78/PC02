@@ -1,0 +1,89 @@
+{
+  "method": "Added executable statement-start lines from git diff10030bed; per-line hit=max statement count; no exclusions of missed executable lines",
+  "covered": 255,
+  "executableChangedLines": 275,
+  "percent": 92.72727272727273,
+  "files": [
+    {
+      "file": "backend/src/documents/documents.controller.ts",
+      "covered": 8,
+      "executableChangedLines": 8,
+      "percent": 100,
+      "uncovered": [],
+      "cliNotExecuted": false
+    },
+    {
+      "file": "backend/src/documents/documents.service.ts",
+      "covered": 151,
+      "executableChangedLines": 165,
+      "percent": 91.51515151515152,
+      "uncovered": [
+        307,
+        515,
+        633,
+        640,
+        648,
+        675,
+        677,
+        709,
+        717,
+        842,
+        908,
+        1002,
+        1062,
+        1076
+      ],
+      "cliNotExecuted": false
+    },
+    {
+      "file": "backend/src/documents/documents.module.ts",
+      "covered": 2,
+      "executableChangedLines": 2,
+      "percent": 100,
+      "uncovered": [],
+      "cliNotExecuted": false
+    },
+    {
+      "file": "backend/src/xlsx-imports/commit.service.ts",
+      "covered": 18,
+      "executableChangedLines": 20,
+      "percent": 90,
+      "uncovered": [
+        647,
+        662
+      ],
+      "cliNotExecuted": false
+    },
+    {
+      "file": "backend/src/legacy-migration/legacy-migration.service.ts",
+      "covered": 33,
+      "executableChangedLines": 35,
+      "percent": 94.28571428571429,
+      "uncovered": [
+        369,
+        379
+      ],
+      "cliNotExecuted": false
+    },
+    {
+      "file": "backend/src/legacy-migration/cli/seed-ho-so-di-tru-mau.ts",
+      "covered": 14,
+      "executableChangedLines": 15,
+      "percent": 93.33333333333333,
+      "uncovered": [
+        125
+      ],
+      "cliNotExecuted": true
+    },
+    {
+      "file": "backend/src/legacy-migration/cli/verify-backfill-parity.ts",
+      "covered": 29,
+      "executableChangedLines": 30,
+      "percent": 96.66666666666667,
+      "uncovered": [
+        173
+      ],
+      "cliNotExecuted": true
+    }
+  ]
+}

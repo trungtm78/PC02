@@ -20,7 +20,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
-import { diskStorage } from 'multer';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -29,9 +28,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
-import * as path from 'path';
 import * as fs from 'fs';
-import * as crypto from 'crypto';
+import { immutableDocumentStorage } from './document-immutable-storage';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import {
   ALLOWED_UPLOAD_MIMES,
@@ -52,15 +50,23 @@ export class DocumentsController {
   // GET /api/documents — Danh sách tài liệu (paginated + filtered)
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Document' })
-  getList(@Query() query: QueryDocumentsDto, @Req() req: ScopedRequest) {
-    return this.documentsService.getList(query, req.dataScope);
+  getList(
+    @Query() query: QueryDocumentsDto,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.documentsService.getList(query, req.dataScope, user.id);
   }
 
   // GET /api/documents/:id — Chi tiết tài liệu
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Document' })
-  getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.documentsService.getById(id, req.dataScope);
+  getById(
+    @Param('id') id: string,
+    @Req() req: ScopedRequest,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.documentsService.getById(id, req.dataScope, user.id);
   }
 
   // POST /api/documents — Upload tài liệu mới
@@ -71,22 +77,7 @@ export class DocumentsController {
   @Post()
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadDir = path.join(process.cwd(), 'uploads', 'documents');
-          if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-          }
-          cb(null, uploadDir);
-        },
-        filename: (req, file, cb) => {
-          const timestamp = Date.now();
-          // SEC: crypto.randomBytes thay vì Math.random — defense-in-depth chống enumeration.
-          const random = crypto.randomBytes(8).toString('hex');
-          const ext = path.extname(file.originalname);
-          cb(null, `${timestamp}-${random}${ext}`);
-        },
-      }),
+      storage: immutableDocumentStorage(),
       limits: {
         fileSize: MAX_MEDIA_BYTES,
       },
@@ -201,14 +192,17 @@ export class DocumentsController {
     @Req() req: ScopedRequest,
     @Res() res: Response,
   ) {
-    await this.documentsService.getById(id, req.dataScope);
     // Sprint 2 / S2.1 — pass actor để audit log fire DOCUMENT_DOWNLOADED.
-    const result = await this.documentsService.getDownloadInfo(id, {
-      userId: user.id,
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-    const { filePath, originalName, mimeType } = result.data;
+    const result = await this.documentsService.openDownload(
+      id,
+      {
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+      req.dataScope,
+    );
+    const { stream, originalName, mimeType } = result.data;
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader(
@@ -216,7 +210,6 @@ export class DocumentsController {
       `attachment; filename="${encodeURIComponent(originalName)}"`,
     );
 
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    stream.pipe(res);
   }
 }

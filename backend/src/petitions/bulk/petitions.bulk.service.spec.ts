@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../../case-child-access/case-child-access.service';
+import { ordinaryChildFixture } from '../../case-child-access/test-child-access-fixture';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { PetitionsBulkService } from './petitions.bulk.service';
@@ -45,7 +47,7 @@ describe('PetitionsBulkService — v0.48 B5', () => {
       log: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         PetitionsBulkService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },

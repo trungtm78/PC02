@@ -58,6 +58,7 @@ export interface PrintModalOpenArgs {
 export interface ActionContext {
   navigate: NavigateFunction;
   perms: {
+    caseGovernanceEnabled?: boolean;
     canDispatch?: boolean;
     canEdit?: boolean;
     canDelete?: boolean;

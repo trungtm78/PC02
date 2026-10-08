@@ -1,3 +1,4 @@
+import { ordinaryChildFixture } from '../../case-child-access/test-child-access-fixture';
 /**
  * VksMeetingsService Unit Tests
  *
@@ -28,6 +29,7 @@ const scopeTeamA: DataScope = {
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
 const mockPrisma = {
+  auditLog:{create:jest.fn()},
   vksMeetingRecord: {
     create: jest.fn(),
     findMany: jest.fn(),
@@ -87,6 +89,12 @@ describe('VksMeetingsService', () => {
     }).compile();
 
     service = module.get<VksMeetingsService>(VksMeetingsService);
+    const access=ordinaryChildFixture(mockPrisma);
+    access.scope.mockResolvedValue(scopeTeamA);
+    access.write.mockImplementation((_ids:unknown,_actor:unknown,_subject:unknown,_action:unknown,handler:(tx:unknown)=>unknown)=>handler(mockPrisma));
+    access.entity.mockResolvedValue(undefined);
+    access.read.mockResolvedValue(undefined);
+    Object.defineProperty(service,'access',{get:()=>access});
     jest.clearAllMocks();
   });
 
@@ -251,6 +259,7 @@ describe('VksMeetingsService', () => {
     });
 
     it('UT-008: deletes record and returns deleted record when found', async () => {
+      ordinaryChildFixture(mockPrisma).scope.mockResolvedValue(null);
       const existing = makeMeetingRecord();
       mockPrisma.vksMeetingRecord.findUnique.mockResolvedValue(existing);
       mockPrisma.vksMeetingRecord.delete.mockResolvedValue(existing);
@@ -321,6 +330,7 @@ describe('VksMeetingsService', () => {
     });
 
     it('null scope (admin) bypasses checks', async () => {
+      ordinaryChildFixture(mockPrisma).scope.mockResolvedValue(null);
       mockPrisma.case.findUnique.mockResolvedValue(otherTeamCase);
       mockPrisma.vksMeetingRecord.create.mockResolvedValue(makeMeetingRecord());
       await expect(

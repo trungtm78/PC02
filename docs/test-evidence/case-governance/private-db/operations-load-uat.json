@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-10-08T01:08:08.814Z",
+  "environment": "private synthetic loopback web API",
+  "requests": 100,
+  "concurrency": 4,
+  "errorCount": 0,
+  "errorRate": 0,
+  "p50Ms": 102.50399999999945,
+  "p95Ms": 337.34060000000045,
+  "maxMs": 462.6639,
+  "budget": {
+    "p95Ms": 1000,
+    "errorRatePercent": 1
+  },
+  "verdict": "PASS"
+}

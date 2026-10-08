@@ -1,3 +1,4 @@
+import { CaseChildAccessModule } from '../case-child-access/case-child-access.module';
 import { Module } from '@nestjs/common';
 import { IncidentsService } from './incidents.service';
 import { IncidentsHandoffService } from './incidents-handoff.service';
@@ -14,6 +15,7 @@ import { DocumentTemplatesModule } from '../document-templates/document-template
 
 @Module({
   imports: [
+    CaseChildAccessModule,
     AuditModule,
     SettingsModule,
     DeadlineRulesModule,

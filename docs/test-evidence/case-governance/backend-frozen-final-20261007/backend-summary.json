@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-10-07T16:14:45.141Z",
+  "side": "backend",
+  "label": "backend-frozen-final-20261007",
+  "command": [
+    "C:\\Program Files\\nodejs\\node.exe",
+    "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest\\bin\\jest.js",
+    "--runInBand",
+    "--json",
+    "--outputFile=C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\docs\\test-evidence\\case-governance\\backend-frozen-final-20261007\\backend-tests.json"
+  ],
+  "exit": 1,
+  "processExit": 1,
+  "signal": null,
+  "elapsedMs": 119212,
+  "passed": 7252,
+  "failed": 2,
+  "pending": 89,
+  "total": 7343,
+  "failures": [
+    {
+      "file": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\__tests__\\khongBoQuaMaNguon.spec.ts",
+      "name": "Danh sách bỏ qua của git không được nuốt mã nguồn không tệp .ts/.tsx nào dưới src/ bị git bỏ qua",
+      "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 5\n\n- Array []\n+ Array [\n+   \"backend/src/coverage/t3-evidence/lcov-report/block-navigation.js\",\n+   \"backend/src/coverage/t3-evidence/lcov-report/prettify.js\",\n+   \"backend/src/coverage/t3-evidence/lcov-report/sorter.js\",\n+ ]\n    at Object.<anonymous> (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\__tests__\\khongBoQuaMaNguon.spec.ts:55:30)\n    at Promise.finally.completed (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1557:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1497:10)\n    at _callCircusTest (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1007:40)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at processImmediate (node:internal/timers:472:9)\n    at _runTest (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:947:3)\n    at C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:849:7\n    at _runTestsForDescribeBlock (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\"
+    },
+    {
+      "file": "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\validators\\__tests__\\is-ngay-that.spec.ts",
+      "name": "CỔNG ô ngày mọi ô ngày dùng @IsNgayThat, không dùng @IsDateString / @IsISO8601 trần",
+      "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 4\n\n- Array []\n+ Array [\n+   \"cases\\\\dto\\\\query-cases.dto.ts\",\n+   \"cases\\\\governance\\\\case-principal-access.controller.ts\",\n+ ]\n    at Object.<anonymous> (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\src\\common\\validators\\__tests__\\is-ngay-that.spec.ts:86:16)\n    at Promise.finally.completed (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1557:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1497:10)\n    at _callCircusTest (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1007:40)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at processImmediate (node:internal/timers:472:9)\n    at _runTest (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:947:3)\n    at C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:849:7\n    at _runTestsForDescribeBlock (C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\backend\\node_modules\\jest-circus\\build\\jestAdapterInit.js:862:11)\n    at _runTestsForDescribeBlock (C:\\PC02\\pc02-"
+    }
+  ]
+}

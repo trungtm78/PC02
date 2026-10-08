@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 import { Test } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DelegationsService } from './delegations.service';
@@ -36,7 +38,7 @@ describe('DelegationsService — create()', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         DelegationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -56,7 +58,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.documentNumberLog.update.mockResolvedValue({});
     mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
 
-    const result = await service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1');
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1');
 
     expect(mockDocNums.commitWithTx).toHaveBeenCalledWith('DELEGATION', { userId: 'u1' }, mockPrisma);
     expect(result.data.delegationNumber).toBe('UT/2026/0001');
@@ -69,7 +72,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.documentNumberLog.update.mockResolvedValue({});
     mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
 
-    await service.create(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.create(
       { receivingUnit: 'X', content: 'test', assignedToId: 'user-assignee' } as any,
       'u1',
     );
@@ -84,7 +88,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.documentNumberLog.update.mockResolvedValue({});
     mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
 
-    await service.create(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.create(
       { receivingUnit: 'X', content: 'test', assignedToId: 'user-b' } as any,
       'u1',
     );
@@ -101,7 +106,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.documentNumberLog.update.mockResolvedValue({});
     mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
 
-    await service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1');
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1');
 
     expect(mockEventEmitter.emit).not.toHaveBeenCalled();
   });
@@ -111,7 +117,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
     mockPrisma.delegation.create.mockResolvedValue(fakeRecord);
 
-    const result = await service.create({ delegationNumber: 'UT-MANUAL-001', receivingUnit: 'X', content: 'test', assignedToId: 'user-b' } as any, 'u1');
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.create({ delegationNumber: 'UT-MANUAL-001', receivingUnit: 'X', content: 'test', assignedToId: 'user-b' } as any, 'u1');
 
     expect(mockDocNums.commitWithTx).not.toHaveBeenCalled();
     expect(result.data.delegationNumber).toBe('UT-MANUAL-001');
@@ -123,7 +130,8 @@ describe('DelegationsService — create()', () => {
     mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
     mockPrisma.delegation.create.mockRejectedValue(new Error('DB error'));
 
-    await expect(service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1')).rejects.toThrow('DB error');
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(service.create({ receivingUnit: 'X', content: 'test' } as any, 'u1')).rejects.toThrow('DB error');
     expect(mockPrisma.documentNumberLog.update).not.toHaveBeenCalled();
   });
 });
@@ -133,7 +141,7 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         DelegationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -147,13 +155,20 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
 
   it('throws NotFoundException when not found', async () => {
     mockPrisma.delegation.findFirst.mockResolvedValue(null);
-    await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
+    setOrdinaryCurrentScope(mockPrisma,null);
+await expect(service.getById('nope')).rejects.toThrow(NotFoundException);
   });
 
   describe('case-linked delegation', () => {
     it('passes when relatedCase is in scope (teamId match)', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue(FAKE_DELEGATION_WITH_CASE);
-      const result = await service.getById('del-001', {
+      setOrdinaryCurrentScope(mockPrisma,{
+        userIds: [],
+        teamIds: ['t1'],
+        writableTeamIds: ['t1'],
+        writableUserIds: [],
+      });
+const result = await service.getById('del-001', {
         userIds: [],
         teamIds: ['t1'],
         writableTeamIds: ['t1'],
@@ -164,7 +179,13 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
 
     it('throws ForbiddenException when relatedCase is out of scope', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue({ ...FAKE_DELEGATION_WITH_CASE, relatedCase: { ...FAKE_DELEGATION_WITH_CASE.relatedCase, assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma,{
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        });
+await expect(
         service.getById('del-001', {
           userIds: ['u1'],
           teamIds: ['t1'],
@@ -178,7 +199,13 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
   describe('orphan delegation (no case)', () => {
     it('passes when createdById matches scope userIds', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue(FAKE_DELEGATION_ORPHAN);
-      const result = await service.getById('del-002', {
+      setOrdinaryCurrentScope(mockPrisma,{
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      });
+const result = await service.getById('del-002', {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -189,7 +216,13 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
 
     it('throws ForbiddenException when createdById not in scope userIds', async () => {
       mockPrisma.delegation.findFirst.mockResolvedValue({ ...FAKE_DELEGATION_ORPHAN, createdById: 'other' });
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma,{
+          userIds: ['u1'],
+          teamIds: [],
+          writableTeamIds: [],
+          writableUserIds: ['u1'],
+        });
+await expect(
         service.getById('del-002', {
           userIds: ['u1'],
           teamIds: [],
@@ -202,7 +235,8 @@ describe('DelegationsService — scope enforcement (dual-path logic)', () => {
 
   it('passes with null scope (admin bypass) regardless of content', async () => {
     mockPrisma.delegation.findFirst.mockResolvedValue({ ...FAKE_DELEGATION_WITH_CASE, relatedCase: { assignedTeamId: 'team-X', investigatorId: 'user-X' } });
-    const result = await service.getById('del-001', null);
+    setOrdinaryCurrentScope(mockPrisma,null);
+const result = await service.getById('del-001', null);
     expect(result.success).toBe(true);
   });
 });

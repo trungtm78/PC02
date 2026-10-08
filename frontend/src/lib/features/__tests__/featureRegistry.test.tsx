@@ -89,7 +89,10 @@ describe('FEATURE_MODULES registry', () => {
       '/cases',
       '/cases/:id',
       '/cases/:id/edit',
+      '/cases/:id/governance',
       '/cases/:id/journey',
+      '/cases/governance',
+      '/cases/governance/configuration',
       '/cases/new',
       '/cases/tdac-backfill',
     ]);

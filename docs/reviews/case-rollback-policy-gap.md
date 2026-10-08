@@ -1,0 +1,7 @@
+# CG-RB01 — Recovery must retain new authorization guards
+
+Read-only release risk, MAJOR OPEN until rehearsal, CG14/17. The pre-governance0.73 baseline does not understand User.caseAccessMode, pinned native field policies or the new Case sensitivity. Restoring that old application against a database containing newly restricted dossiers/representation-only users could expose data despite preserving additive tables. Schema compatibility alone is not security compatibility.
+
+Required recovery design: preserve a compatible backend artifact containing current authorization/canonical/ledger-preservation guards, with new mutations disabled if necessary. Roll back UI/optional business functions without reverting the minimum authorization layer. Document the minimum safe artifact/hash and concrete flag procedure, and exercise restricted field/Case/REP_ONLY/packet/hold negatives after recovery. No DROP or fabricated histories. FlagOFF must not permit old PUT/bulk legal transitions to bypass already governed decisions/rules; existing historical records remain readable under current policy, pending handoffs safely clearable.
+
+No production action is authorized by this review. T1 implements any required governed-record flagOFF guards; T5 verifies built recovery artifacts and backup/restore against synthetic data. Legacy ungoverned workflows remain compatible according to the approved adapter requirements. First-pass finding precedes fixes/release claims.

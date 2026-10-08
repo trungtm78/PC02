@@ -12,6 +12,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { assertCasePreservation } from '../../cases/evidence-governance/case-preservation';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
 
@@ -55,16 +56,35 @@ const COT_STAT_NGAY: Record<string, string> = {
   ngayPhatHienDauHieu: '2026-08-06',
 };
 
-async function main(): Promise<void> {
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
-  });
+export async function verifyLegacyParity(runtime?: {
+  prisma: PrismaClient;
+  preserve?: typeof assertCasePreservation;
+  runBackfill?: () => void;
+  exit?: (code: number) => void;
+}): Promise<void> {
+  const prisma =
+    runtime?.prisma ??
+    new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+    });
+  const preserve = runtime?.preserve ?? assertCasePreservation,
+    exit = runtime?.exit ?? ((code: number) => process.exit(code));
   const loi: string[] = [];
   let caseId: string | undefined;
 
   try {
-    await prisma.caseStatistic.deleteMany({ where: { case: { caseCode: MA_KIEM_CHUNG } } });
-    await prisma.case.deleteMany({ where: { caseCode: MA_KIEM_CHUNG } });
+    await prisma.$transaction(async (tx) => {
+      const records = await tx.case.findMany({
+        where: { caseCode: MA_KIEM_CHUNG },
+        select: { id: true },
+      });
+      for (const record of records)
+        await preserve(tx, record.id, 'SYNTHETIC_PARITY_REPLACE');
+      await tx.caseStatistic.deleteMany({
+        where: { case: { caseCode: MA_KIEM_CHUNG } },
+      });
+      await tx.case.deleteMany({ where: { caseCode: MA_KIEM_CHUNG } });
+    });
 
     // Cố ý KHÔNG điền cột nào ngoài bản gốc — đúng cảnh hồ sơ di trú trước khi có cột.
     const created = await prisma.case.create({
@@ -80,16 +100,18 @@ async function main(): Promise<void> {
 
     // Gọi qua `node` + tệp js của ts-node: trên Windows `node_modules/.bin/ts-node` là kịch
     // bản shell, `execFileSync` không chạy được.
-    execFileSync(
-      process.execPath,
-      [
-        path.resolve(__dirname, '../../../node_modules/ts-node/dist/bin.js'),
-        path.resolve(__dirname, 'backfill-parity.ts'),
-        '--entity',
-        'case',
-      ],
-      { stdio: 'inherit', cwd: path.resolve(__dirname, '../../..') },
-    );
+    if (runtime?.runBackfill) runtime.runBackfill();
+    else
+      execFileSync(
+        process.execPath,
+        [
+          path.resolve(__dirname, '../../../node_modules/ts-node/dist/bin.js'),
+          path.resolve(__dirname, 'backfill-parity.ts'),
+          '--entity',
+          'case',
+        ],
+        { stdio: 'inherit', cwd: path.resolve(__dirname, '../../..') },
+      );
 
     const sau = await prisma.case.findUniqueOrThrow({
       where: { id: caseId },
@@ -98,7 +120,8 @@ async function main(): Promise<void> {
     const c = sau as unknown as Record<string, unknown>;
 
     for (const [cot, mong] of Object.entries(COT_CASE)) {
-      if (c[cot] !== mong) loi.push(`cases.${cot} = ${String(c[cot])} (mong: ${String(mong)})`);
+      if (c[cot] !== mong)
+        loi.push(`cases.${cot} = ${String(c[cot])} (mong: ${String(mong)})`);
     }
     for (const [cot, mong] of Object.entries(COT_CASE_NGAY)) {
       const v = c[cot] as Date | null;
@@ -112,28 +135,42 @@ async function main(): Promise<void> {
       for (const [cot, mong] of Object.entries(COT_STAT_NGAY)) {
         const v = st[cot] as Date | null;
         const thuc = v ? v.toISOString().slice(0, 10) : 'null';
-        if (thuc !== mong) loi.push(`case_statistics.${cot} = ${thuc} (mong: ${mong})`);
+        if (thuc !== mong)
+          loi.push(`case_statistics.${cot} = ${thuc} (mong: ${mong})`);
       }
-      if (st.soLuongBiHai !== 3) loi.push(`case_statistics.soLuongBiHai = ${String(st.soLuongBiHai)} (mong: 3)`);
+      if (st.soLuongBiHai !== 3)
+        loi.push(
+          `case_statistics.soLuongBiHai = ${String(st.soLuongBiHai)} (mong: 3)`,
+        );
     }
   } finally {
-    if (caseId) {
-      await prisma.caseStatistic.deleteMany({ where: { caseId } });
-      await prisma.case.delete({ where: { id: caseId } }).catch(() => undefined);
+    try {
+      if (caseId) {
+        const preservedCaseId = caseId;
+        await prisma.$transaction(async (tx) => {
+          await preserve(tx, preservedCaseId, 'SYNTHETIC_PARITY_CLEANUP');
+          await tx.caseStatistic.deleteMany({
+            where: { caseId: preservedCaseId },
+          });
+          await tx.case.delete({ where: { id: preservedCaseId } });
+        });
+      }
+    } finally {
+      await prisma.$disconnect();
     }
-    await prisma.$disconnect();
   }
 
   if (loi.length > 0) {
     console.error('\nKIỂM CHỨNG THẤT BẠI:');
     for (const l of loi) console.error('  - ' + l);
-    process.exit(1);
+    exit(1);
+    return;
   }
   console.log('\nKIỂM CHỨNG ĐẠT — mọi cột đã nhận dữ liệu từ bản gốc hệ cũ.');
 }
 
 if (require.main === module) {
-  main().catch((e) => {
+  verifyLegacyParity().catch((e) => {
     console.error(e);
     process.exit(1);
   });

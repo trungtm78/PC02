@@ -8,14 +8,51 @@ import type { LegacyRecord } from './legacy-mapper';
 // ---- mock factories --------------------------------------------------------
 
 const mockTx: any = {
-  petition: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
-  incident: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
-  case: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  petition: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  incident: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  case: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   caseStatistic: { upsert: jest.fn(), deleteMany: jest.fn() },
-  guidanceRecord: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
-  exchange: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
-  proposal: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
-  lawyer: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
+  guidanceRecord: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  exchange: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  proposal: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  lawyer: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   crime: { findFirst: jest.fn() },
 };
 
@@ -74,6 +111,8 @@ describe('LegacyMigrationService', () => {
     mockTx.incident.findFirst.mockResolvedValue(null);
     mockTx.incident.create.mockResolvedValue({ id: 'i1' });
     mockTx.case.findFirst.mockResolvedValue(null);
+    mockTx.case.findMany.mockResolvedValue([]);
+    mockTx.lawyer.findMany.mockResolvedValue([]);
     mockTx.case.create.mockResolvedValue({ id: 'c1' });
     mockTx.crime.findFirst.mockResolvedValue(null);
     mockTx.petition.deleteMany.mockResolvedValue({ count: 0 });
@@ -133,9 +172,17 @@ describe('LegacyMigrationService', () => {
       );
 
       expect(mockPrisma.directory.findMany).toHaveBeenCalledTimes(1);
-      const [dauTien, thuHai] = mockTx.petition.create.mock.calls.map((c: any) => c[0].data);
-      expect(dauTien).toMatchObject({ loaiThongTin: 'Tố giác', petitionType: 'PHAN_ANH' });
-      expect(thuHai).toMatchObject({ loaiThongTin: 'Tố cáo cán bộ', petitionType: 'TO_CAO' });
+      const [dauTien, thuHai] = mockTx.petition.create.mock.calls.map(
+        (c: any) => c[0].data,
+      );
+      expect(dauTien).toMatchObject({
+        loaiThongTin: 'Tố giác',
+        petitionType: 'PHAN_ANH',
+      });
+      expect(thuHai).toMatchObject({
+        loaiThongTin: 'Tố cáo cán bộ',
+        petitionType: 'TO_CAO',
+      });
     });
 
     /**
@@ -180,7 +227,13 @@ describe('LegacyMigrationService', () => {
     // không parse được ngày (~4.400 hồ sơ) → sai hạn xử lý, sai KPI, sai lọc theo năm.
     it('thiếu ngày tiếp nhận → KHÔNG tạo, ghi lỗi, không bịa ngày hôm nay', async () => {
       const res = await service.commit(
-        [{ id: 'L-404', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B' }],
+        [
+          {
+            id: 'L-404',
+            phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau',
+            ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B',
+          },
+        ],
         'actor-1',
       );
       expect(mockTx.petition.create).not.toHaveBeenCalled();
@@ -196,8 +249,12 @@ describe('LegacyMigrationService', () => {
         [{ ...petitionRec, id: 1, __sourceCollection: 'ho_so' }],
         'actor-1',
       );
-      expect(mockTx.petition.findFirst).toHaveBeenCalledWith({ where: { legacySourceId: 'ho_so:1' } });
-      expect(mockTx.petition.create.mock.calls[0][0].data.legacySourceId).toBe('ho_so:1');
+      expect(mockTx.petition.findFirst).toHaveBeenCalledWith({
+        where: { legacySourceId: 'ho_so:1' },
+      });
+      expect(mockTx.petition.create.mock.calls[0][0].data.legacySourceId).toBe(
+        'ho_so:1',
+      );
     });
 
     /**
@@ -206,19 +263,32 @@ describe('LegacyMigrationService', () => {
      */
     it('tạo petition mới: mang sẵn hướng xử lý suy từ trạng thái', async () => {
       await service.commit([petitionRec], 'actor-1');
-      expect(mockTx.petition.create.mock.calls[0][0].data.huongXuLy).toBe('GIAO_DON');
+      expect(mockTx.petition.create.mock.calls[0][0].data.huongXuLy).toBe(
+        'GIAO_DON',
+      );
     });
 
     it('update petition đã có hướng: KHÔNG ghi đè hướng cán bộ đã chọn', async () => {
-      mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1', huongXuLy: 'CHUYEN_DON' });
+      mockTx.petition.findFirst.mockResolvedValue({
+        id: 'existing-p1',
+        huongXuLy: 'CHUYEN_DON',
+      });
       await service.commit([petitionRec], 'actor-1');
-      expect('huongXuLy' in mockTx.petition.update.mock.calls[0][0].data).toBe(false);
+      expect('huongXuLy' in mockTx.petition.update.mock.calls[0][0].data).toBe(
+        false,
+      );
     });
 
     it('update petition đang trống hướng: điền theo trạng thái đang có', async () => {
-      mockTx.petition.findFirst.mockResolvedValue({ id: 'existing-p1', huongXuLy: null, status: 'DA_CHUYEN_DON_VI' });
+      mockTx.petition.findFirst.mockResolvedValue({
+        id: 'existing-p1',
+        huongXuLy: null,
+        status: 'DA_CHUYEN_DON_VI',
+      });
       await service.commit([petitionRec], 'actor-1');
-      expect(mockTx.petition.update.mock.calls[0][0].data.huongXuLy).toBe('CHUYEN_DON');
+      expect(mockTx.petition.update.mock.calls[0][0].data.huongXuLy).toBe(
+        'CHUYEN_DON',
+      );
     });
 
     it('update petition khi legacySourceId đã tồn tại (idempotent)', async () => {
@@ -237,9 +307,14 @@ describe('LegacyMigrationService', () => {
 
     it('ĐƠN THƯ: resolve crimeChinhLegacyValue → crimeChinhId qua tx (không dùng this.prisma)', async () => {
       mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-95' });
-      await service.commit([{ ...petitionRec, toi_danh_chinh_blhs2015: '95' }], 'actor-1');
+      await service.commit(
+        [{ ...petitionRec, toi_danh_chinh_blhs2015: '95' }],
+        'actor-1',
+      );
       // tx.crime.findFirst phải được gọi (không phải mockPrisma.crime.findFirst)
-      expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 95 } });
+      expect(mockTx.crime.findFirst).toHaveBeenCalledWith({
+        where: { legacyValue: 95 },
+      });
       expect(mockPrisma.crime.findFirst).not.toHaveBeenCalled();
       const createArgs = mockTx.petition.create.mock.calls[0][0].data;
       // Đơn thư dùng khoá ngoại vô hướng khắp payload → kiểu "unchecked", chỉ nhận
@@ -259,9 +334,14 @@ describe('LegacyMigrationService', () => {
      */
     it('VỤ VIỆC: resolve tội danh và nối bằng quan hệ, không để lọt khoá trung gian', async () => {
       mockTx.crime.findFirst.mockResolvedValue({ id: 'crime-173' });
-      await service.commit([{ ...incidentRec, toi_danh_chinh_blhs2015: '173' }], 'actor-1');
+      await service.commit(
+        [{ ...incidentRec, toi_danh_chinh_blhs2015: '173' }],
+        'actor-1',
+      );
 
-      expect(mockTx.crime.findFirst).toHaveBeenCalledWith({ where: { legacyValue: 173 } });
+      expect(mockTx.crime.findFirst).toHaveBeenCalledWith({
+        where: { legacyValue: 173 },
+      });
       const createArgs = mockTx.incident.create.mock.calls[0][0].data;
       expect(createArgs.crimeChinh).toEqual({ connect: { id: 'crime-173' } });
       expect(createArgs.crimeChinhId).toBeUndefined();
@@ -293,7 +373,10 @@ describe('LegacyMigrationService', () => {
     });
 
     it('record không có id → skip (skipped++)', async () => {
-      const res = await service.commit([{ phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' }], 'actor-1');
+      const res = await service.commit(
+        [{ phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau' }],
+        'actor-1',
+      );
       expect(res.skipped).toBe(1);
       expect(res.created.petitions).toBe(0);
     });
@@ -302,7 +385,12 @@ describe('LegacyMigrationService', () => {
       mockTx.petition.create
         .mockRejectedValueOnce(new Error('DB timeout'))
         .mockResolvedValueOnce({ id: 'p2' });
-      const rec2: LegacyRecord = { id: 'L-002', phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B', ngay_tiep_nhan_nguon_tin: '15/04/2025' };
+      const rec2: LegacyRecord = {
+        id: 'L-002',
+        phan_loai_nguon_tin_ban_dau: 'don-cong-van-ban-dau',
+        ten_ca_nhan_co_quan_to_chuc_cung_cap: 'B',
+        ngay_tiep_nhan_nguon_tin: '15/04/2025',
+      };
       const res = await service.commit([petitionRec, rec2], 'actor-1');
       expect(res.errors).toHaveLength(1);
       expect(res.errors[0].legacyId).toBe('L-001');
@@ -310,7 +398,13 @@ describe('LegacyMigrationService', () => {
 
     it('tạo caseStatistic.upsert khi record có field thống kê (Codex P1#7)', async () => {
       await service.commit(
-        [{ ...caseRec, so_luong_bi_hai: '3', so_tien_bi_thiet_hai: '1.000.000' }],
+        [
+          {
+            ...caseRec,
+            so_luong_bi_hai: '3',
+            so_tien_bi_thiet_hai: '1.000.000',
+          },
+        ],
         'actor-1',
       );
       expect(mockTx.caseStatistic.upsert).toHaveBeenCalledTimes(1);
@@ -337,13 +431,19 @@ describe('LegacyMigrationService', () => {
       await service.commit([petitionRec], 'actor-1');
       const data = mockTx.petition.create.mock.calls[0][0].data;
       expect(data.legacyRaw).toBeDefined();
-      expect((data.legacyRaw as Record<string, unknown>).ten_ca_nhan_co_quan_to_chuc_cung_cap).toBe('Nguyễn Văn A');
+      expect(
+        (data.legacyRaw as Record<string, unknown>)
+          .ten_ca_nhan_co_quan_to_chuc_cung_cap,
+      ).toBe('Nguyễn Văn A');
     });
 
     it('ghi audit log sau commit', async () => {
       await service.commit([petitionRec], 'actor-1');
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'LEGACY_MIGRATION_COMMIT', userId: 'actor-1' }),
+        expect.objectContaining({
+          action: 'LEGACY_MIGRATION_COMMIT',
+          userId: 'actor-1',
+        }),
       );
     });
   });
@@ -433,7 +533,13 @@ describe('LegacyMigrationService', () => {
 
     it('trao-doi → tạo Exchange, đếm created.exchanges', async () => {
       const res = await service.commit(
-        [{ id: 'E-001', phan_loai_nguon_tin_ban_dau: 'trao-doi-chuyen-an', tom_tat_noi_dung: 'TĐ' }],
+        [
+          {
+            id: 'E-001',
+            phan_loai_nguon_tin_ban_dau: 'trao-doi-chuyen-an',
+            tom_tat_noi_dung: 'TĐ',
+          },
+        ],
         'actor-1',
       );
       expect(mockTx.exchange.create).toHaveBeenCalledTimes(1);
@@ -442,7 +548,13 @@ describe('LegacyMigrationService', () => {
 
     it('kien-nghi-vks → Proposal với proposalNumber deterministic DX-LEGACY-<id>', async () => {
       const res = await service.commit(
-        [{ id: 'P-001', phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks', tom_tat_noi_dung: 'KN' }],
+        [
+          {
+            id: 'P-001',
+            phan_loai_nguon_tin_ban_dau: 'kien-nghi-vks',
+            tom_tat_noi_dung: 'KN',
+          },
+        ],
         'actor-1',
       );
       const data = mockTx.proposal.create.mock.calls[0][0].data;
@@ -455,7 +567,13 @@ describe('LegacyMigrationService', () => {
       // luat-su: tạo host Case xong, lawyer.create fail → cả transaction rollback.
       mockTx.lawyer.create.mockRejectedValueOnce(new Error('boom'));
       const res = await service.commit(
-        [{ id: 'LS-9', phan_loai_nguon_tin_ban_dau: 'luat-su', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'X' }],
+        [
+          {
+            id: 'LS-9',
+            phan_loai_nguon_tin_ban_dau: 'luat-su',
+            ten_ca_nhan_co_quan_to_chuc_cung_cap: 'X',
+          },
+        ],
         'actor-1',
       );
       expect(res.created.cases).toBe(0); // KHÔNG overcount dù case.create đã chạy trước khi rollback
@@ -465,7 +583,13 @@ describe('LegacyMigrationService', () => {
 
     it('luat-su → tạo host Case + Lawyer(caseId=host, barNumber deterministic)', async () => {
       const res = await service.commit(
-        [{ id: 'LS-001', phan_loai_nguon_tin_ban_dau: 'luat-su', ten_ca_nhan_co_quan_to_chuc_cung_cap: 'LS X' }],
+        [
+          {
+            id: 'LS-001',
+            phan_loai_nguon_tin_ban_dau: 'luat-su',
+            ten_ca_nhan_co_quan_to_chuc_cung_cap: 'LS X',
+          },
+        ],
         'actor-1',
       );
       expect(mockTx.case.create).toHaveBeenCalledTimes(1);
@@ -484,7 +608,10 @@ describe('LegacyMigrationService', () => {
       mockTx.petition.deleteMany.mockResolvedValue({ count: 2 });
       mockTx.incident.deleteMany.mockResolvedValue({ count: 1 });
       mockTx.case.deleteMany.mockResolvedValue({ count: 0 });
-      const res = await service.rollback(['L-001', 'L-002', 'L-003'], 'actor-1');
+      const res = await service.rollback(
+        ['L-001', 'L-002', 'L-003'],
+        'actor-1',
+      );
       expect(res.deleted).toBe(3);
     });
 
@@ -494,7 +621,9 @@ describe('LegacyMigrationService', () => {
       mockTx.exchange.deleteMany.mockResolvedValue({ count: 1 });
       mockTx.proposal.deleteMany.mockResolvedValue({ count: 1 });
       const res = await service.rollback(['L-001'], 'actor-1');
-      expect(mockTx.lawyer.deleteMany).toHaveBeenCalledWith({ where: { legacySourceId: { in: ['L-001'] } } });
+      expect(mockTx.lawyer.deleteMany).toHaveBeenCalledWith({
+        where: { legacySourceId: { in: ['L-001'] } },
+      });
       expect(mockTx.guidanceRecord.deleteMany).toHaveBeenCalled();
       expect(mockTx.exchange.deleteMany).toHaveBeenCalled();
       expect(mockTx.proposal.deleteMany).toHaveBeenCalled();
@@ -517,19 +646,30 @@ describe('LegacyMigrationService', () => {
     });
 
     it('throw BadRequestException khi FK constraint (Prisma P2003)', async () => {
-      mockPrisma.$transaction.mockRejectedValue(new Error('Foreign key constraint failed on field: P2003'));
-      await expect(service.rollback(['L-001'], 'actor-1')).rejects.toThrow(BadRequestException);
+      mockPrisma.$transaction.mockRejectedValue(
+        new Error('Foreign key constraint failed on field: P2003'),
+      );
+      await expect(service.rollback(['L-001'], 'actor-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('re-throw lỗi không phải FK constraint', async () => {
-      mockPrisma.$transaction.mockRejectedValue(new Error('Connection refused'));
-      await expect(service.rollback(['L-001'], 'actor-1')).rejects.toThrow('Connection refused');
+      mockPrisma.$transaction.mockRejectedValue(
+        new Error('Connection refused'),
+      );
+      await expect(service.rollback(['L-001'], 'actor-1')).rejects.toThrow(
+        'Connection refused',
+      );
     });
 
     it('ghi audit log sau rollback', async () => {
       await service.rollback(['L-001'], 'actor-1');
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'LEGACY_MIGRATION_ROLLBACK', userId: 'actor-1' }),
+        expect.objectContaining({
+          action: 'LEGACY_MIGRATION_ROLLBACK',
+          userId: 'actor-1',
+        }),
       );
     });
   });

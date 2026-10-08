@@ -23,6 +23,7 @@ vi.mock('../tabs', () => {
 vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
+      if (url.endsWith('/field-schema')) return Promise.resolve({ data: { data: null } });
       if (url.includes('/export-readiness')) {
         // Mẫu 't1' đủ thông tin → ready (modal cho tick + xuất).
         return Promise.resolve({ data: { data: { updatedAt: '2026-06-28T00:00:00Z', items: [{ templateId: 't1', ready: true, missing: [] }] } } });

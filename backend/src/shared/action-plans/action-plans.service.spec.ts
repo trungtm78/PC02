@@ -1,3 +1,4 @@
+import { ordinaryChildFixture } from '../../case-child-access/test-child-access-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
@@ -32,6 +33,7 @@ import type { DataScope } from '../../auth/services/unit-scope.service';
 // ─── Mock Prisma ──────────────────────────────────────────────────────────────
 
 const mockPrisma = {
+  auditLog:{create:jest.fn()},
   case: {
     findUnique: jest.fn(),
   },
@@ -103,6 +105,9 @@ describe('ActionPlansService', () => {
     }).compile();
 
     service = module.get<ActionPlansService>(ActionPlansService);
+    const access=ordinaryChildFixture(mockPrisma);
+    access.scope.mockResolvedValue(scopeTeamA);
+    Object.defineProperty(service,'access',{get:()=>access});
     jest.clearAllMocks();
     mockPrisma.case.findUnique.mockResolvedValue({ id: 'case-1' });
     mockPrisma.incident.findUnique.mockResolvedValue({ id: 'incident-1' });
@@ -204,7 +209,7 @@ describe('ActionPlansService', () => {
       const plan = makeActionPlan();
       mockPrisma.suspensionActionPlan.findUnique.mockResolvedValue({
         ...plan,
-        case: { id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1' },
+        caseId: 'case-1', case: { id: 'case-1', assignedTeamId: 'team-A', investigatorId: 'user-1' },
         incident: null,
       });
       mockPrisma.suspensionActionPlan.delete.mockResolvedValue(plan);
@@ -273,6 +278,7 @@ describe('ActionPlansService', () => {
     });
 
     it('null scope (admin) bypasses all checks', async () => {
+      ordinaryChildFixture(mockPrisma).scope.mockResolvedValue(null);
       mockPrisma.suspensionActionPlan.create.mockResolvedValue(makeActionPlan());
       await expect(
         service.createForCase('case-1', makeDto(), 'admin-id', null),

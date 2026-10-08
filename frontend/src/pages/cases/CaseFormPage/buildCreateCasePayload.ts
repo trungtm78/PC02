@@ -1,4 +1,5 @@
 import type { CaseFormData, Subject, Evidence } from './types';
+import { normalizeCanonicalCasePayload, preservePartialCaseDates, preserveUnchangedCaseFallbacks } from '@/features/cases/canonical-fields';
 import { parseVND, parsePhone } from '../../../shared/utils/formatters';
 
 // PR 1 v0.38.0.0 — Sub-entity inline DTOs (match backend CreateSubjectInlineDto/CreateEvidenceInlineDto)
@@ -175,16 +176,16 @@ export interface CreateCasePayload {
   soPhieuChuyen?: string | null;
   ngayCapCccd?: string | null;
   noiCapCccd?: string | null;
-  phanLoaiToiPhamLinhVuc?: string;
-  yeuCauBoSung?: string;
-  sttCu?: string;
-  deXuat?: string;
+  phanLoaiToiPhamLinhVuc?: string | null;
+  yeuCauBoSung?: string | null;
+  sttCu?: string | null;
+  deXuat?: string | null;
   dieuTraVien?: string | null;
   reporterDateOfBirth?: string | null;
   reporterDateOfBirthPrecision?: string;
   receiveDate?: string;
-  caseClassification?: string;
-  tinhTrang?: string;
+  caseClassification?: string | null;
+  tinhTrang?: string | null;
   toiDanhBanDau?: string | null;
 }
 
@@ -547,7 +548,7 @@ export function buildCreateCasePayload(
   // thành ô gõ vào không có tác dụng — tệ hơn là không có ô.
   payload.diaChiCungCap = oHeCu(formData.diaChiCungCap);
   payload.moTaChiTiet = firstStr(formData.description) ?? null;
-  payload.noiXayRa = firstStr(formData.noiXayRa, formData.specificAddress) ?? null;
+  payload.noiXayRa = firstStr(formData.noiXayRa) ?? null;
   payload.nguonDon = firstStr(formData.nguonDon) ?? null;
   payload.nghiVanDoiTuong = firstStr(formData.nghiVanDoiTuong) ?? null;
   payload.nhanXet = firstStr(formData.nhanXet) ?? null;
@@ -556,14 +557,14 @@ export function buildCreateCasePayload(
   payload.soPhieuChuyen = firstStr(formData.soPhieuChuyen) ?? null;
   payload.ngayCapCccd = firstStr(formData.ngayCapCccd) ?? null;
   payload.noiCapCccd = firstStr(formData.noiCapCccd) ?? null;
-  payload.phanLoaiToiPhamLinhVuc = firstStr(formData.phanLoaiToiPhamLinhVuc);
-  payload.yeuCauBoSung = firstStr(formData.yeuCauBoSung);
-  payload.sttCu = firstStr(formData.sttCu);
-  payload.deXuat = firstStr(formData.deXuatXuLy);
+  payload.phanLoaiToiPhamLinhVuc = firstStr(formData.phanLoaiToiPhamLinhVuc) ?? null;
+  payload.yeuCauBoSung = firstStr(formData.yeuCauBoSung) ?? null;
+  payload.sttCu = firstStr(formData.sttCu) ?? null;
+  payload.deXuat = firstStr(formData.deXuatXuLy) ?? null;
   payload.dieuTraVien = firstStr(formData.dieuTraVienText) ?? null; // R7: text hệ cũ; handler(FK) riêng
   payload.receiveDate = firstStr(formData.receiveDate);
-  payload.caseClassification = firstStr(formData.caseClassification);
-  payload.tinhTrang = firstStr(formData.tinhTrang);
+  payload.caseClassification = firstStr(formData.caseClassification) ?? null;
+  payload.tinhTrang = firstStr(formData.tinhTrang) ?? null;
   payload.toiDanhBanDau = firstStr(formData.toiDanhBanDau) ?? null;
   // reporterDateOfBirth: merge native date + sinhNamCungCap year-only → kiểu native (Date).
   // GIỮ ngữ nghĩa "năm-only": input là date (YYYY-MM-DD) không diễn đạt được năm-only, nên khi
@@ -593,7 +594,7 @@ export function buildCreateCasePayload(
   // LÀ nguồn chính đã ghi cột từ trước. damageAmount CHỈ seed khi tab TRỐNG (không đè giá trị tab đã
   // sửa → tránh silent-loss codex P1). Vụ mới không có statistic → damageAmount điền.
   const damage = parseVND(formData.damageAmount);
-  if (damage != null && stat['soTienBiThietHai'] == null) {
+  if (damage != null && stat['soTienBiThietHai'] === undefined) {
     payload.statistic = { ...(payload.statistic ?? {}), soTienBiThietHai: damage };
   }
 
@@ -628,7 +629,7 @@ export function buildCreateCasePayload(
   // Ô chọn nhiều: mảng rỗng là "đã bỏ chọn hết", khác `undefined` là "không nhắc tới".
   payload.lyDoKhongKhoiTo = formData.lyDoKhongKhoiTo ?? [];
   payload.lyDoTamDinhChiNguonTin = formData.lyDoTamDinhChiNguonTin ?? [];
-  payload.vuViecTamDungTruoc2015 = formData.vuViecTamDungTruoc2015 === true;
+  payload.vuViecTamDungTruoc2015 = formData.vuViecTamDungTruoc2015;
   // `soHoSoCu` trước nay hiện trên form nhưng KHÔNG có đường lên máy chủ: sửa xong là mất.
   //
   // Send the top-level code only after an explicit manual override.
@@ -669,7 +670,7 @@ export function buildCreateCasePayload(
   if (options?.legacyMetadata) {
     payload.metadata = { ...options.legacyMetadata, ...payload.metadata };
   }
-  return payload;
+  return normalizeCanonicalCasePayload(preserveUnchangedCaseFallbacks(preservePartialCaseDates(payload, formData, options?.legacyMetadata), formData));
 }
 
 // Form CaseStatisticForm → object cho backend: số string→number, bool giữ nguyên, ngày string giữ nguyên.
@@ -694,14 +695,15 @@ export function buildStatisticPayload(
   for (const [k, v] of Object.entries(s)) {
     if (STAT_BOOL_FIELDS.has(k)) {
       if (v === true || (includeFalseFlags && v === false)) out[k] = v;
+      else if (v === null && ['ghiAmGhiHinhDaDuocXetXu', 'coSuDungKQGhiAmTrongXetXu', 'khongGAGHNhungToaYeuCau'].includes(k)) out[k] = null;
     } else if (STAT_NUM_FIELDS.has(k)) {
       if (v !== '' && v != null) {
         const n = Number(v);
         if (!Number.isNaN(n)) out[k] = n;
-      }
+      } else if (includeFalseFlags) out[k] = null;
     } else if (v !== '' && v != null) {
       out[k] = v; // text/ngày
-    }
+    } else if (includeFalseFlags) out[k] = null;
   }
   return out;
 }

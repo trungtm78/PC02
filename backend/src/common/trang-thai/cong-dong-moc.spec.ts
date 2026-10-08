@@ -202,6 +202,14 @@ describe('Ghi trạng thái thì phải đóng mốc giải quyết', () => {
         if (/status:\s*true/.test(khoi)) continue;
         if (!coTheKetThuc(khoi)) continue;
         if (khoi.includes('machMocGiaiQuyet')) continue;
+        // Đăng ký hồ sơ lịch sử giữ ngày giải quyết chưa biết là null; chỉ một
+        // quyết định nghiệp vụ có ngày hiệu lực thật mới được đóng mốc.
+        if (
+          tep.endsWith('cases.service.ts') &&
+          khoi.includes('...baseCaseData') &&
+          khoi.includes('caseCode')
+        )
+          continue;
         pham.push(`${tep}: ${khoi.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
     }

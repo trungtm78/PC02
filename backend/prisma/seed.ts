@@ -57,7 +57,8 @@ async function main() {
   }
 
   // ── Assign all permissions to ADMIN role ───────────────────────────────────
-  const allPerms = await prisma.permission.findMany();
+  // Business authority is granted explicitly, never by technical ADMIN reseeding.
+  const allPerms = await prisma.permission.findMany({ where: { subject: { not: 'CaseGovernance' } } });
   for (const perm of allPerms) {
     await prisma.rolePermission.upsert({
       where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },

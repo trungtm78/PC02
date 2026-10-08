@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from '../graph-access/case-graph-access.service';
 /**
  * TdacController Unit Tests
  *
@@ -105,7 +106,7 @@ describe('TdacController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TdacController],
-      providers: [
+      providers: [{provide:CaseGraphAccessService,useValue:{}},
         { provide: TdacService, useValue: mockTdacService },
         { provide: TdacDraftService, useValue: mockDraftService },
         { provide: TdacExportService, useValue: mockExportService },
@@ -416,7 +417,7 @@ describe('TdacController — phạm vi theo tổ', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TdacController],
-      providers: [
+      providers: [{provide:CaseGraphAccessService,useValue:{}},
         { provide: TdacService, useValue: mockTdacService },
         { provide: TdacDraftService, useValue: mockDraftService },
         { provide: TdacExportService, useValue: mockExportService },

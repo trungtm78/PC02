@@ -41,7 +41,7 @@ export async function seedQuyen(prisma: PrismaClient): Promise<void> {
   });
   let capThem = 0;
   if (admin) {
-    const tatCa = await prisma.permission.findMany({ select: { id: true } });
+    const tatCa = await prisma.permission.findMany({ where: { subject: { not: 'CaseGovernance' } }, select: { id: true } });
     for (const q of tatCa) {
       const co = await prisma.rolePermission.findUnique({
         where: { roleId_permissionId: { roleId: admin.id, permissionId: q.id } },

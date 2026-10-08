@@ -3,6 +3,8 @@ import type { Evidence, Subject } from "./types";
 
 export interface CaseCloneState extends CaseDraftState {
   originalDecisionNumber: string;
+  cloneSourceCaseId?: string;
+  expectedCloneSourceUpdatedAt?: string;
 }
 
 type ChildKind = "subject" | "evidence";

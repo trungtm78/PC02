@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from '../reports/graph-access/case-graph-access.service';
 import { Test } from '@nestjs/testing';
 import fc from 'fast-check';
 import { KpiService, KPI2_RESOLVED_STATUSES, KPI3_SOLVED_CASE_STATUSES } from './kpi.service';
@@ -25,7 +26,8 @@ function bonChiTieu(s: any): { value: number }[] {
 
 async function dung(): Promise<KpiService> {
   const mod = await Test.createTestingModule({
-    providers: [KpiService, { provide: PrismaService, useValue: mockPrisma }],
+    providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },KpiService, { provide: PrismaService, useValue: mockPrisma }],
   }).compile();
   return mod.get(KpiService);
 }

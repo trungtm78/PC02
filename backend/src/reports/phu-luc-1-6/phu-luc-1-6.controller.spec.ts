@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from '../graph-access/case-graph-access.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PhuLuc16Controller } from './phu-luc-1-6.controller';
 import { PhuLuc16Service } from './phu-luc-1-6.service';
@@ -19,7 +20,7 @@ describe('PhuLuc16Controller — delegation', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PhuLuc16Controller],
-      providers: [
+      providers: [{provide:CaseGraphAccessService,useValue:{}},
         { provide: PhuLuc16Service, useValue: mockService },
         { provide: PhuLuc16ExportService, useValue: mockExportService },
       ],

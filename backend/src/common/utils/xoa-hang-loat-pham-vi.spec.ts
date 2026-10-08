@@ -1,3 +1,4 @@
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../../case-child-access/test-child-access-fixture';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 import { CasesBulkService } from '../../cases/bulk/cases.bulk.service';
 import { IncidentsBulkService } from '../../incidents/bulk/incidents.bulk.service';
@@ -29,6 +30,7 @@ function prismaGhiLai() {
       {},
       {
         get: (_t, ham: string) => (args: { where?: unknown }) => {
+          if (ten === 'user' && ham === 'findUnique') return Promise.resolve({ id: 'u1', roleId: 'dispatcher-role', isActive: true, canDispatch: true, role: { name: 'OFFICER', permissions: ['read','edit','delete'].map(action => ({ permission: { action, subject: 'Case', conditions: null } })) } });
           if (ham === 'findMany') findMany.push({ bang: ten, args });
           if (ham === 'findUnique' || ham === 'findFirst')
             return Promise.resolve(null);
@@ -75,7 +77,8 @@ describe.each(TRUONG_HOP)(
   ({ bang, Lop }) => {
     it('điều phối viên: câu chọn hồ sơ CÓ lọc, chỉ tổ được ghi (không tổ chỉ-xem, không bỏ qua)', async () => {
       const { prisma, findMany } = prismaGhiLai();
-      const svc = new Lop(prisma as never, audit as never);
+      setOrdinaryCurrentScope(prisma,DIEU_PHOI);
+ const svc = bang === 'case' ? new Lop(prisma as never,audit as never) : new Lop(prisma as never,audit as never,ordinaryChildFixture(prisma) as never);
       await svc.bulkDelete(DAU_VAO as never);
 
       const chon = findMany.find(

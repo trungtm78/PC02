@@ -1,4 +1,9 @@
 import { LegacyRawPanel } from "@/components/LegacyRawPanel";
+import { CaseInformationTabs } from '@/features/cases/CaseInformationTabs';
+import { readCanonicalCaseField } from '@/features/cases/canonical-fields';
+import { useCaseFieldSchema } from '@/features/cases/useCaseFieldSchema';
+import { useCaseCapabilities } from '@/features/cases/useCaseCapabilities';
+import { omitDeniedNativeFields } from '@/features/cases/native-field-policy';
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -795,8 +800,11 @@ const DETAIL_TABS: { id: DetailTabId; label: string; icon: React.ReactNode }[] =
 export default function CaseDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const customFieldSchema = useCaseFieldSchema(id);
+  const governanceAccess = useCaseCapabilities(id);
   const location = useLocation();
-  const { canDispatch } = usePermission();
+  const { canDispatch: legacyCanDispatch } = usePermission();
+  const canDispatch = governanceAccess.capabilities.enabled === true ? governanceAccess.capabilities.canDispatch === true : legacyCanDispatch;
 
   // Đọc activeTab từ navigation state (khi navigate từ CaseListPage action menu)
   const initialTab = (() => {
@@ -809,10 +817,11 @@ export default function CaseDetailPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Case data from API
-  const [caseData, setCaseData] = useState<CaseDetailRecord | null>(null);
+  const [caseRecord, setCaseData] = useState<CaseDetailRecord | null>(null);
+  const caseData = caseRecord ? omitDeniedNativeFields(caseRecord as unknown as Record<string, unknown>, customFieldSchema.schema?.definition.fieldPolicies, 'readable') as CaseDetailRecord : null;
   // Máy chủ trả `quyenGhi` theo đúng luật checkWriteScope (20/09/2026). false = chỉ xem được (vd điều phối viên xem vụ án
   // tổ khác) → ẩn mọi nút ghi, không để cán bộ bấm rồi nhận 403. Thiếu trường (bản máy chủ cũ) → hiện như trước.
-  const chiXem = caseData?.quyenGhi === false;
+  const chiXem = caseData?.quyenGhi === false || governanceAccess.capabilities.canEdit === false;
   const [loadingCase, setLoadingCase] = useState(true);
 
   // Defendants state
@@ -1097,6 +1106,7 @@ export default function CaseDetailPage() {
 
   // Mở modal cập nhật tiến độ — khởi tạo từ caseData hiện tại
   const handleOpenProgress = () => {
+    if (governanceAccess.capabilities.enabled === true) { navigate(`/cases/${id}/governance?tab=legal`); return; }
     setProgressStatus(caseData?.status ?? "");
     setProgressDeadline(
       toDateInput(caseData?.deadline)
@@ -1106,6 +1116,7 @@ export default function CaseDetailPage() {
   };
 
   const handleSaveProgress = async () => {
+    if (governanceAccess.capabilities.enabled === true) { navigate(`/cases/${id}/governance?tab=legal`); return; }
     if (!progressStatus) { setProgressError("Vui lòng chọn trạng thái"); return; }
     setProgressSaving(true);
     setProgressError("");
@@ -1124,6 +1135,7 @@ export default function CaseDetailPage() {
   };
 
   const handleSaveSupplement = async () => {
+    if (governanceAccess.capabilities.enabled === true) { navigate(`/cases/${id}/governance?tab=legal`); return; }
     if (!supplementForm.type || !supplementForm.decisionNumber || !supplementForm.reason) {
       return;
     }
@@ -1154,6 +1166,11 @@ export default function CaseDetailPage() {
   // ─── Tab contents ──────────────────────────────────────────────────────────
 
   const renderInfoTab = () => {
+    const canonicalValue = (key: string): string => {
+      const field = readCanonicalCaseField((caseData ?? {}) as unknown as Record<string, unknown>, key);
+      if (field.value == null) return '';
+      return `${String(field.value)}${field.provenance === 'legacy-unverified' ? ' (Dữ liệu hệ cũ chưa xác minh)' : ''}`;
+    };
     if (loadingCase) {
       return (
         <div className="flex items-center justify-center py-16">
@@ -1190,26 +1207,27 @@ export default function CaseDetailPage() {
                     }]
                   : []),
                 // Người/cơ quan cung cấp, bị hại (từ hệ cũ — surface từ metadata di trú)
-                ...(((caseData as { metadata?: Record<string, unknown> } | undefined)?.metadata?.tenCungCap)
+                ...((canonicalValue('tenCungCap'))
                   ? [{
                       label: "Người cung cấp / bị hại (hệ cũ)",
                       value: [
-                        (caseData as { metadata?: Record<string, string> }).metadata?.tenCungCap,
-                        (caseData as { metadata?: Record<string, string> }).metadata?.sinhNamCungCap
-                          ? `SN ${(caseData as { metadata?: Record<string, string> }).metadata?.sinhNamCungCap}` : null,
+                        canonicalValue('tenCungCap'),
+                        canonicalValue('sinhNamCungCap')
+                          ? `SN ${canonicalValue('sinhNamCungCap')}` : null,
                       ].filter(Boolean).join(' · '),
                       icon: <User className="w-4 h-4 text-amber-500" />,
                     }]
                   : []),
-                ...(((caseData as { metadata?: Record<string, string> } | undefined)?.metadata?.cccdCungCap)
+                ...((canonicalValue('cccdCungCap'))
                   ? [{
                       label: "CCCD người cung cấp (hệ cũ)",
-                      value: (caseData as { metadata?: Record<string, string> }).metadata?.cccdCungCap ?? "—",
+                      value: canonicalValue('cccdCungCap') || "—",
                       icon: <Hash className="w-4 h-4 text-amber-500" />,
                     }]
                   : []),
                 { label: "Điều tra viên", value: investigatorName, icon: <User className="w-4 h-4 text-slate-400" /> },
-                { label: "Đơn vị", value: caseData?.unit ?? "—", icon: <Building2 className="w-4 h-4 text-slate-400" /> },
+                { label: "Đơn vị giải quyết", value: canonicalValue('supervisingUnit') || "—", icon: <Building2 className="w-4 h-4 text-slate-400" /> },
+                ...(caseData?.unit ? [{ label: "Đơn vị tiếp nhận", value: caseData.unit, icon: <Building2 className="w-4 h-4 text-slate-400" /> }] : []),
                 { label: "Ngày khởi tạo", value: createdAt, icon: <Calendar className="w-4 h-4 text-slate-400" /> },
                 { label: "Hạn xử lý", value: caseDeadline || "—", icon: <Clock className="w-4 h-4 text-slate-400" /> },
               ].map((row) => (
@@ -1268,26 +1286,26 @@ export default function CaseDetailPage() {
             không thấy được, dù dữ liệu vẫn còn đủ. */}
         {(() => {
           const meta = (caseData?.metadata ?? {}) as Record<string, unknown>;
-          const str = (v: unknown) => (v == null ? "" : String(v).trim());
-          const desc = str(meta.description);
+          const canonical = canonicalValue;
+          const desc = canonical('description');
           const nghiepVu: { label: string; value: string }[] = [
-            { label: "Nguồn đơn / nơi chuyển", value: str(meta.nguonDon) },
-            { label: "Địa chỉ bị hại", value: str(meta.biHai) },
-            { label: "Số lượng bị hại", value: str(meta.soLuongBiHai) },
-            { label: "Nghi can (ghi chú gốc)", value: str(meta.nghiVanDoiTuong) },
-            { label: "Nơi xảy ra", value: str(meta.noiXayRa) },
-            { label: "Phương thức, thủ đoạn", value: str(meta.phuongThucThuDoan) },
-            { label: "Nhận xét", value: str(meta.nhanXet) },
-            { label: "Kết quả xử lý khác", value: str(meta.ketQuaXuLyKhac) },
-            { label: "Số phiếu chuyển", value: str(meta.soPhieuChuyen) },
-            { label: "Điều tra viên (hệ cũ)", value: str(meta.dieuTraVienText) },
-            { label: "Số thứ tự hồ sơ cũ", value: str(meta.sttCu) },
+            { label: "Nguồn đơn / nơi chuyển", value: canonical('nguonDon') },
+            { label: "Địa chỉ bị hại", value: canonical('biHai') },
+            { label: "Số lượng bị hại", value: canonical('statistic.soLuongBiHai') },
+            { label: "Nghi can (ghi chú gốc)", value: canonical('nghiVanDoiTuong') },
+            { label: "Nơi xảy ra", value: canonical('noiXayRa') },
+            { label: "Phương thức, thủ đoạn", value: canonical('phuongThucThuDoan') },
+            { label: "Nhận xét", value: canonical('nhanXet') },
+            { label: "Kết quả xử lý khác", value: canonical('ketQuaXuLyKhac') },
+            { label: "Số phiếu chuyển", value: canonical('soPhieuChuyen') },
+            { label: "Điều tra viên (hệ cũ)", value: canonical('dieuTraVienText') },
+            { label: "Số thứ tự hồ sơ cũ", value: canonical('sttCu') },
             // Đọc CỘT trước, `metadata` chỉ là lưới an toàn. Cột là bản chuẩn từ đợt hợp
             // nhất field; `metadata` là bản sao cũ và có thể còn mã thô `-1` ở hồ sơ chưa dọn.
-            { label: "Tình trạng hồ sơ", value: str(caseData?.tinhTrang ?? meta.tinhTrang) },
-            { label: "Phân loại tội phạm theo lĩnh vực", value: str(meta.phanLoaiToiPhamLinhVuc) },
-            { label: "Đề xuất xử lý", value: str(meta.deXuatXuLy) },
-            { label: "Yêu cầu bổ sung", value: str(meta.yeuCauBoSung) },
+            { label: "Tình trạng hồ sơ", value: canonical('tinhTrang') },
+            { label: "Phân loại tội phạm theo lĩnh vực", value: canonical('phanLoaiToiPhamLinhVuc') },
+            { label: "Đề xuất xử lý", value: canonical('deXuatXuLy') },
+            { label: "Yêu cầu bổ sung", value: canonical('yeuCauBoSung') },
           ].filter((r) => r.value);
           const chuaPhanVai = Array.isArray(meta.doiTuongChuaPhanVai)
             ? (meta.doiTuongChuaPhanVai as { hoTen?: string; namSinh?: number; diaChi?: string; cccd?: string }[])
@@ -1832,7 +1850,7 @@ export default function CaseDetailPage() {
           <div className="flex gap-3">
             {canDispatch && (
               <button
-                onClick={() => setShowAssignModal(true)}
+              onClick={() => governanceAccess.capabilities.enabled === true ? navigate(`/cases/${id}/governance?tab=handoff`) : setShowAssignModal(true)}
                 className="px-4 py-2 border border-orange-300 text-orange-700 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
                 data-testid="btn-assign-case"
               >
@@ -1946,6 +1964,8 @@ export default function CaseDetailPage() {
 
         <div className="p-6">
           {activeTab === "info" && renderInfoTab()}
+          {activeTab === "info" && customFieldSchema.error && <p role="alert" className="text-sm text-amber-700">{customFieldSchema.error}</p>}
+          {activeTab === "info" && caseData && <div className="mt-6"><CaseInformationTabs record={caseData as unknown as Record<string, unknown>} customSchema={customFieldSchema.schema} /></div>}
           {activeTab === "defendants" && renderDefendantsTab()}
           {activeTab === "lawyers" && renderLawyersTab()}
           {activeTab === "timeline" && renderTimelineTab()}

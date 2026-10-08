@@ -11,6 +11,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
   Headers,
@@ -20,6 +21,7 @@ import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { IncidentsService } from './incidents.service';
+import { CaseGraphPolicyInterceptor } from '../case-child-access/case-graph.interceptor';
 import { QueryDaXoaDto } from '../common/dto/query-da-xoa.dto';
 import { DynamicExportService } from '../document-templates/dynamic-export.service';
 import { ExportEntityDocumentsDto } from '../document-templates/dto/export-entity-documents.dto';
@@ -47,6 +49,7 @@ import { ListLinkableIncidentDto } from './dto/list-linkable.dto'; // v0.37.1.1 
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 
 @Controller('incidents')
+@UseInterceptors(CaseGraphPolicyInterceptor)
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidentsController {
   constructor(
@@ -111,7 +114,11 @@ export class IncidentsController {
   ): Promise<void> {
     // getById trả {success,data:record} → unwrap để placeholder đọc đúng field (codex P1).
     const loaded = await this.incidentsService.getById(id, req.dataScope); // RBAC scope-checked
-    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    const candidate = (loaded as { data?: unknown })?.data ?? loaded;
+    const record =
+      candidate && typeof candidate === 'object'
+        ? (candidate as Record<string, unknown>)
+        : {};
     await this.dynamicExport.exportEntityDocuments(
       'VU_VIEC',
       id,
@@ -137,7 +144,11 @@ export class IncidentsController {
   @RequirePermissions({ action: 'read', subject: 'Incident' })
   async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
     const loaded = await this.incidentsService.getById(id, req.dataScope);
-    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    const candidate = (loaded as { data?: unknown })?.data ?? loaded;
+    const record =
+      candidate && typeof candidate === 'object'
+        ? (candidate as Record<string, unknown>)
+        : {};
     return this.dynamicExport.getExportReadiness('VU_VIEC', record);
   }
 

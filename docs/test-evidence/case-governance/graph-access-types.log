@@ -1,0 +1,13 @@
+[rtk] /!\ No hook installed — run `rtk init -g` for automatic token savings
+src/cases/cases.controller.ts(141,7): error TS2345: Argument of type '{}' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type '{}'.
+src/cases/cases.controller.ts(169,59): error TS2345: Argument of type '{}' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type '{}'.
+src/incidents/incidents.controller.ts(121,7): error TS2345: Argument of type '{}' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type '{}'.
+src/incidents/incidents.controller.ts(144,61): error TS2345: Argument of type '{}' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type '{}'.
+src/reports/graph-access/case-graph-access.service.ts(374,28): error TS2352: Conversion of type '{ evidenceAuthorization: string; }' to type 'object & Record<"id", unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'id' is missing in type '{ evidenceAuthorization: string; }' but required in type 'Record<"id", unknown>'.
+src/reports/graph-access/graph-access.database.spec.ts(32,119): error TS2783: 'name' is specified more than once, so this usage will be overwritten.
+src/reports/graph-access/graph-access.database.spec.ts(32,140): error TS2783: 'caseProvenance' is specified more than once, so this usage will be overwritten.

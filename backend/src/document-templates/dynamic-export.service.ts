@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,7 +9,10 @@ import {
 import { Response } from 'express';
 import { createHash } from 'crypto';
 import archiver from 'archiver';
-import { sanitizeFilename, buildDocumentFilename, dedupeFilenames } from '../common/utils/filename.util';
+import {
+  buildDocumentFilename,
+  dedupeFilenames,
+} from '../common/utils/filename.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { DocxMergeService } from '../petitions/docx-merge.service';
@@ -21,6 +25,10 @@ import { ResolveContext, resolveField } from './field-catalog';
 import { resolveRenderer } from './renderers';
 import { laMauHeCu } from './document-template.constants';
 import { SETTINGS_KEY } from '../common/constants/settings-keys.constants';
+import { Prisma, DocumentTemplate } from '@prisma/client';
+import { CaseGovernanceService } from '../cases/governance/case-governance.service';
+import { CaseFieldSchemaService } from '../cases/governance/case-field-schema.service';
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -36,7 +44,11 @@ type EntityType = 'VU_AN' | 'VU_VIEC' | 'DON_THU';
  */
 const ENTITY_DB: Record<
   EntityType,
-  { table: string; idField: 'caseId' | 'incidentId' | 'petitionId'; codeField: string }
+  {
+    table: string;
+    idField: 'caseId' | 'incidentId' | 'petitionId';
+    codeField: string;
+  }
 > = {
   VU_AN: { table: 'cases', idField: 'caseId', codeField: 'caseCode' },
   VU_VIEC: { table: 'incidents', idField: 'incidentId', codeField: 'code' },
@@ -77,6 +89,68 @@ export class DynamicExportService {
     private readonly docNums: DocumentNumbersService,
     private readonly docxMerge: DocxMergeService,
   ) {}
+
+  private policyRecord(original: unknown, safe: unknown): unknown {
+    if (
+      !safe ||
+      typeof safe !== 'object' ||
+      safe instanceof Date ||
+      Buffer.isBuffer(safe)
+    )
+      return safe;
+    const source =
+      original && typeof original === 'object'
+        ? (original as Record<PropertyKey, unknown>)
+        : {};
+    return new Proxy(safe, {
+      get: (target, key) => {
+        if (
+          Object.prototype.hasOwnProperty.call(source, key) &&
+          !Object.prototype.hasOwnProperty.call(target, key)
+        )
+          throw new ForbiddenException(
+            'Requested template input is protected by current policy',
+          );
+        const value = Reflect.get(target, key) as unknown;
+        return this.policyRecord(source[key], value);
+      },
+    });
+  }
+  private async authorizedRecord(
+    entityType: EntityType,
+    entityId: string,
+    record: Record<string, unknown>,
+    actorId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    const core = new CaseGovernanceService(tx as PrismaService);
+    const child = new CaseChildAccessService(tx as PrismaService, core);
+    let safe = await child.redactCaseLinks(record, actorId, tx);
+    if (entityType === 'VU_AN') {
+      await core.assertGeneralExport(tx, { actorId });
+      const parent = await core.assertCaseReadable(tx, entityId, { actorId });
+      if (
+        record.updatedAt &&
+        new Date(record.updatedAt as Date | string).getTime() !== parent.updatedAt.getTime()
+      )
+        throw new ConflictException('Case changed before template render');
+      safe = await core.serializeCaseResult(tx, entityId, safe, { actorId });
+      safe = await new CaseFieldSchemaService(
+        tx as PrismaService,
+        core,
+      ).filterCustomFields(
+        {
+          ...safe,
+          id: entityId,
+          fieldDefinitionVersionId: parent.fieldDefinitionVersionId,
+        },
+        { actorId },
+        tx,
+        'export',
+      );
+    }
+    return this.policyRecord(record, safe) as Record<string, unknown>;
+  }
 
   /**
    * Liệt kê mẫu chứng từ ACTIVE cho 1 loại hồ sơ (phục vụ picker xuất chứng từ ở form
@@ -119,17 +193,24 @@ export class DynamicExportService {
    * - MANUAL-required: luôn liệt kê (nhập tại popup làm manualValues, savable=false).
    * `record` đã được controller load + check scope. `updatedAt` để FE PUT bổ sung không 409.
    */
-  getExportReadiness(entityType: EntityType, record: any) {
+  getExportReadiness(entityType: EntityType, record: Record<string, unknown>) {
     const savableMap = DYNAMIC_EXPORT_SAVABLE[entityType] ?? {};
     return this.listExportableTemplates(entityType).then((templates) => {
       const items = templates.map((t) => {
         const vars = (t.variables as TemplateVariable[] | null) ?? [];
-        const missing = [] as Array<{ field: string; label: string; type: 'text' | 'textarea'; savable: boolean; column?: string }>;
+        const missing = [] as Array<{
+          field: string;
+          label: string;
+          type: 'text' | 'textarea';
+          savable: boolean;
+          column?: string;
+        }>;
         for (const v of vars) {
           if (!v.required) continue;
           // auto rỗng = resolveField (theo mapping field, fallback name) ra chuỗi rỗng.
           const autoEmpty =
-            v.source === 'auto' && resolveField(entityType, v.field ?? v.name, record).trim() === '';
+            v.source === 'auto' &&
+            resolveField(entityType, v.field ?? v.name, record).trim() === '';
           if (autoEmpty || v.source === 'manual') {
             const sav = savableMap[v.name];
             // DON_THU: cột phẳng → savable=true (FE PUT /petitions/:id "Lưu bổ sung vào đơn").
@@ -144,7 +225,12 @@ export class DynamicExportService {
             });
           }
         }
-        return { templateId: t.id, code: t.code, ready: missing.length === 0, missing };
+        return {
+          templateId: t.id,
+          code: t.code,
+          ready: missing.length === 0,
+          missing,
+        };
       });
       return { items, updatedAt: record?.updatedAt };
     });
@@ -157,8 +243,8 @@ export class DynamicExportService {
    */
   private assertRequiredSatisfied(
     entityType: EntityType,
-    record: any,
-    templates: any[],
+    record: Record<string, unknown>,
+    templates: DocumentTemplate[],
     manualValues: Record<string, string>,
     /** PHẢI cùng ngữ cảnh với lúc render — nếu không, biến phụ thuộc người in
      *  (tenCanBoDeXuat/vietTatCanBo) bị coi là rỗng → báo "thiếu bắt buộc" SAI. */
@@ -177,7 +263,12 @@ export class DynamicExportService {
           missing.add(v.label || v.name);
           continue;
         }
-        const auto = resolveField(entityType, v.field ?? v.name, record, ctx).trim();
+        const auto = resolveField(
+          entityType,
+          v.field ?? v.name,
+          record,
+          ctx,
+        ).trim();
         if (!auto) missing.add(v.label || v.name);
       }
     }
@@ -192,7 +283,9 @@ export class DynamicExportService {
    * Nạp thông tin người đang đăng nhập cho ngữ cảnh render (1 query, ngoài tx).
    * Không tìm thấy → trả `{}` để resolver fallback về người tạo hồ sơ.
    */
-  private async loadActorContext(actorId: string | undefined): Promise<ResolveContext> {
+  private async loadActorContext(
+    actorId: string | undefined,
+  ): Promise<ResolveContext> {
     const tenTruongPhong = await this.layTenTruongPhong();
     if (!actorId) return { tenTruongPhong };
     const actor = await this.prisma.user.findUnique({
@@ -239,42 +332,64 @@ export class DynamicExportService {
 
   /** Render 1 template trong tx: cấp số (nếu cần) + docxtemplater trên bytes DB + render log. */
   private async renderTemplateInTx(
-    tx: any,
+    tx: Prisma.TransactionClient,
     entityType: EntityType,
     entityId: string,
-    record: any,
-    template: any,
+    record: Record<string, unknown>,
+    template: DocumentTemplate,
     actorId: string,
     manualValues: Record<string, string>,
     /** Người đang đăng nhập — để các dòng ký in tên NGƯỜI IN, không phải người tạo hồ sơ. */
     ctx?: ResolveContext,
   ): Promise<RenderedTemplate> {
+    record = await this.authorizedRecord(
+      entityType,
+      entityId,
+      record,
+      actorId,
+      tx,
+    );
     let documentNumber: string | undefined;
     if (template.needsNumber) {
       // [codex P2] needsNumber bật mà thiếu series = template cấu hình sai → fail, không render câm.
       if (!template.numberSeriesId) {
-        throw new BadRequestException(`Mẫu "${template.code}" bật cấp số nhưng chưa cấu hình series số văn bản`);
+        throw new BadRequestException(
+          `Mẫu "${template.code}" bật cấp số nhưng chưa cấu hình series số văn bản`,
+        );
       }
       // Row lock chống cấp số trùng khi 2 export đồng thời cùng hồ sơ.
       const db = ENTITY_DB[entityType];
-      await tx.$queryRawUnsafe(`SELECT id FROM "${db.table}" WHERE id = $1 FOR UPDATE`, entityId);
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM "${db.table}" WHERE id = $1 FOR UPDATE`,
+        entityId,
+      );
       const idKey = { [db.idField]: entityId };
       const commit = await this.docNums.commitWithTx(
         template.numberSeriesId, // = DocumentNumberTemplate.documentType (series key)
-        { userId: actorId, departmentId: record.unit ?? record.unitId ?? undefined, ...idKey },
+        {
+          userId: actorId,
+          departmentId: (record.unit ?? record.unitId ?? undefined) as string | undefined,
+          ...idKey,
+        },
         tx,
         { documentId: entityId },
       );
       documentNumber = commit.number;
     }
 
-    const delimiters = { start: template.delimStart ?? '{', end: template.delimEnd ?? '}' };
+    const delimiters = {
+      start: template.delimStart ?? '{',
+      end: template.delimEnd ?? '}',
+    };
     const variables = (template.variables as TemplateVariable[] | null) ?? [];
     const placeholders = buildTemplatePlaceholders(
       entityType,
       variables,
       record,
-      { ...manualValues, ...(documentNumber ? { soVanBan: documentNumber } : {}) },
+      {
+        ...manualValues,
+        ...(documentNumber ? { soVanBan: documentNumber } : {}),
+      },
       delimiters,
       ctx,
     );
@@ -310,7 +425,7 @@ export class DynamicExportService {
       //  "PHIEU_DE_XUAT_PHIEU_DE_XUAT.docx", và không có mã hồ sơ nên xuất hàng loạt
       //  xong không biết file nào của đơn nào.)
       filename: buildDocumentFilename({
-        recordCode: record?.[ENTITY_DB[entityType].codeField],
+        recordCode: record?.[ENTITY_DB[entityType].codeField] as string | undefined,
         templateName: template.name,
         documentNumber,
       }),
@@ -320,13 +435,14 @@ export class DynamicExportService {
   async exportEntityDocuments(
     entityType: EntityType,
     entityId: string,
-    record: any,
+    record: Record<string, unknown>,
     templateIds: string[],
     mode: 'merged' | 'zip',
     actorId: string,
     manualValues: Record<string, string>,
     res: Response,
   ): Promise<void> {
+    record = await this.authorizedRecord(entityType, entityId, record, actorId);
     // [codex P2] reject templateIds trùng (nếu không sẽ render 2 lần + tiêu 2 số cho 1 mẫu).
     if (templateIds.length !== new Set(templateIds).size) {
       throw new BadRequestException('templateIds không được trùng lặp');
@@ -341,13 +457,17 @@ export class DynamicExportService {
       where: { id: { in: templateIds }, deletedAt: null, status: 'active' },
     });
     if (templates.length !== new Set(templateIds).size) {
-      throw new BadRequestException('Có mẫu chứng từ không tồn tại hoặc đã bị xoá');
+      throw new BadRequestException(
+        'Có mẫu chứng từ không tồn tại hoặc đã bị xoá',
+      );
     }
     if (templates.some((t) => t.entityType !== entityType)) {
       throw new BadRequestException('Mẫu chứng từ không thuộc loại hồ sơ này');
     }
     // Giữ thứ tự theo templateIds đầu vào.
-    const ordered = templateIds.map((id) => templates.find((t) => t.id === id)!);
+    const ordered = templateIds.map(
+      (id) => templates.find((t) => t.id === id)!,
+    );
 
     // Người đang đăng nhập — các dòng ký ("Cán bộ đề xuất", "NGƯỜI GIAO", dòng "Lưu:")
     // phải in tên NGƯỜI IN, không phải người tạo hồ sơ (enteredBy). Nạp 1 lần, ngoài tx.
@@ -355,13 +475,28 @@ export class DynamicExportService {
 
     // [codex P1#2] Validate trường BẮT BUỘC TRƯỚC khi vào tx/cấp số (fail-closed, không cấp số rồi
     // render rỗng câm). Required auto rỗng (không có manualValues override) hoặc manual chưa nhập → throw.
-    this.assertRequiredSatisfied(entityType, record, ordered, manualValues, ctx);
+    this.assertRequiredSatisfied(
+      entityType,
+      record,
+      ordered,
+      manualValues,
+      ctx,
+    );
 
-    const deliverable = await this.prisma.$transaction(async (tx: any) => {
+    const deliverable = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const rendered: RenderedTemplate[] = [];
       for (const t of ordered) {
         rendered.push(
-          await this.renderTemplateInTx(tx, entityType, entityId, record, t, actorId, manualValues, ctx),
+          await this.renderTemplateInTx(
+            tx,
+            entityType,
+            entityId,
+            record,
+            t,
+            actorId,
+            manualValues,
+            ctx,
+          ),
         );
       }
       // finalize TRONG tx → lỗi gộp/zip cũng rollback số.
@@ -372,16 +507,28 @@ export class DynamicExportService {
           rendered.length === 1
             ? rendered[0].buffer
             : this.docxMerge.merge(rendered.map((r) => r.buffer));
-        return { buf, zip: false, singleName: rendered.length === 1 ? rendered[0].filename : undefined };
+        return {
+          buf,
+          zip: false,
+          singleName: rendered.length === 1 ? rendered[0].filename : undefined,
+        };
       }
-      return { buf: await this.buildZipBuffer(rendered), zip: true, singleName: undefined };
+      return {
+        buf: await this.buildZipBuffer(rendered),
+        zip: true,
+        singleName: undefined,
+      };
     });
 
     const baseName = `ChungTu_${this.dateStamp()}`;
     if (!deliverable.zip) {
       // FE chế độ "tách từng file Word rời" gọi lần lượt 1 mẫu/lần → tên file phải
       // theo mã mẫu + số văn bản, nếu không mọi file tải về đều trùng tên.
-      this.setDownloadHeaders(res, DOCX_CONTENT_TYPE, deliverable.singleName ?? `${baseName}.docx`);
+      this.setDownloadHeaders(
+        res,
+        DOCX_CONTENT_TYPE,
+        deliverable.singleName ?? `${baseName}.docx`,
+      );
     } else {
       this.setDownloadHeaders(res, 'application/zip', `${baseName}.zip`);
     }
@@ -403,7 +550,14 @@ export class DynamicExportService {
     actorId: string,
     res: Response,
   ): Promise<void> {
-    return this.exportBatchByCodes(entityType, [code], entityIds, loadRecord, actorId, res);
+    return this.exportBatchByCodes(
+      entityType,
+      [code],
+      entityIds,
+      loadRecord,
+      actorId,
+      res,
+    );
   }
 
   /** Trần SỐ FILE 1 lô = N hồ sơ × M mẫu. UAT TC-PET-120 chốt 100 file < 30s; vượt xa hơn
@@ -436,6 +590,11 @@ export class DynamicExportService {
     }
     // Dedup id/code trùng → 1 cặp chỉ cấp 1 số văn bản (tránh nhảy/lãng phí số sổ — đối xứng
     // với reject templateIds trùng ở exportEntityDocuments).
+    if (entityType === 'VU_AN')
+      await new CaseGovernanceService(this.prisma).assertGeneralExport(
+        this.prisma,
+        { actorId },
+      );
     const ids = [...new Set(entityIds)];
     const wantedCodes = [...new Set(codes)];
 
@@ -449,9 +608,16 @@ export class DynamicExportService {
     }
 
     const templates = await this.prisma.documentTemplate.findMany({
-      where: { entityType, code: { in: wantedCodes }, deletedAt: null, status: 'active' },
+      where: {
+        entityType,
+        code: { in: wantedCodes },
+        deletedAt: null,
+        status: 'active',
+      },
     });
-    const missing = wantedCodes.filter((c) => !templates.some((t: any) => t.code === c));
+    const missing = wantedCodes.filter(
+      (c) => !templates.some((t: any) => t.code === c),
+    );
     if (missing.length) {
       throw new BadRequestException(
         `Không tìm thấy mẫu chứng từ "${missing.join('", "')}" cho loại hồ sơ này`,
@@ -468,7 +634,9 @@ export class DynamicExportService {
       }
     }
     // Giữ thứ tự người dùng chọn.
-    const ordered = wantedCodes.map((c) => templates.find((t: any) => t.code === c)!);
+    const ordered = wantedCodes.map(
+      (c) => templates.find((t: any) => t.code === c)!,
+    );
 
     // Người in — dùng chung cho cả lô (1 query).
     const ctx = await this.loadActorContext(actorId);
@@ -489,7 +657,14 @@ export class DynamicExportService {
     const rendered: RenderedTemplate[] = [];
     const manifest: BatchManifestItem[] = [];
     for (const template of ordered) {
-      const part = await this.renderOneCode(entityType, template, ids, loadOnce, actorId, ctx);
+      const part = await this.renderOneCode(
+        entityType,
+        template,
+        ids,
+        loadOnce,
+        actorId,
+        ctx,
+      );
       rendered.push(...part.rendered);
       manifest.push(...part.manifest);
     }
@@ -500,7 +675,9 @@ export class DynamicExportService {
     } catch (e) {
       // Số văn bản đã commit trước bước này. Không giao được file thì phải ghi lại để
       // quản trị đối soát sổ, KHÔNG để mất dấu lặng lẽ.
-      const burned = manifest.filter((m) => m.ok && m.documentNumber).map((m) => `${m.code}:${m.documentNumber}`);
+      const burned = manifest
+        .filter((m) => m.ok && m.documentNumber)
+        .map((m) => `${m.code}:${m.documentNumber}`);
       this.logger.error(
         `Đóng gói ZIP thất bại SAU KHI đã cấp ${burned.length} số văn bản: ${burned.join(', ')}`,
       );
@@ -517,9 +694,16 @@ export class DynamicExportService {
     res.setHeader('X-Batch-Records', String(ids.length));
     // Phân biệt "thiếu dữ liệu nghiệp vụ" (người dùng tự sửa được) với "lỗi hệ thống"
     // (phải báo quản trị) — vì cả hai đều ra ok:false trong manifest.
-    res.setHeader('X-Batch-System-Error', String(manifest.filter((m) => m.systemError).length));
+    res.setHeader(
+      'X-Batch-System-Error',
+      String(manifest.filter((m) => m.systemError).length),
+    );
     const zipStem = ordered.length === 1 ? ordered[0].code : 'ChungTu';
-    this.setDownloadHeaders(res, 'application/zip', `${zipStem}_${this.dateStamp()}.zip`);
+    this.setDownloadHeaders(
+      res,
+      'application/zip',
+      `${zipStem}_${this.dateStamp()}.zip`,
+    );
     res.send(zip);
   }
 
@@ -529,7 +713,7 @@ export class DynamicExportService {
    */
   private async renderOneCode(
     entityType: EntityType,
-    template: any,
+    template: DocumentTemplate,
     ids: string[],
     loadRecord: (id: string) => Promise<any>,
     actorId: string,
@@ -541,18 +725,40 @@ export class DynamicExportService {
       try {
         const record = await loadRecord(id);
         this.assertRequiredSatisfied(entityType, record, [template], {}, ctx);
-        const r = await this.prisma.$transaction((tx: any) =>
-          this.renderTemplateInTx(tx, entityType, id, record, template, actorId, {}, ctx),
+        const r = await this.prisma.$transaction((tx: Prisma.TransactionClient) =>
+          this.renderTemplateInTx(
+            tx,
+            entityType,
+            id,
+            record,
+            template,
+            actorId,
+            {},
+            ctx,
+          ),
         );
         // renderTemplateInTx đã đặt tên "Mã hồ sơ_Tên mẫu_Số VB" — KHÔNG ghi đè bằng
         // `${code}_${id}` nữa (fallback cũ rơi về UUID thô, người dùng không đọc được).
         rendered.push(r);
-        manifest.push({ id, code: template.code, ok: true, documentNumber: r.documentNumber });
+        manifest.push({
+          id,
+          code: template.code,
+          ok: true,
+          documentNumber: r.documentNumber,
+        });
       } catch (e) {
         // Lỗi NGHIỆP VỤ (thiếu trường bắt buộc) → ghi manifest, lô tiếp tục.
         if (e instanceof BadRequestException) {
-          manifest.push({ id, code: template.code, ok: false, error: e.message });
-        } else if (e instanceof ForbiddenException || e instanceof NotFoundException) {
+          manifest.push({
+            id,
+            code: template.code,
+            ok: false,
+            error: e.message,
+          });
+        } else if (
+          e instanceof ForbiddenException ||
+          e instanceof NotFoundException
+        ) {
           // Ngoài scope / không tồn tại → message TRUNG LẬP (chống IDOR-enumeration: không
           // để client phân biệt id thật-ngoài-quyền vs id không tồn tại).
           manifest.push({
@@ -580,7 +786,8 @@ export class DynamicExportService {
             code: template.code,
             ok: false,
             systemError: true,
-            error: 'Lỗi hệ thống khi tạo chứng từ này. Vui lòng thử lại hoặc báo quản trị.',
+            error:
+              'Lỗi hệ thống khi tạo chứng từ này. Vui lòng thử lại hoặc báo quản trị.',
           });
         }
       }
@@ -590,13 +797,20 @@ export class DynamicExportService {
 
   private buildBatchZip(
     docs: RenderedTemplate[],
-    manifest: Array<{ id: string; ok: boolean; documentNumber?: string; error?: string }>,
+    manifest: Array<{
+      id: string;
+      ok: boolean;
+      documentNumber?: string;
+      error?: string;
+    }>,
   ): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
       const archive = archiver('zip', { zlib: { level: 9 } });
       const chunks: Buffer[] = [];
       archive.on('data', (c: Buffer) => chunks.push(c));
-      archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
+      archive.on('warning', (err) =>
+        this.logger.warn(`zip warning: ${err.message}`),
+      );
       archive.on('error', reject);
       archive.on('end', () => resolve(Buffer.concat(chunks)));
       // Dedup: archiver KHÔNG chặn entry trùng tên → công cụ giải nén ghi đè, mất file âm thầm.
@@ -605,9 +819,12 @@ export class DynamicExportService {
       // cắt ở 200 ký tự TÍNH CẢ đuôi → xén mất ".docx", file trong ZIP không mở được.
       const names = dedupeFilenames(docs.map((d) => d.filename));
       docs.forEach((d, i) => archive.append(d.buffer, { name: names[i] }));
-      archive.append(JSON.stringify({ total: manifest.length, items: manifest }, null, 2), {
-        name: 'manifest.json',
-      });
+      archive.append(
+        JSON.stringify({ total: manifest.length, items: manifest }, null, 2),
+        {
+          name: 'manifest.json',
+        },
+      );
       void archive.finalize();
     });
   }
@@ -617,7 +834,9 @@ export class DynamicExportService {
       const archive = archiver('zip', { zlib: { level: 9 } });
       const chunks: Buffer[] = [];
       archive.on('data', (c: Buffer) => chunks.push(c));
-      archive.on('warning', (err) => this.logger.warn(`zip warning: ${err.message}`));
+      archive.on('warning', (err) =>
+        this.logger.warn(`zip warning: ${err.message}`),
+      );
       archive.on('error', reject);
       archive.on('end', () => resolve(Buffer.concat(chunks)));
       // Dedup như buildBatchZip: 2 mẫu khác id nhưng trùng `name` (admin upload bản mới)
@@ -630,11 +849,17 @@ export class DynamicExportService {
     });
   }
 
-  private setDownloadHeaders(res: Response, contentType: string, filename: string): void {
+  private setDownloadHeaders(
+    res: Response,
+    contentType: string,
+    filename: string,
+  ): void {
     res.setHeader('Content-Type', contentType);
     // Strip non-ASCII + ký tự phá cú pháp header (" \ ; CR LF) → chống header/filename injection
     // khi filename chứa giá trị do admin cấu hình (vd template.code) — codex P2.
-    const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\;\r\n]/g, '_');
+    const ascii = filename
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/["\\;\r\n]/g, '_');
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`,

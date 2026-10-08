@@ -1,3 +1,4 @@
+import { CaseNotificationPolicyService } from './case-notification-policy.service';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
@@ -67,7 +68,7 @@ describe('NotificationsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{provide:CaseNotificationPolicyService,useValue:{where:jest.fn((userId:string)=>Promise.resolve({userId})),serialize:jest.fn((_actor:string,row:unknown)=>Promise.resolve(row))}},
         NotificationsService,
         { provide: PrismaService, useValue: mockPrisma },
       ],

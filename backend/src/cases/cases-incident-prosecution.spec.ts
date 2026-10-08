@@ -1,8 +1,10 @@
+import {ordinaryCaseAuthorityFixture,ordinaryCaseActorFixture,ordinaryCaseParentFixture} from './governance/case-ordinary-test.fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- Jest asymmetric matchers return any. */
 import { CasesService } from './cases.service';
 import { CaseProvenance, IncidentStatus } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ordinarySourceFixture } from '../case-child-access/test-source-creation-fixture';
 
 describe('AR-01: Case form follows incident prosecution contract', () => {
   const source = {
@@ -15,14 +17,15 @@ describe('AR-01: Case form follows incident prosecution contract', () => {
     ngayDeXuat: new Date('2026-09-01'),
     deadline: new Date('2026-10-20'),
   };
-  const tx = {
+  const tx = {...ordinaryCaseAuthorityFixture(),
     incident: { findFirst: jest.fn(), update: jest.fn() },
     case: { create: jest.fn() },
     incidentStatusHistory: { create: jest.fn() },
     documentNumberLog: { update: jest.fn() },
   };
-  const db = {
+  const db = {...ordinaryCaseAuthorityFixture(),
     case: { findMany: jest.fn().mockResolvedValue([]) },
+    incident: tx.incident,
     $transaction: jest.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
   };
   const audit = { log: jest.fn() };
@@ -37,6 +40,7 @@ describe('AR-01: Case form follows incident prosecution contract', () => {
     {} as never,
     docNums as never,
     new EventEmitter2(),
+    ordinarySourceFixture(db),
   );
   const input = {
     name: 'New case',

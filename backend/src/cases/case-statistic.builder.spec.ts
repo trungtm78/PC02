@@ -1,6 +1,41 @@
 import { buildCaseStatisticData } from './case-statistic.builder';
 
 describe('buildCaseStatisticData', () => {
+  it('chuẩn hóa null thành false cho các cờ bắt buộc để upsert không trả 500', () => {
+    const data = buildCaseStatisticData({
+      coGhiAmGhiHinh: null,
+      laVuAnGhiAmGhiHinh: null,
+      vksYeuCauGhiAm: null,
+      coVPHC: null,
+      coBangNhom: null,
+      vuAnDaDuocXetXu: null,
+      ghiAmGhiHinhDaDuocXetXu: null,
+    } as never);
+
+    expect(data).toMatchObject({
+      coGhiAmGhiHinh: false,
+      laVuAnGhiAmGhiHinh: false,
+      vksYeuCauGhiAm: false,
+      coVPHC: false,
+      coBangNhom: false,
+      vuAnDaDuocXetXu: false,
+      ghiAmGhiHinhDaDuocXetXu: null,
+    });
+  });
+  it('explicit nullable date clears remain null for Prisma update rather than retaining the old value', () => {
+    const data = buildCaseStatisticData({
+      ngayThongKe: null,
+      ngayDauThu: null,
+      soSungThuHoi: 0,
+      coBangNhom: false,
+    } as never);
+    expect(data).toEqual({
+      ngayThongKe: null,
+      ngayDauThu: null,
+      soSungThuHoi: 0,
+      coBangNhom: false,
+    });
+  });
   it('convert field ngày string → Date, giữ field số/bool/text', () => {
     const data = buildCaseStatisticData({
       soSungThuHoi: 3,

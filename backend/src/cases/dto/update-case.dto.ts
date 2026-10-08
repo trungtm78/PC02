@@ -11,7 +11,9 @@ import { KetQuaPhucHoiVuAn, LyDoTamDinhChiVuAn } from '@prisma/client';
 import { IsCatalogValue } from '../../common/validators/is-catalog-value.validator';
 import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
-export class UpdateCaseDto extends PartialType(CreateCaseDto) {
+export class UpdateCaseDto extends PartialType(CreateCaseDto, {
+  skipNullProperties: false,
+}) {
   @IsOptional()
   @IsNgayThat({ message: 'expectedUpdatedAt không đúng định dạng ISO 8601' })
   expectedUpdatedAt?: string;

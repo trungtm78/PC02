@@ -1,3 +1,4 @@
+import { GRAPH_PRISMA } from '../reports/graph-access/case-graph-access.service';
 import { Test } from '@nestjs/testing';
 import { KpiService } from './kpi.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,7 +38,8 @@ const mockPrisma = {
 
 async function dung(): Promise<KpiService> {
   const mod = await Test.createTestingModule({
-    providers: [KpiService, { provide: PrismaService, useValue: mockPrisma }],
+    providers: [
+        { provide: GRAPH_PRISMA, useExisting: PrismaService },KpiService, { provide: PrismaService, useValue: mockPrisma }],
   }).compile();
   return mod.get(KpiService);
 }

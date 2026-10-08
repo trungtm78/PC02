@@ -16,6 +16,10 @@ import { plainToInstance } from 'class-transformer';
 import { UpdateCaseDto } from './update-case.dto';
 
 describe('UpdateCaseDto — TAM_DINH_CHI / PHUC_HOI fields (v0.37.2.6 P1 fix)', () => {
+  it('CG-IN01 rejects explicit null for required name while permitting omitted name and nullable clears',async()=>{
+    expect((await validate(plainToInstance(UpdateCaseDto,{name:null}))).some(e=>e.property==='name')).toBe(true);
+    expect((await validate(plainToInstance(UpdateCaseDto,{crime:null}))).some(e=>e.property==='name'||e.property==='crime')).toBe(false);
+  });
   it('accepts lyDoTamDinhChiVuAn MẢNG nhiều enum value (PR-8 multi)', async () => {
     const dto = plainToInstance(UpdateCaseDto, {
       status: 'TAM_DINH_CHI',

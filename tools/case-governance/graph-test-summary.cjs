@@ -1,0 +1,2 @@
+const fs=require('node:fs');const data=JSON.parse(fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''));
+console.log(JSON.stringify({success:data.success,suites:data.numPassedTestSuites,passed:data.numPassedTests,failed:data.numFailedTests,skipped:data.numPendingTests,failures:data.testResults.filter(row=>row.status==='failed').map(row=>({file:row.name.replace(/^.*backend[\\/]src[\\/]/,''),tests:row.assertionResults.filter(test=>test.status==='failed').map(test=>({title:test.title,error:test.failureMessages[0]?.split('\n').slice(0,7).join(' ')}))}))},null,2));

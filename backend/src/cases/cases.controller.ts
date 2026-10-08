@@ -96,7 +96,12 @@ export class CasesController {
       codes,
       ids,
       async (id) => {
-        const loaded = await this.casesService.getById(id, req.dataScope);
+        const loaded = await this.casesService.getById(
+          id,
+          req.dataScope,
+          (req.user as AuthUser)?.id,
+          'export',
+        );
         const record =
           (loaded as { data?: { caseType?: CaseType } })?.data ?? loaded;
         if ((record as { caseType?: CaseType }).caseType !== body.caseType) {
@@ -123,8 +128,17 @@ export class CasesController {
     @CurrentUser() user: AuthUser,
   ): Promise<void> {
     // getById trả {success,data:record} → unwrap để placeholder đọc đúng field (codex P1).
-    const loaded = await this.casesService.getById(id, req.dataScope); // RBAC scope-checked
-    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    const loaded = await this.casesService.getById(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+      'export',
+    ); // RBAC scope-checked
+    const candidate = (loaded as { data?: unknown })?.data ?? loaded;
+    const record =
+      candidate && typeof candidate === 'object'
+        ? (candidate as Record<string, unknown>)
+        : {};
     await this.dynamicExport.exportEntityDocuments(
       'VU_AN',
       id,
@@ -149,8 +163,17 @@ export class CasesController {
   @Get(':id/export-readiness')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   async exportReadiness(@Param('id') id: string, @Req() req: ScopedRequest) {
-    const loaded = await this.casesService.getById(id, req.dataScope);
-    const record = (loaded as { data?: unknown })?.data ?? loaded;
+    const loaded = await this.casesService.getById(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+      'export',
+    );
+    const candidate = (loaded as { data?: unknown })?.data ?? loaded;
+    const record =
+      candidate && typeof candidate === 'object'
+        ? (candidate as Record<string, unknown>)
+        : {};
     return this.dynamicExport.getExportReadiness('VU_AN', record);
   }
 
@@ -158,7 +181,11 @@ export class CasesController {
   @Get()
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getList(@Query() query: QueryCasesDto, @Req() req: ScopedRequest) {
-    return this.casesService.getList(query, req.dataScope);
+    return this.casesService.getList(
+      query,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/stats — Counts by status, scoped to active non-status filters.
@@ -170,7 +197,11 @@ export class CasesController {
   @Get('stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getStats(@Query() query: QueryCasesStatsDto, @Req() req: ScopedRequest) {
-    return this.casesService.getStats(query, req.dataScope);
+    return this.casesService.getStats(
+      query,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/utdt-stats — F2 — UTDT chip counts grouped by computed
@@ -179,7 +210,11 @@ export class CasesController {
   @Get('utdt-stats')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getUtdtStats(@Query() query: QueryCasesStatsDto, @Req() req: ScopedRequest) {
-    return this.casesService.getUtdtStats(query, req.dataScope);
+    return this.casesService.getUtdtStats(
+      query,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   @Get('name-suggestions')
@@ -194,6 +229,7 @@ export class CasesController {
       q ?? '',
       caseType,
       req.dataScope,
+      (req.user as AuthUser)?.id,
     );
   }
 
@@ -213,6 +249,7 @@ export class CasesController {
       excludeId,
       req.dataScope,
       decisionNumber,
+      (req.user as AuthUser)?.id,
     );
   }
 
@@ -283,6 +320,7 @@ export class CasesController {
       query,
       req.dataScope,
       res,
+      (req.user as AuthUser)?.id,
     );
   }
 
@@ -290,21 +328,33 @@ export class CasesController {
   @Get(':id/status-history')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getStatusHistory(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.casesService.getStatusHistory(id, req.dataScope);
+    return this.casesService.getStatusHistory(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/:id/subjects — MỌI đối tượng của vụ án (chỉ đọc, không giới hạn 100 như GET /subjects)
   @Get(':id/subjects')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getSubjectsDaCo(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.casesService.getSubjectsDaCo(id, req.dataScope);
+    return this.casesService.getSubjectsDaCo(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/:id/evidences — Vật chứng đã có (chỉ đọc; form sửa hiện để khỏi nhập trùng)
   @Get(':id/evidences')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getEvidences(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.casesService.getEvidences(id, req.dataScope);
+    return this.casesService.getEvidences(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/:id/journey — Hành trình hồ sơ (multi-entity timeline)
@@ -324,6 +374,7 @@ export class CasesController {
       req.dataScope ?? null,
       safePage,
       safeLimit,
+      user.id,
     );
   }
 
@@ -331,7 +382,11 @@ export class CasesController {
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'Case' })
   getById(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.casesService.getById(id, req.dataScope);
+    return this.casesService.getById(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // POST /api/v1/cases — Tạo vụ án mới
@@ -378,19 +433,26 @@ export class CasesController {
   @Get(':id/delete-preflight')
   @RequirePermissions({ action: 'delete', subject: 'Case' })
   previewDelete(@Param('id') id: string, @Req() req: ScopedRequest) {
-    return this.casesService.previewDelete(id, req.dataScope);
+    return this.casesService.previewDelete(
+      id,
+      req.dataScope,
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // GET /api/v1/cases/admin/deleted — v0.32.0.0 list các vụ án đã xóa mềm (ADMIN)
   @Get('admin/deleted')
   @RequirePermissions({ action: 'restore', subject: 'Case' })
-  listDeleted(@Query() query: QueryDaXoaDto) {
-    return this.casesService.listDeleted({
-      limit: query.limit,
-      offset: query.offset,
-      search: query.search,
-      tk: query.tk,
-    });
+  listDeleted(@Query() query: QueryDaXoaDto, @Req() req: ScopedRequest) {
+    return this.casesService.listDeleted(
+      {
+        limit: query.limit,
+        offset: query.offset,
+        search: query.search,
+        tk: query.tk,
+      },
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // POST /api/v1/cases/:id/restore — v0.32.0.0 khôi phục (ADMIN via @RequirePermissions)

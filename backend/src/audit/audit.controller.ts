@@ -1,3 +1,4 @@
+import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import {
   Controller,
   Get,
@@ -22,33 +23,38 @@ export class AuditController {
 
   @Get()
   @RequirePermissions({ action: 'read', subject: 'AuditLog' })
-  async findAll(@Query() query: QueryAuditLogsDto) {
-    return this.auditService.findAll({
-      action: query.action,
-      userId: query.userId,
-      subjectId: query.subjectId,
-      subject: query.subject,
-      search: query.search,
-      tk: query.tk,
-      // v0.29 fix: normalize date-only input để dateTo `2026-05-20` cover hết ngày.
-      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
-      dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
-      limit: query.limit,
-      offset: query.offset,
-    });
+  async findAll(@Query() query: QueryAuditLogsDto, @Req() req: Request) {
+    return this.auditService.findAll(
+      {
+        action: query.action,
+        userId: query.userId,
+        subjectId: query.subjectId,
+        subject: query.subject,
+        search: query.search,
+        tk: query.tk,
+        // v0.29 fix: normalize date-only input để dateTo `2026-05-20` cover hết ngày.
+        dateFrom: query.dateFrom
+          ? normalizeStartOfDay(query.dateFrom)
+          : undefined,
+        dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
+        limit: query.limit,
+        offset: query.offset,
+      },
+      (req.user as AuthUser)?.id,
+    );
   }
 
   // v0.29: detail endpoint — returns raw sanitized metadata for modal view.
   @Get('actions')
   @RequirePermissions({ action: 'read', subject: 'AuditLog' })
-  async actions(): Promise<string[]> {
-    return this.auditService.distinctActions();
+  async actions(@Req() req: Request): Promise<string[]> {
+    return this.auditService.distinctActions((req.user as AuthUser)?.id);
   }
 
   @Get('subjects')
   @RequirePermissions({ action: 'read', subject: 'AuditLog' })
-  async subjects(): Promise<string[]> {
-    return this.auditService.distinctSubjects();
+  async subjects(@Req() req: Request): Promise<string[]> {
+    return this.auditService.distinctSubjects((req.user as AuthUser)?.id);
   }
 
   // v0.29: streaming CSV export with formula sanitization + 10k cap.
@@ -59,24 +65,29 @@ export class AuditController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const userId = (req as any).user?.sub;
+    const userId = (req.user as AuthUser)?.id;
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
 
-    const { data } = await this.auditService.findAll({
-      action: query.action,
-      userId: query.userId,
-      subjectId: query.subjectId,
-      subject: query.subject,
-      search: query.search,
-      // Xuất CSV áp CÙNG thẻ như danh sách — bỏ thẻ là tệp chứa bản ghi màn không hiện.
-      tk: query.tk,
-      dateFrom: query.dateFrom ? normalizeStartOfDay(query.dateFrom) : undefined,
-      dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
-      limit: 10000,
-      offset: 0,
-      forExport: true,
-    });
+    const { data } = await this.auditService.findAll(
+      {
+        action: query.action,
+        userId: query.userId,
+        subjectId: query.subjectId,
+        subject: query.subject,
+        search: query.search,
+        // Xuất CSV áp CÙNG thẻ như danh sách — bỏ thẻ là tệp chứa bản ghi màn không hiện.
+        tk: query.tk,
+        dateFrom: query.dateFrom
+          ? normalizeStartOfDay(query.dateFrom)
+          : undefined,
+        dateTo: query.dateTo ? normalizeEndOfDay(query.dateTo) : undefined,
+        limit: 10000,
+        offset: 0,
+        forExport: true,
+      },
+      (req.user as AuthUser)?.id,
+    );
 
     // Audit-of-export: log this export action itself.
     await this.auditService.log({
@@ -94,13 +105,17 @@ export class AuditController {
 
     // Stream header + rows.
     res.write('﻿'); // BOM for Excel UTF-8
-    res.write('Thời gian,Người dùng,Action,Subject,SubjectID,Số trường thay đổi,IP\n');
+    res.write(
+      'Thời gian,Người dùng,Action,Subject,SubjectID,Số trường thay đổi,IP\n',
+    );
     for (const row of data) {
-      const user = (row as any).user;
+      const user = row.user;
       const userName = user
-        ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || ''
+        ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() ||
+          user.username ||
+          ''
         : '';
-      const changedCount = (row as any).changedFields?.length ?? 0;
+      const changedCount = row.changedFields?.length ?? 0;
       const cols = [
         new Date(row.createdAt).toISOString(),
         userName,
@@ -117,8 +132,11 @@ export class AuditController {
 
   @Get(':id')
   @RequirePermissions({ action: 'read', subject: 'AuditLog' })
-  async findById(@Param('id') id: string) {
-    const row = await this.auditService.findById(id);
+  async findById(@Param('id') id: string, @Req() req: Request) {
+    const row = await this.auditService.findById(
+      id,
+      (req.user as AuthUser)?.id,
+    );
     if (!row) throw new NotFoundException('Audit log not found');
     return row;
   }

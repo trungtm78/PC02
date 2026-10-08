@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Test } from '@nestjs/testing';
@@ -31,7 +33,7 @@ describe('DelegationsService.update — lưu đủ các trường form cho sửa
       assignedToId: null,
     });
     const module = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) },
         DelegationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
@@ -43,7 +45,8 @@ describe('DelegationsService.update — lưu đủ các trường form cho sửa
   });
 
   it('ghi Số ủy thác và Ngày ủy thác khi gửi lên', async () => {
-    await service.update(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.update(
       'd1',
       { delegationNumber: 'UT-010/2026', delegationDate: '2026-09-05' },
       'u1',
@@ -56,7 +59,8 @@ describe('DelegationsService.update — lưu đủ các trường form cho sửa
   });
 
   it('không gửi thì không đụng', async () => {
-    await service.update(
+    setOrdinaryCurrentScope(mockPrisma,null);
+await service.update(
       'd1',
       { content: 'Nội dung mới đủ dài' },
       'u1',

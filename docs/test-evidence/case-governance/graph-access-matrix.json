@@ -1,0 +1,1947 @@
+{
+  "at": "2026-10-06T09:34:20.985Z",
+  "rows": [
+    {
+      "route": "/api/v1/calendar/events",
+      "verb": "GET",
+      "module": "calendar",
+      "file": "backend/src/calendar/calendar.controller.ts",
+      "line": 33,
+      "handler": "getEvents",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Calendar' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryCalendarDto"
+      ],
+      "serviceCalls": [
+        "this.calendarService.getEvents"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/action-plans",
+      "verb": "GET",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 27,
+      "handler": "findAll",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('caseId') caseId: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.findAllForCase"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/action-plans",
+      "verb": "POST",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 33,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('caseId') caseId: string",
+        "@Body() dto: CreateActionPlanDto",
+        "@CurrentUser() user: AuthUser",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.createForCase"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/action-plans/:id",
+      "verb": "DELETE",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 44,
+      "handler": "delete",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.delete"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/vks-meetings",
+      "verb": "GET",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 27,
+      "handler": "findAll",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('caseId') caseId: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.findAllForCase"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/vks-meetings",
+      "verb": "POST",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 33,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('caseId') caseId: string",
+        "@Body() dto: CreateVksMeetingDto",
+        "@CurrentUser() user: AuthUser",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.createForCase"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/cases/:caseId/vks-meetings/:id",
+      "verb": "DELETE",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 44,
+      "handler": "delete",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.delete"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates",
+      "verb": "GET",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 49,
+      "handler": "list",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Query('entityType') entityType?: string",
+        "@Query('category') category?: string",
+        "@Query('status') status?: string"
+      ],
+      "serviceCalls": [
+        "this.svc.list"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates",
+      "verb": "POST",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 80,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Body() dto: CreateDocumentTemplateDto",
+        "@UploadedFile() file: Express.Multer.File",
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.svc.create"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id",
+      "verb": "DELETE",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 145,
+      "handler": "remove",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string"
+      ],
+      "serviceCalls": [
+        "this.svc.softDelete"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id",
+      "verb": "GET",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 92,
+      "handler": "getById",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string"
+      ],
+      "serviceCalls": [
+        "this.svc.getById"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id",
+      "verb": "PATCH",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 115,
+      "handler": "update",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Body() dto: UpdateDocumentTemplateDto"
+      ],
+      "serviceCalls": [
+        "this.svc.update"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id/file",
+      "verb": "GET",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 99,
+      "handler": "download",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Res({ passthrough: true }) res: Response"
+      ],
+      "serviceCalls": [
+        "this.svc.getFileForDownload"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id/file",
+      "verb": "POST",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 121,
+      "handler": "replaceFile",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@UploadedFile() file: Express.Multer.File",
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.svc.replaceFile"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/:id/trang-thai",
+      "verb": "PATCH",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 139,
+      "handler": "doiTrangThai",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Body() dto: DoiTrangThaiDto"
+      ],
+      "serviceCalls": [
+        "this.svc.doiTrangThai"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/detect",
+      "verb": "POST",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 68,
+      "handler": "detect",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Body() body: { entityType?: string; delimStart?: string; delimEnd?: string }",
+        "@UploadedFile() file: Express.Multer.File"
+      ],
+      "serviceCalls": [
+        "this.svc.previewVariables"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/document-templates/field-catalog",
+      "verb": "GET",
+      "module": "document-templates",
+      "file": "backend/src/document-templates/document-templates.controller.ts",
+      "line": 60,
+      "handler": "fieldCatalog",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Setting' })"
+      ],
+      "parameters": [
+        "@Query('entityType') entityType: string"
+      ],
+      "serviceCalls": [
+        "this.svc.fieldCatalog"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Controller manages template metadata/files/catalog, not rendered Case records; DynamicExport render consumers separately OPEN",
+      "owner": "graph-access",
+      "actualEffect": "NON_CASE_TEMPLATE_CATALOG",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/action-plans",
+      "verb": "GET",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 57,
+      "handler": "findAll",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('incidentId') incidentId: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.findAllForIncident"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/action-plans",
+      "verb": "POST",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 63,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('incidentId') incidentId: string",
+        "@Body() dto: CreateActionPlanDto",
+        "@CurrentUser() user: AuthUser",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.createForIncident"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/action-plans/:id",
+      "verb": "DELETE",
+      "module": "shared",
+      "file": "backend/src/shared/action-plans/action-plans.controller.ts",
+      "line": 74,
+      "handler": "delete",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.actionPlansService.delete"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/vks-meetings",
+      "verb": "GET",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 57,
+      "handler": "findAll",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('incidentId') incidentId: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.findAllForIncident"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/vks-meetings",
+      "verb": "POST",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 63,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('incidentId') incidentId: string",
+        "@Body() dto: CreateVksMeetingDto",
+        "@CurrentUser() user: AuthUser",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.createForIncident"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/incidents/:incidentId/vks-meetings/:id",
+      "verb": "DELETE",
+      "module": "shared",
+      "file": "backend/src/shared/vks-meetings/vks-meetings.controller.ts",
+      "line": 74,
+      "handler": "delete",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.vksMeetingsService.delete"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/kpi/by-team",
+      "verb": "GET",
+      "module": "kpi",
+      "file": "backend/src/kpi/kpi.controller.ts",
+      "line": 30,
+      "handler": "getByTeam",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Incident' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryKpiDto",
+        "@Req() req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.kpiService.getKpiByTeam"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/kpi/summary",
+      "verb": "GET",
+      "module": "kpi",
+      "file": "backend/src/kpi/kpi.controller.ts",
+      "line": 15,
+      "handler": "getSummary",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Incident' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryKpiDto"
+      ],
+      "serviceCalls": [
+        "this.kpiService.getKpiSummary"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/kpi/trend",
+      "verb": "GET",
+      "module": "kpi",
+      "file": "backend/src/kpi/kpi.controller.ts",
+      "line": 22,
+      "handler": "getTrend",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Incident' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryKpiDto"
+      ],
+      "serviceCalls": [
+        "this.kpiService.getKpiTrend"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications",
+      "verb": "GET",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 24,
+      "handler": "getList",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@CurrentUser() user: AuthUser",
+        "@Query() query: QueryNotificationsDto"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.getList"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/:id",
+      "verb": "DELETE",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 53,
+      "handler": "deleteOne",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.deleteOne"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/:id/read",
+      "verb": "PATCH",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 39,
+      "handler": "markAsRead",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.markAsRead"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/read",
+      "verb": "DELETE",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 60,
+      "handler": "deleteAllRead",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.deleteAllRead"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/read-all",
+      "verb": "PATCH",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 46,
+      "handler": "markAllAsRead",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.markAllAsRead"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/stream",
+      "verb": "GET",
+      "module": "notifications",
+      "file": "backend/src/notifications/sse.controller.ts",
+      "line": 14,
+      "handler": "stream",
+      "permissions": [
+        "UseGuards(SseJwtGuard)"
+      ],
+      "parameters": [
+        "@CurrentUser() user: JwtPayload"
+      ],
+      "serviceCalls": [
+        "this.sseService.createStream"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/notifications/unread-count",
+      "verb": "GET",
+      "module": "notifications",
+      "file": "backend/src/notifications/notifications.controller.ts",
+      "line": 33,
+      "handler": "getUnreadCount",
+      "permissions": [
+        "UseGuards(JwtAuthGuard)"
+      ],
+      "parameters": [
+        "@CurrentUser() user: AuthUser"
+      ],
+      "serviceCalls": [
+        "this.notificationsService.getUnreadCount"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/district-stats",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 295,
+      "handler": "getDistrictStats",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryDistrictStatsDto"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getDistrictStats"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 265,
+      "handler": "getMonthly",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryMonthlyDto"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getMonthly"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 90,
+      "handler": "list",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.service.list"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 70,
+      "handler": "create",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Body() dto: CreateMonthlyReportDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.service.create"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 103,
+      "handler": "get",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.service.get"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/adjustments",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 188,
+      "handler": "adjustment",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Body() dto: AdjustmentDto"
+      ],
+      "serviceCalls": [
+        "this.service.addAdjustment"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/appendices/:code",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 113,
+      "handler": "appendix",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Param('code') code: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.service.appendix"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/approve",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 160,
+      "handler": "transitionApprove",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/drilldown",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 127,
+      "handler": "drilldown",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Query('appendix') appendix: string",
+        "@Query('metricKey') metricKey: string",
+        "@Query('cellKey') cellKey?: string",
+        "@Query('entityId') entityId?: string",
+        "@Query('q') q?: string",
+        "@Query('page') page?: string",
+        "@Query('limit') limit?: string"
+      ],
+      "serviceCalls": [
+        "this.service.drilldown"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/export/:kind",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 206,
+      "handler": "export",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Param('kind') kind: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.service.workbook"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/finalize",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 165,
+      "handler": "transitionFinalize",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/reject",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 173,
+      "handler": "transitionReject",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Body() dto: TransitionDto"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/reopen",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 182,
+      "handler": "transitionReopen",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/submit",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 155,
+      "handler": "transitionSubmit",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly-packages/:id/verification",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/monthly-package/monthly-report-package.controller.ts",
+      "line": 237,
+      "handler": "verification",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions(\n    { action: 'read', subject: 'Case' },\n    { action: 'read', subject: 'Incident' },\n  )"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.service.verification"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/monthly/export",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 315,
+      "handler": "exportMonthly",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryMonthlyDto",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getMonthly",
+        "this.reportsExportService.exportMonthly"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/overdue",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 302,
+      "handler": "getOverdue",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryOverdueDto"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getOverdue"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/phu-luc-1-6/export",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/phu-luc-1-6/phu-luc-1-6.controller.ts",
+      "line": 82,
+      "handler": "export",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: PhuLuc16QueryDto",
+        "@Req() _req: ScopedRequest",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.phuLuc16Service.getForLoai",
+        "this.phuLuc16ExportService.export"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/phu-luc-1-6/preview",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/phu-luc-1-6/phu-luc-1-6.controller.ts",
+      "line": 62,
+      "handler": "preview",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: PhuLuc16QueryDto",
+        "@Req() _req: ScopedRequest"
+      ],
+      "serviceCalls": [
+        "this.phuLuc16Service.getForLoai"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/quarterly",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 280,
+      "handler": "getQuarterly",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryQuarterlyDto"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getQuarterly"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/quarterly/export",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 333,
+      "handler": "exportQuarterly",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryQuarterlyDto",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getQuarterly",
+        "this.reportsExportService.exportQuarterly"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/stat48",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/reports.controller.ts",
+      "line": 349,
+      "handler": "getStat48",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: Stat48QueryDto",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.reportsService.getStat48",
+        "this.reportsExportService.exportStat48"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 93,
+      "handler": "listDrafts",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Req() req: AuthenticatedRequest",
+        "@Query('loaiBaoCao') loaiBaoCao?: string",
+        "@Query('status') status?: string"
+      ],
+      "serviceCalls": [
+        "this.draftService.findAll"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 82,
+      "handler": "createDraft",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Body() dto: CreateDraftDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.create"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 105,
+      "handler": "getDraft",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id",
+      "verb": "PATCH",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 111,
+      "handler": "updateDraft",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Body() dto: AdjustDraftDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.update"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/approve",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 133,
+      "handler": "approve",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.approve"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/export",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 169,
+      "handler": "exportDraft",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest",
+        "@Res() res: Response"
+      ],
+      "serviceCalls": [
+        "this.exportService.export"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/finalize",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 158,
+      "handler": "finalize",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.finalize"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/reject",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 140,
+      "handler": "reject",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'approve', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Body() dto: RejectDraftDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.reject"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/reopen",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 151,
+      "handler": "reopen",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.reopen"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/drafts/:id/submit-review",
+      "verb": "POST",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 126,
+      "handler": "submitReview",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'write', subject: 'Report' })"
+      ],
+      "parameters": [
+        "@Param('id') id: string",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.draftService.submitReview"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/vu-an",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 58,
+      "handler": "getVuAn",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryTdacDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.tdacService.computeTdcVuAn"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    },
+    {
+      "route": "/api/v1/reports/tdac/vu-viec",
+      "verb": "GET",
+      "module": "reports",
+      "file": "backend/src/reports/tdac/tdac.controller.ts",
+      "line": 68,
+      "handler": "getVuViec",
+      "permissions": [
+        "UseGuards(JwtAuthGuard, PermissionsGuard)",
+        "RequirePermissions({ action: 'read', subject: 'Case' })"
+      ],
+      "parameters": [
+        "@Query() query: QueryTdacDto",
+        "@Req() req: AuthenticatedRequest"
+      ],
+      "serviceCalls": [
+        "this.tdacService.computeTdcVuViec"
+      ],
+      "requirement": "CG14",
+      "reviewStatus": "NOT_REVIEWED",
+      "evidence": "Candidate service references require route-specific closure",
+      "owner": "graph-access",
+      "actualEffect": "CASE_GRAPH_OR_QUERY",
+      "closureStatus": "OPEN_GRAPH_IMPLEMENTATION",
+      "currentRole": "OWNER_OR_OPEN",
+      "currentScope": "OWNER_OR_OPEN",
+      "sensitivityAndProfile": "OWNER_OR_OPEN",
+      "nativePolicy": "OWNER_OR_OPEN"
+    }
+  ]
+}

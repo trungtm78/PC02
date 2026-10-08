@@ -2,6 +2,7 @@ import { buildControllerModule, makeReq, mockUser } from '../test-utils/controll
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import type { ScopedRequest } from '../auth/interfaces/scoped-request.interface';
 import { PetitionsController } from './petitions.controller';
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import { PetitionsService } from './petitions.service';
 import { PetitionsJourneyService } from './petitions-journey.service';
 
@@ -44,6 +45,7 @@ describe('PetitionsController — delegation', () => {
       PetitionsService,
       mockService,
       [
+        { token: CaseChildAccessService,mock: { redactCaseLinks: jest.fn(async value => value) } },
         { token: PetitionsJourneyService, mock: mockJourneyService },
         {
           token: require('../document-templates/dynamic-export.service').DynamicExportService,
@@ -266,6 +268,7 @@ describe('PetitionsController — gợi ý tên người gửi chuyển ĐÚNG p
       PetitionsService,
       mockService,
       [
+        { token: CaseChildAccessService,mock: { redactCaseLinks: jest.fn(async value => value) } },
         { token: PetitionsJourneyService, mock: mockJourneyService },
         {
           token: require('../document-templates/dynamic-export.service').DynamicExportService,

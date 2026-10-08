@@ -1,9 +1,11 @@
+import { CaseOperationsService } from './governance/case-operations.service';
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import {
   machMocGiaiQuyet,
@@ -38,6 +40,7 @@ import { AssignCaseDto } from './dto/assign-case.dto';
 import type { DeleteCasePreflightResponse } from './dto/delete-case-preflight.response';
 import {
   Prisma,
+  CaseSensitivity,
   CaseStatus,
   IncidentStatus,
   PetitionStatus,
@@ -47,6 +50,8 @@ import {
   CaseProvenance,
   SubjectType,
   CaseType,
+  Incident,
+  Petition,
 } from '@prisma/client';
 import { TrangThaiPhanHoi } from './dto/query-cases.dto';
 import type { DataScope } from '../auth/services/unit-scope.service';
@@ -55,10 +60,6 @@ import {
   apDungKyVaoWhere,
   phuDeKyXuat,
 } from '../common/utils/thong-ke-ky.util';
-import {
-  buildIncidentFromCase,
-  shouldAutoCreateIncident,
-} from '../common/utils/incident-factory.util';
 import { DocumentNumbersService } from '../document-numbers/document-numbers.service';
 import { BcaExcelHelper } from '../common/bca-excel.helper';
 import { CASE_STATUS_LABEL } from '../common/constants/status-labels.constants';
@@ -69,6 +70,10 @@ import {
   CASE_STATUS_GROUPS,
   LIST_SUSPECT_NAMES_LIMIT,
 } from './cases.constants';
+import { normalizeCanonicalCaseWrite } from './case-canonical-fields';
+import { CaseFieldSchemaService } from './governance/case-field-schema.service';
+import { civilDate } from './governance/legal-workflow.validation';
+import { CaseGovernanceService } from './governance/case-governance.service';
 import { legacyFormParityData } from './legacy-form-parity.mapper';
 import { CASE_MESSAGES } from './cases.messages';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -77,6 +82,7 @@ import {
   CaseCreatedEvent,
 } from '../notifications/events/notification.events';
 import { CHON_CAN_BO_IN } from '../document-templates/chon-can-bo-in';
+import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
 import {
   chonCotXuat,
   xuatDanhSachExcel,
@@ -244,6 +250,11 @@ const THAM_SO_CU_VU_AN = {
  * nơi đọc đúng một bộ trường (18/09/2026).
  */
 const CHON_DONG_DANH_SACH_VU_AN = {
+  fieldDefinitionVersionId: true,
+  intakeStage: true,
+  investigationPhase: true,
+  sensitivity: true,
+  governanceRevision: true,
   id: true,
   caseCode: true,
   name: true,
@@ -355,7 +366,151 @@ export class CasesService {
     private readonly settings: SettingsService, // v0.31.0.2: THOI_HAN_XOA_VU_AN
     private readonly docNums: DocumentNumbersService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional()
+    private readonly governedSourceCreation?: CaseSourceCreationService,
   ) {}
+
+  private async lockCase(tx: PrismaTx, id: string): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM cases WHERE id=${id} FOR UPDATE`;
+  }
+  private async prepareCreateFields(
+    tx: PrismaTx,
+    dto: CreateCaseDto,
+    actorId: string,
+  ) {
+    if (!dto.cloneSourceCaseId) {
+      if (dto.expectedCloneSourceUpdatedAt !== undefined)
+        throw new BadRequestException('Clone source required');
+      return this.fieldSchema.validateForWrite(
+        tx,
+        dto as unknown as Record<string, unknown>,
+        null,
+        { actorId },
+      );
+    }
+    if (dto.linkedIncidentId || dto.linkedPetitionId)
+      throw new BadRequestException('Clone must reset source links');
+    const expected = new Date(dto.expectedCloneSourceUpdatedAt ?? '');
+    if (!Number.isFinite(expected.getTime()))
+      throw new BadRequestException('Clone source version required');
+    await this.lockCase(tx, dto.cloneSourceCaseId);
+    const source = await this.governance.assertCaseReadable(
+      tx,
+      dto.cloneSourceCaseId,
+      { actorId },
+    );
+    if (source.updatedAt.getTime() !== expected.getTime())
+      throw new ConflictException('Clone source changed');
+    const sourceMetadata = source.metadata as Record<string, unknown> | null;
+    const labels = [sourceMetadata?.sensitivity, sourceMetadata?._sensitivity];
+    const sensitivity: CaseSensitivity =
+      source.sensitivity === 'RESTRICTED' || labels.includes('RESTRICTED')
+        ? 'RESTRICTED'
+        : 'NORMAL';
+    if (
+      sensitivity === 'RESTRICTED' &&
+      !(await this.governance.hasCapability(tx, actorId, 'read_sensitive'))
+    )
+      throw new ForbiddenException(
+        'Source-only sensitive grants cannot authorize a restricted copy',
+      );
+    const readable = await this.fieldSchema.filterCustomFields(
+      source,
+      { actorId },
+      tx,
+    );
+    const fields = await this.fieldSchema.validateForWrite(
+      tx,
+      dto as unknown as Record<string, unknown>,
+      readable,
+      { actorId },
+    );
+    return { ...fields, sensitivity };
+  }
+  private get fieldSchema(): CaseFieldSchemaService {
+    return new CaseFieldSchemaService(this.prisma, this.governance);
+  }
+  private get sourceCreation(): CaseSourceCreationService {
+    return (
+      this.governedSourceCreation ??
+      new CaseSourceCreationService(
+        this.prisma,
+        this.governance,
+        this.fieldSchema,
+      )
+    );
+  }
+  private async authorizeHydratedRows<
+    T extends {
+      id: string;
+      metadata?: unknown;
+      fieldDefinitionVersionId?: string | null;
+    },
+  >(rows: T[], actorId?: string): Promise<T[]> {
+    const result: T[] = [];
+    for (const row of rows) {
+      await this.authorizeRead(row.id, actorId);
+      result.push(await this.serializeCase(row, actorId, 'export'));
+    }
+    return result;
+  }
+  private async serializeCase<
+    T extends {
+      id: string;
+      metadata?: unknown;
+      fieldDefinitionVersionId?: string | null;
+    },
+  >(
+    record: T,
+    actorId?: string,
+    purpose: 'read' | 'export' = 'read',
+  ): Promise<T> {
+    return this.fieldSchema.filterCustomFields(
+      record,
+      {
+        actorId: actorId ?? '',
+      },
+      this.prisma,
+      purpose,
+    );
+  }
+  private get governance(): CaseGovernanceService {
+    return new CaseGovernanceService(this.prisma);
+  }
+  private async authorizeRead(id: string, actorId?: string) {
+    if (actorId)
+      return this.governance.assertCaseReadable(this.prisma, id, { actorId });
+    const record = await this.prisma.case.findFirst({
+      where: { id, deletedAt: null },
+    });
+    const label = (record?.metadata as Record<string, unknown> | null)
+      ?.sensitivity;
+    if (
+      record &&
+      ((record.sensitivity && record.sensitivity !== 'NORMAL') ||
+        (label !== undefined && label !== null && label !== 'NORMAL'))
+    )
+      throw new ForbiddenException(
+        'Authenticated sensitive authority required',
+      );
+    return record;
+  }
+  private async visibilityWhere(
+    actorId?: string,
+  ): Promise<Prisma.CaseWhereInput> {
+    if (actorId)
+      return this.governance.readableCaseWhere(this.prisma, { actorId });
+    // Internal callers without actor identity cannot inherit administrator sensitivity.
+    const legacy = this.prisma.$queryRaw
+      ? await this.prisma.$queryRaw<
+          { id: string }[]
+        >`SELECT id FROM cases WHERE metadata->>'sensitivity' IS NOT NULL AND metadata->>'sensitivity' <> 'NORMAL'`
+      : [];
+    return {
+      sensitivity: 'NORMAL',
+      id: { notIn: (legacy ?? []).map((x) => x.id) },
+    };
+  }
 
   private boTimKiem?: BoTimKiem;
 
@@ -375,7 +530,14 @@ export class CasesService {
     q: string,
     caseType: CaseType,
     dataScope?: DataScope | null,
+    actorId?: string,
   ) {
+    if (actorId)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId },
+        { name: q, caseType },
+      );
     const normalized = boDauTimKiem(q ?? '').trim();
     if (normalized.length < 2) return [];
 
@@ -390,6 +552,9 @@ export class CasesService {
         scopeFilter as Prisma.CaseWhereInput,
       ]);
     }
+    noiVaoWhere(where as Record<string, unknown>, [
+      await this.visibilityWhere(actorId),
+    ]);
     const groups = await this.prisma.case.groupBy({
       by: ['name'],
       where,
@@ -411,7 +576,14 @@ export class CasesService {
     excludeId?: string,
     dataScope?: DataScope | null,
     decisionNumber?: string,
+    actorId?: string,
   ) {
+    if (actorId)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId },
+        { name, caseType, soQuyetDinhUyThac: decisionNumber },
+      );
     const normalized = boDauTimKiem(name ?? '').trim();
     const exactDecisionNumber =
       caseType === CaseType.UY_THAC_DIEU_TRA
@@ -459,7 +631,30 @@ export class CasesService {
       ngayDeXuat: true,
       status: true,
     } as const;
-    const orderBy = { ngayDeXuat: 'desc' } as const;
+    const profile = actorId
+      ? await this.governance.accessProfile(this.prisma, { actorId })
+      : null;
+    const orderBy: Prisma.CaseOrderByWithRelationInput =
+      profile?.caseAccessMode === 'REPRESENTATION_ONLY'
+        ? { name: 'asc' }
+        : { ngayDeXuat: 'desc' };
+    if (actorId && exactDecisionNumber) {
+      const policy = await this.fieldSchema.policyAwareSearchWhere(
+        this.prisma,
+        { actorId },
+        { soQuyetDinhUyThac: exactDecisionNumber },
+      );
+      if (policy) {
+        noiVaoWhere(exactWhere as Record<string, unknown>, [policy]);
+        noiVaoWhere(where as Record<string, unknown>, [policy]);
+      }
+    }
+    noiVaoWhere(exactWhere as Record<string, unknown>, [
+      await this.visibilityWhere(actorId),
+    ]);
+    noiVaoWhere(where as Record<string, unknown>, [
+      await this.visibilityWhere(actorId),
+    ]);
     const exact = await this.prisma.case.findMany({
       where: exactWhere,
       select,
@@ -493,21 +688,28 @@ export class CasesService {
         return true;
       })
       .slice(0, Math.max(20, exact.length));
-    return candidates.map((candidate) => {
-      const decisionMatches = Boolean(
-        exactDecisionNumber &&
-        candidate.soQuyetDinhUyThac?.trim() === exactDecisionNumber,
-      );
-      const nameMatches =
-        normalized.length >= 2 && boDauTimKiem(candidate.name) === normalized;
-      const confidence: 'HIGH' | 'MEDIUM' =
-        decisionMatches || nameMatches ? 'HIGH' : 'MEDIUM';
-      const reasons = [
-        ...(decisionMatches ? ['DECISION_NUMBER_MATCH'] : []),
-        ...(nameMatches || !decisionMatches ? ['NAME_MATCH'] : []),
-      ];
-      return { ...candidate, confidence, reasons };
-    });
+    return Promise.all(
+      candidates.map(async (candidate) => {
+        const decisionMatches = Boolean(
+          exactDecisionNumber &&
+          candidate.soQuyetDinhUyThac?.trim() === exactDecisionNumber,
+        );
+        const nameMatches =
+          normalized.length >= 2 && boDauTimKiem(candidate.name) === normalized;
+        const confidence: 'HIGH' | 'MEDIUM' =
+          decisionMatches || nameMatches ? 'HIGH' : 'MEDIUM';
+        const reasons = [
+          ...(decisionMatches ? ['DECISION_NUMBER_MATCH'] : []),
+          ...(nameMatches || !decisionMatches ? ['NAME_MATCH'] : []),
+        ];
+        const visible = actorId
+          ? await this.governance.serializeCaseList(this.prisma, candidate, {
+              actorId,
+            })
+          : candidate;
+        return { ...visible, confidence, reasons };
+      }),
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -527,8 +729,16 @@ export class CasesService {
     {
       boTrangThai = false,
       now = new Date(),
-    }: { boTrangThai?: boolean; now?: Date } = {},
+      actorId,
+    }: { boTrangThai?: boolean; now?: Date; actorId?: string } = {},
   ) {
+    await this.fieldSchema.assertQueryReadable(
+      this.prisma,
+      { actorId: actorId ?? '' },
+      query as unknown as Record<string, unknown>,
+      'read',
+      await this.visibilityWhere(actorId),
+    );
     const {
       status,
       statusGroup,
@@ -554,11 +764,35 @@ export class CasesService {
       caseType: caseType ?? CaseType.REGULAR,
     };
 
+    const kyThongKe = this.timKiem.kyApDung(
+      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
+      query.tk,
+    );
+    // The configured date is an input to the policy partitions. Applying it
+    // globally would expose private dates through list/count membership.
+    const periodWhere: Prisma.CaseWhereInput = {};
+    apDungKyVaoWhere(
+      periodWhere as Record<string, unknown>,
+      kyThongKe,
+      fromDate,
+      toDate,
+      'ngayDeXuat',
+    );
+    const periodField = Object.keys(periodWhere)[0];
+
     // Thẻ tìm kiếm + tham số lọc chữ cũ (search/charges/unit/stt/sttCu/donViGiao/investigatorName)
     // — CÙNG helper cho danh sách lẫn thống kê. Đọc TRƯỚC mọi truy vấn: khoá lạ là 400.
+    const policySearch = await this.fieldSchema.policyAwareSearchWhere(
+      this.prisma,
+      { actorId: actorId ?? '' },
+      query as unknown as Record<string, unknown>,
+      await this.visibilityWhere(actorId),
+      false,
+      periodField ? { field: periodField, where: periodWhere } : undefined,
+    );
     noiVaoWhere(
       where as Record<string, unknown>,
-      await this.timKiem.dieuKien(query),
+      policySearch ? [policySearch] : await this.timKiem.dieuKien(query),
     );
 
     if (!boTrangThai) {
@@ -595,21 +829,18 @@ export class CasesService {
     // bộ lọc ấy gần như không lọc được gì. Nay theo `ngayDeXuat` như hai module kia; muốn
     // lọc theo ngày tạo thì chọn "Tính theo: Ngày tạo".
     // Có thẻ ngày thì bỏ kỳ MẶC ĐỊNH (giao với thẻ ra 0 dòng) và báo "tất cả" cho nhãn kỳ.
-    const kyThongKe = this.timKiem.kyApDung(
-      await this.settings.getKyThongKe({ truong: query.thongKeTruongNgay }),
-      query.tk,
-    );
-    apDungKyVaoWhere(
-      where as Record<string, unknown>,
-      kyThongKe,
-      fromDate,
-      toDate,
-      'ngayDeXuat',
-    );
 
     // Filter quá hạn
     if (overdue) {
-      where.deadline = { lt: new Date() };
+      noiVaoWhere(where as Record<string, unknown>, [
+        await this.fieldSchema.readableNativeWhere(
+          this.prisma,
+          { actorId: actorId ?? '' },
+          ['deadline', 'status'],
+          await this.visibilityWhere(actorId),
+        ),
+      ]);
+      where.deadline = { lt: caseCivilDayStart(now ?? new Date()) };
       // KHÔNG gán đè `where.status`: làm vậy sẽ xoá sổ điều kiện statusGroup/status đã đặt
       // ở trên → bấm thẻ "Tạm đình chỉ" khi đang lọc quá hạn sẽ trả về MỌI hồ sơ quá hạn.
       // Prisma cho phép gộp in/equals + notIn trong cùng một filter.
@@ -677,11 +908,48 @@ export class CasesService {
       ]);
     }
 
+    noiVaoWhere(where as Record<string, unknown>, [
+      await this.visibilityWhere(actorId),
+    ]);
+
+    const governanceFilter = await new CaseOperationsService(
+      this.prisma,
+      this.governance,
+    ).caseFilters(
+      query as unknown as Record<string, unknown>,
+      { actorId: actorId ?? '' },
+      now,
+    );
+    if (Object.keys(governanceFilter).length)
+      noiVaoWhere(where as Record<string, unknown>, [governanceFilter]);
     return { where, ky: kyThongKe };
   }
 
   /** Thứ tự danh sách Vụ án — CHUNG cho màn và tệp xuất, để thứ tự trong tệp khớp màn hình. */
-  private thuTuDanhSach(sortBy: string | undefined, sortOrder: ListSortOrder) {
+  private async thuTuDanhSach(
+    sortBy: string | undefined,
+    sortOrder: ListSortOrder,
+    actorId?: string,
+  ): Promise<
+    Prisma.CaseOrderByWithRelationInput | Prisma.CaseOrderByWithRelationInput[]
+  > {
+    if (!sortBy && actorId) {
+      if (
+        (await this.governance.accessProfile(this.prisma, { actorId }))
+          .caseAccessMode === 'REPRESENTATION_ONLY'
+      )
+        return { id: 'asc' };
+      try {
+        await this.fieldSchema.assertQueryReadable(
+          this.prisma,
+          { actorId },
+          { sortBy: 'ngayDeXuat' },
+        );
+      } catch (error) {
+        if (error instanceof ForbiddenException) return { id: 'asc' };
+        throw error;
+      }
+    }
     // Mặc định sắp theo NGÀY ĐỀ XUẤT. Nghe có vẻ sai so với "ngày tiếp nhận", nhưng
     // đo trên dữ liệu thật: `receiveDate` — đúng cột mang tên tiếp nhận — chỉ có
     // 2/3.304 hồ sơ (0,06%), còn `ngayDeXuat` phủ 98,8%. Sắp theo `receiveDate` sẽ cho
@@ -720,7 +988,11 @@ export class CasesService {
     });
   }
 
-  async getList(query: QueryCasesDto, dataScope?: DataScope | null) {
+  async getList(
+    query: QueryCasesDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
     const now = new Date();
     const {
       limit = 20,
@@ -729,9 +1001,16 @@ export class CasesService {
       sortOrder = 'desc',
     } = query;
 
-    const { where } = await this.dungWhereDanhSach(query, dataScope, { now });
+    const { where } = await this.dungWhereDanhSach(query, dataScope, {
+      now,
+      actorId,
+    });
 
-    const orderBy = this.thuTuDanhSach(sortBy, sortOrder as ListSortOrder);
+    const orderBy = await this.thuTuDanhSach(
+      sortBy,
+      sortOrder as ListSortOrder,
+      actorId,
+    );
 
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({
@@ -744,16 +1023,28 @@ export class CasesService {
       this.prisma.case.count({ where }),
     ]);
 
+    for (let index = 0; index < data.length; index++) {
+      const visible = actorId
+        ? await this.governance.serializeCaseList(this.prisma, data[index], {
+            actorId,
+          })
+        : data[index];
+      data[index] = await this.serializeCase(visible, actorId);
+    }
     return {
       success: true,
       data: data.map((item) => {
-        const quyenGhi = this.coQuyenGhi(
-          {
-            investigatorId: item.investigator?.id,
-            assignedTeamId: item.assignedTeam?.id,
-          },
-          dataScope,
-        );
+        const quyenGhi =
+          (item as unknown as { quyenGhi?: boolean }).quyenGhi === false
+            ? false
+            : this.coQuyenGhi(
+                {
+                  investigatorId: item.investigator?.id,
+                  assignedTeamId: item.assignedTeam?.id,
+                  intakeStage: item.intakeStage,
+                },
+                dataScope,
+              );
         return item.caseType === CaseType.UY_THAC_DIEU_TRA
           ? {
               ...item,
@@ -780,13 +1071,17 @@ export class CasesService {
   // Status filter purposely STRIPPED — counts reflect cardinality across ALL
   // statuses scoped to active non-status filters. UI consumer paint chip counts
   // và highlight active chip separately.
-  async getStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
+  async getStats(
+    query: QueryCasesStatsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
     // Thẻ thống kê phải đếm CÙNG tập hồ sơ mà danh sách hiện — CÙNG hàm với getList và xuất Excel,
     // chỉ bỏ điều kiện trạng thái để các chip vẫn đếm mọi trạng thái.
     const { where, ky: kyThongKe } = await this.dungWhereDanhSach(
       query,
       dataScope,
-      { boTrangThai: true },
+      { boTrangThai: true, actorId },
     );
 
     // Initialize all CaseStatus keys to 0 → exhaustive response shape
@@ -841,7 +1136,11 @@ export class CasesService {
   // loaiUyThac, ngayTiepNhanFrom/To, investigatorName, etc.) but ALWAYS
   // forces caseType=UY_THAC_DIEU_TRA and strips trangThaiPhanHoi (counts BY
   // state, not filtered by it).
-  async getUtdtStats(query: QueryCasesStatsDto, dataScope?: DataScope | null) {
+  async getUtdtStats(
+    query: QueryCasesStatsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
     const now = new Date();
     const { where: baseWhere, ky: kyThongKe } = await this.dungWhereDanhSach(
       {
@@ -850,7 +1149,7 @@ export class CasesService {
         trangThaiPhanHoi: undefined,
       },
       dataScope,
-      { boTrangThai: true, now },
+      { boTrangThai: true, actorId, now },
     );
 
     const states: TrangThaiPhanHoi[] = [
@@ -899,7 +1198,11 @@ export class CasesService {
   // GET DETAIL
   // ─────────────────────────────────────────────
   private checkRecordInScope(
-    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    record: {
+      investigatorId?: string | null;
+      assignedTeamId?: string | null;
+      intakeStage?: string | null;
+    },
     dataScope?: DataScope | null,
   ) {
     if (!dataScope) return; // admin or no scope = allow
@@ -925,9 +1228,14 @@ export class CasesService {
    * trả về cho trang chi tiết (ẩn nút ghi khi chỉ xem được, 20/09/2026).
    */
   private coQuyenGhi(
-    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    record: {
+      investigatorId?: string | null;
+      assignedTeamId?: string | null;
+      intakeStage?: string | null;
+    },
     dataScope?: DataScope | null,
   ): boolean {
+    if (record.intakeStage === 'CHO_NHAN') return false;
     if (!dataScope) return true;
     // Người GHI được (không gồm thành viên tổ chỉ-xem); xem `DataScope.writableUserIds`.
     const {
@@ -947,15 +1255,29 @@ export class CasesService {
   }
 
   private checkWriteScope(
-    record: { investigatorId?: string | null; assignedTeamId?: string | null },
+    record: {
+      investigatorId?: string | null;
+      assignedTeamId?: string | null;
+      intakeStage?: string | null;
+    },
     dataScope?: DataScope | null,
   ) {
+    if (record.intakeStage === 'CHO_NHAN')
+      throw new ConflictException('Pending handoff protects this case');
     if (!this.coQuyenGhi(record, dataScope)) {
       throw new ForbiddenException('Bạn không có quyền chỉnh sửa bản ghi này');
     }
   }
 
-  async getById(id: string, dataScope?: DataScope | null) {
+  async getById(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    purpose: 'read' | 'export' = 'read',
+  ) {
+    if (purpose === 'export' && actorId)
+      await this.governance.assertGeneralExport(this.prisma, { actorId });
+    await this.authorizeRead(id, actorId);
     const record = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -1011,14 +1333,16 @@ export class CasesService {
     return {
       success: true,
       data: {
-        ...record,
+        ...(await this.serializeCase(record, actorId, purpose)),
         utdtReplyConflict:
           record.caseType === CaseType.UY_THAC_DIEU_TRA
             ? hasUtdtReplyConflict(record)
             : false,
         autoLinkedIncident: autoLinkedIncident ?? null,
         // Giao diện ẩn nút ghi khi false — cùng luật với checkWriteScope (máy chủ vẫn chặn ghi như cũ).
-        quyenGhi: this.coQuyenGhi(record, dataScope),
+        quyenGhi: actorId
+          ? await this.governance.canCaseEdit(this.prisma, id, { actorId })
+          : this.coQuyenGhi(record, dataScope),
       },
     };
   }
@@ -1166,6 +1490,22 @@ export class CasesService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    if (
+      dto.metadata?.sensitivity !== undefined &&
+      dto.metadata.sensitivity !== 'NORMAL'
+    )
+      throw new BadRequestException('Classify sensitivity through governance');
+    if (
+      dto.cloneSourceCaseId &&
+      (dto.linkedIncidentId ||
+        dto.linkedPetitionId ||
+        dto.caseProvenance === CaseProvenance.FROM_INCIDENT ||
+        dto.caseProvenance === CaseProvenance.FROM_PETITION)
+    )
+      throw new BadRequestException('Clone must reset source provenance links');
+    dto = normalizeCanonicalCaseWrite(
+      dto as unknown as Record<string, unknown>,
+    ) as unknown as CreateCaseDto;
     const reviewedDuplicateIds = assertReviewedCandidates(
       await this.findDuplicateCandidates(
         dto.name,
@@ -1173,6 +1513,7 @@ export class CasesService {
         undefined,
         dataScope,
         dto.soQuyetDinhUyThac,
+        actorId,
       ),
       dto.acknowledgedDuplicateIds,
     );
@@ -1217,15 +1558,9 @@ export class CasesService {
       crime: dto.crime,
       crimeChinhId: dto.crimeChinhId,
       status: dto.status ?? CaseStatus.TIEP_NHAN,
-      // Vụ án có thể được TẠO thẳng ở trạng thái kết thúc (biểu mẫu cho chọn). Coi đó là
-      // chuyển tiếp từ TIEP_NHAN nên mốc được đóng ngay — nếu không, vụ án vừa tạo đã xong
-      // lại rơi vào ô "đã xong nhưng chưa rõ ngày" và không vào kỳ nào.
-      ...machMocGiaiQuyet(
-        'case',
-        CaseStatus.TIEP_NHAN,
-        dto.status ?? CaseStatus.TIEP_NHAN,
-        null,
-      ),
+      // Đăng ký hồ sơ lịch sử không phải là một quyết định tố tụng. Nếu ngày giải
+      // quyết chưa được xác minh thì phải giữ UNKNOWN; chỉ nghiệp vụ quyết định có
+      // ngày hiệu lực thực tế mới được đóng mốc này.
       investigatorId: dto.investigatorId,
       createdById: actorId, // v0.31.0.2: creator track
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
@@ -1470,93 +1805,69 @@ export class CasesService {
       },
     };
 
-    // ── FROM_PETITION: link existing Petition (IDOR-safe + optimistic lock) ──
+    // Legacy POST /cases source paths use the same current-authority,
+    // idempotency, event/outbox and serialization boundary as the dedicated
+    // Petition/Incident conversion endpoints.
     if (effectiveProvenance === CaseProvenance.FROM_PETITION) {
-      // Build scope filter for Petition (DataScope): same OR conditions as petitions.service checkWriteScope
-      const petitionScopeOR: Prisma.PetitionWhereInput[] = [];
-      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
-      if (dataScope) {
-        if (dataScope.writableUserIds.length > 0) {
-          petitionScopeOR.push({
-            enteredById: { in: dataScope.writableUserIds },
-          });
-        }
-        if (dataScope.writableTeamIds.length > 0) {
-          petitionScopeOR.push({
-            assignedTeamId: { in: dataScope.writableTeamIds },
-          });
-          if (!dataScope.isWardOfficer) {
-            petitionScopeOR.push({ assignedTeamId: null });
-          }
-        }
-      }
+      const creation = await this.sourceCreation
+        .execute(
+          {
+            kind: 'Petition',
+            sourceId: dto.linkedPetitionId!,
+            expectedUpdatedAt: dto.expectedPetitionUpdatedAt,
+            payload: { ...dto },
+          },
+          actorId,
+          async (tx, currentSource, context) => {
+            const petition = currentSource as Petition;
+            if (petition.linkedCaseId)
+              throw new ConflictException(
+                'Đơn thư đã được liên kết với vụ án khác',
+              );
 
-      const caseRecord = await this.prisma
-        .$transaction(async (tx) => {
-          const manualCaseCode = dto.caseCode?.trim();
-          const committedCaseCode = manualCaseCode
-            ? await this.docNums.commitWithTx('CASE', { userId: actorId }, tx, {
-                suppliedNumber: manualCaseCode,
-              })
-            : await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
-          const caseCode = manualCaseCode || committedCaseCode.number;
-
-          const petition = await tx.petition.findFirst({
-            where: {
-              id: dto.linkedPetitionId!,
-              deletedAt: null,
-              ...(dataScope
-                ? {
-                    OR:
-                      petitionScopeOR.length > 0
-                        ? petitionScopeOR
-                        : [{ id: '__no_access__' }],
-                  }
-                : {}),
-            },
-          });
-          if (!petition) {
-            // Consistent 404 — no enumeration leak (not-found vs out-of-scope indistinguishable)
-            throw new NotFoundException(
-              'Đơn thư không tồn tại hoặc không nằm trong phạm vi của bạn',
+            const manualCaseCode = dto.caseCode?.trim();
+            const committedCaseCode = manualCaseCode
+              ? await this.docNums.commitWithTx(
+                  'CASE',
+                  { userId: actorId },
+                  tx,
+                  { suppliedNumber: manualCaseCode },
+                )
+              : await this.docNums.commitWithTx(
+                  'CASE',
+                  { userId: actorId },
+                  tx,
+                );
+            const custom = await this.prepareCreateFields(tx, dto, actorId);
+            const newCase = await tx.case.create({
+              data: await context.prepare({
+                ...baseCaseData,
+                ...custom,
+                metadata: custom.metadata as JsonInput,
+                caseCode: manualCaseCode || committedCaseCode.number,
+                linkedPetitionId: petition.id,
+              }),
+              include: caseInclude,
+            });
+            await tx.documentNumberLog.update({
+              where: { id: committedCaseCode.logId },
+              data: { documentId: newCase.id },
+            });
+            await this.createSubEntitiesInTransaction(
+              tx,
+              newCase.id,
+              dto,
+              actorId,
             );
-          }
-          if (petition.linkedCaseId) {
-            // Đơn thư trong phạm vi nhưng đã liên kết vụ án khác → 409 (rõ nghĩa hơn 404)
-            throw new ConflictException(
-              'Đơn thư đã được liên kết với vụ án khác',
-            );
-          }
-
-          const newCase = await tx.case.create({
-            data: { ...baseCaseData, caseCode, linkedPetitionId: petition.id },
-            include: caseInclude,
-          });
-
-          await tx.documentNumberLog.update({
-            where: { id: committedCaseCode.logId },
-            data: { documentId: newCase.id },
-          });
-
-          // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
-          await this.createSubEntitiesInTransaction(
-            tx,
-            newCase.id,
-            dto,
-            actorId,
-          );
-
-          // Atomic state check via WHERE updatedAt + linkedCaseId=null
-          try {
             await tx.petition.update({
               where: {
                 id: petition.id,
-                updatedAt: new Date(dto.expectedPetitionUpdatedAt!),
+                updatedAt: petition.updatedAt,
+                linkedCaseId: null,
               },
               data: {
                 linkedCaseId: newCase.id,
                 status: PetitionStatus.DA_CHUYEN_VU_AN,
-                // Xem chú thích cùng nội dung ở petitions.service.ts.
                 ...machMocGiaiQuyet(
                   'petition',
                   petition.status,
@@ -1565,148 +1876,121 @@ export class CasesService {
                 ),
               },
             });
-          } catch (e) {
-            const code = (e as { code?: string })?.code;
-            if (code === 'P2025' || code === 'P2002') {
-              throw new ConflictException(
-                'Đơn thư đã được chỉnh sửa hoặc link bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
-              );
-            }
-            throw e;
-          }
-
-          return newCase;
-        })
+            await this.audit.log(
+              {
+                userId: actorId,
+                action: 'CASE_CREATED',
+                subject: 'Case',
+                subjectId: newCase.id,
+                metadata: {
+                  name: newCase.name,
+                  status: newCase.status,
+                  caseProvenance: effectiveProvenance,
+                  linkedPetitionId: petition.id,
+                },
+                ipAddress: meta?.ipAddress,
+                userAgent: meta?.userAgent,
+              },
+              tx,
+            );
+            return newCase;
+          },
+        )
         .catch((error: unknown) => {
-          if ((error as { code?: string })?.code === 'P2002' && dto.caseCode) {
+          const code = (error as { code?: string })?.code;
+          if (code === 'P2002' && dto.caseCode)
             throw new ConflictException('Mã hồ sơ đã tồn tại');
-          }
+          if (code === 'P2025' || code === 'P2002')
+            throw new ConflictException(
+              'Đơn thư đã được chỉnh sửa hoặc liên kết; vui lòng tải lại',
+            );
           throw error;
         });
-
-      await this.audit.log({
-        userId: actorId,
-        action: 'CASE_CREATED',
-        subject: 'Case',
-        subjectId: caseRecord.id,
-        metadata: {
-          name: caseRecord.name,
-          status: caseRecord.status,
-          caseProvenance: effectiveProvenance,
-          linkedPetitionId: dto.linkedPetitionId,
-        },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      });
-
-      this.eventEmitter.emit(
-        'case.created',
-        new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
-      );
+      if (!creation.replayed)
+        this.eventEmitter.emit(
+          'case.created',
+          new CaseCreatedEvent(
+            creation.caseRecord.id,
+            creation.caseRecord.caseCode ?? '',
+            actorId,
+          ),
+        );
       return {
         success: true,
-        data: caseRecord,
+        data: creation.caseRecord,
         message: 'Tạo vụ án thành công',
       };
     }
 
-    // ── FROM_INCIDENT: link existing Incident (IDOR-safe + optimistic lock) ──
     if (effectiveProvenance === CaseProvenance.FROM_INCIDENT) {
-      const incidentScopeOR: Prisma.IncidentWhereInput[] = [];
-      // Liên kết hồ sơ là thao tác GHI: điều phối viên cũng chỉ trong phạm vi ghi (quyết định 19/09/2026).
-      if (dataScope) {
-        if (dataScope.writableUserIds.length > 0) {
-          incidentScopeOR.push({
-            investigatorId: { in: dataScope.writableUserIds },
-          });
-        }
-        if (dataScope.writableTeamIds.length > 0) {
-          incidentScopeOR.push({
-            assignedTeamId: { in: dataScope.writableTeamIds },
-          });
-          if (!dataScope.isWardOfficer) {
-            incidentScopeOR.push({ assignedTeamId: null });
-          }
-        }
-      }
-
-      const caseRecord = await this.prisma
-        .$transaction(async (tx) => {
-          const manualCaseCode = dto.caseCode?.trim();
-          const committedCaseCode = manualCaseCode
-            ? await this.docNums.commitWithTx('CASE', { userId: actorId }, tx, {
-                suppliedNumber: manualCaseCode,
-              })
-            : await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
-          const caseCode = manualCaseCode || committedCaseCode.number;
-
-          const incident = await tx.incident.findFirst({
-            where: {
-              id: dto.linkedIncidentId!,
-              deletedAt: null,
-              linkedCaseId: null,
-              ...(dataScope
-                ? {
-                    OR:
-                      incidentScopeOR.length > 0
-                        ? incidentScopeOR
-                        : [{ id: '__no_access__' }],
-                  }
-                : {}),
-            },
-          });
-          if (!incident) {
-            throw new NotFoundException(
-              'Vụ việc không tồn tại hoặc không nằm trong phạm vi của bạn',
+      const creation = await this.sourceCreation
+        .execute(
+          {
+            kind: 'Incident',
+            sourceId: dto.linkedIncidentId!,
+            expectedUpdatedAt: dto.expectedIncidentUpdatedAt,
+            payload: { ...dto },
+          },
+          actorId,
+          async (tx, currentSource, context) => {
+            const incident = currentSource as Incident;
+            if (incident.linkedCaseId)
+              throw new ConflictException(
+                'Vụ việc đã được liên kết với vụ án khác',
+              );
+            validateIncidentProsecution(
+              incident,
+              dto.soQuyetDinhKhoiTo,
+              dto.ngayKhoiTo,
             );
-          }
 
-          validateIncidentProsecution(
-            incident,
-            dto.soQuyetDinhKhoiTo,
-            dto.ngayKhoiTo,
-          );
-
-          const newCase = await tx.case.create({
-            data: {
-              ...incidentSourceToCase(incident),
-              ...baseCaseData,
-              // Undefined Case form fields retain their verified source values.
-              moTaChiTiet: dto.moTaChiTiet ?? incident.description,
-              crimeChinhId: dto.crimeChinhId ?? incident.crimeChinhId,
-              assignedTeamId:
-                effectiveAssignedTeamId ?? incident.assignedTeamId,
-              investigatorId: dto.investigatorId ?? incident.investigatorId,
-              donViGiaiQuyet: dto.donViGiaiQuyet ?? incident.donViGiaiQuyet,
-              metadata: {
-                ...(dto.metadata ?? {}),
-                incidentSourceSnapshot: incidentSourceSnapshot(incident),
-              },
-              soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo!.trim(),
-              caseCode,
-              linkedIncidentId: incident.id,
-            },
-            include: caseInclude,
-          });
-
-          await tx.documentNumberLog.update({
-            where: { id: committedCaseCode.logId },
-            data: { documentId: newCase.id },
-          });
-
-          // PR 1 v0.38.0.0: atomic create sub-entities trong cùng transaction
-          await this.createSubEntitiesInTransaction(
-            tx,
-            newCase.id,
-            dto,
-            actorId,
-          );
-
-          try {
+            const manualCaseCode = dto.caseCode?.trim();
+            const committedCaseCode = manualCaseCode
+              ? await this.docNums.commitWithTx(
+                  'CASE',
+                  { userId: actorId },
+                  tx,
+                  { suppliedNumber: manualCaseCode },
+                )
+              : await this.docNums.commitWithTx(
+                  'CASE',
+                  { userId: actorId },
+                  tx,
+                );
+            const custom = await this.prepareCreateFields(tx, dto, actorId);
+            const newCase = await tx.case.create({
+              data: await context.prepare({
+                ...incidentSourceToCase(incident),
+                ...baseCaseData,
+                ...custom,
+                moTaChiTiet: dto.moTaChiTiet ?? incident.description,
+                crimeChinhId: dto.crimeChinhId ?? incident.crimeChinhId,
+                donViGiaiQuyet:
+                  dto.donViGiaiQuyet ?? incident.donViGiaiQuyet,
+                metadata: {
+                  ...custom.metadata,
+                  incidentSourceSnapshot: incidentSourceSnapshot(incident),
+                },
+                soQuyetDinhKhoiTo: dto.soQuyetDinhKhoiTo!.trim(),
+                caseCode: manualCaseCode || committedCaseCode.number,
+                linkedIncidentId: incident.id,
+              }),
+              include: caseInclude,
+            });
+            await tx.documentNumberLog.update({
+              where: { id: committedCaseCode.logId },
+              data: { documentId: newCase.id },
+            });
+            await this.createSubEntitiesInTransaction(
+              tx,
+              newCase.id,
+              dto,
+              actorId,
+            );
             await tx.incident.update({
               where: {
                 id: incident.id,
-                updatedAt: new Date(dto.expectedIncidentUpdatedAt!),
+                updatedAt: incident.updatedAt,
                 linkedCaseId: null,
                 deletedAt: null,
                 intakeStage: incident.intakeStage,
@@ -1725,89 +2009,75 @@ export class CasesService {
                 ),
               },
             });
-          } catch (e) {
-            const code = (e as { code?: string })?.code;
-            if (code === 'P2025' || code === 'P2002') {
-              throw new ConflictException(
-                'Vụ việc đã được chỉnh sửa hoặc link bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
-              );
-            }
-            throw e;
-          }
-
-          await tx.incidentStatusHistory.create({
-            data: {
-              incidentId: incident.id,
-              fromStatus: incident.status,
-              toStatus: IncidentStatus.DA_CHUYEN_VU_AN,
-              changedById: actorId,
-              note: `Khởi tố thành vụ án: ${newCase.name}`,
-            },
-          });
-          await this.audit.log(
-            {
-              userId: actorId,
-              action: 'INCIDENT_PROSECUTED',
-              subject: 'Incident',
-              subjectId: incident.id,
-              metadata: { caseId: newCase.id, caseName: newCase.name },
-              ipAddress: meta?.ipAddress,
-              userAgent: meta?.userAgent,
-            },
-            tx,
-          );
-          await this.audit.log(
-            {
-              userId: actorId,
-              action: 'CASE_CREATED',
-              subject: 'Case',
-              subjectId: newCase.id,
-              metadata: {
-                name: newCase.name,
-                status: newCase.status,
-                caseProvenance: effectiveProvenance,
-                linkedIncidentId: incident.id,
+            await tx.incidentStatusHistory.create({
+              data: {
+                incidentId: incident.id,
+                fromStatus: incident.status,
+                toStatus: IncidentStatus.DA_CHUYEN_VU_AN,
+                changedById: actorId,
+                note: `Khởi tố thành vụ án: ${newCase.name}`,
               },
-              ipAddress: meta?.ipAddress,
-              userAgent: meta?.userAgent,
-            },
-            tx,
-          );
-          return newCase;
-        })
+            });
+            await this.audit.log(
+              {
+                userId: actorId,
+                action: 'INCIDENT_PROSECUTED',
+                subject: 'Incident',
+                subjectId: incident.id,
+                metadata: { caseId: newCase.id, caseName: newCase.name },
+                ipAddress: meta?.ipAddress,
+                userAgent: meta?.userAgent,
+              },
+              tx,
+            );
+            await this.audit.log(
+              {
+                userId: actorId,
+                action: 'CASE_CREATED',
+                subject: 'Case',
+                subjectId: newCase.id,
+                metadata: {
+                  name: newCase.name,
+                  status: newCase.status,
+                  caseProvenance: effectiveProvenance,
+                  linkedIncidentId: incident.id,
+                },
+                ipAddress: meta?.ipAddress,
+                userAgent: meta?.userAgent,
+              },
+              tx,
+            );
+            return newCase;
+          },
+        )
         .catch((error: unknown) => {
-          if ((error as { code?: string })?.code === 'P2002' && dto.caseCode) {
+          const code = (error as { code?: string })?.code;
+          if (code === 'P2002' && dto.caseCode)
             throw new ConflictException('Mã hồ sơ đã tồn tại');
-          }
+          if (code === 'P2025' || code === 'P2002')
+            throw new ConflictException(
+              'Vụ việc đã được chỉnh sửa hoặc liên kết; vui lòng tải lại',
+            );
           throw error;
         });
-
-      this.eventEmitter.emit(
-        'case.created',
-        new CaseCreatedEvent(caseRecord.id, caseRecord.caseCode ?? '', actorId),
-      );
+      if (!creation.replayed)
+        this.eventEmitter.emit(
+          'case.created',
+          new CaseCreatedEvent(
+            creation.caseRecord.id,
+            creation.caseRecord.caseCode ?? '',
+            actorId,
+          ),
+        );
       return {
         success: true,
-        data: caseRecord,
+        data: creation.caseRecord,
         message: 'Tạo vụ án thành công',
       };
     }
 
     // ── DIRECT_DISCOVERY / TRANSFERRED / OTHER_LEGAL_SOURCE ──
-    // v0.40: Branch 3 now wrapped in $transaction (atomic). Auto-creates Incident
-    // when Tab Vụ việc has incidentDate/incidentType/incidentDescription/incidentLocation.
-    // CRITICAL: Do NOT set baseCaseData.linkedIncidentId — violates case_provenance_fk_consistency.
-    // Link is stored one-way: Incident.linkedCaseId = caseRecord.id (set after Case creation).
-    // NOTE: audit log fires outside the transaction (post-commit side-effect). This is intentional:
-    // the incident exists at that point, so the audit is accurate even if the process crashes here.
-    const needsAutoIncident = shouldAutoCreateIncident(
-      effectiveProvenance,
-      dto.metadata ?? {},
-    );
-
-    let autoIncidentId: string | null = null;
-    let autoIncidentCode: string | null = null;
-    let autoIncidentName: string | null = null;
+    // New Case registration keeps source creation explicit; no tab-save side effects.
     let record!: Awaited<ReturnType<typeof this.prisma.case.create>>;
     try {
       record = await this.prisma.$transaction(async (tx: PrismaTx) => {
@@ -1824,34 +2094,28 @@ export class CasesService {
           : await this.docNums.commitWithTx('CASE', { userId: actorId }, tx);
         const caseCode = manualCaseCode || committedCaseCode.number;
 
-        let incidentLogId: string | null = null;
-        if (needsAutoIncident) {
-          const { number: incCode, logId: incLogId } =
-            await this.docNums.commitWithTx(
-              'INCIDENT',
-              { userId: actorId },
-              tx,
-            );
-          incidentLogId = incLogId;
-          const incData = buildIncidentFromCase({
-            rawName: dto.name,
-            meta: dto.metadata ?? {},
-            code: incCode,
-            userId: actorId,
-            investigatorId: actorId,
-            assignedTeamId: dto.assignedTeamId ?? undefined,
-          });
-          const newInc = await tx.incident.create({ data: incData });
-          autoIncidentId = newInc.id;
-          autoIncidentCode = incCode;
-          autoIncidentName = newInc.name;
-          await tx.documentNumberLog.update({
-            where: { id: incidentLogId },
-            data: { documentId: newInc.id },
-          });
-        }
+        await this.governance.assertCaseCreation(
+          tx,
+          { actorId },
+          {
+            assignedTeamId: baseCaseData.assignedTeamId as
+              | string
+              | null
+              | undefined,
+            investigatorId: baseCaseData.investigatorId as
+              | string
+              | null
+              | undefined,
+          },
+        );
+        const custom = await this.prepareCreateFields(tx, dto, actorId);
         const caseRecord = await tx.case.create({
-          data: { ...baseCaseData, caseCode },
+          data: {
+            ...baseCaseData,
+            ...custom,
+            metadata: custom.metadata as JsonInput,
+            caseCode,
+          },
           include: caseInclude,
         });
         await tx.documentNumberLog.update({
@@ -1864,12 +2128,6 @@ export class CasesService {
           dto,
           actorId,
         );
-        if (autoIncidentId) {
-          await tx.incident.update({
-            where: { id: autoIncidentId },
-            data: { linkedCaseId: caseRecord.id },
-          });
-        }
         return caseRecord;
       });
     } catch (e: unknown) {
@@ -1882,18 +2140,6 @@ export class CasesService {
           'Trùng mã vụ việc hoặc số quyết định ủy thác',
         );
       throw e;
-    }
-
-    if (autoIncidentId) {
-      await this.audit.log({
-        userId: actorId,
-        action: 'INCIDENT_AUTO_CREATED',
-        subject: 'Incident',
-        subjectId: autoIncidentId,
-        metadata: { triggeredByCaseId: record.id, caseName: record.name },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      });
     }
 
     await this.audit.log({
@@ -1916,16 +2162,13 @@ export class CasesService {
       new CaseCreatedEvent(record.id, record.caseCode ?? '', actorId),
     );
 
-    const autoLinkedIncident = autoIncidentId
-      ? {
-          id: autoIncidentId,
-          code: autoIncidentCode ?? '',
-          name: autoIncidentName ?? dto.name,
-        }
-      : null;
+    const autoLinkedIncident = null;
     return {
       success: true,
-      data: { ...record, autoLinkedIncident },
+      data: {
+        ...(await this.serializeCase(record, actorId)),
+        autoLinkedIncident,
+      },
       message: 'Tạo vụ án thành công',
     };
   }
@@ -1940,8 +2183,14 @@ export class CasesService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
+    if (
+      dto.name !== undefined &&
+      (typeof dto.name !== 'string' || !dto.name.trim())
+    )
+      throw new BadRequestException('Case name is required');
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
+      include: { statistic: true },
     });
 
     if (!existing) {
@@ -1949,6 +2198,17 @@ export class CasesService {
     }
 
     this.checkWriteScope(existing, dataScope);
+    if (
+      dto.metadata &&
+      Object.prototype.hasOwnProperty.call(dto.metadata, 'sensitivity') &&
+      dto.metadata.sensitivity !==
+        (existing.metadata as Record<string, unknown> | null)?.sensitivity
+    )
+      throw new BadRequestException('Classify sensitivity through governance');
+    dto = normalizeCanonicalCaseWrite(
+      dto as unknown as Record<string, unknown>,
+      existing.metadata,
+    ) as unknown as UpdateCaseDto;
 
     let reviewedDuplicateIds: string[] = [];
     const nameChanged = Boolean(
@@ -1965,6 +2225,7 @@ export class CasesService {
           id,
           dataScope,
           dto.soQuyetDinhUyThac ?? existing.soQuyetDinhUyThac ?? undefined,
+          actorId,
         ),
         dto.acknowledgedDuplicateIds,
       );
@@ -2001,27 +2262,13 @@ export class CasesService {
     }
 
     // ── TAM_DINH_CHI validation & auto-fields ─────────────────────────────────
-    const MIGRATION_DATE = new Date('2026-04-30');
-    let tamDinhChiWarning: string | undefined;
-
     if (
       dto.status === CaseStatus.TAM_DINH_CHI &&
       dto.status !== existing.status
     ) {
-      const lyDo = (
-        dto as UpdateCaseDto & { lyDoTamDinhChiVuAn?: LyDoTamDinhChiVuAn[] }
-      ).lyDoTamDinhChiVuAn;
-      if (!lyDo || lyDo.length === 0) {
-        if (existing.createdAt < MIGRATION_DATE) {
-          // Soft-warn: case pre-dates migration — allow but warn (90-day grace period)
-          tamDinhChiWarning =
-            'Khuyến nghị: Vui lòng cập nhật lý do tạm đình chỉ theo quy định Điều 229 BLTTHS 2015 (áp dụng bắt buộc từ 30/04/2026)';
-        } else {
-          throw new BadRequestException(
-            'Vui lòng chọn lý do tạm đình chỉ theo quy định Điều 229 BLTTHS 2015',
-          );
-        }
-      }
+      if (!dto.lyDoTamDinhChiVuAn?.length)
+        throw new BadRequestException('Suspension reason required');
+      civilDate(dto.ngayTamDinhChi);
     }
 
     const updateData: Prisma.CaseUncheckedUpdateInput = {
@@ -2059,10 +2306,7 @@ export class CasesService {
       // MERGE (không REPLACE): giữ mọi field metadata cũ (di trú) + ghi đè field được sửa
       // → sửa 1 field KHÔNG bao giờ xóa field khác (an toàn data pháp lý).
       ...(dto.metadata !== undefined && {
-        metadata: {
-          ...((existing.metadata as Record<string, unknown> | null) ?? {}),
-          ...dto.metadata,
-        } as JsonInput,
+        metadata: dto.metadata as JsonInput,
       }),
       ...(dto.capDoToiPham !== undefined && { capDoToiPham: dto.capDoToiPham }),
       ...(dto.ngayKhoiTo !== undefined && {
@@ -2333,8 +2577,15 @@ export class CasesService {
       dto.status === CaseStatus.TAM_DINH_CHI &&
       dto.status !== existing.status
     ) {
-      if (!updateData.ngayTamDinhChi) {
-        updateData.ngayTamDinhChi = new Date();
+      if (
+        !updateData.ngayTamDinhChi ||
+        !Number.isFinite(
+          new Date(updateData.ngayTamDinhChi as string).getTime(),
+        )
+      ) {
+        throw new BadRequestException(
+          'A real suspension decision date is required',
+        );
       }
       updateData.soLanTamDinhChi = { increment: 1 };
     }
@@ -2353,10 +2604,143 @@ export class CasesService {
     } as const;
     // Khoá lạc quan: chỉ ghi khi vụ án chưa bị ai sửa từ lúc form mở (P2025 → 409 bên dưới).
     const mocDaMo = dto.expectedUpdatedAt;
-    const khoaLacQuan = mocDaMo ? { updatedAt: new Date(mocDaMo) } : {};
+    const khoaLacQuan = {
+      updatedAt: mocDaMo ? new Date(mocDaMo) : existing.updatedAt,
+      status: existing.status,
+      intakeStage: existing.intakeStage,
+      investigatorId: existing.investigatorId,
+      assignedTeamId: existing.assignedTeamId,
+      deletedAt: null,
+      governanceRevision: existing.governanceRevision,
+      sensitivity: existing.sensitivity,
+    };
     let record: Prisma.CaseGetPayload<{ include: typeof chonDieuTraVien }>;
     try {
       record = await this.prisma.$transaction(async (tx) => {
+        await this.lockCase(tx, id);
+        const currentCase = await this.governance.assertCaseWritable(tx, id, {
+          actorId,
+        });
+        const flag = await tx.featureFlag.findUnique({
+          where: { key: 'CASE_GOVERNANCE_V1' },
+        });
+        const adopted =
+          !!currentCase.governanceRuleVersionId ||
+          !!currentCase.fieldDefinitionVersionId ||
+          currentCase.governanceRevision > 0;
+        if (
+          adopted &&
+          dto.status !== undefined &&
+          dto.status !== currentCase.status
+        )
+          throw new BadRequestException(
+            'Use a governed legal action; recovery mode preserves adopted Case state',
+          );
+        if (adopted) {
+          const legalColumns = [
+            'deadline',
+            'ngayKhoiTo',
+            'ngayTamDinhChi',
+            'ngayPhucHoi',
+            'ngayDinhChiVuAn',
+            'ngayKLDT',
+            'ngayQDDieuTraLai',
+            'ngayTachVuAn',
+            'ngayTachHanhVi',
+            'soLanTamDinhChi',
+            'soLanGiaHan',
+            'lyDoTamDinhChiVuAn',
+            'lyDoTamDinhChiText',
+            'canCuTamDinhChiVuAn',
+            'canCuPhucHoiVuAn',
+            'ketQuaPhucHoiVuAn',
+            'soQuyetDinhTamDinhChi',
+            'soQuyetDinhPhucHoi',
+            'soQDDinhChiVuAn',
+            'soKLDT',
+            'soQDDieuTraLai',
+            'soQDTachVuAn',
+            'soQDTachHanhVi',
+            'chuyenVuAnChoCQK',
+          ];
+          const before = currentCase as unknown as Record<string, unknown>;
+          const next = updateData as unknown as Record<string, unknown>;
+          const normalized = (value: unknown) =>
+            value instanceof Date
+              ? value.toISOString()
+              : JSON.stringify(value ?? null);
+          if (
+            legalColumns.some(
+              (key) =>
+                next[key] !== undefined &&
+                normalized(next[key]) !== normalized(before[key]),
+            )
+          )
+            throw new BadRequestException(
+              'Use a governed legal action to change adopted legal dates, reasons or deadlines',
+            );
+        }
+        const ownerChanged =
+          (dto.investigatorId !== undefined &&
+            dto.investigatorId !== existing.investigatorId) ||
+          (dto.assignedTeamId !== undefined &&
+            dto.assignedTeamId !== existing.assignedTeamId);
+        if (ownerChanged) {
+          if (flag?.enabled)
+            throw new BadRequestException(
+              'Use the assignment action for investigators or handoff for another team',
+            );
+          await this.governance.assertCaseAssignable(tx, id, { actorId });
+          const targetTeam =
+            dto.assignedTeamId === undefined
+              ? existing.assignedTeamId
+              : dto.assignedTeamId;
+          const targetInvestigator =
+            dto.investigatorId === undefined
+              ? existing.investigatorId
+              : dto.investigatorId;
+          await this.governance.validateAssignmentTarget(
+            tx,
+            targetTeam ?? null,
+            targetInvestigator ?? null,
+          );
+          if (dto.assignedTeamId !== undefined)
+            updateData.assignedTeamId = dto.assignedTeamId;
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'CASE_ASSIGNED',
+              subject: 'Case',
+              subjectId: id,
+              metadata: {
+                fromTeamId: existing.assignedTeamId,
+                toTeamId: targetTeam ?? null,
+                fromInvestigatorId: existing.investigatorId,
+                toInvestigatorId: targetInvestigator ?? null,
+              },
+            },
+            tx,
+          );
+        }
+        if (
+          flag?.enabled &&
+          (!dto.expectedUpdatedAt ||
+            (dto.status !== undefined && dto.status !== existing.status))
+        )
+          throw new BadRequestException(
+            'Governed Case changes require versioned legal commands',
+          );
+        const custom = await this.fieldSchema.validateForWrite(
+          tx,
+          dto as unknown as {
+            metadata?: unknown;
+            fieldDefinitionVersionId?: unknown;
+          },
+          existing,
+          { actorId },
+        );
+        updateData.metadata = custom.metadata as JsonInput;
+        updateData.fieldDefinitionVersionId = custom.fieldDefinitionVersionId;
         const sau = await this.audit.wrapUpdate<
           Prisma.CaseGetPayload<{
             include: typeof chonDieuTraVien;
@@ -2389,6 +2773,34 @@ export class CasesService {
           dto as CreateCaseDto,
           actorId,
         );
+        // Ghi nhận riêng khi đổi trạng thái
+        if (dto.status !== undefined && dto.status !== existing.status) {
+          await tx.caseStatusHistory.create({
+            data: {
+              caseId: id,
+              fromStatus: existing.status,
+              toStatus: dto.status,
+              changedById: actorId ?? null,
+            },
+          });
+          await this.audit.log(
+            {
+              userId: actorId,
+              action: 'CASE_STATUS_CHANGED',
+              subject: 'Case',
+              subjectId: id,
+              metadata: {
+                fromStatus: existing.status,
+                toStatus: dto.status,
+                changedAt: new Date().toISOString(),
+              },
+              ipAddress: meta?.ipAddress,
+              userAgent: meta?.userAgent,
+            },
+            tx,
+          );
+        }
+
         return sau;
       });
     } catch (e) {
@@ -2398,7 +2810,7 @@ export class CasesService {
       ) {
         throw new ConflictException('Mã hồ sơ đã tồn tại');
       }
-      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+      if ((e as { code?: string })?.code === 'P2025') {
         throw new ConflictException(
           'Hồ sơ đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
         );
@@ -2430,31 +2842,6 @@ export class CasesService {
       // else: silently ignore — no phantom Petition created.
     }
 
-    // Ghi nhận riêng khi đổi trạng thái
-    if (dto.status !== undefined && dto.status !== existing.status) {
-      await this.prisma.caseStatusHistory.create({
-        data: {
-          caseId: id,
-          fromStatus: existing.status,
-          toStatus: dto.status,
-          changedById: actorId ?? null,
-        },
-      });
-      await this.audit.log({
-        userId: actorId,
-        action: 'CASE_STATUS_CHANGED',
-        subject: 'Case',
-        subjectId: id,
-        metadata: {
-          fromStatus: existing.status,
-          toStatus: dto.status,
-          changedAt: new Date().toISOString(),
-        },
-        ipAddress: meta?.ipAddress,
-        userAgent: meta?.userAgent,
-      });
-    }
-
     // v0.30: CASE_UPDATED audit moved into wrapUpdate above. KEEP CASE_STATUS_CHANGED + PETITION_AUTO_CREATED.
 
     if (reviewedDuplicateIds.length > 0) {
@@ -2471,9 +2858,8 @@ export class CasesService {
 
     return {
       success: true,
-      data: record,
+      data: await this.serializeCase(record, actorId),
       message: 'Cập nhật vụ án thành công',
-      ...(tamDinhChiWarning && { warning: tamDinhChiWarning }),
     };
   }
 
@@ -2574,6 +2960,16 @@ export class CasesService {
     // + soft delete (status TOCTOU guard) + audit log
     try {
       await this.prisma.$transaction(async (tx) => {
+        await this.lockCase(tx, id);
+        await this.governance.assertCaseWritable(tx, id, { actorId });
+        if (
+          await tx.caseEvidenceHold.count({
+            where: { caseId: id, releasedAt: null },
+          })
+        )
+          throw new ConflictException(
+            'Active evidence hold protects this case',
+          );
         // v0.43: SetNull Incidents linked to this Case (Branch-3: Incident.linkedCaseId)
         // Must run BEFORE in-tx re-check so counts don't interfere.
         await tx.incident.updateMany({
@@ -2684,7 +3080,9 @@ export class CasesService {
   async previewDelete(
     id: string,
     dataScope?: DataScope | null,
+    actorId?: string,
   ): Promise<DeleteCasePreflightResponse> {
+    await this.authorizeRead(id, actorId);
     const existing = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       include: {
@@ -2766,6 +3164,8 @@ export class CasesService {
     // 2+3. Atomic transaction: restore + audit (no orphan if audit throws)
     try {
       await this.prisma.$transaction(async (tx) => {
+        await this.lockCase(tx, id);
+        await this.governance.assertCaseRestorable(tx, id, { actorId });
         await tx.case.update({
           where: { id, deletedAt: { not: null } },
           data: { deletedAt: null },
@@ -2805,12 +3205,15 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // LIST DELETED — paginated list deleted Cases + enriched delete audit
   // ─────────────────────────────────────────────
-  async listDeleted(query: {
-    limit?: number;
-    offset?: number;
-    search?: string;
-    tk?: string[];
-  }) {
+  async listDeleted(
+    query: {
+      limit?: number;
+      offset?: number;
+      search?: string;
+      tk?: string[];
+    },
+    actorId?: string,
+  ) {
     const limit = Math.min(query.limit ?? 20, 100);
     const offset = query.offset ?? 0;
 
@@ -2822,6 +3225,18 @@ export class CasesService {
       await this.timKiem.dieuKien({ search: query.search, tk: query.tk }),
     );
 
+    if (actorId)
+      noiVaoWhere(where as Record<string, unknown>, [
+        await this.governance.readableCaseWhere(
+          this.prisma,
+          { actorId },
+          { includeDeleted: true },
+        ),
+      ]);
+    else
+      noiVaoWhere(where as Record<string, unknown>, [
+        await this.visibilityWhere(),
+      ]);
     const [data, total] = await Promise.all([
       this.prisma.case.findMany({
         where,
@@ -2895,6 +3310,67 @@ export class CasesService {
     if (!existing)
       throw new NotFoundException(`Vụ án không tồn tại (id: ${id})`);
 
+    const governanceFlag = await this.prisma.featureFlag.findUnique({
+      where: { key: 'CASE_GOVERNANCE_V1' },
+    });
+    if (governanceFlag?.enabled) {
+      const caseVersion = dto.expectedUpdatedAt;
+      if (!caseVersion || !Number.isFinite(new Date(caseVersion).getTime()))
+        throw new BadRequestException('Assignment case version required');
+      return this.governance.mutateAssignment(
+        {
+          caseId: id,
+          operation: 'CASE_ASSIGN',
+          requestKey: dto.requestKey ?? '',
+          expectedUpdatedAt: new Date(caseVersion).toISOString(),
+          payload: {
+            assignedTeamId: dto.assignedTeamId,
+            investigatorId: dto.investigatorId ?? null,
+          },
+        },
+        { actorId },
+        async (tx, { caseRecord, operationId }) => {
+          if (
+            caseRecord.assignedTeamId &&
+            caseRecord.assignedTeamId !== dto.assignedTeamId
+          )
+            throw new BadRequestException('Use handoff for a different team');
+          await this.governance.validateAssignmentTarget(
+            tx,
+            dto.assignedTeamId,
+            dto.investigatorId ?? null,
+          );
+          const assigned = await tx.case.update({
+            where: { id },
+            data: {
+              assignedTeamId: dto.assignedTeamId,
+              investigatorId: dto.investigatorId ?? null,
+            },
+          });
+          await this.governance.recordEvent(
+            tx,
+            id,
+            operationId,
+            actorId,
+            'ASSIGNED',
+            {
+              fromTeamId: caseRecord.assignedTeamId,
+              toTeamId: dto.assignedTeamId,
+              fromInvestigatorId: caseRecord.investigatorId,
+              toInvestigatorId: dto.investigatorId ?? null,
+            },
+          );
+          await this.governance.enqueue(
+            tx,
+            id,
+            operationId,
+            { type: 'CASE_ASSIGNED' },
+            dto.investigatorId ? [dto.investigatorId] : [],
+          );
+          return { success: true, data: assigned };
+        },
+      );
+    }
     const team = await this.prisma.team.findFirst({
       where: { id: dto.assignedTeamId, isActive: true },
     });
@@ -2914,42 +3390,59 @@ export class CasesService {
     }
 
     try {
-      await this.prisma.case.update({
-        where: {
-          id,
-          ...(dto.expectedUpdatedAt
-            ? { updatedAt: dto.expectedUpdatedAt }
-            : {}),
-        },
-        data: {
-          assignedTeamId: dto.assignedTeamId,
-          investigatorId: dto.investigatorId ?? null,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await this.lockCase(tx, id);
+        const snapshot = await this.governance.assertCaseAssignable(tx, id, {
+          actorId,
+        });
+        await this.governance.validateAssignmentTarget(
+          tx,
+          dto.assignedTeamId,
+          dto.investigatorId ?? null,
+        );
+        await tx.case.update({
+          where: {
+            id,
+            updatedAt: dto.expectedUpdatedAt ?? existing.updatedAt,
+            intakeStage: snapshot.intakeStage,
+            governanceRevision: snapshot.governanceRevision,
+            status: existing.status,
+            assignedTeamId: existing.assignedTeamId,
+            investigatorId: existing.investigatorId,
+            deletedAt: null,
+          },
+          data: {
+            assignedTeamId: dto.assignedTeamId,
+            investigatorId: dto.investigatorId ?? null,
+          },
+        });
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'CASE_ASSIGNED',
+            subject: 'Case',
+            subjectId: id,
+            metadata: {
+              fromTeamId: existing.assignedTeamId,
+              toTeamId: dto.assignedTeamId,
+              fromInvestigatorId: existing.investigatorId,
+              toInvestigatorId: dto.investigatorId ?? null,
+              dispatchedBy: actorId,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
       });
     } catch (e) {
-      if ((e as { code?: string })?.code === 'P2025' && dto.expectedUpdatedAt) {
+      if ((e as { code?: string })?.code === 'P2025') {
         throw new ConflictException(
           'Vụ án đã được chỉnh sửa bởi người dùng khác. Vui lòng tải lại trang và thử lại.',
         );
       }
       throw e;
     }
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'CASE_ASSIGNED',
-      subject: 'Case',
-      subjectId: id,
-      metadata: {
-        fromTeamId: existing.assignedTeamId,
-        toTeamId: dto.assignedTeamId,
-        fromInvestigatorId: existing.investigatorId,
-        toInvestigatorId: dto.investigatorId ?? null,
-        dispatchedBy: actorId,
-      },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
 
     if (dto.investigatorId && dto.investigatorId !== existing.investigatorId) {
       const actor = await this.prisma.user.findUnique({
@@ -3022,6 +3515,9 @@ export class CasesService {
     });
     if (!caseRecord) throw new NotFoundException('Case not found');
     // Trước 19/09/2026 không kiểm phạm vi: có quyền `write Case` là sửa lý do TĐC của MỌI vụ án.
+    await this.governance.assertCaseWritable(this.prisma, id, {
+      actorId: userId,
+    });
     this.checkWriteScope(caseRecord, dataScope);
     const sau = await this.prisma.case.update({
       where: { id },
@@ -3042,7 +3538,12 @@ export class CasesService {
   }
 
   /** Vụ án phải tồn tại (404) và nằm trong phạm vi XEM (403) — cùng luật với xem chi tiết. */
-  private async kiemXemVuAn(id: string, dataScope?: DataScope | null) {
+  private async kiemXemVuAn(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
+    await this.authorizeRead(id, actorId);
     const vuAn = await this.prisma.case.findFirst({
       where: { id, deletedAt: null },
       select: { id: true, assignedTeamId: true, investigatorId: true },
@@ -3055,8 +3556,12 @@ export class CasesService {
    * MỌI đối tượng chưa xoá của vụ án — CHỈ ĐỌC, cho form sửa hiện "đã có". KHÔNG giới hạn số dòng như GET /subjects
    * (tối đa 100): danh sách "đã có" mà thiếu người thì cán bộ nhập lại, sinh bản trùng (rà mã 19/09/2026).
    */
-  async getSubjectsDaCo(id: string, dataScope?: DataScope | null) {
-    await this.kiemXemVuAn(id, dataScope);
+  async getSubjectsDaCo(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
+    await this.kiemXemVuAn(id, dataScope, actorId);
     const data = await this.prisma.subject.findMany({
       where: { caseId: id, deletedAt: null },
       orderBy: { createdAt: 'asc' },
@@ -3082,8 +3587,12 @@ export class CasesService {
    * Vật chứng của vụ án — CHỈ ĐỌC, cùng luật phạm vi với xem chi tiết. Form sửa vụ án hiện danh sách này để cán bộ
    * thấy vật chứng đã có và không nhập lại (trước 19/09/2026 không nơi nào đọc được bảng `evidences`).
    */
-  async getEvidences(id: string, dataScope?: DataScope | null) {
-    await this.kiemXemVuAn(id, dataScope);
+  async getEvidences(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
+    await this.kiemXemVuAn(id, dataScope, actorId);
     const data = await this.prisma.evidence.findMany({
       where: { caseId: id, deletedAt: null },
       orderBy: { createdAt: 'asc' },
@@ -3110,8 +3619,12 @@ export class CasesService {
   // ─────────────────────────────────────────────
   // Cùng luật phạm vi với xem chi tiết (soát IDOR 19/09/2026 — trước đây đọc được lịch sử vụ án bất kỳ, và id
   // không tồn tại trả [] thay vì 404).
-  async getStatusHistory(caseId: string, dataScope?: DataScope | null) {
-    await this.kiemXemVuAn(caseId, dataScope);
+  async getStatusHistory(
+    caseId: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+  ) {
+    await this.kiemXemVuAn(caseId, dataScope, actorId);
     const rows = await this.prisma.caseStatusHistory.findMany({
       where: { caseId },
       orderBy: { changedAt: 'asc' },
@@ -3135,6 +3648,17 @@ export class CasesService {
     res: Response,
     actor?: { userId: string; ipAddress?: string; userAgent?: string },
   ): Promise<void> {
+    if (actor)
+      await this.governance.assertGeneralExport(this.prisma, {
+        actorId: actor.userId,
+      });
+    if (actor)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId: actor.userId },
+        query as unknown as Record<string, unknown>,
+        'export',
+      );
     const now = new Date();
     const isDelegation = query.caseType === CaseType.UY_THAC_DIEU_TRA;
     const registeredColumns = isDelegation
@@ -3143,10 +3667,12 @@ export class CasesService {
     const cot = chonCotXuat(registeredColumns, tachCotXuat(query.cot));
     const { where, ky } = await this.dungWhereDanhSach(query, dataScope, {
       now,
+      actorId: actor?.userId,
     });
-    const orderBy = this.thuTuDanhSach(
+    const orderBy = await this.thuTuDanhSach(
       query.sortBy,
       (query.sortOrder ?? 'desc') as ListSortOrder,
+      actor?.userId,
     );
     const soDong = await xuatDanhSachExcel<DongDanhSachVuAn>({
       res,
@@ -3166,10 +3692,12 @@ export class CasesService {
           })
         ).map((d) => d.id),
       layDong: (ids) =>
-        this.prisma.case.findMany({
-          where: { AND: [where, { id: { in: ids }, deletedAt: null }] },
-          select: CHON_DONG_DANH_SACH_VU_AN,
-        }),
+        this.prisma.case
+          .findMany({
+            where: { AND: [where, { id: { in: ids }, deletedAt: null }] },
+            select: CHON_DONG_DANH_SACH_VU_AN,
+          })
+          .then((rows) => this.authorizeHydratedRows(rows, actor?.userId)),
     });
     if (actor) {
       await this.audit.log({
@@ -3191,6 +3719,17 @@ export class CasesService {
     res: Response,
     actor?: { userId: string; ipAddress?: string; userAgent?: string },
   ): Promise<void> {
+    if (actor)
+      await this.governance.assertGeneralExport(this.prisma, {
+        actorId: actor.userId,
+      });
+    if (actor)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId: actor.userId },
+        query as unknown as Record<string, unknown>,
+        'export',
+      );
     const now = new Date();
     const caseType =
       query.caseType === CaseType.UY_THAC_DIEU_TRA
@@ -3198,10 +3737,12 @@ export class CasesService {
         : CaseType.REGULAR;
     const { where, ky } = await this.dungWhereDanhSach(query, dataScope, {
       now,
+      actorId: actor?.userId,
     });
-    const orderBy = this.thuTuDanhSach(
+    const orderBy = await this.thuTuDanhSach(
       query.sortBy,
       (query.sortOrder ?? 'desc') as ListSortOrder,
+      actor?.userId,
     );
     const soDong = await xuatDanhSachExcel<DongXuatDayDuModel>({
       res,
@@ -3257,12 +3798,20 @@ export class CasesService {
           })
         ).map((row) => row.id),
       layDong: (ids) =>
-        this.prisma.case.findMany({
-          where: {
-            AND: [where, { id: { in: ids }, deletedAt: null, caseType }],
-          },
-          select: COT_CAN_CHO_XUAT_DAY_DU_VU_AN,
-        }) as unknown as Promise<DongXuatDayDuModel[]>,
+        this.prisma.case
+          .findMany({
+            where: {
+              AND: [where, { id: { in: ids }, deletedAt: null, caseType }],
+            },
+            select: {
+              ...COT_CAN_CHO_XUAT_DAY_DU_VU_AN,
+              id: true,
+              fieldDefinitionVersionId: true,
+            },
+          })
+          .then((rows) =>
+            this.authorizeHydratedRows(rows, actor?.userId),
+          ) as unknown as Promise<DongXuatDayDuModel[]>,
     });
     if (actor)
       await this.audit.log({
@@ -3309,10 +3858,24 @@ export class CasesService {
     // Cùng bộ xuất với "Xuất Excel theo bộ lọc" (18/09/2026): cùng điều kiện và thứ tự của màn;
     // trước đây lặp `getList` 200 dòng/lượt (đếm lại mỗi lượt) và dựng cả tệp trong bộ nhớ.
     // Phụ đề ghi ĐÚNG khoảng ngày đã áp: ô ngày trống thì là kỳ mặc định admin đặt.
-    const { where, ky } = await this.dungWhereDanhSach(query, dataScope);
-    const orderBy = this.thuTuDanhSach(
+    if (actor)
+      await this.governance.assertGeneralExport(this.prisma, {
+        actorId: actor.userId,
+      });
+    if (actor)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId: actor.userId },
+        query as unknown as Record<string, unknown>,
+        'export',
+      );
+    const { where, ky } = await this.dungWhereDanhSach(query, dataScope, {
+      actorId: actor?.userId,
+    });
+    const orderBy = await this.thuTuDanhSach(
       query.sortBy,
       (query.sortOrder ?? 'desc') as ListSortOrder,
+      actor?.userId,
     );
     await xuatDanhSachExcel<DongDanhSachVuAn>({
       res,
@@ -3332,10 +3895,12 @@ export class CasesService {
           })
         ).map((d) => d.id),
       layDong: (ids) =>
-        this.prisma.case.findMany({
-          where: { AND: [where, { id: { in: ids }, deletedAt: null }] },
-          select: CHON_DONG_DANH_SACH_VU_AN,
-        }),
+        this.prisma.case
+          .findMany({
+            where: { AND: [where, { id: { in: ids }, deletedAt: null }] },
+            select: CHON_DONG_DANH_SACH_VU_AN,
+          })
+          .then((rows) => this.authorizeHydratedRows(rows, actor?.userId)),
       // Tệp phường có sẵn từ trước vẫn trả tệp (chỉ tiêu đề) khi không có vụ án nào — giữ hành vi.
       choPhepRong: true,
     });
@@ -3348,6 +3913,7 @@ export class CasesService {
     query: { fromDate?: string; toDate?: string; category?: string },
     dataScope: DataScope | null | undefined,
     res: Response,
+    actorId?: string,
   ): Promise<void> {
     await this._exportCases(
       query,
@@ -3355,6 +3921,7 @@ export class CasesService {
       res,
       'PHÂN LOẠI KHÁC',
       `PhanLoaiKhac_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      actorId,
     );
   }
 
@@ -3369,7 +3936,17 @@ export class CasesService {
     res: Response,
     title: string,
     filename: string,
+    actorId?: string,
   ): Promise<void> {
+    if (actorId)
+      await this.fieldSchema.assertQueryReadable(
+        this.prisma,
+        { actorId },
+        query as unknown as Record<string, unknown>,
+        'export',
+      );
+    if (actorId)
+      await this.governance.assertGeneralExport(this.prisma, { actorId });
     const where: Prisma.CaseWhereInput = { deletedAt: null };
     // Cùng lý do: cột `unit` rỗng ở mọi vụ án nên lọc trên nó trả về danh sách trắng.
     if (query.unitId) where.donViGiaiQuyet = query.unitId;
@@ -3388,6 +3965,9 @@ export class CasesService {
       ]);
     }
 
+    noiVaoWhere(where as Record<string, unknown>, [
+      await this.visibilityWhere(actorId),
+    ]);
     const records = await this.prisma.case.findMany({
       where,
       take: 500,
@@ -3470,3 +4050,4 @@ export class CasesService {
     }
   }
 }
+import { caseCivilDayStart } from './governance/case-civil-day';

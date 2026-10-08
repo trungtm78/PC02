@@ -26,7 +26,7 @@ describe('goiYTenNguoiGui', () => {
   */
   const svc = new PetitionsService(
     { petition: { groupBy } } as never,
-    ...(Array(5).fill({}) as [never, never, never, never, never]),
+    ...(Array(8).fill({}) as [never, never, never, never, never, never, never, never]),
   );
 
   beforeEach(() => {

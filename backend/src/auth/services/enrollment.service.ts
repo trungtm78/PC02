@@ -12,6 +12,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { AuthService, TokenPair } from '../auth.service';
 import { getBcryptCost } from '../utils/password-hash.util';
+import {
+  guardCaseAuthority,
+  authorityTransaction,
+} from '../../admin/case-authority.guard';
 
 const ENROLLMENT_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
 const TOKEN_BYTES = 32;
@@ -49,32 +53,41 @@ export class EnrollmentService {
     const tokenHash = await bcrypt.hash(rawToken, getBcryptCost());
     const expiresAt = new Date(Date.now() + ENROLLMENT_TTL_MS);
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        enrollmentTokenHash: tokenHash,
-        enrollmentExpiresAt: expiresAt,
-      },
+    await authorityTransaction(this.prisma, async (tx) => {
+      await guardCaseAuthority(tx, actorId, { targetUserId: userId });
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          enrollmentTokenHash: tokenHash,
+          enrollmentExpiresAt: expiresAt,
+        },
+      });
+
+      await tx.enrollmentTokenAudit.create({
+        data: {
+          userId,
+          generatedBy: actorId,
+          expiresAt,
+          channelHint: channelHint ?? null,
+        },
+      });
+
+      await this.audit.log(
+        {
+          userId: actorId,
+          action: 'ENROLLMENT_TOKEN_GENERATED',
+          subject: 'User',
+          subjectId: userId,
+          metadata: { expiresAt, channelHint },
+        },
+        tx,
+      );
     });
 
-    await this.prisma.enrollmentTokenAudit.create({
-      data: {
-        userId,
-        generatedBy: actorId,
-        expiresAt,
-        channelHint: channelHint ?? null,
-      },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'ENROLLMENT_TOKEN_GENERATED',
-      subject: 'User',
-      subjectId: userId,
-      metadata: { expiresAt, channelHint },
-    });
-
-    const baseUrl = this.config.get<string>('APP_BASE_URL', 'http://171.244.40.245');
+    const baseUrl = this.config.get<string>(
+      'APP_BASE_URL',
+      'http://171.244.40.245',
+    );
     const url = `${baseUrl}/auth/enroll?token=${encodeURIComponent(rawToken)}&uid=${userId}`;
     return { url, qrPayload: url, expiresAt };
   }
@@ -114,38 +127,61 @@ export class EnrollmentService {
     const newHash = await bcrypt.hash(newPassword, getBcryptCost());
     const consumedAt = new Date();
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          passwordHash: newHash,
-          enrollmentTokenHash: null, // single-use — consume
-          enrollmentExpiresAt: null,
-          mustChangePassword: false, // user đã set password mới
-          failedLoginAttempts: 0,
-          lockedUntil: null,
-          tokenVersion: { increment: 1 }, // invalidate old sessions
-        },
+    try {
+      await authorityTransaction(this.prisma, async (tx) => {
+        await tx.user.update({
+          where: {
+            id: userId,
+            isActive: true,
+            roleId: user.roleId,
+            tokenVersion: user.tokenVersion,
+            updatedAt: user.updatedAt,
+            enrollmentTokenHash: user.enrollmentTokenHash,
+            enrollmentExpiresAt: { gt: consumedAt },
+          },
+          data: {
+            passwordHash: newHash,
+            enrollmentTokenHash: null, // single-use — consume
+            enrollmentExpiresAt: null,
+            mustChangePassword: false, // user đã set password mới
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+            tokenVersion: { increment: 1 }, // invalidate old sessions
+          },
+        });
+        await tx.enrollmentTokenAudit.updateMany({
+          where: { userId, consumedAt: null },
+          data: {
+            consumedAt,
+            consumedIp: meta.ipAddress,
+            consumedUa: meta.userAgent,
+          },
+        });
+        await this.audit.log(
+          {
+            userId,
+            action: 'ENROLLMENT_COMPLETED',
+            subject: 'User',
+            subjectId: userId,
+            metadata: { method: 'magic_link' },
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+          },
+          tx,
+        );
       });
-      await tx.enrollmentTokenAudit.updateMany({
-        where: { userId, consumedAt: null },
-        data: {
-          consumedAt,
-          consumedIp: meta.ipAddress,
-          consumedUa: meta.userAgent,
-        },
-      });
-    });
-
-    await this.audit.log({
-      userId,
-      action: 'ENROLLMENT_COMPLETED',
-      subject: 'User',
-      subjectId: userId,
-      metadata: { method: 'magic_link' },
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-    });
+    } catch (error: unknown) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2025'
+      )
+        throw new UnauthorizedException(
+          'Enrollment token or account authority changed',
+        );
+      throw error;
+    }
 
     // Issue real TokenPair — login flow hoàn tất.
     return this.authService.generateTokens(

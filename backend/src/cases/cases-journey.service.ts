@@ -121,11 +121,13 @@ export class CasesJourneyService {
     dataScope: DataScope | null,
     page: number,
     limit: number,
+    actorId?: string,
   ): Promise<{ success: true; data: JourneyResultDto }> {
     // Enforce DataScope — throws ForbiddenException if out of scope
     const caseResult = await this.casesService.getById(
       caseId,
       dataScope ?? undefined,
+      actorId,
     );
     const caseRecord = caseResult.data as {
       id: string;

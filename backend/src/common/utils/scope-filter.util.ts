@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { DataScope } from '../../auth/services/unit-scope.service';
 
 export const FORBIDDEN_MSG = 'Bạn không có quyền truy cập bản ghi này';
@@ -7,7 +7,8 @@ const NO_ACCESS_SENTINEL = '__no_access__';
 // Sprint 3 / S3.3 — module-level metrics hook. Service-level inject sẽ khó vì
 // scope-filter là pure utility. Wire qua module-level singleton (set bởi
 // metrics.service onModuleInit) — keep utility pure cho test.
-let denialCounter: { inc: (labels: { resource: string }) => void } | null = null;
+let denialCounter: { inc: (labels: { resource: string }) => void } | null =
+  null;
 export function setScopeDenialCounter(counter: typeof denialCounter): void {
   denialCounter = counter;
 }
@@ -128,10 +129,19 @@ export function buildPetitionScopeFilter(
  * Pass operation='write' on mutation paths — uses writableTeamIds instead of teamIds.
  */
 export function assertParentInScope(
-  parent: { assignedTeamId?: string | null; investigatorId?: string | null } | null | undefined,
+  parent:
+    | {
+        assignedTeamId?: string | null;
+        investigatorId?: string | null;
+        intakeStage?: string | null;
+      }
+    | null
+    | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
 ): void {
+  if (operation === 'write' && parent?.intakeStage === 'CHO_NHAN')
+    throw new ConflictException('Pending handoff protects this case');
   if (!scope) return;
   // Điều phối viên chỉ được bỏ qua phạm vi khi ĐỌC (quyết định 19/09/2026).
   if (scope.canDispatch && operation === 'read') return;
@@ -140,22 +150,31 @@ export function assertParentInScope(
   if (!parent) {
     recordDenial('parent-null');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
   const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
     scope,
     operation,
   );
-  const ownerMatch = parent.investigatorId ? userIds.includes(parent.investigatorId) : false;
-  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
+  const ownerMatch = parent.investigatorId
+    ? userIds.includes(parent.investigatorId)
+    : false;
+  const teamMatch = parent.assignedTeamId
+    ? effectiveTeamIds.includes(parent.assignedTeamId)
+    : false;
   // v0.33.0.0 codex HIGH 5: ward officer KHÔNG được pass unassigned parent (same logic as buildScopeFilter)
-  const isWardOfficer = (scope as any).isWardOfficer === true;
-  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
+  const isWardOfficer = scope.isWardOfficer === true;
+  const unassigned =
+    !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
   if (!ownerMatch && !teamMatch && !unassigned) {
     recordDenial('parent');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }
@@ -167,7 +186,10 @@ export function assertParentInScope(
  * write operation uses writableTeamIds.
  */
 export function assertPetitionParentInScope(
-  parent: { assignedTeamId?: string | null; enteredById?: string | null } | null | undefined,
+  parent:
+    | { assignedTeamId?: string | null; enteredById?: string | null }
+    | null
+    | undefined,
   scope: DataScope | null | undefined,
   operation: 'read' | 'write' = 'read',
 ): void {
@@ -177,21 +199,30 @@ export function assertPetitionParentInScope(
   if (!parent) {
     recordDenial('petition-parent-null');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
   const { teamIds: effectiveTeamIds, userIds } = phamViTheoThaoTac(
     scope,
     operation,
   );
-  const ownerMatch = parent.enteredById ? userIds.includes(parent.enteredById) : false;
-  const teamMatch = parent.assignedTeamId ? effectiveTeamIds.includes(parent.assignedTeamId) : false;
-  const isWardOfficer = (scope as any).isWardOfficer === true;
-  const unassigned = !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
+  const ownerMatch = parent.enteredById
+    ? userIds.includes(parent.enteredById)
+    : false;
+  const teamMatch = parent.assignedTeamId
+    ? effectiveTeamIds.includes(parent.assignedTeamId)
+    : false;
+  const isWardOfficer = scope.isWardOfficer === true;
+  const unassigned =
+    !parent.assignedTeamId && effectiveTeamIds.length > 0 && !isWardOfficer;
   if (!ownerMatch && !teamMatch && !unassigned) {
     recordDenial('petition-parent');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }
@@ -223,7 +254,9 @@ export function assertCreatorInScope(
   if (isDenyAll || (userIds.length > 0 && !userIds.includes(createdById))) {
     recordDenial('creator');
     throw new ForbiddenException(
-      operation === 'write' ? 'Bạn không có quyền chỉnh sửa bản ghi này' : FORBIDDEN_MSG,
+      operation === 'write'
+        ? 'Bạn không có quyền chỉnh sửa bản ghi này'
+        : FORBIDDEN_MSG,
     );
   }
 }

@@ -1,3 +1,4 @@
+import { CaseGraphAccessService } from '../../reports/graph-access/case-graph-access.service';
 import { buildControllerModule, mockUser } from '../../test-utils/controller-test-helpers';
 import { CaseActionPlansController, IncidentActionPlansController } from './action-plans.controller';
 import { ActionPlansService } from './action-plans.service';
@@ -16,7 +17,7 @@ describe('CaseActionPlansController — delegation', () => {
   let controller: CaseActionPlansController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(CaseActionPlansController, ActionPlansService, mockService);
+    const module = await buildControllerModule(CaseActionPlansController, ActionPlansService, mockService, [{token:CaseGraphAccessService,mock:{}}]);
     controller = module.get(CaseActionPlansController);
     jest.clearAllMocks();
   });
@@ -24,7 +25,7 @@ describe('CaseActionPlansController — delegation', () => {
   it('findAll() delegates to service.findAllForCase with caseId + dataScope', async () => {
     mockService.findAllForCase.mockResolvedValue({ data: [] });
     await controller.findAll('case-1', mockReq);
-    expect(mockService.findAllForCase).toHaveBeenCalledWith('case-1', null);
+    expect(mockService.findAllForCase).toHaveBeenCalledWith('case-1', null, undefined);
   });
 
   it('create() delegates to service.createForCase with caseId, dto, userId, dataScope', async () => {
@@ -36,7 +37,7 @@ describe('CaseActionPlansController — delegation', () => {
   it('delete() delegates to service.delete with id + dataScope', async () => {
     mockService.delete.mockResolvedValue({ success: true });
     await controller.delete('ap-1', mockReq);
-    expect(mockService.delete).toHaveBeenCalledWith('ap-1', null);
+    expect(mockService.delete).toHaveBeenCalledWith('ap-1', null, undefined);
   });
 });
 
@@ -44,7 +45,7 @@ describe('IncidentActionPlansController — delegation', () => {
   let controller: IncidentActionPlansController;
 
   beforeEach(async () => {
-    const module = await buildControllerModule(IncidentActionPlansController, ActionPlansService, mockService);
+    const module = await buildControllerModule(IncidentActionPlansController, ActionPlansService, mockService, [{token:CaseGraphAccessService,mock:{}}]);
     controller = module.get(IncidentActionPlansController);
     jest.clearAllMocks();
   });

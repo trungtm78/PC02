@@ -1,0 +1,734 @@
+{
+  "baseline": "10030bed",
+  "includesInheritedT2Changes": true,
+  "method": "Changed lines intersected with raw Istanbul statement/function locations; smallest containing instrumented span, positive execution count.",
+  "covered": 5838,
+  "executable": 6080,
+  "percent": 96.0197,
+  "files": [
+    {
+      "path": "frontend/src/components/CrimeSelect.tsx",
+      "covered": 4,
+      "executable": 4,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/FKSelect.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/form/FormCurrency.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/form/FormField.tsx",
+      "covered": 6,
+      "executable": 6,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/form/FormInteger.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/form/FormPhone.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/components/shared/ListPageShell/useListPageUrlState.ts",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/_shared/modals/ProsecuteModalProvider.tsx",
+      "covered": 10,
+      "executable": 11,
+      "uncoveredLines": [
+        231
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/_shared/row-actions/registry.ts",
+      "covered": 0,
+      "executable": 0,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/CaseCustomFields.tsx",
+      "covered": 31,
+      "executable": 31,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/CaseInformationTabs.tsx",
+      "covered": 27,
+      "executable": 27,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/CaseNullableBooleanField.tsx",
+      "covered": 12,
+      "executable": 12,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/SourceCaseFields.tsx",
+      "covered": 25,
+      "executable": 25,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/canonical-fields.ts",
+      "covered": 130,
+      "executable": 131,
+      "uncoveredLines": [
+        72
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/AccessPanel.tsx",
+      "covered": 163,
+      "executable": 164,
+      "uncoveredLines": [
+        125
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/CaseConfigurationPage.tsx",
+      "covered": 330,
+      "executable": 334,
+      "uncoveredLines": [
+        54,
+        55,
+        81,
+        203
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/CaseGovernanceFilters.tsx",
+      "covered": 155,
+      "executable": 158,
+      "uncoveredLines": [
+        32,
+        38,
+        61
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/CaseGovernancePage.tsx",
+      "covered": 8,
+      "executable": 8,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/CaseGovernanceWorkspace.tsx",
+      "covered": 172,
+      "executable": 179,
+      "uncoveredLines": [
+        63,
+        106,
+        107,
+        108,
+        138,
+        139,
+        140
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/CaseOperationsPage.tsx",
+      "covered": 309,
+      "executable": 334,
+      "uncoveredLines": [
+        40,
+        41,
+        53,
+        135,
+        136,
+        137,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        237,
+        278,
+        279
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/ConfigurationEditors.tsx",
+      "covered": 825,
+      "executable": 861,
+      "uncoveredLines": [
+        87,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        158,
+        159,
+        160,
+        161,
+        205,
+        220,
+        292,
+        293,
+        294,
+        513,
+        598,
+        599,
+        600,
+        601,
+        798,
+        799,
+        800,
+        801,
+        847,
+        848,
+        849,
+        850,
+        851,
+        852,
+        853,
+        895,
+        896,
+        897,
+        898
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/DisclosurePanel.tsx",
+      "covered": 369,
+      "executable": 405,
+      "uncoveredLines": [
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        224,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        297,
+        298,
+        299,
+        300,
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309,
+        310
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/DisclosureVerifier.tsx",
+      "covered": 75,
+      "executable": 79,
+      "uncoveredLines": [
+        17,
+        22,
+        23,
+        24
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/EvidencePanel.tsx",
+      "covered": 401,
+      "executable": 406,
+      "uncoveredLines": [
+        245,
+        246,
+        247,
+        248,
+        356
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/HandoffPanel.tsx",
+      "covered": 227,
+      "executable": 233,
+      "uncoveredLines": [
+        57,
+        67,
+        153,
+        154,
+        155,
+        156
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/HandoffReceiptModal.tsx",
+      "covered": 0,
+      "executable": 0,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/LegalActionsPanel.tsx",
+      "covered": 696,
+      "executable": 756,
+      "uncoveredLines": [
+        106,
+        107,
+        108,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        242,
+        326,
+        339,
+        345,
+        352,
+        360,
+        361,
+        362,
+        363,
+        365,
+        371,
+        378,
+        379,
+        380,
+        381,
+        493,
+        494,
+        495,
+        496,
+        497,
+        498,
+        499,
+        500,
+        501,
+        502,
+        503,
+        511,
+        512,
+        513,
+        514,
+        515,
+        516,
+        517,
+        518,
+        519,
+        520,
+        521,
+        522,
+        712,
+        713,
+        714,
+        715,
+        716,
+        717,
+        718,
+        719,
+        743,
+        751,
+        811
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/PreservationPanel.tsx",
+      "covered": 473,
+      "executable": 477,
+      "uncoveredLines": [
+        66,
+        115,
+        356,
+        497
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/ReceiptChecklist.tsx",
+      "covered": 108,
+      "executable": 108,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/SchemaAdoptionPanel.tsx",
+      "covered": 117,
+      "executable": 117,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/TasksPanel.tsx",
+      "covered": 179,
+      "executable": 183,
+      "uncoveredLines": [
+        201,
+        202,
+        203,
+        204
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/case-summary-columns.ts",
+      "covered": 19,
+      "executable": 19,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/disclosure-verifier.ts",
+      "covered": 93,
+      "executable": 100,
+      "uncoveredLines": [
+        25,
+        33,
+        73,
+        83,
+        89,
+        92,
+        95
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/governance-filters.ts",
+      "covered": 29,
+      "executable": 29,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/shared-ui.tsx",
+      "covered": 144,
+      "executable": 144,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/shared.ts",
+      "covered": 257,
+      "executable": 272,
+      "uncoveredLines": [
+        122,
+        123,
+        124,
+        125,
+        126,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        288
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/governance/useOfficerRows.ts",
+      "covered": 13,
+      "executable": 13,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/menu.ts",
+      "covered": 0,
+      "executable": 1,
+      "uncoveredLines": [
+        11
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/native-field-components.tsx",
+      "covered": 44,
+      "executable": 46,
+      "uncoveredLines": [
+        56,
+        61
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/native-field-policy.ts",
+      "covered": 89,
+      "executable": 89,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/routes.tsx",
+      "covered": 0,
+      "executable": 6,
+      "uncoveredLines": [
+        14,
+        15,
+        16,
+        21,
+        22,
+        23
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/row-actions.ts",
+      "covered": 1,
+      "executable": 1,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/source-case-fields.ts",
+      "covered": 18,
+      "executable": 21,
+      "uncoveredLines": [
+        12,
+        17,
+        27
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/useCaseCapabilities.ts",
+      "covered": 40,
+      "executable": 40,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/cases/useCaseFieldSchema.ts",
+      "covered": 16,
+      "executable": 16,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/features/petitions/components/SaveSplitButton.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/hooks/useCasePrincipalOptions.ts",
+      "covered": 49,
+      "executable": 49,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/hooks/useOfficerOptions.ts",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/lib/cap-nhat/trangDangRanh.ts",
+      "covered": 1,
+      "executable": 1,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseDetailPage.tsx",
+      "covered": 40,
+      "executable": 43,
+      "uncoveredLines": [
+        1119,
+        1138,
+        1853
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/LegacyTabBody.tsx",
+      "covered": 27,
+      "executable": 27,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+      "covered": 13,
+      "executable": 13,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/clone-case.ts",
+      "covered": 0,
+      "executable": 0,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/index.tsx",
+      "covered": 29,
+      "executable": 31,
+      "uncoveredLines": [
+        405,
+        406
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+      "covered": 3,
+      "executable": 5,
+      "uncoveredLines": [
+        1587,
+        1589
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseFormPage/types.ts",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/CaseListPageShell.tsx",
+      "covered": 32,
+      "executable": 35,
+      "uncoveredLines": [
+        356,
+        931,
+        1139
+      ],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/cases/InitialCasesPage.tsx",
+      "covered": 2,
+      "executable": 2,
+      "uncoveredLines": [],
+      "status": "MEASURED"
+    },
+    {
+      "path": "frontend/src/pages/petitions/ConvertPetitionModal.tsx",
+      "covered": 9,
+      "executable": 10,
+      "uncoveredLines": [
+        105
+      ],
+      "status": "MEASURED"
+    }
+  ],
+  "freshCoverageDirectory": "t4-round2-coverage",
+  "hashMatchedReusedSources": [
+    "frontend/src/components/CrimeSelect.tsx",
+    "frontend/src/components/FKSelect.tsx",
+    "frontend/src/components/form/FormCurrency.tsx",
+    "frontend/src/components/form/FormField.tsx",
+    "frontend/src/components/form/FormInteger.tsx",
+    "frontend/src/components/form/FormPhone.tsx",
+    "frontend/src/components/shared/ListPageShell/useListPageUrlState.ts",
+    "frontend/src/features/_shared/modals/ProsecuteModalProvider.tsx",
+    "frontend/src/features/_shared/row-actions/registry.ts",
+    "frontend/src/features/cases/CaseCustomFields.tsx",
+    "frontend/src/features/cases/CaseInformationTabs.tsx",
+    "frontend/src/features/cases/CaseNullableBooleanField.tsx",
+    "frontend/src/features/cases/SourceCaseFields.tsx",
+    "frontend/src/features/cases/canonical-fields.ts",
+    "frontend/src/features/cases/menu.ts",
+    "frontend/src/features/cases/native-field-components.tsx",
+    "frontend/src/features/cases/native-field-policy.ts",
+    "frontend/src/features/cases/routes.tsx",
+    "frontend/src/features/cases/row-actions.ts",
+    "frontend/src/features/cases/source-case-fields.ts",
+    "frontend/src/features/cases/useCaseCapabilities.ts",
+    "frontend/src/features/cases/useCaseFieldSchema.ts",
+    "frontend/src/features/petitions/components/SaveSplitButton.tsx",
+    "frontend/src/pages/cases/CaseDetailPage.tsx",
+    "frontend/src/pages/cases/CaseFormPage/LegacyTabBody.tsx",
+    "frontend/src/pages/cases/CaseFormPage/buildCreateCasePayload.ts",
+    "frontend/src/pages/cases/CaseFormPage/clone-case.ts",
+    "frontend/src/pages/cases/CaseFormPage/index.tsx",
+    "frontend/src/pages/cases/CaseFormPage/mergeCaseApiToFormData.ts",
+    "frontend/src/pages/cases/CaseFormPage/tabs.tsx",
+    "frontend/src/pages/cases/CaseFormPage/types.ts",
+    "frontend/src/pages/cases/InitialCasesPage.tsx",
+    "frontend/src/pages/petitions/ConvertPetitionModal.tsx"
+  ]
+}

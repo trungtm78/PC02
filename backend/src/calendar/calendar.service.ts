@@ -1,3 +1,5 @@
+import { Inject } from '@nestjs/common';
+import { GRAPH_PRISMA } from '../reports/graph-access/case-graph-access.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CalendarEventsService } from '../calendar-events/calendar-events.service';
@@ -12,7 +14,12 @@ export interface CalendarEvent {
   caseId?: string;
   incidentId?: string;
   petitionId?: string;
-  holidayCategory?: 'NATIONAL' | 'POLICE' | 'MILITARY' | 'INTERNATIONAL' | 'OTHER';
+  holidayCategory?:
+    | 'NATIONAL'
+    | 'POLICE'
+    | 'MILITARY'
+    | 'INTERNATIONAL'
+    | 'OTHER';
   isOfficialDayOff?: boolean;
   // PR 1 dual-read fields (only set when type === 'event')
   categorySlug?: string;
@@ -30,12 +37,15 @@ export interface CalendarEvent {
 @Injectable()
 export class CalendarService {
   constructor(
-    private readonly prisma: PrismaService,
+    @Inject(GRAPH_PRISMA) private readonly prisma: PrismaService,
     private readonly calendarEventsService: CalendarEventsService,
   ) {}
 
   // GET /api/v1/calendar/events?year=&month=
-  async getEvents(year?: number, month?: number): Promise<{ success: boolean; data: CalendarEvent[] }> {
+  async getEvents(
+    year?: number,
+    month?: number,
+  ): Promise<{ success: boolean; data: CalendarEvent[] }> {
     const now = new Date();
     const targetYear = year ?? now.getFullYear();
     const targetMonth = month; // undefined = whole year
@@ -74,7 +84,13 @@ export class CalendarService {
           deletedAt: null,
           deadline: { gte: fromDate, lte: toDate },
         },
-        select: { id: true, stt: true, summary: true, deadline: true, status: true },
+        select: {
+          id: true,
+          stt: true,
+          summary: true,
+          deadline: true,
+          status: true,
+        },
       }),
       // Fetch events whose startDate <= toDate AND (recurrenceEndDate IS NULL
       // OR >= fromDate) to catch recurring series starting before the window.
@@ -134,7 +150,11 @@ export class CalendarService {
 
     // Recurring expansion. Expand into per-date occurrences, applying EXDATE
     // overrides. Non-recurring events yield 1 occurrence each.
-    const expanded = this.calendarEventsService.expandOccurrences(calendarEvents, fromDate, toDate);
+    const expanded = this.calendarEventsService.expandOccurrences(
+      calendarEvents,
+      fromDate,
+      toDate,
+    );
     for (const occ of expanded) {
       const ev = occ.event;
       events.push({

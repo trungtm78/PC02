@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-10-07T16:23:56.127Z",
+  "side": "frontend",
+  "label": "frontend-frozen-final-green-20261007",
+  "command": [
+    "C:\\Program Files\\nodejs\\node.exe",
+    "C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\frontend\\node_modules\\vitest\\vitest.mjs",
+    "run",
+    "--maxWorkers=4",
+    "--reporter=json",
+    "--outputFile=C:\\PC02\\pc02-case-management\\.worktrees\\case-governance-20261006\\docs\\test-evidence\\case-governance\\frontend-frozen-final-green-20261007\\frontend-tests.json"
+  ],
+  "exit": 0,
+  "processExit": 0,
+  "signal": null,
+  "elapsedMs": 375617,
+  "passed": 4473,
+  "failed": 0,
+  "pending": 0,
+  "total": 4473,
+  "failures": []
+}

@@ -1,3 +1,5 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
+import { ordinaryChildFixture, setOrdinaryCurrentScope } from '../case-child-access/test-child-access-fixture';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * lawyers.service.spec.ts
@@ -81,7 +83,7 @@ describe('LawyersService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
+      providers: [{ provide: CaseChildAccessService, useValue: ordinaryChildFixture(mockPrisma) }, 
         LawyersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
@@ -99,7 +101,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([FAKE_LAWYER]);
       mockPrisma.lawyer.count.mockResolvedValue(1);
 
-      const result = await service.getList({});
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getList({});
 
       expect(result.data).toEqual([FAKE_LAWYER]);
       expect(result.total).toBe(1);
@@ -107,7 +110,7 @@ describe('LawyersService', () => {
       expect(result.offset).toBe(0);
       expect(mockPrisma.lawyer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { deletedAt: null },
+          where: { deletedAt: null, AND: [{ case: {} }] },
           take: 20,
           skip: 0,
         }),
@@ -126,7 +129,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'Trần' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ search: 'Trần' });
 
       const where = whereCua(mockPrisma.lawyer.findMany);
       expect(where.OR).toBeUndefined();
@@ -143,7 +147,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ tk: ['thanChu~Nguyen Van A'] } as never);
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ tk: ['thanChu~Nguyen Van A'] } as never);
 
       const json = JSON.stringify(whereCua(mockPrisma.lawyer.findMany).AND);
       expect(json).toContain(
@@ -152,7 +157,8 @@ describe('LawyersService', () => {
     });
 
     it('khoá thẻ lạ → 400, không truy vấn', async () => {
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.getList({ tk: ['khongCo~x'] } as never),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.lawyer.findMany).not.toHaveBeenCalled();
@@ -163,7 +169,13 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList(
+      setOrdinaryCurrentScope(mockPrisma, {
+          userIds: ['u1'],
+          teamIds: ['t1'],
+          writableTeamIds: ['t1'],
+          writableUserIds: ['u1'],
+        } as never);
+await service.getList(
         { tk: ['vuAn~A'] } as never,
         {
           userIds: ['u1'],
@@ -185,7 +197,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ tk: ['vuAn~Trộm cắp'] } as never);
 
       const json = JSON.stringify(whereCua(mockPrisma.lawyer.findMany).AND);
       expect(json).toContain(
@@ -197,7 +210,13 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ search: 'x y z', caseId: 'c1' }, {
+      setOrdinaryCurrentScope(mockPrisma, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      } as never);
+await service.getList({ search: 'x y z', caseId: 'c1' }, {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -218,7 +237,13 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({}, {
+      setOrdinaryCurrentScope(mockPrisma, {
+        userIds: ['u1'],
+        teamIds: [],
+        writableTeamIds: [],
+        writableUserIds: ['u1'],
+      } as never);
+await service.getList({}, {
         userIds: ['u1'],
         teamIds: [],
         writableTeamIds: [],
@@ -235,7 +260,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ caseId: 'case-001' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ caseId: 'case-001' });
 
       expect(mockPrisma.lawyer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -248,7 +274,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ subjectId: 'sub-001' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ subjectId: 'sub-001' });
 
       expect(mockPrisma.lawyer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -261,7 +288,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ sortBy: 'maliciousField' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ sortBy: 'maliciousField' });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const callArg = mockPrisma.lawyer.findMany.mock.calls[0][0] as {
@@ -274,7 +302,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      await service.getList({ sortBy: 'fullName', sortOrder: 'asc' });
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.getList({ sortBy: 'fullName', sortOrder: 'asc' });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const callArg = mockPrisma.lawyer.findMany.mock.calls[0][0] as {
@@ -287,7 +316,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(50);
 
-      const result = await service.getList({ limit: 10, offset: 20 });
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getList({ limit: 10, offset: 20 });
 
       expect(result.limit).toBe(10);
       expect(result.offset).toBe(20);
@@ -300,7 +330,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findMany.mockResolvedValue([]);
       mockPrisma.lawyer.count.mockResolvedValue(0);
 
-      const result = await service.getList({});
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getList({});
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
@@ -313,7 +344,8 @@ describe('LawyersService', () => {
     it('returns lawyer when found', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER);
 
-      const result = await service.getById('law-001');
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.getById('law-001');
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(FAKE_LAWYER);
@@ -325,7 +357,8 @@ describe('LawyersService', () => {
     it('throws NotFoundException when lawyer not found', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(null);
 
-      await expect(service.getById('nonexistent')).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.getById('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -341,7 +374,8 @@ describe('LawyersService', () => {
         writableTeamIds: ['t1'],
         writableUserIds: ['u1'],
       };
-      await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
+      setOrdinaryCurrentScope(mockPrisma, scope);
+await expect(service.getById('law-001', scope)).rejects.toThrow('Bạn không có quyền truy cập bản ghi này');
     });
 
     it('passes scope check when investigatorId matches', async () => {
@@ -355,7 +389,8 @@ describe('LawyersService', () => {
         writableTeamIds: [],
         writableUserIds: ['u1'],
       };
-      const result = await service.getById('law-001', scope);
+      setOrdinaryCurrentScope(mockPrisma, scope);
+const result = await service.getById('law-001', scope);
       expect(result.success).toBe(true);
     });
   });
@@ -369,7 +404,8 @@ describe('LawyersService', () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT); // subject in case
       mockPrisma.lawyer.create.mockResolvedValue(FAKE_LAWYER);
 
-      const result = await service.create(BASE_CREATE_DTO, ACTOR_ID);
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(BASE_CREATE_DTO, ACTOR_ID);
 
       expect(result.success).toBe(true);
       expect(result.data).toEqual(FAKE_LAWYER);
@@ -384,7 +420,28 @@ describe('LawyersService', () => {
         }),
       );
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'LAWYER_CREATED' }),
+        expect.objectContaining({ action: 'LAWYER_CREATED' }), mockPrisma
+      );
+    });
+
+    it('masks protected parent fields in the create response', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue(null);
+      mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE);
+      mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
+      mockPrisma.lawyer.create.mockResolvedValue(FAKE_LAWYER);
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_LAWYER) => ({
+        ...row,
+        case: { id: row.case.id },
+      }));
+      setOrdinaryCurrentScope(mockPrisma, null);
+
+      const result = await service.create(BASE_CREATE_DTO, ACTOR_ID);
+
+      expect(result.data.case).toEqual({ id: 'case-001' });
+      expect(result.data.case).not.toHaveProperty('name');
+      expect(childAccess.serialize).toHaveBeenCalledWith(
+        'case-001', FAKE_LAWYER, ACTOR_ID, mockPrisma,
       );
     });
 
@@ -397,7 +454,8 @@ describe('LawyersService', () => {
         subjectId: null,
       });
 
-      const result = await service.create(dto, ACTOR_ID);
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.create(dto, ACTOR_ID);
 
       expect(result.success).toBe(true);
       // subject.findFirst should NOT be called when subjectId is undefined
@@ -407,7 +465,8 @@ describe('LawyersService', () => {
     it('throws ConflictException on duplicate barNumber', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER); // duplicate found
 
-      await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
         ConflictException,
       );
       expect(mockPrisma.lawyer.create).not.toHaveBeenCalled();
@@ -417,7 +476,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(null); // no dup
       mockPrisma.case.findFirst.mockResolvedValue(null); // case not found
 
-      await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -427,7 +487,8 @@ describe('LawyersService', () => {
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE); // case exists
       mockPrisma.subject.findFirst.mockResolvedValue(null); // subject not in case
 
-      await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.create(BASE_CREATE_DTO, ACTOR_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -438,7 +499,8 @@ describe('LawyersService', () => {
       mockPrisma.subject.findFirst.mockResolvedValue(FAKE_SUBJECT);
       mockPrisma.lawyer.create.mockResolvedValue(FAKE_LAWYER);
 
-      await service.create(BASE_CREATE_DTO, ACTOR_ID, {
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.create(BASE_CREATE_DTO, ACTOR_ID, {
         ipAddress: '192.168.1.1',
         userAgent: 'Mozilla/5.0',
       });
@@ -447,7 +509,7 @@ describe('LawyersService', () => {
         expect.objectContaining({
           ipAddress: '192.168.1.1',
           userAgent: 'Mozilla/5.0',
-        }),
+        }), mockPrisma
       );
     });
   });
@@ -462,7 +524,8 @@ describe('LawyersService', () => {
         fullName: 'Luật sư Mới',
       });
 
-      const result = await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.update(
         'law-001',
         { fullName: 'Luật sư Mới' },
         ACTOR_ID,
@@ -471,14 +534,50 @@ describe('LawyersService', () => {
       expect(result.success).toBe(true);
       expect(result.data.fullName).toBe('Luật sư Mới');
       expect(mockAudit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'LAWYER_UPDATED' }),
+        expect.objectContaining({ action: 'LAWYER_UPDATED' }), mockPrisma
       );
+    });
+
+    it('masks protected parent fields in the update response', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER);
+      mockPrisma.lawyer.update.mockResolvedValue({
+        ...FAKE_LAWYER,
+        fullName: 'Luật sư Mới',
+      });
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_LAWYER) => ({
+        ...row,
+        case: { id: row.case.id },
+      }));
+      setOrdinaryCurrentScope(mockPrisma, null);
+
+      const result = await service.update('law-001', { fullName: 'Luật sư Mới' }, ACTOR_ID);
+
+      expect(result.data.case).toEqual({ id: 'case-001' });
+      expect(result.data.case).not.toHaveProperty('name');
+      expect(childAccess.serialize).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses authoritative parent facts when masked ownership headers are unreadable', async () => {
+      mockPrisma.lawyer.findFirst.mockResolvedValue({
+        ...FAKE_LAWYER,
+        case: { ...FAKE_LAWYER.case, assignedTeamId: 't1', investigatorId: null },
+      });
+      mockPrisma.lawyer.update.mockResolvedValue({ ...FAKE_LAWYER, fullName: 'Luật sư Mới' });
+      const childAccess = ordinaryChildFixture(mockPrisma);
+      childAccess.serialize.mockImplementation(async (_caseId: string, row: typeof FAKE_LAWYER) => ({ ...row, case: { id: row.case.id } }));
+      childAccess.parents.mockResolvedValue([{ id: 'case-001', assignedTeamId: 't1', investigatorId: null }]);
+      const scope = { userIds: [ACTOR_ID], teamIds: ['t1'], writableTeamIds: ['t1'], writableUserIds: [ACTOR_ID], isWardOfficer: true };
+      setOrdinaryCurrentScope(mockPrisma, scope);
+
+      await expect(service.update('law-001', { fullName: 'Luật sư Mới' }, ACTOR_ID, undefined, scope)).resolves.toMatchObject({ success: true });
     });
 
     it('throws NotFoundException when lawyer not found on update', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(null);
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('nonexistent', { fullName: 'X' }, ACTOR_ID),
       ).rejects.toThrow(NotFoundException);
     });
@@ -489,7 +588,8 @@ describe('LawyersService', () => {
         .mockResolvedValueOnce(FAKE_LAWYER) // existing record
         .mockResolvedValueOnce({ ...FAKE_LAWYER, id: 'law-999' }); // dup barNumber
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('law-001', { barNumber: 'LS-HCM-9999' }, ACTOR_ID),
       ).rejects.toThrow(ConflictException);
     });
@@ -499,7 +599,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER);
       mockPrisma.lawyer.update.mockResolvedValue(FAKE_LAWYER);
 
-      await service.update(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.update(
         'law-001',
         { barNumber: FAKE_LAWYER.barNumber },
         ACTOR_ID,
@@ -513,7 +614,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER); // existing found
       mockPrisma.case.findFirst.mockResolvedValue(null); // case not found
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update('law-001', { caseId: 'case-bad' }, ACTOR_ID),
       ).rejects.toThrow(BadRequestException);
     });
@@ -523,7 +625,8 @@ describe('LawyersService', () => {
       mockPrisma.case.findFirst.mockResolvedValue(FAKE_CASE); // new case exists
       mockPrisma.subject.findFirst.mockResolvedValue(null); // subject not in case
 
-      await expect(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(
         service.update(
           'law-001',
           { caseId: 'case-001', subjectId: 'sub-bad' },
@@ -536,7 +639,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER);
       mockPrisma.lawyer.update.mockResolvedValue(FAKE_LAWYER);
 
-      await service.update('law-001', { lawFirm: 'New Firm' }, ACTOR_ID);
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.update('law-001', { lawFirm: 'New Firm' }, ACTOR_ID);
 
       // subject.findFirst should not be called
       expect(mockPrisma.subject.findFirst).not.toHaveBeenCalled();
@@ -553,13 +657,14 @@ describe('LawyersService', () => {
         deletedAt: new Date(),
       });
 
-      const result = await service.delete('law-001', ACTOR_ID);
+      setOrdinaryCurrentScope(mockPrisma, null);
+const result = await service.delete('law-001', ACTOR_ID);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('thành công');
       expect(mockPrisma.lawyer.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'law-001' },
+          where: { id: 'law-001', caseId: FAKE_LAWYER.caseId, updatedAt: FAKE_LAWYER.updatedAt },
           data: expect.objectContaining({ deletedAt: expect.any(Date) }),
         }),
       );
@@ -567,14 +672,15 @@ describe('LawyersService', () => {
         expect.objectContaining({
           action: 'LAWYER_DELETED',
           metadata: expect.objectContaining({ softDelete: true }),
-        }),
+        }), mockPrisma
       );
     });
 
     it('throws NotFoundException when lawyer not found on delete', async () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(null);
 
-      await expect(service.delete('nonexistent', ACTOR_ID)).rejects.toThrow(
+      setOrdinaryCurrentScope(mockPrisma, null);
+await expect(service.delete('nonexistent', ACTOR_ID)).rejects.toThrow(
         NotFoundException,
       );
       expect(mockPrisma.lawyer.update).not.toHaveBeenCalled();
@@ -584,7 +690,8 @@ describe('LawyersService', () => {
       mockPrisma.lawyer.findFirst.mockResolvedValue(FAKE_LAWYER);
       mockPrisma.lawyer.update.mockResolvedValue(FAKE_LAWYER);
 
-      await service.delete('law-001', ACTOR_ID, {
+      setOrdinaryCurrentScope(mockPrisma, null);
+await service.delete('law-001', ACTOR_ID, {
         ipAddress: '10.0.0.1',
         userAgent: 'Playwright',
       });
@@ -593,7 +700,7 @@ describe('LawyersService', () => {
         expect.objectContaining({
           ipAddress: '10.0.0.1',
           userAgent: 'Playwright',
-        }),
+        }), mockPrisma
       );
     });
   });
@@ -615,7 +722,8 @@ describe('LawyersService', () => {
         subjectId: 'sub-001',
       });
 
-      const r1 = await service.create(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const r1 = await service.create(
         { ...BASE_CREATE_DTO, barNumber: 'LS-001', subjectId: 'sub-001' },
         ACTOR_ID,
       );
@@ -636,7 +744,8 @@ describe('LawyersService', () => {
         subjectId: 'sub-002',
       });
 
-      const r2 = await service.create(
+      setOrdinaryCurrentScope(mockPrisma, null);
+const r2 = await service.create(
         { ...BASE_CREATE_DTO, barNumber: 'LS-002', subjectId: 'sub-002' },
         ACTOR_ID,
       );

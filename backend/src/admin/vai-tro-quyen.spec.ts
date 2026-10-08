@@ -39,9 +39,10 @@ const idCua = (action: string, subject: string) =>
 
 function dungMoi() {
   const tx = {
+    user: { findUnique: jest.fn().mockResolvedValue({ id: 'u1', roleId: 'r-khac', isActive: true }), findMany: jest.fn().mockResolvedValue([]) },
     $queryRaw: jest.fn().mockResolvedValue([]),
     rolePermission: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -285,9 +286,10 @@ describe('updateRolePermissions', () => {
     const khoa = m.tx.$queryRaw.mock.invocationCallOrder[0];
     const doc = m.tx.rolePermission.findMany.mock.invocationCallOrder[0];
     expect(khoa).toBeLessThan(doc);
-    const [manh] = m.tx.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+    const roleLock = m.tx.$queryRaw.mock.calls.find(call => (call[0] as TemplateStringsArray).join('?').includes('FROM roles'))!;
+    const [manh] = roleLock as [TemplateStringsArray];
     const sql = manh.join('?');
-    expect(sql).toMatch(/FROM "roles" WHERE id = \? FOR UPDATE/);
+    expect(sql).toMatch(/FROM roles WHERE id = \? FOR UPDATE/);
   });
 
   it('chỉ bỏ phần bị bỏ, chỉ thêm phần mới (giữ mốc cấp của quyền không đổi); trùng lặp gộp; nhật ký trong cùng giao dịch', async () => {

@@ -1,3 +1,4 @@
+import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { Plus, Search, ChevronDown, X, Loader2 } from "lucide-react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
@@ -407,7 +408,7 @@ export function FKSelect({
   };
 
   return (
-    <div ref={containerRef} className="relative" data-testid={testId}>
+    <CasePolicyField label={label} testId={testId}><div ref={containerRef} className="relative" data-testid={testId}>
       {/* Label */}
       <label className={LABEL_BASE}>
         {label} {required && <span className="text-red-500">*</span>}
@@ -579,6 +580,6 @@ export function FKSelect({
           )}
         </div>
       )}
-    </div>
+    </div></CasePolicyField>
   );
 }

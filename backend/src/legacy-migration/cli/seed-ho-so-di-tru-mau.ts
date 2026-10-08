@@ -13,6 +13,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { assertCasePreservation } from '../../cases/evidence-governance/case-preservation';
 
 const MA_HO_SO = 'DI-TRU-MAU-01';
 const T = (iso: string) => Math.floor(new Date(iso).getTime() / 1000);
@@ -58,19 +59,40 @@ const HO_SO_HE_CU: Record<string, unknown> = {
   so_tien_bi_thiet_hai: '800',
 };
 
-async function main(): Promise<void> {
+export async function seedLegacySample(runtime?: {
+  prisma: PrismaClient;
+  preserve?: typeof assertCasePreservation;
+  log?: (message: string) => void;
+}): Promise<void> {
   const i = process.argv.indexOf('--email');
   const email = i >= 0 ? process.argv[i + 1] : 'admin@pc02.local';
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
-  });
+  const prisma =
+    runtime?.prisma ??
+    new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+    });
+  const preserve = runtime?.preserve ?? assertCasePreservation,
+    log = runtime?.log ?? console.log;
   try {
-    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
     if (!user) throw new Error(`Không thấy tài khoản ${email}`);
 
-    await prisma.caseStatistic.deleteMany({ where: { case: { caseCode: MA_HO_SO } } });
-    await prisma.case.deleteMany({ where: { caseCode: MA_HO_SO } });
+    await prisma.$transaction(async (tx) => {
+      const records = await tx.case.findMany({
+        where: { caseCode: MA_HO_SO },
+        select: { id: true },
+      });
+      for (const record of records)
+        await preserve(tx, record.id, 'SYNTHETIC_FIXTURE_REPLACE');
+      await tx.caseStatistic.deleteMany({
+        where: { case: { caseCode: MA_HO_SO } },
+      });
+      await tx.case.deleteMany({ where: { caseCode: MA_HO_SO } });
+    });
 
     const c = await prisma.case.create({
       data: {
@@ -88,15 +110,19 @@ async function main(): Promise<void> {
       select: { id: true, caseCode: true },
     });
 
-    console.log(`Đã tạo hồ sơ di trú mẫu: ${c.caseCode} (id=${c.id}), gắn cho ${email}.`);
-    console.log('Chạy tiếp: ts-node src/legacy-migration/cli/backfill-parity.ts --entity case');
+    log(
+      `Đã tạo hồ sơ di trú mẫu: ${c.caseCode} (id=${c.id}), gắn cho ${email}.`,
+    );
+    log(
+      'Chạy tiếp: ts-node src/legacy-migration/cli/backfill-parity.ts --entity case',
+    );
   } finally {
     await prisma.$disconnect();
   }
 }
 
 if (require.main === module) {
-  main().catch((e) => {
+  seedLegacySample().catch((e) => {
     console.error(e);
     process.exit(1);
   });

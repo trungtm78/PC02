@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-10-08T01:08:48.884Z",
+  "environment": "private synthetic loopback web",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "permittedSearch": true,
+  "protectedSearchExcluded": true,
+  "backForwardRestored": true,
+  "query": "/cases?fromDate=2026-09-01&toDate=2026-09-30&stt=UAT-VA-2026-00005",
+  "pageErrors": [],
+  "failedApi": [],
+  "verdict": "PASS"
+}

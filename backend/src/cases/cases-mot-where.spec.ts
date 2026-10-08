@@ -1,3 +1,4 @@
+import {ordinaryCaseAuthorityFixture} from './governance/case-ordinary-test.fixture';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CaseStatus } from '@prisma/client';
@@ -13,7 +14,7 @@ import { DocumentNumbersService } from '../document-numbers/document-numbers.ser
  * bộ lọc phải nhớ sửa hai nơi. Nay MỘT hàm `dungWhereDanhSach` cho danh sách, thẻ số và xuất Excel;
  * thẻ số chỉ bỏ điều kiện trạng thái/nhóm trạng thái.
  */
-const mockPrisma = {
+const mockPrisma = {...ordinaryCaseAuthorityFixture(),
   case: {
     findMany: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),

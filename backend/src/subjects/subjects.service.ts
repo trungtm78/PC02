@@ -1,3 +1,4 @@
+import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import {
   Injectable,
   NotFoundException,
@@ -11,7 +12,7 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { QuerySubjectsDto } from './dto/query-subjects.dto';
 import { Prisma, SubjectStatus, SubjectType } from '@prisma/client';
 import type { DataScope } from '../auth/services/unit-scope.service';
-import { assertParentInScope, buildScopeFilter } from '../common/utils/scope-filter.util';
+import { assertParentInScope } from '../common/utils/scope-filter.util';
 import { kiemVuAnChaDeGhi } from '../common/utils/kiem-vu-an-cha';
 import { BoTimKiem } from '../common/tim-kiem/bo-tim-kiem';
 import { KHOA_TAT_CA, noiVaoWhere } from '../common/tim-kiem/dieu-kien';
@@ -27,6 +28,7 @@ export class SubjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly childAccess: CaseChildAccessService,
   ) {}
 
   private get timKiem(): BoTimKiem {
@@ -40,7 +42,15 @@ export class SubjectsService {
   // ─────────────────────────────────────────────
   // GET LIST
   // ─────────────────────────────────────────────
-  async getList(query: QuerySubjectsDto, dataScope?: DataScope | null) {
+  async getList(
+    query: QuerySubjectsDto,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Subject', 'read', actorId, db);
+
     const {
       status,
       type,
@@ -63,11 +73,16 @@ export class SubjectsService {
     // Thẻ tìm kiếm (`tk` + `search` cũ) — bỏ dấu, cùng luật với các màn danh sách khác; khoá lạ → 400.
     noiVaoWhere(
       where as Record<string, unknown>,
-      await this.timKiem.dieuKien(query),
+      await this.childAccess.policyQuery(
+        await this.timKiem.dieuKien(query),
+        'case',
+        actorId,
+        db,
+      ),
     );
 
     if (status) where.status = status;
-    if (type) where.type = type;    // TASK-2026-261225: filter by SubjectType
+    if (type) where.type = type; // TASK-2026-261225: filter by SubjectType
     if (caseId) where.caseId = caseId;
     if (crimeId) where.crimeId = crimeId;
     if (districtId) where.districtId = districtId;
@@ -87,18 +102,23 @@ export class SubjectsService {
       };
     }
 
-    const caseScope = buildScopeFilter(dataScope);
-    if (caseScope) {
-      // NỐI vào AND, không gán `where.case`: thẻ Vụ án cũng lọc trên quan hệ `case` — gán ở tầng trên
-      // là một bên đè bên kia, cán bộ thấy đối tượng ngoài phạm vi.
-      noiVaoWhere(where as Record<string, unknown>, [{ case: caseScope }]);
-    }
+    noiVaoWhere(where as Record<string, unknown>, [
+      { case: await this.childAccess.listWhere(actorId, db) },
+    ]);
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'fullName', 'dateOfBirth', 'status'];
-    const orderByField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = [
+      'createdAt',
+      'updatedAt',
+      'fullName',
+      'dateOfBirth',
+      'status',
+    ];
+    const orderByField = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'createdAt';
 
     const [data, total] = await Promise.all([
-      this.prisma.subject.findMany({
+      db.subject.findMany({
         where,
         select: {
           id: true,
@@ -114,7 +134,7 @@ export class SubjectsService {
           wardId: true,
           caseId: true,
           crimeId: true,
-          type: true,    // TASK-2026-261225
+          type: true, // TASK-2026-261225
           status: true,
           notes: true,
           createdAt: true,
@@ -127,12 +147,16 @@ export class SubjectsService {
         take: limit,
         skip: offset,
       }),
-      this.prisma.subject.count({ where }),
+      db.subject.count({ where }),
     ]);
 
     return {
       success: true,
-      data,
+      data: await Promise.all(
+        data.map((row) =>
+          this.childAccess.serialize(row.caseId, row, actorId, db),
+        ),
+      ),
       total,
       page: Math.floor(offset / limit) + 1,
       pageSize: limit,
@@ -142,12 +166,26 @@ export class SubjectsService {
   // ─────────────────────────────────────────────
   // GET DETAIL
   // ─────────────────────────────────────────────
-  async getById(id: string, dataScope?: DataScope | null) {
-    const record = await this.prisma.subject.findFirst({
+  async getById(
+    id: string,
+    dataScope?: DataScope | null,
+    actorId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    dataScope = await this.childAccess.scope(actorId, db);
+    await this.childAccess.entity('Subject', 'read', actorId, db);
+
+    const record = await db.subject.findFirst({
       where: { id, deletedAt: null },
       include: {
         case: {
-          select: { id: true, name: true, status: true, assignedTeamId: true, investigatorId: true },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            assignedTeamId: true,
+            investigatorId: true,
+          },
         },
       },
     });
@@ -157,8 +195,17 @@ export class SubjectsService {
     }
 
     assertParentInScope(record.case, dataScope);
+    await this.childAccess.read(record.caseId, actorId, db);
 
-    return { success: true, data: record };
+    return {
+      success: true,
+      data: await this.childAccess.serialize(
+        record.caseId,
+        record,
+        actorId,
+        db,
+      ),
+    };
   }
 
   // ─────────────────────────────────────────────
@@ -170,72 +217,103 @@ export class SubjectsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    // Vụ án cha phải tồn tại và nằm trong phạm vi GHI — trước mọi kiểm khác, để không lộ dữ liệu vụ án ngoài phạm vi.
-    await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
+    return this.childAccess.write(
+      [dto.caseId],
+      actorId,
+      'Subject',
+      'write',
+      async (tx) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
 
-    // EC-04: Check duplicate idNumber within same type
-    // Same person can be both VICTIM and WITNESS (different type records)
-    // But cannot have duplicate idNumber+type combination
-    const subjectType = dto.type ?? SubjectType.SUSPECT;
-    // Chỉ kiểm trùng khi CÓ số định danh. Bản ghi di trú "chưa đủ định danh" (idNumber null)
-    // KHÔNG bị coi là trùng nhau — nhiều nghi can chỉ có tên vẫn cùng một vụ.
-    if (dto.idNumber) {
-      const existing = await this.prisma.subject.findFirst({
-        where: { idNumber: dto.idNumber, type: subjectType, deletedAt: null },
-      });
-      if (existing) {
-        throw new ConflictException(
-          `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
+        // Vụ án cha phải tồn tại và nằm trong phạm vi GHI — trước mọi kiểm khác, để không lộ dữ liệu vụ án ngoài phạm vi.
+        await kiemVuAnChaDeGhi(tx, dto.caseId, dataScope);
+
+        // EC-04: Check duplicate idNumber within same type
+        // Same person can be both VICTIM and WITNESS (different type records)
+        // But cannot have duplicate idNumber+type combination
+        const subjectType = dto.type ?? SubjectType.SUSPECT;
+        // Chỉ kiểm trùng khi CÓ số định danh. Bản ghi di trú "chưa đủ định danh" (idNumber null)
+        // KHÔNG bị coi là trùng nhau — nhiều nghi can chỉ có tên vẫn cùng một vụ.
+        if (dto.idNumber) {
+          const existing = await tx.subject.findFirst({
+            where: {
+              idNumber: dto.idNumber,
+              type: subjectType,
+              deletedAt: null,
+            },
+          });
+          if (existing) {
+            throw new ConflictException(
+              `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
+            );
+          }
+        }
+
+        // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
+        if (dto.crimeId) {
+          const crimeRecord = await tx.crime.findFirst({
+            where: { id: dto.crimeId, isActive: true },
+          });
+          if (!crimeRecord) {
+            throw new BadRequestException(
+              `Tội danh không tồn tại (id: ${dto.crimeId})`,
+            );
+          }
+        }
+
+        const record = await tx.subject.create({
+          data: {
+            fullName: dto.fullName,
+            dateOfBirth: new Date(dto.dateOfBirth),
+            gender: dto.gender ?? 'MALE',
+            idNumber: dto.idNumber,
+            address: dto.address,
+            phone: dto.phone,
+            occupationId: dto.occupationId,
+            nationalityId: dto.nationalityId,
+            districtId: dto.districtId,
+            wardId: dto.wardId,
+            districtName: dto.districtName ?? null,
+            caseId: dto.caseId,
+            crimeId: dto.crimeId,
+            type: dto.type ?? SubjectType.SUSPECT, // TASK-2026-261225
+            status: dto.status ?? SubjectStatus.INVESTIGATING,
+            notes: dto.notes,
+          },
+          include: {
+            case: { select: { id: true, name: true, status: true } },
+          },
+        });
+
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'SUBJECT_CREATED',
+            subject: 'Subject',
+            subjectId: record.id,
+            metadata: {
+              fullName: record.fullName,
+              idNumber: record.idNumber,
+              caseId: record.caseId,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
         );
-      }
-    }
 
-
-    // Validate crimeId nếu có — FK tới master Crime (BLHS 2015). Optional: nhân chứng/bị hại bỏ trống.
-    if (dto.crimeId) {
-      const crimeRecord = await this.prisma.crime.findFirst({
-        where: { id: dto.crimeId, isActive: true },
-      });
-      if (!crimeRecord) {
-        throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
-      }
-    }
-
-    const record = await this.prisma.subject.create({
-      data: {
-        fullName: dto.fullName,
-        dateOfBirth: new Date(dto.dateOfBirth),
-        gender: dto.gender ?? 'MALE',
-        idNumber: dto.idNumber,
-        address: dto.address,
-        phone: dto.phone,
-        occupationId: dto.occupationId,
-        nationalityId: dto.nationalityId,
-        districtId: dto.districtId,
-        wardId: dto.wardId,
-        districtName: dto.districtName ?? null,
-        caseId: dto.caseId,
-        crimeId: dto.crimeId,
-        type: dto.type ?? SubjectType.SUSPECT,  // TASK-2026-261225
-        status: dto.status ?? SubjectStatus.INVESTIGATING,
-        notes: dto.notes,
+        return {
+          success: true,
+          data: await this.childAccess.serialize(
+            record.caseId,
+            record,
+            actorId,
+            tx,
+          ),
+          message: 'Tạo đối tượng thành công',
+        };
       },
-      include: {
-        case: { select: { id: true, name: true, status: true } },
-      },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'SUBJECT_CREATED',
-      subject: 'Subject',
-      subjectId: record.id,
-      metadata: { fullName: record.fullName, idNumber: record.idNumber, caseId: record.caseId },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return { success: true, data: record, message: 'Tạo đối tượng thành công' };
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -248,72 +326,120 @@ export class SubjectsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    assertParentInScope(existing.case, dataScope, 'write');
-    // Chuyển sang vụ án khác phải kiểm phạm vi GHI của vụ án ĐÍCH (kiểm ở trên chỉ là vụ án hiện tại).
-    if (dto.caseId && dto.caseId !== existing.caseId) {
-      await kiemVuAnChaDeGhi(this.prisma, dto.caseId, dataScope);
-    }
+    const { data: existing } = await this.getById(id, dataScope, actorId);
+    return this.childAccess.write(
+      [existing.caseId, ...(dto.caseId ? [dto.caseId] : [])],
+      actorId,
+      'Subject',
+      'edit',
+      async (tx, parents) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
 
-    // Check duplicate idNumber+type (exclude self) — EC-04
-    const targetType = dto.type ?? existing.type;
-    if (dto.idNumber && dto.idNumber !== existing.idNumber) {
-      const dup = await this.prisma.subject.findFirst({
-        where: { idNumber: dto.idNumber, type: targetType, deletedAt: null, NOT: { id } },
-      });
-      if (dup) {
-        throw new ConflictException(
-          `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
+        assertParentInScope(
+          this.childAccess.parent(parents, existing.caseId),
+          dataScope,
+          'write',
         );
-      }
-    }
+        // Chuyển sang vụ án khác phải kiểm phạm vi GHI của vụ án ĐÍCH (kiểm ở trên chỉ là vụ án hiện tại).
+        if (dto.caseId && dto.caseId !== existing.caseId) {
+          await kiemVuAnChaDeGhi(tx, dto.caseId, dataScope);
+        }
 
-    // Validate crimeId if provided — FK tới master Crime (BLHS 2015).
-    if (dto.crimeId) {
-      const crimeRecord = await this.prisma.crime.findFirst({
-        where: { id: dto.crimeId, isActive: true },
-      });
-      if (!crimeRecord) {
-        throw new BadRequestException(`Tội danh không tồn tại (id: ${dto.crimeId})`);
-      }
-    }
+        // Check duplicate idNumber+type (exclude self) — EC-04
+        const targetType = dto.type ?? existing.type;
+        if (dto.idNumber && dto.idNumber !== existing.idNumber) {
+          const dup = await tx.subject.findFirst({
+            where: {
+              idNumber: dto.idNumber,
+              type: targetType,
+              deletedAt: null,
+              NOT: { id },
+            },
+          });
+          if (dup) {
+            throw new ConflictException(
+              `Số CCCD/CMND "${dto.idNumber}" đã tồn tại với loại đối tượng này`,
+            );
+          }
+        }
 
-    const record = await this.prisma.subject.update({
-      where: { id },
-      data: {
-        ...(dto.fullName !== undefined && { fullName: dto.fullName }),
-        ...(dto.dateOfBirth !== undefined && { dateOfBirth: new Date(dto.dateOfBirth) }),
-        ...(dto.gender !== undefined && { gender: dto.gender }),
-        ...(dto.idNumber !== undefined && { idNumber: dto.idNumber }),
-        ...(dto.address !== undefined && { address: dto.address }),
-        ...(dto.phone !== undefined && { phone: dto.phone }),
-        ...(dto.occupationId !== undefined && { occupationId: dto.occupationId }),
-        ...(dto.nationalityId !== undefined && { nationalityId: dto.nationalityId }),
-        ...(dto.districtId !== undefined && { districtId: dto.districtId }),
-        ...(dto.wardId !== undefined && { wardId: dto.wardId }),
-        ...(dto.districtName !== undefined && { districtName: dto.districtName }),
-        ...(dto.caseId !== undefined && { caseId: dto.caseId }),
-        ...(dto.crimeId !== undefined && { crimeId: dto.crimeId }),
-        ...(dto.type !== undefined && { type: dto.type }),  // TASK-2026-261225
-        ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
+        // Validate crimeId if provided — FK tới master Crime (BLHS 2015).
+        if (dto.crimeId) {
+          const crimeRecord = await tx.crime.findFirst({
+            where: { id: dto.crimeId, isActive: true },
+          });
+          if (!crimeRecord) {
+            throw new BadRequestException(
+              `Tội danh không tồn tại (id: ${dto.crimeId})`,
+            );
+          }
+        }
+
+        const record = await tx.subject.update({
+          where: { id, caseId: existing.caseId, updatedAt: existing.updatedAt },
+          data: {
+            ...(dto.fullName !== undefined && { fullName: dto.fullName }),
+            ...(dto.dateOfBirth !== undefined && {
+              dateOfBirth: new Date(dto.dateOfBirth),
+            }),
+            ...(dto.gender !== undefined && { gender: dto.gender }),
+            ...(dto.idNumber !== undefined && { idNumber: dto.idNumber }),
+            ...(dto.address !== undefined && { address: dto.address }),
+            ...(dto.phone !== undefined && { phone: dto.phone }),
+            ...(dto.occupationId !== undefined && {
+              occupationId: dto.occupationId,
+            }),
+            ...(dto.nationalityId !== undefined && {
+              nationalityId: dto.nationalityId,
+            }),
+            ...(dto.districtId !== undefined && { districtId: dto.districtId }),
+            ...(dto.wardId !== undefined && { wardId: dto.wardId }),
+            ...(dto.districtName !== undefined && {
+              districtName: dto.districtName,
+            }),
+            ...(dto.caseId !== undefined && { caseId: dto.caseId }),
+            ...(dto.crimeId !== undefined && { crimeId: dto.crimeId }),
+            ...(dto.type !== undefined && { type: dto.type }), // TASK-2026-261225
+            ...(dto.status !== undefined && { status: dto.status }),
+            ...(dto.notes !== undefined && { notes: dto.notes }),
+          },
+          include: {
+            case: { select: { id: true, name: true, status: true } },
+          },
+        });
+
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'SUBJECT_UPDATED',
+            subject: 'Subject',
+            subjectId: id,
+            metadata: {
+              before: {
+                fullName: existing.fullName,
+                idNumber: existing.idNumber,
+                status: existing.status,
+              },
+              after: dto,
+            },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+
+        return {
+          success: true,
+          data: await this.childAccess.serialize(
+            record.caseId,
+            record,
+            actorId,
+            tx,
+          ),
+          message: 'Cập nhật đối tượng thành công',
+        };
       },
-      include: {
-        case: { select: { id: true, name: true, status: true } },
-      },
-    });
-
-    await this.audit.log({
-      userId: actorId,
-      action: 'SUBJECT_UPDATED',
-      subject: 'Subject',
-      subjectId: id,
-      metadata: { before: { fullName: existing.fullName, idNumber: existing.idNumber, status: existing.status }, after: dto },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
-
-    return { success: true, data: record, message: 'Cập nhật đối tượng thành công' };
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -325,24 +451,41 @@ export class SubjectsService {
     meta?: { ipAddress?: string; userAgent?: string },
     dataScope?: DataScope | null,
   ) {
-    const { data: existing } = await this.getById(id, dataScope);
-    assertParentInScope(existing.case, dataScope, 'write');
+    const { data: existing } = await this.getById(id, dataScope, actorId);
+    return this.childAccess.write(
+      [existing.caseId],
+      actorId,
+      'Subject',
+      'delete',
+      async (tx, parents) => {
+        dataScope = await this.childAccess.scope(actorId, tx);
 
-    await this.prisma.subject.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+        assertParentInScope(
+          this.childAccess.parent(parents, existing.caseId),
+          dataScope,
+          'write',
+        );
 
-    await this.audit.log({
-      userId: actorId,
-      action: 'SUBJECT_DELETED',
-      subject: 'Subject',
-      subjectId: id,
-      metadata: { fullName: existing.fullName, softDelete: true },
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-    });
+        await tx.subject.update({
+          where: { id, caseId: existing.caseId, updatedAt: existing.updatedAt },
+          data: { deletedAt: new Date() },
+        });
 
-    return { success: true, message: 'Xóa đối tượng thành công' };
+        await this.audit.log(
+          {
+            userId: actorId,
+            action: 'SUBJECT_DELETED',
+            subject: 'Subject',
+            subjectId: id,
+            metadata: { fullName: existing.fullName, softDelete: true },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+          },
+          tx,
+        );
+
+        return { success: true, message: 'Xóa đối tượng thành công' };
+      },
+    );
   }
 }
