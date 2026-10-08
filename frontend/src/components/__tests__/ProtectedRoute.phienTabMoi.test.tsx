@@ -74,7 +74,7 @@ describe('ProtectedRoute — tab mới', () => {
   });
 
   it('TAB MỚI, phiên còn ở tab bên cạnh → nhận phiên và vào ĐÚNG trang (KHÔNG bắt đăng nhập lại)', async () => {
-    localStorage.setItem('refreshToken', 'rt');
+    localStorage.setItem('refreshToken', jwt());
     khoiPhuc = datKenhChoCaKiem(dungKenh(true));
     dung();
     expect(await screen.findByText('TRANG-DON-THU')).toBeInTheDocument();
@@ -83,7 +83,7 @@ describe('ProtectedRoute — tab mới', () => {
   });
 
   it('trong lúc chờ hiện "Đang kiểm tra phiên", chưa chuyển trang', () => {
-    localStorage.setItem('refreshToken', 'rt');
+    localStorage.setItem('refreshToken', jwt());
     khoiPhuc = datKenhChoCaKiem(dungKenh(false));
     dung();
     expect(screen.getByTestId('dang-kiem-tra-phien')).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe('ProtectedRoute — tab mới', () => {
 
   it('còn refresh token nhưng KHÔNG tab nào còn sống (đóng trình duyệt rồi mở lại) → /login sau thời hạn', async () => {
     vi.useFakeTimers();
-    localStorage.setItem('refreshToken', 'rt');
+    localStorage.setItem('refreshToken', jwt());
     khoiPhuc = datKenhChoCaKiem(dungKenh(false));
     dung();
     await act(async () => {

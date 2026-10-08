@@ -1,4 +1,4 @@
-import { authStore } from '@/stores/auth.store';
+import { authStore, layChuToken } from '@/stores/auth.store';
 
 /**
  * Chia sẻ PHIÊN ĐĂNG NHẬP giữa các tab đang mở cùng ứng dụng.
@@ -85,9 +85,27 @@ export function coTheCoPhienOTabKhac(): boolean {
   return !!authStore.getRefreshToken();
 }
 
+/**
+ * Token nhận được có phải của ĐÚNG phiên đang sống trên trình duyệt này không? Refresh token ở `localStorage` là nguồn
+ * sự thật duy nhất về "ai đang đăng nhập" (dùng chung mọi tab, ghi bởi lần đăng nhập SAU CÙNG). Token truy cập chỉ được
+ * nhận khi cùng chủ (`sub`) với nó.
+ *
+ * Codex bắt 08/10/2026: tab A đăng nhập người A, rồi tab B đăng nhập người B (ghi đè refresh token). Tab mới hỏi thì cả A
+ * lẫn B đều trả lời; nhận cái nhanh hơn có thể cho tab mới chạy người A trong khi mọi lần làm mới sau đó dùng refresh
+ * token của B — lẫn phiên giữa hai người.
+ */
+function cungChuVoiPhienHienHanh(accessToken: string): boolean {
+  const rt = authStore.getRefreshToken();
+  if (!rt) return false;
+  const chu = layChuToken(rt);
+  return chu !== null && layChuToken(accessToken) === chu;
+}
+
 /** Xin phiên từ tab khác. `true` = đã nhận và ghi vào `sessionStorage` của tab này. */
 export function xinPhienTuTabKhac(choToiDaMs: number = CHO_TOI_DA_MS): Promise<boolean> {
   if (authStore.getAccessToken()) return Promise.resolve(true);
+  // Không còn refresh token = đã đăng xuất (hoặc chưa từng đăng nhập): không có phiên nào để nhận.
+  if (!authStore.getRefreshToken()) return Promise.resolve(false);
   const kenh = taoKenh();
   if (!kenh) return Promise.resolve(false);
   const id = taoId();
@@ -105,6 +123,10 @@ export function xinPhienTuTabKhac(choToiDaMs: number = CHO_TOI_DA_MS): Promise<b
     kenh.onmessage = (e) => {
       const g = e.data as Goi | null;
       if (!g || g.loai !== 'dap' || g.id !== id || !laTokenHopLe(g.accessToken)) return;
+      // Đăng xuất ở tab khác ngay trong lúc chờ: refresh token đã mất → không nhận phiên của tab còn sót.
+      if (!authStore.getRefreshToken()) return ketThuc(false);
+      // Token của người KHÁC (tab cũ còn giữ người trước): bỏ qua, chờ tab đúng người trả lời.
+      if (!cungChuVoiPhienHienHanh(g.accessToken)) return;
       authStore.setAccessToken(g.accessToken);
       ketThuc(true);
     };

@@ -53,6 +53,8 @@ describe('chiaSePhien', () => {
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
+    // Phiên hiện hành trên trình duyệt: refresh token của người u1 (xem `cungChuVoiPhienHienHanh`).
+    localStorage.setItem('refreshToken', jwt(CON_HAN()));
     bus = dungBus();
     khoiPhuc = datKenhChoCaKiem(bus.taoKenh);
   });
@@ -123,6 +125,61 @@ describe('chiaSePhien', () => {
     await vi.advanceTimersByTimeAsync(150);
     await p;
     expect(bus.soKenh()).toBe(truoc);
+  });
+
+  describe('gắn phiên với người đang đăng nhập (Codex P1/P2, 08/10/2026)', () => {
+    it('KHÔNG có refresh token (đã đăng xuất) → false ngay, không mở kênh, không ghi token', async () => {
+      localStorage.clear();
+      const truoc = bus.soKenh();
+      tabKhacDangNhap(jwt(CON_HAN()));
+      const sau = bus.soKenh();
+      expect(await xinPhienTuTabKhac()).toBe(false);
+      expect(bus.soKenh()).toBe(sau);
+      expect(sau).toBe(truoc + 1);
+      expect(authStore.getAccessToken()).toBeNull();
+    });
+
+    it('hai tab hai NGƯỜI: refresh token là của u2 → bỏ token của u1 dù tab u1 trả lời TRƯỚC, nhận token của u2', async () => {
+      localStorage.setItem('refreshToken', jwt(CON_HAN(), 'u2'));
+      const tokenU1 = jwt(CON_HAN(), 'u1');
+      const tokenU2 = jwt(CON_HAN(), 'u2');
+      tabKhacDangNhap(tokenU1); // đăng ký trước → trả lời trước
+      tabKhacDangNhap(tokenU2);
+      expect(await xinPhienTuTabKhac()).toBe(true);
+      expect(authStore.getAccessToken()).toBe(tokenU2);
+    });
+
+    it('chỉ còn tab của người KHÁC → không nhận (chờ hết hạn rồi false)', async () => {
+      vi.useFakeTimers();
+      localStorage.setItem('refreshToken', jwt(CON_HAN(), 'u2'));
+      tabKhacDangNhap(jwt(CON_HAN(), 'u1'));
+      const p = xinPhienTuTabKhac(200);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(await p).toBe(false);
+      expect(authStore.getAccessToken()).toBeNull();
+    });
+
+    it('refresh token không đọc được chủ (không phải JWT) → không nhận gì', async () => {
+      vi.useFakeTimers();
+      localStorage.setItem('refreshToken', 'khong-phai-jwt');
+      tabKhacDangNhap(jwt(CON_HAN()));
+      const p = xinPhienTuTabKhac(200);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(await p).toBe(false);
+      expect(authStore.getAccessToken()).toBeNull();
+    });
+
+    it('ĐĂNG XUẤT ở tab khác ngay trong lúc chờ → tab còn sót trả lời cũng KHÔNG được nhận', async () => {
+      const kenh = bus.taoKenh();
+      kenh.onmessage = (e) => {
+        const g = e.data as { loai: string; id: string };
+        if (g.loai !== 'hoi') return;
+        localStorage.removeItem('refreshToken'); // người dùng đăng xuất ở tab khác đúng lúc này
+        kenh.postMessage({ loai: 'dap', id: g.id, accessToken: jwt(CON_HAN()) });
+      };
+      expect(await xinPhienTuTabKhac()).toBe(false);
+      expect(authStore.getAccessToken()).toBeNull();
+    });
   });
 
   describe('từ chối thứ không phải phiên hợp lệ', () => {
@@ -237,6 +294,7 @@ describe('chiaSePhien', () => {
       expect(coTheCoPhienOTabKhac()).toBe(true);
     });
     it('không có (chưa đăng nhập hoặc đã đăng xuất) → không chờ', () => {
+      localStorage.clear();
       expect(coTheCoPhienOTabKhac()).toBe(false);
     });
   });

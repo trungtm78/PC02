@@ -37,9 +37,9 @@ const goiDongGoi = buildSync({
   alias: { '@': GOC_FE },
 }).outputFiles[0].text;
 
-function jwt(exp = Math.floor(Date.now() / 1000) + 3600): string {
+function jwt(exp = Math.floor(Date.now() / 1000) + 3600, sub = 'u1'): string {
   const b = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${b({ alg: 'HS256' })}.${b({ sub: 'u1', exp })}.chu-ky`;
+  return `${b({ alg: 'HS256' })}.${b({ sub, exp })}.chu-ky`;
 }
 
 /** Cả "máy chủ" lẫn trang chỉ là một khung HTML rỗng: chỉ cần một NGUỒN GỐC thật để có storage và kênh. */
@@ -54,13 +54,13 @@ async function nap(page: Page) {
 }
 
 /** Tab đang đăng nhập: có token ở sessionStorage + refresh token ở localStorage, và đang trả lời tab khác. */
-async function tabDangNhap(ctx: BrowserContext, token: string): Promise<Page> {
+async function tabDangNhap(ctx: BrowserContext, token: string, refresh: string = jwt()): Promise<Page> {
   const a = await ctx.newPage();
   await a.goto(TRANG);
-  await a.evaluate((t) => {
+  await a.evaluate(([t, r]) => {
     sessionStorage.setItem('accessToken', t);
-    localStorage.setItem('refreshToken', 'rt');
-  }, token);
+    localStorage.setItem('refreshToken', r);
+  }, [token, refresh]);
   await nap(a);
   await a.evaluate(() => (window as unknown as { PC02: { batDauTraLoiPhien(): void } }).PC02.batDauTraLoiPhien());
   return a;
@@ -78,7 +78,7 @@ test.describe('Chia sẻ phiên giữa các tab — hợp đồng theo engine', 
     ]);
     await mo.waitForLoadState();
     expect(await mo.evaluate(() => sessionStorage.getItem('accessToken'))).toBeNull();
-    expect(await mo.evaluate(() => localStorage.getItem('refreshToken'))).toBe('rt');
+    expect(await mo.evaluate(() => localStorage.getItem('refreshToken'))).toBeTruthy();
   });
 
   test('tab noopener xin phiên từ tab đang đăng nhập → nhận đúng token, ghi vào sessionStorage CỦA NÓ', async ({ context }) => {
@@ -110,10 +110,23 @@ test.describe('Chia sẻ phiên giữa các tab — hợp đồng theo engine', 
     await dungNguonGoc(context);
     const moi = await context.newPage();
     await moi.goto(TRANG);
-    await moi.evaluate(() => localStorage.setItem('refreshToken', 'rt'));
+    await moi.evaluate((r) => localStorage.setItem('refreshToken', r), jwt());
     await nap(moi);
     expect(await moi.evaluate(() => (window as unknown as Cua).PC02.xinPhienTuTabKhac(300))).toBe(false);
     expect(await moi.evaluate(() => sessionStorage.getItem('accessToken'))).toBeNull();
+  });
+
+  test('HAI NGƯỜI trên cùng trình duyệt: tab mới nhận phiên của người đăng nhập SAU CÙNG, không lẫn sang người trước (Codex P1)', async ({ context }) => {
+    await dungNguonGoc(context);
+    const tokenU1 = jwt(undefined, 'u1');
+    const tokenU2 = jwt(undefined, 'u2');
+    await tabDangNhap(context, tokenU1, jwt(undefined, 'u1')); // tab người u1 (đăng nhập trước)
+    await tabDangNhap(context, tokenU2, jwt(undefined, 'u2')); // tab người u2 ghi đè refresh token ở localStorage
+    const moi = await context.newPage();
+    await moi.goto(TRANG);
+    await nap(moi);
+    expect(await moi.evaluate(() => (window as unknown as Cua).PC02.xinPhienTuTabKhac())).toBe(true);
+    expect(await moi.evaluate(() => sessionStorage.getItem('accessToken'))).toBe(tokenU2);
   });
 
   test('tab đã ĐĂNG XUẤT thì ngừng chia sẻ phiên', async ({ context }) => {
