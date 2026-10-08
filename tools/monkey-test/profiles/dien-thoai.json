@@ -1,0 +1,20 @@
+{
+  "ten": "dien-thoai",
+  "moTa": "Điện thoại: một nút ⋮ mỗi dòng, không tràn ngang, bảng đáy đóng trả tiêu điểm. Chạy ở khung nhìn ≤767px.",
+  "khungNhin": [
+    "390x844",
+    "360x640"
+  ],
+  "tuyen": [
+    "/petitions",
+    "/incidents",
+    "/cases",
+    "/comprehensive-list"
+  ],
+  "batBien": [
+    "mot_nut_menu_moi_dong",
+    "khong_tran_ngang",
+    "bang_dong_tra_tieu_diem",
+    "url_khong_doi_khi_boi_chu"
+  ]
+}

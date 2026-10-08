@@ -1,0 +1,12 @@
+{
+  "ten": "xem-don-thu",
+  "moTa": "Màn chỉ xem /petitions/:id: gõ/dán/xoá không đổi ô nào, không có lời gọi ghi.",
+  "tuyen": [
+    "/petitions/{DON_THU}"
+  ],
+  "manChiXem": true,
+  "camGhi": true,
+  "batBien": [
+    "o_xem_khong_sua_duoc"
+  ]
+}

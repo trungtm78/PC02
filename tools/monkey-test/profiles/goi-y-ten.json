@@ -1,0 +1,10 @@
+{
+  "ten": "goi-y-ten",
+  "moTa": "Ô tên người gửi: không gợi ý ở <2 hoặc >100 ký tự, tối đa 12 dòng, không 5xx.",
+  "tuyen": [
+    "/petitions/new"
+  ],
+  "batBien": [
+    "goi_y_ten_gioi_han"
+  ]
+}

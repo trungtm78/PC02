@@ -1,0 +1,10 @@
+{
+  "ten": "chep-don",
+  "moTa": "\"Tạo đơn mới từ đơn này\": ngày tiếp nhận = hôm nay ngay sau khi chép; sau đó bấm bừa trên form.",
+  "tuyen": [
+    "/petitions/{DON_THU}"
+  ],
+  "batBien": [
+    "chep_don_ngay_hom_nay"
+  ]
+}
