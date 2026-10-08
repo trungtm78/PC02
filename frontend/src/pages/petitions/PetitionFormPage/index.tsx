@@ -33,6 +33,7 @@ import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '@/compo
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
 import { BangChiXem } from "@/components/shared/BangChiXem";
+import { CheDoXemProvider } from "@/components/form/CheDoXem";
 import { FormActionBar } from "@/components/shared/FormActionBar";
 import { formatHoSoCode } from "@/components/shared/ListPageShell/hoSoCode";
 import { SaveSplitButton } from "@/features/petitions/components/SaveSplitButton";
@@ -76,7 +77,16 @@ interface PetitionCloneState {
   parityState: Record<string, unknown>;
 }
 
-export function PetitionFormPage() {
+/**
+ * `cheDo`: `/petitions/:id` mở ở chế độ **xem** (`'xem'`, ô chỉ-đọc, muốn sửa phải bấm "Sửa"), `/petitions/:id/edit` ở
+ * chế độ sửa (`'sua'`). Không truyền (tạo mới, hoặc nơi gọi cũ) thì như `'sua'`.
+ *
+ * Trước đây hai route cùng dựng MỘT form sửa được, nên bấm vào dòng danh sách hay nút "Xem" đều rơi vào form sửa:
+ * cán bộ bôi đen chữ trên danh sách để chép rồi bị đưa thẳng vào form có thể gõ nhầm (yêu cầu 08/10/2026).
+ */
+export type CheDoDonThu = 'xem' | 'sua';
+
+export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
@@ -162,9 +172,11 @@ export function PetitionFormPage() {
   // Máy chủ: người mở có GHI được hồ sơ không (luật checkWriteScope, 20/09/2026). false → chỉ xem: ẩn nút ghi, chặn lưu.
   // Thiếu trường (máy chủ cũ) → như trước.
   const [quyenGhi, setQuyenGhi] = useState<boolean | undefined>(undefined);
-  const chiXem = isEditMode && quyenGhi === false;
+  // Chỉ xem vì HAI lý do khác nhau: người mở chọn xem trước (route `:id`), hoặc không có quyền ghi hồ sơ này.
+  const laTrangXem = isEditMode && cheDo === 'xem';
+  const chiXem = isEditMode && (cheDo === 'xem' || quyenGhi === false);
   // Phân công: điều phối viên được làm cả ngoài phạm vi ghi (quyết định 19/09/2026) — chỉ ẩn với người thường.
-  const { canDispatch, canCreate } = usePermission();
+  const { canDispatch, canCreate, canEdit } = usePermission();
   // Snapshot formData đã lưu gần nhất — cập nhật khi save/patch để onPetitionPatched (popup In
   // chứng từ "Lưu bổ sung") không khiến form bị coi là dirty.
   const savedSnapshotRef = useRef<string>(JSON.stringify(INITIAL_FORM));
@@ -695,7 +707,7 @@ export function PetitionFormPage() {
         <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <PhoneInput value={formData.senderPhone} onValueChange={(v) => update("senderPhone", v)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="09xx xxx xxx" data-testid="field-senderPhone" />
+          <PhoneInput value={formData.senderPhone} onValueChange={(v) => update("senderPhone", v)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="09xx xxx xxx" readOnly={chiXem} data-testid="field-senderPhone" />
         </div>
       </>
     ),
@@ -727,6 +739,7 @@ export function PetitionFormPage() {
           onChange={(e) => update("ketQuaXuLyKhac", e.target.value)}
           className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Các trường hợp xử lý giải quyết khác"
+          readOnly={chiXem}
           data-testid="field-ketQuaXuLyKhac"
         />
         <div className="mt-3" data-testid="khu-tep-ket-qua">
@@ -820,6 +833,8 @@ export function PetitionFormPage() {
                         type="button"
                         role="radio"
                         aria-checked={formData.huongXuLy === o.value}
+                        // Chế độ xem: khoá hẳn nhưng vẫn hiện lựa chọn đang chọn (nền xanh).
+                        disabled={chiXem}
                         onClick={() => {
                           // Đổi hướng → xoá đơn vị đã chọn: tên tổ nội bộ và tên đơn vị ngoài là
                           // hai tập khác nhau, giữ lại sẽ ghi một giá trị không có trong nguồn mới.
@@ -912,6 +927,7 @@ export function PetitionFormPage() {
                     rows={3}
                     className="w-full px-4 py-2.5 text-base sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Để trống: bản in tự ghép câu theo hướng xử lý đã chọn"
+                    readOnly={chiXem}
                     data-testid="field-deXuat"
                   />
                   <p className="mt-1 text-xs text-slate-500">
@@ -940,13 +956,44 @@ export function PetitionFormPage() {
   );
 
   return (
+    // Mọi ô nhập bên trong đọc chế độ chỉ xem từ ngữ cảnh này: ô chữ thành readOnly (vẫn chép được), ô chọn bị khoá.
+    <CheDoXemProvider xem={chiXem}>
     <div className="p-6 space-y-6" data-testid="petition-form-page">
       <FormActionBar
-        title={isEditMode ? "Cập nhật Đơn thư" : "Thêm mới Đơn thư"}
-        subtitle={isEditMode ? `Chỉnh sửa thông tin đơn thư${formData.stt ? ` · STT ${formatHoSoCode(formData.stt)}` : ""}` : "Nhập thông tin đơn thư mới"}
+        title={laTrangXem ? "Chi tiết Đơn thư" : isEditMode ? "Cập nhật Đơn thư" : "Thêm mới Đơn thư"}
+        subtitle={
+          laTrangXem
+            ? `Xem thông tin đơn thư${formData.stt ? ` · STT ${formatHoSoCode(formData.stt)}` : ""}`
+            : isEditMode
+              ? `Chỉnh sửa thông tin đơn thư${formData.stt ? ` · STT ${formatHoSoCode(formData.stt)}` : ""}`
+              : "Nhập thông tin đơn thư mới"
+        }
         onBack={handleCancel}
         onCancel={handleCancel}
         cancelTestId="btn-cancel-top"
+        // "Sửa" chỉ hiện khi xem trước VÀ được ghi hồ sơ này: người chỉ có quyền đọc không có nút dẫn vào form sửa
+        // rồi mới bị máy chủ chặn lúc Lưu.
+        editAction={
+          laTrangXem && id
+            ? quyenGhi !== false && canEdit(PERMISSION_RESOURCE.PETITIONS)
+              ? {
+                  label: "Sửa",
+                  onClick: () => navigate(`/petitions/${id}/edit`),
+                  testId: "btn-sua-don",
+                  title: "Mở form sửa đơn thư này",
+                }
+              : // Điều phối viên được PHÂN CÔNG cả ngoài phạm vi ghi (quyết định 19/09/2026): không có nút "Sửa" cho
+                // họ, nhưng phải còn đường vào màn phân công — trước đây màn này tự có sẵn khối phân công.
+                quyenGhi === false && canDispatch
+                ? {
+                    label: "Phân công",
+                    onClick: () => navigate(`/petitions/${id}/edit`),
+                    testId: "btn-phan-cong-don",
+                    title: "Mở màn phân công cán bộ (bạn không có quyền sửa nội dung đơn thư này)",
+                  }
+                : undefined
+            : undefined
+        }
         cloneAction={isEditMode && id && canCreate(PERMISSION_RESOURCE.PETITIONS) ? {
           label: "Tạo đơn mới từ đơn này",
           onClick: handleClone,
@@ -983,7 +1030,16 @@ export function PetitionFormPage() {
         </div>
       )}
 
-      {chiXem && <BangChiXem loai="Đơn thư" />}
+      {chiXem && quyenGhi === false && <BangChiXem loai="Đơn thư" />}
+      {laTrangXem && quyenGhi !== false && (
+        <div
+          role="status"
+          data-testid="bang-che-do-xem"
+          className="rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-700"
+        >
+          <span className="font-semibold">Đang xem.</span> Các ô chỉ để đọc và chép; bấm <span className="font-semibold">Sửa</span> để chỉnh sửa đơn thư này.
+        </div>
+      )}
 
       <form onSubmit={(e) => void handleSubmit(e)} onKeyDown={handleFormKeyDown} className="space-y-6">
         {!chiXem && (
@@ -1079,7 +1135,7 @@ export function PetitionFormPage() {
                   ngayDeXuat: mirror(prev.ngayDeXuat) ? v : prev.ngayDeXuat,
                 };
               });
-            }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-receivedDate" />
+            }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" readOnly={chiXem} data-testid="field-receivedDate" />
           </div>
         </div>
                 </div>
@@ -1126,6 +1182,7 @@ export function PetitionFormPage() {
                   }));
                 }}
                 className="w-4 h-4"
+                disabled={chiXem}
                 data-testid="field-senderIsAnonymous"
               />
               Đơn nặc danh / không rõ người gửi (bỏ qua bắt buộc SĐT, tội danh)
@@ -1141,7 +1198,7 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="email" value={formData.senderEmail} onChange={(e) => update("senderEmail", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập email" data-testid="field-senderEmail" />
+                  <input type="email" value={formData.senderEmail} onChange={(e) => update("senderEmail", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập email" readOnly={chiXem} data-testid="field-senderEmail" />
                 </div>
               </div>
               {/* Giấy tờ tùy thân (CCCD) — field-parity */}
@@ -1157,7 +1214,7 @@ export function PetitionFormPage() {
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Loại tội phạm</label>
-              <select value={formData.loaiToiPham} onChange={(e) => update("loaiToiPham", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" data-testid="field-loaiToiPham">
+              <select value={formData.loaiToiPham} onChange={(e) => update("loaiToiPham", e.target.value)} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" disabled={chiXem} data-testid="field-loaiToiPham">
                 <option value="">-- Chọn loại tội phạm --</option>
                 <option value="TTXH">TTXH</option>
                 <option value="Kinh tế-Ma túy">Kinh tế-Ma túy</option>
@@ -1181,7 +1238,7 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Địa chỉ đối tượng</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="text" value={formData.suspectedAddress} onChange={(e) => update("suspectedAddress", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập địa chỉ đối tượng (nếu có)" data-testid="field-suspectedAddress" />
+                  <input type="text" value={formData.suspectedAddress} onChange={(e) => update("suspectedAddress", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập địa chỉ đối tượng (nếu có)" readOnly={chiXem} data-testid="field-suspectedAddress" />
                 </div>
               </div>
             </div>
@@ -1237,7 +1294,7 @@ export function PetitionFormPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Hạn xử lý</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input type="date" value={formData.deadline} onChange={(e) => update("deadline", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" data-testid="field-deadline" />
+                  <input type="date" value={formData.deadline} onChange={(e) => update("deadline", e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" readOnly={chiXem} data-testid="field-deadline" />
                 </div>
               </div>
               <div>
@@ -1255,7 +1312,7 @@ export function PetitionFormPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Ghi chú thêm</label>
-              <textarea value={formData.notes} onChange={(e) => update("notes", e.target.value)} rows={3} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các ghi chú bổ sung khác" data-testid="field-notes" />
+              <textarea value={formData.notes} onChange={(e) => update("notes", e.target.value)} rows={3} className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Các ghi chú bổ sung khác" readOnly={chiXem} data-testid="field-notes" />
             </div>
           </div>
         </div>
@@ -1264,8 +1321,12 @@ export function PetitionFormPage() {
         </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
-        {isEditMode && id && (!chiXem || canDispatch) && (
-          <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} dangTaiCanBo={dangTaiCanBo} />
+        {isEditMode && id && (!chiXem || canDispatch || laTrangXem) && (
+          // Provider LỒNG: khối này chỉ chuyển sang đọc khi người dùng CHỌN xem trước (`laTrangXem`), không phải khi
+          // chỉ thiếu quyền ghi hồ sơ — điều phối viên vẫn phân công được ngoài phạm vi ghi (quyết định 19/09/2026).
+          <CheDoXemProvider xem={laTrangXem}>
+            <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} dangTaiCanBo={dangTaiCanBo} />
+          </CheDoXemProvider>
         )}
 
         {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}
@@ -1380,6 +1441,7 @@ export function PetitionFormPage() {
         />
       )}
     </div>
+    </CheDoXemProvider>
   );
 }
 

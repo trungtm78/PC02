@@ -13,6 +13,7 @@
 
 import { Fragment } from "react";
 import { FormInput, FormSelect, FormTextarea } from "@/components/form";
+import { useCheDoXem } from "@/components/form/CheDoXem";
 import { FKSelect } from "@/components/FKSelect";
 import { CrimeSelect } from "@/components/CrimeSelect";
 import { CatalogSelect } from "@/components/CatalogSelect";
@@ -373,6 +374,7 @@ function MultiSelectField({
   value: string[];
   onChange: (v: string[]) => void;
 }) {
+  const chiXem = useCheDoXem();
   const doi = (ma: string) =>
     onChange(value.includes(ma) ? value.filter((v) => v !== ma) : [...value, ma]);
 
@@ -387,6 +389,7 @@ function MultiSelectField({
               className="mt-0.5"
               aria-label={o.label}
               checked={value.includes(o.value)}
+              disabled={chiXem}
               onChange={() => doi(o.value)}
             />
             <span>{o.label}</span>
@@ -408,9 +411,10 @@ function ToggleField({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const chiXem = useCheDoXem();
   return (
     <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
-      <input type="checkbox" className="mt-0.5" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="mt-0.5" checked={checked} disabled={chiXem} onChange={(e) => onChange(e.target.checked)} />
       <span>{label}</span>
     </label>
   );

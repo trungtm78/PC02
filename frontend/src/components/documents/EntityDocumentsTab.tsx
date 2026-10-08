@@ -129,7 +129,23 @@ export function EntityDocumentsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityId, entityKind]);
 
+  // Chế độ xem BẬT khi khối tải lên đang mở (React giữ state lúc Back từ màn sửa): đóng khối và bỏ tệp đang chờ, để
+  // quay lại màn sửa không hiện lại một form dở dang của lần trước.
+  useEffect(() => {
+    if (chiXem) {
+      setShowForm(false);
+      setQueuedFiles([]);
+      setTitle("");
+      setDocType(loaiBanDau);
+      setDescription("");
+      if (fileRef.current) fileRef.current.value = "";
+      if (folderRef.current) folderRef.current.value = "";
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chiXem]);
+
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (chiXem) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setQueuedFiles((prev) => {
@@ -144,6 +160,8 @@ export function EntityDocumentsTab({
   };
 
   const handleUpload = async () => {
+    // Lớp phòng thủ thứ hai sau việc ẩn form: chế độ xem không bao giờ gửi POST.
+    if (chiXem) return;
     if (!title.trim()) {
       setError("Vui lòng nhập tiêu đề tài liệu");
       return;
@@ -233,6 +251,7 @@ export function EntityDocumentsTab({
   };
 
   const handleDelete = async (doc: EntityDocument) => {
+    if (chiXem) return;
     if (!confirm(`Xóa tài liệu "${doc.title}"?`)) return;
     try {
       await api.delete(`/documents/${doc.id}`);
@@ -276,7 +295,7 @@ export function EntityDocumentsTab({
         }
       />
 
-      {showForm && (
+      {showForm && !chiXem && (
         <div className="mb-5 p-4 border border-blue-200 bg-blue-50 rounded-lg space-y-3">
           <p className="text-sm font-semibold text-blue-800">Thêm tài liệu mới</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCheDoXem } from '@/components/form/CheDoXem';
 
 interface Props {
   inputMode: 'AUTO' | 'MANUAL' | 'AUTO_WITH_OVERRIDE';
@@ -10,6 +11,8 @@ interface Props {
 
 export function DocNumberPreviewField({ inputMode, value, onChange, loading, placeholder }: Props) {
   const [overrideActive, setOverrideActive] = useState(false);
+  // Chế độ xem của form: số hiệu chỉ để đọc, không có đường "Nhập tay".
+  const chiXem = useCheDoXem();
 
   if (inputMode === 'MANUAL') {
     return (
@@ -19,6 +22,7 @@ export function DocNumberPreviewField({ inputMode, value, onChange, loading, pla
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        readOnly={chiXem || undefined}
       />
     );
   }
@@ -42,6 +46,7 @@ export function DocNumberPreviewField({ inputMode, value, onChange, loading, pla
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          readOnly={chiXem || undefined}
           autoFocus
         />
       </div>
@@ -80,7 +85,7 @@ export function DocNumberPreviewField({ inputMode, value, onChange, loading, pla
         </span>
       </div>
 
-      {inputMode === 'AUTO_WITH_OVERRIDE' && (
+      {inputMode === 'AUTO_WITH_OVERRIDE' && !chiXem && (
         <button
           type="button"
           data-testid="docnum-override-btn"

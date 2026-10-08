@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useCheDoXem } from "../form/CheDoXem";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import {
   hienThiEdtf,
@@ -70,6 +71,8 @@ export function PartialDateInput({
   valueChu,
   onDoc,
 }: Props) {
+  // Chế độ xem của form: chỉ đọc (vẫn bôi chọn / chép được).
+  const chiXem = useCheDoXem();
   /**
    * Giữ CHỮ THÔ, không suy lại từ `value` mỗi lần dựng.
    *
@@ -162,6 +165,7 @@ export function PartialDateInput({
         aria-describedby={loiHien ? idLoi : undefined}
         placeholder="15/12/2026 · 12/2026 · 2026"
         value={chu}
+        readOnly={chiXem || undefined}
         onChange={(e) => doi(e.target.value)}
         onBlur={() => setDaRoiO(true)}
         /*

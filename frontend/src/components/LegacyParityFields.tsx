@@ -70,13 +70,14 @@ export function LegacyParityFields({
         />
       );
     }
+        // Ô chữ/số/ngày dùng readOnly, KHÔNG disabled: chữ trong ô disabled không bôi chọn / chép được trong Chromium.
     if (d.kind === "date") {
       return (
         <input
           type="date"
           className={base}
           value={giaTriONgay(v)}
-          disabled={readOnly}
+          readOnly={readOnly}
           onChange={(e) => onChange(d.col, e.target.value || null)}
           data-testid={`parity-field-${d.col}`}
         />
@@ -88,7 +89,7 @@ export function LegacyParityFields({
           type="number"
           className={base}
           value={v == null ? "" : String(v)}
-          disabled={readOnly}
+          readOnly={readOnly}
           onChange={(e) => onChange(d.col, e.target.value === "" ? null : Number(e.target.value))}
           data-testid={`parity-field-${d.col}`}
         />
@@ -99,7 +100,7 @@ export function LegacyParityFields({
         type="text"
         className={base}
         value={v == null ? "" : String(v)}
-        disabled={readOnly}
+        readOnly={readOnly}
         onChange={(e) => onChange(d.col, e.target.value || null)}
         data-testid={`parity-field-${d.col}`}
       />

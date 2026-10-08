@@ -1,5 +1,6 @@
 import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useId, type ReactNode } from "react";
+import { useCheDoXem } from "./CheDoXem";
 import {
   LABEL_BASE,
   ICON_INPUT_WRAPPER,
@@ -102,6 +103,8 @@ export function FormInput({
   const hasIcon = !!icon;
   const inputClass = getInputClass(!!error, hasIcon);
   const id = useId();
+  // Chế độ xem: readOnly (không phải disabled) để vẫn bôi chọn / chép được chữ.
+  const chiXem = useCheDoXem();
   // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
   // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
   // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
@@ -121,6 +124,7 @@ export function FormInput({
       className={inputClass}
       placeholder={placeholder}
       min={min}
+      readOnly={chiXem || undefined}
       data-testid={dataTestId}
       {...aria}
     />
@@ -161,6 +165,7 @@ export function FormSelect({
   const hasIcon = !!icon;
   const selectClass = getSelectClass(!!error, hasIcon);
   const id = useId();
+  const chiXem = useCheDoXem();
   // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
   // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
   // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
@@ -178,7 +183,7 @@ export function FormSelect({
       onChange={(e) => onChange(e.target.value)}
       className={selectClass}
       data-testid={dataTestId}
-      disabled={disabled}
+      disabled={disabled || chiXem}
       {...aria}
       autoFocus={autoFocus}
     >
@@ -223,6 +228,7 @@ export function FormTextarea({
 }: TextareaFieldProps) {
   const hasIcon = !!icon;
   const id = useId();
+  const chiXem = useCheDoXem();
   // Dấu sao đỏ chỉ nói với người NHÌN. Ba thuộc tính dưới đây là cách nói với trình đọc màn
   // hình — đo trên máy thật 29/08/2026: cả ba form tạo hồ sơ có 0 ô khai `aria-required`, nên
   // người dùng trình đọc chỉ biết ô bắt buộc sau khi bấm Lưu và bị chặn, trên form >200 ô.
@@ -246,6 +252,7 @@ export function FormTextarea({
             rows={rows}
             className={`${TEXTAREA_BASE} pl-9`}
             placeholder={placeholder}
+            readOnly={chiXem || undefined}
             data-testid={dataTestId}
             {...aria}
           />
@@ -258,6 +265,7 @@ export function FormTextarea({
           rows={rows}
           className={TEXTAREA_BASE}
           placeholder={placeholder}
+          readOnly={chiXem || undefined}
           data-testid={dataTestId}
           {...aria}
         />

@@ -1,4 +1,5 @@
 import { PatternFormat } from 'react-number-format';
+import { useCheDoXem } from '../form/CheDoXem';
 import { hydrateLegacyPhone } from '../../shared/utils/formatters';
 
 export interface PhoneInputProps {
@@ -20,6 +21,8 @@ export function PhoneInput({
   disabled,
   ...rest
 }: PhoneInputProps & Record<string, unknown>) {
+  // Chế độ xem của form: chỉ đọc (vẫn chép được). Nơi gọi truyền readOnly riêng thì giữ (rest ghi đè).
+  const chiXem = useCheDoXem();
   const normalized = hydrateLegacyPhone(value);
 
   return (
@@ -32,6 +35,7 @@ export function PhoneInput({
       placeholder={placeholder}
       disabled={disabled}
       mask=""
+      readOnly={chiXem || undefined}
       {...rest}
     />
   );

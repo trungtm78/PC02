@@ -64,7 +64,8 @@ export function DynamicLegacyFields({
                 type="text"
                 className="border border-slate-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                 value={toText(values[k])}
-                disabled={readOnly}
+                // readOnly, KHÔNG disabled: chữ trong ô disabled không bôi chọn / chép được trong Chromium.
+                readOnly={readOnly}
                 onChange={(e) => onChange(k, e.target.value)}
                 data-testid={`legacy-field-${k}`}
               />

@@ -1,4 +1,5 @@
 import { useCatalog } from "@/hooks/useCatalog";
+import { useCheDoXem } from "@/components/form/CheDoXem";
 import { CATALOG_META } from "@/shared/catalog/catalog.generated";
 
 // Qua `unknown` để gỡ readonly-tuple từ `as const` của catalog.generated (tsc -b strict).
@@ -34,12 +35,15 @@ export function CatalogSelect({
   onChange,
   multi: multiProp,
   parentValue,
-  disabled,
+  disabled: disabledProp,
   className,
   placeholder = "-- Chọn --",
   id,
   ...rest
 }: CatalogSelectProps) {
+  // Chế độ xem của form khoá ô như `disabled`.
+  const chiXem = useCheDoXem();
+  const disabled = Boolean(disabledProp) || chiXem;
   const { options } = useCatalog(catalogKey);
   // multi mặc định theo registry (META) — tránh lệch prop↔data gây mất dữ liệu thầm lặng (review P1-2).
   const multi = multiProp ?? META[catalogKey]?.multi ?? false;
