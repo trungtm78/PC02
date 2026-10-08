@@ -22,7 +22,23 @@ const { taoSoChuaKiem } = require('./lib/so-chua-kiem.cjs');
 
 const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|due to access control checks|Failed to load resource/i;
 // Lỗi do chính thao tác của bộ chạy làm trang đang chuyển đi giữa chừng — không phải lỗi sản phẩm.
-const LOI_CHUYEN_TRANG = /Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
+/** WebKit's wording for a fetch/XHR cancelled while the page navigates away (surfaces as a `pageerror`, unlike Chromium). */
+const NHIEU_HUY_YEU_CAU = /due to access control checks|^Load failed$|AxiosError: Network Error/i;
+/**
+ * Is `url` a page of the app under test? A history step back from the first entry lands on `about:blank` (or a browser error
+ * page): zero characters there say nothing about the app, and the route is pulled back right after.
+ */
+function laTrangUngDung(url, coSo) {
+  try {
+    return !!url && new URL(url).origin === new URL(coSo).origin;
+  } catch {
+    return false;
+  }
+}
+function laNhieuHuyYeuCau(msg) {
+  return NHIEU_HUY_YEU_CAU.test(String(msg || '').trim());
+}
+const LOI_CHUYEN_TRANG =/Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
 const MAN_LOI = /something went wrong|đã xảy ra lỗi|unexpected error/i;
 
 function laMayLocal(url) {
@@ -260,9 +276,21 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
     if (m.type() !== 'error') return;
     const t = m.text();
     if (LOI_CONSOLE_BO_QUA.test(t)) return;
+    if (laNhieuHuyYeuCau(t)) {
+      kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
+      return;
+    }
     phatHien('console', t);
   });
-  page.on('pageerror', (e) => phatHien('pageerror', e.message));
+  page.on('pageerror', (e) => {
+    // WebKit reports a request cancelled by navigation as an uncaught rejection of the dying page. Counted (never silent) so the
+    // summary shows how many were set aside; any other page error is a finding.
+    if (laNhieuHuyYeuCau(e.message)) {
+      kq.boQuaNhieuHuy = (kq.boQuaNhieuHuy || 0) + 1;
+      return;
+    }
+    phatHien('pageerror', e.message);
+  });
   page.on('response', (r) => {
     if (!r.url().includes('/api/')) return;
     const st = r.status();
@@ -377,7 +405,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       tt.tabMoi = [];
 
       const chu = await docChuOnDinh(page);
-      if (chu.length < 60) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd });
+      if (chu.length < 60 && laTrangUngDung(page.url(), cfg.coSo)) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd, url: page.url() });
       if (MAN_LOI.test(chu)) await bao('màn lỗi sau thao tác', `${hanhDong.ten}: ${chu.slice(0, 120)}`, { hanhDong: hd });
 
       // Thao tác lùi/tiến hoặc bấm có thể đưa sang màn khác: kéo lại đúng đường để mỗi lượt đo đúng chỗ hồ sơ khai.
@@ -424,6 +452,7 @@ async function chay(cfg) {
     chuaKiem: [],
     daKiem: {},
     http429: 0,
+    boQuaNhieuHuy: 0,
     ghiRaNgoai: [],
   };
   console.log(`monkey: seed=${cfg.hat} engines=${cfg.engines.join(',')} khungNhin=${cfg.khungNhin.map((v) => `${v.width}x${v.height}`).join(',')} hoSo=${kq.hoSo.join(',')} choGhi=${cfg.choGhi}`);
@@ -485,6 +514,6 @@ function maThoat(kq) {
   return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat };
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung };
 
 if (require.main === module) void main();

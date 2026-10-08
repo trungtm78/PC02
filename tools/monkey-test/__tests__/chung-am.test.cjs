@@ -362,3 +362,32 @@ test('HÀNH ĐỘNG mo-bang-thao-tac: cú bấm bị chặn (không chạm đư�
   };
   assert.equal(await hd.chay({ page }), null);
 });
+
+test('NHIỄU WEBKIT: yêu cầu bị huỷ lúc đổi trang không phải lỗi sản phẩm; lỗi thật vẫn được báo', () => {
+  const { laNhieuHuyYeuCau } = require('../monkey.cjs');
+  // WebKit surfaces a fetch cancelled by navigation as an uncaught rejection of the dying page.
+  assert.equal(laNhieuHuyYeuCau('Fetch API cannot load http://localhost:5173/api/v1/teams due to access control checks.'), true);
+  assert.equal(laNhieuHuyYeuCau('/localhost:5173/api/v1/auth/me due to access control checks.'), true);
+  assert.equal(laNhieuHuyYeuCau('Load failed'), true);
+  // real defects must never be swallowed
+  assert.equal(laNhieuHuyYeuCau("TypeError: Cannot read properties of undefined (reading 'map')"), false);
+  assert.equal(laNhieuHuyYeuCau('LOI-GIEO-SAN'), false);
+  assert.equal(laNhieuHuyYeuCau('ReferenceError: x is not defined'), false);
+  assert.equal(laNhieuHuyYeuCau(''), false);
+});
+
+test('NHIỄU WEBKIT: "AxiosError: Network Error" do chính ứng dụng ghi lại khi yêu cầu bị huỷ cũng được gạt (và đếm)', () => {
+  const { laNhieuHuyYeuCau } = require('../monkey.cjs');
+  assert.equal(laNhieuHuyYeuCau('draft fetch failed: AxiosError: Network Error'), true);
+  assert.equal(laNhieuHuyYeuCau('save failed: AxiosError: Request failed with status code 500'), false);
+});
+
+test('MÀN TRẮNG: lùi về trang ngoài ứng dụng (about:blank) không phải màn trắng của ứng dụng', () => {
+  const { laTrangUngDung } = require('../monkey.cjs');
+  assert.equal(laTrangUngDung('http://localhost:5173/petitions?x=1', 'http://localhost:5173'), true);
+  assert.equal(laTrangUngDung('http://localhost:5173/', 'http://localhost:5173'), true);
+  assert.equal(laTrangUngDung('about:blank', 'http://localhost:5173'), false);
+  assert.equal(laTrangUngDung('chrome-error://chromewebdata/', 'http://localhost:5173'), false);
+  assert.equal(laTrangUngDung('http://evil.example/petitions', 'http://localhost:5173'), false);
+  assert.equal(laTrangUngDung('', 'http://localhost:5173'), false);
+});
