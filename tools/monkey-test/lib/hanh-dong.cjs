@@ -238,6 +238,27 @@ const HANH_DONG = [
       return { ten: 'go-ten-nguoi-gui', soKyTu: chuoi.length, soGoiY };
     },
   },
+  {
+    // Gõ chuỗi bất kỳ vào ô "Giờ tiếp nhận" bằng PHÍM THẬT (từng ký tự, như người gõ) rồi rời ô bằng Tab.
+    ten: 'go-gio-tiep-nhan',
+    trongSo: 10,
+    dieuKien: ({ route }) => /\/petitions\/(new|[^/]+\/edit)/.test(route),
+    async chay({ page, rng }) {
+      const o = page.locator('[data-testid="field-gioTiepNhan"]').first();
+      if (!(await o.count())) return null;
+      const gio = rng.chon([
+        '0830', '830', '9', '14', '1430', '2359', '0000', '2450', '0875', '99', '29', '08:30', '8:3', '8h30', '8 giờ 30',
+        '', 'abc', ':', '08:', '0a8b3c0', '123456789',
+      ]);
+      await o.scrollIntoViewIfNeeded().catch(() => {});
+      await o.fill('').catch(() => {});
+      await o.click({ timeout: 4000 }).catch(() => {});
+      await page.keyboard.type(gio, { delay: 0 }).catch(() => {});
+      await page.keyboard.press('Tab').catch(() => {});
+      await page.waitForTimeout(150);
+      return { ten: 'go-gio-tiep-nhan', gio };
+    },
+  },
 ];
 
 function chonHanhDong(rng, boiCanh) {

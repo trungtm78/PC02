@@ -148,7 +148,7 @@ test('HỒ SƠ: mọi hồ sơ trong profiles/ nạp được và chỉ dùng b�
   const fs = require('node:fs');
   const dir = path.resolve(__dirname, '../profiles');
   const tep = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
-  assert.ok(tep.length >= 7);
+  assert.ok(tep.length >= 8);
   for (const f of tep) {
     assert.doesNotThrow(() =>
       docCauHinh({ MONKEY_PROFILE: path.join(dir, f), UAT_PASS: 'x', UAT_BASE: 'http://localhost:5173' }),
@@ -251,4 +251,45 @@ test('KHÔNG RÒ TRÌNH DUYỆT: lỗi giữa chừng (tệp đường thiếu) 
     pw.chromium.launch = goc;
     may.close();
   }
+});
+
+test('BẤT BIẾN gio_tiep_nhan_dinh_dang: chữ lọt vào ô / giá trị hỏng không báo lỗi → phát hiện; hợp lệ hoặc có báo lỗi → đạt', async () => {
+  const gia = (kq) => ({ evaluate: async () => kq });
+  const kiem = (kq) => BAT_BIEN.gio_tiep_nhan_dinh_dang.kiem({ page: gia(kq), hd: { gio: 'x' } });
+  // đạt
+  for (const giaTri of ['', '08:30', '00:00', '23:59']) {
+    assert.equal(await kiem({ co: true, giaTri, baoLoi: false }), null, `"${giaTri}" phải đạt`);
+  }
+  // đang báo lỗi tại ô thì giá trị không hợp lệ vẫn đạt (người dùng thấy lỗi)
+  assert.equal(await kiem({ co: true, giaTri: '24:50', baoLoi: true }), null);
+  // GIEO LỖI: giá trị hỏng mà KHÔNG báo lỗi
+  const r1 = await kiem({ co: true, giaTri: '24:50', baoLoi: false });
+  assert.ok(r1 && /KHÔNG báo lỗi/.test(r1.chiTiet), 'phải bắt giá trị hỏng im lặng');
+  // GIEO LỖI: chữ cái lọt vào ô, hoặc dài quá 5 ký tự
+  assert.ok(await kiem({ co: true, giaTri: 'ab:30', baoLoi: true }), 'chữ cái lọt vào ô phải bị bắt kể cả khi có báo lỗi');
+  assert.ok(await kiem({ co: true, giaTri: '08:300', baoLoi: true }), 'quá 5 ký tự phải bị bắt');
+  assert.ok(await kiem({ co: true, giaTri: '0:3:0', baoLoi: true }), 'hai dấu ":" phải bị bắt');
+  // Codex 09/10: chuỗi toàn chữ số mà ô đang báo lỗi thì đạt (luật hợp lệ quyết định ở bước sau), không báo lỗi thì bị bắt
+  assert.equal(await kiem({ co: true, giaTri: '0830', baoLoi: true }), null);
+  assert.ok(await kiem({ co: true, giaTri: '0830', baoLoi: false }), '"0830" còn nguyên mà im lặng phải bị bắt');
+  // không thấy ô → CHƯA KIỂM, không phải đạt
+  const r2 = await kiem({ co: false, giaTri: '', baoLoi: false });
+  assert.ok(r2 && r2.khongDoDuoc === true);
+});
+
+test('BẤT BIẾN chep_don_ngay_hom_nay: màn không phải "xem một đơn" thì BỎ QUA (không tính CHƯA KIỂM)', async () => {
+  const page = { locator: () => ({ first: () => ({ count: async () => 0 }) }) };
+  for (const route of ['/petitions/new', '/petitions/abc/edit', '/petitions', '/cases/abc']) {
+    assert.equal(await BAT_BIEN.chep_don_ngay_hom_nay.kiem({ page, route }), null, route);
+  }
+  // Màn xem một đơn mà không có nút → mới là CHƯA KIỂM
+  const r = await BAT_BIEN.chep_don_ngay_hom_nay.kiem({ page, route: '/petitions/abc' });
+  assert.ok(r && r.khongDoDuoc === true);
+});
+
+test('BẤT BIẾN mot_nut_menu_moi_dong dùng ngưỡng 32px (sau khi anh yêu cầu thu nhỏ nút ⋮)', () => {
+  const nguon = require('node:fs').readFileSync(require('node:path').resolve(__dirname, '../lib/bat-bien.cjs'), 'utf-8');
+  assert.match(nguon, /rc\.width < 31\.5/);
+  assert.match(nguon, /kh\.width > 44/);
+  assert.doesNotMatch(nguon, /43\.5/, 'còn ngưỡng 44px cũ');
 });
