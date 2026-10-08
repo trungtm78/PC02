@@ -27,6 +27,9 @@ export const BANG_HOP_LE = new Set([
   'deadline-rules',
   // Đơn thư phường: chưa có chọn cột, nhưng nhớ mật độ dòng (18/09/2026).
   'ward-petitions',
+  // Ủy thác điều tra: thiếu khoá này thì mọi lần kéo cột / chọn mật độ ở màn đó là 400 và không bao giờ được lưu
+  // (monkey test 09/10/2026). Cổng khoa-bang-giao-dien-phai-duoc-nhan canh mọi khoá giao diện dùng.
+  'utdt',
 ]);
 
 /**
