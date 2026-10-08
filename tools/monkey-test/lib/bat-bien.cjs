@@ -121,7 +121,7 @@ const BAT_BIEN = {
   bang_dong_tra_tieu_diem: {
     khiNao: 'mo-bang',
     async kiem({ page, hd }) {
-      if (!hd.daMo) return { chiTiet: 'bấm ⋮ không mở bảng thao tác' };
+      if (!hd.daMo) return { chiTiet: `bấm ⋮ không mở bảng thao tác${hd.chanDoan ? ` — trạng thái: ${JSON.stringify(hd.chanDoan)}` : ''}` };
       const r = await page.evaluate(() => ({
         conHopThoai: !!document.querySelector('[role="dialog"]'),
         tieuDiemLaNutMenu: !!document.activeElement && document.activeElement.matches('[data-testid^="btn-action-menu-"]'),

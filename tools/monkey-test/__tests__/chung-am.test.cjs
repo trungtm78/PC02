@@ -435,3 +435,56 @@ test('PHIÊN: gặp 429 thì chờ rồi thử lại, hết lượt thử thì b
     globalThis.fetch = goc;
   }
 });
+
+function trangGiaBang({ soLanBamMoi }) {
+  // `soLanBamMoi`: the sheet opens only from this click on (1 = opens at once, 2 = the first click is swallowed).
+  let dem = 0;
+  let mo = 0;
+  const nut = {
+    count: async () => 1,
+    scrollIntoViewIfNeeded: async () => {},
+    focus: async () => {},
+    click: async () => {
+      dem += 1;
+      if (dem >= soLanBamMoi) mo = 1;
+    },
+  };
+  return {
+    page: {
+      getByRole: () => ({ count: async () => mo }),
+      locator: () => ({ first: () => nut }),
+      keyboard: { press: async () => { mo = 0; } },
+      waitForTimeout: async () => {},
+      evaluate: async () => ({ marker: 'chan-doan' }),
+    },
+    soBam: () => dem,
+  };
+}
+
+test('HÀNH ĐỘNG mo-bang-thao-tac: cú bấm đầu bị trình duyệt nuốt (thoát chế độ tự cuộn sau bấm chuột giữa) → bấm lại một lần, bảng mở thì ĐẠT', async () => {
+  const { HANH_DONG } = require('../lib/hanh-dong.cjs');
+  const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
+  const g = trangGiaBang({ soLanBamMoi: 2 });
+  const r = await hd.chay({ page: g.page });
+  assert.equal(r.daMo, true);
+  assert.equal(g.soBam(), 2);
+});
+
+test('HÀNH ĐỘNG mo-bang-thao-tac: bấm hai lần vẫn không mở bảng → LỖI THẬT, kèm chẩn đoán trạng thái', async () => {
+  const { HANH_DONG } = require('../lib/hanh-dong.cjs');
+  const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
+  const g = trangGiaBang({ soLanBamMoi: 99 });
+  const r = await hd.chay({ page: g.page });
+  assert.equal(r.daMo, false);
+  assert.equal(g.soBam(), 2, 'đúng hai lần thử, không hơn');
+  assert.deepEqual(r.chanDoan, { marker: 'chan-doan' });
+});
+
+test('HÀNH ĐỘNG mo-bang-thao-tac: bảng mở ngay lần đầu thì chỉ bấm MỘT lần', async () => {
+  const { HANH_DONG } = require('../lib/hanh-dong.cjs');
+  const hd = HANH_DONG.find((x) => x.ten === 'mo-bang-thao-tac');
+  const g = trangGiaBang({ soLanBamMoi: 1 });
+  const r = await hd.chay({ page: g.page });
+  assert.equal(r.daMo, true);
+  assert.equal(g.soBam(), 1);
+});
