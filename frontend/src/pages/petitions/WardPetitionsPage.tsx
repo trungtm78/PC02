@@ -9,6 +9,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import {
   Search,
   Download,
@@ -122,6 +124,12 @@ const GIA_TRI_CHON_DON_THU_PHUONG = {
 
 export default function WardPetitionsPage() {
   const navigate = useNavigate();
+  const { canEdit } = usePermission();
+  const bamDong = useBamDong<{ id: string }>('DON_THU_PHUONG', {
+    hrefXem: (p) => `/petitions/${p.id}`,
+    hrefSua: (p) => `/petitions/${p.id}/edit`,
+    coQuyenSua: () => canEdit('petitions'),
+  });
   const [rows, setRows] = useState<PetitionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -559,20 +567,13 @@ export default function WardPetitionsPage() {
                     <tr
                       key={p.id}
                       data-testid={`petition-row-${p.id}`}
-                      onClick={() => navigate(`/petitions/${p.id}/edit`)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate(`/petitions/${p.id}/edit`);
-                        }
-                      }}
-                      tabIndex={0}
-                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                      {...bamDong.thuocTinhDong(p)}
+                      className={`${bamDong.thuocTinhDong(p).className} hover:bg-blue-50 transition-colors`}
                     >
                       <td className="px-3 py-3 whitespace-nowrap sticky left-0 z-10 bg-white border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={() => navigate(`/petitions/${p.id}/edit`)}
+                          onClick={() => navigate(`/petitions/${p.id}`)}
                           data-testid={`view-btn-${p.id}`}
                           className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
                           title="Xem chi tiết"

@@ -87,6 +87,7 @@ import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocuments
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { nhanKyApDung } from '@/constants/thongKeSettings';
 import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { casesRowActions } from '@/features/cases/row-actions';
 import {
@@ -337,6 +338,11 @@ export function CaseListPageShell() {
 
   // v0.63 PR1b — Action context (perms + modal openers).
   const { canDispatch, canEdit, canDelete, hasPermission } = usePermission();
+  const bamDong = useBamDong<{ id: string }>('VU_AN', {
+    hrefXem: (r) => `/cases/${r.id}`,
+    hrefSua: (r) => `/cases/${r.id}/edit`,
+    coQuyenSua: () => canEdit('cases'),
+  });
   const governanceAccess = useCaseCapabilities();
   const representationOnly = governanceAccess.capabilities.caseAccessMode === 'REPRESENTATION_ONLY';
   const canGeneralExport = governanceAccess.capabilities.canExport !== false && !representationOnly;
@@ -1154,7 +1160,9 @@ export function CaseListPageShell() {
               </div>
             ) : undefined,
         }}
-        onRowClick={(r) => navigate(`/cases/${r.id}`)}
+        onRowClick={bamDong.onRowClick}
+        onRowDoubleClick={bamDong.onRowDoubleClick}
+        rowHref={bamDong.rowHref}
         bulkSelection={representationOnly ? undefined : selection}
         bulkRowsLabel="vụ án"
         bulkRowLabel={(r) => `vụ án ${r.caseCode ?? r.name}`}

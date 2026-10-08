@@ -122,7 +122,7 @@ describe('<ListPageShell.Table> — state machine', () => {
       </ListPageShell>,
     );
     fireEvent.click(screen.getByText('Vụ A'));
-    expect(onRowClick).toHaveBeenCalledWith(ROWS[0]);
+    expect(onRowClick).toHaveBeenCalledWith(ROWS[0], expect.anything());
   });
 
   it('getRowClassName apply lên row tr', () => {

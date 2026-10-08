@@ -60,6 +60,7 @@ import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { comprehensiveRowActions } from '@/features/comprehensive/row-actions';
 import { comprehensiveListFilters, type ComprehensiveFilterValue } from '@/features/comprehensive/list-filters';
@@ -735,14 +736,24 @@ export function ComprehensiveListPageShell() {
     (theBat ? timKiem.theHopLe.length : searchQuery ? 1 : 0) +
     appliedFilterCount;
 
-  const handleRowClick = useCallback(
-    (r: UnifiedRow) => {
-      if (r.recordType === RECORD_TYPE.CASE) navigate(`/cases/${r.id}`);
-      else if (r.recordType === RECORD_TYPE.INCIDENT) navigate(`/incidents/${r.id}`);
-      else navigate(`/petitions/${r.id}`);
-    },
-    [navigate],
-  );
+  const bamDong = useBamDong<UnifiedRow>('TONG_HOP', {
+    hrefXem: (r) =>
+      r.recordType === RECORD_TYPE.CASE
+        ? `/cases/${r.id}`
+        : r.recordType === RECORD_TYPE.INCIDENT
+          ? `/incidents/${r.id}`
+          : `/petitions/${r.id}`,
+    hrefSua: (r) =>
+      r.recordType === RECORD_TYPE.CASE
+        ? `/cases/${r.id}/edit`
+        : r.recordType === RECORD_TYPE.INCIDENT
+          ? `/incidents/${r.id}/edit`
+          : `/petitions/${r.id}/edit`,
+    coQuyenSua: (r) =>
+      canEdit(
+        r.recordType === RECORD_TYPE.CASE ? 'cases' : r.recordType === RECORD_TYPE.INCIDENT ? 'incidents' : 'petitions',
+      ),
+  });
 
   return (
     <ListPageShell>
@@ -843,7 +854,9 @@ export function ComprehensiveListPageShell() {
               </div>
             ) : undefined,
         }}
-        onRowClick={handleRowClick}
+        onRowClick={bamDong.onRowClick}
+        onRowDoubleClick={bamDong.onRowDoubleClick}
+        rowHref={bamDong.rowHref}
       />
       <ListPageShell.Pagination
         page={page}

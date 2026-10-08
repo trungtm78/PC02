@@ -9,7 +9,7 @@
  *
  * Mobile: defer to consumer (T16+) — current implementation desktop-first table.
  */
-import { useRef, type ReactNode } from 'react';
+import { useRef, type MouseEvent, type ReactNode } from 'react';
 import { AlertCircle, Inbox, WifiOff, FilterX } from 'lucide-react';
 import {
   BulkSelectionHeaderCell,
@@ -41,6 +41,7 @@ import { SortableHeader } from './SortableHeader';
 import { ThanhCuonNgangTren } from './ThanhCuonNgangTren';
 import { MAT_DO_MAC_DINH, MatDoContext, type MatDo } from './matDo';
 import { useListPageShellContext } from './ListPageShell';
+import { xuLyAuxClickDong, xuLyClickDong, xuLyDoubleClickDong } from './bamDong';
 
 /**
  * Đổi bề rộng khai trong mã sang số điểm ảnh, để tay nắm biết bắt đầu kéo từ đâu.
@@ -188,7 +189,15 @@ export interface TableProps<TRow, TId extends string | number = string> {
     /** Nói rõ đang lọc bởi gì (vd các thẻ tìm kiếm, bỏ được tại chỗ). */
     chiTiet?: ReactNode;
   };
-  onRowClick?(row: TRow): void;
+  /**
+   * Hành động khi bấm vào dòng. Tham số `event` là TUỲ CHỌN nên hàm cũ `(row) => ...` vẫn chạy.
+   * Bảng luôn chặn khi người dùng đang bôi chữ trong dòng và khi bấm vào nút/liên kết con (xem `bamDong.ts`).
+   */
+  onRowClick?(row: TRow, event?: MouseEvent<HTMLElement>): void;
+  /** Bấm đúp vào dòng (cấu hình "2 cú bấm"). */
+  onRowDoubleClick?(row: TRow, event?: MouseEvent<HTMLElement>): void;
+  /** Đích mở ở TAB MỚI khi Ctrl/⌘+bấm hoặc bấm nút giữa. Trả rỗng = dòng này không có đích. */
+  rowHref?(row: TRow): string | null | undefined;
   getRowClassName?(row: TRow): string;
   /**
    * /investigate v0.61 fix — bulk selection integration. When passed, table
@@ -351,6 +360,8 @@ export function Table<TRow, TId extends string | number = string>({
   emptyState,
   emptyFilteredState,
   onRowClick,
+  onRowDoubleClick,
+  rowHref,
   getRowClassName,
   bulkSelection,
   bulkRowsLabel,
@@ -507,8 +518,18 @@ export function Table<TRow, TId extends string | number = string>({
               return (
                 <tr
                   key={key}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`${rowHover} ${onRowClick ? 'cursor-pointer' : ''} ${
+                  onClick={
+                    onRowClick || rowHref
+                      ? (e) =>
+                          xuLyClickDong(e, {
+                            mo: onRowClick ? () => onRowClick(row, e) : undefined,
+                            href: rowHref ? () => rowHref(row) : undefined,
+                          })
+                      : undefined
+                  }
+                  onDoubleClick={onRowDoubleClick ? (e) => xuLyDoubleClickDong(e, () => onRowDoubleClick(row, e)) : undefined}
+                  onAuxClick={rowHref ? (e) => xuLyAuxClickDong(e, () => rowHref(row)) : undefined}
+                  className={`${rowHover} ${onRowClick || onRowDoubleClick ? 'cursor-pointer' : ''} ${
                     nenHang
                   } ${customClass}`.trim()}
                 >

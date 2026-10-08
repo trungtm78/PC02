@@ -10,6 +10,7 @@ import { MemoryRouter, useLocation, Routes, Route } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { authStore } from '@/stores/auth.store';
 import { PetitionListPageShell } from '../PetitionListPageShell';
+import { datLaiCauHinhGiaoDienChoCaKiem } from '@/hooks/useCauHinhGiaoDien';
 import { PetitionStatus } from '@/shared/enums/generated';
 // Bọc CompositeModalProvider chứ không bọc riêng AssignModalProvider: mỗi lần hệ thống thêm
 // một modal dùng chung, cách bọc riêng bắt phải sửa lại từng tệp ca kiểm — và ca kiểm đỏ vì
@@ -42,6 +43,7 @@ function renderWithRouter(initialEntries: string[] = ['/petitions'], flags?: Fea
             <Route path="/petitions" element={<><PetitionListPageShell /><LocationTracker /></>} />
             <Route path="/petitions/new" element={<div>NewPetitionPage</div>} />
             <Route path="/petitions/:id" element={<div>PetitionDetailPage</div>} />
+            <Route path="/petitions/:id/edit" element={<div>PetitionEditPage</div>} />
           </Routes>
         </DeleteResourceModalProvider>
       </CompositeModalProvider>
@@ -105,6 +107,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('PetitionListPageShell — initial mount + ready state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') {
         return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
@@ -150,6 +153,7 @@ describe('PetitionListPageShell — initial mount + ready state', () => {
 describe('PetitionListPageShell — interactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
       if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
@@ -169,11 +173,43 @@ describe('PetitionListPageShell — interactions', () => {
     });
   });
 
-  it('row click → navigate detail', async () => {
+  // 08/10/2026: cán bộ bôi chữ trên danh sách để chép → mặc định bấm vào dòng KHÔNG chuyển trang. Hành động do
+  // admin cấu hình (BAM_DONG_DON_THU) — ca dưới đây chốt cả mặc định lẫn từng giá trị.
+  function cauHinhBamDong(giaTri: string) {
+    const cu = (api.get as unknown as ReturnType<typeof vi.fn>).getMockImplementation()! as (url: string) => Promise<unknown>;
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) =>
+      url === '/settings/giao-dien'
+        ? Promise.resolve({ data: { success: true, data: { BAM_DONG_DON_THU: giaTri } } })
+        : cu(url),
+    );
+  }
+
+  it('row click: mặc định (chưa cấu hình) → KHÔNG chuyển trang, chữ trên dòng vẫn chép được', async () => {
     renderWithRouter();
     await waitFor(() => screen.getByText('Nguyễn Văn A'));
     fireEvent.click(screen.getByText('Nguyễn Văn A'));
-    await waitFor(() => expect(screen.getByText('PetitionDetailPage')).toBeInTheDocument());
+    expect(screen.queryByText('PetitionDetailPage')).not.toBeInTheDocument();
+    expect(screen.queryByText('PetitionEditPage')).not.toBeInTheDocument();
+  });
+
+  it('row click: cấu hình XEM → mở trang xem', async () => {
+    cauHinhBamDong('XEM');
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Văn A'));
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('Nguyễn Văn A'));
+      expect(screen.getByText('PetitionDetailPage')).toBeInTheDocument();
+    });
+  });
+
+  it('row click: cấu hình XEM_HAI_CHAM → 1 cú bấm không làm gì, bấm đúp mở trang xem', async () => {
+    cauHinhBamDong('XEM_HAI_CHAM');
+    renderWithRouter();
+    await waitFor(() => screen.getByText('Nguyễn Văn A'));
+    await waitFor(() => {
+      fireEvent.doubleClick(screen.getByText('Nguyễn Văn A'));
+      expect(screen.getByText('PetitionDetailPage')).toBeInTheDocument();
+    });
   });
 
   it('"Tạo mới" → /petitions/new', async () => {
@@ -229,6 +265,7 @@ describe('PetitionListPageShell — empty + error states', () => {
 describe('PetitionListPageShell — security + URL load', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
       if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
@@ -279,6 +316,7 @@ describe('PetitionListPageShell — security + URL load', () => {
 describe('PetitionListPageShell — drill-down thẻ thống kê', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
       if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
@@ -459,6 +497,7 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') {
         return Promise.resolve({ data: { data: [rowDaiDong], total: 1 } });
@@ -659,6 +698,7 @@ describe('PetitionListPageShell — bố cục theo hệ cũ', () => {
 describe('PetitionListPageShell — một mặt lọc duy nhất', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions') return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
       if (url === '/petitions/stats') return Promise.resolve({ data: sampleStats });
@@ -962,6 +1002,7 @@ describe('PetitionListPageShell — sửa nhanh ô ĐÃ CÓ kết quả xử lý
 describe('PetitionListPageShell — hàng nút Bộ lọc căn thẳng', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    datLaiCauHinhGiaoDienChoCaKiem();
     (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (url === '/petitions')
         return Promise.resolve({ data: { data: [sampleRow], total: 1 } });
