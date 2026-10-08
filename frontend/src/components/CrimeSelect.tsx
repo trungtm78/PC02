@@ -50,6 +50,7 @@ export function CrimeSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const maGoc = useId().replace(/:/g, '');
   const maDanhSach = `${maGoc}-ds`;
+  const maNhan = `${maGoc}-nhan`;
 
   const selected = useMemo(() => all.find((c) => c.id === value), [all, value]);
   const visible = useMemo(
@@ -107,7 +108,7 @@ export function CrimeSelect({
 
   return (
     <CasePolicyField label={label} testId={testId}><div ref={containerRef} className="relative" data-testid={testId}>
-      <label className={LABEL_BASE}>
+      <label id={maNhan} className={LABEL_BASE}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
@@ -119,7 +120,9 @@ export function CrimeSelect({
           aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-controls={maDanhSach}
-          aria-label={label}
+          // Tên lấy từ nhãn, KHÔNG dùng aria-label: aria-label đè nội dung nút nên trình đọc màn hình
+          // không đọc tội danh đang chọn (giá trị của combobox chính là chữ trong nút).
+          aria-labelledby={maNhan}
           disabled={disabled}
           onClick={() => setIsOpen((o) => !o)}
           onKeyDown={(e) => {

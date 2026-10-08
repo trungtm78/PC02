@@ -36,6 +36,15 @@ describe('CrimeSelect — bàn phím', () => {
       expect(trigger().getAttribute('aria-haspopup')).toBe('listbox');
     });
 
+    it('tên của nút lấy từ NHÃN (aria-labelledby) để giá trị đang chọn vẫn được đọc, không bị aria-label đè', () => {
+      render(<CrimeSelect label="Tội danh chính" value="b" onChange={() => {}} />);
+      expect(trigger().hasAttribute('aria-label')).toBe(false);
+      const nhan = document.getElementById(trigger().getAttribute('aria-labelledby') ?? '');
+      expect(nhan?.textContent).toContain('Tội danh chính');
+      // Giá trị đang chọn là nội dung của nút, nên nằm trong cây trợ năng.
+      expect(trigger().textContent).toContain('Điều 173 · Tội trộm cắp tài sản');
+    });
+
     it('ArrowDown trên nút mở hộp', () => {
       render(<CrimeSelect label="Tội danh" value="" onChange={() => {}} />);
       fireEvent.keyDown(trigger(), { key: 'ArrowDown' });
