@@ -157,8 +157,11 @@ export const GOI_Y_TEN_TOI_DA = 10;
 /** Số ký tự tối thiểu mới hỏi gợi ý — xem chú thích trong `goiYTenNguoiGui`. */
 export const GOI_Y_TEN_TOI_THIEU = 2;
 
-/** Chuỗi gõ dài hơn số này thì không hỏi (tên người/cơ quan thật không dài tới vậy; chặn dò bằng chuỗi lớn). */
-export const GOI_Y_DON_TOI_DA_KY_TU_GO = 100;
+/**
+ * Chuỗi gõ dài hơn số này thì không hỏi. Bằng độ dài TÊN HỢP LỆ (`CreatePetitionDto.senderName` nhận tới 255): đặt thấp
+ * hơn thì dán nguyên một tên tổ chức/người đại diện dài sẽ không tra ra gì, mà lặng lẽ. Vẫn chặn chuỗi lớn dò quét.
+ */
+export const GOI_Y_DON_TOI_DA_KY_TU_GO = 255;
 /** Mỗi tên lấy tối đa bấy nhiêu đơn MỚI NHẤT để cán bộ nhận ra đúng người/đúng việc. */
 export const GOI_Y_DON_MOI_TEN = 3;
 /** Tổng số hàng gợi ý (đơn) trả về. */

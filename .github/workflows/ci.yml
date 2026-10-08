@@ -84,3 +84,56 @@ jobs:
 
       - name: Run engine gate
         run: npx playwright test --config=playwright.engine.config.ts
+
+  database-gate:
+    name: Database Gate (PostgreSQL)
+    runs-on: ubuntu-latest
+
+    # VI SAO CAN JOB RIENG: cac spec don vi cua backend gia lap Prisma, nen chi chung minh HINH DANG truy van. Hai dieu
+    # quan trong nhat cua goi y ten nguoi gui kem noi dung to giac chi lo ra tren CSDL THAT: (1) `groupBy` voi
+    # `orderBy: _count` + `take` that su chay duoc tren PostgreSQL; (2) pham vi du lieu co lap that su (cung mot ten o hai
+    # to, don xoa mem, don chua gan to, can bo phuong, pham vi rong). Codex review 08/10/2026 chi ra spec CSDL that bi
+    # BO QUA o CI vi khong co bien dia chi.
+    #
+    # `PETITION_SUGGEST_DATABASE_REQUIRED=1`: thieu dia chi CSDL la LOI, khong phai "bo qua". Khong co no thi job mat dich
+    # vu PostgreSQL van bao xanh (ca bo bi skip) — cong khong chay con te hon khong co cong.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pc02_goiy_scope_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/pc02_goiy_scope_test
+      PETITION_SUGGEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/pc02_goiy_scope_test
+      PETITION_SUGGEST_DATABASE_REQUIRED: '1'
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: cd backend && npm ci
+
+      - name: Generate Prisma client
+        run: cd backend && npx prisma generate
+
+      - name: Create schema in the scratch database
+        run: cd backend && npx prisma db push --accept-data-loss
+
+      - name: Run database-backed specs
+        run: cd backend && npx jest src/petitions/goi-y-don-theo-ten.database.spec.ts --no-coverage --ci

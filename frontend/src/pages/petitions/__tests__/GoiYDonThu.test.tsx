@@ -93,6 +93,15 @@ describe('GoiYDonThu', () => {
     expect(screen.getByTestId('goi-y-tom-tat').className).toMatch(/line-clamp-1/);
   });
 
+  it('hàng đang TÔ hiện gợi ý phím tắt mở đơn (Ctrl+Enter) — nếu không, người dùng bàn phím không biết có đường mở', () => {
+    const { rerender } = render(<GoiYDonThu don={DON} dangTo={false} />);
+    expect(screen.queryByTestId('goi-y-phim-tat')).not.toBeInTheDocument();
+    rerender(<GoiYDonThu don={DON} dangTo />);
+    expect(screen.getByTestId('goi-y-phim-tat')).toHaveTextContent(/Ctrl.*Enter/);
+    rerender(<GoiYDonThu don={DON} dangTo={false} />);
+    expect(screen.queryByTestId('goi-y-phim-tat')).not.toBeInTheDocument();
+  });
+
   it('không có tóm tắt → không dựng khối tóm tắt và không có nút', () => {
     giaLapTran(true);
     render(<GoiYDonThu don={{ ...DON, tomTat: null }} dangTo={false} />);

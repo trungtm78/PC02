@@ -20,6 +20,16 @@ import type { DataScope } from '../auth/services/unit-scope.service';
 const diaChi = process.env.PETITION_SUGGEST_DATABASE_URL;
 const chay = diaChi ? describe : describe.skip;
 
+/**
+ * Trong CI biến `PETITION_SUGGEST_DATABASE_REQUIRED=1` biến việc THIẾU địa chỉ CSDL thành LỖI. Không có nó thì job
+ * mất dịch vụ PostgreSQL vẫn báo xanh (cả bộ bị bỏ qua) — cổng không chạy còn tệ hơn không có cổng.
+ */
+if (process.env.PETITION_SUGGEST_DATABASE_REQUIRED === '1') {
+  it('CSDL thử bắt buộc phải có (PETITION_SUGGEST_DATABASE_URL)', () => {
+    expect(diaChi).toBeTruthy();
+  });
+}
+
 chay('goiYDonTheoTen trên PostgreSQL thật', () => {
   let db: PrismaClient;
   let svc: PetitionsService;
@@ -153,8 +163,15 @@ chay('goiYDonTheoTen trên PostgreSQL thật', () => {
     expect(ra.map((h) => h.ten)).toEqual(['100% Công ty']);
   });
 
-  it('dưới hai ký tự hoặc quá 100 ký tự: rỗng', async () => {
+  it('tên dài hợp lệ: tìm được đúng bằng chính tên đó (không bị cắt ở 100 ký tự)', async () => {
+    const tenDai = `Công ty TNHH ${'Rất dài '.repeat(25)}`.slice(0, 200);
+    await taoDon('l1', tenDai, '2026-02-05', 'NOI DUNG ten dai', toA);
+    const ra = await svc.goiYDonTheoTen(tenDai, pvTo(toA));
+    expect(ra.map((h) => h.ten)).toEqual([tenDai]);
+  });
+
+  it('dưới hai ký tự hoặc quá 255 ký tự: rỗng', async () => {
     expect(await svc.goiYDonTheoTen('t', null)).toEqual([]);
-    expect(await svc.goiYDonTheoTen('a'.repeat(101), null)).toEqual([]);
+    expect(await svc.goiYDonTheoTen('a'.repeat(256), null)).toEqual([]);
   });
 });

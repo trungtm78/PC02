@@ -54,6 +54,13 @@ export function GoiYDonThu({ don, dangTo }: { don: GoiYDon; dangTo: boolean }) {
         {don.soDonCungTen > 1 && (
           <span className="text-xs text-slate-500">{don.soDonCungTen} đơn cùng tên</span>
         )}
+        {/* Chỉ hiện khi hàng đang TÔ bằng phím: người dùng chuột đã có liên kết "Mở", còn người dùng bàn phím
+            cần biết có đường mở (liên kết ra khỏi thứ tự Tab vì Tab đóng danh sách). */}
+        {dangTo && (
+          <span data-testid="goi-y-phim-tat" className="text-[11px] text-slate-500">
+            Ctrl/⌘+Enter: mở đơn ở tab mới
+          </span>
+        )}
         <a
           href={`/petitions/${don.id}`}
           target="_blank"

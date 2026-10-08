@@ -55,9 +55,19 @@ describe('goiYDonTheoTen', () => {
     expect(groupBy).not.toHaveBeenCalled();
   });
 
-  it('chuỗi quá dài (> 100 ký tự) → rỗng, không hỏi cơ sở dữ liệu', async () => {
-    expect(await svc.goiYDonTheoTen('a'.repeat(101), null)).toEqual([]);
+  it('chuỗi quá dài (> 255 ký tự, vượt độ dài tên hợp lệ) → rỗng, không hỏi cơ sở dữ liệu', async () => {
+    expect(await svc.goiYDonTheoTen('a'.repeat(256), null)).toEqual([]);
     expect(groupBy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Codex bắt: giới hạn 100 ký tự thấp hơn độ dài tên hợp lệ (DTO nhận tới 255), nên dán nguyên một tên tổ chức/
+   * người đại diện dài thì ô không tra ra gì — lặng lẽ.
+   */
+  it('tên dài hợp lệ (tới 255 ký tự) vẫn tra được', async () => {
+    const tenDai = 'Công ty '.padEnd(255, 'a');
+    await svc.goiYDonTheoTen(tenDai, null);
+    expect(groupBy).toHaveBeenCalledTimes(1);
   });
 
   /**
