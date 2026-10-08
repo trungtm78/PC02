@@ -3075,7 +3075,8 @@ export class PetitionsService {
           id: d.id,
           stt: d.stt,
           ten: d.senderName,
-          ngayTiepNhan: d.receivedDate.toISOString().slice(0, 10),
+          // Mốc thời gian ĐẦY ĐỦ, không cắt thành ngày: cắt là bỏ múi giờ và ngày lưu 00:00 giờ VN thành hôm trước.
+          ngayTiepNhan: d.receivedDate.toISOString(),
           tomTat:
             noiDung === ''
               ? null

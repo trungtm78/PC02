@@ -762,6 +762,8 @@ export function PetitionFormPage() {
           khoa={(g) => g.id}
           nhan={(g) => g.ten}
           hien={(g, ngu) => <GoiYDonThu don={g} dangTo={ngu.dangTo} />}
+          // Người dùng bàn phím không với tới liên kết "Mở" (Tab đóng danh sách): Ctrl/Cmd+Enter trên hàng đang tô.
+          moHang={(g) => window.open(`/petitions/${g.id}`, '_blank', 'noopener,noreferrer')}
           placeholder="Gõ tên để tra lại dữ liệu đã có, hoặc nhập tên mới"
           testId="field-senderName"
         />

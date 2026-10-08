@@ -44,6 +44,12 @@ export interface ONhapGoiYProps<T> {
    * phần chi tiết thay vì bắt người dùng với tay lấy chuột. Tham số thứ hai tuỳ chọn: nơi gọi cũ bỏ qua được.
    */
   hien: (g: T, ngu: { dangTo: boolean }) => ReactNode;
+  /**
+   * Mở chi tiết của hàng đang TÔ bằng Ctrl/Cmd+Enter (vd mở đơn ở tab mới). Hàng có thể chứa liên kết chỉ bấm
+   * được bằng chuột, vì Tab đóng danh sách trước khi tới nó — đây là đường mở cho người dùng bàn phím.
+   * Không truyền thì Ctrl+Enter chạy như Enter thường.
+   */
+  moHang?: (g: T) => void;
   placeholder?: string;
   className?: string;
   testId?: string;
@@ -59,6 +65,7 @@ export function ONhapGoiY<T>({
   khoa,
   nhan,
   hien,
+  moHang,
   placeholder,
   className,
   testId,
@@ -111,6 +118,14 @@ export function ONhapGoiY<T>({
         setMoXo(true);
       }
       return;
+    }
+    if (moHang && e.key === 'Enter' && (e.ctrlKey || e.metaKey) && nav.activeIndex >= 0) {
+      const g = goiY[nav.activeIndex];
+      if (g !== undefined) {
+        e.preventDefault();
+        moHang(g);
+        return;
+      }
     }
     nav.onKeyDown(e);
   };

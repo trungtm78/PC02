@@ -9,7 +9,7 @@ export interface GoiYDon {
   id: string;
   stt: string;
   ten: string;
-  /** `YYYY-MM-DD`. */
+  /** Mốc thời gian ISO 8601 (đổi sang ngày giờ Việt Nam khi hiển thị, như mọi danh sách). */
   ngayTiepNhan: string;
   /** Tóm tắt nội dung (cột `detailContent`), đã cắt ở máy chủ; null khi đơn không có. */
   tomTat: string | null;
@@ -58,7 +58,12 @@ export function GoiYDonThu({ don, dangTo }: { don: GoiYDon; dangTo: boolean }) {
           href={`/petitions/${don.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          onMouseDown={(e) => e.stopPropagation()}
+          // preventDefault GIỮ tiêu điểm ở ô nhập. Không giữ thì ô mất tiêu điểm, 200 ms sau danh sách bị gỡ và
+          // liên kết biến mất trước khi kịp nhả chuột (bấm chậm). preventDefault ở mouseDown không huỷ việc mở liên kết.
+          onMouseDown={chanChon}
+          // Ngoài thứ tự Tab: Tab đóng danh sách. Bàn phím mở đơn bằng Ctrl+Enter trên hàng đang tô.
+          tabIndex={-1}
+          title="Mở đơn ở tab mới (Ctrl+Enter khi đang tô hàng này)"
           className="ml-auto text-xs text-blue-600 hover:underline"
         >
           Mở ↗
@@ -79,6 +84,8 @@ export function GoiYDonThu({ don, dangTo }: { don: GoiYDon; dangTo: boolean }) {
             <button
               type="button"
               aria-expanded={moTay}
+              // Bàn phím không cần nút này: tô hàng bằng ↓ là hàng tự bung.
+              tabIndex={-1}
               onMouseDown={chanChon}
               onClick={() => setMoTay((v) => !v)}
               className="text-blue-600 hover:text-blue-800 hover:underline text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"

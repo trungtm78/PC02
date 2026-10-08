@@ -11,7 +11,7 @@ const DON: GoiYDon = {
   id: 'p1',
   stt: '2026-01234',
   ten: 'Trần Thị A',
-  ngayTiepNhan: '2026-03-12',
+  ngayTiepNhan: '2026-03-12T00:00:00.000Z',
   tomTat:
     'Tố giác bà Phạm Thị Thuỳ Oanh chiếm đoạt số tiền 769.325.000 đồng thông qua việc vay mượn và tạo các dây hụi ảo để thu tiền của bà Tâm sau đó chiếm đoạt, bỏ trốn khỏi nơi cư trú.',
   trangThai: 'DANG_XU_LY',
@@ -33,6 +33,11 @@ describe('GoiYDonThu', () => {
     expect(screen.getByText(/2026-01234/)).toBeInTheDocument();
     expect(screen.getByText(/12\/03\/2026/)).toBeInTheDocument();
     expect(screen.getByText('Đang xử lý')).toBeInTheDocument();
+  });
+
+  it('ngày lưu 00:00 giờ Việt Nam (= 17:00 UTC hôm trước) vẫn hiện đúng ngày giờ Việt Nam, không lệch một ngày', () => {
+    render(<GoiYDonThu don={{ ...DON, ngayTiepNhan: '2026-03-11T17:00:00.000Z' }} dangTo={false} />);
+    expect(screen.getByText(/12\/03\/2026/)).toBeInTheDocument();
   });
 
   it('nhiều đơn cùng tên → hiện "N đơn cùng tên"; chỉ một đơn → không hiện', () => {
@@ -124,7 +129,17 @@ describe('GoiYDonThu', () => {
     expect(lienKet).toHaveAttribute('href', '/petitions/p1');
     expect(lienKet).toHaveAttribute('target', '_blank');
     expect(lienKet.getAttribute('rel')).toMatch(/noopener/);
-    fireEvent.mouseDown(lienKet);
+    const khongBiChan = fireEvent.mouseDown(lienKet);
     expect(chonHang).not.toHaveBeenCalled();
+    // preventDefault: ô nhập GIỮ tiêu điểm nên danh sách không bị gỡ (200 ms sau khi ô mất tiêu điểm) trước khi
+    // kịp nhả chuột và mở liên kết — Codex tái hiện được khi bấm chậm. preventDefault ở mouseDown không huỷ việc mở liên kết.
+    expect(khongBiChan).toBe(false);
+  });
+
+  it('nút bung và liên kết KHÔNG nằm trong thứ tự Tab (bàn phím dùng ↓ tô hàng để tự bung và Ctrl+Enter để mở)', () => {
+    giaLapTran(true);
+    render(<GoiYDonThu don={DON} dangTo={false} />);
+    expect(screen.getByRole('link', { name: /mở/i })).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByRole('button', { name: /xem thêm/i })).toHaveAttribute('tabindex', '-1');
   });
 });

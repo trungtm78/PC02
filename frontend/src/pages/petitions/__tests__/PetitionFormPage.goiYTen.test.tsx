@@ -14,7 +14,7 @@ const GOI_Y = [
     id: 'p1',
     stt: '2026-01234',
     ten: 'Trần Thị A',
-    ngayTiepNhan: '2026-03-12',
+    ngayTiepNhan: '2026-03-12T00:00:00.000Z',
     tomTat: 'Tố giác chiếm đoạt số tiền 769.325.000 đồng thông qua việc vay mượn và tạo các dây hụi ảo.',
     trangThai: 'DANG_XU_LY',
     soDonCungTen: 29,
@@ -23,7 +23,7 @@ const GOI_Y = [
     id: 'p2',
     stt: '2025-08812',
     ten: 'Trần Thị A',
-    ngayTiepNhan: '2025-11-02',
+    ngayTiepNhan: '2025-11-02T00:00:00.000Z',
     tomTat: null,
     trangThai: 'DA_GIAI_QUYET',
     soDonCungTen: 29,
@@ -151,6 +151,18 @@ describe('PetitionFormPage — gợi ý từng đơn theo tên người gửi', 
     expect(screen.getAllByTestId('goi-y-tom-tat')[0].className).not.toMatch(/line-clamp/);
     fireEvent.keyDown(oTen(), { key: 'Enter' });
     expect(oTen().value).toBe('Trần Thị A');
+  });
+
+  it('bàn phím: Ctrl+Enter trên hàng đang tô MỞ đơn ở tab mới (noopener), không điền tên vào ô', async () => {
+    const moTab = vi.spyOn(window, 'open').mockImplementation(() => null);
+    await renderForm();
+    await gonTen('tran');
+    fireEvent.keyDown(oTen(), { key: 'ArrowDown' });
+    fireEvent.keyDown(oTen(), { key: 'ArrowDown' });
+    fireEvent.keyDown(oTen(), { key: 'Enter', ctrlKey: true });
+    expect(moTab).toHaveBeenCalledTimes(1);
+    expect(moTab).toHaveBeenCalledWith('/petitions/p2', '_blank', 'noopener,noreferrer');
+    expect(oTen().value).toBe('tran');
   });
 
   it('gợi ý hỏng (mạng/403) không chặn nhập liệu: ô vẫn gõ được, không có danh sách', async () => {

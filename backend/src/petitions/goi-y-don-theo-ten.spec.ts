@@ -113,11 +113,23 @@ describe('goiYDonTheoTen', () => {
       id: 'id-Trần Thị A-1',
       stt: '2026-00001',
       ten: 'Trần Thị A',
-      ngayTiepNhan: '2026-02-10',
+      ngayTiepNhan: '2026-02-10T00:00:00.000Z',
       tomTat: 'Nội dung đơn 1 của Trần Thị A',
       trangThai: 'DANG_XU_LY',
       soDonCungTen: 29,
     });
+  });
+
+  /**
+   * Codex bắt: cắt `toISOString().slice(0, 10)` bỏ mất múi giờ. Ngày tiếp nhận lưu là 00:00 GIỜ VIỆT NAM
+   * (= 17:00 UTC của hôm trước) thì thành ngày hôm trước. Phải trả mốc thời gian ĐẦY ĐỦ để giao diện đổi sang
+   * giờ Việt Nam (formatVNDate), như mọi danh sách đang làm.
+   */
+  it('giữ nguyên MỐC THỜI GIAN ngày tiếp nhận, không cắt thành ngày (tránh lệch một ngày theo múi giờ)', async () => {
+    findMany.mockResolvedValue([don(1, 'Trần Thị A', { receivedDate: new Date('2026-03-11T17:00:00.000Z') })]);
+    groupBy.mockResolvedValue([{ senderName: 'Trần Thị A', _count: { _all: 1 } }]);
+    const [h] = await svc.goiYDonTheoTen('tran', null);
+    expect(h.ngayTiepNhan).toBe('2026-03-11T17:00:00.000Z');
   });
 
   it('tóm tắt rỗng hoặc chỉ khoảng trắng → null', async () => {
