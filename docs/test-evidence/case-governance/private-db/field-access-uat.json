@@ -1,0 +1,804 @@
+{
+  "timestamp": "2026-10-08T01:06:18.895Z",
+  "environment": "private synthetic loopback HTTP and export",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "schemaId": "ce0afaa60d950433f1038496e796c7eb7fdfbaf4e4a7186338ff55a98e2208b9",
+  "policyLifecycle": "DRAFT_REVISED_VALIDATED_REVIEWED_PUBLISHED_ADOPTED",
+  "results": [
+    {
+      "key": "baoCaoBanGiamDoc",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "canCuKhongKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "canCuPhucHoiVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "canCuTamDinhChiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "canCuTamDinhChiVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "capDoToiPham",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "cccdCungCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "chuyenVuAnChoCQK",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "chuyenVuViecDonViKhac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "crimeChinhId",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "description",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "diaChiCungCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "dieuTraVienText",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "doVatTaiLieuKemTheo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ghiChuKhac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ghiChuNhapHoSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ghiChuTrungDon",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ketQuaXuLyKhac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "khacPhucLyDoTDCVuViec",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "laCongNgheCao",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "lanhDaoToTung",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "lenhNhapKho",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "loaiThongTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "lyDoKhongKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "lyDoTamDinhChiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "lyDoTamDinhChiVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayBanAnCoHieuLuc",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayCapCccd",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayDeXuat",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayDinhChiVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayGiaoDonViGiaiQuyet",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayHetThoiHieu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayHetThoiHieuVuViec",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayKLDT",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayNhapVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayPhieuChuyen",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayPhucHoi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayPhucHoiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayQDDieuTraLai",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayQDKhongKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayQDPhanCongNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayQDTamDinhChiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayTachHanhVi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayTachVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayTamDinhChi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayTiepNhanNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayVietDon",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "ngayXayRa",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "nghiVanDoiTuong",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "nguonDon",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "nhanXet",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "nhapVaoVuViecSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "noiCapCccd",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "noiLuuTruBaoQuan",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "noiXayRa",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "noiXayRaPhuongXa",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "phanLoaiDanSu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "phanLoaiNguonTinBanDau",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "phuongThucThuDoan",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "sdtCungCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "sinhNamCungCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soBanAnCoHieuLuc",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soKLDT",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soPhieuChuyen",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soPhucHoiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDDieuTraLai",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDDinhChiVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDKhongKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDNhapVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDPhanCongNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDTachHanhVi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDTachVuAn",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQDTamDinhChiNguonTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQuyetDinhKhoiTo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQuyetDinhPhucHoi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "soQuyetDinhTamDinhChi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.coBangNhom",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.coGhiAmGhiHinh",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.coSuDungKQGhiAmTrongXetXu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.coVPHC",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.dieuTraMoRong",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.donViBaoQuanHoSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ghiAmGhiHinhDaDuocXetXu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.hoSoLuu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.khongGAGHNhungToaYeuCau",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.laVuAnGhiAmGhiHinh",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayBatKhanCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayDangKyHoSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayDauThu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayNopLuuHoSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayPhamToiQuaTang",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayPhanCongGiaiQuyetToGiac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayPhatHienDauHieu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayThongKe",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.ngayTiepNhanTin",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soBangNhomBatDuoc",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soBiCanCoGhiAm",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soBiCanVksYeuCauGhiAm",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDangKyHoSo",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDoiTuong",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDoiTuongBiBatVuAnKhac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDoiTuongDaBat",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDoiTuongSuuTraHiemNghi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soDoiTuongVPHC",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soLuongBiHai",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soLuongNguoiChet",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soNguoiBiPhatTien",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soNguoiBiThuong",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soSungThuHoi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soThuocNoThuHoi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soTienBiThietHai",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.soTienThuHoi",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.suDungVuKhiNong",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.tongSoBienBanGhiLoiKhai",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCung",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.tongSoBienBanHoiCungCoGhiAm",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.tongTienPhatHanhChinh",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.vksYeuCauGhiAm",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "statistic.vuAnDaDuocXetXu",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "supervisingUnit",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "tdcKhacPhucBienBan",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "tdcKhacPhucLyDoBienPhap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "tenCungCap",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "tienDoKhacPhucTDCVuViec",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "toiDanhBanDau",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "toiDanhChinhKhoiToId",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "toiDanhKhacIds",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "utdt_thoiHanUyThac",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "vatChungMoTa",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    },
+    {
+      "key": "vuViecTamDungTruoc2015",
+      "authorizedRead": "PASS",
+      "restrictedRead": "PASS",
+      "restrictedExport": "PASS"
+    }
+  ],
+  "guardedWriteStatus": 403,
+  "exportBytes": 18066,
+  "verdict": "PASS"
+}

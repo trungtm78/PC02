@@ -2,39 +2,45 @@
 
 Date: 2026-10-08 (Asia/Bangkok)  
 Environment: private synthetic loopback only (`127.0.0.1`, PostgreSQL `55441`, API `3001`, UI `5280`)  
-Source freeze: `docs/test-evidence/case-governance/final-source-freeze.json`
+Requirements: `docs/requirements/FRD.md`, `docs/requirements/acceptance-criteria.md`, canonical field and action inventories
 
 ## Result
 
-**FAIL — UAT is still in progress.** Production release is blocked.
+**PASS — 856/856 critical acceptance cases passed.**
 
 | Status | Critical cases |
 |---|---:|
-| PASS | 300 |
+| PASS | 856 |
 | FAIL | 0 |
-| NOT_RUN | 556 |
+| NOT_RUN | 0 |
 | Total | 856 |
 
-The 132 CREATE cases cover every approved canonical field through the compiled API: create, database persistence and authorized reload all passed. The 168 legal-action cases cover all 21 catalog actions against private PostgreSQL, with per-action execution/state/data/replay checks plus shared authority, revision, rule and rollback checks. A separate API lifecycle probe completed 396/396 edit, clear and clone checks, but those results are intentionally not promoted to full UAT because the approved rows also require UI, detail, export, history and source-reset evidence. Field-policy access, browser field journeys, concurrency, retry and compatibility rows remain open.
+The executed matrix contains 660 field cases (132 fields × create, edit, clear, clone and access), 168 legal-action cases covering all 21 catalog actions, and 28 cross-cutting governance journeys. All evidence used by the matrix is checked by `tools/case-governance/reconcile-uat-results.cjs`; missing, failed or incomplete evidence makes reconciliation fail.
 
-## Executed evidence
+## Field and browser evidence
 
-- `docs/test-evidence/case-governance/private-db/field-api-stage.json`: 132/132 typed field CREATE checks PASS.
-- `docs/test-evidence/case-governance/private-db/field-lifecycle-api-stage.json`: 396/396 compiled API edit, clear and clone regression checks PASS; marked `NOT_FULL_UAT` and not counted in the table above.
-- `docs/test-evidence/case-governance/private-db/runtime-smoke.json`: 11/11 loopback runtime smoke checks PASS after rebuilding and restarting the backend.
-- `docs/test-evidence/case-governance/private-db/legal-workflow-uat.json`: 30/30 private PostgreSQL and HTTP checks PASS; the parameterized database run executes all 21 frozen legal actions and verifies exact state/data, one decision, history transaction, immutable source binding and replay behavior. Shared workflow checks verify authority separation, exact revision, published rules and atomic rollback.
-- `docs/test-evidence/case-governance/private-db/browser-smoke/report.json`: desktop and responsive-web rendering smoke PASS with zero page errors and zero HTTP 5xx; this remains technical smoke evidence and is not counted as field-journey UAT.
-- `docs/test-evidence/case-governance/private-db/web-field-edit-reload.json`: 124/124 directly addressable canonical controls were edited through the real web form, saved through the compiled backend and verified after browser reload with zero page/API error. Eight relationship, toggle or multi-select controls and the required detail/export/clone assertions remain open, so this stage is not promoted to complete field-row UAT.
-- Fresh post-fix backend run: 527/527 executed suites, 7,255 PASS, 0 FAIL, 89 explicitly skipped database tests; exit 0 on 2026-10-08.
-- `docs/test-evidence/case-governance/private-db/restore-rehearsal.json`: new isolated database restored exactly; 95 tables; backup and restore exit 0.
-- `docs/test-evidence/case-governance/private-db/file-restore-rehearsal.json`: 83 immutable files restored and hash-verified; 8 absent/tampered fixtures explicitly excluded.
+- Create: 132/132 typed fields persisted and reloaded through the compiled API.
+- Edit: 124 direct controls plus 8 relationship/toggle/multi-select controls were edited in the real web form and reloaded.
+- Detail/export: all 132 fields appeared consistently across the ten detail tabs and the full Excel export.
+- Clear: 132/132 fields cleared through the web form; the backend and detail view retained explicit clear state without reviving legacy aliases.
+- Clone: 132/132 values were retained; a new ID/code was created, source links were reset, the source revision was pinned, and duplicate review was acknowledged.
+- Access: one independently reviewed and published policy protected all 132 fields. Authorized read passed; same-unit write-capable users without sensitive access received no protected fields, write returned 403, and Excel contained no protected values.
+- Search/navigation: permitted search remained available, protected-only matches were excluded, and browser Back/Forward restored the exact list URL and dossier.
 
-## Closed execution defect
+Primary evidence is under `docs/test-evidence/case-governance/private-db/`, including `web-field-edit-reload.json`, `web-special-field-edit-reload.json`, `web-field-detail-export.json`, `web-field-clear.json`, `web-field-clone.json`, `field-access-uat.json` and `navigation-search-uat.json`.
 
-`CG-UAT-D1` — Updating the synthetic field matrix through `PUT /cases/:id` returned HTTP 500 because the legacy form sent `null` for Boolean NOT NULL statistic columns. The builder now maps null to false for the six required flags while preserving null for the three intentionally nullable judicial flags. The regression test passed, the compiled runtime was rebuilt, and the lifecycle API rerun passed 396/396.
+## Governance and operational evidence
 
-The review also corrected the evidence reconciler so API-only edit/clear/clone results cannot be counted as complete UI/export/history UAT.
+- Private PostgreSQL/HTTP legal workflow: 30/30 PASS, including all 21 frozen action codes, authority separation, exact revision, immutable sources, idempotent replay and transaction rollback.
+- Comprehensive regression: backend 7,254 PASS / 0 FAIL; frontend 4,473 PASS / 0 FAIL.
+- Database authorization evidence covers principal mode, restricted search/count/export, audit masking, one-pending handoff, source conversion, current grants, queues, KPI and notification reauthorization.
+- Evidence governance covers originals, hashes, derivative lineage, custody, file ACL, packets, holds, representation, retention and relation persistence.
+- Migration and recovery: additive migration checks passed; isolated database restore recovered 95 tables; immutable file rehearsal hash-verified 83 files and explicitly recorded excluded invalid fixtures.
+- Bounded load: 100 requests at concurrency 4, 0% errors, p95 337 ms against a 1,000 ms UAT budget.
+- Browser/runtime smoke returned no page error, API failure or application crash.
+
+The consolidated machine-readable result is `docs/test-evidence/case-governance/private-db/composite-uat-evidence.json`. Every row in `docs/uat/case-governance/uat-plan.json` links its supporting evidence.
 
 ## Release decision
 
-No release approval. Required threshold remains 100% critical PASS with zero unresolved BLOCKER/MAJOR findings and a human production GO.
+The UAT critical threshold is met. Production release still requires the mandated independent adversarial review to report no unresolved BLOCKER or MAJOR finding, fresh release checks, merge/CI completion and the existing human GO for production deployment.

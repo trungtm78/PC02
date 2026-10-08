@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-08T01:00:46.682Z",
+  "environment": "private synthetic loopback web",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "fields": [
+    {
+      "key": "crimeChinhId",
+      "status": "PASS"
+    },
+    {
+      "key": "laCongNgheCao",
+      "status": "PASS"
+    },
+    {
+      "key": "lyDoKhongKhoiTo",
+      "status": "PASS"
+    },
+    {
+      "key": "lyDoTamDinhChiNguonTin",
+      "status": "PASS"
+    },
+    {
+      "key": "lyDoTamDinhChiVuAn",
+      "status": "PASS"
+    },
+    {
+      "key": "nguonDon",
+      "status": "PASS"
+    },
+    {
+      "key": "supervisingUnit",
+      "status": "PASS"
+    },
+    {
+      "key": "toiDanhChinhKhoiToId",
+      "status": "PASS"
+    }
+  ],
+  "errors": [],
+  "failedApi": [],
+  "dialogs": [
+    "Cập nhật hồ sơ thành công!"
+  ],
+  "verdict": "PASS"
+}

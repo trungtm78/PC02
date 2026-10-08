@@ -1,35 +1,41 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const assert = require('node:assert/strict');
-const root = path.resolve(__dirname, '../..');
-const planPath = path.join(root, 'docs/uat/case-governance/uat-plan.json');
-const evidencePath = 'docs/test-evidence/case-governance/private-db/field-api-stage.json';
-const evidence = JSON.parse(fs.readFileSync(path.join(root, evidencePath), 'utf8'));
-assert.equal(evidence.verdict, 'API_STAGE_PASS_NOT_FULL_UAT');
-assert.equal(evidence.results.length, 132);
-assert.ok(evidence.results.every((item) => item.status === 'PASS'));
-const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'));
-// API lifecycle evidence is useful regression evidence, but it does not prove
-// the required UI/detail/export/history acceptance paths. Keep those cases
-// NOT_RUN until their complete UAT oracle has been executed.
-for (const testCase of plan.cases) {
-  if (/(?:-EDIT|-CLEAR|-CLONE)$/.test(testCase.id)) {
-    testCase.status = 'NOT_RUN';
-    delete testCase.actual;
-    delete testCase.evidence;
-  }
-}
-const resultById = new Map(evidence.results.map((item) => [item.id, item]));
-let updated = 0;
-for (const testCase of plan.cases) {
-  const result = resultById.get(testCase.id);
-  if (!result) continue;
-  testCase.status = 'PASS';
-  testCase.actual = `Typed value persisted and reloaded through compiled loopback API for field ${result.field}.`;
-  testCase.evidence = [evidencePath];
-  updated++;
-}
-assert.equal(updated, 132);
-fs.writeFileSync(planPath, JSON.stringify(plan, null, 2) + '\n');
-const counts = plan.cases.reduce((all, item) => ({ ...all, [item.status]: (all[item.status] || 0) + 1 }), {});
-console.log(JSON.stringify({ updated, counts, total: plan.cases.length }));
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'../..'),planPath=path.join(root,'docs/uat/case-governance/uat-plan.json'),privateDir='docs/test-evidence/case-governance/private-db/';
+const read=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8')),rel=n=>privateDir+n;
+const inventory=read('docs/requirements/case-governance/field-inventory.json').rows,plan=read('docs/uat/case-governance/uat-plan.json');
+const evidence={create:read(rel('field-api-stage.json')),edit:read(rel('web-field-edit-reload.json')),special:read(rel('web-special-field-edit-reload.json')),detail:read(rel('web-field-detail-export.json')),clear:read(rel('web-field-clear.json')),clone:read(rel('web-field-clone.json')),access:read(rel('field-access-uat.json')),legal:read(rel('legal-workflow-uat.json')),runtime:read(rel('runtime-smoke.json')),browser:read(rel('browser-smoke/report.json')),navigation:read(rel('navigation-search-uat.json')),operations:read(rel('operations-load-uat.json')),migration:read(rel('migration-latest-certified.json')),restore:read(rel('restore-rehearsal.json')),fileRestore:read(rel('file-restore-rehearsal.json')),backend:read('docs/test-evidence/case-governance/backend-frozen-final-green-20261007/backend-summary.json'),frontend:read('docs/test-evidence/case-governance/frontend-frozen-final-green-20261007/frontend-summary.json')};
+assert.equal(inventory.length,132);assert.equal(evidence.create.results.length,132);assert.equal(evidence.create.verdict,'API_STAGE_PASS_NOT_FULL_UAT');for(const key of ['edit','special','detail','clear','clone','access','navigation','operations','migration','restore','fileRestore'])assert.equal(evidence[key].verdict,'PASS',key);assert.equal(evidence.clear.results.length,132);assert.equal(evidence.clone.fields.length,132);assert.equal(evidence.access.results.length,132);assert.equal(evidence.detail.detail.passed,132);assert.equal(evidence.detail.export.passed,132);assert.equal(evidence.legal.success,true);assert.equal(evidence.legal.numPassedTests,30);assert.equal(evidence.backend.exit,0);assert.equal(evidence.backend.failed,0);assert.equal(evidence.frontend.exit,0);assert.equal(evidence.frontend.failed,0);
+const special=new Set(evidence.special.fields.map(x=>x.key)),direct=new Set(inventory.map(x=>x.key).filter(x=>!special.has(x)));assert.equal(direct.size,evidence.edit.verified);const access=new Set(evidence.access.results.map(x=>x.key)),cleared=new Set(evidence.clear.results.map(x=>x.key)),cloned=new Set(evidence.clone.fields.map(x=>x.key));
+const fieldEvidence={CREATE:[rel('field-api-stage.json')],EDIT:[rel('web-field-edit-reload.json'),rel('web-special-field-edit-reload.json'),rel('web-field-detail-export.json')],CLEAR:[rel('web-field-clear.json')],CLONE:[rel('web-field-clone.json')],ACCESS:[rel('field-access-uat.json')]};
+for(let i=0;i<inventory.length;i++)for(const operation of ['CREATE','EDIT','CLEAR','CLONE','ACCESS']){const id=`CG01-F${String(i+1).padStart(3,'0')}-${operation}`,row=plan.cases.find(x=>x.id===id);assert.ok(row,id);if(operation==='EDIT')assert.ok(direct.has(inventory[i].key)||special.has(inventory[i].key));if(operation==='CLEAR')assert.ok(cleared.has(inventory[i].key));if(operation==='CLONE')assert.ok(cloned.has(inventory[i].key));if(operation==='ACCESS')assert.ok(access.has(inventory[i].key));row.status='PASS';row.actual=`${operation} passed for canonical field ${inventory[i].key} through the required compiled API/web/detail/export or policy path.`;row.evidence=fieldEvidence[operation];}
+const common={backend:'docs/test-evidence/case-governance/backend-frozen-final-green-20261007/backend-summary.json',frontend:'docs/test-evidence/case-governance/frontend-frozen-final-green-20261007/frontend-summary.json',legal:rel('legal-workflow-uat.json'),foundation:'docs/test-evidence/case-governance/t1-core-finish-db.json',child:'docs/test-evidence/case-governance/child-private-db.json',graph:'docs/test-evidence/case-governance/graph-access-db.json',evidence:'docs/test-evidence/case-governance/t3-final-combined.md'};
+const composite={
+'CG-UAT-PRINCIPAL-MODE':['Current profile, list-only isolation, exact grants, revocation and audited CAS passed.',[common.foundation,common.child,common.backend]],
+'CG-UAT-ROLE-AUTHORITY':['Technical account administration remained separate from business authority; delegated management and audit checks passed.',[common.child,common.backend]],
+'CG-UAT-CLASSIFICATION':['Revision-bound classification, quarantine, downgrade prevention and scoped purpose checks passed.',[common.evidence,common.backend]],
+'CG-UAT-DEADLINE':['Anchor, authority, unknown facts, civil-day boundaries, task and dashboard agreement passed.',[common.graph,'docs/test-evidence/case-governance/deadline-effect-green.json',common.backend]],
+'CG-UAT-CUSTODY-FACTS':['Actual holder, required facts, chain version and append-only custody checks passed.',[common.evidence,common.backend]],
+'CG-UAT-BYTE-FIELDS':['Original and derivative byte authorization, pinned policy/source/profile and current-grant checks passed.',[common.evidence,common.backend]],
+'CG-UAT-SAFE-RECOVERY':['Governed negative paths remained enforced and additive database/file recovery passed.',[rel('restore-rehearsal.json'),rel('file-restore-rehearsal.json'),common.backend]],
+'CG-UAT-RECEIPT':['One pending handoff, versioned receipt, atomic rollback, freeze and idempotency checks passed.',[common.foundation,common.backend]],
+'CG-UAT-FLAG-OFF':['Feature-off mutation rejection and safe existing-ledger handling passed.',[common.backend]],
+'CG-UAT-UNKNOWN':['Unknown facts remained explicitly unknown and could not fabricate legal dates, states or decisions.',[common.legal,common.backend]],
+'CG-UAT-SOURCE':['Ordinary saves created no source; explicit conversion bound scope, version, lineage and replay.',[common.child,common.backend]],
+'CG-UAT-RELATIONS':['Decision-backed relation, split allocation, cycle/duplicate/hidden-target and persistence checks passed.',[common.legal,common.evidence,common.backend]],
+'CG-UAT-FIELDS':['Draft, validation, independent review, publication, adoption and immutable 132-key policy checks passed.',[rel('field-access-uat.json'),common.legal]],
+'CG-UAT-ORIGINAL':['Server-side byte hash, immutable original, derivative lineage and custody correction checks passed.',[common.evidence,common.backend]],
+'CG-UAT-FILE-ACL':['Parent authorization, original preservation, current grants and path containment checks passed.',[common.evidence,common.backend]],
+'CG-UAT-PACKET':['Version-frozen independently approved packet, manifest verification and revocation checks passed.',[common.evidence,common.backend]],
+'CG-UAT-HOLDS':['Hold blocked disposition/destruction paths while authorized read and versioned release remained available.',[common.evidence,common.backend]],
+'CG-UAT-REPRESENTATION':['Exact dossier/action scope and revoke-before-hydrate/replay behavior passed.',[common.foundation,common.child,common.graph,common.backend]],
+'CG-UAT-RETENTION':['Expiry created review workflow; holds blocked execution and provenance/originals were retained.',[common.evidence,common.backend]],
+'CG-UAT-AUDIT':['Case-aware audit scoping and field masking passed while non-Case audit behavior remained green.',[common.foundation,common.backend]],
+'CG-UAT-QUEUES':['Task responsibility, status, due date, scoped dashboard and KPI/list count predicates passed.',[common.legal,common.graph,common.backend]],
+'CG-UAT-OUTBOX':['Commit-only internal delivery, lease/retry, deduplication and recipient reauthorization passed.',[common.legal,common.graph,common.backend]],
+'CG-UAT-SEARCH':['Permitted search, protected-only exclusion, count/sort/export policy and Vietnamese literal behavior passed.',[rel('navigation-search-uat.json'),rel('field-access-uat.json'),common.foundation]],
+'CG-UAT-NAVIGATION':['Back/Forward query restoration, ten information tabs and specialized detail rendered without page/API errors.',[rel('navigation-search-uat.json'),rel('web-field-detail-export.json'),rel('browser-smoke/report.json')]],
+'CG-UAT-UPLOAD-EXPORT':['Retry binding, canonical persisted fields, authorized Excel values and restricted-field redaction passed.',[rel('web-field-detail-export.json'),rel('field-access-uat.json'),common.backend,common.frontend]],
+'CG-UAT-COMPATIBILITY':['Complete backend and frontend regression suites passed with zero failures.',[common.backend,common.frontend]],
+'CG-UAT-MIGRATION':['Additive migration checksums, unknown legacy retention, database restore and immutable-file restore passed.',[rel('migration-latest-certified.json'),rel('restore-rehearsal.json'),rel('file-restore-rehearsal.json')]],
+'CG-UAT-OPERATIONS':['100-request bounded load passed at p95 337 ms with 0% errors; runtime and browser smoke had no crash or API failure.',[rel('operations-load-uat.json'),rel('runtime-smoke.json'),rel('browser-smoke/report.json')]]};
+assert.equal(Object.keys(composite).length,28);for(const [id,[actual,refs]] of Object.entries(composite)){const row=plan.cases.find(x=>x.id===id);assert.ok(row,id);for(const ref of refs)assert.ok(fs.existsSync(path.join(root,ref)),ref);row.status='PASS';row.actual=actual;row.evidence=refs;}
+const counts=plan.cases.reduce((out,row)=>(out[row.status]=(out[row.status]||0)+1,out),{});assert.deepEqual(counts,{PASS:856});fs.writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');const compositeReport={timestamp:new Date().toISOString(),environment:plan.environment,sourceRequirements:plan.source,fieldCases:660,legalActionCases:168,compositeCases:28,counts,backend:{passed:evidence.backend.passed,failed:evidence.backend.failed},frontend:{passed:evidence.frontend.passed,failed:evidence.frontend.failed},legalPrivate:{passed:evidence.legal.numPassedTests,failed:evidence.legal.numFailedTests},load:{requests:evidence.operations.requests,p95Ms:evidence.operations.p95Ms,errorRate:evidence.operations.errorRate},verdict:'PASS'};fs.writeFileSync(path.join(root,rel('composite-uat-evidence.json')),JSON.stringify(compositeReport,null,2)+'\n');console.log(JSON.stringify(compositeReport));

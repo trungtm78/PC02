@@ -1,0 +1,1339 @@
+{
+  "timestamp": "2026-10-08T00:52:31.555Z",
+  "environment": "private synthetic loopback web",
+  "caseId": "cmuyo3wmv00092km72cfdkzur",
+  "detail": {
+    "passed": 132,
+    "results": [
+      {
+        "key": "baoCaoBanGiamDoc",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "canCuKhongKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "canCuPhucHoiVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "canCuTamDinhChiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "canCuTamDinhChiVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "capDoToiPham",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "cccdCungCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "chuyenVuAnChoCQK",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "chuyenVuViecDonViKhac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "crimeChinhId",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "description",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "diaChiCungCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "dieuTraVienText",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "doVatTaiLieuKemTheo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuKhac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuNhapHoSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuTrungDon",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ketQuaXuLyKhac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "khacPhucLyDoTDCVuViec",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "laCongNgheCao",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "lanhDaoToTung",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "lenhNhapKho",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "loaiThongTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "lyDoKhongKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "lyDoTamDinhChiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "lyDoTamDinhChiVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayBanAnCoHieuLuc",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayCapCccd",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayDeXuat",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayDinhChiVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayGiaoDonViGiaiQuyet",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayHetThoiHieu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayHetThoiHieuVuViec",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayKLDT",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayNhapVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhieuChuyen",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhucHoi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhucHoiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDDieuTraLai",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDKhongKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDPhanCongNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDTamDinhChiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayTachHanhVi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayTachVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayTamDinhChi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayTiepNhanNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayVietDon",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "ngayXayRa",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "nghiVanDoiTuong",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "nguonDon",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "nhanXet",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "nhapVaoVuViecSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "noiCapCccd",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "noiLuuTruBaoQuan",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "noiXayRa",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "noiXayRaPhuongXa",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "phanLoaiDanSu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "phanLoaiNguonTinBanDau",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "phuongThucThuDoan",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "sdtCungCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "sinhNamCungCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soBanAnCoHieuLuc",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soKLDT",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soPhieuChuyen",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soPhucHoiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDDieuTraLai",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDDinhChiVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDKhongKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDNhapVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDPhanCongNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDTachHanhVi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDTachVuAn",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQDTamDinhChiNguonTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhKhoiTo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhPhucHoi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhTamDinhChi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coBangNhom",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coGhiAmGhiHinh",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coSuDungKQGhiAmTrongXetXu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coVPHC",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.dieuTraMoRong",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.donViBaoQuanHoSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ghiAmGhiHinhDaDuocXetXu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.hoSoLuu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.khongGAGHNhungToaYeuCau",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.laVuAnGhiAmGhiHinh",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayBatKhanCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayDangKyHoSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayDauThu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayNopLuuHoSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhamToiQuaTang",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhanCongGiaiQuyetToGiac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhatHienDauHieu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayThongKe",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayTiepNhanTin",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBangNhomBatDuoc",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBiCanCoGhiAm",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBiCanVksYeuCauGhiAm",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDangKyHoSo",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuong",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongBiBatVuAnKhac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongDaBat",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongSuuTraHiemNghi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongVPHC",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soLuongBiHai",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soLuongNguoiChet",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soNguoiBiPhatTien",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soNguoiBiThuong",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soSungThuHoi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soThuocNoThuHoi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soTienBiThietHai",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soTienThuHoi",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.suDungVuKhiNong",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanGhiLoiKhai",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanHoiCung",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanHoiCungCoGhiAm",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongTienPhatHanhChinh",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.vksYeuCauGhiAm",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "statistic.vuAnDaDuocXetXu",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "supervisingUnit",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "tdcKhacPhucBienBan",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "tdcKhacPhucLyDoBienPhap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "tenCungCap",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "tienDoKhacPhucTDCVuViec",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhBanDau",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhChinhKhoiToId",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhKhacIds",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "utdt_thoiHanUyThac",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "vatChungMoTa",
+        "visible": true,
+        "nonempty": true
+      },
+      {
+        "key": "vuViecTamDungTruoc2015",
+        "visible": true,
+        "nonempty": true
+      }
+    ]
+  },
+  "export": {
+    "passed": 132,
+    "results": [
+      {
+        "key": "baoCaoBanGiamDoc",
+        "heading": "Trường hợp báo cáo Ban Giám đốc",
+        "nonempty": true
+      },
+      {
+        "key": "canCuKhongKhoiTo",
+        "heading": "Căn cứ để ra Quyết định Không khởi tố",
+        "nonempty": true
+      },
+      {
+        "key": "canCuPhucHoiVuAn",
+        "heading": "Căn cứ ra quyết định Phục hồi điều tra vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "canCuTamDinhChiNguonTin",
+        "heading": "Căn cứ Tạm đình chỉ nguồn tin",
+        "nonempty": true
+      },
+      {
+        "key": "canCuTamDinhChiVuAn",
+        "heading": "Căn cứ tạm đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "capDoToiPham",
+        "heading": "Phân loại tội phạm (Chỉ xác định sau khi có Quyết định khởi tố vụ án)",
+        "nonempty": true
+      },
+      {
+        "key": "cccdCungCap",
+        "heading": "Số căn cước công dân",
+        "nonempty": true
+      },
+      {
+        "key": "chuyenVuAnChoCQK",
+        "heading": "Đã chuyển vụ án cho CQĐT khác",
+        "nonempty": true
+      },
+      {
+        "key": "chuyenVuViecDonViKhac",
+        "heading": "Chuyển vụ việc cho đơn vị khác",
+        "nonempty": true
+      },
+      {
+        "key": "crimeChinhId",
+        "heading": "Tội danh chính - BLHS 2015 (nhận định ban đầu)",
+        "nonempty": true
+      },
+      {
+        "key": "description",
+        "heading": "Tóm tắt nội dung",
+        "nonempty": true
+      },
+      {
+        "key": "diaChiCungCap",
+        "heading": "Địa chỉ cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+        "nonempty": true
+      },
+      {
+        "key": "dieuTraVienText",
+        "heading": "Điều tra viên thụ lý",
+        "nonempty": true
+      },
+      {
+        "key": "doVatTaiLieuKemTheo",
+        "heading": "Đồ vật, tài liệu kèm theo",
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuKhac",
+        "heading": "Ghi chú khác",
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuNhapHoSo",
+        "heading": "Ghi chú nhập vào hồ sơ nào",
+        "nonempty": true
+      },
+      {
+        "key": "ghiChuTrungDon",
+        "heading": "Ghi chú trùng đơn",
+        "nonempty": true
+      },
+      {
+        "key": "ketQuaXuLyKhac",
+        "heading": "Kết quả xử lý, giải quyết khác",
+        "nonempty": true
+      },
+      {
+        "key": "khacPhucLyDoTDCVuViec",
+        "heading": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ việc",
+        "nonempty": true
+      },
+      {
+        "key": "laCongNgheCao",
+        "heading": "Bấm chọn nếu xác định đây là tội phạm công nghệ cao",
+        "nonempty": true
+      },
+      {
+        "key": "lanhDaoToTung",
+        "heading": "Lãnh đạo phụ trách tố tụng",
+        "nonempty": true
+      },
+      {
+        "key": "lenhNhapKho",
+        "heading": "Lệnh nhập, phiếu nhập kho",
+        "nonempty": true
+      },
+      {
+        "key": "loaiThongTin",
+        "heading": "Loại thông tin",
+        "nonempty": true
+      },
+      {
+        "key": "lyDoKhongKhoiTo",
+        "heading": "Lý do ra Quyết định không khởi tố vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "lyDoTamDinhChiNguonTin",
+        "heading": "Lý do tạm đình chỉ",
+        "nonempty": true
+      },
+      {
+        "key": "lyDoTamDinhChiVuAn",
+        "heading": "Lý do tạm đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayBanAnCoHieuLuc",
+        "heading": "Ngày tháng năm bản án của toà án có hiệu lực",
+        "nonempty": true
+      },
+      {
+        "key": "ngayCapCccd",
+        "heading": "Ngày cấp CCCD",
+        "nonempty": true
+      },
+      {
+        "key": "ngayDeXuat",
+        "heading": "Ngày/Tháng/Năm đề xuất",
+        "nonempty": true
+      },
+      {
+        "key": "ngayDinhChiVuAn",
+        "heading": "Ngày Quyết định đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayGiaoDonViGiaiQuyet",
+        "heading": "Ngày giao đơn vị giải quyết",
+        "nonempty": true
+      },
+      {
+        "key": "ngayHetThoiHieu",
+        "heading": "Ngày hết thời hiệu truy cứu TNHS vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayHetThoiHieuVuViec",
+        "heading": "Ngày tháng năm hết thời hiệu truy cứu TNHS",
+        "nonempty": true
+      },
+      {
+        "key": "ngayKhoiTo",
+        "heading": "Ngày ra Quyết định Khởi tố vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayKLDT",
+        "heading": "Ngày Kết luận điều tra vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayNhapVuAn",
+        "heading": "Ngày tháng năm nhập vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhieuChuyen",
+        "heading": "Ngày phiếu chuyển/ Công văn/ Ủy thác điều tra",
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhucHoi",
+        "heading": "Ngày Quyết định phục hồi điều tra vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayPhucHoiNguonTin",
+        "heading": "Ngày Phục hồi nguồn tin tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDDieuTraLai",
+        "heading": "Ngày Quyết định điều tra lại",
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDKhongKhoiTo",
+        "heading": "Ngày ra Quyết định Không khởi tố",
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDPhanCongNguonTin",
+        "heading": "Ngày ra Quyết định phân công giải quyết nguồn tin tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "ngayQDTamDinhChiNguonTin",
+        "heading": "Ngày ra Quyết định Tạm đình chỉ nguồn tin",
+        "nonempty": true
+      },
+      {
+        "key": "ngayTachHanhVi",
+        "heading": "Ngày Quyết định tách hành vi",
+        "nonempty": true
+      },
+      {
+        "key": "ngayTachVuAn",
+        "heading": "Ngày Quyết định tách hồ sơ",
+        "nonempty": true
+      },
+      {
+        "key": "ngayTamDinhChi",
+        "heading": "Ngày Quyết định tạm đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "ngayTiepNhanNguonTin",
+        "heading": "Ngày tiếp nhận (theo biên bản tiếp nhận nguồn tin)",
+        "nonempty": true
+      },
+      {
+        "key": "ngayVietDon",
+        "heading": "Ngày viết đơn",
+        "nonempty": true
+      },
+      {
+        "key": "ngayXayRa",
+        "heading": "Ngày tội phạm xảy ra",
+        "nonempty": true
+      },
+      {
+        "key": "nghiVanDoiTuong",
+        "heading": "Nghi vấn đối tượng hoặc bị can",
+        "nonempty": true
+      },
+      {
+        "key": "nguonDon",
+        "heading": "Nguồn đơn/Đơn vị giao",
+        "nonempty": true
+      },
+      {
+        "key": "nhanXet",
+        "heading": "Nhận xét",
+        "nonempty": true
+      },
+      {
+        "key": "nhapVaoVuViecSo",
+        "heading": "Nhập vào vụ việc hồ sơ khác",
+        "nonempty": true
+      },
+      {
+        "key": "noiCapCccd",
+        "heading": "Nơi cấp CCCD",
+        "nonempty": true
+      },
+      {
+        "key": "noiLuuTruBaoQuan",
+        "heading": "Nơi lưu trữ, bảo quản, kê biên, phong tỏa",
+        "nonempty": true
+      },
+      {
+        "key": "noiXayRa",
+        "heading": "Nơi xảy ra tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "noiXayRaPhuongXa",
+        "heading": "Nơi xảy ra (cấp phường/xã)",
+        "nonempty": true
+      },
+      {
+        "key": "phanLoaiDanSu",
+        "heading": "Phân loại dân sự",
+        "nonempty": true
+      },
+      {
+        "key": "phanLoaiNguonTinBanDau",
+        "heading": "Phân loại ban đầu",
+        "nonempty": true
+      },
+      {
+        "key": "phuongThucThuDoan",
+        "heading": "Phương thức thủ đoạn",
+        "nonempty": true
+      },
+      {
+        "key": "sdtCungCap",
+        "heading": "Số điện thoại nguyên đơn",
+        "nonempty": true
+      },
+      {
+        "key": "sinhNamCungCap",
+        "heading": "Sinh năm",
+        "nonempty": true
+      },
+      {
+        "key": "soBanAnCoHieuLuc",
+        "heading": "Số bản án của toà án có hiệu lực",
+        "nonempty": true
+      },
+      {
+        "key": "soKLDT",
+        "heading": "Số KLĐT đề nghị truy tố",
+        "nonempty": true
+      },
+      {
+        "key": "soPhieuChuyen",
+        "heading": "Số phiếu chuyển/ Công văn/ Ủy thác điều tra",
+        "nonempty": true
+      },
+      {
+        "key": "soPhucHoiNguonTin",
+        "heading": "Số Phục hồi nguồn tin tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "soQDDieuTraLai",
+        "heading": "Số Quyết định điều tra lại",
+        "nonempty": true
+      },
+      {
+        "key": "soQDDinhChiVuAn",
+        "heading": "Số Quyết định đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "soQDKhongKhoiTo",
+        "heading": "Quyết định Không khởi tố",
+        "nonempty": true
+      },
+      {
+        "key": "soQDNhapVuAn",
+        "heading": "Số Quyết định nhập vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "soQDPhanCongNguonTin",
+        "heading": "Quyết định phân công giải quyết nguồn tin tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "soQDTachHanhVi",
+        "heading": "Số Quyết định tách hành vi",
+        "nonempty": true
+      },
+      {
+        "key": "soQDTachVuAn",
+        "heading": "Số Quyết định tách vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "soQDTamDinhChiNguonTin",
+        "heading": "Quyết định Tạm đình chỉ nguồn tin",
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhKhoiTo",
+        "heading": "Số Quyết định Khởi tố vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhPhucHoi",
+        "heading": "Số Quyết định Phục hồi Vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "soQuyetDinhTamDinhChi",
+        "heading": "Số Quyết định Tạm đình chỉ vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coBangNhom",
+        "heading": "Xác nhận có băng nhóm",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coGhiAmGhiHinh",
+        "heading": "Bấm xác nhận nếu là nguồn tin có sử dụng Ghi âm, Ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coSuDungKQGhiAmTrongXetXu",
+        "heading": "Xác nhận trong đó: Vụ án có sử dụng kết quả Ghi âm ghi hình trong xét xử",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.coVPHC",
+        "heading": "Xác nhận vụ việc có vi phạm hành chính",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.dieuTraMoRong",
+        "heading": "Điều tra mở rộng",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.donViBaoQuanHoSo",
+        "heading": "Đơn vị lưu giữ, bảo quản hồ sơ",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ghiAmGhiHinhDaDuocXetXu",
+        "heading": "Xác nhận Trong đó: Số vụ án tiến hành Ghi âm, Ghi hình đã được xét xử",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.hoSoLuu",
+        "heading": "Số hồ sơ lưu",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.khongGAGHNhungToaYeuCau",
+        "heading": "Xác nhận trong đó: Vụ án không ghi âm ghi hình nhưng Tòa án yêu cầu cung cấp ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.laVuAnGhiAmGhiHinh",
+        "heading": "Xác nhận nếu là Vụ án có sử dụng Ghi âm, Ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayBatKhanCap",
+        "heading": "Ngày Người phạm tội bị giữ trong các trường hợp khẩn cấp",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayDangKyHoSo",
+        "heading": "Ngày đăng ký hồ sơ nghiệp vụ",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayDauThu",
+        "heading": "Ngày người phạm tội đầu thú, tự thú",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayNopLuuHoSo",
+        "heading": "Ngày nộp lưu hồ sơ",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhamToiQuaTang",
+        "heading": "Ngày người phạm tội bị bắt quả tang",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhanCongGiaiQuyetToGiac",
+        "heading": "Ngày Thời điểm phân công giải quyết tố giác, tin báo",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayPhatHienDauHieu",
+        "heading": "Ngày CQCSĐT trực tiếp phát hiện có dấu hiệu tội phạm",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayThongKe",
+        "heading": "Ngày tổng hợp thống kê",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.ngayTiepNhanTin",
+        "heading": "Ngày tiếp nhận tin khi đơn vị nhận được",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBangNhomBatDuoc",
+        "heading": "Bắt được bao nhiêu băng nhóm",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBiCanCoGhiAm",
+        "heading": "Số lượng bị can có ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBiCanVksYeuCauGhiAm",
+        "heading": "Số lượng bị can VKS yêu cầu ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soBienBanGhiLoiKhaiCoGhiAm",
+        "heading": "Số lượng biên bản ghi lời khai có ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDangKyHoSo",
+        "heading": "Số đăng ký hồ sơ nghiệp vụ",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuong",
+        "heading": "Số đối tượng phạm tội",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongBiBatVuAnKhac",
+        "heading": "Số đối tượng bị bắt trong vụ án khác",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongDaBat",
+        "heading": "Số đối tượng bắt được",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongSuuTraHiemNghi",
+        "heading": "Số đối tượng sưu tra/hiềm nghi",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soDoiTuongVPHC",
+        "heading": "Số đối tượng vi phạm hành chính",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soLuongBiHai",
+        "heading": "Số lượng người bị hại",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soLuongNguoiChet",
+        "heading": "Số người chết",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soNguoiBiPhatTien",
+        "heading": "Số người bị phạt tiền",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soNguoiBiThuong",
+        "heading": "Số người bị thương",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soSungThuHoi",
+        "heading": "Số lượng súng thu hồi",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soThuocNoThuHoi",
+        "heading": "Số lượng thuốc nổ thu hồi",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soTienBiThietHai",
+        "heading": "Số tiền bị thiệt hại (triệu Việt nam Đồng)",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.soTienThuHoi",
+        "heading": "Số tiền thu hồi được (triệu Việt Nam Đồng)",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.suDungVuKhiNong",
+        "heading": "Sử dụng vũ khí nóng",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanGhiLoiKhai",
+        "heading": "Tổng số biên bản ghi lời khai",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanHoiCung",
+        "heading": "Tổng số biên bản hỏi cung bị can",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongSoBienBanHoiCungCoGhiAm",
+        "heading": "Tổng số biên bản hỏi cung có ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.tongTienPhatHanhChinh",
+        "heading": "Tổng số tiền phạt hành chính (triệu Việt Nam Đồng)",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.vksYeuCauGhiAm",
+        "heading": "Bấm xác nhận nếu VKS yêu cầu ghi âm ghi hình",
+        "nonempty": true
+      },
+      {
+        "key": "statistic.vuAnDaDuocXetXu",
+        "heading": "Xác nhận vụ án đã được xét xử",
+        "nonempty": true
+      },
+      {
+        "key": "supervisingUnit",
+        "heading": "Đơn vị giải quyết",
+        "nonempty": true
+      },
+      {
+        "key": "tdcKhacPhucBienBan",
+        "heading": "Biên bản, báo cáo, kế hoạch khắc phục lý do TĐC vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "tdcKhacPhucLyDoBienPhap",
+        "heading": "Biện pháp, tiến độ khắc phục lý do TĐC vụ án",
+        "nonempty": true
+      },
+      {
+        "key": "tenCungCap",
+        "heading": "Tên cá nhân, cơ quan, tổ chức cung cấp, bị hại",
+        "nonempty": true
+      },
+      {
+        "key": "tienDoKhacPhucTDCVuViec",
+        "heading": "Tiến độ khắc phục TĐC vụ việc",
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhBanDau",
+        "heading": "Tội danh cũ trước đây",
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhChinhKhoiToId",
+        "heading": "Tội danh chính khi khởi tố",
+        "nonempty": true
+      },
+      {
+        "key": "toiDanhKhacIds",
+        "heading": "Tội danh phụ khi khởi tố",
+        "nonempty": true
+      },
+      {
+        "key": "utdt_thoiHanUyThac",
+        "heading": "Thời hạn thực hiện Uỷ thác điều tra",
+        "nonempty": true
+      },
+      {
+        "key": "vatChungMoTa",
+        "heading": "Loại, đặc điểm đồ vật, tài liệu, vật chứng",
+        "nonempty": true
+      },
+      {
+        "key": "vuViecTamDungTruoc2015",
+        "heading": "Xác định vụ việc này là vụ việc tạm dừng giải quyết (trước năm 2015)",
+        "nonempty": true
+      }
+    ],
+    "bytes": 18964
+  },
+  "pageErrors": [],
+  "failedApi": [],
+  "verdict": "PASS"
+}
