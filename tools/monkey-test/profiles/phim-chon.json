@@ -1,0 +1,13 @@
+{
+  "ten": "phim-chon",
+  "moTa": "Bàn phím trên ô chọn/gợi ý (Tội danh, FK, gợi ý tên): Tab, mũi tên, Home/End, Enter, Esc, gõ chuỗi lạ.",
+  "tuyen": [
+    "/petitions/new",
+    "/petitions/{DON_THU}/edit",
+    "/cases/new",
+    "/incidents/new"
+  ],
+  "batBien": [
+    "phim_chon_khong_ket"
+  ]
+}

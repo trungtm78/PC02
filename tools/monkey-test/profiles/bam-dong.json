@@ -1,0 +1,18 @@
+{
+  "ten": "bam-dong",
+  "moTa": "Bấm vào dòng danh sách: bôi chữ không chuyển trang; Ctrl/⌘+bấm và nút giữa mở tab mới KHÔNG bắt đăng nhập lại.",
+  "tuyen": [
+    "/petitions",
+    "/incidents",
+    "/cases",
+    "/comprehensive-list",
+    "/uy-thac-dieu-tra",
+    "/ward/petitions",
+    "/classification/duplicates",
+    "/admin/settings"
+  ],
+  "batBien": [
+    "url_khong_doi_khi_boi_chu",
+    "tab_moi_khong_bat_dang_nhap"
+  ]
+}

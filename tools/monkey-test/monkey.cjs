@@ -1,118 +1,420 @@
 /**
- * MONKEY TEST — đi lung tung khắp hệ thống, tìm màn hình vỡ.
+ * MONKEY TEST — đi lung tung khắp hệ thống, tìm chỗ vỡ. Bản nâng cấp 08/10/2026.
  *
- * ── Giới hạn CỐ Ý: CHỈ ĐỌC ──
+ * Khác bản cũ (chỉ bấm nút, `Math.random`, một khung nhìn, luôn thoát 0):
+ *  - HẠT GIỐNG (`MONKEY_SEED`, mulberry32): in ra log, chạy lại đúng một lượt để kiểm bản vá;
+ *  - nhiều KHUNG NHÌN và ENGINE (`MONKEY_VIEWPORTS`, `MONKEY_ENGINES`: chromium, webkit);
+ *  - thao tác có trọng số: bấm, bấm đúp, Ctrl+bấm, nút giữa, kéo bôi chữ, phím, gõ chuỗi lạ, dán, lùi/tiến, xoay màn hình;
+ *  - HỒ SƠ (`MONKEY_PROFILE`): khai đường đi + bất biến riêng từng tính năng (xem `profiles/`);
+ *  - thoát 0 sạch · 1 có chỗ đáng ngờ · 2 bộ chạy hỏng — ba trạng thái khác nhau, vì "bộ chạy hỏng" không phải "sản phẩm hỏng".
  *
- * Chạy trên máy thật, nơi có ~55.000 hồ sơ án thật. Bấm bừa vào nút Lưu / Xoá / Chuyển trạng
- * thái là sửa dữ liệu vụ án có thật. Nên mọi lời gọi GHI bị CHẶN ở tầng mạng (trừ đăng nhập) —
- * lưới an toàn không dựa vào việc đoán đúng nhãn nút — và nút có chữ nguy hiểm thì bỏ qua.
- *
- * Thứ đi tìm: màn hình trắng, lỗi console, chữ "Đã xảy ra lỗi", không mở được trang.
- *
- * Chạy: UAT_PASS=... MONKEY_ROUTES=duong.txt node monkey.cjs
+ * ── GHI hay CHỈ ĐỌC ──
+ * Mặc định mọi lời gọi GHI (POST/PUT/PATCH/DELETE, trừ đăng nhập) bị CHẶN ở tầng mạng: máy thật có ~55.000 hồ sơ thật.
+ * `MONKEY_CHO_GHI=1` chỉ có tác dụng khi `UAT_BASE` là localhost/127.0.0.1 — trỏ vào máy thật thì từ chối và thoát 2.
  */
+'use strict';
 const fs = require('fs');
-const { chromium } = require('playwright');
+const path = require('path');
+const { taoPrng, hatCon } = require('./lib/prng.cjs');
+const { chonHanhDong } = require('./lib/hanh-dong.cjs');
+const { BAT_BIEN, chupGiaTriOnhap } = require('./lib/bat-bien.cjs');
 
-const CO_SO = process.env.UAT_BASE || 'http://171.244.40.245';
-const TK = process.env.UAT_USER || 'admin@pc02.local';
-const MK = process.env.UAT_PASS;
-const SO_VONG = Number(process.env.MONKEY_ROUNDS || 40);
+const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|the server responded with a status of (401|403|404)/i;
+const MAN_LOI = /something went wrong|đã xảy ra lỗi|unexpected error/i;
 
-const CAM = /xo[áa]|lưu|ghi|duyệt|chuyển|khởi tố|đình chỉ|hủy|huỷ|gửi|đăng xuất|thoát|xác nhận|tạo mới|thêm mới|nhập|import|khôi phục/i;
-
-const loi = [];
-function ghiLoi(loai, noi2, chiTiet) {
-  loi.push({ loai, noi: noi2, chiTiet: String(chiTiet).slice(0, 200) });
-  console.log(`  ! ${loai} @ ${noi2}: ${String(chiTiet).slice(0, 140)}`);
+function laMayLocal(url) {
+  try {
+    const h = new URL(url).hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+  } catch {
+    return false;
+  }
 }
 
-(async () => {
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+function docKhungNhin(chuoi) {
+  return String(chuoi || '1600x1000')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const m = /^(\d+)x(\d+)$/.exec(s);
+      if (!m) throw new Error(`MONKEY_VIEWPORTS không hợp lệ: "${s}" (dạng 390x844)`);
+      return { width: Number(m[1]), height: Number(m[2]) };
+    });
+}
 
+function docHoSo(tep) {
+  const duong = path.isAbsolute(tep) ? tep : path.resolve(process.cwd(), tep);
+  const hs = JSON.parse(fs.readFileSync(duong, 'utf8'));
+  for (const b of hs.batBien || []) {
+    if (!BAT_BIEN[b]) throw new Error(`Hồ sơ ${hs.ten || tep}: bất biến "${b}" không tồn tại. Có: ${Object.keys(BAT_BIEN).join(', ')}`);
+  }
+  return { ...hs, _tep: duong };
+}
+
+function docCauHinh(env) {
+  const co_so = env.UAT_BASE || 'http://171.244.40.245';
+  const choGhi = env.MONKEY_CHO_GHI === '1';
+  const cfg = {
+    coSo: co_so,
+    taiKhoan: env.UAT_USER || 'admin@pc02.local',
+    matKhau: env.UAT_PASS,
+    token: env.UAT_TOKEN,
+    hat: env.MONKEY_SEED !== undefined && env.MONKEY_SEED !== '' ? Number(env.MONKEY_SEED) : Math.floor(Math.random() * 2 ** 31),
+    khungNhin: docKhungNhin(env.MONKEY_VIEWPORTS),
+    engines: String(env.MONKEY_ENGINES || 'chromium').split(',').map((s) => s.trim()).filter(Boolean),
+    soBuoc: Number(env.MONKEY_STEPS || 25),
+    // Nhịp chờ sau mỗi thao tác (ms): đủ để trang phản ứng. Ca chứng âm hạ xuống cho nhanh.
+    nhipMs: Number(env.MONKEY_NHIP_MS || 260),
+    hoSo: String(env.MONKEY_PROFILE || '').split(',').map((s) => s.trim()).filter(Boolean).map(docHoSo),
+    tepDuong: env.MONKEY_ROUTES,
+    ra: env.MONKEY_OUT || path.resolve(process.cwd(), 'monkey-ket-qua.json'),
+    thuMucAnh: env.MONKEY_ANH,
+    choGhi,
+    khongDangNhap: env.MONKEY_KHONG_DANG_NHAP === '1',
+  };
+  if (!Number.isFinite(cfg.hat)) throw new Error('MONKEY_SEED phải là số');
+  if (choGhi && !laMayLocal(co_so)) {
+    throw new Error(`MONKEY_CHO_GHI=1 bị từ chối: ${co_so} không phải localhost/127.0.0.1 — máy thật không bao giờ được ghi.`);
+  }
+  if (!cfg.khongDangNhap && !cfg.token && !cfg.matKhau) throw new Error('Thiếu UAT_PASS hoặc UAT_TOKEN');
+  if (!cfg.hoSo.length && !cfg.tepDuong) throw new Error('Cần MONKEY_PROFILE=<hồ sơ.json,...> hoặc MONKEY_ROUTES=<tệp đường>');
+  // Cách dùng cũ: chỉ MONKEY_ROUTES → một hồ sơ tổng quát không có bất biến riêng (chỉ bất biến chung).
+  if (!cfg.hoSo.length) cfg.hoSo = [{ ten: 'mac-dinh', tepDuong: cfg.tepDuong, batBien: [], _tep: path.resolve(process.cwd(), 'x') }];
+  return cfg;
+}
+
+function layPlaywright() {
+  for (const ten of ['playwright', '@playwright/test', 'playwright-core']) {
+    try {
+      return require(ten);
+    } catch {
+      /* thử tên kế */
+    }
+  }
+  throw new Error('Không nạp được playwright. Cài trong tools/monkey-test (npm ci) hoặc đặt NODE_PATH tới thư mục có playwright.');
+}
+
+async function dangNhap(page, cfg) {
+  if (cfg.khongDangNhap) return null;
+  if (cfg.token) {
+    await page.addInitScript(
+      ([t, r]) => {
+        try {
+          sessionStorage.setItem('accessToken', t);
+          localStorage.setItem('refreshToken', r);
+        } catch (e) {
+          /* trang chưa có storage */
+        }
+      },
+      [cfg.token, process.env.UAT_REFRESH || cfg.token],
+    );
+    return cfg.token;
+  }
+  await page.goto(`${cfg.coSo}/login`, { waitUntil: 'domcontentloaded' });
+  await page.locator('#username').fill(cfg.taiKhoan);
+  await page.locator('#password').fill(cfg.matKhau);
+  await page.getByRole('button', { name: /đăng nhập/i }).click();
+  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 60000 });
+  return page.evaluate(() => sessionStorage.getItem('accessToken'));
+}
+
+/** Thay {DON_THU}... bằng một mã thật lấy từ API (đọc). Không lấy được → null: đường ấy bị bỏ và ghi CHƯA KIỂM. */
+async function giaiDuong(duong, cfg, token, boNho) {
+  const m = /\{([A-Z_]+)\}/.exec(duong);
+  if (!m) return duong;
+  const nhan = m[1];
+  const DUONG_API = { DON_THU: '/petitions?limit=1', VU_VIEC: '/incidents?limit=1', VU_AN: '/cases?limit=1' };
+  const api = DUONG_API[nhan];
+  if (!api) return null;
+  if (!boNho.has(nhan)) {
+    let id = null;
+    try {
+      const r = await fetch(`${cfg.coSo}/api/v1${api}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const j = await r.json();
+      const ds = Array.isArray(j) ? j : j.data || j.items || [];
+      id = ds[0]?.id || null;
+    } catch {
+      id = null;
+    }
+    boNho.set(nhan, id);
+  }
+  const id = boNho.get(nhan);
+  return id ? duong.replace(m[0], id) : null;
+}
+
+/** Đăng nhập bằng API (một lần cho cả lượt tổng): trả {accessToken, refreshToken}. */
+async function dangNhapApi(cfg) {
+  const r = await fetch(`${cfg.coSo}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: cfg.taiKhoan, password: cfg.matKhau }),
+  });
+  const j = await r.json();
+  if (!r.ok || !j.accessToken) throw new Error(`Đăng nhập API hỏng (${r.status}): ${JSON.stringify(j).slice(0, 160)}`);
+  return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
+}
+
+async function chonVungKhoi(page) {
+  return page.evaluate(chupGiaTriOnhap).catch(() => null);
+}
+
+/** Chạy MỘT hồ sơ ở MỘT (engine, khung nhìn). */
+async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
+  const nhanLuot = `${engine}@${vp.width}x${vp.height}/${hoSo.ten}`;
+  let browser;
+  try {
+    browser = await pw[engine].launch();
+  } catch (e) {
+    throw new Error(`Không khởi động được ${engine}: ${e.message}`);
+  }
+  const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
+  const thuGhi = [];
   await ctx.route('**/api/**', (route) => {
     const r = route.request();
     const ghi = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(r.method());
-    const dangNhap = r.url().includes('/auth/login') || r.url().includes('/auth/refresh');
-    if (ghi && !dangNhap) return route.abort();
+    const dangNhapRefresh = r.url().includes('/auth/login') || r.url().includes('/auth/refresh');
+    if (ghi && !dangNhapRefresh) {
+      // ĐẾM mọi lời gọi ghi dù có cho qua hay không: nếu chỉ đếm khi chặn thì ở chế độ cho ghi (local) bất biến "màn
+      // chỉ xem không được ghi" mù hoàn toàn — nó không bao giờ có thể đỏ.
+      thuGhi.push(`${r.method()} ${new URL(r.url()).pathname}`);
+      if (!cfg.choGhi) return route.abort();
+    }
     return route.continue();
   });
 
   const page = await ctx.newPage();
-  let duong = '/login';
+  const tt = { tabMoi: [], dauVao: null };
+  let duongHienTai = '/';
+  let buoc = 0;
+  const phatHien = (loai, chiTiet, extra = {}) => {
+    const p = { luot: nhanLuot, hat: cfg.hat, loai, duong: duongHienTai, buoc, chiTiet: String(chiTiet).slice(0, 300), ...extra };
+    // Cùng loại + cùng chi tiết + cùng đường trong một lượt: gộp, đếm số lần (một lỗi lặp 30 lần là MỘT lỗi).
+    const trung = kq.phatHien.find((x) => x.luot === p.luot && x.loai === p.loai && x.duong === p.duong && x.chiTiet === p.chiTiet);
+    if (trung) {
+      trung.soLan = (trung.soLan || 1) + 1;
+      return trung;
+    }
+    kq.phatHien.push(p);
+    console.log(`  ! [${nhanLuot}] ${loai} @ ${duongHienTai} (bước ${buoc}): ${p.chiTiet.slice(0, 160)}`);
+    return p;
+  };
+  const chupAnh = async (p) => {
+    if (!cfg.thuMucAnh) return;
+    try {
+      fs.mkdirSync(cfg.thuMucAnh, { recursive: true });
+      const tep = path.join(cfg.thuMucAnh, `${cfg.hat}-${nhanLuot.replace(/[^a-z0-9]+/gi, '_')}-${kq.phatHien.length}.png`);
+      await page.screenshot({ path: tep });
+      p.anh = tep;
+    } catch {
+      /* ảnh chỉ để đối chiếu, không được làm hỏng lượt chạy */
+    }
+  };
+  const bao = async (loai, chiTiet, extra) => chupAnh(phatHien(loai, chiTiet, extra));
+
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const t = m.text();
-    if (/Failed to fetch|net::ERR_FAILED|aborted/i.test(t)) return;
-    ghiLoi('console', duong, t);
+    if (LOI_CONSOLE_BO_QUA.test(t)) return;
+    phatHien('console', t);
   });
-  page.on('pageerror', (e) => ghiLoi('pageerror', duong, e.message));
+  page.on('pageerror', (e) => phatHien('pageerror', e.message));
+  page.on('response', (r) => {
+    if (r.status() >= 500 && r.url().includes('/api/')) phatHien('http5xx', `${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+  });
+  ctx.on('page', (p) => {
+    if (p !== page) tt.tabMoi.push(p);
+  });
 
-  await page.goto(`${CO_SO}/login`, { waitUntil: 'domcontentloaded' });
-  await page.locator('#username').fill(TK);
-  await page.locator('#password').fill(MK);
-  await page.getByRole('button', { name: /đăng nhập/i }).click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 60000 });
-
-  const duongDan = fs
-    .readFileSync(process.env.MONKEY_ROUTES || 'C:/PC02/duong.txt', 'utf8')
-    .split(/[^a-zA-Z0-9/_:-]+/)
-    .map((d) => d.trim())
-    .filter(Boolean);
-  console.log(`${duongDan.length} đường sẽ đi qua`);
-
-  const daTham = [];
-  for (const d of duongDan) {
-    duong = d;
-    try {
-      await page.goto(`${CO_SO}${d}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForTimeout(2500);
-      const chu = (await page.locator('body').innerText()).trim();
-      if (chu.length < 60) ghiLoi('màn hình trắng', d, `chỉ ${chu.length} ký tự`);
-      if (/something went wrong|đã xảy ra lỗi|unexpected error/i.test(chu)) {
-        ghiLoi('màn lỗi', d, chu.slice(0, 120));
-      }
-      daTham.push(d);
-    } catch (e) {
-      ghiLoi('không mở được', d, e.message);
-    }
+  try {
+    await dangNhap(page, cfg);
+  } catch (e) {
+    await browser.close();
+    throw new Error(`Đăng nhập hỏng (${nhanLuot}): ${e.message}`);
   }
 
-  for (let v = 0; v < SO_VONG; v += 1) {
-    const d = daTham[Math.floor(Math.random() * daTham.length)];
-    if (!d) break;
-    duong = d;
-    try {
-      await page.goto(`${CO_SO}${d}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForTimeout(1200);
-      const nut = await page.locator('button:visible, [role="tab"]:visible').all();
-      const duocBam = [];
-      for (const n of nut) {
-        const t = ((await n.textContent()) || '') + ' ' + ((await n.getAttribute('aria-label')) || '');
-        if (!CAM.test(t)) duocBam.push(n);
+  const batBienHoSo = (hoSo.batBien || []).map((ten) => ({ ten, ...BAT_BIEN[ten] }));
+  const ktra = async (khiNao, boiCanh) => {
+    for (const b of batBienHoSo.filter((x) => x.khiNao === khiNao)) {
+      // Đếm số lần bất biến THỰC SỰ được kiểm: "0 phát hiện" chỉ có nghĩa khi con số này lớn hơn 0.
+      kq.daKiem[b.ten] = (kq.daKiem[b.ten] || 0) + 1;
+      let r;
+      try {
+        r = await b.kiem(boiCanh);
+      } catch (e) {
+        r = { khongDoDuoc: true, chiTiet: `bất biến lỗi: ${e.message}` };
       }
-      if (!duocBam.length) continue;
-      await duocBam[Math.floor(Math.random() * duocBam.length)].click({ timeout: 8000 }).catch(() => {});
-      await page.waitForTimeout(1200);
-      const chu = (await page.locator('body').innerText()).trim();
-      if (chu.length < 60) ghiLoi('màn hình trắng sau khi bấm', d, `chỉ ${chu.length} ký tự`);
-      await page.keyboard.press('Escape').catch(() => {});
-    } catch (e) {
-      ghiLoi('vỡ khi bấm', d, e.message);
+      if (!r) continue;
+      if (r.khongDoDuoc) {
+        kq.chuaKiem.push({ luot: nhanLuot, batBien: b.ten, duong: duongHienTai, chiTiet: r.chiTiet });
+        console.log(`  ? CHƯA KIỂM [${nhanLuot}] ${b.ten} @ ${duongHienTai}: ${r.chiTiet}`);
+      } else {
+        await bao(`bất biến: ${b.ten}`, r.chiTiet);
+      }
     }
+  };
+
+  const duongs = [];
+  let tuyen = hoSo.tuyen || [];
+  if (hoSo.tepDuong) {
+    const tep = path.isAbsolute(hoSo.tepDuong) ? hoSo.tepDuong : path.resolve(path.dirname(hoSo._tep), hoSo.tepDuong);
+    tuyen = fs
+      .readFileSync(tep, 'utf8')
+      .split(/[^a-zA-Z0-9/_:{}-]+/)
+      .map((d) => d.trim())
+      .filter(Boolean);
+  }
+  for (const d of tuyen) {
+    const thuc = await giaiDuong(d, cfg, token, boNho);
+    if (thuc) duongs.push(thuc);
+    else kq.chuaKiem.push({ luot: nhanLuot, batBien: '(đường)', duong: d, chiTiet: 'không giải được mã thật cho đường này (CSDL chưa có bản ghi?)' });
   }
 
+  for (const [i, d] of duongs.entries()) {
+    duongHienTai = d;
+    buoc = 0;
+    tt.tabMoi = [];
+    const rng = taoPrng(hatCon(cfg.hat, `${nhanLuot}|${i}|${d}`));
+    try {
+      await page.goto(`${cfg.coSo}${d}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.waitForTimeout(1800);
+    } catch (e) {
+      await bao('không mở được', e.message);
+      continue;
+    }
+    const chu0 = (await page.locator('body').innerText().catch(() => '')).trim();
+    if (chu0.length < 60) await bao('màn hình trắng', `chỉ ${chu0.length} ký tự`);
+    if (MAN_LOI.test(chu0)) await bao('màn lỗi', chu0.slice(0, 120));
+    kq.soMan += 1;
+
+    tt.dauVao = hoSo.manChiXem ? await chonVungKhoi(page) : null;
+    await ktra('dau-duong', { page, route: d, vp, tt, cfg });
+
+    for (let b = 0; b < cfg.soBuoc; b += 1) {
+      buoc = b + 1;
+      tt.tabMoi = [];
+      const hanhDong = chonHanhDong(rng, { vp, route: d, hoSo });
+      let hd = null;
+      try {
+        hd = await hanhDong.chay({ page, ctx, rng, cfg, vp, tt, route: d });
+      } catch (e) {
+        await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
+      }
+      kq.soThaoTac += 1;
+      if (!hd) continue;
+      await page.waitForTimeout(cfg.nhipMs ?? 260);
+
+      // Ctrl/giữa trên dòng có thể mở tab mới. Kiểm (rồi luôn đóng) để không dồn tab.
+      if (hd.moTabMoi) await page.waitForTimeout(Math.max(cfg.nhipMs ?? 260, 300));
+      await ktra('buoc', { page, route: d, vp, tt, hd, cfg });
+      if (hd.ten === 'boi-chu') await ktra('boi-chu', { page, route: d, vp, tt, hd, cfg });
+      if (hd.moTabMoi && tt.tabMoi.length) await ktra('tab-moi', { page, route: d, vp, tt, hd, cfg });
+      if (hd.ten === 'mo-bang-thao-tac') await ktra('mo-bang', { page, route: d, vp, tt, hd, cfg });
+      if (hd.ten === 'go-ten-nguoi-gui') await ktra('go-ten', { page, route: d, vp, tt, hd, cfg });
+      for (const p of tt.tabMoi) await p.close().catch(() => {});
+      tt.tabMoi = [];
+
+      const chu = (await page.locator('body').innerText().catch(() => '')).trim();
+      if (chu.length < 60) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd });
+      if (MAN_LOI.test(chu)) await bao('màn lỗi sau thao tác', `${hanhDong.ten}: ${chu.slice(0, 120)}`, { hanhDong: hd });
+
+      // Thao tác lùi/tiến hoặc bấm có thể đưa sang màn khác: kéo lại đúng đường để mỗi lượt đo đúng chỗ hồ sơ khai.
+      const duongNay = (() => {
+        try {
+          return new URL(page.url()).pathname;
+        } catch {
+          return '';
+        }
+      })();
+      const duongGoc = d.split('?')[0];
+      if (duongNay !== duongGoc) {
+        await page.goto(`${cfg.coSo}${d}`, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+        await page.waitForTimeout(900);
+        tt.dauVao = hoSo.manChiXem ? await chonVungKhoi(page) : null;
+      }
+    }
+    await ktra('cuoi-duong', { page, route: d, vp, tt, cfg });
+  }
+
+  if (hoSo.camGhi && thuGhi.length) {
+    await bao('thử ghi ở chế độ chỉ đọc', `${thuGhi.length} lời gọi ghi (${cfg.choGhi ? 'đã cho qua' : 'đã chặn'}): ${[...new Set(thuGhi)].slice(0, 4).join(', ')}`);
+  }
+  kq.thuGhiBiChan += thuGhi.length;
   await browser.close();
-  console.log(`
-Đã đi ${daTham.length} màn · ${SO_VONG} lượt bấm · ${loi.length} chỗ đáng ngờ`);
-  fs.writeFileSync(
-    process.env.MONKEY_OUT || 'C:/PC02/docs/monkey-ket-qua.json',
-    JSON.stringify({ soMan: daTham.length, soVong: SO_VONG, loi }, null, 1),
-    'utf8',
+}
+
+/** Chạy toàn bộ cấu hình. Trả kết quả; KHÔNG gọi process.exit (để ca kiểm chứng âm gọi được). */
+async function chay(cfg) {
+  const pw = layPlaywright();
+  const kq = {
+    hat: cfg.hat,
+    coSo: cfg.coSo,
+    choGhi: cfg.choGhi,
+    engines: cfg.engines,
+    khungNhin: cfg.khungNhin,
+    hoSo: cfg.hoSo.map((h) => h.ten),
+    soBuoc: cfg.soBuoc,
+    soMan: 0,
+    soThaoTac: 0,
+    thuGhiBiChan: 0,
+    phatHien: [],
+    chuaKiem: [],
+    daKiem: {},
+  };
+  console.log(`monkey: seed=${cfg.hat} engines=${cfg.engines.join(',')} khungNhin=${cfg.khungNhin.map((v) => `${v.width}x${v.height}`).join(',')} hoSo=${kq.hoSo.join(',')} choGhi=${cfg.choGhi}`);
+  const boNho = new Map();
+  let token = cfg.token || null;
+  if (!token && !cfg.khongDangNhap) {
+    // Một lần đăng nhập ngắn chỉ để lấy token cho việc giải {DON_THU}...; mỗi lượt vẫn tự đăng nhập trong ngữ cảnh riêng.
+    const b = await pw.chromium.launch();
+    try {
+      const c = await b.newContext();
+      const p = await c.newPage();
+      token = await dangNhap(p, cfg);
+    } finally {
+      await b.close();
+    }
+  }
+  for (const engine of cfg.engines) {
+    for (const hoSo of cfg.hoSo) {
+      // Hồ sơ khai khung nhìn riêng (vd điện thoại) thì chạy ĐÚNG các khung ấy; không thì dùng MONKEY_VIEWPORTS.
+      const khung = hoSo.khungNhin ? docKhungNhin(hoSo.khungNhin.join(',')) : cfg.khungNhin;
+      for (const vp of khung) {
+        await chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho });
+      }
+    }
+  }
+  return kq;
+}
+
+async function main() {
+  let cfg;
+  try {
+    cfg = docCauHinh(process.env);
+  } catch (e) {
+    console.error('LỖI CẤU HÌNH:', e.message);
+    process.exit(2);
+  }
+  let kq;
+  try {
+    kq = await chay(cfg);
+  } catch (e) {
+    console.error('LỖI BỘ CHẠY:', e.message);
+    process.exit(2);
+  }
+  fs.mkdirSync(path.dirname(cfg.ra), { recursive: true });
+  fs.writeFileSync(cfg.ra, JSON.stringify(kq, null, 1), 'utf8');
+  console.log(
+    `\nĐã đi ${kq.soMan} màn · ${kq.soThaoTac} thao tác · ${kq.phatHien.length} chỗ đáng ngờ · ${kq.chuaKiem.length} mục CHƯA KIỂM · ${kq.thuGhiBiChan} lời gọi ghi bị chặn`,
   );
+  if (kq.chuaKiem.length) console.log('CHƯA KIỂM (không phải đạt):', kq.chuaKiem.map((c) => `${c.batBien}@${c.duong}`).join(', '));
+  if (kq.phatHien.length) {
+    console.log(`Chạy lại đúng lượt này: MONKEY_SEED=${cfg.hat} (kèm cùng MONKEY_PROFILE/VIEWPORTS/ENGINES/STEPS)`);
+    process.exit(1);
+  }
   process.exit(0);
-})().catch((e) => {
-  console.error('LỖI BỘ CHẠY:', e.message);
-  process.exit(2);
-});
+}
+
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi };
+
+if (require.main === module) void main();

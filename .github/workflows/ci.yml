@@ -85,6 +85,31 @@ jobs:
       - name: Run engine gate
         run: npx playwright test --config=playwright.engine.config.ts
 
+  monkey-self-test:
+    name: Monkey Self-Test (chung am)
+    runs-on: ubuntu-latest
+
+    # VI SAO CAN JOB RIENG: bo monkey test chi co gia tri neu no DO DUOC. Ca chung am dung mot trang mau co 3 loi gieo san
+    # (pageerror, URL doi khi boi chu, o chi-xem go duoc) va bat bo chay phai bao du ca ba; cung thao tac tren trang SACH phai
+    # ra 0 phat hien. Job nay cung chung minh bo chay CHAY DUOC tu kho moi clone (playwright cai trong tools/monkey-test,
+    # khong muon cua thu muc khac) - mot cong khong chay con te hon khong co cong.
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install monkey-test + Chromium
+        run: |
+          cd tools/monkey-test
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run negative-control self-test
+        run: cd tools/monkey-test && npm test
+
   database-gate:
     name: Database Gate (PostgreSQL)
     runs-on: ubuntu-latest
