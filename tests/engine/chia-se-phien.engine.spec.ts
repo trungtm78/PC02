@@ -49,6 +49,16 @@ async function dungNguonGoc(ctx: BrowserContext) {
   );
 }
 
+/**
+ * Tab MỚI mở ra đi qua `about:blank` rồi mới chuyển sang địa chỉ thật. Tiêm mã trước lúc chuyển thì ngữ cảnh bị huỷ
+ * giữa chừng ("Execution context was destroyed") — CI bắt được 08/10/2026 dù máy dev chạy nhanh nên không thấy. Phải chờ
+ * ĐÚNG địa chỉ đích đã nạp xong.
+ */
+async function doiTabMoiSanSang(mo: Page) {
+  await mo.waitForURL(`${BAN_GOC}/**`);
+  await mo.waitForLoadState('load');
+}
+
 async function nap(page: Page) {
   await page.addScriptTag({ content: goiDongGoi });
 }
@@ -76,7 +86,7 @@ test.describe('Chia sẻ phiên giữa các tab — hợp đồng theo engine', 
       context.waitForEvent('page'),
       a.evaluate((u) => void window.open(u, '_blank', 'noopener,noreferrer'), TRANG),
     ]);
-    await mo.waitForLoadState();
+    await doiTabMoiSanSang(mo);
     expect(await mo.evaluate(() => sessionStorage.getItem('accessToken'))).toBeNull();
     expect(await mo.evaluate(() => localStorage.getItem('refreshToken'))).toBeTruthy();
   });
@@ -89,7 +99,7 @@ test.describe('Chia sẻ phiên giữa các tab — hợp đồng theo engine', 
       context.waitForEvent('page'),
       a.evaluate((u) => void window.open(u, '_blank', 'noopener,noreferrer'), TRANG),
     ]);
-    await mo.waitForLoadState();
+    await doiTabMoiSanSang(mo);
     await nap(mo);
     expect(await mo.evaluate(() => (window as unknown as Cua).PC02.xinPhienTuTabKhac())).toBe(true);
     expect(await mo.evaluate(() => sessionStorage.getItem('accessToken'))).toBe(token);
@@ -100,7 +110,7 @@ test.describe('Chia sẻ phiên giữa các tab — hợp đồng theo engine', 
     const token = jwt();
     const a = await tabDangNhap(context, token);
     const [mo] = await Promise.all([context.waitForEvent('page'), a.click('#l', { modifiers: ['ControlOrMeta'] })]);
-    await mo.waitForLoadState();
+    await doiTabMoiSanSang(mo);
     await nap(mo);
     expect(await mo.evaluate(() => (window as unknown as Cua).PC02.xinPhienTuTabKhac())).toBe(true);
     expect(await mo.evaluate(() => sessionStorage.getItem('accessToken'))).toBe(token);
