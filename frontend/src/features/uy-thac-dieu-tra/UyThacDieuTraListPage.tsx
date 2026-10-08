@@ -87,6 +87,7 @@ import { uyThacListFilters, uyThacLegacyListFilters, type UyThacFilterValue } fr
 import { BatchExportDocumentsModal } from '@/features/document-templates/components/BatchExportDocumentsModal';
 import { useWordBatchExport } from '@/features/document-templates/useWordBatchExport';
 import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import { TIM_KIEM_VU_AN } from '@/shared/tim-kiem/generated';
 import { KHOA_TAT_CA } from '@/shared/tim-kiem/the';
 import { useFeatureBatMacDinh } from '@/lib/features/useFeature';
@@ -330,6 +331,11 @@ function buildUtdtCards(
 export default function UyThacDieuTraListPage() {
   const navigate = useNavigate();
   const { hasPermission, canCreate, canEdit, canDelete } = usePermission();
+  const bamDong = useBamDong<{ id: string; quyenGhi?: boolean }>('UY_THAC', {
+    hrefXem: (r) => `/cases/${r.id}`,
+    hrefSua: (r) => `/cases/${r.id}/edit`,
+    coQuyenSua: (r) => canEdit('cases') && r.quyenGhi !== false,
+  });
   const canCreateCase = canCreate('cases');
   const canEditCase = canEdit('cases');
   const canDeleteCase = canDelete('cases');
@@ -1137,7 +1143,9 @@ export default function UyThacDieuTraListPage() {
           getRowClassName={(r) =>
             computeTrangThai(r) === 'QUA_HAN' ? OVERDUE_ROW_HIGHLIGHT : ''
           }
-          onRowClick={(r) => navigate(`/cases/${r.id}`)}
+          onRowClick={bamDong.onRowClick}
+          onRowDoubleClick={bamDong.onRowDoubleClick}
+          rowHref={bamDong.rowHref}
           bulkSelection={selection}
           bulkRowsLabel="ủy thác"
           bulkRowLabel={(r) => `ủy thác ${r.caseCode ?? r.id}`}

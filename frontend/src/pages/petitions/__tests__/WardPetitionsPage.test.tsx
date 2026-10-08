@@ -241,10 +241,11 @@ describe('WardPetitionsPage', () => {
     expect(screen.getByTestId('kpi-card-total')).toHaveTextContent('—');
   });
 
-  it('F16: dòng bấm được và có nút xem', async () => {
+  it('F16: mặc định dòng là chữ thuần (không nhảy trang khi bôi chữ để chép) và có nút xem', async () => {
     dung();
     const dong = await screen.findByTestId('petition-row-p1');
-    expect(dong).toHaveAttribute('tabindex', '0');
+    expect(dong).not.toHaveAttribute('tabindex');
+    expect(dong.className).not.toContain('cursor-pointer');
     expect(screen.getByTestId('view-btn-p1')).toBeInTheDocument();
   });
 

@@ -10,6 +10,12 @@ import {
   type KyDaGiai,
 } from '../common/utils/thong-ke-ky.util';
 import {
+  BAM_DONG_MAC_DINH,
+  BAM_DONG_NHAN,
+  GIA_TRI_HOP_LE_THEO_KHOA,
+  KHOA_GIAO_DIEN,
+} from '../common/constants/giao-dien.constants';
+import {
   DEADLINE_RULE_KEY_SET,
   DEADLINE_RULE_KEYS,
 } from '../deadline-rules/constants/deadline-rule-keys.constants';
@@ -86,6 +92,20 @@ export class SettingsService {
     return this.cache.get(key) ?? null;
   }
 
+  /**
+   * Cấu hình giao diện cho MỌI người dùng đăng nhập. Danh sách trắng `KHOA_GIAO_DIEN`: không bao giờ lộ khoá khác
+   * (2FA, thời hạn…) qua đường không đòi quyền Setting. Thiếu dòng hoặc giá trị không còn hợp lệ → mặc định trong mã.
+   */
+  async getGiaoDien(): Promise<{ success: true; data: Record<string, string> }> {
+    const data: Record<string, string> = {};
+    for (const key of KHOA_GIAO_DIEN) {
+      const val = await this.getValue(key);
+      const hopLe = GIA_TRI_HOP_LE_THEO_KHOA[key];
+      data[key] = val !== null && (!hopLe || hopLe.includes(val)) ? val : BAM_DONG_MAC_DINH[key];
+    }
+    return { success: true, data };
+  }
+
   async getNumericValue(key: string, fallback: number): Promise<number> {
     assertNotDeadlineKey(key);
     const val = await this.getValue(key);
@@ -115,6 +135,15 @@ export class SettingsService {
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
     assertNotDeadlineKey(key);
+
+    // Giá trị lạ cho khoá có danh mục → 400, KHÔNG lưu: lưu rồi thì giao diện nhận một giá trị không hiểu và
+    // lặng lẽ rơi về mặc định, còn admin tưởng cấu hình đã có hiệu lực.
+    const hopLe = GIA_TRI_HOP_LE_THEO_KHOA[key];
+    if (hopLe && !hopLe.includes(value)) {
+      throw new BadRequestException(
+        `Giá trị '${String(value)}' không hợp lệ cho '${key}'. Chọn một trong: ${hopLe.join(', ')}`,
+      );
+    }
 
     const existing = await this.prisma.systemSetting.findUnique({ where: { key } });
     if (!existing) {
@@ -179,6 +208,13 @@ export class SettingsService {
       { key: SETTINGS_KEY.THONG_KE_TRUONG_NGAY, value: MAC_DINH_TRUONG, label: 'Thống kê tính theo ngày nào', unit: null, legalBasis: null },
       { key: SETTINGS_KEY.THONG_KE_TU_NGAY, value: '', label: 'Kỳ thống kê — từ ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
       { key: SETTINGS_KEY.THONG_KE_DEN_NGAY, value: '', label: 'Kỳ thống kê — đến ngày (chỉ dùng khi chọn khoảng tuỳ chọn)', unit: null, legalBasis: null },
+      ...KHOA_GIAO_DIEN.map((key) => ({
+        key,
+        value: BAM_DONG_MAC_DINH[key],
+        label: BAM_DONG_NHAN[key],
+        unit: null,
+        legalBasis: null,
+      })),
     ];
 
     for (const d of defaults) {

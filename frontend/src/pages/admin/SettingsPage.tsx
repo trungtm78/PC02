@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Settings, Edit, Save, X, Loader2, AlertCircle, ArrowRight, ShieldAlert, RotateCcw } from 'lucide-react';
@@ -9,6 +9,8 @@ import {
   sapXepCaiDat,
   oNgayDangVoHieu,
 } from '@/constants/thongKeSettings';
+import { laKhoaBamDong, NHAN_NHOM_HANH_VI_DANH_SACH } from '@/constants/giaoDienSettings';
+import { lamMoiCauHinhGiaoDien } from '@/hooks/useCauHinhGiaoDien';
 
 interface SettingItem {
   key: string;
@@ -84,6 +86,7 @@ export function SettingsPage() {
     setIsSaving(true);
     try {
       await api.put(`/settings/${key}`, { value: macDinh });
+      if (laKhoaBamDong(key)) void lamMoiCauHinhGiaoDien();
       setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value: macDinh } : s)));
       setEditingKey(null);
       setEditValue('');
@@ -98,6 +101,8 @@ export function SettingsPage() {
     setIsSaving(true);
     try {
       await api.put(`/settings/${key}`, { value: editValue });
+      // Màn danh sách đang mở nhận giá trị mới ngay, không phải đợi hết 5 phút của bộ nhớ đệm.
+      if (laKhoaBamDong(key)) void lamMoiCauHinhGiaoDien();
       setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value: editValue } : s)));
       setEditingKey(null);
       setEditValue('');
@@ -178,8 +183,16 @@ export function SettingsPage() {
                   </td>
                 </tr>
               ) : (
-                settings.map((item) => (
-                  <tr key={item.key} className="hover:bg-slate-50" data-testid={`setting-row-${item.key}`}>
+                settings.map((item, i) => (
+                  <Fragment key={item.key}>
+                  {laKhoaBamDong(item.key) && !(i > 0 && laKhoaBamDong(settings[i - 1].key)) && (
+                    <tr data-testid="nhom-hanh-vi-danh-sach" className="bg-slate-50">
+                      <td colSpan={5} className="px-6 py-2 text-xs font-bold text-slate-600 uppercase">
+                        {NHAN_NHOM_HANH_VI_DANH_SACH}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="hover:bg-slate-50" data-testid={`setting-row-${item.key}`}>
                     <td className="px-6 py-4 text-sm text-slate-800 font-medium">{item.label}</td>
                     <td className="px-6 py-4 text-sm">
                       {editingKey === item.key ? (
@@ -289,6 +302,7 @@ export function SettingsPage() {
                       )}
                     </td>
                   </tr>
+                  </Fragment>
                 ))
               )}
             </tbody>

@@ -84,6 +84,7 @@ import { useStatusTransitionModal } from '@/features/_shared/modals/StatusTransi
 import { useProsecuteModal } from '@/features/_shared/modals/ProsecuteModalContext';
 import { useMergeIncidentModal } from '@/features/_shared/modals/MergeIncidentModalContext';
 import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { incidentsRowActions } from '@/features/incidents/row-actions';
 import {
@@ -346,6 +347,11 @@ export function IncidentListPageShell({
   // v0.64 PR2 — Action context (perms + modal openers).
   // v0.67 PR1 PR2-bis — wire StatusTransition + Prosecute modals.
   const { canDispatch, canEdit, canDelete, hasPermission } = usePermission();
+  const bamDong = useBamDong<{ id: string; quyenGhi?: boolean }>('VU_VIEC', {
+    hrefXem: (r) => `/incidents/${r.id}`,
+    hrefSua: (r) => `/incidents/${r.id}/edit`,
+    coQuyenSua: (r) => canEdit('incidents') && r.quyenGhi !== false,
+  });
   const assignModal = useAssignModal();
   const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
@@ -1254,7 +1260,9 @@ export function IncidentListPageShell({
               </div>
             ) : undefined,
         }}
-        onRowClick={(r) => navigate(`/incidents/${r.id}`)}
+        onRowClick={bamDong.onRowClick}
+        onRowDoubleClick={bamDong.onRowDoubleClick}
+        rowHref={bamDong.rowHref}
         getRowClassName={(r) =>
           isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : ''
         }

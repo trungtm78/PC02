@@ -11,6 +11,8 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import {
   Search,
   Download,
@@ -128,6 +130,12 @@ const BO_LOC_TRONG: FilterData = {
 
 export default function DuplicatePetitionsPage() {
   const navigate = useNavigate();
+  const { canEdit } = usePermission();
+  const bamDong = useBamDong<{ id: string }>('DON_TRUNG', {
+    hrefXem: (d) => `/petitions/${d.id}`,
+    hrefSua: (d) => `/petitions/${d.id}/edit`,
+    coQuyenSua: () => canEdit('petitions'),
+  });
   const [nhom, setNhom] = useState<NhomTrung[]>([]);
   const [total, setTotal] = useState(0);
   const [ky, setKy] = useState<KetQuaTrung['ky']>(undefined);
@@ -459,20 +467,13 @@ export default function DuplicatePetitionsPage() {
                         <tr
                           key={d.id}
                           data-testid={`don-trung-${d.id}`}
-                          onClick={() => navigate(`/petitions/${d.id}/edit`)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              navigate(`/petitions/${d.id}/edit`);
-                            }
-                          }}
-                          tabIndex={0}
-                          className={`cursor-pointer hover:bg-blue-50 transition-colors ${laGoc ? 'bg-green-50/60' : ''}`}
+                          {...bamDong.thuocTinhDong(d)}
+                          className={`${bamDong.thuocTinhDong(d).className} hover:bg-blue-50 transition-colors ${laGoc ? 'bg-green-50/60' : ''}`}
                         >
                           <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={() => navigate(`/petitions/${d.id}/edit`)}
+                              onClick={() => navigate(`/petitions/${d.id}`)}
                               data-testid={`view-btn-${d.id}`}
                               className="p-1.5 text-[#003973] hover:bg-[#003973]/10 rounded transition-colors"
                               title="Mở đơn"

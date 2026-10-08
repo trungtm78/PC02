@@ -74,6 +74,7 @@ import { useAssignModal } from '@/features/_shared/modals/AssignModalContext';
 import { usePrintDocumentsModal } from '@/features/_shared/modals/PrintDocumentsModalContext';
 import { useDeleteResourceModal } from '@/features/_shared/modals/DeleteResourceModalContext';
 import { usePermission } from '@/hooks/usePermission';
+import { useBamDong } from '@/hooks/useBamDong';
 import type { ActionContext } from '@/features/_shared/row-actions/registry';
 import { petitionsRowActions } from '@/features/petitions/row-actions';
 import { petitionsListFilters, type PetitionFilterValue } from '@/features/petitions/list-filters';
@@ -270,6 +271,11 @@ export function PetitionListPageShell() {
 
   // v0.65 PR3 — Action context + advanced filter state.
   const { canDispatch, canEdit, canDelete } = usePermission();
+  const bamDong = useBamDong<{ id: string }>('DON_THU', {
+    hrefXem: (r) => `/petitions/${r.id}`,
+    hrefSua: (r) => `/petitions/${r.id}/edit`,
+    coQuyenSua: () => canEdit('petitions'),
+  });
   const assignModal = useAssignModal();
   const printModal = usePrintDocumentsModal();
   const deleteModal = useDeleteResourceModal();
@@ -1141,7 +1147,9 @@ export function PetitionListPageShell() {
               </div>
             ) : undefined,
         }}
-        onRowClick={(r) => navigate(`/petitions/${r.id}`)}
+        onRowClick={bamDong.onRowClick}
+        onRowDoubleClick={bamDong.onRowDoubleClick}
+        rowHref={bamDong.rowHref}
         getRowClassName={(r) => (isOverdue(r.deadline) ? OVERDUE_ROW_HIGHLIGHT : '')}
         bulkSelection={selection}
         bulkRowsLabel="đơn thư"

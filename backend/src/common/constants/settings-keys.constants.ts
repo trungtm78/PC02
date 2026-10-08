@@ -47,6 +47,15 @@ export const SETTINGS_KEY = {
   // v0.76 — Dòng ký "KT. TRƯỞNG PHÒNG / PHÓ TRƯỞNG PHÒNG" ở 5 mẫu có khối "Nơi nhận".
   // Trước đây viết cứng chuỗi rỗng trong bộ giải trị nên bản in ra ô ký trống.
   TEN_TRUONG_PHONG: 'TEN_TRUONG_PHONG',
+
+  // 08/10/2026 — hành động khi bấm vào một dòng danh sách (giá trị hợp lệ + mặc định: giao-dien.constants.ts).
+  BAM_DONG_DON_THU: 'BAM_DONG_DON_THU',
+  BAM_DONG_DON_THU_PHUONG: 'BAM_DONG_DON_THU_PHUONG',
+  BAM_DONG_DON_TRUNG: 'BAM_DONG_DON_TRUNG',
+  BAM_DONG_VU_VIEC: 'BAM_DONG_VU_VIEC',
+  BAM_DONG_VU_AN: 'BAM_DONG_VU_AN',
+  BAM_DONG_TONG_HOP: 'BAM_DONG_TONG_HOP',
+  BAM_DONG_UY_THAC: 'BAM_DONG_UY_THAC',
 } as const;
 
 export type SettingsKey = (typeof SETTINGS_KEY)[keyof typeof SETTINGS_KEY];

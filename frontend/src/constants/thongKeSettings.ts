@@ -1,3 +1,5 @@
+import { KHOA_BAM_DONG, LUA_CHON_GIAO_DIEN, MAC_DINH_GIAO_DIEN } from './giaoDienSettings';
+
 /**
  * Lựa chọn cho các khoá cấu hình kiểu "chọn một trong danh sách".
  *
@@ -33,6 +35,7 @@ export const TRUONG_NGAY_OPTIONS: readonly LuaChonCaiDat[] = [
 export const LUA_CHON_THEO_KHOA: Record<string, readonly LuaChonCaiDat[]> = {
   THONG_KE_KY: KY_THONG_KE_OPTIONS,
   THONG_KE_TRUONG_NGAY: TRUONG_NGAY_OPTIONS,
+  ...LUA_CHON_GIAO_DIEN,
 };
 
 /**
@@ -47,6 +50,7 @@ export const MAC_DINH_THEO_KHOA: Record<string, string> = {
   THONG_KE_TRUONG_NGAY: 'NGAY_TIEP_NHAN',
   THONG_KE_TU_NGAY: '',
   THONG_KE_DEN_NGAY: '',
+  ...MAC_DINH_GIAO_DIEN,
 };
 
 /** Nhãn kỳ để hiện trên thanh thẻ số, vd "Tháng 8/2026". */
@@ -81,6 +85,8 @@ export const THU_TU_HIEN_THI: readonly string[] = [
   'THONG_KE_TU_NGAY',
   'THONG_KE_DEN_NGAY',
   'THONG_KE_TRUONG_NGAY',
+  // Nhóm "Hành vi danh sách": nằm sau kỳ thống kê, theo thứ tự màn trên thanh menu.
+  ...KHOA_BAM_DONG,
 ] as const;
 
 /** Khoá nào dùng ô CHỌN NGÀY thay vì ô gõ chữ. */
