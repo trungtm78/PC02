@@ -19,6 +19,18 @@ import { LEGACY_TAB_LABEL, type LegacyTabId } from '@/features/cases/legacy-form
 
 Element.prototype.scrollIntoView = vi.fn();
 
+const PHAN_CONG = [
+  {
+    id: 'pc1',
+    petitionId: 'pet-1',
+    userId: 'u9',
+    user: { id: 'u9', username: 'canbo9', firstName: 'Cán', lastName: 'Bộ' },
+    role: 'LEAD',
+    assignedById: 'u1',
+    assignedAt: '2026-03-12T01:00:00.000Z',
+  },
+];
+
 const BAN_GHI = {
   id: 'pet-1',
   stt: '2026-12345',
@@ -38,6 +50,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     get: vi.fn((url: string) => {
       if (/^\/petitions\/pet-1$/.test(url)) return Promise.resolve({ data: { success: true, data: BAN_GHI } });
+      if (url === '/petitions/pet-1/assignments') return Promise.resolve({ data: PHAN_CONG });
       return Promise.resolve({ data: { success: true, data: [] } });
     }),
     post: vi.fn(() => Promise.resolve({ data: { success: true, data: {} } })),
@@ -216,5 +229,63 @@ describe('PetitionFormPage — chế độ XEM: giao diện', () => {
     expect(screen.queryByTestId('btn-sua-don')).not.toBeInTheDocument();
     expect(screen.queryByTestId('bang-che-do-xem')).not.toBeInTheDocument();
     expect(within(document.body).getByRole('heading', { name: /Cập nhật Đơn thư/ })).toBeInTheDocument();
+  });
+});
+
+/**
+ * ĐIỀU PHỐI VIÊN (`canDispatch`) vẫn thấy khối "Phân công cán bộ" (quyết định 19/09/2026: phân công được cả ngoài phạm
+ * ghi). Cổng chính chạy với `canDispatch:false` nên KHÔNG thấy khối này — Codex bắt: ở chế độ XEM người điều phối vẫn
+ * xoá được phân công (DELETE) vì nút xoá không biết chế độ xem.
+ */
+describe('PetitionFormPage — chế độ XEM với người điều phối', () => {
+  const DIEU_PHOI: AuthUser = { ...PROFILE, canDispatch: true };
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    authStore.setProfile(DIEU_PHOI);
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('xem trước (route :id): thấy danh sách phân công nhưng KHÔNG xoá / thêm được', async () => {
+    await renderTrang('/petitions/pet-1', 'xem');
+    await waitFor(() => expect(screen.getByTestId('assignment-list')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('assignment-role-u9')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-remove-assignment-u9')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-assignment-form')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('btn-add-assignment')).not.toBeInTheDocument();
+  });
+
+  it('đối chứng: màn SỬA, người điều phối xoá / thêm được như cũ', async () => {
+    await renderTrang('/petitions/pet-1/edit', 'sua');
+    await waitFor(() => expect(screen.getByTestId('btn-remove-assignment-u9')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('add-assignment-form')).toBeInTheDocument();
+  });
+
+  it('điều phối viên NGOÀI phạm vi ghi, màn SỬA: vẫn phân công được (quyết định 19/09/2026 giữ nguyên)', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.get).mockImplementation(((url: string) => {
+      if (/^\/petitions\/pet-1$/.test(url))
+        return Promise.resolve({ data: { success: true, data: { ...BAN_GHI, quyenGhi: false } } });
+      if (url === '/petitions/pet-1/assignments') return Promise.resolve({ data: PHAN_CONG });
+      return Promise.resolve({ data: { success: true, data: [] } });
+    }) as never);
+    await renderTrang('/petitions/pet-1/edit', 'sua');
+    await waitFor(() => expect(screen.getByTestId('btn-remove-assignment-u9')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('add-assignment-form')).toBeInTheDocument();
+  });
+
+  it('điều phối viên ngoài phạm vi ghi xem trước: có nút "Phân công" dẫn sang màn phân công (không mất đường vào)', async () => {
+    const { api } = await import('@/lib/api');
+    vi.mocked(api.get).mockImplementation(((url: string) => {
+      if (/^\/petitions\/pet-1$/.test(url))
+        return Promise.resolve({ data: { success: true, data: { ...BAN_GHI, quyenGhi: false } } });
+      if (url === '/petitions/pet-1/assignments') return Promise.resolve({ data: PHAN_CONG });
+      return Promise.resolve({ data: { success: true, data: [] } });
+    }) as never);
+    await renderTrang('/petitions/pet-1', 'xem');
+    await waitFor(() => expect(screen.getByTestId('btn-phan-cong-don')).toBeInTheDocument(), { timeout: 5000 });
+    // Không có quyền ghi hồ sơ nên KHÔNG có nút "Sửa".
+    expect(screen.queryByTestId('btn-sua-don')).not.toBeInTheDocument();
   });
 });

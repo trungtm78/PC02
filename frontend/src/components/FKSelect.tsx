@@ -98,6 +98,14 @@ export function FKSelect({
   testId = testId ?? dataTestId;
   const chiXem = useCheDoXem();
   const khoa = Boolean(disabled) || chiXem;
+  // Khoá (vd form chuyển sang chế độ xem khi hộp đang mở — React giữ state lúc Back từ màn sửa) thì ĐÓNG hộp: chỉ
+  // ẩn nút mở mà để hộp mở thì vẫn chọn và gọi onChange được.
+  useEffect(() => {
+    if (khoa) {
+      setIsOpen(false);
+      setSearchQuery("");
+    }
+  }, [khoa]);
   const maGoc = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,11 +256,12 @@ export function FKSelect({
 
   const handleSelect = useCallback(
     (optionValue: string) => {
+      if (khoa) return;
       onChange(optionValue);
       setIsOpen(false);
       setSearchQuery("");
     },
-    [onChange],
+    [onChange, khoa],
   );
 
   const handleClear = useCallback(
@@ -390,7 +399,8 @@ export function FKSelect({
         onClick={khoa ? undefined : toggleDropdown}
         onKeyDown={khoa ? undefined : handleTriggerKeyDown}
         role="combobox"
-        tabIndex={khoa ? -1 : 0}
+        // Luôn tới được bằng Tab: người dùng bàn phím / trình đọc màn hình cần ĐỌC giá trị đã chọn. Khoá chỉ chặn việc MỞ.
+        tabIndex={0}
         aria-disabled={khoa || undefined}
         aria-expanded={isOpen}
         aria-haspopup="listbox"

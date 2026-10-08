@@ -18,8 +18,10 @@ export function renderPetitionsRoutes(): ReactElement[] {
     // navigates to /petitions/:id → no route → catch-all `*` → redirect /login.
     // PetitionFormPage handles cả read+edit qua useParams id presence.
     // `/petitions/:id` mở ở chế độ XEM (ô chỉ-đọc, có nút "Sửa"); `/petitions/:id/edit` mới sửa được.
-    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<DungLaiTheoId><PetitionFormPage cheDo="xem" /></DungLaiTheoId>)} />,
-    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage cheDo="sua" /></DungLaiTheoId>)} />,
+    // `key` theo chế độ: cùng một loại component với cùng `:id` nên không có nó React GIỮ state khi đi giữa hai route —
+    // mở form tải tệp ở màn sửa rồi Back về màn xem thì trình soạn thảo đang mở còn nguyên (Codex bắt).
+    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<DungLaiTheoId><PetitionFormPage key="xem" cheDo="xem" /></DungLaiTheoId>)} />,
+    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage key="sua" cheDo="sua" /></DungLaiTheoId>)} />,
     <Route key="petitions-ward" path="/ward/petitions" element={wrapRoute(<WardPetitionsPage />)} />,
   ];
 }

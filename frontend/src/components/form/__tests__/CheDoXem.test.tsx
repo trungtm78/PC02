@@ -126,13 +126,44 @@ describe('ô CHỌN ở chế độ xem: khoá hẳn', () => {
     const nut = screen.getByTestId('o-trigger');
     expect(nut).toHaveTextContent('Đội 1');
     expect(nut).toHaveAttribute('aria-disabled', 'true');
-    expect(nut).toHaveAttribute('tabindex', '-1');
+    // Vẫn tới được bằng Tab (người dùng bàn phím / trình đọc màn hình cần ĐỌC giá trị), chỉ chặn việc mở.
+    expect(nut).toHaveAttribute('tabindex', '0');
     await userEvent.click(nut);
     fireEvent.keyDown(nut, { key: 'ArrowDown' });
     fireEvent.keyDown(nut, { key: 'Enter' });
     fireEvent.keyDown(nut, { key: ' ' });
     expect(screen.queryByTestId('o-dropdown')).not.toBeInTheDocument();
     expect(screen.queryByTestId('o-clear')).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Codex bắt: hộp đang MỞ khi form chuyển sang chế độ xem (React giữ state khi Back từ màn sửa) vẫn gọi onChange.
+   * Khoá phải đóng hộp và chặn chọn, không chỉ ẩn nút mở.
+   */
+  it('FKSelect đang MỞ mà form chuyển sang chế độ xem: hộp đóng và không chọn được nữa', async () => {
+    const onChange = vi.fn();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const ui = (xem: boolean) => (
+      <QueryClientProvider client={qc}>
+        <CheDoXemProvider xem={xem}>
+          <FKSelect
+            label="Đơn vị"
+            value=""
+            onChange={onChange}
+            options={[{ value: 'd1', label: 'Đội 1' }]}
+            testId="o"
+          />
+        </CheDoXemProvider>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(ui(false));
+    await userEvent.click(screen.getByTestId('o-trigger'));
+    expect(screen.getByTestId('o-dropdown')).toBeInTheDocument();
+
+    rerender(ui(true));
+
+    expect(screen.queryByTestId('o-dropdown')).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 

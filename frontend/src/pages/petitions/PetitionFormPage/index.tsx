@@ -973,12 +973,27 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         cancelTestId="btn-cancel-top"
         // "Sửa" chỉ hiện khi xem trước VÀ được ghi hồ sơ này: người chỉ có quyền đọc không có nút dẫn vào form sửa
         // rồi mới bị máy chủ chặn lúc Lưu.
-        editAction={laTrangXem && quyenGhi !== false && canEdit(PERMISSION_RESOURCE.PETITIONS) && id ? {
-          label: "Sửa",
-          onClick: () => navigate(`/petitions/${id}/edit`),
-          testId: "btn-sua-don",
-          title: "Mở form sửa đơn thư này",
-        } : undefined}
+        editAction={
+          laTrangXem && id
+            ? quyenGhi !== false && canEdit(PERMISSION_RESOURCE.PETITIONS)
+              ? {
+                  label: "Sửa",
+                  onClick: () => navigate(`/petitions/${id}/edit`),
+                  testId: "btn-sua-don",
+                  title: "Mở form sửa đơn thư này",
+                }
+              : // Điều phối viên được PHÂN CÔNG cả ngoài phạm vi ghi (quyết định 19/09/2026): không có nút "Sửa" cho
+                // họ, nhưng phải còn đường vào màn phân công — trước đây màn này tự có sẵn khối phân công.
+                quyenGhi === false && canDispatch
+                ? {
+                    label: "Phân công",
+                    onClick: () => navigate(`/petitions/${id}/edit`),
+                    testId: "btn-phan-cong-don",
+                    title: "Mở màn phân công cán bộ (bạn không có quyền sửa nội dung đơn thư này)",
+                  }
+                : undefined
+            : undefined
+        }
         cloneAction={isEditMode && id && canCreate(PERMISSION_RESOURCE.PETITIONS) ? {
           label: "Tạo đơn mới từ đơn này",
           onClick: handleClone,
@@ -1307,7 +1322,11 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
         {isEditMode && id && (!chiXem || canDispatch) && (
-          <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} dangTaiCanBo={dangTaiCanBo} />
+          // Provider LỒNG: khối này chỉ chuyển sang đọc khi người dùng CHỌN xem trước (`laTrangXem`), không phải khi
+          // chỉ thiếu quyền ghi hồ sơ — điều phối viên vẫn phân công được ngoài phạm vi ghi (quyết định 19/09/2026).
+          <CheDoXemProvider xem={laTrangXem}>
+            <PetitionAssignmentSection petitionId={id} userOptions={dsCanBo} dangTaiCanBo={dangTaiCanBo} />
+          </CheDoXemProvider>
         )}
 
         {/* Cột typed field-parity (di trú) — ô nhập chính thức, ghi thẳng cột */}

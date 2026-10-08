@@ -8,6 +8,7 @@ import { UserPlus, Trash2 } from "lucide-react";
 import type { OfficerOption } from '@/hooks/useOfficerOptions';
 import { FKSelect } from '@/components/FKSelect';
 import { gomCanBoTheoTo } from '@/hooks/gomCanBoTheoTo';
+import { useCheDoXem } from '@/components/form/CheDoXem';
 import { nhanCanBo } from './PetitionFormPage/canBoDaChon';
 
 interface UserOption {
@@ -37,6 +38,9 @@ interface Props {
 }
 
 export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanBo }: Props) {
+  // Chế độ xem: chỉ ĐỌC danh sách phân công. Phân công là thao tác ghi riêng (gọi API ngay, không qua nút Lưu của
+  // form) nên phải chặn ở đây — khoá ô nhập của form không chạm tới nút xoá/thêm này.
+  const chiXem = useCheDoXem();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [addUserId, setAddUserId] = useState("");
   const [addRole, setAddRole] = useState<"LEAD" | "SUPPORT">("SUPPORT");
@@ -61,7 +65,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanB
   }, [petitionId]);
 
   const handleAdd = async () => {
-    if (!addUserId) return;
+    if (chiXem || !addUserId) return;
     setIsAdding(true);
     setAddError(null);
     try {
@@ -79,6 +83,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanB
   };
 
   const handleRemove = async (userId: string) => {
+    if (chiXem) return;
     setAddError(null);
     try {
       await api.delete(`/petitions/${petitionId}/assignments/${userId}`);
@@ -134,19 +139,22 @@ export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanB
                     {a.role === "LEAD" ? "Chủ trì" : "Hỗ trợ"}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleRemove(a.userId)}
-                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="Xóa phân công"
-                  data-testid={`btn-remove-assignment-${a.userId}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {!chiXem && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove(a.userId)}
+                    className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Xóa phân công"
+                    data-testid={`btn-remove-assignment-${a.userId}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         )}
+        {!chiXem && (
         <div
           className="flex items-end gap-3 flex-wrap border-t border-slate-100 pt-4"
           data-testid="add-assignment-form"
@@ -186,6 +194,7 @@ export function PetitionAssignmentSection({ petitionId, userOptions, dangTaiCanB
             {isAdding ? "Đang thêm..." : "Thêm"}
           </button>
         </div>
+        )}
       </div>
     </div>
   );
