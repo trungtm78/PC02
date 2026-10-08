@@ -2,6 +2,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 import { BI_DANH_TIEU_CHI_TRUNG, TIEU_CHI_TRUNG } from '../don-trung.types';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /** Tham số của GET /petitions/duplicates — màn Đơn trùng và tệp xuất dùng chung. */
 export class QueryDuplicatesDto {
@@ -25,11 +26,11 @@ export class QueryDuplicatesDto {
   status?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

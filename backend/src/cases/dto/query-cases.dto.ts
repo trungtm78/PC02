@@ -112,11 +112,11 @@ export class QueryCasesDto {
   unit?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

@@ -2,6 +2,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
 import { LOAI_HO_SO_CHUYEN_TRA } from '../chuyen-tra.types';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /** Tham số của GET /workflow/chuyen-tra — chỉ những khoá dùng CHUNG được cho cả ba loại hồ sơ. */
 export class QueryChuyenTraDto {
@@ -20,11 +21,11 @@ export class QueryChuyenTraDto {
   tk?: string[];
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   toDate?: string;
 
   /**
