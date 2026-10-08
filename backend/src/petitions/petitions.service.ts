@@ -1,3 +1,4 @@
+import { laThoiDiemTuongLai } from '../common/utils/thoi-gian-vn.util';
 import { CaseChildAccessService } from '../case-child-access/case-child-access.service';
 import type { Petition } from '@prisma/client';
 import { CaseSourceCreationService } from '../case-child-access/case-source-creation.service';
@@ -174,6 +175,9 @@ const CHON_DONG_DANH_SACH_DON_THU = {
   id: true,
   stt: true,
   receivedDate: true,
+  // Giờ tiếp nhận (HH:mm) hiện nhỏ dưới ngày ở cột "Ngày tiếp nhận" và đi theo vào bản xuất Excel. Truy vấn dùng `select`
+  // tường minh nên thiếu khai ở đây là ô giờ luôn rỗng mà không lỗi.
+  gioTiepNhan: true,
   // Cột "Ngày đề xuất" của danh sách đọc trường này — KHÔNG phải `receivedDate`, vốn
   // là ngày TIẾP NHẬN nguồn tin. Hai ngày lệch nhau ở 29.026/46.499 hồ sơ di trú.
   ngayDeXuat: true,
@@ -246,6 +250,8 @@ const CHON_DONG_DANH_SACH_DON_THU = {
 export type DongDanhSachDonThu = Prisma.PetitionGetPayload<{
   select: typeof CHON_DONG_DANH_SACH_DON_THU;
 }>;
+
+const MSG_GIO_TUONG_LAI = 'Giờ tiếp nhận không được ở tương lai (ngày hôm nay, giờ Việt Nam)';
 
 @Injectable()
 export class PetitionsService {
@@ -712,6 +718,10 @@ export class PetitionsService {
         'Ngày tiếp nhận không được là ngày tương lai',
       );
     }
+    // Giờ tiếp nhận: ngày = hôm nay (giờ VN) mà giờ vượt giờ hiện tại quá dung sai → từ chối (cùng luật với ngày).
+    if (laThoiDiemTuongLai(dto.receivedDate, dto.gioTiepNhan)) {
+      throw new BadRequestException(MSG_GIO_TUONG_LAI);
+    }
 
     // Check manual stt uniqueness OUTSIDE tx (read-only, safe)
     if (dto.stt) {
@@ -950,6 +960,14 @@ export class PetitionsService {
         );
       }
     }
+    // Giờ tiếp nhận: chỉ kiểm khi lần sửa này CHẠM ngày hoặc giờ; dùng giá trị hiệu lực (giá trị mới, không có thì giá trị cũ).
+    if (dto.receivedDate !== undefined || dto.gioTiepNhan !== undefined) {
+      const ngayHieuLuc = dto.receivedDate ?? existing.receivedDate;
+      const gioHieuLuc = dto.gioTiepNhan !== undefined ? dto.gioTiepNhan : existing.gioTiepNhan;
+      if (laThoiDiemTuongLai(ngayHieuLuc, gioHieuLuc)) {
+        throw new BadRequestException(MSG_GIO_TUONG_LAI);
+      }
+    }
 
     // Check stt uniqueness if changing
     if (dto.stt && dto.stt !== existing.stt) {
@@ -976,6 +994,8 @@ export class PetitionsService {
       ...(dto.receivedDate !== undefined && {
         receivedDate: new Date(dto.receivedDate),
       }),
+      // `null` xoá giờ (không biết giờ); vắng khoá thì giữ nguyên.
+      ...(dto.gioTiepNhan !== undefined && { gioTiepNhan: dto.gioTiepNhan }),
       ...(dto.senderName !== undefined && { senderName: dto.senderName }),
       ...(dto.unit !== undefined && { unit: dto.unit }),
       ...(dto.senderBirthYear !== undefined && {

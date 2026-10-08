@@ -1135,6 +1135,12 @@ model Petition {
   stt              String         @unique
   // Ngày tiếp nhận
   receivedDate     DateTime
+  /// Giờ tiếp nhận "HH:mm" 24 giờ theo GIỜ VIỆT NAM, đúng như cán bộ khai (không phải dấu thời gian hệ thống).
+  /// `NULL` = KHÔNG BIẾT giờ (hồ sơ cũ, nhập hàng loạt, di trú): bản in để KHUNG TRỐNG cho cán bộ điền tay, KHÔNG bịa giờ.
+  /// Cột riêng chứ không nhét vào `receivedDate`: ngày ấy chỉ lưu NGÀY (00:00 UTC) nên ~47.000 hồ sơ cũ sẽ đồng loạt thành
+  /// "07:00" theo giờ VN, và form luôn gửi lại ngày dạng không giờ mỗi lần Lưu. Ràng buộc định dạng ở migration
+  /// 20261009090000_petition_gio_tiep_nhan (CHECK) — Prisma không có cú pháp cho CHECK.
+  gioTiepNhan      String?        @db.VarChar(5)
   /// CHỈ ĐỌC — cột SINH TỰ ĐỘNG trong CSDL, KHÔNG BAO GIỜ ghi vào trường này.
   /// Bằng `receivedDate` khi ngày nằm trong khoảng 1900–2100, ngược lại là NULL.
   /// Mục đích: 9 hồ sơ có ngày phi lý (năm 3023, 2925, 0225...) chìm xuống cuối khi

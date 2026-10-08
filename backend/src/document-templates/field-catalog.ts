@@ -1,3 +1,4 @@
+import { laGioPhutHopLe, phanNgayVN } from '../common/utils/thoi-gian-vn.util';
 import { BadRequestException } from '@nestjs/common';
 import { ngayVietDonHienThi } from '../common/utils/ngay-viet-don.util';
 
@@ -160,8 +161,9 @@ const TRUONG_PHONG_MAC_DINH = 'Thượng tá Nguyễn Trung Hoà';
 function fmtDate(d: unknown): string {
   if (!d) return '';
   const date = d instanceof Date ? d : new Date(d as string);
-  if (Number.isNaN(date.getTime())) return '';
-  return `ngày ${String(date.getDate()).padStart(2, '0')} tháng ${String(date.getMonth() + 1).padStart(2, '0')} năm ${date.getFullYear()}`;
+  const p = phanNgayVN(date);
+  if (!p) return '';
+  return `ngày ${String(p.ngay).padStart(2, '0')} tháng ${String(p.thang).padStart(2, '0')} năm ${p.nam}`;
 }
 
 /**
@@ -177,31 +179,26 @@ function fmtDate(d: unknown): string {
 
 /** Họ tên kèm cấp bậc (cấp bậc + họ + tên) — dùng cho cán bộ trong chứng từ đơn thư. */
 
-/** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. */
+/** Ngày dạng ngắn d/M/yyyy — dùng khi mẫu đã có sẵn chữ "ngày" phía trước. Theo giờ VN, không theo TZ máy chủ. */
 function fmtDateShort(d: unknown): string {
   if (!d) return '';
   const date = d instanceof Date ? d : new Date(d as string);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  const p = phanNgayVN(date);
+  return p ? `${p.ngay}/${p.thang}/${p.nam}` : '';
 }
 
 /**
- * Cụm "HH giờ mm" cho mục "Hồi ... " của Giấy biên nhận (Mẫu 214).
+ * Cụm "HH giờ mm" cho mục "Hồi ... " của Giấy biên nhận (Mẫu 214), lấy từ cột `gioTiepNhan` ("HH:mm" do cán bộ khai).
  *
- * `receivedDate` được nhập dạng NGÀY (YYYY-MM-DD) nên phần giờ thường là 00:00 —
- * in ra "00 giờ 00" là BỊA số liệu trên văn bản tố tụng (và còn lệch theo timezone
- * máy chủ). Khi không có giờ thật, trả về đúng khung để trống như bản giấy PC01
- * để cán bộ điền tay.
+ * KHÔNG suy giờ từ `receivedDate`: ngày ấy chỉ lưu NGÀY (00:00 UTC) nên máy chủ giờ VN đọc ra "07 giờ 00" và in lên MỌI
+ * văn bản (lỗi 08/10/2026). Không có giờ khai (hồ sơ cũ, nhập hàng loạt, giá trị hỏng) → đúng khung để trống như bản giấy
+ * PC01 để cán bộ điền tay — không bịa số liệu trên văn bản tố tụng.
  */
 const KHUNG_GIO_TRONG = '…… giờ ……';
-function fmtGioPhut(d: unknown): string {
-  if (!d) return KHUNG_GIO_TRONG;
-  const date = d instanceof Date ? d : new Date(d as string);
-  if (Number.isNaN(date.getTime())) return KHUNG_GIO_TRONG;
-  const h = date.getHours();
-  const m = date.getMinutes();
-  if (h === 0 && m === 0) return KHUNG_GIO_TRONG; // chỉ có ngày, không có giờ thật
-  return `${String(h).padStart(2, '0')} giờ ${String(m).padStart(2, '0')}`;
+function fmtGioTiepNhan(v: unknown): string {
+  if (!laGioPhutHopLe(v)) return KHUNG_GIO_TRONG;
+  const [h, m] = v.split(':');
+  return `${h} giờ ${m}`;
 }
 
 /**
@@ -920,7 +917,7 @@ const DON_THU_FIELDS: FieldDef[] = [
     key: 'gioTiepNhan',
     label: 'Giờ tiếp nhận',
     group: 'Mốc thời gian',
-    resolve: (r) => fmtGioPhut(r.receivedDate),
+    resolve: (r) => fmtGioTiepNhan(r.gioTiepNhan),
   },
   // Giấy tờ tuỳ thân người gửi (Giấy biên nhận — Mẫu 214)
   {

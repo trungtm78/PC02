@@ -192,23 +192,84 @@ describe('Bộ 7 mẫu chứng từ Đơn thư (PC01 / TT 128-2025)', () => {
     });
   });
 
-  describe('gioTiepNhan — KHÔNG bịa giờ trên văn bản tố tụng', () => {
+  describe('gioTiepNhan — đọc CỘT RIÊNG, KHÔNG bịa giờ trên văn bản tố tụng', () => {
     const resolve = (r: any) =>
       FIELD_CATALOG.DON_THU.find((f) => f.key === 'gioTiepNhan')!.resolve(r);
 
-    it('receivedDate chỉ có ngày (00:00) → giữ khung trống để điền tay', () => {
-      const d = new Date(2026, 6, 15, 0, 0, 0); // 15/7/2026 00:00 giờ máy
-      expect(resolve({ receivedDate: d })).toBe('…… giờ ……');
+    it('có giờ khai → "HH giờ mm"', () => {
+      expect(resolve({ gioTiepNhan: '09:30' })).toBe('09 giờ 30');
+      expect(resolve({ gioTiepNhan: '00:05' })).toBe('00 giờ 05');
+      expect(resolve({ gioTiepNhan: '23:59' })).toBe('23 giờ 59');
     });
 
-    it('không có receivedDate → giữ khung trống', () => {
+    it('không có giờ (NULL/vắng/rỗng) → giữ khung trống để điền tay', () => {
       expect(resolve({})).toBe('…… giờ ……');
-      expect(resolve({ receivedDate: null })).toBe('…… giờ ……');
+      expect(resolve({ gioTiepNhan: null })).toBe('…… giờ ……');
+      expect(resolve({ gioTiepNhan: '' })).toBe('…… giờ ……');
     });
 
-    it('có giờ thật → in "HH giờ mm"', () => {
-      const d = new Date(2026, 6, 15, 9, 5, 0);
-      expect(resolve({ receivedDate: d })).toBe('09 giờ 05');
+    it('giá trị hỏng trong CSDL → khung trống, KHÔNG in chuỗi rác lên văn bản', () => {
+      for (const v of ['24:00', '9:30', '09:60', 'abc', '09:30:00', 930]) {
+        expect(resolve({ gioTiepNhan: v })).toBe('…… giờ ……');
+      }
+    });
+
+    it('LỖI "07 giờ 00" (08/10/2026): receivedDate KHÔNG còn ảnh hưởng — dù ngày lưu 00:00 UTC (= 07:00 VN)', () => {
+      // Trước đây hàm đọc giờ từ receivedDate nên máy chủ giờ VN in "07 giờ 00" cho mọi đơn chưa khai giờ.
+      expect(resolve({ receivedDate: new Date('2026-10-08T00:00:00Z') })).toBe('…… giờ ……');
+      expect(resolve({ receivedDate: new Date('2026-10-08T00:00:00Z'), gioTiepNhan: null })).toBe('…… giờ ……');
+      // Có giờ khai thì in giờ khai, bất kể phần giờ trong receivedDate.
+      expect(resolve({ receivedDate: new Date('2026-10-08T03:15:00Z'), gioTiepNhan: '14:45' })).toBe('14 giờ 45');
+    });
+  });
+
+  describe('ngày in ghim giờ VN — không lệch theo TZ máy chủ', () => {
+    const resolve = (key: string, r: any) => FIELD_CATALOG.DON_THU.find((f) => f.key === key)!.resolve(r);
+
+    it('ngày nhập dạng YYYY-MM-DD (00:00 UTC) in đúng ngày đó', () => {
+      expect(resolve('ngayNhan', { receivedDate: new Date('2026-10-08T00:00:00Z') })).toBe('ngày 08 tháng 10 năm 2026');
+    });
+
+    it('17:00 UTC = 00:00 VN ngày hôm sau → in NGÀY HÔM SAU (máy chủ UTC trước đây in hôm trước)', () => {
+      expect(resolve('ngayNhan', { receivedDate: new Date('2026-10-07T17:00:00Z') })).toBe('ngày 08 tháng 10 năm 2026');
+      expect(resolve('ngayNhanNgan', { ngayTiepNhanNguonTin: new Date('2026-10-07T17:00:00Z') })).toBe('8/10/2026');
+    });
+
+    it('16:59 UTC vẫn là hôm đó', () => {
+      expect(resolve('ngayNhan', { receivedDate: new Date('2026-10-07T16:59:00Z') })).toBe('ngày 07 tháng 10 năm 2026');
+    });
+  });
+
+  describe('BIEN_NHAN — "Hồi … giờ …" lấy GIỜ KHAI, không cố định (08/10/2026)', () => {
+    /** Dữ liệu dựng bằng CHÍNH danh mục (đúng đường in thật), không điền tay chuỗi mong đợi. */
+    function renderTuBanGhi(record: Record<string, unknown>): string {
+      const data: Record<string, string> = {};
+      for (const f of FIELD_CATALOG.DON_THU) data[f.key] = String(f.resolve(record, {}) ?? '');
+      const buffer = fs.readFileSync(path.join(ASSET_DIR, 'BIEN_NHAN.docx'));
+      return docText(renderer.render({ buffer, data, delimiters: DELIMS }));
+    }
+    // Ngày nhập dạng YYYY-MM-DD → 00:00 UTC: đúng thứ đã sinh ra "07 giờ 00" trên máy chủ giờ VN.
+    const NGAY = new Date('2026-10-08T00:00:00Z');
+
+    it('đơn có giờ khai "09:30" → in "Hồi 09 giờ 30 ngày 08 tháng 10 năm 2026"', () => {
+      const text = renderTuBanGhi({ receivedDate: NGAY, gioTiepNhan: '09:30' });
+      expect(text).toContain('Hồi 09 giờ 30 ngày 08 tháng 10 năm 2026');
+      expect(text).not.toContain('07 giờ 00');
+    });
+
+    it('hồ sơ CŨ chưa có giờ → khung trống để điền tay, TUYỆT ĐỐI không còn "07 giờ 00"', () => {
+      for (const gio of [null, undefined, '']) {
+        const text = renderTuBanGhi({ receivedDate: NGAY, gioTiepNhan: gio });
+        expect(text).toContain('Hồi …… giờ …… ngày 08 tháng 10 năm 2026');
+        expect(text).not.toContain('07 giờ 00');
+      }
+    });
+
+    it('hai đơn cùng ngày khác giờ in hai giờ KHÁC nhau', () => {
+      const a = renderTuBanGhi({ receivedDate: NGAY, gioTiepNhan: '08:05' });
+      const b = renderTuBanGhi({ receivedDate: NGAY, gioTiepNhan: '16:45' });
+      expect(a).toContain('Hồi 08 giờ 05 ngày');
+      expect(b).toContain('Hồi 16 giờ 45 ngày');
     });
   });
 
