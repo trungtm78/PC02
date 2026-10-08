@@ -99,8 +99,13 @@ export const KHAI_COT_XUAT_DON_THU: readonly KhaiCotXuat<DongDanhSachDonThu>[] =
     {
       key: 'receivedDate',
       tieuDe: 'Ngày tiếp nhận',
-      rong: 13,
-      doc: (d) => ngayVN(d.receivedDate),
+      rong: 17,
+      // Màn hiện giờ nhỏ dưới ngày; bản xuất ghi "dd/mm/yyyy HH:mm" để lọc ra rồi xuất không mất giờ. Hồ sơ cũ (không có giờ)
+      // chỉ có ngày — không bịa giờ.
+      doc: (d) =>
+        d.gioTiepNhan
+          ? `${ngayVN(d.receivedDate)} ${d.gioTiepNhan}`
+          : ngayVN(d.receivedDate),
     },
     {
       key: 'ngayTiepNhanNguonTin',

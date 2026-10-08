@@ -28,6 +28,8 @@ export function buildPetitionCreateData(
   return {
     stt: ctx.stt,
     receivedDate: new Date(dto.receivedDate),
+    // Không biết giờ thì NULL — máy chủ không bao giờ tự đóng dấu giờ (bản in giữ khung trống).
+    gioTiepNhan: dto.gioTiepNhan ?? null,
     senderName: dto.senderName ?? '', // NOT NULL ở DB; đơn nặc danh → chuỗi rỗng
     unit: dto.unit,
     enteredById: ctx.actorId,

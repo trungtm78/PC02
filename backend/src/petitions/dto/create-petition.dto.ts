@@ -1,3 +1,4 @@
+import { DAU_GIO_PHUT } from '../../common/utils/thoi-gian-vn.util';
 import {
   IsString,
   IsArray,
@@ -60,6 +61,13 @@ export class CreatePetitionDto {
   // Ngày tiếp nhận — bắt buộc, không được là tương lai
   @IsNgayThat()
   receivedDate: string;
+
+  // Giờ tiếp nhận "HH:mm" 24 giờ (giờ VN), tuỳ chọn. `null` = không biết giờ / xoá giờ khi sửa (IsOptional bỏ qua null và
+  // undefined). Rỗng "" KHÔNG hợp lệ: FE gửi null khi ô trống (quy ước `oHeCu`).
+  @IsOptional()
+  @IsString()
+  @Matches(DAU_GIO_PHUT, { message: 'Giờ tiếp nhận phải theo dạng HH:mm 24 giờ (ví dụ 09:30)' })
+  gioTiepNhan?: string | null;
 
   // Tên người gửi — bắt buộc khi tạo mới, TRỪ đơn nặc danh (khớp validate FE).
   @ValidateIf((o) => !o.senderIsAnonymous)

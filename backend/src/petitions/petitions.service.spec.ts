@@ -714,6 +714,55 @@ describe('PetitionsService', () => {
       );
     });
 
+    describe('giờ tiếp nhận (gioTiepNhan) — không ở tương lai', () => {
+      // 08/10/2026 14:00 giờ VN = 07:00Z. Chỉ giả Date; mọi bộ hẹn giờ/vi tác vụ khác giữ nguyên để Promise chạy bình thường.
+      beforeEach(() => {
+        jest.useFakeTimers({
+          now: new Date('2026-10-08T07:00:00Z'),
+          doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'clearImmediate', 'performance', 'hrtime'],
+        });
+        mockPrisma.petition.findUnique.mockResolvedValue(null);
+        mockPrisma.petition.create.mockResolvedValue({ ...mockPetition });
+        mockAudit.log.mockResolvedValue(undefined);
+      });
+      afterEach(() => jest.useRealTimers());
+
+      const dto = (receivedDate: string, gioTiepNhan?: string | null) => ({
+        stt: 'DT-2026-00098',
+        receivedDate,
+        senderName: 'Nguyễn Văn Test',
+        petitionType: LoaiDon.TO_CAO,
+        ...(gioTiepNhan !== undefined && { gioTiepNhan }),
+      });
+
+      it('hôm nay + giờ vượt giờ hiện tại 6 phút → 400', async () => {
+        await expect(service.create(dto('2026-10-08', '14:06'), 'user-001')).rejects.toThrow(/Giờ tiếp nhận không được ở tương lai/);
+        await expect(service.create(dto('2026-10-08', '23:59'), 'user-001')).rejects.toThrow(BadRequestException);
+        expect(mockPrisma.petition.create).not.toHaveBeenCalled();
+      });
+
+      it('hôm nay + giờ đã qua hoặc trong dung sai 5 phút → nhận và GHI giờ vào cột', async () => {
+        for (const gio of ['09:30', '14:00', '14:04', '14:05']) {
+          mockPrisma.petition.create.mockClear();
+          await service.create(dto('2026-10-08', gio), 'user-001');
+          const goi = mockPrisma.petition.create.mock.calls[0][0];
+          expect(goi.data.gioTiepNhan).toBe(gio);
+        }
+      });
+
+      it('NGÀY QUÁ KHỨ: giờ nào cũng nhận, kể cả 23:59', async () => {
+        await expect(service.create(dto('2026-10-07', '23:59'), 'user-001')).resolves.toBeDefined();
+      });
+
+      it('không gửi giờ → lưu NULL (máy chủ KHÔNG tự đóng dấu giờ)', async () => {
+        await service.create(dto('2026-10-08'), 'user-001');
+        expect(mockPrisma.petition.create.mock.calls[0][0].data.gioTiepNhan).toBeNull();
+        mockPrisma.petition.create.mockClear();
+        await service.create(dto('2026-10-08', null), 'user-001');
+        expect(mockPrisma.petition.create.mock.calls[0][0].data.gioTiepNhan).toBeNull();
+      });
+    });
+
     it('should throw ConflictException for duplicate stt', async () => {
       mockPrisma.petition.findUnique.mockResolvedValue(mockPetition); // stt already taken
 
@@ -1122,6 +1171,56 @@ describe('PetitionsService', () => {
       await expect(
         service.update('nonexistent', {}, 'user-001'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    describe('giờ tiếp nhận khi sửa', () => {
+      beforeEach(() => {
+        jest.useFakeTimers({
+          now: new Date('2026-10-08T07:00:00Z'), // 14:00 giờ VN
+          doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'clearImmediate', 'performance', 'hrtime'],
+        });
+        mockPrisma.petition.update.mockResolvedValue(mockPetition);
+      });
+      afterEach(() => jest.useRealTimers());
+      const cu = (extra: Record<string, unknown> = {}) => ({
+        ...mockPetition,
+        receivedDate: new Date('2026-10-08T00:00:00Z'),
+        gioTiepNhan: '09:00',
+        ...extra,
+      });
+      const duLieuGhi2 = () => mockPrisma.petition.update.mock.calls.at(-1)![0].data;
+
+      it('sửa giờ sang tương lai (hôm nay +6 phút) → 400; không ghi gì', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(cu());
+        await expect(service.update('petition-001', { gioTiepNhan: '14:06' }, 'user-001')).rejects.toThrow(/tương lai/);
+        expect(mockPrisma.petition.update).not.toHaveBeenCalled();
+      });
+
+      it('sửa giờ hợp lệ → ghi vào cột', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(cu());
+        await service.update('petition-001', { gioTiepNhan: '10:15' }, 'user-001');
+        expect(duLieuGhi2().gioTiepNhan).toBe('10:15');
+      });
+
+      it('null XOÁ giờ (không biết giờ); vắng khoá thì GIỮ nguyên', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(cu());
+        await service.update('petition-001', { gioTiepNhan: null }, 'user-001');
+        expect(duLieuGhi2().gioTiepNhan).toBeNull();
+        mockPrisma.petition.update.mockClear();
+        await service.update('petition-001', { senderName: 'Tên mới' }, 'user-001');
+        expect('gioTiepNhan' in duLieuGhi2()).toBe(false);
+      });
+
+      it('đổi NGÀY sang hôm nay mà giờ cũ đang ở tương lai so với hôm nay → 400 (dùng giá trị hiệu lực)', async () => {
+        // Hồ sơ ngày quá khứ giờ 20:00 (hợp lệ); dời ngày về hôm nay (14:00) thì 20:00 là tương lai.
+        mockPrisma.petition.findFirst.mockResolvedValue(cu({ receivedDate: new Date('2026-10-01T00:00:00Z'), gioTiepNhan: '20:00' }));
+        await expect(service.update('petition-001', { receivedDate: '2026-10-08' }, 'user-001')).rejects.toThrow(/tương lai/);
+      });
+
+      it('sửa trường KHÁC của hồ sơ cũ (giờ không đổi, không gửi) → không kiểm giờ, không chặn', async () => {
+        mockPrisma.petition.findFirst.mockResolvedValue(cu({ receivedDate: new Date('2026-10-08T00:00:00Z'), gioTiepNhan: '23:00' }));
+        await expect(service.update('petition-001', { senderName: 'Tên mới' }, 'user-001')).resolves.toBeDefined();
+      });
     });
 
     it('should throw BadRequestException for future receivedDate on update', async () => {
