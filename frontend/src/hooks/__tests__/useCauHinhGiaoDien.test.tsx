@@ -59,6 +59,23 @@ describe('useCauHinhGiaoDien', () => {
     expect(result.current.BAM_DONG_DON_THU).toBe('SUA_HAI_CHAM');
   });
 
+  it('admin lưu KHI một lần tải đang bay → kết quả cũ bị bỏ, màn nhận giá trị MỚI (Codex)', async () => {
+    let xongCu!: (v: unknown) => void;
+    getMock.mockReturnValueOnce(new Promise((r) => (xongCu = r)));
+    const { result } = renderHook(() => useCauHinhGiaoDien());
+    getMock.mockResolvedValueOnce({ data: { data: { BAM_DONG_DON_THU: 'SUA' } } });
+    await act(async () => {
+      await lamMoiCauHinhGiaoDien();
+    });
+    expect(result.current.BAM_DONG_DON_THU).toBe('SUA');
+    // Lần tải cũ về muộn với giá trị cũ: không được đè lên.
+    await act(async () => {
+      xongCu({ data: { data: { BAM_DONG_DON_THU: 'XEM' } } });
+      await Promise.resolve();
+    });
+    expect(result.current.BAM_DONG_DON_THU).toBe('SUA');
+  });
+
   it('giữ NGUYÊN tham chiếu khi giá trị không đổi (khoá useMemo của các màn không bị phá)', async () => {
     getMock.mockResolvedValue({ data: { data: {} } });
     const { result } = renderHook(() => useCauHinhGiaoDien());

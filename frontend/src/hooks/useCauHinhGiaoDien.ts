@@ -60,6 +60,10 @@ function tai(): Promise<void> {
 
 /** Gọi sau khi admin lưu một khoá: bản trong bộ nhớ cũ ngay lập tức, màn danh sách đang mở nhận giá trị mới. */
 export function lamMoiCauHinhGiaoDien(): Promise<void> {
+  // Một lần tải đang bay đã đọc cấu hình TRƯỚC khi admin lưu: bỏ kết quả của nó (đổi epoca) rồi tải lại, nếu không
+  // `tai()` trả luôn lần tải cũ và màn danh sách giữ giá trị cũ tới 5 phút.
+  epoca += 1;
+  dangTai = null;
   trangThai = { ...trangThai, luc: 0 };
   return tai();
 }
