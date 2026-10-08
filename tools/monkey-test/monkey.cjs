@@ -117,6 +117,7 @@ function layPlaywright() {
 async function dangNhap(page, cfg) {
   if (cfg.khongDangNhap) return null;
   if (cfg.token) {
+    const phien = await layPhien(cfg); // fresh session for this context (see layPhien)
     await page.addInitScript(
       ([t, r]) => {
         try {
@@ -126,9 +127,9 @@ async function dangNhap(page, cfg) {
           /* trang chưa có storage */
         }
       },
-      [cfg.token, process.env.UAT_REFRESH || cfg.token],
+      [phien.accessToken, phien.refreshToken || phien.accessToken],
     );
-    return cfg.token;
+    return phien.accessToken;
   }
   await page.goto(`${cfg.coSo}/login`, { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(cfg.taiKhoan);
@@ -156,7 +157,7 @@ async function giaiDuong(duong, cfg, token, boNho) {
     } catch {
       id = null;
     }
-    boNho.set(nhan, id);
+    if (id) boNho.set(nhan, id); // a failed lookup is never cached: one transient error must not blank the route for the whole run
   }
   const id = boNho.get(nhan);
   return id ? duong.replace(m[0], id) : null;
@@ -172,6 +173,35 @@ async function dangNhapApi(cfg) {
   const j = await r.json();
   if (!r.ok || !j.accessToken) throw new Error(`Đăng nhập API hỏng (${r.status}): ${JSON.stringify(j).slice(0, 160)}`);
   return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
+}
+
+/**
+ * A session for ONE browser context.
+ *
+ * With a password: a FRESH API login every time. A single session shared for hours dies — the access token expires and the
+ * refresh token rotates, so a later context holding the original refresh token is thrown to /login (every phone-profile route of
+ * the 09/10/2026 run ended on /login and came out "blank" / "no ⋮ buttons"). 429 (login rate limit) is waited out and retried.
+ * With only an externally supplied UAT_TOKEN there is nothing to log in with, so it is used as is.
+ */
+async function layPhien(cfg, { choMs = 2000, soLan = 5 } = {}) {
+  if (!cfg.matKhau) return { accessToken: cfg.token || null, refreshToken: process.env.UAT_REFRESH || cfg.token || null };
+  let loi = '';
+  for (let i = 0; i < soLan; i += 1) {
+    const r = await fetch(`${cfg.coSo}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: cfg.taiKhoan, password: cfg.matKhau }),
+    });
+    if (r.status === 429) {
+      loi = 'HTTP 429';
+      await new Promise((xong) => setTimeout(xong, choMs * (i + 1)));
+      continue;
+    }
+    const j = await r.json();
+    if (!r.ok || !j.accessToken) throw new Error(`Đăng nhập API hỏng (${r.status}): ${JSON.stringify(j).slice(0, 160)}`);
+    return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
+  }
+  throw new Error(`Đăng nhập API bị giới hạn tần suất sau ${soLan} lần thử (${loi})`);
 }
 
 /**
@@ -213,6 +243,7 @@ async function chayMotHoSo(args) {
 const PHUONG_THUC_GHI = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, boNho }) {
+  let tokenCuaLuot = token;
   const nhanLuot = `${engine}@${vp.width}x${vp.height}/${hoSo.ten}`;
   const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
   const thuGhi = [];
@@ -308,7 +339,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   });
 
   try {
-    await dangNhap(page, cfg);
+    tokenCuaLuot = (await dangNhap(page, cfg)) || token;
   } catch (e) {
     throw new Error(`Đăng nhập hỏng (${nhanLuot}): ${e.message}`);
   }
@@ -352,7 +383,7 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       .filter(Boolean);
   }
   for (const d of tuyen) {
-    const thuc = await giaiDuong(d, cfg, token, boNho);
+    const thuc = await giaiDuong(d, cfg, tokenCuaLuot, boNho);
     if (thuc) duongs.push(thuc);
     else kq.chuaKiem.push({ luot: nhanLuot, batBien: '(đường)', duong: d, chiTiet: 'không giải được mã thật cho đường này (CSDL chưa có bản ghi?)' });
   }
@@ -514,6 +545,6 @@ function maThoat(kq) {
   return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung };
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat, laNhieuHuyYeuCau, laTrangUngDung, layPhien };
 
 if (require.main === module) void main();

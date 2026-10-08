@@ -391,3 +391,47 @@ test('MÀN TRẮNG: lùi về trang ngoài ứng dụng (about:blank) không ph�
   assert.equal(laTrangUngDung('http://evil.example/petitions', 'http://localhost:5173'), false);
   assert.equal(laTrangUngDung('', 'http://localhost:5173'), false);
 });
+
+test('PHIÊN: mỗi context đăng nhập MỚI (không dùng chung token hàng giờ), có UAT_TOKEN thuần thì dùng nguyên', async () => {
+  const { layPhien } = require('../monkey.cjs');
+  const goc = globalThis.fetch;
+  let dem = 0;
+  globalThis.fetch = async () => {
+    dem += 1;
+    return { ok: true, status: 200, json: async () => ({ accessToken: `A${dem}`, refreshToken: `R${dem}` }) };
+  };
+  try {
+    const cfg = { coSo: 'http://h', taiKhoan: 'u', matKhau: 'p', token: 'CU' };
+    const a = await layPhien(cfg);
+    const b = await layPhien(cfg);
+    assert.deepEqual([a.accessToken, b.accessToken], ['A1', 'A2'], 'mỗi lần là một phiên mới, không phải token dùng chung CU');
+    assert.notEqual(a.refreshToken, b.refreshToken);
+    // Only a token supplied from outside (no password): nothing to log in with, use it as is.
+    const chiToken = await layPhien({ coSo: 'http://h', token: 'NGOAI' });
+    assert.equal(chiToken.accessToken, 'NGOAI');
+    assert.equal(dem, 2, 'không đăng nhập thêm khi chỉ có token ngoài');
+  } finally {
+    globalThis.fetch = goc;
+  }
+});
+
+test('PHIÊN: gặp 429 thì chờ rồi thử lại, hết lượt thử thì báo lỗi rõ', async () => {
+  const { layPhien } = require('../monkey.cjs');
+  const goc = globalThis.fetch;
+  let dem = 0;
+  globalThis.fetch = async () => {
+    dem += 1;
+    if (dem < 3) return { ok: false, status: 429, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ({ accessToken: 'OK', refreshToken: 'R' }) };
+  };
+  try {
+    const p = await layPhien({ coSo: 'http://h', taiKhoan: 'u', matKhau: 'p' }, { choMs: 1 });
+    assert.equal(p.accessToken, 'OK');
+    assert.equal(dem, 3);
+    dem = -100;
+    globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({}) });
+    await assert.rejects(() => layPhien({ coSo: 'http://h', taiKhoan: 'u', matKhau: 'p' }, { choMs: 1, soLan: 2 }), /429/);
+  } finally {
+    globalThis.fetch = goc;
+  }
+});
