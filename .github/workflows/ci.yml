@@ -78,6 +78,9 @@ jobs:
           node-version: '22'
 
       - name: Install Playwright + browsers
+        # Bước này đã TREO 17–20 phút trên runner hai lần (08–09/10/2026, lỗi hạ tầng tải trình duyệt). Giới hạn thời gian để
+        # treo thì THẤT BẠI nhanh và chạy lại được, thay vì chiếm hàng đợi 20 phút rồi mới bị huỷ tay.
+        timeout-minutes: 10
         run: |
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium webkit

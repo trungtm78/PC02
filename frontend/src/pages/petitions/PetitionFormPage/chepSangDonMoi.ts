@@ -77,6 +77,9 @@ export const DAT_LAI_MOC_HO_SO = [
  */
 export const DAT_HOM_NAY = [
   'receivedDate', // Ngày tiếp nhận
+  // Giờ tiếp nhận của đơn mới = GIỜ HIỆN TẠI (cùng quy tắc với ngày, 09/10/2026): đơn mới được tiếp nhận lúc cán bộ lập nó.
+  // Chép giờ của đơn nguồn thì Giấy biên nhận ghi một giờ tiếp nhận không bao giờ xảy ra với đơn này.
+  'gioTiepNhan',
   'ngayDeXuat', // Ngày/Tháng/Năm đề xuất
   'ngayTiepNhanNguonTin',
 ] as const satisfies readonly (keyof PetitionFormData)[];

@@ -86,7 +86,24 @@ describe('Tạo đơn mới từ đơn này — hợp đồng trường', () => 
       expect(cloned.receivedDate).toBe('2026-10-09');
       expect(cloned.ngayDeXuat).toBe('2026-10-09');
       expect(cloned.ngayTiepNhanNguonTin).toBe('2026-10-09');
-      expect([...DAT_HOM_NAY].sort()).toEqual(['ngayDeXuat', 'ngayTiepNhanNguonTin', 'receivedDate']);
+      expect([...DAT_HOM_NAY].sort()).toEqual(['gioTiepNhan', 'ngayDeXuat', 'ngayTiepNhanNguonTin', 'receivedDate']);
+    });
+
+    it('GIỜ tiếp nhận của đơn mới = giờ HIỆN TẠI VN lúc chép, không chép giờ của đơn nguồn (09/10/2026)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-09T03:00:00Z')); // 10:00 giờ VN
+      const source = sourceWithDistinctValues();
+      source.gioTiepNhan = '21:45';
+      expect(chepSangDonMoi(source).gioTiepNhan).toBe('10:00');
+      expect(DAT_HOM_NAY).toContain('gioTiepNhan');
+    });
+
+    it('giờ tính LÚC CHÉP: tab mở qua nửa đêm VN vẫn ra giờ mới, không "24:xx"', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-08T16:59:00Z')); // 23:59 giờ VN
+      expect(chepSangDonMoi(sourceWithDistinctValues()).gioTiepNhan).toBe('23:59');
+      vi.setSystemTime(new Date('2026-10-08T17:05:00Z')); // 00:05 giờ VN hôm sau
+      expect(chepSangDonMoi(sourceWithDistinctValues()).gioTiepNhan).toBe('00:05');
     });
 
     it('tính ngày LÚC CHÉP, không lúc nạp mô-đun: tab mở qua đêm vẫn ra đúng ngày mới', () => {

@@ -7,6 +7,7 @@
  * Tach khoi than trang de kiem duoc ma khong phai dung ca trang 1.167 dong.
  */
 import { today } from "@/lib/dates";
+import { LOI_GIO_KHONG_HOP_LE, LOI_GIO_TUONG_LAI, laGioPhutHopLe, laGioTuongLai } from "@/lib/gioPhut";
 import { laNguonTrucTiep } from "@/shared/nguon-don/truc-tiep";
 import { loiEdtf } from "@/shared/ngay-thieu/edtf";
 import type { PetitionFormData } from "./types";
@@ -18,6 +19,19 @@ export const PHONE_RE = /^0\d{9}$/;
  * Khong kiem "Loai thong tin": he cu khong bat buoc o ay, va nhom han giai quyet do may chu
  * suy tu danh muc Loai thong tin (14/09/2026 - go o "Loai don thu" rieng).
  */
+/**
+ * Lỗi của ô Giờ tiếp nhận, hoặc `null`. Ô KHÔNG bắt buộc (rỗng = không biết giờ → bản in giữ khung trống), nhưng nếu có chữ
+ * thì phải là HH:mm đầy đủ ("8:3" đang gõ dở không được lưu) và — khi ngày là hôm nay — không ở tương lai (cùng luật máy chủ).
+ */
+export function loiGioTiepNhan(fd: Pick<PetitionFormData, "gioTiepNhan" | "receivedDate">): string | null {
+  // `?? ""`: form dựng từ nguồn cũ/trích một phần (ca kiểm, đường nạp cũ) có thể chưa có khoá — thiếu = chưa khai giờ, không phải lỗi.
+  const gio = (fd.gioTiepNhan ?? "").trim();
+  if (gio === "") return null;
+  if (!laGioPhutHopLe(gio)) return LOI_GIO_KHONG_HOP_LE;
+  if (laGioTuongLai(fd.receivedDate, gio)) return LOI_GIO_TUONG_LAI;
+  return null;
+}
+
 export function computeFormErrors(
   fd: PetitionFormData,
   effectiveEdit: boolean,
@@ -27,6 +41,8 @@ export function computeFormErrors(
   if (!fd.receivedDate) items.push({ msg: "Ngày tiếp nhận là bắt buộc", testid: "field-receivedDate" });
   else if (fd.receivedDate > today())
     items.push({ msg: "Ngày tiếp nhận không được là ngày tương lai", testid: "field-receivedDate" });
+  const loiGio = loiGioTiepNhan(fd);
+  if (loiGio) items.push({ msg: loiGio, testid: "field-gioTiepNhan" });
   if (!anon && !fd.senderName.trim()) items.push({ msg: "Tên người gửi là bắt buộc", testid: "field-senderName" });
   if (!anon && !fd.senderAddress.trim()) items.push({ msg: "Địa chỉ người gửi là bắt buộc", testid: "field-senderAddress" });
   // SĐT nguyên đơn bắt buộc CÓ ĐIỀU KIỆN: chỉ khi người nộp đứng trước mặt. Đơn đến bằng bưu
