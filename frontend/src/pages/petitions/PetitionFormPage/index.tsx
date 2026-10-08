@@ -1321,7 +1321,7 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
         </div>
 
         {/* Nhóm I: Phân công cán bộ — edit mode only */}
-        {isEditMode && id && (!chiXem || canDispatch) && (
+        {isEditMode && id && (!chiXem || canDispatch || laTrangXem) && (
           // Provider LỒNG: khối này chỉ chuyển sang đọc khi người dùng CHỌN xem trước (`laTrangXem`), không phải khi
           // chỉ thiếu quyền ghi hồ sơ — điều phối viên vẫn phân công được ngoài phạm vi ghi (quyết định 19/09/2026).
           <CheDoXemProvider xem={laTrangXem}>

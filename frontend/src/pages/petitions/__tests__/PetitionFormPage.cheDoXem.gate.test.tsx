@@ -213,6 +213,19 @@ describe('PetitionFormPage — chế độ XEM: giao diện', () => {
     expect(screen.queryByTestId('bang-chi-xem')).not.toBeInTheDocument();
   });
 
+  /**
+   * Codex bắt: điều kiện hiện khối phân công là `!chiXem || canDispatch` nên ở chế độ xem NGƯỜI THƯỜNG mất cả danh sách
+   * phân công (trước đây họ thấy nó ở form sửa được). Thông tin để ĐỌC phải hiện; chỉ các nút ghi mới ẩn.
+   * Cổng chính không bắt được vì khối vắng mặt thì không có ô nào để soi.
+   */
+  it('người THƯỜNG (không điều phối) xem trước: vẫn ĐỌC được danh sách phân công, không có nút ghi', async () => {
+    await renderTrang('/petitions/pet-1', 'xem');
+    await waitFor(() => expect(screen.getByTestId('assignment-list')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('assignment-role-u9')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-remove-assignment-u9')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-assignment-form')).not.toBeInTheDocument();
+  });
+
   it('chữ trong ô vẫn ĐỦ để chép: ô chữ readOnly nhưng KHÔNG disabled', async () => {
     await renderTrang('/petitions/pet-1', 'xem');
     await waitFor(() => expect((screen.getByTestId('field-senderName') as HTMLInputElement).value).toBe('Trần Thị A'), {
