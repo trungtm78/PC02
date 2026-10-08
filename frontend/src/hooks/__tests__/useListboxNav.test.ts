@@ -199,4 +199,37 @@ describe('useListboxNav', () => {
     expect(bam(h, 'ArrowDown').stopPropagation).not.toHaveBeenCalled();
     expect(bam(h, 'Tab').stopPropagation).not.toHaveBeenCalled();
   });
+
+  /**
+   * LỖI CHẬP CHỜN thấy trên CI (3/16 lượt chạy đỏ khi máy bận): bỏ tô bằng useEffect theo `resetKey` để
+   * hở một lượt vẽ trung gian mang chỉ số CŨ cùng khoá MỚI, và effect chạy sau có thể ghi đè -1 lên phím
+   * ↓ vừa bấm khi danh sách mới về — phím biến mất. Chỉ số phải là trạng thái DẪN XUẤT: khoá đổi thì
+   * ngay trong chính lượt vẽ ấy đã là -1.
+   */
+  it('đổi resetKey thì KHÔNG có lượt vẽ trung gian nào còn mang chỉ số cũ', () => {
+    const thay: number[] = [];
+    const h = renderHook(
+      (p: { k: string }) => {
+        const r = useListboxNav({ count: 3, resetKey: p.k, onSelect: vi.fn() });
+        thay.push(r.activeIndex);
+        return r;
+      },
+      { initialProps: { k: 'a' } },
+    );
+    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
+    expect(h.result.current.activeIndex).toBe(0);
+    thay.length = 0;
+    h.rerender({ k: 'b' });
+    expect(thay.length).toBeGreaterThan(0);
+    expect(thay.every((i) => i === -1)).toBe(true);
+  });
+
+  it('phím bấm cùng lúc khoá đổi vẫn có hiệu lực (không bị lần reset muộn nuốt mất)', () => {
+    const h = renderHook((p: { k: string }) => useListboxNav({ count: 3, resetKey: p.k, onSelect: vi.fn() }), {
+      initialProps: { k: 'a' },
+    });
+    h.rerender({ k: 'b' });
+    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
+    expect(h.result.current.activeIndex).toBe(0);
+  });
 });

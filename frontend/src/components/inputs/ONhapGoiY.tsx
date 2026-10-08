@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useListboxNav } from '@/hooks/useListboxNav';
+import { useListboxNav, laDangGoDau } from '@/hooks/useListboxNav';
 
 /**
  * Ô chữ TỰ DO có gợi ý theo dữ liệu đã có.
@@ -100,8 +100,7 @@ export function ONhapGoiY<T>({
   });
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    const ne = e.nativeEvent as { isComposing?: boolean; keyCode?: number };
-    if (ne.isComposing || ne.keyCode === 229) return;
+    if (laDangGoDau(e)) return;
     if (!dangMo) {
       // Danh sách đã đóng nhưng còn gợi ý: ↓ mở lại. Mọi phím khác đi tiếp bình thường.
       if (e.key === 'ArrowDown' && goiY.length > 0) {

@@ -16,6 +16,15 @@ import { useCallback, useEffect, useId, useState, type KeyboardEvent } from 'rea
  * 4. Tab không bị chặn: tiêu điểm phải đi tiếp được, hộp chỉ đóng lại.
  */
 
+/**
+ * Đang gõ dấu tiếng Việt (bộ gõ chưa chốt chữ). `isComposing` là dấu hiệu chuẩn; `keyCode === 229` là
+ * đường lùi cho trình duyệt không đặt cờ ấy. Dùng chung để mọi ô chọn bỏ qua phím đúng một cách.
+ */
+export function laDangGoDau(e: { nativeEvent: unknown }): boolean {
+  const ne = e.nativeEvent as { isComposing?: boolean; keyCode?: number } | undefined;
+  return Boolean(ne?.isComposing) || ne?.keyCode === 229;
+}
+
 /** Số mục PageUp/PageDown nhảy mỗi lần. */
 export const BUOC_TRANG = 10;
 
@@ -59,15 +68,31 @@ export function useListboxNav({
 }: UseListboxNavOptions): UseListboxNavResult {
   const sinh = useId();
   const goc = idPrefix ?? `lb${sinh.replace(/:/g, '')}`;
-  const [activeIndex, setActiveIndex] = useState(-1);
+  /**
+   * Chỉ số đang tô là trạng thái DẪN XUẤT, gắn với khoá của danh sách lúc nó được đặt.
+   *
+   * Bản đầu giữ một con số rồi bỏ tô bằng `useEffect` theo `resetKey`. Cách đó hở một lượt vẽ trung gian
+   * mang chỉ số CŨ cùng khoá MỚI, và effect chạy muộn có thể ghi đè -1 lên phím ↓ vừa bấm đúng lúc
+   * danh sách mới về — phím biến mất. Đo được: 3/16 lượt chạy đỏ khi máy bận (CI cũng đỏ một lần).
+   * Nay chỉ số hợp lệ CHỈ khi khoá đã lưu khớp khoá hiện tại, nên khoá đổi là ngay trong chính lượt vẽ
+   * ấy đã là -1, và không còn effect nào để chạy sai thứ tự.
+   */
+  const [trang, setTrang] = useState({ chiSo: -1, khoa: resetKey });
+  const activeIndex = trang.khoa === resetKey ? trang.chiSo : -1;
+
+  const setActiveIndex = useCallback(
+    (chiSo: number) => setTrang({ chiSo, khoa: resetKey }),
+    [resetKey],
+  );
+  /** Đổi chỉ số dựa trên chỉ số HIỆN CÓ (đã loại chỉ số của khoá cũ). */
+  const dichChiSo = useCallback(
+    (f: (hienCo: number) => number) =>
+      setTrang((p) => ({ chiSo: f(p.khoa === resetKey ? p.chiSo : -1), khoa: resetKey })),
+    [resetKey],
+  );
 
   const optionId = useCallback((index: number) => `${goc}-muc-${index}`, [goc]);
-  const reset = useCallback(() => setActiveIndex(-1), []);
-
-  // Đổi danh sách → bỏ tô (mục 3 ở chú thích đầu tệp).
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [resetKey]);
+  const reset = useCallback(() => setTrang({ chiSo: -1, khoa: resetKey }), [resetKey]);
 
   // Giữ mục đang tô trong tầm nhìn khi cuộn danh sách dài.
   useEffect(() => {
@@ -75,22 +100,21 @@ export function useListboxNav({
     document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: 'nearest' });
   }, [activeIndex, optionId]);
 
-  // Chỉ số có thể vượt số mục nếu danh sách co lại trước khi `resetKey` kịp đổi.
+  // Chỉ số có thể vượt số mục nếu danh sách co lại mà khoá chưa đổi.
   const hopLe = activeIndex >= 0 && activeIndex < count;
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      const ne = e.nativeEvent as { isComposing?: boolean; keyCode?: number };
-      if (ne.isComposing || ne.keyCode === 229) return;
+      if (laDangGoDau(e)) return;
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          if (count > 0) setActiveIndex((p) => (p >= 0 && p < count - 1 ? p + 1 : 0));
+          if (count > 0) dichChiSo((p) => (p >= 0 && p < count - 1 ? p + 1 : 0));
           return;
         case 'ArrowUp':
           e.preventDefault();
-          if (count > 0) setActiveIndex((p) => (p > 0 && p < count ? p - 1 : count - 1));
+          if (count > 0) dichChiSo((p) => (p > 0 && p < count ? p - 1 : count - 1));
           return;
         case 'Home':
           e.preventDefault();
@@ -102,11 +126,11 @@ export function useListboxNav({
           return;
         case 'PageDown':
           e.preventDefault();
-          if (count > 0) setActiveIndex((p) => Math.min(count - 1, (p < 0 ? -1 : p) + BUOC_TRANG));
+          if (count > 0) dichChiSo((p) => Math.min(count - 1, (p < 0 ? -1 : p) + BUOC_TRANG));
           return;
         case 'PageUp':
           e.preventDefault();
-          if (count > 0) setActiveIndex((p) => Math.max(0, (p < 0 ? count : p) - BUOC_TRANG));
+          if (count > 0) dichChiSo((p) => Math.max(0, (p < 0 ? count : p) - BUOC_TRANG));
           return;
         case 'Enter':
           // Có chọn thì luôn chặn; chưa chọn thì chặn trừ khi đây là ô chữ tự do (xem `chanEnterKhiChuaTo`).
@@ -130,7 +154,7 @@ export function useListboxNav({
           return;
       }
     },
-    [count, hopLe, activeIndex, onSelect, onEscape, onTab, chanEnterKhiChuaTo],
+    [count, hopLe, activeIndex, dichChiSo, setActiveIndex, onSelect, onEscape, onTab, chanEnterKhiChuaTo],
   );
 
   return {
