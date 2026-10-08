@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import PizZip from 'pizzip';
 import { DocxRenderer } from './renderers/docx.renderer';
-import { KHOA_HE_CU_NGOAI_PARITY } from './khoa-he-cu';
+import { KHOA_HE_CU_RIENG_DON_THU } from './khoa-he-cu';
 import { FIELD_CATALOG } from './field-catalog';
 import { normalizeDocxTags } from './docx-normalize.util';
 import { thuMucMauHeCu } from '../../prisma/seed-legacy-templates';
@@ -14,8 +14,11 @@ import { thuMucMauHeCu } from '../../prisma/seed-legacy-templates';
  */
 const DELIMS = { start: '${', end: '}' };
 
-const resolve = (key: string, record: Record<string, unknown>) =>
-  KHOA_HE_CU_NGOAI_PARITY.find((f) => f.key === key)!.resolve(record, {});
+const resolve = (key: string, record: Record<string, unknown>) => {
+  const def = KHOA_HE_CU_RIENG_DON_THU.find((f) => f.key === key);
+  if (!def) throw new Error(`biến ${key} chưa được khai trong KHOA_HE_CU_RIENG_DON_THU`);
+  return def.resolve(record, {});
+};
 
 function docText(buffer: Buffer): string {
   const xml = new PizZip(buffer).file('word/document.xml')!.asText();
@@ -53,11 +56,13 @@ describe('biến gio / phut của mẫu hệ cũ', () => {
     expect(resolve('phut', {})).toBe('');
   });
 
-  it('có trong catalog của cả ba thực thể để mẫu tự điền', () => {
-    for (const ent of ['DON_THU', 'VU_VIEC', 'VU_AN'] as const) {
-      const keys = FIELD_CATALOG[ent].map((f) => f.key);
-      expect(keys).toEqual(expect.arrayContaining(['gio', 'phut']));
-    }
+  it('chỉ Đơn thư có biến này — Vụ việc / Vụ án không có cột giờ nên KHÔNG khai chung', () => {
+    const keys = (ent: 'DON_THU' | 'VU_VIEC' | 'VU_AN') => FIELD_CATALOG[ent].map((f) => f.key);
+    expect(keys('DON_THU')).toEqual(expect.arrayContaining(['gio', 'phut']));
+    expect(keys('VU_VIEC')).not.toContain('gio');
+    expect(keys('VU_VIEC')).not.toContain('phut');
+    expect(keys('VU_AN')).not.toContain('gio');
+    expect(keys('VU_AN')).not.toContain('phut');
   });
 });
 

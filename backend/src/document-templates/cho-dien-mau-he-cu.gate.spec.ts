@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import PizZip from 'pizzip';
-import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY, cotInTheoTruongHeCu } from './khoa-he-cu';
+import { khoaTheoTenHeCu, KHOA_HE_CU_NGOAI_PARITY, KHOA_HE_CU_RIENG_DON_THU, cotInTheoTruongHeCu } from './khoa-he-cu';
 import { KIEU_TRUONG_HE_CU } from './kieu-truong-he-cu.generated';
 import { thuMucMauHeCu } from '../../prisma/seed-legacy-templates';
 
@@ -87,6 +87,7 @@ describe('Cổng: mọi chỗ điền của mẫu hệ cũ đều đã được 
   const daKhai = new Set<string>([
     ...Object.keys(KIEU_TRUONG_HE_CU),
     ...KHOA_HE_CU_NGOAI_PARITY.map((k) => k.key),
+    ...KHOA_HE_CU_RIENG_DON_THU.map((k) => k.key),
     ...khoaTheoTenHeCu('petition').map((k) => k.key),
     ...khoaTheoTenHeCu('incident').map((k) => k.key),
     ...khoaTheoTenHeCu('case').map((k) => k.key),
