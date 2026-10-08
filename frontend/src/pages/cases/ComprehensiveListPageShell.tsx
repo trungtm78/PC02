@@ -598,6 +598,7 @@ export function ComprehensiveListPageShell() {
               name: r.name,
             }}
             ctx={actionCtx}
+            tieuDe={r.caseNumber ?? r.name}
           />
         ),
       },

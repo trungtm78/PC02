@@ -641,6 +641,7 @@ export function CaseListPageShell() {
               updatedAt: r.updatedAt,
             }}
             ctx={actionCtx}
+            tieuDe={`Vụ án ${r.caseCode ?? r.name}`}
           />
         ),
       },

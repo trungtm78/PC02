@@ -53,3 +53,78 @@ for (const [ten, url] of [
     expect(ket.loi, 'nút tràn khỏi ô Thao tác').toEqual([]);
   });
 }
+
+/**
+ * ĐIỆN THOẠI (≤767px) — 08/10/2026: cột Thao tác chỉ còn MỘT nút ⋮ cỡ 44px, mọi thao tác nằm trong bảng trượt từ đáy.
+ * Đo ở 390×844 (iPhone 14) và 360×640 (Android nhỏ), trên Chromium thật (project e2e-chromium) và WebKit nếu có.
+ */
+for (const [rong, cao] of [
+  [390, 844],
+  [360, 640],
+] as const) {
+  test.describe(`điện thoại ${rong}×${cao}`, () => {
+    test.use({ viewport: { width: rong, height: cao } });
+
+    for (const [ten, url] of [
+      ['Đơn thư', '/petitions'],
+      ['Vụ việc', '/incidents'],
+      ['Vụ án', '/cases'],
+      ['Tổng hợp', '/comprehensive-list'],
+    ] as const) {
+      test(`T-${ten}: mỗi dòng đúng 1 nút ⋮ ≥44px, trang không tràn ngang`, async ({ page }) => {
+        await moDanhSach(page, url);
+        const ket = await page.evaluate(() => {
+          const loi: string[] = [];
+          let soO = 0;
+          for (const tr of [...document.querySelectorAll('tbody tr')].slice(0, 20)) {
+            const nutMenu = tr.querySelector<HTMLElement>('[data-testid^="btn-action-menu-"]');
+            if (!nutMenu) continue;
+            soO++;
+            const o = nutMenu.closest('td')!;
+            const nut = [...o.querySelectorAll('button')];
+            if (nut.length !== 1) loi.push(`ô có ${nut.length} nút (phải đúng 1)`);
+            const r = nutMenu.getBoundingClientRect();
+            if (r.width < 43.5 || r.height < 43.5) loi.push(`nút ⋮ ${Math.round(r.width)}×${Math.round(r.height)} (<44px)`);
+            const khung = o.getBoundingClientRect();
+            if (r.left < khung.left - 0.5 || r.right > khung.right + 0.5) loi.push('nút ⋮ tràn khỏi ô');
+          }
+          const tran = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+          return { soO, loi, tran };
+        });
+        expect(ket.soO, 'phải có ô Thao tác để đo').toBeGreaterThan(0);
+        expect(ket.loi).toEqual([]);
+        expect(ket.tran, 'trang cuộn ngang ngoài ý muốn (px)').toBeLessThanOrEqual(0);
+      });
+    }
+
+    test('Đơn thư: bấm ⋮ → bảng đáy nằm trọn khung nhìn; Esc đóng; tiêu điểm trả về nút ⋮; cuộn nền mở khoá', async ({ page }) => {
+      await moDanhSach(page, '/petitions');
+      const nut = page.locator('tbody tr [data-testid^="btn-action-menu-"]').first();
+      await nut.focus();
+      await nut.click();
+      const bang = page.getByRole('dialog');
+      await expect(bang).toBeVisible();
+      const hop = await bang.boundingBox();
+      expect(hop, 'bảng phải có toạ độ').not.toBeNull();
+      expect(hop!.x).toBeGreaterThanOrEqual(0);
+      expect(hop!.x + hop!.width).toBeLessThanOrEqual(rong + 0.5);
+      expect(hop!.y + hop!.height).toBeLessThanOrEqual(cao + 0.5);
+      expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+      expect(await bang.getByRole('button').count()).toBeGreaterThanOrEqual(3);
+      await page.keyboard.press('Escape');
+      await expect(bang).toBeHidden();
+      await expect(nut).toBeFocused();
+      expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
+    });
+
+    test('Đơn thư: bấm nền mờ đóng bảng, không mở hồ sơ', async ({ page }) => {
+      await moDanhSach(page, '/petitions');
+      const truoc = page.url();
+      await page.locator('tbody tr [data-testid^="btn-action-menu-"]').first().click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await page.getByTestId('bang-thao-tac-duoi-nen').click({ position: { x: 5, y: 5 } });
+      await expect(page.getByRole('dialog')).toBeHidden();
+      expect(page.url()).toBe(truoc);
+    });
+  });
+}
