@@ -14,7 +14,7 @@
   --font-size: 16px;
 
   /* Bề rộng cột "Thao tác" của danh sách hồ sơ. Máy tính: 4 nút nhanh + ⋮ (đo 12rem). Điện thoại ≤767px: chỉ một
-     nút ⋮ cỡ 44px (đạt cỡ chạm tối thiểu) + lề → 3.5rem. Đổi ở `cotThaoTac.ts` + `useMediaQuery.ts` cùng lúc. */
+     nút ⋮ cỡ 44px (đạt cỡ chạm tối thiểu) + lề 2×0.25rem của ô (`max-md:px-1`, cột có cờ `thuGonTrenDienThoai`) = 3.25rem, làm tròn 3.5rem. Lề mặc định `px-4` (2×1rem) làm nút tràn ô — đo trên Chromium thật 08/10/2026. Đổi ở `cotThaoTac.ts` + `useMediaQuery.ts` cùng lúc. */
   --be-rong-cot-thao-tac: 12rem;
   --background: #F7F6F2;
   --foreground: #1e293b;

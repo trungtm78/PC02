@@ -4,7 +4,7 @@
 
 | Năng lực của các shell danh sách (Đơn thư, Vụ việc, Vụ án, Tổng hợp) | Hành vi trong release | Bằng chứng |
 |---|---|---|
-| Cột Thao tác trên điện thoại | Mỗi dòng chỉ còn MỘT nút ⋮ cỡ 44px; cột rộng 3.5rem (biến CSS `--be-rong-cot-thao-tac`, máy tính vẫn 12rem). Không còn 4 nút nhanh chiếm nửa màn hình | `RowActions.dienThoai.test.tsx`, cổng `cotThaoTacBienCss.gate.test.ts`, `tests/e2e/cot-thao-tac-uat.e2e.spec.ts` (390×844, 360×640) |
+| Cột Thao tác trên điện thoại | Mỗi dòng chỉ còn MỘT nút ⋮ cỡ 44px; cột rộng 3.5rem, ẩn chữ tiêu đề "Thao tác" và thu lề ô (chỉ còn dấu ⋮) (biến CSS `--be-rong-cot-thao-tac`, máy tính vẫn 12rem). Không còn 4 nút nhanh chiếm nửa màn hình | `RowActions.dienThoai.test.tsx`, cổng `cotThaoTacBienCss.gate.test.ts`, `tests/e2e/cot-thao-tac-uat.e2e.spec.ts` (390×844, 360×640) |
 | Menu thao tác | Bảng trượt từ đáy (hộp thoại: Escape, nền mờ, bẫy Tab, trả tiêu điểm, khoá/mở khoá cuộn nền, vùng an toàn đáy). Mọi thao tác nhanh + phụ cùng một danh sách; Xoá ở cuối, cách đường kẻ; mục bị khoá hiện kèm lý do bằng chữ | `BangThaoTacDuoi.test.tsx` |
 | Máy tính (>767px) | KHÔNG đổi: các nút nhanh + ⋮ mở menu nổi như cũ | `RowActions.test.tsx` (hợp đồng hồi quy), ca đối chứng ở `RowActions.dienThoai.test.tsx` |
 | Nghe thay đổi khung nhìn | Một `MediaQueryList` dùng chung cho cả trang (không một bộ lắng nghe mỗi dòng) | `useMediaQuery.test.tsx` |

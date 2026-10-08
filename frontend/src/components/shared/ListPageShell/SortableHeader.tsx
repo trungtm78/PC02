@@ -18,6 +18,7 @@ export function SortableHeader({
   width,
   className,
   keoGian,
+  anNhanTrenDienThoai,
 }: {
   label: string;
   sortKey?: string;
@@ -25,6 +26,11 @@ export function SortableHeader({
   onSort: (key: string) => void;
   width?: string;
   className?: string;
+  /**
+   * Cột chỉ chứa nút icon (Thao tác): trên điện thoại (≤767px) ẩn CHỮ tiêu đề để cột chỉ rộng bằng nút. Chữ vẫn nằm
+   * trong DOM (`sr-only`) nên trình đọc màn hình vẫn đọc "Thao tác".
+   */
+  anNhanTrenDienThoai?: boolean;
   /**
    * Bật tay nắm kéo giãn cho cột này. Không truyền = giữ nguyên ô tiêu đề như cũ, nên bảng nào
    * chưa nối vào bố cục người dùng không đổi một chút nào.
@@ -37,6 +43,7 @@ export function SortableHeader({
   };
 }) {
   const style = width ? { width } : undefined;
+  const nhan = anNhanTrenDienThoai ? <span className="max-md:sr-only">{label}</span> : label;
   // Tay nắm cần một gốc toạ độ. `relative` cho ô thường — NHƯNG KHÔNG cho ô ghim: `relative`
   // và `sticky` cùng là thuộc tính `position`, thêm `relative` vào ô ghim là ĐÈ MẤT `sticky`
   // và cột Thao tác trôi đi ngay khi cuộn ngang.
@@ -65,7 +72,7 @@ export function SortableHeader({
   if (!sortKey) {
     return (
       <th scope="col" style={style} className={cellClass} {...tenO}>
-        {label}
+        {nhan}
         {nam}
       </th>
     );

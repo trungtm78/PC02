@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 interface BangThaoTacDuoiProps {
@@ -7,6 +7,17 @@ interface BangThaoTacDuoiProps {
   /** Tên bảng cho trình đọc màn hình và dòng tiêu đề, vd mã hồ sơ. */
   tieuDe: string;
   children: ReactNode;
+  /**
+   * Nút đã mở bảng — nơi trả tiêu điểm khi đóng. BẮT BUỘC truyền ở mọi chỗ dùng thật: Safari (WebKit) KHÔNG chuyển tiêu
+   * điểm vào nút khi bấm, nên "phần tử đang có tiêu điểm lúc mở" là `body` và đóng bảng xong tiêu điểm rơi mất (đo trên
+   * WebKit thật 08/10/2026). Không truyền thì lùi về phần tử có tiêu điểm lúc mở.
+   */
+  nutMo?: RefObject<HTMLElement | null>;
+  /**
+   * `false` khi bảng đóng vì một thao tác ĐÃ giao tiêu điểm cho nơi khác (mở hộp thoại In/Phân công/Xoá): trả tiêu điểm
+   * về nút ⋮ lúc ấy sẽ giành tiêu điểm của hộp thoại vừa mở (Codex 08/10/2026). Mặc định `true`.
+   */
+  traTieuDiem?: boolean;
 }
 
 const DIEM_DUNG_TIEU_DIEM =
@@ -25,11 +36,13 @@ const DIEM_DUNG_TIEU_DIEM =
  *  - khoá cuộn nền khi mở và MỞ KHOÁ khi đóng/gỡ (kể cả khi bảng bị gỡ lúc đang mở, vd danh sách tải lại),
  *  - chừa vùng an toàn đáy (tai thỏ / thanh home của iPhone).
  */
-export function BangThaoTacDuoi({ mo, onDong, tieuDe, children }: BangThaoTacDuoiProps) {
+export function BangThaoTacDuoi({ mo, onDong, tieuDe, children, nutMo, traTieuDiem = true }: BangThaoTacDuoiProps) {
   const bangRef = useRef<HTMLDivElement | null>(null);
   // Giữ onDong mới nhất mà không buộc effect chạy lại (và cướp tiêu điểm) mỗi lần cha dựng lại.
   const onDongRef = useRef(onDong);
   onDongRef.current = onDong;
+  const traTieuDiemRef = useRef(traTieuDiem);
+  traTieuDiemRef.current = traTieuDiem;
 
   useEffect(() => {
     if (!mo) return;
@@ -43,8 +56,12 @@ export function BangThaoTacDuoi({ mo, onDong, tieuDe, children }: BangThaoTacDuo
 
     return () => {
       document.body.style.overflow = overflowCu;
-      if (truoc && document.contains(truoc)) truoc.focus();
+      if (!traTieuDiemRef.current) return;
+      const dich = nutMo?.current ?? truoc;
+      if (dich && document.contains(dich)) dich.focus();
     };
+    // `nutMo` là ref ổn định; chỉ phụ thuộc cờ mở.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mo]);
 
   if (!mo) return null;

@@ -11,7 +11,7 @@
 export const BE_RONG_COT_THAO_TAC = 'var(--be-rong-cot-thao-tac)';
 
 /**
- * Biến CSS khai ở `index.css`: 12rem trên máy tính, 3.5rem ở ≤767px (điện thoại chỉ còn một nút ⋮ cỡ 44px — xem
+ * Biến CSS khai ở `index.css`: 12rem trên máy tính, 3.5rem ở ≤767px (nút ⋮ 2.75rem + lề `max-md:px-1` của ô 2×0.25rem = 3.25rem; cột khai `thuGonTrenDienThoai` nên chữ tiêu đề cũng ẩn) (điện thoại chỉ còn một nút ⋮ cỡ 44px — xem
  * `RowActions`). Dùng `var()` chứ không đọc `matchMedia` ở đây: cột đổi bề rộng ngay khi xoay màn hình mà không cần dựng
  * lại bảng, và `calc()` tổng bề rộng của `Table` nhận `var()` nguyên vẹn. Cột Thao tác `khongDoiBeRong` nên
  * `doBeRong()` (chỉ phân tích px/rem) không bao giờ đọc giá trị này.
