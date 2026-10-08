@@ -83,6 +83,7 @@ export const AUDIT_FIELD_LABELS: Record<string, string> = {
   // ── Petition ──────────────────────────────────────────────────────
   stt: 'Số tiếp nhận',
   receivedDate: 'Ngày tiếp nhận',
+  gioTiepNhan: 'Giờ tiếp nhận',
   senderName: 'Tên người gửi',
   senderBirthYear: 'Năm sinh người gửi',
   senderAddress: 'Địa chỉ người gửi',

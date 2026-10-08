@@ -1,5 +1,12 @@
 # Shell Parity Matrix — Legacy (git 2cbdd90) vs Current Shells
 
+## 2026-10-09 — Giờ tiếp nhận của Đơn thư
+
+| Năng lực của PetitionListPageShell | Hành vi trong release | Bằng chứng |
+|---|---|---|
+| Cột "Ngày tiếp nhận" | Hiện thêm GIỜ khai (HH:mm) nhỏ dưới ngày khi hồ sơ có giờ; hồ sơ cũ chưa có giờ chỉ hiện ngày (không bịa giờ). Bản xuất Excel ghi "d/m/yyyy HH:mm" khi có giờ | `petitions.service.ts` `CHON_DONG_DANH_SACH_DON_THU`, `xuat-danh-sach-don-thu.gio.spec.ts` |
+| Form Đơn thư (không phải shell danh sách) | Ô "Giờ tiếp nhận" cạnh Ngày tiếp nhận: gõ liền `0830` → `08:30`, mặc định giờ hiện tại VN khi tạo mới, hồ sơ cũ để trống; Giấy biên nhận in giờ khai thay cho "07 giờ 00" | `tests/e2e/gio-tiep-nhan-uat.e2e.spec.ts` (Chromium + WebKit), `petition-templates-render.spec.ts` |
+
 ## 2026-10-08 — Thao tác trên dòng ở điện thoại (≤767px)
 
 | Năng lực của các shell danh sách (Đơn thư, Vụ việc, Vụ án, Tổng hợp) | Hành vi trong release | Bằng chứng |

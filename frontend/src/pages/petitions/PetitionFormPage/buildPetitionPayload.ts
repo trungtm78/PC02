@@ -100,6 +100,8 @@ export function buildPetitionPayload(
     ...(parityState ?? {}),
 
     receivedDate: formData.receivedDate,
+    // Ô trống gửi null (KHÔNG bỏ khoá): bỏ khoá không xoá được giờ đã lưu khi sửa. Máy chủ không tự đóng dấu giờ.
+    gioTiepNhan: oHeCu(formData.gioTiepNhan),
     senderName: formData.senderName,
     assignedTeamId: formData.assignedTeamId || undefined,
     summary: tomTat || null,

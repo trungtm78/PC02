@@ -125,6 +125,8 @@ interface PetitionRow {
   id: string;
   stt: string;
   receivedDate: string;
+  /** Giờ tiếp nhận "HH:mm" (giờ VN); null = không biết giờ (hồ sơ cũ). Hiện nhỏ dưới ngày ở cột "Ngày tiếp nhận". */
+  gioTiepNhan?: string | null;
   /** Ngày ĐỀ XUẤT (`ngay_de_xuat` hệ cũ) — khác `receivedDate` = ngày tiếp nhận nguồn tin. */
   ngayDeXuat?: string | null;
   /** Nội dung đầy đủ — cột ô "Tóm tắt nội dung" trên form ghi vào, khớp bản gốc hệ cũ. */
@@ -738,7 +740,17 @@ export function PetitionListPageShell() {
         timKiem: 'ngayTiepNhan',
         width: '7rem',
         optional: 'hide',
-        render: (r) => <DateCell value={r.receivedDate} />,
+        render: (r) => (
+          <div>
+            <DateCell value={r.receivedDate} />
+            {/* Giờ khai nhỏ dưới ngày; hồ sơ cũ không có giờ thì không vẽ gì (không bịa giờ). */}
+            {r.gioTiepNhan && (
+              <span className="block text-xs text-slate-500" data-testid={`gio-tiep-nhan-${r.id}`}>
+                {r.gioTiepNhan}
+              </span>
+            )}
+          </div>
+        ),
       },
       {
         key: 'ngayTiepNhanNguonTin',

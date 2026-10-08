@@ -6,10 +6,17 @@
  */
 
 import { today } from '@/lib/dates';
+import { gioHienTaiVN } from '@/lib/gioPhut';
 import type { HuongXuLyDon } from '@/shared/enums/generated';
 
 export interface PetitionFormData {
-  stt: string; receivedDate: string; unit: string; assignedTeamId: string;
+  stt: string; receivedDate: string;
+  /**
+   * Giờ tiếp nhận "HH:mm" 24 giờ (giờ VN). "" = không biết giờ → gửi null, bản in giữ khung trống. Tạo mới mặc định là giờ
+   * hiện tại (`taoFormDonThuMoi`); hồ sơ cũ mở ra TRỐNG — không bao giờ tự điền "bây giờ" cho hồ sơ đã có.
+   */
+  gioTiepNhan: string;
+  unit: string; assignedTeamId: string;
   senderName: string;
   senderBirthYear: string; senderAddress: string; senderPhone: string;
   senderEmail: string; suspectedPerson: string; suspectedAddress: string;
@@ -99,7 +106,7 @@ export interface PetitionFormData {
 }
 
 export const INITIAL_PETITION_FORM: PetitionFormData = {
-  stt: "", receivedDate: today(), unit: "", assignedTeamId: "",
+  stt: "", receivedDate: today(), gioTiepNhan: "", unit: "", assignedTeamId: "",
   senderName: "", senderBirthYear: "", senderAddress: "", senderPhone: "",
   senderEmail: "", suspectedPerson: "", suspectedAddress: "",
   priority: "", summary: "", detailContent: "", attachmentsNote: "",
@@ -143,6 +150,8 @@ export function taoFormDonThuMoi(): PetitionFormData {
   return {
     ...INITIAL_PETITION_FORM,
     receivedDate: homNay,
+    // Giờ cũng tính LÚC GỌI, cùng lý do với ngày: tab mở từ chiều rồi tạo đơn hôm sau không được mang giờ cũ.
+    gioTiepNhan: gioHienTaiVN(),
     ngayTiepNhanNguonTin: homNay,
     ngayDeXuat: homNay,
     legacyExtra: {},

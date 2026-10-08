@@ -29,6 +29,7 @@ import { extractApiError } from "@/lib/api-errors";
 import { AlertCircle, Calendar, MapPin, Phone, Mail } from "lucide-react";
 import { FKSelect } from "@/components/FKSelect";
 import { PhoneInput } from "@/components/inputs/PhoneInput";
+import { GioPhutInput } from "@/components/inputs/GioPhutInput";
 import { RecordDuplicateReview, type RecordDuplicateReviewHandle } from '@/components/inputs/RecordDuplicateReview';
 import { DocNumberPreviewField } from "@/components/DocNumberPreviewField";
 import { documentNumbersApi } from "@/features/document-numbers/api";
@@ -55,7 +56,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { PERMISSION_RESOURCE } from "@/shared/enums/permissions";
 import { ConvertPetitionModal, type ConvertToIncidentPayload, type ConvertToCasePayload } from "../ConvertPetitionModal";
 
-import { computeFormErrors } from "./validate";
+import { computeFormErrors, loiGioTiepNhan } from "./validate";
 import { useOfficerOptions } from "@/hooks/useOfficerOptions";
 import { giuCanBoDaChon, type CanBoTuHoSo } from "./canBoDaChon";
 import { PartialDateInput } from "@/components/inputs/PartialDateInput";
@@ -305,6 +306,8 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
           receivedDate: d.receivedDate
             ? toDateInput(d.receivedDate as string)
             : today(),
+          // KHÔNG mặc định "bây giờ": hồ sơ cũ chưa có giờ thì ô để TRỐNG (NULL), bản in giữ khung điền tay.
+          gioTiepNhan: (d.gioTiepNhan as string | null) ?? "",
           unit: (d.unit as string) ?? "",
           assignedTeamId: (d.assignedTeamId as string) ?? "",
           senderName: (d.senderName as string) ?? "",
@@ -1137,6 +1140,16 @@ export function PetitionFormPage({ cheDo }: { cheDo?: CheDoDonThu } = {}) {
               });
             }} max={today()} className="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" readOnly={chiXem} data-testid="field-receivedDate" />
           </div>
+        </div>
+        {/* Giờ tiếp nhận (HH:MM 24 giờ) cạnh Ngày tiếp nhận — "Hồi … giờ …" của Giấy biên nhận lấy từ ô này. */}
+        <div>
+          <label htmlFor="field-gioTiepNhan" className="block text-sm font-medium text-slate-700 mb-2">Giờ tiếp nhận</label>
+          <GioPhutInput
+            id="field-gioTiepNhan"
+            value={formData.gioTiepNhan}
+            onValueChange={(v) => update("gioTiepNhan", v)}
+            loiNgoai={daBamLuu ? loiGioTiepNhan(formData) : null}
+          />
         </div>
                 </div>
               </div>
