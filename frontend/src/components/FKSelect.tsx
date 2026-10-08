@@ -1,5 +1,6 @@
 import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useListboxNav, laDangGoDau } from "@/hooks/useListboxNav";
 import { Plus, Search, ChevronDown, X, Loader2 } from "lucide-react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import { useDirectoryOptions } from "@/hooks/useDirectoryOptions";
@@ -91,7 +92,6 @@ export function FKSelect({
   const maGoc = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -207,17 +207,13 @@ export function FKSelect({
     !loading && dsPhang.length === 0 && searchQuery.trim().length > 0;
 
   /**
-   * Bỏ tô mỗi khi DANH SÁCH NHÌN THẤY đổi, không chỉ khi chữ tìm đổi.
+   * Khoá nhận dạng DANH SÁCH NHÌN THẤY — đổi khoá thì bỏ tô (xem `resetKey` ở `useListboxNav` bên dưới).
    *
-   * `highlightedIndex` là CHỈ SỐ, mà danh sách đổi được dưới chân nó: hồ sơ phân công về muộn
-   * làm một người biến khỏi danh sách, hoặc danh sách cán bộ 245 người về sau khi cán bộ đã
-   * bấm mũi tên. Giữ nguyên chỉ số cũ thì Enter chọn NGƯỜI KHÁC — im lặng, và tên người ấy đi
-   * thẳng lên Phiếu đề xuất.
+   * Chỉ số là CON SỐ, mà danh sách đổi được dưới chân nó: hồ sơ phân công về muộn làm một người biến
+   * khỏi danh sách, hoặc danh sách cán bộ 245 người về sau khi cán bộ đã bấm mũi tên. Giữ nguyên chỉ số
+   * cũ thì Enter chọn NGƯỜI KHÁC — im lặng, và tên người ấy đi thẳng lên Phiếu đề xuất.
    */
-  const khoaDanhSach = dsPhang.map((o) => o.value).join(" ");
-  useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [searchQuery, khoaDanhSach]);
+  const khoaDanhSach = dsPhang.map((o) => o.value).join("\u0000");
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -228,7 +224,6 @@ export function FKSelect({
       ) {
         setIsOpen(false);
         setSearchQuery("");
-        setHighlightedIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -242,20 +237,11 @@ export function FKSelect({
     }
   }, [isOpen]);
 
-  // Scroll highlighted option into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && listRef.current) {
-      const items = listRef.current.querySelectorAll("[data-option-index]");
-      items[highlightedIndex]?.scrollIntoView({ block: "nearest" });
-    }
-  }, [highlightedIndex]);
-
   const handleSelect = useCallback(
     (optionValue: string) => {
       onChange(optionValue);
       setIsOpen(false);
       setSearchQuery("");
-      setHighlightedIndex(-1);
     },
     [onChange],
   );
@@ -273,7 +259,6 @@ export function FKSelect({
     setIsOpen((prev) => !prev);
     if (isOpen) {
       setSearchQuery("");
-      setHighlightedIndex(-1);
     }
   }, [isOpen]);
 
@@ -287,87 +272,56 @@ export function FKSelect({
     }
   }, []);
 
+  /**
+   * Bàn phím trong hộp dùng chung `useListboxNav` (↑ ↓ PageUp PageDown, Enter chỉ chọn mục
+   * ĐANG TÔ, Escape). `idPrefix` giữ nguyên `maGoc` để id từng mục không đổi so với trước.
+   *
+   * `isOpen` nằm trong khoá để mở lại hộp luôn bắt đầu từ trạng thái chưa tô gì.
+   */
+  const nav = useListboxNav({
+    count: dsPhang.length,
+    resetKey: `${isOpen}\u0000${searchQuery}\u0000${khoaDanhSach}`,
+    idPrefix: maGoc,
+    onSelect: (i) => {
+      const muc = dsPhang[i];
+      if (muc) handleSelect(muc.value);
+    },
+    onEscape: () => {
+      setIsOpen(false);
+      setSearchQuery("");
+    },
+  });
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      /**
-       * Bộ gõ tiếng Việt dùng Enter để CHỐT chữ đang bỏ dấu, và trình duyệt vẫn bắn keydown.
-       * Không chặn thì mỗi lần cán bộ bỏ dấu một chữ, hộp "tạo mới" lại bật lên.
-       *
-       * `isComposing` là dấu hiệu chuẩn; `keyCode === 229` là đường lùi cho trình duyệt cũ
-       * không đặt cờ ấy.
-       */
-      const dangGoDau =
-        (e.nativeEvent as KeyboardEvent).isComposing ||
-        (e.nativeEvent as KeyboardEvent).keyCode === 229;
-      if (dangGoDau) return;
+      // Bộ gõ tiếng Việt dùng Enter để CHỐT chữ đang bỏ dấu, và trình duyệt vẫn bắn keydown. Không chặn
+      // thì mỗi lần cán bộ bỏ dấu một chữ, hộp "tạo mới" lại bật lên.
+      if (laDangGoDau(e)) return;
 
-      if (dsPhang.length === 0) {
-        if (e.key === "Escape") {
-          setIsOpen(false);
-          setSearchQuery("");
-          setHighlightedIndex(-1);
-        }
-        // Gõ rồi mà không ra gì → mời tạo mới, kèm nguyên chữ vừa gõ để điền sẵn.
-        if (e.key === "Enter" && canCreate && onCreateNew && khongCoKetQua) {
-          e.preventDefault();
-          const ten = searchQuery.trim();
-          setIsOpen(false);
-          setSearchQuery("");
-          setHighlightedIndex(-1);
-          onCreateNew(ten);
-        }
+      // Gõ rồi mà không ra gì → mời tạo mới, kèm nguyên chữ vừa gõ để điền sẵn.
+      if (e.key === "Enter" && khongCoKetQua && canCreate && onCreateNew) {
+        e.preventDefault();
+        const ten = searchQuery.trim();
+        setIsOpen(false);
+        setSearchQuery("");
+        onCreateNew(ten);
         return;
       }
 
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          setHighlightedIndex((prev) =>
-            prev < dsPhang.length - 1 ? prev + 1 : 0,
-          );
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          setHighlightedIndex((prev) =>
-            prev > 0 ? prev - 1 : dsPhang.length - 1,
-          );
-          break;
-        case "Enter":
-          e.preventDefault();
-          // CHỈ chọn khi đang tô một mục. Trước đây Enter không-tô tự lấy mục đầu danh sách:
-          // cán bộ gõ để LỌC rồi bấm Enter là bị gán bừa người đầu tiên, mà tên ấy in thẳng lên
-          // Phiếu đề xuất. Một lựa chọn phải do người ta chỉ đích danh.
-          if (highlightedIndex >= 0 && highlightedIndex < dsPhang.length) {
-            handleSelect(dsPhang[highlightedIndex].value);
-          }
-          break;
-        case "Escape":
-          setIsOpen(false);
-          setSearchQuery("");
-          setHighlightedIndex(-1);
-          break;
-      }
+      nav.onKeyDown(e);
     },
-    [
-      dsPhang,
-      highlightedIndex,
-      handleSelect,
-      canCreate,
-      onCreateNew,
-      khongCoKetQua,
-      searchQuery,
-    ],
+    [khongCoKetQua, canCreate, onCreateNew, searchQuery, nav],
   );
 
   /** Mã DOM của một mục theo chỉ số phẳng — `aria-activedescendant` trỏ vào đây. */
-  const maMuc = (chiSo: number) => `${maGoc}-muc-${chiSo}`;
+  const maMuc = nav.optionId;
 
   /**
    * Vẽ một mục. Dùng chung cho cả danh sách phẳng lẫn danh sách có nhóm, để hai đường không
    * trôi khỏi nhau về lớp CSS, testid hay thuộc tính trợ năng.
    */
   const veMuc = (option: FKOption, chiSo: number, laBanLap = false) => {
-    const dangTo = chiSo === highlightedIndex;
+    const dangTo = chiSo === nav.activeIndex;
     return (
       <button
         key={`${option.value}-${chiSo}`}
@@ -485,9 +439,7 @@ export function FKSelect({
                 data-testid={testId ? `${testId}-search` : undefined}
                 aria-label={`Tìm trong ${label}`}
                 aria-controls={`${maGoc}-ds`}
-                aria-activedescendant={
-                  highlightedIndex >= 0 ? maMuc(highlightedIndex) : undefined
-                }
+                aria-activedescendant={nav.activeDescendantId}
               />
             </div>
           </div>
@@ -567,7 +519,6 @@ export function FKSelect({
                   setIsOpen(false);
                   setSearchQuery("");
                   const ten = searchQuery.trim();
-                  setHighlightedIndex(-1);
                   onCreateNew(ten);
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors font-medium"

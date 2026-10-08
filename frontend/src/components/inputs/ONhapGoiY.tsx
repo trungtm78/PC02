@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useListboxNav } from '@/hooks/useListboxNav';
+import { useListboxNav, laDangGoDau } from '@/hooks/useListboxNav';
 
 /**
  * Ô chữ TỰ DO có gợi ý theo dữ liệu đã có.
@@ -9,7 +9,7 @@ import { useListboxNav } from '@/hooks/useListboxNav';
  * 1.300 dòng, không tái dùng và không đo được. Anh yêu cầu 22/09/2026 thêm gợi ý cho ô "Tên cá
  * nhân, cơ quan, tổ chức cung cấp, bị hại"; mở rộng primitive sẵn có thay vì dựng hệ thứ hai.
  *
- * Bàn phím (↑ ↓ Home End PgUp PgDn, Enter, Esc, Tab) dùng `useListboxNav` chung với FKSelect và
+ * Bàn phím (↑ ↓ PgUp PgDn, Enter, Esc, Tab) dùng `useListboxNav` chung với FKSelect và
  * CrimeSelect. Riêng Enter: CHƯA tô gợi ý nào thì Enter đi tiếp như trước (gửi form), vì đây là ô chữ
  * tự do — chỉ khi cán bộ đã chỉ đích danh một gợi ý bằng mũi tên thì Enter mới chọn và bị chặn.
  *
@@ -100,8 +100,7 @@ export function ONhapGoiY<T>({
   });
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    const ne = e.nativeEvent as { isComposing?: boolean; keyCode?: number };
-    if (ne.isComposing || ne.keyCode === 229) return;
+    if (laDangGoDau(e)) return;
     if (!dangMo) {
       // Danh sách đã đóng nhưng còn gợi ý: ↓ mở lại. Mọi phím khác đi tiếp bình thường.
       if (e.key === 'ArrowDown' && goiY.length > 0) {
