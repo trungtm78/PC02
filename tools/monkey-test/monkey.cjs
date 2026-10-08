@@ -177,25 +177,51 @@ async function chonVungKhoi(page) {
 }
 
 /** Chạy MỘT hồ sơ ở MỘT (engine, khung nhìn). */
-async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
-  const nhanLuot = `${engine}@${vp.width}x${vp.height}/${hoSo.ten}`;
+async function chayMotHoSo(args) {
+  const { pw, engine } = args;
   let browser;
   try {
     browser = await pw[engine].launch();
   } catch (e) {
     throw new Error(`Không khởi động được ${engine}: ${e.message}`);
   }
+  // Mọi đường thoát (kể cả ném lỗi giữa chừng: tệp đường thiếu, đăng nhập hỏng…) đều phải đóng trình duyệt.
+  try {
+    await chayTrongTrinhDuyet({ ...args, browser });
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+const PHUONG_THUC_GHI = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, boNho }) {
+  const nhanLuot = `${engine}@${vp.width}x${vp.height}/${hoSo.ten}`;
   const ctx = await browser.newContext({ viewport: vp, serviceWorkers: 'block' });
   const thuGhi = [];
-  await ctx.route('**/api/**', (route) => {
+  const mayGoc = new URL(cfg.coSo).host;
+  // Chặn ở MỌI địa chỉ (không chỉ /api/ của máy gốc): trang cấu hình sai hay gọi tuyệt đối sang máy khác vẫn không ghi được.
+  await ctx.route('**/*', (route) => {
     const r = route.request();
-    const ghi = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(r.method());
-    const dangNhapRefresh = r.url().includes('/auth/login') || r.url().includes('/auth/refresh');
-    if (ghi && !dangNhapRefresh) {
-      // ĐẾM mọi lời gọi ghi dù có cho qua hay không: nếu chỉ đếm khi chặn thì ở chế độ cho ghi (local) bất biến "màn
-      // chỉ xem không được ghi" mù hoàn toàn — nó không bao giờ có thể đỏ.
-      thuGhi.push(`${r.method()} ${new URL(r.url()).pathname}`);
-      if (!cfg.choGhi) return route.abort();
+    if (!PHUONG_THUC_GHI.includes(r.method())) return route.continue();
+    let url;
+    try {
+      url = new URL(r.url());
+    } catch {
+      return route.abort();
+    }
+    // Đăng nhập/làm mới token trên CHÍNH máy gốc là thứ duy nhất được ghi khi ở chế độ chỉ đọc.
+    const dangNhapRefresh = url.host === mayGoc && (url.pathname.includes('/auth/login') || url.pathname.includes('/auth/refresh'));
+    if (dangNhapRefresh) return route.continue();
+    // ĐẾM mọi lời gọi ghi dù có cho qua hay không: nếu chỉ đếm khi chặn thì ở chế độ cho ghi (local) bất biến "màn
+    // chỉ xem không được ghi" mù hoàn toàn — nó không bao giờ có thể đỏ.
+    thuGhi.push(`${r.method()} ${url.pathname}`);
+    if (!cfg.choGhi) return route.abort();
+    // Cho ghi chỉ khi ĐÍCH CỦA TỪNG YÊU CẦU cũng là máy local — kiểm host của `UAT_BASE` lúc đọc cấu hình là chưa đủ.
+    if (!laMayLocal(r.url())) {
+      kq.ghiRaNgoai.push(`${r.method()} ${url.origin}${url.pathname}`);
+      phatHien('ghi ra ngoài máy local', `đã chặn ${r.method()} ${url.origin}${url.pathname} (MONKEY_CHO_GHI chỉ cho ghi vào localhost)`);
+      return route.abort();
     }
     return route.continue();
   });
@@ -255,7 +281,6 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
   try {
     await dangNhap(page, cfg);
   } catch (e) {
-    await browser.close();
     throw new Error(`Đăng nhập hỏng (${nhanLuot}): ${e.message}`);
   }
 
@@ -272,6 +297,8 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
       }
       if (!r) continue;
       if (r.khongDoDuoc) {
+        const co = kq.chuaKiem.some((x) => x.luot === nhanLuot && x.batBien === b.ten && x.duong === duongHienTai);
+        if (co) continue;
         kq.chuaKiem.push({ luot: nhanLuot, batBien: b.ten, duong: duongHienTai, chiTiet: r.chiTiet });
         console.log(`  ? CHƯA KIỂM [${nhanLuot}] ${b.ten} @ ${duongHienTai}: ${r.chiTiet}`);
       } else {
@@ -368,7 +395,6 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
     await bao('thử ghi ở chế độ chỉ đọc', `${thuGhi.length} lời gọi ghi (${cfg.choGhi ? 'đã cho qua' : 'đã chặn'}): ${[...new Set(thuGhi)].slice(0, 4).join(', ')}`);
   }
   kq.thuGhiBiChan += thuGhi.length;
-  await browser.close();
 }
 
 /** Chạy toàn bộ cấu hình. Trả kết quả; KHÔNG gọi process.exit (để ca kiểm chứng âm gọi được). */
@@ -389,6 +415,7 @@ async function chay(cfg) {
     chuaKiem: [],
     daKiem: {},
     http429: 0,
+    ghiRaNgoai: [],
   };
   console.log(`monkey: seed=${cfg.hat} engines=${cfg.engines.join(',')} khungNhin=${cfg.khungNhin.map((v) => `${v.width}x${v.height}`).join(',')} hoSo=${kq.hoSo.join(',')} choGhi=${cfg.choGhi}`);
   const boNho = new Map();
@@ -436,14 +463,19 @@ async function main() {
   console.log(
     `\nĐã đi ${kq.soMan} màn · ${kq.soThaoTac} thao tác · ${kq.phatHien.length} chỗ đáng ngờ · ${kq.chuaKiem.length} mục CHƯA KIỂM · ${kq.thuGhiBiChan} lời gọi ghi bị chặn`,
   );
-  if (kq.chuaKiem.length) console.log('CHƯA KIỂM (không phải đạt):', kq.chuaKiem.map((c) => `${c.batBien}@${c.duong}`).join(', '));
-  if (kq.phatHien.length) {
-    console.log(`Chạy lại đúng lượt này: MONKEY_SEED=${cfg.hat} (kèm cùng MONKEY_PROFILE/VIEWPORTS/ENGINES/STEPS)`);
-    process.exit(1);
-  }
-  process.exit(0);
+  if (kq.chuaKiem.length) console.log('CHƯA KIỂM — KHÔNG phải đạt (thoát 1):', kq.chuaKiem.map((c) => `${c.batBien}@${c.duong}`).join(', '));
+  if (kq.phatHien.length) console.log(`Chạy lại đúng lượt này: MONKEY_SEED=${cfg.hat} (kèm cùng MONKEY_PROFILE/VIEWPORTS/ENGINES/STEPS)`);
+  process.exit(maThoat(kq));
 }
 
-module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi };
+/**
+ * Mã thoát theo kết quả: 1 nếu có chỗ đáng ngờ HOẶC có mục CHƯA KIỂM; 0 chỉ khi sạch và không còn mục nào chưa đo được.
+ * (Codex bắt 08/10/2026: đường `{DON_THU}` không có bản ghi → bất biến không chạy → bản cũ vẫn thoát 0 "sạch".)
+ */
+function maThoat(kq) {
+  return kq.phatHien.length > 0 || kq.chuaKiem.length > 0 ? 1 : 0;
+}
+
+module.exports = { chay, docCauHinh, docHoSo, laMayLocal, dangNhapApi, maThoat };
 
 if (require.main === module) void main();

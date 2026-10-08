@@ -70,7 +70,8 @@ const BAT_BIEN = {
     khiNao: 'buoc',
     async kiem({ page, vp }) {
       if (vp.width > 767) return null;
-      const r = await page.evaluate(() => {
+      const do_ = () =>
+        page.evaluate(() => {
         const loi = [];
         let so = 0;
         for (const tr of [...document.querySelectorAll('tbody tr')].slice(0, 25)) {
@@ -87,7 +88,15 @@ const BAT_BIEN = {
           if (kh.width > 60) loi.push(`ô Thao tác rộng ${Math.round(kh.width)}px (>60px)`);
         }
         return { loi: [...new Set(loi)], so };
-      });
+        });
+      let r = await do_();
+      // Giữa lúc chuyển trang không có dòng nào: chờ rồi đo lại MỘT lần trước khi kết luận không đo được.
+      if (r.so === 0) {
+        await page.waitForTimeout(700);
+        r = await do_();
+      }
+      // Không thấy nút nào = KHÔNG ĐO ĐƯỢC (danh sách trống? đổi tên testid?) — tuyệt đối không được coi là đạt.
+      if (r.so === 0) return { khongDoDuoc: true, chiTiet: 'không thấy nút btn-action-menu-* nào trên màn này (danh sách trống hoặc đã đổi testid?)' };
       return r.loi.length ? { chiTiet: r.loi.join('; ') } : null;
     },
   },

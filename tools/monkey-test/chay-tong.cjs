@@ -13,7 +13,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { chay, docCauHinh, dangNhapApi } = require('./monkey.cjs');
+const { chay, docCauHinh, dangNhapApi, maThoat } = require('./monkey.cjs');
 
 async function main() {
   const env = { ...process.env };
@@ -49,6 +49,7 @@ async function main() {
     chuaKiem: [],
     daKiem: {},
     http429: 0,
+    ghiRaNgoai: [],
   };
   for (const hs of goc.hoSo) {
     for (const h of hat) {
@@ -57,6 +58,7 @@ async function main() {
       tong.soMan += kq.soMan;
       tong.soThaoTac += kq.soThaoTac;
       tong.http429 += kq.http429;
+      tong.ghiRaNgoai.push(...kq.ghiRaNgoai);
       tong.phatHien.push(...kq.phatHien);
       tong.chuaKiem.push(...kq.chuaKiem);
       for (const [k, v] of Object.entries(kq.daKiem)) tong.daKiem[k] = (tong.daKiem[k] || 0) + v;
@@ -67,7 +69,8 @@ async function main() {
   console.log(`\n=== TỔNG: ${tong.luot.length} lượt · ${tong.soMan} màn · ${tong.soThaoTac} thao tác · ${tong.phatHien.length} chỗ đáng ngờ · ${tong.chuaKiem.length} CHƯA KIỂM ===`);
   console.log('Số lần mỗi bất biến ĐÃ kiểm:', JSON.stringify(tong.daKiem), '· 429 (giới hạn tần suất, không tính lỗi):', tong.http429);
   for (const l of tong.luot) console.log(`  ${l.hoSo} seed=${l.hat}: ${l.soMan} màn, ${l.soThaoTac} thao tác, ${l.phatHien} đáng ngờ, ${l.chuaKiem} chưa kiểm`);
-  process.exit(tong.phatHien.length ? 1 : 0);
+  if (tong.chuaKiem.length) console.log('CHƯA KIỂM — KHÔNG phải đạt (thoát 1):', tong.chuaKiem.length, 'mục');
+  process.exit(maThoat(tong));
 }
 
 main().catch((e) => {

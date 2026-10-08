@@ -164,3 +164,91 @@ test('HỒ SƠ SAI: bất biến không tồn tại → báo lỗi cấu hình r
   assert.throws(() => docCauHinh({ MONKEY_PROFILE: t, UAT_PASS: 'x', UAT_BASE: 'http://localhost:5173' }), /không tồn tại/);
   fs.unlinkSync(t);
 });
+
+// ───────────────────────── Codex review 08/10/2026 ─────────────────────────
+
+const { maThoat } = require('../monkey.cjs');
+const { BAT_BIEN } = require('../lib/bat-bien.cjs');
+
+function layPw() {
+  for (const ten of ['playwright', '@playwright/test', 'playwright-core']) {
+    try {
+      return require(ten);
+    } catch {
+      /* thử tên kế */
+    }
+  }
+  throw new Error('không nạp được playwright');
+}
+
+test('MÃ THOÁT: CHƯA KIỂM không bao giờ là đạt (Codex P1)', () => {
+  assert.equal(maThoat({ phatHien: [], chuaKiem: [] }), 0);
+  assert.equal(maThoat({ phatHien: [{}], chuaKiem: [] }), 1);
+  assert.equal(maThoat({ phatHien: [], chuaKiem: [{}] }), 1, 'chưa kiểm KHÔNG được thoát 0');
+  assert.equal(maThoat({ phatHien: [{}], chuaKiem: [{}] }), 1);
+});
+
+test('BẤT BIẾN KHÔNG XANH GIẢ: không thấy nút ⋮ nào → CHƯA KIỂM, không phải đạt (Codex P2)', async () => {
+  const trangKhongCoNut = {
+    evaluate: async () => ({ loi: [], so: 0 }),
+    waitForTimeout: async () => {},
+  };
+  const r = await BAT_BIEN.mot_nut_menu_moi_dong.kiem({ page: trangKhongCoNut, vp: { width: 390, height: 844 } });
+  assert.ok(r && r.khongDoDuoc === true, 'phải là khongDoDuoc');
+  // Trên máy tính bất biến không áp dụng: không phải CHƯA KIỂM mà là bỏ qua.
+  assert.equal(await BAT_BIEN.mot_nut_menu_moi_dong.kiem({ page: trangKhongCoNut, vp: { width: 1600, height: 1000 } }), null);
+  // Có nút và đạt → null; có nút nhưng vi phạm → báo lỗi.
+  const dat = { evaluate: async () => ({ loi: [], so: 3 }), waitForTimeout: async () => {} };
+  assert.equal(await BAT_BIEN.mot_nut_menu_moi_dong.kiem({ page: dat, vp: { width: 390 } }), null);
+  const sai = { evaluate: async () => ({ loi: ['ô có 5 nút (phải 1)'], so: 3 }), waitForTimeout: async () => {} };
+  const r2 = await BAT_BIEN.mot_nut_menu_moi_dong.kiem({ page: sai, vp: { width: 390 } });
+  assert.match(r2.chiTiet, /5 nút/);
+});
+
+test('AN TOÀN: cho ghi (local) vẫn CHẶN yêu cầu ghi tới máy KHÁC kể cả khi UAT_BASE là local (Codex P1)', async () => {
+  const may = http.createServer((req, res) => {
+    res.setHeader('content-type', 'text/html; charset=utf-8');
+    res.end(`<!doctype html><meta charset="utf-8"><main>${NOI_DUNG}
+<button id="ngoai" onclick="fetch('http://may-that.example.test/api/v1/petitions',{method:'POST'}).catch(function(){})">Ghi ra ngoài</button>
+<button id="trong" onclick="fetch('/api/v1/petitions',{method:'POST'}).catch(function(){})">Ghi vào máy này</button></main>`);
+  });
+  await new Promise((ok) => may.listen(0, '127.0.0.1', ok));
+  const coSo = `http://127.0.0.1:${may.address().port}`;
+  try {
+    let ngoai = [];
+    let phatHien = [];
+    for (const hat of [21, 22, 23]) {
+      const cfg = { ...cauHinh(coSo, hat, 30), choGhi: true };
+      cfg.hoSo = [{ ten: 'ghi-ngoai', tuyen: ['/trang'], batBien: [], _tep: path.resolve(__dirname, 'x') }];
+      const kq = await chay(cfg);
+      ngoai = ngoai.concat(kq.ghiRaNgoai);
+      phatHien = phatHien.concat(kq.phatHien.map((p) => p.loai));
+    }
+    assert.ok(ngoai.some((x) => x.includes('may-that.example.test')), `phải chặn ghi ra máy ngoài; thấy: ${JSON.stringify(ngoai)}`);
+    assert.ok(phatHien.includes('ghi ra ngoài máy local'), 'phải báo thành phát hiện');
+  } finally {
+    may.close();
+  }
+});
+
+test('KHÔNG RÒ TRÌNH DUYỆT: lỗi giữa chừng (tệp đường thiếu) vẫn đóng trình duyệt (Codex P2)', async () => {
+  const pw = layPw();
+  const daMo = [];
+  const goc = pw.chromium.launch.bind(pw.chromium);
+  pw.chromium.launch = async (...a) => {
+    const b = await goc(...a);
+    daMo.push(b);
+    return b;
+  };
+  const { may, coSo } = await dungMayChu(true);
+  try {
+    const cfg = cauHinh(coSo, 5, 5);
+    cfg.hoSo = [{ ten: 'thieu-tep', tepDuong: 'khong-ton-tai-duong.txt', batBien: [], _tep: path.resolve(__dirname, 'x') }];
+    await assert.rejects(() => chay(cfg));
+    assert.ok(daMo.length >= 1, 'phải đã mở trình duyệt (cổng không rỗng)');
+    assert.ok(daMo.every((b) => !b.isConnected()), 'mọi trình duyệt phải đã đóng');
+  } finally {
+    pw.chromium.launch = goc;
+    may.close();
+  }
+});

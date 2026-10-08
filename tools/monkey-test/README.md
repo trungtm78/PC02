@@ -12,12 +12,12 @@ quên trừ lề ô, và Safari không trả tiêu điểm về nút mở bảng
 
 | Mã | Nghĩa |
 |---|---|
-| `0` | sạch — **và** mọi bất biến đã được kiểm ít nhất một lần (xem `daKiem` trong kết quả) |
-| `1` | có chỗ đáng ngờ (kèm hạt giống để chạy lại) |
+| `0` | sạch — **và** không còn mục CHƯA KIỂM nào (xem `daKiem` trong kết quả) |
+| `1` | có chỗ đáng ngờ (kèm hạt giống để chạy lại) **hoặc** còn mục CHƯA KIỂM |
 | `2` | bộ chạy hỏng (cấu hình sai, không đăng nhập được, không khởi động được trình duyệt) |
 
 "Bộ chạy hỏng" không phải "sản phẩm hỏng" nên tách mã riêng. Mục **CHƯA KIỂM** (bất biến không đo được vì thiếu phần tử,
-hoặc đường không có bản ghi thật) được in riêng và ghi vào `chuaKiem` — **không bao giờ tính là đạt**.
+hoặc đường không có bản ghi thật) được in riêng, ghi vào `chuaKiem` và làm bộ chạy **thoát 1** — **không bao giờ tính là đạt**.
 
 ## Chạy
 
@@ -55,7 +55,9 @@ UAT_BASE=http://localhost:5173 UAT_PASS='…' MONKEY_CHO_GHI=1 node chay-tong.cj
 Máy thật có ~55.000 hồ sơ thật. Mặc định mọi lời gọi **GHI** (`POST/PUT/PATCH/DELETE`, trừ đăng nhập/làm mới token) bị
 **chặn ở tầng mạng** — lưới an toàn không dựa vào việc đoán đúng nhãn nút — và nút có chữ xoá · lưu · duyệt · chuyển ·
 khởi tố · đình chỉ · huỷ · gửi · phân công · in chứng từ… bị bỏ qua. `MONKEY_CHO_GHI=1` trỏ vào máy **không phải local** bị
-từ chối ngay lúc đọc cấu hình (thoát 2); tên miền kiểu `localhost.evil.com` cũng bị từ chối. Mọi lời gọi ghi đều được
+từ chối ngay lúc đọc cấu hình (thoát 2); tên miền kiểu `localhost.evil.com` cũng bị từ chối. Ngay cả khi cho ghi, bộ chạy kiểm
+**đích của TỪNG yêu cầu**: ghi tới máy không phải local (trang cấu hình sai gọi tuyệt đối sang máy thật) bị chặn và báo
+`ghi ra ngoài máy local`. Mọi lời gọi ghi đều được
 **đếm** dù cho qua hay chặn (hồ sơ `camGhi` coi bất kỳ lời gọi ghi nào là phát hiện). Nút "Đăng xuất" luôn bị bỏ qua.
 
 Để có dữ liệu mà bấm trên máy local: `node gieo-du-lieu-local.cjs` (từ chối mọi địa chỉ không phải local).
