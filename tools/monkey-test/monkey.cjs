@@ -19,7 +19,9 @@ const { taoPrng, hatCon } = require('./lib/prng.cjs');
 const { chonHanhDong } = require('./lib/hanh-dong.cjs');
 const { BAT_BIEN, chupGiaTriOnhap } = require('./lib/bat-bien.cjs');
 
-const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|the server responded with a status of (401|403|404)/i;
+const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|due to access control checks|Failed to load resource/i;
+// Lỗi do chính thao tác của bộ chạy làm trang đang chuyển đi giữa chừng — không phải lỗi sản phẩm.
+const LOI_CHUYEN_TRANG = /Execution context was destroyed|Target (page|closed)|Navigation|frame was detached|Protocol error/i;
 const MAN_LOI = /something went wrong|đã xảy ra lỗi|unexpected error/i;
 
 function laMayLocal(url) {
@@ -155,6 +157,21 @@ async function dangNhapApi(cfg) {
   return { accessToken: j.accessToken, refreshToken: j.refreshToken || j.accessToken };
 }
 
+/**
+ * Chữ hiển thị của trang. Đọc giữa lúc đang chuyển trang cho ra chuỗi rỗng và báo "màn trắng" oan: chờ `load`, đọc;
+ * nếu ngắn thì chờ thêm rồi đọc LẠI — chỉ ngắn ở cả hai lần mới là màn trắng thật.
+ */
+async function docChuOnDinh(page) {
+  const doc = async () => (await page.locator('body').innerText({ timeout: 4000 }).catch(() => '')).trim();
+  await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
+  let chu = await doc();
+  if (chu.length < 60) {
+    await page.waitForTimeout(900);
+    chu = await doc();
+  }
+  return chu;
+}
+
 async function chonVungKhoi(page) {
   return page.evaluate(chupGiaTriOnhap).catch(() => null);
 }
@@ -220,7 +237,16 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
   });
   page.on('pageerror', (e) => phatHien('pageerror', e.message));
   page.on('response', (r) => {
-    if (r.status() >= 500 && r.url().includes('/api/')) phatHien('http5xx', `${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+    if (!r.url().includes('/api/')) return;
+    const st = r.status();
+    const dich = `${r.request().method()} ${new URL(r.url()).pathname}`;
+    if (st >= 500) phatHien('http5xx', `${st} ${dich}`);
+    else if (st === 429) kq.http429 += 1; // giới hạn tần suất do bộ chạy bấm dồn — đếm để lộ, không tính là lỗi sản phẩm
+    else if (st === 400) {
+      // API đúng khi từ chối chuỗi rác mà CHÍNH bộ chạy vừa gõ. 400 ở lúc KHÔNG vừa gõ mới là lỗi (đã từng: isActive=true → 400).
+      const vuaGo = Date.now() - (tt.luc_go || 0) < 4000;
+      if (!vuaGo) phatHien('http400', `${st} ${dich}${new URL(r.url()).search.slice(0, 80)}`);
+    }
   });
   ctx.on('page', (p) => {
     if (p !== page) tt.tabMoi.push(p);
@@ -282,7 +308,7 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
       await bao('không mở được', e.message);
       continue;
     }
-    const chu0 = (await page.locator('body').innerText().catch(() => '')).trim();
+    const chu0 = await docChuOnDinh(page);
     if (chu0.length < 60) await bao('màn hình trắng', `chỉ ${chu0.length} ký tự`);
     if (MAN_LOI.test(chu0)) await bao('màn lỗi', chu0.slice(0, 120));
     kq.soMan += 1;
@@ -295,12 +321,14 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
       tt.tabMoi = [];
       const hanhDong = chonHanhDong(rng, { vp, route: d, hoSo });
       let hd = null;
+      if (['go', 'dan', 'go-ten-nguoi-gui'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       try {
         hd = await hanhDong.chay({ page, ctx, rng, cfg, vp, tt, route: d });
       } catch (e) {
-        await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
+        if (!LOI_CHUYEN_TRANG.test(String(e.message))) await bao('vỡ khi thao tác', `${hanhDong.ten}: ${e.message}`);
       }
       kq.soThaoTac += 1;
+      if (['go', 'dan', 'go-ten-nguoi-gui'].includes(hanhDong.ten)) tt.luc_go = Date.now();
       if (!hd) continue;
       await page.waitForTimeout(cfg.nhipMs ?? 260);
 
@@ -314,7 +342,7 @@ async function chayMotHoSo({ pw, engine, vp, hoSo, cfg, kq, token, boNho }) {
       for (const p of tt.tabMoi) await p.close().catch(() => {});
       tt.tabMoi = [];
 
-      const chu = (await page.locator('body').innerText().catch(() => '')).trim();
+      const chu = await docChuOnDinh(page);
       if (chu.length < 60) await bao('màn hình trắng sau thao tác', `${hanhDong.ten}: chỉ ${chu.length} ký tự`, { hanhDong: hd });
       if (MAN_LOI.test(chu)) await bao('màn lỗi sau thao tác', `${hanhDong.ten}: ${chu.slice(0, 120)}`, { hanhDong: hd });
 
@@ -360,6 +388,7 @@ async function chay(cfg) {
     phatHien: [],
     chuaKiem: [],
     daKiem: {},
+    http429: 0,
   };
   console.log(`monkey: seed=${cfg.hat} engines=${cfg.engines.join(',')} khungNhin=${cfg.khungNhin.map((v) => `${v.width}x${v.height}`).join(',')} hoSo=${kq.hoSo.join(',')} choGhi=${cfg.choGhi}`);
   const boNho = new Map();
