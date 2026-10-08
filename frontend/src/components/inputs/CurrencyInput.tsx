@@ -1,4 +1,5 @@
 import { NumericFormat } from 'react-number-format';
+import { useCheDoXem } from '../form/CheDoXem';
 
 export interface CurrencyInputProps {
   value: string;
@@ -19,6 +20,8 @@ export function CurrencyInput({
   disabled,
   ...rest
 }: CurrencyInputProps & Record<string, unknown>) {
+  // Chế độ xem của form: chỉ đọc (vẫn chép được). Nơi gọi truyền readOnly riêng thì giữ (rest ghi đè).
+  const chiXem = useCheDoXem();
   return (
     <NumericFormat
       value={value}
@@ -32,6 +35,7 @@ export function CurrencyInput({
       className={className}
       placeholder={placeholder}
       disabled={disabled}
+      readOnly={chiXem || undefined}
       {...rest}
     />
   );

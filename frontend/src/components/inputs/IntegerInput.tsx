@@ -1,4 +1,5 @@
 import { NumericFormat } from 'react-number-format';
+import { useCheDoXem } from '../form/CheDoXem';
 
 export interface IntegerInputProps {
   value: string;
@@ -23,6 +24,8 @@ export function IntegerInput({
   max,
   ...rest
 }: IntegerInputProps & Record<string, unknown>) {
+  // Chế độ xem của form: chỉ đọc (vẫn chép được). Nơi gọi truyền readOnly riêng thì giữ (rest ghi đè).
+  const chiXem = useCheDoXem();
   return (
     <NumericFormat
       value={value}
@@ -45,6 +48,7 @@ export function IntegerInput({
       className={className}
       placeholder={placeholder}
       disabled={disabled}
+      readOnly={chiXem || undefined}
       {...rest}
     />
   );

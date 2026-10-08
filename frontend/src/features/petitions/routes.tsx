@@ -17,8 +17,9 @@ export function renderPetitionsRoutes(): ReactElement[] {
     // v0.67.1 fix: /petitions/:id alias. Without this, row click trên list shell
     // navigates to /petitions/:id → no route → catch-all `*` → redirect /login.
     // PetitionFormPage handles cả read+edit qua useParams id presence.
-    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
-    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage /></DungLaiTheoId>)} />,
+    // `/petitions/:id` mở ở chế độ XEM (ô chỉ-đọc, có nút "Sửa"); `/petitions/:id/edit` mới sửa được.
+    <Route key="petitions-detail" path="/petitions/:id" element={wrapRoute(<DungLaiTheoId><PetitionFormPage cheDo="xem" /></DungLaiTheoId>)} />,
+    <Route key="petitions-edit" path="/petitions/:id/edit" element={wrapRoute(<DungLaiTheoId><PetitionFormPage cheDo="sua" /></DungLaiTheoId>)} />,
     <Route key="petitions-ward" path="/ward/petitions" element={wrapRoute(<WardPetitionsPage />)} />,
   ];
 }

@@ -4,6 +4,7 @@ import { Search, ChevronDown, X, Loader2 } from 'lucide-react';
 import { LABEL_BASE, FIELD_ERROR_TEXT } from '@/constants/styles';
 import { useCrimeOptions } from '@/hooks/useCrimeOptions';
 import { useListboxNav } from '@/hooks/useListboxNav';
+import { useCheDoXem } from '@/components/form/CheDoXem';
 import { visibleCrimes, type CrimeOption } from './crime-select-utils';
 
 function crimeLabel(c: CrimeOption): string {
@@ -34,9 +35,12 @@ export function CrimeSelect({
   value,
   onChange,
   placeholder = 'Chọn tội danh...',
-  disabled = false,
+  disabled: disabledProp = false,
   testId = 'crime-select',
 }: CrimeSelectProps) {
+  // Chế độ xem của form (`CheDoXemProvider`) khoá ô như `disabled`.
+  const chiXem = useCheDoXem();
+  const disabled = disabledProp || chiXem;
   const { data: crimesRaw, isLoading } = useCrimeOptions();
   // Giá trị mặc định của tham số CHỈ chạy khi dữ liệu là `undefined`. Máy chủ (và bản giả
   // trong ca kiểm) có thể trả `null` hoặc một hình dạng khác — khi ấy `all` là null và

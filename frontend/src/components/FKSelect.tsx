@@ -1,6 +1,7 @@
 import { CasePolicyField } from '@/features/cases/native-field-policy';
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { useListboxNav, laDangGoDau } from "@/hooks/useListboxNav";
+import { useCheDoXem } from "@/components/form/CheDoXem";
 import { Plus, Search, ChevronDown, X, Loader2 } from "lucide-react";
 import { LABEL_BASE, FIELD_ERROR_TEXT } from "@/constants/styles";
 import { useDirectoryOptions } from "@/hooks/useDirectoryOptions";
@@ -66,6 +67,11 @@ interface FKSelectProps {
   masterClassType?: string;
   /** Bật chế độ nhóm. Khi có, `options`/`directoryType` không được dùng để dựng danh sách. */
   groups?: FKGroup[];
+  /**
+   * Khoá ô: vẫn hiện giá trị đã chọn nhưng không mở được, không xoá được. Cũng tự bật khi form ở CHẾ ĐỘ XEM
+   * (`CheDoXemProvider`). Ô bấm mở là `div role=combobox` nên `<fieldset disabled>` KHÔNG khoá được nó.
+   */
+  disabled?: boolean;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -87,8 +93,11 @@ export function FKSelect({
   directoryType,
   masterClassType,
   groups,
+  disabled,
 }: FKSelectProps) {
   testId = testId ?? dataTestId;
+  const chiXem = useCheDoXem();
+  const khoa = Boolean(disabled) || chiXem;
   const maGoc = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -378,19 +387,20 @@ export function FKSelect({
        * ô tìm BÊN TRONG hộp thì chỉ tồn tại sau khi hộp đã mở — tả một thứ không ai với tới.
        */}
       <div
-        onClick={toggleDropdown}
-        onKeyDown={handleTriggerKeyDown}
+        onClick={khoa ? undefined : toggleDropdown}
+        onKeyDown={khoa ? undefined : handleTriggerKeyDown}
         role="combobox"
-        tabIndex={0}
+        tabIndex={khoa ? -1 : 0}
+        aria-disabled={khoa || undefined}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-controls={`${maGoc}-ds`}
         aria-label={label}
-        className={`w-full flex items-center justify-between px-4 py-2.5 border rounded-lg cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        className={`w-full flex items-center justify-between px-4 py-2.5 border rounded-lg ${khoa ? "cursor-default" : "cursor-pointer"} transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
           error
             ? "border-red-300 focus-within:ring-2 focus-within:ring-red-500"
             : "border-slate-300 focus-within:ring-2 focus-within:ring-blue-500"
-        } ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""} bg-white`}
+        } ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""} ${khoa ? "bg-slate-50" : "bg-white"}`}
         data-testid={testId ? `${testId}-trigger` : undefined}
       >
         <span
@@ -399,7 +409,7 @@ export function FKSelect({
           {nhanDaChon || placeholder}
         </span>
         <div className="flex items-center gap-1">
-          {value && (
+          {value && !khoa && (
             <button
               type="button"
               onClick={handleClear}

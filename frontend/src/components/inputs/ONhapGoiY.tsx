@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useListboxNav, laDangGoDau } from '@/hooks/useListboxNav';
+import { useCheDoXem } from '@/components/form/CheDoXem';
 
 /**
  * Ô chữ TỰ DO có gợi ý theo dữ liệu đã có.
@@ -72,6 +73,8 @@ export function ONhapGoiY<T>({
   doTre = 300,
   disabled,
 }: ONhapGoiYProps<T>) {
+  // Chế độ xem: ô readOnly (vẫn bôi chọn / chép được chữ) và không hỏi gợi ý.
+  const chiXem = useCheDoXem();
   const [goiY, setGoiY] = useState<T[]>([]);
   const [moXo, setMoXo] = useState(false);
   const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -178,6 +181,7 @@ export function ONhapGoiY<T>({
         type="text"
         value={value}
         disabled={disabled}
+        readOnly={chiXem || undefined}
         onChange={(e) => goPhim(e.target.value)}
         onKeyDown={onKeyDown}
         role="combobox"
