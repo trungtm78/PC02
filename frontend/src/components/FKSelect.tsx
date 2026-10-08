@@ -273,7 +273,7 @@ export function FKSelect({
   }, []);
 
   /**
-   * Bàn phím trong hộp dùng chung `useListboxNav` (↑ ↓ Home End PageUp PageDown, Enter chỉ chọn mục
+   * Bàn phím trong hộp dùng chung `useListboxNav` (↑ ↓ PageUp PageDown, Enter chỉ chọn mục
    * ĐANG TÔ, Escape). `idPrefix` giữ nguyên `maGoc` để id từng mục không đổi so với trước.
    *
    * `isOpen` nằm trong khoá để mở lại hộp luôn bắt đầu từ trạng thái chưa tô gì.

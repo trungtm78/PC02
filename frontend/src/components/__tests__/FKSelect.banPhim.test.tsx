@@ -27,13 +27,22 @@ const o = () => screen.getByTestId('fk-search');
 const optionId = (i: number) => screen.getAllByRole('option')[i].id;
 
 describe('FKSelect — bàn phím mở rộng (dùng chung useListboxNav)', () => {
-  it('End nhảy tới mục cuối, Home về mục đầu', () => {
+  it('Home/End là phím của ô nhập chữ: không bị chặn và không đổi dòng tô', () => {
     renderFK();
     moHop();
-    fireEvent.keyDown(o(), { key: 'End' });
-    expect(o().getAttribute('aria-activedescendant')).toBe(optionId(3));
-    fireEvent.keyDown(o(), { key: 'Home' });
-    expect(o().getAttribute('aria-activedescendant')).toBe(optionId(0));
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    const idDangTo = o().getAttribute('aria-activedescendant');
+    expect(fireEvent.keyDown(o(), { key: 'End' })).toBe(true);
+    expect(fireEvent.keyDown(o(), { key: 'Home' })).toBe(true);
+    expect(o().getAttribute('aria-activedescendant')).toBe(idDangTo);
+  });
+
+  it('Shift+End / Shift+Home (bôi chọn chữ trong ô tìm) không bị cướp để chọn mục', () => {
+    renderFK();
+    moHop();
+    expect(fireEvent.keyDown(o(), { key: 'End', shiftKey: true })).toBe(true);
+    expect(fireEvent.keyDown(o(), { key: 'ArrowDown', shiftKey: true })).toBe(true);
+    expect(o().getAttribute('aria-activedescendant')).toBeNull();
   });
 
   it('PageDown/PageUp nhảy theo trang và chặn ở hai đầu', () => {

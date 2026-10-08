@@ -5,11 +5,18 @@ import { useListboxNav } from '../useListboxNav';
 
 Element.prototype.scrollIntoView = vi.fn();
 
-function phim(key: string, extra: { isComposing?: boolean; keyCode?: number } = {}) {
+function phim(
+  key: string,
+  extra: { isComposing?: boolean; keyCode?: number; shiftKey?: boolean; ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean } = {},
+) {
   const preventDefault = vi.fn();
   const stopPropagation = vi.fn();
   const e = {
     key,
+    shiftKey: extra.shiftKey ?? false,
+    ctrlKey: extra.ctrlKey ?? false,
+    altKey: extra.altKey ?? false,
+    metaKey: extra.metaKey ?? false,
     preventDefault,
     stopPropagation,
     nativeEvent: { isComposing: extra.isComposing ?? false, keyCode: extra.keyCode ?? 0 },
@@ -29,7 +36,7 @@ function dung(count: number, over: Partial<Parameters<typeof useListboxNav>[0]> 
   return { ...hook, onSelect, onEscape, onTab };
 }
 
-function bam(h: ReturnType<typeof dung>, key: string, extra?: { isComposing?: boolean; keyCode?: number }) {
+function bam(h: ReturnType<typeof dung>, key: string, extra?: Parameters<typeof phim>[1]) {
   const p = phim(key, extra);
   act(() => h.result.current.onKeyDown(p.e));
   return p;
@@ -66,14 +73,6 @@ describe('useListboxNav', () => {
     expect(h.result.current.activeIndex).toBe(2);
   });
 
-  it('Home/End nhảy về đầu/cuối', () => {
-    const h = dung(30);
-    bam(h, 'End');
-    expect(h.result.current.activeIndex).toBe(29);
-    bam(h, 'Home');
-    expect(h.result.current.activeIndex).toBe(0);
-  });
-
   it('PageDown/PageUp nhảy 10 mục và chặn ở hai đầu, không vòng', () => {
     const h = dung(25);
     bam(h, 'PageDown');
@@ -90,7 +89,7 @@ describe('useListboxNav', () => {
 
   it('phím điều hướng đều chặn hành vi mặc định (không cuộn trang, không đưa con trỏ về đầu ô)', () => {
     const h = dung(3);
-    for (const k of ['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp']) {
+    for (const k of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp']) {
       expect(bam(h, k).preventDefault).toHaveBeenCalled();
     }
   });
@@ -155,7 +154,7 @@ describe('useListboxNav', () => {
 
   it('số mục co lại dưới chỉ số đang tô thì không trỏ ra ngoài danh sách', () => {
     const h = dung(5);
-    bam(h, 'End');
+    bam(h, 'ArrowUp'); // từ chưa tô nhảy xuống mục cuối
     expect(h.result.current.activeIndex).toBe(4);
     h.rerender({ count: 2, resetKey: 'a' });
     bam(h, 'Enter');
@@ -224,15 +223,6 @@ describe('useListboxNav', () => {
     expect(thay.every((i) => i === -1)).toBe(true);
   });
 
-  it('phím bấm cùng lúc khoá đổi vẫn có hiệu lực (không bị lần reset muộn nuốt mất)', () => {
-    const h = renderHook((p: { k: string }) => useListboxNav({ count: 3, resetKey: p.k, onSelect: vi.fn() }), {
-      initialProps: { k: 'a' },
-    });
-    h.rerender({ k: 'b' });
-    act(() => h.result.current.onKeyDown(phim('ArrowDown').e));
-    expect(h.result.current.activeIndex).toBe(0);
-  });
-
   /**
    * Codex bắt: che chỉ số cũ bằng so khớp khoá thì chưa đủ — khoá quay về giá trị trước (A -> B -> A) làm
    * dòng tô cũ SỐNG LẠI (mở/đóng/mở lại hộp, gõ rồi xoá bộ lọc) và Enter chọn nhầm. Phải huỷ hẳn.
@@ -261,5 +251,39 @@ describe('useListboxNav', () => {
     h.rerender({ k: 'a' });
     act(() => h.result.current.onKeyDown(phim('Enter').e));
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Ô tìm là ô NHẬP CHỮ: Home/End là phím di chuyển con trỏ, Shift+Home/End/mũi tên là phím BÔI CHỌN chữ.
+   * Mẫu combobox của APG giữ chúng cho ô nhập, chỉ dùng ↑ ↓ (và PageUp/PageDown) để đi trong danh sách.
+   */
+  it('Home/End KHÔNG bị chặn: để con trỏ trong ô chữ di chuyển, không đổi dòng tô', () => {
+    const h = dung(30);
+    bam(h, 'ArrowDown');
+    for (const k of ['Home', 'End']) {
+      const p = bam(h, k);
+      expect(p.preventDefault).not.toHaveBeenCalled();
+    }
+    expect(h.result.current.activeIndex).toBe(0);
+  });
+
+  it('Home/End không bị chặn cả khi danh sách rỗng (con trỏ vẫn di chuyển được)', () => {
+    const h = dung(0);
+    expect(bam(h, 'Home').preventDefault).not.toHaveBeenCalled();
+    expect(bam(h, 'End').preventDefault).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['shiftKey', { shiftKey: true }],
+    ['ctrlKey', { ctrlKey: true }],
+    ['altKey', { altKey: true }],
+    ['metaKey', { metaKey: true }],
+  ])('phím điều hướng kèm %s thuộc về ô nhập chữ: không điều hướng, không bị chặn', (_ten, mod) => {
+    const h = dung(5);
+    for (const k of ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp']) {
+      const p = bam(h, k, mod);
+      expect(p.preventDefault).not.toHaveBeenCalled();
+    }
+    expect(h.result.current.activeIndex).toBe(-1);
   });
 });

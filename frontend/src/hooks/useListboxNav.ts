@@ -111,6 +111,14 @@ export function useListboxNav({
     (e: KeyboardEvent) => {
       if (laDangGoDau(e)) return;
 
+      // Phím điều hướng kèm Shift/Ctrl/Alt/Meta là phím của Ô NHẬP CHỮ (bôi chọn chữ, nhảy từ…), không phải
+      // của danh sách: để nguyên cho trình duyệt. Home/End cũng vậy — chúng đưa con trỏ về đầu/cuối ô, nên
+      // hook KHÔNG xử lý (mẫu combobox của APG chỉ dùng ↑ ↓ và PageUp/PageDown để đi trong danh sách).
+      const coPhimBoTro = e.shiftKey || e.ctrlKey || e.altKey || e.metaKey;
+      const laPhimDieuHuong =
+        e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'PageDown' || e.key === 'PageUp';
+      if (coPhimBoTro && laPhimDieuHuong) return;
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -119,14 +127,6 @@ export function useListboxNav({
         case 'ArrowUp':
           e.preventDefault();
           if (count > 0) dichChiSo((p) => (p > 0 && p < count ? p - 1 : count - 1));
-          return;
-        case 'Home':
-          e.preventDefault();
-          if (count > 0) setActiveIndex(0);
-          return;
-        case 'End':
-          e.preventDefault();
-          if (count > 0) setActiveIndex(count - 1);
           return;
         case 'PageDown':
           e.preventDefault();
