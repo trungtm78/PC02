@@ -13,6 +13,7 @@ import {
   DO_DAI_GIA_TRI_TOI_DA,
   SO_THE_TOI_DA,
 } from '../../common/tim-kiem/dieu-kien';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 /** Một mục `khoá~giá trị`: khoá dài nhất cỡ vài chục ký tự + dấu `~` + giá trị. */
 const DO_DAI_MUC_THE_TOI_DA = DO_DAI_GIA_TRI_TOI_DA + 50;
@@ -47,12 +48,12 @@ export class QueryGuidanceDto {
 
   /** `yyyy-mm-dd` theo ngày Việt Nam, lọc cột `date`. */
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   fromDate?: string;
 
   /** `yyyy-mm-dd`, gồm trọn ngày này. */
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

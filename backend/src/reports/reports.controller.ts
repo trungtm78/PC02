@@ -124,11 +124,11 @@ class QueryQuarterlyDto {
 
 class QueryDistrictStatsDto {
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   fromDate?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNgayThat()
   toDate?: string;
 
   @IsOptional()

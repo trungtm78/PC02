@@ -2,6 +2,7 @@ import { IsString, IsOptional, IsEnum, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SubjectStatus, SubjectType } from '@prisma/client';
 import { TheTimKiem } from '../../common/tim-kiem/the-tim-kiem.decorator';
+import { IsNgayThat } from '../../common/validators/is-ngay-that.validator';
 
 export class QuerySubjectsDto {
   /**
@@ -43,11 +44,11 @@ export class QuerySubjectsDto {
   @IsOptional()
   wardId?: string;
 
-  @IsString()
+  @IsNgayThat()
   @IsOptional()
   fromDate?: string;
 
-  @IsString()
+  @IsNgayThat()
   @IsOptional()
   toDate?: string;
 
