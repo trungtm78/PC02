@@ -1,5 +1,5 @@
 /**
- * RowActions trên điện thoại (≤767px): đúng MỘT nút ⋮ cỡ 44px; mọi thao tác nằm trong bảng trượt từ đáy.
+ * RowActions trên điện thoại (≤767px): đúng MỘT nút ⋮ cỡ 32px; mọi thao tác nằm trong bảng trượt từ đáy.
  * Máy tính giữ nguyên hành vi cũ (nút nhanh + ⋮) — hợp đồng hồi quy ở RowActions.test.tsx.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -68,12 +68,12 @@ describe('RowActions — điện thoại', () => {
     expect(screen.queryByTestId('btn-view-r1')).not.toBeInTheDocument();
   });
 
-  it('nút ⋮ cao/rộng 44px (cỡ chạm tối thiểu)', () => {
+  it('nút ⋮ cao/rộng 32px (nhỏ gọn, vẫn trên mức tối thiểu 24px của WCAG 2.2 AA)', () => {
     datManHinh(true);
     render(<RowActions registry={dangKy()} row={HANG} ctx={ctx()} />);
     const cls = screen.getByTestId('btn-action-menu-r1').className;
-    expect(cls).toMatch(/\bh-11\b/);
-    expect(cls).toMatch(/\bw-11\b/);
+    expect(cls).toMatch(/\bh-8\b/);
+    expect(cls).toMatch(/\bw-8\b/);
   });
 
   it('bấm ⋮ mở bảng đáy với MỌI thao tác (nhanh + phụ), thao tác thường trước, nguy hiểm sau cùng', () => {

@@ -55,7 +55,7 @@ for (const [ten, url] of [
 }
 
 /**
- * ĐIỆN THOẠI (≤767px) — 08/10/2026: cột Thao tác chỉ còn MỘT nút ⋮ cỡ 44px, mọi thao tác nằm trong bảng trượt từ đáy.
+ * ĐIỆN THOẠI (≤767px) — 08/10/2026: cột Thao tác chỉ còn MỘT nút ⋮ cỡ 32px, mọi thao tác nằm trong bảng trượt từ đáy.
  * Đo ở 390×844 (iPhone 14) và 360×640 (Android nhỏ), trên Chromium thật (project e2e-chromium) và WebKit nếu có.
  */
 for (const [rong, cao] of [
@@ -71,7 +71,7 @@ for (const [rong, cao] of [
       ['Vụ án', '/cases'],
       ['Tổng hợp', '/comprehensive-list'],
     ] as const) {
-      test(`T-${ten}: mỗi dòng đúng 1 nút ⋮ ≥44px, trang không tràn ngang`, async ({ page }) => {
+      test(`T-${ten}: mỗi dòng đúng 1 nút ⋮ ≥32px, trang không tràn ngang`, async ({ page }) => {
         await moDanhSach(page, url);
         const ket = await page.evaluate(() => {
           const loi: string[] = [];
@@ -84,17 +84,17 @@ for (const [rong, cao] of [
             const nut = [...o.querySelectorAll('button')];
             if (nut.length !== 1) loi.push(`ô có ${nut.length} nút (phải đúng 1)`);
             const r = nutMenu.getBoundingClientRect();
-            if (r.width < 43.5 || r.height < 43.5) loi.push(`nút ⋮ ${Math.round(r.width)}×${Math.round(r.height)} (<44px)`);
+            if (r.width < 31.5 || r.height < 31.5) loi.push(`nút ⋮ ${Math.round(r.width)}×${Math.round(r.height)} (<32px)`);
             const khung = o.getBoundingClientRect();
             if (r.left < khung.left - 0.5 || r.right > khung.right + 0.5) loi.push('nút ⋮ tràn khỏi ô');
             // Anh yêu cầu 08/10/2026: cột Thao tác trên điện thoại chỉ rộng bằng dấu ⋮, nhường chỗ cho dữ liệu.
-            if (khung.width > 60) loi.push(`ô Thao tác rộng ${Math.round(khung.width)}px (>60px)`);
+            if (khung.width > 44) loi.push(`ô Thao tác rộng ${Math.round(khung.width)}px (>44px)`);
           }
           // Tiêu đề: không còn chữ "Thao tác" nhìn thấy, ô tiêu đề cũng hẹp.
           const th = [...document.querySelectorAll('thead th')].find((t) => (t.textContent ?? '').trim() === 'Thao tác');
           if (!th) loi.push('không thấy ô tiêu đề Thao tác');
           else {
-            if (th.getBoundingClientRect().width > 60) loi.push(`ô tiêu đề Thao tác rộng ${Math.round(th.getBoundingClientRect().width)}px (>60px)`);
+            if (th.getBoundingClientRect().width > 44) loi.push(`ô tiêu đề Thao tác rộng ${Math.round(th.getBoundingClientRect().width)}px (>44px)`);
             const chu = th.querySelector('[class~="max-md:sr-only"]');
             const rc = chu?.getBoundingClientRect();
             if (!chu || (rc && (rc.width > 1.5 || rc.height > 1.5))) loi.push('chữ tiêu đề "Thao tác" vẫn hiện trên điện thoại');
