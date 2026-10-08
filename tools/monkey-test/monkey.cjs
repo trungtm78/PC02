@@ -18,6 +18,7 @@ const path = require('path');
 const { taoPrng, hatCon } = require('./lib/prng.cjs');
 const { chonHanhDong } = require('./lib/hanh-dong.cjs');
 const { BAT_BIEN, chupGiaTriOnhap } = require('./lib/bat-bien.cjs');
+const { taoSoChuaKiem } = require('./lib/so-chua-kiem.cjs');
 
 const LOI_CONSOLE_BO_QUA = /Failed to fetch|net::ERR_FAILED|aborted|ERR_ABORTED|Load failed|due to access control checks|Failed to load resource/i;
 // Lỗi do chính thao tác của bộ chạy làm trang đang chuyển đi giữa chừng — không phải lỗi sản phẩm.
@@ -285,8 +286,15 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
   }
 
   const batBienHoSo = (hoSo.batBien || []).map((ten) => ({ ten, ...BAT_BIEN[ten] }));
+  const soChuaKiem = taoSoChuaKiem();
+  const chotChuaKiem = () => {
+    for (const c of soChuaKiem.chot()) {
+      kq.chuaKiem.push(c);
+      console.log(`  ? CHƯA KIỂM [${c.luot}] ${c.batBien} @ ${c.duong}: ${c.chiTiet}`);
+    }
+  };
   const ktra = async (khiNao, boiCanh) => {
-    for (const b of batBienHoSo.filter((x) => x.khiNao === khiNao)) {
+    for (const b of batBienHoSo.filter((x) => [].concat(x.khiNao).includes(khiNao))) {
       // Đếm số lần bất biến THỰC SỰ được kiểm: "0 phát hiện" chỉ có nghĩa khi con số này lớn hơn 0.
       kq.daKiem[b.ten] = (kq.daKiem[b.ten] || 0) + 1;
       let r;
@@ -295,15 +303,13 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       } catch (e) {
         r = { khongDoDuoc: true, chiTiet: `bất biến lỗi: ${e.message}` };
       }
-      if (!r) continue;
-      if (r.khongDoDuoc) {
-        const co = kq.chuaKiem.some((x) => x.luot === nhanLuot && x.batBien === b.ten && x.duong === duongHienTai);
-        if (co) continue;
-        kq.chuaKiem.push({ luot: nhanLuot, batBien: b.ten, duong: duongHienTai, chiTiet: r.chiTiet });
-        console.log(`  ? CHƯA KIỂM [${nhanLuot}] ${b.ten} @ ${duongHienTai}: ${r.chiTiet}`);
-      } else {
-        await bao(`bất biến: ${b.ten}`, r.chiTiet);
+      if (r && r.khongDoDuoc) {
+        // Not conclusive yet: only a route where NO step measured becomes CHƯA KIỂM (see lib/so-chua-kiem.cjs).
+        soChuaKiem.khongDo(nhanLuot, b.ten, duongHienTai, r.chiTiet);
+        continue;
       }
+      soChuaKiem.daDo(nhanLuot, b.ten, duongHienTai);
+      if (r) await bao(`bất biến: ${b.ten}`, r.chiTiet);
     }
   };
 
@@ -390,7 +396,9 @@ async function chayTrongTrinhDuyet({ browser, engine, vp, hoSo, cfg, kq, token, 
       }
     }
     await ktra('cuoi-duong', { page, route: d, vp, tt, cfg });
+    chotChuaKiem();
   }
+  chotChuaKiem(); // routes left early (navigation failure) still report what they never measured
 
   if (hoSo.camGhi && thuGhi.length) {
     await bao('thử ghi ở chế độ chỉ đọc', `${thuGhi.length} lời gọi ghi (${cfg.choGhi ? 'đã cho qua' : 'đã chặn'}): ${[...new Set(thuGhi)].slice(0, 4).join(', ')}`);

@@ -209,11 +209,27 @@ const HANH_DONG = [
     trongSo: 5,
     dieuKien: ({ vp }) => vp.width <= 767,
     async chay({ page }) {
+      // A sheet left open by an earlier random action is modal: forcing focus onto a button BEHIND it is a state no user can
+      // reach (the sheet traps focus), and Escape then rightly does nothing. Close it the way a user does and skip this turn.
+      if ((await page.getByRole('dialog').count()) > 0) {
+        await page.locator('[data-testid="bang-thao-tac-duoi-huy"]').first().click({ timeout: 2000 }).catch(() => {});
+        await page.waitForTimeout(250);
+        return null;
+      }
       const nut = page.locator('tbody tr [data-testid^="btn-action-menu-"]').first();
       if (!(await nut.count())) return null;
       await nut.scrollIntoViewIfNeeded().catch(() => {});
       await nut.focus().catch(() => {});
-      await nut.click({ timeout: 4000 }).catch(() => {});
+      // A click Playwright could not land (button covered by another panel, scrolled under a sticky header) says nothing about
+      // the product: only a click that LANDED and opened no sheet is a finding.
+      let chamDuoc = true;
+      await nut.click({ timeout: 4000 }).catch(() => {
+        chamDuoc = false;
+      });
+      if (!chamDuoc) {
+        await page.keyboard.press('Escape');
+        return null;
+      }
       await page.waitForTimeout(250);
       const mo = await page.getByRole('dialog').count();
       await page.keyboard.press('Escape');
