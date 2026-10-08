@@ -207,4 +207,114 @@ describe('ONhapGoiY — bàn phím', () => {
       document.removeEventListener('keydown', ngoai);
     }
   });
+
+  it('mỗi hàng nhận biết mình có đang được TÔ không (hien(g, { dangTo })), để hàng tự bung khi tô bằng phím', async () => {
+    function ChuHien() {
+      const [v, setV] = useState('');
+      return (
+        <ONhapGoiY<G>
+          value={v}
+          onChange={setV}
+          timGoiY={async () => GOI_Y}
+          khoa={(g) => g.ten}
+          nhan={(g) => g.ten}
+          hien={(g, ngu) => (
+            <span data-testid={`hang-${g.ten}`} data-dang-to={String(ngu.dangTo)}>
+              {g.ten}
+            </span>
+          )}
+          testId="o"
+          doTre={5}
+        />
+      );
+    }
+    render(<ChuHien />);
+    await gonVaMoDanhSach();
+    expect(screen.getByTestId('hang-Trần Thị A')).toHaveAttribute('data-dang-to', 'false');
+    fireEvent.keyDown(o(), { key: 'ArrowDown' });
+    expect(screen.getByTestId('hang-Trần Thị A')).toHaveAttribute('data-dang-to', 'true');
+    expect(screen.getByTestId('hang-Trần Văn B')).toHaveAttribute('data-dang-to', 'false');
+  });
+
+  it('hàng gợi ý là <div role=option> (không phải <button>) để chứa được nút/liên kết bên trong cho hợp lệ', async () => {
+    render(<Chu />);
+    await gonVaMoDanhSach();
+    for (const opt of screen.getAllByRole('option')) expect(opt.tagName).toBe('DIV');
+  });
+
+  /**
+   * Hàng có thể chứa liên kết "Mở" chỉ bấm được bằng chuột (Tab đóng danh sách trước khi tới được nó). Bàn
+   * phím mở đơn bằng Ctrl+Enter trên hàng ĐANG TÔ — Codex chỉ ra người dùng bàn phím không có đường mở.
+   */
+  describe('moHang: Ctrl/Cmd+Enter trên hàng đang tô', () => {
+    function ChuMo({ moHang }: { moHang?: (g: G) => void }) {
+      const [v, setV] = useState('');
+      return (
+        <>
+          <ONhapGoiY<G>
+            value={v}
+            onChange={setV}
+            timGoiY={async () => GOI_Y}
+            khoa={(g) => g.ten}
+            nhan={(g) => g.ten}
+            hien={(g) => <span>{g.ten}</span>}
+            moHang={moHang}
+            testId="o"
+            doTre={5}
+          />
+          <output data-testid="cha">{v}</output>
+        </>
+      );
+    }
+
+    it('mở đúng hàng đang tô, bị chặn mặc định, và KHÔNG điền tên vào ô, không đóng danh sách', async () => {
+      const moHang = vi.fn();
+      render(<ChuMo moHang={moHang} />);
+      await gonVaMoDanhSach();
+      fireEvent.keyDown(o(), { key: 'ArrowDown' });
+      fireEvent.keyDown(o(), { key: 'ArrowDown' });
+      const khongBiChan = fireEvent.keyDown(o(), { key: 'Enter', ctrlKey: true });
+      expect(moHang).toHaveBeenCalledTimes(1);
+      expect(moHang).toHaveBeenCalledWith(GOI_Y[1]);
+      expect(khongBiChan).toBe(false);
+      expect(screen.getByTestId('cha')).toHaveTextContent('tran');
+      expect(screen.getByTestId('o-goi-y')).toBeInTheDocument();
+    });
+
+    it('Cmd+Enter (macOS) cũng mở', async () => {
+      const moHang = vi.fn();
+      render(<ChuMo moHang={moHang} />);
+      await gonVaMoDanhSach();
+      fireEvent.keyDown(o(), { key: 'ArrowDown' });
+      fireEvent.keyDown(o(), { key: 'Enter', metaKey: true });
+      expect(moHang).toHaveBeenCalledWith(GOI_Y[0]);
+    });
+
+    it('CHƯA tô hàng nào thì Ctrl+Enter không mở gì và không bị chặn', async () => {
+      const moHang = vi.fn();
+      render(<ChuMo moHang={moHang} />);
+      await gonVaMoDanhSach();
+      const khongBiChan = fireEvent.keyDown(o(), { key: 'Enter', ctrlKey: true });
+      expect(moHang).not.toHaveBeenCalled();
+      expect(khongBiChan).toBe(true);
+    });
+
+    it('Enter thường vẫn CHỌN hàng đang tô (điền tên), không mở', async () => {
+      const moHang = vi.fn();
+      render(<ChuMo moHang={moHang} />);
+      await gonVaMoDanhSach();
+      fireEvent.keyDown(o(), { key: 'ArrowDown' });
+      fireEvent.keyDown(o(), { key: 'Enter' });
+      expect(moHang).not.toHaveBeenCalled();
+      expect(screen.getByTestId('cha')).toHaveTextContent('Trần Thị A');
+    });
+
+    it('không truyền moHang thì Ctrl+Enter chạy như cũ (chọn hàng đang tô)', async () => {
+      render(<ChuMo />);
+      await gonVaMoDanhSach();
+      fireEvent.keyDown(o(), { key: 'ArrowDown' });
+      fireEvent.keyDown(o(), { key: 'Enter', ctrlKey: true });
+      expect(screen.getByTestId('cha')).toHaveTextContent('Trần Thị A');
+    });
+  });
 });

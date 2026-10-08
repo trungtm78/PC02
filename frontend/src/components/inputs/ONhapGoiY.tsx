@@ -39,8 +39,17 @@ export interface ONhapGoiYProps<T> {
   khoa: (g: T) => string;
   /** Chữ sẽ điền vào ô khi cán bộ chọn dòng ấy. */
   nhan: (g: T) => string;
-  /** Cách vẽ một dòng gợi ý. */
-  hien: (g: T) => ReactNode;
+  /**
+   * Cách vẽ một dòng gợi ý. `ngu.dangTo` cho biết dòng này đang được TÔ bằng bàn phím (↑ ↓) — để dòng tự bung
+   * phần chi tiết thay vì bắt người dùng với tay lấy chuột. Tham số thứ hai tuỳ chọn: nơi gọi cũ bỏ qua được.
+   */
+  hien: (g: T, ngu: { dangTo: boolean }) => ReactNode;
+  /**
+   * Mở chi tiết của hàng đang TÔ bằng Ctrl/Cmd+Enter (vd mở đơn ở tab mới). Hàng có thể chứa liên kết chỉ bấm
+   * được bằng chuột, vì Tab đóng danh sách trước khi tới nó — đây là đường mở cho người dùng bàn phím.
+   * Không truyền thì Ctrl+Enter chạy như Enter thường.
+   */
+  moHang?: (g: T) => void;
   placeholder?: string;
   className?: string;
   testId?: string;
@@ -56,6 +65,7 @@ export function ONhapGoiY<T>({
   khoa,
   nhan,
   hien,
+  moHang,
   placeholder,
   className,
   testId,
@@ -108,6 +118,14 @@ export function ONhapGoiY<T>({
         setMoXo(true);
       }
       return;
+    }
+    if (moHang && e.key === 'Enter' && (e.ctrlKey || e.metaKey) && nav.activeIndex >= 0) {
+      const g = goiY[nav.activeIndex];
+      if (g !== undefined) {
+        e.preventDefault();
+        moHang(g);
+        return;
+      }
     }
     nav.onKeyDown(e);
   };
@@ -182,25 +200,25 @@ export function ONhapGoiY<T>({
         <div
           id={maDanhSach}
           role="listbox"
-          className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto"
+          className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-72 overflow-y-auto"
           data-testid={testId ? `${testId}-goi-y` : undefined}
         >
           {goiY.map((g, i) => (
-            <button
+            // <div role=option>, không phải <button>: hàng có thể chứa nút/liên kết riêng (vd "Xem thêm"),
+            // mà <button> lồng <button> là HTML sai. Chọn bằng mouseDown (kịp trước khi ô mất tiêu điểm).
+            <div
               key={khoa(g)}
               id={nav.optionId(i)}
-              type="button"
               role="option"
-              tabIndex={-1}
               aria-selected={false}
               data-active={i === nav.activeIndex ? 'true' : undefined}
-              className={`w-full text-left px-4 py-2 text-sm ${
+              className={`w-full cursor-pointer text-left px-4 py-2 text-sm ${
                 i === nav.activeIndex ? 'bg-blue-100 text-blue-800' : 'hover:bg-slate-50'
               }`}
               onMouseDown={() => chon(g)}
             >
-              {hien(g)}
-            </button>
+              {hien(g, { dangTo: i === nav.activeIndex })}
+            </div>
           ))}
         </div>
       )}
