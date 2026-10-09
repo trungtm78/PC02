@@ -51,16 +51,17 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 
 | ID | Chức năng | Viết test | Chạy test | Kết quả |
 |---|---|---|---|---|
-| E01 | period: sinh kỳ DAILY/WEEKLY/MONTHLY/QUARTERLY/SEMI_ANNUAL/YEARLY/ONE_TIME, biên lịch | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E02 | token: grammar `{TYPE\|FORMAT\|AGG}`, alias Num/AGV | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E03 | template-parser: locked hiệu lực, shared formula, merge, hidden | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E04 | expr: SUM/IF/AVERAGE/MIN/MAX/COUNT/ROUND/AND/OR/ABS, vòng lặp, PREV | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E05 | decimal: precision/scale, parse vi-VN | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E06 | values: NUM/TEXT/DATE/TIME validate | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E07 | aggregate: SUM/AVG/MIN/MAX/COUNT/NONE, blankPolicy ZERO/IGNORE, oracle HSLN | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E08 | access: canEdit theo state/grant/deadline/now | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E09 | status: KPI, mẫu số 0 | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| E10 | paste: TSV nguyên tử | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
+| E01 | period: sinh kỳ DAILY/WEEKLY/MONTHLY/QUARTERLY/SEMI_ANNUAL/YEARLY/ONE_TIME, biên lịch | PASS | PASS | PASS (25/25) |
+| E02 | token: grammar `{TYPE\|FORMAT\|AGG}`, alias Num/AGV | PASS | PASS | PASS (27/27) |
+| E03 | template-parser: locked hiệu lực, shared formula, merge, hidden | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM (PR3) |
+| E04 | expr: SUM/IF/AVERAGE/MIN/MAX/COUNT/ROUND/AND/OR/ABS, vòng lặp, PREV | PASS | PASS | PASS (52/52) |
+| E05 | decimal: precision/scale, parse vi-VN | PASS | PASS | PASS (36/36) |
+| E06 | values: NUM/TEXT/DATE/TIME validate | PASS | PASS | PASS (39/39) |
+| E07 | aggregate: SUM/AVG/MIN/MAX/COUNT/NONE, blankPolicy ZERO/IGNORE, oracle HSLN | PASS | PASS | PASS (12/12, đối chiếu 228 dòng oracle thật) |
+| E08 | access: canEdit theo state/grant/deadline/now | PASS | PASS | PASS (18/18) |
+| E09 | status: KPI, mẫu số 0 | PASS | PASS | PASS (17/17) |
+| E10 | paste: TSV nguyên tử | PASS | PASS | PASS (16/16) |
+| E11 | date-math (dùng chung, không có trong danh mục gốc) | PASS | PASS | PASS (32/32) |
 
 ## C. Xuyên suốt (gate, không phải 1 màn hình)
 
@@ -74,4 +75,6 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
-**Tổng: 52 dòng. PASS: 0/52.**
+**Tổng: 53 dòng. PASS: 10/53** (toàn bộ engine thuần PR1; các màn hình/chức năng còn lại chờ PR2-10).
+
+**Lưu ý về "PASS" ở mục B (engine):** đây là kết quả `jest` cấp đơn vị (TDD trong lúc code), không phải UAT đầy đủ theo giao thức §9 (viết bởi `/uat-test-writer`, chạy bởi `/uat-test-runner`/`/uat-test-only` trên hệ thống thật đang chạy). Các dòng này **không tự động coi là "100% PASS" của UAT** — khi tới PR10 (giai đoạn UAT), phải chạy `/uat-test-writer` cho toàn bộ ma trận rồi `/uat-test-runner` thật trên staging, kể cả với phần engine đã xanh ở đây.
