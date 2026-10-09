@@ -143,4 +143,11 @@ export const SEED_PERMISSIONS: readonly SeedPermission[] = [
   { action: 'manage_access', subject: 'CaseGovernance', description: 'Manage explicit Case principal access profiles' },
   { action: 'custody', subject: 'CaseGovernance', description: 'Record evidence custody' },
   { action: 'dispose', subject: 'CaseGovernance', description: 'Review governed disposition' },
+
+  // ── Dynamic Report Builder (Báo cáo động), D10 ─────────────────────────
+  // `read` only opens the sidebar menu group — viewing an actual report
+  // requires a DynReportRole (MANAGER/VIEWER) row, independent of system role.
+  { action: 'read', subject: 'DynamicReport', description: 'Vào menu Báo cáo động' },
+  { action: 'manage', subject: 'DynamicReport', description: 'Thiết lập mẫu, lịch, phân công, xuất bản báo cáo động' },
+  { action: 'admin', subject: 'DynamicReport', description: 'Xem toàn bộ (chỉ đọc), huỷ chốt kỳ, miễn nộp — không sửa số liệu hộ' },
 ];

@@ -236,6 +236,22 @@ model User {
   // Nhóm I — PetitionAssignment
   petitionAssignments             PetitionAssignment[]      @relation("PetitionAssignmentUser")
   petitionAssignmentsMade         PetitionAssignment[]      @relation("PetitionAssignmentAssignedBy")
+  // Dynamic Report Builder (Báo cáo động)
+  dynReportsCreated         DynReport[]
+  dynReportVersionsCreated  DynReportVersion[]
+  dynReportRoles            DynReportRole[]
+  dynReportTargetEditors    DynReportTargetEditor[]
+  dynReportAssignmentEditorsActive   DynReportAssignmentEditor[] @relation("DynReportAssignmentEditorUser")
+  dynReportAssignmentEditorsReplaced DynReportAssignmentEditor[] @relation("DynReportAssignmentEditorReplacedBy")
+  dynReportAssignmentsExempted      DynReportAssignment[]
+  dynReportSubmissionsApproved      DynReportSubmission[]
+  dynReportRevisionsAuthored        DynReportRevision[]
+  dynReportUnlocksRequested         DynReportUnlock[]            @relation("DynReportUnlockRequestedBy")
+  dynReportUnlocksDecided           DynReportUnlock[]            @relation("DynReportUnlockDecidedBy")
+  dynReportUnlocksRevoked           DynReportUnlock[]            @relation("DynReportUnlockRevokedBy")
+  dynReportCommentsAuthored         DynReportComment[]
+  dynReportPeriodsFinalized         DynReportPeriod[]
+  dynReportExportsRequested         DynReportExport[]
 
   @@map("users")
 }
@@ -2205,6 +2221,13 @@ enum NotificationType {
   PETITION_ASSIGNED
   UTDT_ASSIGNED
   INCIDENT_CREATED
+  // Dynamic Report Builder (Báo cáo động)
+  DYN_REPORT_RETURNED
+  DYN_REPORT_APPROVED
+  DYN_REPORT_UNLOCK_GRANTED
+  DYN_REPORT_UNLOCK_REQUESTED
+  DYN_REPORT_PERIOD_FINALIZED
+  DYN_REPORT_DEADLINE_REMINDER
 }
 
 model Notification {
@@ -2306,6 +2329,8 @@ model Team {
   incidentHandoffsReceived IncidentHandoff[] @relation("IncidentHandoffTarget")
   grantsForUnit            DataAccessGrant[] @relation("GrantUnit")
   calendarEvents           CalendarEvent[] // Calendar Events v2 (PR 1)
+  dynReportTargets         DynReportTarget[] // Dynamic Report Builder (Báo cáo động)
+  dynReportAssignments     DynReportAssignment[] @relation("DynReportAssignmentTeam")
 
   @@index([parentId])
   @@index([level])
@@ -3865,4 +3890,520 @@ model CaseDispositionRequest {
 
   @@index([caseId, status])
   @@map("case_disposition_requests")
+}
+
+// ═════════════════════════════════════════════
+// Dynamic Report Builder (Báo cáo động)
+// Design spec: docs/superpowers/specs/2026-10-09-dynamic-report-builder-design.md
+// R1: no DynReportFormula table -- formulas live inside DynReportVersion.layout
+// (immutable Json, compiled AST included) since they never change after
+// publish, same lifecycle as the rest of the layout.
+// FK policy: no relation here ever cascades into deleting report/period/
+// submission/revision history. Required actor FKs use Restrict (the
+// default) so a user row can never be hard-deleted out from under history
+// that references it; optional actor FKs use SetNull.
+// ═════════════════════════════════════════════
+
+enum DynReportStatus {
+  DRAFT
+  PUBLISHED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum DynReportReportingUnit {
+  TEAM
+  USER
+}
+
+enum DynReportVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum DynReportFieldType {
+  NUM
+  TEXT
+  DATE
+  TIME
+}
+
+enum DynReportAggregateType {
+  SUM
+  AVG
+  MIN
+  MAX
+  COUNT
+  NONE
+}
+
+enum DynReportBlankPolicy {
+  ZERO
+  IGNORE
+}
+
+enum DynReportFieldSource {
+  TOKEN
+  WEB
+}
+
+enum DynReportRuleOperator {
+  EQ
+  NEQ
+  GT
+  GTE
+  LT
+  LTE
+  COMPULSORY_PAIR
+  EXCLUSIVE_PAIR
+}
+
+enum DynReportRuleSeverity {
+  ERROR
+  WARNING
+}
+
+enum DynReportRuleOrigin {
+  MANUAL
+  SUGGESTED_FROM_IF
+}
+
+enum DynReportPeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  YEARLY
+  ONE_TIME
+}
+
+enum DynReportRoleType {
+  MANAGER
+  VIEWER
+}
+
+enum DynReportPeriodStatus {
+  OPEN
+  FINALIZED
+}
+
+enum DynReportObligation {
+  REQUIRED
+  EXEMPT
+}
+
+enum DynReportSubmissionState {
+  NOT_STARTED
+  DRAFT
+  SUBMITTED
+  RETURNED
+  APPROVED
+}
+
+enum DynReportRevisionKind {
+  SAVE
+  IMPORT
+  SUBMIT
+  RETURN
+  APPROVE
+  UNAPPROVE
+  ADJUSTMENT
+}
+
+enum DynReportUnlockKind {
+  GRANT
+  REQUEST
+}
+
+enum DynReportUnlockStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+enum DynReportAggregateMode {
+  SUBMITTED
+  APPROVED
+  ALL_SAVED
+}
+
+enum DynReportExportKind {
+  TEAM
+  MANAGER_FULL
+  STATUS_LIST
+}
+
+enum DynReportExportStatus {
+  PENDING
+  READY
+  FAILED
+  EXPIRED
+}
+
+model DynReport {
+  id              String                  @id @default(cuid())
+  code            String                  @unique
+  name            String
+  description     String?
+  status          DynReportStatus         @default(DRAFT)
+  reportingUnit   DynReportReportingUnit  @default(TEAM)
+  effectiveFrom   DateTime?
+  configVersion   Int                     @default(0) // optimistic concurrency on the draft config
+  createdById     String?
+  createdBy       User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  versions   DynReportVersion[]
+  schedules  DynReportSchedule[]
+  roles      DynReportRole[]
+  targets    DynReportTarget[]
+  periods    DynReportPeriod[]
+
+  @@index([status])
+  @@map("dyn_reports")
+}
+
+model DynReportVersion {
+  id             String                  @id @default(cuid())
+  reportId       String
+  report         DynReport               @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  version        Int
+  status         DynReportVersionStatus  @default(DRAFT)
+  fileBytes      Bytes
+  sha256         String
+  fileName       String
+  selectedSheets Json // string[] of sheet keys included as report sheets
+  layout         Json // parsed Layout: sheets/merges/styles/fields/formulas(AST)/validationRules
+  dateSystem     String                  @default("1900") // "1900" | "1904"
+  parserVersion  String
+  engineVersion  String
+  issues         Json? // warnings surfaced at publish time (e.g. unsupported features)
+  publishedAt    DateTime?
+  createdById    String?
+  createdBy      User?                   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime                @default(now())
+
+  fields DynReportField[]
+  rules  DynReportValidationRule[]
+  periods DynReportPeriod[]
+
+  @@unique([reportId, version])
+  @@map("dyn_report_versions")
+}
+
+model DynReportField {
+  id           String                   @id @default(cuid())
+  versionId    String
+  version      DynReportVersion         @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  sheetKey     String
+  address      String
+  fieldKey     String
+  label        String
+  type         DynReportFieldType
+  format       String?
+  aggregate    DynReportAggregateType   @default(NONE)
+  blankPolicy  DynReportBlankPolicy     @default(ZERO)
+  required     Boolean                  @default(false)
+  min          Decimal?                 @db.Decimal(18, 4)
+  max          Decimal?                 @db.Decimal(18, 4)
+  scale        Int?
+  maxLength    Int?
+  helpText     String?
+  source       DynReportFieldSource     @default(TOKEN)
+
+  @@unique([versionId, sheetKey, address])
+  @@index([versionId, fieldKey])
+  @@map("dyn_report_fields")
+}
+
+model DynReportValidationRule {
+  id              String                   @id @default(cuid())
+  versionId       String
+  version         DynReportVersion         @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  name            String
+  leftExpr        String
+  operator        DynReportRuleOperator
+  rightExpr       String
+  severity        DynReportRuleSeverity    @default(ERROR)
+  message         String
+  missingStrategy String? // how to treat a missing operand: e.g. "BLOCK" | "SKIP"
+  origin          DynReportRuleOrigin      @default(MANUAL)
+
+  @@index([versionId])
+  @@map("dyn_report_validation_rules")
+}
+
+model DynReportSchedule {
+  id              String               @id @default(cuid())
+  reportId        String
+  report          DynReport            @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  periodType      DynReportPeriodType
+  periodStartDay  Int?                 // MONTHLY only (D02); default 1 (calendar month) when null
+  dueRule         Json                 // DueRule shape from period.ts (FIXED_IN_PERIOD | DAYS_AFTER_END)
+  openRule        Json                 // OpenRule shape from period.ts
+  shiftNonWorking Boolean              @default(false)
+  oneTimeDate     String?              // ONE_TIME only
+  timezone        String               @default("Asia/Ho_Chi_Minh")
+  effectiveFrom   DateTime
+  supersededAt    DateTime?
+  createdAt       DateTime             @default(now())
+
+  @@index([reportId, effectiveFrom])
+  @@map("dyn_report_schedules")
+}
+
+model DynReportRole {
+  id           String             @id @default(cuid())
+  reportId     String
+  report       DynReport          @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role         DynReportRoleType
+  teamScopeId  String?            // R13: VIEWER limited to one team subtree; null = whole report
+  validFrom    DateTime           @default(now())
+  validTo      DateTime?
+
+  @@index([reportId, userId])
+  @@index([reportId, role])
+  @@map("dyn_report_roles")
+}
+
+model DynReportTarget {
+  id         String                    @id @default(cuid())
+  reportId   String
+  report     DynReport                 @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  teamId     String
+  team       Team                      @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  validFrom  DateTime                  @default(now())
+  validTo    DateTime?
+
+  editors    DynReportTargetEditor[]
+
+  @@index([reportId, teamId])
+  @@map("dyn_report_targets")
+}
+
+model DynReportTargetEditor {
+  id        String           @id @default(cuid())
+  targetId  String
+  target    DynReportTarget  @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  validFrom DateTime         @default(now())
+  validTo   DateTime?
+
+  @@index([targetId, userId])
+  @@map("dyn_report_target_editors")
+}
+
+model DynReportPeriod {
+  id               String                 @id @default(cuid())
+  reportId         String
+  report           DynReport              @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  periodKey        String
+  startDate        DateTime               @db.Date
+  endDate          DateTime               @db.Date
+  opensAt          DateTime
+  dueAt            DateTime
+  versionId        String
+  version          DynReportVersion       @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  scheduleSnapshot Json
+  status           DynReportPeriodStatus  @default(OPEN)
+  finalizedAt      DateTime?
+  finalizedById    String?
+  finalizedBy      User?                  @relation(fields: [finalizedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime               @default(now())
+
+  assignments DynReportAssignment[]
+  snapshots   DynReportSnapshot[]
+
+  @@unique([reportId, periodKey])
+  @@index([status, dueAt])
+  @@map("dyn_report_periods")
+}
+
+model DynReportAssignment {
+  id                   String                @id @default(cuid())
+  periodId             String
+  period               DynReportPeriod       @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  teamId               String
+  team                 Team                  @relation("DynReportAssignmentTeam", fields: [teamId], references: [id], onDelete: Restrict)
+  teamSnapshot         Json
+  obligation           DynReportObligation   @default(REQUIRED)
+  exemptReason         String?
+  exemptById           String?
+  exemptBy             User?                 @relation(fields: [exemptById], references: [id], onDelete: SetNull)
+  exemptAt             DateTime?
+  addedMidPeriodReason String?
+  createdAt            DateTime              @default(now())
+
+  editors      DynReportAssignmentEditor[]
+  submission   DynReportSubmission?
+  unlocks      DynReportUnlock[]
+  comments     DynReportComment[]
+
+  @@unique([periodId, teamId])
+  @@map("dyn_report_assignments")
+}
+
+model DynReportAssignmentEditor {
+  id             String                @id @default(cuid())
+  assignmentId   String
+  assignment     DynReportAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                  @relation("DynReportAssignmentEditorUser", fields: [userId], references: [id], onDelete: Restrict)
+  isActive       Boolean               @default(true)
+  replacedAt     DateTime?
+  replacedById   String?
+  replacedBy     User?                 @relation("DynReportAssignmentEditorReplacedBy", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaceReason  String?
+  createdAt      DateTime              @default(now())
+
+  @@index([assignmentId, userId])
+  @@index([assignmentId, isActive])
+  @@map("dyn_report_assignment_editors")
+}
+
+model DynReportSubmission {
+  id                      String                     @id @default(cuid())
+  assignmentId            String                     @unique
+  assignment              DynReportAssignment        @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  state                   DynReportSubmissionState   @default(NOT_STARTED)
+  currentRevision         BigInt                     @default(0)
+  values                  Json                       @default("{}") // current typed values: {fieldKey: {t, v}}
+  approvalLevel           Int                        @default(0) // R21: current level reached in a multi-level approval chain
+  firstSavedAt            DateTime?
+  firstSubmittedAt        DateTime?
+  firstSubmittedRevision  BigInt?
+  submittedAt             DateTime?
+  approvedAt              DateTime?
+  approvedById            String?
+  approvedBy              User?                      @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  returnedReason          String?
+  returnDueAt              DateTime?
+  updatedAt               DateTime                   @updatedAt
+
+  revisions DynReportRevision[]
+
+  @@index([state, submittedAt])
+  @@map("dyn_report_submissions")
+}
+
+model DynReportRevision {
+  id           String                  @id @default(cuid())
+  submissionId String
+  submission   DynReportSubmission     @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  revision     BigInt
+  kind         DynReportRevisionKind
+  valuesFull   Json?                   // R9: full snapshot -- only at SUBMIT/APPROVE/RETURN/UNAPPROVE/ADJUSTMENT/IMPORT
+  diff         Json?                   // R9: field-level diff -- only at SAVE
+  actorId      String
+  actor        User                    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  reason       String?
+  committedAt  DateTime                @default(now())
+
+  @@unique([submissionId, revision])
+  @@map("dyn_report_revisions")
+}
+
+model DynReportUnlock {
+  id              String                  @id @default(cuid())
+  assignmentId    String
+  assignment      DynReportAssignment     @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  kind            DynReportUnlockKind
+  status          DynReportUnlockStatus   @default(PENDING)
+  startsAt        DateTime
+  expiresAt       DateTime
+  reason          String
+  requestedById   String?
+  requestedBy     User?                   @relation("DynReportUnlockRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  decidedById     String?
+  decidedBy       User?                   @relation("DynReportUnlockDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decisionReason  String?
+  revokedById     String?
+  revokedBy       User?                   @relation("DynReportUnlockRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  revokedAt       DateTime?
+  revokeReason    String?
+  bulkBatchId     String?
+  createdAt       DateTime                @default(now())
+
+  @@index([assignmentId, status, expiresAt])
+  @@index([bulkBatchId])
+  @@map("dyn_report_unlocks")
+}
+
+model DynReportComment {
+  id            String                @id @default(cuid())
+  assignmentId  String
+  assignment    DynReportAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  fieldKey      String?
+  body          String
+  authorId      String
+  author        User                  @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt     DateTime              @default(now())
+
+  @@index([assignmentId, fieldKey])
+  @@map("dyn_report_comments")
+}
+
+model DynReportSnapshot {
+  id                  String                   @id @default(cuid())
+  periodId            String
+  period              DynReportPeriod          @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  mode                DynReportAggregateMode
+  sourceHash          String
+  sourceRevisions     Json // vector: {assignmentId: revision|null}
+  contributorSetHash  String // R13: hash of the team-id set this snapshot covers, re-checked on download
+  values              Json
+  engineVersion       String
+  asOf                DateTime
+  invalidatedAt       DateTime?
+  invalidatedReason   String?
+  official            Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+
+  exports DynReportExport[]
+
+  @@index([periodId, mode, sourceHash])
+  @@map("dyn_report_snapshots")
+}
+
+model DynReportExport {
+  id                  String                   @id @default(cuid())
+  requestedById       String
+  requestedBy         User                     @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  kind                DynReportExportKind
+  scope               Json
+  snapshotId          String?
+  snapshot            DynReportSnapshot?       @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  status              DynReportExportStatus    @default(PENDING)
+  fileBytes           Bytes?
+  fileName            String?
+  contributorSetHash  String? // re-checked against current scope at download time (R13)
+  error               String?
+  expiresAt           DateTime?
+  createdAt           DateTime                 @default(now())
+
+  @@index([status, expiresAt])
+  @@map("dyn_report_exports")
+}
+
+model DynReportIdempotency {
+  id           String    @id @default(cuid())
+  actorId      String
+  action       String
+  key          String
+  requestHash  String
+  resultRef    String?
+  status       String    @default("PENDING") // PENDING | COMPLETED
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+
+  @@unique([actorId, action, key])
+  @@map("dyn_report_idempotency_records")
 }
