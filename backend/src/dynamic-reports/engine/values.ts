@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { DECIMAL_LIMITS, parseCanonicalDecimal } from './decimal';
+import { isValidCalendarDate } from './date-math';
 
 /**
  * Values engine — per-field validation for the four grammar types (FRD
@@ -160,21 +161,6 @@ export type DateParseResult =
   | { ok: false; error: ValueValidationError };
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** Returns the number of days in a given month (1-12), accounting for leap years. */
-function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-function isValidCalendarDate(
-  year: number,
-  month: number,
-  day: number,
-): boolean {
-  if (month < 1 || month > 12) return false;
-  if (day < 1) return false;
-  return day <= daysInMonth(year, month);
-}
 
 /**
  * Strict ISO date-only parse (yyyy-mm-dd). Never constructs a JS `Date` from
