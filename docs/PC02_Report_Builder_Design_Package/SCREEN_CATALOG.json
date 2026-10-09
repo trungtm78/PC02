@@ -1,0 +1,331 @@
+[
+  {
+    "id": "S01",
+    "title": "Danh sách thiết lập",
+    "description": "Lọc, tạo mới, xem và quản lý vòng đời báo cáo.",
+    "role": "Người thiết lập",
+    "events": {
+      "Tạo báo cáo": "S02",
+      "Xem phiên bản": "S22"
+    }
+  },
+  {
+    "id": "S02",
+    "title": "Upload mẫu Excel",
+    "description": "Kiểm tra loại file và parse trước khi sang bước tiếp theo; upload không tự xuất bản.",
+    "role": "Người thiết lập",
+    "events": {
+      "Chọn file hợp lệ": "S03",
+      "File lỗi": "S04"
+    }
+  },
+  {
+    "id": "S03",
+    "title": "Preview và thuộc tính ô",
+    "description": "Đối soát schema theo Sheet!Cell; sửa thuộc tính nháp và xem cảnh báo.",
+    "role": "Người thiết lập",
+    "events": {
+      "Có lỗi import": "S04",
+      "Tiếp theo": "S05"
+    }
+  },
+  {
+    "id": "S04",
+    "title": "Lỗi import và validation mẫu",
+    "description": "Danh sách lỗi có vị trí nguyên nhân và cách sửa; không âm thầm bỏ qua ô lỗi.",
+    "role": "Người thiết lập",
+    "events": {
+      "Tải lại": "S02",
+      "Mẫu hợp lệ": "S03"
+    }
+  },
+  {
+    "id": "S05",
+    "title": "Cấu hình kỳ tuần",
+    "description": "Bản sản phẩm hiển thị tối thiểu 6 kỳ kế tiếp; mẫu ngắn thể hiện ngày biên. Ngày cụ thể là một lần.",
+    "role": "Người thiết lập",
+    "events": {
+      "Đổi kiểu kỳ": "S05–S08",
+      "Tiếp theo": "S09"
+    }
+  },
+  {
+    "id": "S06",
+    "title": "Cấu hình kỳ tháng",
+    "description": "Bản sản phẩm hiển thị tối thiểu 6 kỳ kế tiếp; mẫu ngắn thể hiện ngày biên. Ngày cụ thể là một lần.",
+    "role": "Người thiết lập",
+    "events": {
+      "Đổi kiểu kỳ": "S05–S08",
+      "Tiếp theo": "S09"
+    }
+  },
+  {
+    "id": "S07",
+    "title": "Cấu hình kỳ quý",
+    "description": "Bản sản phẩm hiển thị tối thiểu 6 kỳ kế tiếp; mẫu ngắn thể hiện ngày biên. Ngày cụ thể là một lần.",
+    "role": "Người thiết lập",
+    "events": {
+      "Đổi kiểu kỳ": "S05–S08",
+      "Tiếp theo": "S09"
+    }
+  },
+  {
+    "id": "S08",
+    "title": "Cấu hình kỳ ngày cụ thể",
+    "description": "Bản sản phẩm hiển thị tối thiểu 6 kỳ kế tiếp; mẫu ngắn thể hiện ngày biên. Ngày cụ thể là một lần.",
+    "role": "Người thiết lập",
+    "events": {
+      "Đổi kiểu kỳ": "S05–S08",
+      "Tiếp theo": "S09"
+    }
+  },
+  {
+    "id": "S09",
+    "title": "Phân công quản lý và người nhập",
+    "description": "Multi-select có tìm kiếm, đơn vị và loại trùng. Một người quản lý theo đề xuất.",
+    "role": "Người thiết lập",
+    "events": {
+      "Xem xác nhận": "S10"
+    }
+  },
+  {
+    "id": "S10",
+    "title": "Xác nhận xuất bản",
+    "description": "Có ngày hiệu lực rõ; publish không tự tạo kỳ quá khứ.",
+    "role": "Người thiết lập",
+    "events": {
+      "Xuất bản thành công": "S01"
+    }
+  },
+  {
+    "id": "S11",
+    "title": "Nhập báo cáo",
+    "description": "Điều hướng bằng Tab; date/time có picker. Còn 2 giờ 15 phút · Hạn nhập 09/10/2026 lúc 17:00",
+    "role": "Người nhập",
+    "events": {
+      "Kiểm tra": "S12",
+      "Đến hạn": "S13",
+      "Được mở lại": "S14",
+      "Lỗi lưu": "S26"
+    }
+  },
+  {
+    "id": "S12",
+    "title": "Kiểm tra dữ liệu nhập",
+    "description": "Điều hướng bằng Tab; date/time có picker. Có 2 ô cần sửa. Các giá trị chưa hợp lệ chưa được lưu.",
+    "role": "Người nhập",
+    "events": {
+      "Kiểm tra": "S12",
+      "Đến hạn": "S13",
+      "Được mở lại": "S14",
+      "Lỗi lưu": "S26"
+    }
+  },
+  {
+    "id": "S13",
+    "title": "Báo cáo đã khóa",
+    "description": "Điều hướng bằng Tab; date/time có picker. Đã khóa lúc 17:00 ngày 09/10/2026. Liên hệ quản lý nếu cần nhập lại.",
+    "role": "Người nhập",
+    "events": {
+      "Kiểm tra": "S12",
+      "Đến hạn": "S13",
+      "Được mở lại": "S14",
+      "Lỗi lưu": "S26"
+    }
+  },
+  {
+    "id": "S14",
+    "title": "Báo cáo được mở lại",
+    "description": "Điều hướng bằng Tab; date/time có picker. Được nhập lại đến 10/10/2026 lúc 02:30 · Hạn gốc vẫn là 09/10 lúc 17:00",
+    "role": "Người nhập",
+    "events": {
+      "Kiểm tra": "S12",
+      "Đến hạn": "S13",
+      "Được mở lại": "S14",
+      "Lỗi lưu": "S26"
+    }
+  },
+  {
+    "id": "S15",
+    "title": "Tổng hợp của người quản lý",
+    "description": "Mặc định tổng hợp all_saved có nhãn tạm tính; không có nút sửa/lưu.",
+    "role": "Người quản lý",
+    "events": {
+      "Chọn người": "S16",
+      "Nguồn số liệu": "S18",
+      "Xuất Excel": "S25"
+    }
+  },
+  {
+    "id": "S16",
+    "title": "Xem cá nhân chỉ đọc",
+    "description": "Có chuyển mode nếu đồng thời là người nhập; chỉ mode nhập cho sửa bản của mình.",
+    "role": "Người quản lý",
+    "events": {
+      "Mở lại": "S17",
+      "Lịch sử": "S21",
+      "Chế độ nhập": "S11"
+    }
+  },
+  {
+    "id": "S17",
+    "title": "Dialog mở khóa",
+    "description": "Kiểm tra datetime tương lai và lý do; qua nửa đêm tự đổi ngày.",
+    "role": "Người quản lý",
+    "events": {
+      "Hủy": "S16",
+      "Mở lại thành công": "S14"
+    }
+  },
+  {
+    "id": "S18",
+    "title": "Nguồn số tổng",
+    "description": "Ví dụ độc lập 10,0,null để giải thích mẫu số; không dùng chung số với báo cáo demo S15.",
+    "role": "Người quản lý",
+    "events": {
+      "Chọn người": "S16",
+      "Quay lại": "S15"
+    }
+  },
+  {
+    "id": "S19",
+    "title": "Dashboard tình trạng",
+    "description": "KPI đếm lượt giao, filter đồng nhất, ưu tiên quá hạn; dữ liệu demo thời điểm sau hạn.",
+    "role": "Người quản lý",
+    "events": {
+      "Ma trận": "S20",
+      "Chi tiết": "S16",
+      "Xuất": "S25"
+    }
+  },
+  {
+    "id": "S20",
+    "title": "Ma trận người và báo cáo",
+    "description": "Click ô được giao mở đúng report/kỳ/người; không giao không mở form nhập.",
+    "role": "Người quản lý",
+    "events": {
+      "Ô được giao": "S16",
+      "Danh sách": "S19"
+    }
+  },
+  {
+    "id": "S21",
+    "title": "Lịch sử và audit",
+    "description": "Xem actor thời điểm lý do và revision; không có thao tác sửa/xóa nhật ký.",
+    "role": "Người quản lý",
+    "events": {
+      "Quay lại cá nhân": "S16"
+    }
+  },
+  {
+    "id": "S22",
+    "title": "Quản lý phiên bản",
+    "description": "Giữ template version và snapshot assignments; thay đổi nghĩa vụ hiện hành có nhật ký.",
+    "role": "Người thiết lập",
+    "events": {
+      "Tạo phiên bản": "S02",
+      "Tiếp tục nháp": "S03"
+    }
+  },
+  {
+    "id": "S23",
+    "title": "Loading empty error permission",
+    "description": "Bộ trạng thái áp dụng toàn module; không dùng trang trắng hoặc số cũ như mới.",
+    "role": "Mọi vai trò",
+    "events": {
+      "Thử lại": "S19",
+      "Về danh sách": "S01"
+    }
+  },
+  {
+    "id": "S24",
+    "title": "Responsive và editor từng ô",
+    "description": "Thiết kế mobile đề xuất cần kiểm chứng với template thật; không thay đổi tọa độ sheet.",
+    "role": "Người nhập",
+    "events": {
+      "Lưu giá trị": "S11",
+      "Hết hạn": "S13"
+    }
+  },
+  {
+    "id": "S25",
+    "title": "Xuất file và trạng thái job",
+    "description": "Quyền kiểm tra khi tạo và tải; file private có thời hạn; lỗi cho retry theo snapshot.",
+    "role": "Theo quyền xem",
+    "events": {
+      "Tải": "S15",
+      "Quay lại": "S19"
+    }
+  },
+  {
+    "id": "S26",
+    "title": "Mất mạng và revision conflict",
+    "description": "Không overwrite tự động; lưu buffer tạm trong phiên, retry idempotent, complete chờ flush.",
+    "role": "Người nhập",
+    "events": {
+      "Tải bản mới": "S11",
+      "Quá hạn": "S13"
+    }
+  },
+  {
+    "id": "S27",
+    "title": "Biểu đồ và filter nâng cao",
+    "description": "Chỉ so sánh các kỳ cùng loại; tooltip có tử mẫu. Apply filter đồng bộ KPI bảng chart và export.",
+    "role": "Người quản lý",
+    "events": {
+      "Áp dụng": "S19",
+      "Chọn đơn vị": "S19"
+    }
+  },
+  {
+    "id": "S28",
+    "title": "Date picker và editor theo kiểu",
+    "description": "Ngày dùng picker không nhận serial number tùy ý. TIME dùng picker 24h và format hh:mm theo cùng nguyên tắc.",
+    "role": "Người nhập",
+    "events": {
+      "Chọn ngày": "S11",
+      "Ngày không hợp lệ": "S12"
+    }
+  },
+  {
+    "id": "S29",
+    "title": "Xác nhận và kết quả hoàn thành",
+    "description": "Chờ autosave flush trước complete. Nếu đã khóa hoặc conflict phải hiển thị lỗi và không báo thành công.",
+    "role": "Người nhập",
+    "events": {
+      "Quay lại": "S11",
+      "Hoàn thành thành công": "S11",
+      "Hết hạn": "S13"
+    }
+  },
+  {
+    "id": "S30",
+    "title": "Điều chỉnh và miễn nghĩa vụ",
+    "description": "Có thêm người hoặc miễn nghĩa vụ theo quyền; không xóa submission cũ và phải lưu tác động mẫu số.",
+    "role": "Người có quyền cấu hình",
+    "events": {
+      "Lưu": "S19",
+      "Hủy": "S22"
+    }
+  },
+  {
+    "id": "S31",
+    "title": "Ngừng phát sinh và thu hồi grant",
+    "description": "Dialog chỉ mở đúng thao tác được chọn. Không có xóa vĩnh viễn. Xác nhận luôn nêu đối tượng phạm vi ảnh hưởng.",
+    "role": "Theo quyền cấu hình hoặc quản lý",
+    "events": {
+      "Ngừng phát sinh": "S01",
+      "Thu hồi": "S16"
+    }
+  },
+  {
+    "id": "S32",
+    "title": "Lưới template và ràng buộc field",
+    "description": "Màn inspector đầy đủ cho label required min max scale maxLength và helper text; DATE TIME dùng ràng buộc tương ứng.",
+    "role": "Người thiết lập",
+    "events": {
+      "Lưu nháp": "S03",
+      "Kiểm tra lại": "S04"
+    }
+  }
+]

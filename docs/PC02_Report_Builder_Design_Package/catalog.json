@@ -1,0 +1,789 @@
+{
+  "tests": [
+    {
+      "AC": "AC-001",
+      "FR": "FR-001",
+      "BR": "BR-01",
+      "screen": "S02",
+      "task": "M03-T01",
+      "IT": "IT-001",
+      "UAT": "UAT-001",
+      "scenario": "file hợp lệ và file giả extension",
+      "expected": "Upload .xlsx hợp lệ tạo bản nháp và preview; file sai loại/vượt giới hạn báo lỗi, không publish.",
+      "evidence": "parser trả schema hoặc lỗi có mã"
+    },
+    {
+      "AC": "AC-002",
+      "FR": "FR-002",
+      "BR": "BR-01",
+      "screen": "S03",
+      "task": "M03-T01",
+      "IT": "IT-002",
+      "UAT": "UAT-002",
+      "scenario": "4 tổ hợp locked/token",
+      "expected": "Locked literal chỉ đọc; unlocked token tạo input; locked token và unlocked trống/literal báo Sheet!Cell.",
+      "evidence": "schema field đúng và lỗi đúng ô"
+    },
+    {
+      "AC": "AC-003",
+      "FR": "FR-003",
+      "BR": "BR-01",
+      "screen": "S04",
+      "task": "M03-T01",
+      "IT": "IT-003",
+      "UAT": "UAT-003",
+      "scenario": "valid/invalid grammar và alias",
+      "expected": "Chấp nhận TEXT NUM DATE TIME, format optional, AGG optional; Num chuẩn NUM, AGV cảnh báo alias AVG; token sai bị chặn.",
+      "evidence": "fixture parser pass"
+    },
+    {
+      "AC": "AC-004",
+      "FR": "FR-004",
+      "BR": "BR-01",
+      "screen": "S11",
+      "task": "M04-T01",
+      "IT": "IT-004",
+      "UAT": "UAT-004",
+      "scenario": "golden workbook nhiều sheet và cột AK",
+      "expected": "Giữ sheet merge font border wrap kích thước và freeze trong phạm vi hỗ trợ; cảnh báo thành phần ngoài phạm vi.",
+      "evidence": "đối soát vị trí và visual QA"
+    },
+    {
+      "AC": "AC-005",
+      "FR": "FR-005",
+      "BR": "BR-01",
+      "screen": "S03",
+      "task": "M03-T01",
+      "IT": "IT-005",
+      "UAT": "UAT-005",
+      "scenario": "merge A2:C2 và hidden input",
+      "expected": "Chỉ anchor của merge là field; input ẩn bị chặn publish; không nhân đôi giá trị.",
+      "evidence": "field count đúng"
+    },
+    {
+      "AC": "AC-006",
+      "FR": "FR-006",
+      "BR": "BR-02",
+      "screen": "S05",
+      "task": "M02-T03",
+      "IT": "IT-006",
+      "UAT": "UAT-006",
+      "scenario": "tuần cuối năm/đầu năm",
+      "expected": "Chọn thứ và giờ, preview 6 kỳ; ISO week-year đúng tại tuần giao năm.",
+      "evidence": "ngày giờ kỳ khớp fixture"
+    },
+    {
+      "AC": "AC-007",
+      "FR": "FR-007",
+      "BR": "BR-02",
+      "screen": "S06",
+      "task": "M02-T03",
+      "IT": "IT-007",
+      "UAT": "UAT-007",
+      "scenario": "tháng 2 nhuận và ngày 31",
+      "expected": "Ngày 1–31/cuối tháng, ngày thiếu chuyển cuối tháng và preview rõ.",
+      "evidence": "hạn đúng lịch"
+    },
+    {
+      "AC": "AC-008",
+      "FR": "FR-008",
+      "BR": "BR-02",
+      "screen": "S07",
+      "task": "M02-T03",
+      "IT": "IT-008",
+      "UAT": "UAT-008",
+      "scenario": "Q4 sang Q1",
+      "expected": "Chọn tháng thứ 1/2/3 và ngày, quý hiện tại/kế tiếp; preview ngày thật.",
+      "evidence": "hạn không lệch năm"
+    },
+    {
+      "AC": "AC-009",
+      "FR": "FR-009",
+      "BR": "BR-02",
+      "screen": "S08",
+      "task": "M02-T03",
+      "IT": "IT-009",
+      "UAT": "UAT-009",
+      "scenario": "ngày cụ thể với opens_at trước due_at",
+      "expected": "Tạo một kỳ tại ngày giờ chọn, không tự lặp; hiển thị khoảng dữ liệu.",
+      "evidence": "chỉ một kỳ được tạo"
+    },
+    {
+      "AC": "AC-010",
+      "FR": "FR-010",
+      "BR": "BR-02",
+      "screen": "S13",
+      "task": "M04-T02",
+      "IT": "IT-010",
+      "UAT": "UAT-010",
+      "scenario": "T−1ms T T+1ms",
+      "expected": "Tại now bằng hạn hoặc sau hạn API từ chối batch; đồng hồ client/job chậm không thay đổi kết quả.",
+      "evidence": "IT transaction và UI readonly"
+    },
+    {
+      "AC": "AC-011",
+      "FR": "FR-011",
+      "BR": "BR-03",
+      "screen": "S09",
+      "task": "M03-T02",
+      "IT": "IT-011",
+      "UAT": "UAT-011",
+      "scenario": "user trùng/inactive/không quản lý",
+      "expected": "Đúng một quản lý, nhiều người nhập không trùng, bỏ user inactive khi gán mới; publish thiếu người bị chặn.",
+      "evidence": "validation + DB unique"
+    },
+    {
+      "AC": "AC-012",
+      "FR": "FR-012",
+      "BR": "BR-03",
+      "screen": "S11",
+      "task": "M02-T02",
+      "IT": "IT-012",
+      "UAT": "UAT-012",
+      "scenario": "ba identity và giả report id",
+      "expected": "Chế độ nhập chỉ báo cáo được giao; quản lý chỉ báo cáo quản lý; truy cập trực tiếp ngoài phạm vi bị từ chối.",
+      "evidence": "API list/detail không lộ dữ liệu"
+    },
+    {
+      "AC": "AC-013",
+      "FR": "FR-013",
+      "BR": "BR-04",
+      "screen": "S15",
+      "task": "M05-T02",
+      "IT": "IT-013",
+      "UAT": "UAT-013",
+      "scenario": "3 người gồm nháp và hoàn thành",
+      "expected": "Quản lý chọn báo cáo/kỳ mở tổng hợp all_saved, badge tạm tính và X/Y hoàn thành.",
+      "evidence": "số tổng và contributor khớp"
+    },
+    {
+      "AC": "AC-014",
+      "FR": "FR-014",
+      "BR": "BR-04",
+      "screen": "S16",
+      "task": "M05-T02",
+      "IT": "IT-014",
+      "UAT": "UAT-014",
+      "scenario": "quản lý thử PATCH dữ liệu người khác",
+      "expected": "Quản lý chọn người thấy dữ liệu cùng kỳ, không có write; API sửa hộ bị chặn.",
+      "evidence": "403 và không đổi revision"
+    },
+    {
+      "AC": "AC-015",
+      "FR": "FR-015",
+      "BR": "BR-05",
+      "screen": "S17",
+      "task": "M04-T03",
+      "IT": "IT-015",
+      "UAT": "UAT-015",
+      "scenario": "grant A nhưng thử ghi B",
+      "expected": "Grant chỉ đúng assignment/kỳ, lý do bắt buộc, manager hợp lệ; không mở các người hoặc kỳ khác.",
+      "evidence": "policy đúng phạm vi"
+    },
+    {
+      "AC": "AC-016",
+      "FR": "FR-016",
+      "BR": "BR-05",
+      "screen": "S17",
+      "task": "M04-T03",
+      "IT": "IT-016",
+      "UAT": "UAT-016",
+      "scenario": "clock cố định 23:30",
+      "expected": "Default bằng server_now+3h, 23:30 chuyển 02:30 hôm sau; cấm thời điểm quá khứ.",
+      "evidence": "datetime dialog và API đúng"
+    },
+    {
+      "AC": "AC-017",
+      "FR": "FR-017",
+      "BR": "BR-05",
+      "screen": "S14",
+      "task": "M04-T03",
+      "IT": "IT-017",
+      "UAT": "UAT-017",
+      "scenario": "expiry/revoke/before original due",
+      "expected": "API từ chối sau expires_at hoặc revoke nếu quá hạn gốc; trước hạn gốc vẫn áp dụng quyền gốc.",
+      "evidence": "quyền ghi đúng tại boundary"
+    },
+    {
+      "AC": "AC-018",
+      "FR": "FR-018",
+      "BR": "BR-06",
+      "screen": "S12",
+      "task": "M04-T01",
+      "IT": "IT-018",
+      "UAT": "UAT-018",
+      "scenario": "âm thập phân overflow và format integer",
+      "expected": "Editor và API từ chối chữ/NaN/infinity, giữ decimal, validate scale/min/max; không âm thầm làm tròn.",
+      "evidence": "raw decimal không sai lệch"
+    },
+    {
+      "AC": "AC-019",
+      "FR": "FR-019",
+      "BR": "BR-06",
+      "screen": "S12",
+      "task": "M04-T01",
+      "IT": "IT-019",
+      "UAT": "UAT-019",
+      "scenario": "date leap year và time range",
+      "expected": "Có picker, từ chối 31/02 số bất kỳ 25:80; date-only không đổi ngày vì timezone.",
+      "evidence": "client/server cùng kết quả"
+    },
+    {
+      "AC": "AC-020",
+      "FR": "FR-020",
+      "BR": "BR-06",
+      "screen": "S11",
+      "task": "M04-T01",
+      "IT": "IT-020",
+      "UAT": "UAT-020",
+      "scenario": "text Unicode HTML và =1+1",
+      "expected": "Giữ Unicode và số 0 đầu, escape HTML, TEXT bắt đầu = không thực thi công thức.",
+      "evidence": "UI/export đúng kiểu string"
+    },
+    {
+      "AC": "AC-021",
+      "FR": "FR-021",
+      "BR": "BR-06",
+      "screen": "S12",
+      "task": "M04-T01",
+      "IT": "IT-021",
+      "UAT": "UAT-021",
+      "scenario": "paste qua merge/locked/date sai",
+      "expected": "Paste TSV giữ vị trí; block có ô khóa/invalid từ chối nguyên khối với lỗi đúng ô.",
+      "evidence": "không có partial write"
+    },
+    {
+      "AC": "AC-022",
+      "FR": "FR-022",
+      "BR": "BR-07",
+      "screen": "S26",
+      "task": "M04-T02",
+      "IT": "IT-022",
+      "UAT": "UAT-022",
+      "scenario": "timeout trước/sau commit",
+      "expected": "Debounce 2s, trạng thái lưu rõ; retry idempotent; mất mạng không báo đã lưu.",
+      "evidence": "một revision, không trùng"
+    },
+    {
+      "AC": "AC-023",
+      "FR": "FR-023",
+      "BR": "BR-07",
+      "screen": "S11",
+      "task": "M04-T02",
+      "IT": "IT-023",
+      "UAT": "UAT-023",
+      "scenario": "complete thiếu/đủ và edit tiếp",
+      "expected": "Chỉ hoàn thành khi required hợp lệ; sửa revision đã hoàn thành chuyển đang nhập; không khóa sớm ngoài hạn.",
+      "evidence": "state transition đúng"
+    },
+    {
+      "AC": "AC-024",
+      "FR": "FR-024",
+      "BR": "BR-07",
+      "screen": "S26",
+      "task": "M04-T02",
+      "IT": "IT-024",
+      "UAT": "UAT-024",
+      "scenario": "hai tab cùng revision",
+      "expected": "Revision cũ trả 409; giữ buffer và cho so sánh, không overwrite người dùng âm thầm.",
+      "evidence": "một commit một conflict"
+    },
+    {
+      "AC": "AC-025",
+      "FR": "FR-025",
+      "BR": "BR-04",
+      "screen": "S18",
+      "task": "M05-T01",
+      "IT": "IT-025",
+      "UAT": "UAT-025",
+      "scenario": "fixture 3 assignment nhiều revision",
+      "expected": "10,0,null cho SUM10 AVG5 COUNT2; empty SUM là null COUNT0; mỗi assignment góp một revision.",
+      "evidence": "expected independent pass"
+    },
+    {
+      "AC": "AC-026",
+      "FR": "FR-026",
+      "BR": "BR-04",
+      "screen": "S15",
+      "task": "M05-T01",
+      "IT": "IT-026",
+      "UAT": "UAT-026",
+      "scenario": "mixed types",
+      "expected": "TEXT DATE TIME mặc định NONE, bản tổng hiện không tổng hợp; cấu hình SUM text bị chặn.",
+      "evidence": "không tự chọn giá trị người cuối"
+    },
+    {
+      "AC": "AC-027",
+      "FR": "FR-027",
+      "BR": "BR-04",
+      "screen": "S18",
+      "task": "M05-T01",
+      "IT": "IT-027",
+      "UAT": "UAT-027",
+      "scenario": "tỷ lệ khác nhau + cycle + div0",
+      "expected": "Tính cá nhân rồi tổng input rồi công thức tổng; tỷ lệ chung từ tử/mẫu tổng; cấm vòng lặp và external ref.",
+      "evidence": "kết quả đúng hoặc lỗi rõ"
+    },
+    {
+      "AC": "AC-028",
+      "FR": "FR-028",
+      "BR": "BR-08",
+      "screen": "S19",
+      "task": "M06-T01",
+      "IT": "IT-028",
+      "UAT": "UAT-028",
+      "scenario": "3 reports cùng user và user inactive",
+      "expected": "C lấy assignment làm mẫu số, gồm người chưa nhập, loại miễn có lý do; người có 3 báo cáo là 3 lượt.",
+      "evidence": "mẫu số khớp phân công"
+    },
+    {
+      "AC": "AC-029",
+      "FR": "FR-029",
+      "BR": "BR-08",
+      "screen": "S19",
+      "task": "M06-T02",
+      "IT": "IT-029",
+      "UAT": "UAT-029",
+      "scenario": "filter kết hợp và back từ B",
+      "expected": "Chọn report/kỳ/đơn vị/người/status, UI và export dùng cùng filter; mixed period hiện khoảng ngày thật.",
+      "evidence": "filter và kết quả giữ đúng"
+    },
+    {
+      "AC": "AC-030",
+      "FR": "FR-030",
+      "BR": "BR-08",
+      "screen": "S19",
+      "task": "M06-T01",
+      "IT": "IT-030",
+      "UAT": "UAT-030",
+      "scenario": "reopen completed và 0 obligations",
+      "expected": "Progress, quyền nhập, đúng hạn độc lập; mở lại không xóa trễ; mẫu số0 hiện —.",
+      "evidence": "KPI không cộng trùng"
+    },
+    {
+      "AC": "AC-031",
+      "FR": "FR-031",
+      "BR": "BR-08",
+      "screen": "S20",
+      "task": "M06-T02",
+      "IT": "IT-031",
+      "UAT": "UAT-031",
+      "scenario": "cặp có/không assignment",
+      "expected": "Click status mở đúng B report/kỳ/người; không giao khác chưa nhập; ma trận giới hạn số cột.",
+      "evidence": "đúng route và trạng thái"
+    },
+    {
+      "AC": "AC-032",
+      "FR": "FR-032",
+      "BR": "BR-09",
+      "screen": "S22",
+      "task": "M03-T02",
+      "IT": "IT-032",
+      "UAT": "UAT-032",
+      "scenario": "v1 đã nhập rồi publish v2",
+      "expected": "Publish mẫu mới không đổi kỳ cũ; không thay layout kỳ có dữ liệu; ngừng phát sinh không xóa dữ liệu.",
+      "evidence": "kỳ cũ vẫn render v1"
+    },
+    {
+      "AC": "AC-033",
+      "FR": "FR-033",
+      "BR": "BR-09",
+      "screen": "S21",
+      "task": "M04-T03",
+      "IT": "IT-033",
+      "UAT": "UAT-033",
+      "scenario": "thực hiện chuỗi nghiệp vụ",
+      "expected": "Save/complete/grant/revoke/publish/phân công lưu actor thời điểm lý do và revision; không sửa audit từ UI.",
+      "evidence": "audit đủ và đúng thứ tự"
+    },
+    {
+      "AC": "AC-034",
+      "FR": "FR-034",
+      "BR": "BR-09",
+      "screen": "S25",
+      "task": "M06-T03",
+      "IT": "IT-034",
+      "UAT": "UAT-034",
+      "scenario": "export khi có concurrent save",
+      "expected": "Export giữ layout/format/typed values và snapshot source; quyền download kiểm tra lại.",
+      "evidence": "file không trộn revision"
+    },
+    {
+      "AC": "AC-035",
+      "FR": "FR-035",
+      "BR": "BR-10",
+      "screen": "S16",
+      "task": "M02-T02",
+      "IT": "IT-035",
+      "UAT": "UAT-035",
+      "scenario": "dual role",
+      "expected": "User vừa quản lý vừa nhập có mode rõ; quản lý readonly, nhập chỉ own assignment.",
+      "evidence": "không có write hộ"
+    },
+    {
+      "AC": "AC-036",
+      "FR": "FR-036",
+      "BR": "BR-10",
+      "screen": "S23",
+      "task": "M07-T01",
+      "IT": "IT-036",
+      "UAT": "UAT-036",
+      "scenario": "fault injection UI",
+      "expected": "Mỗi màn có loading empty error forbidden; lock/mạng/conflict không che mất thông báo lưu.",
+      "evidence": "ảnh và E2E state pass"
+    },
+    {
+      "AC": "AC-037",
+      "FR": "FR-037",
+      "BR": "BR-10",
+      "screen": "S24",
+      "task": "M07-T02",
+      "IT": "IT-037",
+      "UAT": "UAT-037",
+      "scenario": "keyboard và viewport",
+      "expected": "Tab chỉ đi qua input, focus/error đọc được, 1366/1024/768 không che nút hoặc mất ô.",
+      "evidence": "biên bản usability"
+    },
+    {
+      "AC": "AC-038",
+      "FR": "FR-038",
+      "BR": "BR-10",
+      "screen": "S11",
+      "task": "M07-T02",
+      "IT": "IT-038",
+      "UAT": "UAT-038",
+      "scenario": "benchmark sau chốt fixture",
+      "expected": "Fixture 5000 input/200 người, 50 concurrent; p95 form3s save1s aggregate3s trên cấu hình đã ghi.",
+      "evidence": "báo cáo p95 và không mất dữ liệu"
+    },
+    {
+      "AC": "AC-039",
+      "FR": "FR-039",
+      "BR": "BR-10",
+      "screen": "S04",
+      "task": "M03-T01",
+      "IT": "IT-039",
+      "UAT": "UAT-039",
+      "scenario": "fixture độc hại giả lập",
+      "expected": "Reject macro/encrypted/external link/zip bomb, parser không gọi URL ngoài và có resource limit.",
+      "evidence": "lỗi an toàn và log không secret"
+    },
+    {
+      "AC": "AC-040",
+      "FR": "FR-040",
+      "BR": "BR-02",
+      "screen": "S05",
+      "task": "M02-T03",
+      "IT": "IT-040",
+      "UAT": "UAT-040",
+      "scenario": "retry job và gap clock",
+      "expected": "Sinh kỳ idempotent, phục hồi downtime không trùng, UTC storage hiển thị UTC+7 nhất quán.",
+      "evidence": "unique period và hạn đúng"
+    },
+    {
+      "AC": "AC-041",
+      "FR": "FR-041",
+      "BR": "BR-09",
+      "screen": "S22",
+      "task": "M03-T02",
+      "IT": "IT-041",
+      "UAT": "UAT-041",
+      "scenario": "remove/add inactive/miễn",
+      "expected": "Mặc định từ kỳ kế tiếp; kỳ hiện tại thao tác riêng có lý do và lịch sử mẫu số, không xóa submission.",
+      "evidence": "lịch sử giữ và số denominator đúng"
+    },
+    {
+      "AC": "AC-042",
+      "FR": "FR-042",
+      "BR": "BR-10",
+      "screen": "S23",
+      "task": "M08-T02",
+      "IT": "IT-042",
+      "UAT": "UAT-042",
+      "scenario": "staging deploy rồi rollback",
+      "expected": "Feature flag pilot, migration additive, restore/rollback đã thử; báo cáo cũ không hồi quy.",
+      "evidence": "runbook và biên bản restore"
+    }
+  ],
+  "tasks": [
+    [
+      "M01-T01",
+      "Khảo sát source và chốt nghiệp vụ",
+      [],
+      [
+        "BRD",
+        "RBAC",
+        "repository"
+      ],
+      3,
+      4
+    ],
+    [
+      "M01-T02",
+      "Spike Excel và chọn engine",
+      [
+        "M01-T01"
+      ],
+      [
+        "parser",
+        "grid",
+        "formula",
+        "license"
+      ],
+      4,
+      6
+    ],
+    [
+      "M01-T03",
+      "Duyệt UX và mẫu nghiệm thu",
+      [
+        "M01-T01"
+      ],
+      [
+        "mockup",
+        "design system"
+      ],
+      3,
+      4
+    ],
+    [
+      "M02-T01",
+      "Schema phiên bản và migration",
+      [
+        "M01-T02"
+      ],
+      [
+        "database",
+        "storage"
+      ],
+      3,
+      4
+    ],
+    [
+      "M02-T02",
+      "Policy phân quyền báo cáo",
+      [
+        "M02-T01"
+      ],
+      [
+        "authorization",
+        "API"
+      ],
+      2,
+      3
+    ],
+    [
+      "M02-T03",
+      "Sinh kỳ và deadline",
+      [
+        "M02-T01"
+      ],
+      [
+        "scheduler",
+        "clock"
+      ],
+      3,
+      4
+    ],
+    [
+      "M03-T01",
+      "Parser token và kiểm tra workbook",
+      [
+        "M01-T02",
+        "M02-T01"
+      ],
+      [
+        "Excel import"
+      ],
+      4,
+      6
+    ],
+    [
+      "M03-T02",
+      "Wizard và xuất bản mẫu",
+      [
+        "M03-T01",
+        "M02-T02",
+        "M02-T03",
+        "M01-T03"
+      ],
+      [
+        "Setup UI",
+        "publish API"
+      ],
+      4,
+      5
+    ],
+    [
+      "M04-T01",
+      "Renderer lưới và editor theo kiểu",
+      [
+        "M03-T01",
+        "M01-T03"
+      ],
+      [
+        "Register UI",
+        "grid"
+      ],
+      5,
+      7
+    ],
+    [
+      "M04-T02",
+      "Lưu revision và hoàn thành",
+      [
+        "M04-T01",
+        "M02-T02",
+        "M02-T03"
+      ],
+      [
+        "submission API",
+        "autosave"
+      ],
+      3,
+      4
+    ],
+    [
+      "M04-T03",
+      "Mở lại và khóa lại",
+      [
+        "M04-T02"
+      ],
+      [
+        "grant API",
+        "dialog",
+        "audit"
+      ],
+      2,
+      3
+    ],
+    [
+      "M05-T01",
+      "Tổng hợp và công thức",
+      [
+        "M04-T02",
+        "M03-T01"
+      ],
+      [
+        "aggregate",
+        "formula engine"
+      ],
+      4,
+      6
+    ],
+    [
+      "M05-T02",
+      "Màn quản lý và nguồn số liệu",
+      [
+        "M05-T01",
+        "M04-T03"
+      ],
+      [
+        "manager UI",
+        "drilldown"
+      ],
+      2,
+      3
+    ],
+    [
+      "M06-T01",
+      "API và KPI tình trạng",
+      [
+        "M04-T02",
+        "M04-T03"
+      ],
+      [
+        "status query",
+        "indices"
+      ],
+      3,
+      4
+    ],
+    [
+      "M06-T02",
+      "Dashboard ma trận và lịch sử",
+      [
+        "M06-T01",
+        "M01-T03"
+      ],
+      [
+        "Status UI",
+        "history"
+      ],
+      3,
+      4
+    ],
+    [
+      "M06-T03",
+      "Xuất Excel theo snapshot",
+      [
+        "M05-T01",
+        "M06-T01"
+      ],
+      [
+        "export",
+        "download policy"
+      ],
+      2,
+      3
+    ],
+    [
+      "M07-T01",
+      "Tích hợp quyền thời gian và hồi quy",
+      [
+        "M03-T02",
+        "M05-T02",
+        "M06-T02",
+        "M06-T03"
+      ],
+      [
+        "IT",
+        "E2E",
+        "regression"
+      ],
+      4,
+      5
+    ],
+    [
+      "M07-T02",
+      "Hiệu năng và khả năng sử dụng",
+      [
+        "M07-T01"
+      ],
+      [
+        "benchmark",
+        "keyboard",
+        "responsive"
+      ],
+      2,
+      3
+    ],
+    [
+      "M08-T01",
+      "UAT và sửa lỗi nghiệm thu",
+      [
+        "M07-T02"
+      ],
+      [
+        "UAT",
+        "business signoff"
+      ],
+      4,
+      6
+    ],
+    [
+      "M08-T02",
+      "Pilot vận hành và rollback",
+      [
+        "M08-T01"
+      ],
+      [
+        "migration",
+        "monitoring",
+        "runbook"
+      ],
+      2,
+      3
+    ]
+  ]
+}

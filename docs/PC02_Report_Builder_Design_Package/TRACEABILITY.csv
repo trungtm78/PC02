@@ -1,0 +1,43 @@
+﻿AC,FR,BR,screen,task,IT,UAT,scenario,expected,evidence
+AC-001,FR-001,BR-01,S02,M03-T01,IT-001,UAT-001,file hợp lệ và file giả extension,"Upload .xlsx hợp lệ tạo bản nháp và preview; file sai loại/vượt giới hạn báo lỗi, không publish.",parser trả schema hoặc lỗi có mã
+AC-002,FR-002,BR-01,S03,M03-T01,IT-002,UAT-002,4 tổ hợp locked/token,Locked literal chỉ đọc; unlocked token tạo input; locked token và unlocked trống/literal báo Sheet!Cell.,schema field đúng và lỗi đúng ô
+AC-003,FR-003,BR-01,S04,M03-T01,IT-003,UAT-003,valid/invalid grammar và alias,"Chấp nhận TEXT NUM DATE TIME, format optional, AGG optional; Num chuẩn NUM, AGV cảnh báo alias AVG; token sai bị chặn.",fixture parser pass
+AC-004,FR-004,BR-01,S11,M04-T01,IT-004,UAT-004,golden workbook nhiều sheet và cột AK,Giữ sheet merge font border wrap kích thước và freeze trong phạm vi hỗ trợ; cảnh báo thành phần ngoài phạm vi.,đối soát vị trí và visual QA
+AC-005,FR-005,BR-01,S03,M03-T01,IT-005,UAT-005,merge A2:C2 và hidden input,Chỉ anchor của merge là field; input ẩn bị chặn publish; không nhân đôi giá trị.,field count đúng
+AC-006,FR-006,BR-02,S05,M02-T03,IT-006,UAT-006,tuần cuối năm/đầu năm,"Chọn thứ và giờ, preview 6 kỳ; ISO week-year đúng tại tuần giao năm.",ngày giờ kỳ khớp fixture
+AC-007,FR-007,BR-02,S06,M02-T03,IT-007,UAT-007,tháng 2 nhuận và ngày 31,"Ngày 1–31/cuối tháng, ngày thiếu chuyển cuối tháng và preview rõ.",hạn đúng lịch
+AC-008,FR-008,BR-02,S07,M02-T03,IT-008,UAT-008,Q4 sang Q1,"Chọn tháng thứ 1/2/3 và ngày, quý hiện tại/kế tiếp; preview ngày thật.",hạn không lệch năm
+AC-009,FR-009,BR-02,S08,M02-T03,IT-009,UAT-009,ngày cụ thể với opens_at trước due_at,"Tạo một kỳ tại ngày giờ chọn, không tự lặp; hiển thị khoảng dữ liệu.",chỉ một kỳ được tạo
+AC-010,FR-010,BR-02,S13,M04-T02,IT-010,UAT-010,T−1ms T T+1ms,Tại now bằng hạn hoặc sau hạn API từ chối batch; đồng hồ client/job chậm không thay đổi kết quả.,IT transaction và UI readonly
+AC-011,FR-011,BR-03,S09,M03-T02,IT-011,UAT-011,user trùng/inactive/không quản lý,"Đúng một quản lý, nhiều người nhập không trùng, bỏ user inactive khi gán mới; publish thiếu người bị chặn.",validation + DB unique
+AC-012,FR-012,BR-03,S11,M02-T02,IT-012,UAT-012,ba identity và giả report id,Chế độ nhập chỉ báo cáo được giao; quản lý chỉ báo cáo quản lý; truy cập trực tiếp ngoài phạm vi bị từ chối.,API list/detail không lộ dữ liệu
+AC-013,FR-013,BR-04,S15,M05-T02,IT-013,UAT-013,3 người gồm nháp và hoàn thành,"Quản lý chọn báo cáo/kỳ mở tổng hợp all_saved, badge tạm tính và X/Y hoàn thành.",số tổng và contributor khớp
+AC-014,FR-014,BR-04,S16,M05-T02,IT-014,UAT-014,quản lý thử PATCH dữ liệu người khác,"Quản lý chọn người thấy dữ liệu cùng kỳ, không có write; API sửa hộ bị chặn.",403 và không đổi revision
+AC-015,FR-015,BR-05,S17,M04-T03,IT-015,UAT-015,grant A nhưng thử ghi B,"Grant chỉ đúng assignment/kỳ, lý do bắt buộc, manager hợp lệ; không mở các người hoặc kỳ khác.",policy đúng phạm vi
+AC-016,FR-016,BR-05,S17,M04-T03,IT-016,UAT-016,clock cố định 23:30,"Default bằng server_now+3h, 23:30 chuyển 02:30 hôm sau; cấm thời điểm quá khứ.",datetime dialog và API đúng
+AC-017,FR-017,BR-05,S14,M04-T03,IT-017,UAT-017,expiry/revoke/before original due,API từ chối sau expires_at hoặc revoke nếu quá hạn gốc; trước hạn gốc vẫn áp dụng quyền gốc.,quyền ghi đúng tại boundary
+AC-018,FR-018,BR-06,S12,M04-T01,IT-018,UAT-018,âm thập phân overflow và format integer,"Editor và API từ chối chữ/NaN/infinity, giữ decimal, validate scale/min/max; không âm thầm làm tròn.",raw decimal không sai lệch
+AC-019,FR-019,BR-06,S12,M04-T01,IT-019,UAT-019,date leap year và time range,"Có picker, từ chối 31/02 số bất kỳ 25:80; date-only không đổi ngày vì timezone.",client/server cùng kết quả
+AC-020,FR-020,BR-06,S11,M04-T01,IT-020,UAT-020,text Unicode HTML và =1+1,"Giữ Unicode và số 0 đầu, escape HTML, TEXT bắt đầu = không thực thi công thức.",UI/export đúng kiểu string
+AC-021,FR-021,BR-06,S12,M04-T01,IT-021,UAT-021,paste qua merge/locked/date sai,Paste TSV giữ vị trí; block có ô khóa/invalid từ chối nguyên khối với lỗi đúng ô.,không có partial write
+AC-022,FR-022,BR-07,S26,M04-T02,IT-022,UAT-022,timeout trước/sau commit,"Debounce 2s, trạng thái lưu rõ; retry idempotent; mất mạng không báo đã lưu.","một revision, không trùng"
+AC-023,FR-023,BR-07,S11,M04-T02,IT-023,UAT-023,complete thiếu/đủ và edit tiếp,Chỉ hoàn thành khi required hợp lệ; sửa revision đã hoàn thành chuyển đang nhập; không khóa sớm ngoài hạn.,state transition đúng
+AC-024,FR-024,BR-07,S26,M04-T02,IT-024,UAT-024,hai tab cùng revision,"Revision cũ trả 409; giữ buffer và cho so sánh, không overwrite người dùng âm thầm.",một commit một conflict
+AC-025,FR-025,BR-04,S18,M05-T01,IT-025,UAT-025,fixture 3 assignment nhiều revision,"10,0,null cho SUM10 AVG5 COUNT2; empty SUM là null COUNT0; mỗi assignment góp một revision.",expected independent pass
+AC-026,FR-026,BR-04,S15,M05-T01,IT-026,UAT-026,mixed types,"TEXT DATE TIME mặc định NONE, bản tổng hiện không tổng hợp; cấu hình SUM text bị chặn.",không tự chọn giá trị người cuối
+AC-027,FR-027,BR-04,S18,M05-T01,IT-027,UAT-027,tỷ lệ khác nhau + cycle + div0,Tính cá nhân rồi tổng input rồi công thức tổng; tỷ lệ chung từ tử/mẫu tổng; cấm vòng lặp và external ref.,kết quả đúng hoặc lỗi rõ
+AC-028,FR-028,BR-08,S19,M06-T01,IT-028,UAT-028,3 reports cùng user và user inactive,"C lấy assignment làm mẫu số, gồm người chưa nhập, loại miễn có lý do; người có 3 báo cáo là 3 lượt.",mẫu số khớp phân công
+AC-029,FR-029,BR-08,S19,M06-T02,IT-029,UAT-029,filter kết hợp và back từ B,"Chọn report/kỳ/đơn vị/người/status, UI và export dùng cùng filter; mixed period hiện khoảng ngày thật.",filter và kết quả giữ đúng
+AC-030,FR-030,BR-08,S19,M06-T01,IT-030,UAT-030,reopen completed và 0 obligations,"Progress, quyền nhập, đúng hạn độc lập; mở lại không xóa trễ; mẫu số0 hiện —.",KPI không cộng trùng
+AC-031,FR-031,BR-08,S20,M06-T02,IT-031,UAT-031,cặp có/không assignment,Click status mở đúng B report/kỳ/người; không giao khác chưa nhập; ma trận giới hạn số cột.,đúng route và trạng thái
+AC-032,FR-032,BR-09,S22,M03-T02,IT-032,UAT-032,v1 đã nhập rồi publish v2,Publish mẫu mới không đổi kỳ cũ; không thay layout kỳ có dữ liệu; ngừng phát sinh không xóa dữ liệu.,kỳ cũ vẫn render v1
+AC-033,FR-033,BR-09,S21,M04-T03,IT-033,UAT-033,thực hiện chuỗi nghiệp vụ,Save/complete/grant/revoke/publish/phân công lưu actor thời điểm lý do và revision; không sửa audit từ UI.,audit đủ và đúng thứ tự
+AC-034,FR-034,BR-09,S25,M06-T03,IT-034,UAT-034,export khi có concurrent save,Export giữ layout/format/typed values và snapshot source; quyền download kiểm tra lại.,file không trộn revision
+AC-035,FR-035,BR-10,S16,M02-T02,IT-035,UAT-035,dual role,"User vừa quản lý vừa nhập có mode rõ; quản lý readonly, nhập chỉ own assignment.",không có write hộ
+AC-036,FR-036,BR-10,S23,M07-T01,IT-036,UAT-036,fault injection UI,Mỗi màn có loading empty error forbidden; lock/mạng/conflict không che mất thông báo lưu.,ảnh và E2E state pass
+AC-037,FR-037,BR-10,S24,M07-T02,IT-037,UAT-037,keyboard và viewport,"Tab chỉ đi qua input, focus/error đọc được, 1366/1024/768 không che nút hoặc mất ô.",biên bản usability
+AC-038,FR-038,BR-10,S11,M07-T02,IT-038,UAT-038,benchmark sau chốt fixture,"Fixture 5000 input/200 người, 50 concurrent; p95 form3s save1s aggregate3s trên cấu hình đã ghi.",báo cáo p95 và không mất dữ liệu
+AC-039,FR-039,BR-10,S04,M03-T01,IT-039,UAT-039,fixture độc hại giả lập,"Reject macro/encrypted/external link/zip bomb, parser không gọi URL ngoài và có resource limit.",lỗi an toàn và log không secret
+AC-040,FR-040,BR-02,S05,M02-T03,IT-040,UAT-040,retry job và gap clock,"Sinh kỳ idempotent, phục hồi downtime không trùng, UTC storage hiển thị UTC+7 nhất quán.",unique period và hạn đúng
+AC-041,FR-041,BR-09,S22,M03-T02,IT-041,UAT-041,remove/add inactive/miễn,"Mặc định từ kỳ kế tiếp; kỳ hiện tại thao tác riêng có lý do và lịch sử mẫu số, không xóa submission.",lịch sử giữ và số denominator đúng
+AC-042,FR-042,BR-10,S23,M08-T02,IT-042,UAT-042,staging deploy rồi rollback,"Feature flag pilot, migration additive, restore/rollback đã thử; báo cáo cũ không hồi quy.",runbook và biên bản restore
