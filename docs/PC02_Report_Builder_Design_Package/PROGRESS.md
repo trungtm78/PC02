@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T05:10:00+07:00 | Milestone: PR0-PR2 ĐÃ MERGE VÀO MAIN (PR #522) → bắt đầu PR3 | Task: 0/~6
+Cập nhật: 2026-10-10T06:25:00+07:00 | Milestone: PR0-PR2 đã merge main; PR3 ĐÃ XONG trên nhánh `feat/dynamic-reports-pr3-template` (chưa merge) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -8,39 +8,38 @@ Cập nhật: 2026-10-10T05:10:00+07:00 | Milestone: PR0-PR2 ĐÃ MERGE VÀO MAI
 - [x] PR2 — Prisma schema (18 model mới `DynReport*`, theo R1: không có bảng DynReportFormula riêng — công thức nằm trong `DynReportVersion.layout`), migration `20261009170000_add_dynamic_reports` (556 dòng SQL, 18 CREATE TABLE/25 CREATE INDEX thường/0 DROP, đã áp thử thành công vào DB sạch từ baseline origin/main), 3 quyền mới `read/manage/admin:DynamicReport` — commit 6af80fed
 - [x] PR2 — khung module (`DynamicReportsModule`, feature flag `dynamic_reports` tắt mặc định), `GET /bao-cao-dong/clock`, bảng chuyển trạng thái khai báo `workflow/transitions.ts` (R1: SAVE/SUBMIT/RETURN/APPROVE/UNAPPROVE, có phê duyệt nhiều cấp R21) — commit 1004c769
 - [x] PR2 — vá 2 thiếu sót phát hiện qua `/review` (plan-completion audit so với checklist PR2 gốc): cấp `read:DynamicReport` cho OFFICER trong `seed.ts`; dựng `GET /bao-cao-dong/reports?mode=input|manage|setup` (đóng AC-012/AC-035), 100% dòng, 8 test mới — commit 0f0c489a
-- [x] **Đã merge PR #522 vào `main` (squash, admin-merge theo yêu cầu "làm cho xong" của anh — branch protection yêu cầu review approval nhưng anh chưa approve qua GitHub UI, dùng `--admin` để hoàn tất theo chỉ đạo trực tiếp), merge commit `7951a9221940fe3d8db2df5bf9649d2a76f62da6`, 10/10/2026 05:07 (+07:00). Nhánh `feat/dynamic-reports-m1-engine` đã xoá trên remote.** CI trên PR xanh cả 5 check (Backend/Frontend/Database Gate/Engine Gate/Monkey Self-Test). Deploy + CI trên `main` đang chạy sau merge — xem Trạng thái test để biết kết quả.
+- [x] **Đã merge PR #522 vào `main`** (squash, admin-merge theo yêu cầu "làm cho xong" của anh — branch protection yêu cầu review approval nhưng anh chưa approve qua GitHub UI, dùng `--admin` để hoàn tất theo chỉ đạo trực tiếp), merge commit `7951a9221940fe3d8db2df5bf9649d2a76f62da6`, 10/10/2026 05:07 (+07:00). Nhánh `feat/dynamic-reports-m1-engine` đã xoá trên remote. CI trên PR xanh cả 5 check (Backend/Frontend/Database Gate/Engine Gate/Monkey Self-Test). Deploy sau merge thành công, health xanh.
+- [x] **Đã merge PR #523** — docs-only, ghi lại việc vá lỗ hổng feature-flag bật ngầm (xem Nợ kỹ thuật dòng cũ). Deploy sau merge cũng thành công.
+- [x] **PR3 — TemplateService đầy đủ**, nhánh `feat/dynamic-reports-pr3-template` (từ `origin/main` mới nhất, CHƯA push/PR/merge). 4 checkpoint:
+  1. Core parser: `locked.ts` (effective-lock cell→row→column→default), `classify.ts` (quy tắc "unlocked+literal → cảnh báo, không chặn" + `LOCKED_LOOKS_LIKE_TOKEN` đối xứng + `HIDDEN_INPUT_CELL`), `label.ts` (suy nhãn từ cột bên trái, bỏ qua số), `limits.ts` (tầng 2 của R6: ≤5 sheet/≤50k ô/≤5k input), `unsupported-features.ts` (external link = reject; ảnh/conditional formatting/chart/pivot = cảnh báo), `parser.ts` (gắn kết tất cả qua exceljs thật).
+  2. `worker_threads` cách ly (R6, lần đầu dùng trong repo): `parse-worker.ts` + `parse-in-worker.ts`, timeout+terminate() đã kiểm bằng worker THẬT (không mock), kể cả đường timeout (budget 1ms, ngắn hơn cả thời gian khởi động worker).
+  3. `template.service.ts` (NestJS `@Injectable`, entry point PR4 sẽ gọi) + `macro-guard.ts` (phát hiện `xl/vbaProject.bin`, bắt được fixture `.xlsm` đổi tên) + `suggest-rules.ts` (gợi ý validation rule từ `IF(a=b,TRUE,FALSE)`).
+  4. Tự rà soát lại so với spec §4.1, phát hiện thiếu `layout.ts` (thứ tự sheet, used range, merge, độ rộng/cao, freeze, print area, trạng thái ẩn) — đã bổ sung và gắn vào `ParseTemplateResult`; sửa `TemplateParseTimeoutError` thiếu `.code='PARSE_TIMEOUT'` (không khớp bảng mã lỗi §4.2).
+  - **Phát hiện thật quan trọng, không cần build gì mới:** exceljs's `cell.formula` getter TỰ DỊCH shared formula theo master cell — đã kiểm bằng script thật trên `bao_cao_ngay_shared_formulas.xlsx`, 193/193 ô dịch đúng. R3 bullet "mở rộng shared formula" hoá ra chỉ cần luôn đọc `.formula`, không cần viết logic dịch riêng.
+  - 73 test mới trong `template/`, 100% dòng mọi file (trừ `parse-worker.ts` 0% — chạy trong thread riêng, công cụ coverage của tiến trình cha không thấy được, không phải lỗ hổng thật vì logic của nó (`parseTemplate`) đã 100%).
 
-**Tổng PR0-PR2: 338 test dynamic-reports (330 cũ + 8 mới), toàn bộ xanh. Backend full suite 7770/7885 (115 skip có trước, không liên quan) xanh. Frontend `tsc -b` sạch, vitest 4884/4885 (1 lỗi chập chờn CÓ TRƯỚC, không liên quan — xem Nợ kỹ thuật). Feature flag `dynamic_reports` tắt mặc định → 0 ảnh hưởng hành vi cho user hiện có kể cả sau khi lên production.**
+**Tổng PR0-PR3: 411 test dynamic-reports, toàn bộ xanh. Backend full suite 7843/7958 (115 skip có trước) xanh. tsc --noEmit và eslint sạch. Feature flag `dynamic_reports` tắt mặc định → 0 ảnh hưởng hành vi cho user hiện có.**
 
 ### Vấn đề hạ tầng đã gỡ (không phải của dynamic-reports nhưng chặn đường)
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: Chưa bắt đầu PR3 — TemplateService (đọc/kiểm tra file Excel)
-Đã làm: Chưa có gì.
+Task: PR3 code đã xong và xanh, CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr3-template` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`, 4 commit trên `origin/main` mới nhất (đã có PR #522+#523).
 
-BƯỚC TIẾP THEO: Viết `backend/src/dynamic-reports/template/parser.ts` (KHÔNG phải pure engine theo R2 — dùng `exceljs`, chạy phía backend). Theo spec §6.1 PR3 và R3/R6:
-1. Mở rộng shared formula (exceljs `sharedFormula`) — test trên `bao_cao_ngay_shared_formulas.xlsx` (211 ô) và `a09_1034_unlocked.xlsx` (21 ô).
-2. Resolve locked hiệu lực: ô → style dòng → style cột (`<col style>`) → mặc định Excel `locked=true`. Test trên HSLN (68 `<col style>`).
-3. Phân loại ô theo bảng FRD §4.3, áp dụng sửa đổi đã chốt: unlocked+rỗng/literal → CẢNH BÁO (không chặn) kèm gợi ý "đặt làm ô nhập".
-4. Giới hạn hai tầng (R6): tầng file (tái dùng `hostile-xlsx-guard.ts`, tham số hoá `XLSX_LIMITS`, HSLN có 17 sheet phải qua được) + tầng sheet-đã-chọn (≤5 sheet chọn làm mẫu, ≤50.000 ô, ≤5.000 input).
-5. Chạy parse trong `worker_threads` (repo CHƯA từng dùng worker_threads — kiểm tra kỹ `timeout`/`terminate()`).
-6. Dùng fixture độc hại đã có ở `backend/test/fixtures/dynamic-reports/hostile/` (5 file: mã hoá, macro đổi đuôi, external link, zip bomb, 8-sheet vượt giới hạn chọn).
+BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr3-template` → `gh pr create` → chờ CI 5 check xanh → `gh pr merge --squash --delete-branch` (dùng `--admin` nếu branch protection vẫn chặn review, theo tiền lệ PR #522/#523) → xác nhận Deploy chạy xong + health xanh → cập nhật PROGRESS.md → bắt đầu PR4 hoặc PR5.
 
-File liên quan:
-- `backend/src/dynamic-reports/template/` (chưa tạo)
-- `backend/test/fixtures/dynamic-reports/` (đã có từ PR0, xem README.md trong đó)
-- `backend/src/xlsx-imports/hostile-xlsx-guard.ts` (dùng lại, tham số hoá)
+Sau khi merge PR3, hai lane chạy song song được (PR4 phụ thuộc PR3 ổn định, PR5 cũng phụ thuộc PR1+PR2, không phụ thuộc nhau):
+- **PR5 (backend-only, làm được ngay, không cần UI):** PeriodScheduler — cron sinh kỳ dùng `engine/period.ts` đã có, `unique(reportId, periodKey)`, assignment `unique(periodId, teamId)`, snapshot lịch/phiên bản/danh sách tổ lúc sinh kỳ, `pg_try_advisory_lock` (R17) chống chạy chồng. Đây là lựa chọn tự nhiên tiếp theo cho một agent không có trình duyệt để test UI trực tiếp.
+- **PR4 (frontend, cần UI thật để kiểm — wizard 4 bước S01-S10, S22, S30-S32 + GridRenderer):** nên làm khi có thể chạy dev server + bấm thử thật (theo feedback_bam_thu_that_moi_thay), không chỉ dựa vào test tự động.
 
 ## Hàng đợi task kế tiếp
-1. PR3: TemplateService (đang mô tả ở trên) — ~6-8 ngày công theo spec
-2. PR4: Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung
-3. PR5: PeriodScheduler + assignment (dùng `engine/period.ts` đã có sẵn)
-4. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
-5. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
-6. PR8: Màn C (dùng `engine/status.ts` đã có)
-7. PR9: Mở rộng (validation rules UI, ghi chú, nhắc hạn)
-8. PR10: Hoàn thiện + UAT (`/uat-test-writer` → `/uat-test-only` thật, KHÔNG dùng engine unit test làm UAT) + monkey test một lần cuối
+1. PR4: Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung
+2. PR5: PeriodScheduler + assignment (dùng `engine/period.ts` đã có sẵn) — **ưu tiên làm trước PR4** vì không cần UI
+3. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
+4. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
+5. PR8: Màn C (dùng `engine/status.ts` đã có)
+6. PR9: Mở rộng (validation rules UI, ghi chú, nhắc hạn)
+7. PR10: Hoàn thiện + UAT (`/uat-test-writer` → `/uat-test-only` thật, KHÔNG dùng engine unit test làm UAT) + monkey test một lần cuối
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

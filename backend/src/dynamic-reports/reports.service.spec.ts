@@ -26,6 +26,13 @@ describe('DynamicReportsRegistryService', () => {
 
   const user = { id: 'user-1', roleId: 'role-1' };
 
+  function lastFindManyArgs(): { where?: Record<string, unknown> } {
+    const calls = prisma.dynReport.findMany.mock.calls as unknown as Array<
+      [{ where?: Record<string, unknown> }]
+    >;
+    return calls[0][0];
+  }
+
   describe('mode=setup', () => {
     it('returns every report when the caller holds manage:DynamicReport', async () => {
       prisma.rolePermission.findMany.mockResolvedValue([
@@ -40,7 +47,7 @@ describe('DynamicReportsRegistryService', () => {
         expect.objectContaining({ orderBy: { updatedAt: 'desc' } }),
       );
       // setup is global — no role/scope filter in the where clause
-      expect(prisma.dynReport.findMany.mock.calls[0][0].where).toBeUndefined();
+      expect(lastFindManyArgs().where).toBeUndefined();
     });
 
     it('rejects with 404 (anti-probe) when the caller lacks manage:DynamicReport', async () => {
@@ -63,7 +70,7 @@ describe('DynamicReportsRegistryService', () => {
       const result = await service.listReports(user, 'manage');
 
       expect(result).toHaveLength(2);
-      expect(prisma.dynReport.findMany.mock.calls[0][0].where).toBeUndefined();
+      expect(lastFindManyArgs().where).toBeUndefined();
     });
 
     it('filters to reports where the caller holds an active MANAGER or VIEWER role, without admin', async () => {
@@ -72,7 +79,9 @@ describe('DynamicReportsRegistryService', () => {
 
       await service.listReports(user, 'manage');
 
-      const where = prisma.dynReport.findMany.mock.calls[0][0].where;
+      const where = lastFindManyArgs().where as {
+        roles: { some: { userId: string; role: unknown } };
+      };
       expect(where.roles.some.userId).toBe('user-1');
       expect(where.roles.some.role).toEqual({ in: ['MANAGER', 'VIEWER'] });
     });
@@ -85,7 +94,9 @@ describe('DynamicReportsRegistryService', () => {
 
       await service.listReports(user, 'input');
 
-      const where = prisma.dynReport.findMany.mock.calls[0][0].where;
+      const where = lastFindManyArgs().where as {
+        targets: { some: { editors: { some: { userId: string } } } };
+      };
       expect(where.targets.some.editors.some.userId).toBe('user-1');
     });
 
