@@ -1,5 +1,6 @@
 import type { FieldType, AggregateType } from '../engine/token';
 import type { CellIssueCode } from './classify';
+import type { Layout } from './layout';
 
 export interface ParsedField {
   sheetKey: string;
@@ -40,4 +41,5 @@ export interface ParseTemplateResult {
   issues: ParsedIssue[];
   totalCells: number;
   inputCellCount: number;
+  layout: Layout;
 }

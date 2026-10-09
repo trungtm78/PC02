@@ -4,6 +4,7 @@ import { classifyCell } from './classify';
 import { inferLabel } from './label';
 import { detectUnsupportedFeatures } from './unsupported-features';
 import { assertTemplateLimits } from './limits';
+import { extractLayout } from './layout';
 import type {
   ParsedField,
   ParsedFormulaCell,
@@ -167,5 +168,15 @@ export async function parseTemplate(
     inputCellCount,
   });
 
-  return { dateSystem, fields, formulas, issues, totalCells, inputCellCount };
+  const layout = extractLayout(workbook, selectedSheetNames);
+
+  return {
+    dateSystem,
+    fields,
+    formulas,
+    issues,
+    totalCells,
+    inputCellCount,
+    layout,
+  };
 }

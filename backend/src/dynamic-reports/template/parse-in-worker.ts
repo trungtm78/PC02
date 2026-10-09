@@ -14,6 +14,8 @@ import type { WorkerMessage } from './parse-worker';
  */
 
 export class TemplateParseTimeoutError extends Error {
+  /** Matches the mã lỗi table, spec §4.2: `PARSE_TIMEOUT`. */
+  readonly code = 'PARSE_TIMEOUT';
   constructor(ms: number) {
     super(`Template parse timed out after ${ms}ms.`);
     this.name = 'TemplateParseTimeoutError';

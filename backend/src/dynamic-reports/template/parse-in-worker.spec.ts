@@ -53,7 +53,10 @@ describe('parseTemplateInWorker', () => {
     // needing an artificially huge/slow fixture to force a real timeout.
     await expect(
       parseTemplateInWorker(buffer, ['Đội 3'], 1),
-    ).rejects.toBeInstanceOf(TemplateParseTimeoutError);
+    ).rejects.toMatchObject({
+      constructor: TemplateParseTimeoutError,
+      code: 'PARSE_TIMEOUT',
+    });
   });
 
   it('rejects (does not hang) when given a buffer that is not a valid xlsx at all', async () => {
