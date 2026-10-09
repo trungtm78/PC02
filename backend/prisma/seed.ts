@@ -88,6 +88,11 @@ async function main() {
           'DeadlineRuleVersion',
           'Calendar',
           'Directory',
+          // dynamic-reports PR2: read:DynamicReport only opens the module's
+          // own menu entry — manage/admin stay ADMIN-only, and seeing a
+          // specific report in the list is further scoped by DynReportRole/
+          // DynReportTargetEditor (reports.service.ts), not this grant.
+          'DynamicReport',
         ],
       },
     },
