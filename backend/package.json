@@ -61,6 +61,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "date-fns": "^4.1.0",
+    "decimal.js": "^10.6.0",
     "docx": "^9.6.1",
     "docxtemplater": "^3.68.7",
     "dotenv": "^17.3.1",
