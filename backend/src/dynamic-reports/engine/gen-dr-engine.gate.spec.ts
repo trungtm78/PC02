@@ -19,11 +19,20 @@ import * as path from 'path';
 const SRC_DIR = path.resolve(__dirname); // backend/src/dynamic-reports/engine
 const GENERATED_DIR = path.resolve(
   __dirname,
-  '..', '..', '..', '..', // src/dynamic-reports/engine -> src -> backend -> repo root
-  'frontend', 'src', 'features', 'dynamic-reports', 'engine', 'generated',
+  '..',
+  '..',
+  '..',
+  '..', // src/dynamic-reports/engine -> src -> backend -> repo root
+  'frontend',
+  'src',
+  'features',
+  'dynamic-reports',
+  'engine',
+  'generated',
 );
 
-const DISALLOWED_IMPORT_RE = /from\s+['"](@nestjs|@prisma|fs|path|net|http|crypto)(\/|['"])/;
+const DISALLOWED_IMPORT_RE =
+  /from\s+['"](@nestjs|@prisma|fs|path|net|http|crypto)(\/|['"])/;
 
 function listEngineSourceFiles(): string[] {
   return fs

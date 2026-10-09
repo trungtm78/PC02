@@ -177,7 +177,13 @@ describe('QUARTERLY — FRD §5 "quý IV chọn tháng thứ 3/ngày 25 thì h�
 describe('SEMI_ANNUAL', () => {
   const rule: ScheduleRule = {
     periodType: 'SEMI_ANNUAL',
-    due: { kind: 'FIXED_IN_PERIOD', periodOffset: 0, anchorMonth: 2, anchorDay: 15, time: '17:00' },
+    due: {
+      kind: 'FIXED_IN_PERIOD',
+      periodOffset: 0,
+      anchorMonth: 2,
+      anchorDay: 15,
+      time: '17:00',
+    },
     open: { kind: 'AT_PERIOD_START' },
   };
 
@@ -200,7 +206,13 @@ describe('SEMI_ANNUAL', () => {
 describe('YEARLY', () => {
   const rule: ScheduleRule = {
     periodType: 'YEARLY',
-    due: { kind: 'FIXED_IN_PERIOD', periodOffset: 0, anchorMonth: 1, anchorDay: 31, time: '17:00' },
+    due: {
+      kind: 'FIXED_IN_PERIOD',
+      periodOffset: 0,
+      anchorMonth: 1,
+      anchorDay: 31,
+      time: '17:00',
+    },
     open: { kind: 'AT_PERIOD_START' },
   };
 
@@ -220,12 +232,20 @@ describe('YEARLY', () => {
   it('D08: clamps an impossible day-of-month (Feb 30) to the real month end, with a warning', () => {
     const clampRule: ScheduleRule = {
       periodType: 'YEARLY',
-      due: { kind: 'FIXED_IN_PERIOD', periodOffset: 0, anchorMonth: 2, anchorDay: 30, time: '17:00' },
+      due: {
+        kind: 'FIXED_IN_PERIOD',
+        periodOffset: 0,
+        anchorMonth: 2,
+        anchorDay: 30,
+        time: '17:00',
+      },
       open: { kind: 'AT_PERIOD_START' },
     };
     const [period] = generatePeriods(clampRule, vnNow(2026, 1, 1, 10, 0), 1);
     expect(period.dueAt).toBe('2026-02-28T10:00:00.000Z');
-    expect(period.warnings.some((w) => w.code === 'DAY_CLAMPED_TO_MONTH_END')).toBe(true);
+    expect(
+      period.warnings.some((w) => w.code === 'DAY_CLAMPED_TO_MONTH_END'),
+    ).toBe(true);
   });
 });
 
@@ -262,9 +282,9 @@ describe('ONE_TIME — D01: "Một kỳ một lần, không ngầm lặp hằng 
 
   it('throws a configuration error when oneTimeDate is missing (programmer error, not a user-facing validation path)', () => {
     const brokenRule = { ...rule, oneTimeDate: undefined };
-    expect(() => generatePeriods(brokenRule, vnNow(2026, 10, 1, 10, 0), 1)).toThrow(
-      'ONE_TIME schedule requires oneTimeDate.',
-    );
+    expect(() =>
+      generatePeriods(brokenRule, vnNow(2026, 10, 1, 10, 0), 1),
+    ).toThrow('ONE_TIME schedule requires oneTimeDate.');
   });
 });
 

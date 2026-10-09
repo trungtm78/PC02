@@ -57,6 +57,7 @@ import { DataScopeInterceptor } from './auth/interceptors/data-scope.interceptor
 import { TestFixturesModule } from './test-fixtures/test-fixtures.module';
 import { DocumentNumbersModule } from './document-numbers/document-numbers.module';
 import { DocumentTemplatesModule } from './document-templates/document-templates.module';
+import { DynamicReportsModule } from './dynamic-reports/dynamic-reports.module';
 import { CrimesModule } from './crimes/crimes.module';
 import { LegacyMigrationModule } from './legacy-migration/legacy-migration.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -67,7 +68,9 @@ import { CatalogModule } from './catalog/catalog.module';
     // limit env-configurable (prod 200/60s); skipIf tắt TOÀN BỘ throttle (gồm @Throttle per-route)
     // khi THROTTLE_DISABLE=true — chỉ dùng cho môi trường test/UAT để chạy bộ test không bị 429.
     ThrottlerModule.forRoot({
-      throttlers: [{ ttl: 60000, limit: Number(process.env.THROTTLE_LIMIT) || 200 }],
+      throttlers: [
+        { ttl: 60000, limit: Number(process.env.THROTTLE_LIMIT) || 200 },
+      ],
       skipIf: () => process.env.THROTTLE_DISABLE === 'true',
     }),
     ScheduleModule.forRoot(),
@@ -123,6 +126,7 @@ import { CatalogModule } from './catalog/catalog.module';
     EventRemindersModule,
     DocumentNumbersModule,
     DocumentTemplatesModule,
+    DynamicReportsModule, // PR2
     // Conditional: only registers when E2E_TEST_MODE=true.
     TestFixturesModule.forRoot(),
   ],
