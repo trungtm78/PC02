@@ -14,7 +14,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, RefreshCw, Table2 } from 'lucide-react';
+import { AlertCircle, Download, RefreshCw, Table2 } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type {
   AssignmentStatusRow,
@@ -65,6 +65,17 @@ export default function StatusDashboardPage() {
       dynamicReportsApi.listStatus({ state, overdue, reopened }, page, PAGE_SIZE),
   });
 
+  const [exportingFormat, setExportingFormat] = useState<'csv' | 'xlsx' | null>(null);
+
+  async function handleExport(format: 'csv' | 'xlsx') {
+    setExportingFormat(format);
+    try {
+      await dynamicReportsApi.exportStatus({ state, overdue, reopened }, format);
+    } finally {
+      setExportingFormat(null);
+    }
+  }
+
   function applyKpiFilter(key: KpiFilterKey) {
     const turningOff = activeKpi === key;
     const next = new URLSearchParams(searchParams);
@@ -99,16 +110,38 @@ export default function StatusDashboardPage() {
           <Table2 className="w-5 h-5 text-blue-700" />
           <h1 className="text-xl font-bold text-slate-800">Tình trạng nhập liệu</h1>
         </div>
-        <button
-          type="button"
-          data-testid="btn-refresh"
-          onClick={() => void refetch()}
-          disabled={isFetching}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-          Làm mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="btn-export-csv"
+            onClick={() => void handleExport('csv')}
+            disabled={exportingFormat !== null}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Xuất CSV
+          </button>
+          <button
+            type="button"
+            data-testid="btn-export-xlsx"
+            onClick={() => void handleExport('xlsx')}
+            disabled={exportingFormat !== null}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Xuất XLSX
+          </button>
+          <button
+            type="button"
+            data-testid="btn-refresh"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+            Làm mới
+          </button>
+        </div>
       </div>
       {data && (
         <p className="text-sm text-slate-500 mb-4" data-testid="as-of">

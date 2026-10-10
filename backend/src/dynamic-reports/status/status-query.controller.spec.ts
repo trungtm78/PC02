@@ -6,7 +6,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 describe('StatusQueryController', () => {
   let controller: StatusQueryController;
-  const service = { listAssignmentStatuses: jest.fn() };
+  const service = {
+    listAssignmentStatuses: jest.fn(),
+    queryAllForExport: jest.fn(),
+  };
   const user = { id: 'u1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -86,5 +89,86 @@ describe('StatusQueryController', () => {
       undefined,
       undefined,
     );
+  });
+
+  function buildRes() {
+    return {
+      setHeader: jest.fn(),
+      write: jest.fn<boolean, [string]>(),
+      end: jest.fn(),
+      send: jest.fn(),
+    };
+  }
+
+  const ROW = {
+    assignmentId: 'a1',
+    reportId: 'report1',
+    reportName: 'HSLN',
+    periodId: 'period1',
+    periodKey: '2026-06',
+    periodStart: '2026-06-01',
+    periodEnd: '2026-06-30',
+    teamId: 'team1',
+    teamName: 'Đội 3',
+    parentTeamName: null,
+    dataCoverageLabel: '1/1',
+    state: 'DRAFT' as const,
+    accessState: 'OPEN' as const,
+    timelinessState: 'NOT_YET_DUE' as const,
+    exempt: false,
+    dueAt: '2026-07-05T17:00:00.000Z',
+    effectiveLockAt: null,
+    submittedAt: null,
+    approvedAt: null,
+    updatedAt: null,
+    grantCount: 0,
+    changedSinceReopen: false,
+  };
+
+  it('export (CSV, default) streams a BOM + header + one row per match, delegating to queryAllForExport', async () => {
+    service.queryAllForExport.mockResolvedValue({
+      rows: [ROW],
+      asOf: '2026-06-15T10:00:00.000Z',
+    });
+    const res = buildRes();
+
+    await controller.export({ reportId: 'report1' }, user, res as never);
+
+    expect(service.queryAllForExport).toHaveBeenCalledWith('u1', 'r1', {
+      reportId: 'report1',
+      periodId: undefined,
+      teamId: undefined,
+      state: undefined,
+      overdue: undefined,
+      reopened: undefined,
+    });
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/csv; charset=utf-8',
+    );
+    expect(res.write).toHaveBeenCalledWith('﻿');
+    const headerLine = res.write.mock.calls[1][0];
+    expect(headerLine).toContain('Báo cáo');
+    const dataLine = res.write.mock.calls[2][0];
+    expect(dataLine).toContain('HSLN');
+    expect(dataLine).toContain('Đội 3');
+    expect(res.end).toHaveBeenCalled();
+  });
+
+  it('export (xlsx) sends a real workbook buffer with the spreadsheet content type', async () => {
+    service.queryAllForExport.mockResolvedValue({
+      rows: [ROW],
+      asOf: '2026-06-15T10:00:00.000Z',
+    });
+    const res = buildRes();
+
+    await controller.export({ format: 'xlsx' }, user, res as never);
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(res.send).toHaveBeenCalledWith(expect.any(Buffer));
+    expect(res.write).not.toHaveBeenCalled();
   });
 });

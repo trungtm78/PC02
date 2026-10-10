@@ -49,3 +49,34 @@ export class ListStatusQueryDto {
   @Transform(({ value }) => (value !== undefined ? Number(value) : undefined))
   pageSize?: number;
 }
+
+/** S19 "Xuất" — same filters as `ListStatusQueryDto`, no pagination, plus the output format. */
+export class ExportStatusQueryDto {
+  @IsOptional()
+  @IsString()
+  reportId?: string;
+
+  @IsOptional()
+  @IsString()
+  periodId?: string;
+
+  @IsOptional()
+  @IsString()
+  teamId?: string;
+
+  @IsOptional()
+  @IsIn(SUBMISSION_STATES)
+  state?: (typeof SUBMISSION_STATES)[number];
+
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  overdue?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => toBoolean(value))
+  reopened?: boolean;
+
+  @IsOptional()
+  @IsIn(['csv', 'xlsx'])
+  format?: 'csv' | 'xlsx';
+}

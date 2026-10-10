@@ -366,4 +366,41 @@ describe('StatusQueryService', () => {
     expect(result.items).toHaveLength(1);
     expect(result.kpi.requiredCount).toBe(2);
   });
+
+  describe('queryAllForExport (S19 Xuất, PR8 slice 2)', () => {
+    it('returns every matching row, never paginated', async () => {
+      const assignments = Array.from({ length: 30 }, (_, i) =>
+        assignment(`a${i}`),
+      );
+      const { service } = buildService(assignments, { isAdmin: true });
+
+      const result = await service.queryAllForExport('admin1', 'roleAdmin', {});
+
+      expect(result.rows).toHaveLength(30);
+    });
+
+    it('applies the same filters (overdue) as the paginated list', async () => {
+      const overdue = assignment('a1', {
+        period: { ...assignment('a1').period, dueAt: FAR_PAST },
+      });
+      const onTime = assignment('a2');
+      const { service } = buildService([overdue, onTime], { isAdmin: true });
+
+      const result = await service.queryAllForExport('admin1', 'roleAdmin', {
+        overdue: true,
+      });
+
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0].assignmentId).toBe('a1');
+    });
+
+    it('returns an empty export without querying assignments when the caller has no role at all', async () => {
+      const { service, prisma } = buildService([], { roles: [] });
+
+      const result = await service.queryAllForExport('u1', 'role1', {});
+
+      expect(result.rows).toEqual([]);
+      expect(prisma.dynReportAssignment.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

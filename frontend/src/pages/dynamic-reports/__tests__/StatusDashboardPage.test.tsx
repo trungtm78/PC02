@@ -7,7 +7,7 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { StatusListResult } from '@/features/dynamic-reports/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
-  dynamicReportsApi: { listStatus: vi.fn() },
+  dynamicReportsApi: { listStatus: vi.fn(), exportStatus: vi.fn() },
 }));
 
 function renderPage() {
@@ -156,5 +156,36 @@ describe('StatusDashboardPage', () => {
       'href',
       '/bao-cao-dong/duyet/a1',
     );
+  });
+
+  it('clicking "Xuất CSV" calls exportStatus with the current filters and format csv', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.exportStatus).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('kpi-overdue'));
+    fireEvent.click(screen.getByTestId('kpi-overdue'));
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith({ overdue: true }, 1, 25);
+    });
+
+    fireEvent.click(screen.getByTestId('btn-export-csv'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({ overdue: true }, 'csv');
+    });
+  });
+
+  it('clicking "Xuất XLSX" calls exportStatus with format xlsx', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.exportStatus).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export-xlsx'));
+    fireEvent.click(screen.getByTestId('btn-export-xlsx'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({}, 'xlsx');
+    });
   });
 });
