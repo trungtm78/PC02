@@ -153,6 +153,7 @@ export class SubmissionController {
         user.id,
         body.values,
         body.expectedRevision,
+        body.idempotencyKey,
       ),
     );
   }

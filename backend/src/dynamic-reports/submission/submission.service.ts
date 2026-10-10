@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +14,10 @@ import { applyTransition } from '../workflow/transitions';
 
 /** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
 const DEFAULT_GRANT_HOURS = 3;
+
+/** S26 (PR6 slice 7) — idempotency record for `save()`, same convention as `report-config.service.ts`. */
+const SAVE_IDEMPOTENCY_ACTION = 'dyn_report_save_values';
+const SAVE_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class SubmissionError extends Error {
   constructor(
@@ -973,13 +977,51 @@ export class SubmissionService {
     return { period, submission, now, grants };
   }
 
+  /** S26 — hashes everything the idempotency key must stay pinned to (everything but the key itself). */
+  private saveRequestHash(
+    assignmentId: string,
+    patch: Record<string, string | null>,
+    expectedRevision: string,
+  ): string {
+    const hash = createHash('sha256');
+    hash.update(JSON.stringify({ assignmentId, patch, expectedRevision }));
+    return hash.digest('hex');
+  }
+
   async save(
     assignmentId: string,
     userId: string,
     patch: Record<string, string | null>,
     expectedRevision: string,
+    idempotencyKey?: string,
   ): Promise<SaveValuesResult> {
     return this.prisma.$transaction(async (tx) => {
+      const requestHash = idempotencyKey
+        ? this.saveRequestHash(assignmentId, patch, expectedRevision)
+        : null;
+      if (idempotencyKey) {
+        const existing = await tx.dynReportIdempotency.findUnique({
+          where: {
+            actorId_action_key: {
+              actorId: userId,
+              action: SAVE_IDEMPOTENCY_ACTION,
+              key: idempotencyKey,
+            },
+          },
+        });
+        if (existing) {
+          if (existing.requestHash !== requestHash) {
+            throw new SubmissionError(
+              'Mã idempotency đã dùng cho một yêu cầu khác.',
+              'IDEMPOTENCY_MISMATCH',
+            );
+          }
+          if (existing.resultRef) {
+            return JSON.parse(existing.resultRef) as SaveValuesResult;
+          }
+        }
+      }
+
       const { period, submission, now, grants } = await this.lockForWrite(
         tx,
         assignmentId,
@@ -1068,13 +1110,40 @@ export class SubmissionService {
         now,
       });
 
-      return {
+      const result: SaveValuesResult = {
         revision: nextRevision.toString(),
         state: transition.next,
         savedAt: now.toISOString(),
         serverTime: now.toISOString(),
         effectiveLockAt: nextAccess.effectiveLockAt?.toISOString() ?? null,
       };
+
+      if (idempotencyKey && requestHash) {
+        await tx.dynReportIdempotency.upsert({
+          where: {
+            actorId_action_key: {
+              actorId: userId,
+              action: SAVE_IDEMPOTENCY_ACTION,
+              key: idempotencyKey,
+            },
+          },
+          create: {
+            actorId: userId,
+            action: SAVE_IDEMPOTENCY_ACTION,
+            key: idempotencyKey,
+            requestHash,
+            resultRef: JSON.stringify(result),
+            status: 'COMPLETED',
+            expiresAt: new Date(now.getTime() + SAVE_IDEMPOTENCY_TTL_MS),
+          },
+          update: {
+            resultRef: JSON.stringify(result),
+            status: 'COMPLETED',
+          },
+        });
+      }
+
+      return result;
     });
   }
 
