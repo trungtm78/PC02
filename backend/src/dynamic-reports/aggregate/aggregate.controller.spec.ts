@@ -1,12 +1,18 @@
+import { ConflictException, BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AggregateController } from './aggregate.controller';
 import { AggregateService } from './aggregate.service';
+import { SubmissionError } from '../submission/submission.service';
 import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 describe('AggregateController', () => {
   let controller: AggregateController;
-  const service = { getPeriodSummary: jest.fn() };
+  const service = {
+    getPeriodSummary: jest.fn(),
+    finalizePeriod: jest.fn(),
+    reopenPeriod: jest.fn(),
+  };
   const user = { id: 'u1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -57,5 +63,54 @@ describe('AggregateController', () => {
       'r1',
       'SUBMITTED',
     );
+  });
+
+  it('POST finalize delegates to AggregateService.finalizePeriod', async () => {
+    const finalized = { periodId: 'period1', status: 'FINALIZED' };
+    service.finalizePeriod.mockResolvedValue(finalized);
+
+    const result = await controller.finalize('period1', user);
+
+    expect(service.finalizePeriod).toHaveBeenCalledWith('period1', 'u1', 'r1');
+    expect(result).toBe(finalized);
+  });
+
+  it('POST reopen delegates to AggregateService.reopenPeriod with a reason', async () => {
+    const reopened = { periodId: 'period1', status: 'OPEN' };
+    service.reopenPeriod.mockResolvedValue(reopened);
+
+    const result = await controller.reopen(
+      'period1',
+      { reason: 'Sửa lại số liệu' },
+      user,
+    );
+
+    expect(service.reopenPeriod).toHaveBeenCalledWith(
+      'period1',
+      'u1',
+      'r1',
+      'Sửa lại số liệu',
+    );
+    expect(result).toBe(reopened);
+  });
+
+  it('translates an INVALID_STATE_TRANSITION SubmissionError from finalize into a 409', async () => {
+    service.finalizePeriod.mockRejectedValue(
+      new SubmissionError('already finalized', 'INVALID_STATE_TRANSITION'),
+    );
+
+    await expect(controller.finalize('period1', user)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+  });
+
+  it('translates a CELL_VALIDATION SubmissionError from reopen into a 400', async () => {
+    service.reopenPeriod.mockRejectedValue(
+      new SubmissionError('not finalized', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.reopen('period1', { reason: 'r' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

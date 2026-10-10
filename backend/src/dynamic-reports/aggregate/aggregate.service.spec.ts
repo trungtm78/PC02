@@ -28,6 +28,7 @@ describe('AggregateService', () => {
   ) {
     return {
       id,
+      teamId: `team-${id}`,
       obligation: 'REQUIRED',
       unlocks: [],
       teamSnapshot: { name: `Team ${id}` },
@@ -49,6 +50,7 @@ describe('AggregateService', () => {
     return {
       id: 'period1',
       reportId: 'report1',
+      versionId: 'version1',
       report: { name: 'HSLN' },
       periodKey: '2026-06',
       startDate: new Date('2026-06-01T00:00:00Z'),
@@ -228,5 +230,140 @@ describe('AggregateService', () => {
     expect(contributors).toHaveLength(1);
     expect(contributors[0].teamName).toBe('Team a2');
     expect(contributors[0].state).toBe('APPROVED');
+  });
+
+  describe('finalizePeriod / reopenPeriod (S38, PR7 slice 6)', () => {
+    function buildTxService(period: unknown, grants: unknown[] = []) {
+      const tx = {
+        $queryRaw: jest.fn<Promise<unknown>, unknown[]>(),
+        dynReportPeriod: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(period),
+          update: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+        rolePermission: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(null),
+        },
+        dynReportRole: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(grants[0] ?? null),
+        },
+        dynReportSnapshot: {
+          create: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue({ id: 'snapshot1' }),
+          updateMany: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+      };
+      const prisma = {
+        $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+      };
+      const service = new AggregateService(prisma as unknown as PrismaService);
+      return { service, tx };
+    }
+
+    it('finalizes an OPEN period, writes an official APPROVED snapshot, and flips status', async () => {
+      const { service, tx } = buildTxService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+
+      const result = await service.finalizePeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.status).toBe('FINALIZED');
+      expect(result.snapshotId).toBe('snapshot1');
+
+      const snapshotCall = tx.dynReportSnapshot.create.mock.calls[0][0] as {
+        data: {
+          mode: string;
+          official: boolean;
+          values: Record<string, unknown>;
+          periodId: string;
+        };
+      };
+      expect(snapshotCall.data.mode).toBe('APPROVED');
+      expect(snapshotCall.data.official).toBe(true);
+      // Only a2 is APPROVED — matches the mode=APPROVED contributor rule
+      // already proven for getPeriodSummary.
+      expect(snapshotCall.data.values[FIELD.fieldKey]).toEqual({
+        value: '20',
+        countTotal: 1,
+        countNonBlank: 1,
+      });
+
+      const periodUpdateCall = tx.dynReportPeriod.update.mock.calls[0][0] as {
+        data: { status: string; finalizedById: string };
+      };
+      expect(periodUpdateCall.data.status).toBe('FINALIZED');
+      expect(periodUpdateCall.data.finalizedById).toBe('mgr1');
+    });
+
+    it('rejects with INVALID_STATE_TRANSITION when the period is already FINALIZED', async () => {
+      const { service } = buildTxService(basePeriod({ status: 'FINALIZED' }), [
+        { role: 'MANAGER' },
+      ]);
+
+      await expect(
+        service.finalizePeriod('period1', 'mgr1', 'roleMgr'),
+      ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+    });
+
+    it('rejects (404) when the caller is not a manager of this report', async () => {
+      const { service } = buildTxService(basePeriod());
+
+      await expect(
+        service.finalizePeriod('period1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('reopens a FINALIZED period as admin, invalidating the prior snapshot with a reason', async () => {
+      const { service, tx } = buildTxService(
+        basePeriod({ status: 'FINALIZED' }),
+      );
+      tx.rolePermission.findFirst.mockResolvedValue({ id: 'rp1' });
+
+      const result = await service.reopenPeriod(
+        'period1',
+        'admin1',
+        'roleAdmin',
+        'Sai số liệu, cần sửa lại',
+      );
+
+      expect(result.status).toBe('OPEN');
+      const invalidateCall = tx.dynReportSnapshot.updateMany.mock
+        .calls[0][0] as {
+        data: { invalidatedReason: string };
+      };
+      expect(invalidateCall.data.invalidatedReason).toBe(
+        'Sai số liệu, cần sửa lại',
+      );
+      const periodUpdateCall = tx.dynReportPeriod.update.mock.calls[0][0] as {
+        data: { status: string };
+      };
+      expect(periodUpdateCall.data.status).toBe('OPEN');
+    });
+
+    it('rejects (404) when a report MANAGER (not admin) tries to reopen', async () => {
+      const { service, tx } = buildTxService(
+        basePeriod({ status: 'FINALIZED' }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+
+      await expect(
+        service.reopenPeriod('period1', 'mgr1', 'roleMgr', 'r'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects with CELL_VALIDATION when the period is not FINALIZED', async () => {
+      const { service, tx } = buildTxService(basePeriod({ status: 'OPEN' }));
+      tx.rolePermission.findFirst.mockResolvedValue({ id: 'rp1' });
+
+      await expect(
+        service.reopenPeriod('period1', 'admin1', 'roleAdmin', 'r'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
   });
 });

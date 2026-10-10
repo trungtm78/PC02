@@ -2,7 +2,9 @@ import { api } from '@/lib/api';
 import type {
   ActiveGrantView,
   AssignmentSummary,
+  FinalizeResultView,
   PeriodSummaryView,
+  ReopenResultView,
   ReportSetupSummary,
   SaveReportConfigPayload,
   SaveReportConfigResult,
@@ -152,5 +154,16 @@ export const dynamicReportsApi = {
   revokeUnlock: (assignmentId: string, reason: string) =>
     api
       .post<void>(`/bao-cao-dong/submissions/${assignmentId}/unlock/revoke`, { reason })
+      .then((r) => r.data),
+
+  /** S38 (PR7 slice 6). */
+  finalizePeriod: (periodId: string) =>
+    api
+      .post<FinalizeResultView>(`/bao-cao-dong/periods/${periodId}/finalize`, {})
+      .then((r) => r.data),
+
+  reopenPeriod: (periodId: string, reason: string) =>
+    api
+      .post<ReopenResultView>(`/bao-cao-dong/periods/${periodId}/reopen`, { reason })
       .then((r) => r.data),
 };

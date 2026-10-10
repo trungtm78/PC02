@@ -252,8 +252,22 @@ export interface PeriodSummaryView {
   periodStart: string;
   periodEnd: string;
   dueAt: string;
+  /** S38 — OPEN shows "Chốt kỳ"; FINALIZED shows "Mở chốt" (admin only, 404 otherwise). */
+  status: 'OPEN' | 'FINALIZED';
   mode: SummaryMode;
   kpi: KpiSummaryView;
   fields: FieldAggregateView[];
   serverTime: string;
+}
+
+export interface FinalizeResultView {
+  periodId: string;
+  status: 'FINALIZED';
+  finalizedAt: string;
+  snapshotId: string;
+}
+
+export interface ReopenResultView {
+  periodId: string;
+  status: 'OPEN';
 }

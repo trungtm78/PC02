@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
 import { FeatureFlag } from '../../feature-flags/decorators/feature-flag.decorator';
@@ -6,6 +16,10 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AggregateService, type SummaryMode } from './aggregate.service';
+import { SubmissionError } from '../submission/submission.service';
+import { ReopenPeriodDto } from './dto/reopen-period.dto';
+
+const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION']);
 
 interface AuthenticatedUser {
   id: string;
@@ -48,5 +62,47 @@ export class AggregateController {
       user.roleId,
       resolvedMode,
     );
+  }
+
+  @Post(':periodId/finalize')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async finalize(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.finalizePeriod(periodId, user.id, user.roleId),
+    );
+  }
+
+  @Post(':periodId/reopen')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async reopen(
+    @Param('periodId') periodId: string,
+    @Body() body: ReopenPeriodDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.reopenPeriod(
+        periodId,
+        user.id,
+        user.roleId,
+        body.reason,
+      ),
+    );
+  }
+
+  private async handleWrite<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof SubmissionError) {
+        if (CONFLICT_CODES.has(err.code)) {
+          throw new ConflictException({ code: err.code, message: err.message });
+        }
+        throw new BadRequestException({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
   }
 }
