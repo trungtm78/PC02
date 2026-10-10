@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T09:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2 đã merge main; PR4 slice 3 (UI upload) ĐÃ XONG + đã bấm thử thật, trên nhánh `feat/dynamic-reports-pr4-slice3` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T09:17:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2+3 đã merge main (PR #529); đang bắt đầu PR4 slice 4 (S04 đánh dấu ô + S05-S08 đặt lịch) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -47,6 +47,7 @@ Cập nhật: 2026-10-10T09:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2 đ�
   - **Quyết định phạm vi (ghi rõ trong comment đầu file):** đây là bản xem trước THẬT, hữu dụng — nhưng KHÔNG phải lưới giống Excel từng pixel (GridRenderer). Lưới đó là hạ tầng dùng chung cho nhiều màn sau (S04, S11, S15), xứng đáng một lượt riêng khi nhu cầu hiển thị thật đã rõ, thay vì đoán hình dạng bây giờ.
   - **Đã bấm thử thật trên Chromium** với đúng file HSLN thật: tải lên → nhận đủ 17 tên sheet thật → chọn "Đội 3" → xem trước → nhận đúng 33 cảnh báo UNLOCKED_NO_TOKEN / 0 field — khớp y hệt oracle đã biết (3 đường độc lập: jest, HTTP tay ở slice 2, và giờ là bấm qua trình duyệt — cùng ra một con số). 0 lỗi console/network.
   - 6 test mới (ReportTemplateUploadPage) + 1 test cũ cập nhật (nút "Tạo báo cáo" giờ kiểm href thật thay vì ghi chú).
+- [x] **Đã merge PR #529 (PR4 slice 3) vào `main`** — admin-merge (tiền lệ #522-528), CI xanh 5/5 (Backend/Database Gate/Engine Gate/Frontend/Monkey Self-Test), merge commit `ac0245e2389df4ac03ef3e4f4836dee72d910673`, 10/10/2026 09:14 (+07:00). Deploy watch đang chạy.
 
 **Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
@@ -54,9 +55,9 @@ Cập nhật: 2026-10-10T09:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2 đ�
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR4 slice 3 (giao diện upload) đã xong, xanh, đã bấm thử thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-slice3` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
+Task: PR4 slice 3 đã merge xong (PR #529). Đang xác nhận deploy xanh (health buildId khớp merge commit `ac0245e2`), sau đó bắt đầu PR4 slice 4 ngay (nhánh mới `feat/dynamic-reports-pr4-slice4` từ `origin/main` fresh-fetch).
 
-BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-slice3` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR4 slice 4: màn đánh dấu ô (S04 — quét vùng trên preview, gán token NUM/TEXT/DATE/TIME + AGG, hiện nhãn suy ra) rồi tới S05-S10 (đặt lịch dùng `engine/period.ts` đã có, chọn tổ/người nhập, tổng kết, xuất bản — bước xuất bản cần persist `DynReportVersion`/`DynReportField` thật, chưa có service nào làm việc này). Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) đã dựng xong, lặp lại được ngay (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công).
+BƯỚC TIẾP THEO: PR4 slice 4 — S04 đánh dấu ô (quét vùng trên preview, gán token NUM/TEXT/DATE/TIME + AGG, hiện nhãn suy ra) + S05-S08 đặt lịch (dùng `engine/period.ts` đã có, preview ≥6 kỳ). S09/S10 (chọn tổ/người nhập, tổng kết, xuất bản — cần `ReportConfigService` persist `DynReportVersion`/`DynReportField`, CHƯA có) dời sang slice 5. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) đã dựng xong, lặp lại được ngay (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công).
 
 ## Hàng đợi task kế tiếp
 1. PR4 slice 4: S04 đánh dấu ô (gán token trên web) + S05-S08 đặt lịch (dùng `engine/period.ts` đã có, xem trước ≥6 kỳ)
