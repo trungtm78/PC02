@@ -16,6 +16,7 @@ describe('SubmissionController', () => {
   const service = {
     getSubmission: jest.fn(),
     save: jest.fn(),
+    submit: jest.fn(),
     listMyAssignments: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
@@ -97,5 +98,39 @@ describe('SubmissionController', () => {
     await expect(
       controller.save('assign1', { values: {}, expectedRevision: '0' }, user),
     ).rejects.toThrow('boom');
+  });
+
+  it('POST submit delegates to SubmissionService.submit with expectedRevision', async () => {
+    const submitted = { revision: '2', state: 'SUBMITTED' };
+    service.submit.mockResolvedValue(submitted);
+
+    const result = await controller.submit(
+      'assign1',
+      { expectedRevision: '1' },
+      user,
+    );
+
+    expect(service.submit).toHaveBeenCalledWith('assign1', 'u1', '1');
+    expect(result).toBe(submitted);
+  });
+
+  it('translates an INVALID_STATE_TRANSITION SubmissionError into a 409', async () => {
+    service.submit.mockRejectedValue(
+      new SubmissionError('wrong state', 'INVALID_STATE_TRANSITION'),
+    );
+
+    await expect(
+      controller.submit('assign1', { expectedRevision: '1' }, user),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('translates a CELL_VALIDATION SubmissionError from submit into a 400', async () => {
+    service.submit.mockRejectedValue(
+      new SubmissionError('missing required fields', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.submit('assign1', { expectedRevision: '1' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

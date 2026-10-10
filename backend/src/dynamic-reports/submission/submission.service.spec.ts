@@ -427,4 +427,157 @@ describe('SubmissionService', () => {
       });
     });
   });
+
+  describe('submit', () => {
+    it('throws NotFoundException when the caller is not an active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '0')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('rejects with REPORT_LOCKED when the period is FINALIZED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ period: basePeriod({ status: 'FINALIZED' }) }),
+      );
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '0')).rejects.toMatchObject({
+        code: 'REPORT_LOCKED',
+      });
+    });
+
+    it('rejects with REVISION_CONFLICT when expectedRevision does not match', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '0')).rejects.toMatchObject({
+        code: 'REVISION_CONFLICT',
+      });
+    });
+
+    it('rejects with CELL_VALIDATION listing missing required fields', async () => {
+      const tx = buildTx();
+      const requiredField = { ...FIELD, required: true };
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          period: basePeriod({ version: { fields: [requiredField] } }),
+        }),
+      );
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '1')).rejects.toMatchObject({
+        code: 'CELL_VALIDATION',
+      });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a second submit while already SUBMITTED — blocked by the shared access check (SUBMITTED is not an editable state), never reaching the SUBMIT transition itself', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'SUBMITTED',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+      });
+      const { service } = buildService(tx);
+
+      await expect(service.submit('assign1', 'u1', '1')).rejects.toMatchObject({
+        code: 'REPORT_LOCKED',
+      });
+      expect(tx.dynReportSubmission.update).not.toHaveBeenCalled();
+    });
+
+    it('submits a valid draft: DRAFT -> SUBMITTED, revision+1, writes a full-snapshot revision', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'DRAFT',
+        currentRevision: 1n,
+        values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: now,
+        firstSubmittedAt: null,
+        firstSubmittedRevision: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.submit('assign1', 'u1', '1');
+
+      expect(result.state).toBe('SUBMITTED');
+      expect(result.revision).toBe('2');
+
+      const updateCall = tx.dynReportSubmission.update.mock.calls[0][0] as {
+        data: {
+          state: string;
+          currentRevision: bigint;
+          submittedAt: unknown;
+          firstSubmittedAt: unknown;
+          firstSubmittedRevision: bigint;
+        };
+      };
+      expect(updateCall.data.state).toBe('SUBMITTED');
+      expect(updateCall.data.currentRevision).toBe(2n);
+      expect(updateCall.data.submittedAt).toBeInstanceOf(Date);
+      expect(updateCall.data.firstSubmittedAt).toBeInstanceOf(Date);
+      expect(updateCall.data.firstSubmittedRevision).toBe(2n);
+
+      const revisionCall = tx.dynReportRevision.create.mock.calls[0][0] as {
+        data: {
+          kind: string;
+          valuesFull: Record<string, unknown>;
+          diff?: unknown;
+        };
+      };
+      expect(revisionCall.data.kind).toBe('SUBMIT');
+      expect(revisionCall.data.valuesFull).toEqual({
+        'Đội 3!C6': { t: 'NUM', v: '5' },
+      });
+      expect(revisionCall.data.diff).toBeUndefined();
+    });
+  });
 });

@@ -82,4 +82,11 @@ export const dynamicReportsApi = {
         expectedRevision,
       })
       .then((r) => r.data),
+
+  submitSubmission: (assignmentId: string, expectedRevision: string) =>
+    api
+      .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/submit`, {
+        expectedRevision,
+      })
+      .then((r) => r.data),
 };

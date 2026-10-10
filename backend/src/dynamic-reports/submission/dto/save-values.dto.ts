@@ -14,3 +14,9 @@ export class SaveValuesDto {
   @IsString()
   expectedRevision!: string;
 }
+
+/** S29 submit payload — no value patch, see `SubmissionService.submit`. */
+export class SubmitDto {
+  @IsString()
+  expectedRevision!: string;
+}

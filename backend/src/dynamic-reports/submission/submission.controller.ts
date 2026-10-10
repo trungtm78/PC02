@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -15,7 +16,13 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SubmissionService, SubmissionError } from './submission.service';
-import { SaveValuesDto } from './dto/save-values.dto';
+import { SaveValuesDto, SubmitDto } from './dto/save-values.dto';
+
+const CONFLICT_CODES = new Set([
+  'REVISION_CONFLICT',
+  'REPORT_LOCKED',
+  'INVALID_STATE_TRANSITION',
+]);
 
 interface AuthenticatedUser {
   id: string;
@@ -58,16 +65,38 @@ export class SubmissionController {
     @Body() body: SaveValuesDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    try {
-      return await this.submissionService.save(
+    return this.handleWrite(() =>
+      this.submissionService.save(
         assignmentId,
         user.id,
         body.values,
         body.expectedRevision,
-      );
+      ),
+    );
+  }
+
+  @Post(':assignmentId/submit')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async submit(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: SubmitDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.submit(
+        assignmentId,
+        user.id,
+        body.expectedRevision,
+      ),
+    );
+  }
+
+  private async handleWrite<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
     } catch (err) {
       if (err instanceof SubmissionError) {
-        if (err.code === 'REVISION_CONFLICT' || err.code === 'REPORT_LOCKED') {
+        if (CONFLICT_CODES.has(err.code)) {
           throw new ConflictException({ code: err.code, message: err.message });
         }
         throw new BadRequestException({ code: err.code, message: err.message });
