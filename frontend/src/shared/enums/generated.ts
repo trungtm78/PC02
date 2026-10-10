@@ -261,6 +261,12 @@ export const NotificationType = {
   PETITION_ASSIGNED: 'PETITION_ASSIGNED',
   UTDT_ASSIGNED: 'UTDT_ASSIGNED',
   INCIDENT_CREATED: 'INCIDENT_CREATED',
+  DYN_REPORT_RETURNED: 'DYN_REPORT_RETURNED',
+  DYN_REPORT_APPROVED: 'DYN_REPORT_APPROVED',
+  DYN_REPORT_UNLOCK_GRANTED: 'DYN_REPORT_UNLOCK_GRANTED',
+  DYN_REPORT_UNLOCK_REQUESTED: 'DYN_REPORT_UNLOCK_REQUESTED',
+  DYN_REPORT_PERIOD_FINALIZED: 'DYN_REPORT_PERIOD_FINALIZED',
+  DYN_REPORT_DEADLINE_REMINDER: 'DYN_REPORT_DEADLINE_REMINDER',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -305,3 +311,22 @@ export const HuongXuLyDon = {
   TRA_LUU_DON: 'TRA_LUU_DON',
 } as const;
 export type HuongXuLyDon = (typeof HuongXuLyDon)[keyof typeof HuongXuLyDon];
+
+export const DynReportStatus = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  SUSPENDED: 'SUSPENDED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+export type DynReportStatus = (typeof DynReportStatus)[keyof typeof DynReportStatus];
+
+export const DynReportPeriodType = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  QUARTERLY: 'QUARTERLY',
+  SEMI_ANNUAL: 'SEMI_ANNUAL',
+  YEARLY: 'YEARLY',
+  ONE_TIME: 'ONE_TIME',
+} as const;
+export type DynReportPeriodType = (typeof DynReportPeriodType)[keyof typeof DynReportPeriodType];

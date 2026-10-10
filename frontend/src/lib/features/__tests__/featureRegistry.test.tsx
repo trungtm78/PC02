@@ -5,7 +5,7 @@ import { FEATURE_MODULES, getFeatureModule } from '../featureRegistry';
 type RouteElement = ReactElement<{ path?: string }>;
 
 describe('FEATURE_MODULES registry', () => {
-  it('auto-discovers all 24 expected features', () => {
+  it('auto-discovers all 25 expected features', () => {
     const expected = [
       'admin',
       'admin-units', // v0.34.0.0 — read-only browser cho Tỉnh/Phường
@@ -18,6 +18,7 @@ describe('FEATURE_MODULES registry', () => {
       'document-numbers', // v0.42.0.0 — Quản lý Mã số chứng từ
       'document-templates', // v0.69 — quản lý mẫu chứng từ động vụ việc/vụ án
       'documents',
+      'dynamic_reports', // PR4 — Báo cáo động (S01 Danh sách báo cáo)
       'edit-window-requests', // v0.36.0.0 — admin queue Phase 5-lite reset requests
       'incidents',
       'journey', // v0.40.0.0 — Hành trình hồ sơ standalone page
