@@ -20,7 +20,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Send } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Unlock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { DynReportSubmissionState, SubmissionFieldView } from '@/features/dynamic-reports/types';
 import { planPaste } from '@/features/dynamic-reports/engine/generated/paste';
@@ -96,7 +96,7 @@ export default function SubmissionInputPage() {
         if (m) setFieldErrors((prev) => ({ ...prev, [m[1]]: apiError.message }));
       } else if (apiError.code === 'REPORT_LOCKED') {
         setEditableOverride(false);
-        setSaveError('Kỳ đã khoá — không thể lưu thêm.');
+        setSaveError('Thay đổi này chưa được lưu do hết hạn.');
       } else {
         setSaveError(apiError.message);
       }
@@ -134,6 +134,9 @@ export default function SubmissionInputPage() {
       const apiError = extractApiError(err);
       if (apiError.code === 'REVISION_CONFLICT') {
         setSaveError('Bản nộp đã được sửa ở một phiên khác — tải lại trang để lấy bản mới nhất.');
+      } else if (apiError.code === 'REPORT_LOCKED') {
+        setEditableOverride(false);
+        setSaveError('Thay đổi này chưa được lưu do hết hạn.');
       } else {
         setSaveError(apiError.message);
       }
@@ -271,6 +274,22 @@ export default function SubmissionInputPage() {
           <p className="text-sm text-amber-800">
             Đã khoá, không thể sửa thêm
             {effectiveLockAt ? ` lúc ${formatVNDateTime(effectiveLockAt)}` : ''}.
+          </p>
+        </div>
+      )}
+
+      {/* S14 — effectiveLockAt sau hạn gốc (dueAt) nghĩa là đang ở trong một lượt
+          mở lại (grant hoặc trả lại kèm returnDueAt); access.ts đã gộp cả hai
+          nguồn vào effectiveLockAt nên chỉ cần so sánh một lần ở đây. */}
+      {editable && effectiveLockAt && new Date(effectiveLockAt) > new Date(initial.dueAt) && (
+        <div
+          className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center gap-2"
+          data-testid="reopened-banner"
+        >
+          <Unlock className="w-4 h-4 text-blue-700 flex-shrink-0" />
+          <p className="text-sm text-blue-800">
+            Được nhập lại đến {formatVNDateTime(effectiveLockAt)} · Hạn gốc vẫn là{' '}
+            {formatVNDateTime(initial.dueAt)}.
           </p>
         </div>
       )}
