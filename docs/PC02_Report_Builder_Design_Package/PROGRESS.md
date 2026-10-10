@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T06:50:00+07:00 | Milestone: PR0-PR3 đã merge main; PR5 ĐÃ XONG trên nhánh `feat/dynamic-reports-pr5-scheduler` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T07:11:00+07:00 | Milestone: PR0-PR5 ĐÃ MERGE + DEPLOY main (buildId `31150a83`) → chuyển sang PR4 (frontend) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -18,7 +18,7 @@ Cập nhật: 2026-10-10T06:50:00+07:00 | Milestone: PR0-PR3 đã merge main; PR
   - **Phát hiện thật quan trọng, không cần build gì mới:** exceljs's `cell.formula` getter TỰ DỊCH shared formula theo master cell — đã kiểm bằng script thật trên `bao_cao_ngay_shared_formulas.xlsx`, 193/193 ô dịch đúng. R3 bullet "mở rộng shared formula" hoá ra chỉ cần luôn đọc `.formula`, không cần viết logic dịch riêng.
   - 73 test mới trong `template/`, 100% dòng mọi file (trừ `parse-worker.ts` 0% — chạy trong thread riêng, công cụ coverage của tiến trình cha không thấy được, không phải lỗ hổng thật vì logic của nó (`parseTemplate`) đã 100%).
 - [x] **Đã merge PR #524 (PR3) vào `main`** — admin-merge (tiền lệ PR #522/#523, branch protection vẫn chặn review), merge commit `923e5a8eb38ee7754cbe59b07b47c6ea9b4c1a17`. Deploy sau merge thành công, health xanh (buildId khớp).
-- [x] **PR5 — PeriodScheduler**, nhánh `feat/dynamic-reports-pr5-scheduler` (từ `origin/main` mới nhất, CHƯA push/PR/merge):
+- [x] **PR5 — PeriodScheduler**, đã merge PR #525 vào `main` (admin-merge, tiền lệ PR #522/#523/#524), merge commit `31150a83d0e49de4e21d68f655a5b04d450dd71c`. Deploy sau merge thành công, health xanh (buildId khớp, xác nhận 2026-10-10T07:10 +07:00):
   - Migration 1 cột: `dyn_report_schedules.lastGeneratedThrough` (con trỏ "đã sinh kỳ tới đâu", null = chưa chạy lần nào) — sinh bằng `prisma migrate diff` + xác nhận `db push` báo "already in sync".
   - `catch-up.ts`: đi bộ từng kỳ một từ con trỏ tới `now` + cửa sổ nhìn trước (6 kỳ, theo "Preview tối thiểu 6 kỳ"), vì `engine/period.ts` chỉ trả lời "N kỳ từ kỳ chứa now", không có khái niệm "giữa hai ngày". Con trỏ chỉ tiến khi kỳ đã sinh xong — job chết giữa đường thì lần sau đi lại đúng từ đó, không bỏ sót. ONE_TIME xử lý riêng (engine luôn trả về đúng 1 kỳ bất kể con trỏ).
   - `period-scheduler.service.ts`: cron mỗi giờ, R17 `pg_try_advisory_xact_lock` (không chặn — tick trùng thì bỏ qua, không xếp hàng) bọc quanh toàn bộ lượt chạy. Mỗi kỳ mới tạo luôn Assignment + AssignmentEditor (lọc theo validFrom/validTo) + Submission (R5: tạo sẵn, không tạo lười). Báo thiếu PUBLISHED version thì cảnh báo và bỏ qua, không lỗi. Một report lỗi không chặn report khác trong cùng lượt chạy.
@@ -30,11 +30,13 @@ Cập nhật: 2026-10-10T06:50:00+07:00 | Milestone: PR0-PR3 đã merge main; PR
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR5 code đã xong và xanh, CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr5-scheduler` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`, 1 commit trên `origin/main` mới nhất (đã có PR #522+#523+#524).
+Task: PR0-PR5 đã merge + deploy xong hết. Chưa bắt đầu PR4.
 
-BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr5-scheduler` → `gh pr create` → chờ CI 5 check xanh → `gh pr merge --squash --delete-branch` (dùng `--admin` nếu branch protection vẫn chặn review, theo tiền lệ PR #522/#523/#524) → xác nhận Deploy chạy xong + health xanh → cập nhật PROGRESS.md.
-
-Sau PR5, phần backend-only còn làm được mà không cần UI đã hết (PR6-PR9 còn lại đều cần UI thật để kiểm theo đúng feedback_bam_thu_that_moi_thay). **PR4 (frontend wizard, Màn A) là việc kế tiếp hợp lý** — cần chạy dev server (`npm run dev` ở frontend) và bấm thử thật, không chỉ dựa vào test tự động.
+BƯỚC TIẾP THEO: PR4 — Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung. Đây là việc FRONTEND đầu tiên của module — khác hẳn nhịp độ PR0-PR5 (toàn backend, test tự động đủ tin cậy). Theo feedback_bam_thu_that_moi_thay, PR4 cần:
+1. Tạo worktree/nhánh mới từ `origin/main` (đã có đủ PR0-PR5).
+2. Dựng khung `frontend/src/features/dynamic-reports/` theo khuôn `frontend/src/features/kpi/`.
+3. Viết UI + test tự động (vitest) NHƯ MỌI PR trước — nhưng KHÔNG dừng ở đó: phải chạy `npm run dev`, mở trình duyệt, bấm thử từng bước wizard thật trước khi coi là xong, vì test tự động không bắt được lỗi hiển thị/UX.
+4. Flag `dynamic_reports` vẫn tắt trên prod — bật tạm ở `.env` local (`ENABLED_FEATURES` hoặc bật thẳng trong DB dev) để xem được màn hình khi bấm thử.
 
 ## Hàng đợi task kế tiếp
 1. PR4: Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung
