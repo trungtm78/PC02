@@ -61,6 +61,15 @@ export interface SaveValuesResult {
   effectiveLockAt: string | null;
 }
 
+export interface AssignmentSummary {
+  assignmentId: string;
+  reportName: string;
+  teamName: string;
+  periodKey: string;
+  dueAt: string;
+  state: SubmissionState;
+}
+
 /**
  * S11-S14 (spec §6.1 PR6). The first service to ever READ or WRITE a
  * `DynReportSubmission` — PR5's PeriodScheduler only ever creates one
@@ -150,6 +159,45 @@ export class SubmissionService {
       scale: f.scale,
       maxLength: f.maxLength,
     };
+  }
+
+  /**
+   * S11 thanh trên's "combo báo cáo/kỳ" (spec §6.1 PR6) — every assignment
+   * the caller is an active editor of, newest period first. No report/
+   * period filter yet (a real editor's assignment count is small — one
+   * row per report × kỳ đang mở, not thousands); add one if that stops
+   * being true.
+   */
+  async listMyAssignments(userId: string): Promise<AssignmentSummary[]> {
+    const editors = await this.prisma.dynReportAssignmentEditor.findMany({
+      where: { userId, isActive: true },
+      include: {
+        assignment: {
+          include: {
+            period: { include: { report: true } },
+            submission: true,
+          },
+        },
+      },
+      orderBy: { assignment: { period: { dueAt: 'desc' } } },
+    });
+
+    return editors
+      .filter((e) => e.assignment.period.status === 'OPEN')
+      .map((e) => {
+        const { assignment } = e;
+        const teamSnapshot = assignment.teamSnapshot as {
+          name?: string;
+        } | null;
+        return {
+          assignmentId: assignment.id,
+          reportName: assignment.period.report.name,
+          teamName: teamSnapshot?.name ?? '',
+          periodKey: assignment.period.periodKey,
+          dueAt: assignment.period.dueAt.toISOString(),
+          state: assignment.submission?.state ?? 'NOT_STARTED',
+        };
+      });
   }
 
   async getSubmission(

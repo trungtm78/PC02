@@ -2,6 +2,9 @@
  * Mirrors backend/src/dynamic-reports/reports.service.ts response shapes
  * exactly, including field names — no renaming at the boundary.
  */
+import type { DynReportSubmissionState } from '@/shared/enums/generated';
+export type { DynReportSubmissionState };
+
 export type DynReportStatus = 'DRAFT' | 'PUBLISHED' | 'SUSPENDED' | 'ARCHIVED';
 
 export interface ReportSetupSummary {
@@ -128,4 +131,58 @@ export interface SaveReportConfigResult {
   reportId: string;
   versionId: string;
   status: DynReportStatus;
+}
+
+export interface AssignmentSummary {
+  assignmentId: string;
+  reportName: string;
+  teamName: string;
+  periodKey: string;
+  dueAt: string;
+  state: DynReportSubmissionState;
+}
+
+export interface SubmissionFieldView {
+  fieldKey: string;
+  sheetKey: string;
+  address: string;
+  label: string;
+  type: ParsedFieldType;
+  format: string | null;
+  aggregate: ParsedAggregateType;
+  required: boolean;
+  min: string | null;
+  max: string | null;
+  scale: number | null;
+  maxLength: number | null;
+}
+
+export interface TypedValue {
+  t: ParsedFieldType;
+  v: string | null;
+}
+
+export interface SubmissionView {
+  assignmentId: string;
+  reportName: string;
+  periodKey: string;
+  periodStart: string;
+  periodEnd: string;
+  opensAt: string;
+  dueAt: string;
+  state: DynReportSubmissionState;
+  revision: string;
+  values: Record<string, TypedValue>;
+  fields: SubmissionFieldView[];
+  editable: boolean;
+  effectiveLockAt: string | null;
+  serverTime: string;
+}
+
+export interface SaveValuesResult {
+  revision: string;
+  state: DynReportSubmissionState;
+  savedAt: string;
+  serverTime: string;
+  effectiveLockAt: string | null;
 }

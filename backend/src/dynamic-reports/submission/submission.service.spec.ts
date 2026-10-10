@@ -64,6 +64,7 @@ describe('SubmissionService', () => {
         .mockResolvedValue([{ now }]),
       dynReportAssignmentEditor: {
         findFirst: jest.fn<Promise<unknown>, unknown[]>(),
+        findMany: jest.fn<Promise<unknown>, unknown[]>(),
       },
       dynReportAssignment: {
         findUnique: jest.fn<Promise<unknown>, unknown[]>(),
@@ -97,6 +98,88 @@ describe('SubmissionService', () => {
     const service = new SubmissionService(prisma as unknown as PrismaService);
     return { service, prisma };
   }
+
+  describe('listMyAssignments', () => {
+    it('returns one row per active editor assignment whose period is OPEN, newest due date first', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        {
+          assignment: {
+            id: 'assign1',
+            teamSnapshot: { name: 'Tổ 1' },
+            submission: { state: 'DRAFT' },
+            period: {
+              periodKey: '2026-06',
+              dueAt: new Date('2026-07-05T17:00:00Z'),
+              status: 'OPEN',
+              report: { name: 'HSLN' },
+            },
+          },
+        },
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listMyAssignments('u1');
+
+      expect(result).toEqual([
+        {
+          assignmentId: 'assign1',
+          reportName: 'HSLN',
+          teamName: 'Tổ 1',
+          periodKey: '2026-06',
+          dueAt: '2026-07-05T17:00:00.000Z',
+          state: 'DRAFT',
+        },
+      ]);
+    });
+
+    it('excludes assignments whose period is FINALIZED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        {
+          assignment: {
+            id: 'assign1',
+            teamSnapshot: { name: 'Tổ 1' },
+            submission: { state: 'APPROVED' },
+            period: {
+              periodKey: '2026-05',
+              dueAt: new Date('2026-06-05T17:00:00Z'),
+              status: 'FINALIZED',
+              report: { name: 'HSLN' },
+            },
+          },
+        },
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listMyAssignments('u1');
+      expect(result).toEqual([]);
+    });
+
+    it('defaults state to NOT_STARTED when the submission row is somehow missing', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findMany.mockResolvedValue([
+        {
+          assignment: {
+            id: 'assign1',
+            teamSnapshot: null,
+            submission: null,
+            period: {
+              periodKey: '2026-06',
+              dueAt: new Date('2026-07-05T17:00:00Z'),
+              status: 'OPEN',
+              report: { name: 'HSLN' },
+            },
+          },
+        },
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listMyAssignments('u1');
+      expect(result[0].state).toBe('NOT_STARTED');
+      expect(result[0].teamName).toBe('');
+    });
+  });
 
   describe('getSubmission', () => {
     it('throws NotFoundException when the caller is not an active editor of the assignment', async () => {

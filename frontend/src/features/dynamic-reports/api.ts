@@ -1,9 +1,12 @@
 import { api } from '@/lib/api';
 import type {
+  AssignmentSummary,
   ReportSetupSummary,
   SaveReportConfigPayload,
   SaveReportConfigResult,
+  SaveValuesResult,
   SheetInfo,
+  SubmissionView,
   TemplatePreviewResult,
 } from './types';
 
@@ -58,4 +61,25 @@ export const dynamicReportsApi = {
       })
       .then((r) => r.data);
   },
+
+  /** S11 thanh trên's combo — every assignment the caller is an editor of. */
+  listMySubmissions: () =>
+    api.get<AssignmentSummary[]>('/bao-cao-dong/submissions').then((r) => r.data),
+
+  getSubmission: (assignmentId: string) =>
+    api
+      .get<SubmissionView>(`/bao-cao-dong/submissions/${assignmentId}`)
+      .then((r) => r.data),
+
+  saveSubmissionValues: (
+    assignmentId: string,
+    values: Record<string, string | null>,
+    expectedRevision: string,
+  ) =>
+    api
+      .patch<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/values`, {
+        values,
+        expectedRevision,
+      })
+      .then((r) => r.data),
 };

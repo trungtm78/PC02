@@ -68,6 +68,7 @@ const SHARED_ENUMS = [
   'HuongXuLyDon', // v0.76 — ba hướng xử lý đơn thư (thay ô tích "Thuộc thẩm quyền")
   'DynReportStatus', // PR4 — S01 Danh sách báo cáo
   'DynReportPeriodType', // PR4 — S01 cột "Loại kỳ"
+  'DynReportSubmissionState', // PR6 — S11 trạng thái bản nộp
 ];
 
 function parseEnums(schemaSource) {

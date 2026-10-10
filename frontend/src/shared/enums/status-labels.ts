@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType, DynReportSubmissionState } from './generated';
 import { CATALOG_LEGAL, CATALOG_META } from '@/shared/catalog/catalog.generated';
 import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
@@ -371,6 +371,22 @@ export const DYN_REPORT_PERIOD_TYPE_LABEL: Record<DynReportPeriodType, string> =
   [DynReportPeriodType.SEMI_ANNUAL]: 'Mỗi nửa năm',
   [DynReportPeriodType.YEARLY]:      'Hằng năm',
   [DynReportPeriodType.ONE_TIME]:    'Một kỳ duy nhất',
+};
+
+export const DYN_REPORT_SUBMISSION_STATE_LABEL: Record<DynReportSubmissionState, string> = {
+  [DynReportSubmissionState.NOT_STARTED]: 'Chưa bắt đầu',
+  [DynReportSubmissionState.DRAFT]:       'Đang nhập',
+  [DynReportSubmissionState.SUBMITTED]:   'Đã nộp',
+  [DynReportSubmissionState.RETURNED]:    'Bị trả lại',
+  [DynReportSubmissionState.APPROVED]:    'Đã duyệt',
+};
+
+export const DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS: Record<DynReportSubmissionState, string> = {
+  [DynReportSubmissionState.NOT_STARTED]: 'bg-slate-100 text-slate-500',
+  [DynReportSubmissionState.DRAFT]:       'bg-blue-100 text-blue-700',
+  [DynReportSubmissionState.SUBMITTED]:   'bg-amber-100 text-amber-700',
+  [DynReportSubmissionState.RETURNED]:    'bg-red-100 text-red-700',
+  [DynReportSubmissionState.APPROVED]:    'bg-green-100 text-green-700',
 };
 
 // 12 deadline rule keys with their Vietnamese display labels
