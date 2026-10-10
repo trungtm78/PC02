@@ -1,27 +1,44 @@
 /**
- * S02/S03 — Tải mẫu Excel + chọn sheet + xem trước (spec §6.1 PR4).
+ * S02/S03/S04 — Tải mẫu Excel + chọn sheet + xem trước + đánh dấu ô
+ * (spec §6.1 PR4).
  *
- * Scope decision for this slice: a real, usable upload→sheet-pick→preview
- * flow against the two endpoints PR4 slice 2 shipped, but NOT the full
- * pixel-faithful Excel-like grid (GridRenderer) — that is explicitly
- * shared infrastructure for several later screens (S04 preview, S11/S15
- * input grids) and deserves its own dedicated slice once its real
- * rendering needs are concrete. Here, "preview" means a summary: field/
- * formula/issue counts + a scrollable issue list, which is already
- * everything the author needs to judge "does my upload look reasonable"
- * before any further wizard step is built.
+ * Scope decision carried over from slice 3: a real, usable flow against
+ * the real endpoints, but NOT the full pixel-faithful Excel-like grid
+ * (GridRenderer) — that is shared infrastructure for several later screens
+ * (S11/S15 input grids) and deserves its own dedicated slice once its real
+ * rendering needs are concrete. S04 "đánh dấu ô trên web" is delivered here
+ * as a candidate LIST (the cells `UNLOCKED_NO_TOKEN`-warned by the parser,
+ * spec §3), not a visual grid: every candidate is already unambiguously
+ * identified by Sheet!Cell + its inferred label, which is everything the
+ * marking decision needs.
+ *
+ * Marking itself (`applyWebMarks`/`removeWebMarks`) runs entirely
+ * client-side on the preview result already in memory — no server round
+ * trip per click. The server re-validates authoritatively at publish time
+ * (slice 5), the same "client preview, server is the authoritative source"
+ * split already used throughout spec §10 R2.
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Upload, AlertCircle, CheckCircle2, Tag, X } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { SheetInfo, TemplatePreviewResult } from '@/features/dynamic-reports/types';
+import type {
+  ParsedAggregateType,
+  ParsedFieldType,
+  SheetInfo,
+  TemplatePreviewResult,
+} from '@/features/dynamic-reports/types';
+import { applyWebMarks, removeWebMarks } from '@/features/dynamic-reports/markRegion';
+import { TYPE_AGGREGATE_COMPATIBILITY } from '@/features/dynamic-reports/engine/generated/token';
+import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import ReportScheduleStep from './ReportScheduleStep';
 
 const MAX_SELECTED_SHEETS = 5;
+const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
-type Step = 'upload' | 'sheets' | 'preview';
+type Step = 'upload' | 'sheets' | 'preview' | 'schedule';
 
 export default function ReportTemplateUploadPage() {
   const [step, setStep] = useState<Step>('upload');
@@ -31,6 +48,15 @@ export default function ReportTemplateUploadPage() {
   const [preview, setPreview] = useState<TemplatePreviewResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set());
+  const [candidateLabels, setCandidateLabels] = useState<Record<string, string>>({});
+  const [batchType, setBatchType] = useState<ParsedFieldType>('NUM');
+  const [batchFormat, setBatchFormat] = useState('');
+  const [batchAggregate, setBatchAggregate] = useState<ParsedAggregateType>('NONE');
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  const [schedule, setSchedule] = useState<ScheduleRule | null>(null);
 
   async function handleFileChange(f: File | null) {
     setError(null);
@@ -69,12 +95,58 @@ export default function ReportTemplateUploadPage() {
     try {
       const result = await dynamicReportsApi.previewTemplate(file, selectedSheets);
       setPreview(result);
+      setCandidateLabels(
+        Object.fromEntries(
+          result.markableCells.map((c) => [
+            `${c.sheetKey}!${c.address}`,
+            c.suggestedLabel ?? '',
+          ]),
+        ),
+      );
+      setSelectedCandidates(new Set());
       setStep('preview');
     } catch (err) {
       setError(extractApiError(err).message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleCandidate(key: string) {
+    setSelectedCandidates((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function handleApplyMarks() {
+    if (!preview || selectedCandidates.size === 0) return;
+    const marks = Array.from(selectedCandidates).map((key) => {
+      const cell = preview.markableCells.find((c) => `${c.sheetKey}!${c.address}` === key);
+      return {
+        sheetKey: cell?.sheetKey ?? '',
+        address: cell?.address ?? '',
+        label: candidateLabels[key] ?? '',
+        type: batchType,
+        format: batchFormat,
+        aggregate: batchAggregate,
+      };
+    });
+    const result = applyWebMarks(preview, marks);
+    if (!result.ok) {
+      setMarkError(result.errors.join(' '));
+      return;
+    }
+    setMarkError(null);
+    setPreview(result.result);
+    setSelectedCandidates(new Set());
+  }
+
+  function handleUnmark(fieldKey: string) {
+    if (!preview) return;
+    setPreview(removeWebMarks(preview, [fieldKey]));
   }
 
   return (
@@ -196,7 +268,162 @@ export default function ReportTemplateUploadPage() {
                 ))}
               </ul>
             )}
+
+            {preview.fields.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">Ô nhập đã có</h3>
+                <ul className="space-y-1 text-sm" data-testid="field-list">
+                  {preview.fields.map((f) => (
+                    <li
+                      key={f.fieldKey}
+                      className="flex items-center justify-between border border-slate-100 rounded px-2 py-1"
+                    >
+                      <span>
+                        {f.fieldKey} — {f.label || '(chưa có nhãn)'} ({f.type}
+                        {f.aggregate !== 'NONE' ? `|${f.aggregate}` : ''})
+                        <span className="ml-1 text-xs text-slate-400">[{f.source}]</span>
+                      </span>
+                      {f.source === 'WEB' && (
+                        <button
+                          type="button"
+                          data-testid={`btn-unmark-${f.fieldKey}`}
+                          onClick={() => handleUnmark(f.fieldKey)}
+                          className={`text-slate-400 hover:text-red-600 ${A11Y_FOCUS_RING}`}
+                          aria-label={`Bỏ đánh dấu ${f.fieldKey}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {preview.markableCells.length > 0 && (
+              <div className="mt-6" data-testid="markable-cells-section">
+                <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                  Ô có thể đánh dấu làm ô nhập ({preview.markableCells.length})
+                </h3>
+                <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-60 overflow-y-auto mb-3">
+                  {preview.markableCells.map((c) => {
+                    const key = `${c.sheetKey}!${c.address}`;
+                    return (
+                      <div key={key} className="flex items-center gap-2 px-3 py-2 text-sm">
+                        <input
+                          type="checkbox"
+                          data-testid={`candidate-checkbox-${key}`}
+                          checked={selectedCandidates.has(key)}
+                          onChange={() => toggleCandidate(key)}
+                        />
+                        <span className="text-slate-500 w-32 shrink-0">{key}</span>
+                        <input
+                          type="text"
+                          data-testid={`candidate-label-${key}`}
+                          value={candidateLabels[key] ?? ''}
+                          placeholder="Nhãn (bắt buộc)"
+                          onChange={(e) =>
+                            setCandidateLabels((prev) => ({ ...prev, [key]: e.target.value }))
+                          }
+                          className="flex-1 border border-slate-200 rounded px-2 py-1 text-sm"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <label className="text-xs text-slate-600">
+                    Kiểu
+                    <select
+                      data-testid="batch-type"
+                      value={batchType}
+                      onChange={(e) => {
+                        const t = e.target.value as ParsedFieldType;
+                        setBatchType(t);
+                        if (!TYPE_AGGREGATE_COMPATIBILITY[t].includes(batchAggregate)) {
+                          setBatchAggregate('NONE');
+                        }
+                      }}
+                      className="block border border-slate-300 rounded px-2 py-1.5 text-sm mt-1"
+                    >
+                      {FIELD_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-600">
+                    Format
+                    <input
+                      type="text"
+                      data-testid="batch-format"
+                      value={batchFormat}
+                      onChange={(e) => setBatchFormat(e.target.value)}
+                      className="block border border-slate-300 rounded px-2 py-1.5 text-sm mt-1 w-28"
+                    />
+                  </label>
+                  <label className="text-xs text-slate-600">
+                    Tổng hợp
+                    <select
+                      data-testid="batch-aggregate"
+                      value={batchAggregate}
+                      onChange={(e) => setBatchAggregate(e.target.value as ParsedAggregateType)}
+                      className="block border border-slate-300 rounded px-2 py-1.5 text-sm mt-1"
+                    >
+                      {TYPE_AGGREGATE_COMPATIBILITY[batchType].map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    data-testid="btn-apply-marks"
+                    disabled={selectedCandidates.size === 0}
+                    onClick={handleApplyMarks}
+                    className={`flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed ${A11Y_FOCUS_RING}`}
+                  >
+                    <Tag className="w-4 h-4" />
+                    Đánh dấu {selectedCandidates.size > 0 ? `(${selectedCandidates.size})` : ''}
+                  </button>
+                </div>
+                {markError && (
+                  <p className="text-sm text-red-700 mt-2" data-testid="mark-error">
+                    {markError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                data-testid="btn-go-to-schedule"
+                onClick={() => setStep('schedule')}
+                className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 ${A11Y_FOCUS_RING}`}
+              >
+                Tiếp theo: Đặt lịch
+              </button>
+            </div>
           </div>
+        )}
+
+        {step === 'schedule' && (
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <ReportScheduleStep
+              onBack={() => setStep('preview')}
+              onNext={(rule) => setSchedule(rule)}
+            />
+          </div>
+        )}
+
+        {schedule && (
+          <p className="text-sm text-slate-500 mt-4" data-testid="schedule-saved-note">
+            Đã ghi nhận lịch — bước chọn tổ/người nhập và xuất bản sẽ có ở PR tiếp theo.
+          </p>
         )}
       </div>
     </div>

@@ -9,6 +9,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
     listTemplateSheets: vi.fn(),
     previewTemplate: vi.fn(),
+    getNonWorkingDates: vi.fn(),
   },
 }));
 
@@ -49,6 +50,9 @@ const PREVIEW: TemplatePreviewResult = {
   formulas: [],
   issues: [
     { sheetKey: 'Đội 3', address: 'C7', code: 'UNLOCKED_NO_TOKEN', severity: 'WARNING', message: 'Gợi ý đặt làm ô nhập.' },
+  ],
+  markableCells: [
+    { sheetKey: 'Đội 3', address: 'C7', suggestedLabel: null },
   ],
   totalCells: 100,
   inputCellCount: 1,
@@ -149,5 +153,66 @@ describe('ReportTemplateUploadPage', () => {
 
     fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
     expect(screen.getByTestId('btn-preview')).not.toBeDisabled();
+  });
+
+  async function getToPreview() {
+    vi.mocked(dynamicReportsApi.listTemplateSheets).mockResolvedValue(SHEETS);
+    vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(PREVIEW);
+    renderPage();
+    await selectFileAndWaitForSheets();
+    fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
+    fireEvent.click(screen.getByTestId('btn-preview'));
+    await waitFor(() => screen.getByTestId('preview-summary'));
+  }
+
+  it('S04: marking a candidate cell adds it as a WEB field and removes it from the candidate list', async () => {
+    await getToPreview();
+
+    const key = 'Đội 3!C7';
+    fireEvent.change(screen.getByTestId(`candidate-label-${key}`), {
+      target: { value: 'Số vụ mới nhận' },
+    });
+    fireEvent.click(screen.getByTestId(`candidate-checkbox-${key}`));
+    fireEvent.click(screen.getByTestId('btn-apply-marks'));
+
+    expect(screen.getByTestId('field-list')).toHaveTextContent('Số vụ mới nhận');
+    expect(screen.getByTestId('field-list')).toHaveTextContent('[WEB]');
+    expect(screen.queryByTestId(`candidate-checkbox-${key}`)).not.toBeInTheDocument();
+  });
+
+  it('S04: unmarking a WEB field restores it as a markable candidate', async () => {
+    await getToPreview();
+
+    const key = 'Đội 3!C7';
+    fireEvent.change(screen.getByTestId(`candidate-label-${key}`), {
+      target: { value: 'Số vụ mới nhận' },
+    });
+    fireEvent.click(screen.getByTestId(`candidate-checkbox-${key}`));
+    fireEvent.click(screen.getByTestId('btn-apply-marks'));
+
+    fireEvent.click(screen.getByTestId(`btn-unmark-${key}`));
+
+    expect(screen.getByTestId(`candidate-checkbox-${key}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`btn-unmark-${key}`)).not.toBeInTheDocument();
+  });
+
+  it('S04: rejects an empty label when applying a mark', async () => {
+    await getToPreview();
+
+    const key = 'Đội 3!C7';
+    fireEvent.click(screen.getByTestId(`candidate-checkbox-${key}`));
+    fireEvent.click(screen.getByTestId('btn-apply-marks'));
+
+    expect(screen.getByTestId('mark-error')).toBeInTheDocument();
+    expect(screen.getByTestId(`candidate-checkbox-${key}`)).toBeInTheDocument();
+  });
+
+  it('navigates to the schedule step via "Tiếp theo: Đặt lịch"', async () => {
+    vi.mocked(dynamicReportsApi.getNonWorkingDates).mockResolvedValue([]);
+    await getToPreview();
+
+    fireEvent.click(screen.getByTestId('btn-go-to-schedule'));
+
+    expect(screen.getByTestId('schedule-step')).toBeInTheDocument();
   });
 });

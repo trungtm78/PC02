@@ -32,4 +32,12 @@ export const dynamicReportsApi = {
       })
       .then((r) => r.data);
   },
+
+  /** S05-S08 schedule preview (R7) — dates the real PeriodScheduler would also shift. */
+  getNonWorkingDates: (from: string, to: string) =>
+    api
+      .get<{ dates: string[] }>('/bao-cao-dong/schedule/non-working-dates', {
+        params: { from, to },
+      })
+      .then((r) => r.data.dates),
 };

@@ -28,6 +28,7 @@ export interface SheetInfo {
 
 export type ParsedFieldType = 'NUM' | 'TEXT' | 'DATE' | 'TIME';
 export type ParsedAggregateType = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT' | 'NONE';
+export type ParsedFieldSource = 'TOKEN' | 'WEB';
 
 export interface ParsedField {
   sheetKey: string;
@@ -37,7 +38,14 @@ export interface ParsedField {
   type: ParsedFieldType;
   format: string;
   aggregate: ParsedAggregateType;
-  source: 'TOKEN';
+  source: ParsedFieldSource;
+}
+
+/** S04 web-marking candidate — see backend template/types.ts MarkableCell. */
+export interface MarkableCell {
+  sheetKey: string;
+  address: string;
+  suggestedLabel: string | null;
 }
 
 export interface ParsedFormulaCell {
@@ -59,6 +67,7 @@ export interface TemplatePreviewResult {
   fields: ParsedField[];
   formulas: ParsedFormulaCell[];
   issues: ParsedIssue[];
+  markableCells: MarkableCell[];
   totalCells: number;
   inputCellCount: number;
   sha256: string;
