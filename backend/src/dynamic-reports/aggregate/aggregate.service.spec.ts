@@ -1,6 +1,20 @@
 import { NotFoundException } from '@nestjs/common';
 import { AggregateService } from './aggregate.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import type { TeamsService } from '../../teams/teams.service';
+
+/** R13 (PR7 slice 9) — default has no VIEWER scope in play, so `getDescendantIds` is never called by existing tests. */
+function buildTeamsServiceMock(
+  descendantsByTeamId: Record<string, string[]> = {},
+) {
+  return {
+    getDescendantIds: jest
+      .fn<Promise<string[]>, [string]>()
+      .mockImplementation((teamId: string) =>
+        Promise.resolve(descendantsByTeamId[teamId] ?? []),
+      ),
+  } as unknown as TeamsService;
+}
 
 /**
  * AggregateService (spec §6.1 PR7 slice 2, S15 thu nhỏ) — pure
@@ -68,7 +82,11 @@ describe('AggregateService', () => {
     };
   }
 
-  function buildService(period: unknown, grants: unknown[] = []) {
+  function buildService(
+    period: unknown,
+    grants: Array<{ role: string; teamScopeId?: string | null }> = [],
+    teamsService?: TeamsService,
+  ) {
     const prisma = {
       dynReportPeriod: {
         findUnique: jest.fn().mockResolvedValue(period),
@@ -77,10 +95,22 @@ describe('AggregateService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       dynReportRole: {
-        findFirst: jest.fn().mockResolvedValue(grants[0] ?? null),
+        // R13: resolveAccessRole queries MANAGER then VIEWER separately — the
+        // mock has to honor `where.role` instead of always returning grants[0],
+        // or a VIEWER-only grant would get misread as a MANAGER match.
+        findFirst: jest
+          .fn()
+          .mockImplementation((args: { where?: { role?: string } }) =>
+            Promise.resolve(
+              grants.find((g) => g.role === args?.where?.role) ?? null,
+            ),
+          ),
       },
     };
-    const service = new AggregateService(prisma as unknown as PrismaService);
+    const service = new AggregateService(
+      prisma as unknown as PrismaService,
+      teamsService ?? buildTeamsServiceMock(),
+    );
     return { service, prisma };
   }
 
@@ -157,6 +187,70 @@ describe('AggregateService', () => {
     expect(result.kpi.dataCoverageLabel).toBe('3/3');
   });
 
+  it('rejects (404) when the caller has a VIEWER role on a different report entirely (no row at all)', async () => {
+    const { service } = buildService(basePeriod(), []);
+    await expect(
+      service.getPeriodSummary('period1', 'viewer1', 'roleViewer', 'SUBMITTED'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('R13: a VIEWER with no teamScopeId sees the whole report, same as a MANAGER', async () => {
+    const { service } = buildService(basePeriod(), [
+      { role: 'VIEWER', teamScopeId: null },
+    ]);
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'viewer1',
+      'roleViewer',
+      'SUBMITTED',
+    );
+
+    expect(result.fields[0].value).toBe('30');
+    expect(result.fields[0].countTotal).toBe(2);
+  });
+
+  it("R13: a VIEWER scoped to one team subtree only sees that subtree's contributions", async () => {
+    const { service, prisma } = buildService(
+      basePeriod(),
+      [{ role: 'VIEWER', teamScopeId: 'team-a1' }],
+      buildTeamsServiceMock({ 'team-a1': [] }),
+    );
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'viewer1',
+      'roleViewer',
+      'SUBMITTED',
+    );
+
+    // only a1 (SUBMITTED, '10') is in scope — a2 ('20', team-a2) is filtered out
+    // even though it would otherwise contribute under mode=SUBMITTED+APPROVED.
+    expect(result.fields[0].value).toBe('10');
+    expect(result.fields[0].countTotal).toBe(1);
+    expect(result.kpi.requiredCount).toBe(1);
+    expect(prisma.dynReportRole.findFirst).toHaveBeenCalled();
+  });
+
+  it("R13: a VIEWER scoped to a parent team also sees its descendants' contributions", async () => {
+    const { service } = buildService(
+      basePeriod(),
+      [{ role: 'VIEWER', teamScopeId: 'team-parent' }],
+      buildTeamsServiceMock({ 'team-parent': ['team-a1', 'team-a2'] }),
+    );
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'viewer1',
+      'roleViewer',
+      'SUBMITTED',
+    );
+
+    // a1 + a2 both fall under team-parent's subtree -> same total as an unscoped MANAGER.
+    expect(result.fields[0].value).toBe('30');
+    expect(result.fields[0].countTotal).toBe(2);
+  });
+
   it('approves via admin:DynamicReport even without a DynReportRole row', async () => {
     const prisma = {
       dynReportPeriod: {
@@ -165,7 +259,10 @@ describe('AggregateService', () => {
       rolePermission: { findFirst: jest.fn().mockResolvedValue({ id: 'rp1' }) },
       dynReportRole: { findFirst: jest.fn() },
     };
-    const service = new AggregateService(prisma as unknown as PrismaService);
+    const service = new AggregateService(
+      prisma as unknown as PrismaService,
+      buildTeamsServiceMock(),
+    );
 
     const result = await service.getPeriodSummary(
       'period1',
@@ -262,7 +359,10 @@ describe('AggregateService', () => {
       const prisma = {
         $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
       };
-      const service = new AggregateService(prisma as unknown as PrismaService);
+      const service = new AggregateService(
+        prisma as unknown as PrismaService,
+        buildTeamsServiceMock(),
+      );
       return { service, tx };
     }
 
@@ -402,7 +502,10 @@ describe('AggregateService', () => {
         },
         ...overrides,
       };
-      const service = new AggregateService(prisma as unknown as PrismaService);
+      const service = new AggregateService(
+        prisma as unknown as PrismaService,
+        buildTeamsServiceMock(),
+      );
       return { service, prisma };
     }
 
@@ -536,7 +639,11 @@ describe('AggregateService', () => {
   });
 
   describe('getReportHistory (S21, PR7 slice 8)', () => {
-    function buildHistoryService(period: unknown, grants: unknown[] = []) {
+    function buildHistoryService(
+      period: unknown,
+      grants: Array<{ role: string; teamScopeId?: string | null }> = [],
+      teamsService?: TeamsService,
+    ) {
       const prisma = {
         dynReportPeriod: {
           findUnique: jest
@@ -550,11 +657,18 @@ describe('AggregateService', () => {
         },
         dynReportRole: {
           findFirst: jest
-            .fn<Promise<unknown>, unknown[]>()
-            .mockResolvedValue(grants[0] ?? null),
+            .fn()
+            .mockImplementation((args: { where?: { role?: string } }) =>
+              Promise.resolve(
+                grants.find((g) => g.role === args?.where?.role) ?? null,
+              ),
+            ),
         },
       };
-      const service = new AggregateService(prisma as unknown as PrismaService);
+      const service = new AggregateService(
+        prisma as unknown as PrismaService,
+        teamsService ?? buildTeamsServiceMock(),
+      );
       return { service, prisma };
     }
 
@@ -625,6 +739,37 @@ describe('AggregateService', () => {
       await expect(
         service.getReportHistory('period1', 'u1', 'role1'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("R13: a VIEWER scoped to one team subtree only sees that subtree's assignments", async () => {
+      const { service } = buildHistoryService(
+        historyPeriod(),
+        [{ role: 'VIEWER', teamScopeId: 'team-a1' }],
+        buildTeamsServiceMock({ 'team-a1': [] }),
+      );
+
+      const result = await service.getReportHistory(
+        'period1',
+        'viewer1',
+        'roleViewer',
+      );
+
+      expect(result.assignments).toHaveLength(1);
+      expect(result.assignments[0].assignmentId).toBe('a1');
+    });
+
+    it('R13: a VIEWER with no teamScopeId sees every assignment, same as a MANAGER', async () => {
+      const { service } = buildHistoryService(historyPeriod(), [
+        { role: 'VIEWER', teamScopeId: null },
+      ]);
+
+      const result = await service.getReportHistory(
+        'period1',
+        'viewer1',
+        'roleViewer',
+      );
+
+      expect(result.assignments).toHaveLength(2);
     });
 
     it('lists every assignment with its metadata-only revision history', async () => {
