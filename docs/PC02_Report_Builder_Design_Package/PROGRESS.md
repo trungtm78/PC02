@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T08:35:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1 đã merge main; PR4 slice 2 (upload endpoint) ĐÃ XONG trên nhánh `feat/dynamic-reports-pr4-slice2` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T09:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2 đã merge main; PR4 slice 3 (UI upload) ĐÃ XONG + đã bấm thử thật, trên nhánh `feat/dynamic-reports-pr4-slice3` (chưa merge) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -39,20 +39,28 @@ Cập nhật: 2026-10-10T08:35:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1 đã 
   - Cả 2 route yêu cầu `manage:DynamicReport` + flag `dynamic_reports`.
   - **Đã kiểm bằng yêu cầu HTTP thật** (không chỉ test có giả lập): đăng nhập thật, tải file HSLN thật qua multipart thật. Phát hiện `curl` bản mingw trên Windows làm hỏng ký tự tiếng Việt ở giá trị trường `-F` khi truyền qua đối số dòng lệnh (lỗi môi trường Windows, không phải lỗi máy chủ) — xác nhận lại bằng `fetch`/`FormData` của chính Node, kết quả khớp byte-từng-byte: 33 cảnh báo UNLOCKED_NO_TOKEN, 0 field — đúng y hệt oracle đã biết của HSLN (README.md: ô có số mẫu, không có token).
   - 26 test mới (templates.controller, template.service.listSheets, PreviewTemplateDto), 97-100% dòng.
+- [x] **Đã merge PR #528 (PR4 slice 2) vào `main`** — admin-merge (tiền lệ #522-527), merge commit `f0bc8cff8982cfff4efe3f61de4265d56e6bdb96`. Deploy sau merge thành công, health xanh (buildId khớp).
+- [x] **PR4 slice 3 — giao diện upload (S02/S03)**, nhánh `feat/dynamic-reports-pr4-slice3`, UI THẬT đầu tiên gọi 2 route PR4 slice 2 vừa dựng:
+  - `ReportTemplateUploadPage.tsx` tại `/bao-cao-dong/thiet-lap/moi` — nút "Tạo báo cáo" ở S01 giờ dẫn thẳng vào đây thay vì ghi chú "đang phát triển".
+  - Chọn file → gọi `/templates/sheets` → danh sách sheet dạng checkbox, chặn ở 5 lựa chọn (khớp giới hạn hai tầng phía máy chủ, R6), có đếm "N/5 đã chọn" sống.
+  - "Xem trước" → gọi `/templates/preview` → thẻ tổng kết (số ô nhập/công thức/cảnh báo-lỗi) + danh sách cảnh báo cuộn được.
+  - **Quyết định phạm vi (ghi rõ trong comment đầu file):** đây là bản xem trước THẬT, hữu dụng — nhưng KHÔNG phải lưới giống Excel từng pixel (GridRenderer). Lưới đó là hạ tầng dùng chung cho nhiều màn sau (S04, S11, S15), xứng đáng một lượt riêng khi nhu cầu hiển thị thật đã rõ, thay vì đoán hình dạng bây giờ.
+  - **Đã bấm thử thật trên Chromium** với đúng file HSLN thật: tải lên → nhận đủ 17 tên sheet thật → chọn "Đội 3" → xem trước → nhận đúng 33 cảnh báo UNLOCKED_NO_TOKEN / 0 field — khớp y hệt oracle đã biết (3 đường độc lập: jest, HTTP tay ở slice 2, và giờ là bấm qua trình duyệt — cùng ra một con số). 0 lỗi console/network.
+  - 6 test mới (ReportTemplateUploadPage) + 1 test cũ cập nhật (nút "Tạo báo cáo" giờ kiểm href thật thay vì ghi chú).
 
-**Tổng PR0-PR4(slice1+2): 468 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. tsc --noEmit, eslint sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có. Chưa có UI gọi 2 route mới — đó là bước tiếp theo.**
+**Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
 ### Vấn đề hạ tầng đã gỡ (không phải của dynamic-reports nhưng chặn đường)
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR4 slice 2 (endpoint upload mẫu) đã xong, xanh, đã kiểm bằng HTTP thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-slice2` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
+Task: PR4 slice 3 (giao diện upload) đã xong, xanh, đã bấm thử thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-slice3` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
 
-BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-slice2` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR4 slice 3: giao diện wizard bước 1-2 thật (S02 chọn file+sheet, S03/S04 preview+đánh dấu ô) gọi 2 route vừa dựng — đây mới là lúc bấm-thử-thật trên trình duyệt có ý nghĩa (route hiện chưa có UI nào gọi tới). Môi trường (Playwright + DB dev đồng bộ qua `db push`) đã dựng xong, lặp lại được ngay (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công).
+BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-slice3` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR4 slice 4: màn đánh dấu ô (S04 — quét vùng trên preview, gán token NUM/TEXT/DATE/TIME + AGG, hiện nhãn suy ra) rồi tới S05-S10 (đặt lịch dùng `engine/period.ts` đã có, chọn tổ/người nhập, tổng kết, xuất bản — bước xuất bản cần persist `DynReportVersion`/`DynReportField` thật, chưa có service nào làm việc này). Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) đã dựng xong, lặp lại được ngay (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công).
 
 ## Hàng đợi task kế tiếp
-1. PR4 slice 3: UI wizard S02-S04 (chọn file/sheet, preview, đánh dấu ô) gọi 2 route vừa dựng
-2. PR4 slice 4: UI wizard S05-S10 (đặt lịch, chọn tổ/người nhập, xuất bản) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung
+1. PR4 slice 4: S04 đánh dấu ô (gán token trên web) + S05-S08 đặt lịch (dùng `engine/period.ts` đã có, xem trước ≥6 kỳ)
+2. PR4 slice 5: S09/S10 chọn tổ/người nhập + tổng kết + xuất bản (cần dựng `ReportConfigService` persist `DynReport`/`DynReportVersion`/`DynReportField` — CHƯA có) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung cho màn sau
 3. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
 4. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
 5. PR8: Màn C (dùng `engine/status.ts` đã có)
