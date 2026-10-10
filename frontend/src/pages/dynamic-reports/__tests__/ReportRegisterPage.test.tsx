@@ -95,14 +95,16 @@ describe('ReportRegisterPage', () => {
     });
   });
 
-  it('clicking "Tạo báo cáo" shows a coming-soon note instead of navigating to a page that does not exist', async () => {
+  it('"Tạo báo cáo" links to the upload step (PR4 slice 3), not a coming-soon note', async () => {
     vi.mocked(dynamicReportsApi.listForSetup).mockResolvedValue([]);
 
     renderPage();
     await waitFor(() => screen.getByTestId('btn-create-report'));
-    fireEvent.click(screen.getByTestId('btn-create-report'));
 
-    expect(screen.getByTestId('action-note')).toHaveTextContent('đang được phát triển');
+    expect(screen.getByTestId('btn-create-report')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/thiet-lap/moi',
+    );
   });
 
   it('clicking "Xem" on a row shows the same coming-soon note', async () => {
