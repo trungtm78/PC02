@@ -62,6 +62,16 @@ export interface ParsedIssue {
   message: string;
 }
 
+/**
+ * Structural layout (backend `layout.ts#Layout`) — sheet order, used
+ * range, merges, column/row sizes, freeze panes, print area. Opaque to
+ * the frontend wizard: it's only ever passed straight through to publish
+ * (`SaveReportConfigPayload.layout`), never interpreted here. PR6 S11's
+ * GridRenderer is the first real consumer, reading it back from
+ * `DynReportVersion.layout` after publish, not from this preview step.
+ */
+export type TemplateLayout = Record<string, unknown>;
+
 export interface TemplatePreviewResult {
   dateSystem: '1900' | '1904';
   fields: ParsedField[];
@@ -72,6 +82,7 @@ export interface TemplatePreviewResult {
   inputCellCount: number;
   sha256: string;
   suggestedRules: unknown[];
+  layout: TemplateLayout;
 }
 
 /** S09/S10 publish payload — mirrors backend SaveReportConfigDto exactly. */
@@ -103,6 +114,8 @@ export interface SaveReportConfigPayload {
   selectedSheets: string[];
   dateSystem: '1900' | '1904';
   fields: ParsedField[];
+  layout: TemplateLayout;
+  formulas: ParsedFormulaCell[];
   schedule: ReportScheduleConfig;
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];

@@ -92,6 +92,20 @@ export class SaveReportConfigDto {
   @Type(() => ReportFieldConfigDto)
   fields!: ReportFieldConfigDto[];
 
+  /**
+   * Structural layout (sheet order, used range, merges, column/row sizes,
+   * freeze panes, print area — `extractLayout()`, PR3) + the formula
+   * cells (`ParsedFormulaCell[]`), both already computed once by
+   * `/templates/preview` and simply passed straight through. Stored
+   * verbatim into the immutable `DynReportVersion.layout` JSON (R1: no
+   * separate `DynReportFormula` table) — PR6 S11's GridRenderer is the
+   * first real consumer, so no deep server-side shape validation here
+   * beyond "is an object/array"; the server never interprets these
+   * fields itself (only re-parses `fileBytes` for anything load-bearing).
+   */
+  @IsObject() layout!: Record<string, unknown>;
+  @IsArray() formulas!: Record<string, unknown>[];
+
   @ValidateNested()
   @Type(() => ReportScheduleConfigDto)
   schedule!: ReportScheduleConfigDto;

@@ -31,6 +31,7 @@ function baseResult(): TemplatePreviewResult {
     inputCellCount: 0,
     sha256: 'abc',
     suggestedRules: [],
+    layout: {},
   };
 }
 

@@ -493,6 +493,8 @@ export default function ReportTemplateUploadPage() {
               selectedSheets={selectedSheets}
               dateSystem={preview.dateSystem}
               fields={preview.fields}
+              layout={preview.layout}
+              formulas={preview.formulas}
               schedule={schedule}
               roles={roles}
               targets={targets}

@@ -58,6 +58,7 @@ const PREVIEW: TemplatePreviewResult = {
   inputCellCount: 1,
   sha256: 'abc123',
   suggestedRules: [],
+  layout: {},
 };
 
 async function selectFileAndWaitForSheets() {

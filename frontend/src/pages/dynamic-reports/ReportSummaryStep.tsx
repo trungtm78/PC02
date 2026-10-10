@@ -12,8 +12,10 @@ import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import type {
   ParsedField,
+  ParsedFormulaCell,
   ReportRoleConfig,
   ReportTargetConfig,
+  TemplateLayout,
 } from '@/features/dynamic-reports/types';
 import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/period';
 
@@ -25,6 +27,8 @@ interface Props {
   selectedSheets: string[];
   dateSystem: '1900' | '1904';
   fields: ParsedField[];
+  layout: TemplateLayout;
+  formulas: ParsedFormulaCell[];
   schedule: ScheduleRule;
   roles: ReportRoleConfig[];
   targets: ReportTargetConfig[];
@@ -43,6 +47,8 @@ export default function ReportSummaryStep({
   selectedSheets,
   dateSystem,
   fields,
+  layout,
+  formulas,
   schedule,
   roles,
   targets,
@@ -68,6 +74,8 @@ export default function ReportSummaryStep({
         selectedSheets,
         dateSystem,
         fields,
+        layout,
+        formulas,
         schedule: {
           periodType: schedule.periodType,
           periodStartDay: schedule.periodStartDay,

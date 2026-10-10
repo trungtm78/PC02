@@ -40,6 +40,8 @@ function renderStep(onBack = vi.fn()) {
         selectedSheets={['Đội 3']}
         dateSystem="1900"
         fields={FIELDS}
+        layout={{ sheetOrder: ['Đội 3'], sheets: [] }}
+        formulas={[]}
         schedule={SCHEDULE}
         roles={[{ userId: 'u1', role: 'MANAGER' }]}
         targets={[{ teamId: 't1', editorUserIds: ['u2'] }]}
@@ -81,6 +83,8 @@ describe('ReportSummaryStep', () => {
     expect(config.roles).toEqual([{ userId: 'u1', role: 'MANAGER' }]);
     expect(config.targets).toEqual([{ teamId: 't1', editorUserIds: ['u2'] }]);
     expect(config.schedule.periodType).toBe('MONTHLY');
+    expect(config.layout).toEqual({ sheetOrder: ['Đội 3'], sheets: [] });
+    expect(config.formulas).toEqual([]);
     expect(typeof config.idempotencyKey).toBe('string');
     expect(config.idempotencyKey.length).toBeGreaterThan(0);
   });
