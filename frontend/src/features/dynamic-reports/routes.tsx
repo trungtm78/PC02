@@ -8,6 +8,12 @@ const ReportRegisterPage = lazy(
 const ReportTemplateUploadPage = lazy(
   () => import('@/pages/dynamic-reports/ReportTemplateUploadPage'),
 );
+const ReportInputRegisterPage = lazy(
+  () => import('@/pages/dynamic-reports/ReportInputRegisterPage'),
+);
+const SubmissionInputPage = lazy(
+  () => import('@/pages/dynamic-reports/SubmissionInputPage'),
+);
 
 export function renderDynamicReportsRoutes(): ReactElement[] {
   return [
@@ -20,6 +26,16 @@ export function renderDynamicReportsRoutes(): ReactElement[] {
       key="dynamic-reports-new"
       path="/bao-cao-dong/thiet-lap/moi"
       element={wrapRoute(<ReportTemplateUploadPage />)}
+    />,
+    <Route
+      key="dynamic-reports-input"
+      path="/bao-cao-dong/nhap"
+      element={wrapRoute(<ReportInputRegisterPage />)}
+    />,
+    <Route
+      key="dynamic-reports-input-assignment"
+      path="/bao-cao-dong/nhap/:assignmentId"
+      element={wrapRoute(<SubmissionInputPage />)}
     />,
   ];
 }

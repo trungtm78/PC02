@@ -13,7 +13,11 @@ import { PrismaService } from '../../prisma/prisma.service';
  */
 describe('SubmissionController', () => {
   let controller: SubmissionController;
-  const service = { getSubmission: jest.fn(), save: jest.fn() };
+  const service = {
+    getSubmission: jest.fn(),
+    save: jest.fn(),
+    listMyAssignments: jest.fn(),
+  };
   const user = { id: 'u1', roleId: 'r1' };
 
   beforeEach(async () => {
@@ -27,6 +31,16 @@ describe('SubmissionController', () => {
       ],
     }).compile();
     controller = module.get<SubmissionController>(SubmissionController);
+  });
+
+  it('GET (list) delegates to SubmissionService.listMyAssignments with the current user id', async () => {
+    const rows = [{ assignmentId: 'assign1' }];
+    service.listMyAssignments.mockResolvedValue(rows);
+
+    const result = await controller.listMine(user);
+
+    expect(service.listMyAssignments).toHaveBeenCalledWith('u1');
+    expect(result).toBe(rows);
   });
 
   it('GET delegates to SubmissionService.getSubmission with the assignmentId and current user id', async () => {

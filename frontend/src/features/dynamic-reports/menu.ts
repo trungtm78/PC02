@@ -1,9 +1,8 @@
 import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
 
 /**
- * Only "Thiết lập báo cáo" (S01) exists so far — PR6 (nhập liệu) and PR8
- * (tình trạng) add their own menu entries in their own PRs once the pages
- * they'd point to actually exist.
+ * PR8 (tình trạng nhập liệu) adds its own menu entry once that page
+ * exists.
  */
 export const dynamicReportsMenu: FeatureMenuEntry[] = [
   {
@@ -13,5 +12,13 @@ export const dynamicReportsMenu: FeatureMenuEntry[] = [
     icon: 'FileSpreadsheet',
     path: '/bao-cao-dong/thiet-lap',
     quyen: ['manage:DynamicReport'],
+  },
+  {
+    section: 'reports',
+    id: 'dynamic-reports-input',
+    label: 'Nhập & tổng hợp',
+    icon: 'ClipboardList',
+    path: '/bao-cao-dong/nhap',
+    quyen: ['read:DynamicReport'],
   },
 ];

@@ -36,6 +36,12 @@ interface AuthenticatedUser {
 export class SubmissionController {
   constructor(private readonly submissionService: SubmissionService) {}
 
+  @Get()
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listMine(@CurrentUser() user: AuthenticatedUser) {
+    return this.submissionService.listMyAssignments(user.id);
+  }
+
   @Get(':assignmentId')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async get(

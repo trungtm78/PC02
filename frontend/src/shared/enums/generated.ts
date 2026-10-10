@@ -330,3 +330,12 @@ export const DynReportPeriodType = {
   ONE_TIME: 'ONE_TIME',
 } as const;
 export type DynReportPeriodType = (typeof DynReportPeriodType)[keyof typeof DynReportPeriodType];
+
+export const DynReportSubmissionState = {
+  NOT_STARTED: 'NOT_STARTED',
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  RETURNED: 'RETURNED',
+  APPROVED: 'APPROVED',
+} as const;
+export type DynReportSubmissionState = (typeof DynReportSubmissionState)[keyof typeof DynReportSubmissionState];
