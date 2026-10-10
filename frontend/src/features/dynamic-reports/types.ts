@@ -399,3 +399,26 @@ export interface StatusListFilters {
   overdue?: boolean;
   reopened?: boolean;
 }
+
+/** S20 ma trận (PR8 slice 3) — report picker option. */
+export interface ReportOption {
+  reportId: string;
+  reportName: string;
+}
+
+export interface StatusMatrixCell {
+  /** `true` → team has no assignment for this period at all ("Không giao"), distinct from `state: 'NOT_STARTED'` ("Chưa nhập"). */
+  notAssigned: boolean;
+  state: DynReportSubmissionState | null;
+  accessState: 'NOT_YET_OPEN' | 'OPEN' | 'LOCKED' | 'REOPENED' | null;
+  timelinessState: 'NOT_YET_DUE' | 'ON_TIME' | 'LATE' | 'OVERDUE_NOT_DONE' | null;
+  exempt: boolean;
+  dueAt: string | null;
+}
+
+export interface StatusMatrixView {
+  periods: Array<{ periodId: string; periodKey: string; dueAt: string }>;
+  teams: Array<{ teamId: string; teamName: string }>;
+  cells: Record<string, Record<string, StatusMatrixCell>>;
+  asOf: string;
+}

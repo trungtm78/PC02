@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 const SUBMISSION_STATES = [
   'NOT_STARTED',
@@ -79,4 +79,11 @@ export class ExportStatusQueryDto {
   @IsOptional()
   @IsIn(['csv', 'xlsx'])
   format?: 'csv' | 'xlsx';
+}
+
+/** S20 ma trận — `reportId` bắt buộc (ma trận luôn soi đúng MỘT báo cáo). */
+export class StatusMatrixQueryDto {
+  @IsNotEmpty()
+  @IsString()
+  reportId!: string;
 }

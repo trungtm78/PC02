@@ -13,6 +13,7 @@ import type { AssignmentStatusRow } from './status-query.service';
 import {
   ListStatusQueryDto,
   ExportStatusQueryDto,
+  StatusMatrixQueryDto,
 } from './dto/list-status-query.dto';
 
 interface AuthenticatedUser {
@@ -204,5 +205,26 @@ export class StatusQueryController {
       );
     }
     res.end();
+  }
+
+  /** S20's report picker — every report the caller may see (same scope as `list`). */
+  @Get('reports')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listReports(@CurrentUser() user: AuthenticatedUser) {
+    return this.statusQueryService.listReportsInScope(user.id, user.roleId);
+  }
+
+  /** S20 ma trận — Tổ × Kỳ cho một báo cáo, tối đa 12 cột. */
+  @Get('matrix')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async matrix(
+    @Query() query: StatusMatrixQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.statusQueryService.getStatusMatrix(
+      user.id,
+      user.roleId,
+      query.reportId,
+    );
   }
 }

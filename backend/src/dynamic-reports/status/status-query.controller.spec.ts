@@ -9,6 +9,8 @@ describe('StatusQueryController', () => {
   const service = {
     listAssignmentStatuses: jest.fn(),
     queryAllForExport: jest.fn(),
+    listReportsInScope: jest.fn(),
+    getStatusMatrix: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -170,5 +172,30 @@ describe('StatusQueryController', () => {
     );
     expect(res.send).toHaveBeenCalledWith(expect.any(Buffer));
     expect(res.write).not.toHaveBeenCalled();
+  });
+
+  it('listReports delegates to StatusQueryService.listReportsInScope', async () => {
+    const reports = [{ reportId: 'r1', reportName: 'HSLN' }];
+    service.listReportsInScope.mockResolvedValue(reports);
+
+    const result = await controller.listReports(user);
+
+    expect(service.listReportsInScope).toHaveBeenCalledWith('u1', 'r1');
+    expect(result).toBe(reports);
+  });
+
+  it('matrix delegates to StatusQueryService.getStatusMatrix with reportId', async () => {
+    const view = {
+      periods: [],
+      teams: [],
+      cells: {},
+      asOf: '2026-06-15T10:00:00.000Z',
+    };
+    service.getStatusMatrix.mockResolvedValue(view);
+
+    const result = await controller.matrix({ reportId: 'report1' }, user);
+
+    expect(service.getStatusMatrix).toHaveBeenCalledWith('u1', 'r1', 'report1');
+    expect(result).toBe(view);
   });
 });
