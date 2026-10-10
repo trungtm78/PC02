@@ -112,22 +112,21 @@ export class StatusQueryService {
     return [...new Set(roles.map((r) => r.reportId))];
   }
 
-  async listAssignmentStatuses(
+  /**
+   * The part shared by `listAssignmentStatuses` (paginated) and
+   * `queryAllForExport` (unpaginated) — every row matching `filters`,
+   * sorted, with the KPI summary over that same scope. Neither caller
+   * paginates here; `listAssignmentStatuses` slices the result itself.
+   */
+  private async queryRows(
     userId: string,
     roleId: string,
     filters: StatusListFilters,
-    page = 1,
-    pageSize = DEFAULT_PAGE_SIZE,
-  ): Promise<StatusListResult> {
+  ): Promise<{ rows: AssignmentStatusRow[]; kpi: KpiSummary; asOf: string }> {
     const now = new Date();
     const reportIds = await this.resolveReportIds(userId, roleId);
     if (reportIds !== 'ALL' && reportIds.length === 0) {
-      return {
-        items: [],
-        total: 0,
-        kpi: computeKpiSummary([]),
-        asOf: now.toISOString(),
-      };
+      return { rows: [], kpi: computeKpiSummary([]), asOf: now.toISOString() };
     }
 
     let teamIdFilter: string[] | undefined;
@@ -280,12 +279,34 @@ export class StatusQueryService {
       return a.dueAt.localeCompare(b.dueAt);
     });
 
+    return { rows, kpi, asOf: now.toISOString() };
+  }
+
+  async listAssignmentStatuses(
+    userId: string,
+    roleId: string,
+    filters: StatusListFilters,
+    page = 1,
+    pageSize = DEFAULT_PAGE_SIZE,
+  ): Promise<StatusListResult> {
+    const { rows, kpi, asOf } = await this.queryRows(userId, roleId, filters);
+
     const total = rows.length;
     const clampedPageSize = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
     const safePage = Math.max(page, 1);
     const start = (safePage - 1) * clampedPageSize;
     const items = rows.slice(start, start + clampedPageSize);
 
-    return { items, total, kpi, asOf: now.toISOString() };
+    return { items, total, kpi, asOf };
+  }
+
+  /** S19 "Xuất" — same filters/scope as the list, every matching row, no pagination. */
+  async queryAllForExport(
+    userId: string,
+    roleId: string,
+    filters: StatusListFilters,
+  ): Promise<{ rows: AssignmentStatusRow[]; asOf: string }> {
+    const { rows, asOf } = await this.queryRows(userId, roleId, filters);
+    return { rows, asOf };
   }
 }

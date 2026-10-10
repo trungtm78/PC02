@@ -272,4 +272,13 @@ export const dynamicReportsApi = {
         params: { ...filters, page, pageSize },
       })
       .then((r) => r.data),
+
+  /** S19 "Xuất" (PR8 slice 2) — same filters as `listStatus`, every matching row, no pagination. */
+  exportStatus: async (filters: StatusListFilters, format: 'csv' | 'xlsx') => {
+    const response = await api.get<Blob>('/bao-cao-dong/status/export', {
+      params: { ...filters, format },
+      responseType: 'blob',
+    });
+    triggerDownload(response, `tinh-trang-nhap-lieu.${format}`);
+  },
 };
