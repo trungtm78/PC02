@@ -190,4 +190,64 @@ describe('ReportSubmissionReviewPage', () => {
     expect(screen.queryByTestId('btn-approve')).not.toBeInTheDocument();
     expect(screen.queryByTestId('btn-unapprove')).not.toBeInTheDocument();
   });
+
+  it('renders the revision history with Vietnamese action labels, actor, and reason (S16)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      history: [
+        {
+          revision: '1',
+          kind: 'SUBMIT',
+          actorName: 'Nguyễn Văn A',
+          reason: null,
+          committedAt: '2026-10-09T08:00:00.000Z',
+        },
+        {
+          revision: '2',
+          kind: 'RETURN',
+          actorName: 'Trần Thị B',
+          reason: 'Thiếu số liệu',
+          committedAt: '2026-10-10T08:00:00.000Z',
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('history-list'));
+    expect(screen.getByTestId('history-entry-1')).toHaveTextContent('Nộp');
+    expect(screen.getByTestId('history-entry-1')).toHaveTextContent('Nguyễn Văn A');
+    expect(screen.getByTestId('history-entry-2')).toHaveTextContent('Trả lại');
+    expect(screen.getByTestId('history-entry-2')).toHaveTextContent('Thiếu số liệu');
+  });
+
+  it('does not render the history section when there is no history', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue(SUBMITTED_VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-approve'));
+    expect(screen.queryByTestId('history-list')).not.toBeInTheDocument();
+  });
+
+  it('shows the reopen deadline note when effectiveLockAt differs from the original dueAt', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'RETURNED',
+      effectiveLockAt: '2026-11-08T12:00:00.000Z',
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('reopen-deadline-note'));
+    expect(screen.getByTestId('reopen-deadline-note')).toHaveTextContent('mở lại');
+  });
+
+  it('does not show the reopen deadline note when effectiveLockAt equals the original dueAt', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      effectiveLockAt: SUBMITTED_VIEW.dueAt,
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-approve'));
+    expect(screen.queryByTestId('reopen-deadline-note')).not.toBeInTheDocument();
+  });
 });

@@ -51,6 +51,23 @@ export interface SubmissionView {
   editable: boolean;
   effectiveLockAt: string | null;
   serverTime: string;
+  /** S16 (PR7 slice 3) — only ever populated on the manager's read, never the editor's. */
+  history?: RevisionHistoryEntry[];
+}
+
+/**
+ * S16/S21 (spec R10): metadata only — `kind`/`actorName`/`reason`/`committedAt`,
+ * NEVER the revision's `valuesFull`/`diff`. Submitted data must only ever
+ * surface through an endpoint that re-checks the caller's standing on THIS
+ * report (this one does, via `loadAssignmentForManager`) — never through the
+ * app-wide audit log, which only requires the unrelated `read:AuditLog`.
+ */
+export interface RevisionHistoryEntry {
+  revision: string;
+  kind: string;
+  actorName: string;
+  reason: string | null;
+  committedAt: string;
 }
 
 export interface SaveValuesResult {
@@ -289,6 +306,44 @@ export class SubmissionService {
       throw new NotFoundException('Không tìm thấy lượt giao này.');
     const now = new Date();
 
+    // effectiveLockAt here means "when would this team's write window next
+    // close" (hạn gốc hoặc hạn mở lại) for the manager to see — never
+    // `canEdit`, which stays meaningless for a manager who never types into
+    // cells (D10). Reuses the exact same engine call the editor's own GET
+    // makes, just discarding `canEdit`.
+    const grants = await this.grantsFor(this.prisma, assignmentId);
+    const access = resolveAccess({
+      state: submission.state,
+      periodStatus: period.status as PeriodStatus,
+      opensAt: period.opensAt,
+      originalDueAt: period.dueAt,
+      returnDueAt: submission.returnDueAt,
+      grants,
+      userActive: true,
+      now,
+    });
+
+    const revisions = await this.prisma.dynReportRevision.findMany({
+      where: { submissionId: submission.id },
+      orderBy: { revision: 'asc' },
+      select: {
+        revision: true,
+        kind: true,
+        reason: true,
+        committedAt: true,
+        actor: { select: { firstName: true, lastName: true, username: true } },
+      },
+    });
+    const history: RevisionHistoryEntry[] = revisions.map((r) => ({
+      revision: r.revision.toString(),
+      kind: r.kind,
+      actorName:
+        `${r.actor.firstName ?? ''} ${r.actor.lastName ?? ''}`.trim() ||
+        r.actor.username,
+      reason: r.reason,
+      committedAt: r.committedAt.toISOString(),
+    }));
+
     return {
       assignmentId,
       reportName: period.report.name,
@@ -302,8 +357,9 @@ export class SubmissionService {
       values: (submission.values as Record<string, TypedValue>) ?? {},
       fields: period.version.fields.map((f) => this.toFieldView(f)),
       editable: false,
-      effectiveLockAt: null,
+      effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
       serverTime: now.toISOString(),
+      history,
     };
   }
 

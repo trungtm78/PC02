@@ -11,13 +11,29 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send, History } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 
 type ActionStatus = 'idle' | 'working' | 'error';
+
+/**
+ * Display-only — `kind` is never compared against this map in business
+ * logic (only ever rendered), so a generated shared enum (like
+ * `DynReportSubmissionState`'s) would be overkill for a handful of fixed
+ * audit-trail tags.
+ */
+const REVISION_KIND_LABEL: Record<string, string> = {
+  SAVE: 'Lưu',
+  IMPORT: 'Nhập từ Excel',
+  SUBMIT: 'Nộp',
+  RETURN: 'Trả lại',
+  APPROVE: 'Duyệt',
+  UNAPPROVE: 'Huỷ duyệt',
+  ADJUSTMENT: 'Điều chỉnh sau chốt',
+};
 
 export default function ReportSubmissionReviewPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
@@ -129,9 +145,14 @@ export default function ReportSubmissionReviewPage() {
 
       <h1 className="text-xl font-bold text-slate-800 mb-1">{view.reportName}</h1>
       <p className="text-sm text-slate-500 mb-4">
-        Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn{' '}
+        Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn gốc{' '}
         {formatVNDateTime(view.dueAt)}
       </p>
+      {view.effectiveLockAt && view.effectiveLockAt !== view.dueAt && (
+        <p className="text-sm text-blue-700 mb-4" data-testid="reopen-deadline-note">
+          Đang được mở lại đến {formatVNDateTime(view.effectiveLockAt)}
+        </p>
+      )}
 
       {actionError && (
         <p className="text-sm text-red-700 mb-4" data-testid="action-error">
@@ -241,6 +262,28 @@ export default function ReportSubmissionReviewPage() {
         <p className="text-sm text-slate-500" data-testid="not-yet-submitted-note">
           Tổ chưa nộp bản này — chưa có gì để duyệt.
         </p>
+      )}
+
+      {view.history && view.history.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-lg p-4 mt-6" data-testid="history-list">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-semibold text-slate-700">Lịch sử</h2>
+          </div>
+          <ul className="space-y-2">
+            {view.history.map((h) => (
+              <li key={h.revision} className="text-sm border-l-2 border-slate-200 pl-3" data-testid={`history-entry-${h.revision}`}>
+                <span className="font-medium text-slate-800">
+                  {REVISION_KIND_LABEL[h.kind] ?? h.kind}
+                </span>{' '}
+                <span className="text-slate-500">
+                  bởi {h.actorName} lúc {formatVNDateTime(h.committedAt)}
+                </span>
+                {h.reason && <p className="text-slate-600 italic">"{h.reason}"</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
