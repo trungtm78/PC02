@@ -20,9 +20,14 @@
 import { useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Unlock, Send } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, FileSpreadsheet, Lock, Unlock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { DynReportSubmissionState, SubmissionFieldView, TypedValue } from '@/features/dynamic-reports/types';
+import type {
+  DynReportSubmissionState,
+  ImportPreviewResult,
+  SubmissionFieldView,
+  TypedValue,
+} from '@/features/dynamic-reports/types';
 import { planPaste } from '@/features/dynamic-reports/engine/generated/paste';
 import { validateFieldValue } from '@/features/dynamic-reports/engine/generated/values';
 import { extractApiError } from '@/lib/api-errors';
@@ -68,8 +73,12 @@ export default function SubmissionInputPage() {
     serverRevision: string;
     serverEffectiveLockAt: string | null;
   } | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewResult | null>(null);
+  const [importStatus, setImportStatus] = useState<'idle' | 'previewing' | 'applying' | 'error'>('idle');
+  const [importError, setImportError] = useState<string | null>(null);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
   // S26 — ties one idempotency key to one exact (patch, revision) pair, so a
   // network-error retry of the SAME attempt reuses it (never double-applies
   // a request that actually reached the server but whose response was
@@ -187,6 +196,63 @@ export default function SubmissionInputPage() {
     setConflict(null);
     setSaveStatus('idle');
     setSaveError(null);
+  }
+
+  /** S35 — no DB write yet: shows the diff and waits for explicit confirmation. */
+  async function handleImportFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (importFileInputRef.current) importFileInputRef.current.value = '';
+    if (!file || !assignmentId) return;
+    setImportStatus('previewing');
+    setImportError(null);
+    setImportPreview(null);
+    try {
+      const preview = await dynamicReportsApi.previewExcelImport(assignmentId, file);
+      setImportPreview(preview);
+      setImportStatus('idle');
+    } catch (err) {
+      setImportStatus('error');
+      setImportError(extractApiError(err).message);
+    }
+  }
+
+  async function handleApplyImport() {
+    if (!importPreview || !assignmentId || !revision) return;
+    setImportStatus('applying');
+    setImportError(null);
+    try {
+      const result = await dynamicReportsApi.applyExcelImport(
+        assignmentId,
+        importPreview.values,
+        revision,
+      );
+      setRevisionOverride(result.revision);
+      setStateOverride(result.state);
+      setLockAtOverride(result.effectiveLockAt);
+      // `initial.values` (the query cache) is stale until a refetch — keep
+      // showing exactly what the server now has, the same way a normal
+      // save's response never needs to touch `values` because the user's
+      // own typed text already matches what got saved.
+      setValues((prev) => {
+        const next = { ...prev };
+        for (const [key, raw] of Object.entries(importPreview.values)) {
+          next[key] = raw ?? '';
+        }
+        return next;
+      });
+      for (const key of Object.keys(importPreview.values)) dirtyRef.current.delete(key);
+      setImportPreview(null);
+      setImportStatus('idle');
+    } catch (err) {
+      setImportStatus('error');
+      setImportError(extractApiError(err).message);
+    }
+  }
+
+  function handleCancelImport() {
+    setImportPreview(null);
+    setImportStatus('idle');
+    setImportError(null);
   }
 
   async function handleSubmit() {
@@ -417,21 +483,96 @@ export default function SubmissionInputPage() {
         </div>
       )}
 
-      <div
-        className="flex items-center gap-2 text-xs text-slate-500 mb-4"
-        data-testid="save-status"
-      >
-        {saveStatus === 'saving' && (
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div
+          className="flex items-center gap-2 text-xs text-slate-500"
+          data-testid="save-status"
+        >
+          {saveStatus === 'saving' && (
+            <>
+              <Clock className="w-3.5 h-3.5 animate-spin" /> Đang lưu…
+            </>
+          )}
+          {saveStatus === 'saved' && (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Đã lưu
+            </>
+          )}
+        </div>
+        {editable && (
           <>
-            <Clock className="w-3.5 h-3.5 animate-spin" /> Đang lưu…
-          </>
-        )}
-        {saveStatus === 'saved' && (
-          <>
-            <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Đã lưu
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".xlsx"
+              data-testid="import-excel-input"
+              className="hidden"
+              onChange={(e) => void handleImportFileSelected(e)}
+            />
+            <button
+              type="button"
+              data-testid="btn-import-excel"
+              disabled={importStatus === 'previewing'}
+              onClick={() => importFileInputRef.current?.click()}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              {importStatus === 'previewing' ? 'Đang đọc file…' : 'Nhập từ Excel'}
+            </button>
           </>
         )}
       </div>
+
+      {importError && (
+        <p className="text-sm text-red-700 mb-3" data-testid="import-error">
+          {importError}
+        </p>
+      )}
+
+      {importPreview && (
+        <div
+          className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-4"
+          data-testid="import-preview"
+        >
+          {importPreview.diff.length === 0 ? (
+            <p className="text-sm text-blue-800 mb-3">
+              File không có ô nào khác với bản hiện tại.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-blue-900 mb-2">
+                {importPreview.diff.length} ô sẽ thay đổi:
+              </p>
+              <ul className="text-xs text-blue-800 mb-3 space-y-1">
+                {importPreview.diff.map((d) => (
+                  <li key={d.fieldKey} data-testid={`import-diff-row-${d.fieldKey}`}>
+                    <strong>{d.label}:</strong> {d.current ?? '(trống)'} → {d.imported ?? '(trống)'}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="btn-import-apply"
+              disabled={importStatus === 'applying' || importPreview.diff.length === 0}
+              onClick={() => void handleApplyImport()}
+              className={`px-3 py-1.5 bg-blue-700 text-white text-xs font-medium rounded-lg hover:bg-blue-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              {importStatus === 'applying' ? 'Đang áp dụng…' : 'Áp dụng'}
+            </button>
+            <button
+              type="button"
+              data-testid="btn-import-cancel"
+              onClick={handleCancelImport}
+              className={`px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 ${A11Y_FOCUS_RING}`}
+            >
+              Huỷ
+            </button>
+          </div>
+        </div>
+      )}
 
       {saveError && (
         <p className="text-sm text-red-700 mb-2" data-testid="save-error">

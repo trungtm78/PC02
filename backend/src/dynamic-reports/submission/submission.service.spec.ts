@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import * as ExcelJS from 'exceljs';
 import { SubmissionService } from './submission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -1705,6 +1706,229 @@ describe('SubmissionService', () => {
 
       expect(result.granted).toEqual([]);
       expect(result.skipped).toHaveLength(1);
+    });
+  });
+
+  describe('previewExcelImport / applyExcelImport (S35, PR6 slice 8)', () => {
+    async function buildWorkbookBuffer(
+      sheets: Record<string, Record<string, unknown>>,
+    ): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      for (const [sheetName, cells] of Object.entries(sheets)) {
+        const sheet = wb.addWorksheet(sheetName);
+        for (const [address, value] of Object.entries(cells)) {
+          sheet.getCell(address).value = value as ExcelJS.CellValue;
+        }
+      }
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    it('previewExcelImport reads the field cells and diffs against current values', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'DRAFT',
+            currentRevision: 1n,
+            values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
+            approvalLevel: 0,
+            returnDueAt: null,
+            firstSavedAt: now,
+          },
+        }),
+      );
+      const { service } = buildService(tx);
+      const buffer = await buildWorkbookBuffer({ 'Đội 3': { C6: 12 } });
+
+      const result = await service.previewExcelImport('assign1', 'u1', buffer);
+
+      expect(result.values).toEqual({ 'Đội 3!C6': '12' });
+      expect(result.diff).toEqual([
+        {
+          fieldKey: 'Đội 3!C6',
+          sheetKey: 'Đội 3',
+          address: 'C6',
+          label: 'Số vụ mới',
+          current: '5',
+          imported: '12',
+        },
+      ]);
+    });
+
+    it('previewExcelImport returns an empty diff when the imported value matches the current one', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'DRAFT',
+            currentRevision: 1n,
+            values: { 'Đội 3!C6': { t: 'NUM', v: '12' } },
+            approvalLevel: 0,
+            returnDueAt: null,
+            firstSavedAt: now,
+          },
+        }),
+      );
+      const { service } = buildService(tx);
+      const buffer = await buildWorkbookBuffer({ 'Đội 3': { C6: 12 } });
+
+      const result = await service.previewExcelImport('assign1', 'u1', buffer);
+
+      expect(result.diff).toEqual([]);
+    });
+
+    it('previewExcelImport rejects the whole file when a required sheet is missing', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      const { service } = buildService(tx);
+      const buffer = await buildWorkbookBuffer({ 'Sheet khác': { A1: 1 } });
+
+      await expect(
+        service.previewExcelImport('assign1', 'u1', buffer),
+      ).rejects.toMatchObject({ code: 'TEMPLATE_INVALID' });
+    });
+
+    it('previewExcelImport rejects the whole file when a cell cannot be read as its declared type', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      const { service } = buildService(tx);
+      const buffer = await buildWorkbookBuffer({
+        'Đội 3': { C6: 'not-a-number' },
+      });
+
+      await expect(
+        service.previewExcelImport('assign1', 'u1', buffer),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+
+    it('previewExcelImport rejects a non-xlsx buffer via the hostile-xlsx-guard pre-checks', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      const { service } = buildService(tx);
+
+      await expect(
+        service.previewExcelImport(
+          'assign1',
+          'u1',
+          Buffer.from('not an xlsx file'),
+        ),
+      ).rejects.toMatchObject({ code: 'TEMPLATE_INVALID' });
+    });
+
+    it('previewExcelImport rejects (404) when the caller is not an active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.previewExcelImport('assign1', 'u1', Buffer.from('x')),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('applyExcelImport writes a single IMPORT revision with a full snapshot', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'NOT_STARTED',
+        currentRevision: 0n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: null,
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.applyExcelImport(
+        'assign1',
+        'u1',
+        { 'Đội 3!C6': '12' },
+        '0',
+      );
+
+      expect(result.revision).toBe('1');
+      const revisionCall = tx.dynReportRevision.create.mock.calls[0][0] as {
+        data: {
+          kind: string;
+          valuesFull: Record<string, unknown>;
+          diff?: unknown;
+        };
+      };
+      expect(revisionCall.data.kind).toBe('IMPORT');
+      expect(revisionCall.data.valuesFull).toEqual({
+        'Đội 3!C6': { t: 'NUM', v: '12' },
+      });
+      expect(revisionCall.data.diff).toBeUndefined();
+    });
+
+    it('applyExcelImport rejects with CELL_VALIDATION when a value fails re-validation', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'NOT_STARTED',
+        currentRevision: 0n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: null,
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.applyExcelImport(
+          'assign1',
+          'u1',
+          { 'Đội 3!C6': 'not-a-number' },
+          '0',
+        ),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportRevision.create).not.toHaveBeenCalled();
+    });
+
+    it('applyExcelImport rejects with REVISION_CONFLICT when expectedRevision is stale', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportSubmission.findUnique.mockResolvedValue({
+        id: 'sub1',
+        state: 'NOT_STARTED',
+        currentRevision: 3n,
+        values: {},
+        approvalLevel: 0,
+        returnDueAt: null,
+        firstSavedAt: null,
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.applyExcelImport('assign1', 'u1', { 'Đội 3!C6': '12' }, '0'),
+      ).rejects.toMatchObject({ code: 'REVISION_CONFLICT' });
     });
   });
 });

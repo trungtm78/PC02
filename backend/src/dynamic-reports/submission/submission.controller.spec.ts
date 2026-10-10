@@ -29,6 +29,8 @@ describe('SubmissionController', () => {
     listPendingRequests: jest.fn(),
     decideRequest: jest.fn(),
     bulkGrantUnlock: jest.fn(),
+    previewExcelImport: jest.fn(),
+    applyExcelImport: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -437,5 +439,71 @@ describe('SubmissionController', () => {
       undefined,
     );
     expect(result).toBe(outcome);
+  });
+
+  it('POST import-excel/preview delegates to SubmissionService.previewExcelImport', async () => {
+    const preview = { values: { 'Đội 3!C6': '12' }, diff: [] };
+    service.previewExcelImport.mockResolvedValue(preview);
+    const file = { buffer: Buffer.from('fake-xlsx') } as Express.Multer.File;
+
+    const result = await controller.previewExcelImport('assign1', file, user);
+
+    expect(service.previewExcelImport).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      file.buffer,
+    );
+    expect(result).toBe(preview);
+  });
+
+  it('POST import-excel/preview rejects with 400 when no file is uploaded', async () => {
+    await expect(
+      controller.previewExcelImport('assign1', undefined, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(service.previewExcelImport).not.toHaveBeenCalled();
+  });
+
+  it('translates a TEMPLATE_INVALID SubmissionError from previewExcelImport into a 400', async () => {
+    service.previewExcelImport.mockRejectedValue(
+      new SubmissionError('File thiếu sheet.', 'TEMPLATE_INVALID'),
+    );
+    const file = { buffer: Buffer.from('x') } as Express.Multer.File;
+
+    await expect(
+      controller.previewExcelImport('assign1', file, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('POST import-excel/apply delegates to SubmissionService.applyExcelImport', async () => {
+    const applied = { revision: '1', state: 'DRAFT' };
+    service.applyExcelImport.mockResolvedValue(applied);
+
+    const result = await controller.applyExcelImport(
+      'assign1',
+      { values: { 'Đội 3!C6': '12' }, expectedRevision: '0' },
+      user,
+    );
+
+    expect(service.applyExcelImport).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      { 'Đội 3!C6': '12' },
+      '0',
+    );
+    expect(result).toBe(applied);
+  });
+
+  it('translates a REVISION_CONFLICT SubmissionError from applyExcelImport into a 409', async () => {
+    service.applyExcelImport.mockRejectedValue(
+      new SubmissionError('conflict', 'REVISION_CONFLICT'),
+    );
+
+    await expect(
+      controller.applyExcelImport(
+        'assign1',
+        { values: {}, expectedRevision: '0' },
+        user,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

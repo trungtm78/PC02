@@ -329,3 +329,18 @@ export interface ViewablePeriodView {
   periodKey: string;
   dueAt: string;
 }
+
+/** S35 (PR6 slice 8) — one field the preview found a real difference on. */
+export interface ImportDiffEntry {
+  fieldKey: string;
+  sheetKey: string;
+  address: string;
+  label: string;
+  current: string | null;
+  imported: string | null;
+}
+
+export interface ImportPreviewResult {
+  values: Record<string, string | null>;
+  diff: ImportDiffEntry[];
+}

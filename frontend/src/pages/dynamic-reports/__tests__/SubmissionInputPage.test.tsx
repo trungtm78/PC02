@@ -12,6 +12,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     saveSubmissionValues: vi.fn(),
     submitSubmission: vi.fn(),
     requestUnlock: vi.fn(),
+    previewExcelImport: vi.fn(),
+    applyExcelImport: vi.fn(),
   },
 }));
 
@@ -532,5 +534,114 @@ describe('SubmissionInputPage', () => {
     // dueAt is 17:00 UTC on 05/11 — +7h VN offset rolls it to 06/11 local.
     expect(screen.getByTestId('reopened-banner')).toHaveTextContent('06/11/2026');
     expect(screen.getByTestId('input-Đội 3!C6')).not.toBeDisabled();
+  });
+
+  it('previews a diff after selecting an Excel file (S35)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.previewExcelImport).mockResolvedValue({
+      values: { 'Đội 3!C6': '12' },
+      diff: [
+        {
+          fieldKey: 'Đội 3!C6',
+          sheetKey: 'Đội 3',
+          address: 'C6',
+          label: 'Số vụ mới',
+          current: '5',
+          imported: '12',
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-import-excel'));
+    const file = new File(['fake'], 'HSLN.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    fireEvent.change(screen.getByTestId('import-excel-input'), { target: { files: [file] } });
+
+    await waitFor(() => screen.getByTestId('import-preview'));
+    expect(dynamicReportsApi.previewExcelImport).toHaveBeenCalledWith('assign1', file);
+    expect(screen.getByTestId('import-diff-row-Đội 3!C6')).toHaveTextContent('5 → 12');
+  });
+
+  it('applies the import, then clears the preview and updates the revision', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.previewExcelImport).mockResolvedValue({
+      values: { 'Đội 3!C6': '12' },
+      diff: [
+        { fieldKey: 'Đội 3!C6', sheetKey: 'Đội 3', address: 'C6', label: 'Số vụ mới', current: '5', imported: '12' },
+      ],
+    });
+    vi.mocked(dynamicReportsApi.applyExcelImport).mockResolvedValue({
+      revision: '2',
+      state: 'DRAFT',
+      savedAt: '2026-10-10T10:00:01.000Z',
+      serverTime: '2026-10-10T10:00:01.000Z',
+      effectiveLockAt: '2026-11-05T17:00:00.000Z',
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-import-excel'));
+    const file = new File(['fake'], 'HSLN.xlsx');
+    fireEvent.change(screen.getByTestId('import-excel-input'), { target: { files: [file] } });
+    await waitFor(() => screen.getByTestId('btn-import-apply'));
+
+    fireEvent.click(screen.getByTestId('btn-import-apply'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.applyExcelImport).toHaveBeenCalledWith(
+        'assign1',
+        { 'Đội 3!C6': '12' },
+        '1',
+      );
+    });
+    expect(screen.queryByTestId('import-preview')).not.toBeInTheDocument();
+    expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('12');
+  });
+
+  it('cancels the import preview without applying anything', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.previewExcelImport).mockResolvedValue({
+      values: { 'Đội 3!C6': '12' },
+      diff: [
+        { fieldKey: 'Đội 3!C6', sheetKey: 'Đội 3', address: 'C6', label: 'Số vụ mới', current: '5', imported: '12' },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-import-excel'));
+    const file = new File(['fake'], 'HSLN.xlsx');
+    fireEvent.change(screen.getByTestId('import-excel-input'), { target: { files: [file] } });
+    await waitFor(() => screen.getByTestId('btn-import-cancel'));
+
+    fireEvent.click(screen.getByTestId('btn-import-cancel'));
+
+    expect(screen.queryByTestId('import-preview')).not.toBeInTheDocument();
+    expect(dynamicReportsApi.applyExcelImport).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when the uploaded file is rejected (e.g. missing sheet)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.previewExcelImport).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { error: { message: 'File thiếu sheet: Đội 5.' } },
+      },
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-import-excel'));
+    const file = new File(['fake'], 'wrong.xlsx');
+    fireEvent.change(screen.getByTestId('import-excel-input'), { target: { files: [file] } });
+
+    await waitFor(() => screen.getByTestId('import-error'));
+    expect(screen.getByTestId('import-error')).toHaveTextContent('thiếu sheet');
+  });
+
+  it('does not show the "Nhập từ Excel" button when the submission is not editable', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({ ...VIEW, editable: false });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('locked-banner'));
+    expect(screen.queryByTestId('btn-import-excel')).not.toBeInTheDocument();
   });
 });
