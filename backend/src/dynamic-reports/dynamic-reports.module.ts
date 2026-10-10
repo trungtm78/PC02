@@ -6,6 +6,8 @@ import { PeriodSchedulerService } from './schedule/period-scheduler.service';
 import { SchedulePreviewController } from './schedule/schedule-preview.controller';
 import { TemplatesController } from './template/templates.controller';
 import { TemplateService } from './template/template.service';
+import { ReportConfigController } from './config/report-config.controller';
+import { ReportConfigService } from './config/report-config.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
@@ -17,11 +19,13 @@ import { CalendarEventsModule } from '../calendar-events/calendar-events.module'
     ReportsController,
     TemplatesController,
     SchedulePreviewController,
+    ReportConfigController,
   ],
   providers: [
     DynamicReportsRegistryService,
     PeriodSchedulerService,
     TemplateService,
+    ReportConfigService,
   ],
 })
 export class DynamicReportsModule {}
