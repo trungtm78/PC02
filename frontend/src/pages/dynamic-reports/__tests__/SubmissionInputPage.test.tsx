@@ -85,6 +85,8 @@ describe('SubmissionInputPage', () => {
     await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
     expect(screen.getByText('Đội 3')).toBeInTheDocument();
     expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5');
+    // effectiveLockAt === dueAt here — a normal open period, not a reopen grant.
+    expect(screen.queryByTestId('reopened-banner')).not.toBeInTheDocument();
   });
 
   it('saves on blur with the typed value and the current revision, then updates to the new revision', async () => {
@@ -312,5 +314,65 @@ describe('SubmissionInputPage', () => {
     expect(dynamicReportsApi.saveSubmissionValues).not.toHaveBeenCalled();
     expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5');
     expect(screen.getByTestId('input-Đội 3!C7')).toHaveValue('');
+  });
+
+  it('switches to read-only with a "hết hạn" message when autosave hits REPORT_LOCKED (S12)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { error: { code: 'REPORT_LOCKED', message: 'Kỳ đã khoá.' } },
+      },
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    const input = screen.getByTestId('input-Đội 3!C6');
+    fireEvent.change(input, { target: { value: '12' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => screen.getByTestId('save-error'));
+    expect(screen.getByTestId('save-error')).toHaveTextContent('chưa được lưu do hết hạn');
+    // The typed value stays visible — only the save was rejected, not the buffer.
+    expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('12');
+    expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled();
+    expect(screen.getByTestId('locked-banner')).toBeInTheDocument();
+  });
+
+  it('switches to read-only with a "hết hạn" message when submit hits REPORT_LOCKED (S12)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.submitSubmission).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { error: { code: 'REPORT_LOCKED', message: 'Kỳ đã khoá.' } },
+      },
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => screen.getByTestId('save-error'));
+    expect(screen.getByTestId('save-error')).toHaveTextContent('chưa được lưu do hết hạn');
+    expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows the reopened banner when effectiveLockAt extends past the original due date (S14)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      state: 'RETURNED',
+      effectiveLockAt: '2026-11-08T12:00:00.000Z',
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('reopened-banner'));
+    expect(screen.getByTestId('reopened-banner')).toHaveTextContent('08/11/2026');
+    // dueAt is 17:00 UTC on 05/11 — +7h VN offset rolls it to 06/11 local.
+    expect(screen.getByTestId('reopened-banner')).toHaveTextContent('06/11/2026');
+    expect(screen.getByTestId('input-Đội 3!C6')).not.toBeDisabled();
   });
 });
