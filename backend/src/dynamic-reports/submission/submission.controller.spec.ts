@@ -23,6 +23,8 @@ describe('SubmissionController', () => {
     approve: jest.fn(),
     returnSubmission: jest.fn(),
     unapprove: jest.fn(),
+    grantUnlock: jest.fn(),
+    revokeActiveGrant: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -261,5 +263,62 @@ describe('SubmissionController', () => {
         user,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('POST unlock delegates to SubmissionService.grantUnlock with reason and expiresAt', async () => {
+    const granted = {
+      id: 'unlock1',
+      expiresAt: '2026-06-15T13:00:00.000Z',
+      reason: 'r',
+    };
+    service.grantUnlock.mockResolvedValue(granted);
+
+    const result = await controller.grantUnlock(
+      'assign1',
+      { reason: 'Cho thêm giờ', expiresAt: '2026-06-15T13:00:00.000Z' },
+      user,
+    );
+
+    expect(service.grantUnlock).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      'Cho thêm giờ',
+      '2026-06-15T13:00:00.000Z',
+    );
+    expect(result).toBe(granted);
+  });
+
+  it('POST unlock/revoke delegates to SubmissionService.revokeActiveGrant with a reason', async () => {
+    service.revokeActiveGrant.mockResolvedValue(undefined);
+
+    await controller.revokeUnlock('assign1', { reason: 'Hết cần thiết' }, user);
+
+    expect(service.revokeActiveGrant).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      'Hết cần thiết',
+    );
+  });
+
+  it('translates a CELL_VALIDATION SubmissionError from revokeUnlock into a 400', async () => {
+    service.revokeActiveGrant.mockRejectedValue(
+      new SubmissionError('no active grant', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.revokeUnlock('assign1', { reason: 'r' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('translates a REPORT_LOCKED SubmissionError from grantUnlock into a 409', async () => {
+    service.grantUnlock.mockRejectedValue(
+      new SubmissionError('period finalized', 'REPORT_LOCKED'),
+    );
+
+    await expect(
+      controller.grantUnlock('assign1', { reason: 'r' }, user),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

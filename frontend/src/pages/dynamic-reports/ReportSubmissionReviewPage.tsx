@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send, History } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Undo2, Send, History, Unlock, Lock } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
@@ -35,6 +35,15 @@ const REVISION_KIND_LABEL: Record<string, string> = {
   ADJUSTMENT: 'Điều chỉnh sau chốt',
 };
 
+/** D07: default preview — "giờ máy chủ + 3 giờ", computed client-side in the
+ * browser's local time so the manager sees exactly what they're about to
+ * submit, rather than trusting an invisible server-side default. */
+function defaultUnlockExpiresAtLocal(): string {
+  const d = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function ReportSubmissionReviewPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const { data: view, isLoading, isError, refetch } = useQuery({
@@ -48,6 +57,9 @@ export default function ReportSubmissionReviewPage() {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [returnDueAtLocal, setReturnDueAtLocal] = useState('');
+  const [showUnlockForm, setShowUnlockForm] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [unlockExpiresAtLocal, setUnlockExpiresAtLocal] = useState('');
 
   const bySheet = useMemo(() => {
     const groups = new Map<string, typeof view extends undefined ? never : NonNullable<typeof view>['fields']>();
@@ -111,6 +123,47 @@ export default function ReportSubmissionReviewPage() {
       setShowReturnForm(false);
       setReturnReason('');
       setReturnDueAtLocal('');
+      await refetch();
+      setActionStatus('idle');
+    } catch (err) {
+      setActionStatus('error');
+      setActionError(extractApiError(err).message);
+    }
+  }
+
+  async function handleGrantUnlock() {
+    if (!assignmentId) return;
+    if (!unlockReason.trim()) {
+      setActionError('Vui lòng nhập lý do mở khoá.');
+      return;
+    }
+    setActionStatus('working');
+    setActionError(null);
+    try {
+      await dynamicReportsApi.grantUnlock(
+        assignmentId,
+        unlockReason.trim(),
+        unlockExpiresAtLocal ? new Date(unlockExpiresAtLocal).toISOString() : undefined,
+      );
+      setShowUnlockForm(false);
+      setUnlockReason('');
+      setUnlockExpiresAtLocal('');
+      await refetch();
+      setActionStatus('idle');
+    } catch (err) {
+      setActionStatus('error');
+      setActionError(extractApiError(err).message);
+    }
+  }
+
+  async function handleRevokeUnlock() {
+    if (!assignmentId) return;
+    const reason = window.prompt('Lý do thu hồi mở khoá:');
+    if (!reason || !reason.trim()) return;
+    setActionStatus('working');
+    setActionError(null);
+    try {
+      await dynamicReportsApi.revokeUnlock(assignmentId, reason.trim());
       await refetch();
       setActionStatus('idle');
     } catch (err) {
@@ -259,9 +312,88 @@ export default function ReportSubmissionReviewPage() {
       )}
 
       {(view.state === 'NOT_STARTED' || view.state === 'DRAFT' || view.state === 'RETURNED') && (
-        <p className="text-sm text-slate-500" data-testid="not-yet-submitted-note">
-          Tổ chưa nộp bản này — chưa có gì để duyệt.
-        </p>
+        <>
+          <p className="text-sm text-slate-500 mb-4" data-testid="not-yet-submitted-note">
+            Tổ chưa nộp bản này — chưa có gì để duyệt.
+          </p>
+
+          {view.activeGrant ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between" data-testid="active-grant-box">
+              <div className="flex items-center gap-2">
+                <Unlock className="w-4 h-4 text-blue-700 flex-shrink-0" />
+                <p className="text-sm text-blue-800">
+                  Đang mở khoá đến {formatVNDateTime(view.activeGrant.expiresAt)} — lý do: "
+                  {view.activeGrant.reason}"
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="btn-revoke-unlock"
+                disabled={actionStatus === 'working'}
+                onClick={() => void handleRevokeUnlock()}
+                className={`px-3 py-1.5 bg-slate-600 text-white text-xs font-medium rounded hover:bg-slate-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+              >
+                Thu hồi
+              </button>
+            </div>
+          ) : !showUnlockForm ? (
+            <button
+              type="button"
+              data-testid="btn-show-unlock"
+              disabled={actionStatus === 'working'}
+              onClick={() => {
+                setUnlockExpiresAtLocal(defaultUnlockExpiresAtLocal());
+                setShowUnlockForm(true);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              <Lock className="w-4 h-4" />
+              Mở khoá
+            </button>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4" data-testid="unlock-form">
+              <label className="block text-sm mb-3">
+                <span className="text-slate-700">Lý do mở khoá</span>
+                <textarea
+                  data-testid="unlock-reason-input"
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
+                  rows={2}
+                />
+              </label>
+              <label className="block text-sm mb-3">
+                <span className="text-slate-700">Cho phép sửa đến</span>
+                <input
+                  type="datetime-local"
+                  data-testid="unlock-expires-at-input"
+                  value={unlockExpiresAtLocal}
+                  onChange={(e) => setUnlockExpiresAtLocal(e.target.value)}
+                  className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
+                />
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  data-testid="btn-submit-unlock"
+                  disabled={actionStatus === 'working'}
+                  onClick={() => void handleGrantUnlock()}
+                  className={`px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+                >
+                  Mở khoá
+                </button>
+                <button
+                  type="button"
+                  data-testid="btn-cancel-unlock"
+                  onClick={() => setShowUnlockForm(false)}
+                  className={`px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 ${A11Y_FOCUS_RING}`}
+                >
+                  Huỷ
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {view.history && view.history.length > 0 && (

@@ -33,3 +33,21 @@ export class UnapproveDto {
   @IsString()
   reason?: string;
 }
+
+/** S17 — manager grants extra write time; omitted `expiresAt` defaults to server-now + 3h (D07). */
+export class GrantUnlockDto {
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
+
+  @IsOptional()
+  @IsNgayThat()
+  expiresAt?: string;
+}
+
+/** S17/S31 — manager revokes the currently active grant. */
+export class RevokeUnlockDto {
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
+}
