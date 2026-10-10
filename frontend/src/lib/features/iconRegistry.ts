@@ -41,6 +41,7 @@ import {
   PauseCircle,
   Target,
   ClipboardList,
+  Table2,
 } from 'lucide-react';
 
 type Icon = ComponentType<{ className?: string }>;
@@ -91,6 +92,7 @@ const REGISTRY: Record<string, Icon> = {
   PauseCircle,
   Target,
   ClipboardList,
+  Table2,
 };
 
 export function iconFor(name?: string): Icon {

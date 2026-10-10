@@ -344,3 +344,58 @@ export interface ImportPreviewResult {
   values: Record<string, string | null>;
   diff: ImportDiffEntry[];
 }
+
+/** S19/S23 (PR8 slice 1) — one row of the cross-report status table. */
+export interface AssignmentStatusRow {
+  assignmentId: string;
+  reportId: string;
+  reportName: string;
+  periodId: string;
+  periodKey: string;
+  periodStart: string;
+  periodEnd: string;
+  teamId: string;
+  teamName: string;
+  parentTeamName: string | null;
+  dataCoverageLabel: string;
+  state: DynReportSubmissionState;
+  accessState: 'NOT_YET_OPEN' | 'OPEN' | 'LOCKED' | 'REOPENED';
+  timelinessState: 'NOT_YET_DUE' | 'ON_TIME' | 'LATE' | 'OVERDUE_NOT_DONE';
+  exempt: boolean;
+  dueAt: string;
+  effectiveLockAt: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  updatedAt: string | null;
+  grantCount: number;
+  changedSinceReopen: boolean;
+}
+
+export interface StatusKpiSummary {
+  requiredCount: number;
+  exemptCount: number;
+  completedCount: number;
+  notStartedCount: number;
+  inProgressCount: number;
+  overdueNotDoneCount: number;
+  reopenedCount: number;
+  completionRateLabel: string;
+  onTimeRateLabel: string;
+  dataCoverageLabel: string;
+}
+
+export interface StatusListResult {
+  items: AssignmentStatusRow[];
+  total: number;
+  kpi: StatusKpiSummary;
+  asOf: string;
+}
+
+export interface StatusListFilters {
+  reportId?: string;
+  periodId?: string;
+  teamId?: string;
+  state?: DynReportSubmissionState;
+  overdue?: boolean;
+  reopened?: boolean;
+}

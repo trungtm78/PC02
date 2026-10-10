@@ -15,6 +15,8 @@ import type {
   SaveReportConfigResult,
   SaveValuesResult,
   SheetInfo,
+  StatusListFilters,
+  StatusListResult,
   SubmissionView,
   SummaryMode,
   TemplatePreviewResult,
@@ -261,5 +263,13 @@ export const dynamicReportsApi = {
         `/bao-cao-dong/submissions/${assignmentId}/import-excel/apply`,
         { values, expectedRevision },
       )
+      .then((r) => r.data),
+
+  /** S19/S23 (PR8 slice 1) — cross-report status table, page/pageSize optional (server defaults 25/caps 100). */
+  listStatus: (filters: StatusListFilters, page?: number, pageSize?: number) =>
+    api
+      .get<StatusListResult>('/bao-cao-dong/status', {
+        params: { ...filters, page, pageSize },
+      })
       .then((r) => r.data),
 };
