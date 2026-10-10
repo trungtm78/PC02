@@ -17,6 +17,16 @@ export interface FieldAggregateView {
   displayNotAggregated: boolean;
   countTotal: number;
   countNonBlank: number;
+  /** S18 — exactly the teams counted in `countTotal`/the aggregate above, never more. */
+  contributors: FieldContributorView[];
+}
+
+export interface FieldContributorView {
+  teamName: string;
+  value: string | null;
+  state: string;
+  revision: string;
+  updatedAt: string | null;
 }
 
 export interface KpiSummaryView {
@@ -169,6 +179,26 @@ export class AggregateService {
         };
       });
       const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
+
+      // S18 — same population as `contributions` above, by construction
+      // (both map `contributingAssignments` in the same order), so the
+      // drill-down list always sums to exactly the aggregate shown.
+      const contributors: FieldContributorView[] = contributingAssignments.map(
+        (a, i) => {
+          const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+          return {
+            teamName: teamSnapshot?.name ?? '',
+            value:
+              contributions[i].value !== null
+                ? String(contributions[i].value)
+                : null,
+            state: a.submission?.state ?? 'NOT_STARTED',
+            revision: a.submission?.currentRevision.toString() ?? '0',
+            updatedAt: a.submission?.updatedAt.toISOString() ?? null,
+          };
+        },
+      );
+
       return {
         fieldKey: f.fieldKey,
         sheetKey: f.sheetKey,
@@ -178,6 +208,7 @@ export class AggregateService {
         displayNotAggregated: result.displayNotAggregated,
         countTotal: result.countTotal,
         countNonBlank: result.countNonBlank,
+        contributors,
       };
     });
 
