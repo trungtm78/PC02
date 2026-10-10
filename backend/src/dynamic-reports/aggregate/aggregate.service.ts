@@ -97,6 +97,42 @@ export interface ExportCreateResultView {
   fileName: string;
 }
 
+/**
+ * S21 (PR7 slice 8) — metadata only, same R10 contract as S16's
+ * `RevisionHistoryEntry`: never the revision's `valuesFull`/`diff`.
+ */
+export interface AssignmentHistoryEntry {
+  revision: string;
+  kind: string;
+  actorName: string;
+  reason: string | null;
+  committedAt: string;
+}
+
+export interface AssignmentHistoryView {
+  assignmentId: string;
+  teamName: string;
+  state: string;
+  currentRevision: string;
+  revisions: AssignmentHistoryEntry[];
+  /**
+   * Field keys whose value differs between the first-ever SUBMIT and the
+   * submission's current values — `null` when the team has never submitted
+   * (there is no "first submission" to compare against yet). This DOES read
+   * raw values (via `valuesFull`), unlike the metadata-only `revisions`
+   * array above — allowed here because this whole endpoint already re-checks
+   * the caller's manager/admin standing on THIS report, same as S16/S18.
+   */
+  changedFieldKeysSinceFirstSubmit: string[] | null;
+}
+
+export interface ReportHistoryView {
+  periodId: string;
+  reportName: string;
+  periodKey: string;
+  assignments: AssignmentHistoryView[];
+}
+
 /** S38 — snapshot engine version tag, bumped only if the snapshot's own shape changes. */
 const SNAPSHOT_ENGINE_VERSION = 'v1';
 
@@ -694,6 +730,114 @@ export class AggregateService {
     return {
       fileBytes: Buffer.from(row.fileBytes),
       fileName: row.fileName,
+    };
+  }
+
+  /**
+   * S21 (PR7 slice 8) — manager-scoped history/audit for the WHOLE period
+   * at once (every team's assignment), not just one assignment like S16's
+   * `getSubmissionForManager`. "Thay đổi so với lần nộp đầu" is computed
+   * directly from the first SUBMIT revision's `valuesFull` (R9: SUBMIT
+   * always writes a full snapshot, never just a diff) — no diff-replay
+   * needed, because the exact row we want already holds the full values.
+   */
+  async getReportHistory(
+    periodId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<ReportHistoryView> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      include: {
+        report: true,
+        assignments: {
+          include: {
+            submission: {
+              include: {
+                revisions: {
+                  orderBy: { revision: 'asc' },
+                  select: {
+                    revision: true,
+                    kind: true,
+                    reason: true,
+                    committedAt: true,
+                    valuesFull: true,
+                    actor: {
+                      select: {
+                        firstName: true,
+                        lastName: true,
+                        username: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!period) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      period.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole)
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+
+    const assignments: AssignmentHistoryView[] = period.assignments.map((a) => {
+      const submission = a.submission;
+      const revisions = submission?.revisions ?? [];
+      const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+
+      const historyEntries: AssignmentHistoryEntry[] = revisions.map((r) => ({
+        revision: r.revision.toString(),
+        kind: r.kind,
+        actorName:
+          `${r.actor.firstName ?? ''} ${r.actor.lastName ?? ''}`.trim() ||
+          r.actor.username,
+        reason: r.reason,
+        committedAt: r.committedAt.toISOString(),
+      }));
+
+      let changedFieldKeysSinceFirstSubmit: string[] | null = null;
+      if (submission?.firstSubmittedRevision != null) {
+        const firstSubmitRow = revisions.find(
+          (r) => r.revision === submission.firstSubmittedRevision,
+        );
+        const firstValues =
+          (firstSubmitRow?.valuesFull as Record<string, unknown>) ?? {};
+        const currentValues =
+          (submission.values as Record<string, unknown>) ?? {};
+        const allKeys = new Set([
+          ...Object.keys(firstValues),
+          ...Object.keys(currentValues),
+        ]);
+        changedFieldKeysSinceFirstSubmit = Array.from(allKeys).filter(
+          (k) =>
+            JSON.stringify(firstValues[k] ?? null) !==
+            JSON.stringify(currentValues[k] ?? null),
+        );
+      }
+
+      return {
+        assignmentId: a.id,
+        teamName: teamSnapshot?.name ?? a.teamId,
+        state: submission?.state ?? 'NOT_STARTED',
+        currentRevision: (submission?.currentRevision ?? 0n).toString(),
+        revisions: historyEntries,
+        changedFieldKeysSinceFirstSubmit,
+      };
+    });
+
+    return {
+      periodId,
+      reportName: period.report.name,
+      periodKey: period.periodKey,
+      assignments,
     };
   }
 }

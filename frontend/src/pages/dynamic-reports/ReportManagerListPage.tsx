@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, BarChart3, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, BarChart3, AlertCircle, Unlock } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
@@ -43,9 +43,18 @@ export default function ReportManagerListPage() {
         <ClipboardCheck className="w-5 h-5 text-blue-700" />
         <h1 className="text-xl font-bold text-slate-800">Duyệt báo cáo</h1>
       </div>
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-500 mb-4">
         Các lượt giao thuộc báo cáo bạn quản lý, chỉ hiện những kỳ đang mở.
       </p>
+
+      <Link
+        to="/bao-cao-dong/duyet/mo-khoa"
+        data-testid="unlock-request-queue-link"
+        className={`inline-flex items-center gap-1 text-sm text-blue-700 hover:text-blue-900 mb-6 ${A11Y_FOCUS_RING}`}
+      >
+        <Unlock className="w-4 h-4" />
+        Yêu cầu mở lại &amp; mở khoá hàng loạt
+      </Link>
 
       {periods.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6" data-testid="period-summary-links">

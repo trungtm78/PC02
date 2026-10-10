@@ -23,6 +23,12 @@ const ReportSubmissionReviewPage = lazy(
 const ReportPeriodSummaryPage = lazy(
   () => import('@/pages/dynamic-reports/ReportPeriodSummaryPage'),
 );
+const UnlockRequestQueuePage = lazy(
+  () => import('@/pages/dynamic-reports/UnlockRequestQueuePage'),
+);
+const ReportHistoryPage = lazy(
+  () => import('@/pages/dynamic-reports/ReportHistoryPage'),
+);
 
 export function renderDynamicReportsRoutes(): ReactElement[] {
   return [
@@ -60,6 +66,16 @@ export function renderDynamicReportsRoutes(): ReactElement[] {
       key="dynamic-reports-period-summary"
       path="/bao-cao-dong/duyet/tong-hop/:periodId"
       element={wrapRoute(<ReportPeriodSummaryPage />)}
+    />,
+    <Route
+      key="dynamic-reports-period-history"
+      path="/bao-cao-dong/duyet/tong-hop/:periodId/lich-su"
+      element={wrapRoute(<ReportHistoryPage />)}
+    />,
+    <Route
+      key="dynamic-reports-unlock-requests"
+      path="/bao-cao-dong/duyet/mo-khoa"
+      element={wrapRoute(<UnlockRequestQueuePage />)}
     />,
   ];
 }

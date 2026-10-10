@@ -11,6 +11,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getSubmission: vi.fn(),
     saveSubmissionValues: vi.fn(),
     submitSubmission: vi.fn(),
+    requestUnlock: vi.fn(),
   },
 }));
 
@@ -124,6 +125,72 @@ describe('SubmissionInputPage', () => {
 
     await waitFor(() => screen.getByTestId('locked-banner'));
     expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled();
+  });
+
+  it('sends an unlock request with the prompted reason and shows a pending confirmation', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+    });
+    vi.mocked(dynamicReportsApi.requestUnlock).mockResolvedValue({
+      id: 'req1',
+      assignmentId: 'assign1',
+      reportName: 'HSLN',
+      periodKey: '2026-10',
+      teamName: 'Đội 3',
+      reason: 'Nhập nhầm số',
+      requestedAt: '2026-10-10T10:00:00.000Z',
+      requestedByName: 'Văn Nguyễn',
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Nhập nhầm số');
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-request-unlock'));
+    fireEvent.click(screen.getByTestId('btn-request-unlock'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.requestUnlock).toHaveBeenCalledWith('assign1', 'Nhập nhầm số');
+    });
+    await waitFor(() => screen.getByTestId('unlock-request-sent'));
+    promptSpy.mockRestore();
+  });
+
+  it('does not send an unlock request when the reason prompt is cancelled', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-request-unlock'));
+    fireEvent.click(screen.getByTestId('btn-request-unlock'));
+
+    await waitFor(() => expect(promptSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.requestUnlock).not.toHaveBeenCalled();
+    promptSpy.mockRestore();
+  });
+
+  it('shows an error message when the unlock request fails', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      editable: false,
+    });
+    vi.mocked(dynamicReportsApi.requestUnlock).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { error: { message: 'Đã có yêu cầu mở lại đang chờ duyệt cho lượt giao này.' } },
+      },
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('r');
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-request-unlock'));
+    fireEvent.click(screen.getByTestId('btn-request-unlock'));
+
+    await waitFor(() => screen.getByTestId('unlock-request-error'));
+    promptSpy.mockRestore();
   });
 
   it('shows a reload prompt on REVISION_CONFLICT (409)', async () => {
