@@ -92,6 +92,18 @@ export class AggregateController {
     );
   }
 
+  /** S25 — creates the stored export; downloading it is a SEPARATE call (`ExportController`) that re-checks standing. */
+  @Post(':periodId/export')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async exportPeriod(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.exportPeriod(periodId, user.id, user.roleId),
+    );
+  }
+
   private async handleWrite<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();

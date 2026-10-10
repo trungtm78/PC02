@@ -1,7 +1,9 @@
 import { api } from '@/lib/api';
+import { triggerDownload } from '@/features/document-templates/export.api';
 import type {
   ActiveGrantView,
   AssignmentSummary,
+  ExportCreateResultView,
   FinalizeResultView,
   PeriodSummaryView,
   ReopenResultView,
@@ -166,4 +168,18 @@ export const dynamicReportsApi = {
     api
       .post<ReopenResultView>(`/bao-cao-dong/periods/${periodId}/reopen`, { reason })
       .then((r) => r.data),
+
+  /** S25 (PR7 slice 7) — create the export row (persisted, TTL 24h), then fetch its bytes. */
+  exportPeriod: (periodId: string) =>
+    api
+      .post<ExportCreateResultView>(`/bao-cao-dong/periods/${periodId}/export`, {})
+      .then((r) => r.data),
+
+  /** Triggers the browser download directly; `fileName` from `exportPeriod` is the fallback. */
+  downloadExport: async (exportId: string, fileName: string) => {
+    const response = await api.get<Blob>(`/bao-cao-dong/exports/${exportId}/download`, {
+      responseType: 'blob',
+    });
+    triggerDownload(response, fileName);
+  },
 };

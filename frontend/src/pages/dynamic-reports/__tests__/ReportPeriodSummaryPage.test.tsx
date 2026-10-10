@@ -11,6 +11,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     getPeriodSummary: vi.fn(),
     finalizePeriod: vi.fn(),
     reopenPeriod: vi.fn(),
+    exportPeriod: vi.fn(),
+    downloadExport: vi.fn(),
   },
 }));
 
@@ -248,5 +250,39 @@ describe('ReportPeriodSummaryPage', () => {
 
     await waitFor(() => screen.getByTestId('finalize-error'));
     confirmSpy.mockRestore();
+  });
+
+  it('exports then downloads with the exportId/fileName the server returned', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.exportPeriod).mockResolvedValue({
+      exportId: 'export1',
+      fileName: 'HSLN-2026-06.xlsx',
+    });
+    vi.mocked(dynamicReportsApi.downloadExport).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export'));
+    fireEvent.click(screen.getByTestId('btn-export'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportPeriod).toHaveBeenCalledWith('period1');
+      expect(dynamicReportsApi.downloadExport).toHaveBeenCalledWith('export1', 'HSLN-2026-06.xlsx');
+    });
+    expect(screen.queryByTestId('export-error')).not.toBeInTheDocument();
+  });
+
+  it('shows an error message when export fails (e.g. scope changed / expired on download)', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.exportPeriod).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 400, data: { error: { message: 'Phạm vi dữ liệu đã thay đổi, vui lòng xuất lại.' } } },
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-export'));
+    fireEvent.click(screen.getByTestId('btn-export'));
+
+    await waitFor(() => screen.getByTestId('export-error'));
+    expect(screen.getByTestId('export-error')).toHaveTextContent('Phạm vi dữ liệu đã thay đổi');
   });
 });

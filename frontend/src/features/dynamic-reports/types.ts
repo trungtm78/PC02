@@ -271,3 +271,9 @@ export interface ReopenResultView {
   periodId: string;
   status: 'OPEN';
 }
+
+/** S25 (PR7 slice 7) — created by POST .../export, then downloaded via GET .../exports/:exportId/download. */
+export interface ExportCreateResultView {
+  exportId: string;
+  fileName: string;
+}

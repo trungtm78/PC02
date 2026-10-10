@@ -13,6 +13,8 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  FileSpreadsheet,
+  Loader2,
   Lock,
   Unlock,
 } from 'lucide-react';
@@ -23,8 +25,9 @@ import {
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
 import { extractApiError } from '@/lib/api-errors';
+import { parseBlobError } from '@/features/document-templates/export.api';
 import { formatVNDateTime } from '@/lib/dates';
-import { A11Y_FOCUS_RING } from '@/constants/styles';
+import { A11Y_FOCUS_RING, BTN_OUTLINE_BLUE } from '@/constants/styles';
 
 const MODE_LABEL: Record<SummaryMode, string> = {
   SUBMITTED: 'Đã nộp + đã duyệt',
@@ -45,6 +48,22 @@ export default function ReportPeriodSummaryPage() {
 
   const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'working' | 'error'>('idle');
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleExport() {
+    if (!periodId) return;
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const { exportId, fileName } = await dynamicReportsApi.exportPeriod(periodId);
+      await dynamicReportsApi.downloadExport(exportId, fileName);
+    } catch (err) {
+      setExportError(extractApiError(await parseBlobError(err)).message);
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   async function handleFinalize() {
     if (!periodId) return;
@@ -108,40 +127,61 @@ export default function ReportPeriodSummaryPage() {
           <BarChart3 className="w-5 h-5 text-blue-700" />
           <h1 className="text-xl font-bold text-slate-800">{view.reportName}</h1>
         </div>
-        {view.status === 'OPEN' ? (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            data-testid="btn-finalize"
-            disabled={finalizeStatus === 'working'}
-            onClick={() => void handleFinalize()}
-            className={`flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            data-testid="btn-export"
+            disabled={isExporting}
+            onClick={() => void handleExport()}
+            className={`${BTN_OUTLINE_BLUE} ${A11Y_FOCUS_RING} inline-flex items-center gap-2`}
           >
-            <Lock className="w-4 h-4" />
-            Chốt kỳ
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4" />
+            )}
+            {isExporting ? 'Đang xuất…' : 'Xuất Excel'}
           </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded" data-testid="finalized-badge">
-              <Lock className="w-3.5 h-3.5" />
-              Đã chốt
-            </span>
+          {view.status === 'OPEN' ? (
             <button
               type="button"
-              data-testid="btn-reopen"
+              data-testid="btn-finalize"
               disabled={finalizeStatus === 'working'}
-              onClick={() => void handleReopen()}
-              className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+              onClick={() => void handleFinalize()}
+              className={`flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
             >
-              <Unlock className="w-4 h-4" />
-              Mở chốt
+              <Lock className="w-4 h-4" />
+              Chốt kỳ
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded" data-testid="finalized-badge">
+                <Lock className="w-3.5 h-3.5" />
+                Đã chốt
+              </span>
+              <button
+                type="button"
+                data-testid="btn-reopen"
+                disabled={finalizeStatus === 'working'}
+                onClick={() => void handleReopen()}
+                className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+              >
+                <Unlock className="w-4 h-4" />
+                Mở chốt
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <p className="text-sm text-slate-500 mb-1">
         Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn{' '}
         {formatVNDateTime(view.dueAt)}
       </p>
+      {exportError && (
+        <p className="text-sm text-red-700 mb-1" data-testid="export-error">
+          {exportError}
+        </p>
+      )}
       {finalizeError && (
         <p className="text-sm text-red-700 mb-3" data-testid="finalize-error">
           {finalizeError}

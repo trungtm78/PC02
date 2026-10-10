@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import * as ExcelJS from 'exceljs';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -8,6 +9,24 @@ import { computeKpiSummary } from '../engine/status';
 import type { AssignmentFact } from '../engine/status';
 import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
+import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
+
+/** R18 — Excel sheet names: ≤31 chars, no `* ? : \ / [ ]`. */
+function sanitizeSheetName(name: string): string {
+  const cleaned = name.replace(/[*?:\\/[\]]/g, ' ').trim();
+  return (cleaned || 'To').slice(0, 31);
+}
+
+/** R18 — file names: ASCII/Vietnamese letters, digits, dashes only. */
+function sanitizeFileNamePart(value: string): string {
+  const cleaned = value
+    .replace(/[^a-zA-Z0-9À-ỹ\- ]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  return cleaned.slice(0, 60) || 'bao-cao';
+}
+
+const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type SummaryMode = 'SUBMITTED' | 'APPROVED' | 'ALL_SAVED';
 
@@ -73,6 +92,11 @@ export interface ReopenResultView {
   status: 'OPEN';
 }
 
+export interface ExportCreateResultView {
+  exportId: string;
+  fileName: string;
+}
+
 /** S38 — snapshot engine version tag, bumped only if the snapshot's own shape changes. */
 const SNAPSHOT_ENGINE_VERSION = 'v1';
 
@@ -122,6 +146,99 @@ export class AggregateService {
       },
     });
     return managerRole ? 'MANAGER' : null;
+  }
+
+  /**
+   * Shared by `finalizePeriod` (the official snapshot) and `exportPeriod`
+   * (the "TỔNG" sheet) — mode=APPROVED is the one "số liệu đã chốt" D03
+   * meaning, so both consumers must compute it identically or an export
+   * taken right after finalize could show a different TỔNG than the
+   * snapshot it's supposed to represent.
+   */
+  private computeApprovedSnapshot(period: {
+    id: string;
+    versionId: string;
+    version: {
+      fields: Array<{
+        fieldKey: string;
+        aggregate: Parameters<typeof aggregateValues>[0];
+        blankPolicy: Parameters<typeof aggregateValues>[1];
+      }>;
+    };
+    assignments: Array<{
+      id: string;
+      teamId: string;
+      obligation: string;
+      submission: {
+        state: string;
+        values: unknown;
+        currentRevision: bigint;
+      } | null;
+    }>;
+  }): {
+    snapshotValues: Record<
+      string,
+      { value: string | null; countTotal: number; countNonBlank: number }
+    >;
+    sourceRevisions: Record<string, string>;
+    contributorSetHash: string;
+    sourceHash: string;
+  } {
+    // mode=APPROVED — a team not yet APPROVED simply isn't counted, same
+    // rule as getPeriodSummary's own mode=APPROVED path.
+    const contributingStates = CONTRIBUTING_STATES.APPROVED;
+    const contributingAssignments = period.assignments.filter(
+      (a) =>
+        a.obligation !== 'EXEMPT' &&
+        contributingStates.includes(
+          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
+        ),
+    );
+
+    const snapshotValues: Record<
+      string,
+      { value: string | null; countTotal: number; countNonBlank: number }
+    > = {};
+    for (const f of period.version.fields) {
+      const contributions: Contribution[] = contributingAssignments.map((a) => {
+        const values = (a.submission?.values ?? {}) as Record<
+          string,
+          { v: string | null } | undefined
+        >;
+        const raw = values[f.fieldKey]?.v ?? null;
+        return { sourceId: a.id, value: raw !== null ? Number(raw) : null };
+      });
+      const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
+      snapshotValues[f.fieldKey] = {
+        value: result.value !== null ? String(result.value) : null,
+        countTotal: result.countTotal,
+        countNonBlank: result.countNonBlank,
+      };
+    }
+
+    const sourceRevisions: Record<string, string> = {};
+    for (const a of period.assignments) {
+      sourceRevisions[a.id] = a.submission?.currentRevision.toString() ?? '0';
+    }
+    const contributorTeamIds = contributingAssignments
+      .map((a) => a.teamId)
+      .sort();
+
+    const sourceHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          periodId: period.id,
+          versionId: period.versionId,
+          mode: 'APPROVED',
+          sourceRevisions,
+        }),
+      )
+      .digest('hex');
+    const contributorSetHash = createHash('sha256')
+      .update(JSON.stringify(contributorTeamIds))
+      .digest('hex');
+
+    return { snapshotValues, sourceRevisions, contributorSetHash, sourceHash };
   }
 
   async getPeriodSummary(
@@ -295,66 +412,12 @@ export class AggregateService {
         );
       }
 
-      // Official snapshot: mode=APPROVED, the "số liệu đã chốt" D03 mode —
-      // a team not yet APPROVED simply isn't counted, same rule as
-      // getPeriodSummary's own mode=APPROVED path.
-      const contributingStates = CONTRIBUTING_STATES.APPROVED;
-      const contributingAssignments = period.assignments.filter(
-        (a) =>
-          a.obligation !== 'EXEMPT' &&
-          contributingStates.includes(
-            (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
-          ),
-      );
-
-      const snapshotValues: Record<
-        string,
-        { value: string | null; countTotal: number; countNonBlank: number }
-      > = {};
-      for (const f of period.version.fields) {
-        const contributions: Contribution[] = contributingAssignments.map(
-          (a) => {
-            const values = (a.submission?.values ?? {}) as Record<
-              string,
-              { v: string | null } | undefined
-            >;
-            const raw = values[f.fieldKey]?.v ?? null;
-            return { sourceId: a.id, value: raw !== null ? Number(raw) : null };
-          },
-        );
-        const result = aggregateValues(
-          f.aggregate,
-          f.blankPolicy,
-          contributions,
-        );
-        snapshotValues[f.fieldKey] = {
-          value: result.value !== null ? String(result.value) : null,
-          countTotal: result.countTotal,
-          countNonBlank: result.countNonBlank,
-        };
-      }
-
-      const sourceRevisions: Record<string, string> = {};
-      for (const a of period.assignments) {
-        sourceRevisions[a.id] = a.submission?.currentRevision.toString() ?? '0';
-      }
-      const contributorTeamIds = contributingAssignments
-        .map((a) => a.teamId)
-        .sort();
-
-      const sourceHash = createHash('sha256')
-        .update(
-          JSON.stringify({
-            periodId,
-            versionId: period.versionId,
-            mode: 'APPROVED',
-            sourceRevisions,
-          }),
-        )
-        .digest('hex');
-      const contributorSetHash = createHash('sha256')
-        .update(JSON.stringify(contributorTeamIds))
-        .digest('hex');
+      const {
+        snapshotValues,
+        sourceRevisions,
+        contributorSetHash,
+        sourceHash,
+      } = this.computeApprovedSnapshot(period);
 
       const now = new Date();
       const snapshot = await tx.dynReportSnapshot.create({
@@ -439,5 +502,198 @@ export class AggregateService {
 
       return { periodId, status: 'OPEN' };
     });
+  }
+
+  /**
+   * S25 — manager exports a workbook ("TỔNG" + 1 sheet/tổ + "Metadata"),
+   * stored once (`DynReportExport`, TTL 24h) and downloaded through a
+   * SEPARATE call (`getExportForDownload`) that re-checks standing —
+   * exactly the "tải qua API có kiểm quyền lại" requirement, not just a
+   * cosmetic extra step. Generated synchronously (no job queue): every
+   * real template measured so far (HSLN: 258 rows × a few dozen input
+   * cells) renders in well under a second, so "Job + trạng thái + retry"
+   * stays deferred until an export this small has ever actually timed
+   * out — building retry/polling for a problem that hasn't occurred yet
+   * would be guessing at a requirement, not meeting one.
+   */
+  async exportPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<ExportCreateResultView> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      include: {
+        report: true,
+        version: { include: { fields: true } },
+        assignments: { include: { submission: true } },
+      },
+    });
+    if (!period) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      period.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+
+    const computed = this.computeApprovedSnapshot(period);
+    let snapshotValues = computed.snapshotValues;
+    let snapshotId: string | null = null;
+    if (period.status === 'FINALIZED') {
+      // Once chốt, the export must show the FROZEN official numbers, not
+      // a live recompute — the whole point of chốt kỳ is that the number
+      // never moves again.
+      const officialSnapshot = await this.prisma.dynReportSnapshot.findFirst({
+        where: { periodId, official: true, invalidatedAt: null },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (officialSnapshot) {
+        snapshotValues = officialSnapshot.values as typeof snapshotValues;
+        snapshotId = officialSnapshot.id;
+      }
+    }
+
+    const workbook = new ExcelJS.Workbook();
+
+    const totalSheet = workbook.addWorksheet('TỔNG');
+    totalSheet.columns = [
+      { header: 'Sheet', key: 'sheetKey', width: 20 },
+      { header: 'Chỉ tiêu', key: 'label', width: 32 },
+      { header: 'Giá trị tổng hợp', key: 'value', width: 18 },
+      { header: 'Số tổ đóng góp', key: 'count', width: 16 },
+    ];
+    for (const f of period.version.fields) {
+      const v = snapshotValues[f.fieldKey] as
+        | { value: string | null; countTotal: number; countNonBlank: number }
+        | undefined;
+      totalSheet.addRow({
+        sheetKey: f.sheetKey,
+        label: escapeXlsxCell(f.label || f.fieldKey),
+        value: v?.value ?? null,
+        count: v ? `${v.countNonBlank}/${v.countTotal}` : '0/0',
+      });
+    }
+
+    for (const a of period.assignments) {
+      const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+      const teamName = teamSnapshot?.name || a.teamId;
+      const sheet = workbook.addWorksheet(sanitizeSheetName(teamName));
+      sheet.columns = [
+        { header: 'Sheet', key: 'sheetKey', width: 20 },
+        { header: 'Chỉ tiêu', key: 'label', width: 32 },
+        { header: 'Giá trị', key: 'value', width: 18 },
+      ];
+      const values = (a.submission?.values ?? {}) as Record<
+        string,
+        { t: string; v: string | null } | undefined
+      >;
+      for (const f of period.version.fields) {
+        const typed = values[f.fieldKey];
+        sheet.addRow({
+          sheetKey: f.sheetKey,
+          label: escapeXlsxCell(f.label || f.fieldKey),
+          value:
+            typed?.t === 'TEXT' ? escapeXlsxCell(typed.v) : (typed?.v ?? null),
+        });
+      }
+    }
+
+    const metaSheet = workbook.addWorksheet('Metadata');
+    metaSheet.addRow(['Báo cáo', period.report.name]);
+    metaSheet.addRow(['Kỳ', period.periodKey]);
+    metaSheet.addRow([
+      'Khoảng thời gian',
+      `${period.startDate.toISOString().slice(0, 10)} → ${period.endDate.toISOString().slice(0, 10)}`,
+    ]);
+    metaSheet.addRow(['Trạng thái kỳ', period.status]);
+    metaSheet.addRow(['Chế độ tính', 'APPROVED']);
+    metaSheet.addRow(['Xuất lúc', new Date().toISOString()]);
+    metaSheet.addRow(['Phiên bản mẫu', period.versionId]);
+
+    const fileBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const fileName = `${sanitizeFileNamePart(period.report.name)}-${period.periodKey}.xlsx`;
+
+    const exportRow = await this.prisma.dynReportExport.create({
+      data: {
+        requestedById: userId,
+        kind: 'MANAGER_FULL',
+        scope: { periodId, reportId: period.reportId },
+        snapshotId,
+        status: 'READY',
+        fileBytes: fileBuffer as unknown as Uint8Array<ArrayBuffer>,
+        fileName,
+        contributorSetHash: computed.contributorSetHash,
+        expiresAt: new Date(Date.now() + EXPORT_TTL_MS),
+      },
+    });
+
+    return { exportId: exportRow.id, fileName };
+  }
+
+  /**
+   * S25 — the "kiểm quyền lại khi tải" step. Re-checks the caller still
+   * manages this report, the export hasn't expired, AND (R13) the set of
+   * contributing teams hasn't shrunk since the export was generated —
+   * e.g. a team later marked EXEMPT — rather than silently serving bytes
+   * whose scope may now exceed the caller's actual standing.
+   */
+  async getExportForDownload(
+    exportId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<{ fileBytes: Buffer; fileName: string }> {
+    const row = await this.prisma.dynReportExport.findUnique({
+      where: { id: exportId },
+    });
+    if (!row || !row.fileBytes || !row.fileName) {
+      throw new NotFoundException('Không tìm thấy file xuất này.');
+    }
+    const scope = row.scope as { periodId: string; reportId: string };
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      scope.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy file xuất này.');
+    }
+    if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+      throw new SubmissionError(
+        'File xuất đã hết hạn, vui lòng xuất lại.',
+        'CELL_VALIDATION',
+      );
+    }
+
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: scope.periodId },
+      include: {
+        version: { include: { fields: true } },
+        assignments: { include: { submission: true } },
+      },
+    });
+    if (period) {
+      const { contributorSetHash } = this.computeApprovedSnapshot(period);
+      if (
+        row.contributorSetHash &&
+        row.contributorSetHash !== contributorSetHash
+      ) {
+        throw new SubmissionError(
+          'Phạm vi dữ liệu đã thay đổi, vui lòng xuất lại.',
+          'CELL_VALIDATION',
+        );
+      }
+    }
+
+    return {
+      fileBytes: Buffer.from(row.fileBytes),
+      fileName: row.fileName,
+    };
   }
 }
