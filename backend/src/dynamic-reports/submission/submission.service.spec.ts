@@ -106,6 +106,12 @@ describe('SubmissionService', () => {
       dynReport: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
       },
+      dynReportIdempotency: {
+        findUnique: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(null),
+        upsert: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+      },
     };
   }
 
@@ -119,6 +125,7 @@ describe('SubmissionService', () => {
       rolePermission: tx.rolePermission,
       dynReportRole: tx.dynReportRole,
       dynReport: tx.dynReport,
+      dynReportIdempotency: tx.dynReportIdempotency,
     };
     const service = new SubmissionService(prisma as unknown as PrismaService);
     return { service, prisma };
@@ -453,6 +460,126 @@ describe('SubmissionService', () => {
       expect(updateCall.data.values).toEqual({
         'Đội 3!C6': { t: 'NUM', v: '5' },
         'Đội 3!C7': { t: 'NUM', v: '7' },
+      });
+    });
+
+    describe('idempotencyKey (S26, PR6 slice 7)', () => {
+      it('writes an idempotency record when a key is given', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+          userId: 'u1',
+        });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+        tx.dynReportSubmission.findUnique.mockResolvedValue({
+          id: 'sub1',
+          state: 'NOT_STARTED',
+          currentRevision: 0n,
+          values: {},
+          approvalLevel: 0,
+          returnDueAt: null,
+          firstSavedAt: null,
+        });
+        const { service } = buildService(tx);
+
+        await service.save('assign1', 'u1', { 'Đội 3!C6': '12' }, '0', 'key1');
+
+        expect(tx.dynReportIdempotency.upsert).toHaveBeenCalledTimes(1);
+        const upsertCall = tx.dynReportIdempotency.upsert.mock.calls[0][0] as {
+          where: { actorId_action_key: { actorId: string; key: string } };
+          create: { status: string; resultRef: string };
+        };
+        expect(upsertCall.where.actorId_action_key.actorId).toBe('u1');
+        expect(upsertCall.where.actorId_action_key.key).toBe('key1');
+        expect(upsertCall.create.status).toBe('COMPLETED');
+        expect(JSON.parse(upsertCall.create.resultRef)).toMatchObject({
+          revision: '1',
+        });
+      });
+
+      it('replaying the same key with the same patch returns the cached result without re-locking', async () => {
+        const tx = buildTx();
+        tx.dynReportIdempotency.findUnique.mockResolvedValue({
+          requestHash: null, // overwritten below once we know the real hash
+          resultRef: JSON.stringify({
+            revision: '1',
+            state: 'DRAFT',
+            savedAt: now.toISOString(),
+            serverTime: now.toISOString(),
+            effectiveLockAt: null,
+          }),
+        });
+        const { service } = buildService(tx);
+        // compute the exact hash save() would compute, so findUnique's row matches.
+        const svc = service as unknown as {
+          saveRequestHash(
+            a: string,
+            p: Record<string, string | null>,
+            r: string,
+          ): string;
+        };
+        const requestHash = svc.saveRequestHash(
+          'assign1',
+          { 'Đội 3!C6': '12' },
+          '0',
+        );
+        tx.dynReportIdempotency.findUnique.mockResolvedValue({
+          requestHash,
+          resultRef: JSON.stringify({
+            revision: '1',
+            state: 'DRAFT',
+            savedAt: now.toISOString(),
+            serverTime: now.toISOString(),
+            effectiveLockAt: null,
+          }),
+        });
+
+        const result = await service.save(
+          'assign1',
+          'u1',
+          { 'Đội 3!C6': '12' },
+          '0',
+          'key1',
+        );
+
+        expect(result.revision).toBe('1');
+        // short-circuited before ever touching the editor/assignment/submission lookups.
+        expect(tx.dynReportAssignmentEditor.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('rejects with IDEMPOTENCY_MISMATCH when the same key is replayed with a different patch', async () => {
+        const tx = buildTx();
+        tx.dynReportIdempotency.findUnique.mockResolvedValue({
+          requestHash: 'a-completely-different-hash',
+          resultRef: null,
+        });
+        const { service } = buildService(tx);
+
+        await expect(
+          service.save('assign1', 'u1', { 'Đội 3!C6': '99' }, '0', 'key1'),
+        ).rejects.toMatchObject({ code: 'IDEMPOTENCY_MISMATCH' });
+      });
+
+      it('skips the idempotency check entirely when no key is given (back-compat)', async () => {
+        const tx = buildTx();
+        tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+          userId: 'u1',
+        });
+        tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+        tx.dynReportSubmission.findUnique.mockResolvedValue({
+          id: 'sub1',
+          state: 'NOT_STARTED',
+          currentRevision: 0n,
+          values: {},
+          approvalLevel: 0,
+          returnDueAt: null,
+          firstSavedAt: null,
+        });
+        const { service } = buildService(tx);
+
+        await service.save('assign1', 'u1', { 'Đội 3!C6': '12' }, '0');
+
+        expect(tx.dynReportIdempotency.findUnique).not.toHaveBeenCalled();
+        expect(tx.dynReportIdempotency.upsert).not.toHaveBeenCalled();
       });
     });
   });

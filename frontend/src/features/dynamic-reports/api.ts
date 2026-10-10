@@ -82,15 +82,18 @@ export const dynamicReportsApi = {
       .get<SubmissionView>(`/bao-cao-dong/submissions/${assignmentId}`)
       .then((r) => r.data),
 
+  /** `idempotencyKey` (S26, PR6 slice 7) lets a network-error retry resend the exact same request safely. */
   saveSubmissionValues: (
     assignmentId: string,
     values: Record<string, string | null>,
     expectedRevision: string,
+    idempotencyKey?: string,
   ) =>
     api
       .patch<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/values`, {
         values,
         expectedRevision,
+        idempotencyKey,
       })
       .then((r) => r.data),
 

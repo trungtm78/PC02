@@ -1,4 +1,4 @@
-import { IsObject, IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 
 /**
  * S11-S14 save payload (spec §6.1 PR6). `values` is `{fieldKey: raw}` —
@@ -6,6 +6,12 @@ import { IsObject, IsString } from 'class-validator';
  * pre-typed `{t,v}` pair: `SubmissionService.save` runs every value
  * through `engine/values.ts#validateFieldValue` itself, the same
  * authoritative validation the DTO layer must never shadow or duplicate.
+ *
+ * `idempotencyKey` is optional (S26, PR6 slice 7): the frontend generates
+ * one per autosave attempt and reuses it across retries of the SAME patch
+ * after a network error, so a request that actually reached the server but
+ * whose response was lost never double-applies on retry. Omitted entirely,
+ * `save` behaves exactly as before this slice.
  */
 export class SaveValuesDto {
   @IsObject()
@@ -13,6 +19,10 @@ export class SaveValuesDto {
 
   @IsString()
   expectedRevision!: string;
+
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
 }
 
 /** S29 submit payload — no value patch, see `SubmissionService.submit`. */

@@ -80,8 +80,45 @@ describe('SubmissionController', () => {
       'u1',
       { 'Đội 3!C6': '12' },
       '0',
+      undefined,
     );
     expect(result).toBe(saved);
+  });
+
+  it('PATCH passes idempotencyKey through when given (S26, PR6 slice 7)', async () => {
+    service.save.mockResolvedValue({ revision: '1', state: 'DRAFT' });
+
+    await controller.save(
+      'assign1',
+      {
+        values: { 'Đội 3!C6': '12' },
+        expectedRevision: '0',
+        idempotencyKey: 'key1',
+      },
+      user,
+    );
+
+    expect(service.save).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      { 'Đội 3!C6': '12' },
+      '0',
+      'key1',
+    );
+  });
+
+  it('translates an IDEMPOTENCY_MISMATCH SubmissionError from save into a 400', async () => {
+    service.save.mockRejectedValue(
+      new SubmissionError('mismatch', 'IDEMPOTENCY_MISMATCH'),
+    );
+
+    await expect(
+      controller.save(
+        'assign1',
+        { values: {}, expectedRevision: '0', idempotencyKey: 'key1' },
+        user,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('translates a REVISION_CONFLICT SubmissionError into a 409', async () => {

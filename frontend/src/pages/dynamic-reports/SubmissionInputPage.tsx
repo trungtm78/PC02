@@ -22,7 +22,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Unlock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { DynReportSubmissionState, SubmissionFieldView } from '@/features/dynamic-reports/types';
+import type { DynReportSubmissionState, SubmissionFieldView, TypedValue } from '@/features/dynamic-reports/types';
 import { planPaste } from '@/features/dynamic-reports/engine/generated/paste';
 import { validateFieldValue } from '@/features/dynamic-reports/engine/generated/values';
 import { extractApiError } from '@/lib/api-errors';
@@ -61,25 +61,53 @@ export default function SubmissionInputPage() {
   const [submitting, setSubmitting] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'working' | 'sent' | 'error'>('idle');
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [canRetrySave, setCanRetrySave] = useState(false);
+  const [conflict, setConflict] = useState<{
+    mineByKey: Record<string, string | null>;
+    serverByKey: Record<string, TypedValue | undefined>;
+    serverRevision: string;
+    serverEffectiveLockAt: string | null;
+  } | null>(null);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // S26 — ties one idempotency key to one exact (patch, revision) pair, so a
+  // network-error retry of the SAME attempt reuses it (never double-applies
+  // a request that actually reached the server but whose response was
+  // lost), while a genuinely different attempt always gets a fresh key.
+  const idempotencyRef = useRef<{ signature: string; key: string } | null>(null);
 
   const revision = revisionOverride ?? initial?.revision ?? null;
   const editable = editableOverride ?? initial?.editable ?? true;
   const effectiveLockAt = lockAtOverride ?? initial?.effectiveLockAt ?? null;
   const state = stateOverride ?? initial?.state ?? 'NOT_STARTED';
 
-  async function flush(current: Record<string, string>) {
-    if (!assignmentId || !revision || dirtyRef.current.size === 0) return;
+  async function flush(current: Record<string, string>, revisionForThisCall?: string) {
+    const effectiveRevision = revisionForThisCall ?? revision;
+    if (!assignmentId || !effectiveRevision || dirtyRef.current.size === 0) return;
+    const dirtyKeys = Array.from(dirtyRef.current);
     const patch: Record<string, string | null> = {};
-    for (const key of dirtyRef.current) {
+    for (const key of dirtyKeys) {
       patch[key] = current[key]?.trim() ? current[key] : null;
     }
+    const signature = JSON.stringify({ assignmentId, patch, revision: effectiveRevision });
+    const idempotencyKey =
+      idempotencyRef.current?.signature === signature
+        ? idempotencyRef.current.key
+        : crypto.randomUUID();
+    idempotencyRef.current = { signature, key: idempotencyKey };
+
     dirtyRef.current = new Set();
     setSaveStatus('saving');
     setSaveError(null);
+    setCanRetrySave(false);
     try {
-      const result = await dynamicReportsApi.saveSubmissionValues(assignmentId, patch, revision);
+      const result = await dynamicReportsApi.saveSubmissionValues(
+        assignmentId,
+        patch,
+        effectiveRevision,
+        idempotencyKey,
+      );
+      idempotencyRef.current = null;
       setRevisionOverride(result.revision);
       setLockAtOverride(result.effectiveLockAt);
       setSaveStatus('saved');
@@ -91,19 +119,74 @@ export default function SubmissionInputPage() {
     } catch (err) {
       const apiError = extractApiError(err);
       if (apiError.code === 'REVISION_CONFLICT') {
-        setSaveError('Bản nộp đã được sửa ở một phiên khác — tải lại trang để lấy bản mới nhất.');
+        // S26 — re-mark dirty so either conflict resolution can resend the same patch.
+        for (const key of dirtyKeys) dirtyRef.current.add(key);
+        await loadConflict(patch);
+      } else if (apiError.status === 0) {
+        // S26 — network/timeout: keep the patch pending and the idempotency
+        // key pinned, so "Thử lại" resends the exact same request.
+        for (const key of dirtyKeys) dirtyRef.current.add(key);
+        setSaveError('Mất kết nối — thay đổi chưa được lưu.');
+        setCanRetrySave(true);
       } else if (apiError.code === 'CELL_VALIDATION') {
+        idempotencyRef.current = null;
         setSaveError(apiError.message);
         const m = /Ô "([^"]+)"/.exec(apiError.message);
         if (m) setFieldErrors((prev) => ({ ...prev, [m[1]]: apiError.message }));
       } else if (apiError.code === 'REPORT_LOCKED') {
+        idempotencyRef.current = null;
         setEditableOverride(false);
         setSaveError('Thay đổi này chưa được lưu do hết hạn.');
       } else {
+        idempotencyRef.current = null;
         setSaveError(apiError.message);
       }
       setSaveStatus('error');
     }
+  }
+
+  /** S26 — fetch the server's current values to show a side-by-side comparison for a 409. */
+  async function loadConflict(mine: Record<string, string | null>) {
+    if (!assignmentId) return;
+    try {
+      const server = await dynamicReportsApi.getSubmission(assignmentId);
+      setConflict({
+        mineByKey: mine,
+        serverByKey: server.values,
+        serverRevision: server.revision,
+        serverEffectiveLockAt: server.effectiveLockAt,
+      });
+    } catch {
+      setSaveError('Bản nộp đã được sửa ở một phiên khác — tải lại trang để lấy bản mới nhất.');
+    }
+  }
+
+  /** S26 — keep my unsaved edits; retry the exact same patch against the server's new revision. */
+  function resolveConflictKeepMine() {
+    if (!conflict) return;
+    idempotencyRef.current = null; // the retry targets a different revision — needs its own key.
+    setRevisionOverride(conflict.serverRevision);
+    const newRevision = conflict.serverRevision;
+    setConflict(null);
+    void flush(values, newRevision);
+  }
+
+  /** S26 — discard my unsaved edits for the conflicting fields; adopt the server's current values. */
+  function resolveConflictUseServer() {
+    if (!conflict) return;
+    const keys = Object.keys(conflict.mineByKey);
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const key of keys) delete next[key];
+      return next;
+    });
+    for (const key of keys) dirtyRef.current.delete(key);
+    idempotencyRef.current = null;
+    setRevisionOverride(conflict.serverRevision);
+    setLockAtOverride(conflict.serverEffectiveLockAt);
+    setConflict(null);
+    setSaveStatus('idle');
+    setSaveError(null);
   }
 
   async function handleSubmit() {
@@ -351,9 +434,62 @@ export default function SubmissionInputPage() {
       </div>
 
       {saveError && (
-        <p className="text-sm text-red-700 mb-4" data-testid="save-error">
+        <p className="text-sm text-red-700 mb-2" data-testid="save-error">
           {saveError}
         </p>
+      )}
+
+      {canRetrySave && (
+        <button
+          type="button"
+          data-testid="btn-retry-save"
+          onClick={() => void flush(values)}
+          className={`mb-4 px-3 py-1.5 bg-slate-700 text-white text-xs font-medium rounded-lg hover:bg-slate-800 ${A11Y_FOCUS_RING}`}
+        >
+          Thử lại
+        </button>
+      )}
+
+      {conflict && (
+        <div
+          className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-4"
+          data-testid="conflict-dialog"
+        >
+          <p className="text-sm font-semibold text-amber-900 mb-2">
+            Bản nộp đã được sửa ở một phiên khác. Chọn cách xử lý:
+          </p>
+          <ul className="text-xs text-amber-800 mb-3 space-y-1">
+            {Object.keys(conflict.mineByKey).map((key) => {
+              const field = initial?.fields.find((f) => f.fieldKey === key);
+              const mine = conflict.mineByKey[key];
+              const server = conflict.serverByKey[key]?.v ?? null;
+              return (
+                <li key={key} data-testid={`conflict-row-${key}`}>
+                  <strong>{field?.label || key}:</strong> Của bạn:{' '}
+                  {mine ?? '(trống)'} — Trên máy chủ: {server ?? '(trống)'}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="btn-conflict-keep-mine"
+              onClick={resolveConflictKeepMine}
+              className={`px-3 py-1.5 bg-amber-700 text-white text-xs font-medium rounded-lg hover:bg-amber-800 ${A11Y_FOCUS_RING}`}
+            >
+              Giữ bản của tôi
+            </button>
+            <button
+              type="button"
+              data-testid="btn-conflict-use-server"
+              onClick={resolveConflictUseServer}
+              className={`px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-200 ${A11Y_FOCUS_RING}`}
+            >
+              Dùng bản trên máy chủ
+            </button>
+          </div>
+        </div>
       )}
 
       <form onSubmit={(e) => e.preventDefault()}>

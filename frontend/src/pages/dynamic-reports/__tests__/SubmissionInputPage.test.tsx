@@ -111,6 +111,7 @@ describe('SubmissionInputPage', () => {
         'assign1',
         { 'Đội 3!C6': '12' },
         '1',
+        expect.any(String),
       );
     });
     await waitFor(() => screen.getByText('Đã lưu'));
@@ -193,13 +194,13 @@ describe('SubmissionInputPage', () => {
     promptSpy.mockRestore();
   });
 
-  it('shows a reload prompt on REVISION_CONFLICT (409)', async () => {
+  it('shows a side-by-side conflict dialog on REVISION_CONFLICT (409) during autosave (S26)', async () => {
     vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
     vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
       isAxiosError: true,
       response: {
         status: 409,
-        data: { error: { code: 'REVISION_CONFLICT', message: 'Bản nộp đã bị sửa bởi một phiên khác — tải lại để lấy bản mới nhất.' } },
+        data: { error: { code: 'REVISION_CONFLICT', message: 'conflict' } },
       },
     });
     renderPage();
@@ -209,8 +210,97 @@ describe('SubmissionInputPage', () => {
     fireEvent.change(input, { target: { value: '12' } });
     fireEvent.blur(input);
 
-    await waitFor(() => screen.getByTestId('btn-reload'));
-    expect(screen.getByTestId('save-error')).toHaveTextContent('phiên khác');
+    await waitFor(() => screen.getByTestId('conflict-dialog'));
+    expect(screen.getByTestId('conflict-row-Đội 3!C6')).toHaveTextContent('12');
+    expect(screen.getByTestId('conflict-row-Đội 3!C6')).toHaveTextContent('5'); // server's current value from VIEW
+    expect(screen.getByTestId('btn-conflict-keep-mine')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-conflict-use-server')).toBeInTheDocument();
+  });
+
+  it('conflict dialog "Giữ bản của tôi" retries the save against the server\'s new revision', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.saveSubmissionValues)
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 409,
+          data: { error: { code: 'REVISION_CONFLICT', message: 'conflict' } },
+        },
+      })
+      .mockResolvedValueOnce({
+        revision: '2',
+        state: 'DRAFT',
+        savedAt: '2026-10-10T10:00:01.000Z',
+        serverTime: '2026-10-10T10:00:01.000Z',
+        effectiveLockAt: '2026-11-05T17:00:00.000Z',
+      });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: '12' } });
+    fireEvent.blur(screen.getByTestId('input-Đội 3!C6'));
+    await waitFor(() => screen.getByTestId('conflict-dialog'));
+
+    fireEvent.click(screen.getByTestId('btn-conflict-keep-mine'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(2);
+    });
+    const secondCall = vi.mocked(dynamicReportsApi.saveSubmissionValues).mock.calls[1];
+    expect(secondCall[2]).toBe('1'); // VIEW's server revision from getSubmission, used as the new expectedRevision
+    expect(screen.queryByTestId('conflict-dialog')).not.toBeInTheDocument();
+  });
+
+  it('conflict dialog "Dùng bản trên máy chủ" discards the local edit and adopts the server value', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.saveSubmissionValues).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { error: { code: 'REVISION_CONFLICT', message: 'conflict' } },
+      },
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: '12' } });
+    fireEvent.blur(screen.getByTestId('input-Đội 3!C6'));
+    await waitFor(() => screen.getByTestId('conflict-dialog'));
+
+    fireEvent.click(screen.getByTestId('btn-conflict-use-server'));
+
+    expect(screen.queryByTestId('conflict-dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5'); // falls back to VIEW's server value, local edit dropped
+  });
+
+  it('shows a retry button on a network error and resends the same request on retry (S26)', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.saveSubmissionValues)
+      .mockRejectedValueOnce({ isAxiosError: true, response: undefined })
+      .mockResolvedValueOnce({
+        revision: '2',
+        state: 'DRAFT',
+        savedAt: '2026-10-10T10:00:01.000Z',
+        serverTime: '2026-10-10T10:00:01.000Z',
+        effectiveLockAt: '2026-11-05T17:00:00.000Z',
+      });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    fireEvent.change(screen.getByTestId('input-Đội 3!C6'), { target: { value: '12' } });
+    fireEvent.blur(screen.getByTestId('input-Đội 3!C6'));
+
+    await waitFor(() => screen.getByTestId('btn-retry-save'));
+    expect(screen.getByTestId('save-error')).toHaveTextContent('Mất kết nối');
+
+    fireEvent.click(screen.getByTestId('btn-retry-save'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledTimes(2);
+    });
+    const [firstCall, secondCall] = vi.mocked(dynamicReportsApi.saveSubmissionValues).mock.calls;
+    expect(secondCall[3]).toBe(firstCall[3]); // same idempotencyKey reused on retry
+    await waitFor(() => screen.getByText('Đã lưu'));
   });
 
   it('shows a field-level error on CELL_VALIDATION (400)', async () => {
@@ -343,6 +433,7 @@ describe('SubmissionInputPage', () => {
         'assign1',
         { 'Đội 3!C6': '12', 'Đội 3!C7': '34' },
         '1',
+        expect.any(String),
       );
     });
     expect(screen.getByTestId('input-Đội 3!C7')).toHaveValue('34');
