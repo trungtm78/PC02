@@ -320,3 +320,12 @@ export interface ReportHistoryView {
   periodKey: string;
   assignments: AssignmentHistoryView[];
 }
+
+/** T-VIEWER-NAV — the entry point a VIEWER (who owns no assignment) uses to reach a period. */
+export interface ViewablePeriodView {
+  reportId: string;
+  reportName: string;
+  periodId: string;
+  periodKey: string;
+  dueAt: string;
+}

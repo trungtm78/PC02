@@ -849,4 +849,82 @@ describe('AggregateService', () => {
       expect(a1?.changedFieldKeysSinceFirstSubmit).toEqual([]);
     });
   });
+
+  describe('listPeriodsForViewer (T-VIEWER-NAV)', () => {
+    function buildViewerListService(
+      periods: unknown[],
+      roles: Array<{ reportId: string }> = [],
+      isAdmin = false,
+    ) {
+      const prisma = {
+        rolePermission: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue(isAdmin ? { id: 'rp1' } : null),
+        },
+        dynReport: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'report1' }]),
+        },
+        dynReportRole: {
+          findMany: jest.fn().mockResolvedValue(roles),
+        },
+        dynReportPeriod: {
+          findMany: jest.fn().mockResolvedValue(periods),
+        },
+      };
+      const service = new AggregateService(
+        prisma as unknown as PrismaService,
+        buildTeamsServiceMock(),
+      );
+      return { service, prisma };
+    }
+
+    const PERIOD = {
+      id: 'period1',
+      reportId: 'report1',
+      report: { name: 'HSLN' },
+      periodKey: '2026-06',
+      dueAt: new Date('2026-07-05T17:00:00Z'),
+    };
+
+    it('returns [] without querying periods when the caller has no MANAGER/VIEWER role and is not admin', async () => {
+      const { service, prisma } = buildViewerListService([PERIOD], []);
+
+      const result = await service.listPeriodsForViewer('u1', 'role1');
+
+      expect(result).toEqual([]);
+      expect(prisma.dynReportPeriod.findMany).not.toHaveBeenCalled();
+    });
+
+    it('lists every OPEN period for a report the caller has a VIEWER role on', async () => {
+      const { service } = buildViewerListService(
+        [PERIOD],
+        [{ reportId: 'report1' }],
+      );
+
+      const result = await service.listPeriodsForViewer(
+        'viewer1',
+        'roleViewer',
+      );
+
+      expect(result).toEqual([
+        {
+          reportId: 'report1',
+          reportName: 'HSLN',
+          periodId: 'period1',
+          periodKey: '2026-06',
+          dueAt: '2026-07-05T17:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('lists every report when the caller has admin:DynamicReport, without querying DynReportRole', async () => {
+      const { service, prisma } = buildViewerListService([PERIOD], [], true);
+
+      const result = await service.listPeriodsForViewer('admin1', 'roleAdmin');
+
+      expect(result).toHaveLength(1);
+      expect(prisma.dynReportRole.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

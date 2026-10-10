@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, BarChart3, AlertCircle, Unlock } from 'lucide-react';
+import { ClipboardCheck, BarChart3, AlertCircle, Eye, Unlock } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
@@ -22,6 +22,14 @@ export default function ReportManagerListPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dynamic-reports', 'manager-submissions'],
     queryFn: () => dynamicReportsApi.listForManager(),
+    staleTime: 30_000,
+  });
+
+  // T-VIEWER-NAV: a VIEWER owns no assignment, so `listForManager` above
+  // always comes back empty for them — this is their only way in.
+  const { data: viewablePeriods } = useQuery({
+    queryKey: ['dynamic-reports', 'viewable-periods'],
+    queryFn: () => dynamicReportsApi.listViewablePeriods(),
     staleTime: 30_000,
   });
 
@@ -68,6 +76,25 @@ export default function ReportManagerListPage() {
                 className={`inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-blue-300 rounded text-xs text-blue-700 hover:bg-blue-100 ${A11Y_FOCUS_RING}`}
               >
                 <BarChart3 className="w-3.5 h-3.5" />
+                {p.reportName} — Kỳ {p.periodKey}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewablePeriods && viewablePeriods.length > 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-6" data-testid="viewable-period-links">
+          <p className="text-xs font-semibold text-slate-700 mb-2">Báo cáo bạn được xem</p>
+          <div className="flex flex-wrap gap-2">
+            {viewablePeriods.map((p) => (
+              <Link
+                key={p.periodId}
+                to={`/bao-cao-dong/duyet/tong-hop/${p.periodId}`}
+                data-testid={`viewable-period-link-${p.periodId}`}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-700 hover:bg-slate-100 ${A11Y_FOCUS_RING}`}
+              >
+                <Eye className="w-3.5 h-3.5" />
                 {p.reportName} — Kỳ {p.periodKey}
               </Link>
             ))}

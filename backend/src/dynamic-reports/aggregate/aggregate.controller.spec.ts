@@ -14,6 +14,7 @@ describe('AggregateController', () => {
     reopenPeriod: jest.fn(),
     exportPeriod: jest.fn(),
     getReportHistory: jest.fn(),
+    listPeriodsForViewer: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -148,5 +149,15 @@ describe('AggregateController', () => {
       'r1',
     );
     expect(result).toBe(view);
+  });
+
+  it('GET (bare) delegates to AggregateService.listPeriodsForViewer', async () => {
+    const list = [{ periodId: 'period1' }];
+    service.listPeriodsForViewer.mockResolvedValue(list);
+
+    const result = await controller.listViewablePeriods(user);
+
+    expect(service.listPeriodsForViewer).toHaveBeenCalledWith('u1', 'r1');
+    expect(result).toBe(list);
   });
 });

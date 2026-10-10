@@ -134,6 +134,22 @@ export interface ReportHistoryView {
   assignments: AssignmentHistoryView[];
 }
 
+/**
+ * T-VIEWER-NAV — the entry point a VIEWER (who owns no assignment, so
+ * never appears in `listForManager`) uses to reach `getPeriodSummary`/
+ * `getReportHistory`, both already R13-scoped. A MANAGER sees the same
+ * list here too (their own `ReportManagerListPage` already has a
+ * period-summary link derived from `listForManager`'s assignments, so
+ * this is mostly redundant for them — harmless, not worth excluding).
+ */
+export interface ViewablePeriodView {
+  reportId: string;
+  reportName: string;
+  periodId: string;
+  periodKey: string;
+  dueAt: string;
+}
+
 /** S38 — snapshot engine version tag, bumped only if the snapshot's own shape changes. */
 const SNAPSHOT_ENGINE_VERSION = 'v1';
 
@@ -900,5 +916,61 @@ export class AggregateService {
       periodKey: period.periodKey,
       assignments,
     };
+  }
+
+  /**
+   * T-VIEWER-NAV — every OPEN period across every report the caller has
+   * ANY standing on (admin:DynamicReport, or a MANAGER/VIEWER `DynReportRole`
+   * row), so a VIEWER with no assignment of their own still has a way to
+   * reach `getPeriodSummary`/`getReportHistory`. Deliberately does not
+   * pre-filter by `teamScopeId` here — this list only names periods, never
+   * any team's data, so there is nothing to scope yet; the real R13 check
+   * happens inside those two endpoints when the caller actually opens one.
+   */
+  async listPeriodsForViewer(
+    userId: string,
+    roleId: string,
+  ): Promise<ViewablePeriodView[]> {
+    const adminGrant = await this.prisma.rolePermission.findFirst({
+      where: {
+        roleId,
+        permission: { subject: 'DynamicReport', action: 'admin' },
+      },
+    });
+
+    const now = new Date();
+    let reportIds: string[];
+    if (adminGrant) {
+      const reports = await this.prisma.dynReport.findMany({
+        select: { id: true },
+      });
+      reportIds = reports.map((r) => r.id);
+    } else {
+      const roles = await this.prisma.dynReportRole.findMany({
+        where: {
+          userId,
+          role: { in: ['MANAGER', 'VIEWER'] },
+          validFrom: { lte: now },
+          OR: [{ validTo: null }, { validTo: { gt: now } }],
+        },
+        select: { reportId: true },
+      });
+      reportIds = roles.map((r) => r.reportId);
+    }
+    if (reportIds.length === 0) return [];
+
+    const periods = await this.prisma.dynReportPeriod.findMany({
+      where: { reportId: { in: reportIds }, status: 'OPEN' },
+      include: { report: true },
+      orderBy: { dueAt: 'asc' },
+    });
+
+    return periods.map((p) => ({
+      reportId: p.reportId,
+      reportName: p.report.name,
+      periodId: p.id,
+      periodKey: p.periodKey,
+      dueAt: p.dueAt.toISOString(),
+    }));
   }
 }
