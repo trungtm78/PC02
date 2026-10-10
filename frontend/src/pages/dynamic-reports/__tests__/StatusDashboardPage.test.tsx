@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import StatusDashboardPage from '../StatusDashboardPage';
@@ -191,6 +192,50 @@ describe('StatusDashboardPage', () => {
 
     await waitFor(() => {
       expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({}, 'xlsx');
+    });
+  });
+
+  it('filters the table by report when a report is selected from the dropdown', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue([
+      { reportId: 'report1', reportName: 'HSLN' },
+    ]);
+    renderPage();
+
+    await waitFor(() => screen.getByRole('option', { name: 'HSLN' }));
+    await userEvent.selectOptions(screen.getByTestId('report-filter-select'), 'report1');
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith(
+        { reportId: 'report1' },
+        1,
+        25,
+      );
+    });
+  });
+
+  it('includes the selected report filter when exporting', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue([
+      { reportId: 'report1', reportName: 'HSLN' },
+    ]);
+    vi.mocked(dynamicReportsApi.exportStatus).mockResolvedValue(undefined);
+    renderPage();
+
+    await waitFor(() => screen.getByRole('option', { name: 'HSLN' }));
+    await userEvent.selectOptions(screen.getByTestId('report-filter-select'), 'report1');
+    await waitFor(() => {
+      expect(dynamicReportsApi.listStatus).toHaveBeenLastCalledWith(
+        { reportId: 'report1' },
+        1,
+        25,
+      );
+    });
+
+    fireEvent.click(screen.getByTestId('btn-export-csv'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({ reportId: 'report1' }, 'csv');
     });
   });
 
