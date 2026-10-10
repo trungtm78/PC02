@@ -4152,6 +4152,10 @@ model DynReportSchedule {
   effectiveFrom   DateTime
   supersededAt    DateTime?
   createdAt       DateTime             @default(now())
+  // PR5 catch-up cursor (spec §6.1 "bù kỳ sau downtime"): where the next
+  // scheduler tick resumes from. Null on a never-yet-run schedule — the
+  // scheduler seeds it from effectiveFrom on first run.
+  lastGeneratedThrough DateTime?
 
   @@index([reportId, effectiveFrom])
   @@map("dyn_report_schedules")
