@@ -154,6 +154,23 @@ export class StatusQueryService {
       return { rows: [], kpi: computeKpiSummary([]), asOf: now.toISOString() };
     }
 
+    // SECURITY (R13): `filters.reportId` must narrow WITHIN the caller's own
+    // scope, never replace it — the two conditions share the same Prisma
+    // `reportId` key under `period`, so spreading both in the same object
+    // literal would let the second one silently overwrite the first and let
+    // a caller request any reportId regardless of role. A non-admin asking
+    // for a reportId outside their own scope gets zero rows, not that
+    // report's data.
+    if (
+      filters.reportId &&
+      reportIds !== 'ALL' &&
+      !reportIds.includes(filters.reportId)
+    ) {
+      return { rows: [], kpi: computeKpiSummary([]), asOf: now.toISOString() };
+    }
+    const reportIdCondition: string | { in: string[] } | undefined =
+      filters.reportId ?? (reportIds !== 'ALL' ? { in: reportIds } : undefined);
+
     let teamIdFilter: string[] | undefined;
     if (filters.teamId) {
       const descendants = await this.teamsService.getDescendantIds(
@@ -164,8 +181,7 @@ export class StatusQueryService {
 
     const where: Prisma.DynReportAssignmentWhereInput = {
       period: {
-        ...(reportIds !== 'ALL' ? { reportId: { in: reportIds } } : {}),
-        ...(filters.reportId ? { reportId: filters.reportId } : {}),
+        ...(reportIdCondition ? { reportId: reportIdCondition } : {}),
         ...(filters.periodId ? { id: filters.periodId } : {}),
       },
       ...(teamIdFilter ? { teamId: { in: teamIdFilter } } : {}),
