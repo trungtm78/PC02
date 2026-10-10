@@ -219,6 +219,16 @@ export interface FieldAggregateView {
   displayNotAggregated: boolean;
   countTotal: number;
   countNonBlank: number;
+  /** S18 (PR7 slice 5) — exactly the teams counted above, never more. */
+  contributors: FieldContributorView[];
+}
+
+export interface FieldContributorView {
+  teamName: string;
+  value: string | null;
+  state: DynReportSubmissionState;
+  revision: string;
+  updatedAt: string | null;
 }
 
 export interface KpiSummaryView {

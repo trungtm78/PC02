@@ -30,6 +30,7 @@ describe('AggregateService', () => {
       id,
       obligation: 'REQUIRED',
       unlocks: [],
+      teamSnapshot: { name: `Team ${id}` },
       submission: {
         state,
         values:
@@ -37,6 +38,8 @@ describe('AggregateService', () => {
         firstSavedAt: value !== null ? NOW_FAKE : null,
         submittedAt:
           state === 'SUBMITTED' || state === 'APPROVED' ? NOW_FAKE : null,
+        currentRevision: 1n,
+        updatedAt: NOW_FAKE,
       },
       ...overrides,
     };
@@ -188,5 +191,42 @@ describe('AggregateService', () => {
 
     expect(result.fields[0].displayNotAggregated).toBe(true);
     expect(result.fields[0].value).toBeNull();
+  });
+
+  it('S18 — lists exactly the contributing teams behind the aggregate, summing to the same total', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'mgr1',
+      'roleMgr',
+      'SUBMITTED',
+    );
+
+    const contributors = result.fields[0].contributors;
+    expect(contributors).toHaveLength(2);
+    expect(contributors.map((c) => c.teamName).sort()).toEqual([
+      'Team a1',
+      'Team a2',
+    ]);
+    const sum = contributors.reduce((acc, c) => acc + Number(c.value ?? 0), 0);
+    expect(String(sum)).toBe(result.fields[0].value);
+    expect(contributors.every((c) => c.revision === '1')).toBe(true);
+  });
+
+  it('S18 — excludes an EXEMPT team and a mode-mismatched team from the contributor list', async () => {
+    const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+    const result = await service.getPeriodSummary(
+      'period1',
+      'mgr1',
+      'roleMgr',
+      'APPROVED',
+    );
+
+    const contributors = result.fields[0].contributors;
+    expect(contributors).toHaveLength(1);
+    expect(contributors[0].teamName).toBe('Team a2');
+    expect(contributors[0].state).toBe('APPROVED');
   });
 });

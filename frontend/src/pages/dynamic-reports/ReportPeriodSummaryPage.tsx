@@ -4,12 +4,16 @@
  * (qua `engine/aggregate.ts`), với công tắc đổi chế độ tính (D03). Không
  * có nút sửa/lưu — màn này chỉ đọc, đúng D10 "không ai sửa hộ số liệu".
  */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SummaryMode } from '@/features/dynamic-reports/types';
+import {
+  DYN_REPORT_SUBMISSION_STATE_LABEL,
+  DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
+} from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 
@@ -22,6 +26,7 @@ const MODE_LABEL: Record<SummaryMode, string> = {
 export default function ReportPeriodSummaryPage() {
   const { periodId } = useParams<{ periodId: string }>();
   const [mode, setMode] = useState<SummaryMode>('SUBMITTED');
+  const [expandedFieldKey, setExpandedFieldKey] = useState<string | null>(null);
 
   const { data: view, isLoading, isError } = useQuery({
     queryKey: ['dynamic-reports', 'period-summary', periodId, mode],
@@ -114,6 +119,7 @@ export default function ReportPeriodSummaryPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600 text-xs">
             <tr>
+              <th className="w-6" />
               <th className="text-left px-4 py-2">Sheet</th>
               <th className="text-left px-4 py-2">Chỉ tiêu</th>
               <th className="text-right px-4 py-2">Giá trị tổng hợp</th>
@@ -121,18 +127,72 @@ export default function ReportPeriodSummaryPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {view.fields.map((f) => (
-              <tr key={f.fieldKey} data-testid={`field-row-${f.fieldKey}`}>
-                <td className="px-4 py-2 text-slate-500">{f.sheetKey}</td>
-                <td className="px-4 py-2 text-slate-700">{f.label || f.fieldKey}</td>
-                <td className="px-4 py-2 text-right font-medium text-slate-800">
-                  {f.displayNotAggregated ? '— / Không tổng hợp' : f.value ?? '—'}
-                </td>
-                <td className="px-4 py-2 text-right text-slate-500">
-                  {f.countNonBlank}/{f.countTotal}
-                </td>
-              </tr>
-            ))}
+            {view.fields.map((f) => {
+              const isExpanded = expandedFieldKey === f.fieldKey;
+              return (
+                <Fragment key={f.fieldKey}>
+                  <tr
+                    data-testid={`field-row-${f.fieldKey}`}
+                    className="cursor-pointer hover:bg-slate-50"
+                    onClick={() => setExpandedFieldKey(isExpanded ? null : f.fieldKey)}
+                  >
+                    <td className="px-2">
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-slate-500">{f.sheetKey}</td>
+                    <td className="px-4 py-2 text-slate-700">{f.label || f.fieldKey}</td>
+                    <td className="px-4 py-2 text-right font-medium text-slate-800">
+                      {f.displayNotAggregated ? '— / Không tổng hợp' : f.value ?? '—'}
+                    </td>
+                    <td className="px-4 py-2 text-right text-slate-500">
+                      {f.countNonBlank}/{f.countTotal}
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={5} className="bg-slate-50 px-4 py-3" data-testid={`contributors-${f.fieldKey}`}>
+                        {f.contributors.length === 0 ? (
+                          <p className="text-xs text-slate-500">Chưa có tổ nào đóng góp vào chỉ tiêu này ở chế độ hiện tại.</p>
+                        ) : (
+                          <table className="w-full text-xs">
+                            <thead className="text-slate-500">
+                              <tr>
+                                <th className="text-left py-1">Tổ</th>
+                                <th className="text-right py-1">Giá trị</th>
+                                <th className="text-right py-1">Trạng thái</th>
+                                <th className="text-right py-1">Cập nhật lúc</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200">
+                              {f.contributors.map((c) => (
+                                <tr key={c.teamName} data-testid={`contributor-${f.fieldKey}-${c.teamName}`}>
+                                  <td className="py-1 text-slate-700">{c.teamName}</td>
+                                  <td className="py-1 text-right font-medium text-slate-800">{c.value ?? '—'}</td>
+                                  <td className="py-1 text-right">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS[c.state]}`}
+                                    >
+                                      {DYN_REPORT_SUBMISSION_STATE_LABEL[c.state]}
+                                    </span>
+                                  </td>
+                                  <td className="py-1 text-right text-slate-500">
+                                    {c.updatedAt ? formatVNDateTime(c.updatedAt) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

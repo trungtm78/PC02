@@ -57,6 +57,10 @@ const VIEW: PeriodSummaryView = {
       displayNotAggregated: false,
       countTotal: 2,
       countNonBlank: 2,
+      contributors: [
+        { teamName: 'Đội 3', value: '10', state: 'SUBMITTED', revision: '2', updatedAt: '2026-06-10T08:00:00.000Z' },
+        { teamName: 'Đội 4', value: '20', state: 'APPROVED', revision: '3', updatedAt: '2026-06-11T08:00:00.000Z' },
+      ],
     },
   ],
   serverTime: '2026-06-15T10:00:00.000Z',
@@ -111,5 +115,45 @@ describe('ReportPeriodSummaryPage', () => {
 
     await waitFor(() => screen.getByTestId('field-row-Đội 3!C6'));
     expect(screen.getByTestId('field-row-Đội 3!C6')).toHaveTextContent('Không tổng hợp');
+  });
+
+  it('expands the contributor drill-down on click, showing every team behind the aggregate', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('field-row-Đội 3!C6'));
+    expect(screen.queryByTestId('contributors-Đội 3!C6')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('field-row-Đội 3!C6'));
+
+    await waitFor(() => screen.getByTestId('contributors-Đội 3!C6'));
+    expect(screen.getByTestId('contributor-Đội 3!C6-Đội 3')).toHaveTextContent('10');
+    expect(screen.getByTestId('contributor-Đội 3!C6-Đội 4')).toHaveTextContent('20');
+  });
+
+  it('collapses the drill-down on a second click', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('field-row-Đội 3!C6'));
+    fireEvent.click(screen.getByTestId('field-row-Đội 3!C6'));
+    await waitFor(() => screen.getByTestId('contributors-Đội 3!C6'));
+
+    fireEvent.click(screen.getByTestId('field-row-Đội 3!C6'));
+    expect(screen.queryByTestId('contributors-Đội 3!C6')).not.toBeInTheDocument();
+  });
+
+  it('shows an empty-contributors note when no team currently matches the chosen mode', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
+      ...VIEW,
+      fields: [{ ...VIEW.fields[0], contributors: [] }],
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('field-row-Đội 3!C6'));
+    fireEvent.click(screen.getByTestId('field-row-Đội 3!C6'));
+
+    await waitFor(() => screen.getByTestId('contributors-Đội 3!C6'));
+    expect(screen.getByTestId('contributors-Đội 3!C6')).toHaveTextContent('Chưa có tổ nào đóng góp');
   });
 });
