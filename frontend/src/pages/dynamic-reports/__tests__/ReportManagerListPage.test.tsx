@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import ReportManagerListPage from '../ReportManagerListPage';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { AssignmentSummary } from '@/features/dynamic-reports/types';
+import type { AssignmentSummary, ViewablePeriodView } from '@/features/dynamic-reports/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
-  dynamicReportsApi: { listForManager: vi.fn() },
+  dynamicReportsApi: { listForManager: vi.fn(), listViewablePeriods: vi.fn() },
 }));
 
 function renderPage() {
@@ -35,6 +35,7 @@ const SAMPLE: AssignmentSummary = {
 describe('ReportManagerListPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(dynamicReportsApi.listViewablePeriods).mockResolvedValue([]);
   });
 
   it('renders each assignment as a row linking to its review page', async () => {
@@ -81,5 +82,36 @@ describe('ReportManagerListPage', () => {
         screen.getByText('Không tải được danh sách lượt giao — vui lòng thử lại.'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('shows "Báo cáo bạn được xem" for a VIEWER who owns no assignment (T-VIEWER-NAV)', async () => {
+    vi.mocked(dynamicReportsApi.listForManager).mockResolvedValue([]);
+    const viewable: ViewablePeriodView[] = [
+      {
+        reportId: 'report1',
+        reportName: 'HSLN',
+        periodId: 'period1',
+        periodKey: '2026-10',
+        dueAt: '2026-11-05T17:00:00.000Z',
+      },
+    ];
+    vi.mocked(dynamicReportsApi.listViewablePeriods).mockResolvedValue(viewable);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('viewable-period-link-period1'));
+    expect(screen.getByTestId('viewable-period-link-period1')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/duyet/tong-hop/period1',
+    );
+    // VIEWER still sees the "nothing to review" empty state alongside it — expected (they review nothing).
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+  });
+
+  it('does not show "Báo cáo bạn được xem" when the caller has no viewable period at all', async () => {
+    vi.mocked(dynamicReportsApi.listForManager).mockResolvedValue([]);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('empty-state'));
+    expect(screen.queryByTestId('viewable-period-links')).not.toBeInTheDocument();
   });
 });

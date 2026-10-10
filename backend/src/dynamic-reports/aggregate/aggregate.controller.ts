@@ -46,6 +46,19 @@ const VALID_MODES: readonly SummaryMode[] = [
 export class AggregateController {
   constructor(private readonly aggregateService: AggregateService) {}
 
+  /**
+   * T-VIEWER-NAV — declared BEFORE `:periodId/*`, same reason every other
+   * static-before-param route in this module is: a literal segment
+   * registered after a param route would never be reached. No bare
+   * `GET :periodId` route exists in this controller, so there is no
+   * collision either way, but the ordering convention stays consistent.
+   */
+  @Get()
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listViewablePeriods(@CurrentUser() user: AuthenticatedUser) {
+    return this.aggregateService.listPeriodsForViewer(user.id, user.roleId);
+  }
+
   @Get(':periodId/summary')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async getSummary(

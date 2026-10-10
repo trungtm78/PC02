@@ -18,6 +18,7 @@ import type {
   SummaryMode,
   TemplatePreviewResult,
   UnlockRequestView,
+  ViewablePeriodView,
 } from './types';
 
 /**
@@ -227,4 +228,8 @@ export const dynamicReportsApi = {
     api
       .get<ReportHistoryView>(`/bao-cao-dong/periods/${periodId}/history`)
       .then((r) => r.data),
+
+  /** T-VIEWER-NAV — every OPEN period the caller (manager OR viewer) has standing on. */
+  listViewablePeriods: () =>
+    api.get<ViewablePeriodView[]>('/bao-cao-dong/periods').then((r) => r.data),
 };
