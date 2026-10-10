@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, createEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import SubmissionInputPage from '../SubmissionInputPage';
@@ -44,6 +44,20 @@ const VIEW: SubmissionView = {
       sheetKey: 'Đội 3',
       address: 'C6',
       label: 'Số vụ mới',
+      type: 'NUM',
+      format: null,
+      aggregate: 'SUM',
+      required: false,
+      min: null,
+      max: null,
+      scale: null,
+      maxLength: null,
+    },
+    {
+      fieldKey: 'Đội 3!C7',
+      sheetKey: 'Đội 3',
+      address: 'C7',
+      label: 'Số vụ đã giải quyết',
       type: 'NUM',
       format: null,
       aggregate: 'SUM',
@@ -235,5 +249,68 @@ describe('SubmissionInputPage', () => {
     await waitFor(() => screen.getByTestId('btn-reload'));
     expect(screen.getByTestId('save-error')).toHaveTextContent('phiên khác');
     confirmSpy.mockRestore();
+  });
+
+  it('pastes a TSV block across fields in the same sheet and saves them in one batch', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.saveSubmissionValues).mockResolvedValue({
+      revision: '2',
+      state: 'DRAFT',
+      savedAt: '2026-10-10T10:00:01.000Z',
+      serverTime: '2026-10-10T10:00:01.000Z',
+      effectiveLockAt: '2026-11-05T17:00:00.000Z',
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    const input = screen.getByTestId('input-Đội 3!C6');
+    const pasteEvent = createEvent.paste(input, {
+      clipboardData: { getData: () => '12\n34' },
+    });
+    fireEvent(input, pasteEvent);
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.saveSubmissionValues).toHaveBeenCalledWith(
+        'assign1',
+        { 'Đội 3!C6': '12', 'Đội 3!C7': '34' },
+        '1',
+      );
+    });
+    expect(screen.getByTestId('input-Đội 3!C7')).toHaveValue('34');
+  });
+
+  it('rejects the whole paste batch when a targeted cell is not an input field', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    const input = screen.getByTestId('input-Đội 3!C6');
+    const pasteEvent = createEvent.paste(input, {
+      // Tab shifts the second value to D6, which has no field — the whole
+      // batch (including C6) must be rejected, not just D6.
+      clipboardData: { getData: () => '12\t34' },
+    });
+    fireEvent(input, pasteEvent);
+
+    await waitFor(() => screen.getByTestId('save-error'));
+    expect(dynamicReportsApi.saveSubmissionValues).not.toHaveBeenCalled();
+    expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5');
+  });
+
+  it('rejects the whole paste batch when one pasted cell fails type validation', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('input-Đội 3!C6'));
+    const input = screen.getByTestId('input-Đội 3!C6');
+    const pasteEvent = createEvent.paste(input, {
+      clipboardData: { getData: () => '12\nabc' },
+    });
+    fireEvent(input, pasteEvent);
+
+    await waitFor(() => screen.getByTestId('save-error'));
+    expect(dynamicReportsApi.saveSubmissionValues).not.toHaveBeenCalled();
+    expect(screen.getByTestId('input-Đội 3!C6')).toHaveValue('5');
+    expect(screen.getByTestId('input-Đội 3!C7')).toHaveValue('');
   });
 });

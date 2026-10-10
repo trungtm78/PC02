@@ -22,7 +22,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
-import type { DynReportSubmissionState } from '@/features/dynamic-reports/types';
+import type { DynReportSubmissionState, SubmissionFieldView } from '@/features/dynamic-reports/types';
+import { planPaste } from '@/features/dynamic-reports/engine/generated/paste';
+import { validateFieldValue } from '@/features/dynamic-reports/engine/generated/values';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
@@ -160,6 +162,66 @@ export default function SubmissionInputPage() {
     void flush(values);
   }
 
+  /**
+   * TSV paste (S11/PR6 slice 5, FRD §6.1): a multi-cell block copied from
+   * Excel maps positionally onto this sheet's fields, anchored at the
+   * field the user pasted into. `planPaste` (engine/paste.ts) rejects the
+   * whole block if any targeted address isn't one of this sheet's input
+   * fields; this handler adds the second half of its documented contract
+   * — per-cell type validation via values.ts — and rejects the whole
+   * block on the first invalid cell too, so a paste is all-or-nothing.
+   * Single-cell paste (no tab/newline) falls through to the browser's
+   * default paste so normal typing-equivalent behavior is unaffected.
+   */
+  function handlePaste(
+    e: React.ClipboardEvent<HTMLInputElement>,
+    sheetKey: string,
+    anchorAddress: string,
+    sheetFields: SubmissionFieldView[],
+  ) {
+    const tsv = e.clipboardData.getData('text/plain');
+    if (!tsv.includes('\t') && !tsv.includes('\n')) return;
+    e.preventDefault();
+    if (!editable) return;
+
+    const byAddress = new Map(sheetFields.map((f) => [f.address, f]));
+    const plan = planPaste(anchorAddress, tsv, (address) => byAddress.has(address));
+    if (!plan.ok) {
+      setSaveStatus('error');
+      setSaveError(plan.error.message);
+      return;
+    }
+
+    const normalized: Record<string, string> = {};
+    for (const cell of plan.cells) {
+      const field = byAddress.get(cell.address) as SubmissionFieldView;
+      const validation = validateFieldValue(
+        {
+          type: field.type,
+          required: field.required,
+          min: field.min ?? undefined,
+          max: field.max ?? undefined,
+          scale: field.scale ?? undefined,
+          maxLength: field.maxLength ?? undefined,
+        },
+        cell.rawValue.trim() === '' ? null : cell.rawValue,
+      );
+      if (!validation.ok) {
+        setSaveStatus('error');
+        setSaveError(`Ô "${sheetKey}!${cell.address}": ${validation.error.message}`);
+        return;
+      }
+      normalized[`${sheetKey}!${cell.address}`] = validation.value.v ?? '';
+    }
+
+    const next = { ...values, ...normalized };
+    for (const key of Object.keys(normalized)) dirtyRef.current.add(key);
+    setValues(next);
+    setSaveError(null);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    void flush(next);
+  }
+
   const bySheet = useMemo(() => {
     const groups = new Map<string, typeof initial extends undefined ? never : NonNullable<typeof initial>['fields']>();
     for (const f of initial?.fields ?? []) {
@@ -254,6 +316,7 @@ export default function SubmissionInputPage() {
                     disabled={!editable}
                     onChange={(e) => handleChange(f.fieldKey, e.target.value)}
                     onBlur={handleBlur}
+                    onPaste={(e) => handlePaste(e, sheetKey, f.address, fields)}
                     className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400"
                   />
                   {fieldErrors[f.fieldKey] && (
