@@ -6,12 +6,14 @@
  * shape of use as DeadlineRulesListPage — an org configures at most a
  * handful of report templates, never thousands.
  *
- * Action buttons (Tạo / Xem / Sửa nháp / Tạo phiên bản / Sao chép cấu
- * hình / Ngừng phát sinh) are NOT wired yet — the wizard (S02-S10) that
- * they lead to doesn't exist. They render disabled with an inline note
- * rather than linking to a page that 404s.
+ * "Tạo báo cáo" links to the upload step (S02/S03, PR4 slice 3). The rest
+ * of the action buttons (Xem / Sửa nháp / Tạo phiên bản / Sao chép cấu
+ * hình / Ngừng phát sinh) are still NOT wired — the rest of the wizard
+ * (S04-S10) that they lead to doesn't exist yet. They render with an
+ * inline note rather than linking to a page that 404s.
  */
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FileSpreadsheet, AlertCircle, Plus } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
@@ -141,15 +143,14 @@ export default function ReportRegisterPage() {
                 onReset={datLai}
                 onDoiCho={doiCho}
               />
-              <button
-                type="button"
+              <Link
+                to="/bao-cao-dong/thiet-lap/moi"
                 className={`flex items-center gap-1 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 rounded-lg border border-blue-200 ${A11Y_FOCUS_RING}`}
                 data-testid="btn-create-report"
-                onClick={() => announceComingSoon('Tạo báo cáo mới')}
               >
                 <Plus className="w-4 h-4" />
                 Tạo báo cáo
-              </button>
+              </Link>
             </div>
           }
         />
