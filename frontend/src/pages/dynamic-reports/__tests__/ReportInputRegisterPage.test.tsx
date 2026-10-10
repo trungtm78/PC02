@@ -23,6 +23,8 @@ function renderPage() {
 
 const SAMPLE: AssignmentSummary = {
   assignmentId: 'assign1',
+  reportId: 'report1',
+  periodId: 'period1',
   reportName: 'HSLN',
   teamName: 'Đội 3',
   periodKey: '2026-10',

@@ -23,6 +23,8 @@ function renderPage() {
 
 const SAMPLE: AssignmentSummary = {
   assignmentId: 'assign1',
+  reportId: 'report1',
+  periodId: 'period1',
   reportName: 'HSLN',
   teamName: 'Đội 3',
   periodKey: '2026-10',
@@ -46,6 +48,10 @@ describe('ReportManagerListPage', () => {
     );
     expect(screen.getByText('HSLN — Đội 3')).toBeInTheDocument();
     expect(screen.getByText('Đã nộp')).toBeInTheDocument();
+    expect(screen.getByTestId('period-summary-link-period1')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/duyet/tong-hop/period1',
+    );
   });
 
   it('shows the empty state when there is nothing to review', async () => {

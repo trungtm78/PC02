@@ -1,12 +1,14 @@
 import { api } from '@/lib/api';
 import type {
   AssignmentSummary,
+  PeriodSummaryView,
   ReportSetupSummary,
   SaveReportConfigPayload,
   SaveReportConfigResult,
   SaveValuesResult,
   SheetInfo,
   SubmissionView,
+  SummaryMode,
   TemplatePreviewResult,
 } from './types';
 
@@ -126,6 +128,14 @@ export const dynamicReportsApi = {
       .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/unapprove`, {
         expectedRevision,
         reason,
+      })
+      .then((r) => r.data),
+
+  /** S15 thu nhỏ (PR7 slice 2). */
+  getPeriodSummary: (periodId: string, mode: SummaryMode) =>
+    api
+      .get<PeriodSummaryView>(`/bao-cao-dong/periods/${periodId}/summary`, {
+        params: { mode },
       })
       .then((r) => r.data),
 };

@@ -63,6 +63,8 @@ export interface SaveValuesResult {
 
 export interface AssignmentSummary {
   assignmentId: string;
+  reportId: string;
+  periodId: string;
   reportName: string;
   teamName: string;
   periodKey: string;
@@ -253,6 +255,8 @@ export class SubmissionService {
       const teamSnapshot = a.teamSnapshot as { name?: string } | null;
       return {
         assignmentId: a.id,
+        reportId: a.period.reportId,
+        periodId: a.period.id,
         reportName: a.period.report.name,
         teamName: teamSnapshot?.name ?? '',
         periodKey: a.period.periodKey,
@@ -363,6 +367,8 @@ export class SubmissionService {
         } | null;
         return {
           assignmentId: assignment.id,
+          reportId: assignment.period.reportId,
+          periodId: assignment.period.id,
           reportName: assignment.period.report.name,
           teamName: teamSnapshot?.name ?? '',
           periodKey: assignment.period.periodKey,
