@@ -49,6 +49,8 @@ describe('ReportConfigService', () => {
       selectedSheets: ['Đội 3'],
       dateSystem: '1900',
       fields: [],
+      layout: { sheetOrder: ['Đội 3'], sheets: [] },
+      formulas: [],
       schedule: {
         periodType: 'MONTHLY',
         dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
@@ -241,10 +243,17 @@ describe('ReportConfigService', () => {
     expect(reportData.data.status).toBe('PUBLISHED');
 
     const versionData = tx.dynReportVersion.create.mock.calls[0][0] as {
-      data: { status: string; publishedAt: unknown };
+      data: { status: string; publishedAt: unknown; layout: unknown };
     };
     expect(versionData.data.status).toBe('PUBLISHED');
     expect(versionData.data.publishedAt).toBeInstanceOf(Date);
+    // GridRenderer (PR6 S11) reads this back — must be the real parsed
+    // structure, not the `{}` placeholder this service shipped with
+    // before this fix.
+    expect(versionData.data.layout).toEqual({
+      layout: { sheetOrder: ['Đội 3'], sheets: [] },
+      formulas: [],
+    });
 
     const fieldsData = tx.dynReportField.createMany.mock.calls[0][0] as {
       data: Array<{ versionId: string; fieldKey: string }>;

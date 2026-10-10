@@ -26,6 +26,8 @@ describe('SaveReportConfigRequestDto', () => {
         source: 'TOKEN',
       },
     ],
+    layout: { sheetOrder: ['Đội 3'], sheets: [] },
+    formulas: [],
     schedule: {
       periodType: 'MONTHLY',
       dueRule: { kind: 'DAYS_AFTER_END', days: 5, time: '17:00' },
