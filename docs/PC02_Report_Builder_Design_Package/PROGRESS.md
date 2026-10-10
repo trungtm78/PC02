@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T21:10:00+07:00 | Milestone: PR0-PR5 + PR4 (S02-S10) + PR6 (slice 1-6) + PR7 slice 1-5 (Duyệt/Trả/Huỷ duyệt + Tổng hợp + Lịch sử + Mở khoá + Nguồn số liệu, PR #539-543) đã merge main và chạy thật trên prod — **flag `dynamic_reports` ĐANG BẬT trên production theo yêu cầu của anh**; PR7 slice 6 (S38 Chốt kỳ/Mở chốt) xong, đã bấm thử thật, chờ push/PR/merge | Task: 0/~6
+Cập nhật: 2026-10-10T21:25:00+07:00 | Milestone: PR0-PR5 + PR4 (S02-S10) + PR6 (slice 1-6) + PR7 slice 1-6 (Duyệt/Trả/Huỷ duyệt + Tổng hợp + Lịch sử + Mở khoá + Nguồn số liệu + Chốt kỳ, PR #539-544) đã merge main và chạy thật trên prod — **flag `dynamic_reports` ĐANG BẬT trên production theo yêu cầu của anh**; bắt đầu PR7 slice 7 (S25 Xuất Excel) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -198,8 +198,10 @@ BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr7-slice4` → `g
   - **Đã bấm thử thật trên Chromium với backend+Postgres thật, cả 2 tài khoản MANAGER và ADMIN thật**: manager chốt kỳ → UI hiện "Đã chốt" → SQL xác nhận `period.status=FINALIZED`, snapshot `mode=APPROVED, official=true`, giá trị đúng `countTotal=0` (tổ test chỉ SUBMITTED, chưa APPROVED, nên đúng luật bị loại — không phải lỗi) → **manager (không phải admin) thử Mở chốt → bị từ chối đúng lỗi chống dò "Không tìm thấy kỳ báo cáo này.", UI vẫn giữ "Đã chốt"** (xác nhận biên bảo mật thật, không chỉ test đơn vị) → đăng nhập admin thật → Mở chốt kèm lý do → UI về lại nút "Chốt kỳ" → SQL xác nhận `period.status=OPEN`, snapshot cũ vẫn còn nhưng đã có `invalidatedReason` đúng chữ đã nhập. Đã dọn dev server + `.env`.
   - Chạy lại TOÀN BỘ 2 bộ test: backend 8109 ca — chỉ 1 ca lỗi chập chờn `monthly-report-export` có từ trước; frontend 4978 ca — 2 lỗi chập chờn có từ trước ở `cases/governance`, không liên quan.
 
+- [x] **Đã merge PR #544 (PR7 slice 6) vào `main`** — admin-merge (tiền lệ #522-543), CI xanh 5/5, merge commit `06def4114c09906cfc9c5b1f547157f82aae6921`, 10/10/2026 21:12 (+07:00). Deploy xanh, health buildId khớp — xác nhận 21:22. Vẫn chưa có báo cáo thật nào trên prod.
+
 ## Đang làm dở
-Task: PR7 slice 6 (S38 Chốt kỳ/Mở chốt) đã xong, xanh, **đã bấm thử thật cả đường thành công và đường bị chặn bảo mật (manager không phải admin bị từ chối)** — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr7-slice6` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`. **Flag `dynamic_reports` vẫn ĐANG BẬT trên production.**
+Task: Bắt đầu PR7 slice 7 — S25 Xuất Excel (workbook TỔNG + từng tổ). Nhánh `feat/dynamic-reports-pr7-slice7` (fresh từ `origin/main`) tại worktree `C:\PC02\pc02-dynamic-reports`, chưa có thay đổi code — đang khảo sát khuôn xuất Excel có sẵn trong repo (`escapeXlsxCell`, mẫu response file-download) trước khi viết. **Flag `dynamic_reports` vẫn ĐANG BẬT trên production.**
 
 BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr7-slice6` → `gh pr create` → chờ CI → merge (`--admin`, tiền lệ #522-543) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR7 slice 7 — S25 Xuất (workbook TỔNG + 1 sheet/tổ + sheet metadata, R18 escape XLSX/CSV đã có `escapeXlsxCell`, TTL 24h dọn `DynReportExport`, R17 advisory lock chống job dọn chạy chồng):
 1. Việc còn lại của PR7 sau slice 7 (S21 lịch sử/audit toàn báo cáo, S34 hàng chờ yêu cầu mở lại + mở khoá hàng loạt) — xem Hàng đợi.
