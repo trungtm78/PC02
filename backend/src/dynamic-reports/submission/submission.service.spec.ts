@@ -960,6 +960,12 @@ describe('SubmissionService', () => {
         dynReportAssignment: tx.dynReportAssignment,
         rolePermission: tx.rolePermission,
         dynReportRole: tx.dynReportRole,
+        dynReportUnlock: tx.dynReportUnlock,
+        dynReportRevision: {
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue([]),
+        },
       };
       const service = new SubmissionService(prisma as unknown as PrismaService);
 
@@ -972,6 +978,7 @@ describe('SubmissionService', () => {
       expect(result.editable).toBe(false);
       expect(result.effectiveLockAt).toBeNull();
       expect(result.state).toBe('SUBMITTED');
+      expect(result.history).toEqual([]);
     });
 
     it('rejects (404) a getSubmissionForManager call from a non-manager', async () => {
@@ -987,6 +994,114 @@ describe('SubmissionService', () => {
       await expect(
         service.getSubmissionForManager('assign1', 'u1', 'role1'),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('surfaces the real reopen deadline for a RETURNED submission (S16)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'RETURNED',
+            currentRevision: 2n,
+            values: {},
+            approvalLevel: 0,
+            returnDueAt: new Date('2099-01-01T00:00:00Z'),
+          },
+        }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const prisma = {
+        dynReportAssignment: tx.dynReportAssignment,
+        rolePermission: tx.rolePermission,
+        dynReportRole: tx.dynReportRole,
+        dynReportUnlock: tx.dynReportUnlock,
+        dynReportRevision: {
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue([]),
+        },
+      };
+      const service = new SubmissionService(prisma as unknown as PrismaService);
+
+      const result = await service.getSubmissionForManager(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result.effectiveLockAt).toBe('2099-01-01T00:00:00.000Z');
+    });
+
+    it('returns the revision history as metadata only (actor name, kind, reason), never values', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'APPROVED',
+            currentRevision: 2n,
+            values: {},
+            approvalLevel: 1,
+            returnDueAt: null,
+          },
+        }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const prisma = {
+        dynReportAssignment: tx.dynReportAssignment,
+        rolePermission: tx.rolePermission,
+        dynReportRole: tx.dynReportRole,
+        dynReportUnlock: tx.dynReportUnlock,
+        dynReportRevision: {
+          findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([
+            {
+              revision: 1n,
+              kind: 'SUBMIT',
+              reason: null,
+              committedAt: new Date('2026-06-10T08:00:00Z'),
+              actor: {
+                firstName: 'Nguyễn',
+                lastName: 'Văn A',
+                username: 'nva',
+              },
+            },
+            {
+              revision: 2n,
+              kind: 'APPROVE',
+              reason: 'OK',
+              committedAt: new Date('2026-06-12T08:00:00Z'),
+              actor: { firstName: null, lastName: null, username: 'mgr1' },
+            },
+          ]),
+        },
+      };
+      const service = new SubmissionService(prisma as unknown as PrismaService);
+
+      const result = await service.getSubmissionForManager(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result.history).toEqual([
+        {
+          revision: '1',
+          kind: 'SUBMIT',
+          actorName: 'Nguyễn Văn A',
+          reason: null,
+          committedAt: '2026-06-10T08:00:00.000Z',
+        },
+        {
+          revision: '2',
+          kind: 'APPROVE',
+          actorName: 'mgr1',
+          reason: 'OK',
+          committedAt: '2026-06-12T08:00:00.000Z',
+        },
+      ]);
+      expect(result.history?.[0]).not.toHaveProperty('valuesFull');
+      expect(result.history?.[0]).not.toHaveProperty('diff');
     });
   });
 });

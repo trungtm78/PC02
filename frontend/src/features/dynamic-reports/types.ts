@@ -179,6 +179,16 @@ export interface SubmissionView {
   editable: boolean;
   effectiveLockAt: string | null;
   serverTime: string;
+  /** S16 (PR7 slice 3) — only populated on the manager's read. */
+  history?: RevisionHistoryEntry[];
+}
+
+export interface RevisionHistoryEntry {
+  revision: string;
+  kind: string;
+  actorName: string;
+  reason: string | null;
+  committedAt: string;
 }
 
 export interface SaveValuesResult {
