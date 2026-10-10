@@ -155,6 +155,34 @@ describe('StatusQueryService', () => {
     expect(call.where.period.reportId.in).toEqual(['report1']);
   });
 
+  it('SECURITY: a non-admin passing an out-of-scope reportId filter must NOT see that report (no scope bypass)', async () => {
+    const { service, prisma } = buildService([assignment('a1')], {
+      roles: [{ reportId: 'report1' }],
+    });
+
+    const result = await service.listAssignmentStatuses('mgr1', 'roleMgr', {
+      reportId: 'some-other-report-i-have-no-role-on',
+    });
+
+    expect(result.items).toEqual([]);
+    expect(prisma.dynReportAssignment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('SECURITY: a non-admin passing an in-scope reportId filter narrows to just that report', async () => {
+    const { service, prisma } = buildService([assignment('a1')], {
+      roles: [{ reportId: 'report1' }, { reportId: 'report2' }],
+    });
+
+    await service.listAssignmentStatuses('mgr1', 'roleMgr', {
+      reportId: 'report1',
+    });
+
+    const call = prisma.dynReportAssignment.findMany.mock.calls[0][0] as {
+      where: { period: { reportId: string } };
+    };
+    expect(call.where.period.reportId).toBe('report1');
+  });
+
   it('computes dataCoverageLabel from the submission values against the version fields', async () => {
     const { service } = buildService(
       [
