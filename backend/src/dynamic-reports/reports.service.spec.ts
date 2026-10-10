@@ -34,22 +34,6 @@ describe('DynamicReportsRegistryService', () => {
   }
 
   describe('mode=setup', () => {
-    it('returns every report when the caller holds manage:DynamicReport', async () => {
-      prisma.rolePermission.findMany.mockResolvedValue([
-        { permission: { action: 'manage', subject: 'DynamicReport' } },
-      ]);
-      prisma.dynReport.findMany.mockResolvedValue([{ id: 'r1' }]);
-
-      const result = await service.listReports(user, 'setup');
-
-      expect(result).toEqual([{ id: 'r1' }]);
-      expect(prisma.dynReport.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ orderBy: { updatedAt: 'desc' } }),
-      );
-      // setup is global — no role/scope filter in the where clause
-      expect(lastFindManyArgs().where).toBeUndefined();
-    });
-
     it('rejects with 404 (anti-probe) when the caller lacks manage:DynamicReport', async () => {
       prisma.rolePermission.findMany.mockResolvedValue([]);
 
@@ -57,6 +41,105 @@ describe('DynamicReportsRegistryService', () => {
         NotFoundException,
       );
       expect(prisma.dynReport.findMany).not.toHaveBeenCalled();
+    });
+
+    it('shapes each report into the full S01 list-page summary (loại kỳ, hạn tiếp theo, quản lý, số tổ, phiên bản)', async () => {
+      prisma.rolePermission.findMany.mockResolvedValue([
+        { permission: { action: 'manage', subject: 'DynamicReport' } },
+      ]);
+      prisma.dynReport.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          code: 'HSLN',
+          name: 'Thống kê hình sự liên ngành',
+          status: 'PUBLISHED',
+          reportingUnit: 'TEAM',
+          effectiveFrom: new Date('2026-01-01'),
+          updatedAt: new Date('2026-06-01'),
+          schedules: [{ periodType: 'MONTHLY' }],
+          roles: [
+            {
+              user: { firstName: 'Văn A', lastName: 'Nguyễn', username: 'nva' },
+            },
+            { user: { firstName: 'Thị B', lastName: 'Trần', username: 'ttb' } },
+          ],
+          targets: [{ id: 't1' }, { id: 't2' }, { id: 't3' }],
+          versions: [{ version: 3 }],
+          periods: [{ dueAt: new Date('2026-07-05T17:00:00Z') }],
+        },
+      ]);
+
+      const [result] = await service.listReports(user, 'setup');
+
+      expect(result).toMatchObject({
+        id: 'r1',
+        code: 'HSLN',
+        name: 'Thống kê hình sự liên ngành',
+        status: 'PUBLISHED',
+        periodType: 'MONTHLY',
+        nextDueAt: new Date('2026-07-05T17:00:00Z'),
+        teamCount: 3,
+        latestVersion: 3,
+      });
+      expect((result as { managers: string[] }).managers).toEqual([
+        'Nguyễn Văn A',
+        'Trần Thị B',
+      ]);
+    });
+
+    it('reports null for periodType/nextDueAt/latestVersion and an empty manager list when a report has none configured yet', async () => {
+      prisma.rolePermission.findMany.mockResolvedValue([
+        { permission: { action: 'manage', subject: 'DynamicReport' } },
+      ]);
+      prisma.dynReport.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          code: 'NEW',
+          name: 'Báo cáo mới tạo',
+          status: 'DRAFT',
+          reportingUnit: 'TEAM',
+          effectiveFrom: null,
+          updatedAt: new Date('2026-06-01'),
+          schedules: [],
+          roles: [],
+          targets: [],
+          versions: [],
+          periods: [],
+        },
+      ]);
+
+      const [result] = await service.listReports(user, 'setup');
+
+      expect(result).toMatchObject({
+        periodType: null,
+        nextDueAt: null,
+        managers: [],
+        teamCount: 0,
+        latestVersion: null,
+      });
+    });
+
+    it('queries with the right relation filters: active targets, active MANAGER roles, only OPEN periods, latest version', async () => {
+      prisma.rolePermission.findMany.mockResolvedValue([
+        { permission: { action: 'manage', subject: 'DynamicReport' } },
+      ]);
+      prisma.dynReport.findMany.mockResolvedValue([]);
+
+      await service.listReports(user, 'setup');
+
+      const args = lastFindManyArgs() as unknown as {
+        include: {
+          schedules: { where: Record<string, unknown> };
+          roles: { where: Record<string, unknown> };
+          targets: { where: Record<string, unknown> };
+          periods: { where: Record<string, unknown> };
+          versions: { orderBy: Record<string, unknown> };
+        };
+      };
+      expect(args.include.schedules.where).toEqual({ supersededAt: null });
+      expect(args.include.roles.where.role).toBe('MANAGER');
+      expect(args.include.periods.where.status).toBe('OPEN');
+      expect(args.include.versions.orderBy).toEqual({ version: 'desc' });
     });
   });
 

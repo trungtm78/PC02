@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T07:11:00+07:00 | Milestone: PR0-PR5 ĐÃ MERGE + DEPLOY main (buildId `31150a83`) → chuyển sang PR4 (frontend) | Task: 0/~6
+Cập nhật: 2026-10-10T07:58:00+07:00 | Milestone: PR0-PR5 đã merge main; PR4 slice 1 (S01) ĐÃ XONG + đã bấm thử thật trên Chromium, trên nhánh `feat/dynamic-reports-pr4-wizard` (chưa merge) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -24,22 +24,26 @@ Cập nhật: 2026-10-10T07:11:00+07:00 | Milestone: PR0-PR5 ĐÃ MERGE + DEPLOY
   - `period-scheduler.service.ts`: cron mỗi giờ, R17 `pg_try_advisory_xact_lock` (không chặn — tick trùng thì bỏ qua, không xếp hàng) bọc quanh toàn bộ lượt chạy. Mỗi kỳ mới tạo luôn Assignment + AssignmentEditor (lọc theo validFrom/validTo) + Submission (R5: tạo sẵn, không tạo lười). Báo thiếu PUBLISHED version thì cảnh báo và bỏ qua, không lỗi. Một report lỗi không chặn report khác trong cùng lượt chạy.
   - 25 test mới, 100% dòng cả 2 file.
 
-**Tổng PR0-PR5: 436 test dynamic-reports, toàn bộ xanh. Backend full suite 7860/7975 (115 skip có trước) xanh. tsc --noEmit và eslint sạch. Feature flag `dynamic_reports` tắt mặc định → 0 ảnh hưởng hành vi cho user hiện có.**
+- [x] **PR4 slice 1 — S01 Danh sách báo cáo** (frontend đầu tiên của module), nhánh `feat/dynamic-reports-pr4-wizard`:
+  - `frontend/src/features/dynamic-reports/` theo khuôn `kpi/` (manifest key `dynamic_reports` khớp backend) + `frontend/src/pages/dynamic-reports/ReportRegisterPage.tsx` theo khuôn `DeadlineRulesListPage.tsx` (ListPageShell/ColumnPicker/useBoCucCot, không search/phân trang — cùng quy mô danh sách).
+  - Cột đủ theo spec: Mã/Tên/Loại kỳ/Hạn tiếp theo/Quản lý/Số tổ/Phiên bản/Trạng thái/Cập nhật. Nút hành động (Tạo/Xem/Sửa nháp/Tạo phiên bản/Sao chép/Ngừng phát sinh) hiện nhưng chưa nối — bấm ra ghi chú "đang phát triển", không dẫn tới trang 404 vì wizard S02-S10 chưa có.
+  - Backend: mở rộng `GET /bao-cao-dong/reports?mode=setup` (PR2 chỉ dựng tối giản cho combo-box) thêm join: loại kỳ (schedule mới nhất), hạn tiếp theo (kỳ OPEN gần nhất), tên quản lý (dùng lại `hoTenCanBo` có sẵn), số tổ, phiên bản mới nhất. `mode=input|manage` giữ nguyên truy vấn nhẹ.
+  - Đụng 2 cổng toàn kho (không phải test riêng của dynamic-reports) khi thêm bề mặt mới: `generate-shared-enums.cjs` whitelist (thêm `DynReportStatus`/`DynReportPeriodType` — enum Prisma không tự đồng bộ sang frontend) và `user-table-layouts.service.ts` `BANG_HOP_LE` (thêm khoá bảng `dynamic-reports-setup` — cổng `khoa-bang-giao-dien-phai-duoc-nhan.gate.spec.ts` canh mọi `useBoCucCot()` phải có trong danh sách trắng phía máy chủ). Cả hai chỉ lộ ra khi chạy FULL SUITE, không lộ khi chỉ chạy test trong `dynamic-reports/`.
+  - **Đã bấm thử thật trên Chromium (Playwright, cài mới cho phiên này — môi trường trước đó không có sẵn trình duyệt tự động):** dựng DB dev cục bộ (`pc02_db` tại 127.0.0.1:5433, `db push` đồng bộ schema thay vì replay 135+ migration cũ), sinh khoá RSA JWT riêng cho local (không đụng `keys/public.pem` đã commit), bật flag `dynamic_reports`, chạy `backend start:dev` + `frontend dev`, đăng nhập thật, bấm đúng mục trình đơn (xác nhận mục "BÁO CÁO & THỐNG KÊ" chỉ là khung gấp — không phải lỗi thiếu mục), xác nhận trạng thái rỗng, gieo 1 dòng DynReport+schedule+role+target+period thật rồi xác nhận mọi cột hiện đúng, 0 lỗi console/network. Đã dọn dữ liệu thử + ảnh chụp màn hình, không commit.
+  - 6 test frontend mới (ReportRegisterPage), 3 test backend mới (reports.service chế độ setup).
+
+**Tổng PR0-PR4(slice1): 442 test dynamic-reports, toàn bộ xanh. Backend full suite 7863/7978 (115 skip có trước) xanh. Frontend full suite 4890/4891 (1 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
 ### Vấn đề hạ tầng đã gỡ (không phải của dynamic-reports nhưng chặn đường)
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR0-PR5 đã merge + deploy xong hết. Chưa bắt đầu PR4.
+Task: PR4 slice 1 (S01) đã xong, xanh, đã bấm thử thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-wizard` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
 
-BƯỚC TIẾP THEO: PR4 — Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung. Đây là việc FRONTEND đầu tiên của module — khác hẳn nhịp độ PR0-PR5 (toàn backend, test tự động đủ tin cậy). Theo feedback_bam_thu_that_moi_thay, PR4 cần:
-1. Tạo worktree/nhánh mới từ `origin/main` (đã có đủ PR0-PR5).
-2. Dựng khung `frontend/src/features/dynamic-reports/` theo khuôn `frontend/src/features/kpi/`.
-3. Viết UI + test tự động (vitest) NHƯ MỌI PR trước — nhưng KHÔNG dừng ở đó: phải chạy `npm run dev`, mở trình duyệt, bấm thử từng bước wizard thật trước khi coi là xong, vì test tự động không bắt được lỗi hiển thị/UX.
-4. Flag `dynamic_reports` vẫn tắt trên prod — bật tạm ở `.env` local (`ENABLED_FEATURES` hoặc bật thẳng trong DB dev) để xem được màn hình khi bấm thử.
+BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-wizard` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó tiếp tục PR4 slice 2: wizard 4 bước thật (S02-S10 upload mẫu Excel, đánh dấu ô, đặt lịch, chọn tổ/người nhập) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung cho các màn sau. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ) đã dựng xong trong phiên này — lần sau chỉ cần lặp lại, không phải dựng lại từ đầu (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới).
 
 ## Hàng đợi task kế tiếp
-1. PR4: Màn A (wizard 4 bước S01-S10, S22, S30-S32) + GridRenderer chỉ đọc dùng chung
+1. PR4 slice 2: wizard 4 bước S02-S10 (upload+đánh dấu ô+lịch+tổ/người nhập) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung
 2. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
 3. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
 4. PR8: Màn C (dùng `engine/status.ts` đã có)
@@ -62,8 +66,9 @@ BƯỚC TIẾP THEO: PR4 — Màn A (wizard 4 bước S01-S10, S22, S30-S32) + G
 | Phê duyệt nhiều cấp (R21) ai giữ cấp nào | `actingApprovalLevel` lấy từ `DynReportRole` của người quản lý đó (sẽ gắn field `approvalLevel` lên `DynReportRole` khi PR7 hiện thực — CHƯA thêm vào schema PR2 vì PR2 chỉ cần bảng chuyển trạng thái thuần, chưa cần cột DB cho việc này) | spec §10 R21 |
 
 ## Trạng thái test
-Backend full suite: PASS (exit 0, 6 lần chạy xuyên suốt PR0-PR2) | Frontend `tsc -b`: sạch | Frontend vitest: 4884/4885 (1 lỗi chập chờn có trước)
+Backend full suite: PASS (7863/7978, 115 skip có trước) | Backend tsc --noEmit: sạch | Frontend tsc -b: sạch | Frontend vitest: 4890/4891 (1 lỗi chập chờn có trước, không liên quan)
 Patch coverage theo file mới: 95-100% dòng, tất cả ≥90%
+PR4 slice 1 (S01): đã bấm thử thật trên Chromium (xem Đã hoàn thành) — lần kiểm UI thật đầu tiên của module.
 
 ## Nợ kỹ thuật / rủi ro
 - Chưa có tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code — xem spec §8).

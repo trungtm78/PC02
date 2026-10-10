@@ -3,7 +3,7 @@
  * Source of truth: Prisma schema (via generated.ts).
  * Used by: ComprehensiveListPage, and any future aggregate or detail view.
  */
-import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac } from './generated';
+import { CaseStatus, IncidentStatus, PetitionStatus, LoaiNguonTin, NguonPhatTin, PhuongThucTiepNhan, DeadlineRuleStatus, LoaiDon, CaseType, LoaiUyThac, DynReportStatus, DynReportPeriodType } from './generated';
 import { CATALOG_LEGAL, CATALOG_META } from '@/shared/catalog/catalog.generated';
 import { STATUS_PENDING_RESPONSE } from '@/constants/styles';
 
@@ -346,6 +346,32 @@ export const DEADLINE_RULE_STATUS_BADGE_CLASS: Record<DeadlineRuleStatus, string
 /** Migration-cleanup virtual sub-status: rule is active but legalBasis is INITIAL_MIGRATION. */
 export const MIGRATED_NEEDS_DOC_BADGE_CLASS = 'bg-amber-100 text-amber-700';
 export const MIGRATED_NEEDS_DOC_LABEL = 'Cần bổ sung tài liệu';
+
+// ── DynReportStatus / DynReportPeriodType (PR4 — S01 Danh sách báo cáo) ──
+
+export const DYN_REPORT_STATUS_LABEL: Record<DynReportStatus, string> = {
+  [DynReportStatus.DRAFT]:     'Bản nháp',
+  [DynReportStatus.PUBLISHED]: 'Đã xuất bản',
+  [DynReportStatus.SUSPENDED]: 'Đã ngừng phát sinh',
+  [DynReportStatus.ARCHIVED]:  'Đã lưu trữ',
+};
+
+export const DYN_REPORT_STATUS_BADGE_CLASS: Record<DynReportStatus, string> = {
+  [DynReportStatus.DRAFT]:     'bg-slate-100 text-slate-600',
+  [DynReportStatus.PUBLISHED]: 'bg-green-100 text-green-700',
+  [DynReportStatus.SUSPENDED]: 'bg-amber-100 text-amber-700',
+  [DynReportStatus.ARCHIVED]:  'bg-slate-100 text-slate-400',
+};
+
+export const DYN_REPORT_PERIOD_TYPE_LABEL: Record<DynReportPeriodType, string> = {
+  [DynReportPeriodType.DAILY]:       'Hằng ngày',
+  [DynReportPeriodType.WEEKLY]:      'Hằng tuần',
+  [DynReportPeriodType.MONTHLY]:     'Hằng tháng',
+  [DynReportPeriodType.QUARTERLY]:   'Hằng quý',
+  [DynReportPeriodType.SEMI_ANNUAL]: 'Mỗi nửa năm',
+  [DynReportPeriodType.YEARLY]:      'Hằng năm',
+  [DynReportPeriodType.ONE_TIME]:    'Một kỳ duy nhất',
+};
 
 // 12 deadline rule keys with their Vietnamese display labels
 export const DEADLINE_RULE_KEY_LABEL: Record<string, string> = {

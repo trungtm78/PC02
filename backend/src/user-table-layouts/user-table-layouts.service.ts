@@ -30,6 +30,8 @@ export const BANG_HOP_LE = new Set([
   // Ủy thác điều tra: thiếu khoá này thì mọi lần kéo cột / chọn mật độ ở màn đó là 400 và không bao giờ được lưu
   // (monkey test 09/10/2026). Cổng khoa-bang-giao-dien-phai-duoc-nhan canh mọi khoá giao diện dùng.
   'utdt',
+  // PR4 S01 — Danh sách báo cáo động (ReportRegisterPage.tsx).
+  'dynamic-reports-setup',
 ]);
 
 /**
@@ -108,7 +110,9 @@ export class UserTableLayoutsService {
       data: { columns: {} },
     });
     if (giuMatDo.count > 0) return { deleted: giuMatDo.count };
-    const r = await this.prisma.userTableLayout.deleteMany({ where: { userId, tableKey } });
+    const r = await this.prisma.userTableLayout.deleteMany({
+      where: { userId, tableKey },
+    });
     return { deleted: r.count };
   }
 
