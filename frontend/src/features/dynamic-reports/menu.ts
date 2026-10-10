@@ -21,4 +21,12 @@ export const dynamicReportsMenu: FeatureMenuEntry[] = [
     path: '/bao-cao-dong/nhap',
     quyen: ['read:DynamicReport'],
   },
+  {
+    section: 'reports',
+    id: 'dynamic-reports-review',
+    label: 'Duyệt báo cáo',
+    icon: 'FileCheck',
+    path: '/bao-cao-dong/duyet',
+    quyen: ['read:DynamicReport'],
+  },
 ];

@@ -131,6 +131,178 @@ export class SubmissionService {
     }));
   }
 
+  /**
+   * S33/PR7 — manager-side actor resolution. Deliberately NOT the app-wide
+   * DataScope (spec §10 R13): `admin:DynamicReport` (checked the same way
+   * `reports.service.ts#getGrants` does, kept duplicated here rather than
+   * shared — a 3-line permission lookup isn't worth a new shared module
+   * for two consumers) overrides any report, otherwise an active
+   * `DynReportRole` row with role=MANAGER for this exact report.
+   */
+  private async resolveManagerRole(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<'ADMIN' | 'MANAGER' | null> {
+    const adminGrant = await client.rolePermission.findFirst({
+      where: {
+        roleId,
+        permission: { subject: 'DynamicReport', action: 'admin' },
+      },
+    });
+    if (adminGrant) return 'ADMIN';
+
+    const now = new Date();
+    const managerRole = await client.dynReportRole.findFirst({
+      where: {
+        reportId,
+        userId,
+        role: 'MANAGER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+    });
+    return managerRole ? 'MANAGER' : null;
+  }
+
+  /**
+   * Same 404-not-403 anti-probe convention as `loadEditorAssignment`: a
+   * report this caller doesn't manage must look identical to an
+   * assignment that doesn't exist.
+   */
+  private async loadAssignmentForManager(
+    client: Prisma.TransactionClient | PrismaService,
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+  ) {
+    const assignment = await client.dynReportAssignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        period: {
+          include: { report: true, version: { include: { fields: true } } },
+        },
+        submission: true,
+      },
+    });
+    if (!assignment || !assignment.submission) {
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      client,
+      assignment.period.report.id,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    }
+    return { assignment, actorRole };
+  }
+
+  /**
+   * S15 thu nhỏ cho slice 1 — danh sách phẳng mọi lượt giao thuộc các báo
+   * cáo caller quản lý (hoặc mọi báo cáo nếu có `admin:DynamicReport`),
+   * đủ để điều hướng vào `getSubmissionForManager`/duyệt-trả-huỷ. Tổng
+   * hợp theo báo cáo (S15 đầy đủ) cần `AggregateService`, chưa có — dời
+   * slice sau.
+   */
+  async listForManager(
+    userId: string,
+    roleId: string,
+  ): Promise<AssignmentSummary[]> {
+    const adminGrant = await this.prisma.rolePermission.findFirst({
+      where: {
+        roleId,
+        permission: { subject: 'DynamicReport', action: 'admin' },
+      },
+    });
+
+    const now = new Date();
+    let reportIds: string[];
+    if (adminGrant) {
+      const reports = await this.prisma.dynReport.findMany({
+        select: { id: true },
+      });
+      reportIds = reports.map((r) => r.id);
+    } else {
+      const roles = await this.prisma.dynReportRole.findMany({
+        where: {
+          userId,
+          role: 'MANAGER',
+          validFrom: { lte: now },
+          OR: [{ validTo: null }, { validTo: { gt: now } }],
+        },
+        select: { reportId: true },
+      });
+      reportIds = roles.map((r) => r.reportId);
+    }
+    if (reportIds.length === 0) return [];
+
+    const assignments = await this.prisma.dynReportAssignment.findMany({
+      where: { period: { reportId: { in: reportIds }, status: 'OPEN' } },
+      include: {
+        period: { include: { report: true } },
+        submission: true,
+      },
+      orderBy: { period: { dueAt: 'desc' } },
+    });
+
+    return assignments.map((a) => {
+      const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+      return {
+        assignmentId: a.id,
+        reportName: a.period.report.name,
+        teamName: teamSnapshot?.name ?? '',
+        periodKey: a.period.periodKey,
+        dueAt: a.period.dueAt.toISOString(),
+        state: a.submission?.state ?? 'NOT_STARTED',
+      };
+    });
+  }
+
+  /**
+   * Manager's read-only view of one submission (S16 thu nhỏ). Always
+   * `editable: false` / `effectiveLockAt: null` — write-access windows are
+   * a per-editor computation (`resolveAccess` needs ONE caller's
+   * `userActive`), meaningless for a manager who never types into cells;
+   * a true S16 showing the editor's own access state is a later slice.
+   */
+  async getSubmissionForManager(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<SubmissionView> {
+    const { assignment } = await this.loadAssignmentForManager(
+      this.prisma,
+      assignmentId,
+      userId,
+      roleId,
+    );
+    const { period, submission } = assignment;
+    if (!submission)
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    const now = new Date();
+
+    return {
+      assignmentId,
+      reportName: period.report.name,
+      periodKey: period.periodKey,
+      periodStart: period.startDate.toISOString().slice(0, 10),
+      periodEnd: period.endDate.toISOString().slice(0, 10),
+      opensAt: period.opensAt.toISOString(),
+      dueAt: period.dueAt.toISOString(),
+      state: submission.state,
+      revision: submission.currentRevision.toString(),
+      values: (submission.values as Record<string, TypedValue>) ?? {},
+      fields: period.version.fields.map((f) => this.toFieldView(f)),
+      editable: false,
+      effectiveLockAt: null,
+      serverTime: now.toISOString(),
+    };
+  }
+
   private toFieldView(f: {
     fieldKey: string;
     sheetKey: string;
@@ -517,6 +689,273 @@ export class SubmissionService {
         savedAt: now.toISOString(),
         serverTime: now.toISOString(),
         effectiveLockAt: nextAccess.effectiveLockAt?.toISOString() ?? null,
+      };
+    });
+  }
+
+  /**
+   * S33/PR7 manager-write lock order — the same R12 shape as
+   * `lockForWrite` (period FOR SHARE → submission FOR UPDATE →
+   * `clock_timestamp()` → CAS), but the mid-step access check is replaced
+   * with `resolveManagerRole`: a manager's approve/return/unapprove right
+   * is NEVER a function of `resolveAccess`'s editable-window logic (that
+   * engine answers "can an editor type into cells right now", which is
+   * false for SUBMITTED/APPROVED — the exact states a manager needs to
+   * act on). Deliberately a separate method rather than branching inside
+   * `lockForWrite`: the two write paths authorize completely differently,
+   * and folding them into one function would risk one path's guard
+   * silently leaking into the other on a future edit.
+   */
+  private async lockForManagerWrite(
+    tx: Prisma.TransactionClient,
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    expectedRevision: string,
+  ) {
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_periods" WHERE id = (
+        SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
+      ) FOR SHARE`;
+
+    const { assignment, actorRole } = await this.loadAssignmentForManager(
+      tx,
+      assignmentId,
+      userId,
+      roleId,
+    );
+    const { period } = assignment;
+    if (period.status !== 'OPEN') {
+      throw new SubmissionError(
+        'Kỳ đã chốt, không thể duyệt/trả lại/huỷ duyệt.',
+        'REPORT_LOCKED',
+      );
+    }
+
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
+
+    const submission = await tx.dynReportSubmission.findUnique({
+      where: { assignmentId },
+    });
+    if (!submission)
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+
+    const nowRow = await tx.$queryRaw<
+      { now: Date }[]
+    >`SELECT clock_timestamp() AS now`;
+    const now = nowRow[0].now;
+
+    if (submission.currentRevision.toString() !== expectedRevision) {
+      throw new SubmissionError(
+        'Bản nộp đã bị sửa bởi một phiên khác — tải lại để lấy bản mới nhất.',
+        'REVISION_CONFLICT',
+      );
+    }
+
+    return { submission, now, actorRole };
+  }
+
+  /** S33 — manager approves a SUBMITTED submission. */
+  async approve(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    expectedRevision: string,
+    reason?: string,
+  ): Promise<SaveValuesResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { submission, now, actorRole } = await this.lockForManagerWrite(
+        tx,
+        assignmentId,
+        userId,
+        roleId,
+        expectedRevision,
+      );
+
+      const transition = applyTransition('APPROVE', {
+        state: submission.state,
+        approvalLevel: submission.approvalLevel,
+        totalApprovalLevels: 1,
+        actorRole,
+        actingApprovalLevel: 1,
+        hasRequiredFieldsValid: true,
+        hasErrorSeverityRuleViolation: false,
+      });
+      if (!transition.ok) {
+        throw new SubmissionError(transition.message, transition.code);
+      }
+
+      const nextRevision = submission.currentRevision + BigInt(1);
+      const values = (submission.values as Record<string, TypedValue>) ?? {};
+
+      await tx.dynReportSubmission.update({
+        where: { assignmentId },
+        data: {
+          state: transition.next,
+          currentRevision: nextRevision,
+          approvalLevel: transition.nextApprovalLevel,
+          ...(transition.next === 'APPROVED'
+            ? { approvedAt: now, approvedById: userId }
+            : {}),
+        },
+      });
+
+      await tx.dynReportRevision.create({
+        data: {
+          submissionId: submission.id,
+          revision: nextRevision,
+          kind: transition.revisionKind,
+          valuesFull: values as Prisma.InputJsonValue,
+          actorId: userId,
+          reason: reason ?? null,
+        },
+      });
+
+      return {
+        revision: nextRevision.toString(),
+        state: transition.next,
+        savedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        effectiveLockAt: null,
+      };
+    });
+  }
+
+  /** S33 — manager returns a SUBMITTED submission with a reason and a new edit deadline. */
+  async returnSubmission(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    expectedRevision: string,
+    reason: string,
+    returnDueAt: string,
+  ): Promise<SaveValuesResult> {
+    const parsedReturnDueAt = new Date(returnDueAt);
+    return this.prisma.$transaction(async (tx) => {
+      const { submission, now, actorRole } = await this.lockForManagerWrite(
+        tx,
+        assignmentId,
+        userId,
+        roleId,
+        expectedRevision,
+      );
+
+      if (parsedReturnDueAt.getTime() <= now.getTime()) {
+        throw new SubmissionError(
+          'Hạn sửa phải ở trong tương lai.',
+          'CELL_VALIDATION',
+        );
+      }
+
+      const transition = applyTransition('RETURN', {
+        state: submission.state,
+        approvalLevel: submission.approvalLevel,
+        totalApprovalLevels: 1,
+        actorRole,
+        hasRequiredFieldsValid: true,
+        hasErrorSeverityRuleViolation: false,
+      });
+      if (!transition.ok) {
+        throw new SubmissionError(transition.message, transition.code);
+      }
+
+      const nextRevision = submission.currentRevision + BigInt(1);
+      const values = (submission.values as Record<string, TypedValue>) ?? {};
+
+      await tx.dynReportSubmission.update({
+        where: { assignmentId },
+        data: {
+          state: transition.next,
+          currentRevision: nextRevision,
+          approvalLevel: transition.nextApprovalLevel,
+          returnedReason: reason,
+          returnDueAt: parsedReturnDueAt,
+        },
+      });
+
+      await tx.dynReportRevision.create({
+        data: {
+          submissionId: submission.id,
+          revision: nextRevision,
+          kind: transition.revisionKind,
+          valuesFull: values as Prisma.InputJsonValue,
+          actorId: userId,
+          reason,
+        },
+      });
+
+      return {
+        revision: nextRevision.toString(),
+        state: transition.next,
+        savedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        effectiveLockAt: parsedReturnDueAt.toISOString(),
+      };
+    });
+  }
+
+  /** S33 — manager undoes their own already-given approval. */
+  async unapprove(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    expectedRevision: string,
+    reason?: string,
+  ): Promise<SaveValuesResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { submission, now, actorRole } = await this.lockForManagerWrite(
+        tx,
+        assignmentId,
+        userId,
+        roleId,
+        expectedRevision,
+      );
+
+      const transition = applyTransition('UNAPPROVE', {
+        state: submission.state,
+        approvalLevel: submission.approvalLevel,
+        totalApprovalLevels: 1,
+        actorRole,
+        actingApprovalLevel: 1,
+        hasRequiredFieldsValid: true,
+        hasErrorSeverityRuleViolation: false,
+      });
+      if (!transition.ok) {
+        throw new SubmissionError(transition.message, transition.code);
+      }
+
+      const nextRevision = submission.currentRevision + BigInt(1);
+      const values = (submission.values as Record<string, TypedValue>) ?? {};
+
+      await tx.dynReportSubmission.update({
+        where: { assignmentId },
+        data: {
+          state: transition.next,
+          currentRevision: nextRevision,
+          approvalLevel: transition.nextApprovalLevel,
+          approvedAt: null,
+          approvedById: null,
+        },
+      });
+
+      await tx.dynReportRevision.create({
+        data: {
+          submissionId: submission.id,
+          revision: nextRevision,
+          kind: transition.revisionKind,
+          valuesFull: values as Prisma.InputJsonValue,
+          actorId: userId,
+          reason: reason ?? null,
+        },
+      });
+
+      return {
+        revision: nextRevision.toString(),
+        state: transition.next,
+        savedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        effectiveLockAt: null,
       };
     });
   }

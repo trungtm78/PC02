@@ -18,6 +18,11 @@ describe('SubmissionController', () => {
     save: jest.fn(),
     submit: jest.fn(),
     listMyAssignments: jest.fn(),
+    listForManager: jest.fn(),
+    getSubmissionForManager: jest.fn(),
+    approve: jest.fn(),
+    returnSubmission: jest.fn(),
+    unapprove: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -131,6 +136,130 @@ describe('SubmissionController', () => {
 
     await expect(
       controller.submit('assign1', { expectedRevision: '1' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('GET manager delegates to SubmissionService.listForManager with the current user id and roleId', async () => {
+    const rows = [{ assignmentId: 'assign1' }];
+    service.listForManager.mockResolvedValue(rows);
+
+    const result = await controller.listManager(user);
+
+    expect(service.listForManager).toHaveBeenCalledWith('u1', 'r1');
+    expect(result).toBe(rows);
+  });
+
+  it('GET :assignmentId/review delegates to SubmissionService.getSubmissionForManager', async () => {
+    const view = {
+      assignmentId: 'assign1',
+      state: 'SUBMITTED',
+      editable: false,
+    };
+    service.getSubmissionForManager.mockResolvedValue(view);
+
+    const result = await controller.getForManager('assign1', user);
+
+    expect(service.getSubmissionForManager).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+    );
+    expect(result).toBe(view);
+  });
+
+  it('POST approve delegates to SubmissionService.approve with expectedRevision and reason', async () => {
+    const approved = { revision: '2', state: 'APPROVED' };
+    service.approve.mockResolvedValue(approved);
+
+    const result = await controller.approve(
+      'assign1',
+      { expectedRevision: '1', reason: 'OK' },
+      user,
+    );
+
+    expect(service.approve).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      '1',
+      'OK',
+    );
+    expect(result).toBe(approved);
+  });
+
+  it('POST return delegates to SubmissionService.returnSubmission with reason and returnDueAt', async () => {
+    const returned = { revision: '2', state: 'RETURNED' };
+    service.returnSubmission.mockResolvedValue(returned);
+
+    const result = await controller.returnSubmission(
+      'assign1',
+      {
+        expectedRevision: '1',
+        reason: 'Thiếu số liệu',
+        returnDueAt: '2026-06-20T17:00:00Z',
+      },
+      user,
+    );
+
+    expect(service.returnSubmission).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      '1',
+      'Thiếu số liệu',
+      '2026-06-20T17:00:00Z',
+    );
+    expect(result).toBe(returned);
+  });
+
+  it('POST unapprove delegates to SubmissionService.unapprove with expectedRevision and reason', async () => {
+    const unapproved = { revision: '3', state: 'SUBMITTED' };
+    service.unapprove.mockResolvedValue(unapproved);
+
+    const result = await controller.unapprove(
+      'assign1',
+      { expectedRevision: '2', reason: 'cần xem lại' },
+      user,
+    );
+
+    expect(service.unapprove).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'r1',
+      '2',
+      'cần xem lại',
+    );
+    expect(result).toBe(unapproved);
+  });
+
+  it('translates a REPORT_LOCKED SubmissionError from approve into a 409', async () => {
+    service.approve.mockRejectedValue(
+      new SubmissionError('period finalized', 'REPORT_LOCKED'),
+    );
+
+    await expect(
+      controller.approve('assign1', { expectedRevision: '1' }, user),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('translates a CELL_VALIDATION SubmissionError from return into a 400', async () => {
+    service.returnSubmission.mockRejectedValue(
+      new SubmissionError(
+        'returnDueAt must be in the future',
+        'CELL_VALIDATION',
+      ),
+    );
+
+    await expect(
+      controller.returnSubmission(
+        'assign1',
+        {
+          expectedRevision: '1',
+          reason: 'r',
+          returnDueAt: '2020-01-01T00:00:00Z',
+        },
+        user,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

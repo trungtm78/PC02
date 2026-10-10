@@ -89,4 +89,43 @@ export const dynamicReportsApi = {
         expectedRevision,
       })
       .then((r) => r.data),
+
+  /** S33/PR7 — the manager's own list (any report they manage, or every report with admin:DynamicReport). */
+  listForManager: () =>
+    api.get<AssignmentSummary[]>('/bao-cao-dong/submissions/manager').then((r) => r.data),
+
+  getSubmissionForManager: (assignmentId: string) =>
+    api
+      .get<SubmissionView>(`/bao-cao-dong/submissions/${assignmentId}/review`)
+      .then((r) => r.data),
+
+  approveSubmission: (assignmentId: string, expectedRevision: string, reason?: string) =>
+    api
+      .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/approve`, {
+        expectedRevision,
+        reason,
+      })
+      .then((r) => r.data),
+
+  returnSubmission: (
+    assignmentId: string,
+    expectedRevision: string,
+    reason: string,
+    returnDueAt: string,
+  ) =>
+    api
+      .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/return`, {
+        expectedRevision,
+        reason,
+        returnDueAt,
+      })
+      .then((r) => r.data),
+
+  unapproveSubmission: (assignmentId: string, expectedRevision: string, reason?: string) =>
+    api
+      .post<SaveValuesResult>(`/bao-cao-dong/submissions/${assignmentId}/unapprove`, {
+        expectedRevision,
+        reason,
+      })
+      .then((r) => r.data),
 };

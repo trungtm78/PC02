@@ -17,6 +17,7 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SubmissionService, SubmissionError } from './submission.service';
 import { SaveValuesDto, SubmitDto } from './dto/save-values.dto';
+import { ApproveDto, ReturnDto, UnapproveDto } from './dto/review.dto';
 
 const CONFLICT_CODES = new Set([
   'REVISION_CONFLICT',
@@ -49,6 +50,18 @@ export class SubmissionController {
     return this.submissionService.listMyAssignments(user.id);
   }
 
+  /**
+   * S33/PR7 — the manager's own list. Declared BEFORE `:assignmentId`:
+   * Nest/Express resolves overlapping routes in declaration order, so a
+   * static segment registered after a param route would never be reached
+   * (it would always be captured as an `assignmentId` value instead).
+   */
+  @Get('manager')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listManager(@CurrentUser() user: AuthenticatedUser) {
+    return this.submissionService.listForManager(user.id, user.roleId);
+  }
+
   @Get(':assignmentId')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async get(
@@ -56,6 +69,19 @@ export class SubmissionController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.submissionService.getSubmission(assignmentId, user.id);
+  }
+
+  @Get(':assignmentId/review')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async getForManager(
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.submissionService.getSubmissionForManager(
+      assignmentId,
+      user.id,
+      user.roleId,
+    );
   }
 
   @Patch(':assignmentId/values')
@@ -87,6 +113,61 @@ export class SubmissionController {
         assignmentId,
         user.id,
         body.expectedRevision,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/approve')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async approve(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: ApproveDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.approve(
+        assignmentId,
+        user.id,
+        user.roleId,
+        body.expectedRevision,
+        body.reason,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/return')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async returnSubmission(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: ReturnDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.returnSubmission(
+        assignmentId,
+        user.id,
+        user.roleId,
+        body.expectedRevision,
+        body.reason,
+        body.returnDueAt,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/unapprove')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async unapprove(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: UnapproveDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.unapprove(
+        assignmentId,
+        user.id,
+        user.roleId,
+        body.expectedRevision,
+        body.reason,
       ),
     );
   }
