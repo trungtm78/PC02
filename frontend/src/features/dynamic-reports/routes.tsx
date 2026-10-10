@@ -20,6 +20,9 @@ const ReportManagerListPage = lazy(
 const ReportSubmissionReviewPage = lazy(
   () => import('@/pages/dynamic-reports/ReportSubmissionReviewPage'),
 );
+const ReportPeriodSummaryPage = lazy(
+  () => import('@/pages/dynamic-reports/ReportPeriodSummaryPage'),
+);
 
 export function renderDynamicReportsRoutes(): ReactElement[] {
   return [
@@ -52,6 +55,11 @@ export function renderDynamicReportsRoutes(): ReactElement[] {
       key="dynamic-reports-review-assignment"
       path="/bao-cao-dong/duyet/:assignmentId"
       element={wrapRoute(<ReportSubmissionReviewPage />)}
+    />,
+    <Route
+      key="dynamic-reports-period-summary"
+      path="/bao-cao-dong/duyet/tong-hop/:periodId"
+      element={wrapRoute(<ReportPeriodSummaryPage />)}
     />,
   ];
 }

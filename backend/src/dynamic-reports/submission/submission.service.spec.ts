@@ -126,6 +126,8 @@ describe('SubmissionService', () => {
             teamSnapshot: { name: 'Tổ 1' },
             submission: { state: 'DRAFT' },
             period: {
+              id: 'period1',
+              reportId: 'report1',
               periodKey: '2026-06',
               dueAt: new Date('2026-07-05T17:00:00Z'),
               status: 'OPEN',
@@ -141,6 +143,8 @@ describe('SubmissionService', () => {
       expect(result).toEqual([
         {
           assignmentId: 'assign1',
+          reportId: 'report1',
+          periodId: 'period1',
           reportName: 'HSLN',
           teamName: 'Tổ 1',
           periodKey: '2026-06',
@@ -895,6 +899,8 @@ describe('SubmissionService', () => {
               id: 'assign1',
               teamSnapshot: { name: 'Tổ 1' },
               period: {
+                id: 'period1',
+                reportId: 'report1',
                 periodKey: '2026-06',
                 dueAt: new Date('2026-07-05T17:00:00Z'),
                 report: { name: 'HSLN' },
@@ -911,6 +917,8 @@ describe('SubmissionService', () => {
       expect(result).toEqual([
         {
           assignmentId: 'assign1',
+          reportId: 'report1',
+          periodId: 'period1',
           reportName: 'HSLN',
           teamName: 'Tổ 1',
           periodKey: '2026-06',

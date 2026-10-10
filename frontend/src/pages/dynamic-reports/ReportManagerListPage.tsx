@@ -1,19 +1,22 @@
 /**
  * S15 thu nhỏ — danh sách phẳng lượt giao caller quản lý (spec §6.1 PR7
- * slice 1). Tổng hợp theo báo cáo (S15 đầy đủ) cần `AggregateService`,
- * chưa có — dời slice sau. Cùng khuôn đơn giản với
- * `ReportInputRegisterPage.tsx` (S11), vì số lượt giao caller quản lý
- * cũng nhỏ, không cần `ListPageShell`/cột tuỳ chọn.
+ * slice 1), cùng khuôn đơn giản với `ReportInputRegisterPage.tsx` (S11).
+ * Slice 2 thêm dải "Tổng hợp theo kỳ" phía trên: mỗi (reportId, periodId)
+ * khác nhau trong danh sách là một kỳ riêng, dẫn tới
+ * `ReportPeriodSummaryPage.tsx` (S15 đầy đủ — KPI + tổng hợp từng trường
+ * qua `AggregateService`).
  */
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ClipboardCheck, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, BarChart3, AlertCircle } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
+import { A11Y_FOCUS_RING } from '@/constants/styles';
 
 export default function ReportManagerListPage() {
   const { data, isLoading, isError } = useQuery({
@@ -24,6 +27,16 @@ export default function ReportManagerListPage() {
 
   const assignments = data ?? [];
 
+  const periods = useMemo(() => {
+    const seen = new Map<string, { periodId: string; reportName: string; periodKey: string }>();
+    for (const a of data ?? []) {
+      if (!seen.has(a.periodId)) {
+        seen.set(a.periodId, { periodId: a.periodId, reportName: a.reportName, periodKey: a.periodKey });
+      }
+    }
+    return Array.from(seen.values());
+  }, [data]);
+
   return (
     <div className="max-w-3xl mx-auto p-6" data-testid="report-manager-list-page">
       <div className="flex items-center gap-2 mb-1">
@@ -33,6 +46,25 @@ export default function ReportManagerListPage() {
       <p className="text-sm text-slate-500 mb-6">
         Các lượt giao thuộc báo cáo bạn quản lý, chỉ hiện những kỳ đang mở.
       </p>
+
+      {periods.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6" data-testid="period-summary-links">
+          <p className="text-xs font-semibold text-blue-800 mb-2">Tổng hợp theo kỳ</p>
+          <div className="flex flex-wrap gap-2">
+            {periods.map((p) => (
+              <Link
+                key={p.periodId}
+                to={`/bao-cao-dong/duyet/tong-hop/${p.periodId}`}
+                data-testid={`period-summary-link-${p.periodId}`}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-blue-300 rounded text-xs text-blue-700 hover:bg-blue-100 ${A11Y_FOCUS_RING}`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                {p.reportName} — Kỳ {p.periodKey}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center gap-2">

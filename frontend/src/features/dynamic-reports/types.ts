@@ -135,6 +135,8 @@ export interface SaveReportConfigResult {
 
 export interface AssignmentSummary {
   assignmentId: string;
+  reportId: string;
+  periodId: string;
   reportName: string;
   teamName: string;
   periodKey: string;
@@ -185,4 +187,45 @@ export interface SaveValuesResult {
   savedAt: string;
   serverTime: string;
   effectiveLockAt: string | null;
+}
+
+/** S15 thu nhỏ (PR7 slice 2) — D03's three aggregation modes. */
+export type SummaryMode = 'SUBMITTED' | 'APPROVED' | 'ALL_SAVED';
+
+export interface FieldAggregateView {
+  fieldKey: string;
+  sheetKey: string;
+  address: string;
+  label: string;
+  value: string | null;
+  displayNotAggregated: boolean;
+  countTotal: number;
+  countNonBlank: number;
+}
+
+export interface KpiSummaryView {
+  requiredCount: number;
+  exemptCount: number;
+  completedCount: number;
+  notStartedCount: number;
+  inProgressCount: number;
+  overdueNotDoneCount: number;
+  reopenedCount: number;
+  completionRateLabel: string;
+  onTimeRateLabel: string;
+  dataCoverageLabel: string;
+}
+
+export interface PeriodSummaryView {
+  reportId: string;
+  reportName: string;
+  periodId: string;
+  periodKey: string;
+  periodStart: string;
+  periodEnd: string;
+  dueAt: string;
+  mode: SummaryMode;
+  kpi: KpiSummaryView;
+  fields: FieldAggregateView[];
+  serverTime: string;
 }
