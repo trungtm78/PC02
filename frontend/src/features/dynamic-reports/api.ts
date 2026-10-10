@@ -3,10 +3,12 @@ import { triggerDownload } from '@/features/document-templates/export.api';
 import type {
   ActiveGrantView,
   AssignmentSummary,
+  BulkGrantUnlockResult,
   ExportCreateResultView,
   FinalizeResultView,
   PeriodSummaryView,
   ReopenResultView,
+  ReportHistoryView,
   ReportSetupSummary,
   SaveReportConfigPayload,
   SaveReportConfigResult,
@@ -15,6 +17,7 @@ import type {
   SubmissionView,
   SummaryMode,
   TemplatePreviewResult,
+  UnlockRequestView,
 } from './types';
 
 /**
@@ -182,4 +185,46 @@ export const dynamicReportsApi = {
     });
     triggerDownload(response, fileName);
   },
+
+  /** S34 (PR7 slice 8) — the editor-side half: ask the manager to reopen a locked assignment. */
+  requestUnlock: (assignmentId: string, reason: string) =>
+    api
+      .post<UnlockRequestView>(`/bao-cao-dong/submissions/${assignmentId}/unlock/request`, {
+        reason,
+      })
+      .then((r) => r.data),
+
+  /** S34 — the manager's reopen-request queue. */
+  listUnlockRequests: () =>
+    api.get<UnlockRequestView[]>('/bao-cao-dong/submissions/unlock-requests').then((r) => r.data),
+
+  decideUnlockRequest: (
+    unlockId: string,
+    decision: 'APPROVE' | 'REJECT',
+    decisionReason?: string,
+    expiresAt?: string,
+  ) =>
+    api
+      .post<void>(`/bao-cao-dong/submissions/unlock-requests/${unlockId}/decide`, {
+        decision,
+        decisionReason,
+        expiresAt,
+      })
+      .then((r) => r.data),
+
+  /** S34 — grant a window to several assignments at once (e.g. every still-overdue team). */
+  bulkGrantUnlock: (assignmentIds: string[], reason: string, expiresAt?: string) =>
+    api
+      .post<BulkGrantUnlockResult>('/bao-cao-dong/submissions/unlock/bulk-grant', {
+        assignmentIds,
+        reason,
+        expiresAt,
+      })
+      .then((r) => r.data),
+
+  /** S21 (PR7 slice 8) — whole-period history/audit, every assignment at once. */
+  getReportHistory: (periodId: string) =>
+    api
+      .get<ReportHistoryView>(`/bao-cao-dong/periods/${periodId}/history`)
+      .then((r) => r.data),
 };

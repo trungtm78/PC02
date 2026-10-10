@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -88,6 +89,24 @@ export interface SaveValuesResult {
   savedAt: string;
   serverTime: string;
   effectiveLockAt: string | null;
+}
+
+/** S34 — a pending reopen request, as the manager's queue shows it. */
+export interface UnlockRequestView {
+  id: string;
+  assignmentId: string;
+  reportName: string;
+  periodKey: string;
+  teamName: string;
+  reason: string;
+  requestedAt: string;
+  requestedByName: string;
+}
+
+/** S34 — one row of a bulk grant attempt; a failure here never blocks the rest of the batch. */
+export interface BulkGrantUnlockResult {
+  granted: string[];
+  skipped: Array<{ assignmentId: string; error: string }>;
 }
 
 export interface AssignmentSummary {
@@ -486,6 +505,280 @@ export class SubmissionService {
         revokeReason: reason,
       },
     });
+  }
+
+  /**
+   * S34 — the editor-side half: a team asks its manager to reopen a locked
+   * assignment, instead of only the manager being able to initiate a grant
+   * (S17). `startsAt`/`expiresAt` are placeholders (schema has no nullable
+   * window for a not-yet-decided request) — `findActiveGrant` only ever
+   * queries `status: 'ACTIVE'`, so a PENDING row's window is never read.
+   */
+  async requestUnlock(
+    assignmentId: string,
+    userId: string,
+    reason: string,
+  ): Promise<UnlockRequestView> {
+    const assignment = await this.loadEditorAssignment(
+      this.prisma,
+      assignmentId,
+      userId,
+    );
+    if (assignment.period.status !== 'OPEN') {
+      throw new SubmissionError(
+        'Kỳ đã chốt, không thể xin mở lại.',
+        'REPORT_LOCKED',
+      );
+    }
+
+    const existing = await this.prisma.dynReportUnlock.findFirst({
+      where: { assignmentId, kind: 'REQUEST', status: 'PENDING' },
+    });
+    if (existing) {
+      throw new SubmissionError(
+        'Đã có yêu cầu mở lại đang chờ duyệt cho lượt giao này.',
+        'CELL_VALIDATION',
+      );
+    }
+
+    const now = new Date();
+    const [unlock, requester] = await Promise.all([
+      this.prisma.dynReportUnlock.create({
+        data: {
+          assignmentId,
+          kind: 'REQUEST',
+          status: 'PENDING',
+          startsAt: now,
+          expiresAt: now,
+          reason,
+          requestedById: userId,
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, username: true },
+      }),
+    ]);
+    return {
+      id: unlock.id,
+      assignmentId,
+      reportName: assignment.period.report.name,
+      periodKey: assignment.period.periodKey,
+      teamName:
+        (assignment.teamSnapshot as { name?: string } | null)?.name ??
+        assignment.teamId,
+      reason: unlock.reason,
+      requestedAt: unlock.createdAt.toISOString(),
+      requestedByName: requester
+        ? `${requester.firstName ?? ''} ${requester.lastName ?? ''}`.trim() ||
+          requester.username
+        : '',
+    };
+  }
+
+  /** S34 — the manager's queue: every still-PENDING request across every report they manage (or all, if admin). */
+  async listPendingRequests(
+    userId: string,
+    roleId: string,
+  ): Promise<UnlockRequestView[]> {
+    const adminGrant = await this.prisma.rolePermission.findFirst({
+      where: {
+        roleId,
+        permission: { subject: 'DynamicReport', action: 'admin' },
+      },
+    });
+
+    const now = new Date();
+    let reportIds: string[];
+    if (adminGrant) {
+      const reports = await this.prisma.dynReport.findMany({
+        select: { id: true },
+      });
+      reportIds = reports.map((r) => r.id);
+    } else {
+      const roles = await this.prisma.dynReportRole.findMany({
+        where: {
+          userId,
+          role: 'MANAGER',
+          validFrom: { lte: now },
+          OR: [{ validTo: null }, { validTo: { gt: now } }],
+        },
+        select: { reportId: true },
+      });
+      reportIds = roles.map((r) => r.reportId);
+    }
+    if (reportIds.length === 0) return [];
+
+    const requests = await this.prisma.dynReportUnlock.findMany({
+      where: {
+        kind: 'REQUEST',
+        status: 'PENDING',
+        assignment: { period: { reportId: { in: reportIds } } },
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        requestedBy: {
+          select: { firstName: true, lastName: true, username: true },
+        },
+        assignment: {
+          include: { period: { include: { report: true } } },
+        },
+      },
+    });
+
+    return requests.map((r) => ({
+      id: r.id,
+      assignmentId: r.assignmentId,
+      reportName: r.assignment.period.report.name,
+      periodKey: r.assignment.period.periodKey,
+      teamName:
+        (r.assignment.teamSnapshot as { name?: string } | null)?.name ??
+        r.assignment.teamId,
+      reason: r.reason,
+      requestedAt: r.createdAt.toISOString(),
+      requestedByName: r.requestedBy
+        ? `${r.requestedBy.firstName ?? ''} ${r.requestedBy.lastName ?? ''}`.trim() ||
+          r.requestedBy.username
+        : '',
+    }));
+  }
+
+  /** S34 — manager approves (promotes the request straight to an ACTIVE grant) or rejects it. */
+  async decideRequest(
+    unlockId: string,
+    userId: string,
+    roleId: string,
+    decision: 'APPROVE' | 'REJECT',
+    decisionReason?: string,
+    expiresAt?: string,
+  ): Promise<void> {
+    const row = await this.prisma.dynReportUnlock.findUnique({
+      where: { id: unlockId },
+      include: {
+        assignment: { include: { period: { include: { report: true } } } },
+      },
+    });
+    if (!row || row.kind !== 'REQUEST') {
+      throw new NotFoundException('Không tìm thấy yêu cầu mở lại này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      row.assignment.period.report.id,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy yêu cầu mở lại này.');
+    }
+    if (row.status !== 'PENDING') {
+      throw new SubmissionError(
+        'Yêu cầu này đã được xử lý trước đó.',
+        'CELL_VALIDATION',
+      );
+    }
+
+    if (decision === 'REJECT') {
+      if (!decisionReason || !decisionReason.trim()) {
+        throw new SubmissionError(
+          'Phải nhập lý do khi từ chối yêu cầu mở lại.',
+          'CELL_VALIDATION',
+        );
+      }
+      await this.prisma.dynReportUnlock.update({
+        where: { id: unlockId },
+        data: { status: 'REJECTED', decidedById: userId, decisionReason },
+      });
+      return;
+    }
+
+    const now = new Date();
+    const resolvedExpiresAt = expiresAt
+      ? new Date(expiresAt)
+      : new Date(now.getTime() + DEFAULT_GRANT_HOURS * 60 * 60 * 1000);
+    if (resolvedExpiresAt.getTime() <= now.getTime()) {
+      throw new SubmissionError(
+        'Hạn mở khoá phải ở trong tương lai.',
+        'CELL_VALIDATION',
+      );
+    }
+    await this.prisma.dynReportUnlock.update({
+      where: { id: unlockId },
+      data: {
+        status: 'ACTIVE',
+        startsAt: now,
+        expiresAt: resolvedExpiresAt,
+        decidedById: userId,
+        decisionReason,
+      },
+    });
+  }
+
+  /**
+   * S34 — grant a window to several assignments in one call (e.g. every
+   * still-overdue team after a deadline). Each assignment is checked and
+   * written independently: one out-of-scope or already-finalized id is
+   * reported in `skipped`, never aborts the whole batch.
+   */
+  async bulkGrantUnlock(
+    assignmentIds: string[],
+    userId: string,
+    roleId: string,
+    reason: string,
+    expiresAt?: string,
+  ): Promise<BulkGrantUnlockResult> {
+    const bulkBatchId = randomUUID();
+    const granted: string[] = [];
+    const skipped: Array<{ assignmentId: string; error: string }> = [];
+
+    for (const assignmentId of assignmentIds) {
+      try {
+        const { assignment } = await this.loadAssignmentForManager(
+          this.prisma,
+          assignmentId,
+          userId,
+          roleId,
+        );
+        if (assignment.period.status !== 'OPEN') {
+          throw new SubmissionError(
+            'Kỳ đã chốt, không thể mở khoá.',
+            'REPORT_LOCKED',
+          );
+        }
+
+        const now = new Date();
+        const resolvedExpiresAt = expiresAt
+          ? new Date(expiresAt)
+          : new Date(now.getTime() + DEFAULT_GRANT_HOURS * 60 * 60 * 1000);
+        if (resolvedExpiresAt.getTime() <= now.getTime()) {
+          throw new SubmissionError(
+            'Hạn mở khoá phải ở trong tương lai.',
+            'CELL_VALIDATION',
+          );
+        }
+
+        await this.prisma.dynReportUnlock.create({
+          data: {
+            assignmentId,
+            kind: 'GRANT',
+            status: 'ACTIVE',
+            startsAt: now,
+            expiresAt: resolvedExpiresAt,
+            reason,
+            decidedById: userId,
+            bulkBatchId,
+          },
+        });
+        granted.push(assignmentId);
+      } catch (err) {
+        const message =
+          err instanceof SubmissionError || err instanceof NotFoundException
+            ? err.message
+            : 'Không mở khoá được lượt giao này.';
+        skipped.push({ assignmentId, error: message });
+      }
+    }
+
+    return { granted, skipped };
   }
 
   private toFieldView(f: {

@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileSpreadsheet,
+  History,
   Loader2,
   Lock,
   Unlock,
@@ -114,13 +115,23 @@ export default function ReportPeriodSummaryPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6" data-testid="period-summary-page">
-      <Link
-        to="/bao-cao-dong/duyet"
-        className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4 ${A11Y_FOCUS_RING}`}
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Quay lại danh sách duyệt
-      </Link>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <Link
+          to="/bao-cao-dong/duyet"
+          className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Quay lại danh sách duyệt
+        </Link>
+        <Link
+          to={`/bao-cao-dong/duyet/tong-hop/${view.periodId}/lich-su`}
+          data-testid="link-report-history"
+          className={`inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 ${A11Y_FOCUS_RING}`}
+        >
+          <History className="w-4 h-4" />
+          Xem lịch sử
+        </Link>
+      </div>
 
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex items-center gap-2">

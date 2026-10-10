@@ -23,6 +23,9 @@ import {
   UnapproveDto,
   GrantUnlockDto,
   RevokeUnlockDto,
+  RequestUnlockDto,
+  DecideUnlockRequestDto,
+  BulkGrantUnlockDto,
 } from './dto/review.dto';
 
 const CONFLICT_CODES = new Set([
@@ -66,6 +69,53 @@ export class SubmissionController {
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
   async listManager(@CurrentUser() user: AuthenticatedUser) {
     return this.submissionService.listForManager(user.id, user.roleId);
+  }
+
+  /**
+   * S34 — the manager's reopen-request queue. Declared BEFORE `:assignmentId`
+   * for the same reason `manager` is (see comment above): a static segment
+   * registered after a param route would never be reached.
+   */
+  @Get('unlock-requests')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listUnlockRequests(@CurrentUser() user: AuthenticatedUser) {
+    return this.submissionService.listPendingRequests(user.id, user.roleId);
+  }
+
+  @Post('unlock-requests/:unlockId/decide')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async decideUnlockRequest(
+    @Param('unlockId') unlockId: string,
+    @Body() body: DecideUnlockRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.decideRequest(
+        unlockId,
+        user.id,
+        user.roleId,
+        body.decision,
+        body.decisionReason,
+        body.expiresAt,
+      ),
+    );
+  }
+
+  @Post('unlock/bulk-grant')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async bulkGrantUnlock(
+    @Body() body: BulkGrantUnlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.bulkGrantUnlock(
+        body.assignmentIds,
+        user.id,
+        user.roleId,
+        body.reason,
+        body.expiresAt,
+      ),
+    );
   }
 
   @Get(':assignmentId')
@@ -210,6 +260,19 @@ export class SubmissionController {
         user.roleId,
         body.reason,
       ),
+    );
+  }
+
+  /** S34 — the editor-side half: a team asks its manager to reopen a locked assignment. */
+  @Post(':assignmentId/unlock/request')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async requestUnlock(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: RequestUnlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.requestUnlock(assignmentId, user.id, body.reason),
     );
   }
 

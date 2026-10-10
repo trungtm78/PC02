@@ -277,3 +277,46 @@ export interface ExportCreateResultView {
   exportId: string;
   fileName: string;
 }
+
+/** S34 (PR7 slice 8) — the manager's reopen-request queue. */
+export interface UnlockRequestView {
+  id: string;
+  assignmentId: string;
+  reportName: string;
+  periodKey: string;
+  teamName: string;
+  reason: string;
+  requestedAt: string;
+  requestedByName: string;
+}
+
+/** S34 — one row of a bulk grant attempt; a failure here never blocks the rest of the batch. */
+export interface BulkGrantUnlockResult {
+  granted: string[];
+  skipped: Array<{ assignmentId: string; error: string }>;
+}
+
+/** S21 (PR7 slice 8) — whole-period history/audit, every assignment at once. */
+export interface AssignmentHistoryEntry {
+  revision: string;
+  kind: string;
+  actorName: string;
+  reason: string | null;
+  committedAt: string;
+}
+
+export interface AssignmentHistoryView {
+  assignmentId: string;
+  teamName: string;
+  state: DynReportSubmissionState;
+  currentRevision: string;
+  revisions: AssignmentHistoryEntry[];
+  changedFieldKeysSinceFirstSubmit: string[] | null;
+}
+
+export interface ReportHistoryView {
+  periodId: string;
+  reportName: string;
+  periodKey: string;
+  assignments: AssignmentHistoryView[];
+}

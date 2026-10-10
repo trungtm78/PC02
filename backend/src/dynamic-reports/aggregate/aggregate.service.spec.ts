@@ -534,4 +534,174 @@ describe('AggregateService', () => {
       ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
     });
   });
+
+  describe('getReportHistory (S21, PR7 slice 8)', () => {
+    function buildHistoryService(period: unknown, grants: unknown[] = []) {
+      const prisma = {
+        dynReportPeriod: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(period),
+        },
+        rolePermission: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(null),
+        },
+        dynReportRole: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(grants[0] ?? null),
+        },
+      };
+      const service = new AggregateService(prisma as unknown as PrismaService);
+      return { service, prisma };
+    }
+
+    const ACTOR = { firstName: 'Văn', lastName: 'Nguyễn', username: 'nv' };
+
+    function historyPeriod(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        id: 'period1',
+        reportId: 'report1',
+        report: { name: 'HSLN' },
+        periodKey: '2026-06',
+        assignments: [
+          {
+            id: 'a1',
+            teamId: 'team-a1',
+            teamSnapshot: { name: 'Đội 3' },
+            submission: {
+              state: 'SUBMITTED',
+              currentRevision: 2n,
+              values: { 'Đội 3!C6': { t: 'NUM', v: '20' } },
+              firstSubmittedRevision: 1n,
+              revisions: [
+                {
+                  revision: 1n,
+                  kind: 'SUBMIT',
+                  reason: null,
+                  committedAt: new Date('2026-06-10T08:00:00Z'),
+                  valuesFull: { 'Đội 3!C6': { t: 'NUM', v: '10' } },
+                  actor: ACTOR,
+                },
+                {
+                  revision: 2n,
+                  kind: 'SAVE',
+                  reason: null,
+                  committedAt: new Date('2026-06-11T08:00:00Z'),
+                  valuesFull: null,
+                  actor: ACTOR,
+                },
+              ],
+            },
+          },
+          {
+            id: 'a2',
+            teamId: 'team-a2',
+            teamSnapshot: { name: 'Đội 4' },
+            submission: {
+              state: 'NOT_STARTED',
+              currentRevision: 0n,
+              values: {},
+              firstSubmittedRevision: null,
+              revisions: [],
+            },
+          },
+        ],
+        ...overrides,
+      };
+    }
+
+    it('rejects (404) when the period does not exist', async () => {
+      const { service } = buildHistoryService(null);
+      await expect(
+        service.getReportHistory('period1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects (404) when the caller is not a manager of this report', async () => {
+      const { service } = buildHistoryService(historyPeriod());
+      await expect(
+        service.getReportHistory('period1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('lists every assignment with its metadata-only revision history', async () => {
+      const { service } = buildHistoryService(historyPeriod(), [
+        { role: 'MANAGER' },
+      ]);
+
+      const result = await service.getReportHistory(
+        'period1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result.reportName).toBe('HSLN');
+      expect(result.assignments).toHaveLength(2);
+      const a1 = result.assignments.find((a) => a.assignmentId === 'a1');
+      expect(a1?.teamName).toBe('Đội 3');
+      expect(a1?.revisions).toHaveLength(2);
+      expect(a1?.revisions[0]).toMatchObject({
+        revision: '1',
+        kind: 'SUBMIT',
+        actorName: 'Văn Nguyễn',
+      });
+      // R10: never the raw values in the metadata-only revisions array.
+      expect(a1?.revisions[0]).not.toHaveProperty('valuesFull');
+      expect(a1?.revisions[0]).not.toHaveProperty('diff');
+    });
+
+    it('computes changedFieldKeysSinceFirstSubmit by comparing the first SUBMIT snapshot to current values', async () => {
+      const { service } = buildHistoryService(historyPeriod(), [
+        { role: 'MANAGER' },
+      ]);
+
+      const result = await service.getReportHistory(
+        'period1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      const a1 = result.assignments.find((a) => a.assignmentId === 'a1');
+      // first submit had '10', current is '20' -> changed.
+      expect(a1?.changedFieldKeysSinceFirstSubmit).toEqual(['Đội 3!C6']);
+    });
+
+    it('returns null for changedFieldKeysSinceFirstSubmit when the team has never submitted', async () => {
+      const { service } = buildHistoryService(historyPeriod(), [
+        { role: 'MANAGER' },
+      ]);
+
+      const result = await service.getReportHistory(
+        'period1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      const a2 = result.assignments.find((a) => a.assignmentId === 'a2');
+      expect(a2?.changedFieldKeysSinceFirstSubmit).toBeNull();
+      expect(a2?.revisions).toEqual([]);
+    });
+
+    it('returns an empty changed-keys list when current values exactly match the first submission', async () => {
+      const period = historyPeriod();
+      (
+        period.assignments[0] as { submission: { values: unknown } }
+      ).submission.values = {
+        'Đội 3!C6': { t: 'NUM', v: '10' },
+      };
+      const { service } = buildHistoryService(period, [{ role: 'MANAGER' }]);
+
+      const result = await service.getReportHistory(
+        'period1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      const a1 = result.assignments.find((a) => a.assignmentId === 'a1');
+      expect(a1?.changedFieldKeysSinceFirstSubmit).toEqual([]);
+    });
+  });
 });

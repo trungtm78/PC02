@@ -59,6 +59,8 @@ export default function SubmissionInputPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'working' | 'sent' | 'error'>('idle');
+  const [requestError, setRequestError] = useState<string | null>(null);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -143,6 +145,22 @@ export default function SubmissionInputPage() {
       setSaveStatus('error');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /** S34 — the editor-side half: ask the manager to reopen this locked assignment. */
+  async function handleRequestUnlock() {
+    if (!assignmentId) return;
+    const reason = window.prompt('Lý do xin mở lại:');
+    if (!reason || !reason.trim()) return;
+    setRequestStatus('working');
+    setRequestError(null);
+    try {
+      await dynamicReportsApi.requestUnlock(assignmentId, reason.trim());
+      setRequestStatus('sent');
+    } catch (err) {
+      setRequestStatus('error');
+      setRequestError(extractApiError(err).message);
     }
   }
 
@@ -267,15 +285,37 @@ export default function SubmissionInputPage() {
 
       {!editable && (
         <div
-          className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center gap-2"
+          className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-center justify-between gap-2"
           data-testid="locked-banner"
         >
-          <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-          <p className="text-sm text-amber-800">
-            Đã khoá, không thể sửa thêm
-            {effectiveLockAt ? ` lúc ${formatVNDateTime(effectiveLockAt)}` : ''}.
-          </p>
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+            <p className="text-sm text-amber-800">
+              Đã khoá, không thể sửa thêm
+              {effectiveLockAt ? ` lúc ${formatVNDateTime(effectiveLockAt)}` : ''}.
+            </p>
+          </div>
+          {requestStatus === 'sent' ? (
+            <span className="text-xs font-medium text-amber-700" data-testid="unlock-request-sent">
+              Đã gửi yêu cầu, đang chờ quản lý duyệt
+            </span>
+          ) : (
+            <button
+              type="button"
+              data-testid="btn-request-unlock"
+              disabled={requestStatus === 'working'}
+              onClick={() => void handleRequestUnlock()}
+              className={`text-xs font-medium text-amber-800 underline hover:text-amber-900 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              Xin mở lại
+            </button>
+          )}
         </div>
+      )}
+      {requestError && (
+        <p className="text-sm text-red-700 mb-3" data-testid="unlock-request-error">
+          {requestError}
+        </p>
       )}
 
       {/* S14 — effectiveLockAt sau hạn gốc (dueAt) nghĩa là đang ở trong một lượt

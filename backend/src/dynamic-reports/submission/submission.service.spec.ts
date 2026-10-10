@@ -81,6 +81,9 @@ describe('SubmissionService', () => {
         findFirst: jest
           .fn<Promise<unknown>, unknown[]>()
           .mockResolvedValue(null),
+        findUnique: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(null),
         create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
         update: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
       },
@@ -1298,6 +1301,283 @@ describe('SubmissionService', () => {
         service.revokeActiveGrant('assign1', 'mgr1', 'roleMgr', 'r'),
       ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
       expect(tx.dynReportUnlock.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('requestUnlock / listPendingRequests / decideRequest / bulkGrantUnlock (S34, PR7 slice 8)', () => {
+    it('requestUnlock creates a PENDING REQUEST row for an active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ teamId: 'team1', teamSnapshot: { name: 'Đội 3' } }),
+      );
+      tx.dynReportUnlock.create.mockResolvedValue({
+        id: 'req1',
+        reason: 'Nhập nhầm số',
+        createdAt: now,
+      });
+      tx.user.findUnique.mockResolvedValue({
+        firstName: 'Văn',
+        lastName: 'Nguyễn',
+        username: 'nv',
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.requestUnlock(
+        'assign1',
+        'u1',
+        'Nhập nhầm số',
+      );
+
+      expect(result.teamName).toBe('Đội 3');
+      expect(result.requestedByName).toBe('Văn Nguyễn');
+      const createCall = tx.dynReportUnlock.create.mock.calls[0][0] as {
+        data: { kind: string; status: string; requestedById: string };
+      };
+      expect(createCall.data.kind).toBe('REQUEST');
+      expect(createCall.data.status).toBe('PENDING');
+      expect(createCall.data.requestedById).toBe('u1');
+    });
+
+    it('requestUnlock rejects (404) when the caller is not an active editor', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.requestUnlock('assign1', 'u1', 'r'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('requestUnlock rejects with REPORT_LOCKED when the period is FINALIZED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ period: basePeriod({ status: 'FINALIZED' }) }),
+      );
+      const { service } = buildService(tx);
+
+      await expect(
+        service.requestUnlock('assign1', 'u1', 'r'),
+      ).rejects.toMatchObject({ code: 'REPORT_LOCKED' });
+    });
+
+    it('requestUnlock rejects with CELL_VALIDATION when a PENDING request already exists', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportUnlock.findFirst.mockResolvedValue({ id: 'existing-req' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.requestUnlock('assign1', 'u1', 'r'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportUnlock.create).not.toHaveBeenCalled();
+    });
+
+    it('listPendingRequests returns every PENDING request across the reports the caller manages', async () => {
+      const tx = buildTx();
+      tx.dynReportRole.findMany.mockResolvedValue([{ reportId: 'report1' }]);
+      tx.dynReportUnlock.findMany.mockResolvedValue([
+        {
+          id: 'req1',
+          assignmentId: 'assign1',
+          reason: 'Nhập nhầm số',
+          createdAt: now,
+          requestedBy: { firstName: 'Văn', lastName: 'Nguyễn', username: 'nv' },
+          assignment: {
+            teamId: 'team1',
+            teamSnapshot: { name: 'Đội 3' },
+            period: { periodKey: '2026-06', report: { name: 'HSLN' } },
+          },
+        },
+      ]);
+      const { service } = buildService(tx);
+
+      const result = await service.listPendingRequests('mgr1', 'roleMgr');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'req1',
+        teamName: 'Đội 3',
+        reportName: 'HSLN',
+        periodKey: '2026-06',
+        requestedByName: 'Văn Nguyễn',
+      });
+    });
+
+    it('listPendingRequests returns [] without querying unlocks when the caller manages nothing', async () => {
+      const tx = buildTx();
+      const { service } = buildService(tx);
+
+      const result = await service.listPendingRequests('u1', 'role1');
+
+      expect(result).toEqual([]);
+      expect(tx.dynReportUnlock.findMany).not.toHaveBeenCalled();
+    });
+
+    it('decideRequest APPROVE promotes the request straight to an ACTIVE grant', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'PENDING',
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await service.decideRequest('req1', 'mgr1', 'roleMgr', 'APPROVE');
+
+      const updateCall = tx.dynReportUnlock.update.mock.calls[0][0] as {
+        where: { id: string };
+        data: { status: string; decidedById: string };
+      };
+      expect(updateCall.where.id).toBe('req1');
+      expect(updateCall.data.status).toBe('ACTIVE');
+      expect(updateCall.data.decidedById).toBe('mgr1');
+    });
+
+    it('decideRequest REJECT requires a decisionReason', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'PENDING',
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.decideRequest('req1', 'mgr1', 'roleMgr', 'REJECT'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportUnlock.update).not.toHaveBeenCalled();
+    });
+
+    it('decideRequest REJECT with a reason sets status=REJECTED', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'PENDING',
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await service.decideRequest(
+        'req1',
+        'mgr1',
+        'roleMgr',
+        'REJECT',
+        'Không hợp lệ',
+      );
+
+      const updateCall = tx.dynReportUnlock.update.mock.calls[0][0] as {
+        data: { status: string; decisionReason: string };
+      };
+      expect(updateCall.data.status).toBe('REJECTED');
+      expect(updateCall.data.decisionReason).toBe('Không hợp lệ');
+    });
+
+    it('decideRequest rejects (404) when the row is missing or not a REQUEST', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue(null);
+      const { service } = buildService(tx);
+
+      await expect(
+        service.decideRequest('req1', 'mgr1', 'roleMgr', 'APPROVE'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('decideRequest rejects (404) when the caller is not a manager of this report', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'PENDING',
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.decideRequest('req1', 'u1', 'role1', 'APPROVE'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('decideRequest rejects with CELL_VALIDATION when the request was already decided', async () => {
+      const tx = buildTx();
+      tx.dynReportUnlock.findUnique.mockResolvedValue({
+        id: 'req1',
+        kind: 'REQUEST',
+        status: 'REJECTED',
+        assignment: { period: { report: { id: 'report1' } } },
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.decideRequest('req1', 'mgr1', 'roleMgr', 'APPROVE'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+
+    it('bulkGrantUnlock grants every assignment in scope and skips the rest, each independently', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockImplementation((args: unknown) => {
+        const id = (args as { where: { id: string } }).where.id;
+        if (id === 'assign-locked') {
+          return Promise.resolve(
+            baseAssignment({ id, period: basePeriod({ status: 'FINALIZED' }) }),
+          );
+        }
+        if (id === 'assign-missing') return Promise.resolve(null);
+        return Promise.resolve(baseAssignment({ id }));
+      });
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      const result = await service.bulkGrantUnlock(
+        ['assign1', 'assign-locked', 'assign-missing'],
+        'mgr1',
+        'roleMgr',
+        'Quá hạn chung',
+      );
+
+      expect(result.granted).toEqual(['assign1']);
+      expect(result.skipped).toHaveLength(2);
+      expect(
+        result.skipped.find((s) => s.assignmentId === 'assign-locked')?.error,
+      ).toContain('chốt');
+      expect(tx.dynReportUnlock.create).toHaveBeenCalledTimes(1);
+      const createCall = tx.dynReportUnlock.create.mock.calls[0][0] as {
+        data: { bulkBatchId: string };
+      };
+      expect(createCall.data.bulkBatchId).toBeTruthy();
+    });
+
+    it('bulkGrantUnlock rejects with CELL_VALIDATION per-row when expiresAt is not in the future', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      const result = await service.bulkGrantUnlock(
+        ['assign1'],
+        'mgr1',
+        'roleMgr',
+        'r',
+        new Date(Date.now() - 1000).toISOString(),
+      );
+
+      expect(result.granted).toEqual([]);
+      expect(result.skipped).toHaveLength(1);
     });
   });
 });

@@ -54,6 +54,17 @@ describe('ReportManagerListPage', () => {
     );
   });
 
+  it('links to the unlock-request queue', async () => {
+    vi.mocked(dynamicReportsApi.listForManager).mockResolvedValue([SAMPLE]);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('unlock-request-queue-link'));
+    expect(screen.getByTestId('unlock-request-queue-link')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/duyet/mo-khoa',
+    );
+  });
+
   it('shows the empty state when there is nothing to review', async () => {
     vi.mocked(dynamicReportsApi.listForManager).mockResolvedValue([]);
     renderPage();

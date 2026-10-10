@@ -13,6 +13,7 @@ describe('AggregateController', () => {
     finalizePeriod: jest.fn(),
     reopenPeriod: jest.fn(),
     exportPeriod: jest.fn(),
+    getReportHistory: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -133,5 +134,19 @@ describe('AggregateController', () => {
     await expect(
       controller.exportPeriod('period1', user),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('GET history delegates to AggregateService.getReportHistory', async () => {
+    const view = { periodId: 'period1', assignments: [] };
+    service.getReportHistory.mockResolvedValue(view);
+
+    const result = await controller.getHistory('period1', user);
+
+    expect(service.getReportHistory).toHaveBeenCalledWith(
+      'period1',
+      'u1',
+      'r1',
+    );
+    expect(result).toBe(view);
   });
 });

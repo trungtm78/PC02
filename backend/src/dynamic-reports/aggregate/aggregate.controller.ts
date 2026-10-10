@@ -92,6 +92,20 @@ export class AggregateController {
     );
   }
 
+  /** S21 — whole-period history/audit, every assignment at once (read-only). */
+  @Get(':periodId/history')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async getHistory(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.aggregateService.getReportHistory(
+      periodId,
+      user.id,
+      user.roleId,
+    );
+  }
+
   /** S25 — creates the stored export; downloading it is a SEPARATE call (`ExportController`) that re-checks standing. */
   @Post(':periodId/export')
   @RequirePermissions({ action: 'read', subject: 'DynamicReport' })

@@ -25,6 +25,10 @@ describe('SubmissionController', () => {
     unapprove: jest.fn(),
     grantUnlock: jest.fn(),
     revokeActiveGrant: jest.fn(),
+    requestUnlock: jest.fn(),
+    listPendingRequests: jest.fn(),
+    decideRequest: jest.fn(),
+    bulkGrantUnlock: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -320,5 +324,81 @@ describe('SubmissionController', () => {
     await expect(
       controller.grantUnlock('assign1', { reason: 'r' }, user),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('POST unlock/request delegates to SubmissionService.requestUnlock', async () => {
+    const requested = { id: 'req1', teamName: 'Đội 3' };
+    service.requestUnlock.mockResolvedValue(requested);
+
+    const result = await controller.requestUnlock(
+      'assign1',
+      { reason: 'Nhập nhầm số' },
+      user,
+    );
+
+    expect(service.requestUnlock).toHaveBeenCalledWith(
+      'assign1',
+      'u1',
+      'Nhập nhầm số',
+    );
+    expect(result).toBe(requested);
+  });
+
+  it('GET unlock-requests delegates to SubmissionService.listPendingRequests', async () => {
+    const queue = [{ id: 'req1' }];
+    service.listPendingRequests.mockResolvedValue(queue);
+
+    const result = await controller.listUnlockRequests(user);
+
+    expect(service.listPendingRequests).toHaveBeenCalledWith('u1', 'r1');
+    expect(result).toBe(queue);
+  });
+
+  it('POST unlock-requests/:unlockId/decide delegates to SubmissionService.decideRequest', async () => {
+    service.decideRequest.mockResolvedValue(undefined);
+
+    await controller.decideUnlockRequest(
+      'req1',
+      { decision: 'APPROVE', expiresAt: '2026-06-15T13:00:00.000Z' },
+      user,
+    );
+
+    expect(service.decideRequest).toHaveBeenCalledWith(
+      'req1',
+      'u1',
+      'r1',
+      'APPROVE',
+      undefined,
+      '2026-06-15T13:00:00.000Z',
+    );
+  });
+
+  it('translates a CELL_VALIDATION SubmissionError from decideRequest into a 400', async () => {
+    service.decideRequest.mockRejectedValue(
+      new SubmissionError('already decided', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.decideUnlockRequest('req1', { decision: 'APPROVE' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('POST unlock/bulk-grant delegates to SubmissionService.bulkGrantUnlock', async () => {
+    const outcome = { granted: ['a1'], skipped: [] };
+    service.bulkGrantUnlock.mockResolvedValue(outcome);
+
+    const result = await controller.bulkGrantUnlock(
+      { assignmentIds: ['a1'], reason: 'Quá hạn chung' },
+      user,
+    );
+
+    expect(service.bulkGrantUnlock).toHaveBeenCalledWith(
+      ['a1'],
+      'u1',
+      'r1',
+      'Quá hạn chung',
+      undefined,
+    );
+    expect(result).toBe(outcome);
   });
 });

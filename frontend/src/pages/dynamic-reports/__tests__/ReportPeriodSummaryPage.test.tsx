@@ -78,6 +78,17 @@ describe('ReportPeriodSummaryPage', () => {
     vi.clearAllMocks();
   });
 
+  it('links to the whole-period history page', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('link-report-history'));
+    expect(screen.getByTestId('link-report-history')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/duyet/tong-hop/period1/lich-su',
+    );
+  });
+
   it('renders the KPI cards and the field aggregate table', async () => {
     vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
     renderPage();
