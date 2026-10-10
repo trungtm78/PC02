@@ -1,9 +1,5 @@
 import type { FeatureMenuEntry } from '@/lib/features/moduleTypes';
 
-/**
- * PR8 (tình trạng nhập liệu) adds its own menu entry once that page
- * exists.
- */
 export const dynamicReportsMenu: FeatureMenuEntry[] = [
   {
     section: 'reports',
@@ -27,6 +23,14 @@ export const dynamicReportsMenu: FeatureMenuEntry[] = [
     label: 'Duyệt báo cáo',
     icon: 'FileCheck',
     path: '/bao-cao-dong/duyet',
+    quyen: ['read:DynamicReport'],
+  },
+  {
+    section: 'reports',
+    id: 'dynamic-reports-status',
+    label: 'Tình trạng nhập liệu',
+    icon: 'Table2',
+    path: '/bao-cao-dong/tinh-trang',
     quyen: ['read:DynamicReport'],
   },
 ];

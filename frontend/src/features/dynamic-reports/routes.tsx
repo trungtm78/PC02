@@ -29,6 +29,9 @@ const UnlockRequestQueuePage = lazy(
 const ReportHistoryPage = lazy(
   () => import('@/pages/dynamic-reports/ReportHistoryPage'),
 );
+const StatusDashboardPage = lazy(
+  () => import('@/pages/dynamic-reports/StatusDashboardPage'),
+);
 
 export function renderDynamicReportsRoutes(): ReactElement[] {
   return [
@@ -76,6 +79,11 @@ export function renderDynamicReportsRoutes(): ReactElement[] {
       key="dynamic-reports-unlock-requests"
       path="/bao-cao-dong/duyet/mo-khoa"
       element={wrapRoute(<UnlockRequestQueuePage />)}
+    />,
+    <Route
+      key="dynamic-reports-status"
+      path="/bao-cao-dong/tinh-trang"
+      element={wrapRoute(<StatusDashboardPage />)}
     />,
   ];
 }

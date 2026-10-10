@@ -13,6 +13,8 @@ import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
 import { ExportController } from './aggregate/export.controller';
 import { AggregateService } from './aggregate/aggregate.service';
+import { StatusQueryController } from './status/status-query.controller';
+import { StatusQueryService } from './status/status-query.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
@@ -29,6 +31,7 @@ import { TeamsModule } from '../teams/teams.module';
     SubmissionController,
     AggregateController,
     ExportController,
+    StatusQueryController,
   ],
   providers: [
     DynamicReportsRegistryService,
@@ -37,6 +40,7 @@ import { TeamsModule } from '../teams/teams.module';
     ReportConfigService,
     SubmissionService,
     AggregateService,
+    StatusQueryService,
   ],
 })
 export class DynamicReportsModule {}
