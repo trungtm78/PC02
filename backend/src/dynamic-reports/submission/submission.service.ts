@@ -11,6 +11,9 @@ import { validateFieldValue } from '../engine/values';
 import type { FieldDefinitionLike, TypedValue } from '../engine/values';
 import { applyTransition } from '../workflow/transitions';
 
+/** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
+const DEFAULT_GRANT_HOURS = 3;
+
 export class SubmissionError extends Error {
   constructor(
     message: string,
@@ -53,6 +56,15 @@ export interface SubmissionView {
   serverTime: string;
   /** S16 (PR7 slice 3) — only ever populated on the manager's read, never the editor's. */
   history?: RevisionHistoryEntry[];
+  /** S17 (PR7 slice 4) — the currently ACTIVE grant, if any; only the manager's read. */
+  activeGrant?: ActiveGrantView | null;
+}
+
+/** S17 — a grant currently inside its [startsAt, expiresAt) window (never a PENDING/REJECTED/REVOKED/EXPIRED row). */
+export interface ActiveGrantView {
+  id: string;
+  expiresAt: string;
+  reason: string;
 }
 
 /**
@@ -344,6 +356,8 @@ export class SubmissionService {
       committedAt: r.committedAt.toISOString(),
     }));
 
+    const activeGrant = await this.findActiveGrant(assignmentId, now);
+
     return {
       assignmentId,
       reportName: period.report.name,
@@ -360,7 +374,118 @@ export class SubmissionService {
       effectiveLockAt: access.effectiveLockAt?.toISOString() ?? null,
       serverTime: now.toISOString(),
       history,
+      activeGrant,
     };
+  }
+
+  /**
+   * S17 — the row the UI can offer "Thu hồi" on. Deliberately re-checks
+   * the time window in JS rather than trusting `status: 'ACTIVE'` alone:
+   * nothing yet sweeps an expired grant's status to `EXPIRED` (no
+   * ReminderScheduler-style job exists for this), so an ACTIVE row past
+   * its own `expiresAt` must still be treated as inactive here, exactly
+   * like `engine/access.ts#activeGrant` already does for write access.
+   */
+  private async findActiveGrant(
+    assignmentId: string,
+    now: Date,
+  ): Promise<ActiveGrantView | null> {
+    const row = await this.prisma.dynReportUnlock.findFirst({
+      where: { assignmentId, status: 'ACTIVE' },
+      orderBy: { expiresAt: 'desc' },
+    });
+    if (!row) return null;
+    if (now.getTime() < row.startsAt.getTime()) return null;
+    if (now.getTime() >= row.expiresAt.getTime()) return null;
+    return {
+      id: row.id,
+      expiresAt: row.expiresAt.toISOString(),
+      reason: row.reason,
+    };
+  }
+
+  /** S17 — manager extends a team's write window past where it would otherwise be blocked (D07). */
+  async grantUnlock(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    reason: string,
+    expiresAt?: string,
+  ): Promise<ActiveGrantView> {
+    const { assignment } = await this.loadAssignmentForManager(
+      this.prisma,
+      assignmentId,
+      userId,
+      roleId,
+    );
+    if (assignment.period.status !== 'OPEN') {
+      throw new SubmissionError(
+        'Kỳ đã chốt, không thể mở khoá.',
+        'REPORT_LOCKED',
+      );
+    }
+
+    const now = new Date();
+    const resolvedExpiresAt = expiresAt
+      ? new Date(expiresAt)
+      : new Date(now.getTime() + DEFAULT_GRANT_HOURS * 60 * 60 * 1000);
+    if (resolvedExpiresAt.getTime() <= now.getTime()) {
+      throw new SubmissionError(
+        'Hạn mở khoá phải ở trong tương lai.',
+        'CELL_VALIDATION',
+      );
+    }
+
+    const unlock = await this.prisma.dynReportUnlock.create({
+      data: {
+        assignmentId,
+        kind: 'GRANT',
+        status: 'ACTIVE',
+        startsAt: now,
+        expiresAt: resolvedExpiresAt,
+        reason,
+        decidedById: userId,
+      },
+    });
+    return {
+      id: unlock.id,
+      expiresAt: unlock.expiresAt.toISOString(),
+      reason: unlock.reason,
+    };
+  }
+
+  /** S17/S31 — manager revokes the currently active grant on this assignment (BRD: thu hồi có lý do). */
+  async revokeActiveGrant(
+    assignmentId: string,
+    userId: string,
+    roleId: string,
+    reason: string,
+  ): Promise<void> {
+    await this.loadAssignmentForManager(
+      this.prisma,
+      assignmentId,
+      userId,
+      roleId,
+    );
+
+    const now = new Date();
+    const activeGrant = await this.findActiveGrant(assignmentId, now);
+    if (!activeGrant) {
+      throw new SubmissionError(
+        'Không có lượt mở khoá nào đang hiệu lực để thu hồi.',
+        'CELL_VALIDATION',
+      );
+    }
+
+    await this.prisma.dynReportUnlock.update({
+      where: { id: activeGrant.id },
+      data: {
+        status: 'REVOKED',
+        revokedById: userId,
+        revokedAt: now,
+        revokeReason: reason,
+      },
+    });
   }
 
   private toFieldView(f: {

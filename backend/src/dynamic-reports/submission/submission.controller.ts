@@ -17,7 +17,13 @@ import { RequirePermissions } from '../../auth/decorators/permissions.decorator'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SubmissionService, SubmissionError } from './submission.service';
 import { SaveValuesDto, SubmitDto } from './dto/save-values.dto';
-import { ApproveDto, ReturnDto, UnapproveDto } from './dto/review.dto';
+import {
+  ApproveDto,
+  ReturnDto,
+  UnapproveDto,
+  GrantUnlockDto,
+  RevokeUnlockDto,
+} from './dto/review.dto';
 
 const CONFLICT_CODES = new Set([
   'REVISION_CONFLICT',
@@ -167,6 +173,41 @@ export class SubmissionController {
         user.id,
         user.roleId,
         body.expectedRevision,
+        body.reason,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/unlock')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async grantUnlock(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: GrantUnlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.grantUnlock(
+        assignmentId,
+        user.id,
+        user.roleId,
+        body.reason,
+        body.expiresAt,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/unlock/revoke')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async revokeUnlock(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: RevokeUnlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.revokeActiveGrant(
+        assignmentId,
+        user.id,
+        user.roleId,
         body.reason,
       ),
     );

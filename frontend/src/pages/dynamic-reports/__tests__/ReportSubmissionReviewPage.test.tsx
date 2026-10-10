@@ -12,6 +12,8 @@ vi.mock('@/features/dynamic-reports/api', () => ({
     approveSubmission: vi.fn(),
     returnSubmission: vi.fn(),
     unapproveSubmission: vi.fn(),
+    grantUnlock: vi.fn(),
+    revokeUnlock: vi.fn(),
   },
 }));
 
@@ -249,5 +251,127 @@ describe('ReportSubmissionReviewPage', () => {
 
     await waitFor(() => screen.getByTestId('btn-approve'));
     expect(screen.queryByTestId('reopen-deadline-note')).not.toBeInTheDocument();
+  });
+
+  it('shows the "Mở khoá" button for a DRAFT submission with no active grant', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'DRAFT',
+      activeGrant: null,
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-show-unlock'));
+    expect(screen.queryByTestId('active-grant-box')).not.toBeInTheDocument();
+  });
+
+  it('grants an unlock with a reason and a prefilled +3h default, prefilled form opens on click', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'DRAFT',
+      activeGrant: null,
+    });
+    vi.mocked(dynamicReportsApi.grantUnlock).mockResolvedValue({
+      id: 'unlock1',
+      expiresAt: '2026-11-08T12:00:00.000Z',
+      reason: 'Cho thêm giờ',
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-show-unlock'));
+    fireEvent.click(screen.getByTestId('btn-show-unlock'));
+
+    const expiresInput = screen.getByTestId('unlock-expires-at-input') as HTMLInputElement;
+    expect(expiresInput.value).not.toBe('');
+
+    fireEvent.change(screen.getByTestId('unlock-reason-input'), {
+      target: { value: 'Cho thêm giờ' },
+    });
+    fireEvent.click(screen.getByTestId('btn-submit-unlock'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.grantUnlock).toHaveBeenCalledWith(
+        'assign1',
+        'Cho thêm giờ',
+        expect.stringContaining('T'),
+      );
+    });
+  });
+
+  it('shows a validation error instead of calling the API when the unlock reason is blank', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'DRAFT',
+      activeGrant: null,
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-show-unlock'));
+    fireEvent.click(screen.getByTestId('btn-show-unlock'));
+    fireEvent.click(screen.getByTestId('btn-submit-unlock'));
+
+    await waitFor(() => screen.getByTestId('action-error'));
+    expect(dynamicReportsApi.grantUnlock).not.toHaveBeenCalled();
+  });
+
+  it('shows the active grant with a "Thu hồi" button instead of the "Mở khoá" button', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'RETURNED',
+      activeGrant: {
+        id: 'unlock1',
+        expiresAt: '2026-11-08T12:00:00.000Z',
+        reason: 'Cho thêm giờ',
+      },
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('active-grant-box'));
+    expect(screen.getByTestId('active-grant-box')).toHaveTextContent('Cho thêm giờ');
+    expect(screen.queryByTestId('btn-show-unlock')).not.toBeInTheDocument();
+  });
+
+  it('revokes the active grant after a prompted reason', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'RETURNED',
+      activeGrant: {
+        id: 'unlock1',
+        expiresAt: '2026-11-08T12:00:00.000Z',
+        reason: 'Cho thêm giờ',
+      },
+    });
+    vi.mocked(dynamicReportsApi.revokeUnlock).mockResolvedValue(undefined);
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Hết cần thiết');
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-revoke-unlock'));
+    fireEvent.click(screen.getByTestId('btn-revoke-unlock'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.revokeUnlock).toHaveBeenCalledWith('assign1', 'Hết cần thiết');
+    });
+    promptSpy.mockRestore();
+  });
+
+  it('does not revoke when the prompt is cancelled', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'RETURNED',
+      activeGrant: {
+        id: 'unlock1',
+        expiresAt: '2026-11-08T12:00:00.000Z',
+        reason: 'Cho thêm giờ',
+      },
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-revoke-unlock'));
+    fireEvent.click(screen.getByTestId('btn-revoke-unlock'));
+
+    await waitFor(() => expect(promptSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.revokeUnlock).not.toHaveBeenCalled();
+    promptSpy.mockRestore();
   });
 });

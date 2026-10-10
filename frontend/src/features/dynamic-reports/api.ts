@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import type {
+  ActiveGrantView,
   AssignmentSummary,
   PeriodSummaryView,
   ReportSetupSummary,
@@ -137,5 +138,19 @@ export const dynamicReportsApi = {
       .get<PeriodSummaryView>(`/bao-cao-dong/periods/${periodId}/summary`, {
         params: { mode },
       })
+      .then((r) => r.data),
+
+  /** S17 (PR7 slice 4). `expiresAt` omitted lets the server default to now+3h (D07). */
+  grantUnlock: (assignmentId: string, reason: string, expiresAt?: string) =>
+    api
+      .post<ActiveGrantView>(`/bao-cao-dong/submissions/${assignmentId}/unlock`, {
+        reason,
+        expiresAt,
+      })
+      .then((r) => r.data),
+
+  revokeUnlock: (assignmentId: string, reason: string) =>
+    api
+      .post<void>(`/bao-cao-dong/submissions/${assignmentId}/unlock/revoke`, { reason })
       .then((r) => r.data),
 };

@@ -78,6 +78,11 @@ describe('SubmissionService', () => {
       },
       dynReportUnlock: {
         findMany: jest.fn<Promise<unknown>, unknown[]>().mockResolvedValue([]),
+        findFirst: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(null),
+        create: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
+        update: jest.fn<Promise<unknown>, [Record<string, unknown>]>(),
       },
       user: {
         findUnique: jest
@@ -1102,6 +1107,197 @@ describe('SubmissionService', () => {
       ]);
       expect(result.history?.[0]).not.toHaveProperty('valuesFull');
       expect(result.history?.[0]).not.toHaveProperty('diff');
+    });
+
+    it("surfaces the active grant in the manager's view when one is currently valid", async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportUnlock.findFirst.mockResolvedValue({
+        id: 'unlock1',
+        startsAt: new Date(Date.now() - 1000 * 60 * 60),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        reason: 'Cho thêm giờ',
+      });
+      const prisma = {
+        dynReportAssignment: tx.dynReportAssignment,
+        rolePermission: tx.rolePermission,
+        dynReportRole: tx.dynReportRole,
+        dynReportUnlock: tx.dynReportUnlock,
+        dynReportRevision: {
+          findMany: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue([]),
+        },
+      };
+      const service = new SubmissionService(prisma as unknown as PrismaService);
+
+      const result = await service.getSubmissionForManager(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result.activeGrant?.id).toBe('unlock1');
+      expect(result.activeGrant?.reason).toBe('Cho thêm giờ');
+      expect(typeof result.activeGrant?.expiresAt).toBe('string');
+    });
+  });
+
+  describe('grantUnlock / revokeActiveGrant (S17/S31, PR7 slice 4)', () => {
+    it('creates an ACTIVE grant defaulting to now+3h when no expiresAt is given', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportUnlock.create.mockResolvedValue({
+        id: 'unlock1',
+        expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        reason: 'Cho thêm giờ',
+      });
+      const { service } = buildService(tx);
+
+      const result = await service.grantUnlock(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+        'Cho thêm giờ',
+      );
+
+      expect(result.reason).toBe('Cho thêm giờ');
+      const createCall = tx.dynReportUnlock.create.mock.calls[0][0] as {
+        data: {
+          kind: string;
+          status: string;
+          decidedById: string;
+          expiresAt: Date;
+        };
+      };
+      expect(createCall.data.kind).toBe('GRANT');
+      expect(createCall.data.status).toBe('ACTIVE');
+      expect(createCall.data.decidedById).toBe('mgr1');
+      const deltaMs = createCall.data.expiresAt.getTime() - Date.now();
+      expect(deltaMs).toBeGreaterThan(3 * 60 * 60 * 1000 - 5000);
+      expect(deltaMs).toBeLessThan(3 * 60 * 60 * 1000 + 5000);
+    });
+
+    it('uses the given expiresAt when provided', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const explicit = new Date(Date.now() + 1000 * 60 * 60 * 5).toISOString();
+      tx.dynReportUnlock.create.mockResolvedValue({
+        id: 'unlock1',
+        expiresAt: new Date(explicit),
+        reason: 'r',
+      });
+      const { service } = buildService(tx);
+
+      await service.grantUnlock('assign1', 'mgr1', 'roleMgr', 'r', explicit);
+
+      const createCall = tx.dynReportUnlock.create.mock.calls[0][0] as {
+        data: { expiresAt: Date };
+      };
+      expect(createCall.data.expiresAt.toISOString()).toBe(explicit);
+    });
+
+    it('rejects with CELL_VALIDATION when expiresAt is not in the future', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.grantUnlock(
+          'assign1',
+          'mgr1',
+          'roleMgr',
+          'r',
+          new Date(Date.now() - 1000).toISOString(),
+        ),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportUnlock.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects with REPORT_LOCKED when the period is FINALIZED', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({ period: basePeriod({ status: 'FINALIZED' }) }),
+      );
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.grantUnlock('assign1', 'mgr1', 'roleMgr', 'r'),
+      ).rejects.toMatchObject({ code: 'REPORT_LOCKED' });
+    });
+
+    it('rejects (404) when the caller is not a manager of this report', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      const { service } = buildService(tx);
+
+      await expect(
+        service.grantUnlock('assign1', 'u1', 'role1', 'r'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('revokes the current active grant with a reason', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportUnlock.findFirst.mockResolvedValue({
+        id: 'unlock1',
+        startsAt: new Date(Date.now() - 1000 * 60 * 60),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        reason: 'Cho thêm giờ',
+      });
+      const { service } = buildService(tx);
+
+      await service.revokeActiveGrant(
+        'assign1',
+        'mgr1',
+        'roleMgr',
+        'Hết cần thiết',
+      );
+
+      const updateCall = tx.dynReportUnlock.update.mock.calls[0][0] as {
+        where: { id: string };
+        data: { status: string; revokedById: string; revokeReason: string };
+      };
+      expect(updateCall.where.id).toBe('unlock1');
+      expect(updateCall.data.status).toBe('REVOKED');
+      expect(updateCall.data.revokedById).toBe('mgr1');
+      expect(updateCall.data.revokeReason).toBe('Hết cần thiết');
+    });
+
+    it('rejects with CELL_VALIDATION when there is no active grant to revoke', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.revokeActiveGrant('assign1', 'mgr1', 'roleMgr', 'r'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportUnlock.update).not.toHaveBeenCalled();
+    });
+
+    it('treats an ACTIVE row past its own expiresAt as not-active (nothing to revoke)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      tx.dynReportRole.findFirst.mockResolvedValue({ role: 'MANAGER' });
+      tx.dynReportUnlock.findFirst.mockResolvedValue({
+        id: 'unlock1',
+        startsAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
+        expiresAt: new Date(Date.now() - 1000 * 60 * 60),
+        reason: 'r',
+      });
+      const { service } = buildService(tx);
+
+      await expect(
+        service.revokeActiveGrant('assign1', 'mgr1', 'roleMgr', 'r'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+      expect(tx.dynReportUnlock.update).not.toHaveBeenCalled();
     });
   });
 });

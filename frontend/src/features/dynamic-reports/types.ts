@@ -181,6 +181,14 @@ export interface SubmissionView {
   serverTime: string;
   /** S16 (PR7 slice 3) — only populated on the manager's read. */
   history?: RevisionHistoryEntry[];
+  /** S17 (PR7 slice 4) — the currently active grant, if any; only the manager's read. */
+  activeGrant?: ActiveGrantView | null;
+}
+
+export interface ActiveGrantView {
+  id: string;
+  expiresAt: string;
+  reason: string;
 }
 
 export interface RevisionHistoryEntry {
