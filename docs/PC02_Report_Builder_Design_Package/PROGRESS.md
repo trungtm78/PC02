@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T13:35:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5b + PR6 slice 1 đã merge main; PR6 slice 3 (S11 — nhập liệu thật, dạng form) ĐÃ XONG, đã bấm thử thật trọn luồng, trên nhánh `feat/dynamic-reports-pr6-slice3` (chưa merge; PR #534 layout-fix đã tách merge riêng) | Task: 0/~6
+Cập nhật: 2026-10-10T13:55:00+07:00 | Milestone: PR0-PR5 + PR4 (trọn S02-S10) + PR6 slice 1-3 đã merge main (PR #535) — **người nhập đã lưu được số liệu thật vào DynReportSubmission lần đầu tiên, có xác nhận bằng SQL và bấm thử thật**; bắt đầu PR6 slice 4 (SUBMIT cơ bản) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -96,6 +96,7 @@ Cập nhật: 2026-10-10T13:35:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5b + 
   - **Đã bấm thử thật trọn luồng trên Chromium**: xuất bản 1 báo cáo thật qua HTTP → tự chèn kỳ+lượt giao qua SQL (mô phỏng PeriodScheduler) → đăng nhập UI thật → vào "Nhập & tổng hợp" → thấy đúng dòng lượt giao → bấm vào → thấy đủ 2 ô nhập theo đúng sheet → gõ giá trị → rời ô → thấy "Đã lưu" → xác nhận bằng SQL: `dyn_report_submissions.values` đúng `{"Đội 3!C6":{"t":"NUM","v":"25"}}` → tải lại trang → ô vẫn hiện đúng giá trị đã lưu (đọc lại từ server, không phải cache trình duyệt). 0 lỗi console/network. Đã dọn dữ liệu thử.
   - **Lỗi local-only gặp lại, không sửa**: chạy full suite backend cục bộ timeout ngẫu nhiên ở các file dùng exceljs/`worker_threads` nặng (`monthly-report-export`, `parse-in-worker`, vài file xlsx khác) dù CPU 2%/RAM dư — nghi `worker_threads` khởi động chậm trên Windows làm nghẽn worker jest dùng chung, kéo theo các test khác trong CÙNG worker process cũng timeout. CI (Linux) không gặp — xác nhận qua Backend Tests xanh trên PR #534. Không phải lỗi do thay đổi của tôi (các file này tôi không đụng tới).
   - 7 test backend mới (`listMyAssignments` 3, controller `listMine` 1) + 8 test frontend mới (`ReportInputRegisterPage` 3, `SubmissionInputPage` 5).
+- [x] **Đã merge PR #535 (PR6 slice 3) vào `main`** — admin-merge (tiền lệ #522-534), CI xanh 5/5 (Backend Tests xanh xác nhận các timeout gặp cục bộ chỉ do máy, không phải lỗi thật), merge commit `d6c28ea04f230f3fbb25d4ce40a5c73d3a5925b5`, 10/10/2026 13:41 (+07:00). Deploy xanh, health buildId khớp — xác nhận 13:50. **Mốc: lần đầu tiên người nhập lưu được số liệu thật vào `DynReportSubmission` qua giao diện thật, từ tạo báo cáo tới nhập và xác nhận lại, chạy trên prod.**
 
 **Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
