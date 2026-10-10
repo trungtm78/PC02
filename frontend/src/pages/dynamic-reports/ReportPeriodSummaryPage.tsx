@@ -7,13 +7,22 @@
 import { Fragment, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  ArrowLeft,
+  AlertCircle,
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Lock,
+  Unlock,
+} from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { SummaryMode } from '@/features/dynamic-reports/types';
 import {
   DYN_REPORT_SUBMISSION_STATE_LABEL,
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
+import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 
@@ -28,11 +37,47 @@ export default function ReportPeriodSummaryPage() {
   const [mode, setMode] = useState<SummaryMode>('SUBMITTED');
   const [expandedFieldKey, setExpandedFieldKey] = useState<string | null>(null);
 
-  const { data: view, isLoading, isError } = useQuery({
+  const { data: view, isLoading, isError, refetch } = useQuery({
     queryKey: ['dynamic-reports', 'period-summary', periodId, mode],
     queryFn: () => dynamicReportsApi.getPeriodSummary(periodId as string, mode),
     enabled: !!periodId,
   });
+
+  const [finalizeStatus, setFinalizeStatus] = useState<'idle' | 'working' | 'error'>('idle');
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+
+  async function handleFinalize() {
+    if (!periodId) return;
+    if (!window.confirm('Chốt kỳ này? Sau khi chốt, không tổ nào sửa được nữa trừ khi mở chốt lại.')) {
+      return;
+    }
+    setFinalizeStatus('working');
+    setFinalizeError(null);
+    try {
+      await dynamicReportsApi.finalizePeriod(periodId);
+      await refetch();
+      setFinalizeStatus('idle');
+    } catch (err) {
+      setFinalizeStatus('error');
+      setFinalizeError(extractApiError(err).message);
+    }
+  }
+
+  async function handleReopen() {
+    if (!periodId) return;
+    const reason = window.prompt('Lý do mở chốt:');
+    if (!reason || !reason.trim()) return;
+    setFinalizeStatus('working');
+    setFinalizeError(null);
+    try {
+      await dynamicReportsApi.reopenPeriod(periodId, reason.trim());
+      await refetch();
+      setFinalizeStatus('idle');
+    } catch (err) {
+      setFinalizeStatus('error');
+      setFinalizeError(extractApiError(err).message);
+    }
+  }
 
   if (isLoading) {
     return <div className="max-w-4xl mx-auto p-6 text-sm text-slate-500">Đang tải…</div>;
@@ -58,14 +103,50 @@ export default function ReportPeriodSummaryPage() {
         Quay lại danh sách duyệt
       </Link>
 
-      <div className="flex items-center gap-2 mb-1">
-        <BarChart3 className="w-5 h-5 text-blue-700" />
-        <h1 className="text-xl font-bold text-slate-800">{view.reportName}</h1>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-blue-700" />
+          <h1 className="text-xl font-bold text-slate-800">{view.reportName}</h1>
+        </div>
+        {view.status === 'OPEN' ? (
+          <button
+            type="button"
+            data-testid="btn-finalize"
+            disabled={finalizeStatus === 'working'}
+            onClick={() => void handleFinalize()}
+            className={`flex items-center gap-2 px-3 py-1.5 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+          >
+            <Lock className="w-4 h-4" />
+            Chốt kỳ
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded" data-testid="finalized-badge">
+              <Lock className="w-3.5 h-3.5" />
+              Đã chốt
+            </span>
+            <button
+              type="button"
+              data-testid="btn-reopen"
+              disabled={finalizeStatus === 'working'}
+              onClick={() => void handleReopen()}
+              className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+            >
+              <Unlock className="w-4 h-4" />
+              Mở chốt
+            </button>
+          </div>
+        )}
       </div>
-      <p className="text-sm text-slate-500 mb-4">
+      <p className="text-sm text-slate-500 mb-1">
         Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn{' '}
         {formatVNDateTime(view.dueAt)}
       </p>
+      {finalizeError && (
+        <p className="text-sm text-red-700 mb-3" data-testid="finalize-error">
+          {finalizeError}
+        </p>
+      )}
 
       <div className="flex items-center gap-2 mb-4">
         <span className="text-sm text-slate-600">Chế độ tính:</span>

@@ -7,7 +7,11 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { PeriodSummaryView } from '@/features/dynamic-reports/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
-  dynamicReportsApi: { getPeriodSummary: vi.fn() },
+  dynamicReportsApi: {
+    getPeriodSummary: vi.fn(),
+    finalizePeriod: vi.fn(),
+    reopenPeriod: vi.fn(),
+  },
 }));
 
 function renderPage() {
@@ -34,6 +38,7 @@ const VIEW: PeriodSummaryView = {
   periodStart: '2026-06-01',
   periodEnd: '2026-06-30',
   dueAt: '2026-07-05T17:00:00.000Z',
+  status: 'OPEN',
   mode: 'SUBMITTED',
   kpi: {
     requiredCount: 3,
@@ -155,5 +160,93 @@ describe('ReportPeriodSummaryPage', () => {
 
     await waitFor(() => screen.getByTestId('contributors-Đội 3!C6'));
     expect(screen.getByTestId('contributors-Đội 3!C6')).toHaveTextContent('Chưa có tổ nào đóng góp');
+  });
+
+  it('shows "Chốt kỳ" for an OPEN period and finalizes after confirmation', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.finalizePeriod).mockResolvedValue({
+      periodId: 'period1',
+      status: 'FINALIZED',
+      finalizedAt: '2026-06-15T10:00:00.000Z',
+      snapshotId: 'snapshot1',
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-finalize'));
+    expect(screen.queryByTestId('finalized-badge')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-finalize'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.finalizePeriod).toHaveBeenCalledWith('period1');
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('does not finalize when the confirmation dialog is declined', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-finalize'));
+    fireEvent.click(screen.getByTestId('btn-finalize'));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.finalizePeriod).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows "Đã chốt" + "Mở chốt" for a FINALIZED period and reopens after a prompted reason', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
+      ...VIEW,
+      status: 'FINALIZED',
+    });
+    vi.mocked(dynamicReportsApi.reopenPeriod).mockResolvedValue({
+      periodId: 'period1',
+      status: 'OPEN',
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Sai số liệu');
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('finalized-badge'));
+    expect(screen.queryByTestId('btn-finalize')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('btn-reopen'));
+
+    await waitFor(() => {
+      expect(dynamicReportsApi.reopenPeriod).toHaveBeenCalledWith('period1', 'Sai số liệu');
+    });
+    promptSpy.mockRestore();
+  });
+
+  it('does not reopen when the reason prompt is cancelled', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue({
+      ...VIEW,
+      status: 'FINALIZED',
+    });
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-reopen'));
+    fireEvent.click(screen.getByTestId('btn-reopen'));
+
+    await waitFor(() => expect(promptSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.reopenPeriod).not.toHaveBeenCalled();
+    promptSpy.mockRestore();
+  });
+
+  it('shows an error message when finalize fails (e.g. 404 — not a manager of this report)', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.finalizePeriod).mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: { message: 'Không tìm thấy kỳ báo cáo này.' } } },
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-finalize'));
+    fireEvent.click(screen.getByTestId('btn-finalize'));
+
+    await waitFor(() => screen.getByTestId('finalize-error'));
+    confirmSpy.mockRestore();
   });
 });
