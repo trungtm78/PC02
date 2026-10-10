@@ -34,14 +34,20 @@ import type { ScheduleRule } from '@/features/dynamic-reports/engine/generated/p
 import { extractApiError } from '@/lib/api-errors';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
 import ReportScheduleStep from './ReportScheduleStep';
+import ReportTeamsStep from './ReportTeamsStep';
+import ReportSummaryStep from './ReportSummaryStep';
+import type { ReportRoleConfig, ReportTargetConfig } from '@/features/dynamic-reports/types';
 
 const MAX_SELECTED_SHEETS = 5;
 const FIELD_TYPES: ParsedFieldType[] = ['NUM', 'TEXT', 'DATE', 'TIME'];
 
-type Step = 'upload' | 'sheets' | 'preview' | 'schedule';
+type Step = 'upload' | 'sheets' | 'preview' | 'schedule' | 'teams' | 'summary';
 
 export default function ReportTemplateUploadPage() {
   const [step, setStep] = useState<Step>('upload');
+  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [sheets, setSheets] = useState<SheetInfo[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
@@ -57,6 +63,8 @@ export default function ReportTemplateUploadPage() {
   const [markError, setMarkError] = useState<string | null>(null);
 
   const [schedule, setSchedule] = useState<ScheduleRule | null>(null);
+  const [roles, setRoles] = useState<ReportRoleConfig[]>([]);
+  const [targets, setTargets] = useState<ReportTargetConfig[]>([]);
 
   async function handleFileChange(f: File | null) {
     setError(null);
@@ -172,6 +180,45 @@ export default function ReportTemplateUploadPage() {
       )}
 
       <div className="bg-white border border-slate-200 rounded-lg p-6">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">
+              Mã báo cáo <span className="text-red-500">*</span>
+            </span>
+            <input
+              type="text"
+              data-testid="input-report-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
+              placeholder="VD: HSLN"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">
+              Tên báo cáo <span className="text-red-500">*</span>
+            </span>
+            <input
+              type="text"
+              data-testid="input-report-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
+              placeholder="VD: Thống kê hình sự liên ngành"
+            />
+          </label>
+        </div>
+        <label className="block text-sm mb-4">
+          <span className="font-medium text-slate-700">Mô tả</span>
+          <textarea
+            data-testid="input-report-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="block w-full mt-1 border border-slate-300 rounded px-3 py-2 text-sm"
+            rows={2}
+          />
+        </label>
+
         <label className="block text-sm font-medium text-slate-700 mb-2">File Excel mẫu (.xlsx)</label>
         <input
           type="file"
@@ -228,7 +275,7 @@ export default function ReportTemplateUploadPage() {
             <button
               type="button"
               data-testid="btn-preview"
-              disabled={selectedSheets.length === 0 || loading}
+              disabled={selectedSheets.length === 0 || loading || !code.trim() || !name.trim()}
               onClick={() => void handlePreview()}
               className={`mt-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed ${A11Y_FOCUS_RING}`}
             >
@@ -415,15 +462,43 @@ export default function ReportTemplateUploadPage() {
           <div className="mt-6 border-t border-slate-200 pt-6">
             <ReportScheduleStep
               onBack={() => setStep('preview')}
-              onNext={(rule) => setSchedule(rule)}
+              onNext={(rule) => {
+                setSchedule(rule);
+                setStep('teams');
+              }}
             />
           </div>
         )}
 
-        {schedule && (
-          <p className="text-sm text-slate-500 mt-4" data-testid="schedule-saved-note">
-            Đã ghi nhận lịch — bước chọn tổ/người nhập và xuất bản sẽ có ở PR tiếp theo.
-          </p>
+        {step === 'teams' && (
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <ReportTeamsStep
+              onBack={() => setStep('schedule')}
+              onNext={(r, t) => {
+                setRoles(r);
+                setTargets(t);
+                setStep('summary');
+              }}
+            />
+          </div>
+        )}
+
+        {step === 'summary' && file && preview && schedule && (
+          <div className="mt-6 border-t border-slate-200 pt-6">
+            <ReportSummaryStep
+              file={file}
+              code={code}
+              name={name}
+              description={description}
+              selectedSheets={selectedSheets}
+              dateSystem={preview.dateSystem}
+              fields={preview.fields}
+              schedule={schedule}
+              roles={roles}
+              targets={targets}
+              onBack={() => setStep('teams')}
+            />
+          </div>
         )}
       </div>
     </div>

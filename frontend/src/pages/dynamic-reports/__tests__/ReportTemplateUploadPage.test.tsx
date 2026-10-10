@@ -66,6 +66,13 @@ async function selectFileAndWaitForSheets() {
   await waitFor(() => screen.getByTestId('sheet-checkbox-TỔNG'));
 }
 
+function fillCodeAndName() {
+  fireEvent.change(screen.getByTestId('input-report-code'), { target: { value: 'HSLN' } });
+  fireEvent.change(screen.getByTestId('input-report-name'), {
+    target: { value: 'Thống kê hình sự liên ngành' },
+  });
+}
+
 describe('ReportTemplateUploadPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,6 +129,7 @@ describe('ReportTemplateUploadPage', () => {
     vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(PREVIEW);
     renderPage();
 
+    fillCodeAndName();
     await selectFileAndWaitForSheets();
     fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
     fireEvent.click(screen.getByTestId('btn-preview'));
@@ -136,6 +144,7 @@ describe('ReportTemplateUploadPage', () => {
     vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue({ ...PREVIEW, issues: [] });
     renderPage();
 
+    fillCodeAndName();
     await selectFileAndWaitForSheets();
     fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
     fireEvent.click(screen.getByTestId('btn-preview'));
@@ -144,10 +153,11 @@ describe('ReportTemplateUploadPage', () => {
     expect(screen.getByText('Không có cảnh báo nào.')).toBeInTheDocument();
   });
 
-  it('the preview button is disabled until at least one sheet is selected', async () => {
+  it('the preview button is disabled until at least one sheet is selected (with code/name already filled)', async () => {
     vi.mocked(dynamicReportsApi.listTemplateSheets).mockResolvedValue(SHEETS);
     renderPage();
 
+    fillCodeAndName();
     await selectFileAndWaitForSheets();
     expect(screen.getByTestId('btn-preview')).toBeDisabled();
 
@@ -155,10 +165,23 @@ describe('ReportTemplateUploadPage', () => {
     expect(screen.getByTestId('btn-preview')).not.toBeDisabled();
   });
 
+  it('the preview button stays disabled without a report code/name even with a sheet selected', async () => {
+    vi.mocked(dynamicReportsApi.listTemplateSheets).mockResolvedValue(SHEETS);
+    renderPage();
+
+    await selectFileAndWaitForSheets();
+    fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
+    expect(screen.getByTestId('btn-preview')).toBeDisabled();
+  });
+
   async function getToPreview() {
     vi.mocked(dynamicReportsApi.listTemplateSheets).mockResolvedValue(SHEETS);
     vi.mocked(dynamicReportsApi.previewTemplate).mockResolvedValue(PREVIEW);
     renderPage();
+    fireEvent.change(screen.getByTestId('input-report-code'), { target: { value: 'HSLN' } });
+    fireEvent.change(screen.getByTestId('input-report-name'), {
+      target: { value: 'Thống kê hình sự liên ngành' },
+    });
     await selectFileAndWaitForSheets();
     fireEvent.click(screen.getByTestId('sheet-checkbox-Đội 3'));
     fireEvent.click(screen.getByTestId('btn-preview'));
