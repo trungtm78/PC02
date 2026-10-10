@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T07:58:00+07:00 | Milestone: PR0-PR5 đã merge main; PR4 slice 1 (S01) ĐÃ XONG + đã bấm thử thật trên Chromium, trên nhánh `feat/dynamic-reports-pr4-wizard` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T08:35:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1 đã merge main; PR4 slice 2 (upload endpoint) ĐÃ XONG trên nhánh `feat/dynamic-reports-pr4-slice2` (chưa merge) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -31,24 +31,33 @@ Cập nhật: 2026-10-10T07:58:00+07:00 | Milestone: PR0-PR5 đã merge main; PR
   - Đụng 2 cổng toàn kho (không phải test riêng của dynamic-reports) khi thêm bề mặt mới: `generate-shared-enums.cjs` whitelist (thêm `DynReportStatus`/`DynReportPeriodType` — enum Prisma không tự đồng bộ sang frontend) và `user-table-layouts.service.ts` `BANG_HOP_LE` (thêm khoá bảng `dynamic-reports-setup` — cổng `khoa-bang-giao-dien-phai-duoc-nhan.gate.spec.ts` canh mọi `useBoCucCot()` phải có trong danh sách trắng phía máy chủ). Cả hai chỉ lộ ra khi chạy FULL SUITE, không lộ khi chỉ chạy test trong `dynamic-reports/`.
   - **Đã bấm thử thật trên Chromium (Playwright, cài mới cho phiên này — môi trường trước đó không có sẵn trình duyệt tự động):** dựng DB dev cục bộ (`pc02_db` tại 127.0.0.1:5433, `db push` đồng bộ schema thay vì replay 135+ migration cũ), sinh khoá RSA JWT riêng cho local (không đụng `keys/public.pem` đã commit), bật flag `dynamic_reports`, chạy `backend start:dev` + `frontend dev`, đăng nhập thật, bấm đúng mục trình đơn (xác nhận mục "BÁO CÁO & THỐNG KÊ" chỉ là khung gấp — không phải lỗi thiếu mục), xác nhận trạng thái rỗng, gieo 1 dòng DynReport+schedule+role+target+period thật rồi xác nhận mọi cột hiện đúng, 0 lỗi console/network. Đã dọn dữ liệu thử + ảnh chụp màn hình, không commit.
   - 6 test frontend mới (ReportRegisterPage), 3 test backend mới (reports.service chế độ setup).
+- [x] **Đã merge PR #527 (PR4 slice 1) vào `main`** — admin-merge (tiền lệ #522-525), merge commit `3b591b284c239c85f6c908ed0a62f4bc3f2998f5`. Deploy sau merge thành công, health xanh (buildId khớp).
+- [x] **PR4 slice 2 — endpoint upload mẫu (S02/S03)**, nhánh `feat/dynamic-reports-pr4-slice2`:
+  - `POST /bao-cao-dong/templates/sheets` — tải file lên, trả danh sách tên sheet (cho màn chọn sheet trước khi preview đầy đủ). KHÔNG cách ly bằng worker_threads như `validateAndParse` — lúc này file đã qua hết các kiểm tra tiền xử lý (magic bytes/zip-bomb/macro), và đọc tên sheet không có việc theo từng ô, chi phí chỉ phụ thuộc dung lượng file (đã giới hạn sẵn), không phụ thuộc nội dung sheet.
+  - `POST /bao-cao-dong/templates/preview` — tải lại kèm danh sách sheet đã chọn, gọi `TemplateService.validateAndParse` đầy đủ (đã có từ PR3, lần đầu được gắn vào controller thật).
+  - `PreviewTemplateDto`: trường `selectedSheets` đi dạng chuỗi JSON trong multipart (giống `variables` của document-templates) — JSON hỏng thì giữ nguyên chuỗi thô để `@IsArray` tự bắt thành lỗi 400, không âm thầm rơi về mảng rỗng.
+  - Cả 2 route yêu cầu `manage:DynamicReport` + flag `dynamic_reports`.
+  - **Đã kiểm bằng yêu cầu HTTP thật** (không chỉ test có giả lập): đăng nhập thật, tải file HSLN thật qua multipart thật. Phát hiện `curl` bản mingw trên Windows làm hỏng ký tự tiếng Việt ở giá trị trường `-F` khi truyền qua đối số dòng lệnh (lỗi môi trường Windows, không phải lỗi máy chủ) — xác nhận lại bằng `fetch`/`FormData` của chính Node, kết quả khớp byte-từng-byte: 33 cảnh báo UNLOCKED_NO_TOKEN, 0 field — đúng y hệt oracle đã biết của HSLN (README.md: ô có số mẫu, không có token).
+  - 26 test mới (templates.controller, template.service.listSheets, PreviewTemplateDto), 97-100% dòng.
 
-**Tổng PR0-PR4(slice1): 442 test dynamic-reports, toàn bộ xanh. Backend full suite 7863/7978 (115 skip có trước) xanh. Frontend full suite 4890/4891 (1 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
+**Tổng PR0-PR4(slice1+2): 468 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. tsc --noEmit, eslint sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có. Chưa có UI gọi 2 route mới — đó là bước tiếp theo.**
 
 ### Vấn đề hạ tầng đã gỡ (không phải của dynamic-reports nhưng chặn đường)
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR4 slice 1 (S01) đã xong, xanh, đã bấm thử thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-wizard` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
+Task: PR4 slice 2 (endpoint upload mẫu) đã xong, xanh, đã kiểm bằng HTTP thật — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-slice2` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
 
-BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-wizard` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó tiếp tục PR4 slice 2: wizard 4 bước thật (S02-S10 upload mẫu Excel, đánh dấu ô, đặt lịch, chọn tổ/người nhập) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung cho các màn sau. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ) đã dựng xong trong phiên này — lần sau chỉ cần lặp lại, không phải dựng lại từ đầu (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới).
+BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-slice2` → `gh pr create` → chờ CI → merge (tiền lệ `--admin` nếu branch protection vẫn chặn review) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR4 slice 3: giao diện wizard bước 1-2 thật (S02 chọn file+sheet, S03/S04 preview+đánh dấu ô) gọi 2 route vừa dựng — đây mới là lúc bấm-thử-thật trên trình duyệt có ý nghĩa (route hiện chưa có UI nào gọi tới). Môi trường (Playwright + DB dev đồng bộ qua `db push`) đã dựng xong, lặp lại được ngay (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công).
 
 ## Hàng đợi task kế tiếp
-1. PR4 slice 2: wizard 4 bước S02-S10 (upload+đánh dấu ô+lịch+tổ/người nhập) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung
-2. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
-3. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
-4. PR8: Màn C (dùng `engine/status.ts` đã có)
-5. PR9: Mở rộng (validation rules UI, ghi chú, nhắc hạn)
-6. PR10: Hoàn thiện + UAT (`/uat-test-writer` → `/uat-test-only` thật, KHÔNG dùng engine unit test làm UAT) + monkey test một lần cuối
+1. PR4 slice 3: UI wizard S02-S04 (chọn file/sheet, preview, đánh dấu ô) gọi 2 route vừa dựng
+2. PR4 slice 4: UI wizard S05-S10 (đặt lịch, chọn tổ/người nhập, xuất bản) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung
+3. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có
+4. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
+5. PR8: Màn C (dùng `engine/status.ts` đã có)
+6. PR9: Mở rộng (validation rules UI, ghi chú, nhắc hạn)
+7. PR10: Hoàn thiện + UAT (`/uat-test-writer` → `/uat-test-only` thật, KHÔNG dùng engine unit test làm UAT) + monkey test một lần cuối
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

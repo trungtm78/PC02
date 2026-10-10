@@ -119,4 +119,46 @@ describe('TemplateService', () => {
       ]),
     );
   });
+
+  describe('listSheets (S02 — upload step, before any sheet is selected)', () => {
+    it('lists every sheet name in a real multi-sheet workbook, in workbook order', async () => {
+      const buffer = readFixture('real/hsln_17_sheets.xlsx');
+      const sheets = await service.listSheets(buffer);
+      expect(sheets.length).toBe(17);
+      expect(sheets[0].name).toBe('TỔNG');
+      expect(sheets.some((s) => s.name === 'Đội 3')).toBe(true);
+    });
+
+    it('runs the same pre-checks as validateAndParse — rejects a hostile fixture before exceljs ever loads it', async () => {
+      const buffer = readFixture('hostile/zip_bomb.xlsx');
+      await expect(service.listSheets(buffer)).rejects.toMatchObject({
+        constructor: TemplateValidationError,
+        code: 'ZIP_BOMB_RATIO',
+      });
+    });
+
+    it('rejects a macro-renamed fixture the same way validateAndParse does', async () => {
+      const buffer = readFixture('hostile/renamed_macro_as_xlsx.xlsx');
+      await expect(service.listSheets(buffer)).rejects.toMatchObject({
+        constructor: TemplateValidationError,
+        code: 'MACRO_DETECTED',
+      });
+    });
+
+    it('does not enforce the selected-sheet two-tier limit — an 8-sheet workbook lists fine before anything is selected', async () => {
+      const buffer = readFixture('hostile/eight_sheets_select_limit.xlsx');
+      const sheets = await service.listSheets(buffer);
+      expect(sheets.length).toBe(8);
+    });
+
+    it("reports each sheet's visibility state (visible/hidden/veryHidden)", async () => {
+      const buffer = readFixture('real/hsln_17_sheets.xlsx');
+      const sheets = await service.listSheets(buffer);
+      expect(
+        sheets.every((s) =>
+          ['visible', 'hidden', 'veryHidden'].includes(s.state),
+        ),
+      ).toBe(true);
+    });
+  });
 });
