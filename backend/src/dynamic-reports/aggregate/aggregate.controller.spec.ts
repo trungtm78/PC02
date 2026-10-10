@@ -12,6 +12,7 @@ describe('AggregateController', () => {
     getPeriodSummary: jest.fn(),
     finalizePeriod: jest.fn(),
     reopenPeriod: jest.fn(),
+    exportPeriod: jest.fn(),
   };
   const user = { id: 'u1', roleId: 'r1' };
 
@@ -111,6 +112,26 @@ describe('AggregateController', () => {
 
     await expect(
       controller.reopen('period1', { reason: 'r' }, user),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('POST export delegates to AggregateService.exportPeriod', async () => {
+    const exported = { exportId: 'export1', fileName: 'HSLN-2026-06.xlsx' };
+    service.exportPeriod.mockResolvedValue(exported);
+
+    const result = await controller.exportPeriod('period1', user);
+
+    expect(service.exportPeriod).toHaveBeenCalledWith('period1', 'u1', 'r1');
+    expect(result).toBe(exported);
+  });
+
+  it('translates a REPORT_LOCKED-style SubmissionError from export via the shared handleWrite', async () => {
+    service.exportPeriod.mockRejectedValue(
+      new SubmissionError('boom', 'CELL_VALIDATION'),
+    );
+
+    await expect(
+      controller.exportPeriod('period1', user),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

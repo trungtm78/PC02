@@ -11,6 +11,7 @@ import { ReportConfigService } from './config/report-config.service';
 import { SubmissionController } from './submission/submission.controller';
 import { SubmissionService } from './submission/submission.service';
 import { AggregateController } from './aggregate/aggregate.controller';
+import { ExportController } from './aggregate/export.controller';
 import { AggregateService } from './aggregate/aggregate.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
@@ -26,6 +27,7 @@ import { CalendarEventsModule } from '../calendar-events/calendar-events.module'
     ReportConfigController,
     SubmissionController,
     AggregateController,
+    ExportController,
   ],
   providers: [
     DynamicReportsRegistryService,

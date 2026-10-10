@@ -366,4 +366,172 @@ describe('AggregateService', () => {
       ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
     });
   });
+
+  describe('exportPeriod / getExportForDownload (S25, PR7 slice 7)', () => {
+    function buildExportService(
+      period: unknown,
+      grants: unknown[] = [],
+      overrides: Partial<Record<string, unknown>> = {},
+    ) {
+      const prisma = {
+        dynReportPeriod: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(period),
+        },
+        rolePermission: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(null),
+        },
+        dynReportRole: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(grants[0] ?? null),
+        },
+        dynReportSnapshot: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(null),
+        },
+        dynReportExport: {
+          create: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue({ id: 'export1' }),
+          findUnique: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+        ...overrides,
+      };
+      const service = new AggregateService(prisma as unknown as PrismaService);
+      return { service, prisma };
+    }
+
+    it('creates an export with the correct file name using the live APPROVED aggregate for an OPEN period', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+
+      const result = await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+      expect(result.exportId).toBe('export1');
+      expect(result.fileName).toBe('HSLN-2026-06.xlsx');
+      const createCall = prisma.dynReportExport.create.mock.calls[0][0] as {
+        data: { kind: string; status: string; requestedById: string };
+      };
+      expect(createCall.data.kind).toBe('MANAGER_FULL');
+      expect(createCall.data.status).toBe('READY');
+      expect(createCall.data.requestedById).toBe('mgr1');
+      // mode=APPROVED live aggregate: same rule already proven for
+      // getPeriodSummary — only a2 (APPROVED) contributes.
+      expect(prisma.dynReportSnapshot.findFirst.mock.calls.length).toBe(0);
+    });
+
+    it('uses the frozen official snapshot values when the period is FINALIZED', async () => {
+      const { service, prisma } = buildExportService(
+        basePeriod({ status: 'FINALIZED' }),
+        [{ role: 'MANAGER' }],
+      );
+      prisma.dynReportSnapshot.findFirst.mockResolvedValue({
+        id: 'snapshot1',
+        values: {
+          [FIELD.fieldKey]: { value: '999', countTotal: 1, countNonBlank: 1 },
+        },
+      });
+
+      await service.exportPeriod('period1', 'mgr1', 'roleMgr');
+
+      const createCall = prisma.dynReportExport.create.mock.calls[0][0] as {
+        data: { snapshotId: string };
+      };
+      expect(createCall.data.snapshotId).toBe('snapshot1');
+    });
+
+    it('rejects (404) when the caller is not a manager of this report', async () => {
+      const { service } = buildExportService(basePeriod());
+
+      await expect(
+        service.exportPeriod('period1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('getExportForDownload returns the stored bytes for a manager within the TTL and matching scope', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+      prisma.dynReportExport.findUnique.mockResolvedValue({
+        fileBytes: Buffer.from('fake-xlsx'),
+        fileName: 'HSLN-2026-06.xlsx',
+        scope: { periodId: 'period1', reportId: 'report1' },
+        expiresAt: new Date(Date.now() + 60_000),
+        contributorSetHash: null,
+      });
+
+      const result = await service.getExportForDownload(
+        'export1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result.fileName).toBe('HSLN-2026-06.xlsx');
+      expect(result.fileBytes.toString()).toBe('fake-xlsx');
+    });
+
+    it('rejects (404) when the export row does not exist', async () => {
+      const { service, prisma } = buildExportService(basePeriod());
+      prisma.dynReportExport.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getExportForDownload('export1', 'mgr1', 'roleMgr'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects (404) when the caller is not a manager of the underlying report', async () => {
+      const { service, prisma } = buildExportService(basePeriod());
+      prisma.dynReportExport.findUnique.mockResolvedValue({
+        fileBytes: Buffer.from('x'),
+        fileName: 'f.xlsx',
+        scope: { periodId: 'period1', reportId: 'report1' },
+        expiresAt: new Date(Date.now() + 60_000),
+        contributorSetHash: null,
+      });
+
+      await expect(
+        service.getExportForDownload('export1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects with CELL_VALIDATION when the export has expired', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+      prisma.dynReportExport.findUnique.mockResolvedValue({
+        fileBytes: Buffer.from('x'),
+        fileName: 'f.xlsx',
+        scope: { periodId: 'period1', reportId: 'report1' },
+        expiresAt: new Date(Date.now() - 1000),
+        contributorSetHash: null,
+      });
+
+      await expect(
+        service.getExportForDownload('export1', 'mgr1', 'roleMgr'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+
+    it('rejects with CELL_VALIDATION when the contributor set has changed since export (R13)', async () => {
+      const { service, prisma } = buildExportService(basePeriod(), [
+        { role: 'MANAGER' },
+      ]);
+      prisma.dynReportExport.findUnique.mockResolvedValue({
+        fileBytes: Buffer.from('x'),
+        fileName: 'f.xlsx',
+        scope: { periodId: 'period1', reportId: 'report1' },
+        expiresAt: new Date(Date.now() + 60_000),
+        contributorSetHash: 'stale-hash-no-longer-matching',
+      });
+
+      await expect(
+        service.getExportForDownload('export1', 'mgr1', 'roleMgr'),
+      ).rejects.toMatchObject({ code: 'CELL_VALIDATION' });
+    });
+  });
 });
