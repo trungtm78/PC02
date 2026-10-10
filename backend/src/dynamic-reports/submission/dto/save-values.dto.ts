@@ -30,3 +30,17 @@ export class SubmitDto {
   @IsString()
   expectedRevision!: string;
 }
+
+/**
+ * S35 (PR6 slice 8) — the second call of the import flow. `values` is
+ * exactly what `previewExcelImport` returned, re-sent unchanged; the
+ * server re-validates every one of them again before committing (defense
+ * in depth, never trusts an echoed payload).
+ */
+export class ApplyExcelImportDto {
+  @IsObject()
+  values!: Record<string, string | null>;
+
+  @IsString()
+  expectedRevision!: string;
+}

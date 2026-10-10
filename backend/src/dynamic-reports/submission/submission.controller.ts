@@ -7,8 +7,13 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FeatureFlagGuard } from '../../feature-flags/guards/feature-flag.guard';
 import { FeatureFlag } from '../../feature-flags/decorators/feature-flag.decorator';
@@ -16,7 +21,11 @@ import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SubmissionService, SubmissionError } from './submission.service';
-import { SaveValuesDto, SubmitDto } from './dto/save-values.dto';
+import {
+  SaveValuesDto,
+  SubmitDto,
+  ApplyExcelImportDto,
+} from './dto/save-values.dto';
 import {
   ApproveDto,
   ReturnDto,
@@ -27,6 +36,12 @@ import {
   DecideUnlockRequestDto,
   BulkGrantUnlockDto,
 } from './dto/review.dto';
+import { XLSX_LIMITS } from '../../xlsx-imports/hostile-xlsx-guard';
+
+const UPLOAD_OPTIONS = {
+  storage: memoryStorage(),
+  limits: { fileSize: XLSX_LIMITS.MAX_COMPRESSED_BYTES },
+};
 
 const CONFLICT_CODES = new Set([
   'REVISION_CONFLICT',
@@ -169,6 +184,45 @@ export class SubmissionController {
       this.submissionService.submit(
         assignmentId,
         user.id,
+        body.expectedRevision,
+      ),
+    );
+  }
+
+  /** S35 — no DB write; parses the upload and returns the diff for the UI to show before committing. */
+  @Post(':assignmentId/import-excel/preview')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
+  async previewExcelImport(
+    @Param('assignmentId') assignmentId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Thiếu file upload (field "file").');
+    }
+    return this.handleWrite(() =>
+      this.submissionService.previewExcelImport(
+        assignmentId,
+        user.id,
+        file.buffer,
+      ),
+    );
+  }
+
+  @Post(':assignmentId/import-excel/apply')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async applyExcelImport(
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: ApplyExcelImportDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.submissionService.applyExcelImport(
+        assignmentId,
+        user.id,
+        body.values,
         body.expectedRevision,
       ),
     );

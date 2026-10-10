@@ -6,6 +6,7 @@ import type {
   BulkGrantUnlockResult,
   ExportCreateResultView,
   FinalizeResultView,
+  ImportPreviewResult,
   PeriodSummaryView,
   ReopenResultView,
   ReportHistoryView,
@@ -235,4 +236,30 @@ export const dynamicReportsApi = {
   /** T-VIEWER-NAV — every OPEN period the caller (manager OR viewer) has standing on. */
   listViewablePeriods: () =>
     api.get<ViewablePeriodView[]>('/bao-cao-dong/periods').then((r) => r.data),
+
+  /** S35 (PR6 slice 8) — no DB write; returns the diff for the UI to show before committing. */
+  previewExcelImport: (assignmentId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api
+      .post<ImportPreviewResult>(
+        `/bao-cao-dong/submissions/${assignmentId}/import-excel/preview`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      )
+      .then((r) => r.data);
+  },
+
+  /** `values` must be exactly what `previewExcelImport` returned, re-sent unchanged. */
+  applyExcelImport: (
+    assignmentId: string,
+    values: Record<string, string | null>,
+    expectedRevision: string,
+  ) =>
+    api
+      .post<SaveValuesResult>(
+        `/bao-cao-dong/submissions/${assignmentId}/import-excel/apply`,
+        { values, expectedRevision },
+      )
+      .then((r) => r.data),
 };

@@ -1,7 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  assertMagicBytes,
+  assertCompressedSize,
+  assertNoZipBomb,
+  HostileXlsxError,
+} from '../../xlsx-imports/hostile-xlsx-guard';
 import { resolveAccess } from '../engine/access';
 import type {
   AccessGrant,
@@ -10,6 +17,8 @@ import type {
 } from '../engine/access';
 import { validateFieldValue } from '../engine/values';
 import type { FieldDefinitionLike, TypedValue } from '../engine/values';
+import { readImportCellRaw } from '../engine/import-cell';
+import type { ImportCellType } from '../engine/import-cell';
 import { applyTransition } from '../workflow/transitions';
 
 /** D07 — a manager-created grant's default window when no explicit expiresAt is given. */
@@ -93,6 +102,22 @@ export interface SaveValuesResult {
   savedAt: string;
   serverTime: string;
   effectiveLockAt: string | null;
+}
+
+/** S35 (PR6 slice 8) — one field the preview found a real difference on. */
+export interface ImportDiffEntry {
+  fieldKey: string;
+  sheetKey: string;
+  address: string;
+  label: string;
+  current: string | null;
+  imported: string | null;
+}
+
+export interface ImportPreviewResult {
+  /** Every field actually read from the uploaded sheets — ready to re-send to `applyExcelImport` unchanged. */
+  values: Record<string, string | null>;
+  diff: ImportDiffEntry[];
 }
 
 /** S34 — a pending reopen request, as the manager's queue shows it. */
@@ -1144,6 +1169,236 @@ export class SubmissionService {
       }
 
       return result;
+    });
+  }
+
+  /**
+   * S35 (PR6 slice 8) — pre-check-only (no DB write): parses the uploaded
+   * workbook and reads this version's own fields back out of it, matched
+   * by `sheetKey`/`address` exactly as `DynReportField` already records
+   * them (R8 fallback path: no `__dr_meta` marker check — nothing ever
+   * exported a file carrying one yet, so the only real option today is
+   * "structure must match the recorded layout", which this already does
+   * by requiring every field's own sheet to exist and every field's own
+   * cell to parse as its declared type). A field whose cell can't be read
+   * as its declared type rejects the WHOLE file (CELL_VALIDATION) — same
+   * "từ chối nguyên khối" convention `engine/paste.ts` already uses for a
+   * TSV paste with one bad cell.
+   */
+  async previewExcelImport(
+    assignmentId: string,
+    userId: string,
+    buffer: Buffer,
+  ): Promise<ImportPreviewResult> {
+    const assignment = await this.loadEditorAssignment(
+      this.prisma,
+      assignmentId,
+      userId,
+    );
+    const { period, submission } = assignment;
+    if (!submission)
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+
+    try {
+      await assertMagicBytes(buffer);
+      assertCompressedSize(buffer);
+      assertNoZipBomb(buffer);
+    } catch (err) {
+      if (err instanceof HostileXlsxError) {
+        throw new SubmissionError(err.message, 'TEMPLATE_INVALID');
+      }
+      throw err;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    try {
+      await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+    } catch {
+      throw new SubmissionError(
+        'Không đọc được file Excel — vui lòng kiểm tra lại file.',
+        'TEMPLATE_INVALID',
+      );
+    }
+
+    const currentValues =
+      (submission.values as Record<string, TypedValue>) ?? {};
+    const values: Record<string, string | null> = {};
+    const diff: ImportDiffEntry[] = [];
+    const missingSheets = new Set<string>();
+    const unreadableCells: string[] = [];
+
+    for (const field of period.version.fields) {
+      const sheet = workbook.getWorksheet(field.sheetKey);
+      if (!sheet) {
+        missingSheets.add(field.sheetKey);
+        continue;
+      }
+      const cell = sheet.getCell(field.address);
+      const raw = readImportCellRaw(cell, field.type as ImportCellType);
+      if (raw === undefined) {
+        unreadableCells.push(
+          `${field.sheetKey}!${field.address} (${field.label || field.fieldKey})`,
+        );
+        continue;
+      }
+      const result = validateFieldValue(
+        {
+          type: field.type as FieldDefinitionLike['type'],
+          required: field.required,
+          min: field.min?.toString(),
+          max: field.max?.toString(),
+          scale: field.scale ?? undefined,
+          maxLength: field.maxLength ?? undefined,
+        },
+        raw,
+      );
+      if (!result.ok) {
+        unreadableCells.push(
+          `${field.sheetKey}!${field.address} (${field.label || field.fieldKey}): ${result.error.message}`,
+        );
+        continue;
+      }
+
+      values[field.fieldKey] = raw;
+      const currentRaw = currentValues[field.fieldKey]?.v ?? null;
+      if (currentRaw !== raw) {
+        diff.push({
+          fieldKey: field.fieldKey,
+          sheetKey: field.sheetKey,
+          address: field.address,
+          label: field.label || field.fieldKey,
+          current: currentRaw,
+          imported: raw,
+        });
+      }
+    }
+
+    if (missingSheets.size > 0) {
+      throw new SubmissionError(
+        `File thiếu sheet: ${Array.from(missingSheets).join(', ')}.`,
+        'TEMPLATE_INVALID',
+      );
+    }
+    if (unreadableCells.length > 0) {
+      throw new SubmissionError(
+        `Không đọc được ${unreadableCells.length} ô: ${unreadableCells.slice(0, 5).join('; ')}${unreadableCells.length > 5 ? '…' : ''}.`,
+        'CELL_VALIDATION',
+      );
+    }
+
+    return { values, diff };
+  }
+
+  /**
+   * S35 — commits the resolved values from `previewExcelImport` as ONE
+   * atomic batch, kind=IMPORT with a FULL snapshot (R9: never a diff,
+   * same rule SUBMIT/APPROVE/etc already follow) so the whole imported
+   * state is reconstructable from this one revision alone. Re-validates
+   * every value again (defense in depth — never trusts an echoed client
+   * payload, even one that originated from this server's own preview).
+   */
+  async applyExcelImport(
+    assignmentId: string,
+    userId: string,
+    values: Record<string, string | null>,
+    expectedRevision: string,
+  ): Promise<SaveValuesResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { period, submission, now, grants } = await this.lockForWrite(
+        tx,
+        assignmentId,
+        userId,
+        expectedRevision,
+      );
+
+      const fieldsByKey = new Map(
+        period.version.fields.map((f) => [f.fieldKey, f]),
+      );
+      const validated: Record<string, TypedValue> = {};
+      for (const [fieldKey, raw] of Object.entries(values)) {
+        const field = fieldsByKey.get(fieldKey);
+        if (!field) {
+          throw new SubmissionError(
+            `Ô "${fieldKey}" không thuộc mẫu báo cáo này.`,
+            'CELL_VALIDATION',
+          );
+        }
+        const result = validateFieldValue(
+          {
+            type: field.type as FieldDefinitionLike['type'],
+            required: field.required,
+            min: field.min?.toString(),
+            max: field.max?.toString(),
+            scale: field.scale ?? undefined,
+            maxLength: field.maxLength ?? undefined,
+          },
+          raw,
+        );
+        if (!result.ok) {
+          throw new SubmissionError(
+            `Ô "${fieldKey}": ${result.error.message}`,
+            'CELL_VALIDATION',
+          );
+        }
+        validated[fieldKey] = result.value;
+      }
+
+      const transition = applyTransition('SAVE', {
+        state: submission.state,
+        approvalLevel: submission.approvalLevel,
+        totalApprovalLevels: 1,
+        actorRole: 'EDITOR',
+        hasRequiredFieldsValid: true,
+        hasErrorSeverityRuleViolation: false,
+      });
+      if (!transition.ok) {
+        throw new SubmissionError(transition.message, transition.code);
+      }
+
+      const mergedValues = {
+        ...(submission.values as Record<string, TypedValue>),
+        ...validated,
+      };
+      const nextRevision = submission.currentRevision + BigInt(1);
+
+      await tx.dynReportSubmission.update({
+        where: { assignmentId },
+        data: {
+          state: transition.next,
+          currentRevision: nextRevision,
+          values: mergedValues as Prisma.InputJsonValue,
+          firstSavedAt: submission.firstSavedAt ?? now,
+        },
+      });
+
+      await tx.dynReportRevision.create({
+        data: {
+          submissionId: submission.id,
+          revision: nextRevision,
+          kind: 'IMPORT',
+          valuesFull: mergedValues as Prisma.InputJsonValue,
+          actorId: userId,
+        },
+      });
+
+      const nextAccess = resolveAccess({
+        state: transition.next,
+        periodStatus: period.status as PeriodStatus,
+        opensAt: period.opensAt,
+        originalDueAt: period.dueAt,
+        returnDueAt: submission.returnDueAt,
+        grants,
+        userActive: true,
+        now,
+      });
+
+      return {
+        revision: nextRevision.toString(),
+        state: transition.next,
+        savedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        effectiveLockAt: nextAccess.effectiveLockAt?.toISOString() ?? null,
+      };
     });
   }
 
