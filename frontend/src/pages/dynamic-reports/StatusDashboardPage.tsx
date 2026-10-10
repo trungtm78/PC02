@@ -13,6 +13,12 @@
  * S20 ma trận (PR8 slice 3): chỉ soi được MỘT báo cáo tại một thời điểm
  * (cột = kỳ của báo cáo đó, tối đa 12 — nhiều hơn thì dùng lại bảng S19
  * phẳng ở trên, đúng theo spec "≤12 cột, nhiều hơn thì chuyển sang bảng").
+ *
+ * PR8 slice 4: thêm bộ lọc "Báo cáo" cho bảng S19 (tái dùng
+ * `listStatusReports` đã có từ slice 3) — trước đó `reportId` ĐÃ được
+ * `StatusQueryService` hỗ trợ nhưng bảng chưa có ô chọn nào để gửi lên.
+ * Bộ lọc "đơn vị"/"người nhập"/"quản lý"/"loại kỳ" dạng drawer S27 vẫn
+ * để lại cho slice sau — cần picker cây tổ riêng, chưa có trong repo.
  */
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -55,6 +61,7 @@ export default function StatusDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const view: ViewMode = searchParams.get('view') === 'matrix' ? 'matrix' : 'table';
   const page = Number(searchParams.get('status_page') ?? '1') || 1;
+  const reportId = searchParams.get('reportId') ?? undefined;
   const state = (searchParams.get('state') as DynReportSubmissionState | null) ?? undefined;
   const overdue = searchParams.get('overdue') === 'true' ? true : undefined;
   const reopened = searchParams.get('reopened') === 'true' ? true : undefined;
@@ -66,10 +73,15 @@ export default function StatusDashboardPage() {
     return null;
   });
 
+  const { data: reports } = useQuery({
+    queryKey: ['dynamic-reports', 'status-reports'],
+    queryFn: () => dynamicReportsApi.listStatusReports(),
+  });
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dynamic-reports', 'status', { page, state, overdue, reopened }],
+    queryKey: ['dynamic-reports', 'status', { page, reportId, state, overdue, reopened }],
     queryFn: () =>
-      dynamicReportsApi.listStatus({ state, overdue, reopened }, page, PAGE_SIZE),
+      dynamicReportsApi.listStatus({ reportId, state, overdue, reopened }, page, PAGE_SIZE),
   });
 
   const [exportingFormat, setExportingFormat] = useState<'csv' | 'xlsx' | null>(null);
@@ -77,10 +89,18 @@ export default function StatusDashboardPage() {
   async function handleExport(format: 'csv' | 'xlsx') {
     setExportingFormat(format);
     try {
-      await dynamicReportsApi.exportStatus({ state, overdue, reopened }, format);
+      await dynamicReportsApi.exportStatus({ reportId, state, overdue, reopened }, format);
     } finally {
       setExportingFormat(null);
     }
+  }
+
+  function handleSelectReportFilter(nextReportId: string) {
+    const params = new URLSearchParams(searchParams);
+    if (nextReportId) params.set('reportId', nextReportId);
+    else params.delete('reportId');
+    params.set('status_page', '1');
+    setSearchParams(params);
   }
 
   function applyKpiFilter(key: KpiFilterKey) {
@@ -191,6 +211,26 @@ export default function StatusDashboardPage() {
         <StatusMatrixPanel />
       ) : (
         <>
+          <div className="mb-4">
+            <label htmlFor="report-filter-select" className="block text-xs font-medium text-slate-600 mb-1">
+              Báo cáo
+            </label>
+            <select
+              id="report-filter-select"
+              data-testid="report-filter-select"
+              value={reportId ?? ''}
+              onChange={(e) => handleSelectReportFilter(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+            >
+              <option value="">— Mọi báo cáo —</option>
+              {(reports ?? []).map((r) => (
+                <option key={r.reportId} value={r.reportId}>
+                  {r.reportName}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {data && (
             <p className="text-sm text-slate-500 mb-4" data-testid="as-of">
               Dữ liệu cập nhật lúc {formatVNDateTime(data.asOf)}
