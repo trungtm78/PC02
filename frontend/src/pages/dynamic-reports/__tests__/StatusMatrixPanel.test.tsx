@@ -134,6 +134,21 @@ describe('StatusMatrixPanel', () => {
     });
   });
 
+  it('S23: shows a distinct "forbidden" message (not the generic retry error) on a 404 from the backend', async () => {
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue(REPORTS);
+    const forbidden = Object.assign(new Error('Không tìm thấy báo cáo này.'), {
+      isAxiosError: true,
+      response: { status: 404, data: { error: { message: 'Không tìm thấy báo cáo này.' } } },
+    });
+    vi.mocked(dynamicReportsApi.getStatusMatrix).mockRejectedValue(forbidden);
+    renderPanel(['/bao-cao-dong/tinh-trang?view=matrix&matrixReportId=report1']);
+
+    await waitFor(() => screen.getByTestId('matrix-forbidden'));
+    expect(
+      screen.queryByText('Không tải được ma trận — vui lòng thử lại.'),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows the empty-periods message when the report has no periods', async () => {
     vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue(REPORTS);
     vi.mocked(dynamicReportsApi.getStatusMatrix).mockResolvedValue({

@@ -3,6 +3,12 @@
  * tối đa 12 cột (nhiều hơn thì dùng lại bảng S19 phẳng ở `StatusDashboardPage`).
  * "Không giao" (ô xám, không có lượt giao) phân biệt rõ với "Chưa nhập"
  * (có lượt giao, `state='NOT_STARTED'`) — spec §6.1 yêu cầu rõ điều này.
+ *
+ * S23 (PR8 slice 5) — trạng thái màn riêng cho "không có quyền" (báo cáo
+ * tồn tại nhưng caller không có `DynReportRole`/`admin:DynamicReport` trên
+ * nó → backend trả 404 chống dò, `getStatusMatrix`). Trước đó mọi lỗi đều
+ * rơi vào CÙNG một thông báo "không tải được — thử lại", gây hiểu lầm là
+ * lỗi mạng tạm thời trong khi thực ra thử lại cũng không giúp được gì.
  */
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +19,7 @@ import {
   DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
 } from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
+import { extractApiError } from '@/lib/api-errors';
 
 export default function StatusMatrixPanel() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,11 +30,13 @@ export default function StatusMatrixPanel() {
     queryFn: () => dynamicReportsApi.listStatusReports(),
   });
 
-  const { data: matrix, isLoading: isLoadingMatrix, isError } = useQuery({
+  const { data: matrix, isLoading: isLoadingMatrix, isError, error } = useQuery({
     queryKey: ['dynamic-reports', 'status-matrix', reportId],
     queryFn: () => dynamicReportsApi.getStatusMatrix(reportId),
     enabled: reportId.length > 0,
   });
+
+  const isForbidden = isError && extractApiError(error).status === 404;
 
   function handleSelectReport(nextReportId: string) {
     const params = new URLSearchParams(searchParams);
@@ -63,6 +72,12 @@ export default function StatusMatrixPanel() {
         <p className="text-sm text-slate-500" data-testid="matrix-no-report">
           Chọn một báo cáo để xem ma trận.
         </p>
+      ) : isForbidden ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-2" data-testid="matrix-forbidden">
+          <p className="text-sm text-amber-800">
+            Bạn không có quyền xem báo cáo này — liên hệ quản lý báo cáo để được cấp quyền.
+          </p>
+        </div>
       ) : isError ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
           <p className="text-sm text-red-700">Không tải được ma trận — vui lòng thử lại.</p>
