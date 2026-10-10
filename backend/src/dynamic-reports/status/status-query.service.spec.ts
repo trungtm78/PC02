@@ -62,7 +62,13 @@ describe('StatusQueryService', () => {
 
   function buildService(
     assignments: unknown[],
-    opts: { isAdmin?: boolean; roles?: Array<{ reportId: string }> } = {},
+    opts: {
+      isAdmin?: boolean;
+      roles?: Array<{ reportId: string }>;
+      periods?: unknown[];
+      targets?: unknown[];
+      reports?: unknown[];
+    } = {},
     teams: unknown[] = [],
   ) {
     const prisma = {
@@ -85,6 +91,21 @@ describe('StatusQueryService', () => {
         findMany: jest
           .fn<Promise<unknown>, unknown[]>()
           .mockResolvedValue(teams),
+      },
+      dynReportPeriod: {
+        findMany: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(opts.periods ?? []),
+      },
+      dynReportTarget: {
+        findMany: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(opts.targets ?? []),
+      },
+      dynReport: {
+        findMany: jest
+          .fn<Promise<unknown>, unknown[]>()
+          .mockResolvedValue(opts.reports ?? []),
       },
     };
     const service = new StatusQueryService(
@@ -401,6 +422,163 @@ describe('StatusQueryService', () => {
 
       expect(result.rows).toEqual([]);
       expect(prisma.dynReportAssignment.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listReportsInScope (S20, PR8 slice 3)', () => {
+    it('admin:DynamicReport sees every report, unfiltered', async () => {
+      const { service, prisma } = buildService([], {
+        isAdmin: true,
+        reports: [{ id: 'r1', name: 'HSLN' }],
+      });
+
+      const result = await service.listReportsInScope('admin1', 'roleAdmin');
+
+      expect(result).toEqual([{ reportId: 'r1', reportName: 'HSLN' }]);
+      const call = prisma.dynReport.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where).toEqual({});
+    });
+
+    it('a non-admin only sees reports they have a role on', async () => {
+      const { service, prisma } = buildService([], {
+        roles: [{ reportId: 'report1' }],
+        reports: [{ id: 'report1', name: 'HSLN' }],
+      });
+
+      await service.listReportsInScope('mgr1', 'roleMgr');
+
+      const call = prisma.dynReport.findMany.mock.calls[0][0] as {
+        where: { id: { in: string[] } };
+      };
+      expect(call.where.id.in).toEqual(['report1']);
+    });
+
+    it('returns empty without querying reports when the caller has no role at all', async () => {
+      const { service, prisma } = buildService([], { roles: [] });
+
+      const result = await service.listReportsInScope('u1', 'role1');
+
+      expect(result).toEqual([]);
+      expect(prisma.dynReport.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStatusMatrix (S20, PR8 slice 3)', () => {
+    const PERIOD = {
+      id: 'period1',
+      periodKey: '2026-06',
+      startDate: new Date('2026-06-01T00:00:00Z'),
+      dueAt: FAR_FUTURE,
+      status: 'OPEN',
+    };
+
+    it('throws NotFoundException when the reportId is outside the caller scope', async () => {
+      const { service } = buildService([], {
+        roles: [{ reportId: 'other-report' }],
+      });
+
+      await expect(
+        service.getStatusMatrix('mgr1', 'roleMgr', 'report1'),
+      ).rejects.toThrow('Không tìm thấy báo cáo này.');
+    });
+
+    it('returns an empty matrix when the report has no periods', async () => {
+      const { service } = buildService([], { isAdmin: true, periods: [] });
+
+      const result = await service.getStatusMatrix(
+        'admin1',
+        'roleAdmin',
+        'report1',
+      );
+
+      expect(result.periods).toEqual([]);
+      expect(result.teams).toEqual([]);
+      expect(result.cells).toEqual({});
+      expect(typeof result.asOf).toBe('string');
+    });
+
+    it('marks a target team with no assignment for a period as notAssigned ("Không giao")', async () => {
+      const { service } = buildService([], {
+        isAdmin: true,
+        periods: [PERIOD],
+        targets: [{ teamId: 'team1', team: { id: 'team1', name: 'Đội 1' } }],
+      });
+
+      const result = await service.getStatusMatrix(
+        'admin1',
+        'roleAdmin',
+        'report1',
+      );
+
+      expect(result.teams).toEqual([{ teamId: 'team1', teamName: 'Đội 1' }]);
+      expect(result.cells['team1']['period1']).toEqual({
+        notAssigned: true,
+        state: null,
+        accessState: null,
+        timelinessState: null,
+        exempt: false,
+        dueAt: null,
+      });
+    });
+
+    it('a team with an assignment but NOT_STARTED is distinct from notAssigned ("Chưa nhập")', async () => {
+      const { service } = buildService(
+        [
+          {
+            teamId: 'team1',
+            periodId: 'period1',
+            obligation: 'REQUIRED',
+            teamSnapshot: { name: 'Đội 1' },
+            unlocks: [],
+            submission: {
+              state: 'NOT_STARTED',
+              firstSavedAt: null,
+              submittedAt: null,
+            },
+          },
+        ],
+        { isAdmin: true, periods: [PERIOD], targets: [] },
+      );
+
+      const result = await service.getStatusMatrix(
+        'admin1',
+        'roleAdmin',
+        'report1',
+      );
+
+      const cell = result.cells['team1']['period1'];
+      expect(cell.notAssigned).toBe(false);
+      expect(cell.state).toBe('NOT_STARTED');
+    });
+
+    it('caps columns at 12 most recent periods, in chronological order', async () => {
+      const periods = Array.from({ length: 20 }, (_, i) => ({
+        id: `p${i}`,
+        periodKey: `2026-${String(i + 1).padStart(2, '0')}`,
+        startDate: new Date(2026, i, 1),
+        dueAt: FAR_FUTURE,
+        status: 'OPEN',
+      }));
+      // Service queries ORDER BY startDate desc take 12 — mock already returns
+      // the most-recent-12 slice sorted desc, same as a real DB would.
+      const mostRecentTwelveDesc = [...periods].slice(8).reverse();
+      const { service } = buildService([], {
+        isAdmin: true,
+        periods: mostRecentTwelveDesc,
+        targets: [],
+      });
+
+      const result = await service.getStatusMatrix(
+        'admin1',
+        'roleAdmin',
+        'report1',
+      );
+
+      expect(result.periods).toHaveLength(12);
+      expect(result.periods[0].periodKey).toBe('2026-09');
+      expect(result.periods[11].periodKey).toBe('2026-20');
     });
   });
 });

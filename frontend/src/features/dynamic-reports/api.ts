@@ -10,6 +10,7 @@ import type {
   PeriodSummaryView,
   ReopenResultView,
   ReportHistoryView,
+  ReportOption,
   ReportSetupSummary,
   SaveReportConfigPayload,
   SaveReportConfigResult,
@@ -17,6 +18,7 @@ import type {
   SheetInfo,
   StatusListFilters,
   StatusListResult,
+  StatusMatrixView,
   SubmissionView,
   SummaryMode,
   TemplatePreviewResult,
@@ -281,4 +283,14 @@ export const dynamicReportsApi = {
     });
     triggerDownload(response, `tinh-trang-nhap-lieu.${format}`);
   },
+
+  /** S20 ma trận (PR8 slice 3) — report picker, same scope as `listStatus`. */
+  listStatusReports: () =>
+    api.get<ReportOption[]>('/bao-cao-dong/status/reports').then((r) => r.data),
+
+  /** S20 — Tổ × Kỳ cho một báo cáo, tối đa 12 cột. */
+  getStatusMatrix: (reportId: string) =>
+    api
+      .get<StatusMatrixView>('/bao-cao-dong/status/matrix', { params: { reportId } })
+      .then((r) => r.data),
 };

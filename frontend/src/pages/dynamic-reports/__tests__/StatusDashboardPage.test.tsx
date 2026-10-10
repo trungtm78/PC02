@@ -7,7 +7,12 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import type { StatusListResult } from '@/features/dynamic-reports/types';
 
 vi.mock('@/features/dynamic-reports/api', () => ({
-  dynamicReportsApi: { listStatus: vi.fn(), exportStatus: vi.fn() },
+  dynamicReportsApi: {
+    listStatus: vi.fn(),
+    exportStatus: vi.fn(),
+    listStatusReports: vi.fn(),
+    getStatusMatrix: vi.fn(),
+  },
 }));
 
 function renderPage() {
@@ -187,5 +192,20 @@ describe('StatusDashboardPage', () => {
     await waitFor(() => {
       expect(dynamicReportsApi.exportStatus).toHaveBeenCalledWith({}, 'xlsx');
     });
+  });
+
+  it('switches to the matrix view and back without crashing', async () => {
+    vi.mocked(dynamicReportsApi.listStatus).mockResolvedValue(RESULT);
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue([]);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-view-matrix'));
+    fireEvent.click(screen.getByTestId('btn-view-matrix'));
+
+    await waitFor(() => screen.getByTestId('status-matrix-panel'));
+    expect(screen.queryByTestId('status-table')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('btn-view-table'));
+    await waitFor(() => screen.getByTestId('status-table'));
   });
 });

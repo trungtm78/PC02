@@ -4,12 +4,15 @@
  * `StatusQueryService` (backend) — không tự tính lại ở đây.
  *
  * Scope deliberately narrower than spec §6.1's full PR8 for this slice:
- * KHÔNG có ma trận S20 (≤12 cột), biểu đồ cột/xu hướng, xuất CSV/XLSX,
- * bộ lọc nâng cao dạng drawer (S27), hay bộ lọc theo "đơn vị"/"người
- * nhập"/"quản lý"/"loại kỳ" — `StatusQueryService` chưa có các filter đó
- * (chỉ reportId/periodId/teamId/state/overdue/reopened). Mỗi phần còn
- * thiếu là một slice riêng khi có nhu cầu thật, cùng cách PR7/PR6 đã
- * chia nhỏ — không xây trước khi có người dùng.
+ * KHÔNG có biểu đồ cột/xu hướng, bộ lọc nâng cao dạng drawer (S27), hay
+ * bộ lọc theo "đơn vị"/"người nhập"/"quản lý"/"loại kỳ" — `StatusQueryService`
+ * chưa có các filter đó (chỉ reportId/periodId/teamId/state/overdue/reopened).
+ * Mỗi phần còn thiếu là một slice riêng khi có nhu cầu thật, cùng cách
+ * PR7/PR6 đã chia nhỏ — không xây trước khi có người dùng.
+ *
+ * S20 ma trận (PR8 slice 3): chỉ soi được MỘT báo cáo tại một thời điểm
+ * (cột = kỳ của báo cáo đó, tối đa 12 — nhiều hơn thì dùng lại bảng S19
+ * phẳng ở trên, đúng theo spec "≤12 cột, nhiều hơn thì chuyển sang bảng").
  */
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -26,6 +29,7 @@ import {
 } from '@/shared/enums/status-labels';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import StatusMatrixPanel from './StatusMatrixPanel';
 
 const PAGE_SIZE = 25;
 
@@ -45,8 +49,11 @@ const TIMELINESS_LABEL: Record<AssignmentStatusRow['timelinessState'], string> =
 
 type KpiFilterKey = 'overdue' | 'reopened' | `state:${DynReportSubmissionState}`;
 
+type ViewMode = 'table' | 'matrix';
+
 export default function StatusDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const view: ViewMode = searchParams.get('view') === 'matrix' ? 'matrix' : 'table';
   const page = Number(searchParams.get('status_page') ?? '1') || 1;
   const state = (searchParams.get('state') as DynReportSubmissionState | null) ?? undefined;
   const overdue = searchParams.get('overdue') === 'true' ? true : undefined;
@@ -98,6 +105,13 @@ export default function StatusDashboardPage() {
     setSearchParams(params);
   }
 
+  function setView(next: ViewMode) {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'matrix') params.set('view', 'matrix');
+    else params.delete('view');
+    setSearchParams(params);
+  }
+
   const totalPages = useMemo(
     () => (data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1),
     [data],
@@ -143,20 +157,54 @@ export default function StatusDashboardPage() {
           </button>
         </div>
       </div>
-      {data && (
-        <p className="text-sm text-slate-500 mb-4" data-testid="as-of">
-          Dữ liệu cập nhật lúc {formatVNDateTime(data.asOf)}
-        </p>
-      )}
 
-      {isError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <p className="text-sm text-red-700">Không tải được tình trạng nhập liệu — vui lòng thử lại.</p>
-        </div>
-      )}
+      <div className="flex items-center gap-1 mb-4" role="tablist" aria-label="Chế độ xem">
+        <button
+          type="button"
+          data-testid="btn-view-table"
+          onClick={() => setView('table')}
+          aria-pressed={view === 'table'}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${A11Y_FOCUS_RING} ${
+            view === 'table'
+              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Bảng
+        </button>
+        <button
+          type="button"
+          data-testid="btn-view-matrix"
+          onClick={() => setView('matrix')}
+          aria-pressed={view === 'matrix'}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${A11Y_FOCUS_RING} ${
+            view === 'matrix'
+              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Ma trận
+        </button>
+      </div>
 
-      {isLoading ? (
+      {view === 'matrix' ? (
+        <StatusMatrixPanel />
+      ) : (
+        <>
+          {data && (
+            <p className="text-sm text-slate-500 mb-4" data-testid="as-of">
+              Dữ liệu cập nhật lúc {formatVNDateTime(data.asOf)}
+            </p>
+          )}
+
+          {isError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700">Không tải được tình trạng nhập liệu — vui lòng thử lại.</p>
+            </div>
+          )}
+
+          {isLoading ? (
         <p className="text-sm text-slate-500">Đang tải…</p>
       ) : !data || data.items.length === 0 ? (
         <p className="text-sm text-slate-500" data-testid="empty-state">
@@ -286,6 +334,8 @@ export default function StatusDashboardPage() {
               </button>
             </div>
           </div>
+        </>
+      )}
         </>
       )}
     </div>

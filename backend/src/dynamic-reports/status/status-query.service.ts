@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TeamsService } from '../../teams/teams.service';
@@ -64,6 +64,31 @@ export interface StatusListResult {
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+/** S20 (spec §6.1 PR8) — "≤12 cột, nhiều hơn thì chuyển sang bảng" (dùng bảng S19 thay thế). */
+const MATRIX_MAX_PERIODS = 12;
+
+export interface StatusMatrixCell {
+  /** `true` → team has no assignment for this period at all ("Không giao"), distinct from NOT_STARTED ("Chưa nhập"). */
+  notAssigned: boolean;
+  state: SubmissionState | null;
+  accessState: AccessState | null;
+  timelinessState: TimelinessState | null;
+  exempt: boolean;
+  dueAt: string | null;
+}
+
+export interface StatusMatrixView {
+  periods: Array<{ periodId: string; periodKey: string; dueAt: string }>;
+  teams: Array<{ teamId: string; teamName: string }>;
+  /** `cells[teamId][periodId]`. */
+  cells: Record<string, Record<string, StatusMatrixCell>>;
+  asOf: string;
+}
+
+export interface ReportOption {
+  reportId: string;
+  reportName: string;
+}
 
 /**
  * S19/S23 (spec §6.1 PR8). The first CROSS-REPORT read in this module —
@@ -308,5 +333,144 @@ export class StatusQueryService {
   ): Promise<{ rows: AssignmentStatusRow[]; asOf: string }> {
     const { rows, asOf } = await this.queryRows(userId, roleId, filters);
     return { rows, asOf };
+  }
+
+  /** S20's own report picker — every report the caller may see (same R13 scope as the rest of this service). */
+  async listReportsInScope(
+    userId: string,
+    roleId: string,
+  ): Promise<ReportOption[]> {
+    const reportIds = await this.resolveReportIds(userId, roleId);
+    if (reportIds !== 'ALL' && reportIds.length === 0) return [];
+    const reports = await this.prisma.dynReport.findMany({
+      where: reportIds === 'ALL' ? {} : { id: { in: reportIds } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    return reports.map((r) => ({ reportId: r.id, reportName: r.name }));
+  }
+
+  /**
+   * S20 ma trận: Tổ × Kỳ cho MỘT báo cáo. Hàng = mọi tổ hiện là target của
+   * báo cáo HOẶC có assignment trong các kỳ được chọn (tổ đã bị gỡ khỏi
+   * target nhưng còn dữ liệu kỳ cũ vẫn phải hiện). Cột = tối đa
+   * `MATRIX_MAX_PERIODS` kỳ gần nhất. Ô không có assignment nào (dù là
+   * target hiện tại) → `notAssigned=true` ("Không giao"), khác với
+   * `state=NOT_STARTED` ("Chưa nhập", có assignment nhưng chưa làm gì).
+   */
+  async getStatusMatrix(
+    userId: string,
+    roleId: string,
+    reportId: string,
+  ): Promise<StatusMatrixView> {
+    const now = new Date();
+    const reportIds = await this.resolveReportIds(userId, roleId);
+    if (reportIds !== 'ALL' && !reportIds.includes(reportId)) {
+      throw new NotFoundException('Không tìm thấy báo cáo này.');
+    }
+
+    const periodsDesc = await this.prisma.dynReportPeriod.findMany({
+      where: { reportId },
+      orderBy: { startDate: 'desc' },
+      take: MATRIX_MAX_PERIODS,
+    });
+    if (periodsDesc.length === 0) {
+      return { periods: [], teams: [], cells: {}, asOf: now.toISOString() };
+    }
+    const periods = [...periodsDesc].reverse();
+    const periodIds = periods.map((p) => p.id);
+
+    const [targets, assignments] = await Promise.all([
+      this.prisma.dynReportTarget.findMany({
+        where: {
+          reportId,
+          validFrom: { lte: now },
+          OR: [{ validTo: null }, { validTo: { gt: now } }],
+        },
+        include: { team: { select: { id: true, name: true } } },
+      }),
+      this.prisma.dynReportAssignment.findMany({
+        where: { periodId: { in: periodIds } },
+        include: {
+          submission: true,
+          unlocks: { where: { kind: 'GRANT' }, orderBy: { startsAt: 'desc' } },
+        },
+      }),
+    ]);
+
+    const teamNameById = new Map<string, string>();
+    for (const t of targets) teamNameById.set(t.teamId, t.team.name);
+    for (const a of assignments) {
+      if (!teamNameById.has(a.teamId)) {
+        const snapshot = a.teamSnapshot as { name?: string } | null;
+        teamNameById.set(a.teamId, snapshot?.name ?? a.teamId);
+      }
+    }
+    const teams = [...teamNameById.entries()]
+      .map(([teamId, teamName]) => ({ teamId, teamName }))
+      .sort((a, b) => a.teamName.localeCompare(b.teamName, 'vi'));
+
+    const assignmentByKey = new Map<string, (typeof assignments)[number]>();
+    for (const a of assignments)
+      assignmentByKey.set(`${a.teamId}:${a.periodId}`, a);
+
+    const cells: Record<string, Record<string, StatusMatrixCell>> = {};
+    for (const { teamId } of teams) {
+      cells[teamId] = {};
+      for (const period of periods) {
+        const a = assignmentByKey.get(`${teamId}:${period.id}`);
+        if (!a) {
+          cells[teamId][period.id] = {
+            notAssigned: true,
+            state: null,
+            accessState: null,
+            timelinessState: null,
+            exempt: false,
+            dueAt: null,
+          };
+          continue;
+        }
+        const submission = a.submission;
+        const state = (submission?.state ?? 'NOT_STARTED') as SubmissionState;
+        const completed = state === 'SUBMITTED' || state === 'APPROVED';
+        const activeGrants = a.unlocks.filter(
+          (u) =>
+            !u.revokedAt &&
+            u.startsAt.getTime() <= now.getTime() &&
+            now.getTime() < u.expiresAt.getTime(),
+        );
+        const fact: AssignmentFact = {
+          state,
+          exempt: a.obligation === 'EXEMPT',
+          hasAnySavedData: !!submission?.firstSavedAt,
+          originalDueAt: period.dueAt,
+          currentCompletedAt: completed
+            ? (submission?.submittedAt ?? null)
+            : null,
+          hasActiveGrant: activeGrants.length > 0,
+          now,
+          periodOpen: period.status === 'OPEN',
+        };
+        cells[teamId][period.id] = {
+          notAssigned: false,
+          state,
+          accessState: computeAccessState(fact),
+          timelinessState: computeTimelinessState(fact),
+          exempt: fact.exempt,
+          dueAt: period.dueAt.toISOString(),
+        };
+      }
+    }
+
+    return {
+      periods: periods.map((p) => ({
+        periodId: p.id,
+        periodKey: p.periodKey,
+        dueAt: p.dueAt.toISOString(),
+      })),
+      teams,
+      cells,
+      asOf: now.toISOString(),
+    };
   }
 }
