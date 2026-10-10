@@ -73,3 +73,46 @@ export interface TemplatePreviewResult {
   sha256: string;
   suggestedRules: unknown[];
 }
+
+/** S09/S10 publish payload — mirrors backend SaveReportConfigDto exactly. */
+export interface ReportRoleConfig {
+  userId: string;
+  role: 'MANAGER' | 'VIEWER';
+  teamScopeId?: string;
+}
+
+export interface ReportTargetConfig {
+  teamId: string;
+  editorUserIds: string[];
+}
+
+export interface ReportScheduleConfig {
+  periodType: string;
+  periodStartDay?: number;
+  dueRule: Record<string, unknown>;
+  openRule: Record<string, unknown>;
+  shiftNonWorking?: boolean;
+  oneTimeDate?: string;
+  timezone?: string;
+}
+
+export interface SaveReportConfigPayload {
+  code: string;
+  name: string;
+  description?: string;
+  selectedSheets: string[];
+  dateSystem: '1900' | '1904';
+  fields: ParsedField[];
+  schedule: ReportScheduleConfig;
+  roles: ReportRoleConfig[];
+  targets: ReportTargetConfig[];
+  effectiveFrom: string;
+  publish: boolean;
+  idempotencyKey: string;
+}
+
+export interface SaveReportConfigResult {
+  reportId: string;
+  versionId: string;
+  status: DynReportStatus;
+}

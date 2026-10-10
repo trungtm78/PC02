@@ -1,5 +1,11 @@
 import { api } from '@/lib/api';
-import type { ReportSetupSummary, SheetInfo, TemplatePreviewResult } from './types';
+import type {
+  ReportSetupSummary,
+  SaveReportConfigPayload,
+  SaveReportConfigResult,
+  SheetInfo,
+  TemplatePreviewResult,
+} from './types';
 
 /**
  * REST client for /api/v1/bao-cao-dong. The backend
@@ -40,4 +46,16 @@ export const dynamicReportsApi = {
         params: { from, to },
       })
       .then((r) => r.data.dates),
+
+  /** S09/S10 — the wizard's final step, first time anything is actually persisted. */
+  saveReportConfig: (file: File, config: SaveReportConfigPayload) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('config', JSON.stringify(config));
+    return api
+      .post<SaveReportConfigResult>('/bao-cao-dong/reports', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
 };
