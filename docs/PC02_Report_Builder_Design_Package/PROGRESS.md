@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T12:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5a đã merge main; **PR4 slice 5b ĐÃ XONG — khép lại toàn bộ wizard S02-S10, bấm thử thật xuất bản được một báo cáo hoàn chỉnh**, trên nhánh `feat/dynamic-reports-pr4-slice5b` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T11:50:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5b đã merge main (PR #532) — **toàn bộ wizard S02-S10 đã xong và chạy thật trên prod**; bắt đầu PR6 (Màn B người nhập) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -76,6 +76,7 @@ Cập nhật: 2026-10-10T12:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5a đ
   - **Bẫy đã gặp và sửa**: `FKSelect` tự gọi `useDirectoryOptions` (react-query) dù không dùng `directoryType` — test phải bọc `QueryClientProvider` dù component không trực tiếp gọi `useQuery`, không thấy ngay nếu chỉ đọc mã `ReportTeamsStep.tsx`.
   - **Đã bấm thử thật trọn vẹn cả chuỗi S02→S10 trên Chromium** (dựng lại local dev): điền mã/tên → upload HSLN → chọn "Đội 3" → preview → đánh dấu 1 ô làm field WEB (bắt buộc, vì "Đội 3" có 0 field TOKEN theo đúng oracle đã biết) → đặt lịch MONTHLY → thêm 1 quản lý + 1 tổ + 1 người nhập → tổng kết → bấm Xuất bản → **"Đã xuất bản báo cáo"** — xác nhận lại bằng SQL: đúng 1 dòng `dyn_reports` status PUBLISHED, đủ field/schedule/role/target/editor. 0 lỗi console/network ở lượt chạy sạch. Đã dọn dữ liệu thử.
   - 2 test file mới (`ReportTeamsStep` 4, `ReportSummaryStep` 6) + cập nhật `ReportTemplateUploadPage.test.tsx` (thêm điền mã/tên vào mọi test đi tới preview, +1 test mới cho gate mã/tên).
+- [x] **Đã merge PR #532 (PR4 slice 5b) vào `main`** — admin-merge (tiền lệ #522-531), CI xanh 5/5, merge commit `dc30ed784f735f64b3f0294f0c4cbe3294192fa7`, 10/10/2026 11:39 (+07:00). Deploy xanh, health buildId khớp — xác nhận 11:48. **Mốc: toàn bộ wizard thiết lập báo cáo động (S02-S10) đã hoàn thành và chạy được trên prod với dữ liệu thật — từ tải file Excel tới xuất bản một báo cáo có đủ mẫu, lịch, quản lý và tổ/người nhập.**
 
 **Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
@@ -83,19 +84,19 @@ Cập nhật: 2026-10-10T12:05:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5a đ
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR4 slice 5b đã xong, xanh, **đã bấm thử thật xuất bản được một báo cáo hoàn chỉnh từ đầu tới cuối (S02→S10)** — CHƯA push/PR/merge. Nhánh `feat/dynamic-reports-pr4-slice5b` cục bộ tại worktree `C:\PC02\pc02-dynamic-reports`.
+Task: PR4 slice 5b đã merge xong (PR #532) — **toàn bộ wizard thiết lập báo cáo động (S02-S10) đã hoàn thành, chạy thật trên prod**. Bắt đầu PR6 (Màn B người nhập) trên nhánh `feat/dynamic-reports-pr4-slice6` (tên nhánh giữ số "slice6" cho liên tục, nhưng nội dung là PR6 theo đúng lộ trình §6 — quyết định tự chọn: nhảy thẳng sang PR6 thay vì làm S22/S30-S32 trước, vì luồng nhập liệu mang giá trị người dùng cao hơn và `DynReportSubmission` đã có sẵn từ PR5, chưa có UI nào dùng tới).
 
-**Mốc quan trọng: toàn bộ wizard PR4 (S02-S10) đã khép kín và đã được xác nhận hoạt động đúng với dữ liệu thật, từ tải file tới ghi DB.** Những phần CHƯA làm của PR4 (không chặn merge slice 5b): S22 quản lý phiên bản, S30-S32 thêm tổ giữa kỳ/miễn nộp/ngừng phát sinh, GridRenderer pixel-chính-xác (vẫn đang là danh sách, quyết định đã ghi từ slice 3-4).
-
-BƯỚC TIẾP THEO: `git push -u origin feat/dynamic-reports-pr4-slice5b` → `gh pr create` → chờ CI → merge (`--admin`, tiền lệ #522-531) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó:
-1. **PR4 slice 6 (hoàn thiện PR4, tuỳ chọn trước khi qua PR6)**: S22 (danh sách phiên bản, tạo phiên bản mới, tiếp tục nháp — giờ CÓ ý nghĩa vì đã có báo cáo thật để quản lý phiên bản), S30 (thêm tổ/miễn nộp giữa kỳ), S31 (ngừng phát sinh), S32. Có thể bỏ qua và nhảy thẳng sang PR6 nếu ưu tiên luồng nhập liệu trước — tự quyết lúc tới điểm đó theo tiêu chí "không giảm phạm vi, được đổi trình tự".
-2. **PR6**: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts` (PR2), `engine/access.ts`/`engine/paste.ts` (PR1) đã có sẵn, cùng `DynReportSubmission` đã được `PeriodScheduler` (PR5) tự tạo sẵn (state NOT_STARTED) ngay khi kỳ đầu tiên sinh ra cho báo cáo vừa xuất bản ở slice 5b — PR6 là nơi lần đầu có UI cho người nhập ghi giá trị vào bản nộp đó.
-3. GridRenderer pixel-chính-xác: xây khi S11 (lưới nhập liệu PR6) cần, không xây trước — nhu cầu hiển thị thật của S11 sẽ quyết định hình dạng, như đã ghi từ slice 3.
-4. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) lặp lại được ngay mỗi lần (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới `C:/Users/THANMI~1/AppData/Local/Temp/claude/dr-pr4-local-keys/`; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData`; login dùng `#username`/`#password`; dùng `waitUntil:'load'` không phải `'networkidle'` vì SSE giữ connection mở; `.env` cục bộ: `DATABASE_URL` postgresql://postgres:postgres@127.0.0.1:5433/pc02_db, `JWT_PUBLIC_KEY_PATH`/`JWT_PRIVATE_KEY_PATH` trỏ tới cặp khoá trên, `THROTTLE_DISABLE=true`, `PORT=3000`; admin cục bộ `admin@pc02.local`/`LocalDevOnly123!`; `GET /api/v1/users` KHÔNG tồn tại — tìm user id qua DB trực tiếp khi kiểm tay, UI thật thì dùng `useOfficerOptions` qua `GET /admin/users`).
+BƯỚC TIẾP THEO — PR6 (Màn B người nhập, spec §6.1):
+1. **S11 (lưới nhập liệu)**: lần đầu cần GridRenderer thật — xây theo đúng nhu cầu hiển thị của màn này (tab sheet, địa bàn ô, zoom, ô tĩnh/ô nhập/ô công thức phân biệt rõ, Tab/Enter chỉ qua ô nhập, cuộn ngang, nút "Chỉ hiện dòng có ô nhập"). Dữ liệu vào: `DynReportVersion.layout` (đã lưu từ slice 5a) + `DynReportField[]` của version đó.
+2. **Thanh trên**: combo báo cáo (chỉ báo cáo người dùng là editor), kỳ (mặc định kỳ đang mở gần hạn nhất), hạn + đếm ngược theo giờ máy chủ (`GET /bao-cao-dong/clock` đã có từ PR2).
+3. **Autosave + Lưu nháp/Nộp**: dùng `workflow/transitions.ts` (PR2) cho SAVE/SUBMIT, `engine/access.ts` (PR1) để tính quyền ghi theo thời điểm, `engine/paste.ts` (PR1) cho dán TSV nguyên tử.
+4. Backend cần: endpoint đọc bản nộp hiện tại (`GET`) + endpoint lưu/nộp (`PATCH`/`POST`) cho `DynReportSubmission` — CHƯA có controller/service nào cho `DynReportSubmission` tới giờ (PR5 chỉ TẠO nó, không đọc/ghi).
+5. S12-S14/S24/S26/S28/S29/S35 (hết hạn, mở lại, mobile, mất mạng/409, nhập từ Excel) theo sau khi S11 + lưu/nộp cơ bản đã chạy.
+6. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) lặp lại được ngay mỗi lần (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới `C:/Users/THANMI~1/AppData/Local/Temp/claude/dr-pr4-local-keys/`; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData`; login dùng `#username`/`#password`; dùng `waitUntil:'load'` không phải `'networkidle'` vì SSE giữ connection mở; `.env` cục bộ: `DATABASE_URL` postgresql://postgres:postgres@127.0.0.1:5433/pc02_db, `JWT_PUBLIC_KEY_PATH`/`JWT_PRIVATE_KEY_PATH` trỏ tới cặp khoá trên, `THROTTLE_DISABLE=true`, `PORT=3000`; admin cục bộ `admin@pc02.local`/`LocalDevOnly123!`).
 
 ## Hàng đợi task kế tiếp
-1. PR4 slice 6 (tuỳ chọn): S22 quản lý phiên bản + S30-S32 thêm tổ/miễn nộp/ngừng phát sinh
-2. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — dùng `workflow/transitions.ts`, `engine/access.ts`, `engine/paste.ts` đã có; dựng GridRenderer thật khi tới S11
+1. PR6: Màn B người nhập (S11-S14, S24, S26, S28, S29, S35) — đang làm, xem "Đang làm dở"
+2. PR4 slice 6 (dời lại, không chặn PR6): S22 quản lý phiên bản + S30-S32 thêm tổ/miễn nộp/ngừng phát sinh
 3. PR7: Màn B quản lý (S15-S18, S21, S25, S33, S34, S38) — R12 khoá kỳ (thứ tự period→assignment→submission, `clock_timestamp()`), R13 VIEWER theo phạm vi
 5. PR8: Màn C (dùng `engine/status.ts` đã có)
 6. PR9: Mở rộng (validation rules UI, ghi chú, nhắc hạn)
