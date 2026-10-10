@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T10:58:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-4 đã merge main; PR4 slice 5a (`ReportConfigService` — persist thật đầu tiên) ĐÃ XONG, trên nhánh `feat/dynamic-reports-pr4-slice5` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T11:10:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-5a đã merge main (PR #531); bắt đầu PR4 slice 5b (frontend S09/S10 + nối publish thật — khép lại toàn bộ wizard S02-S10) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -68,6 +68,7 @@ Cập nhật: 2026-10-10T10:58:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-4 đ�
   - **Bẫy kỹ thuật đã gặp và sửa**: (1) `@Transform` trên một field KHÔNG tương thích với `@Type()` cùng field để class-transformer tự dựng instance lồng — `@Transform` thay thế toàn bộ xử lý của field đó, `@Type()` không bao giờ chạy, để lại object thường cho `@ValidateNested()` (lộ ra bằng lỗi "unknownValue" của class-validator) → sửa bằng cách tự gọi `plainToInstance` NGAY TRONG `@Transform`. (2) `jest.fn()` không generic khiến `.mock.calls[0][0]` là `any`, đổ `no-unsafe-member-access`/`no-unsafe-assignment` — sửa theo đúng khuôn đã có ở `period-scheduler.service.spec.ts`: `jest.fn<Promise<unknown>, [Shape]>()`.
   - **Đã kiểm bằng yêu cầu HTTP thật** (không chỉ unit test có giả lập): dựng lại môi trường dev cục bộ, đăng nhập thật, gọi `POST /bao-cao-dong/reports` với file HSLN thật + teamId/userId thật lấy từ DB → 201 PUBLISHED; gọi lại với CÙNG idempotencyKey+payload → trả đúng y kết quả cũ (xác nhận bằng truy vấn DB: đúng 1 dòng `dyn_reports`/`dyn_report_idempotency_records`, không nhân đôi); mã trùng → 409; thiếu quản lý → 400. Đã dọn dữ liệu thử sau khi xác nhận.
   - 23 test mới (`ReportConfigService` 11, `ReportConfigController` 5, `SaveReportConfigRequestDto` 7), 100% nhánh nghiệp vụ chính.
+- [x] **Đã merge PR #531 (PR4 slice 5a) vào `main`** — admin-merge (tiền lệ #522-530), CI xanh 5/5, merge commit `021a6d1671f7878ba56fdc538fcd27b4b5c8962a`, 10/10/2026 10:59 (+07:00). Deploy xanh, health buildId khớp — xác nhận 11:07.
 
 **Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
