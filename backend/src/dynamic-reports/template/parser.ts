@@ -6,6 +6,7 @@ import { detectUnsupportedFeatures } from './unsupported-features';
 import { assertTemplateLimits } from './limits';
 import { extractLayout } from './layout';
 import type {
+  MarkableCell,
   ParsedField,
   ParsedFormulaCell,
   ParsedIssue,
@@ -79,6 +80,7 @@ export async function parseTemplate(
 
   const fields: ParsedField[] = [];
   const formulas: ParsedFormulaCell[] = [];
+  const markableCells: MarkableCell[] = [];
   const issues: ParsedIssue[] = await detectUnsupportedFeatures(buffer);
   let totalCells = 0;
   let inputCellCount = 0;
@@ -126,6 +128,16 @@ export async function parseTemplate(
 
         for (const issue of result.issues) {
           issues.push({ sheetKey: sheetName, address: cell.address, ...issue });
+          // Consistent with HIDDEN_INPUT_CELL's policy for token fields: a
+          // hidden cell cannot become a web-marked field either, since the
+          // same cell would be both required and invisible in the grid.
+          if (issue.code === 'UNLOCKED_NO_TOKEN' && !isHidden) {
+            markableCells.push({
+              sheetKey: sheetName,
+              address: cell.address,
+              suggestedLabel: inferLabel(getCellText, rowNumber, colNumber),
+            });
+          }
         }
 
         if (result.classification === 'STATIC_FORMULA') {
@@ -175,6 +187,7 @@ export async function parseTemplate(
     fields,
     formulas,
     issues,
+    markableCells,
     totalCells,
     inputCellCount,
     layout,

@@ -39,6 +39,14 @@ describe('parseTemplate — real fixtures', () => {
     expect(warnings).toHaveLength(33);
     expect(warnings.every((w) => w.severity === 'WARNING')).toBe(true);
     expect(result.inputCellCount).toBe(0);
+    // S04: every UNLOCKED_NO_TOKEN warning is a web-marking candidate.
+    expect(result.markableCells).toHaveLength(33);
+    expect(result.markableCells.every((c) => c.sheetKey === 'Đội 3')).toBe(
+      true,
+    );
+    expect(
+      result.markableCells.some((c) => typeof c.suggestedLabel === 'string'),
+    ).toBe(true);
   });
 
   it('HSLN: selecting more than 5 sheets is rejected by the two-tier limit (R6) before any other sheet is touched', async () => {
@@ -163,6 +171,20 @@ describe('parseTemplate — real fixtures', () => {
     });
     const result = await parseTemplate(buffer, ['Sheet1']);
     expect(result.dateSystem).toBe('1900');
+  });
+
+  it('a hidden unlocked no-token cell is reported as a warning but is NOT a markable candidate (consistent with HIDDEN_INPUT_CELL policy)', async () => {
+    const buffer = await buildWorkbookBuffer((wb) => {
+      const sheet = wb.addWorksheet('Sheet1');
+      sheet.getCell('A1').value = '123';
+      sheet.getCell('A1').protection = { locked: false };
+      sheet.getRow(1).hidden = true;
+    });
+    const result = await parseTemplate(buffer, ['Sheet1']);
+    expect(result.issues.some((i) => i.code === 'UNLOCKED_NO_TOKEN')).toBe(
+      true,
+    );
+    expect(result.markableCells).toHaveLength(0);
   });
 
   it('a sheet name that does not exist in the workbook is reported as an issue, not a thrown exception', async () => {
