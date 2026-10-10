@@ -1,5 +1,5 @@
 # PROGRESS — Dynamic Report Builder (Báo cáo động)
-Cập nhật: 2026-10-10T09:45:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2+3 đã merge main; PR4 slice 4 (S04 đánh dấu ô + S05-S08 đặt lịch) ĐÃ XONG, trên nhánh `feat/dynamic-reports-pr4-slice4` (chưa merge) | Task: 0/~6
+Cập nhật: 2026-10-10T10:15:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1-4 đã merge main (PR #530); bắt đầu PR4 slice 5 (ReportConfigService persist + S09/S10 chọn tổ/người nhập + xuất bản) | Task: 0/~6
 
 ## Đã hoàn thành
 - [x] PR0 — spec, fixture (HSLN+5 mẫu thật+oracle+5 file độc hại giả lập), DECISIONS_20261009.md, ROLE_MATRIX_20261009.md — commit 2f077843
@@ -56,6 +56,8 @@ Cập nhật: 2026-10-10T09:45:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2+3 �
   - Frontend: `ReportScheduleStep.tsx` (mới) — form đủ 7 loại kỳ, 2 kiểu hạn (`FIXED_IN_PERIOD`/`DAYS_AFTER_END`), 2 kiểu mở nhập, dời ngày nghỉ; xem trước ≥6 kỳ bằng `generatePeriods` (đã sinh sang FE từ PR1, lần đầu có consumer thật) — câu mô tả tiếng Việt lấy thẳng từ `GeneratedPeriod.description` do engine trả, không viết lại.
   - 9 test backend mới (`markableCells` + `SchedulePreviewController`) + 21 test frontend mới (`markRegion` 9, `ReportTemplateUploadPage` +4, `ReportScheduleStep` 7 mới).
   - Đã chạy full suite cả hai phía: backend 7885/7996 xanh (1 suite flaky `two-fa.service.spec.ts` 32 ca, xác nhận lại isolate PASS 32/32 — tranh chấp tài nguyên nhất thời, không liên quan dynamic-reports, đúng mẫu đã ghi nhận trước đây), frontend full suite exit 0. `tsc --noEmit` (backend) và `tsc -b` (frontend) đều sạch, eslint sạch.
+  - **Đã bấm thử thật trên Chromium** (môi trường local dev dựng lại từ đầu — xem ghi chú lặp lại ở "Đang làm dở"): toàn luồng upload→preview→đánh dấu→bỏ đánh dấu→đặt lịch (3 loại kỳ) đúng như mong đợi, 0 lỗi console/network ở lượt chạy sạch.
+- [x] **Đã merge PR #530 (PR4 slice 4) vào `main`** — admin-merge (tiền lệ #522-529), CI xanh 5/5, merge commit `50cc52448aec6de427d81a3e8ff2fae02ef12569`, 10/10/2026 10:03 (+07:00). Deploy xanh, health buildId khớp — xác nhận 10:12.
 
 **Tổng PR0-PR4(slice1-3): 474 test dynamic-reports, toàn bộ xanh. Backend full suite 7881/7996 (115 skip có trước) xanh. Frontend full suite 4895/4897 (2 lỗi chập chờn có trước, không liên quan). tsc --noEmit, frontend tsc -b, eslint đều sạch. Feature flag `dynamic_reports` tắt mặc định trên prod → 0 ảnh hưởng hành vi cho user hiện có.**
 
@@ -63,11 +65,15 @@ Cập nhật: 2026-10-10T09:45:00+07:00 | Milestone: PR0-PR5 + PR4 slice 1+2+3 �
 - `prisma migrate deploy`/`migrate dev` không chạy được từ DB rỗng hoàn toàn trên nhánh này (migration `20260227000000_add_case_metadata` giả định bảng `cases` đã tồn tại từ trước — lỗi lịch sử migration có sẵn, không phải do dynamic-reports). Đường vòng đã dùng: `prisma migrate diff --from-schema <baseline origin/main> --to-schema <schema mới> --script`, kiểm chứng bằng cách áp schema baseline qua `db push` vào DB rỗng rồi chạy thẳng SQL sinh ra, xác nhận `db push` báo "already in sync" — 0 sai lệch.
 
 ## Đang làm dở
-Task: PR4 slice 4 đã xong, xanh, **đã bấm thử thật trên Chromium** — PR #530 đã mở, chờ CI.
+Task: PR4 slice 4 đã merge xong (PR #530). Bắt đầu PR4 slice 5 trên nhánh `feat/dynamic-reports-pr4-slice5` (từ `origin/main` mới nhất).
 
-Kết quả bấm thử thật: đăng nhập → upload HSLN → 17 sheet → chọn "Đội 3" → preview → 33 ô có thể đánh dấu (khớp oracle đã biết) → đánh dấu 1 ô thành field WEB → còn 32 ô có thể đánh dấu → bỏ đánh dấu → về lại 33 → qua bước đặt lịch → MONTHLY xem đúng 6 kỳ + câu mô tả tiếng Việt đúng → đổi WEEKLY (hiện đúng ô chọn thứ trong tuần) → đổi ONE_TIME (nút "Tiếp theo" đúng bị khoá tới khi chọn ngày). 0 lỗi console/network ở lượt chạy sạch (một lượt chạy trước đó bắt 2 lỗi 500 thoáng qua, chạy lại ngay sau đó 0 lỗi — không tái lập, không liên quan code mới, không chặn).
-
-BƯỚC TIẾP THEO: `gh pr checks 530 --watch` → merge (`--admin`, tiền lệ #522-529) → xác nhận deploy xanh → cập nhật PROGRESS.md. Sau đó PR4 slice 5: S09/S10 chọn tổ/người nhập + tổng kết + xuất bản — cần dựng `ReportConfigService` để thật sự PERSIST `DynReport`/`DynReportVersion`/`DynReportField`/`DynReportSchedule` (hiện mọi thứ ở slice 1-4 chỉ sống trong state React của wizard, chưa ghi DB) + S22/S30-S32 + GridRenderer chỉ đọc dùng chung cho màn sau. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) lặp lại được ngay mỗi lần (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData` khi cần kiểm API thủ công; login dùng `#username`/`#password`, không phải input[type=email]; dùng `waitUntil:'load'` không phải `'networkidle'` vì SSE giữ connection mở).
+BƯỚC TIẾP THEO — PR4 slice 5 (hoàn tất wizard S09/S10 + persist thật lần đầu tiên):
+1. Dựng `ReportConfigService` (backend, CHƯA có service nào persist `DynReport`/`DynReportVersion`/`DynReportField`/`DynReportSchedule`/`DynReportRole`/`DynReportTarget`/`DynReportTargetEditor` — mọi slice 1-4 chỉ sống trong state React của wizard): `saveDraft` (CAS qua `configVersion`), `publish` (idempotency key, transaction tạo đủ Report+Version+Fields+Schedule+Role+Target+TargetEditor, không sinh kỳ quá khứ — PeriodScheduler PR5 tự chạy sau khi có PUBLISHED version).
+2. S09 (frontend): chọn ≥1 MANAGER + VIEWER (tìm theo tên/đơn vị), chọn tổ (tìm theo tên/mã/đơn vị cha) + người nhập mỗi tổ (mặc định tổ trưởng qua `UserTeam.isLeader`), loại trùng, cảnh báo tài khoản ngừng hoạt động, chọn kỳ hiệu lực.
+3. S10 (frontend): trang tổng kết toàn bộ cấu hình (mẫu + đánh dấu ô + lịch + tổ/người nhập) → nút Lưu nháp / Xuất bản.
+4. Nối `ReportTemplateUploadPage`/`ReportScheduleStep` hiện có (state React của PR4 slice 1-4) vào 2 bước mới này, rồi gọi `ReportConfigService` thật khi Lưu nháp/Xuất bản — đây là lần đầu toàn bộ wizard thật sự ghi xuống DB.
+5. Theo R1: dùng `workflow/transitions.ts` đã có ở PR2 nếu phù hợp cho publish; S22 (quản lý phiên bản)/S30-S32 (thêm tổ giữa kỳ/miễn nộp/ngừng phát sinh) có thể tách sang slice 6 nếu slice 5 đã đủ lớn — tự quyết theo tiêu chí "không giảm phạm vi" khi tới điểm đó.
+6. Môi trường bấm-thử-thật (Playwright + DB dev đồng bộ qua `db push`) lặp lại được ngay mỗi lần (nhớ: JWT key cục bộ KHÔNG lưu trong repo, phải tự sinh lại mỗi worktree mới `C:/Users/THANMI~1/AppData/Local/Temp/claude/dr-pr4-local-keys/`; `curl` trên Windows/mingw hỏng ký tự tiếng Việt ở `-F` — dùng Node `fetch`/`FormData`; login dùng `#username`/`#password`; dùng `waitUntil:'load'` không phải `'networkidle'` vì SSE giữ connection mở; `.env` cục bộ: `DATABASE_URL` postgresql://postgres:postgres@127.0.0.1:5433/pc02_db, `JWT_PUBLIC_KEY_PATH`/`JWT_PRIVATE_KEY_PATH` trỏ tới cặp khoá trên, `THROTTLE_DISABLE=true`, `PORT=3000`; admin cục bộ `admin@pc02.local`/`LocalDevOnly123!`).
 
 ## Hàng đợi task kế tiếp
 1. PR4 slice 4: S04 đánh dấu ô (gán token trên web) + S05-S08 đặt lịch (dùng `engine/period.ts` đã có, xem trước ≥6 kỳ)
