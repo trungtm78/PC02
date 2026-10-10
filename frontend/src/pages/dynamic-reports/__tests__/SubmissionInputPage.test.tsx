@@ -10,6 +10,7 @@ vi.mock('@/features/dynamic-reports/api', () => ({
   dynamicReportsApi: {
     getSubmission: vi.fn(),
     saveSubmissionValues: vi.fn(),
+    submitSubmission: vi.fn(),
   },
 }));
 
@@ -147,5 +148,92 @@ describe('SubmissionInputPage', () => {
 
     await waitFor(() => screen.getByTestId('save-error'));
     expect(screen.getByTestId('save-error')).toHaveTextContent('không phải số hợp lệ');
+  });
+
+  it('submits after confirmation and shows the "submitted" note instead of the button', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue({
+      revision: '2',
+      state: 'SUBMITTED',
+      savedAt: '2026-10-10T10:00:02.000Z',
+      serverTime: '2026-10-10T10:00:02.000Z',
+      effectiveLockAt: null,
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => screen.getByTestId('submitted-note'));
+    expect(dynamicReportsApi.submitSubmission).toHaveBeenCalledWith('assign1', '1');
+    expect(screen.queryByTestId('btn-submit')).not.toBeInTheDocument();
+    expect(screen.getByTestId('input-Đội 3!C6')).toBeDisabled();
+    confirmSpy.mockRestore();
+  });
+
+  it('does not submit when the confirmation dialog is declined', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(dynamicReportsApi.submitSubmission).not.toHaveBeenCalled();
+    expect(screen.getByTestId('btn-submit')).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('warns about blank optional fields before submitting when any are empty', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue({
+      ...VIEW,
+      values: {},
+    });
+    vi.mocked(dynamicReportsApi.submitSubmission).mockResolvedValue({
+      revision: '2',
+      state: 'SUBMITTED',
+      savedAt: '2026-10-10T10:00:02.000Z',
+      serverTime: '2026-10-10T10:00:02.000Z',
+      effectiveLockAt: null,
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ô để trống sẽ tính là 0'),
+      );
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a reload prompt when submit hits REVISION_CONFLICT', async () => {
+    vi.mocked(dynamicReportsApi.getSubmission).mockResolvedValue(VIEW);
+    vi.mocked(dynamicReportsApi.submitSubmission).mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          error: {
+            code: 'REVISION_CONFLICT',
+            message: 'Bản nộp đã bị sửa bởi một phiên khác — tải lại để lấy bản mới nhất.',
+          },
+        },
+      },
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('btn-submit'));
+    fireEvent.click(screen.getByTestId('btn-submit'));
+
+    await waitFor(() => screen.getByTestId('btn-reload'));
+    expect(screen.getByTestId('save-error')).toHaveTextContent('phiên khác');
+    confirmSpy.mockRestore();
   });
 });

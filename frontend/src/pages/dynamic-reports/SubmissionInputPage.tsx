@@ -11,17 +11,23 @@
  * review) — the same "build it once a real need is concrete" call made
  * for S04's candidate list instead of a grid.
  *
- * SUBMIT (S29) is not wired yet — `SubmissionService.save()` is SAVE
- * only this slice (PR6 slice 1). Only autosave/manual-save exist here.
+ * SUBMIT (S29) takes no value patch — any pending autosave is flushed
+ * first, matching the spec's own "chờ autosave xong" requirement.
+ * `hasErrorSeverityRuleViolation` is always false server-side (no
+ * validation rule can exist yet — PR9), so the only guard that can
+ * actually block a submit today is a missing required field.
  */
 import { useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Lock, Send } from 'lucide-react';
 import { dynamicReportsApi } from '@/features/dynamic-reports/api';
+import type { DynReportSubmissionState } from '@/features/dynamic-reports/types';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+
+const EDITABLE_STATES: readonly DynReportSubmissionState[] = ['NOT_STARTED', 'DRAFT', 'RETURNED'];
 
 const AUTOSAVE_IDLE_MS = 2000;
 
@@ -46,15 +52,18 @@ export default function SubmissionInputPage() {
   const [revisionOverride, setRevisionOverride] = useState<string | null>(null);
   const [editableOverride, setEditableOverride] = useState<boolean | null>(null);
   const [lockAtOverride, setLockAtOverride] = useState<string | null>(null);
+  const [stateOverride, setStateOverride] = useState<DynReportSubmissionState | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const dirtyRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const revision = revisionOverride ?? initial?.revision ?? null;
   const editable = editableOverride ?? initial?.editable ?? true;
   const effectiveLockAt = lockAtOverride ?? initial?.effectiveLockAt ?? null;
+  const state = stateOverride ?? initial?.state ?? 'NOT_STARTED';
 
   async function flush(current: Record<string, string>) {
     if (!assignmentId || !revision || dirtyRef.current.size === 0) return;
@@ -90,6 +99,45 @@ export default function SubmissionInputPage() {
         setSaveError(apiError.message);
       }
       setSaveStatus('error');
+    }
+  }
+
+  async function handleSubmit() {
+    if (!assignmentId || !initial) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    await flush(values);
+
+    const blankOptional = initial.fields.filter(
+      (f) => !f.required && !(values[f.fieldKey] ?? initial.values[f.fieldKey]?.v ?? '').trim(),
+    );
+    if (blankOptional.length > 0) {
+      const ok = window.confirm(
+        `${blankOptional.length} ô để trống sẽ tính là 0. Tiếp tục nộp?`,
+      );
+      if (!ok) return;
+    } else if (!window.confirm('Nộp bản này? Sau khi nộp sẽ không sửa được nữa.')) {
+      return;
+    }
+
+    const currentRevision = revisionOverride ?? initial.revision;
+    setSubmitting(true);
+    setSaveError(null);
+    try {
+      const result = await dynamicReportsApi.submitSubmission(assignmentId, currentRevision);
+      setRevisionOverride(result.revision);
+      setStateOverride(result.state);
+      setEditableOverride(false);
+      setLockAtOverride(result.effectiveLockAt);
+    } catch (err) {
+      const apiError = extractApiError(err);
+      if (apiError.code === 'REVISION_CONFLICT') {
+        setSaveError('Bản nộp đã được sửa ở một phiên khác — tải lại trang để lấy bản mới nhất.');
+      } else {
+        setSaveError(apiError.message);
+      }
+      setSaveStatus('error');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -229,6 +277,24 @@ export default function SubmissionInputPage() {
         >
           Tải lại
         </button>
+      )}
+
+      {EDITABLE_STATES.includes(state) ? (
+        <button
+          type="button"
+          data-testid="btn-submit"
+          disabled={!editable || submitting}
+          onClick={() => void handleSubmit()}
+          className={`flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 ${A11Y_FOCUS_RING}`}
+        >
+          <Send className="w-4 h-4" />
+          {submitting ? 'Đang nộp…' : 'Nộp'}
+        </button>
+      ) : (
+        <p className="text-sm text-green-700 flex items-center gap-1" data-testid="submitted-note">
+          <CheckCircle2 className="w-4 h-4" />
+          {state === 'APPROVED' ? 'Đã được duyệt.' : 'Đã nộp — không thể sửa thêm.'}
+        </p>
       )}
     </div>
   );

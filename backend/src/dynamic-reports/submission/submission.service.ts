@@ -249,6 +249,78 @@ export class SubmissionService {
     };
   }
 
+  /**
+   * R12 lock order + R4 clock read, shared by every write path (`save`,
+   * `submit`): period (FOR SHARE) → assignment+editor check → submission
+   * (FOR UPDATE) → `clock_timestamp()` → access check → CAS on
+   * `expectedRevision`. Factored out once a second write path (`submit`)
+   * needed the exact same sequence — duplicating it would risk the two
+   * paths silently drifting apart on a security-relevant check.
+   */
+  private async lockForWrite(
+    tx: Prisma.TransactionClient,
+    assignmentId: string,
+    userId: string,
+    expectedRevision: string,
+  ) {
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_periods" WHERE id = (
+        SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
+      ) FOR SHARE`;
+
+    const assignment = await this.loadEditorAssignment(
+      tx,
+      assignmentId,
+      userId,
+    );
+    const { period } = assignment;
+    if (period.status !== 'OPEN') {
+      throw new SubmissionError('Kỳ đã chốt, không thể lưu.', 'REPORT_LOCKED');
+    }
+
+    await tx.$queryRaw`
+      SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
+
+    const submission = await tx.dynReportSubmission.findUnique({
+      where: { assignmentId },
+    });
+    if (!submission)
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+
+    const nowRow = await tx.$queryRaw<
+      { now: Date }[]
+    >`SELECT clock_timestamp() AS now`;
+    const now = nowRow[0].now;
+
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { isActive: true },
+    });
+    const grants = await this.grantsFor(tx, assignmentId);
+    const access = resolveAccess({
+      state: submission.state,
+      periodStatus: period.status as PeriodStatus,
+      opensAt: period.opensAt,
+      originalDueAt: period.dueAt,
+      returnDueAt: submission.returnDueAt,
+      grants,
+      userActive: user?.isActive ?? false,
+      now,
+    });
+    if (!access.canEdit) {
+      throw new SubmissionError('Hết quyền ghi vào lúc này.', 'REPORT_LOCKED');
+    }
+
+    if (submission.currentRevision.toString() !== expectedRevision) {
+      throw new SubmissionError(
+        'Bản nộp đã bị sửa bởi một phiên khác — tải lại để lấy bản mới nhất.',
+        'REVISION_CONFLICT',
+      );
+    }
+
+    return { period, submission, now, grants };
+  }
+
   async save(
     assignmentId: string,
     userId: string,
@@ -256,66 +328,12 @@ export class SubmissionService {
     expectedRevision: string,
   ): Promise<SaveValuesResult> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT id FROM "dyn_report_periods" WHERE id = (
-          SELECT "periodId" FROM "dyn_report_assignments" WHERE id = ${assignmentId}
-        ) FOR SHARE`;
-
-      const assignment = await this.loadEditorAssignment(
+      const { period, submission, now, grants } = await this.lockForWrite(
         tx,
         assignmentId,
         userId,
+        expectedRevision,
       );
-      const { period } = assignment;
-      if (period.status !== 'OPEN') {
-        throw new SubmissionError(
-          'Kỳ đã chốt, không thể lưu.',
-          'REPORT_LOCKED',
-        );
-      }
-
-      await tx.$queryRaw`
-        SELECT id FROM "dyn_report_submissions" WHERE "assignmentId" = ${assignmentId} FOR UPDATE`;
-
-      const submission = await tx.dynReportSubmission.findUnique({
-        where: { assignmentId },
-      });
-      if (!submission)
-        throw new NotFoundException('Không tìm thấy lượt giao này.');
-
-      const nowRow = await tx.$queryRaw<
-        { now: Date }[]
-      >`SELECT clock_timestamp() AS now`;
-      const now = nowRow[0].now;
-
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { isActive: true },
-      });
-      const grants = await this.grantsFor(tx, assignmentId);
-      const access = resolveAccess({
-        state: submission.state,
-        periodStatus: period.status as PeriodStatus,
-        opensAt: period.opensAt,
-        originalDueAt: period.dueAt,
-        returnDueAt: submission.returnDueAt,
-        grants,
-        userActive: user?.isActive ?? false,
-        now,
-      });
-      if (!access.canEdit) {
-        throw new SubmissionError(
-          'Hết quyền ghi vào lúc này.',
-          'REPORT_LOCKED',
-        );
-      }
-
-      if (submission.currentRevision.toString() !== expectedRevision) {
-        throw new SubmissionError(
-          'Bản nộp đã bị sửa bởi một phiên khác — tải lại để lấy bản mới nhất.',
-          'REVISION_CONFLICT',
-        );
-      }
 
       const fieldsByKey = new Map(
         period.version.fields.map((f) => [f.fieldKey, f]),
@@ -383,6 +401,101 @@ export class SubmissionService {
           revision: nextRevision,
           kind: transition.revisionKind,
           diff: validatedPatch as Prisma.InputJsonValue,
+          actorId: userId,
+        },
+      });
+
+      const nextAccess = resolveAccess({
+        state: transition.next,
+        periodStatus: period.status as PeriodStatus,
+        opensAt: period.opensAt,
+        originalDueAt: period.dueAt,
+        returnDueAt: submission.returnDueAt,
+        grants,
+        userActive: true,
+        now,
+      });
+
+      return {
+        revision: nextRevision.toString(),
+        state: transition.next,
+        savedAt: now.toISOString(),
+        serverTime: now.toISOString(),
+        effectiveLockAt: nextAccess.effectiveLockAt?.toISOString() ?? null,
+      };
+    });
+  }
+
+  /**
+   * S29 (spec §6.1 PR6). Takes no value patch — the frontend flushes any
+   * pending autosave before calling this, same as the spec's own "chờ
+   * autosave xong" requirement. `hasErrorSeverityRuleViolation` is always
+   * false: `DynReportValidationRule` has no evaluation path wired yet
+   * (needs `engine/expr.ts`, PR9 S36) and, more to the point, no UI
+   * exists anywhere to create a rule row, so this can never actually be
+   * true in practice today — not a shortcut, just an honest reflection
+   * of what's reachable.
+   */
+  async submit(
+    assignmentId: string,
+    userId: string,
+    expectedRevision: string,
+  ): Promise<SaveValuesResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { period, submission, now, grants } = await this.lockForWrite(
+        tx,
+        assignmentId,
+        userId,
+        expectedRevision,
+      );
+
+      const values = (submission.values as Record<string, TypedValue>) ?? {};
+      const missingRequired = period.version.fields.filter(
+        (f) => f.required && !values[f.fieldKey]?.v,
+      );
+      const hasRequiredFieldsValid = missingRequired.length === 0;
+      const hasErrorSeverityRuleViolation = false;
+
+      const transition = applyTransition('SUBMIT', {
+        state: submission.state,
+        approvalLevel: submission.approvalLevel,
+        totalApprovalLevels: 1,
+        actorRole: 'EDITOR',
+        hasRequiredFieldsValid,
+        hasErrorSeverityRuleViolation,
+      });
+      if (!transition.ok) {
+        if (!hasRequiredFieldsValid) {
+          throw new SubmissionError(
+            `Còn ${missingRequired.length} ô bắt buộc chưa điền: ${missingRequired
+              .map((f) => f.label || f.fieldKey)
+              .join(', ')}`,
+            'CELL_VALIDATION',
+          );
+        }
+        throw new SubmissionError(transition.message, transition.code);
+      }
+
+      const nextRevision = submission.currentRevision + BigInt(1);
+
+      await tx.dynReportSubmission.update({
+        where: { assignmentId },
+        data: {
+          state: transition.next,
+          currentRevision: nextRevision,
+          submittedAt: now,
+          firstSubmittedAt: submission.firstSubmittedAt ?? now,
+          firstSubmittedRevision:
+            submission.firstSubmittedRevision ?? nextRevision,
+        },
+      });
+
+      await tx.dynReportRevision.create({
+        data: {
+          submissionId: submission.id,
+          revision: nextRevision,
+          kind: transition.revisionKind,
+          valuesFull: values as Prisma.InputJsonValue,
           actorId: userId,
         },
       });
