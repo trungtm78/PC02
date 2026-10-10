@@ -10,6 +10,7 @@ import type { AssignmentFact } from '../engine/status';
 import type { SubmissionState } from '../engine/access';
 import { SubmissionError } from '../submission/submission.service';
 import { escapeXlsxCell } from '../../common/utils/xlsx-formula-escape.util';
+import { TeamsService } from '../../teams/teams.service';
 
 /** R18 — Excel sheet names: ≤31 chars, no `* ? : \ / [ ]`. */
 function sanitizeSheetName(name: string): string {
@@ -155,7 +156,10 @@ const CONTRIBUTING_STATES: Record<SummaryMode, readonly SubmissionState[]> = {
  */
 @Injectable()
 export class AggregateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly teamsService: TeamsService,
+  ) {}
 
   private async resolveManagerRole(
     client: Prisma.TransactionClient | PrismaService,
@@ -182,6 +186,55 @@ export class AggregateService {
       },
     });
     return managerRole ? 'MANAGER' : null;
+  }
+
+  /**
+   * R13 (PR7 slice 9) — read-only access check, for endpoints a VIEWER may
+   * also reach (never the write endpoints above, which stay on
+   * `resolveManagerRole`: a VIEWER never mutates anything, per D10 "lãnh
+   * đạo chỉ xem"). `teamScopeId` null means the whole report; set, it
+   * limits the VIEWER to that team's subtree — never the app-wide
+   * DataScope (spec §10 R13 explicitly rules that out).
+   */
+  private async resolveAccessRole(
+    client: Prisma.TransactionClient | PrismaService,
+    reportId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<
+    | { role: 'ADMIN' | 'MANAGER'; teamScopeId: null }
+    | { role: 'VIEWER'; teamScopeId: string | null }
+    | null
+  > {
+    const managerRole = await this.resolveManagerRole(
+      client,
+      reportId,
+      userId,
+      roleId,
+    );
+    if (managerRole) return { role: managerRole, teamScopeId: null };
+
+    const now = new Date();
+    const viewerRole = await client.dynReportRole.findFirst({
+      where: {
+        reportId,
+        userId,
+        role: 'VIEWER',
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+    });
+    if (!viewerRole) return null;
+    return { role: 'VIEWER', teamScopeId: viewerRole.teamScopeId ?? null };
+  }
+
+  /** R13 — the VIEWER's own team plus every descendant; `null` scope means no filtering (whole report). */
+  private async scopedTeamIds(
+    teamScopeId: string | null,
+  ): Promise<Set<string> | null> {
+    if (!teamScopeId) return null;
+    const descendants = await this.teamsService.getDescendantIds(teamScopeId);
+    return new Set([teamScopeId, ...descendants]);
   }
 
   /**
@@ -302,7 +355,7 @@ export class AggregateService {
     if (!period) {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
-    const actorRole = await this.resolveManagerRole(
+    const actorRole = await this.resolveAccessRole(
       this.prisma,
       period.reportId,
       userId,
@@ -311,11 +364,15 @@ export class AggregateService {
     if (!actorRole) {
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
     }
+    const allowedTeamIds = await this.scopedTeamIds(actorRole.teamScopeId);
+    const assignments = allowedTeamIds
+      ? period.assignments.filter((a) => allowedTeamIds.has(a.teamId))
+      : period.assignments;
 
     const now = new Date();
     const contributingStates = CONTRIBUTING_STATES[mode];
 
-    const facts: AssignmentFact[] = period.assignments.map((a) => {
+    const facts: AssignmentFact[] = assignments.map((a) => {
       const state = (a.submission?.state ?? 'NOT_STARTED') as SubmissionState;
       const completed = state === 'SUBMITTED' || state === 'APPROVED';
       return {
@@ -333,7 +390,7 @@ export class AggregateService {
     });
     const kpi = computeKpiSummary(facts);
 
-    const contributingAssignments = period.assignments.filter(
+    const contributingAssignments = assignments.filter(
       (a) =>
         a.obligation !== 'EXEMPT' &&
         contributingStates.includes(
@@ -779,7 +836,7 @@ export class AggregateService {
     });
     if (!period) throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
 
-    const actorRole = await this.resolveManagerRole(
+    const actorRole = await this.resolveAccessRole(
       this.prisma,
       period.reportId,
       userId,
@@ -787,8 +844,12 @@ export class AggregateService {
     );
     if (!actorRole)
       throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    const allowedTeamIds = await this.scopedTeamIds(actorRole.teamScopeId);
+    const scopedAssignments = allowedTeamIds
+      ? period.assignments.filter((a) => allowedTeamIds.has(a.teamId))
+      : period.assignments;
 
-    const assignments: AssignmentHistoryView[] = period.assignments.map((a) => {
+    const assignments: AssignmentHistoryView[] = scopedAssignments.map((a) => {
       const submission = a.submission;
       const revisions = submission?.revisions ?? [];
       const teamSnapshot = a.teamSnapshot as { name?: string } | null;

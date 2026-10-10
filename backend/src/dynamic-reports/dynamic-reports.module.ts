@@ -16,9 +16,10 @@ import { AggregateService } from './aggregate/aggregate.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarEventsModule } from '../calendar-events/calendar-events.module';
+import { TeamsModule } from '../teams/teams.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, CalendarEventsModule],
+  imports: [PrismaModule, AuthModule, CalendarEventsModule, TeamsModule],
   controllers: [
     ClockController,
     ReportsController,

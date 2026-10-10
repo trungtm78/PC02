@@ -15,7 +15,9 @@ describe('PreviewTemplateDto', () => {
   };
 
   it('accepts a JSON-array string (the real multipart wire format)', async () => {
-    const errors = await valid({ selectedSheets: JSON.stringify(['Đội 3', 'Đội 4']) });
+    const errors = await valid({
+      selectedSheets: JSON.stringify(['Đội 3', 'Đội 4']),
+    });
     expect(errors).toEqual([]);
   });
 
@@ -37,7 +39,9 @@ describe('PreviewTemplateDto', () => {
   });
 
   it('rejects a JSON array containing non-string elements', async () => {
-    const errors = await valid({ selectedSheets: JSON.stringify(['Đội 3', 42]) });
+    const errors = await valid({
+      selectedSheets: JSON.stringify(['Đội 3', 42]),
+    });
     expect(errors).toHaveLength(1);
     expect(errors[0].constraints).toHaveProperty('isString');
   });
