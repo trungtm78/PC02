@@ -565,15 +565,24 @@ report test (external link + field hợp lệ) ngay sau khi xác nhận bug. Chi
 a11y gộp (4 finding, đủ màn/quy tắc/mức độ/cách sửa, chờ vá 1 lần): `_EXECUTION_REPORT.md`
 mục "Cập nhật lượt 8" + "SỔ A11Y GỘP".
 
-## Hàng đợi task kế tiếp
-1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
-   tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
-   thật cho J-WIZARD-01/J-ENTRY-01 (bắt buộc theo luật #13 của skill, chưa làm ở checkpoint
-   này); (c) execute live 72 TC còn lại trong `uat.json`, ưu tiên S11-S14/S36-S38/X03/X05;
-   (d) fault-seeding bảng đầy đủ + adversarial-verify + đánh giá UX; (e) cập nhật
-   `UAT-COVERAGE.md` 53 dòng đến khi 100% PASS thật mới coi PR10 UAT xong (`/uat-test-only`
-   thật, KHÔNG dùng engine unit test làm UAT) — xem "Đang làm dở" + "Checkpoint UAT
-   11/10/2026" phía trên.
+## PHA VIẾT+THỰC THI UAT ĐÃ DỪNG Ở ĐIỂM TỰ NHIÊN (11/10/2026, chốt với coordinator)
+
+8 lượt UAT (`uat-test-writer` → thực thi live kiểu `uat-test-only`) đã xong theo thoả thuận
+với coordinator: 3 bug thật tìm được, cả 3 đã vá (BUG-001 PR #584, BUG-002 PR #586, BUG-003
+PR #588, cả 3 đã merge vào nhánh UAT này), sổ a11y gộp 4 finding sẵn vá 1 lần, phủ live các
+luồng P0 trọng yếu (27/56 dòng `UAT-COVERAGE.md` có bằng chứng thật, xem chi tiết đầy đủ ở
+`_EXECUTION_REPORT.md` mục "TỔNG KẾT CUỐI CÙNG"). KHÔNG phải 100% PASS/78 TC — đúng chủ đích
+coverage-driven, ưu tiên chất lượng.
+
+## Hàng đợi task kế tiếp (PHA SAU của PR10, không phải việc của pha UAT viết+thực thi)
+1. Vá gộp sổ A11Y (4 finding ở `_EXECUTION_REPORT.md` mục "SỔ A11Y GỘP") trong 1 PR duy nhất.
+2. Benchmark/hiệu năng X04 (5.000 input/200 tổ/50 ghi đồng thời).
+3. Runbook vận hành + rollback.
+4. Monkey test X06 — chạy ĐÚNG MỘT LẦN ở cuối toàn bộ PR10 (không chạy theo từng task).
+5. (Tuỳ chọn, nếu còn muốn tiếp tục phủ sâu hơn UAT): 28 dòng CHƯA LÀM còn lại trong
+   `UAT-COVERAGE.md` (chủ yếu màn hình phụ S05-S08/S12/S14-S18/S20/S22-S32/S35 + X02/X07),
+   GAP UX-01/UX-02 cần quyết định vá hay chấp nhận, GAP oracle X03 cần người quyết ý định
+   thật trước khi viết lại TC.
 
 ## Quyết định kiến trúc
 | Ngày | Quyết định | Lý do | Ảnh hưởng |

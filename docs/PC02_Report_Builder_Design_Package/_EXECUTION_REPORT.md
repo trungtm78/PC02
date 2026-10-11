@@ -1,6 +1,68 @@
 # Execution Report — PR10 UAT checkpoint (11/10/2026)
 
-## Phạm vi lượt này
+## TỔNG KẾT CUỐI CÙNG (8 lượt, điểm dừng tự nhiên của pha viết+thực thi UAT)
+
+**3 bug thật tìm được qua EXECUTE LIVE — cả 3 ĐÃ VÁ XONG:**
+- **BUG-001** (P1/S2, lượt 1): `totalApprovalLevels`/`actingApprovalLevel` hardcode `1` ở
+  `submission.service.ts` — R21 phê duyệt nhiều cấp chưa từng chạy qua API thật. **Vá: PR #584**
+  (commit `dcf4ed7f`). Tái lập độc lập sau vá (lượt 2-3): PASS cả 2 bước 2 cấp.
+- **BUG-002** (P1/S3, lượt 4): `aggregate.service.ts#finalizePeriod()` không kiểm có tổ nào
+  đã nộp trước khi cho "chốt kỳ" — chốt được kỳ hoàn toàn trống. **Vá: PR #586** (commit
+  `db98c32b`). Tái lập độc lập sau vá (lượt 5): 409 chặn đúng.
+- **BUG-003** (P1/S3, lượt 8): `report-config.service.ts#save()` không enforce lại issue
+  severity ERROR (`EXTERNAL_LINK_DETECTED`) khi publish — chỉ cảnh báo ở preview, publish vẫn
+  thành công. **Vá: PR #588** (`assertNoBlockingFeatureIssues()`, chặn mọi issue ERROR khi
+  publish=true — vá tổng quát, không chỉ riêng external-link). Đã merge vào nhánh UAT này;
+  không re-execute thêm theo đúng chỉ đạo "không làm tiếp execute mới" ở lượt cuối.
+
+**Sổ A11Y gộp sẵn để vá 1 lần** (không PR riêng lẻ) — 4 finding của module (không tính 3
+violation chung toàn app đã lọc bỏ): S01 thiếu `aria-valuenow` trên 10 tay nắm kéo cột
+(critical), `select-name` thiếu ở S13 + S33-review (critical), `aria-required-children` ở
+S19 (critical) — bảng đầy đủ màn/selector/quy tắc/mức độ/cách sửa ở mục "SỔ A11Y GỘP" dưới.
+
+**Coverage cuối cùng:**
+- **Cấp màn/engine/xuyên-suốt** (`UAT-COVERAGE.md`, 56 dòng thật — tài liệu gốc ghi "53 dòng"
+  là lệch có TỪ TRƯỚC tôi, từ thời điểm chưa thêm S36-S38; tôi KHÔNG tự sửa số đó trong dòng
+  mở đầu vì không phải lỗi tôi gây ra và việc sửa nằm ngoài yêu cầu, chỉ ghi chú ở đây để minh
+  bạch): **27/56 dòng có bằng chứng thật** (PASS toàn phần hoặc một phần, qua API/UI/DB thật),
+  **1/56 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc), **28/56 CHƯA LÀM**
+  (chủ yếu màn hình phụ S05-S08/S12/S14-S18/S20/S22-S32/S35 + X02/X04/X06/X07 — X04 benchmark
+  và X06 monkey-test đã được xác nhận là pha riêng của PR10, không thuộc phạm vi này).
+- **Cấp TC** (`uat.json`, 78 TC qua Cổng 0 `validate_uat_json.py` + Cổng 1
+  `coverage_calc.py`): **~30-35/78 TC có bằng chứng thực thi trực tiếp** (ước lượng — nhiều
+  TC được phủ gộp qua 1 lượt E2E/API nhiều bước, không map 1:1 tc_id↔1 lần gọi riêng, nên đây
+  là số ƯỚC LƯỢNG có chủ đích, không phải đếm chính xác tuyệt đối từng `tc_id`); phần còn lại
+  (~43-48/78) ở trạng thái ĐÃ VIẾT + qua Cổng 0/1, **CHƯA EXECUTE**. `TC_min` (M1=214, M4=120,
+  M2/M3 không đo được — thiếu `lizard`/Function-Point estimate) → phủ 94/214 coverage item =
+  43,9% (số này đo COVERAGE ITEM của Ledger, khác với số TC đã-execute ở trên — hai độ đo khác
+  nhau, không cộng gộp).
+
+**Trạng thái cuối cùng theo đúng format `self_audit.py`** (chạy thật, không tự tích):
+```
+SELF-AUDIT: SẴN SÀNG-KÈM-KHUYẾT
+  [ĐẠT           ] W1 · uat.json hợp lệ theo handoff-schema — 78 ca, tất cả hợp lệ
+  [KHÔNG ĐO ĐƯỢC ] W2 · TC_min và độ phủ — thiếu M2/M3 (lizard không cài được, không ước
+                   lượng Function Point) — TC_min=214 (M1+M4) chưa phải ENSEMBLE đầy đủ
+  [ĐẠT           ] Hợp đồng handoff khớp ở 3 skill (sync_contract)
+  [CẦN NGƯỜI     ] Fault-seeding — ĐÃ CÓ bảng 10 dòng seeded-fault↔TC (3 bug thật + 7 hành vi
+                   đúng xác nhận), nhưng máy không tự chấm "đủ" — người quyết cuối
+  [CẦN NGƯỜI     ] Adversarial-verify — ĐÃ chạy cho 4 PASS mẫu (giữ nguyên cả 4), chưa phủ
+                   hết ~27 dòng có evidence — người quyết có đủ chưa
+  [CẦN NGƯỜI     ] Đánh giá UX/End-user — ĐÃ có Nielsen cơ bản + axe-core thật 5 màn + sổ a11y
+                   gộp, nhưng CHƯA kiểm bàn phím/focus-order sâu + responsive đa viewport
+```
+Ba mục "CẦN NGƯỜI" **đã có dữ liệu thật đáng kể** (không phải trống hoàn toàn như checkpoint
+lượt 1) nhưng vẫn đúng là máy không tự chấm "đủ" được — giữ nguyên nhãn CẦN NGƯỜI theo đúng
+luật skill, không tự nâng lên ĐẠT.
+
+**Kết luận**: đây là điểm dừng tự nhiên của pha viết+thực thi UAT (`uat-test-writer` →
+`uat-test-only`-style) cho PR10, theo thoả thuận với coordinator. KHÔNG phải 100% PASS/78 TC
+— đúng tinh thần "chất lượng hơn số lượng" đã quán triệt suốt 8 lượt. Chuyển giao cho pha kế
+tiếp của PR10: vá gộp sổ A11Y (4 finding), benchmark (X04), runbook, monkey test cuối (X06).
+
+---
+
+## Phạm vi lượt này (ghi chú gốc từ lượt 1 — giữ nguyên làm bối cảnh lịch sử)
 `uat-test-writer` Bước 0→7 chạy đầy đủ cho nhóm P0 (xem `_domain-pack.md`,
 `_coverage-ledger.md`, `uat.json` — 78 TC qua Cổng 0+1). Bước 7b (EXECUTE LIVE) chạy **một
 mẫu nhỏ thật qua API trên dev cục bộ**, KHÔNG phải toàn bộ 78 TC — xem lý do ngân sách ở

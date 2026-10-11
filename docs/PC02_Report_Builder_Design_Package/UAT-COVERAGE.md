@@ -71,12 +71,18 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X02 | Đồng thời: lưu↔chốt kỳ, lưu↔D09, 2 editor cùng tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X03 | Audit không chứa số liệu | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ QUAN SÁT 1/2 qua DB thật | **CHƯA KẾT LUẬN — GAP cần người quyết**: kiến trúc thật KHÔNG có audit log tách biệt không chứa số liệu; audit trail (`dyn_report_revisions`) lưu `valuesFull` theo đúng mục đích (snapshot rollback). Oracle gốc của X03 giả định sai kiến trúc — cần người có thẩm quyền sản phẩm xác nhận lại ý định thật của X03 trước khi viết lại TC. Xem `_EXECUTION_REPORT.md`. |
 | X04 | Hiệu năng: 5.000 input/200 tổ/50 ghi đồng thời | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 4/4 (fixture độc hại thật PR0 + fixture tự dựng có field hợp lệ) | **PASS 3/4 — BUG-003 MỚI (P1/S3, CHƯA VÁ) cho external link.** Macro/encrypted/zip-bomb: chặn đúng ngay ở upload (`MACRO_DETECTED`/`INVALID_MIME`/`ZIP_BOMB_RATIO`). **External link: `EXTERNAL_LINK_DETECTED` (ERROR) chỉ cảnh báo ở `preview`, KHÔNG CHẶN publish** — đã tái lập thật với template có field hợp lệ + external link cùng lúc → `POST /reports publish=true` trả **201 PUBLISHED** (xác nhận persist thật trong DB, đã dọn sạch ngay). `report-config.service.ts` không đọc lại `issues`/severity nào khi publish, chỉ kiểm "có ≥1 field". Xem `_EXECUTION_REPORT.md` BUG-003. |
+| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 4/4 (fixture độc hại thật PR0 + fixture tự dựng có field hợp lệ) | **PASS cả 4/4 — BUG-003 ĐÃ VÁ (PR #588).** Macro/encrypted/zip-bomb: chặn đúng ngay ở upload (`MACRO_DETECTED`/`INVALID_MIME`/`ZIP_BOMB_RATIO`). External link: tìm thấy lượt 8 — `EXTERNAL_LINK_DETECTED` (ERROR) chỉ cảnh báo ở `preview`, KHÔNG CHẶN publish (publish vẫn 201). Đã vá: `ReportConfigService.save()` gọi `assertNoBlockingFeatureIssues()` khi `publish=true`, chặn mọi issue ERROR severity (vá tổng quát, không chỉ external-link) — merge vào nhánh UAT, chưa re-execute lại theo đúng chỉ đạo lượt cuối. Xem `_EXECUTION_REPORT.md` BUG-003. |
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
-**Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 8)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Tổng THẬT: 56 dòng** (bảng ghi "53 dòng" ở trên là lệch CÓ TỪ TRƯỚC, từ thời điểm chưa thêm
+S36-S38 vào mục A — không sửa trong lượt này vì không phải lỗi của pha UAT, chỉ ghi chú để
+minh bạch số liệu). **PASS (unit jest, chưa phải UAT đầy đủ): 10/56** (toàn bộ engine thuần
+PR1).
+
+## ĐIỂM DỪNG CUỐI CÙNG — PR10 UAT, 11/10/2026 (lượt 8/8, theo thoả thuận với coordinator)
+
+**Checkpoint PR10 UAT 11/10/2026 (lượt 8 — LƯỢT CUỐI của pha viết+thực thi)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
@@ -98,12 +104,12 @@ chất lượng hơn số lượng theo đúng chỉ đạo):
   hoàn thành) + GAP UX-02 (S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết+test chưa wire
   UI/endpoint, xác nhận bằng chính comment trong code).
 - **1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật).
-- **X05/S04 4/4, 3 PASS + BUG-003 MỚI (P1/S3, CHƯA VÁ)**: macro→`MACRO_DETECTED`,
-  encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (PASS cả 3, chặn ngay ở upload).
-  **External link: chỉ cảnh báo ở `preview` (`EXTERNAL_LINK_DETECTED`, ERROR), KHÔNG CHẶN
-  publish** — tái lập thật với template có field hợp lệ + external link → publish **201
-  thành công** (`report-config.service.ts` không đọc lại `issues` khi publish). Xem
-  `_EXECUTION_REPORT.md` BUG-003.
+- **X05/S04 4/4 PASS — BUG-003 ĐÃ VÁ (PR #588)**: macro→`MACRO_DETECTED`,
+  encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (chặn ngay ở upload). External link:
+  tìm thấy lượt 8 (`EXTERNAL_LINK_DETECTED` chỉ cảnh báo ở `preview`, không chặn publish),
+  vá bằng `assertNoBlockingFeatureIssues()` chặn mọi issue ERROR khi publish (vá tổng quát).
+  Đã merge vào nhánh UAT, KHÔNG re-execute lại (đúng chỉ đạo lượt cuối "không làm tiếp
+  execute mới"). Xem `_EXECUTION_REPORT.md` BUG-003.
 - **S33 hoàn tất cả 3 hành động** (APPROVE/RETURN/UNAPPROVE) đã xác nhận live, kể cả chặn
   đúng vai không phải MANAGER (404).
 - **Adversarial-verify**: thử bác bỏ 4 PASS đã báo cáo (X01-01, S36-01, S37-03, BUG-002-fix)
@@ -115,8 +121,12 @@ chất lượng hơn số lượng theo đúng chỉ đạo):
   (header/design-token chung), không phải lỗi riêng của module — xem `_EXECUTION_REPORT.md`.
 - **1 phát hiện hạ tầng đã tự vá** (khoá JWT lệch cặp sau restart).
 
-Chi tiết đầy đủ: `_EXECUTION_REPORT.md`. **CHƯA đạt 100% PASS — còn ở trạng thái
-SẴN SÀNG-KÈM-KHUYẾT**, không coi là xong; các dòng còn `CHƯA LÀM` thật sự chưa chạy, không
-suy ra PASS.
+Chi tiết đầy đủ + tổng kết 8 lượt + bảng `self_audit.py` cuối cùng: `_EXECUTION_REPORT.md`
+mục "TỔNG KẾT CUỐI CÙNG". **CHƯA đạt 100% PASS/78 TC — còn ở trạng thái
+SẴN SÀNG-KÈM-KHUYẾT**, không coi là xong toàn bộ UAT; các dòng còn `CHƯA LÀM` thật sự chưa
+chạy, không suy ra PASS. **Đây là điểm dừng tự nhiên của pha viết+thực thi UAT theo thoả
+thuận với coordinator (11/10/2026)** — 3 bug thật tìm được, cả 3 đã vá (PR #584/#586/#588),
+sổ a11y gộp sẵn sàng vá 1 lần, chuyển giao sang pha kế tiếp của PR10 (vá gộp a11y, benchmark
+X04, runbook, monkey test X06 cuối).
 
 **Lưu ý về "PASS" ở mục B (engine):** đây là kết quả `jest` cấp đơn vị (TDD trong lúc code), không phải UAT đầy đủ theo giao thức §9 (viết bởi `/uat-test-writer`, chạy bởi `/uat-test-runner`/`/uat-test-only` trên hệ thống thật đang chạy). Các dòng này **không tự động coi là "100% PASS" của UAT** — khi tới PR10 (giai đoạn UAT), phải chạy `/uat-test-writer` cho toàn bộ ma trận rồi `/uat-test-runner` thật trên staging, kể cả với phần engine đã xanh ở đây.
