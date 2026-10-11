@@ -74,6 +74,7 @@ const VIEW: SubmissionView = {
   editable: true,
   effectiveLockAt: '2026-11-05T17:00:00.000Z',
   serverTime: '2026-10-10T10:00:00.000Z',
+  updatedAt: '2026-10-09T08:30:00.000Z',
 };
 
 describe('SubmissionInputPage', () => {

@@ -60,6 +60,7 @@ const SUBMITTED_VIEW: SubmissionView = {
   editable: false,
   effectiveLockAt: null,
   serverTime: '2026-10-10T10:00:00.000Z',
+  updatedAt: '2026-10-09T08:30:00.000Z',
 };
 
 describe('ReportSubmissionReviewPage', () => {
@@ -74,6 +75,27 @@ describe('ReportSubmissionReviewPage', () => {
     await waitFor(() => screen.getByTestId('value-Đội 3!C6'));
     expect(screen.getByTestId('value-Đội 3!C6')).toHaveTextContent('5');
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('S16: shows the submission state badge and last-saved time', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue(SUBMITTED_VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('submission-state-badge'));
+    expect(screen.getByTestId('submission-state-badge')).toHaveTextContent('Đã nộp');
+    expect(screen.getByTestId('last-saved-at')).toBeInTheDocument();
+  });
+
+  it('S16: hides the last-saved note when the submission has never been saved', async () => {
+    vi.mocked(dynamicReportsApi.getSubmissionForManager).mockResolvedValue({
+      ...SUBMITTED_VIEW,
+      state: 'NOT_STARTED',
+      updatedAt: null,
+    });
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('submission-state-badge'));
+    expect(screen.queryByTestId('last-saved-at')).not.toBeInTheDocument();
   });
 
   it('approves after confirmation and refetches', async () => {

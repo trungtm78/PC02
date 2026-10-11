@@ -16,6 +16,10 @@ import { dynamicReportsApi } from '@/features/dynamic-reports/api';
 import { extractApiError } from '@/lib/api-errors';
 import { formatVNDateTime } from '@/lib/dates';
 import { A11Y_FOCUS_RING } from '@/constants/styles';
+import {
+  DYN_REPORT_SUBMISSION_STATE_LABEL,
+  DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS,
+} from '@/shared/enums/status-labels';
 
 type ActionStatus = 'idle' | 'working' | 'error';
 
@@ -196,10 +200,21 @@ export default function ReportSubmissionReviewPage() {
         Quay lại danh sách duyệt
       </Link>
 
-      <h1 className="text-xl font-bold text-slate-800 mb-1">{view.reportName}</h1>
+      <div className="flex items-center gap-2 mb-1">
+        <h1 className="text-xl font-bold text-slate-800">{view.reportName}</h1>
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DYN_REPORT_SUBMISSION_STATE_BADGE_CLASS[view.state]}`}
+          data-testid="submission-state-badge"
+        >
+          {DYN_REPORT_SUBMISSION_STATE_LABEL[view.state]}
+        </span>
+      </div>
       <p className="text-sm text-slate-500 mb-4">
         Kỳ {view.periodKey} ({view.periodStart} → {view.periodEnd}) · Hạn gốc{' '}
         {formatVNDateTime(view.dueAt)}
+        {view.updatedAt && (
+          <span data-testid="last-saved-at"> · Lưu lần cuối {formatVNDateTime(view.updatedAt)}</span>
+        )}
       </p>
       {view.effectiveLockAt && view.effectiveLockAt !== view.dueAt && (
         <p className="text-sm text-blue-700 mb-4" data-testid="reopen-deadline-note">

@@ -271,6 +271,44 @@ describe('SubmissionService', () => {
       const view = await service.getSubmission('assign1', 'u1');
       expect(view.editable).toBe(false);
     });
+
+    it('S16: updatedAt is null when the submission has never been saved (firstSavedAt null)', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      tx.dynReportAssignment.findUnique.mockResolvedValue(baseAssignment());
+      const { service } = buildService(tx);
+
+      const view = await service.getSubmission('assign1', 'u1');
+      expect(view.updatedAt).toBeNull();
+    });
+
+    it('S16: updatedAt reflects DynReportSubmission.updatedAt once the submission has been saved', async () => {
+      const tx = buildTx();
+      tx.dynReportAssignmentEditor.findFirst.mockResolvedValue({
+        userId: 'u1',
+      });
+      const savedAt = new Date('2026-06-10T08:00:00Z');
+      tx.dynReportAssignment.findUnique.mockResolvedValue(
+        baseAssignment({
+          submission: {
+            id: 'sub1',
+            state: 'DRAFT',
+            currentRevision: 1n,
+            values: {},
+            approvalLevel: 0,
+            returnDueAt: null,
+            firstSavedAt: savedAt,
+            updatedAt: savedAt,
+          },
+        }),
+      );
+      const { service } = buildService(tx);
+
+      const view = await service.getSubmission('assign1', 'u1');
+      expect(view.updatedAt).toBe(savedAt.toISOString());
+    });
   });
 
   describe('save', () => {
@@ -1079,6 +1117,7 @@ describe('SubmissionService', () => {
 
     it('returns a read-only view (editable:false, effectiveLockAt:null) for a report MANAGER', async () => {
       const tx = buildTx();
+      const savedAt = new Date('2026-06-15T09:00:00Z');
       tx.dynReportAssignment.findUnique.mockResolvedValue(
         baseAssignment({
           submission: {
@@ -1088,6 +1127,8 @@ describe('SubmissionService', () => {
             values: { 'Đội 3!C6': { t: 'NUM', v: '5' } },
             approvalLevel: 0,
             returnDueAt: null,
+            firstSavedAt: savedAt,
+            updatedAt: savedAt,
           },
         }),
       );
@@ -1115,6 +1156,7 @@ describe('SubmissionService', () => {
       expect(result.effectiveLockAt).toBeNull();
       expect(result.state).toBe('SUBMITTED');
       expect(result.history).toEqual([]);
+      expect(result.updatedAt).toBe(savedAt.toISOString());
     });
 
     it('rejects (404) a getSubmissionForManager call from a non-manager', async () => {
