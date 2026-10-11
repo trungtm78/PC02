@@ -78,6 +78,17 @@ describe('ReportPeriodSummaryPage', () => {
     vi.clearAllMocks();
   });
 
+  it('links to the add-team/exempt-team page (S30)', async () => {
+    vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
+    renderPage();
+
+    await waitFor(() => screen.getByTestId('link-period-teams'));
+    expect(screen.getByTestId('link-period-teams')).toHaveAttribute(
+      'href',
+      '/bao-cao-dong/duyet/tong-hop/period1/to',
+    );
+  });
+
   it('links to the whole-period history page', async () => {
     vi.mocked(dynamicReportsApi.getPeriodSummary).mockResolvedValue(VIEW);
     renderPage();

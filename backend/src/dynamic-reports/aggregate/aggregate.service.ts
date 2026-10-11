@@ -82,6 +82,51 @@ export interface ReopenResultView {
   status: 'OPEN';
 }
 
+/** S30 — "trước/sau" cho 1 field khi thêm tổ hoặc miễn nộp giữa kỳ. */
+export interface MidPeriodFieldImpact {
+  fieldKey: string;
+  label: string;
+  beforeCountTotal: number;
+  afterCountTotal: number;
+  beforeValue: string | null;
+  afterValue: string | null;
+}
+
+/**
+ * S30 (D09) — xem trước tác động lên mẫu số TRƯỚC khi xác nhận. Luôn tính
+ * theo mode=SUBMITTED (mẫu số mặc định S15) để người quản lý thấy đúng con
+ * số họ đang nhìn hàng ngày. Thêm tổ KHÔNG đổi `contributingCount`/giá trị
+ * field ngay (tổ mới ở NOT_STARTED, chưa tính vào mẫu số cho tới khi nộp) —
+ * chỉ `requiredCount` (nghĩa vụ) đổi ngay; FE phải nói rõ điều này, không
+ * để người dùng tưởng nhầm số liệu đổi tức thì.
+ */
+export interface MidPeriodImpactPreview {
+  periodId: string;
+  teamId: string;
+  teamName: string;
+  requiredCountBefore: number;
+  requiredCountAfter: number;
+  contributingCountBefore: number;
+  contributingCountAfter: number;
+  fields: MidPeriodFieldImpact[];
+}
+
+export interface MidPeriodAssignmentView {
+  assignmentId: string;
+  teamId: string;
+  teamName: string;
+  obligation: 'REQUIRED' | 'EXEMPT';
+}
+
+/** S30 — 1 dòng trong danh sách tổ của kỳ, cho màn thêm tổ/miễn nộp chọn tổ. */
+export interface AssignmentListItemView {
+  assignmentId: string;
+  teamId: string;
+  teamName: string;
+  obligation: 'REQUIRED' | 'EXEMPT';
+  state: string;
+}
+
 export interface ExportCreateResultView {
   exportId: string;
   fileName: string;
@@ -599,6 +644,411 @@ export class AggregateService {
       });
 
       return { periodId, status: 'OPEN' };
+    });
+  }
+
+  /**
+   * S30 — tính lại từng field cho một tập assignment GIẢ ĐỊNH (dùng để so
+   * "trước/sau" khi thêm tổ hoặc miễn nộp giữa kỳ), dùng lại đúng
+   * `aggregateValues` thuần của engine (PR1) — không tự tính lại công thức
+   * ở đây. Luôn mode=SUBMITTED, không tham số hoá — xem docstring
+   * `MidPeriodImpactPreview`.
+   */
+  private computeFieldAggregatesFor(
+    fields: Array<{
+      fieldKey: string;
+      aggregate: Parameters<typeof aggregateValues>[0];
+      blankPolicy: Parameters<typeof aggregateValues>[1];
+    }>,
+    assignments: Array<{
+      obligation: string;
+      submission: { state: string; values: unknown } | null;
+    }>,
+  ): Record<string, { countTotal: number; value: string | null }> {
+    const contributingAssignments = assignments.filter(
+      (a) =>
+        a.obligation !== 'EXEMPT' &&
+        CONTRIBUTING_STATES.SUBMITTED.includes(
+          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
+        ),
+    );
+    const out: Record<string, { countTotal: number; value: string | null }> =
+      {};
+    for (const f of fields) {
+      const contributions: Contribution[] = contributingAssignments.map(
+        (a, i) => {
+          const values = (a.submission?.values ?? {}) as Record<
+            string,
+            { v: string | null } | undefined
+          >;
+          const raw = values[f.fieldKey]?.v ?? null;
+          return {
+            sourceId: String(i),
+            value: raw !== null ? Number(raw) : null,
+          };
+        },
+      );
+      const result = aggregateValues(f.aggregate, f.blankPolicy, contributions);
+      out[f.fieldKey] = {
+        countTotal: result.countTotal,
+        value: result.value !== null ? String(result.value) : null,
+      };
+    }
+    return out;
+  }
+
+  private requiredCount(assignments: Array<{ obligation: string }>): number {
+    return assignments.filter((a) => a.obligation !== 'EXEMPT').length;
+  }
+
+  private contributingCount(
+    assignments: Array<{
+      obligation: string;
+      submission: { state: string } | null;
+    }>,
+  ): number {
+    return assignments.filter(
+      (a) =>
+        a.obligation !== 'EXEMPT' &&
+        CONTRIBUTING_STATES.SUBMITTED.includes(
+          (a.submission?.state ?? 'NOT_STARTED') as SubmissionState,
+        ),
+    ).length;
+  }
+
+  /**
+   * S30 — danh sách tổ của kỳ (để màn "Thêm tổ/Miễn nộp" biết tổ nào đã có
+   * trong kỳ, đang EXEMPT hay REQUIRED). Đọc thẳng từ `assignments` hiện
+   * có, không qua `aggregateValues` — không phải số liệu tổng hợp theo
+   * field, chỉ là danh sách lượt giao.
+   */
+  async listAssignmentsForPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<AssignmentListItemView[]> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      include: { assignments: { include: { submission: true } } },
+    });
+    if (!period) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      period.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    return period.assignments.map((a) => {
+      const teamSnapshot = a.teamSnapshot as { name?: string } | null;
+      return {
+        assignmentId: a.id,
+        teamId: a.teamId,
+        teamName: teamSnapshot?.name ?? '',
+        obligation: a.obligation as 'REQUIRED' | 'EXEMPT',
+        state: a.submission?.state ?? 'NOT_STARTED',
+      };
+    });
+  }
+
+  /** S30 — xem trước tác động của việc THÊM 1 tổ vào kỳ đang mở, trước khi xác nhận. */
+  async previewAddTeam(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    teamId: string,
+  ): Promise<MidPeriodImpactPreview> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      include: {
+        version: { include: { fields: true } },
+        assignments: { include: { submission: true } },
+      },
+    });
+    if (!period) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      period.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    if (period.status !== 'OPEN') {
+      throw new SubmissionError(
+        'Kỳ đã khoá, không thể thêm tổ.',
+        'INVALID_STATE_TRANSITION',
+      );
+    }
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) {
+      throw new SubmissionError('Không tìm thấy tổ này.', 'TEAM_NOT_FOUND');
+    }
+    if (period.assignments.some((a) => a.teamId === teamId)) {
+      throw new SubmissionError(
+        'Tổ này đã có trong kỳ.',
+        'TEAM_ALREADY_ASSIGNED',
+      );
+    }
+
+    const before = period.assignments;
+    const after = [
+      ...period.assignments,
+      { obligation: 'REQUIRED', submission: null },
+    ];
+    const beforeAgg = this.computeFieldAggregatesFor(
+      period.version.fields,
+      before,
+    );
+    const afterAgg = this.computeFieldAggregatesFor(
+      period.version.fields,
+      after,
+    );
+
+    return {
+      periodId,
+      teamId,
+      teamName: team.name,
+      requiredCountBefore: this.requiredCount(before),
+      requiredCountAfter: this.requiredCount(after),
+      contributingCountBefore: this.contributingCount(before),
+      contributingCountAfter: this.contributingCount(after),
+      fields: period.version.fields.map((f) => ({
+        fieldKey: f.fieldKey,
+        label: f.label,
+        beforeCountTotal: beforeAgg[f.fieldKey].countTotal,
+        afterCountTotal: afterAgg[f.fieldKey].countTotal,
+        beforeValue: beforeAgg[f.fieldKey].value,
+        afterValue: afterAgg[f.fieldKey].value,
+      })),
+    };
+  }
+
+  /** S30 — xem trước tác động của việc MIỄN NỘP 1 tổ, trước khi xác nhận. */
+  async previewExemptTeam(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+  ): Promise<MidPeriodImpactPreview> {
+    const period = await this.prisma.dynReportPeriod.findUnique({
+      where: { id: periodId },
+      include: {
+        version: { include: { fields: true } },
+        assignments: { include: { submission: true } },
+      },
+    });
+    if (!period) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    const actorRole = await this.resolveManagerRole(
+      this.prisma,
+      period.reportId,
+      userId,
+      roleId,
+    );
+    if (!actorRole) {
+      throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+    }
+    if (period.status !== 'OPEN') {
+      throw new SubmissionError(
+        'Kỳ đã khoá, không thể miễn nộp.',
+        'INVALID_STATE_TRANSITION',
+      );
+    }
+    const target = period.assignments.find((a) => a.id === assignmentId);
+    if (!target) {
+      throw new NotFoundException('Không tìm thấy lượt giao này.');
+    }
+    if (target.obligation === 'EXEMPT') {
+      throw new SubmissionError(
+        'Tổ này đã được miễn nộp rồi.',
+        'ALREADY_EXEMPT',
+      );
+    }
+    const teamSnapshot = target.teamSnapshot as { name?: string } | null;
+
+    const before = period.assignments;
+    const after = period.assignments.map((a) =>
+      a.id === assignmentId ? { ...a, obligation: 'EXEMPT' } : a,
+    );
+    const beforeAgg = this.computeFieldAggregatesFor(
+      period.version.fields,
+      before,
+    );
+    const afterAgg = this.computeFieldAggregatesFor(
+      period.version.fields,
+      after,
+    );
+
+    return {
+      periodId,
+      teamId: target.teamId,
+      teamName: teamSnapshot?.name ?? '',
+      requiredCountBefore: this.requiredCount(before),
+      requiredCountAfter: this.requiredCount(after),
+      contributingCountBefore: this.contributingCount(before),
+      contributingCountAfter: this.contributingCount(after),
+      fields: period.version.fields.map((f) => ({
+        fieldKey: f.fieldKey,
+        label: f.label,
+        beforeCountTotal: beforeAgg[f.fieldKey].countTotal,
+        afterCountTotal: afterAgg[f.fieldKey].countTotal,
+        beforeValue: beforeAgg[f.fieldKey].value,
+        afterValue: afterAgg[f.fieldKey].value,
+      })),
+    };
+  }
+
+  /**
+   * S30 — thêm tổ vào kỳ đang mở, giữa chừng (D09). Cùng khuôn với
+   * `PeriodSchedulerService`'s tạo assignment tự động: snapshot tên tổ,
+   * obligation=REQUIRED, và tạo NGAY `DynReportSubmission` NOT_STARTED
+   * trong CÙNG transaction (R5 — "bản nộp tạo sẵn", mọi đường ghi sau này
+   * chỉ cần SELECT ... FOR UPDATE trên dòng đã có sẵn, không bao giờ phải
+   * tạo lười).
+   */
+  async addTeamMidPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    teamId: string,
+    reason: string,
+  ): Promise<MidPeriodAssignmentView> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+
+      const period = await tx.dynReportPeriod.findUnique({
+        where: { id: periodId },
+        include: { assignments: true },
+      });
+      if (!period) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      const actorRole = await this.resolveManagerRole(
+        tx,
+        period.reportId,
+        userId,
+        roleId,
+      );
+      if (!actorRole) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError(
+          'Kỳ đã khoá, không thể thêm tổ.',
+          'INVALID_STATE_TRANSITION',
+        );
+      }
+      const team = await tx.team.findUnique({ where: { id: teamId } });
+      if (!team) {
+        throw new SubmissionError('Không tìm thấy tổ này.', 'TEAM_NOT_FOUND');
+      }
+      if (period.assignments.some((a) => a.teamId === teamId)) {
+        throw new SubmissionError(
+          'Tổ này đã có trong kỳ.',
+          'TEAM_ALREADY_ASSIGNED',
+        );
+      }
+
+      const assignment = await tx.dynReportAssignment.create({
+        data: {
+          periodId,
+          teamId,
+          teamSnapshot: { id: team.id, name: team.name, code: team.code },
+          obligation: 'REQUIRED',
+          addedMidPeriodReason: reason,
+        },
+      });
+      await tx.dynReportSubmission.create({
+        data: { assignmentId: assignment.id, state: 'NOT_STARTED' },
+      });
+
+      return {
+        assignmentId: assignment.id,
+        teamId: team.id,
+        teamName: team.name,
+        obligation: 'REQUIRED' as const,
+      };
+    });
+  }
+
+  /**
+   * S30 — miễn nộp 1 tổ trong kỳ đang mở, giữa chừng (D09). KHÔNG xoá
+   * assignment/submission đã có — chỉ đổi `obligation`, giữ nguyên dữ liệu
+   * và lịch sử đã nhập (nếu có). Không có đường "huỷ miễn nộp" trong slice
+   * này — cố ý thu hẹp phạm vi, để dành cho slice khác nếu phát sinh nhu
+   * cầu.
+   */
+  async exemptTeamMidPeriod(
+    periodId: string,
+    userId: string,
+    roleId: string,
+    assignmentId: string,
+    reason: string,
+  ): Promise<MidPeriodAssignmentView> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "dyn_report_periods" WHERE id = ${periodId} FOR UPDATE`;
+
+      const period = await tx.dynReportPeriod.findUnique({
+        where: { id: periodId },
+      });
+      if (!period) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      const actorRole = await this.resolveManagerRole(
+        tx,
+        period.reportId,
+        userId,
+        roleId,
+      );
+      if (!actorRole) {
+        throw new NotFoundException('Không tìm thấy kỳ báo cáo này.');
+      }
+      if (period.status !== 'OPEN') {
+        throw new SubmissionError(
+          'Kỳ đã khoá, không thể miễn nộp.',
+          'INVALID_STATE_TRANSITION',
+        );
+      }
+      const assignment = await tx.dynReportAssignment.findUnique({
+        where: { id: assignmentId },
+      });
+      if (!assignment || assignment.periodId !== periodId) {
+        throw new NotFoundException('Không tìm thấy lượt giao này.');
+      }
+      if (assignment.obligation === 'EXEMPT') {
+        throw new SubmissionError(
+          'Tổ này đã được miễn nộp rồi.',
+          'ALREADY_EXEMPT',
+        );
+      }
+
+      const now = new Date();
+      const updated = await tx.dynReportAssignment.update({
+        where: { id: assignmentId },
+        data: {
+          obligation: 'EXEMPT',
+          exemptReason: reason,
+          exemptById: userId,
+          exemptAt: now,
+        },
+      });
+      const teamSnapshot = updated.teamSnapshot as { name?: string } | null;
+
+      return {
+        assignmentId: updated.id,
+        teamId: updated.teamId,
+        teamName: teamSnapshot?.name ?? '',
+        obligation: 'EXEMPT' as const,
+      };
     });
   }
 

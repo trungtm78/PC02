@@ -927,4 +927,497 @@ describe('AggregateService', () => {
       expect(prisma.dynReportRole.findMany).not.toHaveBeenCalled();
     });
   });
+
+  describe('listAssignmentsForPeriod (S30, PR4 slice 6)', () => {
+    it('lists every assignment with teamName/obligation/state', async () => {
+      const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+      const result = await service.listAssignmentsForPeriod(
+        'period1',
+        'mgr1',
+        'roleMgr',
+      );
+
+      expect(result).toEqual([
+        {
+          assignmentId: 'a1',
+          teamId: 'team-a1',
+          teamName: 'Team a1',
+          obligation: 'REQUIRED',
+          state: 'SUBMITTED',
+        },
+        {
+          assignmentId: 'a2',
+          teamId: 'team-a2',
+          teamName: 'Team a2',
+          obligation: 'REQUIRED',
+          state: 'APPROVED',
+        },
+        {
+          assignmentId: 'a3',
+          teamId: 'team-a3',
+          teamName: 'Team a3',
+          obligation: 'REQUIRED',
+          state: 'DRAFT',
+        },
+        {
+          assignmentId: 'a4',
+          teamId: 'team-a4',
+          teamName: 'Team a4',
+          obligation: 'EXEMPT',
+          state: 'NOT_STARTED',
+        },
+      ]);
+    });
+
+    it('rejects (404) when the caller is not a manager of this report', async () => {
+      const { service } = buildService(basePeriod());
+
+      await expect(
+        service.listAssignmentsForPeriod('period1', 'u1', 'role1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects (404) when the period does not exist', async () => {
+      const { service } = buildService(null);
+
+      await expect(
+        service.listAssignmentsForPeriod('period1', 'mgr1', 'roleMgr'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('previewAddTeam / previewExemptTeam / addTeamMidPeriod / exemptTeamMidPeriod (S30, PR4 slice 6)', () => {
+    function buildTxServiceWithTeam(
+      period: unknown,
+      grants: unknown[] = [],
+      team: unknown = { id: 'team-new', name: 'Tổ mới', code: 'TM' },
+    ) {
+      const tx = {
+        $queryRaw: jest.fn<Promise<unknown>, unknown[]>(),
+        dynReportPeriod: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(period),
+        },
+        rolePermission: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(null),
+        },
+        dynReportRole: {
+          findFirst: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(grants[0] ?? null),
+        },
+        team: {
+          findUnique: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue(team),
+        },
+        dynReportAssignment: {
+          findUnique: jest.fn<Promise<unknown>, unknown[]>(),
+          create: jest
+            .fn<Promise<unknown>, unknown[]>()
+            .mockResolvedValue({ id: 'new-assignment1' }),
+          update: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+        dynReportSubmission: {
+          create: jest.fn<Promise<unknown>, unknown[]>(),
+        },
+      };
+      const prisma = {
+        $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+        team: tx.team,
+      };
+      const service = new AggregateService(
+        prisma as unknown as PrismaService,
+        buildTeamsServiceMock(),
+      );
+      return { service, tx, prisma };
+    }
+
+    describe('previewAddTeam (read-only, no transaction)', () => {
+      it('shows requiredCount changes immediately but field values/contributingCount stay the same (new team is NOT_STARTED)', async () => {
+        const { service, prisma } = buildService(basePeriod(), [
+          { role: 'MANAGER' },
+        ]);
+        (prisma as unknown as { team: { findUnique: jest.Mock } }).team = {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'team-new', name: 'Tổ mới', code: 'TM' }),
+        };
+
+        const result = await service.previewAddTeam(
+          'period1',
+          'mgr1',
+          'roleMgr',
+          'team-new',
+        );
+
+        expect(result.teamName).toBe('Tổ mới');
+        expect(result.requiredCountBefore).toBe(3); // a1,a2,a3 (a4 EXEMPT excluded)
+        expect(result.requiredCountAfter).toBe(4);
+        expect(result.contributingCountBefore).toBe(2); // a1 SUBMITTED + a2 APPROVED
+        expect(result.contributingCountAfter).toBe(2); // unchanged — new team is NOT_STARTED
+        const field = result.fields[0];
+        expect(field.beforeCountTotal).toBe(2);
+        expect(field.afterCountTotal).toBe(2);
+        expect(field.beforeValue).toBe('30');
+        expect(field.afterValue).toBe('30');
+      });
+
+      it('rejects with TEAM_ALREADY_ASSIGNED when the team already has an assignment in this period', async () => {
+        const { service, prisma } = buildService(basePeriod(), [
+          { role: 'MANAGER' },
+        ]);
+        (prisma as unknown as { team: { findUnique: jest.Mock } }).team = {
+          findUnique: jest.fn().mockResolvedValue({ id: 'team-a1' }),
+        };
+
+        await expect(
+          service.previewAddTeam('period1', 'mgr1', 'roleMgr', 'team-a1'),
+        ).rejects.toMatchObject({ code: 'TEAM_ALREADY_ASSIGNED' });
+      });
+
+      it('rejects with TEAM_NOT_FOUND when the team id does not exist', async () => {
+        const { service, prisma } = buildService(basePeriod(), [
+          { role: 'MANAGER' },
+        ]);
+        (prisma as unknown as { team: { findUnique: jest.Mock } }).team = {
+          findUnique: jest.fn().mockResolvedValue(null),
+        };
+
+        await expect(
+          service.previewAddTeam('period1', 'mgr1', 'roleMgr', 'ghost'),
+        ).rejects.toMatchObject({ code: 'TEAM_NOT_FOUND' });
+      });
+
+      it('rejects with INVALID_STATE_TRANSITION when the period is not OPEN', async () => {
+        const { service } = buildService(basePeriod({ status: 'FINALIZED' }), [
+          { role: 'MANAGER' },
+        ]);
+
+        await expect(
+          service.previewAddTeam('period1', 'mgr1', 'roleMgr', 'team-new'),
+        ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+      });
+
+      it('rejects (404) when the caller is not a manager of this report', async () => {
+        const { service } = buildService(basePeriod());
+
+        await expect(
+          service.previewAddTeam('period1', 'u1', 'role1', 'team-new'),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+    });
+
+    describe('previewExemptTeam (read-only, no transaction)', () => {
+      it('shows requiredCount AND contributingCount drop immediately when exempting a SUBMITTED team', async () => {
+        const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+        const result = await service.previewExemptTeam(
+          'period1',
+          'mgr1',
+          'roleMgr',
+          'a1',
+        );
+
+        expect(result.teamName).toBe('Team a1');
+        expect(result.requiredCountBefore).toBe(3);
+        expect(result.requiredCountAfter).toBe(2);
+        expect(result.contributingCountBefore).toBe(2);
+        expect(result.contributingCountAfter).toBe(1); // only a2 APPROVED left
+        const field = result.fields[0];
+        expect(field.beforeValue).toBe('30');
+        expect(field.afterValue).toBe('20'); // a1's '10' no longer counted
+      });
+
+      it('rejects with ALREADY_EXEMPT when the assignment is already EXEMPT', async () => {
+        const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+        await expect(
+          service.previewExemptTeam('period1', 'mgr1', 'roleMgr', 'a4'),
+        ).rejects.toMatchObject({ code: 'ALREADY_EXEMPT' });
+      });
+
+      it('rejects (404) when the assignmentId does not belong to this period', async () => {
+        const { service } = buildService(basePeriod(), [{ role: 'MANAGER' }]);
+
+        await expect(
+          service.previewExemptTeam('period1', 'mgr1', 'roleMgr', 'ghost'),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+    });
+
+    describe('addTeamMidPeriod (write, transaction)', () => {
+      it('creates the assignment + its NOT_STARTED submission in one transaction, with the reason recorded', async () => {
+        const { service, tx } = buildTxServiceWithTeam(basePeriod(), [
+          { role: 'MANAGER' },
+        ]);
+
+        const result = await service.addTeamMidPeriod(
+          'period1',
+          'mgr1',
+          'roleMgr',
+          'team-new',
+          'Chia tách địa bàn, bổ sung Tổ 5',
+        );
+
+        expect(result).toEqual({
+          assignmentId: 'new-assignment1',
+          teamId: 'team-new',
+          teamName: 'Tổ mới',
+          obligation: 'REQUIRED',
+        });
+
+        const createCall = tx.dynReportAssignment.create.mock.calls[0][0] as {
+          data: {
+            periodId: string;
+            teamId: string;
+            obligation: string;
+            addedMidPeriodReason: string;
+            teamSnapshot: unknown;
+          };
+        };
+        expect(createCall.data.periodId).toBe('period1');
+        expect(createCall.data.teamId).toBe('team-new');
+        expect(createCall.data.obligation).toBe('REQUIRED');
+        expect(createCall.data.addedMidPeriodReason).toBe(
+          'Chia tách địa bàn, bổ sung Tổ 5',
+        );
+        expect(createCall.data.teamSnapshot).toEqual({
+          id: 'team-new',
+          name: 'Tổ mới',
+          code: 'TM',
+        });
+
+        const submissionCall = tx.dynReportSubmission.create.mock
+          .calls[0][0] as { data: { assignmentId: string; state: string } };
+        expect(submissionCall.data.assignmentId).toBe('new-assignment1');
+        expect(submissionCall.data.state).toBe('NOT_STARTED');
+      });
+
+      it('rejects with TEAM_ALREADY_ASSIGNED when the team already has an assignment in this period', async () => {
+        const { service } = buildTxServiceWithTeam(
+          basePeriod(),
+          [{ role: 'MANAGER' }],
+          { id: 'team-a1' },
+        );
+
+        await expect(
+          service.addTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'team-a1',
+            'lý do',
+          ),
+        ).rejects.toMatchObject({ code: 'TEAM_ALREADY_ASSIGNED' });
+      });
+
+      it('rejects with TEAM_NOT_FOUND when the team id does not exist', async () => {
+        const { service } = buildTxServiceWithTeam(
+          basePeriod(),
+          [{ role: 'MANAGER' }],
+          null,
+        );
+
+        await expect(
+          service.addTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'ghost',
+            'lý do',
+          ),
+        ).rejects.toMatchObject({ code: 'TEAM_NOT_FOUND' });
+      });
+
+      it('rejects with INVALID_STATE_TRANSITION when the period is not OPEN', async () => {
+        const { service } = buildTxServiceWithTeam(
+          basePeriod({ status: 'FINALIZED' }),
+          [{ role: 'MANAGER' }],
+        );
+
+        await expect(
+          service.addTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'team-new',
+            'lý do',
+          ),
+        ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+      });
+
+      it('rejects (404) when the caller is not a manager of this report', async () => {
+        const { service } = buildTxServiceWithTeam(basePeriod());
+
+        await expect(
+          service.addTeamMidPeriod(
+            'period1',
+            'u1',
+            'role1',
+            'team-new',
+            'lý do',
+          ),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+    });
+
+    describe('exemptTeamMidPeriod (write, transaction)', () => {
+      function buildExemptTxService(
+        assignment: unknown,
+        period: unknown = basePeriod(),
+        grants: unknown[] = [],
+      ) {
+        const tx = {
+          $queryRaw: jest.fn<Promise<unknown>, unknown[]>(),
+          dynReportPeriod: {
+            findUnique: jest
+              .fn<Promise<unknown>, unknown[]>()
+              .mockResolvedValue(period),
+          },
+          rolePermission: {
+            findFirst: jest
+              .fn<Promise<unknown>, unknown[]>()
+              .mockResolvedValue(null),
+          },
+          dynReportRole: {
+            findFirst: jest
+              .fn<Promise<unknown>, unknown[]>()
+              .mockResolvedValue(grants[0] ?? null),
+          },
+          dynReportAssignment: {
+            findUnique: jest
+              .fn<Promise<unknown>, unknown[]>()
+              .mockResolvedValue(assignment),
+            update: jest
+              .fn<Promise<unknown>, unknown[]>()
+              .mockImplementation((args: { data: Record<string, unknown> }) =>
+                Promise.resolve({
+                  ...(assignment as Record<string, unknown>),
+                  ...args.data,
+                }),
+              ),
+          },
+        };
+        const prisma = {
+          $transaction: jest.fn((fn: (t: unknown) => unknown) => fn(tx)),
+        };
+        const service = new AggregateService(
+          prisma as unknown as PrismaService,
+          buildTeamsServiceMock(),
+        );
+        return { service, tx };
+      }
+
+      const ASSIGNMENT_A1 = {
+        id: 'a1',
+        periodId: 'period1',
+        teamId: 'team-a1',
+        obligation: 'REQUIRED',
+        teamSnapshot: { name: 'Team a1' },
+      };
+
+      it('flips obligation to EXEMPT, records reason/actor/time, keeps the submission untouched', async () => {
+        const { service, tx } = buildExemptTxService(ASSIGNMENT_A1, undefined, [
+          { role: 'MANAGER' },
+        ]);
+
+        const result = await service.exemptTeamMidPeriod(
+          'period1',
+          'mgr1',
+          'roleMgr',
+          'a1',
+          'Tổ giải thể, không còn hoạt động',
+        );
+
+        expect(result).toEqual({
+          assignmentId: 'a1',
+          teamId: 'team-a1',
+          teamName: 'Team a1',
+          obligation: 'EXEMPT',
+        });
+
+        const updateCall = tx.dynReportAssignment.update.mock.calls[0][0] as {
+          data: {
+            obligation: string;
+            exemptReason: string;
+            exemptById: string;
+            exemptAt: Date;
+          };
+        };
+        expect(updateCall.data.obligation).toBe('EXEMPT');
+        expect(updateCall.data.exemptReason).toBe(
+          'Tổ giải thể, không còn hoạt động',
+        );
+        expect(updateCall.data.exemptById).toBe('mgr1');
+        expect(updateCall.data.exemptAt).toBeInstanceOf(Date);
+      });
+
+      it('rejects with ALREADY_EXEMPT when the assignment is already EXEMPT', async () => {
+        const { service } = buildExemptTxService(
+          { ...ASSIGNMENT_A1, obligation: 'EXEMPT' },
+          undefined,
+          [{ role: 'MANAGER' }],
+        );
+
+        await expect(
+          service.exemptTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'a1',
+            'lý do',
+          ),
+        ).rejects.toMatchObject({ code: 'ALREADY_EXEMPT' });
+      });
+
+      it('rejects (404) when the assignmentId does not belong to this period', async () => {
+        const { service } = buildExemptTxService(
+          { ...ASSIGNMENT_A1, periodId: 'other-period' },
+          undefined,
+          [{ role: 'MANAGER' }],
+        );
+
+        await expect(
+          service.exemptTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'a1',
+            'lý do',
+          ),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+
+      it('rejects with INVALID_STATE_TRANSITION when the period is not OPEN', async () => {
+        const { service } = buildExemptTxService(
+          ASSIGNMENT_A1,
+          basePeriod({ status: 'FINALIZED' }),
+          [{ role: 'MANAGER' }],
+        );
+
+        await expect(
+          service.exemptTeamMidPeriod(
+            'period1',
+            'mgr1',
+            'roleMgr',
+            'a1',
+            'lý do',
+          ),
+        ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+      });
+
+      it('rejects (404) when the caller is not a manager of this report', async () => {
+        const { service } = buildExemptTxService(ASSIGNMENT_A1);
+
+        await expect(
+          service.exemptTeamMidPeriod('period1', 'u1', 'role1', 'a1', 'lý do'),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+    });
+  });
 });

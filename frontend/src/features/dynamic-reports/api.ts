@@ -2,11 +2,14 @@ import { api } from '@/lib/api';
 import { triggerDownload } from '@/features/document-templates/export.api';
 import type {
   ActiveGrantView,
+  AssignmentListItemView,
   AssignmentSummary,
   BulkGrantUnlockResult,
   ExportCreateResultView,
   FinalizeResultView,
   ImportPreviewResult,
+  MidPeriodAssignmentView,
+  MidPeriodImpactPreview,
   PeriodSummaryView,
   ReopenResultView,
   ReportHistoryView,
@@ -193,6 +196,44 @@ export const dynamicReportsApi = {
   reopenPeriod: (periodId: string, reason: string) =>
     api
       .post<ReopenResultView>(`/bao-cao-dong/periods/${periodId}/reopen`, { reason })
+      .then((r) => r.data),
+
+  /** S30 (PR4 slice 6) — danh sách tổ của kỳ, để chọn tổ thêm/miễn nộp. */
+  listAssignments: (periodId: string) =>
+    api
+      .get<AssignmentListItemView[]>(`/bao-cao-dong/periods/${periodId}/assignments`)
+      .then((r) => r.data),
+
+  previewAddTeam: (periodId: string, teamId: string) =>
+    api
+      .post<MidPeriodImpactPreview>(
+        `/bao-cao-dong/periods/${periodId}/assignments/add-team/preview`,
+        { teamId },
+      )
+      .then((r) => r.data),
+
+  addTeamMidPeriod: (periodId: string, teamId: string, reason: string) =>
+    api
+      .post<MidPeriodAssignmentView>(
+        `/bao-cao-dong/periods/${periodId}/assignments/add-team`,
+        { teamId, reason },
+      )
+      .then((r) => r.data),
+
+  previewExemptTeam: (periodId: string, assignmentId: string) =>
+    api
+      .post<MidPeriodImpactPreview>(
+        `/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}/exempt/preview`,
+        {},
+      )
+      .then((r) => r.data),
+
+  exemptTeamMidPeriod: (periodId: string, assignmentId: string, reason: string) =>
+    api
+      .post<MidPeriodAssignmentView>(
+        `/bao-cao-dong/periods/${periodId}/assignments/${assignmentId}/exempt`,
+        { reason },
+      )
       .then((r) => r.data),
 
   /** S25 (PR7 slice 7) — create the export row (persisted, TTL 24h), then fetch its bytes. */

@@ -18,6 +18,9 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AggregateService, type SummaryMode } from './aggregate.service';
 import { SubmissionError } from '../submission/submission.service';
 import { ReopenPeriodDto } from './dto/reopen-period.dto';
+import { PreviewAddTeamDto } from './dto/preview-add-team.dto';
+import { AddTeamMidPeriodDto } from './dto/add-team-mid-period.dto';
+import { ExemptTeamMidPeriodDto } from './dto/exempt-team-mid-period.dto';
 
 const CONFLICT_CODES = new Set(['INVALID_STATE_TRANSITION']);
 
@@ -100,6 +103,95 @@ export class AggregateController {
         periodId,
         user.id,
         user.roleId,
+        body.reason,
+      ),
+    );
+  }
+
+  /** S30 — danh sách tổ của kỳ, cho màn thêm tổ/miễn nộp chọn tổ. */
+  @Get(':periodId/assignments')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async listAssignments(
+    @Param('periodId') periodId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.aggregateService.listAssignmentsForPeriod(
+      periodId,
+      user.id,
+      user.roleId,
+    );
+  }
+
+  /** S30 — xem trước tác động lên mẫu số của việc THÊM 1 tổ, trước khi xác nhận. */
+  @Post(':periodId/assignments/add-team/preview')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async previewAddTeam(
+    @Param('periodId') periodId: string,
+    @Body() body: PreviewAddTeamDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.previewAddTeam(
+        periodId,
+        user.id,
+        user.roleId,
+        body.teamId,
+      ),
+    );
+  }
+
+  /** S30 — thêm tổ vào kỳ đang mở, giữa chừng (D09, bắt buộc lý do). */
+  @Post(':periodId/assignments/add-team')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async addTeamMidPeriod(
+    @Param('periodId') periodId: string,
+    @Body() body: AddTeamMidPeriodDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.addTeamMidPeriod(
+        periodId,
+        user.id,
+        user.roleId,
+        body.teamId,
+        body.reason,
+      ),
+    );
+  }
+
+  /** S30 — xem trước tác động lên mẫu số của việc MIỄN NỘP 1 tổ, trước khi xác nhận. */
+  @Post(':periodId/assignments/:assignmentId/exempt/preview')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async previewExemptTeam(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.previewExemptTeam(
+        periodId,
+        user.id,
+        user.roleId,
+        assignmentId,
+      ),
+    );
+  }
+
+  /** S30 — miễn nộp 1 tổ trong kỳ đang mở, giữa chừng (D09, bắt buộc lý do). */
+  @Post(':periodId/assignments/:assignmentId/exempt')
+  @RequirePermissions({ action: 'read', subject: 'DynamicReport' })
+  async exemptTeamMidPeriod(
+    @Param('periodId') periodId: string,
+    @Param('assignmentId') assignmentId: string,
+    @Body() body: ExemptTeamMidPeriodDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.handleWrite(() =>
+      this.aggregateService.exemptTeamMidPeriod(
+        periodId,
+        user.id,
+        user.roleId,
+        assignmentId,
         body.reason,
       ),
     );
