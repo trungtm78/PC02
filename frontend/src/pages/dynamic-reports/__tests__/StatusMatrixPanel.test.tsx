@@ -97,6 +97,28 @@ describe('StatusMatrixPanel', () => {
     expect(screen.getByTestId('matrix-row-team1')).toHaveTextContent('Đội 1');
   });
 
+  it('renders the charts section once the matrix has periods', async () => {
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue(REPORTS);
+    vi.mocked(dynamicReportsApi.getStatusMatrix).mockResolvedValue(MATRIX);
+    renderPanel(['/bao-cao-dong/tinh-trang?view=matrix&matrixReportId=report1']);
+
+    await waitFor(() => screen.getByTestId('status-matrix-charts'));
+  });
+
+  it('does not render the charts section when the matrix has no periods', async () => {
+    vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue(REPORTS);
+    vi.mocked(dynamicReportsApi.getStatusMatrix).mockResolvedValue({
+      ...MATRIX,
+      periods: [],
+      teams: [],
+      cells: {},
+    });
+    renderPanel(['/bao-cao-dong/tinh-trang?view=matrix&matrixReportId=report1']);
+
+    await waitFor(() => screen.getByTestId('matrix-empty'));
+    expect(screen.queryByTestId('status-matrix-charts')).not.toBeInTheDocument();
+  });
+
   it('distinguishes "Không giao" (no assignment) from "Chưa nhập" (NOT_STARTED)', async () => {
     vi.mocked(dynamicReportsApi.listStatusReports).mockResolvedValue(REPORTS);
     vi.mocked(dynamicReportsApi.getStatusMatrix).mockResolvedValue(MATRIX);
