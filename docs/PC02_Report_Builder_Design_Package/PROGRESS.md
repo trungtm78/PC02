@@ -553,6 +553,16 @@ phân loại rõ 3 violation xuất hiện mọi màn (`aria-allowed-attr`/`colo
 `target-size`) là lỗi CHUNG TOÀN APP (header/design-token), không đổ nhầm vào module. Chi
 tiết đầy đủ: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 7".
 
+**Lượt 8**: xác nhận câu hỏi coordinator — **`EXTERNAL_LINK_DETECTED` KHÔNG chặn publish**
+(chỉ cảnh báo ở preview) → **BUG-003 mới** (xem "Nợ kỹ thuật" trên), gom vào sổ vá gộp cùng
+a11y, không tạo PR riêng. Xác nhận thêm S33 UNAPPROVE live (APPROVED→SUBMITTED đúng, VIEWER
+bị chặn 404 đúng mẫu không-lộ-tồn-tại) — S33 coi như phủ đủ cả 3 hành động chính. Kiểm bàn
+phím nhẹ trên S19: 14/15 tab đầu có focus outline rõ, nhưng toàn rơi vào sidebar chung —
+CHƯA chạm nội dung riêng của module, cần làm lại có mục tiêu hơn ở lượt sau. Đã dọn sạch
+report test (external link + field hợp lệ) ngay sau khi xác nhận bug. Chi tiết đầy đủ + sổ
+a11y gộp (4 finding, đủ màn/quy tắc/mức độ/cách sửa, chờ vá 1 lần): `_EXECUTION_REPORT.md`
+mục "Cập nhật lượt 8" + "SỔ A11Y GỘP".
+
 ## Hàng đợi task kế tiếp
 1. **PR10 UAT tiếp theo (ưu tiên)**: (a) vá hoặc ghi nhận chính thức BUG-001 trước khi tiếp
    tục viết thêm TC cho S33 multi-level; (b) dựng frontend dev server + chạy Playwright E2E
@@ -588,6 +598,16 @@ PR4 slice 1 (S01): đã bấm thử thật trên Chromium (xem Đã hoàn thành
 - Chưa có tài khoản quản lý/người nhập riêng cho UAT trên staging (chặn khâu UAT thật, không chặn viết code — xem spec §8).
 - **BUG-001 (P1/S2, phát hiện 11/10/2026 qua UAT execute live) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #584)**: R21 phê duyệt nhiều cấp không chạy qua API thật — `submission.service.ts` hardcode `totalApprovalLevels:1`/`actingApprovalLevel:1` ở 8 vị trí. Chi tiết: "Checkpoint UAT 11/10/2026" ở trên + `_EXECUTION_REPORT.md`.
 - **BUG-002 (P1/S3, phát hiện 11/10/2026 lượt 4 qua full E2E live) — ĐÃ VÁ, ĐÃ ĐÓNG (PR #586)**: `aggregate.service.ts#finalizePeriod()` không kiểm bất kỳ submission nào đã SUBMITTED/APPROVED trước khi cho "chốt kỳ" — tái lập thật: tạo kỳ mới, lượt giao còn NOT_STARTED, gọi finalize → 201 FINALIZED ngay (snapshot rỗng). Vá (commit `db98c32b`, merge vào nhánh UAT): chặn chốt kỳ hoàn toàn trống, không ép 100% hoàn thành. Tôi đã tái lập + xác nhận độc lập qua API thật sau merge → 409 chặn đúng. **GAP UX còn lại (chưa vá)**: `window.confirm` vẫn không nêu tỷ lệ hoàn thành khi chốt MỘT PHẦN. Chi tiết: `_EXECUTION_REPORT.md` mục "Cập nhật lượt 4"/BUG-002.
+- **BUG-003 (P1/S3, phát hiện 11/10/2026 lượt 8 qua X05, CHƯA VÁ)**:
+  `report-config.service.ts#save()` không đọc lại `issues`/severity từ bước `preview` khi
+  publish — chỉ kiểm "có ≥1 field". `EXTERNAL_LINK_DETECTED` (severity ERROR) chỉ cảnh báo ở
+  `preview`, publish vẫn thành công (201) khi template có field hợp lệ + external link cùng
+  lúc — tái lập thật, đã dọn sạch report test. Macro/encrypted/zip-bomb (3/4 loại AC-039) vẫn
+  chặn đúng vì nằm ở tầng khác (`hostile-xlsx-guard.ts`, kiểm ngay lúc upload). Khuyến nghị
+  vá: publish nên chặn cứng nếu còn issue severity ERROR, không chỉ check field count — vá
+  tổng quát này tự động phủ luôn external-link và mọi issue ERROR tương lai. Gộp vào đợt vá
+  a11y+bug nhỏ chung 1 PR theo yêu cầu coordinator, không tạo PR riêng ngay. Chi tiết:
+  `_EXECUTION_REPORT.md` mục "Cập nhật lượt 8"/BUG-003.
 - `/plan-eng-review` đầy đủ cho PR1/PR2 chưa chạy qua skill chính thức — nếu anh muốn chạy chính thức, gọi `/plan-eng-review` nhắm vào diff nhánh `feat/dynamic-reports-m1-engine` so với `origin/main`.
 - Test frontend chập chờn CÓ TRƯỚC (không do dynamic-reports): `frontend/src/features/cases/governance/__tests__/configuration-editors.test.tsx` — fail khi chạy cùng full suite (4884/4885) nhưng PASS 8/8 khi chạy riêng. Đã ghi vào gbrain learnings, không phải việc của dynamic-reports.
 - OFFICER's `read:DynamicReport` grant (seed.ts) chỉ nằm trong *bộ seed đầy đủ* — deploy.sh KHÔNG chạy `seed.ts` (chỉ `seed-quyen.ts`, cấp quyền cho ADMIN). Trên prod hiện tại, chỉ ADMIN có `read/manage/admin:DynamicReport` (qua seed-quyen.ts chạy mỗi lần deploy); OFFICER sẽ nhận quyền khi ai đó chạy `seed.ts` đầy đủ một lần (không khẩn, vì chưa có UI nào tiêu thụ quyền này).

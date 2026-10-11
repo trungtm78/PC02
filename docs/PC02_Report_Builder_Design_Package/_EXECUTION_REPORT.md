@@ -402,6 +402,86 @@ dynamic-reports)** — quan trọng để không đổ lỗi sai chỗ:
 đây KHÔNG thay thế việc kiểm bằng tay (bàn phím, screen reader, focus order) — các mục đó vẫn
 CHƯA làm (ngoài ngân sách lượt này).
 
+## Cập nhật lượt 8 — BUG-003 mới (external link không bị chặn ở publish), S33 UNAPPROVE, kiểm bàn phím
+
+### BUG-003 (P1/S3, MỚI, CHƯA VÁ) — `EXTERNAL_LINK_DETECTED` chỉ cảnh báo ở preview, KHÔNG
+chặn ở publish khi template có field hợp lệ
+
+**Câu hỏi coordinator yêu cầu xác nhận**: "`EXTERNAL_LINK_DETECTED` có thực sự chặn publish
+(không chỉ cảnh báo preview)?" — **Câu trả lời: KHÔNG CHẶN, đây là một bug thật.**
+
+**Tái lập thật**: fixture `hostile/external_link.xlsx` gốc (PR0) có 0 field nên test publish
+với nó luôn bị chặn vì lý do KHÁC ("chưa có ô nhập") — không đủ để kết luận. Tôi dựng thêm 1
+file có CẢ external link THẬT (giữ nguyên XML `externalLinks`/`externalReferences` đúng
+chuẩn OOXML, copy cách PR0 làm) **VÀ** 1 field hợp lệ `{TEXT}` đã mở khoá đúng cách. Kết quả:
+- `POST /templates/preview` → `issues:[{code:"EXTERNAL_LINK_DETECTED", severity:"ERROR", ...}]`
+  — đúng như trước, phát hiện được.
+- `POST /reports` (publish=true, field hợp lệ, cùng file) → **201 PUBLISHED** — **KHÔNG BỊ
+  CHẶN.** Report được tạo và lưu thật trong DB (xác nhận qua SELECT, đã dọn sạch ngay sau).
+
+**Nguyên nhân (đọc code xác nhận)**: `grep -n "EXTERNAL_LINK\|issues\|ERROR"
+src/dynamic-reports/config/report-config.service.ts` → **0 kết quả**. File xử lý
+publish/save (`report-config.service.ts`) hoàn toàn không đọc lại danh sách `issues` từ
+bước preview — nó chỉ kiểm "có ≥1 field" (`TEMPLATE_INVALID`), không kiểm bất kỳ cờ an toàn
+nào khác. So sánh với macro/encrypted/zip-bomb: 3 loại đó bị chặn ở **tầng khác** — ngay tại
+`POST /templates/sheets` (bước upload đầu tiên, qua `hostile-xlsx-guard.ts`, kiểm file-level
+trước khi parse sheet) — nên luôn chặn bất kể field. External link chỉ được phát hiện ở
+**tầng sâu hơn** (`preview`, parse formula) và kết quả đó **không bao giờ được service publish
+đọc lại** — đây là lỗ hổng "server tin client đã lọc issues trước khi gọi publish", đúng loại
+lỗi "thiếu enforce lại ở server" mà UAT luôn phải bắt.
+
+**Vì sao là vấn đề thật**: AC-039/UAT-039 nêu rõ "Reject macro/**encrypted/external link**/zip
+bomb" — cả 4 cùng mức yêu cầu, nhưng chỉ 3/4 được enforce nhất quán ở server. Một report có
+công thức tham chiếu workbook ngoài máy server (`file:///C:/secrets/...`) vẫn publish được,
+đi vào production — rủi ro: (a) công thức phụ thuộc file ngoài sẽ cho giá trị không xác định/
+lỗi khi tính toán (toàn vẹn số liệu — đúng domain chính của module này), (b) nếu sau này có
+đường dẫn nào trong code thật sự *resolve* external reference (hiện tại `expr.ts` xác nhận
+KHÔNG eval — nên chưa phải SSRF ngay bây giờ) thì đây là bề mặt tấn công chờ sẵn.
+
+**Mức độ**: P1 (không chặn luồng chính nhưng vi phạm rõ yêu cầu bảo mật đã ghi trong AC) /
+S3 (không mất dữ liệu, dữ liệu vẫn tính được — chỉ công thức liên quan external ref cho kết
+quả không xác định; có đường khôi phục là xoá/sửa lại version).
+
+**Khuyến nghị vá**: `report-config.service.ts#save()` nên re-run (hoặc nhận lại) danh sách
+`issues` và chặn cứng nếu có bất kỳ issue `severity: 'ERROR'` nào (không chỉ check field
+count) — tổng quát hơn là chỉ vá riêng external link, vì cách vá tổng quát này tự động phủ
+luôn mọi issue ERROR tương lai (nguyên tắc "server tự enforce lại, không tin client"). Gộp
+vào đợt vá a11y + bug nhỏ theo yêu cầu coordinator (không tạo PR riêng ngay).
+
+### S33 — UNAPPROVE xác nhận live (phần còn lại của S33)
+
+Trên fixture `dr-test-report-1`/tổ 2 (reset về baseline sau khi xong): APPROVE (SUBMITTED→
+APPROVED, 201) → VIEWER thử UNAPPROVE → **404** (đúng mẫu không-lộ-tồn-tại, viewer không phải
+MANAGER) → MANAGER UNAPPROVE → **201, về lại SUBMITTED** đúng theo `transitions.ts`. **PASS
+đầy đủ cho nhánh UNAPPROVE** (bổ sung cho APPROVE/RETURN đã xác nhận ở các lượt trước — S33
+coi như đã phủ đủ cả 3 hành động chính qua live thật: APPROVE/RETURN/UNAPPROVE).
+
+### Kiểm bàn phím/focus-order (nhẹ, CHƯA đủ sâu)
+
+Tab qua 15 phần tử đầu tiên trên S19 (dashboard): 14/15 có outline/box-shadow rõ khi focus
+(tốt). Tuy nhiên **15 tab đầu toàn rơi vào sidebar chung của app** (chưa chạm tới nội dung
+riêng của module) — kiểm bàn phím/focus-order THẬT cho nội dung module (lưới S01, form nhập
+S11, dialog mở khoá S17...) **CHƯA làm được trong ngân sách lượt này**, cần click vào main
+content trước rồi mới Tab để bỏ qua sidebar. Responsive đa viewport: **CHƯA làm**.
+
+## SỔ A11Y GỘP — vá một lần, một PR duy nhất (theo yêu cầu coordinator, không vá lẻ từng cái)
+
+Chỉ liệt kê finding **CỦA MODULE** (đã lọc bỏ 3 violation chung toàn app —
+`aria-allowed-attr`/`color-contrast`/`target-size` — xem lượt 7). Không PR nào được tạo cho
+từng dòng riêng; dồn cả bảng này vào ĐÚNG MỘT PR a11y sau khi UAT xong.
+
+| # | Màn | Component/selector | Quy tắc axe | Mức độ | Mô tả | Cách sửa đề xuất |
+|---|---|---|---|---|---|---|
+| 1 | S01 | `div[data-testid="tay-nam-keo-*"]` (10 cột: code, name, periodType, nextDueAt, managers, teamCount, latestVersion, status, updatedAt, actions) | `aria-required-attr` | critical | `role="separator"` + `tabindex="0"` (focusable, điều khiển bàn phím được) nhưng thiếu `aria-valuenow` bắt buộc — ARIA coi separator focusable như slider ảo | Thêm `aria-valuenow` (độ rộng cột hiện tại, px hoặc %) + `aria-valuemin`/`aria-valuemax` cho cả 10 handle; cập nhật `aria-valuenow` mỗi khi resize (qua state đã có sẵn, không cần thêm state mới) |
+| 2 | S13 | 1 `<select>` chưa định vị chính xác (cần Explore thêm — khả năng cao là select chọn kiểu hiển thị/bộ lọc trên trang nhập) | `select-name` | critical | Select không có accessible name (`aria-label` hoặc `<label>` liên kết) | Thêm `aria-label` mô tả đúng chức năng select, hoặc `<label htmlFor>` liên kết tới `id` của select |
+| 3 | S33-review | 1 `<select>` chưa định vị chính xác (cần Explore thêm — khả năng cao liên quan chọn hành động duyệt/trả lại) | `select-name` | critical | Giống #2, màn khác | Giống #2 |
+| 4 | S19 | 1 phần tử ARIA chưa định vị chính xác (cần Explore thêm) | `aria-required-children` | critical | Role ARIA dùng thiếu children bắt buộc theo spec (vd `role="list"` thiếu `role="listitem"` con, hoặc `role="tablist"` thiếu `role="tab"`) | Cần Explore đúng selector trước khi sửa (chạy lại `axe-detail` script cho S19 riêng ở lượt vá) — chưa đủ chi tiết để đề xuất cách sửa cụ thể ở đây |
+
+**Lưu ý khi vá gộp**: #2-#4 cần chạy lại `axe-detail.tmp.mjs` (script mẫu đã dùng ở lượt 7,
+không còn trong repo vì đã dọn — tái tạo dễ: `new AxeBuilder({page}).analyze()` rồi in
+`violations[].nodes[].target/html`) để lấy đúng selector/dòng code trước khi sửa, vì lượt 7
+chỉ đủ thời gian định vị CHÍNH XÁC cho #1 (S01).
+
 ## Bảng seeded-fault ↔ TC (effectiveness, Bước 7b) — dựa trên fault THẬT đã gặp, không mô
 phỏng thêm trong code sản phẩm (tránh sửa file dùng chung trong worktree đang có người khác
 làm việc — rủi ro đã gặp 1 lần ở lượt trước khi nhánh bị đổi dưới tay)

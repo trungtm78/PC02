@@ -40,7 +40,7 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | S30 | Điều chỉnh và miễn nghĩa vụ giữa kỳ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S31 | Ngừng phát sinh và thu hồi grant | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S32 | Lưới template và ràng buộc field (quét vùng web) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 2/5 + 1 E2E Playwright + 1 thí nghiệm sạch 2 cấp | **PASS — BUG-001 đóng hoàn toàn.** Tìm thấy ở lượt 1 (P1/S2), vá ở PR #584 (commit `dcf4ed7f`, merge vào nhánh UAT này), 7 unit test mới + full suite 8221/8336 PASS. 1 cấp duyệt mặc định xác nhận đúng qua E2E Playwright thật. Kịch bản 2 cấp: lượt thử đầu của tôi "có vẻ bất thường" do fixture artifact còn sót từ thử nghiệm trước (approvalLevel đã =1 sẵn, không phải 0 như giả định) — KHÔNG phải bug. Kỹ sư PR #584 tái lập độc lập bằng thí nghiệm sạch (build lại loại cache, baseline sạch, gọi trực tiếp `SubmissionService.approve()` qua service/transition thật): **PASS cả 2 bước** (cấp 1 giữ SUBMITTED, cấp 2 mới APPROVED). UI cấu hình `approvalLevel>1` vẫn CHƯA tồn tại — GAP riêng, không phải BUG-001. |
+| S33 | Duyệt / Trả lại / Huỷ duyệt (nhiều cấp, R21) | ĐÃ VIẾT (5 TC, uat.json) | ĐÃ CHẠY THẬT 5/5 + 1 E2E Playwright + 1 thí nghiệm sạch 2 cấp | **PASS — cả 3 hành động chính (APPROVE/RETURN/UNAPPROVE) đã xác nhận live.** BUG-001 đóng hoàn toàn: tìm thấy lượt 1 (P1/S2), vá PR #584 (`dcf4ed7f`), tái lập sạch cả 2 bước 2 cấp PASS. Lượt 8: xác nhận thêm UNAPPROVE (APPROVED→SUBMITTED, 201) + VIEWER bị chặn đúng (404, không-lộ-tồn-tại) khi thử UNAPPROVE không phải MANAGER. UI cấu hình `approvalLevel>1` vẫn CHƯA tồn tại — GAP riêng, không phải bug. |
 | S34 | Hàng chờ yêu cầu mở lại + mở khoá hàng loạt | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ CHẠY THẬT 1 API + 1 E2E Playwright | **PASS phần hiển thị** (trang tải không lỗi) **+ PASS phần state-gate** (yêu cầu mở lại không tự mở, xác nhận ở lượt 1). Luồng duyệt/từ chối hàng loạt CHƯA kiểm. |
 | S35 | Nhập từ Excel (re-import có dấu __dr_meta) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | S36 | Validation rules (soạn + gợi ý từ IF) | ĐÃ VIẾT (5 TC, uat.json, đã SỬA TC-S36-01/02) | ĐÃ CHẠY THẬT 2/5 (full E2E, cú pháp rule đã sửa đúng) | **PASS — ERROR chặn SUBMIT (400, nêu đúng tên rule), WARNING không chặn (201)**, xác nhận live sau khi sửa 2 lỗi thiết kế TC liên tiếp (cross-sheet lượt 4, cú pháp quote Excel sai lượt 5) — chi tiết "Bài học kiểm thử lần 2" ở `_EXECUTION_REPORT.md`. **GAP UX-02 (đã biết, chưa vá)**: TC-S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết + unit test nhưng chính comment trong code xác nhận "never wired to any endpoint or UI" — oracle_type=GAP. |
@@ -71,12 +71,12 @@ Quy ước `Kết quả`: `CHƯA LÀM` / `PASS` / `FAIL` / `N/A (lý do)`.
 | X02 | Đồng thời: lưu↔chốt kỳ, lưu↔D09, 2 editor cùng tổ | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X03 | Audit không chứa số liệu | ĐÃ VIẾT (2 TC, uat.json) | ĐÃ QUAN SÁT 1/2 qua DB thật | **CHƯA KẾT LUẬN — GAP cần người quyết**: kiến trúc thật KHÔNG có audit log tách biệt không chứa số liệu; audit trail (`dyn_report_revisions`) lưu `valuesFull` theo đúng mục đích (snapshot rollback). Oracle gốc của X03 giả định sai kiến trúc — cần người có thẩm quyền sản phẩm xác nhận lại ý định thật của X03 trước khi viết lại TC. Xem `_EXECUTION_REPORT.md`. |
 | X04 | Hiệu năng: 5.000 input/200 tổ/50 ghi đồng thời | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
-| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 4/4 (fixture độc hại thật PR0) | **PASS cả 4**: zip-bomb (`zip_bomb.xlsx`, 298.7K) → `400 ZIP_BOMB_RATIO` (tỷ lệ giải nén 1028.3 > trần 100), chặn ở 12ms không giải nén thật; external-link (`external_link.xlsx`) → phát hiện đúng ở tầng preview (`EXTERNAL_LINK_DETECTED`, ERROR) — CHƯA xác nhận 100% chắc chắn việc này tự nó chặn `publish` khi template có field thật (thử publish bị chặn vì lý do khác — fixture test không có field). Macro/encrypted trùng với S04-03/04. |
+| X05 | Upload không an toàn (macro/mã hoá/zip bomb) | ĐÃ VIẾT (4 TC, uat.json) | ĐÃ CHẠY THẬT 4/4 (fixture độc hại thật PR0 + fixture tự dựng có field hợp lệ) | **PASS 3/4 — BUG-003 MỚI (P1/S3, CHƯA VÁ) cho external link.** Macro/encrypted/zip-bomb: chặn đúng ngay ở upload (`MACRO_DETECTED`/`INVALID_MIME`/`ZIP_BOMB_RATIO`). **External link: `EXTERNAL_LINK_DETECTED` (ERROR) chỉ cảnh báo ở `preview`, KHÔNG CHẶN publish** — đã tái lập thật với template có field hợp lệ + external link cùng lúc → `POST /reports publish=true` trả **201 PUBLISHED** (xác nhận persist thật trong DB, đã dọn sạch ngay). `report-config.service.ts` không đọc lại `issues`/severity nào khi publish, chỉ kiểm "có ≥1 field". Xem `_EXECUTION_REPORT.md` BUG-003. |
 | X06 | Monkey test (chạy một lần cuối) | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 | X07 | Triển khai an toàn: flag, rollback, migration additive | CHƯA LÀM | CHƯA LÀM | CHƯA LÀM |
 
 **Tổng: 53 dòng. PASS (unit jest, chưa phải UAT đầy đủ): 10/53** (toàn bộ engine thuần PR1).
-**Checkpoint PR10 UAT 11/10/2026 (lượt 7)**: Bước 0→7 (`uat-test-writer`) đã chạy —
+**Checkpoint PR10 UAT 11/10/2026 (lượt 8)**: Bước 0→7 (`uat-test-writer`) đã chạy —
 `_domain-pack.md`, `_platform.json`, `_coverage-ledger.md`, `uat.json` (78 TC, qua Cổng 0
 `validate_uat_json.py` và Cổng 1 `coverage_calc.py`: TC_min=214 theo M1, phủ 94/214 coverage
 item = 43,9%). Đã EXECUTE LIVE qua API + UI thật trên dev cục bộ (không phải 78/78 — ưu tiên
@@ -98,9 +98,14 @@ chất lượng hơn số lượng theo đúng chỉ đạo):
   hoàn thành) + GAP UX-02 (S36-03 "gợi ý từ IF" — `suggest-rules.ts` viết+test chưa wire
   UI/endpoint, xác nhận bằng chính comment trong code).
 - **1 GAP cần người quyết** (X03 — oracle gốc giả định sai kiến trúc thật).
-- **X05/S04 đầy đủ 4/4 bằng fixture độc hại THẬT có sẵn từ PR0** (`hostile/*.xlsx`, không tự
-  dựng): macro→`MACRO_DETECTED`, encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (12ms,
-  không giải nén thật), external-link→`EXTERNAL_LINK_DETECTED` (preview, ERROR) — tất cả PASS.
+- **X05/S04 4/4, 3 PASS + BUG-003 MỚI (P1/S3, CHƯA VÁ)**: macro→`MACRO_DETECTED`,
+  encrypted→`INVALID_MIME`, zip-bomb→`ZIP_BOMB_RATIO` (PASS cả 3, chặn ngay ở upload).
+  **External link: chỉ cảnh báo ở `preview` (`EXTERNAL_LINK_DETECTED`, ERROR), KHÔNG CHẶN
+  publish** — tái lập thật với template có field hợp lệ + external link → publish **201
+  thành công** (`report-config.service.ts` không đọc lại `issues` khi publish). Xem
+  `_EXECUTION_REPORT.md` BUG-003.
+- **S33 hoàn tất cả 3 hành động** (APPROVE/RETURN/UNAPPROVE) đã xác nhận live, kể cả chặn
+  đúng vai không phải MANAGER (404).
 - **Adversarial-verify**: thử bác bỏ 4 PASS đã báo cáo (X01-01, S36-01, S37-03, BUG-002-fix)
   — cả 4 đều giữ nguyên, không phát hiện tautology ẩn.
 - **axe-core thật cho 5 màn đã Playwright** (S01/S13/S19/S33-review/S34): phát hiện mới
